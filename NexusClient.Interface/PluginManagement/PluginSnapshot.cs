@@ -71,15 +71,49 @@ namespace Nexus.Client.PluginManagement
     public sealed class PluginSnapshot
     {
         private readonly Dictionary<Plugin, PluginSnapshotEntry> m_dicEntriesByPlugin;
+        private readonly Dictionary<string, List<Plugin>> m_dicActiveDependentsByMasterName;
 
         public PluginSnapshot(IList<PluginSnapshotEntry> entries, IList<PluginValidationDiagnostic> diagnostics)
         {
             Entries = entries == null ? new List<PluginSnapshotEntry>() : new List<PluginSnapshotEntry>(entries);
             Diagnostics = diagnostics == null ? new List<PluginValidationDiagnostic>() : new List<PluginValidationDiagnostic>(diagnostics);
-            m_dicEntriesByPlugin = new Dictionary<Plugin, PluginSnapshotEntry>();
+            m_dicEntriesByPlugin = new Dictionary<Plugin, PluginSnapshotEntry>(PluginComparer.Filename);
+            m_dicActiveDependentsByMasterName = new Dictionary<string, List<Plugin>>(StringComparer.OrdinalIgnoreCase);
+            HashSet<string> indexedMasters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (PluginSnapshotEntry entry in Entries)
+            {
                 if (entry.Plugin != null && !m_dicEntriesByPlugin.ContainsKey(entry.Plugin))
                     m_dicEntriesByPlugin.Add(entry.Plugin, entry);
+
+                if (entry.Plugin == null || !entry.Active || entry.Plugin.Masters == null)
+                    continue;
+
+                string pluginName = Path.GetFileName(entry.Plugin.Filename);
+                indexedMasters.Clear();
+
+                foreach (string masterName in entry.Plugin.Masters)
+                {
+                    string normalizedMasterName = Path.GetFileName(masterName);
+
+                    if (String.IsNullOrWhiteSpace(normalizedMasterName) ||
+                        String.Equals(normalizedMasterName, pluginName, StringComparison.OrdinalIgnoreCase) ||
+                        !indexedMasters.Add(normalizedMasterName))
+                    {
+                        continue;
+                    }
+
+                    List<Plugin> dependents;
+
+                    if (!m_dicActiveDependentsByMasterName.TryGetValue(normalizedMasterName, out dependents))
+                    {
+                        dependents = new List<Plugin>();
+                        m_dicActiveDependentsByMasterName.Add(normalizedMasterName, dependents);
+                    }
+
+                    dependents.Add(entry.Plugin);
+                }
+            }
         }
 
         public List<PluginSnapshotEntry> Entries { get; private set; }
@@ -92,6 +126,23 @@ namespace Nexus.Client.PluginManagement
                 return null;
             PluginSnapshotEntry entry;
             return m_dicEntriesByPlugin.TryGetValue(plugin, out entry) ? entry : null;
+        }
+
+        /// <summary>
+        /// Gets the active plugins that directly depend on the specified plugin in current load-order sequence.
+        /// </summary>
+        /// <param name="plugin">The master plugin whose active dependents should be returned.</param>
+        /// <returns>The active direct dependents, or an empty sequence when none are present.</returns>
+        public IEnumerable<Plugin> GetActiveDependents(Plugin plugin)
+        {
+            if (plugin == null)
+                return Enumerable.Empty<Plugin>();
+
+            List<Plugin> dependents;
+            string pluginName = Path.GetFileName(plugin.Filename);
+            return !String.IsNullOrWhiteSpace(pluginName) && m_dicActiveDependentsByMasterName.TryGetValue(pluginName, out dependents)
+                ? dependents
+                : Enumerable.Empty<Plugin>();
         }
     }
 
@@ -147,7 +198,7 @@ namespace Nexus.Client.PluginManagement
             Dictionary<string, int> priorityByName = BuildPriorityLookup(orderedPlugins);
 			Dictionary<string, int> expectedFixedPriorityByName = restrictionMode == PluginRestrictionMode.Enforced ? BuildExpectedFixedPriorityLookup(policy, orderedPlugins, pluginsByName) : null;
 			Dictionary<PluginAddressClass, int> allocatedCounts = new Dictionary<PluginAddressClass, int>();
-            Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin = new Dictionary<Plugin, List<PluginValidationDiagnostic>>();
+            Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin = new Dictionary<Plugin, List<PluginValidationDiagnostic>>(PluginComparer.Filename);
             List<PluginValidationDiagnostic> diagnostics = new List<PluginValidationDiagnostic>();
             List<PluginSnapshotEntry> entries = new List<PluginSnapshotEntry>();
 
@@ -158,7 +209,7 @@ namespace Nexus.Client.PluginManagement
                 int? allocatedIndex = null;
                 string modIndex = String.Empty;
 
-                if (plugin != null && active && plugin.Metadata.AddressClass != PluginAddressClass.None)
+                if (plugin != null && active && plugin.Metadata != null && plugin.Metadata.AddressClass != PluginAddressClass.None)
                 {
                     PluginAddressSpacePolicy addressSpace = policy.GetAddressSpace(plugin.Metadata.AddressClass);
                     if (addressSpace == null)
@@ -304,8 +355,8 @@ namespace Nexus.Client.PluginManagement
             if (!policy.MasterPluginsMustLoadBeforeNonMasters)
                 return;
 
-            List<Plugin> masters = plugins.Where(x => x != null && x.Metadata.EffectiveMaster).ToList();
-            List<Plugin> nonMasters = plugins.Where(x => x == null || !x.Metadata.EffectiveMaster).ToList();
+            List<Plugin> masters = plugins.Where(x => x != null && x.Metadata != null && x.Metadata.EffectiveMaster).ToList();
+            List<Plugin> nonMasters = plugins.Where(x => x == null || x.Metadata == null || !x.Metadata.EffectiveMaster).ToList();
             plugins.Clear();
             plugins.AddRange(masters);
             plugins.AddRange(nonMasters);
@@ -321,7 +372,7 @@ namespace Nexus.Client.PluginManagement
 				return;
 
 			Dictionary<string, Plugin> dicPluginsByName = BuildPluginNameLookup(p_lstPlugins);
-			Dictionary<Plugin, PluginTraversalState> dicTraversalStates = new Dictionary<Plugin, PluginTraversalState>();
+			Dictionary<Plugin, PluginTraversalState> dicTraversalStates = new Dictionary<Plugin, PluginTraversalState>(PluginComparer.Filename);
 			List<Plugin> lstCorrected = new List<Plugin>(p_lstPlugins.Count);
 
 			foreach (Plugin plgPlugin in p_lstPlugins)
@@ -400,11 +451,11 @@ namespace Nexus.Client.PluginManagement
 
 		private static void StableMoveBlueprintPluginsLate(List<Plugin> plugins)
         {
-            List<Plugin> blueprintPlugins = plugins.Where(x => x != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint).ToList();
+            List<Plugin> blueprintPlugins = plugins.Where(x => x != null && x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint).ToList();
             if (blueprintPlugins.Count == 0)
                 return;
 
-            plugins.RemoveAll(x => x != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint);
+            plugins.RemoveAll(x => x != null && x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint);
             plugins.AddRange(blueprintPlugins);
         }
 
@@ -546,86 +597,85 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
-		private static void DetectDependencyCycles(
-			IList<Plugin> orderedPlugins,
-			Dictionary<string, Plugin> pluginsByName,
-			List<PluginValidationDiagnostic> diagnostics,
-			Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin,
-			PluginRestrictionMode restrictionMode)
+		/// <summary>
+		/// Detects dependency cycles with an iterative depth-first traversal so pathological plugin chains cannot overflow the process stack.
+		/// </summary>
+		private static void DetectDependencyCycles(IList<Plugin> orderedPlugins, Dictionary<string, Plugin> pluginsByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
 		{
-			HashSet<string> visiting =
-				new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			Dictionary<Plugin, PluginTraversalState> traversalStates = new Dictionary<Plugin, PluginTraversalState>(PluginComparer.Filename);
+			HashSet<Plugin> reportedCyclePlugins = new HashSet<Plugin>(PluginComparer.Filename);
 
-			HashSet<string> visited =
-				new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-			foreach (Plugin plugin in orderedPlugins)
+			foreach (Plugin rootPlugin in orderedPlugins ?? new List<Plugin>())
 			{
-				DetectDependencyCycles(
-					plugin,
-					pluginsByName,
-					visiting,
-					visited,
-					diagnostics,
-					diagnosticsByPlugin,
-					restrictionMode);
-			}
-		}
+				if (rootPlugin == null || traversalStates.ContainsKey(rootPlugin))
+					continue;
 
-		private static void DetectDependencyCycles(
-			Plugin plugin,
-			Dictionary<string, Plugin> pluginsByName,
-			HashSet<string> visiting,
-			HashSet<string> visited,
-			List<PluginValidationDiagnostic> diagnostics,
-			Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin,
-			PluginRestrictionMode restrictionMode)
-		{
-			if (plugin == null)
-				return;
+				Stack<PluginTraversalFrame> traversal = new Stack<PluginTraversalFrame>();
+				List<Plugin> traversalPath = new List<Plugin>();
+				Dictionary<Plugin, int> pathIndexes = new Dictionary<Plugin, int>(PluginComparer.Filename);
+				traversalStates[rootPlugin] = PluginTraversalState.Visiting;
+				pathIndexes[rootPlugin] = 0;
+				traversalPath.Add(rootPlugin);
+				traversal.Push(new PluginTraversalFrame(rootPlugin));
 
-			string pluginName = NormalizePluginName(plugin.Filename);
-
-			if (visited.Contains(pluginName))
-				return;
-
-			if (visiting.Contains(pluginName))
-			{
-				AddDiagnostic(
-					diagnostics,
-					diagnosticsByPlugin,
-					plugin,
-					PluginValidationIssueKind.DependencyCycle,
-					restrictionMode == PluginRestrictionMode.Disabled
-						? PluginValidationSeverity.Warning
-						: PluginValidationSeverity.Error,
-					"Dependency cycle detected.");
-
-				return;
-			}
-
-			visiting.Add(pluginName);
-
-			foreach (string masterName in plugin.Masters ?? new List<string>())
-			{
-				Plugin master;
-				if (pluginsByName.TryGetValue(
-						NormalizePluginName(masterName),
-						out master))
+				while (traversal.Count > 0)
 				{
-					DetectDependencyCycles(
-						master,
-						pluginsByName,
-						visiting,
-						visited,
-						diagnostics,
-						diagnosticsByPlugin,
-						restrictionMode);
+					PluginTraversalFrame frame = traversal.Peek();
+					IList<string> masters = frame.Plugin.Masters;
+					bool masterPushed = false;
+
+					while (masters != null && frame.NextMasterIndex < masters.Count)
+					{
+						Plugin master;
+						string masterName = masters[frame.NextMasterIndex++];
+
+						if (!pluginsByName.TryGetValue(NormalizePluginName(masterName), out master) || master == null)
+							continue;
+
+						PluginTraversalState masterState;
+
+						if (traversalStates.TryGetValue(master, out masterState))
+						{
+							if (masterState == PluginTraversalState.Visiting)
+							{
+								int cycleStartIndex;
+
+								if (pathIndexes.TryGetValue(master, out cycleStartIndex))
+								{
+									for (int index = cycleStartIndex; index < traversalPath.Count; index++)
+									{
+										Plugin cyclePlugin = traversalPath[index];
+
+										if (reportedCyclePlugins.Add(cyclePlugin))
+										{
+											AddDiagnostic(diagnostics, diagnosticsByPlugin, cyclePlugin, PluginValidationIssueKind.DependencyCycle, restrictionMode == PluginRestrictionMode.Disabled ? PluginValidationSeverity.Warning : PluginValidationSeverity.Error, "Dependency cycle detected.");
+										}
+									}
+								}
+							}
+
+							continue;
+						}
+
+						traversalStates[master] = PluginTraversalState.Visiting;
+						pathIndexes[master] = traversalPath.Count;
+						traversalPath.Add(master);
+						traversal.Push(new PluginTraversalFrame(master));
+						masterPushed = true;
+						break;
+					}
+
+					if (masterPushed)
+						continue;
+
+					traversal.Pop();
+					traversalStates[frame.Plugin] = PluginTraversalState.Visited;
+					pathIndexes.Remove(frame.Plugin);
+
+					if (traversalPath.Count > 0)
+						traversalPath.RemoveAt(traversalPath.Count - 1);
 				}
 			}
-
-			visiting.Remove(pluginName);
-			visited.Add(pluginName);
 		}
 
 		private static void AddDiagnostic(List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, Plugin plugin, PluginValidationIssueKind kind, PluginValidationSeverity severity, string message)

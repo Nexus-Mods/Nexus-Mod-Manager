@@ -510,7 +510,7 @@ namespace Nexus.Client.PluginManagement.UI
 		public void PluginsEnableAll()
 		{
 			List<Plugin> lstNotActive = new List<Plugin>();
-			lstNotActive = ManagedPlugins.Except(ActivePlugins).ToList();
+			lstNotActive = ManagedPlugins.Except(ActivePlugins, PluginComparer.Filename).ToList();
 
 			ManagingMultiplePlugins(this, new EventArgs<IBackgroundTask>(PluginManager.ManageMultiplePluginsTask(lstNotActive, true, ConfirmUpdaterAction)));
 		}
@@ -664,8 +664,8 @@ namespace Nexus.Client.PluginManagement.UI
 			if (p_lstProposedOrder == null)
 				return false;
 
-			List<Plugin> currentOrder = new List<Plugin>(PluginManager.ManagedPlugins);
-			bool currentOrderIsValid = PluginManager.ValidateOrder(currentOrder);
+			PluginSnapshot currentSnapshot = PluginManager.CurrentSnapshot;
+			bool currentOrderIsValid = currentSnapshot != null && !currentSnapshot.HasErrors;
 
 			return PluginManager.ValidateOrder(p_lstProposedOrder) || !currentOrderIsValid;
 		}

@@ -115,12 +115,14 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="p_tItem">The item to add.</param>
 		public override void Add(T p_tItem)
 		{
-			if (!Contains(p_tItem))
-			{
-				base.Add(p_tItem);
-				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, p_tItem));
-				PropertyChanged(this, new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
-			}
+			int intPreviousCount = Count;
+			base.Add(p_tItem);
+
+			if (Count == intPreviousCount)
+				return;
+
+			OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, p_tItem));
+			PropertyChanged(this, new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
 		}
 
 		/// <summary>
@@ -134,6 +136,24 @@ namespace Nexus.Client.Util.Collections
 				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 				PropertyChanged(this, new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
 			}
+		}
+
+		/// <summary>
+		/// Removes the specified items and raises one reset notification.
+		/// </summary>
+		/// <param name="p_enmItems">The items to remove.</param>
+		/// <returns>The number of items removed.</returns>
+		public override int RemoveRange(IEnumerable<T> p_enmItems)
+		{
+			int intRemovedCount = base.RemoveRange(p_enmItems);
+
+			if (intRemovedCount > 0)
+			{
+				OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+				PropertyChanged(this, new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
+			}
+
+			return intRemovedCount;
 		}
 
 		/// <summary>

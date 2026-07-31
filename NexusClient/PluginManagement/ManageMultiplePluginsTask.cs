@@ -4,6 +4,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Plugins;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.UI;
+using System.Linq;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -74,21 +75,14 @@ namespace Nexus.Client.PluginManagement
 			ShowItemProgress = false;
 
 			List<Plugin> lstPlugins = new List<Plugin>();
+			HashSet<Plugin> hstActivePlugins = new HashSet<Plugin>(PluginManager.ActivePlugins.Where(x => x != null), PluginComparer.Filename);
 
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
 
 			foreach (Plugin plugin in PluginList)
 			{
-				if (EnablePlugins)
-				{
-					if (!PluginManager.ActivePlugins.Contains(plugin))
-						lstPlugins.Add(plugin);
-				}
-				else
-				{
-					if (PluginManager.ActivePlugins.Contains(plugin))
-						lstPlugins.Add(plugin);
-				}
+				if (plugin != null && EnablePlugins != hstActivePlugins.Contains(plugin))
+					lstPlugins.Add(plugin);
 
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();

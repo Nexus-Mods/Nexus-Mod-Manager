@@ -11,6 +11,8 @@ namespace Nexus.Client.Plugins
 	/// </remarks>
 	public abstract class PluginComparer : IComparer, IEqualityComparer, IComparer<Plugin>, IEqualityComparer<Plugin>
 	{
+		private static readonly PluginComparer m_cmpFilename = new FilenamePluginComparer();
+
 		#region Standard Comparers
 
 		/// <summary>
@@ -21,7 +23,7 @@ namespace Nexus.Client.Plugins
 		{
 			get
 			{
-				return new FilenamePluginComparer();
+				return m_cmpFilename;
 			}
 		}
 

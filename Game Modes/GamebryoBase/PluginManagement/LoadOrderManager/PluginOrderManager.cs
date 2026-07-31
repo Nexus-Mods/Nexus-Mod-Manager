@@ -22,9 +22,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 	public class PluginOrderManager : ILoadOrderManager, IDisposable
 	{
 		private static readonly object m_objLock = new object();
-		private static Dictionary<string, string> dctFileHashes = new Dictionary<string, string>();
+		private readonly Dictionary<string, string> m_dicFileHashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+		{
+			{ "plugins.txt", null },
+			{ "loadorder.txt", null }
+		};
 		private Regex m_rgxPluginFile = new Regex(@"(?i)^.+\.es[mpl]$");
 		private List<string> m_lstActivePlugins = new List<string>();
+		private readonly object m_objActivePluginCacheLock = new object();
+		private readonly HashSet<string> m_hstActivePluginNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		private bool m_booActivePluginCacheInitialized;
 		private DateTime m_dtiMasterDate = DateTime.Now;
 		private ThreadSafeObservableList<WriteLoadOrderTask> TaskList = new ThreadSafeObservableList<WriteLoadOrderTask>();
 		private IBackgroundTask RunningTask = null;
@@ -207,11 +214,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
 			FileUtility = p_futFileUtility;
-
-			if (dctFileHashes != null)
-				dctFileHashes.Clear();
-			dctFileHashes.Add("plugins.txt", null);
-			dctFileHashes.Add("loadorder.txt", null);
 
 			InitializeManager();
 		}
@@ -632,7 +634,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						Thread.Sleep(100);
 						if (intRepeat++ >= 20)
 							break;
-						booReady = IsFileReady(strFile, ForcedReadOnly);
+						booReady = IsFileReady(strPath, ForcedReadOnly);
 					}
 
 					if (!CheckSameFileHash(strFile, strPath))
@@ -734,25 +736,32 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 		private bool CheckSameFileHash(string p_strName, string p_strFilePath)
 		{
-			string strHash = string.Empty;
-
-			if (!dctFileHashes.ContainsKey(p_strName.ToLowerInvariant()))
+			if (String.IsNullOrWhiteSpace(p_strName) || String.IsNullOrWhiteSpace(p_strFilePath))
 				return true;
 
-			using (var fs = new FileStream(p_strFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			lock (m_objLock)
 			{
-				SHA256CryptoServiceProvider sha = new SHA256CryptoServiceProvider();
-				byte[] hash = sha.ComputeHash(fs);
-				string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
-
-				strHash = strSHA;
+				if (!m_dicFileHashes.ContainsKey(p_strName))
+					return true;
 			}
 
-			if (string.Equals(strHash, dctFileHashes[p_strName.ToLowerInvariant()]))
-				return true;
-			else
+			string strHash;
+
+			using (var fs = new FileStream(p_strFilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			using (SHA256 sha = SHA256.Create())
 			{
-				dctFileHashes[p_strName.ToLowerInvariant()] = strHash;
+				byte[] hash = sha.ComputeHash(fs);
+				strHash = BitConverter.ToString(hash).Replace("-", string.Empty);
+			}
+
+			lock (m_objLock)
+			{
+				string strPreviousHash;
+
+				if (m_dicFileHashes.TryGetValue(p_strName, out strPreviousHash) && String.Equals(strHash, strPreviousHash, StringComparison.Ordinal))
+					return true;
+
+				m_dicFileHashes[p_strName] = strHash;
 				return false;
 			}
 		}
@@ -912,11 +921,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						if (intPlugins == intDisabled)
 							ObsoleteConfigFiles = true;
 
-					m_lstActivePlugins = lstActivePlugins;
-					LastValidActiveList = lstActivePlugins;
+					string[] existingActivePlugins = RemoveNonExistentPlugins(lstActivePlugins.ToArray());
+					m_lstActivePlugins = existingActivePlugins.ToList();
+					LastValidActiveList = existingActivePlugins.ToList();
+					UpdateActivePluginCache(existingActivePlugins);
 
-					if (LastValidActiveList.Count > 0)
-						return RemoveNonExistentPlugins(lstActivePlugins.ToArray());
+					if (existingActivePlugins.Length > 0)
+						return existingActivePlugins;
 				}
 				catch { }
 			}
@@ -936,11 +947,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						SetActivePlugins(strActivePlugins);
 				}
 
-				if (strActivePlugins.Count() > 0)
+				if (strActivePlugins.Length > 0)
+				{
+					UpdateActivePluginCache(strActivePlugins);
 					return strActivePlugins;
+				}
 			}
 
-			return GameMode.OrderedCriticalPluginNames;
+			string[] criticalPlugins = GameMode.OrderedCriticalPluginNames ?? new string[0];
+			UpdateActivePluginCache(criticalPlugins);
+			return criticalPlugins;
 		}
 
 		/// <summary>
@@ -1032,10 +1048,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		{
 			string[] strActivePluginNames;
 
-			if ((p_strActivePlugins == null) || (p_strActivePlugins.Length == 0))
+			if (p_strActivePlugins == null)
 				return;
-			else
-				strActivePluginNames = StripPluginDirectory(p_strActivePlugins);
+
+			strActivePluginNames = StripPluginDirectory(p_strActivePlugins);
+
+			UpdateActivePluginCache(strActivePluginNames);
+			m_lstActivePlugins = p_strActivePlugins.Where(x => !String.IsNullOrWhiteSpace(x)).ToList();
 
 			if (SingleFileManagement)
 			{
@@ -1066,10 +1085,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					strOrderedPluginNames = new string[strPlugins.Count()];
 				}
 
-				for (int i = 0; i < strPlugins.Count(); i++)
+				HashSet<string> activePluginNames = new HashSet<string>(strActivePluginNames, StringComparer.OrdinalIgnoreCase);
+
+				for (int i = 0; i < strPlugins.Length; i++)
 				{
 					string strPlugin = strPlugins[i];
-					if (strActivePluginNames.Contains(strPlugin))
+					if (activePluginNames.Contains(strPlugin))
 						strOrderedPluginNames[(i + offset)] = ActiveMarker + strPlugin;
 					else
 						strOrderedPluginNames[(i + offset)] = strPlugin;
@@ -1079,7 +1100,6 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 			}
 
 			WriteLoadOrder(PluginsFilePath, strActivePluginNames, ForcedReadOnly);
-			m_lstActivePlugins = strActivePluginNames.ToList<string>();
 		}
 
 		/// <summary>
@@ -1109,8 +1129,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				{
 					lstOrderedPlugins = diPluginFolder
 										.EnumerateFiles()
-										.OrderBy(file => file.LastWriteTime)
 										.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esl", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
+										.OrderBy(file => file.LastWriteTime)
 										.Select(file => file.FullName)
 										.ToList();
 				}
@@ -1196,9 +1216,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 				if (lstOrderedPlugins.Count > 0)
 				{
+					string[] existingPlugins = RemoveNonExistentPlugins(lstOrderedPlugins.ToArray());
+
 					if (booReady == null)
-						SetSortedListLoadOrder(RemoveNonExistentPlugins(lstOrderedPlugins.ToArray()));
-					return RemoveNonExistentPlugins(lstOrderedPlugins.ToArray());
+						SetSortedListLoadOrder(existingPlugins);
+
+					return existingPlugins;
 				}
 			}
 
@@ -1213,68 +1236,74 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void AddMissingElements(IList<string> p_lstOrdered, bool p_booPluginFileOnly)
 		{
+			if (p_lstOrdered == null)
+				return;
+
 			List<string> lstActivePlugins = GetActiveList();
 
 			if (lstActivePlugins.Count > 0)
 			{
-				List<string> lstMissing = lstActivePlugins.Except(p_lstOrdered, StringComparer.InvariantCultureIgnoreCase).ToList();
+				LinkedList<string> mergedPlugins = new LinkedList<string>(p_lstOrdered);
+				Dictionary<string, LinkedListNode<string>> orderedPluginNodes = new Dictionary<string, LinkedListNode<string>>(StringComparer.InvariantCultureIgnoreCase);
 
-				if ((lstMissing != null) && (lstMissing.Count > 0))
+				for (LinkedListNode<string> node = mergedPlugins.First; node != null; node = node.Next)
 				{
-					foreach (string missingPlugin in lstMissing)
-					{
-						int intIndex = lstActivePlugins.IndexOf(missingPlugin);
-
-						if (intIndex > 0)
-						{
-							bool booFound = false;
-							int intPrevious = intIndex - 1;
-							while (!booFound)
-							{
-								string strPrevious = lstActivePlugins[intPrevious];
-								int intOrdered = p_lstOrdered.IndexOf(strPrevious);
-
-								if (intOrdered >= 0)
-								{
-									booFound = true;
-									p_lstOrdered.Insert(intOrdered + 1, missingPlugin);
-								}
-
-								if (--intPrevious < 0)
-									break;
-							}
-
-							if (!booFound)
-								p_lstOrdered.Add(missingPlugin);
-						}
-					}
+					if (!String.IsNullOrWhiteSpace(node.Value) && !orderedPluginNodes.ContainsKey(node.Value))
+						orderedPluginNodes.Add(node.Value, node);
 				}
+
+				LinkedListNode<string> previousActiveNode = null;
+
+				foreach (string activePlugin in lstActivePlugins)
+				{
+					if (String.IsNullOrWhiteSpace(activePlugin))
+						continue;
+
+					LinkedListNode<string> activeNode;
+
+					if (orderedPluginNodes.TryGetValue(activePlugin, out activeNode))
+					{
+						previousActiveNode = activeNode;
+						continue;
+					}
+
+					activeNode = previousActiveNode == null
+						? mergedPlugins.AddFirst(activePlugin)
+						: mergedPlugins.AddAfter(previousActiveNode, activePlugin);
+
+					orderedPluginNodes.Add(activePlugin, activeNode);
+					previousActiveNode = activeNode;
+				}
+
+				p_lstOrdered.Clear();
+
+				foreach (string plugin in mergedPlugins)
+					p_lstOrdered.Add(plugin);
 			}
 
-			List<string> lstLoosePlugins = new List<string>();
 			DirectoryInfo diPluginFolder = new DirectoryInfo(GameMode.PluginDirectory);
 
 			try
 			{
-				if ((diPluginFolder.Exists) && !p_booPluginFileOnly)
+				if (diPluginFolder.Exists && !p_booPluginFileOnly)
 				{
-					lstLoosePlugins = diPluginFolder
-										.EnumerateFiles()
-										.OrderBy(file => file.LastWriteTime)
-										.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esl", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
-										.Select(file => file.FullName)
-										.ToList();
+					HashSet<string> orderedPlugins = new HashSet<string>(p_lstOrdered, StringComparer.InvariantCultureIgnoreCase);
+					IEnumerable<string> loosePlugins = diPluginFolder
+						.EnumerateFiles()
+						.Where(file => file.Extension.Equals(".esp", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esl", StringComparison.InvariantCultureIgnoreCase) || file.Extension.Equals(".esm", StringComparison.InvariantCultureIgnoreCase))
+						.OrderBy(file => file.LastWriteTime)
+						.Select(file => file.FullName);
 
-					if ((lstLoosePlugins != null) && (lstLoosePlugins.Count > 0))
+					foreach (string plugin in loosePlugins)
 					{
-						List<string> lstMissing = lstLoosePlugins.Except(p_lstOrdered, StringComparer.InvariantCultureIgnoreCase).ToList();
-
-						foreach (string plugin in lstMissing)
-							p_lstOrdered.Add((plugin));
+						if (orderedPlugins.Add(plugin))
+							p_lstOrdered.Add(plugin);
 					}
 				}
 			}
-			catch { }
+			catch
+			{
+			}
 		}
 
 		/// <summary>
@@ -1304,7 +1333,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				try
 				{
 					WriteLoadOrderTask wltTask = new WriteLoadOrderTask(String.Empty, strOrderedPluginNames, TimestampOrder, false, m_dtiMasterDate);
-					TaskList.Add(wltTask);
+					EnqueueWriteTask(wltTask);
 				}
 				catch { }
 			}
@@ -1330,10 +1359,12 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					strPluginNames = new string[strOrderedPluginNames.Count()];
 				}
 
-				for (int i = 0; i < strOrderedPluginNames.Count(); i++)
+				HashSet<string> activePluginNames = new HashSet<string>(lstActiveList, StringComparer.InvariantCultureIgnoreCase);
+
+				for (int i = 0; i < strOrderedPluginNames.Length; i++)
 				{
 					string strPlugin = strOrderedPluginNames[i];
-					if (lstActiveList.Contains(strPlugin, StringComparer.InvariantCultureIgnoreCase))
+					if (activePluginNames.Contains(strPlugin))
 						strPluginNames[(i + offset)] = ActiveMarker + strPlugin;
 					else
 						strPluginNames[(i + offset)] = strPlugin;
@@ -1399,51 +1430,36 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						return true;
 			}
 
-			if (File.Exists(PluginsFilePath))
+			lock (m_objActivePluginCacheLock)
 			{
-				int intRepeat = 0;
-				bool? booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
-
-				while (booReady == false)
-				{
-					Thread.Sleep(500);
-					if (intRepeat++ >= 20)
-						break;
-					booReady = IsFileReady(PluginsFilePath, ForcedReadOnly, true);
-				}
-
-				if (booReady == true)
-				{
-					foreach (string line in WriteSafeReadAllLines(PluginsFilePath))
-					{
-						if (!string.IsNullOrWhiteSpace(line))
-						{
-							if (line.StartsWith("#"))
-								continue;
-
-							if (SingleFileManagement)
-							{
-								string strCurrent = line;
-								if (LineHasActiveMarker(strCurrent))
-								{
-									strCurrent = strCurrent.Substring(ActiveMarker.Length);
-									if (m_rgxPluginFile.IsMatch(strCurrent))
-										if (strCurrent.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
-											return true;
-								}
-							}
-							else
-								if (m_rgxPluginFile.IsMatch(line))
-									if (line.Equals(strPlugin, StringComparison.InvariantCultureIgnoreCase))
-										return true;
-						}
-					}
-				}
-				else
-					return true;
+				if (m_booActivePluginCacheInitialized)
+					return m_hstActivePluginNames.Contains(strPlugin);
 			}
 
-			return false;
+			GetActivePlugins();
+
+			lock (m_objActivePluginCacheLock)
+				return m_hstActivePluginNames.Contains(strPlugin);
+		}
+
+		/// <summary>
+		/// Replaces the cached active-plugin filename set used by repeated metadata and dependency checks.
+		/// </summary>
+		/// <param name="p_enmPlugins">The active plugin paths or filenames.</param>
+		private void UpdateActivePluginCache(IEnumerable<string> p_enmPlugins)
+		{
+			lock (m_objActivePluginCacheLock)
+			{
+				m_hstActivePluginNames.Clear();
+
+				foreach (string plugin in p_enmPlugins ?? Enumerable.Empty<string>())
+				{
+					if (!String.IsNullOrWhiteSpace(plugin))
+						m_hstActivePluginNames.Add(StripPluginDirectory(plugin));
+				}
+
+				m_booActivePluginCacheInitialized = true;
+			}
 		}
 
 		private string[] WriteSafeReadAllLines(string path)
@@ -1578,15 +1594,16 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						{
 							KeyValuePair<string, string> kvpSHA = (KeyValuePair<string, string>)e.ReturnValue;
 
-							if (kvpSHA.Key != null)
-								if (dctFileHashes.ContainsKey(kvpSHA.Key.ToLowerInvariant()))
-									dctFileHashes[kvpSHA.Key.ToLowerInvariant()] = kvpSHA.Value;
+							if (kvpSHA.Key != null && m_dicFileHashes.ContainsKey(kvpSHA.Key))
+								m_dicFileHashes[kvpSHA.Key] = kvpSHA.Value;
 						}
 
 						RunningTask.TaskEnded -= RunningTask_TaskEnded;
 						int intPosition = TaskList.IndexOf((WriteLoadOrderTask)RunningTask);
 						RunningTask = null;
-						TaskList.RemoveAt(intPosition);
+
+						if (intPosition >= 0)
+							TaskList.RemoveAt(intPosition);
 					}
 				}
 			}
@@ -1616,12 +1633,38 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		}
 
 		/// <summary>
+		/// Queues a load-order write while replacing older queued writes to the same target.
+		/// </summary>
+		/// <param name="p_wltTask">The latest write task.</param>
+		private void EnqueueWriteTask(WriteLoadOrderTask p_wltTask)
+		{
+			if (p_wltTask == null)
+				return;
+
+			lock (m_objLock)
+			{
+				lock (TaskList)
+				{
+					for (int index = TaskList.Count - 1; index >= 0; index--)
+					{
+						WriteLoadOrderTask queuedTask = TaskList[index];
+
+						if (!ReferenceEquals(queuedTask, RunningTask) && queuedTask.WritesSameTargetAs(p_wltTask))
+							TaskList.RemoveAt(index);
+					}
+
+					TaskList.Add(p_wltTask);
+				}
+			}
+		}
+
+		/// <summary>
 		/// Handles write operations to the load order file.
 		/// </summary>
 		private void WriteLoadOrder(string p_strFilePath, string[] p_strPlugins, bool p_booReadOnly)
 		{
 			WriteLoadOrderTask wltTask = new WriteLoadOrderTask(p_strFilePath, p_strPlugins, false, p_booReadOnly, m_dtiMasterDate);
-			TaskList.Add(wltTask);
+			EnqueueWriteTask(wltTask);
 		}
 
 		/// <summary>

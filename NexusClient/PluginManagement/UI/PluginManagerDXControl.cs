@@ -60,7 +60,9 @@
         private readonly SplitContainerControl _splitContainer;
         private readonly XtraScrollableControl _infoScroll;
         private readonly BindingList<PluginManagerDXRow> _rows = new BindingList<PluginManagerDXRow>();
-        private readonly Dictionary<Plugin, PluginManagerDXRow> _rowsByPlugin = new Dictionary<Plugin, PluginManagerDXRow>();
+        private readonly Dictionary<Plugin, PluginManagerDXRow> _rowsByPlugin = new Dictionary<Plugin, PluginManagerDXRow>(PluginComparer.Filename);
+        private readonly Dictionary<string, Tuple<DateTime, long, string>> _pluginDescriptionCache = new Dictionary<string, Tuple<DateTime, long, string>>(StringComparer.OrdinalIgnoreCase);
+        private PluginSnapshot _pluginDescriptionSnapshot;
         private readonly RepositoryItemCheckEdit _activeCheckEdit;
         private readonly RepositoryItemCheckEdit _lockedActiveCheckEdit;
         private Point _dragStartPoint = Point.Empty;
@@ -71,6 +73,7 @@
 		private bool _managedPluginsRefreshPending;
 		private bool _activePluginsRefreshPending;
 		private bool _pluginRefreshScheduled;
+		private bool _commandStateUpdateScheduled;
 		private PluginManagerVM _viewModel;
         private IPluginManager _pluginManager;
         private readonly Timer _gridLayoutSaveTimer;
@@ -476,6 +479,9 @@
 			_managedPluginsRefreshPending = false;
 			_activePluginsRefreshPending = false;
 			_pluginRefreshScheduled = false;
+			_commandStateUpdateScheduled = false;
+			_pluginDescriptionSnapshot = null;
+			_pluginDescriptionCache.Clear();
         }
 
 		/// <summary>
@@ -547,7 +553,7 @@
 			row.PluginType = entry == null ? p_plgPlugin.EffectiveTypeDisplay : entry.EffectiveType;
 			row.Owner = p_dicOwners != null && p_dicOwners.TryGetValue(p_plgPlugin, out strOwner) ? strOwner : row.Owner;
 			row.Status = GetStatus(p_plgPlugin, entry);
-			row.NotifyAll();
+			row.StatusSeverity = GetRowDiagnosticSeverity(entry);
 		}
 
 		#region Helpers
@@ -757,7 +763,7 @@
 						: entry.EffectiveType;
 
 					row.Status = GetStatus(plugin, entry);
-					row.StatusSeverity = GetHighestDiagnosticSeverity(entry);
+					row.StatusSeverity = GetRowDiagnosticSeverity(entry);
 
 					orderedRows.Add(row);
 				}
@@ -827,28 +833,11 @@
 
 		private List<Plugin> GetActiveDependentPlugins(Plugin plugin)
         {
-            if (plugin == null || _viewModel == null)
+            if (plugin == null || _pluginManager == null)
                 return new List<Plugin>();
 
-            string pluginName = Path.GetFileName(plugin.Filename);
-
-            return _viewModel.ActivePlugins
-                .Where(candidate =>
-                    candidate != null &&
-                    candidate.Masters != null &&
-                    !String.Equals(
-                        Path.GetFileName(candidate.Filename),
-                        pluginName,
-                        StringComparison.OrdinalIgnoreCase) &&
-                    candidate.Masters.Any(master =>
-                        String.Equals(
-                            Path.GetFileName(master),
-                            pluginName,
-                            StringComparison.OrdinalIgnoreCase)))
-                .OrderBy(
-                    candidate =>
-                        _viewModel.ManagedPlugins.IndexOf(candidate))
-                .ToList();
+            PluginSnapshot snapshot = _pluginManager.CurrentSnapshot;
+            return snapshot == null ? new List<Plugin>() : snapshot.GetActiveDependents(plugin).ToList();
         }
 
         private List<string> GetMissingMasters(Plugin plugin)
@@ -1039,11 +1028,14 @@
 		/// <returns><c>true</c> if protected positions are preserved; otherwise, <c>false</c>.</returns>
 		private bool PreservesOrderLockedPluginPositions(IList<Plugin> p_lstCurrentOrder, IList<Plugin> p_lstProposedOrder)
 		{
+			if (p_lstCurrentOrder == null || p_lstProposedOrder == null || p_lstCurrentOrder.Count != p_lstProposedOrder.Count)
+				return false;
+
 			for (int index = 0; index < p_lstCurrentOrder.Count; index++)
 			{
 				Plugin plugin = p_lstCurrentOrder[index];
 
-				if (IsPluginOrderLocked(plugin) && p_lstProposedOrder.IndexOf(plugin) != index)
+				if (IsPluginOrderLocked(plugin) && !PluginComparer.Filename.Equals(plugin, p_lstProposedOrder[index]))
 					return false;
 			}
 
@@ -1065,7 +1057,7 @@
                 new List<Plugin>(_viewModel.ManagedPlugins);
 
             HashSet<Plugin> selection =
-                new HashSet<Plugin>(selectedPlugins);
+                new HashSet<Plugin>(selectedPlugins, PluginComparer.Filename);
 
             if (direction < 0)
             {
@@ -1073,7 +1065,7 @@
                 {
                     if (selection.Contains(currentOrder[index]) &&
                         !selection.Contains(currentOrder[index - 1]) &&
-						IsPluginActivationLocked(currentOrder[index - 1]))
+						IsPluginOrderLocked(currentOrder[index - 1]))
                     {
                         return false;
                     }
@@ -1085,7 +1077,7 @@
                 {
                     if (selection.Contains(currentOrder[index]) &&
                         !selection.Contains(currentOrder[index + 1]) &&
-						IsPluginActivationLocked(currentOrder[index + 1]))
+						IsPluginOrderLocked(currentOrder[index + 1]))
                     {
                         return false;
                     }
@@ -1121,22 +1113,28 @@
 		}
 
 		/// <summary>
-		/// Gets the highest validation severity associated with a snapshot entry.
+		/// Gets the grid severity for a snapshot entry independently from whether restrictions currently block the operation.
 		/// </summary>
 		/// <param name="p_pseEntry">The snapshot entry to inspect.</param>
-		/// <returns>The highest severity, or <c>null</c> when no diagnostic is present.</returns>
-		private static PluginValidationSeverity? GetHighestDiagnosticSeverity(PluginSnapshotEntry p_pseEntry)
+		/// <returns>Red for an active state that cannot load, orange for potentially unstable states, or <c>null</c> when no diagnostic is present.</returns>
+		private static PluginValidationSeverity? GetRowDiagnosticSeverity(PluginSnapshotEntry p_pseEntry)
 		{
 			if (p_pseEntry == null || p_pseEntry.Diagnostics.Count == 0)
 				return null;
 
-			if (p_pseEntry.Diagnostics.Any(x => x.Severity == PluginValidationSeverity.Error))
+			if (p_pseEntry.Active && p_pseEntry.Diagnostics.Any(x =>
+				x.Kind == PluginValidationIssueKind.MissingMaster ||
+				x.Kind == PluginValidationIssueKind.InactiveRequiredMaster ||
+				x.Kind == PluginValidationIssueKind.DependencyCycle ||
+				x.Kind == PluginValidationIssueKind.UnsupportedPluginClass ||
+				x.Kind == PluginValidationIssueKind.AddressSpaceExhausted))
+			{
 				return PluginValidationSeverity.Error;
+			}
 
-			if (p_pseEntry.Diagnostics.Any(x => x.Severity == PluginValidationSeverity.Warning))
-				return PluginValidationSeverity.Warning;
-
-			return PluginValidationSeverity.Info;
+			return p_pseEntry.Diagnostics.Any(x => x.Severity == PluginValidationSeverity.Error || x.Severity == PluginValidationSeverity.Warning)
+				? PluginValidationSeverity.Warning
+				: PluginValidationSeverity.Info;
 		}
 
 		#endregion
@@ -1164,8 +1162,21 @@
 			PluginSnapshot psnSnapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
 			HashSet<Plugin> hstActivePlugins = new HashSet<Plugin>(_viewModel.ActivePlugins.Where(x => x != null), PluginComparer.Filename);
 
-			foreach (Plugin plgPlugin in lstPlugins)
-				AddOrUpdateRow(plgPlugin, psnSnapshot, hstActivePlugins, null);
+			_gridView.BeginDataUpdate();
+
+			try
+			{
+				_rows.RaiseListChangedEvents = false;
+
+				foreach (Plugin plgPlugin in lstPlugins)
+					AddOrUpdateRow(plgPlugin, psnSnapshot, hstActivePlugins, null);
+			}
+			finally
+			{
+				_rows.RaiseListChangedEvents = true;
+				_rows.ResetBindings();
+				_gridView.EndDataUpdate();
+			}
 
 			_gridView.RefreshData();
 			UpdatePluginInfo();
@@ -1704,10 +1715,30 @@
 
 		private void GridViewSelectionChanged(object sender, DevExpress.Data.SelectionChangedEventArgs e)
 		{
-			if (IsDisposed || Disposing)
+			RequestCommandStateUpdate();
+		}
+
+		/// <summary>
+		/// Coalesces selection-driven command-state updates into one UI callback.
+		/// </summary>
+		private void RequestCommandStateUpdate()
+		{
+			if (_commandStateUpdateScheduled || IsDisposed || Disposing || !IsHandleCreated)
 				return;
 
-			BeginInvoke((Action)UpdateCommandState);
+			_commandStateUpdateScheduled = true;
+			BeginInvoke((Action)FlushCommandStateUpdate);
+		}
+
+		/// <summary>
+		/// Applies the latest coalesced command-state update.
+		/// </summary>
+		private void FlushCommandStateUpdate()
+		{
+			_commandStateUpdateScheduled = false;
+
+			if (!IsDisposed && !Disposing)
+				UpdateCommandState();
 		}
 
 		/// <summary>
@@ -1785,6 +1816,55 @@
 				p_sbrDetails.AppendFormat("• {0}<br/>", HtmlEncode(message));
 		}
 
+		/// <summary>
+		/// Gets a plugin description cached for the current snapshot and physical file revision.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin whose description should be returned.</param>
+		/// <returns>The current formatted plugin description.</returns>
+		private string GetCachedPluginDescription(Plugin p_plgPlugin)
+		{
+			if (p_plgPlugin == null || _viewModel == null || String.IsNullOrWhiteSpace(p_plgPlugin.Filename))
+				return String.Empty;
+
+			PluginSnapshot currentSnapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
+
+			if (!ReferenceEquals(_pluginDescriptionSnapshot, currentSnapshot))
+			{
+				_pluginDescriptionSnapshot = currentSnapshot;
+				_pluginDescriptionCache.Clear();
+			}
+
+			DateTime lastWriteTimeUtc = DateTime.MinValue;
+			long fileLength = -1;
+
+			try
+			{
+				FileInfo fileInfo = new FileInfo(p_plgPlugin.Filename);
+
+				if (fileInfo.Exists)
+				{
+					lastWriteTimeUtc = fileInfo.LastWriteTimeUtc;
+					fileLength = fileInfo.Length;
+				}
+			}
+			catch
+			{
+			}
+
+			Tuple<DateTime, long, string> cachedDescription;
+
+			if (_pluginDescriptionCache.TryGetValue(p_plgPlugin.Filename, out cachedDescription) &&
+				cachedDescription.Item1 == lastWriteTimeUtc &&
+				cachedDescription.Item2 == fileLength)
+			{
+				return cachedDescription.Item3;
+			}
+
+			string description = _viewModel.GetPluginDescription(p_plgPlugin.Filename) ?? String.Empty;
+			_pluginDescriptionCache[p_plgPlugin.Filename] = Tuple.Create(lastWriteTimeUtc, fileLength, description);
+			return description;
+		}
+
 		private void UpdatePluginInfo()
 		{
 			Plugin plugin = GetFocusedPlugin();
@@ -1800,9 +1880,11 @@
 			_pictureEdit.Image = plugin.Picture;
 			_pictureEdit.Visible = plugin.Picture != null;
 
-			string owner = _viewModel.GetPluginOwner(plugin);
-			string description =
-				_viewModel.GetPluginDescription(plugin.Filename);
+			PluginManagerDXRow focusedRow;
+			string owner = _rowsByPlugin.TryGetValue(plugin, out focusedRow)
+				? focusedRow.Owner
+				: _viewModel.GetPluginOwner(plugin);
+			string description = GetCachedPluginDescription(plugin);
 
 			StringBuilder details = new StringBuilder();
 
@@ -1863,8 +1945,12 @@
 
             _restoreLoadOrderButton.Enabled = _gridView != null && _gridView.SortInfo.Count > 0;
 
-			_disableAllButton.Enabled = _viewModel != null && _viewModel.ActivePlugins.Any(x => _viewModel.CanChangeActiveState(x));
-			_enableAllButton.Enabled = _viewModel != null && _viewModel.ManagedPlugins.Any(x => !_viewModel.ActivePlugins.Contains(x) && _viewModel.CanChangeActiveState(x));
+			HashSet<Plugin> activePlugins = _viewModel == null
+				? new HashSet<Plugin>(PluginComparer.Filename)
+				: new HashSet<Plugin>(_viewModel.ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+
+			_disableAllButton.Enabled = _viewModel != null && activePlugins.Any(x => _viewModel.CanChangeActiveState(x));
+			_enableAllButton.Enabled = _viewModel != null && _viewModel.ManagedPlugins.Any(x => x != null && !activePlugins.Contains(x) && _viewModel.CanChangeActiveState(x));
 			_exportButton.Enabled = _viewModel != null && _viewModel.CanExecuteExportCommands();
             _importButton.Enabled = _viewModel != null && _viewModel.CanExecuteImportCommands();
 			_disablePluginSortingRestrictionsToggle.Enabled = _viewModel != null && _pluginManager != null;

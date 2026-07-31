@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections;
+using System.Linq;
 
 namespace Nexus.Client.Util.Collections
 {
@@ -10,8 +11,9 @@ namespace Nexus.Client.Util.Collections
 	/// <typeparam name="T">The type of objects in the Set.</typeparam>
 	public class Set<T> : IList<T>, ICollection<T>, IEnumerable<T>, IList, ICollection, IEnumerable
 	{
-		private List<T> m_lstList = new List<T>();
+		private readonly List<T> m_lstList = new List<T>();
 		private IComparer<T> m_cmpComparer = null;
+		private HashSet<T> m_hstItems = null;
 
 		#region Constructors
 
@@ -38,8 +40,8 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="p_cmpComparer">The comparer to use when determining if an item is already in the set.</param>
 		public Set(IEnumerable<T> p_enmItems, IComparer<T> p_cmpComparer)
 		{
+			InitializeComparer(p_cmpComparer);
 			AddRange(p_enmItems);
-			m_cmpComparer = p_cmpComparer;
 		}
 
 		/// <summary>
@@ -48,7 +50,7 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="p_cmpComparer">The comparer to use when determining if an item is already in the set.</param>
 		public Set(IComparer<T> p_cmpComparer)
 		{
-			m_cmpComparer = p_cmpComparer;
+			InitializeComparer(p_cmpComparer);
 		}
 
 		/// <summary>
@@ -57,11 +59,26 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="p_setCopy">The set to copy.</param>
 		public Set(Set<T> p_setCopy)
 		{
+			if (p_setCopy == null)
+				throw new ArgumentNullException("p_setCopy");
+
+			InitializeComparer(p_setCopy.m_cmpComparer);
 			AddRange(p_setCopy);
-			m_cmpComparer = p_setCopy.m_cmpComparer;
 		}
 
 		#endregion
+		/// <summary>
+		/// Initializes the ordering comparer and, when supported, a matching hash-based membership index.
+		/// </summary>
+		/// <param name="p_cmpComparer">The comparer used by the set.</param>
+		private void InitializeComparer(IComparer<T> p_cmpComparer)
+		{
+			m_cmpComparer = p_cmpComparer;
+			IEqualityComparer<T> eqcComparer = p_cmpComparer as IEqualityComparer<T>;
+
+			if (eqcComparer != null)
+				m_hstItems = new HashSet<T>(eqcComparer);
+		}
 
 		/// <summary>
 		/// Finds the first item that matches the given predicate.
@@ -155,7 +172,7 @@ namespace Nexus.Client.Util.Collections
 		{
 			if (m_cmpComparer != null)
 			{
-				for (Int32 i = p_intStartIndex; i > 0; i++)
+				for (Int32 i = p_intStartIndex; i >= 0; i--)
 					if (m_cmpComparer.Compare(this[i], p_tItem) == 0)
 						return i;
 				return -1;
@@ -197,7 +214,11 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="index">The index of the item to remove from the set.</param>
 		public virtual void RemoveAt(int index)
 		{
+			T tItem = m_lstList[index];
 			m_lstList.RemoveAt(index);
+
+			if (m_hstItems != null)
+				m_hstItems.Remove(tItem);
 		}
 
 		/// <summary>
@@ -231,6 +252,14 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="p_tItem">The item to add.</param>
 		public virtual void Add(T p_tItem)
 		{
+			if (m_hstItems != null)
+			{
+				if (m_hstItems.Add(p_tItem))
+					m_lstList.Add(p_tItem);
+
+				return;
+			}
+
 			if (!Contains(p_tItem))
 				m_lstList.Add(p_tItem);
 		}
@@ -241,6 +270,40 @@ namespace Nexus.Client.Util.Collections
 		public virtual void Clear()
 		{
 			m_lstList.Clear();
+
+			if (m_hstItems != null)
+				m_hstItems.Clear();
+		}
+
+		/// <summary>
+		/// Removes the specified items from the set in one pass.
+		/// </summary>
+		/// <param name="p_enmItems">The items to remove.</param>
+		/// <returns>The number of items removed.</returns>
+		public virtual int RemoveRange(IEnumerable<T> p_enmItems)
+		{
+			if (p_enmItems == null || Count == 0)
+				return 0;
+
+			int intPreviousCount = Count;
+
+			if (m_hstItems != null)
+			{
+				HashSet<T> hstItemsToRemove = new HashSet<T>(p_enmItems, m_hstItems.Comparer);
+
+				if (hstItemsToRemove.Count == 0)
+					return 0;
+
+				m_lstList.RemoveAll(x => hstItemsToRemove.Contains(x));
+				m_hstItems.ExceptWith(hstItemsToRemove);
+			}
+			else
+			{
+				foreach (T tItem in p_enmItems.ToList())
+					Remove(tItem);
+			}
+
+			return intPreviousCount - Count;
 		}
 
 		/// <summary>
@@ -251,7 +314,7 @@ namespace Nexus.Client.Util.Collections
 		/// <c>false</c> otherwise.</returns>
 		public bool Contains(T p_tItem)
 		{
-			return IndexOf(p_tItem) > -1;
+			return m_hstItems != null ? m_hstItems.Contains(p_tItem) : IndexOf(p_tItem) > -1;
 		}
 
 		/// <summary>

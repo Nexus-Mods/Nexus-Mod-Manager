@@ -64,6 +64,19 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		}
 
 		/// <summary>
+		/// Determines whether this task writes the same logical load-order target as another task.
+		/// </summary>
+		/// <param name="p_wltOther">The task to compare.</param>
+		/// <returns><c>true</c> when a newer task can replace the other queued task; otherwise, <c>false</c>.</returns>
+		public bool WritesSameTargetAs(WriteLoadOrderTask p_wltOther)
+		{
+			if (p_wltOther == null || TimestampLoadOrder != p_wltOther.TimestampLoadOrder)
+				return false;
+
+			return TimestampLoadOrder || String.Equals(FilePath, p_wltOther.FilePath, StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
 		/// Cancels the update.
 		/// </summary>
 		public override void Cancel()
@@ -95,8 +108,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					if (WriteLoadOrderFile(FilePath, Plugins))
 					{
 						using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+						using (SHA256 sha = SHA256.Create())
 						{
-							SHA256CryptoServiceProvider sha = new SHA256CryptoServiceProvider();
 							byte[] hash = sha.ComputeHash(fs);
 							string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
 
@@ -131,7 +144,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 
 						while (!IsFileReady(strPluginFile, false))
 						{
-							System.Threading.Tasks.Task.Delay(100);
+							Thread.Sleep(100);
 							if (intRepeat++ > 10)
 							{
 								booLocked = true;

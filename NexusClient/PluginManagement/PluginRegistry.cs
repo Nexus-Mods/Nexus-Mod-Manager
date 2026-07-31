@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util.Collections;
@@ -43,6 +44,7 @@ namespace Nexus.Client.PluginManagement
 		}
 
 		private ObservableSet<Plugin> m_ostRegisteredPlugins = new ObservableSet<Plugin>(PluginComparer.Filename);
+		private readonly ConcurrentDictionary<string, Plugin> m_dicRegisteredPlugins = new ConcurrentDictionary<string, Plugin>(System.StringComparer.OrdinalIgnoreCase);
 
 		#region Properties
 
@@ -128,6 +130,15 @@ namespace Nexus.Client.PluginManagement
 		public void UnregisterPlugin(Plugin p_plgPlugin)
 		{
 			GetEnlistment().UnregisterPlugin(p_plgPlugin);
+		}
+
+		/// <summary>
+		/// Removes multiple plugins from the registry in one transaction-local update.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins to unregister.</param>
+		public void UnregisterPlugins(IList<Plugin> p_lstPlugins)
+		{
+			GetEnlistment().UnregisterPlugins(p_lstPlugins);
 		}
 
 		/// <summary>

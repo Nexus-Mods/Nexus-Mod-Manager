@@ -20,7 +20,7 @@ namespace Nexus.Client.Plugins
 		{
 			if ((obj == null) || (obj.Filename == null))
 				return 53;
-			return obj.Filename.GetHashCode();
+			return StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Filename);
 		}
 
 		/// <summary>

@@ -84,6 +84,12 @@ namespace Nexus.Client.PluginManagement
 		void RemovePlugin(string p_strPluginPath);
 
 		/// <summary>
+		/// Removes multiple plugins from the managed, ordered and active collections as one transaction.
+		/// </summary>
+		/// <param name="p_lstPluginPaths">The plugin paths to remove.</param>
+		void RemovePlugins(IList<string> p_lstPluginPaths);
+
+		/// <summary>
 		/// Determines if the specified plugin is registered.
 		/// </summary>
 		/// <param name="p_strPath">The path to the plugin whose registration status is to be determined.</param>

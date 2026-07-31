@@ -53,6 +53,12 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		/// <param name="p_plgPlugin">The plugin to remove from the order list.</param>
 		void RemovePlugin(Plugin p_plgPlugin);
 
+		/// <summary>
+		/// Removes multiple plugins from the order list in one update.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins to remove from the order list.</param>
+		void RemovePlugins(IList<Plugin> p_lstPlugins);
+
 		#endregion
 	}
 }

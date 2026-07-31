@@ -260,18 +260,19 @@ namespace Nexus.Client.PluginManagement
 			IList<Plugin> p_lstPlugins,
 			bool p_booRestrictionsDisabled)
 		{
-			List<Plugin> plugins = p_lstPlugins == null
-				? new List<Plugin>()
-				: new List<Plugin>(
-					p_lstPlugins.Where(x => x != null));
+			List<Plugin> plugins = new List<Plugin>();
+			HashSet<Plugin> seenPlugins = new HashSet<Plugin>(PluginComparer.Filename);
+
+			foreach (Plugin plugin in p_lstPlugins ?? new List<Plugin>())
+			{
+				if (plugin != null && seenPlugins.Add(plugin))
+					plugins.Add(plugin);
+			}
 
 			foreach (Plugin plugin in ManagedPlugins)
 			{
-				if (plugin != null &&
-					!plugins.Contains(plugin, PluginComparer.Filename))
-				{
+				if (plugin != null && seenPlugins.Add(plugin))
 					plugins.Add(plugin);
-				}
 			}
 
 			if (!p_booRestrictionsDisabled)
@@ -723,19 +724,89 @@ namespace Nexus.Client.PluginManagement
 				return;
 
 			List<Plugin> requestedPlugins = new List<Plugin>();
+			HashSet<Plugin> requestedPluginSet = new HashSet<Plugin>(PluginComparer.Filename);
+			Transactions.TransactionScope registrationTransaction = null;
 
-			// Register every deployed plugin before activation is evaluated. This
-			// prevents activation success from depending on archive enumeration order.
-			foreach (string pluginPath in pluginPaths)
+			try
 			{
-				AddPlugin(pluginPath);
+				registrationTransaction = new Transactions.TransactionScope();
 
-				Plugin plugin = GetRegisteredPlugin(pluginPath);
-				if (plugin != null &&
-					!requestedPlugins.Any(x => PluginComparer.Filename.Equals(x, plugin)))
+				// Register the entire deployment in one transaction and repair the order once.
+				// Calling AddPlugin for every file rebuilds and persists the complete order repeatedly.
+				foreach (string pluginPath in pluginPaths)
 				{
-					requestedPlugins.Add(plugin);
+					Plugin plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
+
+					if (plugin == null)
+					{
+						if (!ManagedPluginRegistry.RegisterPlugin(pluginPath))
+							continue;
+
+						plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
+					}
+
+					if (plugin != null && requestedPluginSet.Add(plugin))
+						requestedPlugins.Add(plugin);
 				}
+
+				if (requestedPlugins.Count > 0)
+				{
+					Dictionary<Plugin, Plugin> canonicalRequestedPlugins = new Dictionary<Plugin, Plugin>(PluginComparer.Filename);
+
+					foreach (Plugin plugin in requestedPlugins)
+						canonicalRequestedPlugins[plugin] = plugin;
+
+					List<Plugin> repairedOrder = new List<Plugin>();
+					HashSet<Plugin> orderedPlugins = new HashSet<Plugin>(PluginComparer.Filename);
+
+					foreach (Plugin orderedPlugin in PluginOrderLog.OrderedPlugins.Where(x => x != null))
+					{
+						Plugin canonicalPlugin;
+						Plugin plugin = canonicalRequestedPlugins.TryGetValue(orderedPlugin, out canonicalPlugin)
+							? canonicalPlugin
+							: orderedPlugin;
+
+						if (orderedPlugins.Add(plugin))
+							repairedOrder.Add(plugin);
+					}
+
+					foreach (Plugin plugin in requestedPlugins)
+					{
+						if (orderedPlugins.Add(plugin))
+							repairedOrder.Add(plugin);
+					}
+
+					List<Plugin> correctedRegistrationOrder = GetPolicyCorrectedOrder(repairedOrder);
+
+					if (!PluginOrdersEqual(PluginOrderLog.OrderedPlugins, correctedRegistrationOrder) ||
+						!PluginOrderLog.OrderedPlugins.SequenceEqual(correctedRegistrationOrder))
+					{
+						PluginOrderLog.SetPluginOrder(correctedRegistrationOrder);
+					}
+
+					Dictionary<Plugin, Plugin> activePluginsByFilename = new Dictionary<Plugin, Plugin>(PluginComparer.Filename);
+
+					foreach (Plugin activePlugin in ActivePlugins.Where(x => x != null))
+						activePluginsByFilename[activePlugin] = activePlugin;
+
+					foreach (Plugin plugin in requestedPlugins)
+					{
+						Plugin activeMatch;
+
+						if (activePluginsByFilename.TryGetValue(plugin, out activeMatch) && !ReferenceEquals(activeMatch, plugin))
+						{
+							ActivePluginLog.DeactivatePlugin(activeMatch);
+							ActivePluginLog.ActivatePlugin(plugin);
+						}
+					}
+				}
+
+				registrationTransaction.Complete();
+			}
+			finally
+			{
+				if (registrationTransaction != null)
+					registrationTransaction.Dispose();
 			}
 
 			if (requestedPlugins.Count == 0)
@@ -824,28 +895,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_plgPlugin">The plugin to remove.</param>
 		public void RemovePlugin(Plugin p_plgPlugin)
 		{
-			if (p_plgPlugin == null)
-				return;
-
-			Transactions.TransactionScope tsTransaction = null;
-			try
-			{
-				tsTransaction = new Transactions.TransactionScope();
-
-				// Registration lifecycle changes must not go through TryApplyPluginState().
-				// That method preserves omitted managed plugins and validates the final state,
-				// both of which are incorrect while physically adding or removing a plugin.
-				ActivePluginLog.DeactivatePlugin(p_plgPlugin);
-				PluginOrderLog.RemovePlugin(p_plgPlugin);
-				ManagedPluginRegistry.UnregisterPlugin(p_plgPlugin);
-
-				tsTransaction.Complete();
-			}
-			finally
-			{
-				if (tsTransaction != null)
-					tsTransaction.Dispose();
-			}
+			RemovePluginsInternal(p_plgPlugin == null ? new List<Plugin>() : new List<Plugin> { p_plgPlugin });
 		}
 
 		/// <summary>
@@ -854,7 +904,66 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_strPluginPath">The path to the plugin to remove.</param>
 		public void RemovePlugin(string p_strPluginPath)
 		{
-			RemovePlugin(GetRegisteredPlugin(p_strPluginPath));
+			RemovePlugins(new List<string> { p_strPluginPath });
+		}
+
+		/// <summary>
+		/// Removes multiple plugins from the managed, ordered and active collections as one transaction.
+		/// </summary>
+		/// <param name="p_lstPluginPaths">The plugin paths to remove.</param>
+		public void RemovePlugins(IList<string> p_lstPluginPaths)
+		{
+			List<Plugin> plugins = new List<Plugin>();
+			HashSet<Plugin> seenPlugins = new HashSet<Plugin>(PluginComparer.Filename);
+
+			foreach (string pluginPath in p_lstPluginPaths ?? new List<string>())
+			{
+				if (String.IsNullOrWhiteSpace(pluginPath))
+					continue;
+
+				Plugin plugin = GetRegisteredPlugin(pluginPath);
+
+				if (plugin != null && seenPlugins.Add(plugin))
+					plugins.Add(plugin);
+			}
+
+			RemovePluginsInternal(plugins);
+		}
+
+		/// <summary>
+		/// Removes resolved plugin instances with one transaction and one active/load-order persistence pass.
+		/// </summary>
+		/// <param name="p_lstPlugins">The resolved plugins to remove.</param>
+		private void RemovePluginsInternal(IList<Plugin> p_lstPlugins)
+		{
+			List<Plugin> plugins = (p_lstPlugins ?? new List<Plugin>())
+				.Where(x => x != null)
+				.Distinct(PluginComparer.Filename)
+				.ToList();
+
+			if (plugins.Count == 0)
+				return;
+
+			Transactions.TransactionScope tsTransaction = null;
+
+			try
+			{
+				tsTransaction = new Transactions.TransactionScope();
+
+				// Registration lifecycle changes must not go through TryApplyPluginState().
+				// That method preserves omitted managed plugins and validates the final state,
+				// both of which are incorrect while physically adding or removing plugins.
+				ActivePluginLog.DeactivatePlugins(plugins);
+				PluginOrderLog.RemovePlugins(plugins);
+				ManagedPluginRegistry.UnregisterPlugins(plugins);
+
+				tsTransaction.Complete();
+			}
+			finally
+			{
+				if (tsTransaction != null)
+					tsTransaction.Dispose();
+			}
 		}
 
 		/// <summary>

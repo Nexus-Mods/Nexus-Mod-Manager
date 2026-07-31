@@ -75,24 +75,25 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.InstallationLog
 				return;
 			}
 
-			List<string> lstPlugins = new List<string>();
-			foreach (Plugin plgPlugin in p_lstActivePlugins)
-				lstPlugins.Add(plgPlugin.Filename);
-			lstPlugins.Sort();
+			HashSet<string> requestedPlugins = new HashSet<string>(
+				p_lstActivePlugins.Where(x => x != null && !String.IsNullOrWhiteSpace(x.Filename)).Select(x => x.Filename),
+				StringComparer.OrdinalIgnoreCase);
 
-			List<string> lstActivePlugins = new List<string>();
+			HashSet<string> emittedPlugins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			List<string> lstActivePlugins = new List<string>(requestedPlugins.Count + GameMode.OrderedCriticalPluginNames.Count());
+
 			foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
 			{
-				lstPlugins.RemoveAll(x => x.Equals(strPlugin, StringComparison.CurrentCultureIgnoreCase));
-				if (!lstActivePlugins.Contains(strPlugin, StringComparer.CurrentCultureIgnoreCase))
+				if (!String.IsNullOrWhiteSpace(strPlugin) && emittedPlugins.Add(strPlugin))
 					lstActivePlugins.Add(strPlugin);
 			}
+
 			foreach (Plugin plgPlugin in PluginOrderLog.OrderedPlugins)
 			{
-				if (lstPlugins.Contains(plgPlugin.Filename, StringComparer.CurrentCultureIgnoreCase))
-					if (!lstActivePlugins.Contains(plgPlugin.Filename, StringComparer.CurrentCultureIgnoreCase))
-						lstActivePlugins.Add(plgPlugin.Filename);
+				if (plgPlugin != null && requestedPlugins.Contains(plgPlugin.Filename) && emittedPlugins.Add(plgPlugin.Filename))
+					lstActivePlugins.Add(plgPlugin.Filename);
 			}
+
 			LoadOrderManager.SetActivePlugins(lstActivePlugins.ToArray());
 		}
 	}

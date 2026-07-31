@@ -89,16 +89,12 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 						EnlistedPluginLog.m_ostActivePlugins.Where(x => x != null),
 						PluginComparer.Filename);
 
-					for (int index = EnlistedPluginLog.m_ostActivePlugins.Count - 1; index >= 0; index--)
-					{
-						Plugin plugin = EnlistedPluginLog.m_ostActivePlugins[index];
+					List<Plugin> pluginsToRemove = EnlistedPluginLog.m_ostActivePlugins
+						.Where(x => x != null && !desiredPlugins.Contains(x))
+						.ToList();
 
-						if (!desiredPlugins.Contains(plugin))
-						{
-							EnlistedPluginLog.m_ostActivePlugins.RemoveAt(index);
-							currentPlugins.Remove(plugin);
-						}
-					}
+					EnlistedPluginLog.m_ostActivePlugins.RemoveRange(pluginsToRemove);
+					currentPlugins.ExceptWith(pluginsToRemove);
 
 					foreach (Plugin plugin in m_ostActivePlugins)
 					{
@@ -207,6 +203,10 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 						break;
 					case NotifyCollectionChangedAction.Reset:
 						m_ostActivePlugins.Clear();
+
+						foreach (Plugin plugin in EnlistedPluginLog.m_ostActivePlugins)
+							m_ostActivePlugins.Add(plugin);
+
 						break;
 				}
 			}

@@ -128,12 +128,14 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			Trace.TraceInformation("Loading Plugin Order...");
 			Trace.Indent();
 			m_oclOrderedPlugins = new ThreadSafeObservableList<Plugin>();
+			HashSet<Plugin> seenPlugins = new HashSet<Plugin>(PluginComparer.Filename);
+
 			if (LogSerializer != null)
 				foreach (string strPlugin in LogSerializer.LoadPluginOrder())
 				{
 					Plugin plgPlugin = ManagedPluginRegistry.GetPlugin(strPlugin);
 					Trace.TraceInformation("Loading {0} (IsNull={1})", strPlugin, (plgPlugin == null));
-					if ((plgPlugin != null) && !m_oclOrderedPlugins.Contains(plgPlugin))
+					if (plgPlugin != null && seenPlugins.Add(plgPlugin))
 						m_oclOrderedPlugins.Add(plgPlugin);
 				}
 			Trace.Unindent();
@@ -224,6 +226,15 @@ namespace Nexus.Client.PluginManagement.OrderLog
 		public void RemovePlugin(Plugin p_plgPlugin)
 		{
 			GetEnlistment().RemovePlugin(p_plgPlugin);
+		}
+
+		/// <summary>
+		/// Removes multiple plugins from the order list in one update.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins to remove from the order list.</param>
+		public void RemovePlugins(IList<Plugin> p_lstPlugins)
+		{
+			GetEnlistment().RemovePlugins(p_lstPlugins);
 		}
 
 		#endregion

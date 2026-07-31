@@ -245,11 +245,11 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			}
 
 			/// <summary>
-			/// Determines whether two plugin sequences contain the same plugins in the same filename-based order.
+			/// Determines whether two plugin sequences contain the same registered plugin instances in the same filename-based order.
 			/// </summary>
 			/// <param name="p_lstFirst">The first plugin sequence.</param>
 			/// <param name="p_lstSecond">The second plugin sequence.</param>
-			/// <returns><c>true</c> if both sequences contain the same plugin order; otherwise, <c>false</c>.</returns>
+			/// <returns><c>true</c> if both sequences contain the same plugin instances and order; otherwise, <c>false</c>.</returns>
 			private static bool PluginOrdersEqual(IList<Plugin> p_lstFirst, IList<Plugin> p_lstSecond)
 			{
 				if (ReferenceEquals(p_lstFirst, p_lstSecond))
@@ -262,8 +262,11 @@ namespace Nexus.Client.PluginManagement.OrderLog
 
 				for (int index = 0; index < p_lstFirst.Count; index++)
 				{
-					if (!comparer.Equals(p_lstFirst[index], p_lstSecond[index]))
+					if (!comparer.Equals(p_lstFirst[index], p_lstSecond[index]) ||
+						!ReferenceEquals(p_lstFirst[index], p_lstSecond[index]))
+					{
 						return false;
+					}
 				}
 
 				return true;
@@ -359,7 +362,29 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			/// <param name="p_plgPlugin">The plugin to remove from the order list.</param>
 			public void RemovePlugin(Plugin p_plgPlugin)
 			{
-				m_oclOrderedPlugins.Remove(p_plgPlugin, PluginComparer.Filename);
+				RemovePlugins(p_plgPlugin == null ? new List<Plugin>() : new List<Plugin> { p_plgPlugin });
+			}
+
+			/// <summary>
+			/// Removes multiple plugins from the transaction-local order in one linear reconstruction.
+			/// </summary>
+			/// <param name="p_lstPlugins">The plugins to remove.</param>
+			public void RemovePlugins(IList<Plugin> p_lstPlugins)
+			{
+				HashSet<Plugin> hstPluginsToRemove = new HashSet<Plugin>(p_lstPlugins ?? new List<Plugin>(), PluginComparer.Filename);
+
+				if (hstPluginsToRemove.Count == 0)
+					return;
+
+				List<Plugin> lstRemainingPlugins = m_oclOrderedPlugins
+					.Where(x => x != null && !hstPluginsToRemove.Contains(x))
+					.ToList();
+
+				if (lstRemainingPlugins.Count == m_oclOrderedPlugins.Count)
+					return;
+
+				ReplaceOrderedPlugins(m_oclOrderedPlugins, lstRemainingPlugins);
+
 				if (CurrentTransaction == null)
 					Commit();
 				else

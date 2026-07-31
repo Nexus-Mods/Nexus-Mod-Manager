@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.Plugins;
@@ -18,6 +19,8 @@ namespace Nexus.Client.PluginManagement
 		{
 			private Set<Plugin> m_setManagedPlugins = new Set<Plugin>(PluginComparer.Filename);
 			private Set<Plugin> m_setRemovedPlugins = new Set<Plugin>(PluginComparer.Filename);
+			private Dictionary<string, Plugin> m_dicManagedPlugins = new Dictionary<string, Plugin>(StringComparer.OrdinalIgnoreCase);
+			private HashSet<string> m_hstRemovedPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			private bool m_booEnlisted = false;
 
 			#region Properties
@@ -59,13 +62,24 @@ namespace Nexus.Client.PluginManagement
 			public void Commit()
 			{
 				foreach (Plugin plgNew in m_setManagedPlugins)
+				{
 					EnlistedPluginRegistry.m_ostRegisteredPlugins.Add(plgNew);
+					EnlistedPluginRegistry.m_dicRegisteredPlugins[plgNew.Filename] = plgNew;
+				}
+
+				EnlistedPluginRegistry.m_ostRegisteredPlugins.RemoveRange(m_setRemovedPlugins);
+
 				foreach (Plugin plgRemoved in m_setRemovedPlugins)
-					EnlistedPluginRegistry.m_ostRegisteredPlugins.Remove(plgRemoved);
+				{
+					Plugin removedPlugin;
+					EnlistedPluginRegistry.m_dicRegisteredPlugins.TryRemove(plgRemoved.Filename, out removedPlugin);
+				}
 				
 				m_booEnlisted = false;
 				m_setManagedPlugins.Clear();
 				m_setRemovedPlugins.Clear();
+				m_dicManagedPlugins.Clear();
+				m_hstRemovedPluginPaths.Clear();
 			}
 
 			/// <summary>
@@ -110,6 +124,8 @@ namespace Nexus.Client.PluginManagement
 				m_booEnlisted = false;
 				m_setManagedPlugins.Clear();
 				m_setRemovedPlugins.Clear();
+				m_dicManagedPlugins.Clear();
+				m_hstRemovedPluginPaths.Clear();
 				m_dicEnlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
 				enlistment.Done();
 			}
@@ -136,18 +152,31 @@ namespace Nexus.Client.PluginManagement
 			/// <c>false</c> otherwise.</returns>
 			public bool RegisterPlugin(string p_strPluginPath)
 			{
-				Plugin plgPlugin = null;
-				if (m_setManagedPlugins.Contains(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase)))
+				Plugin plgPlugin;
+
+				if (String.IsNullOrWhiteSpace(p_strPluginPath))
+					return false;
+
+				if (m_dicManagedPlugins.ContainsKey(p_strPluginPath))
 					return true;
+
+				if (!m_hstRemovedPluginPaths.Contains(p_strPluginPath) && EnlistedPluginRegistry.m_dicRegisteredPlugins.ContainsKey(p_strPluginPath))
+					return true;
+
 				plgPlugin = EnlistedPluginRegistry.PluginFactory.CreatePlugin(p_strPluginPath);
 				if (plgPlugin == null)
 					return false;
+
 				m_setManagedPlugins.Add(plgPlugin);
+				m_dicManagedPlugins[plgPlugin.Filename] = plgPlugin;
 				m_setRemovedPlugins.Remove(plgPlugin);
+				m_hstRemovedPluginPaths.Remove(plgPlugin.Filename);
+
 				if (CurrentTransaction == null)
 					Commit();
 				else
 					Enlist();
+
 				return true;
 			}
 
@@ -157,8 +186,29 @@ namespace Nexus.Client.PluginManagement
 			/// <param name="p_plgPlugin">The plugin to unregister.</param>
 			public void UnregisterPlugin(Plugin p_plgPlugin)
 			{
-				m_setManagedPlugins.Remove(p_plgPlugin);
-				m_setRemovedPlugins.Add(p_plgPlugin);
+				UnregisterPlugins(p_plgPlugin == null ? new List<Plugin>() : new List<Plugin> { p_plgPlugin });
+			}
+
+			/// <summary>
+			/// Tracks multiple plugin removals and enlists once.
+			/// </summary>
+			/// <param name="p_lstPlugins">The plugins to unregister.</param>
+			public void UnregisterPlugins(IList<Plugin> p_lstPlugins)
+			{
+				bool booChanged = false;
+
+				foreach (Plugin plgPlugin in (p_lstPlugins ?? new List<Plugin>()).Where(x => x != null).Distinct(PluginComparer.Filename))
+				{
+					m_setManagedPlugins.Remove(plgPlugin);
+					m_dicManagedPlugins.Remove(plgPlugin.Filename);
+					m_setRemovedPlugins.Add(plgPlugin);
+					m_hstRemovedPluginPaths.Add(plgPlugin.Filename);
+					booChanged = true;
+				}
+
+				if (!booChanged)
+					return;
+
 				if (CurrentTransaction == null)
 					Commit();
 				else
@@ -173,13 +223,17 @@ namespace Nexus.Client.PluginManagement
 			/// <c>null</c> if there is no registered plugin with the given path.</returns>
 			public Plugin GetPlugin(string p_strPluginPath)
 			{
-				if (m_setRemovedPlugins.Contains(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase)))
+				Plugin plgPlugin;
+
+				if (String.IsNullOrWhiteSpace(p_strPluginPath) || m_hstRemovedPluginPaths.Contains(p_strPluginPath))
 					return null;
-				Plugin plgPlugin = m_setManagedPlugins.FirstOrDefault(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase));
-				if (plgPlugin == null)
-					plgPlugin = EnlistedPluginRegistry.m_ostRegisteredPlugins.FirstOrDefault(x => x.Filename.Equals(p_strPluginPath, StringComparison.OrdinalIgnoreCase));
-				return plgPlugin;
+
+				if (m_dicManagedPlugins.TryGetValue(p_strPluginPath, out plgPlugin))
+					return plgPlugin;
+
+				return EnlistedPluginRegistry.m_dicRegisteredPlugins.TryGetValue(p_strPluginPath, out plgPlugin) ? plgPlugin : null;
 			}
+
 		}
 	}
 }

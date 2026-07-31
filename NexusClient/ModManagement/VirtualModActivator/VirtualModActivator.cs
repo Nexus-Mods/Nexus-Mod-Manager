@@ -2121,7 +2121,7 @@
 			RemoveFileLink(p_ivlVirtualLink, p_modMod, true);
 		}
 
-		protected void RemoveFileLink(IVirtualModLink p_ivlVirtualLink, IMod p_modMod, bool p_booPurging)
+		protected void RemoveFileLink(IVirtualModLink p_ivlVirtualLink, IMod p_modMod, bool p_booPurging, ISet<string> p_setPluginsToRemove = null)
 		{
 			IMod modCheck;
 
@@ -2145,7 +2145,10 @@
 					if (PluginManager.IsActivatiblePluginFile(strLinkPath) &&
 						PluginManager.IsPluginRegistered(strLinkPath))
 					{
-						PluginManager.RemovePlugin(strLinkPath);
+						if (p_setPluginsToRemove == null)
+							PluginManager.RemovePlugin(strLinkPath);
+						else
+							p_setPluginsToRemove.Add(strLinkPath);
 					}
 				}
 
@@ -2439,15 +2442,19 @@
 			ReportVirtualDisableProgress(p_actProgress, "Disabling deployed files...", 0, cqLinks.Count);
 
 			int intProcessed = 0;
+			HashSet<string> hstPluginsToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			using (BeginModInfoUpdateBatch())
 			using (BeginVirtualLinkUpdateBatch(0))
 			{
 				foreach (IVirtualModLink Link in cqLinks)
 				{
-					RemoveFileLink(Link, p_modMod, p_booPurging);
+					RemoveFileLink(Link, p_modMod, p_booPurging, hstPluginsToRemove);
 					intProcessed++;
 					ReportVirtualDisableProgress(p_actProgress, Link == null ? "Disabling deployed files..." : Link.VirtualModPath, intProcessed, cqLinks.Count);
 				}
+
+				if (PluginManager != null && hstPluginsToRemove.Count > 0)
+					PluginManager.RemovePlugins(hstPluginsToRemove.ToList());
 			}
 
 			TxFileManager tfmFileManager = new TxFileManager();
