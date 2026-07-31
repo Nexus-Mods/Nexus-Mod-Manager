@@ -676,6 +676,10 @@
 			XtraMessageBox.Show(this, message.ToString(), "Plugin sorting restrictions", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 
+		/// <summary>
+		/// Applies a plugin order change while suppressing intermediate collection refreshes and then synchronizes the existing grid rows with the resulting order.
+		/// </summary>
+		/// <param name="changeAction">The backend plugin order operation to execute.</param>
 		private void ApplyPluginOrderChange(Action changeAction)
 		{
 			if (changeAction == null)
@@ -690,13 +694,93 @@
 			finally
 			{
 				_suppressManagedPluginsRefresh = false;
+				_managedPluginsRefreshPending = false;
 
-				// Perform exactly one UI rebuild after the backend finishes.
-				RebuildRows();
+				RefreshRowsAfterPluginOrderChange();
 			}
 
 			PluginMoved?.Invoke(this, EventArgs.Empty);
 			UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Reorders the existing grid rows to match the authoritative plugin order and refreshes only values affected by ordering.
+		/// </summary>
+		private void RefreshRowsAfterPluginOrderChange()
+		{
+			if (_viewModel == null || _pluginManager == null)
+			{
+				RebuildRows();
+				return;
+			}
+
+			List<Plugin> managedPlugins = _viewModel.ManagedPlugins
+				.Where(x => x != null)
+				.ToList();
+
+			/*
+			 * An order-only operation should not add or remove plugins.
+			 * Fall back to a complete rebuild if the collections no longer match.
+			 */
+			if (managedPlugins.Count != _rows.Count ||
+				managedPlugins.Any(x => !_rowsByPlugin.ContainsKey(x)))
+			{
+				RebuildRows();
+				return;
+			}
+
+			GridViewState state = CaptureGridViewState();
+			PluginSnapshot snapshot = _pluginManager.CurrentSnapshot;
+			List<PluginManagerDXRow> orderedRows = new List<PluginManagerDXRow>(managedPlugins.Count);
+
+			_gridView.BeginDataUpdate();
+
+			try
+			{
+				_rows.RaiseListChangedEvents = false;
+
+				foreach (Plugin plugin in managedPlugins)
+				{
+					PluginManagerDXRow row = _rowsByPlugin[plugin];
+					PluginSnapshotEntry entry = snapshot == null ? null : snapshot.GetEntry(plugin);
+
+					row.LoadOrder = entry == null
+						? String.Empty
+						: entry.ModIndex;
+
+					row.Index = entry == null || !entry.AllocatedIndex.HasValue
+						? String.Empty
+						: (entry.AllocatedIndex.Value + 1).ToString();
+
+					row.PluginType = entry == null
+						? plugin.EffectiveTypeDisplay
+						: entry.EffectiveType;
+
+					row.Status = GetStatus(plugin, entry);
+					row.StatusSeverity = GetHighestDiagnosticSeverity(entry);
+
+					orderedRows.Add(row);
+				}
+
+				/*
+				 * Reuse the existing row objects and emit one Reset instead of
+				 * removing, recreating and rebinding every plugin independently.
+				 */
+				_rows.Clear();
+
+				foreach (PluginManagerDXRow row in orderedRows)
+					_rows.Add(row);
+			}
+			finally
+			{
+				_rows.RaiseListChangedEvents = true;
+				_rows.ResetBindings();
+				_gridView.EndDataUpdate();
+			}
+
+			RestoreGridViewState(state);
+			UpdatePluginInfo();
+			UpdateCommandState();
 		}
 
 		private static string HtmlEncode(string value)

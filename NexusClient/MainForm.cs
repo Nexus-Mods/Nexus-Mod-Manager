@@ -1253,24 +1253,21 @@
 		}
 
 		/// <summary>
-		/// Updates the Plugins Counter
+		/// Schedules the current plugin load order to be saved to the active profile after a plugin ordering change.
 		/// </summary>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The event arguments.</param>
 		private void pmcPluginManager_PluginMoved(object sender, EventArgs e)
 		{
-			if (ViewModel.ProfileManager.CurrentProfile != null && !ViewModel.IsSwitching)
+			if (ViewModel == null ||
+				ViewModel.IsSwitching ||
+				!ViewModel.GameMode.UsesPlugins ||
+				ViewModel.ProfileManager.CurrentProfile == null)
 			{
-				if (ViewModel.GameMode.UsesPlugins)
-				{
-					var bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-					ViewModel.ProfileManager.UpdateProfile(ViewModel.ProfileManager.CurrentProfile, null, bteLoadOrder, null, out var error);
-
-					if (!string.IsNullOrEmpty(error))
-					{
-						error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-						MessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-					}
-				}
+				return;
 			}
+
+			ScheduleActivePluginsProfileSave();
 		}
 
 		/// <summary>
