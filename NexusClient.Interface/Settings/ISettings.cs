@@ -238,6 +238,12 @@
 		PerGameModeSettings<bool> CompletedSetup { get; }
 
 		/// <summary>
+		/// Gets whether plugin sorting and dependency restrictions are disabled for each game mode.
+		/// </summary>
+		/// <value>A dictionary mapping game mode identifiers to their plugin restriction state.</value>
+		PerGameModeSettings<bool> PluginRestrictionsDisabled { get; }
+
+		/// <summary>
 		/// Gets the dictionary of custom game-mode-specific settings.
 		/// </summary>
 		/// <value>The dictionary of custom game-mode-specific settings.</value>

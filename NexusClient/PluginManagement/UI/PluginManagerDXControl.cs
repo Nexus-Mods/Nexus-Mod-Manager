@@ -51,6 +51,7 @@
 		private readonly BarButtonItem _restoreLoadOrderButton;
 		private readonly BarSubItem _exportButton;
 		private readonly BarSubItem _importButton;
+		private readonly BarCheckItem _disablePluginSortingRestrictionsToggle;
 
 		private readonly GridControl _gridControl;
         private readonly GridView _gridView;
@@ -65,6 +66,7 @@
         private Point _dragStartPoint = Point.Empty;
         private int _dragSourceRowHandle = GridControl.InvalidRowHandle;
         private bool _updatingActiveCell;
+		private bool _synchronizingPluginRestrictionsToggle;
 		private bool _suppressManagedPluginsRefresh;
 		private bool _managedPluginsRefreshPending;
 		private bool _activePluginsRefreshPending;
@@ -177,6 +179,15 @@
 			_importButton.AddItem(importFromClipboardItem);
 			_importButton.AddItem(importFromFileItem);
 
+			_disablePluginSortingRestrictionsToggle = new BarCheckItem(_barManager)
+			{
+				Caption = "Disable Plugin Sorting Restrictions",
+				Hint = "Allow all non-critical, user-managed plugins to be freely reordered, enabled or disabled while retaining dependency warnings.",
+				CheckBoxVisibility = CheckBoxVisibility.BeforeText
+			};
+
+			_disablePluginSortingRestrictionsToggle.CheckedChanged += PluginRestrictionsToggleCheckedChanged;
+
 			_toolbar.AddItem(_moveUpButton);
 			_toolbar.AddItem(_moveDownButton);
 			_toolbar.AddItem(_restoreLoadOrderButton);
@@ -186,6 +197,7 @@
 
 			_toolbar.AddItem(_exportButton).BeginGroup = true;
 			_toolbar.AddItem(_importButton);
+			_toolbar.AddItem(_disablePluginSortingRestrictionsToggle).BeginGroup = true;
 
 			_gridControl = new GridControl { Dock = DockStyle.Fill };
             _gridView = new GridView(_gridControl);
@@ -347,7 +359,9 @@
                     QueuePluginManagerSplitterRestore();
                     UpdateCommandState();
                 }
-            }
+
+				SynchronizePluginRestrictionsToggle();
+			}
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -356,9 +370,10 @@
             get { return _pluginManager; }
             set
             {
-                _pluginManager = value;
-                RebuildRows();
-            }
+				_pluginManager = value;
+				SynchronizePluginRestrictionsToggle();
+				RebuildRows();
+			}
         }
 
         private void SetupGrid()
@@ -520,10 +535,135 @@
             row.PluginType = entry == null ? plugin.EffectiveTypeDisplay : entry.EffectiveType;
             row.Owner = _viewModel.GetPluginOwner(plugin);
             row.Status = GetStatus(plugin, entry);
-            row.NotifyAll();
+			row.StatusSeverity = GetHighestDiagnosticSeverity(entry);
+			row.NotifyAll();
         }
 
 		#region Helpers
+
+		/// <summary>
+		/// Synchronizes the restriction toggle with the authoritative state exposed by the view model.
+		/// </summary>
+		private void SynchronizePluginRestrictionsToggle()
+		{
+			bool restrictionsDisabled = _viewModel != null && _viewModel.PluginRestrictionsDisabled;
+
+			_disablePluginSortingRestrictionsToggle.Enabled = _viewModel != null && _pluginManager != null;
+
+			if (_disablePluginSortingRestrictionsToggle.Checked == restrictionsDisabled)
+				return;
+
+			_synchronizingPluginRestrictionsToggle = true;
+
+			try
+			{
+				_disablePluginSortingRestrictionsToggle.Checked = restrictionsDisabled;
+			}
+			finally
+			{
+				_synchronizingPluginRestrictionsToggle = false;
+			}
+		}
+
+		/// <summary>
+		/// Applies a plugin restriction mode change requested through the toolbar toggle.
+		/// </summary>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The item click event arguments.</param>
+		private void PluginRestrictionsToggleCheckedChanged(object sender, ItemClickEventArgs e)
+		{
+			if (_synchronizingPluginRestrictionsToggle)
+				return;
+
+			if (_viewModel == null || _pluginManager == null)
+			{
+				SynchronizePluginRestrictionsToggle();
+				return;
+			}
+
+			bool requestedDisabled = _disablePluginSortingRestrictionsToggle.Checked;
+			List<Plugin> previousOrder = new List<Plugin>(_viewModel.ManagedPlugins);
+			PluginSnapshot validationSnapshot;
+
+			if (!_viewModel.TrySetPluginRestrictionsDisabled(requestedDisabled, out validationSnapshot))
+			{
+				SynchronizePluginRestrictionsToggle();
+				ShowPluginRestrictionTransitionBlockedMessage(validationSnapshot);
+				RebuildRows();
+				return;
+			}
+
+			SynchronizePluginRestrictionsToggle();
+			RebuildRows();
+
+			if (HasPluginOrderChanged(previousOrder, _viewModel.ManagedPlugins))
+				PluginMoved?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Determines whether the plugin order changed between two snapshots.
+		/// </summary>
+		/// <param name="p_lstPreviousOrder">The order before the operation.</param>
+		/// <param name="p_lstCurrentOrder">The order after the operation.</param>
+		/// <returns><c>true</c> if the order changed; otherwise, <c>false</c>.</returns>
+		private static bool HasPluginOrderChanged(IList<Plugin> p_lstPreviousOrder, IList<Plugin> p_lstCurrentOrder)
+		{
+			if (p_lstPreviousOrder == null || p_lstCurrentOrder == null || p_lstPreviousOrder.Count != p_lstCurrentOrder.Count)
+				return true;
+
+			for (int index = 0; index < p_lstPreviousOrder.Count; index++)
+			{
+				if (!PluginComparer.Filename.Equals(p_lstPreviousOrder[index], p_lstCurrentOrder[index]))
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
+		/// Shows the validation errors that prevented plugin sorting restrictions from being re-enabled.
+		/// </summary>
+		/// <param name="p_psnSnapshot">The strict validation snapshot that rejected the transition.</param>
+		private void ShowPluginRestrictionTransitionBlockedMessage(PluginSnapshot p_psnSnapshot)
+		{
+			List<string> errors = p_psnSnapshot == null
+				? new List<string>()
+				: p_psnSnapshot.Diagnostics
+					.Where(x => x.Severity == PluginValidationSeverity.Error)
+					.Select(x =>
+					{
+						string pluginName = x.Plugin == null ? "Plugin state" : Path.GetFileName(x.Plugin.Filename);
+						return pluginName + ": " + x.Message;
+					})
+					.Distinct(StringComparer.OrdinalIgnoreCase)
+					.ToList();
+
+			StringBuilder message = new StringBuilder();
+
+			message.AppendLine("Plugin sorting restrictions cannot be re-enabled because the current plugin state is not valid under the normal restrictions.");
+			message.AppendLine();
+			message.AppendLine("Correct the following issues first:");
+
+			foreach (string error in errors.Take(20))
+				message.AppendLine("- " + error);
+
+			if (errors.Count > 20)
+			{
+				message.AppendLine();
+				message.AppendFormat("...and {0} additional issue(s).", errors.Count - 20);
+				message.AppendLine();
+			}
+
+			if (errors.Count == 0)
+			{
+				message.AppendLine("- The plugin manager rejected the current state without returning a specific validation error.");
+			}
+
+			message.AppendLine();
+			message.Append("The unrestricted mode remains enabled.");
+
+			XtraMessageBox.Show(this, message.ToString(), "Plugin sorting restrictions", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+		}
 
 		private void ApplyPluginOrderChange(Action changeAction)
 		{
@@ -560,14 +700,37 @@
 				.Replace("\"", "&quot;");
 		}
 
-		private bool IsPluginLocked(Plugin plugin)
-        {
-            return plugin != null
-                && _viewModel != null
-                && !_viewModel.CanChangeActiveState(plugin);
-        }
+		/// <summary>
+		/// Determines whether the active state of the specified plugin is protected.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to inspect.</param>
+		/// <returns><c>true</c> if the plugin active state cannot be changed; otherwise, <c>false</c>.</returns>
+		private bool IsPluginActivationLocked(Plugin p_plgPlugin)
+		{
+			return p_plgPlugin != null && _viewModel != null && !_viewModel.CanChangeActiveState(p_plgPlugin);
+		}
 
-        private List<Plugin> GetActiveDependentPlugins(Plugin plugin)
+		/// <summary>
+		/// Determines whether the load-order position of the specified plugin is protected.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to inspect.</param>
+		/// <returns><c>true</c> if the plugin cannot be reordered; otherwise, <c>false</c>.</returns>
+		private bool IsPluginOrderLocked(Plugin p_plgPlugin)
+		{
+			return p_plgPlugin != null && _viewModel != null && !_viewModel.CanChangePluginOrder(p_plgPlugin);
+		}
+
+		/// <summary>
+		/// Determines whether the specified plugin is protected from both activation and ordering changes.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to inspect.</param>
+		/// <returns><c>true</c> if the plugin is fully protected; otherwise, <c>false</c>.</returns>
+		private bool IsPluginFullyLocked(Plugin p_plgPlugin)
+		{
+			return IsPluginActivationLocked(p_plgPlugin) && IsPluginOrderLocked(p_plgPlugin);
+		}
+
+		private List<Plugin> GetActiveDependentPlugins(Plugin plugin)
         {
             if (plugin == null || _viewModel == null)
                 return new List<Plugin>();
@@ -630,15 +793,10 @@
                 .ToList();
         }
 
-        private bool CanApplyRequestedActiveState(
-            Plugin plugin,
-            bool requestedActive,
-            bool showMessage)
+        private bool CanApplyRequestedActiveState(Plugin plugin, bool requestedActive, bool showMessage)
         {
-            if (plugin == null ||
-                _viewModel == null ||
-                IsPluginLocked(plugin))
-            {
+			if (plugin == null || _viewModel == null || IsPluginActivationLocked(plugin))
+			{
                 return false;
             }
 
@@ -648,7 +806,10 @@
             if (currentlyActive == requestedActive)
                 return true;
 
-            if (requestedActive)
+			if (_viewModel.PluginRestrictionsDisabled)
+				return true;
+
+			if (requestedActive)
             {
                 List<string> missingMasters =
                     GetMissingMasters(plugin);
@@ -765,36 +926,42 @@
                 MessageBoxIcon.Warning);
         }
 
-        private bool ContainsLockedPlugin(IEnumerable<Plugin> plugins)
-        {
-            return plugins != null && plugins.Any(IsPluginLocked);
-        }
+		/// <summary>
+		/// Determines whether a plugin collection contains a plugin whose order is protected.
+		/// </summary>
+		/// <param name="p_enmPlugins">The plugins to inspect.</param>
+		/// <returns><c>true</c> if an order-protected plugin is present; otherwise, <c>false</c>.</returns>
+		private bool ContainsOrderLockedPlugin(IEnumerable<Plugin> p_enmPlugins)
+		{
+			return p_enmPlugins != null && p_enmPlugins.Any(IsPluginOrderLocked);
+		}
 
-        private bool PreservesLockedPluginPositions(
-            IList<Plugin> currentOrder,
-            IList<Plugin> proposedOrder)
-        {
-            for (int index = 0; index < currentOrder.Count; index++)
-            {
-                Plugin plugin = currentOrder[index];
+		/// <summary>
+		/// Determines whether a proposed order preserves every order-protected plugin position.
+		/// </summary>
+		/// <param name="p_lstCurrentOrder">The current plugin order.</param>
+		/// <param name="p_lstProposedOrder">The proposed plugin order.</param>
+		/// <returns><c>true</c> if protected positions are preserved; otherwise, <c>false</c>.</returns>
+		private bool PreservesOrderLockedPluginPositions(IList<Plugin> p_lstCurrentOrder, IList<Plugin> p_lstProposedOrder)
+		{
+			for (int index = 0; index < p_lstCurrentOrder.Count; index++)
+			{
+				Plugin plugin = p_lstCurrentOrder[index];
 
-                if (IsPluginLocked(plugin) &&
-                    proposedOrder.IndexOf(plugin) != index)
-                {
-                    return false;
-                }
-            }
+				if (IsPluginOrderLocked(plugin) && p_lstProposedOrder.IndexOf(plugin) != index)
+					return false;
+			}
 
-            return true;
-        }
+			return true;
+		}
 
-        private bool CanMoveSelectionAcrossOneRow(
+		private bool CanMoveSelectionAcrossOneRow(
             IList<Plugin> selectedPlugins,
             int direction)
         {
             if (selectedPlugins == null ||
                 selectedPlugins.Count == 0 ||
-                ContainsLockedPlugin(selectedPlugins))
+                ContainsOrderLockedPlugin(selectedPlugins))
             {
                 return false;
             }
@@ -811,7 +978,7 @@
                 {
                     if (selection.Contains(currentOrder[index]) &&
                         !selection.Contains(currentOrder[index - 1]) &&
-                        IsPluginLocked(currentOrder[index - 1]))
+						IsPluginActivationLocked(currentOrder[index - 1]))
                     {
                         return false;
                     }
@@ -823,7 +990,7 @@
                 {
                     if (selection.Contains(currentOrder[index]) &&
                         !selection.Contains(currentOrder[index + 1]) &&
-                        IsPluginLocked(currentOrder[index + 1]))
+						IsPluginActivationLocked(currentOrder[index + 1]))
                     {
                         return false;
                     }
@@ -833,22 +1000,53 @@
             return true;
         }
 
-        private string GetStatus(Plugin plugin, PluginSnapshotEntry entry)
-        {
-            if (IsPluginLocked(plugin))
-                return "Locked";
-            if (entry != null && entry.HasErrors)
-                return String.Join("; ", entry.Diagnostics.Where(x => x.Severity == PluginValidationSeverity.Error).Select(x => x.Message).ToArray());
-            if (plugin.Masters.Any(x => !_viewModel.PluginExists(x)))
-                return "Missing master";
-            if (plugin.Masters.Any(x => !_viewModel.PluginIsActive(x)))
-                return "Inactive master";
-            return String.Empty;
-        }
+		/// <summary>
+		/// Builds the status text displayed for the specified plugin.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to describe.</param>
+		/// <param name="p_pseEntry">The current snapshot entry.</param>
+		/// <returns>The status text to display.</returns>
+		private string GetStatus(Plugin p_plgPlugin, PluginSnapshotEntry p_pseEntry)
+		{
+			if (IsPluginFullyLocked(p_plgPlugin))
+				return "Locked";
 
-        #endregion
+			if (p_pseEntry == null)
+				return String.Empty;
 
-        private Plugin GetFocusedPlugin()
+			return String.Join(
+				"; ",
+				p_pseEntry.Diagnostics
+					.Where(x => x.Severity == PluginValidationSeverity.Error || x.Severity == PluginValidationSeverity.Warning)
+					.OrderByDescending(x => x.Severity)
+					.Select(x => x.Message)
+					.Where(x => !String.IsNullOrWhiteSpace(x))
+					.Distinct(StringComparer.OrdinalIgnoreCase)
+					.ToArray());
+		}
+
+		/// <summary>
+		/// Gets the highest validation severity associated with a snapshot entry.
+		/// </summary>
+		/// <param name="p_pseEntry">The snapshot entry to inspect.</param>
+		/// <returns>The highest severity, or <c>null</c> when no diagnostic is present.</returns>
+		private static PluginValidationSeverity? GetHighestDiagnosticSeverity(PluginSnapshotEntry p_pseEntry)
+		{
+			if (p_pseEntry == null || p_pseEntry.Diagnostics.Count == 0)
+				return null;
+
+			if (p_pseEntry.Diagnostics.Any(x => x.Severity == PluginValidationSeverity.Error))
+				return PluginValidationSeverity.Error;
+
+			if (p_pseEntry.Diagnostics.Any(x => x.Severity == PluginValidationSeverity.Warning))
+				return PluginValidationSeverity.Warning;
+
+			return PluginValidationSeverity.Info;
+		}
+
+		#endregion
+
+		private Plugin GetFocusedPlugin()
         {
             PluginManagerDXRow row = _gridView.GetFocusedRow() as PluginManagerDXRow;
             return row == null ? null : row.Plugin;
@@ -969,7 +1167,7 @@
                 _gridView.GetRow(e.RowHandle)
                     as PluginManagerDXRow;
 
-            if (row != null && IsPluginLocked(row.Plugin))
+            if (row != null && IsPluginActivationLocked(row.Plugin))
                 e.RepositoryItem = _lockedActiveCheckEdit;
         }
 
@@ -987,7 +1185,7 @@
                 _gridView.GetFocusedRow()
                     as PluginManagerDXRow;
 
-            if (row == null || IsPluginLocked(row.Plugin))
+            if (row == null || IsPluginActivationLocked(row.Plugin))
                 e.Cancel = true;
         }
 
@@ -1002,7 +1200,7 @@
                 _gridView.GetFocusedRow()
                     as PluginManagerDXRow;
 
-            if (row == null || IsPluginLocked(row.Plugin))
+            if (row == null || IsPluginActivationLocked(row.Plugin))
             {
                 e.Cancel = true;
                 return;
@@ -1093,7 +1291,7 @@
 
 			foreach (Plugin plugin in selected)
 			{
-				if (IsPluginLocked(plugin))
+				if (IsPluginActivationLocked(plugin))
 					continue;
 
 				bool requestedActive = !_viewModel.ActivePlugins.Contains(plugin);
@@ -1126,7 +1324,7 @@
 			// Prevent dragging if the user grabs a locked plugin
 			PluginManagerDXRow draggedRow = _gridView.GetRow(draggedHandles[0]) as PluginManagerDXRow;
 
-			if (draggedRow == null || IsPluginLocked(draggedRow.Plugin))
+			if (draggedRow == null || IsPluginActivationLocked(draggedRow.Plugin))
 			{
 				e.Action = DragDropActions.None;
 				e.Cursor = System.Windows.Forms.Cursors.No;
@@ -1155,7 +1353,7 @@
 			PluginManagerDXRow draggedRow = targetView.GetRow(draggedHandles[0]) as PluginManagerDXRow;
 
 			// Legacy Early Exit Checks
-			if (draggedRow == null || _pluginManager == null || IsPluginLocked(draggedRow.Plugin))
+			if (draggedRow == null || _pluginManager == null || IsPluginActivationLocked(draggedRow.Plugin))
 			{
 				RebuildRows();
 				e.Handled = true;
@@ -1203,7 +1401,7 @@
 			proposedOrder.Insert(targetIndex, draggedRow.Plugin);
 
 			// Final safety check for locked mods
-			if (!PreservesLockedPluginPositions(currentOrder, proposedOrder))
+			if (!PreservesOrderLockedPluginPositions(currentOrder, proposedOrder))
 			{
 				RebuildRows();
 				e.Handled = true;
@@ -1236,7 +1434,7 @@
                 PluginManagerDXRow row =
                     _gridView.GetRow(hit.RowHandle) as PluginManagerDXRow;
 
-                if (row != null && !IsPluginLocked(row.Plugin))
+                if (row != null && !IsPluginActivationLocked(row.Plugin))
                 {
                     _dragStartPoint = e.Location;
                     _dragSourceRowHandle = hit.RowHandle;
@@ -1262,7 +1460,7 @@
             if (!dragRectangle.Contains(e.Location))
             {
                 PluginManagerDXRow row = _gridView.GetRow(_dragSourceRowHandle) as PluginManagerDXRow;
-                if (row != null && !IsPluginLocked(row.Plugin))
+                if (row != null && !IsPluginActivationLocked(row.Plugin))
                     _gridControl.DoDragDrop(row, DragDropEffects.Move);
                 _dragSourceRowHandle = GridControl.InvalidRowHandle;
             }
@@ -1276,7 +1474,7 @@
 
             e.Effect =
                 draggedRow != null &&
-                !IsPluginLocked(draggedRow.Plugin)
+                !IsPluginActivationLocked(draggedRow.Plugin)
                     ? DragDropEffects.Move
                     : DragDropEffects.None;
         }
@@ -1289,7 +1487,7 @@
 
             if (draggedRow == null ||
                 _pluginManager == null ||
-                IsPluginLocked(draggedRow.Plugin))
+				IsPluginActivationLocked(draggedRow.Plugin))
             {
                 RebuildRows();
                 return;
@@ -1334,7 +1532,7 @@
 
             proposedOrder.Insert(targetIndex, draggedRow.Plugin);
 
-            if (!PreservesLockedPluginPositions(currentOrder, proposedOrder))
+            if (!PreservesOrderLockedPluginPositions(currentOrder, proposedOrder))
             {
                 RebuildRows();
                 return;
@@ -1407,17 +1605,80 @@
 			BeginInvoke((Action)UpdateCommandState);
 		}
 
+		/// <summary>
+		/// Applies the visual status style to a plugin row.
+		/// </summary>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The row cell style event arguments.</param>
 		private void GridViewRowCellStyle(object sender, RowCellStyleEventArgs e)
-        {
-            PluginManagerDXRow row = _gridView.GetRow(e.RowHandle) as PluginManagerDXRow;
-            if (row == null || String.IsNullOrEmpty(row.Status))
-                return;
+		{
+			PluginManagerDXRow row = _gridView.GetRow(e.RowHandle) as PluginManagerDXRow;
 
-            if (row.Status == "Locked")
-                e.Appearance.ForeColor = SystemColors.GrayText;
-            else
-                e.Appearance.ForeColor = Color.DarkRed;
-        }
+			if (row == null || String.IsNullOrEmpty(row.Status))
+				return;
+
+			if (row.Status == "Locked")
+			{
+				e.Appearance.ForeColor = SystemColors.GrayText;
+				return;
+			}
+
+			if (row.StatusSeverity == PluginValidationSeverity.Error)
+			{
+				e.Appearance.ForeColor = Color.DarkRed;
+				return;
+			}
+
+			if (row.StatusSeverity == PluginValidationSeverity.Warning)
+				e.Appearance.ForeColor = Color.DarkOrange;
+		}
+
+		/// <summary>
+		/// Appends the current validation diagnostics for a plugin to its detail panel.
+		/// </summary>
+		/// <param name="p_sbrDetails">The detail text builder.</param>
+		/// <param name="p_plgPlugin">The plugin whose diagnostics should be appended.</param>
+		private void AppendPluginDiagnostics(StringBuilder p_sbrDetails, Plugin p_plgPlugin)
+		{
+			if (p_sbrDetails == null || p_plgPlugin == null || _pluginManager == null)
+				return;
+
+			PluginSnapshotEntry entry = _pluginManager.CurrentSnapshot.GetEntry(p_plgPlugin);
+
+			if (entry == null || entry.Diagnostics.Count == 0)
+				return;
+
+			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Error, "Errors");
+			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Warning, "Warnings");
+		}
+
+		/// <summary>
+		/// Appends diagnostics of a specific severity to the plugin detail text.
+		/// </summary>
+		/// <param name="p_sbrDetails">The detail text builder.</param>
+		/// <param name="p_lstDiagnostics">The diagnostics to inspect.</param>
+		/// <param name="p_pvsSeverity">The severity to append.</param>
+		/// <param name="p_strHeading">The section heading.</param>
+		private static void AppendPluginDiagnosticSection(StringBuilder p_sbrDetails, IList<PluginValidationDiagnostic> p_lstDiagnostics, PluginValidationSeverity p_pvsSeverity, string p_strHeading)
+		{
+			List<string> messages = p_lstDiagnostics
+				.Where(x => x.Severity == p_pvsSeverity)
+				.Select(x => x.Message)
+				.Where(x => !String.IsNullOrWhiteSpace(x))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+
+			if (messages.Count == 0)
+				return;
+
+			if (p_sbrDetails.Length > 0)
+				p_sbrDetails.Append("<br/><br/>");
+
+			p_sbrDetails.AppendFormat("<b>{0}:</b><br/>", HtmlEncode(p_strHeading));
+
+			foreach (string message in messages)
+				p_sbrDetails.AppendFormat("• {0}<br/>", HtmlEncode(message));
+		}
 
 		private void UpdatePluginInfo()
 		{
@@ -1427,7 +1688,7 @@
 			{
 				_pictureEdit.Image = null;
 				_pictureEdit.Visible = false;
-				_infoLabel.Text = String.Empty;
+				_infoLabel.Text = string.Empty;
 				return;
 			}
 
@@ -1440,17 +1701,19 @@
 
 			StringBuilder details = new StringBuilder();
 
-			if (!String.IsNullOrWhiteSpace(owner))
+			if (!string.IsNullOrWhiteSpace(owner))
 			{
 				details.AppendFormat(
 					"<b>Mod:</b> {0}<br/><br/>",
 					HtmlEncode(owner));
 			}
 
-			if (!String.IsNullOrWhiteSpace(description))
+			if (!string.IsNullOrWhiteSpace(description))
 				details.Append(description);
 
-            List<Plugin> activeDependents =
+			AppendPluginDiagnostics(details, plugin);
+
+			List<Plugin> activeDependents =
                 GetActiveDependentPlugins(plugin);
             if (activeDependents.Count > 0)
             {
@@ -1480,12 +1743,12 @@
 				selected = new List<Plugin> { focused };
 
 			bool canMoveUp =
-                _viewModel != null &&
-                selected.Count > 0 &&
-                CanMoveSelectionAcrossOneRow(selected, -1) &&
-                _viewModel.CanMovePluginUp(focused);
+				_viewModel != null &&
+				selected.Count > 0 &&
+				CanMoveSelectionAcrossOneRow(selected, -1) &&
+				_viewModel.CanMovePluginsUp(selected);
 
-            bool canMoveDown =
+			bool canMoveDown =
                 _viewModel != null &&
                 selected.Count > 0 &&
                 CanMoveSelectionAcrossOneRow(selected, 1) &&
@@ -1495,11 +1758,12 @@
 
             _restoreLoadOrderButton.Enabled = _gridView != null && _gridView.SortInfo.Count > 0;
 
-            _disableAllButton.Enabled = _viewModel != null && _viewModel.ActivePlugins.Count > 0;
-            _enableAllButton.Enabled = _viewModel != null && _viewModel.ManagedPlugins.Count > _viewModel.ActivePlugins.Count;
-            _exportButton.Enabled = _viewModel != null && _viewModel.CanExecuteExportCommands();
+			_disableAllButton.Enabled = _viewModel != null && _viewModel.ActivePlugins.Any(x => _viewModel.CanChangeActiveState(x));
+			_enableAllButton.Enabled = _viewModel != null && _viewModel.ManagedPlugins.Any(x => !_viewModel.ActivePlugins.Contains(x) && _viewModel.CanChangeActiveState(x));
+			_exportButton.Enabled = _viewModel != null && _viewModel.CanExecuteExportCommands();
             _importButton.Enabled = _viewModel != null && _viewModel.CanExecuteImportCommands();
-        }
+			_disablePluginSortingRestrictionsToggle.Enabled = _viewModel != null && _pluginManager != null;
+		}
 
         private void MoveSelectedUp(object sender, EventArgs e)
         {
@@ -1896,8 +2160,9 @@
             public string PluginType { get; set; }
             public string Owner { get; set; }
             public string Status { get; set; }
+			public PluginValidationSeverity? StatusSeverity { get; set; }
 
-            public void NotifyAll()
+			public void NotifyAll()
             {
                 OnPropertyChanged(ColActive);
                 OnPropertyChanged(ColLoadOrder);

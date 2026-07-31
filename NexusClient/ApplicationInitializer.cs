@@ -1,4 +1,4 @@
-namespace Nexus.Client
+﻿namespace Nexus.Client
 {
     using System;
     using System.Collections.Generic;
@@ -1090,7 +1090,10 @@ namespace Nexus.Client
 
 				Trace.TraceInformation("Initializing Plugin Manager...");
 				Trace.Indent();
-				pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator());
+
+				bool booPluginRestrictionsDisabled = EnvironmentInfo.Settings.PluginRestrictionsDisabled[p_gmdGameMode.ModeId];
+				pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator(), booPluginRestrictionsDisabled);
+
 				Trace.Unindent();
 			}
 			Trace.Unindent();

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,7 +13,13 @@ namespace Nexus.Client.PluginManagement
         Error = 2
     }
 
-    public enum PluginValidationIssueKind
+	public enum PluginRestrictionMode
+	{
+		Enforced = 0,
+		Disabled = 1
+	}
+
+	public enum PluginValidationIssueKind
     {
         MissingMaster,
         InactiveRequiredMaster,
@@ -91,9 +97,14 @@ namespace Nexus.Client.PluginManagement
 
     public sealed class PluginSnapshotBuilder
     {
-        public PluginSnapshot Build(PluginManagementPolicy policy, IList<Plugin> orderedPlugins, ISet<Plugin> activePlugins)
-        {
-            if (policy == null)
+		public PluginSnapshot Build(PluginManagementPolicy policy, IList<Plugin> orderedPlugins, ISet<Plugin> activePlugins)
+		{
+			return Build(policy, orderedPlugins, activePlugins,	PluginRestrictionMode.Enforced);
+		}
+
+		public PluginSnapshot Build(PluginManagementPolicy policy, IList<Plugin> orderedPlugins, ISet<Plugin> activePlugins, PluginRestrictionMode restrictionMode)
+		{
+			if (policy == null)
                 policy = new PluginManagementPolicy();
             orderedPlugins = orderedPlugins ?? new List<Plugin>();
             activePlugins = activePlugins ?? new HashSet<Plugin>();
@@ -136,8 +147,12 @@ namespace Nexus.Client.PluginManagement
                     }
                 }
 
-                ValidatePlugin(policy, plugin, active, i, pluginsByName, priorityByName, activePlugins, diagnostics, diagnosticsByPlugin);
-				ValidateFixedPluginPlacement(policy, plugin, i, orderedPlugins,	pluginsByName, diagnostics,	diagnosticsByPlugin);
+				ValidatePlugin(policy, plugin, active, i, pluginsByName, priorityByName, activePlugins,	diagnostics, diagnosticsByPlugin, restrictionMode);
+
+				if (restrictionMode == PluginRestrictionMode.Enforced)
+				{
+					ValidateFixedPluginPlacement(policy, plugin, i, orderedPlugins, pluginsByName, diagnostics, diagnosticsByPlugin);
+				}
 
 				List<PluginValidationDiagnostic> entryDiagnostics = null;
                 if (plugin != null)
@@ -145,7 +160,7 @@ namespace Nexus.Client.PluginManagement
                 entries.Add(new PluginSnapshotEntry(plugin, active, i, allocatedIndex, modIndex, entryDiagnostics));
             }
 
-            DetectDependencyCycles(orderedPlugins, pluginsByName, diagnostics, diagnosticsByPlugin);
+            DetectDependencyCycles(orderedPlugins, pluginsByName, diagnostics, diagnosticsByPlugin, restrictionMode);
             foreach (PluginSnapshotEntry entry in entries)
             {
                 List<PluginValidationDiagnostic> entryDiagnostics;
@@ -413,76 +428,142 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
-		private static void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
-        {
-            if (plugin == null)
-                return;
+		private static void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins,
+			List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
+		{
+			if (plugin == null)
+				return;
 
-            if (!policy.ValidateDependencies || plugin.Masters == null)
-                return;
+			if (!policy.ValidateDependencies || plugin.Masters == null)
+				return;
 
-            foreach (string masterName in plugin.Masters)
-            {
-                string normalizedMasterName = NormalizePluginName(masterName);
-                Plugin master;
+			PluginValidationSeverity restrictionSeverity =	restrictionMode == PluginRestrictionMode.Disabled ? PluginValidationSeverity.Warning : PluginValidationSeverity.Error;
+
+			foreach (string masterName in plugin.Masters)
+			{
+				string normalizedMasterName = NormalizePluginName(masterName);
+
+				Plugin master;
 				if (!pluginsByName.TryGetValue(normalizedMasterName, out master))
 				{
+					PluginValidationSeverity missingMasterSeverity =
+						restrictionMode == PluginRestrictionMode.Disabled || !active
+							? PluginValidationSeverity.Warning
+							: PluginValidationSeverity.Error;
+
 					AddDiagnostic(
 						diagnostics,
 						diagnosticsByPlugin,
 						plugin,
 						PluginValidationIssueKind.MissingMaster,
-						active
-							? PluginValidationSeverity.Error
-							: PluginValidationSeverity.Warning,
+						missingMasterSeverity,
 						"Missing master: " + masterName);
 
 					continue;
 				}
 
 				if (active && !activePlugins.Contains(master))
-                    AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.InactiveRequiredMaster, PluginValidationSeverity.Error, "Required master is inactive: " + masterName);
+				{
+					AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.InactiveRequiredMaster, restrictionSeverity, "Required master is inactive: " + masterName);
+				}
 
-                int masterPriority;
-                if (priorityByName.TryGetValue(normalizedMasterName, out masterPriority) && masterPriority > priority)
-                    AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.MasterBelowDependent, PluginValidationSeverity.Error, "Required master loads below dependent: " + masterName);
-            }
-        }
+				int masterPriority;
+				if (priorityByName.TryGetValue(normalizedMasterName, out masterPriority) &&	masterPriority > priority)
+				{
+					AddDiagnostic(
+						diagnostics,
+						diagnosticsByPlugin,
+						plugin,
+						PluginValidationIssueKind.MasterBelowDependent,
+						restrictionSeverity,
+						"Required master loads below dependent: " + masterName);
+				}
+			}
+		}
 
-        private static void DetectDependencyCycles(IList<Plugin> orderedPlugins, Dictionary<string, Plugin> pluginsByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
-        {
-            HashSet<string> visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            HashSet<string> visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (Plugin plugin in orderedPlugins)
-                DetectDependencyCycles(plugin, pluginsByName, visiting, visited, diagnostics, diagnosticsByPlugin);
-        }
+		private static void DetectDependencyCycles(
+			IList<Plugin> orderedPlugins,
+			Dictionary<string, Plugin> pluginsByName,
+			List<PluginValidationDiagnostic> diagnostics,
+			Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin,
+			PluginRestrictionMode restrictionMode)
+		{
+			HashSet<string> visiting =
+				new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        private static void DetectDependencyCycles(Plugin plugin, Dictionary<string, Plugin> pluginsByName, HashSet<string> visiting, HashSet<string> visited, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
-        {
-            if (plugin == null)
-                return;
+			HashSet<string> visited =
+				new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            string pluginName = NormalizePluginName(plugin.Filename);
-            if (visited.Contains(pluginName))
-                return;
-            if (visiting.Contains(pluginName))
-            {
-                AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.DependencyCycle, PluginValidationSeverity.Error, "Dependency cycle detected.");
-                return;
-            }
+			foreach (Plugin plugin in orderedPlugins)
+			{
+				DetectDependencyCycles(
+					plugin,
+					pluginsByName,
+					visiting,
+					visited,
+					diagnostics,
+					diagnosticsByPlugin,
+					restrictionMode);
+			}
+		}
 
-            visiting.Add(pluginName);
-            foreach (string masterName in plugin.Masters ?? new List<string>())
-            {
-                Plugin master;
-                if (pluginsByName.TryGetValue(NormalizePluginName(masterName), out master))
-                    DetectDependencyCycles(master, pluginsByName, visiting, visited, diagnostics, diagnosticsByPlugin);
-            }
-            visiting.Remove(pluginName);
-            visited.Add(pluginName);
-        }
+		private static void DetectDependencyCycles(
+			Plugin plugin,
+			Dictionary<string, Plugin> pluginsByName,
+			HashSet<string> visiting,
+			HashSet<string> visited,
+			List<PluginValidationDiagnostic> diagnostics,
+			Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin,
+			PluginRestrictionMode restrictionMode)
+		{
+			if (plugin == null)
+				return;
 
-        private static void AddDiagnostic(List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, Plugin plugin, PluginValidationIssueKind kind, PluginValidationSeverity severity, string message)
+			string pluginName = NormalizePluginName(plugin.Filename);
+
+			if (visited.Contains(pluginName))
+				return;
+
+			if (visiting.Contains(pluginName))
+			{
+				AddDiagnostic(
+					diagnostics,
+					diagnosticsByPlugin,
+					plugin,
+					PluginValidationIssueKind.DependencyCycle,
+					restrictionMode == PluginRestrictionMode.Disabled
+						? PluginValidationSeverity.Warning
+						: PluginValidationSeverity.Error,
+					"Dependency cycle detected.");
+
+				return;
+			}
+
+			visiting.Add(pluginName);
+
+			foreach (string masterName in plugin.Masters ?? new List<string>())
+			{
+				Plugin master;
+				if (pluginsByName.TryGetValue(
+						NormalizePluginName(masterName),
+						out master))
+				{
+					DetectDependencyCycles(
+						master,
+						pluginsByName,
+						visiting,
+						visited,
+						diagnostics,
+						diagnosticsByPlugin,
+						restrictionMode);
+				}
+			}
+
+			visiting.Remove(pluginName);
+			visited.Add(pluginName);
+		}
+
+		private static void AddDiagnostic(List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, Plugin plugin, PluginValidationIssueKind kind, PluginValidationSeverity severity, string message)
         {
             PluginValidationDiagnostic diagnostic = new PluginValidationDiagnostic(kind, severity, plugin, message);
             diagnostics.Add(diagnostic);

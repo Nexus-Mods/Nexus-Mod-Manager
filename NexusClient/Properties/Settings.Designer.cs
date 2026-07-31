@@ -12,7 +12,7 @@ namespace Nexus.Client.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "17.4.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "18.7.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -561,8 +561,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-		[global::System.Configuration.DefaultSettingValueAttribute("<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n<KeyedSettingsOfBoolean />")]
-		public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions {
+        public global::Nexus.Client.Settings.KeyedSettings<bool> AddShellExtensions {
             get {
                 return ((global::Nexus.Client.Settings.KeyedSettings<bool>)(this["AddShellExtensions"]));
             }
@@ -706,6 +705,22 @@ namespace Nexus.Client.Properties {
                 this["CompletedSetup"] = value;
             }
         }
+
+		[global::System.Configuration.UserScopedSettingAttribute()]
+		[global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+		[global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n\t\t\t\t<PerGameModeSettingsOfBoolean " +
+			"/>\r\n\t\t\t")]
+		public global::Nexus.Client.Settings.PerGameModeSettings<bool> PluginRestrictionsDisabled
+		{
+			get
+			{
+				return ((global::Nexus.Client.Settings.PerGameModeSettings<bool>)(this["PluginRestrictionsDisabled"]));
+			}
+			set
+			{
+				this["PluginRestrictionsDisabled"] = value;
+			}
+		}
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

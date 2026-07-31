@@ -197,6 +197,18 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Gets whether non-critical plugin sorting and dependency restrictions are disabled.
+		/// </summary>
+		/// <value>Whether plugin restrictions are disabled for the current game mode.</value>
+		public bool PluginRestrictionsDisabled
+		{
+			get
+			{
+				return PluginManager.PluginRestrictionsDisabled;
+			}
+		}
+
+		/// <summary>
 		/// Gets the application and user settings.
 		/// </summary>
 		/// <value>The application and user settings.</value>
@@ -400,6 +412,32 @@ namespace Nexus.Client.PluginManagement.UI
 
 		#endregion
 
+		#region Plugin Restriction Mode
+
+		/// <summary>
+		/// Attempts to enable or disable non-critical plugin sorting and dependency restrictions and persists the resulting state for the current game mode.
+		/// </summary>
+		/// <param name="p_booDisabled">Whether plugin restrictions should be disabled.</param>
+		/// <param name="p_psnValidationSnapshot">The resulting snapshot, or the strict snapshot that prevented the transition.</param>
+		/// <returns><c>true</c> if the requested mode was applied; otherwise, <c>false</c>.</returns>
+		public bool TrySetPluginRestrictionsDisabled(bool p_booDisabled, out PluginSnapshot p_psnValidationSnapshot)
+		{
+			if (!PluginManager.TrySetPluginRestrictionsDisabled(p_booDisabled, out p_psnValidationSnapshot))
+				return false;
+
+			bool booActualValue = PluginManager.PluginRestrictionsDisabled;
+
+			if (Settings.PluginRestrictionsDisabled[CurrentGameMode.ModeId] != booActualValue)
+			{
+				Settings.PluginRestrictionsDisabled[CurrentGameMode.ModeId] = booActualValue;
+				Settings.Save();
+			}
+
+			return true;
+		}
+
+		#endregion
+
 		#region Mod Activation/Deactivation
 
 		/// <summary>
@@ -481,6 +519,16 @@ namespace Nexus.Client.PluginManagement.UI
 		#region Plugin Ordering
 
 		/// <summary>
+		/// Determines whether the specified plugin can be moved in the load order.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin whose order mutability should be checked.</param>
+		/// <returns><c>true</c> if the plugin can be moved; otherwise, <c>false</c>.</returns>
+		public bool CanChangePluginOrder(Plugin p_plgPlugin)
+		{
+			return PluginManager.CanChangePluginOrder(p_plgPlugin);
+		}
+
+		/// <summary>
 		/// Sets the load order of the specifid plugin.
 		/// </summary>
 		/// <param name="p_plgPlugin">The full path to the plugin file whose load order is to be set.</param>
@@ -504,102 +552,153 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
-		/// Moves the given plugins up in the load order.
+		/// Moves the specified plugins one position earlier in the load order as a single atomic operation.
 		/// </summary>
-		/// <remarks>
-		/// Moving plugins up in the load order decreases the load order, meaning it is loaded sooner.
-		/// </remarks>
-		/// <param name="p_lstPlugins">The plugins whose load order is to be changed.</param>
+		/// <param name="p_lstPlugins">The plugins to move.</param>
 		protected void MovePluginsUp(IEnumerable<Plugin> p_lstPlugins)
 		{
-			Int32 intIndex = -1;
-			foreach (Plugin plgPlugin in p_lstPlugins)
-			{
-				if (intIndex == -1)
-					intIndex = PluginManager.ManagedPlugins.IndexOf(plgPlugin) - 1;
-				if (intIndex < 0)
-					intIndex++;
-				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex++);
-				if (PluginMoved != null)
-					this.PluginMoved(plgPlugin, new EventArgs());
-			}
+			List<Plugin> plugins = p_lstPlugins == null ? new List<Plugin>() : p_lstPlugins.Where(x => x != null).ToList();
+			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(plugins, -1);
+
+			if (proposedOrder == null)
+				return;
+
+			PluginManager.SetPluginOrder(proposedOrder);
+			PluginMoved(this, EventArgs.Empty);
 		}
 
 		/// <summary>
-		/// Moves the given plugins down in the load order.
+		/// Moves the specified plugins one position later in the load order as a single atomic operation.
 		/// </summary>
-		/// <remarks>
-		/// Moving plugins down in the load order increases the load order, meaning it is loaded later.
-		/// </remarks>
-		/// <param name="p_lstPlugins">The plugins whose load order is to be changed.</param>
+		/// <param name="p_lstPlugins">The plugins to move.</param>
 		protected void MovePluginsDown(IList<Plugin> p_lstPlugins)
 		{
-			Int32 intIndex = -1;
-			foreach (Plugin plgPlugin in p_lstPlugins)
-			{
-				if (intIndex == -1)
-				{
-					intIndex = PluginManager.ManagedPlugins.IndexOf(plgPlugin) + 1;
-					while ((intIndex < PluginManager.ManagedPlugins.Count) && p_lstPlugins.Contains(PluginManager.ManagedPlugins[intIndex]))
-						intIndex++;
-				}
-				if (intIndex >= PluginManager.ManagedPlugins.Count)
-					intIndex--;
-				PluginManager.SetPluginOrderIndex(plgPlugin, intIndex);
-				if (PluginMoved != null)
-					this.PluginMoved(plgPlugin, new EventArgs());
-			}
+			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(p_lstPlugins, 1);
+
+			if (proposedOrder == null)
+				return;
+
+			PluginManager.SetPluginOrder(proposedOrder);
+			PluginMoved(this, EventArgs.Empty);
 		}
 
 		/// <summary>
-		/// Determines if the given plugin can be moved up in the load order.
+		/// Builds a plugin order in which the selected plugins have been moved one position in the requested direction.
 		/// </summary>
-		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the load order can be decreased.</param>
-		/// <returns><c>true</c> if the given plugin's load order can be decreased;
-		/// <c>false</c> otherwise.</returns>
+		/// <param name="p_lstPlugins">The plugins to move.</param>
+		/// <param name="p_intDirection">A negative value to move earlier or a positive value to move later.</param>
+		/// <returns>The proposed order, or <c>null</c> when the move cannot be performed.</returns>
+		private List<Plugin> BuildPluginOrderMovedByOne(IEnumerable<Plugin> p_lstPlugins, int p_intDirection)
+		{
+			if (p_lstPlugins == null || p_intDirection == 0)
+				return null;
+
+			HashSet<Plugin> selection = new HashSet<Plugin>(p_lstPlugins.Where(x => x != null), PluginComparer.Filename);
+
+			if (selection.Count == 0 || selection.Any(x => !PluginManager.CanChangePluginOrder(x)))
+				return null;
+
+			List<Plugin> currentOrder = new List<Plugin>(PluginManager.ManagedPlugins);
+			List<Plugin> proposedOrder = new List<Plugin>(currentOrder);
+			bool changed = false;
+
+			if (p_intDirection < 0)
+			{
+				for (int index = 1; index < proposedOrder.Count; index++)
+				{
+					if (!selection.Contains(proposedOrder[index]) || selection.Contains(proposedOrder[index - 1]))
+						continue;
+
+					proposedOrder.Swap(index, index - 1);
+					changed = true;
+				}
+			}
+			else
+			{
+				for (int index = proposedOrder.Count - 2; index >= 0; index--)
+				{
+					if (!selection.Contains(proposedOrder[index]) || selection.Contains(proposedOrder[index + 1]))
+						continue;
+
+					proposedOrder.Swap(index, index + 1);
+					changed = true;
+				}
+			}
+
+			if (!changed || !PreservesProtectedPluginPositions(currentOrder, proposedOrder))
+				return null;
+
+			return proposedOrder;
+		}
+
+		/// <summary>
+		/// Determines whether an order change preserves the position of every plugin protected by the game mode.
+		/// </summary>
+		/// <param name="p_lstCurrentOrder">The current authoritative plugin order.</param>
+		/// <param name="p_lstProposedOrder">The proposed plugin order.</param>
+		/// <returns><c>true</c> if all protected plugin positions are preserved; otherwise, <c>false</c>.</returns>
+		private bool PreservesProtectedPluginPositions(IList<Plugin> p_lstCurrentOrder, IList<Plugin> p_lstProposedOrder)
+		{
+			if (p_lstCurrentOrder == null || p_lstProposedOrder == null || p_lstCurrentOrder.Count != p_lstProposedOrder.Count)
+				return false;
+
+			for (int index = 0; index < p_lstCurrentOrder.Count; index++)
+			{
+				Plugin plugin = p_lstCurrentOrder[index];
+
+				if (!PluginManager.CanChangePluginOrder(plugin) && !PluginComparer.Filename.Equals(plugin, p_lstProposedOrder[index]))
+					return false;
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Determines whether a proposed order can be applied without introducing a new validation failure.
+		/// </summary>
+		/// <param name="p_lstProposedOrder">The proposed plugin order.</param>
+		/// <returns><c>true</c> if the move can be applied; otherwise, <c>false</c>.</returns>
+		private bool CanApplyPluginOrderMove(IList<Plugin> p_lstProposedOrder)
+		{
+			if (p_lstProposedOrder == null)
+				return false;
+
+			List<Plugin> currentOrder = new List<Plugin>(PluginManager.ManagedPlugins);
+			bool currentOrderIsValid = PluginManager.ValidateOrder(currentOrder);
+
+			return PluginManager.ValidateOrder(p_lstProposedOrder) || !currentOrderIsValid;
+		}
+
+		/// <summary>
+		/// Determines whether the specified plugin can be moved one position earlier in the load order.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to inspect.</param>
+		/// <returns><c>true</c> if the plugin can be moved earlier; otherwise, <c>false</c>.</returns>
 		public bool CanMovePluginUp(Plugin p_plgPlugin)
 		{
-			int intOldIndex = PluginManager.ManagedPlugins.IndexOf(p_plgPlugin);
-			if (intOldIndex < 1)
-				return false;
-			List<Plugin> lstPlugins = new List<Plugin>(PluginManager.ManagedPlugins);
-
-			bool isOrderValid = PluginManager.ValidateOrder(lstPlugins);
-
-			lstPlugins.Swap(intOldIndex, intOldIndex - 1);
-			return (PluginManager.ValidateOrder(lstPlugins) || !isOrderValid);
+			return CanMovePluginsUp(new List<Plugin> { p_plgPlugin });
 		}
 
 		/// <summary>
-		/// Determines if the given plugins can be moved down in the load order.
+		/// Determines whether the specified plugins can be moved one position earlier in the load order.
 		/// </summary>
-		/// <param name="p_lstPlugins">The plugins for which it is to be determined if the load order can be increased.</param>
-		/// <returns><c>true</c> if the given plugins' load orders can be increased;
-		/// <c>false</c> otherwise.</returns>
+		/// <param name="p_lstPlugins">The plugins to inspect.</param>
+		/// <returns><c>true</c> if the plugins can be moved earlier; otherwise, <c>false</c>.</returns>
+		public bool CanMovePluginsUp(IList<Plugin> p_lstPlugins)
+		{
+			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(p_lstPlugins, -1);
+			return CanApplyPluginOrderMove(proposedOrder);
+		}
+
+		/// <summary>
+		/// Determines whether the specified plugins can be moved one position later in the load order.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins to inspect.</param>
+		/// <returns><c>true</c> if the plugins can be moved later; otherwise, <c>false</c>.</returns>
 		public bool CanMovePluginsDown(IList<Plugin> p_lstPlugins)
 		{
-			int intNewIndex = -1;
-			List<Plugin> lstNewOrder = new List<Plugin>(PluginManager.ManagedPlugins);
-
-			bool isOrderValid = PluginManager.ValidateOrder(lstNewOrder);
-
-			foreach (Plugin plgPlugin in p_lstPlugins)
-			{
-				if (intNewIndex == -1)
-				{
-					Int32 intOldIndex = PluginManager.ManagedPlugins.IndexOf(plgPlugin);
-					if ((intOldIndex < 0) || (intOldIndex > PluginManager.ManagedPlugins.Count - 2))
-						return false;
-					intNewIndex = intOldIndex + 1;
-					while ((intNewIndex < PluginManager.ManagedPlugins.Count) && p_lstPlugins.Contains(PluginManager.ManagedPlugins[intNewIndex]))
-						intNewIndex++;
-				}
-				if (intNewIndex >= PluginManager.ManagedPlugins.Count)
-					intNewIndex--;
-				lstNewOrder.Remove(plgPlugin);
-				lstNewOrder.Insert(intNewIndex, plgPlugin);
-			}
-			return PluginManager.ValidateOrder(lstNewOrder) || !isOrderValid;
+			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(p_lstPlugins, 1);
+			return CanApplyPluginOrderMove(proposedOrder);
 		}
 
 		#endregion

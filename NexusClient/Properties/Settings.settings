@@ -207,6 +207,12 @@
 				&lt;PerGameModeSettingsOfBoolean /&gt;
 			</Value>
 		</Setting>
+		<Setting Name="PluginRestrictionsDisabled" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.Boolean]" Scope="User">
+			<Value Profile="(Default)">
+				&lt;?xml version="1.0" encoding="utf-16"?&gt;
+				&lt;PerGameModeSettingsOfBoolean /&gt;
+			</Value>
+		</Setting>
 		<Setting Name="ModFolder" Type="Nexus.Client.Settings.PerGameModeSettings`1[System.String]" Scope="User">
 			<Value Profile="(Default)">
 				&lt;?xml version="1.0" encoding="utf-16"?&gt;

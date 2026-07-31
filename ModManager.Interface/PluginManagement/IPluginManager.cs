@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Plugins;
@@ -36,6 +36,12 @@ namespace Nexus.Client.PluginManagement
 		/// Gets the current authoritative plugin snapshot.
 		/// </summary>
 		PluginSnapshot CurrentSnapshot { get; }
+
+		/// <summary>
+		/// Gets whether non-critical plugin sorting and dependency restrictions
+		/// are disabled.
+		/// </summary>
+		bool PluginRestrictionsDisabled { get; }
 
 		#endregion
 
@@ -153,9 +159,29 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		bool CanChangeActiveState(Plugin p_plgPlugin);
 
+		/// <summary>
+		/// Enables or disables non-critical plugin sorting and dependency
+		/// restrictions.
+		/// </summary>
+		/// <param name="p_booDisabled">
+		/// Whether restrictions should be disabled.
+		/// </param>
+		/// <param name="p_psnValidationSnapshot">
+		/// The resulting snapshot, or the snapshot that prevented the transition.
+		/// </param>
+		/// <returns>
+		/// True if the requested mode was applied; false otherwise.
+		/// </returns>
+		bool TrySetPluginRestrictionsDisabled(bool p_booDisabled, out PluginSnapshot p_psnValidationSnapshot);
+
 		#endregion
 
 		#region Plugin Ordering
+
+		/// <summary>
+		/// Determines whether the plugin can be reordered.
+		/// </summary>
+		bool CanChangePluginOrder(Plugin p_plgPlugin);
 
 		/// <summary>
 		/// Gets the load order of the specifid plugin.

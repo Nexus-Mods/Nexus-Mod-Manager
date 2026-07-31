@@ -84,7 +84,176 @@
             Assert.That(correctedSnapshot.HasErrors, Is.False);
         }
 
-        private static Plugin CreatePlugin(string filename, PluginAddressClass addressClass, bool effectiveMaster, params string[] masters)
+		[Test]
+		public void DisabledRestrictionsKeepDependencyProblemsAsWarnings()
+		{
+			PluginManagementPolicy policy =
+				new PluginManagementPolicy();
+
+			Plugin master = CreatePlugin(
+				"Master.esm",
+				PluginAddressClass.Full,
+				true);
+
+			Plugin dependent = CreatePlugin(
+				"Dependent.esp",
+				PluginAddressClass.Full,
+				false,
+				"Master.esm",
+				"Missing.esm");
+
+			List<Plugin> plugins =
+				new List<Plugin>
+				{
+			dependent,
+			master
+				};
+
+			HashSet<Plugin> activePlugins =
+				new HashSet<Plugin>
+				{
+			dependent
+				};
+
+			PluginSnapshot strictSnapshot =
+				new PluginSnapshotBuilder().Build(
+					policy,
+					plugins,
+					activePlugins,
+					PluginRestrictionMode.Enforced);
+
+			PluginSnapshot relaxedSnapshot =
+				new PluginSnapshotBuilder().Build(
+					policy,
+					plugins,
+					activePlugins,
+					PluginRestrictionMode.Disabled);
+
+			Assert.That(strictSnapshot.HasErrors, Is.True);
+			Assert.That(relaxedSnapshot.HasErrors, Is.False);
+
+			Assert.That(
+				relaxedSnapshot.Diagnostics.Any(
+					x =>
+						x.Kind ==
+							PluginValidationIssueKind.MissingMaster &&
+						x.Severity ==
+							PluginValidationSeverity.Warning),
+				Is.True);
+
+			Assert.That(
+				relaxedSnapshot.Diagnostics.Any(
+					x =>
+						x.Kind ==
+							PluginValidationIssueKind
+								.InactiveRequiredMaster &&
+						x.Severity ==
+							PluginValidationSeverity.Warning),
+				Is.True);
+
+			Assert.That(
+				relaxedSnapshot.Diagnostics.Any(
+					x =>
+						x.Kind ==
+							PluginValidationIssueKind
+								.MasterBelowDependent &&
+						x.Severity ==
+							PluginValidationSeverity.Warning),
+				Is.True);
+		}
+
+		[Test]
+		public void DisabledRestrictionsStillEnforceAddressSpaceLimits()
+		{
+			PluginManagementPolicy policy =
+				new PluginManagementPolicy();
+
+			policy.AddAddressSpace(
+				new PluginAddressSpacePolicy(
+					PluginAddressClass.Full,
+					0,
+					1,
+					"{0:X2}"));
+
+			Plugin first = CreatePlugin(
+				"First.esp",
+				PluginAddressClass.Full,
+				false);
+
+			Plugin second = CreatePlugin(
+				"Second.esp",
+				PluginAddressClass.Full,
+				false);
+
+			List<Plugin> plugins =
+				new List<Plugin>
+				{
+			first,
+			second
+				};
+
+			PluginSnapshot snapshot =
+				new PluginSnapshotBuilder().Build(
+					policy,
+					plugins,
+					new HashSet<Plugin>(plugins),
+					PluginRestrictionMode.Disabled);
+
+			Assert.That(snapshot.HasErrors, Is.True);
+
+			Assert.That(
+				snapshot.Diagnostics.Any(
+					x =>
+						x.Kind ==
+							PluginValidationIssueKind
+								.AddressSpaceExhausted &&
+						x.Severity ==
+							PluginValidationSeverity.Error),
+				Is.True);
+		}
+
+		[Test]
+		public void DisabledRestrictionsIgnoreFixedOrderPlacement()
+		{
+			PluginManagementPolicy policy =
+				new PluginManagementPolicy();
+
+			policy.AddFixedOrderPlugin("Official.esm");
+
+			Plugin custom = CreatePlugin(
+				"Custom.esp",
+				PluginAddressClass.Full,
+				false);
+
+			Plugin official = CreatePlugin(
+				"Official.esm",
+				PluginAddressClass.Full,
+				true);
+
+			List<Plugin> plugins =
+				new List<Plugin>
+				{
+			custom,
+			official
+				};
+
+			PluginSnapshot snapshot =
+				new PluginSnapshotBuilder().Build(
+					policy,
+					plugins,
+					new HashSet<Plugin>(plugins),
+					PluginRestrictionMode.Disabled);
+
+			Assert.That(
+				snapshot.Diagnostics.Any(
+					x =>
+						x.Kind ==
+							PluginValidationIssueKind
+								.InvalidFixedPluginPlacement),
+				Is.False);
+		}
+
+		private static Plugin CreatePlugin(string filename, PluginAddressClass addressClass, bool effectiveMaster, params string[] masters)
         {
             Plugin plugin = new Plugin(filename, filename, null);
             PluginHeaderFlags flags = effectiveMaster ? PluginHeaderFlags.Master : PluginHeaderFlags.None;

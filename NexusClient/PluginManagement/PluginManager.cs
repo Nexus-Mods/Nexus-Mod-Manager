@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -43,11 +43,44 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
 		/// <exception cref="InvalidOperationException">Thrown if the plugin manager has already
 		/// been initialized.</exception>
-		public static IPluginManager Initialize(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
+		public static IPluginManager Initialize(
+			IGameMode p_gmdGameMode,
+			PluginRegistry p_mprManagedPluginRegistry,
+			ActivePluginLog p_aplPluginLog,
+			IPluginOrderLog p_polOrderLog,
+			IPluginOrderValidator p_povOrderValidator)
+		{
+			return Initialize(
+				p_gmdGameMode,
+				p_mprManagedPluginRegistry,
+				p_aplPluginLog,
+				p_polOrderLog,
+				p_povOrderValidator,
+				false);
+		}
+
+		public static IPluginManager Initialize(
+			IGameMode p_gmdGameMode,
+			PluginRegistry p_mprManagedPluginRegistry,
+			ActivePluginLog p_aplPluginLog,
+			IPluginOrderLog p_polOrderLog,
+			IPluginOrderValidator p_povOrderValidator,
+			bool p_booPluginRestrictionsDisabled)
 		{
 			if (m_pmgCurrent != null)
-				throw new InvalidOperationException("The Plugin Manager has already been initialized.");
-			m_pmgCurrent = new PluginManager(p_gmdGameMode, p_mprManagedPluginRegistry, p_aplPluginLog, p_polOrderLog, p_povOrderValidator);
+			{
+				throw new InvalidOperationException(
+					"The Plugin Manager has already been initialized.");
+			}
+
+			m_pmgCurrent = new PluginManager(
+				p_gmdGameMode,
+				p_mprManagedPluginRegistry,
+				p_aplPluginLog,
+				p_polOrderLog,
+				p_povOrderValidator,
+				p_booPluginRestrictionsDisabled);
+
 			return m_pmgCurrent;
 		}
 
@@ -61,6 +94,7 @@ namespace Nexus.Client.PluginManagement
 
 		#endregion
 
+		private bool m_booPluginRestrictionsDisabled;
 		private readonly PluginSnapshotBuilder m_psbSnapshotBuilder = new PluginSnapshotBuilder();
 
 		#region Properties
@@ -141,6 +175,14 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		public bool PluginRestrictionsDisabled
+		{
+			get
+			{
+				return m_booPluginRestrictionsDisabled;
+			}
+		}
+
 		#endregion
 
 		private PluginManagementPolicy Policy
@@ -155,28 +197,208 @@ namespace Nexus.Client.PluginManagement
 		{
 			return BuildPluginSnapshot(
 				new List<Plugin>(ManagedPlugins),
-				new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
+				new HashSet<Plugin>(
+					ActivePlugins.Where(x => x != null),
+					PluginComparer.Filename));
 		}
 
-		private PluginSnapshot BuildPluginSnapshot(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
+		private PluginSnapshot BuildPluginSnapshot(
+			IList<Plugin> p_lstOrderedPlugins,
+			ISet<Plugin> p_setActivePlugins)
 		{
-			return m_psbSnapshotBuilder.Build(Policy, p_lstOrderedPlugins, p_setActivePlugins);
+			return BuildPluginSnapshot(
+				p_lstOrderedPlugins,
+				p_setActivePlugins,
+				PluginRestrictionsDisabled
+					? PluginRestrictionMode.Disabled
+					: PluginRestrictionMode.Enforced);
 		}
 
-		private List<Plugin> GetPolicyCorrectedOrder(IList<Plugin> p_lstPlugins)
+		private PluginSnapshot BuildPluginSnapshot(
+			IList<Plugin> p_lstOrderedPlugins,
+			ISet<Plugin> p_setActivePlugins,
+			PluginRestrictionMode p_prmRestrictionMode)
 		{
-			List<Plugin> plugins = p_lstPlugins == null ? new List<Plugin>() : new List<Plugin>(p_lstPlugins.Where(x => x != null));
+			return m_psbSnapshotBuilder.Build(
+				Policy,
+				p_lstOrderedPlugins,
+				p_setActivePlugins,
+				p_prmRestrictionMode);
+		}
+
+		private List<Plugin> GetPolicyCorrectedOrder(
+			IList<Plugin> p_lstPlugins)
+		{
+			return GetPolicyCorrectedOrder(
+				p_lstPlugins,
+				PluginRestrictionsDisabled);
+		}
+
+		private List<Plugin> GetPolicyCorrectedOrder(
+			IList<Plugin> p_lstPlugins,
+			bool p_booRestrictionsDisabled)
+		{
+			List<Plugin> plugins = p_lstPlugins == null
+				? new List<Plugin>()
+				: new List<Plugin>(
+					p_lstPlugins.Where(x => x != null));
+
 			foreach (Plugin plugin in ManagedPlugins)
-				if (plugin != null && !plugins.Contains(plugin, PluginComparer.Filename))
+			{
+				if (plugin != null &&
+					!plugins.Contains(plugin, PluginComparer.Filename))
+				{
 					plugins.Add(plugin);
-			return m_psbSnapshotBuilder.CorrectStable(Policy, plugins);
+				}
+			}
+
+			if (!p_booRestrictionsDisabled)
+				return m_psbSnapshotBuilder.CorrectStable(Policy, plugins);
+
+			return RestoreProtectedPluginPositions(plugins);
+		}
+
+		/// <summary>
+		/// Restores the authoritative positions of critical and official unmanaged plugins while preserving the requested order of all other plugins.
+		/// </summary>
+		/// <param name="p_lstPlugins">The requested plugin order.</param>
+		/// <returns>The normalized plugin order with protected plugins restored to their authoritative positions.</returns>
+		private List<Plugin> RestoreProtectedPluginPositions(List<Plugin> p_lstPlugins)
+		{
+			List<Plugin> plugins = p_lstPlugins == null
+				? new List<Plugin>()
+				: new List<Plugin>(
+					p_lstPlugins.Where(x => x != null));
+
+			List<Plugin> protectedPlugins = plugins
+				.Where(IsProtectedPlugin)
+				.Distinct(PluginComparer.Filename)
+				.ToList();
+
+			if (protectedPlugins.Count == 0)
+				return plugins;
+
+			List<Plugin> currentOrder =
+				new List<Plugin>(
+					PluginOrderLog.OrderedPlugins.Where(x => x != null));
+
+			/*
+			 * Used only to determine the canonical position of newly discovered
+			 * critical plugins. The order of normal plugins is not taken from
+			 * this list.
+			 */
+			List<Plugin> strictReferenceOrder =
+				m_psbSnapshotBuilder.CorrectStable(Policy, plugins);
+
+			plugins.RemoveAll(IsProtectedPlugin);
+
+			foreach (Plugin plugin in protectedPlugins.OrderBy(
+						 x => GetProtectedPluginTargetIndex(
+							 x,
+							 currentOrder,
+							 strictReferenceOrder)))
+			{
+				int targetIndex = GetProtectedPluginTargetIndex(
+					plugin,
+					currentOrder,
+					strictReferenceOrder);
+
+				targetIndex = Math.Max(
+					0,
+					Math.Min(targetIndex, plugins.Count));
+
+				plugins.Insert(targetIndex, plugin);
+			}
+
+			return plugins;
+		}
+
+		private int GetProtectedPluginTargetIndex(
+			Plugin p_plgPlugin,
+			IList<Plugin> p_lstCurrentOrder,
+			IList<Plugin> p_lstStrictReferenceOrder)
+		{
+			int currentIndex = FindPluginIndex(
+				p_lstCurrentOrder,
+				p_plgPlugin);
+
+			int strictIndex = FindPluginIndex(
+				p_lstStrictReferenceOrder,
+				p_plgPlugin);
+
+			/*
+			 * Critical base plugins use their canonical strict position.
+			 *
+			 * Official unmanaged plugins, including entries loaded from .ccc,
+			 * retain their current authoritative position.
+			 */
+			if (IsOrderedCriticalPlugin(p_plgPlugin))
+			{
+				return strictIndex >= 0
+					? strictIndex
+					: Math.Max(0, currentIndex);
+			}
+
+			return currentIndex >= 0
+				? currentIndex
+				: Math.Max(0, strictIndex);
+		}
+
+		/// <summary>
+		/// Gets whether the specified plugin is protected from activation and ordering changes.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to inspect.</param>
+		/// <returns><c>true</c> if the plugin is critical or officially unmanaged; otherwise, <c>false</c>.</returns>
+		private bool IsProtectedPlugin(Plugin p_plgPlugin)
+		{
+			return p_plgPlugin != null &&
+				   GameMode.IsCriticalPlugin(p_plgPlugin);
+		}
+
+		private bool IsOrderedCriticalPlugin(Plugin p_plgPlugin)
+		{
+			if (p_plgPlugin == null)
+				return false;
+
+			return (GameMode.OrderedCriticalPluginNames ??
+					new string[0])
+				.Contains(
+					p_plgPlugin.Filename,
+					StringComparer.OrdinalIgnoreCase);
+		}
+
+		private static int FindPluginIndex(
+			IList<Plugin> p_lstPlugins,
+			Plugin p_plgPlugin)
+		{
+			if (p_lstPlugins == null || p_plgPlugin == null)
+				return -1;
+
+			for (int i = 0; i < p_lstPlugins.Count; i++)
+			{
+				if (PluginComparer.Filename.Equals(
+						p_lstPlugins[i],
+						p_plgPlugin))
+				{
+					return i;
+				}
+			}
+
+			return -1;
 		}
 
 		private bool TryApplyPluginState(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
 		{
 			List<Plugin> correctedOrder = GetPolicyCorrectedOrder(p_lstOrderedPlugins);
 			HashSet<Plugin> desiredActivePlugins = new HashSet<Plugin>(p_setActivePlugins == null ? new List<Plugin>() : p_setActivePlugins.Where(x => x != null), PluginComparer.Filename);
+
+			foreach (Plugin protectedPlugin in correctedOrder.Where(IsProtectedPlugin))
+			{
+				desiredActivePlugins.Add(protectedPlugin);
+			}
+
 			PluginSnapshot snapshot = BuildPluginSnapshot(correctedOrder, desiredActivePlugins);
+
 			if (snapshot.HasErrors)
 			{
 				TracePluginDiagnostics(snapshot);
@@ -215,6 +437,75 @@ namespace Nexus.Client.PluginManagement
 					Trace.TraceWarning("Plugin state rejected: {0} - {1}", diagnostic.Plugin == null ? String.Empty : diagnostic.Plugin.Filename, diagnostic.Message);
 		}
 
+		public bool TrySetPluginRestrictionsDisabled(
+	bool p_booDisabled,
+	out PluginSnapshot p_psnValidationSnapshot)
+		{
+			if (PluginRestrictionsDisabled == p_booDisabled)
+			{
+				p_psnValidationSnapshot = CurrentSnapshot;
+				return true;
+			}
+
+			/*
+			 * Enabling relaxed mode never changes the current order or active
+			 * state. It only changes how subsequent states are validated.
+			 */
+			if (p_booDisabled)
+			{
+				m_booPluginRestrictionsDisabled = true;
+				p_psnValidationSnapshot = CurrentSnapshot;
+				return true;
+			}
+
+			/*
+			 * Returning to strict mode is allowed only when the current active
+			 * state can become valid. CorrectStable repairs order-only issues,
+			 * but does not deactivate plugins or invent missing masters.
+			 */
+			List<Plugin> strictOrder =
+				GetPolicyCorrectedOrder(
+					new List<Plugin>(
+						PluginOrderLog.OrderedPlugins),
+					false);
+
+			HashSet<Plugin> activePlugins =
+				new HashSet<Plugin>(
+					ActivePlugins.Where(x => x != null),
+					PluginComparer.Filename);
+
+			foreach (Plugin protectedPlugin in
+					 strictOrder.Where(IsProtectedPlugin))
+			{
+				activePlugins.Add(protectedPlugin);
+			}
+
+			PluginSnapshot strictSnapshot =
+				BuildPluginSnapshot(
+					strictOrder,
+					activePlugins,
+					PluginRestrictionMode.Enforced);
+
+			if (strictSnapshot.HasErrors)
+			{
+				TracePluginDiagnostics(strictSnapshot);
+				p_psnValidationSnapshot = strictSnapshot;
+				return false;
+			}
+
+			m_booPluginRestrictionsDisabled = false;
+
+			if (!TryApplyPluginState(strictOrder, activePlugins))
+			{
+				m_booPluginRestrictionsDisabled = true;
+				p_psnValidationSnapshot = strictSnapshot;
+				return false;
+			}
+
+			p_psnValidationSnapshot = CurrentSnapshot;
+			return true;
+		}
+
 		private Plugin ResolvePluginPath(string p_strPath)
 		{
 			if (String.IsNullOrWhiteSpace(p_strPath))
@@ -246,7 +537,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_polOrderLog">The <see cref="IPluginOrderLog"/> tracking plugin order for the
 		/// current game mode.</param>
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
-		private PluginManager(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
+		private PluginManager(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator, bool p_booPluginRestrictionsDisabled)
 		{
 			GameMode = p_gmdGameMode;
 			ManagedPluginRegistry = p_mprManagedPluginRegistry;
@@ -254,17 +545,34 @@ namespace Nexus.Client.PluginManagement
 			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
-			if (GameMode.OrderedCriticalPluginNames != null)
+			m_booPluginRestrictionsDisabled =
+				p_booPluginRestrictionsDisabled;
+
+			HashSet<Plugin> activePlugins =
+				new HashSet<Plugin>(
+					ActivePlugins.Where(x => x != null),
+					PluginComparer.Filename);
+
+			IEnumerable<string> protectedPluginNames =
+				(GameMode.OrderedCriticalPluginNames ??
+				 new string[0])
+				.Concat(
+					GameMode.OrderedOfficialUnmanagedPluginNames ??
+					new string[0])
+				.Distinct(StringComparer.OrdinalIgnoreCase);
+
+			foreach (string strPlugin in protectedPluginNames)
 			{
-				HashSet<Plugin> activePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
-				foreach (string strPlugin in GameMode.OrderedCriticalPluginNames)
-				{
-					Plugin plugin = ResolvePluginPath(strPlugin);
-					if (plugin != null)
-						activePlugins.Add(plugin);
-				}
-				TryApplyPluginState(new List<Plugin>(PluginOrderLog.OrderedPlugins), activePlugins);
+				Plugin plugin = ResolvePluginPath(strPlugin);
+
+				if (plugin != null)
+					activePlugins.Add(plugin);
 			}
+
+			TryApplyPluginState(
+				new List<Plugin>(
+					PluginOrderLog.OrderedPlugins),
+				activePlugins);
 		}
 
 		#endregion
@@ -309,7 +617,7 @@ namespace Nexus.Client.PluginManagement
 				{
 					plugins.RemoveAll(x => PluginComparer.Filename.Equals(x, plgPlugin));
 					plugins.Add(plgPlugin);
-					PluginOrderLog.SetPluginOrder(m_psbSnapshotBuilder.CorrectStable(Policy, plugins));
+					PluginOrderLog.SetPluginOrder(GetPolicyCorrectedOrder(plugins));
 				}
 
 				Plugin plgActiveMatch = ActivePlugins.FirstOrDefault(x => x != null && PluginComparer.Filename.Equals(x, plgPlugin));
@@ -622,7 +930,12 @@ namespace Nexus.Client.PluginManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool CanChangeActiveState(Plugin p_plgPlugin)
 		{
-			return !GameMode.IsCriticalPlugin(p_plgPlugin);
+			return p_plgPlugin != null && !IsProtectedPlugin(p_plgPlugin);
+		}
+
+		public bool CanChangePluginOrder(Plugin p_plgPlugin)
+		{
+			return p_plgPlugin != null && !IsProtectedPlugin(p_plgPlugin);
 		}
 
 		#endregion
@@ -646,7 +959,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		public void SetPluginOrderIndex(Plugin p_plgPlugin, int p_intNewIndex)
 		{
-			if (p_plgPlugin == null)
+			if (!CanChangePluginOrder(p_plgPlugin))
 				return;
 
 			List<Plugin> plugins = new List<Plugin>(PluginOrderLog.OrderedPlugins);
