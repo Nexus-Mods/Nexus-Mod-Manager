@@ -18,6 +18,7 @@ namespace Nexus.Client.ModManagement.UI
 	using ButtonEdit = DevExpress.XtraEditors.ButtonEdit;
 	using TextEdit = DevExpress.XtraEditors.TextEdit;
 	using DevExpress.XtraEditors.Repository;
+	using DevExpress.XtraEditors.ViewInfo;
 	using DevExpress.XtraGrid;
 	using DevExpress.XtraGrid.Columns;
 	using DevExpress.XtraGrid.Views.Grid;
@@ -75,6 +76,7 @@ namespace Nexus.Client.ModManagement.UI
 		private bool _cancelRenameEdit;
 		private bool _refreshAfterRename;
 		private bool _suppressNextDoubleClick;
+		private bool _testingRenameButtonHit;
 		private bool _updatingGridDisplayControls;
 		private bool _missingArchiveScanQueued;
 		private string _gridFontFamilyName = DefaultGridFontFamily;
@@ -1305,6 +1307,7 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.HiddenEditor += GridView_HiddenEditor;
 			gridView.RowCellStyle += GridView_RowCellStyle;
 			gridView.RowCellClick += GridView_RowCellClick;
+			gridView.MouseDown += GridView_MouseDown;
 			gridView.DoubleClick += GridView_DoubleClick;
 			gridView.KeyDown += GridView_KeyDown;
 			gridView.FocusedRowChanged += (s, e) => SetCommandExecutableStatus();
@@ -1798,6 +1801,51 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				try { System.Diagnostics.Process.Start(url.ToString()); }
 				catch { /* ignore launch errors */ }
+			}
+		}
+
+		/// <summary>
+		/// Starts inline rename only when the focused row's rename button is clicked, while allowing ordinary
+		/// clicks and double-clicks on the mod name text to remain grid operations.
+		/// </summary>
+		private void GridView_MouseDown(object sender, MouseEventArgs e)
+		{
+			if (e.Button != MouseButtons.Left || _renamingModName) return;
+
+			GridView view = sender as GridView;
+			if (view == null) return;
+
+			GridHitInfo hit = view.CalcHitInfo(e.Location);
+			if (!hit.InRowCell || !IsDataRowHandle(hit.RowHandle) || hit.Column == null || hit.Column.FieldName != ColModName) return;
+
+			// ShowButtonMode is configured for the focused row, so a click on any other row must only select it.
+			if (view.FocusedRowHandle != hit.RowHandle) return;
+
+			view.FocusedColumn = hit.Column;
+			_testingRenameButtonHit = true;
+			try
+			{
+				view.ShowEditor();
+				ButtonEdit editor = view.ActiveEditor as ButtonEdit;
+				ButtonEditViewInfo editorViewInfo = editor?.GetViewInfo() as ButtonEditViewInfo;
+				if (editor == null || editorViewInfo == null) return;
+
+				Point screenPoint = view.GridControl.PointToScreen(e.Location);
+				EditHitInfo editorHit = editorViewInfo.CalcHitInfo(editor.PointToClient(screenPoint));
+				EditorButton button = editorHit.HitTest == EditHitTest.Button ? editorHit.HitObject as EditorButton : null;
+				if (button == null || !String.Equals(button.Tag as string, RenameButtonActionRename, StringComparison.Ordinal)) return;
+
+				DevExpress.Utils.DXMouseEventArgs dxMouseEvent = e as DevExpress.Utils.DXMouseEventArgs;
+				if (dxMouseEvent != null) dxMouseEvent.Handled = true;
+
+				view.HideEditor();
+				BeginInvoke((MethodInvoker)(() => StartInlineRename(hit.RowHandle)));
+			}
+			finally
+			{
+				_testingRenameButtonHit = false;
+				if (!_renamingModName && view.ActiveEditor != null)
+					view.HideEditor();
 			}
 		}
 
@@ -2648,7 +2696,13 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			}
 
-			e.Cancel = _renamingModName && gridView.FocusedRowHandle != _renameRowHandle;
+			if (_testingRenameButtonHit)
+			{
+				e.Cancel = false;
+				return;
+			}
+
+			e.Cancel = !_renamingModName || gridView.FocusedRowHandle != _renameRowHandle;
 		}
 
 		private void GridView_ShownEditor(object sender, EventArgs e)
@@ -2804,6 +2858,7 @@ namespace Nexus.Client.ModManagement.UI
 			_renamingModName = false;
 			_cancelRenameEdit = false;
 			_refreshAfterRename = false;
+			_suppressNextDoubleClick = false;
 			ConfigureRenameEditorButtons(false);
 			gridControl.Cursor = Cursors.Default;
 		}
