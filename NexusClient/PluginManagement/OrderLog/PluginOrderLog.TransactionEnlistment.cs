@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -73,45 +73,17 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			#region IEnlistmentNotification Members
 
 			/// <summary>
-			/// Commits the changes to the <see cref="PluginOrderLog"/>.
+			/// Commits the changes to the <see cref="PluginOrderLog"/> using a single batched collection update.
 			/// </summary>
 			public void Commit()
 			{
-				PluginComparer pcpComparer = PluginComparer.Filename;
-				Dictionary<Plugin, Plugin> dicPredecessors = new Dictionary<Plugin, Plugin>();
-				ThreadSafeObservableList<Plugin> oclUnorderedList = EnlistedPluginOrderLog.m_oclOrderedPlugins;
+				EnlistedPluginOrderLog.m_oclOrderedPlugins.CollectionChanged -= MasterOrderedPlugins_CollectionChanged;
 
-				// Removed faulty lock, it should no longer be necessary anyway
-				//lock (EnlistedPluginOrderLog.m_oclOrderedPlugins)
-				//{
-					EnlistedPluginOrderLog.m_oclOrderedPlugins.CollectionChanged -= MasterOrderedPlugins_CollectionChanged;
-					
-					IList<Plugin> lstOrderedList = m_oclOrderedPlugins;
-					
-					//sort the items whose order has been specified
-					for (Int32 i = 0; i < lstOrderedList.Count; i++)
-					{
-						Int32 intOldIndex = 0;
-						for (intOldIndex = 0; intOldIndex < oclUnorderedList.Count; intOldIndex++)
-							if (pcpComparer.Equals(oclUnorderedList[intOldIndex], lstOrderedList[i]))
-								break;
-						if (intOldIndex == oclUnorderedList.Count)
-						{
-							oclUnorderedList.Insert(i, lstOrderedList[i]);
-							continue;
-						}
-						if (intOldIndex != i)
-							oclUnorderedList.Move(intOldIndex, i);
-					}
-					//as the transacted order list has been kept in sync with the master list
-					// the transacted list is canonical (it contains all of the plugins,
-					// and no plugins that shouldn't be present), so
-					// if a plugin is not in the transacted list it means the plugin was removed,
-					// and should be removed form the master list
-					for (Int32 i = oclUnorderedList.Count - 1; i >= lstOrderedList.Count; i--)
-						oclUnorderedList.RemoveAt(i);
-				//}
+				List<Plugin> desiredOrder = new List<Plugin>(m_oclOrderedPlugins);
+				ReplaceOrderedPlugins(EnlistedPluginOrderLog.m_oclOrderedPlugins, desiredOrder);
+
 				EnlistedPluginOrderLog.SavePluginLog();
+
 				m_booEnlisted = false;
 				m_oclOrderedPlugins.Clear();
 			}
@@ -155,8 +127,12 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			/// <param name="enlistment">The enlistment class used to communicate with the resource manager.</param>
 			public void Rollback(Enlistment enlistment)
 			{
+				EnlistedPluginOrderLog.m_oclOrderedPlugins.CollectionChanged -= MasterOrderedPlugins_CollectionChanged;
+
 				m_booEnlisted = false;
+				m_oclOrderedPlugins.Clear();
 				m_dicEnlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
+
 				enlistment.Done();
 			}
 
@@ -174,6 +150,123 @@ namespace Nexus.Client.PluginManagement.OrderLog
 					CurrentTransaction.EnlistVolatile(this, EnlistmentOptions.None);
 					m_booEnlisted = true;
 				}
+			}
+
+			/// <summary>
+			/// Builds the complete plugin order while preserving the relative placement of plugins omitted from the requested order.
+			/// </summary>
+			/// <param name="p_lstCurrentOrder">The current complete plugin order.</param>
+			/// <param name="p_lstRequestedOrder">The requested partial or complete plugin order.</param>
+			/// <returns>The complete resulting plugin order.</returns>
+			private static List<Plugin> BuildCompletePluginOrder(IList<Plugin> p_lstCurrentOrder, IList<Plugin> p_lstRequestedOrder)
+			{
+				PluginComparer comparer = PluginComparer.Filename;
+				List<Plugin> requestedOrder = new List<Plugin>();
+				HashSet<Plugin> requestedPlugins = new HashSet<Plugin>(comparer);
+
+				foreach (Plugin plugin in p_lstRequestedOrder)
+				{
+					if (plugin != null && requestedPlugins.Add(plugin))
+						requestedOrder.Add(plugin);
+				}
+
+				List<Plugin> leadingPlugins = new List<Plugin>();
+				Dictionary<Plugin, List<Plugin>> followersByPlugin = new Dictionary<Plugin, List<Plugin>>(comparer);
+				Plugin precedingRequestedPlugin = null;
+
+				foreach (Plugin plugin in p_lstCurrentOrder)
+				{
+					if (plugin == null)
+						continue;
+
+					if (requestedPlugins.Contains(plugin))
+					{
+						precedingRequestedPlugin = plugin;
+						continue;
+					}
+
+					if (precedingRequestedPlugin == null)
+					{
+						leadingPlugins.Add(plugin);
+						continue;
+					}
+
+					List<Plugin> followers;
+
+					if (!followersByPlugin.TryGetValue(precedingRequestedPlugin, out followers))
+					{
+						followers = new List<Plugin>();
+						followersByPlugin.Add(precedingRequestedPlugin, followers);
+					}
+
+					followers.Add(plugin);
+				}
+
+				List<Plugin> completeOrder = new List<Plugin>(p_lstCurrentOrder.Count + requestedOrder.Count);
+				completeOrder.AddRange(leadingPlugins);
+
+				foreach (Plugin plugin in requestedOrder)
+				{
+					completeOrder.Add(plugin);
+
+					List<Plugin> followers;
+
+					if (followersByPlugin.TryGetValue(plugin, out followers))
+						completeOrder.AddRange(followers);
+				}
+
+				return completeOrder;
+			}
+
+			/// <summary>
+			/// Replaces the contents of an observable plugin list using one batched reset notification.
+			/// </summary>
+			/// <param name="p_oclTarget">The observable list to update.</param>
+			/// <param name="p_lstDesiredOrder">The desired complete plugin order.</param>
+			private static void ReplaceOrderedPlugins(ThreadSafeObservableList<Plugin> p_oclTarget, IList<Plugin> p_lstDesiredOrder)
+			{
+				if (p_oclTarget == null)
+					throw new ArgumentNullException("p_oclTarget");
+
+				if (p_lstDesiredOrder == null)
+					throw new ArgumentNullException("p_lstDesiredOrder");
+
+				if (PluginOrdersEqual(p_oclTarget, p_lstDesiredOrder))
+					return;
+
+				using (p_oclTarget.BeginUpdate())
+				{
+					p_oclTarget.Clear();
+					p_oclTarget.EnsureCapacity(p_lstDesiredOrder.Count);
+
+					foreach (Plugin plugin in p_lstDesiredOrder)
+						p_oclTarget.Add(plugin);
+				}
+			}
+
+			/// <summary>
+			/// Determines whether two plugin sequences contain the same plugins in the same filename-based order.
+			/// </summary>
+			/// <param name="p_lstFirst">The first plugin sequence.</param>
+			/// <param name="p_lstSecond">The second plugin sequence.</param>
+			/// <returns><c>true</c> if both sequences contain the same plugin order; otherwise, <c>false</c>.</returns>
+			private static bool PluginOrdersEqual(IList<Plugin> p_lstFirst, IList<Plugin> p_lstSecond)
+			{
+				if (ReferenceEquals(p_lstFirst, p_lstSecond))
+					return true;
+
+				if (p_lstFirst == null || p_lstSecond == null || p_lstFirst.Count != p_lstSecond.Count)
+					return false;
+
+				PluginComparer comparer = PluginComparer.Filename;
+
+				for (int index = 0; index < p_lstFirst.Count; index++)
+				{
+					if (!comparer.Equals(p_lstFirst[index], p_lstSecond[index]))
+						return false;
+				}
+
+				return true;
 			}
 
 			/// <summary>
@@ -218,7 +311,14 @@ namespace Nexus.Client.PluginManagement.OrderLog
 						}
 						break;
 					case NotifyCollectionChangedAction.Reset:
-						m_oclOrderedPlugins.Clear();
+						using (m_oclOrderedPlugins.BeginUpdate())
+						{
+							m_oclOrderedPlugins.Clear();
+							m_oclOrderedPlugins.EnsureCapacity(EnlistedPluginOrderLog.m_oclOrderedPlugins.Count);
+
+							foreach (Plugin plugin in EnlistedPluginOrderLog.m_oclOrderedPlugins)
+								m_oclOrderedPlugins.Add(plugin);
+						}
 						break;
 				}
 			}
@@ -228,84 +328,29 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			#region Plugin Order Management
 
 			/// <summary>
-			/// Sets the order of the plugins to the given order.
+			/// Sets the order of the plugins to the given order using a linear reconstruction of the final list.
 			/// </summary>
 			/// <remarks>
-			/// If the given list does not include all registered plugins, then the plugins are ordered in a manner
-			/// so as to not displace the positions of the plugins whose order was not specified.
+			/// Plugins omitted from the requested order retain their relationship with the closest preceding requested plugin from the original order.
 			/// </remarks>
 			/// <param name="p_lstOrderedPlugins">The list indicating the desired order of the plugins.</param>
 			public void SetPluginOrder(IList<Plugin> p_lstOrderedPlugins)
 			{
-				PluginComparer pcpComparer = PluginComparer.Filename;
-				Dictionary<Plugin, Plugin> dicPredecessors = new Dictionary<Plugin, Plugin>();
-				ThreadSafeObservableList<Plugin> oclUnorderedList = m_oclOrderedPlugins;
-				IList<Plugin> lstOrderedList = p_lstOrderedPlugins;
-				string strError = String.Empty;
+				if (p_lstOrderedPlugins == null)
+					throw new ArgumentNullException("p_lstOrderedPlugins");
 
-				try
-				{
-					strError = "Setup";
-					for (Int32 i = 0; i < oclUnorderedList.Count; i++)
-						if (!lstOrderedList.Contains(oclUnorderedList[i], pcpComparer))
-							dicPredecessors[oclUnorderedList[i]] = (i > 0) ? oclUnorderedList[i - 1] : null;
+				List<Plugin> currentOrder = new List<Plugin>(m_oclOrderedPlugins);
+				List<Plugin> completeOrder = BuildCompletePluginOrder(currentOrder, p_lstOrderedPlugins);
 
-					strError = "Specified";
-					//sort the items whose order has been specified
-					for (Int32 i = 0; i < lstOrderedList.Count; i++)
-					{
-						strError = "intOldIndex";
-						Int32 intOldIndex = 0;
-						for (intOldIndex = 0; intOldIndex < oclUnorderedList.Count; intOldIndex++)
-							if (pcpComparer.Equals(oclUnorderedList[intOldIndex], lstOrderedList[i]))
-								break;
-						if (intOldIndex >= oclUnorderedList.Count)
-						{
-							strError = "Insert";
-							oclUnorderedList.Insert(i, lstOrderedList[i]);
-							continue;
-						}
+				if (PluginOrdersEqual(currentOrder, completeOrder))
+					return;
 
-						if (intOldIndex != i)
-						{
-							strError = "Move intOldIndex";
-							oclUnorderedList.Move(intOldIndex, i);
-						}
-					}
+				ReplaceOrderedPlugins(m_oclOrderedPlugins, completeOrder);
 
-					strError = "Predecessor";
-					//sort the items whose order has not been specified
-					// if an item's order hasn't been specified, it is placed after the
-					// item it followed in the original, unordered, list
-					for (Int32 i = lstOrderedList.Count; i < oclUnorderedList.Count; i++)
-					{
-						Plugin plgPredecessor = null;
-						Int32 intNewIndex = -1;
-						if (dicPredecessors.ContainsKey(oclUnorderedList[i]))
-							plgPredecessor = dicPredecessors[oclUnorderedList[i]];
-
-						//if the predecessor is null, then the item was at the beginning of the list
-						if (plgPredecessor != null)
-						{
-							for (intNewIndex = 0; intNewIndex < oclUnorderedList.Count; intNewIndex++)
-								if (pcpComparer.Equals(oclUnorderedList[intNewIndex], plgPredecessor))
-									break;
-						}
-
-						strError = "intNewIndex + 1";
-						if (intNewIndex + 1 != i)
-							oclUnorderedList.Move(i, intNewIndex + 1);
-					}
-
-					if (CurrentTransaction == null)
-						Commit();
-					else
-						Enlist();
-				}
-				catch (Exception e)
-				{
-					throw new Exception(strError, e);
-				}
+				if (CurrentTransaction == null)
+					Commit();
+				else
+					Enlist();
 			}
 
 			/// <summary>

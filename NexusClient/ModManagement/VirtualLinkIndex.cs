@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Nexus.Client.ModManagement
 {
@@ -77,6 +78,7 @@ namespace Nexus.Client.ModManagement
 	internal class VirtualLinkIndex
 	{
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByVirtualPath;
+		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByFileName;
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByDeploymentPath;
 		private int m_intReservedLinkCount;
 
@@ -89,6 +91,7 @@ namespace Nexus.Client.ModManagement
 		{
 			int expectedLinkCount = Math.Max(0, p_intExpectedLinkCount);
 			m_dicLinksByVirtualPath = CreateIndex(expectedLinkCount);
+			m_dicLinksByFileName = CreateIndex(expectedLinkCount);
 			m_dicLinksByDeploymentPath = CreateIndex(GetDeploymentCapacity(expectedLinkCount));
 			m_intReservedLinkCount = expectedLinkCount;
 		}
@@ -105,6 +108,7 @@ namespace Nexus.Client.ModManagement
 				reservedLinkCount = Math.Max(expectedLinkCount, m_intReservedLinkCount + growth);
 
 			m_dicLinksByVirtualPath = CopyIndex(m_dicLinksByVirtualPath, reservedLinkCount);
+			m_dicLinksByFileName = CopyIndex(m_dicLinksByFileName, reservedLinkCount);
 			m_dicLinksByDeploymentPath = CopyIndex(m_dicLinksByDeploymentPath, GetDeploymentCapacity(reservedLinkCount));
 			m_intReservedLinkCount = reservedLinkCount;
 		}
@@ -125,9 +129,13 @@ namespace Nexus.Client.ModManagement
 				Add(vmlLink, GetDeploymentPathKeys(p_dlgDeploymentPathKeyFactory, vmlLink));
 		}
 
+		/// <summary>
+		/// Clears all virtual-link lookup indexes.
+		/// </summary>
 		public void Clear()
 		{
 			m_dicLinksByVirtualPath.Clear();
+			m_dicLinksByFileName.Clear();
 			m_dicLinksByDeploymentPath.Clear();
 		}
 
@@ -136,12 +144,18 @@ namespace Nexus.Client.ModManagement
 			Add(p_vmlLink, null, null);
 		}
 
+		/// <summary>
+		/// Adds a virtual link and its deployment keys to the indexes.
+		/// </summary>
+		/// <param name="p_vmlLink">The virtual link to add.</param>
+		/// <param name="p_enmDeploymentPathKeys">The deployment path keys associated with the link.</param>
 		public void Add(IVirtualModLink p_vmlLink, IEnumerable<string> p_enmDeploymentPathKeys)
 		{
 			if (p_vmlLink == null)
 				return;
 
 			Add(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
+			Add(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
 
 			if (p_enmDeploymentPathKeys == null)
 				return;
@@ -150,13 +164,21 @@ namespace Nexus.Client.ModManagement
 				Add(m_dicLinksByDeploymentPath, strDeploymentPathKey, p_vmlLink);
 		}
 
+		/// <summary>
+		/// Adds a virtual link and up to two deployment keys to the indexes.
+		/// </summary>
+		/// <param name="p_vmlLink">The virtual link to add.</param>
+		/// <param name="p_strPrimaryDeploymentPathKey">The primary deployment path key.</param>
+		/// <param name="p_strSecondaryDeploymentPathKey">The secondary deployment path key.</param>
 		public void Add(IVirtualModLink p_vmlLink, string p_strPrimaryDeploymentPathKey, string p_strSecondaryDeploymentPathKey)
 		{
 			if (p_vmlLink == null)
 				return;
 
 			Add(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
+			Add(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
 			Add(m_dicLinksByDeploymentPath, p_strPrimaryDeploymentPathKey, p_vmlLink);
+
 			if (!String.Equals(p_strPrimaryDeploymentPathKey, p_strSecondaryDeploymentPathKey, StringComparison.OrdinalIgnoreCase))
 				Add(m_dicLinksByDeploymentPath, p_strSecondaryDeploymentPathKey, p_vmlLink);
 		}
@@ -166,12 +188,18 @@ namespace Nexus.Client.ModManagement
 			Remove(p_vmlLink, null, null);
 		}
 
+		/// <summary>
+		/// Removes a virtual link and its deployment keys from the indexes.
+		/// </summary>
+		/// <param name="p_vmlLink">The virtual link to remove.</param>
+		/// <param name="p_enmDeploymentPathKeys">The deployment path keys associated with the link.</param>
 		public void Remove(IVirtualModLink p_vmlLink, IEnumerable<string> p_enmDeploymentPathKeys)
 		{
 			if (p_vmlLink == null)
 				return;
 
 			Remove(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
+			Remove(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
 
 			if (p_enmDeploymentPathKeys == null)
 				return;
@@ -180,13 +208,21 @@ namespace Nexus.Client.ModManagement
 				Remove(m_dicLinksByDeploymentPath, strDeploymentPathKey, p_vmlLink);
 		}
 
+		/// <summary>
+		/// Removes a virtual link and up to two deployment keys from the indexes.
+		/// </summary>
+		/// <param name="p_vmlLink">The virtual link to remove.</param>
+		/// <param name="p_strPrimaryDeploymentPathKey">The primary deployment path key.</param>
+		/// <param name="p_strSecondaryDeploymentPathKey">The secondary deployment path key.</param>
 		public void Remove(IVirtualModLink p_vmlLink, string p_strPrimaryDeploymentPathKey, string p_strSecondaryDeploymentPathKey)
 		{
 			if (p_vmlLink == null)
 				return;
 
 			Remove(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
+			Remove(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
 			Remove(m_dicLinksByDeploymentPath, p_strPrimaryDeploymentPathKey, p_vmlLink);
+
 			if (!String.Equals(p_strPrimaryDeploymentPathKey, p_strSecondaryDeploymentPathKey, StringComparison.OrdinalIgnoreCase))
 				Remove(m_dicLinksByDeploymentPath, p_strSecondaryDeploymentPathKey, p_vmlLink);
 		}
@@ -194,6 +230,16 @@ namespace Nexus.Client.ModManagement
 		public VirtualLinkIndexBucket FindByVirtualPath(string p_strVirtualPath)
 		{
 			return Find(m_dicLinksByVirtualPath, p_strVirtualPath);
+		}
+
+		/// <summary>
+		/// Finds the virtual links whose virtual path has the specified file name.
+		/// </summary>
+		/// <param name="p_strFileName">The file name to find.</param>
+		/// <returns>The indexed link bucket, or <c>null</c> when no matching link exists.</returns>
+		public VirtualLinkIndexBucket FindByFileName(string p_strFileName)
+		{
+			return Find(m_dicLinksByFileName, GetFileNameKey(p_strFileName));
 		}
 
 		public VirtualLinkIndexBucket FindByDeploymentPath(string p_strDeploymentPathKey)
@@ -204,6 +250,18 @@ namespace Nexus.Client.ModManagement
 		private static IEnumerable<string> GetDeploymentPathKeys(Func<IVirtualModLink, IEnumerable<string>> p_dlgDeploymentPathKeyFactory, IVirtualModLink p_vmlLink)
 		{
 			return p_dlgDeploymentPathKeyFactory == null ? null : p_dlgDeploymentPathKeyFactory(p_vmlLink);
+		}
+
+		/// <summary>
+		/// Gets the normalized file-name key used by the file-name index.
+		/// </summary>
+		/// <param name="p_strPath">The path from which to obtain the file name.</param>
+		/// <returns>The normalized file name, or an empty string when the path is empty.</returns>
+		private static string GetFileNameKey(string p_strPath)
+		{
+			return String.IsNullOrWhiteSpace(p_strPath)
+				? String.Empty
+				: Path.GetFileName(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
 		}
 
 		private static void Add(Dictionary<string, VirtualLinkIndexBucket> p_dicIndex, string p_strKey, IVirtualModLink p_vmlLink)

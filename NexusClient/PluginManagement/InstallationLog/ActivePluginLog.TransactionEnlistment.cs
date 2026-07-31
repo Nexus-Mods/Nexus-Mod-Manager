@@ -1,9 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using Nexus.Client.Plugins;
+﻿using Nexus.Client.Plugins;
 using Nexus.Client.Util.Collections;
 using Nexus.Transactions;
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Linq;
 
 namespace Nexus.Client.PluginManagement.InstallationLog
 {
@@ -72,28 +73,44 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 			#region IEnlistmentNotification Members
 
 			/// <summary>
-			/// Commits the changes to the <see cref="ActivePluginLog"/>.
+			/// Commits the active plugin changes using filename-based hash lookups.
 			/// </summary>
 			public void Commit()
 			{
 				lock (EnlistedPluginLog.m_ostActivePlugins)
 				{
 					EnlistedPluginLog.m_ostActivePlugins.CollectionChanged -= MasterPlugins_CollectionChanged;
-					var desired = new HashSet<Plugin>(PluginComparer.Filename);
-					foreach (Plugin plgDesired in m_ostActivePlugins)
-						if (plgDesired != null)
-							desired.Add(plgDesired);
-					for (Int32 i = EnlistedPluginLog.m_ostActivePlugins.Count - 1; i >= 0; i--)
-						if (!desired.Contains(EnlistedPluginLog.m_ostActivePlugins[i]))
-							EnlistedPluginLog.m_ostActivePlugins.RemoveAt(i);
-					foreach (Plugin plgNew in m_ostActivePlugins)
-						if ((plgNew != null) && !EnlistedPluginLog.m_ostActivePlugins.Contains(plgNew))
-							EnlistedPluginLog.m_ostActivePlugins.Add(plgNew);
+
+					HashSet<Plugin> desiredPlugins = new HashSet<Plugin>(
+						m_ostActivePlugins.Where(x => x != null),
+						PluginComparer.Filename);
+
+					HashSet<Plugin> currentPlugins = new HashSet<Plugin>(
+						EnlistedPluginLog.m_ostActivePlugins.Where(x => x != null),
+						PluginComparer.Filename);
+
+					for (int index = EnlistedPluginLog.m_ostActivePlugins.Count - 1; index >= 0; index--)
+					{
+						Plugin plugin = EnlistedPluginLog.m_ostActivePlugins[index];
+
+						if (!desiredPlugins.Contains(plugin))
+						{
+							EnlistedPluginLog.m_ostActivePlugins.RemoveAt(index);
+							currentPlugins.Remove(plugin);
+						}
+					}
+
+					foreach (Plugin plugin in m_ostActivePlugins)
+					{
+						if (plugin != null && currentPlugins.Add(plugin))
+							EnlistedPluginLog.m_ostActivePlugins.Add(plugin);
+					}
 				}
+
 				EnlistedPluginLog.SavePluginLog();
 
 				m_booEnlisted = false;
-				m_ostActivePlugins.Clear();;
+				m_ostActivePlugins.Clear();
 			}
 
 			/// <summary>
@@ -135,9 +152,12 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 			/// <param name="enlistment">The enlistment class used to communicate with the resource manager.</param>
 			public void Rollback(Enlistment enlistment)
 			{
+				EnlistedPluginLog.m_ostActivePlugins.CollectionChanged -= MasterPlugins_CollectionChanged;
+
 				m_booEnlisted = false;
 				m_ostActivePlugins.Clear();
 				m_dicEnlistments.Remove(CurrentTransaction.TransactionInformation.LocalIdentifier);
+
 				enlistment.Done();
 			}
 

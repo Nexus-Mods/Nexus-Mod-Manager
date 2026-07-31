@@ -253,6 +253,113 @@
 				Is.False);
 		}
 
+		[Test]
+		public void CorrectStableMovesMasterImmediatelyBeforeItsFirstDependent()
+		{
+			PluginManagementPolicy policy = new PluginManagementPolicy();
+
+			Plugin dependent = CreatePlugin("Dependent.esp", PluginAddressClass.Full, false, "Master.esm");
+			Plugin unrelated = CreatePlugin("Unrelated.esp", PluginAddressClass.Full, false);
+			Plugin master = CreatePlugin("Master.esm", PluginAddressClass.Full, true);
+
+			List<Plugin> corrected = new PluginSnapshotBuilder().CorrectStable(
+				policy,
+				new List<Plugin> { dependent, unrelated, master });
+
+			Assert.That(
+				corrected.Select(x => System.IO.Path.GetFileName(x.Filename)).ToArray(),
+				Is.EqualTo(new[] { "Master.esm", "Dependent.esp", "Unrelated.esp" }));
+		}
+
+		[Test]
+		public void CorrectStablePlacesSharedMasterBeforeAllDependents()
+		{
+			PluginManagementPolicy policy = new PluginManagementPolicy();
+
+			Plugin firstDependent = CreatePlugin("First.esp", PluginAddressClass.Full, false, "Shared.esm");
+			Plugin secondDependent = CreatePlugin("Second.esp", PluginAddressClass.Full, false, "Shared.esm");
+			Plugin sharedMaster = CreatePlugin("Shared.esm", PluginAddressClass.Full, true);
+
+			List<Plugin> corrected = new PluginSnapshotBuilder().CorrectStable(
+				policy,
+				new List<Plugin> { firstDependent, secondDependent, sharedMaster });
+
+			Assert.That(
+				corrected.Select(x => System.IO.Path.GetFileName(x.Filename)).ToArray(),
+				Is.EqualTo(new[] { "Shared.esm", "First.esp", "Second.esp" }));
+		}
+
+		[Test]
+		[Timeout(10000)]
+		public void CorrectStableHandlesFifteenHundredPluginDependencyChain()
+		{
+			const int PluginCount = 1500;
+
+			PluginManagementPolicy policy = new PluginManagementPolicy();
+			policy.MasterPluginsMustLoadBeforeNonMasters = false;
+
+			List<Plugin> expectedOrder = new List<Plugin>();
+
+			for (int index = 0; index < PluginCount; index++)
+			{
+				string pluginName = "Plugin" + index.ToString("D4") + ".esp";
+				string[] masters = index == 0
+					? new string[0]
+					: new[] { "Plugin" + (index - 1).ToString("D4") + ".esp" };
+
+				expectedOrder.Add(CreatePlugin(pluginName, PluginAddressClass.Full, false, masters));
+			}
+
+			List<Plugin> reversedOrder = expectedOrder.AsEnumerable().Reverse().ToList();
+			List<Plugin> corrected = new PluginSnapshotBuilder().CorrectStable(policy, reversedOrder);
+
+			Assert.That(
+				corrected.Select(x => System.IO.Path.GetFileName(x.Filename)).ToArray(),
+				Is.EqualTo(expectedOrder.Select(x => System.IO.Path.GetFileName(x.Filename)).ToArray()));
+		}
+
+		[Test]
+		[Timeout(2000)]
+		public void CorrectStableTerminatesAndSnapshotReportsDependencyCycle()
+		{
+			PluginManagementPolicy policy = new PluginManagementPolicy();
+
+			Plugin first = CreatePlugin("First.esp", PluginAddressClass.Full, false, "Second.esp");
+			Plugin second = CreatePlugin("Second.esp", PluginAddressClass.Full, false, "First.esp");
+
+			List<Plugin> corrected = new PluginSnapshotBuilder().CorrectStable(
+				policy,
+				new List<Plugin> { first, second });
+
+			PluginSnapshot snapshot = new PluginSnapshotBuilder().Build(
+				policy,
+				corrected,
+				new HashSet<Plugin>(corrected));
+
+			Assert.That(corrected.Count, Is.EqualTo(2));
+			Assert.That(snapshot.Diagnostics.Any(x => x.Kind == PluginValidationIssueKind.DependencyCycle), Is.True);
+		}
+
+		[Test]
+		public void FixedPlacementLookupIgnoresMissingFixedPlugins()
+		{
+			PluginManagementPolicy policy = new PluginManagementPolicy();
+			policy.AddFixedOrderPlugin("Missing.esm");
+			policy.AddFixedOrderPlugin("Installed.esm");
+
+			Plugin installed = CreatePlugin("Installed.esm", PluginAddressClass.Full, true);
+			Plugin custom = CreatePlugin("Custom.esp", PluginAddressClass.Full, false);
+
+			List<Plugin> plugins = new List<Plugin> { installed, custom };
+			PluginSnapshot snapshot = new PluginSnapshotBuilder().Build(
+				policy,
+				plugins,
+				new HashSet<Plugin>(plugins),
+				PluginRestrictionMode.Enforced);
+
+			Assert.That(snapshot.Diagnostics.Any(x => x.Kind == PluginValidationIssueKind.InvalidFixedPluginPlacement), Is.False);
+		}
+
 		private static Plugin CreatePlugin(string filename, PluginAddressClass addressClass, bool effectiveMaster, params string[] masters)
         {
             Plugin plugin = new Plugin(filename, filename, null);

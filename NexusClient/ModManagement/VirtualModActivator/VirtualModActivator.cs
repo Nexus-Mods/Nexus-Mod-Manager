@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Concurrent;
@@ -2928,19 +2928,87 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the current active virtual-file owner for the specified path.
+		/// </summary>
+		/// <param name="p_strPath">The path whose current owner should be resolved.</param>
+		/// <returns>The active owner name, or an empty string when no active owner exists.</returns>
 		public string GetCurrentFileOwner(string p_strPath)
 		{
-			string strOwner = string.Empty;
+			string strFileName = GetOwnerLookupFileName(p_strPath);
 
-			if ((VirtualLinks != null) && (VirtualLinks.Count > 0))
+			if (String.IsNullOrEmpty(strFileName))
+				return String.Empty;
+
+			EnsureVirtualLinkIndex();
+
+			lock (m_objVirtualLinkIndexLock)
 			{
-				string strFile = Path.GetFileName(p_strPath);
-				IVirtualModLink vmlLink = VirtualLinks.Find(x => Path.GetFileName(x.VirtualModPath).Equals(strFile, StringComparison.CurrentCultureIgnoreCase) && (x.Active == true));
-				if (vmlLink != null)
-					strOwner = vmlLink.ModInfo.ModName;
+				return GetActiveOwnerName(m_vliVirtualLinkIndex.FindByFileName(strFileName));
+			}
+		}
+
+		/// <summary>
+		/// Gets the current active virtual-file owners for the specified paths.
+		/// </summary>
+		/// <param name="p_enmPaths">The paths whose current owners should be resolved.</param>
+		/// <returns>A case-insensitive dictionary keyed by file name and containing the active owner name.</returns>
+		public IDictionary<string, string> GetCurrentFileOwners(IEnumerable<string> p_enmPaths)
+		{
+			Dictionary<string, string> dicOwners = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+			if (p_enmPaths == null)
+				return dicOwners;
+
+			HashSet<string> hstFileNames = new HashSet<string>(
+				p_enmPaths.Select(GetOwnerLookupFileName).Where(x => !String.IsNullOrEmpty(x)),
+				StringComparer.OrdinalIgnoreCase);
+
+			if (hstFileNames.Count == 0)
+				return dicOwners;
+
+			EnsureVirtualLinkIndex();
+
+			lock (m_objVirtualLinkIndexLock)
+			{
+				foreach (string strFileName in hstFileNames)
+					dicOwners[strFileName] = GetActiveOwnerName(m_vliVirtualLinkIndex.FindByFileName(strFileName));
 			}
 
-			return strOwner;
+			return dicOwners;
+		}
+
+		/// <summary>
+		/// Gets the normalized file name used to resolve a virtual-file owner.
+		/// </summary>
+		/// <param name="p_strPath">The path from which to obtain the file name.</param>
+		/// <returns>The normalized file name, or an empty string when the path is empty.</returns>
+		private static string GetOwnerLookupFileName(string p_strPath)
+		{
+			return String.IsNullOrWhiteSpace(p_strPath)
+				? String.Empty
+				: Path.GetFileName(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+		}
+
+		/// <summary>
+		/// Gets the first active owner name from an indexed virtual-link bucket.
+		/// </summary>
+		/// <param name="p_vlbBucket">The indexed virtual-link bucket to inspect.</param>
+		/// <returns>The active owner name, or an empty string when the bucket has no active owner.</returns>
+		private static string GetActiveOwnerName(VirtualLinkIndexBucket p_vlbBucket)
+		{
+			if (p_vlbBucket == null)
+				return String.Empty;
+
+			for (int intIndex = 0; intIndex < p_vlbBucket.Count; intIndex++)
+			{
+				IVirtualModLink vmlLink = p_vlbBucket[intIndex];
+
+				if (vmlLink != null && vmlLink.Active && vmlLink.ModInfo != null)
+					return vmlLink.ModInfo.ModName ?? String.Empty;
+			}
+
+			return String.Empty;
 		}
 
 		public bool OverwriteLooseFile(string p_strFilePath, string p_strModFileName)

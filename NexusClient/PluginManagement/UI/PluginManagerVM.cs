@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
-using Nexus.Client.BackgroundTasks;
+﻿using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
@@ -12,8 +7,14 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.Plugins;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
-using Nexus.Client.Util.Collections;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Collections;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Nexus.Client.PluginManagement.UI
 {
@@ -741,11 +742,10 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
-		/// Writes the current load order and the id of the specified game mode to the specified 
-		/// <see cref="TextWriter"/> and returns the number of plugins written.
+		/// Writes the current load order and active state to the specified writer.
 		/// </summary>
-		/// <param name="p_twWriter">The TextWriter to export the current load order to.</param>
-		/// <returns>The number of plugins exported.</returns>
+		/// <param name="p_twWriter">The writer that receives the load order.</param>
+		/// <returns>The number of exported plugins.</returns>
 		private int ExportLoadOrder(TextWriter p_twWriter)
 		{
 			if (p_twWriter == null)
@@ -754,11 +754,12 @@ namespace Nexus.Client.PluginManagement.UI
 			p_twWriter.WriteLine("GameMode={0}", CurrentGameMode.ModeId);
 			p_twWriter.WriteLine();
 
+			HashSet<Plugin> hstActivePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
 			int intNumPluginsExported = 0;
 
-			foreach (Plugin p in ManagedPlugins)
+			foreach (Plugin plgPlugin in ManagedPlugins)
 			{
-				p_twWriter.WriteLine(Path.GetFileName(p.Filename) + "=" + (ActivePlugins.Contains(p) ? "1" : "0"));
+				p_twWriter.WriteLine(Path.GetFileName(plgPlugin.Filename) + "=" + (hstActivePlugins.Contains(plgPlugin) ? "1" : "0"));
 				intNumPluginsExported++;
 			}
 
@@ -766,22 +767,20 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
-		/// Writes the current load order and the id of the specified game mode to the specified 
-		/// <see cref="TextWriter"/> and returns the stream.
+		/// Exports the current load order and active state as an UTF-8 byte array.
 		/// </summary>
-		/// <param name="p_twWriter">The TextWriter to export the current load order to.</param>
-		/// <returns>The stream.</returns>
+		/// <returns>The serialized load order.</returns>
 		public byte[] ExportLoadOrder()
 		{
-			System.Text.StringBuilder sbLoadOrder = new System.Text.StringBuilder();
+			StringBuilder sbLoadOrder = new StringBuilder();
+			HashSet<Plugin> hstActivePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+
 			sbLoadOrder.AppendLine("GameMode=" + CurrentGameMode.ModeId);
 
-			foreach (Plugin p in ManagedPlugins)
-			{
-				sbLoadOrder.AppendLine(Path.GetFileName(p.Filename) + "=" + (ActivePlugins.Contains(p) ? "1" : "0"));
-			}
+			foreach (Plugin plgPlugin in ManagedPlugins)
+				sbLoadOrder.AppendLine(Path.GetFileName(plgPlugin.Filename) + "=" + (hstActivePlugins.Contains(plgPlugin) ? "1" : "0"));
 
-			return System.Text.Encoding.UTF8.GetBytes(sbLoadOrder.ToString());
+			return Encoding.UTF8.GetBytes(sbLoadOrder.ToString());
 		}
 
 		/// <summary>
@@ -1415,6 +1414,33 @@ namespace Nexus.Client.PluginManagement.UI
 		public string GetPluginOwner(Plugin p_plgPlugin)
 		{
 			return VirtualModActivator.GetCurrentFileOwner(p_plgPlugin.Filename);
+		}
+
+		/// <summary>
+		/// Gets the current virtual-file owners for the specified plugins in a single indexed operation.
+		/// </summary>
+		/// <param name="p_enmPlugins">The plugins whose owners should be resolved.</param>
+		/// <returns>A dictionary mapping each plugin to its current owner name.</returns>
+		public IDictionary<Plugin, string> GetPluginOwners(IEnumerable<Plugin> p_enmPlugins)
+		{
+			List<Plugin> lstPlugins = p_enmPlugins == null
+				? new List<Plugin>()
+				: p_enmPlugins.Where(x => x != null).Distinct(PluginComparer.Filename).ToList();
+
+			IDictionary<string, string> dicOwnersByFileName = VirtualModActivator.GetCurrentFileOwners(lstPlugins.Select(x => x.Filename));
+			Dictionary<Plugin, string> dicOwnersByPlugin = new Dictionary<Plugin, string>(PluginComparer.Filename);
+
+			foreach (Plugin plgPlugin in lstPlugins)
+			{
+				string strOwner;
+				string strFileName = Path.GetFileName(plgPlugin.Filename);
+
+				dicOwnersByPlugin[plgPlugin] = dicOwnersByFileName.TryGetValue(strFileName, out strOwner)
+					? strOwner
+					: String.Empty;
+			}
+
+			return dicOwnersByPlugin;
 		}
 
 		public bool PluginExists(string p_strPlugin)

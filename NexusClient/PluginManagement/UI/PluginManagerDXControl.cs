@@ -478,6 +478,9 @@
 			_pluginRefreshScheduled = false;
         }
 
+		/// <summary>
+		/// Rebuilds all plugin grid rows using one snapshot, one active-plugin lookup and one owner lookup.
+		/// </summary>
 		private void RebuildRows()
 		{
 			GridViewState state = CaptureGridViewState();
@@ -487,19 +490,18 @@
 			try
 			{
 				_rows.RaiseListChangedEvents = false;
-
 				_rows.Clear();
 				_rowsByPlugin.Clear();
 
 				if (_viewModel != null)
 				{
-					PluginSnapshot snapshot =
-						_pluginManager == null
-							? null
-							: _pluginManager.CurrentSnapshot;
+					List<Plugin> lstPlugins = _viewModel.ManagedPlugins.Where(x => x != null).ToList();
+					PluginSnapshot psnSnapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
+					HashSet<Plugin> hstActivePlugins = new HashSet<Plugin>(_viewModel.ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+					IDictionary<Plugin, string> dicOwners = _viewModel.GetPluginOwners(lstPlugins);
 
-					foreach (Plugin plugin in _viewModel.ManagedPlugins)
-						AddOrUpdateRow(plugin, snapshot);
+					foreach (Plugin plgPlugin in lstPlugins)
+						AddOrUpdateRow(plgPlugin, psnSnapshot, hstActivePlugins, dicOwners);
 				}
 			}
 			finally
@@ -514,30 +516,39 @@
 			UpdateCommandState();
 		}
 
-		private void AddOrUpdateRow(Plugin plugin, PluginSnapshot snapshot)
-        {
-            if (plugin == null)
-                return;
+		/// <summary>
+		/// Adds or updates a plugin grid row using precomputed snapshot, activation and ownership data.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin represented by the row.</param>
+		/// <param name="p_psnSnapshot">The current plugin snapshot.</param>
+		/// <param name="p_setActivePlugins">The active-plugin lookup.</param>
+		/// <param name="p_dicOwners">The plugin-owner lookup.</param>
+		private void AddOrUpdateRow(Plugin p_plgPlugin, PluginSnapshot p_psnSnapshot, ISet<Plugin> p_setActivePlugins, IDictionary<Plugin, string> p_dicOwners)
+		{
+			if (p_plgPlugin == null)
+				return;
 
-            PluginManagerDXRow row;
-            if (!_rowsByPlugin.TryGetValue(plugin, out row))
-            {
-                row = new PluginManagerDXRow(plugin);
-                _rowsByPlugin.Add(plugin, row);
-                _rows.Add(row);
-            }
+			PluginManagerDXRow row;
 
-            PluginSnapshotEntry entry = snapshot == null ? null : snapshot.GetEntry(plugin);
-            row.Active = _viewModel.ActivePlugins.Contains(plugin);
-            row.LoadOrder = entry == null ? String.Empty : entry.ModIndex;
-            row.Index = entry == null || !entry.AllocatedIndex.HasValue ? String.Empty : (entry.AllocatedIndex.Value + 1).ToString();
-            row.PluginName = Path.GetFileName(plugin.Filename);
-            row.PluginType = entry == null ? plugin.EffectiveTypeDisplay : entry.EffectiveType;
-            row.Owner = _viewModel.GetPluginOwner(plugin);
-            row.Status = GetStatus(plugin, entry);
-			row.StatusSeverity = GetHighestDiagnosticSeverity(entry);
+			if (!_rowsByPlugin.TryGetValue(p_plgPlugin, out row))
+			{
+				row = new PluginManagerDXRow(p_plgPlugin);
+				_rowsByPlugin.Add(p_plgPlugin, row);
+				_rows.Add(row);
+			}
+
+			PluginSnapshotEntry entry = p_psnSnapshot == null ? null : p_psnSnapshot.GetEntry(p_plgPlugin);
+			string strOwner;
+
+			row.Active = p_setActivePlugins != null && p_setActivePlugins.Contains(p_plgPlugin);
+			row.LoadOrder = entry == null ? String.Empty : entry.ModIndex;
+			row.Index = entry == null || !entry.AllocatedIndex.HasValue ? String.Empty : (entry.AllocatedIndex.Value + 1).ToString();
+			row.PluginName = Path.GetFileName(p_plgPlugin.Filename);
+			row.PluginType = entry == null ? p_plgPlugin.EffectiveTypeDisplay : entry.EffectiveType;
+			row.Owner = p_dicOwners != null && p_dicOwners.TryGetValue(p_plgPlugin, out strOwner) ? strOwner : row.Owner;
+			row.Status = GetStatus(p_plgPlugin, entry);
 			row.NotifyAll();
-        }
+		}
 
 		#region Helpers
 
@@ -1057,18 +1068,28 @@
             return _gridView.GetSelectedRows().Select(x => _gridView.GetRow(x) as PluginManagerDXRow).Where(x => x != null).Select(x => x.Plugin).ToList();
         }
 
-        private void RefreshSnapshotRows()
-        {
-            PluginSnapshot snapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
-            foreach (Plugin plugin in _viewModel.ManagedPlugins)
-                AddOrUpdateRow(plugin, snapshot);
-            _gridView.RefreshData();
-            UpdatePluginInfo();
-            UpdateCommandState();
-            UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
-        }
+		/// <summary>
+		/// Refreshes plugin snapshot-dependent row values without rebuilding the grid data source.
+		/// </summary>
+		private void RefreshSnapshotRows()
+		{
+			if (_viewModel == null)
+				return;
 
-        private void RequestManagedPluginsRefresh()
+			List<Plugin> lstPlugins = _viewModel.ManagedPlugins.Where(x => x != null).ToList();
+			PluginSnapshot psnSnapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
+			HashSet<Plugin> hstActivePlugins = new HashSet<Plugin>(_viewModel.ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+
+			foreach (Plugin plgPlugin in lstPlugins)
+				AddOrUpdateRow(plgPlugin, psnSnapshot, hstActivePlugins, null);
+
+			_gridView.RefreshData();
+			UpdatePluginInfo();
+			UpdateCommandState();
+			UpdatePluginsCount?.Invoke(this, EventArgs.Empty);
+		}
+
+		private void RequestManagedPluginsRefresh()
         {
             if (IsDisposed || Disposing)
                 return;

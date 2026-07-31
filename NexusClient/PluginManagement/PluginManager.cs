@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -43,29 +44,12 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_povOrderValidator">The object that validates plugin order.</param>
 		/// <exception cref="InvalidOperationException">Thrown if the plugin manager has already
 		/// been initialized.</exception>
-		public static IPluginManager Initialize(
-			IGameMode p_gmdGameMode,
-			PluginRegistry p_mprManagedPluginRegistry,
-			ActivePluginLog p_aplPluginLog,
-			IPluginOrderLog p_polOrderLog,
-			IPluginOrderValidator p_povOrderValidator)
+		public static IPluginManager Initialize(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator)
 		{
-			return Initialize(
-				p_gmdGameMode,
-				p_mprManagedPluginRegistry,
-				p_aplPluginLog,
-				p_polOrderLog,
-				p_povOrderValidator,
-				false);
+			return Initialize(p_gmdGameMode, p_mprManagedPluginRegistry, p_aplPluginLog, p_polOrderLog, p_povOrderValidator, false);
 		}
 
-		public static IPluginManager Initialize(
-			IGameMode p_gmdGameMode,
-			PluginRegistry p_mprManagedPluginRegistry,
-			ActivePluginLog p_aplPluginLog,
-			IPluginOrderLog p_polOrderLog,
-			IPluginOrderValidator p_povOrderValidator,
-			bool p_booPluginRestrictionsDisabled)
+		public static IPluginManager Initialize(IGameMode p_gmdGameMode, PluginRegistry p_mprManagedPluginRegistry, ActivePluginLog p_aplPluginLog, IPluginOrderLog p_polOrderLog, IPluginOrderValidator p_povOrderValidator, bool p_booPluginRestrictionsDisabled)
 		{
 			if (m_pmgCurrent != null)
 			{
@@ -73,29 +57,26 @@ namespace Nexus.Client.PluginManagement
 					"The Plugin Manager has already been initialized.");
 			}
 
-			m_pmgCurrent = new PluginManager(
-				p_gmdGameMode,
-				p_mprManagedPluginRegistry,
-				p_aplPluginLog,
-				p_polOrderLog,
-				p_povOrderValidator,
-				p_booPluginRestrictionsDisabled);
+			m_pmgCurrent = new PluginManager(p_gmdGameMode, p_mprManagedPluginRegistry, p_aplPluginLog, p_polOrderLog, p_povOrderValidator,	p_booPluginRestrictionsDisabled);
 
 			return m_pmgCurrent;
 		}
 
 		/// <summary>
-		/// This disposes of the singleton object, allowing it to be re-initialized.
+		/// Releases the singleton plugin manager and detaches its snapshot invalidation handlers.
 		/// </summary>
 		public void Release()
 		{
+			UnhookSnapshotInvalidation();
+			InvalidateCurrentSnapshot();
 			m_pmgCurrent = null;
 		}
 
 		#endregion
 
-		private bool m_booPluginRestrictionsDisabled;
 		private readonly PluginSnapshotBuilder m_psbSnapshotBuilder = new PluginSnapshotBuilder();
+		private volatile PluginSnapshot m_psnCurrentSnapshot;
+		private bool m_booPluginRestrictionsDisabled;
 
 		#region Properties
 
@@ -167,11 +148,21 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		/// <summary>
+		/// Gets the current validated plugin snapshot, rebuilding it only after plugin state changes.
+		/// </summary>
 		public PluginSnapshot CurrentSnapshot
 		{
 			get
 			{
-				return BuildPluginSnapshot();
+				PluginSnapshot psnSnapshot = m_psnCurrentSnapshot;
+
+				if (psnSnapshot != null)
+					return psnSnapshot;
+
+				psnSnapshot = BuildPluginSnapshot();
+				m_psnCurrentSnapshot = psnSnapshot;
+				return psnSnapshot;
 			}
 		}
 
@@ -202,9 +193,7 @@ namespace Nexus.Client.PluginManagement
 					PluginComparer.Filename));
 		}
 
-		private PluginSnapshot BuildPluginSnapshot(
-			IList<Plugin> p_lstOrderedPlugins,
-			ISet<Plugin> p_setActivePlugins)
+		private PluginSnapshot BuildPluginSnapshot(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
 		{
 			return BuildPluginSnapshot(
 				p_lstOrderedPlugins,
@@ -214,16 +203,49 @@ namespace Nexus.Client.PluginManagement
 					: PluginRestrictionMode.Enforced);
 		}
 
-		private PluginSnapshot BuildPluginSnapshot(
-			IList<Plugin> p_lstOrderedPlugins,
-			ISet<Plugin> p_setActivePlugins,
-			PluginRestrictionMode p_prmRestrictionMode)
+		private PluginSnapshot BuildPluginSnapshot(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins, PluginRestrictionMode p_prmRestrictionMode)
 		{
 			return m_psbSnapshotBuilder.Build(
 				Policy,
 				p_lstOrderedPlugins,
 				p_setActivePlugins,
 				p_prmRestrictionMode);
+		}
+
+		/// <summary>
+		/// Hooks the plugin collections that invalidate the cached snapshot when their contents change.
+		/// </summary>
+		private void HookSnapshotInvalidation()
+		{
+			ManagedPlugins.CollectionChanged += PluginStateCollectionChanged;
+			ActivePlugins.CollectionChanged += PluginStateCollectionChanged;
+		}
+
+		/// <summary>
+		/// Unhooks the plugin collections used to invalidate the cached snapshot.
+		/// </summary>
+		private void UnhookSnapshotInvalidation()
+		{
+			ManagedPlugins.CollectionChanged -= PluginStateCollectionChanged;
+			ActivePlugins.CollectionChanged -= PluginStateCollectionChanged;
+		}
+
+		/// <summary>
+		/// Invalidates the cached snapshot after an ordered or active plugin collection change.
+		/// </summary>
+		/// <param name="p_objSender">The event sender.</param>
+		/// <param name="p_nceArgs">The collection-change event arguments.</param>
+		private void PluginStateCollectionChanged(object p_objSender, NotifyCollectionChangedEventArgs p_nceArgs)
+		{
+			InvalidateCurrentSnapshot();
+		}
+
+		/// <summary>
+		/// Invalidates the cached plugin snapshot.
+		/// </summary>
+		private void InvalidateCurrentSnapshot()
+		{
+			m_psnCurrentSnapshot = null;
 		}
 
 		private List<Plugin> GetPolicyCorrectedOrder(
@@ -405,22 +427,34 @@ namespace Nexus.Client.PluginManagement
 				return false;
 			}
 
+			HashSet<Plugin> hstCurrentActivePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			bool booOrderChanged = !PluginOrdersEqual(PluginOrderLog.OrderedPlugins, correctedOrder);
+			List<Plugin> lstPluginsToDeactivate = hstCurrentActivePlugins.Where(x => !desiredActivePlugins.Contains(x)).ToList();
+			List<Plugin> lstPluginsToActivate = desiredActivePlugins.Where(x => !hstCurrentActivePlugins.Contains(x)).ToList();
+
+			if (!booOrderChanged && lstPluginsToDeactivate.Count == 0 && lstPluginsToActivate.Count == 0)
+			{
+				m_psnCurrentSnapshot = snapshot;
+				return true;
+			}
+
 			Transactions.TransactionScope tsTransaction = null;
+
 			try
 			{
 				tsTransaction = new Transactions.TransactionScope();
-				PluginOrderLog.SetPluginOrder(correctedOrder);
 
-				List<Plugin> currentActivePlugins = new List<Plugin>(ActivePlugins.Where(x => x != null));
-				List<Plugin> pluginsToDeactivate = currentActivePlugins.Where(x => !desiredActivePlugins.Contains(x)).ToList();
-				List<Plugin> pluginsToActivate = desiredActivePlugins.Where(x => !currentActivePlugins.Contains(x, PluginComparer.Filename)).ToList();
+				if (booOrderChanged)
+					PluginOrderLog.SetPluginOrder(correctedOrder);
 
-				if (pluginsToDeactivate.Count > 0)
-					ActivePluginLog.DeactivatePlugins(pluginsToDeactivate);
-				if (pluginsToActivate.Count > 0)
-					ActivePluginLog.ActivatePlugins(pluginsToActivate);
+				if (lstPluginsToDeactivate.Count > 0)
+					ActivePluginLog.DeactivatePlugins(lstPluginsToDeactivate);
+
+				if (lstPluginsToActivate.Count > 0)
+					ActivePluginLog.ActivatePlugins(lstPluginsToActivate);
 
 				tsTransaction.Complete();
+				m_psnCurrentSnapshot = snapshot;
 				return true;
 			}
 			finally
@@ -430,6 +464,31 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		/// <summary>
+		/// Determines whether two plugin sequences contain the same plugins in the same order.
+		/// </summary>
+		/// <param name="p_lstFirst">The first plugin sequence.</param>
+		/// <param name="p_lstSecond">The second plugin sequence.</param>
+		/// <returns><c>true</c> if both sequences have the same filename-based order; otherwise, <c>false</c>.</returns>
+		private static bool PluginOrdersEqual(IList<Plugin> p_lstFirst, IList<Plugin> p_lstSecond)
+		{
+			if (ReferenceEquals(p_lstFirst, p_lstSecond))
+				return true;
+
+			if (p_lstFirst == null || p_lstSecond == null || p_lstFirst.Count != p_lstSecond.Count)
+				return false;
+
+			PluginComparer pcpComparer = PluginComparer.Filename;
+
+			for (int intIndex = 0; intIndex < p_lstFirst.Count; intIndex++)
+			{
+				if (!pcpComparer.Equals(p_lstFirst[intIndex], p_lstSecond[intIndex]))
+					return false;
+			}
+
+			return true;
+		}
+
 		private void TracePluginDiagnostics(PluginSnapshot snapshot)
 		{
 			foreach (PluginValidationDiagnostic diagnostic in snapshot.Diagnostics)
@@ -437,9 +496,13 @@ namespace Nexus.Client.PluginManagement
 					Trace.TraceWarning("Plugin state rejected: {0} - {1}", diagnostic.Plugin == null ? String.Empty : diagnostic.Plugin.Filename, diagnostic.Message);
 		}
 
-		public bool TrySetPluginRestrictionsDisabled(
-	bool p_booDisabled,
-	out PluginSnapshot p_psnValidationSnapshot)
+		/// <summary>
+		/// Attempts to enable or disable non-critical plugin sorting and dependency restrictions.
+		/// </summary>
+		/// <param name="p_booDisabled">Whether plugin restrictions should be disabled.</param>
+		/// <param name="p_psnValidationSnapshot">The resulting snapshot, or the strict snapshot that prevented the transition.</param>
+		/// <returns><c>true</c> if the requested mode was applied; otherwise, <c>false</c>.</returns>
+		public bool TrySetPluginRestrictionsDisabled(bool p_booDisabled, out PluginSnapshot p_psnValidationSnapshot)
 		{
 			if (PluginRestrictionsDisabled == p_booDisabled)
 			{
@@ -448,43 +511,41 @@ namespace Nexus.Client.PluginManagement
 			}
 
 			/*
-			 * Enabling relaxed mode never changes the current order or active
-			 * state. It only changes how subsequent states are validated.
+			 * Entering unrestricted mode does not change plugin order or active
+			 * state. It only changes how the current state is validated.
 			 */
 			if (p_booDisabled)
 			{
 				m_booPluginRestrictionsDisabled = true;
+				InvalidateCurrentSnapshot();
+
 				p_psnValidationSnapshot = CurrentSnapshot;
 				return true;
 			}
 
 			/*
-			 * Returning to strict mode is allowed only when the current active
-			 * state can become valid. CorrectStable repairs order-only issues,
-			 * but does not deactivate plugins or invent missing masters.
+			 * Build the order that would be used under normal restrictions.
+			 * Order-only violations can therefore be corrected automatically.
 			 */
-			List<Plugin> strictOrder =
-				GetPolicyCorrectedOrder(
-					new List<Plugin>(
-						PluginOrderLog.OrderedPlugins),
-					false);
+			List<Plugin> strictOrder = GetPolicyCorrectedOrder(
+				new List<Plugin>(PluginOrderLog.OrderedPlugins),
+				false);
 
-			HashSet<Plugin> activePlugins =
-				new HashSet<Plugin>(
-					ActivePlugins.Where(x => x != null),
-					PluginComparer.Filename);
+			HashSet<Plugin> activePlugins = new HashSet<Plugin>(
+				ActivePlugins.Where(x => x != null),
+				PluginComparer.Filename);
 
-			foreach (Plugin protectedPlugin in
-					 strictOrder.Where(IsProtectedPlugin))
-			{
+			foreach (Plugin protectedPlugin in strictOrder.Where(IsProtectedPlugin))
 				activePlugins.Add(protectedPlugin);
-			}
 
-			PluginSnapshot strictSnapshot =
-				BuildPluginSnapshot(
-					strictOrder,
-					activePlugins,
-					PluginRestrictionMode.Enforced);
+			/*
+			 * Validate explicitly in strict mode before changing the current mode.
+			 * Missing or inactive masters prevent the transition.
+			 */
+			PluginSnapshot strictSnapshot = BuildPluginSnapshot(
+				strictOrder,
+				activePlugins,
+				PluginRestrictionMode.Enforced);
 
 			if (strictSnapshot.HasErrors)
 			{
@@ -493,11 +554,22 @@ namespace Nexus.Client.PluginManagement
 				return false;
 			}
 
+			/*
+			 * Temporarily enter strict mode before applying the corrected state,
+			 * because TryApplyPluginState uses the current restriction mode.
+			 */
 			m_booPluginRestrictionsDisabled = false;
+			InvalidateCurrentSnapshot();
 
 			if (!TryApplyPluginState(strictOrder, activePlugins))
 			{
+				/*
+				 * Defensive rollback: restoring unrestricted mode is necessary
+				 * only if applying the previously validated strict state fails.
+				 */
 				m_booPluginRestrictionsDisabled = true;
+				InvalidateCurrentSnapshot();
+
 				p_psnValidationSnapshot = strictSnapshot;
 				return false;
 			}
@@ -545,16 +617,15 @@ namespace Nexus.Client.PluginManagement
 			PluginOrderLog = p_polOrderLog;
 			OrderValidator = p_povOrderValidator;
 
-			m_booPluginRestrictionsDisabled =
-				p_booPluginRestrictionsDisabled;
+			m_booPluginRestrictionsDisabled = p_booPluginRestrictionsDisabled;
 
-			HashSet<Plugin> activePlugins =
-				new HashSet<Plugin>(
+			HookSnapshotInvalidation();
+
+			HashSet<Plugin> activePlugins =	new HashSet<Plugin>(
 					ActivePlugins.Where(x => x != null),
 					PluginComparer.Filename);
 
-			IEnumerable<string> protectedPluginNames =
-				(GameMode.OrderedCriticalPluginNames ??
+			IEnumerable<string> protectedPluginNames = (GameMode.OrderedCriticalPluginNames ??
 				 new string[0])
 				.Concat(
 					GameMode.OrderedOfficialUnmanagedPluginNames ??

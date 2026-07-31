@@ -80,6 +80,12 @@ namespace Nexus.Client.ModManagement
 		void PurgeMods(List<IMod> p_lstMods, string p_strPath);
 		bool CheckHasActiveLinks(IMod p_modMod);
 		string GetCurrentFileOwner(string p_strPath);
+		/// <summary>
+		/// Gets the current active virtual-file owners for the specified paths.
+		/// </summary>
+		/// <param name="p_enmPaths">The paths whose current owners should be resolved.</param>
+		/// <returns>A case-insensitive dictionary keyed by file name and containing the active owner name.</returns>
+		IDictionary<string, string> GetCurrentFileOwners(IEnumerable<string> p_enmPaths);
 		IBackgroundTask ActivatingMod(IMod p_modMod, bool p_booDisabling, ConfirmActionMethod p_camConfirm);
 		IBackgroundTask FixConfigFiles(List<string> p_lstFiles, IModProfile p_mprProfile, ConfirmActionMethod p_camConfirm);
 		#endregion

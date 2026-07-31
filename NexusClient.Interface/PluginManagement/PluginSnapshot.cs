@@ -97,6 +97,40 @@ namespace Nexus.Client.PluginManagement
 
     public sealed class PluginSnapshotBuilder
     {
+		/// <summary>
+		/// Describes the traversal state of a plugin while producing a dependency-corrected order.
+		/// </summary>
+		private enum PluginTraversalState
+		{
+			Visiting,
+			Visited
+		}
+
+		/// <summary>
+		/// Stores the current position of an iterative dependency traversal.
+		/// </summary>
+		private sealed class PluginTraversalFrame
+		{
+			/// <summary>
+			/// Initializes a traversal frame for the specified plugin.
+			/// </summary>
+			/// <param name="p_plgPlugin">The plugin being traversed.</param>
+			public PluginTraversalFrame(Plugin p_plgPlugin)
+			{
+				Plugin = p_plgPlugin;
+			}
+
+			/// <summary>
+			/// Gets the plugin represented by the frame.
+			/// </summary>
+			public Plugin Plugin { get; private set; }
+
+			/// <summary>
+			/// Gets or sets the index of the next master to visit.
+			/// </summary>
+			public int NextMasterIndex { get; set; }
+		}
+
 		public PluginSnapshot Build(PluginManagementPolicy policy, IList<Plugin> orderedPlugins, ISet<Plugin> activePlugins)
 		{
 			return Build(policy, orderedPlugins, activePlugins,	PluginRestrictionMode.Enforced);
@@ -111,7 +145,8 @@ namespace Nexus.Client.PluginManagement
 
             Dictionary<string, Plugin> pluginsByName = BuildPluginNameLookup(orderedPlugins);
             Dictionary<string, int> priorityByName = BuildPriorityLookup(orderedPlugins);
-            Dictionary<PluginAddressClass, int> allocatedCounts = new Dictionary<PluginAddressClass, int>();
+			Dictionary<string, int> expectedFixedPriorityByName = restrictionMode == PluginRestrictionMode.Enforced ? BuildExpectedFixedPriorityLookup(policy, orderedPlugins, pluginsByName) : null;
+			Dictionary<PluginAddressClass, int> allocatedCounts = new Dictionary<PluginAddressClass, int>();
             Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin = new Dictionary<Plugin, List<PluginValidationDiagnostic>>();
             List<PluginValidationDiagnostic> diagnostics = new List<PluginValidationDiagnostic>();
             List<PluginSnapshotEntry> entries = new List<PluginSnapshotEntry>();
@@ -150,9 +185,7 @@ namespace Nexus.Client.PluginManagement
 				ValidatePlugin(policy, plugin, active, i, pluginsByName, priorityByName, activePlugins,	diagnostics, diagnosticsByPlugin, restrictionMode);
 
 				if (restrictionMode == PluginRestrictionMode.Enforced)
-				{
-					ValidateFixedPluginPlacement(policy, plugin, i, orderedPlugins, pluginsByName, diagnostics, diagnosticsByPlugin);
-				}
+					ValidateFixedPluginPlacement(plugin, i, expectedFixedPriorityByName, diagnostics, diagnosticsByPlugin);
 
 				List<PluginValidationDiagnostic> entryDiagnostics = null;
                 if (plugin != null)
@@ -278,40 +311,94 @@ namespace Nexus.Client.PluginManagement
             plugins.AddRange(nonMasters);
         }
 
-        private static void StableMoveMastersAboveDependents(List<Plugin> plugins)
-        {
-            Dictionary<string, Plugin> lookup = BuildPluginNameLookup(plugins);
-            bool changed;
-            int guard = 0;
-            do
-            {
-                changed = false;
-                guard++;
-                for (int i = 0; i < plugins.Count; i++)
-                {
-                    Plugin plugin = plugins[i];
-                    if (plugin == null || plugin.Masters == null)
-                        continue;
-                    foreach (string masterName in plugin.Masters)
-                    {
-                        Plugin master;
-                        if (!lookup.TryGetValue(NormalizePluginName(masterName), out master))
-                            continue;
-                        int masterIndex = plugins.IndexOf(master);
-                        int pluginIndex = plugins.IndexOf(plugin);
-                        if (masterIndex > pluginIndex)
-                        {
-                            plugins.RemoveAt(masterIndex);
-                            plugins.Insert(pluginIndex, master);
-                            changed = true;
-                        }
-                    }
-                }
-            }
-            while (changed && guard < plugins.Count + 1);
-        }
+		/// <summary>
+		/// Moves every installed master above its dependents while preserving the existing stable order whenever dependency constraints allow it.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugin order to correct.</param>
+		private static void StableMoveMastersAboveDependents(List<Plugin> p_lstPlugins)
+		{
+			if (p_lstPlugins == null || p_lstPlugins.Count < 2)
+				return;
 
-        private static void StableMoveBlueprintPluginsLate(List<Plugin> plugins)
+			Dictionary<string, Plugin> dicPluginsByName = BuildPluginNameLookup(p_lstPlugins);
+			Dictionary<Plugin, PluginTraversalState> dicTraversalStates = new Dictionary<Plugin, PluginTraversalState>();
+			List<Plugin> lstCorrected = new List<Plugin>(p_lstPlugins.Count);
+
+			foreach (Plugin plgPlugin in p_lstPlugins)
+				AppendPluginWithMasters(plgPlugin, dicPluginsByName, dicTraversalStates, lstCorrected);
+
+			p_lstPlugins.Clear();
+			p_lstPlugins.AddRange(lstCorrected);
+		}
+
+		/// <summary>
+		/// Appends a plugin after all of its installed masters using an iterative depth-first traversal.
+		/// </summary>
+		/// <param name="p_plgRootPlugin">The root plugin to append.</param>
+		/// <param name="p_dicPluginsByName">The installed plugins indexed by normalized file name.</param>
+		/// <param name="p_dicTraversalStates">The current traversal states.</param>
+		/// <param name="p_lstCorrected">The dependency-corrected output order.</param>
+		private static void AppendPluginWithMasters(Plugin p_plgRootPlugin, IDictionary<string, Plugin> p_dicPluginsByName, IDictionary<Plugin, PluginTraversalState> p_dicTraversalStates, IList<Plugin> p_lstCorrected)
+		{
+			if (p_plgRootPlugin == null)
+			{
+				p_lstCorrected.Add(null);
+				return;
+			}
+
+			PluginTraversalState ptsRootState;
+
+			if (p_dicTraversalStates.TryGetValue(p_plgRootPlugin, out ptsRootState))
+				return;
+
+			Stack<PluginTraversalFrame> stkTraversal = new Stack<PluginTraversalFrame>();
+			p_dicTraversalStates[p_plgRootPlugin] = PluginTraversalState.Visiting;
+			stkTraversal.Push(new PluginTraversalFrame(p_plgRootPlugin));
+
+			while (stkTraversal.Count > 0)
+			{
+				PluginTraversalFrame ptfFrame = stkTraversal.Peek();
+				IList<string> lstMasters = ptfFrame.Plugin.Masters;
+				bool booMasterPushed = false;
+
+				while (lstMasters != null && ptfFrame.NextMasterIndex < lstMasters.Count)
+				{
+					string strMasterName = lstMasters[ptfFrame.NextMasterIndex];
+					ptfFrame.NextMasterIndex++;
+
+					Plugin plgMaster;
+
+					if (!p_dicPluginsByName.TryGetValue(NormalizePluginName(strMasterName), out plgMaster) || plgMaster == null)
+						continue;
+
+					PluginTraversalState ptsMasterState;
+
+					if (p_dicTraversalStates.TryGetValue(plgMaster, out ptsMasterState))
+					{
+						/*
+						 * Visited masters are already correctly placed.
+						 * Visiting masters identify a dependency cycle; the snapshot
+						 * validator will report it after ordering completes.
+						 */
+						continue;
+					}
+
+					p_dicTraversalStates[plgMaster] = PluginTraversalState.Visiting;
+					stkTraversal.Push(new PluginTraversalFrame(plgMaster));
+					booMasterPushed = true;
+					break;
+				}
+
+				if (booMasterPushed)
+					continue;
+
+				stkTraversal.Pop();
+				p_dicTraversalStates[ptfFrame.Plugin] = PluginTraversalState.Visited;
+				p_lstCorrected.Add(ptfFrame.Plugin);
+			}
+		}
+
+		private static void StableMoveBlueprintPluginsLate(List<Plugin> plugins)
         {
             List<Plugin> blueprintPlugins = plugins.Where(x => x != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == PluginSpecialFlags.Blueprint).ToList();
             if (blueprintPlugins.Count == 0)
@@ -321,111 +408,89 @@ namespace Nexus.Client.PluginManagement
             plugins.AddRange(blueprintPlugins);
         }
 
-		private static void ValidateFixedPluginPlacement(
-			PluginManagementPolicy policy,
-			Plugin plugin,
-			int priority,
-			IList<Plugin> orderedPlugins,
-			Dictionary<string, Plugin> pluginsByName,
-			List<PluginValidationDiagnostic> diagnostics,
-			Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin)
+		/// <summary>
+		/// Builds the expected absolute priorities of all installed fixed-order plugins.
+		/// </summary>
+		/// <param name="p_pmpPolicy">The active plugin-management policy.</param>
+		/// <param name="p_lstOrderedPlugins">The current ordered plugins.</param>
+		/// <param name="p_dicPluginsByName">The installed plugins indexed by normalized file name.</param>
+		/// <returns>The expected priorities indexed by normalized plugin file name.</returns>
+		private static Dictionary<string, int> BuildExpectedFixedPriorityLookup(PluginManagementPolicy p_pmpPolicy, IList<Plugin> p_lstOrderedPlugins, IDictionary<string, Plugin> p_dicPluginsByName)
 		{
-			if (policy == null ||
-				plugin == null ||
-				plugin.Metadata == null ||
-				!policy.IsFixedOrderPlugin(
-					Path.GetFileName(plugin.Filename)))
+			Dictionary<string, int> dicExpectedPriorities = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+			if (p_pmpPolicy == null || p_lstOrderedPlugins == null || p_dicPluginsByName == null)
+				return dicExpectedPriorities;
+
+			bool booUseMasterSections = p_pmpPolicy.MasterPluginsMustLoadBeforeNonMasters;
+			int intMasterCount = booUseMasterSections
+				? p_lstOrderedPlugins.Count(x => x != null && x.Metadata != null && x.Metadata.EffectiveMaster)
+				: 0;
+
+			int intGlobalOffset = 0;
+			int intMasterOffset = 0;
+			int intNonMasterOffset = 0;
+
+			foreach (string strFixedPluginName in p_pmpPolicy.FixedOrderPlugins)
 			{
+				string strNormalizedName = NormalizePluginName(strFixedPluginName);
+				Plugin plgFixedPlugin;
+
+				if (!p_dicPluginsByName.TryGetValue(strNormalizedName, out plgFixedPlugin) || plgFixedPlugin == null || plgFixedPlugin.Metadata == null)
+					continue;
+
+				int intExpectedPriority;
+
+				if (!booUseMasterSections)
+				{
+					intExpectedPriority = intGlobalOffset;
+					intGlobalOffset++;
+				}
+				else if (plgFixedPlugin.Metadata.EffectiveMaster)
+				{
+					intExpectedPriority = intMasterOffset;
+					intMasterOffset++;
+				}
+				else
+				{
+					intExpectedPriority = intMasterCount + intNonMasterOffset;
+					intNonMasterOffset++;
+				}
+
+				if (!dicExpectedPriorities.ContainsKey(strNormalizedName))
+					dicExpectedPriorities.Add(strNormalizedName, intExpectedPriority);
+			}
+
+			return dicExpectedPriorities;
+		}
+
+		/// <summary>
+		/// Validates the position of a fixed-order plugin against the precomputed expected priority.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin to validate.</param>
+		/// <param name="p_intPriority">The current plugin priority.</param>
+		/// <param name="p_dicExpectedPriorities">The expected fixed-plugin priorities indexed by normalized file name.</param>
+		/// <param name="p_lstDiagnostics">The complete diagnostic collection.</param>
+		/// <param name="p_dicDiagnosticsByPlugin">The diagnostics grouped by plugin.</param>
+		private static void ValidateFixedPluginPlacement(Plugin p_plgPlugin, int p_intPriority, IDictionary<string, int> p_dicExpectedPriorities, List<PluginValidationDiagnostic> p_lstDiagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> p_dicDiagnosticsByPlugin)
+		{
+			if (p_plgPlugin == null || p_plgPlugin.Metadata == null || p_dicExpectedPriorities == null)
 				return;
-			}
 
-			bool useMasterSections =
-				policy.MasterPluginsMustLoadBeforeNonMasters;
+			int intExpectedPriority;
 
-			bool pluginIsMaster =
-				plugin.Metadata.EffectiveMaster;
+			if (!p_dicExpectedPriorities.TryGetValue(NormalizePluginName(p_plgPlugin.Filename), out intExpectedPriority) || p_intPriority == intExpectedPriority)
+				return;
 
-			/*
-			 * Master fixed plugins begin at absolute index zero.
-			 *
-			 * Non-master fixed plugins begin immediately after the complete
-			 * master section, including third-party masters.
-			 */
-			int sectionStartIndex = 0;
+			string strSectionName = p_plgPlugin.Metadata.EffectiveMaster ? "master" : "non-master";
 
-			if (useMasterSections && !pluginIsMaster)
-			{
-				sectionStartIndex = orderedPlugins.Count(
-					x =>
-						x != null &&
-						x.Metadata != null &&
-						x.Metadata.EffectiveMaster);
-			}
-
-			int expectedSectionOffset = 0;
-			string normalizedPluginName =
-				NormalizePluginName(plugin.Filename);
-
-			foreach (string fixedPluginName in policy.FixedOrderPlugins)
-			{
-				string normalizedFixedName =
-					NormalizePluginName(fixedPluginName);
-
-				Plugin fixedPlugin;
-
-				/*
-				 * Missing fixed plugins are ignored. The remaining installed fixed
-				 * plugins remain consecutive within their section.
-				 */
-				if (!pluginsByName.TryGetValue(
-						normalizedFixedName,
-						out fixedPlugin) ||
-					fixedPlugin == null ||
-					fixedPlugin.Metadata == null)
-				{
-					continue;
-				}
-
-				/*
-				 * When masters must load first, compare only against fixed plugins
-				 * belonging to the same section.
-				 */
-				if (useMasterSections &&
-					fixedPlugin.Metadata.EffectiveMaster != pluginIsMaster)
-				{
-					continue;
-				}
-
-				if (String.Equals(
-						normalizedPluginName,
-						normalizedFixedName,
-						StringComparison.OrdinalIgnoreCase))
-				{
-					int expectedIndex =
-						sectionStartIndex + expectedSectionOffset;
-
-					if (priority != expectedIndex)
-					{
-						string sectionName =
-							pluginIsMaster
-								? "master"
-								: "non-master";
-
-						AddDiagnostic(
-							diagnostics,
-							diagnosticsByPlugin,
-							plugin,
-							PluginValidationIssueKind.InvalidFixedPluginPlacement,
-							PluginValidationSeverity.Error,
-							"Fixed-order plugin is not in its configured position " +
-							"within the " + sectionName + " section.");
-					}
-
-					return;
-				}
-
-				expectedSectionOffset++;
-			}
+			AddDiagnostic(
+				p_lstDiagnostics,
+				p_dicDiagnosticsByPlugin,
+				p_plgPlugin,
+				PluginValidationIssueKind.InvalidFixedPluginPlacement,
+				PluginValidationSeverity.Error,
+				"Fixed-order plugin is not in its configured position within the " + strSectionName + " section.");
 		}
 
 		private static void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins,
