@@ -153,6 +153,7 @@ namespace Nexus.Client.ModManagement.UI
 		private const string ColEndorsed = "IsEndorsed";
 		private const string ColDownloadId = "DownloadId";
 		private const string GridLayoutKey = "modManagerDXGrid";
+		private const string GridColumnWidthsKey = GridLayoutKey + ".ColumnWidths";
 		private const string GridFindPanelVisibleKey = GridLayoutKey + ".FindPanelVisible";
 		private const string GridSortKey = GridLayoutKey + ".Sort";
 		private const string GridFontKey = GridLayoutKey + ".Font";
@@ -322,6 +323,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (_viewModel?.Settings != null)
 			{
 				_viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(GridColumnWidthsKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridSortKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridColouredCategoriesKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridRowHighlightsKey);
@@ -1289,6 +1291,7 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.OptionsFind.AlwaysVisible = false;
 			gridView.OptionsView.BestFitMaxRowCount = 50;
 			gridView.OptionsView.ColumnAutoWidth = false;
+			DevExpressGridLayoutPersistence.ConfigureSessionOnlyFilters(gridView);
 			gridView.OptionsView.ShowAutoFilterRow = true;
 			gridView.OptionsView.ShowButtonMode = DevExpress.XtraGrid.Views.Base.ShowButtonModeEnum.ShowForFocusedRow;
 
@@ -1315,7 +1318,6 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.CustomDrawCell += GridView_CustomDrawCell;
 			gridView.CustomDrawColumnHeader += GridView_CustomDrawColumnHeader;
 			gridView.CustomColumnSort += GridView_CustomColumnSort;
-			gridView.ColumnFilterChanged += GridView_ColumnFilterChanged;
 			gridView.GroupRowExpanded += (s, e) => QueueGridLayoutSave();
 			gridView.GroupRowCollapsed += (s, e) => QueueGridLayoutSave();
 			gridView.ColumnWidthChanged += (s, e) => QueueGridLayoutSave();
@@ -1386,11 +1388,6 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private void GridView_ColumnFilterChanged(object sender, EventArgs e)
-		{
-			if (!_restoringGridLayout)
-				SaveGridLayout();
-		}
 		private void BuildColumns()
 		{
 			AddCol(ColModStatus, "Status", HorzAlignment.Center, true); GridColumn modNameCol = AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);
@@ -2250,33 +2247,38 @@ namespace Nexus.Client.ModManagement.UI
 				return false;
 			}
 
+			bool restored = false;
 			_restoringGridLayout = true;
 			try
 			{
-				if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridLayoutKey))
+				try
 				{
-					string layout = _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
-					if (!string.IsNullOrWhiteSpace(layout))
+					if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridLayoutKey))
 					{
-						byte[] bytes = Encoding.UTF8.GetBytes(layout);
-						using (var stream = new MemoryStream(bytes))
+						string layout = _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
+						if (!string.IsNullOrWhiteSpace(layout))
 						{
-							gridView.RestoreLayoutFromStream(stream);
+							byte[] bytes = Encoding.UTF8.GetBytes(layout);
+							using (var stream = new MemoryStream(bytes))
+							{
+								gridView.RestoreLayoutFromStream(stream);
+							}
+							restored = true;
 						}
-						ApplyAutoFilterDefaults();
-						ApplyDateSortDefaults();
-						return true;
 					}
 				}
+				catch
+				{
+					_viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+				}
+
+				DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
+				if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
+					DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
 
 				ApplyAutoFilterDefaults();
 				ApplyDateSortDefaults();
-				return false;
-			}
-			catch
-			{
-				_viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
-				return false;
+				return restored;
 			}
 			finally
 			{
@@ -2490,10 +2492,12 @@ namespace Nexus.Client.ModManagement.UI
 					gridView.SaveLayoutToStream(stream);
 					_viewModel.Settings.DockPanelLayouts[GridLayoutKey] = Encoding.UTF8.GetString(stream.ToArray());
 				}
+				_viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey] = DevExpressGridLayoutPersistence.SerializeColumnWidths(gridView);
 			}
 			catch
 			{
 				_viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(GridColumnWidthsKey);
 			}
 
 			_viewModel.Settings.DockPanelLayouts[GridFindPanelVisibleKey] = findPanelVisible.ToString();

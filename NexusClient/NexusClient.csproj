@@ -129,6 +129,7 @@
       <DependentUpon>MainForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\DevExpressDisplaySettings.cs" />
+    <Compile Include="UI\DevExpressGridLayoutPersistence.cs" />
     <Compile Include="MainFormVM.cs" />
     <Compile Include="ModActivationMonitor\ModActivationMonitor.cs" />
     <Compile Include="ModActivationMonitor\UI\ModActivationMonitorControl.cs">

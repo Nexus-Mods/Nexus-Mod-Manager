@@ -27,6 +27,7 @@
         private const int GridSplitterContentPadding = 36;
         private const string FileManagerSplitterSizeKey = "fileManager";
         private const string GridLayoutKey = "fileManagerGrid";
+        private const string GridColumnWidthsKey = GridLayoutKey + ".ColumnWidths";
         private const int GridLayoutSaveDelayMs = 400;
         private const int OwnerLookupMinimumPopupWidth = 480;
         private const int OwnerLookupMaximumPopupWidth = 900;
@@ -126,6 +127,7 @@
             _gridView.OptionsDetail.EnableMasterViewMode = false;
             _gridView.OptionsBehavior.Editable = true;
             _gridView.OptionsView.ColumnAutoWidth = false;
+            DevExpressGridLayoutPersistence.ConfigureSessionOnlyFilters(_gridView);
             _gridView.OptionsView.BestFitMaxRowCount = 50;
             _gridView.OptionsView.ShowAutoFilterRow = true;
             _gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
@@ -150,8 +152,6 @@
             _gridView.ColumnWidthChanged +=
                 (sender, args) => QueueGridLayoutSave();
             _gridView.ColumnPositionChanged +=
-                (sender, args) => QueueGridLayoutSave();
-            _gridView.ColumnFilterChanged +=
                 (sender, args) => QueueGridLayoutSave();
             _gridView.EndSorting +=
                 (sender, args) => QueueGridLayoutSave();
@@ -455,27 +455,29 @@
             _restoringGridLayout = true;
             try
             {
-                if (!_viewModel.Settings.DockPanelLayouts.ContainsKey(
-                        GridLayoutKey))
+                try
                 {
-                    return;
+                    if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridLayoutKey))
+                    {
+                        string layout = _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
+                        if (!String.IsNullOrWhiteSpace(layout))
+                        {
+                            byte[] bytes = Encoding.UTF8.GetBytes(layout);
+                            using (MemoryStream stream = new MemoryStream(bytes))
+                            {
+                                _gridView.RestoreLayoutFromStream(stream);
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
                 }
 
-                string layout =
-                    _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
-
-                if (String.IsNullOrWhiteSpace(layout))
-                    return;
-
-                byte[] bytes = Encoding.UTF8.GetBytes(layout);
-                using (MemoryStream stream = new MemoryStream(bytes))
-                {
-                    _gridView.RestoreLayoutFromStream(stream);
-                }
-            }
-            catch
-            {
-                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+                DevExpressGridLayoutPersistence.ClearTransientFilters(_gridView);
+                if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
+                    DevExpressGridLayoutPersistence.RestoreColumnWidths(_gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
             }
             finally
             {
@@ -498,10 +500,14 @@
                     _viewModel.Settings.DockPanelLayouts[GridLayoutKey] =
                         Encoding.UTF8.GetString(stream.ToArray());
                 }
+
+                _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey] =
+                    DevExpressGridLayoutPersistence.SerializeColumnWidths(_gridView);
             }
             catch
             {
                 _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridColumnWidthsKey);
             }
 
             _viewModel.Settings.Save();

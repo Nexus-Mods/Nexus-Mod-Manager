@@ -22,6 +22,7 @@ namespace Nexus.Client.ModManagement.UI
     public partial class CategoryManagerControl : ManagedFontDockContent
     {
         private const string GridLayoutKey = "categoryManagerGrid";
+        private const string GridColumnWidthsKey = GridLayoutKey + ".ColumnWidths";
         private const int GridLayoutSaveDelayMs = 400;
 
         private ModManagerVM _viewModel;
@@ -49,12 +50,11 @@ namespace Nexus.Client.ModManagement.UI
                 Interval = GridLayoutSaveDelayMs
             };
             _gridLayoutSaveTimer.Tick += GridLayoutSaveTimer_Tick;
+            DevExpressGridLayoutPersistence.ConfigureSessionOnlyFilters(gridView);
 
             gridView.ColumnWidthChanged +=
                 (sender, args) => QueueGridLayoutSave();
             gridView.ColumnPositionChanged +=
-                (sender, args) => QueueGridLayoutSave();
-            gridView.ColumnFilterChanged +=
                 (sender, args) => QueueGridLayoutSave();
             gridView.EndSorting +=
                 (sender, args) => QueueGridLayoutSave();
@@ -310,22 +310,29 @@ namespace Nexus.Client.ModManagement.UI
             _restoringGridLayout = true;
             try
             {
-                if (!_viewModel.Settings.DockPanelLayouts.ContainsKey(GridLayoutKey))
-                    return;
-
-                string layout = _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
-                if (string.IsNullOrWhiteSpace(layout))
-                    return;
-
-                byte[] bytes = Encoding.UTF8.GetBytes(layout);
-                using (MemoryStream stream = new MemoryStream(bytes))
+                try
                 {
-                    gridView.RestoreLayoutFromStream(stream);
+                    if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridLayoutKey))
+                    {
+                        string layout = _viewModel.Settings.DockPanelLayouts[GridLayoutKey];
+                        if (!string.IsNullOrWhiteSpace(layout))
+                        {
+                            byte[] bytes = Encoding.UTF8.GetBytes(layout);
+                            using (MemoryStream stream = new MemoryStream(bytes))
+                            {
+                                gridView.RestoreLayoutFromStream(stream);
+                            }
+                        }
+                    }
                 }
-            }
-            catch
-            {
-                _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+                catch
+                {
+                    _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+                }
+
+                DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
+                if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
+                    DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
             }
             finally
             {
@@ -348,10 +355,14 @@ namespace Nexus.Client.ModManagement.UI
                     _viewModel.Settings.DockPanelLayouts[GridLayoutKey] =
                         Encoding.UTF8.GetString(stream.ToArray());
                 }
+
+                _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey] =
+                    DevExpressGridLayoutPersistence.SerializeColumnWidths(gridView);
             }
             catch
             {
                 _viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
+                _viewModel.Settings.DockPanelLayouts.Remove(GridColumnWidthsKey);
             }
 
             _viewModel.Settings.Save();
