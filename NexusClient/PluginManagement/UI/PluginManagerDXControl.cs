@@ -41,6 +41,11 @@
         private const string GridColumnWidthsKey = GridLayoutKey + ".ColumnWidths";
         private const string SplitterSizeKey = "pluginManagerDX";
         private const int GridLayoutSaveDelayMs = 400;
+        private const int DragAutoScrollIntervalMs = 75;
+        private const int DragAutoScrollEdgeThreshold = 32;
+        private const int DragAutoScrollHorizontalTolerance = 48;
+        private const int DragAutoScrollAccelerationPixels = 48;
+        private const int DragAutoScrollMaximumStep = 4;
 
 		private readonly BarManager _barManager;
 		private readonly StandaloneBarDockControl _toolbarHost;
@@ -78,6 +83,7 @@
 		private PluginManagerVM _viewModel;
         private IPluginManager _pluginManager;
         private readonly Timer _gridLayoutSaveTimer;
+        private readonly Timer _dragAutoScrollTimer;
         private bool _restoringGridLayout;
         private bool _splitterUserDragActive;
         private bool _restoringSplitter;
@@ -308,6 +314,12 @@
             };
             _gridLayoutSaveTimer.Tick += GridLayoutSaveTimerTick;
 
+            _dragAutoScrollTimer = new Timer
+            {
+                Interval = DragAutoScrollIntervalMs
+            };
+            _dragAutoScrollTimer.Tick += DragAutoScrollTimerTick;
+
 			SetupGrid();
 			SetupDragAndDrop();
 			UpdateCommandState();
@@ -328,8 +340,10 @@
 				behavior.Properties.InsertIndicatorVisible = true; // Draws a clean line between rows
 				behavior.Properties.PreviewVisible = true;         // Ghost image of dragged plugin
 				
+				behavior.BeginDragDrop += Behavior_BeginDragDrop;
 				behavior.DragOver += Behavior_DragOver;
 				behavior.DragDrop += Behavior_DragDrop;
+				behavior.EndDragDrop += Behavior_EndDragDrop;
 			});
 		}
 
@@ -1428,6 +1442,90 @@
 			_viewModel.ManagePlugins(toActivate, toDeactivate);
 		}
 
+		/// <summary>
+		/// Starts polling the global mouse position so the plugin grid can continue scrolling even after the pointer leaves its bounds.
+		/// </summary>
+		private void Behavior_BeginDragDrop(object sender, BeginDragDropEventArgs e)
+		{
+			if (_gridView.RowCount > 0)
+				_dragAutoScrollTimer.Start();
+		}
+
+		/// <summary>
+		/// Stops edge scrolling when the DevExpress drag operation completes or is cancelled.
+		/// </summary>
+		private void Behavior_EndDragDrop(object sender, EndDragDropEventArgs e)
+		{
+			StopDragAutoScroll();
+		}
+
+		/// <summary>
+		/// Scrolls the plugin grid while a drag is held near or beyond its top or bottom edge.
+		/// </summary>
+		private void DragAutoScrollTimerTick(object sender, EventArgs e)
+		{
+			if (IsDisposed || Disposing || !_gridControl.IsHandleCreated ||
+				(Control.MouseButtons & MouseButtons.Left) == MouseButtons.None)
+			{
+				StopDragAutoScroll();
+				return;
+			}
+
+			Rectangle viewBounds = _gridView.ViewRect;
+			if (viewBounds.Width <= 0 || viewBounds.Height <= 0 || _gridView.RowCount <= 0)
+				return;
+
+			Point mousePosition = _gridControl.PointToClient(Control.MousePosition);
+			if (mousePosition.X < viewBounds.Left - DragAutoScrollHorizontalTolerance ||
+				mousePosition.X > viewBounds.Right + DragAutoScrollHorizontalTolerance)
+			{
+				return;
+			}
+
+			int scrollDelta = GetDragAutoScrollDelta(mousePosition.Y, viewBounds);
+			if (scrollDelta == 0)
+				return;
+
+			int previousTopRowIndex = _gridView.TopRowIndex;
+			int nextTopRowIndex = Math.Max(0, Math.Min(_gridView.RowCount - 1, previousTopRowIndex + scrollDelta));
+			if (nextTopRowIndex == previousTopRowIndex)
+				return;
+
+			_gridView.TopRowIndex = nextTopRowIndex;
+			if (_gridView.TopRowIndex != previousTopRowIndex)
+				_gridControl.Invalidate();
+		}
+
+		/// <summary>
+		/// Calculates the vertical row step for the current pointer position, accelerating when the pointer is farther outside the grid.
+		/// </summary>
+		private static int GetDragAutoScrollDelta(int mouseY, Rectangle viewBounds)
+		{
+			int upperBoundary = viewBounds.Top + DragAutoScrollEdgeThreshold;
+			if (mouseY <= upperBoundary)
+			{
+				int distance = upperBoundary - mouseY;
+				return -Math.Min(DragAutoScrollMaximumStep, 1 + distance / DragAutoScrollAccelerationPixels);
+			}
+
+			int lowerBoundary = viewBounds.Bottom - DragAutoScrollEdgeThreshold;
+			if (mouseY >= lowerBoundary)
+			{
+				int distance = mouseY - lowerBoundary;
+				return Math.Min(DragAutoScrollMaximumStep, 1 + distance / DragAutoScrollAccelerationPixels);
+			}
+
+			return 0;
+		}
+
+		/// <summary>
+		/// Stops the plugin drag auto-scroll timer.
+		/// </summary>
+		private void StopDragAutoScroll()
+		{
+			_dragAutoScrollTimer.Stop();
+		}
+
 		private void Behavior_DragOver(object sender, DragOverEventArgs e)
 		{
 			DragOverGridEventArgs args = DragOverGridEventArgs.GetDragOverGridEventArgs(e);
@@ -1448,16 +1546,15 @@
 				return;
 			}
 
-			// Allow the visual drag to continue
+			// Allow the visual drag to continue. Edge scrolling is handled by the dedicated timer.
 			e.Action = DragDropActions.Move;
 			e.Cursor = System.Windows.Forms.Cursors.Default;
-
-			// By NOT setting e.Handled here, DevExpress will continue its default background 
-			// processing, which includes firing the edge auto-scroll timer.
 		}
 
 		private void Behavior_DragDrop(object sender, DragDropEventArgs e)
 		{
+			StopDragAutoScroll();
+
 			GridView targetView = e.Target as GridView;
 			DragDropGridEventArgs args = DragDropGridEventArgs.GetDragDropGridEventArgs(e);
 
@@ -2273,6 +2370,7 @@
 			if (disposing)
             {
                 _gridLayoutSaveTimer?.Stop();
+                _dragAutoScrollTimer?.Stop();
                 SaveGridLayout();
 
                 if (_gridLayoutSaveTimer != null)
@@ -2280,6 +2378,12 @@
                     _gridLayoutSaveTimer.Tick -=
                         GridLayoutSaveTimerTick;
                     _gridLayoutSaveTimer.Dispose();
+                }
+
+                if (_dragAutoScrollTimer != null)
+                {
+                    _dragAutoScrollTimer.Tick -= DragAutoScrollTimerTick;
+                    _dragAutoScrollTimer.Dispose();
                 }
 
 				_barManager?.Dispose();
