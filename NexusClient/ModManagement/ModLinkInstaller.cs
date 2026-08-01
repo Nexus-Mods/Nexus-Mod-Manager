@@ -86,6 +86,9 @@ namespace Nexus.Client.ModManagement
 
 		public string AddFileLink(IMod mod, string baseFilePath, string sourceFile, bool isSwitching, bool handlePlugin, ModInstallRoot installRoot)
 		{
+			if (ModInstallFileFilter.IsIgnored(baseFilePath))
+				return string.Empty;
+
             var booLink = (TestOverwriteFileLink(mod, baseFilePath, installRoot, out var priority, out var fileLinks));
 
 			if (booLink != null)

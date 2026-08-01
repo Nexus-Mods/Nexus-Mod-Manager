@@ -208,6 +208,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		public virtual bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
+			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
+				return true;
+
 			bool booSuccess = false;
 			string strFrom = p_strFrom.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
 			string strTo = p_strTo.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);

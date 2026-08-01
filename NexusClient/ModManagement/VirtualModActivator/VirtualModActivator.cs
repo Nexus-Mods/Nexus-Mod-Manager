@@ -1811,6 +1811,9 @@
 
 		public void AddInactiveLink(IMod p_modMod, string p_strBaseFilePath, int p_intPriority, ModInstallRoot p_mirInstallRoot)
 		{
+			if (ModInstallFileFilter.IsIgnored(p_strBaseFilePath))
+				return;
+
 			IVirtualModInfo modInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modMod.Filename));
 			if (modInfo == null)
 			{
@@ -1951,6 +1954,9 @@
 
 		public string AddFileLink(IMod p_modMod, string p_strBaseFilePath, string p_strSourceFile, bool p_booIsSwitching, bool p_booIsRestoring, bool p_booHandlePlugin, int p_intPriority, ModInstallRoot p_mirInstallRoot)
 		{
+			if (ModInstallFileFilter.IsIgnored(p_strBaseFilePath))
+				return string.Empty;
+
 			string strSourceFile = p_strSourceFile;
 
 			// When the installer provides the exact extracted source, derive the persisted

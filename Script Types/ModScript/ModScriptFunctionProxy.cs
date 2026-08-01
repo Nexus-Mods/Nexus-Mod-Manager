@@ -61,6 +61,9 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		public override bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
+			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
+				return true;
+
 			if (base.InstallFileFromMod(p_strFrom, p_strTo))
 			{
 				if (!String.Equals(p_strFrom, p_strTo, StringComparison.OrdinalIgnoreCase))

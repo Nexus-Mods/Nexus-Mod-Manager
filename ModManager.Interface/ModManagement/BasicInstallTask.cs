@@ -131,8 +131,6 @@ namespace Nexus.Client.ModManagement
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
 			List<KeyValuePair<string, string>> lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
-			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>(lstFiles.Count);
-			OverallProgressMaximum = lstFiles.Count * 2;
 
 			if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
 			{
@@ -144,6 +142,10 @@ namespace Nexus.Client.ModManagement
 
 			if (InstallRoot == ModInstallRoot.GameRoot)
 				lstFiles = StripGameRootWrapperFolder(lstFiles);
+
+			lstFiles = lstFiles.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
+			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>(lstFiles.Count);
+			OverallProgressMaximum = lstFiles.Count * 2;
 
             if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);

@@ -202,6 +202,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			string strSource = p_ilfFile.Source;
 			string strDest = p_ilfFile.Destination;
+			if (!p_ilfFile.IsFolder && (ModInstallFileFilter.IsIgnored(strSource) || ModInstallFileFilter.IsIgnored(strDest)))
+				return true;
+
 			ItemMessage = "Installing " + (String.IsNullOrEmpty(strDest) ? strSource : strDest);
 			if (p_ilfFile.IsFolder)
 			{
@@ -213,7 +216,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				// activated
 				if (strDest.Length == 0)
 				{
-					List<string> lstFiles = Mod.GetFileList(strSource, true);
+					List<string> lstFiles = Mod.GetFileList(strSource, true).Where(x => !ModInstallFileFilter.IsIgnored(x)).ToList();
 					ItemMessage = "Activating " + (String.IsNullOrEmpty(strDest) ? strSource : strDest);
 					ItemProgress = 0;
 					ItemProgressMaximum = lstFiles.Count;
@@ -264,7 +267,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <c>true</c> otherwise.</returns>
 		protected bool InstallFolderFromMod(InstallableFile p_ilfFile)
 		{
-			List<string> lstModFiles = Mod.GetFileList(p_ilfFile.Source, true);
+			List<string> lstModFiles = Mod.GetFileList(p_ilfFile.Source, true).Where(x => !ModInstallFileFilter.IsIgnored(x)).ToList();
 			ItemProgress = 0;
 			ItemProgressMaximum = lstModFiles.Count;
 
@@ -301,6 +304,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		protected bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
+			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
+				return true;
+
 			bool booSuccess = false;
 			string installDestination = string.Empty;
 
