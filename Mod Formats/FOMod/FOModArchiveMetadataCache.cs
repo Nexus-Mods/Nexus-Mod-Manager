@@ -9,6 +9,8 @@
 	using System.IO;
 	using System.Linq;
 	using System.Runtime.InteropServices;
+	using System.Security;
+	using System.Security.Permissions;
 
 	/// <summary>
 	/// Stores startup metadata that is expensive to rediscover from every archive.
@@ -299,6 +301,10 @@ WHERE archive_path=@archive_path;";
 		{
 			try
 			{
+				// This trusted cache write can be reached through a callback from the restricted C# script AppDomain.
+				// Keep the assertion scoped to this internal operation so sandboxed scripts do not receive broader permissions.
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+
 				if (!_available)
 				{
 					return;
@@ -344,6 +350,10 @@ VALUES
 			{
 				Trace.TraceWarning("FOModArchiveMetadataCache.Save() - Encountered an ignored Exception.");
 				TraceUtil.TraceException(e);
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
 			}
 		}
 

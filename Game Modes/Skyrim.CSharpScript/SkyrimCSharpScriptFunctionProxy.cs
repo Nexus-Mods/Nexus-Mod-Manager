@@ -1,5 +1,6 @@
 ﻿using System;
 using Nexus.Client.Games.Fallout3.Scripting.CSharpScript;
+using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Gamebryo.ModManagement.Scripting;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting;
@@ -39,7 +40,7 @@ namespace Nexus.Client.Games.Skyrim.Scripting.CSharpScript
 		/// is not installed.</returns>
 		public Version GetSkseVersion()
 		{
-			return ((SkyrimGameMode)GameMode).ScriptExtenderVersion;
+			return ((GamebryoGameModeBase)GameMode).ScriptExtenderVersion;
 		}
 
 		#endregion

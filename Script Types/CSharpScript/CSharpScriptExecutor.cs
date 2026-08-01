@@ -96,7 +96,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				{
 					AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
 				}
-				return srnRunner.Execute(bteScript);
+				using (m_csfFunctions.BeginModInfoUpdateBatch())
+				{
+					return srnRunner.Execute(bteScript);
+				}
 			}
 			finally
 			{

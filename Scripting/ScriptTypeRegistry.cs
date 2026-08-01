@@ -45,18 +45,54 @@ namespace Nexus.Client.ModManagement.Scripting
 
 			Trace.TraceInformation("Discovering Game Mode Specific Script Types...");
 			Trace.Indent();
-			string strGameModeSearchPath = Path.GetDirectoryName(Assembly.GetAssembly(p_gmdGameMode.GetType()).Location);
-			Trace.TraceInformation("Looking in: {0}", strGameModeSearchPath);
-			if (!Directory.Exists(strGameModeSearchPath))
+			List<string> lstGameModeSearchPaths = new List<string>();
+			HashSet<string> setKnownSearchPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			string strGameModeAssemblyPath = Path.GetDirectoryName(Assembly.GetAssembly(p_gmdGameMode.GetType()).Location);
+			if (!String.IsNullOrEmpty(strGameModeAssemblyPath))
 			{
-				Trace.TraceError("Game Mode Specific Script Type search path does not exist.");
-				Trace.Unindent();
-				Trace.Unindent();
-				return stgRegistry;
+				if (setKnownSearchPaths.Add(strGameModeAssemblyPath))
+					lstGameModeSearchPaths.Add(strGameModeAssemblyPath);
+
+				string strNestedGameModesPath = Path.Combine(strGameModeAssemblyPath, "GameModes");
+				if (setKnownSearchPaths.Add(strNestedGameModesPath))
+					lstGameModeSearchPaths.Add(strNestedGameModesPath);
 			}
+
+			string strApplicationPath = AppDomain.CurrentDomain.BaseDirectory;
+			if (!String.IsNullOrEmpty(strApplicationPath))
+			{
+				if (setKnownSearchPaths.Add(strApplicationPath))
+					lstGameModeSearchPaths.Add(strApplicationPath);
+
+				string strApplicationGameModesPath = Path.Combine(strApplicationPath, "GameModes");
+				if (setKnownSearchPaths.Add(strApplicationGameModesPath))
+					lstGameModeSearchPaths.Add(strApplicationGameModesPath);
+			}
+
+			List<string> lstExistingSearchPaths = new List<string>();
+			foreach (string strSearchPath in lstGameModeSearchPaths)
+			{
+				Trace.TraceInformation("Looking in: {0}", strSearchPath);
+				if (Directory.Exists(strSearchPath))
+					lstExistingSearchPaths.Add(strSearchPath);
+				else
+					Trace.TraceWarning("Game Mode Specific Script Type search path does not exist.");
+			}
+
 			List<string> lstAssemblies = new List<string>();
 			foreach (IScriptType stpType in stgRegistry.Types)
-				lstAssemblies.AddRange(Directory.GetFiles(strGameModeSearchPath, String.Format("{0}.{1}.dll", p_gmdGameMode.ModeId, stpType.TypeId)));
+			{
+				string strFileName = String.Format("{0}.{1}.dll", p_gmdGameMode.ModeId, stpType.TypeId);
+				foreach (string strSearchPath in lstExistingSearchPaths)
+				{
+					string strAssembly = Path.Combine(strSearchPath, strFileName);
+					if (!File.Exists(strAssembly))
+						continue;
+
+					lstAssemblies.Add(strAssembly);
+					break;
+				}
+			}
 			RegisterScriptTypes(stgRegistry, lstAssemblies, p_lstDeletedDLL);
 			Trace.Unindent();
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Gamebryo.ModManagement;
 using Nexus.Client.Games.Gamebryo.ModManagement.Scripting;
 using Nexus.Client.Games.Gamebryo.Tools.TESsnip;
@@ -63,7 +64,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <returns><c>true</c> if a script extender is installed; <c>false</c> otherwise.</returns>
 		public bool ScriptExtenderPresent()
 		{
-			return ((Fallout3GameMode)GameMode).ScriptExtenderVersion != null;
+			return ((GamebryoGameModeBase)GameMode).ScriptExtenderVersion != null;
 		}
 
 		#endregion
@@ -106,7 +107,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetFalloutIniInt(string, string)"/>
 		public string GetFalloutIniString(string p_strSection, string p_strKey)
 		{
-			return GetIniString(((Fallout3GameMode)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey);
+			return GetIniString(((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -117,7 +118,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetFalloutIniString(string, string)"/>
 		public int GetFalloutIniInt(string p_strSection, string p_strKey)
 		{
-			return GetIniInt(((Fallout3GameMode)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey);
+			return GetIniInt(((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -129,7 +130,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetPrefsIniInt(string, string)"/>
 		public string GetPrefsIniString(string p_strSection, string p_strKey)
 		{
-			return GetIniString(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).FOPrefsIniPath, p_strSection, p_strKey);
+			return GetIniString(((GamebryoGameModeBase)GameMode).SettingsFiles["FOPrefsIniPath"], p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -141,7 +142,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetPrefsIniString(string, string)"/>
 		public int GetPrefsIniInt(string p_strSection, string p_strKey)
 		{
-			return GetIniInt(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).FOPrefsIniPath, p_strSection, p_strKey);
+			return GetIniInt(((GamebryoGameModeBase)GameMode).SettingsFiles["FOPrefsIniPath"], p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -153,7 +154,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetGeckIniInt(string, string)"/>
 		public string GetGeckIniString(string p_strSection, string p_strKey)
 		{
-			return GetIniString(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).GeckIniPath, p_strSection, p_strKey);
+			return GetIniString(((GamebryoGameModeBase)GameMode).SettingsFiles["GeckIniPath"], p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -165,7 +166,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetGeckIniString(string, string)"/>
 		public int GetGeckIniInt(string p_strSection, string p_strKey)
 		{
-			return GetIniInt(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).GeckIniPath, p_strSection, p_strKey);
+			return GetIniInt(((GamebryoGameModeBase)GameMode).SettingsFiles["GeckIniPath"], p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -177,7 +178,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetGeckPrefsIniInt(string, string)"/>
 		public string GetGeckPrefsIniString(string p_strSection, string p_strKey)
 		{
-			return GetIniString(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).GeckPrefsIniPath, p_strSection, p_strKey);
+			return GetIniString(((GamebryoGameModeBase)GameMode).SettingsFiles["GeckPrefsIniPath"], p_strSection, p_strKey);
 		}
 
 		/// <summary>
@@ -189,7 +190,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <seealso cref="GetGeckPrefsIniString(string, string)"/>
 		public int GetGeckPrefsIniInt(string p_strSection, string p_strKey)
 		{
-			return GetIniInt(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).GeckPrefsIniPath, p_strSection, p_strKey);
+			return GetIniInt(((GamebryoGameModeBase)GameMode).SettingsFiles["GeckPrefsIniPath"], p_strSection, p_strKey);
 		}
 
 		#endregion
@@ -207,7 +208,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditFalloutINI(string p_strSection, string p_strKey, string p_strValue, bool p_booSaveOld)
 		{
-			return EditIni(((Fallout3GameMode)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey, p_strValue);
+			return EditIni(((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey, p_strValue);
 		}
 
 		/// <summary>
@@ -221,7 +222,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditPrefsINI(string p_strSection, string p_strKey, string p_strValue, bool p_booSaveOld)
 		{
-			return EditIni(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).FOPrefsIniPath, p_strSection, p_strKey, p_strValue);
+			return EditIni(((GamebryoGameModeBase)GameMode).SettingsFiles["FOPrefsIniPath"], p_strSection, p_strKey, p_strValue);
 		}
 
 		/// <summary>
@@ -235,7 +236,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditGeckINI(string p_strSection, string p_strKey, string p_strValue, bool p_booSaveOld)
 		{
-			return EditIni(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).GeckIniPath, p_strSection, p_strKey, p_strValue);
+			return EditIni(((GamebryoGameModeBase)GameMode).SettingsFiles["GeckIniPath"], p_strSection, p_strKey, p_strValue);
 		}
 
 		/// <summary>
@@ -249,7 +250,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditGeckPrefsINI(string p_strSection, string p_strKey, string p_strValue, bool p_booSaveOld)
 		{
-			return EditIni(((FalloutSettingsFiles)((Fallout3GameMode)GameMode).SettingsFiles).GeckPrefsIniPath, p_strSection, p_strKey, p_strValue);
+			return EditIni(((GamebryoGameModeBase)GameMode).SettingsFiles["GeckPrefsIniPath"], p_strSection, p_strKey, p_strValue);
 		}
 
 		#endregion
@@ -266,7 +267,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// <c>null</c> if the value is not found.</returns>
 		public string GetRendererInfo(string p_strValue)
 		{
-			string[] strLines = File.ReadAllLines(((Fallout3GameMode)GameMode).SettingsFiles.RendererFilePath);
+			string[] strLines = File.ReadAllLines(((GamebryoGameModeBase)GameMode).SettingsFiles.RendererFilePath);
 			for (int i = 1; i < strLines.Length; i++)
 			{
 				if (!strLines[i].Contains(":"))

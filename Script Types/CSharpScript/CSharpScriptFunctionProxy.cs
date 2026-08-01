@@ -31,6 +31,15 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 
 		#endregion
 
+		/// <summary>
+		/// Begins a batch that defers repeated mod metadata updates until C# script execution completes.
+		/// </summary>
+		/// <returns>A scope that flushes the deferred metadata update when disposed.</returns>
+		internal IDisposable BeginModInfoUpdateBatch()
+		{
+			return VirtualModActivator.BeginModInfoUpdateBatch();
+		}
+
 		#region File Management
 
 		/// <summary>

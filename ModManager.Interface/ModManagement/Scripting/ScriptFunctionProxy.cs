@@ -110,6 +110,52 @@ namespace Nexus.Client.ModManagement.Scripting
 
 		#endregion
 
+		#region Security
+
+		/// <summary>
+		/// Executes a trusted NMM operation without propagating the sandbox caller's restricted permission set into host code.
+		/// </summary>
+		/// <typeparam name="T">The operation result type.</typeparam>
+		/// <param name="p_fncOperation">The trusted operation to execute.</param>
+		/// <returns>The result returned by the operation.</returns>
+		private static T ExecuteWithFullTrust<T>(Func<T> p_fncOperation)
+		{
+			if (p_fncOperation == null)
+				throw new ArgumentNullException(nameof(p_fncOperation));
+
+			try
+			{
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+				return p_fncOperation();
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+		}
+
+		/// <summary>
+		/// Executes a trusted NMM operation without propagating the sandbox caller's restricted permission set into host code.
+		/// </summary>
+		/// <param name="p_actOperation">The trusted operation to execute.</param>
+		private static void ExecuteWithFullTrust(Action p_actOperation)
+		{
+			if (p_actOperation == null)
+				throw new ArgumentNullException(nameof(p_actOperation));
+
+			try
+			{
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+				p_actOperation();
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+		}
+
+		#endregion
+
 		#region Event Raising
 
 		/// <summary>
@@ -148,7 +194,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			bool booSuccess = false;
 			try
 			{
-				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				new PermissionSet(PermissionState.Unrestricted).Assert();
 				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, null, null);
 				OnTaskStarted(bitTask);
 				booSuccess = bitTask.Execute();
@@ -221,7 +267,7 @@ namespace Nexus.Client.ModManagement.Scripting
 
 			try
 			{
-				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				new PermissionSet(PermissionState.Unrestricted).Assert();
 
 				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
 				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1)) ? string.Empty : Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Mod.DownloadId, strTo);
@@ -296,7 +342,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			string[] strFiles = null;
 			try
 			{
-				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				new PermissionSet(PermissionState.Unrestricted).Assert();
 				strFiles = Mod.GetFileList().ToArray();
 			}
 			finally
@@ -319,7 +365,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			string[] strFiles = null;
 			try
 			{
-				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				new PermissionSet(PermissionState.Unrestricted).Assert();
 				strFiles = Mod.GetFileList(p_strFolder, p_booRecurse).ToArray();
 			}
 			finally
@@ -341,7 +387,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			byte[] bteFile = null;
 			try
 			{
-				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				new PermissionSet(PermissionState.Unrestricted).Assert();
 				bteFile = Mod.GetFile(p_strFile);
 			}
 			finally
@@ -360,9 +406,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A filtered list of all files in a user's Data directory.</returns>
 		public string[] GetExistingDataFileList(string p_strPath, string p_strPattern, bool p_booAllFolders)
 		{
-			string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
-			return Installers.DataFileUtility.GetExistingDataFileList(strFixedPath, p_strPattern, p_booAllFolders);
+			return ExecuteWithFullTrust(() =>
+			{
+				string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
+				return Installers.DataFileUtility.GetExistingDataFileList(strFixedPath, p_strPattern, p_booAllFolders);
+			});
 		}
 
 		/// <summary>
@@ -373,9 +422,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// otherwise.</returns>
 		public bool DataFileExists(string p_strPath)
 		{
-			string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
-			return Installers.DataFileUtility.DataFileExists(strFixedPath);
+			return ExecuteWithFullTrust(() =>
+			{
+				string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
+				return Installers.DataFileUtility.DataFileExists(strFixedPath);
+			});
 		}
 
 		/// <summary>
@@ -385,9 +437,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The specified file, or <c>null</c> if the file does not exist.</returns>
 		public byte[] GetExistingDataFile(string p_strPath)
 		{
-			string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
-			return Installers.DataFileUtility.GetExistingDataFile(strFixedPath);
+			return ExecuteWithFullTrust(() =>
+			{
+				string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
+				return Installers.DataFileUtility.GetExistingDataFile(strFixedPath);
+			});
 		}
 
 		/// <summary>
@@ -411,7 +466,7 @@ namespace Nexus.Client.ModManagement.Scripting
 
 			try
 			{
-				new SecurityPermission(SecurityPermissionFlag.UnmanagedCode).Assert();
+				new PermissionSet(PermissionState.Unrestricted).Assert();
 
 				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strPath);
 				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Mod.DownloadId, strPath);
@@ -563,7 +618,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A list of all installed plugins.</returns>
 		public string[] GetAllPlugins()
 		{
-			return RelativizePluginPaths(Installers.PluginManager.ManagedPlugins);
+			return ExecuteWithFullTrust(() => RelativizePluginPaths(Installers.PluginManager.ManagedPlugins));
 		}
 
 		#region Plugin Activation Management
@@ -574,7 +629,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A list of currently active plugins.</returns>
 		public string[] GetActivePlugins()
 		{
-			return RelativizePluginPaths(Installers.PluginManager.ActivePlugins);
+			return ExecuteWithFullTrust(() => RelativizePluginPaths(Installers.PluginManager.ActivePlugins));
 		}
 
 		/// <summary>
@@ -584,8 +639,11 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_booActivate">Whether to activate the plugin.</param>
 		public void SetPluginActivation(string p_strPluginPath, bool p_booActivate)
 		{
-			string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath, false);
-			Installers.PluginManager.SetPluginActivation(strFixedPath, p_booActivate);
+			ExecuteWithFullTrust(() =>
+			{
+				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath, false);
+				Installers.PluginManager.SetPluginActivation(strFixedPath, p_booActivate);
+			});
 		}
 
 		#endregion
@@ -612,7 +670,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		public void SetPluginOrderIndex(string p_strPlugin, int p_intNewIndex)
 		{
-			DoSetPluginOrderIndex(p_strPlugin, p_intNewIndex);
+			ExecuteWithFullTrust(() => DoSetPluginOrderIndex(p_strPlugin, p_intNewIndex));
 		}
 
 		/// <summary>
@@ -649,7 +707,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// contains the current index of a plugin. This array must contain all current indices.</param>
 		public void SetLoadOrder(int[] p_intPlugins)
 		{
-			DoSetLoadOrder(p_intPlugins);
+			ExecuteWithFullTrust(() => DoSetLoadOrder(p_intPlugins));
 		}
 
 		/// <summary>
@@ -702,7 +760,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// plugins.</param>
 		public void SetLoadOrder(int[] p_intPlugins, int p_intPosition)
 		{
-			DoSetLoadOrder(p_intPlugins, p_intPosition);
+			ExecuteWithFullTrust(() => DoSetLoadOrder(p_intPlugins, p_intPosition));
 		}
 
 		/// <summary>
@@ -715,42 +773,45 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_strRelativelyOrderedPlugins">The plugins to order relative to one another.</param>
 		public void SetRelativeLoadOrder(string[] p_strRelativelyOrderedPlugins)
 		{
-			if (p_strRelativelyOrderedPlugins.Length == 0)
-				return;
-			List<string> lstRelativelyOrderedPlugins = new List<string>();
-			foreach (string strPlugin in p_strRelativelyOrderedPlugins)
-				lstRelativelyOrderedPlugins.Add(GameMode.GetModFormatAdjustedPath(Mod.Format, strPlugin, false));
-
-			Plugin plgCurrent = null;
-			Int32 intInitialIndex = 0;
-			while (((plgCurrent = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[intInitialIndex])) == null) && (intInitialIndex < lstRelativelyOrderedPlugins.Count))
-				intInitialIndex++;
-			if (plgCurrent == null)
-				return;
-			for (Int32 i = intInitialIndex + 1; i < lstRelativelyOrderedPlugins.Count; i++)
+			ExecuteWithFullTrust(() =>
 			{
-				Plugin plgNext = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[i]);
-				if (plgNext == null)
-					continue;
-				Int32 intNextPosition = Installers.PluginManager.GetPluginOrderIndex(plgNext);
-				//we have to set this value every time, instead of caching the value (by
-				// declaring Int32 intCurrentPosition outside of the for loop) because
-				// calling Installers.PluginManager.SetPluginOrderIndex() does not guarantee
-				// that the load order will change. for example trying to order an ESM
-				// after an ESP file will result in no change, and will mean the intCurrentPosition
-				// we are dead reckoning will be wrong
-				Int32 intCurrentPosition = Installers.PluginManager.GetPluginOrderIndex(plgCurrent);
-				if (intNextPosition > intCurrentPosition)
+				if (p_strRelativelyOrderedPlugins.Length == 0)
+					return;
+				List<string> lstRelativelyOrderedPlugins = new List<string>();
+				foreach (string strPlugin in p_strRelativelyOrderedPlugins)
+					lstRelativelyOrderedPlugins.Add(GameMode.GetModFormatAdjustedPath(Mod.Format, strPlugin, false));
+
+				Plugin plgCurrent = null;
+				Int32 intInitialIndex = 0;
+				while (((plgCurrent = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[intInitialIndex])) == null) && (intInitialIndex < lstRelativelyOrderedPlugins.Count))
+					intInitialIndex++;
+				if (plgCurrent == null)
+					return;
+				for (Int32 i = intInitialIndex + 1; i < lstRelativelyOrderedPlugins.Count; i++)
 				{
-					plgCurrent = plgNext;
-					continue;
+					Plugin plgNext = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[i]);
+					if (plgNext == null)
+						continue;
+					Int32 intNextPosition = Installers.PluginManager.GetPluginOrderIndex(plgNext);
+					//we have to set this value every time, instead of caching the value (by
+					// declaring Int32 intCurrentPosition outside of the for loop) because
+					// calling Installers.PluginManager.SetPluginOrderIndex() does not guarantee
+					// that the load order will change. for example trying to order an ESM
+					// after an ESP file will result in no change, and will mean the intCurrentPosition
+					// we are dead reckoning will be wrong
+					Int32 intCurrentPosition = Installers.PluginManager.GetPluginOrderIndex(plgCurrent);
+					if (intNextPosition > intCurrentPosition)
+					{
+						plgCurrent = plgNext;
+						continue;
+					}
+					Installers.PluginManager.SetPluginOrderIndex(plgNext, intCurrentPosition + 1);
+					//if the reorder worked, we have a new current, otherwise the old one is still the
+					// correct current.
+					if (intNextPosition != Installers.PluginManager.GetPluginOrderIndex(plgNext))
+						plgCurrent = plgNext;
 				}
-				Installers.PluginManager.SetPluginOrderIndex(plgNext, intCurrentPosition + 1);
-				//if the reorder worked, we have a new current, otherwise the old one is still the
-				// correct current.
-				if (intNextPosition != Installers.PluginManager.GetPluginOrderIndex(plgNext))
-					plgCurrent = plgNext;
-			}
+			});
 		}
 
 		#endregion
@@ -770,7 +831,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The specified value as a string.</returns>
 		public string GetIniString(string p_strSettingsFileName, string p_strSection, string p_strKey)
 		{
-			return Installers.IniInstaller.GetIniString(p_strSettingsFileName, p_strSection, p_strKey);
+			return ExecuteWithFullTrust(() => Installers.IniInstaller.GetIniString(p_strSettingsFileName, p_strSection, p_strKey));
 		}
 
 		/// <summary>
@@ -782,7 +843,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The specified value as an integer.</returns>
 		public Int32 GetIniInt(string p_strSettingsFileName, string p_strSection, string p_strKey)
 		{
-			return Installers.IniInstaller.GetIniInt(p_strSettingsFileName, p_strSection, p_strKey);
+			return ExecuteWithFullTrust(() => Installers.IniInstaller.GetIniInt(p_strSettingsFileName, p_strSection, p_strKey));
 		}
 
 		#endregion
@@ -800,7 +861,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditIni(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
 		{
-			return Installers.IniInstaller.EditIni(p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+			return ExecuteWithFullTrust(() => Installers.IniInstaller.EditIni(p_strSettingsFileName, p_strSection, p_strKey, p_strValue));
 		}
 
 		#endregion

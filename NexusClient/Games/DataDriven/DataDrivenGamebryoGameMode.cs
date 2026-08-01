@@ -28,6 +28,9 @@ namespace Nexus.Client.Games.DataDriven
         private string _baseFiles;
         private bool _gameVersionResolved;
         private Version _gameVersion;
+        private bool _userGameDataPathResolved;
+        private string _userGameDataPath;
+        private PluginManagementPolicy _pluginManagementPolicy;
 
         public DataDrivenGamebryoGameMode(IEnvironmentInfo environmentInfo, FileUtil fileUtility, GameModeDefinition definition)
             : this(environmentInfo, fileUtility, PushDefinition(definition), true)
@@ -95,10 +98,15 @@ namespace Nexus.Client.Games.DataDriven
         {
             get
             {
+                if (_userGameDataPathResolved)
+                    return _userGameDataPath;
+
                 string configured = GetDefinition().Gamebryo == null ? null : GetDefinition().Gamebryo.UserGameDataPath;
-                if (string.IsNullOrWhiteSpace(configured))
-                    return GameModeEnvironmentInfo.InstallationPath;
-                return DataDrivenPathResolver.ResolvePath(configured, CreatePathContext(null), GameModeEnvironmentInfo.InstallationPath);
+                _userGameDataPath = string.IsNullOrWhiteSpace(configured)
+                    ? GameModeEnvironmentInfo.InstallationPath
+                    : DataDrivenPathResolver.ResolvePath(configured, CreatePathContext(null), GameModeEnvironmentInfo.InstallationPath);
+                _userGameDataPathResolved = true;
+                return _userGameDataPath;
             }
         }
 
@@ -118,14 +126,25 @@ namespace Nexus.Client.Games.DataDriven
             GetDefinition().Gamebryo != null &&
             GetDefinition().Gamebryo.RequiresOptionalFilesCheckOnProfileSwitch == true;
 
-        public override PluginManagementPolicy PluginManagementPolicy => DataDrivenPluginPolicyBuilder.Build(
-            GetDefinition(),
-            PluginExtensions,
-            OrderedCriticalPluginNames,
-            OrderedOfficialPluginNames,
-            OrderedOfficialUnmanagedPluginNames,
-            MaxAllowedActivePluginsCount,
-            CreatePathContext(UserGameDataPath));
+        public override PluginManagementPolicy PluginManagementPolicy
+        {
+            get
+            {
+                if (_pluginManagementPolicy == null)
+                {
+                    _pluginManagementPolicy = DataDrivenPluginPolicyBuilder.Build(
+                        GetDefinition(),
+                        PluginExtensions,
+                        OrderedCriticalPluginNames,
+                        OrderedOfficialPluginNames,
+                        OrderedOfficialUnmanagedPluginNames,
+                        MaxAllowedActivePluginsCount,
+                        CreatePathContext(UserGameDataPath));
+                }
+
+                return _pluginManagementPolicy;
+            }
+        }
 
         public override bool RequiresExternalConfig(out string p_strMessage)
         {

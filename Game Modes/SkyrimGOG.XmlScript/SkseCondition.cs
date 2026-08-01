@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.ModManagement.Scripting.XmlScript;
 
 namespace Nexus.Client.Games.SkyrimGOG.Scripting.XmlScript
@@ -34,7 +35,7 @@ namespace Nexus.Client.Games.SkyrimGOG.Scripting.XmlScript
 		/// <seealso cref="ICondition.GetIsFulfilled(ConditionStateManager)"/>
 		public override bool GetIsFulfilled(ConditionStateManager p_csmStateManager)
 		{
-			Version verInstalledVersion = ((SkyrimGOGGameMode)p_csmStateManager.GameMode).ScriptExtenderVersion;
+			Version verInstalledVersion = ((GamebryoGameModeBase)p_csmStateManager.GameMode).ScriptExtenderVersion;
 			return ((verInstalledVersion != null) && (verInstalledVersion >= MinimumVersion));
 		}
 
@@ -48,7 +49,7 @@ namespace Nexus.Client.Games.SkyrimGOG.Scripting.XmlScript
 		/// <seealso cref="ICondition.GetMessage(ConditionStateManager)"/>
 		public override string GetMessage(ConditionStateManager p_csmStateManager)
 		{
-			Version verInstalledVersion = ((SkyrimGOGGameMode)p_csmStateManager.GameMode).ScriptExtenderVersion;
+			Version verInstalledVersion = ((GamebryoGameModeBase)p_csmStateManager.GameMode).ScriptExtenderVersion;
 			if (verInstalledVersion == null)
 				return String.Format("This mod requires SKSE v{0} or higher. Please download from http://skse.silverlock.org", MinimumVersion);
 			else if (verInstalledVersion < MinimumVersion)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Gamebryo.ModManagement.Scripting;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting;
@@ -40,7 +41,7 @@ namespace Nexus.Client.Games.Skyrim.Scripting.CSharpScript
 		/// <returns>A proxy that implements the functions available to C# scripts.</returns>
 		protected override CSharpScriptFunctionProxy GetScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, SynchronizationContext p_scxUIContext)
 		{
-			BsaManager bmgBsaManager = new BsaManager((SkyrimGameMode)p_gmdGameMode);
+			BsaManager bmgBsaManager = new BsaManager((GamebryoGameModeBase)p_gmdGameMode);
 			UIUtil uitUiUtilities = new UIUtil(p_gmdGameMode, p_eifEnvironmentInfo, p_scxUIContext);
 			return new SkyrimCSharpScriptFunctionProxy(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, bmgBsaManager, uitUiUtilities);
 		}

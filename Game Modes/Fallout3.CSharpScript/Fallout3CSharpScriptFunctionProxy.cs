@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.Games.Gamebryo;
 using Nexus.Client.Games.Gamebryo.ModManagement.Scripting;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting;
@@ -38,7 +39,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		/// is not installed.</returns>
 		public Version GetFoseVersion()
 		{
-			return ((Fallout3GameMode)GameMode).ScriptExtenderVersion;
+			return ((GamebryoGameModeBase)GameMode).ScriptExtenderVersion;
 		}
 
 		#endregion

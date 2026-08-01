@@ -91,7 +91,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 		/// the script extender is not installed.</returns>
 		public Version GetScriptExtenderVersion()
 		{
-			return ((OblivionGameMode)GameMode).ScriptExtenderVersion;
+			return ((GamebryoGameModeBase)GameMode).ScriptExtenderVersion;
 		}
 
 		#endregion
@@ -121,7 +121,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 		/// <returns>The list of BSA files in the INI file.</returns>
 		private List<string> GetBSAList()
 		{
-			string strIniPath = ((OblivionGameMode)GameMode).SettingsFiles.IniPath;
+			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
 			List<string> lstBsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
 			for (int i = 0; i < lstBsas.Count; i++)
 				lstBsas[i] = lstBsas[i].Trim(' ');
@@ -139,7 +139,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 			if (lstBsas.Contains(strFixedPath, StringComparer.OrdinalIgnoreCase))
 				return;
 			lstBsas.Add(strFixedPath);
-			string strIniPath = ((OblivionGameMode)GameMode).SettingsFiles.IniPath;
+			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
 			IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
 		}
 
@@ -155,7 +155,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 			if (intIndex < 0)
 				return;
 			lstBsas.RemoveAt(intIndex);
-			string strIniPath = ((OblivionGameMode)GameMode).SettingsFiles.IniPath;
+			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
 			IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
 		}
 

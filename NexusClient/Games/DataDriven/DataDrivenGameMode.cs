@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security;
+using System.Security.Permissions;
 using System.Text.RegularExpressions;
 using ChinhDo.Transactions;
 using Nexus.Client.Games.Tools;
@@ -327,11 +329,13 @@ namespace Nexus.Client.Games.DataDriven
             expanded = ReplaceIgnoreCase(expanded, "{InstallationPath}", context.GamePath);
             expanded = ReplaceIgnoreCase(expanded, "{ExecutablePath}", context.ExecutablePath);
             expanded = ReplaceIgnoreCase(expanded, "{ModeId}", context.ModeId);
-            expanded = ReplaceIgnoreCase(expanded, "{Documents}", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));
-            expanded = ReplaceIgnoreCase(expanded, "{PersonalData}", personalData ?? Environment.GetFolderPath(Environment.SpecialFolder.Personal));
-            expanded = ReplaceIgnoreCase(expanded, "{LocalApplicationData}", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
-            expanded = ReplaceIgnoreCase(expanded, "{ProgramFiles}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
-            expanded = ReplaceIgnoreCase(expanded, "{ProgramFilesX86}", Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86));
+            expanded = ReplaceSpecialFolder(expanded, "{Documents}", Environment.SpecialFolder.MyDocuments);
+            expanded = personalData == null
+                ? ReplaceSpecialFolder(expanded, "{PersonalData}", Environment.SpecialFolder.Personal)
+                : ReplaceIgnoreCase(expanded, "{PersonalData}", personalData);
+            expanded = ReplaceSpecialFolder(expanded, "{LocalApplicationData}", Environment.SpecialFolder.LocalApplicationData);
+            expanded = ReplaceSpecialFolder(expanded, "{ProgramFiles}", Environment.SpecialFolder.ProgramFiles);
+            expanded = ReplaceSpecialFolder(expanded, "{ProgramFilesX86}", Environment.SpecialFolder.ProgramFilesX86);
             expanded = ReplaceIgnoreCase(expanded, "{UserGameData}", context.UserGameDataPath);
 
             Match unresolved = RemainingPlaceholderRegex.Match(expanded);
@@ -355,7 +359,37 @@ namespace Nexus.Client.Games.DataDriven
                 expanded = Path.Combine(basePath, expanded);
             }
 
-            return Path.GetFullPath(expanded);
+            new FileIOPermission(FileIOPermissionAccess.PathDiscovery, expanded).Assert();
+            try
+            {
+                return Path.GetFullPath(expanded);
+            }
+            finally
+            {
+                PermissionSet.RevertAssert();
+            }
+        }
+
+        /// <summary>
+        /// Replaces a path token with the corresponding Windows special-folder path.
+        /// </summary>
+        private static string ReplaceSpecialFolder(string input, string token, Environment.SpecialFolder folder)
+        {
+            if (input.IndexOf(token, StringComparison.OrdinalIgnoreCase) < 0)
+                return input;
+
+            string folderPath;
+            try
+            {
+                new FileIOPermission(PermissionState.Unrestricted).Assert();
+                folderPath = Environment.GetFolderPath(folder);
+            }
+            finally
+            {
+                PermissionSet.RevertAssert();
+            }
+
+            return ReplaceIgnoreCase(input, token, folderPath);
         }
 
         private static string ReplaceIgnoreCase(string input, string token, string replacement)
