@@ -601,11 +601,91 @@ namespace Nexus.Client.ModManagement
 			AutoUpdater.SwitchModCategory(p_modMod, p_intCategoryId);
 		}
 
-		public IBackgroundTask UpdateCategories(CategoryManager p_cmCategoryManager, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm)
+		/// <summary>
+		/// Remaps repository and explicit custom category assignments according to the supplied old-to-new ID map.
+		/// </summary>
+		/// <param name="p_dctCategoryRemaps">The old-to-new category ID mappings.</param>
+		internal void RemapCategoryAssignments(IDictionary<Int32, Int32> p_dctCategoryRemaps)
+		{
+			if (p_dctCategoryRemaps == null || p_dctCategoryRemaps.Count == 0)
+				return;
+
+			Dictionary<IMod, Int32> originalRepositoryAssignments = new Dictionary<IMod, Int32>();
+			Dictionary<IMod, Int32> originalCustomAssignments = new Dictionary<IMod, Int32>();
+			Dictionary<IMod, Int32> replacementRepositoryAssignments = new Dictionary<IMod, Int32>();
+			Dictionary<IMod, Int32> replacementCustomAssignments = new Dictionary<IMod, Int32>();
+			foreach (IMod mod in ManagedMods)
+			{
+				Int32 newRepositoryCategoryId;
+				Int32 newCustomCategoryId;
+				bool remapRepositoryCategory = p_dctCategoryRemaps.TryGetValue(mod.CategoryId, out newRepositoryCategoryId) &&
+					newRepositoryCategoryId < CategoryManager.FIRST_CUSTOM_CATEGORY_ID;
+				bool remapCustomCategory = p_dctCategoryRemaps.TryGetValue(mod.CustomCategoryId, out newCustomCategoryId);
+				if (!remapRepositoryCategory && !remapCustomCategory)
+					continue;
+
+				originalRepositoryAssignments[mod] = mod.CategoryId;
+				originalCustomAssignments[mod] = mod.CustomCategoryId;
+				replacementRepositoryAssignments[mod] = remapRepositoryCategory ? newRepositoryCategoryId : mod.CategoryId;
+				replacementCustomAssignments[mod] = remapCustomCategory ? newCustomCategoryId : mod.CustomCategoryId;
+			}
+
+			List<IMod> remappedMods = new List<IMod>();
+			try
+			{
+				foreach (IMod mod in replacementRepositoryAssignments.Keys)
+				{
+					remappedMods.Add(mod);
+					ApplyCategoryAssignments(mod, replacementRepositoryAssignments[mod], replacementCustomAssignments[mod]);
+				}
+			}
+			catch
+			{
+				foreach (IMod mod in remappedMods)
+				{
+					try
+					{
+						ApplyCategoryAssignments(mod, originalRepositoryAssignments[mod], originalCustomAssignments[mod]);
+					}
+					catch (Exception rollbackException)
+					{
+						System.Diagnostics.Trace.TraceError("Unable to roll back category assignments for {0}: {1}", mod.ModName, rollbackException);
+					}
+				}
+				throw;
+			}
+		}
+
+		/// <summary>
+		/// Applies repository and custom category IDs to a mod as one metadata update.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose category assignments are being updated.</param>
+		/// <param name="p_intRepositoryCategoryId">The repository category ID.</param>
+		/// <param name="p_intCustomCategoryId">The explicit custom category ID, or <c>-1</c> to use the repository category.</param>
+		private static void ApplyCategoryAssignments(IMod p_modMod, Int32 p_intRepositoryCategoryId, Int32 p_intCustomCategoryId)
+		{
+			ModInfo updatedModInfo = new ModInfo(p_modMod)
+			{
+				CategoryId = p_intRepositoryCategoryId,
+				CustomCategoryId = p_intCustomCategoryId,
+				ForceCustomCategoryId = true
+			};
+			p_modMod.UpdateInfo(updatedModInfo, false);
+		}
+
+		/// <summary>
+		/// Starts a category update using the current repository.
+		/// </summary>
+		/// <param name="p_cmCategoryManager">The category manager to update.</param>
+		/// <param name="p_pmProfileManager">The current profile manager.</param>
+		/// <param name="p_camConfirm">The delegate used to confirm updater actions.</param>
+		/// <param name="p_booResetCategoryAssignmentsAfterUpdate">Whether every mod must be reassigned to its Nexus category after the update.</param>
+		/// <returns>The running category update task.</returns>
+		public IBackgroundTask UpdateCategories(CategoryManager p_cmCategoryManager, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booResetCategoryAssignmentsAfterUpdate)
 		{
 			if (ModRepository.UserStatus != null)
 			{
-				CategoriesUpdateCheckTask cutCategoriesUpdateCheck = new CategoriesUpdateCheckTask(p_cmCategoryManager, p_pmProfileManager, ModRepository, CurrentGameModeModDirectory);
+				CategoriesUpdateCheckTask cutCategoriesUpdateCheck = new CategoriesUpdateCheckTask(this, p_cmCategoryManager, ModRepository, p_booResetCategoryAssignmentsAfterUpdate);
 				cutCategoriesUpdateCheck.Update(p_camConfirm);
 				return cutCategoriesUpdateCheck;
 			}
@@ -616,16 +696,15 @@ namespace Nexus.Client.ModManagement
 		#region asyncUpdateCategories
 
 		/// <summary>
-		/// Runs the managed updaters.
+		/// Starts a category update after an asynchronous repository login.
 		/// </summary>
-		/// <param name="p_lstModList">The list of mods we need to update.</param>
-		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
-		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		/// <param name="p_booMissingDownloadId">Whether to just look for missing download IDs.</param>
-		/// <returns>The background task that will run the updaters.</returns>
-		public void AsyncUpdateCategories(CategoryManager p_cmCategoryManager, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm)
+		/// <param name="p_cmCategoryManager">The category manager to update.</param>
+		/// <param name="p_pmProfileManager">The current profile manager.</param>
+		/// <param name="p_camConfirm">The delegate used to confirm updater actions.</param>
+		/// <param name="p_booResetCategoryAssignmentsAfterUpdate">Whether every mod must be reassigned to its Nexus category after the update.</param>
+		public void AsyncUpdateCategories(CategoryManager p_cmCategoryManager, IProfileManager p_pmProfileManager, ConfirmActionMethod p_camConfirm, bool p_booResetCategoryAssignmentsAfterUpdate)
 		{
-			CategoriesUpdateCheckTask cutCategoriesUpdateCheck = new CategoriesUpdateCheckTask(p_cmCategoryManager, p_pmProfileManager, ModRepository, CurrentGameModeModDirectory);
+			CategoriesUpdateCheckTask cutCategoriesUpdateCheck = new CategoriesUpdateCheckTask(this, p_cmCategoryManager, ModRepository, p_booResetCategoryAssignmentsAfterUpdate);
 			AsyncUpdateCategoriesTask(cutCategoriesUpdateCheck, p_camConfirm);
 		}
 

@@ -402,7 +402,7 @@
 							modUpdate.MachineVersion = mod.MachineVersion != null ? mod.MachineVersion : modUpdate.MachineVersion;
 						}
 
-						if (mod.CustomCategoryId != 0 && mod.CustomCategoryId != -1)
+						if (mod.CustomCategoryId >= 0)
 						{
 							modUpdate.CustomCategoryId = mod.CustomCategoryId;
 						}

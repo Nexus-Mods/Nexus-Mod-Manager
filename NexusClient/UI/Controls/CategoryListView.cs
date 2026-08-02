@@ -1463,7 +1463,7 @@ namespace Nexus.Client.UI.Controls
 				return;
 			}
 
-			var selectedModCategoryId = selectedMod.CustomCategoryId > 0 ? selectedMod.CustomCategoryId : selectedMod.CategoryId;
+			var selectedModCategoryId = selectedMod.CustomCategoryId >= 0 ? selectedMod.CustomCategoryId : selectedMod.CategoryId;
 
 			foreach (ToolStripItem item in m_mniCategoryMoveTo.DropDownItems)
 			{

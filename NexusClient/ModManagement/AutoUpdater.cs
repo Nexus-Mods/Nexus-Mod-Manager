@@ -159,6 +159,7 @@
 			mifUpdatedMod.CustomCategoryId = p_intCategoryId;
 			mifUpdatedMod.UpdateWarningEnabled = p_modMod.UpdateWarningEnabled;
 			mifUpdatedMod.UpdateChecksEnabled = p_modMod.UpdateChecksEnabled;
+			mifUpdatedMod.ForceCustomCategoryId = true;
 			p_modMod.UpdateInfo(mifUpdatedMod, false);
 		}
 

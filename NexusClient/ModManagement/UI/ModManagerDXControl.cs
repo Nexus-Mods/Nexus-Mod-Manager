@@ -464,6 +464,8 @@ namespace Nexus.Client.ModManagement.UI
 
 			_viewModel.ManagedMods.CollectionChanged += ManagedMods_CollectionChanged;
 			_viewModel.ActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
+			if (_viewModel.CategoryManager != null)
+				_viewModel.CategoryManager.CategoriesChanged += CategoryManager_CategoriesChanged;
 
 			_viewModel.ConfirmModFileDeletion = ConfirmModFileDeletion;
 			_viewModel.ConfirmModFileOverwrite = ConfirmModFileOverwrite;
@@ -523,6 +525,8 @@ namespace Nexus.Client.ModManagement.UI
 
 			_viewModel.ManagedMods.CollectionChanged -= ManagedMods_CollectionChanged;
 			_viewModel.ActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			if (_viewModel.CategoryManager != null)
+				_viewModel.CategoryManager.CategoriesChanged -= CategoryManager_CategoriesChanged;
 
 			foreach (IMod mod in _modList)
 				mod.PropertyChanged -= Mod_PropertyChanged;
@@ -563,6 +567,26 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		// ── Collection / property changed ────────────────────────────────────
+
+		/// <summary>
+		/// Invalidates category-derived grid values after category definitions change.
+		/// </summary>
+		private void CategoryManager_CategoriesChanged(object sender, EventArgs e)
+		{
+			if (IsDisposed || Disposing)
+				return;
+			if (InvokeRequired)
+			{
+				Invoke(new Action<object, EventArgs>(CategoryManager_CategoriesChanged), sender, e);
+				return;
+			}
+
+			_categoryNameCache.Clear();
+			_categoryColorCache.Clear();
+			_categoryTextSizeCache.Clear();
+			gridControl.RefreshDataSource();
+			gridView.RefreshData();
+		}
 
 		private void ManagedMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
@@ -1477,7 +1501,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (_viewModel?.CategoryManager != null)
 			{
 				IModCategory category = _viewModel.CategoryManager.FindCategory(
-					mod.CustomCategoryId > 0
+					mod.CustomCategoryId >= 0
 						? mod.CustomCategoryId
 						: mod.CategoryId);
 				categoryName = category?.CategoryName ?? String.Empty;
@@ -3811,6 +3835,24 @@ namespace Nexus.Client.ModManagement.UI
 			SaveGridLayout();
 		}
 
+		/// <summary>
+		/// Updates Nexus and custom categories without clearing existing custom assignments.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">The event arguments.</param>
+		private void updateNexusAndCustomCategories_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				_viewModel?.UpdateNexusAndCustomCategories();
+			}
+			catch (Exception ex)
+			{
+				if (ex.Message != "Login required")
+					ExtendedMessageBox.Show(this, "Couldn't perform the category update, retry later." + Environment.NewLine + Environment.NewLine + ex.Message, "Category update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+		}
+
 		private void resetDefaultCategories_Click(object sender, EventArgs e)
 		{
 			if (_viewModel == null) return;
@@ -3903,7 +3945,9 @@ namespace Nexus.Client.ModManagement.UI
 			_disableSummary = false;
 			if (e.Argument.ReturnValue != null)
 				ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use base categories: " + Environment.NewLine + e.Argument.ReturnValue, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-			_viewModel?.ResetDefaultCategories(e.Argument.ReturnValue != null);
+			CategoriesUpdateCheckTask categoryUpdateTask = e.Argument as CategoriesUpdateCheckTask;
+			bool resetCategoryAssignments = categoryUpdateTask == null || categoryUpdateTask.ResetCategoryAssignmentsAfterUpdate;
+			_viewModel?.CompleteCategoriesUpdate(e.Argument.ReturnValue != null, resetCategoryAssignments);
 			ResetSearchBox?.Invoke(this, e);
 		}
 

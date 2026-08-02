@@ -555,6 +555,7 @@ namespace Nexus.Client.ModManagement.UI
 			addNewCategory.Text = "Add new category";
 			collapseAllCategories.Text = "Collapse all categories";
 			expandAllCategories.Text = "Expand all categories";
+			updateNexusAndCustomCategories.Text = "Update Nexus and custom categories";
 			resetDefaultCategories.Text =
 				"Update and reset to Nexus site defaults";
 			resetUnassignedToDefaultCategories.Text =
@@ -583,6 +584,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 
 			// These are the only commands retained in the flat/default view.
+			updateNexusAndCustomCategories.Visible = true;
 			resetDefaultCategories.Visible = true;
 			resetUnassignedToDefaultCategories.Visible = true;
 			resetModsCategory.Visible = true;

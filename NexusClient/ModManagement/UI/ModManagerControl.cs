@@ -655,7 +655,9 @@ namespace Nexus.Client.ModManagement.UI
 				ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use the base categories: " + Environment.NewLine + e.Argument.ReturnValue, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
-			ViewModel.ResetDefaultCategories(e.Argument.ReturnValue != null);
+			CategoriesUpdateCheckTask categoryUpdateTask = e.Argument as CategoriesUpdateCheckTask;
+			bool resetCategoryAssignments = categoryUpdateTask == null || categoryUpdateTask.ResetCategoryAssignmentsAfterUpdate;
+			ViewModel.CompleteCategoriesUpdate(e.Argument.ReturnValue != null, resetCategoryAssignments);
 			clwCategoryView.Visible = false;
 			clwCategoryView.LoadData();
 			clwCategoryView.RefreshContextMenuCategoryList();
@@ -1336,6 +1338,31 @@ namespace Nexus.Client.ModManagement.UI
 		private void CategoryListView_FileDropped(object sender, EventArgs e)
 		{
 			ViewModel.AddModCommand.Execute(sender.ToString());
+		}
+
+		/// <summary>
+		/// Handles the category update command that preserves custom assignments.
+		/// </summary>
+		/// <param name="sender">The object that raised the event.</param>
+		/// <param name="e">The event arguments.</param>
+		private void updateNexusAndCustomCategories_Click(object sender, EventArgs e)
+		{
+			try
+			{
+				m_booDisableSummary = true;
+				ViewModel.UpdateNexusAndCustomCategories();
+				m_booDisableSummary = false;
+			}
+			catch (Exception ex)
+			{
+				m_booDisableSummary = false;
+				if (ex.Message != "Login required")
+				{
+					string strMessage = "Couldn't perform the category update, retry later.";
+					strMessage += Environment.NewLine + Environment.NewLine + ex.Message;
+					MessageBox.Show(this, strMessage, "Category update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+			}
 		}
 
 		/// <summary>

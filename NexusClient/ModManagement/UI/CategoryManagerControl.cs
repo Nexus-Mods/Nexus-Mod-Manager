@@ -2,7 +2,6 @@ namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
-    using System.Collections.Specialized;
     using System.ComponentModel;
     using System.IO;
     using System.Text;
@@ -94,16 +93,16 @@ namespace Nexus.Client.ModManagement.UI
         {
             _viewModel.UpdatingCategory   += VM_UpdatingCategory;
             _viewModel.UpdatingCategories += VM_UpdatingCategories;
-            if (_viewModel.CategoryManager?.Categories != null)
-                _viewModel.CategoryManager.Categories.CollectionChanged += Categories_CollectionChanged;
+            if (_viewModel.CategoryManager != null)
+                _viewModel.CategoryManager.CategoriesChanged += CategoryManager_CategoriesChanged;
         }
 
         private void UnhookViewModel()
         {
             _viewModel.UpdatingCategory   -= VM_UpdatingCategory;
             _viewModel.UpdatingCategories -= VM_UpdatingCategories;
-            if (_viewModel.CategoryManager?.Categories != null)
-                _viewModel.CategoryManager.Categories.CollectionChanged -= Categories_CollectionChanged;
+            if (_viewModel.CategoryManager != null)
+                _viewModel.CategoryManager.CategoriesChanged -= CategoryManager_CategoriesChanged;
         }
 
         // ── Refresh ───────────────────────────────────────────────────────────────
@@ -125,9 +124,12 @@ namespace Nexus.Client.ModManagement.UI
             gridView.RefreshData();
         }
 
-        // ── Collection changed ────────────────────────────────────────────────────
+        // ── Category changes ─────────────────────────────────────────────────────
 
-        private void Categories_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        /// <summary>
+        /// Refreshes the category grid after category definitions change.
+        /// </summary>
+        private void CategoryManager_CategoriesChanged(object sender, EventArgs e)
         {
             RefreshCategoryList();
         }

@@ -457,7 +457,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (this.CategoryManager.IsValidPath)
 			{
-				this.CategoryManager.LoadCategories(String.Empty);
+				this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
 				m_booIsCategoryInitialized = true;
 			}
 			else
@@ -1090,24 +1090,44 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Checks for mod updates.
+		/// Updates Nexus category definitions while preserving custom categories and all current category assignments.
 		/// </summary>
-		/// <returns>Message</returns>
-		/// <param name="p_booOverrideCategorySetup">Whether to just check for mods missing the Nexus Category.</param>
+		public void UpdateNexusAndCustomCategories()
+		{
+			string strMessage = "Update Nexus and custom categories?";
+			strMessage += Environment.NewLine + Environment.NewLine + "Nexus category definitions and IDs will be refreshed.";
+			strMessage += Environment.NewLine + "Custom categories and their mod assignments will be preserved.";
+			strMessage += Environment.NewLine + "Mods using categories whose IDs changed will be remapped automatically.";
+			DialogResult result = MessageBox.Show(strMessage, "Category update", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (result == DialogResult.Yes)
+				StartCategoriesUpdate(false);
+		}
+
+		/// <summary>
+		/// Updates the category list and resets every mod to its Nexus category.
+		/// </summary>
 		public void CheckCategoriesUpdates()
 		{
 			string strMessage = "Are you sure you want to reset to the Nexus site default categories?";
-			strMessage += Environment.NewLine + Environment.NewLine + "Note: The category list will be updated from the Nexus and your downloaded mods will be automatically reassigned to the Nexus categories.";
-			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-			if (Result == DialogResult.Yes)
+			strMessage += Environment.NewLine + Environment.NewLine + "The category list will be updated from Nexus and your downloaded mods will be automatically reassigned to their Nexus categories.";
+			strMessage += Environment.NewLine + "Custom category definitions will be preserved, but their mod assignments will be cleared.";
+			DialogResult result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			if (result == DialogResult.Yes)
+				StartCategoriesUpdate(true);
+		}
+
+		/// <summary>
+		/// Starts a category update and records whether assignments must be reset after it completes.
+		/// </summary>
+		/// <param name="p_booResetCategoryAssignments">Whether all mods should be reassigned to their Nexus categories after the update.</param>
+		private void StartCategoriesUpdate(bool p_booResetCategoryAssignments)
+		{
+			if (!ModRepository.IsOffline)
+				UpdatingCategories(this, new EventArgs<IBackgroundTask>(ModManager.UpdateCategories(CategoryManager, ProfileManager, ConfirmUpdaterAction, p_booResetCategoryAssignments)));
+			else
 			{
-				if (!ModRepository.IsOffline)
-					UpdatingCategories(this, new EventArgs<IBackgroundTask>(ModManager.UpdateCategories(CategoryManager, ProfileManager, ConfirmUpdaterAction)));
-				else
-				{
-					ModManager.Login();
-					ModManager.AsyncUpdateCategories(CategoryManager, ProfileManager, ConfirmUpdaterAction);
-				}
+				ModManager.Login();
+				ModManager.AsyncUpdateCategories(CategoryManager, ProfileManager, ConfirmUpdaterAction, p_booResetCategoryAssignments);
 			}
 		}
 
@@ -1227,14 +1247,21 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Resets to the repository default categories.
+		/// Finalizes a category update, optionally falling back to bundled defaults and resetting mod assignments when requested.
 		/// </summary>
-		public bool ResetDefaultCategories(bool p_booResetCategories)
+		/// <param name="p_booUseDefaultCategories">Whether the online update failed and bundled repository categories must be used.</param>
+		/// <param name="p_booResetCategoryAssignments">Whether every mod should be reassigned to its Nexus category.</param>
+		public bool CompleteCategoriesUpdate(bool p_booUseDefaultCategories, bool p_booResetCategoryAssignments)
 		{
-			if (p_booResetCategories)
-				CategoryManager.ResetCategories(ModManager.CurrentGameModeDefaultCategories);
-			SwitchModsToCategory(-1);
-			CheckForUpdates(true);
+			if (p_booUseDefaultCategories)
+				CategoryManager.ResetRepositoryCategories(ModManager.CurrentGameModeDefaultCategories, ModManager.RemapCategoryAssignments);
+
+			if (p_booResetCategoryAssignments)
+			{
+				SwitchModsToCategory(-1);
+				CheckForUpdates(true);
+			}
+
 			return true;
 		}
 
@@ -1328,7 +1355,7 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 			else
-				this.CategoryManager.LoadCategories(String.Empty);
+				this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
 		}
 
 		#endregion

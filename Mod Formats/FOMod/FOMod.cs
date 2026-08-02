@@ -1385,6 +1385,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		public void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues)
 		{
 			var booChangedValue = false;
+			var explicitCategoryAssignment = modInfo as IExplicitCategoryAssignment;
+			bool forceCustomCategoryId = explicitCategoryAssignment != null && explicitCategoryAssignment.ForceCustomCategoryId;
 
 			if (overwriteAllValues == true || string.IsNullOrEmpty(Id))
 			{
@@ -1451,7 +1453,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			if (overwriteAllValues == true || CustomCategoryId != modInfo.CustomCategoryId)
 			{
-				CustomCategoryId = (modInfo.CustomCategoryId < 0 && CustomCategoryId > 0) ? CustomCategoryId : modInfo.CustomCategoryId;
+				CustomCategoryId = (!forceCustomCategoryId && modInfo.CustomCategoryId < 0 && CustomCategoryId >= 0)
+					? CustomCategoryId
+					: modInfo.CustomCategoryId;
 				booChangedValue = true;
 			}
 

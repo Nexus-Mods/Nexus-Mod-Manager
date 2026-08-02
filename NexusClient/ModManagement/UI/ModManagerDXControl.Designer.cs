@@ -57,6 +57,7 @@ namespace Nexus.Client.ModManagement.UI
             this.addNewCategory                           = new System.Windows.Forms.ToolStripMenuItem();
             this.collapseAllCategories                    = new System.Windows.Forms.ToolStripMenuItem();
             this.expandAllCategories                      = new System.Windows.Forms.ToolStripMenuItem();
+            this.updateNexusAndCustomCategories           = new System.Windows.Forms.ToolStripMenuItem();
             this.resetDefaultCategories                   = new System.Windows.Forms.ToolStripMenuItem();
             this.resetUnassignedToDefaultCategories       = new System.Windows.Forms.ToolStripMenuItem();
             this.resetModsCategory                        = new System.Windows.Forms.ToolStripMenuItem();
@@ -244,6 +245,7 @@ namespace Nexus.Client.ModManagement.UI
                 this.addNewCategory,
                 this.collapseAllCategories,
                 this.expandAllCategories,
+                this.updateNexusAndCustomCategories,
                 this.resetDefaultCategories,
                 this.resetUnassignedToDefaultCategories,
                 this.resetModsCategory,
@@ -270,6 +272,11 @@ namespace Nexus.Client.ModManagement.UI
             this.expandAllCategories.Name  = "expandAllCategories";
             this.expandAllCategories.Text  = "Categories: expand all categories";
             this.expandAllCategories.Click += new System.EventHandler(this.expandAllCategories_Click);
+
+            this.updateNexusAndCustomCategories.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
+            this.updateNexusAndCustomCategories.Name  = "updateNexusAndCustomCategories";
+            this.updateNexusAndCustomCategories.Text  = "Categories: Update Nexus and custom categories";
+            this.updateNexusAndCustomCategories.Click += new System.EventHandler(this.updateNexusAndCustomCategories_Click);
 
             this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
             this.resetDefaultCategories.Name  = "resetDefaultCategories";
@@ -395,6 +402,7 @@ namespace Nexus.Client.ModManagement.UI
         private System.Windows.Forms.ToolStripMenuItem addNewCategory;
         private System.Windows.Forms.ToolStripMenuItem collapseAllCategories;
         private System.Windows.Forms.ToolStripMenuItem expandAllCategories;
+        private System.Windows.Forms.ToolStripMenuItem updateNexusAndCustomCategories;
         private System.Windows.Forms.ToolStripMenuItem resetDefaultCategories;
         private System.Windows.Forms.ToolStripMenuItem resetUnassignedToDefaultCategories;
         private System.Windows.Forms.ToolStripMenuItem resetModsCategory;

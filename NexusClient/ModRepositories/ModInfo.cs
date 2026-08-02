@@ -10,7 +10,7 @@
     /// <summary>
 	/// Describes the metadata of a mod in a repository.
 	/// </summary>
-	public class ModInfo : IModInfo
+	public class ModInfo : IModInfo, IExplicitCategoryAssignment
 	{
 		#region IModInfo Members
 
@@ -87,6 +87,11 @@
 		/// </summary>
 		/// <value>The user custom CategoryId of the mod.</value>
 		public int CustomCategoryId { get; set; }
+
+		/// <summary>
+		/// Gets or sets whether a category update must explicitly replace the current custom assignment.
+		/// </summary>
+		public bool ForceCustomCategoryId { get; set; }
 
 		/// <summary>
 		/// Gets or sets the description of the mod.

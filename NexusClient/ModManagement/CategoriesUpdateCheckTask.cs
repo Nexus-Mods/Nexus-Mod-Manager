@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -9,68 +7,52 @@ using Nexus.Client.UI;
 
 namespace Nexus.Client.ModManagement
 {
+	/// <summary>
+	/// Retrieves repository categories and merges them without overwriting user-owned categories.
+	/// </summary>
 	public class CategoriesUpdateCheckTask : ThreadedBackgroundTask
 	{
-		private string CurrentGameModeModDirectory = string.Empty;
-
 		#region Properties
 
 		/// <summary>
-		/// Gets the AutoUpdater.
+		/// Gets the mod manager used to remap affected mod assignments.
 		/// </summary>
-		/// <value>The AutoUpdater.</value>
-		protected AutoUpdater AutoUpdater { get; private set; }
+		protected ModManager ModManager { get; private set; }
 
 		/// <summary>
 		/// Gets the current mod repository.
 		/// </summary>
-		/// <value>The current mod repository.</value>
 		protected IModRepository ModRepository { get; private set; }
 
 		/// <summary>
-		/// Gets the current profile manager.
+		/// Gets the category manager being updated.
 		/// </summary>
-		/// <value>The current profile manager.</value>
-		protected IProfileManager ProfileManager { get; private set; }
-
+		protected CategoryManager CategoryManager { get; private set; }
 
 		/// <summary>
-		/// Gets the current profile manager.
+		/// Gets whether every mod must be reassigned to its Nexus category after the update completes.
 		/// </summary>
-		/// <value>The current profile manager.</value>
-		protected CategoryManager CategoryManager { get; private set; }
+		public bool ResetCategoryAssignmentsAfterUpdate { get; private set; }
 
 		#endregion
 
 		#region Constructors
 
 		/// <summary>
-		/// A simple constructor that initializes the object with its dependencies.
+		/// Initializes the category update task with its dependencies.
 		/// </summary>
-		/// <param name="p_AutoUpdater">The AutoUpdater.</param>
-		/// <param name="p_ModRepository">The current mod repository.</param>
-		/// <param name="p_lstModList">The list of mods we need to update.</param>
-		/// <param name="p_booOverrideCategorySetup">Whether to force a global update.</param>
-		public CategoriesUpdateCheckTask(CategoryManager p_cmCategoryManager, IProfileManager p_prmProfileManager, IModRepository p_ModRepository, string p_strCurrentGameModeModDirectory)
+		/// <param name="p_modManager">The current mod manager.</param>
+		/// <param name="p_cmCategoryManager">The category manager to update.</param>
+		/// <param name="p_modRepository">The current mod repository.</param>
+		/// <param name="p_booResetCategoryAssignmentsAfterUpdate">Whether every mod must be reassigned to its Nexus category after the update.</param>
+		public CategoriesUpdateCheckTask(ModManager p_modManager, CategoryManager p_cmCategoryManager, IModRepository p_modRepository, bool p_booResetCategoryAssignmentsAfterUpdate)
 		{
-			ModRepository = p_ModRepository;
-			ProfileManager = p_prmProfileManager;
+			ModManager = p_modManager;
 			CategoryManager = p_cmCategoryManager;
-			CurrentGameModeModDirectory = p_strCurrentGameModeModDirectory;
+			ModRepository = p_modRepository;
+			ResetCategoryAssignmentsAfterUpdate = p_booResetCategoryAssignmentsAfterUpdate;
 		}
 
-		#endregion
-
-		#region Event Raising
-
-		/// <summary>
-		/// Raises the <see cref="IBackgroundTask.TaskEnded"/> event.
-		/// </summary>
-		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
-		protected override void OnTaskEnded(TaskEndedEventArgs e)
-		{
-			base.OnTaskEnded(e);
-		}
 		#endregion
 
 		/// <summary>
@@ -81,21 +63,15 @@ namespace Nexus.Client.ModManagement
 		{
 			Start(p_camConfirm);
 		}
-	    
-	    /// <summary>
-		/// The method that is called to start the backgound task.
+
+		/// <summary>
+		/// Retrieves and merges the repository category list.
 		/// </summary>
-		/// <param name="args">Arguments to for the task execution.</param>
-		/// <returns>Always <c>null</c>.</returns>
+		/// <param name="args">Arguments supplied to the task.</param>
+		/// <returns><c>null</c> on success, or an error message on failure.</returns>
 		protected override object DoWork(object[] args)
 		{
-			var ModList = new List<string>();
-			var ModCheck = new List<IMod>();
-			var camConfirm = (ConfirmActionMethod)args[0];
-
-			var ModInstallDirectory = CurrentGameModeModDirectory.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar; 
-
-			OverallMessage = "Updating categories info: setup search..";
+			OverallMessage = "Updating categories info: setup search...";
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = false;
@@ -103,31 +79,18 @@ namespace Nexus.Client.ModManagement
 
 			OverallMessage = "Retrieving the categories list... 1/2";
 			StepOverallProgress();
+
 			try
 			{
-
-				List<CategoriesInfo> lstCategories = ModRepository.GetCategories(ModRepository.GameDomainName);
-
-				int i = 0;
-
-                if (lstCategories.Count > 0)
+				List<CategoriesInfo> categories = ModRepository.GetCategories(ModRepository.GameDomainName);
+				if (categories.Count > 0)
 				{
-					foreach(var category in lstCategories)
-					{
-						OverallMessage = "Saving the categories list... " + ++i + "/" + lstCategories.Count();
-						
+					List<IModCategory> repositoryCategories = new List<IModCategory>(categories.Count);
+					foreach (CategoriesInfo category in categories)
+						repositoryCategories.Add(new ModCategory(category.Id, category.Name, category.Name));
 
-						var modCategory = CategoryManager.FindCategory(category.Id);
-						if (modCategory != null && modCategory.Id != 0)
-                        {
-                            CategoryManager.RenameCategory(modCategory.Id, category.Name);
-                        }
-                        else
-                        {
-                            CategoryManager.AddCategory(new ModCategory(category.Id, category.Name, category.Name));
-                        }
-                    }
-
+					OverallMessage = "Saving the categories list... 2/2";
+					CategoryManager.MergeRepositoryCategories(repositoryCategories, ModManager.RemapCategoryAssignments);
 					StepOverallProgress();
 				}
 			}

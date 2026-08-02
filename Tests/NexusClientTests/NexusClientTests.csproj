@@ -54,6 +54,7 @@
     <Compile Include="InstallerStackPerformanceTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
+    <Compile Include="CategoryManagerTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
   </ItemGroup>

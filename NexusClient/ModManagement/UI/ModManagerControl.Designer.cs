@@ -58,6 +58,7 @@
 			this.addNewCategory = new System.Windows.Forms.ToolStripMenuItem();
 			this.collapseAllCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.expandAllCategories = new System.Windows.Forms.ToolStripMenuItem();
+			this.updateNexusAndCustomCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetDefaultCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetUnassignedToDefaultCategories = new System.Windows.Forms.ToolStripMenuItem();
 			this.resetModsCategory = new System.Windows.Forms.ToolStripMenuItem();
@@ -282,6 +283,7 @@
             this.addNewCategory,
             this.collapseAllCategories,
             this.expandAllCategories,
+            this.updateNexusAndCustomCategories,
             this.resetDefaultCategories,
             this.resetUnassignedToDefaultCategories,
             this.resetModsCategory,
@@ -317,6 +319,14 @@
 			this.expandAllCategories.Text = "Categories: expand all categories";
 			this.expandAllCategories.Click += new System.EventHandler(this.expandAllCategories_Click);
 			// 
+			// updateNexusAndCustomCategories
+			//
+			this.updateNexusAndCustomCategories.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
+			this.updateNexusAndCustomCategories.Name = "updateNexusAndCustomCategories";
+			this.updateNexusAndCustomCategories.Size = new System.Drawing.Size(374, 22);
+			this.updateNexusAndCustomCategories.Text = "Categories: Update Nexus and custom categories";
+			this.updateNexusAndCustomCategories.Click += new System.EventHandler(this.updateNexusAndCustomCategories_Click);
+			//
 			// resetDefaultCategories
 			// 
 			this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.reset_default;
@@ -575,6 +585,7 @@
 		private System.Windows.Forms.ToolStripMenuItem removeAllCategories;
 		private System.Windows.Forms.ToolStripMenuItem collapseAllCategories;
 		private System.Windows.Forms.ToolStripMenuItem expandAllCategories;
+		private System.Windows.Forms.ToolStripMenuItem updateNexusAndCustomCategories;
 		private System.Windows.Forms.ToolStripMenuItem toggleHiddenCategories;
 		private System.Windows.Forms.OpenFileDialog ofdChooseMod;
 		private System.Windows.Forms.ToolStripButton tsbActivate;

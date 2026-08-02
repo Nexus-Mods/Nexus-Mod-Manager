@@ -134,4 +134,15 @@
         /// or just the empty ones.</param>
         void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues);
 	}
+
+	/// <summary>
+	/// Marks metadata updates that must explicitly replace the current custom category assignment.
+	/// </summary>
+	public interface IExplicitCategoryAssignment
+	{
+		/// <summary>
+		/// Gets whether the custom category value must be applied even when it returns to the repository category.
+		/// </summary>
+		bool ForceCustomCategoryId { get; }
+	}
 }
