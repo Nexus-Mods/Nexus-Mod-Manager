@@ -1308,7 +1308,9 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.OptionsSelection.MultiSelect = true;
 			gridView.OptionsSelection.MultiSelectMode = GridMultiSelectMode.RowSelect;
 			gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
-			gridView.OptionsSelection.EnableAppearanceFocusedRow = false;
+			// The focused row is also the most recently selected row. Disabling its appearance hides
+			// selection on uninstalled mods because they do not receive a custom installed-state colour.
+			gridView.OptionsSelection.EnableAppearanceFocusedRow = true;
 			gridView.OptionsCustomization.AllowColumnMoving = true;
 			gridView.OptionsCustomization.AllowColumnResizing = true;
 			gridView.OptionsCustomization.AllowSort = true;
