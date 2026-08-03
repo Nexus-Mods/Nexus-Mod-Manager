@@ -21,6 +21,14 @@ namespace Nexus.Client.ModManagement
 		/// <value>The mod repository from which to get mod info.</value>
 		protected IModRepository ModRepository { get; private set; }
 
+		/// <summary>
+		/// Gets the Nexus game domain used by the backing repository.
+		/// </summary>
+		public string GameDomainName
+		{
+			get { return ModRepository == null ? String.Empty : ModRepository.GameDomainName; }
+		}
+
 		#endregion
 
 		#region Constructors
@@ -231,11 +239,18 @@ namespace Nexus.Client.ModManagement
 					{
 						mifUpdatedInfo.HumanReadableVersion =
 						 p_mfiFileInfo.HumanReadableVersion;
-
-						intLineTracker = 10;
-						mifUpdatedInfo.MachineVersion = null;
-						intLineTracker = 11;
+						mifUpdatedInfo.LastKnownVersion =
+						 p_mfiFileInfo.HumanReadableVersion;
 					}
+					else
+					{
+						mifUpdatedInfo.HumanReadableVersion = null;
+						mifUpdatedInfo.LastKnownVersion = null;
+					}
+
+					intLineTracker = 10;
+					mifUpdatedInfo.MachineVersion = null;
+					intLineTracker = 11;
 
 					intLineTracker = 12;
 

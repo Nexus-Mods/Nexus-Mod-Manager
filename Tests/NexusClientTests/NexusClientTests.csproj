@@ -57,6 +57,9 @@
     <Compile Include="CategoryManagerTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
+    <Compile Include="ModFileIdentityTests.cs" />
+    <Compile Include="NexusDescriptionFormatterTests.cs" />
+    <Compile Include="NexusModLinkParserTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

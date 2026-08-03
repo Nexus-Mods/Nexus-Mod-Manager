@@ -562,9 +562,27 @@
                     if (!_modRepository.IsOffline)
                     {
                         modInfo = (ModInfo)_modRepository.GetModInfo(nxuModUrl.ModId);
+						IModFileInfo modFileInfo = _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
+
+						if (modInfo != null && modFileInfo != null)
+						{
+							modInfo = new ModInfo(AutoTagger.CombineInfo(modInfo, modFileInfo));
+						}
+						else if (modInfo != null)
+						{
+							modInfo.HumanReadableVersion = null;
+							modInfo.LastKnownVersion = null;
+							modInfo.MachineVersion = null;
+						}
+
+						if (modInfo == null)
+						{
+							return null;
+						}
+
                         IMod modMod = _modRegistry.RegisteredMods.Find(x => x.Id == nxuModUrl.ModId);
 
-                        if (modMod != null && modInfo != null)
+                        if (modMod != null)
                         {
                             modInfo.IsEndorsed = modMod.IsEndorsed;
                             modInfo.UpdateWarningEnabled = modMod.UpdateWarningEnabled;
@@ -577,17 +595,13 @@
                             modInfo.UpdateChecksEnabled = true;
                         }
 
-						modInfo.ModName = modInfo.ModName + " - " + Descriptor.ModFileName;
+						if (modFileInfo == null && !string.IsNullOrWhiteSpace(Descriptor.ModFileName))
+						{
+							modInfo.ModName = modInfo.ModName + " - " + Descriptor.ModFileName;
+						}
+
 						modInfo.FileName = Descriptor.FileName;
 						modInfo.DownloadId = nxuModUrl.FileId;
-						// This is redundant we already got the all the info we need
-						//var mfiFileInfo = _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
-						//ModFileInfo mfiFileInfo = new ModFileInfo(modInfo.Id, modInfo.FileName, modInfo.ModName, modInfo.HumanReadableVersion);
-
-						//if (mfiFileInfo != null)
-						//{
-						//	modInfo = (ModInfo)AutoTagger.CombineInfo(modInfo, mfiFileInfo);
-						//}
                     }
 
                     return modInfo;

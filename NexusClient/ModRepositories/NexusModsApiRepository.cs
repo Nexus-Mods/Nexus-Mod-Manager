@@ -256,11 +256,23 @@
 				  fileName,
 				  parsedModId);
 
-				var result = parsedFileInfo == null
-				 ? parsedModInfo
-				 : AutoTagger.CombineInfo(
-				  parsedModInfo,
-				  parsedFileInfo);
+				IModInfo result;
+				if (parsedFileInfo == null)
+				{
+					var unresolvedFileInfo = new ModInfo(parsedModInfo)
+					{
+						HumanReadableVersion = null,
+						LastKnownVersion = null,
+						MachineVersion = null
+					};
+					result = unresolvedFileInfo;
+				}
+				else
+				{
+					result = AutoTagger.CombineInfo(
+					 parsedModInfo,
+					 parsedFileInfo);
+				}
 
 				TraceModRecognition(
 				 fileName,
@@ -438,6 +450,14 @@
 			 ? null
 			 : new ModFileInfo(hashResult.File);
 
+			if (fileInfo == null)
+			{
+				modInfo.HumanReadableVersion = null;
+				modInfo.LastKnownVersion = null;
+				modInfo.MachineVersion = null;
+				return modInfo;
+			}
+
 			/*
 			 * This produces the same combined information the
 			 * previous AutoTagger path produced, without making
@@ -502,13 +522,12 @@
 
 			foreach (var mod in modFileList)
 			{
-                try
-                {
-                    string modId = ParseModId(mod);
+				try
+				{
+					string modId = ParseModId(mod);
 					string downloadId = ParseDownloadId(mod);
 					string currentFilename = ParseFilename(mod);
-                    int mid = Convert.ToInt32(modId);
-					string newFileName = string.Empty;
+					int numericModId = Convert.ToInt32(modId);
 
 					if (modRequests <= 10)
 						Task.Delay(50);
@@ -517,101 +536,109 @@
 						modRequests = 1;
 						Task.Delay(250);
 					}
-                    var tmpMod = _apiCallManager.Mods?.GetMod(GameDomainName, mid).Result;
 
-                    if (tmpMod == null)
-                    {
+					modRequests++;
+					var nexusMod = _apiCallManager.Mods?.GetMod(GameDomainName, numericModId).Result;
+
+					if (nexusMod == null)
+					{
 						list.Add(new ModInfo());
-                        continue;
-                    }
-
-					// If we're looking for updates we're performing a search with the downloadId
-					if (!string.IsNullOrEmpty(downloadId) && !downloadId.Equals("0"))
-					{
-						int did = Convert.ToInt32(downloadId);
-						Task.Delay(50);
-						var tmpModFile = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, mid, new FileCategory[0]).Result;
-
-						int newFileId = 0;
-						int tempNewFileId = did;
-
-						if (tmpModFile != null)
-						{
-							while (newFileId == 0)
-							{
-								var fileUpdate = tmpModFile.FileUpdates.Where(u => u.OldFileID == tempNewFileId).FirstOrDefault();
-
-								if (fileUpdate != null)
-									tempNewFileId = fileUpdate.NewFileID;
-								else
-									newFileId = tempNewFileId;
-							}
-						}
-
-						if (newFileId != did)
-						{
-							Task.Delay(50);
-							var newModFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, mid, newFileId).Result;
-
-							if (newModFile != null)
-							{
-								tmpMod.Version = newModFile.FileVersion;
-							}
-						}
+						continue;
 					}
-					// If we're looking for downloadId then we're performing a search with the filename.
-					else if (!string.IsNullOrEmpty(currentFilename))
+
+					ModInfo modInfo = new ModInfo(nexusMod);
+					bool fileMetadataResolved = false;
+					Task.Delay(50);
+					var nexusFiles = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, numericModId, new FileCategory[0]).Result;
+					int currentFileId = 0;
+
+					if (ModFileIdentity.IsUsableRepositoryId(downloadId))
 					{
-						Task.Delay(50);
-						var tmpModFile = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, mid, new FileCategory[0]).Result;
+						Int32.TryParse(downloadId, out currentFileId);
+					}
+					else if (!string.IsNullOrWhiteSpace(currentFilename) && nexusFiles?.Files != null)
+					{
+						var currentFile = nexusFiles.Files.FirstOrDefault(file =>
+							string.Equals(file.FileName, currentFilename, StringComparison.OrdinalIgnoreCase));
 
-						int newFileId = 0;
-
-						if (tmpModFile != null)
+						if (currentFile != null)
+							currentFileId = currentFile.FileID;
+						else if (nexusFiles.FileUpdates != null)
 						{
-								var fileUpdate = tmpModFile.FileUpdates.Where(u => u.NewFileName == currentFilename).FirstOrDefault();
+							var filenameUpdate = nexusFiles.FileUpdates.FirstOrDefault(update =>
+								string.Equals(update.OldFileName, currentFilename, StringComparison.OrdinalIgnoreCase)
+								|| string.Equals(update.NewFileName, currentFilename, StringComparison.OrdinalIgnoreCase));
 
-								if (fileUpdate != null)
-									newFileId = fileUpdate.NewFileID;
-						}
-
-						if (newFileId != 0)
-						{
-							Task.Delay(50);
-							var newModFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, mid, newFileId).Result;
-
-							if (newModFile != null)
+							if (filenameUpdate != null)
 							{
-								tmpMod.Version = newModFile.FileVersion;
+								currentFileId = string.Equals(filenameUpdate.OldFileName, currentFilename, StringComparison.OrdinalIgnoreCase)
+									? filenameUpdate.OldFileID
+									: filenameUpdate.NewFileID;
 							}
 						}
 					}
 
-					ModInfo modInfo = new ModInfo(tmpMod);
-					if (!string.IsNullOrEmpty(currentFilename))
+					int latestFileId = currentFileId;
+					if (latestFileId > 0 && nexusFiles?.FileUpdates != null)
+					{
+						var visitedFileIds = new HashSet<int>();
+						while (visitedFileIds.Add(latestFileId))
+						{
+							var fileUpdate = nexusFiles.FileUpdates.FirstOrDefault(update => update.OldFileID == latestFileId);
+							if (fileUpdate == null || fileUpdate.NewFileID <= 0 || fileUpdate.NewFileID == latestFileId)
+								break;
+
+							latestFileId = fileUpdate.NewFileID;
+						}
+					}
+
+					if (latestFileId > 0)
+					{
+						var latestFile = nexusFiles?.Files?.FirstOrDefault(file => file.FileID == latestFileId);
+						if (latestFile == null)
+						{
+							Task.Delay(50);
+							latestFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, numericModId, latestFileId).Result;
+						}
+
+						if (latestFile != null)
+						{
+							modInfo = new ModInfo(AutoTagger.CombineInfo(modInfo, new ModFileInfo(latestFile)));
+							fileMetadataResolved = true;
+						}
+						else
+						{
+							modInfo.DownloadId = latestFileId.ToString();
+						}
+					}
+
+					if (!fileMetadataResolved)
+					{
+						modInfo.HumanReadableVersion = null;
+						modInfo.LastKnownVersion = null;
+						modInfo.MachineVersion = null;
+					}
+
+					if (string.IsNullOrWhiteSpace(modInfo.FileName) && !string.IsNullOrWhiteSpace(currentFilename))
 						modInfo.FileName = currentFilename;
 
-                    list.Add(modInfo);
-                }
-                catch (AggregateException a)
-                {
-					
+					list.Add(modInfo);
+				}
+				catch (AggregateException a)
+				{
 					list.Add(new ModInfo());
 					if (ReactToAggregateException(a))
 					{
 						// Breaking the foreach will cause the updated list and the base list to lose their alignment.
 						break;
 					}
-					else
-						continue;
 				}
-                catch (Exception ex)
-                {
-                    Trace.TraceError($"Exception while parsing mod ID from mod \"{mod}\".");
-                    TraceUtil.TraceException(ex);
+				catch (Exception ex)
+				{
+					Trace.TraceError($"Exception while parsing mod ID from mod \"{mod}\".");
+					TraceUtil.TraceException(ex);
 					list.Add(new ModInfo());
-                    continue;
-                }
+				}
 			}
 
 			return list;
@@ -753,7 +780,8 @@
 		{
 			try
 			{
-				return new ModFileInfo(_apiCallManager.ModFiles?.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result);
+				var modFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result;
+				return modFile == null ? null : new ModFileInfo(modFile);
 			}
 			catch (AggregateException a)
 			{
@@ -931,7 +959,7 @@
 				{
 					var files = GetModFileInfo(id);
 
-					if (files != null)
+					if (files == null)
 					{
 						continue;
 					}

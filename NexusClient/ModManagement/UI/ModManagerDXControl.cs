@@ -29,6 +29,7 @@ namespace Nexus.Client.ModManagement.UI
 	using Nexus.Client.Commands;
 	using Nexus.Client.Commands.Generic;
 	using Nexus.Client.ModManagement;
+	using Nexus.Client.ModRepositories;
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
 	using Nexus.Client.UI.Controls;
@@ -1819,12 +1820,14 @@ namespace Nexus.Client.ModManagement.UI
 			if (e.Column.FieldName != ColLastKnown) return;
 			int src = gridView.GetDataSourceRowIndex(e.RowHandle);
 			if (src < 0 || src >= _modList.Count) return;
-			Uri url = _modList[src].Website;
-			if (url != null)
-			{
-				try { System.Diagnostics.Process.Start(url.ToString()); }
-				catch { /* ignore launch errors */ }
-			}
+
+			IMod mod = _modList[src];
+			string gameDomain = _viewModel?.ModRepository?.GameDomainName;
+			Uri url = NexusModLinkParser.ResolveNavigationUri(mod.Website, gameDomain, mod.Id, mod.DownloadId);
+			if (url == null) return;
+
+			try { System.Diagnostics.Process.Start(url.ToString()); }
+			catch { /* ignore launch errors */ }
 		}
 
 		/// <summary>

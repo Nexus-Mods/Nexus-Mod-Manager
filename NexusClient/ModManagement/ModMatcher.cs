@@ -39,61 +39,40 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// This finds any mod in the candidate list that appears to be another version of the given mod.
+		/// This finds any mod in the candidate list that is a different known version of the same repository file.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which to find another version.</param>
 		/// <param name="p_booExistingOnly">Whether the matcher should only match candidate mods that exist.</param>
-		/// <returns>The active mod that appears to be another version of the given mod,
+		/// <returns>The active mod that is another known version of the same repository file,
 		/// or <c>null</c> if no such mod was found.</returns>
 		public IMod FindAlternateVersion(IMod p_modMod, bool p_booExistingOnly)
 		{
-			IEnumerable<IMod> lstMatches = from m in Candidates
-										   where !String.IsNullOrEmpty(m.Id)
-												&& m.Id.Equals(p_modMod.Id)
-												&& (!string.IsNullOrEmpty(m.DownloadId))
-												&& m.DownloadId.Equals(p_modMod.DownloadId)
-												&& !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
-												&& (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
-										   select m;
-			string strNewModName = p_modMod.ModName;
-			if (String.IsNullOrEmpty(p_modMod.Id))
-			{
-				if (lstMatches.Count() == 0)
-				{
-					lstMatches = from m in Candidates
-								 where m.ModName.Equals(strNewModName, StringComparison.InvariantCultureIgnoreCase)
-									 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
-									 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
-								 select m;
-				}
-				if (lstMatches.Count() == 0)
-				{
-					string strNewModNamePrefix = strNewModName.Split(new string[] {" - "}, StringSplitOptions.None)[0].Trim();
+			if (p_modMod == null || Candidates == null)
+				return null;
 
-					lstMatches = from m in Candidates
-								 where m.ModName.Split(new string[] { " - " }, StringSplitOptions.None)[0].Trim().Equals(strNewModNamePrefix, StringComparison.InvariantCultureIgnoreCase)
-									 && !m.Filename.Equals(p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
-									 && (AssumeAllExist || !p_booExistingOnly || File.Exists(m.Filename))
-								 select m;
-				}
-			}
-			IMod modMatch = null;
-			Int64 intFilesize = 0;
-			foreach (IMod modCandidate in lstMatches)
+			IEnumerable<IMod> matches = Candidates.Where(candidate =>
+				candidate != null
+				&& ModFileIdentity.IsSameRepositoryFile(candidate.Id, candidate.DownloadId, p_modMod.Id, p_modMod.DownloadId)
+				&& ModFileIdentity.HasDifferentKnownVersion(candidate.HumanReadableVersion, p_modMod.HumanReadableVersion)
+				&& !string.Equals(candidate.Filename, p_modMod.Filename, StringComparison.OrdinalIgnoreCase)
+				&& (AssumeAllExist || !p_booExistingOnly || File.Exists(candidate.Filename)));
+
+			IMod match = null;
+			long largestFileSize = 0;
+			foreach (IMod candidate in matches)
 			{
-				if (File.Exists(modCandidate.Filename))
-				{
-					FileInfo fifInfo = new FileInfo(modCandidate.Filename);
-					if (fifInfo.Length > intFilesize)
-					{
-						intFilesize = fifInfo.Length;
-						modMatch = modCandidate;
-					}
-				}
+				if (!File.Exists(candidate.Filename))
+					continue;
+
+				FileInfo fileInfo = new FileInfo(candidate.Filename);
+				if (fileInfo.Length <= largestFileSize)
+					continue;
+
+				largestFileSize = fileInfo.Length;
+				match = candidate;
 			}
-			if (modMatch == null)
-				modMatch = lstMatches.FirstOrDefault();
-			return modMatch;
+
+			return match ?? matches.FirstOrDefault();
 		}
 	}
 }

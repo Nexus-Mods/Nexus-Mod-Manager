@@ -2,6 +2,7 @@
 {
 	using System;
 	using System.Collections.Generic;
+	using System.Diagnostics;
 	using System.IO;
 	using System.Linq;
 	using System.Threading;
@@ -17,7 +18,7 @@
 		private readonly bool? _missingDownloadId = false;
 		private readonly List<IMod> _modList = new List<IMod>();
 		private readonly bool _overrideLocalModNames;
-		private readonly Dictionary<string, string> _newDownloadID = new Dictionary<string, string>();
+		private readonly Dictionary<string, string> _newDownloadID = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private int _retries = 0;
 		private bool _cancel;
 		private string _period = string.Empty;
@@ -182,7 +183,7 @@
 					if (_overrideCategorySetup && !string.IsNullOrEmpty(modCurrent.DownloadId))
 					{
 						// TODO: This used to work with download ids, it requires a new method in the API, currently it did nothing cause it passed downloadId to a modId search.
-						modList.Add(string.Format("{0}|{1}", string.IsNullOrWhiteSpace(modId) ? "0" : modId, modCurrent.DownloadId));
+						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
 						modCheck.Add(modCurrent);
 					}
 					// If we're performing a period-based update check
@@ -315,112 +316,73 @@
 
 					ItemMessage = modUpdate.ModName;
 
-					// Increasing readability
-					IMod mod = null;
-
-					if (_missingDownloadId == false)
-					{
-						mod = _modList.Where(x => x != null).FirstOrDefault(m => !string.IsNullOrEmpty(modUpdate.FileName) &&
-							modUpdate.FileName.Equals(Path.GetFileName(m.Filename), StringComparison.OrdinalIgnoreCase));
-					}
-					else
-					{
-						mod = _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(modUpdate.FileName) && (StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename).ToString(), x.Id), StringComparison.OrdinalIgnoreCase) ||
-							StripFileName(modUpdate.FileName, modUpdate.Id).Equals(StripFileName(Path.GetFileName(x.Filename.Replace("_", " ")).ToString(), x.Id), StringComparison.OrdinalIgnoreCase)));
-					}
-
-					if (mod == null && !string.IsNullOrEmpty(modUpdate.DownloadId) && modUpdate.DownloadId != "0" && modUpdate.DownloadId != "-1")
-					{
-						mod = _modList.Where(x => x != null).FirstOrDefault(x => !string.IsNullOrEmpty(x.DownloadId) && modUpdate.DownloadId.Equals(x.DownloadId, StringComparison.OrdinalIgnoreCase));
-					}
+					IMod mod = i < modCheckList.Length ? modCheckList[i] : null;
 
 					if (mod == null)
 					{
-						if (_missingDownloadId != false)
-						{
-							var modCheck = modCheckList[i];
-							if (!string.IsNullOrEmpty(modUpdate.Id) && modUpdate.Id != "0" && !string.IsNullOrEmpty(modCheck.Id) && modCheck.Id != "0")
-							{
-								if (modUpdate.Id.Equals(modCheck.Id, StringComparison.OrdinalIgnoreCase))
-								{
-									mod = modCheck;
-								}
-							}
-						}
+						continue;
 					}
 
-					if (mod != null)
+					if (ModFileIdentity.IsUsableRepositoryId(mod.Id)
+						&& !ModFileIdentity.IsUsableRepositoryId(modUpdate.Id))
 					{
-						if (ItemProgress < ItemProgressMaximum)
-						{
-							StepItemProgress();
-						}
-
-						if (modUpdate.DownloadId == "-1")
-						{
-							if (_missingDownloadId != false)
-							{
-								var filename = Path.GetFileName(mod.Filename);
-
-								if (!string.Equals(StripFileName(filename, mod.Id), StripFileName(modUpdate.FileName, modUpdate.Id), StringComparison.InvariantCultureIgnoreCase))
-								{
-									continue;
-								}
-							}
-						}
-						else if (!string.IsNullOrWhiteSpace(modUpdate.DownloadId) && !modUpdate.DownloadId.Equals(mod.DownloadId))
-						{
-							if (_missingDownloadId != false)
-							{
-								var filename = Path.GetFileName(mod.Filename);
-
-								if (string.Equals(filename, modUpdate.FileName, StringComparison.InvariantCultureIgnoreCase))
-								{
-									if (!_newDownloadID.ContainsKey(filename))
-									{
-										_newDownloadID.Add(filename, modUpdate.DownloadId);
-									}
-								}
-								else if (!string.IsNullOrEmpty(mod.Id) && mod.Id != "0" && !string.IsNullOrEmpty(modUpdate.Id) && modUpdate.Id != "0")
-								{
-									if (string.Equals(mod.Id, modUpdate.Id, StringComparison.InvariantCultureIgnoreCase) && !_newDownloadID.ContainsKey(filename))
-									{
-										_newDownloadID.Add(filename, modUpdate.DownloadId);
-									}
-								}
-							}
-						}
-
-						if (!string.IsNullOrEmpty(mod.DownloadId) && string.IsNullOrWhiteSpace(modUpdate.DownloadId))
-						{
-							modUpdate.DownloadId = mod.DownloadId;
-						}
-
-						if (_missingDownloadId != false)
-						{
-							modUpdate.HumanReadableVersion = !string.IsNullOrEmpty(mod.HumanReadableVersion) ? mod.HumanReadableVersion : modUpdate.HumanReadableVersion;
-							modUpdate.MachineVersion = mod.MachineVersion != null ? mod.MachineVersion : modUpdate.MachineVersion;
-						}
-
-						if (mod.CustomCategoryId >= 0)
-						{
-							modUpdate.CustomCategoryId = mod.CustomCategoryId;
-						}
-
-						modUpdate.UpdateWarningEnabled = mod.UpdateWarningEnabled;
-						modUpdate.UpdateChecksEnabled = mod.UpdateChecksEnabled;
-						AutoUpdater.AddNewVersionNumberForMod(mod, modUpdate);
-
-						if (!_overrideLocalModNames)
-						{
-							modUpdate.ModName = mod.ModName;
-						}
-
-						if (!string.IsNullOrEmpty(mod.ModName))
-							modUpdate.ModName = string.Empty;
-						mod.UpdateInfo(modUpdate, null);
-						ItemProgress = 0;
+						continue;
 					}
+
+					if (ModFileIdentity.IsUsableRepositoryId(mod.Id)
+						&& ModFileIdentity.IsUsableRepositoryId(modUpdate.Id)
+						&& !mod.Id.Equals(modUpdate.Id, StringComparison.OrdinalIgnoreCase))
+					{
+						Trace.TraceWarning("Ignored mismatched mod update response. Expected mod ID {0}, received {1}.", mod.Id, modUpdate.Id);
+						continue;
+					}
+
+					if (ItemProgress < ItemProgressMaximum)
+					{
+						StepItemProgress();
+					}
+
+					if (ModFileIdentity.IsUsableRepositoryId(modUpdate.DownloadId)
+						&& !modUpdate.DownloadId.Equals(mod.DownloadId, StringComparison.OrdinalIgnoreCase))
+					{
+						string filename = Path.GetFileName(mod.Filename);
+						if (!string.IsNullOrEmpty(filename) && !_newDownloadID.ContainsKey(filename))
+						{
+							_newDownloadID.Add(filename, modUpdate.DownloadId);
+						}
+					}
+
+					if (!string.IsNullOrEmpty(mod.DownloadId) && string.IsNullOrWhiteSpace(modUpdate.DownloadId))
+					{
+						modUpdate.DownloadId = mod.DownloadId;
+					}
+
+					if (_missingDownloadId != false)
+					{
+						modUpdate.HumanReadableVersion = !string.IsNullOrEmpty(mod.HumanReadableVersion) ? mod.HumanReadableVersion : modUpdate.HumanReadableVersion;
+						modUpdate.MachineVersion = mod.MachineVersion != null ? mod.MachineVersion : modUpdate.MachineVersion;
+					}
+
+					if (mod.CustomCategoryId >= 0)
+					{
+						modUpdate.CustomCategoryId = mod.CustomCategoryId;
+					}
+
+					modUpdate.UpdateWarningEnabled = mod.UpdateWarningEnabled;
+					modUpdate.UpdateChecksEnabled = mod.UpdateChecksEnabled;
+					if (mod.Website != null)
+						modUpdate.Website = mod.Website;
+					AutoUpdater.AddNewVersionNumberForMod(mod, modUpdate);
+
+					if (!_overrideLocalModNames)
+					{
+						modUpdate.ModName = mod.ModName;
+					}
+
+					if (!string.IsNullOrEmpty(mod.ModName))
+						modUpdate.ModName = string.Empty;
+					mod.UpdateInfo(modUpdate, null);
+					ItemProgress = 0;
 				}
 
 				if (modUpdates.Count() < modCheckList.Count())

@@ -817,6 +817,7 @@
     <Compile Include="ModManagement\InstallationLog\InstallLog.ActiveModRegistry.cs" />
     <Compile Include="ModManagement\ModInstallerBase.cs" />
     <Compile Include="ModManagement\TaskSetWaiter.cs" />
+    <Compile Include="ModManagement\ModFileIdentity.cs" />
     <Compile Include="ModManagement\ModMatcher.cs" />
     <Compile Include="ModManagement\ModUninstaller.cs" />
     <Compile Include="ModManagement\ModUpgrader.cs" />
@@ -832,6 +833,8 @@
     <Compile Include="ModRepositories\IModFileInfo.cs" />
     <Compile Include="ModRepositories\IModRepository.cs" />
     <Compile Include="ModRepositories\ModInfo.cs" />
+    <Compile Include="ModRepositories\NexusDescriptionFormatter.cs" />
+    <Compile Include="ModRepositories\NexusModLinkParser.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.cs" />
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.TransactionEnlistment.cs" />
     <Compile Include="PluginManagement\OrderLog\PluginOrderLog.cs" />
