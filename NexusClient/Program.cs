@@ -251,6 +251,12 @@
 				p_setSettings.SettingsUpgraded = true;
 				p_setSettings.Save();
 			}
+
+			if (p_setSettings.AddShellExtensions == null)
+			{
+				p_setSettings.AddShellExtensions = new Settings.KeyedSettings<bool>();
+				p_setSettings.Save();
+			}
 		}
 
 		/// <summary>

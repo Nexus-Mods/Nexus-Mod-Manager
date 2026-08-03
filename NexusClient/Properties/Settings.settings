@@ -138,7 +138,10 @@
 			<Value Profile="(Default)">False</Value>
 		</Setting>
 		<Setting Name="AddShellExtensions" Type="Nexus.Client.Settings.KeyedSettings`1[System.Boolean]" Scope="User">
-			<Value Profile="(Default)" />
+			<Value Profile="(Default)">
+				&lt;?xml version="1.0" encoding="utf-16"?&gt;
+				&lt;KeyedSettingsOfBoolean /&gt;
+			</Value>
 		</Setting>
 		<Setting Name="InstalledGames" Type="Nexus.Client.Settings.SettingsList" Scope="User">
 			<Value Profile="(Default)">
