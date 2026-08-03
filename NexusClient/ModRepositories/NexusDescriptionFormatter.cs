@@ -10,6 +10,7 @@
 	public static class NexusDescriptionFormatter
 	{
 		private const string EmptyDescriptionHtml = "<div class='empty'>No description available.</div>";
+		private const string YouTubeWatchUrl = "https://www.youtube.com/watch?v=";
 		private static readonly Regex HtmlAnchorRegex = new Regex(@"&lt;a\b(?<attributes>.*?)&gt;(?<text>.*?)&lt;/a\s*&gt;", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 		private static readonly Regex HtmlImageRegex = new Regex(@"&lt;img\b(?<attributes>.*?)/?&gt;", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 		private static readonly Regex HtmlBreakRegex = new Regex(@"&lt;\s*br\s*/?\s*&gt;", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -25,20 +26,22 @@
 		private static readonly Regex HtmlHorizontalRuleRegex = new Regex(@"&lt;\s*hr\s*/?\s*&gt;", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex HtmlCommentRegex = new Regex(@"&lt;!--[\s\S]*?--&gt;", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex RemainingHtmlTagRegex = new Regex(@"&lt;\s*/?\s*(?:a|img|br|p|div|ul|ol|li|blockquote|code|pre|h[1-6]|b|strong|i|em|u|s|strike|hr|script|style|iframe|object|embed|form|input|button|meta|link|table|tbody|thead|tfoot|tr|td|th|span|section|article|header|footer|nav|aside|details|summary|video|audio|source|canvas|svg|path|font|center|small|big|sub|sup|mark|del|ins|dl|dt|dd)\b[\s\S]*?&gt;", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex BbCodeNamedUrlRegex = new Regex(@"\[url\s*=\s*(?<url>[^\]]+)\](?<text>.*?)\[/url\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
-		private static readonly Regex BbCodeBareUrlRegex = new Regex(@"\[url\](?<url>.*?)\[/url\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
-		private static readonly Regex BbCodeImageRegex = new Regex(@"\[img(?:=[^\]]+)?\](?<url>.*?)\[/img\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+		private static readonly Regex BbCodeNamedUrlRegex = new Regex(@"\[\s*url\s*=\s*(?<url>[^\]]+)\](?<text>.*?)\[\s*/\s*url\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+		private static readonly Regex BbCodeBareUrlRegex = new Regex(@"\[\s*url\s*\](?<url>.*?)\[\s*/\s*url\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+		private static readonly Regex BbCodeImageRegex = new Regex(@"\[\s*img(?:\s+align\s*=\s*[^\]]+)?\s*\](?<url>.*?)\[\s*/\s*img\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+		private static readonly Regex BbCodeInlineImageRegex = new Regex(@"\[\s*img\s*=\s*(?<url>[^\]]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex BbCodeYouTubeRegex = new Regex(@"\[\s*youtube(?:\s*=\s*[^\]]+)?\s*\](?<video>.*?)\[\s*/\s*youtube\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
 		private static readonly Regex BbCodeFormattingTagRegex = new Regex(@"\[(?<close>/?)\s*(?<tag>b|strong|i|em|u|s|strike)\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex BbCodeQuoteTagRegex = new Regex(@"\[(?<close>/?)\s*quote(?:=[^\]]+)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex BbCodeCodeTagRegex = new Regex(@"\[(?<close>/?)\s*(?:code|pre)\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex BbCodeHeadingTagRegex = new Regex(@"\[(?<close>/?)\s*h[1-6]\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex BbCodeHeadingTagRegex = new Regex(@"\[(?<close>/?)\s*(?:heading|h[1-6])(?:=[^\]]+)?\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex BbCodeListTagRegex = new Regex(@"\[/?\s*(?:list|olist|ul|ol)\s*(?:=[^\]]+)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex BbCodeListItemRegex = new Regex(@"\[\*\]|\[li\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex BbCodeListItemEndRegex = new Regex(@"\[/li\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex BbCodeBreakRegex = new Regex(@"\[br\s*/?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex BbCodeHorizontalRuleRegex = new Regex(@"\[hr\s*/?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex BbCodeListItemRegex = new Regex(@"\[\s*\*\s*\]|\[\s*li\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex BbCodeListItemEndRegex = new Regex(@"\[\s*/\s*\*\s*\]|\[\s*/\s*li\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex BbCodeBreakRegex = new Regex(@"\[\s*br\s*/?\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex BbCodeHorizontalRuleRegex = new Regex(@"\[\s*(?:hr|line)\s*/?\s*\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex BbCodePresentationTagRegex = new Regex(@"\[/?\s*(?:center|left|right|color|size|font|spoiler|indent)(?:=[^\]]+)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-		private static readonly Regex RemainingKnownBbCodeRegex = new Regex(@"\[/?\s*(?:url|img|b|strong|i|em|u|s|strike|quote|code|pre|list|olist|ul|ol|li|center|left|right|color|size|font|spoiler|indent|h[1-6])(?:=[^\]]+)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+		private static readonly Regex RemainingKnownBbCodeRegex = new Regex(@"\[/?\s*(?:url|img|youtube|b|strong|i|em|u|s|strike|quote|code|pre|list|olist|ul|ol|li|center|left|right|color|size|font|spoiler|indent|heading|h[1-6]|hr|line|\*)(?:=[^\]]+)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 		private static readonly Regex ExcessiveLineBreakRegex = new Regex(@"\n{3,}", RegexOptions.Compiled);
 		private static readonly Regex TrailingWhitespaceRegex = new Regex(@"[ \t]+\n", RegexOptions.Compiled);
 
@@ -53,7 +56,7 @@
 				return EmptyDescriptionHtml;
 
 			string value = description.Replace("\r\n", "\n").Replace('\r', '\n');
-			value = WebUtility.HtmlEncode(WebUtility.HtmlDecode(value)).Replace("$", "&#36;");
+			value = WebUtility.HtmlEncode(DecodeHtmlEntities(value)).Replace("$", "&#36;");
 			value = HtmlAnchorRegex.Replace(value, ReplaceHtmlAnchor);
 			value = HtmlImageRegex.Replace(value, ReplaceHtmlImage);
 			value = HtmlBreakRegex.Replace(value, "\n");
@@ -72,6 +75,8 @@
 			value = BbCodeNamedUrlRegex.Replace(value, ReplaceNamedBbCodeUrl);
 			value = BbCodeBareUrlRegex.Replace(value, ReplaceBareBbCodeUrl);
 			value = BbCodeImageRegex.Replace(value, ReplaceBbCodeImage);
+			value = BbCodeInlineImageRegex.Replace(value, ReplaceInlineBbCodeImage);
+			value = BbCodeYouTubeRegex.Replace(value, ReplaceBbCodeYouTube);
 			value = BbCodeFormattingTagRegex.Replace(value, ReplaceFormattingTag);
 			value = BbCodeQuoteTagRegex.Replace(value, ReplaceQuoteTag);
 			value = BbCodeCodeTagRegex.Replace(value, ReplaceCodeTag);
@@ -141,6 +146,37 @@
 		private static string ReplaceBbCodeImage(Match match)
 		{
 			return CreateImageReference(WebUtility.HtmlDecode(match.Groups["url"].Value));
+		}
+
+		/// <summary>
+		/// Converts the single-tag Nexus image syntax into a readable source reference.
+		/// </summary>
+		/// <param name="match">The inline image-tag match.</param>
+		/// <returns>The readable image-source representation.</returns>
+		private static string ReplaceInlineBbCodeImage(Match match)
+		{
+			return CreateImageReference(WebUtility.HtmlDecode(match.Groups["url"].Value));
+		}
+
+		/// <summary>
+		/// Converts a Nexus YouTube tag into a readable safe video reference.
+		/// </summary>
+		/// <param name="match">The YouTube-tag match.</param>
+		/// <returns>The readable YouTube destination or the original safe text when invalid.</returns>
+		private static string ReplaceBbCodeYouTube(Match match)
+		{
+			string video = WebUtility.HtmlDecode(match.Groups["video"].Value).Trim();
+			if (String.IsNullOrEmpty(video))
+				return String.Empty;
+
+			Uri uri;
+			if (TryCreateSafeUri(video, out uri))
+				return "YouTube: " + WebUtility.HtmlEncode(uri.ToString()).Replace("$", "&#36;");
+
+			if (Regex.IsMatch(video, @"^[A-Za-z0-9_-]{6,32}$"))
+				return "YouTube: " + YouTubeWatchUrl + video;
+
+			return WebUtility.HtmlEncode(video).Replace("$", "&#36;");
 		}
 
 		/// <summary>
@@ -235,6 +271,25 @@
 
 			Match match = Regex.Match(attributes, "(?:^|\\s)" + Regex.Escape(attributeName) + "\\s*=\\s*(?:\"(?<value>[^\"]*)\"|'(?<value>[^']*)'|(?<value>[^\\s>]+))", RegexOptions.IgnoreCase);
 			return match.Success ? match.Groups["value"].Value : String.Empty;
+		}
+
+		/// <summary>
+		/// Repeatedly decodes nested HTML entities emitted by legacy Nexus descriptions.
+		/// </summary>
+		/// <param name="value">The potentially nested entity text.</param>
+		/// <returns>The decoded text after reaching a stable value or the safety limit.</returns>
+		private static string DecodeHtmlEntities(string value)
+		{
+			for (int index = 0; index < 4; index++)
+			{
+				string decoded = WebUtility.HtmlDecode(value);
+				if (String.Equals(decoded, value, StringComparison.Ordinal))
+					break;
+
+				value = decoded;
+			}
+
+			return value;
 		}
 
 		/// <summary>

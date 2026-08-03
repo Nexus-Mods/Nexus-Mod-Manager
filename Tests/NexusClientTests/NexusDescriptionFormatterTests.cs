@@ -70,6 +70,72 @@
 		}
 
 		/// <summary>
+		/// Confirms that nested HTML entities from legacy descriptions are decoded before rendering.
+		/// </summary>
+		[Test]
+		public void ToSafeHtml_DoubleEncodedEntities_RendersReadableCharacters()
+		{
+			string result = NexusDescriptionFormatter.ToSafeHtml("Set it to &amp;quot;Yes&amp;quot;.");
+
+			StringAssert.Contains("Set it to &quot;Yes&quot;.", result);
+			StringAssert.DoesNotContain("&amp;quot;", result);
+		}
+
+		/// <summary>
+		/// Confirms that decoding nested entities does not allow encoded script markup into the preview.
+		/// </summary>
+		[Test]
+		public void ToSafeHtml_DoubleEncodedUnsafeHtml_RemainsSanitized()
+		{
+			string result = NexusDescriptionFormatter.ToSafeHtml("&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;");
+
+			StringAssert.Contains("alert(1)", result);
+			StringAssert.DoesNotContain("script", result);
+		}
+
+		/// <summary>
+		/// Confirms that legacy Nexus heading, list-item, and line tags do not leak into the preview.
+		/// </summary>
+		[Test]
+		public void ToSafeHtml_LegacyStructureTags_ConvertsWithoutRawMarkup()
+		{
+			string result = NexusDescriptionFormatter.ToSafeHtml("[heading]Installation[/heading][list][*]First[/*][*]Second[/*][/list][line]");
+
+			StringAssert.Contains("<b>Installation</b>", result);
+			StringAssert.Contains("• First", result);
+			StringAssert.Contains("• Second", result);
+			StringAssert.Contains("<hr>", result);
+			StringAssert.DoesNotContain("[heading]", result);
+			StringAssert.DoesNotContain("[/*]", result);
+			StringAssert.DoesNotContain("[line]", result);
+		}
+
+		/// <summary>
+		/// Confirms that legacy YouTube tags become readable safe destinations.
+		/// </summary>
+		[Test]
+		public void ToSafeHtml_YouTubeTag_ProducesReadableReference()
+		{
+			string result = NexusDescriptionFormatter.ToSafeHtml("[youtube]jn9qWvSiz-4[/youtube]");
+
+			StringAssert.Contains("YouTube: https://www.youtube.com/watch?v=jn9qWvSiz-4", result);
+			StringAssert.DoesNotContain("[youtube]", result);
+		}
+
+		/// <summary>
+		/// Confirms that both inline and aligned Nexus image syntaxes are converted to safe references.
+		/// </summary>
+		[Test]
+		public void ToSafeHtml_LegacyImageTags_ProducesTextReferences()
+		{
+			string result = NexusDescriptionFormatter.ToSafeHtml("[img=https://example.com/inline.png][img align=center]https://example.com/aligned.png[/img]");
+
+			StringAssert.Contains("Image: https://example.com/inline.png", result);
+			StringAssert.Contains("Image: https://example.com/aligned.png", result);
+			StringAssert.DoesNotContain("[img", result);
+		}
+
+		/// <summary>
 		/// Confirms that empty descriptions show a useful placeholder.
 		/// </summary>
 		[Test]
