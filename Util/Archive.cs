@@ -228,6 +228,21 @@ namespace Nexus.Client.Util
 		}
 
 		/// <summary>
+		/// Normalizes a path stored inside an archive by using the platform directory separator and removing empty path components.
+		/// </summary>
+		/// <param name="p_strPath">The archive entry path to normalize.</param>
+		/// <returns>The normalized archive entry path.</returns>
+		private static string NormalizeArchiveEntryPath(string p_strPath)
+		{
+			if (String.IsNullOrEmpty(p_strPath))
+				return String.Empty;
+
+			string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string[] strPathComponents = strPath.Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+			return String.Join(Path.DirectorySeparatorChar.ToString(), strPathComponents);
+		}
+
+		/// <summary>
 		/// Changes the directory of the archive referenced in the given path to the specified
 		/// new directory.
 		/// </summary>
@@ -425,12 +440,13 @@ namespace Nexus.Client.Util
 					foreach (ArchiveFileInfo afiFile in szeExtractor.ArchiveFileData)
 						if (!afiFile.IsDirectory)
 						{
-							string afiFileName = afiFile.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-							if (afiFileName.StartsWith(Path.DirectorySeparatorChar.ToString()) && afiFileName.Length > 1)
-								afiFileName = afiFileName.Substring(1);
+							string afiFileName = NormalizeArchiveEntryPath(afiFile.FileName);
+							if (String.IsNullOrEmpty(afiFileName))
+								continue;
 
+							if (!m_dicFileInfo.ContainsKey(afiFileName))
+								m_strFiles.Add(afiFileName);
 							m_dicFileInfo[afiFileName] = afiFile;
-							m_strFiles.Add(afiFileName);
 						}
 				}
 				catch { }
@@ -446,8 +462,7 @@ namespace Nexus.Client.Util
 		/// <c>false</c> otherwise.</returns>
 		public bool IsDirectory(string p_strPath)
 		{
-			string strPath = p_strPath.Trim(new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
-			strPath = strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strPath = NormalizeArchiveEntryPath(p_strPath);
 			string strPathWithSep = strPath + Path.DirectorySeparatorChar;
 
 			if (m_dicFileInfo.ContainsKey(strPath))
@@ -462,7 +477,7 @@ namespace Nexus.Client.Util
 			using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
 				foreach (ArchiveFileInfo afiTmp in szeExtractor.ArchiveFileData)
 				{
-					strArchiveFileName = afiTmp.FileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+					strArchiveFileName = NormalizeArchiveEntryPath(afiTmp.FileName);
 					if (strArchiveFileName.Equals(strPath, StringComparison.InvariantCultureIgnoreCase))
 					{
 						afiFile = afiTmp;
@@ -479,11 +494,8 @@ namespace Nexus.Client.Util
 		/// <returns>A list of directories that are in the specified directory in this archive.</returns>
 		public string[] GetDirectories(string p_strDirectory)
 		{
-			string strPrefix = p_strDirectory;
-			if (String.IsNullOrEmpty(p_strDirectory))
-				strPrefix = "";
-			strPrefix = strPrefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			strPrefix = strPrefix.Trim(Path.DirectorySeparatorChar);
+			string strDirectory = NormalizeArchiveEntryPath(p_strDirectory);
+			string strPrefix = strDirectory;
 			if (strPrefix.Length > 0)
 				strPrefix += Path.DirectorySeparatorChar;
 			Set<string> lstFolders = new Set<string>(StringComparer.InvariantCultureIgnoreCase);
@@ -495,7 +507,12 @@ namespace Nexus.Client.Util
 					intStopIndex = strFile.IndexOf(Path.DirectorySeparatorChar, strPrefix.Length);
 					if (intStopIndex < 0)
 						continue;
-					lstFolders.Add(String.Copy(strFile.Substring(0, intStopIndex)));
+
+					string strFolder = strFile.Substring(0, intStopIndex);
+					if (String.IsNullOrEmpty(strFolder) || strFolder.Equals(strDirectory, StringComparison.InvariantCultureIgnoreCase))
+						continue;
+
+					lstFolders.Add(String.Copy(strFolder));
 				}
 			}
 			return lstFolders.ToArray();
@@ -516,9 +533,7 @@ namespace Nexus.Client.Util
 			}
 			else
 			{
-				string strPrefix = p_strDirectory;
-				strPrefix = strPrefix.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				strPrefix = strPrefix.Trim(Path.DirectorySeparatorChar);
+				string strPrefix = NormalizeArchiveEntryPath(p_strDirectory);
 				if (strPrefix.Length > 0)
 					strPrefix += Path.DirectorySeparatorChar;
 				Int32 intStopIndex = 0;
@@ -588,7 +603,7 @@ namespace Nexus.Client.Util
 		/// <c>false</c> otherwise.</returns>
 		public bool ContainsFile(string p_strPath)
 		{
-			string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strPath = NormalizeArchiveEntryPath(p_strPath);
 			return m_dicFileInfo.ContainsKey(strPath);
 		}
 
@@ -599,7 +614,7 @@ namespace Nexus.Client.Util
 		/// <returns>The contents of the specified file in the archive.</returns>
 		public byte[] GetFileContents(string p_strPath)
 		{
-			string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strPath = NormalizeArchiveEntryPath(p_strPath);
 			if (!m_dicFileInfo.ContainsKey(strPath))
 				throw new FileNotFoundException("The requested file does not exist in the archive.", p_strPath);
 
@@ -652,7 +667,7 @@ namespace Nexus.Client.Util
         /// <returns></returns>
         public FileStream GetFileStream(string p_strPath, string p_strTemporaryDirectory)
         {
-            string strPath = p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            string strPath = NormalizeArchiveEntryPath(p_strPath);
             string strTempFile = Path.Combine(p_strTemporaryDirectory, "tempfile_" + Path.GetRandomFileName());
             
             if (!Directory.Exists(p_strTemporaryDirectory))
@@ -733,7 +748,7 @@ namespace Nexus.Client.Util
 			if (!m_booCanEdit)
 				using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
 					throw new InvalidOperationException("Cannot modify archive of type: " + szeExtractor.Format);
-			string strPath = p_strFileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strPath = NormalizeArchiveEntryPath(p_strFileName);
 			if (m_dicFileInfo.ContainsKey(strPath))
 			{
 				Dictionary<int, string> dicDelete = new Dictionary<int, string>() { { m_dicFileInfo[strPath].Index, null } };
@@ -765,7 +780,7 @@ namespace Nexus.Client.Util
 			if (!m_booCanEdit)
 				using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
 					throw new InvalidOperationException("Cannot modify archive of type: " + szeExtractor.Format);
-			string strPath = p_strFileName.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			string strPath = NormalizeArchiveEntryPath(p_strFileName);
 			if (m_dicFileInfo.ContainsKey(strPath))
 			{
 				Dictionary<int, string> dicDelete = new Dictionary<int, string>() { { m_dicFileInfo[strPath].Index, null } };
