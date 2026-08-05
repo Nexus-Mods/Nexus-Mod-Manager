@@ -2784,11 +2784,27 @@
 		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
 		private void ViewModel_ApplyingImportedLoadOrder(object sender, EventArgs<IBackgroundTask> e)
 		{
+			if (IsDisposed || Disposing || e == null || e.Argument == null)
+				return;
+
 			if (InvokeRequired)
 			{
-				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ApplyingImportedLoadOrder, sender, e);
+				try
+				{
+					Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ApplyingImportedLoadOrder, sender, e);
+				}
+				catch (ObjectDisposedException)
+				{
+				}
+				catch (InvalidOperationException)
+				{
+				}
+
 				return;
 			}
+
+			if (IsDisposed || Disposing || !IsHandleCreated)
+				return;
 
 			ProgressDialog.ShowDialog(this, e.Argument, false);
 		}

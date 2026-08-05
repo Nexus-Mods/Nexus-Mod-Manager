@@ -40,6 +40,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private bool StarFieldCustomPluginsMessage = false;
 		private bool OblivionRemasteredPluginManagement = false;
 		private string ActiveMarker = "*";
+		private volatile bool m_booDisposed;
 
 		#region Events
 
@@ -250,6 +251,55 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <param name="p_booDisposing">Whether the method is being called from the <see cref="Dispose()"/> method.</param>
 		protected virtual void Dispose(bool p_booDisposing)
 		{
+			if (m_booDisposed)
+				return;
+
+			m_booDisposed = true;
+
+			if (!p_booDisposing)
+				return;
+
+			TaskList.CollectionChanged -= TaskList_CollectionChanged;
+
+			if (RunningTask != null)
+				RunningTask.TaskEnded -= RunningTask_TaskEnded;
+			if (ExternalTask != null)
+				ExternalTask.TaskEnded -= ExternalTask_TaskEnded;
+
+			if (FileWatchers != null)
+			{
+				foreach (FileSystemWatcher fileWatcher in FileWatchers)
+				{
+					if (fileWatcher == null)
+						continue;
+
+					try
+					{
+						fileWatcher.EnableRaisingEvents = false;
+						fileWatcher.Changed -= FileWatcherOnChangedTxt;
+						fileWatcher.Changed -= FileWatcherOnChangedLoose;
+						fileWatcher.Created -= FileWatcherOnCreatedLoose;
+						fileWatcher.Deleted -= FileWatcherOnDeletedLoose;
+					}
+					catch (ObjectDisposedException)
+					{
+					}
+					catch (InvalidOperationException)
+					{
+					}
+					finally
+					{
+						fileWatcher.Dispose();
+					}
+				}
+
+				FileWatchers.Clear();
+			}
+
+			LoadOrderUpdate = null;
+			ActivePluginUpdate = null;
+			ExternalPluginAdded = null;
+			ExternalPluginRemoved = null;
 		}
 
 		/// <summary>
@@ -615,12 +665,13 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void FileWatcherOnChangedTxt(object source, FileSystemEventArgs e)
 		{
-			if ((source == null) || (e == null))
+			FileSystemWatcher fileWatcher = source as FileSystemWatcher;
+			if (m_booDisposed || fileWatcher == null || e == null)
 				return;
 
 			try
 			{
-				(source as FileSystemWatcher).EnableRaisingEvents = false;
+				fileWatcher.EnableRaisingEvents = false;
 				string strFile = e.Name ?? string.Empty;
 				string strPath = e.FullPath ?? string.Empty;
 
@@ -629,7 +680,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					int intRepeat = 0;
 					bool? booReady = false;
 
-					while (booReady == false)
+					while (!m_booDisposed && booReady == false)
 					{
 						Thread.Sleep(100);
 						if (intRepeat++ >= 20)
@@ -637,23 +688,38 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 						booReady = IsFileReady(strPath, ForcedReadOnly);
 					}
 
-					if (!CheckSameFileHash(strFile, strPath))
+					if (!m_booDisposed && !CheckSameFileHash(strFile, strPath))
 					{
 						if (strFile.Equals("plugins.txt", StringComparison.InvariantCultureIgnoreCase))
 						{
-								ActivePluginUpdate?.Invoke(this, new PluginManagementEventArgs(GetActivePlugins(), SingleFileManagement));
+							ActivePluginUpdate?.Invoke(this, new PluginManagementEventArgs(GetActivePlugins(), SingleFileManagement));
 						}
 						else if (strFile.Equals("loadorder.txt", StringComparison.InvariantCultureIgnoreCase))
 						{
 							if (!TimestampOrder && !SingleFileManagement && !OblivionRemasteredPluginManagement)
-									LoadOrderUpdate?.Invoke(GetLoadOrder(), new EventArgs());
+								LoadOrderUpdate?.Invoke(GetLoadOrder(), new EventArgs());
 						}
 					}
 				}
 			}
+			catch (ObjectDisposedException)
+			{
+			}
 			finally
 			{
-				(source as FileSystemWatcher).EnableRaisingEvents = true;
+				if (!m_booDisposed)
+				{
+					try
+					{
+						fileWatcher.EnableRaisingEvents = true;
+					}
+					catch (ObjectDisposedException)
+					{
+					}
+					catch (InvalidOperationException)
+					{
+					}
+				}
 			}
 		}
 
@@ -662,7 +728,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void FileWatcherOnChangedLoose(object source, FileSystemEventArgs e)
 		{
-			if ((source == null) || (e == null))
+			if (m_booDisposed || source == null || e == null)
 				return;
 
 			if (TimestampOrder && IsExternalInput)
@@ -670,7 +736,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				int intRepeat = 0;
 				bool? booReady = false;
 
-				while (booReady == false)
+				while (!m_booDisposed && booReady == false)
 				{
 					Thread.Sleep(100);
 					if (intRepeat++ >= 20)
@@ -678,8 +744,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					booReady = IsFileReady(e.FullPath, ForcedReadOnly);
 				}
 
-				if (LoadOrderUpdate != null)
-					LoadOrderUpdate(GetLoadOrder(), new EventArgs());
+				if (!m_booDisposed)
+					LoadOrderUpdate?.Invoke(GetLoadOrder(), new EventArgs());
 			}
 		}
 
@@ -688,7 +754,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void FileWatcherOnCreatedLoose(object source, FileSystemEventArgs e)
 		{
-			if ((source == null) || (e == null))
+			if (m_booDisposed || source == null || e == null)
 				return;
 
 			if (IsExternalInput)
@@ -696,7 +762,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				int intRepeat = 0;
 				bool? booReady = false;
 
-				while (booReady == false)
+				while (!m_booDisposed && booReady == false)
 				{
 					Thread.Sleep(100);
 					if (intRepeat++ >= 20)
@@ -704,8 +770,8 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 					booReady = IsFileReady(e.FullPath, ForcedReadOnly);
 				}
 
-				if (ExternalPluginAdded != null)
-					ExternalPluginAdded(e.FullPath, new EventArgs());
+				if (!m_booDisposed)
+					ExternalPluginAdded?.Invoke(e.FullPath, new EventArgs());
 			}
 		}
 
@@ -714,7 +780,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// </summary>
 		private void FileWatcherOnDeletedLoose(object source, FileSystemEventArgs e)
 		{
-			if ((source == null) || (e == null))
+			if (m_booDisposed || source == null || e == null)
 				return;
 
 			if (IsExternalInput)
@@ -722,15 +788,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 				int intRepeat = 0;
 				bool? booReady = IsFileReady(e.FullPath, ForcedReadOnly);
 
-				while (intRepeat++ < 10)
+				while (!m_booDisposed && intRepeat++ < 10)
 				{
 					Thread.Sleep(100);
 					if (File.Exists(e.FullPath))
 						return;
 				}
 
-				if (ExternalPluginRemoved != null)
-					ExternalPluginRemoved(e.FullPath, new EventArgs());
+				if (!m_booDisposed)
+					ExternalPluginRemoved?.Invoke(e.FullPath, new EventArgs());
 			}
 		}
 
