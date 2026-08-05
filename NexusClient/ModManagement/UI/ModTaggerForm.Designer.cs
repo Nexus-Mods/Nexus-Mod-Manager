@@ -165,6 +165,7 @@
 			this.grvCandidates.OptionsView.ShowIndicator = false;
 			this.grvCandidates.OptionsView.ShowAutoFilterRow = true;
 			this.grvCandidates.FocusedRowChanged += new DevExpress.XtraGrid.Views.Base.FocusedRowChangedEventHandler(this.grvCandidates_FocusedRowChanged);
+			this.grvCandidates.RowClick += new DevExpress.XtraGrid.Views.Grid.RowClickEventHandler(this.grvCandidates_RowClick);
 			//
 			// colCandidateName
 			//
@@ -472,7 +473,6 @@
 			this.ClientSize = new System.Drawing.Size(1000, 660);
 			this.Controls.Add(this.splitMain);
 			this.Controls.Add(this.buttonPanel);
-			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
 			this.MinimumSize = new System.Drawing.Size(840, 560);
 			this.Name = "ModTaggerForm";
 			this.ShowInTaskbar = false;

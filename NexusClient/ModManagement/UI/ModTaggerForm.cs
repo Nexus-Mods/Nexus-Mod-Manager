@@ -8,6 +8,7 @@
 	using DevExpress.XtraEditors;
 	using DevExpress.XtraEditors.DXErrorProvider;
 	using DevExpress.XtraGrid.Views.Base;
+	using DevExpress.XtraGrid.Views.Grid;
 	using Nexus.Client.ModRepositories;
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
@@ -16,7 +17,7 @@
 	/// <summary>
 	/// Displays Nexus match candidates and a DevExpress-based mod metadata editor.
 	/// </summary>
-	public partial class ModTaggerForm : ManagedFontForm
+	public partial class ModTaggerForm : XtraForm
 	{
 		private const string WindowSettingsKey = "GetModInfoForm";
 		private const string SplitterSettingsKey = "getModInfo.SplitterPosition";
@@ -27,6 +28,7 @@
 			".empty { padding: 6px; font-style: italic; color: @DisabledText; }";
 		private ModTaggerVM m_vmlViewModel;
 		private ExtendedImage m_eimScreenshot;
+		private DevExpressDisplaySettings m_dxdDisplaySettings;
 		private bool m_booLoadingEditor;
 
 		/// <summary>
@@ -40,7 +42,11 @@
 			{
 				m_vmlViewModel = value;
 				if (m_vmlViewModel == null)
+				{
+					m_dxdDisplaySettings?.Dispose();
+					m_dxdDisplaySettings = null;
 					return;
+				}
 
 				Icon = m_vmlViewModel.CurrentTheme.Icon;
 				grdCandidates.DataSource = m_vmlViewModel.TagCandidates;
@@ -49,6 +55,7 @@
 				m_vmlViewModel.LoadCurrentModInfo();
 				LoadEditorValues();
 				UpdateCandidateHint();
+				ApplyDisplaySettings();
 			}
 		}
 
@@ -61,6 +68,30 @@
 			InitializeComponent();
 			ViewModel = p_mtgTaggerVM;
 			buttonPanel_Resize(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Applies the font, size, and density selected through the Aa Display options to the complete dialog.
+		/// </summary>
+		private void ApplyDisplaySettings()
+		{
+			if (ViewModel == null)
+				return;
+
+			m_dxdDisplaySettings?.Dispose();
+			m_dxdDisplaySettings = DevExpressDisplaySettings.CreateFromSettings(ViewModel.Settings);
+			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, m_dxdDisplaySettings);
+		}
+
+		/// <summary>
+		/// Releases the display-font resources owned by the dialog.
+		/// </summary>
+		/// <param name="e">The form-closed event arguments.</param>
+		protected override void OnFormClosed(FormClosedEventArgs e)
+		{
+			m_dxdDisplaySettings?.Dispose();
+			m_dxdDisplaySettings = null;
+			base.OnFormClosed(e);
 		}
 
 		/// <summary>
@@ -95,16 +126,35 @@
 		}
 
 		/// <summary>
-		/// Loads the Nexus candidate selected in the match grid into the editor.
+		/// Loads the Nexus candidate focused through keyboard navigation into the editor.
 		/// </summary>
 		/// <param name="sender">The candidate grid view.</param>
 		/// <param name="e">The focused-row event arguments.</param>
 		private void grvCandidates_FocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
 		{
-			if (ViewModel == null || e.FocusedRowHandle < 0)
+			LoadCandidateAtRow(e.FocusedRowHandle);
+		}
+
+		/// <summary>
+		/// Loads the clicked candidate even when the row was already focused and no focus-change event is raised.
+		/// </summary>
+		/// <param name="sender">The candidate grid view.</param>
+		/// <param name="e">The row-click event arguments.</param>
+		private void grvCandidates_RowClick(object sender, RowClickEventArgs e)
+		{
+			LoadCandidateAtRow(e.RowHandle);
+		}
+
+		/// <summary>
+		/// Loads the candidate represented by the specified grid row into the metadata editor.
+		/// </summary>
+		/// <param name="rowHandle">The candidate row handle.</param>
+		private void LoadCandidateAtRow(Int32 rowHandle)
+		{
+			if (ViewModel == null || rowHandle < 0)
 				return;
 
-			IModInfo candidate = grvCandidates.GetRow(e.FocusedRowHandle) as IModInfo;
+			IModInfo candidate = grvCandidates.GetRow(rowHandle) as IModInfo;
 			if (candidate == null)
 				return;
 

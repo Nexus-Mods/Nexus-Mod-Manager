@@ -12,12 +12,19 @@ namespace Nexus.Client.UI
 	using DevExpress.XtraGrid;
 	using DevExpress.XtraGrid.Views.Base;
 	using DevExpress.XtraGrid.Views.Grid;
+	using Nexus.Client.Settings;
 
 	internal sealed class DevExpressDisplaySettings : IDisposable
 	{
 		internal const string DefaultFontFamily = "Segoe UI";
 		internal const float DefaultFontSizePt = 9f;
 		internal const string DefaultDensity = "Compact";
+		private const string FontSettingsKey = "mainForm.DevExpressDisplay.Font";
+		private const string FontSizeSettingsKey = "mainForm.DevExpressDisplay.FontSize";
+		private const string DensitySettingsKey = "mainForm.DevExpressDisplay.Density";
+		private const string LegacyFontSettingsKey = "modManagerDXGrid.Font";
+		private const string LegacyFontSizeSettingsKey = "modManagerDXGrid.FontSize";
+		private const string LegacyDensitySettingsKey = "modManagerDXGrid.Density";
 
 		internal static readonly string[] FontChoices =
 		{
@@ -57,6 +64,62 @@ namespace Nexus.Client.UI
 		public void Dispose()
 		{
 			Font.Dispose();
+		}
+
+		/// <summary>
+		/// Creates display settings from the values persisted by the Aa Display selector.
+		/// </summary>
+		/// <param name="settings">The application settings containing the current display choices.</param>
+		/// <returns>The resolved display settings.</returns>
+		internal static DevExpressDisplaySettings CreateFromSettings(ISettings settings)
+		{
+			string fontName = ResolveFontFamily(ReadSetting(
+				settings,
+				FontSettingsKey,
+				LegacyFontSettingsKey,
+				DefaultFontFamily));
+			float fontSize = ParseFontSize(ReadSetting(
+				settings,
+				FontSizeSettingsKey,
+				LegacyFontSizeSettingsKey,
+				FormatFontSize(DefaultFontSizePt)));
+			string density = ResolveDensity(ReadSetting(
+				settings,
+				DensitySettingsKey,
+				LegacyDensitySettingsKey,
+				DefaultDensity));
+
+			return new DevExpressDisplaySettings(fontName, fontSize, density);
+		}
+
+		/// <summary>
+		/// Reads a current or legacy display setting and falls back when neither contains a value.
+		/// </summary>
+		/// <param name="settings">The application settings.</param>
+		/// <param name="key">The current setting key.</param>
+		/// <param name="legacyKey">The legacy setting key.</param>
+		/// <param name="defaultValue">The fallback value.</param>
+		/// <returns>The persisted or fallback value.</returns>
+		private static string ReadSetting(ISettings settings, string key, string legacyKey, string defaultValue)
+		{
+			if (settings?.DockPanelLayouts == null)
+				return defaultValue;
+
+			if (settings.DockPanelLayouts.ContainsKey(key))
+			{
+				string value = settings.DockPanelLayouts[key];
+				if (!String.IsNullOrWhiteSpace(value))
+					return value;
+			}
+
+			if (settings.DockPanelLayouts.ContainsKey(legacyKey))
+			{
+				string legacyValue = settings.DockPanelLayouts[legacyKey];
+				if (!String.IsNullOrWhiteSpace(legacyValue))
+					return legacyValue;
+			}
+
+			return defaultValue;
 		}
 
 		internal static string ResolveFontFamily(string fontName)
