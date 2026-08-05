@@ -2362,18 +2362,41 @@
 				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_ProfileSwitching, sender, e);
 				return;
 			}
-			ProgressDialog.ShowDialog(this, e.Argument, false);
+
+			DialogResult drProfileSwitch = ProgressDialog.ShowDialog(this, e.Argument, false);
+			if (drProfileSwitch != DialogResult.OK || e.Argument.Status != TaskStatus.Complete)
+			{
+				HandleFailedProfileSwitch(GetBackgroundTaskError(e.Argument, "The selected profile could not be activated."));
+				return;
+			}
+
+			if (!ViewModel.WaitForPendingLoadOrderWrites(out string strWriteError))
+			{
+				HandleFailedProfileSwitch(strWriteError);
+				return;
+			}
 
 			if (ViewModel.GameMode.UsesPlugins)
 			{
-				var dctLoadOrder = ViewModel.ImportProfileLoadOrder();
-
-				if (dctLoadOrder != null && dctLoadOrder.Count > 0)
+				IBackgroundTask bgtLoadOrder = ViewModel.ApplyPendingProfileLoadOrder();
+				if (bgtLoadOrder != null)
 				{
-					ViewModel.ApplyLoadOrder(dctLoadOrder, false);
+					DialogResult drLoadOrder = ProgressDialog.ShowDialog(this, bgtLoadOrder, false);
+					if (drLoadOrder != DialogResult.OK || bgtLoadOrder.Status != TaskStatus.Complete)
+					{
+						HandleFailedProfileSwitch(GetBackgroundTaskError(bgtLoadOrder, "The profile plugin state is invalid and could not be applied."));
+						return;
+					}
+
+					if (!ViewModel.WaitForPendingLoadOrderWrites(out strWriteError))
+					{
+						HandleFailedProfileSwitch(strWriteError);
+						return;
+					}
 				}
 			}
 
+			ViewModel.CommitProfileSwitch();
 			ViewModel.ModManager.VirtualModActivator.RestoreIniEdits();
 
 			var strOptionalToolPath = ViewModel.GameMode.PostProfileSwitchTool(out var message);
@@ -2391,15 +2414,79 @@
 			BindProfileCommands();
 			UpdateModsFeedback();
 
-			if (e.Argument?.ReturnValue is bool)
+			if (e.Argument?.ReturnValue is bool && (bool)e.Argument.ReturnValue)
 			{
-				if ((bool)e.Argument.ReturnValue)
-				{
-					MessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
-					ViewModel.RequestGameMode(ViewModel.GameMode.ModeId);
-					ChangeGameModeCommand_Executed(sender, new EventArgs());
-				}
+				MessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				ViewModel.RequestGameMode(ViewModel.GameMode.ModeId);
+				ChangeGameModeCommand_Executed(sender, new EventArgs());
 			}
+		}
+
+		/// <summary>
+		/// Rolls back a failed profile switch and reports whether the previous state was restored completely.
+		/// </summary>
+		/// <param name="p_strFailureMessage">The failure that caused the profile switch to abort.</param>
+		private void HandleFailedProfileSwitch(string p_strFailureMessage)
+		{
+			List<string> lstRollbackErrors = new List<string>();
+			IBackgroundTask bgtRollback = ViewModel.RollbackProfileSwitch();
+
+			if (bgtRollback != null)
+			{
+				DialogResult drRollback = ProgressDialog.ShowDialog(this, bgtRollback, false);
+				if (drRollback != DialogResult.OK || bgtRollback.Status != TaskStatus.Complete)
+					lstRollbackErrors.Add(GetBackgroundTaskError(bgtRollback, "The previous profile's deployed files could not be fully restored."));
+			}
+
+			if (!ViewModel.WaitForPendingLoadOrderWrites(out string strRollbackWriteError))
+				lstRollbackErrors.Add(strRollbackWriteError);
+
+			if (ViewModel.GameMode.UsesPlugins)
+			{
+				IBackgroundTask bgtPreviousLoadOrder = ViewModel.ApplyPreviousProfileLoadOrder();
+				if (bgtPreviousLoadOrder != null)
+				{
+					DialogResult drPreviousLoadOrder = ProgressDialog.ShowDialog(this, bgtPreviousLoadOrder, false);
+					if (drPreviousLoadOrder != DialogResult.OK || bgtPreviousLoadOrder.Status != TaskStatus.Complete)
+						lstRollbackErrors.Add(GetBackgroundTaskError(bgtPreviousLoadOrder, "The previous plugin state could not be fully restored."));
+				}
+
+				if (!ViewModel.WaitForPendingLoadOrderWrites(out strRollbackWriteError))
+					lstRollbackErrors.Add(strRollbackWriteError);
+			}
+
+			ViewModel.CompleteProfileRollback();
+			_modManagerControl.ForceListRefresh();
+			BindProfileCommands();
+			UpdateModsFeedback();
+
+			bool booRollbackSucceeded = lstRollbackErrors.Count == 0;
+			string strResult = booRollbackSucceeded
+				? "The previous profile was restored."
+				: "NMM could not fully restore the previous profile. Review the active mods and plugins before launching the game.";
+
+			if (!booRollbackSucceeded)
+				strResult += Environment.NewLine + Environment.NewLine + String.Join(Environment.NewLine, lstRollbackErrors.Where(x => !String.IsNullOrWhiteSpace(x)).Distinct());
+
+			MessageBox.Show(
+				(String.IsNullOrWhiteSpace(p_strFailureMessage) ? "The profile switch failed." : p_strFailureMessage) + Environment.NewLine + Environment.NewLine + strResult,
+				"Profile switch failed",
+				MessageBoxButtons.OK,
+				MessageBoxIcon.Warning);
+		}
+
+		/// <summary>
+		/// Gets a useful error message from a failed background task.
+		/// </summary>
+		/// <param name="p_bgtTask">The failed task.</param>
+		/// <param name="p_strFallback">The fallback message.</param>
+		/// <returns>The task error message or the fallback text.</returns>
+		private static string GetBackgroundTaskError(IBackgroundTask p_bgtTask, string p_strFallback)
+		{
+			Exception expFailure = p_bgtTask == null ? null : p_bgtTask.ReturnValue as Exception;
+			return expFailure == null || String.IsNullOrWhiteSpace(expFailure.Message)
+				? p_strFallback
+				: expFailure.Message;
 		}
 
 		/// <summary>

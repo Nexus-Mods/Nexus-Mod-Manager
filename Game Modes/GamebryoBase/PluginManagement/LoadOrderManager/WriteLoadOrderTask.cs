@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Runtime.InteropServices;
 using System.Threading;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
@@ -88,39 +89,47 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// The method that is called to start the backgound task.
 		/// </summary>
 		/// <param name="args">Arguments to for the task execution.</param>
-		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] args)
+		/// <param name="p_strMessage">The completion or failure message.</param>
+		/// <returns>The load-order file hash when applicable, or the exception that prevented the write.</returns>
+		protected override object DoWork(object[] args, out string p_strMessage)
 		{
+			p_strMessage = null;
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = Plugins.Count();
 			ShowItemProgress = false;
 			KeyValuePair<string, string> kvpMD5 = new KeyValuePair<string, string>(null, null);
 
-			if (TimestampLoadOrder)
+			try
 			{
-				SetTimestampLoadOrder(Plugins);
-			}
-			else
-			{
-				try
+				if (TimestampLoadOrder)
 				{
-					if (WriteLoadOrderFile(FilePath, Plugins))
+					if (!SetTimestampLoadOrder(Plugins, out p_strMessage))
+						Status = TaskStatus.Error;
+				}
+				else if (WriteLoadOrderFile(FilePath, Plugins))
+				{
+					using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+					using (SHA256 sha = SHA256.Create())
 					{
-						using (var fs = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-						using (SHA256 sha = SHA256.Create())
-						{
-							byte[] hash = sha.ComputeHash(fs);
-							string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
+						byte[] hash = sha.ComputeHash(fs);
+						string strSHA = BitConverter.ToString(hash).Replace("-", string.Empty);
 
-							kvpMD5 = new KeyValuePair<string, string>(Path.GetFileName(FilePath), strSHA);
-						}
+						kvpMD5 = new KeyValuePair<string, string>(Path.GetFileName(FilePath), strSHA);
 					}
 				}
-				catch (UnauthorizedAccessException)
+				else
 				{
-					Trace.TraceError("Could not write load order to file \"{0}\".", FilePath);
+					Status = TaskStatus.Error;
+					p_strMessage = String.Format("NMM could not write the load order to '{0}' because the file remained unavailable.", FilePath);
 				}
+			}
+			catch (Exception ex)
+			{
+				Status = TaskStatus.Error;
+				p_strMessage = String.Format("NMM could not write the load order to '{0}': {1}", FilePath, ex.Message);
+				Trace.TraceError(p_strMessage);
+				return ex;
 			}
 
 			return kvpMD5;
@@ -130,33 +139,74 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// Sets the load order of the plugins.
 		/// </summary>
 		/// <param name="p_strPlugins">The list of plugins in the desired order.</param>
-		private void SetTimestampLoadOrder(string[] p_strPlugins)
+		/// <param name="p_strErrorMessage">The failure message when a timestamp cannot be updated.</param>
+		/// <returns><c>true</c> when every timestamp was updated; otherwise, <c>false</c>.</returns>
+		private bool SetTimestampLoadOrder(string[] p_strPlugins, out string p_strErrorMessage)
 		{
+			p_strErrorMessage = null;
+
 			lock (m_objLock)
 			{
 				for (int i = 0; i < p_strPlugins.Length; i++)
 				{
 					string strPluginFile = p_strPlugins[i];
-					if (!string.IsNullOrWhiteSpace(strPluginFile) && (File.Exists(strPluginFile)))
+					if (String.IsNullOrWhiteSpace(strPluginFile) || !File.Exists(strPluginFile))
+						continue;
+
+					Exception expFailure;
+					if (!TrySetPluginTimestamp(strPluginFile, MasterDate.AddMinutes(i), out expFailure))
 					{
-						int intRepeat = 0;
-						bool booLocked = false;
-
-						while (!IsFileReady(strPluginFile, false))
-						{
-							Thread.Sleep(100);
-							if (intRepeat++ > 10)
-							{
-								booLocked = true;
-								break;
-							}
-						}
-
-						if (!booLocked)
-							File.SetLastWriteTime(strPluginFile, MasterDate.AddMinutes(i));
+						p_strErrorMessage = String.Format(
+							"NMM could not update the load-order timestamp for '{0}': {1}",
+							strPluginFile,
+							expFailure == null ? "the file remained unavailable" : expFailure.Message);
+						Trace.TraceWarning(p_strErrorMessage);
+						return false;
 					}
+
+					if (OverallProgress < OverallProgressMaximum)
+						StepOverallProgress();
 				}
 			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Attempts to set a plugin timestamp while retrying sharing and lock violations.
+		/// </summary>
+		/// <param name="p_strPluginFile">The plugin whose timestamp should be changed.</param>
+		/// <param name="p_dtiTimestamp">The timestamp to apply.</param>
+		/// <param name="p_expFailure">The final exception when the operation cannot be completed.</param>
+		/// <returns><c>true</c> when the timestamp was updated; otherwise, <c>false</c>.</returns>
+		private static bool TrySetPluginTimestamp(string p_strPluginFile, DateTime p_dtiTimestamp, out Exception p_expFailure)
+		{
+			p_expFailure = null;
+
+			for (int intAttempt = 0; intAttempt < 50; intAttempt++)
+			{
+				try
+				{
+					File.SetLastWriteTime(p_strPluginFile, p_dtiTimestamp);
+					return true;
+				}
+				catch (IOException ex)
+				{
+					p_expFailure = ex;
+					int intErrorCode = Marshal.GetHRForException(ex) & 0xFFFF;
+					if (intErrorCode != 32 && intErrorCode != 33)
+						return false;
+				}
+				catch (UnauthorizedAccessException ex)
+				{
+					p_expFailure = ex;
+					return false;
+				}
+
+				Thread.Sleep(100);
+			}
+
+			return false;
 		}
 
 		/// <summary>

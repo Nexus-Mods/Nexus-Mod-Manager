@@ -956,5 +956,17 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 		{
 			p_tskTask.Resume();
 		}
+
+		/// <summary>
+		/// Waits for all queued load-order writes to finish.
+		/// </summary>
+		/// <param name="p_intTimeoutMilliseconds">The maximum amount of time to wait, in milliseconds.</param>
+		/// <param name="p_strErrorMessage">The write failure or timeout message, when the operation does not complete successfully.</param>
+		/// <returns><c>true</c> because Morrowind load-order writes are not queued by this implementation.</returns>
+		public bool WaitForPendingWrites(int p_intTimeoutMilliseconds, out string p_strErrorMessage)
+		{
+			p_strErrorMessage = null;
+			return true;
+		}
 	}
 }

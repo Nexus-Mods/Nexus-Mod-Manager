@@ -1253,7 +1253,19 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
 		public IBackgroundTask ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly)
 		{
-			ApplyLoadOrderTask altApplyLoadOrder = new ApplyLoadOrderTask(this, p_kvpRegisteredPlugins, p_booSortingOnly);
+			return ApplyLoadOrder(p_kvpRegisteredPlugins, p_booSortingOnly, false);
+		}
+
+		/// <summary>
+		/// Applies an imported load order and optionally replaces the current active-plugin state.
+		/// </summary>
+		/// <param name="p_kvpRegisteredPlugins">The ordered plugins and their requested active states.</param>
+		/// <param name="p_booSortingOnly">Whether only plugin ordering should be changed.</param>
+		/// <param name="p_booReplaceActiveState">Whether unspecified non-protected plugins should be deactivated.</param>
+		/// <returns>The background task applying the requested state.</returns>
+		public IBackgroundTask ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly, bool p_booReplaceActiveState)
+		{
+			ApplyLoadOrderTask altApplyLoadOrder = new ApplyLoadOrderTask(this, p_kvpRegisteredPlugins, p_booSortingOnly, p_booReplaceActiveState);
 			if (GameMode.LoadOrderManager != null)
 				GameMode.LoadOrderManager.MonitorExternalTask(altApplyLoadOrder);
 			else

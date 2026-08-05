@@ -267,5 +267,14 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_kvpRegisteredPlugins">The list of registered plugins.</param>
 		/// <param name="p_booSortingOnly">Whether we just want to apply the sorting.</param>
 		IBackgroundTask ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly);
+
+		/// <summary>
+		/// Applies an imported load order and optionally replaces the current active-plugin state.
+		/// </summary>
+		/// <param name="p_kvpRegisteredPlugins">The ordered plugins and their requested active states.</param>
+		/// <param name="p_booSortingOnly">Whether only plugin ordering should be changed.</param>
+		/// <param name="p_booReplaceActiveState">Whether unspecified non-protected plugins should be deactivated.</param>
+		/// <returns>The background task applying the requested state.</returns>
+		IBackgroundTask ApplyLoadOrder(Dictionary<Plugin, string> p_kvpRegisteredPlugins, bool p_booSortingOnly, bool p_booReplaceActiveState);
 	}
 }

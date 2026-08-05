@@ -36,6 +36,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		private ThreadSafeObservableList<WriteLoadOrderTask> TaskList = new ThreadSafeObservableList<WriteLoadOrderTask>();
 		private IBackgroundTask RunningTask = null;
 		private IBackgroundTask ExternalTask = null;
+		private string m_strLastWriteError = null;
 		private bool Fallout4PluginManagement = false;
 		private bool StarFieldCustomPluginsMessage = false;
 		private bool OblivionRemasteredPluginManagement = false;
@@ -1615,27 +1616,30 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void TaskList_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			switch (e.Action)
+			if (e.Action == NotifyCollectionChangedAction.Add || e.Action == NotifyCollectionChangedAction.Remove)
+				TryStartNextWriteTask();
+		}
+
+		/// <summary>
+		/// Starts the next queued load-order write when no external or write task is active.
+		/// </summary>
+		private void TryStartNextWriteTask()
+		{
+			lock (m_objLock)
 			{
-				case NotifyCollectionChangedAction.Add:
-				case NotifyCollectionChangedAction.Remove:
-					lock (m_objLock)
-					{
-						if ((RunningTask == null) || ((RunningTask.Status != TaskStatus.Queued) && (RunningTask.Status != TaskStatus.Running) && (RunningTask.Status != TaskStatus.Retrying)))
-						{
-							if ((TaskList != null) && (TaskList.Count > 0))
-							{
-								lock (TaskList)
-								{
-									WriteLoadOrderTask NextTask = TaskList.FirstOrDefault();
-									RunningTask = NextTask;
-									RunningTask.TaskEnded += new EventHandler<TaskEndedEventArgs>(RunningTask_TaskEnded);
-									NextTask.Update();
-								}
-							}
-						}
-					}
-					break;
+				if (ExternalTask != null || RunningTask != null)
+					return;
+
+				lock (TaskList)
+				{
+					WriteLoadOrderTask nextTask = TaskList.FirstOrDefault();
+					if (nextTask == null)
+						return;
+
+					RunningTask = nextTask;
+					RunningTask.TaskEnded += RunningTask_TaskEnded;
+					nextTask.Update();
+				}
 			}
 		}
 
@@ -1649,29 +1653,33 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <param name="e">A <see cref="TaskSetCompletedEventArgs"/> describing the event arguments.</param>
 		private void RunningTask_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
-			if (RunningTask != null)
+			lock (m_objLock)
 			{
-				lock (m_objLock)
+				IBackgroundTask completedTask = RunningTask;
+				if (completedTask == null)
+					return;
+
+				if ((e.ReturnValue != null) && (e.ReturnValue.GetType() == typeof(KeyValuePair<string, string>)))
 				{
-					if (RunningTask != null)
-					{
+					KeyValuePair<string, string> kvpSHA = (KeyValuePair<string, string>)e.ReturnValue;
 
-						if ((e.ReturnValue != null)  && (e.ReturnValue.GetType() == typeof (KeyValuePair<string, string>)))
-						{
-							KeyValuePair<string, string> kvpSHA = (KeyValuePair<string, string>)e.ReturnValue;
-
-							if (kvpSHA.Key != null && m_dicFileHashes.ContainsKey(kvpSHA.Key))
-								m_dicFileHashes[kvpSHA.Key] = kvpSHA.Value;
-						}
-
-						RunningTask.TaskEnded -= RunningTask_TaskEnded;
-						int intPosition = TaskList.IndexOf((WriteLoadOrderTask)RunningTask);
-						RunningTask = null;
-
-						if (intPosition >= 0)
-							TaskList.RemoveAt(intPosition);
-					}
+					if (kvpSHA.Key != null && m_dicFileHashes.ContainsKey(kvpSHA.Key))
+						m_dicFileHashes[kvpSHA.Key] = kvpSHA.Value;
 				}
+
+				if (e.Status != TaskStatus.Complete)
+				{
+					m_strLastWriteError = String.IsNullOrWhiteSpace(e.Message)
+						? "A load-order write did not complete successfully."
+						: e.Message;
+				}
+
+				completedTask.TaskEnded -= RunningTask_TaskEnded;
+				int intPosition = TaskList.IndexOf((WriteLoadOrderTask)completedTask);
+				RunningTask = null;
+
+				if (intPosition >= 0)
+					TaskList.RemoveAt(intPosition);
 			}
 		}
 
@@ -1809,48 +1817,82 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder
 		/// <param name="p_tskTask">The task to monitor.</param>
 		public void MonitorExternalTask(IBackgroundTask p_tskTask)
 		{
-			int intRepeat = 0;
-			bool booLocked = false;
+			if (p_tskTask == null)
+				throw new ArgumentNullException("p_tskTask");
 
-			while ((ExternalTask != null) && (ExternalTask.Status != TaskStatus.Running))
+			while (true)
 			{
-				System.Threading.Tasks.Task.Delay(500).Wait();
-				if (intRepeat++ > 20)
+				TryStartNextWriteTask();
+
+				lock (m_objLock)
 				{
-					booLocked = true;
-					break;
+					bool booWritePending = RunningTask != null || TaskList.Count > 0;
+					if (ExternalTask == null && !booWritePending)
+					{
+						ExternalTask = p_tskTask;
+						ExternalTask.TaskEnded += ExternalTask_TaskEnded;
+						break;
+					}
 				}
+
+				Thread.Sleep(50);
 			}
 
-			if (!booLocked)
+			p_tskTask.Resume();
+		}
+
+		/// <summary>
+		/// Waits for all queued load-order writes to finish.
+		/// </summary>
+		/// <param name="p_intTimeoutMilliseconds">The maximum amount of time to wait, in milliseconds.</param>
+		/// <param name="p_strErrorMessage">The write failure or timeout message, when the operation does not complete successfully.</param>
+		/// <returns><c>true</c> when all writes completed successfully; otherwise, <c>false</c>.</returns>
+		public bool WaitForPendingWrites(int p_intTimeoutMilliseconds, out string p_strErrorMessage)
+		{
+			DateTime dtiDeadline = DateTime.UtcNow.AddMilliseconds(Math.Max(0, p_intTimeoutMilliseconds));
+
+			while (true)
 			{
-				ExternalTask = p_tskTask;
-				ExternalTask.TaskEnded += ExternalTask_TaskEnded;
-				ExternalTask.Resume();
+				TryStartNextWriteTask();
+
+				lock (m_objLock)
+				{
+					bool booPending = ExternalTask != null || RunningTask != null || TaskList.Count > 0;
+					if (!booPending)
+					{
+						p_strErrorMessage = m_strLastWriteError;
+						m_strLastWriteError = null;
+						return String.IsNullOrWhiteSpace(p_strErrorMessage);
+					}
+				}
+
+				if (DateTime.UtcNow >= dtiDeadline)
+				{
+					p_strErrorMessage = "Timed out while waiting for pending load-order writes to finish.";
+					return false;
+				}
+
+				Thread.Sleep(50);
 			}
 		}
 
 		/// <summary>
-		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of a task set.
+		/// Releases the active external task and resumes queued load-order writes.
 		/// </summary>
-		/// <remarks>
-		/// This displays the confirmation message.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="TaskSetCompletedEventArgs"/> describing the event arguments.</param>
+		/// <param name="sender">The task that ended.</param>
+		/// <param name="e">The task completion arguments.</param>
 		private void ExternalTask_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
-			if (ExternalTask != null)
+			lock (m_objLock)
 			{
-				lock (m_objLock)
-				{
-					if (ExternalTask != null)
-					{
-						ExternalTask.TaskEnded -= ExternalTask_TaskEnded;
-						ExternalTask = null;
-					}
-				}
+				if (ExternalTask != null)
+					ExternalTask.TaskEnded -= ExternalTask_TaskEnded;
+
+				ExternalTask = null;
 			}
+
+			TryStartNextWriteTask();
 		}
+
 	}
 }

@@ -1192,6 +1192,30 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Parses a load order from the specified dictionary without applying it.
+		/// </summary>
+		/// <param name="p_dicDictionary">The plugin filenames and requested active states.</param>
+		/// <returns>The registered plugins and their requested active states, or <c>null</c> when no entries can be applied.</returns>
+		public Dictionary<Plugin, string> ParseLoadOrderFromDictionary(Dictionary<string, string> p_dicDictionary)
+		{
+			if (p_dicDictionary == null || p_dicDictionary.Count == 0 || !CurrentGameMode.UsesPlugins)
+				return null;
+
+			try
+			{
+				Dictionary<Plugin, string> kvpRegisteredPlugins;
+				List<string> lstUnregisteredPlugins;
+				GetRegisteredPlugins(p_dicDictionary, out kvpRegisteredPlugins, out lstUnregisteredPlugins);
+				return kvpRegisteredPlugins.Count == 0 ? null : kvpRegisteredPlugins;
+			}
+			catch (Exception ex)
+			{
+				OnImportFailed("Profile Manager", ex);
+				return null;
+			}
+		}
+
+		/// <summary>
 		/// Imports a load order from the specified Dictionary.
 		/// </summary>
 		/// <param name="p_dicDictionary">The Dictionary to import a load order from.</param>

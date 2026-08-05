@@ -158,6 +158,14 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		/// <param name="p_tskTask">The task to monitor.</param>
 		void MonitorExternalTask(IBackgroundTask p_tskTask);
+
+		/// <summary>
+		/// Waits for all queued load-order writes to finish.
+		/// </summary>
+		/// <param name="p_intTimeoutMilliseconds">The maximum amount of time to wait, in milliseconds.</param>
+		/// <param name="p_strErrorMessage">The write failure or timeout message, when the operation does not complete successfully.</param>
+		/// <returns><c>true</c> when all writes completed successfully; otherwise, <c>false</c>.</returns>
+		bool WaitForPendingWrites(int p_intTimeoutMilliseconds, out string p_strErrorMessage);
 	}
 
 	public class PluginManagementEventArgs : EventArgs

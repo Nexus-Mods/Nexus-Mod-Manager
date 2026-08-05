@@ -40,6 +40,9 @@
 	public class MainFormVM
 	{
 		#region ProfileSwitchToken
+		/// <summary>
+		/// Stores the target and rollback state for an in-progress profile switch.
+		/// </summary>
 		protected class ProfileSwitchToken
 		{
 			#region Properties
@@ -50,7 +53,17 @@
 
 			public IModProfile Profile { get; }
 
+			/// <summary>
+			/// Gets the profile that was active before the switch started.
+			/// </summary>
+			public IModProfile PreviousProfile { get; }
+
 			public List<IVirtualModLink> VirtualLinks { get; }
+
+			/// <summary>
+			/// Gets the virtual-link snapshot that was active before the switch started.
+			/// </summary>
+			public List<IVirtualModLink> PreviousVirtualLinks { get; }
 
 			public List<IVirtualModInfo> MissingMods { get; }
 
@@ -58,19 +71,48 @@
 
 			public Dictionary<string, string> ProfileDictionary { get; }
 
+			/// <summary>
+			/// Gets the serialized settings of the profile that was active before the switch started.
+			/// </summary>
+			public Dictionary<string, string> PreviousProfileDictionary { get; }
+
+			/// <summary>
+			/// Gets the live plugin order and active state captured before the switch started.
+			/// </summary>
+			public string PreviousLoadOrder { get; }
+
 			#endregion
 
-			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, List<IVirtualModLink> virtualLinks, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles)
+			/// <summary>
+			/// Initializes the state required to complete or roll back a profile switch.
+			/// </summary>
+			/// <param name="isSilent">Whether the profile switch suppresses normal user prompts.</param>
+			/// <param name="isRestoring">Whether the switch is restoring a backup profile.</param>
+			/// <param name="modProfile">The target profile.</param>
+			/// <param name="previousProfile">The profile active before the switch.</param>
+			/// <param name="virtualLinks">The virtual links required by the target profile.</param>
+			/// <param name="previousVirtualLinks">The virtual links active before the switch.</param>
+			/// <param name="scriptedMismatch">The scripted installers that require reconciliation.</param>
+			/// <param name="missingMods">The target profile mods whose deployed files are missing.</param>
+			/// <param name="profiles">The serialized target profile files.</param>
+			/// <param name="previousProfiles">The serialized previous profile files.</param>
+			/// <param name="previousLoadOrder">The live plugin order and active state captured before switching.</param>
+			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, IModProfile previousProfile, List<IVirtualModLink> virtualLinks, List<IVirtualModLink> previousVirtualLinks, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles, Dictionary<string, string> previousProfiles, string previousLoadOrder)
 			{
 				IsSilent = isSilent;
 				IsRestoring = isRestoring;
 				Profile = modProfile;
+				PreviousProfile = previousProfile;
 				VirtualLinks = virtualLinks;
+				PreviousVirtualLinks = previousVirtualLinks;
 				MissingMods = missingMods;
 				ScriptedMismatchList = scriptedMismatch;
 				ProfileDictionary = profiles;
+				PreviousProfileDictionary = previousProfiles;
+				PreviousLoadOrder = previousLoadOrder;
 			}
 		}
+
 		#endregion
 
 		private const string CHANGE_DEFAULT_GAME_MODE = "__changedefaultgamemode";
@@ -867,26 +909,151 @@
 		/// </summary>
 		public Dictionary<Plugin, string> ImportProfileLoadOrder()
 		{
-			var impCurrentProfile = ProfileManager.CurrentProfile;
+			IModProfile impProfile = profileSwitchToken == null ? ProfileManager.CurrentProfile : profileSwitchToken.Profile;
+			Dictionary<string, string> dicProfile = profileSwitchToken == null ? null : profileSwitchToken.ProfileDictionary;
+			return ParseProfileLoadOrder(impProfile, dicProfile);
+		}
 
-			if (impCurrentProfile != null)
+		/// <summary>
+		/// Parses a profile's stored load order without changing the current plugin state.
+		/// </summary>
+		/// <param name="p_impProfile">The profile whose load order should be parsed.</param>
+		/// <param name="p_dicProfile">The already loaded profile files, when available.</param>
+		/// <returns>The registered plugins and requested active states, or <c>null</c> when the profile has no load order.</returns>
+		private Dictionary<Plugin, string> ParseProfileLoadOrder(IModProfile p_impProfile, Dictionary<string, string> p_dicProfile)
+		{
+			if (p_impProfile == null)
+				return null;
+
+			if (p_impProfile.LoadOrder != null && p_impProfile.LoadOrder.Count > 0)
+				return PluginManagerVM.ParseLoadOrderFromDictionary(p_impProfile.LoadOrder);
+
+			Dictionary<string, string> dicProfile = p_dicProfile;
+			if (dicProfile == null)
+				ProfileManager.LoadProfile(p_impProfile, out dicProfile);
+
+			return dicProfile != null && dicProfile.ContainsKey("loadorder")
+				? PluginManagerVM.ParseLoadOrderFromString(dicProfile["loadorder"])
+				: null;
+		}
+
+		/// <summary>
+		/// Applies the pending profile's complete plugin order and active state.
+		/// </summary>
+		/// <returns>The background task applying the profile state, or <c>null</c> when the profile contains no load order.</returns>
+		public IBackgroundTask ApplyPendingProfileLoadOrder()
+		{
+			Dictionary<Plugin, string> dicLoadOrder = ImportProfileLoadOrder();
+			return dicLoadOrder == null || dicLoadOrder.Count == 0
+				? null
+				: PluginManager.ApplyLoadOrder(dicLoadOrder, false, true);
+		}
+
+		/// <summary>
+		/// Restores the complete plugin order and active state saved before the pending profile switch.
+		/// </summary>
+		/// <returns>The background task restoring the previous profile state, or <c>null</c> when no previous load order is available.</returns>
+		public IBackgroundTask ApplyPreviousProfileLoadOrder()
+		{
+			if (profileSwitchToken == null)
+				return null;
+
+			Dictionary<Plugin, string> dicLoadOrder = !String.IsNullOrWhiteSpace(profileSwitchToken.PreviousLoadOrder)
+				? PluginManagerVM.ParseLoadOrderFromString(profileSwitchToken.PreviousLoadOrder)
+				: ParseProfileLoadOrder(profileSwitchToken.PreviousProfile, profileSwitchToken.PreviousProfileDictionary);
+			return dicLoadOrder == null || dicLoadOrder.Count == 0
+				? null
+				: PluginManager.ApplyLoadOrder(dicLoadOrder, false, true);
+		}
+
+		/// <summary>
+		/// Waits for queued load-order persistence work to complete.
+		/// </summary>
+		/// <param name="p_strErrorMessage">The write failure or timeout message.</param>
+		/// <returns><c>true</c> when all writes completed successfully; otherwise, <c>false</c>.</returns>
+		public bool WaitForPendingLoadOrderWrites(out string p_strErrorMessage)
+		{
+			if (GameMode.LoadOrderManager == null)
 			{
-				if (impCurrentProfile.LoadOrder != null && impCurrentProfile.LoadOrder.Count > 0)
-				{
-					PluginManagerVM.ImportLoadOrderFromDictionary(impCurrentProfile.LoadOrder);
-				}
-				else
-				{
-					ProfileManager.LoadProfile(impCurrentProfile, out var profile);
-
-					if (profile != null && profile.Count > 0 && profile.ContainsKey("loadorder"))
-					{
-						return PluginManagerVM.ParseLoadOrderFromString(profile["loadorder"]);
-					}
-				}
+				p_strErrorMessage = null;
+				return true;
 			}
 
-			return null;
+			return GameMode.LoadOrderManager.WaitForPendingWrites(30000, out p_strErrorMessage);
+		}
+
+		/// <summary>
+		/// Commits the pending profile as the current profile after every switch phase succeeds.
+		/// </summary>
+		public void CommitProfileSwitch()
+		{
+			if (profileSwitchToken == null)
+				return;
+
+			ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
+			profileSwitchToken = null;
+		}
+
+		/// <summary>
+		/// Starts a best-effort restoration of the virtual links and settings that existed before the switch.
+		/// </summary>
+		/// <returns>The rollback task, or <c>null</c> when no virtual-link changes need to be restored.</returns>
+		public IBackgroundTask RollbackProfileSwitch()
+		{
+			if (profileSwitchToken == null)
+				return null;
+
+			ApplyProfileConfiguration(profileSwitchToken.PreviousProfileDictionary);
+
+			List<IVirtualModLink> lstCurrentLinks = new List<IVirtualModLink>(VirtualModActivator.VirtualLinks);
+			List<IVirtualModLink> lstLinksToRestore = profileSwitchToken.PreviousVirtualLinks.Except(lstCurrentLinks, new VirtualModLinkEqualityComparer()).ToList();
+			List<IVirtualModLink> lstLinksToRemove = lstCurrentLinks.Except(profileSwitchToken.PreviousVirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
+
+			if (lstLinksToRestore.Count == 0 && lstLinksToRemove.Count == 0)
+				return null;
+
+			return ProfileManager.SwitchProfile(profileSwitchToken.PreviousProfile, ModManager, lstLinksToRestore, lstLinksToRemove, false, false, ConfirmUpdaterAction);
+		}
+
+		/// <summary>
+		/// Restores the previous profile selection and clears the pending switch state after rollback.
+		/// </summary>
+		public void CompleteProfileRollback()
+		{
+			if (profileSwitchToken != null)
+				ProfileManager.SetCurrentProfile(profileSwitchToken.PreviousProfile);
+
+			ModManager.VirtualModActivator.RestoreIniEdits();
+			profileSwitchToken = null;
+			m_booIsSwitching = false;
+		}
+
+		/// <summary>
+		/// Applies the INI edits and optional files serialized for a profile.
+		/// </summary>
+		/// <param name="p_dicProfile">The serialized profile files.</param>
+		private void ApplyProfileConfiguration(Dictionary<string, string> p_dicProfile)
+		{
+			ModManager.VirtualModActivator.PurgeIniEdits();
+
+			if (p_dicProfile != null && p_dicProfile.ContainsKey("iniEdits"))
+				ModManager.VirtualModActivator.ImportIniEdits(p_dicProfile["iniEdits"]);
+
+			if (!GameMode.RequiresOptionalFilesCheckOnProfileSwitch || p_dicProfile == null || !p_dicProfile.ContainsKey("optional"))
+				return;
+
+			string[] strFiles = p_dicProfile["optional"].Split("#".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+			if (strFiles.Length > 0)
+				GameMode.SetOptionalFilesList(strFiles);
+
+			if (PluginManager == null)
+				return;
+
+			foreach (string strFile in strFiles)
+			{
+				if (PluginManager.IsActivatiblePluginFile(strFile))
+					PluginManager.AddPlugin(strFile);
+			}
 		}
 
 		/// <summary>
@@ -958,7 +1125,16 @@
 					ModManager.VirtualModActivator.CheckLinkListIntegrity(lstVirtualLinks, out lstMissingModInfo, lstScriptedMismatch);
 				}
 
-				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, lstVirtualLinks, lstScriptedMismatch, lstMissingModInfo, profiles);
+				IModProfile impPreviousProfile = ProfileManager.CurrentProfile;
+				Dictionary<string, string> dicPreviousProfile = null;
+				if (impPreviousProfile != null)
+					ProfileManager.LoadProfile(impPreviousProfile, out dicPreviousProfile);
+
+				List<IVirtualModLink> lstPreviousVirtualLinks = new List<IVirtualModLink>(VirtualModActivator.VirtualLinks);
+				string strPreviousLoadOrder = GameMode.UsesPlugins && PluginManagerVM != null
+					? System.Text.Encoding.UTF8.GetString(PluginManagerVM.ExportLoadOrder())
+					: null;
+				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, impPreviousProfile, lstVirtualLinks, lstPreviousVirtualLinks, lstScriptedMismatch, lstMissingModInfo, profiles, dicPreviousProfile, strPreviousLoadOrder);
 
 				// Deprecated, online profiles are no longer supported by NexusMods.
 				/*
@@ -1077,6 +1253,7 @@
 							ModManager.VirtualModActivator.DisableLinkCreation = false;
 							m_booIsSwitching = false;
 							ProfileManager.SetCurrentProfile(impCurrentProfile);
+							profileSwitchToken = null;
 							AbortedProfileSwitch(this, new EventArgs());
 							return;
 						}
@@ -1100,41 +1277,12 @@
 		/// <param name="restoring"></param>
 		public void ExecuteProfileSwitch(Form parent)
 		{
-			ModManager.VirtualModActivator.PurgeIniEdits();
-
-			if (profileSwitchToken.ProfileDictionary != null && profileSwitchToken.ProfileDictionary.Count > 0 && profileSwitchToken.ProfileDictionary.ContainsKey("iniEdits"))
-			{
-				ModManager.VirtualModActivator.ImportIniEdits(profileSwitchToken.ProfileDictionary["iniEdits"]);
-			}
-
-			if (GameMode.RequiresOptionalFilesCheckOnProfileSwitch)
-			{
-				if (profileSwitchToken.ProfileDictionary != null && profileSwitchToken.ProfileDictionary.Count > 0 && profileSwitchToken.ProfileDictionary.ContainsKey("optional"))
-				{
-					var strFiles = profileSwitchToken.ProfileDictionary["optional"].Split("#".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
-
-					if (strFiles.Length > 0)
-					{
-						GameMode.SetOptionalFilesList(strFiles);
-					}
-
-					if (PluginManager != null)
-					{
-						foreach (var strFile in strFiles)
-						{
-							if (PluginManager.IsActivatiblePluginFile(strFile))
-							{
-								PluginManager.AddPlugin(strFile);
-							}
-						}
-					}
-				}
-			}
+			m_booIsSwitching = true;
+			ApplyProfileConfiguration(profileSwitchToken.ProfileDictionary);
 
 			var lstMissingLinks = profileSwitchToken.VirtualLinks.Except(VirtualModActivator.VirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
 			var lstUnneededLinks = VirtualModActivator.VirtualLinks.Except(profileSwitchToken.VirtualLinks, new VirtualModLinkEqualityComparer()).ToList();
 
-			ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
 			ModManager.VirtualModActivator.DisableLinkCreation = false;
 			ProfileSwitch(profileSwitchToken.Profile, lstMissingLinks, lstUnneededLinks, profileSwitchToken.IsSilent, profileSwitchToken.IsRestoring);
 		}

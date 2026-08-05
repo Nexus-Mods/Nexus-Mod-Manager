@@ -105,11 +105,33 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// The method that is called to start the backgound task.
+		/// Runs the profile activation while converting deployment failures into a controlled task error.
 		/// </summary>
-		/// <param name="args">Arguments to for the task execution.</param>
-		/// <returns>Always <c>null</c>.</returns>
-		protected override object DoWork(object[] args)
+		/// <param name="args">Arguments for the task execution.</param>
+		/// <param name="p_strMessage">The deployment failure message, when the switch cannot be completed.</param>
+		/// <returns>The profile-switch result or the exception that prevented completion.</returns>
+		protected override object DoWork(object[] args, out string p_strMessage)
+		{
+			p_strMessage = null;
+
+			try
+			{
+				return ExecuteProfileSwitch(args);
+			}
+			catch (Exception ex)
+			{
+				Status = TaskStatus.Error;
+				p_strMessage = "The profile could not be activated: " + ex.Message;
+				return ex;
+			}
+		}
+
+		/// <summary>
+		/// Applies the virtual-link changes required by the selected profile.
+		/// </summary>
+		/// <param name="args">Arguments for the task execution.</param>
+		/// <returns>Whether the operation is restoring a backup profile.</returns>
+		private object ExecuteProfileSwitch(object[] args)
 		{
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
 			bool booLotsOfLinks = false;
@@ -247,6 +269,12 @@ namespace Nexus.Client.ModManagement
 			return m_booRestoring;
 		}
 
+		/// <summary>
+		/// Flushes a batched virtual-mod metadata update while preserving the original activation failure.
+		/// </summary>
+		/// <param name="p_mubModInfoUpdateBatch">The metadata batch to flush.</param>
+		/// <param name="p_expInstallException">The activation exception already being propagated, when present.</param>
+		/// <param name="p_booCancelling">Whether the profile switch is being cancelled.</param>
 		private static void FlushModInfoUpdateBatch(VirtualModActivator.ModInfoUpdateBatch p_mubModInfoUpdateBatch, Exception p_expInstallException, bool p_booCancelling)
 		{
 			if (p_mubModInfoUpdateBatch == null)
