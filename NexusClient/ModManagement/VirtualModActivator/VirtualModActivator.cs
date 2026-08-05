@@ -1017,6 +1017,25 @@
 			RebuildVirtualLinkIndex();
 		}
 
+		/// <summary>
+		/// Gets an immutable snapshot of the virtual-link path indexes.
+		/// </summary>
+		/// <returns>A snapshot that can be consumed without holding the activator index lock.</returns>
+		internal VirtualLinkIndexSnapshot GetVirtualLinkIndexSnapshot()
+		{
+			while (true)
+			{
+				EnsureVirtualLinkIndex();
+				lock (m_objVirtualLinkIndexLock)
+				{
+					if (m_booVirtualLinkIndexDirty)
+						continue;
+
+					return m_vliVirtualLinkIndex.CreateSnapshot();
+				}
+			}
+		}
+
 		private void CollectIndexedFileLinkMatches(
 			string p_strVirtualPath,
 			ModInstallRoot p_mirInstallRoot,
@@ -1126,25 +1145,6 @@
 		internal string GetDeployedFilePath(IVirtualModLink p_vmlLink)
 		{
 			return GetDeployedFilePath(p_vmlLink, p_vmlLink == null ? null : FindManagedMod(p_vmlLink.ModInfo));
-		}
-
-		internal Dictionary<IVirtualModLink, string> GetDeployedFilePaths(IEnumerable<IVirtualModLink> p_enmLinks)
-		{
-			List<IVirtualModLink> lstLinks = p_enmLinks == null
-				? new List<IVirtualModLink>()
-				: p_enmLinks.Where(x => x != null).ToList();
-			Dictionary<IVirtualModInfo, IMod> dicManagedMods = BuildManagedModLookupForVirtualLinks(lstLinks);
-			Dictionary<IVirtualModLink, string> dicPaths = new Dictionary<IVirtualModLink, string>(lstLinks.Count);
-
-			foreach (IVirtualModLink vmlLink in lstLinks)
-			{
-				IMod modMod = null;
-				if (vmlLink.ModInfo != null)
-					dicManagedMods.TryGetValue(vmlLink.ModInfo, out modMod);
-				dicPaths[vmlLink] = GetDeployedFilePath(vmlLink, modMod);
-			}
-
-			return dicPaths;
 		}
 
 		private string GetDeployedFilePath(IVirtualModLink p_vmlLink, IMod p_modMod)

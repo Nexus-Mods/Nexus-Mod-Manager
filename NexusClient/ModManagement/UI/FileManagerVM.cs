@@ -19,10 +19,13 @@
         private readonly SynchronizationContext _uiContext;
         private readonly HashSet<IBackgroundTaskSet> _watchedActivationTasks = new HashSet<IBackgroundTaskSet>();
         private CancellationTokenSource _scanCancellation;
+        private CancellationTokenSource _linkTypeCancellation;
+        private Task _linkTypeResolutionTask;
         private FileManagerSourceCounts _counts = new FileManagerSourceCounts();
         private bool _loaded;
         private bool _stale;
         private bool _scanning;
+        private bool _resolvingLinkTypes;
         private bool _disposed;
         private int _scanGeneration;
         private int _dataChangeRevision;
@@ -130,6 +133,19 @@
             }
         }
 
+        public bool IsResolvingLinkTypes
+        {
+            get { return _resolvingLinkTypes; }
+            private set
+            {
+                if (_resolvingLinkTypes == value)
+                    return;
+
+                _resolvingLinkTypes = value;
+                OnPropertyChanged("IsResolvingLinkTypes");
+            }
+        }
+
         public bool IsStale
         {
             get { return _stale; }
@@ -172,6 +188,7 @@
                 return;
             }
 
+            CancelLinkTypeResolution();
             CancellationTokenSource previousCancellation = _scanCancellation;
             if (previousCancellation != null)
                 previousCancellation.Cancel();
@@ -193,12 +210,23 @@
                 Stopwatch publishWatch = Stopwatch.StartNew();
                 ApplyScanResult(result);
                 publishWatch.Stop();
+                result.Diagnostics.GridPublicationMilliseconds = publishWatch.ElapsedMilliseconds;
                 Trace.TraceInformation("File Manager grid publication completed. Rows={0}, publish={1}ms, scan={2}", result.Rows.Count, publishWatch.ElapsedMilliseconds, result.Diagnostics);
                 _loaded = true;
                 IsStale = dataChangeRevision != Interlocked.CompareExchange(ref _dataChangeRevision, 0, 0);
-                StatusMessage = IsStale
-                    ? "Data changed while the scan was running. Click Refresh to update."
-                    : "Scan complete.";
+                int pendingLinkTypes = FileManagerLinkTypeResolver.CountPendingRows(result.Rows);
+                result.Diagnostics.PendingLinkTypeCount = pendingLinkTypes;
+                if (pendingLinkTypes > 0)
+                {
+                    StartLinkTypeResolution(result.Rows, pendingLinkTypes, scanGeneration, gameMode, result.Diagnostics);
+                }
+                else
+                {
+                    StatusMessage = IsStale
+                        ? "Data changed while the scan was running. Click Refresh to update."
+                        : "Scan complete.";
+                    Trace.TraceInformation("File Manager diagnostics finalized. {0}", result.Diagnostics);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -259,11 +287,208 @@
         {
             _disposed = true;
             Interlocked.Increment(ref _scanGeneration);
+            CancelLinkTypeResolution();
             UnwatchModActivationQueue();
 
             CancellationTokenSource cancellation = _scanCancellation;
             if (cancellation != null)
                 cancellation.Cancel();
+        }
+
+        /// <summary>
+        /// Starts background link-type detection for rows published by the current scan.
+        /// </summary>
+        /// <param name="rows">The published File Manager rows.</param>
+        /// <param name="pendingCount">The number of rows requiring handle-based detection.</param>
+        /// <param name="scanGeneration">The scan generation owning the rows.</param>
+        /// <param name="gameMode">The game mode owning the scan.</param>
+        /// <param name="diagnostics">The scan diagnostics receiving background detection results.</param>
+        private void StartLinkTypeResolution(IList<FileManagerRow> rows, int pendingCount, int scanGeneration, IGameMode gameMode, FileManagerScanDiagnostics diagnostics)
+        {
+            CancelLinkTypeResolution();
+            CancellationTokenSource cancellation = new CancellationTokenSource();
+            _linkTypeCancellation = cancellation;
+            IsResolvingLinkTypes = true;
+            if (diagnostics != null)
+                diagnostics.LinkTypeStartedTimestamp = Stopwatch.GetTimestamp();
+            StatusMessage = String.Format("Detecting link types... 0/{0:N0}", pendingCount);
+            _linkTypeResolutionTask = ResolveLinkTypesAsync(rows, pendingCount, scanGeneration, gameMode, cancellation, diagnostics);
+        }
+
+        /// <summary>
+        /// Runs bounded link-type detection outside the UI thread and marshals completed batches back to the view model.
+        /// </summary>
+        /// <param name="rows">The rows whose link types must be detected.</param>
+        /// <param name="pendingCount">The total number of pending rows.</param>
+        /// <param name="scanGeneration">The scan generation owning the rows.</param>
+        /// <param name="gameMode">The game mode owning the scan.</param>
+        /// <param name="cancellation">The cancellation source controlling the resolver.</param>
+        /// <param name="diagnostics">The scan diagnostics receiving background detection results.</param>
+        /// <returns>A task representing the background resolution operation.</returns>
+        private async Task ResolveLinkTypesAsync(IList<FileManagerRow> rows, int pendingCount, int scanGeneration, IGameMode gameMode, CancellationTokenSource cancellation, FileManagerScanDiagnostics diagnostics)
+        {
+            Exception failure = null;
+            FileManagerLinkTypeResolutionDiagnostics resolutionDiagnostics = null;
+            try
+            {
+                resolutionDiagnostics = await Task.Run(() => FileManagerLinkTypeResolver.Resolve(rows, pendingCount,
+                    (batch, completed, total) => PostLinkTypeBatch(batch, completed, total, scanGeneration, gameMode, cancellation, diagnostics),
+                    cancellation.Token), cancellation.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+                Trace.TraceError("File Manager link-type resolution failed: {0}", ex);
+            }
+            finally
+            {
+                PostLinkTypeResolutionCompleted(scanGeneration, gameMode, cancellation, diagnostics, resolutionDiagnostics, failure);
+            }
+        }
+
+        /// <summary>
+        /// Marshals one resolved link-type batch to the UI synchronization context.
+        /// </summary>
+        /// <param name="batch">The completed link-type updates.</param>
+        /// <param name="completed">The aggregate number of completed rows.</param>
+        /// <param name="total">The total number of pending rows.</param>
+        /// <param name="scanGeneration">The scan generation owning the rows.</param>
+        /// <param name="gameMode">The game mode owning the scan.</param>
+        /// <param name="cancellation">The cancellation source controlling the resolver.</param>
+        /// <param name="diagnostics">The scan diagnostics receiving batched UI update timings.</param>
+        private void PostLinkTypeBatch(IList<FileManagerLinkTypeUpdate> batch, int completed, int total, int scanGeneration, IGameMode gameMode, CancellationTokenSource cancellation, FileManagerScanDiagnostics diagnostics)
+        {
+            Action apply = () => ApplyLinkTypeBatch(batch, completed, total, scanGeneration, gameMode, cancellation, diagnostics);
+            if (_uiContext != null)
+                _uiContext.Post(_ => apply(), null);
+            else
+                apply();
+        }
+
+        /// <summary>
+        /// Applies one resolved link-type batch without producing one binding notification per row.
+        /// </summary>
+        /// <param name="batch">The completed link-type updates.</param>
+        /// <param name="completed">The aggregate number of completed rows.</param>
+        /// <param name="total">The total number of pending rows.</param>
+        /// <param name="scanGeneration">The scan generation owning the rows.</param>
+        /// <param name="gameMode">The game mode owning the scan.</param>
+        /// <param name="cancellation">The cancellation source controlling the resolver.</param>
+        /// <param name="diagnostics">The scan diagnostics receiving batched UI update timings.</param>
+        private void ApplyLinkTypeBatch(IList<FileManagerLinkTypeUpdate> batch, int completed, int total, int scanGeneration, IGameMode gameMode, CancellationTokenSource cancellation, FileManagerScanDiagnostics diagnostics)
+        {
+            if (_disposed || cancellation.IsCancellationRequested || !Object.ReferenceEquals(_linkTypeCancellation, cancellation) || scanGeneration != _scanGeneration || !Object.ReferenceEquals(gameMode, GameMode))
+                return;
+
+            long updateStart = Stopwatch.GetTimestamp();
+            for (int index = 0; index < batch.Count; index++)
+            {
+                FileManagerLinkTypeUpdate update = batch[index];
+                if (update.Row != null)
+                    update.Row.SetLinkTypeState(update.State, false);
+            }
+
+            StatusMessage = String.Format("Detecting link types... {0:N0}/{1:N0}", Math.Min(completed, total), total);
+            OnPropertyChanged("LinkTypeResolutionBatch");
+            if (diagnostics != null)
+                diagnostics.LinkTypeUiUpdateTicks += Stopwatch.GetTimestamp() - updateStart;
+        }
+
+        /// <summary>
+        /// Marshals resolver completion to the UI synchronization context.
+        /// </summary>
+        /// <param name="scanGeneration">The scan generation owning the rows.</param>
+        /// <param name="gameMode">The game mode owning the scan.</param>
+        /// <param name="cancellation">The cancellation source controlling the resolver.</param>
+        /// <param name="diagnostics">The scan diagnostics receiving the completed resolver results.</param>
+        /// <param name="resolutionDiagnostics">The completed resolver diagnostics, or <c>null</c> when cancelled or failed.</param>
+        /// <param name="failure">The resolver failure, or <c>null</c> when resolution completed or was cancelled.</param>
+        private void PostLinkTypeResolutionCompleted(int scanGeneration, IGameMode gameMode, CancellationTokenSource cancellation, FileManagerScanDiagnostics diagnostics, FileManagerLinkTypeResolutionDiagnostics resolutionDiagnostics, Exception failure)
+        {
+            Action complete = () => CompleteLinkTypeResolution(scanGeneration, gameMode, cancellation, diagnostics, resolutionDiagnostics, failure);
+            if (_uiContext != null)
+                _uiContext.Post(_ => complete(), null);
+            else
+                complete();
+        }
+
+        /// <summary>
+        /// Completes the current link-type operation and releases its cancellation source.
+        /// </summary>
+        /// <param name="scanGeneration">The scan generation owning the rows.</param>
+        /// <param name="gameMode">The game mode owning the scan.</param>
+        /// <param name="cancellation">The cancellation source controlling the resolver.</param>
+        /// <param name="diagnostics">The scan diagnostics receiving the completed resolver results.</param>
+        /// <param name="resolutionDiagnostics">The completed resolver diagnostics, or <c>null</c> when cancelled or failed.</param>
+        /// <param name="failure">The resolver failure, or <c>null</c> when resolution completed or was cancelled.</param>
+        private void CompleteLinkTypeResolution(int scanGeneration, IGameMode gameMode, CancellationTokenSource cancellation, FileManagerScanDiagnostics diagnostics, FileManagerLinkTypeResolutionDiagnostics resolutionDiagnostics, Exception failure)
+        {
+            bool isCurrent = Object.ReferenceEquals(_linkTypeCancellation, cancellation);
+            if (isCurrent)
+            {
+                _linkTypeCancellation = null;
+                _linkTypeResolutionTask = null;
+                IsResolvingLinkTypes = false;
+
+                if (diagnostics != null)
+                {
+                    diagnostics.LinkTypeUiUpdateMilliseconds = diagnostics.LinkTypeUiUpdateTicks <= 0
+                        ? 0
+                        : (diagnostics.LinkTypeUiUpdateTicks * 1000L) / Stopwatch.Frequency;
+                    diagnostics.LinkTypeEndToEndMilliseconds = diagnostics.LinkTypeStartedTimestamp <= 0
+                        ? 0
+                        : ((Stopwatch.GetTimestamp() - diagnostics.LinkTypeStartedTimestamp) * 1000L) / Stopwatch.Frequency;
+                }
+
+                if (resolutionDiagnostics != null && diagnostics != null)
+                {
+                    diagnostics.LinkTypeResolutionMilliseconds = resolutionDiagnostics.ElapsedMilliseconds;
+                    diagnostics.ResolvedLinkTypeCount = resolutionDiagnostics.CompletedCount;
+                    diagnostics.LinkTypeWorkerCount = resolutionDiagnostics.WorkerCount;
+                    diagnostics.LinkTypeBatchCount = resolutionDiagnostics.BatchCount;
+                    diagnostics.RealFileCount = resolutionDiagnostics.RealFileCount;
+                    diagnostics.HardLinkCount = resolutionDiagnostics.HardLinkCount;
+                    diagnostics.SymbolicLinkCount += resolutionDiagnostics.SymbolicLinkCount;
+                    diagnostics.NotFoundLinkCount = resolutionDiagnostics.NotFoundCount;
+                    diagnostics.UnavailableLinkCount = resolutionDiagnostics.UnavailableCount;
+                }
+
+                if (!_disposed && scanGeneration == _scanGeneration && Object.ReferenceEquals(gameMode, GameMode))
+                {
+                    if (failure != null)
+                        StatusMessage = "Scan complete, but link-type detection did not finish.";
+                    else if (IsStale)
+                        StatusMessage = "Data changed while the scan was running. Click Refresh to update.";
+                    else
+                        StatusMessage = "Scan complete.";
+
+                    if (diagnostics != null)
+                        Trace.TraceInformation("File Manager diagnostics finalized. {0}", diagnostics);
+                }
+            }
+
+            cancellation.Dispose();
+        }
+
+        /// <summary>
+        /// Requests cancellation of the current background link-type operation.
+        /// </summary>
+        private void CancelLinkTypeResolution()
+        {
+            CancellationTokenSource cancellation = _linkTypeCancellation;
+            if (cancellation == null)
+                return;
+
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
 
         private void WatchModActivationQueue()

@@ -27,7 +27,7 @@
             FileManagerRow row = CreateRow("textures\\creation.dds");
             Dictionary<string, FileManagerSource> manualSources = new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase)
             {
-                { row.NormalizedRelativePath, FileManagerSource.Creations }
+                { row.RelativePath, FileManagerSource.Creations }
             };
 
             FileManagerQueryService.ApplySourceClassification(row, null, EmptyBaseFiles(), manualSources);
@@ -49,14 +49,16 @@
 
             Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
             Assert.IsFalse(row.SourceEditable);
-            Assert.IsTrue(row.OwnerEditable);
+            Assert.AreEqual(1, row.OwnerCount);
+            Assert.AreEqual(0, row.OwnerCandidates.Count);
+            Assert.IsFalse(row.OwnerEditable);
         }
 
         [Test]
         public void AutomaticallyRecognizedBaseGameRowsAreReadOnly()
         {
             FileManagerRow row = CreateRow("falloutnv.esm");
-            HashSet<string> baseFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { row.NormalizedRelativePath };
+            HashSet<string> baseFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { row.RelativePath };
 
             FileManagerQueryService.ApplySourceClassification(row, null, baseFiles, EmptyManualSources());
 
@@ -83,7 +85,7 @@
             firstService.ChangeManualSource("FalloutNV", row, FileManagerSource.ExternalModManager, FileManagerSource.Untracked);
             IDictionary<string, FileManagerSource> restored = secondService.LoadManualSources("FalloutNV");
 
-            Assert.AreEqual(FileManagerSource.ExternalModManager, restored[row.NormalizedRelativePath]);
+            Assert.AreEqual(FileManagerSource.ExternalModManager, restored[row.RelativePath]);
         }
 
         [Test]
@@ -96,6 +98,24 @@
             FileManagerQueryService.ApplySourceClassification(row, null, EmptyBaseFiles(), store.Load("FalloutNV"));
 
             Assert.AreEqual(FileManagerSource.Creations, row.Source);
+        }
+
+        [Test]
+        public void NormalizePathReusesAlreadyNormalizedPathWithoutChangingCase()
+        {
+            string path = "Textures\\Armor\\Combat.DDS";
+
+            string normalizedPath = FileManagerQueryService.NormalizePath(path);
+
+            Assert.AreSame(path, normalizedPath);
+        }
+
+        [Test]
+        public void NormalizePathConvertsSeparatorsWithoutLowercasing()
+        {
+            string normalizedPath = FileManagerQueryService.NormalizePath("\\Textures/Armor/Combat.DDS");
+
+            Assert.AreEqual("Textures\\Armor\\Combat.DDS", normalizedPath);
         }
 
         [Test]
@@ -125,7 +145,7 @@
             FileManagerRow refreshedRow = CreateRow("textures\\remove.dds");
             FileManagerQueryService.ApplySourceClassification(refreshedRow, null, EmptyBaseFiles(), service.LoadManualSources("FalloutNV"));
 
-            Assert.IsFalse(service.LoadManualSources("FalloutNV").ContainsKey(row.NormalizedRelativePath));
+            Assert.IsFalse(service.LoadManualSources("FalloutNV").ContainsKey(row.RelativePath));
             Assert.AreEqual(FileManagerSource.Untracked, refreshedRow.Source);
         }
 
@@ -135,7 +155,7 @@
             FileManagerRow row = CreateRow("textures\\owned.dds");
             Dictionary<string, FileManagerSource> manualSources = new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase)
             {
-                { row.NormalizedRelativePath, FileManagerSource.Creations }
+                { row.RelativePath, FileManagerSource.Creations }
             };
             List<IVirtualModLink> links = new List<IVirtualModLink>
             {
@@ -154,9 +174,9 @@
             FileManagerRow row = CreateRow("base.esm");
             Dictionary<string, FileManagerSource> manualSources = new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase)
             {
-                { row.NormalizedRelativePath, FileManagerSource.ExternalModManager }
+                { row.RelativePath, FileManagerSource.ExternalModManager }
             };
-            HashSet<string> baseFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { row.NormalizedRelativePath };
+            HashSet<string> baseFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { row.RelativePath };
 
             FileManagerQueryService.ApplySourceClassification(row, null, baseFiles, manualSources);
 
@@ -195,7 +215,9 @@
 
             Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
             Assert.AreEqual(FileManagerQueryService.CreateOwnerKey(lowPriority), row.OwnerKey);
+            Assert.AreEqual(2, row.OwnerCount);
             Assert.AreEqual(2, row.OwnerCandidates.Count);
+            Assert.IsTrue(row.OwnerEditable);
             Assert.AreEqual(FileManagerQueryService.CreateOwnerKey(highPriority), row.OwnerCandidates[0].OwnerKey);
             Assert.AreEqual(FileManagerQueryService.CreateOwnerKey(lowPriority), row.OwnerCandidates[1].OwnerKey);
         }
@@ -240,8 +262,7 @@
         {
             return new FileManagerRow
             {
-                RelativePath = relativePath,
-                NormalizedRelativePath = FileManagerQueryService.NormalizePath(relativePath)
+                RelativePath = FileManagerQueryService.NormalizePath(relativePath)
             };
         }
 

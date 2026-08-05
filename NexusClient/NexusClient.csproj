@@ -86,6 +86,8 @@
     <Compile Include="ModManagement\ProfileSwitchSetupTask.cs" />
     <Compile Include="ModManagement\FileManagerModels.cs" />
     <Compile Include="ModManagement\FileManagerManualSourceStore.cs" />
+    <Compile Include="ModManagement\FileManagerLinkTypeResolver.cs" />
+    <Compile Include="ModManagement\FileManagerNativeFileEnumerator.cs" />
     <Compile Include="ModManagement\FileManagerPreview.cs" />
     <Compile Include="ModManagement\FileManagerQueryService.cs" />
     <Compile Include="ModManagement\UI\FileManagerVM.cs" />

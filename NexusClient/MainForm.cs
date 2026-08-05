@@ -2364,7 +2364,7 @@
 			}
 
 			DialogResult drProfileSwitch = ProgressDialog.ShowDialog(this, e.Argument, false);
-			if (drProfileSwitch != DialogResult.OK || e.Argument.Status != TaskStatus.Complete)
+			if (drProfileSwitch != DialogResult.OK || e.Argument.Status != BackgroundTasks.TaskStatus.Complete)
 			{
 				HandleFailedProfileSwitch(GetBackgroundTaskError(e.Argument, "The selected profile could not be activated."));
 				return;
@@ -2382,7 +2382,7 @@
 				if (bgtLoadOrder != null)
 				{
 					DialogResult drLoadOrder = ProgressDialog.ShowDialog(this, bgtLoadOrder, false);
-					if (drLoadOrder != DialogResult.OK || bgtLoadOrder.Status != TaskStatus.Complete)
+					if (drLoadOrder != DialogResult.OK || bgtLoadOrder.Status != BackgroundTasks.TaskStatus.Complete)
 					{
 						HandleFailedProfileSwitch(GetBackgroundTaskError(bgtLoadOrder, "The profile plugin state is invalid and could not be applied."));
 						return;
@@ -2434,7 +2434,7 @@
 			if (bgtRollback != null)
 			{
 				DialogResult drRollback = ProgressDialog.ShowDialog(this, bgtRollback, false);
-				if (drRollback != DialogResult.OK || bgtRollback.Status != TaskStatus.Complete)
+				if (drRollback != DialogResult.OK || bgtRollback.Status != BackgroundTasks.TaskStatus.Complete)
 					lstRollbackErrors.Add(GetBackgroundTaskError(bgtRollback, "The previous profile's deployed files could not be fully restored."));
 			}
 
@@ -2447,7 +2447,7 @@
 				if (bgtPreviousLoadOrder != null)
 				{
 					DialogResult drPreviousLoadOrder = ProgressDialog.ShowDialog(this, bgtPreviousLoadOrder, false);
-					if (drPreviousLoadOrder != DialogResult.OK || bgtPreviousLoadOrder.Status != TaskStatus.Complete)
+					if (drPreviousLoadOrder != DialogResult.OK || bgtPreviousLoadOrder.Status != BackgroundTasks.TaskStatus.Complete)
 						lstRollbackErrors.Add(GetBackgroundTaskError(bgtPreviousLoadOrder, "The previous plugin state could not be fully restored."));
 				}
 

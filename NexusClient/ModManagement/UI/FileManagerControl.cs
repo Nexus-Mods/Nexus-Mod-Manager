@@ -37,6 +37,7 @@
         private readonly SplitContainerControl _splitContainer;
         private readonly GridControl _gridControl;
         private readonly GridView _gridView;
+        private GridColumn _linkTypeColumn;
         private readonly FilePreviewControl _previewControl;
         private readonly Label _summaryLabel;
         private readonly Label _statusLabel;
@@ -273,6 +274,7 @@
                     _fileManagerVM = new FileManagerVM(_viewModel);
                     _fileManagerVM.PropertyChanged += FileManagerVM_PropertyChanged;
                     BindRows(_fileManagerVM.Rows);
+                    UpdateLinkTypeColumnAvailability();
                     UpdateLabels();
                     RestoreGridLayout();
                 }
@@ -367,6 +369,14 @@
             {
                 _gridView.RefreshData();
             }
+            else if (e.PropertyName == "LinkTypeResolutionBatch")
+            {
+                _gridControl.Invalidate();
+            }
+            else if (e.PropertyName == "IsResolvingLinkTypes")
+            {
+                UpdateLinkTypeColumnAvailability();
+            }
 
             UpdateLabels();
         }
@@ -395,7 +405,9 @@
             }
             else
             {
-                _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay;
+                _statusLabel.Text = _fileManagerVM.IsResolvingLinkTypes
+                    ? _fileManagerVM.StatusMessage
+                    : (String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay);
                 _refreshButton.Text = "Refresh";
                 _refreshButton.BackColor = SystemColors.Control;
                 _refreshButton.UseVisualStyleBackColor = true;
@@ -658,7 +670,7 @@
             size.DisplayFormat.Format = new FileSizeFormatter();
             size.AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
 			AddColumn("RelativePath", "Relative Path", 260, false);
-			AddColumn("LinkType", "Link Type", 70, false);
+			_linkTypeColumn = AddColumn("LinkType", "Link Type", 82, false);
 			GridColumn source = AddColumn("Source", "Source", 160, true);
             source.OptionsColumn.AllowEdit = true;
 			GridColumn owners = AddColumn(
@@ -681,6 +693,26 @@
 
 			owner.OptionsColumn.AllowEdit = true;
 		}
+
+        /// <summary>
+        /// Enables Link Type sorting and filtering only after every pending value has been resolved.
+        /// </summary>
+        private void UpdateLinkTypeColumnAvailability()
+        {
+            if (_linkTypeColumn == null)
+                return;
+
+            bool allowOperations = _fileManagerVM == null || !_fileManagerVM.IsResolvingLinkTypes;
+            if (!allowOperations && _linkTypeColumn.SortOrder != DevExpress.Data.ColumnSortOrder.None)
+                _linkTypeColumn.SortOrder = DevExpress.Data.ColumnSortOrder.None;
+
+            _linkTypeColumn.OptionsColumn.AllowSort = allowOperations ? DefaultBoolean.True : DefaultBoolean.False;
+            _linkTypeColumn.OptionsFilter.AllowFilter = allowOperations;
+            _linkTypeColumn.OptionsFilter.AllowAutoFilter = allowOperations;
+
+            if (allowOperations)
+                _gridView.RefreshData();
+        }
 
         private GridColumn AddColumn(string fieldName, string caption, int width, bool allowEdit)
         {

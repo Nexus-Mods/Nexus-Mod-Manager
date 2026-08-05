@@ -35,7 +35,7 @@
                 throw new DirectoryNotFoundException("The deployment root does not exist or is inaccessible: " + (deploymentRoot ?? String.Empty));
 
             Stopwatch stageWatch = Stopwatch.StartNew();
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot, diagnostics);
             diagnostics.VirtualLinkIndexMilliseconds = stageWatch.ElapsedMilliseconds;
 
             stageWatch.Restart();
@@ -46,80 +46,93 @@
             IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
             diagnostics.ManualSourceLoadMilliseconds = stageWatch.ElapsedMilliseconds;
 
-            List<FileManagerRow> rows = new List<FileManagerRow>();
-            Dictionary<string, FileManagerRow> rowsByPath = new Dictionary<string, FileManagerRow>(StringComparer.OrdinalIgnoreCase);
+            int initialRowCapacity = EstimateInitialRowCapacity(ownershipByPath.Count, baseFiles.Count, manualSources.Count);
+            List<FileManagerRow> rows = new List<FileManagerRow>(initialRowCapacity);
+            Dictionary<string, FileManagerRow> rowsByPath = new Dictionary<string, FileManagerRow>(initialRowCapacity, StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> fileTypeCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             FileManagerSourceCounts counts = new FileManagerSourceCounts();
-            string rootPrefix = GetNormalizedRootPrefix(deploymentRoot);
-            int skippedFiles = 0;
             FileManagerEnumerationStats enumerationStats = new FileManagerEnumerationStats();
-            long metadataTicks = 0;
+            long rowConstructionTicks = 0;
             long classificationTicks = 0;
-            Stopwatch enumerationWatch = Stopwatch.StartNew();
+            long indexConstructionTicks = 0;
+            int publishedReparseFileCount = 0;
+            long enumerationStart = Stopwatch.GetTimestamp();
 
-            foreach (string filePath in EnumerateFilesSafely(deploymentRoot, cancellationToken, enumerationStats))
+            foreach (FileManagerFileEntry fileEntry in FileManagerNativeFileEnumerator.EnumerateFiles(deploymentRoot, cancellationToken, enumerationStats))
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                Stopwatch perFileWatch = Stopwatch.StartNew();
-                FileInfo fileInfo;
+                FileManagerRow row = null;
+                string normalizedPath = String.Empty;
+                bool isReparsePoint = false;
+                long rowConstructionStart = Stopwatch.GetTimestamp();
                 try
                 {
-                    fileInfo = new FileInfo(filePath);
-                    if (!fileInfo.Exists)
+                    normalizedPath = NormalizePath(fileEntry.RelativePath);
+                    if (String.IsNullOrWhiteSpace(normalizedPath))
                     {
-                        skippedFiles++;
+                        enumerationStats.SkippedFiles++;
                         continue;
                     }
+
+                    isReparsePoint = (fileEntry.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint;
+                    row = new FileManagerRow
+                    {
+                        FullPath = fileEntry.FullPath,
+                        FileName = fileEntry.FileName,
+                        FileType = GetFileType(fileEntry.FileName, fileTypeCache),
+                        RawSize = fileEntry.Length,
+                        RelativePath = normalizedPath
+                    };
+                    if (isReparsePoint)
+                        row.SetLinkTypeState(FileManagerLinkTypeState.SymbolicLink, false);
                 }
                 catch
                 {
-                    skippedFiles++;
+                    enumerationStats.SkippedFiles++;
                     continue;
                 }
-
-                long length = fileInfo.Length;
-                metadataTicks += perFileWatch.ElapsedTicks;
-
-                string relativePath = GetRelativePath(rootPrefix, filePath);
-                string normalizedPath = NormalizePath(relativePath);
-
-				string LinkType = FileLinkHelper.GetFileLinkType(filePath).ToString();
-
-                FileManagerRow row = new FileManagerRow
+                finally
                 {
-                    FullPath = filePath,
-                    FileName = Path.GetFileName(filePath),
-                    FileType = GetFileType(filePath),
-                    RawSize = length,
-                    SizeDisplay = FormatSize(length),
-                    RelativePath = relativePath,
-                    NormalizedRelativePath = normalizedPath,
-					LinkType = LinkType
-                };
+                    rowConstructionTicks += Stopwatch.GetTimestamp() - rowConstructionStart;
+                }
 
-                perFileWatch.Restart();
+                long classificationStart = Stopwatch.GetTimestamp();
                 FileManagerPathOwnership ownership;
                 ownershipByPath.TryGetValue(normalizedPath, out ownership);
                 ApplySourceClassification(row, ownership, baseFiles, manualSources);
-                classificationTicks += perFileWatch.ElapsedTicks;
+                classificationTicks += Stopwatch.GetTimestamp() - classificationStart;
 
+                long indexConstructionStart = Stopwatch.GetTimestamp();
                 rows.Add(row);
                 if (!rowsByPath.ContainsKey(normalizedPath))
                     rowsByPath.Add(normalizedPath, row);
                 counts.Add(row.Source);
+                if (isReparsePoint)
+                    publishedReparseFileCount++;
+                indexConstructionTicks += Stopwatch.GetTimestamp() - indexConstructionStart;
             }
 
-            long enumerationTicks = Math.Max(0, enumerationWatch.ElapsedTicks - metadataTicks - classificationTicks);
+            long enumerationTotalTicks = Stopwatch.GetTimestamp() - enumerationStart;
+            long enumerationTicks = Math.Max(0, enumerationTotalTicks - rowConstructionTicks - classificationTicks - indexConstructionTicks);
             diagnostics.FileEnumerationMilliseconds = TicksToMilliseconds(enumerationTicks);
-            diagnostics.FileMetadataMilliseconds = TicksToMilliseconds(metadataTicks);
+            diagnostics.FileMetadataMilliseconds = 0;
+            diagnostics.RowConstructionMilliseconds = TicksToMilliseconds(rowConstructionTicks);
             diagnostics.ClassificationMilliseconds = TicksToMilliseconds(classificationTicks);
-            stageWatch.Restart();
-            rows.TrimExcess();
-            diagnostics.IndexConstructionMilliseconds = stageWatch.ElapsedMilliseconds;
+            diagnostics.IndexConstructionMilliseconds = TicksToMilliseconds(indexConstructionTicks);
+            diagnostics.EnumeratedFileCount = enumerationStats.EnumeratedFiles;
+            diagnostics.PublishedFileCount = rows.Count;
+            diagnostics.NativeMetadataFileCount = enumerationStats.EnumeratedFiles;
+            diagnostics.SkippedFileCount = enumerationStats.SkippedFiles;
+            diagnostics.SkippedDirectoryCount = enumerationStats.SkippedDirectories;
+            diagnostics.SkippedReparseDirectoryCount = enumerationStats.SkippedReparseDirectories;
+            diagnostics.ReparseFileCount = enumerationStats.ReparseFiles;
+            diagnostics.SymbolicLinkCount = publishedReparseFileCount;
+            diagnostics.PendingLinkTypeCount = Math.Max(0, rows.Count - publishedReparseFileCount);
             totalWatch.Stop();
             diagnostics.TotalMilliseconds = totalWatch.ElapsedMilliseconds;
 
-            Trace.TraceInformation("File Manager scan completed. Files={0}, skippedFiles={1}, skippedDirectories={2}, {3}", rows.Count, skippedFiles, enumerationStats.SkippedDirectories, diagnostics);
+            Trace.TraceInformation("File Manager scan completed. {0}", diagnostics);
             return new FileManagerScanResult(deploymentRoot, rows, rowsByPath, counts, DateTime.Now, diagnostics);
         }
 
@@ -141,7 +154,7 @@
                     continue;
 
                 FileManagerPathOwnership ownership;
-                ownershipByPath.TryGetValue(row.NormalizedRelativePath, out ownership);
+                ownershipByPath.TryGetValue(row.RelativePath, out ownership);
                 ApplySourceClassification(row, ownership, baseFiles, manualSources);
                 counts.Add(row.Source);
             }
@@ -168,14 +181,14 @@
             for (int index = rows.Count - 1; index >= 0; index--)
             {
                 FileManagerRow row = rows[index];
-                if (row == null || String.IsNullOrWhiteSpace(row.NormalizedRelativePath))
+                if (row == null || String.IsNullOrWhiteSpace(row.RelativePath))
                 {
                     rows.RemoveAt(index);
                     continue;
                 }
 
                 FileManagerPathOwnership ownership;
-                bool hasActiveOwnership = ownershipByPath.TryGetValue(row.NormalizedRelativePath, out ownership) && ownership != null && ownership.HasActiveOwner;
+                bool hasActiveOwnership = ownershipByPath.TryGetValue(row.RelativePath, out ownership) && ownership != null && ownership.HasActiveOwner;
 
                 if (hasActiveOwnership)
                 {
@@ -192,8 +205,8 @@
                     ApplySourceClassification(row, (FileManagerPathOwnership)null, baseFiles, manualSources);
                 }
 
-                if (!rowsByNormalizedPath.ContainsKey(row.NormalizedRelativePath))
-                    rowsByNormalizedPath.Add(row.NormalizedRelativePath, row);
+                if (!rowsByNormalizedPath.ContainsKey(row.RelativePath))
+                    rowsByNormalizedPath.Add(row.RelativePath, row);
             }
 
             foreach (KeyValuePair<string, FileManagerPathOwnership> pair in ownershipByPath)
@@ -207,16 +220,16 @@
                     continue;
 
                 FileManagerRow row = CreateRow(fullPath, rootPrefix);
-                if (row == null || rowsByNormalizedPath.ContainsKey(row.NormalizedRelativePath))
+                if (row == null || rowsByNormalizedPath.ContainsKey(row.RelativePath))
                     continue;
 
                 FileManagerPathOwnership canonicalOwnership;
-                if (!ownershipByPath.TryGetValue(row.NormalizedRelativePath, out canonicalOwnership))
+                if (!ownershipByPath.TryGetValue(row.RelativePath, out canonicalOwnership))
                     canonicalOwnership = ownership;
 
                 ApplySourceClassification(row, canonicalOwnership, baseFiles, manualSources);
                 rows.Add(row);
-                rowsByNormalizedPath.Add(row.NormalizedRelativePath, row);
+                rowsByNormalizedPath.Add(row.RelativePath, row);
             }
 
             FileManagerSourceCounts counts = new FileManagerSourceCounts();
@@ -232,7 +245,7 @@
             if (row == null || virtualModActivator == null)
                 return;
 
-            FileManagerPathOwnership ownership = BuildOwnershipForPath(virtualModActivator, gameMode, row.NormalizedRelativePath);
+            FileManagerPathOwnership ownership = BuildOwnershipForPath(virtualModActivator, gameMode, row.RelativePath);
             if (ownership != null && ownership.HasActiveOwner)
                 ApplyNmmOwnership(row, ownership);
         }
@@ -268,7 +281,10 @@
             if (_manualSourceStore == null)
                 return new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase);
 
-            return _manualSourceStore.Load(gameModeId) ?? new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase);
+            IDictionary<string, FileManagerSource> loadedSources = _manualSourceStore.Load(gameModeId);
+            return loadedSources == null
+                ? new Dictionary<string, FileManagerSource>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, FileManagerSource>(loadedSources, StringComparer.OrdinalIgnoreCase);
         }
 
         public void SaveManualSource(string gameModeId, FileManagerRow row, FileManagerSource source)
@@ -277,7 +293,7 @@
                 return;
             if (row == null) throw new ArgumentNullException("row");
 
-            _manualSourceStore.SetSource(gameModeId, row.NormalizedRelativePath, source);
+            _manualSourceStore.SetSource(gameModeId, row.RelativePath, source);
         }
 
         public void ChangeManualSource(string gameModeId, FileManagerRow row, FileManagerSource source, FileManagerSource previousSource)
@@ -311,7 +327,7 @@
                 return;
             }
 
-            if (baseFiles != null && baseFiles.Contains(row.NormalizedRelativePath))
+            if (baseFiles != null && baseFiles.Contains(row.RelativePath))
             {
                 row.SourceEditable = false;
                 row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
@@ -326,7 +342,7 @@
             row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
             row.OwnerKey = String.Empty;
             row.OwnerName = String.Empty;
-            if (manualSources != null && manualSources.TryGetValue(row.NormalizedRelativePath, out manualSource) && FileManagerSourceDisplay.IsManualSource(manualSource) && manualSource != FileManagerSource.Untracked)
+            if (manualSources != null && manualSources.TryGetValue(row.RelativePath, out manualSource) && FileManagerSourceDisplay.IsManualSource(manualSource) && manualSource != FileManagerSource.Untracked)
                 row.Source = manualSource;
             else
                 row.Source = FileManagerSource.Untracked;
@@ -345,9 +361,18 @@
             if (String.IsNullOrWhiteSpace(path))
                 return String.Empty;
 
-            return path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
-                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .ToLowerInvariant();
+            int startIndex = 0;
+            while (startIndex < path.Length && (path[startIndex] == Path.DirectorySeparatorChar || path[startIndex] == Path.AltDirectorySeparatorChar))
+                startIndex++;
+
+            bool replaceAlternateSeparators = path.IndexOf(Path.AltDirectorySeparatorChar, startIndex) >= 0 && Path.AltDirectorySeparatorChar != Path.DirectorySeparatorChar;
+            if (startIndex == 0 && !replaceAlternateSeparators)
+                return path;
+
+            string normalizedPath = startIndex == 0 ? path : path.Substring(startIndex);
+            return replaceAlternateSeparators
+                ? normalizedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                : normalizedPath;
         }
 
         public static string CreateOwnerKey(IVirtualModInfo modInfo)
@@ -358,39 +383,193 @@
             return (modInfo.ModFileName ?? String.Empty).ToLowerInvariant() + "|" + (modInfo.DownloadId ?? String.Empty).ToLowerInvariant();
         }
 
-        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IVirtualModActivator virtualModActivator, IGameMode gameMode, string deploymentRoot)
+        /// <summary>
+        /// Builds the File Manager ownership lookup from the activator's indexed virtual-link snapshot.
+        /// </summary>
+        /// <param name="virtualModActivator">The activator supplying virtual-link ownership information.</param>
+        /// <param name="gameMode">The current game mode.</param>
+        /// <param name="deploymentRoot">The root represented by the File Manager.</param>
+        /// <param name="diagnostics">The optional scan diagnostics receiving ownership timings and counts.</param>
+        /// <returns>A case-insensitive ownership lookup keyed by normalized relative path.</returns>
+        private static Dictionary<string, FileManagerPathOwnership> BuildVirtualLinkLookup(IVirtualModActivator virtualModActivator, IGameMode gameMode, string deploymentRoot, FileManagerScanDiagnostics diagnostics = null)
         {
-            IEnumerable<IVirtualModLink> links = virtualModActivator == null ? null : virtualModActivator.VirtualLinks;
+            Stopwatch diagnosticWatch = diagnostics == null ? null : Stopwatch.StartNew();
             List<string> sourceRoots = GetVirtualSourceRoots(virtualModActivator);
             Dictionary<string, List<IVirtualModLink>> linksByPath = new Dictionary<string, List<IVirtualModLink>>(StringComparer.OrdinalIgnoreCase);
-            if (links == null)
-                return new Dictionary<string, FileManagerPathOwnership>(StringComparer.OrdinalIgnoreCase);
-
-            List<IVirtualModLink> linkSnapshot = new List<IVirtualModLink>();
-            foreach (IVirtualModLink link in links)
-                if (link != null && !String.IsNullOrWhiteSpace(link.VirtualModPath))
-                    linkSnapshot.Add(link);
-
-            Dictionary<IVirtualModLink, string> deployedPaths = null;
             VirtualModActivator concreteActivator = virtualModActivator as VirtualModActivator;
             if (concreteActivator != null)
-                deployedPaths = concreteActivator.GetDeployedFilePaths(linkSnapshot);
-
-            foreach (IVirtualModLink link in linkSnapshot)
             {
-                string deployedPath = String.Empty;
-                if (deployedPaths != null)
-                    deployedPaths.TryGetValue(link, out deployedPath);
+                VirtualLinkIndexSnapshot snapshot = concreteActivator.GetVirtualLinkIndexSnapshot();
+                if (diagnostics != null)
+                {
+                    diagnostics.VirtualPathEntryCount = snapshot.VirtualPathEntries == null ? 0 : snapshot.VirtualPathEntries.Count;
+                    diagnostics.DeploymentPathEntryCount = snapshot.DeploymentPathEntries == null ? 0 : snapshot.DeploymentPathEntries.Count;
+                    diagnostics.VirtualLinkCount = CountSnapshotLinks(snapshot.VirtualPathEntries);
+                    diagnostics.VirtualLinkSnapshotMilliseconds = diagnosticWatch.ElapsedMilliseconds;
+                    diagnosticWatch.Restart();
+                }
 
-                foreach (string key in GetFileManagerOwnershipKeys(link, gameMode, deploymentRoot, deployedPath))
-                    AddLinkToOwnershipLookup(linksByPath, key, link);
+                AddVirtualPathSnapshotEntries(linksByPath, snapshot.VirtualPathEntries);
+                if (diagnostics != null)
+                {
+                    diagnostics.VirtualPathMappingMilliseconds = diagnosticWatch.ElapsedMilliseconds;
+                    diagnosticWatch.Restart();
+                }
+
+                int mappedDeploymentPathCount = AddDeploymentPathSnapshotEntries(linksByPath, snapshot.DeploymentPathEntries, deploymentRoot);
+                if (diagnostics != null)
+                {
+                    diagnostics.MappedDeploymentPathEntryCount = mappedDeploymentPathCount;
+                    diagnostics.DeploymentPathMappingMilliseconds = diagnosticWatch.ElapsedMilliseconds;
+                    diagnosticWatch.Restart();
+                }
+            }
+            else
+            {
+                if (diagnostics != null)
+                    diagnosticWatch.Restart();
+
+                int virtualLinkCount = AddUnindexedVirtualLinks(linksByPath, virtualModActivator, gameMode, deploymentRoot);
+                if (diagnostics != null)
+                {
+                    diagnostics.VirtualLinkCount = virtualLinkCount;
+                    diagnostics.VirtualPathMappingMilliseconds = diagnosticWatch.ElapsedMilliseconds;
+                    diagnosticWatch.Restart();
+                }
             }
 
             Dictionary<string, FileManagerPathOwnership> ownershipByPath = new Dictionary<string, FileManagerPathOwnership>(linksByPath.Count, StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<string, List<IVirtualModLink>> pair in linksByPath)
-                ownershipByPath.Add(pair.Key, BuildOwnership(pair.Value, sourceRoots));
+            {
+                FileManagerPathOwnership ownership = BuildOwnership(pair.Value, sourceRoots);
+                ownershipByPath.Add(pair.Key, ownership);
+                if (diagnostics == null)
+                    continue;
+
+                diagnostics.OwnershipLinkReferenceCount += pair.Value == null ? 0 : pair.Value.Count;
+                if (ownership == null)
+                    continue;
+
+                if (ownership.HasActiveOwner)
+                    diagnostics.ActiveOwnershipPathCount++;
+                if (ownership.OwnerCount > 1)
+                    diagnostics.ConflictingOwnerPathCount++;
+                else
+                    diagnostics.SingleOwnerPathCount++;
+            }
+
+            if (diagnostics != null)
+            {
+                diagnostics.OwnershipGroupingMilliseconds = diagnosticWatch.ElapsedMilliseconds;
+                diagnostics.OwnershipPathCount = ownershipByPath.Count;
+            }
 
             return ownershipByPath;
+        }
+
+        /// <summary>
+        /// Counts the virtual-link references stored in the virtual-path side of an index snapshot.
+        /// </summary>
+        /// <param name="entries">The virtual-path snapshot entries.</param>
+        /// <returns>The number of indexed virtual links.</returns>
+        private static int CountSnapshotLinks(IList<VirtualLinkIndexSnapshotEntry> entries)
+        {
+            if (entries == null)
+                return 0;
+
+            int count = 0;
+            foreach (VirtualLinkIndexSnapshotEntry entry in entries)
+                if (entry != null && entry.Links != null)
+                    count += entry.Links.Count;
+
+            return count;
+        }
+
+        /// <summary>
+        /// Adds raw virtual-path entries from an immutable index snapshot.
+        /// </summary>
+        /// <param name="linksByPath">The destination ownership grouping.</param>
+        /// <param name="entries">The virtual-path snapshot entries.</param>
+        private static void AddVirtualPathSnapshotEntries(Dictionary<string, List<IVirtualModLink>> linksByPath, IList<VirtualLinkIndexSnapshotEntry> entries)
+        {
+            if (entries == null)
+                return;
+
+            foreach (VirtualLinkIndexSnapshotEntry entry in entries)
+            {
+                if (entry == null)
+                    continue;
+
+                string normalizedPath = NormalizePath(entry.Key);
+                AddLinksToOwnershipLookup(linksByPath, normalizedPath, entry.Links);
+            }
+        }
+
+        /// <summary>
+        /// Adds deployment-path entries that fall beneath the File Manager deployment root.
+        /// </summary>
+        /// <param name="linksByPath">The destination ownership grouping.</param>
+        /// <param name="entries">The deployment-path snapshot entries.</param>
+        /// <param name="deploymentRoot">The root represented by the File Manager.</param>
+        /// <returns>The number of deployment-path entries mapped beneath the requested root.</returns>
+        private static int AddDeploymentPathSnapshotEntries(Dictionary<string, List<IVirtualModLink>> linksByPath, IList<VirtualLinkIndexSnapshotEntry> entries, string deploymentRoot)
+        {
+            if (entries == null || String.IsNullOrWhiteSpace(deploymentRoot))
+                return 0;
+
+            string rootPrefix;
+            try
+            {
+                rootPrefix = GetNormalizedRootPrefix(deploymentRoot);
+            }
+            catch
+            {
+                return 0;
+            }
+
+            int mappedEntryCount = 0;
+            foreach (VirtualLinkIndexSnapshotEntry entry in entries)
+            {
+                if (entry == null || entry.Links == null || entry.Links.Count == 0 || String.IsNullOrWhiteSpace(entry.Key) || !entry.Key.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string normalizedPath = NormalizePath(entry.Key.Substring(rootPrefix.Length));
+                if (String.IsNullOrWhiteSpace(normalizedPath))
+                    continue;
+
+                AddLinksToOwnershipLookup(linksByPath, normalizedPath, entry.Links);
+                mappedEntryCount++;
+            }
+
+            return mappedEntryCount;
+        }
+
+        /// <summary>
+        /// Builds ownership groups for activator implementations that do not expose the optimized index snapshot.
+        /// </summary>
+        /// <param name="linksByPath">The destination ownership grouping.</param>
+        /// <param name="virtualModActivator">The virtual mod activator.</param>
+        /// <param name="gameMode">The current game mode.</param>
+        /// <param name="deploymentRoot">The root represented by the File Manager.</param>
+        /// <returns>The number of valid virtual links inspected.</returns>
+        private static int AddUnindexedVirtualLinks(Dictionary<string, List<IVirtualModLink>> linksByPath, IVirtualModActivator virtualModActivator, IGameMode gameMode, string deploymentRoot)
+        {
+            IEnumerable<IVirtualModLink> links = virtualModActivator == null ? null : virtualModActivator.VirtualLinks;
+            if (links == null)
+                return 0;
+
+            int virtualLinkCount = 0;
+            foreach (IVirtualModLink link in links)
+            {
+                if (link == null || String.IsNullOrWhiteSpace(link.VirtualModPath))
+                    continue;
+
+                virtualLinkCount++;
+                foreach (string key in GetFileManagerOwnershipKeys(link, gameMode, deploymentRoot, String.Empty))
+                    AddLinkToOwnershipLookup(linksByPath, key, link);
+            }
+
+            return virtualLinkCount;
         }
 
         private static FileManagerPathOwnership BuildOwnershipForPath(IVirtualModActivator virtualModActivator, IGameMode gameMode, string normalizedPath)
@@ -449,19 +628,35 @@
             return String.Empty;
         }
 
+        /// <summary>
+        /// Adds all links from one snapshot bucket to a normalized ownership path without duplicates.
+        /// </summary>
+        /// <param name="linksByPath">The destination ownership grouping.</param>
+        /// <param name="key">The normalized relative path.</param>
+        /// <param name="links">The links to add.</param>
+        private static void AddLinksToOwnershipLookup(Dictionary<string, List<IVirtualModLink>> linksByPath, string key, IList<IVirtualModLink> links)
+        {
+            if (links == null)
+                return;
+
+            foreach (IVirtualModLink link in links)
+                AddLinkToOwnershipLookup(linksByPath, key, link);
+        }
+
         private static void AddLinkToOwnershipLookup(Dictionary<string, List<IVirtualModLink>> linksByPath, string key, IVirtualModLink link)
         {
-            if (String.IsNullOrWhiteSpace(key))
+            if (String.IsNullOrWhiteSpace(key) || link == null)
                 return;
 
             List<IVirtualModLink> fileLinks;
             if (!linksByPath.TryGetValue(key, out fileLinks))
             {
-                fileLinks = new List<IVirtualModLink>();
+                fileLinks = new List<IVirtualModLink>(1);
                 linksByPath.Add(key, fileLinks);
             }
 
-            fileLinks.Add(link);
+            if (!fileLinks.Contains(link))
+                fileLinks.Add(link);
         }
 
         private static FileManagerPathOwnership BuildOwnership(IList<IVirtualModLink> pathLinks)
@@ -474,7 +669,18 @@
             if (pathLinks == null || pathLinks.Count == 0)
                 return null;
 
-            List<IVirtualModLink> orderedLinks = new List<IVirtualModLink>();
+            if (pathLinks.Count == 1 && pathLinks[0] != null)
+            {
+                IVirtualModLink soleOwner = pathLinks[0];
+                return new FileManagerPathOwnership(
+                    soleOwner.Active,
+                    CreateOwnerKey(soleOwner.ModInfo),
+                    soleOwner.ModInfo == null ? String.Empty : soleOwner.ModInfo.ModName,
+                    1,
+                    FileManagerRow.EmptyOwnerCandidates);
+            }
+
+            List<IVirtualModLink> orderedLinks = new List<IVirtualModLink>(pathLinks.Count);
             foreach (IVirtualModLink link in pathLinks)
                 if (link != null)
                     orderedLinks.Add(link);
@@ -482,7 +688,19 @@
             if (orderedLinks.Count == 0)
                 return null;
 
+            if (orderedLinks.Count == 1)
+            {
+                IVirtualModLink soleOwner = orderedLinks[0];
+                return new FileManagerPathOwnership(
+                    soleOwner.Active,
+                    CreateOwnerKey(soleOwner.ModInfo),
+                    soleOwner.ModInfo == null ? String.Empty : soleOwner.ModInfo.ModName,
+                    1,
+                    FileManagerRow.EmptyOwnerCandidates);
+            }
+
             orderedLinks.Sort(CompareVirtualLinksForOwnerDisplay);
+
             IVirtualModLink activeOwner = null;
             foreach (IVirtualModLink link in orderedLinks)
             {
@@ -496,22 +714,38 @@
             if (activeOwner == null)
                 activeOwner = orderedLinks[0];
 
-            List<FileManagerOwnerCandidate> candidates = FileManagerRow.EmptyOwnerCandidates;
-            if (activeOwner.Active)
+            HashSet<string> seenOwnerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            List<IVirtualModLink> distinctOwners = new List<IVirtualModLink>(orderedLinks.Count);
+            foreach (IVirtualModLink link in orderedLinks)
             {
-                candidates = new List<FileManagerOwnerCandidate>();
-                HashSet<string> seenOwnerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (IVirtualModLink link in orderedLinks)
-                {
-                    string ownerKey = CreateOwnerKey(link.ModInfo);
-                    if (!seenOwnerKeys.Add(ownerKey))
-                        continue;
+                string ownerKey = CreateOwnerKey(link.ModInfo);
+                if (!seenOwnerKeys.Add(ownerKey))
+                    continue;
 
-                    candidates.Add(new FileManagerOwnerCandidate(ownerKey, link.ModInfo == null ? String.Empty : link.ModInfo.ModName, link.Priority, ResolvePreviewFilePath(link, sourceRoots)));
+                distinctOwners.Add(link);
+            }
+
+            List<FileManagerOwnerCandidate> candidates = FileManagerRow.EmptyOwnerCandidates;
+            if (activeOwner.Active && distinctOwners.Count > 1)
+            {
+                candidates = new List<FileManagerOwnerCandidate>(distinctOwners.Count);
+                foreach (IVirtualModLink link in distinctOwners)
+                {
+                    candidates.Add(new FileManagerOwnerCandidate(
+                        CreateOwnerKey(link.ModInfo),
+                        link.ModInfo == null ? String.Empty : link.ModInfo.ModName,
+                        link.Priority,
+                        link.RealModPath,
+                        sourceRoots));
                 }
             }
 
-            return new FileManagerPathOwnership(activeOwner.Active, CreateOwnerKey(activeOwner.ModInfo), activeOwner.ModInfo == null ? String.Empty : activeOwner.ModInfo.ModName, candidates);
+            return new FileManagerPathOwnership(
+                activeOwner.Active,
+                CreateOwnerKey(activeOwner.ModInfo),
+                activeOwner.ModInfo == null ? String.Empty : activeOwner.ModInfo.ModName,
+                distinctOwners.Count,
+                candidates);
         }
 
         private static List<string> GetVirtualSourceRoots(IVirtualModActivator virtualModActivator)
@@ -536,30 +770,6 @@
             }
 
             return sourceRoots;
-        }
-
-        private static string ResolvePreviewFilePath(IVirtualModLink link, IList<string> sourceRoots)
-        {
-            if (link == null || String.IsNullOrWhiteSpace(link.RealModPath))
-                return String.Empty;
-
-            if (Path.IsPathRooted(link.RealModPath) && File.Exists(link.RealModPath))
-                return link.RealModPath;
-
-            if (sourceRoots != null)
-            {
-                foreach (string sourceRoot in sourceRoots)
-                {
-                    if (String.IsNullOrWhiteSpace(sourceRoot))
-                        continue;
-
-                    string filePath = Path.Combine(sourceRoot, link.RealModPath);
-                    if (File.Exists(filePath))
-                        return filePath;
-                }
-            }
-
-            return String.Empty;
         }
 
         private static string GetSafeDeploymentFilePath(string deploymentRoot, string rootPrefix, string normalizedRelativePath)
@@ -591,19 +801,17 @@
                 if (String.IsNullOrWhiteSpace(normalizedPath))
                     return null;
 
-				string LinkType = FileLinkHelper.GetFileLinkType(filePath).ToString();
-
-				return new FileManagerRow
+                string fileName = Path.GetFileName(filePath);
+                FileManagerRow row = new FileManagerRow
                 {
                     FullPath = filePath,
-                    FileName = Path.GetFileName(filePath),
-                    FileType = GetFileType(filePath),
+                    FileName = fileName,
+                    FileType = GetFileType(fileName, null),
                     RawSize = fileInfo.Length,
-                    SizeDisplay = FormatSize(fileInfo.Length),
-                    RelativePath = relativePath,
-                    NormalizedRelativePath = normalizedPath,
-					LinkType = LinkType
-				};
+                    RelativePath = normalizedPath
+                };
+                row.SetLinkTypeState(FileManagerRow.GetLinkTypeState(FileLinkHelper.GetFileLinkType(filePath)), false);
+                return row;
             }
             catch
             {
@@ -611,13 +819,44 @@
             }
         }
 
-        private static string GetFileType(string filePath)
+        /// <summary>
+        /// Returns a normalized file extension and reuses one shared string per extension during a bulk scan.
+        /// </summary>
+        /// <param name="filePath">The file name or path whose extension should be read.</param>
+        /// <param name="fileTypeCache">The optional case-insensitive cache used by the current scan.</param>
+        /// <returns>The lowercase extension without its leading period, or an empty string when no extension exists.</returns>
+        private static string GetFileType(string filePath, IDictionary<string, string> fileTypeCache)
         {
-            string extension = Path.GetExtension(filePath);
-            if (String.IsNullOrEmpty(extension))
+            if (String.IsNullOrEmpty(filePath))
                 return String.Empty;
 
-            return extension.TrimStart('.').ToLowerInvariant();
+            int extensionIndex = filePath.LastIndexOf('.');
+            if (extensionIndex < 0 || extensionIndex == filePath.Length - 1)
+                return String.Empty;
+
+            string extension = filePath.Substring(extensionIndex + 1);
+            string cachedExtension;
+            if (fileTypeCache != null && fileTypeCache.TryGetValue(extension, out cachedExtension))
+                return cachedExtension;
+
+            string normalizedExtension = extension.ToLowerInvariant();
+            if (fileTypeCache != null)
+                fileTypeCache[extension] = normalizedExtension;
+
+            return normalizedExtension;
+        }
+
+        /// <summary>
+        /// Estimates a practical initial capacity from indexes already loaded before file enumeration begins.
+        /// </summary>
+        /// <param name="ownershipCount">The number of known deployed ownership paths.</param>
+        /// <param name="baseFileCount">The number of known base-game paths.</param>
+        /// <param name="manualSourceCount">The number of manually classified paths.</param>
+        /// <returns>An initial row and dictionary capacity that avoids very small repeated growth.</returns>
+        private static int EstimateInitialRowCapacity(int ownershipCount, int baseFileCount, int manualSourceCount)
+        {
+            int knownPathCount = Math.Max(ownershipCount, Math.Max(baseFileCount, manualSourceCount));
+            return Math.Max(4096, knownPathCount);
         }
         private static int CompareVirtualLinksForOwnerDisplay(IVirtualModLink left, IVirtualModLink right)
         {
@@ -654,6 +893,7 @@
             row.SourceEditable = false;
             row.Source = FileManagerSource.InstalledByNmm;
             row.OwnerCandidates = ownership.OwnerCandidates;
+            row.SetOwnerCount(ownership.OwnerCount);
             row.OwnerKey = ownership.ActiveOwnerKey;
             row.OwnerName = ownership.ActiveOwnerName;
         }
@@ -670,88 +910,6 @@
             return null;
         }
 
-        private static IEnumerable<string> EnumerateFilesSafely(string root, CancellationToken cancellationToken, FileManagerEnumerationStats stats)
-        {
-            Stack<string> pending = new Stack<string>();
-            pending.Push(root);
-
-            while (pending.Count > 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                string directory = pending.Pop();
-
-                IEnumerator<string> fileEnumerator = null;
-                try
-                {
-                    fileEnumerator = Directory.EnumerateFiles(directory).GetEnumerator();
-                }
-                catch
-                {
-                    stats.SkippedDirectories++;
-                }
-
-                if (fileEnumerator != null)
-                {
-                    using (fileEnumerator)
-                    {
-                        while (true)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-                            string file;
-                            try
-                            {
-                                if (!fileEnumerator.MoveNext())
-                                    break;
-                                file = fileEnumerator.Current;
-                            }
-                            catch
-                            {
-                                stats.SkippedDirectories++;
-                                break;
-                            }
-
-                            yield return file;
-                        }
-                    }
-                }
-
-                IEnumerator<string> directoryEnumerator = null;
-                try
-                {
-                    directoryEnumerator = Directory.EnumerateDirectories(directory).GetEnumerator();
-                }
-                catch
-                {
-                    stats.SkippedDirectories++;
-                }
-
-                if (directoryEnumerator == null)
-                    continue;
-
-                using (directoryEnumerator)
-                {
-                    while (true)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        string childDirectory;
-                        try
-                        {
-                            if (!directoryEnumerator.MoveNext())
-                                break;
-                            childDirectory = directoryEnumerator.Current;
-                        }
-                        catch
-                        {
-                            stats.SkippedDirectories++;
-                            break;
-                        }
-
-                        pending.Push(childDirectory);
-                    }
-                }
-            }
-        }
-
         private static string GetNormalizedRootPrefix(string root)
         {
             return Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -766,37 +924,46 @@
             return Path.GetFileName(filePath);
         }
 
-        private static string FormatSize(long bytes)
-        {
-            if (bytes < 1024 * 1024)
-                return String.Format("{0:0.00} KB", bytes / 1024.0);
-
-            return String.Format("{0:0.00} MB", bytes / 1024.0 / 1024.0);
-        }
-
         private static long TicksToMilliseconds(long ticks)
         {
             return ticks <= 0 ? 0 : (ticks * 1000L) / Stopwatch.Frequency;
         }
     }
 
+    /// <summary>
+    /// Collects native deployment-tree enumeration counters for File Manager diagnostics.
+    /// </summary>
     internal sealed class FileManagerEnumerationStats
     {
+        public int EnumeratedFiles { get; set; }
+        public int ReparseFiles { get; set; }
+        public int SkippedFiles { get; set; }
         public int SkippedDirectories { get; set; }
+        public int SkippedReparseDirectories { get; set; }
     }
     internal sealed class FileManagerPathOwnership
     {
-        public FileManagerPathOwnership(bool hasActiveOwner, string activeOwnerKey, string activeOwnerName, List<FileManagerOwnerCandidate> ownerCandidates)
+        /// <summary>
+        /// Initializes the ownership information associated with one deployment path.
+        /// </summary>
+        /// <param name="hasActiveOwner">Whether the path currently has an active NMM owner.</param>
+        /// <param name="activeOwnerKey">The stable key of the active owner.</param>
+        /// <param name="activeOwnerName">The display name of the active owner.</param>
+        /// <param name="ownerCount">The number of distinct owners represented by the path.</param>
+        /// <param name="ownerCandidates">The selectable owner candidates, when the path has conflicts.</param>
+        public FileManagerPathOwnership(bool hasActiveOwner, string activeOwnerKey, string activeOwnerName, int ownerCount, List<FileManagerOwnerCandidate> ownerCandidates)
         {
             HasActiveOwner = hasActiveOwner;
             ActiveOwnerKey = activeOwnerKey ?? String.Empty;
             ActiveOwnerName = activeOwnerName ?? String.Empty;
+            OwnerCount = Math.Max(0, ownerCount);
             OwnerCandidates = ownerCandidates ?? FileManagerRow.EmptyOwnerCandidates;
         }
 
         public bool HasActiveOwner { get; private set; }
         public string ActiveOwnerKey { get; private set; }
         public string ActiveOwnerName { get; private set; }
+        public int OwnerCount { get; private set; }
         public List<FileManagerOwnerCandidate> OwnerCandidates { get; private set; }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 
 namespace Nexus.Client.ModManagement
@@ -73,6 +74,63 @@ namespace Nexus.Client.ModManagement
 				m_lstAdditional = null;
 			return true;
 		}
+
+		/// <summary>
+		/// Copies the links in this bucket into a compact array.
+		/// </summary>
+		/// <returns>An array containing the bucket links in index order.</returns>
+		public IVirtualModLink[] ToArray()
+		{
+			int count = Count;
+			if (count == 0)
+				return new IVirtualModLink[0];
+
+			IVirtualModLink[] links = new IVirtualModLink[count];
+			links[0] = m_vmlFirst;
+			if (m_lstAdditional != null)
+				m_lstAdditional.CopyTo(links, 1);
+			return links;
+		}
+	}
+
+	/// <summary>
+	/// Represents one immutable virtual-link index entry.
+	/// </summary>
+	internal sealed class VirtualLinkIndexSnapshotEntry
+	{
+		/// <summary>
+		/// Initializes an immutable virtual-link index entry.
+		/// </summary>
+		/// <param name="p_strKey">The indexed path key.</param>
+		/// <param name="p_lstLinks">The links associated with the key.</param>
+		public VirtualLinkIndexSnapshotEntry(string p_strKey, IList<IVirtualModLink> p_lstLinks)
+		{
+			Key = p_strKey ?? String.Empty;
+			Links = new ReadOnlyCollection<IVirtualModLink>(p_lstLinks ?? new List<IVirtualModLink>());
+		}
+
+		public string Key { get; private set; }
+		public IList<IVirtualModLink> Links { get; private set; }
+	}
+
+	/// <summary>
+	/// Provides an immutable snapshot of the virtual-path and deployment-path indexes.
+	/// </summary>
+	internal sealed class VirtualLinkIndexSnapshot
+	{
+		/// <summary>
+		/// Initializes a virtual-link index snapshot.
+		/// </summary>
+		/// <param name="p_lstVirtualPathEntries">The virtual-path index entries.</param>
+		/// <param name="p_lstDeploymentPathEntries">The deployment-path index entries.</param>
+		public VirtualLinkIndexSnapshot(IList<VirtualLinkIndexSnapshotEntry> p_lstVirtualPathEntries, IList<VirtualLinkIndexSnapshotEntry> p_lstDeploymentPathEntries)
+		{
+			VirtualPathEntries = p_lstVirtualPathEntries ?? new ReadOnlyCollection<VirtualLinkIndexSnapshotEntry>(new List<VirtualLinkIndexSnapshotEntry>());
+			DeploymentPathEntries = p_lstDeploymentPathEntries ?? new ReadOnlyCollection<VirtualLinkIndexSnapshotEntry>(new List<VirtualLinkIndexSnapshotEntry>());
+		}
+
+		public IList<VirtualLinkIndexSnapshotEntry> VirtualPathEntries { get; private set; }
+		public IList<VirtualLinkIndexSnapshotEntry> DeploymentPathEntries { get; private set; }
 	}
 
 	internal class VirtualLinkIndex
@@ -247,6 +305,17 @@ namespace Nexus.Client.ModManagement
 			return Find(m_dicLinksByDeploymentPath, p_strDeploymentPathKey);
 		}
 
+		/// <summary>
+		/// Creates an immutable copy of the path indexes for read-only consumers.
+		/// </summary>
+		/// <returns>A snapshot that can be used without holding the index lock.</returns>
+		public VirtualLinkIndexSnapshot CreateSnapshot()
+		{
+			return new VirtualLinkIndexSnapshot(
+				CreateSnapshotEntries(m_dicLinksByVirtualPath),
+				CreateSnapshotEntries(m_dicLinksByDeploymentPath));
+		}
+
 		private static IEnumerable<string> GetDeploymentPathKeys(Func<IVirtualModLink, IEnumerable<string>> p_dlgDeploymentPathKeyFactory, IVirtualModLink p_vmlLink)
 		{
 			return p_dlgDeploymentPathKeyFactory == null ? null : p_dlgDeploymentPathKeyFactory(p_vmlLink);
@@ -296,6 +365,19 @@ namespace Nexus.Client.ModManagement
 		{
 			VirtualLinkIndexBucket bucket;
 			return !String.IsNullOrEmpty(p_strKey) && p_dicIndex.TryGetValue(p_strKey, out bucket) ? bucket : null;
+		}
+
+		/// <summary>
+		/// Copies one index into immutable snapshot entries.
+		/// </summary>
+		/// <param name="p_dicIndex">The index to copy.</param>
+		/// <returns>A read-only list containing the copied entries.</returns>
+		private static IList<VirtualLinkIndexSnapshotEntry> CreateSnapshotEntries(Dictionary<string, VirtualLinkIndexBucket> p_dicIndex)
+		{
+			List<VirtualLinkIndexSnapshotEntry> entries = new List<VirtualLinkIndexSnapshotEntry>(p_dicIndex.Count);
+			foreach (KeyValuePair<string, VirtualLinkIndexBucket> pair in p_dicIndex)
+				entries.Add(new VirtualLinkIndexSnapshotEntry(pair.Key, pair.Value == null ? null : pair.Value.ToArray()));
+			return new ReadOnlyCollection<VirtualLinkIndexSnapshotEntry>(entries);
 		}
 
 		private static Dictionary<string, VirtualLinkIndexBucket> CreateIndex(int p_intCapacity)
