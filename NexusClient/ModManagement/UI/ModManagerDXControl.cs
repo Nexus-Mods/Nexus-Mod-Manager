@@ -15,6 +15,7 @@ namespace Nexus.Client.ModManagement.UI
 	using DevExpress.LookAndFeel;
 	using DevExpress.Utils;
 	using DevExpress.XtraEditors.Controls;
+	using DevExpress.XtraEditors.Drawing;
 	using ButtonEdit = DevExpress.XtraEditors.ButtonEdit;
 	using TextEdit = DevExpress.XtraEditors.TextEdit;
 	using DevExpress.XtraEditors.Repository;
@@ -1858,7 +1859,10 @@ namespace Nexus.Client.ModManagement.UI
 
 				Point screenPoint = view.GridControl.PointToScreen(e.Location);
 				EditHitInfo editorHit = editorViewInfo.CalcHitInfo(editor.PointToClient(screenPoint));
-				EditorButton button = editorHit.HitTest == EditHitTest.Button ? editorHit.HitObject as EditorButton : null;
+				EditorButtonObjectInfoArgs buttonInfo = editorHit.HitTest == EditHitTest.Button
+					? editorHit.HitObject as EditorButtonObjectInfoArgs
+					: null;
+				EditorButton button = buttonInfo?.Button;
 				if (button == null || !String.Equals(button.Tag as string, RenameButtonActionRename, StringComparison.Ordinal)) return;
 
 				DevExpress.Utils.DXMouseEventArgs dxMouseEvent = e as DevExpress.Utils.DXMouseEventArgs;
