@@ -11,7 +11,8 @@
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.UI;
     using Nexus.Client.SSO;
-    using Nexus.Client.UI;
+    using DevExpress.XtraEditors;
+	using Nexus.Client.UI;
     using Nexus.Client.Util;
     using Nexus.UI.Controls;
 
@@ -22,7 +23,7 @@
 	/// This view may actually be invisible, and simple act as the UI form that
 	/// displays the views the application initialization requests shown.
 	/// </remarks>
-	public partial class ApplicationInitializationForm : ManagedFontForm
+	public partial class ApplicationInitializationForm : ManagedFontXtraForm
 	{
 		private ApplicationInitializer m_vmlViewModel = null;
 		private DialogResult m_drtLastDialogResult = DialogResult.None;
@@ -355,7 +356,7 @@
 			if (e.ReturnValue != null)
 				ShowMessage((ViewMessage)e.ReturnValue);
 			else if (!String.IsNullOrEmpty(e.Message))
-				MessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			//only try to close the form if it has been created
 			// otherwise Close() can get called before the form is shown,
 			// and then once Show() or ShowDialog() is called an
@@ -496,7 +497,7 @@
 						break;
 				}
 				if (booFound)
-					return MessageBox.Show(this, p_vwmMessage.Message, p_vwmMessage.Title, mbbOptions, p_vwmMessage.MessageType);
+					return XtraMessageBox.Show(this, p_vwmMessage.Message, p_vwmMessage.Title, mbbOptions, p_vwmMessage.MessageType);
 			}
 			return ExtendedMessageBox.Show(this, p_vwmMessage.Message, p_vwmMessage.Title, p_vwmMessage.Details, p_vwmMessage.Options, p_vwmMessage.MessageType);
 		}

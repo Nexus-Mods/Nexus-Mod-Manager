@@ -5,9 +5,12 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using DevExpress.XtraBars;
+using DevExpress.XtraGrid.Views.Base;
+using DevExpress.XtraGrid.Views.Grid;
+using DevExpress.XtraGrid.Views.Grid.ViewInfo;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Commands;
-using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
@@ -20,26 +23,12 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 	/// </summary>
 	public partial class ModActivationMonitorControl : ManagedFontDockContent
 	{
-		private ModActivationMonitorVM m_vmlViewModel = null;
-		private float m_fltColumnRatio = 0.5f;
-		private bool m_booResizing = false;
-		private Timer m_tmrColumnSizer = new Timer();
-		private string m_strTitleAllActive = "Mod Activation Queue ({0})";
-		private string m_strTitleSomeActive = "Mod Activation Queue ({0}/{1})";
-		private bool m_booControlIsLoaded = false;
-		
-		public List<IBackgroundTaskSet> QueuedTasks = new List<IBackgroundTaskSet>();
-		private bool booQueued = false;
-		private string m_strPopupErrorMessage = string.Empty;
-		private string m_strPopupErrorMessageType = string.Empty;
-		private string m_strDetailsErrorMessageType = string.Empty;
-		private Int32 m_intFocusBoundsX = 0;
+		private readonly BindingList<ModActivationMonitorRow> _rows = new BindingList<ModActivationMonitorRow>();
+		private ModActivationMonitorVM m_vmlViewModel;
+		private readonly string m_strTitleAllActive = "Mod Activation Queue ({0})";
+		private readonly string m_strTitleSomeActive = "Mod Activation Queue ({0}/{1})";
 
-		/// <summary>
-		/// Gets the messages and images associated with the sub items.
-		/// </summary>
-		/// <value>The messages and images associated with the sub items.</value>
-		protected Dictionary<ListViewItem.ListViewSubItem, KeyValuePair<string, Image>> Messages { get; private set; }
+		public List<IBackgroundTaskSet> QueuedTasks = new List<IBackgroundTaskSet>();
 
 		#region Events
 
@@ -54,36 +43,32 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		/// <summary>
 		/// Gets or sets the view model that provides the data and operations for this view.
 		/// </summary>
-		/// <value>The view model that provides the data and operations for this view.</value>
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public ModActivationMonitorVM ViewModel
 		{
-			get
-			{
-				return m_vmlViewModel;
-			}
+			get { return m_vmlViewModel; }
 			set
 			{
 				m_vmlViewModel = value;
-				if (m_vmlViewModel != null)
-				{
-					if (m_vmlViewModel.Tasks != null)
-						foreach (IBackgroundTaskSet tskBasicInstall in m_vmlViewModel.Tasks)
-							AddTaskToList(tskBasicInstall);
-															
-					m_vmlViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
-													
-					Command cmdRemoveAll = new Command("Remove all", "Purges the completed activations from the list.", RemoveAllTasks);
-					new ToolStripItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
-					Command cmdRemoveQueued = new Command("Remove queued", "Purges the queued activations from the list.", RemoveQueuedTasks);
-					new ToolStripItemCommandBinding(tsbRemoveQueued, cmdRemoveQueued);
-					Command cmdRemoveSelected = new Command("Remove selected", "Purges the selected activation from the list.", RemoveSelectedTask);
-					new ToolStripItemCommandBinding(tsbCancel, cmdRemoveSelected);
+				_rows.Clear();
+				QueuedTasks.Clear();
+				if (m_vmlViewModel == null)
+					return;
 
-					SetCommandExecutableStatus(false);
-				}
+				foreach (IBackgroundTaskSet task in m_vmlViewModel.Tasks)
+					AddTaskToList(task);
 
-				LoadMetrics();
+				m_vmlViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
+				m_vmlViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
+
+				Command cmdRemoveAll = new Command("Remove all", "Purges the completed activations from the list.", RemoveAllTasks);
+				new DevExpressBarItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
+				Command cmdRemoveQueued = new Command("Remove queued", "Purges the queued activations from the list.", RemoveQueuedTasks);
+				new DevExpressBarItemCommandBinding(tsbRemoveQueued, cmdRemoveQueued);
+				Command cmdRemoveSelected = new Command("Remove selected", "Purges the selected activation from the list.", RemoveSelectedTask);
+				new DevExpressBarItemCommandBinding(tsbCancel, cmdRemoveSelected);
+
+				SetCommandExecutableStatus(false);
 				UpdateTitle();
 			}
 		}
@@ -98,605 +83,224 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		public ModActivationMonitorControl()
 		{
 			InitializeComponent();
-
-			clmOverallMessage.Name = "ModName";
-			clmOverallProgress.Name = "Status";
-			//clmIcon.Name = "Progress";
-						
-			m_tmrColumnSizer.Interval = 100;
-			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
-
-			Messages = new Dictionary<ListViewItem.ListViewSubItem, KeyValuePair<string, Image>>();
-			
+			gridControl.DataSource = _rows;
 			UpdateTitle();
 		}
 
 		#endregion
-		
-		#region Control Metrics Serialization
 
 		/// <summary>
 		/// Raises the <see cref="UserControl.Load"/> event of the control.
 		/// </summary>
-		/// <remarks>
-		/// This loads any saved control metrics.
-		/// </remarks>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
-
 			if (!DesignMode)
-			{
-				m_booControlIsLoaded = true;
-				LoadMetrics();
-			}
+				FindForm().FormClosing += ModActivationMonitorControl_FormClosing;
 		}
 
-		/// <summary>
-		/// Loads the control's saved metrics.
-		/// </summary>
-		protected void LoadMetrics()
-		{
-			if (m_booControlIsLoaded && (ViewModel != null))
-			{
-				ViewModel.Settings.ColumnWidths.LoadColumnWidths("ModActivationMonitor", lvwActiveTasks);
-
-				FindForm().FormClosing += new FormClosingEventHandler(ModActivationMonitorControl_FormClosing);
-				m_fltColumnRatio = (float)clmOverallMessage.Width / (clmOverallMessage.Width);
-
-				this.lvwActiveTasks.DrawSubItem += new System.Windows.Forms.DrawListViewSubItemEventHandler(ModActivationMonitorControl_DrawSubItem);
-				this.lvwActiveTasks.DrawColumnHeader += new System.Windows.Forms.DrawListViewColumnHeaderEventHandler(ModActivationMonitorControl_DrawColumnHeader);
-
-				SizeColumnsToFit();
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="Form.Closing"/> event of the parent form.
-		/// </summary>
-		/// <remarks>
-		/// This saves the control's metrics.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="FormClosingEventArgs"/> describing the event arguments.</param>
 		private void ModActivationMonitorControl_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			ViewModel.Settings.ColumnWidths.SaveColumnWidths("ModActivationMonitor", lvwActiveTasks);
-			ViewModel.Settings.Save();
-		}
-
-		#endregion
-
-		/// <summary>
-		/// Hanldes the <see cref="Control.MouseClick"/> event of the controls.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
-		private void ModActivationMonitorControl_MouseClick(object sender, MouseEventArgs e)
-		{
-			if (e.Button == MouseButtons.Right)
-			{
-				ContextMenu m = new ContextMenu();
-				m.MenuItems.Clear();
-				m.MenuItems.Add(new MenuItem("Copy to clipboard", new EventHandler(cmsContextMenu_Copy)));
-				m.Show((Control)(sender), e.Location);
-			}
-			else if (e.Button == MouseButtons.Left)
-			{
-				ListViewItem lvItem = lvwActiveTasks.GetItemAt(e.X, e.Y);
-								
-				if (lvItem == null)
-					return;
-				ListViewItem.ListViewSubItem subItem = lvItem.GetSubItemAt(e.X, e.Y);
-				if (subItem == null)
-					return;
-				if (subItem.Name == "?")
-				{
-					if (subItem.Text != string.Empty)
-					{
-						if((m_strPopupErrorMessageType == "Error") || (String.IsNullOrEmpty(m_strPopupErrorMessageType)))
-							ExtendedMessageBox.Show(this, subItem.Text, "Failed", m_strDetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Error);
-						else if(m_strPopupErrorMessageType == "Warning")
-							ExtendedMessageBox.Show(this, subItem.Text, "Warning", m_strDetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-					}
-				}
-			}
+			if (ViewModel != null)
+				ViewModel.Settings.Save();
 		}
 
 		/// <summary>
-		/// During the backup ebables or disables the Activate Mods Monitoring icons
+		/// During backup enables or disables the Activate Mods Monitoring icons.
 		/// </summary>
 		/// <param name="p_booCheck">The boolean value.</param>
 		public void SetCommandBackupAMCStatus(bool p_booCheck)
 		{
 			Control.CheckForIllegalCrossThreadCalls = false;
-			
 			tsbCancel.Enabled = p_booCheck;
 			tsbRemoveAll.Enabled = p_booCheck;
 			tsbRemoveQueued.Enabled = p_booCheck;
 		}
 
-		/// <summary>
-		/// Hanldes the <see cref="Control.KeyUp"/> event of the controls.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
-		private void ModActivationMonitorControl_KeyUp(object sender, KeyEventArgs e)
-		{
-			if (e.KeyData == (Keys.C | Keys.Control))
-			{
-				Clipboard.SetText(lvwActiveTasks.FocusedItem.SubItems["ModName"].Text + " // " + lvwActiveTasks.FocusedItem.SubItems["Status"].Text + " // " + lvwActiveTasks.FocusedItem.SubItems["Operation"].Text + " // " + lvwActiveTasks.FocusedItem.SubItems["Progress"].Text);
-			}
-			if (e.KeyData == (Keys.Control | Keys.F))
-			{
-				SetTextBoxFocus(this, e);
-			}
-		}
-
-		#region Binding
-
 		private void RemoveAllTasks()
 		{
-			List<IBackgroundTaskSet> lstTask = new List<IBackgroundTaskSet>();
-			foreach (ModActivationMonitorListViewItem Item in lvwActiveTasks.Items)
+			List<IBackgroundTaskSet> tasks = new List<IBackgroundTaskSet>();
+			foreach (ModActivationMonitorRow row in _rows)
 			{
-				if (Item.IsRemovable)
-					lstTask.Add(Item.Task);
+				if (row.IsRemovable)
+					tasks.Add(row.Task);
 			}
-			
-			if (lstTask.Count > 0)
-				ViewModel.RemoveAllTasks(lstTask);
-
-			UpdateBottomBarFeedback(null, new EventArgs());
+			if (tasks.Count > 0)
+				ViewModel.RemoveAllTasks(tasks);
+			UpdateBottomBarFeedback(null, EventArgs.Empty);
 		}
 
 		private void RemoveQueuedTasks()
 		{
 			ViewModel.RemoveQueuedTasks();
 			QueuedTasks.RemoveAll(x => x.IsQueued);
-			UpdateBottomBarFeedback(null, new EventArgs());
+			UpdateBottomBarFeedback(null, EventArgs.Empty);
 		}
-		
+
 		private void RemoveSelectedTask()
 		{
-			string strTaskName = GetSelectedTask();
-			ViewModel.RemoveSelectedTask(strTaskName);
+			string taskName = GetSelectedTask();
+			ViewModel.RemoveSelectedTask(taskName);
 			if (QueuedTasks.Count > 0)
 			{
 				ViewModel.RunningTask = QueuedTasks.First();
 				QueuedTasks.Remove(ViewModel.RunningTask);
 			}
-			UpdateBottomBarFeedback(null, new EventArgs());
+			UpdateBottomBarFeedback(null, EventArgs.Empty);
 		}
 
 		/// <summary>
-		/// Retruns the <see cref="BasicInstallTask"/> that is currently selected in the view.
+		/// Returns the selected task name.
 		/// </summary>
-		/// <returns>The <see cref="BasicInstallTask"/> that is currently selected in the view, or
-		/// <c>null</c> if no <see cref="BasicInstallTask"/> is selected.</returns>
 		private string GetSelectedTask()
 		{
-			if (lvwActiveTasks.SelectedItems.Count > 0)
-				return lvwActiveTasks.SelectedItems[0].Text;
-			else
-				return null;
+			ModActivationMonitorRow row = gridView.GetFocusedRow() as ModActivationMonitorRow;
+			return row == null ? null : row.ModName;
 		}
-				
+
 		/// <summary>
 		/// Sets the executable status of the commands.
 		/// </summary>
-		protected void SetCommandExecutableStatus(bool p_booCheckStatus)
+		protected void SetCommandExecutableStatus(bool removable)
 		{
-			tsbCancel.Enabled = (lvwActiveTasks.SelectedItems.Count > 0) && p_booCheckStatus;
+			tsbCancel.Enabled = removable && gridView.FocusedRowHandle >= 0;
 		}
-			
-		#endregion
-
-		#region Task Addition/Removal
 
 		/// <summary>
-		/// Adds the given <see cref="BasicInstallTask"/> to the view's list. If the <see cref="BasicInstallTask"/>
-		/// already exists in the list, nothing is done.
+		/// Adds the given task to the view's list if it is not already present.
 		/// </summary>
-		/// <param name="p_tskTask">The <see cref="BasicInstallTask"/> to add to the view's list.</param>
-		protected void AddTaskToList(IBackgroundTaskSet p_tskTask)
+		protected void AddTaskToList(IBackgroundTaskSet task)
 		{
-			foreach (ModActivationMonitorListViewItem lviExisitingTask in lvwActiveTasks.Items)
-				if (lviExisitingTask.Task == p_tskTask)
+			foreach (ModActivationMonitorRow existing in _rows)
+				if (existing.Task == task)
 					return;
 
-			if (ViewModel.RunningTask != null)
+			if (ShouldDiscardDuplicateTask(task))
 			{
-				if (p_tskTask.GetType() == typeof(ModInstaller))
-				{
-					foreach (IBackgroundTaskSet iBk in QueuedTasks)
-					{
-						if (iBk.GetType() == typeof(ModInstaller))
-						{
-							if (((ModInstaller)iBk).ModFileName == ((ModInstaller)p_tskTask).ModFileName)
-								if (((ModInstaller)iBk).IsQueued)
-									booQueued = true;
-						}
-						else if (iBk.GetType() == typeof(ModUninstaller))
-						{
-							if (((ModUninstaller)iBk).ModFileName == ((ModInstaller)p_tskTask).ModFileName)
-								if (((ModUninstaller)iBk).IsQueued)
-									booQueued = true;
-						}
-						else if (iBk.GetType() == typeof(ModUpgrader))
-						{
-							if (((ModUpgrader)iBk).ModFileName == ((ModInstaller)p_tskTask).ModFileName)
-								if (((ModUpgrader)iBk).IsQueued)
-									booQueued = true;
-						}
-					}
-
-					if (ViewModel.RunningTask.GetType() == typeof(ModInstaller))
-					{
-						if ((((ModInstaller)ViewModel.RunningTask).ModFileName == ((ModInstaller)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTask(((ModInstaller)p_tskTask));
-							return;
-						}
-					}
-					else if (ViewModel.RunningTask.GetType() == typeof(ModUpgrader))
-					{
-						if ((((ModUpgrader)ViewModel.RunningTask).ModFileName == ((ModInstaller)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTask(((ModInstaller)p_tskTask));
-							return;
-						}
-					} 
-				}
-				else if(p_tskTask.GetType() == typeof(ModUninstaller))
-				{
-					foreach (IBackgroundTaskSet iBk in QueuedTasks)
-					{
-						if (iBk.GetType() == typeof(ModInstaller))
-						{
-							if (((ModInstaller)iBk).ModFileName == ((ModUninstaller)p_tskTask).ModFileName)
-								if (((ModInstaller)iBk).IsQueued)
-									booQueued = true;
-						}
-						else if (iBk.GetType() == typeof(ModUninstaller))
-						{
-							if (((ModUninstaller)iBk).ModFileName == ((ModUninstaller)p_tskTask).ModFileName)
-								if (((ModUninstaller)iBk).IsQueued)
-									booQueued = true;
-						}
-						else if (iBk.GetType() == typeof(ModUpgrader))
-						{
-							if (((ModUpgrader)iBk).ModFileName == ((ModUninstaller)p_tskTask).ModFileName)
-								if (((ModUpgrader)iBk).IsQueued)
-									booQueued = true;
-						}
-					}
-
-					if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
-					{
-						if ((((ModUninstaller)ViewModel.RunningTask).ModFileName == ((ModUninstaller)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTaskUn(((ModUninstaller)p_tskTask));
-							return;
-						}
-					}
-					else if (ViewModel.RunningTask.GetType() == typeof(ModUpgrader))
-					{
-						if ((((ModUpgrader)ViewModel.RunningTask).ModFileName == ((ModUninstaller)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTaskUn(((ModUninstaller)p_tskTask));
-							return;
-						}
-					}
-				}
-				else if (p_tskTask.GetType() == typeof(ModUpgrader))
-				{
-					foreach (IBackgroundTaskSet iBk in QueuedTasks)
-					{
-						if (iBk.GetType() == typeof(ModInstaller))
-						{
-							if (((ModInstaller)iBk).ModFileName == ((ModUpgrader)p_tskTask).ModFileName)
-								if (((ModInstaller)iBk).IsQueued)
-									booQueued = true;
-						}
-						else if (iBk.GetType() == typeof(ModUninstaller))
-						{
-							if (((ModUninstaller)iBk).ModFileName == ((ModUpgrader)p_tskTask).ModFileName)
-								if (((ModUninstaller)iBk).IsQueued)
-									booQueued = true;
-						}
-						else if (iBk.GetType() == typeof(ModUpgrader))
-						{
-							if (((ModUpgrader)iBk).ModFileName == ((ModUpgrader)p_tskTask).ModFileName)
-								if (((ModUpgrader)iBk).IsQueued)
-									booQueued = true;
-						}
-					}
-
-					if (ViewModel.RunningTask.GetType() == typeof(ModInstaller))
-					{
-						if ((((ModInstaller)ViewModel.RunningTask).ModFileName == ((ModUpgrader)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTaskUpg(((ModUpgrader)p_tskTask));
-							return;
-						}
-					}
-					else if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
-					{
-						if ((((ModUninstaller)ViewModel.RunningTask).ModFileName == ((ModUpgrader)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTaskUpg(((ModUpgrader)p_tskTask));
-							return;
-						}
-					}
-					else if (ViewModel.RunningTask.GetType() == typeof(ModUpgrader))
-					{
-						if ((((ModUpgrader)ViewModel.RunningTask).ModFileName == ((ModUpgrader)p_tskTask).ModFileName) || booQueued)
-						{
-							booQueued = false;
-							m_vmlViewModel.RemoveUselessTaskUpg(((ModUpgrader)p_tskTask));
-							return;
-						}
-					}
-				}
+				DiscardDuplicateTask(task);
+				return;
 			}
 
-			p_tskTask.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(TaskSet_TaskSetCompleted);
-			ModActivationMonitorListViewItem lviActivation = new ModActivationMonitorListViewItem(p_tskTask, this);
-			UpdateBottomBarFeedback(lviActivation, new EventArgs());
-			lvwActiveTasks.Items.Add(lviActivation);
+			task.TaskSetCompleted += TaskSet_TaskSetCompleted;
+			ModActivationMonitorRow row = new ModActivationMonitorRow(task, this);
+			_rows.Add(row);
+			gridView.RefreshData();
+			CallUpdateBottomBarFeedback(row);
+			EnsureVisible(row);
 
-			try
+			if ((ViewModel.RunningTask == null) || ViewModel.RunningTask.IsCompleted)
 			{
-				lviActivation.EnsureVisible();
-			}
-			catch { }
-
-			if ((ViewModel.RunningTask == null) || (ViewModel.RunningTask.IsCompleted))
-			{
-				ViewModel.RunningTask = p_tskTask;
-				if (ViewModel.RunningTask.GetType() == typeof(ModInstaller))
-					((ModInstaller)ViewModel.RunningTask).Install();
-				else if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
-					((ModUninstaller)ViewModel.RunningTask).Install();
-				else if (ViewModel.RunningTask.GetType() == typeof(ModUpgrader))
-					((ModUpgrader)ViewModel.RunningTask).Install();
+				ViewModel.RunningTask = task;
+				StartTask(ViewModel.RunningTask);
 			}
 			else
 			{
-				QueuedTasks.Add(p_tskTask);
+				QueuedTasks.Add(task);
 			}
+		}
+
+		private static string GetTaskModFileName(IBackgroundTaskSet task)
+		{
+			if (task is ModInstaller installer)
+				return installer.ModFileName;
+			if (task is ModUninstaller uninstaller)
+				return uninstaller.ModFileName;
+			if (task is ModUpgrader upgrader)
+				return upgrader.ModFileName;
+			return null;
+		}
+
+		private bool ShouldDiscardDuplicateTask(IBackgroundTaskSet task)
+		{
+			if (ViewModel == null || ViewModel.RunningTask == null)
+				return false;
+
+			string taskFileName = GetTaskModFileName(task);
+			if (String.IsNullOrEmpty(taskFileName))
+				return false;
+
+			if (QueuedTasks.Any(x => x.IsQueued && String.Equals(GetTaskModFileName(x), taskFileName, StringComparison.OrdinalIgnoreCase)))
+				return true;
+
+			string runningFileName = GetTaskModFileName(ViewModel.RunningTask);
+			return !String.IsNullOrEmpty(runningFileName) && String.Equals(runningFileName, taskFileName, StringComparison.OrdinalIgnoreCase);
+		}
+
+		private void DiscardDuplicateTask(IBackgroundTaskSet task)
+		{
+			if (task is ModInstaller installer)
+				m_vmlViewModel.RemoveUselessTask(installer);
+			else if (task is ModUninstaller uninstaller)
+				m_vmlViewModel.RemoveUselessTaskUn(uninstaller);
+			else if (task is ModUpgrader upgrader)
+				m_vmlViewModel.RemoveUselessTaskUpg(upgrader);
+		}
+
+		private static void StartTask(IBackgroundTaskSet task)
+		{
+			if (task is ModInstaller installer)
+				installer.Install();
+			else if (task is ModUninstaller uninstaller)
+				uninstaller.Install();
+			else if (task is ModUpgrader upgrader)
+				upgrader.Install();
 		}
 
 		private void TaskSet_TaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
 		{
-			ModInstallerBase mibModInstaller;
-
-			try
-			{
-				mibModInstaller = (ModInstallerBase)sender;
-				m_strPopupErrorMessage = mibModInstaller.PopupErrorMessage;
-				m_strPopupErrorMessageType = mibModInstaller.PopupErrorMessageType;
-				m_strDetailsErrorMessageType = mibModInstaller.DetailsErrorMessage;
-			}
-			catch { }
-			
-			IBackgroundTaskSet btsCompletedTask = null;
-			if (sender != null)
-			{
-				btsCompletedTask = (IBackgroundTaskSet)sender;
-			}
-
-			if ((ViewModel.RunningTask == null) || (ViewModel.RunningTask == btsCompletedTask))
+			IBackgroundTaskSet completedTask = sender as IBackgroundTaskSet;
+			if ((ViewModel.RunningTask == null) || (ViewModel.RunningTask == completedTask))
 			{
 				ViewModel.RunningTask = null;
-
 				if (QueuedTasks.Count > 0)
 				{
-				ViewModel.RunningTask = QueuedTasks.First();
-				QueuedTasks.Remove(ViewModel.RunningTask);
-				if (ViewModel.RunningTask.GetType() == typeof(ModInstaller))
-					((ModInstaller)ViewModel.RunningTask).Install();
-				else if (ViewModel.RunningTask.GetType() == typeof(ModUninstaller))
-					((ModUninstaller)ViewModel.RunningTask).Install();
-				else if (ViewModel.RunningTask.GetType() == typeof(ModUpgrader))
-					((ModUpgrader)ViewModel.RunningTask).Install();
+					ViewModel.RunningTask = QueuedTasks.First();
+					QueuedTasks.Remove(ViewModel.RunningTask);
+					StartTask(ViewModel.RunningTask);
 				}
-				else
-					if (EmptyQueue != null)
-						EmptyQueue(this, new EventArgs());
-			}
-		}
-		
-		private void lvwActiveTasks_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
-		{
-			e.DrawDefault = true;
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ModActivationMonitorControl.ColumnWidthChanging"/> event of the Mod Activation list.
-		/// </summary>
-		void ModActivationMonitorControl_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
-		{
-			if ((e.ColumnIndex == 4) || (e.ColumnIndex == 3))
-			{
-				e.NewWidth = this.lvwActiveTasks.Columns[e.ColumnIndex].Width;
-				e.Cancel = true;
+				else if (EmptyQueue != null)
+				{
+					EmptyQueue(this, EventArgs.Empty);
+				}
 			}
 		}
 
-		/// <summary>
-		/// Raises the <see cref="ModActivationMonitorControl_DrawItem"/> event.
-		/// </summary>
-		void ModActivationMonitorControl_DrawItem(object sender, DrawListViewItemEventArgs e)
-		{
-			e.DrawDefault = true;
-		}
-
-		/// <summary>
-		/// Raises the <see cref="ModActivationMonitorControl_DrawSubItem"/> event.
-		/// </summary>
-		void ModActivationMonitorControl_DrawSubItem(object sender, DrawListViewSubItemEventArgs e)
-		{
-			if (m_strPopupErrorMessageType == "Error")
-				SetMessage(e.SubItem, m_strPopupErrorMessage, global::Nexus.Client.Properties.Resources.edit_delete_16);
-			else if(m_strPopupErrorMessageType == "Warning")
-				SetMessage(e.SubItem, m_strPopupErrorMessage, global::Nexus.Client.Properties.Resources.dialog_warning_4);
-
-			OnDrawSubItem(e);
-		}
-
-		/// <summary>
-		/// Raises the <see cref="ListView.DrawSubItem"/> event.
-		/// </summary>
-		/// <remarks>
-		/// This is where the owner draws the specific sub item. We handle this.
-		/// </remarks>
-		/// <param name="e">A <see cref="DrawListViewSubItemEventArgs"/> describing the event arguments.</param>
-		protected void OnDrawSubItem(DrawListViewSubItemEventArgs e)
-		{
-			if (e.Item.ListView == null)
-				return;
-			
-			e.DrawBackground();
-
-			Int32 intBoundsX = e.Bounds.X;
-			Int32 intBoundsY = e.Bounds.Y;
-			Int32 intBoundsWidth = e.Bounds.Width;
-			Int32 intFontX = e.Bounds.X + 3;
-			Int32 intFontWidth = e.Bounds.Width - 3;
-			if (e.Item.SubItems[0] == e.SubItem)
-			{
-				intBoundsX += 4;
-				intBoundsWidth -= 4;
-							
-				m_intFocusBoundsX = intBoundsX;
-			}
-
-			Color clrForeColor = e.SubItem.ForeColor;
-			if (e.Item.Selected)
-			{
-				clrForeColor = e.Item.ListView.Focused ? SystemColors.HighlightText : clrForeColor;
-				Color clrBackColor = e.Item.ListView.Focused ? SystemColors.Highlight : SystemColors.Control;
-				e.Graphics.FillRectangle(new SolidBrush(clrBackColor), new Rectangle(intBoundsX, intBoundsY, intBoundsWidth, e.Bounds.Height));
-			}
-
-			if ((Messages.ContainsKey(e.SubItem)) && (e.ColumnIndex == 4) && (e.SubItem.Text != ""))
-			{
-				Image imgIcon = Messages[e.SubItem].Value;
-				Rectangle rctIconBounds = GetMessageIconBounds(e.Bounds, imgIcon, String.IsNullOrEmpty(e.SubItem.Text) ? true : false);
-				Rectangle rctPaint = new Rectangle(new Point(rctIconBounds.X, intBoundsY + rctIconBounds.Y), rctIconBounds.Size);
-				e.Graphics.DrawImage(imgIcon, rctPaint);
-				intFontWidth -= rctIconBounds.Width;
-			}
-
-			Rectangle rctTextBounds = new Rectangle(intFontX, intBoundsY + 2, intFontWidth, e.Bounds.Height - 4);
-			TextRenderer.DrawText(e.Graphics, e.SubItem.Text, e.SubItem.Font, rctTextBounds, clrForeColor, TextFormatFlags.EndEllipsis | TextFormatFlags.VerticalCenter);
-
-			if (e.Item.Focused)
-			{
-				Pen penFocusRectangle = new Pen(Brushes.Black);
-				penFocusRectangle.DashStyle = System.Drawing.Drawing2D.DashStyle.Dot;
-				e.Graphics.DrawRectangle(penFocusRectangle, new Rectangle(m_intFocusBoundsX, intBoundsY, e.Item.Bounds.Width - m_intFocusBoundsX - 1, e.Item.Bounds.Height - 1));
-			}
-		}
-
-		/// <summary>
-		/// Gets the bounds of our custom message icon.
-		/// </summary>
-		/// <returns>The bounds of our custom message icon.</returns>
-		protected Rectangle GetMessageIconBounds(Rectangle p_rctCellBounds, Image p_imgIcon, bool p_booCentered)
-		{
-			Int32 intYOffset = (p_rctCellBounds.Height - p_imgIcon.Height) / 2;
-			Int32 intXOffset = 0;
-			if (p_booCentered)
-				intXOffset = p_rctCellBounds.Left + (p_rctCellBounds.Width / 2) - (p_imgIcon.Width / 2);
-			else
-				intXOffset = p_rctCellBounds.Right - p_imgIcon.Width - intYOffset;
-			Rectangle rctIconBounds = new Rectangle(new Point(intXOffset, intYOffset), p_imgIcon.Size);
-			return rctIconBounds;
-		}
-
-		/// <summary>
-		/// Sets the message and image for the given sub item.
-		/// </summary>
-		/// <param name="p_lsiSubItem">The sub item for which to set the message and image.</param>
-		/// <param name="p_strMessage">The message to associate with the sub item.</param>
-		/// <param name="p_imgIcon">The image to associate with the subitem.</param>
-		public void SetMessage(ListViewItem.ListViewSubItem p_lsiSubItem, string p_strMessage, Image p_imgIcon)
-		{
-			if (p_imgIcon == null)
-				p_imgIcon = new Bitmap(16, 16);
-											
-			Messages[p_lsiSubItem] = new KeyValuePair<string, Image>(p_strMessage, p_imgIcon);
-			this.Invalidate(p_lsiSubItem.Bounds);
-		}
-
-		/// <summary>
-		/// Removes any messages and images assocaited with the given sub item.
-		/// </summary>
-		/// <param name="p_lsiSubItem">The sub item from which to remove any associated messages and images.</param>
-		public void ClearMessage(ListViewItem.ListViewSubItem p_lsiSubItem)
-		{
-			if (Messages.ContainsKey(p_lsiSubItem))
-			{
-				Messages.Remove(p_lsiSubItem);
-				this.Invalidate(p_lsiSubItem.Bounds);
-			}
-		}
-		
-		void ModActivationMonitorControl_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
-		{
-			e.DrawDefault = true;
-		}
-
-
-		/// <summary>
-		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
-		/// task list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the list of tasks to refelct changes to the monitored Mod Activation list.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (lvwActiveTasks.InvokeRequired)
+			if (gridControl.InvokeRequired)
 			{
-				lvwActiveTasks.Invoke((MethodInvoker)(() => Tasks_CollectionChanged(sender, e)));
+				gridControl.Invoke((MethodInvoker)(() => Tasks_CollectionChanged(sender, e)));
 				return;
 			}
+
 			switch (e.Action)
 			{
 				case NotifyCollectionChangedAction.Add:
 				case NotifyCollectionChangedAction.Replace:
-					foreach (IBackgroundTaskSet tskAdded in e.NewItems)
-							AddTaskToList(tskAdded);
+					foreach (IBackgroundTaskSet task in e.NewItems)
+						AddTaskToList(task);
 					break;
 				case NotifyCollectionChangedAction.Move:
-					//TODO Download order matters (some tasks depend on others)
 					break;
 				case NotifyCollectionChangedAction.Remove:
-					foreach (IBackgroundTaskSet tskRemoved in e.OldItems)
+					foreach (IBackgroundTaskSet task in e.OldItems)
 					{
-						for (Int32 i = lvwActiveTasks.Items.Count - 1; i >= 0; i--)
+						for (int i = _rows.Count - 1; i >= 0; i--)
 						{
-							if (tskRemoved == ((ModActivationMonitorListViewItem)lvwActiveTasks.Items[i]).Task)	
-									lvwActiveTasks.Items.RemoveAt(i);
+							if (_rows[i].Task == task)
+							{
+								_rows[i].Detach();
+								_rows.RemoveAt(i);
+							}
 						}
-						tskRemoved.TaskSetCompleted -= new EventHandler<TaskSetCompletedEventArgs>(TaskSet_TaskSetCompleted);
+						task.TaskSetCompleted -= TaskSet_TaskSetCompleted;
 					}
 					break;
 				case NotifyCollectionChangedAction.Reset:
-					lvwActiveTasks.Items.Clear();
+					foreach (ModActivationMonitorRow row in _rows)
+						row.Detach();
+					_rows.Clear();
 					break;
 				default:
 					throw new Exception("Unrecognized value for NotifyCollectionChangedAction.");
@@ -704,30 +308,15 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			UpdateTitle();
 		}
 
-		/// <summary>
-		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
-		/// active task list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the control title.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (this.IsHandleCreated)
-			{
-				lock (ViewModel.ModRepository)
-					
-				if (lvwActiveTasks.InvokeRequired)
-				{
-					lvwActiveTasks.Invoke((Action)UpdateTitle);
-				}
-				else
-				{
-					UpdateTitle();
-				}
-			}
+			if (!IsHandleCreated)
+				return;
+
+			if (gridControl.InvokeRequired)
+				gridControl.Invoke((Action)UpdateTitle);
+			else
+				UpdateTitle();
 		}
 
 		/// <summary>
@@ -735,128 +324,314 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		/// </summary>
 		protected void UpdateTitle()
 		{
-			Int32 intActiveCount = 0;
-			Int32 intTotalCount = 0;
+			int activeCount = 0;
+			int totalCount = 0;
 			if ((ViewModel != null) && (ViewModel.Tasks != null))
 			{
-				intActiveCount = ViewModel.Tasks.Count;
-				intTotalCount = ViewModel.Tasks.Count;
+				activeCount = ViewModel.ActiveTasks.Count;
+				totalCount = ViewModel.Tasks.Count;
 			}
-			if (intTotalCount == intActiveCount)
-				Text = String.Format(m_strTitleAllActive, intTotalCount);
+			Text = totalCount == activeCount ? String.Format(m_strTitleAllActive, totalCount) : String.Format(m_strTitleSomeActive, activeCount, totalCount);
+		}
+
+		private void gridView_FocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
+		{
+			ModActivationMonitorRow row = gridView.GetFocusedRow() as ModActivationMonitorRow;
+			SetCommandExecutableStatus(row != null && row.IsRemovable);
+		}
+
+		private void gridView_RowCellClick(object sender, RowCellClickEventArgs e)
+		{
+			if (e.Button != MouseButtons.Left || e.Column == null || e.Column.FieldName != "ErrorInfo")
+				return;
+
+			ModActivationMonitorRow row = gridView.GetRow(e.RowHandle) as ModActivationMonitorRow;
+			if (row == null || String.IsNullOrEmpty(row.ErrorMessage))
+				return;
+
+			if (String.Equals(row.PopupErrorMessageType, "Warning", StringComparison.OrdinalIgnoreCase))
+				ExtendedMessageBox.Show(this, row.ErrorMessage, "Warning", row.DetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			else
-				Text = String.Format(m_strTitleSomeActive, intActiveCount, intTotalCount);
+				ExtendedMessageBox.Show(this, row.ErrorMessage, "Failed", row.DetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 
-		#endregion
-
-
-		/// <summary>
-		/// Handles the <see cref="ListView.SelectedIndexChanged"/> event of the Mod Activation list.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwTasks_SelectedIndexChanged(object sender, EventArgs e)
+		private void gridControl_MouseUp(object sender, MouseEventArgs e)
 		{
-			//bool booCheckStatus = ViewModel.CheckTaskStatus(lvwActiveTasks.FocusedItem.Text);
-			//SetCommandExecutableStatus(booCheckStatus);
-			SetCommandExecutableStatus(((ModActivationMonitorListViewItem)lvwActiveTasks.FocusedItem).IsRemovable);
-		}
-
-		/// <summary>
-		/// Handles the cmsContextMenu.ReadmeScan event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_Copy(object sender, EventArgs e)
-		{
-			Clipboard.SetText(lvwActiveTasks.FocusedItem.SubItems["ModName"].Text + " // " + lvwActiveTasks.FocusedItem.SubItems["Status"].Text + " // " + lvwActiveTasks.FocusedItem.SubItems["Operation"].Text + " // " + lvwActiveTasks.FocusedItem.SubItems["Progress"].Text);
-		}
-
-		#region Column Resizing
-
-		/// <summary>
-		/// Handles the <see cref="Timer.Tick"/> event of the column sizer timer.
-		/// </summary>
-		/// <remarks>
-		/// We use a timer to autosize the columns in the list view. This is because
-		/// there is a bug in the control such that if we reszize the columns continuously
-		/// while the list view is being resized, the item will sometimes disappear.
-		/// 
-		/// To work around this, the list view resize event continually resets the timer.
-		/// This means the timer will only fire occasionally during the resize, and avoid
-		/// the disappearing items issue.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void ColumnSizer_Tick(object sender, EventArgs e)
-		{
-			((Timer)sender).Stop();
-			SizeColumnsToFit();
-		}
-
-		/// <summary>
-		/// This resizes the columns to fill the list view.
-		/// </summary>
-		protected void SizeColumnsToFit()
-		{
-			if (lvwActiveTasks.Columns.Count == 0)
+			if (e.Button != MouseButtons.Right)
 				return;
-			m_booResizing = true;
-			Int32 intFixedWidth = 0;
-			for (Int32 i = 0; i < lvwActiveTasks.Columns.Count; i++)
-				if (lvwActiveTasks.Columns[i] != clmOverallMessage)
-					intFixedWidth += lvwActiveTasks.Columns[i].Width;
 
-			clmOverallMessage.Width = lvwActiveTasks.ClientSize.Width - intFixedWidth;
-			m_booResizing = false;
+			GridHitInfo hitInfo = gridView.CalcHitInfo(e.Location);
+			if (hitInfo.InRow)
+				gridView.FocusedRowHandle = hitInfo.RowHandle;
+			popupMenu.ShowPopup(gridControl.PointToScreen(e.Location));
 		}
 
-		/// <summary>
-		/// Handles the <see cref="Control.Resize"/> event of the plugin list.
-		/// </summary>
-		/// <remarks>
-		/// This resizes the columns to fill the list view.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwTasks_Resize(object sender, EventArgs e)
+		private void copyItem_ItemClick(object sender, ItemClickEventArgs e)
 		{
-			if (m_booResizing)
-				return;
-			m_tmrColumnSizer.Stop();
-			m_tmrColumnSizer.Start();
+			CopySelectedRowToClipboard();
 		}
 
-		/// <summary>
-		/// Handles the <see cref="ListView.ColumnWidthChanging"/> event of the plugin list.
-		/// </summary>
-		/// <remarks>
-		/// This resizes the column next to the column being resized to resize as well,
-		/// so that the columns keep the list view filled.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ColumnWidthChangingEventArgs"/> describing the event arguments.</param>
-		private void lvwTasks_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
+		private void gridControl_KeyUp(object sender, KeyEventArgs e)
 		{
-			if (m_booResizing)
+			if (e.KeyData == (Keys.C | Keys.Control))
+			{
+				CopySelectedRowToClipboard();
+			}
+			if (e.KeyData == (Keys.Control | Keys.F) && SetTextBoxFocus != null)
+			{
+				SetTextBoxFocus(this, e);
+			}
+		}
+
+		private void CopySelectedRowToClipboard()
+		{
+			ModActivationMonitorRow row = gridView.GetFocusedRow() as ModActivationMonitorRow;
+			if (row == null)
 				return;
-			ColumnHeader clmThis = lvwActiveTasks.Columns[e.ColumnIndex];
-			ColumnHeader clmOther = null;
-			if (e.ColumnIndex == lvwActiveTasks.Columns.Count - 1)
-				clmOther = lvwActiveTasks.Columns[e.ColumnIndex - 1];
+			Clipboard.SetText(row.ModName + " // " + row.Status + " // " + row.Operation + " // " + row.Progress);
+		}
+
+		internal void EnsureVisible(ModActivationMonitorRow row)
+		{
+			if (row == null)
+				return;
+			int rowHandle = _rows.IndexOf(row);
+			if (rowHandle >= 0)
+				gridView.MakeRowVisible(rowHandle);
+		}
+
+		internal void RefreshRow(ModActivationMonitorRow row)
+		{
+			if (row == null)
+				return;
+			int rowHandle = _rows.IndexOf(row);
+			if (rowHandle >= 0)
+				gridView.RefreshRow(rowHandle);
 			else
-				clmOther = lvwActiveTasks.Columns[e.ColumnIndex + 1];
-			m_booResizing = true;
-			clmOther.Width += (clmThis.Width - e.NewWidth);
-			m_booResizing = false;
+				gridView.RefreshData();
 		}
 
-		#endregion
-
-		public void CallUpdateBottomBarFeedback(ModActivationMonitorListViewItem p_ActivateModList)
+		public void CallUpdateBottomBarFeedback(ModActivationMonitorRow row)
 		{
-			UpdateBottomBarFeedback(p_ActivateModList, new EventArgs());
+			UpdateBottomBarFeedback(row, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Compatibility overload for the legacy list-view item.
+		/// </summary>
+		public void CallUpdateBottomBarFeedback(ModActivationMonitorListViewItem item)
+		{
+			UpdateBottomBarFeedback(item, EventArgs.Empty);
+		}
+	}
+
+	/// <summary>
+	/// Represents a row in the Mod Activation monitor grid.
+	/// </summary>
+	public sealed class ModActivationMonitorRow : INotifyPropertyChanged
+	{
+		private readonly ModActivationMonitorControl _control;
+		private IBackgroundTask _startedTask;
+		private bool _isRemovable;
+		private string _modName;
+		private string _status;
+		private string _operation;
+		private string _progress;
+		private string _errorMessage;
+		private string _popupErrorMessageType;
+		private string _detailsErrorMessageType;
+
+		/// <summary>
+		/// Raised whenever a property changes.
+		/// </summary>
+		public event PropertyChangedEventHandler PropertyChanged;
+
+		/// <summary>
+		/// Initializes a new activation-monitor row.
+		/// </summary>
+		public ModActivationMonitorRow(IBackgroundTaskSet task, ModActivationMonitorControl control)
+		{
+			Task = task;
+			_control = control;
+			ModName = GetTaskModName(task);
+			Status = "Queued";
+			Operation = String.Empty;
+			Progress = String.Empty;
+			ErrorMessage = String.Empty;
+			PopupErrorMessageType = String.Empty;
+			DetailsErrorMessageType = String.Empty;
+			IsRemovable = true;
+			task.IsQueued = true;
+			task.TaskStarted += TaskSet_TaskSetStarted;
+			task.TaskSetCompleted += TaskSet_TaskSetCompleted;
+		}
+
+		/// <summary>Gets the task associated with this row.</summary>
+		public IBackgroundTaskSet Task { get; private set; }
+		/// <summary>Gets the mod name.</summary>
+		public string ModName { get { return _modName; } private set { SetField(ref _modName, value, nameof(ModName)); } }
+		/// <summary>Gets the status text.</summary>
+		public string Status { get { return _status; } private set { SetField(ref _status, value, nameof(Status)); } }
+		/// <summary>Gets the operation text.</summary>
+		public string Operation { get { return _operation; } private set { SetField(ref _operation, value, nameof(Operation)); } }
+		/// <summary>Gets the progress text.</summary>
+		public string Progress { get { return _progress; } private set { SetField(ref _progress, value, nameof(Progress)); } }
+		/// <summary>Gets the popup error message.</summary>
+		public string ErrorMessage { get { return _errorMessage; } private set { if (!String.Equals(_errorMessage, value, StringComparison.Ordinal)) { _errorMessage = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ErrorMessage))); PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ErrorInfo))); } } }
+		/// <summary>Gets the popup error message type.</summary>
+		public string PopupErrorMessageType { get { return _popupErrorMessageType; } private set { SetField(ref _popupErrorMessageType, value, nameof(PopupErrorMessageType)); } }
+		/// <summary>Gets the details error message type.</summary>
+		public string DetailsErrorMessageType { get { return _detailsErrorMessageType; } private set { SetField(ref _detailsErrorMessageType, value, nameof(DetailsErrorMessageType)); } }
+		/// <summary>Gets a visible error marker.</summary>
+		public string ErrorInfo { get { return String.IsNullOrEmpty(ErrorMessage) ? String.Empty : "!"; } }
+		/// <summary>Gets whether the row can be removed.</summary>
+		public bool IsRemovable { get { return _isRemovable; } private set { SetField(ref _isRemovable, value, nameof(IsRemovable)); } }
+
+		/// <summary>
+		/// Detaches event subscriptions.
+		/// </summary>
+		public void Detach()
+		{
+			Task.TaskStarted -= TaskSet_TaskSetStarted;
+			Task.TaskSetCompleted -= TaskSet_TaskSetCompleted;
+			if (_startedTask != null)
+				_startedTask.PropertyChanged -= Task_PropertyChanged;
+		}
+
+		private static string GetTaskModName(IBackgroundTaskSet task)
+		{
+			if (task is ModInstaller installer)
+				return installer.ModName;
+			if (task is ModUninstaller uninstaller)
+				return uninstaller.ModName;
+			if (task is ModUpgrader upgrader)
+				return upgrader.ModName;
+			return String.Empty;
+		}
+
+		private void TaskSet_TaskSetStarted(object sender, EventArgs<IBackgroundTask> e)
+		{
+			Control invokeTarget = _control;
+			if ((invokeTarget != null) && invokeTarget.InvokeRequired)
+			{
+				invokeTarget.Invoke((Action<IBackgroundTaskSet, EventArgs<IBackgroundTask>>)TaskSet_TaskSetStarted, sender, e);
+				return;
+			}
+
+			_startedTask = e.Argument;
+			_startedTask.PropertyChanged += Task_PropertyChanged;
+
+			IsRemovable = false;
+			Status = "Running";
+			if (sender is ModInstaller)
+				Operation = "Install";
+			else if (sender is ModUninstaller)
+				Operation = "Uninstall";
+			else if (sender is ModUpgrader)
+				Operation = "Upgrading";
+
+			Task.IsQueued = false;
+			_control.CallUpdateBottomBarFeedback(this);
+			_control.EnsureVisible(this);
+		}
+
+		private void TaskSet_TaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
+		{
+			Control invokeTarget = _control;
+			if ((invokeTarget != null) && invokeTarget.InvokeRequired)
+			{
+				invokeTarget.Invoke((Action<IBackgroundTaskSet, TaskSetCompletedEventArgs>)TaskSet_TaskSetCompleted, sender, e);
+				return;
+			}
+
+			bool complete = false;
+			string popupErrorMessage = String.Empty;
+			if (sender is ModInstallerBase installerBase)
+			{
+				complete = installerBase.IsCompleted;
+				if (!String.IsNullOrEmpty(installerBase.PopupErrorMessage))
+					popupErrorMessage = installerBase.PopupErrorMessage;
+				PopupErrorMessageType = installerBase.PopupErrorMessageType;
+				DetailsErrorMessageType = installerBase.DetailsErrorMessage;
+			}
+
+			if (complete)
+			{
+				if (!String.IsNullOrEmpty(popupErrorMessage))
+					ErrorMessage = popupErrorMessage;
+
+				if (!e.Success)
+				{
+					Status = e.Message;
+					Progress = String.Empty;
+				}
+				else
+				{
+					Status = "Complete";
+					Progress = "100%";
+				}
+			}
+			else
+			{
+				Status = e.Message;
+				Progress = String.Empty;
+			}
+
+			_control.CallUpdateBottomBarFeedback(this);
+			_control.RefreshRow(this);
+			IsRemovable = true;
+		}
+
+		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
+		{
+			try
+			{
+				Control invokeTarget = _control;
+				if ((invokeTarget != null) && invokeTarget.InvokeRequired)
+				{
+					invokeTarget.Invoke((Action<IBackgroundTask, string>)HandleChangedTaskProperty, (IBackgroundTask)sender, e.PropertyName);
+					return;
+				}
+				HandleChangedTaskProperty((IBackgroundTask)sender, e.PropertyName);
+			}
+			catch { }
+		}
+
+		private void HandleChangedTaskProperty(IBackgroundTask task, string propertyName)
+		{
+			try
+			{
+				if (task is BasicUninstallTask)
+				{
+					if ((propertyName == nameof(IBackgroundTask.ItemProgress)) && (task.ItemProgress > 0))
+						Progress = "Uninstalling, please wait...(" + ((task.ItemProgress * 100) / task.ItemProgressMaximum) + "%)";
+				}
+				else if (task is PrepareModTask)
+				{
+					if (propertyName == nameof(IBackgroundTask.OverallProgress))
+						Progress = "Unpacking, please wait...(" + (((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2) + "%)";
+				}
+				else
+				{
+					if (propertyName == nameof(IBackgroundTask.OverallProgress))
+						Progress = "Installing, please wait...(" + ((((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2) + 50) + "%)";
+				}
+				_control.RefreshRow(this);
+			}
+			catch (NullReferenceException)
+			{
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+			}
+		}
+
+		private void SetField<T>(ref T field, T value, string propertyName)
+		{
+			if (EqualityComparer<T>.Default.Equals(field, value))
+				return;
+			field = value;
+			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 		}
 	}
 }

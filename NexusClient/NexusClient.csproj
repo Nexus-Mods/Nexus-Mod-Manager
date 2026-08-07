@@ -136,8 +136,12 @@
     </Compile>
     <Compile Include="UI\DevExpressBarItemCommandBinding.cs" />
     <Compile Include="UI\DevExpressDisplaySettings.cs" />
-    <Compile Include="UI\ManagedFontXtraForm.cs" />
-    <Compile Include="UI\DownloadProgressBarItem.cs" />
+    <Compile Include="UI\ManagedFontXtraForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\DownloadProgressBarItem.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="UI\DevExpressGridLayoutPersistence.cs" />
     <Compile Include="MainFormVM.cs" />
     <Compile Include="ModActivationMonitor\ModActivationMonitor.cs" />

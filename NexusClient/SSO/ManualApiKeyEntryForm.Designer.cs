@@ -1,141 +1,98 @@
 ﻿namespace Nexus.Client.SSO
 {
-    partial class ManualApiKeyEntryForm
-    {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
-        private System.ComponentModel.IContainer components = null;
+	partial class ManualApiKeyEntryForm
+	{
+		private System.ComponentModel.IContainer components = null;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
-            base.Dispose(disposing);
-        }
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing && (components != null))
+				components.Dispose();
+			base.Dispose(disposing);
+		}
 
-        #region Windows Form Designer generated code
+		private void InitializeComponent()
+		{
+			this.label1 = new DevExpress.XtraEditors.LabelControl();
+			this.label2 = new DevExpress.XtraEditors.LabelControl();
+			this.linkLabelManageApiKeys = new DevExpress.XtraEditors.HyperlinkLabelControl();
+			this.textBoxApiKey = new DevExpress.XtraEditors.TextEdit();
+			this.label3 = new DevExpress.XtraEditors.LabelControl();
+			this.buttonOk = new DevExpress.XtraEditors.SimpleButton();
+			this.buttonCancel = new DevExpress.XtraEditors.SimpleButton();
+			((System.ComponentModel.ISupportInitialize)(this.textBoxApiKey.Properties)).BeginInit();
+			this.SuspendLayout();
+			// label1
+			this.label1.Appearance.TextOptions.WordWrap = DevExpress.Utils.WordWrap.Wrap;
+			this.label1.AutoSizeMode = DevExpress.XtraEditors.LabelAutoSizeMode.None;
+			this.label1.Location = new System.Drawing.Point(13, 13);
+			this.label1.Name = "label1";
+			this.label1.Size = new System.Drawing.Size(220, 31);
+			this.label1.Text = "For unknown reasons NMM cannot communicate with the Nexus SSO service.";
+			// label2
+			this.label2.Appearance.TextOptions.WordWrap = DevExpress.Utils.WordWrap.Wrap;
+			this.label2.AutoSizeMode = DevExpress.XtraEditors.LabelAutoSizeMode.None;
+			this.label2.Location = new System.Drawing.Point(13, 53);
+			this.label2.Name = "label2";
+			this.label2.Size = new System.Drawing.Size(220, 58);
+			this.label2.Text = "Click the link below to get to the API key management page, where you can manually generate an API key and enter it in the field at the bottom.";
+			// linkLabelManageApiKeys
+			this.linkLabelManageApiKeys.Location = new System.Drawing.Point(43, 127);
+			this.linkLabelManageApiKeys.Name = "linkLabelManageApiKeys";
+			this.linkLabelManageApiKeys.Size = new System.Drawing.Size(161, 13);
+			this.linkLabelManageApiKeys.Text = "<href=api>API key management</href>";
+			this.linkLabelManageApiKeys.HyperlinkClick += new DevExpress.Utils.HyperlinkClickEventHandler(this.LinkLabelManageApiKeys_HyperlinkClick);
+			// textBoxApiKey
+			this.textBoxApiKey.Location = new System.Drawing.Point(16, 192);
+			this.textBoxApiKey.Name = "textBoxApiKey";
+			this.textBoxApiKey.Size = new System.Drawing.Size(217, 20);
+			// label3
+			this.label3.Location = new System.Drawing.Point(16, 176);
+			this.label3.Name = "label3";
+			this.label3.Size = new System.Drawing.Size(43, 13);
+			this.label3.Text = "API key:";
+			// buttonOk
+			this.buttonOk.Location = new System.Drawing.Point(16, 219);
+			this.buttonOk.Name = "buttonOk";
+			this.buttonOk.Size = new System.Drawing.Size(75, 23);
+			this.buttonOk.Text = "OK";
+			this.buttonOk.Click += new System.EventHandler(this.ButtonOk_Click);
+			// buttonCancel
+			this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.buttonCancel.Location = new System.Drawing.Point(158, 219);
+			this.buttonCancel.Name = "buttonCancel";
+			this.buttonCancel.Size = new System.Drawing.Size(75, 23);
+			this.buttonCancel.Text = "Cancel";
+			this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
+			// ManualApiKeyEntryForm
+			this.AcceptButton = this.buttonOk;
+			this.CancelButton = this.buttonCancel;
+			this.ClientSize = new System.Drawing.Size(248, 250);
+			this.Controls.Add(this.buttonCancel);
+			this.Controls.Add(this.buttonOk);
+			this.Controls.Add(this.label3);
+			this.Controls.Add(this.textBoxApiKey);
+			this.Controls.Add(this.linkLabelManageApiKeys);
+			this.Controls.Add(this.label2);
+			this.Controls.Add(this.label1);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
+			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+			this.MaximizeBox = false;
+			this.MinimizeBox = false;
+			this.Name = "ManualApiKeyEntryForm";
+			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+			this.Text = "Manual API Key Entry";
+			((System.ComponentModel.ISupportInitialize)(this.textBoxApiKey.Properties)).EndInit();
+			this.ResumeLayout(false);
+			this.PerformLayout();
+		}
 
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
-        private void InitializeComponent()
-        {
-            this.label1 = new System.Windows.Forms.Label();
-            this.label2 = new System.Windows.Forms.Label();
-            this.linkLabelManageApiKeys = new System.Windows.Forms.LinkLabel();
-            this.textBoxApiKey = new System.Windows.Forms.TextBox();
-            this.label3 = new System.Windows.Forms.Label();
-            this.buttonOk = new System.Windows.Forms.Button();
-            this.buttonCancel = new System.Windows.Forms.Button();
-            this.SuspendLayout();
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(13, 13);
-            this.label1.MaximumSize = new System.Drawing.Size(225, 0);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(208, 26);
-            this.label1.TabIndex = 0;
-            this.label1.Text = "For unknown reasons NMM cannot communicate with the Nexus SSO service.";
-            // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(16, 53);
-            this.label2.MaximumSize = new System.Drawing.Size(225, 0);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(223, 52);
-            this.label2.TabIndex = 1;
-            this.label2.Text = "Click the link below to get to the API key management page, where you can manuall" +
-    "y generate an API key and enter it in the field at the bottom.";
-            // 
-            // linkLabelManageApiKeys
-            // 
-            this.linkLabelManageApiKeys.AutoSize = true;
-            this.linkLabelManageApiKeys.Font = new System.Drawing.Font("Microsoft Sans Serif", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.linkLabelManageApiKeys.Location = new System.Drawing.Point(43, 127);
-            this.linkLabelManageApiKeys.Name = "linkLabelManageApiKeys";
-            this.linkLabelManageApiKeys.Size = new System.Drawing.Size(161, 20);
-            this.linkLabelManageApiKeys.TabIndex = 3;
-            this.linkLabelManageApiKeys.TabStop = true;
-            this.linkLabelManageApiKeys.Text = "API key management";
-            this.linkLabelManageApiKeys.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.LinkLabelManageApiKeys_LinkClicked);
-            // 
-            // textBoxApiKey
-            // 
-            this.textBoxApiKey.Location = new System.Drawing.Point(16, 192);
-            this.textBoxApiKey.Name = "textBoxApiKey";
-            this.textBoxApiKey.Size = new System.Drawing.Size(217, 20);
-            this.textBoxApiKey.TabIndex = 4;
-            // 
-            // label3
-            // 
-            this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(16, 176);
-            this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(47, 13);
-            this.label3.TabIndex = 5;
-            this.label3.Text = "API key:";
-            // 
-            // buttonOk
-            // 
-            this.buttonOk.Location = new System.Drawing.Point(16, 219);
-            this.buttonOk.Name = "buttonOk";
-            this.buttonOk.Size = new System.Drawing.Size(75, 23);
-            this.buttonOk.TabIndex = 6;
-            this.buttonOk.Text = "OK";
-            this.buttonOk.UseVisualStyleBackColor = true;
-            this.buttonOk.Click += new System.EventHandler(this.ButtonOk_Click);
-            // 
-            // buttonCancel
-            // 
-            this.buttonCancel.Location = new System.Drawing.Point(158, 218);
-            this.buttonCancel.Name = "buttonCancel";
-            this.buttonCancel.Size = new System.Drawing.Size(75, 23);
-            this.buttonCancel.TabIndex = 7;
-            this.buttonCancel.Text = "Cancel";
-            this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
-            // 
-            // ManualApiKeyEntryForm
-            // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(248, 250);
-            this.Controls.Add(this.buttonCancel);
-            this.Controls.Add(this.buttonOk);
-            this.Controls.Add(this.label3);
-            this.Controls.Add(this.textBoxApiKey);
-            this.Controls.Add(this.linkLabelManageApiKeys);
-            this.Controls.Add(this.label2);
-            this.Controls.Add(this.label1);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "ManualApiKeyEntryForm";
-            this.Text = "Manual API Key Entry";
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
-        }
-
-        #endregion
-
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.LinkLabel linkLabelManageApiKeys;
-        private System.Windows.Forms.TextBox textBoxApiKey;
-        private System.Windows.Forms.Label label3;
-        private System.Windows.Forms.Button buttonOk;
-        private System.Windows.Forms.Button buttonCancel;
-    }
+		private DevExpress.XtraEditors.LabelControl label1;
+		private DevExpress.XtraEditors.LabelControl label2;
+		private DevExpress.XtraEditors.HyperlinkLabelControl linkLabelManageApiKeys;
+		private DevExpress.XtraEditors.TextEdit textBoxApiKey;
+		private DevExpress.XtraEditors.LabelControl label3;
+		private DevExpress.XtraEditors.SimpleButton buttonOk;
+		private DevExpress.XtraEditors.SimpleButton buttonCancel;
+	}
 }

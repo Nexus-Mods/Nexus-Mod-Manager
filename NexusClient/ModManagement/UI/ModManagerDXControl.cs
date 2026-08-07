@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
 	using System;
 	using System.Collections.Generic;
@@ -13,6 +13,8 @@ namespace Nexus.Client.ModManagement.UI
 	using System.Windows.Forms;
 
 	using DevExpress.LookAndFeel;
+	using DevExpress.XtraBars;
+	using DevExpress.XtraEditors;
 	using DevExpress.Utils;
 	using DevExpress.XtraEditors.Controls;
 	using DevExpress.XtraEditors.Drawing;
@@ -61,16 +63,12 @@ namespace Nexus.Client.ModManagement.UI
 		private Bitmap _inlineCancelIcon;
 		private RepositoryItemButtonEdit _renameButtonEdit;
 		private Control _renameActiveEditor;
-		private ToolStripDropDownButton _displayButton;
-		private ToolStripDropDownButton _displayOptionsButton;
-		private ToolStripMenuItem _toggleColouredCategoriesMenuItem;
-		private ToolStripMenuItem _toggleRowHighlightsMenuItem;
-		private ToolStripMenuItem _toggleActiveModsBoldMenuItem;
-		private ToolStripMenuItem _focusTopRowAfterSortingMenuItem;
-		private ToolStripMenuItem _focusTopRowAfterInstallDateChangeMenuItem;
-		private ComboBox _gridFontCombo;
-		private ComboBox _gridFontSizeCombo;
-		private ComboBox _gridDensityCombo;
+		private BarSubItem _displayOptionsButton;
+		private BarButtonItem _toggleColouredCategoriesMenuItem;
+		private BarButtonItem _toggleRowHighlightsMenuItem;
+		private BarButtonItem _toggleActiveModsBoldMenuItem;
+		private BarButtonItem _focusTopRowAfterSortingMenuItem;
+		private BarButtonItem _focusTopRowAfterInstallDateChangeMenuItem;
 		private IMod _renameMod;
 		private string _renameOriginalName;
 		private int _renameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
@@ -79,7 +77,6 @@ namespace Nexus.Client.ModManagement.UI
 		private bool _refreshAfterRename;
 		private bool _suppressNextDoubleClick;
 		private bool _testingRenameButtonHit;
-		private bool _updatingGridDisplayControls;
 		private bool _missingArchiveScanQueued;
 		private string _gridFontFamilyName = DefaultGridFontFamily;
 		private float _gridFontSizePt = DefaultGridFontSizePt;
@@ -92,7 +89,9 @@ namespace Nexus.Client.ModManagement.UI
 		private bool _lastFindPanelVisible;
 		private bool _restoringFindPanelVisibility;
 		private bool _toolbarPositionLeft;
-		private ToolStripButton _toolbarPositionButton;
+		private BarButtonItem _toolbarPositionButton;
+		private PopupMenu _gridPopupMenu;
+		private readonly List<ICommandBinding> _toolbarCommandBindings = new List<ICommandBinding>();
 		private bool _restoringGridSort;
 		private string _lastGridSortSignature = string.Empty;
 		private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -251,6 +250,7 @@ namespace Nexus.Client.ModManagement.UI
 				settings.FontSizePt,
 				settings.Density,
 				false);
+			DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerMods, settings);
 		}
 
 		// ── IModManagerView : ViewModel ──────────────────────────────────────
@@ -397,12 +397,11 @@ namespace Nexus.Client.ModManagement.UI
 		public void SetSkyrimDownloadModeFeedback()
 		{
 			if (_viewModel == null || !_viewModel.IsSkyrimSEGameMode) return;
-			tsbSkyrimDownloads.Image = LoadSvgIcon("toolbar_skyrim.svg", 16) ?? _viewModel.SkyrimDownloadImage;
-			tsbSkyrimDownloads.Text = "Download Mode: " + GetSkyrimDownloadModeLabel();
-			tsbSkyrimDownloads.ToolTipText = $"Skyrim SE current download mode: {_viewModel.SkyrimSEDownloadModeDescriptor}";
-			tsbSkyrimDownloads.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-			tsbSkyrimDownloads.ImageScaling = ToolStripItemImageScaling.None;
-			tsbSkyrimDownloads.TextImageRelation = TextImageRelation.ImageBeforeText;
+			if (tsbSkyrimDownloads.ImageOptions.SvgImage == null)
+				tsbSkyrimDownloads.ImageOptions.Image = _viewModel.SkyrimDownloadImage;
+			tsbSkyrimDownloads.Caption = "Download Mode: " + GetSkyrimDownloadModeLabel();
+			tsbSkyrimDownloads.Hint = $"Skyrim SE current download mode: {_viewModel.SkyrimSEDownloadModeDescriptor}";
+			tsbSkyrimDownloads.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 		}
 
 		// ── public helpers ───────────────────────────────────────────────────
@@ -480,30 +479,40 @@ namespace Nexus.Client.ModManagement.UI
 			_viewModel.DisableModCommand.CanExecute = false;
 			_viewModel.TagModCommand.CanExecute = false;
 
-			new ToolStripItemCommandBinding<List<IMod>>(tsbActivate, _viewModel.ActivateModCommand, GetSelectedMods);
-			tsbDeactivate.ButtonClick -= tsbDeactivate_ButtonClick;
-			tsbDeactivate.ButtonClick += tsbDeactivate_ButtonClick;
+			DisposeToolbarCommandBindings();
+			_toolbarCommandBindings.Add(new DevExpressBarItemCommandBinding<List<IMod>>(tsbActivate, _viewModel.ActivateModCommand, GetSelectedMods));
 			ConfigureDeactivateDropDown();
-			new ToolStripItemCommandBinding<IMod>(tsbTagMod, _viewModel.TagModCommand, GetSelectedMod);
-			new ToolStripItemCommandBinding<string>(exportToTextFile, _viewModel.ExportModListToFileCommand, GetExportToFileArgs);
-			new ToolStripItemCommandBinding(exportToClipboard, _viewModel.ExportModListToClipboardCommand);
+			_toolbarCommandBindings.Add(new DevExpressBarItemCommandBinding<IMod>(tsbTagMod, _viewModel.TagModCommand, GetSelectedMod));
+			_toolbarCommandBindings.Add(new DevExpressBarItemCommandBinding<string>(exportToTextFile, _viewModel.ExportModListToFileCommand, GetExportToFileArgs));
+			_toolbarCommandBindings.Add(new DevExpressBarItemCommandBinding(exportToClipboard, _viewModel.ExportModListToClipboardCommand));
 
 			_viewModel.ExportModListToFileCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 			_viewModel.ExportModListToClipboardCommand.CanExecute = _viewModel.CanExecuteExportCommands();
 
-			tsbSkyrimDownloads.Visible = _viewModel.IsSkyrimSEGameMode;
+			tsbSkyrimDownloads.Visibility = _viewModel.IsSkyrimSEGameMode ? BarItemVisibility.Always : BarItemVisibility.Never;
 			SetSkyrimDownloadModeFeedback();
 
 			bool usesLoadOrder = _viewModel.ModManager.GameMode.UsesModLoadOrder;
-			tsb_SaveModLoadOrder.Visible = usesLoadOrder;
-			tsb_ModUpLoadOrder.Visible = usesLoadOrder;
-			tsb_ModDownLoadOrder.Visible = usesLoadOrder;
+			tsb_SaveModLoadOrder.Visibility = usesLoadOrder ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsb_ModUpLoadOrder.Visibility = usesLoadOrder ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsb_ModDownLoadOrder.Visibility = usesLoadOrder ? BarItemVisibility.Always : BarItemVisibility.Never;
 
 			LoadMods();
 		}
 
+		/// <summary>
+		/// Detaches all DevExpress toolbar command bindings owned by the current view model.
+		/// </summary>
+		private void DisposeToolbarCommandBindings()
+		{
+			foreach (ICommandBinding binding in _toolbarCommandBindings)
+				binding.Unbind();
+			_toolbarCommandBindings.Clear();
+		}
+
 		private void UnhookViewModel()
 		{
+			DisposeToolbarCommandBindings();
 			_viewModel.UpdatingCategory -= VM_UpdatingCategory;
 			_viewModel.UpdatingMods -= VM_UpdatingMods;
 			_viewModel.UpdatingCategories -= VM_UpdatingCategories;
@@ -735,6 +744,9 @@ namespace Nexus.Client.ModManagement.UI
 
 		// ── Grid setup ───────────────────────────────────────────────────────
 
+		/// <summary>
+		/// Applies the embedded SVG toolbar assets to the DevExpress mod actions.
+		/// </summary>
 		private void InitializeToolbarIcons()
 		{
 			ConfigureToolbarIcon(tsbAddMod, "toolbar_add_mod.svg");
@@ -750,27 +762,40 @@ namespace Nexus.Client.ModManagement.UI
 			ConfigureToolbarIcon(tsbSkyrimDownloads, "toolbar_skyrim.svg");
 		}
 
-		private static void ConfigureToolbarIcon(ToolStripItem item, string resourceName)
+		/// <summary>
+		/// Assigns one embedded SVG asset to a DevExpress bar item while retaining its caption.
+		/// </summary>
+		/// <param name="item">The toolbar item to configure.</param>
+		/// <param name="resourceName">The trailing manifest-resource name of the SVG.</param>
+		private static void ConfigureToolbarIcon(BarItem item, string resourceName)
 		{
-			Image image = LoadSvgIcon(resourceName, 16);
+			if (item == null) return;
+
+			DevExpress.Utils.Svg.SvgImage image = LoadSvgImage(resourceName);
 			if (image == null) return;
 
-			item.Image = image;
-			item.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-			item.ImageScaling = ToolStripItemImageScaling.None;
-			item.TextImageRelation = TextImageRelation.ImageBeforeText;
-		}
-		private void ApplyToolbarActionLabels()
-		{
-			tsbDeactivate.Text = "Disable Mod";
-			tsbDeactivate.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-			tsbDeactivate.TextImageRelation = TextImageRelation.ImageBeforeText;
-			tsbTagMod.Text = "Get Mod Info";
-			tsbTagMod.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
-			tsbTagMod.TextImageRelation = TextImageRelation.ImageBeforeText;
+			item.ImageOptions.Image = null;
+			item.ImageOptions.SvgImage = image;
+			item.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 		}
 
-		private static Image LoadSvgIcon(string resourceName, int size)
+		/// <summary>
+		/// Restores the canonical action captions after command bindings update the toolbar.
+		/// </summary>
+		private void ApplyToolbarActionLabels()
+		{
+			tsbDeactivate.Caption = "Disable Mod";
+			tsbDeactivate.PaintStyle = BarItemPaintStyle.CaptionGlyph;
+			tsbTagMod.Caption = "Get Mod Info";
+			tsbTagMod.PaintStyle = BarItemPaintStyle.CaptionGlyph;
+		}
+
+		/// <summary>
+		/// Loads one embedded SVG asset without rasterising it, allowing DevExpress to render it for the active skin and DPI.
+		/// </summary>
+		/// <param name="resourceName">The trailing manifest-resource name of the SVG.</param>
+		/// <returns>The loaded SVG image, or <c>null</c> if the resource cannot be found.</returns>
+		private static DevExpress.Utils.Svg.SvgImage LoadSvgImage(string resourceName)
 		{
 			var assembly = typeof(ModManagerDXControl).Assembly;
 			string fullName = assembly.GetManifestResourceNames()
@@ -779,10 +804,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			using (Stream stream = assembly.GetManifestResourceStream(fullName))
 			{
-				if (stream == null) return null;
-				var svgImage = DevExpress.Utils.Svg.SvgImage.FromStream(stream);
-				var svgBitmap = DevExpress.Utils.Svg.SvgBitmap.Create(svgImage);
-				return svgBitmap.Render(new Size(size, size), null, DefaultBoolean.False, DefaultBoolean.False);
+				return stream == null ? null : DevExpress.Utils.Svg.SvgImage.FromStream(stream);
 			}
 		}
 
@@ -808,153 +830,52 @@ namespace Nexus.Client.ModManagement.UI
 				String.Equals(skinName, "DevExpress Style", StringComparison.OrdinalIgnoreCase);
 		}
 
+		/// <summary>
+		/// Creates the DevExpress grid-display menu that controls mod-list visual options.
+		/// </summary>
 		private void InitializeGridDisplayOptions()
 		{
-			_displayOptionsButton = new ToolStripDropDownButton
+			_displayOptionsButton = new BarSubItem(barManagerMods, "Display Options")
 			{
-				Alignment = ToolStripItemAlignment.Right,
-				DisplayStyle = ToolStripItemDisplayStyle.Text,
-				Text = "Display Options",
-				ToolTipText = "Grid display options"
+				Alignment = BarItemLinkAlignment.Right,
+				Hint = "Grid display options"
 			};
 
-			_toggleColouredCategoriesMenuItem = new ToolStripMenuItem("Toggle Coloured Categories")
-			{
-				CheckOnClick = true,
-				Checked = _showColouredCategories
-			};
-			_toggleColouredCategoriesMenuItem.Click += (s, e) => SetColouredCategoriesVisible(_toggleColouredCategoriesMenuItem.Checked, true);
+			_toggleColouredCategoriesMenuItem = CreateCheckedDisplayOption("Toggle Coloured Categories", _showColouredCategories,
+				(sender, args) => SetColouredCategoriesVisible(_toggleColouredCategoriesMenuItem.Down, true));
+			_toggleRowHighlightsMenuItem = CreateCheckedDisplayOption("Toggle Row Highlights", _showRowHighlights,
+				(sender, args) => SetRowHighlightsVisible(_toggleRowHighlightsMenuItem.Down, true));
+			_toggleActiveModsBoldMenuItem = CreateCheckedDisplayOption("Show Active Mods in Bold", _showActiveModsInBold,
+				(sender, args) => SetActiveModsBold(_toggleActiveModsBoldMenuItem.Down, true));
+			_focusTopRowAfterSortingMenuItem = CreateCheckedDisplayOption("Focus top row after sorting", _focusTopRowAfterSorting,
+				(sender, args) => SetFocusTopRowAfterSorting(_focusTopRowAfterSortingMenuItem.Down, true));
+			_focusTopRowAfterInstallDateChangeMenuItem = CreateCheckedDisplayOption("Focus top row after install date changes", _focusTopRowAfterInstallDateChange,
+				(sender, args) => SetFocusTopRowAfterInstallDateChange(_focusTopRowAfterInstallDateChangeMenuItem.Down, true));
 
-			_toggleRowHighlightsMenuItem = new ToolStripMenuItem("Toggle Row Highlights")
-			{
-				CheckOnClick = true,
-				Checked = _showRowHighlights
-			};
-			_toggleRowHighlightsMenuItem.Click += (s, e) => SetRowHighlightsVisible(_toggleRowHighlightsMenuItem.Checked, true);
-
-			_toggleActiveModsBoldMenuItem = new ToolStripMenuItem("Show Active Mods in Bold")
-			{
-				CheckOnClick = true,
-				Checked = _showActiveModsInBold
-			};
-			_toggleActiveModsBoldMenuItem.Click += (s, e) => SetActiveModsBold(_toggleActiveModsBoldMenuItem.Checked, true);
-
-			_focusTopRowAfterSortingMenuItem = new ToolStripMenuItem("Focus top row after sorting")
-			{
-				CheckOnClick = true,
-				Checked = _focusTopRowAfterSorting
-			};
-			_focusTopRowAfterSortingMenuItem.Click += (s, e) => SetFocusTopRowAfterSorting(_focusTopRowAfterSortingMenuItem.Checked, true);
-
-			_focusTopRowAfterInstallDateChangeMenuItem = new ToolStripMenuItem("Focus top row after install date changes")
-			{
-				CheckOnClick = true,
-				Checked = _focusTopRowAfterInstallDateChange
-			};
-			_focusTopRowAfterInstallDateChangeMenuItem.Click += (s, e) => SetFocusTopRowAfterInstallDateChange(_focusTopRowAfterInstallDateChangeMenuItem.Checked, true);
-
-			_displayOptionsButton.DropDownItems.Add(_toggleColouredCategoriesMenuItem);
-			_displayOptionsButton.DropDownItems.Add(_toggleRowHighlightsMenuItem);
-			_displayOptionsButton.DropDownItems.Add(_toggleActiveModsBoldMenuItem);
-			_displayOptionsButton.DropDownItems.Add(_focusTopRowAfterSortingMenuItem);
-			_displayOptionsButton.DropDownItems.Add(_focusTopRowAfterInstallDateChangeMenuItem);
-			toolStrip1.Items.Add(_displayOptionsButton);
+			_displayOptionsButton.AddItem(_toggleColouredCategoriesMenuItem);
+			_displayOptionsButton.AddItem(_toggleRowHighlightsMenuItem);
+			_displayOptionsButton.AddItem(_toggleActiveModsBoldMenuItem);
+			_displayOptionsButton.AddItem(_focusTopRowAfterSortingMenuItem);
+			_displayOptionsButton.AddItem(_focusTopRowAfterInstallDateChangeMenuItem);
+			barModActions.AddItem(_displayOptionsButton);
 		}
 
-		private void InitializeGridFontSelector()
+		/// <summary>
+		/// Creates one checkable DevExpress item for the grid-display menu.
+		/// </summary>
+		/// <param name="caption">The menu caption.</param>
+		/// <param name="isChecked">The initial checked state.</param>
+		/// <param name="handler">The action invoked after the item is toggled.</param>
+		/// <returns>The configured checkable bar item.</returns>
+		private BarButtonItem CreateCheckedDisplayOption(string caption, bool isChecked, ItemClickEventHandler handler)
 		{
-			_displayButton = new ToolStripDropDownButton
+			var item = new BarButtonItem(barManagerMods, caption)
 			{
-				Alignment = ToolStripItemAlignment.Right,
-				DisplayStyle = ToolStripItemDisplayStyle.Text,
-				Text = "Aa Display",
-				ToolTipText = "Grid display settings"
+				ButtonStyle = BarButtonStyle.Check,
+				Down = isChecked
 			};
-
-			var panel = new TableLayoutPanel
-			{
-				AutoSize = false,
-				ColumnCount = 2,
-				RowCount = 4,
-				Padding = new Padding(8),
-				Size = new Size(260, 126)
-			};
-			panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 58f));
-			panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-			panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
-			panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
-			panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
-			panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30f));
-
-			_gridFontCombo = CreateDisplayCombo(GridFontChoices, 162);
-			_gridFontSizeCombo = CreateDisplayCombo(GridFontSizeChoices, 84);
-			_gridDensityCombo = CreateDisplayCombo(GridDensityChoices, 132);
-
-			_gridFontCombo.SelectedIndexChanged += GridDisplayControl_SelectedIndexChanged;
-			_gridFontSizeCombo.SelectedIndexChanged += GridDisplayControl_SelectedIndexChanged;
-			_gridDensityCombo.SelectedIndexChanged += GridDisplayControl_SelectedIndexChanged;
-
-			AddDisplayRow(panel, 0, "Font:", _gridFontCombo);
-			AddDisplayRow(panel, 1, "Size:", _gridFontSizeCombo);
-			AddDisplayRow(panel, 2, "Density:", _gridDensityCombo);
-
-			var resetButton = new Button
-			{
-				Text = "Reset",
-				AutoSize = false,
-				Height = 24,
-				Dock = DockStyle.Left,
-				Width = 76
-			};
-			resetButton.Click += (s, e) => ResetGridDisplaySettings();
-			panel.Controls.Add(resetButton, 1, 3);
-
-			_displayButton.DropDownItems.Add(new ToolStripControlHost(panel)
-			{
-				AutoSize = false,
-				Size = panel.Size,
-				Margin = Padding.Empty,
-				Padding = Padding.Empty
-			});
-
-			toolStrip1.Items.Add(_displayButton);
-			SelectGridDisplay(DefaultGridFontFamily, DefaultGridFontSizePt, DefaultGridDensity, false);
-		}
-
-		private static ComboBox CreateDisplayCombo(IEnumerable<string> items, int width)
-		{
-			var combo = new ComboBox
-			{
-				DropDownStyle = ComboBoxStyle.DropDownList,
-				Width = width,
-				Anchor = AnchorStyles.Left | AnchorStyles.Right
-			};
-
-			foreach (string item in items)
-				combo.Items.Add(item);
-
-			return combo;
-		}
-
-		private static void AddDisplayRow(TableLayoutPanel panel, int row, string labelText, Control control)
-		{
-			var label = new Label
-			{
-				Text = labelText,
-				AutoSize = false,
-				TextAlign = ContentAlignment.MiddleLeft,
-				Dock = DockStyle.Fill
-			};
-
-			control.Dock = DockStyle.Fill;
-			panel.Controls.Add(label, 0, row);
-			panel.Controls.Add(control, 1, row);
-		}
-
-		private void GridDisplayControl_SelectedIndexChanged(object sender, EventArgs e)
-		{
-			if (_updatingGridDisplayControls) return;
-			SelectGridDisplay(_gridFontCombo.SelectedItem as string, ParseGridFontSize(_gridFontSizeCombo.SelectedItem as string), _gridDensityCombo.SelectedItem as string, true);
+			item.ItemClick += handler;
+			return item;
 		}
 
 		private void RestoreGridDisplayOptions()
@@ -980,7 +901,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			_showColouredCategories = visible;
 			if (_toggleColouredCategoriesMenuItem != null)
-				_toggleColouredCategoriesMenuItem.Checked = visible;
+				_toggleColouredCategoriesMenuItem.Down = visible;
 
 			RefreshGridDisplayStyles();
 			SaveGridDisplayOption(GridColouredCategoriesKey, visible, save);
@@ -990,7 +911,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			_showRowHighlights = visible;
 			if (_toggleRowHighlightsMenuItem != null)
-				_toggleRowHighlightsMenuItem.Checked = visible;
+				_toggleRowHighlightsMenuItem.Down = visible;
 
 			RefreshGridDisplayStyles();
 			SaveGridDisplayOption(GridRowHighlightsKey, visible, save);
@@ -1000,7 +921,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			_showActiveModsInBold = visible;
 			if (_toggleActiveModsBoldMenuItem != null)
-				_toggleActiveModsBoldMenuItem.Checked = visible;
+				_toggleActiveModsBoldMenuItem.Down = visible;
 
 			RefreshGridDisplayStyles();
 			SaveGridDisplayOption(GridActiveModsBoldKey, visible, save);
@@ -1057,7 +978,6 @@ namespace Nexus.Client.ModManagement.UI
 			_gridFontSizePt = resolvedFontSize;
 			_gridDensity = resolvedDensity;
 
-			UpdateGridDisplayControls();
 			ApplyGridFont(resolvedFontName);
 
 			if (save && _viewModel?.Settings != null)
@@ -1066,26 +986,6 @@ namespace Nexus.Client.ModManagement.UI
 				_viewModel.Settings.DockPanelLayouts[GridFontSizeKey] = FormatGridFontSize(resolvedFontSize);
 				_viewModel.Settings.DockPanelLayouts[GridDensityKey] = resolvedDensity;
 				_viewModel.Settings.Save();
-			}
-		}
-
-		private void UpdateGridDisplayControls()
-		{
-			if (_gridFontCombo == null || _gridFontSizeCombo == null || _gridDensityCombo == null)
-				return;
-
-			_updatingGridDisplayControls = true;
-			try
-			{
-				if (!_gridFontCombo.Items.Contains(_gridFontFamilyName))
-					_gridFontCombo.Items.Add(_gridFontFamilyName);
-				_gridFontCombo.SelectedItem = _gridFontFamilyName;
-				_gridFontSizeCombo.SelectedItem = FormatGridFontSize(_gridFontSizePt);
-				_gridDensityCombo.SelectedItem = _gridDensity;
-			}
-			finally
-			{
-				_updatingGridDisplayControls = false;
 			}
 		}
 
@@ -1259,28 +1159,6 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (font != null)
 				font.Dispose();
-		}
-
-		private static void ApplyToolStripFont(ToolStrip toolStrip, Font font)
-		{
-			if (toolStrip == null || font == null) return;
-
-			toolStrip.Font = font;
-			foreach (ToolStripItem item in toolStrip.Items)
-				ApplyToolStripItemFont(item, font);
-		}
-
-		private static void ApplyToolStripItemFont(ToolStripItem item, Font font)
-		{
-			if (item == null || font == null) return;
-
-			item.Font = font;
-			ToolStripDropDownItem dropDownItem = item as ToolStripDropDownItem;
-			if (dropDownItem == null) return;
-
-			dropDownItem.DropDown.Font = font;
-			foreach (ToolStripItem child in dropDownItem.DropDownItems)
-				ApplyToolStripItemFont(child, font);
 		}
 
 		private string GetSkyrimDownloadModeLabel()
@@ -2482,8 +2360,8 @@ namespace Nexus.Client.ModManagement.UI
 			if (tsbSwitchView == null)
 				return;
 
-			tsbSwitchView.Text = _categoryViewActive ? "Switch to Default View" : "Switch to Category View";
-			tsbSwitchView.ToolTipText = _categoryViewActive ? "Show the default flat mod list" : "Group the mod list by category";
+			tsbSwitchView.Caption = _categoryViewActive ? "Switch to Default View" : "Switch to Category View";
+			tsbSwitchView.Hint = _categoryViewActive ? "Show the default flat mod list" : "Group the mod list by category";
 		}
 		private void QueueGridLayoutSave()
 		{
@@ -2611,6 +2489,11 @@ namespace Nexus.Client.ModManagement.UI
 			_inlineEditIcon = null;
 			_inlineAcceptIcon = null;
 			_inlineCancelIcon = null;
+
+			ClearGridPopupItems();
+			_gridPopupMenu?.Dispose();
+			_gridPopupMenu = null;
+			ClearPopupMenuItems(popupDeactivate);
 
 			foreach (SolidBrush brush in _categoryBrushCache.Values)
 				brush.Dispose();
@@ -3163,7 +3046,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			_focusTopRowAfterSorting = enabled;
 			if (_focusTopRowAfterSortingMenuItem != null)
-				_focusTopRowAfterSortingMenuItem.Checked = enabled;
+				_focusTopRowAfterSortingMenuItem.Down = enabled;
 			SaveGridDisplayOption(GridFocusTopAfterSortKey, enabled, save);
 		}
 
@@ -3171,55 +3054,47 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			_focusTopRowAfterInstallDateChange = enabled;
 			if (_focusTopRowAfterInstallDateChangeMenuItem != null)
-				_focusTopRowAfterInstallDateChangeMenuItem.Checked = enabled;
+				_focusTopRowAfterInstallDateChangeMenuItem.Down = enabled;
 			SaveGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, enabled, save);
 		}
 
+		/// <summary>
+		/// Adds the toolbar-position action to the right side of the DevExpress mod toolbar.
+		/// </summary>
 		private void InitializeToolbarPositionButton()
 		{
-			_toolbarPositionButton = new ToolStripButton
+			_toolbarPositionButton = new BarButtonItem(barManagerMods, "Toolbar Layout")
 			{
-				Alignment = ToolStripItemAlignment.Right,
-				DisplayStyle = ToolStripItemDisplayStyle.ImageAndText,
-				Text = "Toolbar Layout",
-				ToolTipText = "Toolbar Layout – move to Left",
-				Name = "tsbToolbarPosition",
-				Image = Nexus.Client.Properties.Resources.toolbar_move_left
+				Alignment = BarItemLinkAlignment.Right,
+				Hint = "Toolbar Layout – move to Left",
+				PaintStyle = BarItemPaintStyle.CaptionGlyph
 			};
-			_toolbarPositionButton.Click += (s, e) => SetToolbarPosition(!_toolbarPositionLeft, true);
-			toolStrip1.Items.Add(_toolbarPositionButton);
+			_toolbarPositionButton.ImageOptions.Image = Nexus.Client.Properties.Resources.toolbar_move_left;
+			_toolbarPositionButton.ItemClick += (sender, args) => SetToolbarPosition(!_toolbarPositionLeft, true);
+			barModActions.AddItem(_toolbarPositionButton);
 		}
 
+		/// <summary>
+		/// Moves the DevExpress mod toolbar between the top and left edges and optionally persists the choice.
+		/// </summary>
+		/// <param name="left">Whether the toolbar should be docked on the left.</param>
+		/// <param name="save">Whether the choice should be persisted.</param>
 		private void SetToolbarPosition(bool left, bool save)
 		{
 			_toolbarPositionLeft = left;
 
-			if (left)
-			{
-				toolStrip1.Dock = DockStyle.Left;
-				toolStrip1.LayoutStyle = ToolStripLayoutStyle.VerticalStackWithOverflow;
-				if (_toolbarPositionButton != null)
-				{
-					_toolbarPositionButton.Text = "Toolbar Layout";
-					_toolbarPositionButton.ToolTipText = "Toolbar Layout – move to Top";
-					_toolbarPositionButton.Image = Nexus.Client.Properties.Resources.toolbar_move_top;
-				}
-			}
-			else
-			{
-				toolStrip1.Dock = DockStyle.Top;
-				toolStrip1.LayoutStyle = ToolStripLayoutStyle.HorizontalStackWithOverflow;
-				if (_toolbarPositionButton != null)
-				{
-					_toolbarPositionButton.Text = "Toolbar Layout";
-					_toolbarPositionButton.ToolTipText = "Toolbar Layout – move to Left";
-					_toolbarPositionButton.Image = Nexus.Client.Properties.Resources.toolbar_move_left;
-				}
-			}
+			barModActions.DockStyle = left ? BarDockStyle.Left : BarDockStyle.Top;
+			barModActions.DockCol = 0;
+			barModActions.DockRow = 0;
 
-			// Ensure the right-aligned items (Alignment.Right) are shown in the
-			// correct overflow direction for the layout style.
-			toolStrip1.PerformLayout();
+			if (_toolbarPositionButton != null)
+			{
+				_toolbarPositionButton.Caption = "Toolbar Layout";
+				_toolbarPositionButton.Hint = left ? "Toolbar Layout – move to Top" : "Toolbar Layout – move to Left";
+				_toolbarPositionButton.ImageOptions.Image = left
+					? Nexus.Client.Properties.Resources.toolbar_move_top
+					: Nexus.Client.Properties.Resources.toolbar_move_left;
+			}
 
 			SaveGridDisplayOption(GridToolbarPositionKey, left, save);
 		}
@@ -3239,102 +3114,72 @@ namespace Nexus.Client.ModManagement.UI
 
 		// ── Context menu (popup) ─────────────────────────────────────────────
 
+		/// <summary>
+		/// Builds and shows the DevExpress row popup for the currently selected mod or mod set.
+		/// </summary>
 		private void gridView_PopupMenuShowing(object sender, PopupMenuShowingEventArgs e)
 		{
 			if (e.MenuType != GridMenuType.Row) return;
 			gridView.FocusedRowHandle = e.HitInfo.RowHandle;
-			var mod = SelectedMod;
+			IMod mod = SelectedMod;
 			if (mod == null) return;
 
-			var mods = SelectedMods;
+			List<IMod> mods = SelectedMods;
 			if (mods.Count == 0) mods = new List<IMod> { mod };
 			bool singleMod = mods.Count == 1;
-
 			bool active = IsModActive(mod);
 			bool installed = IsModInstalled(mod);
 
-			var menu = new ContextMenuStrip();
-			ApplyToolStripFont(menu, new Font(_gridFontFamilyName, _gridFontSizePt, FontStyle.Regular, GraphicsUnit.Point));
+			EnsureGridPopupMenu();
+			ClearGridPopupItems();
 
-			// ── mod filename header (disabled, for identification) ────────────
-			var itemHeader = new ToolStripMenuItem(Path.GetFileName(mod.Filename),
-				new System.Drawing.Bitmap(Properties.Resources.document_save, 16, 16));
+			BarButtonItem itemHeader = CreatePopupButton(Path.GetFileName(mod.Filename), Properties.Resources.document_save, null);
 			itemHeader.Enabled = false;
-			menu.Items.Add(itemHeader);
-			menu.Items.Add(new ToolStripSeparator());
+			_gridPopupMenu.AddItem(itemHeader);
 
-			// ── activate / deactivate / reinstall ────────────────────────────
 			if (singleMod)
 			{
 				if (!installed)
 				{
-					var itemActivate = new ToolStripMenuItem("Install and activate",
-						new System.Drawing.Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16));
-					itemActivate.Click += (s, ev) =>
-						_viewModel?.ActivateModCommand.Execute(new List<IMod> { mod });
-					menu.Items.Add(itemActivate);
+					AddGridPopupItem(CreatePopupButton("Install and activate", Properties.Resources.dialog_ok_4_16,
+						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 
 					if (_viewModel?.ModManager?.GameMode?.SupportsGameRootModInstall == true)
 					{
 						string gameModeName = _viewModel.ModManager.GameMode.Name;
-						if (String.IsNullOrWhiteSpace(gameModeName))
-							gameModeName = "game";
-
-						var itemActivateRoot = new ToolStripMenuItem(String.Format("Install to {0} root (eg. SKSE)", gameModeName),
-							new System.Drawing.Bitmap(Properties.Resources.change_game_mode, 16, 16));
-						itemActivateRoot.Click += (s, ev) => _viewModel?.ActivateModInGameRoot(mod);
-						menu.Items.Add(itemActivateRoot);
+						if (String.IsNullOrWhiteSpace(gameModeName)) gameModeName = "game";
+						AddGridPopupItem(CreatePopupButton(String.Format("Install to {0} root (eg. SKSE)", gameModeName), Properties.Resources.change_game_mode,
+							() => _viewModel?.ActivateModInGameRoot(mod)));
 					}
 				}
 				else if (!active)
 				{
-					var itemActivate = new ToolStripMenuItem("Activate",
-						new System.Drawing.Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16));
-					itemActivate.Click += (s, ev) =>
-						_viewModel?.ActivateModCommand.Execute(new List<IMod> { mod });
-					menu.Items.Add(itemActivate);
+					AddGridPopupItem(CreatePopupButton("Activate", Properties.Resources.dialog_ok_4_16,
+						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 				}
 				else
 				{
-					var itemDeactivate = new ToolStripMenuItem("Deactivate",
-						ToolStripRenderer.CreateDisabledImage(new System.Drawing.Bitmap(Properties.Resources.dialog_ok_4_16, 16, 16)));
-					itemDeactivate.Click += (s, ev) =>
-						_viewModel?.DisableModCommand.Execute(new List<IMod> { mod });
-					menu.Items.Add(itemDeactivate);
-
-					var itemReinstall = new ToolStripMenuItem("Reinstall Mod",
-						new System.Drawing.Bitmap(Properties.Resources.change_game_mode, 16, 16));
-					itemReinstall.Click += (s, ev) =>
-					{
-						if (_viewModel != null)
-							_viewModel.ReinstallMod(mod, null);
-					};
-					menu.Items.Add(itemReinstall);
+					AddGridPopupItem(CreatePopupButton("Deactivate", Properties.Resources.dialog_ok_4_16,
+						() => _viewModel?.DisableModCommand.Execute(new List<IMod> { mod })), true);
+					AddGridPopupItem(CreatePopupButton("Reinstall Mod", Properties.Resources.change_game_mode,
+						() => _viewModel?.ReinstallMod(mod, null)));
 				}
 			}
 			else
 			{
-				var itemReinstall = new ToolStripMenuItem("Reinstall Mod/s",
-					new System.Drawing.Bitmap(Properties.Resources.change_game_mode, 16, 16));
-				itemReinstall.Click += (s, ev) =>
-				{
-					if (_viewModel != null)
-						_viewModel.ReinstallMultipleMods(mods);
-				};
-				menu.Items.Add(itemReinstall);
+				AddGridPopupItem(CreatePopupButton("Reinstall Mod/s", Properties.Resources.change_game_mode,
+					() => _viewModel?.ReinstallMultipleMods(mods)), true);
 			}
 
-			// ── Uninstall or Delete submenu ───────────────────────────────────
-			var itemUninstall = new ToolStripMenuItem("Uninstall or Delete",
-				new System.Drawing.Bitmap(Properties.Resources.dialog_block, 16, 16));
+			BarSubItem itemUninstall = CreatePopupSubItem("Uninstall or Delete", Properties.Resources.dialog_block);
 			if (singleMod)
 			{
-				itemUninstall.DropDownItems.Add("From active profile", null, (s, ev) =>
+				itemUninstall.AddItem(CreatePopupButton("From active profile", null, () =>
 				{
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateMod(mod);
-				});
-				itemUninstall.DropDownItems.Add("From all profiles", null, (s, ev) =>
+				}));
+				itemUninstall.AddItem(CreatePopupButton("From all profiles", null, () =>
 				{
 					if (_viewModel == null || !ConfirmMissingArchiveUninstall(mods)) return;
 					IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
@@ -3342,9 +3187,7 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
 						{
-							if (!taskArgs.Success)
-								return;
-
+							if (!taskArgs.Success) return;
 							if (InvokeRequired)
 								Invoke((MethodInvoker)(() => UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod))));
 							else
@@ -3356,106 +3199,159 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
 					}
-				});
-				itemUninstall.DropDownItems.Add(new ToolStripSeparator());
-				itemUninstall.DropDownItems.Add(
-					"Delete mod (permanently) and uninstall.",
-					new System.Drawing.Bitmap(Properties.Resources.dialog_cancel_4_16, 16, 16),
-					(s, ev) =>
-					{
-						if (_viewModel == null) return;
-						if (ConfirmModFileDeletion(mods) && ConfirmMissingArchiveUninstall(mods))
-						{
-							IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
-							if (btsDeactivate != null)
-							{
-								btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
-								{
-									if (!taskArgs.Success)
-										return;
+				}));
 
-									if (InvokeRequired)
-									{
-										Invoke((MethodInvoker)(() =>
-										{
-											UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
-											var oclMods = new ThreadSafeObservableList<IMod>(mods);
-											_viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
-										}));
-									}
-									else
-									{
-										UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
-										var oclMods = new ThreadSafeObservableList<IMod>(mods);
-										_viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
-									}
-								};
-								_viewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
-							}
-							else
-							{
-								UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
-								var oclMods = new ThreadSafeObservableList<IMod>(mods);
-								_viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
-							}
-						}
-					});
+				BarButtonItem deleteItem = CreatePopupButton("Delete mod (permanently) and uninstall.", Properties.Resources.dialog_cancel_4_16, () =>
+				{
+					if (_viewModel == null) return;
+					if (!ConfirmModFileDeletion(mods) || !ConfirmMissingArchiveUninstall(mods)) return;
+
+					IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
+					Action deleteAfterDeactivate = () =>
+					{
+						UninstallModFromProfiles?.Invoke(this, new ModEventArgs(mod));
+						var oclMods = new ThreadSafeObservableList<IMod>(mods);
+						_viewModel.DeleteMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, false);
+					};
+
+					if (btsDeactivate != null)
+					{
+						btsDeactivate.TaskSetCompleted += (taskSender, taskArgs) =>
+						{
+							if (!taskArgs.Success) return;
+							if (InvokeRequired) Invoke((MethodInvoker)(() => deleteAfterDeactivate()));
+							else deleteAfterDeactivate();
+						};
+						_viewModel.ModManager.ModActivationMonitor.AddActivity(btsDeactivate);
+					}
+					else
+					{
+						deleteAfterDeactivate();
+					}
+				});
+				BarItemLink deleteLink = itemUninstall.AddItem(deleteItem);
+				deleteLink.BeginGroup = true;
 			}
 			else
 			{
-				itemUninstall.DropDownItems.Add("From active profile", null, (s, ev) =>
+				itemUninstall.AddItem(CreatePopupButton("From active profile", null, () =>
 				{
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateSelectedMods(mods);
-				});
+				}));
 			}
-			menu.Items.Add(itemUninstall);
+			AddGridPopupItem(itemUninstall);
 
-			// ── Mod Update Warnings submenu ───────────────────────────────────
-			var itemWarnings = new ToolStripMenuItem("Mod Update Warnings",
-				new System.Drawing.Bitmap(Properties.Resources.update_warning, 16, 16));
+			BarSubItem itemWarnings = CreatePopupSubItem("Mod Update Warnings", Properties.Resources.update_warning);
 			BuildUpdateWarningsSubmenu(itemWarnings, mods);
-			if (itemWarnings.DropDownItems.Count > 0)
-				menu.Items.Add(itemWarnings);
+			if (itemWarnings.ItemLinks.Count > 0) AddGridPopupItem(itemWarnings);
 
-			// ── Mod Update Checks submenu ─────────────────────────────────────
-			var itemChecks = new ToolStripMenuItem("Mod Update Checks and Automatic Mod Rename",
-				new System.Drawing.Bitmap(Properties.Resources.edit_find_and_replace, 16, 16));
+			BarSubItem itemChecks = CreatePopupSubItem("Mod Update Checks and Automatic Mod Rename", Properties.Resources.edit_find_and_replace);
 			BuildUpdateChecksSubmenu(itemChecks, mods);
-			if (itemChecks.DropDownItems.Count > 0)
-				menu.Items.Add(itemChecks);
+			if (itemChecks.ItemLinks.Count > 0) AddGridPopupItem(itemChecks);
 
-			// ── Move to (category) submenu ────────────────────────────────────
 			if (_viewModel?.CategoryManager != null)
 			{
-				var itemMoveTo = new ToolStripMenuItem("Move to");
-				foreach (IModCategory cat in _viewModel.CategoryManager.Categories
-					.OrderBy(c => c.CategoryName))
+				BarSubItem itemMoveTo = CreatePopupSubItem("Move to", null);
+				foreach (IModCategory cat in _viewModel.CategoryManager.Categories.OrderBy(category => category.CategoryName))
 				{
-					var catId = cat.Id;
-					var catName = cat.CategoryName;
-					itemMoveTo.DropDownItems.Add(catName, null, (s, ev) =>
-					{
-						if (_viewModel != null)
-							_viewModel.SwitchModsToCategory(mods, catId);
-					});
+					int catId = cat.Id;
+					string catName = cat.CategoryName;
+					itemMoveTo.AddItem(CreatePopupButton(catName, null, () => _viewModel?.SwitchModsToCategory(mods, catId)));
 				}
-				if (itemMoveTo.DropDownItems.Count > 0)
-				{
-					menu.Items.Add(new ToolStripSeparator());
-					menu.Items.Add(itemMoveTo);
-				}
+				if (itemMoveTo.ItemLinks.Count > 0) AddGridPopupItem(itemMoveTo, true);
 			}
 
 			if (singleMod)
-			{
-				menu.Items.Add(new ToolStripSeparator());
-				var itemResetCache = new ToolStripMenuItem("Reset Mod Cache");
-				itemResetCache.Click += (s, ev) => ResetSelectedModCache(mod);
-				menu.Items.Add(itemResetCache);
-			}
-			menu.Show(gridControl, gridControl.PointToClient(Control.MousePosition));
+				AddGridPopupItem(CreatePopupButton("Reset Mod Cache", null, () => ResetSelectedModCache(mod)), true);
+
+			_gridPopupMenu.ShowPopup(Control.MousePosition);
 			e.Allow = false;
+		}
+
+		/// <summary>
+		/// Creates the persistent DevExpress popup used for mod-grid row actions.
+		/// </summary>
+		private void EnsureGridPopupMenu()
+		{
+			if (_gridPopupMenu == null)
+				_gridPopupMenu = new PopupMenu(barManagerMods);
+		}
+
+		/// <summary>
+		/// Adds an item to the row popup and optionally starts a visual group before it.
+		/// </summary>
+		/// <param name="item">The item to add.</param>
+		/// <param name="beginGroup">Whether the item starts a new visual group.</param>
+		private void AddGridPopupItem(BarItem item, bool beginGroup = false)
+		{
+			BarItemLink link = _gridPopupMenu.AddItem(item);
+			link.BeginGroup = beginGroup;
+		}
+
+		/// <summary>
+		/// Creates a transient DevExpress popup button and optionally wires an action.
+		/// </summary>
+		/// <param name="caption">The item caption.</param>
+		/// <param name="image">The optional raster image.</param>
+		/// <param name="action">The optional action executed when clicked.</param>
+		/// <returns>The configured popup button.</returns>
+		private BarButtonItem CreatePopupButton(string caption, Image image, Action action)
+		{
+			var item = new BarButtonItem(barManagerMods, caption);
+			if (image != null) item.ImageOptions.Image = image;
+			if (action != null) item.ItemClick += (sender, args) => action();
+			return item;
+		}
+
+		/// <summary>
+		/// Creates a transient DevExpress popup submenu.
+		/// </summary>
+		/// <param name="caption">The submenu caption.</param>
+		/// <param name="image">The optional submenu image.</param>
+		/// <returns>The configured submenu.</returns>
+		private BarSubItem CreatePopupSubItem(string caption, Image image)
+		{
+			var item = new BarSubItem(barManagerMods, caption);
+			if (image != null) item.ImageOptions.Image = image;
+			return item;
+		}
+
+		/// <summary>
+		/// Removes and disposes all transient items from the reusable mod-grid popup.
+		/// </summary>
+		private void ClearGridPopupItems()
+		{
+			if (_gridPopupMenu == null) return;
+
+			List<BarItem> items = _gridPopupMenu.ItemLinks.Cast<BarItemLink>()
+				.Select(link => link.Item)
+				.Where(item => item != null)
+				.Distinct()
+				.ToList();
+			_gridPopupMenu.ClearLinks();
+			foreach (BarItem item in items)
+				DisposePopupItem(item);
+		}
+
+		/// <summary>
+		/// Recursively disposes one transient popup item and any nested submenu items.
+		/// </summary>
+		/// <param name="item">The item to dispose.</param>
+		private static void DisposePopupItem(BarItem item)
+		{
+			BarSubItem subItem = item as BarSubItem;
+			if (subItem != null)
+			{
+				List<BarItem> children = subItem.ItemLinks.Cast<BarItemLink>()
+					.Select(link => link.Item)
+					.Where(child => child != null)
+					.Distinct()
+					.ToList();
+				subItem.ClearLinks();
+				foreach (BarItem child in children) DisposePopupItem(child);
+			}
+			item.Dispose();
 		}
 
 		private void ResetSelectedModCache(IMod mod)
@@ -3470,88 +3366,99 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show(this,
+				XtraMessageBox.Show(this,
 					"Unable to reset the selected mod cache." + Environment.NewLine + Environment.NewLine + ex.Message,
-					"Reset Mod Cache",
-					MessageBoxButtons.OK,
-					MessageBoxIcon.Error);
+					"Reset Mod Cache", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
-		private void BuildUpdateWarningsSubmenu(ToolStripMenuItem parent, List<IMod> mods)
+
+		private void BuildUpdateWarningsSubmenu(BarSubItem parent, List<IMod> mods)
 		{
 			if (mods == null || mods.Count == 0) return;
 
 			if (mods.Count == 1)
 			{
-				var m = mods[0];
-				parent.DropDownItems.Add(
-					m.UpdateWarningEnabled ? "Disable update warning" : "Enable update warning",
-					null,
-					(s, e) =>
-					{
-						if (_viewModel != null)
-							_viewModel.ToggleModUpdateWarning(new HashSet<IMod>(mods), !m.UpdateWarningEnabled);
-					});
+				IMod mod = mods[0];
+				parent.AddItem(CreatePopupButton(mod.UpdateWarningEnabled ? "Disable update warning" : "Enable update warning", null,
+					() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), !mod.UpdateWarningEnabled)));
 			}
 			else
 			{
-				bool hasEnabled = mods.Any(x => x.UpdateWarningEnabled);
-				bool hasDisabled = mods.Any(x => !x.UpdateWarningEnabled);
-
+				bool hasEnabled = mods.Any(mod => mod.UpdateWarningEnabled);
+				bool hasDisabled = mods.Any(mod => !mod.UpdateWarningEnabled);
 				if (hasDisabled)
-					parent.DropDownItems.Add("Enable for selected files", null, (s, e) =>
-						_viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), true));
+					parent.AddItem(CreatePopupButton("Enable for selected files", null,
+						() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), true)));
 				if (hasEnabled)
-					parent.DropDownItems.Add("Disable for selected files", null, (s, e) =>
-						_viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), false));
+					parent.AddItem(CreatePopupButton("Disable for selected files", null,
+						() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), false)));
 			}
 
-			if (parent.DropDownItems.Count > 0)
-				parent.DropDownItems.Add(new ToolStripSeparator());
-
-			parent.DropDownItems.Add("Enable for all files", null, (s, e) =>
-				_viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), true));
-			parent.DropDownItems.Add("Disable for all files", null, (s, e) =>
-				_viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), false));
+			BarButtonItem enableAll = CreatePopupButton("Enable for all files", null,
+				() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), true));
+			BarItemLink enableAllLink = parent.AddItem(enableAll);
+			enableAllLink.BeginGroup = parent.ItemLinks.Count > 1;
+			parent.AddItem(CreatePopupButton("Disable for all files", null,
+				() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), false)));
 		}
 
-		private void BuildUpdateChecksSubmenu(ToolStripMenuItem parent, List<IMod> mods)
+		private void BuildUpdateChecksSubmenu(BarSubItem parent, List<IMod> mods)
 		{
 			if (mods == null || mods.Count == 0) return;
 
 			if (mods.Count == 1)
 			{
-				var m = mods[0];
-				parent.DropDownItems.Add(
-					m.UpdateChecksEnabled ? "Disable for this mod" : "Enable for this mod",
-					null,
-					(s, e) =>
-					{
-						if (_viewModel != null)
-							_viewModel.ToggleModUpdateCheck(new HashSet<IMod>(mods), !m.UpdateChecksEnabled);
-					});
+				IMod mod = mods[0];
+				parent.AddItem(CreatePopupButton(mod.UpdateChecksEnabled ? "Disable for this mod" : "Enable for this mod", null,
+					() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), !mod.UpdateChecksEnabled)));
 			}
 			else
 			{
-				bool hasEnabled = mods.Any(x => x.UpdateChecksEnabled);
-				bool hasDisabled = mods.Any(x => !x.UpdateChecksEnabled);
-
+				bool hasEnabled = mods.Any(mod => mod.UpdateChecksEnabled);
+				bool hasDisabled = mods.Any(mod => !mod.UpdateChecksEnabled);
 				if (hasDisabled)
-					parent.DropDownItems.Add("Enable for selected mods", null, (s, e) =>
-						_viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), true));
+					parent.AddItem(CreatePopupButton("Enable for selected mods", null,
+						() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), true)));
 				if (hasEnabled)
-					parent.DropDownItems.Add("Disable for selected mods", null, (s, e) =>
-						_viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), false));
+					parent.AddItem(CreatePopupButton("Disable for selected mods", null,
+						() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), false)));
 			}
 
-			if (parent.DropDownItems.Count > 0)
-				parent.DropDownItems.Add(new ToolStripSeparator());
-
-			parent.DropDownItems.Add("Enable for all mods", null, (s, e) =>
-				_viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(_viewModel.ManagedMods), true));
+			BarButtonItem enableAll = CreatePopupButton("Enable for all mods", null,
+				() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(_viewModel.ManagedMods), true));
+			BarItemLink enableAllLink = parent.AddItem(enableAll);
+			enableAllLink.BeginGroup = parent.ItemLinks.Count > 1;
 		}
 
 		// ── Toolbar helpers ──────────────────────────────────────────────────
+
+		/// <summary>
+		/// Loads an embedded SVG resource and renders it as a bitmap of the requested size.
+		/// </summary>
+		private static Image LoadSvgIcon(string resourceName, int size)
+		{
+			var assembly = typeof(ModManagerDXControl).Assembly;
+			string fullName = assembly.GetManifestResourceNames()
+				.FirstOrDefault(name => name.EndsWith("." + resourceName, StringComparison.OrdinalIgnoreCase));
+
+			if (fullName == null)
+				return null;
+
+			using (Stream stream = assembly.GetManifestResourceStream(fullName))
+			{
+				if (stream == null)
+					return null;
+
+				var svgImage = DevExpress.Utils.Svg.SvgImage.FromStream(stream);
+				var svgBitmap = DevExpress.Utils.Svg.SvgBitmap.Create(svgImage);
+
+				return svgBitmap.Render(
+					new Size(size, size),
+					null,
+					DefaultBoolean.False,
+					DefaultBoolean.False);
+			}
+		}
 
 		private IMod GetSelectedMod() => SelectedMod;
 		private List<IMod> GetSelectedMods()
@@ -3560,20 +3467,45 @@ namespace Nexus.Client.ModManagement.UI
 			return list.Count > 0 ? list : null;
 		}
 
+		/// <summary>
+		/// Rebuilds the DevExpress Disable Mod popup with the profile-uninstall and permanent-delete actions.
+		/// </summary>
 		private void ConfigureDeactivateDropDown()
 		{
-			tsbDeactivate.DropDownItems.Clear();
+			ClearPopupMenuItems(popupDeactivate);
 			AddDeactivateDropDownItem("Uninstall mod from current profile", "mod-uninstall-from-profile.svg", UninstallSelectedModsFromCurrentProfile);
 			AddDeactivateDropDownItem("Delete mod", "mod-remove.svg", DeleteSelectedModsFromKey);
 		}
 
+		/// <summary>
+		/// Adds one action to the Disable Mod popup using the embedded SVG asset when available.
+		/// </summary>
+		/// <param name="text">The action caption.</param>
+		/// <param name="iconResourceName">The embedded SVG resource name.</param>
+		/// <param name="action">The action to execute.</param>
 		private void AddDeactivateDropDownItem(string text, string iconResourceName, Action action)
 		{
-			var item = new ToolStripMenuItem(text, LoadSvgIcon(iconResourceName, 24), (s, e) => action())
-			{
-				ImageScaling = ToolStripItemImageScaling.None
-			};
-			tsbDeactivate.DropDownItems.Add(item);
+			var item = new BarButtonItem(barManagerMods, text);
+			item.ImageOptions.SvgImage = LoadSvgImage(iconResourceName);
+			item.ItemClick += (sender, args) => action();
+			popupDeactivate.AddItem(item);
+		}
+
+		/// <summary>
+		/// Clears and disposes transient items owned by a DevExpress popup menu.
+		/// </summary>
+		/// <param name="popupMenu">The popup menu to clear.</param>
+		private static void ClearPopupMenuItems(PopupMenu popupMenu)
+		{
+			if (popupMenu == null) return;
+
+			List<BarItem> items = popupMenu.ItemLinks.Cast<BarItemLink>()
+				.Select(link => link.Item)
+				.Where(item => item != null)
+				.Distinct()
+				.ToList();
+			popupMenu.ClearLinks();
+			foreach (BarItem item in items) DisposePopupItem(item);
 		}
 
 		private void UninstallSelectedModsFromCurrentProfile()
@@ -3597,12 +3529,12 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void UpdateModCountLabel()
 		{
-			toolStripLabelModCount.Text = $"Mods: {_modList.Count}";
+			toolStripLabelModCount.Caption = $"Mods: {_modList.Count}";
 		}
 
 		// ── Toolbar button handlers ──────────────────────────────────────────
 
-		private void tsbDeactivate_ButtonClick(object sender, EventArgs e)
+		private void tsbDeactivate_ButtonClick(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null || !_viewModel.DisableModCommand.CanExecute) return;
 
@@ -3611,15 +3543,15 @@ namespace Nexus.Client.ModManagement.UI
 
 			_viewModel.DisableModCommand.Execute(mods);
 		}
-		private void tsbAddMod_ButtonClick(object sender, EventArgs e)
+		private void tsbAddMod_ButtonClick(object sender, ItemClickEventArgs e)
 		{
 			addModToolStripMenuItem_Click(sender, e);
 		}
 
-		private void addModToolStripMenuItem_Click(object sender, EventArgs e)
+		private void addModToolStripMenuItem_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
-			using (var ofd = new OpenFileDialog())
+			using (var ofd = new XtraOpenFileDialog())
 			{
 				ofd.Filter = "Mod Archives|*.zip;*.7z;*.rar;*.fomod;*.omod|All Files|*.*";
 				ofd.Multiselect = true;
@@ -3629,7 +3561,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private void addModFromURLToolStripMenuItem_Click(object sender, EventArgs e)
+		private void addModFromURLToolStripMenuItem_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			string strDefault = "nxm://";
@@ -3648,19 +3580,19 @@ namespace Nexus.Client.ModManagement.UI
 				_viewModel.AddModCommand.Execute(dlg.EnteredText);
 		}
 
-		private void tsbSkyrimDownloads_Click(object sender, EventArgs e)
+		private void tsbSkyrimDownloads_Click(object sender, ItemClickEventArgs e)
 		{
 			_viewModel?.ToggleSkyrimSEDownloadMode();
 			SetSkyrimDownloadModeFeedback();
 		}
 
-		private void tsb_SaveModLoadOrder_Click(object sender, EventArgs e)
+		private void tsb_SaveModLoadOrder_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel?.ModManager.GameMode.UsesModLoadOrder == true)
 				_viewModel.SaveModLoadOrder();
 		}
 
-		private void tsb_ModUpLoadOrder_Click(object sender, EventArgs e)
+		private void tsb_ModUpLoadOrder_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel?.ModManager.GameMode.UsesModLoadOrder != true) return;
 			var mods = SelectedMods;
@@ -3670,7 +3602,7 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.InvalidateRows();
 		}
 
-		private void tsb_ModDownLoadOrder_Click(object sender, EventArgs e)
+		private void tsb_ModDownLoadOrder_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel?.ModManager.GameMode.UsesModLoadOrder != true) return;
 			var mods = SelectedMods;
@@ -3680,7 +3612,7 @@ namespace Nexus.Client.ModManagement.UI
 			gridView.InvalidateRows();
 		}
 
-		private void tsbModOnlineChecks_ButtonClick(object sender, EventArgs e)
+		private void tsbModOnlineChecks_ButtonClick(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			try
@@ -3692,23 +3624,23 @@ namespace Nexus.Client.ModManagement.UI
 			catch (Exception ex)
 			{
 				if (ex.Message != "Login required")
-					MessageBox.Show(this,
+					XtraMessageBox.Show(this,
 						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
 						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
-		private void withinTheLastDayToolStripMenuItem_Click(object sender, EventArgs e)
+		private void withinTheLastDayToolStripMenuItem_Click(object sender, ItemClickEventArgs e)
 		{
 			RunUpdatedModsCheck("1d");
 		}
 
-		private void withinTheLastWeekToolStripMenuItem_Click(object sender, EventArgs e)
+		private void withinTheLastWeekToolStripMenuItem_Click(object sender, ItemClickEventArgs e)
 		{
 			RunUpdatedModsCheck("1w");
 		}
 
-		private void withinTheLastMonthToolStripMenuItem_Click(object sender, EventArgs e)
+		private void withinTheLastMonthToolStripMenuItem_Click(object sender, ItemClickEventArgs e)
 		{
 			RunUpdatedModsCheck("1m");
 		}
@@ -3725,13 +3657,13 @@ namespace Nexus.Client.ModManagement.UI
 			catch (Exception ex)
 			{
 				if (ex.Message != "Login required")
-					MessageBox.Show(this,
+					XtraMessageBox.Show(this,
 						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
 						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
-		private void checkFileDownloadId_Click(object sender, EventArgs e)
+		private void checkFileDownloadId_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			try
@@ -3743,13 +3675,13 @@ namespace Nexus.Client.ModManagement.UI
 			catch (Exception ex)
 			{
 				if (ex.Message != "Login required")
-					MessageBox.Show(this,
+					XtraMessageBox.Show(this,
 						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
 						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
-		private void checkMissingDownloadId_Click(object sender, EventArgs e)
+		private void checkMissingDownloadId_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			try
@@ -3761,13 +3693,13 @@ namespace Nexus.Client.ModManagement.UI
 			catch (Exception ex)
 			{
 				if (ex.Message != "Login required")
-					MessageBox.Show(this,
+					XtraMessageBox.Show(this,
 						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
 						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
-		private void tsbToggleEndorse_Click(object sender, EventArgs e)
+		private void tsbToggleEndorse_Click(object sender, ItemClickEventArgs e)
 		{
 			var mod = SelectedMod;
 			if (mod == null || _viewModel == null) return;
@@ -3781,7 +3713,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show(this,
+				XtraMessageBox.Show(this,
 					$"Unable to {(current != true ? "endorse" : "unendorse")} this file:{Environment.NewLine}{ex.Message}",
 					"Endorsement Error:", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
@@ -3792,10 +3724,10 @@ namespace Nexus.Client.ModManagement.UI
 			SetCommandExecutableStatus();
 		}
 
-		private void tsbShowUpdatesOnly_Click(object sender, EventArgs e)
+		private void tsbShowUpdatesOnly_Click(object sender, ItemClickEventArgs e)
 		{
 			_showUpdatesOnly = !_showUpdatesOnly;
-			tsbShowUpdatesOnly.Checked = _showUpdatesOnly;
+			tsbShowUpdatesOnly.Down = _showUpdatesOnly;
 			gridView.ActiveFilterString = _showUpdatesOnly
 				? $"[{ColLastKnown}] != null And [{ColLastKnown}] != '' And [{ColVersion}] != [{ColLastKnown}]"
 				: string.Empty;
@@ -3804,7 +3736,7 @@ namespace Nexus.Client.ModManagement.UI
 		private string GetExportToFileArgs()
 		{
 			if (_viewModel == null) return null;
-			using (var sfd = new SaveFileDialog())
+			using (var sfd = new XtraSaveFileDialog())
 			{
 				sfd.FileName = _viewModel.GetDefaultExportFilename();
 				sfd.Filter = _viewModel.GetExportFilterString();
@@ -3814,16 +3746,16 @@ namespace Nexus.Client.ModManagement.UI
 
 		// ── Category toolbar handlers ────────────────────────────────────────
 
-		private void addNewCategory_Click(object sender, EventArgs e)
+		private void addNewCategory_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			_viewModel.CategoryManager.AddCategory();
 		}
 
-		private void collapseAllCategories_Click(object sender, EventArgs e)
+		private void collapseAllCategories_Click(object sender, ItemClickEventArgs e)
 			=> CollapseAllCategories();
 
-		private void expandAllCategories_Click(object sender, EventArgs e)
+		private void expandAllCategories_Click(object sender, ItemClickEventArgs e)
 			=> ExpandAllCategories();
 
 		/// <summary>Collapses all category groups in the mod grid (callable from CategoryManagerControl).</summary>
@@ -3849,7 +3781,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">The event arguments.</param>
-		private void updateNexusAndCustomCategories_Click(object sender, EventArgs e)
+		private void updateNexusAndCustomCategories_Click(object sender, ItemClickEventArgs e)
 		{
 			try
 			{
@@ -3862,7 +3794,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private void resetDefaultCategories_Click(object sender, EventArgs e)
+		private void resetDefaultCategories_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			try
@@ -3874,13 +3806,13 @@ namespace Nexus.Client.ModManagement.UI
 			catch (Exception ex)
 			{
 				if (ex.Message != "Login required")
-					MessageBox.Show(this,
+					XtraMessageBox.Show(this,
 						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
 						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
-		private void resetUnassignedToDefaultCategories_Click(object sender, EventArgs e)
+		private void resetUnassignedToDefaultCategories_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			var lstSelectedMods = _viewModel.ManagedMods
@@ -3893,14 +3825,14 @@ namespace Nexus.Client.ModManagement.UI
 			ResetSearchBox?.Invoke(this, EventArgs.Empty);
 		}
 
-		private void resetModsCategory_Click(object sender, EventArgs e)
+		private void resetModsCategory_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			_viewModel.ResetToUnassigned();
 			gridView.InvalidateRows();
 		}
 
-		private void removeAllCategories_Click(object sender, EventArgs e)
+		private void removeAllCategories_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
 			if (_viewModel.RemoveAllCategories())
@@ -3910,9 +3842,9 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private void toggleHiddenCategories_Click(object sender, EventArgs e) { /* flat grid has no hidden categories */ }
+		private void toggleHiddenCategories_Click(object sender, ItemClickEventArgs e) { /* flat grid has no hidden categories */ }
 
-		private void tsbSwitchView_Click(object sender, EventArgs e)
+		private void tsbSwitchView_Click(object sender, ItemClickEventArgs e)
 		{
 			ApplyCategoryView(!_categoryViewActive, true);
 			SaveGridLayout();
@@ -4103,9 +4035,9 @@ namespace Nexus.Client.ModManagement.UI
 			if (!string.IsNullOrEmpty(e.Message))
 			{
 				if (e.Success)
-					MessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					XtraMessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				else
-					MessageBox.Show(this, e.Message, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					XtraMessageBox.Show(this, e.Message, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 
@@ -4180,7 +4112,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (!File.Exists(oldPath))
 				return oldPath;
 
-			switch (MessageBox.Show(this,
+			switch (XtraMessageBox.Show(this,
 				$"A mod archive already exists at:\r\n{oldPath}\r\n\r\nWould you like to overwrite it?",
 				"Overwrite?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 			{
@@ -4209,7 +4141,7 @@ namespace Nexus.Client.ModManagement.UI
 				Invoke((MethodInvoker)(() => r = ConfirmModUpgrade(oldMod, newMod)));
 				return r;
 			}
-			switch (MessageBox.Show(this,
+			switch (XtraMessageBox.Show(this,
 				$"A newer version of '{oldMod.ModName}' has been found.\r\nWould you like to upgrade?",
 				"Upgrade Mod?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 			{

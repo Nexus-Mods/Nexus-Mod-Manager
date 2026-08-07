@@ -1,8 +1,10 @@
 ﻿namespace Nexus.Client.SSO
 {
     using System.Windows.Forms;
+    using DevExpress.Utils;
+    using Nexus.Client.UI;
 
-    public partial class ManualApiKeyEntryForm : Form
+    public partial class ManualApiKeyEntryForm : ManagedFontXtraForm
     {
         private AuthenticationFormViewModel _viewModel;
 
@@ -12,7 +14,7 @@
             _viewModel = viewModel;
         }
 
-        private void LinkLabelManageApiKeys_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        private void LinkLabelManageApiKeys_HyperlinkClick(object sender, HyperlinkClickEventArgs e)
         {
             System.Diagnostics.Process.Start("https://www.nexusmods.com/users/myaccount?tab=api%20access");
         }

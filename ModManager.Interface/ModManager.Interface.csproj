@@ -41,6 +41,7 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="DevExpress.Utils.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a" />
     <Reference Include="FluentNexus, Version=1.0.5.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Pathoschild.FluentNexus.1.0.5\lib\net45\FluentNexus.dll</HintPath>
     </Reference>

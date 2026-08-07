@@ -2130,17 +2130,17 @@
 
         private void ViewModelExportFailed(object sender, EventArgs e)
         {
-            MessageBox.Show(this, "The current load order could not be exported.", "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            XtraMessageBox.Show(this, "The current load order could not be exported.", "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ViewModelExportSucceeded(object sender, EventArgs e)
         {
-            MessageBox.Show(this, "The current load order was successfully exported.", "Export Succeeded", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            XtraMessageBox.Show(this, "The current load order was successfully exported.", "Export Succeeded", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ViewModelImportFailed(object sender, EventArgs e)
         {
-            MessageBox.Show(this, "The selected load order could not be imported.", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            XtraMessageBox.Show(this, "The selected load order could not be imported.", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ViewModelImportSucceeded(object sender, EventArgs e)

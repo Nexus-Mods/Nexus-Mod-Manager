@@ -2,123 +2,87 @@
 {
 	partial class AuthenticationForm
 	{
-		/// <summary>
-		/// Required designer variable.
-		/// </summary>
 		private System.ComponentModel.IContainer components = null;
 
-		/// <summary>
-		/// Clean up any resources being used.
-		/// </summary>
-		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing && (components != null))
-			{
 				components.Dispose();
-			}
 			base.Dispose(disposing);
 		}
 
-		#region Windows Form Designer generated code
-
-		/// <summary>
-		/// Required method for Designer support - do not modify
-		/// the contents of this method with the code editor.
-		/// </summary>
 		private void InitializeComponent()
 		{
-            this.panel2 = new System.Windows.Forms.Panel();
-            this.buttonCancel = new System.Windows.Forms.Button();
-            this.buttonSingleSignOn = new System.Windows.Forms.Button();
-            this.label1 = new System.Windows.Forms.Label();
-            this.label2 = new System.Windows.Forms.Label();
-            this.SuspendLayout();
-            // 
-            // panel2
-            // 
-            this.panel2.AutoSize = true;
-            this.panel2.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
-            this.panel2.Location = new System.Drawing.Point(0, 0);
-            this.panel2.Name = "panel2";
-            this.panel2.Size = new System.Drawing.Size(253, 0);
-            this.panel2.TabIndex = 16;
-            // 
-            // buttonCancel
-            // 
-            this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.buttonCancel.Location = new System.Drawing.Point(166, 83);
-            this.buttonCancel.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
-            this.buttonCancel.Name = "buttonCancel";
-            this.buttonCancel.Size = new System.Drawing.Size(75, 33);
-            this.buttonCancel.TabIndex = 3;
-            this.buttonCancel.Text = "Cancel";
-            this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
-            // 
-            // buttonSingleSignOn
-            // 
-            this.buttonSingleSignOn.Location = new System.Drawing.Point(12, 83);
-            this.buttonSingleSignOn.Margin = new System.Windows.Forms.Padding(3, 3, 3, 8);
-            this.buttonSingleSignOn.Name = "buttonSingleSignOn";
-            this.buttonSingleSignOn.Size = new System.Drawing.Size(91, 33);
-            this.buttonSingleSignOn.TabIndex = 0;
-            this.buttonSingleSignOn.Text = "Authorize NMM";
-            this.buttonSingleSignOn.UseVisualStyleBackColor = true;
-            this.buttonSingleSignOn.Click += new System.EventHandler(this.ButtonSingleSignOn_Click);
-            // 
-            // label1
-            // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(6, 9);
-            this.label1.MaximumSize = new System.Drawing.Size(245, 0);
-            this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(243, 13);
-            this.label1.TabIndex = 25;
-            this.label1.Text = "User authentication is now handled with API keys.";
-            // 
-            // label2
-            // 
-            this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(6, 33);
-            this.label2.MaximumSize = new System.Drawing.Size(245, 0);
-            this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(213, 26);
-            this.label2.TabIndex = 26;
-            this.label2.Text = "Use the Authorize button below to let NMM access your account details.";
-            // 
-            // AuthenticationForm
-            // 
-            this.AcceptButton = this.buttonSingleSignOn;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.AutoSize = true;
-            this.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.CancelButton = this.buttonCancel;
-            this.ClientSize = new System.Drawing.Size(253, 126);
-            this.Controls.Add(this.label2);
-            this.Controls.Add(this.label1);
-            this.Controls.Add(this.buttonSingleSignOn);
-            this.Controls.Add(this.buttonCancel);
-            this.Controls.Add(this.panel2);
-            this.m_fpdFontProvider.SetFontSet(this, "StandardText");
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.MinimumSize = new System.Drawing.Size(262, 39);
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Authorization";
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
+			this.panel2 = new DevExpress.XtraEditors.PanelControl();
+			this.buttonCancel = new DevExpress.XtraEditors.SimpleButton();
+			this.buttonSingleSignOn = new DevExpress.XtraEditors.SimpleButton();
+			this.label1 = new DevExpress.XtraEditors.LabelControl();
+			this.label2 = new DevExpress.XtraEditors.LabelControl();
+			((System.ComponentModel.ISupportInitialize)(this.panel2)).BeginInit();
+			this.SuspendLayout();
+			// panel2
+			this.panel2.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
+			this.panel2.Dock = System.Windows.Forms.DockStyle.Top;
+			this.panel2.Location = new System.Drawing.Point(0, 0);
+			this.panel2.Name = "panel2";
+			this.panel2.Size = new System.Drawing.Size(253, 1);
+			this.panel2.TabIndex = 16;
+			// buttonCancel
+			this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.buttonCancel.Location = new System.Drawing.Point(166, 83);
+			this.buttonCancel.Name = "buttonCancel";
+			this.buttonCancel.Size = new System.Drawing.Size(75, 33);
+			this.buttonCancel.TabIndex = 3;
+			this.buttonCancel.Text = "Cancel";
+			this.buttonCancel.Click += new System.EventHandler(this.ButtonCancel_Click);
+			// buttonSingleSignOn
+			this.buttonSingleSignOn.Location = new System.Drawing.Point(12, 83);
+			this.buttonSingleSignOn.Name = "buttonSingleSignOn";
+			this.buttonSingleSignOn.Size = new System.Drawing.Size(91, 33);
+			this.buttonSingleSignOn.TabIndex = 0;
+			this.buttonSingleSignOn.Text = "Authorize NMM";
+			this.buttonSingleSignOn.Click += new System.EventHandler(this.ButtonSingleSignOn_Click);
+			// label1
+			this.label1.Appearance.TextOptions.WordWrap = DevExpress.Utils.WordWrap.Wrap;
+			this.label1.AutoSizeMode = DevExpress.XtraEditors.LabelAutoSizeMode.None;
+			this.label1.Location = new System.Drawing.Point(7, 9);
+			this.label1.Name = "label1";
+			this.label1.Size = new System.Drawing.Size(239, 18);
+			this.label1.TabIndex = 25;
+			this.label1.Text = "User authentication is now handled with API keys.";
+			// label2
+			this.label2.Appearance.TextOptions.WordWrap = DevExpress.Utils.WordWrap.Wrap;
+			this.label2.AutoSizeMode = DevExpress.XtraEditors.LabelAutoSizeMode.None;
+			this.label2.Location = new System.Drawing.Point(7, 33);
+			this.label2.Name = "label2";
+			this.label2.Size = new System.Drawing.Size(239, 40);
+			this.label2.TabIndex = 26;
+			this.label2.Text = "Use the Authorize button below to let NMM access your account details.";
+			// AuthenticationForm
+			this.AcceptButton = this.buttonSingleSignOn;
+			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.CancelButton = this.buttonCancel;
+			this.ClientSize = new System.Drawing.Size(253, 126);
+			this.Controls.Add(this.label2);
+			this.Controls.Add(this.label1);
+			this.Controls.Add(this.buttonSingleSignOn);
+			this.Controls.Add(this.buttonCancel);
+			this.Controls.Add(this.panel2);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
+			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+			this.MaximizeBox = false;
+			this.MinimizeBox = false;
+			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+			this.Text = "Authorization";
+			((System.ComponentModel.ISupportInitialize)(this.panel2)).EndInit();
+			this.ResumeLayout(false);
 		}
 
-		#endregion
-		private System.Windows.Forms.Panel panel2;
-        private System.Windows.Forms.Button buttonCancel;
-        private System.Windows.Forms.Button buttonSingleSignOn;
-        private System.Windows.Forms.Label label1;
-        private System.Windows.Forms.Label label2;
-    }
+		private DevExpress.XtraEditors.PanelControl panel2;
+		private DevExpress.XtraEditors.SimpleButton buttonCancel;
+		private DevExpress.XtraEditors.SimpleButton buttonSingleSignOn;
+		private DevExpress.XtraEditors.LabelControl label1;
+		private DevExpress.XtraEditors.LabelControl label2;
+	}
 }

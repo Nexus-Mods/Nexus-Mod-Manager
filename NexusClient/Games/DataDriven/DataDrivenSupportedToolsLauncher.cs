@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using Microsoft.Win32;
 using Nexus.Client.Commands;
 using Nexus.Client.Settings;
@@ -202,10 +203,9 @@ namespace Nexus.Client.Games.DataDriven
 
         private void ConfigTool(GameModeToolDefinition tool)
         {
-            using (var dialog = new FolderBrowserDialog())
+            using (var dialog = new XtraFolderBrowserDialog())
             {
                 dialog.Description = string.Format("Select the folder where the {0} executable is located.", tool.Name);
-                dialog.ShowNewFolderButton = false;
 
                 string current;
                 KeyedSettings<string> settings = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId];
@@ -216,7 +216,7 @@ namespace Nexus.Client.Games.DataDriven
                     return;
                 if (string.IsNullOrWhiteSpace(FindExecutable(dialog.SelectedPath, tool)))
                 {
-                    MessageBox.Show("The selected folder does not contain a supported executable for " + tool.Name + ".", "Tool not found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    XtraMessageBox.Show("The selected folder does not contain a supported executable for " + tool.Name + ".", "Tool not found", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 

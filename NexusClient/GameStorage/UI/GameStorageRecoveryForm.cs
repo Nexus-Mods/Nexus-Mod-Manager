@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.GameStorage.UI
 {
-    public class GameStorageRecoveryForm : ManagedFontForm, IView
+    public class GameStorageRecoveryForm : ManagedFontXtraForm, IView
     {
         private readonly GameStorageService _service;
         private readonly IGameMode _gameMode;
@@ -109,7 +110,7 @@ namespace Nexus.Client.GameStorage.UI
 
             if (candidate == null)
             {
-                MessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                XtraMessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -120,7 +121,7 @@ namespace Nexus.Client.GameStorage.UI
                       "Use it as a shared Mods library for " + _gameMode.Name + "? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode."
                     : "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.";
 
-                var result = MessageBox.Show(this, confirmationMessage, "Confirm Game Storage recovery", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                var result = XtraMessageBox.Show(this, confirmationMessage, "Confirm Game Storage recovery", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
@@ -132,7 +133,7 @@ namespace Nexus.Client.GameStorage.UI
             }
 
             SetHealth(healthCheck);
-            MessageBox.Show(this, healthCheck?.ToUserMessage() ?? "The selected Game Storage candidate could not be applied.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            XtraMessageBox.Show(this, healthCheck?.ToUserMessage() ?? "The selected Game Storage candidate could not be applied.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private void RefreshCandidates()

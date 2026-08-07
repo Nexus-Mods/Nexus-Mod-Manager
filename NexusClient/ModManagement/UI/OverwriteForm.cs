@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using Nexus.Client.UI;
 
 namespace Nexus.Client.ModManagement.UI
@@ -7,7 +8,7 @@ namespace Nexus.Client.ModManagement.UI
 	/// <summary>
 	/// A form that prompt the users to overwrite an item.
 	/// </summary>
-	public partial class OverwriteForm : ManagedFontForm
+	public partial class OverwriteForm : ManagedFontXtraForm
 	{
 		#region Properties
 
@@ -95,7 +96,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void Button_Click(object sender, EventArgs e)
 		{
-			m_owrResult = (OverwriteResult)((Button)sender).Tag;
+			m_owrResult = (OverwriteResult)((SimpleButton)sender).Tag;
 			Close();
 		}
 

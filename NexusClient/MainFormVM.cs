@@ -7,6 +7,7 @@
 	using System.IO;
 	using System.Linq;
 	using System.Windows.Forms;
+	using DevExpress.XtraEditors;
 	using Nexus.Client.BackgroundTasks;
 	using Nexus.Client.DownloadMonitoring;
 	using Nexus.Client.DownloadMonitoring.UI;
@@ -773,29 +774,29 @@
 		/// </summary>
 		public void CreateBackup(MainForm mainForm, BackupManager p_bmBackupManager)
 		{
-			var fbd = new FolderBrowserDialog
+			using (var fbd = new XtraFolderBrowserDialog())
 			{
-				Description = $"Select the folder where {CommonData.ModManagerName} will save the Backup Archive.",
-				ShowNewFolderButton = true
-			};
+				fbd.Description = $"Select the folder where {CommonData.ModManagerName} will save the Backup Archive.";
+				fbd.ShowNewFolderButton = true;
 
-			fbd.ShowDialog(mainForm);
+				fbd.ShowDialog(mainForm);
 
-			if (!string.IsNullOrWhiteSpace(fbd.SelectedPath))
-			{
-				var directoryInfo = new DirectoryInfo(fbd.SelectedPath);
-
-				foreach (Environment.SpecialFolder folder in Enum.GetValues(typeof(Environment.SpecialFolder)))
+				if (!string.IsNullOrWhiteSpace(fbd.SelectedPath))
 				{
-					if (string.Equals(directoryInfo.FullName, Environment.GetFolderPath(folder), StringComparison.OrdinalIgnoreCase))
-					{
-						var drResult = ExtendedMessageBox.Show(null, "You cannot select a system folder!", "Wrong folder.", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-						CreateBackup(mainForm, p_bmBackupManager);
-						break;
-					}
-				}
+					var directoryInfo = new DirectoryInfo(fbd.SelectedPath);
 
-				CreatingBackup(this, new EventArgs<IBackgroundTask>(CreateBackupTask(fbd.SelectedPath, p_bmBackupManager)));
+					foreach (Environment.SpecialFolder folder in Enum.GetValues(typeof(Environment.SpecialFolder)))
+					{
+						if (string.Equals(directoryInfo.FullName, Environment.GetFolderPath(folder), StringComparison.OrdinalIgnoreCase))
+						{
+							var drResult = ExtendedMessageBox.Show(null, "You cannot select a system folder!", "Wrong folder.", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+							CreateBackup(mainForm, p_bmBackupManager);
+							break;
+						}
+					}
+
+					CreatingBackup(this, new EventArgs<IBackgroundTask>(CreateBackupTask(fbd.SelectedPath, p_bmBackupManager)));
+				}
 			}
 		}
 

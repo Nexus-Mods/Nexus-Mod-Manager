@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using Nexus.Client.Games.Gamebryo.Tools.AI;
 using Nexus.Client.Util;
 
@@ -144,7 +145,7 @@ namespace Nexus.Client.Games.DataDriven.Tools.AI
 
 				TraceUtil.TraceException(exception);
 
-				MessageBox.Show(
+				XtraMessageBox.Show(
 					"Could not apply Archive Invalidation, at least one " +
 					"file could not be modified.\n" +
 					"Please try again, or check trace log for more info." +

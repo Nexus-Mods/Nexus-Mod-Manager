@@ -2,58 +2,47 @@
 {
 	partial class ApplicationInitializationForm
 	{
-		/// <summary>
-		/// Required designer variable.
-		/// </summary>
 		private System.ComponentModel.IContainer components = null;
 
-		/// <summary>
-		/// Clean up any resources being used.
-		/// </summary>
-		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
 		protected override void Dispose(bool disposing)
 		{
 			if (disposing && (components != null))
-			{
 				components.Dispose();
-			}
 			base.Dispose(disposing);
 		}
 
-		#region Windows Form Designer generated code
-
-		/// <summary>
-		/// Required method for Designer support - do not modify
-		/// the contents of this method with the code editor.
-		/// </summary>
 		private void InitializeComponent()
 		{
-			this.pbxLogo = new System.Windows.Forms.PictureBox();
-			this.lblVersion = new System.Windows.Forms.Label();
-			((System.ComponentModel.ISupportInitialize)(this.pbxLogo)).BeginInit();
+			this.pbxLogo = new DevExpress.XtraEditors.PictureEdit();
+			this.lblVersion = new DevExpress.XtraEditors.LabelControl();
+			((System.ComponentModel.ISupportInitialize)(this.pbxLogo.Properties)).BeginInit();
 			this.SuspendLayout();
 			// 
 			// pbxLogo
 			// 
-			this.pbxLogo.BackColor = System.Drawing.Color.Transparent;
-			this.pbxLogo.Image = global::Nexus.Client.Properties.Resources.NMM_P_Logo_800;
+			this.pbxLogo.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.pbxLogo.EditValue = global::Nexus.Client.Properties.Resources.NMM_P_Logo_800;
 			this.pbxLogo.Location = new System.Drawing.Point(0, 0);
-			this.pbxLogo.Margin = new System.Windows.Forms.Padding(0);
 			this.pbxLogo.Name = "pbxLogo";
-			this.pbxLogo.Size = new System.Drawing.Size(800, 447);
-			this.pbxLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+			this.pbxLogo.Properties.AllowFocused = false;
+			this.pbxLogo.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
+			this.pbxLogo.Properties.ShowCameraMenuItem = DevExpress.XtraEditors.Controls.CameraMenuItemVisibility.Auto;
+			this.pbxLogo.Properties.ShowMenu = false;
+			this.pbxLogo.Properties.SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Stretch;
+			this.pbxLogo.Size = new System.Drawing.Size(800, 448);
 			this.pbxLogo.TabIndex = 0;
-			this.pbxLogo.TabStop = false;
 			// 
 			// lblVersion
 			// 
-			this.lblVersion.AutoSize = true;
-			this.lblVersion.BackColor = System.Drawing.Color.Transparent;
-			this.lblVersion.Font = new System.Drawing.Font("Calibri", 14F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-			this.lblVersion.ForeColor = System.Drawing.Color.White;
+			this.lblVersion.Appearance.BackColor = System.Drawing.Color.Transparent;
+			this.lblVersion.Appearance.Font = new System.Drawing.Font("Calibri", 14F, System.Drawing.FontStyle.Bold);
+			this.lblVersion.Appearance.ForeColor = System.Drawing.Color.White;
+			this.lblVersion.Appearance.Options.UseBackColor = true;
+			this.lblVersion.Appearance.Options.UseFont = true;
+			this.lblVersion.Appearance.Options.UseForeColor = true;
 			this.lblVersion.Location = new System.Drawing.Point(148, 328);
 			this.lblVersion.Name = "lblVersion";
-			this.lblVersion.Size = new System.Drawing.Size(70, 23);
+			this.lblVersion.Size = new System.Drawing.Size(56, 23);
 			this.lblVersion.TabIndex = 1;
 			this.lblVersion.Text = "0.10.11";
 			// 
@@ -61,29 +50,24 @@
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
+			this.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
 			this.ClientSize = new System.Drawing.Size(800, 448);
 			this.ControlBox = false;
 			this.Controls.Add(this.lblVersion);
 			this.Controls.Add(this.pbxLogo);
-			this.DoubleBuffered = true;
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
 			this.MaximizeBox = false;
 			this.MinimizeBox = false;
 			this.Name = "ApplicationInitializationForm";
-			this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
 			this.Text = "Nexus Mod Manager";
-			this.TransparencyKey = System.Drawing.Color.FromArgb(((int)(((byte)(38)))), ((int)(((byte)(38)))), ((int)(((byte)(38)))));
-			((System.ComponentModel.ISupportInitialize)(this.pbxLogo)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.pbxLogo.Properties)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
-
 		}
 
-		#endregion
-
-		private System.Windows.Forms.PictureBox pbxLogo;
-		private System.Windows.Forms.Label lblVersion;
+		private DevExpress.XtraEditors.PictureEdit pbxLogo;
+		private DevExpress.XtraEditors.LabelControl lblVersion;
 	}
 }

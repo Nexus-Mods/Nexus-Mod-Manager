@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.GameStorage.UI
 {
-    public class GameStorageSetupForm : ManagedFontForm, IView
+    public class GameStorageSetupForm : ManagedFontXtraForm, IView
     {
         private readonly GameStorageService _service;
         private readonly GameStoragePathSet _currentPaths;
@@ -121,7 +122,7 @@ namespace Nexus.Client.GameStorage.UI
 
             if (candidate == null)
             {
-                MessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                XtraMessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -132,7 +133,7 @@ namespace Nexus.Client.GameStorage.UI
                       "Use it as a shared Mods library for " + _currentPaths.GameName + "? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode."
                     : "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.";
 
-                var result = MessageBox.Show(this, confirmationMessage, "Confirm Game Storage setup", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                var result = XtraMessageBox.Show(this, confirmationMessage, "Confirm Game Storage setup", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }

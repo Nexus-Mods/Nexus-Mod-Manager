@@ -2,84 +2,92 @@
 {
 	partial class BackupManagerForm
 	{
-		/// <summary>
-		/// Required designer variable.
-		/// </summary>
 		private System.ComponentModel.IContainer components = null;
 
-		/// <summary>
-		/// Clean up any resources being used.
-		/// </summary>
-		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
 		protected override void Dispose(bool disposing)
 		{
-			if (disposing)
-			{
-				if (components != null)
-				{
-					components.Dispose();
-				}
-			}
+			if (disposing && components != null)
+				components.Dispose();
 			base.Dispose(disposing);
 		}
 
-		#region Windows Form Designer generated code
-
-		/// <summary>
-		/// Required method for Designer support - do not modify
-		/// the contents of this method with the code editor.
-		/// </summary>
 		private void InitializeComponent()
 		{
-			this.lstView = new System.Windows.Forms.ListView();
-			this.components = new System.ComponentModel.Container();
-			lstView.View = System.Windows.Forms.View.Details;
-			this.btBackup = new System.Windows.Forms.Button();
-			this.btCancel = new System.Windows.Forms.Button();
-			this.lblBackup = new System.Windows.Forms.Label();
-			this.lstView.Location = new System.Drawing.Point(16, 64);
-			this.lstView.Size = new System.Drawing.Size(543, 180);
-			this.lstView.TabIndex = 0;
-			lstView.CheckBoxes = true;
-			this.lstView.CheckBoxes = true;
-			this.lstView.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(ListViewItem_ItemCheck);
-			
+			this.gridControl = new DevExpress.XtraGrid.GridControl();
+			this.gridView = new DevExpress.XtraGrid.Views.Grid.GridView();
+			this.btBackup = new DevExpress.XtraEditors.SimpleButton();
+			this.btCancel = new DevExpress.XtraEditors.SimpleButton();
+			this.lblBackup = new DevExpress.XtraEditors.LabelControl();
+			((System.ComponentModel.ISupportInitialize)(this.gridControl)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridView)).BeginInit();
+			this.SuspendLayout();
+			// gridControl
+			this.gridControl.Location = new System.Drawing.Point(16, 58);
+			this.gridControl.MainView = this.gridView;
+			this.gridControl.Name = "gridControl";
+			this.gridControl.Size = new System.Drawing.Size(543, 186);
+			this.gridControl.TabIndex = 0;
+			this.gridControl.ViewCollection.AddRange(new DevExpress.XtraGrid.Views.Base.BaseView[] { this.gridView });
+			// gridView
+			this.gridView.GridControl = this.gridControl;
+			this.gridView.Name = "gridView";
+			this.gridView.OptionsBehavior.AllowAddRows = DevExpress.Utils.DefaultBoolean.False;
+			this.gridView.OptionsBehavior.AllowDeleteRows = DevExpress.Utils.DefaultBoolean.False;
+			this.gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
+			this.gridView.OptionsView.ShowGroupPanel = false;
+			this.gridView.Columns.AddVisible("Selected", "Backup").Width = 55;
+			this.gridView.Columns.AddVisible("Category", "Category").Width = 160;
+			this.gridView.Columns.AddVisible("SizeMb", "Size (MB)").Width = 70;
+			this.gridView.Columns.AddVisible("TotalFiles", "Total Files").Width = 70;
+			this.gridView.Columns.AddVisible("EstimatedBackupSize", "Est. Backup Size").Width = 100;
+			this.gridView.Columns.AddVisible("EstimatedBackupTime", "Est. Backup Time").Width = 110;
+			for (int i = 1; i < this.gridView.Columns.Count; i++)
+				this.gridView.Columns[i].OptionsColumn.AllowEdit = false;
+			this.gridView.CellValueChanged += new DevExpress.XtraGrid.Views.Base.CellValueChangedEventHandler(this.gridView_CellValueChanged);
+			this.gridView.ShownEditor += new System.EventHandler(this.gridView_ShownEditor);
+			// btBackup
 			this.btBackup.Location = new System.Drawing.Point(16, 260);
-			this.btBackup.Size = new System.Drawing.Size(60, 32);
-			this.btBackup.TabIndex = 2;
+			this.btBackup.Name = "btBackup";
+			this.btBackup.Size = new System.Drawing.Size(75, 28);
 			this.btBackup.Text = "Backup";
-			this.btBackup.AutoSize = true;
-			this.btBackup.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.btBackup.UseVisualStyleBackColor = true;
 			this.btBackup.Click += new System.EventHandler(this.btBackup_Click);
-
-			this.btCancel.Location = new System.Drawing.Point(90, 260);
-			this.btCancel.Size = new System.Drawing.Size(60, 32);
-			this.btCancel.TabIndex = 2;
+			// btCancel
+			this.btCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+			this.btCancel.Location = new System.Drawing.Point(97, 260);
+			this.btCancel.Name = "btCancel";
+			this.btCancel.Size = new System.Drawing.Size(75, 28);
 			this.btCancel.Text = "Cancel";
-			this.btCancel.AutoSize = true;
-			this.btCancel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.btCancel.UseVisualStyleBackColor = true;
 			this.btCancel.Click += new System.EventHandler(this.btCancel_Click);
-
+			// lblBackup
+			this.lblBackup.Location = new System.Drawing.Point(16, 30);
+			this.lblBackup.Name = "lblBackup";
+			this.lblBackup.Size = new System.Drawing.Size(194, 13);
 			this.lblBackup.Text = "Select the files that you want to backup.";
-			this.lblBackup.Location = new System.Drawing.Point(16, 34);
-			this.lblBackup.Size = new System.Drawing.Size(300, 32);
-
-			this.ClientSize = new System.Drawing.Size(563, 300);
-			this.Controls.AddRange(new System.Windows.Forms.Control[] {this.lstView,
-																		this.btBackup,
-																		this.btCancel,
-																		this.lblBackup});
+			// BackupManagerForm
+			this.AcceptButton = this.btBackup;
+			this.CancelButton = this.btCancel;
+			this.ClientSize = new System.Drawing.Size(575, 304);
+			this.Controls.Add(this.gridControl);
+			this.Controls.Add(this.btBackup);
+			this.Controls.Add(this.btCancel);
+			this.Controls.Add(this.lblBackup);
+			this.m_fpdFontProvider.SetFontSet(this, "StandardText");
+			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+			this.MaximizeBox = false;
+			this.MinimizeBox = false;
+			this.Name = "BackupManagerForm";
+			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Nexus Mod Manager Backup";
-
+			((System.ComponentModel.ISupportInitialize)(this.gridControl)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridView)).EndInit();
+			this.ResumeLayout(false);
+			this.PerformLayout();
 		}
-				
-		#endregion
 
-		private System.Windows.Forms.Button btBackup;
-		private System.Windows.Forms.Button btCancel;
-		private System.Windows.Forms.Label lblBackup;
-		private System.Windows.Forms.ListView lstView;
+		private DevExpress.XtraGrid.GridControl gridControl;
+		private DevExpress.XtraGrid.Views.Grid.GridView gridView;
+		private DevExpress.XtraEditors.SimpleButton btBackup;
+		private DevExpress.XtraEditors.SimpleButton btCancel;
+		private DevExpress.XtraEditors.LabelControl lblBackup;
 	}
 }

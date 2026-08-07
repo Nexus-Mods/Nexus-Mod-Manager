@@ -2,12 +2,12 @@
 {
 	partial class ModActivationMonitorControl
 	{
-		/// <summary> 
+		/// <summary>
 		/// Required designer variable.
 		/// </summary>
 		private System.ComponentModel.IContainer components = null;
 
-		/// <summary> 
+		/// <summary>
 		/// Clean up any resources being used.
 		/// </summary>
 		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
@@ -22,152 +22,191 @@
 
 		#region Component Designer generated code
 
-		/// <summary> 
-		/// Required method for Designer support - do not modify 
+		/// <summary>
+		/// Required method for Designer support - do not modify
 		/// the contents of this method with the code editor.
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-			this.lvwActiveTasks = new Nexus.UI.Controls.DoubleBufferedListView();
-			this.clmOverallMessage = new System.Windows.Forms.ColumnHeader();
-			this.clmOverallProgress = new System.Windows.Forms.ColumnHeader();
-			this.clmOperation = new System.Windows.Forms.ColumnHeader();
-			this.clmProgress = new System.Windows.Forms.ColumnHeader();
-			this.clmErrorInfo = new System.Windows.Forms.ColumnHeader();
-			this.tsbCancel = new System.Windows.Forms.ToolStripButton();
-			this.tsbRemoveQueued = new System.Windows.Forms.ToolStripButton();
-			this.tsbRemoveAll = new System.Windows.Forms.ToolStripButton();
-			System.Resources.ResourceManager resources = new System.Resources.ResourceManager(typeof(MainForm));
-			this.toolStrip1.SuspendLayout();
+			this.components = new System.ComponentModel.Container();
+			this.barManager = new DevExpress.XtraBars.BarManager(this.components);
+			this.barActions = new DevExpress.XtraBars.Bar();
+			this.tsbCancel = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbRemoveQueued = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbRemoveAll = new DevExpress.XtraBars.BarButtonItem();
+			this.copyItem = new DevExpress.XtraBars.BarButtonItem();
+			this.barDockControlTop = new DevExpress.XtraBars.BarDockControl();
+			this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
+			this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
+			this.barDockControlRight = new DevExpress.XtraBars.BarDockControl();
+			this.popupMenu = new DevExpress.XtraBars.PopupMenu(this.components);
+			this.gridControl = new DevExpress.XtraGrid.GridControl();
+			this.gridView = new DevExpress.XtraGrid.Views.Grid.GridView();
+			((System.ComponentModel.ISupportInitialize)(this.barManager)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.popupMenu)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridControl)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridView)).BeginInit();
 			this.SuspendLayout();
-			// 
-			// toolStrip1
-			// 
-			this.toolStrip1.Dock = System.Windows.Forms.DockStyle.Left;
-			this.m_fpdFontProvider.SetFontSet(this.toolStrip1, "MenuText");
-			this.m_fpdFontProvider.SetFontSize(this.toolStrip1, 9F);
-			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
-			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
-			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-			this.tsbCancel,
-			this.tsbRemoveQueued,
-			this.tsbRemoveAll});
-			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
-			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(37, 183);
-			this.toolStrip1.TabIndex = 0;
-			this.toolStrip1.Text = "toolStrip1";
-			// 
+			//
+			// barManager
+			//
+			this.barManager.Bars.AddRange(new DevExpress.XtraBars.Bar[] {
+            this.barActions});
+			this.barManager.DockControls.Add(this.barDockControlTop);
+			this.barManager.DockControls.Add(this.barDockControlBottom);
+			this.barManager.DockControls.Add(this.barDockControlLeft);
+			this.barManager.DockControls.Add(this.barDockControlRight);
+			this.barManager.Form = this;
+			this.barManager.Items.AddRange(new DevExpress.XtraBars.BarItem[] {
+            this.tsbCancel,
+            this.tsbRemoveQueued,
+            this.tsbRemoveAll,
+            this.copyItem});
+			this.barManager.MaxItemId = 4;
+			//
+			// barActions
+			//
+			this.barActions.BarName = "Activation Actions";
+			this.barActions.DockStyle = DevExpress.XtraBars.BarDockStyle.Left;
+			this.barActions.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+            new DevExpress.XtraBars.LinkPersistInfo(this.tsbCancel),
+            new DevExpress.XtraBars.LinkPersistInfo(this.tsbRemoveQueued),
+            new DevExpress.XtraBars.LinkPersistInfo(this.tsbRemoveAll)});
+			this.barActions.OptionsBar.AllowQuickCustomization = false;
+			this.barActions.OptionsBar.DisableClose = true;
+			this.barActions.OptionsBar.DisableCustomization = true;
+			this.barActions.OptionsBar.DrawDragBorder = false;
+			//
 			// tsbCancel
-			// 
-			this.tsbCancel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbCancel.Image = global::Nexus.Client.Properties.Resources.cancel_download_flat;
-			this.tsbCancel.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbCancel.Name = "tsbCancel";
-			this.tsbCancel.Size = new System.Drawing.Size(34, 36);
-			this.tsbCancel.Text = "Cancel";
-			this.tsbCancel.ToolTipText = "Cancel";
-			// 
-			// tsbRemoveAll
-			// 
-			this.tsbRemoveAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.list_cleanup_flat;
-			this.tsbRemoveAll.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbRemoveAll.Name = "tsbRemoveAll";
-			this.tsbRemoveAll.Size = new System.Drawing.Size(34, 36);
-			this.tsbRemoveAll.Text = "Remove all";
-			// 
+			//
+			ConfigureBarButton(this.tsbCancel, 0, "tsbCancel", "Cancel", global::Nexus.Client.Properties.Resources.cancel_download_flat);
+			//
 			// tsbRemoveQueued
-			// 
-			this.tsbRemoveQueued.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemoveQueued.Image = global::Nexus.Client.Properties.Resources.remove_download_flat;
-			this.tsbRemoveQueued.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbRemoveQueued.Name = "tsbRemove";
-			this.tsbRemoveQueued.Size = new System.Drawing.Size(34, 36);
-			this.tsbRemoveQueued.Text = "Remove";
-			// 
-			// lvwActiveTasks
-			// 
-			this.lvwActiveTasks.OwnerDraw = true;
-			this.lvwActiveTasks.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-			this.clmOverallMessage,
-			this.clmOverallProgress,
-			this.clmOperation,
-			this.clmProgress,
-			this.clmErrorInfo});
-			//clmIcon});
-			this.lvwActiveTasks.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.lvwActiveTasks.FullRowSelect = true;
-			this.lvwActiveTasks.HideSelection = false;
-			this.lvwActiveTasks.Location = new System.Drawing.Point(37, 0);
-			this.lvwActiveTasks.Name = "lvwActiveTasks";
-			this.lvwActiveTasks.ShowItemToolTips = true;
-			this.lvwActiveTasks.Size = new System.Drawing.Size(516, 183);
-			this.lvwActiveTasks.TabIndex = 1;
-			this.lvwActiveTasks.UseCompatibleStateImageBehavior = false;
-			this.lvwActiveTasks.View = System.Windows.Forms.View.Details;
-			this.lvwActiveTasks.SelectedIndexChanged += new System.EventHandler(this.lvwTasks_SelectedIndexChanged);
-			this.lvwActiveTasks.Resize += new System.EventHandler(this.lvwTasks_Resize);
-			this.lvwActiveTasks.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.lvwTasks_ColumnWidthChanging);
-			this.lvwActiveTasks.MouseClick += new System.Windows.Forms.MouseEventHandler(ModActivationMonitorControl_MouseClick);
-			this.lvwActiveTasks.KeyUp += new System.Windows.Forms.KeyEventHandler(ModActivationMonitorControl_KeyUp);
-			this.lvwActiveTasks.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(ModActivationMonitorControl_ColumnWidthChanging);
-			this.lvwActiveTasks.DrawSubItem += new System.Windows.Forms.DrawListViewSubItemEventHandler(ModActivationMonitorControl_DrawSubItem);
-			this.lvwActiveTasks.DrawColumnHeader += new System.Windows.Forms.DrawListViewColumnHeaderEventHandler(ModActivationMonitorControl_DrawColumnHeader);
-			// 
-			// clmOverallMessage
-			// 
-			this.clmOverallMessage.Text = "Name";
-			this.clmOverallMessage.Width = 288;
-			// 
-			// clmOverallProgress
-			// 
-			this.clmOverallProgress.Text = "Status";
-			this.clmOverallProgress.Width = 60;
-			// 
-			// clmOperation
-			// 
-			this.clmOperation.Text = "Operation";
-			this.clmOperation.Width = 80;
 			//
-			// clmProgress
-			// 
-			this.clmProgress.Text = "Progress";
-			this.clmProgress.Width = 190;
+			ConfigureBarButton(this.tsbRemoveQueued, 1, "tsbRemoveQueued", "Remove queued", global::Nexus.Client.Properties.Resources.remove_download_flat);
 			//
-			// clmErrorInfo
-			// 
-			this.clmErrorInfo.Text = "?";
-			this.clmErrorInfo.Width = 20;
-			// 
+			// tsbRemoveAll
+			//
+			ConfigureBarButton(this.tsbRemoveAll, 2, "tsbRemoveAll", "Remove all", global::Nexus.Client.Properties.Resources.list_cleanup_flat);
+			//
+			// copyItem
+			//
+			this.copyItem.Caption = "Copy to clipboard";
+			this.copyItem.Id = 3;
+			this.copyItem.Name = "copyItem";
+			this.copyItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.copyItem_ItemClick);
+			//
+			// barDockControlTop
+			//
+			this.barDockControlTop.CausesValidation = false;
+			this.barDockControlTop.Dock = System.Windows.Forms.DockStyle.Top;
+			this.barDockControlTop.Location = new System.Drawing.Point(0, 0);
+			this.barDockControlTop.Manager = this.barManager;
+			this.barDockControlTop.Size = new System.Drawing.Size(553, 0);
+			//
+			// barDockControlBottom
+			//
+			this.barDockControlBottom.CausesValidation = false;
+			this.barDockControlBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
+			this.barDockControlBottom.Location = new System.Drawing.Point(0, 183);
+			this.barDockControlBottom.Manager = this.barManager;
+			this.barDockControlBottom.Size = new System.Drawing.Size(553, 0);
+			//
+			// barDockControlLeft
+			//
+			this.barDockControlLeft.CausesValidation = false;
+			this.barDockControlLeft.Dock = System.Windows.Forms.DockStyle.Left;
+			this.barDockControlLeft.Location = new System.Drawing.Point(0, 0);
+			this.barDockControlLeft.Manager = this.barManager;
+			this.barDockControlLeft.Size = new System.Drawing.Size(32, 183);
+			//
+			// barDockControlRight
+			//
+			this.barDockControlRight.CausesValidation = false;
+			this.barDockControlRight.Dock = System.Windows.Forms.DockStyle.Right;
+			this.barDockControlRight.Location = new System.Drawing.Point(553, 0);
+			this.barDockControlRight.Manager = this.barManager;
+			this.barDockControlRight.Size = new System.Drawing.Size(0, 183);
+			//
+			// popupMenu
+			//
+			this.popupMenu.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+            new DevExpress.XtraBars.LinkPersistInfo(this.copyItem)});
+			this.popupMenu.Manager = this.barManager;
+			//
+			// gridControl
+			//
+			this.gridControl.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.gridControl.Location = new System.Drawing.Point(32, 0);
+			this.gridControl.MainView = this.gridView;
+			this.gridControl.MenuManager = this.barManager;
+			this.gridControl.Name = "gridControl";
+			this.gridControl.Size = new System.Drawing.Size(521, 183);
+			this.gridControl.TabIndex = 4;
+			this.gridControl.ViewCollection.AddRange(new DevExpress.XtraGrid.Views.Base.BaseView[] {
+            this.gridView});
+			this.gridControl.KeyUp += new System.Windows.Forms.KeyEventHandler(this.gridControl_KeyUp);
+			this.gridControl.MouseUp += new System.Windows.Forms.MouseEventHandler(this.gridControl_MouseUp);
+			//
+			// gridView
+			//
+			this.gridView.GridControl = this.gridControl;
+			this.gridView.Name = "gridView";
+			this.gridView.OptionsBehavior.Editable = false;
+			this.gridView.OptionsCustomization.AllowColumnMoving = false;
+			this.gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
+			this.gridView.OptionsView.ShowGroupPanel = false;
+			this.gridView.OptionsView.ColumnAutoWidth = false;
+			this.gridView.Columns.AddVisible("ModName", "Name").Width = 180;
+			this.gridView.Columns.AddVisible("Status", "Status").Width = 90;
+			this.gridView.Columns.AddVisible("Operation", "Operation").Width = 90;
+			this.gridView.Columns.AddVisible("Progress", "Progress").Width = 170;
+			this.gridView.Columns.AddVisible("ErrorInfo", "?").Width = 30;
+			this.gridView.FocusedRowChanged += new DevExpress.XtraGrid.Views.Base.FocusedRowChangedEventHandler(this.gridView_FocusedRowChanged);
+			this.gridView.RowCellClick += new DevExpress.XtraGrid.Views.Grid.RowCellClickEventHandler(this.gridView_RowCellClick);
+			//
 			// ModActivationMonitorControl
-			// 
+			//
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(180, 453);
+			this.ClientSize = new System.Drawing.Size(553, 183);
 			this.CloseButton = false;
 			this.CloseButtonVisible = false;
-			this.Controls.Add(this.lvwActiveTasks);
-			this.Controls.Add(this.toolStrip1);
+			this.Controls.Add(this.gridControl);
+			this.Controls.Add(this.barDockControlLeft);
+			this.Controls.Add(this.barDockControlRight);
+			this.Controls.Add(this.barDockControlBottom);
+			this.Controls.Add(this.barDockControlTop);
 			this.Name = "ActiveModsMonitorControl";
-			this.toolStrip1.ResumeLayout(false);
-			this.toolStrip1.PerformLayout();
+			((System.ComponentModel.ISupportInitialize)(this.barManager)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.popupMenu)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridControl)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridView)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
+
+		}
+
+		/// <summary>Configures an activation-monitor toolbar button.</summary>
+		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption, System.Drawing.Image image)
+		{
+			button.Id = id; button.Name = name; button.Caption = caption; button.Hint = caption; button.ImageOptions.Image = image; button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
 		}
 
 		#endregion
 
-		private System.Windows.Forms.ToolStrip toolStrip1;
-		public Nexus.UI.Controls.DoubleBufferedListView lvwActiveTasks;
-		private System.Windows.Forms.ColumnHeader clmOverallMessage;
-		private System.Windows.Forms.ColumnHeader clmOverallProgress;
-		private System.Windows.Forms.ColumnHeader clmOperation;
-		private System.Windows.Forms.ColumnHeader clmProgress;
-		private System.Windows.Forms.ColumnHeader clmErrorInfo;
-		private System.Windows.Forms.ToolStripButton tsbCancel;
-		private System.Windows.Forms.ToolStripButton tsbRemoveAll;
-		private System.Windows.Forms.ToolStripButton tsbRemoveQueued;
+		private DevExpress.XtraBars.BarManager barManager;
+		private DevExpress.XtraBars.Bar barActions;
+		private DevExpress.XtraBars.BarButtonItem tsbCancel;
+		private DevExpress.XtraBars.BarButtonItem tsbRemoveQueued;
+		private DevExpress.XtraBars.BarButtonItem tsbRemoveAll;
+		private DevExpress.XtraBars.BarButtonItem copyItem;
+		private DevExpress.XtraBars.BarDockControl barDockControlTop;
+		private DevExpress.XtraBars.BarDockControl barDockControlBottom;
+		private DevExpress.XtraBars.BarDockControl barDockControlLeft;
+		private DevExpress.XtraBars.BarDockControl barDockControlRight;
+		private DevExpress.XtraBars.PopupMenu popupMenu;
+		private DevExpress.XtraGrid.GridControl gridControl;
+		private DevExpress.XtraGrid.Views.Grid.GridView gridView;
 	}
 }

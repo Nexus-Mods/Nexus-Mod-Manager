@@ -49,9 +49,10 @@ namespace Nexus.Client.GameStorage.UI
             {
                 Text = "Game Storage recovery",
                 Dock = DockStyle.Top,
-                Height = 28,
-                Appearance = { Font = new Font("Segoe UI", 12f, FontStyle.Bold) }
+                Height = 28
             };
+            _titleLabel.Appearance.FontSizeDelta = 3;
+            _titleLabel.Appearance.FontStyleDelta = FontStyle.Bold;
 
             _descriptionEdit = new MemoEdit
             {
@@ -110,9 +111,6 @@ namespace Nexus.Client.GameStorage.UI
             var applyButton = new SimpleButton { Text = "Apply selected", Width = 118, Top = 8 };
             _legacySetupButton = new SimpleButton { Text = "Keep legacy setup", Width = 128, Top = 8, Visible = false };
             var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Top = 8 };
-            StyleActionButton(applyButton);
-            StyleActionButton(_legacySetupButton);
-            StyleCancelButton(cancelButton);
             refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
             applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
             _legacySetupButton.Click += (sender, args) => LegacySetupRequested?.Invoke(this, EventArgs.Empty);
@@ -283,28 +281,6 @@ namespace Nexus.Client.GameStorage.UI
                 string.Equals(left.LinkFolderPath, right.LinkFolderPath, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void StyleActionButton(SimpleButton button)
-        {
-            button.LookAndFeel.UseDefaultLookAndFeel = false;
-            button.Appearance.BackColor = Color.FromArgb(218, 241, 220);
-            button.Appearance.BorderColor = Color.FromArgb(159, 205, 163);
-            button.Appearance.ForeColor = Color.FromArgb(35, 86, 42);
-            button.Appearance.Options.UseBackColor = true;
-            button.Appearance.Options.UseBorderColor = true;
-            button.Appearance.Options.UseForeColor = true;
-        }
-
-        private static void StyleCancelButton(SimpleButton button)
-        {
-            button.LookAndFeel.UseDefaultLookAndFeel = false;
-            button.Appearance.BackColor = Color.FromArgb(250, 224, 213);
-            button.Appearance.BorderColor = Color.FromArgb(222, 156, 132);
-            button.Appearance.ForeColor = Color.FromArgb(119, 53, 38);
-            button.Appearance.Options.UseBackColor = true;
-            button.Appearance.Options.UseBorderColor = true;
-            button.Appearance.Options.UseForeColor = true;
-        }
-
         private static void LayoutButtons(PanelControl panel, SimpleButton refreshButton, SimpleButton legacySetupButton, SimpleButton cancelButton, SimpleButton applyButton)
         {
             const int top = 8;
@@ -371,7 +347,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void BrowseForFolder(TextEdit edit, string caption)
         {
-            using (var dialog = new FolderBrowserDialog())
+            using (var dialog = new XtraFolderBrowserDialog())
             {
                 dialog.Description = "Select " + caption + " folder.";
                 if (!string.IsNullOrWhiteSpace(edit.Text))
@@ -418,7 +394,7 @@ namespace Nexus.Client.GameStorage.UI
             }
             else
             {
-                TextRenderer.DrawText(e.Graphics, "Use", e.Appearance.Font, e.Bounds, Color.FromArgb(55, 85, 110), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                TextRenderer.DrawText(e.Graphics, "Use", e.Appearance.Font, e.Bounds, e.Appearance.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
 
             e.Handled = true;
@@ -472,30 +448,6 @@ namespace Nexus.Client.GameStorage.UI
             view.OptionsView.ShowHorizontalLines = DefaultBoolean.True;
             view.OptionsView.ShowVerticalLines = DefaultBoolean.False;
             view.OptionsSelection.EnableAppearanceFocusedCell = false;
-            view.Appearance.Empty.BackColor = Color.FromArgb(252, 252, 253);
-            view.Appearance.Empty.Options.UseBackColor = true;
-            view.Appearance.Row.BackColor = Color.White;
-            view.Appearance.Row.Options.UseBackColor = true;
-            view.Appearance.EvenRow.BackColor = Color.FromArgb(250, 250, 252);
-            view.Appearance.EvenRow.Options.UseBackColor = true;
-            view.Appearance.OddRow.BackColor = Color.White;
-            view.Appearance.OddRow.Options.UseBackColor = true;
-            view.Appearance.FocusedRow.BackColor = Color.FromArgb(226, 238, 249);
-            view.Appearance.FocusedRow.ForeColor = Color.Black;
-            view.Appearance.FocusedRow.Options.UseBackColor = true;
-            view.Appearance.FocusedRow.Options.UseForeColor = true;
-            view.Appearance.SelectedRow.BackColor = Color.FromArgb(226, 238, 249);
-            view.Appearance.SelectedRow.ForeColor = Color.Black;
-            view.Appearance.SelectedRow.Options.UseBackColor = true;
-            view.Appearance.SelectedRow.Options.UseForeColor = true;
-            view.Appearance.HideSelectionRow.BackColor = Color.FromArgb(226, 238, 249);
-            view.Appearance.HideSelectionRow.ForeColor = Color.Black;
-            view.Appearance.HideSelectionRow.Options.UseBackColor = true;
-            view.Appearance.HideSelectionRow.Options.UseForeColor = true;
-            view.Appearance.HeaderPanel.BackColor = Color.FromArgb(247, 247, 249);
-            view.Appearance.HeaderPanel.ForeColor = Color.FromArgb(80, 80, 80);
-            view.Appearance.HeaderPanel.Options.UseBackColor = true;
-            view.Appearance.HeaderPanel.Options.UseForeColor = true;
         }
     }
 

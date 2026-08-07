@@ -2,10 +2,10 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows.Forms;
+using DevExpress.XtraBars;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
-using Nexus.Client.Commands.Generic;
 using Nexus.Client.ModManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
@@ -17,345 +17,198 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	/// </summary>
 	public partial class DownloadMonitorControl : ManagedFontDockContent
 	{
-		private DownloadMonitorVM m_vmlViewModel = null;
-		private float m_fltColumnRatio = 0.5f;
-		private bool m_booResizing = false;
-		private Timer m_tmrColumnSizer = new Timer();
-		private string m_strTitleAllActive = "Download Manager ({0})";
-		private string m_strTitleSomeActive = "Download Manager ({0}/{1})";
-		private bool m_booControlIsLoaded = false;
+		private readonly BindingList<DownloadTaskRow> _rows = new BindingList<DownloadTaskRow>();
+		private DownloadMonitorVM m_vmlViewModel;
+		private const string TitleAllActive = "Download Manager ({0})";
+		private const string TitleSomeActive = "Download Manager ({0}/{1})";
 
 		public event EventHandler SetTextBoxFocus;
-
-		#region Properties
 
 		/// <summary>
 		/// Gets or sets the view model that provides the data and operations for this view.
 		/// </summary>
-		/// <value>The view model that provides the data and operations for this view.</value>
 		[DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
 		public DownloadMonitorVM ViewModel
 		{
-			get
-			{
-				return m_vmlViewModel;
-			}
+			get { return m_vmlViewModel; }
 			set
 			{
 				m_vmlViewModel = value;
-				foreach (AddModTask tskDownload in m_vmlViewModel.Tasks)
-					AddTaskToList(tskDownload);
-				m_vmlViewModel.ActiveTasks.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveTasks_CollectionChanged);
-				m_vmlViewModel.Tasks.CollectionChanged += new NotifyCollectionChangedEventHandler(Tasks_CollectionChanged);
+				_rows.Clear();
+				if (m_vmlViewModel == null)
+					return;
 
-				new ToolStripItemCommandBinding<AddModTask>(tsbCancel, m_vmlViewModel.CancelTaskCommand, GetSelectedTask);
-				new ToolStripItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
-				new ToolStripItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
-				new ToolStripItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
-				Command cmdRemoveAll = new Command("Remove all", "Purges the completed/failed downloads from the list.", ViewModel.RemoveAllTasks);
-				new ToolStripItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
-				Command cmdResumeAll = new Command("Resume all", "Resumes all paused/queued downloads.", ViewModel.ResumeAllTasks);
-				new ToolStripItemCommandBinding(tsbResumeAll, cmdResumeAll);
-				Command cmdPurgeDownloads = new Command("Purge Downloads", "Purges the paused/queued downloads from the list.", ViewModel.PurgeDownloads);
-				new ToolStripItemCommandBinding(tsbPurgeDownloads, cmdPurgeDownloads);
+				foreach (AddModTask task in m_vmlViewModel.Tasks)
+					AddTaskToList(task);
 
-				m_vmlViewModel.PurgingDownloads += new EventHandler<EventArgs<IBackgroundTask>>(ViewModel_PurgingDownloads);
+				m_vmlViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
+				m_vmlViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
 
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbCancel, m_vmlViewModel.CancelTaskCommand, GetSelectedTask);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
+
+				Command removeAll = new Command("Remove all", "Purges the completed/failed downloads from the list.", ViewModel.RemoveAllTasks);
+				new DevExpressBarItemCommandBinding(tsbRemoveAll, removeAll);
+				Command resumeAll = new Command("Resume all", "Resumes all paused/queued downloads.", ViewModel.ResumeAllTasks);
+				new DevExpressBarItemCommandBinding(tsbResumeAll, resumeAll);
+				Command purgeDownloads = new Command("Purge Downloads", "Purges the paused/queued downloads from the list.", ViewModel.PurgeDownloads);
+				new DevExpressBarItemCommandBinding(tsbPurgeDownloads, purgeDownloads);
+
+				m_vmlViewModel.PurgingDownloads += ViewModel_PurgingDownloads;
 				ViewModel.CancelTaskCommand.CanExecute = false;
 				ViewModel.RemoveTaskCommand.CanExecute = false;
 				ViewModel.PauseTaskCommand.CanExecute = false;
 				ViewModel.ResumeTaskCommand.CanExecute = false;
-
-				LoadMetrics();
 				UpdateTitle();
 			}
 		}
 
-		#endregion
-
-		#region Constructors
-
 		/// <summary>
-		/// The default constructor.
+		/// Initializes a new instance of the <see cref="DownloadMonitorControl"/> class.
 		/// </summary>
 		public DownloadMonitorControl()
 		{
 			InitializeComponent();
-			clmOverallMessage.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallMessage);
-			clmOverallProgress.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.OverallProgress);
-			clmItemMessage.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemMessage);
-			clmItemProgress.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.ItemProgress);
-			clmStatus.Name = ObjectHelper.GetPropertyName<AddModTask>(x => x.Status);
-
-			m_tmrColumnSizer.Interval = 100;
-			m_tmrColumnSizer.Tick += new EventHandler(ColumnSizer_Tick);
-
+			gridControl.DataSource = _rows;
 			UpdateTitle();
 		}
 
-		#endregion
-
-		#region Control Metrics Serialization
-
-		/// <summary>
-		/// Raises the <see cref="UserControl.Load"/> event of the control.
-		/// </summary>
-		/// <remarks>
-		/// This loads any saved control metrics.
-		/// </remarks>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		protected override void OnLoad(EventArgs e)
-		{
-			base.OnLoad(e);
-
-			if (!DesignMode)
-			{
-				m_booControlIsLoaded = true;
-				LoadMetrics();
-			}
-		}
-
-		/// <summary>
-		/// Loads the control's saved metrics.
-		/// </summary>
-		protected void LoadMetrics()
-		{
-			if (m_booControlIsLoaded && (ViewModel != null))
-			{
-				ViewModel.Settings.ColumnWidths.LoadColumnWidths("DownloadMonitor", lvwTasks);
-
-				FindForm().FormClosing += new FormClosingEventHandler(DownloadMonitorControl_FormClosing);
-				m_fltColumnRatio = (float)clmOverallMessage.Width / (clmOverallMessage.Width + clmItemMessage.Width);
-				SizeColumnsToFit();
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="Form.Closing"/> event of the parent form.
-		/// </summary>
-		/// <remarks>
-		/// This saves the control's metrics.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="FormClosingEventArgs"/> describing the event arguments.</param>
-		private void DownloadMonitorControl_FormClosing(object sender, FormClosingEventArgs e)
-		{
-			ViewModel.Settings.ColumnWidths.SaveColumnWidths("DownloadMonitor", lvwTasks);
-			ViewModel.Settings.Save();
-		}
-
-		#endregion
-
-		/// <summary>
-		/// Hanldes the <see cref="Control.MouseClick"/> event of the controls.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
-		private void DownloadMonitorControl_MouseClick(object sender, MouseEventArgs e)
-		{
-			if (e.Button == MouseButtons.Right)
-			{
-				ContextMenu m = new ContextMenu();
-				m.MenuItems.Clear();
-				m.MenuItems.Add(new MenuItem("Copy to clipboard", new EventHandler(cmsContextMenu_Copy)));
-				m.Show((Control)(sender), e.Location);
-			}
-		}
-
-		/// <summary>
-		/// Hanldes the <see cref="Control.KeyUp"/> event of the controls.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="MouseEventArgs"/> describing the event arguments.</param>
-		private void DownloadMonitorControl_KeyUp(object sender, KeyEventArgs e)
-		{
-			if (e.KeyData == (Keys.C | Keys.Control))
-			{
-				Clipboard.SetText(lvwTasks.FocusedItem.Text);
-			}
-			if (e.KeyData == (Keys.Control | Keys.F))
-			{
-				SetTextBoxFocus(this, e);
-			}
-		}
-
-		#region Binding
-
-		/// <summary>
-		/// Retruns the <see cref="IBackgroundTask"/> that is currently selected in the view.
-		/// </summary>
-		/// <returns>The <see cref="IBackgroundTask"/> that is currently selected in the view, or
-		/// <c>null</c> if no <see cref="IBackgroundTask"/> is selected.</returns>
 		private AddModTask GetSelectedTask()
 		{
-			if (lvwTasks.SelectedItems.Count == 0)
-				return null;
-
-			return ((DownloadListViewItem)lvwTasks.SelectedItems[0]).Task;
+			DownloadTaskRow row = gridView.GetFocusedRow() as DownloadTaskRow;
+			return row == null ? null : row.Task;
 		}
 
 		/// <summary>
-		/// Sets the executable status of the commands.
+		/// Updates the executable and visible state of per-download commands.
 		/// </summary>
 		protected void SetCommandExecutableStatus()
 		{
-			ViewModel.CancelTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanCancelTask(GetSelectedTask());
-			ViewModel.RemoveTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanRemoveDownload(GetSelectedTask());
-			ViewModel.PauseTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanPauseDownload(GetSelectedTask()) && !ViewModel.ModRepository.IsOffline;
-			ViewModel.ResumeTaskCommand.CanExecute = (lvwTasks.SelectedItems.Count > 0) && ViewModel.CanResumeDownload(GetSelectedTask());
+			if (ViewModel == null)
+				return;
 
-			this.tsbCancel.Visible = ViewModel.CancelTaskCommand.CanExecute;
-			this.tsbPause.Visible = ViewModel.PauseTaskCommand.CanExecute;
-			this.tsbRemove.Visible = ViewModel.RemoveTaskCommand.CanExecute;
-			this.tsbResume.Visible = ViewModel.ResumeTaskCommand.CanExecute;
-			this.tsbResumeAll.Visible = true;
-			this.tsbRemoveAll.Visible = true;
+			AddModTask task = GetSelectedTask();
+			ViewModel.CancelTaskCommand.CanExecute = task != null && ViewModel.CanCancelTask(task);
+			ViewModel.RemoveTaskCommand.CanExecute = task != null && ViewModel.CanRemoveDownload(task);
+			ViewModel.PauseTaskCommand.CanExecute = task != null && ViewModel.CanPauseDownload(task) && !ViewModel.ModRepository.IsOffline;
+			ViewModel.ResumeTaskCommand.CanExecute = task != null && ViewModel.CanResumeDownload(task);
+
+			tsbCancel.Visibility = ViewModel.CancelTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsbPause.Visibility = ViewModel.PauseTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsbRemove.Visibility = ViewModel.RemoveTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsbResume.Visibility = ViewModel.ResumeTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
+			tsbResumeAll.Visibility = BarItemVisibility.Always;
+			tsbRemoveAll.Visibility = BarItemVisibility.Always;
 		}
 
-		#endregion
-
-		#region Task Addition/Removal
-
 		/// <summary>
-		/// Adds the given <see cref="IBackgroundTask"/> to the view's list. If the <see cref="IBackgroundTask"/>
-		/// already exists in the list, nothing is done.
+		/// Adds a download task to the DevExpress grid if it is not already present.
 		/// </summary>
-		/// <param name="p_tskTask">The <see cref="IBackgroundTask"/> to add to the view's list.</param>
-		protected void AddTaskToList(AddModTask p_tskTask)
+		protected void AddTaskToList(AddModTask task)
 		{
-			foreach (DownloadListViewItem lviExisitingDownload in lvwTasks.Items)
-				if (lviExisitingDownload.Task == p_tskTask)
+			foreach (DownloadTaskRow row in _rows)
+				if (row.Task == task)
 					return;
-			p_tskTask.PropertyChanged -= new PropertyChangedEventHandler(Task_PropertyChanged);
-			p_tskTask.PropertyChanged += new PropertyChangedEventHandler(Task_PropertyChanged);
-			DownloadListViewItem lviDownload = new DownloadListViewItem(p_tskTask);
-			lvwTasks.Items.Add(lviDownload);
+
+			task.PropertyChanged -= Task_PropertyChanged;
+			task.PropertyChanged += Task_PropertyChanged;
+			_rows.Add(new DownloadTaskRow(task));
 		}
 
-		/// <summary>
-		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
-		/// task list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the list of tasks to refelct changes to the monitored Download list.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (lvwTasks.InvokeRequired)
+			if (gridControl.InvokeRequired)
 			{
-				lvwTasks.Invoke((MethodInvoker)(() => Tasks_CollectionChanged(sender, e)));
+				gridControl.Invoke((MethodInvoker)(() => Tasks_CollectionChanged(sender, e)));
 				return;
 			}
+
 			switch (e.Action)
 			{
 				case NotifyCollectionChangedAction.Add:
 				case NotifyCollectionChangedAction.Replace:
-					foreach (AddModTask tskAdded in e.NewItems)
-						AddTaskToList(tskAdded);
-					break;
-				case NotifyCollectionChangedAction.Move:
-					//TODO Download order matters (some tasks depend on others)
+					foreach (AddModTask task in e.NewItems)
+						AddTaskToList(task);
 					break;
 				case NotifyCollectionChangedAction.Remove:
-					foreach (AddModTask tskRemoved in e.OldItems)
+					foreach (AddModTask task in e.OldItems)
 					{
-						for (Int32 i = lvwTasks.Items.Count - 1; i >= 0; i--)
-							if (((DownloadListViewItem)lvwTasks.Items[i]).Task == tskRemoved)
-								lvwTasks.Items.RemoveAt(i);
-						tskRemoved.PropertyChanged -= new PropertyChangedEventHandler(Task_PropertyChanged);
+						for (int i = _rows.Count - 1; i >= 0; i--)
+							if (_rows[i].Task == task)
+								_rows.RemoveAt(i);
+						task.PropertyChanged -= Task_PropertyChanged;
 					}
 					break;
 				case NotifyCollectionChangedAction.Reset:
-					lvwTasks.Items.Clear();
+					_rows.Clear();
+					break;
+				case NotifyCollectionChangedAction.Move:
 					break;
 				default:
 					throw new Exception("Unrecognized value for NotifyCollectionChangedAction.");
 			}
+
 			UpdateTitle();
 		}
 
-		/// <summary>
-		/// Handles the <see cref="INotifyCollectionChanged.CollectionChanged"/> event of the view model's
-		/// active task list.
-		/// </summary>
-		/// <remarks>
-		/// This updates the control title.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (this.IsHandleCreated)
+			if (!IsHandleCreated || ViewModel == null)
+				return;
+
+			lock (ViewModel.ModRepository)
 			{
-				lock (ViewModel.ModRepository)
-					if (!ViewModel.ModRepository.IsOffline)
-					{
-						switch (e.Action)
+				if (ViewModel.ModRepository.IsOffline)
+					return;
+
+				switch (e.Action)
+				{
+					case NotifyCollectionChangedAction.Add:
+					case NotifyCollectionChangedAction.Replace:
+						foreach (AddModTask task in e.NewItems)
 						{
-							case NotifyCollectionChangedAction.Add:
-							case NotifyCollectionChangedAction.Replace:
-								foreach (AddModTask tskAdded in e.NewItems)
-									if (ViewModel.ModRepository.IsOffline)
-										m_vmlViewModel.PauseTask(tskAdded);
-									else if ((m_vmlViewModel.RunningTasks.Count > m_vmlViewModel.MaxConcurrentDownloads) && (tskAdded.IsRemote))
-										m_vmlViewModel.QueueTask(tskAdded);
-								break;
-							case NotifyCollectionChangedAction.Remove:
-								foreach (AddModTask tskRemoved in e.OldItems)
-								{
-									if ((m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads) && (tskRemoved.IsRemote))
-									{
-										AddModTask amtQueued = m_vmlViewModel.QueuedTask;
-										if (amtQueued != null)
-											m_vmlViewModel.ResumeTask(amtQueued);
-									}
-								}
-								break;
-							default:
-								throw new Exception("Unrecognized value for NotifyCollectionChangedAction.");
+							if (ViewModel.ModRepository.IsOffline)
+								m_vmlViewModel.PauseTask(task);
+							else if (m_vmlViewModel.RunningTasks.Count > m_vmlViewModel.MaxConcurrentDownloads && task.IsRemote)
+								m_vmlViewModel.QueueTask(task);
 						}
-						if (lvwTasks.InvokeRequired)
+						break;
+					case NotifyCollectionChangedAction.Remove:
+						foreach (AddModTask task in e.OldItems)
 						{
-							lvwTasks.Invoke((Action)UpdateTitle);
+							if (m_vmlViewModel.RunningTasks.Count < m_vmlViewModel.MaxConcurrentDownloads && task.IsRemote)
+							{
+								AddModTask queuedTask = m_vmlViewModel.QueuedTask;
+								if (queuedTask != null)
+									m_vmlViewModel.ResumeTask(queuedTask);
+							}
 						}
-						else
-						{
-							UpdateTitle();
-						}
-					}
+						break;
+					default:
+						throw new Exception("Unrecognized value for NotifyCollectionChangedAction.");
+				}
 			}
+
+			if (gridControl.InvokeRequired)
+				gridControl.Invoke((Action)UpdateTitle);
+			else
+				UpdateTitle();
 		}
 
 		/// <summary>
-		/// Updates the control's title to reflect the current state of activities.
+		/// Updates the dock title to reflect active and total downloads.
 		/// </summary>
 		protected void UpdateTitle()
 		{
-			Int32 intActiveCount = 0;
-			Int32 intTotalCount = 0;
-			if (ViewModel != null)
-			{
-				intActiveCount = ViewModel.ActiveTasks.Count;
-				intTotalCount = ViewModel.Tasks.Count;
-			}
-			if (intTotalCount == intActiveCount)
-				Text = String.Format(m_strTitleAllActive, intTotalCount);
-			else
-				Text = String.Format(m_strTitleSomeActive, intActiveCount, intTotalCount);
+			int activeCount = ViewModel == null ? 0 : ViewModel.ActiveTasks.Count;
+			int totalCount = ViewModel == null ? 0 : ViewModel.Tasks.Count;
+			Text = totalCount == activeCount
+				? string.Format(TitleAllActive, totalCount)
+				: string.Format(TitleSomeActive, activeCount, totalCount);
 		}
 
-		#endregion
-
-		/// <summary>
-		/// Handles the <see cref="DownloadMonitor.PurgingDownloads"/> event of the view model.
-		/// </summary>
-		/// <remarks>
-		/// This displays the progress dialog.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs{IBackgroundTask}"/> describing the event arguments.</param>
 		private void ViewModel_PurgingDownloads(object sender, EventArgs<IBackgroundTask> e)
 		{
 			if (InvokeRequired)
@@ -366,144 +219,121 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			ProgressDialog.ShowDialog(this, e.Argument, true);
 		}
 
-		/// <summary>
-		/// Handles the <see cref="INotifyPropertyChanged.PropertyChanged"/> of the tasks being monitored.
-		/// </summary>
-		/// <remarks>
-		/// This adjusts the command availability based on the task's status.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
 		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
+			if (gridControl.InvokeRequired)
 			{
-				if (InvokeRequired)
-					Invoke((Action)SetCommandExecutableStatus);
-				else
-					SetCommandExecutableStatus();
+				gridControl.Invoke((Action)(() => Task_PropertyChanged(sender, e)));
+				return;
 			}
+
+			gridView.RefreshData();
+			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
+				SetCommandExecutableStatus();
 		}
 
-		/// <summary>
-		/// Handles the <see cref="INotifyPropertyChanged.PropertyChanged"/> of the active tasks being monitored.
-		/// </summary>
-		/// <remarks>
-		/// This adjusts the command availability based on the active task's status.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
-		private void ActiveTasks_PropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == ObjectHelper.GetPropertyName<AddModTask>(x => x.Status))
-			{
-
-			}
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ListView.SelectedIndexChanged"/> event of the Download list.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwTasks_SelectedIndexChanged(object sender, EventArgs e)
+		private void gridView_FocusedRowChanged(object sender, DevExpress.XtraGrid.Views.Base.FocusedRowChangedEventArgs e)
 		{
 			SetCommandExecutableStatus();
 		}
 
-		/// <summary>
-		/// Handles the cmsContextMenu.ReadmeScan event.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="System.EventArgs"/> describing the event arguments.</param>
-		private void cmsContextMenu_Copy(object sender, EventArgs e)
+		private void gridControl_KeyUp(object sender, KeyEventArgs e)
 		{
-			Clipboard.SetText(lvwTasks.FocusedItem.Text);
+			if (e.KeyData == (Keys.C | Keys.Control))
+				CopyFocusedDownload();
+			else if (e.KeyData == (Keys.Control | Keys.F) && SetTextBoxFocus != null)
+				SetTextBoxFocus(this, e);
 		}
 
-		#region Column Resizing
-
-		/// <summary>
-		/// Handles the <see cref="Timer.Tick"/> event of the column sizer timer.
-		/// </summary>
-		/// <remarks>
-		/// We use a timer to autosize the columns in the list view. This is because
-		/// there is a bug in the control such that if we reszize the columns continuously
-		/// while the list view is being resized, the item will sometimes disappear.
-		/// 
-		/// To work around this, the list view resize event continually resets the timer.
-		/// This means the timer will only fire occasionally during the resize, and avoid
-		/// the disappearing items issue.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void ColumnSizer_Tick(object sender, EventArgs e)
+		private void gridControl_MouseUp(object sender, MouseEventArgs e)
 		{
-			((Timer)sender).Stop();
-			SizeColumnsToFit();
-		}
-
-		/// <summary>
-		/// This resizes the columns to fill the list view.
-		/// </summary>
-		protected void SizeColumnsToFit()
-		{
-			if (lvwTasks.Columns.Count == 0)
+			if (e.Button != MouseButtons.Right)
 				return;
-			m_booResizing = true;
-			Int32 intFixedWidth = 0;
-			for (Int32 i = 0; i < lvwTasks.Columns.Count; i++)
+			popupMenu.ShowPopup(gridControl.PointToScreen(e.Location));
+		}
+
+		private void copyItem_ItemClick(object sender, ItemClickEventArgs e)
+		{
+			CopyFocusedDownload();
+		}
+
+		/// <summary>
+		/// Copies the focused download name to the clipboard.
+		/// </summary>
+		private void CopyFocusedDownload()
+		{
+			DownloadTaskRow row = gridView.GetFocusedRow() as DownloadTaskRow;
+			if (row != null && !string.IsNullOrEmpty(row.OverallMessage))
+				Clipboard.SetText(row.OverallMessage);
+		}
+
+		/// <summary>
+		/// Presents a download task as a row in the DevExpress grid.
+		/// </summary>
+		private sealed class DownloadTaskRow
+		{
+			/// <summary>
+			/// Initializes a new download row.
+			/// </summary>
+			public DownloadTaskRow(AddModTask task)
 			{
-				if (lvwTasks.Columns[i] != clmOverallMessage)
-					intFixedWidth += lvwTasks.Columns[i].Width;
+				Task = task;
 			}
 
-			int intNameWidth = lvwTasks.ClientSize.Width - intFixedWidth;
-			clmOverallMessage.Width = intNameWidth < 80 ? 80 : intNameWidth;
-
-			m_booResizing = false;
+			public AddModTask Task { get; private set; }
+			public string OverallMessage { get { return Task.OverallMessage; } }
+			public string OverallProgress
+			{
+				get
+				{
+					if (Task.ShowOverallProgressAsMarquee)
+						return "Working...";
+					if (Task.DownloadMaximum <= 0)
+						return string.Empty;
+					if (Task.Status != TaskStatus.Running && Task.Status != TaskStatus.Paused)
+						return string.Empty;
+					return Task.DownloadMaximum < 1024
+						? string.Format("{0}KB / {1}KB", Task.DownloadProgress, Task.DownloadMaximum)
+						: string.Format("{0}MB / {1}MB", Task.DownloadProgress / 1024, Task.DownloadMaximum / 1024);
+				}
+			}
+			public string Status
+			{
+				get
+				{
+					if (Task.InnerTaskStatus.ToString() == "Retrying" && Task.Status != TaskStatus.Paused && Task.Status != TaskStatus.Queued)
+						return "Retrying";
+					if (Task.Status == TaskStatus.Running)
+						return Task.IsRemote ? "Downloading" : "Moving";
+					return Task.Status.ToString();
+				}
+			}
+			public string ItemMessage
+			{
+				get
+				{
+					if (Task.Status != TaskStatus.Running)
+						return string.Empty;
+					if (Task.TaskSpeed > 0)
+						return string.Format("{0} KB/s", Task.TaskSpeed);
+					return Task.ShowItemProgress ? Task.ItemMessage : string.Empty;
+				}
+			}
+			public string FileServer { get { return Task.Status == TaskStatus.Running ? Task.FileServer : string.Empty; } }
+			public string ETA { get { return Task.Status == TaskStatus.Running ? string.Format("{0:00}:{1:00}:{2:00}", Task.ETA_Hours, Task.ETA_Minutes, Task.ETA_Seconds) : string.Empty; } }
+			public string ItemProgress
+			{
+				get
+				{
+					if (Task.Status != TaskStatus.Running)
+						return string.Empty;
+					if (Task.ActiveThreads > 0)
+						return Task.ActiveThreads.ToString();
+					if (Task.ShowItemProgressAsMarquee)
+						return "Working...";
+					return string.Empty;
+				}
+			}
 		}
-
-		/// <summary>
-		/// Handles the <see cref="Control.Resize"/> event of the plugin list.
-		/// </summary>
-		/// <remarks>
-		/// This resizes the columns to fill the list view.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void lvwTasks_Resize(object sender, EventArgs e)
-		{
-			if (m_booResizing)
-				return;
-			m_tmrColumnSizer.Stop();
-			m_tmrColumnSizer.Start();
-		}
-
-		/// <summary>
-		/// Handles the <see cref="ListView.ColumnWidthChanging"/> event of the plugin list.
-		/// </summary>
-		/// <remarks>
-		/// This resizes the column next to the column being resized to resize as well,
-		/// so that the columns keep the list view filled.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ColumnWidthChangingEventArgs"/> describing the event arguments.</param>
-		private void lvwTasks_ColumnWidthChanging(object sender, ColumnWidthChangingEventArgs e)
-		{
-			if (m_booResizing)
-				return;
-			ColumnHeader clmThis = lvwTasks.Columns[e.ColumnIndex];
-			ColumnHeader clmOther = null;
-			if (e.ColumnIndex == lvwTasks.Columns.Count - 1)
-				clmOther = lvwTasks.Columns[e.ColumnIndex - 1];
-			else
-				clmOther = lvwTasks.Columns[e.ColumnIndex + 1];
-			m_booResizing = true;
-			clmOther.Width += (clmThis.Width - e.NewWidth);
-			m_booResizing = false;
-		}
-
-		#endregion
 	}
 }

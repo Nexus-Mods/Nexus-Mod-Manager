@@ -3,13 +3,14 @@
     using System;
     using System.ComponentModel;
     using System.Windows.Forms;
+    using DevExpress.XtraEditors;
     using Games;
     using UI;
 
     /// <summary>
     /// A form that gathers login credentials.
     /// </summary>
-    public partial class AuthenticationForm : ManagedFontForm
+    public partial class AuthenticationForm : ManagedFontXtraForm
     {
         private AuthenticationFormViewModel m_authenticationFormViewModel;
 
@@ -70,7 +71,7 @@
         {
             if (e.Reason == AuthenticationCancelledReason.ConnectionIssue)
             {
-                MessageBox.Show(this, "Authentication failed due to network issues.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                XtraMessageBox.Show(this, "Authentication failed due to network issues.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 var fallbackForm = new ManualApiKeyEntryForm(ViewModel);
                 var result = fallbackForm.ShowDialog(this);
 
@@ -81,7 +82,7 @@
             }
             else if (e.Reason != AuthenticationCancelledReason.Manual)
             {
-                MessageBox.Show(this, "Authentication failed for unknown reasons, check trace logs.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                XtraMessageBox.Show(this, "Authentication failed for unknown reasons, check trace logs.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             Close();

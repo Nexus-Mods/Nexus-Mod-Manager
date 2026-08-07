@@ -6,6 +6,7 @@ using System.Security;
 using System.Security.Permissions;
 using System.Security.Principal;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 using Nexus.Client.UI;
 using SevenZip;
 
@@ -15,7 +16,7 @@ namespace Nexus.Client.ModManagement.UI
 	/// <summary>
 	/// A view that allows editing of mod tags.
 	/// </summary>
-	public partial class RestoreBackupForm : ManagedFontForm
+	public partial class RestoreBackupForm : ManagedFontXtraForm
 	{
 		private ModManager ModManager = null;
 		private ProfileManager ProfileManager = null;
@@ -101,7 +102,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (!bkManager.booValidArchive)
 				{
 					lblEstimated.Visible = true;
-					lblEstimated.ForeColor = System.Drawing.Color.Red;
+					lblEstimated.Appearance.ForeColor = System.Drawing.Color.Red;
 					lblEstimated.Text = "You didn't select a valid Nexus Mod Manager backup archive.";
 					btYes.Enabled = false;
 					btNo.Enabled = false;
@@ -112,7 +113,7 @@ namespace Nexus.Client.ModManagement.UI
 					if (bkManager.GameModeNameCheck.Count() == 0)
 					{
 						lblEstimated.Visible = true;
-						lblEstimated.ForeColor = System.Drawing.Color.Red;
+						lblEstimated.Appearance.ForeColor = System.Drawing.Color.Red;
 						lblEstimated.Text = string.Format("This is not a {0}'s Backup!", ModManager.GameMode.Name);
 						btYes.Enabled = false;
 						btNo.Enabled = false;
@@ -121,7 +122,7 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						btYes.Enabled = true;
 						btNo.Enabled = true;
-						lblEstimated.ForeColor = System.Drawing.Color.Black;
+						lblEstimated.Appearance.ForeColor = System.Drawing.Color.Empty;
 
 						if (!bkManager.booPluginPath || !bkManager.booVirtualPath)
 							btYes.Enabled = false;

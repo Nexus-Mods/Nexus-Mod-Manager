@@ -28,35 +28,42 @@
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.pnlButtons = new System.Windows.Forms.Panel();
-			this.pnlMessage = new System.Windows.Forms.Panel();
-			this.pnlLabel = new System.Windows.Forms.Panel();
-			this.albPrompt = new Nexus.UI.Controls.AutosizeLabel();
-			this.pbxIcon = new System.Windows.Forms.PictureBox();
-			this.pnlRemember = new System.Windows.Forms.Panel();
-			this.cbxRemember = new System.Windows.Forms.CheckBox();
-			this.pnlDetails = new System.Windows.Forms.Panel();
-			this.hlbDetails = new Nexus.UI.Controls.HtmlLabel();
+			this.pnlButtons = new DevExpress.XtraEditors.PanelControl();
+			this.pnlMessage = new DevExpress.XtraEditors.PanelControl();
+			this.pnlLabel = new DevExpress.XtraEditors.PanelControl();
+			this.albPrompt = new DevExpress.XtraEditors.LabelControl();
+			this.pbxIcon = new DevExpress.XtraEditors.PictureEdit();
+			this.pnlRemember = new DevExpress.XtraEditors.PanelControl();
+			this.cbxRemember = new DevExpress.XtraEditors.CheckEdit();
+			this.pnlDetails = new DevExpress.XtraEditors.PanelControl();
+			this.hlbDetails = new DevExpress.XtraEditors.HtmlContentControl();
+			((System.ComponentModel.ISupportInitialize)(this.pnlButtons)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.pnlMessage)).BeginInit();
 			this.pnlMessage.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.pnlLabel)).BeginInit();
 			this.pnlLabel.SuspendLayout();
-			((System.ComponentModel.ISupportInitialize)(this.pbxIcon)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.pbxIcon.Properties)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.pnlRemember)).BeginInit();
 			this.pnlRemember.SuspendLayout();
+			((System.ComponentModel.ISupportInitialize)(this.cbxRemember.Properties)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.pnlDetails)).BeginInit();
 			this.pnlDetails.SuspendLayout();
 			this.SuspendLayout();
-			// 
+			//
 			// pnlButtons
-			// 
+			//
+			this.pnlButtons.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 			this.pnlButtons.Dock = System.Windows.Forms.DockStyle.Bottom;
 			this.pnlButtons.Location = new System.Drawing.Point(0, 215);
 			this.pnlButtons.Name = "pnlButtons";
 			this.pnlButtons.Size = new System.Drawing.Size(284, 47);
 			this.pnlButtons.TabIndex = 2;
-			// 
+			//
 			// pnlMessage
-			// 
+			//
 			this.pnlMessage.AutoSize = true;
 			this.pnlMessage.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-			this.pnlMessage.BackColor = System.Drawing.SystemColors.Window;
+			this.pnlMessage.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 			this.pnlMessage.Controls.Add(this.pnlLabel);
 			this.pnlMessage.Controls.Add(this.pbxIcon);
 			this.pnlMessage.Dock = System.Windows.Forms.DockStyle.Top;
@@ -64,11 +71,12 @@
 			this.pnlMessage.Name = "pnlMessage";
 			this.pnlMessage.Size = new System.Drawing.Size(284, 66);
 			this.pnlMessage.TabIndex = 3;
-			// 
+			//
 			// pnlLabel
-			// 
+			//
 			this.pnlLabel.AutoSize = true;
 			this.pnlLabel.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+			this.pnlLabel.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 			this.pnlLabel.Controls.Add(this.albPrompt);
 			this.pnlLabel.Dock = System.Windows.Forms.DockStyle.Top;
 			this.pnlLabel.Location = new System.Drawing.Point(72, 0);
@@ -77,77 +85,73 @@
 			this.pnlLabel.Padding = new System.Windows.Forms.Padding(0, 24, 24, 24);
 			this.pnlLabel.Size = new System.Drawing.Size(212, 66);
 			this.pnlLabel.TabIndex = 2;
-			// 
+			//
 			// albPrompt
-			// 
-			this.albPrompt.BackColor = System.Drawing.SystemColors.Window;
-			this.albPrompt.Cursor = System.Windows.Forms.Cursors.Arrow;
+			//
+			this.albPrompt.Appearance.TextOptions.WordWrap = DevExpress.Utils.WordWrap.Wrap;
+			this.albPrompt.AutoSizeMode = DevExpress.XtraEditors.LabelAutoSizeMode.Vertical;
 			this.albPrompt.Dock = System.Windows.Forms.DockStyle.Top;
 			this.albPrompt.Location = new System.Drawing.Point(0, 24);
 			this.albPrompt.Name = "albPrompt";
-			this.albPrompt.Size = new System.Drawing.Size(188, 18);
+			this.albPrompt.Size = new System.Drawing.Size(188, 13);
 			this.albPrompt.TabIndex = 0;
-			this.albPrompt.Text = "autolabel1";
-			// 
+			this.albPrompt.Text = "Message";
+			//
 			// pbxIcon
-			// 
+			//
 			this.pbxIcon.Dock = System.Windows.Forms.DockStyle.Left;
 			this.pbxIcon.Location = new System.Drawing.Point(0, 0);
 			this.pbxIcon.Margin = new System.Windows.Forms.Padding(0);
 			this.pbxIcon.Name = "pbxIcon";
-			this.pbxIcon.Padding = new System.Windows.Forms.Padding(24, 24, 12, 24);
+			this.pbxIcon.Padding = new System.Windows.Forms.Padding(24, 17, 12, 17);
+			this.pbxIcon.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
+			this.pbxIcon.Properties.ShowCameraMenuItem = DevExpress.XtraEditors.Controls.CameraMenuItemVisibility.Auto;
+			this.pbxIcon.Properties.ShowMenu = false;
+			this.pbxIcon.Properties.SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Squeeze;
 			this.pbxIcon.Size = new System.Drawing.Size(72, 66);
-			this.pbxIcon.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
 			this.pbxIcon.TabIndex = 1;
-			this.pbxIcon.TabStop = false;
-			// 
+			//
 			// pnlRemember
-			// 
+			//
+			this.pnlRemember.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 			this.pnlRemember.Controls.Add(this.cbxRemember);
 			this.pnlRemember.Dock = System.Windows.Forms.DockStyle.Bottom;
 			this.pnlRemember.Location = new System.Drawing.Point(0, 186);
 			this.pnlRemember.Name = "pnlRemember";
 			this.pnlRemember.Size = new System.Drawing.Size(284, 29);
 			this.pnlRemember.TabIndex = 4;
-			// 
+			//
 			// cbxRemember
-			// 
+			//
 			this.cbxRemember.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-			this.cbxRemember.AutoSize = true;
-			this.cbxRemember.Location = new System.Drawing.Point(134, 12);
+			this.cbxRemember.Location = new System.Drawing.Point(130, 7);
 			this.cbxRemember.Name = "cbxRemember";
-			this.cbxRemember.Size = new System.Drawing.Size(138, 17);
+			this.cbxRemember.Properties.Caption = "Remember my selection";
+			this.cbxRemember.Size = new System.Drawing.Size(142, 20);
 			this.cbxRemember.TabIndex = 0;
-			this.cbxRemember.Text = "Remember my selection";
-			this.cbxRemember.UseVisualStyleBackColor = true;
-			// 
+			//
 			// pnlDetails
-			// 
-			this.pnlDetails.BackColor = System.Drawing.SystemColors.Window;
+			//
+			this.pnlDetails.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 			this.pnlDetails.Controls.Add(this.hlbDetails);
 			this.pnlDetails.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.pnlDetails.Location = new System.Drawing.Point(0, 66);
 			this.pnlDetails.Name = "pnlDetails";
-			this.pnlDetails.Padding = new System.Windows.Forms.Padding(12, 0, 0, 0);
+			this.pnlDetails.Padding = new System.Windows.Forms.Padding(12, 0, 12, 0);
 			this.pnlDetails.Size = new System.Drawing.Size(284, 120);
 			this.pnlDetails.TabIndex = 6;
-			// 
+			//
 			// hlbDetails
-			// 
-			this.hlbDetails.BackColor = System.Drawing.SystemColors.Window;
+			//
+			this.hlbDetails.AutoScroll = true;
 			this.hlbDetails.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.hlbDetails.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F);
-			this.hlbDetails.ForeColor = System.Drawing.SystemColors.ControlText;
 			this.hlbDetails.Location = new System.Drawing.Point(12, 0);
-			this.hlbDetails.MinimumSize = new System.Drawing.Size(20, 20);
 			this.hlbDetails.Name = "hlbDetails";
-			this.hlbDetails.ScrollBarsEnabled = false;
-			this.hlbDetails.Size = new System.Drawing.Size(272, 120);
+			this.hlbDetails.Size = new System.Drawing.Size(260, 120);
 			this.hlbDetails.TabIndex = 5;
-			this.hlbDetails.Text = "htmlLabel1";
-			// 
+			//
 			// ExtendedMessageBox
-			// 
+			//
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(284, 262);
@@ -162,29 +166,34 @@
 			this.ShowIcon = false;
 			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-			this.Text = "RememberSelectionMessageBox";
+			this.Text = "ExtendedMessageBox";
+			this.TopMost = true;
+			((System.ComponentModel.ISupportInitialize)(this.pnlButtons)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.pnlMessage)).EndInit();
 			this.pnlMessage.ResumeLayout(false);
 			this.pnlMessage.PerformLayout();
+			((System.ComponentModel.ISupportInitialize)(this.pnlLabel)).EndInit();
 			this.pnlLabel.ResumeLayout(false);
-			((System.ComponentModel.ISupportInitialize)(this.pbxIcon)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.pbxIcon.Properties)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.pnlRemember)).EndInit();
 			this.pnlRemember.ResumeLayout(false);
-			this.pnlRemember.PerformLayout();
+			((System.ComponentModel.ISupportInitialize)(this.cbxRemember.Properties)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.pnlDetails)).EndInit();
 			this.pnlDetails.ResumeLayout(false);
 			this.ResumeLayout(false);
 			this.PerformLayout();
-			this.TopMost = true;
 		}
 
 		#endregion
 
-		private Nexus.UI.Controls.AutosizeLabel albPrompt;
-		private System.Windows.Forms.PictureBox pbxIcon;
-		private System.Windows.Forms.Panel pnlButtons;
-		private System.Windows.Forms.Panel pnlMessage;
-		private System.Windows.Forms.Panel pnlLabel;
-		private System.Windows.Forms.Panel pnlRemember;
-		private System.Windows.Forms.CheckBox cbxRemember;
-		private Nexus.UI.Controls.HtmlLabel hlbDetails;
-		private System.Windows.Forms.Panel pnlDetails;
+		private DevExpress.XtraEditors.LabelControl albPrompt;
+		private DevExpress.XtraEditors.PictureEdit pbxIcon;
+		private DevExpress.XtraEditors.PanelControl pnlButtons;
+		private DevExpress.XtraEditors.PanelControl pnlMessage;
+		private DevExpress.XtraEditors.PanelControl pnlLabel;
+		private DevExpress.XtraEditors.PanelControl pnlRemember;
+		private DevExpress.XtraEditors.CheckEdit cbxRemember;
+		private DevExpress.XtraEditors.HtmlContentControl hlbDetails;
+		private DevExpress.XtraEditors.PanelControl pnlDetails;
 	}
 }

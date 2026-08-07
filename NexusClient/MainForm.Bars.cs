@@ -196,28 +196,28 @@
 			spbProfiles = CreateDropDownButton("Profiles", popupProfiles, false, BarItemPaintStyle.CaptionGlyph);
 			spbProfiles.ItemClick += SpbProfiles_ItemClick;
 
-			spbHelp = CreateDropDownButton("Help", popupHelp, true, BarItemPaintStyle.Glyph);
+			spbHelp = CreateDropDownButton("Help", popupHelp, true, BarItemPaintStyle.Standard);
 			spbHelp.Alignment = BarItemLinkAlignment.Right;
 			spbHelp.ImageOptions.Image = Properties.Resources.help_flat;
 
-			spbChangeMode = CreateDropDownButton("Change Game Mode", popupChangeMode, true, BarItemPaintStyle.Glyph);
+			spbChangeMode = CreateDropDownButton("Change Game Mode", popupChangeMode, true, BarItemPaintStyle.Standard);
 			spbChangeMode.Alignment = BarItemLinkAlignment.Right;
 			spbChangeMode.ImageOptions.Image = Properties.Resources.switch_game_flat;
 
-			toolStripSplitButtonTools = CreateDropDownButton("Tools", popupTools, true, BarItemPaintStyle.Glyph);
+			toolStripSplitButtonTools = CreateDropDownButton("Tools", popupTools, true, BarItemPaintStyle.Standard);
 			toolStripSplitButtonTools.ImageOptions.Image = Properties.Resources.program_tools_flat;
 
-			spbFolders = CreateDropDownButton("Open folders", popupFolders, true, BarItemPaintStyle.Glyph);
+			spbFolders = CreateDropDownButton("Open folders", popupFolders, true, BarItemPaintStyle.Standard);
 			spbFolders.ImageOptions.Image = Properties.Resources.folder_link_flat;
 
 			tsbSettings = new BarButtonItem(barManagerMain, "Settings")
 			{
-				PaintStyle = BarItemPaintStyle.Glyph
+				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbSettings.ImageOptions.Image = Properties.Resources.settings_flat;
 			tsbSettings.ItemClick += (sender, args) => tsbSettings_Click(sender, EventArgs.Empty);
 
-			spbSupportedTools = CreateDropDownButton("Supported Tools", popupSupportedTools, true, BarItemPaintStyle.Glyph);
+			spbSupportedTools = CreateDropDownButton("Supported Tools", popupSupportedTools, true, BarItemPaintStyle.Standard);
 			spbSupportedTools.ImageOptions.Image = Properties.Resources.supported_tools_flat;
 
 			repositoryFind = new RepositoryItemTextEdit();
@@ -233,7 +233,7 @@
 			tsbUpdate = new BarButtonItem(barManagerMain, "Check for Updates")
 			{
 				Alignment = BarItemLinkAlignment.Right,
-				PaintStyle = BarItemPaintStyle.Glyph
+				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbUpdate.ImageOptions.Image = Properties.Resources.update_check_flat;
 
@@ -241,7 +241,7 @@
 			{
 				Alignment = BarItemLinkAlignment.Right,
 				Hint = "Join the Official NMM Community Discord",
-				PaintStyle = BarItemPaintStyle.Glyph
+				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbDiscord.ImageOptions.Image = Properties.Resources.discord_logo_512;
 			tsbDiscord.ItemClick += (sender, args) => tsbDiscord_Click(sender, EventArgs.Empty);
@@ -250,12 +250,12 @@
 			{
 				Alignment = BarItemLinkAlignment.Right,
 				Hint = "Watch the official NMM Community Edition YouTube channel",
-				PaintStyle = BarItemPaintStyle.Glyph
+				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbYouTube.ImageOptions.Image = Properties.Resources.youtube_logo_512;
 			tsbYouTube.ItemClick += (sender, args) => tsbYouTube_Click(sender, EventArgs.Empty);
 
-			spbSupportNMM = CreateDropDownButton("Support the NMM development", popupSupportNMM, false, BarItemPaintStyle.Glyph);
+			spbSupportNMM = CreateDropDownButton("Support the NMM development", popupSupportNMM, false, BarItemPaintStyle.Standard);
 			spbSupportNMM.Alignment = BarItemLinkAlignment.Right;
 			spbSupportNMM.ImageOptions.Image = Properties.Resources.kofi_button;
 			spbSupportNMM.ItemClick += (sender, args) => spbSupportNMM_ButtonClick(sender, EventArgs.Empty);
@@ -297,7 +297,7 @@
 		{
 			toolStripButtonOnlineStatus = new BarButtonItem(barManagerMain, "Login")
 			{
-				PaintStyle = BarItemPaintStyle.Glyph
+				PaintStyle = BarItemPaintStyle.Standard
 			};
 			toolStripButtonOnlineStatus.ImageOptions.Image = Properties.Resources.loggedout_flat;
 
@@ -320,7 +320,7 @@
 			toolStripLabelLoginMessage = new BarStaticItem { Manager = barManagerMain };
 			toolStripButtonRateLimit = new BarButtonItem(barManagerMain, "Rate Limit")
 			{
-				PaintStyle = BarItemPaintStyle.Glyph
+				PaintStyle = BarItemPaintStyle.Standard
 			};
 			toolStripButtonRateLimit.ImageOptions.Image = Properties.Resources.token_info;
 			toolStripButtonRateLimit.ItemClick += (sender, args) => ToolStripButtonRateLimitOnClick(sender, EventArgs.Empty);
@@ -329,7 +329,7 @@
 			toolStripLabelBottomBarFeedbackCounter = new BarStaticItem { Manager = barManagerMain };
 			toolStripButtonLoader = new BarButtonItem(barManagerMain, "Activity")
 			{
-				PaintStyle = BarItemPaintStyle.Glyph,
+				PaintStyle = BarItemPaintStyle.Standard,
 				Visibility = BarItemVisibility.Never
 			};
 			toolStripButtonLoader.ImageOptions.Image = Properties.Resources.round_loading;
@@ -581,46 +581,6 @@
 
 			item.ItemAppearance.Normal.ForeColor = color;
 			item.ItemAppearance.Normal.Options.UseForeColor = !color.IsEmpty;
-		}
-
-		/// <summary>
-		/// Resolves an historical tip target name to its current DevExpress bar item.
-		/// </summary>
-		private BarItem ResolveMainBarTipTarget(string target)
-		{
-			switch (target)
-			{
-				case "tsbPatreon": return spbSupportNMM;
-				case "tsbDiscord": return tsbDiscord;
-				case "spbProfiles": return spbProfiles;
-				case "spbTools": return toolStripSplitButtonTools;
-				case "spbSupportedTools": return spbSupportedTools;
-				case "tlbPluginsCounter": return toolStripLabelPluginsCounter;
-				case "tlbModsCounter": return tlbModsCounter;
-				case "tsbTips": return spbHelp;
-				default: return null;
-			}
-		}
-
-		/// <summary>
-		/// Gets a screen coordinate suitable for anchoring a tip to a main-form bar item.
-		/// </summary>
-		private Point GetMainBarTipLocation(string target, int xOffset, int yOffset)
-		{
-			BarItem item = ResolveMainBarTipTarget(target);
-			if (item == null || item.Visibility == BarItemVisibility.Never)
-				return Point.Empty;
-
-			foreach (BarItemLink link in item.Links)
-			{
-				if (!link.Visible || (link.Bar != barMainToolbar && link.Bar != barStatus))
-					continue;
-
-				Rectangle bounds = link.ScreenBounds;
-				return new Point(bounds.Left + xOffset, bounds.Top + yOffset);
-			}
-
-			return Point.Empty;
 		}
 
 		/// <summary>

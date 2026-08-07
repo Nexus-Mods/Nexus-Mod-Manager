@@ -2,6 +2,7 @@
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Games.Tools;
+using Nexus.UI.Controls;
 using System.Windows.Forms;
 
 namespace Nexus.Client.Games.Gamebryo.Tools.AI
@@ -85,7 +86,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 			{
 				if (!File.Exists(GameMode.SettingsFiles.IniPath))
 				{
-					MessageBox.Show(String.Format("You have no {0} INI file. Please run {0} to initialize the file before turning on Archive Invalidation.", GameMode.Name), "Missing INI", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					ExtendedMessageBox.Show(null, String.Format("You have no {0} INI file. Please run {0} to initialize the file before turning on Archive Invalidation.", GameMode.Name), "Missing INI", MessageBoxButtons.OK, MessageBoxIcon.Information);
 					return;
 				}
 				DisplayToolViewEventArgs teaArgs = new DisplayToolViewEventArgs(m_tvwToolView, true);
@@ -96,7 +97,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show(ex.Message);
+				ExtendedMessageBox.Show(null, ex.Message, "Archive Invalidation", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 

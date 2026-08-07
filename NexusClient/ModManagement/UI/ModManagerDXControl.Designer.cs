@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
     partial class ModManagerDXControl
     {
@@ -9,6 +9,7 @@ namespace Nexus.Client.ModManagement.UI
             if (disposing)
             {
                 DisposePerformanceResources();
+                DisposeToolbarCommandBindings();
                 if (components != null)
                     components.Dispose();
             }
@@ -21,227 +22,90 @@ namespace Nexus.Client.ModManagement.UI
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-
-            // Add Mod split button
-            this.tsbAddMod = new System.Windows.Forms.ToolStripSplitButton();
-            this.addModToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.addModFromURLToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-
-            // Core mod actions
-            this.tsbActivate   = new System.Windows.Forms.ToolStripButton();
-            this.tsbDeactivate = new System.Windows.Forms.ToolStripSplitButton();
-
-            // Load order
-            this.tsb_SaveModLoadOrder = new System.Windows.Forms.ToolStripButton();
-            this.tsb_ModUpLoadOrder   = new System.Windows.Forms.ToolStripButton();
-            this.tsb_ModDownLoadOrder = new System.Windows.Forms.ToolStripButton();
-
-            // Tag
-            this.tsbTagMod = new System.Windows.Forms.ToolStripButton();
-
-            // Online checks split button
-            this.tsbModOnlineChecks = new System.Windows.Forms.ToolStripSplitButton();
-            this.withinTheLastDayToolStripMenuItem   = new System.Windows.Forms.ToolStripMenuItem();
-            this.withinTheLastWeekToolStripMenuItem  = new System.Windows.Forms.ToolStripMenuItem();
-            this.withinTheLastMonthToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.checkForModUpdateWithinTheLastDayToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-            this.checkFileDownloadId    = new System.Windows.Forms.ToolStripMenuItem();
-            this.checkMissingDownloadId = new System.Windows.Forms.ToolStripMenuItem();
-
-            // Endorse
-            this.tsbToggleEndorse = new System.Windows.Forms.ToolStripButton();
-
-            // Categories split button
-            this.tsbResetCategories                       = new System.Windows.Forms.ToolStripSplitButton();
-            this.addNewCategory                           = new System.Windows.Forms.ToolStripMenuItem();
-            this.collapseAllCategories                    = new System.Windows.Forms.ToolStripMenuItem();
-            this.expandAllCategories                      = new System.Windows.Forms.ToolStripMenuItem();
-            this.updateNexusAndCustomCategories           = new System.Windows.Forms.ToolStripMenuItem();
-            this.resetDefaultCategories                   = new System.Windows.Forms.ToolStripMenuItem();
-            this.resetUnassignedToDefaultCategories       = new System.Windows.Forms.ToolStripMenuItem();
-            this.resetModsCategory                        = new System.Windows.Forms.ToolStripMenuItem();
-            this.removeAllCategories                      = new System.Windows.Forms.ToolStripMenuItem();
-            this.toggleHiddenCategories                   = new System.Windows.Forms.ToolStripMenuItem();
-
-            // Switch view
-            this.tsbSwitchView = new System.Windows.Forms.ToolStripButton();
-
-            // Export
-            this.tsbExportModList   = new System.Windows.Forms.ToolStripDropDownButton();
-            this.exportToTextFile   = new System.Windows.Forms.ToolStripMenuItem();
-            this.exportToClipboard  = new System.Windows.Forms.ToolStripMenuItem();
-
-            // Show updates only
-            this.tsbShowUpdatesOnly = new System.Windows.Forms.ToolStripButton();
-
-            // Skyrim downloads
-            this.tsbSkyrimDownloads = new System.Windows.Forms.ToolStripButton();
-
-            // Mod count label
-            this.toolStripLabelModCount = new System.Windows.Forms.ToolStripLabel();
-
-            // Grid controls
+            this.barManagerMods = new DevExpress.XtraBars.BarManager(this.components);
+            this.barModActions = new DevExpress.XtraBars.Bar();
+            this.barDockControlTop = new DevExpress.XtraBars.BarDockControl();
+            this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
+            this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
+            this.barDockControlRight = new DevExpress.XtraBars.BarDockControl();
+            this.popupAddMod = new DevExpress.XtraBars.PopupMenu(this.components);
+            this.popupDeactivate = new DevExpress.XtraBars.PopupMenu(this.components);
+            this.popupOnlineChecks = new DevExpress.XtraBars.PopupMenu(this.components);
+            this.popupCategories = new DevExpress.XtraBars.PopupMenu(this.components);
+            this.popupExport = new DevExpress.XtraBars.PopupMenu(this.components);
+            this.tsbAddMod = new DevExpress.XtraBars.BarButtonItem();
+            this.addModToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
+            this.addModFromURLToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbActivate = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbDeactivate = new DevExpress.XtraBars.BarButtonItem();
+            this.tsb_SaveModLoadOrder = new DevExpress.XtraBars.BarButtonItem();
+            this.tsb_ModUpLoadOrder = new DevExpress.XtraBars.BarButtonItem();
+            this.tsb_ModDownLoadOrder = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbTagMod = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbModOnlineChecks = new DevExpress.XtraBars.BarButtonItem();
+            this.checkForModUpdateWithinTheLastDayToolStripMenuItem = new DevExpress.XtraBars.BarSubItem();
+            this.withinTheLastDayToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
+            this.withinTheLastWeekToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
+            this.withinTheLastMonthToolStripMenuItem = new DevExpress.XtraBars.BarButtonItem();
+            this.checkFileDownloadId = new DevExpress.XtraBars.BarButtonItem();
+            this.checkMissingDownloadId = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbToggleEndorse = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbResetCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.addNewCategory = new DevExpress.XtraBars.BarButtonItem();
+            this.collapseAllCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.expandAllCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.updateNexusAndCustomCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.resetDefaultCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.resetUnassignedToDefaultCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.resetModsCategory = new DevExpress.XtraBars.BarButtonItem();
+            this.removeAllCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.toggleHiddenCategories = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbSwitchView = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbExportModList = new DevExpress.XtraBars.BarButtonItem();
+            this.exportToTextFile = new DevExpress.XtraBars.BarButtonItem();
+            this.exportToClipboard = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbShowUpdatesOnly = new DevExpress.XtraBars.BarButtonItem();
+            this.tsbSkyrimDownloads = new DevExpress.XtraBars.BarButtonItem();
+            this.toolStripLabelModCount = new DevExpress.XtraBars.BarStaticItem();
             this.gridControl = new DevExpress.XtraGrid.GridControl();
-            this.gridView    = new DevExpress.XtraGrid.Views.Grid.GridView();
-
+            this.gridView = new DevExpress.XtraGrid.Views.Grid.GridView();
+            ((System.ComponentModel.ISupportInitialize)(this.barManagerMods)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupAddMod)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupDeactivate)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupOnlineChecks)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupCategories)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupExport)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.gridControl)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.gridView)).BeginInit();
-            this.toolStrip1.SuspendLayout();
             this.SuspendLayout();
-
-            // ── toolStrip1 ───────────────────────────────────────────────────
-            this.toolStrip1.Dock             = System.Windows.Forms.DockStyle.Top;
-            this.toolStrip1.GripStyle        = System.Windows.Forms.ToolStripGripStyle.Hidden;
-            this.toolStrip1.ImageScalingSize = new System.Drawing.Size(16, 16);
-            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            //
+            // barManagerMods
+            //
+            this.barManagerMods.Bars.AddRange(new DevExpress.XtraBars.Bar[] { this.barModActions });
+            this.barManagerMods.DockControls.Add(this.barDockControlTop);
+            this.barManagerMods.DockControls.Add(this.barDockControlBottom);
+            this.barManagerMods.DockControls.Add(this.barDockControlLeft);
+            this.barManagerMods.DockControls.Add(this.barDockControlRight);
+            this.barManagerMods.Form = this;
+            this.barManagerMods.Items.AddRange(new DevExpress.XtraBars.BarItem[] {
                 this.tsbAddMod,
+                this.addModToolStripMenuItem,
+                this.addModFromURLToolStripMenuItem,
                 this.tsbActivate,
                 this.tsbDeactivate,
+                this.tsb_SaveModLoadOrder,
+                this.tsb_ModUpLoadOrder,
+                this.tsb_ModDownLoadOrder,
                 this.tsbTagMod,
-                new System.Windows.Forms.ToolStripSeparator(),
                 this.tsbModOnlineChecks,
-                this.tsbToggleEndorse,
-                new System.Windows.Forms.ToolStripSeparator(),
-                this.tsbResetCategories,
-                this.tsbSwitchView,
-                this.tsbExportModList,
-                new System.Windows.Forms.ToolStripSeparator(),
-                this.tsbShowUpdatesOnly,
-                this.tsbSkyrimDownloads
-            });
-            this.toolStrip1.Name     = "toolStrip1";
-            this.toolStrip1.TabIndex = 0;
-            this.toolStrip1.Font     = new System.Drawing.Font("Segoe UI", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.toolStrip1.Padding  = new System.Windows.Forms.Padding(3, 1, 3, 1);
-
-            // ── tsbAddMod ────────────────────────────────────────────────────
-            this.tsbAddMod.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbAddMod.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-                this.addModToolStripMenuItem,
-                this.addModFromURLToolStripMenuItem
-            });
-            this.tsbAddMod.Image       = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
-            this.tsbAddMod.Name        = "tsbAddMod";
-            this.tsbAddMod.Text        = "Add Mod";
-            this.tsbAddMod.ToolTipText = "Add a mod from a file";
-            this.tsbAddMod.ButtonClick += new System.EventHandler(this.tsbAddMod_ButtonClick);
-
-            // ── addModToolStripMenuItem ───────────────────────────────────────
-            this.addModToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
-            this.addModToolStripMenuItem.Name  = "addModToolStripMenuItem";
-            this.addModToolStripMenuItem.Text  = "Add Mod from File";
-            this.addModToolStripMenuItem.Click += new System.EventHandler(this.addModToolStripMenuItem_Click);
-
-            // ── addModFromURLToolStripMenuItem ────────────────────────────────
-            this.addModFromURLToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.add_mod_url_flat;
-            this.addModFromURLToolStripMenuItem.Name  = "addModFromURLToolStripMenuItem";
-            this.addModFromURLToolStripMenuItem.Text  = "Add Mod from URL";
-            this.addModFromURLToolStripMenuItem.Click += new System.EventHandler(this.addModFromURLToolStripMenuItem_Click);
-
-            // ── tsbActivate ──────────────────────────────────────────────────
-            this.tsbActivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbActivate.Image        = global::Nexus.Client.Properties.Resources.obsidianshade_checkmark;
-            this.tsbActivate.Name         = "tsbActivate";
-            this.tsbActivate.Text         = "\u2713 Install / Enable";
-            this.tsbActivate.ToolTipText  = "Install / enable the selected mod(s)";
-
-            // ── tsbDeactivate ────────────────────────────────────────────────
-            this.tsbDeactivate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.ImageAndText;
-            this.tsbDeactivate.Image        = global::Nexus.Client.Properties.Resources.remove_download_flat;
-            this.tsbDeactivate.Name         = "tsbDeactivate";
-            this.tsbDeactivate.Text         = "Disable Mod";
-            this.tsbDeactivate.ToolTipText  = "Disable the selected mod(s)";
-
-            // ── tsb_SaveModLoadOrder ─────────────────────────────────────────
-            this.tsb_SaveModLoadOrder.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.tsb_SaveModLoadOrder.Image        = global::Nexus.Client.Properties.Resources.save_mod_loadorder_flat;
-            this.tsb_SaveModLoadOrder.Name         = "tsb_SaveModLoadOrder";
-            this.tsb_SaveModLoadOrder.Text         = "Save mod load order";
-            this.tsb_SaveModLoadOrder.ToolTipText  = "Save the current mod load order";
-            this.tsb_SaveModLoadOrder.Click       += new System.EventHandler(this.tsb_SaveModLoadOrder_Click);
-
-            // ── tsb_ModUpLoadOrder ───────────────────────────────────────────
-            this.tsb_ModUpLoadOrder.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.tsb_ModUpLoadOrder.Image        = global::Nexus.Client.Properties.Resources.move_up_flat;
-            this.tsb_ModUpLoadOrder.Name         = "tsb_ModUpLoadOrder";
-            this.tsb_ModUpLoadOrder.Text         = "Move mod up";
-            this.tsb_ModUpLoadOrder.ToolTipText  = "Moves mod up in the load order";
-            this.tsb_ModUpLoadOrder.Click       += new System.EventHandler(this.tsb_ModUpLoadOrder_Click);
-
-            // ── tsb_ModDownLoadOrder ─────────────────────────────────────────
-            this.tsb_ModDownLoadOrder.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.tsb_ModDownLoadOrder.Image        = global::Nexus.Client.Properties.Resources.move_down_flat;
-            this.tsb_ModDownLoadOrder.Name         = "tsb_ModDownLoadOrder";
-            this.tsb_ModDownLoadOrder.Text         = "Move mod down";
-            this.tsb_ModDownLoadOrder.ToolTipText  = "Moves mod down in the load order";
-            this.tsb_ModDownLoadOrder.Click       += new System.EventHandler(this.tsb_ModDownLoadOrder_Click);
-
-            // ── tsbTagMod ────────────────────────────────────────────────────
-            this.tsbTagMod.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbTagMod.Image        = global::Nexus.Client.Properties.Resources.mad_tagger_flat;
-            this.tsbTagMod.Name         = "tsbTagMod";
-            this.tsbTagMod.Text         = "Get Mod Info";
-            this.tsbTagMod.ToolTipText  = "Get missing mod info";
-
-            // ── tsbModOnlineChecks ───────────────────────────────────────────
-            this.tsbModOnlineChecks.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbModOnlineChecks.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.checkForModUpdateWithinTheLastDayToolStripMenuItem,
-                this.checkFileDownloadId,
-                this.checkMissingDownloadId
-            });
-            this.tsbModOnlineChecks.Image        = global::Nexus.Client.Properties.Resources.check_mod_updates_flat;
-            this.tsbModOnlineChecks.Name         = "tsbModOnlineChecks";
-            this.tsbModOnlineChecks.Text         = "Updates";
-            this.tsbModOnlineChecks.ToolTipText  = "Check for mod updates";
-            this.tsbModOnlineChecks.ButtonClick += new System.EventHandler(this.tsbModOnlineChecks_ButtonClick);
-
-            // ── checkForModUpdateWithinTheLastDayToolStripMenuItem ────────────
-            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.withinTheLastDayToolStripMenuItem,
                 this.withinTheLastWeekToolStripMenuItem,
-                this.withinTheLastMonthToolStripMenuItem
-            });
-            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Image = global::Nexus.Client.Properties.Resources.check_updates_interval_flat;
-            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Name  = "checkForModUpdateWithinTheLastDayToolStripMenuItem";
-            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Text  = "Check for Mod Updates Interval ...";
-
-            this.withinTheLastDayToolStripMenuItem.Name   = "withinTheLastDayToolStripMenuItem";
-            this.withinTheLastDayToolStripMenuItem.Text   = "...within the last day";
-            this.withinTheLastDayToolStripMenuItem.Click += new System.EventHandler(this.withinTheLastDayToolStripMenuItem_Click);
-
-            this.withinTheLastWeekToolStripMenuItem.Name   = "withinTheLastWeekToolStripMenuItem";
-            this.withinTheLastWeekToolStripMenuItem.Text   = "...within the last week";
-            this.withinTheLastWeekToolStripMenuItem.Click += new System.EventHandler(this.withinTheLastWeekToolStripMenuItem_Click);
-
-            this.withinTheLastMonthToolStripMenuItem.Name   = "withinTheLastMonthToolStripMenuItem";
-            this.withinTheLastMonthToolStripMenuItem.Text   = "...within the last month";
-            this.withinTheLastMonthToolStripMenuItem.Click += new System.EventHandler(this.withinTheLastMonthToolStripMenuItem_Click);
-
-            // ── checkFileDownloadId ───────────────────────────────────────────
-            this.checkFileDownloadId.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
-            this.checkFileDownloadId.Name  = "checkFileDownloadId";
-            this.checkFileDownloadId.Text  = "Fix download IDs and Check for mod updates";
-            this.checkFileDownloadId.Click += new System.EventHandler(this.checkFileDownloadId_Click);
-
-            // ── checkMissingDownloadId ────────────────────────────────────────
-            this.checkMissingDownloadId.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
-            this.checkMissingDownloadId.Name  = "checkMissingDownloadId";
-            this.checkMissingDownloadId.Text  = "Just check for missing download IDs";
-            this.checkMissingDownloadId.Click += new System.EventHandler(this.checkMissingDownloadId_Click);
-
-            // ── tsbToggleEndorse ─────────────────────────────────────────────
-            this.tsbToggleEndorse.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbToggleEndorse.Image        = global::Nexus.Client.Properties.Resources.endorse_flat;
-            this.tsbToggleEndorse.Name         = "tsbToggleEndorse";
-            this.tsbToggleEndorse.Text         = "Endorse";
-            this.tsbToggleEndorse.ToolTipText  = "Toggle mod endorsement";
-            this.tsbToggleEndorse.Click       += new System.EventHandler(this.tsbToggleEndorse_Click);
-
-            // ── tsbResetCategories ───────────────────────────────────────────
-            this.tsbResetCategories.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbResetCategories.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.withinTheLastMonthToolStripMenuItem,
+                this.checkFileDownloadId,
+                this.checkMissingDownloadId,
+                this.tsbToggleEndorse,
+                this.tsbResetCategories,
                 this.addNewCategory,
                 this.collapseAllCategories,
                 this.expandAllCategories,
@@ -250,171 +114,443 @@ namespace Nexus.Client.ModManagement.UI
                 this.resetUnassignedToDefaultCategories,
                 this.resetModsCategory,
                 this.removeAllCategories,
-                this.toggleHiddenCategories
-            });
-            this.tsbResetCategories.Image       = global::Nexus.Client.Properties.Resources.categories_add_new;
-            this.tsbResetCategories.Name        = "tsbResetCategories";
-            this.tsbResetCategories.Text        = "Categories";
-            this.tsbResetCategories.ToolTipText = "Categories: add new category - Click the small arrow for more options";
-            this.tsbResetCategories.ButtonClick += new System.EventHandler(this.addNewCategory_Click);
-
-            this.addNewCategory.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
-            this.addNewCategory.Name  = "addNewCategory";
-            this.addNewCategory.Text  = "Categories: add new category";
-            this.addNewCategory.Click += new System.EventHandler(this.addNewCategory_Click);
-
-            this.collapseAllCategories.Image = global::Nexus.Client.Properties.Resources.collapse_all;
-            this.collapseAllCategories.Name  = "collapseAllCategories";
-            this.collapseAllCategories.Text  = "Categories: collapse all categories";
-            this.collapseAllCategories.Click += new System.EventHandler(this.collapseAllCategories_Click);
-
-            this.expandAllCategories.Image = global::Nexus.Client.Properties.Resources.expand_all;
-            this.expandAllCategories.Name  = "expandAllCategories";
-            this.expandAllCategories.Text  = "Categories: expand all categories";
-            this.expandAllCategories.Click += new System.EventHandler(this.expandAllCategories_Click);
-
-            this.updateNexusAndCustomCategories.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
-            this.updateNexusAndCustomCategories.Name  = "updateNexusAndCustomCategories";
-            this.updateNexusAndCustomCategories.Text  = "Categories: Update Nexus and custom categories";
-            this.updateNexusAndCustomCategories.Click += new System.EventHandler(this.updateNexusAndCustomCategories_Click);
-
-            this.resetDefaultCategories.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
-            this.resetDefaultCategories.Name  = "resetDefaultCategories";
-            this.resetDefaultCategories.Text  = "Categories: Update and reset to Nexus site defaults";
-            this.resetDefaultCategories.Click += new System.EventHandler(this.resetDefaultCategories_Click);
-
-            this.resetUnassignedToDefaultCategories.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned_nexus;
-            this.resetUnassignedToDefaultCategories.Name  = "resetUnassignedToDefaultCategories";
-            this.resetUnassignedToDefaultCategories.Text  = "Categories: reset Unassigned mods to Nexus site defaults";
-            this.resetUnassignedToDefaultCategories.Click += new System.EventHandler(this.resetUnassignedToDefaultCategories_Click);
-
-            this.resetModsCategory.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned;
-            this.resetModsCategory.Name  = "resetModsCategory";
-            this.resetModsCategory.Text  = "Categories: reset all mods to unassigned";
-            this.resetModsCategory.Click += new System.EventHandler(this.resetModsCategory_Click);
-
-            this.removeAllCategories.Image = global::Nexus.Client.Properties.Resources.categories_delete_reset_unassigned;
-            this.removeAllCategories.Name  = "removeAllCategories";
-            this.removeAllCategories.Text  = "Categories: remove all categories";
-            this.removeAllCategories.Click += new System.EventHandler(this.removeAllCategories_Click);
-
-            this.toggleHiddenCategories.Image = global::Nexus.Client.Properties.Resources.reset_categories;
-            this.toggleHiddenCategories.Name  = "toggleHiddenCategories";
-            this.toggleHiddenCategories.Text  = "Categories: toggle hidden categories";
-            this.toggleHiddenCategories.Click += new System.EventHandler(this.toggleHiddenCategories_Click);
-
-            // ── tsbSwitchView ────────────────────────────────────────────────
-            this.tsbSwitchView.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbSwitchView.Image        = global::Nexus.Client.Properties.Resources.switch_view_flat;
-            this.tsbSwitchView.Name         = "tsbSwitchView";
-            this.tsbSwitchView.Text         = "Switch View";
-            this.tsbSwitchView.ToolTipText  = "Switches the Mod Manager views";
-            this.tsbSwitchView.Click       += new System.EventHandler(this.tsbSwitchView_Click);
-
-            // ── tsbExportModList ─────────────────────────────────────────────
-            this.tsbExportModList.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbExportModList.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.toggleHiddenCategories,
+                this.tsbSwitchView,
+                this.tsbExportModList,
                 this.exportToTextFile,
-                this.exportToClipboard
+                this.exportToClipboard,
+                this.tsbShowUpdatesOnly,
+                this.tsbSkyrimDownloads,
+                this.toolStripLabelModCount
             });
-            this.tsbExportModList.Image       = global::Nexus.Client.Properties.Resources.export_mod_list_flat;
-            this.tsbExportModList.Name        = "tsbExportModList";
-            this.tsbExportModList.Text        = "Export";
-            this.tsbExportModList.ToolTipText = "Export the current mod list";
-
-            this.exportToTextFile.Image = global::Nexus.Client.Properties.Resources.export_text_file_flat;
-            this.exportToTextFile.Name  = "exportToTextFile";
-            this.exportToTextFile.Text  = "Text file";
-
-            this.exportToClipboard.Image = global::Nexus.Client.Properties.Resources.export_clipboard_flat;
-            this.exportToClipboard.Name  = "exportToClipboard";
-            this.exportToClipboard.Text  = "Copy to clipboard";
-
-            // ── tsbShowUpdatesOnly ────────────────────────────────────────────
-            this.tsbShowUpdatesOnly.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.tsbShowUpdatesOnly.Image        = global::Nexus.Client.Properties.Resources.update_warning_disabled;
-            this.tsbShowUpdatesOnly.Name         = "tsbShowUpdatesOnly";
-            this.tsbShowUpdatesOnly.CheckOnClick = false;
-            this.tsbShowUpdatesOnly.Text         = "Updates Only";
-            this.tsbShowUpdatesOnly.ToolTipText  = "Toggles filtering the mod list showing only mods requiring an update";
-            this.tsbShowUpdatesOnly.Click       += new System.EventHandler(this.tsbShowUpdatesOnly_Click);
-
-            // ── tsbSkyrimDownloads ───────────────────────────────────────────
-            this.tsbSkyrimDownloads.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-            this.tsbSkyrimDownloads.Name         = "tsbSkyrimDownloads";
-            this.tsbSkyrimDownloads.Visible      = false;
-            this.tsbSkyrimDownloads.Click       += new System.EventHandler(this.tsbSkyrimDownloads_Click);
-
-            // ── toolStripLabelModCount ───────────────────────────────────────
+            this.barManagerMods.MaxItemId = 34;
+            //
+            // barModActions
+            //
+            this.barModActions.BarName = "Mod Actions";
+            this.barModActions.DockCol = 0;
+            this.barModActions.DockRow = 0;
+            this.barModActions.DockStyle = DevExpress.XtraBars.BarDockStyle.Top;
+            this.barModActions.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbAddMod),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbActivate),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbDeactivate),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbTagMod),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbModOnlineChecks, true),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbToggleEndorse),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbResetCategories, true),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbSwitchView),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbExportModList),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbShowUpdatesOnly, true),
+                new DevExpress.XtraBars.LinkPersistInfo(this.tsbSkyrimDownloads),
+                new DevExpress.XtraBars.LinkPersistInfo(this.toolStripLabelModCount)
+            });
+            this.barModActions.OptionsBar.AllowQuickCustomization = false;
+            this.barModActions.OptionsBar.DisableClose = true;
+            this.barModActions.OptionsBar.DisableCustomization = true;
+            this.barModActions.OptionsBar.DrawDragBorder = false;
+            this.barModActions.Text = "Mod Actions";
+            //
+            // popupAddMod
+            //
+            this.popupAddMod.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+                new DevExpress.XtraBars.LinkPersistInfo(this.addModToolStripMenuItem),
+                new DevExpress.XtraBars.LinkPersistInfo(this.addModFromURLToolStripMenuItem)
+            });
+            this.popupAddMod.Manager = this.barManagerMods;
+            //
+            // popupDeactivate
+            //
+            this.popupDeactivate.Manager = this.barManagerMods;
+            //
+            // popupOnlineChecks
+            //
+            this.popupOnlineChecks.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+                new DevExpress.XtraBars.LinkPersistInfo(this.checkForModUpdateWithinTheLastDayToolStripMenuItem),
+                new DevExpress.XtraBars.LinkPersistInfo(this.checkFileDownloadId),
+                new DevExpress.XtraBars.LinkPersistInfo(this.checkMissingDownloadId)
+            });
+            this.popupOnlineChecks.Manager = this.barManagerMods;
+            //
+            // popupCategories
+            //
+            this.popupCategories.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+                new DevExpress.XtraBars.LinkPersistInfo(this.addNewCategory),
+                new DevExpress.XtraBars.LinkPersistInfo(this.collapseAllCategories),
+                new DevExpress.XtraBars.LinkPersistInfo(this.expandAllCategories),
+                new DevExpress.XtraBars.LinkPersistInfo(this.updateNexusAndCustomCategories),
+                new DevExpress.XtraBars.LinkPersistInfo(this.resetDefaultCategories),
+                new DevExpress.XtraBars.LinkPersistInfo(this.resetUnassignedToDefaultCategories),
+                new DevExpress.XtraBars.LinkPersistInfo(this.resetModsCategory),
+                new DevExpress.XtraBars.LinkPersistInfo(this.removeAllCategories),
+                new DevExpress.XtraBars.LinkPersistInfo(this.toggleHiddenCategories)
+            });
+            this.popupCategories.Manager = this.barManagerMods;
+            //
+            // popupExport
+            //
+            this.popupExport.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+                new DevExpress.XtraBars.LinkPersistInfo(this.exportToTextFile),
+                new DevExpress.XtraBars.LinkPersistInfo(this.exportToClipboard)
+            });
+            this.popupExport.Manager = this.barManagerMods;
+            //
+            // tsbAddMod
+            //
+            this.tsbAddMod.ActAsDropDown = false;
+            this.tsbAddMod.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.DropDown;
+            this.tsbAddMod.Caption = "Add Mod";
+            this.tsbAddMod.DropDownControl = this.popupAddMod;
+            this.tsbAddMod.Hint = "Add a mod from a file";
+            this.tsbAddMod.Id = 0;
+            this.tsbAddMod.ImageOptions.Image = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
+            this.tsbAddMod.Name = "tsbAddMod";
+            this.tsbAddMod.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbAddMod.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbAddMod_ButtonClick);
+            //
+            // addModToolStripMenuItem
+            //
+            this.addModToolStripMenuItem.Caption = "Add Mod from File";
+            this.addModToolStripMenuItem.Id = 1;
+            this.addModToolStripMenuItem.ImageOptions.Image = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
+            this.addModToolStripMenuItem.Name = "addModToolStripMenuItem";
+            this.addModToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addModToolStripMenuItem_Click);
+            //
+            // addModFromURLToolStripMenuItem
+            //
+            this.addModFromURLToolStripMenuItem.Caption = "Add Mod from URL";
+            this.addModFromURLToolStripMenuItem.Id = 2;
+            this.addModFromURLToolStripMenuItem.ImageOptions.Image = global::Nexus.Client.Properties.Resources.add_mod_url_flat;
+            this.addModFromURLToolStripMenuItem.Name = "addModFromURLToolStripMenuItem";
+            this.addModFromURLToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addModFromURLToolStripMenuItem_Click);
+            //
+            // tsbActivate
+            //
+            this.tsbActivate.Caption = "Install / Enable";
+            this.tsbActivate.Hint = "Install / enable the selected mod(s)";
+            this.tsbActivate.Id = 3;
+            this.tsbActivate.ImageOptions.Image = global::Nexus.Client.Properties.Resources.obsidianshade_checkmark;
+            this.tsbActivate.Name = "tsbActivate";
+            this.tsbActivate.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            //
+            // tsbDeactivate
+            //
+            this.tsbDeactivate.ActAsDropDown = false;
+            this.tsbDeactivate.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.DropDown;
+            this.tsbDeactivate.Caption = "Disable Mod";
+            this.tsbDeactivate.DropDownControl = this.popupDeactivate;
+            this.tsbDeactivate.Hint = "Disable the selected mod(s)";
+            this.tsbDeactivate.Id = 4;
+            this.tsbDeactivate.ImageOptions.Image = global::Nexus.Client.Properties.Resources.remove_download_flat;
+            this.tsbDeactivate.Name = "tsbDeactivate";
+            this.tsbDeactivate.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbDeactivate.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbDeactivate_ButtonClick);
+            //
+            // load-order items
+            //
+            this.tsb_SaveModLoadOrder.Caption = "Save mod load order";
+            this.tsb_SaveModLoadOrder.Hint = "Save the current mod load order";
+            this.tsb_SaveModLoadOrder.Id = 5;
+            this.tsb_SaveModLoadOrder.ImageOptions.Image = global::Nexus.Client.Properties.Resources.save_mod_loadorder_flat;
+            this.tsb_SaveModLoadOrder.Name = "tsb_SaveModLoadOrder";
+            this.tsb_SaveModLoadOrder.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
+            this.tsb_SaveModLoadOrder.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsb_SaveModLoadOrder_Click);
+            this.tsb_ModUpLoadOrder.Caption = "Move mod up";
+            this.tsb_ModUpLoadOrder.Hint = "Moves mod up in the load order";
+            this.tsb_ModUpLoadOrder.Id = 6;
+            this.tsb_ModUpLoadOrder.ImageOptions.Image = global::Nexus.Client.Properties.Resources.move_up_flat;
+            this.tsb_ModUpLoadOrder.Name = "tsb_ModUpLoadOrder";
+            this.tsb_ModUpLoadOrder.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
+            this.tsb_ModUpLoadOrder.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsb_ModUpLoadOrder_Click);
+            this.tsb_ModDownLoadOrder.Caption = "Move mod down";
+            this.tsb_ModDownLoadOrder.Hint = "Moves mod down in the load order";
+            this.tsb_ModDownLoadOrder.Id = 7;
+            this.tsb_ModDownLoadOrder.ImageOptions.Image = global::Nexus.Client.Properties.Resources.move_down_flat;
+            this.tsb_ModDownLoadOrder.Name = "tsb_ModDownLoadOrder";
+            this.tsb_ModDownLoadOrder.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
+            this.tsb_ModDownLoadOrder.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsb_ModDownLoadOrder_Click);
+            //
+            // tsbTagMod
+            //
+            this.tsbTagMod.Caption = "Get Mod Info";
+            this.tsbTagMod.Hint = "Get missing mod info";
+            this.tsbTagMod.Id = 8;
+            this.tsbTagMod.ImageOptions.Image = global::Nexus.Client.Properties.Resources.mad_tagger_flat;
+            this.tsbTagMod.Name = "tsbTagMod";
+            this.tsbTagMod.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            //
+            // tsbModOnlineChecks
+            //
+            this.tsbModOnlineChecks.ActAsDropDown = false;
+            this.tsbModOnlineChecks.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.DropDown;
+            this.tsbModOnlineChecks.Caption = "Updates";
+            this.tsbModOnlineChecks.DropDownControl = this.popupOnlineChecks;
+            this.tsbModOnlineChecks.Hint = "Check for mod updates";
+            this.tsbModOnlineChecks.Id = 9;
+            this.tsbModOnlineChecks.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_mod_updates_flat;
+            this.tsbModOnlineChecks.Name = "tsbModOnlineChecks";
+            this.tsbModOnlineChecks.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbModOnlineChecks.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbModOnlineChecks_ButtonClick);
+            //
+            // update interval submenu
+            //
+            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Caption = "Check for Mod Updates Interval ...";
+            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Id = 10;
+            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_updates_interval_flat;
+            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Name = "checkForModUpdateWithinTheLastDayToolStripMenuItem";
+            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+                new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastDayToolStripMenuItem),
+                new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastWeekToolStripMenuItem),
+                new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastMonthToolStripMenuItem)
+            });
+            this.withinTheLastDayToolStripMenuItem.Caption = "...within the last day";
+            this.withinTheLastDayToolStripMenuItem.Id = 11;
+            this.withinTheLastDayToolStripMenuItem.Name = "withinTheLastDayToolStripMenuItem";
+            this.withinTheLastDayToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.withinTheLastDayToolStripMenuItem_Click);
+            this.withinTheLastWeekToolStripMenuItem.Caption = "...within the last week";
+            this.withinTheLastWeekToolStripMenuItem.Id = 12;
+            this.withinTheLastWeekToolStripMenuItem.Name = "withinTheLastWeekToolStripMenuItem";
+            this.withinTheLastWeekToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.withinTheLastWeekToolStripMenuItem_Click);
+            this.withinTheLastMonthToolStripMenuItem.Caption = "...within the last month";
+            this.withinTheLastMonthToolStripMenuItem.Id = 13;
+            this.withinTheLastMonthToolStripMenuItem.Name = "withinTheLastMonthToolStripMenuItem";
+            this.withinTheLastMonthToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.withinTheLastMonthToolStripMenuItem_Click);
+            this.checkFileDownloadId.Caption = "Fix download IDs and Check for mod updates";
+            this.checkFileDownloadId.Id = 14;
+            this.checkFileDownloadId.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
+            this.checkFileDownloadId.Name = "checkFileDownloadId";
+            this.checkFileDownloadId.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.checkFileDownloadId_Click);
+            this.checkMissingDownloadId.Caption = "Just check for missing download IDs";
+            this.checkMissingDownloadId.Id = 15;
+            this.checkMissingDownloadId.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
+            this.checkMissingDownloadId.Name = "checkMissingDownloadId";
+            this.checkMissingDownloadId.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.checkMissingDownloadId_Click);
+            //
+            // tsbToggleEndorse
+            //
+            this.tsbToggleEndorse.Caption = "Endorse";
+            this.tsbToggleEndorse.Hint = "Toggle mod endorsement";
+            this.tsbToggleEndorse.Id = 16;
+            this.tsbToggleEndorse.ImageOptions.Image = global::Nexus.Client.Properties.Resources.endorse_flat;
+            this.tsbToggleEndorse.Name = "tsbToggleEndorse";
+            this.tsbToggleEndorse.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbToggleEndorse.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbToggleEndorse_Click);
+            //
+            // tsbResetCategories and category popup
+            //
+            this.tsbResetCategories.ActAsDropDown = false;
+            this.tsbResetCategories.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.DropDown;
+            this.tsbResetCategories.Caption = "Categories";
+            this.tsbResetCategories.DropDownControl = this.popupCategories;
+            this.tsbResetCategories.Hint = "Categories: add new category - Click the small arrow for more options";
+            this.tsbResetCategories.Id = 17;
+            this.tsbResetCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
+            this.tsbResetCategories.Name = "tsbResetCategories";
+            this.tsbResetCategories.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbResetCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addNewCategory_Click);
+            this.addNewCategory.Caption = "Categories: add new category";
+            this.addNewCategory.Id = 18;
+            this.addNewCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
+            this.addNewCategory.Name = "addNewCategory";
+            this.addNewCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addNewCategory_Click);
+            this.collapseAllCategories.Caption = "Categories: collapse all categories";
+            this.collapseAllCategories.Id = 19;
+            this.collapseAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.collapse_all;
+            this.collapseAllCategories.Name = "collapseAllCategories";
+            this.collapseAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.collapseAllCategories_Click);
+            this.expandAllCategories.Caption = "Categories: expand all categories";
+            this.expandAllCategories.Id = 20;
+            this.expandAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.expand_all;
+            this.expandAllCategories.Name = "expandAllCategories";
+            this.expandAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.expandAllCategories_Click);
+            this.updateNexusAndCustomCategories.Caption = "Categories: Update Nexus and custom categories";
+            this.updateNexusAndCustomCategories.Id = 21;
+            this.updateNexusAndCustomCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
+            this.updateNexusAndCustomCategories.Name = "updateNexusAndCustomCategories";
+            this.updateNexusAndCustomCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.updateNexusAndCustomCategories_Click);
+            this.resetDefaultCategories.Caption = "Categories: Update and reset to Nexus site defaults";
+            this.resetDefaultCategories.Id = 22;
+            this.resetDefaultCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
+            this.resetDefaultCategories.Name = "resetDefaultCategories";
+            this.resetDefaultCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.resetDefaultCategories_Click);
+            this.resetUnassignedToDefaultCategories.Caption = "Categories: reset Unassigned mods to Nexus site defaults";
+            this.resetUnassignedToDefaultCategories.Id = 23;
+            this.resetUnassignedToDefaultCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned_nexus;
+            this.resetUnassignedToDefaultCategories.Name = "resetUnassignedToDefaultCategories";
+            this.resetUnassignedToDefaultCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.resetUnassignedToDefaultCategories_Click);
+            this.resetModsCategory.Caption = "Categories: reset all mods to unassigned";
+            this.resetModsCategory.Id = 24;
+            this.resetModsCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned;
+            this.resetModsCategory.Name = "resetModsCategory";
+            this.resetModsCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.resetModsCategory_Click);
+            this.removeAllCategories.Caption = "Categories: remove all categories";
+            this.removeAllCategories.Id = 25;
+            this.removeAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_delete_reset_unassigned;
+            this.removeAllCategories.Name = "removeAllCategories";
+            this.removeAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.removeAllCategories_Click);
+            this.toggleHiddenCategories.Caption = "Categories: toggle hidden categories";
+            this.toggleHiddenCategories.Id = 26;
+            this.toggleHiddenCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.reset_categories;
+            this.toggleHiddenCategories.Name = "toggleHiddenCategories";
+            this.toggleHiddenCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.toggleHiddenCategories_Click);
+            //
+            // tsbSwitchView
+            //
+            this.tsbSwitchView.Caption = "Switch View";
+            this.tsbSwitchView.Hint = "Switches the Mod Manager views";
+            this.tsbSwitchView.Id = 27;
+            this.tsbSwitchView.ImageOptions.Image = global::Nexus.Client.Properties.Resources.switch_view_flat;
+            this.tsbSwitchView.Name = "tsbSwitchView";
+            this.tsbSwitchView.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbSwitchView.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbSwitchView_Click);
+            //
+            // tsbExportModList
+            //
+            this.tsbExportModList.ActAsDropDown = true;
+            this.tsbExportModList.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.DropDown;
+            this.tsbExportModList.Caption = "Export";
+            this.tsbExportModList.DropDownControl = this.popupExport;
+            this.tsbExportModList.Hint = "Export the current mod list";
+            this.tsbExportModList.Id = 28;
+            this.tsbExportModList.ImageOptions.Image = global::Nexus.Client.Properties.Resources.export_mod_list_flat;
+            this.tsbExportModList.Name = "tsbExportModList";
+            this.tsbExportModList.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.exportToTextFile.Caption = "Text file";
+            this.exportToTextFile.Id = 29;
+            this.exportToTextFile.ImageOptions.Image = global::Nexus.Client.Properties.Resources.export_text_file_flat;
+            this.exportToTextFile.Name = "exportToTextFile";
+            this.exportToClipboard.Caption = "Copy to clipboard";
+            this.exportToClipboard.Id = 30;
+            this.exportToClipboard.ImageOptions.Image = global::Nexus.Client.Properties.Resources.export_clipboard_flat;
+            this.exportToClipboard.Name = "exportToClipboard";
+            //
+            // tsbShowUpdatesOnly
+            //
+            this.tsbShowUpdatesOnly.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.Check;
+            this.tsbShowUpdatesOnly.Caption = "Updates Only";
+            this.tsbShowUpdatesOnly.Hint = "Toggles filtering the mod list showing only mods requiring an update";
+            this.tsbShowUpdatesOnly.Id = 31;
+            this.tsbShowUpdatesOnly.ImageOptions.Image = global::Nexus.Client.Properties.Resources.update_warning_disabled;
+            this.tsbShowUpdatesOnly.Name = "tsbShowUpdatesOnly";
+            this.tsbShowUpdatesOnly.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbShowUpdatesOnly.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbShowUpdatesOnly_Click);
+            //
+            // tsbSkyrimDownloads
+            //
+            this.tsbSkyrimDownloads.Caption = "Download Mode";
+            this.tsbSkyrimDownloads.Id = 32;
+            this.tsbSkyrimDownloads.Name = "tsbSkyrimDownloads";
+            this.tsbSkyrimDownloads.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
+            this.tsbSkyrimDownloads.Visibility = DevExpress.XtraBars.BarItemVisibility.Never;
+            this.tsbSkyrimDownloads.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbSkyrimDownloads_Click);
+            //
+            // toolStripLabelModCount
+            //
+            this.toolStripLabelModCount.Caption = "Mods: 0";
+            this.toolStripLabelModCount.Id = 33;
             this.toolStripLabelModCount.Name = "toolStripLabelModCount";
-            this.toolStripLabelModCount.Text = "Mods: 0";
-
-            // ── gridControl ──────────────────────────────────────────────────
-            this.gridControl.Dock     = System.Windows.Forms.DockStyle.Fill;
+            this.toolStripLabelModCount.Alignment = DevExpress.XtraBars.BarItemLinkAlignment.Right;
+            //
+            // barDockControls
+            //
+            this.barDockControlTop.CausesValidation = false;
+            this.barDockControlTop.Dock = System.Windows.Forms.DockStyle.Top;
+            this.barDockControlTop.Manager = this.barManagerMods;
+            this.barDockControlBottom.CausesValidation = false;
+            this.barDockControlBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
+            this.barDockControlBottom.Manager = this.barManagerMods;
+            this.barDockControlLeft.CausesValidation = false;
+            this.barDockControlLeft.Dock = System.Windows.Forms.DockStyle.Left;
+            this.barDockControlLeft.Manager = this.barManagerMods;
+            this.barDockControlRight.CausesValidation = false;
+            this.barDockControlRight.Dock = System.Windows.Forms.DockStyle.Right;
+            this.barDockControlRight.Manager = this.barManagerMods;
+            //
+            // gridControl
+            //
+            this.gridControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gridControl.Location = new System.Drawing.Point(0, 0);
             this.gridControl.MainView = this.gridView;
-            this.gridControl.Name     = "gridControl";
+            this.gridControl.Name = "gridControl";
             this.gridControl.TabIndex = 1;
             this.gridControl.ViewCollection.AddRange(new DevExpress.XtraGrid.Views.Base.BaseView[] { this.gridView });
-
-            // ── gridView ─────────────────────────────────────────────────────
-            this.gridView.GridControl     = this.gridControl;
-            this.gridView.Name            = "gridView";
+            //
+            // gridView
+            //
+            this.gridView.GridControl = this.gridControl;
+            this.gridView.Name = "gridView";
             this.gridView.PopupMenuShowing += new DevExpress.XtraGrid.Views.Grid.PopupMenuShowingEventHandler(this.gridView_PopupMenuShowing);
-
-            // ── ModManagerDXControl ──────────────────────────────────────────
+            //
+            // ModManagerDXControl
+            //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode       = System.Windows.Forms.AutoScaleMode.Font;
+            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.gridControl);
-            this.Controls.Add(this.toolStrip1);
+            this.Controls.Add(this.barDockControlLeft);
+            this.Controls.Add(this.barDockControlRight);
+            this.Controls.Add(this.barDockControlBottom);
+            this.Controls.Add(this.barDockControlTop);
             this.Name = "ModManagerDXControl";
             this.Size = new System.Drawing.Size(900, 600);
-
+            ((System.ComponentModel.ISupportInitialize)(this.barManagerMods)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupAddMod)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupDeactivate)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupOnlineChecks)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupCategories)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.popupExport)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.gridControl)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.gridView)).EndInit();
-            this.toolStrip1.ResumeLayout(false);
-            this.toolStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
         }
 
         #endregion
 
-        private System.Windows.Forms.ToolStrip toolStrip1;
-        private System.Windows.Forms.ToolStripSplitButton tsbAddMod;
-        private System.Windows.Forms.ToolStripMenuItem addModToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem addModFromURLToolStripMenuItem;
-        private System.Windows.Forms.ToolStripButton tsbActivate;
-        private System.Windows.Forms.ToolStripSplitButton tsbDeactivate;
-        private System.Windows.Forms.ToolStripButton tsb_SaveModLoadOrder;
-        private System.Windows.Forms.ToolStripButton tsb_ModUpLoadOrder;
-        private System.Windows.Forms.ToolStripButton tsb_ModDownLoadOrder;
-        private System.Windows.Forms.ToolStripButton tsbTagMod;
-        private System.Windows.Forms.ToolStripSplitButton tsbModOnlineChecks;
-        private System.Windows.Forms.ToolStripMenuItem checkForModUpdateWithinTheLastDayToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem withinTheLastDayToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem withinTheLastWeekToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem withinTheLastMonthToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem checkFileDownloadId;
-        private System.Windows.Forms.ToolStripMenuItem checkMissingDownloadId;
-        private System.Windows.Forms.ToolStripButton tsbToggleEndorse;
-        private System.Windows.Forms.ToolStripSplitButton tsbResetCategories;
-        private System.Windows.Forms.ToolStripMenuItem addNewCategory;
-        private System.Windows.Forms.ToolStripMenuItem collapseAllCategories;
-        private System.Windows.Forms.ToolStripMenuItem expandAllCategories;
-        private System.Windows.Forms.ToolStripMenuItem updateNexusAndCustomCategories;
-        private System.Windows.Forms.ToolStripMenuItem resetDefaultCategories;
-        private System.Windows.Forms.ToolStripMenuItem resetUnassignedToDefaultCategories;
-        private System.Windows.Forms.ToolStripMenuItem resetModsCategory;
-        private System.Windows.Forms.ToolStripMenuItem removeAllCategories;
-        private System.Windows.Forms.ToolStripMenuItem toggleHiddenCategories;
-        private System.Windows.Forms.ToolStripButton tsbSwitchView;
-        private System.Windows.Forms.ToolStripDropDownButton tsbExportModList;
-        private System.Windows.Forms.ToolStripMenuItem exportToTextFile;
-        private System.Windows.Forms.ToolStripMenuItem exportToClipboard;
-        private System.Windows.Forms.ToolStripButton tsbShowUpdatesOnly;
-        private System.Windows.Forms.ToolStripButton tsbSkyrimDownloads;
-        private System.Windows.Forms.ToolStripLabel toolStripLabelModCount;
+        private DevExpress.XtraBars.BarManager barManagerMods;
+        private DevExpress.XtraBars.Bar barModActions;
+        private DevExpress.XtraBars.BarDockControl barDockControlTop;
+        private DevExpress.XtraBars.BarDockControl barDockControlBottom;
+        private DevExpress.XtraBars.BarDockControl barDockControlLeft;
+        private DevExpress.XtraBars.BarDockControl barDockControlRight;
+        private DevExpress.XtraBars.PopupMenu popupAddMod;
+        private DevExpress.XtraBars.PopupMenu popupDeactivate;
+        private DevExpress.XtraBars.PopupMenu popupOnlineChecks;
+        private DevExpress.XtraBars.PopupMenu popupCategories;
+        private DevExpress.XtraBars.PopupMenu popupExport;
+        private DevExpress.XtraBars.BarButtonItem tsbAddMod;
+        private DevExpress.XtraBars.BarButtonItem addModToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem addModFromURLToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem tsbActivate;
+        private DevExpress.XtraBars.BarButtonItem tsbDeactivate;
+        private DevExpress.XtraBars.BarButtonItem tsb_SaveModLoadOrder;
+        private DevExpress.XtraBars.BarButtonItem tsb_ModUpLoadOrder;
+        private DevExpress.XtraBars.BarButtonItem tsb_ModDownLoadOrder;
+        private DevExpress.XtraBars.BarButtonItem tsbTagMod;
+        private DevExpress.XtraBars.BarButtonItem tsbModOnlineChecks;
+        private DevExpress.XtraBars.BarSubItem checkForModUpdateWithinTheLastDayToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem withinTheLastDayToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem withinTheLastWeekToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem withinTheLastMonthToolStripMenuItem;
+        private DevExpress.XtraBars.BarButtonItem checkFileDownloadId;
+        private DevExpress.XtraBars.BarButtonItem checkMissingDownloadId;
+        private DevExpress.XtraBars.BarButtonItem tsbToggleEndorse;
+        private DevExpress.XtraBars.BarButtonItem tsbResetCategories;
+        private DevExpress.XtraBars.BarButtonItem addNewCategory;
+        private DevExpress.XtraBars.BarButtonItem collapseAllCategories;
+        private DevExpress.XtraBars.BarButtonItem expandAllCategories;
+        private DevExpress.XtraBars.BarButtonItem updateNexusAndCustomCategories;
+        private DevExpress.XtraBars.BarButtonItem resetDefaultCategories;
+        private DevExpress.XtraBars.BarButtonItem resetUnassignedToDefaultCategories;
+        private DevExpress.XtraBars.BarButtonItem resetModsCategory;
+        private DevExpress.XtraBars.BarButtonItem removeAllCategories;
+        private DevExpress.XtraBars.BarButtonItem toggleHiddenCategories;
+        private DevExpress.XtraBars.BarButtonItem tsbSwitchView;
+        private DevExpress.XtraBars.BarButtonItem tsbExportModList;
+        private DevExpress.XtraBars.BarButtonItem exportToTextFile;
+        private DevExpress.XtraBars.BarButtonItem exportToClipboard;
+        private DevExpress.XtraBars.BarButtonItem tsbShowUpdatesOnly;
+        private DevExpress.XtraBars.BarButtonItem tsbSkyrimDownloads;
+        private DevExpress.XtraBars.BarStaticItem toolStripLabelModCount;
         private DevExpress.XtraGrid.GridControl gridControl;
         private DevExpress.XtraGrid.Views.Grid.GridView gridView;
     }

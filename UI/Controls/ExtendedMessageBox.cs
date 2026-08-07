@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Drawing;
+using System.Net;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using DevExpress.XtraEditors;
 
 namespace Nexus.UI.Controls
 {
@@ -11,7 +14,7 @@ namespace Nexus.UI.Controls
 	/// Among other added features is the ability to indicate if the last selection should be remembered, and
 	/// a collapsable details pane.
 	/// </remarks>
-	public partial class ExtendedMessageBox : Form
+	public partial class ExtendedMessageBox : XtraForm
 	{
 		#region Show Methods
 
@@ -174,6 +177,8 @@ namespace Nexus.UI.Controls
 
 		private Int32 m_intMinimumDetailsHeight = -1;
 		private bool m_booForceDetails = false;
+		private SimpleButton m_butDetails;
+		private string m_strDetailsText = String.Empty;
 
 		#region Properties
 
@@ -302,7 +307,8 @@ namespace Nexus.UI.Controls
 			pbxIcon.Visible = booShowIcon;
 			pnlRemember.Visible = p_booShowRemember;
 			pnlDetails.Visible = false;
-			hlbDetails.Text = p_strDetails.Replace("\0", "\\0");
+			m_strDetailsText = p_strDetails.Replace("\0", "\\0");
+			SetDetailsContent(m_strDetailsText);
 
 			Text = p_strCaption;
 
@@ -340,171 +346,123 @@ namespace Nexus.UI.Controls
 			MaximumSize = new Size(Int32.MaxValue, MinimumSize.Height);
 		}
 
+		/// <summary>
+		/// Adds the requested DevExpress dialog buttons and returns the minimum width they require.
+		/// </summary>
 		private Int32 AddButtons(ExtendedMessageBoxButtons p_ebbButtons, bool p_booShowDetails)
 		{
 			Int32 intLastButtonLeft = pnlButtons.Right - 6;
 			Int32 intMinimumWidth = 6;
 
-			//details button
 			if (p_booShowDetails && !m_booForceDetails)
 			{
-				DetailsButton butDetails = new DetailsButton();
-				butDetails.AutoSize = true;
-				butDetails.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-				butDetails.OpenText = "See details";
-				butDetails.CloseText = "Hide details";
-				butDetails.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-				butDetails.Location = new Point(pnlButtons.Left + 6, 12);
-				butDetails.Click += new EventHandler(Details_Click);
-				butDetails.TabIndex = 0;
-				pnlButtons.Controls.Add(butDetails);
-				intMinimumWidth += butDetails.Width + 12;
+				m_butDetails = new SimpleButton();
+				m_butDetails.Text = "See details";
+				m_butDetails.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
+				m_butDetails.Location = new Point(pnlButtons.Left + 6, 12);
+				m_butDetails.Size = new Size(92, 23);
+				m_butDetails.Click += Details_Click;
+				m_butDetails.TabIndex = 0;
+				pnlButtons.Controls.Add(m_butDetails);
+				intMinimumWidth += m_butDetails.Width + 12;
 			}
 
-			//cancel button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Cancel) == ExtendedMessageBoxButtons.Cancel)
 			{
-				Button butCancel = new Button();
-				butCancel.Text = "Cancel";
-				butCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butCancel.Location = new Point(intLastButtonLeft - butCancel.Width - 6, 12);
-				butCancel.Click += new EventHandler(Button_Click);
-				butCancel.Tag = DialogResult.Cancel;
-				butCancel.TabIndex = 7;
-				pnlButtons.Controls.Add(butCancel);
-				intLastButtonLeft = butCancel.Left;
-				this.CancelButton = butCancel;
-				intMinimumWidth += butCancel.Width + 6;
+				SimpleButton button = AddDialogButton("Cancel", DialogResult.Cancel, 7, ref intLastButtonLeft);
+				CancelButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
-			//no button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.No) == ExtendedMessageBoxButtons.No)
 			{
-				Button butNo = new Button();
-				butNo.Text = "No";
-				butNo.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butNo.Location = new Point(intLastButtonLeft - butNo.Width - 6, 12);
-				butNo.Click += new EventHandler(Button_Click);
-				butNo.Tag = DialogResult.No;
-				butNo.TabIndex = 6;
-				intLastButtonLeft = butNo.Left;
-				pnlButtons.Controls.Add(butNo);
+				SimpleButton button = AddDialogButton("No", DialogResult.No, 6, ref intLastButtonLeft);
 				if ((p_ebbButtons & ExtendedMessageBoxButtons.Cancel) != ExtendedMessageBoxButtons.Cancel)
-					this.CancelButton = butNo;
-				intMinimumWidth += butNo.Width + 6;
+					CancelButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
-			//yes button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Yes) == ExtendedMessageBoxButtons.Yes)
 			{
-				Button butYes = new Button();
-				butYes.Text = "Yes";
-				butYes.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butYes.Location = new Point(intLastButtonLeft - butYes.Width - 6, 12);
-				butYes.Click += new EventHandler(Button_Click);
-				butYes.Tag = DialogResult.Yes;
-				butYes.TabIndex = 5;
-				intLastButtonLeft = butYes.Left;
-				pnlButtons.Controls.Add(butYes);
-				this.AcceptButton = butYes;
-				intMinimumWidth += butYes.Width + 6;
+				SimpleButton button = AddDialogButton("Yes", DialogResult.Yes, 5, ref intLastButtonLeft);
+				AcceptButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
-			//ok button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.OK) == ExtendedMessageBoxButtons.OK)
 			{
-				Button butOk = new Button();
-				butOk.Text = "OK";
-				butOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butOk.Location = new Point(intLastButtonLeft - butOk.Width - 6, 12);
-				butOk.Click += new EventHandler(Button_Click);
-				butOk.Tag = DialogResult.OK;
-				butOk.TabIndex = 4;
-				intLastButtonLeft = butOk.Left;
-				pnlButtons.Controls.Add(butOk);
-				this.AcceptButton = butOk;
-				intMinimumWidth += butOk.Width + 6;
+				SimpleButton button = AddDialogButton("OK", DialogResult.OK, 4, ref intLastButtonLeft);
+				AcceptButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
-			//ignore button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Ignore) == ExtendedMessageBoxButtons.Ignore)
 			{
-				Button butIgnore = new Button();
-				butIgnore.Text = "Ignore";
-				butIgnore.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butIgnore.Location = new Point(intLastButtonLeft - butIgnore.Width - 6, 12);
-				butIgnore.Click += new EventHandler(Button_Click);
-				butIgnore.Tag = DialogResult.Ignore;
-				butIgnore.TabIndex = 3;
-				intLastButtonLeft = butIgnore.Left;
-				pnlButtons.Controls.Add(butIgnore);
-				this.CancelButton = butIgnore;
-				intMinimumWidth += butIgnore.Width + 6;
+				SimpleButton button = AddDialogButton("Ignore", DialogResult.Ignore, 3, ref intLastButtonLeft);
+				CancelButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
-			//retry button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Retry) == ExtendedMessageBoxButtons.Retry)
 			{
-				Button butRetry = new Button();
-				butRetry.Text = "Retry";
-				butRetry.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butRetry.Location = new Point(intLastButtonLeft - butRetry.Width - 6, 12);
-				butRetry.Click += new EventHandler(Button_Click);
-				butRetry.Tag = DialogResult.Retry;
-				butRetry.TabIndex = 2;
-				intLastButtonLeft = butRetry.Left;
-				pnlButtons.Controls.Add(butRetry);
-				this.AcceptButton = butRetry;
-				intMinimumWidth += butRetry.Width + 6;
+				SimpleButton button = AddDialogButton("Retry", DialogResult.Retry, 2, ref intLastButtonLeft);
+				AcceptButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
-			//abort button
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Abort) == ExtendedMessageBoxButtons.Abort)
 			{
-				Button butAbort = new Button();
-				butAbort.Text = "Abort";
-				butAbort.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butAbort.Location = new Point(intLastButtonLeft - butAbort.Width - 6, 12);
-				butAbort.Click += new EventHandler(Button_Click);
-				butAbort.Tag = DialogResult.Abort;
-				butAbort.TabIndex = 1;
-				intLastButtonLeft = butAbort.Left;
-				pnlButtons.Controls.Add(butAbort);
-				this.AcceptButton = butAbort;
-				intMinimumWidth += butAbort.Width + 6;
+				SimpleButton button = AddDialogButton("Abort", DialogResult.Abort, 1, ref intLastButtonLeft);
+				AcceptButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Backup) == ExtendedMessageBoxButtons.Backup)
 			{
-				Button butBackup = new Button();
-				butBackup.Text = "Backup";
-				butBackup.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butBackup.Location = new Point(intLastButtonLeft - butBackup.Width - 6, 12);
-				butBackup.Click += new EventHandler(Button_Click);
-				butBackup.Tag = DialogResult.Yes;
-				butBackup.TabIndex = 1;
-				intLastButtonLeft = butBackup.Left;
-				pnlButtons.Controls.Add(butBackup);
-				this.AcceptButton = butBackup;
-				intMinimumWidth += butBackup.Width + 6;
+				SimpleButton button = AddDialogButton("Backup", DialogResult.Yes, 1, ref intLastButtonLeft);
+				AcceptButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Update) == ExtendedMessageBoxButtons.Update)
 			{
-				Button butUpdate = new Button();
-				butUpdate.Text = "Update";
-				butUpdate.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-				butUpdate.Location = new Point(intLastButtonLeft - butUpdate.Width - 6, 12);
-				butUpdate.Click += new EventHandler(Button_Click);
-				butUpdate.Tag = DialogResult.No;
-				butUpdate.TabIndex = 1;
-				intLastButtonLeft = butUpdate.Left;
-				pnlButtons.Controls.Add(butUpdate);
-				this.AcceptButton = butUpdate;
-				intMinimumWidth += butUpdate.Width + 6;
+				SimpleButton button = AddDialogButton("Update", DialogResult.No, 1, ref intLastButtonLeft);
+				AcceptButton = button;
+				intMinimumWidth += button.Width + 6;
 			}
 
 			return intMinimumWidth;
+		}
+
+		/// <summary>
+		/// Adds a single skin-aware action button to the dialog button panel.
+		/// </summary>
+		private SimpleButton AddDialogButton(string text, DialogResult result, int tabIndex, ref int lastButtonLeft)
+		{
+			SimpleButton button = new SimpleButton();
+			button.Text = text;
+			button.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+			button.Size = new Size(75, 23);
+			button.Location = new Point(lastButtonLeft - button.Width - 6, 12);
+			button.Click += Button_Click;
+			button.Tag = result;
+			button.TabIndex = tabIndex;
+			pnlButtons.Controls.Add(button);
+			lastButtonLeft = button.Left;
+			return button;
+		}
+
+		/// <summary>
+		/// Loads details into the DevExpress HTML viewer while preserving plain-text line breaks.
+		/// </summary>
+		private void SetDetailsContent(string details)
+		{
+			string content = details ?? String.Empty;
+			if (!Regex.IsMatch(content, @"<[^>]+>"))
+				content = WebUtility.HtmlEncode(content).Replace("\r\n", "<br/>").Replace("\r", "<br/>").Replace("\n", "<br/>").Replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;");
+			content = content.Replace("${", "&#36;{");
+			hlbDetails.HtmlTemplate.Set("<div class=\"details\">" + content + "</div>", ".details { padding: 6px; }");
+			hlbDetails.Refresh();
 		}
 
 		/// <summary>
@@ -527,13 +485,8 @@ namespace Nexus.UI.Controls
 			}
 			else
 			{
-				// Adding handler for when hlbDetails.Document.Body is null.
-				// This is due to not being able to guarantee that the DocumentCompleted event has been run
-				// Even if the body ends up being valid, the event often fires after this runs. Check for null.
-				if (m_intMinimumDetailsHeight < 0 && (hlbDetails.DocumentBodyIsNull()))
-					m_intMinimumDetailsHeight = ClientSize.Height / 2;
-				else if (m_intMinimumDetailsHeight < 0)
-					m_intMinimumDetailsHeight = Math.Min(hlbDetails.GetDocumentBodyScrollRectangle().Height, ClientSize.Height / 2);
+				if (m_intMinimumDetailsHeight < 0)
+					m_intMinimumDetailsHeight = Math.Max(120, ClientSize.Height / 2);
 				if (LastDetailsHeight < 0)
 					LastDetailsHeight = m_intMinimumDetailsHeight;
 				pnlDetails.MinimumSize = new Size(0, m_intMinimumDetailsHeight);
@@ -542,6 +495,8 @@ namespace Nexus.UI.Controls
 				MinimumSize = new Size(MinimumSize.Width, MinimumSize.Height + m_intMinimumDetailsHeight + 40);
 			}
 			pnlDetails.Visible = !pnlDetails.Visible;
+			if (m_butDetails != null)
+				m_butDetails.Text = pnlDetails.Visible ? "Hide details" : "See details";
 			this.PerformLayout();
 		}
 
@@ -584,7 +539,7 @@ namespace Nexus.UI.Controls
 		/// <param name="e">An <see cref="EventArgs"/> describing the event properties.</param>
 		private void Button_Click(object sender, EventArgs e)
 		{
-			DialogResult = (DialogResult)((Button)sender).Tag;
+			DialogResult = (DialogResult)((SimpleButton)sender).Tag;
 		}
 
 		protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -593,7 +548,7 @@ namespace Nexus.UI.Controls
 			{
 				try
 				{
-					Clipboard.SetText(albPrompt.Text + Environment.NewLine + Environment.NewLine + hlbDetails.Text);
+					Clipboard.SetText(albPrompt.Text + Environment.NewLine + Environment.NewLine + m_strDetailsText);
 					return true;
 				}
 				catch { }

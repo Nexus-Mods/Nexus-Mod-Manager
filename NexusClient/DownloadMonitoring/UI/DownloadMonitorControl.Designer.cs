@@ -2,228 +2,142 @@
 {
 	partial class DownloadMonitorControl
 	{
-		/// <summary> 
-		/// Required designer variable.
-		/// </summary>
 		private System.ComponentModel.IContainer components = null;
 
-		/// <summary> 
-		/// Clean up any resources being used.
-		/// </summary>
-		/// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
 		protected override void Dispose(bool disposing)
 		{
-			if (disposing && (components != null))
-			{
+			if (disposing && components != null)
 				components.Dispose();
-			}
 			base.Dispose(disposing);
 		}
 
-		#region Component Designer generated code
-
-		/// <summary> 
-		/// Required method for Designer support - do not modify 
-		/// the contents of this method with the code editor.
-		/// </summary>
 		private void InitializeComponent()
 		{
-			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-			this.tsbResume = new System.Windows.Forms.ToolStripButton();
-			this.tsbCancel = new System.Windows.Forms.ToolStripButton();
-			this.tsbPause = new System.Windows.Forms.ToolStripButton();
-			this.tsbRemove = new System.Windows.Forms.ToolStripButton();
-			this.tsbResumeAll = new System.Windows.Forms.ToolStripButton();
-			this.tsbRemoveAll = new System.Windows.Forms.ToolStripButton();
-			this.tsbPurgeDownloads = new System.Windows.Forms.ToolStripButton();
-			this.lvwTasks = new Nexus.UI.Controls.DoubleBufferedListView();
-			this.clmOverallMessage = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.clmOverallProgress = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.clmStatus = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.clmItemMessage = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.clmFileserver = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.clmETA = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.clmItemProgress = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-			this.toolStrip1.SuspendLayout();
+			this.components = new System.ComponentModel.Container();
+			this.barManager = new DevExpress.XtraBars.BarManager(this.components);
+			this.barActions = new DevExpress.XtraBars.Bar();
+			this.barDockControlTop = new DevExpress.XtraBars.BarDockControl();
+			this.barDockControlBottom = new DevExpress.XtraBars.BarDockControl();
+			this.barDockControlLeft = new DevExpress.XtraBars.BarDockControl();
+			this.barDockControlRight = new DevExpress.XtraBars.BarDockControl();
+			this.tsbResume = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbCancel = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbPause = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbRemove = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbResumeAll = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbRemoveAll = new DevExpress.XtraBars.BarButtonItem();
+			this.tsbPurgeDownloads = new DevExpress.XtraBars.BarButtonItem();
+			this.copyItem = new DevExpress.XtraBars.BarButtonItem();
+			this.popupMenu = new DevExpress.XtraBars.PopupMenu(this.components);
+			this.gridControl = new DevExpress.XtraGrid.GridControl();
+			this.gridView = new DevExpress.XtraGrid.Views.Grid.GridView();
+			((System.ComponentModel.ISupportInitialize)(this.barManager)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.popupMenu)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridControl)).BeginInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridView)).BeginInit();
 			this.SuspendLayout();
-			// 
-			// toolStrip1
-			// 
-			this.toolStrip1.Dock = System.Windows.Forms.DockStyle.Left;
-			this.toolStrip1.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
-			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(32, 32);
-			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.tsbResume,
-            this.tsbCancel,
-            this.tsbPause,
-            this.tsbRemove,
-            this.tsbResumeAll,
-            this.tsbRemoveAll,
-            this.tsbPurgeDownloads});
-			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
-			this.toolStrip1.Name = "toolStrip1";
-			this.toolStrip1.Size = new System.Drawing.Size(37, 307);
-			this.toolStrip1.TabIndex = 0;
-			this.toolStrip1.Text = "toolStrip1";
-			// 
-			// tsbResume
-			// 
-			this.tsbResume.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbResume.Image = global::Nexus.Client.Properties.Resources.resume_download_flat;
-			this.tsbResume.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbResume.Name = "tsbResume";
-			this.tsbResume.Size = new System.Drawing.Size(34, 36);
-			this.tsbResume.Text = "Resume";
-			// 
-			// tsbCancel
-			// 
-			this.tsbCancel.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbCancel.Image = global::Nexus.Client.Properties.Resources.cancel_download_flat;
-			this.tsbCancel.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbCancel.Name = "tsbCancel";
-			this.tsbCancel.Size = new System.Drawing.Size(34, 36);
-			this.tsbCancel.Text = "Cancel";
-			this.tsbCancel.ToolTipText = "Cancel";
-			// 
-			// tsbPause
-			// 
-			this.tsbPause.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbPause.Image = global::Nexus.Client.Properties.Resources.pause_download_flat;
-			this.tsbPause.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbPause.Name = "tsbPause";
-			this.tsbPause.Size = new System.Drawing.Size(34, 36);
-			this.tsbPause.Text = "Pause";
-			// 
-			// tsbRemove
-			// 
-			this.tsbRemove.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemove.Image = global::Nexus.Client.Properties.Resources.remove_download_flat;
-			this.tsbRemove.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbRemove.Name = "tsbRemove";
-			this.tsbRemove.Size = new System.Drawing.Size(34, 36);
-			this.tsbRemove.Text = "Remove";
-			// 
-			// tsbResumeAll
-			// 
-			this.tsbResumeAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbResumeAll.Image = global::Nexus.Client.Properties.Resources.playlist;
-			this.tsbResumeAll.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbResumeAll.Name = "tsbResumeAll";
-			this.tsbResumeAll.Size = new System.Drawing.Size(34, 36);
-			this.tsbResumeAll.Text = "Resume All";
-			// 
-			// tsbRemoveAll
-			// 
-			this.tsbRemoveAll.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbRemoveAll.Image = global::Nexus.Client.Properties.Resources.list_cleanup_flat;
-			this.tsbRemoveAll.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbRemoveAll.Name = "tsbRemoveAll";
-			this.tsbRemoveAll.Size = new System.Drawing.Size(34, 36);
-			this.tsbRemoveAll.Text = "Remove All";
-			// 
-			// tsbPurgeDownloads
-			// 
-			this.tsbPurgeDownloads.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Image;
-			this.tsbPurgeDownloads.Image = global::Nexus.Client.Properties.Resources.delete_file;
-			this.tsbPurgeDownloads.ImageTransparentColor = System.Drawing.Color.Magenta;
-			this.tsbPurgeDownloads.Name = "tsbPurgeDownloads";
-			this.tsbPurgeDownloads.Size = new System.Drawing.Size(34, 36);
-			this.tsbPurgeDownloads.Text = "Purge Downloads";
-			this.tsbPurgeDownloads.ToolTipText = "Purge Downloads";
-			// 
-			// lvwTasks
-			// 
-			this.lvwTasks.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.clmOverallMessage,
-            this.clmOverallProgress,
-            this.clmStatus,
-            this.clmItemMessage,
-            this.clmFileserver,
-            this.clmETA,
-            this.clmItemProgress});
-			this.lvwTasks.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.lvwTasks.FullRowSelect = true;
-			this.lvwTasks.HideSelection = false;
-			this.lvwTasks.Location = new System.Drawing.Point(37, 0);
-			this.lvwTasks.Name = "lvwTasks";
-			this.lvwTasks.ShowItemToolTips = true;
-			this.lvwTasks.Size = new System.Drawing.Size(707, 307);
-			this.lvwTasks.TabIndex = 1;
-			this.lvwTasks.UseCompatibleStateImageBehavior = false;
-			this.lvwTasks.View = System.Windows.Forms.View.Details;
-			this.lvwTasks.ColumnWidthChanging += new System.Windows.Forms.ColumnWidthChangingEventHandler(this.lvwTasks_ColumnWidthChanging);
-			this.lvwTasks.SelectedIndexChanged += new System.EventHandler(this.lvwTasks_SelectedIndexChanged);
-			this.lvwTasks.KeyUp += new System.Windows.Forms.KeyEventHandler(this.DownloadMonitorControl_KeyUp);
-			this.lvwTasks.MouseClick += new System.Windows.Forms.MouseEventHandler(this.DownloadMonitorControl_MouseClick);
-			this.lvwTasks.Resize += new System.EventHandler(this.lvwTasks_Resize);
-			// 
-			// clmOverallMessage
-			// 
-			this.clmOverallMessage.Text = "Name";
-			// 
-			// clmOverallProgress
-			// 
-			this.clmOverallProgress.Text = "Size";
-			this.clmOverallProgress.Width = 100;
-			// 
-			// clmStatus
-			// 
-			this.clmStatus.Text = "Status";
-			this.clmStatus.Width = 50;
-			// 
-			// clmItemMessage
-			// 
-			this.clmItemMessage.Text = "Speed";
-			this.clmItemMessage.Width = 70;
-			// 
-			// clmFileserver
-			// 
-			this.clmFileserver.Text = "Fileserver";
-			// 
-			// clmETA
-			// 
-			this.clmETA.Text = "ETA";
-			// 
-			// clmItemProgress
-			// 
-			this.clmItemProgress.Text = "Threads";
-			this.clmItemProgress.Width = 30;
-			// 
-			// DownloadMonitorControl
-			// 
+
+			this.barManager.Bars.AddRange(new DevExpress.XtraBars.Bar[] { this.barActions });
+			this.barManager.DockControls.Add(this.barDockControlTop);
+			this.barManager.DockControls.Add(this.barDockControlBottom);
+			this.barManager.DockControls.Add(this.barDockControlLeft);
+			this.barManager.DockControls.Add(this.barDockControlRight);
+			this.barManager.Form = this;
+			this.barManager.Items.AddRange(new DevExpress.XtraBars.BarItem[] { this.tsbResume, this.tsbCancel, this.tsbPause, this.tsbRemove, this.tsbResumeAll, this.tsbRemoveAll, this.tsbPurgeDownloads, this.copyItem });
+			this.barManager.MaxItemId = 8;
+
+			this.barActions.BarName = "Download Actions";
+			this.barActions.DockStyle = DevExpress.XtraBars.BarDockStyle.Left;
+			this.barActions.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
+				new DevExpress.XtraBars.LinkPersistInfo(this.tsbResume), new DevExpress.XtraBars.LinkPersistInfo(this.tsbCancel),
+				new DevExpress.XtraBars.LinkPersistInfo(this.tsbPause), new DevExpress.XtraBars.LinkPersistInfo(this.tsbRemove),
+				new DevExpress.XtraBars.LinkPersistInfo(this.tsbResumeAll, true), new DevExpress.XtraBars.LinkPersistInfo(this.tsbRemoveAll),
+				new DevExpress.XtraBars.LinkPersistInfo(this.tsbPurgeDownloads)
+			});
+			this.barActions.OptionsBar.AllowQuickCustomization = false;
+			this.barActions.OptionsBar.DisableClose = true;
+			this.barActions.OptionsBar.DisableCustomization = true;
+			this.barActions.OptionsBar.DrawDragBorder = false;
+
+			ConfigureBarButton(this.tsbResume, 0, "tsbResume", "Resume", global::Nexus.Client.Properties.Resources.resume_download_flat);
+			ConfigureBarButton(this.tsbCancel, 1, "tsbCancel", "Cancel", global::Nexus.Client.Properties.Resources.cancel_download_flat);
+			ConfigureBarButton(this.tsbPause, 2, "tsbPause", "Pause", global::Nexus.Client.Properties.Resources.pause_download_flat);
+			ConfigureBarButton(this.tsbRemove, 3, "tsbRemove", "Remove", global::Nexus.Client.Properties.Resources.remove_download_flat);
+			ConfigureBarButton(this.tsbResumeAll, 4, "tsbResumeAll", "Resume All", global::Nexus.Client.Properties.Resources.playlist);
+			ConfigureBarButton(this.tsbRemoveAll, 5, "tsbRemoveAll", "Remove All", global::Nexus.Client.Properties.Resources.list_cleanup_flat);
+			ConfigureBarButton(this.tsbPurgeDownloads, 6, "tsbPurgeDownloads", "Purge Downloads", global::Nexus.Client.Properties.Resources.delete_file);
+			this.copyItem.Caption = "Copy to clipboard"; this.copyItem.Id = 7; this.copyItem.Name = "copyItem"; this.copyItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.copyItem_ItemClick);
+
+			this.popupMenu.Manager = this.barManager;
+			this.popupMenu.LinksPersistInfo.Add(new DevExpress.XtraBars.LinkPersistInfo(this.copyItem));
+
+			this.barDockControlTop.CausesValidation = false; this.barDockControlTop.Dock = System.Windows.Forms.DockStyle.Top; this.barDockControlTop.Manager = this.barManager;
+			this.barDockControlBottom.CausesValidation = false; this.barDockControlBottom.Dock = System.Windows.Forms.DockStyle.Bottom; this.barDockControlBottom.Manager = this.barManager;
+			this.barDockControlLeft.CausesValidation = false; this.barDockControlLeft.Dock = System.Windows.Forms.DockStyle.Left; this.barDockControlLeft.Manager = this.barManager;
+			this.barDockControlRight.CausesValidation = false; this.barDockControlRight.Dock = System.Windows.Forms.DockStyle.Right; this.barDockControlRight.Manager = this.barManager;
+
+			this.gridControl.Dock = System.Windows.Forms.DockStyle.Fill;
+			this.gridControl.MainView = this.gridView;
+			this.gridControl.Name = "gridControl";
+			this.gridControl.KeyUp += new System.Windows.Forms.KeyEventHandler(this.gridControl_KeyUp);
+			this.gridControl.MouseUp += new System.Windows.Forms.MouseEventHandler(this.gridControl_MouseUp);
+			this.gridControl.ViewCollection.AddRange(new DevExpress.XtraGrid.Views.Base.BaseView[] { this.gridView });
+
+			this.gridView.GridControl = this.gridControl;
+			this.gridView.Name = "gridView";
+			this.gridView.OptionsBehavior.Editable = false;
+			this.gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
+			this.gridView.OptionsView.ShowGroupPanel = false;
+			this.gridView.Columns.AddVisible("OverallMessage", "Name").Width = 180;
+			this.gridView.Columns.AddVisible("OverallProgress", "Progress").Width = 90;
+			this.gridView.Columns.AddVisible("Status", "Status").Width = 80;
+			this.gridView.Columns.AddVisible("ItemMessage", "Speed / Step").Width = 90;
+			this.gridView.Columns.AddVisible("FileServer", "Fileserver").Width = 90;
+			this.gridView.Columns.AddVisible("ETA", "ETA").Width = 70;
+			this.gridView.Columns.AddVisible("ItemProgress", "Threads / Step").Width = 80;
+			this.gridView.FocusedRowChanged += new DevExpress.XtraGrid.Views.Base.FocusedRowChangedEventHandler(this.gridView_FocusedRowChanged);
+
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(744, 307);
+			this.ClientSize = new System.Drawing.Size(680, 183);
 			this.CloseButton = false;
 			this.CloseButtonVisible = false;
-			this.Controls.Add(this.lvwTasks);
-			this.Controls.Add(this.toolStrip1);
-			this.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+			this.Controls.Add(this.gridControl);
+			this.Controls.Add(this.barDockControlLeft);
+			this.Controls.Add(this.barDockControlRight);
+			this.Controls.Add(this.barDockControlBottom);
+			this.Controls.Add(this.barDockControlTop);
 			this.Name = "DownloadMonitorControl";
-			this.toolStrip1.ResumeLayout(false);
-			this.toolStrip1.PerformLayout();
+			((System.ComponentModel.ISupportInitialize)(this.barManager)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.popupMenu)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridControl)).EndInit();
+			((System.ComponentModel.ISupportInitialize)(this.gridView)).EndInit();
 			this.ResumeLayout(false);
 			this.PerformLayout();
-
 		}
 
-		#endregion
+		/// <summary>Configures a download-toolbar button.</summary>
+		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption, System.Drawing.Image image)
+		{
+			button.Id = id; button.Name = name; button.Caption = caption; button.Hint = caption; button.ImageOptions.Image = image; button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
+		}
 
-		private System.Windows.Forms.ToolStrip toolStrip1;
-		private System.Windows.Forms.ToolStripButton tsbCancel;
-		private System.Windows.Forms.ToolStripButton tsbPurgeDownloads;
-		private Nexus.UI.Controls.DoubleBufferedListView lvwTasks;
-		private System.Windows.Forms.ColumnHeader clmOverallMessage;
-		private System.Windows.Forms.ColumnHeader clmOverallProgress;
-		private System.Windows.Forms.ColumnHeader clmItemMessage;
-		private System.Windows.Forms.ColumnHeader clmItemProgress;
-		private System.Windows.Forms.ColumnHeader clmStatus;
-		private System.Windows.Forms.ColumnHeader clmETA;
-		private System.Windows.Forms.ColumnHeader clmFileserver;
-		private System.Windows.Forms.ToolStripButton tsbRemove;
-		private System.Windows.Forms.ToolStripButton tsbPause;
-		private System.Windows.Forms.ToolStripButton tsbResume;
-		private System.Windows.Forms.ToolStripButton tsbResumeAll;
-		private System.Windows.Forms.ToolStripButton tsbRemoveAll;
+		private DevExpress.XtraBars.BarManager barManager;
+		private DevExpress.XtraBars.Bar barActions;
+		private DevExpress.XtraBars.BarDockControl barDockControlTop;
+		private DevExpress.XtraBars.BarDockControl barDockControlBottom;
+		private DevExpress.XtraBars.BarDockControl barDockControlLeft;
+		private DevExpress.XtraBars.BarDockControl barDockControlRight;
+		private DevExpress.XtraBars.BarButtonItem tsbResume;
+		private DevExpress.XtraBars.BarButtonItem tsbCancel;
+		private DevExpress.XtraBars.BarButtonItem tsbPause;
+		private DevExpress.XtraBars.BarButtonItem tsbRemove;
+		private DevExpress.XtraBars.BarButtonItem tsbResumeAll;
+		private DevExpress.XtraBars.BarButtonItem tsbRemoveAll;
+		private DevExpress.XtraBars.BarButtonItem tsbPurgeDownloads;
+		private DevExpress.XtraBars.BarButtonItem copyItem;
+		private DevExpress.XtraBars.PopupMenu popupMenu;
+		private DevExpress.XtraGrid.GridControl gridControl;
+		private DevExpress.XtraGrid.Views.Grid.GridView gridView;
 	}
 }

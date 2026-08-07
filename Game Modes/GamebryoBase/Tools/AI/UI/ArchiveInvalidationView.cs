@@ -1,5 +1,6 @@
 ﻿using System.Windows.Forms;
 using Nexus.Client.Games.Tools;
+using Nexus.UI.Controls;
 using System.ComponentModel;
 
 namespace Nexus.Client.Games.Gamebryo.Tools.AI.UI
@@ -63,7 +64,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI.UI
 		/// <returns><c>true</c> if the user wishes to enable AI.</returns>
 		protected bool ConfirmAiEnabling()
 		{
-			return (MessageBox.Show(this, "Apply archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+			return (ExtendedMessageBox.Show(this, "Apply archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 		}
 
 		/// <summary>
@@ -72,7 +73,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI.UI
 		/// <returns><c>true</c> if the user wishes to disable AI.</returns>
 		protected bool ConfirmAiDisabling()
 		{
-			return (MessageBox.Show(this, "Remove archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+			return (ExtendedMessageBox.Show(this, "Remove archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 		}
 	}
 }

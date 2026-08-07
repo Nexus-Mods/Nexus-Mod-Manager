@@ -35,7 +35,6 @@
 	using Nexus.Client.PluginManagement.UI;
 	using Nexus.Client.Settings.UI;
 	using Nexus.Client.SSO;
-	using Nexus.Client.TipsManagement;
 	using Nexus.Client.UI;
 	using Nexus.Client.Util;
 	using Nexus.Client.Util.Collections;
@@ -76,8 +75,6 @@
 		public string OptionalPremiumMessage = string.Empty;
 
 		FormWindowState LastWindowState = FormWindowState.Minimized;
-		private bool _showLastBalloon;
-		private BalloonManager _balloonManager;
 
 		/// <summary>Convenience cast — every IModManagerView implementation is a DockContent.</summary>
 		private WeifenLuo.WinFormsUI.Docking.DockContent ModManagerDock
@@ -153,10 +150,6 @@
 					popupHelp.AddItem(helpItem);
 				}
 
-				_balloonManager = new BalloonManager(ViewModel.UsesPlugins);
-				_balloonManager.ShowNextClick += BalloonManagerShowNextClick;
-				_balloonManager.ShowPreviousClick += BalloonManagerShowPreviousClick;
-				_balloonManager.CloseClick += BalloonManagerCloseClick;
 
 				SetBarItemVisible(tsbSkyrimDownloads, _viewModel.ModManagerVM.IsSkyrimSEGameMode);
 
@@ -265,7 +258,7 @@
 
 		private void OnRateLimitExceeded(RateLimitExceededArgs args)
 		{
-			MessageBox.Show(this, $"You've reached your daily and hourly limit. Try again in {Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} minutes.", "API Rate Limit exceeded", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+			XtraMessageBox.Show(this, $"You've reached your daily and hourly limit. Try again in {Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} minutes.", "API Rate Limit exceeded", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
 		}
 
 		private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
@@ -278,11 +271,11 @@
 				var info =
 					$"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} requests left (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
 					$"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} requests left (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
-				MessageBox.Show(this, info, "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(this, info, "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			else
 			{
-				MessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+				XtraMessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Hand);
 			}
 		}
 
@@ -662,58 +655,6 @@
 		}
 
 		/// <summary>
-		/// Shows the tips.
-		/// </summary>
-		/// <param name="p_strVersion">The version of the DropDownMenu clicked</param>
-		public void ShowTips(string p_strVersion)
-		{
-			if (!string.IsNullOrEmpty(p_strVersion))
-			{
-				_balloonManager.SetTipList(p_strVersion);
-			}
-
-			var strTipSection = string.IsNullOrEmpty(_balloonManager.TipSection) ? "toolStrip1" : _balloonManager.TipSection;
-			var strTipObject = string.IsNullOrEmpty(_balloonManager.TipObject) ? "tsbTips" : _balloonManager.TipObject;
-			_balloonManager.ShowNextTip(FindControlCoords(strTipSection, strTipObject));
-		}
-
-		/// <summary>
-		/// The BalloonManager ShowNextClick event.
-		/// </summary>
-		private void BalloonManagerShowNextClick(object sender, EventArgs e)
-		{
-			if (_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
-			{
-				_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup = false;
-				_viewModel.EnvironmentInfo.Settings.Save();
-			}
-
-			ShowTips(_balloonManager.CurrentTip == null
-				? _viewModel.EnvironmentInfo.ApplicationVersion.ToString()
-				: string.Empty);
-		}
-
-		/// <summary>
-		/// The BalloonManager ShowPreviousClick event.
-		/// </summary>
-		private void BalloonManagerShowPreviousClick(object sender, EventArgs e)
-		{
-			ShowTips(string.Empty);
-		}
-
-		/// <summary>
-		/// The BalloonManager CloseClick event.
-		/// </summary>
-		private void BalloonManagerCloseClick(object sender, EventArgs e)
-		{
-			if (_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup)
-			{
-				_viewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup = false;
-				_viewModel.EnvironmentInfo.Settings.Save();
-			}
-		}
-
-		/// <summary>
 		/// Sets the UI elements providing feedback on the user online status.
 		/// </summary>
 		protected void UserStatusFeedback()
@@ -878,7 +819,7 @@
 			}
 			else
 			{
-				MessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
+				XtraMessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
 								Environment.NewLine + Environment.NewLine + "This game is not supported or something is wrong with your loadorder.txt or plugins.txt files," +
 								Environment.NewLine + "or one or more plugins are corrupt/broken.",
 					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -924,13 +865,13 @@
 		{
 			if (ViewModel.ProfileManager.RestoreBackupProfile(ViewModel.GameMode.ModeId, out var error) == false)
 			{
-				MessageBox.Show("Nexus Mod Manager was unable to restore your backup profile." +
+				XtraMessageBox.Show("Nexus Mod Manager was unable to restore your backup profile." +
 					Environment.NewLine + Environment.NewLine + error,
 					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			else
 			{
-				MessageBox.Show(String.Format("{0} has been successfully added to your profile list.", error),
+				XtraMessageBox.Show(String.Format("{0} has been successfully added to your profile list.", error),
 					"Restored", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
@@ -1037,7 +978,7 @@
 		{
 			if (ViewModel.DownloadMonitorVM.ActiveTasks.Count > 0)
 			{
-				var drFormClose = MessageBox.Show($"There is an ongoing download, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				var drFormClose = XtraMessageBox.Show($"There is an ongoing download, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
 				if (drFormClose != DialogResult.Yes)
 				{
@@ -1047,7 +988,7 @@
 
 			if (ViewModel.IsInstalling)
 			{
-				var drFormClose = MessageBox.Show($"There is an ongoing mod install/uninstall, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				var drFormClose = XtraMessageBox.Show($"There is an ongoing mod install/uninstall, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
 				if (drFormClose != DialogResult.Yes)
 				{
@@ -1061,18 +1002,6 @@
 		/// </summary>
 		private void MainForm_ResizeEnd(object sender, EventArgs e)
 		{
-			if (ViewModel.EnvironmentInfo.Settings.CheckForTipsOnStartup && _balloonManager.balloonHelp != null)
-			{
-				_balloonManager.balloonHelp.Close();
-			}
-			else
-			{
-				if (_showLastBalloon)
-				{
-					_showLastBalloon = false;
-					ShowTips(string.Empty);
-				}
-			}
 		}
 
 		/// <summary>
@@ -1080,23 +1009,6 @@
 		/// </summary>
 		private void MainForm_ResizeBegin(object sender, EventArgs e)
 		{
-			if (_balloonManager?.balloonHelp != null)
-			{
-				if (_balloonManager.balloonHelp.Visible)
-				{
-					if (_balloonManager.CurrentTip != null)
-					{
-						_balloonManager.SetPreviousTip(true);
-					}
-
-					_balloonManager.balloonHelp.Close();
-					_showLastBalloon = true;
-				}
-				else
-				{
-					_showLastBalloon = false;
-				}
-			}
 		}
 
 		/// <summary>
@@ -1107,22 +1019,6 @@
 			if (WindowState != LastWindowState)
 			{
 				LastWindowState = WindowState;
-
-				if (WindowState == FormWindowState.Maximized || WindowState == FormWindowState.Normal)
-				{
-					if (_balloonManager?.balloonHelp != null && _balloonManager.balloonHelp.Visible)
-					{
-						if (_balloonManager.CurrentTip != null)
-						{
-							_balloonManager.SetPreviousTip(true);
-							ShowTips(string.Empty);
-						}
-						else
-						{
-							_balloonManager.balloonHelp.Close();
-						}
-					}
-				}
 			}
 		}
 
@@ -1296,24 +1192,28 @@
 			{
 				if (ViewModel.IsInstalling)
 				{
-					var lwiListViewItem = (ModActivationMonitorListViewItem)sender;
+					IBackgroundTaskSet task = null;
+					if (sender is ModActivationMonitorRow row)
+						task = row.Task;
+					else if (sender is ModActivationMonitorListViewItem listViewItem)
+						task = listViewItem.Task;
 
-					if (lwiListViewItem.Task != null)
+					if (task != null)
 					{
 						SetBarItemVisible(toolStripButtonLoader, true);
 						SetBarItemVisible(toolStripLabelBottomBarFeedbackCounter, true);
 
-						if (!lwiListViewItem.Task.IsQueued)
+						if (!task.IsQueued)
 						{
-							if (lwiListViewItem.Task.GetType() == typeof(ModInstaller))
+							if (task.GetType() == typeof(ModInstaller))
 							{
 								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Installing ";
 							}
-							else if (lwiListViewItem.Task.GetType() == typeof(ModUninstaller))
+							else if (task.GetType() == typeof(ModUninstaller))
 							{
 								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Uninstalling ";
 							}
-							else if (lwiListViewItem.Task.GetType() == typeof(ModUpgrader))
+							else if (task.GetType() == typeof(ModUpgrader))
 							{
 								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Upgrading ";
 							}
@@ -1561,7 +1461,7 @@
 						if (!string.IsNullOrEmpty(strError))
 						{
 							strError = strError + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-							MessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+							XtraMessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						}
 					}
 					catch (SQLiteException ex)
@@ -1575,7 +1475,7 @@
 					catch (IOException ex)
 					{
 						string strError = ex.Message + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-						MessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						XtraMessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 				}
 			}
@@ -1669,7 +1569,7 @@
 					foreach (AddModTask Task in e.OldItems)
 						if (!String.IsNullOrEmpty(Task.ErrorCode) && Task.ErrorCode == "666" && !(Task.Status == BackgroundTasks.TaskStatus.Cancelling || Task.Status == BackgroundTasks.TaskStatus.Cancelled || Task.Status == BackgroundTasks.TaskStatus.Complete))
 						{
-							MessageBox.Show(String.Format("The NMM web services have currently been disabled by staff of the sites."
+							XtraMessageBox.Show(String.Format("The NMM web services have currently been disabled by staff of the sites."
 								+ " This is NOT an error with NMM and you DO NOT need to report this error to us."
 								+ " This is normally a temporary problem so please try again a bit later on in the day." + Environment.NewLine
 								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
@@ -1874,7 +1774,7 @@
 				return (bool)Invoke((ConfirmActionMethod)ConfirmUpdaterAction, p_strMessage, p_strTitle);
 			}
 
-			return MessageBox.Show(this, p_strMessage, p_strTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
+			return XtraMessageBox.Show(this, p_strMessage, p_strTitle, MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
 		}
 
 		#endregion
@@ -2050,137 +1950,6 @@
 			popupTools.ShowPopup(Control.MousePosition);
 		}
 
-		private Point FindControlCoords(string section, string target)
-		{
-			var coords = new Point(0, 0);
-			ToolStripItem rootItem;
-			Control root;
-
-			switch (section)
-			{
-				case "PluginManagerControl":
-				case "ModManagerControl":
-					root = Controls.Find(section, true)[0];
-					if (root.TabIndex == 2)
-					{
-						if (root.ContainsFocus)
-						{
-							coords.X = root.AccessibilityObject.Bounds.Location.X;
-						}
-						else
-						{
-							coords.X = root.Width + root.AccessibilityObject.Bounds.Location.X;
-						}
-					}
-					else
-					{
-						if (root.ContainsFocus)
-						{
-							coords.X = root.AccessibilityObject.Bounds.Location.X + 60;
-						}
-						else
-						{
-							coords.X = root.Width + root.AccessibilityObject.Bounds.Location.X + 60;
-						}
-					}
-
-					coords.Y = root.AccessibilityObject.Bounds.Location.Y - 60;
-
-					break;
-
-				case "toolStrip1":
-					coords = GetMainBarTipLocation(target, -10, -30);
-					break;
-
-				case "tssDownload":
-					coords = GetMainBarTipLocation(target, -10, -60);
-					break;
-
-				case "ModManager.toolStrip1":
-					section = "toolStrip1";
-					root = ModManagerDock.Controls.Find(section, true)[0];
-					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
-					coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 5;
-					coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 10;
-					break;
-
-				case "DownloadManager.toolStrip1":
-					section = "toolStrip1";
-					root = _downloadMonitorControl.Controls.Find(section, true)[0];
-					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
-
-					switch (_downloadMonitorControl.DockState)
-					{
-						case DockState.DockBottomAutoHide:
-							_downloadMonitorControl.DockState = DockState.DockBottom;
-							break;
-						case DockState.DockLeftAutoHide:
-							_downloadMonitorControl.DockState = DockState.DockLeft;
-							break;
-						case DockState.DockRightAutoHide:
-							_downloadMonitorControl.DockState = DockState.DockRight;
-							break;
-						case DockState.DockTopAutoHide:
-							_downloadMonitorControl.DockState = DockState.DockTop;
-							break;
-					}
-
-					if (!_downloadMonitorControl.Visible)
-					{
-						_downloadMonitorControl.Show();
-					}
-
-					coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
-					coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
-					break;
-
-				case "CLWCategoryListView":
-					coords.X = ModManagerDock.AccessibilityObject.Bounds.Location.X;
-					coords.Y = ModManagerDock.AccessibilityObject.Bounds.Location.Y - 40;
-					break;
-
-				case "ModActivationMonitorListView":
-					switch (_modActivationMonitorControl.DockState)
-					{
-						case DockState.DockBottomAutoHide:
-							_modActivationMonitorControl.DockState = DockState.DockBottom;
-							break;
-						case DockState.DockLeftAutoHide:
-							_modActivationMonitorControl.DockState = DockState.DockLeft;
-							break;
-						case DockState.DockRightAutoHide:
-							_modActivationMonitorControl.DockState = DockState.DockRight;
-							break;
-						case DockState.DockTopAutoHide:
-							_modActivationMonitorControl.DockState = DockState.DockTop;
-							break;
-					}
-
-					if (!_modActivationMonitorControl.Visible)
-					{
-						_modActivationMonitorControl.Show();
-					}
-
-					coords.X = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.X + 20;
-					coords.Y = _modActivationMonitorControl.AccessibilityObject.Bounds.Location.Y - 70;
-					break;
-
-				case "ModActivationMonitorControl.toolStrip1":
-					section = "toolStrip1";
-					root = _modActivationMonitorControl.Controls.Find(section, true)[0];
-					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
-
-					if (rootItem.Visible)
-					{
-						coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
-						coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 40;
-					}
-					break;
-			}
-
-			return coords;
-		}
-
 		#endregion
 
 		#region Open Folders Helpers
@@ -2255,7 +2024,7 @@
 			}
 			catch (Win32Exception)
 			{
-				MessageBox.Show(this, "Cannot find program to open: " + helpLink.Url, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				XtraMessageBox.Show(this, "Cannot find program to open: " + helpLink.Url, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				Trace.WriteLine("Cannot find program to open: " + helpLink.Url);
 			}
 		}
@@ -2333,7 +2102,7 @@
 
 			if (e.Argument?.ReturnValue is bool && (bool)e.Argument.ReturnValue)
 			{
-				MessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 				ViewModel.RequestGameMode(ViewModel.GameMode.ModeId);
 				ChangeGameModeCommand_Executed(sender, new EventArgs());
 			}
@@ -2385,7 +2154,7 @@
 			if (!booRollbackSucceeded)
 				strResult += Environment.NewLine + Environment.NewLine + String.Join(Environment.NewLine, lstRollbackErrors.Where(x => !String.IsNullOrWhiteSpace(x)).Distinct());
 
-			MessageBox.Show(
+			XtraMessageBox.Show(
 				(String.IsNullOrWhiteSpace(p_strFailureMessage) ? "The profile switch failed." : p_strFailureMessage) + Environment.NewLine + Environment.NewLine + strResult,
 				"Profile switch failed",
 				MessageBoxButtons.OK,
@@ -2708,7 +2477,7 @@
 			}
 			else
 			{
-				MessageBox.Show(strResult, "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(strResult, "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -2769,7 +2538,7 @@
 					if (!string.IsNullOrEmpty(error))
 					{
 						error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-						MessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						XtraMessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 
 					_modManagerControl.SetCommandExecutableStatus();
@@ -2825,11 +2594,11 @@
 
 			if (e.Argument.ReturnValue != null)
 			{
-				MessageBox.Show("Unable to create the backup: " + e.Argument.ReturnValue.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				XtraMessageBox.Show("Unable to create the backup: " + e.Argument.ReturnValue.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			else
 			{
-				MessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -2851,11 +2620,11 @@
 			{
 				if ((e.Argument.ReturnValue != null) && (e.Argument.ReturnValue is string error))
 				{
-					MessageBox.Show(error);
+					XtraMessageBox.Show(error);
 				}
 				else
 				{
-					MessageBox.Show("An error occured during the Restore!");
+					XtraMessageBox.Show("An error occured during the Restore!");
 				}
 			}
 		}
@@ -2872,7 +2641,7 @@
 
 			if (e.Argument.ReturnValue != null)
 			{
-				MessageBox.Show("Purge Complete!", "Purge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show("Purge Complete!", "Purge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -2939,7 +2708,7 @@
 			bool beginProfileGroup = true;
 			if (ViewModel.ProfileManager.CurrentProfile != null)
 			{
-				ModProfile currentProfile = ViewModel.ProfileManager.CurrentProfile;
+				IModProfile currentProfile = ViewModel.ProfileManager.CurrentProfile;
 				string currentName = GetCompactProfileName(currentProfile.Name);
 				BarButtonItem currentItem = new BarButtonItem(barManagerMain, $"{currentName} ({currentProfile.ModCount})")
 				{
@@ -3138,13 +2907,13 @@
 
 					if (renameDialog.EnteredText.Length > 64)
 					{
-						MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						XtraMessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						return;
 					}
 
 					if (String.IsNullOrWhiteSpace(renameDialog.EnteredText.Replace("|", String.Empty)))
 					{
-						MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						XtraMessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						return;
 					}
 
@@ -3264,7 +3033,7 @@
 										if (!string.IsNullOrEmpty(error))
 										{
 											error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-											MessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+											XtraMessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 										}
 
 										BindProfileCommands();
@@ -3314,7 +3083,7 @@
 								if (!string.IsNullOrEmpty(error))
 								{
 									error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-									MessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+									XtraMessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 								}
 
 								BindProfileCommands();
@@ -3403,7 +3172,7 @@
 				}
 				catch (Exception e)
 				{
-					MessageBox.Show(string.Format("There were issues saving the current profile: " + Environment.NewLine + Environment.NewLine + "{0}" + Environment.NewLine, e.Message), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					XtraMessageBox.Show(string.Format("There were issues saving the current profile: " + Environment.NewLine + Environment.NewLine + "{0}" + Environment.NewLine, e.Message), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				}
 			}
 
@@ -3435,7 +3204,7 @@
 		{
 			if (!e.Launched)
 			{
-				MessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				XtraMessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 			else if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
 			{
@@ -3508,10 +3277,6 @@
 			{
 				_lastWindowState = WindowState;
 			}
-			else if (_balloonManager?.balloonHelp != null && _balloonManager.balloonHelp.Visible)
-			{
-				_balloonManager.balloonHelp.Close();
-			}
 		}
 
 		/// <summary>
@@ -3558,25 +3323,25 @@
 
 		private void tsbDiscord_Click(object sender, EventArgs e)
 		{
-			MessageBox.Show(this, "NMM will open the official NMM Discord server invitation in your default browser.", "NMM Official Discord", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, "NMM will open the official NMM Discord server invitation in your default browser.", "NMM Official Discord", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://discord.gg/JZ4tZ5KFQX");
 		}
 
 		private void tsbiPatreon_Click(object sender, EventArgs e)
 		{
-			MessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://www.patreon.com/NMMCE");
 		}
 
 		private void tsbiKofi_Click(object sender, EventArgs e)
 		{
-			MessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://ko-fi.com/duskdweller");
 		}
 
 		private void spbSupportNMM_ButtonClick(object sender, EventArgs e)
 		{
-			MessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://ko-fi.com/duskdweller");
 		}
 

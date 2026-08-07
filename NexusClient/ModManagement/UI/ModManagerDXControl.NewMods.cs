@@ -8,6 +8,7 @@ namespace Nexus.Client.ModManagement.UI
 	using System.IO;
 	using System.Windows.Forms;
 
+	using DevExpress.XtraBars;
 	using DevExpress.XtraGrid.Views.Base;
 	using DevExpress.XtraGrid.Views.Grid;
 
@@ -25,7 +26,7 @@ namespace Nexus.Client.ModManagement.UI
 			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		private ModManagerVM _newModsTrackedViewModel;
-		private ToolStripMenuItem _showOnlyCategoriesWithNewModsMenuItem;
+		private BarButtonItem _showOnlyCategoriesWithNewModsMenuItem;
 		private bool _newModCategoryViewInitialized;
 		private bool _showOnlyCategoriesWithNewMods;
 
@@ -38,34 +39,35 @@ namespace Nexus.Client.ModManagement.UI
 
 			ApplyCategoryMenuLabels();
 
-			_showOnlyCategoriesWithNewModsMenuItem =
-				new ToolStripMenuItem(
-					"Show only categories with new mods")
-				{
-					CheckOnClick = false,
-					Checked = false
-				};
+			_showOnlyCategoriesWithNewModsMenuItem = new BarButtonItem(barManagerMods, "Show only categories with new mods")
+			{
+				ButtonStyle = BarButtonStyle.Check,
+				Down = false
+			};
+			_showOnlyCategoriesWithNewModsMenuItem.ItemClick +=
+				(sender, args) => ShowOnlyCategoriesWithNewMods_Click(sender, EventArgs.Empty);
 
-			_showOnlyCategoriesWithNewModsMenuItem.Click +=
-				ShowOnlyCategoriesWithNewMods_Click;
+			// Rebuild the persistent category popup once so the session-only filter
+			// stays in the same position as the legacy ToolStrip implementation.
+			popupCategories.ClearLinks();
+			popupCategories.AddItem(addNewCategory);
+			popupCategories.AddItem(collapseAllCategories);
+			popupCategories.AddItem(expandAllCategories);
+			popupCategories.AddItem(updateNexusAndCustomCategories);
+			popupCategories.AddItem(_showOnlyCategoriesWithNewModsMenuItem);
+			popupCategories.AddItem(resetDefaultCategories);
+			popupCategories.AddItem(resetUnassignedToDefaultCategories);
+			popupCategories.AddItem(resetModsCategory);
+			popupCategories.AddItem(removeAllCategories);
+			popupCategories.AddItem(toggleHiddenCategories);
 
-			int insertionIndex =
-				tsbResetCategories.DropDownItems.IndexOf(
-					resetDefaultCategories);
-
-			if (insertionIndex < 0)
-				insertionIndex = tsbResetCategories.DropDownItems.Count;
-
-			tsbResetCategories.DropDownItems.Insert(
-				insertionIndex,
-				_showOnlyCategoriesWithNewModsMenuItem);
-
-			tsbResetCategories.DropDownOpening +=
-				CategoriesMenu_DropDownOpening;
+			popupCategories.BeforePopup +=
+				(sender, args) => CategoriesMenu_DropDownOpening(sender, EventArgs.Empty);
 
 			// The designer wires the normal switch handler first. This listener
 			// therefore runs after the view state has actually changed.
-			tsbSwitchView.Click += CategoryViewSwitchCompleted;
+			tsbSwitchView.ItemClick +=
+				(sender, args) => CategoryViewSwitchCompleted(sender, EventArgs.Empty);
 
 			gridView.CustomRowFilter += GridView_NewModsCustomRowFilter;
 			gridView.CustomDrawGroupRow += GridView_NewModsCustomDrawGroupRow;
@@ -124,7 +126,7 @@ namespace Nexus.Client.ModManagement.UI
 			_showOnlyCategoriesWithNewMods = false;
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
-				_showOnlyCategoriesWithNewModsMenuItem.Checked = false;
+				_showOnlyCategoriesWithNewModsMenuItem.Down = false;
 		}
 
 		private void NewModsManagedMods_CollectionChanged(
@@ -507,7 +509,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
 			{
-				_showOnlyCategoriesWithNewModsMenuItem.Checked =
+				_showOnlyCategoriesWithNewModsMenuItem.Down =
 					enabled;
 			}
 
@@ -552,18 +554,18 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void ApplyCategoryMenuLabels()
 		{
-			addNewCategory.Text = "Add new category";
-			collapseAllCategories.Text = "Collapse all categories";
-			expandAllCategories.Text = "Expand all categories";
-			updateNexusAndCustomCategories.Text = "Update Nexus and custom categories";
-			resetDefaultCategories.Text =
+			addNewCategory.Caption = "Add new category";
+			collapseAllCategories.Caption = "Collapse all categories";
+			expandAllCategories.Caption = "Expand all categories";
+			updateNexusAndCustomCategories.Caption = "Update Nexus and custom categories";
+			resetDefaultCategories.Caption =
 				"Update and reset to Nexus site defaults";
-			resetUnassignedToDefaultCategories.Text =
+			resetUnassignedToDefaultCategories.Caption =
 				"Reset unassigned mods to Nexus site defaults";
-			resetModsCategory.Text = "Reset all mods to unassigned";
-			removeAllCategories.Text = "Remove all categories";
-			toggleHiddenCategories.Text = "Toggle hidden categories";
-			tsbResetCategories.ToolTipText =
+			resetModsCategory.Caption = "Reset all mods to unassigned";
+			removeAllCategories.Caption = "Remove all categories";
+			toggleHiddenCategories.Caption = "Toggle hidden categories";
+			tsbResetCategories.Hint =
 				"Add new category - Click the small arrow for more options";
 		}
 
@@ -571,23 +573,23 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			bool categoryView = _categoryViewActive;
 
-			addNewCategory.Visible = categoryView;
-			collapseAllCategories.Visible = categoryView;
-			expandAllCategories.Visible = categoryView;
-			removeAllCategories.Visible = categoryView;
-			toggleHiddenCategories.Visible = categoryView;
+			addNewCategory.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+			collapseAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+			expandAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+			removeAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+			toggleHiddenCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
 			{
-				_showOnlyCategoriesWithNewModsMenuItem.Visible =
-					categoryView;
+				_showOnlyCategoriesWithNewModsMenuItem.Visibility =
+					categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			}
 
 			// These are the only commands retained in the flat/default view.
-			updateNexusAndCustomCategories.Visible = true;
-			resetDefaultCategories.Visible = true;
-			resetUnassignedToDefaultCategories.Visible = true;
-			resetModsCategory.Visible = true;
+			updateNexusAndCustomCategories.Visibility = BarItemVisibility.Always;
+			resetDefaultCategories.Visibility = BarItemVisibility.Always;
+			resetUnassignedToDefaultCategories.Visibility = BarItemVisibility.Always;
+			resetModsCategory.Visibility = BarItemVisibility.Always;
 		}
 	}
 }
