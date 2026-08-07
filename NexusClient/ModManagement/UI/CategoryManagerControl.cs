@@ -7,6 +7,9 @@ namespace Nexus.Client.ModManagement.UI
     using System.Text;
     using System.Windows.Forms;
 
+    using DevExpress.XtraBars;
+    using DevExpress.XtraEditors;
+
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.BackgroundTasks.UI;
     using Nexus.Client.Mods;
@@ -25,6 +28,7 @@ namespace Nexus.Client.ModManagement.UI
         private const int GridLayoutSaveDelayMs = 400;
 
         private ModManagerVM _viewModel;
+        private DevExpressDisplaySettings _displaySettings;
         private bool _restoringGridLayout;
         private readonly Timer _gridLayoutSaveTimer;
 
@@ -63,7 +67,9 @@ namespace Nexus.Client.ModManagement.UI
         {
             if (settings == null) return;
 
+            _displaySettings = settings;
             DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+            DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerCategory, settings);
             gridControl.Invalidate();
         }
 
@@ -136,32 +142,33 @@ namespace Nexus.Client.ModManagement.UI
 
         // ── Toolbar action handlers ───────────────────────────────────────────────
 
-        private void tsbAddCategory_Click(object sender, EventArgs e)
+        private void tsbAddCategory_Click(object sender, ItemClickEventArgs e)
         {
             if (_viewModel == null) return;
             _viewModel.CategoryManager.AddCategory();
         }
 
-        private void tsbRenameCategory_Click(object sender, EventArgs e)
+        private void tsbRenameCategory_Click(object sender, ItemClickEventArgs e)
         {
             IModCategory selected = GetSelectedCategory();
             if (selected == null || _viewModel == null) return;
 
-            string newName = ShowInputDialog("Rename Category", "Enter new name:", selected.CategoryName);
+            string newName = ShowInputDialog(this, "Rename Category", "Enter new name:", selected.CategoryName);
             if (string.IsNullOrWhiteSpace(newName) || newName == selected.CategoryName) return;
 
             _viewModel.CategoryManager.RenameCategory(selected.Id, newName);
             RefreshCategoryList();
         }
 
-        private void tsbRemoveCategory_Click(object sender, EventArgs e)
+        private void tsbRemoveCategory_Click(object sender, ItemClickEventArgs e)
         {
             IModCategory selected = GetSelectedCategory();
             if (selected == null || _viewModel == null) return;
 
             if (selected.Id == 0)
             {
-                MessageBox.Show(
+                XtraMessageBox.Show(
+                    this,
                     "The Unassigned category cannot be removed.",
                     "Remove Category",
                     MessageBoxButtons.OK,
@@ -169,7 +176,8 @@ namespace Nexus.Client.ModManagement.UI
                 return;
             }
 
-            if (MessageBox.Show(
+            if (XtraMessageBox.Show(
+                    this,
                     $"Remove category \"{selected.CategoryName}\"?\nMods in this category will be moved to Unassigned.",
                     "Remove Category",
                     MessageBoxButtons.YesNo,
@@ -192,7 +200,7 @@ namespace Nexus.Client.ModManagement.UI
             ExpandAllCategoriesRequested?.Invoke(this, EventArgs.Empty);
         }
 
-        private void tsbUpdateFromNexus_Click(object sender, EventArgs e)
+        private void tsbUpdateFromNexus_Click(object sender, ItemClickEventArgs e)
         {
             if (_viewModel == null) return;
 
@@ -204,7 +212,8 @@ namespace Nexus.Client.ModManagement.UI
             {
                 if (ex.Message != "Login required")
                 {
-                    MessageBox.Show(
+                    XtraMessageBox.Show(
+                        this,
                         $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
                         "Update check",
                         MessageBoxButtons.OK,
@@ -213,7 +222,7 @@ namespace Nexus.Client.ModManagement.UI
             }
         }
 
-        private void tsbResetUnassigned_Click(object sender, EventArgs e)
+        private void tsbResetUnassigned_Click(object sender, ItemClickEventArgs e)
         {
             if (_viewModel == null) return;
 
@@ -230,13 +239,13 @@ namespace Nexus.Client.ModManagement.UI
             _viewModel.CheckForUpdates(true);
         }
 
-        private void tsbResetAllToUnassigned_Click(object sender, EventArgs e)
+        private void tsbResetAllToUnassigned_Click(object sender, ItemClickEventArgs e)
         {
             if (_viewModel == null) return;
             _viewModel.ResetToUnassigned();
         }
 
-        private void tsbRemoveAllCategories_Click(object sender, EventArgs e)
+        private void tsbRemoveAllCategories_Click(object sender, ItemClickEventArgs e)
         {
             if (_viewModel == null) return;
             _viewModel.RemoveAllCategories();
@@ -249,7 +258,7 @@ namespace Nexus.Client.ModManagement.UI
             if (e.KeyCode != Keys.F2) return;
 
             e.Handled = true;
-            tsbRenameCategory_Click(sender, EventArgs.Empty);
+            tsbRenameCategory_Click(sender, null);
         }
 
         private void VM_UpdatingCategory(object sender, EventArgs<IBackgroundTask> e)
@@ -397,57 +406,67 @@ namespace Nexus.Client.ModManagement.UI
             return gridView.GetRow(rowHandle) as IModCategory;
         }
 
-        private static string ShowInputDialog(string title, string prompt, string defaultValue)
+        /// <summary>
+        /// Displays a skin-aware DevExpress text prompt and returns the trimmed value when accepted.
+        /// </summary>
+        /// <param name="owner">Window that owns the prompt.</param>
+        /// <param name="title">Dialog title.</param>
+        /// <param name="prompt">Prompt displayed above the editor.</param>
+        /// <param name="defaultValue">Initial editor value.</param>
+        /// <returns>The entered text, or <c>null</c> when the dialog is cancelled.</returns>
+        private string ShowInputDialog(IWin32Window owner, string title, string prompt, string defaultValue)
         {
-            using (Form form = new Form())
+            using (ManagedFontXtraForm form = new ManagedFontXtraForm())
+            using (LabelControl label = new LabelControl())
+            using (TextEdit textBox = new TextEdit())
+            using (SimpleButton btnOk = new SimpleButton())
+            using (SimpleButton btnCancel = new SimpleButton())
             {
-                form.Text            = title;
-                form.Size            = new System.Drawing.Size(380, 130);
+                form.Text = title;
+                form.ClientSize = new System.Drawing.Size(380, 112);
                 form.FormBorderStyle = FormBorderStyle.FixedDialog;
-                form.StartPosition   = FormStartPosition.CenterParent;
-                form.MaximizeBox     = false;
-                form.MinimizeBox     = false;
+                form.StartPosition = FormStartPosition.CenterParent;
+                form.MaximizeBox = false;
+                form.MinimizeBox = false;
+                form.ShowInTaskbar = false;
 
-                Label label = new Label
-                {
-                    Text = prompt,
-                    Left = 10,
-                    Top = 12,
-                    Width = 340
-                };
+                label.Text = prompt;
+                label.Location = new System.Drawing.Point(12, 12);
 
-                TextBox textBox = new TextBox
-                {
-                    Text = defaultValue,
-                    Left = 10,
-                    Top = 32,
-                    Width = 340
-                };
+                textBox.Text = defaultValue ?? string.Empty;
+                textBox.Location = new System.Drawing.Point(12, 34);
+                textBox.Size = new System.Drawing.Size(356, 20);
+                textBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 
-                Button btnOk = new Button
-                {
-                    Text = "OK",
-                    Left = 195,
-                    Top = 60,
-                    Width = 75,
-                    DialogResult = DialogResult.OK
-                };
+                btnOk.Text = "OK";
+                btnOk.Location = new System.Drawing.Point(212, 70);
+                btnOk.Size = new System.Drawing.Size(75, 26);
+                btnOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+                btnOk.DialogResult = DialogResult.OK;
 
-                Button btnCancel = new Button
-                {
-                    Text = "Cancel",
-                    Left = 275,
-                    Top = 60,
-                    Width = 75,
-                    DialogResult = DialogResult.Cancel
-                };
+                btnCancel.Text = "Cancel";
+                btnCancel.Location = new System.Drawing.Point(293, 70);
+                btnCancel.Size = new System.Drawing.Size(75, 26);
+                btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+                btnCancel.DialogResult = DialogResult.Cancel;
 
-                form.Controls.AddRange(
-                    new Control[] { label, textBox, btnOk, btnCancel });
+                form.Controls.Add(label);
+                form.Controls.Add(textBox);
+                form.Controls.Add(btnOk);
+                form.Controls.Add(btnCancel);
                 form.AcceptButton = btnOk;
                 form.CancelButton = btnCancel;
 
-                return form.ShowDialog() == DialogResult.OK
+                if (_displaySettings != null)
+                    DevExpressDisplaySettingsApplier.ApplyToControlTree(form, _displaySettings);
+
+                form.Shown += (sender, args) =>
+                {
+                    textBox.Focus();
+                    textBox.SelectAll();
+                };
+
+                return form.ShowDialog(owner) == DialogResult.OK
                     ? textBox.Text.Trim()
                     : null;
             }

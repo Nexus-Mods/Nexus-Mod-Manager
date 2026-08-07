@@ -11,6 +11,7 @@
     using System.Windows.Forms;
 
     using DevExpress.Utils;
+    using DevExpress.XtraBars;
     using DevExpress.XtraEditors;
     using DevExpress.XtraEditors.Repository;
     using DevExpress.XtraGrid;
@@ -32,22 +33,23 @@
         private const int OwnerLookupMinimumPopupWidth = 480;
         private const int OwnerLookupMaximumPopupWidth = 900;
 
-        private readonly Label _deploymentRootLabel;
-        private readonly Button _refreshButton;
+        private readonly LabelControl _deploymentRootLabel;
+        private readonly SimpleButton _refreshButton;
         private readonly SplitContainerControl _splitContainer;
         private readonly GridControl _gridControl;
         private readonly GridView _gridView;
         private GridColumn _linkTypeColumn;
         private readonly FilePreviewControl _previewControl;
-        private readonly Label _summaryLabel;
-        private readonly Label _statusLabel;
+        private readonly LabelControl _summaryLabel;
+        private readonly LabelControl _statusLabel;
         private readonly RepositoryItemLookUpEdit _emptyOwnerLookup;
         private readonly RepositoryItemLookUpEdit _ownerLookup;
         private readonly RepositoryItemLookUpEdit _emptySourceLookup;
         private readonly RepositoryItemLookUpEdit _sourceLookup;
         private readonly RepositoryItemLookUpEdit _sourceFilterLookup;
-        private readonly ContextMenuStrip _sourceContextMenu;
-        private readonly ToolStripMenuItem _switchSourceMenuItem;
+        private readonly BarManager _sourceMenuManager;
+        private readonly PopupMenu _sourceContextMenu;
+        private readonly BarSubItem _switchSourceMenuItem;
         private readonly Timer _previewSelectionTimer;
         private readonly Timer _gridLayoutSaveTimer;
         private readonly Dictionary<FileManagerRow, string> _previousOwnerKeys = new Dictionary<FileManagerRow, string>();
@@ -68,42 +70,51 @@
             Text = "File Manager";
             HideOnClose = true;
 
-            Panel topPanel = new Panel { Dock = DockStyle.Top, Height = 72, Padding = new Padding(10, 8, 10, 4) };
-            Label descriptionLabel = new Label
+            PanelControl topPanel = new PanelControl
             {
-                AutoSize = true,
+                Dock = DockStyle.Top,
+                Height = 72,
+                Padding = new Padding(10, 8, 10, 4),
+                BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
+            };
+            LabelControl descriptionLabel = new LabelControl
+            {
                 Text = "Shows all files contained in the game's deployment directory.",
                 Location = new Point(10, 8)
             };
-            _deploymentRootLabel = new Label
+            _deploymentRootLabel = new LabelControl
             {
-                AutoSize = true,
                 Text = "Deployment root:",
                 Location = new Point(10, 38)
             };
 
-			_refreshButton = new Button
-			{
-				Text = "Refresh",
-				Width = 92,
-				Height = 27,
-				Margin = new Padding(0)
-			};
-			_refreshButton.Click += RefreshButton_Click;
+            _refreshButton = new SimpleButton
+            {
+                Text = "Refresh",
+                Width = 92,
+                Height = 27
+            };
+            _refreshButton.Click += RefreshButton_Click;
 
-			topPanel.Controls.Add(descriptionLabel);
-			topPanel.Controls.Add(_deploymentRootLabel);
+            topPanel.Controls.Add(descriptionLabel);
+            topPanel.Controls.Add(_deploymentRootLabel);
 
-			FlowLayoutPanel fileListToolbar = new FlowLayoutPanel
-			{
-				Dock = DockStyle.Top,
-				Height = 37,
-				FlowDirection = FlowDirection.RightToLeft,
-				WrapContents = false,
-				Padding = new Padding(0, 5, 8, 5)
-			};
-
-			fileListToolbar.Controls.Add(_refreshButton);
+            PanelControl fileListToolbar = new PanelControl
+            {
+                Dock = DockStyle.Top,
+                Height = 37,
+                BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
+            };
+            fileListToolbar.Controls.Add(_refreshButton);
+            fileListToolbar.Resize += (sender, args) =>
+            {
+                _refreshButton.Location = new Point(
+                    Math.Max(0, fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
+                    5);
+            };
+            _refreshButton.Location = new Point(
+                Math.Max(0, fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
+                5);
 
 			_splitContainer = new SplitContainerControl
             {
@@ -197,17 +208,22 @@
             _sourceFilterLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", "Source"));
             _gridControl.RepositoryItems.Add(_sourceFilterLookup);
             _gridView.Columns["Source"].ColumnEdit = _sourceFilterLookup;
-            _sourceContextMenu = new ContextMenuStrip();
-            _switchSourceMenuItem = new ToolStripMenuItem("Switch Source to");
+            _sourceMenuManager = new BarManager
+            {
+                Form = this
+            };
+            _sourceContextMenu = new PopupMenu(_sourceMenuManager);
+            _switchSourceMenuItem = new BarSubItem(_sourceMenuManager, "Switch Source to");
             foreach (FileManagerSourceOption option in FileManagerSourceDisplay.ManualSourceOptions)
             {
-                FileManagerSource source = option.Source;
-                ToolStripMenuItem sourceItem = new ToolStripMenuItem(option.DisplayText);
-                sourceItem.Tag = source;
-                sourceItem.Click += SourceContextMenuItem_Click;
-                _switchSourceMenuItem.DropDownItems.Add(sourceItem);
+                BarButtonItem sourceItem = new BarButtonItem(_sourceMenuManager, option.DisplayText)
+                {
+                    Tag = option.Source
+                };
+                sourceItem.ItemClick += SourceContextMenuItem_Click;
+                _switchSourceMenuItem.AddItem(sourceItem);
             }
-            _sourceContextMenu.Items.Add(_switchSourceMenuItem);
+            _sourceContextMenu.AddItem(_switchSourceMenuItem);
 
 			_previewControl = new FilePreviewControl
 			{
@@ -220,10 +236,11 @@
             };
             _previewSelectionTimer.Tick += PreviewSelectionTimer_Tick;
 
-			Panel fileListPanel = new Panel
-			{
-				Dock = DockStyle.Fill
-			};
+            PanelControl fileListPanel = new PanelControl
+            {
+                Dock = DockStyle.Fill,
+                BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
+            };
 
 			fileListPanel.Controls.Add(_gridControl);
 			fileListPanel.Controls.Add(fileListToolbar);
@@ -231,9 +248,15 @@
 			_splitContainer.Panel1.Controls.Add(fileListPanel);
 			_splitContainer.Panel2.Controls.Add(_previewControl);
 
-			Panel bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 30, Padding = new Padding(10, 6, 10, 4) };
-            _summaryLabel = new Label { AutoSize = true, Location = new Point(10, 7) };
-            _statusLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 240, 7) };
+            PanelControl bottomPanel = new PanelControl
+            {
+                Dock = DockStyle.Bottom,
+                Height = 30,
+                Padding = new Padding(10, 6, 10, 4),
+                BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
+            };
+            _summaryLabel = new LabelControl { Location = new Point(10, 7) };
+            _statusLabel = new LabelControl { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 240, 7) };
             bottomPanel.Resize += (sender, args) => _statusLabel.Left = Math.Max(10, bottomPanel.ClientSize.Width - _statusLabel.Width - 10);
             bottomPanel.Controls.Add(_summaryLabel);
             bottomPanel.Controls.Add(_statusLabel);
@@ -249,6 +272,7 @@
 
             _displaySettings = settings;
             DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+            DevExpressDisplaySettingsApplier.ApplyToBarManager(_sourceMenuManager, settings);
             DevExpressDisplaySettingsApplier.ApplyToRepositoryItem(_ownerLookup, settings);
             _gridControl.Invalidate();
         }
@@ -308,6 +332,8 @@
 
                 if (_sourceContextMenu != null)
                     _sourceContextMenu.Dispose();
+                if (_sourceMenuManager != null)
+                    _sourceMenuManager.Dispose();
 
                 _previewSelectionTimer.Stop();
                 _previewSelectionTimer.Tick -= PreviewSelectionTimer_Tick;
@@ -328,7 +354,7 @@
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
         private async void RefreshButton_Click(object sender, EventArgs e)
@@ -342,7 +368,7 @@
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -400,8 +426,6 @@
                     ? "Refresh required"
                     : "Refresh required - last scanned: " + _fileManagerVM.LastScannedDisplay;
                 _refreshButton.Text = "Refresh *";
-                _refreshButton.UseVisualStyleBackColor = false;
-                _refreshButton.BackColor = Color.Khaki;
             }
             else
             {
@@ -409,8 +433,6 @@
                     ? _fileManagerVM.StatusMessage
                     : (String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay);
                 _refreshButton.Text = "Refresh";
-                _refreshButton.BackColor = SystemColors.Control;
-                _refreshButton.UseVisualStyleBackColor = true;
             }
 
             if (_statusLabel.Parent != null)
@@ -920,7 +942,7 @@
                 row.OwnerKey = previousOwnerKey;
                 _gridView.RefreshRow(e.RowHandle);
                 _suppressOwnerChange = false;
-                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -961,7 +983,7 @@
                 row.Source = previousSource;
                 _gridView.RefreshRow(e.RowHandle);
                 _suppressSourceChange = false;
-                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -979,12 +1001,12 @@
             if (!IsBulkSourceEligible(clickedRow) || !selectedRows.Contains(clickedRow) || selectedRows.Count <= 1)
                 return;
 
-            _sourceContextMenu.Show(_gridControl, e.Location);
+            _sourceContextMenu.ShowPopup(_gridControl.PointToScreen(e.Location));
         }
 
-        private void SourceContextMenuItem_Click(object sender, EventArgs e)
+        private void SourceContextMenuItem_Click(object sender, ItemClickEventArgs e)
         {
-            ToolStripMenuItem menuItem = sender as ToolStripMenuItem;
+            BarItem menuItem = e == null ? null : e.Item;
             if (menuItem == null || !(menuItem.Tag is FileManagerSource))
                 return;
 
@@ -1024,7 +1046,7 @@
             {
                 RestoreSourceChanges(appliedChanges);
                 RefreshSourceRows(sourceChanges);
-                MessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

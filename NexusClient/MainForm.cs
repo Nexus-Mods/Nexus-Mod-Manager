@@ -13,6 +13,9 @@
 	using System.Threading.Tasks;
 	using System.Windows.Forms;
 
+	using DevExpress.XtraBars;
+	using DevExpress.XtraEditors.Controls;
+	using DevExpress.XtraEditors.Repository;
 	using DevExpress.XtraSplashScreen;
 
 	using Nexus.Client.BackgroundTasks;
@@ -47,7 +50,7 @@
 	/// <summary>
 	/// The main form of the mod manager.
 	/// </summary>
-	public partial class MainForm : ManagedFontForm
+	public partial class MainForm : ManagedFontXtraForm
 	{
 		private MainFormVM _viewModel;
 		private FormWindowState _lastWindowState = FormWindowState.Normal;
@@ -61,11 +64,13 @@
 		private double _defaultActivationMonitorAutoHidePortion;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
+		private readonly List<ITool> _boundGameTools = new List<ITool>();
 
 		private const string DevExpressSkinSettingsKey = "mainForm.DevExpressSkin";
 
-		private ToolStripLabel _devExpressSkinLabel;
-		private ToolStripComboBox _devExpressSkinComboBox;
+		private BarStaticItem _devExpressSkinLabel;
+		private BarEditItem _devExpressSkinComboBox;
+		private RepositoryItemComboBox _devExpressSkinRepository;
 		private bool _updatingDevExpressSkinSelector;
 
 		public string OptionalPremiumMessage = string.Empty;
@@ -136,18 +141,16 @@
 
 				_viewModel.ConfirmUpdaterAction = ConfirmUpdaterAction;
 
-				foreach (HelpInformation.HelpLink hlpLink in _viewModel.HelpInfo.HelpLinks)
+				ClearTransientPopupItems(popupHelp);
+				foreach (HelpInformation.HelpLink helpLink in _viewModel.HelpInfo.HelpLinks)
 				{
-					ToolStripMenuItem tmiHelp = new ToolStripMenuItem
+					BarButtonItem helpItem = new BarButtonItem(barManagerMain, helpLink.Name)
 					{
-						Tag = hlpLink,
-						Text = hlpLink.Name,
-						ToolTipText = hlpLink.Url,
-						ImageScaling = ToolStripItemImageScaling.None
+						Tag = helpLink,
+						Hint = helpLink.Url
 					};
-
-					tmiHelp.Click += tmiHelp_Click;
-					spbHelp.DropDownItems.Add(tmiHelp);
+					helpItem.ItemClick += HelpItem_ItemClick;
+					popupHelp.AddItem(helpItem);
 				}
 
 				_balloonManager = new BalloonManager(ViewModel.UsesPlugins);
@@ -155,11 +158,11 @@
 				_balloonManager.ShowPreviousClick += BalloonManagerShowPreviousClick;
 				_balloonManager.CloseClick += BalloonManagerCloseClick;
 
-				tsbSkyrimDownloads.Visible = _viewModel.ModManagerVM.IsSkyrimSEGameMode;
+				SetBarItemVisible(tsbSkyrimDownloads, _viewModel.ModManagerVM.IsSkyrimSEGameMode);
 
 				if (_viewModel.ModManagerVM.IsSkyrimSEGameMode)
 				{
-					tsbSkyrimDownloads.Text = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
+					tsbSkyrimDownloads.Caption = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
 					_modManagerControl.ViewModel.SwitchingSkyrimDownloadMode += ViewModel_SwitchingSkyrimDownloadMode;
 				}
 
@@ -169,7 +172,7 @@
 
 		private void ViewModel_SwitchingSkyrimDownloadMode(object sender, EventArgs e)
 		{
-			tsbSkyrimDownloads.Text = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
+			tsbSkyrimDownloads.Caption = _viewModel.ModManagerVM.SkyrimSEDownloadFeedback;
 		}
 
 		private void ModManagerVM_ProfileSwitchSettingUp(object sender, EventArgs<IBackgroundTask> e)
@@ -202,8 +205,10 @@
 			InitializeDevExpressLookAndFeel(viewModel);
 
 			InitializeComponent();
+			InitializeMainBars();
 			InitializeDevExpressSkinSelector();
 			InitializeDevExpressDisplaySelector(viewModel);
+			BuildMainToolbarLinks();
 
 			FormClosing += CheckDownloadsOnClosing;
 			FormClosing += MainForm_FormClosing;
@@ -235,7 +240,6 @@
 			_modActivationMonitorControl = new ModActivationMonitorControl();
 			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
-			toolStripButtonRateLimit.Click += ToolStripButtonRateLimitOnClick;
 			viewModel.ModRepository.RateLimitExceeded += (sender, args) => Invoke((Action<RateLimitExceededArgs>)OnRateLimitExceeded, args);
 
 			if (viewModel.GameMode.SupportedToolsLauncher != null)
@@ -396,112 +400,70 @@
 				UserLookAndFeel.Default.SetSkinStyle(savedSkin);
 		}
 
+		/// <summary>
+		/// Creates the native DevExpress skin selector used by the main toolbar.
+		/// </summary>
 		private void InitializeDevExpressSkinSelector()
 		{
-			_devExpressSkinLabel = new ToolStripLabel
+			_devExpressSkinLabel = new BarStaticItem
 			{
-				Text = "UI Skin:"
+				Manager = barManagerMain,
+				Caption = "UI Skin:"
 			};
 
-			_devExpressSkinComboBox = new ToolStripComboBox
+			_devExpressSkinRepository = new RepositoryItemComboBox
 			{
-				Name = "toolStripComboBoxDevExpressSkin",
-				AutoSize = false,
-				Width = 165,
-				DropDownStyle = ComboBoxStyle.DropDownList,
-				ToolTipText = "Select the appearance of DevExpress controls"
+				TextEditStyle = TextEditStyles.DisableTextEditor
+			};
+			barManagerMain.RepositoryItems.Add(_devExpressSkinRepository);
+
+			_devExpressSkinComboBox = new BarEditItem(barManagerMain, _devExpressSkinRepository)
+			{
+				EditWidth = 165,
+				Hint = "Select the appearance of DevExpress controls"
 			};
 
 			_updatingDevExpressSkinSelector = true;
-
 			try
 			{
-				IEnumerable<string> availableSkins =
-					SkinManager.Default.Skins
-						.Cast<SkinContainer>()
-						.Select(skin => skin.SkinName)
-						.Where(name => !String.IsNullOrWhiteSpace(name))
-						.Distinct(StringComparer.OrdinalIgnoreCase)
-						.OrderBy(
-							name => name,
-							StringComparer.CurrentCultureIgnoreCase);
+				IEnumerable<string> availableSkins = SkinManager.Default.Skins.Cast<SkinContainer>()
+					.Select(skin => skin.SkinName)
+					.Where(name => !String.IsNullOrWhiteSpace(name))
+					.Distinct(StringComparer.OrdinalIgnoreCase)
+					.OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase);
 
 				foreach (string skinName in availableSkins)
-					_devExpressSkinComboBox.Items.Add(skinName);
+					_devExpressSkinRepository.Items.Add(skinName);
 
-				string currentSkin =
-					UserLookAndFeel.Default.SkinName;
+				string currentSkin = UserLookAndFeel.Default.SkinName;
+				string selectedSkin = _devExpressSkinRepository.Items.Cast<object>()
+					.Select(Convert.ToString)
+					.FirstOrDefault(item => String.Equals(item, currentSkin, StringComparison.OrdinalIgnoreCase));
 
-				for (int i = 0;
-					 i < _devExpressSkinComboBox.Items.Count;
-					 i++)
-				{
-					string item =
-						_devExpressSkinComboBox.Items[i] as string;
+				if (selectedSkin == null && _devExpressSkinRepository.Items.Count > 0)
+					selectedSkin = Convert.ToString(_devExpressSkinRepository.Items[0]);
 
-					if (!String.Equals(
-							item,
-							currentSkin,
-							StringComparison.OrdinalIgnoreCase))
-					{
-						continue;
-					}
-
-					_devExpressSkinComboBox.SelectedIndex = i;
-					break;
-				}
-
-				if (_devExpressSkinComboBox.SelectedIndex < 0 &&
-					_devExpressSkinComboBox.Items.Count > 0)
-				{
-					_devExpressSkinComboBox.SelectedIndex = 0;
-				}
+				_devExpressSkinComboBox.EditValue = selectedSkin;
 			}
 			finally
 			{
 				_updatingDevExpressSkinSelector = false;
 			}
 
-			_devExpressSkinComboBox.SelectedIndexChanged +=
-				DevExpressSkinComboBox_SelectedIndexChanged;
-
-			// Place it directly after Settings in the main toolbar.
-			int insertionIndex =
-				toolStrip1.Items.IndexOf(tsbSettings) + 1;
-
-			toolStrip1.Items.Insert(
-				insertionIndex++,
-				new ToolStripSeparator());
-
-			toolStrip1.Items.Insert(
-				insertionIndex++,
-				_devExpressSkinLabel);
-
-			toolStrip1.Items.Insert(
-				insertionIndex++,
-				_devExpressSkinComboBox);
-
-			toolStrip1.Items.Insert(insertionIndex, new ToolStripSeparator());
+			_devExpressSkinComboBox.EditValueChanged += DevExpressSkinComboBox_EditValueChanged;
 		}
 
-		private void DevExpressSkinComboBox_SelectedIndexChanged(object sender, EventArgs e)
+		/// <summary>
+		/// Applies and persists a skin selected from the DevExpress toolbar editor.
+		/// </summary>
+		private void DevExpressSkinComboBox_EditValueChanged(object sender, EventArgs e)
 		{
 			if (_updatingDevExpressSkinSelector)
 				return;
 
-			string skinName =
-				_devExpressSkinComboBox.SelectedItem as string;
-
-			if (String.IsNullOrWhiteSpace(skinName))
+			string skinName = Convert.ToString(_devExpressSkinComboBox.EditValue);
+			if (String.IsNullOrWhiteSpace(skinName) || String.Equals(UserLookAndFeel.Default.SkinName, skinName, StringComparison.OrdinalIgnoreCase))
 				return;
-
-			if (String.Equals(
-					UserLookAndFeel.Default.SkinName,
-					skinName,
-					StringComparison.OrdinalIgnoreCase))
-			{
-				return;
-			}
 
 			UserLookAndFeel.Default.SetSkinStyle(skinName);
 			_modManagerControl?.ForceListRefresh();
@@ -509,14 +471,11 @@
 
 			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts != null)
 			{
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[
-					DevExpressSkinSettingsKey] = skinName;
-
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressSkinSettingsKey] = skinName;
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
 
-			_devExpressSkinComboBox.ToolTipText =
-				"Current skin: " + skinName;
+			_devExpressSkinComboBox.Hint = "Current skin: " + skinName;
 		}
 
 		#endregion
@@ -651,52 +610,51 @@
 
 			if (ViewModel.UsesPlugins)
 			{
-				toolStripLabelPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
+				toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
 
-				var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
+				var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
 				int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
 
 				if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 				{
 					var icoIcon = new Icon(SystemIcons.Warning, 16, 16);
-					toolStripLabelActivePluginsCounter.Image = icoIcon.ToBitmap();
-					toolStripLabelActivePluginsCounter.ForeColor = Color.Red;
+					toolStripLabelActivePluginsCounter.ImageOptions.Image = icoIcon.ToBitmap();
+					SetBarItemForeColor(toolStripLabelActivePluginsCounter, Color.Red);
 
 					if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
 					{
-						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+						SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Bold);
 					}
 					else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
 					{
-						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+						SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Regular);
 					}
 
-					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
-					toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!";
+					toolStripLabelActivePluginsCounter.Caption = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
+					toolStripLabelActivePluginsCounter.Hint = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!";
 				}
 				else
 				{
-					toolStripLabelActivePluginsCounter.Image = null;
-					toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
+					toolStripLabelActivePluginsCounter.ImageOptions.Image = null;
+					SetBarItemForeColor(toolStripLabelActivePluginsCounter, Color.Empty);
 
 					if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
 					{
-						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+						SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Regular);
 					}
 					else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
 					{
-						toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+						SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Bold);
 					}
 
-					toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
+					toolStripLabelActivePluginsCounter.Caption = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 				}
 
 			}
 			else
 			{
-				toolStripSeparatorPluginSeparator.Visible = false;
-				toolStripLabelPluginsCounter.Visible = false;
+				SetBarItemVisible(toolStripLabelPluginsCounter, false);
 			}
 
 			UpdateModsFeedback();
@@ -760,7 +718,7 @@
 		/// </summary>
 		protected void UserStatusFeedback()
 		{
-			toolStripLabelLoginMessage.Visible = true;
+			SetBarItemVisible(toolStripLabelLoginMessage, true);
 
 			if (ViewModel.OfflineMode)
 			{
@@ -769,20 +727,20 @@
 					toolStripProgressBarDownloadSpeed.Visible = false;
 				}
 
-				toolStripLabelLoginMessage.Text = "You are not logged in.";
-				toolStripLabelLoginMessage.Font = new Font(base.Font, FontStyle.Bold);
-				toolStripButtonGoPremium.Visible = false;
-				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.loggedout_flat, 32, 30);
-				toolStripLabelDownloads.Visible = false;
+				toolStripLabelLoginMessage.Caption = "You are not logged in.";
+				SetBarItemFontStyle(toolStripLabelLoginMessage, FontStyle.Bold);
+				SetBarItemVisible(toolStripButtonGoPremium, false);
+				toolStripButtonOnlineStatus.ImageOptions.Image = new Bitmap(Properties.Resources.loggedout_flat, 32, 30);
+				SetBarItemVisible(toolStripLabelDownloads, false);
 			}
 			else
 			{
-				toolStripButtonOnlineStatus.Image = new Bitmap(Properties.Resources.loggedin_flat, 32, 30);
+				toolStripButtonOnlineStatus.ImageOptions.Image = new Bitmap(Properties.Resources.loggedin_flat, 32, 30);
 
 				// We no longer give a damn about a user's Nexus status
 				//if (ViewModel.UserStatus.IsPremium)
 				//{
-				toolStripButtonGoPremium.Visible = false;
+				SetBarItemVisible(toolStripButtonGoPremium, false);
 				OptionalPremiumMessage = string.Empty;
 				toolStripButtonGoPremium.Enabled = false;
 
@@ -790,7 +748,7 @@
 				{
 					toolStripProgressBarDownloadSpeed.Maximum = 100;
 					toolStripProgressBarDownloadSpeed.Value = 0;
-					toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Ascending;
+					toolStripProgressBarDownloadSpeed.ColorFillMode = DownloadProgressBarItem.FillType.Ascending;
 					toolStripProgressBarDownloadSpeed.ShowOptionalProgress = true;
 				}
 				toolStripLabelDownloads.Tag = "Download Progress:";
@@ -806,7 +764,7 @@
 				//		// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
 				//                    toolStripProgressBarDownloadSpeed.Maximum = (ViewModel.UserStatus.IsSupporter) ? 2048 : 2048;
 				//                    toolStripProgressBarDownloadSpeed.Value = 0;
-				//                    toolStripProgressBarDownloadSpeed.ColorFillMode = ProgressLabel.FillType.Descending;
+				//                    toolStripProgressBarDownloadSpeed.ColorFillMode = DownloadProgressBarItem.FillType.Descending;
 				//                    toolStripProgressBarDownloadSpeed.ShowOptionalProgress = false;
 				//                }
 
@@ -818,7 +776,7 @@
 					toolStripProgressBarDownloadSpeed.Visible = true;
 				}
 
-				toolStripLabelDownloads.Text = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
+				toolStripLabelDownloads.Caption = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
 			}
 		}
 
@@ -1046,13 +1004,13 @@
 
 			if (authenticationFormTask.OverallMessage != null && authenticationFormTask.OverallMessage.Contains("Logged in"))
 			{
-				toolStripLabelLoginMessage.Text = $"{authenticationFormTask.OverallMessage}{OptionalPremiumMessage}";
-				toolStripButtonOnlineStatus.ToolTipText = "Logout";
+				toolStripLabelLoginMessage.Caption = $"{authenticationFormTask.OverallMessage}{OptionalPremiumMessage}";
+				toolStripButtonOnlineStatus.Hint = "Logout";
 			}
 			else
 			{
-				toolStripLabelLoginMessage.Text = authenticationFormTask.OverallMessage;
-				toolStripButtonOnlineStatus.ToolTipText = "Login";
+				toolStripLabelLoginMessage.Caption = authenticationFormTask.OverallMessage;
+				toolStripButtonOnlineStatus.Hint = "Login";
 			}
 		}
 
@@ -1182,7 +1140,7 @@
 		{
 			if (Visible && dockPanel1.ActiveDocument != null)
 			{
-				toolStripTextBoxFind.Visible = false;
+				SetBarItemVisible(toolStripTextBoxFind, false);
 				toolStripTextBoxFind.Enabled = false;
 
 				if (Object.ReferenceEquals(dockPanel1.ActiveDocument, _fileManagerControl))
@@ -1203,7 +1161,7 @@
 		/// </summary>
 		private void UpdateModsFeedback()
 		{
-			tlbModsCounter.Text = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "   |   Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
+			tlbModsCounter.Caption = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "   |   Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
 		}
 
 		/// <summary>
@@ -1211,44 +1169,44 @@
 		/// </summary>
 		private void PmcPluginManagerControlUpdatePluginsCount(object sender, EventArgs e)
 		{
-			toolStripLabelPluginsCounter.Text = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
-			var myFontFamily = new FontFamily(toolStripLabelActivePluginsCounter.Font.Name);
+			toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
+			var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
 			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
 
 			if (limitedPluginsCount > ViewModel.PluginManagerVM.MaxAllowedActivePluginsCount)
 			{
 				var icoIcon = new Icon(SystemIcons.Warning, 16, 16);
-				toolStripLabelActivePluginsCounter.Image = icoIcon.ToBitmap();
-				toolStripLabelActivePluginsCounter.ForeColor = Color.Red;
+				toolStripLabelActivePluginsCounter.ImageOptions.Image = icoIcon.ToBitmap();
+				SetBarItemForeColor(toolStripLabelActivePluginsCounter, Color.Red);
 
 				if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
 				{
-					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+					SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Bold);
 				}
 				else if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
 				{
-					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+					SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Regular);
 				}
 
-				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
-				toolStripLabelActivePluginsCounter.ToolTipText = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!"; ;
+				toolStripLabelActivePluginsCounter.Caption = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
+				toolStripLabelActivePluginsCounter.Hint = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!"; ;
 			}
 			else
 			{
-				toolStripLabelActivePluginsCounter.Image = null;
+				toolStripLabelActivePluginsCounter.ImageOptions.Image = null;
 
 				if (myFontFamily.IsStyleAvailable(FontStyle.Regular))
 				{
-					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Regular);
+					SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Regular);
 				}
 				else if (myFontFamily.IsStyleAvailable(FontStyle.Bold))
 				{
-					toolStripLabelActivePluginsCounter.Font = new Font(toolStripLabelActivePluginsCounter.Font, FontStyle.Bold);
+					SetBarItemFontStyle(toolStripLabelActivePluginsCounter, FontStyle.Bold);
 				}
 
-				toolStripLabelActivePluginsCounter.ForeColor = Color.Black;
-				toolStripLabelActivePluginsCounter.Text = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
+				SetBarItemForeColor(toolStripLabelActivePluginsCounter, Color.Empty);
+				toolStripLabelActivePluginsCounter.Caption = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
 			}
 		}
 
@@ -1275,7 +1233,7 @@
 		/// </summary>
 		private void MmgModManagerControlSetTextBoxFocus(object sender, EventArgs e)
 		{
-			toolStripTextBoxFind.Focus();
+			FocusMainFindEditor();
 		}
 
 		/// <summary>
@@ -1283,7 +1241,7 @@
 		/// </summary>
 		private void MmgModManagerControlResetSearchBox(object sender, EventArgs e)
 		{
-			toolStripTextBoxFind.Clear();
+			toolStripTextBoxFind.EditValue = String.Empty;
 		}
 
 		/// <summary>
@@ -1323,7 +1281,7 @@
 		{
 			if (ModManagerDock.Visible)
 			{
-				toolStripTextBoxFind.Focus();
+				FocusMainFindEditor();
 			}
 		}
 
@@ -1342,36 +1300,36 @@
 
 					if (lwiListViewItem.Task != null)
 					{
-						toolStripButtonLoader.Visible = true;
-						toolStripLabelBottomBarFeedbackCounter.Visible = true;
+						SetBarItemVisible(toolStripButtonLoader, true);
+						SetBarItemVisible(toolStripLabelBottomBarFeedbackCounter, true);
 
 						if (!lwiListViewItem.Task.IsQueued)
 						{
 							if (lwiListViewItem.Task.GetType() == typeof(ModInstaller))
 							{
-								toolStripLabelBottomBarFeedback.Text = "Mod Activation: Installing ";
+								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Installing ";
 							}
 							else if (lwiListViewItem.Task.GetType() == typeof(ModUninstaller))
 							{
-								toolStripLabelBottomBarFeedback.Text = "Mod Activation: Uninstalling ";
+								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Uninstalling ";
 							}
 							else if (lwiListViewItem.Task.GetType() == typeof(ModUpgrader))
 							{
-								toolStripLabelBottomBarFeedback.Text = "Mod Activation: Upgrading ";
+								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Upgrading ";
 							}
 						}
 					}
 					else
 					{
-						toolStripLabelBottomBarFeedback.Text = "Idle";
-						toolStripButtonLoader.Visible = false;
+						toolStripLabelBottomBarFeedback.Caption = "Idle";
+						SetBarItemVisible(toolStripButtonLoader, false);
 					}
 				}
 				else
 				{
-					toolStripButtonLoader.Visible = false;
-					toolStripLabelBottomBarFeedbackCounter.Visible = false;
-					toolStripLabelBottomBarFeedback.Text = "Idle";
+					SetBarItemVisible(toolStripButtonLoader, false);
+					SetBarItemVisible(toolStripLabelBottomBarFeedbackCounter, false);
+					toolStripLabelBottomBarFeedback.Caption = "Idle";
 				}
 			}
 		}
@@ -1385,13 +1343,13 @@
 
 			if (_modActivationMonitorControl.ViewModel.Tasks.Count == 0)
 			{
-				toolStripLabelBottomBarFeedbackCounter.Text = "";
-				toolStripLabelBottomBarFeedback.Text = "";
-				toolStripButtonLoader.Visible = false;
+				toolStripLabelBottomBarFeedbackCounter.Caption = "";
+				toolStripLabelBottomBarFeedback.Caption = "";
+				SetBarItemVisible(toolStripButtonLoader, false);
 			}
 			else
 			{
-				toolStripLabelBottomBarFeedbackCounter.Text = $"({intCompletedTasks}/{_modActivationMonitorControl.ViewModel.Tasks.Count})";
+				toolStripLabelBottomBarFeedbackCounter.Caption = $"({intCompletedTasks}/{_modActivationMonitorControl.ViewModel.Tasks.Count})";
 			}
 		}
 
@@ -1422,7 +1380,7 @@
 		/// </summary>
 		private void tstFind_KeyUp(object sender, KeyEventArgs e)
 		{
-			_modManagerControl.FindItemWithText(toolStripTextBoxFind.Text);
+			_modManagerControl.FindItemWithText(MainFindText);
 		}
 
 		/// <summary>
@@ -1454,11 +1412,13 @@
 		/// </summary>
 		protected void BindCommands()
 		{
+			ViewModel.Updating -= ViewModel_Updating;
 			ViewModel.Updating += ViewModel_Updating;
-			new ToolStripItemCommandBinding(tsbUpdate, ViewModel.UpdateCommand);
+			BindExistingBarItem(tsbUpdate, ViewModel.UpdateCommand);
 
+			ViewModel.ToggleLoginCommand.BeforeExecute -= LogoutCommand_BeforeExecute;
 			ViewModel.ToggleLoginCommand.BeforeExecute += LogoutCommand_BeforeExecute;
-			new ToolStripItemCommandBinding(toolStripButtonOnlineStatus, ViewModel.ToggleLoginCommand);
+			BindExistingBarItem(toolStripButtonOnlineStatus, ViewModel.ToggleLoginCommand);
 
 			BindLaunchCommands();
 			BindProfileCommands();
@@ -1676,7 +1636,7 @@
 
 			if (!ViewModel.OfflineMode)
 			{
-				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
+				toolStripLabelDownloads.Caption = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
 				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
 				{
 					UpdateProgressBarSpeed("TotalSpeed", true);
@@ -1715,7 +1675,7 @@
 								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 						}
 				}
-				toolStripLabelDownloads.Text = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
+				toolStripLabelDownloads.Caption = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
 				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
 					UpdateProgressBarSpeed("TotalSpeed", true);
 			}
@@ -1753,7 +1713,7 @@
 				{
 					toolStripProgressBarDownloadSpeed.Value = 0;
 
-					if (toolStripProgressBarDownloadSpeed.ColorFillMode == ProgressLabel.FillType.Fixed)
+					if (toolStripProgressBarDownloadSpeed.ColorFillMode == DownloadProgressBarItem.FillType.Fixed)
 					{
 						toolStripProgressBarDownloadSpeed.Maximum = 1;
 					}
@@ -1762,12 +1722,12 @@
 				}
 				else switch (toolStripProgressBarDownloadSpeed.ColorFillMode)
 					{
-						case ProgressLabel.FillType.Fixed:
+						case DownloadProgressBarItem.FillType.Fixed:
 							toolStripProgressBarDownloadSpeed.Visible = true;
 							toolStripProgressBarDownloadSpeed.Maximum = _downloadMonitorControl.ViewModel.TotalSpeed > 0 ? _downloadMonitorControl.ViewModel.TotalSpeed : 1;
 							toolStripProgressBarDownloadSpeed.Value = toolStripProgressBarDownloadSpeed.Maximum;
 							break;
-						case ProgressLabel.FillType.Ascending:
+						case DownloadProgressBarItem.FillType.Ascending:
 							{
 								toolStripProgressBarDownloadSpeed.Visible = true;
 
@@ -1779,7 +1739,7 @@
 
 								break;
 							}
-						case ProgressLabel.FillType.Descending:
+						case DownloadProgressBarItem.FillType.Descending:
 							{
 								toolStripProgressBarDownloadSpeed.Visible = true;
 								// Disabled for the time being since there's currently no way to check whether an user is browsing the Nexus with an active adblocker
@@ -1926,34 +1886,40 @@
 		/// </summary>
 		protected void BindChangeModeCommands()
 		{
-			foreach (var changeCommand in ViewModel.ChangeGameModeCommands)
+			ClearTransientPopupItems(popupChangeMode);
+			foreach (Command previouslyBoundCommand in _changeModeCommandsWithExecutedHandler)
+				previouslyBoundCommand.Executed -= ChangeGameModeCommand_Executed;
+			_changeModeCommandsWithExecutedHandler.Clear();
+
+			IEnumerable<Command> commands = ViewModel.ChangeGameModeCommands
+				.OrderByDescending(command => ViewModel.GameMode.ModeId.Equals(command?.Id, StringComparison.OrdinalIgnoreCase));
+			bool addedReloadCommand = false;
+
+			foreach (Command changeCommand in commands)
 			{
-				var isReloadCommand = false;
-
-				if (ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase))
-				{
-					changeCommand.Name = $"Reload {changeCommand.Name}";
-					changeCommand.Description = $"Reload {changeCommand.Name}";
-					isReloadCommand = true;
-				}
-
-				var toolStripMenuItemChange = new ToolStripMenuItem();
+				bool isReloadCommand = ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase);
 				changeCommand.Executed += ChangeGameModeCommand_Executed;
-				new ToolStripItemCommandBinding(toolStripMenuItemChange, changeCommand);
-
+				_changeModeCommandsWithExecutedHandler.Add(changeCommand);
+				BarButtonItem item = CreateCommandBarButton(changeCommand);
 				if (isReloadCommand)
 				{
-					spbChangeMode.DropDownItems.Insert(0, toolStripMenuItemChange);
-					spbChangeMode.DropDownItems.Insert(1, new ToolStripSeparator());
-					continue;
+					item.Caption = $"Reload {changeCommand.Name}";
+					item.Hint = $"Reload {changeCommand.Name}";
 				}
+				BarItemLink link = popupChangeMode.AddItem(item);
 
-				if (changeCommand.Name.Equals("Change Default Game...", StringComparison.OrdinalIgnoreCase))
+				if (!isReloadCommand && addedReloadCommand)
 				{
-					spbChangeMode.DropDownItems.Add(new ToolStripSeparator());
+					link.BeginGroup = true;
+					addedReloadCommand = false;
+				}
+				else if (changeCommand.Name.Equals("Change Default Game...", StringComparison.OrdinalIgnoreCase))
+				{
+					link.BeginGroup = true;
 				}
 
-				spbChangeMode.DropDownItems.Add(toolStripMenuItemChange);
+				if (isReloadCommand)
+					addedReloadCommand = true;
 			}
 		}
 
@@ -1967,7 +1933,7 @@
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void spbChangeMode_ButtonClick(object sender, EventArgs e)
 		{
-			spbChangeMode.DropDown.Show();
+			popupChangeMode.ShowPopup(Control.MousePosition);
 		}
 
 		#endregion
@@ -1979,81 +1945,56 @@
 		/// </summary>
 		protected void BindToolCommands()
 		{
-			var resetUiCommand = new Command("Reset UI", "Resets the UI to the default layout.", ResetUI);
-			var toolStripMenuItemResetTool = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(toolStripMenuItemResetTool, resetUiCommand);
-			toolStripSplitButtonTools.DropDownItems.Add(toolStripMenuItemResetTool);
-
-			var cmdRepairFomodInfoCache = new Command("Repair FOMOD Info Cache", "Restores mod info (name, version, description) for uncategorized mods from the legacy FOMOD cache, where available.", RepairFomodInfoCache);
-			var tmiRepairFomodInfoCache = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(tmiRepairFomodInfoCache, cmdRepairFomodInfoCache);
-			toolStripSplitButtonTools.DropDownItems.Add(tmiRepairFomodInfoCache);
-
-			var cmdDisableAllMods = new Command("Disable all active mods", "Disables all active mods.", DisableAllMods);
-			var tmiDisableAllMods = new ToolStripMenuItem { Image = Properties.Resources.edit_delete };
-			new ToolStripItemCommandBinding(tmiDisableAllMods, cmdDisableAllMods);
-			toolStripSplitButtonTools.DropDownItems.Add(tmiDisableAllMods);
-
-			var cmdUninstallAllMods = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
-			var tmiUninstallAllMods = new ToolStripMenuItem { Image = Properties.Resources.edit_delete_6 };
-			new ToolStripItemCommandBinding(tmiUninstallAllMods, cmdUninstallAllMods);
-			toolStripSplitButtonTools.DropDownItems.Add(tmiUninstallAllMods);
-
-			var cmdPurgeLooseFiles = new Command("Purge Unmanaged Files", "Purge Unmanaged Files.", PurgeLooseFiles);
-			var tmiPurgeLooseFiles = new ToolStripMenuItem { Image = Properties.Resources.deleteProfile };
-			new ToolStripItemCommandBinding(tmiPurgeLooseFiles, cmdPurgeLooseFiles);
-			toolStripSplitButtonTools.DropDownItems.Add(tmiPurgeLooseFiles);
-
-			var cmdCreateBackup = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
-			var cmdRestoreBackup = new Command("Restore Mod Installation backup", "Restore Mod Installation backup.", RestoreBackup);
-			var cmdRestoreBackupProfile = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
-
-			var tmiBackup = new ToolStripMenuItem();
-			tmiBackup.Text = "Backup and Restore";
-			tmiBackup.Image = Properties.Resources.backup;
-
-			var tmiCreateBackup = new ToolStripMenuItem
+			ClearTransientPopupItems(popupTools);
+			foreach (ITool previouslyBoundTool in _boundGameTools)
 			{
-				Image = Properties.Resources.createBackup
-			};
-			new ToolStripItemCommandBinding(tmiCreateBackup, cmdCreateBackup);
-			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiCreateBackup });
+				previouslyBoundTool.DisplayToolView -= Tool_DisplayToolView;
+				previouslyBoundTool.CloseToolView -= Tool_CloseToolView;
+			}
+			_boundGameTools.Clear();
 
-			var tmiRestoreBackup = new ToolStripMenuItem { Image = Properties.Resources.restoreBackup };
-			new ToolStripItemCommandBinding(tmiRestoreBackup, cmdRestoreBackup);
-			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiRestoreBackup });
+			Command resetUiCommand = new Command("Reset UI", "Resets the UI to the default layout.", ResetUI);
+			popupTools.AddItem(CreateCommandBarButton(resetUiCommand));
 
-			var tmiRestoreBackupProfile = new ToolStripMenuItem { Image = Properties.Resources.change_game_mode };
-			new ToolStripItemCommandBinding(tmiRestoreBackupProfile, cmdRestoreBackupProfile);
-			tmiBackup.DropDownItems.AddRange(new ToolStripItem[] { tmiRestoreBackupProfile });
+			Command repairFomodInfoCacheCommand = new Command("Repair FOMOD Info Cache", "Restores mod info (name, version, description) for uncategorized mods from the legacy FOMOD cache, where available.", RepairFomodInfoCache);
+			popupTools.AddItem(CreateCommandBarButton(repairFomodInfoCacheCommand));
 
-			toolStripSplitButtonTools.DropDownItems.Add(tmiBackup);
+			Command disableAllModsCommand = new Command("Disable all active mods", "Disables all active mods.", DisableAllMods);
+			popupTools.AddItem(CreateCommandBarButton(disableAllModsCommand, Properties.Resources.edit_delete));
 
-			var cmdConfigureVirtualFolders = new Command("Change Virtual folders...", "Virtual folders setup menu.", ChangeVirtualFolders);
-			var tmiConfigureVirtualFolders = new ToolStripMenuItem { Image = Properties.Resources.category_folder };
-			new ToolStripItemCommandBinding(tmiConfigureVirtualFolders, cmdConfigureVirtualFolders);
-			toolStripSplitButtonTools.DropDownItems.Add(tmiConfigureVirtualFolders);
+			Command uninstallAllModsCommand = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
+			popupTools.AddItem(CreateCommandBarButton(uninstallAllModsCommand, Properties.Resources.edit_delete_6));
+
+			Command purgeLooseFilesCommand = new Command("Purge Unmanaged Files", "Purge Unmanaged Files.", PurgeLooseFiles);
+			popupTools.AddItem(CreateCommandBarButton(purgeLooseFilesCommand, Properties.Resources.deleteProfile));
+
+			BarSubItem backupMenu = new BarSubItem(barManagerMain, "Backup and Restore");
+			backupMenu.ImageOptions.Image = Properties.Resources.backup;
+			Command createBackupCommand = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
+			Command restoreBackupCommand = new Command("Restore Mod Installation backup", "Restore Mod Installation backup.", RestoreBackup);
+			Command restoreBackupProfileCommand = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
+			backupMenu.AddItem(CreateCommandBarButton(createBackupCommand, Properties.Resources.createBackup));
+			backupMenu.AddItem(CreateCommandBarButton(restoreBackupCommand, Properties.Resources.restoreBackup));
+			backupMenu.AddItem(CreateCommandBarButton(restoreBackupProfileCommand, Properties.Resources.change_game_mode));
+			popupTools.AddItem(backupMenu);
+
+			Command configureVirtualFoldersCommand = new Command("Change Virtual folders...", "Virtual folders setup menu.", ChangeVirtualFolders);
+			popupTools.AddItem(CreateCommandBarButton(configureVirtualFoldersCommand, Properties.Resources.category_folder));
 
 			if (ViewModel.UsesPlugins && ViewModel.SupportsPluginAutoSorting)
 			{
-				var cmdSortPlugins = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
-				var tmicmdSortPluginsTool = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-				new ToolStripItemCommandBinding(tmicmdSortPluginsTool, cmdSortPlugins);
-				toolStripSplitButtonTools.DropDownItems.Add(tmicmdSortPluginsTool);
+				Command sortPluginsCommand = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
+				popupTools.AddItem(CreateCommandBarButton(sortPluginsCommand));
 			}
 
-			foreach (var tolTool in ViewModel.GameToolLauncher.Tools)
+			foreach (ITool tool in ViewModel.GameToolLauncher.Tools)
 			{
-				var tmiTool = new ToolStripMenuItem
-				{
-					Tag = tolTool,
-					ImageScaling = ToolStripItemImageScaling.None
-				};
-
-				new ToolStripItemCommandBinding(tmiTool, tolTool.LaunchCommand);
-				tolTool.DisplayToolView += Tool_DisplayToolView;
-				tolTool.CloseToolView += Tool_CloseToolView;
-				toolStripSplitButtonTools.DropDownItems.Add(tmiTool);
+				BarButtonItem toolItem = CreateCommandBarButton(tool.LaunchCommand);
+				toolItem.Tag = tool;
+				tool.DisplayToolView += Tool_DisplayToolView;
+				tool.CloseToolView += Tool_CloseToolView;
+				_boundGameTools.Add(tool);
+				popupTools.AddItem(toolItem);
 			}
 		}
 
@@ -2106,7 +2047,7 @@
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void spbTools_ButtonClick(object sender, EventArgs e)
 		{
-			toolStripSplitButtonTools.DropDown.Show();
+			popupTools.ShowPopup(Control.MousePosition);
 		}
 
 		private Point FindControlCoords(string section, string target)
@@ -2148,21 +2089,11 @@
 					break;
 
 				case "toolStrip1":
-					root = Controls.Find(section, true)[0];
-					rootItem = ((ToolStrip)root).Items.Find(target, true)[0];
-					coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
-					coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 30;
+					coords = GetMainBarTipLocation(target, -10, -30);
 					break;
 
 				case "tssDownload":
-					root = Controls.Find(section, true)[0];
-					rootItem = ((StatusStrip)root).Items.Find(target, true)[0];
-
-					if (rootItem.Visible)
-					{
-						coords.X = rootItem.AccessibilityObject.Bounds.Location.X - 10;
-						coords.Y = rootItem.AccessibilityObject.Bounds.Location.Y - 60;
-					}
+					coords = GetMainBarTipLocation(target, -10, -60);
 					break;
 
 				case "ModManager.toolStrip1":
@@ -2259,30 +2190,19 @@
 		/// </summary>
 		protected void BindFolderCommands()
 		{
-			var cmdGameFolder = new Command("Open Game Folder", "Open the game's root folder in the explorer window.", OpenGameFolder);
-			var tmiGameFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(tmiGameFolder, cmdGameFolder);
-			spbFolders.DropDownItems.Add(tmiGameFolder);
+			ClearTransientPopupItems(popupFolders);
 
-			var cmdModsFolder = new Command("Open NMM's Mods Folder", "Open NMM's mods folder in the explorer window.", OpenModsFolder);
-			var tmiModsFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(tmiModsFolder, cmdModsFolder);
-			spbFolders.DropDownItems.Add(tmiModsFolder);
+			Command cmdGameFolder = new Command("Open Game Folder", "Open the game's root folder in the explorer window.", OpenGameFolder);
+			Command cmdModsFolder = new Command("Open NMM's Mods Folder", "Open NMM's mods folder in the explorer window.", OpenModsFolder);
+			Command cmdCacheFolder = new Command("Open NMM's Cache Folder", "Open NMM's cache folder in the explorer window.", OpenCacheFolder);
+			Command cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
+			Command cmdConfigFolder = new Command("Open NMM's Config Folder", "Open NMM's config in the explorer window.", OpenConfigFolder);
 
-			var cmdCacheFolder = new Command("Open NMM's Cache Folder", "Open NMM's cache folder in the explorer window.", OpenCacheFolder);
-			var tmiCacheFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(tmiCacheFolder, cmdCacheFolder);
-			spbFolders.DropDownItems.Add(tmiCacheFolder);
-
-			var cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
-			var tmiInstallFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(tmiInstallFolder, cmdInstallFolder);
-			spbFolders.DropDownItems.Add(tmiInstallFolder);
-
-			var cmdConfigFolder = new Command("Open NMM's Config Folder", "Open NMM's config in the explorer window.", OpenConfigFolder);
-			var tmiConfigFolder = new ToolStripMenuItem { ImageScaling = ToolStripItemImageScaling.None };
-			new ToolStripItemCommandBinding(tmiConfigFolder, cmdConfigFolder);
-			spbFolders.DropDownItems.Add(tmiConfigFolder);
+			popupFolders.AddItem(CreateCommandBarButton(cmdGameFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdModsFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdCacheFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdInstallFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdConfigFolder));
 		}
 
 		/// <summary>
@@ -2295,7 +2215,7 @@
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void spbFolders_ButtonClick(object sender, EventArgs e)
 		{
-			spbFolders.DropDown.Show();
+			popupFolders.ShowPopup(Control.MousePosition);
 		}
 
 		#endregion
@@ -2312,7 +2232,7 @@
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void spbHelp_ButtonClick(object sender, EventArgs e)
 		{
-			spbHelp.DropDown.Show();
+			popupHelp.ShowPopup(Control.MousePosition);
 		}
 
 		/// <summary>
@@ -2323,14 +2243,11 @@
 		/// </remarks>
 		/// <param name="sender">The object that raised the event.</param>
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
-		private void tmiHelp_Click(object sender, EventArgs e)
+		private void HelpItem_ItemClick(object sender, ItemClickEventArgs e)
 		{
-			var helpLink = (HelpInformation.HelpLink)((ToolStripMenuItem)sender).Tag;
-
+			HelpInformation.HelpLink helpLink = e.Item.Tag as HelpInformation.HelpLink;
 			if (helpLink == null)
-			{
 				return;
-			}
 
 			try
 			{
@@ -2968,37 +2885,35 @@
 		/// </summary>
 		protected void BindLaunchCommands()
 		{
-			foreach (var cmdLaunch in ViewModel.GameLauncher.LaunchCommands)
-			{
-				var tmiLaunch = new ToolStripMenuItem { Tag = cmdLaunch };
-				new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
-				spbLaunch.DropDownItems.Add(tmiLaunch);
+			ClearTransientPopupItems(popupLaunch);
+			_launchDefaultItem = null;
 
-				if (string.Equals(cmdLaunch.Id, _viewModel.SelectedGameLaunchCommandId))
-				{
-					spbLaunch.DefaultItem = tmiLaunch;
-					spbLaunch.Text = spbLaunch.DefaultItem.Text;
-					spbLaunch.Image = spbLaunch.DefaultItem.Image;
-				}
+			foreach (Command launchCommand in ViewModel.GameLauncher.LaunchCommands)
+			{
+				BarButtonItem launchItem = CreateCommandBarButton(launchCommand);
+				launchItem.ItemClick += LaunchMenuItem_ItemClick;
+				popupLaunch.AddItem(launchItem);
+
+				if (String.Equals(launchCommand.Id, _viewModel.SelectedGameLaunchCommandId, StringComparison.OrdinalIgnoreCase))
+					SetDefaultLaunchItem(launchItem);
 			}
 
-			if (spbLaunch.DefaultItem == null)
+			if (_launchDefaultItem == null && popupLaunch.ItemLinks.Count > 0)
+				SetDefaultLaunchItem(popupLaunch.ItemLinks[0].Item as BarButtonItem);
+
+			if (_launchDefaultItem == null)
 			{
-				if (spbLaunch.DropDownItems.Count > 0)
-				{
-					spbLaunch.DefaultItem = spbLaunch.DropDownItems[0];
-					spbLaunch.Text = spbLaunch.DefaultItem.Text;
-					spbLaunch.Image = spbLaunch.DefaultItem.Image;
-				}
-				else
-				{
-					spbLaunch.Text = "Launch Game";
-					spbLaunch.Image = null;
-					spbLaunch.Enabled = false;
-				}
+				spbLaunch.Caption = "Launch Game";
+				spbLaunch.ImageOptions.Image = null;
+				spbLaunch.Enabled = false;
+			}
+			else
+			{
+				spbLaunch.Enabled = true;
 			}
 
 			ViewModel.ConfirmCloseAfterGameLaunch = ConfirmCloseAfterGameLaunch;
+			ViewModel.GameLauncher.GameLaunched -= GameLauncher_GameLaunched;
 			ViewModel.GameLauncher.GameLaunched += GameLauncher_GameLaunched;
 		}
 
@@ -3007,118 +2922,135 @@
 		/// </summary>
 		protected void BindProfileCommands()
 		{
-			if (ViewModel.ProfileManager.Initialized)
+			ClearTransientPopupItems(popupProfiles);
+			_profileDefaultItem = null;
+
+			if (!ViewModel.ProfileManager.Initialized)
 			{
-				spbProfiles.DropDownItems.Clear();
-				spbProfiles.DefaultItem = null;
-				var tmiMenuItem = new ToolStripMenuItem { Tag = "New", Text = "New Profile" };
-				spbProfiles.DropDownItems.Add(tmiMenuItem);
-				tmiMenuItem = new ToolStripMenuItem { Tag = "Rename", Text = "Rename Current Profile" };
-				spbProfiles.DropDownItems.Add(tmiMenuItem);
-				tmiMenuItem = new ToolStripMenuItem { Tag = "Remove", Text = "Remove Current Profile" };
-				spbProfiles.DropDownItems.Add(tmiMenuItem);
-				tmiMenuItem = new ToolStripMenuItem { Tag = "Save", Text = "Save Current Profile" };
-				spbProfiles.DropDownItems.Add(tmiMenuItem);
-				tmiMenuItem = new ToolStripMenuItem();
-				spbProfiles.DropDownItems.Add(new ToolStripSeparator());
-
-				if (ViewModel.ProfileManager.CurrentProfile != null)
-				{
-					var tmiProfile = new ToolStripMenuItem { Tag = ViewModel.ProfileManager.CurrentProfile };
-					var name = ViewModel.ProfileManager.CurrentProfile.Name;
-
-					if (name.Length > 64)
-					{
-						name = name.Substring(0, 62) + "..";
-					}
-
-					tmiProfile.Text = $"{name} ({ViewModel.ProfileManager.CurrentProfile.ModCount})";
-					spbProfiles.DropDownItems.Add(tmiProfile);
-
-					if (ViewModel.ProfileManager.CurrentProfile.IsDefault)
-					{
-						spbProfiles.DefaultItem = tmiProfile;
-						spbProfiles.Text = name;
-						spbProfiles.Image = spbProfiles.Image;
-					}
-
-					tmiProfile.Enabled = false;
-				}
-
-				foreach (var impProfile in ViewModel.ProfileManager.ModProfiles.OrderBy(x => x.Name))
-				{
-					if (impProfile == ViewModel.ProfileManager.CurrentProfile)
-					{
-						continue;
-					}
-
-					var strProfileName = impProfile.Name;
-
-					if (strProfileName.Length > 64)
-					{
-						strProfileName = strProfileName.Substring(0, 62) + "..";
-					}
-
-					var tmiProfile = new ToolStripMenuItem
-					{
-						Tag = impProfile,
-						Text = $"{strProfileName} ({impProfile.ModCount})"
-					};
-					spbProfiles.DropDownItems.Add(tmiProfile);
-
-					var tmiItem = new ToolStripMenuItem
-					{
-						Tag = "RenameProfile",
-						Text = "Rename Profile",
-						Name = impProfile.Name
-					};
-					tmiProfile.DropDownItems.Add(tmiItem);
-
-					tmiItem = new ToolStripMenuItem
-					{
-						Tag = "RemoveProfile",
-						Text = "Remove Profile",
-						Name = impProfile.Name
-					};
-					tmiProfile.DropDownItems.Add(tmiItem);
-
-					if (ViewModel.GameMode.UsesPlugins)
-					{
-						tmiItem = new ToolStripMenuItem
-						{
-							Tag = "ImportLoadorder",
-							Text = "Import Profile's Load Order",
-							Name = impProfile.Id
-						};
-						tmiProfile.DropDownItems.Add(tmiItem);
-					}
-
-					if (impProfile.IsDefault)
-					{
-						spbProfiles.DefaultItem = tmiProfile;
-						spbProfiles.Text = strProfileName;
-						spbProfiles.Image = spbProfiles.Image;
-					}
-
-					tmiProfile.DropDownItemClicked += (o, e) => { tmiItem_DropDownItemClicked(impProfile, e); };
-				}
-
-				if (spbProfiles.DefaultItem == null)
-				{
-					if (spbProfiles.DropDownItems.Count > 0)
-					{
-						spbProfiles.DefaultItem = spbProfiles.DropDownItems[0];
-						spbProfiles.Text = spbProfiles.DefaultItem.Text;
-						spbProfiles.Image = spbProfiles.Image;
-					}
-				}
-
-				spbProfiles.Visible = true;
+				SetBarItemVisible(spbProfiles, false);
+				return;
 			}
-			else
+
+			popupProfiles.AddItem(CreateProfileCommandItem("New", "New Profile"));
+			popupProfiles.AddItem(CreateProfileCommandItem("Rename", "Rename Current Profile"));
+			popupProfiles.AddItem(CreateProfileCommandItem("Remove", "Remove Current Profile"));
+			popupProfiles.AddItem(CreateProfileCommandItem("Save", "Save Current Profile"));
+
+			bool beginProfileGroup = true;
+			if (ViewModel.ProfileManager.CurrentProfile != null)
 			{
-				spbProfiles.Visible = false;
+				ModProfile currentProfile = ViewModel.ProfileManager.CurrentProfile;
+				string currentName = GetCompactProfileName(currentProfile.Name);
+				BarButtonItem currentItem = new BarButtonItem(barManagerMain, $"{currentName} ({currentProfile.ModCount})")
+				{
+					Tag = currentProfile,
+					Enabled = false
+				};
+				popupProfiles.AddItem(currentItem).BeginGroup = beginProfileGroup;
+				beginProfileGroup = false;
+
+				if (currentProfile.IsDefault)
+				{
+					_profileDefaultItem = currentItem;
+					spbProfiles.Caption = currentName;
+				}
 			}
+
+			foreach (ModProfile profile in ViewModel.ProfileManager.ModProfiles.OrderBy(item => item.Name))
+			{
+				if (profile == ViewModel.ProfileManager.CurrentProfile)
+					continue;
+
+				string profileName = GetCompactProfileName(profile.Name);
+				PopupMenu profileActions = new PopupMenu(barManagerMain);
+				BarButtonItem profileItem = new BarButtonItem(barManagerMain, $"{profileName} ({profile.ModCount})")
+				{
+					Tag = profile,
+					ButtonStyle = BarButtonStyle.DropDown,
+					DropDownControl = profileActions,
+					ActAsDropDown = false
+				};
+				profileItem.ItemClick += ProfileMenuItem_ItemClick;
+				popupProfiles.AddItem(profileItem).BeginGroup = beginProfileGroup;
+				beginProfileGroup = false;
+
+				AddProfileAction(profileActions, profile, "RenameProfile", "Rename Profile");
+				AddProfileAction(profileActions, profile, "RemoveProfile", "Remove Profile");
+				if (ViewModel.GameMode.UsesPlugins)
+					AddProfileAction(profileActions, profile, "ImportLoadorder", "Import Profile's Load Order");
+
+				if (profile.IsDefault)
+				{
+					_profileDefaultItem = profileItem;
+					spbProfiles.Caption = profileName;
+				}
+			}
+
+			if (_profileDefaultItem == null && popupProfiles.ItemLinks.Count > 0)
+			{
+				_profileDefaultItem = popupProfiles.ItemLinks[0].Item;
+				spbProfiles.Caption = _profileDefaultItem.Caption;
+			}
+
+			SetBarItemVisible(spbProfiles, true);
+		}
+
+		/// <summary>
+		/// Sets the default launch action represented by the main Launch button.
+		/// </summary>
+		private void SetDefaultLaunchItem(BarButtonItem item)
+		{
+			if (item == null)
+				return;
+
+			_launchDefaultItem = item;
+			spbLaunch.Caption = item.Caption;
+			spbLaunch.ImageOptions.Image = item.ImageOptions.Image;
+		}
+
+		/// <summary>
+		/// Creates one of the fixed profile-management commands.
+		/// </summary>
+		private BarButtonItem CreateProfileCommandItem(string command, string caption)
+		{
+			BarButtonItem item = new BarButtonItem(barManagerMain, caption)
+			{
+				Tag = command
+			};
+			item.ItemClick += ProfileMenuItem_ItemClick;
+			return item;
+		}
+
+		/// <summary>
+		/// Adds a profile-specific action to a profile's drop-down menu.
+		/// </summary>
+		private void AddProfileAction(PopupMenu menu, ModProfile profile, string command, string caption)
+		{
+			BarButtonItem item = new BarButtonItem(barManagerMain, caption)
+			{
+				Tag = command
+			};
+			item.ItemClick += (sender, args) => HandleProfileSubItemClick(profile, Convert.ToString(args.Item.Tag));
+			menu.AddItem(item);
+		}
+
+		/// <summary>
+		/// Returns a toolbar-safe profile caption without changing the underlying profile name.
+		/// </summary>
+		private static string GetCompactProfileName(string profileName)
+		{
+			if (String.IsNullOrEmpty(profileName) || profileName.Length <= 64)
+				return profileName ?? String.Empty;
+
+			return profileName.Substring(0, 62) + "..";
+		}
+
+		/// <summary>
+		/// Routes a DevExpress profile-menu click through the existing profile workflow.
+		/// </summary>
+		private void ProfileMenuItem_ItemClick(object sender, ItemClickEventArgs e)
+		{
+			HandleProfileItemClick(e.Item);
 		}
 
 		/// <summary>
@@ -3126,188 +3058,143 @@
 		/// </summary>
 		protected void BindSupportedToolsCommands()
 		{
-			spbSupportedTools.DropDownItems.Clear();
-			spbSupportedTools.DefaultItem = null;
+			ClearTransientPopupItems(popupSupportedTools);
 
-			if (ViewModel.SupportedToolsLauncher != null)
+			if (ViewModel.SupportedToolsLauncher == null)
 			{
-				foreach (var cmdLaunch in ViewModel.SupportedToolsLauncher.LaunchCommands)
-				{
-					var tmiLaunch = new ToolStripMenuItem { Tag = cmdLaunch };
-
-					if (tmiLaunch.Image == null)
-					{
-						tmiLaunch.Image = ToolStripRenderer.CreateDisabledImage(Properties.Resources.supported_tools_flat);
-					}
-
-					new ToolStripItemCommandBinding(tmiLaunch, cmdLaunch);
-					tmiLaunch.MouseUp += TmiLaunch_Click;
-					spbSupportedTools.DropDownItems.Add(tmiLaunch);
-				}
-
-				if (spbSupportedTools.DefaultItem == null)
-				{
-					if (spbSupportedTools.DropDownItems.Count > 0)
-					{
-						spbSupportedTools.Text = "Supported Tools";
-						spbSupportedTools.Image = Properties.Resources.supported_tools_flat;
-					}
-				}
+				SetBarItemVisible(spbSupportedTools, false);
+				return;
 			}
-			else
+
+			foreach (Command launchCommand in ViewModel.SupportedToolsLauncher.LaunchCommands)
 			{
-				spbSupportedTools.Visible = false;
+				BarButtonItem launchItem = CreateCommandBarButton(launchCommand, Properties.Resources.supported_tools_flat);
+				launchItem.ItemRightClick += SupportedToolItem_ItemRightClick;
+				popupSupportedTools.AddItem(launchItem);
 			}
-		}
 
-		private void TmiLaunch_Click(object sender, MouseEventArgs e)
-		{
-			if (e.Button == MouseButtons.Right)
-			{
-				var tmiClicked = (ToolStripMenuItem)sender;
-
-				if (tmiClicked?.Tag != null && tmiClicked.Tag.GetType() == typeof(Command))
-				{
-					spbSupportedTools.DropDown.Close();
-					ViewModel.SupportedToolsLauncher.ConfigCommand(((Command)tmiClicked.Tag).Id);
-				}
-			}
+			spbSupportedTools.Caption = "Supported Tools";
+			spbSupportedTools.ImageOptions.Image = Properties.Resources.supported_tools_flat;
+			SetBarItemVisible(spbSupportedTools, popupSupportedTools.ItemLinks.Count > 0);
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
-		/// split button.
+		/// Configures a supported tool when its DevExpress menu item is right-clicked.
 		/// </summary>
-		/// <remarks>
-		/// This makes the last selected function the new default for the button.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
-		private void spbLaunch_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		/// <param name="sender">The bar item that raised the event.</param>
+		/// <param name="e">The item-click event data.</param>
+		private void SupportedToolItem_ItemRightClick(object sender, ItemClickEventArgs e)
 		{
-			spbLaunch.DefaultItem = e.ClickedItem;
-			spbLaunch.Text = e.ClickedItem.Text;
-			toolStrip1.SuspendLayout();
-			spbLaunch.Image = e.ClickedItem.Image;
-			toolStrip1.ResumeLayout();
-			_viewModel.SelectedGameLaunchCommandId = ((Command)e.ClickedItem.Tag).Id;
+			Command command = e.Item.Tag as Command;
+			if (command == null)
+				return;
+
+			popupSupportedTools.HidePopup();
+			ViewModel.SupportedToolsLauncher.ConfigCommand(command.Id);
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripSplitButton.ButtonClick"/> of the launch game
-		/// split button.
+		/// Selects a launch command as the main Launch action after its popup item is clicked.
 		/// </summary>
-		/// <remarks>
-		/// This makes the last selected function the new default for the button.
-		/// </remarks>
+		/// <param name="sender">The bar item that raised the event.</param>
+		/// <param name="e">The item-click event data.</param>
+		private void LaunchMenuItem_ItemClick(object sender, ItemClickEventArgs e)
+		{
+			BarButtonItem item = e.Item as BarButtonItem;
+			Command command = item?.Tag as Command;
+			if (item == null || command == null)
+				return;
+
+			SetDefaultLaunchItem(item);
+			_viewModel.SelectedGameLaunchCommandId = command.Id;
+		}
+
+		/// <summary>
+		/// Opens the Supported Tools popup.
+		/// </summary>
 		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
+		/// <param name="e">The event data.</param>
 		private void spbSupportedTools_ButtonClick(object sender, EventArgs e)
 		{
-			spbSupportedTools.DropDown.Show();
+			popupSupportedTools.ShowPopup(Control.MousePosition);
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the launch game
-		/// split button.
+		/// Executes a profile-specific popup action.
 		/// </summary>
-		/// <remarks>
-		/// This makes the last selected function the new default for the button.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
-		private void tmiItem_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		/// <param name="profile">The profile targeted by the action.</param>
+		/// <param name="command">The profile action identifier.</param>
+		private void HandleProfileSubItemClick(ModProfile profile, string command)
 		{
-			if (e.ClickedItem.Tag is string)
+			if (profile == null || String.IsNullOrWhiteSpace(command))
+				return;
+
+			switch (command)
 			{
-				var strCommand = e.ClickedItem.Tag.ToString();
+				case "RenameProfile":
+					PromptDialog renameDialog = PromptDialog.ShowDialog("Rename Online", this, "Type the new name:", "Rename Local", profile.Name, null, null);
+					if (renameDialog == null || String.IsNullOrEmpty(renameDialog.EnteredText) || renameDialog.EnteredText.Equals(profile.Name, StringComparison.InvariantCulture))
+						return;
 
-				var mopProfile = (ModProfile)sender;
+					if (renameDialog.EnteredText.Length > 64)
+					{
+						MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						return;
+					}
 
-				switch (strCommand)
-				{
-					case "RenameProfile":
-						if (mopProfile != null)
-						{
-							var pdDialog = PromptDialog.ShowDialog("Rename Online", this, "Type the new name:", "Rename Local", mopProfile.Name, null, null);
+					if (String.IsNullOrWhiteSpace(renameDialog.EnteredText.Replace("|", String.Empty)))
+					{
+						MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						return;
+					}
 
-							if (pdDialog != null)
-							{
-								if (!string.IsNullOrEmpty(pdDialog.EnteredText) && !pdDialog.EnteredText.Equals(mopProfile.Name, StringComparison.InvariantCulture))
-								{
-									if (pdDialog.EnteredText.Length > 64)
-									{
-										MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-										return;
-									}
+					profile.Name = renameDialog.EnteredText;
+					ViewModel.ProfileManager.RenameProfile(profile, profile.Name);
+					BindProfileCommands();
+					break;
 
-									if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
-									{
-										MessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-										return;
-									}
+				case "RemoveProfile":
+					PromptDialog removeDialog = PromptDialog.ShowDialog("Remove Online", this, String.Format("Are you sure you want to remove the current profile: {0}", profile.Name), "Remove Local", null, null, null);
+					if (removeDialog != null)
+						ViewModel.ProfileManager.RemoveProfile(profile);
+					break;
 
-									mopProfile.Name = pdDialog.EnteredText;
-									ViewModel.ProfileManager.RenameProfile(mopProfile, mopProfile.Name);
-									BindProfileCommands();
-								}
-							}
-						}
-						break;
-					case "RemoveProfile":
-						if (mopProfile != null)
-						{
-							var pdDialog = PromptDialog.ShowDialog("Remove Online", this, String.Format("Are you sure you want to remove the current profile: {0}", mopProfile.Name), "Remove Local", null, null, null);
+				case "ImportLoadorder":
+					if (String.IsNullOrEmpty(profile.Id))
+						return;
 
-							if (pdDialog != null)
-							{
-								ViewModel.ProfileManager.RemoveProfile(mopProfile);
-							}
-						}
-						break;
-					case "ImportLoadorder":
-						if (!string.IsNullOrEmpty(e.ClickedItem.Name))
-						{
-							var drResult = ExtendedMessageBox.Show(this, $"Are you sure you want to import this profile's loadorder? '{mopProfile.Name}'", "Import Loadorder", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+					DialogResult result = ExtendedMessageBox.Show(this, $"Are you sure you want to import this profile's loadorder? '{profile.Name}'", "Import Loadorder", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+					if (result != DialogResult.Yes)
+						return;
 
-							if (drResult == DialogResult.Yes)
-							{
-								if (mopProfile.LoadOrder == null)
-								{
-									ViewModel.ProfileManager.LoadProfile(mopProfile, out var dicProfile);
-
-									if (dicProfile != null && dicProfile.Count > 0 && dicProfile.ContainsKey("loadorder"))
-									{
-										ViewModel.PluginManagerVM.ImportLoadOrderFromString(dicProfile["loadorder"]);
-									}
-								}
-								else
-								{
-									ViewModel.PluginManagerVM.ImportLoadOrderFromDictionary(mopProfile.LoadOrder);
-								}
-							}
-						}
-						break;
-				}
+					if (profile.LoadOrder == null)
+					{
+						ViewModel.ProfileManager.LoadProfile(profile, out var profileData);
+						if (profileData != null && profileData.Count > 0 && profileData.ContainsKey("loadorder"))
+							ViewModel.PluginManagerVM.ImportLoadOrderFromString(profileData["loadorder"]);
+					}
+					else
+					{
+						ViewModel.PluginManagerVM.ImportLoadOrderFromDictionary(profile.LoadOrder);
+					}
+					break;
 			}
 		}
 
 		/// <summary>
-		/// Handles the <see cref="ToolStripDropDownItem.DropDownItemClicked"/> of the profiles
-		/// split button.
+		/// Handles a main profile command or switches to a selected profile.
 		/// </summary>
-		/// <remarks>
-		/// This makes the last selected function the new default for the button.
-		/// </remarks>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="ToolStripItemClickedEventArgs"/> describing the event arguments.</param>
-		private void spbProfiles_DropDownItemClicked(object sender, ToolStripItemClickedEventArgs e)
+		/// <param name="clickedItem">The DevExpress menu item selected by the user.</param>
+		private void HandleProfileItemClick(BarItem clickedItem)
 		{
-			if (e.ClickedItem.Tag != null)
+			if (clickedItem == null)
+				return;
+
+			if (clickedItem.Tag != null)
 			{
-				if (e.ClickedItem.Tag is string)
+				if (clickedItem.Tag is string)
 				{
-					var strCommand = e.ClickedItem.Tag.ToString();
+					var strCommand = clickedItem.Tag.ToString();
 
 					switch (strCommand)
 					{
@@ -3443,13 +3330,11 @@
 						return;
 					}
 
-					spbProfiles.DefaultItem = e.ClickedItem;
-					spbProfiles.Text = e.ClickedItem.Text;
-					toolStrip1.SuspendLayout();
-					spbProfiles.Image = e.ClickedItem.Image;
-					toolStrip1.ResumeLayout();
+					_profileDefaultItem = clickedItem;
+					spbProfiles.Caption = clickedItem.Caption;
+					spbProfiles.ImageOptions.Image = clickedItem.ImageOptions.Image;
 
-					var impProfile = (IModProfile)e.ClickedItem.Tag;
+					var impProfile = (IModProfile)clickedItem.Tag;
 
 					if (impProfile != null)
 					{
@@ -3568,7 +3453,7 @@
 		{
 			Icon = Properties.Resources.NMM_CE_P_Logo;
 
-			var changeMode = new Bitmap(spbChangeMode.Image);
+			var changeMode = new Bitmap(spbChangeMode.ImageOptions.Image);
 
 			for (var y = 0; y < changeMode.Height; y++)
 			{
@@ -3590,7 +3475,7 @@
 				}
 			}
 
-			spbChangeMode.Image = changeMode;
+			spbChangeMode.ImageOptions.Image = changeMode;
 		}
 
 		#region Form Events
