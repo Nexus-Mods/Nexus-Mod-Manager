@@ -380,7 +380,7 @@
         /// <summary>
         /// Gets which extensions shall have shell extensions added.
         /// </summary>
-        KeyedSettings<bool> AddShellExtensions { get; }
+        KeyedSettings<bool> AddShellExtensions { get; set; }
 
         /// <summary>
         /// Gets or sets whether NMM should be associated with NXM url's.

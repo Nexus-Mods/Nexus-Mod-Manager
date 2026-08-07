@@ -22,7 +22,9 @@
     /// </summary>
     static class Program
 	{
+		private const string BootstrapLogFileName = "NMM-Bootstrap.log";
 		private static EnvironmentInfo EnvironmentInfo = null;
+		private static string BootstrapLogPath = null;
 
 		/// <summary>
 		/// The main entry point for the application.
@@ -30,6 +32,8 @@
 		[STAThread]
 		static void Main(string[] p_strArgs)
 		{
+			InitializeBootstrapLog();
+
             if (TryRunGameDefinitionValidationCommand(p_strArgs))
                 return;
 
@@ -132,6 +136,7 @@
 			}
 			catch (ConfigurationErrorsException e)
 			{
+				WriteBootstrapException("The application settings configuration could not be loaded.", e);
 			    var userChoice = MessageBox.Show("It seems your Nexus Mod Manager application settings file has been corrupted, we can reset this file for you.\n\n" + 
 				    "Yes: Will reset your NMM related settings (scanned game locations, mod storage path, etc.) but will not remove your installed mods.\n\n" + 
 				    "No: Your settings will remain corrupted and NMM will crash when trying to start.", "Settings file corrupted", 
@@ -140,20 +145,24 @@
 			    if (userChoice == DialogResult.Yes)
 			    {
 				    var filename = e.Filename;
+					ConfigurationErrorsException inner = e.InnerException as ConfigurationErrorsException;
 
-				    if (string.IsNullOrEmpty(filename) && e.InnerException.GetType() == typeof(ConfigurationErrorsException))
+				    if (string.IsNullOrEmpty(filename) && inner != null)
 				    {
-					    var inner = e.InnerException as ConfigurationErrorsException;
 					    filename = inner.Filename;
 				    }
 
 				    try
 				    {
+						if (string.IsNullOrEmpty(filename))
+							throw new FileNotFoundException("The corrupted settings file path could not be determined.");
+
 					    File.Delete(filename);
 					    MessageBox.Show("We've deleted your corrupted settings file, please restart Nexus Mod Manager.", "Settings reset", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
 				    }
-				    catch
+				    catch (Exception deleteException)
 				    {
+						WriteBootstrapException("The corrupted application settings file could not be deleted.", deleteException);
 					    MessageBox.Show("Something went wrong when trying to delete the settings file \"" + filename + "\".", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
 				    }
 			    }
@@ -162,6 +171,10 @@
 				    MessageBox.Show("Nothing has been done, Nexus Mod Manager will now shut down.", "Settings unchanged", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1);
 			    }
 			}
+			catch (Exception e)
+			{
+				HandleException(e);
+			}
 			finally
 			{
 				if (mtxAppRunningMutex != null)
@@ -169,6 +182,66 @@
 					mtxAppRunningMutex.Close();
 				}
 			}
+		}
+
+		/// <summary>
+		/// Creates a minimal startup log before application settings and normal tracing are initialized.
+		/// </summary>
+		private static void InitializeBootstrapLog()
+		{
+			try
+			{
+				BootstrapLogPath = Path.Combine(Path.GetTempPath(), BootstrapLogFileName);
+				File.WriteAllText(BootstrapLogPath, String.Format("NMM bootstrap started at {0:O}.{1}", DateTime.Now, Environment.NewLine));
+			}
+			catch
+			{
+				BootstrapLogPath = null;
+			}
+		}
+
+		/// <summary>
+		/// Writes an exception to the bootstrap log when normal tracing is unavailable or incomplete.
+		/// </summary>
+		/// <param name="context">A description of the startup operation that failed.</param>
+		/// <param name="exception">The exception raised by the startup operation.</param>
+		private static void WriteBootstrapException(string context, Exception exception)
+		{
+			if (String.IsNullOrEmpty(BootstrapLogPath))
+				return;
+
+			try
+			{
+				StringBuilder builder = new StringBuilder();
+				builder.AppendLine();
+				builder.AppendFormat("{0:O} - {1}", DateTime.Now, context).AppendLine();
+				builder.AppendLine(exception == null ? "No exception information was supplied." : exception.ToString());
+				File.AppendAllText(BootstrapLogPath, builder.ToString());
+			}
+			catch
+			{
+			}
+		}
+
+		/// <summary>
+		/// Displays a startup failure when the standard trace listener has not been created yet.
+		/// </summary>
+		/// <param name="exception">The exception that prevented the application from starting.</param>
+		private static void ShowBootstrapFailure(Exception exception)
+		{
+			StringBuilder message = new StringBuilder();
+			message.AppendFormat("{0} could not complete startup.", CommonData.ModManagerName).AppendLine();
+			message.AppendLine();
+			message.AppendLine(exception == null ? "No exception information was supplied." : exception.Message);
+
+			if (!String.IsNullOrEmpty(BootstrapLogPath))
+			{
+				message.AppendLine();
+				message.AppendLine("A bootstrap log was created at:");
+				message.AppendLine(BootstrapLogPath);
+			}
+
+			MessageBox.Show(message.ToString(), "NMM startup error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 
         private static bool TryRunGameDefinitionValidationCommand(string[] args)
@@ -252,11 +325,6 @@
 				p_setSettings.Save();
 			}
 
-			if (p_setSettings.AddShellExtensions == null)
-			{
-				p_setSettings.AddShellExtensions = new Settings.KeyedSettings<bool>();
-				p_setSettings.Save();
-			}
 		}
 
 		/// <summary>
@@ -373,7 +441,14 @@
 		/// <param name="ex">The exception that is being handled.</param>
 		private static void HandleException(Exception ex)
 		{
-			HeaderlessTextWriterTraceListener htlListener = (HeaderlessTextWriterTraceListener)Trace.Listeners["DefaultListener"];
+			WriteBootstrapException("An unhandled exception terminated NMM.", ex);
+			HeaderlessTextWriterTraceListener htlListener = Trace.Listeners["DefaultListener"] as HeaderlessTextWriterTraceListener;
+			if (htlListener == null)
+			{
+				ShowBootstrapFailure(ex);
+				return;
+			}
+
 			DialogResult drResult = DialogResult.No;
 			Trace.WriteLine("");
 			Trace.TraceError("Tracing an Unhandled Exception:");

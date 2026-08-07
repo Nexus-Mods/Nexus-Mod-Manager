@@ -87,6 +87,8 @@
 
 		public override void Load()
 		{
+			KeyedSettings<bool> shellExtensionSettings = GetShellExtensionSettings();
+
 			foreach (FileAssociationSetting fasFileAssociation in FileAssociations)
 			{
 				if (fasFileAssociation != null && !string.IsNullOrEmpty(fasFileAssociation.Extension))
@@ -97,7 +99,7 @@
 
 			foreach (string extension in ShellExtensionUtil.Extensions)
 			{
-				if (EnvironmentInfo.Settings.AddShellExtensions[extension] && !ShellExtensionUtil.ReadShellExtension(extension))
+				if (shellExtensionSettings[extension] && !ShellExtensionUtil.ReadShellExtension(extension))
 				{
 					if (UacUtil.IsElevated)
 					{
@@ -114,7 +116,7 @@
 						}
 						else
 						{
-							EnvironmentInfo.Settings.AddShellExtensions[extension] = false;
+							shellExtensionSettings[extension] = false;
 						}
 					}
 					else
@@ -126,19 +128,19 @@
 
 						if (removeSetting == DialogResult.Yes)
 						{
-							EnvironmentInfo.Settings.AddShellExtensions[extension] = false;
+							shellExtensionSettings[extension] = false;
 						}
 					}
 				}
 				else
 				{
-					EnvironmentInfo.Settings.AddShellExtensions[extension] = ShellExtensionUtil.ReadShellExtension(extension);
+					shellExtensionSettings[extension] = ShellExtensionUtil.ReadShellExtension(extension);
 				}
 			}
 
-			AddShellExtensionZip = EnvironmentInfo.Settings.AddShellExtensions["zip"];
-			AddShellExtensionRar = EnvironmentInfo.Settings.AddShellExtensions["rar"];
-			AddShellExtension7z = EnvironmentInfo.Settings.AddShellExtensions["7z"];
+			AddShellExtensionZip = shellExtensionSettings["zip"];
+			AddShellExtensionRar = shellExtensionSettings["rar"];
+			AddShellExtension7z = shellExtensionSettings["7z"];
 
 			if (EnvironmentInfo.Settings.AssociateWithUrl && !UrlAssociationUtil.IsUrlAssociated("nxm"))
 			{
@@ -176,10 +178,11 @@
 
 		public override bool Save()
 		{
+			KeyedSettings<bool> shellExtensionSettings = GetShellExtensionSettings();
 			EnvironmentInfo.Settings.AssociateWithUrl = _associateNxmUrls;
-			EnvironmentInfo.Settings.AddShellExtensions["zip"] = _addShellExtensionZip;
-			EnvironmentInfo.Settings.AddShellExtensions["rar"] = _addShellExtensionRar;
-			EnvironmentInfo.Settings.AddShellExtensions["7z"] = _addShellExtension7z;
+			shellExtensionSettings["zip"] = _addShellExtensionZip;
+			shellExtensionSettings["rar"] = _addShellExtensionRar;
+			shellExtensionSettings["7z"] = _addShellExtension7z;
 
 			if (UacUtil.IsElevated)
 			{
@@ -206,7 +209,7 @@
 
 				foreach (var extension in ShellExtensionUtil.Extensions)
 				{
-					if (EnvironmentInfo.Settings.AddShellExtensions[extension])
+					if (shellExtensionSettings[extension])
 					{
 						if (!ShellExtensionUtil.AddShellExtension(extension))
 						{
@@ -234,6 +237,21 @@
 		public void AddFileAssociation(string extension, string description)
 		{
 			((List<FileAssociationSetting>)FileAssociations).Add(new FileAssociationSetting(extension, description, IsAssociated(extension)));
+		}
+
+		/// <summary>
+		/// Gets the shell-extension settings, creating an in-memory value when upgrading from an older configuration.
+		/// </summary>
+		/// <returns>The non-null shell-extension settings collection.</returns>
+		private KeyedSettings<bool> GetShellExtensionSettings()
+		{
+			KeyedSettings<bool> settings = EnvironmentInfo.Settings.AddShellExtensions;
+			if (settings != null)
+				return settings;
+
+			settings = new KeyedSettings<bool>();
+			EnvironmentInfo.Settings.AddShellExtensions = settings;
+			return settings;
 		}
 
 		/// <summary>
