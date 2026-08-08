@@ -90,6 +90,9 @@
 		private bool _restoringFindPanelVisibility;
 		private bool _toolbarPositionLeft;
 		private BarButtonItem _toolbarPositionButton;
+		private BarStaticItem _toolbarSeparatorAfterDisable;
+		private BarStaticItem _toolbarSeparatorAfterEndorse;
+		private BarStaticItem _toolbarSeparatorAfterCategoryView;
 		private PopupMenu _gridPopupMenu;
 		private readonly List<ICommandBinding> _toolbarCommandBindings = new List<ICommandBinding>();
 		private bool _restoringGridSort;
@@ -231,6 +234,8 @@
 			InitializeNewModCategoryView();
 			InitializeGridDisplayOptions();
 			InitializeToolbarPositionButton();
+			InitializeToolbarSeparators();
+			RebuildToolbarLinks();
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerMods, new System.Drawing.Size(16, 16));
 			UpdateSwitchViewText();
 
@@ -859,7 +864,6 @@
 			_displayOptionsButton.AddItem(_toggleActiveModsBoldMenuItem);
 			_displayOptionsButton.AddItem(_focusTopRowAfterSortingMenuItem);
 			_displayOptionsButton.AddItem(_focusTopRowAfterInstallDateChangeMenuItem);
-			barModActions.AddItem(_displayOptionsButton);
 		}
 
 		/// <summary>
@@ -1103,7 +1107,7 @@
 				GraphicsUnit.Point);
 			Font newHeaderFont = new Font(
 				_gridFontFamilyName,
-				GetSecondaryGridFontSize(_gridFontSizePt),
+				_gridFontSizePt,
 				FontStyle.Regular,
 				GraphicsUnit.Point);
 			Font newBadgeFont = new Font(
@@ -1133,7 +1137,7 @@
 
 			gridControl.Font = _gridRegularFont;
 			gridView.RowHeight = GetGridRowHeight(_gridDensity, _gridFontSizePt);
-			gridView.ColumnPanelRowHeight = GetGridColumnHeaderHeight(_gridDensity, _gridFontSizePt);
+			gridView.ColumnPanelRowHeight = -1;
 			gridView.Appearance.Row.Font = _gridRegularFont;
 			gridView.Appearance.EvenRow.Font = _gridRegularFont;
 			gridView.Appearance.OddRow.Font = _gridRegularFont;
@@ -2188,6 +2192,9 @@
 
 				DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
 				gridView.OptionsView.ShowColumnHeaders = true;
+				gridView.ColumnPanelRowHeight = -1;
+				if (_gridHeaderFont != null)
+					gridView.Appearance.HeaderPanel.Font = _gridHeaderFont;
 				if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
 					DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
 
@@ -3063,6 +3070,84 @@
 		}
 
 		/// <summary>
+		/// Rebuilds the visible Mod Manager toolbar in the canonical order after all dynamic
+		/// toolbar items have been created.
+		/// </summary>
+		private void RebuildToolbarLinks()
+		{
+			barModActions.ClearLinks();
+
+			AddToolbarLink(tsbAddMod);
+			AddToolbarLink(tsbActivate);
+			AddToolbarLink(tsbDeactivate);
+			AddToolbarLink(_toolbarSeparatorAfterDisable);
+			AddToolbarLink(tsbTagMod);
+			AddToolbarLink(tsbModOnlineChecks);
+			AddToolbarLink(tsbToggleEndorse);
+			AddToolbarLink(_toolbarSeparatorAfterEndorse);
+			AddToolbarLink(tsbResetCategories);
+			AddToolbarLink(tsbSwitchView);
+			AddToolbarLink(_toolbarSeparatorAfterCategoryView);
+			AddToolbarLink(tsbShowUpdatesOnly);
+			AddToolbarLink(tsbExportModList);
+			AddToolbarLink(tsbSkyrimDownloads);
+			AddToolbarLink(_toolbarPositionButton);
+			AddToolbarLink(_displayOptionsButton);
+		}
+
+		/// <summary>
+		/// Adds one item to the Mod Manager action bar.
+		/// </summary>
+		/// <param name="item">The toolbar item to add.</param>
+		private void AddToolbarLink(BarItem item)
+		{
+			if (item != null)
+				barModActions.AddItem(item);
+		}
+
+		/// <summary>
+		/// Creates the explicit visual separators used by the Mod Manager toolbar.
+		/// </summary>
+		private void InitializeToolbarSeparators()
+		{
+			_toolbarSeparatorAfterDisable = CreateToolbarSeparator();
+			_toolbarSeparatorAfterEndorse = CreateToolbarSeparator();
+			_toolbarSeparatorAfterCategoryView = CreateToolbarSeparator();
+			UpdateToolbarSeparators(_toolbarPositionLeft);
+		}
+
+		/// <summary>
+		/// Creates a skin-aware static separator that remains visible in both horizontal and vertical toolbar layouts.
+		/// </summary>
+		private BarStaticItem CreateToolbarSeparator()
+		{
+			return new BarStaticItem
+			{
+				Manager = barManagerMods,
+				AutoSize = BarStaticItemSize.Content,
+				Border = BorderStyles.NoBorder,
+				PaintStyle = BarItemPaintStyle.Caption,
+				ShowInCustomizationForm = false
+			};
+		}
+
+		/// <summary>
+		/// Updates toolbar separators so they are vertical in the top toolbar and horizontal in the side toolbar.
+		/// </summary>
+		/// <param name="left">Whether the toolbar is currently docked on the left.</param>
+		private void UpdateToolbarSeparators(bool left)
+		{
+			string caption = left ? "────────────────" : "│";
+
+			if (_toolbarSeparatorAfterDisable != null)
+				_toolbarSeparatorAfterDisable.Caption = caption;
+			if (_toolbarSeparatorAfterEndorse != null)
+				_toolbarSeparatorAfterEndorse.Caption = caption;
+			if (_toolbarSeparatorAfterCategoryView != null)
+				_toolbarSeparatorAfterCategoryView.Caption = caption;
+		}
+
+		/// <summary>
 		/// Adds the toolbar-position action to the right side of the DevExpress mod toolbar.
 		/// </summary>
 		private void InitializeToolbarPositionButton()
@@ -3077,7 +3162,6 @@
 				Nexus.Client.Properties.Resources.toolbar_move_left,
 				new Size(16, 16));
 			_toolbarPositionButton.ItemClick += (sender, args) => SetToolbarPosition(!_toolbarPositionLeft, true);
-			barModActions.AddItem(_toolbarPositionButton);
 		}
 
 		/// <summary>
@@ -3089,21 +3173,39 @@
 		{
 			_toolbarPositionLeft = left;
 
-			barModActions.DockStyle = left ? BarDockStyle.Left : BarDockStyle.Top;
-			barModActions.DockCol = 0;
-			barModActions.DockRow = 0;
-
-			if (_toolbarPositionButton != null)
+			barManagerMods.BeginUpdate();
+			try
 			{
-				_toolbarPositionButton.Caption = "Toolbar Layout";
-				_toolbarPositionButton.Hint = left ? "Toolbar Layout – move to Top" : "Toolbar Layout – move to Left";
-				_toolbarPositionButton.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
-					left
-						? Nexus.Client.Properties.Resources.toolbar_move_top
-						: Nexus.Client.Properties.Resources.toolbar_move_left,
-					new Size(16, 16));
+				barModActions.OptionsBar.RotateWhenVertical = false;
+				barModActions.OptionsBar.UseWholeRow = !left;
+				barModActions.DockStyle = left ? BarDockStyle.Left : BarDockStyle.Top;
+				barModActions.DockCol = 0;
+				barModActions.DockRow = 0;
+				barModActions.Visible = true;
+				UpdateToolbarSeparators(left);
+
+				if (_toolbarPositionButton != null)
+				{
+					_toolbarPositionButton.Caption = "Toolbar Layout";
+					_toolbarPositionButton.Hint = left ? "Toolbar Layout – move to Top" : "Toolbar Layout – move to Left";
+					_toolbarPositionButton.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
+						left
+							? Nexus.Client.Properties.Resources.toolbar_move_top
+							: Nexus.Client.Properties.Resources.toolbar_move_left,
+						new Size(16, 16));
+				}
+			}
+			finally
+			{
+				barManagerMods.EndUpdate();
 			}
 
+			if (left)
+				barDockControlLeft.BringToFront();
+			else
+				barDockControlTop.BringToFront();
+
+			PerformLayout();
 			SaveGridDisplayOption(GridToolbarPositionKey, left, save);
 		}
 

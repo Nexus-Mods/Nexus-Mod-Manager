@@ -364,10 +364,8 @@ namespace Nexus.Client.UI
 			gridView.RowHeight = DevExpressDisplaySettings.GetRowHeight(
 				settings.Density,
 				settings.FontSizePt);
-			gridView.ColumnPanelRowHeight =
-				DevExpressDisplaySettings.GetHeaderHeight(
-					settings.Density,
-					settings.FontSizePt);
+			gridView.ColumnPanelRowHeight = -1;
+			gridView.OptionsView.ShowColumnHeaders = true;
 
 			ApplyAppearance(gridView.Appearance.Row, settings.Font);
 			ApplyAppearance(gridView.Appearance.EvenRow, settings.Font);

@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Windows.Forms;
 using DevExpress.XtraBars;
+using DevExpress.XtraEditors;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.Commands;
@@ -15,13 +16,15 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	/// <summary>
 	/// The view that exposes Download monitoring functionality.
 	/// </summary>
-	public partial class DownloadMonitorControl : ManagedFontDockContent
+	public partial class DownloadMonitorControl : XtraUserControl
 	{
 		private readonly BindingList<DownloadTaskRow> _rows = new BindingList<DownloadTaskRow>();
 		private DownloadMonitorVM m_vmlViewModel;
 		private const string TitleAllActive = "Download Manager ({0})";
 		private const string TitleSomeActive = "Download Manager ({0}/{1})";
 		private const string ColumnWidthsSettingsKey = "DownloadMonitor";
+		private bool _columnWidthsRestored;
+		private bool _formClosingHooked;
 
 		public event EventHandler SetTextBoxFocus;
 
@@ -63,6 +66,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				ViewModel.PauseTaskCommand.CanExecute = false;
 				ViewModel.ResumeTaskCommand.CanExecute = false;
 				UpdateTitle();
+				InitializeColumnWidthPersistence();
 			}
 		}
 
@@ -74,7 +78,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			InitializeComponent();
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
-			gridView.OptionsView.ColumnAutoWidth = false;
+			gridView.OptionsView.ColumnAutoWidth = true;
 			UpdateTitle();
 		}
 
@@ -85,14 +89,30 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
+			InitializeColumnWidthPersistence();
+		}
+
+		/// <summary>
+		/// Restores persisted widths once and hooks the owning form once, regardless of whether
+		/// the view model or the DevExpress dock host becomes available first.
+		/// </summary>
+		private void InitializeColumnWidthPersistence()
+		{
 			if (DesignMode || ViewModel == null)
 				return;
 
-			DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+			if (!_columnWidthsRestored)
+			{
+				DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+				_columnWidthsRestored = true;
+			}
 
-			Form owner = Parent?.FindForm() ?? FindForm();
-			if (owner != null)
+			Form owner = FindForm();
+			if (!_formClosingHooked && owner != null)
+			{
 				owner.FormClosing += DownloadMonitorControl_FormClosing;
+				_formClosingHooked = true;
+			}
 		}
 
 		/// <summary>

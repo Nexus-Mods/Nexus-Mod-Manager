@@ -131,24 +131,12 @@
             this.barModActions.DockCol = 0;
             this.barModActions.DockRow = 0;
             this.barModActions.DockStyle = DevExpress.XtraBars.BarDockStyle.Top;
-            this.barModActions.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbAddMod),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbActivate),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbDeactivate),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbTagMod),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbModOnlineChecks, true),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbToggleEndorse),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbResetCategories, true),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbSwitchView),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbExportModList),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbShowUpdatesOnly, true),
-                new DevExpress.XtraBars.LinkPersistInfo(this.tsbSkyrimDownloads),
-                new DevExpress.XtraBars.LinkPersistInfo(this.toolStripLabelModCount)
-            });
             this.barModActions.OptionsBar.AllowQuickCustomization = false;
             this.barModActions.OptionsBar.DisableClose = true;
             this.barModActions.OptionsBar.DisableCustomization = true;
             this.barModActions.OptionsBar.DrawDragBorder = false;
+            this.barModActions.OptionsBar.RotateWhenVertical = false;
+            this.barModActions.OptionsBar.UseWholeRow = true;
             this.barModActions.Text = "Mod Actions";
             //
             // popupAddMod

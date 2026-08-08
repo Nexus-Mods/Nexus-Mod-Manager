@@ -150,7 +150,7 @@
     <Compile Include="MainFormVM.cs" />
     <Compile Include="ModActivationMonitor\ModActivationMonitor.cs" />
     <Compile Include="ModActivationMonitor\UI\ModActivationMonitorControl.cs">
-      <SubType>Form</SubType>
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="ModActivationMonitor\UI\ModActivationMonitorControl.Designer.cs" />
     <Compile Include="ModActivationMonitor\UI\ModActivationMonitorListViewItem.cs" />
@@ -714,7 +714,7 @@
     <Compile Include="DownloadMonitoring\DownloadMonitor.cs" />
     <Compile Include="DownloadMonitoring\UI\DownloadListViewItem.cs" />
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.cs">
-      <SubType>Form</SubType>
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="DownloadMonitoring\UI\DownloadMonitorControl.Designer.cs">
       <DependentUpon>DownloadMonitorControl.cs</DependentUpon>

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using DevExpress.XtraBars;
+using DevExpress.XtraEditors;
 using DevExpress.XtraGrid.Views.Base;
 using DevExpress.XtraGrid.Views.Grid;
 using DevExpress.XtraGrid.Views.Grid.ViewInfo;
@@ -21,12 +22,14 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 	/// <summary>
 	/// The view that exposes Mod Activation monitoring functionality.
 	/// </summary>
-	public partial class ModActivationMonitorControl : ManagedFontDockContent
+	public partial class ModActivationMonitorControl : XtraUserControl
 	{
 		private readonly BindingList<ModActivationMonitorRow> _rows = new BindingList<ModActivationMonitorRow>();
 		private ModActivationMonitorVM m_vmlViewModel;
 		private readonly string m_strTitleAllActive = "Mod Activation Queue ({0})";
 		private const string ColumnWidthsSettingsKey = "ModActivationMonitor";
+		private bool _columnWidthsRestored;
+		private bool _formClosingHooked;
 
 		public List<IBackgroundTaskSet> QueuedTasks = new List<IBackgroundTaskSet>();
 
@@ -69,6 +72,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 
 				SetCommandExecutableStatus(false);
 				UpdateTitle();
+				InitializeColumnWidthPersistence();
 			}
 		}
 
@@ -84,7 +88,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			InitializeComponent();
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
-			gridView.OptionsView.ColumnAutoWidth = false;
+			gridView.OptionsView.ColumnAutoWidth = true;
 			UpdateTitle();
 		}
 
@@ -97,14 +101,30 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
+			InitializeColumnWidthPersistence();
+		}
+
+		/// <summary>
+		/// Restores persisted widths once and hooks the owning form once, regardless of whether
+		/// the view model or the DevExpress dock host becomes available first.
+		/// </summary>
+		private void InitializeColumnWidthPersistence()
+		{
 			if (DesignMode || ViewModel == null)
 				return;
 
-			DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+			if (!_columnWidthsRestored)
+			{
+				DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+				_columnWidthsRestored = true;
+			}
 
-			Form owner = Parent?.FindForm() ?? FindForm();
-			if (owner != null)
+			Form owner = FindForm();
+			if (!_formClosingHooked && owner != null)
+			{
 				owner.FormClosing += ModActivationMonitorControl_FormClosing;
+				_formClosingHooked = true;
+			}
 		}
 
 		/// <summary>

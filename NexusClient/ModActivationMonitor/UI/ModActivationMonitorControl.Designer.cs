@@ -156,7 +156,7 @@
 			this.gridView.OptionsCustomization.AllowColumnMoving = false;
 			this.gridView.OptionsSelection.EnableAppearanceFocusedCell = false;
 			this.gridView.OptionsView.ShowGroupPanel = false;
-			this.gridView.OptionsView.ColumnAutoWidth = false;
+			this.gridView.OptionsView.ColumnAutoWidth = true;
 			this.gridView.Columns.AddVisible("ModName", "Name").Width = 180;
 			this.gridView.Columns.AddVisible("Status", "Status").Width = 90;
 			this.gridView.Columns.AddVisible("Operation", "Operation").Width = 90;
@@ -170,8 +170,6 @@
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(553, 183);
-			this.CloseButton = false;
-			this.CloseButtonVisible = false;
 			this.Controls.Add(this.gridControl);
 			this.Controls.Add(this.barDockControlLeft);
 			this.Controls.Add(this.barDockControlRight);

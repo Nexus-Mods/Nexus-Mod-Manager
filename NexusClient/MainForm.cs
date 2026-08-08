@@ -900,7 +900,9 @@
 
 		private async void MainForm_Shown(object sender, EventArgs e)
 		{
+			ShowEmbeddedDockContents();
 			ApplyDefaultMonitorPanelSizes();
+			BeginInvoke((MethodInvoker)ActivateModsDocument);
 			ModMigrationCheck();
 			ShowGameSpecificDisclaimer();
 			ConfigFilesCheck();
@@ -1530,13 +1532,13 @@
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		protected override void OnClosed(EventArgs e)
 		{
-			base.OnClosed(e);
-
 			if (!DesignMode)
 			{
 				SaveMainDockingLayout();
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
+
+			base.OnClosed(e);
 		}
 
 		#endregion
