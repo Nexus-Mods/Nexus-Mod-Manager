@@ -26,7 +26,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		private readonly BindingList<ModActivationMonitorRow> _rows = new BindingList<ModActivationMonitorRow>();
 		private ModActivationMonitorVM m_vmlViewModel;
 		private readonly string m_strTitleAllActive = "Mod Activation Queue ({0})";
-		private readonly string m_strTitleSomeActive = "Mod Activation Queue ({0}/{1})";
+		private const string ColumnWidthsSettingsKey = "ModActivationMonitor";
 
 		public List<IBackgroundTaskSet> QueuedTasks = new List<IBackgroundTaskSet>();
 
@@ -59,7 +59,6 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 					AddTaskToList(task);
 
 				m_vmlViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
-				m_vmlViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 
 				Command cmdRemoveAll = new Command("Remove all", "Purges the completed activations from the list.", RemoveAllTasks);
 				new DevExpressBarItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
@@ -83,7 +82,9 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		public ModActivationMonitorControl()
 		{
 			InitializeComponent();
+			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
+			gridView.OptionsView.ColumnAutoWidth = false;
 			UpdateTitle();
 		}
 
@@ -96,14 +97,26 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
-			if (!DesignMode)
-				FindForm().FormClosing += ModActivationMonitorControl_FormClosing;
+			if (DesignMode || ViewModel == null)
+				return;
+
+			DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+
+			Form owner = Parent?.FindForm() ?? FindForm();
+			if (owner != null)
+				owner.FormClosing += ModActivationMonitorControl_FormClosing;
 		}
 
+		/// <summary>
+		/// Saves the current DevExpress grid column widths when the main form closes.
+		/// </summary>
 		private void ModActivationMonitorControl_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			if (ViewModel != null)
-				ViewModel.Settings.Save();
+			if (ViewModel == null)
+				return;
+
+			ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey] = DevExpressGridLayoutPersistence.CaptureColumnWidths(gridView);
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>
@@ -308,30 +321,13 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			UpdateTitle();
 		}
 
-		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			if (!IsHandleCreated)
-				return;
-
-			if (gridControl.InvokeRequired)
-				gridControl.Invoke((Action)UpdateTitle);
-			else
-				UpdateTitle();
-		}
-
 		/// <summary>
 		/// Updates the control's title to reflect the current state of activities.
 		/// </summary>
 		protected void UpdateTitle()
 		{
-			int activeCount = 0;
-			int totalCount = 0;
-			if ((ViewModel != null) && (ViewModel.Tasks != null))
-			{
-				activeCount = ViewModel.ActiveTasks.Count;
-				totalCount = ViewModel.Tasks.Count;
-			}
-			Text = totalCount == activeCount ? String.Format(m_strTitleAllActive, totalCount) : String.Format(m_strTitleSomeActive, activeCount, totalCount);
+			int totalCount = ViewModel == null || ViewModel.Tasks == null ? 0 : ViewModel.Tasks.Count;
+			Text = String.Format(m_strTitleAllActive, totalCount);
 		}
 
 		private void gridView_FocusedRowChanged(object sender, FocusedRowChangedEventArgs e)

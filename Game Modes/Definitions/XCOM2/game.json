@@ -1,16 +1,14 @@
 ﻿{
   "schemaVersion": 2,
-  "modeId": "TheSims4",
-  "name": "The Sims 4",
+  "modeId": "XCOM2",
+  "name": "XCOM 2",
   "behaviorProfile": "generic",
   "legacyFallback": false,
   "gameExecutables": [
-    "Game\\Bin\\TS4_x64.exe"
+    "Binaries\\Win64\\XCOM2.exe"
   ],
   "stopFolders": [
-    "Mods",
-    "Tray",
-    "saves"
+    "Mods"
   ],
   "supportedFormats": [
     "fomod"
@@ -19,27 +17,27 @@
     "stores": [
       {
         "store": "Steam",
-        "id": "1222670",
-        "installFolderName": "The Sims 4",
-        "executableName": "Game\\Bin\\TS4_x64.exe"
+        "id": "268500",
+        "installFolderName": "XCOM 2",
+        "executableName": "Binaries\\Win64\\XCOM2.exe"
       }
     ]
   },
   "launcher": {
-    "defaultExecutable": "Game\\Bin\\TS4_x64.exe",
+    "defaultExecutable": "Binaries\\Win64\\XCOM2.exe",
     "plainCommandName": "PlainLaunch",
-    "plainCommandText": "Launch The Sims 4",
+    "plainCommandText": "Launch XCOM 2",
     "customCommandName": "CustomLaunch",
-    "customCommandText": "Launch Custom The Sims 4",
-    "defaultCommandText": "Launch The Sims 4",
+    "customCommandText": "Launch Custom XCOM 2",
+    "defaultCommandText": "Launch XCOM 2",
     "allowCustomCommand": true
   },
   "resources": {
-    "iconPath": "Sims4_logo.ico",
+    "iconPath": "XCOM2_logo.ico",
     "categoriesPath": "Categories.xml"
   },
   "theme": {
-    "primaryColor": "#3B9110"
+    "primaryColor": "#502D17"
   },
   "setup": {
     "useGenericSetup": true
@@ -48,13 +46,12 @@
     "useGenericSettings": true
   },
   "modInstall": {
-    "pathAdjustmentProfile": "sims4",
-    "managedInstallationPath": "{Documents}\\Electronic Arts\\The Sims 4",
+    "pathAdjustmentProfile": "none",
+    "managedInstallationPath": "XComGame\\Mods",
     "supportsGameRootInstall": false
   },
   "compatibilityNotes": [
-    "NMM installs managed content under the user's The Sims 4 document directory, not beside TS4_x64.exe.",
-    "Package and TS4Script files default to Mods; Gallery households, lots and rooms are routed to Tray; .save files are routed to saves.",
-    "The Steam definition remains the only declared store because the current discovery contract does not include an EA App store type."
+    "Mods are installed under XComGame\\Mods, matching the legacy XCOM 2 game mode.",
+    "The Steam application id is 268500 and the managed executable is Binaries\\Win64\\XCOM2.exe."
   ]
 }

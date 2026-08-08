@@ -18,10 +18,13 @@
 		private BarManager barManagerMain;
 		private Bar barMainToolbar;
 		private Bar barStatus;
-		private BarDockControl barDockControlTop;
-		private BarDockControl barDockControlBottom;
-		private BarDockControl barDockControlLeft;
-		private BarDockControl barDockControlRight;
+		private StandaloneBarDockControl barMainToolbarHost;
+		private StandaloneBarDockControl barStatusHost;
+
+		private const int MainToolbarHeight = 43;
+		private const int MainToolbarImageSize = 36;
+		private const int StatusBarHeight = 36;
+		private const int StatusBarImageSize = 16;
 
 		private BarButtonItem spbLaunch;
 		private BarButtonItem spbProfiles;
@@ -82,9 +85,12 @@
 			_mainBarCommandBindings = new Dictionary<BarItem, DevExpressBarItemCommandBinding>();
 			_changeModeCommandsWithExecutedHandler = new List<Command>();
 
+			InitializeBarHosts();
+
 			barMainToolbar = new Bar(barManagerMain, "Main Toolbar")
 			{
-				DockStyle = BarDockStyle.Top
+				DockStyle = BarDockStyle.Standalone,
+				StandaloneBarDockControl = barMainToolbarHost
 			};
 			barMainToolbar.OptionsBar.AllowQuickCustomization = false;
 			barMainToolbar.OptionsBar.DisableClose = true;
@@ -94,11 +100,16 @@
 
 			barStatus = new Bar(barManagerMain, "Status Bar")
 			{
-				DockStyle = BarDockStyle.Bottom
+				DockStyle = BarDockStyle.Standalone,
+				StandaloneBarDockControl = barStatusHost
 			};
+			barStatus.OptionsBar.AllowQuickCustomization = false;
+			barStatus.OptionsBar.DisableClose = true;
+			barStatus.OptionsBar.DisableCustomization = true;
+			barStatus.OptionsBar.DrawDragBorder = false;
+			barStatus.OptionsBar.UseWholeRow = true;
 			barManagerMain.StatusBar = barStatus;
 
-			InitializeBarDockControls();
 			InitializeMainToolbarItems();
 			InitializeStatusBarItems();
 		}
@@ -143,34 +154,34 @@
 		}
 
 		/// <summary>
-		/// Creates the four docking controls required by the DevExpress bar manager.
+		/// Creates fixed-height standalone hosts for the main toolbar and status bar.
 		/// </summary>
-		private void InitializeBarDockControls()
+		private void InitializeBarHosts()
 		{
-			barDockControlTop = CreateBarDockControl(DockStyle.Top);
-			barDockControlBottom = CreateBarDockControl(DockStyle.Bottom);
-			barDockControlLeft = CreateBarDockControl(DockStyle.Left);
-			barDockControlRight = CreateBarDockControl(DockStyle.Right);
-
-			Controls.Add(barDockControlLeft);
-			Controls.Add(barDockControlRight);
-			Controls.Add(barDockControlBottom);
-			Controls.Add(barDockControlTop);
-		}
-
-		/// <summary>
-		/// Creates a dock control owned by the main bar manager.
-		/// </summary>
-		/// <param name="dockStyle">The WinForms docking edge.</param>
-		/// <returns>The configured bar dock control.</returns>
-		private BarDockControl CreateBarDockControl(DockStyle dockStyle)
-		{
-			return new BarDockControl
+			barMainToolbarHost = new StandaloneBarDockControl
 			{
 				CausesValidation = false,
-				Dock = dockStyle,
-				Manager = barManagerMain
+				Dock = DockStyle.Top,
+				Height = MainToolbarHeight,
+				MinimumSize = new Size(0, MainToolbarHeight),
+				MaximumSize = new Size(0, MainToolbarHeight)
 			};
+
+			barStatusHost = new StandaloneBarDockControl
+			{
+				CausesValidation = false,
+				Dock = DockStyle.Bottom,
+				Height = StatusBarHeight,
+				MinimumSize = new Size(0, StatusBarHeight),
+				MaximumSize = new Size(0, StatusBarHeight)
+			};
+
+			Controls.Add(barStatusHost);
+			Controls.Add(barMainToolbarHost);
+			barManagerMain.DockControls.Add(barMainToolbarHost);
+			barManagerMain.DockControls.Add(barStatusHost);
+			barMainToolbarHost.BringToFront();
+			barStatusHost.BringToFront();
 		}
 
 		/// <summary>
@@ -190,7 +201,7 @@
 			popupSupportNMM = new PopupMenu(barManagerMain);
 
 			spbLaunch = CreateDropDownButton("Launch Game", popupLaunch, false, BarItemPaintStyle.CaptionGlyph);
-			spbLaunch.ImageOptions.Image = resources.GetObject("spbLaunch.Image") as Image;
+			spbLaunch.ImageOptions.Image = ScaleBarImage(resources.GetObject("spbLaunch.Image") as Image, MainToolbarImageSize);
 			spbLaunch.ItemClick += SpbLaunch_ItemClick;
 
 			spbProfiles = CreateDropDownButton("Profiles", popupProfiles, false, BarItemPaintStyle.CaptionGlyph);
@@ -198,27 +209,27 @@
 
 			spbHelp = CreateDropDownButton("Help", popupHelp, true, BarItemPaintStyle.Standard);
 			spbHelp.Alignment = BarItemLinkAlignment.Right;
-			spbHelp.ImageOptions.Image = Properties.Resources.help_flat;
+			spbHelp.ImageOptions.Image = ScaleBarImage(Properties.Resources.help_flat, MainToolbarImageSize);
 
 			spbChangeMode = CreateDropDownButton("Change Game Mode", popupChangeMode, true, BarItemPaintStyle.Standard);
 			spbChangeMode.Alignment = BarItemLinkAlignment.Right;
-			spbChangeMode.ImageOptions.Image = Properties.Resources.switch_game_flat;
+			spbChangeMode.ImageOptions.Image = ScaleBarImage(Properties.Resources.switch_game_flat, MainToolbarImageSize);
 
 			toolStripSplitButtonTools = CreateDropDownButton("Tools", popupTools, true, BarItemPaintStyle.Standard);
-			toolStripSplitButtonTools.ImageOptions.Image = Properties.Resources.program_tools_flat;
+			toolStripSplitButtonTools.ImageOptions.Image = ScaleBarImage(Properties.Resources.program_tools_flat, MainToolbarImageSize);
 
 			spbFolders = CreateDropDownButton("Open folders", popupFolders, true, BarItemPaintStyle.Standard);
-			spbFolders.ImageOptions.Image = Properties.Resources.folder_link_flat;
+			spbFolders.ImageOptions.Image = ScaleBarImage(Properties.Resources.folder_link_flat, MainToolbarImageSize);
 
 			tsbSettings = new BarButtonItem(barManagerMain, "Settings")
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbSettings.ImageOptions.Image = Properties.Resources.settings_flat;
+			tsbSettings.ImageOptions.Image = ScaleBarImage(Properties.Resources.settings_flat, MainToolbarImageSize);
 			tsbSettings.ItemClick += (sender, args) => tsbSettings_Click(sender, EventArgs.Empty);
 
 			spbSupportedTools = CreateDropDownButton("Supported Tools", popupSupportedTools, true, BarItemPaintStyle.Standard);
-			spbSupportedTools.ImageOptions.Image = Properties.Resources.supported_tools_flat;
+			spbSupportedTools.ImageOptions.Image = ScaleBarImage(Properties.Resources.supported_tools_flat, MainToolbarImageSize);
 
 			repositoryFind = new RepositoryItemTextEdit();
 			repositoryFind.KeyUp += tstFind_KeyUp;
@@ -235,7 +246,7 @@
 				Alignment = BarItemLinkAlignment.Right,
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbUpdate.ImageOptions.Image = Properties.Resources.update_check_flat;
+			tsbUpdate.ImageOptions.Image = ScaleBarImage(Properties.Resources.update_check_flat, MainToolbarImageSize);
 
 			tsbDiscord = new BarButtonItem(barManagerMain, "Discord")
 			{
@@ -243,7 +254,7 @@
 				Hint = "Join the Official NMM Community Discord",
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbDiscord.ImageOptions.Image = Properties.Resources.discord_logo_512;
+			tsbDiscord.ImageOptions.Image = ScaleBarImage(Properties.Resources.discord_logo_512, MainToolbarImageSize);
 			tsbDiscord.ItemClick += (sender, args) => tsbDiscord_Click(sender, EventArgs.Empty);
 
 			tsbYouTube = new BarButtonItem(barManagerMain, "YouTube")
@@ -252,21 +263,21 @@
 				Hint = "Watch the official NMM Community Edition YouTube channel",
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbYouTube.ImageOptions.Image = Properties.Resources.youtube_logo_512;
+			tsbYouTube.ImageOptions.Image = ScaleBarImage(Properties.Resources.youtube_logo_512, MainToolbarImageSize);
 			tsbYouTube.ItemClick += (sender, args) => tsbYouTube_Click(sender, EventArgs.Empty);
 
 			spbSupportNMM = CreateDropDownButton("Support the NMM development", popupSupportNMM, false, BarItemPaintStyle.Standard);
 			spbSupportNMM.Alignment = BarItemLinkAlignment.Right;
-			spbSupportNMM.ImageOptions.Image = Properties.Resources.kofi_button;
+			spbSupportNMM.ImageOptions.Image = ScaleBarImage(Properties.Resources.kofi_button, MainToolbarImageSize);
 			spbSupportNMM.ItemClick += (sender, args) => spbSupportNMM_ButtonClick(sender, EventArgs.Empty);
 
 			tsbiPatreon = new BarButtonItem(barManagerMain, "Donate on Patreon");
-			tsbiPatreon.ImageOptions.Image = Properties.Resources.Digital_Patreon_Logo_FieryCoral;
+			tsbiPatreon.ImageOptions.Image = ScaleBarImage(Properties.Resources.Digital_Patreon_Logo_FieryCoral, StatusBarImageSize);
 			tsbiPatreon.ItemClick += (sender, args) => tsbiPatreon_Click(sender, EventArgs.Empty);
 			popupSupportNMM.AddItem(tsbiPatreon);
 
 			tsbiKofi = new BarButtonItem(barManagerMain, "Donate on Ko-fi");
-			tsbiKofi.ImageOptions.Image = Properties.Resources.kofi_button;
+			tsbiKofi.ImageOptions.Image = ScaleBarImage(Properties.Resources.kofi_button, StatusBarImageSize);
 			tsbiKofi.ItemClick += (sender, args) => tsbiKofi_Click(sender, EventArgs.Empty);
 			popupSupportNMM.AddItem(tsbiKofi);
 		}
@@ -299,7 +310,7 @@
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			toolStripButtonOnlineStatus.ImageOptions.Image = Properties.Resources.loggedout_flat;
+			toolStripButtonOnlineStatus.ImageOptions.Image = ScaleBarImage(Properties.Resources.loggedout_flat, 32);
 
 			toolStripLabelDownloads = new BarStaticItem
 			{
@@ -322,7 +333,7 @@
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			toolStripButtonRateLimit.ImageOptions.Image = Properties.Resources.token_info;
+			toolStripButtonRateLimit.ImageOptions.Image = ScaleBarImage(Properties.Resources.token_info, StatusBarImageSize);
 			toolStripButtonRateLimit.ItemClick += (sender, args) => ToolStripButtonRateLimitOnClick(sender, EventArgs.Empty);
 
 			toolStripLabelBottomBarFeedback = new BarStaticItem { Manager = barManagerMain };
@@ -332,7 +343,7 @@
 				PaintStyle = BarItemPaintStyle.Standard,
 				Visibility = BarItemVisibility.Never
 			};
-			toolStripButtonLoader.ImageOptions.Image = Properties.Resources.round_loading;
+			toolStripButtonLoader.ImageOptions.Image = ScaleBarImage(Properties.Resources.round_loading, StatusBarImageSize);
 
 			toolStripLabelPluginsCounter = new BarStaticItem
 			{
@@ -371,6 +382,20 @@
 			barStatus.AddItem(toolStripLabelActivePluginsCounter);
 			barStatus.AddItem(toolStripLabelPluginsCounter);
 			barStatus.AddItem(tsbSkyrimDownloads);
+		}
+
+		/// <summary>
+		/// Creates a bounded bitmap for a DevExpress bar item so large source resources cannot resize the host bar.
+		/// </summary>
+		/// <param name="image">The source image.</param>
+		/// <param name="size">The square target size in pixels.</param>
+		/// <returns>A scaled bitmap, or <c>null</c> when no source image is supplied.</returns>
+		private static Image ScaleBarImage(Image image, int size)
+		{
+			if (image == null)
+				return null;
+
+			return new Bitmap(image, new Size(size, size));
 		}
 
 		/// <summary>
@@ -443,10 +468,11 @@
 			{
 				Tag = command
 			};
+
 			BindExistingBarItem(item, command);
 
 			if (item.ImageOptions.Image == null && image != null)
-				item.ImageOptions.Image = image;
+				item.ImageOptions.Image = ScaleBarImage(image, StatusBarImageSize);
 
 			return item;
 		}

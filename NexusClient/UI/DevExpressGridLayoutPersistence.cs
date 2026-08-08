@@ -75,6 +75,50 @@
 		}
 
 		/// <summary>
+		/// Captures grid column widths using the stable column collection order.
+		/// </summary>
+		/// <param name="view">The grid view whose widths should be captured.</param>
+		/// <returns>The current column widths.</returns>
+		internal static int[] CaptureColumnWidths(GridView view)
+		{
+			if (view == null)
+				return new int[0];
+
+			var widths = new int[view.Columns.Count];
+			for (int i = 0; i < view.Columns.Count; i++)
+				widths[i] = view.Columns[i].Width;
+			return widths;
+		}
+
+		/// <summary>
+		/// Restores legacy index-based column widths used by the pre-DevExpress monitor controls.
+		/// </summary>
+		/// <param name="view">The target grid view.</param>
+		/// <param name="widths">The legacy widths in column collection order.</param>
+		internal static void RestoreColumnWidths(GridView view, int[] widths)
+		{
+			if (view == null || widths == null || widths.Length == 0)
+				return;
+
+			view.BeginUpdate();
+			try
+			{
+				for (int i = 0; i < widths.Length && i < view.Columns.Count; i++)
+				{
+					GridColumn column = view.Columns[i];
+					int width = Math.Max(column.MinWidth, widths[i]);
+					if (column.MaxWidth > 0)
+						width = Math.Min(column.MaxWidth, width);
+					column.Width = width;
+				}
+			}
+			finally
+			{
+				view.EndUpdate();
+			}
+		}
+
+		/// <summary>
 		/// Restores explicitly persisted column widths after the main DevExpress layout has been loaded.
 		/// </summary>
 		/// <param name="view">The target grid view.</param>

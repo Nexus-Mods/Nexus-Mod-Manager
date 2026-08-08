@@ -21,6 +21,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		private DownloadMonitorVM m_vmlViewModel;
 		private const string TitleAllActive = "Download Manager ({0})";
 		private const string TitleSomeActive = "Download Manager ({0}/{1})";
+		private const string ColumnWidthsSettingsKey = "DownloadMonitor";
 
 		public event EventHandler SetTextBoxFocus;
 
@@ -71,8 +72,39 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public DownloadMonitorControl()
 		{
 			InitializeComponent();
+			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
+			gridView.OptionsView.ColumnAutoWidth = false;
 			UpdateTitle();
+		}
+
+		/// <summary>
+		/// Restores persisted column widths and hooks persistence to the owning form.
+		/// </summary>
+		/// <param name="e">The load event arguments.</param>
+		protected override void OnLoad(EventArgs e)
+		{
+			base.OnLoad(e);
+			if (DesignMode || ViewModel == null)
+				return;
+
+			DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+
+			Form owner = Parent?.FindForm() ?? FindForm();
+			if (owner != null)
+				owner.FormClosing += DownloadMonitorControl_FormClosing;
+		}
+
+		/// <summary>
+		/// Saves the current DevExpress grid column widths when the main form closes.
+		/// </summary>
+		private void DownloadMonitorControl_FormClosing(object sender, FormClosingEventArgs e)
+		{
+			if (ViewModel == null)
+				return;
+
+			ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey] = DevExpressGridLayoutPersistence.CaptureColumnWidths(gridView);
+			ViewModel.Settings.Save();
 		}
 
 		private AddModTask GetSelectedTask()

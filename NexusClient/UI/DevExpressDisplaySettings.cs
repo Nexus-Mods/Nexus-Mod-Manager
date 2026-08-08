@@ -253,6 +253,39 @@ namespace Nexus.Client.UI
 			}
 		}
 
+		/// <summary>
+		/// Resizes oversized raster images assigned to DevExpress bar items so their native
+		/// resource dimensions cannot expand toolbar or dock-control bounds.
+		/// </summary>
+		internal static void NormalizeBarItemImages(BarManager barManager, Size imageSize)
+		{
+			if (barManager == null || imageSize.Width <= 0 || imageSize.Height <= 0)
+				return;
+
+			foreach (BarItem item in barManager.Items.Cast<BarItem>().ToArray())
+			{
+				Image image = item.ImageOptions.Image;
+				Image normalizedImage = ResizeBarItemImage(image, imageSize);
+				if (!Object.ReferenceEquals(image, normalizedImage))
+					item.ImageOptions.Image = normalizedImage;
+			}
+		}
+
+		/// <summary>
+		/// Returns an image that fits within the requested DevExpress bar-item bounds.
+		/// Existing suitably sized images are returned unchanged.
+		/// </summary>
+		internal static Image ResizeBarItemImage(Image image, Size imageSize)
+		{
+			if (image == null || imageSize.Width <= 0 || imageSize.Height <= 0)
+				return image;
+
+			if (image.Width <= imageSize.Width && image.Height <= imageSize.Height)
+				return image;
+
+			return new Bitmap(image, imageSize);
+		}
+
 		internal static void ApplyToRepositoryItem(
 			RepositoryItem repositoryItem,
 			DevExpressDisplaySettings settings)

@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Drawing;
 
 using DevExpress.XtraBars;
 
@@ -75,8 +76,8 @@ namespace Nexus.Client.UI
 			_barItem.Hint = _command.Description;
 			_barItem.Enabled = _command.CanExecute;
 
-			if (_command.Image != null)
-				_barItem.ImageOptions.Image = _command.Image;
+			if (_barItem.ImageOptions.Image == null && _command.Image != null)
+				_barItem.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(_command.Image, new Size(16, 16));
 
 			CheckedCommand checkedCommand = _command as CheckedCommand;
 			BarButtonItem buttonItem = _barItem as BarButtonItem;
@@ -192,8 +193,8 @@ namespace Nexus.Client.UI
 			_barItem.Hint = _command.Description;
 			_barItem.Enabled = _command.CanExecute;
 
-			if (_command.Image != null)
-				_barItem.ImageOptions.Image = _command.Image;
+			if (_barItem.ImageOptions.Image == null && _command.Image != null)
+				_barItem.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(_command.Image, new Size(16, 16));
 		}
 
 		/// <summary>

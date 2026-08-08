@@ -17,6 +17,7 @@ namespace Nexus.Client.ActivityMonitoring.UI
 		private ActivityMonitorVM m_vmlViewModel;
 		private const string TitleAllActive = "Download Manager ({0})";
 		private const string TitleSomeActive = "Download Manager ({0}/{1})";
+		private const string ColumnWidthsSettingsKey = "activityMonitor";
 
 		/// <summary>
 		/// Gets or sets the view model that provides the data and operations for this view.
@@ -57,8 +58,39 @@ namespace Nexus.Client.ActivityMonitoring.UI
 		public ActivityMonitorControl()
 		{
 			InitializeComponent();
+			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
+			gridView.OptionsView.ColumnAutoWidth = false;
 			UpdateTitle();
+		}
+
+		/// <summary>
+		/// Restores persisted column widths and hooks persistence to the owning form.
+		/// </summary>
+		/// <param name="e">The load event arguments.</param>
+		protected override void OnLoad(EventArgs e)
+		{
+			base.OnLoad(e);
+			if (DesignMode || ViewModel == null)
+				return;
+
+			DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+
+			Form owner = FindForm();
+			if (owner != null)
+				owner.FormClosing += ActivityMonitorControl_FormClosing;
+		}
+
+		/// <summary>
+		/// Saves the current DevExpress grid column widths when the main form closes.
+		/// </summary>
+		private void ActivityMonitorControl_FormClosing(object sender, FormClosingEventArgs e)
+		{
+			if (ViewModel == null)
+				return;
+
+			ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey] = DevExpressGridLayoutPersistence.CaptureColumnWidths(gridView);
+			ViewModel.Settings.Save();
 		}
 
 		/// <summary>

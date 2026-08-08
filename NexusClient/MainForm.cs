@@ -43,7 +43,6 @@
 	using DevExpress.LookAndFeel;
 	using DevExpress.Skins;
 
-	using WeifenLuo.WinFormsUI.Docking;
 	using DevExpress.XtraEditors;
 
 	/// <summary>
@@ -59,8 +58,6 @@
 		private readonly ModActivationMonitorControl _modActivationMonitorControl;
 		private readonly CategoryManagerControl _categoryManagerControl;
 		private readonly FileManagerControl _fileManagerControl;
-		private double _defaultActivityManagerAutoHidePortion;
-		private double _defaultActivationMonitorAutoHidePortion;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
 		private readonly List<ITool> _boundGameTools = new List<ITool>();
@@ -76,9 +73,6 @@
 
 		FormWindowState LastWindowState = FormWindowState.Minimized;
 
-		/// <summary>Convenience cast — every IModManagerView implementation is a DockContent.</summary>
-		private WeifenLuo.WinFormsUI.Docking.DockContent ModManagerDock
-			=> (WeifenLuo.WinFormsUI.Docking.DockContent)_modManagerControl;
 
 		#region Properties
 
@@ -192,7 +186,6 @@
 		/// <param name="viewModel">The view model that provides the data and operations for this view.</param>
 		public MainForm(MainFormVM viewModel)
 		{
-			_defaultActivityManagerAutoHidePortion = 0;
 
 			// Restore the global skin before any DevExpress controls are created.
 			InitializeDevExpressLookAndFeel(viewModel);
@@ -221,7 +214,7 @@
 			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
 			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
 			_fileManagerControl = new FileManagerControl();
-			dockPanel1.ActiveContentChanged += dockPanel1_ActiveContentChanged;
+			InitializeMainDockingInfrastructure();
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
 			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
 			_modManagerControl.UpdateModsCount += MmgModManagerControlUpdateModsCount;
@@ -230,7 +223,6 @@
 			_downloadMonitorControl.SetTextBoxFocus += DmcDownloadMonitorControlSetTextBoxFocus;
 			_pluginManagerControl.UpdatePluginsCount += PmcPluginManagerControlUpdatePluginsCount;
 			_pluginManagerControl.PluginMoved += pmcPluginManager_PluginMoved;
-			_modActivationMonitorControl = new ModActivationMonitorControl();
 			_modActivationMonitorControl.UpdateBottomBarFeedback += MacModActivationMonitorControlUpdateBottomBarFeedback;
 			viewModel.ModManager.LoginTask.PropertyChanged += LoginTask_PropertyChanged;
 			viewModel.ModRepository.RateLimitExceeded += (sender, args) => Invoke((Action<RateLimitExceededArgs>)OnRateLimitExceeded, args);
@@ -241,6 +233,7 @@
 			}
 
 			ViewModel = viewModel;
+			ShowEmbeddedDockContents();
 			ApplyDevExpressDisplaySettingsToSurfaces();
 
 			try
@@ -482,124 +475,8 @@
 		/// </remarks>
 		protected void InitializeDocuments()
 		{
-			if (ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.ContainsKey("mainForm") && !string.IsNullOrEmpty(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"]))
-			{
-				dockPanel1.LoadFromXmlString(ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"], LoadDockedContent);
-				try
-				{
-					if (_defaultActivityManagerAutoHidePortion == 0)
-					{
-						_defaultActivityManagerAutoHidePortion = _downloadMonitorControl.AutoHidePortion;
-					}
-				}
-				catch { }
-
-				if (!ViewModel.UsesPlugins)
-				{
-					_pluginManagerControl.Hide();
-				}
-			}
-			else
-			{
-				if (ViewModel.UsesPlugins)
-				{
-					_pluginManagerControl.DockState = DockState.Unknown;
-				}
-
-				ModManagerDock.DockState = DockState.Unknown;
-				_downloadMonitorControl.DockState = DockState.Unknown;
-				_downloadMonitorControl.ShowHint = DockState.DockBottomAutoHide;
-				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottomAutoHide);
-
-				if (_defaultActivityManagerAutoHidePortion == 0)
-				{
-					_defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
-				}
-
-				try
-				{
-					_downloadMonitorControl.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
-				}
-				catch { }
-
-				_modActivationMonitorControl.DockState = DockState.Unknown;
-				_modActivationMonitorControl.ShowHint = DockState.DockBottom;
-				_modActivationMonitorControl.Show(dockPanel1, DockState.DockBottom);
-
-				if (_defaultActivationMonitorAutoHidePortion == 0)
-				{
-					_defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
-				}
-
-				try
-				{
-					_modActivationMonitorControl.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
-				}
-				catch { }
-
-				if (ViewModel.UsesPlugins)
-				{
-					_pluginManagerControl.Show(dockPanel1);
-				}
-
-				_categoryManagerControl.Show(dockPanel1);
-				if (IsFileManagerAvailable())
-					_fileManagerControl.Show(dockPanel1);
-				ModManagerDock.Show(dockPanel1);
-			}
-
-			var strTab = dockPanel1.ActiveDocument.DockHandler.TabText;
-
-			if (ViewModel.PluginManagerVM != null)
-			{
-				_pluginManagerControl.Show(dockPanel1);
-			}
-
-			if (ViewModel.UsesPlugins && strTab == "Plugins")
-			{
-				_pluginManagerControl.Show(dockPanel1);
-			}
-			else
-			{
-				_categoryManagerControl.Show(dockPanel1);
-				if (IsFileManagerAvailable())
-					_fileManagerControl.Show(dockPanel1);
-				ModManagerDock.Show(dockPanel1);
-			}
-
-			if (_downloadMonitorControl == null || _downloadMonitorControl.VisibleState == DockState.Unknown || _downloadMonitorControl.VisibleState == DockState.Hidden)
-			{
-				_downloadMonitorControl.Show(dockPanel1, DockState.DockBottom);
-
-				if (_defaultActivityManagerAutoHidePortion == 0)
-				{
-					_defaultActivityManagerAutoHidePortion = _downloadMonitorControl.Height;
-				}
-
-				try
-				{
-					_downloadMonitorControl.AutoHidePortion = _defaultActivityManagerAutoHidePortion;
-				}
-				catch { }
-			}
-
-			if (_modActivationMonitorControl == null || _modActivationMonitorControl.VisibleState == DockState.Unknown || _modActivationMonitorControl.VisibleState == DockState.Hidden)
-			{
-				_modActivationMonitorControl.Show(dockPanel1, DockState.DockBottom);
-
-				if (_defaultActivationMonitorAutoHidePortion == 0)
-				{
-					_defaultActivationMonitorAutoHidePortion = _modActivationMonitorControl.Height;
-				}
-
-				try
-				{
-					_modActivationMonitorControl.AutoHidePortion = _defaultActivationMonitorAutoHidePortion;
-				}
-				catch { }
-			}
-
-			_modActivationMonitorControl.DockTo(_downloadMonitorControl.Pane, DockStyle.Right, 1);
+			EnsureMainDocuments();
+			RestoreMainDockingLayout();
 
 			if (ViewModel.UsesPlugins)
 			{
@@ -726,8 +603,7 @@
 		/// </summary>
 		protected void ResetUI()
 		{
-			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
-			InitializeDocuments();
+			ResetMainDockingLayout();
 
 			try
 			{
@@ -1022,26 +898,15 @@
 			}
 		}
 
-		private void MainForm_Shown(object sender, EventArgs e)
+		private async void MainForm_Shown(object sender, EventArgs e)
 		{
+			ApplyDefaultMonitorPanelSizes();
 			ModMigrationCheck();
 			ShowGameSpecificDisclaimer();
 			ConfigFilesCheck();
-		}
 
-		/// <summary>
-		/// This will check whether the SearchBox should be visible.
-		/// </summary>
-		private async void dockPanel1_ActiveContentChanged(object sender, EventArgs e)
-		{
-			if (Visible && dockPanel1.ActiveDocument != null)
-			{
-				SetBarItemVisible(toolStripTextBoxFind, false);
-				toolStripTextBoxFind.Enabled = false;
-
-				if (Object.ReferenceEquals(dockPanel1.ActiveDocument, _fileManagerControl))
-					await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
-			}
+			if (IsMainDocumentActive(_fileManagerControl))
+				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>
@@ -1175,7 +1040,7 @@
 		/// </summary>
 		private void DmcDownloadMonitorControlSetTextBoxFocus(object sender, EventArgs e)
 		{
-			if (ModManagerDock.Visible)
+			if (IsMainDocumentActive((Control)_modManagerControl))
 			{
 				FocusMainFindEditor();
 			}
@@ -1532,7 +1397,7 @@
 				return;
 			}
 
-			_downloadMonitorControl.Activate();
+			ShowDownloadMonitorPanel();
 
 			if (!ViewModel.OfflineMode)
 			{
@@ -1560,7 +1425,7 @@
 				return;
 			}
 
-			_downloadMonitorControl.Activate();
+			ShowDownloadMonitorPanel();
 
 			if (!ViewModel.OfflineMode)
 			{
@@ -1669,50 +1534,9 @@
 
 			if (!DesignMode)
 			{
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts["mainForm"] = dockPanel1.SaveAsXml();
+				SaveMainDockingLayout();
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
-		}
-
-		/// <summary>
-		/// Returns the UI component being requested when the form's metrics are being loaded.
-		/// </summary>
-		/// <param name="contentId">The id of the component to return to be positioned.</param>
-		/// <returns>The component to return to be positioned.</returns>
-		protected IDockContent LoadDockedContent(string contentId)
-		{
-			if (contentId == typeof(PluginManagerControl).ToString() || contentId == typeof(PluginManagerDXControl).ToString())
-			{
-				return _pluginManagerControl;
-			}
-
-			if (contentId == typeof(ModManagerControl).ToString()
-			|| contentId == typeof(ModManagerDXControl).ToString())
-			{
-				return ModManagerDock;
-			}
-
-			if (contentId == typeof(CategoryManagerControl).ToString())
-			{
-				return _categoryManagerControl;
-			}
-
-			if (contentId == typeof(FileManagerControl).ToString() && IsFileManagerAvailable())
-			{
-				return _fileManagerControl;
-			}
-
-			if (contentId == typeof(DownloadMonitorControl).ToString())
-			{
-				return _downloadMonitorControl;
-			}
-
-			if (contentId == typeof(ModActivationMonitorControl).ToString())
-			{
-				return _modActivationMonitorControl;
-			}
-
-			return null;
 		}
 
 		#endregion
@@ -1869,7 +1693,7 @@
 			popupTools.AddItem(CreateCommandBarButton(purgeLooseFilesCommand, Properties.Resources.deleteProfile));
 
 			BarSubItem backupMenu = new BarSubItem(barManagerMain, "Backup and Restore");
-			backupMenu.ImageOptions.Image = Properties.Resources.backup;
+			backupMenu.ImageOptions.Image = ScaleBarImage(Properties.Resources.backup, StatusBarImageSize);
 			Command createBackupCommand = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
 			Command restoreBackupCommand = new Command("Restore Mod Installation backup", "Restore Mod Installation backup.", RestoreBackup);
 			Command restoreBackupProfileCommand = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
@@ -2774,7 +2598,7 @@
 
 			_launchDefaultItem = item;
 			spbLaunch.Caption = item.Caption;
-			spbLaunch.ImageOptions.Image = item.ImageOptions.Image;
+			spbLaunch.ImageOptions.Image = ScaleBarImage(item.ImageOptions.Image, MainToolbarImageSize);
 		}
 
 		/// <summary>
@@ -2843,7 +2667,7 @@
 			}
 
 			spbSupportedTools.Caption = "Supported Tools";
-			spbSupportedTools.ImageOptions.Image = Properties.Resources.supported_tools_flat;
+			spbSupportedTools.ImageOptions.Image = ScaleBarImage(Properties.Resources.supported_tools_flat, MainToolbarImageSize);
 			SetBarItemVisible(spbSupportedTools, popupSupportedTools.ItemLinks.Count > 0);
 		}
 
@@ -3101,7 +2925,7 @@
 
 					_profileDefaultItem = clickedItem;
 					spbProfiles.Caption = clickedItem.Caption;
-					spbProfiles.ImageOptions.Image = clickedItem.ImageOptions.Image;
+					spbProfiles.ImageOptions.Image = ScaleBarImage(clickedItem.ImageOptions.Image, MainToolbarImageSize);
 
 					var impProfile = (IModProfile)clickedItem.Tag;
 

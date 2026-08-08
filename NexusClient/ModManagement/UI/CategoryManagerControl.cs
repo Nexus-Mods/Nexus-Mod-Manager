@@ -45,6 +45,7 @@ namespace Nexus.Client.ModManagement.UI
         public CategoryManagerControl()
         {
             InitializeComponent();
+            DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerCategory, new System.Drawing.Size(32, 32));
             Text        = "Categories";
             HideOnClose = true;
 

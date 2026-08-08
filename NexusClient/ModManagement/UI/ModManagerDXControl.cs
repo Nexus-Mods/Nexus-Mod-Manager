@@ -231,6 +231,7 @@
 			InitializeNewModCategoryView();
 			InitializeGridDisplayOptions();
 			InitializeToolbarPositionButton();
+			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerMods, new System.Drawing.Size(16, 16));
 			UpdateSwitchViewText();
 
 			Shown += (sender, args) =>
@@ -398,7 +399,8 @@
 		{
 			if (_viewModel == null || !_viewModel.IsSkyrimSEGameMode) return;
 			if (tsbSkyrimDownloads.ImageOptions.SvgImage == null)
-				tsbSkyrimDownloads.ImageOptions.Image = _viewModel.SkyrimDownloadImage;
+				tsbSkyrimDownloads.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
+					_viewModel.SkyrimDownloadImage, new Size(16, 16));
 			tsbSkyrimDownloads.Caption = "Download Mode: " + GetSkyrimDownloadModeLabel();
 			tsbSkyrimDownloads.Hint = $"Skyrim SE current download mode: {_viewModel.SkyrimSEDownloadModeDescriptor}";
 			tsbSkyrimDownloads.PaintStyle = BarItemPaintStyle.CaptionGlyph;
@@ -1197,6 +1199,7 @@
 			gridView.OptionsFind.AlwaysVisible = false;
 			gridView.OptionsView.BestFitMaxRowCount = 50;
 			gridView.OptionsView.ColumnAutoWidth = false;
+			gridView.OptionsView.ShowColumnHeaders = true;
 			DevExpressGridLayoutPersistence.ConfigureSessionOnlyFilters(gridView);
 			gridView.OptionsView.ShowAutoFilterRow = true;
 			gridView.OptionsView.ShowButtonMode = DevExpress.XtraGrid.Views.Base.ShowButtonModeEnum.ShowForFocusedRow;
@@ -2184,6 +2187,7 @@
 				}
 
 				DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
+				gridView.OptionsView.ShowColumnHeaders = true;
 				if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
 					DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
 
@@ -3069,7 +3073,9 @@
 				Hint = "Toolbar Layout – move to Left",
 				PaintStyle = BarItemPaintStyle.CaptionGlyph
 			};
-			_toolbarPositionButton.ImageOptions.Image = Nexus.Client.Properties.Resources.toolbar_move_left;
+			_toolbarPositionButton.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
+				Nexus.Client.Properties.Resources.toolbar_move_left,
+				new Size(16, 16));
 			_toolbarPositionButton.ItemClick += (sender, args) => SetToolbarPosition(!_toolbarPositionLeft, true);
 			barModActions.AddItem(_toolbarPositionButton);
 		}
@@ -3091,9 +3097,11 @@
 			{
 				_toolbarPositionButton.Caption = "Toolbar Layout";
 				_toolbarPositionButton.Hint = left ? "Toolbar Layout – move to Top" : "Toolbar Layout – move to Left";
-				_toolbarPositionButton.ImageOptions.Image = left
-					? Nexus.Client.Properties.Resources.toolbar_move_top
-					: Nexus.Client.Properties.Resources.toolbar_move_left;
+				_toolbarPositionButton.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
+					left
+						? Nexus.Client.Properties.Resources.toolbar_move_top
+						: Nexus.Client.Properties.Resources.toolbar_move_left,
+					new Size(16, 16));
 			}
 
 			SaveGridDisplayOption(GridToolbarPositionKey, left, save);
@@ -3299,7 +3307,8 @@
 		private BarButtonItem CreatePopupButton(string caption, Image image, Action action)
 		{
 			var item = new BarButtonItem(barManagerMods, caption);
-			if (image != null) item.ImageOptions.Image = image;
+			if (image != null)
+				item.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(image, new Size(16, 16));
 			if (action != null) item.ItemClick += (sender, args) => action();
 			return item;
 		}
@@ -3313,7 +3322,8 @@
 		private BarSubItem CreatePopupSubItem(string caption, Image image)
 		{
 			var item = new BarSubItem(barManagerMods, caption);
-			if (image != null) item.ImageOptions.Image = image;
+			if (image != null)
+				item.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(image, new Size(16, 16));
 			return item;
 		}
 
