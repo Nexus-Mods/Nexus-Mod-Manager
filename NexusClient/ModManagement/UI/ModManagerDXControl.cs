@@ -118,6 +118,8 @@
 		private Image _endorsedNoImage;
 		private Image _endorsedEmptyImage;
 		private bool _usesLegacyLightRowPalette;
+		private Color _latestVersionForeColor = Color.FromArgb(37, 99, 235);
+		private Color _outdatedVersionForeColor = Color.FromArgb(200, 40, 40);
 		private Timer _gridLayoutSaveTimer;
 
 		private readonly Dictionary<IMod, bool> _outdatedModCache =
@@ -257,6 +259,8 @@
 				settings.Density,
 				false);
 			DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerMods, settings);
+			UpdateSkinPaletteCache();
+			gridView.InvalidateRows();
 		}
 
 		// ── IModManagerView : ViewModel ──────────────────────────────────────
@@ -835,6 +839,17 @@
 			_usesLegacyLightRowPalette =
 				String.Equals(skinName, "Basic", StringComparison.OrdinalIgnoreCase) ||
 				String.Equals(skinName, "DevExpress Style", StringComparison.OrdinalIgnoreCase);
+
+			if (DevExpressDisplaySettingsApplier.IsDarkSkinSurface())
+			{
+				_latestVersionForeColor = Color.LightSkyBlue;
+				_outdatedVersionForeColor = Color.LightCoral;
+			}
+			else
+			{
+				_latestVersionForeColor = Color.FromArgb(37, 99, 235);
+				_outdatedVersionForeColor = Color.FromArgb(200, 40, 40);
+			}
 		}
 
 		/// <summary>
@@ -1654,8 +1669,8 @@
 				if (!isSelected)
 				{
 					e.Appearance.ForeColor = outdated
-						? Color.FromArgb(200, 40, 40)
-						: Color.FromArgb(37, 99, 235);
+						? _outdatedVersionForeColor
+						: _latestVersionForeColor;
 				}
 
 				e.Appearance.Font = _showActiveModsInBold && isActive

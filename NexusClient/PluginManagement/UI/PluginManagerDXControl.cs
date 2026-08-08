@@ -64,7 +64,7 @@
         private readonly PictureEdit _pictureEdit;
         private readonly LabelControl _infoLabel;
         private readonly SplitContainerControl _splitContainer;
-        private readonly XtraScrollableControl _infoScroll;
+        private readonly PanelControl _infoScroll;
         private readonly BindingList<PluginManagerDXRow> _rows = new BindingList<PluginManagerDXRow>();
         private readonly Dictionary<Plugin, PluginManagerDXRow> _rowsByPlugin = new Dictionary<Plugin, PluginManagerDXRow>(PluginComparer.Filename);
         private readonly Dictionary<string, Tuple<DateTime, long, string>> _pluginDescriptionCache = new Dictionary<string, Tuple<DateTime, long, string>>(StringComparer.OrdinalIgnoreCase);
@@ -88,6 +88,9 @@
         private bool _splitterUserDragActive;
         private bool _restoringSplitter;
         private bool _splitterPositionRestored;
+        private Color _lockedPluginForeColor = SystemColors.GrayText;
+        private Color _errorPluginForeColor = Color.Red;
+        private Color _warningPluginForeColor = Color.DarkOrange;
 
         public event EventHandler UpdatePluginsCount;
         public event EventHandler PluginMoved;
@@ -255,9 +258,11 @@
 			_infoLabel.LookAndFeel.UseDefaultLookAndFeel = true;
 			_infoLabel.Appearance.Options.UseBackColor = false;
 
-			_infoScroll = new XtraScrollableControl
+			_infoScroll = new PanelControl
 			{
-				Dock = DockStyle.Fill
+				Dock = DockStyle.Fill,
+				BorderStyle = BorderStyles.NoBorder,
+				AutoScroll = true
 			};
 
 			_infoScroll.LookAndFeel.UseDefaultLookAndFeel = true;
@@ -322,6 +327,7 @@
 
 			SetupGrid();
 			SetupDragAndDrop();
+			ApplySkinAwareAppearance();
 			UpdateCommandState();
         }
 
@@ -355,8 +361,41 @@
             DevExpressDisplaySettingsApplier.ApplyToBarManager(
                 _barManager,
                 settings);
+            ApplySkinAwareAppearance();
             _gridControl.Invalidate();
         }
+
+		/// <summary>
+		/// Refreshes the plugin detail surface and custom row colors from the active DevExpress skin.
+		/// </summary>
+		private void ApplySkinAwareAppearance()
+		{
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_infoScroll);
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(_pictureEdit);
+
+			_infoLabel.Appearance.ForeColor = DevExpressDisplaySettingsApplier.GetSkinColor(
+				"ControlText",
+				SystemColors.ControlText);
+			_infoLabel.Appearance.Options.UseForeColor = true;
+
+			_lockedPluginForeColor = DevExpressDisplaySettingsApplier.GetMutedSkinTextColor();
+
+			if (DevExpressDisplaySettingsApplier.IsDarkSkinSurface())
+			{
+				_errorPluginForeColor = Color.LightCoral;
+				_warningPluginForeColor = Color.Orange;
+			}
+			else
+			{
+				_errorPluginForeColor = Color.DarkRed;
+				_warningPluginForeColor = Color.DarkOrange;
+			}
+
+			_gridView.InvalidateRows();
+
+			if (_viewModel != null)
+				UpdatePluginInfo();
+		}
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public PluginManagerVM ViewModel
@@ -1850,20 +1889,30 @@
 			if (row == null || String.IsNullOrEmpty(row.Status))
 				return;
 
+			bool isSelected =
+				e.RowHandle == _gridView.FocusedRowHandle ||
+				_gridView.IsRowSelected(e.RowHandle);
+
 			if (row.Status == "Locked")
 			{
-				e.Appearance.ForeColor = SystemColors.GrayText;
+				// Keep selected/focused rows on the skin's native selection palette.
+				if (!isSelected)
+					e.Appearance.ForeColor = _lockedPluginForeColor;
+
 				return;
 			}
 
+			if (isSelected)
+				return;
+
 			if (row.StatusSeverity == PluginValidationSeverity.Error)
 			{
-				e.Appearance.ForeColor = Color.DarkRed;
+				e.Appearance.ForeColor = _errorPluginForeColor;
 				return;
 			}
 
 			if (row.StatusSeverity == PluginValidationSeverity.Warning)
-				e.Appearance.ForeColor = Color.DarkOrange;
+				e.Appearance.ForeColor = _warningPluginForeColor;
 		}
 
 		/// <summary>
@@ -1881,8 +1930,8 @@
 			if (entry == null || entry.Diagnostics.Count == 0)
 				return;
 
-			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Error, "Errors");
-			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Warning, "Warnings");
+			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Error, "Errors", _errorPluginForeColor);
+			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Warning, "Warnings", _warningPluginForeColor);
 		}
 
 		/// <summary>
@@ -1892,7 +1941,8 @@
 		/// <param name="p_lstDiagnostics">The diagnostics to inspect.</param>
 		/// <param name="p_pvsSeverity">The severity to append.</param>
 		/// <param name="p_strHeading">The section heading.</param>
-		private static void AppendPluginDiagnosticSection(StringBuilder p_sbrDetails, IList<PluginValidationDiagnostic> p_lstDiagnostics, PluginValidationSeverity p_pvsSeverity, string p_strHeading)
+		/// <param name="p_clrForeColor">The skin-aware foreground color for this diagnostic severity.</param>
+		private static void AppendPluginDiagnosticSection(StringBuilder p_sbrDetails, IList<PluginValidationDiagnostic> p_lstDiagnostics, PluginValidationSeverity p_pvsSeverity, string p_strHeading, Color p_clrForeColor)
 		{
 			List<string> messages = p_lstDiagnostics
 				.Where(x => x.Severity == p_pvsSeverity)
@@ -1907,10 +1957,17 @@
 			if (p_sbrDetails.Length > 0)
 				p_sbrDetails.Append("<br/><br/>");
 
-			p_sbrDetails.AppendFormat("<b>{0}:</b><br/>", HtmlEncode(p_strHeading));
+			p_sbrDetails.AppendFormat(
+				"<color={0},{1},{2}><b>{3}:</b><br/>",
+				p_clrForeColor.R,
+				p_clrForeColor.G,
+				p_clrForeColor.B,
+				HtmlEncode(p_strHeading));
 
 			foreach (string message in messages)
 				p_sbrDetails.AppendFormat("• {0}<br/>", HtmlEncode(message));
+
+			p_sbrDetails.Append("</color>");
 		}
 
 		/// <summary>

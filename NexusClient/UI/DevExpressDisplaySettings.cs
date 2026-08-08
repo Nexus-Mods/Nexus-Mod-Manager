@@ -6,6 +6,8 @@ namespace Nexus.Client.UI
 	using System.Windows.Forms;
 
 	using DevExpress.Utils;
+	using DevExpress.LookAndFeel;
+	using DevExpress.Skins;
 	using DevExpress.XtraBars;
 	using DevExpress.XtraEditors;
 	using DevExpress.XtraEditors.Repository;
@@ -201,6 +203,90 @@ namespace Nexus.Client.UI
 
 	internal static class DevExpressDisplaySettingsApplier
 	{
+		/// <summary>
+		/// Returns a color from the currently active DevExpress skin, with a safe WinForms fallback.
+		/// </summary>
+		/// <param name="colorName">The DevExpress common skin color name.</param>
+		/// <param name="fallback">The color to use when the skin does not expose the requested value.</param>
+		/// <returns>The resolved skin-aware color.</returns>
+		internal static Color GetSkinColor(string colorName, Color fallback)
+		{
+			if (String.IsNullOrWhiteSpace(colorName))
+				return fallback;
+
+			try
+			{
+				Skin skin = CommonSkins.GetSkin(UserLookAndFeel.Default);
+				if (skin == null)
+					return fallback;
+
+				Color color = skin.Colors.GetColor(colorName);
+				return color.IsEmpty ? fallback : color;
+			}
+			catch
+			{
+				return fallback;
+			}
+		}
+
+		/// <summary>
+		/// Returns a readable muted text color derived from the current skin's window palette.
+		/// This is intentionally stronger than the skin's disabled text color so read-only rows remain legible.
+		/// </summary>
+		/// <returns>A skin-aware muted text color.</returns>
+		internal static Color GetMutedSkinTextColor()
+		{
+			Color background = GetSkinColor("Window", SystemColors.Window);
+			Color foreground = GetSkinColor("WindowText", SystemColors.WindowText);
+
+			const double foregroundWeight = 0.72d;
+			return Color.FromArgb(
+				255,
+				BlendColorComponent(background.R, foreground.R, foregroundWeight),
+				BlendColorComponent(background.G, foreground.G, foregroundWeight),
+				BlendColorComponent(background.B, foreground.B, foregroundWeight));
+		}
+
+		/// <summary>
+		/// Determines whether a color is visually dark using weighted RGB luminance.
+		/// </summary>
+		/// <param name="color">The color to classify.</param>
+		/// <returns>True when the color belongs to the dark half of the luminance range.</returns>
+		internal static bool IsDarkColor(Color color)
+		{
+			int luminance = (color.R * 299 + color.G * 587 + color.B * 114) / 1000;
+			return luminance < 128;
+		}
+
+		/// <summary>
+		/// Determines whether the current DevExpress window surface is dark without relying on skin names.
+		/// </summary>
+		/// <returns>True when the active skin exposes a dark window surface.</returns>
+		internal static bool IsDarkSkinSurface()
+		{
+			return IsDarkColor(GetSkinColor("Window", SystemColors.Window));
+		}
+
+		/// <summary>
+		/// Applies the active DevExpress control-surface palette to a borderless/background surface.
+		/// </summary>
+		/// <param name="control">The control surface to update.</param>
+		internal static void ApplySkinSurface(Control control)
+		{
+			if (control == null || control.IsDisposed)
+				return;
+
+			control.BackColor = GetSkinColor("Control", SystemColors.Control);
+			control.ForeColor = GetSkinColor("ControlText", SystemColors.ControlText);
+			control.Invalidate();
+		}
+
+		private static int BlendColorComponent(byte background, byte foreground, double foregroundWeight)
+		{
+			double value = background * (1d - foregroundWeight) + foreground * foregroundWeight;
+			return Math.Max(0, Math.Min(255, (int)Math.Round(value)));
+		}
+
 		internal static void ApplyToControlTree(
 			Control root,
 			DevExpressDisplaySettings settings)

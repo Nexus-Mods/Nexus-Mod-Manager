@@ -34,6 +34,10 @@
         private const int OwnerLookupMaximumPopupWidth = 900;
 
         private readonly LabelControl _deploymentRootLabel;
+        private readonly PanelControl _topPanel;
+        private readonly PanelControl _fileListToolbar;
+        private readonly PanelControl _fileListPanel;
+        private readonly PanelControl _bottomPanel;
         private readonly SimpleButton _refreshButton;
         private readonly SplitContainerControl _splitContainer;
         private readonly GridControl _gridControl;
@@ -64,13 +68,18 @@
         private bool _splitterPositionRestored;
         private bool _restoringGridLayout;
         private DevExpressDisplaySettings _displaySettings;
+        private Color _baseGameSourceForeColor = Color.RoyalBlue;
+        private Color _installedSourceForeColor = Color.ForestGreen;
+        private Color _creationsSourceForeColor = Color.DarkViolet;
+        private Color _externalSourceForeColor = Color.DarkCyan;
+        private Color _untrackedSourceForeColor = Color.OrangeRed;
 
         public FileManagerControl()
         {
             Text = "File Manager";
             HideOnClose = true;
 
-            PanelControl topPanel = new PanelControl
+            _topPanel = new PanelControl
             {
                 Dock = DockStyle.Top,
                 Height = 72,
@@ -96,24 +105,24 @@
             };
             _refreshButton.Click += RefreshButton_Click;
 
-            topPanel.Controls.Add(descriptionLabel);
-            topPanel.Controls.Add(_deploymentRootLabel);
+            _topPanel.Controls.Add(descriptionLabel);
+            _topPanel.Controls.Add(_deploymentRootLabel);
 
-            PanelControl fileListToolbar = new PanelControl
+            _fileListToolbar = new PanelControl
             {
                 Dock = DockStyle.Top,
                 Height = 37,
                 BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
             };
-            fileListToolbar.Controls.Add(_refreshButton);
-            fileListToolbar.Resize += (sender, args) =>
+            _fileListToolbar.Controls.Add(_refreshButton);
+            _fileListToolbar.Resize += (sender, args) =>
             {
                 _refreshButton.Location = new Point(
-                    Math.Max(0, fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
+                    Math.Max(0, _fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
                     5);
             };
             _refreshButton.Location = new Point(
-                Math.Max(0, fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
+                Math.Max(0, _fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
                 5);
 
 			_splitContainer = new SplitContainerControl
@@ -236,19 +245,19 @@
             };
             _previewSelectionTimer.Tick += PreviewSelectionTimer_Tick;
 
-            PanelControl fileListPanel = new PanelControl
+            _fileListPanel = new PanelControl
             {
                 Dock = DockStyle.Fill,
                 BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
             };
 
-			fileListPanel.Controls.Add(_gridControl);
-			fileListPanel.Controls.Add(fileListToolbar);
+			_fileListPanel.Controls.Add(_gridControl);
+			_fileListPanel.Controls.Add(_fileListToolbar);
 
-			_splitContainer.Panel1.Controls.Add(fileListPanel);
+			_splitContainer.Panel1.Controls.Add(_fileListPanel);
 			_splitContainer.Panel2.Controls.Add(_previewControl);
 
-            PanelControl bottomPanel = new PanelControl
+            _bottomPanel = new PanelControl
             {
                 Dock = DockStyle.Bottom,
                 Height = 30,
@@ -257,13 +266,28 @@
             };
             _summaryLabel = new LabelControl { Location = new Point(10, 7) };
             _statusLabel = new LabelControl { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 240, 7) };
-            bottomPanel.Resize += (sender, args) => _statusLabel.Left = Math.Max(10, bottomPanel.ClientSize.Width - _statusLabel.Width - 10);
-            bottomPanel.Controls.Add(_summaryLabel);
-            bottomPanel.Controls.Add(_statusLabel);
+            _bottomPanel.Resize += (sender, args) => _statusLabel.Left = Math.Max(10, _bottomPanel.ClientSize.Width - _statusLabel.Width - 10);
+            _bottomPanel.Controls.Add(_summaryLabel);
+            _bottomPanel.Controls.Add(_statusLabel);
 
             Controls.Add(_splitContainer);
-            Controls.Add(bottomPanel);
-            Controls.Add(topPanel);
+            Controls.Add(_bottomPanel);
+            Controls.Add(_topPanel);
+            ApplySkinAwareAppearance();
+        }
+
+        /// <summary>
+        /// Refreshes borderless File Manager surfaces from the active DevExpress skin palette.
+        /// </summary>
+        private void ApplySkinAwareAppearance()
+        {
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(_topPanel);
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(_fileListToolbar);
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(_fileListPanel);
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(_bottomPanel);
+            _previewControl.ApplySkinAwareAppearance();
+            ApplySourcePalette();
+            _gridView.InvalidateRows();
         }
 
         internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
@@ -274,7 +298,31 @@
             DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
             DevExpressDisplaySettingsApplier.ApplyToBarManager(_sourceMenuManager, settings);
             DevExpressDisplaySettingsApplier.ApplyToRepositoryItem(_ownerLookup, settings);
+            ApplySkinAwareAppearance();
             _gridControl.Invalidate();
+        }
+
+
+        /// <summary>
+        /// Selects a File Manager source palette that remains readable against the current grid background.
+        /// </summary>
+        private void ApplySourcePalette()
+        {
+            if (DevExpressDisplaySettingsApplier.IsDarkSkinSurface())
+            {
+                _baseGameSourceForeColor = Color.LightSkyBlue;
+                _installedSourceForeColor = Color.LightGreen;
+                _creationsSourceForeColor = Color.Violet;
+                _externalSourceForeColor = Color.Turquoise;
+                _untrackedSourceForeColor = Color.LightSalmon;
+                return;
+            }
+
+            _baseGameSourceForeColor = Color.RoyalBlue;
+            _installedSourceForeColor = Color.ForestGreen;
+            _creationsSourceForeColor = Color.DarkViolet;
+            _externalSourceForeColor = Color.DarkCyan;
+            _untrackedSourceForeColor = Color.OrangeRed;
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -1147,16 +1195,20 @@
             if (row == null)
                 return;
 
+            // Let the active skin own selected/focused text colors.
+            if (e.RowHandle == _gridView.FocusedRowHandle || _gridView.IsRowSelected(e.RowHandle))
+                return;
+
             if (row.Source == FileManagerSource.BaseGame)
-                e.Appearance.ForeColor = Color.RoyalBlue;
+                e.Appearance.ForeColor = _baseGameSourceForeColor;
             else if (row.Source == FileManagerSource.InstalledByNmm)
-                e.Appearance.ForeColor = Color.ForestGreen;
+                e.Appearance.ForeColor = _installedSourceForeColor;
             else if (row.Source == FileManagerSource.Creations)
-                e.Appearance.ForeColor = Color.DarkViolet;
+                e.Appearance.ForeColor = _creationsSourceForeColor;
             else if (row.Source == FileManagerSource.ExternalModManager)
-                e.Appearance.ForeColor = Color.DarkCyan;
+                e.Appearance.ForeColor = _externalSourceForeColor;
             else
-                e.Appearance.ForeColor = Color.OrangeRed;
+                e.Appearance.ForeColor = _untrackedSourceForeColor;
         }
 
         private sealed class FileManagerSourceChange

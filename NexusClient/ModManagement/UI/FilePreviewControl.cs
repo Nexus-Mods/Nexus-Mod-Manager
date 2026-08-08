@@ -12,6 +12,8 @@ namespace Nexus.Client.ModManagement.UI
     using DevExpress.XtraEditors;
     using DevExpress.XtraLayout;
 
+    using Nexus.Client.UI;
+
     public sealed class FilePreviewControl : XtraUserControl
     {
         private readonly FilePreviewManager _previewManager = new FilePreviewManager();
@@ -100,7 +102,23 @@ namespace Nexus.Client.ModManagement.UI
             previewItem.Padding = new DevExpress.XtraLayout.Utils.Padding(0, 0, 0, 0);
 
             Controls.Add(_layoutControl);
+            ApplySkinAwareAppearance();
             SetEmpty("Select a file to preview.");
+        }
+
+        /// <summary>
+        /// Applies the active DevExpress skin palette to the preview's otherwise borderless background surfaces.
+        /// </summary>
+        internal void ApplySkinAwareAppearance()
+        {
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(this);
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(_previewHost);
+            DevExpressDisplaySettingsApplier.ApplySkinSurface(_pictureEdit);
+
+            _messageLabel.Appearance.ForeColor = DevExpressDisplaySettingsApplier.GetSkinColor(
+                "ControlText",
+                SystemColors.ControlText);
+            _messageLabel.Appearance.Options.UseForeColor = true;
         }
 
         public void SetSelectedRow(FileManagerRow row)
