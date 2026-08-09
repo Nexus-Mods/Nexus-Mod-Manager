@@ -738,17 +738,18 @@
 		/// <summary>
 		/// Applies a plugin order change while suppressing intermediate collection refreshes and then synchronizes the existing grid rows with the resulting order.
 		/// </summary>
-		/// <param name="changeAction">The backend plugin order operation to execute.</param>
-		private void ApplyPluginOrderChange(Action changeAction)
+		/// <param name="changeAction">The backend operation. It returns <c>null</c> on success or the blocking diagnostics on failure.</param>
+		private void ApplyPluginOrderChange(Func<IList<PluginValidationDiagnostic>> changeAction)
 		{
 			if (changeAction == null)
 				return;
 
+			IList<PluginValidationDiagnostic> blockingDiagnostics = null;
 			_suppressManagedPluginsRefresh = true;
 
 			try
 			{
-				changeAction();
+				blockingDiagnostics = changeAction();
 			}
 			finally
 			{
@@ -756,6 +757,12 @@
 				_managedPluginsRefreshPending = false;
 
 				RefreshRowsAfterPluginOrderChange();
+			}
+
+			if (blockingDiagnostics != null)
+			{
+				ShowPluginStateChangeBlockedMessage("Plugin order change blocked", blockingDiagnostics);
+				return;
 			}
 
 			PluginMoved?.Invoke(this, EventArgs.Empty);
@@ -1062,6 +1069,73 @@
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
+
+		/// <summary>
+		/// Attempts to apply a plugin active-state change and reports authoritative backend validation failures.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin whose active state should be changed.</param>
+		/// <param name="p_booRequestedActive">Whether the plugin should be active.</param>
+		/// <returns><c>true</c> if the requested state was applied; otherwise, <c>false</c>.</returns>
+		private bool TryApplyRequestedActiveState(Plugin p_plgPlugin, bool p_booRequestedActive)
+		{
+			IList<PluginValidationDiagnostic> blockingDiagnostics;
+
+			if (_viewModel.TrySetPluginActivation(p_plgPlugin, p_booRequestedActive, out blockingDiagnostics))
+				return true;
+
+			ShowPluginStateChangeBlockedMessage(
+				p_booRequestedActive ? "Plugin activation blocked" : "Plugin deactivation blocked",
+				blockingDiagnostics);
+
+			return false;
+		}
+
+		/// <summary>
+		/// Shows validation errors returned by the authoritative plugin-state pipeline.
+		/// </summary>
+		/// <param name="p_strTitle">The dialog title.</param>
+		/// <param name="p_lstDiagnostics">The blocking diagnostics.</param>
+		private void ShowPluginStateChangeBlockedMessage(string p_strTitle, IList<PluginValidationDiagnostic> p_lstDiagnostics)
+		{
+			List<PluginValidationDiagnostic> diagnostics = (p_lstDiagnostics ?? new List<PluginValidationDiagnostic>())
+				.Where(x => x != null && x.Severity == PluginValidationSeverity.Error)
+				.ToList();
+
+			StringBuilder message = new StringBuilder();
+			message.AppendLine("The requested change was not applied because it would introduce a new plugin validation issue.");
+
+			if (diagnostics.Count > 0)
+			{
+				message.AppendLine();
+
+				foreach (PluginValidationDiagnostic diagnostic in diagnostics.Take(20))
+				{
+					string pluginName = diagnostic.Plugin == null
+						? String.Empty
+						: Path.GetFileName(diagnostic.Plugin.Filename);
+
+					message.Append("- ");
+
+					if (!String.IsNullOrWhiteSpace(pluginName))
+						message.Append(pluginName + ": ");
+
+					message.AppendLine(diagnostic.Message);
+				}
+
+				if (diagnostics.Count > 20)
+				{
+					message.AppendLine();
+					message.AppendFormat("...and {0} additional issue(s).", diagnostics.Count - 20);
+				}
+			}
+			else
+			{
+				message.AppendLine();
+				message.Append("The plugin manager did not return a specific validation error.");
+			}
+
+			XtraMessageBox.Show(this, message.ToString(), p_strTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+		}
 
 		/// <summary>
 		/// Determines whether a plugin collection contains a plugin whose order is protected.
@@ -1410,10 +1484,7 @@
             {
                 _updatingActiveCell = true;
                 bool requestedActive = Convert.ToBoolean(e.Value);
-                if (requestedActive)
-                    _viewModel.ActivatePlugin(row.Plugin);
-                else
-                    _viewModel.DeactivatePlugin(row.Plugin);
+                TryApplyRequestedActiveState(row.Plugin, requestedActive);
             }
             finally
             {
@@ -1664,7 +1735,11 @@
 			targetView.BeginUpdate();
 			try
 			{
-				ApplyPluginOrderChange(() => _pluginManager.SetPluginOrder(proposedOrder));
+				ApplyPluginOrderChange(() =>
+				{
+					IList<PluginValidationDiagnostic> blockingDiagnostics;
+					return _pluginManager.TrySetPluginOrder(proposedOrder, out blockingDiagnostics) ? null : blockingDiagnostics;
+				});
 			}
 			finally
 			{
@@ -1790,8 +1865,11 @@
                 return;
             }
 
-			ApplyPluginOrderChange(
-				() => _pluginManager.SetPluginOrder(proposedOrder));
+			ApplyPluginOrderChange(() =>
+			{
+				IList<PluginValidationDiagnostic> blockingDiagnostics;
+				return _pluginManager.TrySetPluginOrder(proposedOrder, out blockingDiagnostics) ? null : blockingDiagnostics;
+			});
 		}
 
         private void GridViewEndSorting(object sender, EventArgs e)
@@ -1830,11 +1908,7 @@
                 return;
             }
 
-            if (requestedActive)
-                _viewModel.ActivatePlugin(plugin);
-            else
-                _viewModel.DeactivatePlugin(plugin);
-
+            TryApplyRequestedActiveState(plugin, requestedActive);
             RequestActivePluginsRefresh();
         }
 
@@ -2120,7 +2194,11 @@
                 return;
             }
 
-			ApplyPluginOrderChange(() => _viewModel.MoveUpCommand.Execute(selected));
+			ApplyPluginOrderChange(() =>
+			{
+				IList<PluginValidationDiagnostic> blockingDiagnostics;
+				return _viewModel.TryMovePluginsUp(selected, out blockingDiagnostics) ? null : blockingDiagnostics;
+			});
 		}
 
         private void MoveSelectedDown(object sender, EventArgs e)
@@ -2133,7 +2211,11 @@
                 return;
             }
 
-			ApplyPluginOrderChange(() => _viewModel.MoveDownCommand.Execute(selected));
+			ApplyPluginOrderChange(() =>
+			{
+				IList<PluginValidationDiagnostic> blockingDiagnostics;
+				return _viewModel.TryMovePluginsDown(selected, out blockingDiagnostics) ? null : blockingDiagnostics;
+			});
 		}
 
         private void DisableAll(object sender, EventArgs e)

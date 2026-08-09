@@ -460,6 +460,18 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Attempts to change a plugin activation state and returns any new validation errors that block the request.
+		/// </summary>
+		/// <param name="p_plgPlugin">The plugin whose active state should be changed.</param>
+		/// <param name="p_booActive">Whether the plugin should be active.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the request.</param>
+		/// <returns><c>true</c> if the requested active state was applied; otherwise, <c>false</c>.</returns>
+		public bool TrySetPluginActivation(Plugin p_plgPlugin, bool p_booActive, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			return PluginManager.TrySetPluginActivation(new List<Plugin> { p_plgPlugin }, p_booActive, out p_lstBlockingDiagnostics);
+		}
+
+		/// <summary>
 		/// Determines if the active state of the given plugin can be changed.
 		/// </summary>
 		/// <param name="p_plgPlugin">The plugin for which it is to be determined if the active state can be changed.</param>
@@ -553,19 +565,26 @@ namespace Nexus.Client.PluginManagement.UI
 		}
 
 		/// <summary>
+		/// Attempts to apply the specified plugin order without introducing new validation errors.
+		/// </summary>
+		/// <param name="p_lstPlugins">The requested plugin order.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the request.</param>
+		/// <returns><c>true</c> if the requested order was applied; otherwise, <c>false</c>.</returns>
+		public bool TrySetPluginOrder(IList<Plugin> p_lstPlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			return PluginManager.TrySetPluginOrder(p_lstPlugins, out p_lstBlockingDiagnostics);
+		}
+
+		/// <summary>
 		/// Moves the specified plugins one position earlier in the load order as a single atomic operation.
 		/// </summary>
 		/// <param name="p_lstPlugins">The plugins to move.</param>
 		protected void MovePluginsUp(IEnumerable<Plugin> p_lstPlugins)
 		{
-			List<Plugin> plugins = p_lstPlugins == null ? new List<Plugin>() : p_lstPlugins.Where(x => x != null).ToList();
-			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(plugins, -1);
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
 
-			if (proposedOrder == null)
-				return;
-
-			PluginManager.SetPluginOrder(proposedOrder);
-			PluginMoved(this, EventArgs.Empty);
+			if (TryMovePlugins(p_lstPlugins, -1, out lstBlockingDiagnostics) && PluginMoved != null)
+				PluginMoved(this, EventArgs.Empty);
 		}
 
 		/// <summary>
@@ -574,13 +593,50 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <param name="p_lstPlugins">The plugins to move.</param>
 		protected void MovePluginsDown(IList<Plugin> p_lstPlugins)
 		{
-			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(p_lstPlugins, 1);
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+
+			if (TryMovePlugins(p_lstPlugins, 1, out lstBlockingDiagnostics) && PluginMoved != null)
+				PluginMoved(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Attempts to move the specified plugins one position earlier in the load order.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins to move.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the move.</param>
+		/// <returns><c>true</c> if the move was applied; otherwise, <c>false</c>.</returns>
+		public bool TryMovePluginsUp(IList<Plugin> p_lstPlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			return TryMovePlugins(p_lstPlugins, -1, out p_lstBlockingDiagnostics);
+		}
+
+		/// <summary>
+		/// Attempts to move the specified plugins one position later in the load order.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins to move.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the move.</param>
+		/// <returns><c>true</c> if the move was applied; otherwise, <c>false</c>.</returns>
+		public bool TryMovePluginsDown(IList<Plugin> p_lstPlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			return TryMovePlugins(p_lstPlugins, 1, out p_lstBlockingDiagnostics);
+		}
+
+		/// <summary>
+		/// Builds and applies a one-row plugin move without introducing new validation errors.
+		/// </summary>
+		/// <param name="p_enmPlugins">The plugins to move.</param>
+		/// <param name="p_intDirection">A negative value to move earlier or a positive value to move later.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the move.</param>
+		/// <returns><c>true</c> if the move was applied; otherwise, <c>false</c>.</returns>
+		private bool TryMovePlugins(IEnumerable<Plugin> p_enmPlugins, int p_intDirection, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			p_lstBlockingDiagnostics = new List<PluginValidationDiagnostic>();
+			List<Plugin> proposedOrder = BuildPluginOrderMovedByOne(p_enmPlugins, p_intDirection);
 
 			if (proposedOrder == null)
-				return;
+				return false;
 
-			PluginManager.SetPluginOrder(proposedOrder);
-			PluginMoved(this, EventArgs.Empty);
+			return PluginManager.TrySetPluginOrder(proposedOrder, out p_lstBlockingDiagnostics);
 		}
 
 		/// <summary>

@@ -145,6 +145,15 @@ namespace Nexus.Client.PluginManagement
 		void SetPluginActivation(IList<Plugin> p_lstPlugins, bool p_booActive);
 
 		/// <summary>
+		/// Attempts to set multiple plugin activations without introducing new validation errors.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins whose activation state should be changed.</param>
+		/// <param name="p_booActive">Whether the plugins should be active.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the operation.</param>
+		/// <returns><c>true</c> if the requested activation state was applied; otherwise, <c>false</c>.</returns>
+		bool TrySetPluginActivation(IList<Plugin> p_lstPlugins, bool p_booActive, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics);
+
+		/// <summary>
 		/// Applies a complete ordered plugin state through the authoritative policy pipeline.
 		/// </summary>
 		void ApplyPluginState(IList<Plugin> p_lstOrderedPlugins, IList<Plugin> p_lstActivePlugins);
@@ -212,6 +221,14 @@ namespace Nexus.Client.PluginManagement
 		/// </remarks>
 		/// <param name="p_lstOrderedPlugins">The list indicating the desired order of the plugins.</param>
 		void SetPluginOrder(IList<Plugin> p_lstOrderedPlugins);
+
+		/// <summary>
+		/// Attempts to set the plugin order without introducing new validation errors.
+		/// </summary>
+		/// <param name="p_lstOrderedPlugins">The requested plugin order.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the operation.</param>
+		/// <returns><c>true</c> if the requested order was applied; otherwise, <c>false</c>.</returns>
+		bool TrySetPluginOrder(IList<Plugin> p_lstOrderedPlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics);
 
 		/// <summary>
 		/// Determines if the specified plugin order is valid.

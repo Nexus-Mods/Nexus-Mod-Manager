@@ -412,6 +412,22 @@ namespace Nexus.Client.PluginManagement
 
 		private bool TryApplyPluginState(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins)
 		{
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+			return TryApplyPluginState(p_lstOrderedPlugins, p_setActivePlugins, out lstBlockingDiagnostics);
+		}
+
+		/// <summary>
+		/// Applies a requested plugin state when it does not introduce validation errors that are absent from the current state.
+		/// Existing errors therefore do not prevent incremental repair operations.
+		/// </summary>
+		/// <param name="p_lstOrderedPlugins">The requested plugin order.</param>
+		/// <param name="p_setActivePlugins">The requested active plugin set.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced errors that blocked the operation.</param>
+		/// <returns><c>true</c> if the requested state was applied; otherwise, <c>false</c>.</returns>
+		private bool TryApplyPluginState(IList<Plugin> p_lstOrderedPlugins, ISet<Plugin> p_setActivePlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			p_lstBlockingDiagnostics = new List<PluginValidationDiagnostic>();
+
 			List<Plugin> correctedOrder = GetPolicyCorrectedOrder(p_lstOrderedPlugins);
 			HashSet<Plugin> desiredActivePlugins = new HashSet<Plugin>(p_setActivePlugins == null ? new List<Plugin>() : p_setActivePlugins.Where(x => x != null), PluginComparer.Filename);
 
@@ -420,11 +436,14 @@ namespace Nexus.Client.PluginManagement
 				desiredActivePlugins.Add(protectedPlugin);
 			}
 
+			PluginSnapshot currentSnapshot = CurrentSnapshot;
 			PluginSnapshot snapshot = BuildPluginSnapshot(correctedOrder, desiredActivePlugins);
+			List<PluginValidationDiagnostic> blockingDiagnostics = GetNewBlockingDiagnostics(currentSnapshot, snapshot);
 
-			if (snapshot.HasErrors)
+			if (blockingDiagnostics.Count > 0)
 			{
-				TracePluginDiagnostics(snapshot);
+				p_lstBlockingDiagnostics = blockingDiagnostics;
+				TracePluginDiagnostics(blockingDiagnostics);
 				return false;
 			}
 
@@ -466,6 +485,49 @@ namespace Nexus.Client.PluginManagement
 		}
 
 		/// <summary>
+		/// Gets candidate validation errors that are not already present in the current plugin state.
+		/// </summary>
+		/// <param name="p_psnCurrentSnapshot">The current plugin snapshot.</param>
+		/// <param name="p_psnCandidateSnapshot">The candidate plugin snapshot.</param>
+		/// <returns>The newly introduced blocking diagnostics.</returns>
+		private static List<PluginValidationDiagnostic> GetNewBlockingDiagnostics(PluginSnapshot p_psnCurrentSnapshot, PluginSnapshot p_psnCandidateSnapshot)
+		{
+			List<PluginValidationDiagnostic> candidateErrors = p_psnCandidateSnapshot == null
+				? new List<PluginValidationDiagnostic>()
+				: p_psnCandidateSnapshot.Diagnostics.Where(x => x.Severity == PluginValidationSeverity.Error).ToList();
+
+			if (candidateErrors.Count == 0 || p_psnCurrentSnapshot == null || !p_psnCurrentSnapshot.HasErrors)
+				return candidateErrors;
+
+			HashSet<string> currentErrorKeys = new HashSet<string>(
+				p_psnCurrentSnapshot.Diagnostics
+					.Where(x => x.Severity == PluginValidationSeverity.Error)
+					.Select(GetValidationDiagnosticKey),
+				StringComparer.OrdinalIgnoreCase);
+
+			return candidateErrors
+				.Where(x => !currentErrorKeys.Contains(GetValidationDiagnosticKey(x)))
+				.ToList();
+		}
+
+		/// <summary>
+		/// Builds a stable identity for a validation diagnostic so current and candidate states can be compared.
+		/// </summary>
+		/// <param name="p_pvdDiagnostic">The validation diagnostic.</param>
+		/// <returns>A filename-, issue- and message-based diagnostic identity.</returns>
+		private static string GetValidationDiagnosticKey(PluginValidationDiagnostic p_pvdDiagnostic)
+		{
+			if (p_pvdDiagnostic == null)
+				return String.Empty;
+
+			string pluginName = p_pvdDiagnostic.Plugin == null
+				? String.Empty
+				: Path.GetFileName(p_pvdDiagnostic.Plugin.Filename) ?? String.Empty;
+
+			return pluginName + "|" + p_pvdDiagnostic.Kind + "|" + (p_pvdDiagnostic.Message ?? String.Empty).Trim();
+		}
+
+		/// <summary>
 		/// Determines whether two plugin sequences contain the same plugins in the same order.
 		/// </summary>
 		/// <param name="p_lstFirst">The first plugin sequence.</param>
@@ -492,8 +554,17 @@ namespace Nexus.Client.PluginManagement
 
 		private void TracePluginDiagnostics(PluginSnapshot snapshot)
 		{
-			foreach (PluginValidationDiagnostic diagnostic in snapshot.Diagnostics)
-				if (diagnostic.Severity == PluginValidationSeverity.Error)
+			TracePluginDiagnostics(snapshot == null ? null : snapshot.Diagnostics);
+		}
+
+		/// <summary>
+		/// Writes blocking plugin validation diagnostics to the trace log.
+		/// </summary>
+		/// <param name="p_enmDiagnostics">The diagnostics to trace.</param>
+		private void TracePluginDiagnostics(IEnumerable<PluginValidationDiagnostic> p_enmDiagnostics)
+		{
+			foreach (PluginValidationDiagnostic diagnostic in p_enmDiagnostics ?? Enumerable.Empty<PluginValidationDiagnostic>())
+				if (diagnostic != null && diagnostic.Severity == PluginValidationSeverity.Error)
 					Trace.TraceWarning("Plugin state rejected: {0} - {1}", diagnostic.Plugin == null ? String.Empty : diagnostic.Plugin.Filename, diagnostic.Message);
 		}
 
@@ -1067,25 +1138,52 @@ namespace Nexus.Client.PluginManagement
 
 		public void SetPluginActivation(IList<Plugin> p_lstPlugins, bool p_booActive)
 		{
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+			TrySetPluginActivation(p_lstPlugins, p_booActive, out lstBlockingDiagnostics);
+		}
+
+		/// <summary>
+		/// Attempts to change multiple plugin activation states without allowing the operation to introduce new validation errors.
+		/// </summary>
+		/// <param name="p_lstPlugins">The plugins whose activation state should be changed.</param>
+		/// <param name="p_booActive">Whether the plugins should be active.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the operation.</param>
+		/// <returns><c>true</c> if the requested activation state was applied; otherwise, <c>false</c>.</returns>
+		public bool TrySetPluginActivation(IList<Plugin> p_lstPlugins, bool p_booActive, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
 			HashSet<Plugin> activePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+
 			foreach (Plugin plugin in p_lstPlugins ?? new List<Plugin>())
 			{
 				if (plugin == null || !CanChangeActiveState(plugin))
 					continue;
+
 				if (p_booActive)
 					activePlugins.Add(plugin);
 				else
 					activePlugins.Remove(plugin);
 			}
 
-			TryApplyPluginState(new List<Plugin>(PluginOrderLog.OrderedPlugins), activePlugins);
+			return TryApplyPluginState(new List<Plugin>(PluginOrderLog.OrderedPlugins), activePlugins, out p_lstBlockingDiagnostics);
 		}
 
 		public void ApplyPluginState(IList<Plugin> p_lstOrderedPlugins, IList<Plugin> p_lstActivePlugins)
 		{
+			List<Plugin> correctedOrder = GetPolicyCorrectedOrder(p_lstOrderedPlugins);
 			HashSet<Plugin> activePlugins = new HashSet<Plugin>(p_lstActivePlugins == null ? new List<Plugin>() : p_lstActivePlugins.Where(x => x != null), PluginComparer.Filename);
-			if (!TryApplyPluginState(p_lstOrderedPlugins, activePlugins))
+
+			foreach (Plugin protectedPlugin in correctedOrder.Where(IsProtectedPlugin))
+				activePlugins.Add(protectedPlugin);
+
+			PluginSnapshot requestedSnapshot = BuildPluginSnapshot(correctedOrder, activePlugins);
+
+			if (requestedSnapshot.HasErrors || !TryApplyPluginState(correctedOrder, activePlugins))
+			{
+				if (requestedSnapshot.HasErrors)
+					TracePluginDiagnostics(requestedSnapshot);
+
 				throw new InvalidOperationException("The requested plugin state is invalid for the current game policy.");
+			}
 		}
 
 		/// <summary>
@@ -1159,7 +1257,19 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_lstOrderedPlugins">The list indicating the desired order of the plugins.</param>
 		public void SetPluginOrder(IList<Plugin> p_lstOrderedPlugins)
 		{
-			TryApplyPluginState(p_lstOrderedPlugins, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename));
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+			TrySetPluginOrder(p_lstOrderedPlugins, out lstBlockingDiagnostics);
+		}
+
+		/// <summary>
+		/// Attempts to set the plugin order without allowing the operation to introduce new validation errors.
+		/// </summary>
+		/// <param name="p_lstOrderedPlugins">The requested plugin order.</param>
+		/// <param name="p_lstBlockingDiagnostics">The newly introduced validation errors that blocked the operation.</param>
+		/// <returns><c>true</c> if the requested order was applied; otherwise, <c>false</c>.</returns>
+		public bool TrySetPluginOrder(IList<Plugin> p_lstOrderedPlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			return TryApplyPluginState(p_lstOrderedPlugins, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename), out p_lstBlockingDiagnostics);
 		}
 
 		/// <summary>
