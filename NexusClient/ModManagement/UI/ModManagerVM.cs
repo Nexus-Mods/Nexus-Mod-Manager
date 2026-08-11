@@ -403,7 +403,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			get
 			{
-				return $"Download Mode: {SkyrimSEDownloadModeDescriptor} (change with left bar's bottom button) |";
+				return $"Download Mode: {SkyrimSEDownloadModeDescriptor} (change with the toolbar Download Mode button)";
 			}
 		}
 

@@ -7,6 +7,7 @@
 	using System.Windows.Forms;
 
 	using DevExpress.XtraBars;
+	using DevExpress.XtraEditors.Controls;
 	using DevExpress.XtraEditors.Repository;
 
 	using Nexus.Client.Commands;
@@ -315,7 +316,8 @@
 			toolStripLabelDownloads = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = String.Empty
+				Caption = String.Empty,
+				Border = BorderStyles.NoBorder
 			};
 
 			toolStripProgressBarDownloadSpeed = new DownloadProgressBarItem(barManagerMain)
@@ -324,11 +326,12 @@
 				Value = 0,
 				OptionalValue = 0,
 				ShowOptionalProgress = true,
-				ColorFillMode = DownloadProgressBarItem.FillType.Fixed
+				ColorFillMode = DownloadProgressBarItem.FillType.Fixed,
+				Visible = false
 			};
 
-			toolStripButtonGoPremium = new BarButtonItem(barManagerMain, String.Empty);
-			toolStripLabelLoginMessage = new BarStaticItem { Manager = barManagerMain };
+			toolStripButtonGoPremium = new BarButtonItem(barManagerMain, String.Empty) { Visibility = BarItemVisibility.Never };
+			toolStripLabelLoginMessage = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder };
 			toolStripButtonRateLimit = new BarButtonItem(barManagerMain, "Rate Limit")
 			{
 				PaintStyle = BarItemPaintStyle.Standard
@@ -336,8 +339,8 @@
 			toolStripButtonRateLimit.ImageOptions.Image = ScaleBarImage(Properties.Resources.token_info, StatusBarImageSize);
 			toolStripButtonRateLimit.ItemClick += (sender, args) => ToolStripButtonRateLimitOnClick(sender, EventArgs.Empty);
 
-			toolStripLabelBottomBarFeedback = new BarStaticItem { Manager = barManagerMain };
-			toolStripLabelBottomBarFeedbackCounter = new BarStaticItem { Manager = barManagerMain };
+			toolStripLabelBottomBarFeedback = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder, Visibility = BarItemVisibility.Never };
+			toolStripLabelBottomBarFeedbackCounter = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder, Visibility = BarItemVisibility.Never };
 			toolStripButtonLoader = new BarButtonItem(barManagerMain, "Activity")
 			{
 				PaintStyle = BarItemPaintStyle.Standard,
@@ -348,18 +351,21 @@
 			toolStripLabelPluginsCounter = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = "Total plugins / Active plugins"
+				Caption = "Total plugins    Active plugins",
+				Border = BorderStyles.NoBorder
 			};
-			toolStripLabelActivePluginsCounter = new BarStaticItem { Manager = barManagerMain };
+			toolStripLabelActivePluginsCounter = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder };
 			tlbModsCounter = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = "Total mods / Active mods"
+				Caption = "Total mods    Active mods",
+				Border = BorderStyles.NoBorder
 			};
 			tsbSkyrimDownloads = new BarStaticItem
 			{
 				Manager = barManagerMain,
 				Caption = "Skyrim Downloads",
+				Border = BorderStyles.NoBorder,
 				Visibility = BarItemVisibility.Never
 			};
 
@@ -369,7 +375,7 @@
 			barStatus.AddItem(toolStripButtonGoPremium);
 			barStatus.AddItem(toolStripLabelLoginMessage);
 			barStatus.AddItem(toolStripButtonRateLimit);
-			barStatus.AddItem(toolStripLabelBottomBarFeedback).BeginGroup = true;
+			barStatus.AddItem(toolStripLabelBottomBarFeedback);
 			barStatus.AddItem(toolStripLabelBottomBarFeedbackCounter);
 			barStatus.AddItem(toolStripButtonLoader);
 
@@ -379,9 +385,9 @@
 			tsbSkyrimDownloads.Alignment = BarItemLinkAlignment.Right;
 
 			barStatus.AddItem(tlbModsCounter);
+			barStatus.AddItem(toolStripLabelPluginsCounter).BeginGroup = true;
 			barStatus.AddItem(toolStripLabelActivePluginsCounter);
-			barStatus.AddItem(toolStripLabelPluginsCounter);
-			barStatus.AddItem(tsbSkyrimDownloads);
+			barStatus.AddItem(tsbSkyrimDownloads).BeginGroup = true;
 		}
 
 		/// <summary>

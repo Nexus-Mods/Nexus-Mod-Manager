@@ -16,6 +16,8 @@
 	public partial class MainForm
 	{
 		private const string DevExpressDockLayoutSettingsKey = "mainForm.DevExpressDockLayout.v4";
+		private const string DevExpressActiveDocumentSettingsKey = "mainForm.DevExpressActiveDocument.v3";
+		private const string LegacyDevExpressActiveDocumentV2SettingsKey = "mainForm.DevExpressActiveDocument.v2";
 		private const string LegacyDevExpressDockLayoutV3SettingsKey = "mainForm.DevExpressDockLayout.v3";
 		private const string LegacyDevExpressDockLayoutV2SettingsKey = "mainForm.DevExpressDockLayout.v2";
 		private const string LegacyDevExpressDockLayoutSettingsKey = "mainForm.DevExpressDockLayout";
@@ -31,6 +33,7 @@
 		private DocumentManager _mainDocumentManager;
 		private TabbedView _mainTabbedView;
 		private bool _applyDefaultMonitorSizeOnShown;
+		private bool _mainDocumentPersistenceEnabled;
 
 		/// <summary>
 		/// Creates the DevExpress document manager and dock manager that replace the
@@ -77,6 +80,7 @@
 			_downloadMonitorDockPanel.Text = String.IsNullOrEmpty(_downloadMonitorControl.Text) ? "Download Manager" : _downloadMonitorControl.Text;
 			_downloadMonitorDockPanel.Options.ShowAutoHideButton = true;
 			_downloadMonitorDockPanel.Options.ShowCloseButton = false;
+			_downloadMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
 			EnsureMonitorDockContent(_downloadMonitorDockPanel, _downloadMonitorControl);
 
 			_modActivationMonitorDockPanel = _mainDockManager.AddPanel(DockingStyle.Bottom);
@@ -85,6 +89,7 @@
 			_modActivationMonitorDockPanel.Text = String.IsNullOrEmpty(_modActivationMonitorControl.Text) ? "Mod Activation Queue" : _modActivationMonitorControl.Text;
 			_modActivationMonitorDockPanel.Options.ShowAutoHideButton = true;
 			_modActivationMonitorDockPanel.Options.ShowCloseButton = false;
+			_modActivationMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
 			EnsureMonitorDockContent(_modActivationMonitorDockPanel, _modActivationMonitorControl);
 
 			_downloadMonitorControl.TextChanged += (sender, args) =>
@@ -120,11 +125,17 @@
 
 			DockPanel downloadPanel = _mainDockManager["downloadMonitorDockPanel"];
 			if (downloadPanel != null)
+			{
 				_downloadMonitorDockPanel = downloadPanel;
+				_downloadMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
+			}
 
 			DockPanel activationPanel = _mainDockManager["modActivationMonitorDockPanel"];
 			if (activationPanel != null)
+			{
 				_modActivationMonitorDockPanel = activationPanel;
+				_modActivationMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
+			}
 		}
 
 		/// <summary>
@@ -231,6 +242,8 @@
 			_mainDockManager.BeginUpdate();
 			try
 			{
+				_downloadMonitorDockPanel.DockedAsTabbedDocument = false;
+				_modActivationMonitorDockPanel.DockedAsTabbedDocument = false;
 				_downloadMonitorDockPanel.Visibility = DockVisibility.Visible;
 				_modActivationMonitorDockPanel.Visibility = DockVisibility.Visible;
 
@@ -270,6 +283,7 @@
 			_modActivationMonitorDockPanel.Size = new Size(halfWidth, DefaultMonitorPanelHeight);
 			_downloadMonitorControl.PerformLayout();
 			_modActivationMonitorControl.PerformLayout();
+			RestoreMonitorColumnWidths();
 			_applyDefaultMonitorSizeOnShown = false;
 		}
 
@@ -303,7 +317,13 @@
 				ApplyDefaultMonitorDockingLayout();
 
 			ShowEmbeddedDockContents();
-			ActivateModsDocument();
+			if (_downloadMonitorDockPanel.DockedAsTabbedDocument || _modActivationMonitorDockPanel.DockedAsTabbedDocument)
+			{
+				ApplyDefaultMonitorDockingLayout();
+				dockRestored = false;
+			}
+
+			RestoreActiveMainDocument();
 			return dockRestored;
 		}
 
@@ -336,6 +356,7 @@
 			{
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(DevExpressDockLayoutSettingsKey);
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(DevExpressActiveDocumentSettingsKey);
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDockLayoutV3SettingsKey);
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDockLayoutV2SettingsKey);
 				RemoveLegacyMainLayoutSettings();
@@ -357,6 +378,7 @@
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDockLayoutV2SettingsKey);
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDockLayoutSettingsKey);
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDocumentLayoutSettingsKey);
+			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressActiveDocumentV2SettingsKey);
 			ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressActiveDocumentSettingsKey);
 		}
 
@@ -370,6 +392,51 @@
 		}
 
 		/// <summary>
+		/// Restores the last selected permanent main document, falling back to Mods when
+		/// the saved page is not available in the current game mode.
+		/// </summary>
+		private void RestoreActiveMainDocument()
+		{
+			string activeControlName = GetLayoutSetting(DevExpressActiveDocumentSettingsKey);
+			if (!String.IsNullOrEmpty(activeControlName))
+			{
+				foreach (BaseDocument document in _mainTabbedView.Documents)
+				{
+					if (document.Control != null && String.Equals(document.Control.Name, activeControlName, StringComparison.Ordinal))
+					{
+						_mainTabbedView.ActivateDocument(document.Control);
+						return;
+					}
+				}
+			}
+
+			ActivateModsDocument();
+		}
+
+		/// <summary>
+		/// Captures the selected permanent main document while the MDI children are still active.
+		/// </summary>
+		/// <param name="selectedControl">The selected document control, or null to use the active document.</param>
+		private void SaveActiveMainDocument(Control selectedControl = null)
+		{
+			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null)
+				return;
+
+			Control activeControl = selectedControl ?? _mainTabbedView?.ActiveDocument?.Control;
+			if (activeControl != null)
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressActiveDocumentSettingsKey] = activeControl.Name;
+		}
+
+		/// <summary>
+		/// Reapplies monitor column widths after the final dock and window dimensions are known.
+		/// </summary>
+		private void RestoreMonitorColumnWidths()
+		{
+			_downloadMonitorControl?.RestorePersistedColumnWidths();
+			_modActivationMonitorControl?.RestorePersistedColumnWidths();
+		}
+
+		/// <summary>
 		/// Handles main-document selection changes and performs lazy initialization for
 		/// document content that is intentionally loaded only when first opened.
 		/// </summary>
@@ -378,7 +445,29 @@
 			SetBarItemVisible(toolStripTextBoxFind, false);
 			toolStripTextBoxFind.Enabled = false;
 
-			if (Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _fileManagerControl))
+			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null)
+			{
+				SaveActiveMainDocument(e.Document.Control);
+				ViewModel.EnvironmentInfo.Settings.Save();
+			}
+
+			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _fileManagerControl))
+				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
+		}
+
+		/// <summary>
+		/// Restores the persisted main document after DevExpress has completed its startup
+		/// MDI activation sequence, then enables persistence for genuine user selections.
+		/// </summary>
+		/// <param name="sender">The application that raised the idle event.</param>
+		/// <param name="e">The event arguments.</param>
+		private async void RestoreActiveMainDocumentOnIdle(object sender, EventArgs e)
+		{
+			Application.Idle -= RestoreActiveMainDocumentOnIdle;
+			RestoreActiveMainDocument();
+			_mainDocumentPersistenceEnabled = true;
+
+			if (IsMainDocumentActive(_fileManagerControl))
 				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
 		}
 

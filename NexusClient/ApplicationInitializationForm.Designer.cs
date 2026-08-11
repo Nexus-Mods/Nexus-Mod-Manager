@@ -29,6 +29,7 @@
 			this.pbxLogo.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
 			this.pbxLogo.TabIndex = 0;
 			this.pbxLogo.TabStop = false;
+			this.pbxLogo.Controls.Add(this.lblVersion);
 			// 
 			// lblVersion
 			// 
@@ -45,11 +46,10 @@
 			// ApplicationInitializationForm
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
 			this.BackColor = System.Drawing.Color.FromArgb(38, 38, 38);
 			this.ClientSize = new System.Drawing.Size(800, 448);
 			this.ControlBox = false;
-			this.Controls.Add(this.lblVersion);
 			this.Controls.Add(this.pbxLogo);
 			this.DoubleBuffered = true;
 			this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;

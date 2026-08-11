@@ -196,7 +196,7 @@
 
 		private static readonly ColumnSizingDefinition[] GridColumnSizingDefinitions =
 		{
-			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 90, 80, 150), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 90, 80, 150), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
+			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
 		};
 		private const int ModStatusIconSize = 20;
 		private const int InlineEditIconSize = 18;
@@ -1164,6 +1164,7 @@
 			gridView.Appearance.GroupRow.Font = _gridRegularFont;
 
 			gridView.LayoutChanged();
+			EnsureDateColumnsFitScaledContent();
 			gridView.InvalidateRows();
 
 			DisposeFont(oldRegularFont);
@@ -1249,6 +1250,7 @@
 			gridView.GroupRowExpanded += (s, e) => QueueGridLayoutSave();
 			gridView.GroupRowCollapsed += (s, e) => QueueGridLayoutSave();
 			gridView.ColumnWidthChanged += (s, e) => QueueGridLayoutSave();
+			gridView.ColumnPositionChanged += (s, e) => QueueGridLayoutSave();
 			gridView.EndSorting += GridView_EndSorting;
 		}
 
@@ -2165,12 +2167,101 @@
 			throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, "A sizing definition is required for every mod grid column.");
 		}
 		private static void ApplyColumnSizingDefinition(GridColumn column, ColumnSizingDefinition definition) { column.MinWidth = definition.MinimumWidth; column.MaxWidth = definition.MaximumWidth; column.Width = definition.DefaultWidth; }
-		private void ApplyDefaultColumnSizing() { gridView.BeginUpdate(); try { foreach (GridColumn column in gridView.Columns) ApplyColumnSizingDefinition(column, GetColumnSizingDefinition(column.FieldName)); } finally { gridView.EndUpdate(); } }
+		private void ApplyDefaultColumnSizing()
+		{
+			gridView.BeginUpdate();
+			try
+			{
+				int assignedWidth = 0;
+				GridColumn primaryFlexibleColumn = null;
+				foreach (GridColumn column in gridView.Columns)
+				{
+					ColumnSizingDefinition definition = GetColumnSizingDefinition(column.FieldName);
+					ApplyColumnSizingDefinition(column, definition);
+					if (definition.Role == ColumnSizingRole.Bounded)
+					{
+						column.BestFit();
+						int bestFitWidth = Math.Max(definition.MinimumWidth, column.Width);
+						if (definition.MaximumWidth > 0)
+							bestFitWidth = Math.Min(definition.MaximumWidth, bestFitWidth);
+						column.Width = bestFitWidth;
+					}
+					if (column.Visible)
+						assignedWidth += column.Width;
+					if (definition.Role == ColumnSizingRole.FlexiblePrimary)
+						primaryFlexibleColumn = column;
+				}
+
+				int availableWidth = Math.Max(0, gridControl.ClientSize.Width - SystemInformation.VerticalScrollBarWidth);
+				if (primaryFlexibleColumn != null && availableWidth > assignedWidth)
+					primaryFlexibleColumn.Width += availableWidth - assignedWidth;
+			}
+			finally
+			{
+				gridView.EndUpdate();
+			}
+		}
 		private void BestFitColumn(GridColumn column)
 		{
 			if (column == null) return;
 			ColumnSizingDefinition definition = GetColumnSizingDefinition(column.FieldName); gridView.BeginUpdate(); try { column.BestFit(); int width = Math.Max(definition.MinimumWidth, column.Width); if (definition.MaximumWidth > 0) width = Math.Min(definition.MaximumWidth, width); column.Width = width; } finally { gridView.EndUpdate(); }
 			SaveGridLayout();
+		}
+
+		/// <summary>
+		/// Ensures date columns can display their scaled header and cell content while preserving
+		/// any wider user-defined widths restored from settings.
+		/// </summary>
+		private void EnsureDateColumnsFitScaledContent()
+		{
+			bool wasRestoring = _restoringGridLayout;
+			_restoringGridLayout = true;
+			gridView.BeginUpdate();
+			try
+			{
+				EnsureColumnFitsScaledContent(gridView.Columns[ColInstallDate]);
+				EnsureColumnFitsScaledContent(gridView.Columns[ColDownloadDate]);
+			}
+			finally
+			{
+				gridView.EndUpdate();
+				_restoringGridLayout = wasRestoring;
+			}
+		}
+
+		/// <summary>
+		/// Expands one column to its DevExpress best-fit width without shrinking a restored width.
+		/// </summary>
+		/// <param name="column">The column to resize.</param>
+		private void EnsureColumnFitsScaledContent(GridColumn column)
+		{
+			if (column == null)
+				return;
+
+			ColumnSizingDefinition definition = GetColumnSizingDefinition(column.FieldName);
+			int restoredWidth = column.Width;
+			column.MinWidth = definition.MinimumWidth;
+			column.MaxWidth = 0;
+			column.BestFit();
+			int scaledMinimumWidth = Math.Max(definition.MinimumWidth,
+				Math.Max(column.Width, GetScaledDateContentWidth()));
+			column.MinWidth = scaledMinimumWidth;
+			column.Width = Math.Max(restoredWidth, scaledMinimumWidth);
+		}
+
+		/// <summary>
+		/// Measures a representative localized date/time using the active grid font and DPI.
+		/// </summary>
+		/// <returns>The minimum pixel width required for a date cell, including cell padding.</returns>
+		private int GetScaledDateContentWidth()
+		{
+			Font font = _gridRegularFont ?? gridControl.Font ?? Font;
+			string currentCultureSample = DateTime.Now.ToString(CultureInfo.CurrentCulture);
+			string invariantCultureSample = DateTime.Now.ToString(CultureInfo.InvariantCulture);
+			TextFormatFlags flags = TextFormatFlags.NoPadding | TextFormatFlags.SingleLine;
+			int currentCultureWidth = TextRenderer.MeasureText(currentCultureSample, font, Size.Empty, flags).Width;
+			int invariantCultureWidth = TextRenderer.MeasureText(invariantCultureSample, font, Size.Empty, flags).Width;
+			return Math.Max(currentCultureWidth, invariantCultureWidth) + 24;
 		}
 		// Keep the grid layout with the existing UI layout settings so Reset UI can clear it.
 		private bool RestoreGridLayout()
@@ -2215,6 +2306,7 @@
 
 				ApplyAutoFilterDefaults();
 				ApplyDateSortDefaults();
+				EnsureDateColumnsFitScaledContent();
 				return restored;
 			}
 			finally
@@ -2442,6 +2534,14 @@
 			SaveGridSort();
 			SaveGridCategoryState();
 			_viewModel.Settings.Save();
+		}
+
+		/// <summary>
+		/// Flushes any pending Mods grid layout change to persistent settings.
+		/// </summary>
+		internal void SavePersistedLayout()
+		{
+			SaveGridLayout();
 		}
 
 		private void SaveGridSort()

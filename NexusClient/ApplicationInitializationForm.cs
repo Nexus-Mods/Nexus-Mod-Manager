@@ -93,12 +93,6 @@
 		{
 			InitializeComponent();
 
-			var pos = PointToScreen(lblVersion.Location);
-			pos = pbxLogo.PointToClient(pos);
-			lblVersion.Parent = pbxLogo;
-			lblVersion.Location = pos;
-			lblVersion.BackColor = Color.Transparent;
-
 			ViewModel = p_iniApplicationInitializer;
 		}
 

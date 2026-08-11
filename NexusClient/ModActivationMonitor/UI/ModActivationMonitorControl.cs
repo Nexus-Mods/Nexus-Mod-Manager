@@ -114,10 +114,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				return;
 
 			if (!_columnWidthsRestored)
-			{
-				DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
-				_columnWidthsRestored = true;
-			}
+				RestorePersistedColumnWidths();
 
 			Form owner = FindForm();
 			if (!_formClosingHooked && owner != null)
@@ -125,6 +122,18 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				owner.FormClosing += ModActivationMonitorControl_FormClosing;
 				_formClosingHooked = true;
 			}
+		}
+
+		/// <summary>
+		/// Restores the saved widths after the owning dock panel has reached its final size.
+		/// </summary>
+		internal void RestorePersistedColumnWidths()
+		{
+			if (DesignMode || ViewModel == null)
+				return;
+
+			DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, ViewModel.Settings.ColumnWidths[ColumnWidthsSettingsKey]);
+			_columnWidthsRestored = true;
 		}
 
 		/// <summary>

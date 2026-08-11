@@ -480,7 +480,7 @@
 
 			if (ViewModel.UsesPlugins)
 			{
-				toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
+				toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "     Active plugins: ";
 
 				var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
@@ -898,17 +898,16 @@
 			}
 		}
 
-		private async void MainForm_Shown(object sender, EventArgs e)
+		private void MainForm_Shown(object sender, EventArgs e)
 		{
 			ShowEmbeddedDockContents();
 			ApplyDefaultMonitorPanelSizes();
-			BeginInvoke((MethodInvoker)ActivateModsDocument);
+			RestoreMonitorColumnWidths();
+			Application.Idle -= RestoreActiveMainDocumentOnIdle;
+			Application.Idle += RestoreActiveMainDocumentOnIdle;
 			ModMigrationCheck();
 			ShowGameSpecificDisclaimer();
 			ConfigFilesCheck();
-
-			if (IsMainDocumentActive(_fileManagerControl))
-				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>
@@ -924,7 +923,7 @@
 		/// </summary>
 		private void UpdateModsFeedback()
 		{
-			tlbModsCounter.Caption = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "   |   Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "   |   Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
+			tlbModsCounter.Caption = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "     Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "     Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
 		}
 
 		/// <summary>
@@ -932,7 +931,7 @@
 		/// </summary>
 		private void PmcPluginManagerControlUpdatePluginsCount(object sender, EventArgs e)
 		{
-			toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "   |   Active plugins: ";
+			toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "     Active plugins: ";
 			var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
 			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
@@ -1085,10 +1084,13 @@
 								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Upgrading ";
 							}
 						}
+
+						SetBarItemVisible(toolStripLabelBottomBarFeedback, !String.IsNullOrEmpty(toolStripLabelBottomBarFeedback.Caption));
 					}
 					else
 					{
-						toolStripLabelBottomBarFeedback.Caption = "Idle";
+						toolStripLabelBottomBarFeedback.Caption = String.Empty;
+						SetBarItemVisible(toolStripLabelBottomBarFeedback, false);
 						SetBarItemVisible(toolStripButtonLoader, false);
 					}
 				}
@@ -1096,7 +1098,8 @@
 				{
 					SetBarItemVisible(toolStripButtonLoader, false);
 					SetBarItemVisible(toolStripLabelBottomBarFeedbackCounter, false);
-					toolStripLabelBottomBarFeedback.Caption = "Idle";
+					SetBarItemVisible(toolStripLabelBottomBarFeedback, false);
+					toolStripLabelBottomBarFeedback.Caption = String.Empty;
 				}
 			}
 		}
@@ -1112,11 +1115,14 @@
 			{
 				toolStripLabelBottomBarFeedbackCounter.Caption = "";
 				toolStripLabelBottomBarFeedback.Caption = "";
+				SetBarItemVisible(toolStripLabelBottomBarFeedback, false);
+				SetBarItemVisible(toolStripLabelBottomBarFeedbackCounter, false);
 				SetBarItemVisible(toolStripButtonLoader, false);
 			}
 			else
 			{
 				toolStripLabelBottomBarFeedbackCounter.Caption = $"({intCompletedTasks}/{_modActivationMonitorControl.ViewModel.Tasks.Count})";
+				SetBarItemVisible(toolStripLabelBottomBarFeedbackCounter, true);
 			}
 		}
 
@@ -1289,6 +1295,12 @@
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
+			Application.Idle -= RestoreActiveMainDocumentOnIdle;
+			if (_mainDocumentPersistenceEnabled)
+				SaveActiveMainDocument();
+			_mainDocumentPersistenceEnabled = false;
+			(_modManagerControl as ModManagerDXControl)?.SavePersistedLayout();
+			ViewModel.EnvironmentInfo.Settings.Save();
 			_activePluginsProfileSaveTimer.Stop();
 			SaveActivePluginsToCurrentProfile();
 		}
