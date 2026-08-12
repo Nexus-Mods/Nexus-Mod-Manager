@@ -242,7 +242,10 @@
 			UpdateSwitchViewText();
 
 			Shown += (sender, args) =>
+			{
 				RestoreFindPanelVisibility();
+				RestoreGridDisplayMetricsAndColumnWidths();
+			};
 		}
 
 		/// <summary>
@@ -2298,11 +2301,7 @@
 
 				DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
 				gridView.OptionsView.ShowColumnHeaders = true;
-				gridView.ColumnPanelRowHeight = -1;
-				if (_gridHeaderFont != null)
-					gridView.Appearance.HeaderPanel.Font = _gridHeaderFont;
-				if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
-					DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
+				RestoreGridDisplayMetricsAndColumnWidths();
 
 				ApplyAutoFilterDefaults();
 				ApplyDateSortDefaults();
@@ -2312,6 +2311,28 @@
 			finally
 			{
 				_restoringGridLayout = false;
+			}
+		}
+
+		/// <summary>
+		/// Reapplies the selected density and explicit column widths after DevExpress layout or DPI initialization.
+		/// </summary>
+		private void RestoreGridDisplayMetricsAndColumnWidths()
+		{
+			if (gridView == null || _viewModel?.Settings == null)
+				return;
+
+			bool wasRestoring = _restoringGridLayout;
+			_restoringGridLayout = true;
+			try
+			{
+				ApplyGridFont(_gridFontFamilyName);
+				if (_viewModel.Settings.DockPanelLayouts.ContainsKey(GridColumnWidthsKey))
+					DevExpressGridLayoutPersistence.RestoreColumnWidths(gridView, _viewModel.Settings.DockPanelLayouts[GridColumnWidthsKey]);
+			}
+			finally
+			{
+				_restoringGridLayout = wasRestoring;
 			}
 		}
 

@@ -17,6 +17,7 @@
 	{
 		private const string DevExpressDockLayoutSettingsKey = "mainForm.DevExpressDockLayout.v4";
 		private const string DevExpressActiveDocumentSettingsKey = "mainForm.DevExpressActiveDocument.v3";
+		private const string DevExpressDocumentOrderSettingsKey = "mainForm.DevExpressDocumentOrder.v1";
 		private const string LegacyDevExpressActiveDocumentV2SettingsKey = "mainForm.DevExpressActiveDocument.v2";
 		private const string LegacyDevExpressDockLayoutV3SettingsKey = "mainForm.DevExpressDockLayout.v3";
 		private const string LegacyDevExpressDockLayoutV2SettingsKey = "mainForm.DevExpressDockLayout.v2";
@@ -165,7 +166,7 @@
 		}
 
 		/// <summary>
-		/// Registers the permanent NMM pages in their fixed tab order.
+		/// Registers the permanent NMM pages before their saved visual order is applied.
 		/// </summary>
 		private void EnsureMainDocuments()
 		{
@@ -181,6 +182,107 @@
 				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", "File Manager");
 			else if (_fileManagerControl.Visible)
 				_fileManagerControl.Hide();
+		}
+
+		/// <summary>
+		/// Restores the user-defined visual order of the permanent main tabs.
+		/// </summary>
+		private void RestoreMainDocumentOrder()
+		{
+			string savedOrder = GetLayoutSetting(DevExpressDocumentOrderSettingsKey);
+			if (String.IsNullOrWhiteSpace(savedOrder))
+			{
+				ApplyDefaultMainDocumentOrder();
+				return;
+			}
+
+			int targetIndex = 0;
+			foreach (string encodedName in savedOrder.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
+			{
+				string documentName;
+				try
+				{
+					documentName = Uri.UnescapeDataString(encodedName);
+				}
+				catch (UriFormatException)
+				{
+					continue;
+				}
+
+				Document document = FindMainDocumentByName(documentName);
+				if (document != null)
+					_mainTabbedView.Controller.Move(document, targetIndex++);
+			}
+		}
+
+		/// <summary>
+		/// Saves the current visual order of the permanent main tabs.
+		/// </summary>
+		private void SaveMainDocumentOrder()
+		{
+			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null ||
+				_mainTabbedView == null || _mainTabbedView.DocumentGroups.Count == 0)
+			{
+				return;
+			}
+
+			DocumentGroup group = _mainTabbedView.DocumentGroups[0];
+			var names = new System.Collections.Generic.List<string>();
+			for (int index = 0; index < group.Items.Count; index++)
+			{
+				BaseDocument document = group.Items[index] as BaseDocument;
+				string name = document?.Control?.Name;
+				if (!String.IsNullOrWhiteSpace(name))
+					names.Add(Uri.EscapeDataString(name));
+			}
+
+			if (names.Count > 0)
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDocumentOrderSettingsKey] = String.Join("|", names);
+		}
+
+		/// <summary>
+		/// Applies the canonical Plugins, Mods, Categories and File Manager tab order.
+		/// </summary>
+		private void ApplyDefaultMainDocumentOrder()
+		{
+			int targetIndex = 0;
+			MoveMainDocument(_pluginManagerControl, ref targetIndex);
+			MoveMainDocument((Control)_modManagerControl, ref targetIndex);
+			MoveMainDocument(_categoryManagerControl, ref targetIndex);
+			MoveMainDocument(_fileManagerControl, ref targetIndex);
+		}
+
+		/// <summary>
+		/// Moves one available main document into the requested visual position.
+		/// </summary>
+		/// <param name="control">The control hosted by the document.</param>
+		/// <param name="targetIndex">The next visual position to assign.</param>
+		private void MoveMainDocument(Control control, ref int targetIndex)
+		{
+			Document document = FindMainDocument(control) as Document;
+			if (document == null)
+				return;
+
+			_mainTabbedView.Controller.Move(document, targetIndex++);
+		}
+
+		/// <summary>
+		/// Finds a permanent main document by its stable hosted-control name.
+		/// </summary>
+		/// <param name="documentName">The stable hosted-control name.</param>
+		/// <returns>The matching document, or null when it is unavailable.</returns>
+		private Document FindMainDocumentByName(string documentName)
+		{
+			if (String.IsNullOrWhiteSpace(documentName) || _mainTabbedView == null)
+				return null;
+
+			foreach (BaseDocument document in _mainTabbedView.Documents)
+			{
+				if (String.Equals(document.Control?.Name, documentName, StringComparison.Ordinal))
+					return document as Document;
+			}
+
+			return null;
 		}
 
 		/// <summary>
@@ -289,7 +391,7 @@
 
 		/// <summary>
 		/// Restores only the versioned DevExpress monitor docking layout. Permanent document
-		/// tabs are rebuilt every startup so obsolete layouts cannot hide or reorder them.
+		/// tabs are rebuilt independently and their simple visual order is restored separately.
 		/// </summary>
 		/// <returns>True when a compatible dock layout was restored.</returns>
 		private bool RestoreMainDockingLayout()
@@ -329,7 +431,7 @@
 
 		/// <summary>
 		/// Saves the DevExpress monitor docking layout to the existing NMM settings store.
-		/// Permanent document tabs intentionally are not serialized.
+		/// Permanent document tabs use a separate simple order value instead of layout serialization.
 		/// </summary>
 		private void SaveMainDockingLayout()
 		{
@@ -357,12 +459,14 @@
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove("mainForm");
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(DevExpressDockLayoutSettingsKey);
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(DevExpressActiveDocumentSettingsKey);
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(DevExpressDocumentOrderSettingsKey);
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDockLayoutV3SettingsKey);
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts.Remove(LegacyDevExpressDockLayoutV2SettingsKey);
 				RemoveLegacyMainLayoutSettings();
 			}
 
 			EnsureMainDocuments();
+			ApplyDefaultMainDocumentOrder();
 			ApplyDefaultMainDockingLayout();
 		}
 

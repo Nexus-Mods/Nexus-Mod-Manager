@@ -476,6 +476,7 @@
 		protected void InitializeDocuments()
 		{
 			EnsureMainDocuments();
+			RestoreMainDocumentOrder();
 			RestoreMainDockingLayout();
 
 			if (ViewModel.UsesPlugins)
@@ -1299,6 +1300,8 @@
 			if (_mainDocumentPersistenceEnabled)
 				SaveActiveMainDocument();
 			_mainDocumentPersistenceEnabled = false;
+			if (!e.Cancel)
+				SaveMainDocumentOrder();
 			(_modManagerControl as ModManagerDXControl)?.SavePersistedLayout();
 			ViewModel.EnvironmentInfo.Settings.Save();
 			_activePluginsProfileSaveTimer.Stop();

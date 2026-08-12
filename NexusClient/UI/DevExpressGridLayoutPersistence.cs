@@ -17,7 +17,7 @@
 		private const char ValueSeparator = '|';
 
 		/// <summary>
-		/// Configures a grid so filter criteria and Find Panel text are excluded from layout serialization and deserialization.
+		/// Configures a grid so transient filters and separately owned display metrics are excluded from layout persistence.
 		/// </summary>
 		/// <param name="view">The grid view to configure.</param>
 		internal static void ConfigureSessionOnlyFilters(GridView view)
@@ -30,7 +30,7 @@
 		}
 
 		/// <summary>
-		/// Rejects filter-related properties while DevExpress saves or restores a grid layout.
+		/// Rejects transient filter, explicit column-width and density-derived properties while DevExpress saves or restores a grid layout.
 		/// </summary>
 		/// <param name="sender">The grid view performing layout persistence.</param>
 		/// <param name="e">The property persistence event arguments.</param>
@@ -41,7 +41,16 @@
 			bool columnFilter = e.Owner is GridColumn && String.Equals(e.PropertyName, "FilterInfo", StringComparison.Ordinal);
 			bool viewFilter = String.Equals(e.PropertyName, "ActiveFilterString", StringComparison.Ordinal) ||
 				String.Equals(e.PropertyName, "FindFilterText", StringComparison.Ordinal);
-			if (columnFilter || viewFilter) e.Allow = DefaultBoolean.False;
+			bool columnWidth = e.Owner is GridColumn &&
+				(String.Equals(e.PropertyName, "Width", StringComparison.Ordinal) ||
+				 String.Equals(e.PropertyName, "MinWidth", StringComparison.Ordinal) ||
+				 String.Equals(e.PropertyName, "MaxWidth", StringComparison.Ordinal));
+			bool viewDensity = e.Owner is GridView &&
+				(String.Equals(e.PropertyName, "RowHeight", StringComparison.Ordinal) ||
+				 String.Equals(e.PropertyName, "ColumnPanelRowHeight", StringComparison.Ordinal));
+
+			if (columnFilter || viewFilter || columnWidth || viewDensity)
+				e.Allow = DefaultBoolean.False;
 		}
 
 		/// <summary>
