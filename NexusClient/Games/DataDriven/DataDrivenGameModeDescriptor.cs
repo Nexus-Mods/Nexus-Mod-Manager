@@ -42,10 +42,31 @@ namespace Nexus.Client.Games.DataDriven
                 if (string.IsNullOrWhiteSpace(configuredPath))
                     return gamePath;
 
-                string path = DataDrivenPathResolver.ResolvePath(configuredPath, CreatePathContext(gamePath), gamePath);
+                DataDrivenPathContext pathContext = CreatePathContext(gamePath);
+                if (string.IsNullOrWhiteSpace(gamePath) && RequiresGameInstallationPath(configuredPath, pathContext))
+                    return null;
+
+                string path = DataDrivenPathResolver.ResolvePath(configuredPath, pathContext, gamePath);
                 EnsureDirectory(path);
                 return path;
             }
+        }
+
+        /// <summary>
+        /// Determines whether a managed installation path needs the discovered game directory as its base.
+        /// </summary>
+        private static bool RequiresGameInstallationPath(string configuredPath, DataDrivenPathContext pathContext)
+        {
+            if (DataDrivenDefinitionRules.ContainsPlaceholder(configuredPath, "{GamePath}") ||
+                DataDrivenDefinitionRules.ContainsPlaceholder(configuredPath, "{InstallationPath}") ||
+                (DataDrivenDefinitionRules.ContainsPlaceholder(configuredPath, "{ExecutablePath}") &&
+                 string.IsNullOrWhiteSpace(pathContext == null ? null : pathContext.ExecutablePath)))
+            {
+                return true;
+            }
+
+            string expandedPath = DataDrivenPathResolver.Expand(configuredPath, pathContext);
+            return !string.IsNullOrWhiteSpace(expandedPath) && !Path.IsPathRooted(expandedPath);
         }
 
         public override string PluginDirectory
