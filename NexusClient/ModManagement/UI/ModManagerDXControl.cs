@@ -114,6 +114,7 @@
 		private Font _gridSecondaryBoldFont;
 		private Font _gridHeaderFont;
 		private Font _gridBadgeFont;
+		private readonly List<Font> _retiredGridFonts = new List<Font>();
 		private Image _endorsedYesImage;
 		private Image _endorsedNoImage;
 		private Image _endorsedEmptyImage;
@@ -997,12 +998,27 @@
 			string resolvedFontName = ResolveGridFontFamily(fontName);
 			float resolvedFontSize = ResolveGridFontSize(fontSize);
 			string resolvedDensity = ResolveGridDensity(density);
+			bool fontChanged = _gridRegularFont == null ||
+				!String.Equals(_gridFontFamilyName, resolvedFontName, StringComparison.OrdinalIgnoreCase) ||
+				Math.Abs(_gridFontSizePt - resolvedFontSize) > 0.01f;
 
 			_gridFontFamilyName = resolvedFontName;
 			_gridFontSizePt = resolvedFontSize;
 			_gridDensity = resolvedDensity;
 
-			ApplyGridFont(resolvedFontName);
+			if (fontChanged)
+			{
+				ApplyGridFont(resolvedFontName);
+			}
+			else
+			{
+				// A skin refresh reapplies the same display settings. Update density
+				// metrics without replacing fonts that DevExpress still references.
+				gridView.RowHeight = GetGridRowHeight(_gridDensity, _gridFontSizePt);
+				gridView.LayoutChanged();
+				EnsureDateColumnsFitScaledContent();
+				gridView.InvalidateRows();
+			}
 
 			if (save && _viewModel?.Settings != null)
 			{
@@ -1170,14 +1186,25 @@
 			EnsureDateColumnsFitScaledContent();
 			gridView.InvalidateRows();
 
-			DisposeFont(oldRegularFont);
-			DisposeFont(oldBoldFont);
-			DisposeFont(oldUnderlineFont);
-			DisposeFont(oldBoldUnderlineFont);
-			DisposeFont(oldSecondaryFont);
-			DisposeFont(oldSecondaryBoldFont);
-			DisposeFont(oldHeaderFont);
-			DisposeFont(oldBadgeFont);
+			// Appearance objects and in-place editors can keep using the old fonts
+			// until the control is disposed, especially across a skin transition.
+			Font[] retiredFonts =
+			{
+				oldRegularFont,
+				oldBoldFont,
+				oldUnderlineFont,
+				oldBoldUnderlineFont,
+				oldSecondaryFont,
+				oldSecondaryBoldFont,
+				oldHeaderFont,
+				oldBadgeFont
+			};
+
+			foreach (Font retiredFont in retiredFonts)
+			{
+				if (retiredFont != null)
+					_retiredGridFonts.Add(retiredFont);
+			}
 		}
 
 		private static void DisposeFont(Font font)
@@ -2607,6 +2634,11 @@
 			DisposeFont(_gridSecondaryBoldFont);
 			DisposeFont(_gridHeaderFont);
 			DisposeFont(_gridBadgeFont);
+
+			foreach (Font retiredFont in _retiredGridFonts)
+				DisposeFont(retiredFont);
+
+			_retiredGridFonts.Clear();
 
 			_gridRegularFont = null;
 			_gridBoldFont = null;

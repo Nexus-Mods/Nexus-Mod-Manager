@@ -24,6 +24,7 @@ namespace Nexus.Client
 		private readonly List<BarButtonItem> _devExpressDisplayFontItems = new List<BarButtonItem>();
 		private readonly List<BarButtonItem> _devExpressDisplayFontSizeItems = new List<BarButtonItem>();
 		private readonly List<BarButtonItem> _devExpressDisplayDensityItems = new List<BarButtonItem>();
+		private readonly List<DevExpressDisplaySettings> _retiredDevExpressDisplaySettings = new List<DevExpressDisplaySettings>();
 		private bool _updatingDevExpressDisplaySelector;
 		private DevExpressDisplaySettings _devExpressDisplaySettings;
 
@@ -175,7 +176,11 @@ namespace Nexus.Client
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
 
-			previousSettings?.Dispose();
+			// DevExpress appearance objects retain the assigned Font instance and can
+			// use it again during a later skin change. Keep replaced settings alive
+			// until the form and its child controls have finished disposing.
+			if (previousSettings != null)
+				_retiredDevExpressDisplaySettings.Add(previousSettings);
 		}
 
 		/// <summary>
@@ -244,6 +249,11 @@ namespace Nexus.Client
 		{
 			_devExpressDisplaySettings?.Dispose();
 			_devExpressDisplaySettings = null;
+
+			foreach (DevExpressDisplaySettings retiredSettings in _retiredDevExpressDisplaySettings)
+				retiredSettings.Dispose();
+
+			_retiredDevExpressDisplaySettings.Clear();
 		}
 	}
 }
