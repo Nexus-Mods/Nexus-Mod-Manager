@@ -35,6 +35,7 @@
 		private TabbedView _mainTabbedView;
 		private bool _applyDefaultMonitorSizeOnShown;
 		private bool _mainDocumentPersistenceEnabled;
+		private bool _mainDocumentStartupUpdatePending;
 
 		/// <summary>
 		/// Creates the DevExpress document manager and dock manager that replace the
@@ -62,6 +63,8 @@
 			_mainTabbedView.DocumentProperties.AllowFloat = false;
 			_mainTabbedView.DocumentProperties.AllowDock = false;
 			_mainTabbedView.DocumentSelected += MainTabbedView_DocumentSelected;
+			_mainTabbedView.BeginUpdate();
+			_mainDocumentStartupUpdatePending = true;
 
 			CreateMonitorDockPanels();
 
@@ -113,6 +116,13 @@
 			RefreshMonitorDockPanelReferences();
 			EnsureMonitorDockContent(_downloadMonitorDockPanel, _downloadMonitorControl);
 			EnsureMonitorDockContent(_modActivationMonitorDockPanel, _modActivationMonitorControl);
+
+			// DockManager persists panel captions as part of its layout. Replace any
+			// serialized task counts with the controls' current runtime captions.
+			if (_downloadMonitorDockPanel != null)
+				_downloadMonitorDockPanel.Text = String.IsNullOrEmpty(_downloadMonitorControl.Text) ? "Download Manager" : _downloadMonitorControl.Text;
+			if (_modActivationMonitorDockPanel != null)
+				_modActivationMonitorDockPanel.Text = String.IsNullOrEmpty(_modActivationMonitorControl.Text) ? "Mod Activation Queue" : _modActivationMonitorControl.Text;
 		}
 
 		/// <summary>
@@ -435,6 +445,8 @@
 		/// </summary>
 		private void SaveMainDockingLayout()
 		{
+			CompleteMainDocumentStartupUpdate();
+
 			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null || _mainDockManager == null)
 				return;
 
@@ -568,11 +580,30 @@
 		private async void RestoreActiveMainDocumentOnIdle(object sender, EventArgs e)
 		{
 			Application.Idle -= RestoreActiveMainDocumentOnIdle;
-			RestoreActiveMainDocument();
+			try
+			{
+				RestoreActiveMainDocument();
+			}
+			finally
+			{
+				CompleteMainDocumentStartupUpdate();
+			}
 			_mainDocumentPersistenceEnabled = true;
 
 			if (IsMainDocumentActive(_fileManagerControl))
 				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
+		}
+
+		/// <summary>
+		/// Releases the startup document update lock after the final persisted tab has been selected.
+		/// </summary>
+		private void CompleteMainDocumentStartupUpdate()
+		{
+			if (!_mainDocumentStartupUpdatePending || _mainTabbedView == null)
+				return;
+
+			_mainTabbedView.EndUpdate();
+			_mainDocumentStartupUpdatePending = false;
 		}
 
 		/// <summary>
