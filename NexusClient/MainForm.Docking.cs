@@ -572,22 +572,24 @@
 		}
 
 		/// <summary>
-		/// Restores the persisted main document after DevExpress has completed its startup
-		/// MDI activation sequence, then enables persistence for genuine user selections.
+		/// Releases the startup update lock on the first idle cycle, then restores the
+		/// persisted main document on the next idle cycle after deferred MDI activations
+		/// have completed. Persistence is enabled only after the final selection.
 		/// </summary>
 		/// <param name="sender">The application that raised the idle event.</param>
 		/// <param name="e">The event arguments.</param>
 		private async void RestoreActiveMainDocumentOnIdle(object sender, EventArgs e)
 		{
 			Application.Idle -= RestoreActiveMainDocumentOnIdle;
-			try
-			{
-				RestoreActiveMainDocument();
-			}
-			finally
+
+			if (_mainDocumentStartupUpdatePending)
 			{
 				CompleteMainDocumentStartupUpdate();
+				Application.Idle += RestoreActiveMainDocumentOnIdle;
+				return;
 			}
+
+			RestoreActiveMainDocument();
 			_mainDocumentPersistenceEnabled = true;
 
 			if (IsMainDocumentActive(_fileManagerControl))
@@ -595,7 +597,7 @@
 		}
 
 		/// <summary>
-		/// Releases the startup document update lock after the final persisted tab has been selected.
+		/// Releases the startup document update lock so DevExpress can process its deferred MDI activations.
 		/// </summary>
 		private void CompleteMainDocumentStartupUpdate()
 		{
