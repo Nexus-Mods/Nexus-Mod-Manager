@@ -35,7 +35,8 @@ namespace Nexus.Client
 		private readonly List<BarButtonItem> _devExpressDisplayIconStyleItems = new List<BarButtonItem>();
 		private readonly List<BarButtonItem> _devExpressDisplayIconSizeItems = new List<BarButtonItem>();
 		private readonly List<BarButtonItem> _devExpressDisplayIconColorProfileItems = new List<BarButtonItem>();
-		private readonly List<BarButtonItem> _devExpressDisplayButtonPresentationItems = new List<BarButtonItem>();
+		private readonly List<BarButtonItem> _devExpressDisplayButtonPresentationGlobalItems = new List<BarButtonItem>();
+		private readonly Dictionary<NmmButtonPresentationScope, List<BarButtonItem>> _devExpressDisplayButtonPresentationScopeItems = new Dictionary<NmmButtonPresentationScope, List<BarButtonItem>>();
 		private readonly List<DevExpressDisplaySettings> _retiredDevExpressDisplaySettings = new List<DevExpressDisplaySettings>();
 		private bool _updatingDevExpressDisplaySelector;
 		private DevExpressDisplaySettings _devExpressDisplaySettings;
@@ -52,10 +53,12 @@ namespace Nexus.Client
 			NmmIconStyle iconStyle = DevExpressDisplaySettings.ResolveIconStyle(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconStyleSettingsKey, null, DevExpressDisplaySettings.DefaultIconStyle.ToString()));
 			int iconSize = DevExpressDisplaySettings.ParseIconSize(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconSizeSettingsKey, null, DevExpressDisplaySettings.FormatIconSize(DevExpressDisplaySettings.DefaultIconSize)));
 			NmmIconColorProfile iconColorProfile = DevExpressDisplaySettings.ResolveIconColorProfile(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconColorProfileSettingsKey, null, DevExpressDisplaySettings.DefaultIconColorProfile.ToString()));
-			NmmButtonPresentation buttonPresentation = DevExpressDisplaySettings.ResolveButtonPresentation(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayButtonPresentationSettingsKey, null, DevExpressDisplaySettings.DefaultButtonPresentation.ToString()));
+			NmmButtonPresentationProfile buttonPresentationProfile = DevExpressDisplaySettings.ResolveButtonPresentationProfile(
+				ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayButtonPresentationSettingsKey, null, DevExpressDisplaySettings.DefaultButtonPresentation.ToString()),
+				scope => ReadDevExpressDisplaySetting(viewModel, DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope), null, DevExpressDisplaySettings.DefaultButtonPresentation.ToString()));
 
-			_devExpressDisplaySettings = new DevExpressDisplaySettings(fontName, fontSize, density, iconStyle, iconSize, iconColorProfile, buttonPresentation);
-			NmmIconProvider.ApplySettings(iconStyle, iconSize, iconColorProfile, buttonPresentation);
+			_devExpressDisplaySettings = new DevExpressDisplaySettings(fontName, fontSize, density, iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);
+			NmmIconProvider.ApplySettings(iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);
 			_devExpressDisplayButton = new BarSubItem(barManagerMain, "Display Option")
 			{
 				Hint = "Font, density and icon presentation for the manager UI"
@@ -65,7 +68,7 @@ namespace Nexus.Client
 			_devExpressDisplayDensityMenu = new BarSubItem(barManagerMain, "Density");
 			_devExpressDisplayIconStyleMenu = new BarSubItem(barManagerMain, "Icon Style");
 			_devExpressDisplayIconSizeMenu = new BarSubItem(barManagerMain, "Icon Size");
-			_devExpressDisplayIconColorProfileMenu = new BarSubItem(barManagerMain, "Icon Color Profile");
+			_devExpressDisplayIconColorProfileMenu = new BarSubItem(barManagerMain, "Color Profile");
 			_devExpressDisplayButtonPresentationMenu = new BarSubItem(barManagerMain, "Button Presentation");
 
 			CreateDevExpressDisplayChoiceItems(_devExpressDisplayFontMenu, _devExpressDisplayFontItems, DevExpressDisplaySettings.FontChoices, DevExpressDisplayFont_ItemClick);
@@ -74,7 +77,7 @@ namespace Nexus.Client
 			CreateDevExpressDisplayChoiceItems(_devExpressDisplayIconStyleMenu, _devExpressDisplayIconStyleItems, DevExpressDisplaySettings.IconStyleChoices, DevExpressDisplayIconStyle_ItemClick);
 			CreateDevExpressDisplayChoiceItems(_devExpressDisplayIconSizeMenu, _devExpressDisplayIconSizeItems, DevExpressDisplaySettings.IconSizeChoices, DevExpressDisplayIconSize_ItemClick);
 			CreateDevExpressDisplayChoiceItems(_devExpressDisplayIconColorProfileMenu, _devExpressDisplayIconColorProfileItems, DevExpressDisplaySettings.IconColorProfileChoices, DevExpressDisplayIconColorProfile_ItemClick);
-			CreateDevExpressDisplayChoiceItems(_devExpressDisplayButtonPresentationMenu, _devExpressDisplayButtonPresentationItems, DevExpressDisplaySettings.ButtonPresentationChoices, DevExpressDisplayButtonPresentation_ItemClick);
+			CreateDevExpressButtonPresentationMenus();
 
 			_devExpressDisplayButton.AddItem(_devExpressDisplayFontMenu);
 			_devExpressDisplayButton.AddItem(_devExpressDisplayFontSizeMenu);
@@ -147,6 +150,70 @@ namespace Nexus.Client
 		}
 
 		/// <summary>
+		/// Creates the scoped Button Presentation selector. Only the explicitly listed
+		/// toolbar surfaces participate; dialogs, popups and ordinary controls do not.
+		/// </summary>
+		private void CreateDevExpressButtonPresentationMenus()
+		{
+			BarSubItem globalMenu = new BarSubItem(barManagerMain, "Global");
+			CreateButtonPresentationGlobalItems(globalMenu);
+			_devExpressDisplayButtonPresentationMenu.AddItem(globalMenu);
+
+			AddButtonPresentationScopeMenu("Main Bar", NmmButtonPresentationScope.MainBar);
+			AddButtonPresentationScopeMenu("Plugins", NmmButtonPresentationScope.Plugins);
+			AddButtonPresentationScopeMenu("Mods", NmmButtonPresentationScope.Mods);
+			AddButtonPresentationScopeMenu("Categories", NmmButtonPresentationScope.Categories);
+			AddButtonPresentationScopeMenu("File Manager", NmmButtonPresentationScope.FileManager);
+			AddButtonPresentationScopeMenu("Download Manager", NmmButtonPresentationScope.DownloadManager);
+			AddButtonPresentationScopeMenu("Mod Activation Queue", NmmButtonPresentationScope.ModActivationQueue);
+		}
+
+		private void CreateButtonPresentationGlobalItems(BarSubItem menu)
+		{
+			foreach (string choice in DevExpressDisplaySettings.ButtonPresentationChoices)
+			{
+				BarButtonItem item = new BarButtonItem(barManagerMain, choice)
+				{
+					ButtonStyle = BarButtonStyle.Check,
+					Tag = choice
+				};
+				item.ItemClick += DevExpressDisplayButtonPresentationGlobal_ItemClick;
+				menu.AddItem(item);
+				_devExpressDisplayButtonPresentationGlobalItems.Add(item);
+			}
+
+			BarButtonItem customItem = new BarButtonItem(barManagerMain, "Custom")
+			{
+				ButtonStyle = BarButtonStyle.Check,
+				Tag = "Custom",
+				Enabled = false,
+				Hint = "Uses the individual toolbar settings below."
+			};
+			menu.AddItem(customItem).BeginGroup = true;
+			_devExpressDisplayButtonPresentationGlobalItems.Add(customItem);
+		}
+
+		private void AddButtonPresentationScopeMenu(string caption, NmmButtonPresentationScope scope)
+		{
+			BarSubItem menu = new BarSubItem(barManagerMain, caption);
+			List<BarButtonItem> items = new List<BarButtonItem>();
+			foreach (string choice in DevExpressDisplaySettings.ButtonPresentationChoices)
+			{
+				BarButtonItem item = new BarButtonItem(barManagerMain, choice)
+				{
+					ButtonStyle = BarButtonStyle.Check,
+					Tag = new ButtonPresentationScopeChoice(scope, DevExpressDisplaySettings.ResolveButtonPresentation(choice))
+				};
+				item.ItemClick += DevExpressDisplayButtonPresentationScope_ItemClick;
+				menu.AddItem(item);
+				items.Add(item);
+			}
+
+			_devExpressDisplayButtonPresentationScopeItems[scope] = items;
+			_devExpressDisplayButtonPresentationMenu.AddItem(menu);
+		}
+
+		/// <summary>
 		/// Applies a selected font-family choice.
 		/// </summary>
 		private void DevExpressDisplayFont_ItemClick(object sender, ItemClickEventArgs e)
@@ -154,7 +221,7 @@ namespace Nexus.Client
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(Convert.ToString(e.Item.Tag), _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentation, true);
+			SetDevExpressDisplaySettings(Convert.ToString(e.Item.Tag), _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentationProfile, true);
 		}
 
 		/// <summary>
@@ -165,7 +232,7 @@ namespace Nexus.Client
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, DevExpressDisplaySettings.ParseFontSize(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentation, true);
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, DevExpressDisplaySettings.ParseFontSize(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentationProfile, true);
 		}
 
 		/// <summary>
@@ -176,7 +243,7 @@ namespace Nexus.Client
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, Convert.ToString(e.Item.Tag), _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentation, true);
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, Convert.ToString(e.Item.Tag), _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentationProfile, true);
 		}
 
 		private void DevExpressDisplayIconStyle_ItemClick(object sender, ItemClickEventArgs e)
@@ -184,7 +251,7 @@ namespace Nexus.Client
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, DevExpressDisplaySettings.ResolveIconStyle(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentation, true);
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, DevExpressDisplaySettings.ResolveIconStyle(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentationProfile, true);
 		}
 
 		private void DevExpressDisplayIconSize_ItemClick(object sender, ItemClickEventArgs e)
@@ -192,7 +259,7 @@ namespace Nexus.Client
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, DevExpressDisplaySettings.ParseIconSize(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentation, true);
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, DevExpressDisplaySettings.ParseIconSize(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentationProfile, true);
 		}
 
 		private void DevExpressDisplayIconColorProfile_ItemClick(object sender, ItemClickEventArgs e)
@@ -200,15 +267,33 @@ namespace Nexus.Client
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, DevExpressDisplaySettings.ResolveIconColorProfile(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.ButtonPresentation, true);
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, DevExpressDisplaySettings.ResolveIconColorProfile(Convert.ToString(e.Item.Tag)), _devExpressDisplaySettings.ButtonPresentationProfile, true);
 		}
 
-		private void DevExpressDisplayButtonPresentation_ItemClick(object sender, ItemClickEventArgs e)
+		private void DevExpressDisplayButtonPresentationGlobal_ItemClick(object sender, ItemClickEventArgs e)
 		{
 			if (_updatingDevExpressDisplaySelector)
 				return;
 
-			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, DevExpressDisplaySettings.ResolveButtonPresentation(Convert.ToString(e.Item.Tag)), true);
+			string choice = Convert.ToString(e.Item.Tag);
+			if (String.Equals(choice, "Custom", StringComparison.OrdinalIgnoreCase))
+				return;
+
+			NmmButtonPresentationProfile profile = _devExpressDisplaySettings.ButtonPresentationProfile.WithGlobal(DevExpressDisplaySettings.ResolveButtonPresentation(choice));
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, profile, true);
+		}
+
+		private void DevExpressDisplayButtonPresentationScope_ItemClick(object sender, ItemClickEventArgs e)
+		{
+			if (_updatingDevExpressDisplaySelector)
+				return;
+
+			ButtonPresentationScopeChoice choice = e.Item.Tag as ButtonPresentationScopeChoice;
+			if (choice == null)
+				return;
+
+			NmmButtonPresentationProfile profile = _devExpressDisplaySettings.ButtonPresentationProfile.WithScope(choice.Scope, choice.Presentation);
+			SetDevExpressDisplaySettings(_devExpressDisplaySettings.FontFamilyName, _devExpressDisplaySettings.FontSizePt, _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, profile, true);
 		}
 
 		/// <summary>
@@ -216,16 +301,16 @@ namespace Nexus.Client
 		/// </summary>
 		private void ResetDevExpressDisplaySettings()
 		{
-			SetDevExpressDisplaySettings(DevExpressDisplaySettings.DefaultFontFamily, DevExpressDisplaySettings.DefaultFontSizePt, DevExpressDisplaySettings.DefaultDensity, DevExpressDisplaySettings.DefaultIconStyle, DevExpressDisplaySettings.DefaultIconSize, DevExpressDisplaySettings.DefaultIconColorProfile, DevExpressDisplaySettings.DefaultButtonPresentation, true);
+			SetDevExpressDisplaySettings(DevExpressDisplaySettings.DefaultFontFamily, DevExpressDisplaySettings.DefaultFontSizePt, DevExpressDisplaySettings.DefaultDensity, DevExpressDisplaySettings.DefaultIconStyle, DevExpressDisplaySettings.DefaultIconSize, DevExpressDisplaySettings.DefaultIconColorProfile, DevExpressDisplaySettings.DefaultButtonPresentationProfile, true);
 		}
 
 		/// <summary>
 		/// Replaces the current display settings, applies them to active surfaces and optionally persists them.
 		/// </summary>
-		private void SetDevExpressDisplaySettings(string fontName, float fontSize, string density, NmmIconStyle iconStyle, int iconSize, NmmIconColorProfile iconColorProfile, NmmButtonPresentation buttonPresentation, bool save)
+		private void SetDevExpressDisplaySettings(string fontName, float fontSize, string density, NmmIconStyle iconStyle, int iconSize, NmmIconColorProfile iconColorProfile, NmmButtonPresentationProfile buttonPresentationProfile, bool save)
 		{
 			DevExpressDisplaySettings previousSettings = _devExpressDisplaySettings;
-			DevExpressDisplaySettings newSettings = new DevExpressDisplaySettings(fontName, fontSize, density, iconStyle, iconSize, iconColorProfile, buttonPresentation);
+			DevExpressDisplaySettings newSettings = new DevExpressDisplaySettings(fontName, fontSize, density, iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);
 
 			_devExpressDisplaySettings = newSettings;
 			UpdateDevExpressDisplaySelector();
@@ -239,7 +324,9 @@ namespace Nexus.Client
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconStyleSettingsKey] = newSettings.IconStyle.ToString();
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconSizeSettingsKey] = DevExpressDisplaySettings.FormatIconSize(newSettings.IconSize);
 				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayIconColorProfileSettingsKey] = newSettings.IconColorProfile.ToString();
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayButtonPresentationSettingsKey] = newSettings.ButtonPresentation.ToString();
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplayButtonPresentationSettingsKey] = DevExpressDisplaySettings.FormatButtonPresentationGlobal(newSettings.ButtonPresentationProfile);
+				foreach (NmmButtonPresentationScope scope in Enum.GetValues(typeof(NmmButtonPresentationScope)))
+					ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope)] = newSettings.ButtonPresentationProfile.Get(scope).ToString();
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
 
@@ -275,15 +362,17 @@ namespace Nexus.Client
 				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayDensityItems, _devExpressDisplaySettings.Density);
 				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayIconStyleItems, _devExpressDisplaySettings.IconStyle.ToString());
 				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayIconSizeItems, DevExpressDisplaySettings.FormatIconSize(_devExpressDisplaySettings.IconSize));
-				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayIconColorProfileItems, _devExpressDisplaySettings.IconColorProfile.ToString());
-				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayButtonPresentationItems, DevExpressDisplaySettings.FormatButtonPresentation(_devExpressDisplaySettings.ButtonPresentation));
+				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayIconColorProfileItems, DevExpressDisplaySettings.FormatIconColorProfile(_devExpressDisplaySettings.IconColorProfile));
+				UpdateDevExpressDisplayChoiceChecks(_devExpressDisplayButtonPresentationGlobalItems, DevExpressDisplaySettings.FormatButtonPresentationGlobal(_devExpressDisplaySettings.ButtonPresentationProfile));
+				foreach (KeyValuePair<NmmButtonPresentationScope, List<BarButtonItem>> pair in _devExpressDisplayButtonPresentationScopeItems)
+					UpdateButtonPresentationScopeChecks(pair.Value, _devExpressDisplaySettings.ButtonPresentationProfile.Get(pair.Key));
 			}
 			finally
 			{
 				_updatingDevExpressDisplaySelector = false;
 			}
 
-			_devExpressDisplayButton.Hint = String.Format("{0}, {1}, {2} | {3} icons, {4}, {5}, {6} profile", _devExpressDisplaySettings.FontFamilyName, DevExpressDisplaySettings.FormatFontSize(_devExpressDisplaySettings.FontSizePt), _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, DevExpressDisplaySettings.FormatIconSize(_devExpressDisplaySettings.IconSize), DevExpressDisplaySettings.FormatButtonPresentation(_devExpressDisplaySettings.ButtonPresentation), _devExpressDisplaySettings.IconColorProfile);
+			_devExpressDisplayButton.Hint = String.Format("{0}, {1}, {2} | {3} icons, {4}, {5}, {6} profile", _devExpressDisplaySettings.FontFamilyName, DevExpressDisplaySettings.FormatFontSize(_devExpressDisplaySettings.FontSizePt), _devExpressDisplaySettings.Density, _devExpressDisplaySettings.IconStyle, DevExpressDisplaySettings.FormatIconSize(_devExpressDisplaySettings.IconSize), DevExpressDisplaySettings.FormatButtonPresentationGlobal(_devExpressDisplaySettings.ButtonPresentationProfile), DevExpressDisplaySettings.FormatIconColorProfile(_devExpressDisplaySettings.IconColorProfile));
 		}
 
 		/// <summary>
@@ -295,6 +384,15 @@ namespace Nexus.Client
 				item.Down = String.Equals(Convert.ToString(item.Tag), selectedValue, StringComparison.OrdinalIgnoreCase);
 		}
 
+		private static void UpdateButtonPresentationScopeChecks(IEnumerable<BarButtonItem> items, NmmButtonPresentation selectedValue)
+		{
+			foreach (BarButtonItem item in items)
+			{
+				ButtonPresentationScopeChoice choice = item.Tag as ButtonPresentationScopeChoice;
+				item.Down = choice != null && choice.Presentation == selectedValue;
+			}
+		}
+
 		/// <summary>
 		/// Applies the current display settings to all active DevExpress surfaces already created by the main form.
 		/// </summary>
@@ -303,7 +401,7 @@ namespace Nexus.Client
 			if (_devExpressDisplaySettings == null)
 				return;
 
-			NmmIconProvider.ApplySettings(_devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentation);
+			NmmIconProvider.ApplySettings(_devExpressDisplaySettings.IconStyle, _devExpressDisplaySettings.IconSize, _devExpressDisplaySettings.IconColorProfile, _devExpressDisplaySettings.ButtonPresentationProfile);
 			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, _devExpressDisplaySettings);
 			DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerMain, _devExpressDisplaySettings);
 
@@ -312,6 +410,18 @@ namespace Nexus.Client
 			_pluginManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_categoryManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_fileManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
+		}
+
+		private sealed class ButtonPresentationScopeChoice
+		{
+			internal ButtonPresentationScopeChoice(NmmButtonPresentationScope scope, NmmButtonPresentation presentation)
+			{
+				Scope = scope;
+				Presentation = presentation;
+			}
+
+			internal NmmButtonPresentationScope Scope { get; private set; }
+			internal NmmButtonPresentation Presentation { get; private set; }
 		}
 
 		/// <summary>

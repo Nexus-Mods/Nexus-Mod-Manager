@@ -53,10 +53,10 @@
 			this.barActions.OptionsBar.DisableCustomization = true;
 			this.barActions.OptionsBar.DrawDragBorder = false;
 
-			ConfigureBarButton(this.tsbCancel, 0, "tsbCancel", "Cancel", "Cancel", global::Nexus.Client.Properties.Resources.edit_delete);
-			ConfigureBarButton(this.tsbRemove, 1, "tsbRemove", "Remove", "Remove", global::Nexus.Client.Properties.Resources.edit_delete_6);
-			ConfigureBarButton(this.tsbPause, 2, "tsbPause", "Pause", "Pause", global::Nexus.Client.Properties.Resources.media_playback_pause_7);
-			ConfigureBarButton(this.tsbResume, 3, "tsbResume", "Resume", "Resume", global::Nexus.Client.Properties.Resources.media_playback_start_7);
+			ConfigureBarButton(this.tsbCancel, 0, "tsbCancel", "Cancel", "Cancel");
+			ConfigureBarButton(this.tsbRemove, 1, "tsbRemove", "Remove", "Remove");
+			ConfigureBarButton(this.tsbPause, 2, "tsbPause", "Pause", "Pause");
+			ConfigureBarButton(this.tsbResume, 3, "tsbResume", "Resume", "Resume");
 
 			this.barDockControlTop.CausesValidation = false; this.barDockControlTop.Dock = System.Windows.Forms.DockStyle.Top; this.barDockControlTop.Manager = this.barManager;
 			this.barDockControlBottom.CausesValidation = false; this.barDockControlBottom.Dock = System.Windows.Forms.DockStyle.Bottom; this.barDockControlBottom.Manager = this.barManager;
@@ -101,13 +101,12 @@
 		}
 
 		/// <summary>Configures an activity-toolbar button.</summary>
-		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption, string hint, System.Drawing.Image image)
+		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption, string hint)
 		{
 			button.Id = id;
 			button.Name = name;
 			button.Caption = caption;
 			button.Hint = hint;
-			button.ImageOptions.Image = image;
 			button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
 		}
 

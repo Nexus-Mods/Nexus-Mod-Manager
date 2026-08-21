@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmPositive{fill:#808080;}</style>
+  <path class="NmmPositive" fill-rule="evenodd" d="M12 2.5A9.5 9.5 0 1 1 12 21.5 9.5 9.5 0 0 1 12 2.5zm0 2.4a7.1 7.1 0 1 0 0 14.2 7.1 7.1 0 0 0 0-14.2z"/>
+  <path class="NmmPositive" d="m7 12 3.1 3.1 6.9-6.9-1.8-1.8-5.1 5.1-1.3-1.3z"/>
+</svg>

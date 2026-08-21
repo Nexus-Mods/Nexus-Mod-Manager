@@ -425,13 +425,8 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (!selected)
 			{
-				e.Appearance.BackColor = _usesLegacyLightRowPalette
-					? Color.FromArgb(255, 248, 214)
-					: Color.FromArgb(78, 65, 24);
-
-				e.Appearance.ForeColor = _usesLegacyLightRowPalette
-					? Color.FromArgb(82, 62, 0)
-					: Color.FromArgb(255, 235, 153);
+				e.Appearance.BackColor = _colorPalette.ModNewRowBackColor;
+				e.Appearance.ForeColor = _colorPalette.ModNewRowForeColor;
 			}
 
 			if (_gridBoldFont != null)
@@ -455,13 +450,8 @@ namespace Nexus.Client.ModManagement.UI
 			if (!CategoryContainsNewMods(categoryName))
 				return;
 
-			e.Appearance.BackColor = _usesLegacyLightRowPalette
-				? Color.FromArgb(255, 226, 128)
-				: Color.FromArgb(98, 74, 8);
-
-			e.Appearance.ForeColor = _usesLegacyLightRowPalette
-				? Color.FromArgb(68, 49, 0)
-				: Color.FromArgb(255, 239, 170);
+			e.Appearance.BackColor = _colorPalette.ModNewGroupBackColor;
+			e.Appearance.ForeColor = _colorPalette.ModNewGroupForeColor;
 
 			if (_gridBoldFont != null)
 				e.Appearance.Font = _gridBoldFont;

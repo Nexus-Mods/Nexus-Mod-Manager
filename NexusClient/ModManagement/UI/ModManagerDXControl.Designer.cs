@@ -180,7 +180,6 @@
             this.tsbAddMod.DropDownControl = this.popupAddMod;
             this.tsbAddMod.Hint = "Add a mod from a file";
             this.tsbAddMod.Id = 0;
-            this.tsbAddMod.ImageOptions.Image = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
             this.tsbAddMod.Name = "tsbAddMod";
             this.tsbAddMod.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbAddMod.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbAddMod_ButtonClick);
@@ -189,7 +188,6 @@
             //
             this.addModToolStripMenuItem.Caption = "Add Mod from File";
             this.addModToolStripMenuItem.Id = 1;
-            this.addModToolStripMenuItem.ImageOptions.Image = global::Nexus.Client.Properties.Resources.add_mod_file_flat;
             this.addModToolStripMenuItem.Name = "addModToolStripMenuItem";
             this.addModToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addModToolStripMenuItem_Click);
             //
@@ -197,7 +195,6 @@
             //
             this.addModFromURLToolStripMenuItem.Caption = "Add Mod from URL";
             this.addModFromURLToolStripMenuItem.Id = 2;
-            this.addModFromURLToolStripMenuItem.ImageOptions.Image = global::Nexus.Client.Properties.Resources.add_mod_url_flat;
             this.addModFromURLToolStripMenuItem.Name = "addModFromURLToolStripMenuItem";
             this.addModFromURLToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addModFromURLToolStripMenuItem_Click);
             //
@@ -206,7 +203,6 @@
             this.tsbActivate.Caption = "Install / Enable";
             this.tsbActivate.Hint = "Install / enable the selected mod(s)";
             this.tsbActivate.Id = 3;
-            this.tsbActivate.ImageOptions.Image = global::Nexus.Client.Properties.Resources.obsidianshade_checkmark;
             this.tsbActivate.Name = "tsbActivate";
             this.tsbActivate.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             //
@@ -218,7 +214,6 @@
             this.tsbDeactivate.DropDownControl = this.popupDeactivate;
             this.tsbDeactivate.Hint = "Disable the selected mod(s)";
             this.tsbDeactivate.Id = 4;
-            this.tsbDeactivate.ImageOptions.Image = global::Nexus.Client.Properties.Resources.remove_download_flat;
             this.tsbDeactivate.Name = "tsbDeactivate";
             this.tsbDeactivate.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbDeactivate.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbDeactivate_ButtonClick);
@@ -228,21 +223,18 @@
             this.tsb_SaveModLoadOrder.Caption = "Save mod load order";
             this.tsb_SaveModLoadOrder.Hint = "Save the current mod load order";
             this.tsb_SaveModLoadOrder.Id = 5;
-            this.tsb_SaveModLoadOrder.ImageOptions.Image = global::Nexus.Client.Properties.Resources.save_mod_loadorder_flat;
             this.tsb_SaveModLoadOrder.Name = "tsb_SaveModLoadOrder";
             this.tsb_SaveModLoadOrder.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsb_SaveModLoadOrder.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsb_SaveModLoadOrder_Click);
             this.tsb_ModUpLoadOrder.Caption = "Move mod up";
             this.tsb_ModUpLoadOrder.Hint = "Moves mod up in the load order";
             this.tsb_ModUpLoadOrder.Id = 6;
-            this.tsb_ModUpLoadOrder.ImageOptions.Image = global::Nexus.Client.Properties.Resources.move_up_flat;
             this.tsb_ModUpLoadOrder.Name = "tsb_ModUpLoadOrder";
             this.tsb_ModUpLoadOrder.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsb_ModUpLoadOrder.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsb_ModUpLoadOrder_Click);
             this.tsb_ModDownLoadOrder.Caption = "Move mod down";
             this.tsb_ModDownLoadOrder.Hint = "Moves mod down in the load order";
             this.tsb_ModDownLoadOrder.Id = 7;
-            this.tsb_ModDownLoadOrder.ImageOptions.Image = global::Nexus.Client.Properties.Resources.move_down_flat;
             this.tsb_ModDownLoadOrder.Name = "tsb_ModDownLoadOrder";
             this.tsb_ModDownLoadOrder.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsb_ModDownLoadOrder.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsb_ModDownLoadOrder_Click);
@@ -252,7 +244,6 @@
             this.tsbTagMod.Caption = "Get Mod Info";
             this.tsbTagMod.Hint = "Get missing mod info";
             this.tsbTagMod.Id = 8;
-            this.tsbTagMod.ImageOptions.Image = global::Nexus.Client.Properties.Resources.mad_tagger_flat;
             this.tsbTagMod.Name = "tsbTagMod";
             this.tsbTagMod.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             //
@@ -264,7 +255,6 @@
             this.tsbModOnlineChecks.DropDownControl = this.popupOnlineChecks;
             this.tsbModOnlineChecks.Hint = "Check for mod updates";
             this.tsbModOnlineChecks.Id = 9;
-            this.tsbModOnlineChecks.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_mod_updates_flat;
             this.tsbModOnlineChecks.Name = "tsbModOnlineChecks";
             this.tsbModOnlineChecks.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbModOnlineChecks.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbModOnlineChecks_ButtonClick);
@@ -273,7 +263,6 @@
             //
             this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Caption = "Check for Mod Updates Interval ...";
             this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Id = 10;
-            this.checkForModUpdateWithinTheLastDayToolStripMenuItem.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_updates_interval_flat;
             this.checkForModUpdateWithinTheLastDayToolStripMenuItem.Name = "checkForModUpdateWithinTheLastDayToolStripMenuItem";
             this.checkForModUpdateWithinTheLastDayToolStripMenuItem.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
                 new DevExpress.XtraBars.LinkPersistInfo(this.withinTheLastDayToolStripMenuItem),
@@ -294,12 +283,10 @@
             this.withinTheLastMonthToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.withinTheLastMonthToolStripMenuItem_Click);
             this.checkFileDownloadId.Caption = "Fix download IDs and Check for mod updates";
             this.checkFileDownloadId.Id = 14;
-            this.checkFileDownloadId.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
             this.checkFileDownloadId.Name = "checkFileDownloadId";
             this.checkFileDownloadId.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.checkFileDownloadId_Click);
             this.checkMissingDownloadId.Caption = "Just check for missing download IDs";
             this.checkMissingDownloadId.Id = 15;
-            this.checkMissingDownloadId.ImageOptions.Image = global::Nexus.Client.Properties.Resources.check_updates_id_fix_flat;
             this.checkMissingDownloadId.Name = "checkMissingDownloadId";
             this.checkMissingDownloadId.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.checkMissingDownloadId_Click);
             //
@@ -308,7 +295,6 @@
             this.tsbToggleEndorse.Caption = "Endorse";
             this.tsbToggleEndorse.Hint = "Toggle mod endorsement";
             this.tsbToggleEndorse.Id = 16;
-            this.tsbToggleEndorse.ImageOptions.Image = global::Nexus.Client.Properties.Resources.endorse_flat;
             this.tsbToggleEndorse.Name = "tsbToggleEndorse";
             this.tsbToggleEndorse.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbToggleEndorse.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbToggleEndorse_Click);
@@ -321,53 +307,43 @@
             this.tsbResetCategories.DropDownControl = this.popupCategories;
             this.tsbResetCategories.Hint = "Categories: add new category - Click the small arrow for more options";
             this.tsbResetCategories.Id = 17;
-            this.tsbResetCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
             this.tsbResetCategories.Name = "tsbResetCategories";
             this.tsbResetCategories.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbResetCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addNewCategory_Click);
             this.addNewCategory.Caption = "Categories: add new category";
             this.addNewCategory.Id = 18;
-            this.addNewCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
             this.addNewCategory.Name = "addNewCategory";
             this.addNewCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addNewCategory_Click);
             this.collapseAllCategories.Caption = "Categories: collapse all categories";
             this.collapseAllCategories.Id = 19;
-            this.collapseAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.collapse_all;
             this.collapseAllCategories.Name = "collapseAllCategories";
             this.collapseAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.collapseAllCategories_Click);
             this.expandAllCategories.Caption = "Categories: expand all categories";
             this.expandAllCategories.Id = 20;
-            this.expandAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.expand_all;
             this.expandAllCategories.Name = "expandAllCategories";
             this.expandAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.expandAllCategories_Click);
             this.updateNexusAndCustomCategories.Caption = "Categories: Update Nexus and custom categories";
             this.updateNexusAndCustomCategories.Id = 21;
-            this.updateNexusAndCustomCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
             this.updateNexusAndCustomCategories.Name = "updateNexusAndCustomCategories";
             this.updateNexusAndCustomCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.updateNexusAndCustomCategories_Click);
             this.resetDefaultCategories.Caption = "Categories: Update and reset to Nexus site defaults";
             this.resetDefaultCategories.Id = 22;
-            this.resetDefaultCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
             this.resetDefaultCategories.Name = "resetDefaultCategories";
             this.resetDefaultCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.resetDefaultCategories_Click);
             this.resetUnassignedToDefaultCategories.Caption = "Categories: reset Unassigned mods to Nexus site defaults";
             this.resetUnassignedToDefaultCategories.Id = 23;
-            this.resetUnassignedToDefaultCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned_nexus;
             this.resetUnassignedToDefaultCategories.Name = "resetUnassignedToDefaultCategories";
             this.resetUnassignedToDefaultCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.resetUnassignedToDefaultCategories_Click);
             this.resetModsCategory.Caption = "Categories: reset all mods to unassigned";
             this.resetModsCategory.Id = 24;
-            this.resetModsCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned;
             this.resetModsCategory.Name = "resetModsCategory";
             this.resetModsCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.resetModsCategory_Click);
             this.removeAllCategories.Caption = "Categories: remove all categories";
             this.removeAllCategories.Id = 25;
-            this.removeAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_delete_reset_unassigned;
             this.removeAllCategories.Name = "removeAllCategories";
             this.removeAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.removeAllCategories_Click);
             this.toggleHiddenCategories.Caption = "Categories: toggle hidden categories";
             this.toggleHiddenCategories.Id = 26;
-            this.toggleHiddenCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.reset_categories;
             this.toggleHiddenCategories.Name = "toggleHiddenCategories";
             this.toggleHiddenCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.toggleHiddenCategories_Click);
             //
@@ -376,7 +352,6 @@
             this.tsbSwitchView.Caption = "Switch View";
             this.tsbSwitchView.Hint = "Switches the Mod Manager views";
             this.tsbSwitchView.Id = 27;
-            this.tsbSwitchView.ImageOptions.Image = global::Nexus.Client.Properties.Resources.switch_view_flat;
             this.tsbSwitchView.Name = "tsbSwitchView";
             this.tsbSwitchView.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbSwitchView.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbSwitchView_Click);
@@ -389,16 +364,13 @@
             this.tsbExportModList.DropDownControl = this.popupExport;
             this.tsbExportModList.Hint = "Export the current mod list";
             this.tsbExportModList.Id = 28;
-            this.tsbExportModList.ImageOptions.Image = global::Nexus.Client.Properties.Resources.export_mod_list_flat;
             this.tsbExportModList.Name = "tsbExportModList";
             this.tsbExportModList.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.exportToTextFile.Caption = "Text file";
             this.exportToTextFile.Id = 29;
-            this.exportToTextFile.ImageOptions.Image = global::Nexus.Client.Properties.Resources.export_text_file_flat;
             this.exportToTextFile.Name = "exportToTextFile";
             this.exportToClipboard.Caption = "Copy to clipboard";
             this.exportToClipboard.Id = 30;
-            this.exportToClipboard.ImageOptions.Image = global::Nexus.Client.Properties.Resources.export_clipboard_flat;
             this.exportToClipboard.Name = "exportToClipboard";
             //
             // tsbShowUpdatesOnly
@@ -407,7 +379,6 @@
             this.tsbShowUpdatesOnly.Caption = "Updates Only";
             this.tsbShowUpdatesOnly.Hint = "Toggles filtering the mod list showing only mods requiring an update";
             this.tsbShowUpdatesOnly.Id = 31;
-            this.tsbShowUpdatesOnly.ImageOptions.Image = global::Nexus.Client.Properties.Resources.update_warning_disabled;
             this.tsbShowUpdatesOnly.Name = "tsbShowUpdatesOnly";
             this.tsbShowUpdatesOnly.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
             this.tsbShowUpdatesOnly.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbShowUpdatesOnly_Click);

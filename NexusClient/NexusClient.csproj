@@ -723,6 +723,8 @@
     <EmbeddedResource Include="Resources\Icons\Minimal\ImportFromClipboard.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\ImportFromFile.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\InstallRoot.svg" />
+    <EmbeddedResource Include="Resources\Icons\Minimal\ModActive.svg" />
+    <EmbeddedResource Include="Resources\Icons\Minimal\ModInstalled.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\Launch.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\Layout.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\MoveDown.svg" />
@@ -781,6 +783,8 @@
     <EmbeddedResource Include="Resources\Icons\Classic\ImportFromClipboard.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\ImportFromFile.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\InstallRoot.svg" />
+    <EmbeddedResource Include="Resources\Icons\Classic\ModActive.svg" />
+    <EmbeddedResource Include="Resources\Icons\Classic\ModInstalled.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Launch.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Layout.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\MoveDown.svg" />

@@ -2,7 +2,6 @@
 {
 	using System;
 	using System.Collections.Generic;
-	using System.ComponentModel;
 	using System.Drawing;
 	using System.Windows.Forms;
 
@@ -139,7 +138,7 @@
 			AddMainToolbarItem(spbChangeMode);
 			AddMainToolbarItem(spbHelp);
 
-			NmmIconProvider.BindBar(barMainToolbar, false);
+			NmmIconProvider.BindBar(barMainToolbar, NmmButtonPresentationScope.MainBar, false);
 		}
 
 		/// <summary>
@@ -192,8 +191,6 @@
 		/// </summary>
 		private void InitializeMainToolbarItems()
 		{
-			ComponentResourceManager resources = new ComponentResourceManager(typeof(MainForm));
-
 			popupLaunch = new PopupMenu(barManagerMain);
 			popupProfiles = new PopupMenu(barManagerMain);
 			popupHelp = new PopupMenu(barManagerMain);
@@ -204,7 +201,6 @@
 			popupSupportNMM = new PopupMenu(barManagerMain);
 
 			spbLaunch = CreateDropDownButton("Launch Game", popupLaunch, false, BarItemPaintStyle.CaptionGlyph);
-			spbLaunch.ImageOptions.Image = ScaleBarImage(resources.GetObject("spbLaunch.Image") as Image, MainToolbarImageSize);
 			spbLaunch.ItemClick += SpbLaunch_ItemClick;
 
 			spbProfiles = CreateDropDownButton("Profiles", popupProfiles, false, BarItemPaintStyle.CaptionGlyph);
@@ -212,27 +208,21 @@
 
 			spbHelp = CreateDropDownButton("Help", popupHelp, true, BarItemPaintStyle.Standard);
 			spbHelp.Alignment = BarItemLinkAlignment.Right;
-			spbHelp.ImageOptions.Image = ScaleBarImage(Properties.Resources.help_flat, MainToolbarImageSize);
 
 			spbChangeMode = CreateDropDownButton("Change Game Mode", popupChangeMode, true, BarItemPaintStyle.Standard);
 			spbChangeMode.Alignment = BarItemLinkAlignment.Right;
-			spbChangeMode.ImageOptions.Image = ScaleBarImage(Properties.Resources.switch_game_flat, MainToolbarImageSize);
 
 			toolStripSplitButtonTools = CreateDropDownButton("Tools", popupTools, true, BarItemPaintStyle.Standard);
-			toolStripSplitButtonTools.ImageOptions.Image = ScaleBarImage(Properties.Resources.program_tools_flat, MainToolbarImageSize);
 
 			spbFolders = CreateDropDownButton("Open folders", popupFolders, true, BarItemPaintStyle.Standard);
-			spbFolders.ImageOptions.Image = ScaleBarImage(Properties.Resources.folder_link_flat, MainToolbarImageSize);
 
 			tsbSettings = new BarButtonItem(barManagerMain, "Settings")
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbSettings.ImageOptions.Image = ScaleBarImage(Properties.Resources.settings_flat, MainToolbarImageSize);
 			tsbSettings.ItemClick += (sender, args) => tsbSettings_Click(sender, EventArgs.Empty);
 
 			spbSupportedTools = CreateDropDownButton("Supported Tools", popupSupportedTools, true, BarItemPaintStyle.Standard);
-			spbSupportedTools.ImageOptions.Image = ScaleBarImage(Properties.Resources.supported_tools_flat, MainToolbarImageSize);
 
 			repositoryFind = new RepositoryItemTextEdit();
 			repositoryFind.KeyUp += tstFind_KeyUp;
@@ -249,7 +239,6 @@
 				Alignment = BarItemLinkAlignment.Right,
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			tsbUpdate.ImageOptions.Image = ScaleBarImage(Properties.Resources.update_check_flat, MainToolbarImageSize);
 
 			tsbDiscord = new BarButtonItem(barManagerMain, "Discord")
 			{

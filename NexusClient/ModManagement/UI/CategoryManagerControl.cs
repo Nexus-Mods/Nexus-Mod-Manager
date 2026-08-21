@@ -52,7 +52,7 @@ namespace Nexus.Client.ModManagement.UI
 			NmmIconProvider.Bind(tsbResetUnassigned, NmmIconAction.ResetUnassigned);
 			NmmIconProvider.Bind(tsbResetAllToUnassigned, NmmIconAction.ResetAll);
             NmmIconProvider.Bind(tsbRemoveAllCategories, NmmIconAction.RemoveAll);
-			NmmIconProvider.BindBar(barCategoryActions, true);
+			NmmIconProvider.BindBar(barCategoryActions, NmmButtonPresentationScope.Categories, true);
             DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerCategory, new System.Drawing.Size(32, 32));
             Text        = "Categories";
             HideOnClose = true;

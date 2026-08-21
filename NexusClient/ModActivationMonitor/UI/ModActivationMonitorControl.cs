@@ -90,7 +90,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			NmmIconProvider.Bind(tsbRemoveQueued, NmmIconAction.Remove);
 			NmmIconProvider.Bind(tsbRemoveAll, NmmIconAction.RemoveAll);
 			NmmIconProvider.Bind(copyItem, NmmIconAction.Copy);
-			NmmIconProvider.BindBar(barActions, true);
+			NmmIconProvider.BindBar(barActions, NmmButtonPresentationScope.ModActivationQueue, true);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = true;

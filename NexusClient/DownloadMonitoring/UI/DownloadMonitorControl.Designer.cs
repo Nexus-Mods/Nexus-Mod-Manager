@@ -60,13 +60,13 @@
 			this.barActions.OptionsBar.DrawDragBorder = false;
 			this.barActions.OptionsBar.RotateWhenVertical = false;
 
-			ConfigureBarButton(this.tsbResume, 0, "tsbResume", "Resume", global::Nexus.Client.Properties.Resources.resume_download_flat);
-			ConfigureBarButton(this.tsbCancel, 1, "tsbCancel", "Cancel", global::Nexus.Client.Properties.Resources.cancel_download_flat);
-			ConfigureBarButton(this.tsbPause, 2, "tsbPause", "Pause", global::Nexus.Client.Properties.Resources.pause_download_flat);
-			ConfigureBarButton(this.tsbRemove, 3, "tsbRemove", "Remove", global::Nexus.Client.Properties.Resources.remove_download_flat);
-			ConfigureBarButton(this.tsbResumeAll, 4, "tsbResumeAll", "Resume All", global::Nexus.Client.Properties.Resources.playlist);
-			ConfigureBarButton(this.tsbRemoveAll, 5, "tsbRemoveAll", "Remove All", global::Nexus.Client.Properties.Resources.list_cleanup_flat);
-			ConfigureBarButton(this.tsbPurgeDownloads, 6, "tsbPurgeDownloads", "Purge Downloads", global::Nexus.Client.Properties.Resources.delete_file);
+			ConfigureBarButton(this.tsbResume, 0, "tsbResume", "Resume");
+			ConfigureBarButton(this.tsbCancel, 1, "tsbCancel", "Cancel");
+			ConfigureBarButton(this.tsbPause, 2, "tsbPause", "Pause");
+			ConfigureBarButton(this.tsbRemove, 3, "tsbRemove", "Remove");
+			ConfigureBarButton(this.tsbResumeAll, 4, "tsbResumeAll", "Resume All");
+			ConfigureBarButton(this.tsbRemoveAll, 5, "tsbRemoveAll", "Remove All");
+			ConfigureBarButton(this.tsbPurgeDownloads, 6, "tsbPurgeDownloads", "Purge Downloads");
 			this.copyItem.Caption = "Copy to clipboard"; this.copyItem.Id = 7; this.copyItem.Name = "copyItem"; this.copyItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.copyItem_ItemClick);
 
 			this.popupMenu.Manager = this.barManager;
@@ -116,9 +116,9 @@
 		}
 
 		/// <summary>Configures a download-toolbar button.</summary>
-		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption, System.Drawing.Image image)
+		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption)
 		{
-			button.Id = id; button.Name = name; button.Caption = caption; button.Hint = caption; button.ImageOptions.Image = image; button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
+			button.Id = id; button.Name = name; button.Caption = caption; button.Hint = caption; button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
 		}
 
 		private DevExpress.XtraBars.BarManager barManager;

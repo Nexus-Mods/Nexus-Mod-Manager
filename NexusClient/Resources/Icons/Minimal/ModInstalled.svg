@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmWarning{fill:#808080;}</style>
+  <path class="NmmWarning" fill-rule="evenodd" d="M12 2.5A9.5 9.5 0 1 1 12 21.5 9.5 9.5 0 0 1 12 2.5zm0 2.4a7.1 7.1 0 1 0 0 14.2 7.1 7.1 0 0 0 0-14.2z"/>
+  <path class="NmmWarning" d="M6.8 10.7h10.4v2.6H6.8z"/>
+</svg>

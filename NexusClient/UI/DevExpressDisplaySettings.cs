@@ -1,6 +1,7 @@
 namespace Nexus.Client.UI
 {
 	using System;
+	using System.Collections.Generic;
 	using System.Drawing;
 	using System.Linq;
 	using System.Windows.Forms;
@@ -25,6 +26,7 @@ namespace Nexus.Client.UI
 		internal const NmmIconStyle DefaultIconStyle = NmmIconStyle.Minimal;
 		internal const NmmIconColorProfile DefaultIconColorProfile = NmmIconColorProfile.Base;
 		internal const NmmButtonPresentation DefaultButtonPresentation = NmmButtonPresentation.TextAndIcons;
+		internal static readonly NmmButtonPresentationProfile DefaultButtonPresentationProfile = NmmButtonPresentationProfile.CreateGlobal(DefaultButtonPresentation);
 		private const string FontSettingsKey = "mainForm.DevExpressDisplay.Font";
 		private const string FontSizeSettingsKey = "mainForm.DevExpressDisplay.FontSize";
 		private const string DensitySettingsKey = "mainForm.DevExpressDisplay.Density";
@@ -32,6 +34,13 @@ namespace Nexus.Client.UI
 		private const string IconSizeSettingsKey = "mainForm.DevExpressDisplay.IconSize";
 		private const string IconColorProfileSettingsKey = "mainForm.DevExpressDisplay.IconColorProfile";
 		private const string ButtonPresentationSettingsKey = "mainForm.DevExpressDisplay.ButtonPresentation";
+		private const string ButtonPresentationMainBarSettingsKey = ButtonPresentationSettingsKey + ".MainBar";
+		private const string ButtonPresentationPluginsSettingsKey = ButtonPresentationSettingsKey + ".Plugins";
+		private const string ButtonPresentationModsSettingsKey = ButtonPresentationSettingsKey + ".Mods";
+		private const string ButtonPresentationCategoriesSettingsKey = ButtonPresentationSettingsKey + ".Categories";
+		private const string ButtonPresentationFileManagerSettingsKey = ButtonPresentationSettingsKey + ".FileManager";
+		private const string ButtonPresentationDownloadManagerSettingsKey = ButtonPresentationSettingsKey + ".DownloadManager";
+		private const string ButtonPresentationModActivationQueueSettingsKey = ButtonPresentationSettingsKey + ".ModActivationQueue";
 		private const string LegacyFontSettingsKey = "modManagerDXGrid.Font";
 		private const string LegacyFontSizeSettingsKey = "modManagerDXGrid.FontSize";
 		private const string LegacyDensitySettingsKey = "modManagerDXGrid.Density";
@@ -63,7 +72,7 @@ namespace Nexus.Client.UI
 
 		internal static readonly string[] IconColorProfileChoices =
 		{
-			"Base"
+			"Base", "Deuteranopia", "Protanopia", "Tritanopia", "High Contrast"
 		};
 
 		internal static readonly string[] ButtonPresentationChoices =
@@ -78,7 +87,7 @@ namespace Nexus.Client.UI
 			NmmIconStyle iconStyle,
 			int iconSize,
 			NmmIconColorProfile iconColorProfile,
-			NmmButtonPresentation buttonPresentation)
+			NmmButtonPresentationProfile buttonPresentationProfile)
 		{
 			FontFamilyName = ResolveFontFamily(fontFamilyName);
 			FontSizePt = ResolveFontSize(fontSizePt);
@@ -86,7 +95,7 @@ namespace Nexus.Client.UI
 			IconStyle = iconStyle;
 			IconSize = ResolveIconSize(iconSize);
 			IconColorProfile = iconColorProfile;
-			ButtonPresentation = buttonPresentation;
+			ButtonPresentationProfile = buttonPresentationProfile ?? DefaultButtonPresentationProfile;
 			Font = new Font(
 				FontFamilyName,
 				FontSizePt,
@@ -100,7 +109,7 @@ namespace Nexus.Client.UI
 		internal NmmIconStyle IconStyle { get; }
 		internal int IconSize { get; }
 		internal NmmIconColorProfile IconColorProfile { get; }
-		internal NmmButtonPresentation ButtonPresentation { get; }
+		internal NmmButtonPresentationProfile ButtonPresentationProfile { get; }
 		internal Font Font { get; }
 
 		public void Dispose()
@@ -145,11 +154,9 @@ namespace Nexus.Client.UI
 				IconColorProfileSettingsKey,
 				null,
 				DefaultIconColorProfile.ToString()));
-			NmmButtonPresentation buttonPresentation = ResolveButtonPresentation(ReadSetting(
-				settings,
-				ButtonPresentationSettingsKey,
-				null,
-				DefaultButtonPresentation.ToString()));
+			NmmButtonPresentationProfile buttonPresentationProfile = ResolveButtonPresentationProfile(
+				ReadSetting(settings, ButtonPresentationSettingsKey, null, DefaultButtonPresentation.ToString()),
+				scope => ReadSetting(settings, GetButtonPresentationSettingsKey(scope), null, DefaultButtonPresentation.ToString()));
 
 			return new DevExpressDisplaySettings(
 				fontName,
@@ -158,7 +165,7 @@ namespace Nexus.Client.UI
 				iconStyle,
 				iconSize,
 				iconColorProfile,
-				buttonPresentation);
+				buttonPresentationProfile);
 		}
 
 		/// <summary>
@@ -262,8 +269,16 @@ namespace Nexus.Client.UI
 
 		internal static NmmIconColorProfile ResolveIconColorProfile(string profile)
 		{
+			if (String.Equals(profile, "High Contrast", StringComparison.OrdinalIgnoreCase))
+				return NmmIconColorProfile.HighContrast;
+
 			NmmIconColorProfile resolved;
 			return Enum.TryParse(profile, true, out resolved) ? resolved : DefaultIconColorProfile;
+		}
+
+		internal static string FormatIconColorProfile(NmmIconColorProfile profile)
+		{
+			return profile == NmmIconColorProfile.HighContrast ? "High Contrast" : profile.ToString();
 		}
 
 		internal static NmmButtonPresentation ResolveButtonPresentation(string presentation)
@@ -278,6 +293,52 @@ namespace Nexus.Client.UI
 
 			NmmButtonPresentation resolved;
 			return Enum.TryParse(presentation, true, out resolved) ? resolved : DefaultButtonPresentation;
+		}
+
+		internal static NmmButtonPresentationProfile ResolveButtonPresentationProfile(string globalPresentation, Func<NmmButtonPresentationScope, string> scopedPresentationReader)
+		{
+			if (!String.Equals(globalPresentation, "Custom", StringComparison.OrdinalIgnoreCase))
+				return NmmButtonPresentationProfile.CreateGlobal(ResolveButtonPresentation(globalPresentation));
+
+			Dictionary<NmmButtonPresentationScope, NmmButtonPresentation> values = new Dictionary<NmmButtonPresentationScope, NmmButtonPresentation>();
+			foreach (NmmButtonPresentationScope scope in Enum.GetValues(typeof(NmmButtonPresentationScope)))
+			{
+				string value = scopedPresentationReader == null ? null : scopedPresentationReader(scope);
+				values[scope] = ResolveButtonPresentation(value);
+			}
+
+			return NmmButtonPresentationProfile.CreateCustom(values);
+		}
+
+		internal static string FormatButtonPresentationGlobal(NmmButtonPresentationProfile profile)
+		{
+			if (profile == null)
+				return FormatButtonPresentation(DefaultButtonPresentation);
+
+			return profile.IsCustom ? "Custom" : FormatButtonPresentation(profile.GlobalPresentation);
+		}
+
+		internal static string GetButtonPresentationSettingsKey(NmmButtonPresentationScope scope)
+		{
+			switch (scope)
+			{
+				case NmmButtonPresentationScope.MainBar:
+					return ButtonPresentationMainBarSettingsKey;
+				case NmmButtonPresentationScope.Plugins:
+					return ButtonPresentationPluginsSettingsKey;
+				case NmmButtonPresentationScope.Mods:
+					return ButtonPresentationModsSettingsKey;
+				case NmmButtonPresentationScope.Categories:
+					return ButtonPresentationCategoriesSettingsKey;
+				case NmmButtonPresentationScope.FileManager:
+					return ButtonPresentationFileManagerSettingsKey;
+				case NmmButtonPresentationScope.DownloadManager:
+					return ButtonPresentationDownloadManagerSettingsKey;
+				case NmmButtonPresentationScope.ModActivationQueue:
+					return ButtonPresentationModActivationQueueSettingsKey;
+				default:
+					return ButtonPresentationSettingsKey;
+			}
 		}
 
 		internal static string FormatButtonPresentation(NmmButtonPresentation presentation)

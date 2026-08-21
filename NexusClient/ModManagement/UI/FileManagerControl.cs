@@ -104,7 +104,7 @@
                 Height = 27
             };
             _refreshButton.Click += RefreshButton_Click;
-            NmmIconProvider.Bind(_refreshButton, NmmIconAction.Refresh);
+			NmmIconProvider.Bind(_refreshButton, NmmIconAction.Refresh, NmmButtonPresentationScope.FileManager);
 
             _topPanel.Controls.Add(descriptionLabel);
             _topPanel.Controls.Add(_deploymentRootLabel);
@@ -312,21 +312,14 @@
         /// </summary>
         private void ApplySourcePalette()
         {
-            if (DevExpressDisplaySettingsApplier.IsDarkSkinSurface())
-            {
-                _baseGameSourceForeColor = Color.LightSkyBlue;
-                _installedSourceForeColor = Color.LightGreen;
-                _creationsSourceForeColor = Color.Violet;
-                _externalSourceForeColor = Color.Turquoise;
-                _untrackedSourceForeColor = Color.LightSalmon;
-                return;
-            }
-
-            _baseGameSourceForeColor = Color.RoyalBlue;
-            _installedSourceForeColor = Color.ForestGreen;
-            _creationsSourceForeColor = Color.DarkViolet;
-            _externalSourceForeColor = Color.DarkCyan;
-            _untrackedSourceForeColor = Color.OrangeRed;
+            NmmColorPalette palette = NmmColorPalette.Resolve(
+                NmmIconProvider.CurrentColorProfile,
+                DevExpressDisplaySettingsApplier.IsDarkSkinSurface());
+            _baseGameSourceForeColor = palette.FileSourceBaseGameColor;
+            _installedSourceForeColor = palette.FileSourceInstalledColor;
+            _creationsSourceForeColor = palette.FileSourceCreationsColor;
+            _externalSourceForeColor = palette.FileSourceExternalColor;
+            _untrackedSourceForeColor = palette.FileSourceUntrackedColor;
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]

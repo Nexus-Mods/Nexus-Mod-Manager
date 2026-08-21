@@ -80,15 +80,15 @@
 			//
 			// tsbCancel
 			//
-			ConfigureBarButton(this.tsbCancel, 0, "tsbCancel", "Cancel", global::Nexus.Client.Properties.Resources.cancel_download_flat);
+			ConfigureBarButton(this.tsbCancel, 0, "tsbCancel", "Cancel");
 			//
 			// tsbRemoveQueued
 			//
-			ConfigureBarButton(this.tsbRemoveQueued, 1, "tsbRemoveQueued", "Remove queued", global::Nexus.Client.Properties.Resources.remove_download_flat);
+			ConfigureBarButton(this.tsbRemoveQueued, 1, "tsbRemoveQueued", "Remove queued");
 			//
 			// tsbRemoveAll
 			//
-			ConfigureBarButton(this.tsbRemoveAll, 2, "tsbRemoveAll", "Remove all", global::Nexus.Client.Properties.Resources.list_cleanup_flat);
+			ConfigureBarButton(this.tsbRemoveAll, 2, "tsbRemoveAll", "Remove all");
 			//
 			// copyItem
 			//
@@ -187,9 +187,9 @@
 		}
 
 		/// <summary>Configures an activation-monitor toolbar button.</summary>
-		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption, System.Drawing.Image image)
+		private static void ConfigureBarButton(DevExpress.XtraBars.BarButtonItem button, int id, string name, string caption)
 		{
-			button.Id = id; button.Name = name; button.Caption = caption; button.Hint = caption; button.ImageOptions.Image = image; button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
+			button.Id = id; button.Name = name; button.Caption = caption; button.Hint = caption; button.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
 		}
 
 		#endregion

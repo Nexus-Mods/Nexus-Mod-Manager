@@ -12,7 +12,6 @@
 	using System.Text;
 	using System.Windows.Forms;
 
-	using DevExpress.LookAndFeel;
 	using DevExpress.XtraBars;
 	using DevExpress.XtraEditors;
 	using DevExpress.Utils;
@@ -118,7 +117,8 @@
 		private Image _endorsedYesImage;
 		private Image _endorsedNoImage;
 		private Image _endorsedEmptyImage;
-		private bool _usesLegacyLightRowPalette;
+		private bool _usesLightRowPalette;
+		private NmmColorPalette _colorPalette;
 		private Color _latestVersionForeColor = Color.FromArgb(37, 99, 235);
 		private Color _outdatedVersionForeColor = Color.FromArgb(200, 40, 40);
 		private Timer _gridLayoutSaveTimer;
@@ -239,7 +239,7 @@
 			InitializeToolbarPositionButton();
 			InitializeToolbarSeparators();
 			RebuildToolbarLinks();
-			NmmIconProvider.BindBar(barModActions, _toolbarPositionLeft);
+			NmmIconProvider.BindBar(barModActions, NmmButtonPresentationScope.Mods, _toolbarPositionLeft);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerMods, new System.Drawing.Size(16, 16));
 			UpdateSwitchViewText();
 
@@ -264,7 +264,7 @@
 				settings.Density,
 				false);
 			DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerMods, settings);
-			NmmIconProvider.BindBar(barModActions, _toolbarPositionLeft);
+			NmmIconProvider.BindBar(barModActions, NmmButtonPresentationScope.Mods, _toolbarPositionLeft);
 			UpdateToolbarSeparators(_toolbarPositionLeft);
 			UpdateSkinPaletteCache();
 			RefreshSemanticCompatibilityIcons();
@@ -793,7 +793,7 @@
 			NmmIconProvider.Bind(resetDefaultCategories, NmmIconAction.UpdateResetCategories);
 			NmmIconProvider.Bind(resetUnassignedToDefaultCategories, NmmIconAction.ResetUnassigned);
 			NmmIconProvider.Bind(resetModsCategory, NmmIconAction.ResetAll);
-			NmmIconProvider.Bind(removeAllCategories, NmmIconAction.Delete);
+			NmmIconProvider.Bind(removeAllCategories, NmmIconAction.RemoveAll);
 			NmmIconProvider.Bind(toggleHiddenCategories, NmmIconAction.Filter);
 			NmmIconProvider.Bind(tsbSwitchView, NmmIconAction.SwitchView);
 			NmmIconProvider.Bind(tsbExportModList, NmmIconAction.Export);
@@ -829,22 +829,15 @@
 
 		private void UpdateSkinPaletteCache()
 		{
-			string skinName = UserLookAndFeel.Default.SkinName;
-
-			_usesLegacyLightRowPalette =
-				String.Equals(skinName, "Basic", StringComparison.OrdinalIgnoreCase) ||
-				String.Equals(skinName, "DevExpress Style", StringComparison.OrdinalIgnoreCase);
-
-			if (DevExpressDisplaySettingsApplier.IsDarkSkinSurface())
-			{
-				_latestVersionForeColor = Color.LightSkyBlue;
-				_outdatedVersionForeColor = Color.LightCoral;
-			}
-			else
-			{
-				_latestVersionForeColor = Color.FromArgb(37, 99, 235);
-				_outdatedVersionForeColor = Color.FromArgb(200, 40, 40);
-			}
+			bool darkSurface = DevExpressDisplaySettingsApplier.IsDarkSkinSurface();
+			_usesLightRowPalette = !darkSurface;
+			_colorPalette = NmmColorPalette.Resolve(NmmIconProvider.CurrentColorProfile, darkSurface);
+			_latestVersionForeColor = _colorPalette.ModLatestVersionForeColor;
+			_outdatedVersionForeColor = _colorPalette.ModOutdatedVersionForeColor;
+			_categoryColorCache.Clear();
+			foreach (SolidBrush brush in _categoryBrushCache.Values)
+				brush.Dispose();
+			_categoryBrushCache.Clear();
 		}
 
 		/// <summary>
@@ -1536,10 +1529,16 @@
 		private Image GetModStatusIcon(ModVisualStatus status)
 		{
 			if (status == ModVisualStatus.InstalledActive)
-				return _modInstalledActiveIcon ?? (_modInstalledActiveIcon = LoadSvgIcon("mod-installed-active.svg", ModStatusIconSize));
+				return _modInstalledActiveIcon ?? (_modInstalledActiveIcon = CloneSemanticIcon(NmmIconAction.ModActive, ModStatusIconSize));
 			if (status == ModVisualStatus.InstalledUnlinked)
-				return _modInstalledDisabledIcon ?? (_modInstalledDisabledIcon = LoadSvgIcon("mod-installed-disabled.svg", ModStatusIconSize));
+				return _modInstalledDisabledIcon ?? (_modInstalledDisabledIcon = CloneSemanticIcon(NmmIconAction.ModInstalled, ModStatusIconSize));
 			return null;
+		}
+
+		private static Image CloneSemanticIcon(NmmIconAction action, int size)
+		{
+			Image image = NmmIconProvider.GetBitmap(action, size, false);
+			return image == null ? null : new Bitmap(image);
 		}
 
 		private void QueueMissingArchiveScan()
@@ -1663,23 +1662,22 @@
 				gridView.IsRowSelected(e.RowHandle) ||
 				e.RowHandle == gridView.FocusedRowHandle;
 
-			if (_usesLegacyLightRowPalette &&
-				_showRowHighlights &&
+			bool useProfileRowHighlights = _usesLightRowPalette || NmmIconProvider.CurrentColorProfile != NmmIconColorProfile.Base;
+			if (useProfileRowHighlights && _showRowHighlights &&
 				isActive)
 			{
 				e.Appearance.BackColor = isSelected
-					? Color.FromArgb(218, 240, 218)
-					: Color.FromArgb(249, 254, 249);
-				e.Appearance.ForeColor = Color.Black;
+					? _colorPalette.ModActiveSelectedRowBackColor
+					: _colorPalette.ModActiveRowBackColor;
+				e.Appearance.ForeColor = _colorPalette.ModRowForeColor;
 			}
-			else if (_usesLegacyLightRowPalette &&
-					 _showRowHighlights &&
+			else if (useProfileRowHighlights && _showRowHighlights &&
 					 isInstalled)
 			{
 				e.Appearance.BackColor = isSelected
-					? Color.FromArgb(250, 230, 200)
-					: Color.FromArgb(255, 251, 244);
-				e.Appearance.ForeColor = Color.Black;
+					? _colorPalette.ModInstalledSelectedRowBackColor
+					: _colorPalette.ModInstalledRowBackColor;
+				e.Appearance.ForeColor = _colorPalette.ModRowForeColor;
 			}
 
 			if (_showActiveModsInBold && isActive)
@@ -1709,8 +1707,8 @@
 
 			if (!isSelected && isSecondaryColumn)
 			{
-				if (_usesLegacyLightRowPalette)
-					e.Appearance.ForeColor = Color.FromArgb(90, 90, 90);
+				if (_usesLightRowPalette)
+					e.Appearance.ForeColor = DevExpressDisplaySettingsApplier.GetMutedSkinTextColor();
 
 				e.Appearance.Font = _showActiveModsInBold && isActive
 					? _gridSecondaryBoldFont
@@ -1877,7 +1875,7 @@
 				e.DefaultDraw();
 
 			Rectangle textBounds = GetCellTextBounds(e, displayText);
-			using (var brush = new SolidBrush(Color.FromArgb(120, 255, 230, 120)))
+			using (var brush = new SolidBrush(_colorPalette.ModFilterMatchColor))
 			{
 				while (matchIndex >= 0)
 				{
@@ -1986,16 +1984,16 @@
 		/// <summary>Highlights the active sort column header in blue.</summary>
 		private void GridView_CustomDrawColumnHeader(object sender, ColumnHeaderCustomDrawEventArgs e)
 		{
-			if (!_usesLegacyLightRowPalette ||
+			if (!_usesLightRowPalette ||
 				e.Column == null ||
 				e.Column.SortOrder == DevExpress.Data.ColumnSortOrder.None)
 			{
 				return;
 			}
 
-			e.Appearance.BackColor = Color.FromArgb(219, 234, 254);
-			e.Appearance.BackColor2 = Color.FromArgb(219, 234, 254);
-			e.Appearance.ForeColor = Color.FromArgb(37, 99, 235);
+			e.Appearance.BackColor = _colorPalette.ModSortHeaderBackColor;
+			e.Appearance.BackColor2 = _colorPalette.ModSortHeaderBackColor;
+			e.Appearance.ForeColor = _colorPalette.ModSortHeaderForeColor;
 
 			e.DefaultDraw();
 			e.Handled = true;
@@ -2069,7 +2067,7 @@
 				categoryName,
 				_gridBadgeFont,
 				badgeBounds,
-				Color.White,
+				NmmColorPalette.GetContrastingTextColor(badgeColor),
 				TextFormatFlags.HorizontalCenter |
 				TextFormatFlags.VerticalCenter |
 				TextFormatFlags.EndEllipsis |
@@ -2133,54 +2131,37 @@
 		}
 
 		/// <summary>Maps a category name to a semantic badge colour via keyword matching.</summary>
-		// Palette used for category names that don't match a semantic keyword.
-		// Ordered so adjacent indices stay visually distinct.
-		private static readonly Color[] _categoryPalette =
-		{
-			Color.FromArgb(139,  92, 246),   // violet
-            Color.FromArgb( 59, 130, 246),   // blue
-            Color.FromArgb(236,  72, 153),   // pink
-            Color.FromArgb( 20, 184, 166),   // teal
-            Color.FromArgb(245, 158,  11),   // amber
-            Color.FromArgb( 34, 197,  94),   // green
-            Color.FromArgb(249, 115,  22),   // orange
-            Color.FromArgb( 99, 102, 241),   // indigo
-            Color.FromArgb(220,  38,  38),   // red
-            Color.FromArgb( 14, 165, 233),   // sky
-            Color.FromArgb(168,  85, 247),   // purple
-            Color.FromArgb( 13, 148, 136),   // dark teal
-        };
-
 		/// <summary>Maps a category name to a semantic badge colour.</summary>
-		private static Color GetCategoryColor(string categoryName)
+		private Color GetCategoryColor(string categoryName)
 		{
 			// Empty or explicitly unassigned → neutral grey
 			if (string.IsNullOrWhiteSpace(categoryName) ||
 				categoryName.Equals("unassigned", StringComparison.OrdinalIgnoreCase))
-				return Color.FromArgb(107, 114, 128);
+				return _colorPalette.CategoryNeutralColor;
 
 			string n = categoryName.ToLowerInvariant();
+			Color[] categoryPalette = _colorPalette.CategoryColors;
 
 			// Semantic keyword matches
 			if (n.Contains("armor") || n.Contains("armour") || n.Contains("weapon"))
-				return Color.FromArgb(139, 92, 246);   // violet  — armour / weapons
+				return categoryPalette[0];
 			if (n.Contains("bug") || n.Contains("fix") || n.Contains("patch"))
-				return Color.FromArgb(59, 130, 246);   // blue    — bug fixes / patches
+				return categoryPalette[1];
 			if (n.Contains("body") || n.Contains("face") || n.Contains("skin") ||
 				n.Contains("hair") || n.Contains("race"))
-				return Color.FromArgb(236, 72, 153);   // pink    — body / face / skin
+				return categoryPalette[2];
 			if (n.Contains("follower") || n.Contains("companion") || n.Contains("npc"))
-				return Color.FromArgb(20, 184, 166);   // teal    — followers / companions
+				return categoryPalette[3];
 			if (n.Contains("creature") || n.Contains("animal") || n.Contains("monster") ||
 				n.Contains("beast"))
-				return Color.FromArgb(245, 158, 11);   // amber   — creatures / animals
+				return categoryPalette[4];
 
 			// Any other named category — deterministic colour from hash so the same
 			// category always gets the same colour and different categories look different.
 			uint hash = 2166136261u;
 			foreach (char c in n)
 				hash = (hash ^ (uint)c) * 16777619u;
-			return _categoryPalette[hash % (uint)_categoryPalette.Length];
+			return categoryPalette[hash % (uint)categoryPalette.Length];
 		}
 
 		/// <summary>
@@ -3038,11 +3019,15 @@
 
 		private void RefreshSemanticCompatibilityIcons()
 		{
+			_modInstalledActiveIcon?.Dispose();
+			_modInstalledDisabledIcon?.Dispose();
 			_warningIcon?.Dispose();
 			_inlineEditIcon?.Dispose();
 			_inlineAcceptIcon?.Dispose();
 			_inlineCancelIcon?.Dispose();
 
+			_modInstalledActiveIcon = null;
+			_modInstalledDisabledIcon = null;
 			_warningIcon = null;
 			_inlineEditIcon = null;
 			_inlineAcceptIcon = null;
@@ -3334,7 +3319,7 @@
 		private static string GetSideToolbarSeparatorCaption()
 		{
 			int glyphCount;
-			switch (NmmIconProvider.CurrentButtonPresentation)
+			switch (NmmIconProvider.GetButtonPresentation(NmmButtonPresentationScope.Mods))
 			{
 				case NmmButtonPresentation.IconsOnly:
 					glyphCount = Math.Max(3, NmmIconProvider.CurrentIconSize / 6);
@@ -3383,7 +3368,7 @@
 				barModActions.DockCol = 0;
 				barModActions.DockRow = 0;
 				barModActions.Visible = true;
-				NmmIconProvider.BindBar(barModActions, left);
+				NmmIconProvider.BindBar(barModActions, NmmButtonPresentationScope.Mods, left);
 				UpdateToolbarSeparators(left);
 
 				if (_toolbarPositionButton != null)

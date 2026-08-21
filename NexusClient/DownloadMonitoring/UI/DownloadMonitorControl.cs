@@ -84,7 +84,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			NmmIconProvider.Bind(tsbRemoveAll, NmmIconAction.RemoveAll);
 			NmmIconProvider.Bind(tsbPurgeDownloads, NmmIconAction.Purge);
 			NmmIconProvider.Bind(copyItem, NmmIconAction.Copy);
-			NmmIconProvider.BindBar(barActions, true);
+			NmmIconProvider.BindBar(barActions, NmmButtonPresentationScope.DownloadManager, true);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = true;

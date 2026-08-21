@@ -224,7 +224,7 @@
 			NmmIconProvider.Bind(importFromClipboardItem, NmmIconAction.ImportFromClipboard);
 			NmmIconProvider.Bind(importFromFileItem, NmmIconAction.ImportFromFile);
 			NmmIconProvider.Bind(_disablePluginSortingRestrictionsToggle, NmmIconAction.Restrictions);
-			NmmIconProvider.BindBar(_toolbar, false);
+			NmmIconProvider.BindBar(_toolbar, NmmButtonPresentationScope.Plugins, false);
 
 			_gridControl = new GridControl { Dock = DockStyle.Fill };
             _gridView = new GridView(_gridControl);
@@ -416,16 +416,11 @@
 
 			_lockedPluginForeColor = DevExpressDisplaySettingsApplier.GetMutedSkinTextColor();
 
-			if (DevExpressDisplaySettingsApplier.IsDarkSkinSurface())
-			{
-				_errorPluginForeColor = Color.LightCoral;
-				_warningPluginForeColor = Color.Orange;
-			}
-			else
-			{
-				_errorPluginForeColor = Color.DarkRed;
-				_warningPluginForeColor = Color.DarkOrange;
-			}
+			NmmColorPalette palette = NmmColorPalette.Resolve(
+				NmmIconProvider.CurrentColorProfile,
+				DevExpressDisplaySettingsApplier.IsDarkSkinSurface());
+			_errorPluginForeColor = palette.PluginErrorColor;
+			_warningPluginForeColor = palette.PluginWarningColor;
 
 			_gridView.InvalidateRows();
 

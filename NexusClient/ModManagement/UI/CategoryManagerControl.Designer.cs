@@ -83,7 +83,6 @@
             this.tsbAddCategory.Caption = "Add Category";
             this.tsbAddCategory.Hint = "Add a new category";
             this.tsbAddCategory.Id = 0;
-            this.tsbAddCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_add_new;
             this.tsbAddCategory.Name = "tsbAddCategory";
             this.tsbAddCategory.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbAddCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbAddCategory_Click);
@@ -93,7 +92,6 @@
             this.tsbRenameCategory.Caption = "Rename Category";
             this.tsbRenameCategory.Hint = "Rename the selected category (F2)";
             this.tsbRenameCategory.Id = 1;
-            this.tsbRenameCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_rename;
             this.tsbRenameCategory.Name = "tsbRenameCategory";
             this.tsbRenameCategory.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbRenameCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbRenameCategory_Click);
@@ -103,7 +101,6 @@
             this.tsbRemoveCategory.Caption = "Remove Category";
             this.tsbRemoveCategory.Hint = "Remove the selected category";
             this.tsbRemoveCategory.Id = 2;
-            this.tsbRemoveCategory.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_remove;
             this.tsbRemoveCategory.Name = "tsbRemoveCategory";
             this.tsbRemoveCategory.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbRemoveCategory.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbRemoveCategory_Click);
@@ -113,7 +110,6 @@
             this.tsbUpdateFromNexus.Caption = "Update from Nexus";
             this.tsbUpdateFromNexus.Hint = "Update and reset categories to Nexus site defaults";
             this.tsbUpdateFromNexus.Id = 3;
-            this.tsbUpdateFromNexus.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_update_reset_nexus;
             this.tsbUpdateFromNexus.Name = "tsbUpdateFromNexus";
             this.tsbUpdateFromNexus.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbUpdateFromNexus.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbUpdateFromNexus_Click);
@@ -123,7 +119,6 @@
             this.tsbResetUnassigned.Caption = "Reset Unassigned to Nexus Defaults";
             this.tsbResetUnassigned.Hint = "Reset unassigned mods to Nexus site default categories";
             this.tsbResetUnassigned.Id = 4;
-            this.tsbResetUnassigned.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned_nexus;
             this.tsbResetUnassigned.Name = "tsbResetUnassigned";
             this.tsbResetUnassigned.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbResetUnassigned.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbResetUnassigned_Click);
@@ -133,7 +128,6 @@
             this.tsbResetAllToUnassigned.Caption = "Reset All Mods to Unassigned";
             this.tsbResetAllToUnassigned.Hint = "Reset all mods to the Unassigned category";
             this.tsbResetAllToUnassigned.Id = 5;
-            this.tsbResetAllToUnassigned.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_reset_unassigned;
             this.tsbResetAllToUnassigned.Name = "tsbResetAllToUnassigned";
             this.tsbResetAllToUnassigned.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbResetAllToUnassigned.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbResetAllToUnassigned_Click);
@@ -143,7 +137,6 @@
             this.tsbRemoveAllCategories.Caption = "Remove All Categories";
             this.tsbRemoveAllCategories.Hint = "Remove all categories and reset all mods to Unassigned";
             this.tsbRemoveAllCategories.Id = 6;
-            this.tsbRemoveAllCategories.ImageOptions.Image = global::Nexus.Client.Properties.Resources.categories_delete_reset_unassigned;
             this.tsbRemoveAllCategories.Name = "tsbRemoveAllCategories";
             this.tsbRemoveAllCategories.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.Standard;
             this.tsbRemoveAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.tsbRemoveAllCategories_Click);
