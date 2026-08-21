@@ -59,6 +59,8 @@
         public AuthenticationForm(AuthenticationFormViewModel viewModel, AuthenticationFormTask loginTask)
         {
             InitializeComponent();
+            NmmIconProvider.Bind(buttonSingleSignOn, NmmIconAction.Authorize);
+            NmmIconProvider.Bind(buttonCancel, NmmIconAction.Cancel);
             FormClosed += LoginForm_FormClosed;
             _loginTask = loginTask;
             ViewModel = viewModel;

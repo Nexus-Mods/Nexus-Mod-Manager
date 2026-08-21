@@ -212,6 +212,20 @@
 			_toolbar.AddItem(_importButton);
 			_toolbar.AddItem(_disablePluginSortingRestrictionsToggle).BeginGroup = true;
 
+			NmmIconProvider.Bind(_moveUpButton, NmmIconAction.MoveUp);
+			NmmIconProvider.Bind(_moveDownButton, NmmIconAction.MoveDown);
+			NmmIconProvider.Bind(_restoreLoadOrderButton, NmmIconAction.Sort);
+			NmmIconProvider.Bind(_disableAllButton, NmmIconAction.DisableAll);
+			NmmIconProvider.Bind(_enableAllButton, NmmIconAction.EnableAll);
+			NmmIconProvider.Bind(_exportButton, NmmIconAction.Export);
+			NmmIconProvider.Bind(exportToClipboardItem, NmmIconAction.Copy);
+			NmmIconProvider.Bind(exportToFileItem, NmmIconAction.Export);
+			NmmIconProvider.Bind(_importButton, NmmIconAction.Import);
+			NmmIconProvider.Bind(importFromClipboardItem, NmmIconAction.ImportFromClipboard);
+			NmmIconProvider.Bind(importFromFileItem, NmmIconAction.ImportFromFile);
+			NmmIconProvider.Bind(_disablePluginSortingRestrictionsToggle, NmmIconAction.Restrictions);
+			NmmIconProvider.BindBar(_toolbar, false);
+
 			_gridControl = new GridControl { Dock = DockStyle.Fill };
             _gridView = new GridView(_gridControl);
             _gridControl.MainView = _gridView;
@@ -361,9 +375,31 @@
             DevExpressDisplaySettingsApplier.ApplyToBarManager(
                 _barManager,
                 settings);
+			UpdateToolbarHostHeight();
             ApplySkinAwareAppearance();
             _gridControl.Invalidate();
         }
+
+		/// <summary>
+		/// Keeps the standalone toolbar host in sync with the actual DevExpress bar height.
+		/// Large SVG sizes can make the bar taller than the original 28px host; if the host
+		/// is not resized as well, the bar paints over the grid/header area below it.
+		/// </summary>
+		private void UpdateToolbarHostHeight()
+		{
+			if (_toolbarHost == null || _toolbar == null)
+				return;
+
+			int barHeight = _toolbar.Size.Height;
+			int iconHeight = NmmIconProvider.CurrentIconSize + 8;
+			int targetHeight = Math.Max(28, Math.Max(barHeight, iconHeight));
+
+			if (_toolbarHost.Height == targetHeight)
+				return;
+
+			_toolbarHost.Height = targetHeight;
+			_toolbarHost.Parent?.PerformLayout();
+		}
 
 		/// <summary>
 		/// Refreshes the plugin detail surface and custom row colors from the active DevExpress skin.

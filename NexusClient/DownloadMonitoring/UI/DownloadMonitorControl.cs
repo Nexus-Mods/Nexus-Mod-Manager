@@ -48,10 +48,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				m_vmlViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 				m_vmlViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
 
-				new DevExpressBarItemCommandBinding<AddModTask>(tsbCancel, m_vmlViewModel.CancelTaskCommand, GetSelectedTask);
-				new DevExpressBarItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask);
-				new DevExpressBarItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask);
-				new DevExpressBarItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbCancel, m_vmlViewModel.CancelTaskCommand, GetSelectedTask, true);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbRemove, m_vmlViewModel.RemoveTaskCommand, GetSelectedTask, true);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask, true);
+				new DevExpressBarItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask, true);
 
 				Command removeAll = new Command("Remove all", "Purges the completed/failed downloads from the list.", ViewModel.RemoveAllTasks);
 				new DevExpressBarItemCommandBinding(tsbRemoveAll, removeAll);
@@ -76,6 +76,15 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public DownloadMonitorControl()
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(tsbResume, NmmIconAction.Resume);
+			NmmIconProvider.Bind(tsbCancel, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(tsbPause, NmmIconAction.Pause);
+			NmmIconProvider.Bind(tsbRemove, NmmIconAction.Remove);
+			NmmIconProvider.Bind(tsbResumeAll, NmmIconAction.Resume);
+			NmmIconProvider.Bind(tsbRemoveAll, NmmIconAction.RemoveAll);
+			NmmIconProvider.Bind(tsbPurgeDownloads, NmmIconAction.Purge);
+			NmmIconProvider.Bind(copyItem, NmmIconAction.Copy);
+			NmmIconProvider.BindBar(barActions, true);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = true;
@@ -156,12 +165,6 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			ViewModel.PauseTaskCommand.CanExecute = task != null && ViewModel.CanPauseDownload(task) && !ViewModel.ModRepository.IsOffline;
 			ViewModel.ResumeTaskCommand.CanExecute = task != null && ViewModel.CanResumeDownload(task);
 
-			tsbCancel.Visibility = ViewModel.CancelTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
-			tsbPause.Visibility = ViewModel.PauseTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
-			tsbRemove.Visibility = ViewModel.RemoveTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
-			tsbResume.Visibility = ViewModel.ResumeTaskCommand.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
-			tsbResumeAll.Visibility = BarItemVisibility.Always;
-			tsbRemoveAll.Visibility = BarItemVisibility.Always;
 		}
 
 		/// <summary>

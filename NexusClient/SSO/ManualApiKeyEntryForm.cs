@@ -11,6 +11,8 @@
         public ManualApiKeyEntryForm(AuthenticationFormViewModel viewModel)
         {
             InitializeComponent();
+            NmmIconProvider.Bind(buttonOk, NmmIconAction.Apply);
+            NmmIconProvider.Bind(buttonCancel, NmmIconAction.Cancel);
             _viewModel = viewModel;
         }
 

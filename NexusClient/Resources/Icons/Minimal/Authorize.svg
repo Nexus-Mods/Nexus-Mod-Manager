@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmPositive{fill:#808080;}.NmmOnSemantic{fill:#FAFAFA;}</style>
+  <circle class="NmmPositive" cx="8" cy="10" r="5"/><path class="NmmPositive" d="M12 9h10v3h-3v3h-3v3h-3v-6h-1z"/><circle class="NmmOnSemantic" cx="8" cy="10" r="1.7"/>
+</svg>

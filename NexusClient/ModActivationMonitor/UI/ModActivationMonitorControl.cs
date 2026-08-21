@@ -86,6 +86,11 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		public ModActivationMonitorControl()
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(tsbCancel, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(tsbRemoveQueued, NmmIconAction.Remove);
+			NmmIconProvider.Bind(tsbRemoveAll, NmmIconAction.RemoveAll);
+			NmmIconProvider.Bind(copyItem, NmmIconAction.Copy);
+			NmmIconProvider.BindBar(barActions, true);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = true;
@@ -155,9 +160,9 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		public void SetCommandBackupAMCStatus(bool p_booCheck)
 		{
 			Control.CheckForIllegalCrossThreadCalls = false;
-			tsbCancel.Enabled = p_booCheck;
-			tsbRemoveAll.Enabled = p_booCheck;
-			tsbRemoveQueued.Enabled = p_booCheck;
+			SetToolbarButtonState(tsbCancel, p_booCheck);
+			SetToolbarButtonState(tsbRemoveAll, p_booCheck);
+			SetToolbarButtonState(tsbRemoveQueued, p_booCheck);
 		}
 
 		private void RemoveAllTasks()
@@ -206,7 +211,16 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		/// </summary>
 		protected void SetCommandExecutableStatus(bool removable)
 		{
-			tsbCancel.Enabled = removable && gridView.FocusedRowHandle >= 0;
+			SetToolbarButtonState(tsbCancel, removable && gridView.FocusedRowHandle >= 0);
+		}
+
+		/// <summary>
+		/// Keeps compact monitor actions out of the toolbar whenever they are unavailable.
+		/// </summary>
+		private static void SetToolbarButtonState(BarItem item, bool enabled)
+		{
+			item.Enabled = enabled;
+			item.Visibility = enabled ? BarItemVisibility.Always : BarItemVisibility.Never;
 		}
 
 		/// <summary>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmPositive{fill:#808080;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}</style>
+  <g opacity="0.42" transform="translate(0.60 0.70)"><path class="NmmShadow" d="M7 4.5v15l12-7.5z"/></g>
+  <g opacity="0.30" transform="translate(-0.40 -0.40)"><path class="NmmHighlight" d="M7 4.5v15l12-7.5z"/></g>
+  <path class="NmmPositive" d="M7 4.5v15l12-7.5z"/>
+</svg>

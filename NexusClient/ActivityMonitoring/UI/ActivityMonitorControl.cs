@@ -58,6 +58,11 @@ namespace Nexus.Client.ActivityMonitoring.UI
 		public ActivityMonitorControl()
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(tsbCancel, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(tsbRemove, NmmIconAction.Remove);
+			NmmIconProvider.Bind(tsbPause, NmmIconAction.Pause);
+			NmmIconProvider.Bind(tsbResume, NmmIconAction.Resume);
+			NmmIconProvider.BindBar(barActions, false);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManager, new System.Drawing.Size(32, 32));
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = false;

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmAccent{fill:#808080;}.NmmOnSemantic{fill:#FAFAFA;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}</style>
+  <circle class="NmmShadow" cx="12.4" cy="12.7" r="9.1" opacity="0.24"/>
+  <circle class="NmmAccent" cx="12" cy="12" r="9.1"/>
+  <path class="NmmHighlight" d="M5.2 10.2A7.2 7.2 0 0 1 17.8 6.1 8 8 0 0 0 6.4 15.6a7.2 7.2 0 0 1-1.2-5.4z" opacity="0.28"/>
+  <circle class="NmmOnSemantic" cx="12" cy="8" r="1.4"/>
+  <path class="NmmOnSemantic" d="M10.7 10.6h2.6v6.7h-2.6z"/>
+</svg>

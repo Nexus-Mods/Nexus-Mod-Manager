@@ -13,6 +13,7 @@ namespace Nexus.Client.ModManagement.UI
 	using DevExpress.XtraGrid.Views.Grid;
 
 	using Nexus.Client.Mods;
+	using Nexus.Client.UI;
 
 	public partial class ModManagerDXControl
 	{
@@ -46,6 +47,7 @@ namespace Nexus.Client.ModManagement.UI
 			};
 			_showOnlyCategoriesWithNewModsMenuItem.ItemClick +=
 				(sender, args) => ShowOnlyCategoriesWithNewMods_Click(sender, EventArgs.Empty);
+			NmmIconProvider.Bind(_showOnlyCategoriesWithNewModsMenuItem, NmmIconAction.Filter);
 
 			// Rebuild the persistent category popup once so the session-only filter
 			// stays in the same position as the legacy ToolStrip implementation.

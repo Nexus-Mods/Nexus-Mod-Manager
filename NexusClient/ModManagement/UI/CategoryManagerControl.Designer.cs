@@ -74,6 +74,8 @@
             this.barCategoryActions.OptionsBar.DisableClose = true;
             this.barCategoryActions.OptionsBar.DisableCustomization = true;
             this.barCategoryActions.OptionsBar.DrawDragBorder = false;
+            this.barCategoryActions.OptionsBar.RotateWhenVertical = false;
+            this.barCategoryActions.OptionsBar.UseWholeRow = true;
             this.barCategoryActions.Text = "Category Actions";
             //
             // tsbAddCategory

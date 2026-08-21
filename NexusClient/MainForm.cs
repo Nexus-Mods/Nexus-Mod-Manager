@@ -1641,7 +1641,7 @@
 				bool isReloadCommand = ViewModel.GameMode.ModeId.Equals(changeCommand?.Id, StringComparison.OrdinalIgnoreCase);
 				changeCommand.Executed += ChangeGameModeCommand_Executed;
 				_changeModeCommandsWithExecutedHandler.Add(changeCommand);
-				BarButtonItem item = CreateCommandBarButton(changeCommand);
+				BarButtonItem item = CreateCommandBarButton(changeCommand, NmmIconAction.ChangeGame);
 				if (isReloadCommand)
 				{
 					item.Caption = $"Reload {changeCommand.Name}";
@@ -1695,42 +1695,42 @@
 			_boundGameTools.Clear();
 
 			Command resetUiCommand = new Command("Reset UI", "Resets the UI to the default layout.", ResetUI);
-			popupTools.AddItem(CreateCommandBarButton(resetUiCommand));
+			popupTools.AddItem(CreateCommandBarButton(resetUiCommand, NmmIconAction.Reset));
 
 			Command repairFomodInfoCacheCommand = new Command("Repair FOMOD Info Cache", "Restores mod info (name, version, description) for uncategorized mods from the legacy FOMOD cache, where available.", RepairFomodInfoCache);
-			popupTools.AddItem(CreateCommandBarButton(repairFomodInfoCacheCommand));
+			popupTools.AddItem(CreateCommandBarButton(repairFomodInfoCacheCommand, NmmIconAction.Repair));
 
 			Command disableAllModsCommand = new Command("Disable all active mods", "Disables all active mods.", DisableAllMods);
-			popupTools.AddItem(CreateCommandBarButton(disableAllModsCommand, Properties.Resources.edit_delete));
+			popupTools.AddItem(CreateCommandBarButton(disableAllModsCommand, NmmIconAction.Disable));
 
 			Command uninstallAllModsCommand = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
-			popupTools.AddItem(CreateCommandBarButton(uninstallAllModsCommand, Properties.Resources.edit_delete_6));
+			popupTools.AddItem(CreateCommandBarButton(uninstallAllModsCommand, NmmIconAction.Uninstall));
 
 			Command purgeLooseFilesCommand = new Command("Purge Unmanaged Files", "Purge Unmanaged Files.", PurgeLooseFiles);
-			popupTools.AddItem(CreateCommandBarButton(purgeLooseFilesCommand, Properties.Resources.deleteProfile));
+			popupTools.AddItem(CreateCommandBarButton(purgeLooseFilesCommand, NmmIconAction.Purge));
 
 			BarSubItem backupMenu = new BarSubItem(barManagerMain, "Backup and Restore");
-			backupMenu.ImageOptions.Image = ScaleBarImage(Properties.Resources.backup, StatusBarImageSize);
+			NmmIconProvider.Bind(backupMenu, NmmIconAction.Backup);
 			Command createBackupCommand = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
 			Command restoreBackupCommand = new Command("Restore Mod Installation backup", "Restore Mod Installation backup.", RestoreBackup);
 			Command restoreBackupProfileCommand = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
-			backupMenu.AddItem(CreateCommandBarButton(createBackupCommand, Properties.Resources.createBackup));
-			backupMenu.AddItem(CreateCommandBarButton(restoreBackupCommand, Properties.Resources.restoreBackup));
-			backupMenu.AddItem(CreateCommandBarButton(restoreBackupProfileCommand, Properties.Resources.change_game_mode));
+			backupMenu.AddItem(CreateCommandBarButton(createBackupCommand, NmmIconAction.Backup));
+			backupMenu.AddItem(CreateCommandBarButton(restoreBackupCommand, NmmIconAction.Restore));
+			backupMenu.AddItem(CreateCommandBarButton(restoreBackupProfileCommand, NmmIconAction.Restore));
 			popupTools.AddItem(backupMenu);
 
 			Command configureVirtualFoldersCommand = new Command("Change Virtual folders...", "Virtual folders setup menu.", ChangeVirtualFolders);
-			popupTools.AddItem(CreateCommandBarButton(configureVirtualFoldersCommand, Properties.Resources.category_folder));
+			popupTools.AddItem(CreateCommandBarButton(configureVirtualFoldersCommand, NmmIconAction.OpenFolder));
 
 			if (ViewModel.UsesPlugins && ViewModel.SupportsPluginAutoSorting)
 			{
 				Command sortPluginsCommand = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
-				popupTools.AddItem(CreateCommandBarButton(sortPluginsCommand));
+				popupTools.AddItem(CreateCommandBarButton(sortPluginsCommand, NmmIconAction.Sort));
 			}
 
 			foreach (ITool tool in ViewModel.GameToolLauncher.Tools)
 			{
-				BarButtonItem toolItem = CreateCommandBarButton(tool.LaunchCommand);
+				BarButtonItem toolItem = CreateCommandBarButton(tool.LaunchCommand, NmmIconAction.Tools);
 				toolItem.Tag = tool;
 				tool.DisplayToolView += Tool_DisplayToolView;
 				tool.CloseToolView += Tool_CloseToolView;
@@ -1808,11 +1808,11 @@
 			Command cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
 			Command cmdConfigFolder = new Command("Open NMM's Config Folder", "Open NMM's config in the explorer window.", OpenConfigFolder);
 
-			popupFolders.AddItem(CreateCommandBarButton(cmdGameFolder));
-			popupFolders.AddItem(CreateCommandBarButton(cmdModsFolder));
-			popupFolders.AddItem(CreateCommandBarButton(cmdCacheFolder));
-			popupFolders.AddItem(CreateCommandBarButton(cmdInstallFolder));
-			popupFolders.AddItem(CreateCommandBarButton(cmdConfigFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdGameFolder, NmmIconAction.OpenFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdModsFolder, NmmIconAction.OpenFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdCacheFolder, NmmIconAction.OpenFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdInstallFolder, NmmIconAction.OpenFolder));
+			popupFolders.AddItem(CreateCommandBarButton(cmdConfigFolder, NmmIconAction.OpenFolder));
 		}
 
 		/// <summary>
@@ -2500,7 +2500,7 @@
 
 			foreach (Command launchCommand in ViewModel.GameLauncher.LaunchCommands)
 			{
-				BarButtonItem launchItem = CreateCommandBarButton(launchCommand);
+				BarButtonItem launchItem = CreateCommandBarButton(launchCommand, NmmIconAction.Launch);
 				launchItem.ItemClick += LaunchMenuItem_ItemClick;
 				popupLaunch.AddItem(launchItem);
 
@@ -2556,6 +2556,7 @@
 					Tag = currentProfile,
 					Enabled = false
 				};
+				NmmIconProvider.Bind(currentItem, NmmIconAction.Profiles);
 				popupProfiles.AddItem(currentItem).BeginGroup = beginProfileGroup;
 				beginProfileGroup = false;
 
@@ -2581,6 +2582,7 @@
 					ActAsDropDown = false
 				};
 				profileItem.ItemClick += ProfileMenuItem_ItemClick;
+				NmmIconProvider.Bind(profileItem, NmmIconAction.Profiles);
 				popupProfiles.AddItem(profileItem).BeginGroup = beginProfileGroup;
 				beginProfileGroup = false;
 
@@ -2615,7 +2617,9 @@
 
 			_launchDefaultItem = item;
 			spbLaunch.Caption = item.Caption;
-			spbLaunch.ImageOptions.Image = ScaleBarImage(item.ImageOptions.Image, MainToolbarImageSize);
+
+			Command command = item.Tag as Command;
+			NmmIconProvider.Bind(spbLaunch, NmmIconAction.Launch, command == null ? null : command.Image);
 		}
 
 		/// <summary>
@@ -2628,6 +2632,7 @@
 				Tag = command
 			};
 			item.ItemClick += ProfileMenuItem_ItemClick;
+			NmmIconProvider.Bind(item, GetProfileCommandIcon(command));
 			return item;
 		}
 
@@ -2641,7 +2646,29 @@
 				Tag = command
 			};
 			item.ItemClick += (sender, args) => HandleProfileSubItemClick(profile, Convert.ToString(args.Item.Tag));
+			NmmIconProvider.Bind(item, GetProfileCommandIcon(command));
 			menu.AddItem(item);
+		}
+
+		private static NmmIconAction GetProfileCommandIcon(string command)
+		{
+			switch (command)
+			{
+				case "New":
+					return NmmIconAction.Add;
+				case "Rename":
+				case "RenameProfile":
+					return NmmIconAction.Rename;
+				case "Remove":
+				case "RemoveProfile":
+					return NmmIconAction.Delete;
+				case "Save":
+					return NmmIconAction.Save;
+				case "ImportLoadorder":
+					return NmmIconAction.Import;
+				default:
+					return NmmIconAction.Profiles;
+			}
 		}
 
 		/// <summary>
@@ -2669,7 +2696,6 @@
 		protected void BindSupportedToolsCommands()
 		{
 			ClearTransientPopupItems(popupSupportedTools);
-
 			if (ViewModel.SupportedToolsLauncher == null)
 			{
 				SetBarItemVisible(spbSupportedTools, false);
@@ -2678,13 +2704,13 @@
 
 			foreach (Command launchCommand in ViewModel.SupportedToolsLauncher.LaunchCommands)
 			{
-				BarButtonItem launchItem = CreateCommandBarButton(launchCommand, Properties.Resources.supported_tools_flat);
+				BarButtonItem launchItem = CreateCommandBarButton(launchCommand, NmmIconAction.SupportedTools);
 				launchItem.ItemRightClick += SupportedToolItem_ItemRightClick;
 				popupSupportedTools.AddItem(launchItem);
 			}
 
 			spbSupportedTools.Caption = "Supported Tools";
-			spbSupportedTools.ImageOptions.Image = ScaleBarImage(Properties.Resources.supported_tools_flat, MainToolbarImageSize);
+			NmmIconProvider.Bind(spbSupportedTools, NmmIconAction.SupportedTools);
 			SetBarItemVisible(spbSupportedTools, popupSupportedTools.ItemLinks.Count > 0);
 		}
 
@@ -2942,7 +2968,6 @@
 
 					_profileDefaultItem = clickedItem;
 					spbProfiles.Caption = clickedItem.Caption;
-					spbProfiles.ImageOptions.Image = ScaleBarImage(clickedItem.ImageOptions.Image, MainToolbarImageSize);
 
 					var impProfile = (IModProfile)clickedItem.Tag;
 
@@ -3063,29 +3088,8 @@
 		{
 			Icon = Properties.Resources.NMM_CE_P_Logo;
 
-			var changeMode = new Bitmap(spbChangeMode.ImageOptions.Image);
-
-			for (var y = 0; y < changeMode.Height; y++)
-			{
-				for (var x = 0; x < changeMode.Width; x++)
-				{
-					var old = changeMode.GetPixel(x, y);
-
-					var r = old.R;
-					var g = old.G;
-					var b = old.B;
-
-					r = g = b = (byte)(0.21 * r + 0.72 * g + 0.07 * b);
-
-					r = (byte)(r / 255.0 * theme.PrimaryColour.R);
-					g = (byte)(g / 255.0 * theme.PrimaryColour.G);
-					b = (byte)(b / 255.0 * theme.PrimaryColour.B);
-
-					changeMode.SetPixel(x, y, Color.FromArgb(old.A, r, g, b));
-				}
-			}
-
-			spbChangeMode.ImageOptions.Image = changeMode;
+			// The Change Game action now uses the shared semantic SVG palette.
+			// Do not rasterize/tint it here; skin and accessibility colors are resolved centrally.
 		}
 
 		#region Form Events

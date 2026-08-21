@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmAccent{fill:#808080;}.NmmOnSemantic{fill:#FAFAFA;}</style>
+  <path class="NmmAccent" d="M4 7h16v13H4zM8 3h8a2 2 0 0 1 2 2v2h-2V5H8v2H6V5a2 2 0 0 1 2-2z"/><path class="NmmOnSemantic" d="M10.8 11h2.4v5h-2.4zM8.5 12.3h7v2.4h-7z"/>
+</svg>

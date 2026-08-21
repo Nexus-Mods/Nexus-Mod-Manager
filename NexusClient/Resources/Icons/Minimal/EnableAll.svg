@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmNeutral{fill:#808080;}.NmmPositive{fill:#808080;}.NmmOnSemantic{fill:#FAFAFA;}</style>
+  <path class="NmmNeutral" d="M4 5.5h9v2.2H4zM4 10.9h9v2.2H4zM4 16.3h9v2.2H4z"/>
+  <path class="NmmPositive" d="M16.8 4.5a3.7 3.7 0 1 1 0 7.4 3.7 3.7 0 0 1 0-7.4zM15.7 5.9V7h-1.1v2h1.1v1.1h2V9h1.1V7h-1.1V5.9z"/>
+  <path class="NmmPositive" d="M15 13.8h3.5v1.8H15zM15 16.8h3.5v1.8H15z"/>
+</svg>

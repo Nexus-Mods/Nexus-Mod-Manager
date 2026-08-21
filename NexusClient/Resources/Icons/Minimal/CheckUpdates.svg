@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmInformation{fill:#808080;}</style>
+  <path class="NmmInformation" d="M7.2 5.4V3.1L3.7 6l3.5 2.9V7.2a6.6 6.6 0 0 1 12.2 2.1l2-.7A8.8 8.8 0 0 0 7.2 5.4z"/>
+  <path class="NmmInformation" d="M16.8 18.6v2.3l3.5-2.9-3.5-2.9v1.7a6.6 6.6 0 0 1-12.2-2.1l-2 .7a8.8 8.8 0 0 0 14.2 3.5z"/>
+  <path class="NmmInformation" fill-rule="evenodd" d="M12.1 7.7a4.9 4.9 0 1 1 0 9.8 4.9 4.9 0 0 1 0-9.8zm0 1.8a3.1 3.1 0 1 0 0 6.2 3.1 3.1 0 0 0 0-6.2z"/>
+  <path class="NmmInformation" d="M11.2 10.2h1.8v2.4l1.9 1.2-.9 1.5-2.8-1.8z"/>
+  <circle class="NmmInformation" cx="12.1" cy="9.5" r="0.7"/>
+  <circle class="NmmInformation" cx="15.6" cy="12.6" r="0.6"/>
+  <circle class="NmmInformation" cx="12.1" cy="15.7" r="0.6"/>
+  <circle class="NmmInformation" cx="8.6" cy="12.6" r="0.6"/>
+</svg>

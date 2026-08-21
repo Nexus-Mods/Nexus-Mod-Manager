@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmInformation{fill:#808080;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}.NmmOnSemantic{fill:#FAFAFA;}</style>
+  <g opacity="0.42" transform="translate(0.45 0.55)">
+    <path class="NmmShadow" d="M7.2 5.4V3.1L3.7 6l3.5 2.9V7.2a6.6 6.6 0 0 1 12.2 2.1l2-.7A8.8 8.8 0 0 0 7.2 5.4z"/>
+    <path class="NmmShadow" d="M16.8 18.6v2.3l3.5-2.9-3.5-2.9v1.7a6.6 6.6 0 0 1-12.2-2.1l-2 .7a8.8 8.8 0 0 0 14.2 3.5z"/>
+    <path class="NmmShadow" d="M8 7.7h6.8l2.4 2.3v6.6A1.4 1.4 0 0 1 15.8 18H8A1.4 1.4 0 0 1 6.6 16.6V9.1A1.4 1.4 0 0 1 8 7.7zm6.1 1.7v1.8h1.9z"/>
+  </g>
+  <g opacity="0.28" transform="translate(-0.35 -0.35)">
+    <path class="NmmHighlight" d="M7.2 5.4V3.1L3.7 6l3.5 2.9V7.2a6.6 6.6 0 0 1 12.2 2.1l2-.7A8.8 8.8 0 0 0 7.2 5.4z"/>
+    <path class="NmmHighlight" d="M16.8 18.6v2.3l3.5-2.9-3.5-2.9v1.7a6.6 6.6 0 0 1-12.2-2.1l-2 .7a8.8 8.8 0 0 0 14.2 3.5z"/>
+    <path class="NmmHighlight" d="M8 7.7h6.8l2.4 2.3v6.6A1.4 1.4 0 0 1 15.8 18H8A1.4 1.4 0 0 1 6.6 16.6V9.1A1.4 1.4 0 0 1 8 7.7zm6.1 1.7v1.8h1.9z"/>
+  </g>
+  <path class="NmmInformation" d="M7.2 5.4V3.1L3.7 6l3.5 2.9V7.2a6.6 6.6 0 0 1 12.2 2.1l2-.7A8.8 8.8 0 0 0 7.2 5.4z"/>
+  <path class="NmmInformation" d="M16.8 18.6v2.3l3.5-2.9-3.5-2.9v1.7a6.6 6.6 0 0 1-12.2-2.1l-2 .7a8.8 8.8 0 0 0 14.2 3.5z"/>
+  <path class="NmmInformation" d="M8 7.7h6.8l2.4 2.3v6.6A1.4 1.4 0 0 1 15.8 18H8A1.4 1.4 0 0 1 6.6 16.6V9.1A1.4 1.4 0 0 1 8 7.7zm6.1 1.7v1.8h1.9z"/>
+  <circle class="NmmOnSemantic" cx="9.7" cy="12.1" r="0.55"/>
+  <circle class="NmmOnSemantic" cx="9.7" cy="14.6" r="0.55"/>
+  <circle class="NmmOnSemantic" cx="9.7" cy="17.1" r="0.55"/>
+  <rect class="NmmOnSemantic" x="11.1" y="11.55" width="4.2" height="1.1" rx="0.55"/>
+  <rect class="NmmOnSemantic" x="11.1" y="14.05" width="4.2" height="1.1" rx="0.55"/>
+  <rect class="NmmOnSemantic" x="11.1" y="16.55" width="3.1" height="1.1" rx="0.55"/>
+</svg>

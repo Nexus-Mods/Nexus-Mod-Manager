@@ -31,6 +31,10 @@ namespace Nexus.Client.ModManagement.UI
 		public RestoreBackupForm(ModManager p_mmModManager, ProfileManager p_pfProfileManager)
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(btYes, NmmIconAction.Purge);
+			NmmIconProvider.Bind(btNo, NmmIconAction.Restore);
+			NmmIconProvider.Bind(btCancel, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(btSelectFile, NmmIconAction.Browse);
 			ModManager = p_mmModManager;
 			ProfileManager = p_pfProfileManager;
 

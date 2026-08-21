@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using DevExpress.Utils;
@@ -9,6 +8,7 @@ using DevExpress.XtraEditors;
 using DevExpress.XtraGrid;
 using DevExpress.XtraGrid.Columns;
 using DevExpress.XtraGrid.Views.Grid;
+using Nexus.Client.UI;
 
 namespace Nexus.Client.GameStorage.UI
 {
@@ -27,7 +27,6 @@ namespace Nexus.Client.GameStorage.UI
         private readonly SimpleButton _manualLinkFolderButton;
         private readonly SimpleButton _legacySetupButton;
         private GridColumn _candidateUseColumn;
-        private Image _candidateUseImage;
         private bool _suppressManualPathChanged;
         private bool _manualPathsEdited;
         private readonly List<Tuple<TextEdit, SimpleButton>> _manualPathRows = new List<Tuple<TextEdit, SimpleButton>>();
@@ -111,6 +110,10 @@ namespace Nexus.Client.GameStorage.UI
             var applyButton = new SimpleButton { Text = "Apply selected", Width = 118, Top = 8 };
             _legacySetupButton = new SimpleButton { Text = "Keep legacy setup", Width = 128, Top = 8, Visible = false };
             var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Top = 8 };
+            NmmIconProvider.Bind(refreshButton, NmmIconAction.Refresh);
+            NmmIconProvider.Bind(applyButton, NmmIconAction.Apply);
+            NmmIconProvider.Bind(_legacySetupButton, NmmIconAction.Restore);
+            NmmIconProvider.Bind(cancelButton, NmmIconAction.Cancel);
             refreshButton.Click += (sender, args) => RefreshRequested?.Invoke(this, EventArgs.Empty);
             applyButton.Click += (sender, args) => ApplyRequested?.Invoke(this, EventArgs.Empty);
             _legacySetupButton.Click += (sender, args) => LegacySetupRequested?.Invoke(this, EventArgs.Empty);
@@ -298,27 +301,12 @@ namespace Nexus.Client.GameStorage.UI
             applyButton.Top = top;
         }
 
-        private static Image LoadSvgIcon(string resourceName, int size)
-        {
-            var assembly = typeof(GameStorageSetupControl).Assembly;
-            string fullName = assembly.GetManifestResourceNames()
-                .FirstOrDefault(name => name.EndsWith("." + resourceName, StringComparison.OrdinalIgnoreCase));
-            if (fullName == null) return null;
-
-            using (Stream stream = assembly.GetManifestResourceStream(fullName))
-            {
-                if (stream == null) return null;
-                var svgImage = DevExpress.Utils.Svg.SvgImage.FromStream(stream);
-                var svgBitmap = DevExpress.Utils.Svg.SvgBitmap.Create(svgImage);
-                return svgBitmap.Render(new Size(size, size), null, DefaultBoolean.False, DefaultBoolean.False);
-            }
-        }
-
         private TextEdit CreateManualPathEdit(Control parent, string caption, int top)
         {
             var label = new LabelControl { Text = caption, Left = 8, Top = top + 3, Width = 84 };
             var edit = new TextEdit { Left = 96, Top = top, Width = 724 };
             var button = new SimpleButton { Text = "...", Left = 828, Top = top - 1, Width = 28, Height = 22 };
+            NmmIconProvider.Bind(button, NmmIconAction.Browse);
             button.Click += (sender, args) => BrowseForFolder(edit, caption);
             parent.Controls.Add(label);
             parent.Controls.Add(edit);
@@ -386,11 +374,12 @@ namespace Nexus.Client.GameStorage.UI
                 return;
 
             e.Appearance.DrawBackground(e.Cache, e.Bounds);
-            if (_candidateUseImage != null)
+            Image candidateUseImage = NmmIconProvider.GetBitmap(NmmIconAction.Apply, 16, false);
+            if (candidateUseImage != null)
             {
-                int left = e.Bounds.Left + (e.Bounds.Width - _candidateUseImage.Width) / 2;
-                int top = e.Bounds.Top + (e.Bounds.Height - _candidateUseImage.Height) / 2;
-                e.Graphics.DrawImage(_candidateUseImage, left, top, _candidateUseImage.Width, _candidateUseImage.Height);
+                int left = e.Bounds.Left + (e.Bounds.Width - candidateUseImage.Width) / 2;
+                int top = e.Bounds.Top + (e.Bounds.Height - candidateUseImage.Height) / 2;
+                e.Graphics.DrawImage(candidateUseImage, left, top, candidateUseImage.Width, candidateUseImage.Height);
             }
             else
             {
@@ -420,7 +409,6 @@ namespace Nexus.Client.GameStorage.UI
         {
             ConfigureSetupGridLook(_candidateGridView, false);
 
-            _candidateUseImage = LoadSvgIcon("game_storage_use.svg", 16);
             _candidateUseColumn = new GridColumn { Caption = "Select", Visible = true, VisibleIndex = 0, Width = 54 };
             _candidateUseColumn.OptionsColumn.AllowEdit = false;
             _candidateUseColumn.OptionsColumn.FixedWidth = true;

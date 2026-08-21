@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmAccent{fill:#808080;}</style>
+  <path class="NmmAccent" fill-rule="evenodd" d="M12 2.5A9.5 9.5 0 1 1 12 21.5 9.5 9.5 0 0 1 12 2.5zm0 2.4a7.1 7.1 0 1 0 0 14.2 7.1 7.1 0 0 0 0-14.2z"/>
+  <circle class="NmmAccent" cx="12" cy="8" r="1.4"/>
+  <path class="NmmAccent" d="M10.8 10.8h2.4v6.4h-2.4z"/>
+</svg>

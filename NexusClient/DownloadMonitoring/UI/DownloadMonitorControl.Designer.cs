@@ -58,6 +58,7 @@
 			this.barActions.OptionsBar.DisableClose = true;
 			this.barActions.OptionsBar.DisableCustomization = true;
 			this.barActions.OptionsBar.DrawDragBorder = false;
+			this.barActions.OptionsBar.RotateWhenVertical = false;
 
 			ConfigureBarButton(this.tsbResume, 0, "tsbResume", "Resume", global::Nexus.Client.Properties.Resources.resume_download_flat);
 			ConfigureBarButton(this.tsbCancel, 1, "tsbCancel", "Cancel", global::Nexus.Client.Properties.Resources.cancel_download_flat);

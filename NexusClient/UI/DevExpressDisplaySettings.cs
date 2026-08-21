@@ -21,9 +21,17 @@ namespace Nexus.Client.UI
 		internal const string DefaultFontFamily = "Segoe UI";
 		internal const float DefaultFontSizePt = 9f;
 		internal const string DefaultDensity = "Compact";
+		internal const int DefaultIconSize = 20;
+		internal const NmmIconStyle DefaultIconStyle = NmmIconStyle.Minimal;
+		internal const NmmIconColorProfile DefaultIconColorProfile = NmmIconColorProfile.Base;
+		internal const NmmButtonPresentation DefaultButtonPresentation = NmmButtonPresentation.TextAndIcons;
 		private const string FontSettingsKey = "mainForm.DevExpressDisplay.Font";
 		private const string FontSizeSettingsKey = "mainForm.DevExpressDisplay.FontSize";
 		private const string DensitySettingsKey = "mainForm.DevExpressDisplay.Density";
+		private const string IconStyleSettingsKey = "mainForm.DevExpressDisplay.IconStyle";
+		private const string IconSizeSettingsKey = "mainForm.DevExpressDisplay.IconSize";
+		private const string IconColorProfileSettingsKey = "mainForm.DevExpressDisplay.IconColorProfile";
+		private const string ButtonPresentationSettingsKey = "mainForm.DevExpressDisplay.ButtonPresentation";
 		private const string LegacyFontSettingsKey = "modManagerDXGrid.Font";
 		private const string LegacyFontSizeSettingsKey = "modManagerDXGrid.FontSize";
 		private const string LegacyDensitySettingsKey = "modManagerDXGrid.Density";
@@ -43,14 +51,42 @@ namespace Nexus.Client.UI
 			"Compact", "Comfortable", "Spacious"
 		};
 
+		internal static readonly string[] IconStyleChoices =
+		{
+			"Minimal", "Classic"
+		};
+
+		internal static readonly string[] IconSizeChoices =
+		{
+			"16 px", "20 px", "24 px", "32 px"
+		};
+
+		internal static readonly string[] IconColorProfileChoices =
+		{
+			"Base"
+		};
+
+		internal static readonly string[] ButtonPresentationChoices =
+		{
+			"Text only", "Icons only", "Text + Icons"
+		};
+
 		internal DevExpressDisplaySettings(
 			string fontFamilyName,
 			float fontSizePt,
-			string density)
+			string density,
+			NmmIconStyle iconStyle,
+			int iconSize,
+			NmmIconColorProfile iconColorProfile,
+			NmmButtonPresentation buttonPresentation)
 		{
 			FontFamilyName = ResolveFontFamily(fontFamilyName);
 			FontSizePt = ResolveFontSize(fontSizePt);
 			Density = ResolveDensity(density);
+			IconStyle = iconStyle;
+			IconSize = ResolveIconSize(iconSize);
+			IconColorProfile = iconColorProfile;
+			ButtonPresentation = buttonPresentation;
 			Font = new Font(
 				FontFamilyName,
 				FontSizePt,
@@ -61,6 +97,10 @@ namespace Nexus.Client.UI
 		internal string FontFamilyName { get; }
 		internal float FontSizePt { get; }
 		internal string Density { get; }
+		internal NmmIconStyle IconStyle { get; }
+		internal int IconSize { get; }
+		internal NmmIconColorProfile IconColorProfile { get; }
+		internal NmmButtonPresentation ButtonPresentation { get; }
 		internal Font Font { get; }
 
 		public void Dispose()
@@ -90,8 +130,35 @@ namespace Nexus.Client.UI
 				DensitySettingsKey,
 				LegacyDensitySettingsKey,
 				DefaultDensity));
+			NmmIconStyle iconStyle = ResolveIconStyle(ReadSetting(
+				settings,
+				IconStyleSettingsKey,
+				null,
+				DefaultIconStyle.ToString()));
+			int iconSize = ParseIconSize(ReadSetting(
+				settings,
+				IconSizeSettingsKey,
+				null,
+				FormatIconSize(DefaultIconSize)));
+			NmmIconColorProfile iconColorProfile = ResolveIconColorProfile(ReadSetting(
+				settings,
+				IconColorProfileSettingsKey,
+				null,
+				DefaultIconColorProfile.ToString()));
+			NmmButtonPresentation buttonPresentation = ResolveButtonPresentation(ReadSetting(
+				settings,
+				ButtonPresentationSettingsKey,
+				null,
+				DefaultButtonPresentation.ToString()));
 
-			return new DevExpressDisplaySettings(fontName, fontSize, density);
+			return new DevExpressDisplaySettings(
+				fontName,
+				fontSize,
+				density,
+				iconStyle,
+				iconSize,
+				iconColorProfile,
+				buttonPresentation);
 		}
 
 		/// <summary>
@@ -114,7 +181,7 @@ namespace Nexus.Client.UI
 					return value;
 			}
 
-			if (settings.DockPanelLayouts.ContainsKey(legacyKey))
+			if (!String.IsNullOrWhiteSpace(legacyKey) && settings.DockPanelLayouts.ContainsKey(legacyKey))
 			{
 				string legacyValue = settings.DockPanelLayouts[legacyKey];
 				if (!String.IsNullOrWhiteSpace(legacyValue))
@@ -156,6 +223,74 @@ namespace Nexus.Client.UI
 			}
 
 			return DefaultDensity;
+		}
+
+		internal static NmmIconStyle ResolveIconStyle(string iconStyle)
+		{
+			NmmIconStyle resolved;
+			return Enum.TryParse(iconStyle, true, out resolved) ? resolved : DefaultIconStyle;
+		}
+
+		internal static int ResolveIconSize(int iconSize)
+		{
+			switch (iconSize)
+			{
+				case 16:
+				case 20:
+				case 24:
+				case 32:
+					return iconSize;
+				default:
+					return DefaultIconSize;
+			}
+		}
+
+		internal static int ParseIconSize(string iconSizeText)
+		{
+			if (String.IsNullOrWhiteSpace(iconSizeText))
+				return DefaultIconSize;
+
+			string digits = new string(iconSizeText.Where(char.IsDigit).ToArray());
+			int iconSize;
+			return Int32.TryParse(digits, out iconSize) ? ResolveIconSize(iconSize) : DefaultIconSize;
+		}
+
+		internal static string FormatIconSize(int iconSize)
+		{
+			return ResolveIconSize(iconSize).ToString() + " px";
+		}
+
+		internal static NmmIconColorProfile ResolveIconColorProfile(string profile)
+		{
+			NmmIconColorProfile resolved;
+			return Enum.TryParse(profile, true, out resolved) ? resolved : DefaultIconColorProfile;
+		}
+
+		internal static NmmButtonPresentation ResolveButtonPresentation(string presentation)
+		{
+			if (String.Equals(presentation, "Text only", StringComparison.OrdinalIgnoreCase))
+				return NmmButtonPresentation.TextOnly;
+			if (String.Equals(presentation, "Icons only", StringComparison.OrdinalIgnoreCase))
+				return NmmButtonPresentation.IconsOnly;
+			if (String.Equals(presentation, "Text + Icons", StringComparison.OrdinalIgnoreCase) ||
+				String.Equals(presentation, "Text and Icons", StringComparison.OrdinalIgnoreCase))
+				return NmmButtonPresentation.TextAndIcons;
+
+			NmmButtonPresentation resolved;
+			return Enum.TryParse(presentation, true, out resolved) ? resolved : DefaultButtonPresentation;
+		}
+
+		internal static string FormatButtonPresentation(NmmButtonPresentation presentation)
+		{
+			switch (presentation)
+			{
+				case NmmButtonPresentation.TextOnly:
+					return "Text only";
+				case NmmButtonPresentation.IconsOnly:
+					return "Icons only";
+				default:
+					return "Text + Icons";
+			}
 		}
 
 		internal static float ParseFontSize(string fontSizeText)

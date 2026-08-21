@@ -239,6 +239,7 @@
 			InitializeToolbarPositionButton();
 			InitializeToolbarSeparators();
 			RebuildToolbarLinks();
+			NmmIconProvider.BindBar(barModActions, _toolbarPositionLeft);
 			DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerMods, new System.Drawing.Size(16, 16));
 			UpdateSwitchViewText();
 
@@ -263,7 +264,10 @@
 				settings.Density,
 				false);
 			DevExpressDisplaySettingsApplier.ApplyToBarManager(barManagerMods, settings);
+			NmmIconProvider.BindBar(barModActions, _toolbarPositionLeft);
+			UpdateToolbarSeparators(_toolbarPositionLeft);
 			UpdateSkinPaletteCache();
+			RefreshSemanticCompatibilityIcons();
 			gridView.InvalidateRows();
 		}
 
@@ -764,34 +768,39 @@
 		/// </summary>
 		private void InitializeToolbarIcons()
 		{
-			ConfigureToolbarIcon(tsbAddMod, "toolbar_add_mod.svg");
-			ConfigureToolbarIcon(tsbActivate, "toolbar_install_enable.svg");
-			ConfigureToolbarIcon(tsbDeactivate, "toolbar_disable.svg");
-			ConfigureToolbarIcon(tsbTagMod, "toolbar_tag.svg");
-			ConfigureToolbarIcon(tsbModOnlineChecks, "toolbar_updates.svg");
-			ConfigureToolbarIcon(tsbToggleEndorse, "toolbar_endorse.svg");
-			ConfigureToolbarIcon(tsbResetCategories, "toolbar_categories.svg");
-			ConfigureToolbarIcon(tsbSwitchView, "toolbar_view.svg");
-			ConfigureToolbarIcon(tsbExportModList, "toolbar_export.svg");
-			ConfigureToolbarIcon(tsbShowUpdatesOnly, "toolbar_updates_only.svg");
-			ConfigureToolbarIcon(tsbSkyrimDownloads, "toolbar_skyrim.svg");
-		}
-
-		/// <summary>
-		/// Assigns one embedded SVG asset to a DevExpress bar item while retaining its caption.
-		/// </summary>
-		/// <param name="item">The toolbar item to configure.</param>
-		/// <param name="resourceName">The trailing manifest-resource name of the SVG.</param>
-		private static void ConfigureToolbarIcon(BarItem item, string resourceName)
-		{
-			if (item == null) return;
-
-			DevExpress.Utils.Svg.SvgImage image = LoadSvgImage(resourceName);
-			if (image == null) return;
-
-			item.ImageOptions.Image = null;
-			item.ImageOptions.SvgImage = image;
-			item.PaintStyle = BarItemPaintStyle.CaptionGlyph;
+			NmmIconProvider.Bind(tsbAddMod, NmmIconAction.Add);
+			NmmIconProvider.Bind(addModToolStripMenuItem, NmmIconAction.AddFile);
+			NmmIconProvider.Bind(addModFromURLToolStripMenuItem, NmmIconAction.AddUrl);
+			NmmIconProvider.Bind(tsbActivate, NmmIconAction.InstallEnable);
+			NmmIconProvider.Bind(tsbDeactivate, NmmIconAction.Disable);
+			NmmIconProvider.Bind(tsb_SaveModLoadOrder, NmmIconAction.Save);
+			NmmIconProvider.Bind(tsb_ModUpLoadOrder, NmmIconAction.MoveUp);
+			NmmIconProvider.Bind(tsb_ModDownLoadOrder, NmmIconAction.MoveDown);
+			NmmIconProvider.Bind(tsbTagMod, NmmIconAction.GetModInfo);
+			NmmIconProvider.Bind(tsbModOnlineChecks, NmmIconAction.CheckUpdates);
+			NmmIconProvider.Bind(checkForModUpdateWithinTheLastDayToolStripMenuItem, NmmIconAction.CheckUpdates);
+			NmmIconProvider.Bind(withinTheLastDayToolStripMenuItem, NmmIconAction.CheckUpdates);
+			NmmIconProvider.Bind(withinTheLastWeekToolStripMenuItem, NmmIconAction.CheckUpdates);
+			NmmIconProvider.Bind(withinTheLastMonthToolStripMenuItem, NmmIconAction.CheckUpdates);
+			NmmIconProvider.Bind(checkFileDownloadId, NmmIconAction.Repair);
+			NmmIconProvider.Bind(checkMissingDownloadId, NmmIconAction.Repair);
+			NmmIconProvider.Bind(tsbToggleEndorse, NmmIconAction.Endorse);
+			NmmIconProvider.Bind(tsbResetCategories, NmmIconAction.Categories);
+			NmmIconProvider.Bind(addNewCategory, NmmIconAction.Add);
+			NmmIconProvider.Bind(collapseAllCategories, NmmIconAction.Collapse);
+			NmmIconProvider.Bind(expandAllCategories, NmmIconAction.Expand);
+			NmmIconProvider.Bind(updateNexusAndCustomCategories, NmmIconAction.Sync);
+			NmmIconProvider.Bind(resetDefaultCategories, NmmIconAction.UpdateResetCategories);
+			NmmIconProvider.Bind(resetUnassignedToDefaultCategories, NmmIconAction.ResetUnassigned);
+			NmmIconProvider.Bind(resetModsCategory, NmmIconAction.ResetAll);
+			NmmIconProvider.Bind(removeAllCategories, NmmIconAction.Delete);
+			NmmIconProvider.Bind(toggleHiddenCategories, NmmIconAction.Filter);
+			NmmIconProvider.Bind(tsbSwitchView, NmmIconAction.SwitchView);
+			NmmIconProvider.Bind(tsbExportModList, NmmIconAction.Export);
+			NmmIconProvider.Bind(exportToTextFile, NmmIconAction.Export);
+			NmmIconProvider.Bind(exportToClipboard, NmmIconAction.Copy);
+			NmmIconProvider.Bind(tsbShowUpdatesOnly, NmmIconAction.Filter);
+			NmmIconProvider.Bind(tsbSkyrimDownloads, NmmIconAction.DownloadMode);
 		}
 
 		/// <summary>
@@ -803,24 +812,6 @@
 			tsbDeactivate.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 			tsbTagMod.Caption = "Get Mod Info";
 			tsbTagMod.PaintStyle = BarItemPaintStyle.CaptionGlyph;
-		}
-
-		/// <summary>
-		/// Loads one embedded SVG asset without rasterising it, allowing DevExpress to render it for the active skin and DPI.
-		/// </summary>
-		/// <param name="resourceName">The trailing manifest-resource name of the SVG.</param>
-		/// <returns>The loaded SVG image, or <c>null</c> if the resource cannot be found.</returns>
-		private static DevExpress.Utils.Svg.SvgImage LoadSvgImage(string resourceName)
-		{
-			var assembly = typeof(ModManagerDXControl).Assembly;
-			string fullName = assembly.GetManifestResourceNames()
-				.FirstOrDefault(name => name.EndsWith("." + resourceName, StringComparison.OrdinalIgnoreCase));
-			if (fullName == null) return null;
-
-			using (Stream stream = assembly.GetManifestResourceStream(fullName))
-			{
-				return stream == null ? null : DevExpress.Utils.Svg.SvgImage.FromStream(stream);
-			}
 		}
 
 		private void InitializePerformanceResources()
@@ -861,7 +852,7 @@
 		/// </summary>
 		private void InitializeGridDisplayOptions()
 		{
-			_displayOptionsButton = new BarSubItem(barManagerMods, "Display Options")
+			_displayOptionsButton = new BarSubItem(barManagerMods, "Grid Options")
 			{
 				Alignment = BarItemLinkAlignment.Right,
 				Hint = "Grid display options"
@@ -883,6 +874,7 @@
 			_displayOptionsButton.AddItem(_toggleActiveModsBoldMenuItem);
 			_displayOptionsButton.AddItem(_focusTopRowAfterSortingMenuItem);
 			_displayOptionsButton.AddItem(_focusTopRowAfterInstallDateChangeMenuItem);
+			NmmIconProvider.Bind(_displayOptionsButton, NmmIconAction.Settings);
 		}
 
 		/// <summary>
@@ -1958,6 +1950,10 @@
 		{
 			if (_warningIcon != null) return _warningIcon;
 			const int sz = 13;
+			Image semanticWarning = NmmIconProvider.GetBitmap(NmmIconAction.Warning, sz, false);
+			if (semanticWarning != null)
+				return _warningIcon = new Bitmap(semanticWarning);
+
 			var bmp = new Bitmap(sz, sz);
 			using (var g = Graphics.FromImage(bmp))
 			{
@@ -2977,19 +2973,23 @@
 
 		private static Bitmap LoadInlineEditIcon(InlineEditGlyph glyph)
 		{
-			Image image = LoadSvgIcon(GetInlineEditIconResourceName(glyph), InlineEditIconSize);
-			if (image != null) return new Bitmap(image);
-			return CreateInlineEditIcon(glyph);
-		}
-
-		private static string GetInlineEditIconResourceName(InlineEditGlyph glyph)
-		{
+			NmmIconAction action;
 			switch (glyph)
 			{
-				case InlineEditGlyph.Accept: return "inline_edit_checkmark.svg";
-				case InlineEditGlyph.Cancel: return "inline_edit_cancel.svg";
-				default: return "inline_edit_pencil.svg";
+				case InlineEditGlyph.Accept:
+					action = NmmIconAction.Apply;
+					break;
+				case InlineEditGlyph.Cancel:
+					action = NmmIconAction.Cancel;
+					break;
+				default:
+					action = NmmIconAction.Rename;
+					break;
 			}
+
+			Image image = NmmIconProvider.GetBitmap(action, InlineEditIconSize, false);
+			if (image != null) return new Bitmap(image);
+			return CreateInlineEditIcon(glyph);
 		}
 
 		private static Bitmap CreateInlineEditIcon(InlineEditGlyph glyph)
@@ -3034,6 +3034,22 @@
 				}
 			}
 			return bmp;
+		}
+
+		private void RefreshSemanticCompatibilityIcons()
+		{
+			_warningIcon?.Dispose();
+			_inlineEditIcon?.Dispose();
+			_inlineAcceptIcon?.Dispose();
+			_inlineCancelIcon?.Dispose();
+
+			_warningIcon = null;
+			_inlineEditIcon = null;
+			_inlineAcceptIcon = null;
+			_inlineCancelIcon = null;
+
+			if (_renameButtonEdit != null)
+				ConfigureRenameEditorButtons(_renamingModName);
 		}
 
 		private void GridView_DoubleClick(object sender, EventArgs e)
@@ -3305,7 +3321,7 @@
 		/// <param name="left">Whether the toolbar is currently docked on the left.</param>
 		private void UpdateToolbarSeparators(bool left)
 		{
-			string caption = left ? "────────────────" : "│";
+			string caption = left ? GetSideToolbarSeparatorCaption() : "│";
 
 			if (_toolbarSeparatorAfterDisable != null)
 				_toolbarSeparatorAfterDisable.Caption = caption;
@@ -3313,6 +3329,25 @@
 				_toolbarSeparatorAfterEndorse.Caption = caption;
 			if (_toolbarSeparatorAfterCategoryView != null)
 				_toolbarSeparatorAfterCategoryView.Caption = caption;
+		}
+
+		private static string GetSideToolbarSeparatorCaption()
+		{
+			int glyphCount;
+			switch (NmmIconProvider.CurrentButtonPresentation)
+			{
+				case NmmButtonPresentation.IconsOnly:
+					glyphCount = Math.Max(3, NmmIconProvider.CurrentIconSize / 6);
+					break;
+				case NmmButtonPresentation.TextOnly:
+					glyphCount = 8;
+					break;
+				default:
+					glyphCount = Math.Max(7, 5 + NmmIconProvider.CurrentIconSize / 4);
+					break;
+			}
+
+			return new string('─', glyphCount);
 		}
 
 		/// <summary>
@@ -3326,9 +3361,7 @@
 				Hint = "Toolbar Layout – move to Left",
 				PaintStyle = BarItemPaintStyle.CaptionGlyph
 			};
-			_toolbarPositionButton.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
-				Nexus.Client.Properties.Resources.toolbar_move_left,
-				new Size(16, 16));
+			NmmIconProvider.Bind(_toolbarPositionButton, NmmIconAction.Layout);
 			_toolbarPositionButton.ItemClick += (sender, args) => SetToolbarPosition(!_toolbarPositionLeft, true);
 		}
 
@@ -3350,17 +3383,13 @@
 				barModActions.DockCol = 0;
 				barModActions.DockRow = 0;
 				barModActions.Visible = true;
+				NmmIconProvider.BindBar(barModActions, left);
 				UpdateToolbarSeparators(left);
 
 				if (_toolbarPositionButton != null)
 				{
 					_toolbarPositionButton.Caption = "Toolbar Layout";
 					_toolbarPositionButton.Hint = left ? "Toolbar Layout – move to Top" : "Toolbar Layout – move to Left";
-					_toolbarPositionButton.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
-						left
-							? Nexus.Client.Properties.Resources.toolbar_move_top
-							: Nexus.Client.Properties.Resources.toolbar_move_left,
-						new Size(16, 16));
 				}
 			}
 			finally
@@ -3419,45 +3448,45 @@
 			{
 				if (!installed)
 				{
-					AddGridPopupItem(CreatePopupButton("Install and activate", Properties.Resources.dialog_ok_4_16,
+					AddGridPopupItem(CreatePopupButton("Install and activate", NmmIconAction.InstallEnable,
 						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 
 					if (_viewModel?.ModManager?.GameMode?.SupportsGameRootModInstall == true)
 					{
 						string gameModeName = _viewModel.ModManager.GameMode.Name;
 						if (String.IsNullOrWhiteSpace(gameModeName)) gameModeName = "game";
-						AddGridPopupItem(CreatePopupButton(String.Format("Install to {0} root (eg. SKSE)", gameModeName), Properties.Resources.change_game_mode,
+						AddGridPopupItem(CreatePopupButton(String.Format("Install to {0} root (eg. SKSE)", gameModeName), NmmIconAction.InstallRoot,
 							() => _viewModel?.ActivateModInGameRoot(mod)));
 					}
 				}
 				else if (!active)
 				{
-					AddGridPopupItem(CreatePopupButton("Activate", Properties.Resources.dialog_ok_4_16,
+					AddGridPopupItem(CreatePopupButton("Activate", NmmIconAction.InstallEnable,
 						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 				}
 				else
 				{
-					AddGridPopupItem(CreatePopupButton("Deactivate", Properties.Resources.dialog_ok_4_16,
+					AddGridPopupItem(CreatePopupButton("Deactivate", NmmIconAction.Disable,
 						() => _viewModel?.DisableModCommand.Execute(new List<IMod> { mod })), true);
-					AddGridPopupItem(CreatePopupButton("Reinstall Mod", Properties.Resources.change_game_mode,
+					AddGridPopupItem(CreatePopupButton("Reinstall Mod", NmmIconAction.Reinstall,
 						() => _viewModel?.ReinstallMod(mod, null)));
 				}
 			}
 			else
 			{
-				AddGridPopupItem(CreatePopupButton("Reinstall Mod/s", Properties.Resources.change_game_mode,
+				AddGridPopupItem(CreatePopupButton("Reinstall Mod/s", NmmIconAction.Reinstall,
 					() => _viewModel?.ReinstallMultipleMods(mods)), true);
 			}
 
-			BarSubItem itemUninstall = CreatePopupSubItem("Uninstall or Delete", Properties.Resources.dialog_block);
+			BarSubItem itemUninstall = CreatePopupSubItem("Uninstall or Delete", NmmIconAction.Uninstall);
 			if (singleMod)
 			{
-				itemUninstall.AddItem(CreatePopupButton("From active profile", null, () =>
+				itemUninstall.AddItem(CreatePopupButton("From active profile", NmmIconAction.Uninstall, () =>
 				{
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateMod(mod);
 				}));
-				itemUninstall.AddItem(CreatePopupButton("From all profiles", null, () =>
+				itemUninstall.AddItem(CreatePopupButton("From all profiles", NmmIconAction.Uninstall, () =>
 				{
 					if (_viewModel == null || !ConfirmMissingArchiveUninstall(mods)) return;
 					IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
@@ -3479,7 +3508,7 @@
 					}
 				}));
 
-				BarButtonItem deleteItem = CreatePopupButton("Delete mod (permanently) and uninstall.", Properties.Resources.dialog_cancel_4_16, () =>
+				BarButtonItem deleteItem = CreatePopupButton("Delete mod (permanently) and uninstall.", NmmIconAction.Delete, () =>
 				{
 					if (_viewModel == null) return;
 					if (!ConfirmModFileDeletion(mods) || !ConfirmMissingArchiveUninstall(mods)) return;
@@ -3512,7 +3541,7 @@
 			}
 			else
 			{
-				itemUninstall.AddItem(CreatePopupButton("From active profile", null, () =>
+				itemUninstall.AddItem(CreatePopupButton("From active profile", NmmIconAction.Uninstall, () =>
 				{
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateSelectedMods(mods);
@@ -3520,17 +3549,17 @@
 			}
 			AddGridPopupItem(itemUninstall);
 
-			BarSubItem itemWarnings = CreatePopupSubItem("Mod Update Warnings", Properties.Resources.update_warning);
+			BarSubItem itemWarnings = CreatePopupSubItem("Mod Update Warnings", NmmIconAction.Warning);
 			BuildUpdateWarningsSubmenu(itemWarnings, mods);
 			if (itemWarnings.ItemLinks.Count > 0) AddGridPopupItem(itemWarnings);
 
-			BarSubItem itemChecks = CreatePopupSubItem("Mod Update Checks and Automatic Mod Rename", Properties.Resources.edit_find_and_replace);
+			BarSubItem itemChecks = CreatePopupSubItem("Mod Update Checks and Automatic Mod Rename", NmmIconAction.CheckUpdates);
 			BuildUpdateChecksSubmenu(itemChecks, mods);
 			if (itemChecks.ItemLinks.Count > 0) AddGridPopupItem(itemChecks);
 
 			if (_viewModel?.CategoryManager != null)
 			{
-				BarSubItem itemMoveTo = CreatePopupSubItem("Move to", null);
+				BarSubItem itemMoveTo = CreatePopupSubItem("Move to", NmmIconAction.Categories);
 				foreach (IModCategory cat in _viewModel.CategoryManager.Categories.OrderBy(category => category.CategoryName))
 				{
 					int catId = cat.Id;
@@ -3541,7 +3570,7 @@
 			}
 
 			if (singleMod)
-				AddGridPopupItem(CreatePopupButton("Reset Mod Cache", null, () => ResetSelectedModCache(mod)), true);
+				AddGridPopupItem(CreatePopupButton("Reset Mod Cache", NmmIconAction.Reset, () => ResetSelectedModCache(mod)), true);
 
 			_gridPopupMenu.ShowPopup(Control.MousePosition);
 			e.Allow = false;
@@ -3583,6 +3612,14 @@
 			return item;
 		}
 
+		private BarButtonItem CreatePopupButton(string caption, NmmIconAction iconAction, Action action)
+		{
+			var item = new BarButtonItem(barManagerMods, caption);
+			NmmIconProvider.Bind(item, iconAction);
+			if (action != null) item.ItemClick += (sender, args) => action();
+			return item;
+		}
+
 		/// <summary>
 		/// Creates a transient DevExpress popup submenu.
 		/// </summary>
@@ -3594,6 +3631,13 @@
 			var item = new BarSubItem(barManagerMods, caption);
 			if (image != null)
 				item.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(image, new Size(16, 16));
+			return item;
+		}
+
+		private BarSubItem CreatePopupSubItem(string caption, NmmIconAction iconAction)
+		{
+			var item = new BarSubItem(barManagerMods, caption);
+			NmmIconProvider.Bind(item, iconAction);
 			return item;
 		}
 
@@ -3659,7 +3703,7 @@
 			if (mods.Count == 1)
 			{
 				IMod mod = mods[0];
-				parent.AddItem(CreatePopupButton(mod.UpdateWarningEnabled ? "Disable update warning" : "Enable update warning", null,
+				parent.AddItem(CreatePopupButton(mod.UpdateWarningEnabled ? "Disable update warning" : "Enable update warning", NmmIconAction.Warning,
 					() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), !mod.UpdateWarningEnabled)));
 			}
 			else
@@ -3667,18 +3711,18 @@
 				bool hasEnabled = mods.Any(mod => mod.UpdateWarningEnabled);
 				bool hasDisabled = mods.Any(mod => !mod.UpdateWarningEnabled);
 				if (hasDisabled)
-					parent.AddItem(CreatePopupButton("Enable for selected files", null,
+					parent.AddItem(CreatePopupButton("Enable for selected files", NmmIconAction.Warning,
 						() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), true)));
 				if (hasEnabled)
-					parent.AddItem(CreatePopupButton("Disable for selected files", null,
+					parent.AddItem(CreatePopupButton("Disable for selected files", NmmIconAction.Warning,
 						() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), false)));
 			}
 
-			BarButtonItem enableAll = CreatePopupButton("Enable for all files", null,
+			BarButtonItem enableAll = CreatePopupButton("Enable for all files", NmmIconAction.Warning,
 				() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), true));
 			BarItemLink enableAllLink = parent.AddItem(enableAll);
 			enableAllLink.BeginGroup = parent.ItemLinks.Count > 1;
-			parent.AddItem(CreatePopupButton("Disable for all files", null,
+			parent.AddItem(CreatePopupButton("Disable for all files", NmmIconAction.Warning,
 				() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), false)));
 		}
 
@@ -3689,7 +3733,7 @@
 			if (mods.Count == 1)
 			{
 				IMod mod = mods[0];
-				parent.AddItem(CreatePopupButton(mod.UpdateChecksEnabled ? "Disable for this mod" : "Enable for this mod", null,
+				parent.AddItem(CreatePopupButton(mod.UpdateChecksEnabled ? "Disable for this mod" : "Enable for this mod", NmmIconAction.CheckUpdates,
 					() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), !mod.UpdateChecksEnabled)));
 			}
 			else
@@ -3697,14 +3741,14 @@
 				bool hasEnabled = mods.Any(mod => mod.UpdateChecksEnabled);
 				bool hasDisabled = mods.Any(mod => !mod.UpdateChecksEnabled);
 				if (hasDisabled)
-					parent.AddItem(CreatePopupButton("Enable for selected mods", null,
+					parent.AddItem(CreatePopupButton("Enable for selected mods", NmmIconAction.CheckUpdates,
 						() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), true)));
 				if (hasEnabled)
-					parent.AddItem(CreatePopupButton("Disable for selected mods", null,
+					parent.AddItem(CreatePopupButton("Disable for selected mods", NmmIconAction.CheckUpdates,
 						() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), false)));
 			}
 
-			BarButtonItem enableAll = CreatePopupButton("Enable for all mods", null,
+			BarButtonItem enableAll = CreatePopupButton("Enable for all mods", NmmIconAction.CheckUpdates,
 				() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(_viewModel.ManagedMods), true));
 			BarItemLink enableAllLink = parent.AddItem(enableAll);
 			enableAllLink.BeginGroup = parent.ItemLinks.Count > 1;
@@ -3753,22 +3797,23 @@
 		private void ConfigureDeactivateDropDown()
 		{
 			ClearPopupMenuItems(popupDeactivate);
-			AddDeactivateDropDownItem("Uninstall mod from current profile", "mod-uninstall-from-profile.svg", UninstallSelectedModsFromCurrentProfile);
-			AddDeactivateDropDownItem("Delete mod", "mod-remove.svg", DeleteSelectedModsFromKey);
+			BarButtonItem uninstallItem = AddDeactivateDropDownItem("Uninstall mod from current profile", UninstallSelectedModsFromCurrentProfile);
+			NmmIconProvider.Bind(uninstallItem, NmmIconAction.Uninstall);
+			BarButtonItem deleteItem = AddDeactivateDropDownItem("Delete mod", DeleteSelectedModsFromKey);
+			NmmIconProvider.Bind(deleteItem, NmmIconAction.Delete);
 		}
 
 		/// <summary>
-		/// Adds one action to the Disable Mod popup using the embedded SVG asset when available.
+		/// Adds one action to the Disable Mod popup.
 		/// </summary>
 		/// <param name="text">The action caption.</param>
-		/// <param name="iconResourceName">The embedded SVG resource name.</param>
 		/// <param name="action">The action to execute.</param>
-		private void AddDeactivateDropDownItem(string text, string iconResourceName, Action action)
+		private BarButtonItem AddDeactivateDropDownItem(string text, Action action)
 		{
 			var item = new BarButtonItem(barManagerMods, text);
-			item.ImageOptions.SvgImage = LoadSvgImage(iconResourceName);
 			item.ItemClick += (sender, args) => action();
 			popupDeactivate.AddItem(item);
+			return item;
 		}
 
 		/// <summary>

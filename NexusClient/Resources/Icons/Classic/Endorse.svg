@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmPositive{fill:#808080;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}</style>
+  <g opacity="0.42" transform="translate(0.60 0.70)"><path class="NmmShadow" d="M3 10h4v10H3zm6 0 3.1-6.5c.4-.8 1.4-1.2 2.2-.8.7.3 1.1 1 .9 1.8L14.3 8H20a2 2 0 0 1 1.9 2.6l-2.2 7.2a3 3 0 0 1-2.9 2.2H9z"/></g>
+  <g opacity="0.30" transform="translate(-0.40 -0.40)"><path class="NmmHighlight" d="M3 10h4v10H3zm6 0 3.1-6.5c.4-.8 1.4-1.2 2.2-.8.7.3 1.1 1 .9 1.8L14.3 8H20a2 2 0 0 1 1.9 2.6l-2.2 7.2a3 3 0 0 1-2.9 2.2H9z"/></g>
+  <path class="NmmPositive" d="M3 10h4v10H3zm6 0 3.1-6.5c.4-.8 1.4-1.2 2.2-.8.7.3 1.1 1 .9 1.8L14.3 8H20a2 2 0 0 1 1.9 2.6l-2.2 7.2a3 3 0 0 1-2.9 2.2H9z"/>
+</svg>

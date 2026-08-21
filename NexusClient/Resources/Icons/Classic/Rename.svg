@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmAccent{fill:#808080;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}</style>
+  <g opacity="0.42" transform="translate(0.60 0.70)"><path class="NmmShadow" d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5zM16.8 3.7l1.7-1.7 3.5 3.5-1.7 1.7z"/></g>
+  <g opacity="0.30" transform="translate(-0.40 -0.40)"><path class="NmmHighlight" d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5zM16.8 3.7l1.7-1.7 3.5 3.5-1.7 1.7z"/></g>
+  <path class="NmmAccent" d="m4 16.5-.8 4.3 4.3-.8L19 8.5 15.5 5zM16.8 3.7l1.7-1.7 3.5 3.5-1.7 1.7z"/>
+</svg>

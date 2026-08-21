@@ -23,6 +23,14 @@ namespace Nexus.Client.ModManagement.UI
 		private OverwriteForm(string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(butYes, NmmIconAction.Apply);
+			NmmIconProvider.Bind(butYesToAll, NmmIconAction.Apply);
+			NmmIconProvider.Bind(butYesToGroup, NmmIconAction.Apply);
+			NmmIconProvider.Bind(butYesToMod, NmmIconAction.Apply);
+			NmmIconProvider.Bind(butNo, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(butNoToAll, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(butNoToGroup, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(butNoToMod, NmmIconAction.Cancel);
 			lblMessage.Text = p_strMessage;
 			if (!p_booAllowGroup)
 			{

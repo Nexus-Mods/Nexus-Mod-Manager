@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmInformation{fill:#808080;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}</style>
+
+  <g opacity="0.36" transform="translate(0.35 0.45)">
+    <path class="NmmShadow" d="M3.2 10.4A9 9 0 0 1 17.4 4.6V2.7L21.2 6l-3.8 3.3V7.1A6.8 6.8 0 0 0 5.5 10.4z"/>
+    <path class="NmmShadow" d="M20.8 13.6A9 9 0 0 1 6.6 19.4v1.9L2.8 18l3.8-3.3v2.2a6.8 6.8 0 0 0 11.9-3.3z"/>
+    <path class="NmmShadow" fill-rule="evenodd" d="M12 7.8a4.2 4.2 0 1 1 0 8.4 4.2 4.2 0 0 1 0-8.4zm0 2.2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+    <rect class="NmmShadow" x="11" y="6.2" width="2" height="2.3" rx="0.45"/><rect class="NmmShadow" x="11" y="15.5" width="2" height="2.3" rx="0.45"/><rect class="NmmShadow" x="6.2" y="11" width="2.3" height="2" rx="0.45"/><rect class="NmmShadow" x="15.5" y="11" width="2.3" height="2" rx="0.45"/><rect class="NmmShadow" x="7.55" y="7.55" width="2" height="2.3" rx="0.45" transform="rotate(-45 8.55 8.7)"/><rect class="NmmShadow" x="14.45" y="14.15" width="2" height="2.3" rx="0.45" transform="rotate(-45 15.45 15.3)"/><rect class="NmmShadow" x="14.45" y="7.55" width="2" height="2.3" rx="0.45" transform="rotate(45 15.45 8.7)"/><rect class="NmmShadow" x="7.55" y="14.15" width="2" height="2.3" rx="0.45" transform="rotate(45 8.55 15.3)"/>
+  </g>
+
+  <g opacity="0.24" transform="translate(-0.25 -0.25)">
+    <path class="NmmHighlight" d="M3.2 10.4A9 9 0 0 1 17.4 4.6V2.7L21.2 6l-3.8 3.3V7.1A6.8 6.8 0 0 0 5.5 10.4z"/>
+    <path class="NmmHighlight" d="M20.8 13.6A9 9 0 0 1 6.6 19.4v1.9L2.8 18l3.8-3.3v2.2a6.8 6.8 0 0 0 11.9-3.3z"/>
+    <path class="NmmHighlight" fill-rule="evenodd" d="M12 7.8a4.2 4.2 0 1 1 0 8.4 4.2 4.2 0 0 1 0-8.4zm0 2.2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+  </g>
+
+  <path class="NmmInformation" d="M3.2 10.4A9 9 0 0 1 17.4 4.6V2.7L21.2 6l-3.8 3.3V7.1A6.8 6.8 0 0 0 5.5 10.4z"/>
+  <path class="NmmInformation" d="M20.8 13.6A9 9 0 0 1 6.6 19.4v1.9L2.8 18l3.8-3.3v2.2a6.8 6.8 0 0 0 11.9-3.3z"/>
+  <path class="NmmInformation" fill-rule="evenodd" d="M12 7.8a4.2 4.2 0 1 1 0 8.4 4.2 4.2 0 0 1 0-8.4zm0 2.2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
+  <rect class="NmmInformation" x="11" y="6.2" width="2" height="2.3" rx="0.45"/>
+  <rect class="NmmInformation" x="11" y="15.5" width="2" height="2.3" rx="0.45"/>
+  <rect class="NmmInformation" x="6.2" y="11" width="2.3" height="2" rx="0.45"/>
+  <rect class="NmmInformation" x="15.5" y="11" width="2.3" height="2" rx="0.45"/>
+  <rect class="NmmInformation" x="7.55" y="7.55" width="2" height="2.3" rx="0.45" transform="rotate(-45 8.55 8.7)"/>
+  <rect class="NmmInformation" x="14.45" y="14.15" width="2" height="2.3" rx="0.45" transform="rotate(-45 15.45 15.3)"/>
+  <rect class="NmmInformation" x="14.45" y="7.55" width="2" height="2.3" rx="0.45" transform="rotate(45 15.45 8.7)"/>
+  <rect class="NmmInformation" x="7.55" y="14.15" width="2" height="2.3" rx="0.45" transform="rotate(45 8.55 15.3)"/>
+</svg>

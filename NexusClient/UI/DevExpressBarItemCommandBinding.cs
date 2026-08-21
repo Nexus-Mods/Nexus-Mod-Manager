@@ -14,6 +14,7 @@ namespace Nexus.Client.UI
 	{
 		private readonly BarItem _barItem;
 		private readonly Command _command;
+		private readonly bool _hideWhenDisabled;
 		private bool _isBound;
 
 		/// <summary>
@@ -21,7 +22,7 @@ namespace Nexus.Client.UI
 		/// </summary>
 		/// <param name="barItem">The DevExpress bar item that triggers the command.</param>
 		/// <param name="command">The command to bind.</param>
-		internal DevExpressBarItemCommandBinding(BarItem barItem, Command command)
+		internal DevExpressBarItemCommandBinding(BarItem barItem, Command command, bool hideWhenDisabled = false)
 		{
 			if (barItem == null)
 				throw new System.ArgumentNullException(nameof(barItem));
@@ -30,6 +31,7 @@ namespace Nexus.Client.UI
 
 			_barItem = barItem;
 			_command = command;
+			_hideWhenDisabled = hideWhenDisabled;
 			ApplyCommandState();
 			_barItem.ItemClick += BarItem_ItemClick;
 			_command.PropertyChanged += Command_PropertyChanged;
@@ -74,9 +76,9 @@ namespace Nexus.Client.UI
 		{
 			_barItem.Caption = _command.Name;
 			_barItem.Hint = _command.Description;
-			_barItem.Enabled = _command.CanExecute;
+			ApplyEnabledState();
 
-			if (_barItem.ImageOptions.Image == null && _command.Image != null)
+			if (_barItem.ImageOptions.Image == null && _barItem.ImageOptions.SvgImage == null && _command.Image != null)
 				_barItem.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(_command.Image, new Size(16, 16));
 
 			CheckedCommand checkedCommand = _command as CheckedCommand;
@@ -98,7 +100,7 @@ namespace Nexus.Client.UI
 			switch (e.PropertyName)
 			{
 				case "CanExecute":
-					_barItem.Enabled = _command.CanExecute;
+					ApplyEnabledState();
 					break;
 				case "IsChecked":
 					CheckedCommand checkedCommand = _command as CheckedCommand;
@@ -107,6 +109,13 @@ namespace Nexus.Client.UI
 						buttonItem.Down = checkedCommand.IsChecked;
 					break;
 			}
+		}
+
+		private void ApplyEnabledState()
+		{
+			_barItem.Enabled = _command.CanExecute;
+			if (_hideWhenDisabled)
+				_barItem.Visibility = _command.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
 		}
 
 		/// <summary>
@@ -129,6 +138,7 @@ namespace Nexus.Client.UI
 		private readonly BarItem _barItem;
 		private readonly Nexus.Client.Commands.Generic.Command<T> _command;
 		private readonly System.Func<T> _getArgument;
+		private readonly bool _hideWhenDisabled;
 		private bool _isBound;
 
 		/// <summary>
@@ -137,7 +147,7 @@ namespace Nexus.Client.UI
 		/// <param name="barItem">The DevExpress bar item that triggers the command.</param>
 		/// <param name="command">The command to bind.</param>
 		/// <param name="getArgument">Returns the argument to pass when the command executes.</param>
-		internal DevExpressBarItemCommandBinding(BarItem barItem, Nexus.Client.Commands.Generic.Command<T> command, System.Func<T> getArgument)
+		internal DevExpressBarItemCommandBinding(BarItem barItem, Nexus.Client.Commands.Generic.Command<T> command, System.Func<T> getArgument, bool hideWhenDisabled = false)
 		{
 			if (barItem == null)
 				throw new System.ArgumentNullException(nameof(barItem));
@@ -147,6 +157,7 @@ namespace Nexus.Client.UI
 			_barItem = barItem;
 			_command = command;
 			_getArgument = getArgument;
+			_hideWhenDisabled = hideWhenDisabled;
 			ApplyCommandState();
 			_barItem.ItemClick += BarItem_ItemClick;
 			_command.PropertyChanged += Command_PropertyChanged;
@@ -191,9 +202,9 @@ namespace Nexus.Client.UI
 		{
 			_barItem.Caption = _command.Name;
 			_barItem.Hint = _command.Description;
-			_barItem.Enabled = _command.CanExecute;
+			ApplyEnabledState();
 
-			if (_barItem.ImageOptions.Image == null && _command.Image != null)
+			if (_barItem.ImageOptions.Image == null && _barItem.ImageOptions.SvgImage == null && _command.Image != null)
 				_barItem.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(_command.Image, new Size(16, 16));
 		}
 
@@ -207,12 +218,19 @@ namespace Nexus.Client.UI
 			if (e.PropertyName != "CanExecute")
 				return;
 
-			_barItem.Enabled = _command.CanExecute;
+			ApplyEnabledState();
 			if (_command.CanExecute)
 			{
 				_barItem.Caption = _command.Name;
 				_barItem.Hint = _command.Description;
 			}
+		}
+
+		private void ApplyEnabledState()
+		{
+			_barItem.Enabled = _command.CanExecute;
+			if (_hideWhenDisabled)
+				_barItem.Visibility = _command.CanExecute ? BarItemVisibility.Always : BarItemVisibility.Never;
 		}
 
 		/// <summary>

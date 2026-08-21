@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmAccent{fill:#808080;}.NmmHighlight{fill:#FFFFFF;}.NmmShadow{fill:#000000;}</style>
+  <g opacity="0.42" transform="translate(0.45 0.55)">
+    <circle class="NmmShadow" cx="8.3" cy="7.8" r="2.5"/>
+    <circle class="NmmShadow" cx="15.8" cy="8.8" r="2.1"/>
+    <path class="NmmShadow" d="M3.8 18.8c.4-3.6 2.4-5.4 4.9-5.4s4.6 1.8 5 5.4zM12.7 18.8c.2-2.4 1.5-3.9 3.4-3.9 1.9 0 3.2 1.4 3.4 3.9z"/>
+  </g>
+  <g opacity="0.28" transform="translate(-0.35 -0.35)">
+    <circle class="NmmHighlight" cx="8.3" cy="7.8" r="2.5"/>
+    <circle class="NmmHighlight" cx="15.8" cy="8.8" r="2.1"/>
+    <path class="NmmHighlight" d="M3.8 18.8c.4-3.6 2.4-5.4 4.9-5.4s4.6 1.8 5 5.4zM12.7 18.8c.2-2.4 1.5-3.9 3.4-3.9 1.9 0 3.2 1.4 3.4 3.9z"/>
+  </g>
+  <circle class="NmmAccent" cx="8.3" cy="7.8" r="2.5"/>
+  <circle class="NmmAccent" cx="15.8" cy="8.8" r="2.1"/>
+  <path class="NmmAccent" d="M3.8 18.8c.4-3.6 2.4-5.4 4.9-5.4s4.6 1.8 5 5.4zM12.7 18.8c.2-2.4 1.5-3.9 3.4-3.9 1.9 0 3.2 1.4 3.4 3.9z"/>
+</svg>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmInformation{fill:#808080;}</style>
+  <path class="NmmInformation" d="M19.1 7.2A8.4 8.4 0 0 0 5.4 5.6L3 3.2v6.6h6.6L7.15 7.35A5.9 5.9 0 0 1 17 8.55z"/>
+  <path class="NmmInformation" d="M4.9 16.8a8.4 8.4 0 0 0 13.7 1.6l2.4 2.4v-6.6h-6.6l2.45 2.45A5.9 5.9 0 0 1 7 15.45z"/>
+</svg>

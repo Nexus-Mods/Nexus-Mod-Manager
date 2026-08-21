@@ -138,6 +138,8 @@
 			AddMainToolbarItem(tsbUpdate);
 			AddMainToolbarItem(spbChangeMode);
 			AddMainToolbarItem(spbHelp);
+
+			NmmIconProvider.BindBar(barMainToolbar, false);
 		}
 
 		/// <summary>
@@ -281,6 +283,21 @@
 			tsbiKofi.ImageOptions.Image = ScaleBarImage(Properties.Resources.kofi_button, StatusBarImageSize);
 			tsbiKofi.ItemClick += (sender, args) => tsbiKofi_Click(sender, EventArgs.Empty);
 			popupSupportNMM.AddItem(tsbiKofi);
+
+			NmmIconProvider.Bind(spbLaunch, NmmIconAction.Launch);
+			NmmIconProvider.Bind(spbProfiles, NmmIconAction.Profiles);
+			NmmIconProvider.Bind(spbHelp, NmmIconAction.Help);
+			NmmIconProvider.Bind(spbChangeMode, NmmIconAction.ChangeGame);
+			NmmIconProvider.Bind(toolStripSplitButtonTools, NmmIconAction.Tools);
+			NmmIconProvider.Bind(spbFolders, NmmIconAction.OpenFolder);
+			NmmIconProvider.Bind(tsbSettings, NmmIconAction.Settings);
+			NmmIconProvider.Bind(spbSupportedTools, NmmIconAction.SupportedTools);
+			NmmIconProvider.Bind(tsbUpdate, NmmIconAction.UpdateApplication);
+
+			// Brand imagery remains native, but still follows Text/Icon toolbar presentation.
+			NmmIconProvider.BindPresentationOnly(spbSupportNMM);
+			NmmIconProvider.BindPresentationOnly(tsbYouTube);
+			NmmIconProvider.BindPresentationOnly(tsbDiscord);
 		}
 
 		/// <summary>
@@ -480,6 +497,16 @@
 			if (item.ImageOptions.Image == null && image != null)
 				item.ImageOptions.Image = ScaleBarImage(image, StatusBarImageSize);
 
+			return item;
+		}
+
+		/// <summary>
+		/// Creates a DevExpress command button using the shared semantic SVG family.
+		/// </summary>
+		private BarButtonItem CreateCommandBarButton(Command command, NmmIconAction iconAction)
+		{
+			BarButtonItem item = CreateCommandBarButton(command);
+			NmmIconProvider.Bind(item, iconAction, command.Image);
 			return item;
 		}
 

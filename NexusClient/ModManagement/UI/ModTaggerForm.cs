@@ -3,6 +3,7 @@
 	using System;
 	using System.ComponentModel;
 	using System.Diagnostics;
+	using System.Drawing;
 	using System.IO;
 	using System.Windows.Forms;
 	using DevExpress.XtraEditors;
@@ -66,6 +67,13 @@
 		public ModTaggerForm(ModTaggerVM p_mtgTaggerVM)
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(btnOpenWebsite, NmmIconAction.ExternalLink);
+			NmmIconProvider.Bind(btnSetScreenshot, NmmIconAction.Screenshot);
+			NmmIconProvider.Bind(btnClearScreenshot, NmmIconAction.Clear);
+			NmmIconProvider.Bind(btnRestoreCurrent, NmmIconAction.Restore);
+			NmmIconProvider.Bind(btnOK, NmmIconAction.Save);
+			NmmIconProvider.Bind(btnCancel, NmmIconAction.Cancel);
+			NmmIconProvider.Bind(btnEditDescription, NmmIconAction.Rename);
 			ViewModel = p_mtgTaggerVM;
 			buttonPanel_Resize(this, EventArgs.Empty);
 		}
@@ -81,6 +89,7 @@
 			m_dxdDisplaySettings?.Dispose();
 			m_dxdDisplaySettings = DevExpressDisplaySettings.CreateFromSettings(ViewModel.Settings);
 			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, m_dxdDisplaySettings);
+			UpdateActionButtonMetrics();
 		}
 
 		/// <summary>
@@ -213,6 +222,7 @@
 		private void SetDescriptionEditMode(bool editSource)
 		{
 			btnEditDescription.Text = editSource ? "Preview" : "Edit source";
+			UpdateActionButtonMetrics();
 			txtDescription.Visible = editSource;
 			htmlDescription.Visible = !editSource;
 
@@ -450,9 +460,61 @@
 		{
 			const Int32 margin = 12;
 			const Int32 gap = 8;
+			UpdateActionButtonMetrics();
 			btnCancel.Left = buttonPanel.ClientSize.Width - margin - btnCancel.Width;
 			btnOK.Left = btnCancel.Left - gap - btnOK.Width;
 			btnRestoreCurrent.Left = margin;
+			Int32 centerY = Math.Max(0, (buttonPanel.ClientSize.Height - btnOK.Height) / 2);
+			btnRestoreCurrent.Top = centerY;
+			btnOK.Top = centerY;
+			btnCancel.Top = centerY;
+		}
+
+		/// <summary>
+		/// Expands action buttons enough to keep text and 32px icons fully visible.
+		/// </summary>
+		private void UpdateActionButtonMetrics()
+		{
+			Int32 mainButtonHeight = GetRecommendedButtonHeight(btnOK, 28);
+			Int32 toggleButtonHeight = GetRecommendedButtonHeight(btnEditDescription, 28);
+
+			SizeActionButton(btnEditDescription, 110, toggleButtonHeight);
+			SizeActionButton(btnRestoreCurrent, 140, mainButtonHeight);
+			SizeActionButton(btnOK, 90, mainButtonHeight);
+			SizeActionButton(btnCancel, 90, mainButtonHeight);
+
+			pnlDescriptionToolbar.Height = Math.Max(28, toggleButtonHeight + 2);
+			buttonPanel.Height = Math.Max(48, mainButtonHeight + 20);
+		}
+
+		/// <summary>
+		/// Calculates a width large enough for the current caption and icon while preserving a sensible minimum.
+		/// </summary>
+		private static void SizeActionButton(SimpleButton button, Int32 minimumWidth, Int32 height)
+		{
+			if (button == null)
+				return;
+
+			Int32 textWidth = TextRenderer.MeasureText(button.Text ?? String.Empty, button.Font).Width;
+			Int32 iconWidth = button.ImageOptions.SvgImageSize.Width > 0 ? button.ImageOptions.SvgImageSize.Width + 20 : 0;
+			Int32 desiredWidth = Math.Max(minimumWidth, textWidth + iconWidth + 28);
+			button.Width = desiredWidth;
+			button.Height = height;
+		}
+
+		/// <summary>
+		/// Returns a height that comfortably fits the current icon size.
+		/// </summary>
+		private static Int32 GetRecommendedButtonHeight(SimpleButton button, Int32 minimumHeight)
+		{
+			if (button == null)
+				return minimumHeight;
+
+			Int32 iconHeight = button.ImageOptions.SvgImageSize.Height;
+			if (iconHeight <= 0)
+				iconHeight = button.ImageOptions.Image == null ? 0 : button.ImageOptions.Image.Height;
+
+			return Math.Max(minimumHeight, iconHeight + 12);
 		}
 	}
 }

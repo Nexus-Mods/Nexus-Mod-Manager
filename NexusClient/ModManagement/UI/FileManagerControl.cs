@@ -104,6 +104,7 @@
                 Height = 27
             };
             _refreshButton.Click += RefreshButton_Click;
+            NmmIconProvider.Bind(_refreshButton, NmmIconAction.Refresh);
 
             _topPanel.Controls.Add(descriptionLabel);
             _topPanel.Controls.Add(_deploymentRootLabel);
@@ -295,6 +296,9 @@
             if (settings == null) return;
 
             _displaySettings = settings;
+            _refreshButton.Height = Math.Max(27, settings.IconSize + 8);
+            _fileListToolbar.Height = Math.Max(37, _refreshButton.Height + 10);
+            _refreshButton.Top = Math.Max(0, (_fileListToolbar.ClientSize.Height - _refreshButton.Height) / 2);
             DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
             DevExpressDisplaySettingsApplier.ApplyToBarManager(_sourceMenuManager, settings);
             DevExpressDisplaySettingsApplier.ApplyToRepositoryItem(_ownerLookup, settings);

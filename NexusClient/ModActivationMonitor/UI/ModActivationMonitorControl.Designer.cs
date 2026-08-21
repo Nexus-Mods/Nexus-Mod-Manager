@@ -76,6 +76,7 @@
 			this.barActions.OptionsBar.DisableClose = true;
 			this.barActions.OptionsBar.DisableCustomization = true;
 			this.barActions.OptionsBar.DrawDragBorder = false;
+			this.barActions.OptionsBar.RotateWhenVertical = false;
 			//
 			// tsbCancel
 			//

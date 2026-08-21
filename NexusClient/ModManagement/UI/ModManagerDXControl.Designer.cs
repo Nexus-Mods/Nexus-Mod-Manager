@@ -162,17 +162,6 @@
             //
             // popupCategories
             //
-            this.popupCategories.LinksPersistInfo.AddRange(new DevExpress.XtraBars.LinkPersistInfo[] {
-                new DevExpress.XtraBars.LinkPersistInfo(this.addNewCategory),
-                new DevExpress.XtraBars.LinkPersistInfo(this.collapseAllCategories),
-                new DevExpress.XtraBars.LinkPersistInfo(this.expandAllCategories),
-                new DevExpress.XtraBars.LinkPersistInfo(this.updateNexusAndCustomCategories),
-                new DevExpress.XtraBars.LinkPersistInfo(this.resetDefaultCategories),
-                new DevExpress.XtraBars.LinkPersistInfo(this.resetUnassignedToDefaultCategories),
-                new DevExpress.XtraBars.LinkPersistInfo(this.resetModsCategory),
-                new DevExpress.XtraBars.LinkPersistInfo(this.removeAllCategories),
-                new DevExpress.XtraBars.LinkPersistInfo(this.toggleHiddenCategories)
-            });
             this.popupCategories.Manager = this.barManagerMods;
             //
             // popupExport

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <style type="text/css">.NmmInformation{fill:#808080;}.NmmOnSemantic{fill:#FAFAFA;}</style>
+  <path class="NmmInformation" d="M3 7h18v14H3zM5 3h14v4H5z"/><path class="NmmOnSemantic" d="M10.7 18h2.6v-6l2.4 2.4 1.8-1.8L12 7.1l-5.5 5.5 1.8 1.8 2.4-2.4z"/>
+</svg>

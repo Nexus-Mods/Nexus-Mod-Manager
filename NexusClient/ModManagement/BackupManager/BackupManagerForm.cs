@@ -26,6 +26,8 @@ namespace Nexus.Client.ModManagement.UI
 		public BackupManagerForm(BackupManager p_bmBackupManager)
 		{
 			InitializeComponent();
+			NmmIconProvider.Bind(btBackup, NmmIconAction.Backup);
+			NmmIconProvider.Bind(btCancel, NmmIconAction.Cancel);
 			BackupManager = p_bmBackupManager;
 
 			_rows.Add(new BackupCategoryRow(0, "Base game Files"));

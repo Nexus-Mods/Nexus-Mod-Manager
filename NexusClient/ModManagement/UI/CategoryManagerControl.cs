@@ -45,6 +45,14 @@ namespace Nexus.Client.ModManagement.UI
         public CategoryManagerControl()
         {
             InitializeComponent();
+            NmmIconProvider.Bind(tsbAddCategory, NmmIconAction.Add);
+            NmmIconProvider.Bind(tsbRenameCategory, NmmIconAction.Rename);
+            NmmIconProvider.Bind(tsbRemoveCategory, NmmIconAction.Delete);
+			NmmIconProvider.Bind(tsbUpdateFromNexus, NmmIconAction.UpdateResetCategories);
+			NmmIconProvider.Bind(tsbResetUnassigned, NmmIconAction.ResetUnassigned);
+			NmmIconProvider.Bind(tsbResetAllToUnassigned, NmmIconAction.ResetAll);
+            NmmIconProvider.Bind(tsbRemoveAllCategories, NmmIconAction.RemoveAll);
+			NmmIconProvider.BindBar(barCategoryActions, true);
             DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerCategory, new System.Drawing.Size(32, 32));
             Text        = "Categories";
             HideOnClose = true;
@@ -444,12 +452,14 @@ namespace Nexus.Client.ModManagement.UI
                 btnOk.Size = new System.Drawing.Size(75, 26);
                 btnOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 btnOk.DialogResult = DialogResult.OK;
+                NmmIconProvider.Bind(btnOk, NmmIconAction.Apply);
 
                 btnCancel.Text = "Cancel";
                 btnCancel.Location = new System.Drawing.Point(293, 70);
                 btnCancel.Size = new System.Drawing.Size(75, 26);
                 btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 btnCancel.DialogResult = DialogResult.Cancel;
+                NmmIconProvider.Bind(btnCancel, NmmIconAction.Cancel);
 
                 form.Controls.Add(label);
                 form.Controls.Add(textBox);
