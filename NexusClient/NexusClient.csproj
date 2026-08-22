@@ -465,7 +465,7 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Languages\English.json">
+    <Content Include="Languages\*.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="GameModes\Definitions\Enderal\Categories.xml" />

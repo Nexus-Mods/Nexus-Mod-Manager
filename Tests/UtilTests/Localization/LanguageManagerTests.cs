@@ -55,6 +55,18 @@ namespace UtilTests.Localization
 		}
 
 		[Test]
+		public void InitializeDiscoversAndLoadsPackWithUtf8ByteOrderMark()
+		{
+			WritePack("Italiano.json", ValidItalianPackJson, true);
+
+			LanguageManager.Initialize("it-IT", _languagesDirectory);
+
+			Assert.AreEqual(2, LanguageManager.AvailableLanguages.Count);
+			Assert.AreEqual("it-IT", LanguageManager.CurrentLanguage.Id);
+			Assert.AreEqual("Annulla", LanguageManager.Get("Common.Button.Cancel", "Cancel"));
+		}
+
+		[Test]
 		public void InitializeLoadsOnlySelectedPackAndFallsBackPerKey()
 		{
 			WritePack("Italiano.json", ValidItalianPackJson);
@@ -164,9 +176,9 @@ namespace UtilTests.Localization
 			Assert.IsTrue(Directory.Exists(nestedDirectory));
 		}
 
-		private void WritePack(string fileName, string json)
+		private void WritePack(string fileName, string json, bool includeByteOrderMark = false)
 		{
-			File.WriteAllText(Path.Combine(_languagesDirectory, fileName), json, new UTF8Encoding(false));
+			File.WriteAllText(Path.Combine(_languagesDirectory, fileName), json, new UTF8Encoding(includeByteOrderMark));
 		}
 
 		private const string ValidItalianPackJson =

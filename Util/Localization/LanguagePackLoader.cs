@@ -127,7 +127,23 @@ namespace Nexus.Client.Util.Localization
 				});
 
 			using (FileStream stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			{
+				SkipUtf8ByteOrderMark(stream);
 				return (T)serializer.ReadObject(stream);
+			}
+		}
+
+		private static void SkipUtf8ByteOrderMark(Stream stream)
+		{
+			if (stream.Length < 3)
+				return;
+
+			int firstByte = stream.ReadByte();
+			int secondByte = stream.ReadByte();
+			int thirdByte = stream.ReadByte();
+
+			if (firstByte != 0xEF || secondByte != 0xBB || thirdByte != 0xBF)
+				stream.Position = 0;
 		}
 
 		private static string NormalizeOptionalMetadata(string value)
