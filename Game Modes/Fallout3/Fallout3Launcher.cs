@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.Fallout3
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("FoseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "FOSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout 3", "FOSE"), imgIcon, LaunchFallout3FOSE, true));
+				AddLaunchCommand(new Command("FoseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "FOSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout 3", "FOSE"), strCommand), imgIcon, LaunchFallout3FOSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();

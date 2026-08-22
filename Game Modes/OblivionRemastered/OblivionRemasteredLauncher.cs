@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("OrseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "ORSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Oblivion Remastered", "ORSE"), imgIcon, LaunchOblivionRemasteredORSE, true));
+				AddLaunchCommand(new Command("OrseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "ORSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Oblivion Remastered", "ORSE"), strCommand), imgIcon, LaunchOblivionRemasteredORSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();

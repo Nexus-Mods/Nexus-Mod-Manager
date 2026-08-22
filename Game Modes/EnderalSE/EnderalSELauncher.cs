@@ -55,7 +55,7 @@ namespace Nexus.Client.Games.EnderalSE
 				var icon = string.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(strCommand);
 				imgIcon = icon == null ? null : icon.ToBitmap();
 			}
-			AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "EnderalSE", "SKSE"), imgIcon, LaunchEnderalSESKSE, true));
+			AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "EnderalSE", "SKSE"), strCommand), imgIcon, LaunchEnderalSESKSE, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));

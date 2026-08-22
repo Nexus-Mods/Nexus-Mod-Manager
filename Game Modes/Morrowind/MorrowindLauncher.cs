@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.Morrowind
             if (File.Exists(strCommand))
             {
                 imgIcon = SafeExtractIcon(strCommand);
-                AddLaunchCommand(new Command("MwseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "MWSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Morrowind", "MWSE"), imgIcon, LaunchMorrowindMWSE, true));
+                AddLaunchCommand(new Command("MwseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "MWSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Morrowind", "MWSE"), strCommand), imgIcon, LaunchMorrowindMWSE, true));
             }
 
             strCommand = GetCustomLaunchCommand();

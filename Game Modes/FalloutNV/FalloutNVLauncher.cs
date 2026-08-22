@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.FalloutNV
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("NvseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "NVSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout: New Vegas", "NVSE"), imgIcon, LaunchFalloutNVNVSE, true));
+				AddLaunchCommand(new Command("NvseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "NVSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout: New Vegas", "NVSE"), strCommand), imgIcon, LaunchFalloutNVNVSE, true));
 			}
 
 			strCommand = GetFNV4GbLaunchCommand();

@@ -163,6 +163,36 @@ namespace Nexus.Client.Games
 		}
 
 		/// <summary>
+		/// Appends the resolved executable path to the description of a launcher/tool command.
+		/// This is primarily used by script-extender launch commands so the UI tooltip shows
+		/// exactly which executable NMM is going to start.
+		/// </summary>
+		protected static string AppendExecutablePathToDescription(string description, string executablePath)
+		{
+			if (String.IsNullOrWhiteSpace(executablePath))
+				return description;
+
+			string resolvedPath = executablePath;
+			try
+			{
+				resolvedPath = Path.GetFullPath(executablePath);
+			}
+			catch (Exception)
+			{
+				// Keep the original resolved launcher value if Path.GetFullPath cannot normalize it.
+			}
+
+			string pathLine = LanguageManager.Format(
+				"GameModes.Commands.Tool.ExecutablePath",
+				"Executable: {0}",
+				resolvedPath);
+
+			return String.IsNullOrWhiteSpace(description)
+				? pathLine
+				: description + Environment.NewLine + pathLine;
+		}
+
+		/// <summary>
 		/// Initializes the game launch commands.
 		/// </summary>
 		protected abstract void SetupCommands();
@@ -187,15 +217,26 @@ namespace Nexus.Client.Games
 		#region Launch Commands
 
 		/// <summary>
-		/// Launches the game.
+		/// Launches the game using the normal Windows shell behavior.
 		/// </summary>
-		/// <remarks>
-		/// This is the root launch method that all the other launch methods call. This method
-		/// actually spawns the new process to launch the game, using the given information.
-		/// </remarks>
 		/// <param name="p_strCommand">The command to execute to launch the game.</param>
-		/// <param name="p_strCommandArgs">The command argumetns to pass to the launch command.</param>
+		/// <param name="p_strCommandArgs">The command arguments to pass to the launch command.</param>
 		protected void Launch(string p_strCommand, string p_strCommandArgs)
+		{
+			LaunchProcess(p_strCommand, p_strCommandArgs, Path.GetDirectoryName(p_strCommand), true);
+		}
+
+		/// <summary>
+		/// Launches an executable directly, bypassing ShellExecute and explicitly setting
+		/// the child working directory. Intended for script extenders/loaders that resolve
+		/// native dependencies relative to the game directory.
+		/// </summary>
+		protected void LaunchDirectExecutable(string p_strCommand, string p_strCommandArgs, string p_strWorkingDirectory)
+		{
+			LaunchProcess(p_strCommand, p_strCommandArgs, p_strWorkingDirectory, false);
+		}
+
+		private void LaunchProcess(string p_strCommand, string p_strCommandArgs, string p_strWorkingDirectory, bool p_booUseShellExecute)
 		{
 			if (OnGameLaunching())
 			{
@@ -209,7 +250,17 @@ namespace Nexus.Client.Games
 				if (!String.IsNullOrEmpty(p_strCommandArgs))
 					psiGameLaunch.Arguments = p_strCommandArgs;
 				psiGameLaunch.FileName = p_strCommand;
-				psiGameLaunch.WorkingDirectory = Path.GetDirectoryName(p_strCommand);
+				psiGameLaunch.WorkingDirectory = String.IsNullOrEmpty(p_strWorkingDirectory)
+					? Path.GetDirectoryName(p_strCommand)
+					: p_strWorkingDirectory;
+				psiGameLaunch.UseShellExecute = p_booUseShellExecute;
+
+				Trace.TraceInformation("Launch executable: {0}", psiGameLaunch.FileName);
+				Trace.TraceInformation("Arguments: {0}", String.IsNullOrEmpty(psiGameLaunch.Arguments) ? "<none>" : psiGameLaunch.Arguments);
+				Trace.TraceInformation("Working directory: {0}", psiGameLaunch.WorkingDirectory);
+				Trace.TraceInformation("UseShellExecute: {0}", psiGameLaunch.UseShellExecute);
+				Trace.TraceInformation("NMM current directory: {0}", Environment.CurrentDirectory);
+
 				if (Process.Start(psiGameLaunch) == null)
 				{
 					Trace.TraceError("Failed (unknown error)");

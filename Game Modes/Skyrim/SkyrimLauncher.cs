@@ -55,7 +55,7 @@ namespace Nexus.Client.Games.Skyrim
 				var icon = string.IsNullOrEmpty(strCommand) ? null : Icon.ExtractAssociatedIcon(strCommand);
 				imgIcon = icon == null ? null : icon.ToBitmap();
 			}
-			AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Skyrim", "SKSE"), imgIcon, LaunchSkyrimSKSE, true));
+			AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Skyrim", "SKSE"), strCommand), imgIcon, LaunchSkyrimSKSE, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
@@ -133,7 +133,7 @@ namespace Nexus.Client.Games.Skyrim
 				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "SKSE"));
 				return;
 			}
-			Launch(strCommand, null);
+			LaunchDirectExecutable(strCommand, null, GameMode.GameModeEnvironmentInfo.InstallationPath);
 		}
 
 		/// <summary>

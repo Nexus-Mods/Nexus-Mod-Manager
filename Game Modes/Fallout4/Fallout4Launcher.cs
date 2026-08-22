@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.Fallout4
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("F4seLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "F4SE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout4", "F4SE"), imgIcon, LaunchFallout4SKSE, true));
+				AddLaunchCommand(new Command("F4seLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "F4SE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout4", "F4SE"), strCommand), imgIcon, LaunchFallout4SKSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();

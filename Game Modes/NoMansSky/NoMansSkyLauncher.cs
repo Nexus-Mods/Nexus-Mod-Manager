@@ -47,7 +47,7 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
             if (File.Exists(strCommand))
             {
                 imgIcon = SafeExtractIcon(strCommand);
-                AddLaunchCommand(new Command("NMSELaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchUsingToolName", "Launch {0} using {1}", "No Man's Sky", "NMSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchUsingExtenderDescription", "Launches {0} using the Extender", "No Man's Sky"), imgIcon, LaunchNoMansSkyExtender, true));
+                AddLaunchCommand(new Command("NMSELaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchUsingToolName", "Launch {0} using {1}", "No Man's Sky", "NMSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchUsingExtenderDescription", "Launches {0} using the Extender", "No Man's Sky"), strCommand), imgIcon, LaunchNoMansSkyExtender, true));
             }
 
 			strCommand = GetCustomLaunchCommand();

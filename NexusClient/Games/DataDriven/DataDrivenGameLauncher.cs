@@ -60,7 +60,7 @@ namespace Nexus.Client.Games.DataDriven
                 AddLaunchCommand(new Command(
                     "ScriptExtenderLaunch",
                     LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", scriptExtenderName),
-                    LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", GameMode.Name, scriptExtenderName),
+                    AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", GameMode.Name, scriptExtenderName), scriptExtenderCommand),
                     SafeExtractIcon(scriptExtenderCommand),
                     LaunchScriptExtender,
                     true));

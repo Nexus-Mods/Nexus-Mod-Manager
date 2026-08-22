@@ -48,7 +48,7 @@ namespace Nexus.Client.Games.SkyrimVR
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Skyrim VR", "SKSE"), imgIcon, LaunchSkyrimVRSKSE, true));
+				AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Skyrim VR", "SKSE"), strCommand), imgIcon, LaunchSkyrimVRSKSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();

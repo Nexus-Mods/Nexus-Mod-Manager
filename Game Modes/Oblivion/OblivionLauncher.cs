@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.Oblivion
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("ObseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "OBSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Oblivion", "OBSE"), imgIcon, LaunchOblivionOBSE, true));
+				AddLaunchCommand(new Command("ObseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "OBSE"), AppendExecutablePathToDescription(LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Oblivion", "OBSE"), strCommand), imgIcon, LaunchOblivionOBSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();

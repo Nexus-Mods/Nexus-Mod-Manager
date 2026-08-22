@@ -25,14 +25,14 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			InitializeComponent();
 			ApplyLocalization();
-			NmmIconProvider.Bind(butYes, NmmIconAction.Apply);
-			NmmIconProvider.Bind(butYesToAll, NmmIconAction.Apply);
-			NmmIconProvider.Bind(butYesToGroup, NmmIconAction.Apply);
-			NmmIconProvider.Bind(butYesToMod, NmmIconAction.Apply);
-			NmmIconProvider.Bind(butNo, NmmIconAction.Cancel);
-			NmmIconProvider.Bind(butNoToAll, NmmIconAction.Cancel);
-			NmmIconProvider.Bind(butNoToGroup, NmmIconAction.Cancel);
-			NmmIconProvider.Bind(butNoToMod, NmmIconAction.Cancel);
+			NmmIconProvider.BindDialogButton(butYes, NmmIconAction.Apply);
+			NmmIconProvider.BindDialogButton(butYesToAll, NmmIconAction.Apply);
+			NmmIconProvider.BindDialogButton(butYesToGroup, NmmIconAction.Apply);
+			NmmIconProvider.BindDialogButton(butYesToMod, NmmIconAction.Apply);
+			NmmIconProvider.BindDialogButton(butNo, NmmIconAction.Cancel);
+			NmmIconProvider.BindDialogButton(butNoToAll, NmmIconAction.Cancel);
+			NmmIconProvider.BindDialogButton(butNoToGroup, NmmIconAction.Cancel);
+			NmmIconProvider.BindDialogButton(butNoToMod, NmmIconAction.Cancel);
 			lblMessage.Text = p_strMessage;
 			if (!p_booAllowGroup)
 			{
@@ -54,6 +54,7 @@ namespace Nexus.Client.ModManagement.UI
 			butYesToGroup.Tag = OverwriteResult.YesToGroup;
 			butYesToMod.Tag = OverwriteResult.YesToMod;
 
+			LayoutActionButtons();
 		}
 
 		#endregion
@@ -69,6 +70,52 @@ namespace Nexus.Client.ModManagement.UI
 			butNoToGroup.Text = LanguageManager.Get("Overwrite.NoToFolder", "No to folder");
 			butNoToMod.Text = LanguageManager.Get("Overwrite.NoToMod", "No to Mod");
 			butNo.Text = LanguageManager.Get("Common.Button.No", "No");
+		}
+
+		private void LayoutActionButtons()
+		{
+			SimpleButton[] buttons =
+			{
+				butYesToAll, butYesToGroup, butYesToMod, butYes,
+				butNoToAll, butNoToGroup, butNoToMod, butNo
+			};
+			const int iconSize = 16;
+			const int minimumButtonWidth = 75;
+			const int buttonPadding = 20;
+			const int spacing = 6;
+			const int horizontalMargin = 12;
+
+			int[] widths = new int[buttons.Length];
+			int totalWidth = spacing * (buttons.Length - 1);
+			for (int i = 0; i < buttons.Length; i++)
+			{
+				int textWidth = TextRenderer.MeasureText(
+					buttons[i].Text ?? String.Empty,
+					buttons[i].Font,
+					System.Drawing.Size.Empty,
+					TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+				widths[i] = Math.Max(minimumButtonWidth, textWidth + iconSize + buttonPadding);
+				totalWidth += widths[i];
+			}
+
+			int targetWidth = Math.Max(670, totalWidth + horizontalMargin * 2);
+			if (ClientSize.Width != targetWidth)
+				ClientSize = new System.Drawing.Size(targetWidth, ClientSize.Height);
+
+			int x = (targetWidth - totalWidth) / 2;
+			for (int i = 0; i < buttons.Length; i++)
+			{
+				buttons[i].SetBounds(x, 4, widths[i], 23);
+				x += widths[i] + spacing;
+			}
+
+			lblMessage.Width = Math.Max(100, targetWidth - 22);
+		}
+
+		protected override void OnShown(EventArgs e)
+		{
+			base.OnShown(e);
+			LayoutActionButtons();
 		}
 
 		private OverwriteResult m_owrResult;

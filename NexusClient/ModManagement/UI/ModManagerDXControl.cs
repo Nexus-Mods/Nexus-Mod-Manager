@@ -266,6 +266,13 @@
 			};
 		}
 
+		protected override void OnLoad(EventArgs e)
+		{
+			base.OnLoad(e);
+			NmmIconProvider.BindBar(barModActions, NmmButtonPresentationScope.Mods, _toolbarPositionLeft);
+			UpdateToolbarSeparators(_toolbarPositionLeft);
+		}
+
 		/// <summary>
 		/// Applies the MainForm-level Aa Display selection through the existing
 		/// Mod Manager font, density and cached drawing resources.
@@ -436,7 +443,6 @@
 					_viewModel.SkyrimDownloadImage, new Size(16, 16));
 			tsbSkyrimDownloads.Caption = String.Format(_downloadModeCaptionFormat, GetSkyrimDownloadModeLabel());
 			tsbSkyrimDownloads.Hint = String.Format(_downloadModeHintFormat, _viewModel.SkyrimSEDownloadModeDescriptor);
-			tsbSkyrimDownloads.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 		}
 
 		// ── public helpers ───────────────────────────────────────────────────
@@ -877,9 +883,7 @@
 		private void ApplyToolbarActionLabels()
 		{
 			tsbDeactivate.Caption = LanguageManager.Get("Mods.Actions.Disable.Name", "Disable Mod");
-			tsbDeactivate.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 			tsbTagMod.Caption = LanguageManager.Get("Mods.Actions.GetInfo.Name", "Get Mod Info");
-			tsbTagMod.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 		}
 
 		private void InitializePerformanceResources()

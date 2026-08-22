@@ -2680,6 +2680,8 @@
 
 			Command command = item.Tag as Command;
 			NmmIconProvider.Bind(spbLaunch, NmmIconAction.Launch, command == null ? null : command.Image);
+			spbLaunch.Hint = command == null ? item.Hint : command.Description;
+			spbLaunch.ShowToolTip = true;
 		}
 
 		/// <summary>

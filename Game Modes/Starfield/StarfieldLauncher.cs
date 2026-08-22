@@ -47,7 +47,7 @@ namespace Nexus.Client.Games.Starfield
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SFSELaunch", LanguageManager.Get("GameModes.Starfield.Launcher.SFSE.Name", "Launch SFSE"), LanguageManager.Get("GameModes.Starfield.Launcher.SFSE.Description", "Launches Starfield with F4SE."), imgIcon, LaunchStarfieldSKSE, true));
+				AddLaunchCommand(new Command("SFSELaunch", LanguageManager.Get("GameModes.Starfield.Launcher.SFSE.Name", "Launch SFSE"), AppendExecutablePathToDescription(LanguageManager.Get("GameModes.Starfield.Launcher.SFSE.Description", "Launches Starfield with SFSE."), strCommand), imgIcon, LaunchStarfieldSKSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();

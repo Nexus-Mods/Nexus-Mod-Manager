@@ -351,6 +351,31 @@ namespace Nexus.Client.UI
 		}
 
 		/// <summary>
+		/// Binds a semantic icon to a dialog action while deliberately ignoring the
+		/// configurable toolbar presentation and icon-size settings.
+		/// </summary>
+		internal static void BindDialogButton(SimpleButton button, NmmIconAction action)
+		{
+			if (button == null || button.IsDisposed)
+				return;
+
+			lock (SyncRoot)
+			{
+				ApplyPaletteCore(false);
+				IconBinding binding = RegisterBindingCore(
+					button,
+					action,
+					null,
+					null,
+					16,
+					NmmButtonPresentation.TextAndIcons);
+				EnsureSimpleButtonTextTrackingCore(button, binding);
+				EnsureSimpleButtonToolTip(button);
+				ApplyBindingCore(button, action, null, binding);
+			}
+		}
+
+		/// <summary>
 		/// Registers a toolbar surface for global button presentation. Individual menu
 		/// links are deliberately left untouched so menu captions remain visible.
 		/// </summary>
@@ -419,7 +444,13 @@ namespace Nexus.Client.UI
 			}
 		}
 
-		private static IconBinding RegisterBindingCore(object target, NmmIconAction action, Image preferredImage = null, NmmButtonPresentationScope? presentationScope = null)
+		private static IconBinding RegisterBindingCore(
+			object target,
+			NmmIconAction action,
+			Image preferredImage = null,
+			NmmButtonPresentationScope? presentationScope = null,
+			int? iconSizeOverride = null,
+			NmmButtonPresentation? presentationOverride = null)
 		{
 			for (int i = Bindings.Count - 1; i >= 0; i--)
 			{
@@ -435,11 +466,13 @@ namespace Nexus.Client.UI
 					Bindings[i].Action = action;
 					Bindings[i].PreferredImage = preferredImage;
 					Bindings[i].PresentationScope = presentationScope;
+					Bindings[i].IconSizeOverride = iconSizeOverride;
+					Bindings[i].PresentationOverride = presentationOverride;
 					return Bindings[i];
 				}
 			}
 
-			IconBinding binding = new IconBinding(target, action, preferredImage, presentationScope);
+			IconBinding binding = new IconBinding(target, action, preferredImage, presentationScope, iconSizeOverride, presentationOverride);
 			Bindings.Add(binding);
 			return binding;
 		}
@@ -469,7 +502,7 @@ namespace Nexus.Client.UI
 					return;
 
 				string currentText = button.Text ?? String.Empty;
-				NmmButtonPresentation presentation = GetButtonPresentationCore(binding.PresentationScope);
+				NmmButtonPresentation presentation = GetButtonPresentationCore(binding);
 				if (presentation == NmmButtonPresentation.IconsOnly)
 				{
 					if (!String.IsNullOrEmpty(currentText))
@@ -657,6 +690,14 @@ namespace Nexus.Client.UI
 				: NmmButtonPresentation.TextAndIcons;
 		}
 
+		private static NmmButtonPresentation GetButtonPresentationCore(IconBinding binding)
+		{
+			if (binding != null && binding.PresentationOverride.HasValue)
+				return binding.PresentationOverride.Value;
+
+			return GetButtonPresentationCore(binding == null ? (NmmButtonPresentationScope?)null : binding.PresentationScope);
+		}
+
 		private static string GetCompactCaption(NmmIconAction action, string fallbackCaption)
 		{
 			switch (action)
@@ -768,7 +809,10 @@ namespace Nexus.Client.UI
 
 		private static void ApplyBindingCore(object target, NmmIconAction action, Image preferredImage, IconBinding binding)
 		{
-			Size imageSize = new Size(_iconSize, _iconSize);
+			int iconSize = binding != null && binding.IconSizeOverride.HasValue
+				? binding.IconSizeOverride.Value
+				: _iconSize;
+			Size imageSize = new Size(iconSize, iconSize);
 
 			BarItem barItem = target as BarItem;
 			if (barItem != null)
@@ -801,7 +845,7 @@ namespace Nexus.Client.UI
 			{
 				if (binding == null)
 					binding = FindBindingCore(button);
-				NmmButtonPresentation presentation = GetButtonPresentationCore(binding == null ? (NmmButtonPresentationScope?)null : binding.PresentationScope);
+				NmmButtonPresentation presentation = GetButtonPresentationCore(binding);
 				if (binding != null)
 				{
 					if (presentation == NmmButtonPresentation.IconsOnly)
@@ -1012,18 +1056,28 @@ namespace Nexus.Client.UI
 
 		private sealed class IconBinding
 		{
-			internal IconBinding(object target, NmmIconAction action, Image preferredImage, NmmButtonPresentationScope? presentationScope)
+			internal IconBinding(
+				object target,
+				NmmIconAction action,
+				Image preferredImage,
+				NmmButtonPresentationScope? presentationScope,
+				int? iconSizeOverride,
+				NmmButtonPresentation? presentationOverride)
 			{
 				Target = new WeakReference(target);
 				Action = action;
 				PreferredImage = preferredImage;
 				PresentationScope = presentationScope;
+				IconSizeOverride = iconSizeOverride;
+				PresentationOverride = presentationOverride;
 			}
 
 			internal WeakReference Target { get; private set; }
 			internal NmmIconAction Action { get; set; }
 			internal Image PreferredImage { get; set; }
 			internal NmmButtonPresentationScope? PresentationScope { get; set; }
+			internal int? IconSizeOverride { get; set; }
+			internal NmmButtonPresentation? PresentationOverride { get; set; }
 			internal string OriginalText { get; set; }
 			internal bool AutoToolTip { get; set; }
 			internal bool TextTrackingAttached { get; set; }
