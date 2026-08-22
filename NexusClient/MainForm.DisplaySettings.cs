@@ -59,8 +59,8 @@ namespace Nexus.Client
 			int iconSize = DevExpressDisplaySettings.ParseIconSize(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconSizeSettingsKey, null, DevExpressDisplaySettings.FormatIconSize(DevExpressDisplaySettings.DefaultIconSize)));
 			NmmIconColorProfile iconColorProfile = DevExpressDisplaySettings.ResolveIconColorProfile(ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayIconColorProfileSettingsKey, null, DevExpressDisplaySettings.DefaultIconColorProfile.ToString()));
 			NmmButtonPresentationProfile buttonPresentationProfile = DevExpressDisplaySettings.ResolveButtonPresentationProfile(
-				ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayButtonPresentationSettingsKey, null, DevExpressDisplaySettings.DefaultButtonPresentation.ToString()),
-				scope => ReadDevExpressDisplaySetting(viewModel, DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope), null, DevExpressDisplaySettings.DefaultButtonPresentation.ToString()));
+				ReadDevExpressDisplaySetting(viewModel, DevExpressDisplayButtonPresentationSettingsKey, null, DevExpressDisplaySettings.FormatButtonPresentationGlobal(DevExpressDisplaySettings.DefaultButtonPresentationProfile)),
+				scope => ReadDevExpressDisplaySetting(viewModel, DevExpressDisplaySettings.GetButtonPresentationSettingsKey(scope), null, DevExpressDisplaySettings.DefaultButtonPresentationProfile.Get(scope).ToString()));
 
 			_devExpressDisplaySettings = new DevExpressDisplaySettings(fontName, fontSize, density, iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);
 			NmmIconProvider.ApplySettings(iconStyle, iconSize, iconColorProfile, buttonPresentationProfile);

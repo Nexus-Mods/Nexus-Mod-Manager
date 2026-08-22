@@ -486,6 +486,15 @@
     <None Include="GameModes\Definitions\Enderal\game.json" />
     <None Include="GameModes\Definitions\Enderal\supportedTools.json" />
     <None Include="GameModes\Definitions\XCOM2\supportedTools.json" />
+    <Content Include="Languages\French.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Languages\German.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Languages\Spanish.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="Resources\token_info.png" />
     <None Include="Resources\update_check_flat.png" />
     <None Include="data\NMM License.rtf" />

@@ -146,6 +146,17 @@ namespace Nexus.Client.UI
 			return new NmmButtonPresentationProfile(false, presentation, values);
 		}
 
+		internal static NmmButtonPresentationProfile CreateDefault()
+		{
+			Dictionary<NmmButtonPresentationScope, NmmButtonPresentation> values = new Dictionary<NmmButtonPresentationScope, NmmButtonPresentation>();
+			foreach (NmmButtonPresentationScope scope in Enum.GetValues(typeof(NmmButtonPresentationScope)))
+				values[scope] = NmmButtonPresentation.TextAndIcons;
+
+			values[NmmButtonPresentationScope.DownloadManager] = NmmButtonPresentation.IconsOnly;
+			values[NmmButtonPresentationScope.ModActivationQueue] = NmmButtonPresentation.IconsOnly;
+			return new NmmButtonPresentationProfile(true, NmmButtonPresentation.TextAndIcons, values);
+		}
+
 		internal static NmmButtonPresentationProfile CreateCustom(IDictionary<NmmButtonPresentationScope, NmmButtonPresentation> values)
 		{
 			Dictionary<NmmButtonPresentationScope, NmmButtonPresentation> resolved = new Dictionary<NmmButtonPresentationScope, NmmButtonPresentation>();
@@ -232,7 +243,7 @@ namespace Nexus.Client.UI
 		private static NmmIconStyle _style = NmmIconStyle.Minimal;
 		private static int _iconSize = DefaultIconSize;
 		private static NmmIconColorProfile _colorProfile = NmmIconColorProfile.Base;
-		private static NmmButtonPresentationProfile _buttonPresentationProfile = NmmButtonPresentationProfile.CreateGlobal(NmmButtonPresentation.TextAndIcons);
+		private static NmmButtonPresentationProfile _buttonPresentationProfile = NmmButtonPresentationProfile.CreateDefault();
 		private static bool _darkSurface;
 		private static string _paletteStamp;
 
@@ -249,7 +260,7 @@ namespace Nexus.Client.UI
 			lock (SyncRoot)
 			{
 				int resolvedIconSize = NormalizeIconSize(iconSize);
-				NmmButtonPresentationProfile resolvedPresentationProfile = buttonPresentationProfile ?? NmmButtonPresentationProfile.CreateGlobal(NmmButtonPresentation.TextAndIcons);
+				NmmButtonPresentationProfile resolvedPresentationProfile = buttonPresentationProfile ?? NmmButtonPresentationProfile.CreateDefault();
 				bool settingsChanged = _style != style ||
 					_iconSize != resolvedIconSize ||
 					_colorProfile != colorProfile ||

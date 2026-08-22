@@ -26,7 +26,7 @@ namespace Nexus.Client.UI
 		internal const NmmIconStyle DefaultIconStyle = NmmIconStyle.Minimal;
 		internal const NmmIconColorProfile DefaultIconColorProfile = NmmIconColorProfile.Base;
 		internal const NmmButtonPresentation DefaultButtonPresentation = NmmButtonPresentation.TextAndIcons;
-		internal static readonly NmmButtonPresentationProfile DefaultButtonPresentationProfile = NmmButtonPresentationProfile.CreateGlobal(DefaultButtonPresentation);
+		internal static readonly NmmButtonPresentationProfile DefaultButtonPresentationProfile = NmmButtonPresentationProfile.CreateDefault();
 		private const string FontSettingsKey = "mainForm.DevExpressDisplay.Font";
 		private const string FontSizeSettingsKey = "mainForm.DevExpressDisplay.FontSize";
 		private const string DensitySettingsKey = "mainForm.DevExpressDisplay.Density";
@@ -155,8 +155,8 @@ namespace Nexus.Client.UI
 				null,
 				DefaultIconColorProfile.ToString()));
 			NmmButtonPresentationProfile buttonPresentationProfile = ResolveButtonPresentationProfile(
-				ReadSetting(settings, ButtonPresentationSettingsKey, null, DefaultButtonPresentation.ToString()),
-				scope => ReadSetting(settings, GetButtonPresentationSettingsKey(scope), null, DefaultButtonPresentation.ToString()));
+				ReadSetting(settings, ButtonPresentationSettingsKey, null, FormatButtonPresentationGlobal(DefaultButtonPresentationProfile)),
+				scope => ReadSetting(settings, GetButtonPresentationSettingsKey(scope), null, DefaultButtonPresentationProfile.Get(scope).ToString()));
 
 			return new DevExpressDisplaySettings(
 				fontName,
