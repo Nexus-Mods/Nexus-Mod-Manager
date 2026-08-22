@@ -148,6 +148,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
+			NmmIconProvider.BindBar(barActions, NmmButtonPresentationScope.ModActivationQueue, true);
 			InitializeColumnWidthPersistence();
 		}
 

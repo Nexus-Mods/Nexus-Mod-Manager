@@ -147,6 +147,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		protected override void OnLoad(EventArgs e)
 		{
 			base.OnLoad(e);
+			NmmIconProvider.BindBar(barActions, NmmButtonPresentationScope.DownloadManager, true);
 			InitializeColumnWidthPersistence();
 		}
 
