@@ -7,14 +7,15 @@
     using System.Threading.Tasks;
 
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// Resolves expensive file-link information after the File Manager grid has been published.
     /// </summary>
     internal static class FileManagerLinkTypeResolver
     {
-        public const string PendingDisplayText = "Detecting...";
-        public const string UnavailableDisplayText = "Unavailable";
+        public static readonly string PendingDisplayText = LanguageManager.Get("FileManager.LinkType.Detecting", "Detecting...");
+        public static readonly string UnavailableDisplayText = LanguageManager.Get("FileManager.LinkType.Unavailable", "Unavailable");
         private const int DefaultBatchSize = 512;
         private const int DefaultMaximumWorkers = 2;
 

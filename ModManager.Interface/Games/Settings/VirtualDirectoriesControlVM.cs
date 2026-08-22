@@ -9,6 +9,7 @@ using Microsoft.Win32;
 using Nexus.Client.ModManagement;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -161,7 +162,7 @@ namespace Nexus.Client.Games.Settings
 			Errors.Clear(p_strProperty);
 			if (String.IsNullOrWhiteSpace(p_strPath))
 			{
-				Errors.SetError(p_strProperty, String.Format("You must select a {0}.", p_strPathName));
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.VirtualFolders.Validation.RequiredPath", "You must select a {0}.", p_strPathName));
 				return false;
 			}
 			else if (
@@ -170,7 +171,7 @@ namespace Nexus.Client.Games.Settings
 				(String.Equals(GameModeDescriptor.InstallationPath, p_strPath))
 				)
 			{
-				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.VirtualFolders.Validation.ProtectedPath", "You can't set the {0} equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
 					"Game root folder - {1}" + Environment.NewLine +
 					"Mod install folder - {3}" + Environment.NewLine,
@@ -180,9 +181,9 @@ namespace Nexus.Client.Games.Settings
 			}
 			else if (p_booGameHDCheck && (!CheckOnGameHD(p_strPath, out strExpected)))
 			{
-				Errors.SetError(p_strProperty, string.Format("You MUST set the {0} on the same HD as the usual mod install folder:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.VirtualFolders.Validation.SameDriveRequired", "You MUST set the {0} on the same HD as the usual mod install folder:" + Environment.NewLine +
 					"Selected HD: {1} - Expected HD: {2}" + Environment.NewLine,
-					p_strPathName, Path.GetPathRoot(p_strPath), strExpected ?? "You need to set the RequiredTool folder first"));
+					p_strPathName, Path.GetPathRoot(p_strPath), strExpected ?? LanguageManager.Get("GameSettings.VirtualFolders.Validation.RequiredToolFirst", "You need to set the RequiredTool folder first")));
 				return false;
 			}
 			else
@@ -191,7 +192,7 @@ namespace Nexus.Client.Games.Settings
 				{
 					if (String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
 					{
-						Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the plugin folder.", p_strPathName));
+						Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.VirtualFolders.Validation.PluginFolderConflict", "You can't set the {0} equal to the plugin folder.", p_strPathName));
 						return false;
 					}
 				}
@@ -211,7 +212,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateVirtualDirectory()
 		{
-			return ValidateDirectory(VirtualDirectory, "Virtual Directory", ObjectHelper.GetPropertyName(() => VirtualDirectory), !MultiHDInstall);
+			return ValidateDirectory(VirtualDirectory, LanguageManager.Get("GameSettings.VirtualFolders.VirtualDirectoryName", "Virtual Directory"), ObjectHelper.GetPropertyName(() => VirtualDirectory), !MultiHDInstall);
 		}
 
 		/// <summary>
@@ -221,7 +222,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateLinkDirectory()
 		{
-			return ValidateDirectory(LinkDirectory, "Link Directory", ObjectHelper.GetPropertyName(() => LinkDirectory), true);
+			return ValidateDirectory(LinkDirectory, LanguageManager.Get("GameSettings.VirtualFolders.LinkDirectoryName", "Link Directory"), ObjectHelper.GetPropertyName(() => LinkDirectory), true);
 		}
 
 		/// <summary>

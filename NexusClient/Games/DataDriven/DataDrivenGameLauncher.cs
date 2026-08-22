@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -46,8 +47,8 @@ namespace Nexus.Client.Games.DataDriven
             Image icon = SafeExtractIcon(plainCommand);
             AddLaunchCommand(new Command(
                 definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.PlainCommandName) ? "PlainLaunch" : definition.Launcher.PlainCommandName,
-                definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.PlainCommandText) ? "Launch " + GameMode.Name : definition.Launcher.PlainCommandText,
-                "Launches " + GameMode.Name + ".",
+                definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.PlainCommandText) ? LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", GameMode.Name) : definition.Launcher.PlainCommandText,
+                LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", GameMode.Name),
                 icon,
                 LaunchPlain,
                 true));
@@ -58,8 +59,8 @@ namespace Nexus.Client.Games.DataDriven
                 string scriptExtenderName = GetScriptExtenderDisplayName(definition, scriptExtenderCommand);
                 AddLaunchCommand(new Command(
                     "ScriptExtenderLaunch",
-                    "Launch " + scriptExtenderName,
-                    "Launches " + GameMode.Name + " with " + scriptExtenderName + ".",
+                    LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", scriptExtenderName),
+                    LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", GameMode.Name, scriptExtenderName),
                     SafeExtractIcon(scriptExtenderCommand),
                     LaunchScriptExtender,
                     true));
@@ -70,17 +71,17 @@ namespace Nexus.Client.Games.DataDriven
                 string customCommand = GetCustomLaunchCommand();
                 AddLaunchCommand(new Command(
                     string.IsNullOrWhiteSpace(definition.Launcher.CustomCommandName) ? "CustomLaunch" : definition.Launcher.CustomCommandName,
-                    string.IsNullOrWhiteSpace(definition.Launcher.CustomCommandText) ? "Launch Custom " + GameMode.Name : definition.Launcher.CustomCommandText,
-                    "Launches " + GameMode.Name + " with a custom command.",
+                    string.IsNullOrWhiteSpace(definition.Launcher.CustomCommandText) ? LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", GameMode.Name) : definition.Launcher.CustomCommandText,
+                    LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", GameMode.Name),
                     SafeExtractIcon(customCommand),
                     LaunchCustom,
                     true));
             }
 
             string defaultText = definition.Launcher == null || string.IsNullOrWhiteSpace(definition.Launcher.DefaultCommandText)
-                ? "Launch " + GameMode.Name
+                ? LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", GameMode.Name)
                 : definition.Launcher.DefaultCommandText;
-            DefaultLaunchCommand = new Command(defaultText, "Launches " + GameMode.Name + ".", LaunchDefault);
+            DefaultLaunchCommand = new Command(defaultText, LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", GameMode.Name), LaunchDefault);
         }
 
         private void LaunchDefault()

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Starbound
 {
@@ -39,19 +40,19 @@ namespace Nexus.Client.Games.Starbound
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Starbound", "Launches default Starbound.", imgIcon, LaunchStarboundPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Starbound"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "Starbound"), imgIcon, LaunchStarboundPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("OpenGLLaunch", "Launch OpenGL Starbound", "Launches OpenGL Starbound.", imgIcon, LaunchStarboundOpenGL, true));
+            AddLaunchCommand(new Command("OpenGLLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchOpenGLName", "Launch OpenGL {0}", "Starbound"), LanguageManager.Format("GameModes.Commands.Game.LaunchOpenGLDescription", "Launches OpenGL {0}.", "Starbound"), imgIcon, LaunchStarboundOpenGL, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Starbound", "Launches Starbound with custom command.", imgIcon, LaunchStarboundCustom, true));
+            AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Starbound"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Starbound"), imgIcon, LaunchStarboundCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Starbound", "Launches Starbound.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Starbound"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Starbound"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -74,7 +75,7 @@ namespace Nexus.Client.Games.Starbound
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

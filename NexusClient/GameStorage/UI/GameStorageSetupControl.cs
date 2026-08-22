@@ -9,6 +9,7 @@ using DevExpress.XtraGrid;
 using DevExpress.XtraGrid.Columns;
 using DevExpress.XtraGrid.Views.Grid;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.GameStorage.UI
 {
@@ -26,6 +27,7 @@ namespace Nexus.Client.GameStorage.UI
         private readonly TextEdit _manualLinkFolderEdit;
         private readonly SimpleButton _manualLinkFolderButton;
         private readonly SimpleButton _legacySetupButton;
+        private readonly string _candidateUseText;
         private GridColumn _candidateUseColumn;
         private bool _suppressManualPathChanged;
         private bool _manualPathsEdited;
@@ -43,10 +45,11 @@ namespace Nexus.Client.GameStorage.UI
         {
             Dock = DockStyle.Fill;
             Padding = new Padding(10);
+            _candidateUseText = LanguageManager.Get("GameStorage.Common.Use", "Use");
 
             _titleLabel = new LabelControl
             {
-                Text = "Game Storage recovery",
+                Text = LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"),
                 Dock = DockStyle.Top,
                 Height = 28
             };
@@ -58,15 +61,15 @@ namespace Nexus.Client.GameStorage.UI
                 Dock = DockStyle.Top,
                 Height = 150,
                 ReadOnly = true,
-                Text = "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery."
+                Text = LanguageManager.Get("GameStorage.Recovery.ControlDescription", "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. NMM will not move, rename, or delete folders during recovery.")
             };
             _descriptionEdit.Properties.BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder;
 
-            var manualPanel = new GroupControl { Text = "Selected folders", Dock = DockStyle.Top, Height = 138 };
-            _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, "Install info", 30);
-            _manualModsEdit = CreateManualPathEdit(manualPanel, "Mod archives", 56);
-            _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, "Virtual install", 82);
-            _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, "Link folder", 108);
+            var manualPanel = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.SelectedFolders", "Selected folders"), Dock = DockStyle.Top, Height = 138 };
+            _manualInstallInfoEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.InstallInfo", "Install info"), 30);
+            _manualModsEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.ModArchives", "Mod archives"), 56);
+            _manualVirtualInstallEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.VirtualInstall", "Virtual install"), 82);
+            _manualLinkFolderEdit = CreateManualPathEdit(manualPanel, LanguageManager.Get("GameStorage.Common.LinkFolder", "Link folder"), 108);
             _manualInstallInfoEdit.EditValueChanged += ManualPathEditValueChanged;
             _manualModsEdit.EditValueChanged += ManualPathEditValueChanged;
             _manualVirtualInstallEdit.EditValueChanged += ManualVirtualInstallEditValueChanged;
@@ -98,18 +101,18 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridControl.ViewCollection.Add(_candidateGridView);
             ConfigureCandidateGrid();
 
-            var healthGroup = new GroupControl { Text = "Selected folders check", Dock = DockStyle.Fill };
+            var healthGroup = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.SelectedFoldersCheck", "Selected folders check"), Dock = DockStyle.Fill };
             healthGroup.Controls.Add(_healthGridControl);
-            var candidateGroup = new GroupControl { Text = "Detected setup options", Dock = DockStyle.Fill };
+            var candidateGroup = new GroupControl { Text = LanguageManager.Get("GameStorage.Common.DetectedSetupOptions", "Detected setup options"), Dock = DockStyle.Fill };
             candidateGroup.Controls.Add(_candidateGridControl);
             splitContainer.Panel1.Controls.Add(healthGroup);
             splitContainer.Panel2.Controls.Add(candidateGroup);
 
             var buttonPanel = new PanelControl { Dock = DockStyle.Bottom, Height = 44, BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder };
-            var refreshButton = new SimpleButton { Text = "Refresh", Width = 90, Top = 8 };
-            var applyButton = new SimpleButton { Text = "Apply selected", Width = 118, Top = 8 };
-            _legacySetupButton = new SimpleButton { Text = "Keep legacy setup", Width = 128, Top = 8, Visible = false };
-            var cancelButton = new SimpleButton { Text = "Cancel", Width = 90, Top = 8 };
+            var refreshButton = new SimpleButton { Text = LanguageManager.Get("Common.Action.Refresh", "Refresh"), Width = 90, Top = 8 };
+            var applyButton = new SimpleButton { Text = LanguageManager.Get("GameStorage.Common.ApplySelected", "Apply selected"), Width = 118, Top = 8 };
+            _legacySetupButton = new SimpleButton { Text = LanguageManager.Get("GameStorage.Common.KeepLegacySetup", "Keep legacy setup"), Width = 128, Top = 8, Visible = false };
+            var cancelButton = new SimpleButton { Text = LanguageManager.Get("Common.Action.Cancel", "Cancel"), Width = 90, Top = 8 };
             NmmIconProvider.Bind(refreshButton, NmmIconAction.Refresh);
             NmmIconProvider.Bind(applyButton, NmmIconAction.Apply);
             NmmIconProvider.Bind(_legacySetupButton, NmmIconAction.Restore);
@@ -337,7 +340,7 @@ namespace Nexus.Client.GameStorage.UI
         {
             using (var dialog = new XtraFolderBrowserDialog())
             {
-                dialog.Description = "Select " + caption + " folder.";
+                dialog.Description = LanguageManager.Format("GameStorage.Common.SelectFolderPrompt", "Select {0} folder.", caption);
                 if (!string.IsNullOrWhiteSpace(edit.Text))
                     dialog.SelectedPath = edit.Text;
                 if (dialog.ShowDialog(this) == DialogResult.OK)
@@ -383,7 +386,7 @@ namespace Nexus.Client.GameStorage.UI
             }
             else
             {
-                TextRenderer.DrawText(e.Graphics, "Use", e.Appearance.Font, e.Bounds, e.Appearance.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                TextRenderer.DrawText(e.Graphics, _candidateUseText, e.Appearance.Font, e.Bounds, e.Appearance.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             }
 
             e.Handled = true;
@@ -392,10 +395,10 @@ namespace Nexus.Client.GameStorage.UI
         private void ConfigureHealthGrid()
         {
             ConfigureSetupGridLook(_healthGridView, false);
-            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Role), "Folder", 0, 105));
-            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Path), "Path", 1, 330));
-            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Status), "Status", 2, 130));
-            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Message), "Message", 3, 360));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Role), LanguageManager.Get("GameStorage.Columns.Folder", "Folder"), 0, 105));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Path), LanguageManager.Get("GameStorage.Columns.Path", "Path"), 1, 330));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Status), LanguageManager.Get("GameStorage.Columns.Status", "Status"), 2, 130));
+            _healthGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageSetupRow.Message), LanguageManager.Get("GameStorage.Columns.Message", "Message"), 3, 360));
         }
 
         private GridColumn CreateReadOnlyColumn(string fieldName, string caption, int visibleIndex, int width)
@@ -409,20 +412,20 @@ namespace Nexus.Client.GameStorage.UI
         {
             ConfigureSetupGridLook(_candidateGridView, false);
 
-            _candidateUseColumn = new GridColumn { Caption = "Select", Visible = true, VisibleIndex = 0, Width = 54 };
+            _candidateUseColumn = new GridColumn { Caption = LanguageManager.Get("GameStorage.Columns.Select", "Select"), Visible = true, VisibleIndex = 0, Width = 54 };
             _candidateUseColumn.OptionsColumn.AllowEdit = false;
             _candidateUseColumn.OptionsColumn.FixedWidth = true;
             _candidateGridView.Columns.Add(_candidateUseColumn);
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateKind), "Source", 1, 130));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.SharedModsDescription), "Shared Mods library", 2, 250));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.Recommendation), "Reason / recommendation", 3, 330));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), "Score", 4, 60));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceLevel), "Confidence", 5, 90));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateRoot), "Root", 6, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.InstallInfoPath), "Install info", 7, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), "Mod archives", 8, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), "Virtual install", 9, 260));
-            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), "Link folder", 10, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateKindDisplay), LanguageManager.Get("GameStorage.Columns.Source", "Source"), 1, 130));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.SharedModsDescription), LanguageManager.Get("GameStorage.Columns.SharedModsLibrary", "Shared Mods library"), 2, 250));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.RecommendationDisplay), LanguageManager.Get("GameStorage.Columns.ReasonRecommendation", "Reason / recommendation"), 3, 330));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceScore), LanguageManager.Get("GameStorage.Columns.Score", "Score"), 4, 60));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ConfidenceDisplay), LanguageManager.Get("GameStorage.Columns.Confidence", "Confidence"), 5, 90));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.CandidateRoot), LanguageManager.Get("GameStorage.Columns.Root", "Root"), 6, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.InstallInfoPath), LanguageManager.Get("GameStorage.Common.InstallInfo", "Install info"), 7, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.ModsPath), LanguageManager.Get("GameStorage.Common.ModArchives", "Mod archives"), 8, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.VirtualInstallPath), LanguageManager.Get("GameStorage.Common.VirtualInstall", "Virtual install"), 9, 260));
+            _candidateGridView.Columns.Add(CreateReadOnlyColumn(nameof(GameStorageCandidate.LinkFolderPath), LanguageManager.Get("GameStorage.Common.LinkFolder", "Link folder"), 10, 260));
         }
 
         private static void ConfigureSetupGridLook(GridView view, bool editable)

@@ -9,6 +9,7 @@ using Nexus.Client.Games.Gamebryo.Plugins;
 using Nexus.Client.Games.Gamebryo.Tools.TESsnip;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Gamebryo.PluginManagement
 {
@@ -19,6 +20,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 	{
 		private string m_strPluginDirectory = null;
 		private readonly PluginManagementPolicy m_pmpPluginPolicy;
+		private readonly string m_strCorruptWarning;
+		private readonly string m_strWarningEslFlagMissing;
+		private readonly string m_strWarningEsmFlagMissing;
+		private readonly string m_strWarningEsmFlagMissingMarkedEsp;
+		private readonly string m_strWarningEspEslEsm;
+		private readonly string m_strWarningEspEsm;
+		private readonly string m_strLightPluginInfo;
+		private readonly string m_strAuthorLabel;
+		private readonly string m_strDescriptionLabel;
+		private readonly string m_strMastersLabel;
+		private readonly string m_strMissingLabel;
+		private readonly string m_strDisabledLabel;
 
 		#region Properties
 
@@ -47,6 +60,18 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			m_strPluginDirectory = p_strPluginDirectory;
 			LoadOrderManager = p_bstLoadOrder;
 			m_pmpPluginPolicy = p_pmpPluginPolicy ?? new PluginManagementPolicy();
+			m_strCorruptWarning = LanguageManager.Get("Plugins.Details.CorruptWarning", "Warning: Plugin appears corrupt");
+			m_strWarningEslFlagMissing = LanguageManager.Get("Plugins.Details.Warning.EslFlagMissing", "WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!");
+			m_strWarningEsmFlagMissing = LanguageManager.Get("Plugins.Details.Warning.EsmFlagMissing", "WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag!");
+			m_strWarningEsmFlagMissingMarkedEsp = LanguageManager.Get("Plugins.Details.Warning.EsmFlagMissingMarkedEsp", "WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!");
+			m_strWarningEspEslEsm = LanguageManager.Get("Plugins.Details.Warning.EspMarkedEslEsm", "WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!");
+			m_strWarningEspEsm = LanguageManager.Get("Plugins.Details.Warning.EspMarkedEsm", "WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!");
+			m_strLightPluginInfo = LanguageManager.Get("Plugins.Details.LightPluginInfo", "This file is marked as a light plugin (so it doesn't use a full load order slot).");
+			m_strAuthorLabel = LanguageManager.Get("Plugins.Details.AuthorLabel", "Author");
+			m_strDescriptionLabel = LanguageManager.Get("Plugins.Details.DescriptionLabel", "Description");
+			m_strMastersLabel = LanguageManager.Get("Plugins.Details.MastersLabel", "Masters");
+			m_strMissingLabel = LanguageManager.Get("Plugins.Details.MissingLabel", "MISSING");
+			m_strDisabledLabel = LanguageManager.Get("Plugins.Details.DisabledLabel", "DISABLED");
 		}
 
 		#endregion
@@ -80,7 +105,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			}
 			if (tpgPlugin == null || tpgPlugin.Records.Count == 0 || (tpgPlugin.Records[0].Name != "TES4" && tpgPlugin.Records[0].Name != "TES3"))
 			{
-				string strDescription = strPluginName + Environment.NewLine + "Warning: Plugin appears corrupt";
+				string strDescription = strPluginName + Environment.NewLine + m_strCorruptWarning;
 				return new GamebryoPlugin(p_strPluginPath, strDescription, null, m_pmpPluginPolicy.Classify(p_strPluginPath, PluginHeaderFlags.None, 0, null, PluginParseStatus.Corrupt));
 			}
 
@@ -116,17 +141,17 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (tpgPlugin.Records[0].Name == "TES4")
 			{
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (!booHeaderLight))
-					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></color><br/><br/>");
+					stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEslFlagMissing);
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (!booHeaderMaster))
-					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag!</b></color><br/><br/>");
+					stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEsmFlagMissing);
 				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
 				{
 					if (booHeaderMaster && booHeaderLight)
-						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></color><br/><br/>");
+						stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEspEslEsm);
 					else if (booHeaderMaster)
-						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></color><br/><br/>");
+						stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEspEsm);
 					else if (booHeaderLight)
-						stbDescription.Append(@"<color=#00662d>This file is marked as a light plugin (so it doesn't use a full load order slot).</color><br><br>");
+						stbDescription.AppendFormat(@"<color=#00662d>{0}</color><br><br>", m_strLightPluginInfo);
 				}
 			}
 
@@ -135,15 +160,15 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 
 			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br>", strPluginName);
 			if ((name != null) && (name != string.Empty))
-				stbDescription.AppendFormat(@"<b>Author:</b> {0}<br/>", name);
+				stbDescription.AppendFormat(@"<b>{0}:</b> {1}<br/>", m_strAuthorLabel, name);
 			if ((desc != null) && (desc != string.Empty))
 			{
 				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br>");
-				stbDescription.AppendFormat(@"<b>Description:</b><br/>{0}<br/>", desc);
+				stbDescription.AppendFormat(@"<b>{0}:</b><br/>{1}<br/>", m_strDescriptionLabel, desc);
 			}
 			if (masters.Count > 0)
 			{
-				stbDescription.Append("<b>Masters:</b><br>");
+				stbDescription.AppendFormat("<b>{0}:</b><br>", m_strMastersLabel);
 
 				for (int i = 0; i < masters.Count; i++)
 				{
@@ -152,14 +177,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 					if (!File.Exists(masterPath))
 					{
 						stbDescription.AppendFormat(
-							"<color=#ff1100>• {0} - MISSING</color><br>",
-							masters[i]);
+							"<color=#ff1100>• {0} - {1}</color><br>",
+							masters[i], m_strMissingLabel);
 					}
 					else if (!LoadOrderManager.IsPluginActive(masters[i]))
 					{
 						stbDescription.AppendFormat(
-							"<color=#ffa500>• {0} - DISABLED</color><br>",
-							masters[i]);
+							"<color=#ffa500>• {0} - {1}</color><br>",
+							masters[i], m_strDisabledLabel);
 					}
 					else
 					{
@@ -210,7 +235,7 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			}
 			if (tpgPlugin == null || tpgPlugin.Records.Count == 0 || (tpgPlugin.Records[0].Name != "TES4" && tpgPlugin.Records[0].Name != "TES3"))
 			{
-				string strDescription =  strPluginName + Environment.NewLine + "Warning: Plugin appears corrupt";
+				string strDescription =  strPluginName + Environment.NewLine + m_strCorruptWarning;
 				return strDescription;
 			}
 
@@ -242,31 +267,31 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 			if (tpgPlugin.Records[0].Name == "TES4")
 			{
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esl") == 0) && (!booHeaderLight))
-					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esl, but its file header is missing the esl flag!</b></color><br/><br/>");
+					stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEslFlagMissing);
 				if ((Path.GetExtension(p_strPluginPath).CompareTo(".esm") == 0) && (!booHeaderMaster))
-					stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esm, but its file header is missing the esm flag which marks it as an esp!</b></color><br/><br/>");
+					stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEsmFlagMissingMarkedEsp);
 				if (Path.GetExtension(p_strPluginPath).CompareTo(".esp") == 0)
 				{
 					if (booHeaderMaster && booHeaderLight)
-						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esl and esm!</b></color><br/><br/>");
+						stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEspEslEsm);
 					else if (booHeaderMaster)
-						stbDescription.Append(@"<color=#ff1100><b>WARNING: This plugin has the file extension .esp, but its file header marks it as an esm!</b></color><br/><br/>");
+						stbDescription.AppendFormat(@"<color=#ff1100><b>{0}</b></color><br/><br/>", m_strWarningEspEsm);
 					else if (booHeaderLight)
-						stbDescription.Append(@"<color=#00662d>This file is marked as a light plugin (so it doesn't use a full load order slot).</color><br><br>");
+						stbDescription.AppendFormat(@"<color=#00662d>{0}</color><br><br>", m_strLightPluginInfo);
 				}
 			}
 
 			stbDescription.AppendFormat(@"<b><u>{0}</u></b><br>", strPluginName);
 			if ((name != null) && (name != string.Empty))
-				stbDescription.AppendFormat(@"<b>Author:</b> {0}<br/>", name);
+				stbDescription.AppendFormat(@"<b>{0}:</b> {1}<br/>", m_strAuthorLabel, name);
 			if ((desc != null) && (desc != string.Empty))
 			{
 				desc = desc.Replace("\r\n", "\n").Replace("\n\r", "\n").Replace("\n", "<br>");
-				stbDescription.AppendFormat(@"<b>Description:</b><br/>{0}<br/>", desc);
+				stbDescription.AppendFormat(@"<b>{0}:</b><br/>{1}<br/>", m_strDescriptionLabel, desc);
 			}
 			if (masters.Count > 0)
 			{
-				stbDescription.Append("<b>Masters:</b><br>");
+				stbDescription.AppendFormat("<b>{0}:</b><br>", m_strMastersLabel);
 
 				for (int i = 0; i < masters.Count; i++)
 				{
@@ -275,14 +300,14 @@ namespace Nexus.Client.Games.Gamebryo.PluginManagement
 					if (!File.Exists(masterPath))
 					{
 						stbDescription.AppendFormat(
-							"<color=#ff1100>• {0} - MISSING</color><br>",
-							masters[i]);
+							"<color=#ff1100>• {0} - {1}</color><br>",
+							masters[i], m_strMissingLabel);
 					}
 					else if (!LoadOrderManager.IsPluginActive(masters[i]))
 					{
 						stbDescription.AppendFormat(
-							"<color=#ffa500>• {0} - DISABLED</color><br>",
-							masters[i]);
+							"<color=#ffa500>• {0} - {1}</color><br>",
+							masters[i], m_strDisabledLabel);
 					}
 					else
 					{

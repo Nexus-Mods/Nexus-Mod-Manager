@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.GameStorage.UI
@@ -21,7 +22,7 @@ namespace Nexus.Client.GameStorage.UI
         {
             _service = service;
             _gameMode = gameMode;
-            Text = "Game Storage recovery - " + gameMode.Name;
+            Text = LanguageManager.Format("GameStorage.Recovery.Title", "Game Storage recovery - {0}", gameMode.Name);
             Width = 1120;
             Height = 680;
             MinimizeBox = false;
@@ -29,7 +30,7 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage recovery - " + gameMode.Name, "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. Compatible shared Mods libraries are allowed only when both Game Mode definitions opt in. NMM will not move, rename, or delete folders during recovery.", false);
+            _control.ConfigureText(LanguageManager.Format("GameStorage.Recovery.Title", "Game Storage recovery - {0}", gameMode.Name), LanguageManager.Get("GameStorage.Recovery.Description", "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. Compatible shared Mods libraries are allowed only when both Game Mode definitions opt in. NMM will not move, rename, or delete folders during recovery."), false);
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
             _control.ManualPathsChanged += ManualPathsChanged;
@@ -110,18 +111,18 @@ namespace Nexus.Client.GameStorage.UI
 
             if (candidate == null)
             {
-                XtraMessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                XtraMessageBox.Show(this, LanguageManager.Get("GameStorage.Common.SelectCandidateFirst", "Select a Game Storage candidate or enter custom paths first."), LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             if (candidate.RequiresUserConfirmation)
             {
                 string confirmationMessage = candidate.IsSharedModsLibrary
-                    ? (candidate.SharedModsDescription ?? "This Mods folder is already used by a compatible Game Mode.") + Environment.NewLine + Environment.NewLine +
-                      "Use it as a shared Mods library for " + _gameMode.Name + "? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode."
-                    : "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.";
+                    ? (candidate.SharedModsDescription ?? LanguageManager.Get("GameStorage.SharedMods.CompatibleFallback", "This Mods folder is already used by a compatible Game Mode.")) + Environment.NewLine + Environment.NewLine +
+                      LanguageManager.Format("GameStorage.Recovery.ConfirmSharedMods", "Use it as a shared Mods library for {0}? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode.", _gameMode.Name)
+                    : LanguageManager.Get("GameStorage.Recovery.ConfirmApply", "Apply the selected Game Storage paths for this game? NMM will update only this game's folder settings and will not move or delete any files.");
 
-                var result = XtraMessageBox.Show(this, confirmationMessage, "Confirm Game Storage recovery", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                var result = XtraMessageBox.Show(this, confirmationMessage, LanguageManager.Get("GameStorage.Recovery.ConfirmTitle", "Confirm Game Storage recovery"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
@@ -133,7 +134,7 @@ namespace Nexus.Client.GameStorage.UI
             }
 
             SetHealth(healthCheck);
-            XtraMessageBox.Show(this, healthCheck?.ToUserMessage() ?? "The selected Game Storage candidate could not be applied.", "Game Storage recovery", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            XtraMessageBox.Show(this, healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Recovery.ApplyFailed", "The selected Game Storage candidate could not be applied."), LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private void RefreshCandidates()
@@ -169,9 +170,9 @@ namespace Nexus.Client.GameStorage.UI
         {
             var rows = healthCheck?.Items.Select(x => new GameStorageSetupRow
             {
-                Role = x.Role?.ToString() ?? string.Empty,
+                Role = GameStorageLocalization.GetFolderRoleName(x.Role),
                 Path = x.Path,
-                Status = x.Status.ToString(),
+                Status = GameStorageLocalization.GetHealthStatusName(x.Status),
                 Message = x.Message
             }) ?? Enumerable.Empty<GameStorageSetupRow>();
             _control.SetRows(rows);

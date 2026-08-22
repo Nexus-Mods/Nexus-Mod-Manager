@@ -7,6 +7,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
 using SevenZip;
@@ -32,6 +33,7 @@ namespace Nexus.Client.ModManagement
 		private long TotalFileSize = 0;
 		private string SelectedPath = string.Empty;
 		private static readonly Object m_objLock = new Object();
+		private readonly string m_strZippingProgressFormat;
 
 		#endregion
 
@@ -43,6 +45,7 @@ namespace Nexus.Client.ModManagement
 		public CreateBackupTask(VirtualModActivator p_vmaActivator, ModManager p_ModManager, IEnvironmentInfo p_EnvironmentInfo, PluginManagerVM p_pmPluginManagerVM, IPluginManager p_pmPluginManager, ProfileManager p_pmProfileManager, string p_strSelectedPath, BackupManager p_bmBackupManager, ConfirmActionMethod p_camConfirm)
 		{
 			m_camConfirm = p_camConfirm;
+			m_strZippingProgressFormat = LanguageManager.GetFormat("Tools.Backup.Progress.ZippingPercent", "Zipping the Archive...{0}%");
 			VirtualModActivator = p_vmaActivator;
 			ModManager = p_ModManager;
 			EnvironmentInfo = p_EnvironmentInfo;
@@ -152,7 +155,13 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Backuping Nexus Mod Manager...";
+			string copyBaseFilesFormat = LanguageManager.GetFormat("Tools.Backup.Progress.CopyBaseFiles", "Copying GAME BASE files...{0}/{1}");
+			string copyInstalledFilesFormat = LanguageManager.GetFormat("Tools.Backup.Progress.CopyInstalledFiles", "Copying MODS INSTALLATION files...{0}/{1}");
+			string copyNmmLinkFilesFormat = LanguageManager.GetFormat("Tools.Backup.Progress.CopyNmmLinkFiles", "Copying NMMLINK files...{0}/{1}");
+			string copyGameFilesFormat = LanguageManager.GetFormat("Tools.Backup.Progress.CopyGameFiles", "Copying {0} files...{1}/{2}");
+			string copyArchivesFormat = LanguageManager.GetFormat("Tools.Backup.Progress.CopyArchives", "Copying MOD ARCHIVES...{0}/{1}");
+
+			OverallMessage = LanguageManager.Get("Tools.Backup.Progress.Starting", "Backuping Nexus Mod Manager...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
@@ -160,7 +169,7 @@ namespace Nexus.Client.ModManagement
 			ItemProgressStepSize = 1;
 			FileCounter = 0;
 
-			OverallMessage = "Creating the directories.";
+			OverallMessage = LanguageManager.Get("Tools.Backup.Progress.CreateDirectories", "Creating the directories.");
 			StepOverallProgress();
 			
 			DriveInfo drive = new DriveInfo(EnvironmentInfo.TemporaryPath);
@@ -176,10 +185,13 @@ namespace Nexus.Client.ModManagement
 				if (PathLimit)
 				{
 					string NewBackupDirectory = Path.Combine(Directory.GetDirectoryRoot(BackupDirectory), "NMMTemp");
-					string WarningMessage = "Warning: NMM won't be able to use the default 'temp' folder for this operation, this will cause some file paths to reach the OS limit of 260 characters and prevent files to be copied." + Environment.NewLine + Environment.NewLine;
-					WarningMessage = WarningMessage + "Just for this backup NMM will use a " + NewBackupDirectory + " folder. This folder will be removed after the backup completes.";
+					string WarningMessage = LanguageManager.Format(
+						"Tools.Backup.Warning.TempPath",
+						"Warning: NMM won't be able to use the default 'temp' folder for this operation, this will cause some file paths to reach the OS limit of 260 characters and prevent files to be copied." + Environment.NewLine + Environment.NewLine +
+						"Just for this backup NMM will use a {0} folder. This folder will be removed after the backup completes.",
+						NewBackupDirectory);
 
-					MessageBox.Show(WarningMessage, "Create Backup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					MessageBox.Show(WarningMessage, LanguageManager.Get("Tools.Backup.Dialog.CreateTitle", "Create Backup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					BackupDirectory = NewBackupDirectory;
 				}
 
@@ -207,7 +219,7 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying GAME BASE files...{0}/{1}", i++, BackupManager.lstBaseGameFiles.Count());
+						OverallMessage = string.Format(copyBaseFilesFormat, i++, BackupManager.lstBaseGameFiles.Count());
 						StepOverallProgress();
 						dir = Path.GetDirectoryName(Path.Combine(bkInfo.ModID, bkInfo.VirtualModPath));
 						if (!string.IsNullOrEmpty(dir))
@@ -229,7 +241,7 @@ namespace Nexus.Client.ModManagement
 					OverallProgressMaximum = BackupManager.lstInstalledModFiles.Count();
 					foreach (BackupInfo bkInfo in BackupManager.lstInstalledModFiles)
 					{
-						OverallMessage = string.Format("Copying MODS INSTALLATION files...{0}/{1}", i++, BackupManager.lstInstalledModFiles.Count());
+						OverallMessage = string.Format(copyInstalledFilesFormat, i++, BackupManager.lstInstalledModFiles.Count());
 						StepOverallProgress();
 						dir = Path.GetDirectoryName(Path.Combine(bkInfo.ModID, bkInfo.VirtualModPath));
 						if (!string.IsNullOrEmpty(dir))
@@ -252,7 +264,7 @@ namespace Nexus.Client.ModManagement
 					OverallProgressMaximum = BackupManager.lstInstalledNMMLINKFiles.Count();
 					foreach (BackupInfo bkInfo in BackupManager.lstInstalledNMMLINKFiles)
 					{
-						OverallMessage = string.Format("Copying NMMLINK files...{0}/{1}", i++, BackupManager.lstInstalledNMMLINKFiles.Count());
+						OverallMessage = string.Format(copyNmmLinkFilesFormat, i++, BackupManager.lstInstalledNMMLINKFiles.Count());
 						StepOverallProgress();
 						dir = Path.GetDirectoryName(Path.Combine("NMMLINK", bkInfo.VirtualModPath));
 						if (!string.IsNullOrEmpty(dir))
@@ -287,7 +299,7 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying " + Path.GetFileName(ModManager.GameMode.PluginDirectory) + " files...{0}/{1}", i++, BackupManager.lstLooseFiles.Count());
+						OverallMessage = string.Format(copyGameFilesFormat, Path.GetFileName(ModManager.GameMode.PluginDirectory), i++, BackupManager.lstLooseFiles.Count());
 						StepOverallProgress();
 						dir = Path.GetDirectoryName(Path.Combine(bkInfo.ModID, bkInfo.VirtualModPath));
 						if (!string.IsNullOrEmpty(dir))
@@ -316,7 +328,7 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying MOD ARCHIVES...{0}/{1}", i++, BackupManager.lstModArchives.Count());
+						OverallMessage = string.Format(copyArchivesFormat, i++, BackupManager.lstModArchives.Count());
 						StepOverallProgress();
 						dir = Path.GetDirectoryName(Path.Combine(bkInfo.Directory, bkInfo.VirtualModPath));
 						if (!string.IsNullOrEmpty(dir))
@@ -360,7 +372,7 @@ namespace Nexus.Client.ModManagement
 				if (File.Exists(zipPath))
 					File.Delete(zipPath);
 
-				OverallMessage = "Zipping the Archive...";
+				OverallMessage = LanguageManager.Get("Tools.Backup.Progress.Zipping", "Zipping the Archive...");
 				StepOverallProgress();
 
 				string strDateTimeStamp = DateTime.Now.ToString(System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.SortableDateTimePattern);
@@ -378,7 +390,7 @@ namespace Nexus.Client.ModManagement
 
 				szcCompressor.CompressDirectory(startPath, Path.Combine(SelectedPath, ModManager.GameMode.ModeId + "_NMM_BACKUP_" + strDateTimeStamp + ".zip"));
 
-				OverallMessage = "Deleting the leftovers.";
+				OverallMessage = LanguageManager.Get("Tools.Backup.Progress.DeleteLeftovers", "Deleting the leftovers.");
 				StepOverallProgress();
 				FileUtil.ForceDelete(BackupDirectory);
 			}
@@ -459,7 +471,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			string strActiveProfileID = string.Empty;
-			string profileName = p_strGameModeId + " Restored Backup " + intNewProfile.ToString();
+			string profileName = LanguageManager.Format("Tools.Backup.RestoredProfileName", "{0} Restored Backup {1}", p_strGameModeId, intNewProfile);
 
 			ModProfile mprModProfile = new ModProfile(strId, profileName, p_strGameModeId, (p_intModCount < 0 ? VirtualModActivator.ModCount : p_intModCount), false, "", "", "", false, "", "", 0, false);
 			ProfileManager.SaveProfile(mprModProfile, p_bteModList, p_bteIniList, p_bteLoadOrder, p_strOptionalFiles, p_strBackupDirectory);
@@ -474,7 +486,7 @@ namespace Nexus.Client.ModManagement
 		void compressor_FileCompressionStarted(object sender, FileNameEventArgs e)
 		{
 			double PercentDone = ((double)FileCounter / TotalFiles) * 100;
-			OverallMessage = OverallMessage = "Zipping the Archive..." + PercentDone.ToString("0") + "%";
+			OverallMessage = string.Format(m_strZippingProgressFormat, PercentDone.ToString("0"));
 			FileCounter++;
 			StepOverallProgress();
 		}

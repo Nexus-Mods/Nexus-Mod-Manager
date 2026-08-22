@@ -22,6 +22,7 @@
 
     using Nexus.Client.Settings;
     using Nexus.Client.UI;
+    using Nexus.Client.Util.Localization;
 
     public sealed class FileManagerControl : ManagedFontDockContent
     {
@@ -54,6 +55,13 @@
         private readonly BarManager _sourceMenuManager;
         private readonly PopupMenu _sourceContextMenu;
         private readonly BarSubItem _switchSourceMenuItem;
+        private readonly string _deploymentRootFormat;
+        private readonly string _summaryFormat;
+        private readonly string _refreshRequiredText;
+        private readonly string _refreshRequiredLastScannedFormat;
+        private readonly string _lastScannedFormat;
+        private readonly string _refreshText;
+        private readonly string _refreshStaleText;
         private readonly Timer _previewSelectionTimer;
         private readonly Timer _gridLayoutSaveTimer;
         private readonly Dictionary<FileManagerRow, string> _previousOwnerKeys = new Dictionary<FileManagerRow, string>();
@@ -76,7 +84,15 @@
 
         public FileManagerControl()
         {
-            Text = "File Manager";
+            _deploymentRootFormat = LanguageManager.GetFormat("FileManager.DeploymentRoot.Value", "Deployment root: {0}");
+            _summaryFormat = LanguageManager.GetFormat("FileManager.Summary", "Total files: {0:N0}   |   Base Game: {1:N0}   |   Installed by NMM: {2:N0}   |   Creations: {3:N0}   |   External: {4:N0}   |   Untracked: {5:N0}");
+            _refreshRequiredText = LanguageManager.Get("FileManager.Status.RefreshRequired", "Refresh required");
+            _refreshRequiredLastScannedFormat = LanguageManager.GetFormat("FileManager.Status.RefreshRequiredLastScanned", "Refresh required - last scanned: {0}");
+            _lastScannedFormat = LanguageManager.GetFormat("FileManager.Status.LastScanned", "Last scanned: {0}");
+            _refreshText = LanguageManager.Get("Common.Action.Refresh", "Refresh");
+            _refreshStaleText = LanguageManager.Get("FileManager.Actions.RefreshStale", "Refresh *");
+
+            Text = LanguageManager.Get("FileManager.Title", "File Manager");
             HideOnClose = true;
 
             _topPanel = new PanelControl
@@ -88,18 +104,18 @@
             };
             LabelControl descriptionLabel = new LabelControl
             {
-                Text = "Shows all files contained in the game's deployment directory.",
+                Text = LanguageManager.Get("FileManager.Description", "Shows all files contained in the game's deployment directory."),
                 Location = new Point(10, 8)
             };
             _deploymentRootLabel = new LabelControl
             {
-                Text = "Deployment root:",
+                Text = LanguageManager.Get("FileManager.DeploymentRoot.Label", "Deployment root:"),
                 Location = new Point(10, 38)
             };
 
             _refreshButton = new SimpleButton
             {
-                Text = "Refresh",
+                Text = _refreshText,
                 Width = 92,
                 Height = 27
             };
@@ -190,7 +206,7 @@
                 ShowHeader = false,
                 TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
             };
-            _ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", "Mod"));
+            _ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", LanguageManager.Get("FileManager.Lookup.Mod.Header", "Mod")));
             _gridControl.RepositoryItems.Add(_ownerLookup);
             _emptySourceLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
             _gridControl.RepositoryItems.Add(_emptySourceLookup);
@@ -203,7 +219,7 @@
                 ShowHeader = false,
                 TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
             };
-            _sourceLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", "Source"));
+            _sourceLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", LanguageManager.Get("FileManager.Columns.Source.Header", "Source")));
             _gridControl.RepositoryItems.Add(_sourceLookup);
 
             _sourceFilterLookup = new RepositoryItemLookUpEdit
@@ -215,7 +231,7 @@
                 ShowHeader = false,
                 TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
             };
-            _sourceFilterLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", "Source"));
+            _sourceFilterLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("DisplayText", LanguageManager.Get("FileManager.Columns.Source.Header", "Source")));
             _gridControl.RepositoryItems.Add(_sourceFilterLookup);
             _gridView.Columns["Source"].ColumnEdit = _sourceFilterLookup;
             _sourceMenuManager = new BarManager
@@ -223,7 +239,7 @@
                 Form = this
             };
             _sourceContextMenu = new PopupMenu(_sourceMenuManager);
-            _switchSourceMenuItem = new BarSubItem(_sourceMenuManager, "Switch Source to");
+            _switchSourceMenuItem = new BarSubItem(_sourceMenuManager, LanguageManager.Get("FileManager.Context.SwitchSourceTo.Name", "Switch Source to"));
             foreach (FileManagerSourceOption option in FileManagerSourceDisplay.ManualSourceOptions)
             {
                 BarButtonItem sourceItem = new BarButtonItem(_sourceMenuManager, option.DisplayText)
@@ -399,7 +415,7 @@
             }
             catch (Exception ex)
             {
-                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, LanguageManager.Get("FileManager.Title", "File Manager"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
         private async void RefreshButton_Click(object sender, EventArgs e)
@@ -413,7 +429,7 @@
             }
             catch (Exception ex)
             {
-                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, LanguageManager.Get("FileManager.Title", "File Manager"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -457,8 +473,8 @@
             if (_fileManagerVM == null)
                 return;
 
-            _deploymentRootLabel.Text = "Deployment root: " + (_fileManagerVM.DeploymentRoot ?? FileManagerQueryService.GetDeploymentRoot(_fileManagerVM.GameMode));
-            _summaryLabel.Text = String.Format("Total files: {0:N0}   |   Base Game: {1:N0}   |   Installed by NMM: {2:N0}   |   Creations: {3:N0}   |   External: {4:N0}   |   Untracked: {5:N0}",
+            _deploymentRootLabel.Text = String.Format(_deploymentRootFormat, _fileManagerVM.DeploymentRoot ?? FileManagerQueryService.GetDeploymentRoot(_fileManagerVM.GameMode));
+            _summaryLabel.Text = String.Format(_summaryFormat,
                 _fileManagerVM.TotalFiles,
                 _fileManagerVM.BaseGameFiles,
                 _fileManagerVM.InstalledByNmmFiles,
@@ -468,16 +484,16 @@
             if (_fileManagerVM.IsStale)
             {
                 _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay)
-                    ? "Refresh required"
-                    : "Refresh required - last scanned: " + _fileManagerVM.LastScannedDisplay;
-                _refreshButton.Text = "Refresh *";
+                    ? _refreshRequiredText
+                    : String.Format(_refreshRequiredLastScannedFormat, _fileManagerVM.LastScannedDisplay);
+                _refreshButton.Text = _refreshStaleText;
             }
             else
             {
                 _statusLabel.Text = _fileManagerVM.IsResolvingLinkTypes
                     ? _fileManagerVM.StatusMessage
-                    : (String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : "Last scanned: " + _fileManagerVM.LastScannedDisplay);
-                _refreshButton.Text = "Refresh";
+                    : (String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay) ? _fileManagerVM.StatusMessage : String.Format(_lastScannedFormat, _fileManagerVM.LastScannedDisplay));
+                _refreshButton.Text = _refreshText;
             }
 
             if (_statusLabel.Parent != null)
@@ -730,19 +746,19 @@
 
         private void ConfigureColumns()
         {
-            AddColumn("FileName", "File Name", 220, false);
-            AddColumn("FileType", "File Type", 70, false);
-            GridColumn size = AddColumn("RawSize", "Size", 90, false);
+            AddColumn("FileName", LanguageManager.Get("FileManager.Columns.FileName.Header", "File Name"), 220, false);
+            AddColumn("FileType", LanguageManager.Get("FileManager.Columns.FileType.Header", "File Type"), 70, false);
+            GridColumn size = AddColumn("RawSize", LanguageManager.Get("FileManager.Columns.Size.Header", "Size"), 90, false);
             size.DisplayFormat.FormatType = FormatType.Custom;
             size.DisplayFormat.Format = new FileSizeFormatter();
             size.AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
-			AddColumn("RelativePath", "Relative Path", 260, false);
-			_linkTypeColumn = AddColumn("LinkType", "Link Type", 82, false);
-			GridColumn source = AddColumn("Source", "Source", 160, true);
+			AddColumn("RelativePath", LanguageManager.Get("FileManager.Columns.RelativePath.Header", "Relative Path"), 260, false);
+			_linkTypeColumn = AddColumn("LinkType", LanguageManager.Get("FileManager.Columns.LinkType.Header", "Link Type"), 82, false);
+			GridColumn source = AddColumn("Source", LanguageManager.Get("FileManager.Columns.Source.Header", "Source"), 160, true);
             source.OptionsColumn.AllowEdit = true;
 			GridColumn owners = AddColumn(
 				"OwnerCount",
-				"Owners",
+				LanguageManager.Get("FileManager.Columns.Owners.Header", "Owners"),
 				68,
 				false);
 
@@ -754,7 +770,7 @@
 
 			GridColumn owner = AddColumn(
 				"OwnerKey",
-				"Owner",
+				LanguageManager.Get("FileManager.Columns.Owner.Header", "Owner"),
 				260,
 				true);
 
@@ -973,7 +989,7 @@
                 _refreshButton.Enabled = false;
                 VirtualFileOwnerSwitchResult result = await _fileManagerVM.SwitchOwnerAsync(row, selectedOwnerKey).ConfigureAwait(true);
                 if (!result.Success)
-                    throw result.Failure ?? new InvalidOperationException(result.FailureMessage ?? "Unable to switch file owner.");
+                    throw result.Failure ?? new InvalidOperationException(result.FailureMessage ?? LanguageManager.Get("FileManager.OwnerSwitch.Failed.Message", "Unable to switch file owner."));
 
                 Stopwatch updateWatch = Stopwatch.StartNew();
                 _fileManagerVM.ApplySelectedOwner(row, selectedOwnerKey);
@@ -987,7 +1003,7 @@
                 row.OwnerKey = previousOwnerKey;
                 _gridView.RefreshRow(e.RowHandle);
                 _suppressOwnerChange = false;
-                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, LanguageManager.Get("FileManager.Title", "File Manager"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -1028,7 +1044,7 @@
                 row.Source = previousSource;
                 _gridView.RefreshRow(e.RowHandle);
                 _suppressSourceChange = false;
-                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, LanguageManager.Get("FileManager.Title", "File Manager"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1091,7 +1107,7 @@
             {
                 RestoreSourceChanges(appliedChanges);
                 RefreshSourceRows(sourceChanges);
-                XtraMessageBox.Show(this, ex.Message, "File Manager", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                XtraMessageBox.Show(this, ex.Message, LanguageManager.Get("FileManager.Title", "File Manager"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

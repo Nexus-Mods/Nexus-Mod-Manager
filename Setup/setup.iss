@@ -71,6 +71,7 @@ Source: "..\Stage\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flag
 Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\data\*"; Excludes: "*.pdb"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\Languages\*"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ModFormats\*"; Excludes: "*.pdb"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "*.pdb"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs

@@ -6,6 +6,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Updating
 {
@@ -64,7 +65,7 @@ namespace Nexus.Client.Updating
 			if (m_lstFailedUpdaters.Count > 0)
 			{
 				StringBuilder stbMessage = new StringBuilder();
-				stbMessage.AppendLine("The following updates failed:");
+				stbMessage.AppendLine(LanguageManager.Get("Updater.Task.FailedUpdatesHeader", "The following updates failed:"));
 				for (Int32 i = 0; i < m_lstFailedUpdaters.Count; i++)
 				{
 					IUpdater updUpdater = m_lstFailedUpdaters[i];
@@ -108,7 +109,7 @@ namespace Nexus.Client.Updating
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
 
 			//TODO add game mode updaters
-			OverallMessage = "Updating...";
+			OverallMessage = LanguageManager.Get("Tasks.Update.Updating", "Updating...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;

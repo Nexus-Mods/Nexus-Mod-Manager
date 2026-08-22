@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.XRebirth
 {
@@ -36,14 +37,14 @@ namespace Nexus.Client.Games.XRebirth
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch X Rebirth", "Launches plain X Rebirth.", imgIcon, LaunchXRPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "X Rebirth"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "X Rebirth"), imgIcon, LaunchXRPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom X Rebirth", "Launches X Rebirth with custom command.", imgIcon, LaunchXRCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "X Rebirth"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "X Rebirth"), imgIcon, LaunchXRCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch X Rebirth", "Launches X Rebirth.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "X Rebirth"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "X Rebirth"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -66,7 +67,7 @@ namespace Nexus.Client.Games.XRebirth
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

@@ -9,6 +9,7 @@ using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
 using SevenZip;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModAuthoring
 {
@@ -17,6 +18,7 @@ namespace Nexus.Client.ModAuthoring
 	/// </summary>
 	public class ModPackager : ThreadedBackgroundTask
 	{
+		private readonly string _addingFileFormat;
 		#region Properties
 
 		/// <summary>
@@ -36,6 +38,7 @@ namespace Nexus.Client.ModAuthoring
 		public ModPackager(FileUtil p_futFileUtilities)
 		{
 			FileUtilities = p_futFileUtilities;
+			_addingFileFormat = LanguageManager.GetFormat("ModAuthoring.Packager.AddingFile", "Adding {0}...");
 		}
 
 		#endregion
@@ -60,7 +63,7 @@ namespace Nexus.Client.ModAuthoring
 			 *				= 6
 			 */
 			OverallProgressMaximum = 6;
-			OverallMessage = "Packing Mod...";
+			OverallMessage = LanguageManager.Get("ModAuthoring.Packager.Packing", "Packing Mod...");
 			OverallProgressStepSize = 1;
 			ItemProgressStepSize = 1;
 			ShowItemProgress = true;
@@ -91,7 +94,7 @@ namespace Nexus.Client.ModAuthoring
 			SevenZipCompressor szcCompressor = null;
 			try
 			{
-				ItemMessage = "Finding Mod Files...";
+				ItemMessage = LanguageManager.Get("ModAuthoring.Packager.FindingFiles", "Finding Mod Files...");
 				ItemProgressMaximum = prjModProject.ModFiles.Count;
 				ItemProgress = 0;
 				Dictionary<string, string> dicFiles = new Dictionary<string, string>();
@@ -109,7 +112,7 @@ namespace Nexus.Client.ModAuthoring
 
 				strTmpDirectory = FileUtilities.CreateTempDirectory();
 
-				ItemMessage = "Generating Info File...";
+				ItemMessage = LanguageManager.Get("ModAuthoring.Packager.GeneratingInfo", "Generating Info File...");
 				ItemProgressMaximum = 1;
 				ItemProgress = 0;
 				string strInfoFilePath = Path.Combine(strTmpDirectory, "info.xml");
@@ -124,7 +127,7 @@ namespace Nexus.Client.ModAuthoring
 
 				if (prjModProject.Screenshot != null)
 				{
-					ItemMessage = "Generating Screenshot...";
+					ItemMessage = LanguageManager.Get("ModAuthoring.Packager.GeneratingScreenshot", "Generating Screenshot...");
 					ItemProgressMaximum = 1;
 					ItemProgress = 0;
 
@@ -140,7 +143,7 @@ namespace Nexus.Client.ModAuthoring
 
 				if (prjModProject.ModReadme != null)
 				{
-					ItemMessage = "Generating Readme...";
+					ItemMessage = LanguageManager.Get("ModAuthoring.Packager.GeneratingReadme", "Generating Readme...");
 					ItemProgressMaximum = 1;
 					ItemProgress = 0;
 
@@ -156,7 +159,7 @@ namespace Nexus.Client.ModAuthoring
 
 				if (prjModProject.InstallScript != null)
 				{
-					ItemMessage = "Generating Install Script...";
+					ItemMessage = LanguageManager.Get("ModAuthoring.Packager.GeneratingInstallScript", "Generating Install Script...");
 					ItemProgressMaximum = 1;
 					ItemProgress = 0;
 
@@ -174,7 +177,7 @@ namespace Nexus.Client.ModAuthoring
 						return null;
 				}
 
-				ItemMessage = "Compressing Files...";
+				ItemMessage = LanguageManager.Get("ModAuthoring.Packager.CompressingFiles", "Compressing Files...");
 				ItemProgressMaximum = dicFiles.Count;
 				ItemProgress = 0;
 
@@ -238,7 +241,7 @@ namespace Nexus.Client.ModAuthoring
 		/// <param name="e">A <see cref="FileNameEventArgs"/> describing the event arguments.</param>
 		private void Compressor_FileCompressionStarted(object sender, FileNameEventArgs e)
 		{
-			ItemMessage = String.Format("Adding {0}...", e.FileName);
+			ItemMessage = String.Format(_addingFileFormat, e.FileName);
 			e.Cancel = Status == TaskStatus.Cancelling;
 		}
 

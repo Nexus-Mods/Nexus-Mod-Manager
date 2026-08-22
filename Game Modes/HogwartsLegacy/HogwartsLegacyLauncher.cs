@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.HogwartsLegacy
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.HogwartsLegacy
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Hogwarts Legacy", "Launches default Hogwarts Legacy.", imgIcon, LaunchHogwartsLegacyPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Hogwarts Legacy"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "Hogwarts Legacy"), imgIcon, LaunchHogwartsLegacyPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Hogwarts Legacy", "Launches Hogwarts Legacy with custom command.", imgIcon, LaunchHogwartsLegacyCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Hogwarts Legacy"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Hogwarts Legacy"), imgIcon, LaunchHogwartsLegacyCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Hogwarts Legacy", "Launches Hogwarts Legacy.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Hogwarts Legacy"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Hogwarts Legacy"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.HogwartsLegacy
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

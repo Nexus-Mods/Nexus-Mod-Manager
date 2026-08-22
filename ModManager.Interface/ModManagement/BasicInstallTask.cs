@@ -8,6 +8,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -112,7 +113,7 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		public bool Execute()
 		{
-			OverallMessage = "Installing Mod...";
+			OverallMessage = LanguageManager.Get("Tasks.Mod.Installing", "Installing Mod...");
 			ShowItemProgress = false;
 			OverallProgressStepSize = 1;
 			return (bool)StartWait();

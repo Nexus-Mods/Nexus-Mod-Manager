@@ -4,6 +4,7 @@
     using System.ComponentModel;
     using System.Threading;
     using System.Windows.Forms;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// This is a window that displays the progress of a <see cref="IBackgroundTask"/>
@@ -71,6 +72,8 @@
 			Task.TaskEnded += Task_TaskEnded;
 			Task.PropertyChanged += Task_PropertyChanged;
 			InitializeComponent();
+			Text = LanguageManager.Get("ProgressDialog.Title", "Progress");
+			butCancel.Text = LanguageManager.Get("Common.Button.Cancel", "Cancel");
 
 			pbrItemProgress.Maximum = (int)Task.ItemProgressMaximum;
 			pbrItemProgress.Minimum = (int)Task.ItemProgressMinimum;
@@ -248,7 +251,7 @@
 				DialogResult = DialogResult.Cancel;
 			_lastDialogResult = DialogResult;
 			if (!string.IsNullOrEmpty(e.Message))
-				MessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show(this, e.Message, LanguageManager.Get("Common.Dialog.MessageTitle", "Message"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			//only try to close the form if it has been created
 			// otherwise Close() can get called before the form is shown,
 			// and then once Show() or ShowDialog() is called an
@@ -307,7 +310,7 @@
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			butCancel.Enabled = false;
-			butCancel.Text = "Cancelling";
+			butCancel.Text = LanguageManager.Get("ProgressDialog.Cancelling", "Cancelling");
 			DialogResult = DialogResult.Cancel;
 			Task.Cancel();
 		}

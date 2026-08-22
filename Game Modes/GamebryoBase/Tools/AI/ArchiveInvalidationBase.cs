@@ -4,6 +4,7 @@ using Nexus.Client.Commands;
 using Nexus.Client.Games.Tools;
 using Nexus.UI.Controls;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Gamebryo.Tools.AI
 {
@@ -63,7 +64,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 		public ArchiveInvalidationBase(GamebryoGameModeBase p_gmdGameMode)
 		{
 			GameMode = p_gmdGameMode;
-			LaunchCommand = new CheckedCommand("Archive Invalidation", "Toggles Archive Invalidation.", IsActive(), ToggleArchiveInvalidation);
+			LaunchCommand = new CheckedCommand(LanguageManager.Get("GameModes.ArchiveInvalidation.Command.Name", "Archive Invalidation"), LanguageManager.Get("GameModes.ArchiveInvalidation.Command.Description", "Toggles Archive Invalidation."), IsActive(), ToggleArchiveInvalidation);
 		}
 
 		#endregion
@@ -86,7 +87,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 			{
 				if (!File.Exists(GameMode.SettingsFiles.IniPath))
 				{
-					ExtendedMessageBox.Show(null, String.Format("You have no {0} INI file. Please run {0} to initialize the file before turning on Archive Invalidation.", GameMode.Name), "Missing INI", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					ExtendedMessageBox.Show(null, LanguageManager.Format("GameModes.ArchiveInvalidation.MissingIniEnableMessage", "You have no {0} INI file. Please run {0} to initialize the file before turning on Archive Invalidation.", GameMode.Name), LanguageManager.Get("GameModes.ArchiveInvalidation.MissingIniTitle", "Missing INI"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 					return;
 				}
 				DisplayToolViewEventArgs teaArgs = new DisplayToolViewEventArgs(m_tvwToolView, true);
@@ -97,7 +98,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 			}
 			catch (Exception ex)
 			{
-				ExtendedMessageBox.Show(null, ex.Message, "Archive Invalidation", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				ExtendedMessageBox.Show(null, ex.Message, LanguageManager.Get("GameModes.ArchiveInvalidation.Title", "Archive Invalidation"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 
@@ -110,7 +111,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI
 		{
 			string strFalloutPath = GameMode.SettingsFiles.IniPath;
 			if (!File.Exists(strFalloutPath))
-				throw new Exception(String.Format("You have no {0} INI file. Please run {0} to initialize the file.", GameMode.Name));
+				throw new Exception(LanguageManager.Format("GameModes.ArchiveInvalidation.MissingIniMessage", "You have no {0} INI file. Please run {0} to initialize the file.", GameMode.Name));
 			if (!IsActive())
 			{
 				if (ConfirmAiEnabling())

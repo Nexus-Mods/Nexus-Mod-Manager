@@ -5,6 +5,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -25,8 +26,8 @@ namespace Nexus.Client.Games.DataDriven
 
 			_directoriesControl = new RequiredDirectoriesControl
 			{
-				InstallInfoLabel = "Install Info*:",
-				ModDirectoryLabel = "Mod Directory*:",
+				InstallInfoLabel = LanguageManager.Get("GameSettings.Directories.InstallInfoRequiredLabel", "Install Info*:"),
+				ModDirectoryLabel = LanguageManager.Get("GameSettings.Directories.ModsRequiredLabel", "Mod Directory*:"),
 				Location = new System.Drawing.Point(0, 3),
 				Size = new System.Drawing.Size(393, 85),
 				ViewModel = settingsGroup.RequiredDirectoriesVM
@@ -36,7 +37,7 @@ namespace Nexus.Client.Games.DataDriven
 			{
 				AutoSize = true,
 				Location = new System.Drawing.Point(1, 90),
-				Text = settingsGroup.Title + " Mods Directory*:"
+				Text = LanguageManager.Format("GameModes.Setup.ModsDirectoryLabel", "{0} Mods Directory*:", settingsGroup.Title)
 			};
 			_workingDirectoryTextBox = new TextBox
 			{
@@ -64,7 +65,7 @@ namespace Nexus.Client.Games.DataDriven
 				AutoSize = true,
 				Font = new System.Drawing.Font(Font, System.Drawing.FontStyle.Italic),
 				Location = new System.Drawing.Point(233, 272),
-				Text = "* requires application restart"
+				Text = LanguageManager.Get("GameModes.Setup.RestartRequiredNote", "* requires application restart")
 			};
 
 			_workingDirectoryDialog = new FolderBrowserDialog();
@@ -93,11 +94,11 @@ namespace Nexus.Client.Games.DataDriven
 				Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
 				Location = new System.Drawing.Point(24, 133),
 				Size = new System.Drawing.Size(346, 78),
-				Text = "Custom Launch Command"
+				Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.Title", "Custom Launch Command")
 			};
 
-			var commandLabel = new Label { AutoSize = true, Location = new System.Drawing.Point(16, 22), Text = "Command:" };
-			var argumentsLabel = new Label { AutoSize = true, Location = new System.Drawing.Point(13, 48), Text = "Arguments:" };
+			var commandLabel = new Label { AutoSize = true, Location = new System.Drawing.Point(16, 22), Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.CommandLabel", "Command:") };
+			var argumentsLabel = new Label { AutoSize = true, Location = new System.Drawing.Point(13, 48), Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.ArgumentsLabel", "Arguments:") };
 			_commandTextBox = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Location = new System.Drawing.Point(79, 19), Size = new System.Drawing.Size(257, 20) };
 			_argumentsTextBox = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Location = new System.Drawing.Point(79, 45), Size = new System.Drawing.Size(257, 20) };
 

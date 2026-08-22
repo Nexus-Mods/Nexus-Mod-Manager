@@ -10,6 +10,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.UI;
 using SevenZip;
 
@@ -33,6 +34,15 @@ namespace Nexus.Client.ModAuthoring
 	/// </summary>
 	public class ModBuilder : ThreadedBackgroundTask, IDisposable
 	{
+		private readonly string m_strBuildingModText;
+		private readonly string m_strExaminingArchiveText;
+		private readonly string m_strExaminingArchiveFormat;
+		private readonly string m_strDeterminingArchiveFormatText;
+		private readonly string m_strExtractingArchiveText;
+		private readonly string m_strCompressingModText;
+		private readonly string m_strCopyingModsText;
+		private readonly string m_strCopyingModFormat;
+
 		/// <summary>
 		/// The list of possible sources from which a mod can be built.
 		/// </summary>
@@ -84,6 +94,14 @@ namespace Nexus.Client.ModAuthoring
 			GameModeInfo = p_gmiGameModeInfo;
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			FileUtility = p_futFileUtility;
+			m_strBuildingModText = LanguageManager.Get("ModAuthoring.Builder.Progress.Building", "Building Mod...");
+			m_strExaminingArchiveText = LanguageManager.Get("ModAuthoring.Builder.Progress.ExaminingArchive", "Examining archive...");
+			m_strExaminingArchiveFormat = LanguageManager.GetFormat("ModAuthoring.Builder.Progress.ExaminingArchiveForFormat", "Examining archive for {0} mods...");
+			m_strDeterminingArchiveFormatText = LanguageManager.Get("ModAuthoring.Builder.Progress.DeterminingFormat", "Determining archive format...");
+			m_strExtractingArchiveText = LanguageManager.Get("ModAuthoring.Builder.Progress.Extracting", "Extracting archive...");
+			m_strCompressingModText = LanguageManager.Get("ModAuthoring.Builder.Progress.Compressing", "Compressing mod...");
+			m_strCopyingModsText = LanguageManager.Get("ModAuthoring.Builder.Progress.CopyingMods", "Copying mods...");
+			m_strCopyingModFormat = LanguageManager.GetFormat("ModAuthoring.Builder.Progress.CopyingMod", "Copying mod {0}...");
 			OverallProgressMaximum = 4;
 		}
 
@@ -127,14 +145,14 @@ namespace Nexus.Client.ModAuthoring
 			OverallProgressStepSize = 1;
 			ItemProgressStepSize = 1;
 			OverallProgressMaximum = 4;
-			OverallMessage = "Building Mod...";
+			OverallMessage = m_strBuildingModText;
 			Sources srcModSource = Sources.Archive;
 			if (String.IsNullOrEmpty(p_strFilePath) || !File.Exists(p_strFilePath))
 				throw new ArgumentException("The given file path does not exist: " + p_strFilePath);
 			if (!Archive.IsArchive(p_strFilePath))
 			{
 				Status = TaskStatus.Error;
-				OnTaskEnded(String.Format("Cannot add {0}. File format is not recognized.", Path.GetFileName(p_strFilePath)), null);
+				OnTaskEnded(LanguageManager.Format("ModAuthoring.Builder.Error.UnrecognizedFormat", "Cannot add {0}. File format is not recognized.", Path.GetFileName(p_strFilePath)), null);
 				return;
 			}
 
@@ -167,7 +185,7 @@ namespace Nexus.Client.ModAuthoring
 			List<string> lstFoundMods = new List<string>();
 			List<string> lstModsInArchive = new List<string>();
 
-			ItemMessage = "Examining archive...";
+			ItemMessage = m_strExaminingArchiveText;
 			ItemProgress = 0;
 			ItemProgressMaximum = p_mfrFormats.Formats.Count;
 			IModFormat mftDestFormat = null;
@@ -181,7 +199,7 @@ namespace Nexus.Client.ModAuthoring
 					ReadOnlyCollection<string> lstArchiveFiles = szeExtractor.ArchiveFileNames;
 					foreach (IModFormat mftFormat in p_mfrFormats.Formats)
 					{
-						ItemMessage = String.Format("Examining archive for {0} mods...", mftFormat.Name);
+						ItemMessage = String.Format(m_strExaminingArchiveFormat, mftFormat.Name);
 						lstModsInArchive.AddRange(lstArchiveFiles.Where(x => mftFormat.Extension.Equals(Path.GetExtension(x), StringComparison.OrdinalIgnoreCase)));
 						StepItemProgress();
 						if (Status == TaskStatus.Cancelling)
@@ -192,7 +210,7 @@ namespace Nexus.Client.ModAuthoring
 
 				if (lstModsInArchive.Count == 0)
 				{
-					ItemMessage = "Determining archive format...";
+					ItemMessage = m_strDeterminingArchiveFormatText;
 					ItemProgress = 0;
 					ItemProgressMaximum = p_mfrFormats.Formats.Count;
 					List<KeyValuePair<FormatConfidence, IModFormat>> lstFormats = new List<KeyValuePair<FormatConfidence, IModFormat>>();
@@ -212,7 +230,7 @@ namespace Nexus.Client.ModAuthoring
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("An error has occured with the following archive: " + p_strArchivePath + "\n\n ERROR: " + ex.Message);
+				MessageBox.Show(LanguageManager.Format("ModAuthoring.Builder.ArchiveError", "An error has occured with the following archive: {0}\n\n ERROR: {1}", p_strArchivePath, ex.Message));
 				return lstFoundMods;
 			}
 			string strTmpPath = null;
@@ -223,7 +241,7 @@ namespace Nexus.Client.ModAuthoring
 					if ((mftDestFormat != null) && (szeExtractor.VolumeFileNames.Count > 1) ||
 						(lstModsInArchive.Count > 0))
 					{
-						ItemMessage = "Extracting archive...";
+						ItemMessage = m_strExtractingArchiveText;
 						ItemProgress = 0;
 						ItemProgressMaximum = szeExtractor.ArchiveFileNames.Count;
 						strTmpPath = FileUtility.CreateTempDirectory();
@@ -252,7 +270,7 @@ namespace Nexus.Client.ModAuthoring
 					//if we have extracted the file to do format shifting
 					if (!mftDestFormat.SupportsModCompression)
 						return lstFoundMods;
-					ItemMessage = "Compressing mod...";
+					ItemMessage = m_strCompressingModText;
 					ItemProgress = 0;
 					ItemProgressMaximum = Directory.GetFiles(strTmpPath, "*", SearchOption.AllDirectories).Length;
 					IModCompressor mcpCompressor = mftDestFormat.GetModCompressor(EnvironmentInfo);
@@ -268,20 +286,20 @@ namespace Nexus.Client.ModAuthoring
 				}
 				else
 				{
-					ItemMessage = "Copying mods...";
+					ItemMessage = m_strCopyingModsText;
 					ItemProgress = 0;
 					ItemProgressMaximum = lstModsInArchive.Count;
 					foreach (string strMod in lstModsInArchive)
 					{
 						if (Status == TaskStatus.Cancelling)
 							return lstFoundMods;
-						ItemMessage = String.Format("Copying mod {0}...", Path.GetFileName(strMod));
+						ItemMessage = String.Format(m_strCopyingModFormat, Path.GetFileName(strMod));
 						string strDest = Path.Combine(GameModeInfo.ModDirectory, Path.GetFileName(strMod));
 						strDest = ConfirmOverwrite(p_dlgConfirmOverwrite, strDest);
 						if (!String.IsNullOrEmpty(strDest))
 						{
 							if (string.Equals(strMod, strDest, StringComparison.OrdinalIgnoreCase))
-								throw new FileNotFoundException("You can't add a mod directly from the NMM Mods folder, please move it somewhere else before adding it to the manager!");
+								throw new FileNotFoundException(LanguageManager.Get("ModAuthoring.Builder.Error.ModInModsFolder", "You can't add a mod directly from the NMM Mods folder, please move it somewhere else before adding it to the manager!"));
 
 							File.Copy(strMod, strDest, true);
 							lstFoundMods.Add(strDest);
@@ -293,7 +311,7 @@ namespace Nexus.Client.ModAuthoring
 			}
 			catch (FileNotFoundException ex)
 			{
-				MessageBox.Show("Archive: " + p_strArchivePath + "\n\n ERROR: " + ex.Message, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Format("ModAuthoring.Builder.ArchiveWarning", "Archive: {0}\n\n ERROR: {1}", p_strArchivePath, ex.Message), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return lstFoundMods;
 			}
 			finally

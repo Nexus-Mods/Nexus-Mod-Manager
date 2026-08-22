@@ -21,6 +21,7 @@ using Nexus.Client.Settings.UI;
 using Nexus.Client.Updating;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.StateOfDecay
 {
@@ -496,9 +497,7 @@ namespace Nexus.Client.Games.StateOfDecay
                                 () =>
                                     drResult =
                                         ExtendedMessageBox.Show(null,
-                                            string.Format(
-                                                "The author of the {0} mod has chosen that his mod should get recorded in your save games.\nIf you played the game while this mod was active, your save files may no longer work.\nDo you want to continue?",
-                                                strModName), "Warning", MessageBoxButtons.YesNo,
+                                            LanguageManager.Format("GameModes.SaveGame.ModRecordedWarning", "The author of the {0} mod has chosen that his mod should get recorded in your save games.\nIf you played the game while this mod was active, your save files may no longer work.\nDo you want to continue?", strModName), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.YesNo,
                                             MessageBoxIcon.Exclamation);
 
                             ApartmentState astState = ApartmentState.Unknown;
@@ -518,9 +517,7 @@ namespace Nexus.Client.Games.StateOfDecay
                         }
                         catch (Exception)
                         {
-                            drResult = MessageBox.Show(string.Format(
-                                "The author of the {0} mod has chosen that his mod should get recorded in your save games.\nIf you played the game while this mod was active, your save files may no longer work.\nDo you want to continue?",
-                                strModName), "Warning", MessageBoxButtons.YesNo,
+                            drResult = MessageBox.Show(LanguageManager.Format("GameModes.SaveGame.ModRecordedWarning", "The author of the {0} mod has chosen that his mod should get recorded in your save games.\nIf you played the game while this mod was active, your save files may no longer work.\nDo you want to continue?", strModName), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.YesNo,
                                 MessageBoxIcon.Exclamation);
                             if (drResult == DialogResult.No)
                                 return true;

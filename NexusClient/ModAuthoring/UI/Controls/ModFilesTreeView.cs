@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.UI.Controls;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModAuthoring.UI.Controls
 {
@@ -47,13 +48,26 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		public ModFilesTreeView()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			m_ffbFileChooser.ShowNewFolderButton = false;
-			m_ffbFileChooser.Description = "Select the folder containing the files you would like to select. Then, specify a filter that will match the files you wish to select." + Environment.NewLine +
-											"For example, a  filter of mymod*.dds will select alltexture files whose name start with mymod.";
+			m_ffbFileChooser.Description = LanguageManager.Get(
+				"ModAuthoring.Files.FilteredFolder.Description",
+				"Select the folder containing the files you would like to select. Then, specify a filter that will match the files you wish to select." + Environment.NewLine +
+				"For example, a  filter of mymod*.dds will select alltexture files whose name start with mymod.");
 			m_ffbFileChooser.RootFolder = Environment.SpecialFolder.MyComputer;
 			m_ffbFileChooser.SelectedPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
 			ftvSource.NodeAdded += new NodesChangedEventHandler(ftvSource_NodesChanged);
 			ftvSource.NodeRemoved += new NodesChangedEventHandler(ftvSource_NodesChanged);
+		}
+
+		private void ApplyLocalization()
+		{
+			label1.Text = LanguageManager.Get("ModAuthoring.Files.Title", "Mod Files");
+			tspAddFiles.Text = LanguageManager.Get("ModAuthoring.Files.Action.AddFiles", "Add Files...");
+			tspAddFilteredFiles.Text = LanguageManager.Get("ModAuthoring.Files.Action.AddFilteredFiles", "Add Filtered Files...");
+			tsbAddFolder.Text = LanguageManager.Get("ModAuthoring.Files.Action.AddFolder", "Add Folder...");
+			tsbDelete.Text = LanguageManager.Get("Common.Action.Delete", "Delete");
+			tsbDelete.ToolTipText = LanguageManager.Get("ModAuthoring.Files.Action.DeleteSelected", "Delete Selected Files");
 		}
 
 		/// <summary>

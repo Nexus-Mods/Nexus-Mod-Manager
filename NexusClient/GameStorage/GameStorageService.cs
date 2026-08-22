@@ -5,6 +5,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using Nexus.Client.Games;
 using Nexus.Client.Games.DataDriven;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.GameStorage
 {
@@ -346,7 +347,7 @@ namespace Nexus.Client.GameStorage
 
             return labels.Count == 0
                 ? null
-                : "Shared Mods library currently used by: " + string.Join(", ", labels);
+                : LanguageManager.Format("GameStorage.SharedMods.CurrentlyUsedBy", "Shared Mods library currently used by: {0}", string.Join(", ", labels));
         }
 
 		public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
@@ -483,13 +484,13 @@ namespace Nexus.Client.GameStorage
                 if (!string.IsNullOrWhiteSpace(paths.LinkFolderPath) && Directory.Exists(paths.LinkFolderPath) && !IsLinkFolderOnGameDrive(paths.LinkFolderPath, paths.GameInstallPath))
                 {
                     Add(result, GameStorageFolderRole.LinkFolder, paths.LinkFolderPath, GameStorageHealthStatus.LinkFolderOnWrongDrive, true, true,
-                        "The Link Folder must be on the same drive as the game because hardlinks cannot cross drives.",
-                        "Select a Link Folder on the game drive or move the virtual install staging to the game drive.");
+                        LanguageManager.Get("GameStorage.Health.LinkFolderWrongDrive.Message", "The Link Folder must be on the same drive as the game because hardlinks cannot cross drives."),
+                        LanguageManager.Get("GameStorage.Health.LinkFolderWrongDrive.Fix", "Select a Link Folder on the game drive or move the virtual install staging to the game drive."));
                 }
             }
             else
             {
-                Add(result, GameStorageFolderRole.LinkFolder, paths.LinkFolderPath, GameStorageHealthStatus.LinkFolderNotRequired, false, true, "The Link Folder is not required for this game storage.");
+                Add(result, GameStorageFolderRole.LinkFolder, paths.LinkFolderPath, GameStorageHealthStatus.LinkFolderNotRequired, false, true, LanguageManager.Get("GameStorage.Health.LinkFolderNotRequired.Message", "The Link Folder is not required for this game storage."));
             }
 
             AddSuspiciousEmptyWarnings(result, paths, lastKnownGood);
@@ -500,20 +501,20 @@ namespace Nexus.Client.GameStorage
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
             {
-                Add(result, role, path, MissingStatus(role), required, true, $"The {GetRoleName(role)} folder is does not exist yet. It will be created when this setup is applied.", "Restore the previous folder or create a new one.");
+                Add(result, role, path, MissingStatus(role), required, true, LanguageManager.Format("GameStorage.Health.MissingFolder.Message", "The {0} folder is does not exist yet. It will be created when this setup is applied.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.MissingFolder.Fix", "Restore the previous folder or create a new one."));
                 return;
             }
 
             var manifest = ReadFolderManifest(path);
             if (manifest == null)
             {
-                Add(result, role, path, GameStorageHealthStatus.LegacyValidNeedsInitialization, required, true, $"The {GetRoleName(role)} folder is valid legacy storage and needs a Game Storage manifest.");
+                Add(result, role, path, GameStorageHealthStatus.LegacyValidNeedsInitialization, required, true, LanguageManager.Format("GameStorage.Health.LegacyNeedsManifest.Message", "The {0} folder is valid legacy storage and needs a Game Storage manifest.", GetRoleName(role)));
                 return;
             }
 
             if (manifest.FolderRole != role)
             {
-                Add(result, role, path, GameStorageHealthStatus.PartialMatch, required, true, $"The folder manifest role is {manifest.FolderRole}, but NMM expected {role}.", "Select the folder with the correct Game Storage role.");
+                Add(result, role, path, GameStorageHealthStatus.PartialMatch, required, true, LanguageManager.Format("GameStorage.Health.ManifestRoleMismatch.Message", "The folder manifest role is {0}, but NMM expected {1}.", GameStorageLocalization.GetFolderRoleName(manifest.FolderRole), GetRoleName(role)), LanguageManager.Get("GameStorage.Health.ManifestRoleMismatch.Fix", "Select the folder with the correct Game Storage role."));
                 return;
             }
 
@@ -530,8 +531,8 @@ namespace Nexus.Client.GameStorage
                 if (unrelatedBindings.Count > 0)
                 {
                     Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true,
-                        "The Mods folder is already bound to an unrelated Game Mode.",
-                        "Select a different Mods folder or add reciprocal shareModsStorageWith declarations only for compatible Game Modes.");
+                        LanguageManager.Get("GameStorage.Health.ModsBoundUnrelated.Message", "The Mods folder is already bound to an unrelated Game Mode."),
+                        LanguageManager.Get("GameStorage.Health.ModsBoundUnrelated.Fix", "Select a different Mods folder or add reciprocal shareModsStorageWith declarations only for compatible Game Modes."));
                     return;
                 }
 
@@ -540,15 +541,15 @@ namespace Nexus.Client.GameStorage
                     if (!string.Equals(currentBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
                     {
                         Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true,
-                            "The Mods folder binding for this Game Mode belongs to a different Game Storage.",
-                            "Use folders from the same Game Storage or confirm a recovery candidate.");
+                            LanguageManager.Get("GameStorage.Health.ModsStorageMismatch.Message", "The Mods folder binding for this Game Mode belongs to a different Game Storage."),
+                            LanguageManager.Get("GameStorage.Health.StorageMismatch.Fix", "Use folders from the same Game Storage or confirm a recovery candidate."));
                         return;
                     }
 
                     var sharedGameIds = GetSharedModsGameIds(paths, manifest);
                     string description = GetSharedModsDescription(sharedGameIds);
                     Add(result, role, path, GameStorageHealthStatus.Healthy, required, true,
-                        string.IsNullOrWhiteSpace(description) ? "The Mods folder is valid." : description);
+                        string.IsNullOrWhiteSpace(description) ? LanguageManager.Get("GameStorage.Health.ModsValid.Message", "The Mods folder is valid.") : description);
                     return;
                 }
 
@@ -558,37 +559,37 @@ namespace Nexus.Client.GameStorage
                     string description = GetSharedModsDescription(compatibleGameIds);
                     Add(result, role, path, GameStorageHealthStatus.CompatibleSharedModsLibrary, required, true,
                         string.IsNullOrWhiteSpace(description)
-                            ? "This is a compatible shared Mods library."
+                            ? LanguageManager.Get("GameStorage.Health.SharedModsCompatible.Message", "This is a compatible shared Mods library.")
                             : description,
-                        "Confirm that this Game Mode should also use this Mods library.");
+                        LanguageManager.Get("GameStorage.Health.SharedModsCompatible.Fix", "Confirm that this Game Mode should also use this Mods library."));
                     return;
                 }
 
                 Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true,
-                    "The Mods folder manifest belongs to another or unknown Game Mode.",
-                    "Select the correct folder for this game.");
+                    LanguageManager.Get("GameStorage.Health.ModsManifestOtherGame.Message", "The Mods folder manifest belongs to another or unknown Game Mode."),
+                    LanguageManager.Get("GameStorage.Health.SelectCorrectFolder.Fix", "Select the correct folder for this game."));
                 return;
             }
 
             if (currentBinding == null)
             {
-                Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, $"The {GetRoleName(role)} manifest belongs to another game.", "Select the correct folder for this game.");
+                Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, LanguageManager.Format("GameStorage.Health.ManifestOtherGame.Message", "The {0} manifest belongs to another game.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.SelectCorrectFolder.Fix", "Select the correct folder for this game."));
                 return;
             }
 
             if (!string.Equals(currentBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
             {
-                Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true, $"The {GetRoleName(role)} manifest belongs to a different Game Storage.", "Use folders from the same Game Storage or confirm a recovery candidate.");
+                Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true, LanguageManager.Format("GameStorage.Health.ManifestStorageMismatch.Message", "The {0} manifest belongs to a different Game Storage.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.StorageMismatch.Fix", "Use folders from the same Game Storage or confirm a recovery candidate."));
                 return;
             }
 
             if (bindings.Any(x => !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase)))
             {
-                Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, $"The {GetRoleName(role)} folder cannot be shared between Game Modes.", "Select an exclusive folder for this Game Mode.");
+                Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, LanguageManager.Format("GameStorage.Health.FolderCannotBeShared.Message", "The {0} folder cannot be shared between Game Modes.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.SelectExclusiveFolder.Fix", "Select an exclusive folder for this Game Mode."));
                 return;
             }
 
-            Add(result, role, path, GameStorageHealthStatus.Healthy, required, true, $"The {GetRoleName(role)} folder is valid.");
+            Add(result, role, path, GameStorageHealthStatus.Healthy, required, true, LanguageManager.Format("GameStorage.Health.FolderValid.Message", "The {0} folder is valid.", GetRoleName(role)));
         }
 
         private void ValidateInstallLog(GameStorageHealthCheck result, string installInfoPath)
@@ -600,8 +601,8 @@ namespace Nexus.Client.GameStorage
             if (!File.Exists(installLog))
             {
                 Add(result, GameStorageFolderRole.InstallInfo, installInfoPath, GameStorageHealthStatus.MissingInstallLog, true, true,
-                    "InstallInfo exists but InstallLog.xml was not found.",
-                    "Restore the previous InstallInfo folder if this game already had installed mods.");
+                    LanguageManager.Get("GameStorage.Health.MissingInstallLog.Message", "InstallInfo exists but InstallLog.xml was not found."),
+                    LanguageManager.Get("GameStorage.Health.MissingInstallLog.Fix", "Restore the previous InstallInfo folder if this game already had installed mods."));
             }
         }
 
@@ -611,13 +612,13 @@ namespace Nexus.Client.GameStorage
                 return;
 
             if (lastKnownGood.LastKnownArchiveCount > 0 && Directory.Exists(paths.ModsPath) && CountModArchives(paths.ModsPath) == 0)
-                Add(result, GameStorageFolderRole.Mods, paths.ModsPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, "The Mods folder is empty, but the previous known-good folder contained mod archives.", $"Previous Mods folder: {lastKnownGood.ModsPath}");
+                Add(result, GameStorageFolderRole.Mods, paths.ModsPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyMods.Message", "The Mods folder is empty, but the previous known-good folder contained mod archives."), LanguageManager.Format("GameStorage.Health.PreviousModsPath", "Previous Mods folder: {0}", lastKnownGood.ModsPath));
 
             if (lastKnownGood.LastKnownInstallLogPresent && Directory.Exists(paths.InstallInfoPath) && !File.Exists(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
-                Add(result, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, "The InstallInfo folder lacks InstallLog.xml, but the previous known-good storage had one.", $"Previous InstallInfo folder: {lastKnownGood.InstallInfoPath}");
+                Add(result, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyInstallInfo.Message", "The InstallInfo folder lacks InstallLog.xml, but the previous known-good storage had one."), LanguageManager.Format("GameStorage.Health.PreviousInstallInfoPath", "Previous InstallInfo folder: {0}", lastKnownGood.InstallInfoPath));
 
             if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountFiles(paths.VirtualInstallPath) == 0)
-                Add(result, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, "The VirtualInstall folder is empty, but the previous known-good folder contained staged files.", $"Previous VirtualInstall folder: {lastKnownGood.VirtualInstallPath}");
+                Add(result, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyVirtualInstall.Message", "The VirtualInstall folder is empty, but the previous known-good folder contained staged files."), LanguageManager.Format("GameStorage.Health.PreviousVirtualInstallPath", "Previous VirtualInstall folder: {0}", lastKnownGood.VirtualInstallPath));
         }
 
         private bool TryInitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry, GameStorageHealthCheck result)
@@ -933,9 +934,9 @@ namespace Nexus.Client.GameStorage
         {
             string failedPath = TryGetPathFromException(exception) ?? string.Empty;
             Add(result, ResolveFolderRole(paths, failedPath), failedPath, GameStorageHealthStatus.NotWritable, true, true,
-                "NMM could not write Game Storage metadata to this folder.",
+                LanguageManager.Get("GameStorage.Health.NotWritable.Message", "NMM could not write Game Storage metadata to this folder."),
                 exception.Message,
-                "Check folder permissions or select a writable Game Storage folder.");
+                LanguageManager.Get("GameStorage.Health.NotWritable.Fix", "Check folder permissions or select a writable Game Storage folder."));
         }
 
         private GameStorageFolderRole? ResolveFolderRole(GameStoragePathSet paths, string failedPath)
@@ -1106,7 +1107,7 @@ namespace Nexus.Client.GameStorage
 
         private string GetRoleName(GameStorageFolderRole role)
         {
-            return role == GameStorageFolderRole.LinkFolder ? "Link Folder" : role.ToString();
+            return GameStorageLocalization.GetFolderRoleName(role);
         }
 
         private string GetSettingValue(IDictionary<string, string> settings, string gameId)

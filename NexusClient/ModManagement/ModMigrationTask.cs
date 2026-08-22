@@ -4,6 +4,7 @@ using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModManagement.UI;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -81,29 +82,29 @@ namespace Nexus.Client.ModManagement
 			int intModCount = -1;
 
 			ShowItemProgress = false;
-			OverallMessage = "Initializing migration...";
+			OverallMessage = LanguageManager.Get("Profiles.Migration.Initializing", "Initializing migration...");
 			OverallProgress = 0;
 			OverallProgressMaximum = 8;
 			OverallProgressStepSize = 1;
 
 			if (m_booMigrate)
 			{
-				OverallMessage = "Setup: Exporting Load Order (if available)";
+				OverallMessage = LanguageManager.Get("Profiles.Migration.ExportLoadOrder", "Setup: Exporting Load Order (if available)");
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				if (ViewModel.GameMode.UsesPlugins)
 					bteLoadOrder = ViewModel.PluginManagerVM.ExportLoadOrder();
-				OverallMessage = "Setup: Exporting Mod List (this could take a lot)";
+				OverallMessage = LanguageManager.Get("Profiles.Migration.ExportModList", "Setup: Exporting Mod List (this could take a lot)");
 				System.Threading.Tasks.Task.Delay(10);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				bteModList = ViewModel.ModManager.InstallationLog.GetXmlModList();
-				OverallMessage = "Setup: Exporting IniEdits List";
+				OverallMessage = LanguageManager.Get("Profiles.Migration.ExportIniEdits", "Setup: Exporting IniEdits List");
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				bteIniList = ViewModel.ModManager.InstallationLog.GetXmlIniList();
 				intModCount = ViewModel.ModManager.ActiveMods.Count;
-				OverallMessage = "Setup: Backing Up Current Profile";
+				OverallMessage = LanguageManager.Get("Profiles.Migration.BackupCurrentProfile", "Setup: Backing Up Current Profile");
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				AddNewProfile(bteModList, bteIniList, bteLoadOrder, intModCount, true);
@@ -112,28 +113,28 @@ namespace Nexus.Client.ModManagement
 				bteLoadOrder = null;
 			}
 
-			OverallMessage = "Setup: Uninstalling Active Mods";
+			OverallMessage = LanguageManager.Get("Profiles.Migration.UninstallActiveMods", "Setup: Uninstalling Active Mods");
 			if (OverallProgress < OverallProgressMaximum)
 				StepOverallProgress();
 			UninstallAllMods(true, true);
 
-			OverallMessage = "Setup: Virtual Mod Setup";
+			OverallMessage = LanguageManager.Get("Profiles.Migration.VirtualModSetup", "Setup: Virtual Mod Setup");
 			if (OverallProgress < OverallProgressMaximum)
 				StepOverallProgress();
 			ViewModel.ModManager.VirtualModActivator.Setup();
 			if (m_booMigrate)
 			{
-				OverallMessage = "Migration: Migrating Profile";
+				OverallMessage = LanguageManager.Get("Profiles.Migration.MigratingProfile", "Migration: Migrating Profile");
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				ViewModel.ProfileManager.RestoreBackupProfile();
-				OverallMessage = "Migration: Activating Profile";
+				OverallMessage = LanguageManager.Get("Profiles.Migration.ActivatingProfile", "Migration: Activating Profile");
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				return null;
 			}
 
-			OverallMessage = "Migration: Complete";
+			OverallMessage = LanguageManager.Get("Profiles.Migration.Complete", "Migration: Complete");
 			return null;
 		}
 

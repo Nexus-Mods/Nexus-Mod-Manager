@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.UI.Controls
 {
@@ -46,6 +47,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			Discoverer = p_gdtDetector;
 			InitializeComponent();
+			ApplyLocalization();
 			AutoSize = true;
 			AutoSizeMode = AutoSizeMode.GrowAndShrink;
 			SetVisiblePanel(pnlSearching);
@@ -60,6 +62,17 @@ namespace Nexus.Client.UI.Controls
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			lblFileSystemErrorDescription.Text = LanguageManager.Get("GameSelection.FileSystem.UnsupportedDescription", "This game is installed on a drive with an unsuitable file system.");
+			lblFileSystemError.Text = LanguageManager.Get("GameSelection.FileSystem.UnsupportedTitle", "Unsuitable file system");
+			lblNotFoundMessage.Text = LanguageManager.Get("GameSelection.Path.NotFoundPrompt", "If this is not correct, enter the game path:");
+			lblNotFoundTitle.Text = LanguageManager.Get("GameSelection.Path.NotFoundTitle", "Not Found!");
+			lblSearchingTitle.Text = LanguageManager.Get("GameSelection.Path.Searching", "Searching..");
+			label1.Text = LanguageManager.Get("GameSelection.Path.VerifyLocation", "Please verify that the location is correct.");
+			lblFoundTitle.Text = LanguageManager.Get("GameSelection.Path.FoundTitle", "Found!");
+		}
 
 		#region Game Discoverer Event Handling
 
@@ -204,7 +217,7 @@ namespace Nexus.Client.UI.Controls
 		private void butOverride_Click(object sender, EventArgs e)
 		{
 			if (Discoverer.Verify(GameMode.ModeId, tbxInstallPath.Text) ||
-				MessageBox.Show(this, "The selected path does not contain the game's EXE file. Are you sure you want to use the selected path?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+				MessageBox.Show(this, LanguageManager.Get("GameSelection.Path.InvalidConfirm", "The selected path does not contain the game's EXE file. Are you sure you want to use the selected path?"), LanguageManager.Get("Common.Dialog.ConfirmTitle", "Confirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
 			{
 				Discoverer.Override(GameMode.ModeId, tbxInstallPath.Text);
 				DisplayFinalUI();
@@ -264,7 +277,7 @@ namespace Nexus.Client.UI.Controls
 		{
 			butOverride.Enabled = tbxInstallPath.Text.Length > 0;
 			if (!Discoverer.Verify(GameMode.ModeId, tbxInstallPath.Text))
-				erpErrors.SetError(butSelectPath, "Path does not contain game EXE.");
+				erpErrors.SetError(butSelectPath, LanguageManager.Get("GameSelection.Path.MissingExe", "Path does not contain game EXE."));
 			else
 				erpErrors.SetError(butSelectPath, null);
 		}

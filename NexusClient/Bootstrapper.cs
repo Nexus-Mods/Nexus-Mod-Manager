@@ -20,6 +20,7 @@
     using Nexus.Client.UI;
 
     using SevenZip;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// This class is responsible for creating all the services the application needs, and making sure that the
@@ -143,7 +144,7 @@
 				if (installedGames == null)
 				{
 					Trace.TraceInformation("No installed games.");
-					MessageBox.Show($"No games were detected! {CommonData.ModManagerName} will now close.", "No Games", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					MessageBox.Show(LanguageManager.Format("Startup.NoGames.Message", "No games were detected! {0} will now close.", CommonData.ModManagerName), LanguageManager.Get("Startup.NoGames.Title", "No Games"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 					return false;
 				}
 
@@ -211,10 +212,11 @@
 						}
 						catch (InvalidOperationException)
 						{
-							var stbPromptMessage = new StringBuilder();
-							stbPromptMessage.AppendLine($"{CommonData.ModManagerName} was unable to start. It appears another instance of {CommonData.ModManagerName} is already running.");
-							stbPromptMessage.AppendLine($"If you were trying to download multiple files, wait for {CommonData.ModManagerName} to start before clicking on a new file download.");
-							MessageBox.Show(stbPromptMessage.ToString(), "Already running", MessageBoxButtons.OK, MessageBoxIcon.Information);
+							var promptMessage = LanguageManager.Format(
+								"Startup.AlreadyRunning.Message",
+								"{0} was unable to start. It appears another instance of {0} is already running.{1}If you were trying to download multiple files, wait for {0} to start before clicking on a new file download.{1}",
+								CommonData.ModManagerName, Environment.NewLine);
+							MessageBox.Show(promptMessage, LanguageManager.Get("Startup.AlreadyRunning.Title", "Already running"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 							return false;
 						}
 
@@ -234,16 +236,11 @@
                         {
                             htlListener.SaveToFile();
                         }
-
-                        var stbPromptMessage = new StringBuilder();
-						stbPromptMessage.AppendLine($"{CommonData.ModManagerName} was unable to start. It appears another instance of {CommonData.ModManagerName} is already running.");
-						stbPromptMessage.AppendLine("A Trace Log file was created at:");
-						stbPromptMessage.AppendLine(htlListener.FilePath);
-						stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-						stbPromptMessage.AppendLine(Links.FAQs);
-						stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-						stbPromptMessage.AppendLine(Links.Instance.Issues);
-						MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        var promptMessage = LanguageManager.Format(
+                            "Startup.AlreadyRunning.Diagnostics",
+                            "{0} was unable to start. It appears another instance of {0} is already running.{1}A Trace Log file was created at:{1}{2}{1}Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):{1}{3}{1}If you can't find a solution, please make a bug report and attach the TraceLog file here:{1}{4}{1}",
+                            CommonData.ModManagerName, Environment.NewLine, htlListener.FilePath, Links.FAQs, Links.Instance.Issues);
+						MessageBox.Show(promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 
 					    return false;
 					}
@@ -355,26 +352,29 @@
 			}
 			catch (InvalidOperationException)
 			{
-
-				const string message = "{0} has detected that it is running in a sandbox. {1}" +
-				                       "The sandbox is preventing {0} from performing {1}" +
-				                       "important operations. Please run {0} again, {1}" +
-				                       "without the sandbox.";
-				const string details = "This error commonly occurs on computers running Comodo Antivirus.<br/>" +
-				                       "If you are running Comodo or any antivirus, please add {0} and its folders to the exception list.<br/><br/>";
-				ExtendedMessageBox.Show(null, string.Format(message, CommonData.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, CommonData.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				string message = LanguageManager.Format(
+					"Startup.Sandbox.Message",
+					"{0} has detected that it is running in a sandbox. {1}The sandbox is preventing {0} from performing {1}important operations. Please run {0} again, {1}without the sandbox.",
+					CommonData.ModManagerName, Environment.NewLine);
+				string details = LanguageManager.Format(
+					"Startup.Sandbox.ComodoDetails",
+					"This error commonly occurs on computers running Comodo Antivirus.<br/>If you are running Comodo or any antivirus, please add {0} and its folders to the exception list.<br/><br/>",
+					CommonData.ModManagerName);
+				ExtendedMessageBox.Show(null, message, LanguageManager.Get("Startup.Sandbox.Title", "Sandbox Detected"), details, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 			    return false;
 			}
 			catch (System.Runtime.InteropServices.ExternalException)
 			{
-			    const string message = "{0} has detected that it is running in a sandbox. {1}" +
-			                           "The sandbox is preventing {0} from performing {1}" +
-			                           "important operations. Please run {0} again, {1}" +
-			                           "without the sandbox.";
-                const string details = "This error commonly occurs on computers running Zone Alarm.<br/>" +
-                                       "If you are running Zone Alarm or any similar security suite, please add {0} and its folders to the exception list.<br/><br/>";
-				ExtendedMessageBox.Show(null, string.Format(message, CommonData.ModManagerName, Environment.NewLine), "Sandbox Detected", string.Format(details, CommonData.ModManagerName), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			    string message = LanguageManager.Format(
+					"Startup.Sandbox.Message",
+					"{0} has detected that it is running in a sandbox. {1}The sandbox is preventing {0} from performing {1}important operations. Please run {0} again, {1}without the sandbox.",
+					CommonData.ModManagerName, Environment.NewLine);
+                string details = LanguageManager.Format(
+                    "Startup.Sandbox.ZoneAlarmDetails",
+                    "This error commonly occurs on computers running Zone Alarm.<br/>If you are running Zone Alarm or any similar security suite, please add {0} and its folders to the exception list.<br/><br/>",
+                    CommonData.ModManagerName);
+				ExtendedMessageBox.Show(null, message, LanguageManager.Get("Startup.Sandbox.Title", "Sandbox Detected"), details, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 			    return false;
 			}
@@ -514,7 +514,7 @@
 					}
 					else
 					{
-						MessageBox.Show($"An error occured during the scan of the game {gdrGameDetector.DiscoveredGameModes[j].GameMode.ModeId} : {Environment.NewLine + "The object GameMode is NULL"}");
+						MessageBox.Show(LanguageManager.Format("Startup.GameScan.NullGameMode", "An error occured during the scan of the game {0} : {1}The object GameMode is NULL", gdrGameDetector.DiscoveredGameModes[j].GameMode.ModeId, Environment.NewLine));
 					}
 
 					j++;

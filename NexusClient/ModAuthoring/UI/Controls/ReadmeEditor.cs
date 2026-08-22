@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using Nexus.Client.Mods;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModAuthoring.UI.Controls
 {
@@ -88,11 +89,21 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		public ReadmeEditor()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 
 			xedReadme.SetHighlighting("HTML");
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			ddtReadme.Text = LanguageManager.Get("ModAuthoring.Readme.FormatLabel", "Readme Format:");
+			ddpHTML.Text = LanguageManager.Get("ModAuthoring.Readme.Format.Html", "HTML");
+			ddpRichText.Text = LanguageManager.Get("ModAuthoring.Readme.Format.RichText", "Rich Text");
+			ddpPlainText.Text = LanguageManager.Get("ModAuthoring.Readme.Format.PlainText", "Plain Text");
+			tsbPreview.Text = LanguageManager.Get("Common.Action.Preview", "Preview");
+		}
 
 		/// <summary>
 		/// Shows a preview of the HTML readme.
@@ -105,7 +116,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			wbrBrowser.Dock = DockStyle.Fill;
 			wbrBrowser.DocumentCompleted += delegate(object o, WebBrowserDocumentCompletedEventArgs arg)
 			{
-				frmHTMLPreview.Text = String.IsNullOrEmpty(wbrBrowser.DocumentTitle) ? "Readme" : wbrBrowser.DocumentTitle;
+				frmHTMLPreview.Text = String.IsNullOrEmpty(wbrBrowser.DocumentTitle) ? LanguageManager.Get("ModAuthoring.Readme.PreviewTitle", "Readme") : wbrBrowser.DocumentTitle;
 			};
 			wbrBrowser.WebBrowserShortcutsEnabled = false;
 			wbrBrowser.AllowWebBrowserDrop = false;

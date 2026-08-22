@@ -7,6 +7,7 @@ using System.Text;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -102,7 +103,7 @@ namespace Nexus.Client.PluginManagement
 
 			try
 			{
-				OverallMessage = String.Format("Applying load order...");
+				OverallMessage = LanguageManager.Get("Tasks.Plugins.ApplyingLoadOrder", "Applying load order...");
 				OverallProgress = 0;
 				OverallProgressStepSize = 1;
 				OverallProgressMaximum = RegisteredPlugins.Count;

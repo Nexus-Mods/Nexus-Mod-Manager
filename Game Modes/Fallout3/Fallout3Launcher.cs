@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.Fallout3
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout 3", "Launches plain Fallout 3.", imgIcon, LaunchFallout3Plain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Fallout 3"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Fallout 3"), imgIcon, LaunchFallout3Plain, true));
 
 			strCommand = GetFoseLaunchCommand();
 			Trace.TraceInformation("FOSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("FoseLaunch", "Launch FOSE", "Launches Fallout 3 with FOSE.", imgIcon, LaunchFallout3FOSE, true));
+				AddLaunchCommand(new Command("FoseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "FOSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout 3", "FOSE"), imgIcon, LaunchFallout3FOSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Fallout 3", "Launches Fallout 3 with custom command.", imgIcon, LaunchFallout3Custom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Fallout 3"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Fallout 3"), imgIcon, LaunchFallout3Custom, true));
 
-			DefaultLaunchCommand = new Command("Launch Fallout 3", "Launches Fallout 3.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Fallout 3"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Fallout 3"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -77,7 +78,7 @@ namespace Nexus.Client.Games.Fallout3
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -119,7 +120,7 @@ namespace Nexus.Client.Games.Fallout3
 			{
 				Trace.TraceError("FOSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "FOSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "FOSE"));
 				return;
 			}
 			Launch(strCommand, null);

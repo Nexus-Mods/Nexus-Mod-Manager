@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Sims4
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.Sims4
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch The Sims 4", "Launches plain The Sims 4.", imgIcon, LaunchSims4Plain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "The Sims 4"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "The Sims 4"), imgIcon, LaunchSims4Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom The Sims 4", "Launches The Sims 4 with custom command.", imgIcon, LaunchSims4Custom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "The Sims 4"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "The Sims 4"), imgIcon, LaunchSims4Custom, true));
 
-			DefaultLaunchCommand = new Command("Launch The Sims 4", "Launches The Sims 4.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "The Sims 4"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "The Sims 4"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.Sims4
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Windows.Forms;
 using System.Drawing;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
@@ -33,6 +34,9 @@ namespace Nexus.UI.Controls
 		public ImageViewer()
 		{
 			InitializeComponent();
+			Text = LanguageManager.Get("Common.ImageViewer.Title", "Image Viewer");
+			tsbZoomOriginal.Text = LanguageManager.Get("Common.ImageViewer.ActualSize.Name", "Actual Size");
+			tsbZoomFit.Text = LanguageManager.Get("Common.ImageViewer.FitToWindow.Name", "Fit to Window");
 		}
 
 		#endregion

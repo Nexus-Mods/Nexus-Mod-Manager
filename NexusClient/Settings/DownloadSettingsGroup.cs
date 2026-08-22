@@ -2,6 +2,7 @@
 {
     using System;
     using ModRepositories;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// The group of download settings.
@@ -25,7 +26,7 @@
 		/// Gets the title of the settings group.
 		/// </summary>
 		/// <value>The title of the settings group.</value>
-		public override string Title => "Download Options";
+		public override string Title { get; } = LanguageManager.Get("Settings.Download.Title", "Download Options");
 
         /// <summary>
 		/// Gets or sets whether to use multithreaded downloads.

@@ -37,6 +37,7 @@
 	using Nexus.Client.UI.Controls;
 	using Nexus.Client.Util;
 	using Nexus.Client.Util.Collections;
+	using Nexus.Client.Util.Localization;
 	using Nexus.UI.Controls;
 	using WeifenLuo.WinFormsUI.Docking;
 
@@ -88,6 +89,13 @@
 		private bool _lastFindPanelVisible;
 		private bool _restoringFindPanelVisibility;
 		private bool _toolbarPositionLeft;
+		private readonly string _categoryGroupCountFormat;
+		private readonly string _modCountFormat;
+		private readonly string _downloadModeCaptionFormat;
+		private readonly string _downloadModeHintFormat;
+		private readonly string _installedActiveStatusText;
+		private readonly string _installedUnlinkedStatusText;
+		private readonly string _uninstalledStatusText;
 		private BarButtonItem _toolbarPositionButton;
 		private BarStaticItem _toolbarSeparatorAfterDisable;
 		private BarStaticItem _toolbarSeparatorAfterEndorse;
@@ -226,12 +234,20 @@
 
 		public ModManagerDXControl()
 		{
+			_categoryGroupCountFormat = LanguageManager.GetFormat("Mods.CategoryView.GroupCount", "{0} mods");
+			_modCountFormat = LanguageManager.GetFormat("Mods.Status.Count", "Mods: {0}");
+			_downloadModeCaptionFormat = LanguageManager.GetFormat("Mods.DownloadMode.Caption", "Download Mode: {0}");
+			_downloadModeHintFormat = LanguageManager.GetFormat("Mods.DownloadMode.Tooltip", "Skyrim SE current download mode: {0}");
+			_installedActiveStatusText = LanguageManager.Get("Mods.Values.InstalledActive", "Installed/Active");
+			_installedUnlinkedStatusText = LanguageManager.Get("Mods.Values.InstalledUnlinked", "Installed/Unlinked");
+			_uninstalledStatusText = LanguageManager.Get("Mods.Values.Uninstalled", "Uninstalled");
 			InitializeComponent();
+			ApplyLocalization();
 			InitializePerformanceResources();
 			UpdateSkinPaletteCache();
 			InitializeToolbarIcons();
 			ApplyToolbarActionLabels();
-			Text = "Mods";
+			Text = LanguageManager.Get("Mods.Title", "Mods");
 			InitializeInlineRenameEditor();
 			SetupGrid();
 			InitializeNewModCategoryView();
@@ -418,8 +434,8 @@
 			if (tsbSkyrimDownloads.ImageOptions.SvgImage == null)
 				tsbSkyrimDownloads.ImageOptions.Image = DevExpressDisplaySettingsApplier.ResizeBarItemImage(
 					_viewModel.SkyrimDownloadImage, new Size(16, 16));
-			tsbSkyrimDownloads.Caption = "Download Mode: " + GetSkyrimDownloadModeLabel();
-			tsbSkyrimDownloads.Hint = $"Skyrim SE current download mode: {_viewModel.SkyrimSEDownloadModeDescriptor}";
+			tsbSkyrimDownloads.Caption = String.Format(_downloadModeCaptionFormat, GetSkyrimDownloadModeLabel());
+			tsbSkyrimDownloads.Hint = String.Format(_downloadModeHintFormat, _viewModel.SkyrimSEDownloadModeDescriptor);
 			tsbSkyrimDownloads.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 		}
 
@@ -803,14 +819,66 @@
 			NmmIconProvider.Bind(tsbSkyrimDownloads, NmmIconAction.DownloadMode);
 		}
 
+		private void ApplyLocalization()
+		{
+			barModActions.Text = LanguageManager.Get("Mods.Toolbar.Title", "Mod Actions");
+			tsbAddMod.Caption = LanguageManager.Get("Mods.Actions.Add.Name", "Add Mod");
+			tsbAddMod.Hint = LanguageManager.Get("Mods.Actions.Add.Tooltip", "Add a mod from a file");
+			addModToolStripMenuItem.Caption = LanguageManager.Get("Mods.Actions.AddFromFile.Name", "Add Mod from File");
+			addModFromURLToolStripMenuItem.Caption = LanguageManager.Get("Mods.Actions.AddFromUrl.Name", "Add Mod from URL");
+			tsbActivate.Caption = LanguageManager.Get("Mods.Actions.InstallEnable.ToolbarName", "Install / Enable");
+			tsbActivate.Hint = LanguageManager.Get("Mods.Actions.InstallEnable.Tooltip", "Install / enable the selected mod(s)");
+			tsbDeactivate.Caption = LanguageManager.Get("Mods.Actions.Disable.Name", "Disable Mod");
+			tsbDeactivate.Hint = LanguageManager.Get("Mods.Actions.Disable.Tooltip", "Disable the selected mod(s)");
+			tsb_SaveModLoadOrder.Caption = LanguageManager.Get("Mods.Actions.SaveLoadOrder.Name", "Save mod load order");
+			tsb_SaveModLoadOrder.Hint = LanguageManager.Get("Mods.Actions.SaveLoadOrder.Tooltip", "Save the current mod load order");
+			tsb_ModUpLoadOrder.Caption = LanguageManager.Get("Mods.Actions.MoveUp.Name", "Move mod up");
+			tsb_ModUpLoadOrder.Hint = LanguageManager.Get("Mods.Actions.MoveUp.Tooltip", "Moves mod up in the load order");
+			tsb_ModDownLoadOrder.Caption = LanguageManager.Get("Mods.Actions.MoveDown.Name", "Move mod down");
+			tsb_ModDownLoadOrder.Hint = LanguageManager.Get("Mods.Actions.MoveDown.Tooltip", "Moves mod down in the load order");
+			tsbTagMod.Caption = LanguageManager.Get("Mods.Actions.GetInfo.Name", "Get Mod Info");
+			tsbTagMod.Hint = LanguageManager.Get("Mods.Actions.GetInfo.Tooltip", "Get missing mod info");
+			tsbModOnlineChecks.Caption = LanguageManager.Get("Mods.Actions.Updates.Name", "Updates");
+			tsbModOnlineChecks.Hint = LanguageManager.Get("Mods.Actions.Updates.Tooltip", "Check for mod updates");
+			checkForModUpdateWithinTheLastDayToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.Interval.Name", "Check for Mod Updates Interval ...");
+			withinTheLastDayToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastDay.Name", "...within the last day");
+			withinTheLastWeekToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastWeek.Name", "...within the last week");
+			withinTheLastMonthToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastMonth.Name", "...within the last month");
+			checkFileDownloadId.Caption = LanguageManager.Get("Mods.UpdateChecks.FixDownloadIds.Name", "Fix download IDs and Check for mod updates");
+			checkMissingDownloadId.Caption = LanguageManager.Get("Mods.UpdateChecks.MissingDownloadIds.Name", "Just check for missing download IDs");
+			tsbToggleEndorse.Caption = LanguageManager.Get("Mods.Actions.Endorse.Name", "Endorse");
+			tsbToggleEndorse.Hint = LanguageManager.Get("Mods.Actions.Endorse.Tooltip", "Toggle mod endorsement");
+			tsbResetCategories.Caption = LanguageManager.Get("Mods.Categories.Menu.Name", "Categories");
+			tsbResetCategories.Hint = LanguageManager.Get("Mods.Categories.Menu.Tooltip", "Categories: add new category - Click the small arrow for more options");
+			addNewCategory.Caption = LanguageManager.Get("Mods.Categories.Add.Name", "Categories: add new category");
+			collapseAllCategories.Caption = LanguageManager.Get("Mods.Categories.CollapseAll.FullName", "Categories: collapse all categories");
+			expandAllCategories.Caption = LanguageManager.Get("Mods.Categories.ExpandAll.FullName", "Categories: expand all categories");
+			updateNexusAndCustomCategories.Caption = LanguageManager.Get("Mods.Categories.UpdateNexusCustom.FullName", "Categories: Update Nexus and custom categories");
+			resetDefaultCategories.Caption = LanguageManager.Get("Mods.Categories.ResetNexusDefaults.FullName", "Categories: Update and reset to Nexus site defaults");
+			resetUnassignedToDefaultCategories.Caption = LanguageManager.Get("Mods.Categories.ResetUnassigned.FullName", "Categories: reset Unassigned mods to Nexus site defaults");
+			resetModsCategory.Caption = LanguageManager.Get("Mods.Categories.ResetAllUnassigned.FullName", "Categories: reset all mods to unassigned");
+			removeAllCategories.Caption = LanguageManager.Get("Mods.Categories.RemoveAll.FullName", "Categories: remove all categories");
+			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.FullName", "Categories: toggle hidden categories");
+			tsbSwitchView.Caption = LanguageManager.Get("Mods.CategoryView.SwitchCategory.Name", "Switch to Category View");
+			tsbSwitchView.Hint = LanguageManager.Get("Mods.CategoryView.Switch.Tooltip", "Switches the Mod Manager views");
+			tsbExportModList.Caption = LanguageManager.Get("Common.Action.Export", "Export");
+			tsbExportModList.Hint = LanguageManager.Get("Mods.Actions.Export.Tooltip", "Export the current mod list");
+			exportToTextFile.Caption = LanguageManager.Get("Common.Action.TextFile", "Text file");
+			exportToClipboard.Caption = LanguageManager.Get("Common.Action.CopyToClipboard", "Copy to clipboard");
+			tsbShowUpdatesOnly.Caption = LanguageManager.Get("Mods.Actions.UpdatesOnly.Name", "Updates Only");
+			tsbShowUpdatesOnly.Hint = LanguageManager.Get("Mods.Actions.UpdatesOnly.Tooltip", "Toggles filtering the mod list showing only mods requiring an update");
+			tsbSkyrimDownloads.Caption = LanguageManager.Get("Mods.DownloadMode.Name", "Download Mode");
+			toolStripLabelModCount.Caption = String.Format(_modCountFormat, 0);
+		}
+
 		/// <summary>
 		/// Restores the canonical action captions after command bindings update the toolbar.
 		/// </summary>
 		private void ApplyToolbarActionLabels()
 		{
-			tsbDeactivate.Caption = "Disable Mod";
+			tsbDeactivate.Caption = LanguageManager.Get("Mods.Actions.Disable.Name", "Disable Mod");
 			tsbDeactivate.PaintStyle = BarItemPaintStyle.CaptionGlyph;
-			tsbTagMod.Caption = "Get Mod Info";
+			tsbTagMod.Caption = LanguageManager.Get("Mods.Actions.GetInfo.Name", "Get Mod Info");
 			tsbTagMod.PaintStyle = BarItemPaintStyle.CaptionGlyph;
 		}
 
@@ -845,21 +913,21 @@
 		/// </summary>
 		private void InitializeGridDisplayOptions()
 		{
-			_displayOptionsButton = new BarSubItem(barManagerMods, "Grid Options")
+			_displayOptionsButton = new BarSubItem(barManagerMods, LanguageManager.Get("Mods.GridOptions.Title", "Grid Options"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
-				Hint = "Grid display options"
+				Hint = LanguageManager.Get("Mods.GridOptions.Tooltip", "Grid display options")
 			};
 
-			_toggleColouredCategoriesMenuItem = CreateCheckedDisplayOption("Toggle Coloured Categories", _showColouredCategories,
+			_toggleColouredCategoriesMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.ColouredCategories.Option", "Toggle Coloured Categories"), _showColouredCategories,
 				(sender, args) => SetColouredCategoriesVisible(_toggleColouredCategoriesMenuItem.Down, true));
-			_toggleRowHighlightsMenuItem = CreateCheckedDisplayOption("Toggle Row Highlights", _showRowHighlights,
+			_toggleRowHighlightsMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.RowHighlights.Option", "Toggle Row Highlights"), _showRowHighlights,
 				(sender, args) => SetRowHighlightsVisible(_toggleRowHighlightsMenuItem.Down, true));
-			_toggleActiveModsBoldMenuItem = CreateCheckedDisplayOption("Show Active Mods in Bold", _showActiveModsInBold,
+			_toggleActiveModsBoldMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.ActiveBold.Option", "Show Active Mods in Bold"), _showActiveModsInBold,
 				(sender, args) => SetActiveModsBold(_toggleActiveModsBoldMenuItem.Down, true));
-			_focusTopRowAfterSortingMenuItem = CreateCheckedDisplayOption("Focus top row after sorting", _focusTopRowAfterSorting,
+			_focusTopRowAfterSortingMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.FocusTopAfterSort.Option", "Focus top row after sorting"), _focusTopRowAfterSorting,
 				(sender, args) => SetFocusTopRowAfterSorting(_focusTopRowAfterSortingMenuItem.Down, true));
-			_focusTopRowAfterInstallDateChangeMenuItem = CreateCheckedDisplayOption("Focus top row after install date changes", _focusTopRowAfterInstallDateChange,
+			_focusTopRowAfterInstallDateChangeMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.FocusTopAfterInstallDateChange.Option", "Focus top row after install date changes"), _focusTopRowAfterInstallDateChange,
 				(sender, args) => SetFocusTopRowAfterInstallDateChange(_focusTopRowAfterInstallDateChangeMenuItem.Down, true));
 
 			_displayOptionsButton.AddItem(_toggleColouredCategoriesMenuItem);
@@ -1335,9 +1403,17 @@
 
 		private void BuildColumns()
 		{
-			AddCol(ColModStatus, "Status", HorzAlignment.Center, true); GridColumn modNameCol = AddCol(ColModName, "MOD NAME", HorzAlignment.Default, true); AddCol(ColVersion, "VERSION", HorzAlignment.Center, false); AddCol(ColLastKnown, "LATEST", HorzAlignment.Center, false); AddCol(ColAuthor, "AUTHOR", HorzAlignment.Default, false); AddCol(ColCategory, "CATEGORY", HorzAlignment.Default, false); AddCol(ColInstallDate, "INSTALL DATE", HorzAlignment.Center, false); AddCol(ColDownloadDate, "DOWNLOAD DATE", HorzAlignment.Center, false); AddCol(ColDownloadId, "DOWNLOAD ID", HorzAlignment.Center, false);
+			AddCol(ColModStatus, LanguageManager.Get("Common.Column.Status", "Status"), HorzAlignment.Center, true);
+			GridColumn modNameCol = AddCol(ColModName, LanguageManager.Get("Mods.Columns.ModName.Header", "MOD NAME"), HorzAlignment.Default, true);
+			AddCol(ColVersion, LanguageManager.Get("Mods.Columns.Version.Header", "VERSION"), HorzAlignment.Center, false);
+			AddCol(ColLastKnown, LanguageManager.Get("Mods.Columns.Latest.Header", "LATEST"), HorzAlignment.Center, false);
+			AddCol(ColAuthor, LanguageManager.Get("Mods.Columns.Author.Header", "AUTHOR"), HorzAlignment.Default, false);
+			AddCol(ColCategory, LanguageManager.Get("Mods.Columns.Category.Header", "CATEGORY"), HorzAlignment.Default, false);
+			AddCol(ColInstallDate, LanguageManager.Get("Mods.Columns.InstallDate.Header", "INSTALL DATE"), HorzAlignment.Center, false);
+			AddCol(ColDownloadDate, LanguageManager.Get("Mods.Columns.DownloadDate.Header", "DOWNLOAD DATE"), HorzAlignment.Center, false);
+			AddCol(ColDownloadId, LanguageManager.Get("Mods.Columns.DownloadId.Header", "DOWNLOAD ID"), HorzAlignment.Center, false);
 			ConfigureModNameRenameColumn(modNameCol);
-			GridColumn endorsedCol = AddCol(ColEndorsed, "ENDORSED", HorzAlignment.Center, false); RepositoryItemPictureEdit picRepo = new RepositoryItemPictureEdit { ShowMenu = false, SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, NullText = "", }; endorsedCol.ColumnEdit = picRepo; gridControl.RepositoryItems.Add(picRepo);
+			GridColumn endorsedCol = AddCol(ColEndorsed, LanguageManager.Get("Mods.Columns.Endorsed.Header", "ENDORSED"), HorzAlignment.Center, false); RepositoryItemPictureEdit picRepo = new RepositoryItemPictureEdit { ShowMenu = false, SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, NullText = "", }; endorsedCol.ColumnEdit = picRepo; gridControl.RepositoryItems.Add(picRepo);
 		}
 		private GridColumn AddCol(string field, string caption, HorzAlignment align, bool pin)
 		{
@@ -1518,11 +1594,11 @@
 			switch (GetModVisualStatus(mod))
 			{
 				case ModVisualStatus.InstalledActive:
-					return "Installed/Active";
+					return _installedActiveStatusText;
 				case ModVisualStatus.InstalledUnlinked:
-					return "Installed/Unlinked";
+					return _installedUnlinkedStatusText;
 				default:
-					return "Uninstalled";
+					return _uninstalledStatusText;
 			}
 		}
 
@@ -2430,7 +2506,7 @@
 			{
 				SummaryType = DevExpress.Data.SummaryItemType.Count,
 				FieldName = string.Empty,
-				DisplayFormat = "{0} mods",
+				DisplayFormat = _categoryGroupCountFormat,
 				ShowInGroupColumnFooter = null
 			});
 			gridView.GroupFormat = "{0}: {1} ({2})";
@@ -2503,8 +2579,8 @@
 			if (tsbSwitchView == null)
 				return;
 
-			tsbSwitchView.Caption = _categoryViewActive ? "Switch to Default View" : "Switch to Category View";
-			tsbSwitchView.Hint = _categoryViewActive ? "Show the default flat mod list" : "Group the mod list by category";
+			tsbSwitchView.Caption = _categoryViewActive ? LanguageManager.Get("Mods.CategoryView.SwitchDefault.Name", "Switch to Default View") : LanguageManager.Get("Mods.CategoryView.SwitchCategory.Name", "Switch to Category View");
+			tsbSwitchView.Hint = _categoryViewActive ? LanguageManager.Get("Mods.CategoryView.SwitchDefault.Tooltip", "Show the default flat mod list") : LanguageManager.Get("Mods.CategoryView.SwitchCategory.Tooltip", "Group the mod list by category");
 		}
 		private void QueueGridLayoutSave()
 		{
@@ -2686,12 +2762,12 @@
 			_renameButtonEdit.TextEditStyle = editing ? TextEditStyles.Standard : TextEditStyles.DisableTextEditor;
 			if (editing)
 			{
-				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Accept, RenameButtonActionAccept, "Accept rename"));
-				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Cancel, RenameButtonActionCancel, "Cancel rename"));
+				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Accept, RenameButtonActionAccept, LanguageManager.Get("Mods.Rename.Accept.Tooltip", "Accept rename")));
+				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Cancel, RenameButtonActionCancel, LanguageManager.Get("Mods.Rename.Cancel.Tooltip", "Cancel rename")));
 			}
 			else
 			{
-				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Pencil, RenameButtonActionRename, "Rename mod"));
+				_renameButtonEdit.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Pencil, RenameButtonActionRename, LanguageManager.Get("Mods.Rename.Name", "Rename mod")));
 			}
 		}
 
@@ -2799,8 +2875,8 @@
 			{
 				buttonEdit.Properties.TextEditStyle = TextEditStyles.Standard;
 				buttonEdit.Properties.Buttons.Clear();
-				buttonEdit.Properties.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Accept, RenameButtonActionAccept, "Accept rename"));
-				buttonEdit.Properties.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Cancel, RenameButtonActionCancel, "Cancel rename"));
+				buttonEdit.Properties.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Accept, RenameButtonActionAccept, LanguageManager.Get("Mods.Rename.Accept.Tooltip", "Accept rename")));
+				buttonEdit.Properties.Buttons.Add(CreateRenameEditorButton(InlineEditGlyph.Cancel, RenameButtonActionCancel, LanguageManager.Get("Mods.Rename.Cancel.Tooltip", "Cancel rename")));
 			}
 
 			TextEdit textEdit = gridView.ActiveEditor as TextEdit;
@@ -3340,10 +3416,10 @@
 		/// </summary>
 		private void InitializeToolbarPositionButton()
 		{
-			_toolbarPositionButton = new BarButtonItem(barManagerMods, "Toolbar Layout")
+			_toolbarPositionButton = new BarButtonItem(barManagerMods, LanguageManager.Get("Mods.ToolbarLayout.Name", "Toolbar Layout"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
-				Hint = "Toolbar Layout – move to Left",
+				Hint = LanguageManager.Get("Mods.ToolbarLayout.MoveLeft.Tooltip", "Toolbar Layout – move to Left"),
 				PaintStyle = BarItemPaintStyle.CaptionGlyph
 			};
 			NmmIconProvider.Bind(_toolbarPositionButton, NmmIconAction.Layout);
@@ -3373,8 +3449,8 @@
 
 				if (_toolbarPositionButton != null)
 				{
-					_toolbarPositionButton.Caption = "Toolbar Layout";
-					_toolbarPositionButton.Hint = left ? "Toolbar Layout – move to Top" : "Toolbar Layout – move to Left";
+					_toolbarPositionButton.Caption = LanguageManager.Get("Mods.ToolbarLayout.Name", "Toolbar Layout");
+					_toolbarPositionButton.Hint = left ? LanguageManager.Get("Mods.ToolbarLayout.MoveTop.Tooltip", "Toolbar Layout – move to Top") : LanguageManager.Get("Mods.ToolbarLayout.MoveLeft.Tooltip", "Toolbar Layout – move to Left");
 				}
 			}
 			finally
@@ -3433,45 +3509,45 @@
 			{
 				if (!installed)
 				{
-					AddGridPopupItem(CreatePopupButton("Install and activate", NmmIconAction.InstallEnable,
+					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.InstallActivate.Name", "Install and activate"), NmmIconAction.InstallEnable,
 						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 
 					if (_viewModel?.ModManager?.GameMode?.SupportsGameRootModInstall == true)
 					{
 						string gameModeName = _viewModel.ModManager.GameMode.Name;
 						if (String.IsNullOrWhiteSpace(gameModeName)) gameModeName = "game";
-						AddGridPopupItem(CreatePopupButton(String.Format("Install to {0} root (eg. SKSE)", gameModeName), NmmIconAction.InstallRoot,
+						AddGridPopupItem(CreatePopupButton(String.Format(LanguageManager.GetFormat("Mods.Context.InstallGameRoot.Name", "Install to {0} root (eg. SKSE)"), gameModeName), NmmIconAction.InstallRoot,
 							() => _viewModel?.ActivateModInGameRoot(mod)));
 					}
 				}
 				else if (!active)
 				{
-					AddGridPopupItem(CreatePopupButton("Activate", NmmIconAction.InstallEnable,
+					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Activate.Name", "Activate"), NmmIconAction.InstallEnable,
 						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 				}
 				else
 				{
-					AddGridPopupItem(CreatePopupButton("Deactivate", NmmIconAction.Disable,
+					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Deactivate.Name", "Deactivate"), NmmIconAction.Disable,
 						() => _viewModel?.DisableModCommand.Execute(new List<IMod> { mod })), true);
-					AddGridPopupItem(CreatePopupButton("Reinstall Mod", NmmIconAction.Reinstall,
+					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Reinstall.Name", "Reinstall Mod"), NmmIconAction.Reinstall,
 						() => _viewModel?.ReinstallMod(mod, null)));
 				}
 			}
 			else
 			{
-				AddGridPopupItem(CreatePopupButton("Reinstall Mod/s", NmmIconAction.Reinstall,
+				AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.ReinstallMultiple.Name", "Reinstall Mod/s"), NmmIconAction.Reinstall,
 					() => _viewModel?.ReinstallMultipleMods(mods)), true);
 			}
 
-			BarSubItem itemUninstall = CreatePopupSubItem("Uninstall or Delete", NmmIconAction.Uninstall);
+			BarSubItem itemUninstall = CreatePopupSubItem(LanguageManager.Get("Mods.Context.UninstallDelete.Name", "Uninstall or Delete"), NmmIconAction.Uninstall);
 			if (singleMod)
 			{
-				itemUninstall.AddItem(CreatePopupButton("From active profile", NmmIconAction.Uninstall, () =>
+				itemUninstall.AddItem(CreatePopupButton(LanguageManager.Get("Mods.Context.FromActiveProfile.Name", "From active profile"), NmmIconAction.Uninstall, () =>
 				{
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateMod(mod);
 				}));
-				itemUninstall.AddItem(CreatePopupButton("From all profiles", NmmIconAction.Uninstall, () =>
+				itemUninstall.AddItem(CreatePopupButton(LanguageManager.Get("Mods.Context.FromAllProfiles.Name", "From all profiles"), NmmIconAction.Uninstall, () =>
 				{
 					if (_viewModel == null || !ConfirmMissingArchiveUninstall(mods)) return;
 					IBackgroundTaskSet btsDeactivate = _viewModel.ModManager.DeactivateMod(mod, _viewModel.ModManager.ActiveMods);
@@ -3493,7 +3569,7 @@
 					}
 				}));
 
-				BarButtonItem deleteItem = CreatePopupButton("Delete mod (permanently) and uninstall.", NmmIconAction.Delete, () =>
+				BarButtonItem deleteItem = CreatePopupButton(LanguageManager.Get("Mods.Context.DeletePermanently.Name", "Delete mod (permanently) and uninstall."), NmmIconAction.Delete, () =>
 				{
 					if (_viewModel == null) return;
 					if (!ConfirmModFileDeletion(mods) || !ConfirmMissingArchiveUninstall(mods)) return;
@@ -3526,7 +3602,7 @@
 			}
 			else
 			{
-				itemUninstall.AddItem(CreatePopupButton("From active profile", NmmIconAction.Uninstall, () =>
+				itemUninstall.AddItem(CreatePopupButton(LanguageManager.Get("Mods.Context.FromActiveProfile.Name", "From active profile"), NmmIconAction.Uninstall, () =>
 				{
 					if (_viewModel != null && ConfirmMissingArchiveUninstall(mods))
 						_viewModel.DeactivateSelectedMods(mods);
@@ -3534,17 +3610,17 @@
 			}
 			AddGridPopupItem(itemUninstall);
 
-			BarSubItem itemWarnings = CreatePopupSubItem("Mod Update Warnings", NmmIconAction.Warning);
+			BarSubItem itemWarnings = CreatePopupSubItem(LanguageManager.Get("Mods.Context.UpdateWarnings.Name", "Mod Update Warnings"), NmmIconAction.Warning);
 			BuildUpdateWarningsSubmenu(itemWarnings, mods);
 			if (itemWarnings.ItemLinks.Count > 0) AddGridPopupItem(itemWarnings);
 
-			BarSubItem itemChecks = CreatePopupSubItem("Mod Update Checks and Automatic Mod Rename", NmmIconAction.CheckUpdates);
+			BarSubItem itemChecks = CreatePopupSubItem(LanguageManager.Get("Mods.Context.UpdateChecksRename.Name", "Mod Update Checks and Automatic Mod Rename"), NmmIconAction.CheckUpdates);
 			BuildUpdateChecksSubmenu(itemChecks, mods);
 			if (itemChecks.ItemLinks.Count > 0) AddGridPopupItem(itemChecks);
 
 			if (_viewModel?.CategoryManager != null)
 			{
-				BarSubItem itemMoveTo = CreatePopupSubItem("Move to", NmmIconAction.Categories);
+				BarSubItem itemMoveTo = CreatePopupSubItem(LanguageManager.Get("Mods.Context.MoveTo.Name", "Move to"), NmmIconAction.Categories);
 				foreach (IModCategory cat in _viewModel.CategoryManager.Categories.OrderBy(category => category.CategoryName))
 				{
 					int catId = cat.Id;
@@ -3555,7 +3631,7 @@
 			}
 
 			if (singleMod)
-				AddGridPopupItem(CreatePopupButton("Reset Mod Cache", NmmIconAction.Reset, () => ResetSelectedModCache(mod)), true);
+				AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Actions.ResetCache.Name", "Reset Mod Cache"), NmmIconAction.Reset, () => ResetSelectedModCache(mod)), true);
 
 			_gridPopupMenu.ShowPopup(Control.MousePosition);
 			e.Allow = false;
@@ -3676,8 +3752,8 @@
 			catch (Exception ex)
 			{
 				XtraMessageBox.Show(this,
-					"Unable to reset the selected mod cache." + Environment.NewLine + Environment.NewLine + ex.Message,
-					"Reset Mod Cache", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					LanguageManager.Get("Mods.ResetCache.Failed.Message", "Unable to reset the selected mod cache.") + Environment.NewLine + Environment.NewLine + ex.Message,
+					LanguageManager.Get("Mods.Actions.ResetCache.Name", "Reset Mod Cache"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 
@@ -3688,7 +3764,7 @@
 			if (mods.Count == 1)
 			{
 				IMod mod = mods[0];
-				parent.AddItem(CreatePopupButton(mod.UpdateWarningEnabled ? "Disable update warning" : "Enable update warning", NmmIconAction.Warning,
+				parent.AddItem(CreatePopupButton(mod.UpdateWarningEnabled ? LanguageManager.Get("Mods.UpdateWarnings.DisableOne.Name", "Disable update warning") : LanguageManager.Get("Mods.UpdateWarnings.EnableOne.Name", "Enable update warning"), NmmIconAction.Warning,
 					() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), !mod.UpdateWarningEnabled)));
 			}
 			else
@@ -3696,18 +3772,18 @@
 				bool hasEnabled = mods.Any(mod => mod.UpdateWarningEnabled);
 				bool hasDisabled = mods.Any(mod => !mod.UpdateWarningEnabled);
 				if (hasDisabled)
-					parent.AddItem(CreatePopupButton("Enable for selected files", NmmIconAction.Warning,
+					parent.AddItem(CreatePopupButton(LanguageManager.Get("Mods.UpdateWarnings.EnableSelected.Name", "Enable for selected files"), NmmIconAction.Warning,
 						() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), true)));
 				if (hasEnabled)
-					parent.AddItem(CreatePopupButton("Disable for selected files", NmmIconAction.Warning,
+					parent.AddItem(CreatePopupButton(LanguageManager.Get("Mods.UpdateWarnings.DisableSelected.Name", "Disable for selected files"), NmmIconAction.Warning,
 						() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(mods), false)));
 			}
 
-			BarButtonItem enableAll = CreatePopupButton("Enable for all files", NmmIconAction.Warning,
+			BarButtonItem enableAll = CreatePopupButton(LanguageManager.Get("Mods.UpdateWarnings.EnableAll.Name", "Enable for all files"), NmmIconAction.Warning,
 				() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), true));
 			BarItemLink enableAllLink = parent.AddItem(enableAll);
 			enableAllLink.BeginGroup = parent.ItemLinks.Count > 1;
-			parent.AddItem(CreatePopupButton("Disable for all files", NmmIconAction.Warning,
+			parent.AddItem(CreatePopupButton(LanguageManager.Get("Mods.UpdateWarnings.DisableAll.Name", "Disable for all files"), NmmIconAction.Warning,
 				() => _viewModel?.ToggleModUpdateWarning(new HashSet<IMod>(_viewModel.ManagedMods), false)));
 		}
 
@@ -3718,7 +3794,7 @@
 			if (mods.Count == 1)
 			{
 				IMod mod = mods[0];
-				parent.AddItem(CreatePopupButton(mod.UpdateChecksEnabled ? "Disable for this mod" : "Enable for this mod", NmmIconAction.CheckUpdates,
+				parent.AddItem(CreatePopupButton(mod.UpdateChecksEnabled ? LanguageManager.Get("Mods.UpdateChecks.DisableOne.Name", "Disable for this mod") : LanguageManager.Get("Mods.UpdateChecks.EnableOne.Name", "Enable for this mod"), NmmIconAction.CheckUpdates,
 					() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), !mod.UpdateChecksEnabled)));
 			}
 			else
@@ -3726,14 +3802,14 @@
 				bool hasEnabled = mods.Any(mod => mod.UpdateChecksEnabled);
 				bool hasDisabled = mods.Any(mod => !mod.UpdateChecksEnabled);
 				if (hasDisabled)
-					parent.AddItem(CreatePopupButton("Enable for selected mods", NmmIconAction.CheckUpdates,
+					parent.AddItem(CreatePopupButton(LanguageManager.Get("Mods.UpdateChecks.EnableSelected.Name", "Enable for selected mods"), NmmIconAction.CheckUpdates,
 						() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), true)));
 				if (hasEnabled)
-					parent.AddItem(CreatePopupButton("Disable for selected mods", NmmIconAction.CheckUpdates,
+					parent.AddItem(CreatePopupButton(LanguageManager.Get("Mods.UpdateChecks.DisableSelected.Name", "Disable for selected mods"), NmmIconAction.CheckUpdates,
 						() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(mods), false)));
 			}
 
-			BarButtonItem enableAll = CreatePopupButton("Enable for all mods", NmmIconAction.CheckUpdates,
+			BarButtonItem enableAll = CreatePopupButton(LanguageManager.Get("Mods.UpdateChecks.EnableAll.Name", "Enable for all mods"), NmmIconAction.CheckUpdates,
 				() => _viewModel?.ToggleModUpdateCheck(new HashSet<IMod>(_viewModel.ManagedMods), true));
 			BarItemLink enableAllLink = parent.AddItem(enableAll);
 			enableAllLink.BeginGroup = parent.ItemLinks.Count > 1;
@@ -3782,9 +3858,9 @@
 		private void ConfigureDeactivateDropDown()
 		{
 			ClearPopupMenuItems(popupDeactivate);
-			BarButtonItem uninstallItem = AddDeactivateDropDownItem("Uninstall mod from current profile", UninstallSelectedModsFromCurrentProfile);
+			BarButtonItem uninstallItem = AddDeactivateDropDownItem(LanguageManager.Get("Mods.Context.UninstallCurrentProfile.Name", "Uninstall mod from current profile"), UninstallSelectedModsFromCurrentProfile);
 			NmmIconProvider.Bind(uninstallItem, NmmIconAction.Uninstall);
-			BarButtonItem deleteItem = AddDeactivateDropDownItem("Delete mod", DeleteSelectedModsFromKey);
+			BarButtonItem deleteItem = AddDeactivateDropDownItem(LanguageManager.Get("Mods.Context.Delete.Name", "Delete mod"), DeleteSelectedModsFromKey);
 			NmmIconProvider.Bind(deleteItem, NmmIconAction.Delete);
 		}
 
@@ -3839,7 +3915,7 @@
 
 		private void UpdateModCountLabel()
 		{
-			toolStripLabelModCount.Caption = $"Mods: {_modList.Count}";
+			toolStripLabelModCount.Caption = String.Format(_modCountFormat, _modList.Count);
 		}
 
 		// ── Toolbar button handlers ──────────────────────────────────────────
@@ -3863,7 +3939,7 @@
 			if (_viewModel == null) return;
 			using (var ofd = new XtraOpenFileDialog())
 			{
-				ofd.Filter = "Mod Archives|*.zip;*.7z;*.rar;*.fomod;*.omod|All Files|*.*";
+				ofd.Filter = LanguageManager.Get("Mods.FileDialog.ModArchivesLabel", "Mod Archives") + "|*.zip;*.7z;*.rar;*.fomod;*.omod|" + LanguageManager.Get("Common.FileDialog.AllFilesLabel", "All Files") + "|*.*";
 				ofd.Multiselect = true;
 				if (ofd.ShowDialog(this) == DialogResult.OK)
 					foreach (string f in ofd.FileNames)
@@ -3882,10 +3958,10 @@
 					strDefault = clip;
 			}
 			var dlg = PromptDialog.ShowDialog(null, this,
-				"NMM URL: (eg. nxm://Skyrim/mods/193/files/8998)",
-				"Choose URL", strDefault,
+				LanguageManager.Get("Mods.AddFromUrl.Prompt", "NMM URL: (eg. nxm://Skyrim/mods/193/files/8998)"),
+				LanguageManager.Get("Mods.AddFromUrl.Title", "Choose URL"), strDefault,
 				@"nxm://\w+/mods/\d+/files/\d+",
-				"Must be a Nexus Mod URL.");
+				LanguageManager.Get("Mods.AddFromUrl.Validation", "Must be a Nexus Mod URL."));
 			if (dlg != null && !string.IsNullOrEmpty(dlg.EnteredText))
 				_viewModel.AddModCommand.Execute(dlg.EnteredText);
 		}
@@ -3935,8 +4011,8 @@
 			{
 				if (ex.Message != "Login required")
 					XtraMessageBox.Show(this,
-						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+						LanguageManager.Get("Mods.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
+						LanguageManager.Get("Mods.UpdateCheck.Title", "Update check"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -3968,8 +4044,8 @@
 			{
 				if (ex.Message != "Login required")
 					XtraMessageBox.Show(this,
-						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+						LanguageManager.Get("Mods.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
+						LanguageManager.Get("Mods.UpdateCheck.Title", "Update check"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -3986,8 +4062,8 @@
 			{
 				if (ex.Message != "Login required")
 					XtraMessageBox.Show(this,
-						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+						LanguageManager.Get("Mods.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
+						LanguageManager.Get("Mods.UpdateCheck.Title", "Update check"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -4004,8 +4080,8 @@
 			{
 				if (ex.Message != "Login required")
 					XtraMessageBox.Show(this,
-						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+						LanguageManager.Get("Mods.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
+						LanguageManager.Get("Mods.UpdateCheck.Title", "Update check"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -4024,8 +4100,8 @@
 			catch (Exception ex)
 			{
 				XtraMessageBox.Show(this,
-					$"Unable to {(current != true ? "endorse" : "unendorse")} this file:{Environment.NewLine}{ex.Message}",
-					"Endorsement Error:", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					(current != true ? LanguageManager.Get("Mods.Endorse.Failed.Message", "Unable to endorse this file:") : LanguageManager.Get("Mods.Unendorse.Failed.Message", "Unable to unendorse this file:")) + Environment.NewLine + ex.Message,
+					LanguageManager.Get("Mods.Endorse.Error.Title", "Endorsement Error:"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			finally
 			{
@@ -4100,7 +4176,7 @@
 			catch (Exception ex)
 			{
 				if (ex.Message != "Login required")
-					ExtendedMessageBox.Show(this, "Couldn't perform the category update, retry later." + Environment.NewLine + Environment.NewLine + ex.Message, "Category update", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					ExtendedMessageBox.Show(this, LanguageManager.Get("Categories.Update.Failed.Message", "Couldn't perform the category update, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message, LanguageManager.Get("Categories.Update.Title", "Category update"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -4117,8 +4193,8 @@
 			{
 				if (ex.Message != "Login required")
 					XtraMessageBox.Show(this,
-						$"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-						"Update check", MessageBoxButtons.OK, MessageBoxIcon.Information);
+						LanguageManager.Get("Mods.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
+						LanguageManager.Get("Mods.UpdateCheck.Title", "Update check"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -4184,7 +4260,7 @@
 			{
 				string msg = e.Argument.ReturnValue.ToString();
 				if (msg.Length > 2)
-					ExtendedMessageBox.Show(this, msg, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					ExtendedMessageBox.Show(this, msg, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -4195,7 +4271,7 @@
 			ProgressDialog.ShowDialog(this, e.Argument);
 			_disableSummary = false;
 			if (e.Argument.ReturnValue != null)
-				ExtendedMessageBox.Show(this, "Unable to update the category list online, it will use base categories: " + Environment.NewLine + e.Argument.ReturnValue, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this, LanguageManager.Get("Categories.Update.OnlineFallback.Message", "Unable to update the category list online, it will use base categories:") + Environment.NewLine + e.Argument.ReturnValue, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			CategoriesUpdateCheckTask categoryUpdateTask = e.Argument as CategoriesUpdateCheckTask;
 			bool resetCategoryAssignments = categoryUpdateTask == null || categoryUpdateTask.ResetCategoryAssignmentsAfterUpdate;
 			_viewModel?.CompleteCategoriesUpdate(e.Argument.ReturnValue != null, resetCategoryAssignments);
@@ -4308,24 +4384,26 @@
 		private void VM_ExportFailed(object sender, ExportFailedEventArgs e)
 		{
 			if (InvokeRequired) { Invoke((Action<object, ExportFailedEventArgs>)VM_ExportFailed, sender, e); return; }
-			string msg = "An error was encountered trying to export the current mod list."
+			string msg = LanguageManager.Get("Mods.Export.Failed.Message", "An error was encountered trying to export the current mod list.")
 				+ Environment.NewLine + Environment.NewLine
-				+ "Full details are available in the trace log.";
-			string details = "<b>Error:</b> " + e.Message;
-			ExtendedMessageBox.Show(this, msg, "Export Failed", details, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				+ LanguageManager.Get("Mods.Export.Failed.TraceHint", "Full details are available in the trace log.");
+			string details = LanguageManager.Get("Common.Dialog.ErrorHtmlLabel", "<b>Error:</b> ") + e.Message;
+			ExtendedMessageBox.Show(this, msg, LanguageManager.Get("Mods.Export.Failed.Title", "Export Failed"), details, MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 
 		private void VM_ExportSucceeded(object sender, ExportSucceededEventArgs e)
 		{
 			if (InvokeRequired) { Invoke((Action<object, ExportSucceededEventArgs>)VM_ExportSucceeded, sender, e); return; }
-			string msg = "The current mod list was successfully exported to";
+			string msg = LanguageManager.Get("Mods.Export.Succeeded.Message", "The current mod list was successfully exported to");
 			if (string.IsNullOrEmpty(e.Filename))
-				msg += " the clipboard.";
+				msg += LanguageManager.Get("Mods.Export.ClipboardSuffix", " the clipboard.");
 			else
 				msg += ":" + Environment.NewLine + Environment.NewLine + e.Filename;
-			string details = string.Format("{0} {1} successfully exported.",
-				e.ExportedModCount, e.ExportedModCount == 1 ? "mod was" : "mods were");
-			ExtendedMessageBox.Show(this, msg, "Export Succeeded", details, MessageBoxButtons.OK, MessageBoxIcon.Information);
+			string details = String.Format(e.ExportedModCount == 1
+                ? LanguageManager.GetFormat("Mods.Export.Count.One", "{0} mod was successfully exported.")
+                : LanguageManager.GetFormat("Mods.Export.Count.Many", "{0} mods were successfully exported."),
+                e.ExportedModCount);
+			ExtendedMessageBox.Show(this, msg, LanguageManager.Get("Mods.Export.Succeeded.Title", "Export Succeeded"), details, MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 
 		// ── Background task set handlers ─────────────────────────────────────
@@ -4345,9 +4423,9 @@
 			if (!string.IsNullOrEmpty(e.Message))
 			{
 				if (e.Success)
-					XtraMessageBox.Show(this, e.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					XtraMessageBox.Show(this, e.Message, LanguageManager.Get("Common.Dialog.SuccessTitle", "Success"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 				else
-					XtraMessageBox.Show(this, e.Message, "Failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+					XtraMessageBox.Show(this, e.Message, LanguageManager.Get("Common.Dialog.FailureTitle", "Failure"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 
@@ -4365,11 +4443,11 @@
 			string msg = string.Empty;
 			foreach (IMod m in mods)
 			{
-				if (++n > 25) { msg += $"And {mods.Count - 25} more mods.\r\n"; break; }
+				if (++n > 25) { msg += String.Format(LanguageManager.GetFormat("Mods.Delete.MoreMods", "And {0} more mods.\r\n"), mods.Count - 25); break; }
 				msg += $"- {m.ModName}\r\n";
 			}
-			msg += "\r\nThese mods will be uninstalled and permanently deleted from your hard drive.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.";
-			return ExtendedMessageBox.Show(this, msg, "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+			msg += LanguageManager.Get("Mods.Delete.Confirm.Message", "\r\nThese mods will be uninstalled and permanently deleted from your hard drive.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.");
+			return ExtendedMessageBox.Show(this, msg, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
 		}
 
 		private bool ConfirmMissingArchiveUninstall(List<IMod> mods)
@@ -4387,27 +4465,27 @@
 			var msg = new StringBuilder();
 			if (missingMods.Count == 1)
 			{
-				msg.AppendLine("The archive for this mod is missing. NMM can uninstall it from the current setup, but it will not be reinstallable from the mod manager unless the archive is restored.");
+				msg.AppendLine(LanguageManager.Get("Mods.MissingArchive.One.Message", "The archive for this mod is missing. NMM can uninstall it from the current setup, but it will not be reinstallable from the mod manager unless the archive is restored."));
 				msg.AppendLine();
-				msg.AppendLine("Missing archive:");
+				msg.AppendLine(LanguageManager.Get("Mods.MissingArchive.One.Heading", "Missing archive:"));
 			}
 			else
 			{
-				msg.AppendLine($"{missingMods.Count} selected mod archives are missing. NMM can uninstall these mods from the current setup, but they will not be reinstallable from the mod manager unless the archives are restored.");
+				msg.AppendLine(String.Format(LanguageManager.GetFormat("Mods.MissingArchive.Many.Message", "{0} selected mod archives are missing. NMM can uninstall these mods from the current setup, but they will not be reinstallable from the mod manager unless the archives are restored."), missingMods.Count));
 				msg.AppendLine();
-				msg.AppendLine("Missing archives:");
+				msg.AppendLine(LanguageManager.Get("Mods.MissingArchive.Many.Heading", "Missing archives:"));
 			}
 
 			int n = 0;
 			foreach (IMod mod in missingMods)
 			{
-				if (++n > 10) { msg.AppendLine($"And {missingMods.Count - 10} more mods."); break; }
+				if (++n > 10) { msg.AppendLine(String.Format(LanguageManager.GetFormat("Mods.MissingArchive.MoreMods", "And {0} more mods."), missingMods.Count - 10)); break; }
 				msg.AppendLine($"- {mod.ModName}");
 			}
 
 			msg.AppendLine();
-			msg.AppendLine("Continue?");
-			return ExtendedMessageBox.Show(this, msg.ToString(), "Missing Mod Archive", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+			msg.AppendLine(LanguageManager.Get("Common.Action.ContinuePrompt", "Continue?"));
+			return ExtendedMessageBox.Show(this, msg.ToString(), LanguageManager.Get("Mods.MissingArchive.Title", "Missing Mod Archive"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
 		}
 
 		private string ConfirmModFileOverwrite(string oldPath, string newPath)
@@ -4423,8 +4501,8 @@
 				return oldPath;
 
 			switch (XtraMessageBox.Show(this,
-				$"A mod archive already exists at:\r\n{oldPath}\r\n\r\nWould you like to overwrite it?",
-				"Overwrite?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+				String.Format(LanguageManager.GetFormat("Mods.Overwrite.Message", "A mod archive already exists at:\r\n{0}\r\n\r\nWould you like to overwrite it?"), oldPath),
+				LanguageManager.Get("Mods.Overwrite.Title", "Overwrite?"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 			{
 				case DialogResult.Yes: return oldPath;
 				case DialogResult.No: return newPath;
@@ -4452,8 +4530,8 @@
 				return r;
 			}
 			switch (XtraMessageBox.Show(this,
-				$"A newer version of '{oldMod.ModName}' has been found.\r\nWould you like to upgrade?",
-				"Upgrade Mod?", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+				String.Format(LanguageManager.GetFormat("Mods.Upgrade.ConfirmMessage", "A newer version of '{0}' has been found.\r\nWould you like to upgrade?"), oldMod.ModName),
+				LanguageManager.Get("Mods.Upgrade.ConfirmTitle", "Upgrade Mod?"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 			{
 				case DialogResult.Yes: return ConfirmUpgradeResult.Upgrade;
 				case DialogResult.No: return ConfirmUpgradeResult.NormalActivation;

@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using Nexus.Client.Commands;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -48,13 +49,13 @@ namespace Nexus.Client.Games.DataDriven
                 if (!string.IsNullOrWhiteSpace(command) && File.Exists(command))
                 {
                     Image icon = SafeExtractIcon(command);
-                    AddLaunchCommand(new Command(tool.Id, "Launch " + tool.Name, "Launches " + tool.Name + ".", icon, () => LaunchTool(tool), true));
+                    AddLaunchCommand(new Command(tool.Id, LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", tool.Name), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", tool.Name), icon, () => LaunchTool(tool), true));
                     if (DefaultLaunchCommand == null)
-                        DefaultLaunchCommand = new Command("Launch " + tool.Name, "Launches " + tool.Name + ".", () => LaunchTool(tool));
+                        DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", tool.Name), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", tool.Name), () => LaunchTool(tool));
                 }
                 else
                 {
-                    AddLaunchCommand(new Command("Config#" + tool.Id, "Config " + tool.Name, "Configures " + tool.Name + ".", null, () => ConfigTool(tool), true));
+                    AddLaunchCommand(new Command("Config#" + tool.Id, LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", tool.Name), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", tool.Name), null, () => ConfigTool(tool), true));
                 }
             }
         }
@@ -205,7 +206,7 @@ namespace Nexus.Client.Games.DataDriven
         {
             using (var dialog = new XtraFolderBrowserDialog())
             {
-                dialog.Description = string.Format("Select the folder where the {0} executable is located.", tool.Name);
+                dialog.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", tool.Name);
 
                 string current;
                 KeyedSettings<string> settings = EnvironmentInfo.Settings.SupportedTools[GameMode.ModeId];
@@ -216,7 +217,7 @@ namespace Nexus.Client.Games.DataDriven
                     return;
                 if (string.IsNullOrWhiteSpace(FindExecutable(dialog.SelectedPath, tool)))
                 {
-                    XtraMessageBox.Show("The selected folder does not contain a supported executable for " + tool.Name + ".", "Tool not found", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    XtraMessageBox.Show(LanguageManager.Format("GameModes.DataDriven.ToolNotFound.Message", "The selected folder does not contain a supported executable for {0}.", tool.Name), LanguageManager.Get("GameModes.DataDriven.ToolNotFound.Title", "Tool not found"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 

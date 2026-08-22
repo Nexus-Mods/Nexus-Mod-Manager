@@ -3,6 +3,7 @@ using System.ComponentModel;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -45,7 +46,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_modMod">The mod to prepare.</param>
 		public bool PrepareMod(IMod p_modMod)
 		{
-			OverallMessage = "Preparing Mod...";
+			OverallMessage = LanguageManager.Get("Tasks.Mod.Preparing", "Preparing Mod...");
 			ShowItemProgress = false;
 			OverallProgressMaximum = 100;
 			OverallProgressStepSize = 1;

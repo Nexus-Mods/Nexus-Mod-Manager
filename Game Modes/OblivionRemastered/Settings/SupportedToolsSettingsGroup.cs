@@ -8,6 +8,7 @@ using Nexus.UI.Controls;
 using Microsoft.Win32;
 using System.IO;
 using Nexus.Client.Settings;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.OblivionRemastered
 {
@@ -36,7 +37,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		{
 			get
 			{
-				return "Supported Tools";
+				return LanguageManager.Get("GameModes.SupportedTools.Title", "Supported Tools");
 			}
 		}
 
@@ -236,55 +237,55 @@ namespace Nexus.Client.Games.OblivionRemastered
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
 			{
-				Errors.SetError(p_strBOSSProperty, String.Format("You must select a {0}.", p_strBOSSPathName));
+				Errors.SetError(p_strBOSSProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strBOSSPathName));
 				return false;
 			}
 			Errors.Clear(p_strWryeBashProperty);
 			if (String.IsNullOrEmpty(p_strWryeBashPath))
 			{
-				Errors.SetError(p_strWryeBashProperty, String.Format("You must select a {0}.", p_strWryeBashPathName));
+				Errors.SetError(p_strWryeBashProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strWryeBashPathName));
 				return false;
 			}
 			Errors.Clear(p_strFNISProperty);
 			if (String.IsNullOrEmpty(p_strFNISPath))
 			{
-				Errors.SetError(p_strFNISProperty, String.Format("You must select a {0}.", p_strFNISPathName));
+				Errors.SetError(p_strFNISProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strFNISPathName));
 				return false;
 			}
 			Errors.Clear(p_strBSProperty);
 			if (String.IsNullOrEmpty(p_strBSPath))
 			{
-				Errors.SetError(p_strBSProperty, String.Format("You must select a {0}.", p_strBSPathName));
+				Errors.SetError(p_strBSProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strBSPathName));
 				return false;
 			}
 			Errors.Clear(p_strDSRPProperty);
 			if (String.IsNullOrEmpty(p_strDSRPPath))
 			{
-				Errors.SetError(p_strDSRPProperty, String.Format("You must select a {0}.", p_strDSRPPathName));
+				Errors.SetError(p_strDSRPProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strDSRPPathName));
 				return false;
 			}
 			Errors.Clear(p_strPMProperty);
 			if (String.IsNullOrEmpty(p_strPMPath))
 			{
-				Errors.SetError(p_strPMProperty, String.Format("You must select a {0}.", p_strPMPathName));
+				Errors.SetError(p_strPMProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strPMPathName));
 				return false;
 			}
 			Errors.Clear(p_strLOOTProperty);
 			if (String.IsNullOrEmpty(p_strLOOTPath))
 			{
-				Errors.SetError(p_strLOOTProperty, String.Format("You must select a {0}.", p_strLOOTPathName));
+				Errors.SetError(p_strLOOTProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strLOOTPathName));
 				return false;
 			}
 			Errors.Clear(p_strSSEEditProperty);
 			if (String.IsNullOrEmpty(p_strSSEEditPath))
 			{
-				Errors.SetError(p_strSSEEditProperty, String.Format("You must select a {0}.", p_strSSEEditPathName));
+				Errors.SetError(p_strSSEEditProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strSSEEditPathName));
 				return false;
 			}
 			Errors.Clear(p_strNemesisProperty);
 			if (String.IsNullOrEmpty(p_strNemesisPath))
 			{
-				Errors.SetError(p_strNemesisProperty, String.Format("You must select a {0}.", p_strNemesisPathName));
+				Errors.SetError(p_strNemesisProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strNemesisPathName));
 				return false;
 			}
 
@@ -308,13 +309,13 @@ namespace Nexus.Client.Games.OblivionRemastered
 				FileAttributes attr = File.GetAttributes(p_strPath);
 				if (!attr.HasFlag(FileAttributes.Directory))
 				{
-					Errors.SetError(p_strProperty, String.Format("You need to select the FOLDER not the FILE: {0}.", p_strPathName));
+					Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.SelectFolderNotFile", "You need to select the folder, not the file: {0}.", p_strPathName));
 					return false;
 				}
 			}
 			if (p_strPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 			{
-				Errors.SetError(p_strProperty, String.Format("The selected path is not valid: {0}.", p_strPathName));
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.InvalidPath", "The selected path is not valid: {0}.", p_strPathName));
 				return false;
 			}
 			else if (
@@ -323,7 +324,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 				(String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
 				)
 			{
-				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.PathCannotMatchProtectedLocations", "You can't set the {0} path equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
 					"Game root folder - {1}" + Environment.NewLine +
 					"Game plugin folder - {3}",
@@ -342,7 +343,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateBOSSDirectory()
 		{
-			return ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory));
+			return ValidateDirectory(BOSSDirectory, "BOSS", ObjectHelper.GetPropertyName(() => BOSSDirectory));
 		}
 
 		/// <summary>
@@ -352,7 +353,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateLOOTDirectory()
 		{
-			return ValidateDirectory(LOOTDirectory, "LOOT Directory", ObjectHelper.GetPropertyName(() => LOOTDirectory));
+			return ValidateDirectory(LOOTDirectory, "LOOT", ObjectHelper.GetPropertyName(() => LOOTDirectory));
 		}
 
 		/// <summary>
@@ -362,7 +363,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateWryeBashDirectory()
 		{
-			return ValidateDirectory(WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory));
+			return ValidateDirectory(WryeBashDirectory, "Wrye Bash", ObjectHelper.GetPropertyName(() => WryeBashDirectory));
 		}
 
 		/// <summary>
@@ -372,7 +373,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateFNISDirectory()
 		{
-			return ValidateDirectory(FNISDirectory, "FNIS Directory", ObjectHelper.GetPropertyName(() => FNISDirectory));
+			return ValidateDirectory(FNISDirectory, "FNIS", ObjectHelper.GetPropertyName(() => FNISDirectory));
 		}
 
 		/// <summary>
@@ -382,7 +383,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateNemesisDirectory()
 		{
-			return ValidateDirectory(NemesisDirectory, "Nemesis Directory", ObjectHelper.GetPropertyName(() => NemesisDirectory));
+			return ValidateDirectory(NemesisDirectory, "Nemesis", ObjectHelper.GetPropertyName(() => NemesisDirectory));
 		}
 
 		/// <summary>
@@ -392,7 +393,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateBSDirectory()
 		{
-			return ValidateDirectory(BSDirectory, "BodySlide Directory", ObjectHelper.GetPropertyName(() => BSDirectory));
+			return ValidateDirectory(BSDirectory, "BodySlide", ObjectHelper.GetPropertyName(() => BSDirectory));
 		}
 
 		/// <summary>
@@ -402,7 +403,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateDSRPDirectory()
 		{
-			return ValidateDirectory(DSRPDirectory, "Dual Sheat Redux Patch Directory", ObjectHelper.GetPropertyName(() => DSRPDirectory));
+			return ValidateDirectory(DSRPDirectory, "Dual Sheat Redux Patch", ObjectHelper.GetPropertyName(() => DSRPDirectory));
 		}
 
 		/// <summary>
@@ -412,7 +413,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidatePMDirectory()
 		{
-			return ValidateDirectory(PMDirectory, "Patchus Maximus Directory", ObjectHelper.GetPropertyName(() => PMDirectory));
+			return ValidateDirectory(PMDirectory, "Patchus Maximus", ObjectHelper.GetPropertyName(() => PMDirectory));
 		}
 
 		/// <summary>
@@ -422,7 +423,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateSSEEditDirectory()
 		{
-			return ValidateDirectory(SSEEditDirectory, "SSEEdit Directory", ObjectHelper.GetPropertyName(() => SSEEditDirectory));
+			return ValidateDirectory(SSEEditDirectory, "SSEEdit", ObjectHelper.GetPropertyName(() => SSEEditDirectory));
 		}
 
 		/// <summary>

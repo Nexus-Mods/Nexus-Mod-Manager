@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.XRebirth
 {
@@ -46,6 +47,9 @@ namespace Nexus.Client.Games.XRebirth
 		protected SetupForm()
 		{
 			InitializeComponent();
+			string setupTitle = LanguageManager.GetFormat("GameModes.Setup.Title", "{0} Setup");
+			lblTitle.Text = setupTitle;
+			Text = setupTitle;
 		}
 
 		/// <summary>
@@ -98,7 +102,7 @@ namespace Nexus.Client.Games.XRebirth
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void wizSetup_Cancelled(object sender, EventArgs e)
 		{
-			if (MessageBox.Show(this, String.Format("If you cancel the setup {0} will close.", CommonData.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
+			if (MessageBox.Show(this, LanguageManager.Format("GameModes.Setup.CancelMessage", "If you cancel the setup {0} will close.", CommonData.ModManagerName), LanguageManager.Get("Common.Dialog.ConfirmTitle", "Confirm"), MessageBoxButtons.OKCancel, MessageBoxIcon.Information) == DialogResult.OK)
 				DialogResult = DialogResult.Cancel;
 		}
 

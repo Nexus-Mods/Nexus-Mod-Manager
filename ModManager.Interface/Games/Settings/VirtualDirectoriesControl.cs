@@ -6,6 +6,7 @@ using System.Security.Principal;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -38,18 +39,18 @@ namespace Nexus.Client.Games.Settings
 				m_vmlViewModel.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
 				m_vmlViewModel.Errors.ErrorChanged += new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
 				
-				lblVirtualPrompt.Text = "Select the folder where NMM will place extracted and installed mods (NMM will automatically create a 'VirtualInstall' folder in it).";
-				ckbUseMultiHDInstall.Text = "Enable Multi-HD install mode";
-				lblLinkPrompt.Text = "Select the folder where NMM will place extracted files that need to be on the same hard-drive as your game (NMM will automatically create a 'NMMLink' folder in it).";
+				lblVirtualPrompt.Text = LanguageManager.Get("GameSettings.VirtualFolders.VirtualInstallDetailedPrompt", "Select the folder where NMM will place extracted and installed mods (NMM will automatically create a 'VirtualInstall' folder in it).");
+				ckbUseMultiHDInstall.Text = LanguageManager.Get("GameSettings.VirtualFolders.EnableMultiHd", "Enable Multi-HD install mode");
+				lblLinkPrompt.Text = LanguageManager.Get("GameSettings.VirtualFolders.RequiredLinkDetailedPrompt", "Select the folder where NMM will place extracted files that need to be on the same hard-drive as your game (NMM will automatically create a 'NMMLink' folder in it).");
 
-				string strInfo = "[Virtual Install] This is the default and recommended installation method. It REQUIRES this folder to be located on the same hard-drive where you normally install mods for this game." + Environment.NewLine +
+				string strInfo = LanguageManager.Get("GameSettings.VirtualFolders.Information", "[Virtual Install] This is the default and recommended installation method. It REQUIRES this folder to be located on the same hard-drive where you normally install mods for this game." + Environment.NewLine +
 				"If you want this folder to be located anywhere, on any hard-drive of your choosing, enable the Multi-HD install mode." + Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine +
 				"[Enable Multi-HD install mode] lets you place extracted mods on a different hard-drive to the one your game mods are usually installed on," +
 				"allowing you to save space on your game drive." + Environment.NewLine +
 				"NOTE: Some file extensions like .exe, .esp and .esm files need to be placed on the game's hard-drive irrespsective of this setting." + Environment.NewLine +
 				"NOTE: Placing mods on a slow HD may degrade game performance and loading times." + Environment.NewLine + Environment.NewLine + Environment.NewLine +
 				"[Required Link] Select the folder where NMM will place extracted files that need to be on the same HD as your games (.exe, .esp and .esm files)" + Environment.NewLine +
-				"NOTE: This folder MUST be on the same HD where you normally install mods for this game." + Environment.NewLine;
+				"NOTE: This folder MUST be on the same HD where you normally install mods for this game." + Environment.NewLine);
 				lbInfo.Text = strInfo;
 				lbInfo.Visible = true;
 
@@ -118,6 +119,11 @@ namespace Nexus.Client.Games.Settings
 		public VirtualDirectoriesControl()
 		{
 			InitializeComponent();
+			grbInfo.Text = LanguageManager.Get("GameSettings.VirtualFolders.SectionTitle", "Virtual mod install setup:");
+			grbMulti.Text = LanguageManager.Get("GameSettings.VirtualFolders.MultiHdAdminWarning", "Multi-HD install - You MUST run the program as Administrator to enable this:");
+			ckbUseMultiHDInstall.Text = LanguageManager.Get("GameSettings.VirtualFolders.EnableMultiHd", "Enable Multi-HD install mode");
+			lblLinkDirectoryLabel.Text = LanguageManager.Get("GameSettings.VirtualFolders.RequiredLinkLabel", "Required Link:");
+			lblVirtualDirectoryLabel.Text = LanguageManager.Get("GameSettings.VirtualFolders.VirtualInstallLabel", "Virtual Install:");
 		}
 
 		#endregion

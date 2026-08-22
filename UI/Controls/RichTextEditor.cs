@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Drawing.Text;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
@@ -63,6 +64,13 @@ namespace Nexus.UI.Controls
 		public RichTextEditor()
 		{
 			InitializeComponent();
+			tsbBold.Text = LanguageManager.Get("Common.RichText.Bold.Name", "Bold");
+			tsbItalic.Text = LanguageManager.Get("Common.RichText.Italic.Name", "Italic");
+			tsbUnderline.Text = LanguageManager.Get("Common.RichText.Underline.Name", "Underline");
+			tsbStrikeout.Text = LanguageManager.Get("Common.RichText.Strikeout.Name", "Strikeout");
+			tsbJustifyLeft.Text = LanguageManager.Get("Common.RichText.LeftJustify.Name", "Left Justify");
+			tsbJustifyCentre.Text = LanguageManager.Get("Common.RichText.CentreJustify.Name", "Centre Justify");
+			tsbJustifyRight.Text = LanguageManager.Get("Common.RichText.RightJustify.Name", "Right Justify");
 
 			m_tsbJustifications = new ToolStripButton[] { tsbJustifyLeft, tsbJustifyCentre, tsbJustifyRight };
 			tsbJustifyLeft.Tag = HorizontalAlignment.Left;

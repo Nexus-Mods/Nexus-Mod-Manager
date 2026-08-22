@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using System.Drawing;
 using System.IO;
 using Nexus.UI.Controls;
@@ -64,9 +65,23 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		{
 			AutoCommitChanges = true;
 			InitializeComponent();
+			ApplyLocalization();
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			label3.Text = LanguageManager.Get("Common.Field.Name", "Name:");
+			label4.Text = LanguageManager.Get("Common.Field.VersionLabel", "Version:");
+			label5.Text = LanguageManager.Get("Common.Field.AuthorLabel", "Author:");
+			label6.Text = LanguageManager.Get("Common.Field.DescriptionLabel", "Description:");
+			label7.Text = LanguageManager.Get("Common.Field.WebsiteLabel", "Website:");
+			label2.Text = LanguageManager.Get("Common.Field.ScreenshotLabel", "Screenshot:");
+			ttpToolTips.SetToolTip(butClearScreenshot, LanguageManager.Get("ModAuthoring.Info.ClearScreenshot", "Clear Screenshot"));
+			ttpToolTips.SetToolTip(butSetScreenshot, LanguageManager.Get("ModAuthoring.Info.SetScreenshot", "Set Screenshot"));
+			ofdScreenshot.Filter = LanguageManager.Get("Common.FileDialog.ImageFilter", "Image files") + "|*.png;*.jpg;*.bmp";
+		}
 
 		#region Control Metrics Serialization
 

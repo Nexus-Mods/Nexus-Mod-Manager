@@ -9,6 +9,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -293,15 +294,15 @@ namespace Nexus.Client.PluginManagement.UI
 			CurrentGameMode.LoadOrderManager.ExternalPluginAdded += new EventHandler(LoadOrderManager_ExternalPluginAdded);
 			CurrentGameMode.LoadOrderManager.ExternalPluginRemoved += new EventHandler(LoadOrderManager_ExternalPluginRemoved);
 
-			ActivatePluginCommand = new Command<Plugin>("Activate Plugin", "Activates the selected plugin.", ActivatePlugin);
-			DeactivatePluginCommand = new Command<Plugin>("Deactivate Plugin", "Deactivates the selected plugin.", DeactivatePlugin);
-			MoveUpCommand = new Command<IEnumerable<Plugin>>("Move Plugin Up", "Moves the plugin up in the load order.", MovePluginsUp);
-			MoveDownCommand = new Command<IList<Plugin>>("Move Plugin Down", "Moves the plugin down in the load order.", MovePluginsDown);
+			ActivatePluginCommand = new Command<Plugin>(LanguageManager.Get("Plugins.Actions.Activate.Name", "Activate Plugin"), LanguageManager.Get("Plugins.Actions.Activate.Description", "Activates the selected plugin."), ActivatePlugin);
+			DeactivatePluginCommand = new Command<Plugin>(LanguageManager.Get("Plugins.Actions.Deactivate.Name", "Deactivate Plugin"), LanguageManager.Get("Plugins.Actions.Deactivate.Description", "Deactivates the selected plugin."), DeactivatePlugin);
+			MoveUpCommand = new Command<IEnumerable<Plugin>>(LanguageManager.Get("Plugins.Actions.MoveUp.Name", "Move Plugin Up"), LanguageManager.Get("Plugins.Actions.MoveUp.Description", "Moves the plugin up in the load order."), MovePluginsUp);
+			MoveDownCommand = new Command<IList<Plugin>>(LanguageManager.Get("Plugins.Actions.MoveDown.Name", "Move Plugin Down"), LanguageManager.Get("Plugins.Actions.MoveDown.Description", "Moves the plugin down in the load order."), MovePluginsDown);
 
-			ExportLoadOrderToFileCommand = new Command<string>("Export to a text file", "Exports the current load order to a text file.", ExportLoadOrderToFile);
-			ExportLoadOrderToClipboardCommand = new Command("Export to the clipboard", "Exports the current load order to the clipboard.", ExportLoadOrderToClipboard);
-			ImportLoadOrderFromFileCommand = new Command<string>("Import from a text file", "Imports a load order from a text file", ImportLoadOrderFromFile);
-			ImportLoadOrderFromClipboardCommand = new Command("Import from the clipboard", "Imports a load order from the clipboard", ImportLoadOrderFromClipboard);
+			ExportLoadOrderToFileCommand = new Command<string>(LanguageManager.Get("Plugins.Actions.ExportFile.Name", "Export to a text file"), LanguageManager.Get("Plugins.Actions.ExportFile.Description", "Exports the current load order to a text file."), ExportLoadOrderToFile);
+			ExportLoadOrderToClipboardCommand = new Command(LanguageManager.Get("Plugins.Actions.ExportClipboard.Name", "Export to the clipboard"), LanguageManager.Get("Plugins.Actions.ExportClipboard.Description", "Exports the current load order to the clipboard."), ExportLoadOrderToClipboard);
+			ImportLoadOrderFromFileCommand = new Command<string>(LanguageManager.Get("Plugins.Actions.ImportFile.Name", "Import from a text file"), LanguageManager.Get("Plugins.Actions.ImportFile.Description", "Imports a load order from a text file"), ImportLoadOrderFromFile);
+			ImportLoadOrderFromClipboardCommand = new Command(LanguageManager.Get("Plugins.Actions.ImportClipboard.Name", "Import from the clipboard"), LanguageManager.Get("Plugins.Actions.ImportClipboard.Description", "Imports a load order from the clipboard"), ImportLoadOrderFromClipboard);
 		}
 
 		#endregion
@@ -916,7 +917,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <returns>The filter string used when exporting the current load order.</returns>
 		public string GetExportFilterString()
 		{
-			return "Text files (*.txt)|*.txt";
+			return LanguageManager.Get("Common.FileDialog.TextFilesLabel", "Text files") + " (*.txt)|*.txt";
 		}
 
 		/// <summary>
@@ -992,7 +993,7 @@ namespace Nexus.Client.PluginManagement.UI
 		/// <returns>The filter string used when importing a load order.</returns>
 		public string GetImportFilterString()
 		{
-			return "Text files (*.txt)|*.txt";
+			return LanguageManager.Get("Common.FileDialog.TextFilesLabel", "Text files") + " (*.txt)|*.txt";
 		}
 
 		/// <summary>
@@ -1178,11 +1179,11 @@ namespace Nexus.Client.PluginManagement.UI
 					ImportLoadOrder(strReader, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
 
 					if (intTotalPluginCount == 0)
-						OnImportFailed(p_strFilename, "No plugins were found in the specified source file.");
+						OnImportFailed(p_strFilename, LanguageManager.Get("Plugins.Import.NoPluginsInFile", "No plugins were found in the specified source file."));
 					else if (intImportedPluginCount == intTotalPluginCount)
 						OnImportSucceeded(p_strFilename, intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
 					else if (lstPluginsNotImported.Count == intTotalPluginCount)
-						OnImportFailed(p_strFilename, "None of the plugins found in the specified source file were recognized as managed plugins.");
+						OnImportFailed(p_strFilename, LanguageManager.Get("Plugins.Import.NoManagedPluginsInFile", "None of the plugins found in the specified source file were recognized as managed plugins."));
 					else
 						OnImportPartiallySucceeded(p_strFilename, intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
 				}
@@ -1214,7 +1215,7 @@ namespace Nexus.Client.PluginManagement.UI
 				}
 				catch (Exception ex)
 				{
-					OnImportFailed("Profile Manager", ex);
+					OnImportFailed(LanguageManager.Get("Plugins.Import.ProfileManagerSource", "Profile Manager"), ex);
 				}
 			}
 		}
@@ -1240,7 +1241,7 @@ namespace Nexus.Client.PluginManagement.UI
 				}
 				catch (Exception ex)
 				{
-					OnImportFailed("Profile Manager", ex);
+					OnImportFailed(LanguageManager.Get("Plugins.Import.ProfileManagerSource", "Profile Manager"), ex);
 				}
 			}
 
@@ -1266,7 +1267,7 @@ namespace Nexus.Client.PluginManagement.UI
 			}
 			catch (Exception ex)
 			{
-				OnImportFailed("Profile Manager", ex);
+				OnImportFailed(LanguageManager.Get("Plugins.Import.ProfileManagerSource", "Profile Manager"), ex);
 				return null;
 			}
 		}
@@ -1290,7 +1291,7 @@ namespace Nexus.Client.PluginManagement.UI
 			}
 			catch (Exception ex)
 			{
-				OnImportFailed("Profile Manager", ex);
+				OnImportFailed(LanguageManager.Get("Plugins.Import.ProfileManagerSource", "Profile Manager"), ex);
 			}
 		}
 
@@ -1304,7 +1305,7 @@ namespace Nexus.Client.PluginManagement.UI
 
 			if (!System.Windows.Forms.Clipboard.ContainsText())
 			{
-				OnImportFailed(null, "The clipboard does not contain any text.");
+				OnImportFailed(null, LanguageManager.Get("Plugins.Import.ClipboardNoText", "The clipboard does not contain any text."));
 				return;
 			}
 
@@ -1320,11 +1321,11 @@ namespace Nexus.Client.PluginManagement.UI
 					ImportLoadOrder(strReader, out intTotalPluginCount, out intImportedPluginCount, out lstPluginsNotImported);
 
 					if (intTotalPluginCount == 0)
-						OnImportFailed("No plugins were found on the clipboard.");
+						OnImportFailed(LanguageManager.Get("Plugins.Import.NoPluginsOnClipboard", "No plugins were found on the clipboard."));
 					else if (intImportedPluginCount == intTotalPluginCount)
 						OnImportSucceeded(intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
 					else if (lstPluginsNotImported.Count == intTotalPluginCount)
-						OnImportFailed("None of the plugins found on the clipboard were recognized as managed plugins.");
+						OnImportFailed(LanguageManager.Get("Plugins.Import.NoManagedPluginsOnClipboard", "None of the plugins found on the clipboard were recognized as managed plugins."));
 					else
 						OnImportPartiallySucceeded(intTotalPluginCount, intImportedPluginCount, lstPluginsNotImported);
 				}

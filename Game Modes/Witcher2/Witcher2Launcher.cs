@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Witcher2
 {
@@ -40,19 +41,19 @@ namespace Nexus.Client.Games.Witcher2
 			string strCMIcon = Path.Combine(GameMode.ExecutablePath, "editor.release.exe");
 			Trace.TraceInformation("CM Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCMIcon);
-			AddLaunchCommand(new Command("CMLaunch", "Launch The Witcher 2 CM", "Launches The Witcher 2 Content Manager.", imgIcon, LaunchWitcher2CM, true));
+			AddLaunchCommand(new Command("CMLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchContentManagerName", "Launch {0} CM", "The Witcher 2"), LanguageManager.Format("GameModes.Commands.Game.LaunchContentManagerDescription", "Launches {0} Content Manager.", "The Witcher 2"), imgIcon, LaunchWitcher2CM, true));
 
             strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("PlainLaunch", "Launch The Witcher 2", "Launches The Witcher 2.", imgIcon, LaunchWitcher2Plain, true));
+            AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "The Witcher 2"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "The Witcher 2"), imgIcon, LaunchWitcher2Plain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("CustomLaunch", "Launch The Witcher 2 Custom", "Launches The Witcher 2 Custom.", imgIcon, LaunchWitcher2Custom, true));
+            AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomSuffixName", "Launch {0} Custom", "The Witcher 2"), LanguageManager.Format("GameModes.Commands.Game.CustomSuffixDescription", "Launches {0} Custom.", "The Witcher 2"), imgIcon, LaunchWitcher2Custom, true));
 
-			DefaultLaunchCommand = new Command("Launch The Witcher 2 Content Manager", "Launches The Witcher 2 Content Manager.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "The Witcher 2 Content Manager"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "The Witcher 2 Content Manager"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -75,7 +76,7 @@ namespace Nexus.Client.Games.Witcher2
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

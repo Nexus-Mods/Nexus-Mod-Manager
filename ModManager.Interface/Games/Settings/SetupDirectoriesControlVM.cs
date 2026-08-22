@@ -8,6 +8,7 @@ using System.Security.Permissions;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Microsoft.Win32;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -232,19 +233,19 @@ namespace Nexus.Client.Games.Settings
 			Errors.Clear(p_strModProperty);
 			if (String.IsNullOrEmpty(p_strModPath))
 			{
-				Errors.SetError(p_strModProperty, String.Format("You must select a {0}.", p_strModPathName));
+				Errors.SetError(p_strModProperty, LanguageManager.Format("GameSettings.Validation.RequiredDirectory", "You must select the {0} directory.", p_strModPathName));
 				return false;
 			}
 			Errors.Clear(p_strInstallProperty);
 			if (String.IsNullOrEmpty(p_strInstallPath))
 			{
-				Errors.SetError(p_strInstallProperty, String.Format("You must select a {0}.", p_strInstallPathName));
+				Errors.SetError(p_strInstallProperty, LanguageManager.Format("GameSettings.Validation.RequiredDirectory", "You must select the {0} directory.", p_strInstallPathName));
 				return false;
 			}
 
 			if (String.Equals(p_strModPath, p_strInstallPath))
 			{
-				Errors.SetError(p_strModProperty, string.Format("You can't set the {0} equal to the {1}.", p_strModPathName, p_strInstallPathName));
+				Errors.SetError(p_strModProperty, LanguageManager.Format("GameSettings.Validation.DirectoriesCannotMatch", "You can't set the {0} directory equal to the {1} directory.", p_strModPathName, p_strInstallPathName));
 				return false;
 			}
 
@@ -255,8 +256,8 @@ namespace Nexus.Client.Games.Settings
 					if ((CheckCleanInstallInfoFolder(p_strInstallPath)) && !lstIIAttempts.Contains(p_strInstallPath))
 					{
 						lstIIAttempts.Add(p_strInstallPath);
-						Errors.SetError("WARNING", "the selected Install Info folder is empty, if you confirm this path your installed mods will show as uninstalled in NMM." +
-							Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
+						Errors.SetError("WARNING", LanguageManager.Get("GameSettings.Validation.EmptyInstallInfoWarning", "the selected Install Info folder is empty, if you confirm this path your installed mods will show as uninstalled in NMM." +
+							Environment.NewLine + "If this is a fresh install ignore this warning and continue."));
 						return false;
 					}
 				}
@@ -265,18 +266,18 @@ namespace Nexus.Client.Games.Settings
 					if (!CheckCleanInstallInfoFolder(p_strInstallPath) && !lstModsAttempts.Contains(p_strModPath))
 					{
 						lstModsAttempts.Add(p_strModPath);
-						Errors.SetError("WARNING", "the selected Mods folder is empty but there's a mod install registry present in the selected Install Info folder." +
+						Errors.SetError("WARNING", LanguageManager.Get("GameSettings.Validation.EmptyModsFolderWarning", "the selected Mods folder is empty but there's a mod install registry present in the selected Install Info folder." +
 							" If you confirm this path NMM will prompt you to uninstall all installed mods whose archive is not present in the Mods folder." +
-							Environment.NewLine + "If this is a fresh install ignore this warning and continue.");
+							Environment.NewLine + "If this is a fresh install ignore this warning and continue."));
 						return false;
 					}
 					else if (CheckCleanInstallInfoFolder(p_strInstallPath) && (!lstIIAttempts.Contains(p_strInstallPath) || !lstModsAttempts.Contains(p_strModPath)))
 					{
 						lstIIAttempts.Add(p_strInstallPath);
 						lstModsAttempts.Add(p_strModPath);
-						Errors.SetError("WARNING", "The folders you selected are empty. If this is your first time running NMM for this game, or if you want a fresh install," +
+						Errors.SetError("WARNING", LanguageManager.Get("GameSettings.Validation.EmptyFoldersWarning", "The folders you selected are empty. If this is your first time running NMM for this game, or if you want a fresh install," +
 							" then this isn't a problem and you can continue. If you have previously installed mods for this game via NMM then you should go back" +
-							" and choose the correct folder paths that you previously setup in NMM.");
+							" and choose the correct folder paths that you previously setup in NMM."));
 						return false;
 					}
 				}
@@ -292,13 +293,13 @@ namespace Nexus.Client.Games.Settings
 						{
 							if (!File.Exists(Path.Combine(p_strToolPath, Path.GetFileName(ToolFile))))
 							{
-								Errors.SetError(p_strToolProperty, String.Format("The file {0} is not present in the selected path.", Path.GetFileName(ToolFile)));
+								Errors.SetError(p_strToolProperty, LanguageManager.Format("GameSettings.Validation.RequiredToolFileMissing", "The file {0} is not present in the selected path.", Path.GetFileName(ToolFile)));
 								return false;
 							}
 						}
 						catch
 						{
-							Errors.SetError(p_strToolProperty, String.Format("You must select a valid {0} path.", p_strToolPathName));
+							Errors.SetError(p_strToolProperty, LanguageManager.Format("GameSettings.Validation.InvalidToolPath", "You must select a valid {0} path.", p_strToolPathName));
 							return false;
 						}
 				}
@@ -349,7 +350,7 @@ namespace Nexus.Client.Games.Settings
 			Errors.Clear(p_strProperty);
 			if (String.IsNullOrEmpty(p_strPath))
 			{
-				Errors.SetError(p_strProperty, String.Format("You must select a {0}.", p_strPathName));
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.Validation.RequiredDirectory", "You must select the {0} directory.", p_strPathName));
 				return false;
 			}
 			else if (
@@ -358,7 +359,7 @@ namespace Nexus.Client.Games.Settings
 				(String.Equals(GameModeDescriptor.InstallationPath, p_strPath))
 				)
 			{
-				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.Validation.PathCannotMatchProtectedLocationsWithMods", "You can't set the {0} directory equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
 					"Game root folder - {1}" + Environment.NewLine +
 					"Mod install folder - {3}" + Environment.NewLine,
@@ -368,7 +369,7 @@ namespace Nexus.Client.Games.Settings
 			}
 			else if (p_booGameHDCheck && (!CheckOnGameHD(p_strPath, out strExpected)))
 			{
-				Errors.SetError(p_strProperty, string.Format("You MUST set the {0} on the same HD as the usual mod install folder:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.Validation.PathMustBeOnGameDrive", "You MUST set the {0} directory on the same HD as the usual mod install folder:" + Environment.NewLine +
 					"Selected HD: {1} - Expected HD: {2}" + Environment.NewLine,
 					p_strPathName, Path.GetPathRoot(p_strPath), strExpected ?? String.Empty));
 				return false;
@@ -379,7 +380,7 @@ namespace Nexus.Client.Games.Settings
 				{
 					if (String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
 					{
-						Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the plugin folder.", p_strPathName));
+						Errors.SetError(p_strProperty, LanguageManager.Format("GameSettings.Validation.PathCannotMatchPluginFolder", "You can't set the {0} directory equal to the plugin folder.", p_strPathName));
 						return false;
 					}
 				}
@@ -389,7 +390,7 @@ namespace Nexus.Client.Games.Settings
 				}
 				catch (DirectoryNotFoundException e)
 				{
-					Errors.SetError(p_strProperty, e.Message + Environment.NewLine + "If the drive no longer exists, uninstall NMM removing config files when asked and reinstall it.");
+					Errors.SetError(p_strProperty, e.Message + Environment.NewLine + LanguageManager.Get("GameSettings.Validation.MissingDriveRecovery", "If the drive no longer exists, uninstall NMM removing config files when asked and reinstall it."));
 					return false;
 				}
 			}
@@ -404,7 +405,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateModDirectory()
 		{
-			return ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), false);
+			return ValidateDirectory(ModDirectory, "Mod", ObjectHelper.GetPropertyName(() => ModDirectory), false);
 		}
 
 		/// <summary>
@@ -414,7 +415,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateInstallInfoDirectory()
 		{
-			return ValidateDirectory(InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), false);
+			return ValidateDirectory(InstallInfoDirectory, "Install Info", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), false);
 		}
 
 		/// <summary>
@@ -424,7 +425,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateVirtualDirectory()
 		{
-			return ValidateDirectory(VirtualDirectory, "Virtual Directory", ObjectHelper.GetPropertyName(() => VirtualDirectory), !MultiHDInstall);
+			return ValidateDirectory(VirtualDirectory, "Virtual", ObjectHelper.GetPropertyName(() => VirtualDirectory), !MultiHDInstall);
 		}
 
 		/// <summary>
@@ -434,7 +435,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateLinkDirectory()
 		{
-			return ValidateDirectory(LinkDirectory, "Link Directory", ObjectHelper.GetPropertyName(() => LinkDirectory), true);
+			return ValidateDirectory(LinkDirectory, "Link", ObjectHelper.GetPropertyName(() => LinkDirectory), true);
 		}
 
 		/// <summary>
@@ -444,7 +445,7 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		public bool ValidateSettings()
 		{
-			if (ValidateDirectory(ModDirectory, "Mod Directory", ObjectHelper.GetPropertyName(() => ModDirectory), InstallInfoDirectory, "Install Info Directory", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), ToolDirectory, "Required Tool Directory", ObjectHelper.GetPropertyName(() => ToolDirectory)))
+			if (ValidateDirectory(ModDirectory, "Mod", ObjectHelper.GetPropertyName(() => ModDirectory), InstallInfoDirectory, "Install Info", ObjectHelper.GetPropertyName(() => InstallInfoDirectory), ToolDirectory, RequiredToolName, ObjectHelper.GetPropertyName(() => ToolDirectory)))
 			{
 				if (m_booUseAdditionalChecks)
 				{

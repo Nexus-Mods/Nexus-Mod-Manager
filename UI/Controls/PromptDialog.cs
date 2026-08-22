@@ -1,9 +1,21 @@
 ﻿using System;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
+	public enum PromptDialogMode
+	{
+		Default,
+		SetProfileName,
+		RenameLocal,
+		RenameOnline,
+		RemoveLocal,
+		RemoveOnline,
+		RemoveBackedUpProfile
+	}
+
 	/// <summary>
 	/// A dialog that prompts the user for text.
 	/// </summary>
@@ -22,56 +34,48 @@ namespace Nexus.UI.Controls
 		/// cancelled the dialog.</returns>
 		public static PromptDialog ShowDialog(string p_strSharedLabel, IWin32Window p_wndOwner, string p_strPrompt, string p_strCaption, string p_strDefault, string p_strValidationPattern, string p_strErrorMessage)
 		{
+			return ShowDialog(ResolveLegacyMode(p_strCaption), p_strSharedLabel, p_wndOwner, p_strPrompt, p_strCaption, p_strDefault, p_strValidationPattern, p_strErrorMessage);
+		}
+
+		public static PromptDialog ShowDialog(PromptDialogMode mode, string p_strSharedLabel, IWin32Window p_wndOwner, string p_strPrompt, string p_strCaption, string p_strDefault, string p_strValidationPattern, string p_strErrorMessage)
+		{
 			PromptDialog dlgPrompt = new PromptDialog();
 			dlgPrompt.Text = p_strCaption;
 			dlgPrompt.EnteredText = p_strDefault;
-
 			dlgPrompt.cbShared.Checked = false;
 
-			if (p_strCaption == "Set the Profile name")
+			switch (mode)
 			{
-				dlgPrompt.cbShared.Visible = false;
-				dlgPrompt.tbxPath.Visible = true;
-			}
-
-			if (p_strCaption == "Rename Local")
-			{
-				dlgPrompt.cbShared.Visible = true;
-				dlgPrompt.cbShared.Enabled = false;
-				dlgPrompt.tbxPath.Visible = true;
-				p_strSharedLabel = "Rename Online";
-			}
-
-			if (p_strCaption == "Rename Online")
-			{
-				dlgPrompt.cbShared.Visible = true;
-				dlgPrompt.cbShared.Enabled = true;
-				dlgPrompt.tbxPath.Visible = true;
-				p_strSharedLabel = "Rename Online";
-			}
-
-			if (p_strCaption == "Remove Local")
-			{
-				dlgPrompt.cbShared.Visible = true;
-				dlgPrompt.cbShared.Enabled = false;
-				dlgPrompt.tbxPath.Visible = false;
-				p_strSharedLabel = "Remove Online";
-			}
-
-			if (p_strCaption == "Remove Online")
-			{
-				dlgPrompt.cbShared.Visible = true;
-				dlgPrompt.cbShared.Enabled = true;
-				dlgPrompt.tbxPath.Visible = false;
-				p_strSharedLabel = "Remove Online";
-			}
-
-			if (p_strCaption == "Remove Backedup Profile")
-			{
-				dlgPrompt.cbShared.Visible = false;
-				dlgPrompt.cbShared.Enabled = true;
-				dlgPrompt.tbxPath.Visible = false;
-				p_strSharedLabel = "";
+				case PromptDialogMode.SetProfileName:
+					dlgPrompt.cbShared.Visible = false;
+					dlgPrompt.tbxPath.Visible = true;
+					break;
+				case PromptDialogMode.RenameLocal:
+					dlgPrompt.cbShared.Visible = true;
+					dlgPrompt.cbShared.Enabled = false;
+					dlgPrompt.tbxPath.Visible = true;
+					break;
+				case PromptDialogMode.RenameOnline:
+					dlgPrompt.cbShared.Visible = true;
+					dlgPrompt.cbShared.Enabled = true;
+					dlgPrompt.tbxPath.Visible = true;
+					break;
+				case PromptDialogMode.RemoveLocal:
+					dlgPrompt.cbShared.Visible = true;
+					dlgPrompt.cbShared.Enabled = false;
+					dlgPrompt.tbxPath.Visible = false;
+					break;
+				case PromptDialogMode.RemoveOnline:
+					dlgPrompt.cbShared.Visible = true;
+					dlgPrompt.cbShared.Enabled = true;
+					dlgPrompt.tbxPath.Visible = false;
+					break;
+				case PromptDialogMode.RemoveBackedUpProfile:
+					dlgPrompt.cbShared.Visible = false;
+					dlgPrompt.cbShared.Enabled = true;
+					dlgPrompt.tbxPath.Visible = false;
+					p_strSharedLabel = string.Empty;
+					break;
 			}
 
 			dlgPrompt.lbShared.Text = p_strSharedLabel;
@@ -81,6 +85,20 @@ namespace Nexus.UI.Controls
 			if (dlgPrompt.ShowDialog(p_wndOwner) == DialogResult.OK)
 				return dlgPrompt;
 			return null;
+		}
+
+		private static PromptDialogMode ResolveLegacyMode(string caption)
+		{
+			switch (caption)
+			{
+				case "Set the Profile name": return PromptDialogMode.SetProfileName;
+				case "Rename Local": return PromptDialogMode.RenameLocal;
+				case "Rename Online": return PromptDialogMode.RenameOnline;
+				case "Remove Local": return PromptDialogMode.RemoveLocal;
+				case "Remove Online": return PromptDialogMode.RemoveOnline;
+				case "Remove Backedup Profile": return PromptDialogMode.RemoveBackedUpProfile;
+				default: return PromptDialogMode.Default;
+			}
 		}
 
 		/// <summary>
@@ -172,6 +190,8 @@ namespace Nexus.UI.Controls
 		public PromptDialog()
 		{
 			InitializeComponent();
+			butOK.Text = LanguageManager.Get("Common.Action.Ok", "OK");
+			butCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
 		}
 
 		#endregion

@@ -11,6 +11,7 @@ using Nexus.Client.Util;
 using Nexus.Client.Util.Threading;
 using Nexus.Transactions;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -284,20 +285,28 @@ namespace Nexus.Client.ModManagement
 		private readonly IMod m_modMod;
 		private readonly IVirtualModActivator m_ivaVirtualModActivator;
 		private readonly bool m_booFilesOnly;
+		private readonly string m_strDisablingFilesText;
+		private readonly string m_strDisablingFilesFormat;
+		private readonly string m_strCancelledText;
+		private readonly string m_strDisabledFilesText;
 
 		public VirtualModDisableTask(IMod p_modMod, IVirtualModActivator p_ivaVirtualModActivator, bool p_booFilesOnly)
 		{
 			m_modMod = p_modMod;
 			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
 			m_booFilesOnly = p_booFilesOnly;
+			m_strDisablingFilesText = LanguageManager.Get("Tasks.Mods.DisablingDeployedFiles", "Disabling deployed files...");
+			m_strDisablingFilesFormat = LanguageManager.GetFormat("Tasks.Mods.DisablingDeployedFilesForMod", "Disabling deployed files: {0}");
+			m_strCancelledText = LanguageManager.Get("Common.Status.Cancelled", "Cancelled");
+			m_strDisabledFilesText = LanguageManager.Get("Tasks.Mods.DisabledDeployedFiles", "Disabled deployed files.");
 		}
 
 		public string ErrorMessage { get; private set; }
 
 		public bool Execute()
 		{
-			OverallMessage = "Disabling deployed files: " + (m_modMod == null ? String.Empty : m_modMod.ModName);
-			ItemMessage = "Disabling deployed files...";
+			OverallMessage = String.Format(m_strDisablingFilesFormat, m_modMod == null ? String.Empty : m_modMod.ModName);
+			ItemMessage = m_strDisablingFilesText;
 			ShowItemProgress = true;
 			ShowItemProgressAsMarquee = true;
 			ItemProgress = 0;
@@ -321,13 +330,13 @@ namespace Nexus.Client.ModManagement
 				if (Status == TaskStatus.Cancelling)
 				{
 					Status = TaskStatus.Cancelled;
-					OnTaskEnded("Cancelled", m_modMod);
+					OnTaskEnded(m_strCancelledText, m_modMod);
 					return false;
 				}
 
 				ShowItemProgressAsMarquee = false;
 				Status = TaskStatus.Complete;
-				OnTaskEnded("Disabled deployed files.", m_modMod);
+				OnTaskEnded(m_strDisabledFilesText, m_modMod);
 				return true;
 			}
 			catch (Exception ex)
@@ -344,7 +353,7 @@ namespace Nexus.Client.ModManagement
 			if (p_vdpProgress == null)
 				return;
 
-			ItemMessage = String.IsNullOrEmpty(p_vdpProgress.Message) ? "Disabling deployed files..." : p_vdpProgress.Message;
+			ItemMessage = String.IsNullOrEmpty(p_vdpProgress.Message) ? m_strDisablingFilesText : p_vdpProgress.Message;
 			if (p_vdpProgress.Total > 0)
 			{
 				ShowItemProgressAsMarquee = false;

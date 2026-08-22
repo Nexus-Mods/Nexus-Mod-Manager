@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DragonAge2
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.DragonAge2
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Dragon Age 2", "Launches Dragon Age 2.", imgIcon, LaunchDragonAge2Plain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Dragon Age 2"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Dragon Age 2"), imgIcon, LaunchDragonAge2Plain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Dragon Age 2 Custom", "Launches Dragon Age 2 Custom.", imgIcon, LaunchDragonAge2Custom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomSuffixName", "Launch {0} Custom", "Dragon Age 2"), LanguageManager.Format("GameModes.Commands.Game.CustomSuffixDescription", "Launches {0} Custom.", "Dragon Age 2"), imgIcon, LaunchDragonAge2Custom, true));
 
 			strCommand = GetLauncherLaunchCommand();
 			Trace.TraceInformation("Laucher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("LauncherLaunch", "Launch Dragon Age 2 Launcher", "Launches Dragon Age 2 Launcher.", imgIcon, LaunchDragonAge2Launcher, true));
+				AddLaunchCommand(new Command("LauncherLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchLauncherName", "Launch {0} Launcher", "Dragon Age 2"), LanguageManager.Format("GameModes.Commands.Game.LaunchLauncherDescription", "Launches {0} Launcher.", "Dragon Age 2"), imgIcon, LaunchDragonAge2Launcher, true));
 			}
 
-			DefaultLaunchCommand = new Command("Launch Dragon Age 2", "Launches Dragon Age 2", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Get("GameModes.DragonAge2.Launcher.Default.Name", "Launch Dragon Age 2"), LanguageManager.Get("GameModes.DragonAge2.Launcher.Default.Description", "Launches Dragon Age 2"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -77,7 +78,7 @@ namespace Nexus.Client.Games.DragonAge2
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -97,7 +98,7 @@ namespace Nexus.Client.Games.DragonAge2
 			{
 				Trace.TraceError("No launcher launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No launcher launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoLauncherCommand", "No launcher launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

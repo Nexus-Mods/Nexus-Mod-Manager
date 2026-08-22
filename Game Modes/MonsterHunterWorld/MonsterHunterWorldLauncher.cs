@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.MonsterHunterWorld
 {
@@ -39,14 +40,14 @@ public MonsterHunterWorldLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_ei
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Monster Hunter: World", "Launches default Monster Hunter: World.", imgIcon, LaunchMonsterHunterWorldPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Monster Hunter: World"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "Monster Hunter: World"), imgIcon, LaunchMonsterHunterWorldPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Monster Hunter: World", "Launches Monster Hunter: World with custom command.", imgIcon, LaunchMonsterHunterWorldCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Monster Hunter: World"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Monster Hunter: World"), imgIcon, LaunchMonsterHunterWorldCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Monster Hunter: World", "Launches Monster Hunter: World.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Monster Hunter: World"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Monster Hunter: World"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -69,7 +70,7 @@ public MonsterHunterWorldLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_ei
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

@@ -8,6 +8,7 @@ using Nexus.Client.ModAuthoring.UI.Controls;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModAuthoring.UI
@@ -200,10 +201,10 @@ namespace Nexus.Client.ModAuthoring.UI
 			
 			ModProject = p_prjModProject ?? new Project(p_srgScriptTypeRegistry);
 
-			SaveCommand = new Command<string>("Save Project", "Save the project.", SaveProject, ModProject.IsDirty);
-			OpenCommand = new Command("Open Project", "Open a project.", OpenProject);
-			NewCommand = new Command("New Project", "Create a new project.", NewProject);
-			BuildCommand = new Command<string>("Build Mod", "Builds the mod file.", BuildMod);
+			SaveCommand = new Command<string>(LanguageManager.Get("ModAuthoring.Packager.Commands.Save.Name", "Save Project"), LanguageManager.Get("ModAuthoring.Packager.Commands.Save.Description", "Save the project."), SaveProject, ModProject.IsDirty);
+			OpenCommand = new Command(LanguageManager.Get("ModAuthoring.Packager.Commands.Open.Name", "Open Project"), LanguageManager.Get("ModAuthoring.Packager.Commands.Open.Description", "Open a project."), OpenProject);
+			NewCommand = new Command(LanguageManager.Get("ModAuthoring.Packager.Commands.New.Name", "New Project"), LanguageManager.Get("ModAuthoring.Packager.Commands.New.Description", "Create a new project."), NewProject);
+			BuildCommand = new Command<string>(LanguageManager.Get("ModAuthoring.Packager.Commands.Build.Name", "Build Mod"), LanguageManager.Get("ModAuthoring.Packager.Commands.Build.Description", "Builds the mod file."), BuildMod);
 		}
 
 
@@ -309,7 +310,7 @@ namespace Nexus.Client.ModAuthoring.UI
 		{
 			Warnings.Clear<Project>(x => x.ModFiles);
 			if (ModProject.ModFiles.IsNullOrEmpty())
-				Warnings.SetError<Project>(x => x.ModFiles, "No files have been selected.");
+				Warnings.SetError<Project>(x => x.ModFiles, LanguageManager.Get("ModAuthoring.Packager.Validation.NoFiles", "No files have been selected."));
 			return true;
 		}
 
@@ -326,7 +327,7 @@ namespace Nexus.Client.ModAuthoring.UI
 
 			if (!ModProject.InstallScript.Type.ValidateScript(ModProject.InstallScript))
 			{
-				Errors.SetError<Project>(x => x.InstallScript, "Invalid script.");
+				Errors.SetError<Project>(x => x.InstallScript, LanguageManager.Get("ModAuthoring.Packager.Validation.InvalidScript", "Invalid script."));
 				return false;
 			}
 			return true;
@@ -342,7 +343,7 @@ namespace Nexus.Client.ModAuthoring.UI
 			Errors.Clear<Project>(x => x.ModName);
 			if (!InfoEditorVM.Validate())
 			{
-				Errors.SetError<Project>(x => x.ModName, "Invalid information.");
+				Errors.SetError<Project>(x => x.ModName, LanguageManager.Get("ModAuthoring.Packager.Validation.InvalidInformation", "Invalid information."));
 				return false;
 			}
 			return true;
@@ -359,7 +360,7 @@ namespace Nexus.Client.ModAuthoring.UI
 		{
 			Warnings.Clear<Project>(x => x.ModReadme);
 			if ((ModProject.ModReadme == null) || String.IsNullOrEmpty(ModProject.ModReadme.Text))
-				Warnings.SetError<Project>(x => x.ModReadme, "Missing readme.");
+				Warnings.SetError<Project>(x => x.ModReadme, LanguageManager.Get("ModAuthoring.Packager.Validation.MissingReadme", "Missing readme."));
 			return true;
 		}
 

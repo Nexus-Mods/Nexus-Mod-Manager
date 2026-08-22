@@ -6,6 +6,7 @@ using Nexus.Client.Commands;
 using Nexus.Client.Util;
 using System.Windows.Forms;
 using Microsoft.Win32;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.SkyrimSE
 {
@@ -43,12 +44,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("BOSS", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
+				AddLaunchCommand(new Command("BOSS", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "BOSS"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "BOSS"), imgIcon, LaunchBOSS, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#BOSS", "Config BOSS", "Configures BOSS.", imgIcon, ConfigBOSS, true));
+				AddLaunchCommand(new Command("Config#BOSS", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "BOSS"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "BOSS"), imgIcon, ConfigBOSS, true));
 			}
 
 			strCommand = GetLOOTLaunchCommand();
@@ -56,12 +57,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+				AddLaunchCommand(new Command("LOOT", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "LOOT"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "LOOT"), imgIcon, LaunchLOOT, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
+				AddLaunchCommand(new Command("Config#LOOT", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "LOOT"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "LOOT"), imgIcon, ConfigLOOT, true));
 			}
 
 			strCommand = GetWryeBashLaunchCommand();
@@ -69,12 +70,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("WryeBash", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
+				AddLaunchCommand(new Command("WryeBash", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Wrye Bash"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Wrye Bash"), imgIcon, LaunchWryeBash, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Bash", "Configures Wrye Bash.", imgIcon, ConfigWryeBash, true));
+				AddLaunchCommand(new Command("Config#Wrye Bash", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Wrye Bash"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Wrye Bash"), imgIcon, ConfigWryeBash, true));
 			}
 
 			strCommand = GetSSEEditLaunchCommand();
@@ -82,12 +83,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SSEEdit", "Launch SSEEdit", "Launches SSEEdit.", imgIcon, LaunchSSEEdit, true));
+				AddLaunchCommand(new Command("SSEEdit", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SSEEdit"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "SSEEdit"), imgIcon, LaunchSSEEdit, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#SSEEdit", "Config SSEEdit", "Configures SSEEdit.", imgIcon, ConfigSSEEdit, true));
+				AddLaunchCommand(new Command("Config#SSEEdit", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "SSEEdit"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "SSEEdit"), imgIcon, ConfigSSEEdit, true));
 			}
 
 			strCommand = GetSSEEQACLaunchCommand();
@@ -95,12 +96,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SSEEditQuickAutoClean", "Launch SSEEditQuickAutoClean", "Launches SSEEditQuickAutoClean.", imgIcon, LaunchSSEEQAC, true));
+				AddLaunchCommand(new Command("SSEEditQuickAutoClean", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SSEEditQuickAutoClean"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "SSEEditQuickAutoClean"), imgIcon, LaunchSSEEQAC, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#SSEEdit", "Config SSEEdit", "Configures SSEEdit.", imgIcon, ConfigSSEEdit, true));
+				AddLaunchCommand(new Command("Config#SSEEdit", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "SSEEdit"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "SSEEdit"), imgIcon, ConfigSSEEdit, true));
 			}
 
 			strCommand = GetFNISLaunchCommand();
@@ -108,12 +109,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("FNIS", "Launch FNIS", "Launches FNIS.", imgIcon, LaunchFNIS, true));
+				AddLaunchCommand(new Command("FNIS", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "FNIS"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "FNIS"), imgIcon, LaunchFNIS, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#FNIS", "Config FNIS", "Configures FNIS.", imgIcon, ConfigFNIS, true));
+				AddLaunchCommand(new Command("Config#FNIS", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "FNIS"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "FNIS"), imgIcon, ConfigFNIS, true));
 			}
 
 			strCommand = GetNemesisLaunchCommand();
@@ -121,12 +122,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("Nemesis", "Launch Nemesis", "Launches Nemesis.", imgIcon, LaunchNemesis, true));
+				AddLaunchCommand(new Command("Nemesis", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Nemesis"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Nemesis"), imgIcon, LaunchNemesis, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Nemesis", "Config Nemesis", "Configures Nemesis.", imgIcon, ConfigNemesis, true));
+				AddLaunchCommand(new Command("Config#Nemesis", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Nemesis"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Nemesis"), imgIcon, ConfigNemesis, true));
 			}
 
 			strCommand = GetPandoraLaunchCommand();
@@ -134,12 +135,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("Pandora", "Launch Pandora", "Launches Pandora.", imgIcon, LaunchPandora, true));
+				AddLaunchCommand(new Command("Pandora", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Pandora"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Pandora"), imgIcon, LaunchPandora, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Pandora", "Config Pandora", "Configures Pandora.", imgIcon, ConfigPandora, true));
+				AddLaunchCommand(new Command("Config#Pandora", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Pandora"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Pandora"), imgIcon, ConfigPandora, true));
 			}
 
 			strCommand = GetBSLaunchCommand();
@@ -147,12 +148,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("BS2", "Launch BodySlide", "Launches BodySlide.", imgIcon, LaunchBS, true));
+				AddLaunchCommand(new Command("BS2", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "BodySlide"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "BodySlide"), imgIcon, LaunchBS, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#BodySlide", "Config BodySlide", "Configures BodySlide.", imgIcon, ConfigBS, true));
+				AddLaunchCommand(new Command("Config#BodySlide", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "BodySlide"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "BodySlide"), imgIcon, ConfigBS, true));
 			}
 
 			strCommand = GetDSRPLaunchCommand();
@@ -160,12 +161,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("DSRP", "Launch Dual Sheat Redux Patch", "Launches Dual Sheat Redux Patch.", imgIcon, LaunchDSRP, true));
+				AddLaunchCommand(new Command("DSRP", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Dual Sheat Redux Patch"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Dual Sheat Redux Patch"), imgIcon, LaunchDSRP, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Dual Sheat Redux Patch", "Config Dual Sheat Redux Patch", "Configures Dual Sheat Redux Patch.", imgIcon, ConfigDSRP, true));
+				AddLaunchCommand(new Command("Config#Dual Sheat Redux Patch", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Dual Sheat Redux Patch"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Dual Sheat Redux Patch"), imgIcon, ConfigDSRP, true));
 			}
 
 			strCommand = GetPMLaunchCommand();
@@ -173,12 +174,12 @@ namespace Nexus.Client.Games.SkyrimSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("PM", "Launch Patchus Maximus", "Launches Patchus Maximus.", imgIcon, LaunchPM, true));
+				AddLaunchCommand(new Command("PM", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Patchus Maximus"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Patchus Maximus"), imgIcon, LaunchPM, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Patchus Maximus", "Config Patchus Maximus", "Configures Patchus Maximus.", imgIcon, ConfigPM, true));
+				AddLaunchCommand(new Command("Config#Patchus Maximus", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Patchus Maximus"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Patchus Maximus"), imgIcon, ConfigPM, true));
 			}
 
 			Trace.Unindent();
@@ -728,7 +729,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -758,7 +759,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -788,7 +789,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -818,7 +819,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -848,7 +849,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -878,7 +879,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -908,7 +909,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -938,7 +939,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -968,7 +969,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -998,7 +999,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();

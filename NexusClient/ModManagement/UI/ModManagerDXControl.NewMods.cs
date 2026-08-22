@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
 	using System;
 	using System.Collections.Generic;
@@ -14,6 +14,7 @@ namespace Nexus.Client.ModManagement.UI
 
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
+	using Nexus.Client.Util.Localization;
 
 	public partial class ModManagerDXControl
 	{
@@ -40,7 +41,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			ApplyCategoryMenuLabels();
 
-			_showOnlyCategoriesWithNewModsMenuItem = new BarButtonItem(barManagerMods, "Show only categories with new mods")
+			_showOnlyCategoriesWithNewModsMenuItem = new BarButtonItem(barManagerMods, LanguageManager.Get("Mods.Categories.ShowOnlyWithNewMods.Name", "Show only categories with new mods"))
 			{
 				ButtonStyle = BarButtonStyle.Check,
 				Down = false
@@ -546,19 +547,19 @@ namespace Nexus.Client.ModManagement.UI
 
 		private void ApplyCategoryMenuLabels()
 		{
-			addNewCategory.Caption = "Add new category";
-			collapseAllCategories.Caption = "Collapse all categories";
-			expandAllCategories.Caption = "Expand all categories";
-			updateNexusAndCustomCategories.Caption = "Update Nexus and custom categories";
+			addNewCategory.Caption = LanguageManager.Get("Mods.Categories.Add.ShortName", "Add new category");
+			collapseAllCategories.Caption = LanguageManager.Get("Mods.Categories.CollapseAll.Name", "Collapse all categories");
+			expandAllCategories.Caption = LanguageManager.Get("Mods.Categories.ExpandAll.Name", "Expand all categories");
+			updateNexusAndCustomCategories.Caption = LanguageManager.Get("Mods.Categories.UpdateNexusCustom.Name", "Update Nexus and custom categories");
 			resetDefaultCategories.Caption =
-				"Update and reset to Nexus site defaults";
+				LanguageManager.Get("Mods.Categories.ResetNexusDefaults.Name", "Update and reset to Nexus site defaults");
 			resetUnassignedToDefaultCategories.Caption =
-				"Reset unassigned mods to Nexus site defaults";
-			resetModsCategory.Caption = "Reset all mods to unassigned";
-			removeAllCategories.Caption = "Remove all categories";
-			toggleHiddenCategories.Caption = "Toggle hidden categories";
+				LanguageManager.Get("Mods.Categories.ResetUnassigned.Name", "Reset unassigned mods to Nexus site defaults");
+			resetModsCategory.Caption = LanguageManager.Get("Mods.Categories.ResetAllUnassigned.Name", "Reset all mods to unassigned");
+			removeAllCategories.Caption = LanguageManager.Get("Mods.Categories.RemoveAll.Name", "Remove all categories");
+			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.Name", "Toggle hidden categories");
 			tsbResetCategories.Hint =
-				"Add new category - Click the small arrow for more options";
+				LanguageManager.Get("Mods.Categories.Menu.ShortTooltip", "Add new category - Click the small arrow for more options");
 		}
 
 		private void UpdateCategoryMenuVisibility()

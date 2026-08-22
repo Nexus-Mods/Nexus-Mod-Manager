@@ -2,6 +2,7 @@
 using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -23,6 +24,7 @@ namespace Nexus.Client.ModManagement.UI
 		private OverwriteForm(string p_strMessage, bool p_booAllowGroup, bool p_booAllowMod)
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			NmmIconProvider.Bind(butYes, NmmIconAction.Apply);
 			NmmIconProvider.Bind(butYesToAll, NmmIconAction.Apply);
 			NmmIconProvider.Bind(butYesToGroup, NmmIconAction.Apply);
@@ -55,6 +57,19 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			Text = LanguageManager.Get("Overwrite.Title", "Confirm Overwrite");
+			butYesToAll.Text = LanguageManager.Get("Overwrite.YesToAll", "Yes to all");
+			butYesToGroup.Text = LanguageManager.Get("Overwrite.YesToFolder", "Yes to folder");
+			butYesToMod.Text = LanguageManager.Get("Overwrite.YesToMod", "Yes to Mod");
+			butYes.Text = LanguageManager.Get("Common.Button.Yes", "Yes");
+			butNoToAll.Text = LanguageManager.Get("Overwrite.NoToAll", "No to all");
+			butNoToGroup.Text = LanguageManager.Get("Overwrite.NoToFolder", "No to folder");
+			butNoToMod.Text = LanguageManager.Get("Overwrite.NoToMod", "No to Mod");
+			butNo.Text = LanguageManager.Get("Common.Button.No", "No");
+		}
 
 		private OverwriteResult m_owrResult;
 

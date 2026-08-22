@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -93,7 +94,7 @@ namespace Nexus.Client.ModManagement
 				{
 					strErrorMessage += modstr + Environment.NewLine;
 				}
-				MessageBox.Show(strErrorMessage, "Mod loading error", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show(strErrorMessage, LanguageManager.Get("Mods.Loading.ErrorTitle", "Mod loading error"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 
 			Trace.Unindent();

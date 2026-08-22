@@ -15,6 +15,7 @@ namespace Nexus.Client.ModManagement.UI
     using Nexus.Client.Mods;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// A dock-content panel that shows the mod category list and exposes
@@ -45,6 +46,7 @@ namespace Nexus.Client.ModManagement.UI
         public CategoryManagerControl()
         {
             InitializeComponent();
+            ApplyLocalization();
             NmmIconProvider.Bind(tsbAddCategory, NmmIconAction.Add);
             NmmIconProvider.Bind(tsbRenameCategory, NmmIconAction.Rename);
             NmmIconProvider.Bind(tsbRemoveCategory, NmmIconAction.Delete);
@@ -54,7 +56,7 @@ namespace Nexus.Client.ModManagement.UI
             NmmIconProvider.Bind(tsbRemoveAllCategories, NmmIconAction.RemoveAll);
 			NmmIconProvider.BindBar(barCategoryActions, NmmButtonPresentationScope.Categories, true);
             DevExpressDisplaySettingsApplier.NormalizeBarItemImages(barManagerCategory, new System.Drawing.Size(32, 32));
-            Text        = "Categories";
+            Text        = LanguageManager.Get("Categories.Title", "Categories");
             HideOnClose = true;
 
             _gridLayoutSaveTimer = new Timer
@@ -70,6 +72,30 @@ namespace Nexus.Client.ModManagement.UI
                 (sender, args) => QueueGridLayoutSave();
             gridView.EndSorting +=
                 (sender, args) => QueueGridLayoutSave();
+        }
+
+        private void ApplyLocalization()
+        {
+            barCategoryActions.Text = LanguageManager.Get("Categories.Toolbar.Title", "Category Actions");
+            tsbAddCategory.Caption = LanguageManager.Get("Categories.Actions.Add.Name", "Add Category");
+            tsbAddCategory.Hint = LanguageManager.Get("Categories.Actions.Add.Tooltip", "Add a new category");
+            tsbRenameCategory.Caption = LanguageManager.Get("Categories.Actions.Rename.Name", "Rename Category");
+            tsbRenameCategory.Hint = LanguageManager.Get("Categories.Actions.Rename.Tooltip", "Rename the selected category (F2)");
+            tsbRemoveCategory.Caption = LanguageManager.Get("Categories.Actions.Remove.Name", "Remove Category");
+            tsbRemoveCategory.Hint = LanguageManager.Get("Categories.Actions.Remove.Tooltip", "Remove the selected category");
+            tsbUpdateFromNexus.Caption = LanguageManager.Get("Categories.Actions.UpdateFromNexus.Name", "Update from Nexus");
+            tsbUpdateFromNexus.Hint = LanguageManager.Get("Categories.Actions.UpdateFromNexus.Tooltip", "Update and reset categories to Nexus site defaults");
+            tsbResetUnassigned.Caption = LanguageManager.Get("Categories.Actions.ResetUnassigned.Name", "Reset Unassigned to Nexus Defaults");
+            tsbResetUnassigned.Hint = LanguageManager.Get("Categories.Actions.ResetUnassigned.Tooltip", "Reset unassigned mods to Nexus site default categories");
+            tsbResetAllToUnassigned.Caption = LanguageManager.Get("Categories.Actions.ResetAll.Name", "Reset All Mods to Unassigned");
+            tsbResetAllToUnassigned.Hint = LanguageManager.Get("Categories.Actions.ResetAll.Tooltip", "Reset all mods to the Unassigned category");
+            tsbRemoveAllCategories.Caption = LanguageManager.Get("Categories.Actions.RemoveAll.Name", "Remove All Categories");
+            tsbRemoveAllCategories.Hint = LanguageManager.Get("Categories.Actions.RemoveAll.Tooltip", "Remove all categories and reset all mods to Unassigned");
+
+            DevExpress.XtraGrid.Columns.GridColumn idColumn = gridView.Columns["Id"];
+            if (idColumn != null) idColumn.Caption = LanguageManager.Get("Categories.Columns.Id.Header", "ID");
+            DevExpress.XtraGrid.Columns.GridColumn nameColumn = gridView.Columns["CategoryName"];
+            if (nameColumn != null) nameColumn.Caption = LanguageManager.Get("Categories.Columns.Name.Header", "Category Name");
         }
 
         internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
@@ -162,7 +188,7 @@ namespace Nexus.Client.ModManagement.UI
             IModCategory selected = GetSelectedCategory();
             if (selected == null || _viewModel == null) return;
 
-            string newName = ShowInputDialog(this, "Rename Category", "Enter new name:", selected.CategoryName);
+            string newName = ShowInputDialog(this, LanguageManager.Get("Categories.Rename.Title", "Rename Category"), LanguageManager.Get("Categories.Rename.Prompt", "Enter new name:"), selected.CategoryName);
             if (string.IsNullOrWhiteSpace(newName) || newName == selected.CategoryName) return;
 
             _viewModel.CategoryManager.RenameCategory(selected.Id, newName);
@@ -178,8 +204,8 @@ namespace Nexus.Client.ModManagement.UI
             {
                 XtraMessageBox.Show(
                     this,
-                    "The Unassigned category cannot be removed.",
-                    "Remove Category",
+                    LanguageManager.Get("Categories.Remove.UnassignedBlocked.Message", "The Unassigned category cannot be removed."),
+                    LanguageManager.Get("Categories.Actions.Remove.Name", "Remove Category"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);
                 return;
@@ -187,8 +213,8 @@ namespace Nexus.Client.ModManagement.UI
 
             if (XtraMessageBox.Show(
                     this,
-                    $"Remove category \"{selected.CategoryName}\"?\nMods in this category will be moved to Unassigned.",
-                    "Remove Category",
+                    LanguageManager.Format("Categories.Remove.Confirm.Message", "Remove category \"{0}\"?\nMods in this category will be moved to Unassigned.", selected.CategoryName),
+                    LanguageManager.Get("Categories.Actions.Remove.Name", "Remove Category"),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question) != DialogResult.Yes)
             {
@@ -223,8 +249,8 @@ namespace Nexus.Client.ModManagement.UI
                 {
                     XtraMessageBox.Show(
                         this,
-                        $"Couldn't perform the update check, retry later.{Environment.NewLine}{Environment.NewLine}{ex.Message}",
-                        "Update check",
+                        LanguageManager.Get("Categories.UpdateCheck.Failed.Message", "Couldn't perform the update check, retry later.") + Environment.NewLine + Environment.NewLine + ex.Message,
+                        LanguageManager.Get("Categories.UpdateCheck.Title", "Update check"),
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                 }
@@ -447,14 +473,14 @@ namespace Nexus.Client.ModManagement.UI
                 textBox.Size = new System.Drawing.Size(356, 20);
                 textBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
 
-                btnOk.Text = "OK";
+                btnOk.Text = LanguageManager.Get("Common.Action.Ok", "OK");
                 btnOk.Location = new System.Drawing.Point(212, 70);
                 btnOk.Size = new System.Drawing.Size(75, 26);
                 btnOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 btnOk.DialogResult = DialogResult.OK;
                 NmmIconProvider.Bind(btnOk, NmmIconAction.Apply);
 
-                btnCancel.Text = "Cancel";
+                btnCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
                 btnCancel.Location = new System.Drawing.Point(293, 70);
                 btnCancel.Size = new System.Drawing.Size(75, 26);
                 btnCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;

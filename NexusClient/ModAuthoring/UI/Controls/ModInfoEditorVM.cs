@@ -2,6 +2,7 @@
 using Nexus.UI.Controls;
 using Nexus.Client.Mods;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using System.ComponentModel;
 using System.Drawing;
 using Nexus.Client.ModRepositories;
@@ -382,7 +383,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 			Errors.Clear(() => ModName);
 			if (String.IsNullOrEmpty(ModName))
 			{
-				Errors.SetError(() => ModName, "Name is required.");
+				Errors.SetError(() => ModName, LanguageManager.Get("ModAuthoring.Info.Validation.NameRequired", "Name is required."));
 				booIsValid = false;
 			}
 			return booIsValid;
@@ -405,7 +406,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				}
 				catch
 				{
-					Errors.SetError(() => MachineVersion, "Invalid version. Must be in #.#.#.# format.");
+					Errors.SetError(() => MachineVersion, LanguageManager.Get("ModAuthoring.Info.Validation.InvalidVersion", "Invalid version. Must be in #.#.#.# format."));
 					booIsValid = false;
 				}
 			}
@@ -426,7 +427,7 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 				Uri uri;
 				if (!Uri.TryCreate(Website, UriKind.Absolute, out uri) || uri.IsFile || (uri.Scheme != "http" && uri.Scheme != "https"))
 				{
-					Errors.SetError(() => Website, "Invalid web address specified.\nDid you miss the 'https://'?");
+					Errors.SetError(() => Website, LanguageManager.Get("ModAuthoring.Info.Validation.InvalidWebsite", "Invalid web address specified.\nDid you miss the 'https://'?"));
 					booIsValid = false;
 				}
 			}

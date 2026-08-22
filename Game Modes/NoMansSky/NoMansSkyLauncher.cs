@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -39,22 +40,22 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch No Man's Sky", "Launches default No Man's Sky.", imgIcon, LaunchNoMansSkyPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "No Man's Sky"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "No Man's Sky"), imgIcon, LaunchNoMansSkyPlain, true));
 
             strCommand = GetNmseLaunchCommand();
             Trace.TraceInformation("NMSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             if (File.Exists(strCommand))
             {
                 imgIcon = SafeExtractIcon(strCommand);
-                AddLaunchCommand(new Command("NMSELaunch", "Launch No Man's Sky using NMSE", "Launches No Man's Sky using the Extender", imgIcon, LaunchNoMansSkyExtender, true));
+                AddLaunchCommand(new Command("NMSELaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchUsingToolName", "Launch {0} using {1}", "No Man's Sky", "NMSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchUsingExtenderDescription", "Launches {0} using the Extender", "No Man's Sky"), imgIcon, LaunchNoMansSkyExtender, true));
             }
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom No Man's Sky", "Launches No Man's Sky with custom command.", imgIcon, LaunchNoMansSkyCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "No Man's Sky"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "No Man's Sky"), imgIcon, LaunchNoMansSkyCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch No Man's Sky", "Launches No Man's Sky.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "No Man's Sky"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "No Man's Sky"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -99,7 +100,7 @@ public NoMansSkyLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironm
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

@@ -4,6 +4,7 @@
     using System.Windows.Forms;
 
     using Util;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// A view allowing the editing of general settings.
@@ -22,13 +23,14 @@
 		{
 			SettingsGroup = settings;
 			InitializeComponent();
+			ApplyLocalization();
             
 			foreach (var fasFileAssociation in settings.FileAssociations)
 			{
 			    var ckbFileAssociation = new CheckBox
 			    {
 			        Tag = fasFileAssociation,
-			        Text = $"Associate with {fasFileAssociation.Description} (*{fasFileAssociation.Extension}) files",
+			        Text = LanguageManager.Format("Settings.Os.FileAssociation.Option", "Associate with {0} (*{1}) files", fasFileAssociation.Description, fasFileAssociation.Extension),
 			        AutoSize = true
 			    };
 
@@ -48,23 +50,33 @@
 				{
 					gbxAssociations.Enabled = false;
 				    groupBoxShellExtensions.Enabled = false;
-					ttpTip.SetToolTip(gbxAssociations, $"Run {CommonData.ModManagerName} as Administrator to change these settings.");
-				    ttpTip.SetToolTip(groupBoxShellExtensions, $"Run {CommonData.ModManagerName} as Administrator to change these settings.");
+					ttpTip.SetToolTip(gbxAssociations, LanguageManager.Format("Settings.Os.AdminRequired.Tooltip", "Run {0} as Administrator to change these settings.", CommonData.ModManagerName));
+				    ttpTip.SetToolTip(groupBoxShellExtensions, LanguageManager.Format("Settings.Os.AdminRequired.Tooltip", "Run {0} as Administrator to change these settings.", CommonData.ModManagerName));
                 }
 			}
 			catch(MissingMethodException)
 			{
-				var strErrorMessage = string.Format("Looks like you have a broken or incomplete .Net Framework!" + Environment.NewLine + 
-					"You need to install .NetFramework 4.5.2 or 4.6 . " + Environment.NewLine + 
-					"You could alse be required to download the latest Windows updates" +Environment.NewLine + Environment.NewLine +
+				var strErrorMessage = LanguageManager.Format("Settings.Os.DotNetIncomplete.Message", "Looks like you have a broken or incomplete .Net Framework!" + Environment.NewLine +
+					"You need to install .NetFramework 4.5.2 or 4.6 . " + Environment.NewLine +
+					"You could alse be required to download the latest Windows updates" + Environment.NewLine + Environment.NewLine +
 					"{0} will be unable to run until you do that and will now close.", CommonData.ModManagerName);
-				MessageBox.Show(strErrorMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(strErrorMessage, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 			    Environment.Exit(0);
 			}
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			gbxAssociations.Text = LanguageManager.Get("Settings.Os.Associations.Title", "Associations");
+			ckbAssociateURL.Text = LanguageManager.Get("Settings.Os.NxmAssociation.Option", "Associate with NXM URLs");
+			groupBoxShellExtensions.Text = LanguageManager.Get("Settings.Os.ShellExtensions.Title", "Shell extensions");
+			checkBoxShellZip.Text = LanguageManager.Format("Settings.Os.ShellExtension.Option", "Add shell extension for .{0} files", "zip");
+			checkBoxShellRar.Text = LanguageManager.Format("Settings.Os.ShellExtension.Option", "Add shell extension for .{0} files", "rar");
+			checkBoxShell7z.Text = LanguageManager.Format("Settings.Os.ShellExtension.Option", "Add shell extension for .{0} files", "7z");
+		}
 
 		#region ISettingsGroupView Members
 

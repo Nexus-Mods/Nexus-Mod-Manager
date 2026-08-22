@@ -7,6 +7,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -71,7 +72,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Disabling all the active mods...";
+			OverallMessage = LanguageManager.Get("Tasks.Mods.DisablingAllActive", "Disabling all the active mods...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_rolModList.Count;

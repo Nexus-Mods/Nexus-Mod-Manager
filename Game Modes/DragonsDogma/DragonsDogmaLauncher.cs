@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DragonsDogma
 {
@@ -39,14 +40,14 @@ public DragonsDogmaLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvir
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Dragon's Dogma", "Launches default Dragon's Dogma.", imgIcon, LaunchDragonsDogmaPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Dragon's Dogma"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "Dragon's Dogma"), imgIcon, LaunchDragonsDogmaPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Dragon's Dogma", "Launches Dragon's Dogma with custom command.", imgIcon, LaunchDragonsDogmaCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Dragon's Dogma"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Dragon's Dogma"), imgIcon, LaunchDragonsDogmaCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Dragon's Dogma", "Launches Dragon' s Dogma.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Get("GameModes.DragonsDogma.Launcher.Default.Name", "Launch Dragon's Dogma"), LanguageManager.Get("GameModes.DragonsDogma.Launcher.Default.Description", "Launches Dragon' s Dogma."), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -69,7 +70,7 @@ public DragonsDogmaLauncher(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvir
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

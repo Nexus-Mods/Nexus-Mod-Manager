@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DragonAge
 {
@@ -39,19 +40,19 @@ namespace Nexus.Client.Games.DragonAge
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Dragon Age", "Launches Dragon Age.", imgIcon, LaunchDragonAgePlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Dragon Age"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Dragon Age"), imgIcon, LaunchDragonAgePlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Dragon Age Custom", "Launches Dragon Age Custom.", imgIcon, LaunchDragonAgeCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomSuffixName", "Launch {0} Custom", "Dragon Age"), LanguageManager.Format("GameModes.Commands.Game.CustomSuffixDescription", "Launches {0} Custom.", "Dragon Age"), imgIcon, LaunchDragonAgeCustom, true));
 
 			strCommand = GetLauncherLaunchCommand();
 			Trace.TraceInformation("Launcher Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("LauncherLaunch", "Launch Dragon Age Launcher", "Launches Dragon Age Launcher.", imgIcon, LaunchDragonAgeLauncher, true));
+			AddLaunchCommand(new Command("LauncherLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchLauncherName", "Launch {0} Launcher", "Dragon Age"), LanguageManager.Format("GameModes.Commands.Game.LaunchLauncherDescription", "Launches {0} Launcher.", "Dragon Age"), imgIcon, LaunchDragonAgeLauncher, true));
 
-			DefaultLaunchCommand = new Command("Launch Dragon Age", "Launches Dragon Age", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Get("GameModes.DragonAge.Launcher.Default.Name", "Launch Dragon Age"), LanguageManager.Get("GameModes.DragonAge.Launcher.Default.Description", "Launches Dragon Age"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -74,7 +75,7 @@ namespace Nexus.Client.Games.DragonAge
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -111,7 +112,7 @@ namespace Nexus.Client.Games.DragonAge
 			{
 				Trace.TraceError("No launcher launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No launcher launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoLauncherCommand", "No launcher launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

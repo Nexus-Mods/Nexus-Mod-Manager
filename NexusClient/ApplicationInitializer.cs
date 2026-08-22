@@ -29,6 +29,7 @@
     using Nexus.Client.SSO;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
     using Nexus.UI.Controls;
 
     /// <summary>
@@ -280,9 +281,9 @@
 				catch (Exception ex)
 				{
 					Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath));
-					var strPathMessage = string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", strUacCheckPath);
-					var strPathDetails = string.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
-					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
+					var strPathMessage = LanguageManager.Format("Startup.Initialization.PathError", "The path: {0}{1}{0}has returned an error.", Environment.NewLine, strUacCheckPath);
+					var strPathDetails = LanguageManager.Format("Startup.Initialization.ErrorDetails", "Error details: {0}{1} ", Environment.NewLine, ex.Message);
+					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxIcon.Error);
 
                     return false;
 				}
@@ -290,15 +291,9 @@
 				if (!UacCheck(strUacCheckPath))
 				{
 					Trace.TraceError("Unable to get write permissions for: " + strUacCheckPath);
-					var strMessage = "Unable to get write permissions for:" + Environment.NewLine + strUacCheckPath;
-					var strDetails = string.Format("This error happens when you are running Windows Vista or later,  and have installed <b>{0}</b> in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
-										"<li>Disable UAC (<i>not recommended</i>).</li>" +
-										@"<li>Move <b>{0}</b> outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\{0}</b>). This may require a reinstall.<br>With Oblivion you could just copy the game folder to a new location, run the game, and all would be well. This may not work with other games.</li>" +
-										"<li>Run <b>{1}</b> as administrator. You can try this by right-clicking on <b>{1}</b> shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
-										"</ol>" +
-										"The best thing to do in order to avoid other problems, and the generally recommended solution, is to install <b>{0}</b> outside of the <b>Program Files</b> folder.",
-										p_gmfGameModeFactory.GameModeDescriptor.Name, CommonData.ModManagerName);
-					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
+					var strMessage = LanguageManager.Format("Startup.Initialization.WritePermission.Message", "Unable to get write permissions for:{0}{1}", Environment.NewLine, strUacCheckPath);
+					var strDetails = LanguageManager.Format("Startup.Initialization.WritePermission.GameDetails", "This error happens when you are running Windows Vista or later,  and have installed <b>{0}</b> in the <b>Program Files</b> folder. You need to do one of the following:<ol><li>Disable UAC (<i>not recommended</i>).</li><li>Move <b>{0}</b> outside of the <b>Program Files</b> folder (for example, to <b>C:\\Games\\{0}</b>). This may require a reinstall.<br>With Oblivion you could just copy the game folder to a new location, run the game, and all would be well. This may not work with other games.</li><li>Run <b>{1}</b> as administrator. You can try this by right-clicking on <b>{1}</b> shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>.</li></ol>The best thing to do in order to avoid other problems, and the generally recommended solution, is to install <b>{0}</b> outside of the <b>Program Files</b> folder.", p_gmfGameModeFactory.GameModeDescriptor.Name, CommonData.ModManagerName);
+					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxIcon.Error);
 
                     return false;
 				}
@@ -310,8 +305,7 @@
 
 				if (string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
 				{
-					ShowMessage(new ViewMessage("You need to setup the paths where Nexus Mod Manager will store mod archives, the mod installation registry and where the mod files are installed." + Environment.NewLine + Environment.NewLine +
-						"If you used previous versions of NMM, this new version requires you to revise your folder settings." + Environment.NewLine + Environment.NewLine + "Click OK to continue to the setup screen." + Environment.NewLine, "Setup", ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information));
+					ShowMessage(new ViewMessage(LanguageManager.Get("Startup.Initialization.PathsSetup.Message", "You need to setup the paths where Nexus Mod Manager will store mod archives, the mod installation registry and where the mod files are installed." + Environment.NewLine + Environment.NewLine + "If you used previous versions of NMM, this new version requires you to revise your folder settings." + Environment.NewLine + Environment.NewLine + "Click OK to continue to the setup screen." + Environment.NewLine), LanguageManager.Get("Startup.Initialization.PathsSetup.Title", "Setup"), ExtendedMessageBoxButtons.OK, MessageBoxIcon.Information));
 				}
 			}
 
@@ -344,18 +338,18 @@
                     if (!File.Exists(strPlugin))
                     {
                         var stbMessage = new StringBuilder();
-                        stbMessage.AppendFormat("You are missing {0}.", strPlugin);
+                        stbMessage.Append(LanguageManager.Format("Startup.Initialization.MissingCriticalFile", "You are missing {0}.", strPlugin));
 
                         if (string.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage))
                         {
-                            stbMessage.AppendFormat("Please verify your game install and ensure {0} is present.", strPlugin);
+                            stbMessage.Append(LanguageManager.Format("Startup.Initialization.VerifyCriticalFile", "Please verify your game install and ensure {0} is present.", strPlugin));
                         }
                         else
                         {
                             stbMessage.AppendLine(Environment.NewLine + p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage);
                         }
 
-                        p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, "Missing File", MessageBoxIcon.Warning);
+                        p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, LanguageManager.Get("Startup.Initialization.MissingFile.Title", "Missing File"), MessageBoxIcon.Warning);
                         return false;
                     }
                 }
@@ -385,16 +379,16 @@
 				Trace.TraceError("Could not build game mode!");
 				TraceUtil.TraceException(ex);
 				warningMessage = new ViewMessage(
-					$"Could not initialize {p_gmfGameModeFactory.GameModeDescriptor.Name} Game Mode." + Environment.NewLine + Environment.NewLine + ex.Message,
+					LanguageManager.Format("Startup.Initialization.GameModeFailed.Message", "Could not initialize {0} Game Mode.{1}{1}{2}", p_gmfGameModeFactory.GameModeDescriptor.Name, Environment.NewLine, ex.Message),
 					ex.ToString(),
-					"Game Mode Initialization Error",
+					LanguageManager.Get("Startup.Initialization.GameModeFailed.Title", "Game Mode Initialization Error"),
 					MessageBoxIcon.Error);
 			}
 
             if (gameMode == null)
 			{
 				p_vwmErrorMessage = warningMessage ?? new ViewMessage(
-                                        $"Could not initialize {p_gmfGameModeFactory.GameModeDescriptor.Name} Game Mode.", null, "Error", MessageBoxIcon.Error);
+                                        LanguageManager.Format("Startup.Initialization.GameModeFailed.ShortMessage", "Could not initialize {0} Game Mode.", p_gmfGameModeFactory.GameModeDescriptor.Name), null, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxIcon.Error);
 				return false;
 			}
 
@@ -443,7 +437,7 @@
 
                     if (!storageHealth.IsHealthy)
                     {
-                        p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null, "Game Storage validation", MessageBoxIcon.Warning);
+                        p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null, LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning);
                         return false;
                     }
                 }
@@ -481,7 +475,7 @@
 
 			if (gameMode.GameModeEnvironmentInfo.ModCacheDirectory == null || gameMode.GameModeEnvironmentInfo.ModDirectory == null)
 			{
-				ShowMessage(new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", "Warning", MessageBoxIcon.Warning));
+				ShowMessage(new ViewMessage(LanguageManager.Get("Startup.Config.CriticalPathsMissing", "Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxIcon.Warning));
 				EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = false;
 				EnvironmentInfo.Settings.Save();
 				Status = TaskStatus.Retrying;
@@ -581,7 +575,7 @@
                 if (gameStorageService.ApplyInitialSetupCandidate(paths, setupForm.SelectedCandidate, out healthCheck))
                     return true;
 
-                ShowMessage(new ViewMessage(healthCheck?.ToUserMessage() ?? "The selected Game Storage paths could not be validated.", null, "Game Storage setup", MessageBoxIcon.Warning));
+                ShowMessage(new ViewMessage(healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Setup.ValidationFailed", "The selected Game Storage paths could not be validated."), null, LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxIcon.Warning));
                 paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
             }
         }
@@ -704,7 +698,7 @@
 			var strPropertyIndexers = p_strKey.Split(new char[] { '~' }, StringSplitOptions.RemoveEmptyEntries);
 			if (strPropertyIndexers.Length == 0)
 			{
-				p_vwmErrorMessage = new ViewMessage("Missing Setting name.", "Missing Setting Name");
+				p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.DelayedSettings.MissingName.Message", "Missing Setting name."), LanguageManager.Get("Startup.DelayedSettings.MissingName.Title", "Missing Setting Name"));
 				return false;
 			}
 
@@ -737,7 +731,7 @@
 					objSetting = pifSetting.GetValue(objSetting, null);
 				else
 				{
-					p_vwmErrorMessage = new ViewMessage(string.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
+					p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.DelayedSettings.TooManyIndexParameters", "Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), LanguageManager.Get("Startup.DelayedSettings.Invalid.Title", "Invalid Setting"));
 					return false;
 				}
 				tpeSettings = objSetting.GetType();
@@ -781,7 +775,7 @@
 				}
 				if (pifSetting == null)
 				{
-					p_vwmErrorMessage = new ViewMessage(string.Format("Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), "Invalid Setting");
+					p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.DelayedSettings.NotFound", "Cannot set value for setting: '{0}'. Setting does not exist.", p_strKey), LanguageManager.Get("Startup.DelayedSettings.Invalid.Title", "Invalid Setting"));
 					return false;
 				}
 			}
@@ -791,7 +785,7 @@
 				pifSetting.SetValue(objSetting, p_strValue, null);
 			else
 			{
-				p_vwmErrorMessage = new ViewMessage(string.Format("Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), "Invalid Setting");
+				p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.DelayedSettings.TooManyIndexParameters", "Cannot set value for setting: '{0}'. Index Parameter Count is greater than 1.", p_strKey), LanguageManager.Get("Startup.DelayedSettings.Invalid.Title", "Invalid Setting"));
 				return false;
 			}
 			p_vwmErrorMessage = null;
@@ -832,21 +826,21 @@
 		{
 			var dicPaths = new Dictionary<string, string>();
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = "Install Info";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory] = LanguageManager.Get("Startup.Paths.InstallInfo", "Install Info");
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = "Mods";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory] = LanguageManager.Get("Startup.Paths.Mods", "Mods");
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory] = "Mods";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModCacheDirectory] = LanguageManager.Get("Startup.Paths.Mods", "Mods");
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = "Mods";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory] = LanguageManager.Get("Startup.Paths.Mods", "Mods");
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = "Install Info";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory] = LanguageManager.Get("Startup.Paths.InstallInfo", "Install Info");
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = "Mods";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.CategoryDirectory] = LanguageManager.Get("Startup.Paths.Mods", "Mods");
 			if (!string.IsNullOrEmpty(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath) && !dicPaths.ContainsKey(p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath))
-				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath] = "Install Path";
+				dicPaths[p_gmdGameMode.GameModeEnvironmentInfo.InstallationPath] = LanguageManager.Get("Startup.Paths.InstallPath", "Install Path");
 			if(!string.IsNullOrEmpty(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId]) && !dicPaths.ContainsKey(Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)))
-				dicPaths[Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)] = "Virtual Install";
+				dicPaths[Path.Combine(EnvironmentInfo.Settings.HDLinkFolder[p_gmdGameMode.ModeId], VirtualModActivator.ACTIVATOR_FOLDER)] = LanguageManager.Get("Startup.Paths.VirtualInstall", "Virtual Install");
 
 			foreach (var kvpUacCheckPath in dicPaths)
 			{
@@ -857,9 +851,9 @@
 				catch (Exception ex)
 				{
 					Trace.TraceError(string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key));
-					var strPathMessage = string.Format("The path: " + Environment.NewLine + "{0}" + Environment.NewLine + "has returned an error.", kvpUacCheckPath.Key);
-					var strPathDetails = string.Format("Error details: " + Environment.NewLine + "{0} ", ex.Message);
-					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, "Error", MessageBoxIcon.Error);
+					var strPathMessage = LanguageManager.Format("Startup.Initialization.PathError", "The path: {0}{1}{0}has returned an error.", Environment.NewLine, kvpUacCheckPath.Key);
+					var strPathDetails = LanguageManager.Format("Startup.Initialization.ErrorDetails", "Error details: {0}{1} ", Environment.NewLine, ex.Message);
+					p_vwmErrorMessage = new ViewMessage(strPathMessage, strPathDetails, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxIcon.Error);
 					return false;
 				}
 
@@ -868,26 +862,18 @@
 					if (!Directory.Exists(Path.GetPathRoot(kvpUacCheckPath.Key)))
 					{
 						Trace.TraceError("Unable to access: " + kvpUacCheckPath.Key);
-						var strHDMessage = "Unable to access:" + Environment.NewLine + kvpUacCheckPath.Key;
-						var strHDDetails = string.Format("This error usually happens when you set one of the {0} folders on a hard drive that is no longer in your system:" +
-											 Environment.NewLine + Environment.NewLine + "Select this game mode again to go back to the folder setup screen and make sure the {1} path is correct.",
-                            CommonData.ModManagerName, kvpUacCheckPath.Value);
-						p_vwmErrorMessage = new ViewMessage(strHDMessage, strHDDetails, "Warning", MessageBoxIcon.Warning);
+						var strHDMessage = LanguageManager.Format("Startup.Initialization.PathAccess.Message", "Unable to access:{0}{1}", Environment.NewLine, kvpUacCheckPath.Key);
+						var strHDDetails = LanguageManager.Format("Startup.Initialization.PathAccess.Details", "This error usually happens when you set one of the {0} folders on a hard drive that is no longer in your system:{1}{1}Select this game mode again to go back to the folder setup screen and make sure the {2} path is correct.", CommonData.ModManagerName, Environment.NewLine, kvpUacCheckPath.Value);
+						p_vwmErrorMessage = new ViewMessage(strHDMessage, strHDDetails, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxIcon.Warning);
 						EnvironmentInfo.Settings.CompletedSetup[p_gmdGameMode.ModeId] = false;
 						EnvironmentInfo.Settings.Save();
 						return false;
 					}
 
 					Trace.TraceError("Unable to get write permissions for: " + kvpUacCheckPath.Key);
-					var strMessage = "Unable to get write permissions for:" + Environment.NewLine + kvpUacCheckPath.Key;
-					var strDetails = string.Format("This error happens when you are running Windows Vista or later, and have put {0}'s <b>{1}</b> folder in the <b>Program Files</b> folder. You need to do one of the following:<ol>" +
-										"<li>Disable UAC (<i>not recommended</i>).</li>" +
-										@"<li>Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder (for example, to <b>C:\Games\ModManagerInfo\{1}</b>).</li>" +
-										"<li>Run <b>{0}</b> as administrator. You can try this by right-clicking on <b>{0}</b>'s shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>." +
-										"</ol>" +
-										"The best thing to do in order to avoid other problems, and the generally recommended solution, is to Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder.",
-                        CommonData.ModManagerName, kvpUacCheckPath.Value);
-					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, "Error", MessageBoxIcon.Error);
+					var strMessage = LanguageManager.Format("Startup.Initialization.WritePermission.Message", "Unable to get write permissions for:{0}{1}", Environment.NewLine, kvpUacCheckPath.Key);
+					var strDetails = LanguageManager.Format("Startup.Initialization.WritePermission.NmmFolderDetails", "This error happens when you are running Windows Vista or later, and have put {0}'s <b>{1}</b> folder in the <b>Program Files</b> folder. You need to do one of the following:<ol><li>Disable UAC (<i>not recommended</i>).</li><li>Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder (for example, to <b>C:\\Games\\ModManagerInfo\\{1}</b>).</li><li>Run <b>{0}</b> as administrator. You can try this by right-clicking on <b>{0}</b>'s shortcut and selecting <i>Run as administrator</i>. Alternatively, right-click on the shortcut, select <i>Properties->Compatibility</i> and check <i>Run this program as an administrator</i>.</li></ol>The best thing to do in order to avoid other problems, and the generally recommended solution, is to Move {0}'s <b>{1}</b> folder outside of the <b>Program Files</b> folder.", CommonData.ModManagerName, kvpUacCheckPath.Value);
+					p_vwmErrorMessage = new ViewMessage(strMessage, strDetails, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxIcon.Error);
 					return false;
 				}
 			}
@@ -979,7 +965,7 @@
 		        strDebugInfo = $"\nZero script types found (dlls) in \"{path}\". Make sure to compile CSharpScript, ModScript & XmlScript to fix the problem.";
 #endif
 
-                p_vwmErrorMessage = new ViewMessage("No script types were found." + strDebugInfo, null, "No Script Types", MessageBoxIcon.Error);
+                p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.Services.NoScriptTypes.Message", "No script types were found.") + strDebugInfo, null, LanguageManager.Get("Startup.Services.NoScriptTypes.Title", "No Script Types"), MessageBoxIcon.Error);
 
 		        return null;
 			}
@@ -993,7 +979,7 @@
 
 		    if (mfrModFormatRegistry.Formats.Count == 0)
 			{
-				p_vwmErrorMessage = new ViewMessage("No mod formats were found.", null, "No Mod Formats", MessageBoxIcon.Error);
+				p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.Services.NoModFormats.Message", "No mod formats were found."), null, LanguageManager.Get("Startup.Services.NoModFormats.Title", "No Mod Formats"), MessageBoxIcon.Error);
 				return null;
 			}
 
@@ -1010,7 +996,7 @@
 			}
 			catch (Exception ex)
 			{
-				p_vwmErrorMessage = new ViewMessage($"An error occurred while retrieving managed mods: \n\n{ex.Message}", null, "Install Log", MessageBoxIcon.Error);
+				p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.InstallLog.ManagedModsError", "An error occurred while retrieving managed mods: \n\n{0}", ex.Message), null, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
 				return null;
 			}
 
@@ -1031,7 +1017,7 @@
 			}
 			catch (ArgumentNullException)
 			{
-				p_vwmErrorMessage = new ViewMessage("Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup.", null, "Config error", MessageBoxIcon.Warning);
+				p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.Config.CriticalPathsMissing", "Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup."), null, LanguageManager.Get("Startup.Config.ErrorTitle", "Config error"), MessageBoxIcon.Warning);
 				return null;
 			}
 
@@ -1042,7 +1028,7 @@
 			{
 				if (!iluUgrader.CanUpgrade(strLogPath))
 				{
-					p_vwmErrorMessage = new ViewMessage(string.Format("{0} does not support version {1} of the Install Log.", CommonData.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, "Install Log", MessageBoxIcon.Error);
+					p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.InstallLog.UnsupportedVersion", "{0} does not support version {1} of the Install Log.", CommonData.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
 					return null;
 				}
 				var tskUpgrader = iluUgrader.UpgradeInstallLog(strLogPath, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, mrgModRegistry);
@@ -1055,7 +1041,7 @@
 				if (tskUpgrader.Status != TaskStatus.Complete)
 				{
 					var strDetails = (string)(tskUpgrader.ReturnValue ?? null);
-					p_vwmErrorMessage = new ViewMessage("Install Log was not upgraded.", strDetails, "Install Log", MessageBoxIcon.Error);
+					p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.InstallLog.UpgradeFailed", "Install Log was not upgraded."), strDetails, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
 					return null;
 				}
 			}
@@ -1212,8 +1198,8 @@
 		{
 			if (string.IsNullOrWhiteSpace(p_modNew.HumanReadableVersion))
 				return false;
-			var strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will replace the mod in the mod list, but won't change any files.";
-			switch ((DialogResult)ShowMessage(new ViewMessage(string.Format(strUpgradeMessage, p_modNew.ModName, p_modOld.HumanReadableVersion, p_modNew.HumanReadableVersion), null, "Upgrade", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Question)))
+			var strUpgradeMessage = LanguageManager.GetFormat("Startup.ModUpgrade.MismatchedVersion", "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will replace the mod in the mod list, but won't change any files.");
+			switch ((DialogResult)ShowMessage(new ViewMessage(string.Format(strUpgradeMessage, p_modNew.ModName, p_modOld.HumanReadableVersion, p_modNew.HumanReadableVersion), null, LanguageManager.Get("Common.Action.Upgrade", "Upgrade"), ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.No, MessageBoxIcon.Question)))
 			{
 				case DialogResult.Yes:
 					return true;

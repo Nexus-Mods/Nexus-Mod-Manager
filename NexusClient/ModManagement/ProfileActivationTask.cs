@@ -9,11 +9,15 @@ using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
 	public class ProfileActivationTask : ThreadedBackgroundTask
 	{
+		private static readonly string ProfileActivationFailedFormat = LanguageManager.GetFormat("Profiles.Progress.ActivationFailed", "The profile could not be activated: {0}");
+		private static readonly string RestoringModsFormat = LanguageManager.GetFormat("Profiles.Progress.RestoringMods", "Restoring mods: {0}");
+		private static readonly string ActivatingNewProfileFormat = LanguageManager.GetFormat("Profiles.Progress.ActivatingNewProfile", "Activating new profile: {0}");
 		bool m_booCancel = false;
 		bool m_booStartupMigration = false;
 		bool m_booRestoring = false;
@@ -121,7 +125,7 @@ namespace Nexus.Client.ModManagement
 			catch (Exception ex)
 			{
 				Status = TaskStatus.Error;
-				p_strMessage = "The profile could not be activated: " + ex.Message;
+				p_strMessage = String.Format(ProfileActivationFailedFormat, ex.Message);
 				return ex;
 			}
 		}
@@ -139,13 +143,13 @@ namespace Nexus.Client.ModManagement
 			double dblRatio = 0;
 			if (m_booStartupMigration)
 			{
-				OverallMessage = "Restoring mod installation...";
-				ItemMessage = "Cleaning install folder...";
+				OverallMessage = LanguageManager.Get("Profiles.Progress.RestoringInstallation", "Restoring mod installation...");
+				ItemMessage = LanguageManager.Get("Profiles.Progress.CleaningInstallFolder", "Cleaning install folder...");
 			}
 			else
 			{
-				OverallMessage = "Switching Mod Profile...";
-				ItemMessage = "Disabling current profile (please wait, this step could take a while)";
+				OverallMessage = LanguageManager.Get("Profiles.Progress.SwitchingProfile", "Switching Mod Profile...");
+				ItemMessage = LanguageManager.Get("Profiles.Progress.DisablingCurrent", "Disabling current profile (please wait, this step could take a while)");
 			}
 
 			OverallProgress = 0;
@@ -221,9 +225,9 @@ namespace Nexus.Client.ModManagement
 							break;
 
 						if (m_booStartupMigration)
-							ItemMessage = "Restoring mods: " + vmlModLink.ModInfo.ModName;
+							ItemMessage = String.Format(RestoringModsFormat, vmlModLink.ModInfo.ModName);
 						else
-							ItemMessage = "Activating new profile: " + vmlModLink.ModInfo.ModName;
+							ItemMessage = String.Format(ActivatingNewProfileFormat, vmlModLink.ModInfo.ModName);
 						IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename) == vmlModLink.ModInfo.ModFileName);
 						if (modMod != null)
 						{

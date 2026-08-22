@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
@@ -53,6 +54,9 @@ namespace Nexus.UI.Controls
 		public FileSelectionDialog()
 		{
 			InitializeComponent();
+			Text = LanguageManager.Get("Common.FileSelection.Title", "File Selection");
+			butOK.Text = LanguageManager.Get("Common.Action.Ok", "OK");
+			butCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
 		}
 
 		#endregion

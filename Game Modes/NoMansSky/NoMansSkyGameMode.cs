@@ -18,6 +18,7 @@ using Nexus.Client.Util;
 using System.Diagnostics;
 using Nexus.Client.Util.Collections;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.NoMansSky
 {
@@ -500,7 +501,7 @@ namespace Nexus.Client.Games.NoMansSky
 
         public override IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
         {
-            MessageBox.Show("The following mod is in an invalid state and can't be installed properly. The mod manager will attempt to install it anyway.");
+            MessageBox.Show(LanguageManager.Get("GameModes.NoMansSky.InvalidModInstallState", "The following mod is in an invalid state and can't be installed properly. The mod manager will attempt to install it anyway."));
             return p_modSelectedMod.GetFileList();
         }
 

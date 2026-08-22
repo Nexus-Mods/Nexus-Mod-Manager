@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Cyberpunk2077
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.Cyberpunk2077
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Cyberpunk 2077", "Launches default Cyberpunk 2077.", imgIcon, LaunchCyberpunk2077Plain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Cyberpunk 2077"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "Cyberpunk 2077"), imgIcon, LaunchCyberpunk2077Plain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Cyberpunk 2077", "Launches Cyberpunk 2077 with custom command.", imgIcon, LaunchCyberpunk2077Custom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Cyberpunk 2077"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Cyberpunk 2077"), imgIcon, LaunchCyberpunk2077Custom, true));
 
-			DefaultLaunchCommand = new Command("Launch Cyberpunk 2077", "Launches Cyberpunk 2077.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Cyberpunk 2077"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Cyberpunk 2077"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.Cyberpunk2077
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

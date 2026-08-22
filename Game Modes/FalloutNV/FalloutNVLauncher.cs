@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.FalloutNV
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.FalloutNV
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout: New Vegas", "Launches plain Fallout: New Vegas.", imgIcon, LaunchFalloutNVPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Fallout: New Vegas"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Fallout: New Vegas"), imgIcon, LaunchFalloutNVPlain, true));
 
 			strCommand = GetNvseLaunchCommand();
 			Trace.TraceInformation("NVSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("NvseLaunch", "Launch NVSE", "Launches Fallout: New Vegas with NVSE.", imgIcon, LaunchFalloutNVNVSE, true));
+				AddLaunchCommand(new Command("NvseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "NVSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout: New Vegas", "NVSE"), imgIcon, LaunchFalloutNVNVSE, true));
 			}
 
 			strCommand = GetFNV4GbLaunchCommand();
@@ -54,15 +55,15 @@ namespace Nexus.Client.Games.FalloutNV
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("FNV4GbLaunch", "Launch FNV4Gb", "Launches Fallout: New Vegas with FNV4Gb.", imgIcon, LaunchFalloutNVFNV4Gb, true));
+				AddLaunchCommand(new Command("FNV4GbLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "FNV4Gb"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout: New Vegas", "FNV4Gb"), imgIcon, LaunchFalloutNVFNV4Gb, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Fallout: New Vegas", "Launches Fallout: New Vegas with custom command.", imgIcon, LaunchFalloutNVCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Fallout: New Vegas"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Fallout: New Vegas"), imgIcon, LaunchFalloutNVCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Fallout: New Vegas", "Launches Fallout: New Vegas.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Fallout: New Vegas"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Fallout: New Vegas"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -85,7 +86,7 @@ namespace Nexus.Client.Games.FalloutNV
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -127,7 +128,7 @@ namespace Nexus.Client.Games.FalloutNV
 			{
 				Trace.TraceError("NVSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "NVSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "NVSE"));
 				return;
 			}
 			Launch(strCommand, null);
@@ -161,7 +162,7 @@ namespace Nexus.Client.Games.FalloutNV
 			{
 				Trace.TraceError("FNV4Gb does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "FNV4Gb does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "FNV4Gb"));
 				return;
 			}
 			Launch(strCommand, null);

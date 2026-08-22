@@ -6,12 +6,17 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 
 namespace Nexus.Client.ModManagement
 {
 	public class PurgeDownloadsTask : ThreadedBackgroundTask
 	{
+		private static readonly string StartingMessage = LanguageManager.Get("Downloads.Purge.Status.Starting", "Starting purge downloads...");
+		private static readonly string PurgingFormat = LanguageManager.GetFormat("Downloads.Purge.Status.Progress", "Purging the downloads: {0}/{1}");
+		private static readonly string ProblemPrefix = LanguageManager.Get("Downloads.Purge.Status.ErrorPrefix", "There was a problem: ");
+
 		#region Properties
 
 		/// <summary>
@@ -86,7 +91,7 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 				ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
-				OverallMessage = "Starting purge downloads...";
+				OverallMessage = StartingMessage;
 				OverallProgress = 0;
 				OverallProgressStepSize = 1;
 				ShowItemProgress = false;
@@ -101,7 +106,7 @@ namespace Nexus.Client.ModManagement
 					foreach (AddModTask task in DownloadTasksList)
 					{
 						DownloadMonitor.PurgeDownload((AddModTask)task);
-						OverallMessage = "Purging the downloads: " + i + "/" + DownloadTasksList.Count();
+						OverallMessage = String.Format(PurgingFormat, i, DownloadTasksList.Count());
 						StepOverallProgress();
 						i++;
 					}
@@ -110,7 +115,7 @@ namespace Nexus.Client.ModManagement
 			catch (Exception ex)
 			{
 				this.Status = TaskStatus.Error;
-				this.ItemMessage = ("There was a problem: " + Environment.NewLine + ex.Message);
+				this.ItemMessage = ProblemPrefix + Environment.NewLine + ex.Message;
 				return null;
 			}
 

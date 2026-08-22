@@ -106,6 +106,10 @@
     <Compile Include="TextUtil.cs" />
     <Compile Include="ThreadSafeSevenZipExtractor.cs" />
     <Compile Include="JSONSerializer.cs" />
+    <Compile Include="Localization\LanguageManager.cs" />
+    <Compile Include="Localization\LanguagePack.cs" />
+    <Compile Include="Localization\LanguagePackInfo.cs" />
+    <Compile Include="Localization\LanguagePackLoader.cs" />
     <Compile Include="WebPWrapper.cs" />
   </ItemGroup>
   <ItemGroup>

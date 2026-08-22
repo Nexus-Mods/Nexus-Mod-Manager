@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.UI;
 using Nexus.UI.Controls;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -48,6 +49,9 @@ namespace Nexus.Client.Games.Settings
 		protected VirtualDirectoriesSetupForm()
 		{
 			InitializeComponent();
+			string setupTitle = LanguageManager.GetFormat("GameSettings.VirtualFolders.SetupTitle", "{0} Virtual folder Setup");
+			lblTitle.Text = setupTitle;
+			Text = setupTitle;
 		}
 
 		/// <summary>

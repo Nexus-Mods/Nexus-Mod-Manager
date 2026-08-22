@@ -7,6 +7,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 
 namespace Nexus.Client.ModManagement
@@ -103,7 +104,7 @@ namespace Nexus.Client.ModManagement
 		protected bool UninstallFiles()
 		{
 			bool booSecondaryInstall = false;
-			OverallMessage = "Uninstalling Mod...";
+			OverallMessage = LanguageManager.Get("Tasks.Mod.Uninstalling", "Uninstalling Mod...");
 			ShowItemProgress = true;
 			OverallProgressStepSize = 1;
 			ItemProgressStepSize = 1;
@@ -115,7 +116,7 @@ namespace Nexus.Client.ModManagement
 
 			ItemProgressMaximum = lstFiles.Count;
 			ItemProgress = 0;
-			ItemMessage = "Uninstalling Files...";
+			ItemMessage = LanguageManager.Get("Tasks.Mod.UninstallingFiles", "Uninstalling Files...");
 
 			if (GameMode.HasSecondaryInstallPath)
 				booSecondaryInstall = GameMode.CheckSecondaryInstall(Mod, string.Empty);
@@ -196,7 +197,7 @@ namespace Nexus.Client.ModManagement
 
 			ItemProgressMaximum = lstIniEdits.Count;
 			ItemProgress = 0;
-			ItemMessage = "Undoing Ini Edits...";
+			ItemMessage = LanguageManager.Get("Tasks.Mod.UndoingIniEdits", "Undoing Ini Edits...");
 			foreach (IniEdit iniEdit in lstIniEdits)
 			{
 				if (Status == TaskStatus.Cancelling)
@@ -209,7 +210,7 @@ namespace Nexus.Client.ModManagement
 
 			ItemProgressMaximum = lstGameSpecificValueEdits.Count;
 			ItemProgress = 0;
-			ItemMessage = "Undoing Game Specific Value Edits...";
+			ItemMessage = LanguageManager.Get("Tasks.Mod.UndoingGameSpecificEdits", "Undoing Game Specific Value Edits...");
 			foreach (string strEdit in lstGameSpecificValueEdits)
 			{
 				if (Status == TaskStatus.Cancelling)

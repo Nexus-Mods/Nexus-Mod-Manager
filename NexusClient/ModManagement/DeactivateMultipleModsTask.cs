@@ -14,6 +14,7 @@ using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.ModManagement.InstallationLog;
 using ChinhDo.Transactions;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -86,7 +87,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Uninstalling all the active mods...";
+			OverallMessage = LanguageManager.Get("Tasks.Mods.UninstallingAllActive", "Uninstalling all the active mods...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_rolModList.Count;
@@ -95,15 +96,18 @@ namespace Nexus.Client.ModManagement
 			ItemProgressMaximum = 4;
 
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
+			string uninstallingFormat = LanguageManager.GetFormat("Tasks.Mods.UninstallingMod", "Uninstalling: {0}");
+			string setupFormat = LanguageManager.GetFormat("Tasks.Mods.SettingUpUninstall", "Setting up uninstall: {0}");
+			string removingLogsFormat = LanguageManager.GetFormat("Tasks.Mods.RemovingXmlLogs", "Removing XML logs: {0}");
 
 			foreach (IMod modMod in m_rolModList)
 			{
-				OverallMessage = "Uninstalling: " + modMod.ModName;
+				OverallMessage = String.Format(uninstallingFormat, modMod.ModName);
 				ItemProgress = 0;
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Setting up uninstall: " + modMod.ModName;
+					ItemMessage = String.Format(setupFormat, modMod.ModName);
 					StepItemProgress();
 				}
 				
@@ -113,7 +117,7 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Uninstalling: " + modMod.ModName;
+					ItemMessage = String.Format(uninstallingFormat, modMod.ModName);
 					StepItemProgress();
 				}
 				
@@ -127,7 +131,7 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Removing XML logs: " + modMod.ModName;
+					ItemMessage = String.Format(removingLogsFormat, modMod.ModName);
 					StepItemProgress();
 				}
 

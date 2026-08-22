@@ -7,6 +7,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -67,8 +68,9 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			string strOverallRoot = "Fixing config file";
-			OverallMessage = "Parsing config file...";
+			string strOverallRoot = LanguageManager.Get("Tasks.VirtualConfigFix.Root", "Fixing config file");
+			string elementProgressFormat = LanguageManager.GetFormat("Tasks.VirtualConfigFix.ElementProgress", "{0} - element: {1}/{2}");
+			OverallMessage = LanguageManager.Get("Tasks.VirtualConfigFix.Parsing", "Parsing config file...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = false;
@@ -109,7 +111,7 @@ namespace Nexus.Client.ModManagement
 
 								if (OverallProgress < OverallProgressMaximum)
 									StepOverallProgress();
-								OverallMessage = string.Format("{0} - element: {1}/{2}", strOverallRoot, OverallProgress, OverallProgressMaximum);
+								OverallMessage = String.Format(elementProgressFormat, strOverallRoot, OverallProgress, OverallProgressMaximum);
 
 								try
 								{
@@ -185,7 +187,7 @@ namespace Nexus.Client.ModManagement
 
 				if ((lstVirtualLinks.Count > 0) && (lstVirtualMods.Count > 0))
 				{
-					OverallMessage = "Saving fixed config file...";
+					OverallMessage = LanguageManager.Get("Tasks.VirtualConfigFix.Saving", "Saving fixed config file...");
 					VirtualModActivator.SaveModList(FilePath, lstVirtualMods, lstVirtualLinks);
 				}
 			}

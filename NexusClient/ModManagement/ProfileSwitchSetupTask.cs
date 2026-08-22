@@ -12,6 +12,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.ModManagement.InstallationLog;
 using ChinhDo.Transactions;
 
@@ -19,6 +20,12 @@ namespace Nexus.Client.ModManagement
 {
 	public class ProfileSwitchSetupTask : ThreadedBackgroundTask
 	{
+		private static readonly string UninstallingModFormat = LanguageManager.GetFormat("Profiles.Progress.UninstallingMod", "Uninstalling: {0}");
+		private static readonly string DisablingModFormat = LanguageManager.GetFormat("Profiles.Progress.DisablingMod", "Disabling: {0}");
+		private static readonly string SettingUpUninstallFormat = LanguageManager.GetFormat("Profiles.Progress.SettingUpUninstall", "Setting up uninstall: {0}");
+		private static readonly string RemovingXmlLogsFormat = LanguageManager.GetFormat("Profiles.Progress.RemovingXmlLogs", "Removing XML logs: {0}");
+		private static readonly string InstallingSelectedCountFormat = LanguageManager.GetFormat("Profiles.Progress.InstallingSelectedCount", "Profile Switch Setup: Installing selected mods ({0})...");
+		private static readonly string InstallingSelectedModFormat = LanguageManager.GetFormat("Profiles.Progress.InstallingSelectedMod", "Profile Switch Setup: Installing selected mods: {0}");
 		/// <summary>
 		/// Gets the current ModManager.
 		/// </summary>
@@ -110,7 +117,7 @@ namespace Nexus.Client.ModManagement
 
 		private bool DeactivateMods(object[] args)
 		{
-			OverallMessage = "Profile Switch Setup: Uninstalling selected active mods...";
+			OverallMessage = LanguageManager.Get("Profiles.Progress.UninstallingSelected", "Profile Switch Setup: Uninstalling selected active mods...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = _modsToDeactivate.Count;
@@ -124,12 +131,12 @@ namespace Nexus.Client.ModManagement
 
 			foreach (IMod modMod in _modsToDeactivate)
 			{
-				OverallMessage = "Uninstalling: " + modMod.ModName;
+				OverallMessage = String.Format(UninstallingModFormat, modMod.ModName);
 				ItemProgress = 0;
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Disabling: " + modMod.ModName;
+					ItemMessage = String.Format(DisablingModFormat, modMod.ModName);
 					StepItemProgress();
 				}
 
@@ -143,7 +150,7 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Setting up uninstall: " + modMod.ModName;
+					ItemMessage = String.Format(SettingUpUninstallFormat, modMod.ModName);
 					StepItemProgress();
 				}
 
@@ -163,7 +170,7 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Uninstalling: " + modMod.ModName;
+					ItemMessage = String.Format(UninstallingModFormat, modMod.ModName);
 					StepItemProgress();
 				}
 
@@ -171,7 +178,7 @@ namespace Nexus.Client.ModManagement
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
-					ItemMessage = "Removing XML logs: " + modMod.ModName;
+					ItemMessage = String.Format(RemovingXmlLogsFormat, modMod.ModName);
 					StepItemProgress();
 				}
 
@@ -190,7 +197,7 @@ namespace Nexus.Client.ModManagement
 			if (_modsToInstall != null && _modsToInstall.Count > 0)
 				modCounter = _modsToInstall.Count;
 
-			OverallMessage = string.Format("Profile Switch Setup: Installing selected mods ({0})...", modCounter);
+			OverallMessage = String.Format(InstallingSelectedCountFormat, modCounter);
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = _modsToInstall.Count;
@@ -204,7 +211,7 @@ namespace Nexus.Client.ModManagement
 
 			foreach (IMod modMod in _modsToInstall)
 			{
-				OverallMessage = "Profile Switch Setup: Installing selected mods: " + modMod.ModName;
+				OverallMessage = String.Format(InstallingSelectedModFormat, modMod.ModName);
 
 				if (_installLog.ActiveMods.Contains(modMod))
 					continue;

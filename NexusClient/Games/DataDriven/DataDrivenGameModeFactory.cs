@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using Nexus.Client.Games.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -128,12 +129,9 @@ namespace Nexus.Client.Games.DataDriven
 
         private ViewMessage CreateBuildFailureMessage(Exception exception)
         {
-            string message = "Could not initialize " + _definition.Name + " Game Mode." + Environment.NewLine + Environment.NewLine + exception.Message;
-            string details = "Mode ID: " + _definition.ModeId + Environment.NewLine +
-                             "Definition: " + (_definition.DefinitionPath ?? "unknown") + Environment.NewLine +
-                             "Behavior profile: " + (_definition.BehaviorProfile ?? "unknown") + Environment.NewLine +
-                             Environment.NewLine + exception;
-            return new ViewMessage(message, details, "Game Mode Initialization Error", MessageBoxIcon.Error);
+            string message = LanguageManager.Format("GameModes.DataDriven.InitializationError.Message", "Could not initialize {0} Game Mode.{1}{1}{2}", _definition.Name, Environment.NewLine, exception.Message);
+            string details = LanguageManager.Format("GameModes.DataDriven.InitializationError.Details", "Mode ID: {0}{1}Definition: {2}{1}Behavior profile: {3}{1}{1}{4}", _definition.ModeId, Environment.NewLine, _definition.DefinitionPath ?? LanguageManager.Get("Common.Value.Unknown", "unknown"), _definition.BehaviorProfile ?? LanguageManager.Get("Common.Value.Unknown", "unknown"), exception);
+            return new ViewMessage(message, details, LanguageManager.Get("Startup.Initialization.GameModeFailed.Title", "Game Mode Initialization Error"), MessageBoxIcon.Error);
         }
 
         public bool PerformInitialSetup(ShowViewDelegate p_dlgShowView, ShowMessageDelegate p_dlgShowMessage)

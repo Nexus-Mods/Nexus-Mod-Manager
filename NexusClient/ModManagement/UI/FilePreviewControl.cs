@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement.UI
+﻿namespace Nexus.Client.ModManagement.UI
 {
     using System;
     using System.Collections.Generic;
@@ -13,6 +13,7 @@ namespace Nexus.Client.ModManagement.UI
     using DevExpress.XtraLayout;
 
     using Nexus.Client.UI;
+    using Nexus.Client.Util.Localization;
 
     public sealed class FilePreviewControl : XtraUserControl
     {
@@ -28,9 +29,21 @@ namespace Nexus.Client.ModManagement.UI
         private bool _suppressOwnerChange;
         private Bitmap _currentBitmap;
         private FileManagerRow _currentRow;
+        private readonly string _selectFilePrompt;
+        private readonly string _missingFileMessage;
+        private readonly string _unsupportedFileTypeMessage;
+        private readonly string _loadingMessage;
+        private readonly string _unavailableMessage;
+        private readonly string _loadFailedMessage;
 
         public FilePreviewControl()
         {
+            _selectFilePrompt = LanguageManager.Get("FileManager.Preview.SelectFilePrompt", "Select a file to preview.");
+            _missingFileMessage = LanguageManager.Get("FileManager.Preview.MissingFile", "Preview file is missing.");
+            _unsupportedFileTypeMessage = LanguageManager.Get("FileManager.Preview.UnsupportedFileType", "Preview is not available for this file type.");
+            _loadingMessage = LanguageManager.Get("FileManager.Preview.Loading", "Loading preview...");
+            _unavailableMessage = LanguageManager.Get("FileManager.Preview.Unavailable", "Preview is not available for this file.");
+            _loadFailedMessage = LanguageManager.Get("FileManager.Preview.LoadFailed", "Preview could not be loaded.");
             Dock = DockStyle.Fill;
 
             _layoutControl = new LayoutControl
@@ -50,7 +63,7 @@ namespace Nexus.Client.ModManagement.UI
                     TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
                 }
             };
-            _ownerSelector.Properties.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("OwnerName", "Owner"));
+            _ownerSelector.Properties.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("OwnerName", LanguageManager.Get("FileManager.Columns.Owner.Header", "Owner")));
             _ownerSelector.EditValueChanged += OwnerSelector_EditValueChanged;
 
             _previewHost = new PanelControl
@@ -76,7 +89,7 @@ namespace Nexus.Client.ModManagement.UI
                 Dock = DockStyle.Fill,
                 AutoSizeMode = LabelAutoSizeMode.None,
                 Appearance = { TextOptions = { HAlignment = DevExpress.Utils.HorzAlignment.Center, VAlignment = DevExpress.Utils.VertAlignment.Center } },
-                Text = "Select a file to preview."
+                Text = _selectFilePrompt
             };
 
             _previewHost.Controls.Add(_pictureEdit);
@@ -103,7 +116,7 @@ namespace Nexus.Client.ModManagement.UI
 
             Controls.Add(_layoutControl);
             ApplySkinAwareAppearance();
-            SetEmpty("Select a file to preview.");
+            SetEmpty(_selectFilePrompt);
         }
 
         /// <summary>
@@ -131,7 +144,7 @@ namespace Nexus.Client.ModManagement.UI
 
             if (row == null || String.IsNullOrWhiteSpace(row.FullPath))
             {
-                SetEmpty("Select a file to preview.");
+                SetEmpty(_selectFilePrompt);
                 return;
             }
 
@@ -140,7 +153,7 @@ namespace Nexus.Client.ModManagement.UI
             if (String.IsNullOrWhiteSpace(previewPath) || !File.Exists(previewPath))
             {
                 SetOwnerSelectorVisible(false);
-                SetError("Preview file is missing.");
+                SetError(_missingFileMessage);
                 return;
             }
 
@@ -149,7 +162,7 @@ namespace Nexus.Client.ModManagement.UI
 
             if (!canPreview)
             {
-                SetUnsupported("Preview is not available for this file type.");
+                SetUnsupported(_unsupportedFileTypeMessage);
                 return;
             }
 
@@ -243,14 +256,14 @@ namespace Nexus.Client.ModManagement.UI
 
             if (String.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             {
-                SetError("Preview file is missing.");
+                SetError(_missingFileMessage);
                 return;
             }
 
             int generation = Interlocked.Increment(ref _previewGeneration);
             CancellationTokenSource cancellation = new CancellationTokenSource();
             _previewCancellation = cancellation;
-            SetEmpty("Loading preview...");
+            SetEmpty(_loadingMessage);
 
             _previewManager.LoadPreviewAsync(new FilePreviewRequest(filePath), cancellation.Token)
                 .ContinueWith(task => ApplyPreviewResult(task, generation, cancellation), CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
@@ -276,13 +289,13 @@ namespace Nexus.Client.ModManagement.UI
 
             if (task.IsCanceled)
             {
-                SetEmpty("Select a file to preview.");
+                SetEmpty(_selectFilePrompt);
                 return;
             }
 
             if (task.IsFaulted)
             {
-                SetError("Preview is not available for this file.");
+                SetError(_unavailableMessage);
                 return;
             }
 
@@ -337,17 +350,17 @@ namespace Nexus.Client.ModManagement.UI
 
         private void SetEmpty(string message)
         {
-            ShowMessage(String.IsNullOrWhiteSpace(message) ? "Select a file to preview." : message);
+            ShowMessage(String.IsNullOrWhiteSpace(message) ? LanguageManager.Get("FileManager.Preview.SelectFilePrompt", "Select a file to preview.") : message);
         }
 
         private void SetUnsupported(string message)
         {
-            ShowMessage(String.IsNullOrWhiteSpace(message) ? "Preview is not available for this file type." : message);
+            ShowMessage(String.IsNullOrWhiteSpace(message) ? _unsupportedFileTypeMessage : message);
         }
 
         private void SetError(string message)
         {
-            ShowMessage(String.IsNullOrWhiteSpace(message) ? "Preview could not be loaded." : message);
+            ShowMessage(String.IsNullOrWhiteSpace(message) ? _loadFailedMessage : message);
         }
 
         private void ShowMessage(string message)

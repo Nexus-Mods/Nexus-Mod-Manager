@@ -1,5 +1,6 @@
 ﻿using System;
 using Nexus.Client.Games;
+using Nexus.Client.Util.Localization;
 using SevenZip;
 
 namespace Nexus.Client.Settings
@@ -18,13 +19,7 @@ namespace Nexus.Client.Settings
 		/// Gets the title of the settings group.
 		/// </summary>
 		/// <value>The title of the settings group.</value>
-		public override string Title
-		{
-			get
-			{
-				return "Mod Options";
-			}
-		}
+		public override string Title { get; } = LanguageManager.Get("Settings.ModOptions.Title", "Mod Options");
 
 		/// <summary>
 		/// Gets the list of available compression levels.

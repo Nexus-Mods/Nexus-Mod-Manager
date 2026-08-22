@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement.UI
 {
@@ -13,6 +14,8 @@ namespace Nexus.Client.ModManagement.UI
 	public partial class BackupManagerForm : ManagedFontXtraForm
 	{
 		private readonly BindingList<BackupCategoryRow> _rows = new BindingList<BackupCategoryRow>();
+		private readonly string m_strEstimateMinutesFormat;
+		private readonly string m_strLessThanMinute;
 
 		/// <summary>
 		/// Gets the backup manager used to inspect and back up mod installations.
@@ -26,16 +29,33 @@ namespace Nexus.Client.ModManagement.UI
 		public BackupManagerForm(BackupManager p_bmBackupManager)
 		{
 			InitializeComponent();
+			m_strEstimateMinutesFormat = LanguageManager.GetFormat("Tools.Backup.Estimate.Minutes", "{0} minutes");
+			m_strLessThanMinute = LanguageManager.Get("Tools.Backup.Estimate.LessThanMinute", "Less than a minute");
+			ApplyLocalization();
 			NmmIconProvider.Bind(btBackup, NmmIconAction.Backup);
 			NmmIconProvider.Bind(btCancel, NmmIconAction.Cancel);
 			BackupManager = p_bmBackupManager;
 
-			_rows.Add(new BackupCategoryRow(0, "Base game Files"));
-			_rows.Add(new BackupCategoryRow(1, "Installed mod Files"));
-			_rows.Add(new BackupCategoryRow(2, "Files not managed by NMM"));
-			_rows.Add(new BackupCategoryRow(3, "Mod Archives"));
+			_rows.Add(new BackupCategoryRow(0, LanguageManager.Get("Tools.Backup.Categories.BaseGameFiles", "Base game Files")));
+			_rows.Add(new BackupCategoryRow(1, LanguageManager.Get("Tools.Backup.Categories.InstalledModFiles", "Installed mod Files")));
+			_rows.Add(new BackupCategoryRow(2, LanguageManager.Get("Tools.Backup.Categories.UnmanagedFiles", "Files not managed by NMM")));
+			_rows.Add(new BackupCategoryRow(3, LanguageManager.Get("Tools.Backup.Categories.ModArchives", "Mod Archives")));
 			gridControl.DataSource = _rows;
 			FormClosed += BackupManagerForm_FormClosed;
+		}
+
+		private void ApplyLocalization()
+		{
+			Text = LanguageManager.Get("Tools.Backup.Window.Title", "Nexus Mod Manager Backup");
+			btBackup.Text = LanguageManager.Get("Tools.Backup.Action.Backup", "Backup");
+			btCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
+			lblBackup.Text = LanguageManager.Get("Tools.Backup.Selection.Prompt", "Select the files that you want to backup.");
+			gridView.Columns["Selected"].Caption = LanguageManager.Get("Tools.Backup.Columns.Backup", "Backup");
+			gridView.Columns["Category"].Caption = LanguageManager.Get("Common.Field.Category", "Category");
+			gridView.Columns["SizeMb"].Caption = LanguageManager.Get("Tools.Backup.Columns.SizeMb", "Size (MB)");
+			gridView.Columns["TotalFiles"].Caption = LanguageManager.Get("Tools.Backup.Columns.TotalFiles", "Total Files");
+			gridView.Columns["EstimatedBackupSize"].Caption = LanguageManager.Get("Tools.Backup.Columns.EstimatedSize", "Est. Backup Size");
+			gridView.Columns["EstimatedBackupTime"].Caption = LanguageManager.Get("Tools.Backup.Columns.EstimatedTime", "Est. Backup Time");
 		}
 
 		private void btBackup_Click(object sender, EventArgs e)
@@ -54,13 +74,13 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (!anySelected)
 			{
-				XtraMessageBox.Show(this, "You have to select at least one category!", "Create Backup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				XtraMessageBox.Show(this, LanguageManager.Get("Tools.Backup.Validation.SelectCategory", "You have to select at least one category!"), LanguageManager.Get("Tools.Backup.Dialog.CreateTitle", "Create Backup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
 			if (totalFiles <= 0)
 			{
-				XtraMessageBox.Show(this, "You cannot backup ZERO files!", "Create Backup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				XtraMessageBox.Show(this, LanguageManager.Get("Tools.Backup.Validation.ZeroFiles", "You cannot backup ZERO files!"), LanguageManager.Get("Tools.Backup.Dialog.CreateTitle", "Create Backup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -148,14 +168,14 @@ namespace Nexus.Client.ModManagement.UI
 		/// <summary>
 		/// Populates a backup row with size, file-count, and rough compression/time estimates.
 		/// </summary>
-		private static void SetEstimate(BackupCategoryRow row, long sizeBytes, int fileCount, out string estimatedCompression, out string estimatedTime)
+		private void SetEstimate(BackupCategoryRow row, long sizeBytes, int fileCount, out string estimatedCompression, out string estimatedTime)
 		{
 			float sizeMb = (sizeBytes / 1024f) / 1024f;
 			row.SizeMb = sizeBytes == 0 ? "-" : sizeMb.ToString("0");
 			row.TotalFiles = fileCount.ToString();
 			estimatedCompression = sizeMb > 0 ? (sizeMb - (sizeMb / 10)).ToString("0") : "-";
 			float minutes = sizeMb > 0 ? ((30 * sizeMb) / 60) / 1024f : 0;
-			estimatedTime = minutes > 0 ? (minutes > 1 ? Math.Round(minutes, 0) + " minutes" : "Less than a minute") : "-";
+			estimatedTime = minutes > 0 ? (minutes > 1 ? String.Format(m_strEstimateMinutesFormat, Math.Round(minutes, 0)) : m_strLessThanMinute) : "-";
 		}
 
 		private void BackupManagerForm_FormClosed(object sender, FormClosedEventArgs e)

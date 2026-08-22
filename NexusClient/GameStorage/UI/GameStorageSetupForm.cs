@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Nexus.Client.Games;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.GameStorage.UI
@@ -23,7 +24,7 @@ namespace Nexus.Client.GameStorage.UI
             _service = service;
             _currentPaths = currentPaths;
             _currentHealthCheck = healthCheck;
-            Text = "Game Storage setup - " + currentPaths.GameName;
+            Text = LanguageManager.Format("GameStorage.Setup.Title", "Game Storage setup - {0}", currentPaths.GameName);
             Width = 1120;
             Height = 680;
             MinimizeBox = false;
@@ -31,11 +32,11 @@ namespace Nexus.Client.GameStorage.UI
             StartPosition = FormStartPosition.CenterParent;
 
             _control = new GameStorageSetupControl();
-            _control.ConfigureText("Game Storage setup - " + currentPaths.GameName,
-                "Choose where NMM should store this game's mod data. If NMM found an existing setup, use the recommended folders to preserve your current mods, install records, and mod archives. NMM will only create missing folders inside the paths selected below." + Environment.NewLine + Environment.NewLine +
+            _control.ConfigureText(LanguageManager.Format("GameStorage.Setup.Title", "Game Storage setup - {0}", currentPaths.GameName),
+                LanguageManager.Get("GameStorage.Setup.Description", "Choose where NMM should store this game's mod data. If NMM found an existing setup, use the recommended folders to preserve your current mods, install records, and mod archives. NMM will only create missing folders inside the paths selected below." + Environment.NewLine + Environment.NewLine +
                 "Selected folders are the directories NMM will use for this game. You can edit them manually or choose one of the detected setups below." + Environment.NewLine + Environment.NewLine +
                 "Selected folders check parses the selected folders for existing mod data, missing folders, invalid paths, and setup problems before applying the configuration." + Environment.NewLine + Environment.NewLine +
-                "Detected setup options are the possible folder setups on your system. Compatible shared Mods libraries are listed separately and never replace this game's InstallInfo, VirtualInstall, overwrite state, or Link Folder.", true);
+                "Detected setup options are the possible folder setups on your system. Compatible shared Mods libraries are listed separately and never replace this game's InstallInfo, VirtualInstall, overwrite state, or Link Folder."), true);
             _control.SetManualPaths(currentPaths);
             _control.RefreshRequested += RefreshRequested;
             _control.ManualVirtualInstallPathChanged += ManualVirtualInstallPathChanged;
@@ -122,18 +123,18 @@ namespace Nexus.Client.GameStorage.UI
 
             if (candidate == null)
             {
-                XtraMessageBox.Show(this, "Select a Game Storage candidate or enter custom paths first.", "Game Storage setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                XtraMessageBox.Show(this, LanguageManager.Get("GameStorage.Common.SelectCandidateFirst", "Select a Game Storage candidate or enter custom paths first."), LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             if (candidate.RequiresUserConfirmation)
             {
                 string confirmationMessage = candidate.IsSharedModsLibrary
-                    ? (candidate.SharedModsDescription ?? "This Mods folder is already used by a compatible Game Mode.") + Environment.NewLine + Environment.NewLine +
-                      "Use it as a shared Mods library for " + _currentPaths.GameName + "? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode."
-                    : "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.";
+                    ? (candidate.SharedModsDescription ?? LanguageManager.Get("GameStorage.SharedMods.CompatibleFallback", "This Mods folder is already used by a compatible Game Mode.")) + Environment.NewLine + Environment.NewLine +
+                      LanguageManager.Format("GameStorage.Setup.ConfirmSharedMods", "Use it as a shared Mods library for {0}? Only the Mods folder will be shared. InstallInfo, VirtualInstall, overwrite state, and the Link Folder remain exclusive to this Game Mode.", _currentPaths.GameName)
+                    : LanguageManager.Get("GameStorage.Setup.ConfirmApply", "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.");
 
-                var result = XtraMessageBox.Show(this, confirmationMessage, "Confirm Game Storage setup", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+                var result = XtraMessageBox.Show(this, confirmationMessage, LanguageManager.Get("GameStorage.Setup.ConfirmTitle", "Confirm Game Storage setup"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
                 if (result != DialogResult.OK)
                     return;
             }
@@ -182,9 +183,9 @@ namespace Nexus.Client.GameStorage.UI
         {
             var rows = healthCheck?.Items.Select(x => new GameStorageSetupRow
             {
-                Role = x.Role?.ToString() ?? string.Empty,
+                Role = GameStorageLocalization.GetFolderRoleName(x.Role),
                 Path = x.Path,
-                Status = x.Status.ToString(),
+                Status = GameStorageLocalization.GetHealthStatusName(x.Status),
                 Message = x.Message
             }) ?? Enumerable.Empty<GameStorageSetupRow>();
             _control.SetRows(rows);

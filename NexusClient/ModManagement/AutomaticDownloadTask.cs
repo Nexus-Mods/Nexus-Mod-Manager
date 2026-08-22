@@ -6,6 +6,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 
 namespace Nexus.Client.ModManagement
@@ -105,7 +106,7 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 				ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
-				OverallMessage = "Starting missing mods download...";
+				OverallMessage = LanguageManager.Get("Tasks.AutomaticDownload.Starting", "Starting missing mods download...");
 				OverallProgress = 0;
 				OverallProgressStepSize = 1;
 				ShowItemProgress = false;
@@ -117,11 +118,12 @@ namespace Nexus.Client.ModManagement
 				
 				if (MissingMods.Count > 0)
 				{
+					string addingModsFormat = LanguageManager.GetFormat("Tasks.AutomaticDownload.Adding", "Adding the Mods to download: {0}/{1}");
 					foreach (string URI in MissingMods)
 					{
 						if (m_booCancel)
 							break;
-						OverallMessage = "Adding the Mods to download: " + i + "/" + MissingMods.Count();
+						OverallMessage = String.Format(addingModsFormat, i, MissingMods.Count());
 						StepOverallProgress();
 						i++;
 
@@ -133,7 +135,7 @@ namespace Nexus.Client.ModManagement
 			catch (Exception ex)
 			{
 				this.Status = TaskStatus.Error;
-				this.ItemMessage = ("There was a problem communicating with the Nexus server: " + Environment.NewLine + ex.Message);
+				this.ItemMessage = LanguageManager.Format("Tasks.AutomaticDownload.NetworkError", "There was a problem communicating with the Nexus server: {0}{1}", Environment.NewLine, ex.Message);
 				return null;
 			}
 

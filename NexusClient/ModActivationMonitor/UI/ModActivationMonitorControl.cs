@@ -16,6 +16,7 @@ using Nexus.Client.ModManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModActivationMonitoring.UI
 {
@@ -26,7 +27,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 	{
 		private readonly BindingList<ModActivationMonitorRow> _rows = new BindingList<ModActivationMonitorRow>();
 		private ModActivationMonitorVM m_vmlViewModel;
-		private readonly string m_strTitleAllActive = "Mod Activation Queue ({0})";
+		private readonly string m_strTitleAllActive = LanguageManager.GetFormat("MainForm.Dock.ModActivationQueue.Count", "Mod Activation Queue ({0})");
 		private const string ColumnWidthsSettingsKey = "ModActivationMonitor";
 		private bool _columnWidthsRestored;
 		private bool _formClosingHooked;
@@ -63,11 +64,20 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 
 				m_vmlViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
 
-				Command cmdRemoveAll = new Command("Remove all", "Purges the completed activations from the list.", RemoveAllTasks);
+				Command cmdRemoveAll = new Command(
+					LanguageManager.Get("ActivationQueue.Actions.RemoveAll.Name", "Remove all"),
+					LanguageManager.Get("ActivationQueue.Actions.RemoveAll.Description", "Purges the completed activations from the list."),
+					RemoveAllTasks);
 				new DevExpressBarItemCommandBinding(tsbRemoveAll, cmdRemoveAll);
-				Command cmdRemoveQueued = new Command("Remove queued", "Purges the queued activations from the list.", RemoveQueuedTasks);
+				Command cmdRemoveQueued = new Command(
+					LanguageManager.Get("ActivationQueue.Actions.RemoveQueued.Name", "Remove queued"),
+					LanguageManager.Get("ActivationQueue.Actions.RemoveQueued.Description", "Purges the queued activations from the list."),
+					RemoveQueuedTasks);
 				new DevExpressBarItemCommandBinding(tsbRemoveQueued, cmdRemoveQueued);
-				Command cmdRemoveSelected = new Command("Remove selected", "Purges the selected activation from the list.", RemoveSelectedTask);
+				Command cmdRemoveSelected = new Command(
+					LanguageManager.Get("ActivationQueue.Actions.RemoveSelected.Name", "Remove selected"),
+					LanguageManager.Get("ActivationQueue.Actions.RemoveSelected.Description", "Purges the selected activation from the list."),
+					RemoveSelectedTask);
 				new DevExpressBarItemCommandBinding(tsbCancel, cmdRemoveSelected);
 
 				SetCommandExecutableStatus(false);
@@ -86,6 +96,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		public ModActivationMonitorControl()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			NmmIconProvider.Bind(tsbCancel, NmmIconAction.Cancel);
 			NmmIconProvider.Bind(tsbRemoveQueued, NmmIconAction.Remove);
 			NmmIconProvider.Bind(tsbRemoveAll, NmmIconAction.RemoveAll);
@@ -98,6 +109,37 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		}
 
 		#endregion
+
+
+		/// <summary>
+		/// Applies static UI text once when the control is created.
+		/// </summary>
+		private void ApplyLocalization()
+		{
+			barActions.BarName = LanguageManager.Get("ActivationQueue.Toolbar.Title", "Activation Actions");
+			SetBarItemText(tsbCancel, LanguageManager.Get("Common.Action.Cancel", "Cancel"));
+			SetBarItemText(tsbRemoveQueued, LanguageManager.Get("ActivationQueue.Actions.RemoveQueued.Name", "Remove queued"));
+			SetBarItemText(tsbRemoveAll, LanguageManager.Get("ActivationQueue.Actions.RemoveAll.Name", "Remove all"));
+			copyItem.Caption = LanguageManager.Get("Common.Action.CopyToClipboard", "Copy to clipboard");
+
+			SetColumnCaption("ModName", LanguageManager.Get("Common.Column.Name", "Name"));
+			SetColumnCaption("Status", LanguageManager.Get("Common.Column.Status", "Status"));
+			SetColumnCaption("Operation", LanguageManager.Get("ActivationQueue.Columns.Operation", "Operation"));
+			SetColumnCaption("Progress", LanguageManager.Get("ActivationQueue.Columns.Progress", "Progress"));
+		}
+
+		private static void SetBarItemText(BarItem item, string text)
+		{
+			item.Caption = text;
+			item.Hint = text;
+		}
+
+		private void SetColumnCaption(string fieldName, string caption)
+		{
+			DevExpress.XtraGrid.Columns.GridColumn column = gridView.Columns.ColumnByFieldName(fieldName);
+			if (column != null)
+				column.Caption = caption;
+		}
 
 		/// <summary>
 		/// Raises the <see cref="UserControl.Load"/> event of the control.
@@ -389,9 +431,9 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				return;
 
 			if (String.Equals(row.PopupErrorMessageType, "Warning", StringComparison.OrdinalIgnoreCase))
-				ExtendedMessageBox.Show(this, row.ErrorMessage, "Warning", row.DetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this, row.ErrorMessage, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), row.DetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			else
-				ExtendedMessageBox.Show(this, row.ErrorMessage, "Failed", row.DetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				ExtendedMessageBox.Show(this, row.ErrorMessage, LanguageManager.Get("ActivationQueue.Dialog.FailedTitle", "Failed"), row.DetailsErrorMessageType, MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 
 		private void gridControl_MouseUp(object sender, MouseEventArgs e)
@@ -469,6 +511,16 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 	/// </summary>
 	public sealed class ModActivationMonitorRow : INotifyPropertyChanged
 	{
+		private static readonly string QueuedText = LanguageManager.Get("Common.Status.Queued", "Queued");
+		private static readonly string RunningText = LanguageManager.Get("Common.Status.Running", "Running");
+		private static readonly string CompleteText = LanguageManager.Get("Common.Status.Complete", "Complete");
+		private static readonly string InstallText = LanguageManager.Get("Common.Action.Install", "Install");
+		private static readonly string UninstallText = LanguageManager.Get("Common.Action.Uninstall", "Uninstall");
+		private static readonly string UpgradingText = LanguageManager.Get("ActivationQueue.Operation.Upgrading", "Upgrading");
+		private static readonly string UninstallingProgressFormat = LanguageManager.GetFormat("ActivationQueue.Progress.Uninstalling", "Uninstalling, please wait...({0}%)");
+		private static readonly string UnpackingProgressFormat = LanguageManager.GetFormat("ActivationQueue.Progress.Unpacking", "Unpacking, please wait...({0}%)");
+		private static readonly string InstallingProgressFormat = LanguageManager.GetFormat("ActivationQueue.Progress.Installing", "Installing, please wait...({0}%)");
+
 		private readonly ModActivationMonitorControl _control;
 		private IBackgroundTask _startedTask;
 		private bool _isRemovable;
@@ -493,7 +545,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			Task = task;
 			_control = control;
 			ModName = GetTaskModName(task);
-			Status = "Queued";
+			Status = QueuedText;
 			Operation = String.Empty;
 			Progress = String.Empty;
 			ErrorMessage = String.Empty;
@@ -561,13 +613,13 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			_startedTask.PropertyChanged += Task_PropertyChanged;
 
 			IsRemovable = false;
-			Status = "Running";
+			Status = RunningText;
 			if (sender is ModInstaller)
-				Operation = "Install";
+				Operation = InstallText;
 			else if (sender is ModUninstaller)
-				Operation = "Uninstall";
+				Operation = UninstallText;
 			else if (sender is ModUpgrader)
-				Operation = "Upgrading";
+				Operation = UpgradingText;
 
 			Task.IsQueued = false;
 			_control.CallUpdateBottomBarFeedback(this);
@@ -606,7 +658,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				}
 				else
 				{
-					Status = "Complete";
+					Status = CompleteText;
 					Progress = "100%";
 				}
 			}
@@ -643,17 +695,17 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				if (task is BasicUninstallTask)
 				{
 					if ((propertyName == nameof(IBackgroundTask.ItemProgress)) && (task.ItemProgress > 0))
-						Progress = "Uninstalling, please wait...(" + ((task.ItemProgress * 100) / task.ItemProgressMaximum) + "%)";
+						Progress = String.Format(UninstallingProgressFormat, (task.ItemProgress * 100) / task.ItemProgressMaximum);
 				}
 				else if (task is PrepareModTask)
 				{
 					if (propertyName == nameof(IBackgroundTask.OverallProgress))
-						Progress = "Unpacking, please wait...(" + (((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2) + "%)";
+						Progress = String.Format(UnpackingProgressFormat, ((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2);
 				}
 				else
 				{
 					if (propertyName == nameof(IBackgroundTask.OverallProgress))
-						Progress = "Installing, please wait...(" + ((((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2) + 50) + "%)";
+						Progress = String.Format(InstallingProgressFormat, (((task.OverallProgress * 100) / task.OverallProgressMaximum) / 2) + 50);
 				}
 				_control.RefreshRow(this);
 			}

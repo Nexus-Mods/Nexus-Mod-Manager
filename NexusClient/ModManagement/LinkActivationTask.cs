@@ -10,6 +10,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.PluginManagement;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
 
     public class LinkActivationTask : ThreadedBackgroundTask
 	{
@@ -43,6 +44,13 @@ namespace Nexus.Client.ModManagement
 
 		private readonly HashSet<string> m_hstDeployedPluginPaths =
 			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		private readonly string _activatingFileFormat;
+		private readonly string _disablingFileFormat;
+		private readonly string _activatingOverallFormat;
+		private readonly string _disablingOverallFormat;
+		private readonly string _activatingText;
+		private readonly string _disablingText;
+		private readonly string _updatingPluginStateText;
 
 		private void UpdateActivationProgress(VirtualDeploymentProgress progress)
 		{
@@ -60,7 +68,7 @@ namespace Nexus.Client.ModManagement
 				return;
 			}
 
-			ItemMessage = $"Activating: {progress.CurrentFilePath}";
+			ItemMessage = String.Format(_activatingFileFormat, progress.CurrentFilePath);
 			if (ItemProgress >= ItemProgressMaximum)
 				return;
 
@@ -90,7 +98,7 @@ namespace Nexus.Client.ModManagement
 		{
 			if (PluginManager != null && m_hstDeployedPluginPaths.Count > 0)
 			{
-				ItemMessage = "Updating plugin state...";
+				ItemMessage = _updatingPluginStateText;
 				PluginManager.IntegrateDeployedPlugins(m_hstDeployedPluginPaths.ToList());
 			}
 
@@ -117,6 +125,13 @@ namespace Nexus.Client.ModManagement
             InstallRoot = installRoot;
 			Disabling = disable;
 			ConfirmActionMethod = confirmActionMethod;
+			_activatingFileFormat = LanguageManager.GetFormat("Tasks.ModLinks.ActivatingFile", "Activating: {0}");
+			_disablingFileFormat = LanguageManager.GetFormat("Tasks.ModLinks.DisablingFile", "Disabling: {0}");
+			_activatingOverallFormat = LanguageManager.GetFormat("Tasks.ModLinks.ActivatingOverall", "Activating Mod Links: {0}");
+			_disablingOverallFormat = LanguageManager.GetFormat("Tasks.ModLinks.DisablingOverall", "Disabling Mod Links: {0}");
+			_activatingText = LanguageManager.Get("Tasks.ModLinks.Activating", "Activating...");
+			_disablingText = LanguageManager.Get("Tasks.ModLinks.Disabling", "Disabling...");
+			_updatingPluginStateText = LanguageManager.Get("Tasks.ModLinks.UpdatingPluginState", "Updating plugin state...");
 		}
 
 		#endregion
@@ -150,8 +165,8 @@ namespace Nexus.Client.ModManagement
 			var intProgress = 0;
 			double dblRatio = 0;
 
-			OverallMessage = $"{(Disabling ? "Disabling" : "Activating")} Mod Links: {Mod.ModName}";
-			ItemMessage = $"{(Disabling ? "Disabling" : "Activating")}...";
+			OverallMessage = String.Format(Disabling ? _disablingOverallFormat : _activatingOverallFormat, Mod.ModName);
+			ItemMessage = Disabling ? _disablingText : _activatingText;
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = 1;
@@ -173,7 +188,7 @@ namespace Nexus.Client.ModManagement
 				if (deploymentResult.Failure != null)
 				{
 					TraceUtil.TraceException(deploymentResult.Failure);
-					OverallMessage = $"{nameof(LinkActivationTask)} failed: {deploymentResult.Failure.Message}";
+					OverallMessage = LanguageManager.Format("Tasks.ModLinks.Failed", "LinkActivationTask failed: {0}", deploymentResult.Failure.Message);
 					Status = TaskStatus.Error;
 					return null;
 				}
@@ -204,7 +219,7 @@ namespace Nexus.Client.ModManagement
 
 						foreach (var link in ivlLinks)
 						{
-							ItemMessage = $"{(Disabling ? "Disabling" : "Activating")}: {link.VirtualModPath}";
+							ItemMessage = String.Format(Disabling ? _disablingFileFormat : _activatingFileFormat, link.VirtualModPath);
 							VirtualModActivator.RemoveFileLink(link, Mod);
 
 							if (ItemProgress < ItemProgressMaximum)

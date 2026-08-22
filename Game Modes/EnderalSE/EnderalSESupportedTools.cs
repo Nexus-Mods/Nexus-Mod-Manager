@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.EnderalSE
 {
@@ -41,12 +42,12 @@ namespace Nexus.Client.Games.EnderalSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("EnderalSEEdit", "Launch EnderalSEEdit", "Launches EnderalSEEdit.", imgIcon, LaunchEnderalSEEdit, true));
+				AddLaunchCommand(new Command("EnderalSEEdit", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "EnderalSEEdit"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "EnderalSEEdit"), imgIcon, LaunchEnderalSEEdit, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#EnderalSEEdit", "Config EnderalSEEdit", "Configures EnderalSEEdit.", imgIcon, ConfigEnderalSEEdit, true));
+				AddLaunchCommand(new Command("Config#EnderalSEEdit", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "EnderalSEEdit"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "EnderalSEEdit"), imgIcon, ConfigEnderalSEEdit, true));
 			}
 
 			strCommand = GetBSLaunchCommand();
@@ -54,12 +55,12 @@ namespace Nexus.Client.Games.EnderalSE
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("BS2", "Launch BodySlide", "Launches BodySlide.", imgIcon, LaunchBS, true));
+				AddLaunchCommand(new Command("BS2", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "BodySlide"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "BodySlide"), imgIcon, LaunchBS, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#BodySlide", "Config BodySlide", "Configures BodySlide.", imgIcon, ConfigBS, true));
+				AddLaunchCommand(new Command("Config#BodySlide", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "BodySlide"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "BodySlide"), imgIcon, ConfigBS, true));
 			}
 
 			Trace.Unindent();
@@ -194,7 +195,7 @@ namespace Nexus.Client.Games.EnderalSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -224,7 +225,7 @@ namespace Nexus.Client.Games.EnderalSE
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();

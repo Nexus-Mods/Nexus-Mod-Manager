@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.BreakingWheel
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.BreakingWheel
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Breaking Wheel's Launcher", "Launches Breaking Wheel's Launcher.", imgIcon, LaunchBreakingWheelPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchPossessiveLauncherName", "Launch {0}'s Launcher", "Breaking Wheel"), LanguageManager.Format("GameModes.Commands.Game.LaunchPossessiveLauncherDescription", "Launches {0}'s Launcher.", "Breaking Wheel"), imgIcon, LaunchBreakingWheelPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Breaking Wheel", "Launches Breaking Wheel with custom command.", imgIcon, LaunchBreakingWheelCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Breaking Wheel"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Breaking Wheel"), imgIcon, LaunchBreakingWheelCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Breaking Wheel' Launcher", "Launches Breaking Wheel's Launcher.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Get("GameModes.BreakingWheel.Launcher.Default.Name", "Launch Breaking Wheel' Launcher"), LanguageManager.Get("GameModes.BreakingWheel.Launcher.Default.Description", "Launches Breaking Wheel's Launcher."), LaunchGame);
 
             Trace.Unindent();
         }
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.BreakingWheel
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

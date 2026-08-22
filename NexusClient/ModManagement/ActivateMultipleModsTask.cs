@@ -14,6 +14,7 @@ using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.ModManagement.InstallationLog;
 using ChinhDo.Transactions;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -97,7 +98,9 @@ namespace Nexus.Client.ModManagement
 			if (m_lstModList != null && m_lstModList.Count > 0)
 				modCounter = m_lstModList.Count;
 
-			OverallMessage = string.Format("Installing selected mods ({0})...", modCounter);
+			string installingCountFormat = LanguageManager.GetFormat("Tasks.Mods.InstallingSelectedCount", "Installing selected mods ({0})...");
+			string installingModFormat = LanguageManager.GetFormat("Tasks.Mods.InstallingSelectedMod", "Installing selected mods: {0}");
+			OverallMessage = String.Format(installingCountFormat, modCounter);
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_lstModList.Count;
@@ -107,7 +110,7 @@ namespace Nexus.Client.ModManagement
 
 			foreach (IMod modMod in m_lstModList)
 			{
-				OverallMessage = "Installing selected mods: " + modMod.ModName;
+				OverallMessage = String.Format(installingModFormat, modMod.ModName);
 
 				if (m_iilInstallLog.ActiveMods.Contains(modMod))
 					continue;

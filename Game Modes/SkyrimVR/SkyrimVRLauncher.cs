@@ -1,3 +1,4 @@
+using Nexus.Client.Util.Localization;
 namespace Nexus.Client.Games.SkyrimVR
 {
     using System;
@@ -40,22 +41,22 @@ namespace Nexus.Client.Games.SkyrimVR
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Skyrim VR", "Launches plain Skyrim VR.", imgIcon, LaunchSkyrimVRPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Skyrim VR"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Skyrim VR"), imgIcon, LaunchSkyrimVRPlain, true));
 		
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim VR with SKSE.", imgIcon, LaunchSkyrimVRSKSE, true));
+				AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Skyrim VR", "SKSE"), imgIcon, LaunchSkyrimVRSKSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Skyrim VR", "Launches Skyrim VR with custom command.", imgIcon, LaunchSkyrimVRCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Skyrim VR"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Skyrim VR"), imgIcon, LaunchSkyrimVRCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch SkyrimVR", "Launches SkyrimVR.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "SkyrimVR"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "SkyrimVR"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -79,7 +80,7 @@ namespace Nexus.Client.Games.SkyrimVR
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 
@@ -127,7 +128,7 @@ namespace Nexus.Client.Games.SkyrimVR
 			{
 				Trace.TraceError("SKSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "SKSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "SKSE"));
 				return;
 			}
 

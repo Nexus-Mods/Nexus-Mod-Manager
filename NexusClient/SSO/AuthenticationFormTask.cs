@@ -7,6 +7,7 @@
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
 
 	public class AuthenticationFormTask : ThreadedBackgroundTask
 	{
@@ -64,7 +65,7 @@
 			_error = string.Empty;
 			_credentialsExpired = false;
             
-			OverallMessage = "You are not logged in.";
+			OverallMessage = LanguageManager.Get("Authentication.Task.NotLoggedIn", "You are not logged in.");
 		}
 
 		/// <inheritdoc />
@@ -76,7 +77,7 @@
 		protected override object DoWork(object[] args)
 		{
 			Status = TaskStatus.Queued;
-			OverallMessage = "Attempting to login...";
+			OverallMessage = LanguageManager.Get("Authentication.Task.AttemptingLogin", "Attempting to login...");
 
             return TokenLogin() || LoginUser();
         }
@@ -87,18 +88,18 @@
 			AuthenticationFormViewModel.ErrorMessage = "Attempting to connect to login servers";
 
 			Status = TaskStatus.Running;
-			OverallMessage = "Sending login data...";
+			OverallMessage = LanguageManager.Get("Authentication.Task.SendingLoginData", "Sending login data...");
 
             if (AuthenticationFormViewModel.Login())
 			{
 				Status = TaskStatus.Complete;
-				OverallMessage = $"Logged in as {ModManager.ModRepository.UserStatus.Name}.";
+				OverallMessage = LanguageManager.Format("Authentication.Task.LoggedInAs", "Logged in as {0}.", ModManager.ModRepository.UserStatus.Name);
 				LoginForm.DialogResult = DialogResult.OK;
 			}
 			else
 			{
 				Status = TaskStatus.Error;
-				OverallMessage = "Login error: " + AuthenticationFormViewModel.ErrorMessage;
+				OverallMessage = LanguageManager.Format("Authentication.Task.LoginError", "Login error: {0}", AuthenticationFormViewModel.ErrorMessage);
 			}
 		}
 
@@ -125,7 +126,7 @@
                 case TaskStatus.Complete:
                     return true;
                 case TaskStatus.Incomplete:
-                    OverallMessage = "You are not logged in.";
+                    OverallMessage = LanguageManager.Get("Authentication.Task.NotLoggedIn", "You are not logged in.");
                     break;
             }
 
@@ -149,7 +150,7 @@
 
 			Status = TaskStatus.Running;
 
-            OverallMessage = "Validating API key...";
+            OverallMessage = LanguageManager.Get("Authentication.Task.ValidatingApiKey", "Validating API key...");
 
             var authenticationResult = ModManager.ModRepository.Authenticate();
 
@@ -157,21 +158,21 @@
             {
                 case AuthenticationStatus.Successful:
                     Status = TaskStatus.Complete;
-                    OverallMessage = $"Logged in as {ModManager.ModRepository.UserStatus.Name}.";
+                    OverallMessage = LanguageManager.Format("Authentication.Task.LoggedInAs", "Logged in as {0}.", ModManager.ModRepository.UserStatus.Name);
                     return true;
                 case AuthenticationStatus.InvalidKey:
                     Status = TaskStatus.Incomplete;
                     ModManager.EnvironmentInfo.Settings.ApiKey = string.Empty;
                     ModManager.EnvironmentInfo.Settings.Save();
-                    OverallMessage = "Not logged in: API key invalid.";
+                    OverallMessage = LanguageManager.Get("Authentication.Task.InvalidApiKey", "Not logged in: API key invalid.");
                     return false;
                 case AuthenticationStatus.NetworkError:
                     Status = TaskStatus.Incomplete;
-                    OverallMessage = "Not logged in: Network error.";
+                    OverallMessage = LanguageManager.Get("Authentication.Task.NetworkError", "Not logged in: Network error.");
                     return false;
                 default:
                     Status = TaskStatus.Incomplete;
-                    OverallMessage = $"Not logged in: Status \"{authenticationResult}\".";
+                    OverallMessage = LanguageManager.Format("Authentication.Task.StatusError", "Not logged in: Status \"{0}\".", authenticationResult);
                     return false;
             }
         }

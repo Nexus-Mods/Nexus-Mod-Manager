@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,6 +14,7 @@ using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Commands;
+using Nexus.Client.Util.Localization;
 using System.Drawing;
 
 namespace Nexus.Client.ModManagement.UI
@@ -26,6 +27,8 @@ namespace Nexus.Client.ModManagement.UI
 	{
 		private bool m_booIsCategoryInitialized = false;
 		private Control m_ctlParentForm = null;
+		private readonly string _downloadModeGameModeFormat = LanguageManager.GetFormat("MainForm.Status.DownloadMode.GameMode", "{0} Game Mode");
+		private readonly string _downloadModeFeedbackFormat = LanguageManager.GetFormat("MainForm.Status.DownloadMode.Feedback", "Download Mode: {0} (change with the toolbar Download Mode button)");
 
 		#region Events
 
@@ -391,9 +394,9 @@ namespace Nexus.Client.ModManagement.UI
 				if (string.IsNullOrEmpty(SkyrimSEDownloadOverride))
 					return string.Empty;
 				else if (SkyrimSEDownloadOverride.Equals("SkyrimSE", StringComparison.OrdinalIgnoreCase))
-					return "Skyrim SE Game Mode";
+					return String.Format(_downloadModeGameModeFormat, "Skyrim SE");
 				else if (SkyrimSEDownloadOverride.Equals("SkyrimGOG", StringComparison.OrdinalIgnoreCase))
-					return "Skyrim GOG Game Mode";
+					return String.Format(_downloadModeGameModeFormat, "Skyrim GOG");
 				else
 					return string.Empty;
 			}
@@ -403,7 +406,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			get
 			{
-				return $"Download Mode: {SkyrimSEDownloadModeDescriptor} (change with the toolbar Download Mode button)";
+				return String.Format(_downloadModeFeedbackFormat, SkyrimSEDownloadModeDescriptor);
 			}
 		}
 
@@ -463,14 +466,14 @@ namespace Nexus.Client.ModManagement.UI
 			else
 				this.CategoryManager.Backup();
 
-			AddModCommand = new Command<string>("Add Mod", "Adds a mod to the manager.", AddMod);
-			DeleteModCommand = new Command<IMod>("Delete Mod", "Deletes the selected mod.", DeleteMod);
-			ActivateModCommand = new Command<List<IMod>>("Install/Enable Mod", "Installs and/or enables the selected mod.", ActivateMods);
-			DisableModCommand = new Command<List<IMod>>("Disable Mod", "Disables the selected mod.", DisableMods);
-			TagModCommand = new Command<IMod>("Tag Mod", "Gets missing mod info.", TagMod);
-			ResetModCacheCommand = new Command<IMod>("Reset Mod Cache", "Regenerates generated cache data for the selected mod.", ResetModCache);
-			ExportModListToFileCommand = new Command<string>("Export to a text file", "Exports the current mod list to a text file.", ExportModListToFile);
-			ExportModListToClipboardCommand = new Command("Export to the clipboard", "Exports the current mod list to the clipboard.", ExportModListToClipboard);
+			AddModCommand = new Command<string>(LanguageManager.Get("Mods.Actions.Add.Name", "Add Mod"), LanguageManager.Get("Mods.Actions.Add.Description", "Adds a mod to the manager."), AddMod);
+			DeleteModCommand = new Command<IMod>(LanguageManager.Get("Mods.Actions.Delete.Name", "Delete Mod"), LanguageManager.Get("Mods.Actions.Delete.Description", "Deletes the selected mod."), DeleteMod);
+			ActivateModCommand = new Command<List<IMod>>(LanguageManager.Get("Mods.Actions.InstallEnable.Name", "Install/Enable Mod"), LanguageManager.Get("Mods.Actions.InstallEnable.Description", "Installs and/or enables the selected mod."), ActivateMods);
+			DisableModCommand = new Command<List<IMod>>(LanguageManager.Get("Mods.Actions.Disable.Name", "Disable Mod"), LanguageManager.Get("Mods.Actions.Disable.Description", "Disables the selected mod."), DisableMods);
+			TagModCommand = new Command<IMod>(LanguageManager.Get("Mods.Actions.Tag.Name", "Tag Mod"), LanguageManager.Get("Mods.Actions.Tag.Description", "Gets missing mod info."), TagMod);
+			ResetModCacheCommand = new Command<IMod>(LanguageManager.Get("Mods.Actions.ResetCache.Name", "Reset Mod Cache"), LanguageManager.Get("Mods.Actions.ResetCache.Description", "Regenerates generated cache data for the selected mod."), ResetModCache);
+			ExportModListToFileCommand = new Command<string>(LanguageManager.Get("Mods.Actions.ExportFile.Name", "Export to a text file"), LanguageManager.Get("Mods.Actions.ExportFile.Description", "Exports the current mod list to a text file."), ExportModListToFile);
+			ExportModListToClipboardCommand = new Command(LanguageManager.Get("Mods.Actions.ExportClipboard.Name", "Export to the clipboard"), LanguageManager.Get("Mods.Actions.ExportClipboard.Description", "Exports the current mod list to the clipboard."), ExportModListToClipboard);
 
 			ModManager.UpdateCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCheckStarted);
 			ModManager.UpdateCategoriesCheckStarted += new EventHandler<EventArgs<IBackgroundTask>>(ModManager_UpdateCategoriesCheckStarted);
@@ -612,7 +615,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
-				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -621,7 +624,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (booRequiresConfig)
 			{
-				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
@@ -634,9 +637,9 @@ namespace Nexus.Client.ModManagement.UI
 
 					if (modOldVersion != null)
 					{
-						string strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.";
+						string strUpgradeMessage = LanguageManager.GetFormat("Mods.Upgrade.DifferentVersion.Message", "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.");
 						strUpgradeMessage = String.Format(strUpgradeMessage, modOldVersion.ModName, modOldVersion.HumanReadableVersion, p_modMod.HumanReadableVersion);
-						switch (MessageBox.Show(strUpgradeMessage, "Upgrade", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+						switch (MessageBox.Show(strUpgradeMessage, LanguageManager.Get("Mods.Upgrade.Title", "Upgrade"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 						{
 							case DialogResult.Yes:
 								ReinstallMod(modOldVersion, p_modMod);
@@ -665,7 +668,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 			{
-				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, LanguageManager.Get("Mods.RequiredToolMissing.Title", "Required Tool not present"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -685,7 +688,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
-				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -694,7 +697,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (booRequiresConfig)
 			{
-				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
@@ -709,9 +712,9 @@ namespace Nexus.Client.ModManagement.UI
 
 						if (modOldVersion != null)
 						{
-							string strUpgradeMessage = "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.";
+							string strUpgradeMessage = LanguageManager.GetFormat("Mods.Upgrade.DifferentVersion.Message", "A different version of {0} has been detected. The installed version is {1}, the new version is {2}. Would you like to upgrade?" + Environment.NewLine + "Selecting No will install the new Mod normally.");
 							strUpgradeMessage = String.Format(strUpgradeMessage, modOldVersion.ModName, modOldVersion.HumanReadableVersion, modMod.HumanReadableVersion);
-							switch (MessageBox.Show(strUpgradeMessage, "Upgrade", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+							switch (MessageBox.Show(strUpgradeMessage, LanguageManager.Get("Mods.Upgrade.Title", "Upgrade"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 							{
 								case DialogResult.Yes:
 									ReinstallMod(modOldVersion, modMod);
@@ -740,7 +743,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 			{
-				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, LanguageManager.Get("Mods.RequiredToolMissing.Title", "Required Tool not present"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -800,7 +803,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
-				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -809,7 +812,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (booRequiresConfig)
 			{
-				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
@@ -824,7 +827,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 			{
-				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, LanguageManager.Get("Mods.RequiredToolMissing.Title", "Required Tool not present"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -892,7 +895,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
-				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -901,7 +904,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (booRequiresConfig)
 			{
-				ExtendedMessageBox.Show(this.ParentForm, strMessage, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this.ParentForm, strMessage, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
@@ -916,7 +919,7 @@ namespace Nexus.Client.ModManagement.UI
 			}
 			else
 			{
-				ExtendedMessageBox.Show(ParentForm, strErrorMessage, "Required Tool not present", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(ParentForm, strErrorMessage, LanguageManager.Get("Mods.RequiredToolMissing.Title", "Required Tool not present"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -928,7 +931,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (!isSilent)
 			{
-				DialogResult Result = MessageBox.Show("Do you want to disable all the active mods?", "Disable Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+				DialogResult Result = MessageBox.Show(LanguageManager.Get("Mods.DisableAll.Confirm.Message", "Do you want to disable all the active mods?"), LanguageManager.Get("Mods.DisableAll.Confirm.Title", "Disable Mods"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 				if (Result == DialogResult.Yes)
 				{
@@ -959,7 +962,7 @@ namespace Nexus.Client.ModManagement.UI
 			DialogResult Result = DialogResult.None;
 
 			if (!p_booForceUninstall)
-				Result = MessageBox.Show("Do you want to uninstall all the installed mods?", "Deactivate Mods", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+				Result = MessageBox.Show(LanguageManager.Get("Mods.UninstallAll.Confirm.Message", "Do you want to uninstall all the installed mods?"), LanguageManager.Get("Mods.UninstallAll.Confirm.Title", "Deactivate Mods"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 			if (p_booForceUninstall || (Result == DialogResult.Yes))
 			{
@@ -1038,7 +1041,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
-				MessageBox.Show("It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -1094,11 +1097,11 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void UpdateNexusAndCustomCategories()
 		{
-			string strMessage = "Update Nexus and custom categories?";
-			strMessage += Environment.NewLine + Environment.NewLine + "Nexus category definitions and IDs will be refreshed.";
-			strMessage += Environment.NewLine + "Custom categories and their mod assignments will be preserved.";
-			strMessage += Environment.NewLine + "Mods using categories whose IDs changed will be remapped automatically.";
-			DialogResult result = MessageBox.Show(strMessage, "Category update", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			string strMessage = LanguageManager.Get("Categories.Update.Confirm.Question", "Update Nexus and custom categories?");
+			strMessage += Environment.NewLine + Environment.NewLine + LanguageManager.Get("Categories.Update.Confirm.RefreshDefinitions", "Nexus category definitions and IDs will be refreshed.");
+			strMessage += Environment.NewLine + LanguageManager.Get("Categories.Update.Confirm.PreserveCustom", "Custom categories and their mod assignments will be preserved.");
+			strMessage += Environment.NewLine + LanguageManager.Get("Categories.Update.Confirm.RemapIds", "Mods using categories whose IDs changed will be remapped automatically.");
+			DialogResult result = MessageBox.Show(strMessage, LanguageManager.Get("Categories.Update.Title", "Category update"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (result == DialogResult.Yes)
 				StartCategoriesUpdate(false);
 		}
@@ -1108,10 +1111,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void CheckCategoriesUpdates()
 		{
-			string strMessage = "Are you sure you want to reset to the Nexus site default categories?";
-			strMessage += Environment.NewLine + Environment.NewLine + "The category list will be updated from Nexus and your downloaded mods will be automatically reassigned to their Nexus categories.";
-			strMessage += Environment.NewLine + "Custom category definitions will be preserved, but their mod assignments will be cleared.";
-			DialogResult result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			string strMessage = LanguageManager.Get("Categories.Reset.Confirm.Question", "Are you sure you want to reset to the Nexus site default categories?");
+			strMessage += Environment.NewLine + Environment.NewLine + LanguageManager.Get("Categories.Reset.Confirm.Reassign", "The category list will be updated from Nexus and your downloaded mods will be automatically reassigned to their Nexus categories.");
+			strMessage += Environment.NewLine + LanguageManager.Get("Categories.Reset.Confirm.CustomCleared", "Custom category definitions will be preserved, but their mod assignments will be cleared.");
+			DialogResult result = MessageBox.Show(strMessage, LanguageManager.Get("Categories.Reset.Title", "Category reset"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (result == DialogResult.Yes)
 				StartCategoriesUpdate(true);
 		}
@@ -1270,9 +1273,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public bool ResetToUnassigned()
 		{
-			string strMessage = "Are you sure you want to reset all mods to the Unassigned category?";
-			strMessage += Environment.NewLine + Environment.NewLine + "Note: If you're using custom categories you won't be able to revert this operation.";
-			DialogResult Result = MessageBox.Show(strMessage, "Category reset", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			string strMessage = LanguageManager.Get("Categories.ResetAll.Confirm.Question", "Are you sure you want to reset all mods to the Unassigned category?");
+			strMessage += Environment.NewLine + Environment.NewLine + LanguageManager.Get("Categories.Common.IrreversibleCustomNote", "Note: If you're using custom categories you won't be able to revert this operation.");
+			DialogResult Result = MessageBox.Show(strMessage, LanguageManager.Get("Categories.Reset.Title", "Category reset"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
 				SwitchModsToCategory(0);
@@ -1287,9 +1290,9 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public bool RemoveAllCategories()
 		{
-			string strMessage = "Are you sure you want to remove all the categories and set all mods to Unassigned?";
-			strMessage += Environment.NewLine + Environment.NewLine + "Note: If you're using custom categories you won't be able to revert this operation.";
-			DialogResult Result = MessageBox.Show(strMessage, "Category remove", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+			string strMessage = LanguageManager.Get("Categories.RemoveAll.Confirm.Question", "Are you sure you want to remove all the categories and set all mods to Unassigned?");
+			strMessage += Environment.NewLine + Environment.NewLine + LanguageManager.Get("Categories.Common.IrreversibleCustomNote", "Note: If you're using custom categories you won't be able to revert this operation.");
+			DialogResult Result = MessageBox.Show(strMessage, LanguageManager.Get("Categories.Remove.Title", "Category remove"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 			if (Result == DialogResult.Yes)
 			{
 				CategoryManager.ResetCategories(String.Empty);
@@ -1337,11 +1340,11 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if (!this.CategoryManager.IsValidPath)
 			{
-				string strMessage = "You currently don't have any file categories setup.";
-				strMessage += Environment.NewLine + "Would you like NMM to organise your mods based on the categories the Nexus sites use (YES), or would you like to organise your categories yourself (NO)?";
-				strMessage += Environment.NewLine + Environment.NewLine + "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.";
+				string strMessage = LanguageManager.Get("Categories.Setup.NoCategories", "You currently don't have any file categories setup.");
+				strMessage += Environment.NewLine + LanguageManager.Get("Categories.Setup.ChooseSourcePrompt", "Would you like NMM to organise your mods based on the categories the Nexus sites use (YES), or would you like to organise your categories yourself (NO)?");
+				strMessage += Environment.NewLine + Environment.NewLine + LanguageManager.Get("Categories.Setup.Note", "Note: If you choose to use Nexus categories you can still create your own categories and move your files around them. This initial Nexus setup is just a template for you to use.");
 
-				DialogResult Result = ExtendedMessageBox.Show(null, strMessage, "Category setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+				DialogResult Result = ExtendedMessageBox.Show(null, strMessage, LanguageManager.Get("Categories.Setup.Title", "Category setup"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 				if (Result == DialogResult.Yes)
 				{
 					this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
@@ -1487,7 +1490,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <returns>The filter string used when exporting the current mod list.</returns>
 		public string GetExportFilterString()
 		{
-			return "Text files (*.txt)|*.txt";
+			return LanguageManager.Get("Common.FileDialog.TextFilesLabel", "Text files") + " (*.txt)|*.txt";
 		}
 
 		/// <summary>
@@ -1545,13 +1548,13 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				string strMessage = string.Empty;
 				if (ModManager.ReadMeManager.IsXMLCorrupt)
-					strMessage = "An error occurred loading the ReadMeManager.xml file." + Environment.NewLine + Environment.NewLine;
+					strMessage = LanguageManager.Get("Mods.ReadmeManager.Setup.XmlLoadError", "An error occurred loading the ReadMeManager.xml file.") + Environment.NewLine + Environment.NewLine;
 
-				strMessage += "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.";
-				strMessage += Environment.NewLine + "Do you want to perform the Readme Manager startup scan?";
-				strMessage += Environment.NewLine + Environment.NewLine + "Note: if choose not to, you will be able to perform a scan by selecting any number of mods, and choosing 'Readme Scan' in the right-click menu.";
+				strMessage += LanguageManager.Get("Mods.ReadmeManager.Setup.Message", "NMM needs to setup the Readme Manager, this could take a few minutes depending on the number of mods and archive sizes.");
+				strMessage += Environment.NewLine + LanguageManager.Get("Mods.ReadmeManager.Setup.ScanPrompt", "Do you want to perform the Readme Manager startup scan?");
+				strMessage += Environment.NewLine + Environment.NewLine + LanguageManager.Get("Mods.ReadmeManager.Setup.ScanNote", "Note: if choose not to, you will be able to perform a scan by selecting any number of mods, and choosing 'Readme Scan' in the right-click menu.");
 
-				if (ExtendedMessageBox.Show(null, strMessage, "Readme Manager Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+				if (ExtendedMessageBox.Show(null, strMessage, LanguageManager.Get("Mods.ReadmeManager.Setup.Title", "Readme Manager Setup"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 					SetupReadMeManager(ModManager.ManagedMods.ToList<IMod>());
 			}
 		}

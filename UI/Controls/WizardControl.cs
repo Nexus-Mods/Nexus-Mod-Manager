@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
@@ -31,6 +32,8 @@ namespace Nexus.UI.Controls
 		private Button m_butPrevious = null;
 		private Button m_butNext = null;
 		private Button m_butCancel = null;
+		private readonly string m_strNextText;
+		private readonly string m_strFinishText;
 
 		#region Properties
 
@@ -87,6 +90,8 @@ namespace Nexus.UI.Controls
 		/// </summary>
 		public WizardControl()
 		{
+			m_strNextText = LanguageManager.Get("Common.Action.Next", "Next");
+			m_strFinishText = LanguageManager.Get("Common.Action.Finish", "Finish");
 			TabsVisible = false;
 			BackColor = Color.FromKnownColor(KnownColor.Control);
 
@@ -115,7 +120,7 @@ namespace Nexus.UI.Controls
 			Controls.Add(m_pnlNavigation);
 
 			m_butCancel = new Button();
-			m_butCancel.Text = "Cancel";
+			m_butCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
 			m_butCancel.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
 			m_butCancel.Size = new Size(75, 23);
 			m_butCancel.Location = new Point(m_pnlNavigation.Width - 12 - m_butCancel.Width, 12);
@@ -123,7 +128,7 @@ namespace Nexus.UI.Controls
 			m_pnlNavigation.Controls.Add(m_butCancel);
 
 			m_butNext = new Button();
-			m_butNext.Text = "Next >>";
+			m_butNext.Text = m_strNextText + " >>";
 			m_butNext.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
 			m_butNext.Size = new Size(75, 23);
 			m_butNext.Location = new Point(m_butCancel.Left - 12 - m_butNext.Width, 12);
@@ -131,7 +136,7 @@ namespace Nexus.UI.Controls
 			m_pnlNavigation.Controls.Add(m_butNext);
 
 			m_butPrevious = new Button();
-			m_butPrevious.Text = "<< Back";
+			m_butPrevious.Text = "<< " + LanguageManager.Get("Common.Action.Back", "Back");
 			m_butPrevious.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
 			m_butPrevious.Size = new Size(75, 23);
 			m_butPrevious.Location = new Point(m_butNext.Left - 6 - m_butPrevious.Width, 12);
@@ -206,9 +211,9 @@ namespace Nexus.UI.Controls
 
 			m_butPrevious.Enabled = (intNewIndex > 0);
 			if (intNewIndex == TabPages.Count - 1)
-				m_butNext.Text = "Finish";
+				m_butNext.Text = m_strFinishText;
 			else
-				m_butNext.Text = "Next >>";
+				m_butNext.Text = m_strNextText + " >>";
 			SelectedIndex = intNewIndex;
 		}
 
@@ -235,7 +240,7 @@ namespace Nexus.UI.Controls
 		/// <param name="e">An <see cref="EventArgs"/> describing the event arguments.</param>
 		private void Next_Click(object sender, EventArgs e)
 		{
-			if (m_butNext.Text.Equals("Finish"))
+			if (SelectedIndex == TabPages.Count - 1)
 				Finished(this, new EventArgs());
 			else
 				MovePage(1);

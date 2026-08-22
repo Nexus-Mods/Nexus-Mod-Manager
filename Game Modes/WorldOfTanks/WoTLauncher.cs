@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.WorldOfTanks
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.WorldOfTanks
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("PlainLaunch", "Launch WorldOfTanks", "Launches plain WorldOfTanks.", imgIcon, LaunchWoTPlain, true));
+            AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "WorldOfTanks"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "WorldOfTanks"), imgIcon, LaunchWoTPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("CustomLaunch", "Launch Custom WorldOfTanks", "Launches WorldOfTanks with custom command.", imgIcon, LaunchWoTCustom, true));
+            AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "WorldOfTanks"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "WorldOfTanks"), imgIcon, LaunchWoTCustom, true));
 
-            DefaultLaunchCommand = new Command("Launch WorldOfTanks", "Launches WorldOfTanks.", LaunchGame);
+            DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "WorldOfTanks"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "WorldOfTanks"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.WorldOfTanks
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

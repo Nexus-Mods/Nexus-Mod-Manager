@@ -7,6 +7,7 @@ using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -92,7 +93,7 @@ namespace Nexus.Client.ModManagement
 		{
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
 
-			OverallMessage = "Updating mod categories...";
+			OverallMessage = LanguageManager.Get("Tasks.Categories.UpdatingAssignments", "Updating mod categories...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;

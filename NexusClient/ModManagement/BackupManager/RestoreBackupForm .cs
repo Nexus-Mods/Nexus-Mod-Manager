@@ -8,6 +8,7 @@ using System.Security.Principal;
 using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 using SevenZip;
 
 
@@ -31,6 +32,7 @@ namespace Nexus.Client.ModManagement.UI
 		public RestoreBackupForm(ModManager p_mmModManager, ProfileManager p_pfProfileManager)
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			NmmIconProvider.Bind(btYes, NmmIconAction.Purge);
 			NmmIconProvider.Bind(btNo, NmmIconAction.Restore);
 			NmmIconProvider.Bind(btCancel, NmmIconAction.Cancel);
@@ -48,23 +50,34 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				btYes.Enabled = false;
 				btNo.Enabled = false;
-				lblYes.Text = "Something is preventing Nexus Mod Manager from interacting with the installation folders!";
-				lblNo.Text = "Please run NMM as Administrator if the mod installation folder is located in Program Files, or make sure your antivirus isn't blocking it.";
+				lblYes.Text = LanguageManager.Get("Tools.Restore.Permission.Blocked", "Something is preventing Nexus Mod Manager from interacting with the installation folders!");
+				lblNo.Text = LanguageManager.Get("Tools.Restore.Permission.Advice", "Please run NMM as Administrator if the mod installation folder is located in Program Files, or make sure your antivirus isn't blocking it.");
 			}
 			else
 			{
-				lblYes.Text = "Click 'Purge and Restore' if you want to DELETE the Virtual Install / Mod Installation (eg. Data for Skyrim) folders and restore them from the backup.(You must run NMM as administrator to enable this.)";
-				lblNo.Text = "Click 'Restore' if you want to restore the Virtual Install / Mod Installation (eg. Data for Skyrim) folders from the backup WITHOUT deleting the previous files. Unpacked mod folders present in the current VirtualInstall will be removed if the same mod is present in the restore archive.";
+				lblYes.Text = LanguageManager.Get("Tools.Restore.PurgeDescription", "Click 'Purge and Restore' if you want to DELETE the Virtual Install / Mod Installation (eg. Data for Skyrim) folders and restore them from the backup.(You must run NMM as administrator to enable this.)");
+				lblNo.Text = LanguageManager.Get("Tools.Restore.RestoreDescription", "Click 'Restore' if you want to restore the Virtual Install / Mod Installation (eg. Data for Skyrim) folders from the backup WITHOUT deleting the previous files. Unpacked mod folders present in the current VirtualInstall will be removed if the same mod is present in the restore archive.");
 			}
 		}
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			Text = LanguageManager.Get("Tools.Restore.Window.Title", "Restore Nexus Mod Manager");
+			btYes.Text = LanguageManager.Get("Tools.Restore.Action.PurgeAndRestore", "Purge and Restore");
+			btNo.Text = LanguageManager.Get("Tools.Restore.Action.Restore", "Restore");
+			btCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
+			btSelectFile.Text = LanguageManager.Get("Common.Action.SelectFile", "Select File");
+			lblCancel.Text = LanguageManager.Get("Tools.Restore.CancelHint", "Click CANCEL if you want to abort the operation.");
+			lblEstimated.Text = LanguageManager.Get("Tools.Restore.EstimatedSize.Label", "Estimated Restore Size: ");
+		}
 
 		private void btYes_Click(object sender, System.EventArgs e)
 		{
 			if (string.IsNullOrEmpty(tbFile.Text))
 			{
 				lblEstimated.Visible = true;
-				lblEstimated.Text = string.Format("Please, select a Backup File!", ModManager.GameMode.Name);
+				lblEstimated.Text = LanguageManager.Get("Tools.Restore.Validation.SelectBackup", "Please, select a Backup File!");
 			}
 			else
 			{
@@ -79,7 +92,7 @@ namespace Nexus.Client.ModManagement.UI
 			if (string.IsNullOrEmpty(tbFile.Text))
 			{
 				lblEstimated.Visible = true;
-				lblEstimated.Text = string.Format("Please, select a Backup File!", ModManager.GameMode.Name);
+				lblEstimated.Text = LanguageManager.Get("Tools.Restore.Validation.SelectBackup", "Please, select a Backup File!");
 			}
 			else
 			{
@@ -107,7 +120,7 @@ namespace Nexus.Client.ModManagement.UI
 				{
 					lblEstimated.Visible = true;
 					lblEstimated.Appearance.ForeColor = System.Drawing.Color.Red;
-					lblEstimated.Text = "You didn't select a valid Nexus Mod Manager backup archive.";
+					lblEstimated.Text = LanguageManager.Get("Tools.Restore.Validation.InvalidArchive", "You didn't select a valid Nexus Mod Manager backup archive.");
 					btYes.Enabled = false;
 					btNo.Enabled = false;
 				}
@@ -118,7 +131,7 @@ namespace Nexus.Client.ModManagement.UI
 					{
 						lblEstimated.Visible = true;
 						lblEstimated.Appearance.ForeColor = System.Drawing.Color.Red;
-						lblEstimated.Text = string.Format("This is not a {0}'s Backup!", ModManager.GameMode.Name);
+						lblEstimated.Text = LanguageManager.Format("Tools.Restore.Validation.WrongGame", "This is not a {0}'s Backup!", ModManager.GameMode.Name);
 						btYes.Enabled = false;
 						btNo.Enabled = false;
 					}
@@ -136,7 +149,7 @@ namespace Nexus.Client.ModManagement.UI
 						TemporarySize = ((bkManager.InstalledModFileSize + bkManager.BaseGameFilesSize) / 1024f) / 1024f;
 
 						lblEstimated.Visible = true;
-						lblEstimated.Text = string.Format("Estimated Restore Size:" + Environment.NewLine + "- Clicking YES: Temporary backup {0} MB - Restored files {1} MB " + Environment.NewLine + "- Clicking NO: {2} MB", Math.Round(TemporarySize, 0), Math.Round(bkManager.RestoredFiles, 0), Math.Round(bkManager.RestoredFiles, 0));
+						lblEstimated.Text = LanguageManager.Format("Tools.Restore.EstimatedSize.Details", "Estimated Restore Size:" + Environment.NewLine + "- Clicking YES: Temporary backup {0} MB - Restored files {1} MB " + Environment.NewLine + "- Clicking NO: {2} MB", Math.Round(TemporarySize, 0), Math.Round(bkManager.RestoredFiles, 0), Math.Round(bkManager.RestoredFiles, 0));
 						tbFile.Text = fdFile.FileName;
 					}
 				}

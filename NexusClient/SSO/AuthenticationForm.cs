@@ -6,6 +6,7 @@
     using DevExpress.XtraEditors;
     using Games;
     using UI;
+    using Util.Localization;
 
     /// <summary>
     /// A form that gathers login credentials.
@@ -59,6 +60,7 @@
         public AuthenticationForm(AuthenticationFormViewModel viewModel, AuthenticationFormTask loginTask)
         {
             InitializeComponent();
+            ApplyLocalization();
             NmmIconProvider.Bind(buttonSingleSignOn, NmmIconAction.Authorize);
             NmmIconProvider.Bind(buttonCancel, NmmIconAction.Cancel);
             FormClosed += LoginForm_FormClosed;
@@ -69,11 +71,20 @@
             _ssoManager.AuthenticationCancelled += OnAuthenticationCancelled;
         }
 
+        private void ApplyLocalization()
+        {
+            Text = LanguageManager.Get("Authentication.Window.Title", "Authorization");
+            buttonCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
+            buttonSingleSignOn.Text = LanguageManager.Get("Authentication.Action.Authorize", "Authorize NMM");
+            label1.Text = LanguageManager.Get("Authentication.ApiKeys.Info", "User authentication is now handled with API keys.");
+            label2.Text = LanguageManager.Get("Authentication.ApiKeys.AuthorizeHint", "Use the Authorize button below to let NMM access your account details.");
+        }
+
         private void OnAuthenticationCancelled(object sender, CancellationEventArgs e)
         {
             if (e.Reason == AuthenticationCancelledReason.ConnectionIssue)
             {
-                XtraMessageBox.Show(this, "Authentication failed due to network issues.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                XtraMessageBox.Show(this, LanguageManager.Get("Authentication.Error.Network", "Authentication failed due to network issues."), LanguageManager.Get("Authentication.Error.Title", "Authentication failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 var fallbackForm = new ManualApiKeyEntryForm(ViewModel);
                 var result = fallbackForm.ShowDialog(this);
 
@@ -84,7 +95,7 @@
             }
             else if (e.Reason != AuthenticationCancelledReason.Manual)
             {
-                XtraMessageBox.Show(this, "Authentication failed for unknown reasons, check trace logs.", "Authentication failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                XtraMessageBox.Show(this, LanguageManager.Get("Authentication.Error.Unknown", "Authentication failed for unknown reasons, check trace logs."), LanguageManager.Get("Authentication.Error.Title", "Authentication failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             Close();

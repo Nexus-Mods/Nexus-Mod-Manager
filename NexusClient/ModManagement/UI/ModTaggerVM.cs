@@ -11,6 +11,20 @@
 	using Nexus.Client.Util;
 
 	/// <summary>
+	/// Identifies the validation failure produced while saving Get Mod Info metadata.
+	/// Kept separate from displayed text so localization cannot alter validation routing.
+	/// </summary>
+	public enum ModTaggerSaveError
+	{
+		None,
+		ModNameRequired,
+		InvalidWebsite,
+		InvalidModId,
+		InvalidFileId,
+		InvalidValues
+	}
+
+	/// <summary>
 	/// Encapsulates the data and operations used by the Get Mod Info dialog.
 	/// </summary>
 	public class ModTaggerVM
@@ -131,9 +145,9 @@
 		/// <param name="error">The validation error, when the values cannot be saved.</param>
 		/// <returns><c>true</c> when the values were saved.</returns>
 		public bool TrySaveTags(string modName, string version, string author, string website, string modId, string fileId,
-			string description, ExtendedImage screenshot, out string error)
+			string description, ExtendedImage screenshot, out ModTaggerSaveError error)
 		{
-			error = null;
+			error = ModTaggerSaveError.None;
 			modName = NormalizeText(modName);
 			version = NormalizeText(version);
 			author = NormalizeText(author);
@@ -144,7 +158,7 @@
 
 			if (String.IsNullOrEmpty(modName))
 			{
-				error = "A mod name is required.";
+				error = ModTaggerSaveError.ModNameRequired;
 				return false;
 			}
 
@@ -159,7 +173,7 @@
 				}
 				else if (!NexusModLinkParser.TryNormalizeWebsite(website, out websiteUri))
 				{
-					error = "Enter a valid HTTP, HTTPS, or NXM Nexus Mods address.";
+					error = ModTaggerSaveError.InvalidWebsite;
 					return false;
 				}
 
@@ -179,13 +193,13 @@
 
 			if (!String.IsNullOrEmpty(modId) && !NexusModLinkParser.IsValidId(modId))
 			{
-				error = "The Nexus mod ID must be a positive number.";
+				error = ModTaggerSaveError.InvalidModId;
 				return false;
 			}
 
 			if (!String.IsNullOrEmpty(fileId) && !NexusModLinkParser.IsValidId(fileId))
 			{
-				error = "The Nexus file ID must be a positive number.";
+				error = ModTaggerSaveError.InvalidFileId;
 				return false;
 			}
 
@@ -204,7 +218,7 @@
 
 			if (!edited.Validate())
 			{
-				error = "One or more values are invalid.";
+				error = ModTaggerSaveError.InvalidValues;
 				return false;
 			}
 

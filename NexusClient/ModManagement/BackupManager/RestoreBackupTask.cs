@@ -8,6 +8,7 @@ using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using SevenZip;
 
 
@@ -21,6 +22,7 @@ namespace Nexus.Client.ModManagement
 			
 		private VirtualModActivator VirtualModActivator = null;
 		private ConfirmActionMethod m_camConfirm = null;
+		private readonly string m_strExtractProgressFormat;
 		private ModManager ModManager = null;
 		private ProfileManager ProfileManager = null;
 		private IEnvironmentInfo EnvironmentInfo = null;
@@ -43,6 +45,7 @@ namespace Nexus.Client.ModManagement
 		public RestoreBackupTask(VirtualModActivator p_vmaActivator, ModManager p_ModManager, ProfileManager p_pmProfileManager, IEnvironmentInfo p_EnvironmentInfo, string p_strBackupFile, bool p_booPurgeFolders, ConfirmActionMethod p_camConfirm)
 		{
 			m_camConfirm = p_camConfirm;
+			m_strExtractProgressFormat = LanguageManager.GetFormat("Tools.Restore.Progress.ExtractPercent", "Extracting Archive...{0}%");
 			VirtualModActivator = p_vmaActivator;
 			ModManager = p_ModManager;
 			EnvironmentInfo = p_EnvironmentInfo;
@@ -99,7 +102,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Restoring Nexus Mod Manager Backup...";
+			OverallMessage = LanguageManager.Get("Tools.Restore.Progress.Starting", "Restoring Nexus Mod Manager Backup...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
@@ -121,12 +124,12 @@ namespace Nexus.Client.ModManagement
 			
 			if (!File.Exists(bkpArchive))
 			{
-				string strMessage = string.Format("The Backup file {0} is missing.", bkpArchive);
-				DialogResult drFormClose = MessageBox.Show(strMessage, "NMM Backup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				string strMessage = LanguageManager.Format("Tools.Restore.Error.BackupMissing", "The Backup file {0} is missing.", bkpArchive);
+				DialogResult drFormClose = MessageBox.Show(strMessage, LanguageManager.Get("Tools.Restore.Dialog.BackupTitle", "NMM Backup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return null;
 			}
 
-			OverallMessage = "Checking the backup archive...";
+			OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CheckArchive", "Checking the backup archive...");
 			StepOverallProgress();
 
 			using (SevenZipExtractor szeExtractor = new SevenZipExtractor(bkpArchive))
@@ -135,12 +138,12 @@ namespace Nexus.Client.ModManagement
 
 				if ((!lstArchiveFiles.Contains(Path.GetFileName(ModManager.GameMode.PluginDirectory), StringComparer.OrdinalIgnoreCase)) || (!lstArchiveFiles.Contains("VIRTUAL INSTALL", StringComparer.OrdinalIgnoreCase)))
 				{
-					string strMessage = string.Format("The Backup file {0} is wrong.", bkpArchive);
-					DialogResult drFormClose = MessageBox.Show(strMessage, "NMM Backup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					string strMessage = LanguageManager.Format("Tools.Restore.Error.BackupWrong", "The Backup file {0} is wrong.", bkpArchive);
+					DialogResult drFormClose = MessageBox.Show(strMessage, LanguageManager.Get("Tools.Restore.Dialog.BackupTitle", "NMM Backup"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return null;
 				}
 
-				ItemMessage = "Extracting the backup archive...";
+				ItemMessage = LanguageManager.Get("Tools.Restore.Progress.ExtractArchive", "Extracting the backup archive...");
 				ItemProgress = 0;
 				ItemProgressMaximum = szeExtractor.ArchiveFileNames.Count;
 				BackupDirectory = Path.Combine(EnvironmentInfo.TemporaryPath, "NMMBACKUP");
@@ -170,7 +173,7 @@ namespace Nexus.Client.ModManagement
 				if (File.Exists(Path.Combine(BackupDirectory, "InstallLog.xml")))
 					installLog = Path.Combine(BackupDirectory, "InstallLog.xml");
 												
-				OverallMessage = "Creating the " + Path.GetFileName(ModManager.GameMode.PluginDirectory) + " Files list.";
+				OverallMessage = LanguageManager.Format("Tools.Restore.Progress.CreateGameFileList", "Creating the {0} Files list.", Path.GetFileName(ModManager.GameMode.PluginDirectory));
 				StepOverallProgress();
 				string[] DATAfiles = Directory.GetFiles(Path.Combine(BackupDirectory, Path.GetFileName(ModManager.GameMode.PluginDirectory)), "*.*", SearchOption.AllDirectories);
 				FileInfo fInfo = null;
@@ -190,7 +193,7 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				OverallMessage = "Creating the VIRTUAL INSTALL Files list.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CreateVirtualInstallList", "Creating the VIRTUAL INSTALL Files list.");
 				StepOverallProgress();
 				string[] VIRTUALINSTALLfiles = Directory.GetFiles(Path.Combine(BackupDirectory, "VIRTUAL INSTALL"), "*.*", SearchOption.AllDirectories);
 				fInfo = null;
@@ -210,7 +213,7 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				OverallMessage = "Creating the NMMLINK Files list.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CreateNmmLinkList", "Creating the NMMLINK Files list.");
 				StepOverallProgress();
 				
 				if (Directory.Exists(Path.Combine(BackupDirectory, "NMMLINK")))
@@ -236,7 +239,7 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				OverallMessage = "Creating the MOD ARCHIVES list.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CreateArchivesList", "Creating the MOD ARCHIVES list.");
 				StepOverallProgress();
 				if (Directory.Exists(Path.Combine(BackupDirectory, "MODS")))
 				{
@@ -259,7 +262,7 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				OverallMessage = "Creating the CACHE.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CreateCache", "Creating the CACHE.");
 				StepOverallProgress();
 				if (Directory.Exists(Path.Combine(BackupDirectory, "cache")))
 				{
@@ -282,7 +285,7 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				OverallMessage = "Creating the PROFILE Files list.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CreateProfileList", "Creating the PROFILE Files list.");
 				StepOverallProgress();
 				string[] Profilefiles = Directory.GetFiles(Path.Combine(BackupDirectory, "PROFILE"), "*.*", SearchOption.AllDirectories);
 				fInfo = null;
@@ -315,6 +318,13 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private ModProfile RestoreBackupFiles(List<BackupInfo> p_lstLooseFiles, List<BackupInfo> p_lstInstalledModFiles, List<BackupInfo> p_lstInstalledNMMLINKFiles, List<BackupInfo> p_lstProfileFiles, List<BackupInfo> p_lstModArchives, List<BackupInfo> p_lstModCacheArchives, string p_strBackupDirectory, string p_strInstallLog)
 		{
+			string copyGameFilesFormat = LanguageManager.GetFormat("Tools.Restore.Progress.CopyGameFiles", "Copying the {0} Files...{1}/{2}");
+			string copyVirtualInstallFormat = LanguageManager.GetFormat("Tools.Restore.Progress.CopyVirtualInstall", "Copying the VIRTUAL INSTALL Files...{0}/{1}");
+			string copyNmmLinkFormat = LanguageManager.GetFormat("Tools.Restore.Progress.CopyNmmLink", "Copying the NMMLINK Files...{0}/{1}");
+			string copyArchivesFormat = LanguageManager.GetFormat("Tools.Restore.Progress.CopyArchives", "Copying the MOD ARCHIVES...{0}/{1}");
+			string copyCacheFormat = LanguageManager.GetFormat("Tools.Restore.Progress.CopyCache", "Copying the CACHE...{0}/{1}");
+			string copyProfileFormat = LanguageManager.GetFormat("Tools.Restore.Progress.CopyProfile", "Copying the PROFILE Files...{0}/{1}");
+
 			string FileTo = string.Empty;
 			string FileFrom = string.Empty;
 			string VIRTUALINSTALLpath = VirtualModActivator.VirtualFoder;
@@ -373,12 +383,12 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying the " + Path.GetFileName(ModManager.GameMode.PluginDirectory) + " Files...{0}/{1}", counter++, p_lstLooseFiles.Count());
+						OverallMessage = string.Format(copyGameFilesFormat, Path.GetFileName(ModManager.GameMode.PluginDirectory), counter++, p_lstLooseFiles.Count());
 						StepOverallProgress();
 					}
 				}
 
-				OverallMessage = "Copying the VIRTUAL INSTALL Files.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CopyVirtualInstallStart", "Copying the VIRTUAL INSTALL Files.");
 				StepOverallProgress();
 
 				if (p_lstInstalledModFiles.Count() > 0)
@@ -411,12 +421,12 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying the VIRTUAL INSTALL Files...{0}/{1}", counter++, p_lstInstalledModFiles.Count());
+						OverallMessage = string.Format(copyVirtualInstallFormat, counter++, p_lstInstalledModFiles.Count());
 						StepOverallProgress();
 					}
 				}
 
-				OverallMessage = "Copying the NMMLINK Files.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CopyNmmLinkStart", "Copying the NMMLINK Files.");
 				StepOverallProgress();
 
 				if (p_lstInstalledNMMLINKFiles.Count() > 0)
@@ -456,12 +466,12 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying the NMMLINK Files...{0}/{1}", counter++, p_lstInstalledNMMLINKFiles.Count());
+						OverallMessage = string.Format(copyNmmLinkFormat, counter++, p_lstInstalledNMMLINKFiles.Count());
 						StepOverallProgress();
 					}
 				}
 
-				OverallMessage = "Copying the MOD ARCHIVES.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CopyArchivesStart", "Copying the MOD ARCHIVES.");
 				StepOverallProgress();
 
 				if (p_lstModArchives.Count() > 0)
@@ -489,12 +499,12 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying the MOD ARCHIVES...{0}/{1}", counter++, p_lstModArchives.Count());
+						OverallMessage = string.Format(copyArchivesFormat, counter++, p_lstModArchives.Count());
 						StepOverallProgress();
 					}
 				}
 
-				OverallMessage = "Copying the CACHE.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.CopyCacheStart", "Copying the CACHE.");
 				StepOverallProgress();
 
 				if (p_lstModCacheArchives.Count() > 0)
@@ -522,7 +532,7 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying the CACHE...{0}/{1}", counter++, p_lstModCacheArchives.Count());
+						OverallMessage = string.Format(copyCacheFormat, counter++, p_lstModCacheArchives.Count());
 						StepOverallProgress();
 					}
 				}
@@ -555,7 +565,7 @@ namespace Nexus.Client.ModManagement
 							StepItemProgress();
 						}
 
-						OverallMessage = string.Format("Copying the PROFILE Files...{0}/{1}", counter++, p_lstProfileFiles.Count());
+						OverallMessage = string.Format(copyProfileFormat, counter++, p_lstProfileFiles.Count());
 						StepOverallProgress();
 					}
 				}
@@ -569,7 +579,7 @@ namespace Nexus.Client.ModManagement
 					ModManager.ReinitializeInstallLog(Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml"));
 				}
 								
-				OverallMessage = "Deleting the leftovers.";
+				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.DeleteLeftovers", "Deleting the leftovers.");
 				StepOverallProgress();
 
 
@@ -708,7 +718,7 @@ namespace Nexus.Client.ModManagement
 
 		private void Extractor_Extracting(object sender, ProgressEventArgs e)
 		{
-			ItemMessage = "Extracting Archive..." + e.PercentDone+ "%";
+			ItemMessage = string.Format(m_strExtractProgressFormat, e.PercentDone);
 			StepItemProgress();
 		}
 	}

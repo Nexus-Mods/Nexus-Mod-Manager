@@ -8,6 +8,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 {
@@ -855,7 +856,7 @@ namespace Nexus.Client.Games.Morrowind.PluginManagement.Boss
 			}
 			catch
 			{
-				MessageBox.Show("The selected plugin has been manually removed." + Environment.NewLine + "Restart NMM or select again your game on Change Game Mode to refresh the plugin list.");
+				MessageBox.Show(LanguageManager.Get("GameModes.Morrowind.PluginRemovedRefreshWarning", "The selected plugin has been manually removed." + Environment.NewLine + "Restart NMM or select again your game on Change Game Mode to refresh the plugin list."));
 			}
 		}
 

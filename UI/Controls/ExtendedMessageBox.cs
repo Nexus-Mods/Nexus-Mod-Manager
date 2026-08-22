@@ -4,6 +4,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using DevExpress.XtraEditors;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
@@ -179,6 +180,8 @@ namespace Nexus.UI.Controls
 		private bool m_booForceDetails = false;
 		private SimpleButton m_butDetails;
 		private string m_strDetailsText = String.Empty;
+		private readonly string m_strSeeDetailsText;
+		private readonly string m_strHideDetailsText;
 
 		#region Properties
 
@@ -210,6 +213,9 @@ namespace Nexus.UI.Controls
 		protected ExtendedMessageBox()
 		{
 			InitializeComponent();
+			m_strSeeDetailsText = LanguageManager.Get("Common.MessageBox.SeeDetails.Name", "See details");
+			m_strHideDetailsText = LanguageManager.Get("Common.MessageBox.HideDetails.Name", "Hide details");
+			cbxRemember.Properties.Caption = LanguageManager.Get("Common.MessageBox.RememberSelection.Option", "Remember my selection");
 			LastDetailsHeight = -1;
 			this.Shown += new EventHandler(Form_Shown);
 		}
@@ -357,7 +363,7 @@ namespace Nexus.UI.Controls
 			if (p_booShowDetails && !m_booForceDetails)
 			{
 				m_butDetails = new SimpleButton();
-				m_butDetails.Text = "See details";
+				m_butDetails.Text = m_strSeeDetailsText;
 				m_butDetails.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
 				m_butDetails.Location = new Point(pnlButtons.Left + 6, 12);
 				m_butDetails.Size = new Size(92, 23);
@@ -369,14 +375,14 @@ namespace Nexus.UI.Controls
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Cancel) == ExtendedMessageBoxButtons.Cancel)
 			{
-				SimpleButton button = AddDialogButton("Cancel", DialogResult.Cancel, 7, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Cancel", "Cancel"), DialogResult.Cancel, 7, ref intLastButtonLeft);
 				CancelButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.No) == ExtendedMessageBoxButtons.No)
 			{
-				SimpleButton button = AddDialogButton("No", DialogResult.No, 6, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.No", "No"), DialogResult.No, 6, ref intLastButtonLeft);
 				if ((p_ebbButtons & ExtendedMessageBoxButtons.Cancel) != ExtendedMessageBoxButtons.Cancel)
 					CancelButton = button;
 				intMinimumWidth += button.Width + 6;
@@ -384,49 +390,49 @@ namespace Nexus.UI.Controls
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Yes) == ExtendedMessageBoxButtons.Yes)
 			{
-				SimpleButton button = AddDialogButton("Yes", DialogResult.Yes, 5, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Yes", "Yes"), DialogResult.Yes, 5, ref intLastButtonLeft);
 				AcceptButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.OK) == ExtendedMessageBoxButtons.OK)
 			{
-				SimpleButton button = AddDialogButton("OK", DialogResult.OK, 4, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Ok", "OK"), DialogResult.OK, 4, ref intLastButtonLeft);
 				AcceptButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Ignore) == ExtendedMessageBoxButtons.Ignore)
 			{
-				SimpleButton button = AddDialogButton("Ignore", DialogResult.Ignore, 3, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Ignore", "Ignore"), DialogResult.Ignore, 3, ref intLastButtonLeft);
 				CancelButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Retry) == ExtendedMessageBoxButtons.Retry)
 			{
-				SimpleButton button = AddDialogButton("Retry", DialogResult.Retry, 2, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Retry", "Retry"), DialogResult.Retry, 2, ref intLastButtonLeft);
 				AcceptButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Abort) == ExtendedMessageBoxButtons.Abort)
 			{
-				SimpleButton button = AddDialogButton("Abort", DialogResult.Abort, 1, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Abort", "Abort"), DialogResult.Abort, 1, ref intLastButtonLeft);
 				AcceptButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Backup) == ExtendedMessageBoxButtons.Backup)
 			{
-				SimpleButton button = AddDialogButton("Backup", DialogResult.Yes, 1, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Backup", "Backup"), DialogResult.Yes, 1, ref intLastButtonLeft);
 				AcceptButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
 
 			if ((p_ebbButtons & ExtendedMessageBoxButtons.Update) == ExtendedMessageBoxButtons.Update)
 			{
-				SimpleButton button = AddDialogButton("Update", DialogResult.No, 1, ref intLastButtonLeft);
+				SimpleButton button = AddDialogButton(LanguageManager.Get("Common.Action.Update", "Update"), DialogResult.No, 1, ref intLastButtonLeft);
 				AcceptButton = button;
 				intMinimumWidth += button.Width + 6;
 			}
@@ -496,7 +502,7 @@ namespace Nexus.UI.Controls
 			}
 			pnlDetails.Visible = !pnlDetails.Visible;
 			if (m_butDetails != null)
-				m_butDetails.Text = pnlDetails.Visible ? "Hide details" : "See details";
+				m_butDetails.Text = pnlDetails.Visible ? m_strHideDetailsText : m_strSeeDetailsText;
 			this.PerformLayout();
 		}
 

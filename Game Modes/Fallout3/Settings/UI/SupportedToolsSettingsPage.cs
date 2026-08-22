@@ -7,6 +7,7 @@ using Nexus.UI.Controls;
 using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 
 
@@ -26,6 +27,8 @@ namespace Nexus.Client.Games.Fallout3.Settings.UI
 		protected SupportedToolsSettingsPage()
 		{
 			InitializeComponent();
+			lblBOSSPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "BOSS");
+			lblBOSSLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "BOSS");
 		}
 
 		/// <summary>
@@ -41,8 +44,6 @@ namespace Nexus.Client.Games.Fallout3.Settings.UI
 
 			p_stsSettings.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
 			p_stsSettings.Errors.ErrorChanged += new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
-			
-			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
 		}
 
 		#endregion

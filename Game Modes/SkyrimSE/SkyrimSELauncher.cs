@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.SkyrimSE
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.SkyrimSE
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Skyrim SE", "Launches plain Skyrim SE.", imgIcon, LaunchSkyrimSEPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Skyrim SE"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Skyrim SE"), imgIcon, LaunchSkyrimSEPlain, true));
 		
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SkseLaunch", "Launch SKSE", "Launches Skyrim SE with SKSE.", imgIcon, LaunchSkyrimSESKSE, true));
+				AddLaunchCommand(new Command("SkseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "SKSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Skyrim SE", "SKSE"), imgIcon, LaunchSkyrimSESKSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Skyrim SE", "Launches Skyrim SE with custom command.", imgIcon, LaunchSkyrimSECustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Skyrim SE"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Skyrim SE"), imgIcon, LaunchSkyrimSECustom, true));
 
-			DefaultLaunchCommand = new Command("Launch SkyrimSE", "Launches SkyrimSE.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "SkyrimSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "SkyrimSE"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -77,7 +78,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -119,7 +120,7 @@ namespace Nexus.Client.Games.SkyrimSE
 			{
 				Trace.TraceError("SKSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "SKSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "SKSE"));
 				return;
 			}
 			Launch(strCommand, null);

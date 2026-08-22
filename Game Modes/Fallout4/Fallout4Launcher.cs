@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Fallout4
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.Fallout4
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout4", "Launches plain Fallout4.", imgIcon, LaunchFallout4Plain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Fallout4"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Fallout4"), imgIcon, LaunchFallout4Plain, true));
 
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("F4seLaunch", "Launch F4SE", "Launches Fallout4 with F4SE.", imgIcon, LaunchFallout4SKSE, true));
+				AddLaunchCommand(new Command("F4seLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "F4SE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Fallout4", "F4SE"), imgIcon, LaunchFallout4SKSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Fallout4", "Launches Fallout4 with custom command.", imgIcon, LaunchFallout4Custom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Fallout4"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Fallout4"), imgIcon, LaunchFallout4Custom, true));
 
-			DefaultLaunchCommand = new Command("Launch Fallout4", "Launches Fallout4.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Fallout4"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Fallout4"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -78,7 +79,7 @@ namespace Nexus.Client.Games.Fallout4
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -121,7 +122,7 @@ namespace Nexus.Client.Games.Fallout4
 			{
 				Trace.TraceError("F4SE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "F4SE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "F4SE"));
 				return;
 			}
 			Launch(strCommand, null);

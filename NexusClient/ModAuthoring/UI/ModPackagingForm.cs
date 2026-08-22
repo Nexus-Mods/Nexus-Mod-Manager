@@ -5,6 +5,7 @@ using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.UI.Controls;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.BackgroundTasks.UI;
 using Nexus.Client.BackgroundTasks;
 using System.Collections.Generic;
@@ -66,6 +67,7 @@ namespace Nexus.Client.ModAuthoring.UI
 		public ModPackagingForm(ModPackagingFormVM p_vmlModPackagingVM)
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			m_strWindowTitle = this.Text;
 			this.DoubleBuffered = true;
 
@@ -73,6 +75,21 @@ namespace Nexus.Client.ModAuthoring.UI
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			Text = LanguageManager.Get("ModAuthoring.Packager.Window.Title", "Mod Packager");
+			vtpModFiles.Text = LanguageManager.Get("ModAuthoring.Packager.Tabs.Files", "Files");
+			vtpModInfo.Text = LanguageManager.Get("ModAuthoring.Packager.Tabs.ModInfo", "Mod Info");
+			vtpScript.Text = LanguageManager.Get("ModAuthoring.Packager.Tabs.InstallScript", "Install Script");
+			vtpReadme.Text = LanguageManager.Get("ModAuthoring.Packager.Tabs.Readme", "Readme");
+			sfdProject.Filter = LanguageManager.Get("ModAuthoring.Packager.FileDialog.ProjectFilter", "Mod Packaging Projects") + "|*.prj";
+			sfdProject.Title = LanguageManager.Get("ModAuthoring.Packager.FileDialog.SaveProject", "Save Project");
+			ofdProject.Filter = LanguageManager.Get("ModAuthoring.Packager.FileDialog.ProjectFilter", "Mod Packaging Projects") + "|*.prj";
+			ofdProject.Title = LanguageManager.Get("ModAuthoring.Packager.FileDialog.OpenProject", "Open Project");
+			sfdNewMod.Filter = LanguageManager.Get("ModAuthoring.Packager.FileDialog.ModFilter", "Nexus Mod") + "|*.nxm";
+			sfdNewMod.Title = LanguageManager.Get("ModAuthoring.Packager.FileDialog.NewMod", "New Mod File");
+		}
 
 		#region View Model Callback Delegates
 
@@ -87,7 +104,7 @@ namespace Nexus.Client.ModAuthoring.UI
 		{
 			if (ViewModel.ModProject.IsDirty)
 			{
-				switch (MessageBox.Show(this, "Would you like to save the current project?", "Save Changes", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
+				switch (MessageBox.Show(this, LanguageManager.Get("ModAuthoring.Packager.ConfirmSave.Message", "Would you like to save the current project?"), LanguageManager.Get("ModAuthoring.Packager.ConfirmSave.Title", "Save Changes"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 				{
 					case DialogResult.Cancel:
 						return null;
@@ -138,7 +155,7 @@ namespace Nexus.Client.ModAuthoring.UI
 		/// <c>false</c> otherwise.</returns>
 		protected bool GetIgnoreWarnings()
 		{
-			return (MessageBox.Show(this, "There are warnings." + Environment.NewLine + "Warnings can be ignored, but they can indicate missing information that you meant to enter." + Environment.NewLine + "Would you like to continue?", "Warning", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK);
+			return (MessageBox.Show(this, LanguageManager.Get("ModAuthoring.Packager.Warnings.Message", "There are warnings." + Environment.NewLine + "Warnings can be ignored, but they can indicate missing information that you meant to enter." + Environment.NewLine + "Would you like to continue?"), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) == DialogResult.OK);
 		}
 
 		#endregion

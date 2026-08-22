@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.UI.Controls;
 
@@ -62,6 +63,8 @@ namespace Nexus.Client.ModAuthoring.UI.Controls
 		public ScriptEditor()
 		{
 			InitializeComponent();
+			ckbUseScript.Text = LanguageManager.Get("ModAuthoring.Script.UseInstallScript", "Use Install Script");
+			dtcScriptEditors.Text = LanguageManager.Get("ModAuthoring.Script.TypeLabel", "Script Type:");
 			BindingHelper.CreateFullBinding(dtcScriptEditors, () => dtcScriptEditors.Enabled, ckbUseScript, () => ckbUseScript.Checked);
 		}
 

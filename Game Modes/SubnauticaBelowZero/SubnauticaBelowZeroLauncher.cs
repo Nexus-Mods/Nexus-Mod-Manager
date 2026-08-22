@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.SubnauticaBelowZero
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.SubnauticaBelowZero
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Subnautica BelowZ ero", "Launches default Subnautica Below Zero.", imgIcon, LaunchSubnauticaBelowZeroPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Get("GameModes.SubnauticaBelowZero.Launcher.Plain.Name", "Launch Subnautica BelowZ ero"), LanguageManager.Get("GameModes.SubnauticaBelowZero.Launcher.Plain.Description", "Launches default Subnautica Below Zero."), imgIcon, LaunchSubnauticaBelowZeroPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Subnautica Below Zero", "Launches Subnautica Below Zero with custom command.", imgIcon, LaunchSubnauticaBelowZeroCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Subnautica Below Zero"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Subnautica Below Zero"), imgIcon, LaunchSubnauticaBelowZeroCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Subnautica Below Zero", "Launches Subnautica Below Zero.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Subnautica Below Zero"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Subnautica Below Zero"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.SubnauticaBelowZero
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

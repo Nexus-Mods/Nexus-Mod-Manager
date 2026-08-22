@@ -4,6 +4,7 @@ using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using ChinhDo.Transactions;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -68,7 +69,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Toggling mod update checks...";
+			OverallMessage = LanguageManager.Get("Tasks.Mods.ToggleUpdateChecks", "Toggling mod update checks...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_hashMods.Count;

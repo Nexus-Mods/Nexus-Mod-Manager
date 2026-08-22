@@ -8,6 +8,7 @@
     using Microsoft.Win32;
 
     using Util;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// The group of general settings.
@@ -32,7 +33,7 @@
 		/// Gets the title of the settings group.
 		/// </summary>
 		/// <value>The title of the settings group.</value>
-		public override string Title { get; } = "General";
+		public override string Title { get; } = LanguageManager.Get("Settings.General.Title", "General");
 
 	    /// <summary>
 		/// Gets or sets whether or not the client should check for new mod versions.

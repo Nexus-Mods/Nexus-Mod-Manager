@@ -5,6 +5,7 @@ using System.ComponentModel;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -109,6 +110,13 @@ namespace Nexus.Client.Games.Settings
 		public RequiredDirectoriesControl()
 		{
 			InitializeComponent();
+			lblInstallInfoPrompt.Text = LanguageManager.GetFormat("GameSettings.Directories.InstallInfoPrompt", "Choose the directory where you would like to store your {0} install info.");
+			lblInstallInfoLabel.Text = LanguageManager.Get("GameSettings.Directories.InstallInfoLabel", "Install Info:");
+			lblModPrompt.Text = LanguageManager.GetFormat("GameSettings.Directories.ModsPrompt", "Choose the directory where you would like to store your {0} Mods.");
+			lblModDirectoryLabel.Text = LanguageManager.Get("GameSettings.Directories.ModsLabel", "Mod Directory:");
+			lblToolPrompt.Text = LanguageManager.GetFormat("GameSettings.Directories.RequiredToolPrompt", "(Optional) Select the path where the required {0} tool is installed.");
+			lblToolDirectoryLabel.Text = LanguageManager.Get("GameSettings.Directories.RequiredToolLabel", "Required Tool:");
+			lbWarning.Text = LanguageManager.Get("Common.Dialog.WarningTitle", "Warning") + ":";
 		}
 
 		#endregion
@@ -132,7 +140,7 @@ namespace Nexus.Client.Games.Settings
 
 			if (e.Property.Equals("WARNING"))
 			{
-				lbWarning.Text = "Warning: " + e.Error;
+				lbWarning.Text = LanguageManager.Get("Common.Dialog.WarningTitle", "Warning") + ": " + e.Error;
 				lbWarning.Visible = true;
 			}
 			else

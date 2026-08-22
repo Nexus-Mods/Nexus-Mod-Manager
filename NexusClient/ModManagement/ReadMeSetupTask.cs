@@ -13,6 +13,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using ChinhDo.Transactions;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -82,7 +83,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Scanning mod archives for readme files...";
+			OverallMessage = LanguageManager.Get("Tasks.Mod.ScanReadmes", "Scanning mod archives for readme files...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_lstModList.Count;

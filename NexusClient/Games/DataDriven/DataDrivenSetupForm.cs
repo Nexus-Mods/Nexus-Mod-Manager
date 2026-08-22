@@ -2,6 +2,7 @@ using System;
 using System.Windows.Forms;
 using Nexus.Client.Games.Settings;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DataDriven
 {
@@ -12,7 +13,7 @@ namespace Nexus.Client.Games.DataDriven
 
 		public DataDrivenSetupForm(SetupBaseVM viewModel)
 		{
-			Text = string.Format("{0} Setup", viewModel.GameModeDescriptor.Name);
+			Text = LanguageManager.Format("GameModes.Setup.Title", "{0} Setup", viewModel.GameModeDescriptor.Name);
 			StartPosition = FormStartPosition.CenterScreen;
 			Size = new System.Drawing.Size(520, 420);
 			MinimizeBox = false;
@@ -29,8 +30,8 @@ namespace Nexus.Client.Games.DataDriven
 			_directoriesControl = new SetupDirectoriesControl
 			{
 				Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
-				InstallInfoLabel = "Install Info:",
-				ModDirectoryLabel = "Mod Directory:",
+				InstallInfoLabel = LanguageManager.Get("GameSettings.Directories.InstallInfoLabel", "Install Info:"),
+				ModDirectoryLabel = LanguageManager.Get("GameSettings.Directories.ModsLabel", "Mod Directory:"),
 				Location = new System.Drawing.Point(12, 44),
 				Size = new System.Drawing.Size(480, 270)
 			};
@@ -41,7 +42,7 @@ namespace Nexus.Client.Games.DataDriven
 				DialogResult = DialogResult.OK,
 				Location = new System.Drawing.Point(326, 334),
 				Size = new System.Drawing.Size(80, 25),
-				Text = "Finish"
+				Text = LanguageManager.Get("Common.Action.Finish", "Finish")
 			};
 			finishButton.Click += FinishSetup;
 
@@ -51,7 +52,7 @@ namespace Nexus.Client.Games.DataDriven
 				DialogResult = DialogResult.Cancel,
 				Location = new System.Drawing.Point(412, 334),
 				Size = new System.Drawing.Size(80, 25),
-				Text = "Cancel"
+				Text = LanguageManager.Get("Common.Action.Cancel", "Cancel")
 			};
 			cancelButton.Click += (sender, args) => Close();
 

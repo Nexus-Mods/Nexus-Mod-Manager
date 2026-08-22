@@ -7,6 +7,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using System.Windows.Forms;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.UI.Controls;
 
 namespace Nexus.Client.Games.Fallout3
@@ -113,13 +114,12 @@ namespace Nexus.Client.Games.Fallout3
 							}
 							if (strMainPlugin.Length == 1 && strMainBsa.Length == 1 && strSoundBsa.Length == 1)
 							{
-								StringBuilder stbMessage = new StringBuilder("You seem to have bought the DLC ");
-								stbMessage.AppendLine(strDLC);
-								stbMessage.AppendFormat("Would you like to move it to {0}'s data directory to allow for offline use and script extender compatibility?", GameModeDescriptor.Name).AppendLine();
-								stbMessage.AppendLine("Note that this may cause issues with any save games created after it was purchased but before it was moved.");
-								stbMessage.AppendFormat("Click YES to move, IGNORE to ignore, and CANCEL if you don't want {0} to offer to move any DLCs for you again.", CommonData.ModManagerName);
+								string message = LanguageManager.Format(
+									"GameModes.Fallout3.MoveDlc.Message",
+									"You seem to have bought the DLC {0}{1}Would you like to move it to {2}'s data directory to allow for offline use and script extender compatibility?{1}Note that this may cause issues with any save games created after it was purchased but before it was moved.{1}Click YES to move, IGNORE to ignore, and CANCEL if you don't want {3} to offer to move any DLCs for you again.",
+									strDLC, Environment.NewLine, GameModeDescriptor.Name, CommonData.ModManagerName);
 
-								switch ((DialogResult)ConfirmAction(new ViewMessage(stbMessage.ToString(), null, "Move DLC", ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.Ignore | ExtendedMessageBoxButtons.Cancel, MessageBoxIcon.Question)))
+								switch ((DialogResult)ConfirmAction(new ViewMessage(message, null, LanguageManager.Get("GameModes.Fallout3.MoveDlc.Title", "Move DLC"), ExtendedMessageBoxButtons.Yes | ExtendedMessageBoxButtons.Ignore | ExtendedMessageBoxButtons.Cancel, MessageBoxIcon.Question)))
 								{
 									case DialogResult.Yes:
 										File.Move(strMainPlugin[0], strMainPluginInstallPath);

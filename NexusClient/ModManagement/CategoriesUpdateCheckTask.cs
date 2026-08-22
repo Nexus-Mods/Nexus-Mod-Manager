@@ -4,6 +4,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -71,13 +72,13 @@ namespace Nexus.Client.ModManagement
 		/// <returns><c>null</c> on success, or an error message on failure.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Updating categories info: setup search...";
+			OverallMessage = LanguageManager.Get("Tasks.Categories.SetupSearch", "Updating categories info: setup search...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = false;
 			OverallProgressMaximum = 2;
 
-			OverallMessage = "Retrieving the categories list... 1/2";
+			OverallMessage = LanguageManager.Get("Tasks.Categories.Retrieving", "Retrieving the categories list... 1/2");
 			StepOverallProgress();
 
 			try
@@ -89,7 +90,7 @@ namespace Nexus.Client.ModManagement
 					foreach (CategoriesInfo category in categories)
 						repositoryCategories.Add(new ModCategory(category.Id, category.Name, category.Name));
 
-					OverallMessage = "Saving the categories list... 2/2";
+					OverallMessage = LanguageManager.Get("Tasks.Categories.Saving", "Saving the categories list... 2/2");
 					CategoryManager.MergeRepositoryCategories(repositoryCategories, ModManager.RemapCategoryAssignments);
 					StepOverallProgress();
 				}

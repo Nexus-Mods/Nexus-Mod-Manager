@@ -81,7 +81,7 @@
 			_downloadMonitorDockPanel = _mainDockManager.AddPanel(DockingStyle.Bottom);
 			_downloadMonitorDockPanel.Name = "downloadMonitorDockPanel";
 			_downloadMonitorDockPanel.ID = DownloadMonitorDockPanelId;
-			_downloadMonitorDockPanel.Text = String.IsNullOrEmpty(_downloadMonitorControl.Text) ? "Download Manager" : _downloadMonitorControl.Text;
+			_downloadMonitorDockPanel.Text = String.IsNullOrEmpty(_downloadMonitorControl.Text) ? L("MainForm.Dock.DownloadManager", "Download Manager") : _downloadMonitorControl.Text;
 			_downloadMonitorDockPanel.Options.ShowAutoHideButton = true;
 			_downloadMonitorDockPanel.Options.ShowCloseButton = false;
 			_downloadMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
@@ -90,7 +90,7 @@
 			_modActivationMonitorDockPanel = _mainDockManager.AddPanel(DockingStyle.Bottom);
 			_modActivationMonitorDockPanel.Name = "modActivationMonitorDockPanel";
 			_modActivationMonitorDockPanel.ID = ModActivationMonitorDockPanelId;
-			_modActivationMonitorDockPanel.Text = String.IsNullOrEmpty(_modActivationMonitorControl.Text) ? "Mod Activation Queue" : _modActivationMonitorControl.Text;
+			_modActivationMonitorDockPanel.Text = String.IsNullOrEmpty(_modActivationMonitorControl.Text) ? L("MainForm.Dock.ModActivationQueue", "Mod Activation Queue") : _modActivationMonitorControl.Text;
 			_modActivationMonitorDockPanel.Options.ShowAutoHideButton = true;
 			_modActivationMonitorDockPanel.Options.ShowCloseButton = false;
 			_modActivationMonitorDockPanel.Options.AllowDockAsTabbedDocument = false;
@@ -120,9 +120,9 @@
 			// DockManager persists panel captions as part of its layout. Replace any
 			// serialized task counts with the controls' current runtime captions.
 			if (_downloadMonitorDockPanel != null)
-				_downloadMonitorDockPanel.Text = String.IsNullOrEmpty(_downloadMonitorControl.Text) ? "Download Manager" : _downloadMonitorControl.Text;
+				_downloadMonitorDockPanel.Text = String.IsNullOrEmpty(_downloadMonitorControl.Text) ? L("MainForm.Dock.DownloadManager", "Download Manager") : _downloadMonitorControl.Text;
 			if (_modActivationMonitorDockPanel != null)
-				_modActivationMonitorDockPanel.Text = String.IsNullOrEmpty(_modActivationMonitorControl.Text) ? "Mod Activation Queue" : _modActivationMonitorControl.Text;
+				_modActivationMonitorDockPanel.Text = String.IsNullOrEmpty(_modActivationMonitorControl.Text) ? L("MainForm.Dock.ModActivationQueue", "Mod Activation Queue") : _modActivationMonitorControl.Text;
 		}
 
 		/// <summary>
@@ -181,15 +181,15 @@
 		private void EnsureMainDocuments()
 		{
 			if (ViewModel.UsesPlugins)
-				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", "Plugins");
+				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
 			else if (_pluginManagerControl.Visible)
 				_pluginManagerControl.Hide();
 
-			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", "Mods");
-			EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", "Categories");
+			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
+			EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 
 			if (IsFileManagerAvailable())
-				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", "File Manager");
+				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
 			else if (_fileManagerControl.Visible)
 				_fileManagerControl.Hide();
 		}

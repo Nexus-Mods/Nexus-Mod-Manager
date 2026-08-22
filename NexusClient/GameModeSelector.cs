@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using Nexus.Client.Games;
 using System.Text;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client
 {
@@ -114,7 +115,18 @@ namespace Nexus.Client
 					stbError.AppendFormat("If {0} is installed, rescan for installed games from the Change Game toolbar item.", SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name).AppendLine();
 				}
 				Trace.TraceError(stbError.ToString());
-				MessageBox.Show(stbError.ToString(), "Unrecognized Game Mode", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+				string localizedError;
+				if (!SupportedGameModes.IsRegistered(strSelectedGame))
+					localizedError = LanguageManager.Format("GameModes.Selection.UnrecognizedMode", "Unrecognized Game Mode: {0}", strSelectedGame);
+				else
+				{
+					string gameModeName = SupportedGameModes.GetGameMode(strSelectedGame).GameModeDescriptor.Name;
+					localizedError = LanguageManager.Format("GameModes.Selection.ModeNotSetUp", "{0} is not set up to work with {1}", CommonData.ModManagerName, gameModeName) + Environment.NewLine +
+						LanguageManager.Format("GameModes.Selection.RescanHint", "If {0} is installed, rescan for installed games from the Change Game toolbar item.", gameModeName) + Environment.NewLine;
+				}
+
+				MessageBox.Show(localizedError, LanguageManager.Get("GameModes.Selection.UnrecognizedModeTitle", "Unrecognized Game Mode"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return null;
 			}
 

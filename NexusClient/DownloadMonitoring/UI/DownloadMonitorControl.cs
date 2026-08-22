@@ -10,6 +10,7 @@ using Nexus.Client.Commands;
 using Nexus.Client.ModManagement;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.DownloadMonitoring.UI
 {
@@ -20,8 +21,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 	{
 		private readonly BindingList<DownloadTaskRow> _rows = new BindingList<DownloadTaskRow>();
 		private DownloadMonitorVM m_vmlViewModel;
-		private const string TitleAllActive = "Download Manager ({0})";
-		private const string TitleSomeActive = "Download Manager ({0}/{1})";
+		private readonly string _titleAllActive = LanguageManager.GetFormat("MainForm.Dock.DownloadManager.Count", "Download Manager ({0})");
+		private readonly string _titleSomeActive = LanguageManager.GetFormat("MainForm.Dock.DownloadManager.ActiveCount", "Download Manager ({0}/{1})");
 		private const string ColumnWidthsSettingsKey = "DownloadMonitor";
 		private bool _columnWidthsRestored;
 		private bool _formClosingHooked;
@@ -53,11 +54,20 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				new DevExpressBarItemCommandBinding<AddModTask>(tsbPause, m_vmlViewModel.PauseTaskCommand, GetSelectedTask, true);
 				new DevExpressBarItemCommandBinding<AddModTask>(tsbResume, m_vmlViewModel.ResumeTaskCommand, GetSelectedTask, true);
 
-				Command removeAll = new Command("Remove all", "Purges the completed/failed downloads from the list.", ViewModel.RemoveAllTasks);
+				Command removeAll = new Command(
+					LanguageManager.Get("Downloads.Actions.RemoveAll.Name", "Remove all"),
+					LanguageManager.Get("Downloads.Actions.RemoveAll.Description", "Purges the completed/failed downloads from the list."),
+					ViewModel.RemoveAllTasks);
 				new DevExpressBarItemCommandBinding(tsbRemoveAll, removeAll);
-				Command resumeAll = new Command("Resume all", "Resumes all paused/queued downloads.", ViewModel.ResumeAllTasks);
+				Command resumeAll = new Command(
+					LanguageManager.Get("Downloads.Actions.ResumeAll.Name", "Resume all"),
+					LanguageManager.Get("Downloads.Actions.ResumeAll.Description", "Resumes all paused/queued downloads."),
+					ViewModel.ResumeAllTasks);
 				new DevExpressBarItemCommandBinding(tsbResumeAll, resumeAll);
-				Command purgeDownloads = new Command("Purge Downloads", "Purges the paused/queued downloads from the list.", ViewModel.PurgeDownloads);
+				Command purgeDownloads = new Command(
+					LanguageManager.Get("Downloads.Actions.Purge.Name", "Purge Downloads"),
+					LanguageManager.Get("Downloads.Actions.Purge.Description", "Purges the paused/queued downloads from the list."),
+					ViewModel.PurgeDownloads);
 				new DevExpressBarItemCommandBinding(tsbPurgeDownloads, purgeDownloads);
 
 				m_vmlViewModel.PurgingDownloads += ViewModel_PurgingDownloads;
@@ -76,6 +86,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public DownloadMonitorControl()
 		{
 			InitializeComponent();
+			ApplyLocalization();
 			NmmIconProvider.Bind(tsbResume, NmmIconAction.Resume);
 			NmmIconProvider.Bind(tsbCancel, NmmIconAction.Cancel);
 			NmmIconProvider.Bind(tsbPause, NmmIconAction.Pause);
@@ -89,6 +100,44 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			gridControl.DataSource = _rows;
 			gridView.OptionsView.ColumnAutoWidth = true;
 			UpdateTitle();
+		}
+
+
+		/// <summary>
+		/// Applies static UI text once when the control is created.
+		/// </summary>
+		private void ApplyLocalization()
+		{
+			barActions.BarName = LanguageManager.Get("Downloads.Toolbar.Title", "Download Actions");
+			SetBarItemText(tsbResume, LanguageManager.Get("Downloads.Actions.Resume.Name", "Resume"));
+			SetBarItemText(tsbCancel, LanguageManager.Get("Common.Action.Cancel", "Cancel"));
+			SetBarItemText(tsbPause, LanguageManager.Get("Downloads.Actions.Pause.Name", "Pause"));
+			SetBarItemText(tsbRemove, LanguageManager.Get("Downloads.Actions.Remove.Name", "Remove"));
+			SetBarItemText(tsbResumeAll, LanguageManager.Get("Downloads.Actions.ResumeAll.Name", "Resume all"));
+			SetBarItemText(tsbRemoveAll, LanguageManager.Get("Downloads.Actions.RemoveAll.Name", "Remove all"));
+			SetBarItemText(tsbPurgeDownloads, LanguageManager.Get("Downloads.Actions.Purge.Name", "Purge Downloads"));
+			copyItem.Caption = LanguageManager.Get("Common.Action.CopyToClipboard", "Copy to clipboard");
+
+			SetColumnCaption("OverallMessage", LanguageManager.Get("Common.Column.Name", "Name"));
+			SetColumnCaption("OverallProgress", LanguageManager.Get("Downloads.Columns.Progress", "Progress"));
+			SetColumnCaption("Status", LanguageManager.Get("Common.Column.Status", "Status"));
+			SetColumnCaption("ItemMessage", LanguageManager.Get("Downloads.Columns.SpeedStep", "Speed / Step"));
+			SetColumnCaption("FileServer", LanguageManager.Get("Downloads.Columns.FileServer", "Fileserver"));
+			SetColumnCaption("ETA", LanguageManager.Get("Downloads.Columns.Eta", "ETA"));
+			SetColumnCaption("ItemProgress", LanguageManager.Get("Downloads.Columns.ThreadsStep", "Threads / Step"));
+		}
+
+		private static void SetBarItemText(BarItem item, string text)
+		{
+			item.Caption = text;
+			item.Hint = text;
+		}
+
+		private void SetColumnCaption(string fieldName, string caption)
+		{
+			DevExpress.XtraGrid.Columns.GridColumn column = gridView.Columns.ColumnByFieldName(fieldName);
+			if (column != null)
+				column.Caption = caption;
 		}
 
 		/// <summary>
@@ -269,8 +318,8 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			int activeCount = ViewModel == null ? 0 : ViewModel.ActiveTasks.Count;
 			int totalCount = ViewModel == null ? 0 : ViewModel.Tasks.Count;
 			Text = totalCount == activeCount
-				? string.Format(TitleAllActive, totalCount)
-				: string.Format(TitleSomeActive, activeCount, totalCount);
+				? string.Format(_titleAllActive, totalCount)
+				: string.Format(_titleSomeActive, activeCount, totalCount);
 		}
 
 		private void ViewModel_PurgingDownloads(object sender, EventArgs<IBackgroundTask> e)
@@ -336,6 +385,19 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		/// </summary>
 		private sealed class DownloadTaskRow
 		{
+			private static readonly string WorkingText = LanguageManager.Get("Common.Status.Working", "Working...");
+			private static readonly string RetryingText = LanguageManager.Get("Common.Status.Retrying", "Retrying");
+			private static readonly string DownloadingText = LanguageManager.Get("Downloads.Status.Downloading", "Downloading");
+			private static readonly string MovingText = LanguageManager.Get("Downloads.Status.Moving", "Moving");
+			private static readonly string IncompleteText = LanguageManager.Get("Common.Status.Incomplete", "Incomplete");
+			private static readonly string CompleteText = LanguageManager.Get("Common.Status.Complete", "Complete");
+			private static readonly string CancelledText = LanguageManager.Get("Common.Status.Cancelled", "Cancelled");
+			private static readonly string CancellingText = LanguageManager.Get("Common.Status.Cancelling", "Cancelling");
+			private static readonly string PausedText = LanguageManager.Get("Common.Status.Paused", "Paused");
+			private static readonly string RunningText = LanguageManager.Get("Common.Status.Running", "Running");
+			private static readonly string ErrorText = LanguageManager.Get("Common.Status.Error", "Error");
+			private static readonly string QueuedText = LanguageManager.Get("Common.Status.Queued", "Queued");
+
 			/// <summary>
 			/// Initializes a new download row.
 			/// </summary>
@@ -351,7 +413,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 				get
 				{
 					if (Task.ShowOverallProgressAsMarquee)
-						return "Working...";
+						return WorkingText;
 					if (Task.DownloadMaximum <= 0)
 						return string.Empty;
 					if (Task.Status != TaskStatus.Running && Task.Status != TaskStatus.Paused)
@@ -365,11 +427,11 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			{
 				get
 				{
-					if (Task.InnerTaskStatus.ToString() == "Retrying" && Task.Status != TaskStatus.Paused && Task.Status != TaskStatus.Queued)
-						return "Retrying";
+					if (Task.InnerTaskStatus == TaskStatus.Retrying && Task.Status != TaskStatus.Paused && Task.Status != TaskStatus.Queued)
+						return RetryingText;
 					if (Task.Status == TaskStatus.Running)
-						return Task.IsRemote ? "Downloading" : "Moving";
-					return Task.Status.ToString();
+						return Task.IsRemote ? DownloadingText : MovingText;
+					return GetStatusText(Task.Status);
 				}
 			}
 			public string ItemMessage
@@ -385,6 +447,23 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			}
 			public string FileServer { get { return Task.Status == TaskStatus.Running ? Task.FileServer : string.Empty; } }
 			public string ETA { get { return Task.Status == TaskStatus.Running ? string.Format("{0:00}:{1:00}:{2:00}", Task.ETA_Hours, Task.ETA_Minutes, Task.ETA_Seconds) : string.Empty; } }
+			private static string GetStatusText(TaskStatus status)
+			{
+				switch (status)
+				{
+					case TaskStatus.Incomplete: return IncompleteText;
+					case TaskStatus.Complete: return CompleteText;
+					case TaskStatus.Cancelled: return CancelledText;
+					case TaskStatus.Cancelling: return CancellingText;
+					case TaskStatus.Paused: return PausedText;
+					case TaskStatus.Running: return RunningText;
+					case TaskStatus.Error: return ErrorText;
+					case TaskStatus.Retrying: return RetryingText;
+					case TaskStatus.Queued: return QueuedText;
+					default: return status.ToString();
+				}
+			}
+
 			public string ItemProgress
 			{
 				get
@@ -394,7 +473,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 					if (Task.ActiveThreads > 0)
 						return Task.ActiveThreads.ToString();
 					if (Task.ShowItemProgressAsMarquee)
-						return "Working...";
+						return WorkingText;
 					return string.Empty;
 				}
 			}

@@ -38,6 +38,7 @@
 	using Nexus.Client.UI;
 	using Nexus.Client.Util;
 	using Nexus.Client.Util.Collections;
+	using Nexus.Client.Util.Localization;
 	using Nexus.UI.Controls;
 
 	using DevExpress.LookAndFeel;
@@ -62,6 +63,25 @@
 		private bool _activePluginsProfileSavePending;
 		private readonly List<ITool> _boundGameTools = new List<ITool>();
 
+		// Localized status text used by frequently-fired UI update paths. Resolve once
+		// when the MainForm is constructed so normal counters/refresher events never
+		// perform localization lookups.
+		private string _statusTotalPluginsPrefix;
+		private string _statusActivePluginsPrefix;
+		private string _statusTotalModsPrefix;
+		private string _statusInstalledModsPrefix;
+		private string _statusActiveModsPrefix;
+		private string _statusDownloadProgressLabel;
+		private string _statusFileSingular;
+		private string _statusFilePlural;
+		private string _statusTooManyPluginsHintFormat;
+		private string _statusNotLoggedIn;
+		private string _statusLoginHint;
+		private string _statusLogoutHint;
+		private string _statusActivationInstalling;
+		private string _statusActivationUninstalling;
+		private string _statusActivationUpgrading;
+
 		private const string DevExpressSkinSettingsKey = "mainForm.DevExpressSkin";
 
 		private BarStaticItem _devExpressSkinLabel;
@@ -72,6 +92,30 @@
 		public string OptionalPremiumMessage = string.Empty;
 
 		FormWindowState LastWindowState = FormWindowState.Minimized;
+
+		private static string L(string key, string fallback)
+		{
+			return LanguageManager.Get(key, fallback);
+		}
+
+		private void InitializeMainLocalizationCache()
+		{
+			_statusTotalPluginsPrefix = L("MainForm.Status.TotalPlugins", "  Total plugins: ");
+			_statusActivePluginsPrefix = L("MainForm.Status.ActivePlugins", "     Active plugins: ");
+			_statusTotalModsPrefix = L("MainForm.Status.TotalMods", "  Total mods: ");
+			_statusInstalledModsPrefix = L("MainForm.Status.InstalledMods", "     Installed mods: ");
+			_statusActiveModsPrefix = L("MainForm.Status.ActiveMods", "     Active mods: ");
+			_statusDownloadProgressLabel = L("MainForm.Status.DownloadProgress", "Download Progress:");
+			_statusFileSingular = L("MainForm.Status.FileSingular", "File");
+			_statusFilePlural = L("MainForm.Status.FilePlural", "Files");
+			_statusTooManyPluginsHintFormat = LanguageManager.GetFormat("MainForm.Status.TooManyActivePlugins", "There may be too many active plugins. {0} might not start!");
+			_statusNotLoggedIn = L("MainForm.Status.NotLoggedIn", "You are not logged in.");
+			_statusLoginHint = L("MainForm.Status.Login", "Login");
+			_statusLogoutHint = L("MainForm.Status.Logout", "Logout");
+			_statusActivationInstalling = L("MainForm.Status.ModActivation.Installing", "Mod Activation: Installing ");
+			_statusActivationUninstalling = L("MainForm.Status.ModActivation.Uninstalling", "Mod Activation: Uninstalling ");
+			_statusActivationUpgrading = L("MainForm.Status.ModActivation.Upgrading", "Mod Activation: Upgrading ");
+		}
 
 
 		#region Properties
@@ -135,7 +179,7 @@
 				ClearTransientPopupItems(popupHelp);
 				foreach (HelpInformation.HelpLink helpLink in _viewModel.HelpInfo.HelpLinks)
 				{
-					BarButtonItem helpItem = new BarButtonItem(barManagerMain, helpLink.Name)
+					BarButtonItem helpItem = new BarButtonItem(barManagerMain, GetHelpLinkCaption(helpLink.Name))
 					{
 						Tag = helpLink,
 						Hint = helpLink.Url
@@ -154,6 +198,21 @@
 				}
 
 				BindCommands();
+			}
+		}
+
+		private static string GetHelpLinkCaption(string name)
+		{
+			switch (name)
+			{
+				case "Support and Feedback (Official NMM Discord)":
+					return L("MainForm.Help.SupportFeedback", "Support and Feedback (Official NMM Discord)");
+				case "Beta Wiki":
+					return L("MainForm.Help.BetaWiki", "Beta Wiki");
+				case "Report a Bug":
+					return L("MainForm.Help.ReportBug", "Report a Bug");
+				default:
+					return name;
 			}
 		}
 
@@ -189,6 +248,7 @@
 
 			// Restore the global skin before any DevExpress controls are created.
 			InitializeDevExpressLookAndFeel(viewModel);
+			InitializeMainLocalizationCache();
 
 			InitializeComponent();
 			InitializeMainBars();
@@ -251,7 +311,7 @@
 
 		private void OnRateLimitExceeded(RateLimitExceededArgs args)
 		{
-			XtraMessageBox.Show(this, $"You've reached your daily and hourly limit. Try again in {Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} minutes.", "API Rate Limit exceeded", MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+			XtraMessageBox.Show(this, LanguageManager.Format("MainForm.RateLimit.Exceeded.Message", "You've reached your daily and hourly limit. Try again in {0} minutes.", Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)), L("MainForm.RateLimit.Exceeded.Title", "API Rate Limit exceeded"), MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
 		}
 
 		private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
@@ -261,14 +321,14 @@
 				var rateLimit = ViewModel.ModRepository.RateLimit;
 				var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
 
-				var info =
-					$"Daily: {rateLimit.DailyRemaining}/{rateLimit.DailyLimit} requests left (resets in {dailyReset.Hours}h {dailyReset.Minutes} m)\n" +
-					$"Hourly: {rateLimit.HourlyRemaining}/{rateLimit.HourlyLimit} requests left (resets in {Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)} m)";
-				XtraMessageBox.Show(this, info, "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				var info = LanguageManager.Format("MainForm.RateLimit.Status.Message", "Daily: {0}/{1} requests left (resets in {2}h {3} m)\nHourly: {4}/{5} requests left (resets in {6} m)",
+					rateLimit.DailyRemaining, rateLimit.DailyLimit, dailyReset.Hours, dailyReset.Minutes,
+					rateLimit.HourlyRemaining, rateLimit.HourlyLimit, Math.Floor((rateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes));
+				XtraMessageBox.Show(this, info, L("MainForm.RateLimit.Status.Title", "API Rate Limit status"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			else
 			{
-				XtraMessageBox.Show(this, "You need to be logged in to view rate limits.", "API Rate Limit status", MessageBoxButtons.OK, MessageBoxIcon.Hand);
+				XtraMessageBox.Show(this, L("MainForm.RateLimit.LoginRequired", "You need to be logged in to view rate limits."), L("MainForm.RateLimit.Status.Title", "API Rate Limit status"), MessageBoxButtons.OK, MessageBoxIcon.Hand);
 			}
 		}
 
@@ -295,17 +355,18 @@
 
 			if (ViewModel.RequiresModMigration())
 			{
-				var strMigrationWarning = "NMM found an old install-log setup for this game mode." + Environment.NewLine + Environment.NewLine +
+				var strMigrationWarning = LanguageManager.Format("MainForm.Startup.LegacyInstall.Message", "NMM found an old install-log setup for this game mode." + Environment.NewLine + Environment.NewLine +
 					"The legacy migration tool used to reinstall or uninstall every active mod automatically. That process is no longer run at startup because it can remove working files without enough user control." + Environment.NewLine + Environment.NewLine +
-					"Detected active install-log entries: " + ViewModel.ModManager.InstallationLog.ActiveMods.Count + Environment.NewLine +
-					"Virtual install folder: " + ViewModel.ModManager.VirtualModActivator.VirtualPath + Environment.NewLine + Environment.NewLine +
+					"Detected active install-log entries: {0}" + Environment.NewLine +
+					"Virtual install folder: {1}" + Environment.NewLine + Environment.NewLine +
 					"NMM will keep the existing files in place. Some profile and virtual-install features may not work correctly until this setup is repaired manually." + Environment.NewLine + Environment.NewLine +
 					"Recommended recovery path:" + Environment.NewLine +
 					"1. Back up the game folder, NMM config folder, and mod archives." + Environment.NewLine +
 					"2. Verify that the Mods folder and Virtual Install folder in Settings point to the correct locations." + Environment.NewLine +
-					"3. Reinstall or reactivate the affected mods manually once the folders are correct.";
+					"3. Reinstall or reactivate the affected mods manually once the folders are correct.",
+					ViewModel.ModManager.InstallationLog.ActiveMods.Count, ViewModel.ModManager.VirtualModActivator.VirtualPath);
 
-				ExtendedMessageBox.Show(this, strMigrationWarning, "Legacy install setup detected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				ExtendedMessageBox.Show(this, strMigrationWarning, L("MainForm.Startup.LegacyInstall.Title", "Legacy install setup detected"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 
 				if (!ViewModel.ModManager.VirtualModActivator.Initialized)
 				{
@@ -322,7 +383,7 @@
 			string warning = ViewModel.RequiresStartupWarning();
 			if (!string.IsNullOrEmpty(warning))
 			{
-				ExtendedMessageBox.Show(this, warning, "New game version disclaimer", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				ExtendedMessageBox.Show(this, warning, L("MainForm.Startup.GameDisclaimer.Title", "New game version disclaimer"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -394,7 +455,7 @@
 			_devExpressSkinLabel = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = "UI Skin:"
+				Caption = L("MainForm.Skin.Caption", "UI Skin:")
 			};
 
 			_devExpressSkinRepository = new RepositoryItemComboBox
@@ -406,7 +467,7 @@
 			_devExpressSkinComboBox = new BarEditItem(barManagerMain, _devExpressSkinRepository)
 			{
 				EditWidth = 165,
-				Hint = "Select the appearance of DevExpress controls"
+				Hint = L("MainForm.Skin.Hint", "Select the appearance of DevExpress controls")
 			};
 
 			_updatingDevExpressSkinSelector = true;
@@ -461,7 +522,7 @@
 				ViewModel.EnvironmentInfo.Settings.Save();
 			}
 
-			_devExpressSkinComboBox.Hint = "Current skin: " + skinName;
+			_devExpressSkinComboBox.Hint = LanguageManager.Format("MainForm.Skin.Current", "Current skin: {0}", skinName);
 		}
 
 		#endregion
@@ -481,7 +542,7 @@
 
 			if (ViewModel.UsesPlugins)
 			{
-				toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "     Active plugins: ";
+				toolStripLabelPluginsCounter.Caption = _statusTotalPluginsPrefix + ViewModel.PluginManagerVM.ManagedPlugins.Count + _statusActivePluginsPrefix;
 
 				var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
@@ -503,7 +564,7 @@
 					}
 
 					toolStripLabelActivePluginsCounter.Caption = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
-					toolStripLabelActivePluginsCounter.Hint = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!";
+					toolStripLabelActivePluginsCounter.Hint = String.Format(_statusTooManyPluginsHintFormat, ViewModel.CurrentGameModeName);
 				}
 				else
 				{
@@ -546,7 +607,7 @@
 					toolStripProgressBarDownloadSpeed.Visible = false;
 				}
 
-				toolStripLabelLoginMessage.Caption = "You are not logged in.";
+				toolStripLabelLoginMessage.Caption = _statusNotLoggedIn;
 				SetBarItemFontStyle(toolStripLabelLoginMessage, FontStyle.Bold);
 				SetBarItemVisible(toolStripButtonGoPremium, false);
 				toolStripButtonOnlineStatus.ImageOptions.Image = new Bitmap(Properties.Resources.loggedout_flat, 32, 30);
@@ -570,7 +631,7 @@
 					toolStripProgressBarDownloadSpeed.ColorFillMode = DownloadProgressBarItem.FillType.Ascending;
 					toolStripProgressBarDownloadSpeed.ShowOptionalProgress = true;
 				}
-				toolStripLabelDownloads.Tag = "Download Progress:";
+				toolStripLabelDownloads.Tag = _statusDownloadProgressLabel;
 				//}
 				//else
 				//{
@@ -595,7 +656,7 @@
 					toolStripProgressBarDownloadSpeed.Visible = true;
 				}
 
-				toolStripLabelDownloads.Caption = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files")}) ";
+				toolStripLabelDownloads.Caption = $"{toolStripLabelDownloads.Tag} ({_downloadMonitorControl.ViewModel.ActiveTasks.Count} {(_downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? _statusFileSingular : _statusFilePlural)}) ";
 			}
 		}
 
@@ -626,8 +687,8 @@
 
 			if (targetMods.Count == 0)
 			{
-				XtraMessageBox.Show(this, "No uncategorized mods were found - nothing to repair.",
-					"Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(this, L("MainForm.RepairFomodCache.NothingToRepair", "No uncategorized mods were found - nothing to repair."),
+					L("MainForm.RepairFomodCache.Title", "Repair FOMOD Info Cache"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 				return;
 			}
 
@@ -636,8 +697,8 @@
 			var cacheDirectory = ViewModel.GameMode.GameModeEnvironmentInfo.ModCacheDirectory;
 			var archivePaths = targetMods.Select(mod => mod.ModArchivePath).ToList();
 
-			SplashScreenManager.ShowDefaultWaitForm("Repair FOMOD Info Cache",
-				string.Format("Checking {0} uncategorized mod(s)...", targetMods.Count));
+			SplashScreenManager.ShowDefaultWaitForm(L("MainForm.RepairFomodCache.Title", "Repair FOMOD Info Cache"),
+				LanguageManager.Format("MainForm.RepairFomodCache.Checking", "Checking {0} uncategorized mod(s)...", targetMods.Count));
 
 			FOModCacheRepairTool.RepairResult result;
 			try
@@ -647,8 +708,8 @@
 			catch (Exception e)
 			{
 				TraceUtil.TraceException(e);
-				XtraMessageBox.Show(this, "The repair could not be completed: " + e.Message,
-					"Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				XtraMessageBox.Show(this, LanguageManager.Format("MainForm.RepairFomodCache.Failed", "The repair could not be completed: {0}", e.Message),
+					L("MainForm.RepairFomodCache.Title", "Repair FOMOD Info Cache"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
 			finally
@@ -661,15 +722,15 @@
 				Trace.TraceWarning("RepairFomodInfoCache: " + error);
 			}
 
-			var message = string.Format("Checked {0} uncategorized mod(s).{1}Restored info for {2} mod(s) from the legacy cache. If the mod cache was restored the program will automatically restart.",
+			var message = LanguageManager.Format("MainForm.RepairFomodCache.Summary", "Checked {0} uncategorized mod(s).{1}Restored info for {2} mod(s) from the legacy cache. If the mod cache was restored the program will automatically restart.",
 				targetMods.Count, Environment.NewLine, result.FixedCount);
 
 			if (result.Errors.Count > 0)
 			{
-				message += string.Format("{0}{0}{1} issue(s) were logged to the trace log.", Environment.NewLine, result.Errors.Count);
+				message += LanguageManager.Format("MainForm.RepairFomodCache.IssuesLogged", "{0}{0}{1} issue(s) were logged to the trace log.", Environment.NewLine, result.Errors.Count);
 			}
 
-			XtraMessageBox.Show(this, message, "Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, message, L("MainForm.RepairFomodCache.Title", "Repair FOMOD Info Cache"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 
 			if (result.FixedCount > 0)
 			{
@@ -681,7 +742,7 @@
 					reloadGameModeCommand.Execute();
 				}
 				else
-					XtraMessageBox.Show(this, "Unable to restart. Please close and restart manually to complete the cache restore process.", "Repair FOMOD Info Cache", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					XtraMessageBox.Show(this, L("MainForm.RepairFomodCache.RestartFailed", "Unable to restart. Please close and restart manually to complete the cache restore process."), L("MainForm.RepairFomodCache.Title", "Repair FOMOD Info Cache"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -696,10 +757,10 @@
 			}
 			else
 			{
-				XtraMessageBox.Show("Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
+				XtraMessageBox.Show(L("MainForm.PluginSorting.Unavailable", "Nexus Mod Manager was unable to properly initialize the Automatic Sorting functionality." +
 								Environment.NewLine + Environment.NewLine + "This game is not supported or something is wrong with your loadorder.txt or plugins.txt files," +
-								Environment.NewLine + "or one or more plugins are corrupt/broken.",
-					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+								Environment.NewLine + "or one or more plugins are corrupt/broken."),
+					L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -726,7 +787,7 @@
 		{
 			if (ViewModel.UsesPlugins)
 			{
-				var drPurgeLooseFiles = ExtendedMessageBox.Show(this, "USE THIS FUNCTION AT YOUR OWN RISK: Would you like to clean your game folder from unmanaged files (not installed by NMM and not official game files)? Legit files may be lost if the mod manager doesn't recognize them as official game files.", "Purge Unmanaged Files", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				var drPurgeLooseFiles = ExtendedMessageBox.Show(this, L("MainForm.PurgeUnmanagedFiles.Confirm", "USE THIS FUNCTION AT YOUR OWN RISK: Would you like to clean your game folder from unmanaged files (not installed by NMM and not official game files)? Legit files may be lost if the mod manager doesn't recognize them as official game files."), L("MainForm.Tools.PurgeUnmanagedFiles.Name", "Purge Unmanaged Files"), MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
 				if (drPurgeLooseFiles == DialogResult.Yes)
 				{
@@ -742,14 +803,13 @@
 		{
 			if (ViewModel.ProfileManager.RestoreBackupProfile(ViewModel.GameMode.ModeId, out var error) == false)
 			{
-				XtraMessageBox.Show("Nexus Mod Manager was unable to restore your backup profile." +
-					Environment.NewLine + Environment.NewLine + error,
-					"Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				XtraMessageBox.Show(LanguageManager.Format("Profiles.BackupRestore.Failed", "Nexus Mod Manager was unable to restore your backup profile." + Environment.NewLine + Environment.NewLine + "{0}", error),
+					L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			else
 			{
-				XtraMessageBox.Show(String.Format("{0} has been successfully added to your profile list.", error),
-					"Restored", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(LanguageManager.Format("Profiles.BackupRestore.Success", "{0} has been successfully added to your profile list.", error),
+					L("Profiles.BackupRestore.RestoredTitle", "Restored"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -823,12 +883,12 @@
 			if (authenticationFormTask.OverallMessage != null && authenticationFormTask.OverallMessage.Contains("Logged in"))
 			{
 				toolStripLabelLoginMessage.Caption = $"{authenticationFormTask.OverallMessage}{OptionalPremiumMessage}";
-				toolStripButtonOnlineStatus.Hint = "Logout";
+				toolStripButtonOnlineStatus.Hint = _statusLogoutHint;
 			}
 			else
 			{
 				toolStripLabelLoginMessage.Caption = authenticationFormTask.OverallMessage;
-				toolStripButtonOnlineStatus.Hint = "Login";
+				toolStripButtonOnlineStatus.Hint = _statusLoginHint;
 			}
 		}
 
@@ -855,7 +915,7 @@
 		{
 			if (ViewModel.DownloadMonitorVM.ActiveTasks.Count > 0)
 			{
-				var drFormClose = XtraMessageBox.Show($"There is an ongoing download, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				var drFormClose = XtraMessageBox.Show(LanguageManager.Format("MainForm.Close.DownloadInProgress", "There is an ongoing download, are you sure you want to close {0}?", Application.ProductName), L("MainForm.Close.Title", "Closing"), MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
 				if (drFormClose != DialogResult.Yes)
 				{
@@ -865,7 +925,7 @@
 
 			if (ViewModel.IsInstalling)
 			{
-				var drFormClose = XtraMessageBox.Show($"There is an ongoing mod install/uninstall, are you sure you want to close {Application.ProductName}?", "Closing", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
+				var drFormClose = XtraMessageBox.Show(LanguageManager.Format("MainForm.Close.ModOperationInProgress", "There is an ongoing mod install/uninstall, are you sure you want to close {0}?", Application.ProductName), L("MainForm.Close.Title", "Closing"), MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation);
 
 				if (drFormClose != DialogResult.Yes)
 				{
@@ -924,7 +984,7 @@
 		/// </summary>
 		private void UpdateModsFeedback()
 		{
-			tlbModsCounter.Caption = "  Total mods: " + ViewModel.ModManagerVM.ManagedMods.Count + "     Installed mods: " + ViewModel.ModManager.ActiveMods.Count + "     Active mods: " + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
+			tlbModsCounter.Caption = _statusTotalModsPrefix + ViewModel.ModManagerVM.ManagedMods.Count + _statusInstalledModsPrefix + ViewModel.ModManager.ActiveMods.Count + _statusActiveModsPrefix + ViewModel.ModManager.VirtualModActivator.ActiveModList.Count();
 		}
 
 		/// <summary>
@@ -932,7 +992,7 @@
 		/// </summary>
 		private void PmcPluginManagerControlUpdatePluginsCount(object sender, EventArgs e)
 		{
-			toolStripLabelPluginsCounter.Caption = "  Total plugins: " + ViewModel.PluginManagerVM.ManagedPlugins.Count + "     Active plugins: ";
+			toolStripLabelPluginsCounter.Caption = _statusTotalPluginsPrefix + ViewModel.PluginManagerVM.ManagedPlugins.Count + _statusActivePluginsPrefix;
 			var myFontFamily = new FontFamily(GetBarItemFont(toolStripLabelActivePluginsCounter).Name);
 
 			int limitedPluginsCount = ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null && !x.IgnoreIndexing);
@@ -953,7 +1013,7 @@
 				}
 
 				toolStripLabelActivePluginsCounter.Caption = limitedPluginsCount.ToString() + " (" + ViewModel.PluginManagerVM.ActivePlugins.Count(x => x != null).ToString() + ")";
-				toolStripLabelActivePluginsCounter.Hint = $"There may be too many active plugins. {ViewModel.CurrentGameModeName} might not start!"; ;
+				toolStripLabelActivePluginsCounter.Hint = String.Format(_statusTooManyPluginsHintFormat, ViewModel.CurrentGameModeName);
 			}
 			else
 			{
@@ -1074,15 +1134,15 @@
 						{
 							if (task.GetType() == typeof(ModInstaller))
 							{
-								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Installing ";
+								toolStripLabelBottomBarFeedback.Caption = _statusActivationInstalling;
 							}
 							else if (task.GetType() == typeof(ModUninstaller))
 							{
-								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Uninstalling ";
+								toolStripLabelBottomBarFeedback.Caption = _statusActivationUninstalling;
 							}
 							else if (task.GetType() == typeof(ModUpgrader))
 							{
-								toolStripLabelBottomBarFeedback.Caption = "Mod Activation: Upgrading ";
+								toolStripLabelBottomBarFeedback.Caption = _statusActivationUpgrading;
 							}
 						}
 
@@ -1216,7 +1276,7 @@
 		{
 			if (!ViewModel.OfflineMode)
 			{
-				if (ExtendedMessageBox.Show(this, "Do you want to logout? This will require you to authorize NMM again the next time you try to log in.", "Logout", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+				if (ExtendedMessageBox.Show(this, L("MainForm.Logout.Confirm", "Do you want to logout? This will require you to authorize NMM again the next time you try to log in."), L("MainForm.Status.Logout", "Logout"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
 				{
 					e.Cancel = true;
 				}
@@ -1342,8 +1402,8 @@
 
 						if (!string.IsNullOrEmpty(strError))
 						{
-							strError = strError + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-							XtraMessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+							strError = LanguageManager.Format("Profiles.SaveFailed.Message", "{0}" + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu", strError);
+							XtraMessageBox.Show(strError, L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						}
 					}
 					catch (SQLiteException ex)
@@ -1356,8 +1416,8 @@
 					}
 					catch (IOException ex)
 					{
-						string strError = ex.Message + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-						XtraMessageBox.Show(strError, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						string strError = LanguageManager.Format("Profiles.SaveFailed.Message", "{0}" + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu", ex.Message);
+						XtraMessageBox.Show(strError, L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 				}
 			}
@@ -1418,7 +1478,7 @@
 
 			if (!ViewModel.OfflineMode)
 			{
-				toolStripLabelDownloads.Caption = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
+				toolStripLabelDownloads.Caption = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? _statusFileSingular : _statusFilePlural);
 				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
 				{
 					UpdateProgressBarSpeed("TotalSpeed", true);
@@ -1451,13 +1511,13 @@
 					foreach (AddModTask Task in e.OldItems)
 						if (!String.IsNullOrEmpty(Task.ErrorCode) && Task.ErrorCode == "666" && !(Task.Status == BackgroundTasks.TaskStatus.Cancelling || Task.Status == BackgroundTasks.TaskStatus.Cancelled || Task.Status == BackgroundTasks.TaskStatus.Complete))
 						{
-							XtraMessageBox.Show(String.Format("The NMM web services have currently been disabled by staff of the sites."
+							XtraMessageBox.Show(LanguageManager.Format("MainForm.WebServices.Disabled", "The NMM web services have currently been disabled by staff of the sites."
 								+ " This is NOT an error with NMM and you DO NOT need to report this error to us."
 								+ " This is normally a temporary problem so please try again a bit later on in the day." + Environment.NewLine
-								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+								+ "If the staff have provided a reason for this down time we'll display it below: {0}", Environment.NewLine + Environment.NewLine + Task.ErrorInfo), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 						}
 				}
-				toolStripLabelDownloads.Caption = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? "File" : "Files");
+				toolStripLabelDownloads.Caption = String.Format("{0} ({1} {2}) ", toolStripLabelDownloads.Tag, _downloadMonitorControl.ViewModel.ActiveTasks.Count, _downloadMonitorControl.ViewModel.ActiveTasks.Count == 1 ? _statusFileSingular : _statusFilePlural);
 				if (_downloadMonitorControl.ViewModel.ActiveTasks.Count <= 0)
 					UpdateProgressBarSpeed("TotalSpeed", true);
 			}
@@ -1644,8 +1704,8 @@
 				BarButtonItem item = CreateCommandBarButton(changeCommand, NmmIconAction.ChangeGame);
 				if (isReloadCommand)
 				{
-					item.Caption = $"Reload {changeCommand.Name}";
-					item.Hint = $"Reload {changeCommand.Name}";
+					item.Caption = LanguageManager.Format("MainForm.ChangeGameMode.Reload", "Reload {0}", changeCommand.Name);
+					item.Hint = LanguageManager.Format("MainForm.ChangeGameMode.Reload", "Reload {0}", changeCommand.Name);
 				}
 				BarItemLink link = popupChangeMode.AddItem(item);
 
@@ -1694,37 +1754,37 @@
 			}
 			_boundGameTools.Clear();
 
-			Command resetUiCommand = new Command("Reset UI", "Resets the UI to the default layout.", ResetUI);
+			Command resetUiCommand = new Command(L("MainForm.Tools.ResetUI.Name", "Reset UI"), L("MainForm.Tools.ResetUI.Description", "Resets the UI to the default layout."), ResetUI);
 			popupTools.AddItem(CreateCommandBarButton(resetUiCommand, NmmIconAction.Reset));
 
-			Command repairFomodInfoCacheCommand = new Command("Repair FOMOD Info Cache", "Restores mod info (name, version, description) for uncategorized mods from the legacy FOMOD cache, where available.", RepairFomodInfoCache);
+			Command repairFomodInfoCacheCommand = new Command(L("MainForm.Tools.RepairFomodCache.Name", "Repair FOMOD Info Cache"), L("MainForm.Tools.RepairFomodCache.Description", "Restores mod info (name, version, description) for uncategorized mods from the legacy FOMOD cache, where available."), RepairFomodInfoCache);
 			popupTools.AddItem(CreateCommandBarButton(repairFomodInfoCacheCommand, NmmIconAction.Repair));
 
-			Command disableAllModsCommand = new Command("Disable all active mods", "Disables all active mods.", DisableAllMods);
+			Command disableAllModsCommand = new Command(L("MainForm.Tools.DisableAllMods.Name", "Disable all active mods"), L("MainForm.Tools.DisableAllMods.Description", "Disables all active mods."), DisableAllMods);
 			popupTools.AddItem(CreateCommandBarButton(disableAllModsCommand, NmmIconAction.Disable));
 
-			Command uninstallAllModsCommand = new Command("Uninstall all active mods", "Uninstalls all active mods.", UninstallAllMods);
+			Command uninstallAllModsCommand = new Command(L("MainForm.Tools.UninstallAllMods.Name", "Uninstall all active mods"), L("MainForm.Tools.UninstallAllMods.Description", "Uninstalls all active mods."), UninstallAllMods);
 			popupTools.AddItem(CreateCommandBarButton(uninstallAllModsCommand, NmmIconAction.Uninstall));
 
-			Command purgeLooseFilesCommand = new Command("Purge Unmanaged Files", "Purge Unmanaged Files.", PurgeLooseFiles);
+			Command purgeLooseFilesCommand = new Command(L("MainForm.Tools.PurgeUnmanagedFiles.Name", "Purge Unmanaged Files"), L("MainForm.Tools.PurgeUnmanagedFiles.Description", "Purge Unmanaged Files."), PurgeLooseFiles);
 			popupTools.AddItem(CreateCommandBarButton(purgeLooseFilesCommand, NmmIconAction.Purge));
 
-			BarSubItem backupMenu = new BarSubItem(barManagerMain, "Backup and Restore");
+			BarSubItem backupMenu = new BarSubItem(barManagerMain, L("MainForm.Tools.BackupRestore", "Backup and Restore"));
 			NmmIconProvider.Bind(backupMenu, NmmIconAction.Backup);
-			Command createBackupCommand = new Command("Create Mod Installation backup.", "Create Mod Installation backup.", CreateBackup);
-			Command restoreBackupCommand = new Command("Restore Mod Installation backup", "Restore Mod Installation backup.", RestoreBackup);
-			Command restoreBackupProfileCommand = new Command("Restore the backup profile", "Adds the backup profile to the profile list.", RestoreBackupProfile);
+			Command createBackupCommand = new Command(L("MainForm.Tools.CreateBackup.Name", "Create Mod Installation backup."), L("MainForm.Tools.CreateBackup.Description", "Create Mod Installation backup."), CreateBackup);
+			Command restoreBackupCommand = new Command(L("MainForm.Tools.RestoreBackup.Name", "Restore Mod Installation backup"), L("MainForm.Tools.RestoreBackup.Description", "Restore Mod Installation backup."), RestoreBackup);
+			Command restoreBackupProfileCommand = new Command(L("MainForm.Tools.RestoreBackupProfile.Name", "Restore the backup profile"), L("MainForm.Tools.RestoreBackupProfile.Description", "Adds the backup profile to the profile list."), RestoreBackupProfile);
 			backupMenu.AddItem(CreateCommandBarButton(createBackupCommand, NmmIconAction.Backup));
 			backupMenu.AddItem(CreateCommandBarButton(restoreBackupCommand, NmmIconAction.Restore));
 			backupMenu.AddItem(CreateCommandBarButton(restoreBackupProfileCommand, NmmIconAction.Restore));
 			popupTools.AddItem(backupMenu);
 
-			Command configureVirtualFoldersCommand = new Command("Change Virtual folders...", "Virtual folders setup menu.", ChangeVirtualFolders);
+			Command configureVirtualFoldersCommand = new Command(L("MainForm.Tools.VirtualFolders.Name", "Change Virtual folders..."), L("MainForm.Tools.VirtualFolders.Description", "Virtual folders setup menu."), ChangeVirtualFolders);
 			popupTools.AddItem(CreateCommandBarButton(configureVirtualFoldersCommand, NmmIconAction.OpenFolder));
 
 			if (ViewModel.UsesPlugins && ViewModel.SupportsPluginAutoSorting)
 			{
-				Command sortPluginsCommand = new Command("Automatic Plugin Sorting", "Automatically sorts the plugin list.", SortPlugins);
+				Command sortPluginsCommand = new Command(L("MainForm.Tools.AutoSortPlugins.Name", "Automatic Plugin Sorting"), L("MainForm.Tools.AutoSortPlugins.Description", "Automatically sorts the plugin list."), SortPlugins);
 				popupTools.AddItem(CreateCommandBarButton(sortPluginsCommand, NmmIconAction.Sort));
 			}
 
@@ -1802,11 +1862,11 @@
 		{
 			ClearTransientPopupItems(popupFolders);
 
-			Command cmdGameFolder = new Command("Open Game Folder", "Open the game's root folder in the explorer window.", OpenGameFolder);
-			Command cmdModsFolder = new Command("Open NMM's Mods Folder", "Open NMM's mods folder in the explorer window.", OpenModsFolder);
-			Command cmdCacheFolder = new Command("Open NMM's Cache Folder", "Open NMM's cache folder in the explorer window.", OpenCacheFolder);
-			Command cmdInstallFolder = new Command("Open NMM's Install Info Folder", "Open NMM's install info folder in the explorer window.", OpenInstallFolder);
-			Command cmdConfigFolder = new Command("Open NMM's Config Folder", "Open NMM's config in the explorer window.", OpenConfigFolder);
+			Command cmdGameFolder = new Command(L("MainForm.Folders.Game.Name", "Open Game Folder"), L("MainForm.Folders.Game.Description", "Open the game's root folder in the explorer window."), OpenGameFolder);
+			Command cmdModsFolder = new Command(L("MainForm.Folders.Mods.Name", "Open NMM's Mods Folder"), L("MainForm.Folders.Mods.Description", "Open NMM's mods folder in the explorer window."), OpenModsFolder);
+			Command cmdCacheFolder = new Command(L("MainForm.Folders.Cache.Name", "Open NMM's Cache Folder"), L("MainForm.Folders.Cache.Description", "Open NMM's cache folder in the explorer window."), OpenCacheFolder);
+			Command cmdInstallFolder = new Command(L("MainForm.Folders.InstallInfo.Name", "Open NMM's Install Info Folder"), L("MainForm.Folders.InstallInfo.Description", "Open NMM's install info folder in the explorer window."), OpenInstallFolder);
+			Command cmdConfigFolder = new Command(L("MainForm.Folders.Config.Name", "Open NMM's Config Folder"), L("MainForm.Folders.Config.Description", "Open NMM's config in the explorer window."), OpenConfigFolder);
 
 			popupFolders.AddItem(CreateCommandBarButton(cmdGameFolder, NmmIconAction.OpenFolder));
 			popupFolders.AddItem(CreateCommandBarButton(cmdModsFolder, NmmIconAction.OpenFolder));
@@ -1865,7 +1925,7 @@
 			}
 			catch (Win32Exception)
 			{
-				XtraMessageBox.Show(this, "Cannot find program to open: " + helpLink.Url, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				XtraMessageBox.Show(this, LanguageManager.Format("MainForm.Help.OpenFailed", "Cannot find program to open: {0}", helpLink.Url), L("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 				Trace.WriteLine("Cannot find program to open: " + helpLink.Url);
 			}
 		}
@@ -1893,7 +1953,7 @@
 			DialogResult drProfileSwitch = ProgressDialog.ShowDialog(this, e.Argument, false);
 			if (drProfileSwitch != DialogResult.OK || e.Argument.Status != BackgroundTasks.TaskStatus.Complete)
 			{
-				HandleFailedProfileSwitch(GetBackgroundTaskError(e.Argument, "The selected profile could not be activated."));
+				HandleFailedProfileSwitch(GetBackgroundTaskError(e.Argument, L("Profiles.Switch.ActivationFailed", "The selected profile could not be activated.")));
 				return;
 			}
 
@@ -1911,7 +1971,7 @@
 					DialogResult drLoadOrder = ProgressDialog.ShowDialog(this, bgtLoadOrder, false);
 					if (drLoadOrder != DialogResult.OK || bgtLoadOrder.Status != BackgroundTasks.TaskStatus.Complete)
 					{
-						HandleFailedProfileSwitch(GetBackgroundTaskError(bgtLoadOrder, "The profile plugin state is invalid and could not be applied."));
+						HandleFailedProfileSwitch(GetBackgroundTaskError(bgtLoadOrder, L("Profiles.Switch.PluginStateInvalid", "The profile plugin state is invalid and could not be applied.")));
 						return;
 					}
 
@@ -1928,7 +1988,7 @@
 
 			var strOptionalToolPath = ViewModel.GameMode.PostProfileSwitchTool(out var message);
 
-			if (!string.IsNullOrEmpty(strOptionalToolPath) && File.Exists(strOptionalToolPath) && ExtendedMessageBox.Show(this, message, "Optional tool detected", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+			if (!string.IsNullOrEmpty(strOptionalToolPath) && File.Exists(strOptionalToolPath) && ExtendedMessageBox.Show(this, message, L("Profiles.Switch.OptionalTool.Title", "Optional tool detected"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 			{
 				ViewModel.GameMode.SupportedToolsLauncher.LaunchDefaultCommand();
 			}
@@ -1943,7 +2003,7 @@
 
 			if (e.Argument?.ReturnValue is bool && (bool)e.Argument.ReturnValue)
 			{
-				XtraMessageBox.Show("Restore Complete! NMM will restart automatically to apply the changes.", "Restore Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(L("Profiles.Restore.CompleteRestart", "Restore Complete! NMM will restart automatically to apply the changes."), L("Profiles.Restore.CompleteTitle", "Restore Complete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 				ViewModel.RequestGameMode(ViewModel.GameMode.ModeId);
 				ChangeGameModeCommand_Executed(sender, new EventArgs());
 			}
@@ -1962,7 +2022,7 @@
 			{
 				DialogResult drRollback = ProgressDialog.ShowDialog(this, bgtRollback, false);
 				if (drRollback != DialogResult.OK || bgtRollback.Status != BackgroundTasks.TaskStatus.Complete)
-					lstRollbackErrors.Add(GetBackgroundTaskError(bgtRollback, "The previous profile's deployed files could not be fully restored."));
+					lstRollbackErrors.Add(GetBackgroundTaskError(bgtRollback, L("Profiles.Switch.RollbackFilesFailed", "The previous profile's deployed files could not be fully restored.")));
 			}
 
 			if (!ViewModel.WaitForPendingLoadOrderWrites(out string strRollbackWriteError))
@@ -1975,7 +2035,7 @@
 				{
 					DialogResult drPreviousLoadOrder = ProgressDialog.ShowDialog(this, bgtPreviousLoadOrder, false);
 					if (drPreviousLoadOrder != DialogResult.OK || bgtPreviousLoadOrder.Status != BackgroundTasks.TaskStatus.Complete)
-						lstRollbackErrors.Add(GetBackgroundTaskError(bgtPreviousLoadOrder, "The previous plugin state could not be fully restored."));
+						lstRollbackErrors.Add(GetBackgroundTaskError(bgtPreviousLoadOrder, L("Profiles.Switch.RollbackPluginsFailed", "The previous plugin state could not be fully restored.")));
 				}
 
 				if (!ViewModel.WaitForPendingLoadOrderWrites(out strRollbackWriteError))
@@ -1989,15 +2049,15 @@
 
 			bool booRollbackSucceeded = lstRollbackErrors.Count == 0;
 			string strResult = booRollbackSucceeded
-				? "The previous profile was restored."
-				: "NMM could not fully restore the previous profile. Review the active mods and plugins before launching the game.";
+				? L("Profiles.Switch.RollbackSucceeded", "The previous profile was restored.")
+				: L("Profiles.Switch.RollbackIncomplete", "NMM could not fully restore the previous profile. Review the active mods and plugins before launching the game.");
 
 			if (!booRollbackSucceeded)
 				strResult += Environment.NewLine + Environment.NewLine + String.Join(Environment.NewLine, lstRollbackErrors.Where(x => !String.IsNullOrWhiteSpace(x)).Distinct());
 
 			XtraMessageBox.Show(
-				(String.IsNullOrWhiteSpace(p_strFailureMessage) ? "The profile switch failed." : p_strFailureMessage) + Environment.NewLine + Environment.NewLine + strResult,
-				"Profile switch failed",
+				(String.IsNullOrWhiteSpace(p_strFailureMessage) ? L("Profiles.Switch.Failed", "The profile switch failed.") : p_strFailureMessage) + Environment.NewLine + Environment.NewLine + strResult,
+				L("Profiles.Switch.FailedTitle", "Profile switch failed"),
 				MessageBoxButtons.OK,
 				MessageBoxIcon.Warning);
 		}
@@ -2091,7 +2151,7 @@
 
 				if (e.Argument.ReturnValue is string)
 				{
-					ExtendedMessageBox.Show(this, error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					ExtendedMessageBox.Show(this, error, L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
 
@@ -2112,7 +2172,7 @@
 			var sbMessage = new StringBuilder();
 			var sbDetails = new StringBuilder();
 
-			sbMessage.AppendLine("Some mods required by the profile are missing: ");
+			sbMessage.AppendLine(L("Profiles.Switch.MissingMods.Header", "Some mods required by the profile are missing: "));
 
 			var tslMissingMods = new ThreadSafeObservableList<string>();
 			var intNewVersions = 0;
@@ -2126,12 +2186,12 @@
 				{
 					intNewVersions++;
 					tslMissingMods.Add(value.Substring(1));
-					sbDetails.AppendLine($"MISMATCHED: {value}#{kvp.Key}");
+					sbDetails.AppendLine(LanguageManager.Format("Profiles.Switch.MissingMods.MismatchedDetail", "MISMATCHED: {0}", value + "#" + kvp.Key));
 				}
 				else if (string.IsNullOrEmpty(value))
 				{
 					intMissing++;
-					sbDetails.AppendLine($"MISSING: {kvp.Key}");
+					sbDetails.AppendLine(LanguageManager.Format("Profiles.Switch.MissingMods.MissingDetail", "MISSING: {0}", kvp.Key));
 				}
 				else
 				{
@@ -2165,7 +2225,7 @@
 
 			if (lstMissingMods.Count <= 0 && lstIncompleteMods.Count <= 0)
 			{
-				ExtendedMessageBox.Show(this, "The mod files required by this profile are still being downloaded, please wait for the downloads to complete before activating this profile.", "Please wait..", null, MessageBoxButtons.OK, MessageBoxIcon.Information);
+				ExtendedMessageBox.Show(this, L("Profiles.Switch.DownloadsInProgress.Message", "The mod files required by this profile are still being downloaded, please wait for the downloads to complete before activating this profile."), L("Profiles.Switch.PleaseWaitTitle", "Please wait.."), null, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
 				if (ViewModel.ProfileManager.CurrentProfile != null)
 				{
@@ -2185,7 +2245,7 @@
 				}
 
 				var strIncomplete = sbIncomplete.ToString();
-				var drIncomplete = ExtendedMessageBox.Show(this, "Some mods required by this profile were not completely downloaded or the download was paused, Nexus Mod Manager will now try to resume their download.", CommonData.ModManagerName, strIncomplete, MessageBoxButtons.OK, MessageBoxIcon.Information);
+				var drIncomplete = ExtendedMessageBox.Show(this, L("Profiles.Switch.ResumeIncomplete.Message", "Some mods required by this profile were not completely downloaded or the download was paused, Nexus Mod Manager will now try to resume their download."), CommonData.ModManagerName, strIncomplete, MessageBoxButtons.OK, MessageBoxIcon.Information);
 
 				if (drIncomplete == DialogResult.OK)
 				{
@@ -2197,19 +2257,19 @@
 
 			if (intNewVersions > 0)
 			{
-				sbMessage.AppendLine($"- {intNewVersions.ToString()} only got a new version of the file.");
+				sbMessage.AppendLine(LanguageManager.Format("Profiles.Switch.MissingMods.NewVersionCount", "- {0} only got a new version of the file.", intNewVersions));
 			}
 
 			if (intMissing > 0)
 			{
-				sbMessage.AppendLine($"- {intMissing.ToString()} are no longer present on the Nexus.");
+				sbMessage.AppendLine(LanguageManager.Format("Profiles.Switch.MissingMods.NoLongerOnNexusCount", "- {0} are no longer present on the Nexus.", intMissing));
 			}
 
-			sbMessage.AppendLine().AppendLine("This may cause the resulting profile installation to be broken or requiring some tweaks to work.");
-			sbMessage.AppendLine("How would you like to proceed?").AppendLine().AppendLine();
-			sbMessage.AppendLine("Click YES if you want to automatically download the mods missing from your PC (you will have to manually switch profile when all the downloads completes).");
-			sbMessage.AppendLine("Click NO if you want to switch to the new profile without these mods, your game will most likely be unable to start without these mods or heavy tweaking.");
-			sbMessage.AppendLine("Click CANCEL if you want to abort the profile switch.");
+			sbMessage.AppendLine().AppendLine(L("Profiles.Switch.MissingMods.Warning", "This may cause the resulting profile installation to be broken or requiring some tweaks to work."));
+			sbMessage.AppendLine(L("Profiles.Switch.MissingMods.HowProceed", "How would you like to proceed?")).AppendLine().AppendLine();
+			sbMessage.AppendLine(L("Profiles.Switch.MissingMods.YesAction", "Click YES if you want to automatically download the mods missing from your PC (you will have to manually switch profile when all the downloads completes)."));
+			sbMessage.AppendLine(L("Profiles.Switch.MissingMods.NoAction", "Click NO if you want to switch to the new profile without these mods, your game will most likely be unable to start without these mods or heavy tweaking."));
+			sbMessage.AppendLine(L("Profiles.Switch.MissingMods.CancelAction", "Click CANCEL if you want to abort the profile switch."));
 
 			var details = sbDetails.ToString();
 
@@ -2318,7 +2378,7 @@
 			}
 			else
 			{
-				XtraMessageBox.Show(strResult, "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(strResult, L("Common.Dialog.InformationTitle", "Information"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -2378,8 +2438,8 @@
 
 					if (!string.IsNullOrEmpty(error))
 					{
-						error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-						XtraMessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						error = LanguageManager.Format("Profiles.SaveFailed.Message", "{0}" + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu", error);
+						XtraMessageBox.Show(error, L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					}
 
 					_modManagerControl.SetCommandExecutableStatus();
@@ -2435,11 +2495,11 @@
 
 			if (e.Argument.ReturnValue != null)
 			{
-				XtraMessageBox.Show("Unable to create the backup: " + e.Argument.ReturnValue.ToString(), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				XtraMessageBox.Show(LanguageManager.Format("Backup.Create.Failed", "Unable to create the backup: {0}", e.Argument.ReturnValue.ToString()), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			else
 			{
-				XtraMessageBox.Show("Backup Complete!", "Backup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(L("Backup.Create.CompleteMessage", "Backup Complete!"), L("Backup.Create.CompleteTitle", "Backup Complete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -2465,7 +2525,7 @@
 				}
 				else
 				{
-					XtraMessageBox.Show("An error occured during the Restore!");
+					XtraMessageBox.Show(L("Backup.Restore.Failed", "An error occured during the Restore!"));
 				}
 			}
 		}
@@ -2482,7 +2542,7 @@
 
 			if (e.Argument.ReturnValue != null)
 			{
-				XtraMessageBox.Show("Purge Complete!", "Purge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(L("Backup.Purge.CompleteMessage", "Purge Complete!"), L("Backup.Purge.CompleteTitle", "Purge Complete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 		}
 
@@ -2513,7 +2573,7 @@
 
 			if (_launchDefaultItem == null)
 			{
-				spbLaunch.Caption = "Launch Game";
+				spbLaunch.Caption = L("MainForm.Toolbar.LaunchGame", "Launch Game");
 				spbLaunch.ImageOptions.Image = null;
 				spbLaunch.Enabled = false;
 			}
@@ -2541,10 +2601,10 @@
 				return;
 			}
 
-			popupProfiles.AddItem(CreateProfileCommandItem("New", "New Profile"));
-			popupProfiles.AddItem(CreateProfileCommandItem("Rename", "Rename Current Profile"));
-			popupProfiles.AddItem(CreateProfileCommandItem("Remove", "Remove Current Profile"));
-			popupProfiles.AddItem(CreateProfileCommandItem("Save", "Save Current Profile"));
+			popupProfiles.AddItem(CreateProfileCommandItem("New", L("MainForm.Profiles.New", "New Profile")));
+			popupProfiles.AddItem(CreateProfileCommandItem("Rename", L("MainForm.Profiles.RenameCurrent", "Rename Current Profile")));
+			popupProfiles.AddItem(CreateProfileCommandItem("Remove", L("MainForm.Profiles.RemoveCurrent", "Remove Current Profile")));
+			popupProfiles.AddItem(CreateProfileCommandItem("Save", L("MainForm.Profiles.SaveCurrent", "Save Current Profile")));
 
 			bool beginProfileGroup = true;
 			if (ViewModel.ProfileManager.CurrentProfile != null)
@@ -2586,10 +2646,10 @@
 				popupProfiles.AddItem(profileItem).BeginGroup = beginProfileGroup;
 				beginProfileGroup = false;
 
-				AddProfileAction(profileActions, profile, "RenameProfile", "Rename Profile");
-				AddProfileAction(profileActions, profile, "RemoveProfile", "Remove Profile");
+				AddProfileAction(profileActions, profile, "RenameProfile", L("MainForm.Profiles.Rename", "Rename Profile"));
+				AddProfileAction(profileActions, profile, "RemoveProfile", L("MainForm.Profiles.Remove", "Remove Profile"));
 				if (ViewModel.GameMode.UsesPlugins)
-					AddProfileAction(profileActions, profile, "ImportLoadorder", "Import Profile's Load Order");
+					AddProfileAction(profileActions, profile, "ImportLoadorder", L("MainForm.Profiles.ImportLoadOrder", "Import Profile's Load Order"));
 
 				if (profile.IsDefault)
 				{
@@ -2709,7 +2769,7 @@
 				popupSupportedTools.AddItem(launchItem);
 			}
 
-			spbSupportedTools.Caption = "Supported Tools";
+			spbSupportedTools.Caption = L("MainForm.Toolbar.SupportedTools", "Supported Tools");
 			NmmIconProvider.Bind(spbSupportedTools, NmmIconAction.SupportedTools);
 			SetBarItemVisible(spbSupportedTools, popupSupportedTools.ItemLinks.Count > 0);
 		}
@@ -2768,19 +2828,19 @@
 			switch (command)
 			{
 				case "RenameProfile":
-					PromptDialog renameDialog = PromptDialog.ShowDialog("Rename Online", this, "Type the new name:", "Rename Local", profile.Name, null, null);
+					PromptDialog renameDialog = PromptDialog.ShowDialog(PromptDialogMode.RenameLocal, L("Profiles.Dialog.RenameOnline", "Rename Online"), this, L("Profiles.Dialog.TypeNewName", "Type the new name:"), L("Profiles.Dialog.RenameLocal", "Rename Local"), profile.Name, null, null);
 					if (renameDialog == null || String.IsNullOrEmpty(renameDialog.EnteredText) || renameDialog.EnteredText.Equals(profile.Name, StringComparison.InvariantCulture))
 						return;
 
 					if (renameDialog.EnteredText.Length > 64)
 					{
-						XtraMessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						XtraMessageBox.Show(L("Profiles.Validation.RenameTooLong", "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						return;
 					}
 
 					if (String.IsNullOrWhiteSpace(renameDialog.EnteredText.Replace("|", String.Empty)))
 					{
-						XtraMessageBox.Show("Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						XtraMessageBox.Show(L("Profiles.Validation.RenameInvalid", "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | )."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						return;
 					}
 
@@ -2790,7 +2850,7 @@
 					break;
 
 				case "RemoveProfile":
-					PromptDialog removeDialog = PromptDialog.ShowDialog("Remove Online", this, String.Format("Are you sure you want to remove the current profile: {0}", profile.Name), "Remove Local", null, null, null);
+					PromptDialog removeDialog = PromptDialog.ShowDialog(PromptDialogMode.RemoveLocal, L("Profiles.Dialog.RemoveOnline", "Remove Online"), this, LanguageManager.Format("Profiles.Dialog.RemoveCurrentPrompt", "Are you sure you want to remove the current profile: {0}", profile.Name), L("Profiles.Dialog.RemoveLocal", "Remove Local"), null, null, null);
 					if (removeDialog != null)
 						ViewModel.ProfileManager.RemoveProfile(profile);
 					break;
@@ -2799,7 +2859,7 @@
 					if (String.IsNullOrEmpty(profile.Id))
 						return;
 
-					DialogResult result = ExtendedMessageBox.Show(this, $"Are you sure you want to import this profile's loadorder? '{profile.Name}'", "Import Loadorder", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+					DialogResult result = ExtendedMessageBox.Show(this, LanguageManager.Format("Profiles.ImportLoadOrder.Confirm", "Are you sure you want to import this profile's loadorder? '{0}'", profile.Name), L("Profiles.ImportLoadOrder.Title", "Import Loadorder"), MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 					if (result != DialogResult.Yes)
 						return;
 
@@ -2847,7 +2907,7 @@
 
 							if (mopCurrentProfile != null)
 							{
-								var pdDialog = PromptDialog.ShowDialog("", this, "Type the profile name:", "Set the Profile name", mopCurrentProfile.Name, null, null);
+								var pdDialog = PromptDialog.ShowDialog(PromptDialogMode.SetProfileName, string.Empty, this, L("Profiles.Dialog.TypeProfileName", "Type the profile name:"), L("Profiles.Dialog.SetProfileName", "Set the Profile name"), mopCurrentProfile.Name, null, null);
 
 								if (pdDialog != null)
 								{
@@ -2855,13 +2915,13 @@
 									{
 										if (pdDialog.EnteredText.Length > 64)
 										{
-											ExtendedMessageBox.Show(this, "Unable to set the profile name!" + Environment.NewLine + Environment.NewLine + "The profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+											ExtendedMessageBox.Show(this, L("Profiles.Validation.SetTooLong", "Unable to set the profile name!" + Environment.NewLine + Environment.NewLine + "The profile name is too long, maximum 64 characters."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 											return;
 										}
 
 										if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
 										{
-											ExtendedMessageBox.Show(this, "Unable to set the profile name!" + Environment.NewLine + Environment.NewLine + "The profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+											ExtendedMessageBox.Show(this, L("Profiles.Validation.SetInvalid", "Unable to set the profile name!" + Environment.NewLine + Environment.NewLine + "The profile name is empty or contains unsupported special characters (eg. | )."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 											return;
 										}
 
@@ -2876,7 +2936,7 @@
 
 							if (mopCurrent != null)
 							{
-								var pdDialog = PromptDialog.ShowDialog("Rename Online", this, "Type the new name:", "Rename Local", mopCurrent.Name, null, null);
+								var pdDialog = PromptDialog.ShowDialog(PromptDialogMode.RenameLocal, L("Profiles.Dialog.RenameOnline", "Rename Online"), this, L("Profiles.Dialog.TypeNewName", "Type the new name:"), L("Profiles.Dialog.RenameLocal", "Rename Local"), mopCurrent.Name, null, null);
 
 								if (pdDialog != null)
 								{
@@ -2884,13 +2944,13 @@
 									{
 										if (pdDialog.EnteredText.Length > 64)
 										{
-											ExtendedMessageBox.Show(this, "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+											ExtendedMessageBox.Show(this, L("Profiles.Validation.RenameTooLong", "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is too long, maximum 64 characters."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 											return;
 										}
 
 										if (string.IsNullOrWhiteSpace(pdDialog.EnteredText.Replace("|", string.Empty)))
 										{
-											ExtendedMessageBox.Show(this, "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | ).", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+											ExtendedMessageBox.Show(this, L("Profiles.Validation.RenameInvalid", "Unable to rename the profile!" + Environment.NewLine + Environment.NewLine + "The new profile name is empty or contains unsupported special characters (eg. | )."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 											return;
 										}
 
@@ -2899,8 +2959,8 @@
 
 										if (!string.IsNullOrEmpty(error))
 										{
-											error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-											XtraMessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+											error = LanguageManager.Format("Profiles.SaveFailed.Message", "{0}" + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu", error);
+											XtraMessageBox.Show(error, L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 										}
 
 										BindProfileCommands();
@@ -2913,7 +2973,7 @@
 
 							if (mopProfile != null)
 							{
-								var pdDialog = PromptDialog.ShowDialog("Remove Online", this, $"Are you sure you want to remove the current profile: {mopProfile.Name}", "Remove Local", null, null, null);
+								var pdDialog = PromptDialog.ShowDialog(PromptDialogMode.RemoveLocal, L("Profiles.Dialog.RemoveOnline", "Remove Online"), this, LanguageManager.Format("Profiles.Dialog.RemoveCurrentPrompt", "Are you sure you want to remove the current profile: {0}", mopProfile.Name), L("Profiles.Dialog.RemoveLocal", "Remove Local"), null, null, null);
 
 								if (pdDialog != null)
 								{
@@ -2949,8 +3009,8 @@
 
 								if (!string.IsNullOrEmpty(error))
 								{
-									error = error + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu";
-									XtraMessageBox.Show(error, "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+									error = LanguageManager.Format("Profiles.SaveFailed.Message", "{0}" + Environment.NewLine + Environment.NewLine + "Unable to automatically save the profile file, please close the program blocking the reported file and manually click on Save Profile from the profiles context menu", error);
+									XtraMessageBox.Show(error, L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 								}
 
 								BindProfileCommands();
@@ -2962,7 +3022,7 @@
 				{
 					if (ViewModel.ModManager.VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 					{
-						ExtendedMessageBox.Show(this, "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+						ExtendedMessageBox.Show(this, L("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 						return;
 					}
 
@@ -3038,7 +3098,7 @@
 				}
 				catch (Exception e)
 				{
-					XtraMessageBox.Show(string.Format("There were issues saving the current profile: " + Environment.NewLine + Environment.NewLine + "{0}" + Environment.NewLine, e.Message), "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					XtraMessageBox.Show(LanguageManager.Format("Profiles.SaveCurrent.Failed", "There were issues saving the current profile: " + Environment.NewLine + Environment.NewLine + "{0}" + Environment.NewLine, e.Message), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				}
 			}
 
@@ -3053,7 +3113,7 @@
 		/// <c>false</c> otherwise.</returns>
 		private bool ConfirmCloseAfterGameLaunch(out bool rememberSelection)
 		{
-			var close = ExtendedMessageBox.Show(this, $"Would you like {CommonData.ModManagerName} to close after launching the game?", "Close", "Details", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out var remember) == DialogResult.Yes;
+			var close = ExtendedMessageBox.Show(this, LanguageManager.Format("MainForm.Launch.CloseAfter.Message", "Would you like {0} to close after launching the game?", CommonData.ModManagerName), L("MainForm.Launch.CloseAfter.Title", "Close"), L("Common.Button.Details", "Details"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, out var remember) == DialogResult.Yes;
 			rememberSelection = remember;
 
 			return close;
@@ -3070,7 +3130,7 @@
 		{
 			if (!e.Launched)
 			{
-				XtraMessageBox.Show(this, e.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				XtraMessageBox.Show(this, e.Message, L("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 			else if (ViewModel.EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch)
 			{
@@ -3168,25 +3228,25 @@
 
 		private void tsbDiscord_Click(object sender, EventArgs e)
 		{
-			XtraMessageBox.Show(this, "NMM will open the official NMM Discord server invitation in your default browser.", "NMM Official Discord", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, L("MainForm.ExternalLinks.Discord.Message", "NMM will open the official NMM Discord server invitation in your default browser."), L("MainForm.ExternalLinks.Discord.Title", "NMM Official Discord"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://discord.gg/JZ4tZ5KFQX");
 		}
 
 		private void tsbiPatreon_Click(object sender, EventArgs e)
 		{
-			XtraMessageBox.Show(this, "NMM will open the official NMM Patreon page in your default browser.", "NMM Official Patreon", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, L("MainForm.ExternalLinks.Patreon.Message", "NMM will open the official NMM Patreon page in your default browser."), L("MainForm.ExternalLinks.Patreon.Title", "NMM Official Patreon"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://www.patreon.com/NMMCE");
 		}
 
 		private void tsbiKofi_Click(object sender, EventArgs e)
 		{
-			XtraMessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, L("MainForm.ExternalLinks.Kofi.Message", "NMM will open the official Ko-fi page in your default browser."), L("MainForm.ExternalLinks.Kofi.Title", "NMM Official Ko-fi"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://ko-fi.com/duskdweller");
 		}
 
 		private void spbSupportNMM_ButtonClick(object sender, EventArgs e)
 		{
-			XtraMessageBox.Show(this, "NMM will open the official Ko-fi page in your default browser.", "NMM Official Ko-fi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			XtraMessageBox.Show(this, L("MainForm.ExternalLinks.Kofi.Message", "NMM will open the official Ko-fi page in your default browser."), L("MainForm.ExternalLinks.Kofi.Title", "NMM Official Ko-fi"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			Process.Start("https://ko-fi.com/duskdweller");
 		}
 

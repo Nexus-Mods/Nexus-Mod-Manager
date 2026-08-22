@@ -2,6 +2,7 @@
 using System.IO;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games
 {
@@ -58,6 +59,9 @@ namespace Nexus.Client.Games
 			OverallProgressMaximum = difDrives.Length * 2;
 			string strFound = null;
 			string strSystemRoot = Environment.ExpandEnvironmentVariables("%SYSTEMROOT%");
+			string searchingFormat = LanguageManager.GetFormat("GameDetection.SearchingDrive", "Searching {0} ({1})...");
+			string quickScanText = LanguageManager.Get("GameDetection.QuickScan", "Quick Scan");
+			string deepSearchText = LanguageManager.Get("GameDetection.DeepSearch", "Deep Search");
 			for (Int32 i = 0; i < 2; i++)
 			{
 				if (!"%SYSTEMROOT%".Equals(strSystemRoot))
@@ -71,7 +75,7 @@ namespace Nexus.Client.Games
 				{
 					if (Status == TaskStatus.Cancelling)
 						return null;
-					OverallMessage = String.Format("Searching {0} ({1})...", difDrive.Name, (i == 0) ? "Quick Scan" : "Deep Search");
+					OverallMessage = String.Format(searchingFormat, difDrive.Name, (i == 0) ? quickScanText : deepSearchText);
 					if ((difDrive.DriveType != DriveType.CDRom) && difDrive.IsReady)
 						strFound = SearchToDepth(difDrive.Name, strSearchFiles, (i == 0) ? 3 : -1, 0);
 					StepOverallProgress();

@@ -5,6 +5,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -77,17 +78,18 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Deleting all the selected mods...";
+			OverallMessage = LanguageManager.Get("Tasks.Mods.DeletingSelected", "Deleting all the selected mods...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = m_rolModList.Count;
 			ShowItemProgress = false;
 
 			ConfirmActionMethod camConfirm = (ConfirmActionMethod)args[0];
+			string deletingFormat = LanguageManager.GetFormat("Tasks.Mods.DeletingMod", "Deleting: {0}");
 
 			foreach (IMod modMod in m_rolModList)
 			{
-				OverallMessage = "Deleting: " + modMod.ModName;
+				OverallMessage = String.Format(deletingFormat, modMod.ModName);
 
 				ModDeleter mddDeleter = InstallerFactory.CreateDelete(modMod, ActiveMods);
 				mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);

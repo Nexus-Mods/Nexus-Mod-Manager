@@ -7,6 +7,7 @@ using Nexus.UI.Controls;
 using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 
 
@@ -26,6 +27,18 @@ namespace Nexus.Client.Games.SkyrimGOG.Settings.UI
 		protected SupportedToolsSettingsPage()
 		{
 			InitializeComponent();
+			lblBOSSPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "BOSS");
+			lblLOOTPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "LOOT");
+			lblWryeBashPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "Wrye Bash");
+			lblFNISPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "FNIS");
+			lblBSPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "BodySlide");
+			lblSSEEditPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "SSEEdit");
+			lblBOSSLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "BOSS");
+			lblLOOTLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "LOOT");
+			lblWryeBashDirectoryLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "Wrye Bash");
+			lblFNISLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "FNIS");
+			lblBSLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "BodySlide");
+			lblSSEEditLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "SSEEdit");
 		}
 
 		/// <summary>
@@ -46,13 +59,6 @@ namespace Nexus.Client.Games.SkyrimGOG.Settings.UI
 
 			p_stsSettings.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
 			p_stsSettings.Errors.ErrorChanged += new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
-
-			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
-			lblLOOTPrompt.Text = String.Format(lblLOOTPrompt.Text, p_stsSettings.GameModeName);
-			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);
-			lblFNISPrompt.Text = String.Format(lblFNISPrompt.Text, p_stsSettings.GameModeName);
-			lblBSPrompt.Text = String.Format(lblBSPrompt.Text, p_stsSettings.GameModeName);
-			lblSSEEditPrompt.Text = String.Format(lblSSEEditPrompt.Text, p_stsSettings.GameModeName);
 		}
 
 		#endregion

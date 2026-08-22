@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Fallout4VR
 {
@@ -38,7 +39,7 @@ namespace Nexus.Client.Games.Fallout4VR
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Fallout4VR", "Launches Fallout 4 VR.", imgIcon, LaunchFallout4VR, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Get("GameModes.Fallout4VR.Launcher.Plain.Name", "Launch Fallout4VR"), LanguageManager.Get("GameModes.Fallout4VR.Launcher.Plain.Description", "Launches Fallout 4 VR."), imgIcon, LaunchFallout4VR, true));
 
 			Trace.Unindent();
 		}

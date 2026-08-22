@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using DevExpress.XtraEditors;
 using Nexus.Client.Games.Gamebryo.Tools.AI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DataDriven.Tools.AI
 {
@@ -146,12 +147,11 @@ namespace Nexus.Client.Games.DataDriven.Tools.AI
 				TraceUtil.TraceException(exception);
 
 				XtraMessageBox.Show(
-					"Could not apply Archive Invalidation, at least one " +
-					"file could not be modified.\n" +
-					"Please try again, or check trace log for more info." +
-					"\n\n" +
-					exception.Message,
-					"Archive Invalidation failed",
+					LanguageManager.Format(
+						"Tools.ArchiveInvalidation.Error.Message",
+						"Could not apply Archive Invalidation, at least one file could not be modified.\nPlease try again, or check trace log for more info.\n\n{0}",
+						exception.Message),
+					LanguageManager.Get("Tools.ArchiveInvalidation.Error.Title", "Archive Invalidation failed"),
 					MessageBoxButtons.OK,
 					MessageBoxIcon.Error);
 			}

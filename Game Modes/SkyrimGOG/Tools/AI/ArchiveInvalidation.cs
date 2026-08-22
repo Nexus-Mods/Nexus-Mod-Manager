@@ -1,4 +1,5 @@
-﻿namespace Nexus.Client.Games.SkyrimGOG.Tools.AI
+﻿using Nexus.Client.Util.Localization;
+namespace Nexus.Client.Games.SkyrimGOG.Tools.AI
 {
     using System;
 	using System.Diagnostics;
@@ -60,7 +61,7 @@
 		public ArchiveInvalidation(SkyrimGOGGameMode p_gmdGameMode)
 		{
 			GameMode = p_gmdGameMode;
-			LaunchCommand = new Command("Reset Archive Invalidation", "Resets Archive Invalidation.", ResetArchiveInvalidation);
+			LaunchCommand = new Command(LanguageManager.Get("GameModes.ArchiveInvalidation.ResetCommand.Name", "Reset Archive Invalidation"), LanguageManager.Get("GameModes.ArchiveInvalidation.ResetCommand.Description", "Resets Archive Invalidation."), ResetArchiveInvalidation);
 		}
 
 		#endregion
@@ -106,10 +107,10 @@
 						TraceUtil.TraceException(ex);
 
                         MessageBox.Show(
-                            "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
-                            "Please try again, or check trace log for more info.\n\n" +
-                            ex.Message,
-                            "Archive Invalidation failed",
+                            LanguageManager.Get("GameModes.ArchiveInvalidation.ApplyFailedMessage", "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                        "Please try again, or check trace log for more info.\n\n") +
+                        ex.Message,
+                        LanguageManager.Get("GameModes.ArchiveInvalidation.ApplyFailedTitle", "Archive Invalidation failed"),
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
 					}

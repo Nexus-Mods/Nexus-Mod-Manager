@@ -200,29 +200,29 @@
 			popupSupportedTools = new PopupMenu(barManagerMain);
 			popupSupportNMM = new PopupMenu(barManagerMain);
 
-			spbLaunch = CreateDropDownButton("Launch Game", popupLaunch, false, BarItemPaintStyle.CaptionGlyph);
+			spbLaunch = CreateDropDownButton(L("MainForm.Toolbar.LaunchGame", "Launch Game"), popupLaunch, false, BarItemPaintStyle.CaptionGlyph);
 			spbLaunch.ItemClick += SpbLaunch_ItemClick;
 
-			spbProfiles = CreateDropDownButton("Profiles", popupProfiles, false, BarItemPaintStyle.CaptionGlyph);
+			spbProfiles = CreateDropDownButton(L("MainForm.Toolbar.Profiles", "Profiles"), popupProfiles, false, BarItemPaintStyle.CaptionGlyph);
 			spbProfiles.ItemClick += SpbProfiles_ItemClick;
 
-			spbHelp = CreateDropDownButton("Help", popupHelp, true, BarItemPaintStyle.Standard);
+			spbHelp = CreateDropDownButton(L("MainForm.Toolbar.Help", "Help"), popupHelp, true, BarItemPaintStyle.Standard);
 			spbHelp.Alignment = BarItemLinkAlignment.Right;
 
-			spbChangeMode = CreateDropDownButton("Change Game Mode", popupChangeMode, true, BarItemPaintStyle.Standard);
+			spbChangeMode = CreateDropDownButton(L("MainForm.Toolbar.ChangeGameMode", "Change Game Mode"), popupChangeMode, true, BarItemPaintStyle.Standard);
 			spbChangeMode.Alignment = BarItemLinkAlignment.Right;
 
-			toolStripSplitButtonTools = CreateDropDownButton("Tools", popupTools, true, BarItemPaintStyle.Standard);
+			toolStripSplitButtonTools = CreateDropDownButton(L("MainForm.Toolbar.Tools", "Tools"), popupTools, true, BarItemPaintStyle.Standard);
 
-			spbFolders = CreateDropDownButton("Open folders", popupFolders, true, BarItemPaintStyle.Standard);
+			spbFolders = CreateDropDownButton(L("MainForm.Toolbar.OpenFolders", "Open folders"), popupFolders, true, BarItemPaintStyle.Standard);
 
-			tsbSettings = new BarButtonItem(barManagerMain, "Settings")
+			tsbSettings = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.Settings", "Settings"))
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbSettings.ItemClick += (sender, args) => tsbSettings_Click(sender, EventArgs.Empty);
 
-			spbSupportedTools = CreateDropDownButton("Supported Tools", popupSupportedTools, true, BarItemPaintStyle.Standard);
+			spbSupportedTools = CreateDropDownButton(L("MainForm.Toolbar.SupportedTools", "Supported Tools"), popupSupportedTools, true, BarItemPaintStyle.Standard);
 
 			repositoryFind = new RepositoryItemTextEdit();
 			repositoryFind.KeyUp += tstFind_KeyUp;
@@ -234,41 +234,41 @@
 				Visibility = BarItemVisibility.Never
 			};
 
-			tsbUpdate = new BarButtonItem(barManagerMain, "Check for Updates")
+			tsbUpdate = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.CheckForUpdates", "Check for Updates"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
 				PaintStyle = BarItemPaintStyle.Standard
 			};
 
-			tsbDiscord = new BarButtonItem(barManagerMain, "Discord")
+			tsbDiscord = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.Discord", "Discord"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
-				Hint = "Join the Official NMM Community Discord",
+				Hint = L("MainForm.Toolbar.Discord.Hint", "Join the Official NMM Community Discord"),
 				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbDiscord.ImageOptions.Image = ScaleBarImage(Properties.Resources.discord_logo_512, MainToolbarImageSize);
 			tsbDiscord.ItemClick += (sender, args) => tsbDiscord_Click(sender, EventArgs.Empty);
 
-			tsbYouTube = new BarButtonItem(barManagerMain, "YouTube")
+			tsbYouTube = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.YouTube", "YouTube"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
-				Hint = "Watch the official NMM Community Edition YouTube channel",
+				Hint = L("MainForm.Toolbar.YouTube.Hint", "Watch the official NMM Community Edition YouTube channel"),
 				PaintStyle = BarItemPaintStyle.Standard
 			};
 			tsbYouTube.ImageOptions.Image = ScaleBarImage(Properties.Resources.youtube_logo_512, MainToolbarImageSize);
 			tsbYouTube.ItemClick += (sender, args) => tsbYouTube_Click(sender, EventArgs.Empty);
 
-			spbSupportNMM = CreateDropDownButton("Support the NMM development", popupSupportNMM, false, BarItemPaintStyle.Standard);
+			spbSupportNMM = CreateDropDownButton(L("MainForm.Toolbar.SupportDevelopment", "Support the NMM development"), popupSupportNMM, false, BarItemPaintStyle.Standard);
 			spbSupportNMM.Alignment = BarItemLinkAlignment.Right;
 			spbSupportNMM.ImageOptions.Image = ScaleBarImage(Properties.Resources.kofi_button, MainToolbarImageSize);
 			spbSupportNMM.ItemClick += (sender, args) => spbSupportNMM_ButtonClick(sender, EventArgs.Empty);
 
-			tsbiPatreon = new BarButtonItem(barManagerMain, "Donate on Patreon");
+			tsbiPatreon = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.DonatePatreon", "Donate on Patreon"));
 			tsbiPatreon.ImageOptions.Image = ScaleBarImage(Properties.Resources.Digital_Patreon_Logo_FieryCoral, StatusBarImageSize);
 			tsbiPatreon.ItemClick += (sender, args) => tsbiPatreon_Click(sender, EventArgs.Empty);
 			popupSupportNMM.AddItem(tsbiPatreon);
 
-			tsbiKofi = new BarButtonItem(barManagerMain, "Donate on Ko-fi");
+			tsbiKofi = new BarButtonItem(barManagerMain, L("MainForm.Toolbar.DonateKofi", "Donate on Ko-fi"));
 			tsbiKofi.ImageOptions.Image = ScaleBarImage(Properties.Resources.kofi_button, StatusBarImageSize);
 			tsbiKofi.ItemClick += (sender, args) => tsbiKofi_Click(sender, EventArgs.Empty);
 			popupSupportNMM.AddItem(tsbiKofi);
@@ -313,7 +313,7 @@
 		/// </summary>
 		private void InitializeStatusBarItems()
 		{
-			toolStripButtonOnlineStatus = new BarButtonItem(barManagerMain, "Login")
+			toolStripButtonOnlineStatus = new BarButtonItem(barManagerMain, L("MainForm.Status.Login", "Login"))
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
@@ -338,7 +338,7 @@
 
 			toolStripButtonGoPremium = new BarButtonItem(barManagerMain, String.Empty) { Visibility = BarItemVisibility.Never };
 			toolStripLabelLoginMessage = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder };
-			toolStripButtonRateLimit = new BarButtonItem(barManagerMain, "Rate Limit")
+			toolStripButtonRateLimit = new BarButtonItem(barManagerMain, L("MainForm.Status.RateLimit", "Rate Limit"))
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
@@ -347,7 +347,7 @@
 
 			toolStripLabelBottomBarFeedback = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder, Visibility = BarItemVisibility.Never };
 			toolStripLabelBottomBarFeedbackCounter = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder, Visibility = BarItemVisibility.Never };
-			toolStripButtonLoader = new BarButtonItem(barManagerMain, "Activity")
+			toolStripButtonLoader = new BarButtonItem(barManagerMain, L("MainForm.Status.Activity", "Activity"))
 			{
 				PaintStyle = BarItemPaintStyle.Standard,
 				Visibility = BarItemVisibility.Never
@@ -357,20 +357,20 @@
 			toolStripLabelPluginsCounter = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = "Total plugins    Active plugins",
+				Caption = L("MainForm.Status.PluginsSummary", "Total plugins    Active plugins"),
 				Border = BorderStyles.NoBorder
 			};
 			toolStripLabelActivePluginsCounter = new BarStaticItem { Manager = barManagerMain, Border = BorderStyles.NoBorder };
 			tlbModsCounter = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = "Total mods    Active mods",
+				Caption = L("MainForm.Status.ModsSummary", "Total mods    Active mods"),
 				Border = BorderStyles.NoBorder
 			};
 			tsbSkyrimDownloads = new BarStaticItem
 			{
 				Manager = barManagerMain,
-				Caption = "Skyrim Downloads",
+				Caption = L("MainForm.Status.SkyrimDownloads", "Skyrim Downloads"),
 				Border = BorderStyles.NoBorder,
 				Visibility = BarItemVisibility.Never
 			};

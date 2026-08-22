@@ -8,6 +8,7 @@ using Nexus.UI.Controls;
 using Microsoft.Win32;
 using System.IO;
 using Nexus.Client.Settings;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Fallout3
 {
@@ -28,7 +29,7 @@ namespace Nexus.Client.Games.Fallout3
 		{
 			get
 			{
-				return "Supported Tools";
+				return LanguageManager.Get("GameModes.SupportedTools.Title", "Supported Tools");
 			}
 		}
 
@@ -102,7 +103,7 @@ namespace Nexus.Client.Games.Fallout3
 			}
 			if (p_strPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 			{
-				Errors.SetError(p_strProperty, String.Format("The selected path is not valid: {0}.", p_strPathName));
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.InvalidPath", "The selected path is not valid: {0}.", p_strPathName));
 				return false;
 			}
 			else if (
@@ -111,7 +112,7 @@ namespace Nexus.Client.Games.Fallout3
 				(String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
 				)
 			{
-				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.PathCannotMatchProtectedLocations", "You can't set the {0} path equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
 					"Game root folder - {1}" + Environment.NewLine +
 					"Game plugin folder - {3}",
@@ -130,7 +131,7 @@ namespace Nexus.Client.Games.Fallout3
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateBOSSDirectory()
 		{
-			return ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory));
+			return ValidateDirectory(BOSSDirectory, "BOSS", ObjectHelper.GetPropertyName(() => BOSSDirectory));
 		}
 
 		/// <summary>

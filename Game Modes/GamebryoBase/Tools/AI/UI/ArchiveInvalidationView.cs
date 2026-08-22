@@ -2,6 +2,7 @@
 using Nexus.Client.Games.Tools;
 using Nexus.UI.Controls;
 using System.ComponentModel;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Gamebryo.Tools.AI.UI
 {
@@ -64,7 +65,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI.UI
 		/// <returns><c>true</c> if the user wishes to enable AI.</returns>
 		protected bool ConfirmAiEnabling()
 		{
-			return (ExtendedMessageBox.Show(this, "Apply archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+			return (ExtendedMessageBox.Show(this, LanguageManager.Get("GameModes.ArchiveInvalidation.ConfirmApply", "Apply archive invalidation?"), LanguageManager.Get("GameModes.ArchiveInvalidation.ShortTitle", "AI"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 		}
 
 		/// <summary>
@@ -73,7 +74,7 @@ namespace Nexus.Client.Games.Gamebryo.Tools.AI.UI
 		/// <returns><c>true</c> if the user wishes to disable AI.</returns>
 		protected bool ConfirmAiDisabling()
 		{
-			return (ExtendedMessageBox.Show(this, "Remove archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+			return (ExtendedMessageBox.Show(this, LanguageManager.Get("GameModes.ArchiveInvalidation.ConfirmRemove", "Remove archive invalidation?"), LanguageManager.Get("GameModes.ArchiveInvalidation.ShortTitle", "AI"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 		}
 	}
 }

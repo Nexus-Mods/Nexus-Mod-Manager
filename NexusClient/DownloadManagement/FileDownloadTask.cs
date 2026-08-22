@@ -6,6 +6,7 @@ using System.Timers;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Util.Downloader;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.DownloadManagement
 {
@@ -71,7 +72,15 @@ namespace Nexus.Client.DownloadManagement
 			#endregion
 		}
 
-		private const string m_strMessageFormat = "Downloading {0} ({1:f0}:{2:d2} left - {3} KB/s)";
+		private readonly string m_strMessageFormat;
+		private readonly string m_strFileNotFoundRetryFormat;
+		private readonly string m_strServerBusyRetryFormat;
+		private readonly string m_strFileMissingFormat;
+		private readonly string m_strGetFileErrorFormat;
+		private readonly string m_strPausedFormat;
+		private readonly string m_strFinishErrorFormat;
+		private readonly string m_strCancelledText;
+		private readonly string m_strServerErrorFormat;
 		private string m_strUserAgent = "";
 		private Int32 m_intMaxConnections = 4;
 		private Int32 m_intMinBlockSize = 1000 * 1024;
@@ -212,6 +221,15 @@ namespace Nexus.Client.DownloadManagement
 			m_strUserAgent = p_strUserAgent;
 			m_tmrUpdater.Elapsed += new ElapsedEventHandler(Updater_Elapsed);
 			ModRepository = p_mmrModRepository;
+			m_strMessageFormat = LanguageManager.GetFormat("Downloads.Task.Progress", "Downloading {0} ({1:f0}:{2:d2} left - {3} KB/s)");
+			m_strFileNotFoundRetryFormat = LanguageManager.GetFormat("Downloads.Task.FileNotFoundRetry", "File not found on this server, retrying.. ({0}/{1})");
+			m_strServerBusyRetryFormat = LanguageManager.GetFormat("Downloads.Task.ServerBusyRetry", "Server busy or unavailable, retrying.. ({0}/{1})");
+			m_strFileMissingFormat = LanguageManager.GetFormat("Downloads.Task.FileMissing", "File does not exist: {0}");
+			m_strGetFileErrorFormat = LanguageManager.GetFormat("Downloads.Task.GetFileError", "Error trying to get the file: {0}");
+			m_strPausedFormat = LanguageManager.GetFormat("Downloads.Task.Paused", "Paused: {0}");
+			m_strFinishErrorFormat = LanguageManager.GetFormat("Downloads.Task.FinishError", "Error: {0} , unable to finish the download.");
+			m_strCancelledText = LanguageManager.Get("Downloads.Task.Cancelled", "Download cancelled.");
+			m_strServerErrorFormat = LanguageManager.GetFormat("Downloads.Task.ServerError", "{1}: {0} , ");
 		}
 
 		#endregion
@@ -323,13 +341,13 @@ namespace Nexus.Client.DownloadManagement
 					{
 						swRetry.Start();
 						retries = 1;
-						OverallMessage = String.Format("File not found on this server, retrying.. ({0}/{1})", retries, m_intRetries);
+						OverallMessage = String.Format(m_strFileNotFoundRetryFormat, retries, m_intRetries);
 						Status = TaskStatus.Retrying;
 
 						if (i++ == p_uriURL.Count)
 						{
 							Status = TaskStatus.Error;
-							OnTaskEnded(String.Format("File does not exist: {0}", uriURL.ToString()), null);
+							OnTaskEnded(String.Format(m_strFileMissingFormat, uriURL.ToString()), null);
 							return;
 						}
 
@@ -358,7 +376,7 @@ namespace Nexus.Client.DownloadManagement
 					else if (++retries <= m_intRetries)
 					{
 						swRetry.Start();
-						OverallMessage = String.Format("Server busy or unavailable, retrying.. ({0}/{1})", retries, m_intRetries);
+						OverallMessage = String.Format(m_strServerBusyRetryFormat, retries, m_intRetries);
 						Status = TaskStatus.Retrying;
 
 						if ((retries == m_intRetries) && (++i < p_uriURL.Count))
@@ -382,7 +400,7 @@ namespace Nexus.Client.DownloadManagement
 					else
 					{
 						Status = TaskStatus.Error;
-						OnTaskEnded(String.Format("Error trying to get the file: {0}", uriURL.ToString()), null);
+						OnTaskEnded(String.Format(m_strGetFileErrorFormat, uriURL.ToString()), null);
 						return;
 					}
 				}
@@ -422,7 +440,7 @@ namespace Nexus.Client.DownloadManagement
 
             if (Status == TaskStatus.Paused)
             {
-                OnTaskEnded(String.Format("Paused: {0}", ((FileDownloader)sender).URL), ((FileDownloader)sender).TempFiles);
+                OnTaskEnded(String.Format(m_strPausedFormat, ((FileDownloader)sender).URL), ((FileDownloader)sender).TempFiles);
             }
             else if (!e.GotEntireFile)
             {
@@ -441,7 +459,7 @@ namespace Nexus.Client.DownloadManagement
 
                 if (ErrorCode == "666")
                 {
-                    OnTaskEnded(String.Format("{1}: {0} , ", ((FileDownloader)sender).URL, ErrorInfo), ((FileDownloader)sender).URL);
+                    OnTaskEnded(String.Format(m_strServerErrorFormat, ((FileDownloader)sender).URL, ErrorInfo), ((FileDownloader)sender).URL);
                 }
                 else if (!string.IsNullOrEmpty(e.FailureMessage))
                 {
@@ -450,7 +468,7 @@ namespace Nexus.Client.DownloadManagement
                 }
                 else
                 {
-                    OnTaskEnded(String.Format("Error: {0} , unable to finish the download.", ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
+                    OnTaskEnded(String.Format(m_strFinishErrorFormat, ((FileDownloader)sender).URL), ((FileDownloader)sender).URL);
                 }
             }
             else
@@ -481,7 +499,7 @@ namespace Nexus.Client.DownloadManagement
                     m_fdrDownloader.Cleanup();
                 }
 
-				OnTaskEnded("Download cancelled.", (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(Links.NexusMods)));
+				OnTaskEnded(m_strCancelledText, (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(Links.NexusMods)));
 			}
 		}
 

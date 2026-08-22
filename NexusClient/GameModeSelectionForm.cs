@@ -7,6 +7,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.UI.Controls;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client
 {
@@ -23,6 +24,7 @@ namespace Nexus.Client
 		/// </summary>
 		private class RescanGameModeDescriptor : IGameModeDescriptor
 		{
+			private static readonly string DisplayName = LanguageManager.Get("GameModes.Selection.RescanInstalledGames", "Rescan Installed Games");
 			#region Properties
 
 			/// <summary>
@@ -33,7 +35,7 @@ namespace Nexus.Client
 			{
 				get
 				{
-					return "Rescan Installed Games";
+					return DisplayName;
 				}
 			}
 
@@ -280,6 +282,10 @@ namespace Nexus.Client
 		{
 			Settings = p_setSettings;
 			InitializeComponent();
+			cbxRemember.Text = LanguageManager.Get("GameModes.Selection.RememberChoice", "Don't ask me next time.");
+			butOK.Text = LanguageManager.Get("Common.Action.Ok", "OK");
+			lblPrompt.Text = LanguageManager.Get("GameModes.Selection.Prompt", "Select the game you would like to manage:");
+			Text = LanguageManager.Get("GameModes.Selection.Title", "Game Selection");
 			glvGameMode.MinimumSize = lblPrompt.Size;
 			Icon = Properties.Resources.NMM_CE_P_Logo;
 			List<IGameModeDescriptor> lstSortedModes = new List<IGameModeDescriptor>(p_lstGameModes);

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.WarThunder
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.WarThunder
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch War Thunder's Launcher", "Launches War Thunder's Launcher.", imgIcon, LaunchWarThunderPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchPossessiveLauncherName", "Launch {0}'s Launcher", "War Thunder"), LanguageManager.Format("GameModes.Commands.Game.LaunchPossessiveLauncherDescription", "Launches {0}'s Launcher.", "War Thunder"), imgIcon, LaunchWarThunderPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom War Thunder", "Launches War Thunder with custom command.", imgIcon, LaunchWarThunderCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "War Thunder"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "War Thunder"), imgIcon, LaunchWarThunderCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch War Thunder' Launcher", "Launches War Thunder's Launcher.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Get("GameModes.WarThunder.Launcher.Default.Name", "Launch War Thunder' Launcher"), LanguageManager.Get("GameModes.WarThunder.Launcher.Default.Description", "Launches War Thunder's Launcher."), LaunchGame);
 
             Trace.Unindent();
         }
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.WarThunder
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

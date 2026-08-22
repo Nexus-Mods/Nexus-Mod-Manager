@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Windows.Forms;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 
@@ -300,10 +301,10 @@ namespace Nexus.UI.Controls
 				return;
 			string strMessage = null;
 			if (lstNodesToRemove.Count == 1)
-				strMessage = String.Format("Are you sure you want to removed '{0}?'", lstNodesToRemove[0].Text);
+				strMessage = LanguageManager.Format("Common.FileSystemTree.RemoveSingle.Message", "Are you sure you want to removed '{0}?'", lstNodesToRemove[0].Text);
 			else
-				strMessage = String.Format("Are you sure you want to removed the {0} selected nodes?", lstNodesToRemove.Count);
-			if (MessageBox.Show(this.FindForm(), strMessage, "Confirm Delete", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
+				strMessage = LanguageManager.Format("Common.FileSystemTree.RemoveMultiple.Message", "Are you sure you want to removed the {0} selected nodes?", lstNodesToRemove.Count);
+			if (MessageBox.Show(this.FindForm(), strMessage, LanguageManager.Get("Common.Dialog.ConfirmDeleteTitle", "Confirm Delete"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
 			{
 				FileSystemTreeNode tndNode = null;
 				for (Int32 i = lstNodesToRemove.Count - 1; i >= 0; i--)

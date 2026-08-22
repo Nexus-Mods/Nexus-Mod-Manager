@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.ComponentModel;
 using System.Collections.Generic;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.UI.Controls
 {
@@ -222,10 +223,17 @@ namespace Nexus.UI.Controls
 		public FilteredFolderBrowserDialog()
 		{
 			InitializeComponent();
+			Text = LanguageManager.Get("Common.FilteredFolderBrowser.Title", "Filtered File Selection");
+			ckbRecurse.Text = LanguageManager.Get("Common.FilteredFolderBrowser.SearchSubfolders.Option", "Search Subfolders");
+			label2.Text = LanguageManager.Get("Common.FilteredFolderBrowser.FileFilter.Label", "File Filter:");
+			label1.Text = LanguageManager.Get("Common.FilteredFolderBrowser.FilterType.Label", "Filter Type:");
+			butNewFolder.Text = LanguageManager.Get("Common.Action.MakeNewFolder", "Make New Folder");
+			butOK.Text = LanguageManager.Get("Common.Action.Ok", "OK");
+			butCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
 			pnlDescription.Visible = !String.IsNullOrEmpty(autosizeLabel1.Text);
 			
-			cbxFilterType.DataSource = new[] {new { Name = "Wildcard", Type = FilterType.Wildcard },
-											new { Name = "Regular Expression", Type = FilterType.Regex }};
+			cbxFilterType.DataSource = new[] {new { Name = LanguageManager.Get("Common.FilteredFolderBrowser.Wildcard.Option", "Wildcard"), Type = FilterType.Wildcard },
+									new { Name = LanguageManager.Get("Common.FilteredFolderBrowser.Regex.Option", "Regular Expression"), Type = FilterType.Regex }};
 			cbxFilterType.DisplayMember = "Name";
 			cbxFilterType.ValueMember = "Type";
 			cbxFilterType.SelectedIndex = 0;

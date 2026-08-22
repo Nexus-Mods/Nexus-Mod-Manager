@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Nexus.Client.Plugins;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -148,6 +149,14 @@ namespace Nexus.Client.PluginManagement
 
     public sealed class PluginSnapshotBuilder
     {
+        private readonly string _unsupportedPluginClassMessage = LanguageManager.Get("Plugins.Diagnostics.UnsupportedPluginClass", "Plugin class is not supported by this game policy.");
+        private readonly string _addressSpaceExhaustedMessage = LanguageManager.Get("Plugins.Diagnostics.AddressSpaceExhausted", "Plugin address space is exhausted.");
+        private readonly string _fixedPlacementMasterMessage = LanguageManager.Get("Plugins.Diagnostics.FixedPlacement.Master", "Fixed-order plugin is not in its configured position within the master section.");
+        private readonly string _fixedPlacementNonMasterMessage = LanguageManager.Get("Plugins.Diagnostics.FixedPlacement.NonMaster", "Fixed-order plugin is not in its configured position within the non-master section.");
+        private readonly string _missingMasterFormat = LanguageManager.GetFormat("Plugins.Diagnostics.MissingMaster", "Missing master: {0}");
+        private readonly string _inactiveMasterFormat = LanguageManager.GetFormat("Plugins.Diagnostics.InactiveRequiredMaster", "Required master is inactive: {0}");
+        private readonly string _masterBelowDependentFormat = LanguageManager.GetFormat("Plugins.Diagnostics.MasterBelowDependent", "Required master loads below dependent: {0}");
+        private readonly string _dependencyCycleMessage = LanguageManager.Get("Plugins.Diagnostics.DependencyCycle", "Dependency cycle detected.");
 		/// <summary>
 		/// Describes the traversal state of a plugin while producing a dependency-corrected order.
 		/// </summary>
@@ -214,7 +223,7 @@ namespace Nexus.Client.PluginManagement
                     PluginAddressSpacePolicy addressSpace = policy.GetAddressSpace(plugin.Metadata.AddressClass);
                     if (addressSpace == null)
                     {
-                        AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.UnsupportedPluginClass, PluginValidationSeverity.Error, "Plugin class is not supported by this game policy.");
+                        AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.UnsupportedPluginClass, PluginValidationSeverity.Error, _unsupportedPluginClassMessage);
                     }
                     else
                     {
@@ -222,7 +231,7 @@ namespace Nexus.Client.PluginManagement
                         allocatedCounts.TryGetValue(plugin.Metadata.AddressClass, out usedCount);
                         if (addressSpace.MaxCount > 0 && usedCount >= addressSpace.MaxCount)
                         {
-                            AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.AddressSpaceExhausted, PluginValidationSeverity.Error, "Plugin address space is exhausted.");
+                            AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.AddressSpaceExhausted, PluginValidationSeverity.Error, _addressSpaceExhaustedMessage);
                         }
                         else
                         {
@@ -523,7 +532,7 @@ namespace Nexus.Client.PluginManagement
 		/// <param name="p_dicExpectedPriorities">The expected fixed-plugin priorities indexed by normalized file name.</param>
 		/// <param name="p_lstDiagnostics">The complete diagnostic collection.</param>
 		/// <param name="p_dicDiagnosticsByPlugin">The diagnostics grouped by plugin.</param>
-		private static void ValidateFixedPluginPlacement(Plugin p_plgPlugin, int p_intPriority, IDictionary<string, int> p_dicExpectedPriorities, List<PluginValidationDiagnostic> p_lstDiagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> p_dicDiagnosticsByPlugin)
+		private void ValidateFixedPluginPlacement(Plugin p_plgPlugin, int p_intPriority, IDictionary<string, int> p_dicExpectedPriorities, List<PluginValidationDiagnostic> p_lstDiagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> p_dicDiagnosticsByPlugin)
 		{
 			if (p_plgPlugin == null || p_plgPlugin.Metadata == null || p_dicExpectedPriorities == null)
 				return;
@@ -533,18 +542,16 @@ namespace Nexus.Client.PluginManagement
 			if (!p_dicExpectedPriorities.TryGetValue(NormalizePluginName(p_plgPlugin.Filename), out intExpectedPriority) || p_intPriority == intExpectedPriority)
 				return;
 
-			string strSectionName = p_plgPlugin.Metadata.EffectiveMaster ? "master" : "non-master";
-
 			AddDiagnostic(
 				p_lstDiagnostics,
 				p_dicDiagnosticsByPlugin,
 				p_plgPlugin,
 				PluginValidationIssueKind.InvalidFixedPluginPlacement,
 				PluginValidationSeverity.Error,
-				"Fixed-order plugin is not in its configured position within the " + strSectionName + " section.");
+				p_plgPlugin.Metadata.EffectiveMaster ? _fixedPlacementMasterMessage : _fixedPlacementNonMasterMessage);
 		}
 
-		private static void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins,
+		private void ValidatePlugin(PluginManagementPolicy policy, Plugin plugin, bool active, int priority, Dictionary<string, Plugin> pluginsByName, Dictionary<string, int> priorityByName, ISet<Plugin> activePlugins,
 			List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
 		{
 			if (plugin == null)
@@ -573,14 +580,14 @@ namespace Nexus.Client.PluginManagement
 						plugin,
 						PluginValidationIssueKind.MissingMaster,
 						missingMasterSeverity,
-						"Missing master: " + masterName);
+						String.Format(_missingMasterFormat, masterName));
 
 					continue;
 				}
 
 				if (active && !activePlugins.Contains(master))
 				{
-					AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.InactiveRequiredMaster, restrictionSeverity, "Required master is inactive: " + masterName);
+					AddDiagnostic(diagnostics, diagnosticsByPlugin, plugin, PluginValidationIssueKind.InactiveRequiredMaster, restrictionSeverity, String.Format(_inactiveMasterFormat, masterName));
 				}
 
 				int masterPriority;
@@ -592,7 +599,7 @@ namespace Nexus.Client.PluginManagement
 						plugin,
 						PluginValidationIssueKind.MasterBelowDependent,
 						restrictionSeverity,
-						"Required master loads below dependent: " + masterName);
+						String.Format(_masterBelowDependentFormat, masterName));
 				}
 			}
 		}
@@ -600,7 +607,7 @@ namespace Nexus.Client.PluginManagement
 		/// <summary>
 		/// Detects dependency cycles with an iterative depth-first traversal so pathological plugin chains cannot overflow the process stack.
 		/// </summary>
-		private static void DetectDependencyCycles(IList<Plugin> orderedPlugins, Dictionary<string, Plugin> pluginsByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
+		private void DetectDependencyCycles(IList<Plugin> orderedPlugins, Dictionary<string, Plugin> pluginsByName, List<PluginValidationDiagnostic> diagnostics, Dictionary<Plugin, List<PluginValidationDiagnostic>> diagnosticsByPlugin, PluginRestrictionMode restrictionMode)
 		{
 			Dictionary<Plugin, PluginTraversalState> traversalStates = new Dictionary<Plugin, PluginTraversalState>(PluginComparer.Filename);
 			HashSet<Plugin> reportedCyclePlugins = new HashSet<Plugin>(PluginComparer.Filename);
@@ -648,7 +655,7 @@ namespace Nexus.Client.PluginManagement
 
 										if (reportedCyclePlugins.Add(cyclePlugin))
 										{
-											AddDiagnostic(diagnostics, diagnosticsByPlugin, cyclePlugin, PluginValidationIssueKind.DependencyCycle, restrictionMode == PluginRestrictionMode.Disabled ? PluginValidationSeverity.Warning : PluginValidationSeverity.Error, "Dependency cycle detected.");
+											AddDiagnostic(diagnostics, diagnosticsByPlugin, cyclePlugin, PluginValidationIssueKind.DependencyCycle, restrictionMode == PluginRestrictionMode.Disabled ? PluginValidationSeverity.Warning : PluginValidationSeverity.Error, _dependencyCycleMessage);
 										}
 									}
 								}

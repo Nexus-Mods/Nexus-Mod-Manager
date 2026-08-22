@@ -8,6 +8,7 @@ using Nexus.UI.Controls;
 using Microsoft.Win32;
 using System.IO;
 using Nexus.Client.Settings;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Oblivion
 {
@@ -30,7 +31,7 @@ namespace Nexus.Client.Games.Oblivion
 		{
 			get
 			{
-				return "Supported Tools";
+				return LanguageManager.Get("GameModes.SupportedTools.Title", "Supported Tools");
 			}
 		}
 
@@ -132,19 +133,19 @@ namespace Nexus.Client.Games.Oblivion
 			Errors.Clear(p_strBOSSProperty);
 			if (String.IsNullOrEmpty(p_strBOSSPath))
 			{
-				Errors.SetError(p_strBOSSProperty, String.Format("You must select a {0}.", p_strBOSSPathName));
+				Errors.SetError(p_strBOSSProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strBOSSPathName));
 				return false;
 			}
 			Errors.Clear(p_strWryeBashProperty);
 			if (String.IsNullOrEmpty(p_strWryeBashPath))
 			{
-				Errors.SetError(p_strWryeBashProperty, String.Format("You must select a {0}.", p_strWryeBashPathName));
+				Errors.SetError(p_strWryeBashProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strWryeBashPathName));
 				return false;
 			}
 			Errors.Clear(p_strTES4EditProperty);
 			if (String.IsNullOrEmpty(p_strTES4EditPath))
 			{
-				Errors.SetError(p_strTES4EditProperty, String.Format("You must select a {0}.", p_strTES4EditPathName));
+				Errors.SetError(p_strTES4EditProperty, LanguageManager.Format("GameModes.Validation.RequiredDirectory", "You must select the {0} directory.", p_strTES4EditPathName));
 				return false;
 			}
 
@@ -165,7 +166,7 @@ namespace Nexus.Client.Games.Oblivion
 			}
 			if (p_strPath.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
 			{
-				Errors.SetError(p_strProperty, String.Format("The selected path is not valid: {0}.", p_strPathName));
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.InvalidPath", "The selected path is not valid: {0}.", p_strPathName));
 				return false;
 			}
 			else if (
@@ -174,7 +175,7 @@ namespace Nexus.Client.Games.Oblivion
 				(String.Equals(GameModeDescriptor.PluginDirectory, p_strPath))
 				)
 			{
-				Errors.SetError(p_strProperty, string.Format("You can't set the {0} equal to the following:" + Environment.NewLine +
+				Errors.SetError(p_strProperty, LanguageManager.Format("GameModes.Validation.PathCannotMatchProtectedLocations", "You can't set the {0} path equal to the following:" + Environment.NewLine +
 					"HD root - {2}" + Environment.NewLine +
 					"Game root folder - {1}" + Environment.NewLine +
 					"Game plugin folder - {3}",
@@ -193,7 +194,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateBOSSDirectory()
 		{
-			return ValidateDirectory(BOSSDirectory, "BOSS Directory", ObjectHelper.GetPropertyName(() => BOSSDirectory));
+			return ValidateDirectory(BOSSDirectory, "BOSS", ObjectHelper.GetPropertyName(() => BOSSDirectory));
 		}
 
 		/// <summary>
@@ -203,7 +204,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateWryeBashDirectory()
 		{
-			return ValidateDirectory(WryeBashDirectory, "Wrye Bash Directory", ObjectHelper.GetPropertyName(() => WryeBashDirectory));
+			return ValidateDirectory(WryeBashDirectory, "Wrye Bash", ObjectHelper.GetPropertyName(() => WryeBashDirectory));
 		}
 
 		/// <summary>
@@ -213,7 +214,7 @@ namespace Nexus.Client.Games.Oblivion
 		/// <c>false</c> otherwise.</returns>
 		protected bool ValidateTES4EditDirectory()
 		{
-			return ValidateDirectory(TES4EditDirectory, "TES4Edit Directory", ObjectHelper.GetPropertyName(() => TES4EditDirectory));
+			return ValidateDirectory(TES4EditDirectory, "TES4Edit", ObjectHelper.GetPropertyName(() => TES4EditDirectory));
 		}
 
 		/// <summary>

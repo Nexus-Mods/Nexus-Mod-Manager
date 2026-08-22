@@ -1,4 +1,5 @@
-﻿namespace Nexus.Client.Games.FalloutNV.Tools.AI
+﻿using Nexus.Client.Util.Localization;
+namespace Nexus.Client.Games.FalloutNV.Tools.AI
 {
     using System;
     using System.Collections.Generic;
@@ -145,10 +146,10 @@
                 TraceUtil.TraceException(ex);
 
                 MessageBox.Show(
-                    "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
-                    "Please try again, or check trace log for more info.\n\n" +
-                    ex.Message,
-                    "Archive Invalidation failed",
+                    LanguageManager.Get("GameModes.ArchiveInvalidation.ApplyFailedMessage", "Could not apply Archive Invalidation, at least one file could not be modified.\n" +
+                        "Please try again, or check trace log for more info.\n\n") +
+                        ex.Message,
+                        LanguageManager.Get("GameModes.ArchiveInvalidation.ApplyFailedTitle", "Archive Invalidation failed"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
 			}

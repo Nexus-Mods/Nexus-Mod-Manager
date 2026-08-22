@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DarkSouls
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.DarkSouls
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Dark Souls", "Launches plain Dark Souls.", imgIcon, LaunchDarkSoulsPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Dark Souls"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Dark Souls"), imgIcon, LaunchDarkSoulsPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Dark Souls", "Launches Dark Souls with custom command.", imgIcon, LaunchDarkSoulsCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Dark Souls"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Dark Souls"), imgIcon, LaunchDarkSoulsCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Dark Souls", "Launches Dark Souls.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Dark Souls"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Dark Souls"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.DarkSouls
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

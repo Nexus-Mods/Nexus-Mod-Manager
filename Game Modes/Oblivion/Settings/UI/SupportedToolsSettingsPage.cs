@@ -7,6 +7,7 @@ using Nexus.UI.Controls;
 using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 
 
@@ -26,6 +27,10 @@ namespace Nexus.Client.Games.Oblivion.Settings.UI
 		protected SupportedToolsSettingsPage()
 		{
 			InitializeComponent();
+			lblBOSSPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "BOSS");
+			lblWryeBashPrompt.Text = LanguageManager.Format("GameModes.SupportedTools.SelectDirectoryPrompt", "Select the directory where {0} is installed:", "Wrye Bash");
+			lblBOSSLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "BOSS");
+			lblWryeBashDirectoryLabel.Text = LanguageManager.Format("GameModes.SupportedTools.PathLabel", "{0} path:", "Wrye Bash");
 		}
 
 		/// <summary>
@@ -42,8 +47,6 @@ namespace Nexus.Client.Games.Oblivion.Settings.UI
 
 			p_stsSettings.Errors.ErrorChanged -= new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
 			p_stsSettings.Errors.ErrorChanged += new EventHandler<ErrorEventArguments>(Errors_ErrorChanged);
-
-			lblBOSSPrompt.Text = String.Format(lblBOSSPrompt.Text, p_stsSettings.GameModeName);
 			lblWryeBashPrompt.Text = String.Format(lblWryeBashPrompt.Text, p_stsSettings.GameModeName);	
 		}
 

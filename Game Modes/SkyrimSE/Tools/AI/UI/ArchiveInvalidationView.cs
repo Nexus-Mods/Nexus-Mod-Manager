@@ -1,6 +1,7 @@
 ﻿using System.Windows.Forms;
 using Nexus.Client.Games.Tools;
 using System.ComponentModel;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.SkyrimSE.Tools.AI.UI
 {
@@ -62,7 +63,7 @@ namespace Nexus.Client.Games.SkyrimSE.Tools.AI.UI
 		/// <returns><c>true</c> if the user wishes to reset AI.</returns>
 		protected bool ConfirmAiReset()
 		{
-			return (MessageBox.Show(this, "Reset archive invalidation?", "AI", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
+			return (MessageBox.Show(this, LanguageManager.Get("GameModes.ArchiveInvalidation.ConfirmReset", "Reset archive invalidation?"), LanguageManager.Get("GameModes.ArchiveInvalidation.ShortTitle", "AI"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes);
 		}
 	}
 }

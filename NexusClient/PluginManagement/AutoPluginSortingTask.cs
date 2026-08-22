@@ -7,6 +7,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Plugins;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -68,7 +69,7 @@ namespace Nexus.Client.PluginManagement
 		protected override object DoWork(object[] args)
 		{
 			ShowOverallProgressAsMarquee = true;
-			OverallMessage = "Sorting, please wait...";
+			OverallMessage = LanguageManager.Get("Tasks.Plugins.Sorting", "Sorting, please wait...");
 			string[] SortedPlugins = GameMode.SortPlugins(Plugins);
 			return SortedPlugins;
 		}

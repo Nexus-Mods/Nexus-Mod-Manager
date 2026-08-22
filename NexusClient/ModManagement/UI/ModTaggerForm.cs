@@ -14,6 +14,7 @@
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
 	using Nexus.Client.Util;
+	using Nexus.Client.Util.Localization;
 
 	/// <summary>
 	/// Displays Nexus match candidates and a DevExpress-based mod metadata editor.
@@ -31,6 +32,11 @@
 		private ExtendedImage m_eimScreenshot;
 		private DevExpressDisplaySettings m_dxdDisplaySettings;
 		private bool m_booLoadingEditor;
+		private readonly string m_strEditDescriptionText;
+		private readonly string m_strPreviewDescriptionText;
+		private readonly string m_strNoCandidatesHint;
+		private readonly string m_strOneCandidateHint;
+		private readonly string m_strManyCandidatesHint;
 
 		/// <summary>
 		/// Gets or sets the view model that supplies candidates and saves edited metadata.
@@ -67,6 +73,12 @@
 		public ModTaggerForm(ModTaggerVM p_mtgTaggerVM)
 		{
 			InitializeComponent();
+			m_strEditDescriptionText = LanguageManager.Get("Mods.ModTagger.Description.EditSource", "Edit source");
+			m_strPreviewDescriptionText = LanguageManager.Get("Mods.ModTagger.Description.Preview", "Preview");
+			m_strNoCandidatesHint = LanguageManager.Get("Mods.ModTagger.Candidates.NoneHint", "No automatic Nexus match was found. Enter a Nexus link or the numeric IDs manually.");
+			m_strOneCandidateHint = LanguageManager.Get("Mods.ModTagger.Candidates.OneHint", "One Nexus match was found. Verify it, then save or edit the metadata manually.");
+			m_strManyCandidatesHint = LanguageManager.Get("Mods.ModTagger.Candidates.ManyHint", "Select the exact Nexus file. Different files belonging to the same mod remain separate entries.");
+			ApplyLocalization();
 			NmmIconProvider.Bind(btnOpenWebsite, NmmIconAction.ExternalLink);
 			NmmIconProvider.Bind(btnSetScreenshot, NmmIconAction.Screenshot);
 			NmmIconProvider.Bind(btnClearScreenshot, NmmIconAction.Clear);
@@ -76,6 +88,37 @@
 			NmmIconProvider.Bind(btnEditDescription, NmmIconAction.Rename);
 			ViewModel = p_mtgTaggerVM;
 			buttonPanel_Resize(this, EventArgs.Empty);
+		}
+
+
+		/// <summary>
+		/// Applies all static UI text once when the dialog is created.
+		/// </summary>
+		private void ApplyLocalization()
+		{
+			Text = LanguageManager.Get("Mods.ModTagger.Window.Title", "Get Mod Info");
+			grpCandidates.Text = LanguageManager.Get("Mods.ModTagger.Candidates.Title", "Nexus matches");
+			lblCandidateHint.Text = LanguageManager.Get("Mods.ModTagger.Candidates.DefaultHint", "Select the exact Nexus file when one is available, or edit the metadata manually.");
+			colCandidateName.Caption = LanguageManager.Get("Mods.ModTagger.Candidates.Columns.FileMod", "FILE / MOD");
+			colCandidateVersion.Caption = LanguageManager.Get("Common.Field.Version", "VERSION");
+			colCandidateFileId.Caption = LanguageManager.Get("Mods.ModTagger.Candidates.Columns.FileId", "FILE ID");
+
+			editorLayout.GetItemByControl(txtName).Text = LanguageManager.Get("Mods.ModTagger.Fields.ModName", "Mod name");
+			editorLayout.GetItemByControl(txtVersion).Text = LanguageManager.Get("Mods.ModTagger.Fields.FileVersion", "File version");
+			editorLayout.GetItemByControl(txtAuthor).Text = LanguageManager.Get("Common.Field.Author", "Author");
+			editorLayout.GetItemByControl(txtWebsite).Text = LanguageManager.Get("Mods.ModTagger.Fields.Website", "Nexus / website");
+			editorLayout.GetItemByControl(txtModId).Text = LanguageManager.Get("Mods.ModTagger.Fields.ModId", "Nexus mod ID");
+			editorLayout.GetItemByControl(txtFileId).Text = LanguageManager.Get("Mods.ModTagger.Fields.FileId", "Nexus file ID");
+			editorLayout.GetItemByControl(pnlDescription).Text = LanguageManager.Get("Common.Field.Description", "Description");
+			editorLayout.GetItemByControl(picScreenshot).Text = LanguageManager.Get("Mods.ModTagger.Fields.Screenshot", "Screenshot");
+
+			btnEditDescription.Text = m_strEditDescriptionText;
+			btnOpenWebsite.Text = LanguageManager.Get("Mods.ModTagger.Actions.OpenNexusPage", "Open Nexus page");
+			btnSetScreenshot.Text = LanguageManager.Get("Mods.ModTagger.Actions.SetScreenshot", "Set screenshot");
+			btnClearScreenshot.Text = LanguageManager.Get("Mods.ModTagger.Actions.ClearScreenshot", "Clear screenshot");
+			btnRestoreCurrent.Text = LanguageManager.Get("Mods.ModTagger.Actions.RestoreCurrent", "Restore current info");
+			btnOK.Text = LanguageManager.Get("Common.Action.Save", "Save");
+			btnCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
 		}
 
 		/// <summary>
@@ -221,7 +264,7 @@
 		/// <param name="editSource">Whether the original description markup should be editable.</param>
 		private void SetDescriptionEditMode(bool editSource)
 		{
-			btnEditDescription.Text = editSource ? "Preview" : "Edit source";
+			btnEditDescription.Text = editSource ? m_strPreviewDescriptionText : m_strEditDescriptionText;
 			UpdateActionButtonMetrics();
 			txtDescription.Visible = editSource;
 			htmlDescription.Visible = !editSource;
@@ -253,13 +296,13 @@
 		{
 			if (ViewModel == null || ViewModel.TagCandidates.Count == 0)
 			{
-				lblCandidateHint.Text = "No automatic Nexus match was found. Enter a Nexus link or the numeric IDs manually.";
+				lblCandidateHint.Text = m_strNoCandidatesHint;
 				return;
 			}
 
 			lblCandidateHint.Text = ViewModel.TagCandidates.Count == 1
-				? "One Nexus match was found. Verify it, then save or edit the metadata manually."
-				: "Select the exact Nexus file. Different files belonging to the same mod remain separate entries.";
+				? m_strOneCandidateHint
+				: m_strManyCandidatesHint;
 		}
 
 		/// <summary>
@@ -287,7 +330,7 @@
 			}
 			else if (!NexusModLinkParser.TryNormalizeWebsite(txtWebsite.Text, out website))
 			{
-				errorProvider.SetError(txtWebsite, "Enter a valid HTTP, HTTPS, or NXM Nexus Mods address.", ErrorType.Critical);
+				errorProvider.SetError(txtWebsite, LanguageManager.Get("Mods.ModTagger.Validation.InvalidWebsite", "Enter a valid HTTP, HTTPS, or NXM Nexus Mods address."), ErrorType.Critical);
 				return;
 			}
 
@@ -315,7 +358,7 @@
 			Uri website = ResolveEditorNavigationUri();
 			if (website == null)
 			{
-				errorProvider.SetError(txtWebsite, "Enter a Nexus link or valid Nexus mod ID first.", ErrorType.Information);
+				errorProvider.SetError(txtWebsite, LanguageManager.Get("Mods.ModTagger.Validation.NavigationRequired", "Enter a Nexus link or valid Nexus mod ID first."), ErrorType.Information);
 				return;
 			}
 
@@ -325,7 +368,7 @@
 			}
 			catch (Exception ex)
 			{
-				errorProvider.SetError(txtWebsite, "Unable to open the web address: " + ex.Message, ErrorType.Warning);
+				errorProvider.SetError(txtWebsite, LanguageManager.Format("Mods.ModTagger.Error.OpenWebsite", "Unable to open the web address: {0}", ex.Message), ErrorType.Warning);
 			}
 		}
 
@@ -355,8 +398,8 @@
 		{
 			using (XtraOpenFileDialog dialog = new XtraOpenFileDialog())
 			{
-				dialog.Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|All files|*.*";
-				dialog.Title = "Select mod screenshot";
+				dialog.Filter = LanguageManager.Get("Common.FileDialog.ImageFilter", "Image files") + "|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.webp|" + LanguageManager.Get("Common.FileDialog.AllFiles", "All files") + "|*.*";
+				dialog.Title = LanguageManager.Get("Mods.ModTagger.ScreenshotDialog.Title", "Select mod screenshot");
 				if (dialog.ShowDialog(this) != DialogResult.OK)
 					return;
 
@@ -368,7 +411,7 @@
 				}
 				catch (Exception ex)
 				{
-					errorProvider.SetError(picScreenshot, "Unable to load the selected image: " + ex.Message, ErrorType.Warning);
+					errorProvider.SetError(picScreenshot, LanguageManager.Format("Mods.ModTagger.Error.LoadScreenshot", "Unable to load the selected image: {0}", ex.Message), ErrorType.Warning);
 				}
 			}
 		}
@@ -412,7 +455,7 @@
 				return;
 
 			errorProvider.ClearErrors();
-			string error;
+			ModTaggerSaveError error;
 			if (!ViewModel.TrySaveTags(
 				txtName.Text,
 				txtVersion.Text,
@@ -436,19 +479,32 @@
 		/// Displays a save validation error beside the most relevant editor.
 		/// </summary>
 		/// <param name="error">The validation error to display.</param>
-		private void ApplySaveError(string error)
+		private void ApplySaveError(ModTaggerSaveError error)
 		{
-			if (String.IsNullOrEmpty(error))
-				error = "The mod information could not be saved.";
-
-			if (error.IndexOf("name", StringComparison.OrdinalIgnoreCase) >= 0)
-				errorProvider.SetError(txtName, error, ErrorType.Critical);
-			else if (error.IndexOf("file ID", StringComparison.OrdinalIgnoreCase) >= 0)
-				errorProvider.SetError(txtFileId, error, ErrorType.Critical);
-			else if (error.IndexOf("mod ID", StringComparison.OrdinalIgnoreCase) >= 0)
-				errorProvider.SetError(txtModId, error, ErrorType.Critical);
-			else
-				errorProvider.SetError(txtWebsite, error, ErrorType.Critical);
+			string message;
+			switch (error)
+			{
+				case ModTaggerSaveError.ModNameRequired:
+					message = LanguageManager.Get("Mods.ModTagger.Validation.ModNameRequired", "A mod name is required.");
+					errorProvider.SetError(txtName, message, ErrorType.Critical);
+					break;
+				case ModTaggerSaveError.InvalidModId:
+					message = LanguageManager.Get("Mods.ModTagger.Validation.InvalidModId", "The Nexus mod ID must be a positive number.");
+					errorProvider.SetError(txtModId, message, ErrorType.Critical);
+					break;
+				case ModTaggerSaveError.InvalidFileId:
+					message = LanguageManager.Get("Mods.ModTagger.Validation.InvalidFileId", "The Nexus file ID must be a positive number.");
+					errorProvider.SetError(txtFileId, message, ErrorType.Critical);
+					break;
+				case ModTaggerSaveError.InvalidWebsite:
+					message = LanguageManager.Get("Mods.ModTagger.Validation.InvalidWebsite", "Enter a valid HTTP, HTTPS, or NXM Nexus Mods address.");
+					errorProvider.SetError(txtWebsite, message, ErrorType.Critical);
+					break;
+				default:
+					message = LanguageManager.Get("Mods.ModTagger.Validation.SaveFailed", "The mod information could not be saved.");
+					errorProvider.SetError(txtWebsite, message, ErrorType.Critical);
+					break;
+			}
 		}
 
 		/// <summary>

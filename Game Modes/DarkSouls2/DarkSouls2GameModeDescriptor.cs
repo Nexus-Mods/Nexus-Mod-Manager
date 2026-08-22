@@ -4,6 +4,7 @@ using System.IO;
 using System.Drawing;
 using System.Text;
 using Nexus.Client.Games.DarkSouls2;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.DarkSouls2
 {
@@ -117,16 +118,10 @@ namespace Nexus.Client.Games.DarkSouls2
 		{
 			get
 			{
-				StringBuilder stbPromptMessage = new StringBuilder();
-				stbPromptMessage.AppendFormat("You need to set the {0} tool folder to be able to install and use Dark Souls 2 mods.", REQUIRED_TOOL).AppendLine();
-				stbPromptMessage.AppendLine("You can download the latest version of this tool at:");
-				stbPromptMessage.AppendLine("http://blog.metaclassofnil.com/");
-				stbPromptMessage.AppendLine("Install the program, you can install it anywhere, by default NMM will look for it in:");
-				stbPromptMessage.AppendLine(@"\Steam\steamapps\common\Dark Souls II\Game\GeDoSaTo");
-				stbPromptMessage.AppendLine("After installing it open NMM's Settings menu (gears icon), go to the Dark Souls 2 tab,");
-				stbPromptMessage.AppendFormat("input the correct folder for {0} in the proper field and press OK.", REQUIRED_TOOL).AppendLine();
-				stbPromptMessage.AppendLine("Don't forget to set enableTextureOverride to true in the GeDoSaTo.ini file!");
-				return stbPromptMessage.ToString();
+				return LanguageManager.Format(
+					"GameModes.DarkSouls2.RequiredTool.Message",
+					"You need to set the {0} tool folder to be able to install and use Dark Souls 2 mods.{1}You can download the latest version of this tool at:{1}{2}{1}Install the program, you can install it anywhere, by default NMM will look for it in:{1}{3}{1}After installing it open NMM's Settings menu (gears icon), go to the Dark Souls 2 tab,{1}input the correct folder for {0} in the proper field and press OK.{1}Don't forget to set enableTextureOverride to true in the GeDoSaTo.ini file!{1}",
+					REQUIRED_TOOL, Environment.NewLine, "http://blog.metaclassofnil.com/", @"\Steam\steamapps\common\Dark Souls II\Game\GeDoSaTo");
 			}
 		}
 

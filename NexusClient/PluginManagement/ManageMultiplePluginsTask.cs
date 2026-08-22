@@ -5,6 +5,7 @@ using Nexus.Client.Plugins;
 using Nexus.Client.PluginManagement.InstallationLog;
 using Nexus.Client.UI;
 using System.Linq;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.PluginManagement
 {
@@ -68,7 +69,9 @@ namespace Nexus.Client.PluginManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = String.Format("{0} all the managed plugins...", EnablePlugins ? "Activating" : "Disabling");
+			OverallMessage = EnablePlugins
+				? LanguageManager.Get("Tasks.Plugins.ActivatingManaged", "Activating all the managed plugins...")
+				: LanguageManager.Get("Tasks.Plugins.DisablingManaged", "Disabling all the managed plugins...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			OverallProgressMaximum = PluginList.Count;

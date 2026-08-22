@@ -29,6 +29,7 @@
 	using Nexus.Client.Updating;
 	using Nexus.Client.Util;
 	using Nexus.Client.Util.Collections;
+	using Nexus.Client.Util.Localization;
 	using Nexus.Client.Commands.Generic;
 	using Nexus.UI.Controls;
 	using Pathoschild.FluentNexus.Models;
@@ -606,8 +607,8 @@
 
 			SettingsFormVM = new SettingsFormVM(p_gmdGameMode, p_eifEnvironmentInfo, lstSettingGroups);
 
-			UpdateCommand = new Command("Update", $"Update {CommonData.ModManagerName}", UpdateProgram);
-			ToggleLoginCommand = new Command("ToggleLogin", "Login/Logout", ToggleLogin);
+			UpdateCommand = new Command(LanguageManager.Get("MainForm.Commands.Update.Name", "Update"), LanguageManager.Format("MainForm.Commands.Update.Description", "Update {0}", CommonData.ModManagerName), UpdateProgram);
+			ToggleLoginCommand = new Command(LanguageManager.Get("MainForm.Commands.LoginToggle.Name", "ToggleLogin"), LanguageManager.Get("MainForm.Commands.LoginToggle.Description", "Login/Logout"), ToggleLogin);
 
 			var lstChangeGameModeCommands = new List<Command>();
 			var lstSortedModes = new List<IGameModeDescriptor>(p_gmrInstalledGames.RegisteredGameModes);
@@ -617,13 +618,13 @@
 			{
 				var strId = gmdInstalledGame.ModeId;
 				var strName = gmdInstalledGame.Name;
-				var strDescription = $"Change game to {gmdInstalledGame.Name}";
+				var strDescription = LanguageManager.Format("MainForm.ChangeGameMode.ChangeTo", "Change game to {0}", gmdInstalledGame.Name);
 				Image imgCommandIcon = new Icon(gmdInstalledGame.ModeTheme.Icon, 32, 32).ToBitmap();
 				lstChangeGameModeCommands.Add(new Command(strId, strName, strDescription, imgCommandIcon, () => ChangeGameMode(strId), true));
 			}
 
-			lstChangeGameModeCommands.Add(new Command("Change Default Game...", "Change Default Game", () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
-			lstChangeGameModeCommands.Add(new Command("Rescan Installed Games...", "Rescan Installed Games", () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
+			lstChangeGameModeCommands.Add(new Command(LanguageManager.Get("MainForm.ChangeGameMode.ChangeDefault.Name", "Change Default Game..."), LanguageManager.Get("MainForm.ChangeGameMode.ChangeDefault.Description", "Change Default Game"), () => ChangeGameMode(CHANGE_DEFAULT_GAME_MODE)));
+			lstChangeGameModeCommands.Add(new Command(LanguageManager.Get("MainForm.ChangeGameMode.Rescan.Name", "Rescan Installed Games..."), LanguageManager.Get("MainForm.ChangeGameMode.Rescan.Description", "Rescan Installed Games"), () => ChangeGameMode(RESCAN_INSTALLED_GAMES)));
 			ChangeGameModeCommands = lstChangeGameModeCommands;
 		}
 
@@ -776,7 +777,7 @@
 		{
 			using (var fbd = new XtraFolderBrowserDialog())
 			{
-				fbd.Description = $"Select the folder where {CommonData.ModManagerName} will save the Backup Archive.";
+				fbd.Description = LanguageManager.Format("Backup.SelectDestination.Description", "Select the folder where {0} will save the Backup Archive.", CommonData.ModManagerName);
 				fbd.ShowNewFolderButton = true;
 
 				fbd.ShowDialog(mainForm);
@@ -789,7 +790,7 @@
 					{
 						if (string.Equals(directoryInfo.FullName, Environment.GetFolderPath(folder), StringComparison.OrdinalIgnoreCase))
 						{
-							var drResult = ExtendedMessageBox.Show(null, "You cannot select a system folder!", "Wrong folder.", "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+							var drResult = ExtendedMessageBox.Show(null, LanguageManager.Get("GameSettings.VirtualFolders.SystemFolder.Message", "You cannot select a system folder!"), LanguageManager.Get("GameSettings.VirtualFolders.SystemFolder.Title", "Wrong folder."), "", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 							CreateBackup(mainForm, p_bmBackupManager);
 							break;
 						}

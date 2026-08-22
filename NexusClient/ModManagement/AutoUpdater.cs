@@ -11,6 +11,7 @@
     using ModRepositories;
     using Mods;
     using Util.Collections;
+    using Util.Localization;
 
     /// <summary>
 	/// Check for newer versions of the registered mods.
@@ -138,7 +139,7 @@
 
             if (booEndorsementState == null)
             {
-                MessageBox.Show($"Could not change endorsement status of \"{mod.ModName}\".", "Endorsement toggle error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(string.Format(LanguageManager.GetFormat("Mods.Endorsement.ToggleError", "Could not change endorsement status of \"{0}\"."), mod.ModName), LanguageManager.Get("Mods.Endorsement.ToggleErrorTitle", "Endorsement toggle error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 

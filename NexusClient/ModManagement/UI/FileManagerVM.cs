@@ -10,6 +10,7 @@
 
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.Games;
+    using Nexus.Client.Util.Localization;
 
     public sealed class FileManagerVM : INotifyPropertyChanged, IDisposable
     {
@@ -38,6 +39,14 @@
         private int _creationsFiles;
         private int _externalModManagerFiles;
         private int _untrackedFiles;
+        private readonly string _notScannedStatus;
+        private readonly string _unsupportedGameStatus;
+        private readonly string _scanningStatus;
+        private readonly string _linkTypeProgressFormat;
+        private readonly string _linkTypeIncompleteStatus;
+        private readonly string _changedDuringScanStatus;
+        private readonly string _scanCompleteStatus;
+        private readonly string _changedSinceScanStatus;
 
         public FileManagerVM(ModManagerVM modManagerViewModel)
             : this(modManagerViewModel, null)
@@ -48,11 +57,19 @@
         {
             if (modManagerViewModel == null) throw new ArgumentNullException("modManagerViewModel");
             _modManagerViewModel = modManagerViewModel;
+            _notScannedStatus = LanguageManager.Get("FileManager.Status.NotScanned", "Not scanned.");
+            _unsupportedGameStatus = LanguageManager.Get("FileManager.Status.UnsupportedGame", "File Manager is available only for Gamebryo game modes.");
+            _scanningStatus = LanguageManager.Get("FileManager.Status.Scanning", "Scanning deployment files...");
+            _linkTypeProgressFormat = LanguageManager.GetFormat("FileManager.Status.DetectingLinkTypes", "Detecting link types... {0:N0}/{1:N0}");
+            _linkTypeIncompleteStatus = LanguageManager.Get("FileManager.Status.LinkTypeIncomplete", "Scan complete, but link-type detection did not finish.");
+            _changedDuringScanStatus = LanguageManager.Get("FileManager.Status.ChangedDuringScan", "Data changed while the scan was running. Click Refresh to update.");
+            _scanCompleteStatus = LanguageManager.Get("FileManager.Status.ScanComplete", "Scan complete.");
+            _changedSinceScanStatus = LanguageManager.Get("FileManager.Status.ChangedSinceScan", "Data changed since the last scan. Click Refresh to update.");
             _queryService = new FileManagerQueryService(manualSourceStore ?? new SettingsFileManagerManualSourceStore(modManagerViewModel.Settings));
             _deploymentService = new VirtualDeploymentService(modManagerViewModel.VirtualModActivator);
             _uiContext = SynchronizationContext.Current;
             Rows = new BindingList<FileManagerRow>();
-            StatusMessage = "Not scanned.";
+            StatusMessage = _notScannedStatus;
             WatchModActivationQueue();
         }
 
@@ -184,7 +201,7 @@
 
             if (!IsGamebryoMode)
             {
-                StatusMessage = "File Manager is available only for Gamebryo game modes.";
+                StatusMessage = _unsupportedGameStatus;
                 return;
             }
 
@@ -199,7 +216,7 @@
             int dataChangeRevision = Interlocked.CompareExchange(ref _dataChangeRevision, 0, 0);
             IGameMode gameMode = GameMode;
             IsScanning = true;
-            StatusMessage = "Scanning deployment files...";
+            StatusMessage = _scanningStatus;
 
             try
             {
@@ -223,8 +240,8 @@
                 else
                 {
                     StatusMessage = IsStale
-                        ? "Data changed while the scan was running. Click Refresh to update."
-                        : "Scan complete.";
+                        ? _changedDuringScanStatus
+                        : _scanCompleteStatus;
                     Trace.TraceInformation("File Manager diagnostics finalized. {0}", result.Diagnostics);
                 }
             }
@@ -311,7 +328,7 @@
             IsResolvingLinkTypes = true;
             if (diagnostics != null)
                 diagnostics.LinkTypeStartedTimestamp = Stopwatch.GetTimestamp();
-            StatusMessage = String.Format("Detecting link types... 0/{0:N0}", pendingCount);
+            StatusMessage = String.Format(_linkTypeProgressFormat, 0, pendingCount);
             _linkTypeResolutionTask = ResolveLinkTypesAsync(rows, pendingCount, scanGeneration, gameMode, cancellation, diagnostics);
         }
 
@@ -391,7 +408,7 @@
                     update.Row.SetLinkTypeState(update.State, false);
             }
 
-            StatusMessage = String.Format("Detecting link types... {0:N0}/{1:N0}", Math.Min(completed, total), total);
+            StatusMessage = String.Format(_linkTypeProgressFormat, Math.Min(completed, total), total);
             OnPropertyChanged("LinkTypeResolutionBatch");
             if (diagnostics != null)
                 diagnostics.LinkTypeUiUpdateTicks += Stopwatch.GetTimestamp() - updateStart;
@@ -459,11 +476,11 @@
                 if (!_disposed && scanGeneration == _scanGeneration && Object.ReferenceEquals(gameMode, GameMode))
                 {
                     if (failure != null)
-                        StatusMessage = "Scan complete, but link-type detection did not finish.";
+                        StatusMessage = _linkTypeIncompleteStatus;
                     else if (IsStale)
-                        StatusMessage = "Data changed while the scan was running. Click Refresh to update.";
+                        StatusMessage = _changedDuringScanStatus;
                     else
-                        StatusMessage = "Scan complete.";
+                        StatusMessage = _scanCompleteStatus;
 
                     if (diagnostics != null)
                         Trace.TraceInformation("File Manager diagnostics finalized. {0}", diagnostics);
@@ -561,7 +578,7 @@
             if (_loaded)
             {
                 IsStale = true;
-                StatusMessage = "Data changed since the last scan. Click Refresh to update.";
+                StatusMessage = _changedSinceScanStatus;
             }
 
             OnPropertyChanged("CanChangeFileOwner");

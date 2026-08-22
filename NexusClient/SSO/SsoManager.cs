@@ -6,6 +6,7 @@
     using System.Windows.Forms;
     using Newtonsoft.Json.Linq;
     using Util;
+    using Util.Localization;
     using WebSocketSharp;
 
     /// <summary>
@@ -158,9 +159,11 @@
             {
                 Trace.TraceWarning("Unable to open browser for authorizing NMM.");
                 MessageBox.Show(
-                    "Unable to open browser for authorization, either set a default browser or " +
-                    $"manually visit this address to authenticate NMM:\n\n{string.Format(NexusAddressBase, _uuid)}",
-                    "Default Browser not found",
+                    LanguageManager.Format(
+                        "Authentication.Error.BrowserMessage",
+                        "Unable to open browser for authorization, either set a default browser or manually visit this address to authenticate NMM:\n\n{0}",
+                        string.Format(NexusAddressBase, _uuid)),
+                    LanguageManager.Get("Authentication.Error.BrowserTitle", "Default Browser not found"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }

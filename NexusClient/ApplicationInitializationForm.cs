@@ -15,6 +15,7 @@
 	using Nexus.Client.UI;
     using Nexus.Client.Util;
     using Nexus.UI.Controls;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
 	/// The view displaying the progress of the application initialization.
@@ -350,7 +351,7 @@
 			if (e.ReturnValue != null)
 				ShowMessage((ViewMessage)e.ReturnValue);
 			else if (!String.IsNullOrEmpty(e.Message))
-				XtraMessageBox.Show(this, e.Message, "Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				XtraMessageBox.Show(this, e.Message, LanguageManager.Get("Common.Dialog.MessageTitle", "Message"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			//only try to close the form if it has been created
 			// otherwise Close() can get called before the form is shown,
 			// and then once Show() or ShowDialog() is called an
@@ -413,7 +414,7 @@
 				p_booRememberSelection = booRemember;
 				return booResult;
 			}
-			return (ExtendedMessageBox.Show(this, String.Format("'{0}' is read-only, so it can't be managed by {1}. Would you like to make it not read-only?", p_strFileSystemItemPath, CommonData.ModManagerName), "Read Only", MessageBoxButtons.YesNo, MessageBoxIcon.Question, out p_booRememberSelection) == DialogResult.Yes);
+			return (ExtendedMessageBox.Show(this, LanguageManager.Format("Startup.ReadOnly.Message", "'{0}' is read-only, so it can't be managed by {1}. Would you like to make it not read-only?", p_strFileSystemItemPath, CommonData.ModManagerName), LanguageManager.Get("Startup.ReadOnly.Title", "Read Only"), MessageBoxButtons.YesNo, MessageBoxIcon.Question, out p_booRememberSelection) == DialogResult.Yes);
 		}
 
 		/// <summary>

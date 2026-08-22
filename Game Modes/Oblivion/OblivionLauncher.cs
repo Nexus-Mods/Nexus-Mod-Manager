@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Oblivion
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.Oblivion
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Oblivion", "Launches plain Oblivion.", imgIcon, LaunchOblivionPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Oblivion"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Oblivion"), imgIcon, LaunchOblivionPlain, true));
 
 			strCommand = GetObseLaunchCommand();
 			Trace.TraceInformation("OBSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("ObseLaunch", "Launch OBSE", "Launches Oblivion with OBSE.", imgIcon, LaunchOblivionOBSE, true));
+				AddLaunchCommand(new Command("ObseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "OBSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Oblivion", "OBSE"), imgIcon, LaunchOblivionOBSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Oblivion", "Launches Oblivion with custom command.", imgIcon, LaunchOblivionCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Oblivion"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Oblivion"), imgIcon, LaunchOblivionCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Oblivion", "Launches Oblivion.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Oblivion"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Oblivion"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -77,7 +78,7 @@ namespace Nexus.Client.Games.Oblivion
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -119,7 +120,7 @@ namespace Nexus.Client.Games.Oblivion
 			{
 				Trace.TraceError("OBSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "OBSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "OBSE"));
 				return;
 			}
 			Launch(strCommand, null);

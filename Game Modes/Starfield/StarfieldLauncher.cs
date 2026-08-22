@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Starfield
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.Starfield
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Starfield", "Launches plain Starfield.", imgIcon, LaunchStarfieldPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Starfield"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Starfield"), imgIcon, LaunchStarfieldPlain, true));
 
 			strCommand = GetSkseLaunchCommand();
 			Trace.TraceInformation("SKSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("SFSELaunch", "Launch SFSE", "Launches Starfield with F4SE.", imgIcon, LaunchStarfieldSKSE, true));
+				AddLaunchCommand(new Command("SFSELaunch", LanguageManager.Get("GameModes.Starfield.Launcher.SFSE.Name", "Launch SFSE"), LanguageManager.Get("GameModes.Starfield.Launcher.SFSE.Description", "Launches Starfield with F4SE."), imgIcon, LaunchStarfieldSKSE, true));
 			}
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Starfield", "Launches Starfield with custom command.", imgIcon, LaunchStarfieldCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Starfield"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Starfield"), imgIcon, LaunchStarfieldCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Starfield", "Launches Starfield.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Starfield"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Starfield"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -78,7 +79,7 @@ namespace Nexus.Client.Games.Starfield
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -121,7 +122,7 @@ namespace Nexus.Client.Games.Starfield
 			{
 				Trace.TraceError("SFSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "SFSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "SFSE"));
 				return;
 			}
 			Launch(strCommand, null);

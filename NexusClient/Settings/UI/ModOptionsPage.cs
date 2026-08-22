@@ -1,5 +1,6 @@
 ﻿using System.Windows.Forms;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Settings.UI
 {
@@ -18,6 +19,10 @@ namespace Nexus.Client.Settings.UI
 		{
 			SettingsGroup = p_mosSettings;
 			InitializeComponent();
+			groupBox1.Text = LanguageManager.Get("Settings.ModOptions.Compression.Title", "FOMod Compression");
+			label9.Text = LanguageManager.Get("Settings.ModOptions.Compression.Note", "NOTE: Using a format other than Zip can make the Package Manager respond slowly.");
+			label5.Text = LanguageManager.Get("Settings.ModOptions.Format.Label", "Format:");
+			label6.Text = LanguageManager.Get("Settings.ModOptions.CompressionLevel.Label", "Compression Level:");
 
 			cbxModCompression.DataSource = p_mosSettings.ModCompressionLevels;
 			cbxModFormat.DataSource = p_mosSettings.ModCompressionFormats;

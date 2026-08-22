@@ -20,6 +20,7 @@
     using Nexus.Client.Settings;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
+    using Nexus.Client.Util.Localization;
 
 	/// <summary>
 	/// Adds, and downloads if required, a mod to the mod manager.
@@ -130,6 +131,35 @@
 		private readonly int _localID;
 		private string _fileserver = string.Empty;
 		private readonly string _repositoryMessage = string.Empty;
+		private readonly string _serverUnreachableFormat;
+		private readonly string _downloadingFormat;
+		private readonly string _alreadyDownloadingFormat;
+		private readonly string _downloadErrorText;
+		private readonly string _startingDownloadText;
+		private readonly string _resumingDownloadText;
+		private readonly string _pausedFormat;
+		private readonly string _pausedText;
+		private readonly string _queuedText;
+		private readonly string _downloadFailedFormat;
+		private readonly string _pathMissingFormat;
+		private readonly string _pathErrorText;
+		private readonly string _notEnoughSpaceFormat;
+		private readonly string _notEnoughSpaceText;
+		private readonly string _archiveReadOnlyFormat;
+		private readonly string _archiveReadOnlyText;
+		private readonly string _fileMissingFormat;
+		private readonly string _fileMissingText;
+		private readonly string _cannotAddFormat;
+		private readonly string _addingToManagerText;
+		private readonly string _registeringModsText;
+		private readonly string _addingModFormat;
+		private readonly string _registerErrorFormat;
+		private readonly string _registerErrorText;
+		private readonly string _addedFormat;
+		private readonly string _finishedAddingText;
+		private readonly string _cancelledFormat;
+		private readonly string _cancelledText;
+		private readonly string _cancelledPathFormat;
 
 		#region Statics
 
@@ -384,6 +414,36 @@
 			_confirmOverwriteCallback = confirmOverwriteCallback;
 			_readMeManager = readMeManager;
 			_localID = _counter++;
+
+			_serverUnreachableFormat = LanguageManager.GetFormat("Downloads.AddMod.ServerUnreachable", "Server Unreachable: {0}");
+			_downloadingFormat = LanguageManager.GetFormat("Downloads.AddMod.Downloading", "Downloading {0}...");
+			_alreadyDownloadingFormat = LanguageManager.GetFormat("Downloads.AddMod.AlreadyDownloading", "This mod is already downloading: {0}");
+			_downloadErrorText = LanguageManager.Get("Downloads.AddMod.DownloadError", "There was an error downloading this file.");
+			_startingDownloadText = LanguageManager.Get("Downloads.AddMod.Starting", "Starting the download...");
+			_resumingDownloadText = LanguageManager.Get("Downloads.AddMod.Resuming", "Resuming the download...");
+			_pausedFormat = LanguageManager.GetFormat("Downloads.AddMod.Paused", "Paused: {0}");
+			_pausedText = LanguageManager.Get("Common.Status.Paused", "Paused");
+			_queuedText = LanguageManager.Get("Common.Status.Queued", "Queued");
+			_downloadFailedFormat = LanguageManager.GetFormat("Downloads.AddMod.DownloadFailed", "\"{0}\" couldn't be downloaded: \"{1}\".");
+			_pathMissingFormat = LanguageManager.GetFormat("Downloads.AddMod.PathMissing", "Could not find a part of the path: {0}");
+			_pathErrorText = LanguageManager.Get("Downloads.AddMod.PathError", "Path error");
+			_notEnoughSpaceFormat = LanguageManager.GetFormat("Downloads.AddMod.NotEnoughSpace", "Not enough free space on your HD: {0}");
+			_notEnoughSpaceText = LanguageManager.Get("Downloads.AddMod.NotEnoughSpaceShort", "Not enough free space on your HD.");
+			_archiveReadOnlyFormat = LanguageManager.GetFormat("Downloads.AddMod.ArchiveReadOnly", "The archive is read only: {0}");
+			_archiveReadOnlyText = LanguageManager.Get("Downloads.AddMod.ArchiveReadOnlyShort", "The archive is read only");
+			_fileMissingFormat = LanguageManager.GetFormat("Downloads.AddMod.FileMissing", "File does not exist: {0}");
+			_fileMissingText = LanguageManager.Get("Downloads.AddMod.FileMissingShort", "File does not exist");
+			_cannotAddFormat = LanguageManager.GetFormat("Downloads.AddMod.CannotAdd", "{0} can't be added.");
+			_addingToManagerText = LanguageManager.Get("Downloads.AddMod.AddingToManager", "Adding mod to manager...");
+			_registeringModsText = LanguageManager.Get("Downloads.AddMod.Registering", "Registering Mods...");
+			_addingModFormat = LanguageManager.GetFormat("Downloads.AddMod.AddingMod", "Adding mod: {0}");
+			_registerErrorFormat = LanguageManager.GetFormat("Downloads.AddMod.RegisterError", "Error registering this mod: {1}" + Environment.NewLine + "Error: {0} ");
+			_registerErrorText = LanguageManager.Get("Downloads.AddMod.RegisterErrorShort", "Error registering mod.");
+			_addedFormat = LanguageManager.GetFormat("Downloads.AddMod.Added", "{0} has been added");
+			_finishedAddingText = LanguageManager.Get("Downloads.AddMod.Finished", "Finished adding mod.");
+			_cancelledFormat = LanguageManager.GetFormat("Downloads.AddMod.CancelledMod", "Cancelled {0}");
+			_cancelledText = LanguageManager.Get("Downloads.AddMod.Cancelled", "Cancelled");
+			_cancelledPathFormat = LanguageManager.GetFormat("Downloads.AddMod.CancelledPath", "Cancelled: {0}");
 		}
 
 		#endregion
@@ -448,8 +508,8 @@
                 }
                 else
                 {
-                    OverallMessage = $"Server Unreachable: {_downloadPath}";
-                    OnTaskEnded($"Server Unreachable: {_downloadPath}", null);
+                    OverallMessage = string.Format(_serverUnreachableFormat, _downloadPath);
+                    OnTaskEnded(OverallMessage, null);
                 }
 
                 return;
@@ -484,15 +544,15 @@
 					_overallProgressOffset = 1;
 					OverallProgressMaximum = 6;
 					ItemProgressMaximum = 0;
-					ItemMessage = $"Downloading {GetModDisplayName()}...";
+					ItemMessage = string.Format(_downloadingFormat, GetModDisplayName());
 
 					lock (_sourceUri)
                     {
                         if (_sourceUri.ContainsKey(Descriptor.SourceUri.ToString()) && _sourceUri[Descriptor.SourceUri.ToString()] != _localID)
 						{
 							Status = TaskStatus.Error;
-							OverallMessage = $"This mod is already downloading: {GetModDisplayName()}";
-							OnTaskEnded($"This mod is already downloading: {GetModDisplayName()}", null);
+							OverallMessage = string.Format(_alreadyDownloadingFormat, GetModDisplayName());
+							OnTaskEnded(OverallMessage, null);
 							return;
 						}
 
@@ -509,7 +569,7 @@
 					catch
 					{
 						Status = TaskStatus.Error;
-						OverallMessage = "There was an error downloading this file.";
+						OverallMessage = _downloadErrorText;
 						OnTaskEnded(Descriptor.SourceUri);
 					}
 				}
@@ -873,11 +933,11 @@
 
                 if (ItemProgress == 0 && speed == 0)
                 {
-                    ItemMessage = "Starting the download...";
+                    ItemMessage = _startingDownloadText;
                 }
                 else if (ItemProgress == lastProgress && speed == 0)
                 {
-                    ItemMessage = "Resuming the download...";
+                    ItemMessage = _resumingDownloadText;
                 }
                 else
 				{
@@ -907,7 +967,7 @@
                         FileServer = _fileserverCaptions[(int)downloader.ItemProgress];
                         break;
                     case TaskStatus.Paused:
-                        OverallMessage = $"Paused: {GetModDisplayName()}";
+                        OverallMessage = string.Format(_pausedFormat, GetModDisplayName());
                         FileServer = string.Empty;
                         break;
                 }
@@ -931,7 +991,7 @@
             if (e.Status == TaskStatus.Error)
             {
                 Status = e.Status;
-                OverallMessage = $"\"{GetModDisplayName()}\" couldn't be downloaded: \"{e.Message}\".";
+                OverallMessage = string.Format(_downloadFailedFormat, GetModDisplayName(), e.Message);
                 OnTaskEnded(e.Message, e.ReturnValue);
             }
             else if (e.Status == TaskStatus.Complete)
@@ -1014,8 +1074,8 @@
 			}
 			catch (DirectoryNotFoundException)
 			{
-				OverallMessage = $"Could not find a part of the path: {strPath}";
-				ItemMessage = "Path error";
+				OverallMessage = string.Format(_pathMissingFormat, strPath);
+				ItemMessage = _pathErrorText;
 				Status = TaskStatus.Error;
 				OnTaskEnded(OverallMessage, null);
 			}
@@ -1032,22 +1092,22 @@
 
 			if (destinationFreeSpace < archive.Length)
 			{
-				OverallMessage = $"Not enough free space on your HD: {destinationHd}";
-				ItemMessage = "Not enough free space on your HD.";
+				OverallMessage = string.Format(_notEnoughSpaceFormat, destinationHd);
+				ItemMessage = _notEnoughSpaceText;
 				Status = TaskStatus.Error;
 				OnTaskEnded(OverallMessage, null);
 			}
 			else if (faAttributes.ToString().IndexOf(FileAttributes.ReadOnly.ToString()) > -1)
 			{
-				OverallMessage = $"The archive is read only: {strPath}";
-				ItemMessage = "The archive is read only";
+				OverallMessage = string.Format(_archiveReadOnlyFormat, strPath);
+				ItemMessage = _archiveReadOnlyText;
 				Status = TaskStatus.Error;
 				OnTaskEnded(OverallMessage, null);
 			}
 			else if (!File.Exists(strPath))
 			{
-				OverallMessage = $"File does not exist: {strPath}";
-				ItemMessage = "File does not exist";
+				OverallMessage = string.Format(_fileMissingFormat, strPath);
+				ItemMessage = _fileMissingText;
 				Status = TaskStatus.Error;
 				OnTaskEnded(OverallMessage, null);
 			}
@@ -1116,7 +1176,7 @@
                 }
                 else
 				{
-					OverallMessage = $"{GetModDisplayName()} can't be added.";
+					OverallMessage = string.Format(_cannotAddFormat, GetModDisplayName());
 					ItemMessage = e.Message;
 					
 					//if we errored while adding, let's set to incomplete so as to not
@@ -1137,8 +1197,8 @@
 		/// <param name="p_lstAddedMods">The mods that have been added and need to be registered with the manager.</param>
 		protected void RegisterModFiles(IList<string> p_lstAddedMods)
 		{
-			OverallMessage = "Adding mod to manager...";
-			ItemMessage = "Registering Mods...";
+			OverallMessage = _addingToManagerText;
+			ItemMessage = _registeringModsText;
 
             if (p_lstAddedMods != null)
 			{
@@ -1147,7 +1207,7 @@
 
 				foreach (var strMod in p_lstAddedMods)
 				{
-					OverallMessage = $"Adding mod: {strMod}";
+					OverallMessage = string.Format(_addingModFormat, strMod);
 
 					try
 					{
@@ -1175,8 +1235,8 @@
 					}
 					catch (Exception ex)
 					{
-						OverallMessage = string.Format("Error registering this mod: {1}" + Environment.NewLine + "Error: {0} ", ex.Message, GetModDisplayName());
-						ItemMessage = "Error registering mod.";
+						OverallMessage = string.Format(_registerErrorFormat, ex.Message, GetModDisplayName());
+						ItemMessage = _registerErrorText;
 						Status = TaskStatus.Error;
 						OnTaskEnded(null, null);
 						return;
@@ -1186,8 +1246,8 @@
 				}
 			}
 			StepOverallProgress();
-			OverallMessage = $"{GetModDisplayName()} has been added";
-			ItemMessage = "Finished adding mod.";
+			OverallMessage = string.Format(_addedFormat, GetModDisplayName());
+			ItemMessage = _finishedAddingText;
 			Status = TaskStatus.Complete;
 			OnTaskEnded(null, null);
 		}
@@ -1218,15 +1278,15 @@
                 }
             }
 
-			OverallMessage = $"Cancelled {GetModDisplayName()}";
-			ItemMessage = "Cancelled";
+			OverallMessage = string.Format(_cancelledFormat, GetModDisplayName());
+			ItemMessage = _cancelledText;
 			Status = TaskStatus.Cancelled;
 
 			if (Descriptor == null)
 			{
 				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null, string.Empty, string.Empty);
-				OverallMessage = $"Cancelled: {_downloadPath}";
-				OnTaskEnded($"Cancelled: {_downloadPath}", null);
+				OverallMessage = string.Format(_cancelledPathFormat, _downloadPath);
+				OnTaskEnded(OverallMessage, null);
 				return;
 			}
 
@@ -1264,7 +1324,7 @@
             }
             else
             {
-                OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Paused, "Paused", null));
+                OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Paused, _pausedText, null));
             }
         }
 
@@ -1293,7 +1353,7 @@
                 }
             }
 
-			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Queued, "Queued", Descriptor?.SourceUri));
+			OnTaskEnded(new TaskEndedEventArgs(TaskStatus.Queued, _queuedText, Descriptor?.SourceUri));
 			Status = TaskStatus.Queued;
 		}
 

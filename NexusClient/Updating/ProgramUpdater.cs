@@ -15,6 +15,7 @@ namespace Nexus.Client.Updating
 
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
     using Nexus.UI.Controls;
 
     /// <summary>
@@ -90,7 +91,7 @@ namespace Nexus.Client.Updating
             Trace.Indent();
 
             SetProgressMaximum(2);
-            SetMessage($"Checking for new {CommonData.ModManagerName} version...");
+            SetMessage(LanguageManager.Format("Updater.Progress.Checking", "Checking for new {0} version...", CommonData.ModManagerName));
             
             var currentVersion = new Version(CommonData.VersionString);
             var releaseInformation = GetReleaseInformation();
@@ -108,7 +109,7 @@ namespace Nexus.Client.Updating
 
             if (newVersion == null || string.IsNullOrEmpty(downloadUrl))
             {
-                SetMessage("Could not get version information from the update server.");
+                SetMessage(LanguageManager.Get("Updater.Progress.VersionInfoFailed", "Could not get version information from the update server."));
                 return false;
             }
 
@@ -119,10 +120,13 @@ namespace Nexus.Client.Updating
                 string releaseNotes;
                 var checkDownloadedInstaller = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Temp", Path.GetFileName(downloadUrl));
 
-                var promptMessage =
-                    $"A new version of {CommonData.ModManagerName} is available ({newVersion}).{Environment.NewLine}" +
-                    $"Would you like to download and install it?{Environment.NewLine}{Environment.NewLine}" +
-                    "Below you can find the change log for the new release:";
+                var promptMessage = LanguageManager.Format(
+                    "Updater.NewVersion.Message",
+                    "A new version of {0} is available ({1})." + Environment.NewLine +
+                    "Would you like to download and install it?" + Environment.NewLine + Environment.NewLine +
+                    "Below you can find the change log for the new release:",
+                    CommonData.ModManagerName,
+                    newVersion);
 
                 try
                 {
@@ -130,10 +134,10 @@ namespace Nexus.Client.Updating
                 }
                 catch
                 {
-                    releaseNotes = "Unable to retrieve change log.";
+                    releaseNotes = LanguageManager.Get("Updater.NewVersion.ChangeLogUnavailable", "Unable to retrieve change log.");
                 }
 
-                DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, promptMessage, "New version available", releaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question));
+                DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, promptMessage, LanguageManager.Get("Updater.NewVersion.Title", "New version available"), releaseNotes, 700, 450, ExtendedMessageBoxButtons.Backup, MessageBoxIcon.Question));
 
                 switch (dialogResult)
                 {
@@ -147,7 +151,7 @@ namespace Nexus.Client.Updating
 
                 if (File.Exists(checkDownloadedInstaller))
                 {
-                    SetMessage("Launching installer...");
+                    SetMessage(LanguageManager.Get("Updater.Progress.LaunchInstaller", "Launching installer..."));
                     var processStartInfo = new ProcessStartInfo(checkDownloadedInstaller);
                     Process.Start(processStartInfo);
                     Trace.Unindent();
@@ -155,7 +159,7 @@ namespace Nexus.Client.Updating
                     return true;
                 }
 
-                SetMessage($"Downloading new {CommonData.ModManagerName} version...");
+                SetMessage(LanguageManager.Format("Updater.Progress.Downloading", "Downloading new {0} version...", CommonData.ModManagerName));
 
                 string newInstaller;
 
@@ -165,13 +169,15 @@ namespace Nexus.Client.Updating
                 }
                 catch (FileNotFoundException)
                 {
-                    var avMessage = 
-                        $"Unable to find the installer to download:{Environment.NewLine}" +
-                        $"This could be caused by a network issue or by your Firewall.{Environment.NewLine}{Environment.NewLine}" +
-                        $"As a result you won't be able to automatically update the program.{Environment.NewLine}{Environment.NewLine}" +
-                        $"You can download the update manually from:{Environment.NewLine}{Links.Instance.Releases}";
+                    var avMessage = LanguageManager.Format(
+                        "Updater.Error.InstallerNotFound",
+                        "Unable to find the installer to download:" + Environment.NewLine +
+                        "This could be caused by a network issue or by your Firewall." + Environment.NewLine + Environment.NewLine +
+                        "As a result you won't be able to automatically update the program." + Environment.NewLine + Environment.NewLine +
+                        "You can download the update manually from:" + Environment.NewLine + "{0}",
+                        Links.Instance.Releases);
 
-                    DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, avMessage, "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                    DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, avMessage, LanguageManager.Get("Updater.Error.Title", "Unable to update"), MessageBoxButtons.OK, MessageBoxIcon.Information));
 
                     Trace.Unindent();
                     return CancelUpdate();
@@ -197,20 +203,23 @@ namespace Nexus.Client.Updating
                     }
                     catch (FileNotFoundException)
                     {
-                        var avMessage = 
-                            $"Unable to find the downloaded update:{Environment.NewLine}" +
-                            $"This could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus.{Environment.NewLine}" +
-                            $"As a result you won't be able to automatically update the program.{Environment.NewLine}{Environment.NewLine}" +
-                            $"To fix this issue you need to add {CommonData.ModManagerName}'s executable and all its folders to your{Environment.NewLine}" +
-                            $"anti-virus exception list. You can also download the update manually from:{Environment.NewLine}{Links.Instance.Releases}";
+                        var avMessage = LanguageManager.Format(
+                            "Updater.Error.DownloadedUpdateMissing",
+                            "Unable to find the downloaded update:" + Environment.NewLine +
+                            "This could be caused by a network issue or by your anti-virus software deleting it falsely flagging the installer as a virus." + Environment.NewLine +
+                            "As a result you won't be able to automatically update the program." + Environment.NewLine + Environment.NewLine +
+                            "To fix this issue you need to add {0}'s executable and all its folders to your" + Environment.NewLine +
+                            "anti-virus exception list. You can also download the update manually from:" + Environment.NewLine + "{1}",
+                            CommonData.ModManagerName,
+                            Links.Instance.Releases);
 
-                        DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, avMessage, "Unable to update", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                        DisplayDialog(() => dialogResult = ExtendedMessageBox.Show(null, avMessage, LanguageManager.Get("Updater.Error.Title", "Unable to update"), MessageBoxButtons.OK, MessageBoxIcon.Information));
                         
                         Trace.Unindent();
                         return CancelUpdate();
                     }
 
-                    SetMessage("Launching installer...");
+                    SetMessage(LanguageManager.Get("Updater.Progress.LaunchInstaller", "Launching installer..."));
                     var psiInfo = new ProcessStartInfo(newInstaller);
                     Process.Start(psiInfo);
                     Trace.Unindent();
@@ -220,14 +229,17 @@ namespace Nexus.Client.Updating
             }
             else if (!_isAutomaticCheck)
             {
-                var promptMessage = 
-                    $"{CommonData.ModManagerName} is already up to date.{Environment.NewLine}{Environment.NewLine}" +
-                    $"NOTE: You can find the release notes and past versions here:{Environment.NewLine}{Links.Instance.Releases}";
+                var promptMessage = LanguageManager.Format(
+                    "Updater.UpToDate.Message",
+                    "{0} is already up to date." + Environment.NewLine + Environment.NewLine +
+                    "NOTE: You can find the release notes and past versions here:" + Environment.NewLine + "{1}",
+                    CommonData.ModManagerName,
+                    Links.Instance.Releases);
 
-                DisplayDialog(() => ExtendedMessageBox.Show(null, promptMessage, "Up to date", MessageBoxButtons.OK, MessageBoxIcon.Information));
+                DisplayDialog(() => ExtendedMessageBox.Show(null, promptMessage, LanguageManager.Get("Updater.UpToDate.Title", "Up to date"), MessageBoxButtons.OK, MessageBoxIcon.Information));
             }
 
-            SetMessage($"{CommonData.ModManagerName} is already up to date.");
+            SetMessage(LanguageManager.Format("Updater.Progress.UpToDate", "{0} is already up to date.", CommonData.ModManagerName));
             SetProgress(2);
             Trace.Unindent();
 
@@ -269,7 +281,7 @@ namespace Nexus.Client.Updating
         /// <returns>Always <c>true</c>.</returns>
         private bool CancelUpdate()
         {
-            SetMessage($"Cancelled {CommonData.ModManagerName} update.");
+            SetMessage(LanguageManager.Format("Updater.Progress.Cancelled", "Cancelled {0} update.", CommonData.ModManagerName));
             SetProgress(2);
 
             return true;
@@ -291,7 +303,7 @@ namespace Nexus.Client.Updating
             var newerVersions = new List<JToken>();
             newerVersions.AddRange(from release in Releases let version = new Version(release["tag_name"].Value<string>()) where version > currentVersion select release);
             
-            var changeLog = new StringBuilder($"<html><body><h1>Changes between {currentVersion} and {newVersion}:</h1>");
+            var changeLog = new StringBuilder($"<html><body><h1>{LanguageManager.Format("Updater.Changelog.ChangesBetween", "Changes between {0} and {1}:", currentVersion, newVersion)}</h1>");
 
             foreach (var version in newerVersions)
             {
@@ -302,7 +314,7 @@ namespace Nexus.Client.Updating
                 var newFeaturesRaw = Regex.Match(body, @"\*\*[nN]ew [fF]eatures\*\*(.+)\*\*[bB]", RegexOptions.Singleline).Groups[1].Value;
                 var newFeatures = newFeaturesRaw.TrimEnd(' ', '-').Trim(' ', '\r', '\n').Split('\n');
 
-                paragraph.AppendLine("<h3>New Features</h3><ul>");
+                paragraph.AppendLine($"<h3>{LanguageManager.Get("Updater.Changelog.NewFeatures", "New Features")}</h3><ul>");
 
                 foreach (var feature in newFeatures)
                 {
@@ -312,7 +324,7 @@ namespace Nexus.Client.Updating
                 var bugFixesRaw = Regex.Match(body, @"\*\*[bB]ugfixes\*\*(.+)", RegexOptions.Singleline).Groups[1].Value;
                 var bugFixes = bugFixesRaw.Trim(' ', '\r', '\n').Split('\n');
 
-                paragraph.AppendLine("</ul><h3>Bug fixes</h3><ul>");
+                paragraph.AppendLine($"</ul><h3>{LanguageManager.Get("Updater.Changelog.BugFixes", "Bug fixes")}</h3><ul>");
 
                 foreach (var bugFix in bugFixes)
                 {

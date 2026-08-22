@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Morrowind
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.Morrowind
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("PlainLaunch", "Launch Morrowind", "Launches plain Morrowind.", imgIcon, LaunchMorrowindPlain, true));
+            AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Morrowind"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Morrowind"), imgIcon, LaunchMorrowindPlain, true));
 
             strCommand = GetMwseLaunchCommand();
             Trace.TraceInformation("MWSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             if (File.Exists(strCommand))
             {
                 imgIcon = SafeExtractIcon(strCommand);
-                AddLaunchCommand(new Command("MwseLaunch", "Launch MWSE", "Launches Morrowind with MWSE.", imgIcon, LaunchMorrowindMWSE, true));
+                AddLaunchCommand(new Command("MwseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "MWSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Morrowind", "MWSE"), imgIcon, LaunchMorrowindMWSE, true));
             }
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Morrowind", "Launches Morrowind with custom command.", imgIcon, LaunchMorrowindCustom, true));
+            AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Morrowind"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Morrowind"), imgIcon, LaunchMorrowindCustom, true));
 
-            DefaultLaunchCommand = new Command("Launch Morrowind", "Launches Morrowind.", LaunchGame);
+            DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Morrowind"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Morrowind"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -77,7 +78,7 @@ namespace Nexus.Client.Games.Morrowind
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);
@@ -119,7 +120,7 @@ namespace Nexus.Client.Games.Morrowind
             {
                 Trace.TraceError("MWSE does not appear to be installed.");
                 Trace.Unindent();
-                OnGameLaunched(false, "MWSE does not appear to be installed.");
+                OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "MWSE"));
                 return;
             }
             Launch(strCommand, null);

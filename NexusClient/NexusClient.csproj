@@ -140,6 +140,7 @@
     </Compile>
     <Compile Include="UI\DevExpressBarItemCommandBinding.cs" />
     <Compile Include="UI\DevExpressDisplaySettings.cs" />
+    <Compile Include="UI\DevExpressLocalization.cs" />
     <Compile Include="UI\NmmIconProvider.cs" />
     <Compile Include="UI\ManagedFontXtraForm.cs">
       <SubType>Form</SubType>
@@ -464,6 +465,9 @@
     <Compile Include="Util\NexusFileUtil.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Languages\English.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="GameModes\Definitions\Enderal\Categories.xml" />
     <Content Include="GameModes\Definitions\Enderal\enderal_base.txt" />
     <Content Include="GameModes\Definitions\Enderal\enderal_logo.ico" />
@@ -1071,6 +1075,10 @@
     </Reference>
     <Reference Include="DevExpress.XtraBars.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
     <Reference Include="DevExpress.XtraDialogs.v25.2, Version=25.2.8.0, Culture=neutral, PublicKeyToken=b88d1754d700e49a, processorArchitecture=MSIL" />
+    <Reference Include="DevExpress.Dialogs.v25.2.Core">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Dialogs.v25.2.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FluentNexus, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>data\FluentNexus.dll</HintPath>

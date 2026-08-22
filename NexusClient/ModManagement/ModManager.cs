@@ -20,6 +20,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.UI;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// The class the encapsulates managing mods.
@@ -365,7 +366,7 @@ namespace Nexus.Client.ModManagement
 			if (LoginTask.LoggedOut)
 				LoginTask.Update();
 			else if (LoginTask.LoggingIn)
-				MessageBox.Show("Wait for the login attempt.", "Login in progress...", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show(LanguageManager.Get("Mods.Login.WaitForAttempt", "Wait for the login attempt."), LanguageManager.Get("Mods.Login.InProgressTitle", "Login in progress..."), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			return LoginTask.LoggedIn;
 		}
 

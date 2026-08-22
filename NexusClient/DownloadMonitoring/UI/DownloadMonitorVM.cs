@@ -13,6 +13,7 @@
     using Nexus.Client.UI;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
+    using Nexus.Client.Util.Localization;
     
     /// <summary>
     /// This class encapsulates the data and the operations presented by UI
@@ -191,10 +192,22 @@
 			ModRepository.UserStatusUpdate += new System.EventHandler(ModRepository_UserStatusUpdate);
 			DownloadMonitor.PropertyChanged += new PropertyChangedEventHandler(ActiveTasks_PropertyChanged);
 
-			CancelTaskCommand = new Command<AddModTask>("Cancel", "Cancels the selected Download.", CancelTask);
-			RemoveTaskCommand = new Command<AddModTask>("Remove", "Removes the selected Download.", RemoveTask);
-			PauseTaskCommand = new Command<AddModTask>("Pause", "Pauses the selected Download.", PauseTask);
-			ResumeTaskCommand = new Command<AddModTask>("Resume", "Resumes the selected Download.", ResumeTask);
+			CancelTaskCommand = new Command<AddModTask>(
+				LanguageManager.Get("Common.Action.Cancel", "Cancel"),
+				LanguageManager.Get("Downloads.Actions.Cancel.Description", "Cancels the selected Download."),
+				CancelTask);
+			RemoveTaskCommand = new Command<AddModTask>(
+				LanguageManager.Get("Downloads.Actions.Remove.Name", "Remove"),
+				LanguageManager.Get("Downloads.Actions.Remove.Description", "Removes the selected Download."),
+				RemoveTask);
+			PauseTaskCommand = new Command<AddModTask>(
+				LanguageManager.Get("Downloads.Actions.Pause.Name", "Pause"),
+				LanguageManager.Get("Downloads.Actions.Pause.Description", "Pauses the selected Download."),
+				PauseTask);
+			ResumeTaskCommand = new Command<AddModTask>(
+				LanguageManager.Get("Downloads.Actions.Resume.Name", "Resume"),
+				LanguageManager.Get("Downloads.Actions.Resume.Description", "Resumes the selected Download."),
+				ResumeTask);
 		}
 
 		#endregion

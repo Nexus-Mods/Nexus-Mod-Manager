@@ -9,6 +9,7 @@ using Nexus.Client.Games;
 using Nexus.Client.UI;
 using Nexus.Client.UI.Controls;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client
 {
@@ -55,11 +56,21 @@ namespace Nexus.Client
 		public GameDetectionForm(GameDetectionVM p_vmlGameDetection)
 		{
 			InitializeComponent();
-			this.lblInfo.Text = string.Format("NMM needs to know what games you have installed on your system in order to continue.\nPlease use the green 'tick' symbols next to each game to confirm their install paths.\nPress the 'Stop searching' button if you'd like to manually specify your game folders.\nPress the 'Quick startup' button if you want to proceed with just the games you've already verified.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
+			ApplyLocalization();
 			ViewModel = p_vmlGameDetection;
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			Text = LanguageManager.Get("GameDetection.Title", "Game Detection");
+			butQuickStartup.Text = LanguageManager.Get("GameDetection.QuickStartup", "Quick Startup");
+			butStopSearching.Text = LanguageManager.Get("GameDetection.StopSearching", "Stop Searching");
+			butCancel.Text = LanguageManager.Get("Common.Button.Cancel", "Cancel");
+			butOK.Text = LanguageManager.Get("Common.Button.OK", "OK");
+			lblInfo.Text = LanguageManager.Get("GameDetection.Information", "NMM needs to know what games you have installed on your system in order to continue.\nPlease use the green 'tick' symbols next to each game to confirm their install paths.\nPress the 'Stop searching' button if you'd like to manually specify your game folders.\nPress the 'Quick startup' button if you want to proceed with just the games you've already verified.\nPlease note: NMM is only searching for installed games that the program supports and is not gathering or transmitting this data to any external service or site.");
+		}
 
 	    private void AdjustFormDimentions(List<IGameModeDescriptor> gameModes)
 	    {
@@ -146,7 +157,7 @@ namespace Nexus.Client
 		private void butCancel_Click(object sender, EventArgs e)
 		{
 			DialogResult = DialogResult.None;
-			if (MessageBox.Show(this, String.Format("Canceling will exit {0}. Are you sure?", CommonData.ModManagerName), "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
+			if (MessageBox.Show(this, LanguageManager.Format("GameDetection.CancelConfirm.Message", "Canceling will exit {0}. Are you sure?", CommonData.ModManagerName), LanguageManager.Get("Common.Dialog.ConfirmTitle", "Confirm"), MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK)
 			{
 				DialogResult = DialogResult.Cancel;
 				ViewModel.Cancel();

@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.NoMansSky.Tools.ShaderCache
 {
@@ -34,7 +35,7 @@ namespace Nexus.Client.Games.NoMansSky.Tools.ShaderCache
         public Cleaner(NoMansSkyGameMode p_gmdGameMode)
         {
             GameMode = p_gmdGameMode;
-            LaunchCommand = new Command("Clean shader cache", "Deletes the shader cache folder", Clean);
+            LaunchCommand = new Command(LanguageManager.Get("GameModes.NoMansSky.ShaderCache.CleanCommand.Name", "Clean shader cache"), LanguageManager.Get("GameModes.NoMansSky.ShaderCache.CleanCommand.Description", "Deletes the shader cache folder"), Clean);
         }
 
         #endregion

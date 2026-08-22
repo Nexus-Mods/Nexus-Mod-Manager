@@ -8,6 +8,7 @@
 	using Microsoft.Win32;
 
 	using Util;
+	using Nexus.Client.Util.Localization;
 
 	public class OsSettingsGroup : SettingsGroup
 	{
@@ -83,7 +84,7 @@
 			}
 		}
 
-		public override string Title => "OS Settings";
+		public override string Title { get; } = LanguageManager.Get("Settings.Os.Title", "OS Settings");
 
 		public override void Load()
 		{
@@ -103,15 +104,16 @@
 				{
 					if (UacUtil.IsElevated)
 					{
-						var reply = MessageBox.Show($"Shell extension association for .{extension} has been removed by some other process.\n\n" +
-													"Do you want to restore it?",
-													"Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+						var reply = MessageBox.Show(
+							LanguageManager.Format("Settings.Os.ShellAssociationRemoved.Restore.Message", "Shell extension association for .{0} has been removed by some other process.\n\nDo you want to restore it?", extension),
+							LanguageManager.Get("Settings.Os.AssociationRemoved.Title", "Association removed by another process"),
+							MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 						if (reply == DialogResult.Yes)
 						{
 							if (!ShellExtensionUtil.AddShellExtension(extension))
 							{
-								MessageBox.Show($"Unable to enable shell extension for .{extension}.", "Unknown error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+								MessageBox.Show(LanguageManager.Format("Settings.Os.ShellExtension.EnableFailed.Message", "Unable to enable shell extension for .{0}.", extension), LanguageManager.Get("Settings.Os.UnknownError.Title", "Unknown error"), MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
 							}
 						}
 						else
@@ -121,10 +123,10 @@
 					}
 					else
 					{
-						var removeSetting = MessageBox.Show($"Shell extension association for .{extension} has been removed by some other process.\n" +
-															$"If you want to restore it you have to run {CommonData.ModManagerName} as Administrator.\n\n" +
-															"Do you want to disable the setting instead?",
-							"Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+						var removeSetting = MessageBox.Show(
+							LanguageManager.Format("Settings.Os.ShellAssociationRemoved.Disable.Message", "Shell extension association for .{0} has been removed by some other process.\nIf you want to restore it you have to run {1} as Administrator.\n\nDo you want to disable the setting instead?", extension, CommonData.ModManagerName),
+							LanguageManager.Get("Settings.Os.AssociationRemoved.Title", "Association removed by another process"),
+							MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 						if (removeSetting == DialogResult.Yes)
 						{
@@ -146,9 +148,10 @@
 			{
 				if (UacUtil.IsElevated)
 				{
-					var reply = MessageBox.Show("NXM URL association has been removed by some other process.\n\n" +
-												"Do you want to restore it?",
-						"Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+					var reply = MessageBox.Show(
+						LanguageManager.Get("Settings.Os.NxmAssociationRemoved.Restore.Message", "NXM URL association has been removed by some other process.\n\nDo you want to restore it?"),
+						LanguageManager.Get("Settings.Os.AssociationRemoved.Title", "Association removed by another process"),
+						MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 					if (reply == DialogResult.Yes)
 					{
@@ -161,10 +164,10 @@
 				}
 				else
 				{
-					var removeSetting = MessageBox.Show("NXM URL association has been removed by some other process.\n\n" +
-														$"If you want to restore it you have to run {CommonData.ModManagerName} as Administrator.\n\n" +
-														"Do you want to disable the setting instead?",
-						"Association removed by another process", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+					var removeSetting = MessageBox.Show(
+						LanguageManager.Format("Settings.Os.NxmAssociationRemoved.Disable.Message", "NXM URL association has been removed by some other process.\n\nIf you want to restore it you have to run {0} as Administrator.\n\nDo you want to disable the setting instead?", CommonData.ModManagerName),
+						LanguageManager.Get("Settings.Os.AssociationRemoved.Title", "Association removed by another process"),
+						MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
 					if (removeSetting == DialogResult.Yes)
 					{
@@ -213,14 +216,14 @@
 					{
 						if (!ShellExtensionUtil.AddShellExtension(extension))
 						{
-							MessageBox.Show($"Couldn't add shell extension for .{extension} files.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+							MessageBox.Show(LanguageManager.Format("Settings.Os.ShellExtension.AddFailed.Message", "Couldn't add shell extension for .{0} files.", extension), LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
 						}
 					}
 					else
 					{
 						if (!ShellExtensionUtil.RemoveShellExtension(extension))
 						{
-							MessageBox.Show($"Couldn't remove shell extension for .{extension} files.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+							MessageBox.Show(LanguageManager.Format("Settings.Os.ShellExtension.RemoveFailed.Message", "Couldn't remove shell extension for .{0} files.", extension), LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
 						}
 					}
 				}

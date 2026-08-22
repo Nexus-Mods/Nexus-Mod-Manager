@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
 using Microsoft.Win32;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.FalloutNV
 {
@@ -42,12 +43,12 @@ namespace Nexus.Client.Games.FalloutNV
 			if (strCommand != null)
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("BOSS", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
+				AddLaunchCommand(new Command("BOSS", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "BOSS"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "BOSS"), imgIcon, LaunchBOSS, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#BOSS", "Config BOSS", "Configures BOSS.", imgIcon, ConfigBOSS, true));
+				AddLaunchCommand(new Command("Config#BOSS", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "BOSS"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "BOSS"), imgIcon, ConfigBOSS, true));
 			}
 
 			strCommand = GetLOOTLaunchCommand();
@@ -55,12 +56,12 @@ namespace Nexus.Client.Games.FalloutNV
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+				AddLaunchCommand(new Command("LOOT", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "LOOT"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "LOOT"), imgIcon, LaunchLOOT, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
+				AddLaunchCommand(new Command("Config#LOOT", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "LOOT"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "LOOT"), imgIcon, ConfigLOOT, true));
 			}
 
 			strCommand = GetWryeBashLaunchCommand();
@@ -68,12 +69,12 @@ namespace Nexus.Client.Games.FalloutNV
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("WryeBash", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
+				AddLaunchCommand(new Command("WryeBash", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Wrye Bash"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Wrye Bash"), imgIcon, LaunchWryeBash, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Flash", "Configures Wrye Flash.", imgIcon, ConfigWryeBash, true));
+				AddLaunchCommand(new Command("Config#Wrye Bash", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Wrye Flash"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Wrye Flash"), imgIcon, ConfigWryeBash, true));
 			}
 
 			strCommand = GetFNVEditLaunchCommand();
@@ -81,12 +82,12 @@ namespace Nexus.Client.Games.FalloutNV
             if ((strCommand != null) && (File.Exists(strCommand)))
             {
                 imgIcon = SafeExtractIcon(strCommand);
-                AddLaunchCommand(new Command("FNVEdit", "Launch FNVEdit", "Launches FNVEdit.", imgIcon, LaunchFNVEdit, true));
+                AddLaunchCommand(new Command("FNVEdit", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "FNVEdit"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "FNVEdit"), imgIcon, LaunchFNVEdit, true));
             }
             else
             {
                 imgIcon = null;
-                AddLaunchCommand(new Command("Config#FNVEdit", "Config FNVEdit", "Configures FNVEdit.", imgIcon, ConfigFNVEdit, true));
+                AddLaunchCommand(new Command("Config#FNVEdit", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "FNVEdit"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "FNVEdit"), imgIcon, ConfigFNVEdit, true));
             }
 
 			Trace.Unindent();
@@ -294,7 +295,7 @@ private void ConfigBOSS()
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -324,7 +325,7 @@ private void ConfigBOSS()
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -354,7 +355,7 @@ private void ConfigBOSS()
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -384,7 +385,7 @@ private void ConfigBOSS()
             Trace.Indent();
 
             FolderBrowserDialog fbd = new FolderBrowserDialog();
-            fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+            fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
             fbd.ShowNewFolderButton = false;
 
             fbd.ShowDialog();

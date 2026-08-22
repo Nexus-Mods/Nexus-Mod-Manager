@@ -4,6 +4,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.StateOfDecay.Settings.UI
 {
@@ -31,6 +32,10 @@ namespace Nexus.Client.Games.StateOfDecay.Settings.UI
         protected GeneralSettingsPage()
         {
             InitializeComponent();
+            label3.Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.CommandLabel", "Command:");
+            groupBox1.Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.Title", "Custom Launch Command");
+            label4.Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.ArgumentsLabel", "Arguments:");
+            label1.Text = LanguageManager.Get("GameModes.Setup.RestartRequiredNote", "* requires application restart");
         }
 
         /// <summary>

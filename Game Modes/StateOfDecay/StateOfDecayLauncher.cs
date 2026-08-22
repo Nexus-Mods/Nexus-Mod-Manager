@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.StateOfDecay
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.StateOfDecay
             string strCommand = GetPlainLaunchCommand();
             Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             Image imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("PlainLaunch", "Launch State of Decay", "Launches plain State of Decay.", imgIcon, LaunchStateOfDecayPlain, true));
+            AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "State of Decay"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "State of Decay"), imgIcon, LaunchStateOfDecayPlain, true));
 
             strCommand = GetCustomLaunchCommand();
             Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
             imgIcon = SafeExtractIcon(strCommand);
-            AddLaunchCommand(new Command("CustomLaunch", "Launch Custom State of Decay", "Launches State of Decay with custom command.", imgIcon, LaunchStateOfDecayCustom, true));
+            AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "State of Decay"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "State of Decay"), imgIcon, LaunchStateOfDecayCustom, true));
 
-            DefaultLaunchCommand = new Command("Launch State of Decay", "Launches State of Decay.", LaunchGame);
+            DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "State of Decay"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "State of Decay"), LaunchGame);
 
             Trace.Unindent();
         }
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.StateOfDecay
             {
                 Trace.TraceError("No custom launch command has been set.");
                 Trace.Unindent();
-                OnGameLaunched(false, "No custom launch command has been set.");
+                OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
                 return;
             }
             Launch(strCommand, strCommandArgs);

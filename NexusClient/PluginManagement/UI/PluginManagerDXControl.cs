@@ -14,6 +14,7 @@
     using Nexus.Client.Plugins;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
     using System;
     using System.Collections.Generic;
     using System.Collections.Specialized;
@@ -91,6 +92,13 @@
         private Color _lockedPluginForeColor = SystemColors.GrayText;
         private Color _errorPluginForeColor = Color.Red;
         private Color _warningPluginForeColor = Color.DarkOrange;
+        private readonly string _activeDisplayText;
+        private readonly string _inactiveDisplayText;
+        private readonly string _lockedDisplayText;
+        private readonly string _diagnosticErrorsHeading;
+        private readonly string _diagnosticWarningsHeading;
+        private readonly string _pluginModLabelHtml;
+        private readonly string _activeDependentsHeadingHtml;
 
         public event EventHandler UpdatePluginsCount;
         public event EventHandler PluginMoved;
@@ -99,7 +107,15 @@
 
 		public PluginManagerDXControl()
         {
-            Text = "Plugins";
+            _activeDisplayText = LanguageManager.Get("Plugins.Values.Active", "Active");
+            _inactiveDisplayText = LanguageManager.Get("Plugins.Values.Inactive", "Inactive");
+            _lockedDisplayText = LanguageManager.Get("Plugins.Values.Locked", "Locked");
+            _diagnosticErrorsHeading = LanguageManager.Get("Plugins.Diagnostics.ErrorsHeading", "Errors");
+            _diagnosticWarningsHeading = LanguageManager.Get("Plugins.Diagnostics.WarningsHeading", "Warnings");
+            _pluginModLabelHtml = LanguageManager.Get("Plugins.Details.ModLabelHtml", "<b>Mod:</b> {0}<br/><br/>");
+            _activeDependentsHeadingHtml = LanguageManager.Get("Plugins.Details.ActiveDependentsHeadingHtml", "<b>Active plugins depending on this plugin:</b><br/>");
+
+            Text = LanguageManager.Get("Plugins.Title", "Plugins");
             Name = "PluginManagerDXControl";
             DockAreas = DockAreas.Document;
 
@@ -116,7 +132,7 @@
 				Manager = _barManager
 			};
 
-			_toolbar = new Bar(_barManager, "Plugin Commands")
+			_toolbar = new Bar(_barManager, LanguageManager.Get("Plugins.Toolbar.Title", "Plugin Commands"))
 			{
 				DockStyle = BarDockStyle.Standalone,
 				StandaloneBarDockControl = _toolbarHost
@@ -126,62 +142,62 @@
 			_toolbar.OptionsBar.DrawDragBorder = false;
 			_toolbar.OptionsBar.UseWholeRow = true;
 
-			_moveUpButton = new BarButtonItem(_barManager, "Up");
+			_moveUpButton = new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.Up.Name", "Up"));
 			_moveUpButton.ItemClick +=
 				(sender, args) => MoveSelectedUp(sender, args);
 
-			_moveDownButton = new BarButtonItem(_barManager, "Down");
+			_moveDownButton = new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.Down.Name", "Down"));
 			_moveDownButton.ItemClick +=
 				(sender, args) => MoveSelectedDown(sender, args);
 
 			_restoreLoadOrderButton =
-				new BarButtonItem(_barManager, "Load Order Sorting")
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.RestoreLoadOrder.Name", "Load Order Sorting"))
 				{
 					Hint =
-						"Clear column sorting and restore the actual plugin load order."
+						LanguageManager.Get("Plugins.Actions.RestoreLoadOrder.Tooltip", "Clear column sorting and restore the actual plugin load order.")
 				};
 
 			_restoreLoadOrderButton.ItemClick +=
 				(sender, args) => RestoreLoadOrderView(sender, args);
 
 			_disableAllButton =
-				new BarButtonItem(_barManager, "Disable All");
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.DisableAll.Name", "Disable All"));
 
 			_disableAllButton.ItemClick +=
 				(sender, args) => DisableAll(sender, args);
 
 			_enableAllButton =
-				new BarButtonItem(_barManager, "Enable All");
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.EnableAll.Name", "Enable All"));
 
 			_enableAllButton.ItemClick +=
 				(sender, args) => EnableAll(sender, args);
 
 			_exportButton =
-				new BarSubItem(_barManager, "Export");
+				new BarSubItem(_barManager, LanguageManager.Get("Common.Action.Export", "Export"));
 
 			_importButton =
-				new BarSubItem(_barManager, "Import");
+				new BarSubItem(_barManager, LanguageManager.Get("Plugins.Actions.Import.Name", "Import"));
 
 			BarButtonItem exportToClipboardItem =
-				new BarButtonItem(_barManager, "To Clipboard");
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.ToClipboard.Name", "To Clipboard"));
 
 			exportToClipboardItem.ItemClick +=
 				(sender, args) => ExportToClipboard(sender, args);
 
 			BarButtonItem exportToFileItem =
-				new BarButtonItem(_barManager, "To File...");
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.ToFile.Name", "To File..."));
 
 			exportToFileItem.ItemClick +=
 				(sender, args) => ExportToFile(sender, args);
 
 			BarButtonItem importFromClipboardItem =
-				new BarButtonItem(_barManager, "From Clipboard");
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.FromClipboard.Name", "From Clipboard"));
 
 			importFromClipboardItem.ItemClick +=
 				(sender, args) => ImportFromClipboard(sender, args);
 
 			BarButtonItem importFromFileItem =
-				new BarButtonItem(_barManager, "From File...");
+				new BarButtonItem(_barManager, LanguageManager.Get("Plugins.Actions.FromFile.Name", "From File..."));
 
 			importFromFileItem.ItemClick +=
 				(sender, args) => ImportFromFile(sender, args);
@@ -194,8 +210,8 @@
 
 			_disablePluginSortingRestrictionsToggle = new BarCheckItem(_barManager)
 			{
-				Caption = "Disable Plugin Sorting Restrictions",
-				Hint = "Allow all non-critical, user-managed plugins to be freely reordered, enabled or disabled while retaining dependency warnings.",
+				Caption = LanguageManager.Get("Plugins.SortingRestrictions.Disable.Name", "Disable Plugin Sorting Restrictions"),
+				Hint = LanguageManager.Get("Plugins.SortingRestrictions.Disable.Tooltip", "Allow all non-critical, user-managed plugins to be freely reordered, enabled or disabled while retaining dependency warnings."),
 				CheckBoxVisibility = CheckBoxVisibility.BeforeText
 			};
 
@@ -493,13 +509,13 @@
             _gridView.ColumnPositionChanged +=
                 (sender, args) => QueueGridLayoutSave();
 
-            AddColumn(ColActive, "Active", 58, true).ColumnEdit = _activeCheckEdit;
-            AddColumn(ColLoadOrder, "LO Index", 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
-            AddColumn(ColIndex, "Rel. Position", 58, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
-            AddColumn(ColPlugin, "Plugin", 260, false);
-            AddColumn(ColType, "Type", 110, false);
-            AddColumn(ColOwner, "Owner", 220, false);
-            AddColumn(ColStatus, "Status", 200, false);
+            AddColumn(ColActive, LanguageManager.Get("Plugins.Columns.Active.Header", "Active"), 58, true).ColumnEdit = _activeCheckEdit;
+            AddColumn(ColLoadOrder, LanguageManager.Get("Plugins.Columns.LoadOrder.Header", "LO Index"), 84, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
+            AddColumn(ColIndex, LanguageManager.Get("Plugins.Columns.RelativePosition.Header", "Rel. Position"), 58, false).AppearanceCell.TextOptions.HAlignment = HorzAlignment.Far;
+            AddColumn(ColPlugin, LanguageManager.Get("Plugins.Columns.Plugin.Header", "Plugin"), 260, false);
+            AddColumn(ColType, LanguageManager.Get("Common.Column.Type", "Type"), 110, false);
+            AddColumn(ColOwner, LanguageManager.Get("Plugins.Columns.Owner.Header", "Owner"), 220, false);
+            AddColumn(ColStatus, LanguageManager.Get("Common.Column.Status", "Status"), 200, false);
         }
 
         private GridColumn AddColumn(string fieldName, string caption, int width, bool allowEdit)
@@ -733,7 +749,7 @@
 					.Where(x => x.Severity == PluginValidationSeverity.Error)
 					.Select(x =>
 					{
-						string pluginName = x.Plugin == null ? "Plugin state" : Path.GetFileName(x.Plugin.Filename);
+						string pluginName = x.Plugin == null ? LanguageManager.Get("Plugins.Validation.PluginStateLabel", "Plugin state") : Path.GetFileName(x.Plugin.Filename);
 						return pluginName + ": " + x.Message;
 					})
 					.Distinct(StringComparer.OrdinalIgnoreCase)
@@ -741,9 +757,9 @@
 
 			StringBuilder message = new StringBuilder();
 
-			message.AppendLine("Plugin sorting restrictions cannot be re-enabled because the current plugin state is not valid under the normal restrictions.");
+			message.AppendLine(LanguageManager.Get("Plugins.SortingRestrictions.ReenableBlocked.Message", "Plugin sorting restrictions cannot be re-enabled because the current plugin state is not valid under the normal restrictions."));
 			message.AppendLine();
-			message.AppendLine("Correct the following issues first:");
+			message.AppendLine(LanguageManager.Get("Plugins.SortingRestrictions.ReenableBlocked.FixIssuesPrompt", "Correct the following issues first:"));
 
 			foreach (string error in errors.Take(20))
 				message.AppendLine("- " + error);
@@ -751,19 +767,19 @@
 			if (errors.Count > 20)
 			{
 				message.AppendLine();
-				message.AppendFormat("...and {0} additional issue(s).", errors.Count - 20);
+				message.AppendFormat(LanguageManager.GetFormat("Plugins.SortingRestrictions.ReenableBlocked.AdditionalIssues", "...and {0} additional issue(s)."), errors.Count - 20);
 				message.AppendLine();
 			}
 
 			if (errors.Count == 0)
 			{
-				message.AppendLine("- The plugin manager rejected the current state without returning a specific validation error.");
+				message.AppendLine(LanguageManager.Get("Plugins.SortingRestrictions.ReenableBlocked.NoSpecificError", "- The plugin manager rejected the current state without returning a specific validation error."));
 			}
 
 			message.AppendLine();
-			message.Append("The unrestricted mode remains enabled.");
+			message.Append(LanguageManager.Get("Plugins.SortingRestrictions.ReenableBlocked.RemainsEnabled", "The unrestricted mode remains enabled."));
 
-			XtraMessageBox.Show(this, message.ToString(), "Plugin sorting restrictions", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			XtraMessageBox.Show(this, message.ToString(), LanguageManager.Get("Plugins.SortingRestrictions.Title", "Plugin sorting restrictions"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 
 		/// <summary>
@@ -792,7 +808,7 @@
 
 			if (blockingDiagnostics != null)
 			{
-				ShowPluginStateChangeBlockedMessage("Plugin order change blocked", blockingDiagnostics);
+				ShowPluginStateChangeBlockedMessage(LanguageManager.Get("Plugins.Validation.OrderChangeBlocked.Title", "Plugin order change blocked"), blockingDiagnostics);
 				return;
 			}
 
@@ -1032,7 +1048,7 @@
             StringBuilder message = new StringBuilder();
 
             message.AppendFormat(
-                "The plugin \"{0}\" cannot be enabled because one or more required masters are missing or inactive.",
+                LanguageManager.GetFormat("Plugins.Validation.ActivationBlocked.Message", "The plugin \"{0}\" cannot be enabled because one or more required masters are missing or inactive."),
                 Path.GetFileName(plugin.Filename));
 
             if (missingMasters != null &&
@@ -1040,7 +1056,7 @@
             {
                 message.AppendLine();
                 message.AppendLine();
-                message.AppendLine("Missing masters:");
+                message.AppendLine(LanguageManager.Get("Plugins.Validation.MissingMastersHeading", "Missing masters:"));
 
                 foreach (string master in missingMasters)
                     message.AppendLine("- " + master);
@@ -1051,7 +1067,7 @@
             {
                 message.AppendLine();
                 message.AppendLine();
-                message.AppendLine("Inactive masters:");
+                message.AppendLine(LanguageManager.Get("Plugins.Validation.InactiveMastersHeading", "Inactive masters:"));
 
                 foreach (string master in inactiveMasters)
                     message.AppendLine("- " + master);
@@ -1060,12 +1076,12 @@
             message.AppendLine();
             message.AppendLine();
             message.Append(
-                "Install or enable the required masters before enabling this plugin.");
+                LanguageManager.Get("Plugins.Validation.ActivationBlocked.Resolution", "Install or enable the required masters before enabling this plugin."));
 
             XtraMessageBox.Show(
                 this,
                 message.ToString(),
-                "Plugin activation blocked",
+                LanguageManager.Get("Plugins.Validation.ActivationBlocked.Title", "Plugin activation blocked"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -1077,7 +1093,7 @@
             StringBuilder message = new StringBuilder();
 
             message.AppendFormat(
-                "The plugin \"{0}\" cannot be disabled because these active plugins depend on it:",
+                LanguageManager.GetFormat("Plugins.Validation.DeactivationBlocked.Message", "The plugin \"{0}\" cannot be disabled because these active plugins depend on it:"),
                 Path.GetFileName(plugin.Filename));
 
             message.AppendLine();
@@ -1091,12 +1107,12 @@
 
             message.AppendLine();
             message.Append(
-                "Disable the dependent plugins first.");
+                LanguageManager.Get("Plugins.Validation.DeactivationBlocked.Resolution", "Disable the dependent plugins first."));
 
             XtraMessageBox.Show(
                 this,
                 message.ToString(),
-                "Plugin deactivation blocked",
+                LanguageManager.Get("Plugins.Validation.DeactivationBlocked.Title", "Plugin deactivation blocked"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);
         }
@@ -1115,7 +1131,9 @@
 				return true;
 
 			ShowPluginStateChangeBlockedMessage(
-				p_booRequestedActive ? "Plugin activation blocked" : "Plugin deactivation blocked",
+				p_booRequestedActive
+                    ? LanguageManager.Get("Plugins.Validation.ActivationBlocked.Title", "Plugin activation blocked")
+                    : LanguageManager.Get("Plugins.Validation.DeactivationBlocked.Title", "Plugin deactivation blocked"),
 				blockingDiagnostics);
 
 			return false;
@@ -1133,7 +1151,7 @@
 				.ToList();
 
 			StringBuilder message = new StringBuilder();
-			message.AppendLine("The requested change was not applied because it would introduce a new plugin validation issue.");
+			message.AppendLine(LanguageManager.Get("Plugins.Validation.ChangeBlocked.Message", "The requested change was not applied because it would introduce a new plugin validation issue."));
 
 			if (diagnostics.Count > 0)
 			{
@@ -1156,13 +1174,13 @@
 				if (diagnostics.Count > 20)
 				{
 					message.AppendLine();
-					message.AppendFormat("...and {0} additional issue(s).", diagnostics.Count - 20);
+					message.AppendFormat(LanguageManager.GetFormat("Plugins.Validation.ChangeBlocked.AdditionalIssues", "...and {0} additional issue(s)."), diagnostics.Count - 20);
 				}
 			}
 			else
 			{
 				message.AppendLine();
-				message.Append("The plugin manager did not return a specific validation error.");
+				message.Append(LanguageManager.Get("Plugins.Validation.ChangeBlocked.NoSpecificError", "The plugin manager did not return a specific validation error."));
 			}
 
 			XtraMessageBox.Show(this, message.ToString(), p_strTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1254,7 +1272,7 @@
 		private string GetStatus(Plugin p_plgPlugin, PluginSnapshotEntry p_pseEntry)
 		{
 			if (IsPluginFullyLocked(p_plgPlugin))
-				return "Locked";
+				return _lockedDisplayText;
 
 			if (p_pseEntry == null)
 				return String.Empty;
@@ -1951,7 +1969,7 @@
 		private void GridViewCustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
         {
             if (e.Column != null && e.Column.FieldName == ColActive && e.Value is bool)
-                e.DisplayText = (bool)e.Value ? "Active" : "Inactive";
+                e.DisplayText = (bool)e.Value ? _activeDisplayText : _inactiveDisplayText;
         }
 
 		private void GridViewSelectionChanged(object sender, DevExpress.Data.SelectionChangedEventArgs e)
@@ -1998,7 +2016,7 @@
 				e.RowHandle == _gridView.FocusedRowHandle ||
 				_gridView.IsRowSelected(e.RowHandle);
 
-			if (row.Status == "Locked")
+			if (String.Equals(row.Status, _lockedDisplayText, StringComparison.Ordinal))
 			{
 				// Keep selected/focused rows on the skin's native selection palette.
 				if (!isSelected)
@@ -2035,8 +2053,8 @@
 			if (entry == null || entry.Diagnostics.Count == 0)
 				return;
 
-			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Error, "Errors", _errorPluginForeColor);
-			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Warning, "Warnings", _warningPluginForeColor);
+			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Error, _diagnosticErrorsHeading, _errorPluginForeColor);
+			AppendPluginDiagnosticSection(p_sbrDetails, entry.Diagnostics, PluginValidationSeverity.Warning, _diagnosticWarningsHeading, _warningPluginForeColor);
 		}
 
 		/// <summary>
@@ -2150,7 +2168,7 @@
 			if (!string.IsNullOrWhiteSpace(owner))
 			{
 				details.AppendFormat(
-					"<b>Mod:</b> {0}<br/><br/>",
+					_pluginModLabelHtml,
 					HtmlEncode(owner));
 			}
 
@@ -2165,8 +2183,7 @@
             {
                 if (details.Length > 0)
                     details.Append("<br/><br/>");
-                details.Append(
-                    "<b>Active plugins depending on this plugin:</b><br/>");
+                details.Append(_activeDependentsHeadingHtml);
                 foreach (Plugin dependent in activeDependents)
                 {
 
@@ -2251,13 +2268,13 @@
 
         private void DisableAll(object sender, EventArgs e)
         {
-            if (XtraMessageBox.Show("Do you want to disable all the active plugins?", "Disable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (XtraMessageBox.Show(LanguageManager.Get("Plugins.DisableAll.Confirm.Message", "Do you want to disable all the active plugins?"), LanguageManager.Get("Plugins.DisableAll.Confirm.Title", "Disable Plugins"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 _viewModel.PluginsDisableAll();
         }
 
         private void EnableAll(object sender, EventArgs e)
         {
-            if (XtraMessageBox.Show("Do you want to enable all the inactive plugins?", "Enable Plugins", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            if (XtraMessageBox.Show(LanguageManager.Get("Plugins.EnableAll.Confirm.Message", "Do you want to enable all the inactive plugins?"), LanguageManager.Get("Plugins.EnableAll.Confirm.Title", "Enable Plugins"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                 _viewModel.PluginsEnableAll();
         }
 
@@ -2300,17 +2317,17 @@
 
         private void ViewModelExportFailed(object sender, EventArgs e)
         {
-            XtraMessageBox.Show(this, "The current load order could not be exported.", "Export Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            XtraMessageBox.Show(this, LanguageManager.Get("Plugins.Export.Failed.Message", "The current load order could not be exported."), LanguageManager.Get("Plugins.Export.Failed.Title", "Export Failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ViewModelExportSucceeded(object sender, EventArgs e)
         {
-            XtraMessageBox.Show(this, "The current load order was successfully exported.", "Export Succeeded", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            XtraMessageBox.Show(this, LanguageManager.Get("Plugins.Export.Succeeded.Message", "The current load order was successfully exported."), LanguageManager.Get("Plugins.Export.Succeeded.Title", "Export Succeeded"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ViewModelImportFailed(object sender, EventArgs e)
         {
-            XtraMessageBox.Show(this, "The selected load order could not be imported.", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            XtraMessageBox.Show(this, LanguageManager.Get("Plugins.Import.Failed.Message", "The selected load order could not be imported."), LanguageManager.Get("Plugins.Import.Failed.Title", "Import Failed"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private void ViewModelImportSucceeded(object sender, EventArgs e)

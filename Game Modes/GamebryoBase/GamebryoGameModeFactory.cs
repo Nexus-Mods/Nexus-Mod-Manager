@@ -8,6 +8,7 @@ using Nexus.Client.Games.Gamebryo.PluginManagement.LoadOrder;
 using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Gamebryo
 {
@@ -136,7 +137,7 @@ namespace Nexus.Client.Games.Gamebryo
 					}
 					else
                     {
-                        p_imsWarning = new ViewMessage(String.Format("You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, "Missing INI", MessageBoxIcon.Warning);
+                        p_imsWarning = new ViewMessage(LanguageManager.Format("GameModes.Gamebryo.MissingIni.Message", "You have no {0} INI file. Please run {0} to initialize the file before installing any mods or turning on Archive Invalidation.", gmdGameMode.Name), null, LanguageManager.Get("GameModes.Gamebryo.MissingIni.Title", "Missing INI"), MessageBoxIcon.Warning);
                     }
                 }
 				else
@@ -147,12 +148,12 @@ namespace Nexus.Client.Games.Gamebryo
 			catch (SorterException e)
 			{
 				gmdGameMode = null;
-				p_imsWarning = new ViewMessage(String.Format(e.Message), null, "SorterException", MessageBoxIcon.Error);
+				p_imsWarning = new ViewMessage(String.Format(e.Message), null, LanguageManager.Get("GameModes.Gamebryo.SorterException.Title", "SorterException"), MessageBoxIcon.Error);
 			}
             catch (FileNotFoundException e)
             {
                 gmdGameMode = null;
-                p_imsWarning = new ViewMessage(string.Format(e.Message), null, "FileNotFoundException", MessageBoxIcon.Error);
+                p_imsWarning = new ViewMessage(string.Format(e.Message), null, LanguageManager.Get("GameModes.Gamebryo.FileNotFoundException.Title", "FileNotFoundException"), MessageBoxIcon.Error);
             }
 
 			return gmdGameMode;

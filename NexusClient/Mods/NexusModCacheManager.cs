@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.Util.Collections;
 using SevenZip;
 
@@ -247,13 +248,15 @@ namespace Nexus.Client.Mods
 					{
 						if (!EnvironmentInfo.Settings.CacheOverhaulSetup)
 						{
-							string strMessage = "This new version changes the way NMM handles its cache. This update is designed to make NMM load faster. As a result the old caching system is no longer necessary. " + Environment.NewLine + Environment.NewLine +
-							"This prompt is here to ask you what you would like to do with the files on your hard-drive used by NMM for the old caching system. We estimate this system used around 1MB - 100MB of space on your hard-drive, depending on how many mods you have installed in NMM. " + Environment.NewLine + Environment.NewLine +
-							"If you select 'Yes' then NMM will delete the old cache files and do some spring cleaning. This will free up the small amount of space being used, but if you switch back to a previous version of NMM from before this update it will take a long time to recreate the cache again. " + Environment.NewLine + Environment.NewLine +
-							"If you select 'No' then NMM will not delete the old cache files and they will remain on your hard-drive. The only negative to this, as mentioned, is the fact it'll take up a little extra space on your hard-drive (once again, estimated at 1MB to 100MB of space). " + Environment.NewLine + Environment.NewLine +
-							"Would you like NMM to remove your old cache files? " + Environment.NewLine + Environment.NewLine;
+							string strMessage = LanguageManager.Get(
+								"Mods.CacheMigration.Message",
+								"This new version changes the way NMM handles its cache. This update is designed to make NMM load faster. As a result the old caching system is no longer necessary. " + Environment.NewLine + Environment.NewLine +
+								"This prompt is here to ask you what you would like to do with the files on your hard-drive used by NMM for the old caching system. We estimate this system used around 1MB - 100MB of space on your hard-drive, depending on how many mods you have installed in NMM. " + Environment.NewLine + Environment.NewLine +
+								"If you select 'Yes' then NMM will delete the old cache files and do some spring cleaning. This will free up the small amount of space being used, but if you switch back to a previous version of NMM from before this update it will take a long time to recreate the cache again. " + Environment.NewLine + Environment.NewLine +
+								"If you select 'No' then NMM will not delete the old cache files and they will remain on your hard-drive. The only negative to this, as mentioned, is the fact it'll take up a little extra space on your hard-drive (once again, estimated at 1MB to 100MB of space). " + Environment.NewLine + Environment.NewLine +
+								"Would you like NMM to remove your old cache files? " + Environment.NewLine + Environment.NewLine);
 
-							if (MessageBox.Show(strMessage, "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+							if (MessageBox.Show(strMessage, LanguageManager.Get("Common.Dialog.ConfirmTitle", "Confirm"), MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
 							{
 								m_booCacheOverhaulSetup = true;
 							}

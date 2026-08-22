@@ -7,6 +7,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.PluginManagement.UI;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Collections;
 using SevenZip;
@@ -83,7 +84,8 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			OverallMessage = "Purging Loose Files...";
+			string purgeProgressFormat = LanguageManager.GetFormat("Tools.Backup.Purge.Progress", "Purging files...{0}/{1}");
+			OverallMessage = LanguageManager.Get("Tools.Backup.Purge.Starting", "Purging Loose Files...");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
@@ -94,7 +96,7 @@ namespace Nexus.Client.ModManagement
 
 			if (BackupManager.lstLooseFiles.Count == 0)
 			{
-				MessageBox.Show("Your game folder is already clean!", "Purge Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show(LanguageManager.Get("Tools.Backup.Purge.AlreadyClean", "Your game folder is already clean!"), LanguageManager.Get("Tools.Backup.Purge.CompleteTitle", "Purge Complete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 				return null;
 			}
 			else
@@ -107,7 +109,7 @@ namespace Nexus.Client.ModManagement
 						StepItemProgress();
 					}
 
-					OverallMessage = string.Format("Purging files...{0}/{1}", ItemProgressStepSize++, BackupManager.lstLooseFiles.Count());
+					OverallMessage = string.Format(purgeProgressFormat, ItemProgressStepSize++, BackupManager.lstLooseFiles.Count());
 					StepOverallProgress();
 
 					if (File.Exists(file.RealModPath))

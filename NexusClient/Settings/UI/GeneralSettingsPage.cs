@@ -7,6 +7,7 @@
     using System.Windows.Forms;
 
     using Util;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// A view allowing the editing of general settings.
@@ -36,6 +37,7 @@
 		{
 			SettingsGroup = settings;
 			InitializeComponent();
+			ApplyLocalization();
 
 			cbxProgramUpdateCheckInterval.DataSource = Enum.GetValues(typeof(DaysInterval))
 				.Cast<DaysInterval>()
@@ -58,7 +60,22 @@
 			BindingHelper.CreateFullBinding(tbxTraceLogDirectory, () => tbxTraceLogDirectory.Text, settings, () => settings.TraceLogPath);
 			BindingHelper.CreateFullBinding(tbxTempPathDirectory, () => tbxTempPathDirectory.Text, settings, () => settings.TempPath);
             
-			ckbCloseManagerAfterGameLaunch.Text = string.Format(ckbCloseManagerAfterGameLaunch.Text, CommonData.ModManagerName);
+		}
+
+		private void ApplyLocalization()
+		{
+			groupBox5.Text = LanguageManager.Get("Settings.General.Options.Title", "Options");
+			ckbCheckForUpdates.Text = LanguageManager.Get("Settings.General.CheckForUpdates.Option", "Check for updates on startup - interval (in days):");
+			ckbSkipReadmeFiles.Text = LanguageManager.Get("Settings.General.SkipReadme.Option", "Don't extract ReadMe files");
+			ckbAddMissingInfo.Text = LanguageManager.Get("Settings.General.AddMissingInfo.Option", "Add missing info to Mods");
+			ckbScanSubfolders.Text = LanguageManager.Get("Settings.General.ScanSubfolders.Option", "Scan Mods directory subfolders for mods");
+			ckbCloseManagerAfterGameLaunch.Text = LanguageManager.Format("Settings.General.CloseAfterLaunch.Option", "Close {0} after launching game", CommonData.ModManagerName);
+			ckbShowSidePanel.Text = LanguageManager.Get("Settings.General.ShowSidePanel.Option", "Enable mod info side panel");
+			ckbHideModUpdateWarningIcon.Text = LanguageManager.Get("Settings.General.HideUpdateWarning.Option", "Hide Mod Update Warning Icon");
+			ckbOverrideLocalNames.Text = LanguageManager.Get("Settings.General.OverrideLocalNames.Option", "Allow NMM to update mod names");
+			lblTraceLogDirectory.Text = LanguageManager.Get("Settings.General.TraceLogDirectory.Label", "TraceLog Directory:");
+			lblTempPathDirectory.Text = LanguageManager.Get("Settings.General.TempDirectory.Label", "Temporary Path Directory: (Folder must be named \"Temp\")");
+			lblTempPathWarning.Text = LanguageManager.Get("Settings.General.RestartRequired.Note", "* Requires a restart to be applied!");
 		}
 
 		#endregion

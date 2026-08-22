@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games
 {
@@ -224,7 +225,7 @@ namespace Nexus.Client.Games
 				{
 					Trace.TraceError("Failed (unknown error)");
 					Trace.Unindent();
-					OnSupportedToolsLaunched(false, String.Format("Failed to launch '{0}'.", Path.GetFileName(p_strCommand)));
+					OnSupportedToolsLaunched(false, LanguageManager.Format("GameModes.Launch.Failed", "Failed to launch '{0}'.", Path.GetFileName(p_strCommand)));
 					return;
 				}
 			}
@@ -235,7 +236,7 @@ namespace Nexus.Client.Games
 				Trace.TraceError(ex.ToString());
 				Trace.Unindent();
 				Trace.Unindent();
-				OnSupportedToolsLaunched(false, String.Format("Failed to launch '{0}'{1}{2}.", Path.GetFileName(p_strCommand), Environment.NewLine, ex.Message));
+				OnSupportedToolsLaunched(false, LanguageManager.Format("GameModes.Launch.FailedWithError", "Failed to launch '{0}'{1}{2}.", Path.GetFileName(p_strCommand), Environment.NewLine, ex.Message));
 				return;
 			}
 			Trace.TraceInformation("Succeeded");

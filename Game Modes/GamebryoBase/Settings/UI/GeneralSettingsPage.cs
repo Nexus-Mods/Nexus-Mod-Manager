@@ -4,6 +4,7 @@ using Nexus.Client.Settings;
 using Nexus.Client.Settings.UI;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Gamebryo.Settings.UI
 {
@@ -31,6 +32,12 @@ namespace Nexus.Client.Games.Gamebryo.Settings.UI
 		protected GeneralSettingsPage()
 		{
 			InitializeComponent();
+			lblWorkingDirectory.Text = LanguageManager.GetFormat("GameModes.Setup.DirectoryLabel", "{0} Directory*:");
+			label3.Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.CommandLabel", "Command:");
+			groupBox1.Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.Title", "Custom Launch Command");
+			label4.Text = LanguageManager.Get("GameModes.Setup.CustomLaunch.ArgumentsLabel", "Arguments:");
+			cbxBoldifyESMs.Text = LanguageManager.Get("GameModes.Setup.BoldEsmFiles", "Show ESM files in bold.");
+			label1.Text = LanguageManager.Get("GameModes.Setup.RestartRequiredNote", "* requires application restart");
 			//TODO enable these settings
 			cbxBoldifyESMs.Enabled = false;
 		}

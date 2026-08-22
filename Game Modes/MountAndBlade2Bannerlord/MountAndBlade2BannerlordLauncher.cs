@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.MountAndBlade2Bannerlord
 {
@@ -39,14 +40,14 @@ namespace Nexus.Client.Games.MountAndBlade2Bannerlord
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Mount & Blade II : Bannerlord", "Launches default Mount & Blade II : Bannerlord.", imgIcon, LaunchMountAndBlade2BannerlordPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Mount & Blade II : Bannerlord"), LanguageManager.Format("GameModes.Commands.Game.DefaultLaunchDescription", "Launches default {0}.", "Mount & Blade II : Bannerlord"), imgIcon, LaunchMountAndBlade2BannerlordPlain, true));
 
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Mount & Blade II : Bannerlord", "Launches Mount & Blade II : Bannerlord with custom command.", imgIcon, LaunchMountAndBlade2BannerlordCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Mount & Blade II : Bannerlord"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Mount & Blade II : Bannerlord"), imgIcon, LaunchMountAndBlade2BannerlordCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Mount & Blade II : Bannerlord", "Launches Mount & Blade II : Bannerlord.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Mount & Blade II : Bannerlord"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Mount & Blade II : Bannerlord"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -69,7 +70,7 @@ namespace Nexus.Client.Games.MountAndBlade2Bannerlord
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);

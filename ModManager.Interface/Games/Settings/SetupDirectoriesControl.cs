@@ -6,6 +6,7 @@ using System.Security.Principal;
 using Nexus.Client.Util;
 using Nexus.UI.Controls;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -45,18 +46,18 @@ namespace Nexus.Client.Games.Settings
 				lblModPrompt.Text = String.Format(lblModPrompt.Text, ViewModel.GameModeName);
 				lblInstallInfoPrompt.Text = String.Format(lblInstallInfoPrompt.Text, ViewModel.GameModeName);
 				lblToolPrompt.Text = String.Format(lblToolPrompt.Text, ViewModel.RequiredToolName);
-				lblVirtualPrompt.Text = "Select the folder where NMM will place extracted and installed mods (NMM will automatically create a 'VirtualInstall' folder in it).";
-				ckbUseMultiHDInstall.Text = "Enable Multi-HD install mode";
-				lblLinkPrompt.Text = "Select the folder where NMM will place extracted files that need to be on the same hard-drive as your game (NMM will automatically create a 'NMMLink' folder in it).";
+				lblVirtualPrompt.Text = LanguageManager.Get("GameSettings.VirtualFolders.VirtualInstallDetailedPrompt", "Select the folder where NMM will place extracted and installed mods (NMM will automatically create a 'VirtualInstall' folder in it).");
+				ckbUseMultiHDInstall.Text = LanguageManager.Get("GameSettings.VirtualFolders.EnableMultiHd", "Enable Multi-HD install mode");
+				lblLinkPrompt.Text = LanguageManager.Get("GameSettings.VirtualFolders.RequiredLinkDetailedPrompt", "Select the folder where NMM will place extracted files that need to be on the same hard-drive as your game (NMM will automatically create a 'NMMLink' folder in it).");
 
-				string strInfo = "[Virtual Install] This is the default and recommended installation method. It REQUIRES this folder to be located on the same hard-drive where you normally install mods for this game." + Environment.NewLine +
+				string strInfo = LanguageManager.Get("GameSettings.VirtualFolders.Information", "[Virtual Install] This is the default and recommended installation method. It REQUIRES this folder to be located on the same hard-drive where you normally install mods for this game." + Environment.NewLine +
 				"If you want this folder to be located anywhere, on any hard-drive of your choosing, enable the Multi-HD install mode." + Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine + Environment.NewLine +
 				"[Enable Multi-HD install mode] lets you place extracted mods on a different hard-drive to the one your game mods are usually installed on," +
 				"allowing you to save space on your game drive." + Environment.NewLine +
 				"NOTE: Some file extensions like .exe, .esp and .esm files need to be placed on the game's hard-drive irrespsective of this setting." + Environment.NewLine +
 				"NOTE: Placing mods on a slow HD may degrade game performance and loading times." + Environment.NewLine + Environment.NewLine + Environment.NewLine +
 				"[Required Link] Select the folder where NMM will place extracted files that need to be on the same HD as your games (.exe, .esp and .esm files)" + Environment.NewLine +
-				"NOTE: This folder MUST be on the same HD where you normally install mods for this game." + Environment.NewLine;
+				"NOTE: This folder MUST be on the same HD where you normally install mods for this game." + Environment.NewLine);
 				lbInfo.Text = strInfo;
 				lbInfo.Visible = true;
 				
@@ -180,6 +181,18 @@ namespace Nexus.Client.Games.Settings
 		public SetupDirectoriesControl()
 		{
 			InitializeComponent();
+			lblInstallInfoPrompt.Text = LanguageManager.GetFormat("GameSettings.Directories.InstallInfoPrompt", "Choose the directory where you would like to store your {0} install info.");
+			lblInstallInfoLabel.Text = LanguageManager.Get("GameSettings.Directories.InstallInfoLabel", "Install Info:");
+			lblModPrompt.Text = LanguageManager.GetFormat("GameSettings.Directories.ModsPrompt", "Choose the directory where you would like to store your {0} Mods.");
+			lblModDirectoryLabel.Text = LanguageManager.Get("GameSettings.Directories.ModsLabel", "Mod Directory:");
+			lblToolPrompt.Text = LanguageManager.GetFormat("GameSettings.Directories.RequiredToolPrompt", "(Optional) Select the path where the required {0} tool is installed.");
+			lblToolDirectoryLabel.Text = LanguageManager.Get("GameSettings.Directories.RequiredToolLabel", "Required Tool:");
+			lbWarning.Text = LanguageManager.Get("Common.Dialog.WarningTitle", "Warning") + ":";
+			grbInfo.Text = LanguageManager.Get("GameSettings.VirtualFolders.SectionTitle", "Virtual mod install setup:");
+			grbMulti.Text = LanguageManager.Get("GameSettings.VirtualFolders.MultiHdAdminWarning", "Multi-HD install - You MUST run the program as Administrator to enable this:");
+			ckbUseMultiHDInstall.Text = LanguageManager.Get("GameSettings.VirtualFolders.EnableMultiHd", "Enable Multi-HD install mode");
+			lblLinkDirectoryLabel.Text = LanguageManager.Get("GameSettings.VirtualFolders.RequiredLinkLabel", "Required Link:");
+			lblVirtualDirectoryLabel.Text = LanguageManager.Get("GameSettings.VirtualFolders.VirtualInstallLabel", "Virtual Install:");
 		}
 
 		#endregion
@@ -207,7 +220,7 @@ namespace Nexus.Client.Games.Settings
 
 			if (e.Property.Equals("WARNING"))
 			{
-				lbWarning.Text = "Warning: " + e.Error;
+				lbWarning.Text = LanguageManager.Get("Common.Dialog.WarningTitle", "Warning") + ": " + e.Error;
 				lbWarning.Visible = true;
 			}
 			else

@@ -8,6 +8,7 @@
     using System.Security;
     using System.Windows.Forms;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
 
     /// <summary>
     /// A view allowing the editing of mod options.
@@ -33,6 +34,7 @@
 			SettingsGroup = downloadSettingsGroup;
 			downloadSettingsGroup.UpdatedSettings += dsgSettings_UpdatedSettings;
 			InitializeComponent();
+			ApplyLocalization();
 			
 			buttonChromeFix.Image = new Bitmap(Properties.Resources.uac_icon, 20, 20);
 
@@ -40,6 +42,17 @@
 		}
 
 		#endregion
+
+		private void ApplyLocalization()
+		{
+			groupBox2.Text = LanguageManager.Get("Settings.Download.PremiumFeatures.Title", "Premium features");
+			label1.Text = LanguageManager.Get("Settings.Download.Multithreaded.Label", "Use multithreaded downloads:");
+			lblWarning.Text = LanguageManager.Get("Settings.Download.PremiumOnly.Note", "* Some of the settings are only available for logged in Premium users.");
+			lblMaxConcurrentDownload.Text = LanguageManager.Get("Settings.Download.MaxConcurrent.Label", "Maximum concurrent downloads:");
+			groupBox3.Text = LanguageManager.Get("Settings.Download.Fixes.Title", "Download Fix/Tweaks");
+			buttonChromeFix.Text = LanguageManager.Get("Settings.Download.ChromeFix.Name", "Fix It!");
+			label2.Text = LanguageManager.Get("Settings.Download.ChromeFix.Label", "Chrome/Windows 8.x - Fix (Could require Admin privileges):");
+		}
 
 		#region ISettingsGroupView Members
 
@@ -86,7 +99,7 @@
 			}
 			catch (SecurityException)
 			{
-				MessageBox.Show("You MUST run the program as Administrator to use this functionality.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Settings.Download.ChromeFix.AdminRequired.Message", "You MUST run the program as Administrator to use this functionality."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 		}
 
@@ -96,7 +109,7 @@
 
             if (processes.Length > 0)
 			{
-				MessageBox.Show("Make sure Chrome is closed before running this fix.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show(LanguageManager.Get("Settings.Download.ChromeFix.CloseChrome.Message", "Make sure Chrome is closed before running this fix."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
 			}
 
@@ -111,7 +124,7 @@
 				}
 				catch
 				{
-					var dialogResult = MessageBox.Show("Unable to backup the 'Local State' file, do you want to continue anyway?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+					var dialogResult = MessageBox.Show(LanguageManager.Get("Settings.Download.ChromeFix.BackupFailed.Message", "Unable to backup the 'Local State' file, do you want to continue anyway?"), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
 
                     if (dialogResult == DialogResult.No)
                     {
@@ -153,11 +166,11 @@
 			}
 			else
 			{
-				MessageBox.Show("It seems that Chrome is not present (or properly installed) on your system.", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show(LanguageManager.Get("Settings.Download.ChromeFix.ChromeMissing.Message", "It seems that Chrome is not present (or properly installed) on your system."), LanguageManager.Get("Common.Dialog.InformationTitle", "Information"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
 			}
 
-			MessageBox.Show("The fix was successfully applied.", "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			MessageBox.Show(LanguageManager.Get("Settings.Download.ChromeFix.Success.Message", "The fix was successfully applied."), LanguageManager.Get("Common.Dialog.SuccessTitle", "Success"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
     }
 }

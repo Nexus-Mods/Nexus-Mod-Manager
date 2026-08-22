@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
 using Microsoft.Win32;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.Oblivion
 {
@@ -43,12 +44,12 @@ namespace Nexus.Client.Games.Oblivion
 			if (strCommand != null)
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("BOSS", "Launch BOSS", "Launches BOSS.", imgIcon, LaunchBOSS, true));
+				AddLaunchCommand(new Command("BOSS", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "BOSS"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "BOSS"), imgIcon, LaunchBOSS, true));
 			}
 			else
 			{
 				imgIcon = ToolStripRenderer.CreateDisabledImage((Properties.Resources.oblivion_logo.ToBitmap()));
-				AddLaunchCommand(new Command("Config#BOSS", "Config BOSS", "Configures BOSS.", imgIcon, ConfigBOSS, true));
+				AddLaunchCommand(new Command("Config#BOSS", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "BOSS"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "BOSS"), imgIcon, ConfigBOSS, true));
 			}
 
 			strCommand = GetWryeBashLaunchCommand();
@@ -56,12 +57,12 @@ namespace Nexus.Client.Games.Oblivion
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("WryeBash", "Launch Wrye Bash", "Launches Wrye Bash.", imgIcon, LaunchWryeBash, true));
+				AddLaunchCommand(new Command("WryeBash", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "Wrye Bash"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "Wrye Bash"), imgIcon, LaunchWryeBash, true));
 			}
 			else
 			{
 				imgIcon = ToolStripRenderer.CreateDisabledImage((Properties.Resources.oblivion_logo.ToBitmap()));
-				AddLaunchCommand(new Command("Config#Wrye Bash", "Config Wrye Bash", "Configures Wrye Bash.", imgIcon, ConfigWryeBash, true));
+				AddLaunchCommand(new Command("Config#Wrye Bash", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "Wrye Bash"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "Wrye Bash"), imgIcon, ConfigWryeBash, true));
 			}
 
 			strCommand = GetLOOTLaunchCommand();
@@ -69,12 +70,12 @@ namespace Nexus.Client.Games.Oblivion
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("LOOT", "Launch LOOT", "Launches LOOT.", imgIcon, LaunchLOOT, true));
+				AddLaunchCommand(new Command("LOOT", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "LOOT"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "LOOT"), imgIcon, LaunchLOOT, true));
 			}
 			else
 			{
 				imgIcon = ToolStripRenderer.CreateDisabledImage((Properties.Resources.oblivion_logo.ToBitmap()));
-				AddLaunchCommand(new Command("Config#LOOT", "Config LOOT", "Configures LOOT.", imgIcon, ConfigLOOT, true));
+				AddLaunchCommand(new Command("Config#LOOT", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "LOOT"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "LOOT"), imgIcon, ConfigLOOT, true));
 			}
 
 			strCommand = GetTES4EditLaunchCommand();
@@ -82,12 +83,12 @@ namespace Nexus.Client.Games.Oblivion
 			if ((strCommand != null) && (File.Exists(strCommand)))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("TES4Edit", "Launch TES4Edit", "Launches TES4Edit.", imgIcon, LaunchTES4Edit, true));
+				AddLaunchCommand(new Command("TES4Edit", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "TES4Edit"), LanguageManager.Format("GameModes.Commands.Tool.LaunchDescription", "Launches {0}.", "TES4Edit"), imgIcon, LaunchTES4Edit, true));
 			}
 			else
 			{
 				imgIcon = null;
-				AddLaunchCommand(new Command("Config#TES4Edit", "Config TES4Edit", "Configures TES4Edit.", imgIcon, ConfigTES4Edit, true));
+				AddLaunchCommand(new Command("Config#TES4Edit", LanguageManager.Format("GameModes.Commands.Tool.ConfigName", "Config {0}", "TES4Edit"), LanguageManager.Format("GameModes.Commands.Tool.ConfigDescription", "Configures {0}.", "TES4Edit"), imgIcon, ConfigTES4Edit, true));
 			}
 
 			Trace.Unindent();
@@ -299,7 +300,7 @@ namespace Nexus.Client.Games.Oblivion
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -329,7 +330,7 @@ namespace Nexus.Client.Games.Oblivion
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -359,7 +360,7 @@ namespace Nexus.Client.Games.Oblivion
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();
@@ -389,7 +390,7 @@ namespace Nexus.Client.Games.Oblivion
 			Trace.Indent();
 
 			FolderBrowserDialog fbd = new FolderBrowserDialog();
-			fbd.Description = string.Format("Select the folder where the {0} executable is located.", p_strToolName);
+			fbd.Description = LanguageManager.Format("GameModes.SupportedTools.SelectExecutableFolder", "Select the folder where the {0} executable is located.", p_strToolName);
 			fbd.ShowNewFolderButton = false;
 
 			fbd.ShowDialog();

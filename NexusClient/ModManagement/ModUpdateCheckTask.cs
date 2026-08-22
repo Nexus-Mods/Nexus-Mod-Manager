@@ -11,6 +11,7 @@
 	using Nexus.Client.ModRepositories;
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
+	using Nexus.Client.Util.Localization;
 
 	public class ModUpdateCheckTask : ThreadedBackgroundTask
 	{
@@ -100,7 +101,7 @@
 			var modList = new List<string>();
 			var modCheck = new List<IMod>();
 
-			OverallMessage = "Updating mods info: setup search..";
+			OverallMessage = LanguageManager.Get("Tasks.ModUpdates.SetupSearch", "Updating mods info: setup search..");
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
 			ShowItemProgress = true;
@@ -215,7 +216,7 @@
 				//	}
 
 				//	modList.Clear();
-				//	OverallMessage = "Updating mods info: setup search..";
+				//	OverallMessage = LanguageManager.Get("Tasks.ModUpdates.SetupSearch", "Updating mods info: setup search..");
 				//	ItemProgress = 0;
 				//	ItemProgressMaximum = _modList.Count == modLimit ? 1 : _modList.Count - (i + 1);
 				//}
@@ -273,7 +274,7 @@
 		/// <param name="modList">The mods for which to check for updates.</param>
 		private string CheckForModListUpdate(List<string> modList, List<IMod> modsToCheck)
 		{
-			OverallMessage = _missingDownloadId != false ? "Updating mods info: retrieving download ids.." : "Updating mods info: getting online updates..";
+			OverallMessage = _missingDownloadId != false ? LanguageManager.Get("Tasks.ModUpdates.RetrievingDownloadIds", "Updating mods info: retrieving download ids..") : LanguageManager.Get("Tasks.ModUpdates.GettingOnlineUpdates", "Updating mods info: getting online updates..");
 			List<IModInfo> fileListInfo = new List<IModInfo>();
 			IMod[] modCheckList = modsToCheck.ToArray();
 

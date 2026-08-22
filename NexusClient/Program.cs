@@ -14,6 +14,7 @@
     using Nexus.Client.Games.DataDriven;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
     using Nexus.Client.Util.Threading;
     using Nexus.UI.Controls;
 
@@ -87,6 +88,7 @@
                 }
 
                 EnableTracing(EnvironmentInfo, booTrace);
+                InitializeLanguage();
 
 #if !DEBUG
 				try
@@ -99,9 +101,9 @@
 					}
 					catch (MissingMethodException)
 					{
-						if (MessageBox.Show("You're running an older version of the .Net Framework!" + Environment.NewLine + "Please download .Net Framework 4.6 from the Microsoft website or using Windows Update." +
+						if (MessageBox.Show(LanguageManager.Get("Startup.DotNetOutdated.Message", "You're running an older version of the .Net Framework!" + Environment.NewLine + "Please download .Net Framework 4.6 from the Microsoft website or using Windows Update." +
 								Environment.NewLine + Environment.NewLine + "Click YES if you want Nexus Mod Manager to automatically take you to the download page on your default browser." + Environment.NewLine +
-								"Click NO if you want to close the program and download it later.", "Warning!", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+								"Click NO if you want to close the program and download it later."), LanguageManager.Get("Startup.DotNetOutdated.Title", "Warning!"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
 						{
 							Process.Start("https://www.microsoft.com/en-us/download/details.aspx?id=48137");
 						}
@@ -230,18 +232,18 @@
 		private static void ShowBootstrapFailure(Exception exception)
 		{
 			StringBuilder message = new StringBuilder();
-			message.AppendFormat("{0} could not complete startup.", CommonData.ModManagerName).AppendLine();
+			message.AppendFormat(LanguageManager.GetFormat("Startup.Failure.Header", "{0} could not complete startup."), CommonData.ModManagerName).AppendLine();
 			message.AppendLine();
-			message.AppendLine(exception == null ? "No exception information was supplied." : exception.Message);
+			message.AppendLine(exception == null ? LanguageManager.Get("Startup.Failure.NoException", "No exception information was supplied.") : exception.Message);
 
 			if (!String.IsNullOrEmpty(BootstrapLogPath))
 			{
 				message.AppendLine();
-				message.AppendLine("A bootstrap log was created at:");
+				message.AppendLine(LanguageManager.Get("Startup.Failure.LogCreatedAt", "A bootstrap log was created at:"));
 				message.AppendLine(BootstrapLogPath);
 			}
 
-			MessageBox.Show(message.ToString(), "NMM startup error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+			MessageBox.Show(message.ToString(), LanguageManager.Get("Startup.Failure.Title", "NMM startup error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 
         private static bool TryRunGameDefinitionValidationCommand(string[] args)
@@ -325,6 +327,21 @@
 				p_setSettings.Save();
 			}
 
+		}
+
+		/// <summary>
+		/// Initializes the UI language catalog before any application UI is created.
+		/// </summary>
+		private static void InitializeLanguage()
+		{
+			string requestedLanguage = Properties.Settings.Default.UILanguage;
+			LanguageManager.Initialize(requestedLanguage);
+			UI.DevExpressLocalization.Initialize();
+
+			Trace.TraceInformation(
+				"UI language initialized: requested={0}, active={1}",
+				String.IsNullOrWhiteSpace(requestedLanguage) ? LanguageManager.DefaultLanguageId : requestedLanguage,
+				LanguageManager.CurrentLanguage.Id);
 		}
 
 		/// <summary>
@@ -457,21 +474,16 @@
 			if (!htlListener.TraceIsForced)
 				htlListener.SaveToFile();
 
-			StringBuilder stbPromptMessage = new StringBuilder();
-			stbPromptMessage.AppendFormat("{0} has encountered an error and needs to close.", CommonData.ModManagerName).AppendLine();
-			stbPromptMessage.AppendLine("A Trace Log file was created at:");
-			stbPromptMessage.AppendLine(htlListener.FilePath);
-			stbPromptMessage.AppendLine("Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):");
-			stbPromptMessage.AppendLine(Links.FAQs);
-			stbPromptMessage.AppendLine("If you can't find a solution, please make a bug report and attach the TraceLog file here:");
-			stbPromptMessage.AppendLine(Links.Instance.Issues);
-			stbPromptMessage.AppendLine(Environment.NewLine + "Do you want to open the TraceLog folder?");
+			string promptMessage = LanguageManager.Format(
+				"Crash.Unhandled.Message",
+				"{0} has encountered an error and needs to close.{1}A Trace Log file was created at:{1}{2}{1}Before reporting the issue, don't close this window and check for a fix here (you can close it afterwards):{1}{3}{1}If you can't find a solution, please make a bug report and attach the TraceLog file here:{1}{4}{1}{1}Do you want to open the TraceLog folder?{1}",
+				CommonData.ModManagerName, Environment.NewLine, htlListener.FilePath, Links.FAQs, Links.Instance.Issues);
 			try
 			{
 				//the extended message box contains an activex control wich must be run in an STA thread,
 				// we can't control what thread this gets called on, so create one if we need to
-				string strException = "The following information is in the Trace Log:" + Environment.NewLine + TraceUtil.CreateTraceExceptionString(ex);
-				ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, stbPromptMessage.ToString(), "Error", strException, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+				string strException = LanguageManager.Get("Crash.Unhandled.DetailsHeader", "The following information is in the Trace Log:") + Environment.NewLine + TraceUtil.CreateTraceExceptionString(ex);
+				ThreadStart actShowMessage = () => drResult = ExtendedMessageBox.Show(null, promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), strException, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
 
 				ApartmentState astState = ApartmentState.Unknown;
 				Thread.CurrentThread.TrySetApartmentState(astState);
@@ -498,7 +510,7 @@
 			catch
 			{
 				//backup, in case on extended message box starts to act up
-				MessageBox.Show(stbPromptMessage.ToString(), "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				MessageBox.Show(promptMessage, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
 	}

@@ -6,6 +6,7 @@
     using System.Diagnostics;
 
     using Nexus.Client.Util;
+    using Nexus.Client.Util.Localization;
 
     public enum FileManagerSource
     {
@@ -146,6 +147,10 @@
 
     public sealed class FileManagerRow : INotifyPropertyChanged
     {
+        private static readonly string LinkTypeNotFoundText = LanguageManager.Get("FileManager.LinkType.NotFound", "Not Found");
+        private static readonly string LinkTypeSymbolicLinkText = LanguageManager.Get("FileManager.LinkType.SymbolicLink", "Symbolic Link");
+        private static readonly string LinkTypeHardLinkText = LanguageManager.Get("FileManager.LinkType.HardLink", "Hard Link");
+        private static readonly string LinkTypeRealText = LanguageManager.Get("FileManager.LinkType.Real", "Real");
         public static readonly List<FileManagerOwnerCandidate> EmptyOwnerCandidates = new List<FileManagerOwnerCandidate>(0);
 
         private FileManagerSource _source;
@@ -327,13 +332,13 @@
                 case FileManagerLinkTypeState.Unavailable:
                     return FileManagerLinkTypeResolver.UnavailableDisplayText;
                 case FileManagerLinkTypeState.NotFound:
-                    return "NotFound";
+                    return LinkTypeNotFoundText;
                 case FileManagerLinkTypeState.SymbolicLink:
-                    return "SymbolicLink";
+                    return LinkTypeSymbolicLinkText;
                 case FileManagerLinkTypeState.HardLink:
-                    return "HardLink";
+                    return LinkTypeHardLinkText;
                 case FileManagerLinkTypeState.Real:
-                    return "Real";
+                    return LinkTypeRealText;
                 default:
                     return FileManagerLinkTypeResolver.PendingDisplayText;
             }
@@ -349,21 +354,27 @@
 
     public static class FileManagerSourceDisplay
     {
+        private static readonly string InstalledByNmmText = LanguageManager.Get("FileManager.Source.InstalledByNmm", "Installed by NMM");
+        private static readonly string BaseGameText = LanguageManager.Get("FileManager.Source.BaseGame", "Base Game");
+        private static readonly string CreationsText = LanguageManager.Get("FileManager.Source.Creations", "Creations");
+        private static readonly string ExternalModManagerText = LanguageManager.Get("FileManager.Source.ExternalModManager", "External Mod Manager");
+        private static readonly string UntrackedText = LanguageManager.Get("FileManager.Source.Untracked", "Untracked");
+
         public static readonly IList<FileManagerSourceOption> ManualSourceOptions = new List<FileManagerSourceOption>
         {
-            new FileManagerSourceOption(FileManagerSource.Untracked, "Untracked"),
-            new FileManagerSourceOption(FileManagerSource.BaseGame, "Base Game"),
-            new FileManagerSourceOption(FileManagerSource.Creations, "Creations"),
-            new FileManagerSourceOption(FileManagerSource.ExternalModManager, "External Mod Manager")
+            new FileManagerSourceOption(FileManagerSource.Untracked, UntrackedText),
+            new FileManagerSourceOption(FileManagerSource.BaseGame, BaseGameText),
+            new FileManagerSourceOption(FileManagerSource.Creations, CreationsText),
+            new FileManagerSourceOption(FileManagerSource.ExternalModManager, ExternalModManagerText)
         }.AsReadOnly();
 
         public static readonly IList<FileManagerSourceOption> AllSourceOptions = new List<FileManagerSourceOption>
         {
-            new FileManagerSourceOption(FileManagerSource.InstalledByNmm, "Installed by NMM"),
-            new FileManagerSourceOption(FileManagerSource.BaseGame, "Base Game"),
-            new FileManagerSourceOption(FileManagerSource.Creations, "Creations"),
-            new FileManagerSourceOption(FileManagerSource.ExternalModManager, "External Mod Manager"),
-            new FileManagerSourceOption(FileManagerSource.Untracked, "Untracked")
+            new FileManagerSourceOption(FileManagerSource.InstalledByNmm, InstalledByNmmText),
+            new FileManagerSourceOption(FileManagerSource.BaseGame, BaseGameText),
+            new FileManagerSourceOption(FileManagerSource.Creations, CreationsText),
+            new FileManagerSourceOption(FileManagerSource.ExternalModManager, ExternalModManagerText),
+            new FileManagerSourceOption(FileManagerSource.Untracked, UntrackedText)
         }.AsReadOnly();
 
         public static string GetDisplayText(FileManagerSource source)
@@ -371,15 +382,15 @@
             switch (source)
             {
                 case FileManagerSource.InstalledByNmm:
-                    return "Installed by NMM";
+                    return InstalledByNmmText;
                 case FileManagerSource.BaseGame:
-                    return "Base Game";
+                    return BaseGameText;
                 case FileManagerSource.Creations:
-                    return "Creations";
+                    return CreationsText;
                 case FileManagerSource.ExternalModManager:
-                    return "External Mod Manager";
+                    return ExternalModManagerText;
                 default:
-                    return "Untracked";
+                    return UntrackedText;
             }
         }
 

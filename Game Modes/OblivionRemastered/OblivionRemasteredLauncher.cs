@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using Nexus.Client.Commands;
 using Nexus.Client.Util;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Games.OblivionRemastered
 {
@@ -39,22 +40,22 @@ namespace Nexus.Client.Games.OblivionRemastered
 			string strCommand = GetPlainLaunchCommand();
 			Trace.TraceInformation("Plain Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			Image imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("PlainLaunch", "Launch Oblivion Remastered", "Launches plain Oblivion Remastered.", imgIcon, LaunchOblivionRemasteredPlain, true));
+			AddLaunchCommand(new Command("PlainLaunch", LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Oblivion Remastered"), LanguageManager.Format("GameModes.Commands.Game.PlainLaunchDescription", "Launches plain {0}.", "Oblivion Remastered"), imgIcon, LaunchOblivionRemasteredPlain, true));
 		
 			strCommand = GetOrseLaunchCommand();
 			Trace.TraceInformation("ORSE Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			if (File.Exists(strCommand))
 			{
 				imgIcon = SafeExtractIcon(strCommand);
-				AddLaunchCommand(new Command("OrseLaunch", "Launch ORSE", "Launches Oblivion Remastered with ORSE.", imgIcon, LaunchOblivionRemasteredORSE, true));
+				AddLaunchCommand(new Command("OrseLaunch", LanguageManager.Format("GameModes.Commands.Tool.LaunchName", "Launch {0}", "ORSE"), LanguageManager.Format("GameModes.Commands.Game.LaunchWithToolDescription", "Launches {0} with {1}.", "Oblivion Remastered", "ORSE"), imgIcon, LaunchOblivionRemasteredORSE, true));
 			}
 			
 			strCommand = GetCustomLaunchCommand();
 			Trace.TraceInformation("Custom Command: {0} (IsNull={1})", strCommand, (strCommand == null));
 			imgIcon = SafeExtractIcon(strCommand);
-			AddLaunchCommand(new Command("CustomLaunch", "Launch Custom Oblivion Remastered", "Launches Oblivion Remastered with custom command.", imgIcon, LaunchOblivionRemasteredCustom, true));
+			AddLaunchCommand(new Command("CustomLaunch", LanguageManager.Format("GameModes.Commands.Game.CustomLaunchName", "Launch Custom {0}", "Oblivion Remastered"), LanguageManager.Format("GameModes.Commands.Game.CustomLaunchDescription", "Launches {0} with custom command.", "Oblivion Remastered"), imgIcon, LaunchOblivionRemasteredCustom, true));
 
-			DefaultLaunchCommand = new Command("Launch Oblivion Remastered", "Launches Oblivion Remastered.", LaunchGame);
+			DefaultLaunchCommand = new Command(LanguageManager.Format("GameModes.Commands.Game.LaunchName", "Launch {0}", "Oblivion Remastered"), LanguageManager.Format("GameModes.Commands.Game.LaunchDescription", "Launches {0}.", "Oblivion Remastered"), LaunchGame);
 
 			Trace.Unindent();
 		}
@@ -77,7 +78,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 			{
 				Trace.TraceError("No custom launch command has been set.");
 				Trace.Unindent();
-				OnGameLaunched(false, "No custom launch command has been set.");
+				OnGameLaunched(false, LanguageManager.Get("GameModes.Launch.NoCustomCommand", "No custom launch command has been set."));
 				return;
 			}
 			Launch(strCommand, strCommandArgs);
@@ -119,7 +120,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 			{
 				Trace.TraceError("ORSE does not appear to be installed.");
 				Trace.Unindent();
-				OnGameLaunched(false, "ORSE does not appear to be installed.");
+				OnGameLaunched(false, LanguageManager.Format("GameModes.Launch.ToolNotInstalled", "{0} does not appear to be installed.", "ORSE"));
 				return;
 			}
 			Launch(strCommand, null);

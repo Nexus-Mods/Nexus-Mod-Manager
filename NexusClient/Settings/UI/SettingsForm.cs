@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.UI;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.Settings.UI
 {
@@ -58,6 +59,12 @@ namespace Nexus.Client.Settings.UI
 		public SettingsForm(SettingsFormVM p_vmlViewModel)
 		{
 			InitializeComponent();
+			Text = LanguageManager.Get("Settings.Window.Title", "Settings");
+			butOK.Text = LanguageManager.Get("Common.Action.Ok", "OK");
+			butCancel.Text = LanguageManager.Get("Common.Action.Cancel", "Cancel");
+			label10.Text = LanguageManager.Get("Settings.Compression.FormatPerformanceNote", "NOTE: Using a format other than Zip can make the Package Manager respond slowly.");
+			label11.Text = LanguageManager.Get("Settings.Compression.FormatLabel", "Format:");
+			label12.Text = LanguageManager.Get("Settings.Compression.LevelLabel", "Compression Level:");
 			ViewModel = p_vmlViewModel;
 		}
 
