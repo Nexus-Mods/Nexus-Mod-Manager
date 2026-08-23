@@ -557,6 +557,8 @@
     "GameStorage.Recovery.ConfirmTitle": "确认恢复游戏存储",
     "GameStorage.Recovery.ControlDescription": "NMM 无法验证此游戏的存储文件夹。请选择一个已知候选项或输入自定义路径。恢复期间 NMM 不会移动、重命名或删除文件夹。",
     "GameStorage.Recovery.Description": "NMM 无法验证此游戏的存储文件夹。请选择一个已知候选项或输入自定义路径。仅当两个游戏模式定义都明确允许时，才能使用兼容的共享 Mods 库。恢复期间 NMM 不会移动、重命名或删除文件夹。",
+    "GameStorage.Recovery.EmptyFoldersConfirmMessage": "NMM 之前在此游戏存储中记录过数据，但以下所选文件夹现在为空：\n\n{0}\n\n继续操作将把当前空文件夹视为有意设置，并替换以前的游戏存储快照。NMM 不会移动或删除任何文件。\n\n仅当旧数据已被有意删除，或您明确希望从空的游戏存储开始时才继续。\n\n是否继续？",
+    "GameStorage.Recovery.EmptyFoldersConfirmTitle": "确认空的游戏存储",
     "GameStorage.Recovery.GenericTitle": "游戏存储恢复",
     "GameStorage.Recovery.Title": "游戏存储恢复 - {0}",
     "GameStorage.Setup.ConfirmApply": "为此游戏使用所选游戏存储路径？NMM 不会移动、重命名或删除现有文件夹。",

@@ -557,6 +557,8 @@
     "GameStorage.Recovery.ConfirmTitle": "Confirmer la récupération du stockage du jeu",
     "GameStorage.Recovery.ControlDescription": "NMM n’a pas pu valider les dossiers de stockage de ce jeu. Sélectionnez une configuration connue ou saisissez des chemins personnalisés. NMM ne déplacera, ne renommera ni ne supprimera aucun dossier pendant la récupération.",
     "GameStorage.Recovery.Description": "NMM n’a pas pu valider les dossiers de stockage de ce jeu. Sélectionnez une configuration connue ou saisissez des chemins personnalisés. Les bibliothèques Mods partagées compatibles ne sont autorisées que si les définitions des deux modes de jeu l’acceptent. NMM ne déplacera, ne renommera ni ne supprimera aucun dossier pendant la récupération.",
+    "GameStorage.Recovery.EmptyFoldersConfirmMessage": "NMM avait précédemment enregistré des données dans ce stockage de jeu, mais les dossiers sélectionnés suivants sont maintenant vides :\n\n{0}\n\nContinuer considérera les dossiers actuellement vides comme intentionnels et remplacera l’instantané précédent du stockage de jeu. NMM ne déplacera ni ne supprimera aucun fichier.\n\nContinuez uniquement si les anciennes données ont été supprimées volontairement ou si vous souhaitez délibérément repartir avec un stockage de jeu vide.\n\nVoulez-vous continuer ?",
+    "GameStorage.Recovery.EmptyFoldersConfirmTitle": "Confirmer le stockage de jeu vide",
     "GameStorage.Recovery.GenericTitle": "Récupération du stockage du jeu",
     "GameStorage.Recovery.Title": "Récupération du stockage du jeu - {0}",
     "GameStorage.Setup.ConfirmApply": "Utiliser les chemins de stockage du jeu sélectionnés pour ce jeu ? NMM ne déplacera, ne renommera ni ne supprimera aucun dossier existant.",

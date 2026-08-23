@@ -82,8 +82,13 @@ namespace Nexus.Client.GameStorage
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
         {
+            return ApplyRecoveryCandidate(gameMode, candidate, false, out healthCheck);
+        }
+
+        public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, bool acceptSuspiciousEmptyFolders, out GameStorageHealthCheck healthCheck)
+        {
             var currentPaths = FromGameMode(gameMode);
-            if (!ValidateRecoveryCandidate(currentPaths, candidate, out healthCheck))
+            if (!ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, out healthCheck))
                 return false;
 
             var paths = CreatePathSetFromCandidate(currentPaths, candidate);
@@ -198,6 +203,15 @@ namespace Nexus.Client.GameStorage
 			GameStorageCandidate candidate,
 			out GameStorageHealthCheck healthCheck)
 		{
+			return ValidateRecoveryCandidate(currentPaths, candidate, false, out healthCheck);
+		}
+
+		public bool ValidateRecoveryCandidate(
+			GameStoragePathSet currentPaths,
+			GameStorageCandidate candidate,
+			bool acceptSuspiciousEmptyFolders,
+			out GameStorageHealthCheck healthCheck)
+		{
 			healthCheck = null;
 
 			if (candidate == null ||
@@ -229,7 +243,7 @@ namespace Nexus.Client.GameStorage
 				storageId,
 				registry);
 
-			if (!CanRecoverExistingStorage(healthCheck))
+			if (!CanRecoverExistingStorage(healthCheck, acceptSuspiciousEmptyFolders))
 				return false;
 
 			if (paths.LinkFolderRequired &&
@@ -270,7 +284,8 @@ namespace Nexus.Client.GameStorage
 
 			if (!CanFinalizeRecoveredStorage(
 				healthCheck,
-				virtualInstallWasMissing))
+				virtualInstallWasMissing,
+				acceptSuspiciousEmptyFolders))
 			{
 				return false;
 			}
@@ -301,7 +316,14 @@ namespace Nexus.Client.GameStorage
 				CreateFolder(paths.LinkFolderPath);
 		}
 
-		private bool CanRecoverExistingStorage(GameStorageHealthCheck healthCheck)
+		public bool CanAcceptSuspiciousEmptyFolders(GameStorageHealthCheck healthCheck)
+		{
+			return healthCheck != null &&
+				healthCheck.Items.Any(IsAcceptableSuspiciousEmptyFolder) &&
+				CanRecoverExistingStorage(healthCheck, true);
+		}
+
+		private bool CanRecoverExistingStorage(GameStorageHealthCheck healthCheck, bool acceptSuspiciousEmptyFolders)
 		{
 			if (healthCheck == null)
 				return false;
@@ -313,7 +335,8 @@ namespace Nexus.Client.GameStorage
 				{
 					if (item.Status != GameStorageHealthStatus.Healthy &&
 						item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
-						item.Status != GameStorageHealthStatus.CompatibleSharedModsLibrary)
+						item.Status != GameStorageHealthStatus.CompatibleSharedModsLibrary &&
+						!(acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item)))
 					{
 						return false;
 					}
@@ -322,7 +345,8 @@ namespace Nexus.Client.GameStorage
 				if (item.Role == GameStorageFolderRole.VirtualInstall &&
 					item.Status != GameStorageHealthStatus.Healthy &&
 					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
-					item.Status != GameStorageHealthStatus.MissingVirtualInstall)
+					item.Status != GameStorageHealthStatus.MissingVirtualInstall &&
+					!(acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item)))
 				{
 					return false;
 				}
@@ -340,9 +364,20 @@ namespace Nexus.Client.GameStorage
 			return true;
 		}
 
+		private static bool IsAcceptableSuspiciousEmptyFolder(GameStorageHealthItem item)
+		{
+			if (item == null || item.Status != GameStorageHealthStatus.SuspiciousEmptyFolder)
+				return false;
+
+			return item.Role == GameStorageFolderRole.InstallInfo ||
+				item.Role == GameStorageFolderRole.Mods ||
+				item.Role == GameStorageFolderRole.VirtualInstall;
+		}
+
 		private bool CanFinalizeRecoveredStorage(
 			GameStorageHealthCheck healthCheck,
-			bool virtualInstallWasMissing)
+			bool virtualInstallWasMissing,
+			bool acceptSuspiciousEmptyFolders)
 		{
 			if (healthCheck == null)
 				return false;
@@ -356,6 +391,9 @@ namespace Nexus.Client.GameStorage
 				{
 					continue;
 				}
+
+				if (acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item))
+					continue;
 
 				if (virtualInstallWasMissing &&
 					item.Role == GameStorageFolderRole.VirtualInstall &&

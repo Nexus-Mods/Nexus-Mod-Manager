@@ -133,8 +133,41 @@ namespace Nexus.Client.GameStorage.UI
                 return;
             }
 
+            if (_service.CanAcceptSuspiciousEmptyFolders(healthCheck))
+            {
+                SetHealth(healthCheck);
+                var result = XtraMessageBox.Show(
+                    this,
+                    BuildSuspiciousEmptyConfirmation(healthCheck),
+                    LanguageManager.Get("GameStorage.Recovery.EmptyFoldersConfirmTitle", "Confirm empty Game Storage"),
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result != DialogResult.Yes)
+                    return;
+
+                if (_service.ApplyRecoveryCandidate(_gameMode, candidate, true, out healthCheck))
+                {
+                    DialogResult = DialogResult.OK;
+                    return;
+                }
+            }
+
             SetHealth(healthCheck);
             XtraMessageBox.Show(this, healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Recovery.ApplyFailed", "The selected Game Storage candidate could not be applied."), LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+
+        private string BuildSuspiciousEmptyConfirmation(GameStorageHealthCheck healthCheck)
+        {
+            var folders = healthCheck.Items
+                .Where(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder && x.Role.HasValue)
+                .Select(x => "- " + GameStorageLocalization.GetFolderRoleName(x.Role.Value) + ": " + x.Path)
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            return LanguageManager.Format(
+                "GameStorage.Recovery.EmptyFoldersConfirmMessage",
+                "NMM previously recorded data in this Game Storage, but the following selected folders are now empty:\n\n{0}\n\nContinuing will accept the current empty folders as intentional and replace the previous Game Storage snapshot. NMM will not move or delete any files.\n\nContinue only if the old data was intentionally removed or you deliberately want to start with an empty Game Storage.\n\nDo you want to continue?",
+                string.Join(Environment.NewLine, folders));
         }
 
         private void RefreshCandidates()

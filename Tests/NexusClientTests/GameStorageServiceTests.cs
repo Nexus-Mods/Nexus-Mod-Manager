@@ -146,6 +146,63 @@ namespace NexusClientTests
         }
 
         [Test]
+        public void ValidateRecoveryCandidate_SuspiciousEmptyStorage_IsRejectedWithoutConfirmation()
+        {
+            var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true);
+            _service.ValidateStorage(knownGood, true);
+
+            var empty = CreateStorage("SkyrimSE", "StorageB");
+            var candidate = CreateCandidate(empty);
+
+            GameStorageHealthCheck healthCheck;
+            bool applied = _service.ValidateRecoveryCandidate(knownGood, candidate, out healthCheck);
+
+            Assert.IsFalse(applied);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.True);
+            Assert.IsTrue(_service.CanAcceptSuspiciousEmptyFolders(healthCheck));
+        }
+
+        [Test]
+        public void ValidateRecoveryCandidate_SuspiciousEmptyStorage_CanBeExplicitlyAccepted()
+        {
+            var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true);
+            _service.ValidateStorage(knownGood, true);
+
+            var empty = CreateStorage("SkyrimSE", "StorageB");
+            var candidate = CreateCandidate(empty);
+
+            GameStorageHealthCheck healthCheck;
+            bool applied = _service.ValidateRecoveryCandidate(knownGood, candidate, true, out healthCheck);
+
+            Assert.IsTrue(applied);
+            Assert.IsTrue(healthCheck.IsHealthy);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.False);
+            Assert.That(File.Exists(Path.Combine(empty.InstallInfoPath, ".nmm-folder.json")), Is.True);
+            Assert.That(File.Exists(Path.Combine(empty.ModsPath, ".nmm-folder.json")), Is.True);
+            Assert.That(File.Exists(Path.Combine(empty.VirtualInstallPath, ".nmm-folder.json")), Is.True);
+            Assert.IsTrue(_service.ValidateStorage(empty, false).IsHealthy);
+        }
+
+        [Test]
+        public void ValidateRecoveryCandidate_EmptyConfirmation_DoesNotAllowMissingModsFolder()
+        {
+            var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true);
+            _service.ValidateStorage(knownGood, true);
+
+            var missing = CreateStorage("SkyrimSE", "StorageB");
+            Directory.Delete(missing.ModsPath, true);
+            var candidate = CreateCandidate(missing);
+
+            GameStorageHealthCheck healthCheck;
+            bool applied = _service.ValidateRecoveryCandidate(knownGood, candidate, true, out healthCheck);
+
+            Assert.IsFalse(applied);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MissingMods), Is.True);
+            Assert.IsFalse(_service.CanAcceptSuspiciousEmptyFolders(healthCheck));
+            Assert.That(Directory.Exists(missing.ModsPath), Is.False);
+        }
+
+        [Test]
         public void DiscoverRecoveryCandidates_CurrentMissingPaths_IsLowConfidence()
         {
             var current = new GameStoragePathSet
@@ -218,6 +275,19 @@ namespace NexusClientTests
                 ModsPath = mods,
                 VirtualInstallPath = virtualInstall,
                 LinkFolderRequired = false
+            };
+        }
+
+        private static GameStorageCandidate CreateCandidate(GameStoragePathSet paths)
+        {
+            return new GameStorageCandidate
+            {
+                GameId = paths.GameId,
+                InstallInfoPath = paths.InstallInfoPath,
+                ModsPath = paths.ModsPath,
+                VirtualInstallPath = paths.VirtualInstallPath,
+                LinkFolderPath = paths.LinkFolderPath,
+                LinkFolderRequired = paths.LinkFolderRequired
             };
         }
 

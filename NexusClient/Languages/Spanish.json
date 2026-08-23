@@ -557,6 +557,8 @@
     "GameStorage.Recovery.ConfirmTitle": "Confirmar recuperación de Game Storage",
     "GameStorage.Recovery.ControlDescription": "NMM no pudo validar las carpetas de almacenamiento de este juego. Selecciona un candidato conocido o introduce rutas personalizadas. NMM no moverá, renombrará ni eliminará carpetas durante la recuperación.",
     "GameStorage.Recovery.Description": "NMM no pudo validar las carpetas de almacenamiento de este juego. Selecciona un candidato conocido o introduce rutas personalizadas. Las bibliotecas de Mods compartidas compatibles solo se permiten cuando ambas definiciones de modo de juego lo autorizan. NMM no moverá, renombrará ni eliminará carpetas durante la recuperación.",
+    "GameStorage.Recovery.EmptyFoldersConfirmMessage": "NMM había registrado datos anteriormente en este Game Storage, pero las siguientes carpetas seleccionadas ahora están vacías:\n\n{0}\n\nSi continúa, se aceptarán las carpetas vacías actuales como intencionadas y se reemplazará la instantánea anterior de Game Storage. NMM no moverá ni eliminará ningún archivo.\n\nContinúe solo si los datos antiguos se eliminaron intencionadamente o si desea empezar deliberadamente con un Game Storage vacío.\n\n¿Desea continuar?",
+    "GameStorage.Recovery.EmptyFoldersConfirmTitle": "Confirmar Game Storage vacío",
     "GameStorage.Recovery.GenericTitle": "Recuperación de Game Storage",
     "GameStorage.Recovery.Title": "Recuperación de Game Storage - {0}",
     "GameStorage.Setup.ConfirmApply": "¿Usar las rutas de Game Storage seleccionadas para este juego? NMM no moverá, renombrará ni eliminará carpetas existentes.",
