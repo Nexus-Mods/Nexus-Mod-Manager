@@ -43,25 +43,112 @@ using Nexus.Client.Util.Localization;
             {
                 if (_releases == null)
                 {
-                    using (var wc = new WebClient())
-                    {
-                        wc.Headers["User-Agent"] = ApiCallManager.UserAgent;
+                    var releasesApi = Links.Instance.ReleasesApi;
+                    _releases = DownloadReleaseList(releasesApi);
 
-                        try
-                        {
-                            var releasesRawData = wc.DownloadString(Links.Instance.ReleasesApi);
-                            _releases = JArray.Parse(releasesRawData);
-                        }
-                        catch (Exception ex)
-                        {
-                            Trace.TraceError("Could not download release information from GitHub.");
-                            TraceUtil.TraceException(ex);
-                        }
+                    // The repository redirect service is optional. If it returns a valid but
+                    // unavailable repository, fall back to the canonical NMM repository.
+                    if ((_releases == null || _releases.Count == 0) &&
+                        !string.Equals(releasesApi, Links.DefaultReleasesApi, StringComparison.OrdinalIgnoreCase))
+                    {
+                        Trace.TraceWarning(
+                            "Could not retrieve usable release information from {0}; retrying the canonical repository.",
+                            releasesApi);
+
+                        _releases = DownloadReleaseList(Links.DefaultReleasesApi);
                     }
                 }
 
                 return _releases;
             }
+        }
+
+        /// <summary>
+        /// Downloads and parses a GitHub releases response.
+        /// </summary>
+        private static JArray DownloadReleaseList(string releasesApi)
+        {
+            // .NET Framework 4.6.2 can still inherit a legacy TLS protocol set from the
+            // machine configuration. GitHub requires TLS 1.2 or newer. Preserve any
+            // explicitly enabled protocols and add TLS 1.2 when necessary.
+            var securityProtocols = ServicePointManager.SecurityProtocol;
+            if (securityProtocols != (SecurityProtocolType)0 &&
+                (securityProtocols & SecurityProtocolType.Tls12) == 0)
+            {
+                ServicePointManager.SecurityProtocol = securityProtocols | SecurityProtocolType.Tls12;
+            }
+
+            using (var wc = new WebClient())
+            {
+                wc.Headers[HttpRequestHeader.UserAgent] = ApiCallManager.UserAgent;
+                wc.Headers[HttpRequestHeader.Accept] = "application/vnd.github+json";
+                wc.Headers["X-GitHub-Api-Version"] = "2022-11-28";
+
+                try
+                {
+                    var releasesRawData = wc.DownloadString(releasesApi);
+                    var releases = JArray.Parse(releasesRawData);
+
+                    if (releases.Count == 0)
+                    {
+                        Trace.TraceWarning("GitHub returned an empty release list from {0}.", releasesApi);
+                    }
+
+                    return releases;
+                }
+                catch (WebException ex)
+                {
+                    TraceGitHubWebException(ex, releasesApi);
+                }
+                catch (Exception ex)
+                {
+                    Trace.TraceError("Could not parse release information returned by {0}.", releasesApi);
+                    TraceUtil.TraceException(ex);
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Logs enough information to diagnose updater failures without exposing response content.
+        /// </summary>
+        private static void TraceGitHubWebException(WebException exception, string releasesApi)
+        {
+            var response = exception.Response as HttpWebResponse;
+
+            if (response != null)
+            {
+                Trace.TraceError(
+                    "Could not download release information from {0}. HTTP {1} ({2}).",
+                    releasesApi,
+                    (int)response.StatusCode,
+                    response.StatusCode);
+
+                var rateLimitRemaining = response.Headers["X-RateLimit-Remaining"];
+                var rateLimitLimit = response.Headers["X-RateLimit-Limit"];
+                var rateLimitReset = response.Headers["X-RateLimit-Reset"];
+
+                if (!string.IsNullOrEmpty(rateLimitRemaining) ||
+                    !string.IsNullOrEmpty(rateLimitLimit) ||
+                    !string.IsNullOrEmpty(rateLimitReset))
+                {
+                    Trace.TraceWarning(
+                        "GitHub rate limit: remaining={0}, limit={1}, reset={2}.",
+                        rateLimitRemaining ?? "unknown",
+                        rateLimitLimit ?? "unknown",
+                        rateLimitReset ?? "unknown");
+                }
+            }
+            else
+            {
+                Trace.TraceError(
+                    "Could not download release information from {0}. WebExceptionStatus: {1}.",
+                    releasesApi,
+                    exception.Status);
+            }
+
+            TraceUtil.TraceException(exception);
         }
 
         /// <summary>
@@ -349,31 +436,142 @@ using Nexus.Client.Util.Localization;
         /// <returns>Version of latest release, and download URL for it.</returns>
         private Tuple<Version, string> GetReleaseInformation()
         {
-            if (Releases == null)
+            if (Releases == null || Releases.Count == 0)
             {
+                Trace.TraceError("Could not get version information from the update server: no releases were returned.");
                 return new Tuple<Version, string>(null, null);
             }
 
             Version latestVersion = null;
             string downloadUrl = null;
 
-            var latestReleaseInfo = Releases[0];
-
-            try
+            foreach (var release in Releases)
             {
-				if (latestReleaseInfo != null)
-				{
-					latestVersion = new Version(latestReleaseInfo["tag_name"].Value<string>());
-					downloadUrl = latestReleaseInfo["assets"][0]["browser_download_url"].Value<string>();
-				}
-			}
-            catch
-			{
-				Trace.TraceError("Could not get version information from the update server.");
-                return new Tuple<Version, string>(null, null);
-			}
+                Version releaseVersion;
+                string releaseDownloadUrl;
 
-			return new Tuple<Version, string>(latestVersion, downloadUrl);
+                if (!TryGetReleaseInformation(release, out releaseVersion, out releaseDownloadUrl))
+                {
+                    continue;
+                }
+
+                if (latestVersion == null || releaseVersion > latestVersion)
+                {
+                    latestVersion = releaseVersion;
+                    downloadUrl = releaseDownloadUrl;
+                }
+            }
+
+            if (latestVersion == null || string.IsNullOrEmpty(downloadUrl))
+            {
+                Trace.TraceError("Could not get version information from the update server: no valid release with a downloadable asset was found.");
+                return new Tuple<Version, string>(null, null);
+            }
+
+            Trace.TraceInformation("Latest valid update release is {0} ({1}).", latestVersion, downloadUrl);
+            return new Tuple<Version, string>(latestVersion, downloadUrl);
+        }
+
+        /// <summary>
+        /// Extracts the version and installer URL from a GitHub release.
+        /// </summary>
+        private static bool TryGetReleaseInformation(JToken release, out Version version, out string downloadUrl)
+        {
+            version = null;
+            downloadUrl = null;
+
+            var releaseObject = release as JObject;
+            if (releaseObject == null)
+            {
+                return false;
+            }
+
+            var draft = releaseObject["draft"];
+            if (draft != null && draft.Type != JTokenType.Null && draft.Value<bool>())
+            {
+                return false;
+            }
+
+            var tagNameToken = releaseObject["tag_name"];
+            var tagName = tagNameToken == null || tagNameToken.Type == JTokenType.Null
+                ? null
+                : tagNameToken.Value<string>();
+            var normalizedTag = string.IsNullOrWhiteSpace(tagName) ? null : tagName.Trim();
+
+            if (!string.IsNullOrEmpty(normalizedTag) &&
+                normalizedTag.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedTag = normalizedTag.Substring(1);
+            }
+
+            if (string.IsNullOrEmpty(normalizedTag) || !Version.TryParse(normalizedTag, out version))
+            {
+                Trace.TraceWarning("Skipping GitHub release with invalid tag '{0}'.", tagName ?? "<null>");
+                version = null;
+                return false;
+            }
+
+            var assets = releaseObject["assets"] as JArray;
+            if (assets == null || assets.Count == 0)
+            {
+                Trace.TraceWarning("Skipping GitHub release {0}: it has no downloadable assets.", tagName);
+                version = null;
+                return false;
+            }
+
+            // Prefer an actual Windows installer rather than relying on GitHub asset order.
+            downloadUrl = FindDownloadUrl(assets, true) ?? FindDownloadUrl(assets, false);
+
+            if (string.IsNullOrEmpty(downloadUrl))
+            {
+                Trace.TraceWarning("Skipping GitHub release {0}: no asset has a browser download URL.", tagName);
+                version = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Finds a downloadable asset, optionally restricting the result to a Windows installer.
+        /// </summary>
+        private static string FindDownloadUrl(IEnumerable<JToken> assets, bool installerOnly)
+        {
+            foreach (var asset in assets)
+            {
+                var assetObject = asset as JObject;
+                if (assetObject == null)
+                {
+                    continue;
+                }
+
+                var urlToken = assetObject["browser_download_url"];
+                var url = urlToken == null || urlToken.Type == JTokenType.Null
+                    ? null
+                    : urlToken.Value<string>();
+
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
+                if (!installerOnly)
+                {
+                    return url;
+                }
+
+                var nameToken = assetObject["name"];
+                var assetName = nameToken == null || nameToken.Type == JTokenType.Null
+                    ? string.Empty
+                    : nameToken.Value<string>() ?? string.Empty;
+                if (assetName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+                    assetName.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
+                {
+                    return url;
+                }
+            }
+
+            return null;
         }
     }
 }

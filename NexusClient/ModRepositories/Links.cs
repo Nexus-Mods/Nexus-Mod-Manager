@@ -5,21 +5,48 @@
     /// </summary>
 	public class Links
     {
+        private const string DefaultRepository = "Nexus-Mods/Nexus-Mod-Manager";
+
         private static Links _instance;
         private readonly string _repo;
 
         private Links()
         {
-            _repo = "Nexus-Mods/Nexus-Mod-Manager";
+            _repo = DefaultRepository;
 
             using (var wc = new System.Net.WebClient())
             {
                 try
                 {
-                    _repo = wc.DownloadString("https://nmm.ahlgren.io/repo").Trim();
+                    wc.Headers[System.Net.HttpRequestHeader.UserAgent] = ApiCallManager.UserAgent;
+
+                    var redirectedRepository = wc.DownloadString("https://nmm.ahlgren.io/repo").Trim();
+                    if (IsValidRepository(redirectedRepository))
+                    {
+                        _repo = redirectedRepository;
+                    }
+                    else
+                    {
+                        System.Diagnostics.Trace.TraceWarning(
+                            "Ignoring invalid repository returned by the NMM repository redirect service: '{0}'.",
+                            redirectedRepository);
+                    }
                 }
-                catch {}
+                catch (System.Exception ex)
+                {
+                    System.Diagnostics.Trace.TraceInformation(
+                        "Could not query the NMM repository redirect service; using {0}. {1}: {2}",
+                        DefaultRepository,
+                        ex.GetType().Name,
+                        ex.Message);
+                }
             }
+        }
+
+        private static bool IsValidRepository(string repository)
+        {
+            return !string.IsNullOrWhiteSpace(repository) &&
+                   System.Text.RegularExpressions.Regex.IsMatch(repository, @"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$");
         }
 
         /// <summary>
@@ -51,6 +78,11 @@
         /// URL to retrieve JSON data for all available releases on GitHub.
         /// </summary>
         public string ReleasesApi => $"https://api.github.com/repos/{_repo}/releases";
+
+        /// <summary>
+        /// URL to retrieve JSON data for releases from the canonical NMM repository.
+        /// </summary>
+        public static string DefaultReleasesApi => $"https://api.github.com/repos/{DefaultRepository}/releases";
 
         /// <summary>
         /// Link to find releases of the application on GitHub.
