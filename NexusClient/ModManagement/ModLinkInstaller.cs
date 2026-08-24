@@ -101,7 +101,16 @@ namespace Nexus.Client.ModManagement
 						isSwitching = false;
 					}
 
-					return VirtualModActivator.AddFileLink(mod, baseFilePath, sourceFile, isSwitching, false, handlePlugin, 0, installRoot);
+					string linkedFilePath = VirtualModActivator.AddFileLink(mod, baseFilePath, sourceFile, isSwitching, false, handlePlugin, 0, installRoot);
+					if (string.IsNullOrEmpty(linkedFilePath))
+					{
+						if (VirtualModActivator.DisableLinkCreation)
+							throw new InvalidOperationException("Virtual mod link creation is currently disabled.");
+
+						throw new IOException(string.Format("Failed to deploy mod file '{0}'.", baseFilePath));
+					}
+
+					return linkedFilePath;
 				}
 
                 VirtualModActivator.AddInactiveLink(mod, baseFilePath, ++priority, installRoot);

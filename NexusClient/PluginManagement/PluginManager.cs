@@ -808,15 +808,20 @@ namespace Nexus.Client.PluginManagement
 				{
 					Plugin plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
 
+					if (!File.Exists(pluginPath))
+						throw new FileNotFoundException("A deployed plugin disappeared before it could be registered.", pluginPath);
+
 					if (plugin == null)
 					{
 						if (!ManagedPluginRegistry.RegisterPlugin(pluginPath))
-							continue;
+							throw new InvalidOperationException(string.Format("Failed to register deployed plugin '{0}'.", pluginPath));
 
 						plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
+						if (plugin == null)
+							throw new InvalidOperationException(string.Format("Plugin '{0}' was reported as registered but could not be loaded from the managed plugin registry.", pluginPath));
 					}
 
-					if (plugin != null && requestedPluginSet.Add(plugin))
+					if (requestedPluginSet.Add(plugin))
 						requestedPlugins.Add(plugin);
 				}
 

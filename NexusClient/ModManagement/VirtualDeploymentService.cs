@@ -46,7 +46,22 @@ namespace Nexus.Client.ModManagement
                     linkFolderPath = linkDownloadIdPath;
 
                 if (!Directory.Exists(modFolderPath) && !(_virtualModActivator.MultiHDMode && Directory.Exists(linkFolderPath)))
+                {
+                    result.SourceRoot = _virtualModActivator.MultiHDMode && !string.IsNullOrWhiteSpace(linkFolderPath)
+                        ? linkFolderPath
+                        : modFolderPath;
+
+                    if (HasStoredDeploymentState(mod))
+                    {
+                        result.Failure = new DirectoryNotFoundException(string.Format(
+                            "The staged files for mod '{0}' could not be found. Expected VirtualInstall source '{1}'{2}.",
+                            mod.Filename,
+                            modFolderPath,
+                            _virtualModActivator.MultiHDMode ? string.Format(" or link source '{0}'", linkFolderPath) : string.Empty));
+                    }
+
                     return result;
+                }
 
                 IEnumerable<string> files;
                 try
@@ -63,6 +78,15 @@ namespace Nexus.Client.ModManagement
                     }
 
                     result.FileCount = files.Count();
+
+                    if (result.FileCount == 0 && HasStoredDeploymentState(mod))
+                    {
+                        result.Failure = new InvalidDataException(string.Format(
+                            "The staged deployment for mod '{0}' is empty at '{1}'.",
+                            mod.Filename,
+                            result.SourceRoot));
+                        return result;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -167,6 +191,29 @@ namespace Nexus.Client.ModManagement
             {
                 return VirtualFileOwnerSwitchResult.Failed(ex);
             }
+        }
+
+
+        private bool HasStoredDeploymentState(IMod mod)
+        {
+            if (mod == null)
+                return false;
+
+            string modFileName = Path.GetFileName(mod.Filename);
+            if (string.IsNullOrWhiteSpace(modFileName))
+                return false;
+
+            if (_virtualModActivator.VirtualMods.Any(x =>
+                x != null &&
+                string.Equals(x.ModFileName, modFileName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            return _virtualModActivator.VirtualLinks.Any(x =>
+                x != null &&
+                x.ModInfo != null &&
+                string.Equals(x.ModInfo.ModFileName, modFileName, StringComparison.OrdinalIgnoreCase));
         }
 
         private static VirtualModActivator.ModInfoUpdateBatch BeginModInfoUpdateBatch(IVirtualModActivator virtualModActivator)

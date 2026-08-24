@@ -197,8 +197,16 @@ namespace Nexus.Client.ModManagement
 					{
 						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(File.Key).ToLower()) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
 						{
-							FileInstaller.InstallFileFromMod(File.Key, ((booHardLinkFile) ? strLinkPath : strVirtualPath));
-							lstFilesToLink.Add(new KeyValuePair<string, string>(strFileTo, (booHardLinkFile) ? strLinkPath : strVirtualPath));
+							string strStagedFilePath = (booHardLinkFile) ? strLinkPath : strVirtualPath;
+							bool booFileInstalled = FileInstaller.InstallFileFromMod(File.Key, strStagedFilePath);
+
+							// A false result can legitimately mean that the user kept an existing staged file.
+							// It must never be treated as success when no staged file actually exists (for example,
+							// when the archive stream could not be opened).
+							if (!booFileInstalled && !System.IO.File.Exists(strStagedFilePath))
+								throw new IOException(string.Format("Failed to stage mod file '{0}' at '{1}'.", File.Key, strStagedFilePath));
+
+							lstFilesToLink.Add(new KeyValuePair<string, string>(strFileTo, strStagedFilePath));
 						}
 					}
 				}
@@ -209,6 +217,9 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidDataException(string.Format("This mod does not have the correct file structure for a {0} mod that NMM can use. It will not work with NMM.", GameMode.Name));
 
 			List<string> deployedPluginPaths = new List<string>();
+
+			if (VirtualModActivator.DisableLinkCreation && lstFilesToLink.Count > 0)
+				throw new InvalidOperationException("Mod file deployment is currently disabled. The installation cannot complete safely.");
 
 			using (VirtualModActivator.BeginModInfoUpdateBatch())
 			using (VirtualModActivator.BeginVirtualLinkUpdateBatch(lstFilesToLink.Count))

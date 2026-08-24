@@ -2029,7 +2029,7 @@
 							strVirtualFileLink = string.Empty;
 					}
 					else
-						strVirtualFileLink = string.Empty;
+						throw new IOException(string.Format("Failed to deploy '{0}' to '{1}'.", strActivatorFilePath, strVirtualFileLink));
 				}
 				else if (booHardLinkRequired)
 				{
@@ -2047,7 +2047,7 @@
 								strVirtualFileLink = string.Empty;
 						}
 						else
-							strVirtualFileLink = string.Empty;
+							throw new IOException(string.Format("Failed to deploy '{0}' to '{1}'.", strLinkFilePath, strVirtualFileLink));
 					}
 					else
 					{
@@ -2063,7 +2063,7 @@
 								strVirtualFileLink = string.Empty;
 						}
 						else
-							strVirtualFileLink = string.Empty;
+							throw new IOException(string.Format("Failed to deploy '{0}' to '{1}'.", strActivatorFilePath, strVirtualFileLink));
 					}
 				}
 				else if (!DisableLinkCreation)
@@ -2083,15 +2083,16 @@
 							strVirtualFileLink = string.Empty;
 					}
 					else
-						strVirtualFileLink = string.Empty;
+						throw new IOException(string.Format("Failed to create a hard link or symbolic link for '{0}' at '{1}'.", strActivatorFilePath, strVirtualFileLink));
 				}
 				else
 					strVirtualFileLink = string.Empty;
 
 			}
-			catch
+			catch (Exception e)
 			{
-				strVirtualFileLink = string.Empty;
+				Trace.TraceError("Failed to deploy mod file '{0}' to '{1}': {2}", p_strBaseFilePath, strVirtualFileLink, e);
+				throw;
 			}
 
 			if (p_booIsSwitching && (PluginManager != null) && !string.IsNullOrEmpty(strVirtualFileLink) && !p_booIsRestoring)
