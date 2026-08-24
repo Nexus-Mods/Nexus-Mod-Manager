@@ -248,7 +248,19 @@
 		/// <returns>The non-null shell-extension settings collection.</returns>
 		private KeyedSettings<bool> GetShellExtensionSettings()
 		{
-			KeyedSettings<bool> settings = EnvironmentInfo.Settings.AddShellExtensions;
+			KeyedSettings<bool> settings = null;
+
+			try
+			{
+				settings = EnvironmentInfo.Settings.AddShellExtensions;
+			}
+			catch (ArgumentException e)
+			{
+				// Older/broken defaults or persisted values can contain XML that cannot be
+				// deserialized. Treat only this property as missing instead of crashing Settings.
+				Trace.TraceWarning("Could not deserialize AddShellExtensions settings. Reinitializing the value: {0}", e.Message);
+			}
+
 			if (settings != null)
 				return settings;
 
