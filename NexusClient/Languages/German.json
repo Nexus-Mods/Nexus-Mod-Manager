@@ -914,6 +914,7 @@
     "Mods.GridOptions.ColouredCategories.Option": "Farbige Kategorien umschalten",
     "Mods.GridOptions.FocusTopAfterInstallDateChange.Option": "Nach Änderung des Installationsdatums oberste Zeile fokussieren",
     "Mods.GridOptions.FocusTopAfterSort.Option": "Nach dem Sortieren oberste Zeile fokussieren",
+    "Mods.GridOptions.LatestColumnOpensModPage.Option": "Spalte „Neueste“ öffnet Mod-Seite",
     "Mods.GridOptions.RowHighlights.Option": "Zeilenhervorhebungen umschalten",
     "Mods.GridOptions.Title": "Rasteroptionen",
     "Mods.GridOptions.Tooltip": "Anzeigeoptionen des Rasters",

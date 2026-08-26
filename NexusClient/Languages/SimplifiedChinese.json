@@ -914,6 +914,7 @@
     "Mods.GridOptions.ColouredCategories.Option": "切换彩色分类",
     "Mods.GridOptions.FocusTopAfterInstallDateChange.Option": "安装日期变化后聚焦首行",
     "Mods.GridOptions.FocusTopAfterSort.Option": "排序后聚焦首行",
+    "Mods.GridOptions.LatestColumnOpensModPage.Option": "“最新版本”列打开模组主页",
     "Mods.GridOptions.RowHighlights.Option": "切换行高亮",
     "Mods.GridOptions.Title": "网格选项",
     "Mods.GridOptions.Tooltip": "网格显示选项",

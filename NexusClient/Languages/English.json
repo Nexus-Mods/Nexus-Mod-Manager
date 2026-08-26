@@ -914,6 +914,7 @@
     "Mods.GridOptions.ColouredCategories.Option": "Toggle Coloured Categories",
     "Mods.GridOptions.FocusTopAfterInstallDateChange.Option": "Focus top row after install date changes",
     "Mods.GridOptions.FocusTopAfterSort.Option": "Focus top row after sorting",
+    "Mods.GridOptions.LatestColumnOpensModPage.Option": "Latest Column Opens Mod Page",
     "Mods.GridOptions.RowHighlights.Option": "Toggle Row Highlights",
     "Mods.GridOptions.Title": "Grid Options",
     "Mods.GridOptions.Tooltip": "Grid display options",

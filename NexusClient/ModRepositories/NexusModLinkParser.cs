@@ -145,23 +145,45 @@
 		/// <returns>The best available navigation URI, or <c>null</c>.</returns>
 		public static Uri ResolveNavigationUri(Uri storedWebsite, string gameDomain, string modId, string fileId)
 		{
+			return ResolveNavigationUri(storedWebsite, gameDomain, modId, fileId, false);
+		}
+
+		/// <summary>
+		/// Resolves the URI used when the user opens a mod from the Latest Version column.
+		/// </summary>
+		/// <param name="storedWebsite">The website explicitly stored on the mod.</param>
+		/// <param name="gameDomain">The active Nexus game domain.</param>
+		/// <param name="modId">The stored Nexus mod identifier.</param>
+		/// <param name="fileId">The stored Nexus file identifier.</param>
+		/// <param name="openModPage">Whether navigation should target the main mod page instead of a specific file page.</param>
+		/// <returns>The best available navigation URI, or <c>null</c>.</returns>
+		public static Uri ResolveNavigationUri(Uri storedWebsite, string gameDomain, string modId, string fileId, bool openModPage)
+		{
 			if (storedWebsite != null)
 			{
 				NexusModLink parsedLink;
-				if (TryParse(storedWebsite.ToString(), out parsedLink) &&
-					String.IsNullOrEmpty(parsedLink.FileId) &&
-					IsValidId(fileId) &&
-					String.Equals(parsedLink.ModId, modId, StringComparison.OrdinalIgnoreCase))
+				if (TryParse(storedWebsite.ToString(), out parsedLink))
 				{
-					Uri fileUri = CreateModUri(parsedLink.GameDomain, parsedLink.ModId, fileId);
-					if (fileUri != null)
-						return fileUri;
+					if (openModPage)
+					{
+						Uri modUri = CreateModUri(parsedLink.GameDomain, parsedLink.ModId, null);
+						if (modUri != null)
+							return modUri;
+					}
+					else if (String.IsNullOrEmpty(parsedLink.FileId) &&
+						IsValidId(fileId) &&
+						String.Equals(parsedLink.ModId, modId, StringComparison.OrdinalIgnoreCase))
+					{
+						Uri fileUri = CreateModUri(parsedLink.GameDomain, parsedLink.ModId, fileId);
+						if (fileUri != null)
+							return fileUri;
+					}
 				}
 
 				return storedWebsite;
 			}
 
-			return CreateModUri(gameDomain, modId, fileId);
+			return CreateModUri(gameDomain, modId, openModPage ? null : fileId);
 		}
 
 		/// <summary>

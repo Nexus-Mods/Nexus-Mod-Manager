@@ -914,6 +914,7 @@
     "Mods.GridOptions.ColouredCategories.Option": "Activer/désactiver les catégories colorées",
     "Mods.GridOptions.FocusTopAfterInstallDateChange.Option": "Placer le focus sur la première ligne après modification de la date d’installation",
     "Mods.GridOptions.FocusTopAfterSort.Option": "Placer le focus sur la première ligne après le tri",
+    "Mods.GridOptions.LatestColumnOpensModPage.Option": "La colonne Dernière ouvre la page du mod",
     "Mods.GridOptions.RowHighlights.Option": "Activer/désactiver la surbrillance des lignes",
     "Mods.GridOptions.Title": "Options de la grille",
     "Mods.GridOptions.Tooltip": "Options d’affichage de la grille",

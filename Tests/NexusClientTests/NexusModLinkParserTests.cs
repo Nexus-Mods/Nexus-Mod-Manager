@@ -123,6 +123,27 @@
 		}
 
 		/// <summary>
+		/// Ensures the Latest-column main-page option strips a stored Nexus file target.
+		/// </summary>
+		[Test]
+		public void MainModPageOptionUsesStoredNexusModPage()
+		{
+			var stored = new Uri("https://www.nexusmods.com/fallout4/mods/100?tab=files&file_id=201");
+			Uri resolved = NexusModLinkParser.ResolveNavigationUri(stored, "fallout4", "100", "200", true);
+			Assert.AreEqual("https://www.nexusmods.com/fallout4/mods/100", resolved.ToString());
+		}
+
+		/// <summary>
+		/// Ensures the Latest-column main-page option builds a mod-page fallback without a file identifier.
+		/// </summary>
+		[Test]
+		public void MainModPageOptionBuildsModPageFallback()
+		{
+			Uri resolved = NexusModLinkParser.ResolveNavigationUri(null, "fallout4", "100", "200", true);
+			Assert.AreEqual("https://www.nexusmods.com/fallout4/mods/100", resolved.ToString());
+		}
+
+		/// <summary>
 		/// Ensures non-Nexus websites are preserved as explicitly entered.
 		/// </summary>
 		[Test]

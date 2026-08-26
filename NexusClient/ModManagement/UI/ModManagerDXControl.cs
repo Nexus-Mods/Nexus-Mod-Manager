@@ -67,6 +67,7 @@
 		private BarButtonItem _toggleColouredCategoriesMenuItem;
 		private BarButtonItem _toggleRowHighlightsMenuItem;
 		private BarButtonItem _toggleActiveModsBoldMenuItem;
+		private BarButtonItem _latestColumnOpensModPageMenuItem;
 		private BarButtonItem _focusTopRowAfterSortingMenuItem;
 		private BarButtonItem _focusTopRowAfterInstallDateChangeMenuItem;
 		private IMod _renameMod;
@@ -84,6 +85,7 @@
 		private bool _showColouredCategories = true;
 		private bool _showRowHighlights = true;
 		private bool _showActiveModsInBold;
+		private bool _latestColumnOpensModPage;
 		private bool _focusTopRowAfterSorting = true;
 		private bool _focusTopRowAfterInstallDateChange = true;
 		private bool _lastFindPanelVisible;
@@ -177,6 +179,7 @@
 		private const string GridColouredCategoriesKey = GridLayoutKey + ".ColouredCategories";
 		private const string GridRowHighlightsKey = GridLayoutKey + ".RowHighlights";
 		private const string GridActiveModsBoldKey = GridLayoutKey + ".ActiveModsBold";
+		private const string GridLatestColumnOpensModPageKey = GridLayoutKey + ".LatestColumnOpensModPage";
 		private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
 		private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
 		private const string GridFocusTopAfterSortKey = GridLayoutKey + ".FocusTopAfterSort";
@@ -371,6 +374,7 @@
 				_viewModel.Settings.DockPanelLayouts.Remove(GridColouredCategoriesKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridRowHighlightsKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridActiveModsBoldKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(GridLatestColumnOpensModPageKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterSortKey);
@@ -388,6 +392,7 @@
 			SetColouredCategoriesVisible(true, false);
 			SetRowHighlightsVisible(true, false);
 			SetActiveModsBold(false, false);
+			SetLatestColumnOpensModPage(false, false);
 			SetFocusTopRowAfterSorting(true, false);
 			SetFocusTopRowAfterInstallDateChange(true, false);
 			SetToolbarPosition(false, false);
@@ -929,6 +934,8 @@
 				(sender, args) => SetRowHighlightsVisible(_toggleRowHighlightsMenuItem.Down, true));
 			_toggleActiveModsBoldMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.ActiveBold.Option", "Show Active Mods in Bold"), _showActiveModsInBold,
 				(sender, args) => SetActiveModsBold(_toggleActiveModsBoldMenuItem.Down, true));
+			_latestColumnOpensModPageMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.LatestColumnOpensModPage.Option", "Latest Column Opens Mod Page"), _latestColumnOpensModPage,
+				(sender, args) => SetLatestColumnOpensModPage(_latestColumnOpensModPageMenuItem.Down, true));
 			_focusTopRowAfterSortingMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.FocusTopAfterSort.Option", "Focus top row after sorting"), _focusTopRowAfterSorting,
 				(sender, args) => SetFocusTopRowAfterSorting(_focusTopRowAfterSortingMenuItem.Down, true));
 			_focusTopRowAfterInstallDateChangeMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.FocusTopAfterInstallDateChange.Option", "Focus top row after install date changes"), _focusTopRowAfterInstallDateChange,
@@ -937,7 +944,8 @@
 			_displayOptionsButton.AddItem(_toggleColouredCategoriesMenuItem);
 			_displayOptionsButton.AddItem(_toggleRowHighlightsMenuItem);
 			_displayOptionsButton.AddItem(_toggleActiveModsBoldMenuItem);
-			_displayOptionsButton.AddItem(_focusTopRowAfterSortingMenuItem);
+			_displayOptionsButton.AddItem(_latestColumnOpensModPageMenuItem).BeginGroup = true;
+			_displayOptionsButton.AddItem(_focusTopRowAfterSortingMenuItem).BeginGroup = true;
 			_displayOptionsButton.AddItem(_focusTopRowAfterInstallDateChangeMenuItem);
 			NmmIconProvider.Bind(_displayOptionsButton, NmmIconAction.Settings);
 		}
@@ -965,6 +973,7 @@
 			SetColouredCategoriesVisible(ReadGridDisplayOption(GridColouredCategoriesKey, true), false);
 			SetRowHighlightsVisible(ReadGridDisplayOption(GridRowHighlightsKey, true), false);
 			SetActiveModsBold(ReadGridDisplayOption(GridActiveModsBoldKey, false), false);
+			SetLatestColumnOpensModPage(ReadGridDisplayOption(GridLatestColumnOpensModPageKey, false), false);
 			SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
 			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
 			SetToolbarPosition(ReadGridDisplayOption(GridToolbarPositionKey, false), false);
@@ -1007,6 +1016,15 @@
 
 			RefreshGridDisplayStyles();
 			SaveGridDisplayOption(GridActiveModsBoldKey, visible, save);
+		}
+
+		private void SetLatestColumnOpensModPage(bool enabled, bool save)
+		{
+			_latestColumnOpensModPage = enabled;
+			if (_latestColumnOpensModPageMenuItem != null)
+				_latestColumnOpensModPageMenuItem.Down = enabled;
+
+			SaveGridDisplayOption(GridLatestColumnOpensModPageKey, enabled, save);
 		}
 
 		private void RefreshGridDisplayStyles()
@@ -1826,7 +1844,7 @@
 
 			IMod mod = _modList[src];
 			string gameDomain = _viewModel?.ModRepository?.GameDomainName;
-			Uri url = NexusModLinkParser.ResolveNavigationUri(mod.Website, gameDomain, mod.Id, mod.DownloadId);
+			Uri url = NexusModLinkParser.ResolveNavigationUri(mod.Website, gameDomain, mod.Id, mod.DownloadId, _latestColumnOpensModPage);
 			if (url == null) return;
 
 			try { System.Diagnostics.Process.Start(url.ToString()); }
