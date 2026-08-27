@@ -638,20 +638,21 @@
 				return;
 			}
 
+			ModGridViewState gridState = CaptureModGridViewState();
 			_categoryNameCache.Clear();
 			_categoryColorCache.Clear();
 			_categoryTextSizeCache.Clear();
 			gridControl.RefreshDataSource();
 			gridView.RefreshData();
+			RestoreModGridViewState(gridState, false);
 		}
 
 		private void ManagedMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (InvokeRequired) { Invoke(new Action(() => ManagedMods_CollectionChanged(sender, e))); return; }
 
-			IMod focusedMod = SelectedMod;
-			int focusedVisibleIndex = GetFocusedVisibleIndex();
-			bool removedFocusedMod = focusedMod != null && e.Action == NotifyCollectionChangedAction.Remove && ContainsMod(e.OldItems, focusedMod);
+			ModGridViewState gridState = CaptureModGridViewState();
+			bool removedFocusedMod = gridState.FocusedMod != null && e.Action == NotifyCollectionChangedAction.Remove && ContainsMod(e.OldItems, gridState.FocusedMod);
 
 			switch (e.Action)
 			{
@@ -683,7 +684,7 @@
 			RebuildActivationStateCache();
 			QueueMissingArchiveScan();
 			gridControl.RefreshDataSource();
-			RestoreFocusAfterModListChange(focusedMod, focusedVisibleIndex, removedFocusedMod || e.Action == NotifyCollectionChangedAction.Reset);
+			RestoreModGridViewState(gridState, removedFocusedMod || e.Action == NotifyCollectionChangedAction.Reset);
 			UpdateModCountLabel();
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
 		}
@@ -704,28 +705,158 @@
 			return false;
 		}
 
-		private void RestoreFocusAfterModListChange(IMod previousFocusedMod, int previousVisibleIndex, bool restoreByVisibleIndex)
+		private ModGridViewState CaptureModGridViewState()
 		{
-			if (gridView.RowCount <= 0) return;
+			int topVisibleIndex = Math.Max(0, gridView.TopRowIndex);
+			int topRowHandle = gridView.RowCount > 0
+				? gridView.GetVisibleRowHandle(Math.Min(topVisibleIndex, gridView.RowCount - 1))
+				: DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+			IMod topMod = GetModForRowHandle(topRowHandle);
+			string topCategoryName = null;
 
-			int rowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-			if (restoreByVisibleIndex)
+			if (_categoryViewActive)
 			{
-				int targetVisibleIndex = Math.Max(0, Math.Min(previousVisibleIndex, gridView.RowCount - 1));
-				rowHandle = gridView.GetVisibleRowHandle(targetVisibleIndex);
-			}
-			else if (previousFocusedMod != null)
-			{
-				int sourceIndex = _modList.IndexOf(previousFocusedMod);
-				if (sourceIndex >= 0)
-					rowHandle = gridView.GetRowHandle(sourceIndex);
+				if (gridView.IsGroupRow(topRowHandle))
+					topCategoryName = Convert.ToString(gridView.GetGroupRowValue(topRowHandle), CultureInfo.InvariantCulture);
+				else if (topMod != null)
+					topCategoryName = GetCachedCategoryName(topMod);
 			}
 
-			if (rowHandle < 0) return;
-			gridView.ClearSelection();
-			gridView.FocusedRowHandle = rowHandle;
-			gridView.SelectRow(rowHandle);
-			gridView.MakeRowVisible(rowHandle, false);
+			return new ModGridViewState
+			{
+				FocusedMod = SelectedMod,
+				SelectedMods = SelectedMods,
+				FocusedVisibleIndex = GetFocusedVisibleIndex(),
+				TopMod = topMod,
+				TopCategoryName = topCategoryName,
+				TopVisibleIndex = topVisibleIndex,
+				CollapsedCategories = _categoryViewActive ? GetCollapsedCategoryNames() : null
+			};
+		}
+
+		private void RestoreModGridViewState(ModGridViewState state, bool restoreFocusByVisibleIndex)
+		{
+			if (state == null)
+				return;
+
+			bool wasRestoring = _restoringGridLayout;
+			_restoringGridLayout = true;
+			try
+			{
+				if (_categoryViewActive)
+					RestoreCollapsedCategoryGroups(state.CollapsedCategories);
+
+				gridView.ClearSelection();
+				if (state.SelectedMods != null)
+				{
+					foreach (IMod selectedMod in state.SelectedMods)
+					{
+						int selectedRowHandle = GetModRowHandle(selectedMod);
+						if (selectedRowHandle >= 0)
+							gridView.SelectRow(selectedRowHandle);
+					}
+				}
+
+				int focusedRowHandle = restoreFocusByVisibleIndex
+					? GetNearestVisibleDataRowHandle(state.FocusedVisibleIndex)
+					: GetModRowHandle(state.FocusedMod);
+
+				if (focusedRowHandle < 0 && state.FocusedMod != null)
+					focusedRowHandle = GetNearestVisibleDataRowHandle(state.FocusedVisibleIndex);
+
+				if (focusedRowHandle >= 0)
+				{
+					gridView.FocusedRowHandle = focusedRowHandle;
+					if (!gridView.IsRowSelected(focusedRowHandle))
+						gridView.SelectRow(focusedRowHandle);
+				}
+
+				RestoreModGridViewport(state);
+			}
+			finally
+			{
+				_restoringGridLayout = wasRestoring;
+			}
+		}
+
+		private void RestoreModGridViewport(ModGridViewState state)
+		{
+			if (gridView.RowCount <= 0)
+				return;
+
+			int topRowHandle = GetModRowHandle(state.TopMod);
+			int topVisibleIndex = topRowHandle >= 0 ? gridView.GetVisibleIndex(topRowHandle) : -1;
+
+			if (topVisibleIndex < 0 && _categoryViewActive && !String.IsNullOrWhiteSpace(state.TopCategoryName))
+			{
+				topRowHandle = FindCategoryGroupRowHandle(state.TopCategoryName);
+				topVisibleIndex = topRowHandle != DevExpress.XtraGrid.GridControl.InvalidRowHandle
+					? gridView.GetVisibleIndex(topRowHandle)
+					: -1;
+			}
+
+			gridView.TopRowIndex = topVisibleIndex >= 0
+				? topVisibleIndex
+				: Math.Max(0, Math.Min(state.TopVisibleIndex, gridView.RowCount - 1));
+		}
+
+		private IMod GetModForRowHandle(int rowHandle)
+		{
+			if (rowHandle < 0)
+				return null;
+
+			int sourceIndex = gridView.GetDataSourceRowIndex(rowHandle);
+			return sourceIndex >= 0 && sourceIndex < _modList.Count ? _modList[sourceIndex] : null;
+		}
+
+		private int GetModRowHandle(IMod mod)
+		{
+			if (mod == null)
+				return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+
+			int sourceIndex = _modList.IndexOf(mod);
+			return sourceIndex >= 0
+				? gridView.GetRowHandle(sourceIndex)
+				: DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+		}
+
+		private int GetNearestVisibleDataRowHandle(int preferredVisibleIndex)
+		{
+			if (gridView.RowCount <= 0)
+				return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+
+			int start = Math.Max(0, Math.Min(preferredVisibleIndex, gridView.RowCount - 1));
+			for (int visibleIndex = start; visibleIndex < gridView.RowCount; visibleIndex++)
+			{
+				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
+				if (gridView.IsDataRow(rowHandle))
+					return rowHandle;
+			}
+
+			for (int visibleIndex = start - 1; visibleIndex >= 0; visibleIndex--)
+			{
+				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
+				if (gridView.IsDataRow(rowHandle))
+					return rowHandle;
+			}
+
+			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+		}
+
+		private int FindCategoryGroupRowHandle(string categoryName)
+		{
+			for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
+			{
+				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
+				if (!gridView.IsGroupRow(rowHandle))
+					continue;
+
+				string currentName = Convert.ToString(gridView.GetGroupRowValue(rowHandle), CultureInfo.InvariantCulture);
+				if (String.Equals(currentName, categoryName, StringComparison.OrdinalIgnoreCase))
+					return rowHandle;
+			}
+
+			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 		}
 
 		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -1699,7 +1830,9 @@
 		private void RefreshActivationState()
 		{
 			RebuildActivationStateCache();
-			gridControl.RefreshDataSource();
+			// Activation changes do not alter _modList membership. Refreshing the entire
+			// data source unnecessarily rebuilds group rows and can reset Category View.
+			gridView.RefreshData();
 			gridView.InvalidateRows();
 			SetCommandExecutableStatus();
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
@@ -2531,7 +2664,7 @@
 				DisplayFormat = _categoryGroupCountFormat,
 				ShowInGroupColumnFooter = null
 			});
-			gridView.GroupFormat = "{0}: {1} ({2})";
+			gridView.GroupFormat = "{1} ({2})";
 		}
 
 		private void SaveGridCategoryState()
@@ -2575,14 +2708,30 @@
 			if (_viewModel?.Settings?.DockPanelLayouts.ContainsKey(GridCollapsedCategoriesKey) != true)
 				return;
 
-			var collapsed = new HashSet<string>(
+			RestoreCollapsedCategoryGroups(
 				(_viewModel.Settings.DockPanelLayouts[GridCollapsedCategoriesKey] ?? string.Empty)
-					.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries),
+					.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries));
+		}
+
+		private void RestoreCollapsedCategoryGroups(IEnumerable<string> collapsedCategoryNames)
+		{
+			if (!_categoryViewActive)
+				return;
+
+			var collapsed = new HashSet<string>(
+				collapsedCategoryNames ?? Enumerable.Empty<string>(),
 				StringComparer.OrdinalIgnoreCase);
+
+			// RefreshDataSource may leave arbitrary group expansion state behind. Rebuild
+			// the exact runtime state captured immediately before the operation.
+			gridView.ExpandAllGroups();
 
 			if (collapsed.Count == 0)
 				return;
 
+			// Collapsing a group changes visible indexes immediately. Collect stable group
+			// row handles first, otherwise the loop can skip categories after each collapse.
+			var groupsToCollapse = new List<int>();
 			for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
 			{
 				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
@@ -2592,8 +2741,22 @@
 				object value = gridView.GetGroupRowValue(rowHandle);
 				string categoryName = Convert.ToString(value, CultureInfo.InvariantCulture);
 				if (collapsed.Contains(categoryName))
-					gridView.CollapseGroupRow(rowHandle);
+					groupsToCollapse.Add(rowHandle);
 			}
+
+			foreach (int groupRowHandle in groupsToCollapse)
+				gridView.CollapseGroupRow(groupRowHandle);
+		}
+
+		private sealed class ModGridViewState
+		{
+			public IMod FocusedMod { get; set; }
+			public List<IMod> SelectedMods { get; set; }
+			public int FocusedVisibleIndex { get; set; }
+			public IMod TopMod { get; set; }
+			public string TopCategoryName { get; set; }
+			public int TopVisibleIndex { get; set; }
+			public List<string> CollapsedCategories { get; set; }
 		}
 
 		private void UpdateSwitchViewText()

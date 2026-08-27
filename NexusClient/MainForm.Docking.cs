@@ -180,18 +180,74 @@
 		/// </summary>
 		private void EnsureMainDocuments()
 		{
-			if (ViewModel.UsesPlugins)
-				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
-			else if (_pluginManagerControl.Visible)
-				_pluginManagerControl.Hide();
+			Control preferredControl = GetPreferredMainDocumentControl();
 
-			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
-			EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
+			// Form.Show() activates MDI children. Register every non-preferred page first so
+			// the persisted/default page is the last activation DevExpress can defer. The
+			// visual tab order is restored independently by RestoreMainDocumentOrder().
+			if (ViewModel.UsesPlugins)
+			{
+				if (!Object.ReferenceEquals(preferredControl, _pluginManagerControl))
+					EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
+			}
+			else if (_pluginManagerControl.Visible)
+			{
+				_pluginManagerControl.Hide();
+			}
+
+			if (!Object.ReferenceEquals(preferredControl, (Control)_modManagerControl))
+				EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
+
+			if (!Object.ReferenceEquals(preferredControl, _categoryManagerControl))
+				EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 
 			if (IsFileManagerAvailable())
-				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
+			{
+				if (!Object.ReferenceEquals(preferredControl, _fileManagerControl))
+					EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
+			}
 			else if (_fileManagerControl.Visible)
+			{
 				_fileManagerControl.Hide();
+			}
+
+			if (Object.ReferenceEquals(preferredControl, _pluginManagerControl))
+				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
+			else if (Object.ReferenceEquals(preferredControl, _categoryManagerControl))
+				EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
+			else if (Object.ReferenceEquals(preferredControl, _fileManagerControl))
+				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
+			else
+				EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
+		}
+
+		/// <summary>
+		/// Resolves the startup document before any MDI child is shown. Unavailable saved
+		/// pages fall back to Mods, which is the canonical default.
+		/// </summary>
+		private Control GetPreferredMainDocumentControl()
+		{
+			string savedName = GetLayoutSetting(DevExpressActiveDocumentSettingsKey);
+
+			if (ViewModel.UsesPlugins && MatchesMainDocumentName(_pluginManagerControl, "PluginManagerDocument", savedName))
+				return _pluginManagerControl;
+			if (MatchesMainDocumentName((Control)_modManagerControl, "ModManagerDocument", savedName))
+				return (Control)_modManagerControl;
+			if (MatchesMainDocumentName(_categoryManagerControl, "CategoryManagerDocument", savedName))
+				return _categoryManagerControl;
+			if (IsFileManagerAvailable() && MatchesMainDocumentName(_fileManagerControl, "FileManagerDocument", savedName))
+				return _fileManagerControl;
+
+			return (Control)_modManagerControl;
+		}
+
+		private static bool MatchesMainDocumentName(Control control, string fallbackName, string savedName)
+		{
+			if (control == null || String.IsNullOrWhiteSpace(savedName))
+				return false;
+
+			string controlName = String.IsNullOrWhiteSpace(control.Name) ? fallbackName : control.Name;
+			return String.Equals(controlName, savedName, StringComparison.Ordinal);
 		}
 
 		/// <summary>
@@ -572,32 +628,7 @@
 		}
 
 		/// <summary>
-		/// Releases the startup update lock on the first idle cycle, then restores the
-		/// persisted main document on the next idle cycle after deferred MDI activations
-		/// have completed. Persistence is enabled only after the final selection.
-		/// </summary>
-		/// <param name="sender">The application that raised the idle event.</param>
-		/// <param name="e">The event arguments.</param>
-		private async void RestoreActiveMainDocumentOnIdle(object sender, EventArgs e)
-		{
-			Application.Idle -= RestoreActiveMainDocumentOnIdle;
-
-			if (_mainDocumentStartupUpdatePending)
-			{
-				CompleteMainDocumentStartupUpdate();
-				Application.Idle += RestoreActiveMainDocumentOnIdle;
-				return;
-			}
-
-			RestoreActiveMainDocument();
-			_mainDocumentPersistenceEnabled = true;
-
-			if (IsMainDocumentActive(_fileManagerControl))
-				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
-		}
-
-		/// <summary>
-		/// Releases the startup document update lock so DevExpress can process its deferred MDI activations.
+		/// Releases the startup document update lock after all permanent MDI children have been registered.
 		/// </summary>
 		private void CompleteMainDocumentStartupUpdate()
 		{

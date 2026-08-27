@@ -959,16 +959,25 @@
 			}
 		}
 
-		private void MainForm_Shown(object sender, EventArgs e)
+		private async void MainForm_Shown(object sender, EventArgs e)
 		{
 			ShowEmbeddedDockContents();
 			ApplyDefaultMonitorPanelSizes();
 			RestoreMonitorColumnWidths();
-			Application.Idle -= RestoreActiveMainDocumentOnIdle;
-			Application.Idle += RestoreActiveMainDocumentOnIdle;
+
+			// The preferred document was deliberately registered as the last MDI child.
+			// End the TabbedView update and select it once, now that no later Form.Show()
+			// can steal activation. This avoids the cold-start two-Idle timing race.
+			CompleteMainDocumentStartupUpdate();
+			RestoreActiveMainDocument();
+			_mainDocumentPersistenceEnabled = true;
+
 			ModMigrationCheck();
 			ShowGameSpecificDisclaimer();
 			ConfigFilesCheck();
+
+			if (IsMainDocumentActive(_fileManagerControl))
+				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
 		}
 
 		/// <summary>
@@ -1356,7 +1365,6 @@
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			Application.Idle -= RestoreActiveMainDocumentOnIdle;
 			if (_mainDocumentPersistenceEnabled)
 				SaveActiveMainDocument();
 			_mainDocumentPersistenceEnabled = false;
