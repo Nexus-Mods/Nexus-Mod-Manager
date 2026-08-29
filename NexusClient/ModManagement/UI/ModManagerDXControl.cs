@@ -51,9 +51,22 @@
 		// ── fields ──────────────────────────────────────────────────────────
 
 		private ModManagerVM _viewModel;
+		private readonly ModGridDXControl _modGridControl;
+		private readonly GridModListSurface _gridModListSurface;
+		private ModCategoryTreeDXControl _modCategoryTreeControl;
+		private TreeModListSurface _categoryModListSurface;
+		private IModListSurface _activeModListSurface;
+		private bool _flatGridCategoryDataDirty;
+		private string _currentTextFilter = String.Empty;
 		private bool _disableSummary;
 		private bool _showUpdatesOnly;
-		private bool _categoryViewActive;
+		private ModViewMode _viewMode = ModViewMode.Default;
+		private bool IsCategoryViewActive => _viewMode == ModViewMode.Category;
+
+		// Transitional aliases keep the existing GridView-specific rendering/event code
+		// stable while ownership of the default frontend moves to ModGridDXControl.
+		private GridControl gridControl => _modGridControl.GridControl;
+		private GridView gridView => _modGridControl.GridView;
 		private bool _restoringGridLayout;
 
 		// lazy-initialised flat warning-triangle icon drawn in GetWarningIcon()
@@ -91,7 +104,7 @@
 		private bool _lastFindPanelVisible;
 		private bool _restoringFindPanelVisibility;
 		private bool _toolbarPositionLeft;
-		private readonly string _categoryGroupCountFormat;
+		private readonly string _categoryNodeCountFormat;
 		private readonly string _modCountFormat;
 		private readonly string _downloadModeCaptionFormat;
 		private readonly string _downloadModeHintFormat;
@@ -106,11 +119,7 @@
 		private readonly List<ICommandBinding> _toolbarCommandBindings = new List<ICommandBinding>();
 		private bool _restoringGridSort;
 		private string _lastGridSortSignature = string.Empty;
-		private readonly HashSet<string> _activeModFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		private readonly HashSet<IMod> _installedMods = new HashSet<IMod>();
-		private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache = new Dictionary<IMod, ModVisualStatus>();
-		private readonly Dictionary<string, bool> _missingArchiveByFileName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-		private readonly object _missingArchiveLock = new object();
+		private readonly ModListPresentationState _presentationState = new ModListPresentationState();
 		private Image _modInstalledDisabledIcon;
 		private Image _modInstalledActiveIcon;
 
@@ -133,10 +142,6 @@
 		private Color _outdatedVersionForeColor = Color.FromArgb(200, 40, 40);
 		private Timer _gridLayoutSaveTimer;
 
-		private readonly Dictionary<IMod, bool> _outdatedModCache =
-			new Dictionary<IMod, bool>();
-		private readonly Dictionary<IMod, string> _categoryNameCache =
-			new Dictionary<IMod, string>();
 		private readonly Dictionary<string, Color> _categoryColorCache =
 			new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, Size> _categoryTextSizeCache =
@@ -157,7 +162,6 @@
 		private readonly List<IMod> _modList = new List<IMod>();
 
 		// column field-name constants (used as column names, not as PropertyDescriptor field names)
-		private enum ModVisualStatus { Uninstalled, InstalledUnlinked, InstalledActive }
 
 		private const string ColModStatus = "ModStatus";
 		private const string ColModName = "ModName";
@@ -172,6 +176,9 @@
 		private const string GridLayoutKey = "modManagerDXGrid";
 		private const string GridColumnWidthsKey = GridLayoutKey + ".ColumnWidths";
 		private const string GridFindPanelVisibleKey = GridLayoutKey + ".FindPanelVisible";
+		private const string CategoryTreeLayoutKey = "modManagerDXCategoryTree";
+		private const string CategoryTreeFindPanelVisibleKey = CategoryTreeLayoutKey + ".FindPanelVisible";
+		private const string CategoryTreeCollapsedCategoriesKey = CategoryTreeLayoutKey + ".CollapsedCategories";
 		private const string GridSortKey = GridLayoutKey + ".Sort";
 		private const string GridFontKey = GridLayoutKey + ".Font";
 		private const string GridFontSizeKey = GridLayoutKey + ".FontSize";
@@ -180,8 +187,9 @@
 		private const string GridRowHighlightsKey = GridLayoutKey + ".RowHighlights";
 		private const string GridActiveModsBoldKey = GridLayoutKey + ".ActiveModsBold";
 		private const string GridLatestColumnOpensModPageKey = GridLayoutKey + ".LatestColumnOpensModPage";
-		private const string GridCategoryViewKey = GridLayoutKey + ".CategoryView";
-		private const string GridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
+		private const string ModViewModeKey = "modManagerDX.ViewMode";
+		private const string LegacyGridCategoryViewKey = GridLayoutKey + ".CategoryView";
+		private const string LegacyGridCollapsedCategoriesKey = GridLayoutKey + ".CollapsedCategories";
 		private const string GridFocusTopAfterSortKey = GridLayoutKey + ".FocusTopAfterSort";
 		private const string GridFocusTopAfterInstallDateChangeKey = GridLayoutKey + ".FocusTopAfterInstallDateChange";
 		private const string GridToolbarPositionKey = GridLayoutKey + ".ToolbarLeft";
@@ -237,7 +245,7 @@
 
 		public ModManagerDXControl()
 		{
-			_categoryGroupCountFormat = LanguageManager.GetFormat("Mods.CategoryView.GroupCount", "{0} mods");
+			_categoryNodeCountFormat = LanguageManager.GetFormat("Mods.CategoryView.GroupCount", "{0} mods");
 			_modCountFormat = LanguageManager.GetFormat("Mods.Status.Count", "Mods: {0}");
 			_downloadModeCaptionFormat = LanguageManager.GetFormat("Mods.DownloadMode.Caption", "Download Mode: {0}");
 			_downloadModeHintFormat = LanguageManager.GetFormat("Mods.DownloadMode.Tooltip", "Skyrim SE current download mode: {0}");
@@ -245,6 +253,11 @@
 			_installedUnlinkedStatusText = LanguageManager.Get("Mods.Values.InstalledUnlinked", "Installed/Unlinked");
 			_uninstalledStatusText = LanguageManager.Get("Mods.Values.Uninstalled", "Uninstalled");
 			InitializeComponent();
+			_modGridControl = new ModGridDXControl
+			{
+				Dock = DockStyle.Fill
+			};
+			viewHost.Controls.Add(_modGridControl);
 			ApplyLocalization();
 			InitializePerformanceResources();
 			UpdateSkinPaletteCache();
@@ -253,6 +266,9 @@
 			Text = LanguageManager.Get("Mods.Title", "Mods");
 			InitializeInlineRenameEditor();
 			SetupGrid();
+			_gridModListSurface = new GridModListSurface(_modGridControl, _modList, ColModName);
+			_activeModListSurface = _gridModListSurface;
+			_activeModListSurface.SelectionChanged += (sender, args) => SetCommandExecutableStatus();
 			InitializeNewModCategoryView();
 			InitializeGridDisplayOptions();
 			InitializeToolbarPositionButton();
@@ -294,7 +310,8 @@
 			UpdateToolbarSeparators(_toolbarPositionLeft);
 			UpdateSkinPaletteCache();
 			RefreshSemanticCompatibilityIcons();
-			gridView.InvalidateRows();
+			ApplyCategoryTreePresentation();
+			_activeModListSurface.InvalidateRows();
 		}
 
 		// ── IModManagerView : ViewModel ──────────────────────────────────────
@@ -310,12 +327,14 @@
 				{
 					DetachNewModCategoryTracking();
 					UnhookViewModel();
+					_presentationState.Detach();
 				}
 
 				_viewModel = value;
 
 				if (_viewModel != null)
 				{
+					_presentationState.Attach(_viewModel);
 					HookViewModel();
 					RestoreGridFont();
 					RestoreGridDisplayOptions();
@@ -358,9 +377,8 @@
 			if (InvokeRequired) { Invoke((MethodInvoker)ForceListRefresh); return; }
 
 			UpdateSkinPaletteCache();
-			gridView.InvalidateRows();
-			gridView.Invalidate();
-			gridControl.Invalidate();
+			_activeModListSurface.InvalidateRows();
+			_activeModListSurface.InvalidateView();
 		}
 
 		/// <inheritdoc/>
@@ -375,12 +393,16 @@
 				_viewModel.Settings.DockPanelLayouts.Remove(GridRowHighlightsKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridActiveModsBoldKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridLatestColumnOpensModPageKey);
-				_viewModel.Settings.DockPanelLayouts.Remove(GridCategoryViewKey);
-				_viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(ModViewModeKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(LegacyGridCategoryViewKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(LegacyGridCollapsedCategoriesKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterSortKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridFocusTopAfterInstallDateChangeKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridToolbarPositionKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(GridFindPanelVisibleKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeLayoutKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeFindPanelVisibleKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeCollapsedCategoriesKey);
 				_viewModel.Settings.Save();
 			}
 
@@ -396,7 +418,13 @@
 			SetFocusTopRowAfterSorting(true, false);
 			SetFocusTopRowAfterInstallDateChange(true, false);
 			SetToolbarPosition(false, false);
+			SetModViewMode(ModViewMode.Default, false);
 			ApplyDefaultColumnSizing();
+			if (_categoryModListSurface != null)
+			{
+				_categoryModListSurface.SetMods(_modList);
+				_categoryModListSurface.ExpandAllCategories();
+			}
 			SaveGridLayout();
 		}
 
@@ -433,10 +461,8 @@
 		/// <inheritdoc/>
 		public void FindItemWithText(string filter)
 		{
-			if (string.IsNullOrWhiteSpace(filter))
-				gridView.ActiveFilterString = string.Empty;
-			else
-				gridView.ActiveFilterString = $"[{ColModName}] Like '%{filter.Replace("'", "''")}%'";
+			_currentTextFilter = filter ?? String.Empty;
+			_activeModListSurface.ApplyTextFilter(_currentTextFilter);
 		}
 
 		/// <inheritdoc/>
@@ -453,36 +479,10 @@
 		// ── public helpers ───────────────────────────────────────────────────
 
 		/// <summary>Returns the currently focused mod, or <c>null</c>.</summary>
-		public IMod SelectedMod
-		{
-			get
-			{
-				int h = gridView.FocusedRowHandle;
-				if (h < 0) return null;
-				int src = gridView.GetDataSourceRowIndex(h);
-				if (src < 0 || src >= _modList.Count) return null;
-				return _modList[src];
-			}
-		}
+		public IMod SelectedMod => _activeModListSurface.FocusedMod;
 
 		/// <summary>Returns all selected mods.</summary>
-		public List<IMod> SelectedMods
-		{
-			get
-			{
-				var list = new List<IMod>();
-				int[] rows = gridView.GetSelectedRows();
-				if (rows == null) return list;
-				foreach (int h in rows)
-				{
-					if (h < 0) continue;
-					int src = gridView.GetDataSourceRowIndex(h);
-					if (src >= 0 && src < _modList.Count)
-						list.Add(_modList[src]);
-				}
-				return list;
-			}
-		}
+		public List<IMod> SelectedMods => new List<IMod>(_activeModListSurface.SelectedMods);
 
 		// ── ViewModel wiring ─────────────────────────────────────────────────
 
@@ -588,8 +588,9 @@
 			foreach (IMod mod in _modList)
 				mod.PropertyChanged -= Mod_PropertyChanged;
 			_modList.Clear();
-			ClearGridStateCaches();
-			gridControl.RefreshDataSource();
+			_presentationState.Clear();
+			_gridModListSurface.RefreshDataSource();
+			_categoryModListSurface?.SetAvailableCategories(Enumerable.Empty<string>(), false);
 		}
 
 		private void LoadMods()
@@ -597,8 +598,7 @@
 			foreach (IMod mod in _modList)
 				mod.PropertyChanged -= Mod_PropertyChanged;
 			_modList.Clear();
-			_outdatedModCache.Clear();
-			_categoryNameCache.Clear();
+			_presentationState.ClearDerivedCaches();
 
 			foreach (IMod mod in _viewModel.ManagedMods)
 			{
@@ -608,10 +608,12 @@
 
 			RebuildActivationStateCache();
 			QueueMissingArchiveScan();
-			gridControl.RefreshDataSource();
+			_gridModListSurface.RefreshDataSource();
+			_flatGridCategoryDataDirty = false;
+			ConfigureCategoryTreeCategories();
 			RestoreGridLayout();
 			RestoreGridSort();
-			RestoreGridCategoryView();
+			RestoreModViewMode();
 
 			if (IsHandleCreated)
 			{
@@ -638,13 +640,27 @@
 				return;
 			}
 
-			ModGridViewState gridState = CaptureModGridViewState();
-			_categoryNameCache.Clear();
+			_presentationState.ClearCategoryCache();
 			_categoryColorCache.Clear();
 			_categoryTextSizeCache.Clear();
-			gridControl.RefreshDataSource();
-			gridView.RefreshData();
-			RestoreModGridViewState(gridState, false);
+
+			// Category metadata does not change the flat grid's backing collection. When
+			// Category View is active, defer even the value refresh until the flat grid is
+			// shown again so hidden controls do not add latency to category operations.
+			if (ReferenceEquals(_activeModListSurface, _gridModListSurface))
+			{
+				ModGridViewState gridState = CaptureModGridViewState();
+				_gridModListSurface.RefreshData();
+				RestoreModGridViewState(gridState, false);
+				_flatGridCategoryDataDirty = false;
+			}
+			else
+			{
+				_flatGridCategoryDataDirty = true;
+			}
+
+			ConfigureCategoryTreeCategories();
+			_categoryModListSurface?.InvalidateView();
 		}
 
 		private void ManagedMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -672,19 +688,55 @@
 							_modList.Remove(mod);
 						}
 					break;
+				case NotifyCollectionChangedAction.Replace:
+					if (e.OldItems != null)
+						foreach (IMod mod in e.OldItems)
+						{
+							mod.PropertyChanged -= Mod_PropertyChanged;
+							_modList.Remove(mod);
+						}
+					if (e.NewItems != null)
+						foreach (IMod mod in e.NewItems)
+						{
+							mod.PropertyChanged += Mod_PropertyChanged;
+							_modList.Add(mod);
+						}
+					break;
 				case NotifyCollectionChangedAction.Reset:
 					foreach (IMod mod in _modList)
 						mod.PropertyChanged -= Mod_PropertyChanged;
 					_modList.Clear();
+					if (_viewModel != null)
+					{
+						foreach (IMod mod in _viewModel.ManagedMods)
+						{
+							mod.PropertyChanged += Mod_PropertyChanged;
+							_modList.Add(mod);
+						}
+					}
 					break;
 			}
 
-			_outdatedModCache.Clear();
-			_categoryNameCache.Clear();
+			_presentationState.ClearDerivedCaches();
 			RebuildActivationStateCache();
 			QueueMissingArchiveScan();
-			gridControl.RefreshDataSource();
+			_gridModListSurface.RefreshDataSource();
+			if (_categoryModListSurface != null)
+			{
+				if (e.Action == NotifyCollectionChangedAction.Add)
+					_categoryModListSurface.AddMods(CastMods(e.NewItems));
+				else if (e.Action == NotifyCollectionChangedAction.Remove)
+					_categoryModListSurface.RemoveMods(CastMods(e.OldItems));
+				else if (e.Action == NotifyCollectionChangedAction.Replace)
+				{
+					_categoryModListSurface.RemoveMods(CastMods(e.OldItems));
+					_categoryModListSurface.AddMods(CastMods(e.NewItems));
+				}
+				else if (e.Action == NotifyCollectionChangedAction.Reset)
+					_categoryModListSurface.SetMods(_modList);
+			}
 			RestoreModGridViewState(gridState, removedFocusedMod || e.Action == NotifyCollectionChangedAction.Reset);
+			UpdateNewModTracking(e);
 			UpdateModCountLabel();
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
 		}
@@ -705,35 +757,39 @@
 			return false;
 		}
 
+		/// <summary>
+		/// Enumerates only mod instances from a non-generic collection-change payload.
+		/// </summary>
+		private static IEnumerable<IMod> CastMods(System.Collections.IList items)
+		{
+			if (items == null) yield break;
+			foreach (object item in items)
+				if (item is IMod mod) yield return mod;
+		}
+
+		/// <summary>
+		/// Captures stable mod identities and viewport anchors before the flat grid data source is refreshed.
+		/// </summary>
 		private ModGridViewState CaptureModGridViewState()
 		{
 			int topVisibleIndex = Math.Max(0, gridView.TopRowIndex);
 			int topRowHandle = gridView.RowCount > 0
 				? gridView.GetVisibleRowHandle(Math.Min(topVisibleIndex, gridView.RowCount - 1))
 				: DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-			IMod topMod = GetModForRowHandle(topRowHandle);
-			string topCategoryName = null;
-
-			if (_categoryViewActive)
-			{
-				if (gridView.IsGroupRow(topRowHandle))
-					topCategoryName = Convert.ToString(gridView.GetGroupRowValue(topRowHandle), CultureInfo.InvariantCulture);
-				else if (topMod != null)
-					topCategoryName = GetCachedCategoryName(topMod);
-			}
 
 			return new ModGridViewState
 			{
 				FocusedMod = SelectedMod,
 				SelectedMods = SelectedMods,
 				FocusedVisibleIndex = GetFocusedVisibleIndex(),
-				TopMod = topMod,
-				TopCategoryName = topCategoryName,
-				TopVisibleIndex = topVisibleIndex,
-				CollapsedCategories = _categoryViewActive ? GetCollapsedCategoryNames() : null
+				TopMod = GetModForRowHandle(topRowHandle),
+				TopVisibleIndex = topVisibleIndex
 			};
 		}
 
+		/// <summary>
+		/// Restores flat-grid selection, focus and viewport after a collection refresh.
+		/// </summary>
 		private void RestoreModGridViewState(ModGridViewState state, bool restoreFocusByVisibleIndex)
 		{
 			if (state == null)
@@ -743,9 +799,8 @@
 			_restoringGridLayout = true;
 			try
 			{
-				if (_categoryViewActive)
-					RestoreCollapsedCategoryGroups(state.CollapsedCategories);
-
+				// Selection is restored by mod identity because row handles and visible indexes
+				// are not stable across RefreshDataSource() calls.
 				gridView.ClearSelection();
 				if (state.SelectedMods != null)
 				{
@@ -757,6 +812,8 @@
 					}
 				}
 
+				// When the focused mod was removed, fall back to its former visual position so
+				// delete/uninstall operations do not unexpectedly jump to the top of the list.
 				int focusedRowHandle = restoreFocusByVisibleIndex
 					? GetNearestVisibleDataRowHandle(state.FocusedVisibleIndex)
 					: GetModRowHandle(state.FocusedMod);
@@ -779,6 +836,9 @@
 			}
 		}
 
+		/// <summary>
+		/// Restores the flat-grid top row using a surviving mod identity with an index fallback.
+		/// </summary>
 		private void RestoreModGridViewport(ModGridViewState state)
 		{
 			if (gridView.RowCount <= 0)
@@ -787,19 +847,14 @@
 			int topRowHandle = GetModRowHandle(state.TopMod);
 			int topVisibleIndex = topRowHandle >= 0 ? gridView.GetVisibleIndex(topRowHandle) : -1;
 
-			if (topVisibleIndex < 0 && _categoryViewActive && !String.IsNullOrWhiteSpace(state.TopCategoryName))
-			{
-				topRowHandle = FindCategoryGroupRowHandle(state.TopCategoryName);
-				topVisibleIndex = topRowHandle != DevExpress.XtraGrid.GridControl.InvalidRowHandle
-					? gridView.GetVisibleIndex(topRowHandle)
-					: -1;
-			}
-
 			gridView.TopRowIndex = topVisibleIndex >= 0
 				? topVisibleIndex
 				: Math.Max(0, Math.Min(state.TopVisibleIndex, gridView.RowCount - 1));
 		}
 
+		/// <summary>
+		/// Resolves a flat-grid data row handle to its backing mod.
+		/// </summary>
 		private IMod GetModForRowHandle(int rowHandle)
 		{
 			if (rowHandle < 0)
@@ -809,6 +864,9 @@
 			return sourceIndex >= 0 && sourceIndex < _modList.Count ? _modList[sourceIndex] : null;
 		}
 
+		/// <summary>
+		/// Resolves a mod to its current flat-grid row handle.
+		/// </summary>
 		private int GetModRowHandle(IMod mod)
 		{
 			if (mod == null)
@@ -820,6 +878,9 @@
 				: DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 		}
 
+		/// <summary>
+		/// Finds the nearest valid data row to a previous visible index after collection membership changes.
+		/// </summary>
 		private int GetNearestVisibleDataRowHandle(int preferredVisibleIndex)
 		{
 			if (gridView.RowCount <= 0)
@@ -843,22 +904,6 @@
 			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 		}
 
-		private int FindCategoryGroupRowHandle(string categoryName)
-		{
-			for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
-			{
-				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
-				if (!gridView.IsGroupRow(rowHandle))
-					continue;
-
-				string currentName = Convert.ToString(gridView.GetGroupRowValue(rowHandle), CultureInfo.InvariantCulture);
-				if (String.Equals(currentName, categoryName, StringComparison.OrdinalIgnoreCase))
-					return rowHandle;
-			}
-
-			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
-		}
-
 		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (InvokeRequired) { Invoke(new Action(() => ActiveMods_CollectionChanged(sender, e))); return; }
@@ -872,16 +917,9 @@
 			bool focusTopAfterSortedPropertyChange = ShouldFocusTopAfterSortedPropertyChange(e.PropertyName);
 			if (sender is IMod mod)
 			{
-				_outdatedModCache.Remove(mod);
-				_categoryNameCache.Remove(mod);
-
-				int srcIdx = _modList.IndexOf(mod);
-				if (srcIdx >= 0)
-				{
-					int viewHandle = gridView.GetRowHandle(srcIdx);
-					if (viewHandle != DevExpress.XtraGrid.GridControl.InvalidRowHandle)
-						gridView.InvalidateRow(viewHandle);
-				}
+				_presentationState.InvalidateMod(mod);
+				_gridModListSurface.RefreshMod(mod, e.PropertyName);
+				_categoryModListSurface?.RefreshMod(mod, e.PropertyName);
 			}
 
 			if (focusTopAfterSortedPropertyChange)
@@ -890,9 +928,14 @@
 
 		private bool ShouldFocusTopAfterSortedPropertyChange(string propertyName)
 		{
-			return _focusTopRowAfterInstallDateChange &&
-				string.Equals(propertyName, ColInstallDate, StringComparison.Ordinal) &&
-				IsGridSortedByColumn(ColInstallDate);
+			if (!_focusTopRowAfterInstallDateChange ||
+				!string.Equals(propertyName, ColInstallDate, StringComparison.Ordinal))
+				return false;
+
+			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+				return _categoryModListSurface != null && _categoryModListSurface.IsSortedByColumn(ModCategoryTreeColumns.InstallDate);
+
+			return IsGridSortedByColumn(ColInstallDate);
 		}
 
 		private bool IsGridSortedByColumn(string fieldName)
@@ -913,7 +956,15 @@
 
 		private void FocusFirstVisibleDataRow()
 		{
-			if (IsDisposed || gridView == null || gridView.RowCount <= 0) return;
+			if (IsDisposed) return;
+
+			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+			{
+				_categoryModListSurface?.FocusFirstVisibleMod();
+				return;
+			}
+
+			if (gridView == null || gridView.RowCount <= 0) return;
 			int rowHandle = GetFirstVisibleDataRowHandle();
 			if (rowHandle >= 0)
 				FocusGridRow(rowHandle);
@@ -1000,7 +1051,7 @@
 			resetUnassignedToDefaultCategories.Caption = LanguageManager.Get("Mods.Categories.ResetUnassigned.FullName", "Categories: reset Unassigned mods to Nexus site defaults");
 			resetModsCategory.Caption = LanguageManager.Get("Mods.Categories.ResetAllUnassigned.FullName", "Categories: reset all mods to unassigned");
 			removeAllCategories.Caption = LanguageManager.Get("Mods.Categories.RemoveAll.FullName", "Categories: remove all categories");
-			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.FullName", "Categories: toggle hidden categories");
+			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.FullName", "Categories: show empty categories");
 			tsbSwitchView.Caption = LanguageManager.Get("Mods.CategoryView.SwitchCategory.Name", "Switch to Category View");
 			tsbSwitchView.Hint = LanguageManager.Get("Mods.CategoryView.Switch.Tooltip", "Switches the Mod Manager views");
 			tsbExportModList.Caption = LanguageManager.Get("Common.Action.Export", "Export");
@@ -1053,10 +1104,10 @@
 		/// </summary>
 		private void InitializeGridDisplayOptions()
 		{
-			_displayOptionsButton = new BarSubItem(barManagerMods, LanguageManager.Get("Mods.GridOptions.Title", "Grid Options"))
+			_displayOptionsButton = new BarSubItem(barManagerMods, LanguageManager.Get("Mods.GridOptions.Title", "View Options"))
 			{
 				Alignment = BarItemLinkAlignment.Right,
-				Hint = LanguageManager.Get("Mods.GridOptions.Tooltip", "Grid display options")
+				Hint = LanguageManager.Get("Mods.GridOptions.Tooltip", "Mod view display options")
 			};
 
 			_toggleColouredCategoriesMenuItem = CreateCheckedDisplayOption(LanguageManager.Get("Mods.GridOptions.ColouredCategories.Option", "Toggle Coloured Categories"), _showColouredCategories,
@@ -1386,7 +1437,6 @@
 			gridView.Appearance.HideSelectionRow.Font = _gridRegularFont;
 			gridView.Appearance.HeaderPanel.Font = _gridHeaderFont;
 			gridView.Appearance.FilterPanel.Font = _gridRegularFont;
-			gridView.Appearance.GroupRow.Font = _gridRegularFont;
 
 			gridView.LayoutChanged();
 			EnsureDateColumnsFitScaledContent();
@@ -1478,13 +1528,10 @@
 			gridView.MouseDown += GridView_MouseDown;
 			gridView.DoubleClick += GridView_DoubleClick;
 			gridView.KeyDown += GridView_KeyDown;
-			gridView.FocusedRowChanged += (s, e) => SetCommandExecutableStatus();
-			gridView.SelectionChanged += (s, e) => SetCommandExecutableStatus();
+			gridView.PopupMenuShowing += gridView_PopupMenuShowing;
 			gridView.CustomDrawCell += GridView_CustomDrawCell;
 			gridView.CustomDrawColumnHeader += GridView_CustomDrawColumnHeader;
 			gridView.CustomColumnSort += GridView_CustomColumnSort;
-			gridView.GroupRowExpanded += (s, e) => QueueGridLayoutSave();
-			gridView.GroupRowCollapsed += (s, e) => QueueGridLayoutSave();
 			gridView.ColumnWidthChanged += (s, e) => QueueGridLayoutSave();
 			gridView.ColumnPositionChanged += (s, e) => QueueGridLayoutSave();
 			gridView.EndSorting += GridView_EndSorting;
@@ -1641,105 +1688,34 @@
 
 		private string GetCachedCategoryName(IMod mod)
 		{
-			if (mod == null)
-				return String.Empty;
-
-			string categoryName;
-			if (_categoryNameCache.TryGetValue(mod, out categoryName))
-				return categoryName;
-
-			if (_viewModel?.CategoryManager != null)
-			{
-				IModCategory category = _viewModel.CategoryManager.FindCategory(
-					mod.CustomCategoryId >= 0
-						? mod.CustomCategoryId
-						: mod.CategoryId);
-				categoryName = category?.CategoryName ?? String.Empty;
-			}
-			else
-			{
-				categoryName = Convert.ToString(
-					mod.CategoryId,
-					CultureInfo.InvariantCulture);
-			}
-
-			_categoryNameCache[mod] = categoryName;
-			return categoryName;
+			return _presentationState.GetCategoryName(mod);
 		}
 
 		// ── Grid event handlers ──────────────────────────────────────────────
 
-		private void ClearGridStateCaches()
-		{
-			_activeModFileNames.Clear();
-			_installedMods.Clear();
-			_modVisualStatusCache.Clear();
-			_outdatedModCache.Clear();
-			_categoryNameCache.Clear();
-			lock (_missingArchiveLock)
-				_missingArchiveByFileName.Clear();
-		}
-
 		private void RebuildActivationStateCache()
 		{
-			_activeModFileNames.Clear();
-			_installedMods.Clear();
-			_modVisualStatusCache.Clear();
-
-			if (_viewModel == null)
-				return;
-
-			foreach (string fileName in _viewModel.VirtualModActivator.ActiveModList)
-				if (!string.IsNullOrWhiteSpace(fileName))
-					_activeModFileNames.Add(fileName);
-
-			foreach (IMod mod in _viewModel.ActiveMods)
-				if (mod != null)
-					_installedMods.Add(mod);
+			_presentationState.RebuildActivationState();
 		}
 
 		private bool IsModActive(IMod mod)
 		{
-			return GetModVisualStatus(mod) == ModVisualStatus.InstalledActive;
+			return _presentationState.IsModActive(mod);
 		}
 
 		private bool IsModInstalled(IMod mod)
 		{
-			return mod != null && _installedMods.Contains(mod);
+			return _presentationState.IsModInstalled(mod);
 		}
 
 		private ModVisualStatus GetModVisualStatus(IMod mod)
 		{
-			if (mod == null)
-				return ModVisualStatus.Uninstalled;
-
-			ModVisualStatus status;
-			if (_modVisualStatusCache.TryGetValue(mod, out status))
-				return status;
-
-			bool installed = IsModInstalled(mod);
-			bool linked = installed && !string.IsNullOrEmpty(mod.Filename) && _activeModFileNames.Contains(Path.GetFileName(mod.Filename));
-
-			status = linked ? ModVisualStatus.InstalledActive : installed ? ModVisualStatus.InstalledUnlinked : ModVisualStatus.Uninstalled;
-			_modVisualStatusCache[mod] = status;
-			return status;
+			return _presentationState.GetModVisualStatus(mod);
 		}
 
 		private bool IsModOutdated(IMod mod)
 		{
-			if (mod == null)
-				return false;
-
-			bool outdated;
-			if (!_outdatedModCache.TryGetValue(mod, out outdated))
-			{
-				outdated = IsVersionOutdated(
-					mod.HumanReadableVersion,
-					mod.LastKnownVersion);
-				_outdatedModCache[mod] = outdated;
-			}
-
-			return outdated;
+			return _presentationState.IsModOutdated(mod);
 		}
 
 		private string GetModStatusText(IMod mod)
@@ -1801,11 +1777,7 @@
 				{
 					BeginInvoke((MethodInvoker)(() =>
 					{
-						lock (_missingArchiveLock)
-						{
-							foreach (var item in results)
-								_missingArchiveByFileName[item.Key] = item.Value;
-						}
+						_presentationState.SetMissingArchiveResults(results);
 						_missingArchiveScanQueued = false;
 						gridView.InvalidateRows();
 					}));
@@ -1819,9 +1791,7 @@
 
 		private bool IsModArchiveMissing(IMod mod)
 		{
-			if (mod == null || string.IsNullOrEmpty(mod.Filename)) return false;
-			lock (_missingArchiveLock)
-				return _missingArchiveByFileName.TryGetValue(mod.Filename, out bool missing) && missing;
+			return _presentationState.IsModArchiveMissing(mod);
 		}
 		private static bool IsModArchiveMissingOnDisk(IMod mod)
 		{
@@ -1830,10 +1800,12 @@
 		private void RefreshActivationState()
 		{
 			RebuildActivationStateCache();
-			// Activation changes do not alter _modList membership. Refreshing the entire
-			// data source unnecessarily rebuilds group rows and can reset Category View.
-			gridView.RefreshData();
-			gridView.InvalidateRows();
+			// Activation changes do not alter _modList membership. Refresh only the
+			// displayed values instead of rebinding either frontend.
+			_gridModListSurface.RefreshData();
+			_gridModListSurface.InvalidateRows();
+			_categoryModListSurface?.RefreshData();
+			_categoryModListSurface?.InvalidateRows();
 			SetCommandExecutableStatus();
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
 		}
@@ -2153,24 +2125,6 @@
 
 			return new Rectangle(textBounds.Left + prefixWidth, textBounds.Top + 2, Math.Max(2, matchWidth), Math.Max(2, textBounds.Height - 4));
 		}
-		/// <summary>
-		/// Returns true when <paramref name="latest"/> is a newer version than <paramref name="local"/>.
-		/// Uses numeric Version comparison when both strings are parseable; falls back to a
-		/// case-insensitive string diff so that non-semver author strings (e.g. "v1.0.abcd") still
-		/// trigger a warning whenever the values differ.
-		/// </summary>
-		private static bool IsVersionOutdated(string local, string latest)
-		{
-			if (string.IsNullOrEmpty(local) || string.IsNullOrEmpty(latest))
-				return false;
-			string localNorm = local.TrimStart('v', 'V').Trim();
-			string latestNorm = latest.TrimStart('v', 'V').Trim();
-			if (Version.TryParse(localNorm, out Version localV) &&
-				Version.TryParse(latestNorm, out Version latestV))
-				return localV < latestV;
-			return !string.Equals(localNorm, latestNorm, StringComparison.OrdinalIgnoreCase);
-		}
-
 		/// <summary>
 		/// Returns a lazy-initialised 13×13 flat amber warning triangle with a white "!".
 		/// Drawn with GDI+ so there is no dependency on external image resources.
@@ -2534,6 +2488,11 @@
 					_viewModel.Settings.DockPanelLayouts.Remove(GridLayoutKey);
 				}
 
+				// Category View no longer uses GridView grouping. Old saved layouts can still
+				// contain a Category GroupIndex, so strip all grouping as part of migration.
+				gridView.ClearGrouping();
+				gridView.GroupSummary.Clear();
+				gridView.OptionsView.ShowGroupPanel = false;
 				DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
 				gridView.OptionsView.ShowColumnHeaders = true;
 				RestoreGridDisplayMetricsAndColumnWidths();
@@ -2612,18 +2571,18 @@
 			}
 		}
 
-		private void RestoreGridCategoryView()
+		/// <summary>
+		/// Restores the persisted Mods frontend and performs legacy Category View migration when required.
+		/// </summary>
+		private void RestoreModViewMode()
 		{
 			bool wasRestoring = _restoringGridLayout;
 			_restoringGridLayout = true;
 			try
 			{
-				bool active = _viewModel?.Settings?.DockPanelLayouts.ContainsKey(GridCategoryViewKey) == true &&
-							  string.Equals(_viewModel.Settings.DockPanelLayouts[GridCategoryViewKey], bool.TrueString, StringComparison.OrdinalIgnoreCase);
-
-				ApplyCategoryView(active, true);
-				if (active)
-					RestoreCollapsedCategoryGroups();
+				ModViewMode mode = GetPersistedModViewModeAndMigrateLegacyState();
+				// Do not expand here: the TreeList restores its own collapsed-node state.
+				SetModViewMode(mode, false);
 			}
 			finally
 			{
@@ -2631,132 +2590,340 @@
 			}
 		}
 
-		private void ApplyCategoryView(bool active, bool expandAll)
+		/// <summary>
+		/// Reads the current view-mode setting and migrates legacy Grid Group By state to the Tree Category View settings.
+		/// </summary>
+		private ModViewMode GetPersistedModViewModeAndMigrateLegacyState()
 		{
-			_categoryViewActive = active;
-			var catCol = gridView.Columns[ColCategory];
-			if (_categoryViewActive && catCol != null)
+			if (_viewModel?.Settings == null)
+				return ModViewMode.Default;
+
+			bool changed = false;
+			ModViewMode mode = ModViewMode.Default;
+			string value;
+			// Prefer the new explicit view-mode setting. Legacy Group By settings are used
+			// only when this key is absent, then removed so migration is strictly one-shot.
+			if (_viewModel.Settings.DockPanelLayouts.TryGetValue(ModViewModeKey, out value))
 			{
-				gridView.OptionsView.ShowGroupPanel = true;
-				ApplyCategoryGroupSummary();
-				catCol.SortOrder = DevExpress.Data.ColumnSortOrder.Ascending;
-				catCol.GroupIndex = 0;
-				if (expandAll)
-					gridView.ExpandAllGroups();
+				ModViewMode persistedMode;
+				if (Enum.TryParse(value, true, out persistedMode))
+					mode = persistedMode;
 			}
 			else
 			{
-				gridView.ClearGrouping();
-				gridView.GroupSummary.Clear();
-				gridView.OptionsView.ShowGroupPanel = false;
+				bool legacyCategoryView =
+					_viewModel.Settings.DockPanelLayouts.TryGetValue(LegacyGridCategoryViewKey, out value) &&
+					String.Equals(value, Boolean.TrueString, StringComparison.OrdinalIgnoreCase);
+				mode = legacyCategoryView ? ModViewMode.Category : ModViewMode.Default;
+				_viewModel.Settings.DockPanelLayouts[ModViewModeKey] = mode.ToString();
+				changed = true;
 			}
 
+			if (!_viewModel.Settings.DockPanelLayouts.ContainsKey(CategoryTreeCollapsedCategoriesKey) &&
+				_viewModel.Settings.DockPanelLayouts.TryGetValue(LegacyGridCollapsedCategoriesKey, out value))
+			{
+				_viewModel.Settings.DockPanelLayouts[CategoryTreeCollapsedCategoriesKey] = value ?? String.Empty;
+				changed = true;
+			}
+
+			if (_viewModel.Settings.DockPanelLayouts.Remove(LegacyGridCategoryViewKey))
+				changed = true;
+			if (_viewModel.Settings.DockPanelLayouts.Remove(LegacyGridCollapsedCategoriesKey))
+				changed = true;
+
+			if (changed)
+				_viewModel.Settings.Save();
+
+			return mode;
+		}
+
+		/// <summary>
+		/// Switches the active Mods frontend and updates the associated toolbar text.
+		/// </summary>
+		private void SetModViewMode(ModViewMode mode, bool expandAll)
+		{
+			SwitchModListSurface(mode, expandAll);
 			UpdateSwitchViewText();
 		}
 
-		private void ApplyCategoryGroupSummary()
+		/// <summary>
+		/// Activates the requested Mods surface while preserving the focused mod and shared filter state.
+		/// </summary>
+		private void SwitchModListSurface(ModViewMode mode, bool expandAll)
 		{
-			gridView.GroupSummary.Clear();
-			gridView.GroupSummary.Add(new GridGroupSummaryItem
+			IMod focusedMod = _activeModListSurface?.FocusedMod;
+			IModListSurface nextSurface;
+
+			if (mode == ModViewMode.Category)
 			{
-				SummaryType = DevExpress.Data.SummaryItemType.Count,
-				FieldName = string.Empty,
-				DisplayFormat = _categoryGroupCountFormat,
-				ShowInGroupColumnFooter = null
-			});
-			gridView.GroupFormat = "{1} ({2})";
+				EnsureCategorySurface();
+				nextSurface = _categoryModListSurface;
+			}
+			else
+			{
+				if (_flatGridCategoryDataDirty)
+				{
+					ModGridViewState gridState = CaptureModGridViewState();
+					_gridModListSurface.RefreshData();
+					RestoreModGridViewState(gridState, false);
+					_flatGridCategoryDataDirty = false;
+				}
+				nextSurface = _gridModListSurface;
+			}
+
+			// Both frontends share the same backing list and command layer. Only visibility
+			// changes here; the focused mod is re-established after the target surface is active.
+			if (!ReferenceEquals(_activeModListSurface, nextSurface))
+			{
+				if (_activeModListSurface?.ViewControl != null)
+					_activeModListSurface.ViewControl.Visible = false;
+				_activeModListSurface = nextSurface;
+				_activeModListSurface.ViewControl.Visible = true;
+				_activeModListSurface.ViewControl.BringToFront();
+			}
+
+			_viewMode = mode;
+			if (mode != ModViewMode.Category && _showOnlyCategoriesWithNewMods)
+				SetShowOnlyCategoriesWithNewMods(false);
+
+			_activeModListSurface.ApplyTextFilter(_currentTextFilter);
+			if (focusedMod != null)
+				_activeModListSurface.FocusMod(focusedMod);
+
+			if (mode == ModViewMode.Category && expandAll)
+				_categoryModListSurface.ExpandAllCategories();
+
+			SetCommandExecutableStatus();
+			UpdateCategoryMenuVisibility();
 		}
 
-		private void SaveGridCategoryState()
+		/// <summary>
+		/// Lazily creates and wires the TreeList-based Category View surface.
+		/// </summary>
+		private void EnsureCategorySurface()
+		{
+			if (_categoryModListSurface != null)
+				return;
+
+			// Category View construction is intentionally lazy so users of the flat grid do
+			// not pay TreeList initialization or node-building cost during normal startup.
+			_modCategoryTreeControl = new ModCategoryTreeDXControl
+			{
+				Dock = DockStyle.Fill,
+				Visible = false
+			};
+			viewHost.Controls.Add(_modCategoryTreeControl);
+
+			_categoryModListSurface = new TreeModListSurface(
+				_modCategoryTreeControl,
+				_modList,
+				GetCachedCategoryName,
+				GetModStatusText,
+				mod => _newModTracker.IsNew(mod),
+				count => String.Format(_categoryNodeCountFormat, count));
+			_categoryModListSurface.SelectionChanged += (sender, args) => SetCommandExecutableStatus();
+
+			_modCategoryTreeControl.ModToggleRequested += (sender, args) => ToggleSelectedMod();
+			_modCategoryTreeControl.DeleteRequested += (sender, args) => DeleteSelectedModsFromKey();
+			_modCategoryTreeControl.ContextMenuRequested += (sender, args) => ShowCurrentModContextMenu();
+			_modCategoryTreeControl.LatestLinkRequested += (sender, args) => NavigateSelectedModLatest();
+			_modCategoryTreeControl.ModInteractionOccurred += (sender, args) => AcknowledgeSelectedNewMods(-1);
+			_modCategoryTreeControl.CategoryExpansionChanged += (sender, args) => QueueGridLayoutSave();
+			_modCategoryTreeControl.LayoutStateChanged += (sender, args) => QueueGridLayoutSave();
+			_modCategoryTreeControl.SortingCompleted += (sender, args) =>
+			{
+				if (_focusTopRowAfterSorting && !_restoringGridLayout && !_restoringGridSort &&
+					ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+				{
+					QueueFocusFirstVisibleDataRow();
+				}
+			};
+			_modCategoryTreeControl.RenameRequested += ModCategoryTree_RenameRequested;
+
+			// Restore column/layout state before the expensive first node population.
+			// Filter state is also established up-front so the initial tree is laid out once.
+			ApplyCategoryTreePresentation();
+			RestoreCategoryTreeLayout();
+			ApplyNewModsCategoryFilterToTree();
+			_categoryModListSurface.ApplyTextFilter(_currentTextFilter);
+			ConfigureCategoryTreeCategories();
+		}
+
+		/// <summary>
+		/// Applies the current shared palette, fonts, density and semantic resolvers to the Category Tree.
+		/// </summary>
+		private void ApplyCategoryTreePresentation()
+		{
+			if (_modCategoryTreeControl == null)
+				return;
+
+			_modCategoryTreeControl.ConfigurePresentation(
+				GetModVisualStatus,
+				mod => GetModStatusIcon(GetModVisualStatus(mod)),
+				GetEndorsementImage,
+				IsModOutdated,
+				mod => _newModTracker.IsNew(mod),
+				IsModArchiveMissing,
+				GetCachedCategoryColor,
+				() => GetWarningIcon(),
+				_colorPalette,
+				_usesLightRowPalette,
+				_showRowHighlights,
+				_showActiveModsInBold,
+				_showColouredCategories,
+				_latestVersionForeColor,
+				_outdatedVersionForeColor,
+				_gridRegularFont,
+				_gridBoldFont,
+				_gridUnderlineFont,
+				_gridBoldUnderlineFont,
+				_gridSecondaryFont,
+				_gridSecondaryBoldFont,
+				GetGridRowHeight(_gridDensity, _gridFontSizePt));
+		}
+
+		/// <summary>
+		/// Commits a validated Category Tree rename through the same ViewModel path used by the flat grid.
+		/// </summary>
+		private void ModCategoryTree_RenameRequested(object sender, ModTreeRenameEventArgs e)
+		{
+			if (_viewModel == null || e?.Mod == null || String.IsNullOrWhiteSpace(e.NewName))
+				return;
+
+			// Keep the operation path identical to the flat Grid inline rename: the
+			// manager owns the ViewModel mutation and the surface only owns the editor.
+			_viewModel.UpdateModName(e.Mod, e.NewName);
+			_categoryModListSurface?.RefreshMod(e.Mod, ColModName);
+		}
+
+		/// <summary>
+		/// Restores the persisted Category Tree layout, Find Panel visibility and collapsed categories.
+		/// </summary>
+		private void RestoreCategoryTreeLayout()
+		{
+			if (_categoryModListSurface == null || _viewModel?.Settings == null)
+				return;
+
+			// Use the existing layout-restore guard so TreeList events cannot queue saves
+			// while persisted state is still being replayed.
+			bool wasRestoring = _restoringGridLayout;
+			_restoringGridLayout = true;
+			try
+			{
+				string layout;
+				if (_viewModel.Settings.DockPanelLayouts.TryGetValue(CategoryTreeLayoutKey, out layout))
+					_categoryModListSurface.RestoreLayout(layout);
+
+				bool findPanelVisible = false;
+				string findPanelValue;
+				if (_viewModel.Settings.DockPanelLayouts.TryGetValue(CategoryTreeFindPanelVisibleKey, out findPanelValue))
+					Boolean.TryParse(findPanelValue, out findPanelVisible);
+				_categoryModListSurface.SetFindPanelVisible(findPanelVisible);
+
+				string collapsedValue;
+				if (_viewModel.Settings.DockPanelLayouts.TryGetValue(CategoryTreeCollapsedCategoriesKey, out collapsedValue))
+				{
+					_categoryModListSurface.RestoreCollapsedCategories(
+						(collapsedValue ?? String.Empty).Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries));
+				}
+			}
+			finally
+			{
+				_restoringGridLayout = wasRestoring;
+			}
+		}
+
+		/// <summary>
+		/// Captures the current Category Tree layout and expansion state into Mod Manager settings.
+		/// </summary>
+		private void SaveCategoryTreeLayout()
+		{
+			if (_categoryModListSurface == null || _viewModel?.Settings == null)
+				return;
+
+			try
+			{
+				_viewModel.Settings.DockPanelLayouts[CategoryTreeLayoutKey] = _categoryModListSurface.SaveLayout();
+			}
+			catch
+			{
+				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeLayoutKey);
+			}
+			_viewModel.Settings.DockPanelLayouts[CategoryTreeFindPanelVisibleKey] =
+				_categoryModListSurface.IsFindPanelVisible.ToString();
+
+			List<string> collapsed = new List<string>(_categoryModListSurface.GetCollapsedCategoryNames());
+			// Persist an explicit empty value as well so Expand All survives restarts.
+			_viewModel.Settings.DockPanelLayouts[CategoryTreeCollapsedCategoriesKey] = String.Join("\n", collapsed);
+		}
+
+		/// <summary>
+		/// Gets the endorsement-state image shared with the Category Tree.
+		/// </summary>
+		private Image GetEndorsementImage(IMod mod)
+		{
+			if (mod == null) return _endorsedEmptyImage;
+			return mod.IsEndorsed == true
+				? _endorsedYesImage
+				: mod.IsEndorsed == false ? _endorsedNoImage : _endorsedEmptyImage;
+		}
+
+		/// <summary>
+		/// Navigates the focused mod's Latest cell using the configured file-page or mod-page behavior.
+		/// </summary>
+		private void NavigateSelectedModLatest()
+		{
+			IMod mod = SelectedMod;
+			if (mod == null || String.IsNullOrEmpty(mod.LastKnownVersion)) return;
+
+			string gameDomain = _viewModel?.ModRepository?.GameDomainName;
+			Uri url = NexusModLinkParser.ResolveNavigationUri(mod.Website, gameDomain, mod.Id, mod.DownloadId, _latestColumnOpensModPage);
+			if (url == null) return;
+
+			try { System.Diagnostics.Process.Start(url.ToString()); }
+			catch { }
+		}
+
+		/// <summary>
+		/// Stores the currently active Mods frontend in the shared settings dictionary.
+		/// </summary>
+		private void SaveModViewMode()
 		{
 			if (_viewModel?.Settings == null)
 				return;
 
-			_viewModel.Settings.DockPanelLayouts[GridCategoryViewKey] = _categoryViewActive.ToString();
-			if (!_categoryViewActive)
-			{
-				_viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
-				return;
-			}
-
-			List<string> collapsed = GetCollapsedCategoryNames();
-			if (collapsed.Count == 0)
-				_viewModel.Settings.DockPanelLayouts.Remove(GridCollapsedCategoriesKey);
-			else
-				_viewModel.Settings.DockPanelLayouts[GridCollapsedCategoriesKey] = string.Join("\n", collapsed);
+			_viewModel.Settings.DockPanelLayouts[ModViewModeKey] = _viewMode.ToString();
 		}
 
-		private List<string> GetCollapsedCategoryNames()
+		/// <summary>
+		/// Updates the Tree Category View with the current Category Manager definitions and empty-category preference.
+		/// </summary>
+		private void ConfigureCategoryTreeCategories()
 		{
-			var categories = new List<string>();
-			for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
-			{
-				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
-				if (!gridView.IsGroupRow(rowHandle) || gridView.GetRowExpanded(rowHandle))
-					continue;
-
-				object value = gridView.GetGroupRowValue(rowHandle);
-				string categoryName = Convert.ToString(value, CultureInfo.InvariantCulture);
-				if (!string.IsNullOrWhiteSpace(categoryName) && !categories.Contains(categoryName, StringComparer.OrdinalIgnoreCase))
-					categories.Add(categoryName);
-			}
-			return categories;
-		}
-
-		private void RestoreCollapsedCategoryGroups()
-		{
-			if (_viewModel?.Settings?.DockPanelLayouts.ContainsKey(GridCollapsedCategoriesKey) != true)
+			if (_categoryModListSurface == null)
 				return;
 
-			RestoreCollapsedCategoryGroups(
-				(_viewModel.Settings.DockPanelLayouts[GridCollapsedCategoriesKey] ?? string.Empty)
-					.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries));
+			IEnumerable<string> categoryNames = _viewModel?.CategoryManager?.Categories == null
+				? Enumerable.Empty<string>()
+				: _viewModel.CategoryManager.Categories
+					.Where(category => category != null && !String.IsNullOrWhiteSpace(category.CategoryName))
+					.Select(category => category.CategoryName);
+
+			_categoryModListSurface.SetAvailableCategories(
+				categoryNames,
+				_viewModel?.Settings?.ShowEmptyCategory == true);
 		}
 
-		private void RestoreCollapsedCategoryGroups(IEnumerable<string> collapsedCategoryNames)
-		{
-			if (!_categoryViewActive)
-				return;
-
-			var collapsed = new HashSet<string>(
-				collapsedCategoryNames ?? Enumerable.Empty<string>(),
-				StringComparer.OrdinalIgnoreCase);
-
-			// RefreshDataSource may leave arbitrary group expansion state behind. Rebuild
-			// the exact runtime state captured immediately before the operation.
-			gridView.ExpandAllGroups();
-
-			if (collapsed.Count == 0)
-				return;
-
-			// Collapsing a group changes visible indexes immediately. Collect stable group
-			// row handles first, otherwise the loop can skip categories after each collapse.
-			var groupsToCollapse = new List<int>();
-			for (int visibleIndex = 0; visibleIndex < gridView.RowCount; visibleIndex++)
-			{
-				int rowHandle = gridView.GetVisibleRowHandle(visibleIndex);
-				if (!gridView.IsGroupRow(rowHandle))
-					continue;
-
-				object value = gridView.GetGroupRowValue(rowHandle);
-				string categoryName = Convert.ToString(value, CultureInfo.InvariantCulture);
-				if (collapsed.Contains(categoryName))
-					groupsToCollapse.Add(rowHandle);
-			}
-
-			foreach (int groupRowHandle in groupsToCollapse)
-				gridView.CollapseGroupRow(groupRowHandle);
-		}
-
+		/// <summary>
+		/// Captures stable selection and viewport anchors used to restore the flat grid after data-source changes.
+		/// </summary>
 		private sealed class ModGridViewState
 		{
 			public IMod FocusedMod { get; set; }
 			public List<IMod> SelectedMods { get; set; }
 			public int FocusedVisibleIndex { get; set; }
 			public IMod TopMod { get; set; }
-			public string TopCategoryName { get; set; }
 			public int TopVisibleIndex { get; set; }
-			public List<string> CollapsedCategories { get; set; }
 		}
 
 		private void UpdateSwitchViewText()
@@ -2764,8 +2931,8 @@
 			if (tsbSwitchView == null)
 				return;
 
-			tsbSwitchView.Caption = _categoryViewActive ? LanguageManager.Get("Mods.CategoryView.SwitchDefault.Name", "Switch to Default View") : LanguageManager.Get("Mods.CategoryView.SwitchCategory.Name", "Switch to Category View");
-			tsbSwitchView.Hint = _categoryViewActive ? LanguageManager.Get("Mods.CategoryView.SwitchDefault.Tooltip", "Show the default flat mod list") : LanguageManager.Get("Mods.CategoryView.SwitchCategory.Tooltip", "Group the mod list by category");
+			tsbSwitchView.Caption = IsCategoryViewActive ? LanguageManager.Get("Mods.CategoryView.SwitchDefault.Name", "Switch to Default View") : LanguageManager.Get("Mods.CategoryView.SwitchCategory.Name", "Switch to Category View");
+			tsbSwitchView.Hint = IsCategoryViewActive ? LanguageManager.Get("Mods.CategoryView.SwitchDefault.Tooltip", "Show the default flat mod list") : LanguageManager.Get("Mods.CategoryView.SwitchCategory.Tooltip", "Show mods grouped by category");
 		}
 		private void QueueGridLayoutSave()
 		{
@@ -2818,7 +2985,8 @@
 			_viewModel.Settings.DockPanelLayouts[GridFindPanelVisibleKey] = findPanelVisible.ToString();
 
 			SaveGridSort();
-			SaveGridCategoryState();
+			SaveModViewMode();
+			SaveCategoryTreeLayout();
 			_viewModel.Settings.Save();
 		}
 
@@ -2917,8 +3085,7 @@
 			_categoryBrushCache.Clear();
 			_categoryColorCache.Clear();
 			_categoryTextSizeCache.Clear();
-			_categoryNameCache.Clear();
-			_outdatedModCache.Clear();
+			_presentationState.ClearDerivedCaches();
 		}
 
 		private enum InlineEditGlyph
@@ -2969,7 +3136,7 @@
 
 		private bool IsDataRowHandle(int rowHandle)
 		{
-			return rowHandle >= 0 && !gridView.IsGroupRow(rowHandle);
+			return rowHandle >= 0;
 		}
 
 		private void DrawModNameCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
@@ -3423,7 +3590,7 @@
 			for (int i = 0; i < gridView.RowCount; i++)
 			{
 				int h = gridView.GetVisibleRowHandle(i);
-				if (h >= 0 && !gridView.IsGroupRow(h))
+				if (h >= 0)
 					return h;
 			}
 			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
@@ -3434,7 +3601,7 @@
 			for (int i = gridView.RowCount - 1; i >= 0; i--)
 			{
 				int h = gridView.GetVisibleRowHandle(i);
-				if (h >= 0 && !gridView.IsGroupRow(h))
+				if (h >= 0)
 					return h;
 			}
 			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
@@ -3442,14 +3609,14 @@
 
 		/// <summary>
 		/// Focuses the first visible data row whose mod name begins with <paramref name="letter"/>.
-		/// Group rows are skipped. Returns true when a match is found.
+		/// Returns true when a match is found.
 		/// </summary>
 		private bool NavigateToModByLetter(char letter)
 		{
 			for (int i = 0; i < gridView.RowCount; i++)
 			{
 				int rowHandle = gridView.GetVisibleRowHandle(i);
-				if (rowHandle < 0 || gridView.IsGroupRow(rowHandle)) continue;
+				if (rowHandle < 0) continue;
 				int src = gridView.GetDataSourceRowIndex(rowHandle);
 				if (src < 0 || src >= _modList.Count) continue;
 				string modName = _modList[src].ModName;
@@ -3674,6 +3841,16 @@
 		{
 			if (e.MenuType != GridMenuType.Row) return;
 			gridView.FocusedRowHandle = e.HitInfo.RowHandle;
+			if (SelectedMod == null) return;
+			ShowCurrentModContextMenu();
+			e.Allow = false;
+		}
+
+		/// <summary>
+		/// Builds and shows the shared mod context menu for the current selection, regardless of active frontend.
+		/// </summary>
+		private void ShowCurrentModContextMenu()
+		{
 			IMod mod = SelectedMod;
 			if (mod == null) return;
 
@@ -3819,7 +3996,6 @@
 				AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Actions.ResetCache.Name", "Reset Mod Cache"), NmmIconAction.Reset, () => ResetSelectedModCache(mod)), true);
 
 			_gridPopupMenu.ShowPopup(Control.MousePosition);
-			e.Allow = false;
 		}
 
 		/// <summary>
@@ -4302,6 +4478,7 @@
 			gridView.ActiveFilterString = _showUpdatesOnly
 				? $"[{ColLastKnown}] != null And [{ColLastKnown}] != '' And [{ColVersion}] != [{ColLastKnown}]"
 				: string.Empty;
+			ApplyNewModsCategoryFilterToTree();
 		}
 
 		private string GetExportToFileArgs()
@@ -4329,21 +4506,21 @@
 		private void expandAllCategories_Click(object sender, ItemClickEventArgs e)
 			=> ExpandAllCategories();
 
-		/// <summary>Collapses all category groups in the mod grid (callable from CategoryManagerControl).</summary>
+		/// <summary>Collapses all category nodes (callable from CategoryManagerControl).</summary>
 		public void CollapseAllCategories()
 		{
-			if (!_categoryViewActive)
-				ApplyCategoryView(true, true);
-			gridView.CollapseAllGroups();
+			if (!IsCategoryViewActive)
+				SetModViewMode(ModViewMode.Category, true);
+			_categoryModListSurface?.CollapseAllCategories();
 			SaveGridLayout();
 		}
 
-		/// <summary>Expands all category groups in the mod grid (callable from CategoryManagerControl).</summary>
+		/// <summary>Expands all category nodes (callable from CategoryManagerControl).</summary>
 		public void ExpandAllCategories()
 		{
-			if (!_categoryViewActive)
-				ApplyCategoryView(true, false);
-			gridView.ExpandAllGroups();
+			if (!IsCategoryViewActive)
+				SetModViewMode(ModViewMode.Category, false);
+			_categoryModListSurface?.ExpandAllCategories();
 			SaveGridLayout();
 		}
 
@@ -4392,7 +4569,8 @@
 			if (lstSelectedMods.Count > 0)
 				_viewModel.SwitchModsToCategory(lstSelectedMods, -1);
 			_viewModel.CheckForUpdates(true);
-			gridView.InvalidateRows();
+			_gridModListSurface.InvalidateRows();
+			ConfigureCategoryTreeCategories();
 			ResetSearchBox?.Invoke(this, EventArgs.Empty);
 		}
 
@@ -4400,7 +4578,8 @@
 		{
 			if (_viewModel == null) return;
 			_viewModel.ResetToUnassigned();
-			gridView.InvalidateRows();
+			_gridModListSurface.InvalidateRows();
+			ConfigureCategoryTreeCategories();
 		}
 
 		private void removeAllCategories_Click(object sender, ItemClickEventArgs e)
@@ -4408,16 +4587,26 @@
 			if (_viewModel == null) return;
 			if (_viewModel.RemoveAllCategories())
 			{
-				gridView.InvalidateRows();
+				_gridModListSurface.InvalidateRows();
+				ConfigureCategoryTreeCategories();
 				ResetSearchBox?.Invoke(this, EventArgs.Empty);
 			}
 		}
 
-		private void toggleHiddenCategories_Click(object sender, ItemClickEventArgs e) { /* flat grid has no hidden categories */ }
+		private void toggleHiddenCategories_Click(object sender, ItemClickEventArgs e)
+		{
+			if (_viewModel?.Settings == null || !IsCategoryViewActive)
+				return;
+
+			_viewModel.Settings.ShowEmptyCategory = !_viewModel.Settings.ShowEmptyCategory;
+			_viewModel.Settings.Save();
+			toggleHiddenCategories.Down = _viewModel.Settings.ShowEmptyCategory;
+			ConfigureCategoryTreeCategories();
+		}
 
 		private void tsbSwitchView_Click(object sender, ItemClickEventArgs e)
 		{
-			ApplyCategoryView(!_categoryViewActive, true);
+			SetModViewMode(IsCategoryViewActive ? ModViewMode.Default : ModViewMode.Category, false);
 			SaveGridLayout();
 		}
 

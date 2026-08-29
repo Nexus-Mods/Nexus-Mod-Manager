@@ -3,13 +3,9 @@
 	using System;
 	using System.Collections.Generic;
 	using System.Collections.Specialized;
-	using System.ComponentModel;
-	using System.Drawing;
-	using System.IO;
 	using System.Windows.Forms;
 
 	using DevExpress.XtraBars;
-	using DevExpress.XtraGrid.Views.Base;
 	using DevExpress.XtraGrid.Views.Grid;
 
 	using Nexus.Client.Mods;
@@ -18,16 +14,9 @@
 
 	public partial class ModManagerDXControl
 	{
-		private readonly HashSet<IMod> _sessionNewMods =
-			new HashSet<IMod>();
+		private readonly ModSessionNewTracker _newModTracker =
+			new ModSessionNewTracker();
 
-		private readonly HashSet<IMod> _newModsFilterSnapshot =
-			new HashSet<IMod>();
-
-		private readonly HashSet<string> _knownSessionModFiles =
-			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-		private ModManagerVM _newModsTrackedViewModel;
 		private BarButtonItem _showOnlyCategoriesWithNewModsMenuItem;
 		private bool _newModCategoryViewInitialized;
 		private bool _showOnlyCategoriesWithNewMods;
@@ -67,85 +56,47 @@
 			popupCategories.BeforePopup +=
 				(sender, args) => CategoriesMenu_DropDownOpening(sender, EventArgs.Empty);
 
-			// The designer wires the normal switch handler first. This listener
-			// therefore runs after the view state has actually changed.
-			tsbSwitchView.ItemClick +=
-				(sender, args) => CategoryViewSwitchCompleted(sender, EventArgs.Empty);
+			toggleHiddenCategories.ButtonStyle = BarButtonStyle.Check;
 
-			gridView.CustomRowFilter += GridView_NewModsCustomRowFilter;
-			gridView.CustomDrawGroupRow += GridView_NewModsCustomDrawGroupRow;
 			gridView.RowCellStyle += GridView_NewModsRowCellStyle;
 			gridControl.MouseDown += GridControl_NewModsMouseDown;
 			gridView.KeyUp += GridView_NewModsKeyUp;
 
-			Disposed += (sender, args) => DetachNewModCategoryTracking();
+			_newModTracker.TrackedModChanged += NewModTracker_TrackedModChanged;
+
+			Disposed += (sender, args) =>
+			{
+				DetachNewModCategoryTracking();
+				_newModTracker.TrackedModChanged -= NewModTracker_TrackedModChanged;
+				_newModTracker.Dispose();
+			};
 
 			UpdateCategoryMenuVisibility();
 		}
 
 		private void AttachNewModCategoryTracking()
 		{
-			if (_newModsTrackedViewModel == _viewModel)
-				return;
-
-			DetachNewModCategoryTracking();
-			_newModsTrackedViewModel = _viewModel;
-
-			_sessionNewMods.Clear();
-			_newModsFilterSnapshot.Clear();
-			_knownSessionModFiles.Clear();
+			_newModTracker.ResetBaseline(_viewModel?.ManagedMods);
 			SetShowOnlyCategoriesWithNewMods(false);
-
-			if (_newModsTrackedViewModel == null)
-				return;
-
-			foreach (IMod mod in _newModsTrackedViewModel.ManagedMods)
-				RegisterKnownSessionMod(mod);
-
-			_newModsTrackedViewModel.ManagedMods.CollectionChanged +=
-				NewModsManagedMods_CollectionChanged;
-
 			UpdateCategoryMenuVisibility();
 		}
 
 		private void DetachNewModCategoryTracking()
 		{
-			if (_newModsTrackedViewModel != null)
-			{
-				_newModsTrackedViewModel.ManagedMods.CollectionChanged -=
-					NewModsManagedMods_CollectionChanged;
-			}
-
-			foreach (IMod mod in _sessionNewMods)
-			{
-				if (mod != null)
-					mod.PropertyChanged -= TrackedNewMod_PropertyChanged;
-			}
-
-			_newModsTrackedViewModel = null;
-			_sessionNewMods.Clear();
-			_newModsFilterSnapshot.Clear();
-			_knownSessionModFiles.Clear();
+			_newModTracker.ResetBaseline(null);
 			_showOnlyCategoriesWithNewMods = false;
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
 				_showOnlyCategoriesWithNewModsMenuItem.Down = false;
 		}
 
-		private void NewModsManagedMods_CollectionChanged(
-			object sender,
-			NotifyCollectionChangedEventArgs e)
+		/// <summary>
+		/// Applies a ManagedMods collection delta to the session new-mod tracker and refreshes affected surfaces.
+		/// </summary>
+		private void UpdateNewModTracking(NotifyCollectionChangedEventArgs e)
 		{
-			if (InvokeRequired)
-			{
-				BeginInvoke(
-					(Action<object, NotifyCollectionChangedEventArgs>)
-						NewModsManagedMods_CollectionChanged,
-					sender,
-					e);
-
+			if (e == null)
 				return;
-			}
 
 			bool refreshFilter = false;
 
@@ -156,14 +107,9 @@
 					{
 						foreach (IMod mod in e.NewItems)
 						{
-							if (!RegisterKnownSessionMod(mod))
-								continue;
-
-							MarkModAsNew(mod);
-
-							if (_showOnlyCategoriesWithNewMods)
+							if (_newModTracker.TrackAddedMod(mod, _showOnlyCategoriesWithNewMods) &&
+								_showOnlyCategoriesWithNewMods)
 							{
-								_newModsFilterSnapshot.Add(mod);
 								refreshFilter = true;
 							}
 						}
@@ -175,7 +121,7 @@
 					{
 						foreach (IMod mod in e.OldItems)
 						{
-							RemoveTrackedMod(mod, true);
+							_newModTracker.RemoveMod(mod, true);
 							refreshFilter = true;
 						}
 					}
@@ -185,121 +131,48 @@
 					if (e.OldItems != null)
 					{
 						foreach (IMod mod in e.OldItems)
-							RemoveTrackedMod(mod, false);
+							_newModTracker.RemoveMod(mod, false);
 					}
 
 					if (e.NewItems != null)
 					{
 						foreach (IMod mod in e.NewItems)
-							RegisterKnownSessionMod(mod);
+							_newModTracker.RegisterKnownMod(mod);
 					}
 
 					refreshFilter = true;
 					break;
 
 				case NotifyCollectionChangedAction.Reset:
-					ResetNewModSessionBaseline();
+					_newModTracker.ResetBaseline(_viewModel?.ManagedMods);
+					SetShowOnlyCategoriesWithNewMods(false);
 					refreshFilter = true;
 					break;
 			}
 
 			if (refreshFilter && _showOnlyCategoriesWithNewMods)
-				gridView.RefreshData();
+				ApplyNewModsCategoryFilterToTree();
 
 			gridView.InvalidateRows();
 			gridView.Invalidate();
+			_categoryModListSurface?.InvalidateRows();
 		}
 
-		private bool RegisterKnownSessionMod(IMod mod)
-		{
-			if (mod == null)
-				return false;
-
-			string key = GetSessionModKey(mod);
-			return !String.IsNullOrEmpty(key) &&
-				_knownSessionModFiles.Add(key);
-		}
-
-		private static string GetSessionModKey(IMod mod)
-		{
-			if (mod == null || String.IsNullOrWhiteSpace(mod.Filename))
-				return String.Empty;
-
-			try
-			{
-				return Path.GetFullPath(mod.Filename);
-			}
-			catch
-			{
-				return mod.Filename.Trim();
-			}
-		}
-
-		private void MarkModAsNew(IMod mod)
-		{
-			if (mod == null || !_sessionNewMods.Add(mod))
-				return;
-
-			mod.PropertyChanged += TrackedNewMod_PropertyChanged;
-		}
-
-		private void RemoveTrackedMod(IMod mod, bool removeKnownKey)
-		{
-			if (mod == null)
-				return;
-
-			if (_sessionNewMods.Remove(mod))
-				mod.PropertyChanged -= TrackedNewMod_PropertyChanged;
-
-			_newModsFilterSnapshot.Remove(mod);
-
-			if (removeKnownKey)
-			{
-				string key = GetSessionModKey(mod);
-				if (!String.IsNullOrEmpty(key))
-					_knownSessionModFiles.Remove(key);
-			}
-		}
-
-		private void ResetNewModSessionBaseline()
-		{
-			foreach (IMod mod in _sessionNewMods)
-			{
-				if (mod != null)
-					mod.PropertyChanged -= TrackedNewMod_PropertyChanged;
-			}
-
-			_sessionNewMods.Clear();
-			_newModsFilterSnapshot.Clear();
-			_knownSessionModFiles.Clear();
-
-			if (_newModsTrackedViewModel != null)
-			{
-				foreach (IMod mod in _newModsTrackedViewModel.ManagedMods)
-					RegisterKnownSessionMod(mod);
-			}
-
-			SetShowOnlyCategoriesWithNewMods(false);
-		}
-
-		private void TrackedNewMod_PropertyChanged(
-			object sender,
-			PropertyChangedEventArgs e)
+		/// <summary>
+		/// Refreshes new-mod presentation when metadata changes on a tracked mod, marshaling to the UI thread when necessary.
+		/// </summary>
+		private void NewModTracker_TrackedModChanged(object sender, EventArgs e)
 		{
 			if (InvokeRequired)
 			{
-				BeginInvoke(
-					(Action<object, PropertyChangedEventArgs>)
-						TrackedNewMod_PropertyChanged,
-					sender,
-					e);
-
+				BeginInvoke((Action<object, EventArgs>)NewModTracker_TrackedModChanged, sender, e);
 				return;
 			}
 
 			gridView.RefreshData();
 			gridView.InvalidateRows();
 			gridView.Invalidate();
+			_categoryModListSurface?.InvalidateRows();
 		}
 
 		private void GridControl_NewModsMouseDown(
@@ -311,8 +184,7 @@
 
 			var hitInfo = gridView.CalcHitInfo(e.Location);
 			if (!hitInfo.InRow ||
-				hitInfo.RowHandle < 0 ||
-				gridView.IsGroupRow(hitInfo.RowHandle))
+				hitInfo.RowHandle < 0)
 			{
 				return;
 			}
@@ -341,7 +213,6 @@
 
 		private void AcknowledgeSelectedNewMods(int fallbackRowHandle)
 		{
-			bool changed = false;
 			List<IMod> selectedMods = SelectedMods;
 
 			if (selectedMods.Count == 0)
@@ -351,16 +222,7 @@
 					selectedMods.Add(fallbackMod);
 			}
 
-			foreach (IMod mod in selectedMods)
-			{
-				if (!_sessionNewMods.Remove(mod))
-					continue;
-
-				mod.PropertyChanged -= TrackedNewMod_PropertyChanged;
-				changed = true;
-			}
-
-			if (!changed)
+			if (!_newModTracker.Acknowledge(selectedMods))
 				return;
 
 			// Deliberately do not refresh the custom filter here. In filtered
@@ -368,11 +230,12 @@
 			// disabled and enabled again.
 			gridView.InvalidateRows();
 			gridView.Invalidate();
+			_categoryModListSurface?.InvalidateRows();
 		}
 
 		private IMod GetModAtRow(int rowHandle)
 		{
-			if (rowHandle < 0 || gridView.IsGroupRow(rowHandle))
+			if (rowHandle < 0)
 				return null;
 
 			int sourceIndex = gridView.GetDataSourceRowIndex(rowHandle);
@@ -382,32 +245,11 @@
 			return _modList[sourceIndex];
 		}
 
-		private void GridView_NewModsCustomRowFilter(
-			object sender,
-			RowFilterEventArgs e)
-		{
-			if (!_showOnlyCategoriesWithNewMods)
-				return;
-
-			if (e.ListSourceRow < 0 || e.ListSourceRow >= _modList.Count)
-			{
-				e.Visible = false;
-				e.Handled = true;
-				return;
-			}
-
-			e.Visible =
-				_newModsFilterSnapshot.Contains(
-					_modList[e.ListSourceRow]);
-			e.Handled = true;
-		}
-
 		private void GridView_NewModsRowCellStyle(
 			object sender,
 			RowCellStyleEventArgs e)
 		{
-			if (e.RowHandle < 0 ||
-				gridView.IsGroupRow(e.RowHandle))
+			if (e.RowHandle < 0)
 			{
 				return;
 			}
@@ -417,7 +259,7 @@
 				return;
 
 			IMod mod = _modList[sourceIndex];
-			if (!_sessionNewMods.Contains(mod))
+			if (!_newModTracker.IsNew(mod))
 				return;
 
 			bool selected =
@@ -434,54 +276,11 @@
 				e.Appearance.Font = _gridBoldFont;
 		}
 
-		private void GridView_NewModsCustomDrawGroupRow(
-			object sender,
-			RowObjectCustomDrawEventArgs e)
-		{
-			if (!_categoryViewActive ||
-				e.RowHandle >= 0 ||
-				!gridView.IsGroupRow(e.RowHandle))
-			{
-				return;
-			}
-
-			string categoryName = Convert.ToString(
-				gridView.GetGroupRowValue(e.RowHandle));
-
-			if (!CategoryContainsNewMods(categoryName))
-				return;
-
-			e.Appearance.BackColor = _colorPalette.ModNewGroupBackColor;
-			e.Appearance.ForeColor = _colorPalette.ModNewGroupForeColor;
-
-			if (_gridBoldFont != null)
-				e.Appearance.Font = _gridBoldFont;
-
-			e.DefaultDraw();
-			e.Handled = true;
-		}
-
-		private bool CategoryContainsNewMods(string categoryName)
-		{
-			foreach (IMod mod in _sessionNewMods)
-			{
-				if (String.Equals(
-						GetCachedCategoryName(mod),
-						categoryName,
-						StringComparison.CurrentCultureIgnoreCase))
-				{
-					return true;
-				}
-			}
-
-			return false;
-		}
-
 		private void ShowOnlyCategoriesWithNewMods_Click(
 			object sender,
 			EventArgs e)
 		{
-			if (!_categoryViewActive)
+			if (!IsCategoryViewActive)
 				return;
 
 			SetShowOnlyCategoriesWithNewMods(
@@ -490,15 +289,9 @@
 
 		private void SetShowOnlyCategoriesWithNewMods(bool enabled)
 		{
-			enabled = enabled && _categoryViewActive;
+			enabled = enabled && IsCategoryViewActive;
 			_showOnlyCategoriesWithNewMods = enabled;
-			_newModsFilterSnapshot.Clear();
-
-			if (enabled)
-			{
-				foreach (IMod mod in _sessionNewMods)
-					_newModsFilterSnapshot.Add(mod);
-			}
+			_newModTracker.CaptureFilterSnapshot(enabled);
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
 			{
@@ -506,42 +299,36 @@
 					enabled;
 			}
 
-			if (gridView == null ||
-				gridControl == null ||
-				gridControl.IsDisposed)
+			ApplyNewModsCategoryFilterToTree();
+
+
+			if (enabled && _categoryModListSurface != null)
+				_categoryModListSurface.ExpandAllCategories();
+		}
+
+		/// <summary>
+		/// Composes the New Mods and Updates Only predicates used by the Category Tree surface.
+		/// </summary>
+		private void ApplyNewModsCategoryFilterToTree()
+		{
+			if (_categoryModListSurface == null)
+				return;
+
+			if (!_showOnlyCategoriesWithNewMods && !_showUpdatesOnly)
 			{
+				_categoryModListSurface.SetVisibilityPredicate(null);
 				return;
 			}
 
-			gridView.RefreshData();
-
-			if (enabled)
-				gridView.ExpandAllGroups();
-
-			gridView.InvalidateRows();
-			gridView.Invalidate();
+			_categoryModListSurface.SetVisibilityPredicate(mod =>
+				(!_showOnlyCategoriesWithNewMods || _newModTracker.IsInFilterSnapshot(mod)) &&
+				(!_showUpdatesOnly || IsModOutdated(mod)));
 		}
 
 		private void CategoriesMenu_DropDownOpening(
 			object sender,
 			EventArgs e)
 		{
-			if (!_categoryViewActive &&
-				_showOnlyCategoriesWithNewMods)
-			{
-				SetShowOnlyCategoriesWithNewMods(false);
-			}
-
-			UpdateCategoryMenuVisibility();
-		}
-
-		private void CategoryViewSwitchCompleted(
-			object sender,
-			EventArgs e)
-		{
-			if (!_categoryViewActive)
-				SetShowOnlyCategoriesWithNewMods(false);
-
 			UpdateCategoryMenuVisibility();
 		}
 
@@ -557,20 +344,21 @@
 				LanguageManager.Get("Mods.Categories.ResetUnassigned.Name", "Reset unassigned mods to Nexus site defaults");
 			resetModsCategory.Caption = LanguageManager.Get("Mods.Categories.ResetAllUnassigned.Name", "Reset all mods to unassigned");
 			removeAllCategories.Caption = LanguageManager.Get("Mods.Categories.RemoveAll.Name", "Remove all categories");
-			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.Name", "Toggle hidden categories");
+			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.Name", "Show empty categories");
 			tsbResetCategories.Hint =
 				LanguageManager.Get("Mods.Categories.Menu.ShortTooltip", "Add new category - Click the small arrow for more options");
 		}
 
 		private void UpdateCategoryMenuVisibility()
 		{
-			bool categoryView = _categoryViewActive;
+			bool categoryView = IsCategoryViewActive;
 
 			addNewCategory.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			collapseAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			expandAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			removeAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			toggleHiddenCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+			toggleHiddenCategories.Down = _viewModel?.Settings?.ShowEmptyCategory == true;
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
 			{

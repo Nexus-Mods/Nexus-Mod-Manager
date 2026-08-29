@@ -241,6 +241,9 @@
 			return (Control)_modManagerControl;
 		}
 
+		/// <summary>
+		/// Determines whether a main-document control matches the persisted document name, using its canonical fallback name when unnamed.
+		/// </summary>
 		private static bool MatchesMainDocumentName(Control control, string fallbackName, string savedName)
 		{
 			if (control == null || String.IsNullOrWhiteSpace(savedName))

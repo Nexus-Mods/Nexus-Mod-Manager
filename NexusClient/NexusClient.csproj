@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -106,6 +106,22 @@
     <Compile Include="ModManagement\UI\EventArgs\ExportFailedEventArgs.cs" />
     <Compile Include="ModManagement\UI\EventArgs\ExportSucceededEventArgs.cs" />
     <Compile Include="ModManagement\UI\IModManagerView.cs" />
+    <Compile Include="ModManagement\UI\IModListSurface.cs" />
+    <Compile Include="ModManagement\UI\GridModListSurface.cs" />
+    <Compile Include="ModManagement\UI\ModGridDXControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModGridDXControl.Designer.cs">
+      <DependentUpon>ModGridDXControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModManagement\UI\ModCategoryTreeDXControl.cs" />
+    <Compile Include="ModManagement\UI\ModCategoryTreeDXControl.Designer.cs">
+      <DependentUpon>ModCategoryTreeDXControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="ModManagement\UI\TreeModListSurface.cs" />
+    <Compile Include="ModManagement\UI\ModListPresentationState.cs" />
+    <Compile Include="ModManagement\UI\ModSessionNewTracker.cs" />
+    <Compile Include="ModManagement\UI\ModViewMode.cs" />
     <Compile Include="ModManagement\UI\ModManagerDXControl.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -1130,6 +1146,10 @@
     </Reference>
     <Reference Include="DevExpress.XtraGrid.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraGrid.v25.2.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="DevExpress.XtraTreeList.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraTreeList.v25.2.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="DevExpress.Drawing.v25.2">

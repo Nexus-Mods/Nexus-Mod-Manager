@@ -67,16 +67,13 @@
             this.tsbShowUpdatesOnly = new DevExpress.XtraBars.BarButtonItem();
             this.tsbSkyrimDownloads = new DevExpress.XtraBars.BarButtonItem();
             this.toolStripLabelModCount = new DevExpress.XtraBars.BarStaticItem();
-            this.gridControl = new DevExpress.XtraGrid.GridControl();
-            this.gridView = new DevExpress.XtraGrid.Views.Grid.GridView();
+            this.viewHost = new System.Windows.Forms.Panel();
             ((System.ComponentModel.ISupportInitialize)(this.barManagerMods)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupAddMod)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupDeactivate)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupOnlineChecks)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupCategories)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupExport)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.gridControl)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.gridView)).BeginInit();
             this.SuspendLayout();
             //
             // barManagerMods
@@ -342,7 +339,7 @@
             this.removeAllCategories.Id = 25;
             this.removeAllCategories.Name = "removeAllCategories";
             this.removeAllCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.removeAllCategories_Click);
-            this.toggleHiddenCategories.Caption = "Categories: toggle hidden categories";
+            this.toggleHiddenCategories.Caption = "Categories: show empty categories";
             this.toggleHiddenCategories.Id = 26;
             this.toggleHiddenCategories.Name = "toggleHiddenCategories";
             this.toggleHiddenCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.toggleHiddenCategories_Click);
@@ -414,26 +411,19 @@
             this.barDockControlRight.Dock = System.Windows.Forms.DockStyle.Right;
             this.barDockControlRight.Manager = this.barManagerMods;
             //
-            // gridControl
+            // viewHost
             //
-            this.gridControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.gridControl.Location = new System.Drawing.Point(0, 0);
-            this.gridControl.MainView = this.gridView;
-            this.gridControl.Name = "gridControl";
-            this.gridControl.TabIndex = 1;
-            this.gridControl.ViewCollection.AddRange(new DevExpress.XtraGrid.Views.Base.BaseView[] { this.gridView });
-            //
-            // gridView
-            //
-            this.gridView.GridControl = this.gridControl;
-            this.gridView.Name = "gridView";
-            this.gridView.PopupMenuShowing += new DevExpress.XtraGrid.Views.Grid.PopupMenuShowingEventHandler(this.gridView_PopupMenuShowing);
+            this.viewHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.viewHost.Location = new System.Drawing.Point(0, 0);
+            this.viewHost.Name = "viewHost";
+            this.viewHost.Size = new System.Drawing.Size(900, 600);
+            this.viewHost.TabIndex = 1;
             //
             // ModManagerDXControl
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.Controls.Add(this.gridControl);
+            this.Controls.Add(this.viewHost);
             this.Controls.Add(this.barDockControlLeft);
             this.Controls.Add(this.barDockControlRight);
             this.Controls.Add(this.barDockControlBottom);
@@ -446,8 +436,6 @@
             ((System.ComponentModel.ISupportInitialize)(this.popupOnlineChecks)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupCategories)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.popupExport)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.gridControl)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.gridView)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
         }
@@ -499,7 +487,6 @@
         private DevExpress.XtraBars.BarButtonItem tsbShowUpdatesOnly;
         private DevExpress.XtraBars.BarButtonItem tsbSkyrimDownloads;
         private DevExpress.XtraBars.BarStaticItem toolStripLabelModCount;
-        private DevExpress.XtraGrid.GridControl gridControl;
-        private DevExpress.XtraGrid.Views.Grid.GridView gridView;
+        private System.Windows.Forms.Panel viewHost;
     }
 }
