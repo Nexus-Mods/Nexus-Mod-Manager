@@ -1070,6 +1070,8 @@
     "Plugins.Diagnostics.WarningsHeading": "Warnungen",
     "Plugins.DisableAll.Confirm.Message": "Möchtest du alle aktiven Plugins deaktivieren?",
     "Plugins.DisableAll.Confirm.Title": "Plugins deaktivieren",
+    "Plugins.Display.HideFePluginIndexes.Name": "FE-Plugin-Indizes ausblenden",
+    "Plugins.Display.HideFePluginIndexes.Tooltip": "Blendet FE:xxx-Werte in der LO-Index-Spalte für Light-/ESL-Plugins aus.",
     "Plugins.EnableAll.Confirm.Message": "Möchtest du alle inaktiven Plugins aktivieren?",
     "Plugins.EnableAll.Confirm.Title": "Plugins aktivieren",
     "Plugins.Export.Failed.Message": "Die aktuelle Ladereihenfolge konnte nicht exportiert werden.",

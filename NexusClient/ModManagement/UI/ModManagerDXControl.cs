@@ -195,6 +195,8 @@
 		private const string GridFocusTopAfterSortKey = GridLayoutKey + ".FocusTopAfterSort";
 		private const string GridFocusTopAfterInstallDateChangeKey = GridLayoutKey + ".FocusTopAfterInstallDateChange";
 		private const string GridToolbarPositionKey = GridLayoutKey + ".ToolbarLeft";
+		private const bool DefaultToolbarPositionLeft = true;
+		private const bool LegacyDefaultToolbarPositionLeft = false;
 		private const string DefaultGridFontFamily = "Segoe UI";
 		private const float DefaultGridFontSizePt = 9f;
 		private const string DefaultGridDensity = "Compact";
@@ -419,7 +421,7 @@
 			SetLatestColumnOpensModPage(false, false);
 			SetFocusTopRowAfterSorting(true, false);
 			SetFocusTopRowAfterInstallDateChange(true, false);
-			SetToolbarPosition(false, false);
+			SetToolbarPosition(DefaultToolbarPositionLeft, true);
 			SetModViewMode(ModViewMode.Default, false);
 			ApplyDefaultColumnSizing();
 			if (_categoryModListSurface != null)
@@ -1159,7 +1161,43 @@
 			SetLatestColumnOpensModPage(ReadGridDisplayOption(GridLatestColumnOpensModPageKey, false), false);
 			SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
 			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
-			SetToolbarPosition(ReadGridDisplayOption(GridToolbarPositionKey, false), false);
+			SetToolbarPosition(RestoreToolbarPosition(), false);
+		}
+
+		/// <summary>
+		/// Restores the Mods toolbar position while migrating the old implicit Top default.
+		/// Existing DevExpress Mods users without an explicit toolbar setting keep Top;
+		/// first-time users of the new Mods UI receive the canonical Left default.
+		/// </summary>
+		private bool RestoreToolbarPosition()
+		{
+			if (_viewModel?.Settings?.DockPanelLayouts == null)
+				return DefaultToolbarPositionLeft;
+
+			string persistedValue;
+			bool persistedLeft;
+			if (_viewModel.Settings.DockPanelLayouts.TryGetValue(GridToolbarPositionKey, out persistedValue) &&
+				Boolean.TryParse(persistedValue, out persistedLeft))
+			{
+				return persistedLeft;
+			}
+
+			// Toolbar position used to default to Top without writing a setting. Detect an
+			// already-used DX Mods UI by any of its persisted keys so an application update
+			// does not silently move that user's toolbar. With no prior DX Mods state, this
+			// is a first-use profile and should receive the new Left default.
+			bool hasExistingModsUiState = _viewModel.Settings.DockPanelLayouts.Keys.Any(key =>
+				!String.Equals(key, GridToolbarPositionKey, StringComparison.Ordinal) &&
+				key.StartsWith("modManagerDX", StringComparison.Ordinal));
+			bool toolbarLeft = hasExistingModsUiState
+				? LegacyDefaultToolbarPositionLeft
+				: DefaultToolbarPositionLeft;
+
+			// Persist the resolved migration result once. From this point onward the position
+			// is an explicit user/profile choice and is never affected by default changes.
+			_viewModel.Settings.DockPanelLayouts[GridToolbarPositionKey] = toolbarLeft.ToString();
+			_viewModel.Settings.Save();
+			return toolbarLeft;
 		}
 
 		private bool ReadGridDisplayOption(string key, bool defaultValue)

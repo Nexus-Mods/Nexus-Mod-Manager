@@ -40,6 +40,7 @@
         private const string ColStatus = "Status";
         private const string GridLayoutKey = "pluginManagerDXGrid";
         private const string GridColumnWidthsKey = GridLayoutKey + ".ColumnWidths";
+        private const string HideFePluginIndexesSettingsKey = GridLayoutKey + ".HideFePluginIndexes";
         private const string SplitterSizeKey = "pluginManagerDX";
         private const int GridLayoutSaveDelayMs = 400;
         private const int DragAutoScrollIntervalMs = 75;
@@ -58,6 +59,7 @@
 		private readonly BarButtonItem _restoreLoadOrderButton;
 		private readonly BarSubItem _exportButton;
 		private readonly BarSubItem _importButton;
+		private readonly BarCheckItem _hideFePluginIndexesToggle;
 		private readonly BarCheckItem _disablePluginSortingRestrictionsToggle;
 
 		private readonly GridControl _gridControl;
@@ -75,6 +77,8 @@
         private Point _dragStartPoint = Point.Empty;
         private int _dragSourceRowHandle = GridControl.InvalidRowHandle;
         private bool _updatingActiveCell;
+		private bool _hideFePluginIndexes;
+		private bool _synchronizingHideFePluginIndexesToggle;
 		private bool _synchronizingPluginRestrictionsToggle;
 		private bool _suppressManagedPluginsRefresh;
 		private bool _managedPluginsRefreshPending;
@@ -208,6 +212,15 @@
 			_importButton.AddItem(importFromClipboardItem);
 			_importButton.AddItem(importFromFileItem);
 
+			_hideFePluginIndexesToggle = new BarCheckItem(_barManager)
+			{
+				Caption = LanguageManager.Get("Plugins.Display.HideFePluginIndexes.Name", "Hide FE Plugin Indexes"),
+				Hint = LanguageManager.Get("Plugins.Display.HideFePluginIndexes.Tooltip", "Hide FE:xxx values in the LO Index column for light/ESL plugins."),
+				CheckBoxVisibility = CheckBoxVisibility.BeforeText
+			};
+
+			_hideFePluginIndexesToggle.CheckedChanged += HideFePluginIndexesToggleCheckedChanged;
+
 			_disablePluginSortingRestrictionsToggle = new BarCheckItem(_barManager)
 			{
 				Caption = LanguageManager.Get("Plugins.SortingRestrictions.Disable.Name", "Disable Plugin Sorting Restrictions"),
@@ -220,6 +233,7 @@
 			_toolbar.AddItem(_moveUpButton);
 			_toolbar.AddItem(_moveDownButton);
 			_toolbar.AddItem(_restoreLoadOrderButton);
+			_toolbar.AddItem(_hideFePluginIndexesToggle);
 
 			_toolbar.AddItem(_disableAllButton).BeginGroup = true;
 			_toolbar.AddItem(_enableAllButton);
@@ -231,6 +245,7 @@
 			NmmIconProvider.Bind(_moveUpButton, NmmIconAction.MoveUp);
 			NmmIconProvider.Bind(_moveDownButton, NmmIconAction.MoveDown);
 			NmmIconProvider.Bind(_restoreLoadOrderButton, NmmIconAction.Sort);
+			NmmIconProvider.Bind(_hideFePluginIndexesToggle, NmmIconAction.DisplayOptions);
 			NmmIconProvider.Bind(_disableAllButton, NmmIconAction.DisableAll);
 			NmmIconProvider.Bind(_enableAllButton, NmmIconAction.EnableAll);
 			NmmIconProvider.Bind(_exportButton, NmmIconAction.Export);
@@ -458,6 +473,7 @@
 
                 if (_viewModel != null)
                 {
+                    RestoreHideFePluginIndexesSetting();
                     HookViewModel();
                     RestoreGridLayout();
                     QueuePluginManagerSplitterRestore();
@@ -657,6 +673,52 @@
 		}
 
 		#region Helpers
+
+		/// <summary>
+		/// Restores the persisted preference controlling whether FE load-order indexes are rendered.
+		/// </summary>
+		private void RestoreHideFePluginIndexesSetting()
+		{
+			bool hideFePluginIndexes = false;
+
+			if (_viewModel?.Settings?.DockPanelLayouts != null &&
+				_viewModel.Settings.DockPanelLayouts.ContainsKey(HideFePluginIndexesSettingsKey))
+			{
+				bool.TryParse(_viewModel.Settings.DockPanelLayouts[HideFePluginIndexesSettingsKey], out hideFePluginIndexes);
+			}
+
+			_hideFePluginIndexes = hideFePluginIndexes;
+			_synchronizingHideFePluginIndexesToggle = true;
+
+			try
+			{
+				_hideFePluginIndexesToggle.Checked = hideFePluginIndexes;
+			}
+			finally
+			{
+				_synchronizingHideFePluginIndexesToggle = false;
+			}
+		}
+
+		/// <summary>
+		/// Applies and persists the FE-index visibility preference selected from the plugin toolbar.
+		/// </summary>
+		/// <param name="sender">The event sender.</param>
+		/// <param name="e">The item click event arguments.</param>
+		private void HideFePluginIndexesToggleCheckedChanged(object sender, ItemClickEventArgs e)
+		{
+			if (_synchronizingHideFePluginIndexesToggle)
+				return;
+
+			_hideFePluginIndexes = _hideFePluginIndexesToggle.Checked;
+			_gridView.RefreshData();
+
+			if (_viewModel?.Settings?.DockPanelLayouts == null)
+				return;
+
+			_viewModel.Settings.DockPanelLayouts[HideFePluginIndexesSettingsKey] = _hideFePluginIndexes.ToString();
+			_viewModel.Settings.Save();
+		}
 
 		/// <summary>
 		/// Synchronizes the restriction toggle with the authoritative state exposed by the view model.
@@ -1968,8 +2030,25 @@
 
 		private void GridViewCustomColumnDisplayText(object sender, CustomColumnDisplayTextEventArgs e)
         {
-            if (e.Column != null && e.Column.FieldName == ColActive && e.Value is bool)
+            if (e.Column == null)
+                return;
+
+            if (e.Column.FieldName == ColActive && e.Value is bool)
+            {
                 e.DisplayText = (bool)e.Value ? _activeDisplayText : _inactiveDisplayText;
+                return;
+            }
+
+            // Suppress only the rendered data-cell value. The underlying index remains available
+            // to sorting and filtering, so this option cannot alter the effective load-order view.
+            if (_hideFePluginIndexes &&
+                e.Column.FieldName == ColLoadOrder &&
+                e.ListSourceRowIndex >= 0 &&
+                e.Value is string loadOrderIndex &&
+                loadOrderIndex.StartsWith("FE:", StringComparison.OrdinalIgnoreCase))
+            {
+                e.DisplayText = String.Empty;
+            }
         }
 
 		private void GridViewSelectionChanged(object sender, DevExpress.Data.SelectionChangedEventArgs e)

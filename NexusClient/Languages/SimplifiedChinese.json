@@ -1070,6 +1070,8 @@
     "Plugins.Diagnostics.WarningsHeading": "警告",
     "Plugins.DisableAll.Confirm.Message": "是否要禁用所有已激活的插件？",
     "Plugins.DisableAll.Confirm.Title": "禁用插件",
+    "Plugins.Display.HideFePluginIndexes.Name": "隐藏 FE 插件索引",
+    "Plugins.Display.HideFePluginIndexes.Tooltip": "隐藏轻量级/ESL 插件在加载顺序索引列中的 FE:xxx 值。",
     "Plugins.EnableAll.Confirm.Message": "是否要启用所有未激活的插件？",
     "Plugins.EnableAll.Confirm.Title": "启用插件",
     "Plugins.Export.Failed.Message": "无法导出当前加载顺序。",

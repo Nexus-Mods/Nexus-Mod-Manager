@@ -1070,6 +1070,8 @@
     "Plugins.Diagnostics.WarningsHeading": "Avertissements",
     "Plugins.DisableAll.Confirm.Message": "Voulez-vous désactiver tous les plugins actifs ?",
     "Plugins.DisableAll.Confirm.Title": "Désactiver les plugins",
+    "Plugins.Display.HideFePluginIndexes.Name": "Masquer les index des plugins FE",
+    "Plugins.Display.HideFePluginIndexes.Tooltip": "Masque les valeurs FE:xxx dans la colonne d’index de chargement pour les plugins légers/ESL.",
     "Plugins.EnableAll.Confirm.Message": "Voulez-vous activer tous les plugins inactifs ?",
     "Plugins.EnableAll.Confirm.Title": "Activer les plugins",
     "Plugins.Export.Failed.Message": "Impossible d’exporter l’ordre de chargement actuel.",

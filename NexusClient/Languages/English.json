@@ -1070,6 +1070,8 @@
     "Plugins.Diagnostics.WarningsHeading": "Warnings",
     "Plugins.DisableAll.Confirm.Message": "Do you want to disable all the active plugins?",
     "Plugins.DisableAll.Confirm.Title": "Disable Plugins",
+    "Plugins.Display.HideFePluginIndexes.Name": "Hide FE Plugin Indexes",
+    "Plugins.Display.HideFePluginIndexes.Tooltip": "Hide FE:xxx values in the LO Index column for light/ESL plugins.",
     "Plugins.EnableAll.Confirm.Message": "Do you want to enable all the inactive plugins?",
     "Plugins.EnableAll.Confirm.Title": "Enable Plugins",
     "Plugins.Export.Failed.Message": "The current load order could not be exported.",
