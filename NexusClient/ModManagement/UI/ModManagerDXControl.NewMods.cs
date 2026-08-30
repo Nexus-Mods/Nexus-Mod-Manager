@@ -346,7 +346,7 @@
 			removeAllCategories.Caption = LanguageManager.Get("Mods.Categories.RemoveAll.Name", "Remove all categories");
 			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.Name", "Show empty categories");
 			tsbResetCategories.Hint =
-				LanguageManager.Get("Mods.Categories.Menu.ShortTooltip", "Add new category - Click the small arrow for more options");
+				LanguageManager.Get("Mods.Categories.Menu.ShortTooltip", "Category actions");
 		}
 
 		private void UpdateCategoryMenuVisibility()

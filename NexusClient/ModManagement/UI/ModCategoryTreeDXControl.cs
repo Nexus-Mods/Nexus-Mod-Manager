@@ -39,6 +39,7 @@
 		internal string NewName { get; }
 	}
 
+
 	/// <summary>
 	/// Hosts the hierarchical Category View frontend independently from the
 	/// Mod Manager orchestration, toolbar and ViewModel lifecycle.
@@ -72,6 +73,7 @@
 		private bool _lastFindPanelVisible;
 		private Color _latestVersionForeColor;
 		private Color _outdatedVersionForeColor;
+		private int _internalDataUpdateDepth;
 
 		/// <summary>
 		/// Initializes the hierarchical Category View frontend and its DevExpress interaction rules.
@@ -188,6 +190,24 @@
 		}
 
 		/// <summary>
+		/// Suppresses user-facing sort completion notifications while the surface mutates data.
+		/// Calls may be nested by higher-level reconciliation operations.
+		/// </summary>
+		internal void BeginInternalDataUpdate()
+		{
+			_internalDataUpdateDepth++;
+		}
+
+		/// <summary>
+		/// Ends a data-update notification suppression scope.
+		/// </summary>
+		internal void EndInternalDataUpdate()
+		{
+			if (_internalDataUpdateDepth > 0)
+				_internalDataUpdateDepth--;
+		}
+
+		/// <summary>
 		/// Configures TreeList behavior and wires frontend-only interaction events.
 		/// </summary>
 		private void ConfigureTree()
@@ -229,7 +249,11 @@
 			treeList.EndSorting += (sender, args) =>
 			{
 				RaiseLayoutStateChanged();
-				SortingCompleted?.Invoke(this, EventArgs.Empty);
+				// EndSorting also fires when an already-sorted TreeList repositions nodes
+				// after add/remove/refresh operations. Only expose sorts performed outside
+				// those internal data updates to the user-facing focus option.
+				if (_internalDataUpdateDepth == 0)
+					SortingCompleted?.Invoke(this, EventArgs.Empty);
 			};
 			treeList.LayoutUpdated += TreeList_LayoutUpdated;
 		}
@@ -659,7 +683,15 @@
 				return;
 
 			TreeListHitInfo hitInfo = treeList.CalcHitInfo(e.Location);
-			if (!(hitInfo.Node?.Tag is IMod))
+			if (hitInfo.Node == null)
+				return;
+
+			// Category nodes use the TreeList native node menu. The Mod Manager extends
+			// that menu through PopupMenuShowing instead of opening a competing popup.
+			if (hitInfo.Node.Tag is ModCategoryTreeCategory)
+				return;
+
+			if (!(hitInfo.Node.Tag is IMod))
 				return;
 
 			treeList.FocusedNode = hitInfo.Node;

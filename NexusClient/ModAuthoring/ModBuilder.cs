@@ -122,7 +122,12 @@ namespace Nexus.Client.ModAuthoring
 			switch ((Sources)args[0])
 			{
 				case Sources.Archive:
-					return DoFromArchive((IModFormatRegistry)args[1], (string)args[2], (ConfirmOverwriteCallback)args[3], out p_strMessage);
+					return DoFromArchive(
+						(IModFormatRegistry)args[1],
+						(string)args[2],
+						(ConfirmOverwriteCallback)args[3],
+						args.Length > 4 && (bool)args[4],
+						out p_strMessage);
 			}
 			throw new ArgumentException("Unrecognized activity source.");
 		}
@@ -138,8 +143,9 @@ namespace Nexus.Client.ModAuthoring
 		/// <param name="p_mfrFormats">The registry of supported mod formats.</param>
 		/// <param name="p_strFilePath">The archive to build into a mod.</param>
 		/// <param name="p_dlgConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+		/// <param name="p_booConsumeSource">Whether the source is a task-owned temporary download that may be moved instead of copied.</param>
 		/// <exception cref="ArgumentException">Thrown if the specified path is not an archive.</exception>
-		public void BuildFromFile(IModFormatRegistry p_mfrFormats, string p_strFilePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite)
+		public void BuildFromFile(IModFormatRegistry p_mfrFormats, string p_strFilePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite, bool p_booConsumeSource = false)
 		{
 			ShowItemProgress = true;
 			OverallProgressStepSize = 1;
@@ -149,14 +155,18 @@ namespace Nexus.Client.ModAuthoring
 			Sources srcModSource = Sources.Archive;
 			if (String.IsNullOrEmpty(p_strFilePath) || !File.Exists(p_strFilePath))
 				throw new ArgumentException("The given file path does not exist: " + p_strFilePath);
-			if (!Archive.IsArchive(p_strFilePath))
+			Stopwatch validationTimer = Stopwatch.StartNew();
+			bool isArchive = Archive.IsArchive(p_strFilePath);
+			validationTimer.Stop();
+			Trace.TraceInformation(String.Format("[{0}] Archive validation completed in {1} ms.", p_strFilePath, validationTimer.ElapsedMilliseconds));
+			if (!isArchive)
 			{
 				Status = TaskStatus.Error;
 				OnTaskEnded(LanguageManager.Format("ModAuthoring.Builder.Error.UnrecognizedFormat", "Cannot add {0}. File format is not recognized.", Path.GetFileName(p_strFilePath)), null);
 				return;
 			}
 
-			Start(srcModSource, p_mfrFormats, p_strFilePath, p_dlgConfirmOverwrite);
+			Start(srcModSource, p_mfrFormats, p_strFilePath, p_dlgConfirmOverwrite, p_booConsumeSource);
 		}
 
 		#region From Archive
@@ -172,14 +182,18 @@ namespace Nexus.Client.ModAuthoring
 		/// <param name="p_mfrFormats">The registry of supported mod formats.</param>
 		/// <param name="p_strArchivePath">The archive to build into a mod.</param>
 		/// <param name="p_dlgConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+		/// <param name="p_booConsumeSource">Whether the original archive is a task-owned temporary download that may be moved instead of copied.</param>
 		/// <param name="p_strMessage">The message describing the state of the task.</param>
 		/// <returns>The paths to the new mods.</returns>
 		/// <exception cref="ArgumentException">Thrown if the specified path is not an archive.</exception>
-		private IList<string> DoFromArchive(IModFormatRegistry p_mfrFormats, string p_strArchivePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite, out string p_strMessage)
+		private IList<string> DoFromArchive(IModFormatRegistry p_mfrFormats, string p_strArchivePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite, bool p_booConsumeSource, out string p_strMessage)
 		{
 			p_strMessage = null;
+			Stopwatch totalTimer = Stopwatch.StartNew();
 			Trace.TraceInformation(String.Format("[{0}] Adding mod from archive.", p_strArchivePath));
-			if (String.IsNullOrEmpty(p_strArchivePath) || !File.Exists(p_strArchivePath) || !Archive.IsArchive(p_strArchivePath))
+			// BuildFromFile validates the archive before the background worker starts. Repeating
+			// Archive.IsArchive here reopens large archives and adds avoidable post-download latency.
+			if (String.IsNullOrEmpty(p_strArchivePath) || !File.Exists(p_strArchivePath))
 				throw new ArgumentException("The specified path is not an archive file.", "p_strArchivePath");
 
 			List<string> lstFoundMods = new List<string>();
@@ -189,13 +203,16 @@ namespace Nexus.Client.ModAuthoring
 			ItemProgress = 0;
 			ItemProgressMaximum = p_mfrFormats.Formats.Count;
 			IModFormat mftDestFormat = null;
+			bool isMultiVolume = false;
 
 			try
 			{
+				Stopwatch examineTimer = Stopwatch.StartNew();
 				using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
 				{
 					if (Status == TaskStatus.Cancelling)
 						return lstFoundMods;
+					isMultiVolume = szeExtractor.VolumeFileNames.Count > 1;
 					ReadOnlyCollection<string> lstArchiveFiles = szeExtractor.ArchiveFileNames;
 					foreach (IModFormat mftFormat in p_mfrFormats.Formats)
 					{
@@ -207,6 +224,8 @@ namespace Nexus.Client.ModAuthoring
 					}
 					StepOverallProgress();
 				}
+				examineTimer.Stop();
+				Trace.TraceInformation(String.Format("[{0}] Archive examination completed in {1} ms.", p_strArchivePath, examineTimer.ElapsedMilliseconds));
 
 				if (lstModsInArchive.Count == 0)
 				{
@@ -236,10 +255,11 @@ namespace Nexus.Client.ModAuthoring
 			string strTmpPath = null;
 			try
 			{
-				using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
+				bool requiresExtraction = ((mftDestFormat != null) && isMultiVolume) || lstModsInArchive.Count > 0;
+				if (requiresExtraction)
 				{
-					if ((mftDestFormat != null) && (szeExtractor.VolumeFileNames.Count > 1) ||
-						(lstModsInArchive.Count > 0))
+					Stopwatch extractionTimer = Stopwatch.StartNew();
+					using (SevenZipExtractor szeExtractor = Archive.GetExtractor(p_strArchivePath))
 					{
 						ItemMessage = m_strExtractingArchiveText;
 						ItemProgress = 0;
@@ -257,11 +277,16 @@ namespace Nexus.Client.ModAuthoring
 							p_strMessage = ex.Message;
 							return lstFoundMods;
 						}
-						for (Int32 i = 0; i < lstModsInArchive.Count; i++)
-							lstModsInArchive[i] = Path.Combine(strTmpPath, lstModsInArchive[i]);
 					}
-					else
-						lstModsInArchive.Add(p_strArchivePath);
+					for (Int32 i = 0; i < lstModsInArchive.Count; i++)
+						lstModsInArchive[i] = Path.Combine(strTmpPath, lstModsInArchive[i]);
+					extractionTimer.Stop();
+					Trace.TraceInformation(String.Format("[{0}] Archive extraction completed in {1} ms.", p_strArchivePath, extractionTimer.ElapsedMilliseconds));
+				}
+				else
+				{
+					// Directly usable archives do not need to be opened a second time.
+					lstModsInArchive.Add(p_strArchivePath);
 				}
 				StepOverallProgress();
 
@@ -301,7 +326,15 @@ namespace Nexus.Client.ModAuthoring
 							if (string.Equals(strMod, strDest, StringComparison.OrdinalIgnoreCase))
 								throw new FileNotFoundException(LanguageManager.Get("ModAuthoring.Builder.Error.ModInModsFolder", "You can't add a mod directly from the NMM Mods folder, please move it somewhere else before adding it to the manager!"));
 
-							File.Copy(strMod, strDest, true);
+							Stopwatch transferTimer = Stopwatch.StartNew();
+							bool consumeThisSource = p_booConsumeSource && PathsEqual(strMod, p_strArchivePath);
+							TransferModFile(strMod, strDest, consumeThisSource);
+							transferTimer.Stop();
+							Trace.TraceInformation(String.Format(
+								"[{0}] Mod transfer completed in {1} ms ({2}).",
+								p_strArchivePath,
+								transferTimer.ElapsedMilliseconds,
+								consumeThisSource && !File.Exists(strMod) ? "move" : "copy"));
 							lstFoundMods.Add(strDest);
 						}
 						StepItemProgress();
@@ -319,7 +352,76 @@ namespace Nexus.Client.ModAuthoring
 				if (!String.IsNullOrEmpty(strTmpPath))
 					FileUtil.ForceDelete(strTmpPath);
 			}
+			totalTimer.Stop();
+			Trace.TraceInformation(String.Format("[{0}] Mod build completed in {1} ms.", p_strArchivePath, totalTimer.ElapsedMilliseconds));
 			return lstFoundMods;
+		}
+
+		/// <summary>
+		/// Transfers a built mod into the Mods directory, moving task-owned downloads when the
+		/// source and destination share a volume and no overwrite is required.
+		/// </summary>
+		/// <param name="sourcePath">Source archive path.</param>
+		/// <param name="destinationPath">Final mod archive path.</param>
+		/// <param name="consumeSource">Whether the source may be consumed by this operation.</param>
+		private static void TransferModFile(string sourcePath, string destinationPath, bool consumeSource)
+		{
+			if (consumeSource && !File.Exists(destinationPath) && AreOnSameVolume(sourcePath, destinationPath))
+			{
+				try
+				{
+					File.Move(sourcePath, destinationPath);
+					return;
+				}
+				catch (IOException)
+				{
+					// Antivirus/file-system races can make a metadata move fail temporarily.
+					// Preserve the established copy semantics rather than failing the add operation.
+				}
+				catch (UnauthorizedAccessException)
+				{
+					// A source may be readable even when the current process cannot remove it.
+					// Fall back to copying so download finalization retains the previous behavior.
+				}
+			}
+
+			File.Copy(sourcePath, destinationPath, true);
+		}
+
+		/// <summary>
+		/// Determines whether two paths are rooted on the same local drive or UNC share.
+		/// </summary>
+		private static bool AreOnSameVolume(string firstPath, string secondPath)
+		{
+			try
+			{
+				string firstRoot = Path.GetPathRoot(Path.GetFullPath(firstPath));
+				string secondRoot = Path.GetPathRoot(Path.GetFullPath(secondPath));
+				return !String.IsNullOrEmpty(firstRoot) &&
+					String.Equals(firstRoot, secondRoot, StringComparison.OrdinalIgnoreCase);
+			}
+			catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Compares two file paths after normalization.
+		/// </summary>
+		private static bool PathsEqual(string firstPath, string secondPath)
+		{
+			try
+			{
+				return String.Equals(
+					Path.GetFullPath(firstPath),
+					Path.GetFullPath(secondPath),
+					StringComparison.OrdinalIgnoreCase);
+			}
+			catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
+			{
+				return false;
+			}
 		}
 
 		#endregion

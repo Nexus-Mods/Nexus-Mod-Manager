@@ -15,6 +15,7 @@
 	using DevExpress.XtraBars;
 	using DevExpress.XtraEditors;
 	using DevExpress.Utils;
+	using DevExpress.Utils.Menu;
 	using DevExpress.XtraEditors.Controls;
 	using DevExpress.XtraEditors.Drawing;
 	using ButtonEdit = DevExpress.XtraEditors.ButtonEdit;
@@ -25,6 +26,7 @@
 	using DevExpress.XtraGrid.Columns;
 	using DevExpress.XtraGrid.Views.Grid;
 	using DevExpress.XtraGrid.Views.Grid.ViewInfo;
+	using DevExpress.XtraTreeList;
 
 	using Nexus.Client.BackgroundTasks;
 	using Nexus.Client.BackgroundTasks.UI;
@@ -245,7 +247,7 @@
 
 		public ModManagerDXControl()
 		{
-			_categoryNodeCountFormat = LanguageManager.GetFormat("Mods.CategoryView.GroupCount", "{0} mods");
+			_categoryNodeCountFormat = LanguageManager.GetFormat("Mods.CategoryView.GroupCount", "{0}/{1} Mods");
 			_modCountFormat = LanguageManager.GetFormat("Mods.Status.Count", "Mods: {0}");
 			_downloadModeCaptionFormat = LanguageManager.GetFormat("Mods.DownloadMode.Caption", "Download Mode: {0}");
 			_downloadModeHintFormat = LanguageManager.GetFormat("Mods.DownloadMode.Tooltip", "Skyrim SE current download mode: {0}");
@@ -590,7 +592,7 @@
 			_modList.Clear();
 			_presentationState.Clear();
 			_gridModListSurface.RefreshDataSource();
-			_categoryModListSurface?.SetAvailableCategories(Enumerable.Empty<string>(), false);
+			_categoryModListSurface?.SetAvailableCategories(Enumerable.Empty<IModCategory>(), false);
 		}
 
 		private void LoadMods()
@@ -907,7 +909,6 @@
 		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (InvokeRequired) { Invoke(new Action(() => ActiveMods_CollectionChanged(sender, e))); return; }
-			RebuildActivationStateCache();
 			RefreshActivationState();
 		}
 
@@ -1042,7 +1043,7 @@
 			tsbToggleEndorse.Caption = LanguageManager.Get("Mods.Actions.Endorse.Name", "Endorse");
 			tsbToggleEndorse.Hint = LanguageManager.Get("Mods.Actions.Endorse.Tooltip", "Toggle mod endorsement");
 			tsbResetCategories.Caption = LanguageManager.Get("Mods.Categories.Menu.Name", "Categories");
-			tsbResetCategories.Hint = LanguageManager.Get("Mods.Categories.Menu.Tooltip", "Categories: add new category - Click the small arrow for more options");
+			tsbResetCategories.Hint = LanguageManager.Get("Mods.Categories.Menu.Tooltip", "Manage mod categories");
 			addNewCategory.Caption = LanguageManager.Get("Mods.Categories.Add.Name", "Categories: add new category");
 			collapseAllCategories.Caption = LanguageManager.Get("Mods.Categories.CollapseAll.FullName", "Categories: collapse all categories");
 			expandAllCategories.Caption = LanguageManager.Get("Mods.Categories.ExpandAll.FullName", "Categories: expand all categories");
@@ -1805,7 +1806,6 @@
 			_gridModListSurface.RefreshData();
 			_gridModListSurface.InvalidateRows();
 			_categoryModListSurface?.RefreshData();
-			_categoryModListSurface?.InvalidateRows();
 			SetCommandExecutableStatus();
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
 		}
@@ -1941,7 +1941,7 @@
 
 			e.Handled = true;
 		}
-		private void GridView_RowCellClick(object sender, RowCellClickEventArgs e)
+		private void GridView_RowCellClick(object sender, DevExpress.XtraGrid.Views.Grid.RowCellClickEventArgs e)
 		{
 			if (e.Column.FieldName != ColLastKnown) return;
 			int src = gridView.GetDataSourceRowIndex(e.RowHandle);
@@ -2720,12 +2720,14 @@
 				GetCachedCategoryName,
 				GetModStatusText,
 				mod => _newModTracker.IsNew(mod),
-				count => String.Format(_categoryNodeCountFormat, count));
+				mod => GetModVisualStatus(mod) == ModVisualStatus.InstalledActive,
+				(activeCount, totalCount) => String.Format(_categoryNodeCountFormat, activeCount, totalCount));
 			_categoryModListSurface.SelectionChanged += (sender, args) => SetCommandExecutableStatus();
 
 			_modCategoryTreeControl.ModToggleRequested += (sender, args) => ToggleSelectedMod();
 			_modCategoryTreeControl.DeleteRequested += (sender, args) => DeleteSelectedModsFromKey();
 			_modCategoryTreeControl.ContextMenuRequested += (sender, args) => ShowCurrentModContextMenu();
+			_modCategoryTreeControl.TreeList.PopupMenuShowing += ModCategoryTree_PopupMenuShowing;
 			_modCategoryTreeControl.LatestLinkRequested += (sender, args) => NavigateSelectedModLatest();
 			_modCategoryTreeControl.ModInteractionOccurred += (sender, args) => AcknowledgeSelectedNewMods(-1);
 			_modCategoryTreeControl.CategoryExpansionChanged += (sender, args) => QueueGridLayoutSave();
@@ -2903,14 +2905,13 @@
 			if (_categoryModListSurface == null)
 				return;
 
-			IEnumerable<string> categoryNames = _viewModel?.CategoryManager?.Categories == null
-				? Enumerable.Empty<string>()
+			IEnumerable<IModCategory> categories = _viewModel?.CategoryManager?.Categories == null
+				? Enumerable.Empty<IModCategory>()
 				: _viewModel.CategoryManager.Categories
-					.Where(category => category != null && !String.IsNullOrWhiteSpace(category.CategoryName))
-					.Select(category => category.CategoryName);
+					.Where(category => category != null && !String.IsNullOrWhiteSpace(category.CategoryName));
 
 			_categoryModListSurface.SetAvailableCategories(
-				categoryNames,
+				categories,
 				_viewModel?.Settings?.ShowEmptyCategory == true);
 		}
 
@@ -3837,7 +3838,7 @@
 		/// <summary>
 		/// Builds and shows the DevExpress row popup for the currently selected mod or mod set.
 		/// </summary>
-		private void gridView_PopupMenuShowing(object sender, PopupMenuShowingEventArgs e)
+		private void gridView_PopupMenuShowing(object sender, DevExpress.XtraGrid.Views.Grid.PopupMenuShowingEventArgs e)
 		{
 			if (e.MenuType != GridMenuType.Row) return;
 			gridView.FocusedRowHandle = e.HitInfo.RowHandle;
@@ -3997,6 +3998,80 @@
 
 			_gridPopupMenu.ShowPopup(Control.MousePosition);
 		}
+
+		/// <summary>
+		/// Extends the TreeList native category-node menu with NMM category actions.
+		/// </summary>
+		private void ModCategoryTree_PopupMenuShowing(object sender, DevExpress.XtraTreeList.PopupMenuShowingEventArgs e)
+		{
+			if (e == null || e.MenuType != DevExpress.XtraTreeList.Menu.TreeListMenuType.Node || e.Menu == null || e.HitInfo?.Node == null)
+				return;
+
+			ModCategoryTreeCategory treeCategory = e.HitInfo.Node.Tag as ModCategoryTreeCategory;
+			if (treeCategory == null || _viewModel?.CategoryManager == null)
+				return;
+
+			TreeList tree = sender as TreeList;
+			if (tree != null)
+			{
+				// Keep right-click semantics deterministic without changing the node's
+				// expanded state. The native Full Expand/Full Collapse commands remain intact.
+				tree.FocusedNode = e.HitInfo.Node;
+				tree.Selection.Clear();
+				tree.Selection.Add(e.HitInfo.Node);
+			}
+
+			IModCategory category = treeCategory.Id >= 0
+				? _viewModel.CategoryManager.FindCategory(treeCategory.Id)
+				: _viewModel.CategoryManager.Categories.FirstOrDefault(item =>
+					item != null && String.Equals(item.CategoryName, treeCategory.Name, StringComparison.CurrentCultureIgnoreCase));
+			if (category == null)
+				return;
+
+			DXMenuItem deleteCategory = new DXMenuItem(
+				LanguageManager.Get("Mods.CategoryView.Context.DeleteCategory.Name", "Delete Category"),
+				(menuSender, args) => DeleteCategoryFromTree(category))
+			{
+				BeginGroup = true,
+				Enabled = category.Id != 0
+			};
+
+			e.Menu.Items.Add(deleteCategory);
+		}
+
+		/// <summary>
+		/// Removes a category through the same confirmation and reassignment rules used by Category Manager.
+		/// </summary>
+		private void DeleteCategoryFromTree(IModCategory category)
+		{
+			if (_viewModel?.CategoryManager == null || category == null)
+				return;
+
+			if (category.Id == 0)
+			{
+				XtraMessageBox.Show(
+					this,
+					LanguageManager.Get("Categories.Remove.UnassignedBlocked.Message", "The Unassigned category cannot be removed."),
+					LanguageManager.Get("Mods.CategoryView.Context.DeleteCategory.Name", "Delete Category"),
+					MessageBoxButtons.OK,
+					MessageBoxIcon.Warning);
+				return;
+			}
+
+			if (XtraMessageBox.Show(
+					this,
+					LanguageManager.Format("Categories.Remove.Confirm.Message", "Remove category \"{0}\"?\nMods in this category will be moved to Unassigned.", category.CategoryName),
+					LanguageManager.Get("Mods.CategoryView.Context.DeleteCategory.Name", "Delete Category"),
+					MessageBoxButtons.YesNo,
+					MessageBoxIcon.Question) != DialogResult.Yes)
+			{
+				return;
+			}
+
+			_viewModel.SwitchModsToUnassigned(category);
+			_viewModel.CategoryManager.RemoveCategory(category);
+		}
+
 
 		/// <summary>
 		/// Creates the persistent DevExpress popup used for mod-grid row actions.

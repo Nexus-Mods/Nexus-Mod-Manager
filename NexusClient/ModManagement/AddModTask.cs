@@ -1116,8 +1116,43 @@
 				var mbrModBuilder = new ModBuilder(_gameMode.GameModeEnvironmentInfo, _environmentInfo, new NexusFileUtil(_environmentInfo));
 				mbrModBuilder.PropertyChanged += ModBuilder_PropertyChanged;
 				mbrModBuilder.TaskEnded += ModBuilder_TaskEnded;
-				mbrModBuilder.BuildFromFile(_modFormatRegistry, strPath, p_cocConfirmOverwrite);
+				mbrModBuilder.BuildFromFile(
+					_modFormatRegistry,
+					strPath,
+					p_cocConfirmOverwrite,
+					IsTaskOwnedDownloadedFile(strPath));
 				_runningTasks.Add(mbrModBuilder);
+			}
+		}
+
+		/// <summary>
+		/// Determines whether the specified source is a completed file downloaded into this task's cache.
+		/// Only these files may be consumed by ModBuilder; manually added files must remain untouched.
+		/// </summary>
+		private bool IsTaskOwnedDownloadedFile(string path)
+		{
+			if (Descriptor == null || String.IsNullOrEmpty(path) || Descriptor.DownloadedFiles == null)
+				return false;
+
+			string cacheDirectory = _gameMode?.GameModeEnvironmentInfo?.ModDownloadCacheDirectory;
+			if (String.IsNullOrEmpty(cacheDirectory))
+				return false;
+
+			try
+			{
+				string fullPath = Path.GetFullPath(path);
+				string fullCachePath = Path.GetFullPath(cacheDirectory)
+					.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+				if (!fullPath.StartsWith(fullCachePath, StringComparison.OrdinalIgnoreCase))
+					return false;
+
+				return Descriptor.DownloadedFiles.Any(downloadedPath =>
+					!String.IsNullOrEmpty(downloadedPath) &&
+					String.Equals(Path.GetFullPath(downloadedPath), fullPath, StringComparison.OrdinalIgnoreCase));
+			}
+			catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
+			{
+				return false;
 			}
 		}
 

@@ -298,15 +298,14 @@
             //
             // tsbResetCategories and category popup
             //
-            this.tsbResetCategories.ActAsDropDown = false;
+            this.tsbResetCategories.ActAsDropDown = true;
             this.tsbResetCategories.ButtonStyle = DevExpress.XtraBars.BarButtonStyle.DropDown;
             this.tsbResetCategories.Caption = "Categories";
             this.tsbResetCategories.DropDownControl = this.popupCategories;
-            this.tsbResetCategories.Hint = "Categories: add new category - Click the small arrow for more options";
+            this.tsbResetCategories.Hint = "Manage mod categories";
             this.tsbResetCategories.Id = 17;
             this.tsbResetCategories.Name = "tsbResetCategories";
             this.tsbResetCategories.PaintStyle = DevExpress.XtraBars.BarItemPaintStyle.CaptionGlyph;
-            this.tsbResetCategories.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.addNewCategory_Click);
             this.addNewCategory.Caption = "Categories: add new category";
             this.addNewCategory.Id = 18;
             this.addNewCategory.Name = "addNewCategory";

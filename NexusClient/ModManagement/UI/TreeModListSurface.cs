@@ -42,10 +42,14 @@
 		/// <summary>
 		/// Initializes a category-node identity with a stable display name.
 		/// </summary>
-		internal ModCategoryTreeCategory(string name)
+		internal ModCategoryTreeCategory(int id, string name)
 		{
+			Id = id;
 			Name = name ?? String.Empty;
 		}
+
+		/// <summary>Gets or sets the stable Category Manager identifier represented by the node.</summary>
+		internal int Id { get; set; }
 
 		/// <summary>
 		/// Gets the category name represented by the root node.
@@ -56,6 +60,11 @@
 		/// Gets or sets the number of mod nodes currently assigned to the category.
 		/// </summary>
 		internal int ModCount { get; set; }
+
+		/// <summary>
+		/// Gets or sets the number of active mods currently assigned to the category.
+		/// </summary>
+		internal int ActiveModCount { get; set; }
 
 		/// <summary>
 		/// Gets or sets the number of mods in the category that are still marked as new.
@@ -75,13 +84,16 @@
 		private readonly Func<IMod, string> _categoryNameResolver;
 		private readonly Func<IMod, string> _statusTextResolver;
 		private readonly Func<IMod, bool> _newModResolver;
-		private readonly Func<int, string> _categoryCountFormatter;
+		private readonly Func<IMod, bool> _activeModResolver;
+		private readonly Func<int, int, string> _categoryCountFormatter;
 		private readonly Dictionary<string, TreeListNode> _categoryNodes =
 			new Dictionary<string, TreeListNode>(StringComparer.CurrentCultureIgnoreCase);
 		private readonly Dictionary<IMod, TreeListNode> _modNodes =
 			new Dictionary<IMod, TreeListNode>();
 		private readonly HashSet<string> _availableCategoryNames =
 			new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
+		private readonly Dictionary<string, int> _availableCategoryIds =
+			new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
 		private readonly HashSet<string> _pendingCollapsedCategoryNames =
 			new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
 		private bool _showEmptyCategories;
@@ -98,7 +110,8 @@
 			Func<IMod, string> categoryNameResolver,
 			Func<IMod, string> statusTextResolver,
 			Func<IMod, bool> newModResolver,
-			Func<int, string> categoryCountFormatter)
+			Func<IMod, bool> activeModResolver,
+			Func<int, int, string> categoryCountFormatter)
 		{
 			if (viewControl == null) throw new ArgumentNullException(nameof(viewControl));
 			if (mods == null) throw new ArgumentNullException(nameof(mods));
@@ -110,7 +123,8 @@
 			_categoryNameResolver = categoryNameResolver;
 			_statusTextResolver = statusTextResolver;
 			_newModResolver = newModResolver;
-			_categoryCountFormatter = categoryCountFormatter ?? (count => count.ToString());
+			_activeModResolver = activeModResolver;
+			_categoryCountFormatter = categoryCountFormatter ?? ((active, total) => String.Format("{0}/{1} Mods", active, total));
 
 			BuildColumns();
 			_treeList.FocusedNodeChanged += TreeList_SelectionChanged;
@@ -169,6 +183,7 @@
 				.ToList();
 
 			_suppressSelectionChanged = true;
+			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUpdate();
 			_treeList.BeginUnboundLoad();
 			try
@@ -197,6 +212,7 @@
 			{
 				_treeList.EndUnboundLoad();
 				_treeList.EndUpdate();
+				_viewControl.EndInternalDataUpdate();
 				_suppressSelectionChanged = false;
 			}
 
@@ -211,6 +227,7 @@
 		public void AddMods(IEnumerable<IMod> mods)
 		{
 			if (mods == null) return;
+			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUnboundLoad();
 			try
 			{
@@ -221,6 +238,7 @@
 			finally
 			{
 				_treeList.EndUnboundLoad();
+				_viewControl.EndInternalDataUpdate();
 			}
 			ApplyVisibilityFilterAfterStructureChange();
 		}
@@ -231,6 +249,7 @@
 		public void RemoveMods(IEnumerable<IMod> mods)
 		{
 			if (mods == null) return;
+			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUnboundLoad();
 			try
 			{
@@ -240,6 +259,7 @@
 			finally
 			{
 				_treeList.EndUnboundLoad();
+				_viewControl.EndInternalDataUpdate();
 			}
 			ApplyVisibilityFilterAfterStructureChange();
 		}
@@ -258,23 +278,31 @@
 				return;
 			}
 
-			// Category changes alter hierarchy, not just cell values. Move only the affected
-			// node so expansion and viewport state of unrelated categories remain untouched.
-			if (String.Equals(propertyName, "CategoryId", StringComparison.Ordinal) ||
-				String.Equals(propertyName, "CustomCategoryId", StringComparison.Ordinal))
+			_viewControl.BeginInternalDataUpdate();
+			try
 			{
-				string categoryName = ResolveCategoryName(mod);
-				if (!(node.ParentNode?.Tag is ModCategoryTreeCategory currentCategory) ||
-					!String.Equals(currentCategory.Name, categoryName, StringComparison.CurrentCultureIgnoreCase))
+				// Category changes alter hierarchy, not just cell values. Move only the affected
+				// node so expansion and viewport state of unrelated categories remain untouched.
+				if (String.Equals(propertyName, "CategoryId", StringComparison.Ordinal) ||
+					String.Equals(propertyName, "CustomCategoryId", StringComparison.Ordinal))
 				{
-					MoveModToCategory(mod, node, categoryName);
-					return;
+					string categoryName = ResolveCategoryName(mod);
+					if (!(node.ParentNode?.Tag is ModCategoryTreeCategory currentCategory) ||
+						!String.Equals(currentCategory.Name, categoryName, StringComparison.CurrentCultureIgnoreCase))
+					{
+						MoveModToCategory(mod, node, categoryName);
+						return;
+					}
 				}
-			}
 
-			UpdateModNode(node, mod);
-			ApplyVisibilityFilterAfterStructureChange();
-			_treeList.RefreshNode(node);
+				UpdateModNode(node, mod);
+				ApplyVisibilityFilterAfterStructureChange();
+				_treeList.RefreshNode(node);
+			}
+			finally
+			{
+				_viewControl.EndInternalDataUpdate();
+			}
 		}
 
 		/// <summary>
@@ -305,19 +333,25 @@
 		/// <summary>
 		/// Reconciles the known category set and the Show Empty Categories option without rebuilding unaffected mod nodes.
 		/// </summary>
-		internal void SetAvailableCategories(IEnumerable<string> categoryNames, bool showEmptyCategories)
+		internal void SetAvailableCategories(IEnumerable<IModCategory> categories, bool showEmptyCategories)
 		{
 			var newCategoryNames = new HashSet<string>(StringComparer.CurrentCultureIgnoreCase);
-			if (categoryNames != null)
+			var newCategoryIds = new Dictionary<string, int>(StringComparer.CurrentCultureIgnoreCase);
+			if (categories != null)
 			{
-				foreach (string categoryName in categoryNames)
+				foreach (IModCategory category in categories)
 				{
-					if (!String.IsNullOrWhiteSpace(categoryName))
-						newCategoryNames.Add(categoryName.Trim());
+					if (category == null || String.IsNullOrWhiteSpace(category.CategoryName))
+						continue;
+
+					string categoryName = category.CategoryName.Trim();
+					newCategoryNames.Add(categoryName);
+					newCategoryIds[categoryName] = category.Id;
 				}
 			}
 
-			bool categorySetChanged = !_availableCategoryNames.SetEquals(newCategoryNames);
+			bool categorySetChanged = !_availableCategoryNames.SetEquals(newCategoryNames) ||
+				newCategoryIds.Any(pair => !_availableCategoryIds.TryGetValue(pair.Key, out int id) || id != pair.Value);
 			bool showEmptyChanged = _showEmptyCategories != showEmptyCategories;
 			if (!categorySetChanged && !showEmptyChanged)
 			{
@@ -331,7 +365,19 @@
 				.ToList();
 			_availableCategoryNames.Clear();
 			_availableCategoryNames.UnionWith(newCategoryNames);
+			_availableCategoryIds.Clear();
+			foreach (KeyValuePair<string, int> pair in newCategoryIds)
+				_availableCategoryIds[pair.Key] = pair.Value;
 			_showEmptyCategories = showEmptyCategories;
+
+			foreach (KeyValuePair<string, TreeListNode> pair in _categoryNodes)
+			{
+				if (pair.Value?.Tag is ModCategoryTreeCategory treeCategory &&
+					_availableCategoryIds.TryGetValue(pair.Key, out int categoryId))
+				{
+					treeCategory.Id = categoryId;
+				}
+			}
 
 			// When the backing collection was cleared as part of a ViewModel switch, a
 			// direct rebuild is both cheaper and safer than reconciling stale mod nodes.
@@ -377,16 +423,22 @@
 		/// </summary>
 		public void RefreshData()
 		{
+			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUpdate();
 			try
 			{
+				ResetCategoryAggregateState();
 				foreach (KeyValuePair<IMod, TreeListNode> pair in _modNodes.ToList())
+				{
 					UpdateModNode(pair.Value, pair.Key);
-				RefreshCategoryNewModState();
+					AccumulateCategoryState(pair.Value.ParentNode, pair.Key);
+				}
+				RefreshCategoryCaptions();
 			}
 			finally
 			{
 				_treeList.EndUpdate();
+				_viewControl.EndInternalDataUpdate();
 			}
 			ApplyVisibilityFilterAfterStructureChange();
 			_treeList.Invalidate();
@@ -397,7 +449,7 @@
 		/// </summary>
 		public void InvalidateRows()
 		{
-			RefreshCategoryNewModState();
+			RefreshCategoryAggregateState();
 			_treeList.Invalidate();
 		}
 
@@ -543,9 +595,18 @@
 			// sorting/filtering/expansion. Do not use the lookup dictionaries here because
 			// their enumeration order is not a UI ordering contract on .NET Framework.
 			TreeListNode node = _treeList.NodesIterator.Visible
-				.FirstOrDefault(candidate => candidate != null && candidate.Tag is IMod);
-			if (node != null)
-				FocusMod(node.Tag as IMod);
+				.FirstOrDefault(candidate =>
+					candidate != null &&
+					candidate.Tag is IMod &&
+					(candidate.ParentNode == null || candidate.ParentNode.Expanded));
+			if (node == null)
+				return;
+
+			// This option is a viewport/focus convenience, not a navigation command.
+			// Never expand a category that the user deliberately collapsed.
+			_treeList.Selection.Clear();
+			_treeList.Selection.Add(node);
+			_treeList.FocusedNode = node;
 		}
 
 		/// <summary>
@@ -739,6 +800,8 @@
 			if (category != null)
 			{
 				category.ModCount++;
+				if (_activeModResolver != null && _activeModResolver(mod))
+					category.ActiveModCount++;
 				if (_newModResolver != null && _newModResolver(mod))
 					category.NewModCount++;
 			}
@@ -759,6 +822,8 @@
 			if (category != null)
 			{
 				category.ModCount = Math.Max(0, category.ModCount - 1);
+				if (_activeModResolver != null && _activeModResolver(mod))
+					category.ActiveModCount = Math.Max(0, category.ActiveModCount - 1);
 				if (_newModResolver != null && _newModResolver(mod))
 					category.NewModCount = Math.Max(0, category.NewModCount - 1);
 			}
@@ -782,6 +847,8 @@
 			if (oldCategory != null)
 			{
 				oldCategory.ModCount = Math.Max(0, oldCategory.ModCount - 1);
+				if (_activeModResolver != null && _activeModResolver(mod))
+					oldCategory.ActiveModCount = Math.Max(0, oldCategory.ActiveModCount - 1);
 				if (_newModResolver != null && _newModResolver(mod))
 					oldCategory.NewModCount = Math.Max(0, oldCategory.NewModCount - 1);
 			}
@@ -810,7 +877,10 @@
 
 			object[] values = new object[_treeList.Columns.Count];
 			values[_treeList.Columns[ModCategoryTreeColumns.ModName].AbsoluteIndex] = categoryName;
-			node = _treeList.AppendNode(values, null, CheckState.Unchecked, new ModCategoryTreeCategory(categoryName));
+			int categoryId;
+			if (!_availableCategoryIds.TryGetValue(categoryName, out categoryId))
+				categoryId = String.Equals(categoryName, LanguageManager.Get("Mods.Values.Unassigned", "Unassigned"), StringComparison.CurrentCultureIgnoreCase) ? 0 : -1;
+			node = _treeList.AppendNode(values, null, CheckState.Unchecked, new ModCategoryTreeCategory(categoryId, categoryName));
 			node.Expanded = true;
 			_categoryNodes[categoryName] = node;
 			UpdateCategoryCaption(node);
@@ -844,7 +914,7 @@
 			ModCategoryTreeCategory category = categoryNode?.Tag as ModCategoryTreeCategory;
 			if (category == null) return;
 
-			string countText = _categoryCountFormatter(category.ModCount);
+			string countText = _categoryCountFormatter(category.ActiveModCount, category.ModCount);
 			categoryNode.SetValue(
 				ModCategoryTreeColumns.ModName,
 				String.IsNullOrWhiteSpace(countText)
@@ -969,6 +1039,7 @@
 		/// </summary>
 		private void ReconcileCategories(IEnumerable<string> removedCategoryNames)
 		{
+			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUpdate();
 			_treeList.BeginUnboundLoad();
 			try
@@ -1016,28 +1087,70 @@
 			{
 				_treeList.EndUnboundLoad();
 				_treeList.EndUpdate();
+				_viewControl.EndInternalDataUpdate();
 			}
 
 			ApplyVisibilityFilterAfterStructureChange();
 		}
 
 		/// <summary>
-		/// Recomputes cached category new-mod counts after acknowledgement state changes.
+		/// Recomputes cached category aggregate counts after activation or new-mod state changes.
 		/// </summary>
-		private void RefreshCategoryNewModState()
+		private void RefreshCategoryAggregateState()
+		{
+			_viewControl.BeginInternalDataUpdate();
+			_treeList.BeginUpdate();
+			try
+			{
+				ResetCategoryAggregateState();
+				foreach (KeyValuePair<IMod, TreeListNode> pair in _modNodes)
+					AccumulateCategoryState(pair.Value.ParentNode, pair.Key);
+				RefreshCategoryCaptions();
+			}
+			finally
+			{
+				_treeList.EndUpdate();
+				_viewControl.EndInternalDataUpdate();
+			}
+		}
+
+		/// <summary>
+		/// Resets active/new counters while preserving structural mod totals.
+		/// </summary>
+		private void ResetCategoryAggregateState()
 		{
 			foreach (TreeListNode categoryNode in _categoryNodes.Values)
 			{
 				ModCategoryTreeCategory category = categoryNode.Tag as ModCategoryTreeCategory;
 				if (category == null)
 					continue;
-
-				category.NewModCount = _newModResolver == null
-					? 0
-					: categoryNode.Nodes.Cast<TreeListNode>()
-						.Select(node => node.Tag as IMod)
-						.Count(mod => mod != null && _newModResolver(mod));
+				category.ActiveModCount = 0;
+				category.NewModCount = 0;
 			}
+		}
+
+		/// <summary>
+		/// Adds one mod's current activation and new-mod state to its parent category aggregates.
+		/// </summary>
+		private void AccumulateCategoryState(TreeListNode categoryNode, IMod mod)
+		{
+			ModCategoryTreeCategory category = categoryNode?.Tag as ModCategoryTreeCategory;
+			if (category == null || mod == null)
+				return;
+
+			if (_activeModResolver != null && _activeModResolver(mod))
+				category.ActiveModCount++;
+			if (_newModResolver != null && _newModResolver(mod))
+				category.NewModCount++;
+		}
+
+		/// <summary>
+		/// Refreshes category captions after aggregate counters have changed.
+		/// </summary>
+		private void RefreshCategoryCaptions()
+		{
+			foreach (TreeListNode categoryNode in _categoryNodes.Values)
+				UpdateCategoryCaption(categoryNode);
 		}
 
 		/// <summary>
