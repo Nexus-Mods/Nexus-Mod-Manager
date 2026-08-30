@@ -1207,6 +1207,7 @@
     "Settings.General.ScanSubfolders.Option": "Unterordner des Mods-Verzeichnisses nach Mods durchsuchen",
     "Settings.General.ShowSidePanel.Option": "Seitenleiste mit Mod-Informationen aktivieren",
     "Settings.General.SkipReadme.Option": "ReadMe-Dateien nicht entpacken",
+    "Settings.General.TxtConflicts.Option": "Bei Konflikten mit .txt-Dateien nachfragen",
     "Settings.General.TempDirectory.Label": "Temporäres Verzeichnis: (Ordner muss „Temp“ heißen)",
     "Settings.General.Title": "Allgemein",
     "Settings.General.TraceLogDirectory.Label": "TraceLog-Verzeichnis:",

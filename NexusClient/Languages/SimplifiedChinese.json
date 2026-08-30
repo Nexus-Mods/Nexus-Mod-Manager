@@ -1207,6 +1207,7 @@
     "Settings.General.ScanSubfolders.Option": "扫描 Mods 目录的子文件夹以查找 Mod",
     "Settings.General.ShowSidePanel.Option": "启用 Mod 信息侧边面板",
     "Settings.General.SkipReadme.Option": "不提取 ReadMe 文件",
+    "Settings.General.TxtConflicts.Option": ".txt 文件冲突时提示",
     "Settings.General.TempDirectory.Label": "临时路径目录：（文件夹必须命名为“Temp”）",
     "Settings.General.Title": "常规",
     "Settings.General.TraceLogDirectory.Label": "TraceLog 目录：",

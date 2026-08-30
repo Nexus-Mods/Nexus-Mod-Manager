@@ -1207,6 +1207,7 @@
     "Settings.General.ScanSubfolders.Option": "Analyser les sous-dossiers du répertoire Mods à la recherche de mods",
     "Settings.General.ShowSidePanel.Option": "Activer le panneau latéral d’informations sur les mods",
     "Settings.General.SkipReadme.Option": "Ne pas extraire les fichiers ReadMe",
+    "Settings.General.TxtConflicts.Option": "Afficher une invite en cas de conflit de fichiers .txt",
     "Settings.General.TempDirectory.Label": "Répertoire temporaire : (le dossier doit s’appeler « Temp »)",
     "Settings.General.Title": "Général",
     "Settings.General.TraceLogDirectory.Label": "Répertoire TraceLog :",

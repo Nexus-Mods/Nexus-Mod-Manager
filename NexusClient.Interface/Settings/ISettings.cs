@@ -112,6 +112,12 @@
 		bool SkipReadmeFiles { get; set; }
 
 		/// <summary>
+		/// Gets or sets whether .txt file conflicts should use the normal overwrite prompt.
+		/// </summary>
+		/// <value>Whether .txt file conflicts should use the normal overwrite prompt.</value>
+		bool PromptForTxtFileConflicts { get; set; }
+
+		/// <summary>
 		/// Gets or sets whether the manager should prevent the visualization of the Mod Warning Icon.
 		/// </summary>
 		/// <value>Whether the manager should prevent the visualization of the Mod Warning Icon.</value>

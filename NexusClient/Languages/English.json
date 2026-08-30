@@ -1207,6 +1207,7 @@
     "Settings.General.ScanSubfolders.Option": "Scan Mods directory subfolders for mods",
     "Settings.General.ShowSidePanel.Option": "Enable mod info side panel",
     "Settings.General.SkipReadme.Option": "Don't extract ReadMe files",
+    "Settings.General.TxtConflicts.Option": "Prompt for .txt file conflicts",
     "Settings.General.TempDirectory.Label": "Temporary Path Directory: (Folder must be named \"Temp\")",
     "Settings.General.Title": "General",
     "Settings.General.TraceLogDirectory.Label": "TraceLog Directory:",

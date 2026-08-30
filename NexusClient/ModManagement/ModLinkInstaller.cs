@@ -16,6 +16,7 @@ namespace Nexus.Client.ModManagement
 		private readonly List<string> _doNotOverwriteMods = new List<string>();
 		private bool _doNotOverwriteAll;
 		private bool _overwriteAll;
+		private readonly bool _promptForTxtFileConflicts;
 
         #region Properties
 
@@ -30,8 +31,14 @@ namespace Nexus.Client.ModManagement
 		#region Constructors
 
 		public ModLinkInstaller(IVirtualModActivator virtualModActivator)
+			: this(virtualModActivator, false)
+		{
+		}
+
+		public ModLinkInstaller(IVirtualModActivator virtualModActivator, bool promptForTxtFileConflicts)
 		{
 			VirtualModActivator = (VirtualModActivator)virtualModActivator;
+			_promptForTxtFileConflicts = promptForTxtFileConflicts;
 		}
 
 		private static OverwriteResult ShowOwnedOverwriteDialog(string message, bool allowPerGroup, bool allowPerMod)
@@ -189,7 +196,7 @@ namespace Nexus.Client.ModManagement
                     }
                 }
 
-                if (Path.GetExtension(baseFilePath).Equals(".txt", StringComparison.InvariantCultureIgnoreCase))
+                if (!_promptForTxtFileConflicts && Path.GetExtension(baseFilePath).Equals(".txt", StringComparison.InvariantCultureIgnoreCase))
                 {
                     return false;
 				}

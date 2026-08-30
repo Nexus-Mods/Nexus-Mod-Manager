@@ -52,6 +52,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SafeExtractIconTests.cs" />
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
+    <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />

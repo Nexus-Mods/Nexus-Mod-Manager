@@ -2825,7 +2825,7 @@
 
 		public IModLinkInstaller GetModLinkInstaller()
 		{
-			return new ModLinkInstaller(this);
+			return new ModLinkInstaller(this, EnvironmentInfo.Settings.PromptForTxtFileConflicts);
 		}
 
 		public void PurgeMods(List<IMod> p_lstMods, string p_strPath)

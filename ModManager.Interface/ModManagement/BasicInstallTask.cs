@@ -195,7 +195,7 @@ namespace Nexus.Client.ModManagement
 				{
 					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(File.Key) == GameMode.MergedFileName)))
 					{
-						if (!(SkipReadme && Readme.IsValidExtension(Path.GetExtension(File.Key).ToLower()) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
+						if (!(SkipReadme && Readme.IsValidReadme(File.Key) && Path.GetDirectoryName(strFixedPath).Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)))
 						{
 							string strStagedFilePath = (booHardLinkFile) ? strLinkPath : strVirtualPath;
 							bool booFileInstalled = FileInstaller.InstallFileFromMod(File.Key, strStagedFilePath);

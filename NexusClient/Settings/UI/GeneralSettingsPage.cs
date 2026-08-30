@@ -53,6 +53,7 @@
 			BindingHelper.CreateFullBinding(ckbCloseManagerAfterGameLaunch, () => ckbCloseManagerAfterGameLaunch.Checked, settings, () => settings.CloseModManagerAfterGameLaunch);
 			BindingHelper.CreateFullBinding(ckbShowSidePanel, () => ckbShowSidePanel.Checked, settings, () => settings.ShowSidePanel);
 			BindingHelper.CreateFullBinding(ckbSkipReadmeFiles, () => ckbSkipReadmeFiles.Checked, settings, () => settings.SkipReadmeFiles);
+			BindingHelper.CreateFullBinding(ckbPromptForTxtFileConflicts, () => ckbPromptForTxtFileConflicts.Checked, settings, () => settings.PromptForTxtFileConflicts);
 			BindingHelper.CreateFullBinding(ckbHideModUpdateWarningIcon, () => ckbHideModUpdateWarningIcon.Checked, settings, () => settings.HideModUpdateWarningIcon);
 
 			BindingHelper.CreateFullBinding(cbxProgramUpdateCheckInterval, () => cbxProgramUpdateCheckInterval.SelectedValue, settings, () => settings.UpdateCheckInterval);
@@ -67,6 +68,7 @@
 			groupBox5.Text = LanguageManager.Get("Settings.General.Options.Title", "Options");
 			ckbCheckForUpdates.Text = LanguageManager.Get("Settings.General.CheckForUpdates.Option", "Check for updates on startup - interval (in days):");
 			ckbSkipReadmeFiles.Text = LanguageManager.Get("Settings.General.SkipReadme.Option", "Don't extract ReadMe files");
+			ckbPromptForTxtFileConflicts.Text = LanguageManager.Get("Settings.General.TxtConflicts.Option", "Prompt for .txt file conflicts");
 			ckbAddMissingInfo.Text = LanguageManager.Get("Settings.General.AddMissingInfo.Option", "Add missing info to Mods");
 			ckbScanSubfolders.Text = LanguageManager.Get("Settings.General.ScanSubfolders.Option", "Scan Mods directory subfolders for mods");
 			ckbCloseManagerAfterGameLaunch.Text = LanguageManager.Format("Settings.General.CloseAfterLaunch.Option", "Close {0} after launching game", CommonData.ModManagerName);

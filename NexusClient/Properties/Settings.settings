@@ -89,6 +89,9 @@
 		<Setting Name="SkipReadmeFiles" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">True</Value>
 		</Setting>
+		<Setting Name="PromptForTxtFileConflicts" Type="System.Boolean" Scope="User">
+			<Value Profile="(Default)">False</Value>
+		</Setting>
 		<Setting Name="ShowSidePanel" Type="System.Boolean" Scope="User">
 			<Value Profile="(Default)">True</Value>
 		</Setting>

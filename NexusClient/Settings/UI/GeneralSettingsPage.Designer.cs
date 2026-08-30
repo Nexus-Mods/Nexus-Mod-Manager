@@ -39,6 +39,7 @@
             this.cbxProgramUpdateCheckInterval = new System.Windows.Forms.ComboBox();
             this.ckbShowSidePanel = new System.Windows.Forms.CheckBox();
             this.ckbSkipReadmeFiles = new System.Windows.Forms.CheckBox();
+            this.ckbPromptForTxtFileConflicts = new System.Windows.Forms.CheckBox();
             this.ckbHideModUpdateWarningIcon = new System.Windows.Forms.CheckBox();
             this.butSelectTraceLogDirectory = new System.Windows.Forms.Button();
             this.tbxTraceLogDirectory = new System.Windows.Forms.TextBox();
@@ -76,6 +77,7 @@
             this.groupBox5.Controls.Add(this.cbxProgramUpdateCheckInterval);
             this.groupBox5.Controls.Add(this.ckbShowSidePanel);
             this.groupBox5.Controls.Add(this.ckbSkipReadmeFiles);
+            this.groupBox5.Controls.Add(this.ckbPromptForTxtFileConflicts);
             this.groupBox5.Controls.Add(this.ckbHideModUpdateWarningIcon);
             this.groupBox5.Controls.Add(this.butSelectTraceLogDirectory);
             this.groupBox5.Controls.Add(this.tbxTraceLogDirectory);
@@ -86,7 +88,7 @@
             this.groupBox5.Controls.Add(this.lblTempPathWarning);
             this.groupBox5.Location = new System.Drawing.Point(3, 3);
             this.groupBox5.Name = "groupBox5";
-            this.groupBox5.Size = new System.Drawing.Size(368, 300);
+            this.groupBox5.Size = new System.Drawing.Size(368, 323);
             this.groupBox5.TabIndex = 23;
             this.groupBox5.TabStop = false;
             this.groupBox5.Text = "Options";
@@ -94,7 +96,7 @@
             // ckbCloseManagerAfterGameLaunch
             // 
             this.ckbCloseManagerAfterGameLaunch.AutoSize = true;
-            this.ckbCloseManagerAfterGameLaunch.Location = new System.Drawing.Point(16, 111);
+            this.ckbCloseManagerAfterGameLaunch.Location = new System.Drawing.Point(16, 134);
             this.ckbCloseManagerAfterGameLaunch.Name = "ckbCloseManagerAfterGameLaunch";
             this.ckbCloseManagerAfterGameLaunch.Size = new System.Drawing.Size(171, 17);
             this.ckbCloseManagerAfterGameLaunch.TabIndex = 7;
@@ -104,7 +106,7 @@
             // ckbScanSubfolders
             // 
             this.ckbScanSubfolders.AutoSize = true;
-            this.ckbScanSubfolders.Location = new System.Drawing.Point(16, 88);
+            this.ckbScanSubfolders.Location = new System.Drawing.Point(16, 111);
             this.ckbScanSubfolders.Name = "ckbScanSubfolders";
             this.ckbScanSubfolders.Size = new System.Drawing.Size(217, 17);
             this.ckbScanSubfolders.TabIndex = 5;
@@ -114,7 +116,7 @@
             // ckbOverrideLocalNames
             // 
             this.ckbOverrideLocalNames.AutoSize = true;
-            this.ckbOverrideLocalNames.Location = new System.Drawing.Point(16, 180);
+            this.ckbOverrideLocalNames.Location = new System.Drawing.Point(16, 203);
             this.ckbOverrideLocalNames.Name = "ckbOverrideLocalNames";
             this.ckbOverrideLocalNames.Size = new System.Drawing.Size(185, 17);
             this.ckbOverrideLocalNames.TabIndex = 5;
@@ -124,7 +126,7 @@
             // ckbAddMissingInfo
             // 
             this.ckbAddMissingInfo.AutoSize = true;
-            this.ckbAddMissingInfo.Location = new System.Drawing.Point(16, 65);
+            this.ckbAddMissingInfo.Location = new System.Drawing.Point(16, 88);
             this.ckbAddMissingInfo.Name = "ckbAddMissingInfo";
             this.ckbAddMissingInfo.Size = new System.Drawing.Size(143, 17);
             this.ckbAddMissingInfo.TabIndex = 4;
@@ -153,7 +155,7 @@
             // ckbShowSidePanel
             // 
             this.ckbShowSidePanel.AutoSize = true;
-            this.ckbShowSidePanel.Location = new System.Drawing.Point(16, 134);
+            this.ckbShowSidePanel.Location = new System.Drawing.Point(16, 157);
             this.ckbShowSidePanel.Name = "ckbShowSidePanel";
             this.ckbShowSidePanel.Size = new System.Drawing.Size(153, 17);
             this.ckbShowSidePanel.TabIndex = 8;
@@ -169,11 +171,21 @@
             this.ckbSkipReadmeFiles.TabIndex = 8;
             this.ckbSkipReadmeFiles.Text = "Don\'t extract ReadMe files";
             this.ckbSkipReadmeFiles.UseVisualStyleBackColor = true;
+            //
+            // ckbPromptForTxtFileConflicts
+            //
+            this.ckbPromptForTxtFileConflicts.AutoSize = true;
+            this.ckbPromptForTxtFileConflicts.Location = new System.Drawing.Point(16, 65);
+            this.ckbPromptForTxtFileConflicts.Name = "ckbPromptForTxtFileConflicts";
+            this.ckbPromptForTxtFileConflicts.Size = new System.Drawing.Size(151, 17);
+            this.ckbPromptForTxtFileConflicts.TabIndex = 9;
+            this.ckbPromptForTxtFileConflicts.Text = "Prompt for .txt file conflicts";
+            this.ckbPromptForTxtFileConflicts.UseVisualStyleBackColor = true;
             // 
             // ckbHideModUpdateWarningIcon
             // 
             this.ckbHideModUpdateWarningIcon.AutoSize = true;
-            this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(16, 157);
+            this.ckbHideModUpdateWarningIcon.Location = new System.Drawing.Point(16, 180);
             this.ckbHideModUpdateWarningIcon.Name = "ckbHideModUpdateWarningIcon";
             this.ckbHideModUpdateWarningIcon.Size = new System.Drawing.Size(180, 17);
             this.ckbHideModUpdateWarningIcon.TabIndex = 8;
@@ -184,7 +196,7 @@
             // 
             this.butSelectTraceLogDirectory.AutoSize = true;
             this.butSelectTraceLogDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.butSelectTraceLogDirectory.Location = new System.Drawing.Point(320, 220);
+            this.butSelectTraceLogDirectory.Location = new System.Drawing.Point(320, 243);
             this.butSelectTraceLogDirectory.Name = "butSelectTraceLogDirectory";
             this.butSelectTraceLogDirectory.Size = new System.Drawing.Size(26, 23);
             this.butSelectTraceLogDirectory.TabIndex = 2;
@@ -194,7 +206,7 @@
             // 
             // tbxTraceLogDirectory
             // 
-            this.tbxTraceLogDirectory.Location = new System.Drawing.Point(16, 220);
+            this.tbxTraceLogDirectory.Location = new System.Drawing.Point(16, 243);
             this.tbxTraceLogDirectory.Name = "tbxTraceLogDirectory";
             this.tbxTraceLogDirectory.Size = new System.Drawing.Size(290, 20);
             this.tbxTraceLogDirectory.TabIndex = 1;
@@ -202,7 +214,7 @@
             // lblTraceLogDirectory
             // 
             this.lblTraceLogDirectory.AutoSize = true;
-            this.lblTraceLogDirectory.Location = new System.Drawing.Point(16, 205);
+            this.lblTraceLogDirectory.Location = new System.Drawing.Point(16, 228);
             this.lblTraceLogDirectory.Name = "lblTraceLogDirectory";
             this.lblTraceLogDirectory.Size = new System.Drawing.Size(101, 13);
             this.lblTraceLogDirectory.TabIndex = 3;
@@ -212,7 +224,7 @@
             // 
             this.butSelectTempPathDirectory.AutoSize = true;
             this.butSelectTempPathDirectory.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this.butSelectTempPathDirectory.Location = new System.Drawing.Point(320, 275);
+            this.butSelectTempPathDirectory.Location = new System.Drawing.Point(320, 298);
             this.butSelectTempPathDirectory.Name = "butSelectTempPathDirectory";
             this.butSelectTempPathDirectory.Size = new System.Drawing.Size(26, 23);
             this.butSelectTempPathDirectory.TabIndex = 2;
@@ -223,7 +235,7 @@
             // tbxTempPathDirectory
             // 
             this.tbxTempPathDirectory.Enabled = false;
-            this.tbxTempPathDirectory.Location = new System.Drawing.Point(16, 275);
+            this.tbxTempPathDirectory.Location = new System.Drawing.Point(16, 298);
             this.tbxTempPathDirectory.Name = "tbxTempPathDirectory";
             this.tbxTempPathDirectory.Size = new System.Drawing.Size(290, 20);
             this.tbxTempPathDirectory.TabIndex = 1;
@@ -232,7 +244,7 @@
             // lblTempPathDirectory
             // 
             this.lblTempPathDirectory.AutoSize = true;
-            this.lblTempPathDirectory.Location = new System.Drawing.Point(16, 245);
+            this.lblTempPathDirectory.Location = new System.Drawing.Point(16, 268);
             this.lblTempPathDirectory.Name = "lblTempPathDirectory";
             this.lblTempPathDirectory.Size = new System.Drawing.Size(283, 13);
             this.lblTempPathDirectory.TabIndex = 3;
@@ -241,7 +253,7 @@
             // lblTempPathWarning
             // 
             this.lblTempPathWarning.AutoSize = true;
-            this.lblTempPathWarning.Location = new System.Drawing.Point(16, 260);
+            this.lblTempPathWarning.Location = new System.Drawing.Point(16, 283);
             this.lblTempPathWarning.Name = "lblTempPathWarning";
             this.lblTempPathWarning.Size = new System.Drawing.Size(164, 13);
             this.lblTempPathWarning.TabIndex = 4;
@@ -282,6 +294,7 @@
 		private System.Windows.Forms.CheckBox ckbCloseManagerAfterGameLaunch;
 		private System.Windows.Forms.CheckBox ckbShowSidePanel;
 		private System.Windows.Forms.CheckBox ckbSkipReadmeFiles;
+		private System.Windows.Forms.CheckBox ckbPromptForTxtFileConflicts;
 		private System.Windows.Forms.CheckBox ckbHideModUpdateWarningIcon;
 		private System.Windows.Forms.ComboBox cbxProgramUpdateCheckInterval;
 	}

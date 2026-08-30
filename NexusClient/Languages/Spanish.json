@@ -1207,6 +1207,7 @@
     "Settings.General.ScanSubfolders.Option": "Buscar mods en subcarpetas del directorio Mods",
     "Settings.General.ShowSidePanel.Option": "Activar panel lateral de información del mod",
     "Settings.General.SkipReadme.Option": "No extraer archivos ReadMe",
+    "Settings.General.TxtConflicts.Option": "Preguntar en caso de conflictos con archivos .txt",
     "Settings.General.TempDirectory.Label": "Directorio de ruta temporal: (la carpeta debe llamarse \"Temp\")",
     "Settings.General.Title": "General",
     "Settings.General.TraceLogDirectory.Label": "Directorio de TraceLog:",

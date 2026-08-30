@@ -187,6 +187,12 @@
 		public bool SkipReadmeFiles { get; set; } = true;
 
 	    /// <summary>
+		/// Gets or sets whether .txt file conflicts should use the normal overwrite prompt.
+		/// </summary>
+		/// <value>Whether .txt file conflicts should use the normal overwrite prompt.</value>
+		public bool PromptForTxtFileConflicts { get; set; }
+
+	    /// <summary>
 		/// Gets or sets whether the manager should prevent the visualization of the Mod Warning Icon.
 		/// </summary>
 		/// <value>Whether the manager should prevent the visualization of the Mod Warning Icon.</value>
@@ -228,6 +234,7 @@
 			CloseModManagerAfterGameLaunch = EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch;
 			ShowSidePanel = EnvironmentInfo.Settings.ShowSidePanel;
 			SkipReadmeFiles = EnvironmentInfo.Settings.SkipReadmeFiles;
+			PromptForTxtFileConflicts = EnvironmentInfo.Settings.PromptForTxtFileConflicts;
 			HideModUpdateWarningIcon = EnvironmentInfo.Settings.HideModUpdateWarningIcon;
 			TraceLogPath = string.IsNullOrEmpty(EnvironmentInfo.Settings.TraceLogFolder) ? EnvironmentInfo.ApplicationPersonalDataFolderPath : EnvironmentInfo.Settings.TraceLogFolder;
 			TempPath = string.IsNullOrEmpty(EnvironmentInfo.Settings.TempPathFolder) ? EnvironmentInfo.TemporaryPath : EnvironmentInfo.Settings.TempPathFolder;
@@ -250,6 +257,7 @@
 			EnvironmentInfo.Settings.CloseModManagerAfterGameLaunch = CloseModManagerAfterGameLaunch;
 			EnvironmentInfo.Settings.ShowSidePanel = ShowSidePanel;
 			EnvironmentInfo.Settings.SkipReadmeFiles = SkipReadmeFiles;
+			EnvironmentInfo.Settings.PromptForTxtFileConflicts = PromptForTxtFileConflicts;
 			EnvironmentInfo.Settings.HideModUpdateWarningIcon = HideModUpdateWarningIcon;
 
 		    try
