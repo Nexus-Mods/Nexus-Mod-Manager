@@ -577,15 +577,15 @@ namespace Nexus.Client.GameStorage
                 return;
             }
 
-            if (!string.Equals(currentBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
-            {
-                Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true, LanguageManager.Format("GameStorage.Health.ManifestStorageMismatch.Message", "The {0} manifest belongs to a different Game Storage.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.StorageMismatch.Fix", "Use folders from the same Game Storage or confirm a recovery candidate."));
-                return;
-            }
-
             if (bindings.Any(x => !string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase)))
             {
                 Add(result, role, path, GameStorageHealthStatus.MismatchedGame, required, true, LanguageManager.Format("GameStorage.Health.FolderCannotBeShared.Message", "The {0} folder cannot be shared between Game Modes.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.SelectExclusiveFolder.Fix", "Select an exclusive folder for this Game Mode."));
+                return;
+            }
+
+            if (!string.Equals(currentBinding.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
+            {
+                Add(result, role, path, GameStorageHealthStatus.MismatchedStorageId, required, true, LanguageManager.Format("GameStorage.Health.ManifestStorageMismatch.Message", "The {0} manifest belongs to a different Game Storage.", GetRoleName(role)), LanguageManager.Get("GameStorage.Health.StorageMismatch.Fix", "Use folders from the same Game Storage or confirm a recovery candidate."));
                 return;
             }
 

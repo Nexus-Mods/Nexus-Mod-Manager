@@ -241,6 +241,23 @@ namespace Nexus.Client.GameStorage.UI
                 _manualLinkFolderButton.Enabled = required;
         }
 
+        public void SetResolvedLinkFolderPath(string path, bool required)
+        {
+            SetLinkFolderRequired(required);
+            if (!required || string.IsNullOrWhiteSpace(path) || !string.IsNullOrWhiteSpace(_manualLinkFolderEdit.Text))
+                return;
+
+            _suppressManualPathChanged = true;
+            try
+            {
+                _manualLinkFolderEdit.Text = path;
+            }
+            finally
+            {
+                _suppressManualPathChanged = false;
+            }
+        }
+
         public void SetRows(IEnumerable<GameStorageSetupRow> rows)
         {
             _healthGridControl.DataSource = rows?.ToList() ?? new List<GameStorageSetupRow>();

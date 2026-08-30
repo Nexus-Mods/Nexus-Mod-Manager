@@ -559,6 +559,8 @@
     "GameStorage.Recovery.Description": "NMM could not validate the storage folders for this game. Select a known candidate or enter custom paths. Compatible shared Mods libraries are allowed only when both Game Mode definitions opt in. NMM will not move, rename, or delete folders during recovery.",
     "GameStorage.Recovery.EmptyFoldersConfirmMessage": "NMM previously recorded data in this Game Storage, but the following selected folders are now empty:\n\n{0}\n\nContinuing will accept the current empty folders as intentional and replace the previous Game Storage snapshot. NMM will not move or delete any files.\n\nContinue only if the old data was intentionally removed or you deliberately want to start with an empty Game Storage.\n\nDo you want to continue?",
     "GameStorage.Recovery.EmptyFoldersConfirmTitle": "Confirm empty Game Storage",
+    "GameStorage.Recovery.StorageRebindConfirmMessage": "The selected folders belong to this game, but some were recorded under a different Game Storage ID. Continuing will adopt these same-game folders as one Game Storage and update NMM's hidden storage metadata. No mod files will be moved, renamed, or deleted.\n\nDo you want to continue?",
+    "GameStorage.Recovery.StorageRebindConfirmTitle": "Confirm Game Storage adoption",
     "GameStorage.Recovery.GenericTitle": "Game Storage recovery",
     "GameStorage.Recovery.Title": "Game Storage recovery - {0}",
     "GameStorage.Setup.ConfirmApply": "Use the selected Game Storage paths for this game? NMM will not move, rename, or delete existing folders.",

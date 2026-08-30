@@ -247,6 +247,120 @@ namespace NexusClientTests
             Assert.IsFalse(candidates.Any(x => x.CandidateKind == "Possible InstallInfo folder" && x.InstallInfoPath == installInfo));
         }
 
+        [Test]
+        public void ValidateRecoveryCandidate_UsesSelectedFolderStorageIdInsteadOfActiveStorage()
+        {
+            var current = CreateStorage("Fallout3", "NMMCECurrent");
+            GameStorageHealthCheck currentHealth = _service.ValidateStorage(current, true);
+            Assert.IsTrue(currentHealth.IsHealthy);
+
+            var oldStorage = CreateStorage("Fallout3", "OldFallout3Storage");
+            const string oldStorageId = "old-fallout3-storage";
+            WriteFolderManifest(oldStorage.InstallInfoPath, "Fallout3", oldStorageId, "InstallInfo");
+            WriteFolderManifest(oldStorage.ModsPath, "Fallout3", oldStorageId, "Mods");
+            WriteFolderManifest(oldStorage.VirtualInstallPath, "Fallout3", oldStorageId, "VirtualInstall");
+
+            var candidate = CreateCandidate(oldStorage);
+            GameStorageHealthCheck healthCheck;
+            bool applied = _service.ValidateRecoveryCandidate(current, candidate, out healthCheck);
+
+            Assert.IsTrue(applied);
+            Assert.AreEqual(oldStorageId, healthCheck.StorageId);
+            Assert.AreNotEqual(currentHealth.StorageId, healthCheck.StorageId);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedStorageId), Is.False);
+        }
+
+        [Test]
+        public void ValidateRecoveryCandidate_LegacyFoldersReceiveNewIdentityInsteadOfActiveStorageId()
+        {
+            var current = CreateStorage("Fallout3", "NMMCECurrent");
+            GameStorageHealthCheck currentHealth = _service.ValidateStorage(current, true);
+            Assert.IsTrue(currentHealth.IsHealthy);
+
+            var legacy = CreateStorage("Fallout3", "LegacyFallout3Storage");
+            var candidate = CreateCandidate(legacy);
+
+            GameStorageHealthCheck healthCheck;
+            bool applied = _service.ValidateRecoveryCandidate(current, candidate, out healthCheck);
+
+            Assert.IsTrue(applied);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(healthCheck.StorageId));
+            Assert.AreNotEqual(currentHealth.StorageId, healthCheck.StorageId);
+            Assert.IsTrue(_service.ValidateStorage(legacy, false).IsHealthy);
+        }
+
+        [Test]
+        public void ValidateRecoveryCandidate_ConflictingSameGameStorageIds_CanBeExplicitlyRebound()
+        {
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            var mixed = CreateStorage("Fallout3", "MixedOldStorage");
+            WriteFolderManifest(mixed.InstallInfoPath, "Fallout3", "install-info-storage", "InstallInfo");
+            WriteFolderManifest(mixed.ModsPath, "Fallout3", "mods-storage", "Mods");
+            WriteFolderManifest(mixed.VirtualInstallPath, "Fallout3", "install-info-storage", "VirtualInstall");
+
+            var candidate = CreateCandidate(mixed);
+            GameStorageHealthCheck healthCheck;
+
+            Assert.IsFalse(_service.ValidateRecoveryCandidate(current, candidate, out healthCheck));
+            Assert.IsTrue(_service.CanAcceptSameGameStorageRebinding(healthCheck));
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedStorageId), Is.True);
+
+            Assert.IsTrue(_service.ValidateRecoveryCandidate(current, candidate, false, true, out healthCheck));
+            Assert.AreEqual("install-info-storage", healthCheck.StorageId);
+            Assert.IsTrue(healthCheck.IsHealthy);
+            Assert.That(File.ReadAllText(Path.Combine(mixed.ModsPath, ".nmm-folder.json")), Does.Contain("install-info-storage"));
+        }
+
+        [Test]
+        public void ValidateRecoveryCandidate_NonShareableFolderBoundToAnotherGame_RemainsBlocked()
+        {
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            var mixed = CreateStorage("Fallout3", "CrossGameStorage");
+            WriteFolderManifestWithBindings(
+                mixed.InstallInfoPath,
+                "InstallInfo",
+                "Fallout3",
+                "fallout3-storage",
+                "FalloutNV",
+                "falloutnv-storage");
+            WriteFolderManifest(mixed.ModsPath, "Fallout3", "fallout3-storage", "Mods");
+            WriteFolderManifest(mixed.VirtualInstallPath, "Fallout3", "fallout3-storage", "VirtualInstall");
+
+            var candidate = CreateCandidate(mixed);
+            GameStorageHealthCheck healthCheck;
+            bool applied = _service.ValidateRecoveryCandidate(current, candidate, out healthCheck);
+
+            Assert.IsFalse(applied);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedGame), Is.True);
+            Assert.IsFalse(_service.CanAcceptSameGameStorageRebinding(healthCheck));
+        }
+
+        [Test]
+        public void RecoveryCandidateUsability_PrefersUsableLegacySetupOverBrokenHighScoreBackup()
+        {
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            var usable = CreateStorage("Fallout3", "UsableOldFallout3Storage");
+            var usableCandidate = CreateCandidate(usable);
+            usableCandidate.ConfidenceScore = 90;
+
+            var brokenCandidate = new GameStorageCandidate
+            {
+                CandidateKind = "Last-known-good backup",
+                GameId = "Fallout3",
+                ConfidenceScore = 98,
+                InstallInfoPath = Path.Combine(_tempRoot, "MissingNMMCE", "InstallInfo"),
+                ModsPath = Path.Combine(_tempRoot, "MissingNMMCE", "Mods"),
+                VirtualInstallPath = Path.Combine(_tempRoot, "MissingNMMCE", "VirtualInstall")
+            };
+
+            int usableRank = _service.GetRecoveryCandidateUsabilityRank(current, usableCandidate);
+            int brokenRank = _service.GetRecoveryCandidateUsabilityRank(current, brokenCandidate);
+
+            Assert.Greater(usableRank, brokenRank);
+            Assert.AreEqual(4, usableRank);
+            Assert.AreEqual(2, brokenRank);
+        }
+
         private GameStoragePathSet CreateStorage(string gameId, string rootName, bool withArchive = false, bool withVirtualFile = false)
         {
             string root = Path.Combine(_tempRoot, rootName);
@@ -295,6 +409,12 @@ namespace NexusClientTests
         {
             File.WriteAllText(Path.Combine(folder, ".nmm-folder.json"),
                 "{\"SchemaVersion\":1,\"App\":\"Nexus Mod Manager\",\"FolderRole\":\"" + role + "\",\"StorageId\":\"" + storageId + "\",\"GameId\":\"" + gameId + "\",\"CreatedUtc\":\"2026-01-01T00:00:00Z\",\"LastSeenUtc\":\"2026-01-01T00:00:00Z\"}");
+        }
+
+        private static void WriteFolderManifestWithBindings(string folder, string role, string gameId, string storageId, string otherGameId, string otherStorageId)
+        {
+            File.WriteAllText(Path.Combine(folder, ".nmm-folder.json"),
+                "{\"SchemaVersion\":2,\"App\":\"Nexus Mod Manager\",\"FolderRole\":\"" + role + "\",\"StorageId\":\"" + storageId + "\",\"GameId\":\"" + gameId + "\",\"CreatedUtc\":\"2026-01-01T00:00:00Z\",\"LastSeenUtc\":\"2026-01-01T00:00:00Z\",\"Bindings\":[{\"GameId\":\"" + gameId + "\",\"StorageId\":\"" + storageId + "\"},{\"GameId\":\"" + otherGameId + "\",\"StorageId\":\"" + otherStorageId + "\"}]}" );
         }
 
         private static void WriteRootManifest(string root, string gameId, string storageId)

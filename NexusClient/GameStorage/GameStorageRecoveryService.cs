@@ -82,13 +82,18 @@ namespace Nexus.Client.GameStorage
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, out GameStorageHealthCheck healthCheck)
         {
-            return ApplyRecoveryCandidate(gameMode, candidate, false, out healthCheck);
+            return ApplyRecoveryCandidate(gameMode, candidate, false, false, out healthCheck);
         }
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, bool acceptSuspiciousEmptyFolders, out GameStorageHealthCheck healthCheck)
         {
+            return ApplyRecoveryCandidate(gameMode, candidate, acceptSuspiciousEmptyFolders, false, out healthCheck);
+        }
+
+        public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, bool acceptSuspiciousEmptyFolders, bool acceptStorageIdRebinding, out GameStorageHealthCheck healthCheck)
+        {
             var currentPaths = FromGameMode(gameMode);
-            if (!ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, out healthCheck))
+            if (!ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding, out healthCheck))
                 return false;
 
             var paths = CreatePathSetFromCandidate(currentPaths, candidate);
@@ -203,13 +208,23 @@ namespace Nexus.Client.GameStorage
 			GameStorageCandidate candidate,
 			out GameStorageHealthCheck healthCheck)
 		{
-			return ValidateRecoveryCandidate(currentPaths, candidate, false, out healthCheck);
+			return ValidateRecoveryCandidate(currentPaths, candidate, false, false, out healthCheck);
 		}
 
 		public bool ValidateRecoveryCandidate(
 			GameStoragePathSet currentPaths,
 			GameStorageCandidate candidate,
 			bool acceptSuspiciousEmptyFolders,
+			out GameStorageHealthCheck healthCheck)
+		{
+			return ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, false, out healthCheck);
+		}
+
+		public bool ValidateRecoveryCandidate(
+			GameStoragePathSet currentPaths,
+			GameStorageCandidate candidate,
+			bool acceptSuspiciousEmptyFolders,
+			bool acceptStorageIdRebinding,
 			out GameStorageHealthCheck healthCheck)
 		{
 			healthCheck = null;
@@ -233,17 +248,17 @@ namespace Nexus.Client.GameStorage
 				paths,
 				registry);
 
-			string storageId =
-				string.IsNullOrWhiteSpace(candidate.StorageId)
-					? ResolveStorageId(paths, registry)
-					: candidate.StorageId;
+			string storageId = ResolveRecoveryStorageId(
+				paths,
+				candidate,
+				registry);
 
 			healthCheck = Validate(
 				paths,
 				storageId,
 				registry);
 
-			if (!CanRecoverExistingStorage(healthCheck, acceptSuspiciousEmptyFolders))
+			if (!CanRecoverExistingStorage(healthCheck, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding))
 				return false;
 
 			if (paths.LinkFolderRequired &&
@@ -285,7 +300,8 @@ namespace Nexus.Client.GameStorage
 			if (!CanFinalizeRecoveredStorage(
 				healthCheck,
 				virtualInstallWasMissing,
-				acceptSuspiciousEmptyFolders))
+				acceptSuspiciousEmptyFolders,
+				acceptStorageIdRebinding))
 			{
 				return false;
 			}
@@ -320,22 +336,99 @@ namespace Nexus.Client.GameStorage
 		{
 			return healthCheck != null &&
 				healthCheck.Items.Any(IsAcceptableSuspiciousEmptyFolder) &&
-				CanRecoverExistingStorage(healthCheck, true);
+				CanRecoverExistingStorage(healthCheck, true, true);
 		}
 
-		private bool CanRecoverExistingStorage(GameStorageHealthCheck healthCheck, bool acceptSuspiciousEmptyFolders)
+		public bool CanAcceptSameGameStorageRebinding(GameStorageHealthCheck healthCheck)
+		{
+			return healthCheck != null &&
+				healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedStorageId) &&
+				CanRecoverExistingStorage(healthCheck, true, true);
+		}
+
+		public GameStoragePathSet ResolveRecoveryPaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+		{
+			return currentPaths == null || candidate == null
+				? null
+				: CreatePathSetFromCandidate(currentPaths, candidate);
+		}
+
+		public GameStorageHealthCheck ValidateRecoverySelection(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+		{
+			if (currentPaths == null || candidate == null ||
+				!string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
+			{
+				return new GameStorageHealthCheck { GameId = currentPaths?.GameId };
+			}
+
+			var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+			var registry = LoadRegistry();
+			string storageId = ResolveRecoveryStorageId(paths, candidate, registry);
+			return Validate(paths, storageId, registry);
+		}
+
+		public int GetRecoveryCandidateUsabilityRank(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+		{
+			if (currentPaths == null || candidate == null ||
+				!string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
+			{
+				return 0;
+			}
+
+			var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+			var registry = LoadRegistry();
+			string storageId = ResolveRecoveryStorageId(paths, candidate, registry);
+			var healthCheck = Validate(paths, storageId, registry);
+
+			if (paths.LinkFolderRequired &&
+				(string.IsNullOrWhiteSpace(paths.LinkFolderPath) ||
+				 !IsLinkFolderOnGameDrive(paths.LinkFolderPath, paths.GameInstallPath)))
+			{
+				return 0;
+			}
+
+			if (CanRecoverExistingStorage(healthCheck, false, false))
+				return 4;
+
+			if (CanRecoverExistingStorage(healthCheck, true, true))
+				return 3;
+
+			if (healthCheck.Items.Any(IsHardRecoveryFailure))
+				return 0;
+
+			return 2;
+		}
+
+		private static bool IsHardRecoveryFailure(GameStorageHealthItem item)
+		{
+			if (item == null)
+				return true;
+
+			return item.Status == GameStorageHealthStatus.MismatchedGame ||
+				item.Status == GameStorageHealthStatus.PartialMatch ||
+				item.Status == GameStorageHealthStatus.LinkFolderOnWrongDrive ||
+				item.Status == GameStorageHealthStatus.NotWritable ||
+				item.Status == GameStorageHealthStatus.Unknown;
+		}
+
+		private bool CanRecoverExistingStorage(GameStorageHealthCheck healthCheck, bool acceptSuspiciousEmptyFolders, bool acceptStorageIdRebinding)
 		{
 			if (healthCheck == null)
 				return false;
 
 			foreach (var item in healthCheck.Items)
 			{
+				bool acceptedStorageMismatch =
+					acceptStorageIdRebinding &&
+					item.Status == GameStorageHealthStatus.MismatchedStorageId;
+
 				if (item.Role == GameStorageFolderRole.InstallInfo ||
 					item.Role == GameStorageFolderRole.Mods)
 				{
 					if (item.Status != GameStorageHealthStatus.Healthy &&
 						item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 						item.Status != GameStorageHealthStatus.CompatibleSharedModsLibrary &&
+						!acceptedStorageMismatch &&
 						!(acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item)))
 					{
 						return false;
@@ -346,6 +439,7 @@ namespace Nexus.Client.GameStorage
 					item.Status != GameStorageHealthStatus.Healthy &&
 					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 					item.Status != GameStorageHealthStatus.MissingVirtualInstall &&
+					!acceptedStorageMismatch &&
 					!(acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item)))
 				{
 					return false;
@@ -355,7 +449,8 @@ namespace Nexus.Client.GameStorage
 					item.Status != GameStorageHealthStatus.Healthy &&
 					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 					item.Status != GameStorageHealthStatus.MissingLinkFolder &&
-					item.Status != GameStorageHealthStatus.LinkFolderNotRequired)
+					item.Status != GameStorageHealthStatus.LinkFolderNotRequired &&
+					!acceptedStorageMismatch)
 				{
 					return false;
 				}
@@ -377,7 +472,8 @@ namespace Nexus.Client.GameStorage
 		private bool CanFinalizeRecoveredStorage(
 			GameStorageHealthCheck healthCheck,
 			bool virtualInstallWasMissing,
-			bool acceptSuspiciousEmptyFolders)
+			bool acceptSuspiciousEmptyFolders,
+			bool acceptStorageIdRebinding)
 		{
 			if (healthCheck == null)
 				return false;
@@ -393,6 +489,9 @@ namespace Nexus.Client.GameStorage
 				}
 
 				if (acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item))
+					continue;
+
+				if (acceptStorageIdRebinding && item.Status == GameStorageHealthStatus.MismatchedStorageId)
 					continue;
 
 				if (virtualInstallWasMissing &&
@@ -721,6 +820,57 @@ namespace Nexus.Client.GameStorage
                     StringComparison.OrdinalIgnoreCase))
                 .Select(x => x.StorageId)
                 .FirstOrDefault();
+        }
+
+        private string ResolveRecoveryStorageId(
+            GameStoragePathSet paths,
+            GameStorageCandidate candidate,
+            GameStorageRegistry registry)
+        {
+            if (candidate != null && !string.IsNullOrWhiteSpace(candidate.StorageId))
+                return candidate.StorageId;
+
+            foreach (var folder in new[]
+            {
+                new { Path = paths.InstallInfoPath, Role = GameStorageFolderRole.InstallInfo },
+                new { Path = paths.ModsPath, Role = GameStorageFolderRole.Mods },
+                new { Path = paths.VirtualInstallPath, Role = GameStorageFolderRole.VirtualInstall },
+                new { Path = paths.LinkFolderPath, Role = GameStorageFolderRole.LinkFolder }
+            })
+            {
+                string folderStorageId = GetCurrentGameFolderStorageId(paths, folder.Path, folder.Role);
+                if (!string.IsNullOrWhiteSpace(folderStorageId))
+                    return folderStorageId;
+            }
+
+            string registryStorageId = FindMatchingRegistryStorageId(paths, registry);
+            if (!string.IsNullOrWhiteSpace(registryStorageId))
+                return registryStorageId;
+
+            // Recovery must not inherit the currently active Storage ID just because
+            // the user is recovering the same game. Legacy folders without metadata
+            // are a distinct storage and receive a new identity.
+            return Guid.NewGuid().ToString("D");
+        }
+
+        private string FindMatchingRegistryStorageId(
+            GameStoragePathSet paths,
+            GameStorageRegistry registry)
+        {
+            if (paths == null || registry == null)
+                return null;
+
+            var exactMatch = registry.KnownStorages.FirstOrDefault(x =>
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                CandidatePathsEqual(x.InstallInfoPath, paths.InstallInfoPath) &&
+                CandidatePathsEqual(x.ModsPath, paths.ModsPath) &&
+                CandidatePathsEqual(
+                    NormalizeVirtualInstallDirectory(x.VirtualInstallPath),
+                    paths.VirtualInstallPath) &&
+                (!paths.LinkFolderRequired ||
+                 CandidatePathsEqual(x.LinkFolderPath, paths.LinkFolderPath)));
+
+            return exactMatch?.StorageId;
         }
 
         private bool TryMergeStorageId(

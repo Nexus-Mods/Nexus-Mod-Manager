@@ -40,7 +40,7 @@ namespace Nexus.Client.GameStorage.UI
             Controls.Add(_control);
 
             SetHealth(healthCheck);
-            RefreshCandidates();
+            RefreshCandidates(true);
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -51,7 +51,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void RefreshRequested(object sender, EventArgs e)
         {
-            RefreshCandidates();
+            RefreshCandidates(false);
         }
 
         private void CancelRequested(object sender, EventArgs e)
@@ -85,8 +85,8 @@ namespace Nexus.Client.GameStorage.UI
                 _service.IsLinkFolderRequired(candidate.VirtualInstallPath, currentPaths.GameInstallPath);
 
             var paths = CreatePathSetFromCandidate(candidate);
-            _control.SetLinkFolderRequired(paths.LinkFolderRequired);
-            SetHealth(_service.ValidateStorage(paths, false));
+            _control.SetResolvedLinkFolderPath(paths.LinkFolderPath, paths.LinkFolderRequired);
+            SetHealth(_service.ValidateRecoverySelection(currentPaths, candidate));
         }
 
         private void CandidatePreviewRequested(object sender, EventArgs e)
@@ -133,6 +133,27 @@ namespace Nexus.Client.GameStorage.UI
                 return;
             }
 
+            bool acceptStorageIdRebinding = false;
+            bool acceptSuspiciousEmptyFolders = false;
+
+            if (_service.CanAcceptSameGameStorageRebinding(healthCheck))
+            {
+                SetHealth(healthCheck);
+                var result = XtraMessageBox.Show(
+                    this,
+                    LanguageManager.Get(
+                        "GameStorage.Recovery.StorageRebindConfirmMessage",
+                        "The selected folders belong to this game, but some were recorded under a different Game Storage ID. Continuing will adopt these same-game folders as one Game Storage and update NMM's hidden storage metadata. No mod files will be moved, renamed, or deleted.\n\nDo you want to continue?"),
+                    LanguageManager.Get("GameStorage.Recovery.StorageRebindConfirmTitle", "Confirm Game Storage adoption"),
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result != DialogResult.Yes)
+                    return;
+
+                acceptStorageIdRebinding = true;
+            }
+
             if (_service.CanAcceptSuspiciousEmptyFolders(healthCheck))
             {
                 SetHealth(healthCheck);
@@ -146,11 +167,19 @@ namespace Nexus.Client.GameStorage.UI
                 if (result != DialogResult.Yes)
                     return;
 
-                if (_service.ApplyRecoveryCandidate(_gameMode, candidate, true, out healthCheck))
-                {
-                    DialogResult = DialogResult.OK;
-                    return;
-                }
+                acceptSuspiciousEmptyFolders = true;
+            }
+
+            if ((acceptStorageIdRebinding || acceptSuspiciousEmptyFolders) &&
+                _service.ApplyRecoveryCandidate(
+                    _gameMode,
+                    candidate,
+                    acceptSuspiciousEmptyFolders,
+                    acceptStorageIdRebinding,
+                    out healthCheck))
+            {
+                DialogResult = DialogResult.OK;
+                return;
             }
 
             SetHealth(healthCheck);
@@ -170,18 +199,29 @@ namespace Nexus.Client.GameStorage.UI
                 string.Join(Environment.NewLine, folders));
         }
 
-        private void RefreshCandidates()
+        private void RefreshCandidates(bool previewBestCandidate)
         {
+            GameStorageCandidate selectedCandidate = _control.SelectedCandidate;
             _candidates = _service.DiscoverRecoveryCandidates(_gameMode);
             _control.SetCandidates(_candidates);
-            PreviewBestCandidate();
+
+            if (previewBestCandidate)
+            {
+                PreviewBestCandidate();
+                return;
+            }
+
+            if (selectedCandidate != null)
+                _control.SelectCandidate(selectedCandidate);
         }
 
         private void PreviewBestCandidate()
         {
+            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
             GameStorageCandidate bestCandidate = _candidates
                 .Where(x => x != null)
-                .OrderByDescending(x => x.ConfidenceScore)
+                .OrderByDescending(x => _service.GetRecoveryCandidateUsabilityRank(currentPaths, x))
+                .ThenByDescending(x => x.ConfidenceScore)
                 .ThenBy(x => x.CandidateKind)
                 .FirstOrDefault();
 
@@ -194,9 +234,10 @@ namespace Nexus.Client.GameStorage.UI
 
         private void PreviewCandidate(GameStorageCandidate candidate)
         {
+            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetManualPaths(paths);
-            SetHealth(_service.ValidateStorage(paths, false));
+            SetHealth(_service.ValidateRecoverySelection(currentPaths, candidate));
         }
 
         private void SetHealth(GameStorageHealthCheck healthCheck)
@@ -214,20 +255,7 @@ namespace Nexus.Client.GameStorage.UI
         private GameStoragePathSet CreatePathSetFromCandidate(GameStorageCandidate candidate)
         {
             GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
-            return new GameStoragePathSet
-            {
-                GameId = currentPaths.GameId,
-                GameName = currentPaths.GameName,
-                GameInstallPath = currentPaths.GameInstallPath,
-                InstallInfoPath = candidate.InstallInfoPath,
-                ModsPath = candidate.ModsPath,
-                VirtualInstallPath = candidate.VirtualInstallPath,
-                LinkFolderPath = candidate.LinkFolderPath,
-                LinkFolderRequired = candidate.LinkFolderRequired || _service.IsLinkFolderRequired(candidate.VirtualInstallPath, currentPaths.GameInstallPath),
-                CompatibleSharedModsGameIds = currentPaths.CompatibleSharedModsGameIds == null
-                    ? new List<string>()
-                    : new List<string>(currentPaths.CompatibleSharedModsGameIds)
-            };
+            return _service.ResolveRecoveryPaths(currentPaths, candidate);
         }
     }
 }
