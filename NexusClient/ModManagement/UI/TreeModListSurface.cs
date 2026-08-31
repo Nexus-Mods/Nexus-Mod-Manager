@@ -99,6 +99,7 @@
 		private bool _showEmptyCategories;
 		private string _textFilter = String.Empty;
 		private Func<IMod, bool> _visibilityPredicate;
+		private Func<ModCategoryTreeCategory, bool> _categoryVisibilityPredicate;
 		private bool _suppressSelectionChanged;
 
 		/// <summary>
@@ -327,6 +328,15 @@
 				return;
 
 			_visibilityPredicate = predicate;
+			ApplyVisibilityFilter();
+		}
+
+		/// <summary>
+		/// Sets the category-level visibility rule composed with all mod filters.
+		/// </summary>
+		internal void SetCategoryVisibilityPredicate(Func<ModCategoryTreeCategory, bool> predicate)
+		{
+			_categoryVisibilityPredicate = predicate;
 			ApplyVisibilityFilter();
 		}
 
@@ -794,6 +804,8 @@
 		private TreeListNode AppendModNode(IMod mod, TreeListNode categoryNode)
 		{
 			TreeListNode node = _treeList.AppendNode(BuildModValues(mod), categoryNode, CheckState.Unchecked, mod);
+			node.ImageIndex = -1;
+			node.SelectImageIndex = -1;
 			_modNodes[mod] = node;
 
 			ModCategoryTreeCategory category = categoryNode?.Tag as ModCategoryTreeCategory;
@@ -920,6 +932,7 @@
 				String.IsNullOrWhiteSpace(countText)
 					? category.Name
 					: String.Format("{0} ({1})", category.Name, countText));
+			_viewControl.UpdateCategoryModCountIcon(categoryNode, category.ModCount);
 		}
 
 		/// <summary>
@@ -992,11 +1005,13 @@
 				// contains a matching mod, or when it is an explicitly requested empty category.
 				foreach (KeyValuePair<string, TreeListNode> categoryPair in _categoryNodes)
 				{
+					ModCategoryTreeCategory category = categoryPair.Value.Tag as ModCategoryTreeCategory;
+					bool categoryAllowed = category == null || _categoryVisibilityPredicate == null || _categoryVisibilityPredicate(category);
 					bool anyVisible = false;
 					foreach (TreeListNode modNode in categoryPair.Value.Nodes)
 					{
 						IMod mod = modNode.Tag as IMod;
-						bool visible = mod != null &&
+						bool visible = categoryAllowed && mod != null &&
 							(String.IsNullOrEmpty(_textFilter) ||
 							 (mod.ModName ?? String.Empty).IndexOf(_textFilter, StringComparison.CurrentCultureIgnoreCase) >= 0) &&
 							(_visibilityPredicate == null || _visibilityPredicate(mod));
@@ -1008,8 +1023,7 @@
 						anyVisible |= visible;
 					}
 
-					ModCategoryTreeCategory category = categoryPair.Value.Tag as ModCategoryTreeCategory;
-					bool showEmptyCategory = _showEmptyCategories &&
+					bool showEmptyCategory = categoryAllowed && _showEmptyCategories &&
 						category != null &&
 						category.ModCount == 0 &&
 						String.IsNullOrEmpty(_textFilter) &&

@@ -858,6 +858,8 @@
     "Mods.Categories.ResetUnassigned.FullName": "分类：将未分配 Mod 重置为 Nexus 网站默认值",
     "Mods.Categories.ResetUnassigned.Name": "将未分配 Mod 重置为 Nexus 网站默认值",
     "Mods.Categories.ShowOnlyWithNewMods.Name": "仅显示包含新 Mod 的分类",
+    "Mods.Categories.HideDefaultNexus.Name": "隐藏默认 Nexus 分类",
+    "Mods.Categories.ShowModCountIcons.Name": "显示带模组数量的分类图标",
     "Mods.Categories.ToggleHidden.FullName": "分类：显示空分类",
     "Mods.Categories.ToggleHidden.Name": "显示空分类",
     "Mods.Categories.UpdateNexusCustom.FullName": "分类：更新 Nexus 和自定义分类",

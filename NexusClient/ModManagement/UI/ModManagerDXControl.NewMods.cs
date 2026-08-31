@@ -18,8 +18,12 @@
 			new ModSessionNewTracker();
 
 		private BarButtonItem _showOnlyCategoriesWithNewModsMenuItem;
+		private BarButtonItem _hideDefaultNexusCategoriesMenuItem;
+		private BarButtonItem _showCategoryModCountIconsMenuItem;
 		private bool _newModCategoryViewInitialized;
 		private bool _showOnlyCategoriesWithNewMods;
+		private bool _hideDefaultNexusCategories;
+		private bool _showCategoryModCountIcons;
 
 		private void InitializeNewModCategoryView()
 		{
@@ -39,6 +43,24 @@
 				(sender, args) => ShowOnlyCategoriesWithNewMods_Click(sender, EventArgs.Empty);
 			NmmIconProvider.Bind(_showOnlyCategoriesWithNewModsMenuItem, NmmIconAction.Filter);
 
+			_hideDefaultNexusCategoriesMenuItem = new BarButtonItem(barManagerMods, LanguageManager.Get("Mods.Categories.HideDefaultNexus.Name", "Hide default Nexus categories"))
+			{
+				ButtonStyle = BarButtonStyle.Check,
+				Down = false
+			};
+			_hideDefaultNexusCategoriesMenuItem.ItemClick +=
+				(sender, args) => SetHideDefaultNexusCategories(_hideDefaultNexusCategoriesMenuItem.Down, true);
+			NmmIconProvider.Bind(_hideDefaultNexusCategoriesMenuItem, NmmIconAction.Filter);
+
+			_showCategoryModCountIconsMenuItem = new BarButtonItem(barManagerMods, LanguageManager.Get("Mods.Categories.ShowModCountIcons.Name", "Show category mod-count icons"))
+			{
+				ButtonStyle = BarButtonStyle.Check,
+				Down = false
+			};
+			_showCategoryModCountIconsMenuItem.ItemClick +=
+				(sender, args) => SetShowCategoryModCountIcons(_showCategoryModCountIconsMenuItem.Down, true);
+			NmmIconProvider.Bind(_showCategoryModCountIconsMenuItem, NmmIconAction.OpenFolder);
+
 			// Rebuild the persistent category popup once so the session-only filter
 			// stays in the same position as the legacy ToolStrip implementation.
 			popupCategories.ClearLinks();
@@ -47,6 +69,8 @@
 			popupCategories.AddItem(expandAllCategories);
 			popupCategories.AddItem(updateNexusAndCustomCategories);
 			popupCategories.AddItem(_showOnlyCategoriesWithNewModsMenuItem);
+			popupCategories.AddItem(_hideDefaultNexusCategoriesMenuItem);
+			popupCategories.AddItem(_showCategoryModCountIconsMenuItem);
 			popupCategories.AddItem(resetDefaultCategories);
 			popupCategories.AddItem(resetUnassignedToDefaultCategories);
 			popupCategories.AddItem(resetModsCategory);
@@ -325,6 +349,41 @@
 				(!_showUpdatesOnly || IsModOutdated(mod)));
 		}
 
+		private void SetHideDefaultNexusCategories(bool enabled, bool save)
+		{
+			_hideDefaultNexusCategories = enabled;
+			if (_hideDefaultNexusCategoriesMenuItem != null)
+				_hideDefaultNexusCategoriesMenuItem.Down = enabled;
+
+			ApplyDefaultNexusCategoryVisibilityToTree();
+			SaveGridDisplayOption(CategoryTreeHideDefaultNexusCategoriesKey, enabled, save);
+		}
+
+		private void ApplyDefaultNexusCategoryVisibilityToTree()
+		{
+			if (_categoryModListSurface == null)
+				return;
+
+			if (!_hideDefaultNexusCategories || _viewModel?.CategoryManager == null)
+			{
+				_categoryModListSurface.SetCategoryVisibilityPredicate(null);
+				return;
+			}
+
+			_categoryModListSurface.SetCategoryVisibilityPredicate(category =>
+				category == null || category.Id <= 0 || _viewModel.CategoryManager.IsCustomCategory(category.Id));
+		}
+
+		private void SetShowCategoryModCountIcons(bool enabled, bool save)
+		{
+			_showCategoryModCountIcons = enabled;
+			if (_showCategoryModCountIconsMenuItem != null)
+				_showCategoryModCountIconsMenuItem.Down = enabled;
+
+			_modCategoryTreeControl?.SetShowCategoryModCountIcons(enabled);
+			SaveGridDisplayOption(CategoryTreeShowModCountIconsKey, enabled, save);
+		}
+
 		private void CategoriesMenu_DropDownOpening(
 			object sender,
 			EventArgs e)
@@ -345,6 +404,10 @@
 			resetModsCategory.Caption = LanguageManager.Get("Mods.Categories.ResetAllUnassigned.Name", "Reset all mods to unassigned");
 			removeAllCategories.Caption = LanguageManager.Get("Mods.Categories.RemoveAll.Name", "Remove all categories");
 			toggleHiddenCategories.Caption = LanguageManager.Get("Mods.Categories.ToggleHidden.Name", "Show empty categories");
+			if (_hideDefaultNexusCategoriesMenuItem != null)
+				_hideDefaultNexusCategoriesMenuItem.Caption = LanguageManager.Get("Mods.Categories.HideDefaultNexus.Name", "Hide default Nexus categories");
+			if (_showCategoryModCountIconsMenuItem != null)
+				_showCategoryModCountIconsMenuItem.Caption = LanguageManager.Get("Mods.Categories.ShowModCountIcons.Name", "Show category mod-count icons");
 			tsbResetCategories.Hint =
 				LanguageManager.Get("Mods.Categories.Menu.ShortTooltip", "Category actions");
 		}
@@ -359,6 +422,18 @@
 			removeAllCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			toggleHiddenCategories.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
 			toggleHiddenCategories.Down = _viewModel?.Settings?.ShowEmptyCategory == true;
+
+			if (_hideDefaultNexusCategoriesMenuItem != null)
+			{
+				_hideDefaultNexusCategoriesMenuItem.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+				_hideDefaultNexusCategoriesMenuItem.Down = _hideDefaultNexusCategories;
+			}
+
+			if (_showCategoryModCountIconsMenuItem != null)
+			{
+				_showCategoryModCountIconsMenuItem.Visibility = categoryView ? BarItemVisibility.Always : BarItemVisibility.Never;
+				_showCategoryModCountIconsMenuItem.Down = _showCategoryModCountIcons;
+			}
 
 			if (_showOnlyCategoriesWithNewModsMenuItem != null)
 			{

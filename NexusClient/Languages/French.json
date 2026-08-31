@@ -858,6 +858,8 @@
     "Mods.Categories.ResetUnassigned.FullName": "Catégories : réinitialiser les mods Non attribué selon les valeurs par défaut du site Nexus",
     "Mods.Categories.ResetUnassigned.Name": "Réinitialiser les mods non attribués selon Nexus",
     "Mods.Categories.ShowOnlyWithNewMods.Name": "Afficher uniquement les catégories contenant de nouveaux mods",
+    "Mods.Categories.HideDefaultNexus.Name": "Masquer les catégories Nexus par défaut",
+    "Mods.Categories.ShowModCountIcons.Name": "Afficher les icônes de catégorie avec le nombre de mods",
     "Mods.Categories.ToggleHidden.FullName": "Catégories : afficher les catégories vides",
     "Mods.Categories.ToggleHidden.Name": "Afficher les catégories vides",
     "Mods.Categories.UpdateNexusCustom.FullName": "Catégories : mettre à jour les catégories Nexus et personnalisées",

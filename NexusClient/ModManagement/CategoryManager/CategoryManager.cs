@@ -572,9 +572,19 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_mctCategory">The category to inspect.</param>
 		/// <returns><c>true</c> for a user-created category; otherwise <c>false</c>.</returns>
-		private bool IsCustomCategory(IModCategory p_mctCategory)
+		public bool IsCustomCategory(IModCategory p_mctCategory)
 		{
-			return p_mctCategory != null && m_hstCustomCategoryIds.Contains(p_mctCategory.Id);
+			return p_mctCategory != null && IsCustomCategory(p_mctCategory.Id);
+		}
+
+		/// <summary>
+		/// Determines whether the specified category identifier belongs to a user-created category.
+		/// </summary>
+		/// <param name="p_intCategoryId">The category identifier to inspect.</param>
+		/// <returns><c>true</c> for a user-created category; otherwise <c>false</c>.</returns>
+		public bool IsCustomCategory(Int32 p_intCategoryId)
+		{
+			return m_hstCustomCategoryIds.Contains(p_intCategoryId);
 		}
 
 		/// <summary>

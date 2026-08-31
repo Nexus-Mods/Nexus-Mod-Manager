@@ -858,6 +858,8 @@
     "Mods.Categories.ResetUnassigned.FullName": "Categorías: restablecer los mods Sin asignar a los valores predeterminados del sitio Nexus",
     "Mods.Categories.ResetUnassigned.Name": "Restablecer los mods sin asignar a los valores predeterminados del sitio Nexus",
     "Mods.Categories.ShowOnlyWithNewMods.Name": "Mostrar solo categorías con mods nuevos",
+    "Mods.Categories.HideDefaultNexus.Name": "Ocultar categorías predeterminadas de Nexus",
+    "Mods.Categories.ShowModCountIcons.Name": "Mostrar iconos de categoría con número de mods",
     "Mods.Categories.ToggleHidden.FullName": "Categorías: mostrar categorías vacías",
     "Mods.Categories.ToggleHidden.Name": "Mostrar categorías vacías",
     "Mods.Categories.UpdateNexusCustom.FullName": "Categorías: actualizar categorías de Nexus y personalizadas",

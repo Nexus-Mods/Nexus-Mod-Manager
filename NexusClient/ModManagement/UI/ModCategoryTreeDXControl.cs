@@ -1,8 +1,11 @@
 ﻿namespace Nexus.Client.ModManagement.UI
 {
 	using System;
+	using System.Collections.Generic;
 	using System.ComponentModel;
 	using System.Drawing;
+	using System.Drawing.Drawing2D;
+	using System.Drawing.Text;
 	using System.Linq;
 	using System.Windows.Forms;
 
@@ -74,6 +77,9 @@
 		private Color _latestVersionForeColor;
 		private Color _outdatedVersionForeColor;
 		private int _internalDataUpdateDepth;
+		private ImageList _categoryModCountImages;
+		private readonly Dictionary<int, int> _categoryModCountImageIndexes = new Dictionary<int, int>();
+		private bool _showCategoryModCountIcons;
 
 		/// <summary>
 		/// Initializes the hierarchical Category View frontend and its DevExpress interaction rules.
@@ -81,6 +87,13 @@
 		public ModCategoryTreeDXControl()
 		{
 			InitializeComponent();
+			if (components == null)
+				components = new Container();
+			_categoryModCountImages = new ImageList(components)
+			{
+				ColorDepth = ColorDepth.Depth32Bit,
+				ImageSize = new Size(16, 16)
+			};
 			ConfigureTree();
 		}
 
@@ -187,6 +200,151 @@
 
 			treeList.LayoutChanged();
 			treeList.Invalidate();
+		}
+
+		/// <summary>
+		/// Shows or hides the native TreeList category image containing the assigned mod count.
+		/// </summary>
+		internal void SetShowCategoryModCountIcons(bool visible)
+		{
+			_showCategoryModCountIcons = visible;
+			if (!visible)
+			{
+				treeList.SelectImageList = null;
+				foreach (TreeListNode node in treeList.Nodes)
+				{
+					if (!(node.Tag is ModCategoryTreeCategory))
+						continue;
+					node.ImageIndex = -1;
+					node.SelectImageIndex = -1;
+				}
+				treeList.Invalidate();
+				return;
+			}
+
+			RebuildCategoryModCountImageCache();
+			treeList.SelectImageList = _categoryModCountImages;
+			foreach (TreeListNode node in treeList.Nodes)
+			{
+				ModCategoryTreeCategory category = node.Tag as ModCategoryTreeCategory;
+				if (category != null)
+					UpdateCategoryModCountIcon(node, category.ModCount);
+			}
+			treeList.LayoutChanged();
+			treeList.Invalidate();
+		}
+
+		/// <summary>
+		/// Updates one category node's cached folder/count image after its aggregate count changes.
+		/// </summary>
+		internal void UpdateCategoryModCountIcon(TreeListNode node, int modCount)
+		{
+			if (node == null || !(node.Tag is ModCategoryTreeCategory))
+				return;
+
+			if (!_showCategoryModCountIcons)
+			{
+				node.ImageIndex = -1;
+				node.SelectImageIndex = -1;
+				return;
+			}
+
+			int imageIndex = GetCategoryModCountImageIndex(Math.Max(0, modCount));
+			node.ImageIndex = imageIndex;
+			node.SelectImageIndex = imageIndex;
+		}
+
+		private void RebuildCategoryModCountImageCache()
+		{
+			int rowBound = treeList.RowHeight > 0 ? Math.Max(16, treeList.RowHeight - 2) : NmmIconProvider.CurrentIconSize;
+			int iconSize = Math.Max(16, Math.Min(NmmIconProvider.CurrentIconSize, rowBound));
+			treeList.SelectImageList = null;
+			_categoryModCountImages.Images.Clear();
+			_categoryModCountImageIndexes.Clear();
+			_categoryModCountImages.ImageSize = new Size(iconSize, iconSize);
+		}
+
+		private int GetCategoryModCountImageIndex(int modCount)
+		{
+			int imageIndex;
+			if (_categoryModCountImageIndexes.TryGetValue(modCount, out imageIndex))
+				return imageIndex;
+
+			Bitmap image = CreateCategoryModCountImage(modCount, _categoryModCountImages.ImageSize.Width);
+			_categoryModCountImages.Images.Add(image);
+			imageIndex = _categoryModCountImages.Images.Count - 1;
+			_categoryModCountImageIndexes[modCount] = imageIndex;
+			return imageIndex;
+		}
+
+		private static Bitmap CreateCategoryModCountImage(int modCount, int size)
+		{
+			var bitmap = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+			using (Graphics graphics = Graphics.FromImage(bitmap))
+			{
+				graphics.Clear(Color.Transparent);
+				graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+				graphics.SmoothingMode = SmoothingMode.AntiAlias;
+				graphics.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+
+				Image folder = NmmIconProvider.GetBitmap(NmmIconAction.OpenFolder, size, false);
+				if (folder != null)
+					graphics.DrawImage(folder, new Rectangle(0, 0, size, size));
+
+				string text = modCount.ToString();
+				var textBounds = new RectangleF(1f, size * 0.30f, size - 2f, size * 0.66f);
+				float fontSize = Math.Max(4f, size * 0.48f);
+				Font font = null;
+				try
+				{
+					while (fontSize >= 4f)
+					{
+						font?.Dispose();
+						font = new Font(FontFamily.GenericSansSerif, fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+						SizeF measured = graphics.MeasureString(text, font);
+						if (measured.Width <= textBounds.Width && measured.Height <= textBounds.Height)
+							break;
+						fontSize -= 0.5f;
+					}
+
+					Color textColor = ResolveCountTextColor(bitmap);
+					Color shadowColor = textColor.GetBrightness() > 0.5f ? Color.FromArgb(210, 20, 20, 20) : Color.FromArgb(210, 245, 245, 245);
+					using (var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+					using (var shadowBrush = new SolidBrush(shadowColor))
+					using (var textBrush = new SolidBrush(textColor))
+					{
+						var shadowBounds = new RectangleF(textBounds.X + 1f, textBounds.Y + 1f, textBounds.Width, textBounds.Height);
+						graphics.DrawString(text, font, shadowBrush, shadowBounds, format);
+						graphics.DrawString(text, font, textBrush, textBounds, format);
+					}
+				}
+				finally
+				{
+					font?.Dispose();
+				}
+			}
+			return bitmap;
+		}
+
+		private static Color ResolveCountTextColor(Bitmap bitmap)
+		{
+			long luminance = 0;
+			int samples = 0;
+			for (int y = 0; y < bitmap.Height; y += 2)
+			{
+				for (int x = 0; x < bitmap.Width; x += 2)
+				{
+					Color pixel = bitmap.GetPixel(x, y);
+					if (pixel.A < 64)
+						continue;
+					luminance += (pixel.R * 299L + pixel.G * 587L + pixel.B * 114L) / 1000L;
+					samples++;
+				}
+			}
+
+			return samples > 0 && luminance / samples > 150
+				? Color.FromArgb(25, 25, 25)
+				: Color.White;
 		}
 
 		/// <summary>

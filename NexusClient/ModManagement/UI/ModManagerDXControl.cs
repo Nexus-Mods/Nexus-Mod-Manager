@@ -181,6 +181,8 @@
 		private const string CategoryTreeLayoutKey = "modManagerDXCategoryTree";
 		private const string CategoryTreeFindPanelVisibleKey = CategoryTreeLayoutKey + ".FindPanelVisible";
 		private const string CategoryTreeCollapsedCategoriesKey = CategoryTreeLayoutKey + ".CollapsedCategories";
+		private const string CategoryTreeHideDefaultNexusCategoriesKey = CategoryTreeLayoutKey + ".HideDefaultNexusCategories";
+		private const string CategoryTreeShowModCountIconsKey = CategoryTreeLayoutKey + ".ShowModCountIcons";
 		private const string GridSortKey = GridLayoutKey + ".Sort";
 		private const string GridFontKey = GridLayoutKey + ".Font";
 		private const string GridFontSizeKey = GridLayoutKey + ".FontSize";
@@ -407,6 +409,8 @@
 				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeLayoutKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeFindPanelVisibleKey);
 				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeCollapsedCategoriesKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeHideDefaultNexusCategoriesKey);
+				_viewModel.Settings.DockPanelLayouts.Remove(CategoryTreeShowModCountIconsKey);
 				_viewModel.Settings.Save();
 			}
 
@@ -421,6 +425,8 @@
 			SetLatestColumnOpensModPage(false, false);
 			SetFocusTopRowAfterSorting(true, false);
 			SetFocusTopRowAfterInstallDateChange(true, false);
+			SetHideDefaultNexusCategories(false, false);
+			SetShowCategoryModCountIcons(false, false);
 			SetToolbarPosition(DefaultToolbarPositionLeft, true);
 			SetModViewMode(ModViewMode.Default, false);
 			ApplyDefaultColumnSizing();
@@ -1161,6 +1167,8 @@
 			SetLatestColumnOpensModPage(ReadGridDisplayOption(GridLatestColumnOpensModPageKey, false), false);
 			SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
 			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
+			SetHideDefaultNexusCategories(ReadGridDisplayOption(CategoryTreeHideDefaultNexusCategoriesKey, false), false);
+			SetShowCategoryModCountIcons(ReadGridDisplayOption(CategoryTreeShowModCountIconsKey, false), false);
 			SetToolbarPosition(RestoreToolbarPosition(), false);
 		}
 
@@ -2820,6 +2828,7 @@
 				_gridSecondaryFont,
 				_gridSecondaryBoldFont,
 				GetGridRowHeight(_gridDensity, _gridFontSizePt));
+			_modCategoryTreeControl.SetShowCategoryModCountIcons(_showCategoryModCountIcons);
 		}
 
 		/// <summary>
@@ -2951,6 +2960,7 @@
 			_categoryModListSurface.SetAvailableCategories(
 				categories,
 				_viewModel?.Settings?.ShowEmptyCategory == true);
+			ApplyDefaultNexusCategoryVisibilityToTree();
 		}
 
 		/// <summary>

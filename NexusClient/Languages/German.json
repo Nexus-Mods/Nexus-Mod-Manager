@@ -858,6 +858,8 @@
     "Mods.Categories.ResetUnassigned.FullName": "Kategorien: nicht zugewiesene Mods auf Nexus-Standard zurücksetzen",
     "Mods.Categories.ResetUnassigned.Name": "Nicht zugewiesene Mods auf Nexus-Standard zurücksetzen",
     "Mods.Categories.ShowOnlyWithNewMods.Name": "Nur Kategorien mit neuen Mods anzeigen",
+    "Mods.Categories.HideDefaultNexus.Name": "Standard-Nexus-Kategorien ausblenden",
+    "Mods.Categories.ShowModCountIcons.Name": "Kategorie-Symbole mit Mod-Anzahl anzeigen",
     "Mods.Categories.ToggleHidden.FullName": "Kategorien: leere Kategorien anzeigen",
     "Mods.Categories.ToggleHidden.Name": "Leere Kategorien anzeigen",
     "Mods.Categories.UpdateNexusCustom.FullName": "Kategorien: Nexus- und benutzerdefinierte Kategorien aktualisieren",
