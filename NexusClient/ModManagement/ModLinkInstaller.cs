@@ -77,6 +77,71 @@ namespace Nexus.Client.ModManagement
 			return fallback;
 		}
 
+		private bool? PromptForUnresolvedTxtConflict(IMod mod, string baseFilePath, ModInstallRoot installRoot, string loweredPath, bool looseFileConflict)
+		{
+			string strMessage = $"Data file '{baseFilePath}' already exists, but NMM cannot currently identify its owner.";
+			strMessage += Environment.NewLine + "Activate this mod's file instead?";
+
+			switch (ShowOwnedOverwriteDialog(strMessage, true, false))
+			{
+				case OverwriteResult.Yes:
+					return AcceptUnresolvedTxtConflict(mod, baseFilePath, installRoot, looseFileConflict);
+				case OverwriteResult.No:
+					return DeclineUnresolvedTxtConflict(looseFileConflict);
+				case OverwriteResult.NoToAll:
+					_doNotOverwriteAll = true;
+					return DeclineUnresolvedTxtConflict(looseFileConflict);
+				case OverwriteResult.YesToAll:
+					_overwriteAll = true;
+					return AcceptUnresolvedTxtConflict(mod, baseFilePath, installRoot, looseFileConflict);
+				case OverwriteResult.NoToGroup:
+					RememberFolderChoice(loweredPath, false);
+					return DeclineUnresolvedTxtConflict(looseFileConflict);
+				case OverwriteResult.YesToGroup:
+					RememberFolderChoice(loweredPath, true);
+					return AcceptUnresolvedTxtConflict(mod, baseFilePath, installRoot, looseFileConflict);
+				default:
+					throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
+			}
+		}
+
+		private bool AcceptUnresolvedTxtConflict(IMod mod, string baseFilePath, ModInstallRoot installRoot, bool looseFileConflict)
+		{
+			if (looseFileConflict)
+				VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename), installRoot);
+
+			return true;
+		}
+
+		private static bool? DeclineUnresolvedTxtConflict(bool looseFileConflict)
+		{
+			// Indexed conflicts can safely receive an inactive link. A loose file cannot: there is no
+			// managed owner beneath it, so adding an inactive link would leave a broken ownership stack.
+			return looseFileConflict ? (bool?)null : false;
+		}
+
+		private void RememberFolderChoice(string loweredPath, bool overwrite)
+		{
+			List<string> selectedFolders = overwrite ? _overwriteFolders : _doNotOverwriteFolders;
+			List<string> oppositeFolders = overwrite ? _doNotOverwriteFolders : _overwriteFolders;
+			Queue<string> folders = new Queue<string>();
+			folders.Enqueue(Path.GetDirectoryName(loweredPath));
+
+			while (folders.Count > 0)
+			{
+				string folder = folders.Dequeue();
+				if (oppositeFolders.Contains(folder) || selectedFolders.Contains(folder))
+					continue;
+
+				selectedFolders.Add(folder);
+				if (Directory.Exists(folder))
+				{
+					foreach (var subFolder in Directory.GetDirectories(folder))
+						folders.Enqueue(subFolder.ToLowerInvariant());
+				}
+			}
+		}
+
 		#endregion
 
 		/// <inheritdoc />
@@ -131,27 +196,38 @@ namespace Nexus.Client.ModManagement
             var fileLinkPriority = VirtualModActivator.CheckFileLink(baseFilePath, installRoot, out var modCheck, out modLinks);
 			priority = fileLinkPriority;
 			var loweredPath = baseFilePath.ToLowerInvariant();
+			bool isTxtFile = Path.GetExtension(baseFilePath).Equals(".txt", StringComparison.InvariantCultureIgnoreCase);
+			bool promptLooseTxtConflict = modCheck == VirtualModActivator.DummyMod && _promptForTxtFileConflicts && isTxtFile;
 
-			if (fileLinkPriority >= 0)
+			// Loose files normally bypass the overwrite-choice cache because CheckFileLink returns priority -1.
+			// When TXT prompting is enabled, however, they are real user-visible conflicts and must honor
+			// Yes/No to All and Yes/No to Folder just like managed conflicts do.
+			if (fileLinkPriority >= 0 || promptLooseTxtConflict)
 			{
 				if (_overwriteFolders.Contains(Path.GetDirectoryName(loweredPath)))
                 {
+					if (promptLooseTxtConflict)
+						VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename), installRoot);
                     return true;
                 }
 
                 if (_doNotOverwriteFolders.Contains(Path.GetDirectoryName(loweredPath)))
                 {
-                    return false;
+					// A loose file has no managed owner to sit above the new mod in the virtual-link stack.
+					// Returning null skips the incoming file entirely instead of creating a bogus inactive link.
+                    return promptLooseTxtConflict ? (bool?)null : false;
                 }
 
                 if (_overwriteAll)
                 {
+					if (promptLooseTxtConflict)
+						VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename), installRoot);
                     return true;
                 }
 
                 if (_doNotOverwriteAll)
                 {
-                    return false;
+                    return promptLooseTxtConflict ? (bool?)null : false;
                 }
             }
 
@@ -162,8 +238,13 @@ namespace Nexus.Client.ModManagement
 
             if (modCheck == VirtualModActivator.DummyMod)
 			{
-				VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename), installRoot);
-				return true;
+				if (!promptLooseTxtConflict)
+				{
+					VirtualModActivator.OverwriteLooseFile(baseFilePath, Path.GetFileName(mod.Filename), installRoot);
+					return true;
+				}
+
+				return PromptForUnresolvedTxtConflict(mod, baseFilePath, installRoot, loweredPath, true);
 			}
 
             if (modCheck != null)
@@ -196,7 +277,7 @@ namespace Nexus.Client.ModManagement
                     }
                 }
 
-                if (!_promptForTxtFileConflicts && Path.GetExtension(baseFilePath).Equals(".txt", StringComparison.InvariantCultureIgnoreCase))
+                if (!_promptForTxtFileConflicts && isTxtFile)
                 {
                     return false;
 				}
@@ -302,6 +383,12 @@ namespace Nexus.Client.ModManagement
                         throw new Exception("Sanity check failed: OverwriteDialog returned a value not present in the OverwriteResult enum");
                 }
             }
+
+			// A virtual link can survive while its owning IMod can no longer be resolved (for example,
+			// around deactivate/reactivate transitions). Without this guard TXT files silently overwrite
+			// because modCheck is null even though an indexed conflict exists.
+			if (_promptForTxtFileConflicts && isTxtFile && fileLinkPriority >= 0)
+				return PromptForUnresolvedTxtConflict(mod, baseFilePath, installRoot, loweredPath, false);
 
             return true;
         }
