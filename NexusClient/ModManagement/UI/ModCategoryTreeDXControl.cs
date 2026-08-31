@@ -694,14 +694,18 @@
 			if (!(hitInfo.Node.Tag is IMod))
 				return;
 
-			treeList.FocusedNode = hitInfo.Node;
-			// Match XtraGrid context-menu semantics: right-clicking an unselected row makes
-			// it the sole selection, while right-clicking within a multi-selection preserves it.
-			if (!treeList.Selection.Contains(hitInfo.Node))
+			// Capture selection state before changing focus. With DevExpress multi-select,
+			// assigning FocusedNode may select the node immediately; testing afterwards
+			// can therefore preserve a stale previous selection and make context actions
+			// operate on both mods.
+			bool wasSelected = treeList.Selection.Contains(hitInfo.Node);
+			if (!wasSelected)
 			{
 				treeList.Selection.Clear();
 				treeList.Selection.Add(hitInfo.Node);
 			}
+
+			treeList.FocusedNode = hitInfo.Node;
 			ContextMenuRequested?.Invoke(this, EventArgs.Empty);
 		}
 

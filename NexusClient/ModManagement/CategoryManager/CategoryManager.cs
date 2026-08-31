@@ -329,6 +329,31 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Restores bundled repository category IDs that are missing from the persisted category file
+		/// or are occupied by a legacy custom category, without replacing repository definitions that
+		/// are already present. Exact-name migrated custom definitions are folded back automatically.
+		/// </summary>
+		/// <param name="p_strDefaultCategories">The bundled repository category document.</param>
+		/// <param name="p_actRemapCategoryAssignments">The callback used to remap affected mod assignments.</param>
+		public void RepairBundledRepositoryCategories(string p_strDefaultCategories, Action<IDictionary<Int32, Int32>> p_actRemapCategoryAssignments)
+		{
+			List<IModCategory> repositoryCategories = GetRepositoryCategories(ParseCategoryDocument(p_strDefaultCategories));
+			List<IModCategory> missingCategories = repositoryCategories
+				.Where(category =>
+				{
+					if (category == null || category.Id == 0)
+						return false;
+
+					IModCategory existingCategory = FindCategoryInternal(category.Id);
+					return existingCategory == null || IsCustomCategory(existingCategory);
+				})
+				.ToList();
+
+			if (missingCategories.Count > 0)
+				MergeRepositoryCategories(missingCategories, p_actRemapCategoryAssignments);
+		}
+
+		/// <summary>
 		/// Merges repository categories without overwriting user-created categories that share an ID.
 		/// </summary>
 		/// <param name="p_enmRepositoryCategories">The repository categories to merge.</param>
@@ -467,7 +492,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Builds ID migrations for legacy custom categories and repository collisions.
+		/// Builds ID migrations for custom categories whose IDs are being reclaimed by repository categories.
 		/// </summary>
 		/// <param name="p_setReservedIds">Repository IDs that must remain available.</param>
 		/// <param name="p_setExcludedCustomIds">Custom category IDs that will be folded into repository categories by name.</param>
@@ -485,7 +510,12 @@ namespace Nexus.Client.ModManagement
 					continue;
 
 				bool hasRepositoryCollision = p_setReservedIds != null && p_setReservedIds.Contains(customCategory.Id);
-				if (customCategory.Id >= FIRST_CUSTOM_CATEGORY_ID && !hasRepositoryCollision)
+				// Legacy custom categories may still use repository-range IDs. Do not migrate
+				// them merely to normalize the number: repository CategoryId assignments use
+				// the same numeric namespace and would be orphaned if no repository category
+				// is being installed at that ID in this operation. Move the custom definition
+				// only when the repository is actively reclaiming its ID.
+				if (!hasRepositoryCollision)
 					continue;
 
 				Int32 newId = FindNextCustomCategoryId(usedIds);

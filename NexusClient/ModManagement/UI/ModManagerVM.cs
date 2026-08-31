@@ -461,6 +461,14 @@ namespace Nexus.Client.ModManagement.UI
 			if (this.CategoryManager.IsValidPath)
 			{
 				this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
+				// 0.92.4/0.92.5 could migrate a legacy low-ID custom category even when
+				// no repository category was replacing it, leaving repository CategoryId
+				// assignments without a definition and therefore displayed as Unassigned.
+				// Repair missing or legacy-custom-occupied bundled repository IDs; existing
+				// repository/online definitions and unrelated custom categories stay untouched.
+				this.CategoryManager.RepairBundledRepositoryCategories(
+					ModManager.CurrentGameModeDefaultCategories,
+					ModManager.RemapCategoryAssignments);
 				m_booIsCategoryInitialized = true;
 			}
 			else
@@ -1358,7 +1366,12 @@ namespace Nexus.Client.ModManagement.UI
 				}
 			}
 			else
+			{
 				this.CategoryManager.LoadCategories(ModManager.CurrentGameModeDefaultCategories);
+				this.CategoryManager.RepairBundledRepositoryCategories(
+					ModManager.CurrentGameModeDefaultCategories,
+					ModManager.RemapCategoryAssignments);
+			}
 		}
 
 		#endregion

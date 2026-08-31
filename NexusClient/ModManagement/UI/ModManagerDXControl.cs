@@ -3879,7 +3879,16 @@
 		private void gridView_PopupMenuShowing(object sender, DevExpress.XtraGrid.Views.Grid.PopupMenuShowingEventArgs e)
 		{
 			if (e.MenuType != GridMenuType.Row) return;
-			gridView.FocusedRowHandle = e.HitInfo.RowHandle;
+
+			int rowHandle = e.HitInfo.RowHandle;
+			bool wasSelected = gridView.IsRowSelected(rowHandle);
+			if (!wasSelected)
+			{
+				gridView.ClearSelection();
+				gridView.SelectRow(rowHandle);
+			}
+
+			gridView.FocusedRowHandle = rowHandle;
 			if (SelectedMod == null) return;
 			ShowCurrentModContextMenu();
 			e.Allow = false;

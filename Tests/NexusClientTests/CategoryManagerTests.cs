@@ -118,13 +118,15 @@
 
 			Assert.IsNotNull(remaps);
 			Assert.IsTrue(remaps.ContainsKey(49));
-			Assert.IsTrue(remaps.ContainsKey(54));
+			Assert.IsFalse(remaps.ContainsKey(54));
 			Assert.GreaterOrEqual(remaps[49], 1000000);
 			Assert.AreEqual("Clothing - Backpacks", manager.FindCategory(49).CategoryName);
 			Assert.IsFalse(IsSavedAsCustom(49));
 			IModCategory movedCustom = manager.Categories.Single(category => category.Id == remaps[49]);
 			Assert.AreEqual("Temp. uninstall and remove mods.", movedCustom.CategoryName);
 			Assert.IsTrue(IsSavedAsCustom(movedCustom.Id));
+			Assert.AreEqual("Temp uninstall mods.", manager.FindCategory(54).CategoryName);
+			Assert.IsTrue(IsSavedAsCustom(54));
 		}
 
 		/// <summary>
@@ -142,10 +144,62 @@
 
 			Assert.IsNotNull(remaps);
 			Assert.IsTrue(remaps.ContainsKey(49));
-			Assert.IsTrue(remaps.ContainsKey(54));
+			Assert.IsFalse(remaps.ContainsKey(54));
 			Assert.AreEqual("Clothing - Backpacks", manager.FindCategory(49).CategoryName);
+			Assert.AreEqual("Temp uninstall mods.", manager.FindCategory(54).CategoryName);
+			Assert.IsTrue(IsSavedAsCustom(54));
 			Assert.IsTrue(manager.Categories.Any(category => category.CategoryName == "Temp. uninstall and remove mods." && IsSavedAsCustom(category.Id)));
 			Assert.IsTrue(manager.Categories.Any(category => category.CategoryName == "Temp uninstall mods." && IsSavedAsCustom(category.Id)));
+		}
+
+		/// <summary>
+		/// Ensures startup recovery reclaims a bundled repository ID occupied by a legacy custom
+		/// category while leaving unrelated legacy custom IDs untouched.
+		/// </summary>
+		[Test]
+		public void RepairBundledRepositoryCategoriesReclaimsLegacyCollisionOnly()
+		{
+			WriteLegacyCategories();
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			Dictionary<Int32, Int32> remaps = null;
+
+			manager.RepairBundledRepositoryCategories(DefaultCategories,
+				mappings => remaps = new Dictionary<Int32, Int32>(mappings));
+
+			Assert.IsNotNull(remaps);
+			Assert.IsTrue(remaps.ContainsKey(49));
+			Assert.IsFalse(remaps.ContainsKey(54));
+			Assert.AreEqual("Clothing - Backpacks", manager.FindCategory(49).CategoryName);
+			Assert.IsFalse(IsSavedAsCustom(49));
+			Assert.AreEqual("Temp uninstall mods.", manager.FindCategory(54).CategoryName);
+			Assert.IsTrue(IsSavedAsCustom(54));
+			Assert.IsTrue(manager.Categories.Any(category =>
+				category.Id == remaps[49] && category.CategoryName == "Temp. uninstall and remove mods."));
+		}
+
+		/// <summary>
+		/// Ensures startup recovery restores bundled repository IDs removed by the 0.92.4/0.92.5
+		/// legacy custom-ID migration and folds an exact-name migrated definition back to that ID.
+		/// </summary>
+		[Test]
+		public void RepairBundledRepositoryCategoriesRepairsMigratedDefinition()
+		{
+			WritePersistedCategories(new ModCategory(1000005, "Clothing - Backpacks", "Clothing - Backpacks"));
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			Dictionary<Int32, Int32> remaps = null;
+
+			Assert.AreEqual(0, manager.FindCategory(49).Id);
+
+			manager.RepairBundledRepositoryCategories(DefaultCategories,
+				mappings => remaps = new Dictionary<Int32, Int32>(mappings));
+
+			Assert.IsNotNull(remaps);
+			Assert.AreEqual(49, remaps[1000005]);
+			Assert.AreEqual("Clothing - Backpacks", manager.FindCategory(49).CategoryName);
+			Assert.IsFalse(IsSavedAsCustom(49));
+			Assert.IsFalse(manager.Categories.Any(category => category.Id == 1000005));
 		}
 
 		/// <summary>
