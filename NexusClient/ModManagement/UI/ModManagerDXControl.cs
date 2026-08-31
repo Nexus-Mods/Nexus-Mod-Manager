@@ -2733,7 +2733,14 @@
 				SetShowOnlyCategoriesWithNewMods(false);
 
 			_activeModListSurface.ApplyTextFilter(_currentTextFilter);
-			if (focusedMod != null)
+			// During startup restoration the flat grid is only a temporary source surface.
+			// Re-focusing its incidental current row in Category View would expand that mod's
+			// parent and override the persisted collapsed-category state we just restored.
+			// Preserve focus on normal user-initiated switches, where revealing the selected
+			// mod is intentional.
+			bool restoreFocusedMod = focusedMod != null &&
+				!(mode == ModViewMode.Category && _restoringGridLayout);
+			if (restoreFocusedMod)
 				_activeModListSurface.FocusMod(focusedMod);
 
 			if (mode == ModViewMode.Category && expandAll)
