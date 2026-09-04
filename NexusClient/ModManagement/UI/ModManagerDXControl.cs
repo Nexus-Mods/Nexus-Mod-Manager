@@ -4439,6 +4439,7 @@
 			if (_viewModel == null) return;
 			using (var ofd = new XtraOpenFileDialog())
 			{
+				ofd.RestoreDirectory = true;
 				ofd.Filter = LanguageManager.Get("Mods.FileDialog.ModArchivesLabel", "Mod Archives") + "|*.zip;*.7z;*.rar;*.fomod;*.omod|" + LanguageManager.Get("Common.FileDialog.AllFilesLabel", "All Files") + "|*.*";
 				ofd.Multiselect = true;
 				if (ofd.ShowDialog(this) == DialogResult.OK)
