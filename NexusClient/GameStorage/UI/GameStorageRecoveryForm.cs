@@ -231,12 +231,7 @@ namespace Nexus.Client.GameStorage.UI
         private void PreviewBestCandidate()
         {
             GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
-            GameStorageCandidate bestCandidate = _candidates
-                .Where(x => x != null)
-                .OrderByDescending(x => _service.GetRecoveryCandidateUsabilityRank(currentPaths, x))
-                .ThenByDescending(x => x.ConfidenceScore)
-                .ThenBy(x => x.CandidateKind)
-                .FirstOrDefault();
+            GameStorageCandidate bestCandidate = _service.GetBestRecoveryCandidate(currentPaths, _candidates);
 
             if (bestCandidate == null)
                 return;

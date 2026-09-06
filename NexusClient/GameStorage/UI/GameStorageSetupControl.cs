@@ -28,6 +28,7 @@ namespace Nexus.Client.GameStorage.UI
         private readonly SimpleButton _manualLinkFolderButton;
         private readonly SimpleButton _legacySetupButton;
         private readonly string _candidateUseText;
+        private readonly Timer _manualValidationTimer;
         private GridColumn _candidateUseColumn;
         private bool _suppressManualPathChanged;
         private bool _manualPathsEdited;
@@ -46,6 +47,8 @@ namespace Nexus.Client.GameStorage.UI
             Dock = DockStyle.Fill;
             Padding = new Padding(10);
             _candidateUseText = LanguageManager.Get("GameStorage.Common.Use", "Use");
+            _manualValidationTimer = new Timer { Interval = 400 };
+            _manualValidationTimer.Tick += ManualValidationTimerTick;
 
             _titleLabel = new LabelControl
             {
@@ -177,6 +180,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void SetManualPathValues(string installInfoPath, string modsPath, string virtualInstallPath, string linkFolderPath)
         {
+            _manualValidationTimer.Stop();
             _suppressManualPathChanged = true;
             try
             {
@@ -214,7 +218,22 @@ namespace Nexus.Client.GameStorage.UI
             if (virtualInstallChanged)
                 ManualVirtualInstallPathChanged?.Invoke(this, EventArgs.Empty);
 
+            _manualValidationTimer.Stop();
+            _manualValidationTimer.Start();
+        }
+
+        private void ManualValidationTimerTick(object sender, EventArgs e)
+        {
+            _manualValidationTimer.Stop();
             ManualPathsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                _manualValidationTimer.Dispose();
+
+            base.Dispose(disposing);
         }
 
         public void ConfigureText(string title, string description, bool showLegacySetupButton)

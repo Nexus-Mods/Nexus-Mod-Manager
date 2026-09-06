@@ -682,6 +682,83 @@ namespace NexusClientTests
             Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.MissingInstallLog), Is.False);
         }
 
+        [Test]
+        public void ShouldAttemptKnownLegacyStorageMetadataRepair_OnlyMatchesKnownCollisionSignature()
+        {
+            var healthy = new GameStorageHealthCheck();
+            healthy.Items.Add(new GameStorageHealthItem
+            {
+                Role = GameStorageFolderRole.Mods,
+                Status = GameStorageHealthStatus.Healthy
+            });
+            Assert.IsFalse(_service.ShouldAttemptKnownLegacyStorageMetadataRepair(healthy));
+
+            var collision = new GameStorageHealthCheck();
+            collision.Items.Add(new GameStorageHealthItem
+            {
+                Role = GameStorageFolderRole.Mods,
+                Status = GameStorageHealthStatus.PartialMatch
+            });
+            collision.Items.Add(new GameStorageHealthItem
+            {
+                Role = GameStorageFolderRole.VirtualInstall,
+                Status = GameStorageHealthStatus.LegacyValidNeedsInitialization
+            });
+
+            Assert.IsTrue(_service.ShouldAttemptKnownLegacyStorageMetadataRepair(collision));
+        }
+
+        [Test]
+        public void InitializeMetadataForStorage_RegistryBackupsArePrunedToRetentionLimit()
+        {
+            var first = CreateStorage("SkyrimSE", "BackupRetentionFirst");
+            _service.InitializeMetadataForStorage(first);
+
+            string backupDirectory = Path.Combine(_tempRoot, "Registry", "Backups");
+            Directory.CreateDirectory(backupDirectory);
+            for (int i = 0; i < 25; i++)
+            {
+                string backup = Path.Combine(backupDirectory, "storages-test-" + i.ToString("D2") + ".json");
+                File.WriteAllText(backup, "{}");
+                File.SetLastWriteTimeUtc(backup, DateTime.UtcNow.AddMinutes(-100 - i));
+            }
+
+            string unrelated = Path.Combine(backupDirectory, "keep-me.txt");
+            File.WriteAllText(unrelated, "keep");
+
+            var second = CreateStorage("SkyrimSE", "BackupRetentionSecond");
+            _service.InitializeMetadataForStorage(second);
+
+            Assert.LessOrEqual(Directory.EnumerateFiles(backupDirectory, "storages-*.json").Count(), 20);
+            Assert.IsTrue(File.Exists(unrelated));
+        }
+
+        [Test]
+        public void GetBestRecoveryCandidate_PrefersUsableStorageWithoutChangingRankingSemantics()
+        {
+            var current = CreateStorage("Fallout3", "BestCandidateCurrent");
+            var usable = CreateStorage("Fallout3", "BestCandidateUsable");
+            var usableCandidate = CreateCandidate(usable);
+            usableCandidate.CandidateKind = "Legacy NMM setup";
+            usableCandidate.ConfidenceScore = 90;
+
+            var brokenCandidate = new GameStorageCandidate
+            {
+                CandidateKind = "Last-known-good backup",
+                GameId = "Fallout3",
+                ConfidenceScore = 98,
+                InstallInfoPath = Path.Combine(_tempRoot, "MissingBestCandidate", "InstallInfo"),
+                ModsPath = Path.Combine(_tempRoot, "MissingBestCandidate", "Mods"),
+                VirtualInstallPath = Path.Combine(_tempRoot, "MissingBestCandidate", "VirtualInstall")
+            };
+
+            GameStorageCandidate best = _service.GetBestRecoveryCandidate(
+                current,
+                new[] { brokenCandidate, usableCandidate });
+
+            Assert.AreSame(usableCandidate, best);
+        }
+
         private static int CountOccurrences(string value, string search)
         {
             int count = 0;

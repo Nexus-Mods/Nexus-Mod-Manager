@@ -10,6 +10,7 @@ namespace Nexus.Client.GameStorage
         public const int FolderManifestSchemaVersion = 2;
         public const int RootManifestSchemaVersion = 1;
         public const int RegistrySchemaVersion = 1;
+        public const int RegistryBackupRetentionCount = 20;
 		public const string VirtualInstallDirectoryName = "VirtualInstall";
 	}
 }

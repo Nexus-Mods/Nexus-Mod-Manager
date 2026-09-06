@@ -352,6 +352,24 @@ namespace Nexus.Client.GameStorage
         }
 
 		/// <summary>
+		/// Returns whether a validation result matches the narrow legacy VirtualInstall
+		/// manifest-collision signature. Healthy storage therefore avoids the extra
+		/// manifest probe on every startup.
+		/// </summary>
+		public bool ShouldAttemptKnownLegacyStorageMetadataRepair(GameStorageHealthCheck healthCheck)
+		{
+			if (healthCheck == null)
+				return false;
+
+			return healthCheck.Items.Any(x =>
+				x.Role == GameStorageFolderRole.Mods &&
+				x.Status == GameStorageHealthStatus.PartialMatch) &&
+			healthCheck.Items.Any(x =>
+				x.Role == GameStorageFolderRole.VirtualInstall &&
+				x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization);
+		}
+
+		/// <summary>
 		/// Applies only the narrowly-scoped legacy VirtualInstall manifest repair to
 		/// the current Game Storage. No general validation repair is performed.
 		/// </summary>
@@ -1352,6 +1370,43 @@ namespace Nexus.Client.GameStorage
             WriteJson(RegistryPath, registry);
             if (lastKnownGoodRead.Status != GameStorageMetadataReadStatus.UnsupportedVersion)
                 WriteJson(LastKnownGoodPath, registry);
+
+            PruneRegistryBackups();
+        }
+
+        /// <summary>
+        /// Keeps the registry backup folder bounded. Backup cleanup is best-effort
+        /// and never affects the active or last-known-good registry files.
+        /// </summary>
+        private void PruneRegistryBackups()
+        {
+            try
+            {
+                var backups = Directory.EnumerateFiles(BackupDirectory, "storages-*.json")
+                    .Select(path => new
+                    {
+                        Path = path,
+                        LastWriteUtc = File.GetLastWriteTimeUtc(path)
+                    })
+                    .OrderByDescending(x => x.LastWriteUtc)
+                    .ThenByDescending(x => x.Path, StringComparer.OrdinalIgnoreCase)
+                    .Skip(GameStorageConstants.RegistryBackupRetentionCount)
+                    .ToList();
+
+                foreach (var backup in backups)
+                {
+                    try
+                    {
+                        File.Delete(backup.Path);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            catch
+            {
+            }
         }
 
         /// <summary>

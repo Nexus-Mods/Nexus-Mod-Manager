@@ -37,9 +37,9 @@ namespace Nexus.Client.GameStorage
 
             AddSharedModsRegistryCandidates(currentPaths, lastKnownGoodRegistry, candidates, "Shared Mods library backup", 88);
 
-            foreach (var root in GetLikelyRoots(currentPaths, registry, currentPaths.GameId))
+            foreach (var root in GetLikelyRoots(currentPaths, registry, lastKnownGoodRegistry, currentPaths.GameId))
             {
-                foreach (var candidate in DiscoverRecoveryCandidatesFromRoot(currentPaths, root))
+                foreach (var candidate in DiscoverRecoveryCandidatesFromRoot(currentPaths, root, false))
                     AddCandidate(candidates, candidate);
             }
 
@@ -58,25 +58,28 @@ namespace Nexus.Client.GameStorage
 
         public List<GameStorageCandidate> DiscoverRecoveryCandidatesFromRoot(GameStoragePathSet currentPaths, string rootPath)
         {
+            return DiscoverRecoveryCandidatesFromRoot(currentPaths, rootPath, true);
+        }
+
+        private List<GameStorageCandidate> DiscoverRecoveryCandidatesFromRoot(GameStoragePathSet currentPaths, string rootPath, bool addSharedSiblingCandidates)
+        {
             var candidates = new List<GameStorageCandidate>();
             if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
                 return candidates;
 
+            List<string> likelyFolders = EnumerateLikelyFolders(rootPath).ToList();
+            List<Tuple<string, GameStorageFolderManifest>> folderManifests = ReadFolderManifests(likelyFolders);
             AddCandidate(candidates, TryCreateCandidateFromRootManifest(currentPaths, rootPath, true));
 
-            try
-            {
-                foreach (var child in Directory.EnumerateDirectories(rootPath).Take(200))
-                    AddCandidate(candidates, TryCreateCandidateFromRootManifest(currentPaths, child, false));
-            }
-            catch
-            {
-            }
+            foreach (var child in likelyFolders.Where(x => !AreSamePaths(x, rootPath)))
+                AddCandidate(candidates, TryCreateCandidateFromRootManifest(currentPaths, child, false));
 
-            AddFolderManifestCandidates(currentPaths, rootPath, candidates);
+            AddFolderManifestCandidates(currentPaths, rootPath, folderManifests, candidates);
             AddLegacyLayoutCandidate(currentPaths, rootPath, candidates);
-            AddInstallLogOnlyCandidates(rootPath, candidates);
-            AddSharedModsSiblingCandidates(currentPaths, candidates);
+            AddInstallLogOnlyCandidates(rootPath, likelyFolders, folderManifests, candidates);
+            if (addSharedSiblingCandidates)
+                AddSharedModsSiblingCandidates(currentPaths, candidates);
+
             return NormalizeAndMergeCandidates(currentPaths, candidates)
                 .OrderByDescending(x => x.ConfidenceScore)
                 .ThenBy(x => x.CandidateKind)
@@ -465,6 +468,32 @@ namespace Nexus.Client.GameStorage
 
 		public int GetRecoveryCandidateUsabilityRank(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
 		{
+			if (currentPaths == null || candidate == null)
+				return 0;
+
+			return GetRecoveryCandidateUsabilityRank(currentPaths, candidate, LoadRegistry());
+		}
+
+        /// <summary>
+        /// Selects the best recovery candidate while reusing a single registry
+        /// snapshot for all candidate health checks.
+        /// </summary>
+        public GameStorageCandidate GetBestRecoveryCandidate(GameStoragePathSet currentPaths, IEnumerable<GameStorageCandidate> candidates)
+        {
+            if (currentPaths == null || candidates == null)
+                return null;
+
+            GameStorageRegistry registry = LoadRegistry();
+            return candidates
+                .Where(x => x != null)
+                .OrderByDescending(x => GetRecoveryCandidateUsabilityRank(currentPaths, x, registry))
+                .ThenByDescending(x => x.ConfidenceScore)
+                .ThenBy(x => x.CandidateKind)
+                .FirstOrDefault();
+        }
+
+		private int GetRecoveryCandidateUsabilityRank(GameStoragePathSet currentPaths, GameStorageCandidate candidate, GameStorageRegistry registry)
+		{
 			if (currentPaths == null || candidate == null ||
 				!string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
 			{
@@ -472,7 +501,6 @@ namespace Nexus.Client.GameStorage
 			}
 
 			var paths = CreatePathSetFromCandidate(currentPaths, candidate);
-			var registry = LoadRegistry();
 			string storageId = ResolveRecoveryStorageId(paths, candidate, registry);
 			var healthCheck = Validate(paths, storageId, registry);
 
@@ -1125,15 +1153,11 @@ namespace Nexus.Client.GameStorage
             }
         }
 
-        private void AddFolderManifestCandidates(GameStoragePathSet currentPaths, string rootPath, List<GameStorageCandidate> candidates)
+        private void AddFolderManifestCandidates(GameStoragePathSet currentPaths, string rootPath, IEnumerable<Tuple<string, GameStorageFolderManifest>> folderManifests, List<GameStorageCandidate> candidates)
         {
-            var manifests = new List<Tuple<string, GameStorageFolderManifest>>();
-            foreach (var folder in EnumerateLikelyFolders(rootPath))
-            {
-                var manifest = ReadFolderManifest(folder);
-                if (manifest != null)
-                    manifests.Add(Tuple.Create(folder, manifest));
-            }
+            var manifests = folderManifests == null
+                ? new List<Tuple<string, GameStorageFolderManifest>>()
+                : folderManifests.ToList();
 
             var currentBindings = manifests
                 .SelectMany(x => GetManifestBindings(x.Item2)
@@ -1240,11 +1264,15 @@ namespace Nexus.Client.GameStorage
             AddCandidate(candidates, candidate);
         }
 
-        private void AddInstallLogOnlyCandidates(string rootPath, List<GameStorageCandidate> candidates)
+        private void AddInstallLogOnlyCandidates(string rootPath, IEnumerable<string> likelyFolders, IEnumerable<Tuple<string, GameStorageFolderManifest>> folderManifests, List<GameStorageCandidate> candidates)
         {
-            foreach (var folder in EnumerateLikelyFolders(rootPath))
+            var foldersWithManifests = new HashSet<string>(
+                (folderManifests ?? Enumerable.Empty<Tuple<string, GameStorageFolderManifest>>()).Select(x => NormalizeDirectoryPath(x.Item1)),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var folder in likelyFolders)
             {
-                if (ReadFolderManifest(folder) != null || !File.Exists(Path.Combine(folder, "InstallLog.xml")) || HasCandidateInstallInfo(candidates, folder))
+                if (foldersWithManifests.Contains(NormalizeDirectoryPath(folder)) || !File.Exists(Path.Combine(folder, "InstallLog.xml")) || HasCandidateInstallInfo(candidates, folder))
                     continue;
 
                 var candidate = new GameStorageCandidate
@@ -1316,30 +1344,62 @@ namespace Nexus.Client.GameStorage
         {
             return candidates.Any(x => string.Equals(x.InstallInfoPath, installInfoPath, StringComparison.OrdinalIgnoreCase));
         }
+        /// <summary>
+        /// Reads folder manifests once for a recovery root so candidate discovery
+        /// can reuse the same filesystem snapshot across its evidence passes.
+        /// </summary>
+        private List<Tuple<string, GameStorageFolderManifest>> ReadFolderManifests(IEnumerable<string> folders)
+        {
+            var manifests = new List<Tuple<string, GameStorageFolderManifest>>();
+            foreach (var folder in folders ?? Enumerable.Empty<string>())
+            {
+                GameStorageFolderManifest manifest = ReadFolderManifest(folder);
+                if (manifest != null)
+                    manifests.Add(Tuple.Create(folder, manifest));
+            }
+
+            return manifests;
+        }
+
         private IEnumerable<string> EnumerateLikelyFolders(string rootPath)
         {
-            yield return rootPath;
+            var folders = new List<string>();
+            AddLikelyFolder(folders, rootPath);
+
             string[] expected = { "InstallInfo", "Mods", "VirtualInstall", "LinkFolder" };
             foreach (var name in expected)
             {
                 string path = Path.Combine(rootPath, name);
                 if (Directory.Exists(path))
-                    yield return path;
+                    AddLikelyFolder(folders, path);
             }
 
-            IEnumerable<string> children = Enumerable.Empty<string>();
             try
             {
-                children = Directory.EnumerateDirectories(rootPath).Take(200).ToList();
+                foreach (var child in Directory.EnumerateDirectories(rootPath).Take(200))
+                    AddLikelyFolder(folders, child);
             }
             catch
             {
             }
-            foreach (var child in children)
-                yield return child;
+
+            return folders;
         }
 
-        private IEnumerable<string> GetLikelyRoots(GameStoragePathSet currentPaths, GameStorageRegistry registry, string gameId)
+        /// <summary>
+        /// Adds one normalized recovery folder path while preserving discovery order.
+        /// </summary>
+        private void AddLikelyFolder(List<string> folders, string path)
+        {
+            if (folders == null || string.IsNullOrWhiteSpace(path))
+                return;
+
+            string normalizedPath = NormalizeDirectoryPath(path);
+            if (!folders.Contains(normalizedPath, StringComparer.OrdinalIgnoreCase))
+                folders.Add(normalizedPath);
+        }
+
+        private IEnumerable<string> GetLikelyRoots(GameStoragePathSet currentPaths, GameStorageRegistry registry, GameStorageRegistry lastKnownGoodRegistry, string gameId)
         {
             var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             AddCandidateRoot(roots, currentPaths.InstallInfoPath);
@@ -1360,7 +1420,6 @@ namespace Nexus.Client.GameStorage
             foreach (var entry in registry.KnownStorages.Where(x => IsCompatibleSharedModsGame(currentPaths, x.GameId)))
                 AddCandidateRoot(roots, entry.ModsPath);
 
-            var lastKnownGoodRegistry = LoadLastKnownGoodRegistry();
             foreach (var entry in lastKnownGoodRegistry.KnownStorages.Where(x => string.Equals(x.GameId, gameId, StringComparison.OrdinalIgnoreCase)))
             {
                 AddRoot(roots, entry.StorageRootPath);

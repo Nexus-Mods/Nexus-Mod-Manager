@@ -413,8 +413,14 @@
 
             if (hadCompletedSetup && !completedGameStorageSetupThisRun)
             {
-                gameStorageService.RepairKnownLegacyStorageMetadata(gameMode);
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
+                if (!storageHealth.IsHealthy &&
+                    gameStorageService.ShouldAttemptKnownLegacyStorageMetadataRepair(storageHealth) &&
+                    gameStorageService.RepairKnownLegacyStorageMetadata(gameMode))
+                {
+                    storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
+                }
+
                 if (!storageHealth.IsHealthy)
                 {
                     // Metadata-only problems are warnings, not reasons to interrupt
@@ -534,8 +540,14 @@
                 return false;
 
             var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
-            gameStorageService.RepairKnownLegacyStorageMetadata(paths);
             healthCheck = gameStorageService.ValidateStorage(paths);
+            if (!healthCheck.IsHealthy &&
+                gameStorageService.ShouldAttemptKnownLegacyStorageMetadataRepair(healthCheck) &&
+                gameStorageService.RepairKnownLegacyStorageMetadata(paths))
+            {
+                healthCheck = gameStorageService.ValidateStorage(paths);
+            }
+
             if (!healthCheck.IsHealthy)
                 return false;
 
