@@ -312,6 +312,7 @@
 			StepOverallProgress();
 
             bool hadCompletedSetup = EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) && EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId];
+            bool completedGameStorageSetupThisRun = false;
             var gameStorageService = new GameStorageService(EnvironmentInfo);
 
 			if (!EnvironmentInfo.Settings.CompletedSetup.ContainsKey(p_gmfGameModeFactory.GameModeDescriptor.ModeId) || !EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId])
@@ -327,6 +328,7 @@
                 EnvironmentInfo.Settings.CompletedSetup[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = true;
 				EnvironmentInfo.Settings.Save();
                 hadCompletedSetup = !usedLegacySetup;
+                completedGameStorageSetupThisRun = true;
 			}
 
 			StepOverallProgress();
@@ -409,36 +411,24 @@
 			}
 			StepOverallProgress();
 
-            if (hadCompletedSetup)
+            if (hadCompletedSetup && !completedGameStorageSetupThisRun)
             {
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
                 if (!storageHealth.IsHealthy)
                 {
-                    GameStorageRecoveryForm recoveryForm = null;
-                    var recoveryResult = ShowViewFactory(() =>
-                    {
-                        recoveryForm = new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth);
-                        return recoveryForm;
-                    }, true);
-
-                    if (recoveryResult is DialogResult &&
-                        (DialogResult)recoveryResult == DialogResult.Cancel &&
-                        recoveryForm != null &&
-                        recoveryForm.WasCancelled)
-                    {
-                        GameStorageSetupWasCancelled = true;
-                        gameMode.Dispose();
-                        p_vwmErrorMessage = null;
-                        return false;
-                    }
+                    var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
 
                     if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
                         storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
 
                     if (!storageHealth.IsHealthy)
                     {
-                        p_vwmErrorMessage = new ViewMessage(storageHealth.ToUserMessage(), null, LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"), MessageBoxIcon.Warning);
-                        return false;
+                        ShowMessage(new ViewMessage(
+                            storageHealth.ToUserMessage() + Environment.NewLine + Environment.NewLine +
+                            LanguageManager.Get("GameStorage.Validation.ContinueWarning", "NMM will continue using the currently selected Game Storage folders. You can change them later if needed."),
+                            null,
+                            LanguageManager.Get("GameStorage.Validation.Title", "Game Storage validation"),
+                            MessageBoxIcon.Warning));
                     }
                 }
             }
@@ -534,10 +524,10 @@
         private bool TryInitializeConfiguredGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, out GameStorageHealthCheck healthCheck)
         {
             healthCheck = null;
-            if (!HasConfiguredGameStoragePaths(gameModeFactory.GameModeDescriptor.ModeId, gameInstallPath))
+            if (!HasConfiguredGameStoragePaths(gameModeFactory.GameModeDescriptor.ModeId, gameStorageService, gameInstallPath))
                 return false;
 
-            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
+            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
             healthCheck = gameStorageService.ValidateStorage(paths, true);
             return healthCheck.IsHealthy;
         }
@@ -545,7 +535,7 @@
         private bool PerformInitialGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, GameStorageHealthCheck initialHealthCheck, out bool usedLegacySetup)
         {
             usedLegacySetup = false;
-            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
+            var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
             var healthCheck = initialHealthCheck ?? gameStorageService.ValidateStorage(paths, false);
 
             while (true)
@@ -575,21 +565,35 @@
                 if (gameStorageService.ApplyInitialSetupCandidate(paths, setupForm.SelectedCandidate, out healthCheck))
                     return true;
 
+                if (gameStorageService.ApplySelectedCandidatePaths(paths, setupForm.SelectedCandidate))
+                {
+                    string warning = healthCheck?.ToUserMessage() ??
+                        LanguageManager.Get("GameStorage.Setup.ValidationFailed", "The selected Game Storage paths could not be validated.");
+                    warning += Environment.NewLine + Environment.NewLine +
+                        LanguageManager.Get("GameStorage.Setup.ValidationContinue", "The folders you selected will be used anyway. Existing Game Storage metadata was left unchanged.");
+                    ShowMessage(new ViewMessage(warning, null, LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxIcon.Warning));
+                    return true;
+                }
+
                 ShowMessage(new ViewMessage(healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Setup.ValidationFailed", "The selected Game Storage paths could not be validated."), null, LanguageManager.Get("GameStorage.Setup.GenericTitle", "Game Storage setup"), MessageBoxIcon.Warning));
-                paths = CreateInitialGameStoragePathSet(gameModeFactory, gameInstallPath);
+                paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
             }
         }
 
-        private GameStoragePathSet CreateInitialGameStoragePathSet(IGameModeFactory gameModeFactory, string gameInstallPath)
+        /// <summary>
+        /// Builds the initial Game Storage paths while preserving the historical
+        /// VirtualFolder setting semantics used by VirtualModActivator.
+        /// </summary>
+        private GameStoragePathSet CreateInitialGameStoragePathSet(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath)
         {
             string gameId = gameModeFactory.GameModeDescriptor.ModeId;
             string root = GetInitialGameStorageRoot(gameId, gameInstallPath);
-            string virtualPath = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
+            string virtualFolderSetting = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
+            string virtualPath = gameStorageService.NormalizeVirtualInstallDirectory(
+                string.IsNullOrWhiteSpace(virtualFolderSetting) ? root : virtualFolderSetting);
             string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
             bool multiHd = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId);
 
-            if (string.IsNullOrWhiteSpace(virtualPath))
-                virtualPath = Path.Combine(root, "VirtualInstall");
             if (string.IsNullOrWhiteSpace(linkPath))
                 linkPath = Path.Combine(root, "LinkFolder");
 
@@ -608,16 +612,21 @@
             };
         }
 
-        private bool HasConfiguredGameStoragePaths(string gameId, string gameInstallPath)
+        /// <summary>
+        /// Checks whether the configured paths contain enough information to reuse
+        /// an existing Game Storage setup without changing the stored settings.
+        /// </summary>
+        private bool HasConfiguredGameStoragePaths(string gameId, GameStorageService gameStorageService, string gameInstallPath)
         {
             string installInfoPath = GetSettingValue(EnvironmentInfo.Settings.InstallInfoFolder, gameId);
             string modsPath = GetSettingValue(EnvironmentInfo.Settings.ModFolder, gameId);
-            string virtualPath = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
+            string virtualFolderSetting = GetSettingValue(EnvironmentInfo.Settings.VirtualFolder, gameId);
             string linkPath = GetSettingValue(EnvironmentInfo.Settings.HDLinkFolder, gameId);
 
-            if (string.IsNullOrWhiteSpace(installInfoPath) || string.IsNullOrWhiteSpace(modsPath) || string.IsNullOrWhiteSpace(virtualPath))
+            if (string.IsNullOrWhiteSpace(installInfoPath) || string.IsNullOrWhiteSpace(modsPath) || string.IsNullOrWhiteSpace(virtualFolderSetting))
                 return false;
 
+            string virtualPath = gameStorageService.NormalizeVirtualInstallDirectory(virtualFolderSetting);
             bool linkRequired = GetBoolSettingValue(EnvironmentInfo.Settings.MultiHDInstall, gameId) || IsCrossDrivePath(virtualPath, gameInstallPath);
             return !linkRequired || !string.IsNullOrWhiteSpace(linkPath);
         }

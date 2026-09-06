@@ -101,6 +101,88 @@ namespace Nexus.Client.GameStorage
             return true;
         }
 
+        /// <summary>
+        /// Applies storage paths explicitly selected by the user without treating
+        /// Game Storage metadata warnings as a blocker. Missing candidate paths are
+        /// completed from the current configuration and existing metadata is left unchanged.
+        /// </summary>
+        public bool ApplySelectedCandidatePaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+        {
+            GameStoragePathSet paths = ResolveExplicitlySelectedPaths(currentPaths, candidate);
+            if (!CanApplyExplicitlySelectedPaths(paths))
+                return false;
+
+            ApplyPathSet(paths);
+            return true;
+        }
+
+        /// <summary>
+        /// Resolves a user-selected candidate for the current Game Mode. Candidate
+        /// identity metadata is deliberately ignored; only its selected folder paths
+        /// are reused, with missing paths inherited from the current configuration.
+        /// </summary>
+        public GameStoragePathSet ResolveExplicitlySelectedPaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
+        {
+            if (currentPaths == null || candidate == null)
+                return null;
+
+            string virtualInstallPath = NormalizeVirtualInstallDirectory(
+                FirstConfiguredPath(candidate.VirtualInstallPath, currentPaths.VirtualInstallPath));
+            bool linkRequired = candidate.LinkFolderRequired ||
+                IsLinkFolderRequired(virtualInstallPath, currentPaths.GameInstallPath);
+
+            return new GameStoragePathSet
+            {
+                GameId = currentPaths.GameId,
+                GameName = currentPaths.GameName,
+                GameInstallPath = currentPaths.GameInstallPath,
+                InstallInfoPath = NormalizeDirectoryPath(FirstConfiguredPath(candidate.InstallInfoPath, currentPaths.InstallInfoPath)),
+                ModsPath = NormalizeDirectoryPath(FirstConfiguredPath(candidate.ModsPath, currentPaths.ModsPath)),
+                VirtualInstallPath = virtualInstallPath,
+                LinkFolderPath = ResolveLinkFolderPath(currentPaths, candidate.LinkFolderPath, linkRequired),
+                LinkFolderRequired = linkRequired,
+                CompatibleSharedModsGameIds = currentPaths.CompatibleSharedModsGameIds == null
+                    ? new List<string>()
+                    : new List<string>(currentPaths.CompatibleSharedModsGameIds)
+            };
+        }
+
+        private bool CanApplyExplicitlySelectedPaths(GameStoragePathSet paths)
+        {
+            if (paths == null ||
+                !IsUsableDirectoryPath(paths.InstallInfoPath) ||
+                !IsUsableDirectoryPath(paths.ModsPath) ||
+                !IsUsableDirectoryPath(paths.VirtualInstallPath))
+            {
+                return false;
+            }
+
+            return !paths.LinkFolderRequired ||
+                (IsUsableDirectoryPath(paths.LinkFolderPath) &&
+                 IsLinkFolderOnGameDrive(paths.LinkFolderPath, paths.GameInstallPath));
+        }
+
+        private static string FirstConfiguredPath(string preferredPath, string fallbackPath)
+        {
+            return string.IsNullOrWhiteSpace(preferredPath) ? fallbackPath : preferredPath;
+        }
+
+        private static bool IsUsableDirectoryPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            try
+            {
+                Path.GetFullPath(path);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
 		public bool ApplyInitialSetupCandidate(
 			GameStoragePathSet currentPaths,
 			GameStorageCandidate candidate,

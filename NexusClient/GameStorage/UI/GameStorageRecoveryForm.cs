@@ -183,6 +183,19 @@ namespace Nexus.Client.GameStorage.UI
             }
 
             SetHealth(healthCheck);
+            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
+            if (_service.ApplySelectedCandidatePaths(currentPaths, candidate))
+            {
+                string warning = healthCheck?.ToUserMessage() ??
+                    LanguageManager.Get("GameStorage.Recovery.ApplyUnvalidatedWarning", "NMM could not validate the selected Game Storage folders.");
+                warning += Environment.NewLine + Environment.NewLine +
+                    LanguageManager.Get("GameStorage.Recovery.ApplyUnvalidatedContinue", "The folders you selected will be used anyway. Existing Game Storage metadata was left unchanged.");
+
+                XtraMessageBox.Show(this, warning, LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                DialogResult = DialogResult.OK;
+                return;
+            }
+
             XtraMessageBox.Show(this, healthCheck?.ToUserMessage() ?? LanguageManager.Get("GameStorage.Recovery.ApplyFailed", "The selected Game Storage candidate could not be applied."), LanguageManager.Get("GameStorage.Recovery.GenericTitle", "Game Storage recovery"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 

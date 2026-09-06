@@ -77,6 +77,36 @@ namespace NexusClientTests
             Assert.IsTrue(_service.IsLinkFolderOnGameDrive(@"C:\NMM\Links", @"C:\Games\Skyrim"));
         }
 
+
+        [Test]
+        public void NormalizeVirtualInstallDirectory_PreservesLegacyAndResolvedConfigurations()
+        {
+            string root = Path.Combine(_tempRoot, "ExistingStorage");
+            string resolved = Path.Combine(root, "VirtualInstall");
+
+            Assert.AreEqual(resolved, _service.NormalizeVirtualInstallDirectory(root));
+            Assert.AreEqual(resolved, _service.NormalizeVirtualInstallDirectory(resolved));
+        }
+
+        [Test]
+        public void ResolveExplicitlySelectedPaths_MismatchedMetadataUsesCurrentGameAndCompletesMissingPaths()
+        {
+            var current = CreateStorage("SkyrimSE", "CurrentStorage");
+            string selectedInstallInfo = Path.Combine(_tempRoot, "OldStorage", "InstallInfo");
+            var candidate = new GameStorageCandidate
+            {
+                GameId = "Fallout4",
+                InstallInfoPath = selectedInstallInfo
+            };
+
+            GameStoragePathSet resolved = _service.ResolveExplicitlySelectedPaths(current, candidate);
+
+            Assert.AreEqual(current.GameId, resolved.GameId);
+            Assert.AreEqual(selectedInstallInfo, resolved.InstallInfoPath);
+            Assert.AreEqual(current.ModsPath, resolved.ModsPath);
+            Assert.AreEqual(current.VirtualInstallPath, resolved.VirtualInstallPath);
+        }
+
         [Test]
         public void DiscoverRecoveryCandidatesFromRoot_RootManifestCreatesHighConfidenceCandidate()
         {
