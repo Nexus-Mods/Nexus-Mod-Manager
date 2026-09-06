@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Newtonsoft.Json;
 using Nexus.Client.Games;
 using Nexus.Client.Games.DataDriven;
@@ -499,17 +500,26 @@ namespace Nexus.Client.GameStorage
         private GameStorageHealthCheck Validate(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
         {
             var result = new GameStorageHealthCheck { GameId = paths.GameId, StorageId = storageId };
-            var lastKnownGood = registry.KnownStorages.FirstOrDefault(x =>
-                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
-                x.LastKnownGood)
-                ?? registry.KnownStorages.FirstOrDefault(x =>
+            var lastKnownGood = registry.KnownStorages
+                .Where(x =>
                     string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
-                    x.LastKnownGood);
+                    string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
+                    x.LastKnownGood)
+                .OrderByDescending(x => x.LastSeenUtc)
+                .FirstOrDefault()
+                ?? registry.KnownStorages
+                    .Where(x =>
+                        string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                        x.LastKnownGood)
+                    .OrderByDescending(x => x.LastSeenUtc)
+                    .FirstOrDefault();
 
+            AddFolderRoleCollisionWarnings(result, paths);
+            ValidateRootManifestMetadata(result, paths);
             ValidateFolder(result, paths, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, storageId, true);
             ValidateFolder(result, paths, GameStorageFolderRole.Mods, paths.ModsPath, storageId, true);
             ValidateFolder(result, paths, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, storageId, true);
+            ValidateInstallLog(result, paths.InstallInfoPath);
 
             if (paths.LinkFolderRequired)
             {
@@ -530,6 +540,53 @@ namespace Nexus.Client.GameStorage
             return result;
         }
 
+        /// <summary>
+        /// Reports exact folder-role collisions without rejecting the selected paths.
+        /// Nested legacy layouts remain valid; only two roles pointing to the exact
+        /// same directory are considered a metadata collision.
+        /// </summary>
+        private void AddFolderRoleCollisionWarnings(GameStorageHealthCheck result, GameStoragePathSet paths)
+        {
+            foreach (var group in GetMetadataFolderAssignments(paths)
+                .Where(x => !string.IsNullOrWhiteSpace(x.Value))
+                .GroupBy(x => NormalizeDirectoryPath(x.Value), StringComparer.OrdinalIgnoreCase)
+                .Where(x => x.Count() > 1))
+            {
+                string roles = string.Join(", ", group.Select(x => GetRoleName(x.Key)));
+                foreach (var assignment in group)
+                {
+                    Add(result, assignment.Key, assignment.Value, GameStorageHealthStatus.FolderRoleCollision, true, true,
+                        LanguageManager.Format("GameStorage.Health.FolderRoleCollision.Message", "This folder is assigned to multiple Game Storage roles ({0}). NMM will keep using the selected paths but will not write conflicting folder manifests.", roles),
+                        LanguageManager.Get("GameStorage.Health.FolderRoleCollision.Fix", "Use separate folders for these roles when convenient."));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reports unreadable or future-version root metadata while leaving the
+        /// selected storage paths usable. Missing root metadata is valid for legacy
+        /// configurations and is not reported as an error.
+        /// </summary>
+        private void ValidateRootManifestMetadata(GameStorageHealthCheck result, GameStoragePathSet paths)
+        {
+            string root = TryGetSharedStorageRoot(paths);
+            if (string.IsNullOrWhiteSpace(root))
+                return;
+
+            GameStorageMetadataReadResult<GameStorageRootManifest> read = ReadRootManifestResult(root);
+            if (read.Status == GameStorageMetadataReadStatus.Invalid)
+            {
+                Add(result, null, Path.Combine(root, GameStorageConstants.RootManifestFileName), GameStorageHealthStatus.InvalidManifest, false, true,
+                    LanguageManager.Get("GameStorage.Health.InvalidRootManifest.Message", "The Game Storage root manifest is unreadable. Folder contents remain usable."),
+                    LanguageManager.Get("GameStorage.Health.InvalidManifest.Fix", "Confirm the selected paths and repair the Game Storage metadata."));
+            }
+            else if (read.Status == GameStorageMetadataReadStatus.UnsupportedVersion)
+            {
+                Add(result, null, Path.Combine(root, GameStorageConstants.RootManifestFileName), GameStorageHealthStatus.UnsupportedManifestVersion, false, true,
+                    LanguageManager.Get("GameStorage.Health.UnsupportedRootManifestVersion.Message", "The Game Storage root manifest uses a newer metadata format. NMM will leave it untouched."));
+            }
+        }
+
         private void ValidateFolder(GameStorageHealthCheck result, GameStoragePathSet paths, GameStorageFolderRole role, string path, string storageId, bool required)
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
@@ -538,12 +595,30 @@ namespace Nexus.Client.GameStorage
                 return;
             }
 
-            var manifest = ReadFolderManifest(path);
-            if (manifest == null)
+            GameStorageMetadataReadResult<GameStorageFolderManifest> manifestRead = ReadFolderManifestResult(path);
+            if (manifestRead.Status == GameStorageMetadataReadStatus.Missing)
             {
                 Add(result, role, path, GameStorageHealthStatus.LegacyValidNeedsInitialization, required, true, LanguageManager.Format("GameStorage.Health.LegacyNeedsManifest.Message", "The {0} folder is valid legacy storage and needs a Game Storage manifest.", GetRoleName(role)));
                 return;
             }
+
+            if (manifestRead.Status == GameStorageMetadataReadStatus.Invalid)
+            {
+                Add(result, role, path, GameStorageHealthStatus.InvalidManifest, required, true,
+                    LanguageManager.Format("GameStorage.Health.InvalidManifest.Message", "The {0} folder contains an unreadable Game Storage manifest. The folder contents can still be used, but the metadata should be repaired.", GetRoleName(role)),
+                    LanguageManager.Get("GameStorage.Health.InvalidManifest.Fix", "Confirm the selected paths and repair the Game Storage metadata."));
+                return;
+            }
+
+            if (manifestRead.Status == GameStorageMetadataReadStatus.UnsupportedVersion)
+            {
+                Add(result, role, path, GameStorageHealthStatus.UnsupportedManifestVersion, required, true,
+                    LanguageManager.Format("GameStorage.Health.UnsupportedManifestVersion.Message", "The {0} folder was written by a newer Game Storage metadata format. NMM will not overwrite that manifest automatically.", GetRoleName(role)),
+                    LanguageManager.Get("GameStorage.Health.UnsupportedManifestVersion.Fix", "Continue using the selected folder, or update NMM before repairing its metadata."));
+                return;
+            }
+
+            var manifest = manifestRead.Value;
 
             if (manifest.FolderRole != role)
             {
@@ -625,17 +700,42 @@ namespace Nexus.Client.GameStorage
             Add(result, role, path, GameStorageHealthStatus.Healthy, required, true, LanguageManager.Format("GameStorage.Health.FolderValid.Message", "The {0} folder is valid.", GetRoleName(role)));
         }
 
+        /// <summary>
+        /// Warns about a missing InstallLog only when InstallInfo contains evidence
+        /// of an existing setup. A completely empty/new InstallInfo directory stays
+        /// valid so first-run configurations are not penalized.
+        /// </summary>
         private void ValidateInstallLog(GameStorageHealthCheck result, string installInfoPath)
         {
             if (string.IsNullOrWhiteSpace(installInfoPath) || !Directory.Exists(installInfoPath))
                 return;
 
             string installLog = Path.Combine(installInfoPath, "InstallLog.xml");
-            if (!File.Exists(installLog))
+            if (File.Exists(installLog) || !HasInstallInfoEvidence(installInfoPath))
+                return;
+
+            Add(result, GameStorageFolderRole.InstallInfo, installInfoPath, GameStorageHealthStatus.MissingInstallLog, true, true,
+                LanguageManager.Get("GameStorage.Health.MissingInstallLog.Message", "InstallInfo contains existing data but InstallLog.xml was not found."),
+                LanguageManager.Get("GameStorage.Health.MissingInstallLog.Fix", "Restore the previous InstallInfo folder if this game already had installed mods."));
+        }
+
+        /// <summary>
+        /// Returns whether InstallInfo contains data other than the Game Storage
+        /// manifest itself.
+        /// </summary>
+        private bool HasInstallInfoEvidence(string installInfoPath)
+        {
+            try
             {
-                Add(result, GameStorageFolderRole.InstallInfo, installInfoPath, GameStorageHealthStatus.MissingInstallLog, true, true,
-                    LanguageManager.Get("GameStorage.Health.MissingInstallLog.Message", "InstallInfo exists but InstallLog.xml was not found."),
-                    LanguageManager.Get("GameStorage.Health.MissingInstallLog.Fix", "Restore the previous InstallInfo folder if this game already had installed mods."));
+                return Directory.EnumerateFileSystemEntries(installInfoPath)
+                    .Any(x => !string.Equals(
+                        Path.GetFileName(x),
+                        GameStorageConstants.FolderManifestFileName,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -681,11 +781,7 @@ namespace Nexus.Client.GameStorage
         private void InitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry)
         {
             DateTime now = DateTime.UtcNow;
-            WriteFolderManifest(paths.InstallInfoPath, GameStorageFolderRole.InstallInfo, paths, storageId, now);
-            WriteFolderManifest(paths.ModsPath, GameStorageFolderRole.Mods, paths, storageId, now);
-            WriteFolderManifest(paths.VirtualInstallPath, GameStorageFolderRole.VirtualInstall, paths, storageId, now);
-            if (paths.LinkFolderRequired && !string.IsNullOrWhiteSpace(paths.LinkFolderPath) && Directory.Exists(paths.LinkFolderPath))
-                WriteFolderManifest(paths.LinkFolderPath, GameStorageFolderRole.LinkFolder, paths, storageId, now);
+            WriteFolderManifests(paths, storageId, now);
 
             string root = TryGetSharedStorageRoot(paths);
             if (!string.IsNullOrWhiteSpace(root))
@@ -695,13 +791,56 @@ namespace Nexus.Client.GameStorage
             SaveRegistryWithBackup(registry);
         }
 
+        /// <summary>
+        /// Returns the folder-role assignments that can carry Game Storage folder
+        /// manifests for the supplied path set.
+        /// </summary>
+        private IEnumerable<KeyValuePair<GameStorageFolderRole, string>> GetMetadataFolderAssignments(GameStoragePathSet paths)
+        {
+            yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.InstallInfo, paths.InstallInfoPath);
+            yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.Mods, paths.ModsPath);
+            yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath);
+            if (paths.LinkFolderRequired)
+                yield return new KeyValuePair<GameStorageFolderRole, string>(GameStorageFolderRole.LinkFolder, paths.LinkFolderPath);
+        }
+
+        /// <summary>
+        /// Writes folder manifests only where a directory has one unambiguous role.
+        /// Existing configurations that intentionally reuse the same directory are
+        /// left functional without repeatedly overwriting one manifest with another.
+        /// </summary>
+        private void WriteFolderManifests(GameStoragePathSet paths, string storageId, DateTime now)
+        {
+            var assignments = GetMetadataFolderAssignments(paths)
+                .Where(x => !string.IsNullOrWhiteSpace(x.Value) && Directory.Exists(x.Value))
+                .ToList();
+            var collidingPaths = new HashSet<string>(
+                assignments
+                    .GroupBy(x => NormalizeDirectoryPath(x.Value), StringComparer.OrdinalIgnoreCase)
+                    .Where(x => x.Count() > 1)
+                    .Select(x => x.Key),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var assignment in assignments)
+            {
+                if (collidingPaths.Contains(NormalizeDirectoryPath(assignment.Value)))
+                    continue;
+
+                WriteFolderManifest(assignment.Value, assignment.Key, paths, storageId, now);
+            }
+        }
+
         private void WriteFolderManifest(string folderPath, GameStorageFolderRole role, GameStoragePathSet paths, string storageId, DateTime now)
         {
             if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
                 return;
 
             string manifestPath = Path.Combine(folderPath, GameStorageConstants.FolderManifestFileName);
-            var existing = ReadFolderManifest(folderPath);
+            GameStorageMetadataReadResult<GameStorageFolderManifest> existingRead = ReadFolderManifestResult(folderPath);
+            if (existingRead.Status == GameStorageMetadataReadStatus.UnsupportedVersion)
+                return;
+
+            var existing = existingRead.Status == GameStorageMetadataReadStatus.Valid ? existingRead.Value : null;
             var manifest = existing ?? new GameStorageFolderManifest { CreatedUtc = now };
             var bindings = role == GameStorageFolderRole.Mods
                 ? GetManifestBindings(manifest)
@@ -731,7 +870,7 @@ namespace Nexus.Client.GameStorage
             binding.LastSeenUtc = now;
             binding.LastSeenByVersion = _applicationVersion.ToString();
 
-            manifest.SchemaVersion = 2;
+            manifest.SchemaVersion = GameStorageConstants.FolderManifestSchemaVersion;
             manifest.App = GameStorageConstants.ApplicationName;
             manifest.FolderRole = role;
             manifest.StorageId = storageId;
@@ -745,13 +884,28 @@ namespace Nexus.Client.GameStorage
 
         private void WriteRootManifest(string root, GameStoragePathSet paths, string storageId, DateTime now)
         {
+            GameStorageMetadataReadResult<GameStorageRootManifest> existingRead = ReadRootManifestResult(root);
+            if (existingRead.Status == GameStorageMetadataReadStatus.UnsupportedVersion)
+                return;
+
+            GameStorageRootManifest existing = existingRead.Status == GameStorageMetadataReadStatus.Valid
+                ? existingRead.Value
+                : null;
+            DateTime createdUtc = existing != null &&
+                string.Equals(existing.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(existing.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
+                existing.CreatedUtc != default(DateTime)
+                    ? existing.CreatedUtc
+                    : now;
+
             var manifest = new GameStorageRootManifest
             {
+                SchemaVersion = GameStorageConstants.RootManifestSchemaVersion,
                 StorageId = storageId,
                 GameId = paths.GameId,
                 GameName = paths.GameName,
                 LinkFolderRequired = paths.LinkFolderRequired,
-                CreatedUtc = now,
+                CreatedUtc = createdUtc,
                 LastSeenUtc = now
             };
             manifest.Folders[GameStorageFolderRole.InstallInfo.ToString()] = ToManifestPath(root, paths.InstallInfoPath);
@@ -768,6 +922,12 @@ namespace Nexus.Client.GameStorage
             {
                 entry = new GameStorageRegistryEntry { StorageId = storageId, GameId = paths.GameId };
                 registry.KnownStorages.Add(entry);
+            }
+
+            foreach (var knownStorage in registry.KnownStorages.Where(x =>
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase)))
+            {
+                knownStorage.LastKnownGood = false;
             }
 
             entry.GameName = paths.GameName;
@@ -938,24 +1098,52 @@ namespace Nexus.Client.GameStorage
         }
 
         /// <summary>
-        /// Reads a Game Storage root manifest without modifying or repairing it.
+        /// Reads and classifies a Game Storage root manifest without modifying it.
         /// </summary>
-        private GameStorageRootManifest ReadRootManifest(string root)
+        private GameStorageMetadataReadResult<GameStorageRootManifest> ReadRootManifestResult(string root)
         {
+            var result = new GameStorageMetadataReadResult<GameStorageRootManifest>();
             if (string.IsNullOrWhiteSpace(root))
-                return null;
+            {
+                result.Status = GameStorageMetadataReadStatus.Missing;
+                return result;
+            }
+
+            string manifestPath = Path.Combine(root, GameStorageConstants.RootManifestFileName);
+            if (!File.Exists(manifestPath))
+            {
+                result.Status = GameStorageMetadataReadStatus.Missing;
+                return result;
+            }
 
             try
             {
-                string manifestPath = Path.Combine(root, GameStorageConstants.RootManifestFileName);
-                return File.Exists(manifestPath)
-                    ? JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(manifestPath))
-                    : null;
+                result.Value = JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(manifestPath));
+                if (result.Value == null)
+                {
+                    result.Status = GameStorageMetadataReadStatus.Invalid;
+                    return result;
+                }
+
+                result.Status = result.Value.SchemaVersion > GameStorageConstants.RootManifestSchemaVersion
+                    ? GameStorageMetadataReadStatus.UnsupportedVersion
+                    : GameStorageMetadataReadStatus.Valid;
+                return result;
             }
             catch
             {
-                return null;
+                result.Status = GameStorageMetadataReadStatus.Invalid;
+                return result;
             }
+        }
+
+        /// <summary>
+        /// Returns a root manifest only when its schema is supported by this NMM version.
+        /// </summary>
+        private GameStorageRootManifest ReadRootManifest(string root)
+        {
+            GameStorageMetadataReadResult<GameStorageRootManifest> result = ReadRootManifestResult(root);
+            return result.Status == GameStorageMetadataReadStatus.Valid ? result.Value : null;
         }
 
         public bool RemoveStorageBinding(string gameId, string storageId)
@@ -982,15 +1170,15 @@ namespace Nexus.Client.GameStorage
                     string rootManifestPath = Path.Combine(entry.StorageRootPath, GameStorageConstants.RootManifestFileName);
                     try
                     {
-                        if (File.Exists(rootManifestPath))
+                        GameStorageMetadataReadResult<GameStorageRootManifest> rootRead = ReadRootManifestResult(entry.StorageRootPath);
+                        GameStorageRootManifest rootManifest = rootRead.Status == GameStorageMetadataReadStatus.Valid
+                            ? rootRead.Value
+                            : null;
+                        if (rootManifest != null &&
+                            string.Equals(rootManifest.GameId, gameId, StringComparison.OrdinalIgnoreCase) &&
+                            string.Equals(rootManifest.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
                         {
-                            var rootManifest = JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(rootManifestPath));
-                            if (rootManifest != null &&
-                                string.Equals(rootManifest.GameId, gameId, StringComparison.OrdinalIgnoreCase) &&
-                                string.Equals(rootManifest.StorageId, storageId, StringComparison.OrdinalIgnoreCase))
-                            {
-                                File.Delete(rootManifestPath);
-                            }
+                            File.Delete(rootManifestPath);
                         }
                     }
                     catch
@@ -1045,7 +1233,7 @@ namespace Nexus.Client.GameStorage
             }
 
             var primary = bindings.OrderByDescending(x => x.LastSeenUtc).First();
-            manifest.SchemaVersion = 2;
+            manifest.SchemaVersion = GameStorageConstants.FolderManifestSchemaVersion;
             manifest.Bindings = bindings;
             manifest.GameId = primary.GameId;
             manifest.StorageId = primary.StorageId;
@@ -1056,21 +1244,104 @@ namespace Nexus.Client.GameStorage
             TryHideFile(manifestPath);
         }
 
+        /// <summary>
+        /// Loads the primary registry, falling back to the last-known-good copy when
+        /// the primary file is missing, corrupt, or written by an unsupported schema.
+        /// </summary>
         private GameStorageRegistry LoadRegistry()
         {
+            GameStorageMetadataReadResult<GameStorageRegistry> primary = ReadRegistryResult(RegistryPath);
+            if (primary.Status == GameStorageMetadataReadStatus.Valid)
+                return NormalizeRegistry(primary.Value);
+
+            GameStorageMetadataReadResult<GameStorageRegistry> fallback = ReadRegistryResult(LastKnownGoodPath);
+            if (fallback.Status == GameStorageMetadataReadStatus.Valid)
+                return NormalizeRegistry(fallback.Value);
+
+            return new GameStorageRegistry();
+        }
+
+        /// <summary>
+        /// Reads and classifies one registry file without modifying it.
+        /// </summary>
+        private GameStorageMetadataReadResult<GameStorageRegistry> ReadRegistryResult(string path)
+        {
+            var result = new GameStorageMetadataReadResult<GameStorageRegistry>();
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            {
+                result.Status = GameStorageMetadataReadStatus.Missing;
+                return result;
+            }
+
             try
             {
-                if (File.Exists(RegistryPath))
-                    return JsonConvert.DeserializeObject<GameStorageRegistry>(File.ReadAllText(RegistryPath)) ?? new GameStorageRegistry();
+                result.Value = JsonConvert.DeserializeObject<GameStorageRegistry>(File.ReadAllText(path));
+                if (result.Value == null)
+                {
+                    result.Status = GameStorageMetadataReadStatus.Invalid;
+                    return result;
+                }
+
+                result.Status = result.Value.SchemaVersion > GameStorageConstants.RegistrySchemaVersion
+                    ? GameStorageMetadataReadStatus.UnsupportedVersion
+                    : GameStorageMetadataReadStatus.Valid;
+                return result;
             }
             catch
             {
+                result.Status = GameStorageMetadataReadStatus.Invalid;
+                return result;
             }
-            return new GameStorageRegistry();
+        }
+
+        /// <summary>
+        /// Restores non-null registry collections for legacy or partially-written
+        /// registry payloads without changing their storage entries.
+        /// </summary>
+        private GameStorageRegistry NormalizeRegistry(GameStorageRegistry registry)
+        {
+            registry = registry ?? new GameStorageRegistry();
+            registry.ActiveStorageByGame = registry.ActiveStorageByGame ??
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            registry.KnownStorages = registry.KnownStorages ?? new List<GameStorageRegistryEntry>();
+
+            foreach (var group in registry.KnownStorages
+                .Where(x => x != null && !string.IsNullOrWhiteSpace(x.GameId) && x.LastKnownGood)
+                .GroupBy(x => x.GameId, StringComparer.OrdinalIgnoreCase)
+                .Where(x => x.Count() > 1))
+            {
+                string activeStorageId;
+                registry.ActiveStorageByGame.TryGetValue(group.Key, out activeStorageId);
+                GameStorageRegistryEntry winner = group
+                    .OrderByDescending(x => string.Equals(x.StorageId, activeStorageId, StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(x => x.LastSeenUtc)
+                    .First();
+
+                foreach (var entry in group)
+                    entry.LastKnownGood = ReferenceEquals(entry, winner);
+            }
+
+            return registry;
         }
 
         private void SaveRegistryWithBackup(GameStorageRegistry registry)
         {
+            GameStorageMetadataReadResult<GameStorageRegistry> primaryRead = ReadRegistryResult(RegistryPath);
+            GameStorageMetadataReadResult<GameStorageRegistry> lastKnownGoodRead = ReadRegistryResult(LastKnownGoodPath);
+
+            // Never downgrade metadata written by a newer NMM. If the active
+            // registry is newer, or the active registry is unavailable while the
+            // only recoverable registry is newer, leave both files untouched.
+            if (primaryRead.Status == GameStorageMetadataReadStatus.UnsupportedVersion ||
+                ((primaryRead.Status == GameStorageMetadataReadStatus.Missing ||
+                  primaryRead.Status == GameStorageMetadataReadStatus.Invalid) &&
+                 lastKnownGoodRead.Status == GameStorageMetadataReadStatus.UnsupportedVersion))
+            {
+                return;
+            }
+
+            registry = NormalizeRegistry(registry);
+            registry.SchemaVersion = GameStorageConstants.RegistrySchemaVersion;
             Directory.CreateDirectory(RegistryDirectory);
             Directory.CreateDirectory(BackupDirectory);
             if (File.Exists(RegistryPath))
@@ -1079,24 +1350,66 @@ namespace Nexus.Client.GameStorage
                 File.Copy(RegistryPath, backupPath, true);
             }
             WriteJson(RegistryPath, registry);
-            WriteJson(LastKnownGoodPath, registry);
+            if (lastKnownGoodRead.Status != GameStorageMetadataReadStatus.UnsupportedVersion)
+                WriteJson(LastKnownGoodPath, registry);
         }
 
-        private GameStorageFolderManifest ReadFolderManifest(string folderPath)
+        /// <summary>
+        /// Reads and classifies one folder manifest. Missing, corrupt, and future
+        /// schema files remain distinct so legacy storage is not confused with
+        /// damaged or newer metadata.
+        /// </summary>
+        private GameStorageMetadataReadResult<GameStorageFolderManifest> ReadFolderManifestResult(string folderPath)
         {
+            var result = new GameStorageMetadataReadResult<GameStorageFolderManifest>();
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                result.Status = GameStorageMetadataReadStatus.Missing;
+                return result;
+            }
+
+            string manifestPath = Path.Combine(folderPath, GameStorageConstants.FolderManifestFileName);
+            if (!File.Exists(manifestPath))
+            {
+                result.Status = GameStorageMetadataReadStatus.Missing;
+                return result;
+            }
+
             try
             {
-                if (string.IsNullOrWhiteSpace(folderPath))
-                    return null;
-                string manifestPath = Path.Combine(folderPath, GameStorageConstants.FolderManifestFileName);
-                return File.Exists(manifestPath) ? JsonConvert.DeserializeObject<GameStorageFolderManifest>(File.ReadAllText(manifestPath)) : null;
+                result.Value = JsonConvert.DeserializeObject<GameStorageFolderManifest>(File.ReadAllText(manifestPath));
+                if (result.Value == null)
+                {
+                    result.Status = GameStorageMetadataReadStatus.Invalid;
+                    return result;
+                }
+
+                result.Status = result.Value.SchemaVersion > GameStorageConstants.FolderManifestSchemaVersion
+                    ? GameStorageMetadataReadStatus.UnsupportedVersion
+                    : GameStorageMetadataReadStatus.Valid;
+                return result;
             }
             catch
             {
-                return null;
+                result.Status = GameStorageMetadataReadStatus.Invalid;
+                return result;
             }
         }
 
+        /// <summary>
+        /// Returns a folder manifest only when its schema is supported by this NMM version.
+        /// </summary>
+        private GameStorageFolderManifest ReadFolderManifest(string folderPath)
+        {
+            GameStorageMetadataReadResult<GameStorageFolderManifest> result = ReadFolderManifestResult(folderPath);
+            return result.Status == GameStorageMetadataReadStatus.Valid ? result.Value : null;
+        }
+
+        /// <summary>
+        /// Writes JSON through a same-directory temporary file. Atomic replacement is
+        /// used when supported; a compatibility fallback keeps older/network file
+        /// systems working if Replace is unavailable.
+        /// </summary>
         private void WriteJson(string path, object value)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -1107,14 +1420,78 @@ namespace Nexus.Client.GameStorage
                 File.SetAttributes(path, originalAttributes.Value & ~FileAttributes.Hidden & ~FileAttributes.ReadOnly);
             }
 
+            string temporaryPath = path + ".tmp-" + Guid.NewGuid().ToString("N");
             try
             {
-                File.WriteAllText(path, JsonConvert.SerializeObject(value, _jsonSettings));
+                WriteDurableTextFile(temporaryPath, JsonConvert.SerializeObject(value, _jsonSettings));
+                if (File.Exists(path))
+                {
+                    try
+                    {
+                        File.Replace(temporaryPath, path, null);
+                    }
+                    catch (PlatformNotSupportedException)
+                    {
+                        File.Copy(temporaryPath, path, true);
+                        File.Delete(temporaryPath);
+                    }
+                    catch (IOException)
+                    {
+                        File.Copy(temporaryPath, path, true);
+                        File.Delete(temporaryPath);
+                    }
+                }
+                else
+                {
+                    File.Move(temporaryPath, path);
+                }
             }
             finally
             {
+                if (File.Exists(temporaryPath))
+                {
+                    try
+                    {
+                        File.Delete(temporaryPath);
+                    }
+                    catch
+                    {
+                    }
+                }
+
                 if (originalAttributes.HasValue && File.Exists(path))
                     File.SetAttributes(path, originalAttributes.Value);
+            }
+        }
+
+        /// <summary>
+        /// Writes UTF-8 text and flushes file contents before metadata replacement.
+        /// </summary>
+        private void WriteDurableTextFile(string path, string text)
+        {
+            using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                using (var writer = new StreamWriter(stream, new UTF8Encoding(false), 4096, true))
+                {
+                    writer.Write(text);
+                    writer.Flush();
+                }
+
+                try
+                {
+                    stream.Flush(true);
+                }
+                catch (IOException)
+                {
+                    // Some network/redirected file systems do not support a
+                    // durable flush. Preserve compatibility and fall back to the
+                    // normal flush semantics previously used by NMM.
+                    stream.Flush();
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    stream.Flush();
+                }
             }
         }
 

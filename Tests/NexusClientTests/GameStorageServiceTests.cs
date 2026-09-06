@@ -547,6 +547,153 @@ namespace NexusClientTests
             Assert.AreEqual(2, brokenRank);
         }
 
+        [Test]
+        public void ValidateStorage_CorruptFolderManifest_IsWarningNotLegacyAndRemainsUntouched()
+        {
+            var paths = CreateStorage("Fallout4", "CorruptManifest");
+            string manifestPath = Path.Combine(paths.ModsPath, ".nmm-folder.json");
+            File.WriteAllText(manifestPath, "{ definitely-not-json");
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.IsFalse(result.IsHealthy);
+            Assert.IsTrue(result.IsUsable);
+            Assert.That(result.Items.Any(x => x.Role == GameStorageFolderRole.Mods && x.Status == GameStorageHealthStatus.InvalidManifest), Is.True);
+            Assert.That(result.Items.Any(x => x.Role == GameStorageFolderRole.Mods && x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization), Is.False);
+            Assert.AreEqual("{ definitely-not-json", File.ReadAllText(manifestPath));
+        }
+
+        [Test]
+        public void ValidateStorage_FutureFolderManifest_IsWarningAndExplicitInitializationDoesNotDowngradeIt()
+        {
+            var paths = CreateStorage("Fallout4", "FutureManifest");
+            string manifestPath = Path.Combine(paths.ModsPath, ".nmm-folder.json");
+            string futureManifest = "{\"SchemaVersion\":999,\"App\":\"Nexus Mod Manager CE\",\"FolderRole\":\"Mods\",\"StorageId\":\"future-storage\",\"GameId\":\"Fallout4\"}";
+            File.WriteAllText(manifestPath, futureManifest);
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+            _service.InitializeMetadataForStorage(paths);
+
+            Assert.IsFalse(result.IsHealthy);
+            Assert.IsTrue(result.IsUsable);
+            Assert.That(result.Items.Any(x => x.Role == GameStorageFolderRole.Mods && x.Status == GameStorageHealthStatus.UnsupportedManifestVersion), Is.True);
+            Assert.AreEqual(futureManifest, File.ReadAllText(manifestPath));
+        }
+
+        [Test]
+        public void InitializeMetadataForStorage_ExactRoleCollision_DoesNotOverwriteSharedFolderManifest()
+        {
+            var paths = CreateStorage("Fallout3", "RoleCollision");
+            paths.VirtualInstallPath = paths.ModsPath;
+            string markerPath = Path.Combine(paths.ModsPath, "existing.txt");
+            File.WriteAllText(markerPath, "keep");
+
+            _service.InitializeMetadataForStorage(paths);
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.IsFalse(result.IsHealthy);
+            Assert.IsTrue(result.IsUsable);
+            Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.FolderRoleCollision), Is.True);
+            Assert.That(File.Exists(Path.Combine(paths.ModsPath, ".nmm-folder.json")), Is.False);
+            Assert.AreEqual("keep", File.ReadAllText(markerPath));
+        }
+
+        [Test]
+        public void InitializeMetadataForStorage_OnlyNewestStorageRemainsLastKnownGoodForGame()
+        {
+            var first = CreateStorage("SkyrimSE", "FirstStorage");
+            var second = CreateStorage("SkyrimSE", "SecondStorage");
+
+            _service.InitializeMetadataForStorage(first);
+            _service.InitializeMetadataForStorage(second);
+
+            string registry = File.ReadAllText(Path.Combine(_tempRoot, "Registry", "storages.json"));
+            Assert.AreEqual(1, CountOccurrences(registry, "\"LastKnownGood\": true"));
+        }
+
+        [Test]
+        public void ValidateStorage_CorruptPrimaryRegistry_FallsBackToLastKnownGoodRegistry()
+        {
+            var known = CreateStorage("SkyrimSE", "KnownStorage");
+            _service.InitializeMetadataForStorage(known);
+            string knownStorageId = _service.ValidateStorage(known).StorageId;
+            DeleteFileIfExists(Path.Combine(known.InstallInfoPath, ".nmm-folder.json"));
+            DeleteFileIfExists(Path.Combine(known.ModsPath, ".nmm-folder.json"));
+            DeleteFileIfExists(Path.Combine(known.VirtualInstallPath, ".nmm-folder.json"));
+            DeleteFileIfExists(Path.Combine(_tempRoot, "KnownStorage", "NMMStorage.json"));
+            File.WriteAllText(Path.Combine(_tempRoot, "Registry", "storages.json"), "{ broken-registry");
+
+            GameStorageHealthCheck result = _service.ValidateStorage(known);
+
+            Assert.AreEqual(knownStorageId, result.StorageId);
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsTrue(result.NeedsInitialization);
+        }
+
+        [Test]
+        public void InitializeMetadataForStorage_FutureRegistry_IsNotDowngraded()
+        {
+            var paths = CreateStorage("SkyrimSE", "FutureRegistryStorage");
+            string registryDirectory = Path.Combine(_tempRoot, "Registry");
+            Directory.CreateDirectory(registryDirectory);
+            string registryPath = Path.Combine(registryDirectory, "storages.json");
+            string futureRegistry = "{\"SchemaVersion\":999,\"ActiveStorageByGame\":{},\"KnownStorages\":[]}";
+            File.WriteAllText(registryPath, futureRegistry);
+
+            _service.InitializeMetadataForStorage(paths);
+
+            Assert.AreEqual(futureRegistry, File.ReadAllText(registryPath));
+        }
+
+        [Test]
+        public void ValidateStorage_MissingRequiredModsFolder_IsNotUsableButRemainsRecoverable()
+        {
+            var paths = CreateStorage("SkyrimSE", "MissingRequiredMods");
+            Directory.Delete(paths.ModsPath, true);
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.IsFalse(result.IsUsable);
+            Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.MissingMods && x.IsRecoverable), Is.True);
+        }
+
+        [Test]
+        public void ValidateStorage_NonEmptyInstallInfoWithoutInstallLog_IsUsableWarning()
+        {
+            var paths = CreateStorage("Fallout4", "MissingInstallLog");
+            File.Delete(Path.Combine(paths.InstallInfoPath, "InstallLog.xml"));
+            File.WriteAllText(Path.Combine(paths.InstallInfoPath, "existing-metadata.xml"), "data");
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.IsFalse(result.IsHealthy);
+            Assert.IsTrue(result.IsUsable);
+            Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.MissingInstallLog), Is.True);
+        }
+
+        [Test]
+        public void ValidateStorage_EmptyNewInstallInfoWithoutInstallLog_DoesNotWarn()
+        {
+            var paths = CreateStorage("Fallout4", "EmptyInstallInfo");
+            File.Delete(Path.Combine(paths.InstallInfoPath, "InstallLog.xml"));
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.MissingInstallLog), Is.False);
+        }
+
+        private static int CountOccurrences(string value, string search)
+        {
+            int count = 0;
+            int index = 0;
+            while ((index = value.IndexOf(search, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += search.Length;
+            }
+            return count;
+        }
+
         private GameStoragePathSet CreateStorage(string gameId, string rootName, bool withArchive = false, bool withVirtualFile = false)
         {
             string root = Path.Combine(_tempRoot, rootName);

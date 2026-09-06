@@ -417,10 +417,15 @@
                 var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
                 if (!storageHealth.IsHealthy)
                 {
-                    var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
+                    // Metadata-only problems are warnings, not reasons to interrupt
+                    // an otherwise usable Game Mode with the recovery workflow.
+                    if (!storageHealth.IsUsable)
+                    {
+                        var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
 
-                    if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
-                        storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
+                        if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
+                            storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
+                    }
 
                     if (!storageHealth.IsHealthy)
                     {

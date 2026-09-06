@@ -63,6 +63,29 @@ namespace Nexus.Client.GameStorage
         public int LastKnownVirtualFileCount { get; set; }
     }
 
+    /// <summary>
+    /// Describes whether a Game Storage metadata file could be safely interpreted
+    /// by this NMM version.
+    /// </summary>
+    internal enum GameStorageMetadataReadStatus
+    {
+        Missing,
+        Valid,
+        Invalid,
+        UnsupportedVersion
+    }
+
+    /// <summary>
+    /// Carries a parsed Game Storage metadata object together with its read status.
+    /// Unsupported future schemas may expose the parsed value for diagnostics but
+    /// are never treated as authoritative metadata.
+    /// </summary>
+    internal sealed class GameStorageMetadataReadResult<T> where T : class
+    {
+        public GameStorageMetadataReadStatus Status { get; set; }
+        public T Value { get; set; }
+    }
+
     public class GameStoragePathSet
     {
         public string GameId { get; set; }

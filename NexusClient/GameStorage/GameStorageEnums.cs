@@ -29,7 +29,10 @@ namespace Nexus.Client.GameStorage
         LegacyValidNeedsInitialization,
         CompatibleSharedModsLibrary,
         NotWritable,
-        Unknown
+        Unknown,
+        InvalidManifest,
+        UnsupportedManifestVersion,
+        FolderRoleCollision
     }
 
     public enum GameStorageCandidateConfidence

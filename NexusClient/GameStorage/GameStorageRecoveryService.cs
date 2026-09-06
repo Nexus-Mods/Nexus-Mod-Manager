@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json;
 using Nexus.Client.Games;
 using Nexus.Client.Util.Localization;
 
@@ -31,7 +30,10 @@ namespace Nexus.Client.GameStorage
 
             var lastKnownGoodRegistry = LoadLastKnownGoodRegistry();
             foreach (var entry in lastKnownGoodRegistry.KnownStorages.Where(x => string.Equals(x.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase)))
-                AddCandidate(candidates, CreateCandidateFromRegistry(entry, "Last-known-good backup", 98));
+                AddCandidate(candidates, CreateCandidateFromRegistry(
+                    entry,
+                    entry.LastKnownGood ? "Last-known-good backup" : "Known registry",
+                    entry.LastKnownGood ? 98 : 70));
 
             AddSharedModsRegistryCandidates(currentPaths, lastKnownGoodRegistry, candidates, "Shared Mods library backup", 88);
 
@@ -143,7 +145,7 @@ namespace Nexus.Client.GameStorage
 
             healthCheck = Validate(paths, storageId, registry);
             healthCheck.StorageId = storageId;
-            if (!healthCheck.IsHealthy)
+            if (!CanFinalizeRecoveredStorage(healthCheck, virtualInstallWasMissing, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding))
                 return false;
 
             ApplyPathSet(paths);
@@ -515,6 +517,7 @@ namespace Nexus.Client.GameStorage
 				bool acceptedStorageMismatch =
 					acceptStorageIdRebinding &&
 					item.Status == GameStorageHealthStatus.MismatchedStorageId;
+				bool acceptedMetadataWarning = IsNonBlockingMetadataWarning(item.Status);
 
 				if (item.Role == GameStorageFolderRole.InstallInfo ||
 					item.Role == GameStorageFolderRole.Mods)
@@ -522,6 +525,7 @@ namespace Nexus.Client.GameStorage
 					if (item.Status != GameStorageHealthStatus.Healthy &&
 						item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 						item.Status != GameStorageHealthStatus.CompatibleSharedModsLibrary &&
+						!acceptedMetadataWarning &&
 						!acceptedStorageMismatch &&
 						!(acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item)))
 					{
@@ -533,6 +537,7 @@ namespace Nexus.Client.GameStorage
 					item.Status != GameStorageHealthStatus.Healthy &&
 					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 					item.Status != GameStorageHealthStatus.MissingVirtualInstall &&
+					!acceptedMetadataWarning &&
 					!acceptedStorageMismatch &&
 					!(acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item)))
 				{
@@ -544,6 +549,7 @@ namespace Nexus.Client.GameStorage
 					item.Status != GameStorageHealthStatus.LegacyValidNeedsInitialization &&
 					item.Status != GameStorageHealthStatus.MissingLinkFolder &&
 					item.Status != GameStorageHealthStatus.LinkFolderNotRequired &&
+					!acceptedMetadataWarning &&
 					!acceptedStorageMismatch)
 				{
 					return false;
@@ -551,6 +557,18 @@ namespace Nexus.Client.GameStorage
 			}
 
 			return true;
+		}
+
+		/// <summary>
+		/// Returns whether a storage-health status represents metadata damage or
+		/// ambiguity that must warn the user but must not make the files unusable.
+		/// </summary>
+		private static bool IsNonBlockingMetadataWarning(GameStorageHealthStatus status)
+		{
+			return status == GameStorageHealthStatus.InvalidManifest ||
+				status == GameStorageHealthStatus.UnsupportedManifestVersion ||
+				status == GameStorageHealthStatus.FolderRoleCollision ||
+				status == GameStorageHealthStatus.MissingInstallLog;
 		}
 
 		private static bool IsAcceptableSuspiciousEmptyFolder(GameStorageHealthItem item)
@@ -581,6 +599,9 @@ namespace Nexus.Client.GameStorage
 				{
 					continue;
 				}
+
+				if (IsNonBlockingMetadataWarning(item.Status))
+					continue;
 
 				if (acceptSuspiciousEmptyFolders && IsAcceptableSuspiciousEmptyFolder(item))
 					continue;
@@ -1057,16 +1078,13 @@ namespace Nexus.Client.GameStorage
 
         private GameStorageCandidate TryCreateCandidateFromRootManifest(GameStoragePathSet currentPaths, string rootPath, bool explicitRoot)
         {
-            string manifestPath = Path.Combine(rootPath, GameStorageConstants.RootManifestFileName);
-            if (!File.Exists(manifestPath))
+            GameStorageMetadataReadResult<GameStorageRootManifest> manifestRead = ReadRootManifestResult(rootPath);
+            if (manifestRead.Status != GameStorageMetadataReadStatus.Valid)
                 return null;
 
             try
             {
-                var manifest = JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(manifestPath));
-                if (manifest == null)
-                    return null;
-
+                var manifest = manifestRead.Value;
                 bool gameMatches = string.Equals(manifest.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase);
                 if (!gameMatches && IsCompatibleSharedModsGame(currentPaths, manifest.GameId))
                 {
@@ -1464,15 +1482,10 @@ namespace Nexus.Client.GameStorage
 
 		private GameStorageRegistry LoadLastKnownGoodRegistry()
         {
-            try
-            {
-                if (File.Exists(LastKnownGoodPath))
-                    return JsonConvert.DeserializeObject<GameStorageRegistry>(File.ReadAllText(LastKnownGoodPath)) ?? new GameStorageRegistry();
-            }
-            catch
-            {
-            }
-            return new GameStorageRegistry();
+            GameStorageMetadataReadResult<GameStorageRegistry> result = ReadRegistryResult(LastKnownGoodPath);
+            return result.Status == GameStorageMetadataReadStatus.Valid
+                ? NormalizeRegistry(result.Value)
+                : new GameStorageRegistry();
         }
 
         private void AddCandidate(List<GameStorageCandidate> candidates, GameStorageCandidate candidate)

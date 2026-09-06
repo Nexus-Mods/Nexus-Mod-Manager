@@ -47,9 +47,23 @@ namespace Nexus.Client.GameStorage
             if (item == null)
                 return false;
 
-            return item.Status != GameStorageHealthStatus.NotWritable &&
-                item.Status != GameStorageHealthStatus.LinkFolderOnWrongDrive &&
-                item.Status != GameStorageHealthStatus.Unknown;
+            if (item.Status == GameStorageHealthStatus.NotWritable ||
+                item.Status == GameStorageHealthStatus.LinkFolderOnWrongDrive ||
+                item.Status == GameStorageHealthStatus.SuspiciousEmptyFolder ||
+                item.Status == GameStorageHealthStatus.Unknown)
+            {
+                return false;
+            }
+
+            if (!item.IsRequired)
+                return true;
+
+            return item.Status != GameStorageHealthStatus.MissingStorageRoot &&
+                item.Status != GameStorageHealthStatus.MissingInstallInfo &&
+                item.Status != GameStorageHealthStatus.MissingMods &&
+                item.Status != GameStorageHealthStatus.MissingVirtualInstall &&
+                item.Status != GameStorageHealthStatus.MissingLinkFolder &&
+                item.Status != GameStorageHealthStatus.LinkFolderRequired;
         }
 
         public string ToUserMessage()
@@ -159,7 +173,10 @@ namespace Nexus.Client.GameStorage
             LanguageManager.Get("GameStorage.HealthStatus.LegacyValidNeedsInitialization", "Legacy valid; initialization required"),
             LanguageManager.Get("GameStorage.HealthStatus.CompatibleSharedModsLibrary", "Compatible shared Mods library"),
             LanguageManager.Get("GameStorage.HealthStatus.NotWritable", "Not writable"),
-            LanguageManager.Get("GameStorage.HealthStatus.Unknown", "Unknown")
+            LanguageManager.Get("GameStorage.HealthStatus.Unknown", "Unknown"),
+            LanguageManager.Get("GameStorage.HealthStatus.InvalidManifest", "Invalid manifest"),
+            LanguageManager.Get("GameStorage.HealthStatus.UnsupportedManifestVersion", "Unsupported manifest version"),
+            LanguageManager.Get("GameStorage.HealthStatus.FolderRoleCollision", "Folder role collision")
         };
 
         private static readonly string[] ConfidenceNames =

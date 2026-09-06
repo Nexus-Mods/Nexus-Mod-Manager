@@ -7,6 +7,9 @@ namespace Nexus.Client.GameStorage
         public const string RootManifestFileName = "NMMStorage.json";
         public const string RegistryFileName = "storages.json";
         public const string LastKnownGoodFileName = "storages.last-known-good.json";
+        public const int FolderManifestSchemaVersion = 2;
+        public const int RootManifestSchemaVersion = 1;
+        public const int RegistrySchemaVersion = 1;
 		public const string VirtualInstallDirectoryName = "VirtualInstall";
 	}
 }
