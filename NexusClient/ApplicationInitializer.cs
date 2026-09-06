@@ -413,13 +413,14 @@
 
             if (hadCompletedSetup && !completedGameStorageSetupThisRun)
             {
-                var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
+                gameStorageService.RepairKnownLegacyStorageMetadata(gameMode);
+                var storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
                 if (!storageHealth.IsHealthy)
                 {
                     var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
 
                     if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
-                        storageHealth = gameStorageService.ValidateCurrentStorage(gameMode, true);
+                        storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
 
                     if (!storageHealth.IsHealthy)
                     {
@@ -528,15 +529,24 @@
                 return false;
 
             var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
-            healthCheck = gameStorageService.ValidateStorage(paths, true);
-            return healthCheck.IsHealthy;
+            gameStorageService.RepairKnownLegacyStorageMetadata(paths);
+            healthCheck = gameStorageService.ValidateStorage(paths);
+            if (!healthCheck.IsHealthy)
+                return false;
+
+            // This is an explicit setup/adoption path, not validation. Initialize
+            // metadata only when the selected legacy storage actually needs it.
+            if (healthCheck.NeedsInitialization)
+                gameStorageService.InitializeMetadataForStorage(paths);
+
+            return true;
         }
 
         private bool PerformInitialGameStorageSetup(IGameModeFactory gameModeFactory, GameStorageService gameStorageService, string gameInstallPath, GameStorageHealthCheck initialHealthCheck, out bool usedLegacySetup)
         {
             usedLegacySetup = false;
             var paths = CreateInitialGameStoragePathSet(gameModeFactory, gameStorageService, gameInstallPath);
-            var healthCheck = initialHealthCheck ?? gameStorageService.ValidateStorage(paths, false);
+            var healthCheck = initialHealthCheck ?? gameStorageService.ValidateStorage(paths);
 
             while (true)
             {

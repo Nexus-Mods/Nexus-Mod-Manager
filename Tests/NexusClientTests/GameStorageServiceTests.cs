@@ -30,18 +30,94 @@ namespace NexusClientTests
         }
 
         [Test]
-        public void ValidateStorage_ValidLegacyFolders_InitializesMetadata()
+        public void ValidateStorage_ValidLegacyFolders_IsReadOnly()
         {
             var paths = CreateStorage("SkyrimSE", "StorageA", withArchive: true, withVirtualFile: true);
 
-            var result = _service.ValidateStorage(paths, true);
+            var result = _service.ValidateStorage(paths);
 
             Assert.IsTrue(result.IsHealthy);
+            Assert.IsTrue(result.NeedsInitialization);
+            Assert.That(File.Exists(Path.Combine(paths.InstallInfoPath, ".nmm-folder.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(paths.ModsPath, ".nmm-folder.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(paths.VirtualInstallPath, ".nmm-folder.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempRoot, "StorageA", "NMMStorage.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempRoot, "Registry", "storages.json")), Is.False);
+        }
+
+        [Test]
+        public void InitializeMetadataForStorage_ValidLegacyFolders_InitializesMetadata()
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA", withArchive: true, withVirtualFile: true);
+
+            _service.InitializeMetadataForStorage(paths);
+            var result = _service.ValidateStorage(paths);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsFalse(result.NeedsInitialization);
             Assert.That(File.Exists(Path.Combine(paths.InstallInfoPath, ".nmm-folder.json")), Is.True);
             Assert.That(File.Exists(Path.Combine(paths.ModsPath, ".nmm-folder.json")), Is.True);
             Assert.That(File.Exists(Path.Combine(paths.VirtualInstallPath, ".nmm-folder.json")), Is.True);
             Assert.That(File.Exists(Path.Combine(_tempRoot, "StorageA", "NMMStorage.json")), Is.True);
             Assert.That(File.Exists(Path.Combine(_tempRoot, "Registry", "storages.json")), Is.True);
+        }
+
+        [Test]
+        public void ValidateStorage_LegacyVirtualInstallCollision_IsNotRepairedUntilExplicitInitialization()
+        {
+            string root = Path.Combine(_tempRoot, "LegacyCollision");
+            string installInfo = Path.Combine(root, "InstallInfo");
+            string virtualInstall = Path.Combine(root, "VirtualInstall");
+            Directory.CreateDirectory(installInfo);
+            Directory.CreateDirectory(virtualInstall);
+            File.WriteAllText(Path.Combine(installInfo, "InstallLog.xml"), "<installLog />");
+
+            var paths = new GameStoragePathSet
+            {
+                GameId = "Fallout3",
+                GameName = "Fallout 3",
+                GameInstallPath = Path.Combine(_tempRoot, "Game"),
+                InstallInfoPath = installInfo,
+                ModsPath = root,
+                VirtualInstallPath = virtualInstall,
+                LinkFolderRequired = false
+            };
+
+            const string storageId = "legacy-collision-storage";
+            WriteFolderManifest(root, "Fallout3", storageId, "VirtualInstall");
+            WriteFolderManifest(installInfo, "Fallout3", storageId, "InstallInfo");
+
+            GameStorageHealthCheck validation = _service.ValidateStorage(paths);
+
+            Assert.IsFalse(validation.IsHealthy);
+            Assert.That(validation.Items.Any(x => x.Role == GameStorageFolderRole.Mods && x.Status == GameStorageHealthStatus.PartialMatch), Is.True);
+            Assert.That(File.Exists(Path.Combine(virtualInstall, ".nmm-folder.json")), Is.False);
+
+            Assert.IsTrue(_service.RepairKnownLegacyStorageMetadata(paths));
+
+            Assert.IsTrue(_service.ValidateStorage(paths).IsHealthy);
+            Assert.That(File.Exists(Path.Combine(virtualInstall, ".nmm-folder.json")), Is.True);
+        }
+
+        [Test]
+        public void ValidateStorage_ExistingHealthyMetadata_IsNotRewritten()
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA", withArchive: true, withVirtualFile: true);
+            _service.InitializeMetadataForStorage(paths);
+
+            string installManifestPath = Path.Combine(paths.InstallInfoPath, ".nmm-folder.json");
+            string rootManifestPath = Path.Combine(_tempRoot, "StorageA", "NMMStorage.json");
+            string registryPath = Path.Combine(_tempRoot, "Registry", "storages.json");
+            string installManifestBefore = File.ReadAllText(installManifestPath);
+            string rootManifestBefore = File.ReadAllText(rootManifestPath);
+            string registryBefore = File.ReadAllText(registryPath);
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths, true);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.AreEqual(installManifestBefore, File.ReadAllText(installManifestPath));
+            Assert.AreEqual(rootManifestBefore, File.ReadAllText(rootManifestPath));
+            Assert.AreEqual(registryBefore, File.ReadAllText(registryPath));
         }
 
         [Test]
@@ -66,7 +142,84 @@ namespace NexusClientTests
             var result = _service.ValidateStorage(paths, false);
 
             Assert.IsFalse(result.IsHealthy);
+            Assert.IsTrue(result.IsUsable);
+            Assert.IsTrue(result.HasWarnings);
             Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedGame), Is.True);
+        }
+
+        [Test]
+        public void ValidateStorage_CompatibilityInitializeFlag_RemainsReadOnly()
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA");
+
+            var result = _service.ValidateStorage(paths, true);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsTrue(result.NeedsInitialization);
+            Assert.That(File.Exists(Path.Combine(paths.InstallInfoPath, ".nmm-folder.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(_tempRoot, "Registry", "storages.json")), Is.False);
+        }
+
+        [Test]
+        public void ValidateStorage_SelectedFolderManifestsOverrideStaleActiveStorage()
+        {
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            _service.InitializeMetadataForStorage(current);
+            string activeStorageId = _service.ValidateStorage(current).StorageId;
+
+            var selected = CreateStorage("Fallout3", "SelectedStorage");
+            const string selectedStorageId = "selected-folder-storage";
+            WriteFolderManifest(selected.InstallInfoPath, "Fallout3", selectedStorageId, "InstallInfo");
+            WriteFolderManifest(selected.ModsPath, "Fallout3", selectedStorageId, "Mods");
+            WriteFolderManifest(selected.VirtualInstallPath, "Fallout3", selectedStorageId, "VirtualInstall");
+
+            GameStorageHealthCheck result = _service.ValidateStorage(selected);
+
+            Assert.AreEqual(selectedStorageId, result.StorageId);
+            Assert.AreNotEqual(activeStorageId, result.StorageId);
+            Assert.IsTrue(result.IsHealthy);
+        }
+
+        [Test]
+        public void ValidateStorage_ExactRegistryPathsOverrideStaleActiveStorage()
+        {
+            var selected = CreateStorage("Fallout3", "SelectedStorage");
+            _service.InitializeMetadataForStorage(selected);
+            string selectedStorageId = _service.ValidateStorage(selected).StorageId;
+
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            _service.InitializeMetadataForStorage(current);
+            string activeStorageId = _service.ValidateStorage(current).StorageId;
+
+            DeleteFileIfExists(Path.Combine(selected.InstallInfoPath, ".nmm-folder.json"));
+            DeleteFileIfExists(Path.Combine(selected.ModsPath, ".nmm-folder.json"));
+            DeleteFileIfExists(Path.Combine(selected.VirtualInstallPath, ".nmm-folder.json"));
+            DeleteFileIfExists(Path.Combine(_tempRoot, "SelectedStorage", "NMMStorage.json"));
+
+            GameStorageHealthCheck result = _service.ValidateStorage(selected);
+
+            Assert.AreEqual(selectedStorageId, result.StorageId);
+            Assert.AreNotEqual(activeStorageId, result.StorageId);
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsTrue(result.NeedsInitialization);
+        }
+
+        [Test]
+        public void ValidateStorage_MatchingRootManifestOverridesStaleActiveStorage()
+        {
+            var current = CreateStorage("Fallout3", "CurrentStorage");
+            _service.InitializeMetadataForStorage(current);
+            string activeStorageId = _service.ValidateStorage(current).StorageId;
+
+            var selected = CreateStorage("Fallout3", "SelectedStorage");
+            const string selectedStorageId = "selected-root-storage";
+            WriteRootManifest(Path.Combine(_tempRoot, "SelectedStorage"), "Fallout3", selectedStorageId);
+
+            GameStorageHealthCheck result = _service.ValidateStorage(selected);
+
+            Assert.AreEqual(selectedStorageId, result.StorageId);
+            Assert.AreNotEqual(activeStorageId, result.StorageId);
+            Assert.IsTrue(result.IsHealthy);
         }
 
         [Test]
@@ -166,10 +319,10 @@ namespace NexusClientTests
         public void ValidateStorage_EmptyCurrentStorageAfterKnownGood_IsSuspicious()
         {
             var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true, withVirtualFile: true);
-            _service.ValidateStorage(knownGood, true);
+            _service.InitializeMetadataForStorage(knownGood);
 
             var empty = CreateStorage("SkyrimSE", "StorageB");
-            var result = _service.ValidateStorage(empty, false);
+            var result = _service.ValidateStorage(empty);
 
             Assert.IsFalse(result.IsHealthy);
             Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.True);
@@ -179,7 +332,7 @@ namespace NexusClientTests
         public void ValidateRecoveryCandidate_SuspiciousEmptyStorage_IsRejectedWithoutConfirmation()
         {
             var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true);
-            _service.ValidateStorage(knownGood, true);
+            _service.InitializeMetadataForStorage(knownGood);
 
             var empty = CreateStorage("SkyrimSE", "StorageB");
             var candidate = CreateCandidate(empty);
@@ -193,31 +346,30 @@ namespace NexusClientTests
         }
 
         [Test]
-        public void ValidateRecoveryCandidate_SuspiciousEmptyStorage_CanBeExplicitlyAccepted()
+        public void ValidateRecoveryCandidate_SuspiciousEmptyStorage_CanBeAcceptedWithoutMutation()
         {
             var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true);
-            _service.ValidateStorage(knownGood, true);
+            _service.InitializeMetadataForStorage(knownGood);
 
             var empty = CreateStorage("SkyrimSE", "StorageB");
             var candidate = CreateCandidate(empty);
 
             GameStorageHealthCheck healthCheck;
-            bool applied = _service.ValidateRecoveryCandidate(knownGood, candidate, true, out healthCheck);
+            bool accepted = _service.ValidateRecoveryCandidate(knownGood, candidate, true, out healthCheck);
 
-            Assert.IsTrue(applied);
-            Assert.IsTrue(healthCheck.IsHealthy);
-            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.False);
-            Assert.That(File.Exists(Path.Combine(empty.InstallInfoPath, ".nmm-folder.json")), Is.True);
-            Assert.That(File.Exists(Path.Combine(empty.ModsPath, ".nmm-folder.json")), Is.True);
-            Assert.That(File.Exists(Path.Combine(empty.VirtualInstallPath, ".nmm-folder.json")), Is.True);
-            Assert.IsTrue(_service.ValidateStorage(empty, false).IsHealthy);
+            Assert.IsTrue(accepted);
+            Assert.IsFalse(healthCheck.IsHealthy);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.True);
+            Assert.That(File.Exists(Path.Combine(empty.InstallInfoPath, ".nmm-folder.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(empty.ModsPath, ".nmm-folder.json")), Is.False);
+            Assert.That(File.Exists(Path.Combine(empty.VirtualInstallPath, ".nmm-folder.json")), Is.False);
         }
 
         [Test]
         public void ValidateRecoveryCandidate_EmptyConfirmation_DoesNotAllowMissingModsFolder()
         {
             var knownGood = CreateStorage("SkyrimSE", "StorageA", withArchive: true);
-            _service.ValidateStorage(knownGood, true);
+            _service.InitializeMetadataForStorage(knownGood);
 
             var missing = CreateStorage("SkyrimSE", "StorageB");
             Directory.Delete(missing.ModsPath, true);
@@ -281,7 +433,8 @@ namespace NexusClientTests
         public void ValidateRecoveryCandidate_UsesSelectedFolderStorageIdInsteadOfActiveStorage()
         {
             var current = CreateStorage("Fallout3", "NMMCECurrent");
-            GameStorageHealthCheck currentHealth = _service.ValidateStorage(current, true);
+            _service.InitializeMetadataForStorage(current);
+            GameStorageHealthCheck currentHealth = _service.ValidateStorage(current);
             Assert.IsTrue(currentHealth.IsHealthy);
 
             var oldStorage = CreateStorage("Fallout3", "OldFallout3Storage");
@@ -304,7 +457,8 @@ namespace NexusClientTests
         public void ValidateRecoveryCandidate_LegacyFoldersReceiveNewIdentityInsteadOfActiveStorageId()
         {
             var current = CreateStorage("Fallout3", "NMMCECurrent");
-            GameStorageHealthCheck currentHealth = _service.ValidateStorage(current, true);
+            _service.InitializeMetadataForStorage(current);
+            GameStorageHealthCheck currentHealth = _service.ValidateStorage(current);
             Assert.IsTrue(currentHealth.IsHealthy);
 
             var legacy = CreateStorage("Fallout3", "LegacyFallout3Storage");
@@ -316,7 +470,7 @@ namespace NexusClientTests
             Assert.IsTrue(applied);
             Assert.IsFalse(string.IsNullOrWhiteSpace(healthCheck.StorageId));
             Assert.AreNotEqual(currentHealth.StorageId, healthCheck.StorageId);
-            Assert.IsTrue(_service.ValidateStorage(legacy, false).IsHealthy);
+            Assert.IsTrue(_service.ValidateStorage(legacy).IsHealthy);
         }
 
         [Test]
@@ -335,10 +489,12 @@ namespace NexusClientTests
             Assert.IsTrue(_service.CanAcceptSameGameStorageRebinding(healthCheck));
             Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedStorageId), Is.True);
 
+            string modsManifestBefore = File.ReadAllText(Path.Combine(mixed.ModsPath, ".nmm-folder.json"));
             Assert.IsTrue(_service.ValidateRecoveryCandidate(current, candidate, false, true, out healthCheck));
             Assert.AreEqual("install-info-storage", healthCheck.StorageId);
-            Assert.IsTrue(healthCheck.IsHealthy);
-            Assert.That(File.ReadAllText(Path.Combine(mixed.ModsPath, ".nmm-folder.json")), Does.Contain("install-info-storage"));
+            Assert.IsFalse(healthCheck.IsHealthy);
+            Assert.That(healthCheck.Items.Any(x => x.Status == GameStorageHealthStatus.MismatchedStorageId), Is.True);
+            Assert.AreEqual(modsManifestBefore, File.ReadAllText(Path.Combine(mixed.ModsPath, ".nmm-folder.json")));
         }
 
         [Test]
@@ -433,6 +589,15 @@ namespace NexusClientTests
                 LinkFolderPath = paths.LinkFolderPath,
                 LinkFolderRequired = paths.LinkFolderRequired
             };
+        }
+
+        private static void DeleteFileIfExists(string path)
+        {
+            if (!File.Exists(path))
+                return;
+
+            File.SetAttributes(path, FileAttributes.Normal);
+            File.Delete(path);
         }
 
         private static void WriteFolderManifest(string folder, string gameId, string storageId, string role)

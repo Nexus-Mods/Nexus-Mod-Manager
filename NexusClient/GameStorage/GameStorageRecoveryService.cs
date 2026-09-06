@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json;
 using Nexus.Client.Games;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.GameStorage
 {
@@ -92,11 +93,59 @@ namespace Nexus.Client.GameStorage
 
         public bool ApplyRecoveryCandidate(IGameMode gameMode, GameStorageCandidate candidate, bool acceptSuspiciousEmptyFolders, bool acceptStorageIdRebinding, out GameStorageHealthCheck healthCheck)
         {
+            healthCheck = null;
             var currentPaths = FromGameMode(gameMode);
+            if (candidate == null)
+                return false;
+
+            if (!string.Equals(candidate.GameId, currentPaths.GameId, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding, out healthCheck);
+                return false;
+            }
+
+            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+            var registry = LoadRegistry();
+
+            // Repairs are allowed only in an explicit Apply path. Preview and
+            // validation methods remain strictly read-only.
+            TryRepairLegacyVirtualInstallManifestCollision(paths, registry);
+
             if (!ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding, out healthCheck))
                 return false;
 
-            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+            string storageId = ResolveRecoveryStorageId(paths, candidate, registry);
+            bool virtualInstallWasMissing = !Directory.Exists(paths.VirtualInstallPath);
+
+            try
+            {
+                CreateRecoveryFolders(paths);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                AddWriteFailure(healthCheck, paths, ex);
+                return false;
+            }
+            catch (IOException ex)
+            {
+                AddWriteFailure(healthCheck, paths, ex);
+                return false;
+            }
+
+            TryRepairLegacyVirtualInstallManifestCollision(paths, registry);
+            healthCheck = Validate(paths, storageId, registry);
+
+            if (!CanFinalizeRecoveredStorage(healthCheck, virtualInstallWasMissing, acceptSuspiciousEmptyFolders, acceptStorageIdRebinding))
+                return false;
+
+            if (!TryInitializeMetadata(paths, storageId, registry, healthCheck))
+                return false;
+
+            healthCheck = Validate(paths, storageId, registry);
+            healthCheck.StorageId = storageId;
+            if (!healthCheck.IsHealthy)
+                return false;
+
             ApplyPathSet(paths);
             return true;
         }
@@ -302,6 +351,10 @@ namespace Nexus.Client.GameStorage
 			return ValidateRecoveryCandidate(currentPaths, candidate, acceptSuspiciousEmptyFolders, false, out healthCheck);
 		}
 
+		/// <summary>
+		/// Validates a recovery candidate without creating folders, repairing manifests,
+		/// initializing metadata, or changing the configured Game Storage paths.
+		/// </summary>
 		public bool ValidateRecoveryCandidate(
 			GameStoragePathSet currentPaths,
 			GameStorageCandidate candidate,
@@ -311,12 +364,27 @@ namespace Nexus.Client.GameStorage
 		{
 			healthCheck = null;
 
-			if (candidate == null ||
-				!string.Equals(
-					candidate.GameId,
-					currentPaths.GameId,
-					StringComparison.OrdinalIgnoreCase))
+			if (currentPaths == null || candidate == null)
+				return false;
+
+			if (!string.Equals(
+				candidate.GameId,
+				currentPaths.GameId,
+				StringComparison.OrdinalIgnoreCase))
 			{
+				healthCheck = new GameStorageHealthCheck
+				{
+					GameId = currentPaths.GameId,
+					StorageId = candidate.StorageId
+				};
+				Add(
+					healthCheck,
+					null,
+					candidate.CandidateRoot ?? candidate.InstallInfoPath ?? candidate.ModsPath,
+					GameStorageHealthStatus.MismatchedGame,
+					true,
+					true,
+					LanguageManager.Get("GameStorage.Health.SelectedCandidateOtherGame.Message", "The selected Game Storage candidate belongs to another Game Mode."));
 				return false;
 			}
 
@@ -325,11 +393,6 @@ namespace Nexus.Client.GameStorage
 				candidate);
 
 			var registry = LoadRegistry();
-
-			TryRepairLegacyVirtualInstallManifestCollision(
-				paths,
-				registry);
-
 			string storageId = ResolveRecoveryStorageId(
 				paths,
 				candidate,
@@ -352,58 +415,7 @@ namespace Nexus.Client.GameStorage
 				return false;
 			}
 
-			bool virtualInstallWasMissing =
-				!Directory.Exists(paths.VirtualInstallPath);
-
-			try
-			{
-				CreateRecoveryFolders(paths);
-			}
-			catch (UnauthorizedAccessException ex)
-			{
-				AddWriteFailure(healthCheck, paths, ex);
-				return false;
-			}
-			catch (IOException ex)
-			{
-				AddWriteFailure(healthCheck, paths, ex);
-				return false;
-			}
-
-			TryRepairLegacyVirtualInstallManifestCollision(
-				paths,
-				registry);
-
-			healthCheck = Validate(
-				paths,
-				storageId,
-				registry);
-
-			if (!CanFinalizeRecoveredStorage(
-				healthCheck,
-				virtualInstallWasMissing,
-				acceptSuspiciousEmptyFolders,
-				acceptStorageIdRebinding))
-			{
-				return false;
-			}
-
-			if (!TryInitializeMetadata(
-				paths,
-				storageId,
-				registry,
-				healthCheck))
-			{
-				return false;
-			}
-
-			healthCheck = Validate(
-				paths,
-				storageId,
-				registry);
-
-			healthCheck.StorageId = storageId;
-			return healthCheck.IsHealthy;
+			return true;
 		}
 
 		private void CreateRecoveryFolders(GameStoragePathSet paths)
@@ -925,7 +937,7 @@ namespace Nexus.Client.GameStorage
                     return folderStorageId;
             }
 
-            string registryStorageId = FindMatchingRegistryStorageId(paths, registry);
+            string registryStorageId = FindExactRegistryStorageId(paths, registry);
             if (!string.IsNullOrWhiteSpace(registryStorageId))
                 return registryStorageId;
 
@@ -935,25 +947,6 @@ namespace Nexus.Client.GameStorage
             return Guid.NewGuid().ToString("D");
         }
 
-        private string FindMatchingRegistryStorageId(
-            GameStoragePathSet paths,
-            GameStorageRegistry registry)
-        {
-            if (paths == null || registry == null)
-                return null;
-
-            var exactMatch = registry.KnownStorages.FirstOrDefault(x =>
-                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
-                CandidatePathsEqual(x.InstallInfoPath, paths.InstallInfoPath) &&
-                CandidatePathsEqual(x.ModsPath, paths.ModsPath) &&
-                CandidatePathsEqual(
-                    NormalizeVirtualInstallDirectory(x.VirtualInstallPath),
-                    paths.VirtualInstallPath) &&
-                (!paths.LinkFolderRequired ||
-                 CandidatePathsEqual(x.LinkFolderPath, paths.LinkFolderPath)));
-
-            return exactMatch?.StorageId;
-        }
 
         private bool TryMergeStorageId(
             ref string storageId,

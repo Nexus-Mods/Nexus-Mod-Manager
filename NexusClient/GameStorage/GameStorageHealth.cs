@@ -21,9 +21,36 @@ namespace Nexus.Client.GameStorage
     {
         public string GameId { get; set; }
         public string StorageId { get; set; }
-        public bool IsHealthy => Items.All(x => x.Status == GameStorageHealthStatus.Healthy || x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization || x.Status == GameStorageHealthStatus.CompatibleSharedModsLibrary || x.Status == GameStorageHealthStatus.LinkFolderNotRequired);
+        public bool IsHealthy => Items.All(x => IsHealthyStatus(x.Status));
+        public bool IsUsable => Items.All(IsUsableItem);
+        public bool HasWarnings => Items.Any(x => !IsHealthyStatus(x.Status));
         public bool NeedsInitialization => Items.Any(x => x.Status == GameStorageHealthStatus.LegacyValidNeedsInitialization);
         public List<GameStorageHealthItem> Items { get; } = new List<GameStorageHealthItem>();
+
+        /// <summary>
+        /// Returns whether a status represents a fully validated or compatible storage state.
+        /// </summary>
+        private static bool IsHealthyStatus(GameStorageHealthStatus status)
+        {
+            return status == GameStorageHealthStatus.Healthy ||
+                status == GameStorageHealthStatus.LegacyValidNeedsInitialization ||
+                status == GameStorageHealthStatus.CompatibleSharedModsLibrary ||
+                status == GameStorageHealthStatus.LinkFolderNotRequired;
+        }
+
+        /// <summary>
+        /// Returns whether a health item still describes storage that can be used technically.
+        /// Metadata warnings do not make a storage unusable.
+        /// </summary>
+        private static bool IsUsableItem(GameStorageHealthItem item)
+        {
+            if (item == null)
+                return false;
+
+            return item.Status != GameStorageHealthStatus.NotWritable &&
+                item.Status != GameStorageHealthStatus.LinkFolderOnWrongDrive &&
+                item.Status != GameStorageHealthStatus.Unknown;
+        }
 
         public string ToUserMessage()
         {

@@ -96,7 +96,7 @@ namespace Nexus.Client.GameStorage.UI
 
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetLinkFolderRequired(paths.LinkFolderRequired);
-            SetHealth(_service.ValidateStorage(paths, false));
+            SetHealth(_service.ValidateStorage(paths));
         }
 
         private void CandidatePreviewRequested(object sender, EventArgs e)
@@ -107,7 +107,7 @@ namespace Nexus.Client.GameStorage.UI
 
             var paths = CreatePathSetFromCandidate(candidate);
             _control.SetManualPaths(paths);
-            SetHealth(_service.ValidateStorage(paths, false));
+            SetHealth(_service.ValidateStorage(paths));
         }
 
         private void ApplyRequested(object sender, EventArgs e)
@@ -176,7 +176,7 @@ namespace Nexus.Client.GameStorage.UI
             _control.SelectCandidate(bestCandidate);
             GameStoragePathSet paths = CreatePathSetFromCandidate(bestCandidate);
             _control.SetManualPaths(paths);
-            SetHealth(_service.ValidateStorage(paths, false));
+            SetHealth(_service.ValidateStorage(paths));
         }
 
         private void SetHealth(GameStorageHealthCheck healthCheck)

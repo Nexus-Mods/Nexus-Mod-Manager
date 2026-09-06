@@ -350,31 +350,64 @@ namespace Nexus.Client.GameStorage
                 : LanguageManager.Format("GameStorage.SharedMods.CurrentlyUsedBy", "Shared Mods library currently used by: {0}", string.Join(", ", labels));
         }
 
-		public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
-        {
-            return ValidateStorage(FromGameMode(gameMode), initializeIfValid);
-        }
+		/// <summary>
+		/// Applies only the narrowly-scoped legacy VirtualInstall manifest repair to
+		/// the current Game Storage. No general validation repair is performed.
+		/// </summary>
+		public bool RepairKnownLegacyStorageMetadata(IGameMode gameMode)
+		{
+			return gameMode != null && RepairKnownLegacyStorageMetadata(FromGameMode(gameMode));
+		}
 
-		public GameStorageHealthCheck ValidateStorage(
-			GameStoragePathSet paths,
-			bool initializeIfValid)
+		/// <summary>
+		/// Applies only the known legacy VirtualInstall manifest collision repair to
+		/// the supplied path set. This is an explicit write operation.
+		/// </summary>
+		public bool RepairKnownLegacyStorageMetadata(GameStoragePathSet paths)
+		{
+			if (paths == null)
+				return false;
+
+			var registry = LoadRegistry();
+			return TryRepairLegacyVirtualInstallManifestCollision(paths, registry);
+		}
+
+		/// <summary>
+		/// Validates the current Game Storage without modifying folders, manifests,
+		/// registry data, or settings.
+		/// </summary>
+		public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode)
+		{
+			return ValidateStorage(FromGameMode(gameMode));
+		}
+
+		/// <summary>
+		/// Compatibility overload retained for callers compiled against the previous
+		/// API. Validation is intentionally read-only regardless of initializeIfValid.
+		/// Metadata initialization must be requested explicitly.
+		/// </summary>
+		public GameStorageHealthCheck ValidateCurrentStorage(IGameMode gameMode, bool initializeIfValid)
+		{
+			return ValidateCurrentStorage(gameMode);
+		}
+
+		/// <summary>
+		/// Validates a Game Storage path set without performing repairs or writes.
+		/// </summary>
+		public GameStorageHealthCheck ValidateStorage(GameStoragePathSet paths)
 		{
 			var registry = LoadRegistry();
-
-			TryRepairLegacyVirtualInstallManifestCollision(
-				paths,
-				registry);
-
 			string storageId = ResolveStorageId(paths, registry);
-			var result = Validate(paths, storageId, registry);
+			return Validate(paths, storageId, registry);
+		}
 
-			if (result.IsHealthy && initializeIfValid)
-			{
-				if (TryInitializeMetadata(paths, storageId, registry, result))
-					result.StorageId = storageId;
-			}
-
-			return result;
+		/// <summary>
+		/// Compatibility overload. The initializeIfValid argument no longer causes
+		/// writes; use InitializeMetadataForStorage for an explicit metadata update.
+		/// </summary>
+		public GameStorageHealthCheck ValidateStorage(GameStoragePathSet paths, bool initializeIfValid)
+		{
+			return ValidateStorage(paths);
 		}
 
 		public void InitializeMetadataForCurrentStorage(IGameMode gameMode)
@@ -754,20 +787,175 @@ namespace Nexus.Client.GameStorage
 
         private string ResolveStorageId(GameStoragePathSet paths, GameStorageRegistry registry)
         {
+            string manifestStorageId = ResolveConsistentFolderManifestStorageId(paths);
+            if (!string.IsNullOrWhiteSpace(manifestStorageId))
+                return manifestStorageId;
+
+            string registryStorageId = FindExactRegistryStorageId(paths, registry);
+            if (!string.IsNullOrWhiteSpace(registryStorageId))
+                return registryStorageId;
+
+            string rootManifestStorageId = ResolveMatchingRootManifestStorageId(paths);
+            if (!string.IsNullOrWhiteSpace(rootManifestStorageId))
+                return rootManifestStorageId;
+
             if (registry.ActiveStorageByGame.TryGetValue(paths.GameId, out string activeId) && !string.IsNullOrWhiteSpace(activeId))
                 return activeId;
 
-            foreach (var path in new[] { paths.InstallInfoPath, paths.VirtualInstallPath, paths.LinkFolderPath, paths.ModsPath })
+            return Guid.NewGuid().ToString("D");
+        }
+
+        /// <summary>
+        /// Returns the Storage ID recorded by the selected folders only when all
+        /// applicable same-game folder manifests agree on the same identity.
+        /// </summary>
+        private string ResolveConsistentFolderManifestStorageId(GameStoragePathSet paths)
+        {
+            var storageIds = new List<string>();
+            AddFolderManifestStorageId(storageIds, paths, paths.InstallInfoPath, GameStorageFolderRole.InstallInfo);
+            AddFolderManifestStorageId(storageIds, paths, paths.ModsPath, GameStorageFolderRole.Mods);
+            AddFolderManifestStorageId(storageIds, paths, paths.VirtualInstallPath, GameStorageFolderRole.VirtualInstall);
+            if (paths.LinkFolderRequired)
+                AddFolderManifestStorageId(storageIds, paths, paths.LinkFolderPath, GameStorageFolderRole.LinkFolder);
+
+            if (storageIds.Count == 0)
+                return null;
+
+            string storageId = storageIds[0];
+            return storageIds.All(x => string.Equals(x, storageId, StringComparison.OrdinalIgnoreCase))
+                ? storageId
+                : null;
+        }
+
+        /// <summary>
+        /// Adds the current Game Mode binding from a correctly-role-matched folder manifest.
+        /// </summary>
+        private void AddFolderManifestStorageId(
+            ICollection<string> storageIds,
+            GameStoragePathSet paths,
+            string folderPath,
+            GameStorageFolderRole expectedRole)
+        {
+            var manifest = ReadFolderManifest(folderPath);
+            if (manifest == null || manifest.FolderRole != expectedRole)
+                return;
+
+            string storageId = GetManifestBindings(manifest)
+                .Where(x => string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase))
+                .Select(x => x.StorageId)
+                .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+            if (!string.IsNullOrWhiteSpace(storageId))
+                storageIds.Add(storageId);
+        }
+
+        /// <summary>
+        /// Returns the Storage ID of a registry entry whose recorded folders match
+        /// the currently selected path set exactly.
+        /// </summary>
+        private string FindExactRegistryStorageId(GameStoragePathSet paths, GameStorageRegistry registry)
+        {
+            if (paths == null || registry == null)
+                return null;
+
+            var exactMatches = registry.KnownStorages.Where(x =>
+                string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                AreSamePaths(x.InstallInfoPath, paths.InstallInfoPath) &&
+                AreSamePaths(x.ModsPath, paths.ModsPath) &&
+                AreSamePaths(NormalizeVirtualInstallDirectory(x.VirtualInstallPath), paths.VirtualInstallPath) &&
+                (!paths.LinkFolderRequired || AreSamePaths(x.LinkFolderPath, paths.LinkFolderPath)))
+                .ToList();
+
+            if (registry.ActiveStorageByGame.TryGetValue(paths.GameId, out string activeId))
             {
-                var manifest = ReadFolderManifest(path);
-                var binding = GetManifestBindings(manifest).FirstOrDefault(x =>
-                    string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
-                    !string.IsNullOrWhiteSpace(x.StorageId));
-                if (binding != null)
-                    return binding.StorageId;
+                var activeExactMatch = exactMatches.FirstOrDefault(x =>
+                    string.Equals(x.StorageId, activeId, StringComparison.OrdinalIgnoreCase));
+                if (activeExactMatch != null)
+                    return activeExactMatch.StorageId;
             }
 
-            return Guid.NewGuid().ToString("D");
+            return exactMatches
+                .Where(x => !string.IsNullOrWhiteSpace(x.StorageId))
+                .OrderByDescending(x => x.LastKnownGood)
+                .ThenByDescending(x => x.LastSeenUtc)
+                .Select(x => x.StorageId)
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Uses a root manifest only when it describes the current game and the
+        /// exact folders currently selected by the user/settings.
+        /// </summary>
+        private string ResolveMatchingRootManifestStorageId(GameStoragePathSet paths)
+        {
+            string root = TryGetSharedStorageRoot(paths);
+            if (string.IsNullOrWhiteSpace(root))
+                return null;
+
+            GameStorageRootManifest manifest = ReadRootManifest(root);
+            if (manifest == null ||
+                string.IsNullOrWhiteSpace(manifest.StorageId) ||
+                !string.Equals(manifest.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            if (!RootManifestFolderMatches(root, manifest, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath) ||
+                !RootManifestFolderMatches(root, manifest, GameStorageFolderRole.Mods, paths.ModsPath) ||
+                !RootManifestFolderMatches(root, manifest, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath))
+            {
+                return null;
+            }
+
+            if (paths.LinkFolderRequired &&
+                !RootManifestFolderMatches(root, manifest, GameStorageFolderRole.LinkFolder, paths.LinkFolderPath))
+            {
+                return null;
+            }
+
+            return manifest.StorageId;
+        }
+
+        /// <summary>
+        /// Checks whether a root-manifest role resolves to the selected folder path.
+        /// </summary>
+        private bool RootManifestFolderMatches(
+            string root,
+            GameStorageRootManifest manifest,
+            GameStorageFolderRole role,
+            string expectedPath)
+        {
+            if (manifest.Folders == null ||
+                !manifest.Folders.TryGetValue(role.ToString(), out string manifestPath) ||
+                string.IsNullOrWhiteSpace(manifestPath))
+            {
+                return false;
+            }
+
+            string resolvedPath = Path.IsPathRooted(manifestPath)
+                ? manifestPath
+                : Path.Combine(root, manifestPath);
+            return AreSamePaths(resolvedPath, expectedPath);
+        }
+
+        /// <summary>
+        /// Reads a Game Storage root manifest without modifying or repairing it.
+        /// </summary>
+        private GameStorageRootManifest ReadRootManifest(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+                return null;
+
+            try
+            {
+                string manifestPath = Path.Combine(root, GameStorageConstants.RootManifestFileName);
+                return File.Exists(manifestPath)
+                    ? JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(manifestPath))
+                    : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public bool RemoveStorageBinding(string gameId, string storageId)
