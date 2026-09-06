@@ -215,7 +215,7 @@
 			_hideFePluginIndexesToggle = new BarCheckItem(_barManager)
 			{
 				Caption = LanguageManager.Get("Plugins.Display.HideFePluginIndexes.Name", "Hide FE Plugin Indexes"),
-				Hint = LanguageManager.Get("Plugins.Display.HideFePluginIndexes.Tooltip", "Hide FE:xxx values in the LO Index column for light/ESL plugins."),
+				Hint = LanguageManager.Get("Plugins.Display.HideFePluginIndexes.Tooltip", "Hide FE:xxx LO Index values and their related Rel. Position values for light/ESL plugins."),
 				CheckBoxVisibility = CheckBoxVisibility.BeforeText
 			};
 
@@ -2039,15 +2039,22 @@
                 return;
             }
 
-            // Suppress only the rendered data-cell value. The underlying index remains available
+            // Suppress only the rendered FE index values. The underlying values remain available
             // to sorting and filtering, so this option cannot alter the effective load-order view.
             if (_hideFePluginIndexes &&
-                e.Column.FieldName == ColLoadOrder &&
                 e.ListSourceRowIndex >= 0 &&
-                e.Value is string loadOrderIndex &&
-                loadOrderIndex.StartsWith("FE:", StringComparison.OrdinalIgnoreCase))
+                (e.Column.FieldName == ColLoadOrder || e.Column.FieldName == ColIndex))
             {
-                e.DisplayText = String.Empty;
+                PluginManagerDXRow row = e.ListSourceRowIndex < _rows.Count
+                    ? _rows[e.ListSourceRowIndex]
+                    : null;
+
+                if (row != null &&
+                    !String.IsNullOrEmpty(row.LoadOrder) &&
+                    row.LoadOrder.StartsWith("FE:", StringComparison.OrdinalIgnoreCase))
+                {
+                    e.DisplayText = String.Empty;
+                }
             }
         }
 
