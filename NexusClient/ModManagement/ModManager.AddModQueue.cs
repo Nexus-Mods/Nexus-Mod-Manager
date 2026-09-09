@@ -91,6 +91,17 @@ namespace Nexus.Client.ModManagement
 			/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
 			public IBackgroundTask AddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 			{
+				return AddMod(p_uriPath, p_cocConfirmOverwrite, null);
+			}
+
+			/// <summary>
+			/// Adds the specified mod to the queue with an optional explicit category assignment.
+			/// </summary>
+			/// <param name="p_uriPath">The URL of the mod to add to the manager.</param>
+			/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+			/// <param name="p_intCategoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
+			public IBackgroundTask AddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite, Int32? p_intCategoryOverrideId)
+			{
 				AddModTask amtModAdder = null;
 				bool booIsRemote = p_uriPath.Scheme.ToLowerInvariant().ToString() == "nxm";
 				bool booQueueTask = false;
@@ -101,7 +112,7 @@ namespace Nexus.Client.ModManagement
 						return m_dicActiveTasks[p_uriPath];
 
 					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
-					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite);
+					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId);
 					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 					amtModAdder.IsRemote = booIsRemote;
 					m_dicActiveTasks[p_uriPath] = amtModAdder;

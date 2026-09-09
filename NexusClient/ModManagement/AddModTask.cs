@@ -113,6 +113,7 @@
 		private readonly IModRepository _modRepository;
 		private readonly IModFormatRegistry _modFormatRegistry;
 		private readonly ConfirmOverwriteCallback _confirmOverwriteCallback;
+		private readonly Int32? _categoryOverrideId;
 		private readonly Dictionary<IBackgroundTask, DownloadProgressState> _downloaderProgress = new Dictionary<IBackgroundTask, DownloadProgressState>();
 		private readonly List<IBackgroundTask> _runningTasks = new List<IBackgroundTask>();
 		private bool _finishedDownloads;
@@ -404,6 +405,23 @@
         /// <param name="confirmOverwriteCallback">The delegate to call to resolve conflicts with existing files.</param>
         /// <inheritdoc />
         public AddModTask(IGameMode gameMode, ReadMeManager readMeManager, IEnvironmentInfo environmentInfo, ModRegistry modRegistry, IModFormatRegistry formatRegistry, IModRepository modRepository, Uri downloadPath, ConfirmOverwriteCallback confirmOverwriteCallback)
+			: this(gameMode, readMeManager, environmentInfo, modRegistry, formatRegistry, modRepository, downloadPath, confirmOverwriteCallback, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a mod-add task with an optional explicit category assignment.
+		/// </summary>
+		/// <param name="gameMode">The game mode for which mods are being managed.</param>
+		/// <param name="readMeManager">The ReadMe Manager info.</param>
+		/// <param name="environmentInfo">The application's environment info.</param>
+		/// <param name="modRegistry">The registry that contains the managed mods.</param>
+		/// <param name="formatRegistry">The registry of supported mod formats.</param>
+		/// <param name="modRepository">The mod repository from which to get metadata.</param>
+		/// <param name="downloadPath">The path to the mod to add.</param>
+		/// <param name="confirmOverwriteCallback">The delegate to call to resolve conflicts with existing files.</param>
+		/// <param name="categoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
+		public AddModTask(IGameMode gameMode, ReadMeManager readMeManager, IEnvironmentInfo environmentInfo, ModRegistry modRegistry, IModFormatRegistry formatRegistry, IModRepository modRepository, Uri downloadPath, ConfirmOverwriteCallback confirmOverwriteCallback, Int32? categoryOverrideId)
 		{
 			_gameMode = gameMode;
 			_environmentInfo = environmentInfo;
@@ -412,6 +430,7 @@
 			_modRepository = modRepository;
 			_downloadPath = downloadPath;
 			_confirmOverwriteCallback = confirmOverwriteCallback;
+			_categoryOverrideId = categoryOverrideId;
 			_readMeManager = readMeManager;
 			_localID = _counter++;
 
@@ -518,6 +537,7 @@
 			if (ModInfo == null || string.IsNullOrEmpty(ModInfo.FileName) || !ModInfo.FileName.Equals(Descriptor.FileName))
 				ModInfo = GetModInfo(Descriptor);
 
+			ApplyCategoryOverride(ModInfo);
 			OverallMessage = $"{GetModDisplayName()}...";
 
 			if (Descriptor.Status == TaskStatus.Error)
@@ -588,6 +608,37 @@
             }
 
             return ModInfo.ModName;
+		}
+
+		/// <summary>
+		/// Applies the optional explicit category assignment to mutable mod metadata.
+		/// </summary>
+		/// <param name="modInfo">The metadata to update.</param>
+		private void ApplyCategoryOverride(IModInfo modInfo)
+		{
+			if (!_categoryOverrideId.HasValue || modInfo == null) return;
+
+			ModInfo explicitInfo = modInfo as ModInfo;
+			if (explicitInfo == null) return;
+
+			explicitInfo.CustomCategoryId = _categoryOverrideId.Value;
+			explicitInfo.ForceCustomCategoryId = true;
+		}
+
+		/// <summary>
+		/// Applies the optional explicit category assignment to a registered mod.
+		/// </summary>
+		/// <param name="mod">The registered mod to update.</param>
+		private void ApplyCategoryOverride(IMod mod)
+		{
+			if (!_categoryOverrideId.HasValue || mod == null) return;
+
+			ModInfo explicitInfo = new ModInfo(mod)
+			{
+				CustomCategoryId = _categoryOverrideId.Value,
+				ForceCustomCategoryId = true
+			};
+			mod.UpdateInfo(explicitInfo, false);
 		}
 
 		/// <summary>
@@ -1246,17 +1297,15 @@
 
 					try
 					{
-						if (_modRegistry.RegisteredMods.SingleOrDefault(x => x.Filename == strMod) == null)
+						IMod registeredMod = _modRegistry.RegisteredMods.SingleOrDefault(x => x.Filename == strMod);
+						if (registeredMod == null)
 						{
-							if (_environmentInfo.Settings.AddMissingInfoToMods)
-                            {
-                                _modRegistry.RegisterMod(strMod, ModInfo, _environmentInfo);
-                            }
-                            else
-                            {
-                                _modRegistry.RegisterMod(strMod);
-                            }
-                        }
+							registeredMod = _environmentInfo.Settings.AddMissingInfoToMods
+								? _modRegistry.RegisterMod(strMod, ModInfo, _environmentInfo)
+								: _modRegistry.RegisterMod(strMod);
+						}
+
+						ApplyCategoryOverride(registeredMod);
 
 						if (_readMeManager != null)
 						{

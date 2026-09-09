@@ -559,12 +559,23 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Addition/Deletion
 
 		/// <summary>
-		/// Installs the specified mod.
+		/// Installs the specified mod using normal Nexus category resolution.
 		/// </summary>
 		/// <param name="p_strPath">The path to the mod to install.</param>
 		protected void AddMod(string p_strPath)
 		{
-			IBackgroundTask bgtAddingTask = ModManager.AddMod(p_strPath, ConfirmFileOverwrite);
+			AddMod(p_strPath, null);
+		}
+
+		/// <summary>
+		/// Installs the specified mod with an optional explicit category assignment.
+		/// </summary>
+		/// <param name="p_strPath">The path to the mod to install.</param>
+		/// <param name="p_intCategoryOverrideId">The explicit category ID, or <c>null</c> to use the Nexus default.</param>
+		/// <returns>The background task that adds the mod.</returns>
+		public IBackgroundTask AddMod(string p_strPath, Int32? p_intCategoryOverrideId)
+		{
+			return ModManager.AddMod(p_strPath, ConfirmFileOverwrite, p_intCategoryOverrideId);
 		}
 
 		/// <summary>

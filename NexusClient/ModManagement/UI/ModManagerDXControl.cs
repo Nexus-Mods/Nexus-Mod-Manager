@@ -4434,17 +4434,211 @@
 			addModToolStripMenuItem_Click(sender, e);
 		}
 
+		/// <summary>
+		/// Describes one category choice in the Add Mod from File dialog.
+		/// </summary>
+		private sealed class AddModCategoryOption
+		{
+			/// <summary>
+			/// Gets the explicit category ID, or <c>null</c> for Nexus Default.
+			/// </summary>
+			public Int32? CategoryId { get; private set; }
+
+			/// <summary>
+			/// Gets the display name of the category option.
+			/// </summary>
+			public string Name { get; private set; }
+
+			/// <summary>
+			/// Creates a category choice.
+			/// </summary>
+			public AddModCategoryOption(Int32? categoryId, string name)
+			{
+				CategoryId = categoryId;
+				Name = name;
+			}
+
+			/// <summary>
+			/// Returns the display text used by the category editor.
+			/// </summary>
+			public override string ToString()
+			{
+				return Name;
+			}
+		}
+
+		/// <summary>
+		/// Collects the archive files and optional category override for Add Mod from File.
+		/// </summary>
+		private sealed class AddModFromFileDialog : XtraForm
+		{
+			private readonly ButtonEdit _filesEdit;
+			private readonly ComboBoxEdit _categoryEdit;
+
+			/// <summary>
+			/// Gets the selected archive paths.
+			/// </summary>
+			public string[] FileNames { get; private set; }
+
+			/// <summary>
+			/// Gets the explicit category ID, or <c>null</c> when Nexus Default is selected.
+			/// </summary>
+			public Int32? CategoryOverrideId
+			{
+				get
+				{
+					AddModCategoryOption option = _categoryEdit.SelectedItem as AddModCategoryOption;
+					return option == null ? null : option.CategoryId;
+				}
+			}
+
+			/// <summary>
+			/// Creates the Add Mod from File dialog and populates all current categories.
+			/// </summary>
+			public AddModFromFileDialog(IEnumerable<IModCategory> categories)
+			{
+				FileNames = new string[0];
+				Text = LanguageManager.Get("Mods.Actions.AddFromFile.Name", "Add Mod from File");
+				StartPosition = FormStartPosition.CenterParent;
+				ShowInTaskbar = false;
+				MinimizeBox = false;
+				MaximizeBox = false;
+				FormBorderStyle = FormBorderStyle.FixedDialog;
+				ClientSize = new Size(620, 142);
+
+				var layout = new TableLayoutPanel
+				{
+					Dock = DockStyle.Fill,
+					Padding = new Padding(12),
+					ColumnCount = 2,
+					RowCount = 3
+				};
+				layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90F));
+				layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+				layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+				layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34F));
+				layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+				var filesLabel = new LabelControl
+				{
+					Text = LanguageManager.Get("Mods.AddFromFile.FilesLabel", "Files:"),
+					AutoSizeMode = LabelAutoSizeMode.None,
+					Dock = DockStyle.Fill
+				};
+				filesLabel.Appearance.TextOptions.VAlignment = DevExpress.Utils.VertAlignment.Center;
+
+				_filesEdit = new ButtonEdit { Dock = DockStyle.Fill };
+				_filesEdit.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
+				_filesEdit.Properties.NullValuePrompt = LanguageManager.Get("Mods.AddFromFile.FilesPrompt", "Select one or more mod archives...");
+				_filesEdit.ButtonClick += FilesEdit_ButtonClick;
+
+				var categoryLabel = new LabelControl
+				{
+					Text = LanguageManager.Get("Mods.AddFromFile.CategoryLabel", "Category:"),
+					AutoSizeMode = LabelAutoSizeMode.None,
+					Dock = DockStyle.Fill
+				};
+				categoryLabel.Appearance.TextOptions.VAlignment = DevExpress.Utils.VertAlignment.Center;
+
+				_categoryEdit = new ComboBoxEdit { Dock = DockStyle.Fill };
+				_categoryEdit.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
+				_categoryEdit.Properties.Items.Add(new AddModCategoryOption(null, LanguageManager.Get("Mods.AddFromFile.NexusDefault", "Nexus Default")));
+				if (categories != null)
+				{
+					foreach (IModCategory category in categories.Where(x => x != null).OrderBy(x => x.CategoryName, StringComparer.CurrentCultureIgnoreCase))
+						_categoryEdit.Properties.Items.Add(new AddModCategoryOption(category.Id, category.CategoryName));
+				}
+				_categoryEdit.SelectedIndex = 0;
+
+				var buttons = new FlowLayoutPanel
+				{
+					Dock = DockStyle.Fill,
+					FlowDirection = FlowDirection.RightToLeft,
+					WrapContents = false,
+					Padding = new Padding(0, 8, 0, 0)
+				};
+
+				var cancelButton = new SimpleButton
+				{
+					Text = LanguageManager.Get("Common.Action.Cancel", "Cancel"),
+					DialogResult = DialogResult.Cancel,
+					Width = 90
+				};
+				var addButton = new SimpleButton
+				{
+					Text = LanguageManager.Get("Mods.AddFromFile.AddButton", "Add"),
+					Width = 90
+				};
+				addButton.Click += AddButton_Click;
+				buttons.Controls.Add(cancelButton);
+				buttons.Controls.Add(addButton);
+
+				layout.Controls.Add(filesLabel, 0, 0);
+				layout.Controls.Add(_filesEdit, 1, 0);
+				layout.Controls.Add(categoryLabel, 0, 1);
+				layout.Controls.Add(_categoryEdit, 1, 1);
+				layout.Controls.Add(buttons, 0, 2);
+				layout.SetColumnSpan(buttons, 2);
+				Controls.Add(layout);
+
+				AcceptButton = addButton;
+				CancelButton = cancelButton;
+			}
+
+			/// <summary>
+			/// Opens the existing DevExpress multi-file picker.
+			/// </summary>
+			private void FilesEdit_ButtonClick(object sender, ButtonPressedEventArgs e)
+			{
+				SelectFiles();
+			}
+
+			/// <summary>
+			/// Validates the file selection and accepts the dialog.
+			/// </summary>
+			private void AddButton_Click(object sender, EventArgs e)
+			{
+				if (FileNames.Length == 0)
+				{
+					SelectFiles();
+					if (FileNames.Length == 0) return;
+				}
+
+				DialogResult = DialogResult.OK;
+				Close();
+			}
+
+			/// <summary>
+			/// Lets the user select one or more mod archives and updates the file summary.
+			/// </summary>
+			private void SelectFiles()
+			{
+				using (var dialog = new XtraOpenFileDialog())
+				{
+					dialog.RestoreDirectory = true;
+					dialog.Filter = LanguageManager.Get("Mods.FileDialog.ModArchivesLabel", "Mod Archives") + "|*.zip;*.7z;*.rar;*.fomod;*.omod|" + LanguageManager.Get("Common.FileDialog.AllFilesLabel", "All Files") + "|*.*";
+					dialog.Multiselect = true;
+					if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+					FileNames = dialog.FileNames;
+					_filesEdit.Text = FileNames.Length == 1
+						? FileNames[0]
+						: String.Format(LanguageManager.GetFormat("Mods.AddFromFile.FilesSelected", "{0} files selected"), FileNames.Length);
+					_filesEdit.ToolTip = String.Join(Environment.NewLine, FileNames);
+				}
+			}
+		}
+
 		private void addModToolStripMenuItem_Click(object sender, ItemClickEventArgs e)
 		{
 			if (_viewModel == null) return;
-			using (var ofd = new XtraOpenFileDialog())
+
+			using (var dialog = new AddModFromFileDialog(_viewModel.CategoryManager.Categories))
 			{
-				ofd.RestoreDirectory = true;
-				ofd.Filter = LanguageManager.Get("Mods.FileDialog.ModArchivesLabel", "Mod Archives") + "|*.zip;*.7z;*.rar;*.fomod;*.omod|" + LanguageManager.Get("Common.FileDialog.AllFilesLabel", "All Files") + "|*.*";
-				ofd.Multiselect = true;
-				if (ofd.ShowDialog(this) == DialogResult.OK)
-					foreach (string f in ofd.FileNames)
-						_viewModel.AddModCommand.Execute(f);
+				if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+				foreach (string fileName in dialog.FileNames)
+					_viewModel.AddMod(fileName, dialog.CategoryOverrideId);
 			}
 		}
 

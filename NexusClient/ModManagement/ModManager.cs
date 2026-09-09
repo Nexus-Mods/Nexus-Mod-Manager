@@ -406,22 +406,34 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTask AddMod(string p_strPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
+			return AddMod(p_strPath, p_cocConfirmOverwrite, null);
+		}
+
+		/// <summary>
+		/// Installs the specified mod with an optional explicit category assignment.
+		/// </summary>
+		/// <param name="p_strPath">The path to the mod to install.</param>
+		/// <param name="p_cocConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
+		/// <param name="p_intCategoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
+		/// <returns>A background task allowing the caller to track the operation.</returns>
+		public IBackgroundTask AddMod(string p_strPath, ConfirmOverwriteCallback p_cocConfirmOverwrite, Int32? p_intCategoryOverrideId)
+		{
 			Uri uriPath = new Uri(p_strPath);
 			if (uriPath.Scheme.ToLowerInvariant().ToString() == "nxm")
 			{
 				if (!ModRepository.IsOffline)
 				{
-					return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
+					return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId);
 				}
 				else
 				{
 					Login();
-					return AsyncAddMod(uriPath, p_cocConfirmOverwrite);
+					return AsyncAddMod(uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId);
 				}
 			}
 			else
 			{
-				return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite);
+				return ModAdditionQueue.AddMod(uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId);
 			}
 		}
 
@@ -851,9 +863,20 @@ namespace Nexus.Client.ModManagement
 
 		#region asyncAddMod
 
+		/// <summary>
+		/// Starts an asynchronous add-mod operation using normal Nexus category resolution.
+		/// </summary>
 		public IBackgroundTask AsyncAddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite)
 		{
-			IBackgroundTask tskAddModTask = ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite);
+			return AsyncAddMod(p_uriPath, p_cocConfirmOverwrite, null);
+		}
+
+		/// <summary>
+		/// Starts an asynchronous add-mod operation with an optional explicit category assignment.
+		/// </summary>
+		public IBackgroundTask AsyncAddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite, Int32? p_intCategoryOverrideId)
+		{
+			IBackgroundTask tskAddModTask = ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId);
 			AsyncAddModTask(tskAddModTask);
 			return tskAddModTask;
 		}
