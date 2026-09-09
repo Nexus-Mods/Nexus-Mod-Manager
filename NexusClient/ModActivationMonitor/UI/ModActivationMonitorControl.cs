@@ -323,7 +323,8 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				return true;
 
 			string runningFileName = GetTaskModFileName(ViewModel.RunningTask);
-			return !String.IsNullOrEmpty(runningFileName) && String.Equals(runningFileName, taskFileName, StringComparison.OrdinalIgnoreCase);
+			return !ViewModel.RunningTask.IsCompleted &&
+				!String.IsNullOrEmpty(runningFileName) && String.Equals(runningFileName, taskFileName, StringComparison.OrdinalIgnoreCase);
 		}
 
 		private void DiscardDuplicateTask(IBackgroundTaskSet task)
