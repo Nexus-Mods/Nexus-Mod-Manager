@@ -18,7 +18,7 @@ namespace Nexus.Client.Games.SkyrimVR
 	/// </summary>
 	public class SkyrimVRGameMode : SkyrimSEGameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "sksevr_loader.exe" };
 		private SkyrimVRGameModeDescriptor m_gmdGameModeInfo;
 		private SkyrimVRLauncher m_glnGameLauncher;
 		private SkyrimSEToolLauncher m_gtlToolLauncher;

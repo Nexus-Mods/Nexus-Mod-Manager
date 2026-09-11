@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.SkyrimSE
 	/// </summary>
 	public class SkyrimSEGameMode : Fallout3GameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse64_loader.exe" };
 		private SkyrimSEGameModeDescriptor m_gmdGameModeInfo = null;
 		private SkyrimSELauncher m_glnGameLauncher = null;
 		private SkyrimSEToolLauncher m_gtlToolLauncher = null;

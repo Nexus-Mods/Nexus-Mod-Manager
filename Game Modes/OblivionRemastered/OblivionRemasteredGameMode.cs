@@ -20,7 +20,7 @@ namespace Nexus.Client.Games.OblivionRemastered
 	/// </summary>
 	public class OblivionRemasteredGameMode : Fallout3GameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "ORSE_loader.exe" };
 		private OblivionRemasteredGameModeDescriptor m_gmdGameModeInfo = null;
 		private OblivionRemasteredLauncher m_glnGameLauncher = null;
 		private OblivionRemasteredToolLauncher m_gtlToolLauncher = null;

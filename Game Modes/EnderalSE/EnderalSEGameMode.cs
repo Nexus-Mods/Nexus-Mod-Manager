@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.EnderalSE
 	/// </summary>
 	public class EnderalSEGameMode : Fallout3GameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse64_loader.exe" };
 		private EnderalSEGameModeDescriptor m_gmdGameModeInfo = null;
 		private EnderalSELauncher m_glnGameLauncher = null;
 		private EnderalSEToolLauncher m_gtlToolLauncher = null;

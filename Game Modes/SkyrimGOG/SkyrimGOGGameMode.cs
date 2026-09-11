@@ -19,7 +19,7 @@ namespace Nexus.Client.Games.SkyrimGOG
 	/// </summary>
 	public class SkyrimGOGGameMode : Fallout3GameMode
 	{
-		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse_loader.exe" };
+		private static string[] SCRIPT_EXTENDER_EXECUTABLES = { "skse64_loader.exe" };
 		private SkyrimGOGGameModeDescriptor m_gmdGameModeInfo = null;
 		private SkyrimGOGLauncher m_glnGameLauncher = null;
 		private SkyrimGOGToolLauncher m_gtlToolLauncher = null;
