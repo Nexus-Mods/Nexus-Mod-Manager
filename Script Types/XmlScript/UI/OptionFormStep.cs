@@ -309,6 +309,15 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 		private void lvwPlugins_ItemCheck(object sender, ItemCheckEventArgs e)
 		{
 			Option optOption = (Option)lvwPlugins.Items[e.Index].Tag;
+			ListViewGroup lvgGroup = lvwPlugins.Items[e.Index].Group;
+			if ((OptionGroupType)lvgGroup.Tag == OptionGroupType.SelectAll)
+			{
+				if (e.NewValue != CheckState.Checked)
+					MessageBox.Show(this, optOption.Name + " is required. You cannot unselect it.");
+				e.NewValue = CheckState.Checked;
+				return;
+			}
+
 			switch (optOption.OptionTypeResolver.ResolveOptionType(m_csmStateManager))
 			{
 				case OptionType.Required:
@@ -333,14 +342,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 						}
 					break;
 			}
-			ListViewGroup lvgGroup = lvwPlugins.Items[e.Index].Group;
 			switch ((OptionGroupType)lvgGroup.Tag)
 			{
-				case OptionGroupType.SelectAll:
-					if (e.NewValue != CheckState.Checked)
-						MessageBox.Show(this, optOption.Name + " is required. You cannot unselect it.");
-					e.NewValue = CheckState.Checked;
-					break;
 				case OptionGroupType.SelectAtLeastOne:
 					if (e.NewValue != CheckState.Checked)
 					{
