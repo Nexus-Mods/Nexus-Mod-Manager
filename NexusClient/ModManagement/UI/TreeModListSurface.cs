@@ -455,11 +455,10 @@
 		}
 
 		/// <summary>
-		/// Invalidates the rendered TreeList rows.
+		/// Invalidates the rendered TreeList rows without mutating sorted node data.
 		/// </summary>
 		public void InvalidateRows()
 		{
-			RefreshCategoryAggregateState();
 			_treeList.Invalidate();
 		}
 
@@ -1105,27 +1104,6 @@
 			}
 
 			ApplyVisibilityFilterAfterStructureChange();
-		}
-
-		/// <summary>
-		/// Recomputes cached category aggregate counts after activation or new-mod state changes.
-		/// </summary>
-		private void RefreshCategoryAggregateState()
-		{
-			_viewControl.BeginInternalDataUpdate();
-			_treeList.BeginUpdate();
-			try
-			{
-				ResetCategoryAggregateState();
-				foreach (KeyValuePair<IMod, TreeListNode> pair in _modNodes)
-					AccumulateCategoryState(pair.Value.ParentNode, pair.Key);
-				RefreshCategoryCaptions();
-			}
-			finally
-			{
-				_treeList.EndUpdate();
-				_viewControl.EndInternalDataUpdate();
-			}
 		}
 
 		/// <summary>
