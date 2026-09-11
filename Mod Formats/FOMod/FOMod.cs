@@ -31,10 +31,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 		private string _nestedFilePath;
 		private Archive _archiveFile;
-		private readonly string _cachePath;
 		private readonly FOModArchiveMetadataCache _metadataCache;
 		private readonly Dictionary<string, string> _movedArchiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-		private readonly string _readmePath = null;
 		private readonly bool _usesPlugins;
 		private readonly IEnvironmentInfo _environmentInfo;
 
@@ -242,6 +240,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				{
 					ScreenshotPath = value == null ? null : "fomod/screenshot" + value.GetExtension();
 					SetPropertyIfChanged(ref _screenshot, value, () => Screenshot);
+					SaveMetadataCache();
 				}
 			}
 		}
@@ -390,8 +389,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			var checkNested = nestedArchives;
 			var checkPrefix = true;
 			var checkScript = true;
-			var cacheInfo = false;
-			var dirtyCache = false;
 			string strCheckPrefix = null;
 			string checkScriptPath = null;
 			string checkScriptType = null;
@@ -400,119 +397,27 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			bool metadataCacheDirty = false;
 
 			ModArchivePath = filePath;
-			//modCacheManager.MigrateCacheFile(this);
-
-			#region Check for cacheInfo.txt file
-
-			var strCachePath = Path.Combine(modCacheManager.ModCacheDirectory, Path.GetFileNameWithoutExtension(filePath));
-			_cachePath = strCachePath;
 			_metadataCache = metadataCache ?? new FOModArchiveMetadataCache(modCacheManager.ModCacheDirectory);
-			var allowLooseCacheFallback = !_metadataCache.IsUsable;
 
-			if (useCache)
+			if (useCache && _metadataCache.TryGet(filePath, out cachedMetadata))
 			{
-				if (_metadataCache.TryGet(filePath, out cachedMetadata))
+				metadataCacheHit = true;
+				_downloadDate = cachedMetadata.ArchiveWriteTimeUtc.HasValue ? cachedMetadata.ArchiveWriteTimeUtc.Value.ToLocalTime() : (DateTime?)null;
+				checkNested = cachedMetadata.HasNestedArchive;
+				strCheckPrefix = cachedMetadata.PrefixPath;
+				string correctedPrefix = NormalizeGamebryoDataPrefix(strCheckPrefix);
+				if (!string.Equals(correctedPrefix, strCheckPrefix, StringComparison.Ordinal))
 				{
-					metadataCacheHit = true;
-					_downloadDate = cachedMetadata.ArchiveWriteTimeUtc.HasValue ? cachedMetadata.ArchiveWriteTimeUtc.Value.ToLocalTime() : (DateTime?)null;
-					checkNested = cachedMetadata.HasNestedArchive;
-					strCheckPrefix = cachedMetadata.PrefixPath;
-					string correctedPrefix = NormalizeGamebryoDataPrefix(strCheckPrefix);
-					if (!string.Equals(correctedPrefix, strCheckPrefix, StringComparison.Ordinal))
-					{
-						strCheckPrefix = correctedPrefix;
-						metadataCacheDirty = true;
-					}
-					checkScriptPath = cachedMetadata.InstallScriptPath;
-					checkScriptType = cachedMetadata.InstallScriptType;
-					_cachedInfoXml = cachedMetadata.InfoXml;
-					ScreenshotPath = cachedMetadata.ScreenshotPath;
-					checkPrefix = false;
-					checkScript = false;
+					strCheckPrefix = correctedPrefix;
+					metadataCacheDirty = true;
 				}
-				else if (allowLooseCacheFallback && Directory.Exists(strCachePath))
-				{
-					var strCacheInfoFile = Path.Combine(strCachePath, "cacheInfo.txt");
-
-					if (File.Exists(strCacheInfoFile))
-					{
-						var bCacheInfo = File.ReadAllBytes(strCacheInfoFile);
-						var sCacheInfo = Encoding.UTF8.GetString(bCacheInfo, 0, bCacheInfo.Length);
-						var strPref = sCacheInfo.Split(new[] { "@@" }, StringSplitOptions.RemoveEmptyEntries);
-
-						if (strPref.Length > 0)
-						{
-							checkNested = Convert.ToBoolean(strPref[0]);
-
-							if (strPref.Length > 1)
-							{
-								strCheckPrefix = strPref[1];
-
-								foreach (var folder in IgnoreFolders)
-								{
-									if (strCheckPrefix.IndexOf(folder, StringComparison.InvariantCultureIgnoreCase) >= 0)
-									{
-										checkNested = true;
-										strCheckPrefix = string.Empty;
-										dirtyCache = true;
-										break;
-									}
-								}
-
-								if (string.IsNullOrEmpty(strCheckPrefix) || !strCheckPrefix.Equals("-"))
-								{
-									if (!stopFolders.Any() && !usePlugins)
-									{
-										FileUtil.ForceDelete(_cachePath);
-										checkNested = true;
-										strCheckPrefix = string.Empty;
-										dirtyCache = true;
-									}
-								}
-
-								if (!dirtyCache)
-								{
-
-									if (strCheckPrefix.Equals("-"))
-									{
-										strCheckPrefix = string.Empty;
-									}
-
-									string correctedLoosePrefix = NormalizeGamebryoDataPrefix(strCheckPrefix);
-									if (!string.Equals(correctedLoosePrefix, strCheckPrefix, StringComparison.Ordinal))
-									{
-										strCheckPrefix = correctedLoosePrefix;
-										dirtyCache = true;
-									}
-									checkPrefix = false;
-
-									if (strPref.Length > 2)
-									{
-										checkScriptPath = strPref[2];
-
-										if (checkScriptPath.Equals("-"))
-										{
-											checkScriptPath = string.Empty;
-										}
-
-										checkScriptType = strPref[3];
-
-										if (checkScriptType.Equals("-"))
-										{
-											checkScriptType = string.Empty;
-										}
-
-										checkScript = false;
-									}
-								}
-							}
-						}
-					}
-
-				}
+				checkScriptPath = cachedMetadata.InstallScriptPath;
+				checkScriptType = cachedMetadata.InstallScriptType;
+				_cachedInfoXml = cachedMetadata.InfoXml;
+				ScreenshotPath = cachedMetadata.ScreenshotPath;
+				checkPrefix = false;
+				checkScript = false;
 			}
-
-			#endregion
 
 			if (!metadataCacheHit)
 			{
@@ -545,37 +450,15 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (checkPrefix)
 			{
 				FindPathPrefix();
-				cacheInfo = true;
 			}
 			else
 			{
 				_prefixPath = string.IsNullOrEmpty(strCheckPrefix) ? string.Empty : strCheckPrefix;
 			}
 
-			//check for script
 			if (checkScript)
 			{
-				foreach (var stpScript in scriptTypeRegistry.Types)
-				{
-					foreach (var strScriptName in stpScript.FileNames)
-					{
-						var strScriptPath = Path.Combine("fomod", strScriptName);
-
-						if (ContainsFile(strScriptPath))
-						{
-							_installScriptPath = strScriptPath;
-							_installScriptType = stpScript;
-							break;
-						}
-					}
-
-					if (!string.IsNullOrEmpty(_installScriptPath))
-					{
-						break;
-					}
-				}
-
-				cacheInfo = true;
+				DetectInstallScript();
 			}
 			else
 			{
@@ -583,97 +466,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				_installScriptType = string.IsNullOrEmpty(checkScriptType) ? null : scriptTypeRegistry.Types.FirstOrDefault(x => x.TypeName.Equals(checkScriptType));
 			}
 
-			//check for screenshot
-			string[] strScreenshots;
-
-			string pathToCheck = useCache ? _cachePath : Path.Combine(_cachePath, GetRealPath("fomod"));
-
-			if (!string.IsNullOrEmpty(ScreenshotPath))
+			if (!metadataCacheHit && string.IsNullOrEmpty(ScreenshotPath))
 			{
-				strScreenshots = new[] { ScreenshotPath };
-			}
-			else if (Directory.Exists(pathToCheck))
-			{
-				var fileList = Directory.GetFiles(Path.Combine(_cachePath, GetRealPath("fomod")), "screenshot*", SearchOption.AllDirectories);
-				strScreenshots = fileList;
-			}
-			else
-			{
-				strScreenshots = ArchiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
-			}
-
-			//TODO make sure the file is a valid image
-			if (strScreenshots.Length > 0)
-			{
-				ScreenshotPath = strScreenshots[0];
-			}
-
-			var cacheFile = Path.Combine(strCachePath, "cacheInfo.txt");
-
-			if (!metadataCacheHit && (!allowLooseCacheFallback || !File.Exists(cacheFile) || !useCache))
-			{
-				var strTmpInfo = modCacheManager.FileUtility.CreateTempDirectory();
-
-				try
-				{
-					string pathModAdjustedCache = Path.Combine(strTmpInfo, GetRealPath("fomod"));
-					Directory.CreateDirectory(pathModAdjustedCache);
-					byte[] infoXml;
-
-					if (ContainsFile("fomod/info.xml"))
-					{
-						infoXml = GetFile("fomod/info.xml");
-						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
-					}
-					else
-					{
-						infoXml = Encoding.UTF8.GetBytes("<fomod/>");
-						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
-					}
-
-					_cachedInfoXml = infoXml;
-
-					if (!string.IsNullOrEmpty(_readmePath))
-					{
-						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(_readmePath)), GetFile(_readmePath));
-					}
-
-					if (!string.IsNullOrEmpty(ScreenshotPath))
-					{
-						FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(ScreenshotPath)), GetFile(ScreenshotPath));
-					}
-
-					modCacheManager.CreateCacheFile(this, strTmpInfo);
-				}
-				finally
-				{
-					FileUtil.ForceDelete(strTmpInfo);
-				}
-
-			}
-
-			if (allowLooseCacheFallback && (cacheInfo || !File.Exists(cacheFile)) && !metadataCacheHit)
-			{
-
-				var bteText = new UTF8Encoding(true).GetBytes(string.Format("{0}@@{1}@@{2}@@{3}",
-					(!string.IsNullOrEmpty(_nestedFilePath)).ToString(),
-					string.IsNullOrEmpty(_prefixPath) ? "-" : _prefixPath,
-					string.IsNullOrEmpty(_installScriptPath) ? "-" : _installScriptPath,
-					_installScriptType == null ? "-" : _installScriptType.TypeName));
-
-				if (bteText != null)
-				{
-					try
-					{
-						File.WriteAllBytes(cacheFile, bteText);
-					}
-					catch (Exception e)
-					{
-						Trace.TraceWarning("FOMod.FOMod() - Encountered an ignored Exception.");
-						TraceUtil.TraceException(e);
-					}
-				}
-
+				DetectScreenshot();
 			}
 
 			ModName = Path.GetFileNameWithoutExtension(ModArchivePath);
@@ -722,23 +517,26 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// </summary>
 		protected void LoadInfo()
 		{
-			if (ContainsFile("fomod/info.xml"))
+			if (!ContainsFile("fomod/info.xml"))
 			{
-				try
-				{
-					var xmlInfo = new XmlDocument();
-					var infoXml = GetFile("fomod/info.xml");
-					_cachedInfoXml = infoXml;
-					xmlInfo.LoadXml(TextUtil.ByteToString(infoXml));
-					LoadInfo(xmlInfo, false);
-				}
-				catch (XmlException e)
-				{
-					Trace.TraceError("Error parsing FOMOD Info.xml file.");
-					TraceUtil.TraceException(e);
+				_cachedInfoXml = Encoding.UTF8.GetBytes("<fomod/>");
+				return;
+			}
 
-					throw new InvalidDataException("Error parsing FOMOD Info.xml file.", e);
-				}
+			try
+			{
+				var xmlInfo = new XmlDocument();
+				var infoXml = GetFile("fomod/info.xml");
+				_cachedInfoXml = infoXml;
+				xmlInfo.LoadXml(TextUtil.ByteToString(infoXml));
+				LoadInfo(xmlInfo, false);
+			}
+			catch (XmlException e)
+			{
+				Trace.TraceError("Error parsing FOMOD Info.xml file.");
+				TraceUtil.TraceException(e);
+
+				throw new InvalidDataException("Error parsing FOMOD Info.xml file.", e);
 			}
 		}
 
@@ -770,6 +568,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				throw new ArgumentNullException(nameof(modCacheManager));
 			}
 
+			// Remove any legacy loose cache that may still exist, but never rebuild or read it.
 			modCacheManager.ResetCacheFile(this);
 			_metadataCache?.Remove(ModArchivePath);
 
@@ -785,11 +584,14 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			FindPathPrefix();
 			DetectInstallScript();
-			DetectScreenshot(false);
-			RebuildGeneratedCacheFile(modCacheManager);
+			DetectScreenshot();
+			LoadInfo();
 			SaveMetadataCache();
 		}
 
+		/// <summary>
+		/// Detects the scripted installer directly from the mod archive.
+		/// </summary>
 		private void DetectInstallScript()
 		{
 			_installScriptPath = null;
@@ -816,19 +618,12 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
-		private void DetectScreenshot(bool useCache)
+		/// <summary>
+		/// Detects the packaged screenshot directly from the mod archive.
+		/// </summary>
+		private void DetectScreenshot()
 		{
-			string[] strScreenshots;
-			string pathToCheck = useCache ? _cachePath : Path.Combine(_cachePath, GetRealPath("fomod"));
-
-			if (Directory.Exists(pathToCheck))
-			{
-				strScreenshots = Directory.GetFiles(Path.Combine(_cachePath, GetRealPath("fomod")), "screenshot*", SearchOption.AllDirectories);
-			}
-			else
-			{
-				strScreenshots = ArchiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
-			}
+			var strScreenshots = ArchiveFile.GetFiles(GetRealPath("fomod"), "screenshot*", false);
 
 			if (strScreenshots.Length > 0)
 			{
@@ -836,46 +631,6 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
-		private void RebuildGeneratedCacheFile(IModCacheManager modCacheManager)
-		{
-			var strTmpInfo = modCacheManager.FileUtility.CreateTempDirectory();
-
-			try
-			{
-				string pathModAdjustedCache = Path.Combine(strTmpInfo, GetRealPath("fomod"));
-				Directory.CreateDirectory(pathModAdjustedCache);
-				byte[] infoXml;
-
-				if (ContainsFile("fomod/info.xml"))
-				{
-					infoXml = GetFile("fomod/info.xml");
-					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
-				}
-				else
-				{
-					infoXml = Encoding.UTF8.GetBytes("<fomod/>");
-					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath("fomod/info.xml")), infoXml);
-				}
-
-				_cachedInfoXml = infoXml;
-
-				if (!string.IsNullOrEmpty(_readmePath))
-				{
-					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(_readmePath)), GetFile(_readmePath));
-				}
-
-				if (!string.IsNullOrEmpty(ScreenshotPath))
-				{
-					FileUtil.WriteAllBytes(Path.Combine(strTmpInfo, GetRealPath(ScreenshotPath)), GetFile(ScreenshotPath));
-				}
-
-				modCacheManager.CreateCacheFile(this, strTmpInfo);
-			}
-			finally
-			{
-				FileUtil.ForceDelete(strTmpInfo);
-			}
-		}
 		#region Read Transactions
 
 		/// <inheritdoc />
@@ -1097,32 +852,16 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <returns><c>true</c> if the specified file is in the FOMod; <c>false</c> otherwise.</returns>
 		public bool ContainsFile(string path)
 		{
-			return ContainsFile(path, false);
-		}
+			var strPath = NormalizeVirtualPath(path);
 
-		/// <summary>
-		/// Determines if the FOMod contains the given file.
-		/// </summary>
-		/// <param name="path">The filename whose existence in the FOMod is to be determined.</param>
-		/// <returns><c>true</c> if the specified file is in the FOMod; <c>false</c> otherwise.</returns>
-		private bool ContainsFile(string path, bool cacheOnly)
-		{
-			var strPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			strPath = strPath.Trim(Path.DirectorySeparatorChar);
-
-			if (_cachedInfoXml != null && strPath.Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase))
+			if (_cachedInfoXml != null && IsInfoFile(strPath))
 			{
 				return true;
 			}
 
-			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(strPath))))
+			if (IsScreenshotFile(strPath) && _metadataCache.TryGetScreenshot(ModArchivePath, strPath, out _))
 			{
 				return true;
-			}
-
-			if (cacheOnly)
-			{
-				return false;
 			}
 
 			return _movedArchiveFiles.ContainsKey(strPath) || ArchiveFile.ContainsFile(GetRealPath(strPath));
@@ -1140,8 +879,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <returns>The adjusted path.</returns>
 		protected string GetRealPath(string path)
 		{
-			path = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			path = path.Trim(Path.DirectorySeparatorChar);
+			path = NormalizeVirtualPath(path);
 
 			if (_movedArchiveFiles.TryGetValue(path, out var strAdjustedPath))
 			{
@@ -1165,16 +903,16 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (IsInfoFile(path))
 			{
 				_cachedInfoXml = null;
+				_metadataCache?.Remove(ModArchivePath);
+			}
+			else if (IsScreenshotFile(path))
+			{
+				_metadataCache?.RemoveScreenshot(ModArchivePath);
 			}
 
 			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
 			{
 				ArchiveFile.DeleteFile(GetRealPath(path));
-			}
-
-			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(path))))
-			{
-				FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
 			}
 		}
 
@@ -1190,17 +928,15 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				_cachedInfoXml = data;
 				SaveMetadataCache();
 			}
+			else if (IsScreenshotFile(path))
+			{
+				_metadataCache?.SaveScreenshot(ModArchivePath, path, data);
+				SaveMetadataCache();
+			}
 
 			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
 			{
 				ArchiveFile.ReplaceFile(GetRealPath(path), data);
-			}
-
-			var fileInfo = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
-
-			if (Directory.Exists(_cachePath) && (File.Exists(Path.Combine(_cachePath, GetRealPath(path))) || fileInfo.IsReadOnly))
-			{
-				File.WriteAllBytes(Path.Combine(_cachePath, GetRealPath(path)), data);
 			}
 		}
 
@@ -1211,22 +947,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="data">The new file data.</param>
 		protected void CreateOrReplaceFile(string path, byte[] data)
 		{
-			if (IsInfoFile(path))
-			{
-				_cachedInfoXml = data;
-				SaveMetadataCache();
-			}
-
-			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)
-			{
-				ArchiveFile.ReplaceFile(GetRealPath(path), data);
-			}
-
-			if (Directory.Exists(_cachePath))
-			{
-				FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
-				File.WriteAllBytes(Path.Combine(_cachePath, GetRealPath(path)), data);
-			}
+			ReplaceFile(path, data);
 		}
 
 		/// <summary>
@@ -1246,20 +967,50 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				ArchiveFile.ReplaceFile(GetRealPath(path), data);
 			}
+		}
 
-			var fiFile = new FileInfo(Path.Combine(_cachePath, GetRealPath(path)));
+		/// <summary>
+		/// Attempts to retrieve an in-memory or SQLite-backed metadata file without consulting the loose cache.
+		/// </summary>
+		private bool TryGetCachedFileData(string path, out byte[] data)
+		{
+			var normalizedPath = NormalizeVirtualPath(path);
 
-			if (Directory.Exists(_cachePath) && (File.Exists(Path.Combine(_cachePath, GetRealPath(path))) || fiFile.IsReadOnly))
+			if (_cachedInfoXml != null && IsInfoFile(normalizedPath))
 			{
-				FileUtil.ForceDelete(Path.Combine(_cachePath, GetRealPath(path)));
-				File.WriteAllText(Path.Combine(_cachePath, GetRealPath(path)), data);
+				data = _cachedInfoXml;
+				return true;
 			}
+
+			if (IsScreenshotFile(normalizedPath) && _metadataCache.TryGetScreenshot(ModArchivePath, normalizedPath, out data))
+			{
+				return true;
+			}
+
+			data = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Determines whether the path refers to the current cached screenshot.
+		/// </summary>
+		private bool IsScreenshotFile(string path)
+		{
+			return !string.IsNullOrEmpty(ScreenshotPath) &&
+				NormalizeVirtualPath(path).Equals(NormalizeVirtualPath(ScreenshotPath), StringComparison.OrdinalIgnoreCase);
 		}
 
 		private static bool IsInfoFile(string path)
 		{
-			var normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
-			return normalizedPath.Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase);
+			return NormalizeVirtualPath(path).Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
+		/// Normalizes a FOMod virtual path for consistent archive and cache comparisons.
+		/// </summary>
+		private static string NormalizeVirtualPath(string path)
+		{
+			return (path ?? string.Empty).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
 		}
 
 		#endregion
@@ -1269,10 +1020,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <inheritdoc />
 		public byte[] GetFile(string file)
 		{
-			var normalizedFile = file.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
-			if (_cachedInfoXml != null && normalizedFile.Equals("fomod" + Path.DirectorySeparatorChar + "info.xml", StringComparison.OrdinalIgnoreCase))
+			if (TryGetCachedFileData(file, out var cachedData))
 			{
-				return _cachedInfoXml;
+				return cachedData;
 			}
 
 			if (!ContainsFile(file))
@@ -1282,21 +1032,21 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					: throw new FileNotFoundException("File doesn't exist in FOMod", file);
 			}
 
-			return Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file)))
-				? File.ReadAllBytes(Path.Combine(_cachePath, GetRealPath(file)))
-				: ArchiveFile.GetFileContents(GetRealPath(file));
+			return ArchiveFile.GetFileContents(GetRealPath(file));
 		}
 
 		/// <inheritdoc />
 		public FileStream GetFileStream(string file)
 		{
-			// File is present in cache
-			if (Directory.Exists(_cachePath) && File.Exists(Path.Combine(_cachePath, GetRealPath(file))))
+			if (TryGetCachedFileData(file, out var cachedData))
 			{
-				return new FileStream(file, FileMode.Open);
+				var temporaryDirectory = Path.Combine(_environmentInfo.TemporaryPath, "NMM");
+				Directory.CreateDirectory(temporaryDirectory);
+				var temporaryFile = Path.Combine(temporaryDirectory, Guid.NewGuid().ToString("N") + Path.GetExtension(file));
+				File.WriteAllBytes(temporaryFile, cachedData);
+				return new FileStream(temporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
 			}
 
-			// Otherwise grab file from archive.
 			return ArchiveFile.GetFileStream(GetRealPath(file), _environmentInfo.TemporaryPath);
 		}
 

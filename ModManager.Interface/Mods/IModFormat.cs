@@ -91,4 +91,18 @@ namespace Nexus.Client.Mods
 		/// <param name="p_eifEnvironmentInfo">The application's envrionment info.</param>
 		IModCompressor GetModCompressor(IEnvironmentInfo p_eifEnvironmentInfo);
 	}
+
+	/// <summary>
+	/// Exposes a lightweight format probe backed by cached archive metadata.
+	/// </summary>
+	public interface IModFormatCacheProbe
+	{
+		/// <summary>
+		/// Attempts to determine format compliance without opening the mod archive.
+		/// </summary>
+		/// <param name="p_strPath">The path to the original mod archive.</param>
+		/// <param name="p_fcfConfidence">The cached format confidence when available.</param>
+		/// <returns><c>true</c> if a valid cached result was found; otherwise, <c>false</c>.</returns>
+		bool TryGetCachedFormatConfidence(string p_strPath, out FormatConfidence p_fcfConfidence);
+	}
 }

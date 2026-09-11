@@ -15,10 +15,11 @@
 	/// when one is still present on disk.
 	/// </summary>
 	/// <remarks>
-	/// This does not attempt to recreate the loose cache, nor does it change how the
-	/// live cache is normally read or written - it only ever writes the
-	/// <c>info_xml</c> column of <c>archive_metadata</c>, and only for archives it is
-	/// explicitly asked to check. It never deletes anything.
+	/// This does not attempt to recreate the loose cache. It only updates the
+	/// <c>info_xml</c> column of an already complete, fingerprint-matching SQLite
+	/// metadata row. Missing or stale rows are left for the normal FOMod loader to
+	/// rebuild from the original archive, so the repair tool can never manufacture
+	/// incomplete prefix or scripted-installer metadata. It never deletes anything.
 	/// </remarks>
 	public static class FOModCacheRepairTool
 	{
@@ -125,6 +126,11 @@
 		/// </summary>
 		private static bool TryRepairArchive(SQLiteConnection p_conConnection, SQLiteTransaction p_trnTransaction, string p_strModCacheDirectory, string p_strArchivePath)
 		{
+			if (!File.Exists(p_strArchivePath))
+			{
+				return false;
+			}
+
 			var legacyCacheFolder = Path.Combine(p_strModCacheDirectory, Path.GetFileNameWithoutExtension(p_strArchivePath));
 
 			if (!Directory.Exists(legacyCacheFolder))
@@ -146,54 +152,27 @@
 				return false;
 			}
 
-			var archiveKey = NormalizeArchivePath(p_strArchivePath);
-			var nowTicks = DateTime.UtcNow.Ticks;
+			var archiveInfo = new FileInfo(p_strArchivePath);
 
 			using (var command = p_conConnection.CreateCommand())
 			{
 				command.Transaction = p_trnTransaction;
-				command.CommandText = "SELECT COUNT(1) FROM archive_metadata WHERE archive_path = @archive_path;";
-				command.Parameters.AddWithValue("@archive_path", archiveKey);
-				var rowExists = Convert.ToInt32(command.ExecuteScalar()) > 0;
-
-				if (rowExists)
-				{
-					// Only the cached info.xml is touched - prefix/script/nested data
-					// already on record for this archive is left exactly as-is.
-					command.Parameters.Clear();
-					command.CommandText = @"
+				command.CommandText = @"
 UPDATE archive_metadata
 SET info_xml = @info_xml, updated_utc = @updated_utc
-WHERE archive_path = @archive_path;";
-					command.Parameters.AddWithValue("@info_xml", infoXmlBytes);
-					command.Parameters.AddWithValue("@updated_utc", nowTicks);
-					command.Parameters.AddWithValue("@archive_path", archiveKey);
-					command.ExecuteNonQuery();
-				}
-				else
-				{
-					if (!File.Exists(p_strArchivePath))
-					{
-						return false;
-					}
+WHERE archive_path = @archive_path
+  AND archive_length = @archive_length
+  AND archive_write_time_utc = @archive_write_time_utc;";
+				command.Parameters.AddWithValue("@info_xml", infoXmlBytes);
+				command.Parameters.AddWithValue("@updated_utc", DateTime.UtcNow.Ticks);
+				command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(p_strArchivePath));
+				command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+				command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
 
-					var archiveInfo = new FileInfo(p_strArchivePath);
-					command.Parameters.Clear();
-					command.CommandText = @"
-INSERT INTO archive_metadata
-	(archive_path, archive_length, archive_write_time_utc, prefix_path, install_script_path, install_script_type, nested_archive, info_xml, screenshot_path, updated_utc)
-VALUES
-	(@archive_path, @archive_length, @archive_write_time_utc, NULL, NULL, NULL, 0, @info_xml, NULL, @updated_utc);";
-					command.Parameters.AddWithValue("@archive_path", archiveKey);
-					command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
-					command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
-					command.Parameters.AddWithValue("@info_xml", infoXmlBytes);
-					command.Parameters.AddWithValue("@updated_utc", nowTicks);
-					command.ExecuteNonQuery();
-				}
+				// A missing or stale row must be rebuilt by FOMod itself. Creating a partial
+				// row here would make the SQLite fast path trust NULL prefix/script metadata.
+				return command.ExecuteNonQuery() > 0;
 			}
-
-			return true;
 		}
 
 		/// <summary>

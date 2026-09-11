@@ -153,12 +153,29 @@ namespace Nexus.Client.ModManagement
 		/// can be determined; <c>null</c> otherwise.</returns>
 		protected IMod CreateMod(string p_strModPath, string p_strCachePath, IGameMode p_gmdGameMode, IEnvironmentInfo p_eiEnvironmentInfo, bool isResetCheckPath)
 		{
+			foreach (IModFormat mftFormat in FormatRegistry.Formats)
+			{
+				var mcpFormat = mftFormat as IModFormatCacheProbe;
+				if (mcpFormat == null)
+				{
+					continue;
+				}
+
+				if (mcpFormat.TryGetCachedFormatConfidence(p_strModPath, out var fcfCachedConfidence) && fcfCachedConfidence == FormatConfidence.Match)
+				{
+					return mftFormat.CreateMod(p_strModPath, p_gmdGameMode, isResetCheckPath);
+				}
+			}
+
 			if ((String.IsNullOrEmpty(p_strCachePath)) || (!Directory.Exists(p_strCachePath)))
 				p_strCachePath = p_strModPath;
 
 			List<KeyValuePair<FormatConfidence, IModFormat>> lstFormats = new List<KeyValuePair<FormatConfidence, IModFormat>>();
 			foreach (IModFormat mftFormat in FormatRegistry.Formats)
-				lstFormats.Add(new KeyValuePair<FormatConfidence, IModFormat>(mftFormat.CheckFormatCompliance(p_strCachePath), mftFormat));
+			{
+				var strFormatPath = mftFormat is IModFormatCacheProbe ? p_strModPath : p_strCachePath;
+				lstFormats.Add(new KeyValuePair<FormatConfidence, IModFormat>(mftFormat.CheckFormatCompliance(strFormatPath), mftFormat));
+			}
 			lstFormats.Sort((x, y) => -x.Key.CompareTo(y.Key));
 			if (lstFormats[0].Key <= FormatConfidence.Convertible)
 				return null;

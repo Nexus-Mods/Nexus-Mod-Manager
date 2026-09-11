@@ -7,7 +7,6 @@
 	using System.Data.SQLite;
 	using System.Diagnostics;
 	using System.IO;
-	using System.Linq;
 	using System.Runtime.InteropServices;
 	using System.Security;
 	using System.Security.Permissions;
@@ -52,12 +51,14 @@
 
 			try
 			{
-				if (!_available)
+				if (!_available || !File.Exists(_databasePath))
 				{
 					return false;
 				}
 
-				if (!File.Exists(_databasePath))
+				var archiveInfo = new FileInfo(archivePath);
+
+				if (!archiveInfo.Exists)
 				{
 					return false;
 				}
@@ -73,11 +74,13 @@
 						command.CommandText = @"
 SELECT prefix_path, install_script_path, install_script_type, nested_archive, info_xml, screenshot_path, archive_write_time_utc
 FROM archive_metadata
-WHERE archive_path = @archive_path;";
+WHERE archive_path = @archive_path
+  AND archive_length = @archive_length
+  AND archive_write_time_utc = @archive_write_time_utc;";
 
 						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
-
-						bool needsRepair;
+						command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+						command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
 
 						using (var reader = command.ExecuteReader())
 						{
@@ -99,36 +102,13 @@ WHERE archive_path = @archive_path;";
 									: new DateTime(reader.GetInt64(6), DateTimeKind.Utc)
 							};
 
-							needsRepair = metadata.InfoXml == null || metadata.InfoXml.Length == 0;
-						}
-
-						if (!needsRepair)
-						{
-							return true;
-						}
-
-						if (!TryRestoreLegacyInfoXml(archivePath))
-						{
-							return false;
-						}
-
-						command.Parameters.Clear();
-						command.CommandText = @"
-SELECT info_xml
-FROM archive_metadata
-WHERE archive_path = @archive_path;";
-
-						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
-
-						using (var repairedReader = command.ExecuteReader())
-						{
-							if (!repairedReader.Read() || repairedReader.IsDBNull(0))
+							if (metadata.InfoXml == null || metadata.InfoXml.Length == 0)
 							{
+								metadata = null;
 								return false;
 							}
 
-							metadata.InfoXml = (byte[])repairedReader[0];
-							return metadata.InfoXml.Length > 0;
+							return true;
 						}
 					}
 			}
@@ -139,103 +119,6 @@ WHERE archive_path = @archive_path;";
 				metadata = null;
 				return false;
 			}
-		}
-
-		private bool TryRestoreLegacyInfoXml(string archivePath)
-		{
-			var legacyFolder =
-				Path.Combine(
-					Path.GetDirectoryName(_databasePath),
-					Path.GetFileNameWithoutExtension(archivePath));
-
-			if (!Directory.Exists(legacyFolder))
-			{
-				return false;
-			}
-
-			var legacyInfoXml =	FindLegacyInfoXmlWithDataInPath(legacyFolder);
-
-			if (legacyInfoXml == null)
-			{
-				return false;
-			}
-
-			var bytes = File.ReadAllBytes(legacyInfoXml);
-
-			if (bytes.Length == 0)
-			{
-				return false;
-			}
-
-			using (var update = _database.Connection.CreateCommand())
-			{
-				if (_database.Transaction != null)
-				{
-					update.Transaction = _database.Transaction;
-				}
-
-				update.CommandText = @"
-UPDATE archive_metadata
-SET info_xml=@info_xml,
-	updated_utc=@updated
-WHERE archive_path=@archive_path;";
-
-				update.Parameters.AddWithValue("@info_xml", bytes);
-				update.Parameters.AddWithValue("@updated", DateTime.UtcNow.Ticks);
-				update.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
-
-				if (update.ExecuteNonQuery() == 0)
-				{
-					return false;
-				}
-
-				_database.PendingWrites++;
-
-				if (_database.PendingWrites >= CommitBatchSize ||
-					(DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
-				{
-					CommitDatabase(_database);
-				}
-
-				return true;
-			}
-		}
-
-		/// <summary>
-		/// Looks for a <c>fomod/info.xml</c> under the given legacy per-archive cache
-		/// folder, where the path down to it passes through a folder named "Data" -
-		/// i.e. the layout the old (pre-SQLite) cache used for plugin-based games.
-		/// </summary>
-		private static string FindLegacyInfoXmlWithDataInPath(string p_strLegacyCacheFolder)
-		{
-			var directPath = Path.Combine(p_strLegacyCacheFolder, "Data", "fomod", "info.xml");
-
-			if (File.Exists(directPath))
-			{
-				return directPath;
-			}
-
-			foreach (var infoXmlPath in Directory.EnumerateFiles(p_strLegacyCacheFolder, "info.xml", SearchOption.AllDirectories))
-			{
-				var fomodDirectory = Path.GetDirectoryName(infoXmlPath);
-
-				if (fomodDirectory == null || !Path.GetFileName(fomodDirectory).Equals("fomod", StringComparison.OrdinalIgnoreCase))
-				{
-					continue;
-				}
-
-				var relativePath = infoXmlPath.Substring(p_strLegacyCacheFolder.Length)
-					.Trim(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-				var pathSegments = relativePath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-				if (pathSegments.Any(segment => segment.Equals("Data", StringComparison.OrdinalIgnoreCase)))
-				{
-					return infoXmlPath;
-				}
-			}
-
-			return null;
 		}
 
 		public void Remove(string archivePath)
@@ -255,7 +138,9 @@ WHERE archive_path=@archive_path;";
 						command.CommandText = "DELETE FROM archive_metadata WHERE archive_path = @archive_path;";
 						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
 						command.ExecuteNonQuery();
-						_database.RemoveArchiveName(archivePath);
+						command.CommandText = "DELETE FROM archive_screenshot_cache WHERE archive_path = @archive_path;";
+						command.ExecuteNonQuery();
+						_database.RemoveArchiveFingerprint(archivePath);
 						_database.PendingWrites++;
 						CommitDatabase(_database);
 					}
@@ -274,26 +159,198 @@ WHERE archive_path=@archive_path;";
 			}
 		}
 
-		public bool ContainsArchiveFileNameWithoutExtension(string archiveFileNameWithoutExtension)
+		/// <summary>
+		/// Checks whether the database contains valid metadata for the current archive fingerprint.
+		/// </summary>
+		public bool ContainsValidArchive(string archivePath)
 		{
 			try
 			{
-				if (!IsUsable || string.IsNullOrEmpty(archiveFileNameWithoutExtension))
+				if (!IsUsable || string.IsNullOrEmpty(archivePath))
+				{
+					return false;
+				}
+
+				var archiveInfo = new FileInfo(archivePath);
+				if (!archiveInfo.Exists)
 				{
 					return false;
 				}
 
 				lock (_database.SyncRoot)
 				{
-					_database.EnsureArchiveNamesLoaded();
-					return _database.ArchiveNamesWithoutExtension.Contains(archiveFileNameWithoutExtension);
+					_database.EnsureArchiveFingerprintsLoaded();
+
+					if (!_database.ArchiveFingerprints.TryGetValue(NormalizeArchivePath(archivePath), out var fingerprint))
+					{
+						return false;
+					}
+
+					return fingerprint.Length == archiveInfo.Length &&
+						fingerprint.WriteTimeUtcTicks == archiveInfo.LastWriteTimeUtc.Ticks;
 				}
 			}
 			catch (Exception e)
 			{
-				Trace.TraceWarning("FOModArchiveMetadataCache.ContainsArchiveFileNameWithoutExtension() - Encountered an ignored Exception.");
+				Trace.TraceWarning("FOModArchiveMetadataCache.ContainsValidArchive() - Encountered an ignored Exception.");
 				TraceUtil.TraceException(e);
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Retrieves a screenshot override stored in SQLite for the current archive fingerprint.
+		/// </summary>
+		public bool TryGetScreenshot(string archivePath, string screenshotPath, out byte[] screenshotData)
+		{
+			screenshotData = null;
+
+			try
+			{
+				if (!_available || string.IsNullOrEmpty(archivePath) || string.IsNullOrEmpty(screenshotPath))
+				{
+					return false;
+				}
+
+				var archiveInfo = new FileInfo(archivePath);
+				if (!archiveInfo.Exists)
+				{
+					return false;
+				}
+
+				lock (_database.SyncRoot)
+					using (var command = _database.Connection.CreateCommand())
+					{
+						if (_database.Transaction != null)
+						{
+							command.Transaction = _database.Transaction;
+						}
+
+						command.CommandText = @"
+SELECT screenshot_data
+FROM archive_screenshot_cache
+WHERE archive_path = @archive_path
+  AND archive_length = @archive_length
+  AND archive_write_time_utc = @archive_write_time_utc
+  AND screenshot_path = @screenshot_path;";
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+						command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+						command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
+						command.Parameters.AddWithValue("@screenshot_path", NormalizeVirtualPath(screenshotPath));
+
+						var value = command.ExecuteScalar();
+						if (value == null || value == DBNull.Value)
+						{
+							return false;
+						}
+
+						screenshotData = (byte[])value;
+						return screenshotData.Length > 0;
+					}
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("FOModArchiveMetadataCache.TryGetScreenshot() - Encountered an ignored Exception.");
+				TraceUtil.TraceException(e);
+				screenshotData = null;
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Stores a generated screenshot override in SQLite without creating a loose cache file.
+		/// </summary>
+		public void SaveScreenshot(string archivePath, string screenshotPath, byte[] screenshotData)
+		{
+			try
+			{
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+
+				if (!_available || string.IsNullOrEmpty(screenshotPath) || screenshotData == null || screenshotData.Length == 0)
+				{
+					return;
+				}
+
+				var archiveInfo = new FileInfo(archivePath);
+				if (!archiveInfo.Exists)
+				{
+					return;
+				}
+
+				lock (_database.SyncRoot)
+					using (var command = _database.Connection.CreateCommand())
+					{
+						_database.EnsureTransaction();
+						command.Transaction = _database.Transaction;
+						command.CommandText = @"
+INSERT OR REPLACE INTO archive_screenshot_cache
+	(archive_path, archive_length, archive_write_time_utc, screenshot_path, screenshot_data, updated_utc)
+VALUES
+	(@archive_path, @archive_length, @archive_write_time_utc, @screenshot_path, @screenshot_data, @updated_utc);";
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+						command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+						command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
+						command.Parameters.AddWithValue("@screenshot_path", NormalizeVirtualPath(screenshotPath));
+						command.Parameters.AddWithValue("@screenshot_data", screenshotData);
+						command.Parameters.AddWithValue("@updated_utc", DateTime.UtcNow.Ticks);
+						command.ExecuteNonQuery();
+						_database.PendingWrites++;
+
+						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
+						{
+							CommitDatabase(_database);
+						}
+					}
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("FOModArchiveMetadataCache.SaveScreenshot() - Encountered an ignored Exception.");
+				TraceUtil.TraceException(e);
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+		}
+
+		/// <summary>
+		/// Removes a generated screenshot override from SQLite.
+		/// </summary>
+		public void RemoveScreenshot(string archivePath)
+		{
+			try
+			{
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+
+				if (!_available)
+				{
+					return;
+				}
+
+				lock (_database.SyncRoot)
+					using (var command = _database.Connection.CreateCommand())
+					{
+						_database.EnsureTransaction();
+						command.Transaction = _database.Transaction;
+						command.CommandText = "DELETE FROM archive_screenshot_cache WHERE archive_path = @archive_path;";
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+						command.ExecuteNonQuery();
+						_database.PendingWrites++;
+
+						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
+						{
+							CommitDatabase(_database);
+						}
+					}
+			}
+			catch (Exception e)
+			{
+				Trace.TraceWarning("FOModArchiveMetadataCache.RemoveScreenshot() - Encountered an ignored Exception.");
+				TraceUtil.TraceException(e);
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
 			}
 		}
 
@@ -337,7 +394,7 @@ VALUES
 						command.Parameters.AddWithValue("@screenshot_path", (object)metadata.ScreenshotPath ?? DBNull.Value);
 						command.Parameters.AddWithValue("@updated_utc", DateTime.UtcNow.Ticks);
 						command.ExecuteNonQuery();
-						_database.AddArchiveName(archivePath);
+						_database.AddArchiveFingerprint(archivePath, archiveInfo.Length, archiveInfo.LastWriteTimeUtc.Ticks);
 						_database.PendingWrites++;
 
 						if (_database.PendingWrites >= CommitBatchSize || (DateTime.UtcNow - _database.LastCommitUtc).TotalSeconds >= 1)
@@ -412,15 +469,30 @@ VALUES
 			database.LastCommitUtc = DateTime.UtcNow;
 		}
 
+		/// <summary>
+		/// Represents the file-system identity used to validate cached archive metadata.
+		/// </summary>
+		private struct ArchiveFingerprint
+		{
+			public ArchiveFingerprint(long length, long writeTimeUtcTicks)
+			{
+				Length = length;
+				WriteTimeUtcTicks = writeTimeUtcTicks;
+			}
+
+			public long Length { get; }
+			public long WriteTimeUtcTicks { get; }
+		}
+
 		private sealed class SharedDatabase
 		{
 			public readonly object SyncRoot = new object();
 			public readonly SQLiteConnection Connection;
-			public readonly HashSet<string> ArchiveNamesWithoutExtension = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			public readonly Dictionary<string, ArchiveFingerprint> ArchiveFingerprints = new Dictionary<string, ArchiveFingerprint>(StringComparer.OrdinalIgnoreCase);
 			public SQLiteTransaction Transaction;
 			public int PendingWrites;
 			public DateTime LastCommitUtc;
-			private bool _archiveNamesLoaded;
+			private bool _archiveFingerprintsLoaded;
 
 			public SharedDatabase(string databasePath)
 			{
@@ -451,6 +523,8 @@ VALUES
 					EnsureSchema(Connection);
 				}
 
+				EnsureSupplementalSchema(Connection);
+
 				if (!File.Exists(databasePath))
 				{
 					throw new IOException("Unable to create the FOMod archive metadata cache database: " + databasePath);
@@ -467,9 +541,12 @@ VALUES
 				}
 			}
 
-			public void EnsureArchiveNamesLoaded()
+			/// <summary>
+			/// Loads lightweight archive fingerprints into memory for O(1) warm-start format probes.
+			/// </summary>
+			public void EnsureArchiveFingerprintsLoaded()
 			{
-				if (_archiveNamesLoaded)
+				if (_archiveFingerprintsLoaded)
 				{
 					return;
 				}
@@ -481,39 +558,47 @@ VALUES
 						command.Transaction = Transaction;
 					}
 
-					command.CommandText = "SELECT archive_path FROM archive_metadata WHERE info_xml IS NOT NULL;";
+					command.CommandText = @"
+SELECT archive_path, archive_length, archive_write_time_utc
+FROM archive_metadata
+WHERE info_xml IS NOT NULL AND length(info_xml) > 0;";
 					using (var reader = command.ExecuteReader())
 					{
 						while (reader.Read())
 						{
-							if (!reader.IsDBNull(0))
+							if (!reader.IsDBNull(0) && !reader.IsDBNull(1) && !reader.IsDBNull(2))
 							{
-								AddArchiveName(reader.GetString(0));
+								ArchiveFingerprints[NormalizeArchivePath(reader.GetString(0))] = new ArchiveFingerprint(reader.GetInt64(1), reader.GetInt64(2));
 							}
 						}
 					}
 				}
 
-				_archiveNamesLoaded = true;
+				_archiveFingerprintsLoaded = true;
 			}
 
-			public void AddArchiveName(string archivePath)
+			/// <summary>
+			/// Updates an already-loaded in-memory fingerprint index after a cache write.
+			/// </summary>
+			public void AddArchiveFingerprint(string archivePath, long archiveLength, long archiveWriteTimeUtcTicks)
 			{
-				var archiveFileName = Path.GetFileNameWithoutExtension(archivePath);
-				if (!string.IsNullOrEmpty(archiveFileName))
+				if (_archiveFingerprintsLoaded)
 				{
-					ArchiveNamesWithoutExtension.Add(archiveFileName);
+					ArchiveFingerprints[NormalizeArchivePath(archivePath)] = new ArchiveFingerprint(archiveLength, archiveWriteTimeUtcTicks);
 				}
 			}
 
-			public void RemoveArchiveName(string archivePath)
+			/// <summary>
+			/// Removes an archive from the already-loaded in-memory fingerprint index.
+			/// </summary>
+			public void RemoveArchiveFingerprint(string archivePath)
 			{
-				var archiveFileName = Path.GetFileNameWithoutExtension(archivePath);
-				if (!string.IsNullOrEmpty(archiveFileName))
+				if (_archiveFingerprintsLoaded)
 				{
-					ArchiveNamesWithoutExtension.Remove(archiveFileName);
+					ArchiveFingerprints.Remove(NormalizeArchivePath(archivePath));
 				}
 			}
+
 			private static bool HasCurrentSchema(SQLiteConnection connection)
 			{
 				try
@@ -538,6 +623,26 @@ WHERE type = 'table'
 				catch (SQLiteException)
 				{
 					return false;
+				}
+			}
+
+			/// <summary>
+			/// Ensures additive cache tables that do not require a destructive schema migration.
+			/// </summary>
+			private static void EnsureSupplementalSchema(SQLiteConnection connection)
+			{
+				using (var command = connection.CreateCommand())
+				{
+					command.CommandText = @"
+CREATE TABLE IF NOT EXISTS archive_screenshot_cache (
+	archive_path TEXT NOT NULL PRIMARY KEY,
+	archive_length INTEGER NOT NULL,
+	archive_write_time_utc INTEGER NOT NULL,
+	screenshot_path TEXT NOT NULL,
+	screenshot_data BLOB NOT NULL,
+	updated_utc INTEGER NOT NULL
+);";
+					command.ExecuteNonQuery();
 				}
 			}
 
@@ -649,6 +754,14 @@ WHERE NOT EXISTS (SELECT 1 FROM schema_info);";
 		private static string NormalizeArchivePath(string archivePath)
 		{
 			return Path.GetFullPath(archivePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToUpperInvariant();
+		}
+
+		/// <summary>
+		/// Normalizes a FOMod virtual path for SQLite lookup keys.
+		/// </summary>
+		private static string NormalizeVirtualPath(string path)
+		{
+			return (path ?? string.Empty).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar).ToUpperInvariant();
 		}
 
 		[DllImport("kernel32", SetLastError = true, CharSet = CharSet.Unicode)]

@@ -15,7 +15,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	/// This is the mod format that is commonly used for Fallout 3 and Fallout: New Vegas mods. This
 	/// format was introduced with the Fallout Mod Manager (FOMM).
 	/// </remarks>
-	public class FOModFormat : IModFormat
+	public class FOModFormat : IModFormat, IModFormatCacheProbe
 	{
 		#region Properties
 
@@ -110,20 +110,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		{
 			if (Directory.Exists(p_strPath))
 			{
+				// Legacy per-mod cache folders are never valid FOMod format evidence.
 				if (IsModCachePath(p_strPath))
 				{
-					var archiveName = Path.GetFileName(NormalizeDirectoryPath(p_strPath));
-					if (MetadataCache.IsUsable)
-					{
-						return MetadataCache.ContainsArchiveFileNameWithoutExtension(archiveName)
-							? FormatConfidence.Match
-							: FormatConfidence.Compatible;
-					}
-
-					if (File.Exists(Path.Combine(p_strPath, "cacheInfo.txt")))
-					{
-						return FormatConfidence.Match;
-					}
+					return FormatConfidence.Compatible;
 				}
 
 				if (Directory.EnumerateFiles(p_strPath, "info.xml", SearchOption.AllDirectories).Any())
@@ -142,6 +132,27 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 
 			return FormatConfidence.Compatible;
+		}
+
+		/// <summary>
+		/// Attempts to identify a FOMod from its validated SQLite metadata without opening the archive.
+		/// </summary>
+		public bool TryGetCachedFormatConfidence(string p_strPath, out FormatConfidence p_fcfConfidence)
+		{
+			p_fcfConfidence = FormatConfidence.Incompatible;
+
+			if (!MetadataCache.IsUsable || string.IsNullOrEmpty(p_strPath) || Directory.Exists(p_strPath))
+			{
+				return false;
+			}
+
+			if (!MetadataCache.ContainsValidArchive(p_strPath))
+			{
+				return false;
+			}
+
+			p_fcfConfidence = FormatConfidence.Match;
+			return true;
 		}
 
 		private bool IsModCachePath(string path)
