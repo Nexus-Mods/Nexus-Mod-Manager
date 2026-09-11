@@ -1278,6 +1278,43 @@ namespace Nexus.Client.PluginManagement
 		}
 
 		/// <summary>
+		/// Resolves a plugin order through the current game policy without modifying the plugin registry or load-order log.
+		/// </summary>
+		/// <param name="p_lstOrderedPlugins">The plugin order to policy-correct.</param>
+		/// <returns>The policy-corrected plugin order.</returns>
+		public IList<Plugin> ResolvePluginOrder(IList<Plugin> p_lstOrderedPlugins)
+		{
+			return GetPolicyCorrectedOrder(p_lstOrderedPlugins);
+		}
+
+		/// <summary>
+		/// Resolves a requested plugin state through the current game policy without modifying plugin order or activation logs.
+		/// </summary>
+		/// <param name="p_lstCurrentOrderedPlugins">The effective plugin order before the requested change.</param>
+		/// <param name="p_lstCurrentActivePlugins">The effective active plugin set before the requested change.</param>
+		/// <param name="p_lstRequestedOrderedPlugins">The requested plugin order.</param>
+		/// <param name="p_lstRequestedActivePlugins">The requested active plugin set.</param>
+		/// <returns>The policy-corrected requested state and whether it introduces new blocking diagnostics relative to the supplied effective state.</returns>
+		public PluginStateResolution ResolvePluginState(IList<Plugin> p_lstCurrentOrderedPlugins, IList<Plugin> p_lstCurrentActivePlugins, IList<Plugin> p_lstRequestedOrderedPlugins, IList<Plugin> p_lstRequestedActivePlugins)
+		{
+			List<Plugin> lstCurrentOrder = GetPolicyCorrectedOrder(p_lstCurrentOrderedPlugins);
+			HashSet<Plugin> hstCurrentActivePlugins = new HashSet<Plugin>(p_lstCurrentActivePlugins == null ? new List<Plugin>() : p_lstCurrentActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			foreach (Plugin plgProtectedPlugin in lstCurrentOrder.Where(IsProtectedPlugin))
+				hstCurrentActivePlugins.Add(plgProtectedPlugin);
+
+			List<Plugin> lstRequestedOrder = GetPolicyCorrectedOrder(p_lstRequestedOrderedPlugins);
+			HashSet<Plugin> hstRequestedActivePlugins = new HashSet<Plugin>(p_lstRequestedActivePlugins == null ? new List<Plugin>() : p_lstRequestedActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			foreach (Plugin plgProtectedPlugin in lstRequestedOrder.Where(IsProtectedPlugin))
+				hstRequestedActivePlugins.Add(plgProtectedPlugin);
+
+			PluginSnapshot psnCurrentSnapshot = BuildPluginSnapshot(lstCurrentOrder, hstCurrentActivePlugins);
+			PluginSnapshot psnCandidateSnapshot = BuildPluginSnapshot(lstRequestedOrder, hstRequestedActivePlugins);
+			List<PluginValidationDiagnostic> lstBlockingDiagnostics = GetNewBlockingDiagnostics(psnCurrentSnapshot, psnCandidateSnapshot);
+			List<Plugin> lstResolvedActivePlugins = lstRequestedOrder.Where(hstRequestedActivePlugins.Contains).ToList();
+			return new PluginStateResolution(lstBlockingDiagnostics.Count == 0, lstRequestedOrder, lstResolvedActivePlugins);
+		}
+
+		/// <summary>
 		/// Determines if the specified plugin order is valid.
 		/// </summary>
 		/// <param name="p_lstPlugins">The plugins whose order is to be validated.</param>

@@ -17,7 +17,7 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		/// Gets the data to write to the generated file.
 		/// </summary>
 		/// <value>The generated file content.</value>
-		/// <remarks>The operation retains the supplied buffer for efficient deferred execution.</remarks>
+		/// <remarks>The operation owns a snapshot of the supplied buffer so later script-side mutations cannot alter an already planned operation.</remarks>
 		public byte[] Data { get; private set; }
 
 		/// <summary>
@@ -52,7 +52,7 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		public GenerateDataFileOperation(string p_strDestinationPath, byte[] p_bteData)
 		{
 			DestinationPath = p_strDestinationPath;
-			Data = p_bteData;
+			Data = p_bteData == null ? null : (byte[])p_bteData.Clone();
 		}
 
 		/// <summary>

@@ -611,6 +611,9 @@ namespace NexusClientTests
                     case "SetPluginOrderIndex":
                         PluginOrderCalls.Add(new KeyValuePair<Plugin, int>((Plugin)p_objArgs[0], (int)p_objArgs[1]));
                         return null;
+                    case "CanChangeActiveState":
+                    case "CanChangePluginOrder":
+                        return true;
                     default:
                         return null;
                 }

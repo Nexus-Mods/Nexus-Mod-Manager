@@ -345,9 +345,9 @@ namespace Nexus.Client.ModManagement.Scripting
 				if (!InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo, strStagingPath, booStageFile, midLinkDecision)))
 					return false;
 
-				// Legacy InstallFileFromMod reports success only when AddFileLink creates or replaces the active link.
-				// Existing staged content can still satisfy the operation when the incoming archive file is unavailable.
-				return midLinkDecision.CreatesActiveLink && (booSourceAvailable || File.Exists(strStagingPath));
+				// The legacy implementation reports success once staging/link processing is accepted, regardless of whether
+				// the incoming file becomes the active virtual link. InstallFolderFromMod relies on this contract to continue.
+				return true;
 			});
 		}
 

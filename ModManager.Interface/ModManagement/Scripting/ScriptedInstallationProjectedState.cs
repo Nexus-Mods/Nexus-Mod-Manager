@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
+using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
 
 namespace Nexus.Client.ModManagement.Scripting
@@ -23,6 +24,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly IGameMode m_gmdGameMode;
 		private readonly InstallerGroup m_igpInstallers;
 		private readonly Dictionary<string, ProjectedDataFile> m_dicProjectedFiles = new Dictionary<string, ProjectedDataFile>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, Plugin> m_dicProjectedPluginInfo = new Dictionary<string, Plugin>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, string> m_dicIniValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private List<string> m_lstManagedPlugins;
 		private HashSet<string> m_hstActivePlugins;
@@ -96,8 +98,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			SetPluginOrderIndexOperation soiOrderIndex = p_sioOperation as SetPluginOrderIndexOperation;
 			if (soiOrderIndex != null)
 			{
-				EnsurePluginSnapshot();
-				MovePluginToIndex(NormalizeRelativePath(soiOrderIndex.PluginPath), soiOrderIndex.NewIndex);
+				ApplyPluginOrderIndex(soiOrderIndex);
 				return;
 			}
 
@@ -143,7 +144,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(() => m_modMod.GetFile(strSource));
 			}
 
-			RegisterProjectedPlugin(p_imoOperation.DestinationPath);
+			RegisterProjectedPlugin(p_imoOperation.DestinationPath, true);
 		}
 
 		/// <summary>
@@ -166,7 +167,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			else
 				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(p_gdoOperation.Data);
 
-			RegisterProjectedPlugin(p_gdoOperation.DestinationPath);
+			RegisterProjectedPlugin(p_gdoOperation.DestinationPath, false);
 		}
 
 		/// <summary>
@@ -187,15 +188,34 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			EnsurePluginSnapshot();
 			string strPlugin = NormalizeRelativePath(p_saoOperation.PluginPath);
-			if (!ContainsPlugin(strPlugin) && IsPotentialPluginPath(strPlugin) && DataFileExists(strPlugin))
+			if (!ContainsPlugin(strPlugin) && IsPotentialPluginPath(strPlugin) && DataFileExists(strPlugin) && FindEffectivePlugin(strPlugin) != null)
+			{
 				m_lstManagedPlugins.Add(strPlugin);
+				ApplyPolicyCorrectedPluginOrder();
+			}
 			if (!ContainsPlugin(strPlugin))
 				return;
 
+			// Do not short-circuit protected plugins here. The plugin manager normalizes protected plugins
+			// to their required active state when resolving the requested snapshot.
+			List<string> lstPreviousOrder = new List<string>(m_lstManagedPlugins);
+			HashSet<string> hstPreviousActivePlugins = new HashSet<string>(m_hstActivePlugins, StringComparer.OrdinalIgnoreCase);
 			if (p_saoOperation.Activate)
 				m_hstActivePlugins.Add(strPlugin);
 			else
 				m_hstActivePlugins.Remove(strPlugin);
+
+			NormalizeProjectedPluginState(lstPreviousOrder, hstPreviousActivePlugins);
+		}
+
+		/// <summary>
+		/// Projects an absolute plugin-order change while honoring policy restrictions for registered plugins.
+		/// </summary>
+		/// <param name="p_soiOperation">The plugin-order operation.</param>
+		private void ApplyPluginOrderIndex(SetPluginOrderIndexOperation p_soiOperation)
+		{
+			EnsurePluginSnapshot();
+			TryMovePluginToIndex(NormalizeRelativePath(p_soiOperation.PluginPath), p_soiOperation.NewIndex);
 		}
 
 		/// <summary>
@@ -205,29 +225,31 @@ namespace Nexus.Client.ModManagement.Scripting
 		private void ApplyMovePlugins(MovePluginsInLoadOrderOperation p_mloOperation)
 		{
 			EnsurePluginSnapshot();
+			List<string> lstOriginal = new List<string>(m_lstManagedPlugins);
 			int[] intPlugins = p_mloOperation.PluginIndices.ToArray();
 			Array.Sort(intPlugins);
 
 			foreach (int intIndex in intPlugins)
-				if ((intIndex < 0) || (intIndex >= m_lstManagedPlugins.Count))
+				if ((intIndex < 0) || (intIndex >= lstOriginal.Count))
 					throw new IndexOutOfRangeException("A plugin index was out of range");
 
-			// The legacy API interprets Position in the pre-move index space rather than in the filtered list.
-			List<string> lstOriginal = new List<string>(m_lstManagedPlugins);
-			List<string> lstProjected = new List<string>(lstOriginal.Count);
+			// Replay the same sequence of SetPluginOrderIndex calls used by the legacy implementation so policy-rejected
+			// moves leave the subsequent projected indices in the same state that the immediate path would observe.
+			int intLoadOrder = 0;
 			for (int i = 0; i < p_mloOperation.Position; i++)
 			{
-				if (Array.BinarySearch(intPlugins, i) < 0)
-					lstProjected.Add(lstOriginal[i]);
+				if (Array.BinarySearch(intPlugins, i) >= 0)
+					continue;
+				TryMovePluginToIndex(lstOriginal[i], intLoadOrder++);
 			}
 			foreach (int intIndex in intPlugins)
-				lstProjected.Add(lstOriginal[intIndex]);
+				TryMovePluginToIndex(lstOriginal[intIndex], intLoadOrder++);
 			for (int i = p_mloOperation.Position; i < lstOriginal.Count; i++)
 			{
-				if (Array.BinarySearch(intPlugins, i) < 0)
-					lstProjected.Add(lstOriginal[i]);
+				if (Array.BinarySearch(intPlugins, i) >= 0)
+					continue;
+				TryMovePluginToIndex(lstOriginal[i], intLoadOrder++);
 			}
-			m_lstManagedPlugins = lstProjected;
 		}
 
 		/// <summary>
@@ -255,9 +277,14 @@ namespace Nexus.Client.ModManagement.Scripting
 
 				int intCurrentIndex = IndexOfPlugin(strCurrent);
 				int intNextIndex = IndexOfPlugin(strPlugin);
-				if (intNextIndex <= intCurrentIndex)
-					MovePluginToIndex(strPlugin, intCurrentIndex + 1);
-				strCurrent = strPlugin;
+				if (intNextIndex > intCurrentIndex)
+				{
+					strCurrent = strPlugin;
+					continue;
+				}
+
+				if (TryMovePluginToIndex(strPlugin, intCurrentIndex + 1))
+					strCurrent = strPlugin;
 			}
 		}
 
@@ -418,16 +445,196 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// Adds a planned plugin file to the projected managed-plugin snapshot when its extension is supported by the game mode.
 		/// </summary>
 		/// <param name="p_strDestinationPath">The logical destination path of the planned file.</param>
-		private void RegisterProjectedPlugin(string p_strDestinationPath)
+		/// <param name="p_booActivate">Whether the legacy file-link path requests activation after registration.</param>
+		private void RegisterProjectedPlugin(string p_strDestinationPath, bool p_booActivate)
 		{
 			string strPlugin = NormalizeRelativePath(p_strDestinationPath);
 			if (!IsPotentialPluginPath(strPlugin))
 				return;
 
-			// Full activatability is checked at execution time because a deferred file does not exist on disk yet.
+			// A plugin deployed by InstallFileFromMod is registered and activation is requested by the legacy link path.
+			// Generated files are registered as plugins but are not automatically activated.
 			EnsurePluginSnapshot();
 			if (!ContainsPlugin(strPlugin))
+			{
+				m_dicProjectedPluginInfo.Remove(strPlugin);
+				if (FindEffectivePlugin(strPlugin) == null)
+					return;
+
 				m_lstManagedPlugins.Add(strPlugin);
+				ApplyPolicyCorrectedPluginOrder();
+			}
+
+			if (p_booActivate)
+				ApplyPluginActivation(new SetPluginActivationOperation(strPlugin, true));
+		}
+
+		/// <summary>
+		/// Applies the same policy-corrected ordering used when the real plugin manager registers a new plugin.
+		/// </summary>
+		private void ApplyPolicyCorrectedPluginOrder()
+		{
+			List<Plugin> lstEffectivePlugins = new List<Plugin>();
+			foreach (string strPlugin in m_lstManagedPlugins)
+			{
+				Plugin plgPlugin = FindEffectivePlugin(strPlugin);
+				if (plgPlugin == null)
+					return;
+				lstEffectivePlugins.Add(plgPlugin);
+			}
+
+			IList<Plugin> lstResolvedOrder = m_igpInstallers.PluginManager.ResolvePluginOrder(lstEffectivePlugins);
+			if (lstResolvedOrder != null)
+				m_lstManagedPlugins = RelativizePluginPaths(lstResolvedOrder).ToList();
+		}
+
+		/// <summary>
+		/// Validates and policy-corrects the current projected plugin snapshot when all projected plugins are registered.
+		/// </summary>
+		/// <param name="p_lstPreviousOrder">The plugin order to restore when the requested state is rejected.</param>
+		/// <param name="p_hstPreviousActivePlugins">The active plugin set to restore when the requested state is rejected.</param>
+		private void NormalizeProjectedPluginState(List<string> p_lstPreviousOrder, HashSet<string> p_hstPreviousActivePlugins)
+		{
+			List<Plugin> lstPreviousOrderedPlugins;
+			List<Plugin> lstPreviousActivePlugins;
+			List<Plugin> lstRequestedOrderedPlugins;
+			List<Plugin> lstRequestedActivePlugins;
+			if (!TryResolveEffectivePlugins(p_lstPreviousOrder, p_hstPreviousActivePlugins, out lstPreviousOrderedPlugins, out lstPreviousActivePlugins) ||
+				!TryResolveEffectivePlugins(m_lstManagedPlugins, m_hstActivePlugins, out lstRequestedOrderedPlugins, out lstRequestedActivePlugins))
+				return;
+
+			PluginStateResolution psrResolution = m_igpInstallers.PluginManager.ResolvePluginState(lstPreviousOrderedPlugins, lstPreviousActivePlugins, lstRequestedOrderedPlugins, lstRequestedActivePlugins);
+			if (psrResolution == null)
+				return;
+			if (!psrResolution.IsAllowed)
+			{
+				m_lstManagedPlugins = p_lstPreviousOrder;
+				m_hstActivePlugins = p_hstPreviousActivePlugins;
+				return;
+			}
+
+			m_lstManagedPlugins = RelativizePluginPaths(psrResolution.OrderedPlugins).ToList();
+			m_hstActivePlugins = new HashSet<string>(RelativizePluginPaths(psrResolution.ActivePlugins), StringComparer.OrdinalIgnoreCase);
+		}
+
+		/// <summary>
+		/// Resolves a projected plugin order and active set to effective plugin instances, including plugins planned by the current script.
+		/// </summary>
+		/// <param name="p_lstOrderedPluginPaths">The projected ordered plugin paths.</param>
+		/// <param name="p_hstActivePluginPaths">The projected active plugin paths.</param>
+		/// <param name="p_lstOrderedPlugins">Receives the corresponding registered plugin order.</param>
+		/// <param name="p_lstActivePlugins">Receives the corresponding registered active plugin set.</param>
+		/// <returns><c>true</c> when every projected plugin can be represented for policy evaluation; otherwise, <c>false</c>.</returns>
+		private bool TryResolveEffectivePlugins(IEnumerable<string> p_lstOrderedPluginPaths, IEnumerable<string> p_hstActivePluginPaths, out List<Plugin> p_lstOrderedPlugins, out List<Plugin> p_lstActivePlugins)
+		{
+			p_lstOrderedPlugins = new List<Plugin>();
+			p_lstActivePlugins = new List<Plugin>();
+			foreach (string strPlugin in p_lstOrderedPluginPaths)
+			{
+				Plugin plgPlugin = FindEffectivePlugin(strPlugin);
+				if (plgPlugin == null)
+					return false;
+				p_lstOrderedPlugins.Add(plgPlugin);
+			}
+
+			foreach (string strPlugin in p_hstActivePluginPaths)
+			{
+				Plugin plgPlugin = FindEffectivePlugin(strPlugin);
+				if (plgPlugin == null)
+					return false;
+				p_lstActivePlugins.Add(plgPlugin);
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// Resolves a projected script-visible plugin path to the currently registered plugin instance.
+		/// </summary>
+		/// <param name="p_strPluginPath">The script-visible relative plugin path.</param>
+		/// <returns>The matching registered plugin, or <c>null</c> when the plugin exists only in projected state.</returns>
+		private Plugin FindRegisteredPlugin(string p_strPluginPath)
+		{
+			string strAdjustedPath = m_gmdGameMode.GetModFormatAdjustedPath(m_modMod.Format, p_strPluginPath, false);
+			string strAbsolutePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath, strAdjustedPath);
+			return m_igpInstallers.PluginManager.ManagedPlugins.FirstOrDefault(p_plgPlugin => p_plgPlugin != null && String.Equals(p_plgPlugin.Filename, strAbsolutePath, StringComparison.OrdinalIgnoreCase));
+		}
+
+		/// <summary>
+		/// Resolves a plugin from either the current registry or the projected file overlay.
+		/// </summary>
+		/// <param name="p_strPluginPath">The script-visible relative plugin path.</param>
+		/// <returns>The effective plugin information used for policy evaluation, or <c>null</c> when the file cannot be represented as a plugin.</returns>
+		private Plugin FindEffectivePlugin(string p_strPluginPath)
+		{
+			Plugin plgRegisteredPlugin = FindRegisteredPlugin(p_strPluginPath);
+			if (plgRegisteredPlugin != null)
+				return plgRegisteredPlugin;
+
+			string strPlugin = NormalizeRelativePath(p_strPluginPath);
+			Plugin plgProjectedPlugin;
+			if (m_dicProjectedPluginInfo.TryGetValue(strPlugin, out plgProjectedPlugin))
+				return plgProjectedPlugin;
+
+			string strAdjustedPath = GetAdjustedDataPath(strPlugin);
+			ProjectedDataFile pdfProjectedFile;
+			if (!m_dicProjectedFiles.TryGetValue(strAdjustedPath, out pdfProjectedFile))
+				return null;
+
+			plgProjectedPlugin = CreateProjectedPlugin(strPlugin, pdfProjectedFile.GetData());
+			if (plgProjectedPlugin != null)
+				m_dicProjectedPluginInfo[strPlugin] = plgProjectedPlugin;
+			return plgProjectedPlugin;
+		}
+
+		/// <summary>
+		/// Creates non-registered plugin information from projected file content without modifying the game installation or plugin registry.
+		/// </summary>
+		/// <param name="p_strPluginPath">The script-visible relative plugin path.</param>
+		/// <param name="p_bteData">The projected plugin contents.</param>
+		/// <returns>A plugin instance whose filename represents the eventual deployment path, or <c>null</c> when the projected file is not an activatable plugin.</returns>
+		private Plugin CreateProjectedPlugin(string p_strPluginPath, byte[] p_bteData)
+		{
+			if (p_bteData == null)
+				return null;
+
+			IPluginFactory pgfPluginFactory = m_gmdGameMode.GetPluginFactory();
+			if (pgfPluginFactory == null)
+				return null;
+
+			string strAdjustedPath = m_gmdGameMode.GetModFormatAdjustedPath(m_modMod.Format, p_strPluginPath, false);
+			string strAbsolutePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath, strAdjustedPath);
+			string strTemporaryDirectory = Path.Combine(Path.GetTempPath(), "NMMCE", "ProjectedPlugins", Guid.NewGuid().ToString("N"));
+			string strTemporaryPath = Path.Combine(strTemporaryDirectory, Path.GetFileName(strAbsolutePath));
+
+			try
+			{
+				Directory.CreateDirectory(strTemporaryDirectory);
+				File.WriteAllBytes(strTemporaryPath, p_bteData);
+
+				Plugin plgParsedPlugin = pgfPluginFactory.CreatePlugin(strTemporaryPath);
+				if (plgParsedPlugin == null)
+					return null;
+
+				// Policy evaluation depends on the eventual game path for critical/fixed plugin rules,
+				// while metadata and masters must come from the projected file contents.
+				Plugin plgProjectedPlugin = new Plugin(strAbsolutePath, plgParsedPlugin.Description, null);
+				plgProjectedPlugin.SetMetadata(plgParsedPlugin.Metadata);
+				return plgProjectedPlugin;
+			}
+			finally
+			{
+				try
+				{
+					if (Directory.Exists(strTemporaryDirectory))
+						Directory.Delete(strTemporaryDirectory, true);
+				}
+				catch (IOException)
+				{
+				}
+				catch (UnauthorizedAccessException)
+				{
+				}
+			}
 		}
 
 		/// <summary>
@@ -473,6 +680,29 @@ namespace Nexus.Client.ModManagement.Scripting
 				else
 					yield return NormalizeRelativePath(Path.GetFileName(plgPlugin.Filename));
 			}
+		}
+
+		/// <summary>
+		/// Attempts to move a projected plugin through the same policy restrictions used by the real plugin manager.
+		/// </summary>
+		/// <param name="p_strPlugin">The plugin path to move.</param>
+		/// <param name="p_intNewIndex">The requested load-order index.</param>
+		/// <returns><c>true</c> when the plugin's projected index changed; otherwise, <c>false</c>.</returns>
+		private bool TryMovePluginToIndex(string p_strPlugin, int p_intNewIndex)
+		{
+			int intPreviousIndex = IndexOfPlugin(p_strPlugin);
+			if (intPreviousIndex < 0)
+				return false;
+
+			Plugin plgEffectivePlugin = FindEffectivePlugin(p_strPlugin);
+			if ((plgEffectivePlugin != null) && !m_igpInstallers.PluginManager.CanChangePluginOrder(plgEffectivePlugin))
+				return false;
+
+			List<string> lstPreviousOrder = new List<string>(m_lstManagedPlugins);
+			HashSet<string> hstPreviousActivePlugins = new HashSet<string>(m_hstActivePlugins, StringComparer.OrdinalIgnoreCase);
+			MovePluginToIndex(p_strPlugin, p_intNewIndex);
+			NormalizeProjectedPluginState(lstPreviousOrder, hstPreviousActivePlugins);
+			return IndexOfPlugin(p_strPlugin) != intPreviousIndex;
 		}
 
 		/// <summary>
@@ -605,7 +835,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			/// <param name="p_bteData">The projected file contents.</param>
 			public ProjectedDataFile(byte[] p_bteData)
 			{
-				m_bteData = p_bteData;
+				m_bteData = p_bteData == null ? null : (byte[])p_bteData.Clone();
 				m_booResolved = true;
 			}
 
@@ -628,10 +858,11 @@ namespace Nexus.Client.ModManagement.Scripting
 			{
 				if (!m_booResolved)
 				{
-					m_bteData = m_fncDataResolver();
+					byte[] bteResolvedData = m_fncDataResolver();
+					m_bteData = bteResolvedData == null ? null : (byte[])bteResolvedData.Clone();
 					m_booResolved = true;
 				}
-				return m_bteData;
+				return m_bteData == null ? null : (byte[])m_bteData.Clone();
 			}
 		}
 	}
