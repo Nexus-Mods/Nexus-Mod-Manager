@@ -16,6 +16,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	public class XmlScriptInstaller : BackgroundTask
 	{
 		private readonly IScriptedInstallOperationExecutor m_sioOperationExecutor;
+		private ScriptedInstallationProjectedState m_spsProjectedState;
 
 		#region Properties
 
@@ -112,37 +113,46 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			IList<InstallableFile> lstRequiredFiles = p_xscScript.RequiredInstallFiles;
 			IList<ConditionallyInstalledFileSet> lstConditionallyInstalledFileSets = p_xscScript.ConditionallyInstalledFileSets;
 			ISet<string> setSelectableSources = GetSelectableOptionSources(p_xscScript);
+			IPluginConditionStateProvider pcsPreviousProvider = p_csmStateManager.PluginConditionStateProvider;
+			p_csmStateManager.PluginConditionStateProvider = new ProjectedPluginConditionStateProvider(m_spsProjectedState);
 
-			foreach (InstallableFile iflRequiredFile in lstRequiredFiles)
+			try
 			{
-				if (Status == TaskStatus.Cancelling)
-					return false;
-				if (!InstallFile(iflRequiredFile, true))
-					return false;
-			}
-
-			foreach (InstallableFile ilfFile in p_colFilesToInstall)
-			{
-				if (Status == TaskStatus.Cancelling)
-					return false;
-				if (!InstallFile(ilfFile, p_colPluginsToActivate.Contains(ilfFile)))
-					return false;
-			}
-
-			foreach (ConditionallyInstalledFileSet cisFileSet in lstConditionallyInstalledFileSets)
-			{
-				if (!cisFileSet.Condition.GetIsFulfilled(p_csmStateManager))
-					continue;
-
-				foreach (InstallableFile ilfFile in cisFileSet.Files)
+				foreach (InstallableFile iflRequiredFile in lstRequiredFiles)
 				{
-					if (IsUnselectedOptionFallback(cisFileSet, ilfFile, setSelectableSources))
-						continue;
 					if (Status == TaskStatus.Cancelling)
 						return false;
-					if (!InstallFile(ilfFile, true))
+					if (!InstallFile(iflRequiredFile, true))
 						return false;
 				}
+
+				foreach (InstallableFile ilfFile in p_colFilesToInstall)
+				{
+					if (Status == TaskStatus.Cancelling)
+						return false;
+					if (!InstallFile(ilfFile, p_colPluginsToActivate.Contains(ilfFile)))
+						return false;
+				}
+
+				foreach (ConditionallyInstalledFileSet cisFileSet in lstConditionallyInstalledFileSets)
+				{
+					if (!cisFileSet.Condition.GetIsFulfilled(p_csmStateManager))
+						continue;
+
+					foreach (InstallableFile ilfFile in cisFileSet.Files)
+					{
+						if (IsUnselectedOptionFallback(cisFileSet, ilfFile, setSelectableSources))
+							continue;
+						if (Status == TaskStatus.Cancelling)
+							return false;
+						if (!InstallFile(ilfFile, true))
+							return false;
+					}
+				}
+			}
+			finally
+			{
+				p_csmStateManager.PluginConditionStateProvider = pcsPreviousProvider;
 			}
 
 			return ExecuteInstallationPlan();
@@ -300,7 +310,28 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
 				return true;
 
-			return InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo));
+			InstallModFileOperation imoOperation = new InstallModFileOperation(p_strFrom, p_strTo);
+			if (!InstallationSession.Submit(imoOperation))
+				return false;
+
+			// The legacy XML installer treats an empty or dot destination as the source file name.
+			// Project that effective destination without changing the operation persisted for replay compatibility.
+			string strProjectedDestination = GetEffectiveInstallDestination(p_strFrom, p_strTo);
+			m_spsProjectedState.Apply(new InstallModFileOperation(p_strFrom, strProjectedDestination));
+			return true;
+		}
+
+		/// <summary>
+		/// Resolves the effective XML install destination used by the legacy file-link path.
+		/// </summary>
+		/// <param name="p_strFrom">The source path inside the mod archive.</param>
+		/// <param name="p_strTo">The destination path declared by the XML installer.</param>
+		/// <returns>The effective logical destination used for deployment and projected-state evaluation.</returns>
+		private string GetEffectiveInstallDestination(string p_strFrom, string p_strTo)
+		{
+			return String.IsNullOrEmpty(p_strTo) || p_strTo.Equals(".", StringComparison.Ordinal)
+				? Path.GetFileName(p_strFrom)
+				: p_strTo;
 		}
 
 		/// <summary>
@@ -310,8 +341,12 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <param name="p_booActivate">Whether the plugin should be activated.</param>
 		private void QueuePluginActivation(string p_strPluginPath, bool p_booActivate)
 		{
-			if (Installers.PluginManager != null)
-				InstallationSession.Submit(new SetPluginActivationOperation(p_strPluginPath, p_booActivate));
+			if (Installers.PluginManager == null)
+				return;
+
+			SetPluginActivationOperation saoOperation = new SetPluginActivationOperation(p_strPluginPath, p_booActivate);
+			if (InstallationSession.Submit(saoOperation))
+				m_spsProjectedState.Apply(saoOperation);
 		}
 
 		/// <summary>
@@ -361,6 +396,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// </summary>
 		private void ResetInstallationSession()
 		{
+			m_spsProjectedState = new ScriptedInstallationProjectedState(Mod, GameMode, Installers);
 			InstallationSession = new ScriptedInstallationSession(m_sioOperationExecutor, ScriptedInstallationSessionMode.Deferred);
 		}
 

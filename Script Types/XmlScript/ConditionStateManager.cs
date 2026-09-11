@@ -59,6 +59,11 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		public IEnvironmentInfo EnvironmentInfo { get; private set; }
 
 		/// <summary>
+		/// Gets or sets the optional plugin-state provider used while deferred XML installation conditions are evaluated.
+		/// </summary>
+		public IPluginConditionStateProvider PluginConditionStateProvider { get; set; }
+
+		/// <summary>
 		/// Gets the current values of the flags that have been set.
 		/// </summary>
 		/// <value>The current values of the flags that have been set.</value>
@@ -93,6 +98,38 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Determines whether a plugin is registered in the effective state visible to XML conditions.
+		/// </summary>
+		/// <param name="p_strPluginPath">The plugin path as declared by the XML script.</param>
+		/// <returns><c>true</c> when the plugin is registered; otherwise, <c>false</c>.</returns>
+		public bool IsPluginRegistered(string p_strPluginPath)
+		{
+			if (PluginConditionStateProvider != null)
+				return PluginConditionStateProvider.IsPluginRegistered(p_strPluginPath);
+			if (PluginManager == null)
+				return false;
+
+			string strPluginPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath, false);
+			return PluginManager.IsPluginRegistered(strPluginPath);
+		}
+
+		/// <summary>
+		/// Determines whether a plugin is active in the effective state visible to XML conditions.
+		/// </summary>
+		/// <param name="p_strPluginPath">The plugin path as declared by the XML script.</param>
+		/// <returns><c>true</c> when the plugin is active; otherwise, <c>false</c>.</returns>
+		public bool IsPluginActive(string p_strPluginPath)
+		{
+			if (PluginConditionStateProvider != null)
+				return PluginConditionStateProvider.IsPluginActive(p_strPluginPath);
+			if (PluginManager == null)
+				return false;
+
+			string strPluginPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath, false);
+			return PluginManager.IsPluginActive(strPluginPath);
+		}
 
 		/// <summary>
 		/// Sets the value of a conditional flag.

@@ -430,6 +430,28 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
+		/// Determines whether a plugin is registered in the projected managed-plugin snapshot.
+		/// </summary>
+		/// <param name="p_strPluginPath">The script-visible relative plugin path.</param>
+		/// <returns><c>true</c> when the plugin is registered; otherwise, <c>false</c>.</returns>
+		public bool IsPluginRegistered(string p_strPluginPath)
+		{
+			EnsurePluginSnapshot();
+			return ContainsPlugin(NormalizeRelativePath(p_strPluginPath));
+		}
+
+		/// <summary>
+		/// Determines whether a plugin is active in the projected plugin snapshot.
+		/// </summary>
+		/// <param name="p_strPluginPath">The script-visible relative plugin path.</param>
+		/// <returns><c>true</c> when the plugin is active; otherwise, <c>false</c>.</returns>
+		public bool IsPluginActive(string p_strPluginPath)
+		{
+			EnsurePluginSnapshot();
+			return m_hstActivePlugins.Contains(NormalizeRelativePath(p_strPluginPath));
+		}
+
+		/// <summary>
 		/// Initializes the projected plugin snapshot from the current plugin manager when first required.
 		/// </summary>
 		private void EnsurePluginSnapshot()
