@@ -227,8 +227,7 @@ namespace Nexus.Client.ModManagement
 			if (VirtualModActivator.DisableLinkCreation && lstFilesToLink.Count > 0)
 				throw new InvalidOperationException("Mod file deployment is currently disabled. The installation cannot complete safely.");
 
-			using (VirtualModActivator.BeginModInfoUpdateBatch())
-			using (VirtualModActivator.BeginVirtualLinkUpdateBatch(lstFilesToLink.Count))
+			using (new VirtualModDeploymentBatch(VirtualModActivator, lstFilesToLink.Count))
 			{
 				foreach (KeyValuePair<string, string> strLink in lstFilesToLink)
 				{

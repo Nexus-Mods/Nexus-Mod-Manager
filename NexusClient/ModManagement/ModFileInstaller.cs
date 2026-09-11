@@ -14,7 +14,7 @@ namespace Nexus.Client.ModManagement
 	/// <summary>
 	/// This installs mod files.
 	/// </summary>
-	public class ModFileInstaller : IModFileInstaller
+	public class ModFileInstaller : IModFileInstaller, IModFileInstallDecisionSupport
 	{
 		private List<string> m_lstOverwriteFolders = new List<string>();
 		private List<string> m_lstDontOverwriteFolders = new List<string>();
@@ -124,7 +124,7 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		/// <summary>
-		/// Verifies if the given file can be written.
+		/// Resolves whether the given file may be overwritten using the current overwrite-decision state.
 		/// </summary>
 		/// <remarks>
 		/// This method checks if the given path is valid. If so, and the file does not
@@ -134,7 +134,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strPath">The file path, relative to the Data folder, whose writability is to be verified.</param>
 		/// <returns><c>true</c> if the location specified by <paramref name="p_strPath"/>
 		/// can be written; <c>false</c> otherwise.</returns>
-		protected bool TestDoOverwrite(string p_strPath)
+		public virtual bool ResolveDataFileOverwrite(string p_strPath)
 		{
 			string strDataPath = Path.Combine(InstallBasePath, p_strPath);
 			bool booFIDataPath = false;
@@ -324,6 +324,36 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Installs a mod archive file after the destination overwrite decision has already been resolved.
+		/// </summary>
+		/// <param name="p_strModFilePath">The path of the source file in the mod archive.</param>
+		/// <param name="p_strInstallPath">The destination path relative to the installer's data root.</param>
+		/// <returns><c>true</c> if the source file is written; otherwise, <c>false</c>.</returns>
+		public virtual bool InstallFileFromModWithResolvedOverwrite(string p_strModFilePath, string p_strInstallPath)
+		{
+			FileStream fstModFile = null;
+			string strTemporaryFilePath = null;
+
+			try
+			{
+				fstModFile = Mod.GetFileStream(p_strModFilePath);
+				strTemporaryFilePath = fstModFile == null ? null : fstModFile.Name;
+				return fstModFile != null && GenerateDataFileWithResolvedOverwrite(p_strInstallPath, fstModFile);
+			}
+			catch (FileNotFoundException)
+			{
+				return false;
+			}
+			finally
+			{
+				if (fstModFile != null)
+					fstModFile.Dispose();
+
+				DeleteTemporaryModStreamFile(strTemporaryFilePath);
+			}
+		}
+
 		private void DeleteTemporaryModStreamFile(string p_strFilePath)
 		{
 			if (string.IsNullOrWhiteSpace(p_strFilePath) || m_eifEnvironmentInfo == null || string.IsNullOrWhiteSpace(m_eifEnvironmentInfo.TemporaryPath))
@@ -366,15 +396,27 @@ namespace Nexus.Client.ModManagement
 		/// <exception cref="IllegalFilePathException">Thrown if <paramref name="p_strPath"/> is
 		/// not safe.</exception>
 		public virtual bool GenerateDataFile(string p_strPath, byte[] p_bteData)
-		{ 
+		{
 			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
-			if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
-				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
-			else
-			{
-				if (!TestDoOverwrite(p_strPath))
-					return false;
-			}
+			if (Directory.Exists(Path.GetDirectoryName(strInstallFilePath)) && !ResolveDataFileOverwrite(p_strPath))
+				return false;
+
+			return GenerateDataFileWithResolvedOverwrite(p_strPath, p_bteData);
+		}
+
+		/// <summary>
+		/// Writes generated data after the destination overwrite decision has already been resolved.
+		/// </summary>
+		/// <param name="p_strPath">The destination path relative to the installer's data root.</param>
+		/// <param name="p_bteData">The data to write.</param>
+		/// <returns><c>true</c> when the file is written.</returns>
+		public virtual bool GenerateDataFileWithResolvedOverwrite(string p_strPath, byte[] p_bteData)
+		{
+			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
+			string strDirectory = Path.GetDirectoryName(strInstallFilePath);
+			if (!Directory.Exists(strDirectory))
+				TransactionalFileManager.CreateDirectory(strDirectory);
+
 			TransactionalFileManager.WriteAllBytes(strInstallFilePath, p_bteData);
 			InstallLog.AddDataFile(Mod, p_strPath);
 			return true;
@@ -394,17 +436,29 @@ namespace Nexus.Client.ModManagement
         public virtual bool GenerateDataFile(string p_strPath, FileStream p_fstData)
         {
             string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
-            if (!Directory.Exists(Path.GetDirectoryName(strInstallFilePath)))
-                TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
-            else
-            {
-                if (!TestDoOverwrite(p_strPath))
-                    return false;
-            }
-            TransactionalFileManager.WriteFileStream(strInstallFilePath, p_fstData);
-            InstallLog.AddDataFile(Mod, p_strPath);
-            return true;
+            if (Directory.Exists(Path.GetDirectoryName(strInstallFilePath)) && !ResolveDataFileOverwrite(p_strPath))
+                return false;
+
+            return GenerateDataFileWithResolvedOverwrite(p_strPath, p_fstData);
         }
+
+		/// <summary>
+		/// Writes streamed data after the destination overwrite decision has already been resolved.
+		/// </summary>
+		/// <param name="p_strPath">The destination path relative to the installer's data root.</param>
+		/// <param name="p_fstData">The stream containing the data to write.</param>
+		/// <returns><c>true</c> when the file is written.</returns>
+		protected virtual bool GenerateDataFileWithResolvedOverwrite(string p_strPath, FileStream p_fstData)
+		{
+			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
+			string strDirectory = Path.GetDirectoryName(strInstallFilePath);
+			if (!Directory.Exists(strDirectory))
+				TransactionalFileManager.CreateDirectory(strDirectory);
+
+			TransactionalFileManager.WriteFileStream(strInstallFilePath, p_fstData);
+			InstallLog.AddDataFile(Mod, p_strPath);
+			return true;
+		}
 
         /// <summary>
         /// Checks whether the file is a gamebryo-like plugin and adds/removes it to the plugin list.
@@ -559,7 +613,7 @@ namespace Nexus.Client.ModManagement
 				TransactionalFileManager.CreateDirectory(Path.GetDirectoryName(strInstallFilePath));
 			else
 			{
-				if (!TestDoOverwrite(p_strPath))
+				if (!ResolveDataFileOverwrite(p_strPath))
 					return false;
 
 				if (File.Exists(strInstallFilePath))

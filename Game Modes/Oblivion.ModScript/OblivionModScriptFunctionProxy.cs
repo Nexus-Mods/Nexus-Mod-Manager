@@ -108,7 +108,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditINI(string p_strSection, string p_strKey, string p_strValue)
 		{
-			return Installers.IniInstaller.EditIni(((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey, p_strValue);
+			return EditIni(((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath, p_strSection, p_strKey, p_strValue);
 		}
 
 		#endregion
@@ -122,7 +122,11 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 		private List<string> GetBSAList()
 		{
 			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
-			List<string> lstBsas = new List<string>(IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strIniPath).Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
+			string strArchiveList = IsDeferredInstallationEnabled
+				? GetIniString(strIniPath, "Archive", "SArchiveList")
+				: IniMethods.GetPrivateProfileString("Archive", "SArchiveList", null, strIniPath);
+			strArchiveList = strArchiveList ?? String.Empty;
+			List<string> lstBsas = new List<string>(strArchiveList.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries));
 			for (int i = 0; i < lstBsas.Count; i++)
 				lstBsas[i] = lstBsas[i].Trim(' ');
 			return lstBsas;
@@ -140,7 +144,10 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 				return;
 			lstBsas.Add(strFixedPath);
 			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
-			IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
+			if (IsDeferredInstallationEnabled)
+				EditIniWithoutOverwriteDecision(strIniPath, "Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()));
+			else
+				IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
 		}
 
 		/// <summary>
@@ -156,7 +163,10 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 				return;
 			lstBsas.RemoveAt(intIndex);
 			string strIniPath = ((GamebryoGameModeBase)GameMode).SettingsFiles.IniPath;
-			IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
+			if (IsDeferredInstallationEnabled)
+				EditIniWithoutOverwriteDecision(strIniPath, "Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()));
+			else
+				IniMethods.WritePrivateProfileString("Archive", "SArchiveList", String.Join(", ", lstBsas.ToArray()), strIniPath);
 		}
 
 		#endregion
@@ -176,7 +186,7 @@ namespace Nexus.Client.Games.Oblivion.Scripting.ModScript
 			Int32 intPackage = Int32.Parse(p_intPackage);
 			byte[] bteData = GetFileFromMod(p_strNewDataFilePath);
 			GamebryoGameSpecificValueInstaller.ShaderEdit sedShader = new GamebryoGameSpecificValueInstaller.ShaderEdit(intPackage, p_strShaderName);
-			return Installers.GameSpecificValueInstaller.EditGameSpecificValue(sedShader.ToString(), bteData);
+			return EditGameSpecificValue(sedShader.ToString(), bteData);
 		}
 
 		#endregion

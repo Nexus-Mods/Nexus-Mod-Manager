@@ -81,28 +81,53 @@ namespace Nexus.Client.ModManagement
 		public override bool GenerateDataFile(string p_strPath, byte[] p_bteData)
 		{
 			DataFileUtility.AssertFilePathIsSafe(p_strPath);
+			if (!ResolveDataFileOverwrite(p_strPath))
+				return false;
+
+			return GenerateDataFileWithResolvedOverwrite(p_strPath, p_bteData);
+		}
+
+		/// <summary>
+		/// Resolves whether a data-file overwrite requires confirmation during an upgrade.
+		/// </summary>
+		/// <param name="p_strPath">The destination path relative to the data root.</param>
+		/// <returns><c>true</c> when the write may proceed; otherwise, <c>false</c>.</returns>
+		public override bool ResolveDataFileOverwrite(string p_strPath)
+		{
+			IList<IMod> lstInstallers = InstallLog.GetFileInstallers(p_strPath);
+			return lstInstallers.Contains(Mod, ModComparer.Filename) || base.ResolveDataFileOverwrite(p_strPath);
+		}
+
+		/// <summary>
+		/// Writes generated data using upgrade ownership rules after overwrite confirmation has already been resolved.
+		/// </summary>
+		/// <param name="p_strPath">The destination path relative to the data root.</param>
+		/// <param name="p_bteData">The data to write.</param>
+		/// <returns><c>true</c> when the file is written.</returns>
+		public override bool GenerateDataFileWithResolvedOverwrite(string p_strPath, byte[] p_bteData)
+		{
+			DataFileUtility.AssertFilePathIsSafe(p_strPath);
 			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
 
 			IList<IMod> lstInstallers = InstallLog.GetFileInstallers(p_strPath);
-			if (lstInstallers.Contains(Mod, ModComparer.Filename))
-			{
-				string strWritePath = null;
-				if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
-				{
-					string strDirectory = Path.GetDirectoryName(p_strPath);
-					string strBackupPath = Path.Combine(GameModeInfo.OverwriteDirectory, strDirectory);
-					string strOldModKey = InstallLog.GetModKey(Mod);
-					string strFile = strOldModKey + "_" + Path.GetFileName(p_strPath);
-					strWritePath = Path.Combine(strBackupPath, strFile);
-				}
-				else
-					strWritePath = strInstallFilePath;
-				TransactionalFileManager.WriteAllBytes(strWritePath, p_bteData);
-				OriginallyInstalledFiles.Remove(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
-				return true;
-			}
+			if (!lstInstallers.Contains(Mod, ModComparer.Filename))
+				return base.GenerateDataFileWithResolvedOverwrite(p_strPath, p_bteData);
 
-			return base.GenerateDataFile(p_strPath, p_bteData);
+			string strWritePath;
+			if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
+			{
+				string strDirectory = Path.GetDirectoryName(p_strPath);
+				string strBackupPath = Path.Combine(GameModeInfo.OverwriteDirectory, strDirectory);
+				string strOldModKey = InstallLog.GetModKey(Mod);
+				string strFile = strOldModKey + "_" + Path.GetFileName(p_strPath);
+				strWritePath = Path.Combine(strBackupPath, strFile);
+			}
+			else
+				strWritePath = strInstallFilePath;
+
+			TransactionalFileManager.WriteAllBytes(strWritePath, p_bteData);
+			OriginallyInstalledFiles.Remove(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+			return true;
 		}
 
 		/// <summary>

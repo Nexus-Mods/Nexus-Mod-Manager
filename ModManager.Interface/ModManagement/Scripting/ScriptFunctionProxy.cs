@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security;
 using System.Security.Permissions;
-using System.Xml;
-using System.Xml.Linq;
 using System.Windows.Forms;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util;
@@ -25,9 +24,10 @@ namespace Nexus.Client.ModManagement.Scripting
 	/// </remarks>
 	public class ScriptFunctionProxy : MarshalByRefObject
 	{
-		private XDocument m_docLog = new XDocument();
-		private XElement m_xelRoot = null;
-
+		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
+		private readonly HashSet<string> m_hstPlannedStagingWrites = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		private readonly HashSet<string> m_hstProjectedActiveLinks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		private HashSet<string> m_hstModFiles;
 		#region Events
 
 		/// <summary>
@@ -80,6 +80,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		protected IModLinkInstaller ModLinkInstaller { get; private set; }
 
 		/// <summary>
+		/// Gets the scripted installation session used to record and execute logical installation operations.
+		/// </summary>
+		/// <value>The current scripted installation session.</value>
+		protected ScriptedInstallationSession InstallationSession { get; private set; }
+
+		/// <summary>
 		/// Gets the manager to use to display UI elements.
 		/// </summary>
 		/// <value>The manager to use to display UI elements.</value>
@@ -106,6 +112,87 @@ namespace Nexus.Client.ModManagement.Scripting
 			UIManager = p_uipUIProxy;
 			VirtualModActivator = p_ivaVirtualModActivator;
 			ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
+			m_sfcFileSelectionCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			ConfigureInstallationSession(ScriptedInstallationSessionMode.Immediate, null);
+		}
+
+		#endregion
+
+		#region Installation Session Configuration
+
+		/// <summary>
+		/// Attempts to switch the current script proxy to deferred installation planning with projected-state support.
+		/// </summary>
+		/// <returns><c>true</c> when all required decision-separation capabilities are available and deferred planning is enabled; otherwise, <c>false</c>.</returns>
+		protected bool TryEnableDeferredInstallation()
+		{
+			if (!(Installers.FileInstaller is IModFileInstallDecisionSupport) ||
+				!(ModLinkInstaller is IModLinkInstallDecisionSupport) ||
+				!(Installers.IniInstaller is IIniEditDecisionSupport) ||
+				((Installers.GameSpecificValueInstaller != null) && !(Installers.GameSpecificValueInstaller is IGameSpecificValueInstallDecisionSupport)))
+				return false;
+
+			m_hstPlannedStagingWrites.Clear();
+			m_hstProjectedActiveLinks.Clear();
+			ScriptedInstallationProjectedState spsProjectedState = new ScriptedInstallationProjectedState(Mod, GameMode, Installers);
+			ConfigureInstallationSession(ScriptedInstallationSessionMode.Deferred, spsProjectedState);
+			return true;
+		}
+
+		/// <summary>
+		/// Executes all operations that remain pending in the current scripted installation session.
+		/// </summary>
+		/// <returns><c>true</c> when every pending operation completes successfully; otherwise, <c>false</c>.</returns>
+		protected bool ExecutePendingInstallationOperations()
+		{
+			return ExecuteWithFullTrust(() => InstallationSession.ExecutePendingOperations());
+		}
+
+		/// <summary>
+		/// Configures the proxy to execute every submitted operation synchronously for legacy scripts that can observe the filesystem directly.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown when deferred operations are still pending.</exception>
+		protected void UseImmediateCompatibilityInstallation()
+		{
+			if (InstallationSession.HasPendingOperations)
+				throw new InvalidOperationException("Deferred scripted installation operations must be committed before enabling immediate compatibility execution.");
+
+			m_hstPlannedStagingWrites.Clear();
+			m_hstProjectedActiveLinks.Clear();
+			ConfigureInstallationSession(ScriptedInstallationSessionMode.ImmediateCompatibility, null);
+		}
+
+		/// <summary>
+		/// Switches the current proxy back to immediate execution after all deferred operations have been committed.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown when deferred operations are still pending.</exception>
+		protected void SwitchToImmediateInstallation()
+		{
+			if (InstallationSession.HasPendingOperations)
+				throw new InvalidOperationException("Deferred scripted installation operations must be committed before switching to immediate execution.");
+
+			m_hstPlannedStagingWrites.Clear();
+			m_hstProjectedActiveLinks.Clear();
+			ConfigureInstallationSession(ScriptedInstallationSessionMode.Immediate, null);
+		}
+
+		/// <summary>
+		/// Gets whether the current proxy is collecting installation operations for deferred execution.
+		/// </summary>
+		protected bool IsDeferredInstallationEnabled
+		{
+			get { return InstallationSession.Mode == ScriptedInstallationSessionMode.Deferred; }
+		}
+
+		/// <summary>
+		/// Recreates the scripted installation session with the requested execution mode and projected-state view.
+		/// </summary>
+		/// <param name="p_simMode">The requested execution mode.</param>
+		/// <param name="p_spsProjectedState">The projected-state overlay used while planning, or <c>null</c> for immediate execution.</param>
+		private void ConfigureInstallationSession(ScriptedInstallationSessionMode p_simMode, ScriptedInstallationProjectedState p_spsProjectedState)
+		{
+			ImmediateScriptedInstallOperationExecutor sioExecutor = new ImmediateScriptedInstallOperationExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ModLinkInstaller, Installers, OnTaskStarted, m_sfcFileSelectionCache);
+			InstallationSession = new ScriptedInstallationSession(sioExecutor, p_simMode, p_spsProjectedState);
 		}
 
 		#endregion
@@ -191,19 +278,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <c>false</c> otherwise.</returns>
 		public bool PerformBasicInstall()
 		{
-			bool booSuccess = false;
-			try
-			{
-				new PermissionSet(PermissionState.Unrestricted).Assert();
-				BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, Installers.FileInstaller, Installers.PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, null, null);
-				OnTaskStarted(bitTask);
-				booSuccess = bitTask.Execute();
-			}
-			finally
-			{
-				PermissionSet.RevertAssert();
-			}
-			return booSuccess;
+			return ExecuteWithFullTrust(() => InstallationSession.Submit(new PerformBasicInstallOperation()));
 		}
 
 		#endregion
@@ -257,70 +332,26 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
 				return true;
 
-			bool booSuccess = false;
-			string strFrom = p_strFrom.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
-			string strTo = p_strTo.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			string strFileType = Path.GetExtension(strTo);
-			if (!strFileType.StartsWith("."))
-				strFileType = "." + strFileType;
-			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(strTo) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
-
-			try
+			return ExecuteWithFullTrust(() =>
 			{
-				new PermissionSet(PermissionState.Unrestricted).Assert();
+				if (!IsDeferredInstallationEnabled)
+					return InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo));
 
-				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strTo);
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1)) ? string.Empty : Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Mod.DownloadId, strTo);
-				string strVirtualPath = strModFilenamePath;
+				string strDestination = p_strTo.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				string strStagingPath = ScriptedInstallStagingPathResolver.GetStagingPath(Mod, GameMode, VirtualModActivator, strDestination, false);
+				bool booSourceAvailable = ModContainsFile(p_strFrom);
+				bool booStageFile = ResolveDeferredStagingWrite(strStagingPath, booSourceAvailable);
+				ModLinkInstallDecision midLinkDecision = ResolveDeferredLinkDecision(strDestination);
+				if (!InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo, strStagingPath, booStageFile, midLinkDecision)))
+					return false;
 
-				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
-					strVirtualPath = strModDownloadIDPath;
-
-				Installers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);
-				string strCheck = ModLinkInstaller.AddFileLink(Mod, strTo, strVirtualPath, true, true);
-
-				booSuccess = true;
-				if (!String.IsNullOrEmpty(strCheck))
-					SaveXMLInstalledFiles(p_strFrom, p_strTo);
-			}
-			finally
-			{
-				PermissionSet.RevertAssert();
-			}
-			
-			return booSuccess;
+				// Legacy InstallFileFromMod reports success only when AddFileLink creates or replaces the active link.
+				// Existing staged content can still satisfy the operation when the incoming archive file is unavailable.
+				return midLinkDecision.CreatesActiveLink && (booSourceAvailable || File.Exists(strStagingPath));
+			});
 		}
 
-		/// <summary>
-		/// Create the XML file with the Install Files list (From the rar to the folder).
-		/// </summary>
-		private void SaveXMLInstalledFiles(string p_strFrom, string p_strTo)
-		{
-			if (m_docLog == null)
-				m_docLog = new XDocument();
 
-			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
-			if (!Directory.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted")))
-				Directory.CreateDirectory(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"));
-
-			if (Directory.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted")))
-			{
-				if (!File.Exists(strInstallFilesPath))
-				{
-					m_xelRoot = new XElement("FileList", new XAttribute("ModName", Mod.ModName ?? String.Empty), new XAttribute("ModVersion", Mod.HumanReadableVersion ?? String.Empty));
-					m_docLog.Add(m_xelRoot);
-					XElement xelFiles = new XElement("File", new XAttribute("FileFrom", p_strFrom ?? String.Empty), new XAttribute("FileTo", p_strTo ?? String.Empty));
-					m_xelRoot.Add(xelFiles);
-				}
-				else
-				{
-					XElement xelFiles = new XElement("File", new XAttribute("FileFrom", p_strFrom ?? String.Empty), new XAttribute("FileTo", p_strTo ?? String.Empty));
-					m_xelRoot.Add(xelFiles);
-				}
-
-				m_docLog.Save(strInstallFilesPath);
-			}
-		}
 
 		/// <summary>
 		/// Installs the specified file from the mod to the file system.
@@ -408,6 +439,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			return ExecuteWithFullTrust(() =>
 			{
+				if (InstallationSession.ProjectedState != null)
+					return InstallationSession.ProjectedState.GetExistingDataFileList(p_strPath, p_strPattern, p_booAllFolders);
+
 				string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
 				return Installers.DataFileUtility.GetExistingDataFileList(strFixedPath, p_strPattern, p_booAllFolders);
@@ -424,6 +458,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			return ExecuteWithFullTrust(() =>
 			{
+				if (InstallationSession.ProjectedState != null)
+					return InstallationSession.ProjectedState.DataFileExists(p_strPath);
+
 				string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
 				return Installers.DataFileUtility.DataFileExists(strFixedPath);
@@ -439,6 +476,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			return ExecuteWithFullTrust(() =>
 			{
+				if (InstallationSession.ProjectedState != null)
+					return InstallationSession.ProjectedState.GetExistingDataFile(p_strPath);
+
 				string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, strPath, false);
 				return Installers.DataFileUtility.GetExistingDataFile(strFixedPath);
@@ -457,34 +497,17 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
 		public bool GenerateDataFile(string p_strPath, byte[] p_bteData)
 		{
-			bool booSuccess = false;
-			string strPath = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			string strFileType = Path.GetExtension(strPath);
-			if (!strFileType.StartsWith("."))
-				strFileType = "." + strFileType;
-			bool booHardLinkFile = (VirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(strPath) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
-
-			try
+			return ExecuteWithFullTrust(() =>
 			{
-				new PermissionSet(PermissionState.Unrestricted).Assert();
+				if (!IsDeferredInstallationEnabled)
+					return InstallationSession.Submit(new GenerateDataFileOperation(p_strPath, p_bteData));
 
-				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), strPath);
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(((booHardLinkFile) ? VirtualModActivator.HDLinkFolder : VirtualModActivator.VirtualPath), Mod.DownloadId, strPath);
-				string strVirtualPath = strModFilenamePath;
-
-				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
-					strVirtualPath = strModDownloadIDPath;
-
-				Installers.FileInstaller.GenerateDataFile(strVirtualPath, p_bteData);
-				ModLinkInstaller.AddFileLink(Mod, strPath, strVirtualPath, true);
-
-				booSuccess = true;
-			}
-			finally
-			{
-				PermissionSet.RevertAssert();
-			}
-			return booSuccess;
+				string strDestination = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				string strStagingPath = ScriptedInstallStagingPathResolver.GetStagingPath(Mod, GameMode, VirtualModActivator, strDestination, true);
+				bool booStageFile = ResolveDeferredStagingWrite(strStagingPath, true);
+				ModLinkInstallDecision midLinkDecision = ResolveDeferredLinkDecision(strDestination);
+				return InstallationSession.Submit(new GenerateDataFileOperation(p_strPath, p_bteData, strStagingPath, booStageFile, midLinkDecision));
+			});
 		}
 
 		#endregion
@@ -618,7 +641,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A list of all installed plugins.</returns>
 		public string[] GetAllPlugins()
 		{
-			return ExecuteWithFullTrust(() => RelativizePluginPaths(Installers.PluginManager.ManagedPlugins));
+			return ExecuteWithFullTrust(() => InstallationSession.ProjectedState == null
+				? RelativizePluginPaths(Installers.PluginManager.ManagedPlugins)
+				: InstallationSession.ProjectedState.GetAllPlugins());
 		}
 
 		#region Plugin Activation Management
@@ -629,7 +654,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A list of currently active plugins.</returns>
 		public string[] GetActivePlugins()
 		{
-			return ExecuteWithFullTrust(() => RelativizePluginPaths(Installers.PluginManager.ActivePlugins));
+			return ExecuteWithFullTrust(() => InstallationSession.ProjectedState == null
+				? RelativizePluginPaths(Installers.PluginManager.ActivePlugins)
+				: InstallationSession.ProjectedState.GetActivePlugins());
 		}
 
 		/// <summary>
@@ -639,11 +666,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_booActivate">Whether to activate the plugin.</param>
 		public void SetPluginActivation(string p_strPluginPath, bool p_booActivate)
 		{
-			ExecuteWithFullTrust(() =>
-			{
-				string strFixedPath = GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPluginPath, false);
-				Installers.PluginManager.SetPluginActivation(strFixedPath, p_booActivate);
-			});
+			ExecuteWithFullTrust(() => InstallationSession.Submit(new SetPluginActivationOperation(p_strPluginPath, p_booActivate)));
 		}
 
 		#endregion
@@ -657,11 +680,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_intNewIndex">The new load order index of the plugin.</param>
 		protected void DoSetPluginOrderIndex(string p_strPlugin, int p_intNewIndex)
 		{
-
-			string strFixedPath = Path.Combine(GameMode.GameModeEnvironmentInfo.InstallationPath, GameMode.GetModFormatAdjustedPath(Mod.Format, p_strPlugin, false));
-			Plugin plgPlugin = Installers.PluginManager.ManagedPlugins.Find(x => x.Filename.Equals(strFixedPath, StringComparison.OrdinalIgnoreCase));
-			Installers.PluginManager.SetPluginOrderIndex(plgPlugin, p_intNewIndex);
+			InstallationSession.Submit(new SetPluginOrderIndexOperation(p_strPlugin, p_intNewIndex));
 		}
+
 
 		/// <summary>
 		/// Sets the load order of the specifid plugin.
@@ -684,17 +705,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// contains the current index of a plugin. This array must contain all current indices.</param>
 		protected void DoSetLoadOrder(int[] p_intPlugins)
 		{
-			List<Plugin> lstPlugins = new List<Plugin>(Installers.PluginManager.ManagedPlugins);
-			if (p_intPlugins.Length != lstPlugins.Count)
-				throw new ArgumentException("Length of new load order array was different to the total number of plugins");
-
-			for (int i = 0; i < p_intPlugins.Length; i++)
-				if (p_intPlugins[i] < 0 || p_intPlugins[i] >= p_intPlugins.Length)
-					throw new IndexOutOfRangeException("A plugin index was out of range");
-
-			for (int i = 0; i < lstPlugins.Count; i++)
-				Installers.PluginManager.SetPluginOrderIndex(lstPlugins[i], i);
+			InstallationSession.Submit(new SetLoadOrderOperation(p_intPlugins));
 		}
+
 
 		/// <summary>
 		/// Sets the load order of the plugins.
@@ -725,25 +738,13 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// plugins.</param>
 		protected void DoSetLoadOrder(int[] p_intPlugins, int p_intPosition)
 		{
-			List<Plugin> lstPlugins = new List<Plugin>(Installers.PluginManager.ManagedPlugins);
-			Array.Sort<int>(p_intPlugins);
+			MovePluginsInLoadOrderOperation mloOperation = new MovePluginsInLoadOrderOperation(p_intPlugins, p_intPosition);
 
-			Int32 intLoadOrder = 0;
-			for (int i = 0; i < p_intPosition; i++)
-			{
-				if (Array.BinarySearch<int>(p_intPlugins, i) >= 0)
-					continue;
-				Installers.PluginManager.SetPluginOrderIndex(lstPlugins[i], intLoadOrder++);
-			}
-			for (int i = 0; i < p_intPlugins.Length; i++)
-				Installers.PluginManager.SetPluginOrderIndex(lstPlugins[p_intPlugins[i]], intLoadOrder++);
-			for (int i = p_intPosition; i < lstPlugins.Count; i++)
-			{
-				if (Array.BinarySearch<int>(p_intPlugins, i) >= 0)
-					continue;
-				Installers.PluginManager.SetPluginOrderIndex(lstPlugins[i], intLoadOrder++);
-			}
+			// Preserve the legacy API side effect where the caller-supplied index array is sorted in place.
+			Array.Sort<int>(p_intPlugins);
+			InstallationSession.Submit(mloOperation);
 		}
+
 
 		/// <summary>
 		/// Moves the specified plugins to the given position in the load order.
@@ -773,45 +774,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_strRelativelyOrderedPlugins">The plugins to order relative to one another.</param>
 		public void SetRelativeLoadOrder(string[] p_strRelativelyOrderedPlugins)
 		{
-			ExecuteWithFullTrust(() =>
-			{
-				if (p_strRelativelyOrderedPlugins.Length == 0)
-					return;
-				List<string> lstRelativelyOrderedPlugins = new List<string>();
-				foreach (string strPlugin in p_strRelativelyOrderedPlugins)
-					lstRelativelyOrderedPlugins.Add(GameMode.GetModFormatAdjustedPath(Mod.Format, strPlugin, false));
-
-				Plugin plgCurrent = null;
-				Int32 intInitialIndex = 0;
-				while (((plgCurrent = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[intInitialIndex])) == null) && (intInitialIndex < lstRelativelyOrderedPlugins.Count))
-					intInitialIndex++;
-				if (plgCurrent == null)
-					return;
-				for (Int32 i = intInitialIndex + 1; i < lstRelativelyOrderedPlugins.Count; i++)
-				{
-					Plugin plgNext = Installers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[i]);
-					if (plgNext == null)
-						continue;
-					Int32 intNextPosition = Installers.PluginManager.GetPluginOrderIndex(plgNext);
-					//we have to set this value every time, instead of caching the value (by
-					// declaring Int32 intCurrentPosition outside of the for loop) because
-					// calling Installers.PluginManager.SetPluginOrderIndex() does not guarantee
-					// that the load order will change. for example trying to order an ESM
-					// after an ESP file will result in no change, and will mean the intCurrentPosition
-					// we are dead reckoning will be wrong
-					Int32 intCurrentPosition = Installers.PluginManager.GetPluginOrderIndex(plgCurrent);
-					if (intNextPosition > intCurrentPosition)
-					{
-						plgCurrent = plgNext;
-						continue;
-					}
-					Installers.PluginManager.SetPluginOrderIndex(plgNext, intCurrentPosition + 1);
-					//if the reorder worked, we have a new current, otherwise the old one is still the
-					// correct current.
-					if (intNextPosition != Installers.PluginManager.GetPluginOrderIndex(plgNext))
-						plgCurrent = plgNext;
-				}
-			});
+			ExecuteWithFullTrust(() => InstallationSession.Submit(new SetRelativeLoadOrderOperation(p_strRelativelyOrderedPlugins)));
 		}
 
 		#endregion
@@ -831,7 +794,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The specified value as a string.</returns>
 		public string GetIniString(string p_strSettingsFileName, string p_strSection, string p_strKey)
 		{
-			return ExecuteWithFullTrust(() => Installers.IniInstaller.GetIniString(p_strSettingsFileName, p_strSection, p_strKey));
+			return ExecuteWithFullTrust(() => InstallationSession.ProjectedState == null
+				? Installers.IniInstaller.GetIniString(p_strSettingsFileName, p_strSection, p_strKey)
+				: InstallationSession.ProjectedState.GetIniString(p_strSettingsFileName, p_strSection, p_strKey));
 		}
 
 		/// <summary>
@@ -843,7 +808,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The specified value as an integer.</returns>
 		public Int32 GetIniInt(string p_strSettingsFileName, string p_strSection, string p_strKey)
 		{
-			return ExecuteWithFullTrust(() => Installers.IniInstaller.GetIniInt(p_strSettingsFileName, p_strSection, p_strKey));
+			return ExecuteWithFullTrust(() => InstallationSession.ProjectedState == null
+				? Installers.IniInstaller.GetIniInt(p_strSettingsFileName, p_strSection, p_strKey)
+				: InstallationSession.ProjectedState.GetIniInt(p_strSettingsFileName, p_strSection, p_strKey));
 		}
 
 		#endregion
@@ -861,10 +828,137 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// if the user chose not to overwrite the existing value.</returns>
 		public bool EditIni(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
 		{
-			return ExecuteWithFullTrust(() => Installers.IniInstaller.EditIni(p_strSettingsFileName, p_strSection, p_strKey, p_strValue));
+			return ExecuteWithFullTrust(() => SubmitIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, true));
+		}
+
+		/// <summary>
+		/// Queues an INI value change without requesting an overwrite decision.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The name of the settings file to edit.</param>
+		/// <param name="p_strSection">The section containing the value to edit.</param>
+		/// <param name="p_strKey">The key of the value to edit.</param>
+		/// <param name="p_strValue">The value to assign.</param>
+		/// <returns><c>true</c> when the edit is accepted for execution; otherwise, <c>false</c>.</returns>
+		protected bool EditIniWithoutOverwriteDecision(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+		{
+			return ExecuteWithFullTrust(() => SubmitIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, false));
+		}
+
+		/// <summary>
+		/// Queues a game-specific value change, resolving its overwrite decision before deferred execution when required.
+		/// </summary>
+		/// <param name="p_strKey">The key identifying the game-specific value.</param>
+		/// <param name="p_bteValue">The value to install.</param>
+		/// <returns><c>true</c> when the change is accepted; otherwise, <c>false</c>.</returns>
+		protected bool EditGameSpecificValue(string p_strKey, byte[] p_bteValue)
+		{
+			return ExecuteWithFullTrust(() =>
+			{
+				if (!IsDeferredInstallationEnabled)
+					return InstallationSession.Submit(new EditGameSpecificValueOperation(p_strKey, p_bteValue));
+
+				IGameSpecificValueInstallDecisionSupport gdsDecisionSupport = (IGameSpecificValueInstallDecisionSupport)Installers.GameSpecificValueInstaller;
+				if (!gdsDecisionSupport.ResolveGameSpecificValueEdit(p_strKey))
+					return false;
+
+				return InstallationSession.Submit(new EditGameSpecificValueOperation(p_strKey, p_bteValue, true));
+			});
 		}
 
 		#endregion
+
+		#endregion
+
+		#region Deferred Planning Helpers
+
+		/// <summary>
+		/// Resolves whether a deferred operation should replace its physical staging file.
+		/// </summary>
+		/// <param name="p_strStagingPath">The physical staging path.</param>
+		/// <param name="p_booSourceAvailable">Whether the operation has content available to write.</param>
+		/// <returns><c>true</c> when the staging file should be written; otherwise, <c>false</c>.</returns>
+		private bool ResolveDeferredStagingWrite(string p_strStagingPath, bool p_booSourceAvailable)
+		{
+			if (!p_booSourceAvailable)
+				return false;
+			if (m_hstPlannedStagingWrites.Contains(p_strStagingPath))
+				return true;
+
+			string strDirectory = Path.GetDirectoryName(p_strStagingPath);
+			bool booStageFile = !Directory.Exists(strDirectory) || ((IModFileInstallDecisionSupport)Installers.FileInstaller).ResolveDataFileOverwrite(p_strStagingPath);
+			if (booStageFile)
+				m_hstPlannedStagingWrites.Add(p_strStagingPath);
+			return booStageFile;
+		}
+
+		/// <summary>
+		/// Resolves the virtual-link outcome used by a deferred file operation without mutating deployment state.
+		/// </summary>
+		/// <param name="p_strDestinationPath">The logical destination path of the file.</param>
+		/// <returns>The link decision and projected outcome to associate with the operation.</returns>
+		private ModLinkInstallDecision ResolveDeferredLinkDecision(string p_strDestinationPath)
+		{
+			string strDestination = NormalizePlanningPath(p_strDestinationPath);
+			if (m_hstProjectedActiveLinks.Contains(strDestination))
+				return new ModLinkInstallDecision().WithLinkOutcome(true, false);
+
+			ModLinkInstallDecision midDecision = ((IModLinkInstallDecisionSupport)ModLinkInstaller).ResolveFileLinkDecision(Mod, p_strDestinationPath, ModInstallRoot.Default);
+			if (midDecision.HasLinkOutcome && (midDecision.LinkOutcome == true))
+				m_hstProjectedActiveLinks.Add(strDestination);
+			return midDecision;
+		}
+
+		/// <summary>
+		/// Determines whether the specified archive path identifies a file in the current mod.
+		/// </summary>
+		/// <param name="p_strModFilePath">The archive-relative path to test.</param>
+		/// <returns><c>true</c> when the mod contains the requested file; otherwise, <c>false</c>.</returns>
+		private bool ModContainsFile(string p_strModFilePath)
+		{
+			if (m_hstModFiles == null)
+			{
+				m_hstModFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (string strFile in Mod.GetFileList())
+					m_hstModFiles.Add(NormalizePlanningPath(strFile));
+			}
+
+			return m_hstModFiles.Contains(NormalizePlanningPath(p_strModFilePath));
+		}
+
+		/// <summary>
+		/// Submits an INI edit after optionally resolving the current overwrite decision.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The settings file to edit.</param>
+		/// <param name="p_strSection">The section containing the value.</param>
+		/// <param name="p_strKey">The value key.</param>
+		/// <param name="p_strValue">The requested value.</param>
+		/// <param name="p_booResolveOverwrite">Whether overwrite-decision processing should be performed.</param>
+		/// <returns><c>true</c> when the edit is accepted; otherwise, <c>false</c>.</returns>
+		private bool SubmitIniEdit(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue, bool p_booResolveOverwrite)
+		{
+			if (!IsDeferredInstallationEnabled)
+				return InstallationSession.Submit(new EditIniOperation(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, !p_booResolveOverwrite));
+
+			if (p_booResolveOverwrite)
+			{
+				string strCurrentValue = InstallationSession.ProjectedState.GetIniString(p_strSettingsFileName, p_strSection, p_strKey);
+				IIniEditDecisionSupport idsDecisionSupport = (IIniEditDecisionSupport)Installers.IniInstaller;
+				if (!idsDecisionSupport.ResolveIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, strCurrentValue))
+					return false;
+			}
+
+			return InstallationSession.Submit(new EditIniOperation(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, true));
+		}
+
+		/// <summary>
+		/// Normalizes a relative path for case-insensitive planning-state comparisons.
+		/// </summary>
+		/// <param name="p_strPath">The path to normalize.</param>
+		/// <returns>The normalized relative path.</returns>
+		private static string NormalizePlanningPath(string p_strPath)
+		{
+			return (p_strPath ?? String.Empty).Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+		}
 
 		#endregion
 

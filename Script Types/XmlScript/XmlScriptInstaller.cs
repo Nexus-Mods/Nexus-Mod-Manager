@@ -2,24 +2,20 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Xml;
-using System.Xml.Linq;
+using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
-using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript
 {
 	/// <summary>
-	/// Performs the mod installation based on the XML script.
+	/// Plans and performs the mod installation described by an XML script.
 	/// </summary>
 	public class XmlScriptInstaller : BackgroundTask
 	{
-		private IVirtualModActivator m_ivaVirtualModActivator = null;
-		private IModLinkInstaller m_mliModLinkInstaller = null;
-		private XDocument m_docLog = new XDocument();
-		private XElement m_xelRoot = null;
+		private readonly IScriptedInstallOperationExecutor m_sioOperationExecutor;
 
 		#region Properties
 
@@ -41,23 +37,31 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <value>The installer group to use to install mod items.</value>
 		protected InstallerGroup Installers { get; private set; }
 
+		/// <summary>
+		/// Gets the deferred scripted installation session for the current XML installation.
+		/// </summary>
+		protected ScriptedInstallationSession InstallationSession { get; private set; }
+
 		#endregion
 
 		#region Constructors
 
 		/// <summary>
-		/// A simple constructor that initializes the object with the required dependencies.
+		/// Initializes the XML installer with the dependencies required to plan and execute scripted operations.
 		/// </summary>
 		/// <param name="p_modMod">The mod for which the script is running.</param>
 		/// <param name="p_gmdGameMode">The game mode currently being managed.</param>
 		/// <param name="p_igpInstallers">The utility class to use to install the mod items.</param>
+		/// <param name="p_ivaVirtualModActivator">The virtual mod activator used to stage and deploy files.</param>
 		public XmlScriptInstaller(IMod p_modMod, IGameMode p_gmdGameMode, InstallerGroup p_igpInstallers, IVirtualModActivator p_ivaVirtualModActivator)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
 			Installers = p_igpInstallers;
-			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
-			m_mliModLinkInstaller = m_ivaVirtualModActivator.GetModLinkInstaller();
+
+			IScriptedFileSelectionCache sfcFileSelectionCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			m_sioOperationExecutor = new XmlScriptedInstallOperationExecutor(Mod, GameMode, Installers, p_ivaVirtualModActivator, p_ivaVirtualModActivator.GetModLinkInstaller(), sfcFileSelectionCache);
+			ResetInstallationSession();
 		}
 
 		#endregion
@@ -65,19 +69,20 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <summary>
 		/// Performs the mod installation based on the XML script.
 		/// </summary>
-		/// <param name="p_strModName">The name of the mod whose script in executing.</param>
+		/// <param name="p_strModName">The name of the mod whose script is executing.</param>
 		/// <param name="p_xscScript">The script that is executing.</param>
 		/// <param name="p_csmStateManager">The state manager managing the install state.</param>
 		/// <param name="p_colFilesToInstall">The list of files to install.</param>
 		/// <param name="p_colPluginsToActivate">The list of plugins to activate.</param>
-		/// <returns><c>true</c> if the installation succeeded;
-		/// <c>false</c> otherwise.</returns>
+		/// <returns><c>true</c> if the installation succeeded; <c>false</c> otherwise.</returns>
 		public bool Install(string p_strModName, XmlScript p_xscScript, ConditionStateManager p_csmStateManager, ICollection<InstallableFile> p_colFilesToInstall, ICollection<InstallableFile> p_colPluginsToActivate)
 		{
 			OverallMessage = String.Format("Installing {0}", p_strModName);
 			OverallProgressStepSize = 1;
 			ItemProgressStepSize = 1;
-			ShowItemProgress = true;
+			ShowItemProgress = false;
+			ResetInstallationSession();
+
 			bool booSuccess = false;
 			try
 			{
@@ -95,15 +100,18 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		}
 
 		/// <summary>
-		/// Installs and activates files are required. This method is used by the background worker.
+		/// Builds the XML installation plan and executes it only after all file selections have been resolved.
 		/// </summary>
-		/// <param name="p_scpScript">The XMl Script to execute.</param>
+		/// <param name="p_xscScript">The XML script to execute.</param>
+		/// <param name="p_csmStateManager">The state manager used to evaluate conditional file sets.</param>
+		/// <param name="p_colFilesToInstall">The files selected by the installer options.</param>
+		/// <param name="p_colPluginsToActivate">The selected files whose plugins should be activated.</param>
+		/// <returns><c>true</c> if planning and execution complete successfully; otherwise, <c>false</c>.</returns>
 		protected bool InstallFiles(XmlScript p_xscScript, ConditionStateManager p_csmStateManager, ICollection<InstallableFile> p_colFilesToInstall, ICollection<InstallableFile> p_colPluginsToActivate)
 		{
 			IList<InstallableFile> lstRequiredFiles = p_xscScript.RequiredInstallFiles;
 			IList<ConditionallyInstalledFileSet> lstConditionallyInstalledFileSets = p_xscScript.ConditionallyInstalledFileSets;
 			ISet<string> setSelectableSources = GetSelectableOptionSources(p_xscScript);
-			OverallProgressMaximum = lstRequiredFiles.Count + p_colFilesToInstall.Count + lstConditionallyInstalledFileSets.Count;
 
 			foreach (InstallableFile iflRequiredFile in lstRequiredFiles)
 			{
@@ -111,7 +119,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					return false;
 				if (!InstallFile(iflRequiredFile, true))
 					return false;
-				StepOverallProgress();
 			}
 
 			foreach (InstallableFile ilfFile in p_colFilesToInstall)
@@ -120,29 +127,32 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					return false;
 				if (!InstallFile(ilfFile, p_colPluginsToActivate.Contains(ilfFile)))
 					return false;
-				StepOverallProgress();
 			}
 
 			foreach (ConditionallyInstalledFileSet cisFileSet in lstConditionallyInstalledFileSets)
 			{
-				if (cisFileSet.Condition.GetIsFulfilled(p_csmStateManager))
-					foreach (InstallableFile ilfFile in cisFileSet.Files)
-					{
-						if (IsUnselectedOptionFallback(cisFileSet, ilfFile, setSelectableSources))
-							continue;
-						if (Status == TaskStatus.Cancelling)
-							return false;
-						if (!InstallFile(ilfFile, true))
-							return false;
-					}
-				StepOverallProgress();
+				if (!cisFileSet.Condition.GetIsFulfilled(p_csmStateManager))
+					continue;
+
+				foreach (InstallableFile ilfFile in cisFileSet.Files)
+				{
+					if (IsUnselectedOptionFallback(cisFileSet, ilfFile, setSelectableSources))
+						continue;
+					if (Status == TaskStatus.Cancelling)
+						return false;
+					if (!InstallFile(ilfFile, true))
+						return false;
+				}
 			}
-			return true;
+
+			return ExecuteInstallationPlan();
 		}
 
 		/// <summary>
 		/// Gets the file sources declared by selectable installer options.
 		/// </summary>
+		/// <param name="p_xscScript">The XML script whose selectable options should be inspected.</param>
+		/// <returns>The normalized set of archive sources exposed by selectable options.</returns>
 		private ISet<string> GetSelectableOptionSources(XmlScript p_xscScript)
 		{
 			HashSet<string> setSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -159,6 +169,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <summary>
 		/// Detects conditional files that only preserve an unselected option's archive contents.
 		/// </summary>
+		/// <param name="p_cisFileSet">The conditional file set being evaluated.</param>
+		/// <param name="p_ilfFile">The conditional file to inspect.</param>
+		/// <param name="p_setSelectableSources">The archive sources declared by selectable options.</param>
+		/// <returns><c>true</c> when the file is an inactive-option fallback; otherwise, <c>false</c>.</returns>
 		private bool IsUnselectedOptionFallback(ConditionallyInstalledFileSet p_cisFileSet, InstallableFile p_ilfFile, ISet<string> p_setSelectableSources)
 		{
 			if ((p_cisFileSet == null) || (p_ilfFile == null) || String.IsNullOrEmpty(p_ilfFile.Source))
@@ -170,6 +184,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <summary>
 		/// Identifies flag conditions that represent an option being left unselected.
 		/// </summary>
+		/// <param name="p_cndCondition">The condition to inspect.</param>
+		/// <returns><c>true</c> when the condition represents an inactive option; otherwise, <c>false</c>.</returns>
 		private bool IsInactiveFlagCondition(ICondition p_cndCondition)
 		{
 			if (p_cndCondition is FlagCondition)
@@ -185,19 +201,22 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			return cpcCondition.Conditions.Count > 0 && cpcCondition.Conditions.All(IsInactiveFlagCondition);
 		}
 
+		/// <summary>
+		/// Normalizes an installer path to the platform directory separator.
+		/// </summary>
+		/// <param name="p_strPath">The installer path to normalize.</param>
+		/// <returns>The normalized installer path.</returns>
 		private string NormalizeInstallerPath(string p_strPath)
 		{
 			return p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 		}
 
 		/// <summary>
-		/// Installs the given <see cref="InstallableFile"/>, and activates any
-		/// plugins it encompasses as requested.
+		/// Adds the requested file installation and plugin activation operations to the deferred installation plan.
 		/// </summary>
-		/// <param name="p_ilfFile">The file to install.</param>
-		/// <param name="p_booActivate">Whether or not to activate the given file, if it is a plugin.</param>
-		/// <returns><c>false</c> if the user cancelled the install;
-		/// <c>true</c> otherwise.</returns>
+		/// <param name="p_ilfFile">The file or folder to install.</param>
+		/// <param name="p_booActivate">Whether plugins represented by the file should be activated.</param>
+		/// <returns><c>false</c> if planning was cancelled; otherwise, <c>true</c>.</returns>
 		protected bool InstallFile(InstallableFile p_ilfFile, bool p_booActivate)
 		{
 			string strSource = p_ilfFile.Source;
@@ -205,54 +224,35 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			if (!p_ilfFile.IsFolder && (ModInstallFileFilter.IsIgnored(strSource) || ModInstallFileFilter.IsIgnored(strDest)))
 				return true;
 
-			ItemMessage = "Installing " + (String.IsNullOrEmpty(strDest) ? strSource : strDest);
 			if (p_ilfFile.IsFolder)
 			{
 				if (!InstallFolderFromMod(p_ilfFile))
 					return false;
 
-				//if the destination length is greater than 0, then nothing in
-				// this folder is directly in the Data folder as so cannot be
-				// activated
+				// Files installed below a non-empty destination cannot represent plugins in the Data root.
 				if (strDest.Length == 0)
 				{
 					List<string> lstFiles = Mod.GetFileList(strSource, true).Where(x => !ModInstallFileFilter.IsIgnored(x)).ToList();
-					ItemMessage = "Activating " + (String.IsNullOrEmpty(strDest) ? strSource : strDest);
-					ItemProgress = 0;
-					ItemProgressMaximum = lstFiles.Count;
 					string strDirectorySeparatorChar = Path.DirectorySeparatorChar.ToString();
-
 					if (!strSource.EndsWith(strDirectorySeparatorChar) && !strSource.EndsWith("/"))
 						strSource += strDirectorySeparatorChar;
+
 					foreach (string strFile in lstFiles)
 					{
-						string strNewFileName = GameMode.GetModFormatAdjustedPath(Mod.Format, strFile.Substring(strSource.Length, strFile.Length - strSource.Length), false);
-						if (Installers.PluginManager != null)
-							if (Installers.PluginManager.IsActivatiblePluginFile(strNewFileName))
-								Installers.PluginManager.SetPluginActivation(strNewFileName, p_booActivate);
 						if (Status == TaskStatus.Cancelling)
 							return false;
-						StepItemProgress();
+
+						string strPluginPath = strFile.Substring(strSource.Length, strFile.Length - strSource.Length);
+						QueuePluginActivation(strPluginPath, p_booActivate);
 					}
 				}
 			}
 			else
 			{
-				ItemProgress = 0;
-				ItemProgressMaximum = 2;
+				if (!InstallFileFromMod(strSource, strDest))
+					return false;
 
-				//Installers.FileInstaller.InstallFileFromMod(strSource, GameMode.GetModFormatAdjustedPath(Mod.Format, strDest, false));
-				InstallFileFromMod(strSource, strDest);
-				SaveXMLInstalledFiles(strSource, strDest);
-
-				StepItemProgress();
-
-				string strPluginPath = GameMode.GetModFormatAdjustedPath(Mod.Format, String.IsNullOrEmpty(strDest) ? strSource : strDest, false);
-				if (Installers.PluginManager != null)
-					if (Installers.PluginManager.IsActivatiblePluginFile(strPluginPath))
-						Installers.PluginManager.SetPluginActivation(strPluginPath, p_booActivate);
-
-				StepItemProgress();
+				QueuePluginActivation(String.IsNullOrEmpty(strDest) ? strSource : strDest, p_booActivate);
 			}
 			return true;
 		}
@@ -260,121 +260,110 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		#region Helper Methods
 
 		/// <summary>
-		/// Recursively copies all files and folders from one location to another.
+		/// Adds all files from the specified archive folder to the deferred installation plan.
 		/// </summary>
 		/// <param name="p_ilfFile">The folder to install.</param>
-		/// <returns><c>false</c> if the user cancelled the install;
-		/// <c>true</c> otherwise.</returns>
+		/// <returns><c>false</c> if planning was cancelled; otherwise, <c>true</c>.</returns>
 		protected bool InstallFolderFromMod(InstallableFile p_ilfFile)
 		{
 			List<string> lstModFiles = Mod.GetFileList(p_ilfFile.Source, true).Where(x => !ModInstallFileFilter.IsIgnored(x)).ToList();
-			ItemProgress = 0;
-			ItemProgressMaximum = lstModFiles.Count;
-
 			String strFrom = p_ilfFile.Source.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
 			if (!strFrom.EndsWith(Path.DirectorySeparatorChar.ToString()))
 				strFrom += Path.DirectorySeparatorChar;
 			String strTo = p_ilfFile.Destination.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if ((strTo.Length > 0) && (!strTo.EndsWith(Path.DirectorySeparatorChar.ToString())))
 				strTo += Path.DirectorySeparatorChar;
-			String strMODFile = null;
+
 			for (Int32 i = 0; i < lstModFiles.Count; i++)
 			{
 				if (Status == TaskStatus.Cancelling)
 					return false;
 
-				strMODFile = lstModFiles[i];
-				string strNewFileName = strMODFile.Substring(strFrom.Length, strMODFile.Length - strFrom.Length);
+				string strModFile = lstModFiles[i];
+				string strNewFileName = strModFile.Substring(strFrom.Length, strModFile.Length - strFrom.Length);
 				if (strTo.Length > 0)
 					strNewFileName = Path.Combine(strTo, strNewFileName);
-				//Installers.FileInstaller.InstallFileFromMod(strMODFile, GameMode.GetModFormatAdjustedPath(Mod.Format, Path.Combine(strTo, strNewFileName), false));
-				InstallFileFromMod(strMODFile, strNewFileName);
-				SaveXMLInstalledFiles(strMODFile, strNewFileName);
-
-				StepItemProgress();
+				if (!InstallFileFromMod(strModFile, strNewFileName))
+					return false;
 			}
 			return true;
 		}
 
 		/// <summary>
-		/// Installs the specified file from the mod to the specified location on the file system.
+		/// Adds a logical archive-file installation operation to the deferred XML installation plan.
 		/// </summary>
-		/// <param name="p_strFrom">The path of the file in the mod to install.</param>
-		/// <param name="p_strTo">The path on the file system where the file is to be created.</param>
-		/// <returns><c>true</c> if the file was written; <c>false</c> otherwise.</returns>
+		/// <param name="p_strFrom">The path of the file inside the mod archive.</param>
+		/// <param name="p_strTo">The logical destination path requested by the XML installer.</param>
+		/// <returns><c>true</c> when the operation is accepted by the deferred session.</returns>
 		protected bool InstallFileFromMod(string p_strFrom, string p_strTo)
 		{
 			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
 				return true;
 
-			bool booSuccess = false;
-			string installDestination = string.Empty;
+			return InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo));
+		}
 
-			if (string.IsNullOrEmpty(p_strTo) || p_strTo.Equals("."))
+		/// <summary>
+		/// Adds a plugin activation candidate for execution after the corresponding file deployment.
+		/// </summary>
+		/// <param name="p_strPluginPath">The logical plugin path to evaluate during execution.</param>
+		/// <param name="p_booActivate">Whether the plugin should be activated.</param>
+		private void QueuePluginActivation(string p_strPluginPath, bool p_booActivate)
+		{
+			if (Installers.PluginManager != null)
+				InstallationSession.Submit(new SetPluginActivationOperation(p_strPluginPath, p_booActivate));
+		}
+
+		/// <summary>
+		/// Executes the deferred XML installation plan in submission order.
+		/// </summary>
+		/// <returns><c>true</c> when all planned operations complete successfully; otherwise, <c>false</c>.</returns>
+		protected bool ExecuteInstallationPlan()
+		{
+			OverallProgress = 0;
+			OverallProgressMaximum = InstallationSession.Plan.Count;
+			using (InstallationSession.BeginPendingOperationBatch())
 			{
-				installDestination = Path.GetFileName(p_strFrom);
+				while (InstallationSession.HasPendingOperations)
+				{
+					if (Status == TaskStatus.Cancelling)
+						return false;
+
+					ItemMessage = GetOperationMessage(InstallationSession.NextPendingOperation);
+					if (!InstallationSession.ExecuteNext())
+						return false;
+					StepOverallProgress();
+				}
+				return true;
 			}
-			else
-			{
-				installDestination = p_strTo;
-			}
+		}
 
-			string strFileType = Path.GetExtension(installDestination);
-			if (!strFileType.StartsWith("."))
-				strFileType = "." + strFileType;
-			bool booHardLinkFile = (m_ivaVirtualModActivator.MultiHDMode && (GameMode.HardlinkRequiredFilesType(installDestination) || strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) || strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase)));
+		/// <summary>
+		/// Creates a user-facing progress message for the specified planned operation.
+		/// </summary>
+		/// <param name="p_sioOperation">The operation about to be executed.</param>
+		/// <returns>A concise progress message describing the operation.</returns>
+		private string GetOperationMessage(ScriptedInstallOperation p_sioOperation)
+		{
+			InstallModFileOperation imoInstallFile = p_sioOperation as InstallModFileOperation;
+			if (imoInstallFile != null)
+				return "Installing " + (String.IsNullOrEmpty(imoInstallFile.DestinationPath) ? imoInstallFile.SourcePath : imoInstallFile.DestinationPath);
 
-			try
-			{
-				string strModFilenamePath = Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Path.GetFileNameWithoutExtension(Mod.Filename), installDestination);
-				string strModDownloadIDPath = (string.IsNullOrWhiteSpace(Mod.DownloadId) || (Mod.DownloadId.Length <= 1) || Mod.DownloadId.Equals("-1", StringComparison.OrdinalIgnoreCase)) ? string.Empty : Path.Combine(((booHardLinkFile) ? m_ivaVirtualModActivator.HDLinkFolder : m_ivaVirtualModActivator.VirtualPath), Mod.DownloadId, installDestination);
-				string strVirtualPath = strModFilenamePath;
+			SetPluginActivationOperation saoActivation = p_sioOperation as SetPluginActivationOperation;
+			if (saoActivation != null)
+				return (saoActivation.Activate ? "Activating " : "Deactivating ") + saoActivation.PluginPath;
 
-				if (!string.IsNullOrWhiteSpace(strModDownloadIDPath))
-					strVirtualPath = strModDownloadIDPath;
+			return "Applying scripted installation operation";
+		}
 
-				Installers.FileInstaller.InstallFileFromMod(p_strFrom, strVirtualPath);
-				m_mliModLinkInstaller.AddFileLink(Mod, installDestination, strVirtualPath, true);
-
-				booSuccess = true;
-			}
-			catch { }
-
-			return booSuccess;
+		/// <summary>
+		/// Creates a new deferred installation session for an XML installation run.
+		/// </summary>
+		private void ResetInstallationSession()
+		{
+			InstallationSession = new ScriptedInstallationSession(m_sioOperationExecutor, ScriptedInstallationSessionMode.Deferred);
 		}
 
 		#endregion
-
-		/// <summary>
-		/// Create the XML file with the Install Files list (From the rar to the folder).
-		/// </summary>
-		private void SaveXMLInstalledFiles(string p_strFrom, string p_strTo)
-		{
-			if (m_docLog == null)
-				m_docLog = new XDocument();
-			
-			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
-			if (!Directory.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted")))
-				Directory.CreateDirectory(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"));
-
-			if (Directory.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted")))
-			{
-
-				if (!File.Exists(strInstallFilesPath))
-				{
-					m_xelRoot = new XElement("FileList", new XAttribute("ModName", Mod.ModName ?? String.Empty), new XAttribute("ModVersion", Mod.HumanReadableVersion ?? String.Empty));
-					m_docLog.Add(m_xelRoot);
-					XElement xelFiles = new XElement("File", new XAttribute("FileFrom", p_strFrom ?? String.Empty), new XAttribute("FileTo", p_strTo ?? String.Empty));
-					m_xelRoot.Add(xelFiles);
-				}
-				else
-				{
-					XElement xelFiles = new XElement("File", new XAttribute("FileFrom", p_strFrom ?? String.Empty), new XAttribute("FileTo", p_strTo ?? String.Empty));
-					m_xelRoot.Add(xelFiles);
-				}
-
-				m_docLog.Save(strInstallFilesPath);
-			}
-		}
 	}
 }

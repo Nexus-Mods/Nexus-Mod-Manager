@@ -12,7 +12,7 @@ namespace Nexus.Client.Games.Gamebryo.ModManagement
 	/// <summary>
 	/// Installs values that are specific to a game mode.
 	/// </summary>
-	public class GamebryoGameSpecificValueInstaller : IGameSpecificValueInstaller
+	public class GamebryoGameSpecificValueInstaller : IGameSpecificValueInstaller, IGameSpecificValueInstallDecisionSupport
 	{
 		/// <summary>
 		/// Describes an edit made to a shader.
@@ -152,44 +152,85 @@ namespace Nexus.Client.Games.Gamebryo.ModManagement
 			if (m_booDontOverwriteAll)
 				return false;
 
-			ShaderEdit sedShader = new ShaderEdit(p_strKey);
-			SDPArchives sdpManager = new SDPArchives(GameModeInfo, FileUtility);
-			if (!TouchedFiles.Contains(sdpManager.GetPath(sedShader.Package)))
-			{
-				TouchedFiles.Add(sdpManager.GetPath(sedShader.Package));
-				TransactionalFileManager.Snapshot(sdpManager.GetPath(sedShader.Package));
-			}
+			EnsureGameSpecificValueSnapshot(p_strKey);
+			if (!ResolveGameSpecificValueEdit(p_strKey))
+				return false;
+
+			return ApplyResolvedGameSpecificValueEdit(p_strKey, p_bteValue);
+		}
+
+		/// <summary>
+		/// Resolves whether the specified game-specific value may be overwritten without modifying the game data.
+		/// </summary>
+		/// <param name="p_strKey">The key identifying the game-specific value.</param>
+		/// <returns><c>true</c> if the edit is approved; otherwise, <c>false</c>.</returns>
+		public virtual bool ResolveGameSpecificValueEdit(string p_strKey)
+		{
+			if (m_booDontOverwriteAll)
+				return false;
+			if (m_booOverwriteAll)
+				return true;
 
 			IMod modOldMod = InstallLog.GetCurrentGameSpecificValueEditOwner(p_strKey);
-			if (!m_booOverwriteAll && (modOldMod != null))
-			{
-				string strMessage = String.Format("Shader '{0}' in package '{1}' has already been overwritten by '{2}'\n" +
-										"Overwrite the changes?", sedShader.ShaderName, sedShader.Package, modOldMod.ModName);
-				switch (m_dlgOverwriteConfirmationDelegate(strMessage, false, false))
-				{
-					case OverwriteResult.YesToAll:
-						m_booOverwriteAll = true;
-						break;
-					case OverwriteResult.NoToAll:
-						m_booDontOverwriteAll = true;
-						break;
-					case OverwriteResult.Yes:
-						break;
-					default:
-						return false;
-				}
-			}
+			if (modOldMod == null)
+				return true;
 
+			ShaderEdit sedShader = new ShaderEdit(p_strKey);
+			string strMessage = String.Format("Shader '{0}' in package '{1}' has already been overwritten by '{2}'\n" +
+								"Overwrite the changes?", sedShader.ShaderName, sedShader.Package, modOldMod.ModName);
+			switch (m_dlgOverwriteConfirmationDelegate(strMessage, false, false))
+			{
+				case OverwriteResult.YesToAll:
+					m_booOverwriteAll = true;
+					return true;
+				case OverwriteResult.NoToAll:
+					m_booDontOverwriteAll = true;
+					return false;
+				case OverwriteResult.Yes:
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		/// <summary>
+		/// Applies a game-specific value edit whose overwrite decision has already been approved.
+		/// </summary>
+		/// <param name="p_strKey">The key identifying the game-specific value.</param>
+		/// <param name="p_bteValue">The value to apply.</param>
+		/// <returns><c>true</c> when the edit is applied.</returns>
+		public virtual bool ApplyResolvedGameSpecificValueEdit(string p_strKey, byte[] p_bteValue)
+		{
+			EnsureGameSpecificValueSnapshot(p_strKey);
+
+			ShaderEdit sedShader = new ShaderEdit(p_strKey);
+			SDPArchives sdpManager = new SDPArchives(GameModeInfo, FileUtility);
+			IMod modOldMod = InstallLog.GetCurrentGameSpecificValueEditOwner(p_strKey);
 			byte[] oldData;
 			if (!sdpManager.EditShader(sedShader.Package, sedShader.ShaderName, p_bteValue, out oldData))
 				throw new Exception("Failed to edit the shader");
 
-			//if we are overwriting an original shader, back it up
 			if ((modOldMod == null) && (oldData != null))
 				InstallLog.LogOriginalGameSpecificValue(p_strKey, oldData);
 
 			InstallLog.AddGameSpecificValueEdit(Mod, p_strKey, p_bteValue);
 			return true;
+		}
+
+		/// <summary>
+		/// Ensures that the package containing the specified game-specific value is enlisted in the current transaction.
+		/// </summary>
+		/// <param name="p_strKey">The key identifying the game-specific value.</param>
+		protected void EnsureGameSpecificValueSnapshot(string p_strKey)
+		{
+			ShaderEdit sedShader = new ShaderEdit(p_strKey);
+			SDPArchives sdpManager = new SDPArchives(GameModeInfo, FileUtility);
+			string strPath = sdpManager.GetPath(sedShader.Package);
+			if (TouchedFiles.Contains(strPath))
+				return;
+
+			TouchedFiles.Add(strPath);
+			TransactionalFileManager.Snapshot(strPath);
 		}
 
 		/// <summary>

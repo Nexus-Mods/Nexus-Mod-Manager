@@ -73,27 +73,48 @@ namespace Nexus.Client.Games.Gamebryo.ModManagement
 		{
 			IList<IMod> lstInstallers = InstallLog.GetGameSpecificValueEditInstallers(p_strKey);
 			if (lstInstallers.Contains(Mod, ModComparer.Filename))
-			{
-				if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
-					InstallLog.ReplaceGameSpecificValueEdit(Mod, p_strKey, p_bteValue);
-				else
-				{
-					ShaderEdit sedShader = new ShaderEdit(p_strKey);
-					SDPArchives sdpManager = new SDPArchives(GameModeInfo, FileUtility);
-					if (!TouchedFiles.Contains(sdpManager.GetPath(sedShader.Package)))
-					{
-						TouchedFiles.Add(sdpManager.GetPath(sedShader.Package));
-						TransactionalFileManager.Snapshot(sdpManager.GetPath(sedShader.Package));
-					}
-					byte[] oldData;
-					if (!sdpManager.EditShader(sedShader.Package, sedShader.ShaderName, p_bteValue, out oldData))
-						throw new Exception("Failed to edit the shader");
-				}
-				OriginallyInstalledEdits.Remove(p_strKey);
-				return true;
-			}
+				return ApplyResolvedGameSpecificValueEdit(p_strKey, p_bteValue);
 
 			return base.EditGameSpecificValue(p_strKey, p_bteValue);
+		}
+
+		/// <summary>
+		/// Resolves whether a game-specific value edit requires overwrite confirmation during an upgrade.
+		/// </summary>
+		/// <param name="p_strKey">The key identifying the game-specific value.</param>
+		/// <returns><c>true</c> when the edit may proceed; otherwise, <c>false</c>.</returns>
+		public override bool ResolveGameSpecificValueEdit(string p_strKey)
+		{
+			IList<IMod> lstInstallers = InstallLog.GetGameSpecificValueEditInstallers(p_strKey);
+			return lstInstallers.Contains(Mod, ModComparer.Filename) || base.ResolveGameSpecificValueEdit(p_strKey);
+		}
+
+		/// <summary>
+		/// Applies an approved game-specific value edit while preserving upgrade ownership semantics.
+		/// </summary>
+		/// <param name="p_strKey">The key identifying the game-specific value.</param>
+		/// <param name="p_bteValue">The value to apply.</param>
+		/// <returns><c>true</c> when the edit is applied or archived.</returns>
+		public override bool ApplyResolvedGameSpecificValueEdit(string p_strKey, byte[] p_bteValue)
+		{
+			IList<IMod> lstInstallers = InstallLog.GetGameSpecificValueEditInstallers(p_strKey);
+			if (!lstInstallers.Contains(Mod, ModComparer.Filename))
+				return base.ApplyResolvedGameSpecificValueEdit(p_strKey, p_bteValue);
+
+			if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
+				InstallLog.ReplaceGameSpecificValueEdit(Mod, p_strKey, p_bteValue);
+			else
+			{
+				EnsureGameSpecificValueSnapshot(p_strKey);
+				ShaderEdit sedShader = new ShaderEdit(p_strKey);
+				SDPArchives sdpManager = new SDPArchives(GameModeInfo, FileUtility);
+				byte[] oldData;
+				if (!sdpManager.EditShader(sedShader.Package, sedShader.ShaderName, p_bteValue, out oldData))
+					throw new Exception("Failed to edit the shader");
+			}
+
+			OriginallyInstalledEdits.Remove(p_strKey);
+			return true;
 		}
 
 		/// <summary>

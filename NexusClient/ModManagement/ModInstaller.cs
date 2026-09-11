@@ -5,8 +5,6 @@ using System.Linq;
 using System.Security;
 using System.Text;
 using System.Threading;
-using System.Xml;
-using System.Xml.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
@@ -426,13 +424,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected bool CheckScriptedModLog()
 		{
-			string strModFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
 			if ((ProfileManager != null) && !String.IsNullOrWhiteSpace(ProfileManager.IsScriptedLogPresent(Mod.Filename)))
 				return true;
-			if (Directory.Exists(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted")) && File.Exists(strModFilesPath))
-				return true;
 
-			return false;
+			IScriptedFileSelectionCache sfcFileSelectionCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			return sfcFileSelectionCache.Exists;
 		}
 
 		/// <summary>
@@ -440,44 +436,15 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected List<KeyValuePair<string, string>> LoadXMLModFilesToInstall()
 		{
-			string strModFilesPath = String.Empty;
+			IScriptedFileSelectionCache sfcFileSelectionCache = new ScriptedFileSelectionCache(Mod, GameMode);
 			if (ProfileManager != null)
-				strModFilesPath =  ProfileManager.IsScriptedLogPresent(Mod.Filename) ?? Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
-			else
-				strModFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(Mod.Filename)) + ".xml";
-
-			if (File.Exists(strModFilesPath))
 			{
-				XDocument docScripted = XDocument.Load(strModFilesPath);
-				List<KeyValuePair<string, string>> dicFiles = new List<KeyValuePair<string, string>>();
-
-				try
-				{
-					XElement xelFileList = docScripted.Descendants("FileList").FirstOrDefault();
-					if ((xelFileList != null) && xelFileList.HasElements)
-					{
-						foreach (XElement xelModFile in xelFileList.Elements("File"))
-						{
-							string strFileFrom = xelModFile.Attribute("FileFrom").Value;
-							string strFileTo = xelModFile.Attribute("FileTo").Value;
-							if (!String.IsNullOrWhiteSpace(strFileFrom))
-								dicFiles.Add(new KeyValuePair<string, string>(strFileFrom, strFileTo));
-						}
-
-						if (dicFiles.Count > 0)
-							return dicFiles;
-					}
-				}
-				catch (Exception e)
-				{
-					string prova = e.Message;
-					if (String.IsNullOrEmpty(prova))
-						if (dicFiles.Count > 0)
-							return dicFiles;
-				}
+				string strProfileCachePath = ProfileManager.IsScriptedLogPresent(Mod.Filename);
+				if (strProfileCachePath != null)
+					sfcFileSelectionCache = new ScriptedFileSelectionCache(strProfileCachePath);
 			}
 
-			return null;
+			return sfcFileSelectionCache.LoadSelections();
 		}
 
 		/// <summary>

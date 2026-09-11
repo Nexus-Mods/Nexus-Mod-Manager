@@ -46,6 +46,7 @@
     <Reference Include="System.Data" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Runtime.Remoting" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
@@ -54,6 +55,13 @@
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
+    <Compile Include="InstallDecisionSeparationTests.cs" />
+    <Compile Include="ScriptedFileSelectionCacheTests.cs" />
+    <Compile Include="ScriptedInstallerCharacterizationTests.cs" />
+    <Compile Include="ScriptedInstallationPlanTests.cs" />
+    <Compile Include="ScriptedInstallationProjectedStateTests.cs" />
+    <Compile Include="ScriptedInstallationSessionTests.cs" />
+    <Compile Include="ScriptedInstallerTestDoubles.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />
@@ -80,6 +88,10 @@
     <ProjectReference Include="..\..\NexusClient.Interface\NexusClient.Interface.csproj">
       <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
       <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Script Types\XmlScript\XmlScript.csproj">
+      <Project>{B0F526DB-967B-4A57-9EC9-2E4950E54F26}</Project>
+      <Name>XmlScript</Name>
     </ProjectReference>
   <ProjectReference Include="..\..\NexusClient\NexusClient.csproj"><Project>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</Project><Name>NexusClient</Name></ProjectReference></ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

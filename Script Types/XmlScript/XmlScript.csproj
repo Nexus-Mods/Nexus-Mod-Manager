@@ -271,6 +271,7 @@
     </Compile>
     <Compile Include="XmlScriptExecutor.cs" />
     <Compile Include="XmlScriptInstaller.cs" />
+    <Compile Include="XmlScriptedInstallOperationExecutor.cs" />
     <Compile Include="XmlScriptType.cs" />
     <Compile Include="Xml\XmlSchemaResourceResolver.cs" />
     <Compile Include="SortOrder.cs" />

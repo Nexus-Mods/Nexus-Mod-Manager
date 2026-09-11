@@ -27,6 +27,9 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		public CSharpScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, UIUtil p_uipUIProxy)
 			: base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, p_uipUIProxy)
 		{
+			// C# installers can read and write permitted filesystem locations directly, so every NMM operation
+			// must remain visible before control returns to the script.
+			UseImmediateCompatibilityInstallation();
 		}
 
 		#endregion

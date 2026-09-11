@@ -70,24 +70,50 @@ namespace Nexus.Client.ModManagement
 		{
 			IList<IMod> lstInstallers = InstallLog.GetIniEditInstallers(p_strSettingsFileName, p_strSection, p_strKey);
 			if (lstInstallers.Contains(Mod, ModComparer.Filename))
-			{
-				if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
-					InstallLog.ReplaceIniEdit(Mod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
-				else
-				{
-					if (!TouchedFiles.Contains(p_strSettingsFileName))
-					{
-						TouchedFiles.Add(p_strSettingsFileName);
-						TransactionalFileManager.Snapshot(p_strSettingsFileName);
-					}
-					IniMethods.WritePrivateProfileString(p_strSection, p_strKey, p_strValue, p_strSettingsFileName);
-				}
-				IniEdit iniEdit = new IniEdit(p_strSettingsFileName, p_strSection, p_strKey);
-				OriginallyInstalledEdits.Remove(iniEdit);
-				return true;
-			}
+				return ApplyResolvedIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
 
 			return base.EditIni(p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+		}
+
+		/// <summary>
+		/// Resolves whether an INI edit requires overwrite confirmation during an upgrade.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The name of the settings file to edit.</param>
+		/// <param name="p_strSection">The section containing the setting to edit.</param>
+		/// <param name="p_strKey">The key of the setting to edit.</param>
+		/// <param name="p_strValue">The value that would be assigned to the setting.</param>
+		/// <param name="p_strCurrentValue">The value visible before the edit is applied.</param>
+		/// <returns><c>true</c> when the edit may proceed; otherwise, <c>false</c>.</returns>
+		public override bool ResolveIniEdit(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue, string p_strCurrentValue)
+		{
+			IList<IMod> lstInstallers = InstallLog.GetIniEditInstallers(p_strSettingsFileName, p_strSection, p_strKey);
+			return lstInstallers.Contains(Mod, ModComparer.Filename) || base.ResolveIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, p_strCurrentValue);
+		}
+
+		/// <summary>
+		/// Applies an approved INI edit while preserving upgrade ownership semantics.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The name of the settings file to edit.</param>
+		/// <param name="p_strSection">The section containing the setting to edit.</param>
+		/// <param name="p_strKey">The key of the setting to edit.</param>
+		/// <param name="p_strValue">The value to assign to the setting.</param>
+		/// <returns><c>true</c> when the edit is applied or archived.</returns>
+		public override bool ApplyResolvedIniEdit(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+		{
+			IList<IMod> lstInstallers = InstallLog.GetIniEditInstallers(p_strSettingsFileName, p_strSection, p_strKey);
+			if (!lstInstallers.Contains(Mod, ModComparer.Filename))
+				return base.ApplyResolvedIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+
+			if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
+				InstallLog.ReplaceIniEdit(Mod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+			else
+			{
+				EnsureIniSnapshot(p_strSettingsFileName);
+				IniMethods.WritePrivateProfileString(p_strSection, p_strKey, p_strValue, p_strSettingsFileName);
+			}
+
+			OriginallyInstalledEdits.Remove(new IniEdit(p_strSettingsFileName, p_strSection, p_strKey));
+			return true;
 		}
 
 		/// <summary>

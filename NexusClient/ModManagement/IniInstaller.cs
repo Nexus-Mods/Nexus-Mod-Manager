@@ -9,7 +9,7 @@ namespace Nexus.Client.ModManagement
 	/// <summary>
 	/// This installs INI value changes.
 	/// </summary>
-	public class IniInstaller : IIniInstaller
+	public class IniInstaller : IIniInstaller, IIniEditDecisionSupport
 	{
 		private bool m_booDontOverwriteAllIni = false;
 		private bool m_booOverwriteAllIni = false;
@@ -115,45 +115,74 @@ namespace Nexus.Client.ModManagement
 			if (m_booDontOverwriteAllIni)
 				return false;
 
-			if (!TouchedFiles.Contains(p_strSettingsFileName))
+			EnsureIniSnapshot(p_strSettingsFileName);
+			string strOldValue = IniMethods.GetPrivateProfileString(p_strSection, p_strKey, null, p_strSettingsFileName);
+			if (!ResolveIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue, strOldValue))
+				return false;
+
+			return ApplyResolvedIniEdit(p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
+		}
+
+		/// <summary>
+		/// Resolves whether the specified INI edit is allowed without modifying the settings file.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The name of the settings file to edit.</param>
+		/// <param name="p_strSection">The section containing the setting to edit.</param>
+		/// <param name="p_strKey">The key of the setting to edit.</param>
+		/// <param name="p_strValue">The value that would be assigned to the setting.</param>
+		/// <param name="p_strCurrentValue">The value visible before the edit is applied.</param>
+		/// <returns><c>true</c> if the edit is approved; otherwise, <c>false</c>.</returns>
+		public virtual bool ResolveIniEdit(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue, string p_strCurrentValue)
+		{
+			if (m_booDontOverwriteAllIni)
+				return false;
+			if (m_booOverwriteAllIni)
+				return true;
+
+			IMod modOldMod = InstallLog.GetCurrentIniEditOwner(p_strSettingsFileName, p_strSection, p_strKey);
+			string strMessage;
+			if (modOldMod != null)
 			{
-				TouchedFiles.Add(p_strSettingsFileName);
-				TransactionalFileManager.Snapshot(p_strSettingsFileName);
+				strMessage = String.Format("Key '{{0}}' in section '{{1}}' of {{2}} has already been overwritten by '{0}'\n" +
+									"Overwrite again with this mod?\n" +
+									"Current value '{{3}}', new value '{{4}}'", modOldMod.ModName);
 			}
+			else
+			{
+				strMessage = "The mod wants to modify key '{0}' in section '{1}' of {2}.\n" +
+									"Allow the change?\n" +
+									"Current value '{3}', new value '{4}'";
+			}
+
+			switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strKey, p_strSection, p_strSettingsFileName, p_strCurrentValue, p_strValue), false, false))
+			{
+				case OverwriteResult.YesToAll:
+					m_booOverwriteAllIni = true;
+					return true;
+				case OverwriteResult.NoToAll:
+					m_booDontOverwriteAllIni = true;
+					return false;
+				case OverwriteResult.Yes:
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		/// <summary>
+		/// Applies an INI edit whose overwrite decision has already been approved.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The name of the settings file to edit.</param>
+		/// <param name="p_strSection">The section containing the setting to edit.</param>
+		/// <param name="p_strKey">The key of the setting to edit.</param>
+		/// <param name="p_strValue">The value to assign to the setting.</param>
+		/// <returns><c>true</c> when the edit is applied.</returns>
+		public virtual bool ApplyResolvedIniEdit(string p_strSettingsFileName, string p_strSection, string p_strKey, string p_strValue)
+		{
+			EnsureIniSnapshot(p_strSettingsFileName);
 
 			IMod modOldMod = InstallLog.GetCurrentIniEditOwner(p_strSettingsFileName, p_strSection, p_strKey);
 			string strOldValue = IniMethods.GetPrivateProfileString(p_strSection, p_strKey, null, p_strSettingsFileName);
-			if (!m_booOverwriteAllIni)
-			{
-				string strMessage = null;
-				if (modOldMod != null)
-				{
-					strMessage = String.Format("Key '{{0}}' in section '{{1}}' of {{2}} has already been overwritten by '{0}'\n" +
-									"Overwrite again with this mod?\n" +
-									"Current value '{{3}}', new value '{{4}}'", modOldMod.ModName);
-				}
-				else
-				{
-					strMessage = "The mod wants to modify key '{0}' in section '{1}' of {2}.\n" +
-									"Allow the change?\n" +
-									"Current value '{3}', new value '{4}'";
-				}
-				switch (m_dlgOverwriteConfirmationDelegate(String.Format(strMessage, p_strKey, p_strSection, p_strSettingsFileName, strOldValue, p_strValue), false, false))
-				{
-					case OverwriteResult.YesToAll:
-						m_booOverwriteAllIni = true;
-						break;
-					case OverwriteResult.NoToAll:
-						m_booDontOverwriteAllIni = true;
-						break;
-					case OverwriteResult.Yes:
-						break;
-					default:
-						return false;
-				}
-			}
-
-			//if we are overwriting an original value, back it up
 			if ((modOldMod == null) && (strOldValue != null))
 				InstallLog.LogOriginalIniValue(p_strSettingsFileName, p_strSection, p_strKey, strOldValue);
 
@@ -164,6 +193,19 @@ namespace Nexus.Client.ModManagement
 				VirtualModActivator.LogIniEdits(Mod, p_strSettingsFileName, p_strSection, p_strKey, p_strValue);
 
 			return true;
+		}
+
+		/// <summary>
+		/// Ensures that the settings file is enlisted in the current transaction before its first mutation.
+		/// </summary>
+		/// <param name="p_strSettingsFileName">The settings file to snapshot.</param>
+		protected void EnsureIniSnapshot(string p_strSettingsFileName)
+		{
+			if (TouchedFiles.Contains(p_strSettingsFileName))
+				return;
+
+			TouchedFiles.Add(p_strSettingsFileName);
+			TransactionalFileManager.Snapshot(p_strSettingsFileName);
 		}
 
 		#endregion

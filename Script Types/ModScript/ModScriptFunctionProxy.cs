@@ -47,7 +47,39 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 		public ModScriptFunctionProxy(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, InstallerGroup p_igpInstallers, ModScriptUIUtil p_uipUIProxy)
 			: base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_igpInstallers, p_uipUIProxy)
  		{
+			TryEnableDeferredInstallation();
  		}
+
+		#endregion
+
+		#region Deferred Installation
+
+		/// <summary>
+		/// Performs a basic installation while preserving compatibility with scripts that mix basic-install and state-query operations.
+		/// </summary>
+		/// <returns><c>true</c> when the pending deferred operations and the basic installation complete successfully; otherwise, <c>false</c>.</returns>
+		public new bool PerformBasicInstall()
+		{
+			if (!IsDeferredInstallationEnabled)
+				return base.PerformBasicInstall();
+
+			// Basic installation expands to a broad set of file and plugin mutations that cannot yet be projected reliably.
+			// Commit the ordered plan first, then continue in immediate mode so subsequent script queries observe real state.
+			if (!ExecutePendingInstallationOperations())
+				return false;
+
+			SwitchToImmediateInstallation();
+			return base.PerformBasicInstall();
+		}
+
+		/// <summary>
+		/// Commits the installation operations collected while the Mod Script was being interpreted.
+		/// </summary>
+		/// <returns><c>true</c> when the session is immediate or every deferred operation completes successfully; otherwise, <c>false</c>.</returns>
+		public bool ExecuteInstallationPlan()
+		{
+			return !IsDeferredInstallationEnabled || ExecutePendingInstallationOperations();
+		}
 
 		#endregion
 

@@ -305,7 +305,7 @@ namespace Nexus.Client.Games.Fallout3.Scripting.CSharpScript
 		public bool EditShader(int p_intPackage, string p_strShaderName, byte[] p_bteData)
 		{
 			GamebryoGameSpecificValueInstaller.ShaderEdit sedShader = new GamebryoGameSpecificValueInstaller.ShaderEdit(p_intPackage, p_strShaderName);
-			return Installers.GameSpecificValueInstaller.EditGameSpecificValue(sedShader.ToString(), p_bteData);
+			return EditGameSpecificValue(sedShader.ToString(), p_bteData);
 		}
 
 		#endregion
