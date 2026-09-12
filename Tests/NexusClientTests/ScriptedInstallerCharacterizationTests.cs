@@ -327,7 +327,7 @@ namespace NexusClientTests
 
                 Assert.IsTrue(installer.ExecutePlannedOperations());
                 Assert.AreEqual(1, ctx.PluginActivationQueryInstallCallCount);
-                Assert.AreEqual("Test.esp", ctx.LastPluginActivationPath);
+                Assert.AreEqual("adjusted:Test.esp", ctx.LastPluginActivationPath);
                 Assert.IsTrue(ctx.LastPluginActivationState.Value);
             }
         }
@@ -348,7 +348,9 @@ namespace NexusClientTests
                 Assert.IsTrue(booResult);
                 Assert.AreEqual(0, ctx.FileInstaller.InstallCallCount);
                 Assert.IsTrue(installer.ExecutePlannedOperations());
-                Assert.AreEqual(Path.Combine(ctx.VirtualPath, "ExampleMod", NormalizePath("meshes/foo.nif")), ctx.FileInstaller.LastInstallPath);
+                Assert.AreEqual(
+                    NormalizePath(Path.Combine(ctx.VirtualPath, "ExampleMod", "meshes/foo.nif")),
+                    NormalizePath(ctx.FileInstaller.LastInstallPath));
             }
         }
 

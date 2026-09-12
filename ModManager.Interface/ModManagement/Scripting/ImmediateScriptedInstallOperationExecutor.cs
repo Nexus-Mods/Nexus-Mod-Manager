@@ -290,7 +290,8 @@ namespace Nexus.Client.ModManagement.Scripting
 
 			Plugin plgCurrent = null;
 			int intInitialIndex = 0;
-			while (((plgCurrent = m_igpInstallers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[intInitialIndex])) == null) && (intInitialIndex < lstRelativelyOrderedPlugins.Count))
+			while ((intInitialIndex < lstRelativelyOrderedPlugins.Count) &&
+				((plgCurrent = m_igpInstallers.PluginManager.GetRegisteredPlugin(lstRelativelyOrderedPlugins[intInitialIndex])) == null))
 				intInitialIndex++;
 			if (plgCurrent == null)
 				return true;

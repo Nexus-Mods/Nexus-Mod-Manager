@@ -81,6 +81,7 @@
             FileManagerRow row = CreateRow("textures\\persist.dds");
             FileManagerQueryService firstService = new FileManagerQueryService(store);
             FileManagerQueryService secondService = new FileManagerQueryService(store);
+            PrepareEditableUntrackedRow(row);
 
             firstService.ChangeManualSource("FalloutNV", row, FileManagerSource.ExternalModManager, FileManagerSource.Untracked);
             IDictionary<string, FileManagerSource> restored = secondService.LoadManualSources("FalloutNV");
@@ -124,6 +125,7 @@
             MemoryManualSourceStore store = new MemoryManualSourceStore();
             FileManagerQueryService service = new FileManagerQueryService(store);
             FileManagerRow firstRow = CreateRow("scripts\\manual.pex");
+            PrepareEditableUntrackedRow(firstRow);
             service.ChangeManualSource("FalloutNV", firstRow, FileManagerSource.ExternalModManager, FileManagerSource.Untracked);
 
             FileManagerRow refreshedRow = CreateRow("scripts\\manual.pex");
@@ -139,6 +141,7 @@
             MemoryManualSourceStore store = new MemoryManualSourceStore();
             FileManagerQueryService service = new FileManagerQueryService(store);
             FileManagerRow row = CreateRow("textures\\remove.dds");
+            PrepareEditableUntrackedRow(row);
             service.ChangeManualSource("FalloutNV", row, FileManagerSource.Creations, FileManagerSource.Untracked);
 
             service.ChangeManualSource("FalloutNV", row, FileManagerSource.Untracked, FileManagerSource.Creations);
@@ -264,6 +267,14 @@
             {
                 RelativePath = FileManagerQueryService.NormalizePath(relativePath)
             };
+        }
+
+        /// <summary>
+        /// Applies the normal source-classification pass before exercising a manual source change.
+        /// </summary>
+        private static void PrepareEditableUntrackedRow(FileManagerRow row)
+        {
+            FileManagerQueryService.ApplySourceClassification(row, null, EmptyBaseFiles(), EmptyManualSources());
         }
 
         private static HashSet<string> EmptyBaseFiles()

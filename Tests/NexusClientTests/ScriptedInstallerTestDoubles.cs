@@ -472,6 +472,36 @@ namespace NexusClientTests
     }
 
     /// <summary>
+    /// Creates lightweight plugin instances from projected plugin files used by scripted-installer tests.
+    /// </summary>
+    internal sealed class ScriptedInstallerTestPluginFactory : IPluginFactory
+    {
+        /// <summary>
+        /// Creates a plugin whose metadata can be copied into the projected plugin snapshot.
+        /// </summary>
+        public Plugin CreatePlugin(string p_strPluginPath)
+        {
+            return new Plugin(p_strPluginPath, Path.GetFileName(p_strPluginPath), null);
+        }
+
+        /// <summary>
+        /// Returns no external plugin information for the isolated test fixture.
+        /// </summary>
+        public string GetUpdatedPluginInfo(string p_strPluginPath)
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// Treats test plugin files as activatable.
+        /// </summary>
+        public bool IsActivatiblePluginFile(string p_strPath)
+        {
+            return true;
+        }
+    }
+
+    /// <summary>
     /// Builds and records the dependency graph required to exercise ScriptFunctionProxy and XmlScriptInstaller behavior.
     /// </summary>
     internal sealed class ScriptProxyContext
@@ -487,7 +517,8 @@ namespace NexusClientTests
         /// <param name="p_booMultiHd">Whether MultiHD mode is enabled.</param>
         /// <param name="p_booGameRequiresHardlink">Whether arbitrary files require HD-link staging.</param>
         /// <param name="p_strLinkResult">The value returned by virtual link creation.</param>
-        public ScriptProxyContext(string p_strRootPath, string p_strDownloadId, bool p_booMultiHd, bool p_booGameRequiresHardlink, string p_strLinkResult)
+        /// <param name="p_pgfPluginFactory">The optional plugin factory used to parse projected plugin contents.</param>
+        public ScriptProxyContext(string p_strRootPath, string p_strDownloadId, bool p_booMultiHd, bool p_booGameRequiresHardlink, string p_strLinkResult, IPluginFactory p_pgfPluginFactory = null)
         {
             VirtualPath = Path.Combine(p_strRootPath, "Virtual");
             HdLinkPath = Path.Combine(p_strRootPath, "HdLink");
@@ -531,6 +562,8 @@ namespace NexusClientTests
                     case "GetModFormatAdjustedPath":
                         string strRequestedPath = (string)p_objArgs[1];
                         return strRequestedPath == null ? String.Empty : "adjusted:" + strRequestedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                    case "GetPluginFactory":
+                        return p_pgfPluginFactory;
                     default:
                         return null;
                 }

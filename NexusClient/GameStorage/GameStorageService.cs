@@ -768,7 +768,7 @@ namespace Nexus.Client.GameStorage
             if (lastKnownGood.LastKnownInstallLogPresent && Directory.Exists(paths.InstallInfoPath) && !File.Exists(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
                 Add(result, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyInstallInfo.Message", "The InstallInfo folder lacks InstallLog.xml, but the previous known-good storage had one."), LanguageManager.Format("GameStorage.Health.PreviousInstallInfoPath", "Previous InstallInfo folder: {0}", lastKnownGood.InstallInfoPath));
 
-            if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountFiles(paths.VirtualInstallPath) == 0)
+            if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountVirtualInstallPayloadFiles(paths.VirtualInstallPath) == 0)
                 Add(result, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyVirtualInstall.Message", "The VirtualInstall folder is empty, but the previous known-good folder contained staged files."), LanguageManager.Format("GameStorage.Health.PreviousVirtualInstallPath", "Previous VirtualInstall folder: {0}", lastKnownGood.VirtualInstallPath));
         }
 
@@ -959,7 +959,7 @@ namespace Nexus.Client.GameStorage
             entry.LastKnownGood = true;
             entry.LastKnownArchiveCount = CountModArchives(paths.ModsPath);
             entry.LastKnownInstallLogPresent = File.Exists(Path.Combine(paths.InstallInfoPath ?? string.Empty, "InstallLog.xml"));
-            entry.LastKnownVirtualFileCount = CountFiles(paths.VirtualInstallPath);
+            entry.LastKnownVirtualFileCount = CountVirtualInstallPayloadFiles(paths.VirtualInstallPath);
             registry.ActiveStorageByGame[paths.GameId] = storageId;
         }
 
@@ -1699,13 +1699,20 @@ namespace Nexus.Client.GameStorage
             }
         }
 
-        private int CountFiles(string path)
+        /// <summary>
+        /// Counts staged VirtualInstall payload files while excluding NMM Game Storage metadata.
+        /// </summary>
+        private int CountVirtualInstallPayloadFiles(string path)
         {
             if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
                 return 0;
             try
             {
-                return Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories).Take(101).Count();
+                string manifestPath = Path.GetFullPath(Path.Combine(path, GameStorageConstants.FolderManifestFileName));
+                return Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
+                    .Where(x => !string.Equals(Path.GetFullPath(x), manifestPath, StringComparison.OrdinalIgnoreCase))
+                    .Take(101)
+                    .Count();
             }
             catch
             {

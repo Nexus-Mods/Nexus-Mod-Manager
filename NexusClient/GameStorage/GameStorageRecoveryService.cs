@@ -1606,9 +1606,11 @@ namespace Nexus.Client.GameStorage
             GameStoragePathSet currentPaths,
             GameStorageCandidate candidate)
         {
-            candidate.GameId = candidate.IsSharedModsLibrary || string.IsNullOrWhiteSpace(candidate.GameId)
-                ? currentPaths.GameId
-                : candidate.GameId;
+            if (candidate.IsSharedModsLibrary)
+                candidate.GameId = currentPaths.GameId;
+            else if (string.IsNullOrWhiteSpace(candidate.GameId) &&
+                !string.Equals(candidate.CandidateKind, "Possible InstallInfo folder", StringComparison.OrdinalIgnoreCase))
+                candidate.GameId = currentPaths.GameId;
             candidate.InstallInfoPath = NormalizeDirectoryPath(
                 candidate.InstallInfoPath);
             candidate.ModsPath = NormalizeDirectoryPath(

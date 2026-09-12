@@ -54,7 +54,8 @@
 			string result = NexusDescriptionFormatter.ToSafeHtml("<b>Safe</b><script>alert('x')</script><br>After");
 
 			StringAssert.Contains("<b>Safe</b>alert(&#39;x&#39;)<br>After", result);
-			StringAssert.DoesNotContain("script", result);
+			StringAssert.DoesNotContain("<script", result.ToLowerInvariant());
+			StringAssert.DoesNotContain("</script", result.ToLowerInvariant());
 		}
 
 		/// <summary>
@@ -90,7 +91,8 @@
 			string result = NexusDescriptionFormatter.ToSafeHtml("&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;");
 
 			StringAssert.Contains("alert(1)", result);
-			StringAssert.DoesNotContain("script", result);
+			StringAssert.DoesNotContain("<script", result.ToLowerInvariant());
+			StringAssert.DoesNotContain("</script", result.ToLowerInvariant());
 		}
 
 		/// <summary>

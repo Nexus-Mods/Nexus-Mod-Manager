@@ -169,7 +169,12 @@ namespace NexusClientTests
         private static List<IVirtualModLink> FindByDeploymentPath(object index, string key)
         {
             MethodInfo method = GetIndexType().GetMethod("FindByDeploymentPath", BindingFlags.Instance | BindingFlags.Public);
-            return (List<IVirtualModLink>)method.Invoke(index, new object[] { key });
+            object bucket = method.Invoke(index, new object[] { key });
+            if (bucket == null)
+                return new List<IVirtualModLink>();
+
+            MethodInfo toArray = bucket.GetType().GetMethod("ToArray", BindingFlags.Instance | BindingFlags.Public);
+            return ((IVirtualModLink[])toArray.Invoke(bucket, null)).ToList();
         }
 
         private static Type GetIndexType()

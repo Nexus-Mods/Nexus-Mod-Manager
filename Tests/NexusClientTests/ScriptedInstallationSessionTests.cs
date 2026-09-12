@@ -113,6 +113,21 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies that relative load-order requests containing only unregistered plugins are treated as a no-op.
+        /// </summary>
+        [Test]
+        public void ScriptProxy_SetRelativeLoadOrderWithOnlyMissingPlugins_IsNoOp()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(tmp.Path, "12345", false, false, "linked");
+
+                Assert.DoesNotThrow(() => ctx.Proxy.SetRelativeLoadOrder(new[] { "MissingA.esp", "MissingB.esp" }));
+                Assert.AreEqual(0, ctx.PluginOrderCalls.Count);
+            }
+        }
+
+        /// <summary>
         /// Verifies that ScriptFunctionProxy records logical operations while preserving immediate execution.
         /// </summary>
         [Test]

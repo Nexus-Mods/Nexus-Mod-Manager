@@ -63,6 +63,18 @@ namespace NexusClientTests
         }
 
         [Test]
+        public void InitializeMetadataForStorage_EmptyVirtualInstallMetadataIsNotTreatedAsPayload()
+        {
+            var paths = CreateStorage("SkyrimSE", "StorageA");
+            _service.InitializeMetadataForStorage(paths);
+            DeleteFileIfExists(Path.Combine(paths.VirtualInstallPath, ".nmm-folder.json"));
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.That(result.Items.Any(x => x.Role == GameStorageFolderRole.VirtualInstall && x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.False);
+        }
+
+        [Test]
         public void ValidateStorage_LegacyVirtualInstallCollision_IsNotRepairedUntilExplicitInitialization()
         {
             string root = Path.Combine(_tempRoot, "LegacyCollision");
@@ -188,8 +200,15 @@ namespace NexusClientTests
             string selectedStorageId = _service.ValidateStorage(selected).StorageId;
 
             var current = CreateStorage("Fallout3", "CurrentStorage");
+            // Metadata-free paths intentionally inherit the active storage identity; seed explicit metadata so this fixture represents a distinct storage.
+            const string currentStorageId = "current-storage";
+            WriteFolderManifest(current.InstallInfoPath, "Fallout3", currentStorageId, "InstallInfo");
+            WriteFolderManifest(current.ModsPath, "Fallout3", currentStorageId, "Mods");
+            WriteFolderManifest(current.VirtualInstallPath, "Fallout3", currentStorageId, "VirtualInstall");
             _service.InitializeMetadataForStorage(current);
             string activeStorageId = _service.ValidateStorage(current).StorageId;
+            Assert.AreEqual(currentStorageId, activeStorageId);
+            Assert.AreNotEqual(selectedStorageId, activeStorageId);
 
             DeleteFileIfExists(Path.Combine(selected.InstallInfoPath, ".nmm-folder.json"));
             DeleteFileIfExists(Path.Combine(selected.ModsPath, ".nmm-folder.json"));
@@ -261,14 +280,14 @@ namespace NexusClientTests
         }
 
         [Test]
-        public void DiscoverRecoveryCandidatesFromRoot_RootManifestCreatesHighConfidenceCandidate()
+        public void DiscoverRecoveryCandidatesFromRoot_SelectedRootManifestCreatesHighConfidenceCandidate()
         {
             var paths = CreateStorage("SkyrimSE", "StorageA");
             WriteRootManifest(Path.Combine(_tempRoot, "StorageA"), "SkyrimSE", "StorageA");
 
             var candidates = _service.DiscoverRecoveryCandidatesFromRoot(paths, Path.Combine(_tempRoot, "StorageA"));
 
-            var candidate = candidates.FirstOrDefault(x => x.CandidateKind == "Root manifest");
+            var candidate = candidates.FirstOrDefault(x => x.CandidateKind == "Selected root manifest");
             Assert.IsNotNull(candidate);
             Assert.AreEqual(GameStorageCandidateConfidence.High, candidate.ConfidenceLevel);
             Assert.AreEqual(paths.InstallInfoPath, candidate.InstallInfoPath);
