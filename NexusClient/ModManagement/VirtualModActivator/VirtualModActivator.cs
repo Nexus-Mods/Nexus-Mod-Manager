@@ -39,7 +39,7 @@
 		public int Total { get; private set; }
 	}
 
-	public class VirtualModActivator : IVirtualModActivator
+	public partial class VirtualModActivator : IVirtualModActivator
 	{
 		[DllImport("kernel32.dll")]
 		static extern bool CreateSymbolicLink(string p_strLinkName, string p_strTargetPath, int dwFlags);

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
@@ -80,6 +81,30 @@ namespace Nexus.Client.ModManagement
 		void PurgeMods(List<IMod> p_lstMods, string p_strPath);
 		bool CheckHasActiveLinks(IMod p_modMod);
 		string GetCurrentFileOwner(string p_strPath);
+		/// <summary>
+		/// Gets the effective Virtual owners for a canonical deployment target, ordered fallback to current winner.
+		/// </summary>
+		IReadOnlyList<string> GetVirtualOwnerKeys(ModDeploymentTarget p_mdtTarget);
+		/// <summary>
+		/// Gets the staged source file for a Virtual owner at the specified deployment target.
+		/// </summary>
+		string GetVirtualSourceForOwner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+		/// <summary>
+		/// Detaches the selected deployed Virtual file without selecting a fallback, changing plugins, or persisting immediately.
+		/// </summary>
+		void DetachVirtualLinkWithoutFallback(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, TxFileManager p_tfmFileManager);
+		/// <summary>
+		/// Deploys the selected existing Virtual owner without fallback selection, plugin changes, or immediate persistence.
+		/// </summary>
+		void DeploySpecificVirtualLink(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, TxFileManager p_tfmFileManager);
+		/// <summary>
+		/// Removes the selected Virtual link record without changing the deployed file or selecting a fallback.
+		/// </summary>
+		void RemoveVirtualLinkRecord(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+		/// <summary>
+		/// Changes only the selected Virtual link active state.
+		/// </summary>
+		void SetVirtualLinkActiveState(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, bool p_booActive);
 		/// <summary>
 		/// Gets the current active virtual-file owners for the specified paths.
 		/// </summary>

@@ -20,6 +20,7 @@ namespace Nexus.Client.ModManagement
 		private IInstallLog m_ilgInstallLog = null;
 		private IPluginManager m_pmgPluginManager = null;
 		private IVirtualModActivator m_ivaVirtualModActivator = null;
+		private IModDeploymentManager m_mdmDeploymentManager = null;
 		private IProfileManager m_ipmProfileManager = null;
 		private FileUtil m_futFileUtility = null;
 		private SynchronizationContext m_scxUIContext = null;
@@ -36,7 +37,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ilgInstallLog">The install log that tracks mod install info
 		/// for the current game mode.</param>
 		/// <param name="p_pmgPluginManager">The plugin manager to use to work with plugins.</param>
-		public ModInstallerFactory(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator)
+		public ModInstallerFactory(IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager)
 		{
 			m_gmdGameMode = p_gmdGameMode;
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
@@ -45,6 +46,7 @@ namespace Nexus.Client.ModManagement
 			m_ilgInstallLog = p_ilgInstallLog;
 			m_pmgPluginManager = p_pmgPluginManager;
 			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
+			m_mdmDeploymentManager = p_mdmDeploymentManager;
 		}
 
 		#endregion
@@ -86,7 +88,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod uninstaller for the given mod.</returns>
 		public ModUninstaller CreateUninstaller(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
 		}
 
 		/// <summary>
@@ -97,7 +99,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod deleter for the given mod.</returns>
 		public ModDeleter CreateDelete(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
 		}
 
 		/// <summary>

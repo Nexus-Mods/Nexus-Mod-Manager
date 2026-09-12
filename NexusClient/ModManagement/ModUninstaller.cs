@@ -90,6 +90,11 @@ namespace Nexus.Client.ModManagement
 		/// <value>The current virtual mod activator.</value>
 		protected IVirtualModActivator VirtualModActivator { get; private set; }
 
+		/// <summary>
+		/// Gets the method-neutral deployment coordinator.
+		/// </summary>
+		protected IModDeploymentManager DeploymentManager { get; private set; }
+
 		public bool DisableVirtualFilesOnly { get; set; }
 
 		public bool Succeeded { get; private set; }
@@ -112,7 +117,7 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
+		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -121,6 +126,7 @@ namespace Nexus.Client.ModManagement
 			PluginManager = p_pmgPluginManager;
 			ActiveMods = p_rolActiveMods;
 			VirtualModActivator = p_ivaVirtualModActivator;
+			DeploymentManager = p_mdmDeploymentManager;
 		}
 
 		#endregion
@@ -131,8 +137,10 @@ namespace Nexus.Client.ModManagement
 		public void Install()
 		{
 			bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
-			bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
-			if (!booIsInstallLogActive && !booHasVirtualLinks)
+			bool booHasManagedFiles = DeploymentManager != null
+				? DeploymentManager.HasManagedFiles(Mod)
+				: VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
+			if (!booIsInstallLogActive && !booHasManagedFiles)
 			{
 				OnTaskSetCompleted(true, "The mod was successfully deactivated.", Mod);
 				return;

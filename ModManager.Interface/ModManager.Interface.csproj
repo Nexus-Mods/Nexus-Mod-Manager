@@ -168,6 +168,7 @@
     <Compile Include="ModManagement\IIniInstaller.cs" />
     <Compile Include="ModManagement\IIniEditDecisionSupport.cs" />
     <Compile Include="ModManagement\IModFileInstaller.cs" />
+    <Compile Include="ModManagement\IModDeploymentManager.cs" />
     <Compile Include="ModManagement\IModFileInstallDecisionSupport.cs" />
     <Compile Include="ModManagement\IModProfile.cs" />
     <Compile Include="ModManagement\InstallationLog\IInstallLog.cs" />

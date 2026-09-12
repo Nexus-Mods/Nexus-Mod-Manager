@@ -122,6 +122,7 @@
     <Compile Include="CategoryManagerTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
+    <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
     <Compile Include="NexusDescriptionFormatterTests.cs" />

@@ -249,6 +249,7 @@
     <Compile Include="ModManagement\VirtualDeploymentResult.cs" />
     <Compile Include="ModManagement\VirtualDeploymentService.cs" />
     <Compile Include="ModManagement\VirtualDeploymentSession.cs" />
+    <Compile Include="ModManagement\ModDeploymentManager.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />
@@ -279,6 +280,7 @@
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciliationReport.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciler.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.DeploymentBackend.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModStoreFactory.cs" />
     <Compile Include="ModManagement\VirtualModActivator\XmlVirtualModStore.cs" />
     <Compile Include="ModManagement\VirtualModInfo.cs" />

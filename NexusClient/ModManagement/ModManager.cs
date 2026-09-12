@@ -80,6 +80,7 @@ namespace Nexus.Client.ModManagement
 
 		private ModActivator m_macModActivator = null;
 		private VirtualModActivator m_vmaVirtualModActivator = null;
+		private IModDeploymentManager m_mdmDeploymentManager = null;
 		private ReadMeManager m_rmmReadMeManager = null;
 
 		#region events
@@ -197,6 +198,17 @@ namespace Nexus.Client.ModManagement
 			get
 			{
 				return m_vmaVirtualModActivator;
+			}
+		}
+
+		/// <summary>
+		/// Gets the method-neutral deployment coordinator.
+		/// </summary>
+		public IModDeploymentManager DeploymentManager
+		{
+			get
+			{
+				return m_mdmDeploymentManager;
 			}
 		}
 
@@ -343,7 +355,8 @@ namespace Nexus.Client.ModManagement
 			InstallationLog = p_ilgInstallLog;
 			m_vmaVirtualModActivator = new VirtualModActivator(this, p_pmgPluginManager, p_gmdGameMode, p_ilgInstallLog, p_eifEnvironmentInfo, EnvironmentInfo.Settings.ModFolder[GameMode.ModeId]);
 			m_vmaVirtualModActivator.Initialize();
-			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager, m_vmaVirtualModActivator);
+			m_mdmDeploymentManager = new ModDeploymentManager(p_ilgInstallLog, m_vmaVirtualModActivator);
+			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager, m_vmaVirtualModActivator, m_mdmDeploymentManager);
 			DownloadMonitor = p_dmrMonitor;
 			ModActivationMonitor = p_mamMonitor;
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
@@ -569,8 +582,8 @@ namespace Nexus.Client.ModManagement
 		public IBackgroundTaskSet DeactivateMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			bool booIsInstallLogActive = InstallationLog.ActiveMods.Contains(p_modMod);
-			bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(p_modMod);
-			if (!booIsInstallLogActive && !booHasVirtualLinks)
+			bool booHasManagedFiles = DeploymentManager != null && DeploymentManager.HasManagedFiles(p_modMod);
+			if (!booIsInstallLogActive && !booHasManagedFiles)
 				return null;
 
 			ModUninstaller munUninstaller = InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods);
