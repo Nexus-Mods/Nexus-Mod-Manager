@@ -92,15 +92,16 @@ namespace Nexus.Client.ModManagement
 				OverallMessage = String.Format(deletingFormat, modMod.ModName);
 
 				ModDeleter mddDeleter = InstallerFactory.CreateDelete(modMod, ActiveMods);
-				mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);
 				mddDeleter.Install();
-				TaskSetWaiter.Wait(mddDeleter);
+				mddDeleter.Wait();
 				if (!mddDeleter.Succeeded)
 				{
 					Status = TaskStatus.Error;
 					OverallMessage = mddDeleter.CompletionMessage;
 					return false;
 				}
+
+				ManagedModRegistry.UnregisterMod(modMod);
 
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
@@ -109,18 +110,6 @@ namespace Nexus.Client.ModManagement
 					break;
 			}
 			return null;
-		}
-
-		/// <summary>
-		/// Handles the <see cref="IBackgroundTaskSet.TaskSetCompleted"/> event of the mod deletion
-		/// mod deativator.
-		/// </summary>
-		/// <param name="sender">The object that raised the event.</param>
-		/// <param name="e">A <see cref="TaskSetCompletedEventArgs"/> describing the event arguments.</param>
-		private void Deactivator_TaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
-		{
-			if (e.Success)
-				ManagedModRegistry.UnregisterMod((IMod)e.ReturnValue);
 		}
 
 
