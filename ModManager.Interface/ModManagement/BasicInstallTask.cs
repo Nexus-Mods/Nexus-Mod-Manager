@@ -70,7 +70,8 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <value>The optional list of files to install.</value>
 		protected List<KeyValuePair<string, string>> FilesToInstall { get; private set; }
-		protected ModInstallRoot InstallRoot { get; private set; }
+		protected ModInstallContext InstallContext { get; private set; }
+		protected ModInstallRoot InstallRoot => InstallContext.InstallRoot;
 
 		#endregion
 
@@ -92,6 +93,14 @@ namespace Nexus.Client.ModManagement
 		}
 
 		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles, ModInstallRoot p_mirInstallRoot)
+			: this(p_modMod, p_gmdGameMode, p_mfiFileInstaller, p_pmgPluginManager, p_ivaVirtualModActivator, p_booSkipReadme, p_rolActiveMods, p_dicInstallFiles, new ModInstallContext(ModInstallMethod.Virtual, p_mirInstallRoot))
+		{
+		}
+
+		/// <summary>
+		/// Initializes a basic install task with the immutable deployment context captured for the operation.
+		/// </summary>
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles, ModInstallContext p_micInstallContext)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -101,7 +110,7 @@ namespace Nexus.Client.ModManagement
 			SkipReadme = p_booSkipReadme;
 			ActiveMods = p_rolActiveMods;
 			FilesToInstall = p_dicInstallFiles;
-			InstallRoot = p_mirInstallRoot;
+			InstallContext = p_micInstallContext ?? throw new ArgumentNullException(nameof(p_micInstallContext));
 		}
 
 		#endregion
@@ -129,6 +138,9 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A return value.</returns>
 		protected override object DoWork(object[] args)
 		{
+			if (InstallContext.Method == ModInstallMethod.Direct)
+				return DoDirectWork();
+
 			IModLinkInstaller ModLinkInstaller = VirtualModActivator.GetModLinkInstaller();
 			char[] chrDirectorySeperators = new char[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
 			List<KeyValuePair<string, string>> lstFiles = (FilesToInstall == null) ? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList() : FilesToInstall;
@@ -250,6 +262,71 @@ namespace Nexus.Client.ModManagement
 				PluginManager.IntegrateDeployedPlugins(deployedPluginPaths);
 
 			VirtualModActivator.SaveList();
+			return true;
+		}
+
+		/// <summary>
+		/// Executes the standalone Direct basic-install path without creating Virtual staging payloads.
+		/// </summary>
+		private bool DoDirectWork()
+		{
+			List<KeyValuePair<string, string>> files = (FilesToInstall == null)
+				? Mod.GetFileList().Select(x => new KeyValuePair<string, string>(x, null)).ToList()
+				: FilesToInstall;
+
+			if (GameMode.RequiresSpecialFileInstallation && GameMode.IsSpecialFile(Mod.GetFileList()))
+			{
+				List<KeyValuePair<string, string>> specialFiles = GameMode.SpecialFileInstall(Mod)
+					?.Select(x => new KeyValuePair<string, string>(x, null)).ToList();
+				if (specialFiles != null)
+					files = specialFiles;
+			}
+
+			if (InstallRoot == ModInstallRoot.GameRoot)
+				files = StripGameRootWrapperFolder(files);
+
+			files = files.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
+			OverallProgressMaximum = files.Count;
+			if (GameMode.RequiresModFileMerge)
+				GameMode.ModFileMerge(ActiveMods, Mod, false);
+
+			int eligibleFiles = 0;
+			foreach (KeyValuePair<string, string> file in files)
+			{
+				if (Status == TaskStatus.Cancelling)
+					return false;
+
+				string destination = string.IsNullOrWhiteSpace(file.Value) ? file.Key : file.Value;
+				string adjustedPath = GetAdjustedPath(destination, ModPathContext.GameInstall);
+				if (string.IsNullOrEmpty(adjustedPath))
+				{
+					StepOverallProgress();
+					continue;
+				}
+				if (InstallRoot == ModInstallRoot.GameRoot)
+					destination = adjustedPath;
+
+				if (!(GameMode.RequiresModFileMerge && Path.GetFileName(file.Key) == GameMode.MergedFileName))
+				{
+					string sourceDirectory = Path.GetDirectoryName(file.Key);
+					string targetDirectory = Path.GetDirectoryName(adjustedPath);
+					bool skipReadme = SkipReadme && Readme.IsValidReadme(file.Key) &&
+						(string.IsNullOrEmpty(sourceDirectory) ||
+							(!string.IsNullOrEmpty(targetDirectory) &&
+							targetDirectory.Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)));
+
+					if (!skipReadme)
+					{
+						eligibleFiles++;
+						FileInstaller.InstallFileFromMod(file.Key, destination);
+					}
+				}
+				StepOverallProgress();
+			}
+
+			if (files.Count > 0 && eligibleFiles == 0)
+				throw new InvalidDataException(string.Format("This mod does not have the correct file structure for a {0} mod that NMM can use. It will not work with NMM.", GameMode.Name));
+
 			return true;
 		}
 

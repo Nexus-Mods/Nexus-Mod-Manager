@@ -123,6 +123,7 @@
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
+    <Compile Include="DirectInstallStep3Tests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
     <Compile Include="NexusDescriptionFormatterTests.cs" />
@@ -141,6 +142,10 @@
     <ProjectReference Include="..\..\Transactions\Transactions.csproj">
       <Project>{EA39FD1B-CF1C-4F56-80EE-52A8FA042964}</Project>
       <Name>Transactions</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\ChinhDo.Transactions.FileManager\ChinhDo.Transactions.FileManager.csproj">
+      <Project>{E824ACBB-90C8-4C60-9D52-9C8020E98E3E}</Project>
+      <Name>ChinhDo.Transactions.FileManager</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\ModManager.Interface\ModManager.Interface.csproj">
       <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>

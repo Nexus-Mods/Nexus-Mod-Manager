@@ -233,6 +233,7 @@
     <Compile Include="ModManagement\InstallationLog\InstallLog.TransactionEnlistment.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.TransactionEnlistment.Deployment.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.DeploymentRegistry.cs" />
+    <Compile Include="ModManagement\DirectModFileInstaller.cs" />
     <Compile Include="ModManagement\ModFileInstaller.cs" />
     <Compile Include="ModManagement\InstallationLog\InstallLog.cs" />
     <Compile Include="ModManagement\ModInstaller.cs" />

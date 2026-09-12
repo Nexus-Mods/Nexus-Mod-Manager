@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
@@ -173,8 +174,18 @@ namespace Nexus.Client.ModManagement
 				{
 					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
 					bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
+					ModInstallMethod installMethod = booIsInstallLogActive
+						? ModInstallLog.GetModInstallMethod(Mod)
+						: ModInstallMethod.Virtual;
 
-					if (booHasVirtualLinks)
+					if (installMethod == ModInstallMethod.Direct && booHasVirtualLinks)
+					{
+						strErrorMessage = "Mixed Virtual/Direct ownership is implemented in Step 4 and cannot be uninstalled by the standalone Direct path.";
+						OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
+						return;
+					}
+
+					if (installMethod == ModInstallMethod.Virtual && booHasVirtualLinks)
 					{
 						VirtualModDisableTask vdtDisableTask = new VirtualModDisableTask(Mod, VirtualModActivator, DisableVirtualFilesOnly);
 						OnTaskStarted(vdtDisableTask);
@@ -202,6 +213,22 @@ namespace Nexus.Client.ModManagement
 						using (TransactionScope tsTransaction = new TransactionScope())
 						{
 							TxFileManager tfmFileManager = new TxFileManager();
+
+							if (installMethod == ModInstallMethod.Direct)
+							{
+								IReadOnlyCollection<string> absentPaths = DeploymentManager.UninstallDirectMod(Mod, tfmFileManager);
+								if (PluginManager != null && absentPaths.Count > 0)
+								{
+									List<string> removedPlugins = new List<string>();
+									foreach (string path in absentPaths)
+									{
+										if (PluginManager.IsActivatiblePluginFile(path))
+											removedPlugins.Add(path);
+									}
+									if (removedPlugins.Count > 0)
+										PluginManager.RemovePlugins(removedPlugins);
+								}
+							}
 
 							booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
 							if (booSuccess)

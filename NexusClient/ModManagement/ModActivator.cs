@@ -62,6 +62,20 @@ namespace Nexus.Client.ModManagement
 
 		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, bool p_booOverrideUpgrade, ModInstallRoot p_mirInstallRoot)
 		{
+			return Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, p_booOverrideUpgrade, new ModInstallContext(ModInstallMethod.Virtual, p_mirInstallRoot));
+		}
+
+		/// <summary>
+		/// Activates a mod using the immutable deployment context captured for the operation.
+		/// </summary>
+		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			bool p_booOverrideUpgrade, ModInstallContext p_micInstallContext)
+		{
+			if (p_micInstallContext == null)
+				throw new ArgumentNullException(nameof(p_micInstallContext));
+
 			ModMatcher mmcMatcher = new ModMatcher(InstallationLog.ActiveMods, true);
 			IMod modOldVersion = mmcMatcher.FindAlternateVersion(p_modMod, true);
 			ConfirmUpgradeResult curAction = ConfirmUpgradeResult.NormalActivation;
@@ -72,10 +86,12 @@ namespace Nexus.Client.ModManagement
 			switch (curAction)
 			{
 				case ConfirmUpgradeResult.Upgrade:
+					if (p_micInstallContext.Method == ModInstallMethod.Direct)
+						throw new NotSupportedException("Direct upgrade and conversion are implemented in Step 6.");
 					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod, p_dlgOverwriteConfirmationDelegate);
 					return muiUpgrader;
 				case ConfirmUpgradeResult.NormalActivation:
-					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_mirInstallRoot);
+					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext);
 					return minInstaller;
 				case ConfirmUpgradeResult.Cancel:
 					return null;

@@ -355,7 +355,7 @@ namespace Nexus.Client.ModManagement
 			InstallationLog = p_ilgInstallLog;
 			m_vmaVirtualModActivator = new VirtualModActivator(this, p_pmgPluginManager, p_gmdGameMode, p_ilgInstallLog, p_eifEnvironmentInfo, EnvironmentInfo.Settings.ModFolder[GameMode.ModeId]);
 			m_vmaVirtualModActivator.Initialize();
-			m_mdmDeploymentManager = new ModDeploymentManager(p_ilgInstallLog, m_vmaVirtualModActivator);
+			m_mdmDeploymentManager = new ModDeploymentManager(p_ilgInstallLog, m_vmaVirtualModActivator, p_gmdGameMode);
 			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager, m_vmaVirtualModActivator, m_mdmDeploymentManager);
 			DownloadMonitor = p_dmrMonitor;
 			ModActivationMonitor = p_mamMonitor;
@@ -515,6 +515,23 @@ namespace Nexus.Client.ModManagement
 				return null;
 			DeleteXMLInstalledFile(p_modMod);
 			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false);
+		}
+
+		/// <summary>
+		/// Activates the given mod using an explicitly captured install context.
+		/// </summary>
+		public IBackgroundTaskSet ActivateMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			ModInstallContext p_micInstallContext)
+		{
+			if (p_micInstallContext == null)
+				throw new ArgumentNullException(nameof(p_micInstallContext));
+			if (InstallationLog.ActiveMods.Contains(p_modMod))
+				return null;
+
+			DeleteXMLInstalledFile(p_modMod);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, false, p_micInstallContext);
 		}
 
 		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)

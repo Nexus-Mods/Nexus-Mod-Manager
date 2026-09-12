@@ -77,6 +77,11 @@ namespace Nexus.Client.ModManagement
 		protected IVirtualModActivator VirtualModActivator { get; private set; }
 
 		/// <summary>
+		/// Gets the method-neutral deployment coordinator.
+		/// </summary>
+		protected IModDeploymentManager DeploymentManager { get; private set; }
+
+		/// <summary>
 		/// Gets the profile manager.
 		/// </summary>
 		/// <value>The profile manager.</value>
@@ -116,7 +121,9 @@ namespace Nexus.Client.ModManagement
 
 		protected ReadOnlyObservableList<IMod> ActiveMods { get; set; }
 
-		protected ModInstallRoot InstallRoot { get; private set; }
+		protected ModInstallContext InstallContext { get; private set; }
+
+		protected ModInstallRoot InstallRoot => InstallContext.InstallRoot;
 
 		#endregion
 
@@ -141,6 +148,14 @@ namespace Nexus.Client.ModManagement
 		}
 
 		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IProfileManager p_prmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallRoot p_mirInstallRoot)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, null, p_prmProfileManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, new ModInstallContext(ModInstallMethod.Virtual, p_mirInstallRoot))
+		{
+		}
+
+		/// <summary>
+		/// Initializes an installer with the immutable deployment context captured for this operation.
+		/// </summary>
+		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IProfileManager p_prmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallContext p_micInstallContext)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -150,10 +165,13 @@ namespace Nexus.Client.ModManagement
 			ModInstallLog = p_ilgModInstallLog;
 			PluginManager = p_pmgPluginManager;
 			VirtualModActivator = p_ivaVirtualModActivator;
+			DeploymentManager = p_mdmDeploymentManager;
 			ProfileManager = p_prmProfileManager;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate;
 			ActiveMods = p_rolActiveMods;
-			InstallRoot = p_mirInstallRoot;
+			InstallContext = p_micInstallContext ?? throw new ArgumentNullException(nameof(p_micInstallContext));
+			if (InstallContext.Method == ModInstallMethod.Direct && DeploymentManager == null)
+				throw new ArgumentNullException(nameof(p_mdmDeploymentManager));
 		}
 
 		#endregion
@@ -204,7 +222,8 @@ namespace Nexus.Client.ModManagement
 						{
 							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
-							VirtualModActivator.SaveList(true);
+							if (InstallContext.Method == ModInstallMethod.Virtual)
+								VirtualModActivator.SaveList(true);
 							strMessage = "The mod was successfully activated.";
 						}
 					}
@@ -278,6 +297,9 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunScript(TxFileManager p_tfmFileManager)
 		{
+			if (InstallContext.Method == ModInstallMethod.Direct && Mod.HasInstallScript)
+				throw new NotSupportedException("Direct scripted installation is implemented in Step 5.");
+
 			IModFileInstaller mfiFileInstaller = CreateFileInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 			bool booResult = false;
 			IIniInstaller iniIniInstaller = null;
@@ -361,7 +383,7 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles)
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods, p_dicInstallFiles, InstallRoot);
+			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods, p_dicInstallFiles, InstallContext);
 			OnTaskStarted(bitTask);
 			return bitTask.Execute();
 		}
@@ -381,6 +403,12 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The file installer to use to install the mod's files.</returns>
 		protected virtual IModFileInstaller CreateFileInstaller(TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
+			if (InstallContext.Method == ModInstallMethod.Direct)
+			{
+				return new DirectModFileInstaller(Mod, GameMode, ModInstallLog, DeploymentManager, PluginManager,
+					p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, EnvironmentInfo, InstallContext);
+			}
+
 			return new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo, GetInstallBasePath());
 		}
 
@@ -452,7 +480,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected virtual void RegisterMod()
 		{
-			ModInstallLog.AddActiveMod(Mod, InstallRoot);
+			ModInstallLog.AddActiveMod(Mod, InstallRoot, InstallContext.Method);
 		}
 	}
 }
