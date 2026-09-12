@@ -10,6 +10,7 @@ using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util;
@@ -337,7 +338,24 @@ namespace Nexus.Client.ModManagement
 			if (Mod.HasInstallScript)
 			{
 				if (CheckScriptedModLog())
-					booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, LoadXMLModFilesToInstall(), p_tfmFileManager);
+				{
+					string replaySourcePath;
+					IScriptedFileSelectionCache replayCache = GetScriptedFileSelectionCache(out replaySourcePath);
+					IReadOnlyList<ScriptedReplayOperation> replayOperations = replayCache == null ? null : replayCache.LoadReplayOperations();
+					bool requiresOperationReplay = replayOperations != null && replayOperations.Any(x => x.Kind != ScriptedReplayOperationKind.ArchiveFile);
+					if (requiresOperationReplay)
+					{
+						booResult = RunScriptedReplay(mfiFileInstaller, replayOperations, p_tfmFileManager);
+						if (booResult)
+							CopyProfileReplayToLiveCache(replaySourcePath);
+					}
+					else
+					{
+						booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, replayCache == null ? null : replayCache.LoadSelections(), p_tfmFileManager);
+						if (booResult)
+							CopyProfileReplayToLiveCache(replaySourcePath);
+					}
+				}
 				else
 				{
 					try
@@ -522,15 +540,96 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected List<KeyValuePair<string, string>> LoadXMLModFilesToInstall()
 		{
-			IScriptedFileSelectionCache sfcFileSelectionCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			string cachePath;
+			IScriptedFileSelectionCache cache = GetScriptedFileSelectionCache(out cachePath);
+			return cache == null ? null : cache.LoadSelections();
+		}
+
+		/// <summary>
+		/// Resolves the replay cache selected for this install, preferring the active profile snapshot when present.
+		/// </summary>
+		private IScriptedFileSelectionCache GetScriptedFileSelectionCache(out string p_strCachePath)
+		{
+			IScriptedFileSelectionCache cache = new ScriptedFileSelectionCache(Mod, GameMode);
+			p_strCachePath = cache.FilePath;
 			if (ProfileManager != null)
 			{
-				string strProfileCachePath = ProfileManager.IsScriptedLogPresent(Mod.Filename);
-				if (strProfileCachePath != null)
-					sfcFileSelectionCache = new ScriptedFileSelectionCache(strProfileCachePath);
+				string profileCachePath = ProfileManager.IsScriptedLogPresent(Mod.Filename);
+				if (!String.IsNullOrWhiteSpace(profileCachePath))
+				{
+					cache = new ScriptedFileSelectionCache(profileCachePath);
+					p_strCachePath = profileCachePath;
+				}
+			}
+			return cache;
+		}
+
+		/// <summary>
+		/// Replays the ordered scripted file operations needed for exact profile restoration.
+		/// </summary>
+		private bool RunScriptedReplay(IModFileInstaller p_mfiFileInstaller, IReadOnlyList<ScriptedReplayOperation> p_lstOperations, TxFileManager p_tfmFileManager)
+		{
+			if (p_lstOperations == null || p_lstOperations.Count == 0)
+				return false;
+
+			IDataFileUtil dataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
+			IIniInstaller iniInstaller = CreateIniInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+			IGameSpecificValueInstaller gameSpecificInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+			var installers = new InstallerGroup(
+				dataFileUtility, p_mfiFileInstaller, iniInstaller, gameSpecificInstaller, PluginManager,
+				InstallContext, DeploymentManager, p_tfmFileManager, m_dorOverwriteResolver);
+			var executor = new ImmediateScriptedInstallOperationExecutor(
+				Mod, GameMode, EnvironmentInfo, VirtualModActivator, VirtualModActivator.GetModLinkInstaller(), installers,
+				x => OnTaskStarted(x), null);
+
+			bool result = true;
+			using (executor.BeginExecutionBatch(p_lstOperations.Count))
+			{
+				foreach (ScriptedReplayOperation operation in p_lstOperations)
+				{
+					ScriptedInstallOperation installOperation;
+					switch (operation.Kind)
+					{
+						case ScriptedReplayOperationKind.ArchiveFile:
+							installOperation = new InstallModFileOperation(operation.SourcePath, operation.DestinationPath);
+							break;
+						case ScriptedReplayOperationKind.GeneratedFile:
+							installOperation = new GenerateDataFileOperation(operation.DestinationPath, File.ReadAllBytes(operation.PayloadPath));
+							break;
+						case ScriptedReplayOperationKind.BasicInstall:
+							installOperation = new PerformBasicInstallOperation();
+							break;
+						default:
+							throw new InvalidDataException("The scripted replay contains an unsupported operation.");
+					}
+
+					if (!executor.Execute(installOperation))
+					{
+						result = false;
+						break;
+					}
+				}
 			}
 
-			return sfcFileSelectionCache.LoadSelections();
+			m_booUsedPromotedDeployment |= installers.UsedPromotedDeployment;
+			iniInstaller.FinalizeInstall();
+			if (gameSpecificInstaller != null)
+				gameSpecificInstaller.FinalizeInstall();
+			return result;
+		}
+
+		/// <summary>
+		/// Restores the profile replay artifacts into the live InstallInfo cache after a successful replay.
+		/// </summary>
+		private void CopyProfileReplayToLiveCache(string p_strReplaySourcePath)
+		{
+			if (String.IsNullOrWhiteSpace(p_strReplaySourcePath))
+				return;
+
+			var liveCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			if (p_strReplaySourcePath.Equals(liveCache.FilePath, StringComparison.OrdinalIgnoreCase))
+				return;
+			ScriptedFileSelectionCache.CopyArtifacts(p_strReplaySourcePath, liveCache.FilePath);
 		}
 
 		/// <summary>

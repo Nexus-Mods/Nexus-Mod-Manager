@@ -262,6 +262,28 @@ namespace NexusClientTests
             }
         }
 
+        /// <summary>
+        /// Verifies that a prepare-phase rollback vote aborts the transaction and runs participant rollback.
+        /// </summary>
+        [Test]
+        public void TransactionScope_PrepareRollbackVoteRollsBackAndThrows()
+        {
+            var participant = new RollbackVotingParticipant();
+
+            Exception exception = Assert.Throws<Exception>(() =>
+            {
+                using (var scope = new TransactionScope())
+                {
+                    Transaction.Current.EnlistVolatile(participant, EnlistmentOptions.None);
+                    scope.Complete();
+                }
+            });
+
+            Assert.AreEqual("System.Transactions.TransactionAbortedException", exception.GetType().FullName);
+            Assert.IsTrue(participant.RolledBack);
+            Assert.IsFalse(participant.Committed);
+        }
+
         private static InstallLog CreateInstallLog(string modDirectory, string logPath)
         {
             var registry = new ModRegistry(null, null);
@@ -280,6 +302,49 @@ namespace NexusClientTests
             string directory = Path.Combine(Path.GetTempPath(), "NMM-Step1-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             return directory;
+        }
+
+        /// <summary>
+        /// Transaction participant used to verify prepare-phase rollback voting.
+        /// </summary>
+        private sealed class RollbackVotingParticipant : IEnlistmentNotification
+        {
+            public bool Committed { get; private set; }
+            public bool RolledBack { get; private set; }
+
+            /// <summary>
+            /// Records an unexpected commit notification.
+            /// </summary>
+            public void Commit(Enlistment enlistment)
+            {
+                Committed = true;
+                enlistment.Done();
+            }
+
+            /// <summary>
+            /// Completes an in-doubt notification.
+            /// </summary>
+            public void InDoubt(Enlistment enlistment)
+            {
+                enlistment.Done();
+            }
+
+            /// <summary>
+            /// Votes to roll back during transaction prepare.
+            /// </summary>
+            public void Prepare(PreparingEnlistment preparingEnlistment)
+            {
+                preparingEnlistment.ForceRollback();
+            }
+
+            /// <summary>
+            /// Records the rollback notification.
+            /// </summary>
+            public void Rollback(Enlistment enlistment)
+            {
+                RolledBack = true;
+                enlistment.Done();
+            }
         }
 
         private sealed class ExposedUpgrade0500Task : Upgrade0500Task

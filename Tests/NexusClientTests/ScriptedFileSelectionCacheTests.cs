@@ -121,5 +121,104 @@ namespace NexusClientTests
                 Assert.IsNull(cache.LoadSelections());
             }
         }
+        /// <summary>
+        /// Verifies that generated payloads and basic-install operations are persisted in exact replay order.
+        /// </summary>
+        [Test]
+        public void CompleteReplay_PreservesGeneratedPayloadAndOperationOrder()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(tmp.Path, null, false, false, "linked");
+                ScriptedFileSelectionCache cache = new ScriptedFileSelectionCache(ctx.Mod, ctx.GameMode);
+                byte[] generated = { 1, 3, 3, 7, 9 };
+
+                cache.RecordSelection("A.txt", "Data/A.txt");
+                cache.RecordGeneratedFile("config/generated.ini", generated);
+                cache.RecordBasicInstall();
+
+                Assert.IsTrue(cache.HasCompleteReplay);
+                IReadOnlyList<ScriptedReplayOperation> operations = cache.LoadReplayOperations();
+                Assert.AreEqual(3, operations.Count);
+                Assert.AreEqual(ScriptedReplayOperationKind.ArchiveFile, operations[0].Kind);
+                Assert.AreEqual(ScriptedReplayOperationKind.GeneratedFile, operations[1].Kind);
+                Assert.AreEqual("config/generated.ini", operations[1].DestinationPath);
+                CollectionAssert.AreEqual(generated, File.ReadAllBytes(operations[1].PayloadPath));
+                Assert.AreEqual(ScriptedReplayOperationKind.BasicInstall, operations[2].Kind);
+                CollectionAssert.AreEqual(new[] { "A.txt" }, cache.LoadSelections().ConvertAll(x => x.Key));
+            }
+        }
+
+        /// <summary>
+        /// Verifies that profile copies include generated sidecars and artifact deletion removes both representations.
+        /// </summary>
+        [Test]
+        public void CopyArtifacts_CopiesAndDeletesGeneratedPayloadSidecars()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                string source = Path.Combine(tmp.Path, "source.xml");
+                string destination = Path.Combine(tmp.Path, "profile", "target.xml");
+                ScriptedFileSelectionCache cache = new ScriptedFileSelectionCache(source);
+                cache.RecordGeneratedFile("generated.cfg", new byte[] { 4, 2, 1 });
+
+                ScriptedFileSelectionCache.CopyArtifacts(source, destination);
+
+                ScriptedFileSelectionCache copied = new ScriptedFileSelectionCache(destination);
+                Assert.IsTrue(copied.HasCompleteReplay);
+                IReadOnlyList<ScriptedReplayOperation> operations = copied.LoadReplayOperations();
+                Assert.AreEqual(1, operations.Count);
+                CollectionAssert.AreEqual(new byte[] { 4, 2, 1 }, File.ReadAllBytes(operations[0].PayloadPath));
+
+                ScriptedFileSelectionCache.DeleteArtifacts(destination);
+                Assert.IsFalse(File.Exists(destination));
+                Assert.IsFalse(Directory.Exists(ScriptedFileSelectionCache.GetPayloadDirectoryPath(destination)));
+            }
+        }
+
+        /// <summary>
+        /// Verifies that legacy archive-only caches remain readable but are not advertised as exact Direct replay sources.
+        /// </summary>
+        [Test]
+        public void LegacyCache_RemainsReadableButIsNotCompleteReplay()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                string filePath = Path.Combine(tmp.Path, "legacy.xml");
+                new XDocument(
+                    new XElement("FileList",
+                        new XElement("File", new XAttribute("FileFrom", "A.txt"), new XAttribute("FileTo", "Data/A.txt"))))
+                    .Save(filePath);
+                ScriptedFileSelectionCache cache = new ScriptedFileSelectionCache(filePath);
+
+                Assert.IsFalse(cache.HasCompleteReplay);
+                Assert.AreEqual(1, cache.LoadReplayOperations().Count);
+                Assert.AreEqual(1, cache.LoadSelections().Count);
+            }
+        }
+
+        /// <summary>
+        /// Verifies that replay cleanup keeps the legacy force-delete behavior for read-only artifacts.
+        /// </summary>
+        [Test]
+        public void DeleteArtifacts_RemovesReadOnlyReplayArtifacts()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                string cachePath = Path.Combine(tmp.Path, "readonly.xml");
+                ScriptedFileSelectionCache cache = new ScriptedFileSelectionCache(cachePath);
+                cache.RecordGeneratedFile("generated.cfg", new byte[] { 8, 6, 7, 5, 3, 0, 9 });
+                string payloadPath = cache.LoadReplayOperations()[0].PayloadPath;
+                File.SetAttributes(cachePath, File.GetAttributes(cachePath) | FileAttributes.ReadOnly);
+                File.SetAttributes(payloadPath, File.GetAttributes(payloadPath) | FileAttributes.ReadOnly);
+
+                ScriptedFileSelectionCache.DeleteArtifacts(cachePath);
+
+                Assert.IsFalse(File.Exists(cachePath));
+                Assert.IsFalse(Directory.Exists(ScriptedFileSelectionCache.GetPayloadDirectoryPath(cachePath)));
+            }
+        }
+
+
     }
 }

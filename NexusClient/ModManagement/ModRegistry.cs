@@ -79,6 +79,7 @@ namespace Nexus.Client.ModManagement
 				if (modMod == null)
 					continue;
 				mdrRegistry.m_oclRegisteredMods.Add(modMod);
+				mdrRegistry.IndexDiscoveredMod(modMod);
 				Trace.Indent();
 				Trace.TraceInformation("Registered.");
 				Trace.Unindent();
@@ -102,6 +103,8 @@ namespace Nexus.Client.ModManagement
 		}
 
 		private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
+		private readonly object m_objLookupLock = new object();
+		private readonly Dictionary<string, IMod> m_dicModsByFileName = new Dictionary<string, IMod>(StringComparer.OrdinalIgnoreCase);
 
 		#region Properties
 
@@ -212,10 +215,13 @@ namespace Nexus.Client.ModManagement
 				modMod.UpdateInfo(p_mifTagInfo, true);
 			if (modMod == null)
 				return null;
+			string previousFileName = intExistingIndex < m_oclRegisteredMods.Count ? m_oclRegisteredMods[intExistingIndex].Filename : null;
 			if (intExistingIndex < m_oclRegisteredMods.Count)
 				m_oclRegisteredMods[intExistingIndex] = modMod;
 			else
 				m_oclRegisteredMods.Add(modMod);
+			RebuildLookupEntry(previousFileName);
+			RebuildLookupEntry(modMod.Filename);
 			return modMod;
 		}
 
@@ -225,7 +231,11 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_modMod">The mod to unregister.</param>
 		public void UnregisterMod(IMod p_modMod)
 		{
+			if (p_modMod == null)
+				return;
+			string fileName = p_modMod.Filename;
 			m_oclRegisteredMods.Remove(p_modMod);
+			RebuildLookupEntry(fileName);
 		}
 
 		/// <summary>
@@ -249,18 +259,26 @@ namespace Nexus.Client.ModManagement
 		/// <c>null</c> if there is no registered mod with the given file name.</returns>
 		public IMod GetModByFilename(string p_strFilename)
 		{
-			string strFilename = string.Empty;
-
-			if (!string.IsNullOrEmpty(p_strFilename))
-			{
-				strFilename = Path.GetFileName(p_strFilename);
-
-				return (from m in m_oclRegisteredMods
-						where Path.GetFileName(m.Filename).Equals(strFilename, StringComparison.OrdinalIgnoreCase)
-						select m).FirstOrDefault();
-			}
-			else
+			if (String.IsNullOrWhiteSpace(p_strFilename))
 				return null;
+
+			string fileName = Path.GetFileName(p_strFilename);
+			lock (m_objLookupLock)
+			{
+				IMod indexedMod;
+				if (m_dicModsByFileName.TryGetValue(fileName, out indexedMod) &&
+					Path.GetFileName(indexedMod.Filename).Equals(fileName, StringComparison.OrdinalIgnoreCase))
+				{
+					return indexedMod;
+				}
+			}
+
+			// Metadata can be updated on an existing IMod without going through RegisterMod.
+			// Fall back once and repair the filename index rather than returning stale data.
+			IMod mod = m_oclRegisteredMods.FirstOrDefault(x => Path.GetFileName(x.Filename).Equals(fileName, StringComparison.OrdinalIgnoreCase));
+			if (mod != null)
+				IndexDiscoveredMod(mod);
+			return mod;
 		}
 
 		/// <summary>
@@ -271,18 +289,45 @@ namespace Nexus.Client.ModManagement
 		/// <c>null</c> if there is no registered mod with the given downloadId.</returns>
 		public IMod GetModByDownloadID(string p_strDownloadID)
 		{
-			if (!string.IsNullOrEmpty(p_strDownloadID))
-			{
-				try
-				{
-					return (from m in m_oclRegisteredMods
-							where m.DownloadId.Equals(p_strDownloadID, StringComparison.OrdinalIgnoreCase)
-							select m).FirstOrDefault();
-				}
-				catch { }
-			}
+			if (String.IsNullOrWhiteSpace(p_strDownloadID))
+				return null;
 
-			return null;
+			return m_oclRegisteredMods.FirstOrDefault(x => String.Equals(x.DownloadId, p_strDownloadID, StringComparison.OrdinalIgnoreCase));
 		}
+
+		/// <summary>
+		/// Adds one discovered mod to the filename lookup index.
+		/// </summary>
+		private void IndexDiscoveredMod(IMod p_modMod)
+		{
+			if (p_modMod == null)
+				return;
+			lock (m_objLookupLock)
+			{
+				string fileName = Path.GetFileName(p_modMod.Filename);
+				if (!String.IsNullOrWhiteSpace(fileName) && !m_dicModsByFileName.ContainsKey(fileName))
+					m_dicModsByFileName.Add(fileName, p_modMod);
+			}
+		}
+
+		/// <summary>
+		/// Rebuilds an affected filename lookup key after a registry add, replace, or removal.
+		/// </summary>
+		private void RebuildLookupEntry(string p_strFileName)
+		{
+			if (String.IsNullOrWhiteSpace(p_strFileName))
+				return;
+
+			string fileName = Path.GetFileName(p_strFileName);
+			IMod fileMatch = m_oclRegisteredMods.FirstOrDefault(x => Path.GetFileName(x.Filename).Equals(fileName, StringComparison.OrdinalIgnoreCase));
+			lock (m_objLookupLock)
+			{
+				if (fileMatch == null)
+					m_dicModsByFileName.Remove(fileName);
+				else
+					m_dicModsByFileName[fileName] = fileMatch;
+			}
+		}
+
 	}
 }

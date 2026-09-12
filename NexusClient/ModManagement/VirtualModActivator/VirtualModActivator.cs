@@ -390,6 +390,7 @@
 				if (PerformVersionCheck())
 				{
 					SetCurrentList(LoadList(m_strVirtualActivatorConfigPath));
+					RecoverPendingVirtualDeploymentTransactions();
 					m_booInitialized = true;
 				}
 		}
@@ -407,6 +408,7 @@
 			if (IsValid(m_strVirtualActivatorConfigPath) && PerformVersionCheck())
 			{
 				SetCurrentList(LoadList(m_strVirtualActivatorConfigPath));
+				RecoverPendingVirtualDeploymentTransactions();
 				m_booInitialized = true;
 				return;
 			}
@@ -2407,7 +2409,25 @@
 			if (p_vmiModInfo == null)
 				return null;
 
-			return ModManager.ManagedMods.FirstOrDefault(x => VirtualModInfoMatchesMod(p_vmiModInfo, x, Path.GetFileName(x.Filename)));
+			IMod mod = ModManager.GetModByFilename(p_vmiModInfo.ModFileName);
+			if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
+				return mod;
+
+			if (!String.IsNullOrWhiteSpace(p_vmiModInfo.DownloadId))
+			{
+				mod = ModManager.GetModByDownloadID(p_vmiModInfo.DownloadId);
+				if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
+					return mod;
+			}
+
+			if (!String.IsNullOrWhiteSpace(p_vmiModInfo.UpdatedDownloadId))
+			{
+				mod = ModManager.GetModByDownloadID(p_vmiModInfo.UpdatedDownloadId);
+				if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
+					return mod;
+			}
+
+			return null;
 		}
 
 		private bool VirtualOwnerSourceExists(IMod p_modMod, string p_strRelativePath)

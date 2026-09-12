@@ -14,6 +14,7 @@ using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
 using Nexus.Client.Util.Localization;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Scripting;
 using ChinhDo.Transactions;
 
 namespace Nexus.Client.ModManagement
@@ -253,8 +254,7 @@ namespace Nexus.Client.ModManagement
 		private void DeleteXMLInstalledFile(IMod p_modMod)
 		{
 			string strInstallFilesPath = Path.Combine(_logPath, "Scripted", Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
-			if (File.Exists(strInstallFilesPath))
-				FileUtil.ForceDelete(strInstallFilesPath);
+			ScriptedFileSelectionCache.DeleteArtifacts(strInstallFilesPath);
 		}
 	}
 }

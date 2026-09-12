@@ -3056,12 +3056,6 @@
 				}
 				else
 				{
-					if (ViewModel.ModManager.VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
-					{
-						ExtendedMessageBox.Show(this, L("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), L("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-						return;
-					}
-
 					_profileDefaultItem = clickedItem;
 					spbProfiles.Caption = clickedItem.Caption;
 

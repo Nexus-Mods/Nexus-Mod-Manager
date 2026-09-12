@@ -13,6 +13,7 @@ using System.Xml.Linq;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Extensions;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
 using Nexus.Client.UI;
@@ -1478,7 +1479,7 @@ namespace Nexus.Client.ModManagement
 										Directory.CreateDirectory(CurrentProfileScriptedLogPath);
 								if (File.Exists(strModLogPath))
 									lock (m_objLock)
-										File.Copy(strModLogPath, strProfileLogPath, true);
+										ScriptedFileSelectionCache.CopyArtifacts(strModLogPath, strProfileLogPath);
 
 								if (CurrentProfile.BackupDate != "")
 								{
@@ -1493,9 +1494,9 @@ namespace Nexus.Client.ModManagement
 							foreach (IMod modRemoved in e.OldItems)
 							{
 								string strProfileModLogPath = Path.Combine(CurrentProfileScriptedLogPath, Path.GetFileNameWithoutExtension(modRemoved.Filename)) + ".xml";
-								if (File.Exists(strProfileModLogPath))
+								if (File.Exists(strProfileModLogPath) || Directory.Exists(ScriptedFileSelectionCache.GetPayloadDirectoryPath(strProfileModLogPath)))
 									lock (m_objLock)
-										FileUtil.ForceDelete(strProfileModLogPath);
+										ScriptedFileSelectionCache.DeleteArtifacts(strProfileModLogPath);
 							}
 							break;
 					}
@@ -1572,8 +1573,8 @@ namespace Nexus.Client.ModManagement
 							if (modMod != null)
 							{
 								string strProfileModLogPath = Path.Combine(strPath, "Scripted", Path.GetFileNameWithoutExtension(modMod.Filename)) + ".xml";
-								if (File.Exists(strProfileModLogPath))
-									FileUtil.ForceDelete(strProfileModLogPath);
+								if (File.Exists(strProfileModLogPath) || Directory.Exists(ScriptedFileSelectionCache.GetPayloadDirectoryPath(strProfileModLogPath)))
+									ScriptedFileSelectionCache.DeleteArtifacts(strProfileModLogPath);
 							}
 						}
 					}
@@ -1592,11 +1593,8 @@ namespace Nexus.Client.ModManagement
 
 				if (Directory.Exists(CurrentProfileScriptedLogPath))
 				{
-					foreach (string file in Directory.EnumerateDirectories(CurrentProfileScriptedLogPath, "*.xml", SearchOption.TopDirectoryOnly))
-					{
-						if (File.Exists(file))
-							FileUtil.ForceDelete(file);
-					}
+					foreach (string file in Directory.GetFiles(CurrentProfileScriptedLogPath, "*.xml", SearchOption.TopDirectoryOnly))
+						ScriptedFileSelectionCache.DeleteArtifacts(file);
 				}
 			}
 		}
@@ -1606,79 +1604,139 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public List<string> CheckScriptedInstallersIntegrity(IModProfile p_impFrom, IModProfile p_impTo)
 		{
-			List<string> lstConflicts = new List<string>();
-			string strToPath = GetCurrentProfileScriptedLogPath(p_impTo);
+			var conflicts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			if (p_impTo == null)
+				return conflicts.ToList();
 
-			if (!Directory.Exists(strToPath))
-				return null;
-
+			string toPath = GetCurrentProfileScriptedLogPath(p_impTo);
+			Dictionary<string, string> targetMods = GetScriptedProfileModMap(p_impTo);
+			Dictionary<string, string> toFiles = Directory.Exists(toPath)
+				? GetScriptedReplayFiles(toPath)
+				: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			if (p_impFrom == null)
 			{
-				List<string> lstTo = new List<string>();
-				lstTo = Directory.GetFiles(strToPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
-				if ((lstTo != null) && (lstTo.Count > 0))
+				foreach (string cacheName in toFiles.Keys)
 				{
-					lstTo = lstTo.Select(x => Path.GetFileName(x)).ToList();
-
-					foreach (string File in lstTo)
-					{
-						IVirtualModInfo modMod = VirtualModActivator.VirtualMods.Find(x => Path.GetFileNameWithoutExtension(x.ModFileName).Equals(Path.GetFileNameWithoutExtension(File), StringComparison.CurrentCultureIgnoreCase));
-						if (modMod != null)
-							lstConflicts.Add(Path.GetFileName(modMod.ModFileName));
-					}
+					string modFileName;
+					if (targetMods.TryGetValue(Path.GetFileNameWithoutExtension(cacheName), out modFileName))
+						conflicts.Add(modFileName);
 				}
+				return conflicts.ToList();
 			}
-			else
+
+			string fromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
+			Dictionary<string, string> fromFiles = Directory.Exists(fromPath)
+				? GetScriptedReplayFiles(fromPath)
+				: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			var cacheNames = new HashSet<string>(fromFiles.Keys, StringComparer.OrdinalIgnoreCase);
+			cacheNames.UnionWith(toFiles.Keys);
+
+			foreach (string cacheName in cacheNames)
 			{
-				string strFromPath = GetCurrentProfileScriptedLogPath(p_impFrom);
-				if (!Directory.Exists(strFromPath))
-					return null;
+				string modFileName;
+				if (!targetMods.TryGetValue(Path.GetFileNameWithoutExtension(cacheName), out modFileName))
+					continue;
 
-				List<string> lstFrom = new List<string>();
-				List<string> lstTo = new List<string>();
-				List<string> lstCommon = new List<string>();
-				int intConflicts = 0;
-
-				try
-				{
-					lstFrom = Directory.GetFiles(strFromPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
-					lstTo = Directory.GetFiles(strToPath, "*.xml", SearchOption.TopDirectoryOnly).ToList();
-
-					if ((lstFrom != null) && (lstFrom.Count > 0))
-						lstFrom = lstFrom.Select(x => Path.GetFileName(x)).ToList();
-					else
-						return lstConflicts;
-
-					if ((lstTo != null) && (lstTo.Count > 0))
-						lstTo = lstTo.Select(x => Path.GetFileName(x)).ToList();
-					else
-						return lstConflicts;
-
-					lstCommon = lstFrom.Intersect(lstTo, StringComparer.CurrentCultureIgnoreCase).ToList();
-
-					foreach (string File in lstCommon)
-					{
-						intConflicts = 0;
-						List<KeyValuePair<string, string>> dicFrom = LoadXMLModFilesToInstall(Path.Combine(strFromPath, File));
-						List<KeyValuePair<string, string>> dicTo = LoadXMLModFilesToInstall(Path.Combine(strToPath, File));
-
-						intConflicts += dicFrom.Where(x => !dicTo.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
-						if (intConflicts <= 0)
-							intConflicts += dicTo.Where(x => !dicFrom.Contains(x, StringComparer.CurrentCultureIgnoreCase)).Count();
-
-						if (intConflicts > 0)
-						{
-							IVirtualModInfo modMod = VirtualModActivator.VirtualMods.Find(x => Path.GetFileNameWithoutExtension(x.ModFileName).Equals(Path.GetFileNameWithoutExtension(File), StringComparison.CurrentCultureIgnoreCase));
-							if (modMod != null)
-								lstConflicts.Add(Path.GetFileName(modMod.ModFileName));
-						}
-					}
-				}
-				catch
-				{ }
+				string fromFile;
+				string toFile;
+				bool hasFrom = fromFiles.TryGetValue(cacheName, out fromFile);
+				bool hasTo = toFiles.TryGetValue(cacheName, out toFile);
+				if (!hasFrom || !hasTo || !ScriptedReplayEquals(fromFile, toFile))
+					conflicts.Add(modFileName);
 			}
 
-			return lstConflicts;
+			return conflicts.ToList();
+		}
+
+		/// <summary>
+		/// Builds a method-neutral lookup from scripted-cache basename to the profile's managed archive filename.
+		/// </summary>
+		private Dictionary<string, string> GetScriptedProfileModMap(IModProfile p_impProfile)
+		{
+			var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			if (p_impProfile == null)
+				return result;
+
+			string deploymentPath = GetProfileDeploymentPath(p_impProfile);
+			if (File.Exists(deploymentPath))
+			{
+				ProfileDeploymentManifest manifest = ReadDeploymentManifest(deploymentPath);
+				foreach (ProfileDeploymentMod mod in manifest.Mods)
+					AddScriptedProfileMod(result, mod.FileName);
+				return result;
+			}
+
+			if (p_impProfile.ModList != null)
+			{
+				foreach (IVirtualModInfo mod in p_impProfile.ModList)
+					AddScriptedProfileMod(result, mod == null ? null : mod.ModFileName);
+			}
+
+			// Legacy profiles have no deployment manifest and may not have had modlist.xml loaded yet
+			// when the scripted-integrity check runs. Script-cache names are archive basenames, so
+			// augment the lookup from the registry without depending on VMA ownership.
+			if (ModManager != null && ModManager.ManagedMods != null)
+			{
+				foreach (IMod mod in ModManager.ManagedMods)
+					AddScriptedProfileMod(result, mod == null ? null : mod.Filename);
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Adds one archive filename to the method-neutral scripted-cache lookup.
+		/// </summary>
+		private static void AddScriptedProfileMod(IDictionary<string, string> p_dicMods, string p_strFileName)
+		{
+			if (String.IsNullOrWhiteSpace(p_strFileName))
+				return;
+			string cacheKey = Path.GetFileNameWithoutExtension(p_strFileName);
+			if (!p_dicMods.ContainsKey(cacheKey))
+				p_dicMods.Add(cacheKey, Path.GetFileName(p_strFileName));
+		}
+
+		/// <summary>
+		/// Indexes scripted replay XML files in one profile directory by filename.
+		/// </summary>
+		private static Dictionary<string, string> GetScriptedReplayFiles(string p_strDirectory)
+		{
+			var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (string file in Directory.GetFiles(p_strDirectory, "*.xml", SearchOption.TopDirectoryOnly))
+				result[Path.GetFileName(file)] = file;
+			return result;
+		}
+
+		/// <summary>
+		/// Compares two scripted replay plans by ordered operation semantics and generated-payload identity.
+		/// </summary>
+		private static bool ScriptedReplayEquals(string p_strFirst, string p_strSecond)
+		{
+			try
+			{
+				var first = new ScriptedFileSelectionCache(p_strFirst).LoadReplayOperations();
+				var second = new ScriptedFileSelectionCache(p_strSecond).LoadReplayOperations();
+				if (first == null || second == null)
+					return first == null && second == null;
+				if (first.Count != second.Count)
+					return false;
+
+				for (int i = 0; i < first.Count; i++)
+				{
+					ScriptedReplayOperation left = first[i];
+					ScriptedReplayOperation right = second[i];
+					if (left.Kind != right.Kind ||
+						!String.Equals(left.SourcePath, right.SourcePath, StringComparison.OrdinalIgnoreCase) ||
+						!String.Equals(left.DestinationPath, right.DestinationPath, StringComparison.OrdinalIgnoreCase) ||
+						left.PayloadLength != right.PayloadLength ||
+						!String.Equals(left.PayloadHash, right.PayloadHash, StringComparison.OrdinalIgnoreCase))
+						return false;
+				}
+				return true;
+			}
+			catch
+			{
+				return false;
+			}
 		}
 
 		public string IsScriptedLogPresent(string p_strModFile)

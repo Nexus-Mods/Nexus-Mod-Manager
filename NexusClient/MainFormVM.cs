@@ -81,6 +81,11 @@
 
 			public List<string> ScriptedMismatchList { get; }
 
+			/// <summary>
+			/// Gets scripted variants that must be restored if the switch is rolled back.
+			/// </summary>
+			public List<string> RollbackScriptedMismatchList { get; }
+
 			public Dictionary<string, string> ProfileDictionary { get; }
 
 			/// <summary>
@@ -105,11 +110,12 @@
 			/// <param name="virtualLinks">The virtual links required by the target profile.</param>
 			/// <param name="previousVirtualLinks">The virtual links active before the switch.</param>
 			/// <param name="scriptedMismatch">The scripted installers that require reconciliation.</param>
+			/// <param name="rollbackScriptedMismatch">The scripted installers that require reconciliation when rolling back.</param>
 			/// <param name="missingMods">The target profile mods whose deployed files are missing.</param>
 			/// <param name="profiles">The serialized target profile files.</param>
 			/// <param name="previousProfiles">The serialized previous profile files.</param>
 			/// <param name="previousLoadOrder">The live plugin order and active state captured before switching.</param>
-			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, IModProfile previousProfile, List<IVirtualModLink> virtualLinks, List<IVirtualModLink> previousVirtualLinks, ProfileDeploymentManifest deploymentManifest, ProfileDeploymentManifest previousDeploymentManifest, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles, Dictionary<string, string> previousProfiles, string previousLoadOrder)
+			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, IModProfile previousProfile, List<IVirtualModLink> virtualLinks, List<IVirtualModLink> previousVirtualLinks, ProfileDeploymentManifest deploymentManifest, ProfileDeploymentManifest previousDeploymentManifest, List<string> scriptedMismatch, List<string> rollbackScriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles, Dictionary<string, string> previousProfiles, string previousLoadOrder)
 			{
 				IsSilent = isSilent;
 				IsRestoring = isRestoring;
@@ -121,6 +127,7 @@
 				PreviousDeploymentManifest = previousDeploymentManifest;
 				MissingMods = missingMods;
 				ScriptedMismatchList = scriptedMismatch;
+				RollbackScriptedMismatchList = rollbackScriptedMismatch;
 				ProfileDictionary = profiles;
 				PreviousProfileDictionary = previousProfiles;
 				PreviousLoadOrder = previousLoadOrder;
@@ -1022,7 +1029,7 @@
 			ProfileDeploymentPlan rollbackPlan = ProfileManager.CreateDeploymentPlan(
 				profileSwitchToken.PreviousProfile,
 				profileSwitchToken.PreviousDeploymentManifest,
-				null);
+				profileSwitchToken.RollbackScriptedMismatchList);
 			if (rollbackPlan.ModsToDeactivate.Count == 0 && rollbackPlan.ModsToInstall.Count == 0)
 				return null;
 
@@ -1154,6 +1161,7 @@
 			{
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
 				List<string> lstScriptedMismatch = new List<string>();
+				List<string> lstRollbackScriptedMismatch = new List<string>();
 				List<IVirtualModInfo> lstMissingModInfo = new List<IVirtualModInfo>();
 
 				// Checks whether there's any inconsistecies in scripted installers between the active and the profile we're switching to.
@@ -1174,7 +1182,10 @@
 				IModProfile impPreviousProfile = ProfileManager.CurrentProfile;
 				Dictionary<string, string> dicPreviousProfile = null;
 				if (impPreviousProfile != null)
+				{
 					ProfileManager.LoadProfile(impPreviousProfile, out dicPreviousProfile);
+					lstRollbackScriptedMismatch = ProfileManager.CheckScriptedInstallersIntegrity(p_impProfile, impPreviousProfile);
+				}
 
 				List<IVirtualModLink> lstPreviousVirtualLinks = new List<IVirtualModLink>(VirtualModActivator.VirtualLinks);
 				ProfileDeploymentManifest deploymentManifest = ProfileManager.LoadDeploymentManifest(p_impProfile, lstVirtualLinks);
@@ -1187,7 +1198,7 @@
 				string strPreviousLoadOrder = GameMode.UsesPlugins && PluginManagerVM != null
 					? System.Text.Encoding.UTF8.GetString(PluginManagerVM.ExportLoadOrder())
 					: null;
-				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, impPreviousProfile, lstVirtualLinks, lstPreviousVirtualLinks, deploymentManifest, previousDeploymentManifest, lstScriptedMismatch, lstMissingModInfo, profiles, dicPreviousProfile, strPreviousLoadOrder);
+				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, impPreviousProfile, lstVirtualLinks, lstPreviousVirtualLinks, deploymentManifest, previousDeploymentManifest, lstScriptedMismatch, lstRollbackScriptedMismatch, lstMissingModInfo, profiles, dicPreviousProfile, strPreviousLoadOrder);
 
 				// Deprecated, online profiles are no longer supported by NexusMods.
 				/*
@@ -1224,6 +1235,66 @@
 		}
 
 		/// <summary>
+		/// Determines whether the planned profile switch can require creating or restoring a Virtual link in MultiHD mode.
+		/// </summary>
+		private bool ProfileSwitchRequiresVirtualElevation(ProfileDeploymentPlan p_pdpPlan, ProfileDeploymentManifest p_pdmManifest)
+		{
+			if (!ModManager.VirtualModActivator.MultiHDMode || UacUtil.IsElevated)
+				return false;
+
+			if (p_pdpPlan.ModsToInstall.Any(x => x.Context.Method == ModInstallMethod.Virtual))
+				return true;
+
+			var linkComparer = new VirtualModLinkEqualityComparer();
+			if (profileSwitchToken != null && profileSwitchToken.VirtualLinks.Any(desired => desired.Active &&
+				!VirtualModActivator.VirtualLinks.Any(current => current.Active && linkComparer.Equals(desired, current))))
+				return true;
+
+			foreach (IMod mod in p_pdpPlan.ModsToDeactivate)
+			{
+				if (ModManager.InstallationLog.GetModInstallMethod(mod) == ModInstallMethod.Virtual)
+					return true;
+
+				string modKey = ModManager.InstallationLog.GetModKey(mod);
+				if (String.IsNullOrWhiteSpace(modKey))
+					continue;
+				foreach (ModDeploymentTarget target in ModManager.InstallationLog.GetDeploymentTargetsForMod(modKey))
+				{
+					IReadOnlyList<string> owners = ModManager.DeploymentManager.GetOwnerKeys(target);
+					if (owners.Count == 0 || !owners[owners.Count - 1].Equals(modKey, StringComparison.OrdinalIgnoreCase) || owners.Count < 2)
+						continue;
+					string fallbackOwner = owners[owners.Count - 2];
+					if (!fallbackOwner.Equals(ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase) &&
+						ModManager.InstallationLog.GetModInstallMethod(fallbackOwner) == ModInstallMethod.Virtual)
+						return true;
+				}
+			}
+
+			if (p_pdmManifest == null)
+				return false;
+			var profileMods = p_pdmManifest.Mods.ToDictionary(x => x.ProfileModId, StringComparer.OrdinalIgnoreCase);
+			foreach (ProfileDeploymentTargetState targetState in p_pdmManifest.Targets)
+			{
+				if (targetState.Owners.Count == 0)
+					continue;
+				ProfileDeploymentOwner desiredWinner = targetState.Owners[targetState.Owners.Count - 1];
+				ProfileDeploymentMod desiredMod;
+				if (desiredWinner.IsOriginal || String.IsNullOrWhiteSpace(desiredWinner.ProfileModId) ||
+					!profileMods.TryGetValue(desiredWinner.ProfileModId, out desiredMod) || desiredMod.Method != ModInstallMethod.Virtual)
+					continue;
+
+				IReadOnlyList<string> currentOwners = ModManager.DeploymentManager.GetOwnerKeys(targetState.Target);
+				if (currentOwners.Count == 0)
+					return true;
+				IMod currentWinner = ModManager.DeploymentManager.GetOwnerMod(currentOwners[currentOwners.Count - 1]);
+				if (currentWinner == null || !Path.GetFileName(currentWinner.Filename).Equals(desiredMod.FileName, StringComparison.OrdinalIgnoreCase))
+					return true;
+			}
+
+			return false;
+		}
+
+		/// <summary>
 		/// Executes the profile switch.
 		/// </summary>
 		/// <param name="parent"></param>
@@ -1250,6 +1321,19 @@
 				profileSwitchToken = null;
 				if (!silent)
 					ExtendedMessageBox.Show(parent, ex.Message, CommonData.ModManagerName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				AbortedProfileSwitch(this, new EventArgs());
+				return;
+			}
+
+			if (ProfileSwitchRequiresVirtualElevation(deploymentPlan, profileSwitchToken.DeploymentManifest))
+			{
+				bool silent = profileSwitchToken.IsSilent;
+				ModManager.VirtualModActivator.DisableLinkCreation = false;
+				m_booIsSwitching = false;
+				ProfileManager.SetCurrentProfile(currentProfile);
+				profileSwitchToken = null;
+				if (!silent)
+					ExtendedMessageBox.Show(parent, LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				AbortedProfileSwitch(this, new EventArgs());
 				return;
 			}

@@ -13,6 +13,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.ModAuthoring;
     using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
     using Nexus.Client.PluginManagement;
@@ -1178,8 +1179,7 @@ namespace Nexus.Client.ModManagement
 		private void DeleteXMLInstalledFile(IMod p_modMod)
 		{
 			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
-			if (File.Exists(strInstallFilesPath))
-				FileUtil.ForceDelete(strInstallFilesPath);
+			ScriptedFileSelectionCache.DeleteArtifacts(strInstallFilesPath);
 		}
 
 		/// <summary>
@@ -1190,11 +1190,8 @@ namespace Nexus.Client.ModManagement
 			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"));
 			if (Directory.Exists(strInstallFilesPath))
 			{
-				foreach (string file in Directory.EnumerateDirectories(strInstallFilesPath, "*.xml", SearchOption.TopDirectoryOnly))
-				{
-					if (File.Exists(file))
-						FileUtil.ForceDelete(file);
-				}
+				foreach (string file in Directory.GetFiles(strInstallFilesPath, "*.xml", SearchOption.TopDirectoryOnly))
+					ScriptedFileSelectionCache.DeleteArtifacts(file);
 			}
 		}
 

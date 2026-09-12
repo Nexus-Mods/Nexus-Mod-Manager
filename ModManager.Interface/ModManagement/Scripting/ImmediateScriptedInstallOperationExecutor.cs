@@ -145,7 +145,10 @@ namespace Nexus.Client.ModManagement.Scripting
 				m_igpInstallers.TransactionalFileManager, m_igpInstallers.DeploymentOverwriteResolver);
 			if (m_actTaskStarted != null)
 				m_actTaskStarted(bitTask);
-			return bitTask.Execute();
+			bool installed = bitTask.Execute();
+			if (installed && m_sfcFileSelectionCache != null)
+				m_sfcFileSelectionCache.RecordBasicInstall();
+			return installed;
 		}
 
 		/// <summary>
@@ -229,9 +232,12 @@ namespace Nexus.Client.ModManagement.Scripting
 			{
 				if (decision != null && !decision.WritePayload)
 					return false;
-				return decision != null
+				bool generated = decision != null
 					? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).GenerateDataFileWithResolvedOverwrite(strPath, p_gdoOperation.Data)
 					: m_igpInstallers.FileInstaller.GenerateDataFile(strPath, p_gdoOperation.Data);
+				if (generated && m_sfcFileSelectionCache != null)
+					m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
+				return generated;
 			}
 
 			string strVirtualPath = p_gdoOperation.HasResolvedStagingOverwrite
@@ -265,6 +271,8 @@ namespace Nexus.Client.ModManagement.Scripting
 				else
 					m_mliModLinkInstaller.AddFileLink(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
 			}
+			if (m_sfcFileSelectionCache != null)
+				m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
 			return true;
 		}
 

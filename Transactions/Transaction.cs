@@ -54,6 +54,11 @@ namespace Nexus.Transactions
 				return m_tinInfo;
 			}
 		}
+
+		/// <summary>
+		/// Raised when the transaction reaches a terminal committed or aborted state.
+		/// </summary>
+		public event EventHandler TransactionCompleted;
 		
 		/// <summary>
 		/// Enlists a resource manager in this transaction.
@@ -133,7 +138,10 @@ namespace Nexus.Transactions
 				NotifyInDoubt();
 			}
 			else
+			{
 				TransactionInformation.Status = TransactionStatus.Committed;
+				OnTransactionCompleted();
+			}
 		}
 
 		/// <summary>
@@ -188,10 +196,23 @@ namespace Nexus.Transactions
 				NotifyInDoubt();
 			}
 			else
+			{
 				TransactionInformation.Status = TransactionStatus.Aborted;
+				OnTransactionCompleted();
+			}
 
 			if (lstExceptions.Count > 0)
 				throw new RollbackException(lstExceptions);
+		}
+
+		/// <summary>
+		/// Raises the terminal transaction notification after commit or rollback completes.
+		/// </summary>
+		private void OnTransactionCompleted()
+		{
+			EventHandler handler = TransactionCompleted;
+			if (handler != null)
+				handler(this, EventArgs.Empty);
 		}
 
 		#region IDisposable Members

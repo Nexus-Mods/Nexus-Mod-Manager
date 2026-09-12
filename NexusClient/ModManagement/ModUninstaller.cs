@@ -269,8 +269,7 @@ namespace Nexus.Client.ModManagement
 		private void DeleteXMLInstalledFile(IMod p_modMod)
 		{
 			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
-			if (File.Exists(strInstallFilesPath))
-				FileUtil.ForceDelete(strInstallFilesPath);
+			ScriptedFileSelectionCache.DeleteArtifacts(strInstallFilesPath);
 		}
 
 		protected bool RunBasicUninstallScript(TxFileManager p_tfmFileManager, out string p_strErrorMessage)

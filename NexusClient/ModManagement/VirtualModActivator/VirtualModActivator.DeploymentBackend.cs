@@ -13,7 +13,8 @@ namespace Nexus.Client.ModManagement
 
 	/// <summary>
 	/// Coordinator-facing Virtual deployment backend. These operations deliberately avoid fallback selection,
-	/// plugin changes, and immediate VMA persistence; touched VMA state is persisted once at transaction commit.
+	/// plugin changes, and immediate VMA persistence. Promoted-target state is durably prepared for crash recovery;
+	/// pure-Virtual state keeps the existing commit-time persistence path.
 	/// </summary>
 	public partial class VirtualModActivator
 	{
@@ -158,7 +159,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			var link = new VirtualModLink(realPath, p_strLogicalPath, p_intPriority, false, modInfo, p_mirInstallRoot);
-			enlistment.Touch(link);
+			enlistment.Touch(link, p_mdtTarget);
 			AddVirtualLink(link, p_modMod);
 			enlistment.MarkDirty();
 
@@ -174,7 +175,7 @@ namespace Nexus.Client.ModManagement
 
 			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link);
+			enlistment.Touch(link, p_mdtTarget);
 
 			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
 			if (link.Active && File.Exists(deployedPath))
@@ -196,7 +197,7 @@ namespace Nexus.Client.ModManagement
 				throw new FileNotFoundException("The staged Virtual source for the requested deployment owner could not be found.", sourcePath);
 
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link);
+			enlistment.Touch(link, p_mdtTarget);
 
 			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
 			string deployedDirectory = Path.GetDirectoryName(deployedPath);
@@ -215,7 +216,7 @@ namespace Nexus.Client.ModManagement
 		{
 			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link);
+			enlistment.Touch(link, p_mdtTarget);
 
 			RemoveVirtualLink(link, FindManagedMod(link.ModInfo));
 			enlistment.MarkDirty();
@@ -229,7 +230,7 @@ namespace Nexus.Client.ModManagement
 				return;
 
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link);
+			enlistment.Touch(link, p_mdtTarget);
 			link.Active = p_booActive;
 			enlistment.MarkDirty();
 		}
@@ -460,27 +461,44 @@ namespace Nexus.Client.ModManagement
 		private sealed class VirtualDeploymentTransactionEnlistment : IEnlistmentNotification
 		{
 			private readonly VirtualModActivator m_vmaOwner;
+			private readonly Transaction m_trnTransaction;
 			private readonly string m_strTransactionId;
 			private readonly List<VirtualLinkSnapshot> m_lstTouchedLinks = new List<VirtualLinkSnapshot>();
 			private readonly List<VirtualModInfoSnapshot> m_lstTouchedModInfos = new List<VirtualModInfoSnapshot>();
+			private readonly Dictionary<ModDeploymentTarget, string[]> m_dicInitialOwnerStacks = new Dictionary<ModDeploymentTarget, string[]>();
 			private bool m_booDirty;
+			private bool m_booPreparedDurably;
+			private bool m_booPreparePersistenceAttempted;
+			private string m_strRecoveryJournalPath;
 
 			public VirtualDeploymentTransactionEnlistment(VirtualModActivator p_vmaOwner, Transaction p_trnTransaction, string p_strTransactionId)
 			{
 				m_vmaOwner = p_vmaOwner;
+				m_trnTransaction = p_trnTransaction;
 				m_strTransactionId = p_strTransactionId;
+				m_trnTransaction.TransactionCompleted += TransactionCompleted;
 				p_trnTransaction.EnlistVolatile(this, EnlistmentOptions.None);
 			}
 
-			public void Touch(IVirtualModLink p_vmlLink)
+			/// <summary>
+			/// Captures the pre-mutation state of one Virtual link and its deployment owner stack.
+			/// </summary>
+			public void Touch(IVirtualModLink p_vmlLink, ModDeploymentTarget p_mdtTarget)
 			{
-				if (p_vmlLink == null || m_lstTouchedLinks.Any(x => ReferenceEquals(x.Link, p_vmlLink)))
+				if (p_vmlLink == null)
+					return;
+
+				if (p_mdtTarget != null && !m_dicInitialOwnerStacks.ContainsKey(p_mdtTarget))
+					m_dicInitialOwnerStacks.Add(p_mdtTarget, m_vmaOwner.ModInstallLog.GetDeploymentOwnerKeys(p_mdtTarget).ToArray());
+
+				if (m_lstTouchedLinks.Any(x => ReferenceEquals(x.Link, p_vmlLink)))
 					return;
 
 				m_lstTouchedLinks.Add(new VirtualLinkSnapshot(
 					p_vmlLink,
 					new VirtualModLink(p_vmlLink),
-					m_vmaOwner.m_tslVirtualModList.Any(x => ReferenceEquals(x, p_vmlLink))));
+					m_vmaOwner.m_tslVirtualModList.Any(x => ReferenceEquals(x, p_vmlLink)),
+					p_mdtTarget));
 			}
 
 			public void MarkDirty()
@@ -502,11 +520,20 @@ namespace Nexus.Client.ModManagement
 			{
 				try
 				{
-					if (m_booDirty && !m_vmaOwner.SaveList(true))
-						Trace.TraceError("The Virtual deployment transaction committed in memory but VMA persistence did not report a successful write.");
+					if (m_booDirty && !m_booPreparedDurably && !m_vmaOwner.SaveList(false))
+						Trace.TraceError("Unable to persist pure-Virtual VMA state during transaction commit.");
+
+					if (m_booDirty)
+					{
+						EventHandler handler = m_vmaOwner.ModActivationChanged;
+						if (handler != null)
+							handler(null, new EventArgs());
+					}
 				}
 				finally
 				{
+					// The recovery journal is finalized only after the transaction reaches its
+					// terminal status, when the durable InstallLog outcome is known.
 					Cleanup();
 					p_enlEnlistment.Done();
 				}
@@ -517,9 +544,65 @@ namespace Nexus.Client.ModManagement
 				Rollback(p_enlEnlistment);
 			}
 
+			/// <summary>
+			/// Finalizes or reconciles the VMA recovery journal once the transaction reaches a terminal state.
+			/// </summary>
+			private void TransactionCompleted(object p_objSender, EventArgs p_eaEventArgs)
+			{
+				m_trnTransaction.TransactionCompleted -= TransactionCompleted;
+				if (String.IsNullOrWhiteSpace(m_strRecoveryJournalPath) || !File.Exists(m_strRecoveryJournalPath))
+					return;
+
+				try
+				{
+					if (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Committed)
+						m_vmaOwner.DeleteVirtualDeploymentRecoveryJournal(m_strRecoveryJournalPath);
+					else if (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Aborted)
+						m_vmaOwner.RecoverVirtualDeploymentTransaction(m_strRecoveryJournalPath);
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceError("Unable to finalize VMA deployment recovery journal '{0}': {1}", m_strRecoveryJournalPath, ex);
+				}
+			}
+
 			public void Prepare(PreparingEnlistment p_prePreparingEnlistment)
 			{
-				p_prePreparingEnlistment.Prepared();
+				if (!m_booDirty || !HasPromotedRecoveryBoundary())
+				{
+					p_prePreparingEnlistment.Prepared();
+					return;
+				}
+
+				try
+				{
+					m_strRecoveryJournalPath = m_vmaOwner.WriteVirtualDeploymentRecoveryJournal(
+						m_strTransactionId, m_lstTouchedLinks, m_lstTouchedModInfos, m_dicInitialOwnerStacks);
+					m_booPreparePersistenceAttempted = true;
+					if (!m_vmaOwner.SaveList(false))
+						throw new IOException("VMA persistence did not report a successful write during transaction prepare.");
+					m_booPreparedDurably = true;
+					p_prePreparingEnlistment.Prepared();
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceError("Unable to persist promoted VMA state during transaction prepare: {0}", ex);
+					p_prePreparingEnlistment.ForceRollback();
+				}
+			}
+
+			/// <summary>
+			/// Returns whether this transaction touches a target whose pre/post InstallLog owner stack is promoted.
+			/// </summary>
+			private bool HasPromotedRecoveryBoundary()
+			{
+				foreach (KeyValuePair<ModDeploymentTarget, string[]> pair in m_dicInitialOwnerStacks)
+				{
+					if ((pair.Value != null && pair.Value.Length > 0) ||
+						m_vmaOwner.ModInstallLog.GetDeploymentOwnerKeys(pair.Key).Count > 0)
+						return true;
+				}
+				return false;
 			}
 
 			public void Rollback(Enlistment p_enlEnlistment)
@@ -537,6 +620,13 @@ namespace Nexus.Client.ModManagement
 						m_vmaOwner.MarkVirtualModInfoLookupDirty();
 						m_vmaOwner.MarkVirtualLinkIndexDirty();
 						m_vmaOwner.RebuildVirtualLinkIndex();
+					}
+
+					if (m_booPreparePersistenceAttempted)
+					{
+						if (!m_vmaOwner.SaveList(false))
+							throw new IOException("Unable to persist compensated VMA state during transaction rollback.");
+						m_vmaOwner.DeleteVirtualDeploymentRecoveryJournal(m_strRecoveryJournalPath);
 					}
 				}
 				finally
@@ -585,6 +675,7 @@ namespace Nexus.Client.ModManagement
 			{
 				m_lstTouchedLinks.Clear();
 				m_lstTouchedModInfos.Clear();
+				m_dicInitialOwnerStacks.Clear();
 				m_vmaOwner.ReleaseVirtualDeploymentEnlistment(m_strTransactionId);
 			}
 		}
@@ -594,25 +685,35 @@ namespace Nexus.Client.ModManagement
 			public VirtualModInfoSnapshot(IVirtualModInfo p_vmiModInfo, bool p_booWasPresent)
 			{
 				ModInfo = p_vmiModInfo;
+				State = p_vmiModInfo == null ? null : new VirtualModInfo(
+					p_vmiModInfo.ModId, p_vmiModInfo.DownloadId, p_vmiModInfo.UpdatedDownloadId,
+					p_vmiModInfo.ModName, p_vmiModInfo.ModFileName, p_vmiModInfo.NewFileName,
+					p_vmiModInfo.ModFilePath, p_vmiModInfo.FileVersion);
 				WasPresent = p_booWasPresent;
 			}
 
 			public IVirtualModInfo ModInfo { get; private set; }
+			public IVirtualModInfo State { get; private set; }
 			public bool WasPresent { get; private set; }
 		}
 
 		private sealed class VirtualLinkSnapshot
 		{
-			public VirtualLinkSnapshot(IVirtualModLink p_vmlLink, VirtualModLink p_vmlState, bool p_booWasPresent)
+			/// <summary>
+			/// Captures one Virtual-link state for rollback and crash recovery.
+			/// </summary>
+			public VirtualLinkSnapshot(IVirtualModLink p_vmlLink, VirtualModLink p_vmlState, bool p_booWasPresent, ModDeploymentTarget p_mdtTarget)
 			{
 				Link = p_vmlLink;
 				State = p_vmlState;
 				WasPresent = p_booWasPresent;
+				Target = p_mdtTarget;
 			}
 
 			public IVirtualModLink Link { get; private set; }
 			public VirtualModLink State { get; private set; }
 			public bool WasPresent { get; private set; }
+			public ModDeploymentTarget Target { get; private set; }
 		}
 	}
 }

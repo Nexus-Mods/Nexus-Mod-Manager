@@ -51,10 +51,17 @@ namespace Nexus.Transactions
 
 			if (m_booOwnsTransaction)
 			{
-				bool booVotedToCommit = false;
-				booVotedToCommit = m_trnTransaction.Prepare();
+				bool booVotedToCommit = m_trnTransaction.Prepare();
 				if (booVotedToCommit && (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Active))
+				{
 					m_trnTransaction.Commit();
+				}
+				else
+				{
+					if (m_trnTransaction.TransactionInformation.Status != TransactionStatus.Aborted)
+						m_trnTransaction.Rollback();
+					throw new TransactionAbortedException("The transaction was rolled back because an enlisted participant did not vote to commit.");
+				}
 			}
 			m_booCompleted = true;
 		}

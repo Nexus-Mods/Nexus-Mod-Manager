@@ -284,6 +284,7 @@
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciler.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.DeploymentBackend.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.DeploymentRecovery.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModStoreFactory.cs" />
     <Compile Include="ModManagement\VirtualModActivator\XmlVirtualModStore.cs" />
     <Compile Include="ModManagement\VirtualModInfo.cs" />

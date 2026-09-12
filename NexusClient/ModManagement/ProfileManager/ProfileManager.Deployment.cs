@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Transactions;
 
 namespace Nexus.Client.ModManagement
@@ -282,8 +283,17 @@ namespace Nexus.Client.ModManagement
 			if (p_pdmMod.Method != ModInstallMethod.Direct || !p_modMod.HasInstallScript)
 				return;
 
-			if (String.IsNullOrWhiteSpace(IsScriptedLogPresent(p_modMod.Filename, p_impProfile)))
-				throw new InvalidDataException(String.Format("Direct profile restore for scripted mod '{0}' requires its saved scripted-selection replay data.", p_pdmMod.FileName));
+			string replayPath = IsScriptedLogPresent(p_modMod.Filename, p_impProfile);
+			if (String.IsNullOrWhiteSpace(replayPath))
+				throw new InvalidDataException(String.Format("Direct profile restore for scripted mod '{0}' requires its saved scripted replay data.", p_pdmMod.FileName));
+
+			var replay = new ScriptedFileSelectionCache(replayPath);
+			if (!replay.HasCompleteReplay)
+				throw new InvalidDataException(String.Format("Direct profile restore for scripted mod '{0}' requires a complete scripted replay cache. Reinstall the mod once before saving this profile.", p_pdmMod.FileName));
+
+			// LoadReplayOperations validates generated sidecar lengths/hashes without retaining payload bytes.
+			if (replay.LoadReplayOperations() == null)
+				throw new InvalidDataException(String.Format("Direct profile restore for scripted mod '{0}' has no replayable file operations.", p_pdmMod.FileName));
 		}
 
 		private static ProfileDeploymentMod FindProfileMod(IEnumerable<ProfileDeploymentMod> p_enmEntries, IMod p_modMod)
