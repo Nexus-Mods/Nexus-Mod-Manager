@@ -203,6 +203,78 @@
 		}
 
 		/// <summary>
+		/// Ensures a repository category deliberately removed by the user is not recreated by startup repair.
+		/// </summary>
+		[Test]
+		public void RemovedRepositoryCategoryRemainsRemovedAfterStartupRepair()
+		{
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			manager.RemoveCategory(manager.FindCategory(49));
+
+			Assert.IsTrue(IsSavedAsRemovedRepositoryCategory(49));
+
+			manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			manager.RepairBundledRepositoryCategories(DefaultCategories, null);
+
+			Assert.IsFalse(manager.Categories.Any(category => category.Id == 49));
+			Assert.IsTrue(IsSavedAsRemovedRepositoryCategory(49));
+		}
+
+		/// <summary>
+		/// Ensures a normal Nexus category update respects repository categories deliberately removed by the user.
+		/// </summary>
+		[Test]
+		public void RepositoryMergeKeepsExplicitlyRemovedRepositoryCategorySuppressed()
+		{
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			manager.RemoveCategory(manager.FindCategory(49));
+
+			manager.MergeRepositoryCategories(new[] { new ModCategory(49, "Clothing - Backpacks", "Clothing - Backpacks") }, null);
+
+			Assert.IsFalse(manager.Categories.Any(category => category.Id == 49));
+			Assert.IsTrue(IsSavedAsRemovedRepositoryCategory(49));
+		}
+
+		/// <summary>
+		/// Ensures the bundled fallback used after an online update failure also respects removed repository categories.
+		/// </summary>
+		[Test]
+		public void RepositoryFallbackResetKeepsExplicitlyRemovedRepositoryCategorySuppressed()
+		{
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			manager.RemoveCategory(manager.FindCategory(49));
+
+			manager.ResetRepositoryCategories(DefaultCategories, null);
+
+			Assert.IsFalse(manager.Categories.Any(category => category.Id == 49));
+			Assert.IsTrue(IsSavedAsRemovedRepositoryCategory(49));
+		}
+
+		/// <summary>
+		/// Ensures removing all categories remains effective after the bundled startup repair runs again.
+		/// </summary>
+		[Test]
+		public void RemoveAllCategoriesSuppressesBundledStartupRepair()
+		{
+			CategoryManager manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			manager.ResetCategories(String.Empty);
+
+			manager = CreateManager();
+			manager.LoadCategories(DefaultCategories);
+			manager.RepairBundledRepositoryCategories(DefaultCategories, null);
+
+			Assert.AreEqual(1, manager.Categories.Count);
+			Assert.AreEqual(0, manager.Categories[0].Id);
+			Assert.IsTrue(IsSavedAsRemovedRepositoryCategory(1));
+			Assert.IsTrue(IsSavedAsRemovedRepositoryCategory(49));
+		}
+
+		/// <summary>
 		/// Ensures a category previously misclassified as custom is folded into the repository category with the same name.
 		/// </summary>
 		[Test]
@@ -316,6 +388,18 @@
 				.Single(item => (Int32)item.Attribute("ID") == p_intCategoryId);
 			Boolean isCustom;
 			return Boolean.TryParse((String)category.Attribute("isCustom"), out isCustom) && isCustom;
+		}
+
+		/// <summary>
+		/// Reads whether a repository category ID is persisted as deliberately removed.
+		/// </summary>
+		/// <param name="p_intCategoryId">The repository category ID to inspect.</param>
+		/// <returns><c>true</c> when startup repair must leave the category removed; otherwise <c>false</c>.</returns>
+		private bool IsSavedAsRemovedRepositoryCategory(Int32 p_intCategoryId)
+		{
+			return XDocument.Load(_categoryFile)
+				.Descendants("removed")
+				.Any(item => (Int32)item.Attribute("ID") == p_intCategoryId);
 		}
 
 		/// <summary>
