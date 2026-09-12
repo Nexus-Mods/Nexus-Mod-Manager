@@ -94,6 +94,8 @@
 		private bool _suppressNextDoubleClick;
 		private bool _testingRenameButtonHit;
 		private bool _missingArchiveScanQueued;
+		private bool _missingArchiveRescanRequested;
+		private bool _rebindingRestoredArchive;
 		private string _gridFontFamilyName = DefaultGridFontFamily;
 		private float _gridFontSizePt = DefaultGridFontSizePt;
 		private string _gridDensity = DefaultGridDensity;
@@ -605,16 +607,9 @@
 
 		private void LoadMods()
 		{
-			foreach (IMod mod in _modList)
-				mod.PropertyChanged -= Mod_PropertyChanged;
-			_modList.Clear();
+			RebindRestoredManagedMods(_viewModel.ManagedMods);
+			RebuildVisibleModList();
 			_presentationState.ClearDerivedCaches();
-
-			foreach (IMod mod in _viewModel.ManagedMods)
-			{
-				mod.PropertyChanged += Mod_PropertyChanged;
-				_modList.Add(mod);
-			}
 
 			RebuildActivationStateCache();
 			QueueMissingArchiveScan();
@@ -678,74 +673,33 @@
 			if (InvokeRequired) { Invoke(new Action(() => ManagedMods_CollectionChanged(sender, e))); return; }
 
 			ModGridViewState gridState = CaptureModGridViewState();
-			bool removedFocusedMod = gridState.FocusedMod != null && e.Action == NotifyCollectionChangedAction.Remove && ContainsMod(e.OldItems, gridState.FocusedMod);
-
-			switch (e.Action)
+			bool membershipChanged;
+			if (e.Action == NotifyCollectionChangedAction.Reset)
 			{
-				case NotifyCollectionChangedAction.Add:
-					if (e.NewItems != null)
-						foreach (IMod mod in e.NewItems)
-						{
-							mod.PropertyChanged += Mod_PropertyChanged;
-							_modList.Add(mod);
-						}
-					break;
-				case NotifyCollectionChangedAction.Remove:
-					if (e.OldItems != null)
-						foreach (IMod mod in e.OldItems)
-						{
-							mod.PropertyChanged -= Mod_PropertyChanged;
-							_modList.Remove(mod);
-						}
-					break;
-				case NotifyCollectionChangedAction.Replace:
-					if (e.OldItems != null)
-						foreach (IMod mod in e.OldItems)
-						{
-							mod.PropertyChanged -= Mod_PropertyChanged;
-							_modList.Remove(mod);
-						}
-					if (e.NewItems != null)
-						foreach (IMod mod in e.NewItems)
-						{
-							mod.PropertyChanged += Mod_PropertyChanged;
-							_modList.Add(mod);
-						}
-					break;
-				case NotifyCollectionChangedAction.Reset:
-					foreach (IMod mod in _modList)
-						mod.PropertyChanged -= Mod_PropertyChanged;
-					_modList.Clear();
-					if (_viewModel != null)
-					{
-						foreach (IMod mod in _viewModel.ManagedMods)
-						{
-							mod.PropertyChanged += Mod_PropertyChanged;
-							_modList.Add(mod);
-						}
-					}
-					break;
+				RebuildVisibleModList();
+				_categoryModListSurface?.SetMods(_modList);
+				membershipChanged = true;
 			}
+			else
+			{
+				membershipChanged = ReconcileVisibleMods(e.OldItems);
+				membershipChanged |= ReconcileVisibleMods(e.NewItems);
+			}
+
+			if (e.Action == NotifyCollectionChangedAction.Reset)
+				RebindRestoredManagedMods(_viewModel.ManagedMods);
+			else if (e.Action == NotifyCollectionChangedAction.Add || e.Action == NotifyCollectionChangedAction.Replace)
+				RebindRestoredManagedMods(CastMods(e.NewItems));
 
 			_presentationState.ClearDerivedCaches();
 			RebuildActivationStateCache();
 			QueueMissingArchiveScan();
-			_gridModListSurface.RefreshDataSource();
-			if (_categoryModListSurface != null)
-			{
-				if (e.Action == NotifyCollectionChangedAction.Add)
-					_categoryModListSurface.AddMods(CastMods(e.NewItems));
-				else if (e.Action == NotifyCollectionChangedAction.Remove)
-					_categoryModListSurface.RemoveMods(CastMods(e.OldItems));
-				else if (e.Action == NotifyCollectionChangedAction.Replace)
-				{
-					_categoryModListSurface.RemoveMods(CastMods(e.OldItems));
-					_categoryModListSurface.AddMods(CastMods(e.NewItems));
-				}
-				else if (e.Action == NotifyCollectionChangedAction.Reset)
-					_categoryModListSurface.SetMods(_modList);
-			}
-			RestoreModGridViewState(gridState, removedFocusedMod || e.Action == NotifyCollectionChangedAction.Reset);
+			if (membershipChanged)
+				_gridModListSurface.RefreshDataSource();
+			else
+				_gridModListSurface.RefreshData();
+
+			RestoreModGridViewState(gridState, gridState.FocusedMod != null && FindVisibleModIndex(gridState.FocusedMod) < 0);
 			UpdateNewModTracking(e);
 			UpdateModCountLabel();
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
@@ -757,16 +711,6 @@
 			return rowHandle >= 0 ? gridView.GetVisibleIndex(rowHandle) : -1;
 		}
 
-		private static bool ContainsMod(System.Collections.IList items, IMod mod)
-		{
-			if (items == null || mod == null) return false;
-			foreach (object item in items)
-			{
-				if (ReferenceEquals(item, mod)) return true;
-			}
-			return false;
-		}
-
 		/// <summary>
 		/// Enumerates only mod instances from a non-generic collection-change payload.
 		/// </summary>
@@ -775,6 +719,169 @@
 			if (items == null) yield break;
 			foreach (object item in items)
 				if (item is IMod mod) yield return mod;
+		}
+
+		/// <summary>
+		/// Rebuilds the visible Mods collection as physical managed archives plus installed archives not currently managed.
+		/// </summary>
+		private void RebuildVisibleModList()
+		{
+			foreach (IMod mod in _modList)
+				mod.PropertyChanged -= Mod_PropertyChanged;
+			_modList.Clear();
+
+			var archivePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (IMod mod in _viewModel.ManagedMods)
+				AddVisibleMod(mod, archivePaths);
+			foreach (IMod mod in _viewModel.ActiveMods)
+				AddVisibleMod(mod, archivePaths);
+		}
+
+		/// <summary>
+		/// Adds one mod to the visible collection when its archive identity has not already been represented.
+		/// </summary>
+		private void AddVisibleMod(IMod mod, HashSet<string> archivePaths)
+		{
+			if (mod == null || String.IsNullOrEmpty(mod.Filename) || !archivePaths.Add(mod.Filename))
+				return;
+
+			mod.PropertyChanged -= Mod_PropertyChanged;
+			mod.PropertyChanged += Mod_PropertyChanged;
+			_modList.Add(mod);
+		}
+
+		/// <summary>
+		/// Reconciles changed archive identities against the current ManagedMods/ActiveMods union.
+		/// </summary>
+		private bool ReconcileVisibleMods(System.Collections.IList items)
+		{
+			bool changed = false;
+			if (items == null) return false;
+
+			var archivePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (IMod mod in CastMods(items))
+			{
+				if (String.IsNullOrEmpty(mod.Filename) || !archivePaths.Add(mod.Filename))
+					continue;
+				changed |= ReconcileVisibleMod(mod.Filename);
+			}
+			return changed;
+		}
+
+		/// <summary>
+		/// Reconciles one archive path, preferring a physical managed archive over its InstallLog placeholder.
+		/// </summary>
+		private bool ReconcileVisibleMod(string archivePath)
+		{
+			if (String.IsNullOrEmpty(archivePath)) return false;
+
+			IMod managedMod = FindModByArchivePath(_viewModel.ManagedMods, archivePath);
+			IMod activeMod = FindModByArchivePath(_viewModel.ActiveMods, archivePath);
+			IMod desiredMod = managedMod ?? activeMod;
+			int existingIndex = FindVisibleModIndex(archivePath);
+			IMod existingMod = existingIndex >= 0 ? _modList[existingIndex] : null;
+
+			if (ReferenceEquals(existingMod, desiredMod))
+				return false;
+
+			if (existingMod != null)
+				existingMod.PropertyChanged -= Mod_PropertyChanged;
+
+			if (desiredMod == null)
+			{
+				_modList.RemoveAt(existingIndex);
+				_categoryModListSurface?.RemoveMods(new[] { existingMod });
+				return true;
+			}
+
+			desiredMod.PropertyChanged -= Mod_PropertyChanged;
+			desiredMod.PropertyChanged += Mod_PropertyChanged;
+			if (existingIndex >= 0)
+			{
+				_modList[existingIndex] = desiredMod;
+				if (_categoryModListSurface != null)
+				{
+					_categoryModListSurface.RemoveMods(new[] { existingMod });
+					_categoryModListSurface.AddMods(new[] { desiredMod });
+				}
+			}
+			else
+			{
+				_modList.Add(desiredMod);
+				_categoryModListSurface?.AddMods(new[] { desiredMod });
+			}
+
+			return true;
+		}
+
+		/// <summary>
+		/// Rebinds InstallLog entries to newly available managed archive objects with the same stable archive path.
+		/// </summary>
+		private void RebindRestoredManagedMods(IEnumerable<IMod> managedMods)
+		{
+			if (managedMods == null || _viewModel?.ModManager?.InstallationLog == null) return;
+
+			var activeByArchivePath = new Dictionary<string, IMod>(StringComparer.OrdinalIgnoreCase);
+			foreach (IMod activeMod in _viewModel.ActiveMods)
+			{
+				if (activeMod != null && !String.IsNullOrEmpty(activeMod.Filename))
+					activeByArchivePath[activeMod.Filename] = activeMod;
+			}
+
+			var replacements = new List<KeyValuePair<IMod, IMod>>();
+			foreach (IMod managedMod in managedMods)
+			{
+				if (managedMod == null || String.IsNullOrEmpty(managedMod.Filename)) continue;
+
+				IMod activeMod;
+				if (activeByArchivePath.TryGetValue(managedMod.Filename, out activeMod) && !ReferenceEquals(activeMod, managedMod))
+					replacements.Add(new KeyValuePair<IMod, IMod>(activeMod, managedMod));
+			}
+
+			if (replacements.Count == 0) return;
+
+			_rebindingRestoredArchive = true;
+			try
+			{
+				foreach (KeyValuePair<IMod, IMod> replacement in replacements)
+					_viewModel.ModManager.InstallationLog.ReplaceActiveMod(replacement.Key, replacement.Value);
+			}
+			finally
+			{
+				_rebindingRestoredArchive = false;
+			}
+		}
+
+		/// <summary>
+		/// Finds a mod by its case-insensitive archive path.
+		/// </summary>
+		private static IMod FindModByArchivePath(IEnumerable<IMod> mods, string archivePath)
+		{
+			if (mods == null || String.IsNullOrEmpty(archivePath)) return null;
+			return mods.FirstOrDefault(mod => mod != null && String.Equals(mod.Filename, archivePath, StringComparison.OrdinalIgnoreCase));
+		}
+
+		/// <summary>
+		/// Finds the visible-row index for a mod using stable archive identity.
+		/// </summary>
+		private int FindVisibleModIndex(IMod mod)
+		{
+			return mod == null ? -1 : FindVisibleModIndex(mod.Filename);
+		}
+
+		/// <summary>
+		/// Finds the visible-row index for a case-insensitive archive path.
+		/// </summary>
+		private int FindVisibleModIndex(string archivePath)
+		{
+			if (String.IsNullOrEmpty(archivePath)) return -1;
+			for (int i = 0; i < _modList.Count; i++)
+			{
+				IMod mod = _modList[i];
+				if (mod != null && String.Equals(mod.Filename, archivePath, StringComparison.OrdinalIgnoreCase))
+					return i;
+			}
+			return -1;
 		}
 
 		/// <summary>
@@ -883,6 +990,8 @@
 				return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 
 			int sourceIndex = _modList.IndexOf(mod);
+			if (sourceIndex < 0)
+				sourceIndex = FindVisibleModIndex(mod);
 			return sourceIndex >= 0
 				? gridView.GetRowHandle(sourceIndex)
 				: DevExpress.XtraGrid.GridControl.InvalidRowHandle;
@@ -917,7 +1026,34 @@
 		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
 			if (InvokeRequired) { Invoke(new Action(() => ActiveMods_CollectionChanged(sender, e))); return; }
-			RefreshActivationState();
+			if (_rebindingRestoredArchive) return;
+
+			ModGridViewState gridState = CaptureModGridViewState();
+			bool membershipChanged;
+			if (e.Action == NotifyCollectionChangedAction.Reset)
+			{
+				RebuildVisibleModList();
+				_categoryModListSurface?.SetMods(_modList);
+				membershipChanged = true;
+			}
+			else
+			{
+				membershipChanged = ReconcileVisibleMods(e.OldItems);
+				membershipChanged |= ReconcileVisibleMods(e.NewItems);
+			}
+
+			RebuildActivationStateCache();
+			QueueMissingArchiveScan();
+			if (membershipChanged)
+				_gridModListSurface.RefreshDataSource();
+			else
+				_gridModListSurface.RefreshData();
+			_gridModListSurface.InvalidateRows();
+			_categoryModListSurface?.RefreshData();
+			RestoreModGridViewState(gridState, gridState.FocusedMod != null && FindVisibleModIndex(gridState.FocusedMod) < 0);
+			SetCommandExecutableStatus();
+			UpdateModCountLabel();
+			UpdateModsCount?.Invoke(this, EventArgs.Empty);
 		}
 
 		private void Mod_PropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -1796,7 +1932,10 @@
 		private void QueueMissingArchiveScan()
 		{
 			if (_missingArchiveScanQueued)
+			{
+				_missingArchiveRescanRequested = true;
 				return;
+			}
 
 			var snapshot = _modList
 				.Where(x => x != null && !string.IsNullOrEmpty(x.Filename))
@@ -1805,9 +1944,13 @@
 				.ToList();
 
 			if (snapshot.Count == 0)
+			{
+				_missingArchiveRescanRequested = false;
 				return;
+			}
 
 			_missingArchiveScanQueued = true;
+			_missingArchiveRescanRequested = false;
 			System.Threading.ThreadPool.QueueUserWorkItem(_ =>
 			{
 				var results = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
@@ -1827,6 +1970,9 @@
 						_presentationState.SetMissingArchiveResults(results);
 						_missingArchiveScanQueued = false;
 						gridView.InvalidateRows();
+						_categoryModListSurface?.InvalidateView();
+						if (_missingArchiveRescanRequested)
+							QueueMissingArchiveScan();
 					}));
 				}
 				catch (InvalidOperationException)
@@ -1843,6 +1989,17 @@
 		private static bool IsModArchiveMissingOnDisk(IMod mod)
 		{
 			return mod != null && !string.IsNullOrEmpty(mod.Filename) && !File.Exists(mod.Filename);
+		}
+
+		/// <summary>
+		/// Determines whether an action may safely read the selected mod's physical source archive.
+		/// </summary>
+		private static bool HasUsableSourceArchive(IMod mod)
+		{
+			return mod != null &&
+				!(mod is Nexus.Client.ModManagement.InstallationLog.InstallLog.DummyMod) &&
+				!String.IsNullOrEmpty(mod.Filename) &&
+				File.Exists(mod.Filename);
 		}
 		private void RefreshActivationState()
 		{
@@ -3956,14 +4113,16 @@
 				{
 					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Deactivate.Name", "Deactivate"), NmmIconAction.Disable,
 						() => _viewModel?.DisableModCommand.Execute(new List<IMod> { mod })), true);
-					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Reinstall.Name", "Reinstall Mod"), NmmIconAction.Reinstall,
-						() => _viewModel?.ReinstallMod(mod, null)));
+					if (HasUsableSourceArchive(mod))
+						AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Reinstall.Name", "Reinstall Mod"), NmmIconAction.Reinstall,
+							() => _viewModel?.ReinstallMod(mod, null)));
 				}
 			}
 			else
 			{
-				AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.ReinstallMultiple.Name", "Reinstall Mod/s"), NmmIconAction.Reinstall,
-					() => _viewModel?.ReinstallMultipleMods(mods)), true);
+				if (mods.All(HasUsableSourceArchive))
+					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.ReinstallMultiple.Name", "Reinstall Mod/s"), NmmIconAction.Reinstall,
+						() => _viewModel?.ReinstallMultipleMods(mods)), true);
 			}
 
 			BarSubItem itemUninstall = CreatePopupSubItem(LanguageManager.Get("Mods.Context.UninstallDelete.Name", "Uninstall or Delete"), NmmIconAction.Uninstall);
@@ -4057,7 +4216,7 @@
 				if (itemMoveTo.ItemLinks.Count > 0) AddGridPopupItem(itemMoveTo, true);
 			}
 
-			if (singleMod)
+			if (singleMod && HasUsableSourceArchive(mod))
 				AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Actions.ResetCache.Name", "Reset Mod Cache"), NmmIconAction.Reset, () => ResetSelectedModCache(mod)), true);
 
 			_gridPopupMenu.ShowPopup(Control.MousePosition);
