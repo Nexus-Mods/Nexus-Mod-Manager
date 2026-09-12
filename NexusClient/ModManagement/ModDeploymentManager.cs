@@ -86,6 +86,138 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <inheritdoc />
+		public IReadOnlyCollection<ModDeploymentTarget> GetPromotedTargets()
+		{
+			if (!m_ilgInstallLog.HasDeploymentTargets)
+				return new ModDeploymentTarget[0];
+
+			var targets = new HashSet<ModDeploymentTarget>();
+			foreach (IMod mod in m_ilgInstallLog.ActiveMods)
+			{
+				string modKey = m_ilgInstallLog.GetModKey(mod);
+				if (string.IsNullOrWhiteSpace(modKey))
+					continue;
+
+				targets.UnionWith(m_ilgInstallLog.GetDeploymentTargetsForMod(modKey));
+			}
+
+			return targets.ToArray();
+		}
+
+		/// <inheritdoc />
+		public IMod GetOwnerMod(string p_strOwnerKey)
+		{
+			if (string.IsNullOrWhiteSpace(p_strOwnerKey) ||
+				p_strOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+			{
+				return null;
+			}
+
+			return m_ilgInstallLog.ActiveMods.FirstOrDefault(mod =>
+				p_strOwnerKey.Equals(m_ilgInstallLog.GetModKey(mod), StringComparison.OrdinalIgnoreCase));
+		}
+
+		/// <inheritdoc />
+		public string GetOwnerSourcePath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+		{
+			if (p_mdtTarget == null)
+				throw new ArgumentNullException(nameof(p_mdtTarget));
+			if (string.IsNullOrWhiteSpace(p_strOwnerKey) ||
+				p_strOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+			{
+				return null;
+			}
+
+			if (GetOwnerMethod(p_strOwnerKey) == ModInstallMethod.Virtual)
+				return m_vmaVirtualModActivator.GetVirtualSourceForOwner(p_mdtTarget, p_strOwnerKey);
+
+			string currentOwnerKey = GetCurrentOwnerKey(p_mdtTarget);
+			if (p_strOwnerKey.Equals(currentOwnerKey, StringComparison.OrdinalIgnoreCase))
+			{
+				string deploymentPath = GetDeploymentPath(p_mdtTarget);
+				return File.Exists(deploymentPath) ? deploymentPath : null;
+			}
+
+			string backupPath = GetOwnerBackupPath(p_mdtTarget, p_strOwnerKey);
+			return File.Exists(backupPath) ? backupPath : null;
+		}
+
+		/// <inheritdoc />
+		public void SwitchPromotedOwner(ModDeploymentTarget p_mdtTarget, string p_strSelectedOwnerKey)
+		{
+			if (p_mdtTarget == null)
+				throw new ArgumentNullException(nameof(p_mdtTarget));
+			if (string.IsNullOrWhiteSpace(p_strSelectedOwnerKey))
+				throw new ArgumentException("A deployment owner key is required.", nameof(p_strSelectedOwnerKey));
+			if (!m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
+				throw new InvalidOperationException("Only promoted deployment targets may use method-neutral owner switching.");
+			if (p_strSelectedOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidOperationException("The original loose file is a restoration fallback and cannot be selected as a mod owner.");
+
+			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+			int selectedIndex = owners.FindIndex(x => x.Equals(p_strSelectedOwnerKey, StringComparison.OrdinalIgnoreCase));
+			if (selectedIndex < 0)
+				throw new InvalidOperationException("The selected mod is not an owner of this deployment target.");
+			if (selectedIndex == owners.Count - 1)
+				return;
+
+			string currentOwnerKey = owners[owners.Count - 1];
+			string deploymentPath = GetDeploymentPath(p_mdtTarget);
+			using (var transaction = new TransactionScope())
+			{
+				var fileManager = new TxFileManager();
+				DisplaceCurrentOwner(p_mdtTarget, currentOwnerKey, deploymentPath, fileManager);
+
+				if (GetOwnerMethod(p_strSelectedOwnerKey) == ModInstallMethod.Virtual)
+					m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, p_strSelectedOwnerKey, fileManager);
+				else
+					RestoreBackup(p_mdtTarget, p_strSelectedOwnerKey, deploymentPath, fileManager);
+
+				owners.RemoveAt(selectedIndex);
+				owners.Add(p_strSelectedOwnerKey);
+				m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
+				transaction.Complete();
+			}
+		}
+
+		/// <inheritdoc />
+		public void RestorePromotedOwnerStack(ModDeploymentTarget p_mdtTarget, IReadOnlyList<string> p_lstOwnerKeys)
+		{
+			if (p_mdtTarget == null)
+				throw new ArgumentNullException(nameof(p_mdtTarget));
+			if (p_lstOwnerKeys == null || p_lstOwnerKeys.Count == 0)
+				throw new ArgumentException("A persisted promoted owner stack is required.", nameof(p_lstOwnerKeys));
+			if (!m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
+				throw new InvalidOperationException("The profile requires a promoted target that is not present in the current deployment registry.");
+
+			var desiredOwners = new List<string>(p_lstOwnerKeys);
+			if (desiredOwners.Any(String.IsNullOrWhiteSpace) || desiredOwners.Count != desiredOwners.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+				throw new InvalidDataException("The profile contains an invalid promoted owner stack.");
+
+			int originalIndex = desiredOwners.FindIndex(x => x.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase));
+			if (originalIndex > 0)
+				throw new InvalidDataException("The unmanaged original owner must be the bottom fallback in a promoted stack.");
+
+			var currentOwners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+			if (currentOwners.Count != desiredOwners.Count ||
+				currentOwners.Except(desiredOwners, StringComparer.OrdinalIgnoreCase).Any() ||
+				desiredOwners.Except(currentOwners, StringComparer.OrdinalIgnoreCase).Any())
+			{
+				throw new InvalidOperationException(String.Format("The installed owners for promoted target '{0}' do not match the selected profile.", p_mdtTarget));
+			}
+
+			string desiredWinner = desiredOwners[desiredOwners.Count - 1];
+			if (desiredWinner.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidDataException("A profile cannot select the unmanaged original file as the winner while managed owners remain.");
+
+			string currentWinner = currentOwners[currentOwners.Count - 1];
+			if (!desiredWinner.Equals(currentWinner, StringComparison.OrdinalIgnoreCase))
+				SwitchPromotedOwner(p_mdtTarget, desiredWinner);
+
+			m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, desiredOwners);
+		}
+
+		/// <inheritdoc />
 		public string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager)
 		{
 			if (p_fstPayload == null)
@@ -174,7 +306,7 @@ namespace Nexus.Client.ModManagement
 				return deploymentPath;
 			}
 
-			string backupPath = GetBackupPath(p_mdtTarget, modKey);
+			string backupPath = GetOwnerBackupPath(p_mdtTarget, modKey);
 			if (!File.Exists(backupPath))
 				throw new FileNotFoundException("The inactive Direct owner backup required for upgrade is missing.", backupPath);
 
@@ -551,7 +683,7 @@ namespace Nexus.Client.ModManagement
 		private void ClaimLegacyOriginalBackup(ModDeploymentTarget p_mdtTarget, string p_strLegacyPath,
 			TxFileManager p_tfmFileManager)
 		{
-			string backupPath = GetBackupPath(p_mdtTarget, m_ilgInstallLog.OriginalValuesKey);
+			string backupPath = GetOwnerBackupPath(p_mdtTarget, m_ilgInstallLog.OriginalValuesKey);
 			if (File.Exists(backupPath))
 				throw new IOException(string.Format("A shared original backup already exists for '{0}'.", p_mdtTarget));
 
@@ -620,7 +752,8 @@ namespace Nexus.Client.ModManagement
 			return rootPath;
 		}
 
-		private string GetBackupPath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+		/// <inheritdoc />
+		public string GetOwnerBackupPath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
 		{
 			string overwriteDirectory = m_gmdGameMode.GameModeEnvironmentInfo.OverwriteDirectory;
 			if (string.IsNullOrWhiteSpace(overwriteDirectory))
@@ -666,7 +799,7 @@ namespace Nexus.Client.ModManagement
 
 		private void MoveToBackup(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, string p_strDeploymentPath, TxFileManager p_tfmFileManager)
 		{
-			string backupPath = GetBackupPath(p_mdtTarget, p_strOwnerKey);
+			string backupPath = GetOwnerBackupPath(p_mdtTarget, p_strOwnerKey);
 			if (File.Exists(backupPath))
 				throw new IOException(string.Format("A Direct overwrite backup already exists for '{0}'.", p_mdtTarget));
 
@@ -679,7 +812,7 @@ namespace Nexus.Client.ModManagement
 
 		private void RestoreBackup(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, string p_strDeploymentPath, TxFileManager p_tfmFileManager)
 		{
-			string backupPath = GetBackupPath(p_mdtTarget, p_strOwnerKey);
+			string backupPath = GetOwnerBackupPath(p_mdtTarget, p_strOwnerKey);
 			if (!File.Exists(backupPath))
 				throw new FileNotFoundException("The Direct overwrite backup required for restoration is missing.", backupPath);
 
@@ -692,7 +825,7 @@ namespace Nexus.Client.ModManagement
 
 		private void DeleteBackupIfPresent(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, TxFileManager p_tfmFileManager)
 		{
-			string backupPath = GetBackupPath(p_mdtTarget, p_strOwnerKey);
+			string backupPath = GetOwnerBackupPath(p_mdtTarget, p_strOwnerKey);
 			if (File.Exists(backupPath))
 				p_tfmFileManager.Delete(backupPath);
 		}

@@ -169,6 +169,12 @@ namespace Nexus.Client.ModManagement
 			ItemProgressStepSize = 1;
 			FileCounter = 0;
 
+			if (ModManager.DeploymentManager != null && ModManager.DeploymentManager.HasPromotedTargets && !BackupManager.checkList.Contains(1))
+			{
+				Status = TaskStatus.Error;
+				return LanguageManager.Get("Tools.Backup.Error.DirectPayloadsRequired", "Installed mod files must be included when Direct or mixed deployment state is present.");
+			}
+
 			OverallMessage = LanguageManager.Get("Tools.Backup.Progress.CreateDirectories", "Creating the directories.");
 			StepOverallProgress();
 			
@@ -473,8 +479,9 @@ namespace Nexus.Client.ModManagement
 			string strActiveProfileID = string.Empty;
 			string profileName = LanguageManager.Format("Tools.Backup.RestoredProfileName", "{0} Restored Backup {1}", p_strGameModeId, intNewProfile);
 
-			ModProfile mprModProfile = new ModProfile(strId, profileName, p_strGameModeId, (p_intModCount < 0 ? VirtualModActivator.ModCount : p_intModCount), false, "", "", "", false, "", "", 0, false);
+			ModProfile mprModProfile = new ModProfile(strId, profileName, p_strGameModeId, (p_intModCount < 0 ? ModManager.InstallationLog.ActiveMods.Count : p_intModCount), false, "", "", "", false, "", "", 0, false);
 			ProfileManager.SaveProfile(mprModProfile, p_bteModList, p_bteIniList, p_bteLoadOrder, p_strOptionalFiles, p_strBackupDirectory);
+			ProfileManager.SaveDeploymentManifest(mprModProfile, p_strBackupDirectory);
 						
 			string strLogPath = string.IsNullOrEmpty(strActiveProfileID) ? Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted") : Path.Combine(p_strBackupDirectory, strActiveProfileID, "Scripted");
 			if (Directory.Exists(strLogPath))

@@ -230,8 +230,14 @@
 				return;
 			}
 			_modManagerControl.ToggleDisabledSummary(true);
-			ProgressDialog.ShowDialog(this, e.Argument);
+			DialogResult setupResult = ProgressDialog.ShowDialog(this, e.Argument);
 			_modManagerControl.ToggleDisabledSummary(false);
+
+			if (setupResult != DialogResult.OK || e.Argument.Status != BackgroundTasks.TaskStatus.Complete)
+			{
+				HandleFailedProfileSwitch(GetBackgroundTaskError(e.Argument, L("Profiles.Switch.SetupFailed", "The selected profile could not be prepared.")));
+				return;
+			}
 
 			ViewModel.ExecuteProfileSwitch(this);
 		}
@@ -2029,6 +2035,21 @@
 		private void HandleFailedProfileSwitch(string p_strFailureMessage)
 		{
 			List<string> lstRollbackErrors = new List<string>();
+			try
+			{
+				IBackgroundTask bgtSetupRollback = ViewModel.RollbackProfileSetup();
+				if (bgtSetupRollback != null)
+				{
+					DialogResult drSetupRollback = ProgressDialog.ShowDialog(this, bgtSetupRollback, false);
+					if (drSetupRollback != DialogResult.OK || bgtSetupRollback.Status != BackgroundTasks.TaskStatus.Complete)
+						lstRollbackErrors.Add(GetBackgroundTaskError(bgtSetupRollback, L("Profiles.Switch.RollbackModsFailed", "The previous profile's installed mods could not be fully restored.")));
+				}
+			}
+			catch (Exception ex)
+			{
+				lstRollbackErrors.Add(ex.Message);
+			}
+
 			IBackgroundTask bgtRollback = ViewModel.RollbackProfileSwitch();
 
 			if (bgtRollback != null)

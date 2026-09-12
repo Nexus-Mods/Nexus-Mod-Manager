@@ -170,6 +170,12 @@
         public string RelativePath { get; set; }
 
         /// <summary>
+        /// Gets or sets the canonical promoted deployment target represented by this row.
+        /// Pure Virtual rows leave this value null and continue using the existing VMA path.
+        /// </summary>
+        internal ModDeploymentTarget DeploymentTarget { get; set; }
+
+        /// <summary>
         /// Provides a compatibility alias for the normalized relative path without storing a duplicate per-row reference.
         /// </summary>
         public string NormalizedRelativePath

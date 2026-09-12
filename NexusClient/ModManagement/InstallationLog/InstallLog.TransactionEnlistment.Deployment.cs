@@ -99,6 +99,7 @@
 					throw new ArgumentNullException(nameof(target));
 
 				string[] owners = NormalizeDeploymentOwnerKeys(ownerKeys);
+				EnlistedInstallLog.ValidateOriginalFallbackPosition(owners);
 				if (owners.Length == 0)
 				{
 					RemoveDeploymentTarget(target);

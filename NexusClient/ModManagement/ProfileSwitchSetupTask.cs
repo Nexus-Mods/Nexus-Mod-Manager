@@ -37,26 +37,28 @@ namespace Nexus.Client.ModManagement
 		private ReadOnlyObservableList<IMod> _modsToDeactivate = null;
 		private string _logPath = string.Empty;
 		private bool _filesOnly = false;
-		private List<IMod> _modsToInstall = null;
+		private List<ProfileDeploymentInstallRequest> _modsToInstall = null;
 		private ConfirmItemOverwriteDelegate _overwriteConfirmationDelegate = null;
 		private ConfirmActionMethod _confirmMethod = null;
 		private IModProfile _profileToInstall = null;
 		private IModProfile _profileToSwitch = null;
 		private IProfileManager _profileManager = null;
+		private IModDeploymentManager _deploymentManager = null;
 
 		#region Constructors
 
 		/// <summary>
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
-		public ProfileSwitchSetupTask(ReadOnlyObservableList<IMod> modsToDeactivate, List<IMod> modsToInstall, IProfileManager profileManager, IModProfile profileToInstall,
-			IModProfile profileToSwitch, IInstallLog installLog, ModInstallerFactory modInstallerFactory, VirtualModActivator virtualModActivator, string scriptedLogPath, bool filesOnly,
-			ConfirmActionMethod	confirmActionMethod, ConfirmItemOverwriteDelegate overwriteConfirmationDelegate)
+		public ProfileSwitchSetupTask(ReadOnlyObservableList<IMod> modsToDeactivate, List<ProfileDeploymentInstallRequest> modsToInstall, IProfileManager profileManager, IModProfile profileToInstall,
+			IModProfile profileToSwitch, IInstallLog installLog, ModInstallerFactory modInstallerFactory, VirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager, string scriptedLogPath, bool filesOnly,
+			ConfirmActionMethod confirmActionMethod, ConfirmItemOverwriteDelegate overwriteConfirmationDelegate)
 		{
 			_installLog = installLog;
 			_modInstallerFactory = modInstallerFactory;
 			_modsToDeactivate = modsToDeactivate;
 			VirtualModActivator = virtualModActivator;
+			_deploymentManager = deploymentManager;
 			_logPath = scriptedLogPath;
 			_filesOnly = filesOnly;
 			_profileToInstall = profileToInstall;
@@ -106,13 +108,21 @@ namespace Nexus.Client.ModManagement
 		/// <returns>Always <c>null</c>.</returns>
 		protected override object DoWork(object[] args)
 		{
-			if (_modsToDeactivate != null && _modsToDeactivate.Count > 0)
-				DeactivateMods(args);
+			try
+			{
+				if (_modsToDeactivate != null && _modsToDeactivate.Count > 0)
+					DeactivateMods(args);
 
-			if (_modsToInstall != null && _modsToInstall.Count > 0)
-				InstallMods(args);
+				if (_modsToInstall != null && _modsToInstall.Count > 0)
+					InstallMods(args);
 
-			return null;
+				return null;
+			}
+			finally
+			{
+				if (_profileManager != null)
+					_profileManager.SetCurrentProfile(_profileToSwitch);
+			}
 		}
 
 		private bool DeactivateMods(object[] args)
@@ -140,7 +150,9 @@ namespace Nexus.Client.ModManagement
 					StepItemProgress();
 				}
 
-				if ((VirtualModActivator != null) && (VirtualModActivator.ModCount > 0))
+				bool booCoordinatorOwned = _installLog.GetModInstallMethod(modMod) == ModInstallMethod.Direct ||
+					(_deploymentManager != null && _deploymentManager.HasPromotedFiles(modMod));
+				if (!booCoordinatorOwned && (VirtualModActivator != null) && (VirtualModActivator.ModCount > 0))
 				{
 					if (_filesOnly)
 						VirtualModActivator.DisableModFiles(modMod);
@@ -154,7 +166,6 @@ namespace Nexus.Client.ModManagement
 					StepItemProgress();
 				}
 
-				modMod.InstallDate = null;
 				if (!_installLog.ActiveMods.Contains(modMod))
 				{
 					while (ItemProgress < ItemProgressMaximum)
@@ -175,6 +186,10 @@ namespace Nexus.Client.ModManagement
 				}
 
 				TaskSetWaiter.Wait(munUninstaller);
+				if (!munUninstaller.Succeeded)
+					throw new InvalidOperationException(String.IsNullOrWhiteSpace(munUninstaller.CompletionMessage)
+						? String.Format("Profile switch failed while uninstalling '{0}'.", modMod.ModName)
+						: munUninstaller.CompletionMessage);
 
 				if (ItemProgress < ItemProgressMaximum)
 				{
@@ -209,23 +224,25 @@ namespace Nexus.Client.ModManagement
 				_profileManager.SetCurrentProfile(_profileToInstall);
 
 
-			foreach (IMod modMod in _modsToInstall)
+			foreach (ProfileDeploymentInstallRequest installRequest in _modsToInstall)
 			{
+				IMod modMod = installRequest.Mod;
 				OverallMessage = String.Format(InstallingSelectedModFormat, modMod.ModName);
 
 				if (_installLog.ActiveMods.Contains(modMod))
 					continue;
 
-				ModInstaller minInstaller = _modInstallerFactory.CreateInstaller(modMod, _overwriteConfirmationDelegate, null);
+				ModInstaller minInstaller = _modInstallerFactory.CreateInstaller(modMod, _overwriteConfirmationDelegate, null, installRequest.Context);
 				minInstaller.Install();
 
 				TaskSetWaiter.Wait(minInstaller);
+				if (!minInstaller.Succeeded)
+					throw new InvalidOperationException(String.IsNullOrWhiteSpace(minInstaller.CompletionMessage)
+						? String.Format("Profile switch failed while installing '{0}'.", modMod.ModName)
+						: minInstaller.CompletionMessage);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 			}
-
-			if (_profileToSwitch != null && _profileManager != null)
-				_profileManager.SetCurrentProfile(_profileToSwitch);
 
 			return true;
 		}

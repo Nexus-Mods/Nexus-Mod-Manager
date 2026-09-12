@@ -220,7 +220,7 @@
 
             try
             {
-                FileManagerScanResult result = await Task.Run(() => _queryService.Scan(gameMode, _modManagerViewModel.VirtualModActivator, cancellation.Token), cancellation.Token).ConfigureAwait(true);
+                FileManagerScanResult result = await Task.Run(() => _queryService.Scan(gameMode, _modManagerViewModel.VirtualModActivator, _modManagerViewModel.ModManager.DeploymentManager, cancellation.Token), cancellation.Token).ConfigureAwait(true);
                 if (_disposed || cancellation.IsCancellationRequested || scanGeneration != _scanGeneration || !Object.ReferenceEquals(gameMode, GameMode))
                     return;
 
@@ -271,6 +271,26 @@
         public Task<VirtualFileOwnerSwitchResult> SwitchOwnerAsync(FileManagerRow row, string selectedOwnerKey)
         {
             if (row == null) throw new ArgumentNullException("row");
+
+            IModDeploymentManager deploymentManager = _modManagerViewModel.ModManager.DeploymentManager;
+            if (row.DeploymentTarget != null && deploymentManager != null && deploymentManager.IsPromoted(row.DeploymentTarget))
+            {
+                return Task.Run(() =>
+                {
+                    try
+                    {
+                        deploymentManager.SwitchPromotedOwner(row.DeploymentTarget, selectedOwnerKey);
+                        if (_modManagerViewModel.ProfileManager != null)
+                            _modManagerViewModel.ProfileManager.UpdateCurrentDeploymentManifest();
+                        return VirtualFileOwnerSwitchResult.Succeeded(row.RelativePath, selectedOwnerKey);
+                    }
+                    catch (Exception ex)
+                    {
+                        return VirtualFileOwnerSwitchResult.Failed(ex);
+                    }
+                });
+            }
+
             return Task.Run(() => _deploymentService.SwitchFileOwner(row.RelativePath, selectedOwnerKey));
         }
 
@@ -287,7 +307,11 @@
             if (row == null) throw new ArgumentNullException("row");
 
             FileManagerSource oldSource = row.Source;
-            _queryService.ApplySelectedOwner(row, selectedOwnerKey);
+            IModDeploymentManager deploymentManager = _modManagerViewModel.ModManager.DeploymentManager;
+            if (row.DeploymentTarget != null && deploymentManager != null && deploymentManager.IsPromoted(row.DeploymentTarget))
+                _queryService.RefreshRowOwnership(row, GameMode, _modManagerViewModel.VirtualModActivator, deploymentManager);
+            else
+                _queryService.ApplySelectedOwner(row, selectedOwnerKey);
             ChangeCounts(oldSource, row.Source);
         }
 
@@ -296,7 +320,7 @@
             if (row == null) throw new ArgumentNullException("row");
 
             FileManagerSource oldSource = row.Source;
-            _queryService.RefreshRowOwnership(row, GameMode, _modManagerViewModel.VirtualModActivator);
+            _queryService.RefreshRowOwnership(row, GameMode, _modManagerViewModel.VirtualModActivator, _modManagerViewModel.ModManager.DeploymentManager);
             ChangeCounts(oldSource, row.Source);
         }
 

@@ -21,6 +21,8 @@ namespace Nexus.Client.ModManagement
 		bool m_booCancel = false;
 		bool m_booStartupMigration = false;
 		bool m_booRestoring = false;
+		private readonly ProfileManager m_prmProfileManager;
+		private readonly ProfileDeploymentManifest m_pdmDeploymentManifest;
 
 		#region Properties
 
@@ -59,13 +61,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_ModManager">The current ModManager.</param>
 		/// <param name="p_lstMods">The mod list.</param>
 		/// <param name="p_intNewValue">The new category id.</param>
-		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge, bool p_booStartupMigration, bool p_booRestoring)
+		public ProfileActivationTask(ModManager p_mmgModManager, IList<IVirtualModLink> p_lstLinkToInstall, IList<IVirtualModLink> p_lstLinkToPurge, bool p_booStartupMigration, bool p_booRestoring, ProfileManager p_prmProfileManager, ProfileDeploymentManifest p_pdmDeploymentManifest)
 		{
 			ModManager = p_mmgModManager;
 			InstallLinks = p_lstLinkToInstall;
 			RemoveLinks = p_lstLinkToPurge;
 			m_booStartupMigration = p_booStartupMigration;
 			m_booRestoring = p_booRestoring;
+			m_prmProfileManager = p_prmProfileManager;
+			m_pdmDeploymentManifest = p_pdmDeploymentManifest;
 		}
 
 		#endregion
@@ -177,9 +181,9 @@ namespace Nexus.Client.ModManagement
 			{
 				foreach (IVirtualModLink modLink in RemoveLinks)
 				{
-					IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => modLink.ModInfo.ModFileName.Equals(Path.GetFileName(x.Filename).ToString(), StringComparison.InvariantCultureIgnoreCase)
-						|| (!string.IsNullOrEmpty(modLink.ModInfo.DownloadId) && !string.IsNullOrEmpty(x.DownloadId) && modLink.ModInfo.DownloadId.Equals(x.DownloadId)));
-					ModManager.VirtualModActivator.PurgeFileLink(modLink, modMod);
+					IMod modMod = FindLinkMod(modLink);
+					if (ModManager.VirtualModActivator.VirtualLinks.Contains(modLink) && !IsPromotedLink(modLink, modMod))
+						ModManager.VirtualModActivator.PurgeFileLink(modLink, modMod);
 
 					if (ItemProgress < ItemProgressMaximum)
 					{
@@ -228,8 +232,8 @@ namespace Nexus.Client.ModManagement
 							ItemMessage = String.Format(RestoringModsFormat, vmlModLink.ModInfo.ModName);
 						else
 							ItemMessage = String.Format(ActivatingNewProfileFormat, vmlModLink.ModInfo.ModName);
-						IMod modMod = ModManager.ManagedMods.FirstOrDefault(x => Path.GetFileName(x.Filename) == vmlModLink.ModInfo.ModFileName);
-						if (modMod != null)
+						IMod modMod = FindLinkMod(vmlModLink);
+						if (modMod != null && !IsPromotedLink(vmlModLink, modMod))
 						{
 							if (vmlModLink.Active)
 								ModManager.VirtualModActivator.AddFileLink(modMod, vmlModLink.VirtualModPath, true, false, vmlModLink.Priority, vmlModLink.InstallRoot);
@@ -268,9 +272,41 @@ namespace Nexus.Client.ModManagement
 			if (OverallProgress < OverallProgressMaximum)
 				StepOverallProgress();
 
+			if (m_prmProfileManager != null && m_pdmDeploymentManifest != null)
+				m_prmProfileManager.RestoreDeploymentOwnership(m_pdmDeploymentManifest);
+
 			ModManager.VirtualModActivator.SaveList();
 
 			return m_booRestoring;
+		}
+
+		/// <summary>
+		/// Resolves the installed mod represented by a persisted Virtual link.
+		/// </summary>
+		private IMod FindLinkMod(IVirtualModLink p_vmlLink)
+		{
+			if (p_vmlLink == null || p_vmlLink.ModInfo == null)
+				return null;
+
+			Func<IMod, bool> matches = mod => mod != null &&
+				(p_vmlLink.ModInfo.ModFileName.Equals(Path.GetFileName(mod.Filename), StringComparison.InvariantCultureIgnoreCase) ||
+				(!String.IsNullOrEmpty(p_vmlLink.ModInfo.DownloadId) && !String.IsNullOrEmpty(mod.DownloadId) &&
+				 p_vmlLink.ModInfo.DownloadId.Equals(mod.DownloadId, StringComparison.InvariantCultureIgnoreCase)));
+
+			return ModManager.ManagedMods.FirstOrDefault(matches) ?? ModManager.InstallationLog.ActiveMods.FirstOrDefault(matches);
+		}
+
+		/// <summary>
+		/// Gets whether the link belongs to a target whose winner is controlled by the deployment coordinator.
+		/// </summary>
+		private bool IsPromotedLink(IVirtualModLink p_vmlLink, IMod p_modMod)
+		{
+			if (p_vmlLink == null || p_modMod == null || ModManager.DeploymentManager == null || !ModManager.DeploymentManager.HasPromotedTargets)
+				return false;
+
+			ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+				ModManager.GameMode, p_modMod, p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot);
+			return ModManager.DeploymentManager.IsPromoted(target);
 		}
 
 		/// <summary>

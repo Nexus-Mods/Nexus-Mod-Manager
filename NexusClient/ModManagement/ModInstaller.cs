@@ -68,6 +68,16 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Gets whether the most recent install task set completed successfully.
+		/// </summary>
+		public bool Succeeded { get; private set; }
+
+		/// <summary>
+		/// Gets the completion message from the most recent install task set.
+		/// </summary>
+		public string CompletionMessage { get; private set; }
+
+		/// <summary>
 		/// Gets or sets the application's envrionment info.
 		/// </summary>
 		/// <value>The application's envrionment info.</value>
@@ -276,6 +286,16 @@ namespace Nexus.Client.ModManagement
 				Mod.EndReadOnlyTransaction();
 			}
 			OnTaskSetCompleted(booSuccess, strMessage, Mod);
+		}
+
+		/// <summary>
+		/// Captures the final task-set result so callers that synchronously wait for an install can detect failure.
+		/// </summary>
+		protected override void OnTaskSetCompleted(TaskSetCompletedEventArgs e)
+		{
+			Succeeded = e.Success;
+			CompletionMessage = e.Message;
+			base.OnTaskSetCompleted(e);
 		}
 
 		/// <summary>

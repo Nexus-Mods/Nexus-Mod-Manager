@@ -255,6 +255,8 @@
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />
     <Compile Include="ModManagement\ProfileManager\ProfileManager.cs" />
+    <Compile Include="ModManagement\ProfileManager\ProfileDeploymentManifest.cs" />
+    <Compile Include="ModManagement\ProfileManager\ProfileManager.Deployment.cs" />
     <Compile Include="ModManagement\ProfileManager\RefreshBackedProfilesTask.cs" />
     <Compile Include="ModManagement\ProfileManager\RemoveBackedProfileTask.cs" />
     <Compile Include="ModManagement\ProfileManager\RenameBackedProfileTask.cs" />

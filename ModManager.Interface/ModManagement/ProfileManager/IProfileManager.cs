@@ -123,6 +123,11 @@ namespace Nexus.Client.ModManagement
 
 		void SetCurrentProfile(IModProfile p_impProfile);
 
+		/// <summary>
+		/// Persists the current profile's method-neutral deployment state.
+		/// </summary>
+		void UpdateCurrentDeploymentManifest();
+
 		#endregion
 
 		string GetProfilePath(IModProfile p_impProfile);

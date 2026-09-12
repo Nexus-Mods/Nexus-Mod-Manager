@@ -138,6 +138,8 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 
+			AppendDeploymentBackupFiles();
+
 			if (ModManager.VirtualModActivator.MultiHDMode)
 			{
 				string[] fileList = Directory.GetFiles(ModManager.VirtualModActivator.HDLinkFolder, "*.*", SearchOption.AllDirectories);
@@ -149,6 +151,87 @@ namespace Nexus.Client.ModManagement
 					InstalledNMMLINKFileSize = InstalledNMMLINKFileSize + fInfo.Length;
 					lstInstalledNMMLINKFiles.Add(new BackupInfo(result[1], file, "", Path.GetFileName(ModManager.VirtualModActivator.HDLinkFolder), fInfo.Length));
 				}
+			}
+		}
+
+		/// <summary>
+		/// Adds the exact Direct winner payloads and shared Direct/original overwrite backups required to reconstruct promoted targets.
+		/// </summary>
+		private void AppendDeploymentBackupFiles()
+		{
+			if (ModManager.DeploymentManager == null || !ModManager.DeploymentManager.HasPromotedTargets)
+				return;
+
+			string sharedBackupRoot = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.OverwriteDirectory, "deployment");
+			var addedPaths = new HashSet<string>(lstInstalledModFiles.Select(x => x.RealModPath), StringComparer.OrdinalIgnoreCase);
+			foreach (ModDeploymentTarget target in ModManager.DeploymentManager.GetPromotedTargets())
+			{
+				IReadOnlyList<string> owners = ModManager.DeploymentManager.GetOwnerKeys(target);
+				if (owners.Count == 0)
+					continue;
+
+				string winnerKey = owners[owners.Count - 1];
+				foreach (string ownerKey in owners)
+				{
+					bool isOriginal = ownerKey.Equals(ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase);
+					if (!isOriginal && ModManager.InstallationLog.GetModInstallMethod(ownerKey) != ModInstallMethod.Direct)
+						continue;
+
+					bool activeDirectWinner = !isOriginal && ownerKey.Equals(winnerKey, StringComparison.OrdinalIgnoreCase);
+					string sourcePath;
+					string archiveDirectory;
+					string archiveRelativePath;
+					if (activeDirectWinner)
+					{
+						sourcePath = ModManager.DeploymentManager.GetDeploymentPath(target);
+						archiveDirectory = Path.Combine("DEPLOYMENT", "active");
+						archiveRelativePath = Path.Combine(target.Root.ToString(), target.RelativePath);
+					}
+					else
+					{
+						sourcePath = ModManager.DeploymentManager.GetOwnerBackupPath(target, ownerKey);
+						archiveDirectory = Path.Combine("DEPLOYMENT", "overwrites");
+						archiveRelativePath = GetRelativePath(sharedBackupRoot, sourcePath);
+					}
+
+					if (!File.Exists(sourcePath))
+						throw new FileNotFoundException(String.Format("The deployment payload required to back up '{0}' is missing.", target), sourcePath);
+					if (!addedPaths.Add(sourcePath))
+						continue;
+
+					FileInfo fileInfo = new FileInfo(sourcePath);
+					InstalledModFileSize += fileInfo.Length;
+					lstInstalledModFiles.Add(new BackupInfo(archiveRelativePath, sourcePath, String.Empty, archiveDirectory, fileInfo.Length));
+				}
+			}
+		}
+
+		private static string GetRelativePath(string p_strRootPath, string p_strPath)
+		{
+			string rootPath = Path.GetFullPath(p_strRootPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			string path = Path.GetFullPath(p_strPath);
+			if (!path.StartsWith(rootPath, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidDataException(String.Format("Backup path '{0}' is outside the shared deployment backup root.", p_strPath));
+
+			return path.Substring(rootPath.Length);
+		}
+
+		private bool IsPromotedDataFile(string p_strRelativePath)
+		{
+			if (ModManager.DeploymentManager == null || String.IsNullOrWhiteSpace(p_strRelativePath))
+				return false;
+
+			try
+			{
+				return ModManager.DeploymentManager.IsPromoted(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, p_strRelativePath));
+			}
+			catch (ArgumentException)
+			{
+				return false;
+			}
+			catch (InvalidDataException)
+			{
+				return false;
 			}
 		}
 
@@ -285,7 +368,7 @@ namespace Nexus.Client.ModManagement
 
 								var checkedModsInstallationFiles = lstInstalledModFiles.Where(x => x.VirtualModPath.Equals(result[1], StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
-								if (checkedModsInstallationFiles == null)
+								if (checkedModsInstallationFiles == null && !IsPromotedDataFile(result[1]))
 								{
 									fInfo = new FileInfo(file);
 									LooseFilesSize = LooseFilesSize + fInfo.Length;

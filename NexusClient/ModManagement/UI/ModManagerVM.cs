@@ -1054,7 +1054,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// installing and disabling mods when required.
 		/// </summary>
 		/// <param name="p_rolModList">The list of Active Mods.</param>
-		public void ProfileSwitchSetup(ReadOnlyObservableList<IMod> modsToDeactivate, List<IMod> modsToInstall,
+		public void ProfileSwitchSetup(ReadOnlyObservableList<IMod> modsToDeactivate, List<ProfileDeploymentInstallRequest> modsToInstall,
 			IModProfile profileToInstall, IModProfile profileToSwitch)
 		{
 			ProfileSwitchSettingUp(true, new EventArgs<IBackgroundTask>(ModManager.ProfileSwitchSetup(modsToDeactivate, modsToInstall, ProfileManager, profileToInstall, profileToSwitch, true, ConfirmUpdaterAction, ConfirmItemOverwrite)));

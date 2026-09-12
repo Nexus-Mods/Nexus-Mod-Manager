@@ -765,9 +765,10 @@ namespace Nexus.Client.ModManagement
 			if (CurrentProfile != null)
 				strActiveProfileID = CurrentProfile.Id;
 
-			ModProfile mprModProfile = new ModProfile(strId, "Profile " + intNewProfile.ToString(), p_strGameModeId, (p_intModCount < 0 ? VirtualModActivator.ModCount : p_intModCount), true, "", "", "", false, "", "", 0, false);
+			ModProfile mprModProfile = new ModProfile(strId, "Profile " + intNewProfile.ToString(), p_strGameModeId, (p_intModCount < 0 ? ModManager.InstallationLog.ActiveMods.Count : p_intModCount), true, "", "", "", false, "", "", 0, false);
 			mprModProfile.IsDefault = true;
 			SaveProfile(mprModProfile, p_bteModList, p_bteIniList, p_bteLoadOrder, p_strOptionalFiles);
+			SaveDeploymentManifest(mprModProfile);
 			string strLogPath = string.IsNullOrEmpty(strActiveProfileID) ? Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted") : Path.Combine(m_strProfileManagerPath, strActiveProfileID, "Scripted");
 			if (Directory.Exists(strLogPath))
 				lock (m_objLock)
@@ -1159,6 +1160,9 @@ namespace Nexus.Client.ModManagement
 					WriteProfileFiles(Path.Combine(strProfilePath, "profile.xml"), GetProfileBytes(p_impModProfile));
 				}
 
+				if (p_impModProfile.Id == m_strCurrentProfileId)
+					SaveDeploymentManifest(p_impModProfile);
+
 				string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
 
 				if (!(p_strOptionalFiles == null))
@@ -1496,6 +1500,7 @@ namespace Nexus.Client.ModManagement
 							break;
 					}
 					UpdateCurrentProfileModCount();
+					UpdateCurrentDeploymentManifest();
 				}
 		}
 
@@ -1503,7 +1508,7 @@ namespace Nexus.Client.ModManagement
 		{
 			ModProfile mopCurrentProfile = (ModProfile)m_tslProfiles.Find(x => x.Id == m_strCurrentProfileId);
 			if (mopCurrentProfile != null)
-				mopCurrentProfile.ModCount = VirtualModActivator.ModCount;
+				mopCurrentProfile.ModCount = ModManager.InstallationLog.ActiveMods.Count;
 		}
 
 		/// <summary>
@@ -1560,6 +1565,7 @@ namespace Nexus.Client.ModManagement
 					{
 						string strPath = Path.Combine(m_strProfileManagerPath, Profile.Id);
 						VirtualModActivator.PurgeMods(p_lstMods, strPath);
+						PurgeDeploymentModsFromProfile(Profile, p_lstMods);
 
 						foreach (IMod modMod in p_lstMods)
 						{
@@ -1820,9 +1826,9 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_intNewValue">The new category id value.</param>
 		/// <param name="p_camConfirm">The delegate to call to confirm an action.</param>
 		/// <returns>The background task that will run the updaters.</returns>
-		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, bool p_booStartupMigration, bool p_booRestoring, ConfirmActionMethod p_camConfirm)
+		public IBackgroundTask SwitchProfile(IModProfile p_impProfile, ModManager p_ModManager, IList<IVirtualModLink> p_lstNewLinks, IList<IVirtualModLink> p_lstRemoveLinks, bool p_booStartupMigration, bool p_booRestoring, ConfirmActionMethod p_camConfirm, ProfileDeploymentManifest p_pdmDeploymentManifest = null)
 		{
-			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks, p_booStartupMigration, p_booRestoring);
+			ProfileActivationTask patProfileSwitch = new ProfileActivationTask(p_ModManager, p_lstNewLinks, p_lstRemoveLinks, p_booStartupMigration, p_booRestoring, this, p_pdmDeploymentManifest);
 			if (VirtualModActivator.GameMode.LoadOrderManager != null)
 				VirtualModActivator.GameMode.LoadOrderManager.MonitorExternalTask(patProfileSwitch);
 			else

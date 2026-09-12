@@ -311,6 +311,143 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void FileManagerOwnerSwitch_DirectOwners_ReordersStackAndRestoresSelectedPayload()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstDirect = environment.RegisterMod("FirstDirect", ModInstallMethod.Direct);
+				IMod secondDirect = environment.RegisterMod("SecondDirect", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"textures\owner-switch.dds");
+				environment.InstallDirect(firstDirect, target, "first");
+				environment.InstallDirect(secondDirect, target, "second");
+
+				environment.Manager.SwitchPromotedOwner(target, environment.Key(firstDirect));
+
+				Assert.AreEqual("first", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(secondDirect), environment.Key(firstDirect) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+
+				environment.Manager.SwitchPromotedOwner(target, environment.Key(secondDirect));
+
+				Assert.AreEqual("second", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(firstDirect), environment.Key(secondDirect) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
+		public void FileManagerOwnerSwitch_MixedOwners_UsesMethodNeutralCoordinator()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod direct = environment.RegisterMod("Direct", ModInstallMethod.Direct);
+				IMod virtualMod = environment.RegisterMod("Virtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"meshes\owner-switch.nif");
+				environment.InstallDirect(direct, target, "direct");
+				string virtualSource = environment.StageVirtual(virtualMod, target, "virtual");
+				environment.InstallVirtual(virtualMod, target, virtualSource, true);
+
+				environment.Manager.SwitchPromotedOwner(target, environment.Key(direct));
+
+				Assert.AreEqual("direct", environment.ReadTarget(target));
+				Assert.IsFalse(environment.VirtualState.IsActive(target, environment.Key(virtualMod)));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(virtualMod), environment.Key(direct) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+
+				environment.Manager.SwitchPromotedOwner(target, environment.Key(virtualMod));
+
+				Assert.AreEqual("virtual", environment.ReadTarget(target));
+				Assert.IsTrue(environment.VirtualState.IsActive(target, environment.Key(virtualMod)));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(direct), environment.Key(virtualMod) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
+		public void FileManagerOwnerSwitch_MissingDirectBackupRollsBackCurrentWinner()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstDirect = environment.RegisterMod("FirstDirect", ModInstallMethod.Direct);
+				IMod secondDirect = environment.RegisterMod("SecondDirect", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"scripts\rollback-switch.pex");
+				environment.InstallDirect(firstDirect, target, "first");
+				environment.InstallDirect(secondDirect, target, "second");
+				File.Delete(environment.Manager.GetOwnerSourcePath(target, environment.Key(firstDirect)));
+
+				Assert.Throws<FileNotFoundException>(() =>
+					environment.Manager.SwitchPromotedOwner(target, environment.Key(firstDirect)));
+
+				Assert.AreEqual("second", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(firstDirect), environment.Key(secondDirect) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
+		public void ProfileRestorePromotedStack_RestoresExactPersistedOrderAndWinner()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstDirect = environment.RegisterMod("FirstDirect", ModInstallMethod.Direct);
+				IMod secondDirect = environment.RegisterMod("SecondDirect", ModInstallMethod.Direct);
+				IMod thirdDirect = environment.RegisterMod("ThirdDirect", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"textures\profile-restore.dds");
+				environment.InstallDirect(firstDirect, target, "first");
+				environment.InstallDirect(secondDirect, target, "second");
+				environment.InstallDirect(thirdDirect, target, "third");
+
+				environment.Manager.RestorePromotedOwnerStack(target, new[]
+				{
+					environment.Key(thirdDirect),
+					environment.Key(firstDirect),
+					environment.Key(secondDirect)
+				});
+
+				Assert.AreEqual("second", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(thirdDirect), environment.Key(firstDirect), environment.Key(secondDirect) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
+		public void ProfileRestorePromotedStack_AmbientRollbackRestoresPreviousWinnerAndOrder()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstDirect = environment.RegisterMod("FirstDirect", ModInstallMethod.Direct);
+				IMod secondDirect = environment.RegisterMod("SecondDirect", ModInstallMethod.Direct);
+				IMod thirdDirect = environment.RegisterMod("ThirdDirect", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"meshes\profile-rollback.nif");
+				environment.InstallDirect(firstDirect, target, "first");
+				environment.InstallDirect(secondDirect, target, "second");
+				environment.InstallDirect(thirdDirect, target, "third");
+
+				using (var transaction = new TransactionScope())
+				{
+					environment.Manager.RestorePromotedOwnerStack(target, new[]
+					{
+						environment.Key(thirdDirect),
+						environment.Key(firstDirect),
+						environment.Key(secondDirect)
+					});
+					Assert.AreEqual("second", environment.ReadTarget(target));
+				}
+
+				Assert.AreEqual("third", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(firstDirect), environment.Key(secondDirect), environment.Key(thirdDirect) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
 		public void UninstallLastVirtualWinner_ReturnsAbsentPluginCandidateOnlyWhenNoFallbackExists()
 		{
 			using (var environment = new MixedTestEnvironment())

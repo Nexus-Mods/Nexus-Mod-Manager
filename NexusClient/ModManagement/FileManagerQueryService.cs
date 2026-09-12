@@ -7,6 +7,7 @@
     using System.Threading;
 
     using Nexus.Client.Games;
+    using Nexus.Client.Mods;
 	using Nexus.Client.Util;
 
     public sealed class FileManagerQueryService
@@ -25,6 +26,14 @@
 
         public FileManagerScanResult Scan(IGameMode gameMode, IVirtualModActivator virtualModActivator, CancellationToken cancellationToken)
         {
+            return Scan(gameMode, virtualModActivator, null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Scans the File Manager deployment root using VMA for pure Virtual targets and the deployment coordinator for promoted targets.
+        /// </summary>
+        public FileManagerScanResult Scan(IGameMode gameMode, IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager, CancellationToken cancellationToken)
+        {
             if (gameMode == null) throw new ArgumentNullException("gameMode");
             if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
 
@@ -35,7 +44,7 @@
                 throw new DirectoryNotFoundException("The deployment root does not exist or is inaccessible: " + (deploymentRoot ?? String.Empty));
 
             Stopwatch stageWatch = Stopwatch.StartNew();
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot, diagnostics);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildOwnershipLookup(virtualModActivator, deploymentManager, gameMode, deploymentRoot, diagnostics);
             diagnostics.VirtualLinkIndexMilliseconds = stageWatch.ElapsedMilliseconds;
 
             stageWatch.Restart();
@@ -138,12 +147,20 @@
 
         public FileManagerSourceCounts ReclassifyRows(IList<FileManagerRow> rows, IGameMode gameMode, IVirtualModActivator virtualModActivator)
         {
+            return ReclassifyRows(rows, gameMode, virtualModActivator, null);
+        }
+
+        /// <summary>
+        /// Reclassifies existing rows against method-neutral deployment ownership.
+        /// </summary>
+        public FileManagerSourceCounts ReclassifyRows(IList<FileManagerRow> rows, IGameMode gameMode, IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager)
+        {
             if (rows == null) throw new ArgumentNullException("rows");
             if (gameMode == null) throw new ArgumentNullException("gameMode");
             if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
 
             string deploymentRoot = GetDeploymentRoot(gameMode);
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildOwnershipLookup(virtualModActivator, deploymentManager, gameMode, deploymentRoot);
             HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
             IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
             FileManagerSourceCounts counts = new FileManagerSourceCounts();
@@ -163,6 +180,14 @@
         }
         public FileManagerSourceCounts SynchronizeRowsAfterActivation(IList<FileManagerRow> rows, IDictionary<string, FileManagerRow> rowsByNormalizedPath, IGameMode gameMode, IVirtualModActivator virtualModActivator)
         {
+            return SynchronizeRowsAfterActivation(rows, rowsByNormalizedPath, gameMode, virtualModActivator, null);
+        }
+
+        /// <summary>
+        /// Synchronizes rows after activation using method-neutral deployment ownership.
+        /// </summary>
+        public FileManagerSourceCounts SynchronizeRowsAfterActivation(IList<FileManagerRow> rows, IDictionary<string, FileManagerRow> rowsByNormalizedPath, IGameMode gameMode, IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager)
+        {
             if (rows == null) throw new ArgumentNullException("rows");
             if (rowsByNormalizedPath == null) throw new ArgumentNullException("rowsByNormalizedPath");
             if (gameMode == null) throw new ArgumentNullException("gameMode");
@@ -170,9 +195,9 @@
 
             string deploymentRoot = GetDeploymentRoot(gameMode);
             if (String.IsNullOrWhiteSpace(deploymentRoot) || !Directory.Exists(deploymentRoot))
-                return ReclassifyRows(rows, gameMode, virtualModActivator);
+                return ReclassifyRows(rows, gameMode, virtualModActivator, deploymentManager);
 
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot);
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildOwnershipLookup(virtualModActivator, deploymentManager, gameMode, deploymentRoot);
             HashSet<string> baseFiles = BuildBaseFileSet(gameMode.BaseGameFiles);
             IDictionary<string, FileManagerSource> manualSources = LoadManualSources(gameMode.ModeId);
             string rootPrefix = GetNormalizedRootPrefix(deploymentRoot);
@@ -242,10 +267,22 @@
 
         public void RefreshRowOwnership(FileManagerRow row, IGameMode gameMode, IVirtualModActivator virtualModActivator)
         {
+            RefreshRowOwnership(row, gameMode, virtualModActivator, null);
+        }
+
+        /// <summary>
+        /// Refreshes one row from the authoritative ownership source for its deployment target.
+        /// </summary>
+        public void RefreshRowOwnership(FileManagerRow row, IGameMode gameMode, IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager)
+        {
             if (row == null || virtualModActivator == null)
                 return;
 
-            FileManagerPathOwnership ownership = BuildOwnershipForPath(virtualModActivator, gameMode, row.RelativePath);
+            FileManagerPathOwnership ownership = null;
+            if (deploymentManager != null && row.DeploymentTarget != null && deploymentManager.IsPromoted(row.DeploymentTarget))
+                ownership = BuildPromotedOwnership(deploymentManager, row.DeploymentTarget);
+            if (ownership == null)
+                ownership = BuildOwnershipForPath(virtualModActivator, deploymentManager, gameMode, row.RelativePath);
             if (ownership != null && ownership.HasActiveOwner)
                 ApplyNmmOwnership(row, ownership);
         }
@@ -330,6 +367,7 @@
             if (baseFiles != null && baseFiles.Contains(row.RelativePath))
             {
                 row.SourceEditable = false;
+                row.DeploymentTarget = null;
                 row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
                 row.OwnerKey = String.Empty;
                 row.OwnerName = String.Empty;
@@ -339,6 +377,7 @@
 
             FileManagerSource manualSource;
             row.SourceEditable = true;
+            row.DeploymentTarget = null;
             row.OwnerCandidates = FileManagerRow.EmptyOwnerCandidates;
             row.OwnerKey = String.Empty;
             row.OwnerName = String.Empty;
@@ -381,6 +420,106 @@
                 return String.Empty;
 
             return (modInfo.ModFileName ?? String.Empty).ToLowerInvariant() + "|" + (modInfo.DownloadId ?? String.Empty).ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Builds File Manager ownership using VMA for pure Virtual paths and overlays promoted targets from the deployment registry.
+        /// </summary>
+        private static Dictionary<string, FileManagerPathOwnership> BuildOwnershipLookup(IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager, IGameMode gameMode, string deploymentRoot, FileManagerScanDiagnostics diagnostics = null)
+        {
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, deploymentRoot, diagnostics);
+            if (deploymentManager == null || !deploymentManager.HasPromotedTargets || String.IsNullOrWhiteSpace(deploymentRoot))
+                return ownershipByPath;
+
+            string rootPrefix;
+            try
+            {
+                rootPrefix = GetNormalizedRootPrefix(deploymentRoot);
+            }
+            catch
+            {
+                return ownershipByPath;
+            }
+
+            foreach (ModDeploymentTarget target in deploymentManager.GetPromotedTargets())
+            {
+                if (target == null)
+                    continue;
+
+                string deploymentPath;
+                try
+                {
+                    deploymentPath = deploymentManager.GetDeploymentPath(target);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                if (String.IsNullOrWhiteSpace(deploymentPath) || !deploymentPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string normalizedPath = NormalizePath(deploymentPath.Substring(rootPrefix.Length));
+                if (String.IsNullOrWhiteSpace(normalizedPath))
+                    continue;
+
+                FileManagerPathOwnership ownership = BuildPromotedOwnership(deploymentManager, target);
+                if (ownership != null)
+                    ownershipByPath[normalizedPath] = ownership;
+            }
+
+            return ownershipByPath;
+        }
+
+        /// <summary>
+        /// Builds one authoritative owner stack from the sparse deployment registry.
+        /// </summary>
+        private static FileManagerPathOwnership BuildPromotedOwnership(IModDeploymentManager deploymentManager, ModDeploymentTarget target)
+        {
+            IReadOnlyList<string> ownerKeys = deploymentManager.GetOwnerKeys(target);
+            if (ownerKeys == null || ownerKeys.Count == 0)
+                return null;
+
+            string activeOwnerKey = ownerKeys[ownerKeys.Count - 1];
+            IMod activeOwner = deploymentManager.GetOwnerMod(activeOwnerKey);
+            if (activeOwner == null)
+                return null;
+
+            var realOwners = new List<KeyValuePair<string, IMod>>(ownerKeys.Count);
+            var seenOwnerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string ownerKey in ownerKeys)
+            {
+                if (String.IsNullOrWhiteSpace(ownerKey) || !seenOwnerKeys.Add(ownerKey))
+                    continue;
+
+                IMod owner = deploymentManager.GetOwnerMod(ownerKey);
+                if (owner != null)
+                    realOwners.Add(new KeyValuePair<string, IMod>(ownerKey, owner));
+            }
+
+            List<FileManagerOwnerCandidate> candidates = FileManagerRow.EmptyOwnerCandidates;
+            if (realOwners.Count > 1)
+            {
+                candidates = new List<FileManagerOwnerCandidate>(realOwners.Count);
+                int displayPriority = 0;
+                for (int index = realOwners.Count - 1; index >= 0; index--)
+                {
+                    KeyValuePair<string, IMod> owner = realOwners[index];
+                    candidates.Add(new FileManagerOwnerCandidate(
+                        owner.Key,
+                        GetModDisplayName(owner.Value),
+                        displayPriority++,
+                        deploymentManager.GetOwnerSourcePath(target, owner.Key)));
+                }
+            }
+
+            return new FileManagerPathOwnership(
+                true,
+                activeOwnerKey,
+                GetModDisplayName(activeOwner),
+                realOwners.Count,
+                candidates,
+                target);
         }
 
         /// <summary>
@@ -572,12 +711,12 @@
             return virtualLinkCount;
         }
 
-        private static FileManagerPathOwnership BuildOwnershipForPath(IVirtualModActivator virtualModActivator, IGameMode gameMode, string normalizedPath)
+        private static FileManagerPathOwnership BuildOwnershipForPath(IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager, IGameMode gameMode, string normalizedPath)
         {
             if (virtualModActivator == null || String.IsNullOrWhiteSpace(normalizedPath))
                 return null;
 
-            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildVirtualLinkLookup(virtualModActivator, gameMode, GetDeploymentRoot(gameMode));
+            Dictionary<string, FileManagerPathOwnership> ownershipByPath = BuildOwnershipLookup(virtualModActivator, deploymentManager, gameMode, GetDeploymentRoot(gameMode));
             FileManagerPathOwnership ownership;
             return ownershipByPath.TryGetValue(normalizedPath, out ownership) ? ownership : null;
         }
@@ -891,11 +1030,25 @@
         private static void ApplyNmmOwnership(FileManagerRow row, FileManagerPathOwnership ownership)
         {
             row.SourceEditable = false;
+            row.DeploymentTarget = ownership.DeploymentTarget;
             row.Source = FileManagerSource.InstalledByNmm;
             row.OwnerCandidates = ownership.OwnerCandidates;
             row.SetOwnerCount(ownership.OwnerCount);
             row.OwnerKey = ownership.ActiveOwnerKey;
             row.OwnerName = ownership.ActiveOwnerName;
+        }
+
+
+        private static string GetModDisplayName(IMod mod)
+        {
+            if (mod == null)
+                return String.Empty;
+            if (!String.IsNullOrWhiteSpace(mod.ModName))
+                return mod.ModName;
+
+            return String.IsNullOrWhiteSpace(mod.Filename)
+                ? String.Empty
+                : Path.GetFileNameWithoutExtension(mod.Filename);
         }
 
         private static FileManagerOwnerCandidate FindOwnerCandidate(List<FileManagerOwnerCandidate> candidates, string ownerKey)
@@ -952,12 +1105,21 @@
         /// <param name="ownerCount">The number of distinct owners represented by the path.</param>
         /// <param name="ownerCandidates">The selectable owner candidates, when the path has conflicts.</param>
         public FileManagerPathOwnership(bool hasActiveOwner, string activeOwnerKey, string activeOwnerName, int ownerCount, List<FileManagerOwnerCandidate> ownerCandidates)
+            : this(hasActiveOwner, activeOwnerKey, activeOwnerName, ownerCount, ownerCandidates, null)
+        {
+        }
+
+        /// <summary>
+        /// Initializes ownership information associated with a canonical promoted deployment target.
+        /// </summary>
+        public FileManagerPathOwnership(bool hasActiveOwner, string activeOwnerKey, string activeOwnerName, int ownerCount, List<FileManagerOwnerCandidate> ownerCandidates, ModDeploymentTarget deploymentTarget)
         {
             HasActiveOwner = hasActiveOwner;
             ActiveOwnerKey = activeOwnerKey ?? String.Empty;
             ActiveOwnerName = activeOwnerName ?? String.Empty;
             OwnerCount = Math.Max(0, ownerCount);
             OwnerCandidates = ownerCandidates ?? FileManagerRow.EmptyOwnerCandidates;
+            DeploymentTarget = deploymentTarget;
         }
 
         public bool HasActiveOwner { get; private set; }
@@ -965,5 +1127,6 @@
         public string ActiveOwnerName { get; private set; }
         public int OwnerCount { get; private set; }
         public List<FileManagerOwnerCandidate> OwnerCandidates { get; private set; }
+        public ModDeploymentTarget DeploymentTarget { get; private set; }
     }
 }

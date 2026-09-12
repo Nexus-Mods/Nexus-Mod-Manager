@@ -241,7 +241,16 @@
 
 		private static ModInstallRoot ParseInstallRoot(string installRoot)
 		{
-			return GameRootInstallRootValue.Equals(installRoot, StringComparison.OrdinalIgnoreCase) ? ModInstallRoot.GameRoot : ModInstallRoot.Data;
+			if (String.IsNullOrWhiteSpace(installRoot) ||
+				"Data".Equals(installRoot, StringComparison.OrdinalIgnoreCase) ||
+				"Default".Equals(installRoot, StringComparison.OrdinalIgnoreCase))
+			{
+				return ModInstallRoot.Data;
+			}
+			if (GameRootInstallRootValue.Equals(installRoot, StringComparison.OrdinalIgnoreCase))
+				return ModInstallRoot.GameRoot;
+
+			throw new InvalidDataException(String.Format("Invalid install root '{0}' in Install Log.", installRoot));
 		}
 
 		private static XAttribute CreateInstallRootAttribute(ModInstallRoot installRoot)
@@ -269,7 +278,15 @@
 
 		private static ModInstallMethod ParseInstallMethod(string installMethod)
 		{
-			return DirectInstallMethodValue.Equals(installMethod, StringComparison.OrdinalIgnoreCase) ? ModInstallMethod.Direct : ModInstallMethod.Virtual;
+			if (String.IsNullOrWhiteSpace(installMethod) ||
+				"Virtual".Equals(installMethod, StringComparison.OrdinalIgnoreCase))
+			{
+				return ModInstallMethod.Virtual;
+			}
+			if (DirectInstallMethodValue.Equals(installMethod, StringComparison.OrdinalIgnoreCase))
+				return ModInstallMethod.Direct;
+
+			throw new InvalidDataException(String.Format("Invalid install method '{0}' in Install Log.", installMethod));
 		}
 
 		private static XAttribute CreateInstallMethodAttribute(ModInstallMethod installMethod)

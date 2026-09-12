@@ -394,6 +394,27 @@
 				}
 		}
 
+		/// <summary>
+		/// Rebinds the activator to a restored InstallLog and reloads its persisted Virtual topology without replacing the activator instance.
+		/// </summary>
+		public void ReinitializeInstallLog(IInstallLog p_ilgModInstallLog)
+		{
+			if (p_ilgModInstallLog == null)
+				throw new ArgumentNullException(nameof(p_ilgModInstallLog));
+
+			ModInstallLog = p_ilgModInstallLog;
+			m_booInitialized = false;
+			if (IsValid(m_strVirtualActivatorConfigPath) && PerformVersionCheck())
+			{
+				SetCurrentList(LoadList(m_strVirtualActivatorConfigPath));
+				m_booInitialized = true;
+				return;
+			}
+
+			m_tslVirtualModInfo.Clear();
+			SetCurrentList(new List<IVirtualModLink>());
+		}
+
 		private bool PerformVersionCheck()
 		{
 			return PerformVersionCheck(m_strVirtualActivatorConfigPath);

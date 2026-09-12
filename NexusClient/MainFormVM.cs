@@ -67,6 +67,16 @@
 			/// </summary>
 			public List<IVirtualModLink> PreviousVirtualLinks { get; }
 
+			/// <summary>
+			/// Gets the method-neutral deployment state requested by the target profile.
+			/// </summary>
+			public ProfileDeploymentManifest DeploymentManifest { get; }
+
+			/// <summary>
+			/// Gets the deployment state captured for the previous profile.
+			/// </summary>
+			public ProfileDeploymentManifest PreviousDeploymentManifest { get; }
+
 			public List<IVirtualModInfo> MissingMods { get; }
 
 			public List<string> ScriptedMismatchList { get; }
@@ -99,7 +109,7 @@
 			/// <param name="profiles">The serialized target profile files.</param>
 			/// <param name="previousProfiles">The serialized previous profile files.</param>
 			/// <param name="previousLoadOrder">The live plugin order and active state captured before switching.</param>
-			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, IModProfile previousProfile, List<IVirtualModLink> virtualLinks, List<IVirtualModLink> previousVirtualLinks, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles, Dictionary<string, string> previousProfiles, string previousLoadOrder)
+			public ProfileSwitchToken(bool isSilent, bool isRestoring, IModProfile modProfile, IModProfile previousProfile, List<IVirtualModLink> virtualLinks, List<IVirtualModLink> previousVirtualLinks, ProfileDeploymentManifest deploymentManifest, ProfileDeploymentManifest previousDeploymentManifest, List<string> scriptedMismatch, List<IVirtualModInfo> missingMods, Dictionary<string, string> profiles, Dictionary<string, string> previousProfiles, string previousLoadOrder)
 			{
 				IsSilent = isSilent;
 				IsRestoring = isRestoring;
@@ -107,6 +117,8 @@
 				PreviousProfile = previousProfile;
 				VirtualLinks = virtualLinks;
 				PreviousVirtualLinks = previousVirtualLinks;
+				DeploymentManifest = deploymentManifest;
+				PreviousDeploymentManifest = previousDeploymentManifest;
 				MissingMods = missingMods;
 				ScriptedMismatchList = scriptedMismatch;
 				ProfileDictionary = profiles;
@@ -732,7 +744,8 @@
 		/// </summary>
 		public void ProfileSwitch(IModProfile profile, IList<IVirtualModLink> newLinks, IList<IVirtualModLink> removeLinks, bool startupMigration, bool restoring)
 		{
-			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(profile, ModManager, newLinks, removeLinks, startupMigration, restoring, ConfirmUpdaterAction)));
+			ProfileDeploymentManifest manifest = profileSwitchToken == null ? null : profileSwitchToken.DeploymentManifest;
+			ProfileSwitching(this, new EventArgs<IBackgroundTask>(ProfileManager.SwitchProfile(profile, ModManager, newLinks, removeLinks, startupMigration, restoring, ConfirmUpdaterAction, manifest)));
 		}
 
 		/// <summary>
@@ -993,7 +1006,37 @@
 				return;
 
 			ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
+			ProfileManager.UpdateCurrentDeploymentManifest();
 			profileSwitchToken = null;
+		}
+
+		/// <summary>
+		/// Starts compensating mod-level install/uninstall work performed while setting up a profile switch.
+		/// </summary>
+		/// <returns>The compensation task, or <c>null</c> when mod membership, method, and root already match the previous profile.</returns>
+		public IBackgroundTask RollbackProfileSetup()
+		{
+			if (profileSwitchToken == null || profileSwitchToken.PreviousProfile == null)
+				return null;
+
+			ProfileDeploymentPlan rollbackPlan = ProfileManager.CreateDeploymentPlan(
+				profileSwitchToken.PreviousProfile,
+				profileSwitchToken.PreviousDeploymentManifest,
+				null);
+			if (rollbackPlan.ModsToDeactivate.Count == 0 && rollbackPlan.ModsToInstall.Count == 0)
+				return null;
+
+			ModManager.VirtualModActivator.DisableLinkCreation = true;
+			var modsToDeactivate = new ReadOnlyObservableList<IMod>(rollbackPlan.ModsToDeactivate);
+			return ModManager.ProfileSwitchSetup(
+				modsToDeactivate,
+				rollbackPlan.ModsToInstall,
+				ProfileManager,
+				profileSwitchToken.PreviousProfile,
+				profileSwitchToken.PreviousProfile,
+				true,
+				ConfirmUpdaterAction,
+				ModManagerVM.ConfirmItemOverwrite);
 		}
 
 		/// <summary>
@@ -1006,6 +1049,7 @@
 				return null;
 
 			ApplyProfileConfiguration(profileSwitchToken.PreviousProfileDictionary);
+			ModManager.VirtualModActivator.DisableLinkCreation = false;
 
 			List<IVirtualModLink> lstCurrentLinks = new List<IVirtualModLink>(VirtualModActivator.VirtualLinks);
 			List<IVirtualModLink> lstLinksToRestore = profileSwitchToken.PreviousVirtualLinks.Except(lstCurrentLinks, new VirtualModLinkEqualityComparer()).ToList();
@@ -1014,7 +1058,7 @@
 			if (lstLinksToRestore.Count == 0 && lstLinksToRemove.Count == 0)
 				return null;
 
-			return ProfileManager.SwitchProfile(profileSwitchToken.PreviousProfile, ModManager, lstLinksToRestore, lstLinksToRemove, false, false, ConfirmUpdaterAction);
+			return ProfileManager.SwitchProfile(profileSwitchToken.PreviousProfile, ModManager, lstLinksToRestore, lstLinksToRemove, false, false, ConfirmUpdaterAction, profileSwitchToken.PreviousDeploymentManifest);
 		}
 
 		/// <summary>
@@ -1133,10 +1177,17 @@
 					ProfileManager.LoadProfile(impPreviousProfile, out dicPreviousProfile);
 
 				List<IVirtualModLink> lstPreviousVirtualLinks = new List<IVirtualModLink>(VirtualModActivator.VirtualLinks);
+				ProfileDeploymentManifest deploymentManifest = ProfileManager.LoadDeploymentManifest(p_impProfile, lstVirtualLinks);
+				ProfileDeploymentManifest previousDeploymentManifest = null;
+				if (impPreviousProfile != null)
+				{
+					ProfileManager.UpdateCurrentDeploymentManifest();
+					previousDeploymentManifest = ProfileManager.LoadDeploymentManifest(impPreviousProfile, lstPreviousVirtualLinks);
+				}
 				string strPreviousLoadOrder = GameMode.UsesPlugins && PluginManagerVM != null
 					? System.Text.Encoding.UTF8.GetString(PluginManagerVM.ExportLoadOrder())
 					: null;
-				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, impPreviousProfile, lstVirtualLinks, lstPreviousVirtualLinks, lstScriptedMismatch, lstMissingModInfo, profiles, dicPreviousProfile, strPreviousLoadOrder);
+				profileSwitchToken = new ProfileSwitchToken(p_booSilentInstall, p_booRestoring, p_impProfile, impPreviousProfile, lstVirtualLinks, lstPreviousVirtualLinks, deploymentManifest, previousDeploymentManifest, lstScriptedMismatch, lstMissingModInfo, profiles, dicPreviousProfile, strPreviousLoadOrder);
 
 				// Deprecated, online profiles are no longer supported by NexusMods.
 				/*
@@ -1168,7 +1219,7 @@
 					}
 				}*/
 
-				ExecuteProfileSwitch(p_frmParent);
+				SetupProfileSwitch(p_frmParent);
 			}
 		}
 
@@ -1180,96 +1231,38 @@
 		public void SetupProfileSwitch(Form parent)
 		{
 			m_booIsSwitching = true;
-			IModProfile impCurrentProfile = ProfileManager.CurrentProfile;
+			IModProfile currentProfile = ProfileManager.CurrentProfile;
+			ProfileDeploymentPlan deploymentPlan;
 
-			// Prompts to automatically install any missing mod file
-			if (profileSwitchToken.ScriptedMismatchList != null && profileSwitchToken.ScriptedMismatchList.Count > 0 || profileSwitchToken.MissingMods != null && profileSwitchToken.MissingMods.Count > 0)
+			try
 			{
-				System.Text.StringBuilder sbMessage = new System.Text.StringBuilder();
-
-				sbMessage.AppendLine("The selected profile contains files from mods not currently installed");
-				sbMessage.AppendLine("The manager will try to automatically reinstall the required files.");
-				sbMessage.AppendLine("- Click YES to proceed.");
-				sbMessage.AppendLine("- Click NO if you want to skip this step.");
-				sbMessage.AppendLine("- Click CANCEL if you want to abort the profile switch.");
-				sbMessage.AppendLine();
-				sbMessage.AppendLine("Depending on the mod, leaving it uninstalled could cause in game crashes.");
-				System.Text.StringBuilder sbDetails = new System.Text.StringBuilder();
-
-				List<IMod> lstFoundMods = new List<IMod>();
-				List<IMod> lstScriptedMods = new List<IMod>();
-				ReadOnlyObservableList<IMod> oclMods = new ReadOnlyObservableList<IMod>(lstScriptedMods);
-				List<IMod> lstManagedMods = new List<IMod>(ModManager.ManagedMods.ToList());
-				foreach (IVirtualModInfo vmi in profileSwitchToken.MissingMods)
-				{
-					IMod modMod = lstManagedMods.Find(x => GetIsSameMod(x, vmi));
-					if (modMod != null)
-					{
-						lstFoundMods.Add(modMod);
-					}
-
-					sbDetails.AppendFormat("- Mod: {0} - filename: {1} - present: {2}", vmi.ModName, vmi.ModFileName, modMod != null ? "Yes" : "No").AppendLine();
-				}
-
-				if (profileSwitchToken.ScriptedMismatchList != null && profileSwitchToken.ScriptedMismatchList.Count > 0)
-				{
-					lstScriptedMods = lstManagedMods.Where(x => profileSwitchToken.ScriptedMismatchList.Contains(Path.GetFileName(x.Filename), StringComparer.CurrentCultureIgnoreCase)).ToList();
-				}
-
-				ModManager.VirtualModActivator.DisableLinkCreation = true;
-
-				if (lstScriptedMods.Count > 0)
-				{
-					oclMods = new ReadOnlyObservableList<IMod>(lstScriptedMods);
-					//ModManagerVM.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), true, true, true);
-					//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
-					//ModManagerVM.MultiModInstall(lstScriptedMods, false);
-					//ProfileManager.SetCurrentProfile(impCurrentProfile);
-				}
-
-				if (lstFoundMods.Count > 0)
-				{
-					string strDetails = sbDetails.Length > 0 ? sbDetails.ToString() : null;
-
-					if (profileSwitchToken.IsSilent)
-					{
-						//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
-						//ModManagerVM.MultiModInstall(lstFoundMods, false);
-						//ProfileManager.SetCurrentProfile(impCurrentProfile);
-					}
-					else
-					{
-						DialogResult drResult = ExtendedMessageBox.Show(parent, sbMessage.ToString(), CommonData.ModManagerName, strDetails, MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
-
-						if (drResult == DialogResult.Yes)
-						{
-							if (lstFoundMods.Count > 0)
-							{
-								//ProfileManager.SetCurrentProfile(profileSwitchToken.Profile);
-								//ModManagerVM.MultiModInstall(lstFoundMods, false);
-								//ProfileManager.SetCurrentProfile(impCurrentProfile);
-							}
-						}
-						else if (drResult == DialogResult.Cancel)
-						{
-							ModManager.VirtualModActivator.DisableLinkCreation = false;
-							m_booIsSwitching = false;
-							ProfileManager.SetCurrentProfile(impCurrentProfile);
-							profileSwitchToken = null;
-							AbortedProfileSwitch(this, new EventArgs());
-							return;
-						}
-						else if (drResult == DialogResult.No)
-							lstFoundMods.Clear();
-					}
-				}
-
-				lstFoundMods.AddRange(lstScriptedMods);
-
-				ModManagerVM.ProfileSwitchSetup(oclMods, lstFoundMods, profileSwitchToken.Profile, impCurrentProfile);
+				deploymentPlan = ProfileManager.CreateDeploymentPlan(
+					profileSwitchToken.Profile,
+					profileSwitchToken.DeploymentManifest,
+					profileSwitchToken.ScriptedMismatchList);
 			}
-			else
+			catch (Exception ex)
+			{
+				bool silent = profileSwitchToken.IsSilent;
+				ModManager.VirtualModActivator.DisableLinkCreation = false;
+				m_booIsSwitching = false;
+				ProfileManager.SetCurrentProfile(currentProfile);
+				profileSwitchToken = null;
+				if (!silent)
+					ExtendedMessageBox.Show(parent, ex.Message, CommonData.ModManagerName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				AbortedProfileSwitch(this, new EventArgs());
+				return;
+			}
+
+			if (deploymentPlan.ModsToDeactivate.Count == 0 && deploymentPlan.ModsToInstall.Count == 0)
+			{
 				ExecuteProfileSwitch(parent);
+				return;
+			}
+
+			ModManager.VirtualModActivator.DisableLinkCreation = true;
+			var modsToDeactivate = new ReadOnlyObservableList<IMod>(deploymentPlan.ModsToDeactivate);
+			ModManagerVM.ProfileSwitchSetup(modsToDeactivate, deploymentPlan.ModsToInstall, profileSwitchToken.Profile, currentProfile);
 		}
 
 		/// <summary>

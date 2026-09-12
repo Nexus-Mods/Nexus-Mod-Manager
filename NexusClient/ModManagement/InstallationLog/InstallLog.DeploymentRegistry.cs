@@ -47,12 +47,20 @@
 
 				ModDeploymentRoot root = ParseDeploymentRoot(file.Attribute("root")?.Value);
 				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(root, path);
-				string[] ownerKeys = file.Descendants("installingMods").Elements("mod")
+				if (_deploymentByTarget.ContainsKey(target))
+					throw new InvalidDataException(String.Format("Install Log contains duplicate deployment target '{0}'.", target));
+
+				XElement installingMods = file.Element("installingMods");
+				if (installingMods == null)
+					throw new InvalidDataException(String.Format("Install Log deployment target '{0}' is missing its owner stack.", target));
+
+				string[] ownerKeys = installingMods.Elements("mod")
 					.Select(x => x.Attribute("key")?.Value)
 					.ToArray();
+				if (ownerKeys.Length == 0)
+					throw new InvalidDataException(String.Format("Install Log deployment target '{0}' has an empty owner stack.", target));
 
-				if (ownerKeys.Length > 0)
-					SetDeploymentOwnersCore(target, ownerKeys);
+				SetDeploymentOwnersCore(target, ownerKeys);
 			}
 		}
 
@@ -105,6 +113,15 @@
 			return owners.ToArray();
 		}
 
+		private void ValidateOriginalFallbackPosition(IList<string> ownerKeys)
+		{
+			for (int i = 0; i < ownerKeys.Count; i++)
+			{
+				if (ownerKeys[i].Equals(OriginalValuesKey, StringComparison.OrdinalIgnoreCase) && i != 0)
+					throw new InvalidDataException("The unmanaged original deployment owner must be the bottom fallback in its target stack.");
+			}
+		}
+
 		private IReadOnlyList<string> GetDeploymentOwnerKeysCore(ModDeploymentTarget target)
 		{
 			DeploymentEntry entry;
@@ -132,6 +149,7 @@
 				throw new ArgumentNullException(nameof(target));
 
 			string[] owners = NormalizeDeploymentOwnerKeys(ownerKeys);
+			ValidateOriginalFallbackPosition(owners);
 			RemoveDeploymentTargetFromInverseIndex(target);
 
 			if (owners.Length == 0)

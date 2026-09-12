@@ -209,6 +209,59 @@ namespace NexusClientTests
             }
         }
 
+        [Test]
+        public void InstallLog_RejectsOriginalFallbackAboveManagedOwner()
+        {
+            string directory = CreateTempDirectory();
+            try
+            {
+                string modDirectory = Path.Combine(directory, "Mods");
+                Directory.CreateDirectory(modDirectory);
+                InstallLog log = CreateInstallLog(modDirectory, Path.Combine(directory, "InstallLog.xml"));
+                var mod = new InstallLog.DummyMod("Direct", Path.Combine(modDirectory, "Direct.7z"));
+                log.AddActiveMod(mod, ModInstallRoot.Data, ModInstallMethod.Direct);
+                string modKey = log.GetModKey(mod);
+                ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"textures\fallback.dds");
+
+                Assert.Throws<InvalidDataException>(() =>
+                    log.SetDeploymentOwners(target, new[] { modKey, log.OriginalValuesKey }));
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [TestCase("installMethod", "Bogus")]
+        [TestCase("installRoot", "Bogus")]
+        public void InstallLog_RejectsInvalidPersistedInstallMetadata(string attributeName, string attributeValue)
+        {
+            string directory = CreateTempDirectory();
+            try
+            {
+                string modDirectory = Path.Combine(directory, "Mods");
+                Directory.CreateDirectory(modDirectory);
+                string logPath = Path.Combine(directory, "InstallLog.xml");
+                InstallLog log = CreateInstallLog(modDirectory, logPath);
+                var mod = new InstallLog.DummyMod("Metadata", Path.Combine(modDirectory, "Metadata.7z"));
+                log.AddActiveMod(mod, ModInstallRoot.Data, ModInstallMethod.Virtual);
+                string modKey = log.GetModKey(mod);
+                log.Release();
+
+                XDocument document = XDocument.Load(logPath);
+                XElement element = document.Descendants("mod").First(x => (string)x.Attribute("key") == modKey);
+                element.SetAttributeValue(attributeName, attributeValue);
+                document.Save(logPath);
+
+                TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() => CreateInstallLog(modDirectory, logPath));
+                Assert.IsInstanceOf<InvalidDataException>(exception.InnerException);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
         private static InstallLog CreateInstallLog(string modDirectory, string logPath)
         {
             var registry = new ModRegistry(null, null);

@@ -36,6 +36,36 @@ namespace Nexus.Client.ModManagement
 		string GetDeploymentPath(ModDeploymentTarget p_mdtTarget);
 
 		/// <summary>
+		/// Gets the currently promoted deployment targets without scanning the complete Virtual link set.
+		/// </summary>
+		IReadOnlyCollection<ModDeploymentTarget> GetPromotedTargets();
+
+		/// <summary>
+		/// Gets the installed mod represented by a real deployment owner key.
+		/// </summary>
+		IMod GetOwnerMod(string p_strOwnerKey);
+
+		/// <summary>
+		/// Gets the canonical payload path used to preview an owner of a deployment target.
+		/// </summary>
+		string GetOwnerSourcePath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+
+		/// <summary>
+		/// Gets the root/path/owner-aware overwrite backup path for a promoted owner.
+		/// </summary>
+		string GetOwnerBackupPath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+
+		/// <summary>
+		/// Makes an existing real mod owner the physical winner of a promoted deployment target.
+		/// </summary>
+		void SwitchPromotedOwner(ModDeploymentTarget p_mdtTarget, string p_strSelectedOwnerKey);
+
+		/// <summary>
+		/// Restores the exact persisted owner order for a promoted target while keeping the requested winner physical.
+		/// </summary>
+		void RestorePromotedOwnerStack(ModDeploymentTarget p_mdtTarget, IReadOnlyList<string> p_lstOwnerKeys);
+
+		/// <summary>
 		/// Streams a standalone Direct payload to its final game destination and records its ownership.
 		/// </summary>
 		string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager);

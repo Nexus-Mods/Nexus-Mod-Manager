@@ -83,6 +83,10 @@ namespace Nexus.Client.ModManagement
 		private VirtualModActivator m_vmaVirtualModActivator = null;
 		private IModDeploymentManager m_mdmDeploymentManager = null;
 		private ReadMeManager m_rmmReadMeManager = null;
+		private readonly FileUtil m_futFileUtility;
+		private readonly SynchronizationContext m_scxUIContext;
+		private readonly IPluginManager m_pmgPluginManager;
+		private IProfileManager m_ipmProfileManager;
 
 		#region events
 
@@ -354,6 +358,9 @@ namespace Nexus.Client.ModManagement
 			ManagedModRegistry = p_mdrManagedModRegistry;
 			ModCacheManager = p_mcmModCacheManager;
 			InstallationLog = p_ilgInstallLog;
+			m_futFileUtility = p_futFileUtility;
+			m_scxUIContext = p_scxUIContext;
+			m_pmgPluginManager = p_pmgPluginManager;
 			m_vmaVirtualModActivator = new VirtualModActivator(this, p_pmgPluginManager, p_gmdGameMode, p_ilgInstallLog, p_eifEnvironmentInfo, EnvironmentInfo.Settings.ModFolder[GameMode.ModeId]);
 			m_vmaVirtualModActivator.Initialize();
 			m_mdmDeploymentManager = new ModDeploymentManager(p_ilgInstallLog, m_vmaVirtualModActivator, p_gmdGameMode);
@@ -498,6 +505,12 @@ namespace Nexus.Client.ModManagement
 		public void ReinitializeInstallLog(string p_strInstallLogPath)
 		{
 			InstallationLog = InstallationLog.ReInitialize(p_strInstallLogPath);
+			m_vmaVirtualModActivator.ReinitializeInstallLog(InstallationLog);
+			m_mdmDeploymentManager = new ModDeploymentManager(InstallationLog, m_vmaVirtualModActivator, GameMode);
+			InstallerFactory = new ModInstallerFactory(GameMode, EnvironmentInfo, m_futFileUtility, m_scxUIContext, InstallationLog, m_pmgPluginManager, m_vmaVirtualModActivator, m_mdmDeploymentManager);
+			if (m_ipmProfileManager != null)
+				InstallerFactory.SetProfileManager(m_ipmProfileManager);
+			m_macModActivator = null;
 		}
 
 		#region Mod Activation/Deactivation
@@ -899,10 +912,10 @@ namespace Nexus.Client.ModManagement
 		/// Perform initial setup steps for the profile switch,
 		/// installing and disabling mods when required.
 		/// </summary>
-		public IBackgroundTask ProfileSwitchSetup(ReadOnlyObservableList<IMod> modsToDeactivate, List<IMod> modsToInstall, IProfileManager profileManager,
+		public IBackgroundTask ProfileSwitchSetup(ReadOnlyObservableList<IMod> modsToDeactivate, List<ProfileDeploymentInstallRequest> modsToInstall, IProfileManager profileManager,
 			IModProfile profileToInstall, IModProfile profileToSwitch, bool p_booFilesOnly, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			ProfileSwitchSetupTask profileSwitchSetup = new ProfileSwitchSetupTask(modsToDeactivate, modsToInstall, profileManager, profileToInstall, profileToSwitch, InstallationLog, InstallerFactory, VirtualModActivator, 
+			ProfileSwitchSetupTask profileSwitchSetup = new ProfileSwitchSetupTask(modsToDeactivate, modsToInstall, profileManager, profileToInstall, profileToSwitch, InstallationLog, InstallerFactory, VirtualModActivator, DeploymentManager,
 				GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, p_booFilesOnly, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
 			profileSwitchSetup.Update(p_camConfirm);
 			return profileSwitchSetup;
@@ -1155,6 +1168,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public void SetProfileManager(IProfileManager p_ipmProfileManager)
 		{
+			m_ipmProfileManager = p_ipmProfileManager;
 			InstallerFactory.SetProfileManager(p_ipmProfileManager);
 		}
 
