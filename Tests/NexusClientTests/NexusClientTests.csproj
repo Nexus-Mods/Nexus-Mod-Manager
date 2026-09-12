@@ -121,6 +121,7 @@
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
+    <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
     <Compile Include="NexusDescriptionFormatterTests.cs" />
@@ -135,6 +136,10 @@
     <ProjectReference Include="..\..\Util\Util.csproj">
       <Project>{44CAA655-38C2-4CA2-BA68-A8D5C44B169D}</Project>
       <Name>Util</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Transactions\Transactions.csproj">
+      <Project>{EA39FD1B-CF1C-4F56-80EE-52A8FA042964}</Project>
+      <Name>Transactions</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\ModManager.Interface\ModManager.Interface.csproj">
       <Project>{33F65739-7CFB-4EC1-89EF-8B0B5440AB82}</Project>

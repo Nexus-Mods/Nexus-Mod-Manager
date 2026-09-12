@@ -156,6 +156,12 @@
     <Compile Include="ModManagement\CategoryManager\ICategoryManager.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />
     <Compile Include="ModManagement\ModInstallRoot.cs" />
+    <Compile Include="ModManagement\ModInstallMethod.cs" />
+    <Compile Include="ModManagement\ModInstallContext.cs" />
+    <Compile Include="ModManagement\ModDeploymentRoot.cs" />
+    <Compile Include="ModManagement\ModDeploymentTarget.cs" />
+    <Compile Include="ModManagement\ModDeploymentTargetResolver.cs" />
+    <Compile Include="Settings\InstallMethodSettingsExtensions.cs" />
     <Compile Include="ModManagement\ModInstallFileFilter.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstaller.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstallDecisionSupport.cs" />

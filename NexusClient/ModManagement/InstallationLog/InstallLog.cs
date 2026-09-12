@@ -53,7 +53,7 @@
 		/// Gets the current support version of the install log.
 		/// </summary>
 		/// <value>The current support version of the install log.</value>
-		public static Version CurrentVersion { get; } = new Version("0.5.0.0");
+		public static Version CurrentVersion { get; } = new Version("0.6.0.0");
 
         #endregion
 
@@ -155,9 +155,11 @@
         }
 
 		private const string GameRootInstallRootValue = "GameRoot";
+		private const string DirectInstallMethodValue = "Direct";
 
 		private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
 		private readonly Dictionary<string, ModInstallRoot> _modInstallRoots = new Dictionary<string, ModInstallRoot>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, ModInstallMethod> _modInstallMethods = new Dictionary<string, ModInstallMethod>(StringComparer.OrdinalIgnoreCase);
 
 		private readonly InstalledItemDictionary<string, object> _installedFiles;
 		private readonly InstalledItemDictionary<IniEdit, string> _installedIniEdits;
@@ -265,6 +267,42 @@
 			return !string.IsNullOrEmpty(key) && _modInstallRoots.TryGetValue(key, out installRoot) ? installRoot : ModInstallRoot.Data;
 		}
 
+		private static ModInstallMethod ParseInstallMethod(string installMethod)
+		{
+			return DirectInstallMethodValue.Equals(installMethod, StringComparison.OrdinalIgnoreCase) ? ModInstallMethod.Direct : ModInstallMethod.Virtual;
+		}
+
+		private static XAttribute CreateInstallMethodAttribute(ModInstallMethod installMethod)
+		{
+			return installMethod == ModInstallMethod.Direct ? new XAttribute("installMethod", DirectInstallMethodValue) : null;
+		}
+
+		private static ModInstallMethod NormalizeInstallMethod(ModInstallMethod installMethod)
+		{
+			if (!Enum.IsDefined(typeof(ModInstallMethod), installMethod))
+				throw new ArgumentOutOfRangeException(nameof(installMethod));
+
+			return installMethod;
+		}
+
+		private void SetModInstallMethod(string key, ModInstallMethod installMethod)
+		{
+			if (string.IsNullOrEmpty(key))
+				return;
+
+			installMethod = NormalizeInstallMethod(installMethod);
+			if (installMethod == ModInstallMethod.Direct)
+				_modInstallMethods[key] = installMethod;
+			else
+				_modInstallMethods.Remove(key);
+		}
+
+		private ModInstallMethod GetModInstallMethodByKey(string key)
+		{
+			ModInstallMethod installMethod;
+			return !string.IsNullOrEmpty(key) && _modInstallMethods.TryGetValue(key, out installMethod) ? installMethod : ModInstallMethod.Virtual;
+		}
+
 		private IDictionary<string, IMod> GetInstallLogModInfo()
 		{
 			var loggedModInfo = new Dictionary<string, IMod>();
@@ -356,6 +394,7 @@
 						var key = mod.Attribute("key")?.Value;
 						_activeModRegistry.RegisterMod(OriginalValueMod, key, true);
 						SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
+						SetModInstallMethod(key, ParseInstallMethod(mod.Attribute("installMethod")?.Value));
 						Trace.WriteLine("OK");
 					}
 					else if (ModManagerValueMod.ModArchivePath.Equals(modPath))
@@ -363,6 +402,7 @@
 						var key = mod.Attribute("key")?.Value;
 						_activeModRegistry.RegisterMod(ModManagerValueMod, key, true);
 						SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
+						SetModInstallMethod(key, ParseInstallMethod(mod.Attribute("installMethod")?.Value));
 						Trace.WriteLine("OK");
 					}
 					else
@@ -390,6 +430,7 @@
 							var key = mod.Attribute("key").Value;
 							_activeModRegistry.RegisterMod(modMod, key);
 							SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
+							SetModInstallMethod(key, ParseInstallMethod(mod.Attribute("installMethod")?.Value));
 						}
 						catch (ArgumentException) { }
 
@@ -412,6 +453,8 @@
                     }
                 }
 			}
+
+			LoadDeploymentRegistry(docLog);
 
 			var iniEdits = docLog.Descendants("iniEdits").FirstOrDefault();
 			
@@ -463,6 +506,7 @@
 									new XAttribute("path", kvp.Key is DummyMod ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
 									new XAttribute("key", kvp.Value),
 									CreateInstallRootAttribute(GetModInstallRootByKey(kvp.Value)),
+									CreateInstallMethodAttribute(GetModInstallMethodByKey(kvp.Value)),
 									new XElement("version",
 										new XAttribute("machineVersion", kvp.Key.MachineVersion ?? new Version()),
 										new XText(kvp.Key.HumanReadableVersion ?? "")),
@@ -480,6 +524,8 @@
 									from m in itm.Installers
 									select new XElement("mod",
 										new XAttribute("key", m.InstallerKey)))));
+
+			AddSerializedDeploymentRegistry(root);
 
 			var iniEdits = new XElement("iniEdits");
 			root.Add(iniEdits);
@@ -698,6 +744,12 @@
 			AddActiveMod(mod, false, installRoot);
 		}
 
+		/// <inheritdoc />
+		public void AddActiveMod(IMod mod, ModInstallRoot installRoot, ModInstallMethod installMethod)
+		{
+			GetEnlistment().AddActiveMod(mod, false, installRoot, installMethod);
+		}
+
 		/// <summary>
 		/// Adds a mod to the install log.
 		/// </summary>
@@ -721,10 +773,21 @@
 			GetEnlistment().AddActiveMod(mod, isSpecial, installRoot);
 		}
 
+		protected void AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot installRoot, ModInstallMethod installMethod)
+		{
+			GetEnlistment().AddActiveMod(mod, isSpecial, installRoot, installMethod);
+		}
+
         /// <inheritdoc />
 		public void ReplaceActiveMod(IMod oldMod, IMod newMod)
 		{
 			GetEnlistment().ReplaceActiveMod(oldMod, newMod);
+		}
+
+		/// <inheritdoc />
+		public void ReplaceActiveMod(IMod oldMod, IMod newMod, ModInstallRoot installRoot, ModInstallMethod installMethod)
+		{
+			GetEnlistment().ReplaceActiveMod(oldMod, newMod, installRoot, installMethod);
 		}
 
         /// <inheritdoc />
@@ -737,6 +800,42 @@
 		public ModInstallRoot GetModInstallRoot(IMod mod)
 		{
 			return GetEnlistment().GetModInstallRoot(mod);
+		}
+
+		/// <inheritdoc />
+		public ModInstallMethod GetModInstallMethod(IMod mod)
+		{
+			return GetEnlistment().GetModInstallMethod(mod);
+		}
+
+		/// <inheritdoc />
+		public IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target)
+		{
+			return GetEnlistment().GetDeploymentOwnerKeys(target);
+		}
+
+		/// <inheritdoc />
+		public IReadOnlyCollection<ModDeploymentTarget> GetDeploymentTargetsForMod(string modKey)
+		{
+			return GetEnlistment().GetDeploymentTargetsForMod(modKey);
+		}
+
+		/// <inheritdoc />
+		public bool IsDeploymentTargetPromoted(ModDeploymentTarget target)
+		{
+			return GetEnlistment().IsDeploymentTargetPromoted(target);
+		}
+
+		/// <inheritdoc />
+		public void SetDeploymentOwners(ModDeploymentTarget target, IEnumerable<string> ownerKeys)
+		{
+			GetEnlistment().SetDeploymentOwners(target, ownerKeys);
+		}
+
+		/// <inheritdoc />
+		public void RemoveDeploymentTarget(ModDeploymentTarget target)
+		{
+			GetEnlistment().RemoveDeploymentTarget(target);
 		}
 
 		/// <summary>

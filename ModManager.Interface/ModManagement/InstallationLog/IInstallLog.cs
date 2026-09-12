@@ -63,6 +63,14 @@
 		/// <param name="installRoot">The deployment root used by the mod activation.</param>
 		void AddActiveMod(IMod mod, ModInstallRoot installRoot);
 
+		/// <summary>
+		/// Adds a mod to the install log with its captured install root and install method.
+		/// </summary>
+		/// <param name="mod">The <see cref="IMod"/> being added.</param>
+		/// <param name="installRoot">The deployment root used by the mod activation.</param>
+		/// <param name="installMethod">The install method used by the mod activation.</param>
+		void AddActiveMod(IMod mod, ModInstallRoot installRoot, ModInstallMethod installMethod);
+
 		IInstallLog ReInitialize(string logPath);
 
 		/// <summary>
@@ -74,6 +82,11 @@
 		/// <param name="oldMod">The mod with to be replaced with the new mod in the install log.</param>
 		/// <param name="newMod">The mod with which to replace the old mod in the install log.</param>
 		void ReplaceActiveMod(IMod oldMod, IMod newMod);
+
+		/// <summary>
+		/// Replaces a mod while explicitly recording the replacement install context.
+		/// </summary>
+		void ReplaceActiveMod(IMod oldMod, IMod newMod, ModInstallRoot installRoot, ModInstallMethod installMethod);
 
 		/// <summary>
 		/// Gets the key that was assigned to the specified mod.
@@ -89,6 +102,37 @@
 		/// <param name="mod">The mod whose deployment root is to be retrieved.</param>
 		/// <returns>The recorded deployment root, or <see cref="ModInstallRoot.Data"/> for legacy records.</returns>
 		ModInstallRoot GetModInstallRoot(IMod mod);
+
+		/// <summary>
+		/// Gets the recorded install method for the specified mod.
+		/// </summary>
+		/// <returns>The recorded method, or <see cref="ModInstallMethod.Virtual"/> when no method is persisted.</returns>
+		ModInstallMethod GetModInstallMethod(IMod mod);
+
+		/// <summary>
+		/// Gets the persisted owner stack for a promoted deployment target, ordered fallback to current winner.
+		/// </summary>
+		IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target);
+
+		/// <summary>
+		/// Gets promoted deployment targets owned by the specified mod key.
+		/// </summary>
+		IReadOnlyCollection<ModDeploymentTarget> GetDeploymentTargetsForMod(string modKey);
+
+		/// <summary>
+		/// Gets whether the specified target is managed by the sparse deployment registry.
+		/// </summary>
+		bool IsDeploymentTargetPromoted(ModDeploymentTarget target);
+
+		/// <summary>
+		/// Sets the owner stack for a promoted target, ordered fallback to current winner.
+		/// </summary>
+		void SetDeploymentOwners(ModDeploymentTarget target, IEnumerable<string> ownerKeys);
+
+		/// <summary>
+		/// Removes an empty promoted deployment target from the sparse registry.
+		/// </summary>
+		void RemoveDeploymentTarget(ModDeploymentTarget target);
 
 		/// <summary>
 		/// Gets the list of mods whose versions don't match the version in the install log.

@@ -953,5 +953,18 @@ namespace Nexus.Client.Properties {
                 this["MultiHDInstall"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("\r\n\t\t\t\t<?xml version=\"1.0\" encoding=\"utf-16\"?>\r\n\t\t\t\t<PerGameModeSettingsOfString /" +
+            ">\r\n\t\t\t")]
+        public global::Nexus.Client.Settings.PerGameModeSettings<string> PreferredInstallMethod {
+            get {
+                return ((global::Nexus.Client.Settings.PerGameModeSettings<string>)(this["PreferredInstallMethod"]));
+            }
+            set {
+                this["PreferredInstallMethod"] = value;
+            }
+        }
     }
 }

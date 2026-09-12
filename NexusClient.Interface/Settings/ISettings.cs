@@ -160,6 +160,12 @@
 		PerGameModeSettings<bool> MultiHDInstall { get; }
 
 		/// <summary>
+		/// Gets the persisted preferred install method name for each game mode.
+		/// </summary>
+		/// <remarks>The raw string is interpreted by ModManager.Interface so missing or invalid values remain Virtual.</remarks>
+		PerGameModeSettings<string> PreferredInstallMethod { get; }
+
+		/// <summary>
 		/// Gets or sets whether the manager should force the creation of hardlinks.
 		/// </summary>
 		/// <value>Whether the manager should force the creation of hardlinks.</value>

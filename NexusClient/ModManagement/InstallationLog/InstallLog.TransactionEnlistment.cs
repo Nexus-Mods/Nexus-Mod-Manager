@@ -17,7 +17,7 @@
 		/// <see cref="Transaction"/>. This also provides the means to commit and rollback the
 		/// tracked changes.
 		/// </summary>
-		private class TransactionEnlistment : IEnlistmentNotification
+		private partial class TransactionEnlistment : IEnlistmentNotification
 		{
 			private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
 			private readonly Dictionary<string, ModInstallRoot> _modInstallRoots = new Dictionary<string, ModInstallRoot>(StringComparer.OrdinalIgnoreCase);
@@ -89,17 +89,20 @@
                 {
                     EnlistedInstallLog._activeModRegistry.RegisterMod(mod.Key, mod.Value, _activeModRegistry.IsModHidden(mod.Key));
 					EnlistedInstallLog.SetModInstallRoot(mod.Value, GetModInstallRootByKey(mod.Value));
+					EnlistedInstallLog.SetModInstallMethod(mod.Value, GetModInstallMethodByKey(mod.Value));
                 }
 
                 CommitFileChanges();
 				CommitIniEditChanges();
 				CommitGameSpecificValueEditChanges();
+				CommitDeploymentChanges();
 
 				// Remove registered mods
 				foreach (var removedModKey in _removedModKeys)
                 {
                     EnlistedInstallLog._activeModRegistry.DeregisterMod(removedModKey);
 					EnlistedInstallLog._modInstallRoots.Remove(removedModKey);
+					EnlistedInstallLog._modInstallMethods.Remove(removedModKey);
                 }
 
                 EnlistedInstallLog.SaveInstallLog();
@@ -107,6 +110,7 @@
 				_enlisted = false;
 				_activeModRegistry.Clear();
 				_modInstallRoots.Clear();
+				ClearFoundationChanges();
 				_installedFiles.Clear();
 				_installedIniEdits.Clear();
 				_installedGameSpecificValueEdits.Clear();
@@ -350,6 +354,7 @@
 				_enlisted = false;
 				_activeModRegistry.Clear();
 				_modInstallRoots.Clear();
+				ClearFoundationChanges();
 				_installedFiles.Clear();
 				_installedIniEdits.Clear();
 				_installedGameSpecificValueEdits.Clear();
@@ -389,15 +394,20 @@
 			/// <returns>The key of the added mod.</returns>
 			public string AddActiveMod(IMod mod, bool isSpecial)
 			{
-				return AddActiveMod(mod, isSpecial, null);
+				return AddActiveMod(mod, isSpecial, null, null);
 			}
 
 			public string AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot installRoot)
 			{
-				return AddActiveMod(mod, isSpecial, (ModInstallRoot?)installRoot);
+				return AddActiveMod(mod, isSpecial, installRoot, null);
 			}
 
-			private string AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot? installRoot)
+			public string AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot installRoot, ModInstallMethod installMethod)
+			{
+				return AddActiveMod(mod, isSpecial, (ModInstallRoot?)installRoot, installMethod);
+			}
+
+			private string AddActiveMod(IMod mod, bool isSpecial, ModInstallRoot? installRoot, ModInstallMethod? installMethod)
 			{
 				var key = GetModKey(mod);
 				bool booChanged = false;
@@ -417,6 +427,12 @@
 				if (installRoot.HasValue)
 				{
 					SetModInstallRoot(key, installRoot.Value);
+					booChanged = true;
+				}
+
+				if (installMethod.HasValue)
+				{
+					SetModInstallMethod(key, installMethod.Value);
 					booChanged = true;
 				}
 
@@ -445,17 +461,32 @@
 			/// <param name="newMod">The mod with which to replace the old mod in the install log.</param>
 			public void ReplaceActiveMod(IMod oldMod, IMod newMod)
 			{
+				ReplaceActiveMod(oldMod, newMod, null, null);
+			}
+
+			public void ReplaceActiveMod(IMod oldMod, IMod newMod, ModInstallRoot installRoot, ModInstallMethod installMethod)
+			{
+				ReplaceActiveMod(oldMod, newMod, (ModInstallRoot?)installRoot, installMethod);
+			}
+
+			private void ReplaceActiveMod(IMod oldMod, IMod newMod, ModInstallRoot? installRoot, ModInstallMethod? installMethod)
+			{
 				if (!_activeModRegistry.IsModRegistered(oldMod) && !EnlistedInstallLog._activeModRegistry.IsModRegistered(oldMod))
 				{
-					AddActiveMod(newMod, false);
+					if (installRoot.HasValue && installMethod.HasValue)
+						AddActiveMod(newMod, false, installRoot.Value, installMethod.Value);
+					else
+						AddActiveMod(newMod, false);
 					return;
 				}
 
-				ModInstallRoot installRoot = GetModInstallRoot(oldMod);
+				ModInstallRoot preservedInstallRoot = installRoot ?? GetModInstallRoot(oldMod);
+				ModInstallMethod preservedInstallMethod = installMethod ?? GetModInstallMethod(oldMod);
 				var key = GetModKey(oldMod);
 				_activeModRegistry.DeregisterMod(oldMod);
 				_activeModRegistry.RegisterMod(newMod, key, false);
-				SetModInstallRoot(key, installRoot);
+				SetModInstallRoot(key, preservedInstallRoot);
+				SetModInstallMethod(key, preservedInstallMethod);
 				_removedModKeys.Remove(key);
 				
                 if (CurrentTransaction == null)
@@ -489,11 +520,7 @@
 				if (string.IsNullOrEmpty(key))
 					return;
 
-				installRoot = NormalizeInstallRoot(installRoot);
-				if (installRoot == ModInstallRoot.GameRoot)
-					_modInstallRoots[key] = installRoot;
-				else
-					_modInstallRoots.Remove(key);
+				_modInstallRoots[key] = NormalizeInstallRoot(installRoot);
 			}
 
 			private ModInstallRoot GetModInstallRootByKey(string key)
