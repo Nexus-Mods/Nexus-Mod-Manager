@@ -326,6 +326,22 @@ namespace Nexus.Client.ModManagement.UI
 		public ISettings Settings { get; private set; }
 
 		/// <summary>
+		/// Gets or sets the preferred install method for the current game mode.
+		/// </summary>
+		public ModInstallMethod PreferredInstallMethod
+		{
+			get => Settings.GetPreferredInstallMethod(ModManager.GameMode.ModeId);
+			set
+			{
+				if (PreferredInstallMethod == value)
+					return;
+
+				Settings.SetPreferredInstallMethod(ModManager.GameMode.ModeId, value);
+				Settings.Save();
+			}
+		}
+
+		/// <summary>
 		/// Gets the theme to use for the UI.
 		/// </summary>
 		/// <value>The theme to use for the UI.</value>
@@ -617,26 +633,34 @@ namespace Nexus.Client.ModManagement.UI
 		#region Mod Activation/Deactivation
 
 		/// <summary>
-		/// Activates the given mod.
+		/// Activates the given mod using the current per-game preferred install method.
 		/// </summary>
 		/// <param name="p_modMod">The mod to activate.</param>
 		public void ActivateMod(IMod p_modMod)
 		{
-			ActivateMod(p_modMod, ModInstallRoot.Default);
+			ActivateMod(p_modMod, new ModInstallContext(PreferredInstallMethod, ModInstallRoot.Default));
 		}
 
+		/// <summary>
+		/// Activates the given mod in the game root using the current per-game preferred install method.
+		/// </summary>
 		public void ActivateModInGameRoot(IMod p_modMod)
 		{
-			ActivateMod(p_modMod, ModInstallRoot.GameRoot);
+			ActivateMod(p_modMod, new ModInstallContext(PreferredInstallMethod, ModInstallRoot.GameRoot));
 		}
 
-		private void ActivateMod(IMod p_modMod, ModInstallRoot p_mirInstallRoot)
+		/// <summary>
+		/// Activates the given mod using an explicit install method/root.
+		/// </summary>
+		public void ActivateMod(IMod p_modMod, ModInstallMethod p_mimInstallMethod, ModInstallRoot p_mirInstallRoot)
 		{
-			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
-			{
-				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			ActivateMod(p_modMod, new ModInstallContext(p_mimInstallMethod, p_mirInstallRoot));
+		}
+
+		private void ActivateMod(IMod p_modMod, ModInstallContext p_micInstallContext)
+		{
+			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
-			}
 
 			string strMessage;
 			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
@@ -664,26 +688,22 @@ namespace Nexus.Client.ModManagement.UI
 								ReinstallMod(modOldVersion, p_modMod);
 								break;
 							case DialogResult.No:
-								IBackgroundTaskSet btsInstall = CreateActivateTask(p_modMod, p_mirInstallRoot);
-								if (btsInstall != null)
-									ModManager.ModActivationMonitor.AddActivity(btsInstall);
+								AddActivationTask(CreateActivateTask(p_modMod, p_micInstallContext));
 								break;
 							case DialogResult.Cancel:
-								break;
 							default:
 								break;
 						}
 					}
 					else
 					{
-						IBackgroundTaskSet btsInstall = CreateActivateTask(p_modMod, p_mirInstallRoot);
-						if (btsInstall != null)
-							ModManager.ModActivationMonitor.AddActivity(btsInstall);
+						AddActivationTask(CreateActivateTask(p_modMod, p_micInstallContext));
 					}
-
 				}
 				else
+				{
 					EnableMod(p_modMod);
+				}
 			}
 			else
 			{
@@ -691,25 +711,26 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private IBackgroundTaskSet CreateActivateTask(IMod p_modMod, ModInstallRoot p_mirInstallRoot)
+		private IBackgroundTaskSet CreateActivateTask(IMod p_modMod, ModInstallContext p_micInstallContext)
 		{
-			if (p_mirInstallRoot == ModInstallRoot.GameRoot)
-				return ModManager.ActivateModInGameRoot(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+			return ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods, p_micInstallContext);
+		}
 
-			return ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+		private void AddActivationTask(IBackgroundTaskSet p_btsInstall)
+		{
+			if (p_btsInstall != null)
+				ModManager.ModActivationMonitor.AddActivity(p_btsInstall);
 		}
 
 		/// <summary>
-		/// Activates the given mod.
+		/// Activates the given mods using one install context captured before the batch starts.
 		/// </summary>
 		/// <param name="p_lstMod">The mods to activate.</param>
 		public void ActivateMods(List<IMod> p_lstMod)
 		{
-			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
-			{
-				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			ModInstallContext installContext = new ModInstallContext(PreferredInstallMethod, ModInstallRoot.Default);
+			if (!EnsureInstallOperationAllowed(installContext))
 				return;
-			}
 
 			string strMessage;
 			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
@@ -739,31 +760,37 @@ namespace Nexus.Client.ModManagement.UI
 									ReinstallMod(modOldVersion, modMod);
 									break;
 								case DialogResult.No:
-									IBackgroundTaskSet btsInstall = ModManager.ActivateMod(modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
-									if (btsInstall != null)
-										ModManager.ModActivationMonitor.AddActivity(btsInstall);
+									AddActivationTask(CreateActivateTask(modMod, installContext));
 									break;
 								case DialogResult.Cancel:
-									break;
 								default:
 									break;
 							}
 						}
 						else
 						{
-							IBackgroundTaskSet btsInstall = ModManager.ActivateMod(modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
-							if (btsInstall != null)
-								ModManager.ModActivationMonitor.AddActivity(btsInstall);
+							AddActivationTask(CreateActivateTask(modMod, installContext));
 						}
 					}
 					else
+					{
 						EnableMod(modMod);
+					}
 				}
 			}
 			else
 			{
 				ExtendedMessageBox.Show(ParentForm, strErrorMessage, LanguageManager.Get("Mods.RequiredToolMissing.Title", "Required Tool not present"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
+		}
+
+		private bool EnsureInstallOperationAllowed(ModInstallContext p_micInstallContext)
+		{
+			if (p_micInstallContext.Method != ModInstallMethod.Virtual || !VirtualModActivator.MultiHDMode || UacUtil.IsElevated)
+				return true;
+
+			MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			return false;
 		}
 
 		/// <summary>
@@ -802,29 +829,43 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Reinstalls the given mod.
+		/// Reinstalls the given mod while preserving its installed method and root.
 		/// </summary>
 		/// <param name="p_modMod">The mod to reinstall.</param>
+		/// <param name="p_modUpgrade">The replacement version, or <c>null</c> for a same-version reinstall.</param>
 		public void ReinstallMod(IMod p_modMod, IMod p_modUpgrade)
 		{
+			ReinstallMod(p_modMod, p_modUpgrade, null);
+		}
+
+		/// <summary>
+		/// Reinstalls the given mod using an explicit method while preserving its installed root.
+		/// </summary>
+		public void ReinstallMod(IMod p_modMod, IMod p_modUpgrade, ModInstallMethod? p_mimExplicitMethod)
+		{
+			ModInstallContext installedContext = ModManager.CaptureInstalledContext(p_modMod);
+			ModInstallContext installContext = p_mimExplicitMethod.HasValue
+				? new ModInstallContext(p_mimExplicitMethod.Value, installedContext.InstallRoot)
+				: installedContext;
+
+			if (!EnsureInstallOperationAllowed(installContext))
+				return;
+
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
 			{
-				RunAfterUninstallCompletes(btsUninstall, () => StartReinstallMod(p_modMod, p_modUpgrade));
+				RunAfterUninstallCompletes(btsUninstall, () => StartReinstallMod(p_modMod, p_modUpgrade, installContext));
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
 				return;
 			}
 
-			StartReinstallMod(p_modMod, p_modUpgrade);
+			StartReinstallMod(p_modMod, p_modUpgrade, installContext);
 		}
 
-		private void StartReinstallMod(IMod p_modMod, IMod p_modUpgrade)
+		private void StartReinstallMod(IMod p_modMod, IMod p_modUpgrade, ModInstallContext p_micInstallContext)
 		{
-			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
-			{
-				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
-			}
 
 			string strMessage;
 			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
@@ -837,7 +878,8 @@ namespace Nexus.Client.ModManagement.UI
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (string.IsNullOrEmpty(strErrorMessage))
 			{
-				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modUpgrade ?? p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+				IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(p_modUpgrade ?? p_modMod, ConfirmModUpgrade,
+					ConfirmItemOverwrite, ModManager.ActiveMods, p_micInstallContext);
 				if (btsReinstall != null)
 				{
 					btsReinstall.TaskSetCompleted += (s, ev) => ReinstallCompleted(this, EventArgs.Empty);
@@ -889,35 +931,48 @@ namespace Nexus.Client.ModManagement.UI
 		}
 
 		/// <summary>
-		/// Reinstall multiple mod.
+		/// Reinstalls multiple mods while preserving each installed method/root.
 		/// </summary>
-		/// <param name="p_modMod">The mod to reinstall.</param>
-		public void ReinstallMultipleMods(List<IMod> modList)
+		public void ReinstallMultipleMods(List<IMod> p_lstMods)
 		{
-			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(modList);
+			ReinstallMultipleMods(p_lstMods, null);
+		}
+
+		/// <summary>
+		/// Reinstalls multiple mods using an explicit method while preserving each installed root.
+		/// </summary>
+		public void ReinstallMultipleMods(List<IMod> p_lstMods, ModInstallMethod? p_mimExplicitMethod)
+		{
+			var contexts = new Dictionary<IMod, ModInstallContext>();
+			foreach (IMod mod in p_lstMods)
+			{
+				ModInstallContext installedContext = ModManager.CaptureInstalledContext(mod);
+				contexts[mod] = p_mimExplicitMethod.HasValue
+					? new ModInstallContext(p_mimExplicitMethod.Value, installedContext.InstallRoot)
+					: installedContext;
+			}
+
+			if (contexts.Values.Any(context => !EnsureInstallOperationAllowed(context)))
+				return;
+
+			ThreadSafeObservableList<IMod> oclMods = new ThreadSafeObservableList<IMod>(p_lstMods);
 			IBackgroundTask bgtDeactivate = ModManager.DeactivateMultipleMods(new ReadOnlyObservableList<IMod>(oclMods), false, ConfirmUpdaterAction);
 			if (bgtDeactivate != null)
 			{
 				bgtDeactivate.TaskEnded += (sender, e) =>
 				{
 					if (e.Status == TaskStatus.Complete)
-						StartReinstallMultipleMods(modList);
+						StartReinstallMultipleMods(p_lstMods, contexts);
 				};
 				DeactivatingMultipleMods(true, new EventArgs<IBackgroundTask>(bgtDeactivate));
 				return;
 			}
 
-			StartReinstallMultipleMods(modList);
+			StartReinstallMultipleMods(p_lstMods, contexts);
 		}
 
-		private void StartReinstallMultipleMods(List<IMod> modList)
+		private void StartReinstallMultipleMods(List<IMod> p_lstMods, IDictionary<IMod, ModInstallContext> p_dctContexts)
 		{
-			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
-			{
-				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
-			}
-
 			string strMessage;
 			bool booRequiresConfig = ModManager.GameMode.RequiresExternalConfig(out strMessage);
 
@@ -929,9 +984,14 @@ namespace Nexus.Client.ModManagement.UI
 			string strErrorMessage = ModManager.RequiredToolErrorMessage;
 			if (string.IsNullOrEmpty(strErrorMessage))
 			{
-				foreach (IMod mod in modList)
+				foreach (IMod mod in p_lstMods)
 				{
-					IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(mod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods);
+					ModInstallContext installContext;
+					if (!p_dctContexts.TryGetValue(mod, out installContext) || !EnsureInstallOperationAllowed(installContext))
+						continue;
+
+					IBackgroundTaskSet btsReinstall = ModManager.ReinstallMod(mod, ConfirmModUpgrade, ConfirmItemOverwrite,
+						ModManager.ActiveMods, installContext);
 					if (btsReinstall != null)
 						ModManager.ModActivationMonitor.AddActivity(btsReinstall);
 				}

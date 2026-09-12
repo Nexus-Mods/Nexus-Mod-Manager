@@ -20,24 +20,41 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		public string DestinationPath { get; private set; }
 
 		/// <summary>
-		/// Gets whether the staging-file overwrite decision was resolved during planning.
+		/// Gets the method-neutral deployment decision resolved during planning, when available.
 		/// </summary>
-		public bool HasResolvedStagingOverwrite { get; private set; }
+		public ScriptedFileDeploymentDecision DeploymentDecision { get; private set; }
+
+		/// <summary>
+		/// Gets whether the Virtual staging-file overwrite decision was resolved during planning.
+		/// </summary>
+		public bool HasResolvedStagingOverwrite
+		{
+			get { return DeploymentDecision != null && DeploymentDecision.Method == ModInstallMethod.Virtual; }
+		}
 
 		/// <summary>
 		/// Gets whether the archive file should be written to its staging location.
 		/// </summary>
-		public bool StageFile { get; private set; }
+		public bool StageFile
+		{
+			get { return DeploymentDecision != null && DeploymentDecision.WritePayload; }
+		}
 
 		/// <summary>
 		/// Gets the staging path used when the overwrite decision was resolved.
 		/// </summary>
-		public string StagingPath { get; private set; }
+		public string StagingPath
+		{
+			get { return DeploymentDecision == null ? null : DeploymentDecision.StagingPath; }
+		}
 
 		/// <summary>
 		/// Gets the virtual-link decision resolved during planning, when available.
 		/// </summary>
-		public ModLinkInstallDecision LinkDecision { get; private set; }
+		public ModLinkInstallDecision LinkDecision
+		{
+			get { return DeploymentDecision == null ? null : DeploymentDecision.LinkDecision; }
+		}
 
 		#endregion
 
@@ -63,12 +80,17 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		/// <param name="p_booStageFile">Whether the archive file should be written to the staging path.</param>
 		/// <param name="p_midLinkDecision">The virtual-link decision resolved during planning.</param>
 		public InstallModFileOperation(string p_strSourcePath, string p_strDestinationPath, string p_strStagingPath, bool p_booStageFile, ModLinkInstallDecision p_midLinkDecision)
+			: this(p_strSourcePath, p_strDestinationPath, ScriptedFileDeploymentDecision.ForVirtual(p_strStagingPath, p_booStageFile, p_midLinkDecision))
+		{
+		}
+
+		/// <summary>
+		/// Initializes a file-installation operation with a method-neutral deployment decision.
+		/// </summary>
+		public InstallModFileOperation(string p_strSourcePath, string p_strDestinationPath, ScriptedFileDeploymentDecision p_sddDeploymentDecision)
 			: this(p_strSourcePath, p_strDestinationPath)
 		{
-			HasResolvedStagingOverwrite = true;
-			StageFile = p_booStageFile;
-			StagingPath = p_strStagingPath;
-			LinkDecision = p_midLinkDecision;
+			DeploymentDecision = p_sddDeploymentDecision;
 		}
 
 		#endregion

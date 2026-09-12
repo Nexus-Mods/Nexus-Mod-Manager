@@ -28,6 +28,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly InstallerGroup m_igpInstallers;
 		private readonly Action<IBackgroundTask> m_actTaskStarted;
 		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
+		private readonly HashSet<string> m_hstCoordinatorPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		#region Constructors
 
@@ -65,7 +66,10 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A scope that flushes deferred deployment maintenance when disposed.</returns>
 		public IDisposable BeginExecutionBatch(int p_intExpectedFileOperations)
 		{
-			return new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations);
+			IDisposable dspVirtualBatch = m_igpInstallers.InstallContext.Method == ModInstallMethod.Virtual
+				? new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations)
+				: null;
+			return new ScriptedDeploymentBatch(dspVirtualBatch, FlushPendingPluginRegistrations);
 		}
 
 		#endregion
@@ -81,6 +85,9 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			if (p_sioOperation == null)
 				throw new ArgumentNullException(nameof(p_sioOperation));
+
+			if (IsPluginStateOperation(p_sioOperation))
+				FlushPendingPluginRegistrations();
 
 			PerformBasicInstallOperation bioBasicInstall = p_sioOperation as PerformBasicInstallOperation;
 			if (bioBasicInstall != null)
@@ -131,7 +138,11 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> when the basic installation succeeds; otherwise, <c>false</c>.</returns>
 		private bool ExecutePerformBasicInstall()
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(m_modMod, m_gmdGameMode, m_igpInstallers.FileInstaller, m_igpInstallers.PluginManager, m_ivaVirtualModActivator, m_eifEnvironmentInfo.Settings.SkipReadmeFiles, null, null);
+			BasicInstallTask bitTask = new BasicInstallTask(
+				m_modMod, m_gmdGameMode, m_igpInstallers.FileInstaller, m_igpInstallers.PluginManager,
+				m_ivaVirtualModActivator, m_eifEnvironmentInfo.Settings.SkipReadmeFiles, null, null,
+				m_igpInstallers.InstallContext, m_igpInstallers.DeploymentManager,
+				m_igpInstallers.TransactionalFileManager, m_igpInstallers.DeploymentOverwriteResolver);
 			if (m_actTaskStarted != null)
 				m_actTaskStarted(bitTask);
 			return bitTask.Execute();
@@ -149,22 +160,54 @@ namespace Nexus.Client.ModManagement.Scripting
 
 			string strFrom = p_imoOperation.SourcePath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
 			string strTo = p_imoOperation.DestinationPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			ScriptedFileDeploymentDecision decision = p_imoOperation.DeploymentDecision;
+
+			if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct)
+			{
+				if (decision != null && !decision.WritePayload)
+					return false;
+
+				bool installed = decision != null
+					? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(strFrom, strTo)
+					: m_igpInstallers.FileInstaller.InstallFileFromMod(strFrom, strTo);
+				if (installed && m_sfcFileSelectionCache != null)
+					m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
+				return installed;
+			}
+
 			string strVirtualPath = p_imoOperation.HasResolvedStagingOverwrite
 				? p_imoOperation.StagingPath
 				: ScriptedInstallStagingPathResolver.GetStagingPath(m_modMod, m_gmdGameMode, m_ivaVirtualModActivator, strTo, false);
 
-			// Linking remains independent from the staging write because legacy scripts can reuse an existing staged file.
 			if (!p_imoOperation.HasResolvedStagingOverwrite)
 				m_igpInstallers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);
 			else if (p_imoOperation.StageFile)
 				((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(strFrom, strVirtualPath);
 
 			string strLinkResult;
-			IModLinkInstallDecisionSupport ldsLinkDecisionSupport = m_mliModLinkInstaller as IModLinkInstallDecisionSupport;
-			if ((p_imoOperation.LinkDecision != null) && (ldsLinkDecisionSupport != null))
-				strLinkResult = ldsLinkDecisionSupport.AddFileLinkWithResolvedDecision(m_modMod, strTo, strVirtualPath, true, true, ModInstallRoot.Default, p_imoOperation.LinkDecision);
+			ModDeploymentTarget target = GetPromotedTarget(strTo);
+			if ((decision != null && decision.UseDeploymentCoordinator) || target != null)
+			{
+				RequireCoordinatorServices();
+				if (target == null)
+					target = ModDeploymentTargetResolver.Resolve(m_gmdGameMode, m_modMod, strTo, m_igpInstallers.InstallContext.InstallRoot);
+				bool activate = decision != null && decision.UseDeploymentCoordinator
+					? decision.Activate
+					: m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
+				strLinkResult = m_igpInstallers.DeploymentManager.InstallVirtualFile(
+					m_modMod, target, strTo, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
+					activate, m_igpInstallers.TransactionalFileManager);
+				m_igpInstallers.MarkPromotedDeploymentUsed();
+				TrackCoordinatorPlugin(strLinkResult);
+			}
 			else
-				strLinkResult = m_mliModLinkInstaller.AddFileLink(m_modMod, strTo, strVirtualPath, true, true);
+			{
+				IModLinkInstallDecisionSupport ldsLinkDecisionSupport = m_mliModLinkInstaller as IModLinkInstallDecisionSupport;
+				if ((p_imoOperation.LinkDecision != null) && (ldsLinkDecisionSupport != null))
+					strLinkResult = ldsLinkDecisionSupport.AddFileLinkWithResolvedDecision(m_modMod, strTo, strVirtualPath, true, true, m_igpInstallers.InstallContext.InstallRoot, p_imoOperation.LinkDecision);
+				else
+					strLinkResult = m_mliModLinkInstaller.AddFileLink(m_modMod, strTo, strVirtualPath, true, true, m_igpInstallers.InstallContext.InstallRoot);
+			}
 
 			if (!String.IsNullOrEmpty(strLinkResult) && (m_sfcFileSelectionCache != null))
 				m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
@@ -180,6 +223,17 @@ namespace Nexus.Client.ModManagement.Scripting
 		private bool ExecuteGenerateDataFile(GenerateDataFileOperation p_gdoOperation)
 		{
 			string strPath = p_gdoOperation.DestinationPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			ScriptedFileDeploymentDecision decision = p_gdoOperation.DeploymentDecision;
+
+			if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct)
+			{
+				if (decision != null && !decision.WritePayload)
+					return false;
+				return decision != null
+					? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).GenerateDataFileWithResolvedOverwrite(strPath, p_gdoOperation.Data)
+					: m_igpInstallers.FileInstaller.GenerateDataFile(strPath, p_gdoOperation.Data);
+			}
+
 			string strVirtualPath = p_gdoOperation.HasResolvedStagingOverwrite
 				? p_gdoOperation.StagingPath
 				: ScriptedInstallStagingPathResolver.GetStagingPath(m_modMod, m_gmdGameMode, m_ivaVirtualModActivator, strPath, true);
@@ -189,11 +243,28 @@ namespace Nexus.Client.ModManagement.Scripting
 			else if (p_gdoOperation.StageFile)
 				((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).GenerateDataFileWithResolvedOverwrite(strVirtualPath, p_gdoOperation.Data);
 
-			IModLinkInstallDecisionSupport ldsLinkDecisionSupport = m_mliModLinkInstaller as IModLinkInstallDecisionSupport;
-			if ((p_gdoOperation.LinkDecision != null) && (ldsLinkDecisionSupport != null))
-				ldsLinkDecisionSupport.AddFileLinkWithResolvedDecision(m_modMod, strPath, strVirtualPath, true, false, ModInstallRoot.Default, p_gdoOperation.LinkDecision);
+			ModDeploymentTarget target = GetPromotedTarget(strPath);
+			if ((decision != null && decision.UseDeploymentCoordinator) || target != null)
+			{
+				RequireCoordinatorServices();
+				if (target == null)
+					target = ModDeploymentTargetResolver.Resolve(m_gmdGameMode, m_modMod, strPath, m_igpInstallers.InstallContext.InstallRoot);
+				bool activate = decision != null && decision.UseDeploymentCoordinator
+					? decision.Activate
+					: m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
+				m_igpInstallers.DeploymentManager.InstallVirtualFile(
+					m_modMod, target, strPath, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
+					activate, m_igpInstallers.TransactionalFileManager);
+				m_igpInstallers.MarkPromotedDeploymentUsed();
+			}
 			else
-				m_mliModLinkInstaller.AddFileLink(m_modMod, strPath, strVirtualPath, true);
+			{
+				IModLinkInstallDecisionSupport ldsLinkDecisionSupport = m_mliModLinkInstaller as IModLinkInstallDecisionSupport;
+				if ((p_gdoOperation.LinkDecision != null) && (ldsLinkDecisionSupport != null))
+					ldsLinkDecisionSupport.AddFileLinkWithResolvedDecision(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot, p_gdoOperation.LinkDecision);
+				else
+					m_mliModLinkInstaller.AddFileLink(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
+			}
 			return true;
 		}
 
@@ -346,5 +417,101 @@ namespace Nexus.Client.ModManagement.Scripting
 
 
 		#endregion
+		/// <summary>
+		/// Resolves a destination only when it is already owned by the promoted deployment registry.
+		/// </summary>
+		private ModDeploymentTarget GetPromotedTarget(string p_strDestinationPath)
+		{
+			if (m_igpInstallers.DeploymentManager == null || !m_igpInstallers.DeploymentManager.HasPromotedTargets)
+				return null;
+
+			ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+				m_gmdGameMode, m_modMod, p_strDestinationPath, m_igpInstallers.InstallContext.InstallRoot);
+			return m_igpInstallers.DeploymentManager.IsPromoted(target) ? target : null;
+		}
+
+		/// <summary>
+		/// Verifies that promoted scripted deployment has all transactional coordinator services.
+		/// </summary>
+		private void RequireCoordinatorServices()
+		{
+			if (m_igpInstallers.DeploymentManager == null || m_igpInstallers.TransactionalFileManager == null ||
+				m_igpInstallers.DeploymentOverwriteResolver == null)
+				throw new InvalidOperationException("Promoted scripted deployment requires transactional deployment services.");
+		}
+
+		/// <summary>
+		/// Adds a promoted Virtual plugin winner to the current scripted registration batch.
+		/// </summary>
+		private void TrackCoordinatorPlugin(string p_strDeployedPath)
+		{
+			if (String.IsNullOrEmpty(p_strDeployedPath) || m_igpInstallers.PluginManager == null ||
+				!m_igpInstallers.PluginManager.IsActivatiblePluginFile(p_strDeployedPath))
+				return;
+			m_hstCoordinatorPluginPaths.Add(p_strDeployedPath);
+		}
+
+		/// <summary>
+		/// Flushes Direct and promoted Virtual plugin additions after final physical winners are known.
+		/// </summary>
+		private void FlushPendingPluginRegistrations()
+		{
+			m_igpInstallers.FileInstaller.FinalizeInstall();
+			if (m_igpInstallers.PluginManager != null && m_hstCoordinatorPluginPaths.Count > 0)
+				m_igpInstallers.PluginManager.IntegrateDeployedPlugins(new List<string>(m_hstCoordinatorPluginPaths));
+			m_hstCoordinatorPluginPaths.Clear();
+		}
+
+		/// <summary>
+		/// Determines whether an operation requires newly deployed plugins to be registered first.
+		/// </summary>
+		private static bool IsPluginStateOperation(ScriptedInstallOperation p_sioOperation)
+		{
+			return p_sioOperation is SetPluginActivationOperation ||
+				p_sioOperation is SetPluginOrderIndexOperation ||
+				p_sioOperation is SetLoadOrderOperation ||
+				p_sioOperation is MovePluginsInLoadOrderOperation ||
+				p_sioOperation is SetRelativeLoadOrderOperation;
+		}
+
+		/// <summary>
+		/// Completes scripted plugin batching together with any active Virtual deployment batch.
+		/// </summary>
+		private sealed class ScriptedDeploymentBatch : IDisposable
+		{
+			private IDisposable m_dspVirtualBatch;
+			private Action m_actFlush;
+
+			/// <summary>
+			/// Initializes a scripted deployment batch.
+			/// </summary>
+			public ScriptedDeploymentBatch(IDisposable p_dspVirtualBatch, Action p_actFlush)
+			{
+				m_dspVirtualBatch = p_dspVirtualBatch;
+				m_actFlush = p_actFlush;
+			}
+
+			/// <summary>
+			/// Flushes pending plugin work and completes the wrapped Virtual batch.
+			/// </summary>
+			public void Dispose()
+			{
+				Action flush = m_actFlush;
+				m_actFlush = null;
+				try
+				{
+					if (flush != null)
+						flush();
+				}
+				finally
+				{
+					IDisposable virtualBatch = m_dspVirtualBatch;
+					m_dspVirtualBatch = null;
+					if (virtualBatch != null)
+						virtualBatch.Dispose();
+				}
+			}
+		}
+
 	}
 }

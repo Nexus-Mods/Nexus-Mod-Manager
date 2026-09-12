@@ -43,12 +43,28 @@ namespace Nexus.Client.ModManagement
 			if (p_mdtTarget == null)
 				throw new ArgumentNullException(nameof(p_mdtTarget));
 
+			string installingModKey = m_ilgInstallLog.GetModKey(m_modMod);
+			if (!string.IsNullOrEmpty(installingModKey) && m_mdmDeploymentManager.IsPromoted(p_mdtTarget))
+			{
+				IReadOnlyList<string> owners = m_mdmDeploymentManager.GetOwnerKeys(p_mdtTarget);
+				int ownerIndex = -1;
+				for (int i = 0; i < owners.Count; i++)
+				{
+					if (owners[i].Equals(installingModKey, StringComparison.OrdinalIgnoreCase))
+					{
+						ownerIndex = i;
+						break;
+					}
+				}
+				if (ownerIndex >= 0)
+					return ownerIndex == owners.Count - 1;
+			}
+
 			string deploymentPath = m_mdmDeploymentManager.GetDeploymentPath(p_mdtTarget);
 			if (!File.Exists(deploymentPath))
 				return true;
 
 			string currentOwnerKey = m_mdmDeploymentManager.GetCurrentOwnerKey(p_mdtTarget);
-			string installingModKey = m_ilgInstallLog.GetModKey(m_modMod);
 			if (!string.IsNullOrEmpty(currentOwnerKey) &&
 				currentOwnerKey.Equals(installingModKey, StringComparison.OrdinalIgnoreCase))
 			{

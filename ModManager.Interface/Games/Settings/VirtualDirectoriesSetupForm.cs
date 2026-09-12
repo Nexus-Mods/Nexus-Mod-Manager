@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using Nexus.Client.UI;
+using Nexus.Client.ModManagement;
 using Nexus.UI.Controls;
 using Nexus.Client.Util.Localization;
 
@@ -13,6 +14,9 @@ namespace Nexus.Client.Games.Settings
 	public partial class VirtualDirectoriesSetupForm : ManagedFontForm, IView
 	{
 		private VirtualDirectoriesSetupVM m_vmlViewModel = null;
+		private ComboBox m_cbxInstallMethod;
+		private Label m_lblInstallMethodDescription;
+		private bool m_booUpdatingInstallMethod;
 
 		#region Properties
 
@@ -35,6 +39,7 @@ namespace Nexus.Client.Games.Settings
 				lblTitle.Text = String.Format(lblTitle.Text, m_vmlViewModel.GameModeDescriptor.Name);
 				Text = String.Format(Text, m_vmlViewModel.GameModeDescriptor.Name);
 				rdcDirectories.ViewModel = m_vmlViewModel.VirtualDirectoriesControlVM;
+				RefreshInstallMethodSelector();
 				ApplyTheme(m_vmlViewModel.GameModeDescriptor.ModeTheme);
 			}
 		}
@@ -49,7 +54,8 @@ namespace Nexus.Client.Games.Settings
 		protected VirtualDirectoriesSetupForm()
 		{
 			InitializeComponent();
-			string setupTitle = LanguageManager.GetFormat("GameSettings.VirtualFolders.SetupTitle", "{0} Virtual folder Setup");
+			InitializeInstallMethodSelector();
+			string setupTitle = LanguageManager.GetFormat("GameStorage.Manager.Title", "{0} Game Storage Manager");
 			lblTitle.Text = setupTitle;
 			Text = setupTitle;
 		}
@@ -65,6 +71,90 @@ namespace Nexus.Client.Games.Settings
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Adds the per-game install-method selector without changing the existing storage-folder controls.
+		/// </summary>
+		private void InitializeInstallMethodSelector()
+		{
+			var panel = new Panel
+			{
+				Dock = DockStyle.Bottom,
+				Height = 82,
+				Padding = new Padding(12, 8, 12, 8)
+			};
+			var label = new Label
+			{
+				AutoSize = true,
+				Left = 12,
+				Top = 12,
+				Text = LanguageManager.Get("GameStorage.InstallMethod.Label", "Install Method:")
+			};
+			m_cbxInstallMethod = new ComboBox
+			{
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Left = 112,
+				Top = 8,
+				Width = 150
+			};
+			m_cbxInstallMethod.Items.Add(LanguageManager.Get("GameStorage.InstallMethod.Virtual", "Virtual Install"));
+			m_cbxInstallMethod.Items.Add(LanguageManager.Get("GameStorage.InstallMethod.Direct", "Direct Install"));
+			m_cbxInstallMethod.SelectedIndexChanged += InstallMethod_SelectedIndexChanged;
+
+			m_lblInstallMethodDescription = new Label
+			{
+				AutoEllipsis = true,
+				Left = 12,
+				Top = 38,
+				Width = Math.Max(100, vtpDirectories.ClientSize.Width - 24),
+				Height = 38,
+				Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+			};
+
+			panel.Controls.Add(label);
+			panel.Controls.Add(m_cbxInstallMethod);
+			panel.Controls.Add(m_lblInstallMethodDescription);
+			vtpDirectories.Controls.Add(panel);
+			panel.BringToFront();
+		}
+
+		private void RefreshInstallMethodSelector()
+		{
+			if (ViewModel == null || m_cbxInstallMethod == null)
+				return;
+
+			m_booUpdatingInstallMethod = true;
+			try
+			{
+				m_cbxInstallMethod.SelectedIndex = ViewModel.PreferredInstallMethod == ModInstallMethod.Direct ? 1 : 0;
+				UpdateInstallMethodDescription();
+			}
+			finally
+			{
+				m_booUpdatingInstallMethod = false;
+			}
+		}
+
+		private void InstallMethod_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			if (m_booUpdatingInstallMethod || ViewModel == null)
+				return;
+
+			ViewModel.PreferredInstallMethod = m_cbxInstallMethod.SelectedIndex == 1
+				? ModInstallMethod.Direct
+				: ModInstallMethod.Virtual;
+			UpdateInstallMethodDescription();
+		}
+
+		private void UpdateInstallMethodDescription()
+		{
+			if (m_lblInstallMethodDescription == null || m_cbxInstallMethod == null)
+				return;
+
+			m_lblInstallMethodDescription.Text = m_cbxInstallMethod.SelectedIndex == 1
+				? LanguageManager.Get("GameStorage.InstallMethod.Direct.Description", "Direct Install copies mod files directly into the game folders without staging them in VirtualInstall. Virtual storage folders remain configured so you can switch back to Virtual Install at any time.")
+				: LanguageManager.Get("GameStorage.InstallMethod.Virtual.Description", "Virtual Install stages mod files in VirtualInstall and deploys them through NMM's virtual file system.");
+		}
 
 		/// <summary>
 		/// Applies the given theme to the form.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Nexus.Client.ModManagement;
+using Nexus.Client.Settings;
 
 namespace Nexus.Client.Games.Settings
 {
@@ -42,6 +43,21 @@ namespace Nexus.Client.Games.Settings
 		/// <value>Whether the setup is complete.</value>
 		public bool IsSetupComplete { get; private set; }
 
+		/// <summary>
+		/// Gets whether storage paths changed during the last save.
+		/// </summary>
+		public bool StoragePathsChanged { get; private set; }
+
+		/// <summary>
+		/// Gets whether the per-game install method changed during the last save.
+		/// </summary>
+		public bool InstallMethodChanged { get; private set; }
+
+		/// <summary>
+		/// Gets or sets the preferred install method for this game.
+		/// </summary>
+		public ModInstallMethod PreferredInstallMethod { get; set; }
+
 		#endregion
 
 		#region Constructors
@@ -55,6 +71,7 @@ namespace Nexus.Client.Games.Settings
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameModeDescriptor = p_gmdGameModeInfo;
+			PreferredInstallMethod = p_eifEnvironmentInfo.Settings.GetPreferredInstallMethod(p_gmdGameModeInfo.ModeId);
 			VirtualDirectoriesControlVM = new VirtualDirectoriesControlVM(p_eifEnvironmentInfo, p_gmdGameModeInfo, p_ivaVirtualActivator);
 		}
 
@@ -67,13 +84,22 @@ namespace Nexus.Client.Games.Settings
 		/// <c>false</c> otherwise.</returns>
 		public bool Save()
 		{
-			bool booChanged = false;
-			if (VirtualDirectoriesControlVM.ValidateSettings())
+			StoragePathsChanged = false;
+			InstallMethodChanged = false;
+			if (!VirtualDirectoriesControlVM.ValidateSettings())
+				return false;
+
+			StoragePathsChanged = VirtualDirectoriesControlVM.SaveSettings();
+			ModInstallMethod currentMethod = EnvironmentInfo.Settings.GetPreferredInstallMethod(GameModeDescriptor.ModeId);
+			if (currentMethod != PreferredInstallMethod)
 			{
-				booChanged = VirtualDirectoriesControlVM.SaveSettings();
-				IsSetupComplete = true;
+				EnvironmentInfo.Settings.SetPreferredInstallMethod(GameModeDescriptor.ModeId, PreferredInstallMethod);
+				EnvironmentInfo.Settings.Save();
+				InstallMethodChanged = true;
 			}
-			return booChanged;
+
+			IsSetupComplete = true;
+			return StoragePathsChanged || InstallMethodChanged;
 		}
 	}
 }

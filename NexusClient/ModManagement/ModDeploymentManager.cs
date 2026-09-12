@@ -88,9 +88,109 @@ namespace Nexus.Client.ModManagement
 		/// <inheritdoc />
 		public string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager)
 		{
-			RequireDirectMutationArguments(p_modMod, p_mdtTarget, p_tfmFileManager);
 			if (p_fstPayload == null)
 				throw new ArgumentNullException(nameof(p_fstPayload));
+
+			return InstallDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager,
+				p_strDeploymentPath => p_tfmFileManager.WriteFileStream(p_strDeploymentPath, p_fstPayload));
+		}
+
+		/// <summary>
+		/// Writes generated Direct payload bytes transactionally to the final deployment target.
+		/// </summary>
+		public string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, byte[] p_btePayload, TxFileManager p_tfmFileManager)
+		{
+			if (p_btePayload == null)
+				throw new ArgumentNullException(nameof(p_btePayload));
+
+			return InstallDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager,
+				p_strDeploymentPath => p_tfmFileManager.WriteAllBytes(p_strDeploymentPath, p_btePayload));
+		}
+
+		/// <inheritdoc />
+		public string UpgradeDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager)
+		{
+			if (p_fstPayload == null)
+				throw new ArgumentNullException(nameof(p_fstPayload));
+
+			return UpgradeDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager,
+				p_strPath => p_tfmFileManager.WriteFileStream(p_strPath, p_fstPayload));
+		}
+
+		/// <inheritdoc />
+		public string UpgradeDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, byte[] p_btePayload, TxFileManager p_tfmFileManager)
+		{
+			if (p_btePayload == null)
+				throw new ArgumentNullException(nameof(p_btePayload));
+
+			return UpgradeDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager,
+				p_strPath => p_tfmFileManager.WriteAllBytes(p_strPath, p_btePayload));
+		}
+
+		/// <inheritdoc />
+		public string RemoveOwnedTarget(IMod p_modMod, ModDeploymentTarget p_mdtTarget, TxFileManager p_tfmFileManager)
+		{
+			RequireMutationArguments(p_modMod, p_mdtTarget, p_tfmFileManager);
+			if (p_mdtTarget == null)
+				throw new ArgumentNullException(nameof(p_mdtTarget));
+
+			string modKey = RequireModKey(p_modMod);
+			var absentPaths = new List<string>(1);
+			if (m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
+				RemovePromotedOwner(p_mdtTarget, modKey, p_tfmFileManager, absentPaths);
+			else if (m_ilgInstallLog.GetModInstallMethod(p_modMod) == ModInstallMethod.Virtual)
+				RemovePureVirtualOwner(p_mdtTarget, modKey, p_tfmFileManager, absentPaths);
+
+			return absentPaths.Count == 0 ? null : absentPaths[0];
+		}
+
+		/// <summary>
+		/// Replaces an existing Direct owner's bytes without changing overwrite precedence.
+		/// </summary>
+		private string UpgradeDirectFileCore(IMod p_modMod, ModDeploymentTarget p_mdtTarget,
+			TxFileManager p_tfmFileManager, Action<string> p_actWritePayload)
+		{
+			RequireDirectMutationArguments(p_modMod, p_mdtTarget, p_tfmFileManager);
+			if (p_actWritePayload == null)
+				throw new ArgumentNullException(nameof(p_actWritePayload));
+
+			string modKey = RequireDirectModKey(p_modMod);
+			if (!m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
+				return InstallDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager, p_actWritePayload);
+
+			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+			int ownerIndex = owners.FindIndex(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase));
+			if (ownerIndex < 0)
+				return InstallDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager, p_actWritePayload);
+
+			if (ownerIndex == owners.Count - 1)
+			{
+				string deploymentPath = GetDeploymentPath(p_mdtTarget);
+				string deploymentDirectory = Path.GetDirectoryName(deploymentPath);
+				if (!Directory.Exists(deploymentDirectory))
+					p_tfmFileManager.CreateDirectory(deploymentDirectory);
+
+				p_actWritePayload(deploymentPath);
+				return deploymentPath;
+			}
+
+			string backupPath = GetBackupPath(p_mdtTarget, modKey);
+			if (!File.Exists(backupPath))
+				throw new FileNotFoundException("The inactive Direct owner backup required for upgrade is missing.", backupPath);
+
+			p_actWritePayload(backupPath);
+			return string.Empty;
+		}
+
+		/// <summary>
+		/// Applies Direct ownership transitions and invokes the supplied transactional payload writer.
+		/// </summary>
+		private string InstallDirectFileCore(IMod p_modMod, ModDeploymentTarget p_mdtTarget,
+			TxFileManager p_tfmFileManager, Action<string> p_actWritePayload)
+		{
+			RequireDirectMutationArguments(p_modMod, p_mdtTarget, p_tfmFileManager);
+			if (p_actWritePayload == null)
+				throw new ArgumentNullException(nameof(p_actWritePayload));
 
 			string modKey = RequireDirectModKey(p_modMod);
 			List<string> owners = GetOrPromoteOwnerStack(p_mdtTarget, p_tfmFileManager);
@@ -123,7 +223,7 @@ namespace Nexus.Client.ModManagement
 			if (!Directory.Exists(deploymentDirectory))
 				p_tfmFileManager.CreateDirectory(deploymentDirectory);
 
-			p_tfmFileManager.WriteFileStream(deploymentPath, p_fstPayload);
+			p_actWritePayload(deploymentPath);
 			m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
 			return deploymentPath;
 		}
@@ -138,8 +238,27 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("Only promoted Virtual targets may use the method-neutral deployment path.");
 
 			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
-			if (owners.Any(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase)))
-				throw new NotSupportedException("Virtual reinstall and conversion are implemented in Step 6.");
+			int existingOwnerIndex = owners.FindIndex(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase));
+			if (existingOwnerIndex >= 0)
+			{
+				bool isCurrentWinner = existingOwnerIndex == owners.Count - 1;
+				int preservedPriority = CountVirtualOwnersAbove(owners, existingOwnerIndex);
+
+				m_vmaVirtualModActivator.RemoveVirtualLinkRecord(p_mdtTarget, modKey);
+				m_vmaVirtualModActivator.RegisterVirtualLink(
+					p_mdtTarget,
+					p_modMod,
+					p_strLogicalPath,
+					p_strStagedSource,
+					p_mirInstallRoot,
+					preservedPriority);
+
+				if (!isCurrentWinner)
+					return string.Empty;
+
+				m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, modKey, p_tfmFileManager);
+				return GetDeploymentPath(p_mdtTarget);
+			}
 
 			int priority = p_booActivate ? 0 : CountVirtualOwners(owners);
 			m_vmaVirtualModActivator.RegisterVirtualLink(
@@ -454,6 +573,24 @@ namespace Nexus.Client.ModManagement
 			return p_enmOwnerKeys.Count(x =>
 				!x.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase) &&
 				GetOwnerMethod(x) == ModInstallMethod.Virtual);
+		}
+
+		/// <summary>
+		/// Counts Virtual owners above an existing owner so its VMA priority can be preserved during an in-place upgrade.
+		/// </summary>
+		private int CountVirtualOwnersAbove(IList<string> p_lstOwnerKeys, int p_intOwnerIndex)
+		{
+			int count = 0;
+			for (int i = p_intOwnerIndex + 1; i < p_lstOwnerKeys.Count; i++)
+			{
+				string ownerKey = p_lstOwnerKeys[i];
+				if (!ownerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase) &&
+					GetOwnerMethod(ownerKey) == ModInstallMethod.Virtual)
+				{
+					count++;
+				}
+			}
+			return count;
 		}
 
 		private string GetDeploymentRootPath(ModDeploymentRoot p_mdrRoot)

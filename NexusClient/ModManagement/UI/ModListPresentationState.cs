@@ -146,9 +146,10 @@
 				return status;
 
 			bool installed = IsModInstalled(mod);
-			bool linked = installed &&
-				!String.IsNullOrEmpty(mod.Filename) &&
-				_activeModFileNames.Contains(Path.GetFileName(mod.Filename));
+			bool direct = installed && _viewModel?.ModManager?.InstallationLog != null &&
+				_viewModel.ModManager.InstallationLog.GetModInstallMethod(mod) == ModInstallMethod.Direct;
+			bool linked = installed && (direct ||
+				(!String.IsNullOrEmpty(mod.Filename) && _activeModFileNames.Contains(Path.GetFileName(mod.Filename))));
 
 			status = linked
 				? ModVisualStatus.InstalledActive

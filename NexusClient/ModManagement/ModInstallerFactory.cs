@@ -5,6 +5,7 @@ using Nexus.Client.Util;
 using System;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.ModManagement.UI;
+using Nexus.Client.Settings;
 using System.Threading;
 using Nexus.Client.Util.Collections;
 
@@ -60,13 +61,14 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod installer for the given mod.</returns>
 		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, ModInstallRoot.Default);
+			return CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods,
+				new ModInstallContext(m_eifEnvironmentInfo.Settings.GetPreferredInstallMethod(m_gmdGameMode.ModeId), ModInstallRoot.Default));
 		}
 
 		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallRoot p_mirInstallRoot)
 		{
 			return CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods,
-				new ModInstallContext(ModInstallMethod.Virtual, p_mirInstallRoot));
+				new ModInstallContext(m_eifEnvironmentInfo.Settings.GetPreferredInstallMethod(m_gmdGameMode.ModeId), p_mirInstallRoot));
 		}
 
 		/// <summary>
@@ -89,7 +91,24 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod upgrader for the given mod.</returns>
 		public ModInstaller CreateUpgradeInstaller(IMod p_modOldMod, IMod p_modNewMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate);
+			ModInstallContext installContext = new ModInstallContext(
+				m_ilgInstallLog.GetModInstallMethod(p_modOldMod),
+				m_ilgInstallLog.GetModInstallRoot(p_modOldMod));
+			return CreateUpgradeInstaller(p_modOldMod, p_modNewMod, p_dlgOverwriteConfirmationDelegate, installContext);
+		}
+
+		/// <summary>
+		/// Creates an upgrader using the immutable context captured from the installed mod before the operation starts.
+		/// </summary>
+		public ModInstaller CreateUpgradeInstaller(IMod p_modOldMod, IMod p_modNewMod,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext)
+		{
+			if (p_micInstallContext == null)
+				throw new ArgumentNullException(nameof(p_micInstallContext));
+
+			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility,
+				m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_mdmDeploymentManager,
+				m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_micInstallContext);
 		}
 
 		/// <summary>

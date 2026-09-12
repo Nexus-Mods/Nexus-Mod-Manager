@@ -127,16 +127,17 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_imoOperation">The archive-file installation operation.</param>
 		private void ApplyInstallModFile(InstallModFileOperation p_imoOperation)
 		{
-			if (!ShouldProjectFileDestination(p_imoOperation.LinkDecision))
+			ScriptedFileDeploymentDecision decision = p_imoOperation.DeploymentDecision;
+			if (decision != null ? !decision.Activate : !ShouldProjectFileDestination(p_imoOperation.LinkDecision))
 				return;
 
 			string strDestination = GetAdjustedDataPath(p_imoOperation.DestinationPath);
-			if (p_imoOperation.HasResolvedStagingOverwrite && !p_imoOperation.StageFile)
+			if (decision != null && decision.Method == ModInstallMethod.Virtual && !decision.WritePayload)
 			{
-				if (String.IsNullOrEmpty(p_imoOperation.StagingPath) || !File.Exists(p_imoOperation.StagingPath))
+				if (String.IsNullOrEmpty(decision.StagingPath) || !File.Exists(decision.StagingPath))
 					return;
 
-				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(() => File.ReadAllBytes(p_imoOperation.StagingPath));
+				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(() => File.ReadAllBytes(decision.StagingPath));
 			}
 			else
 			{
@@ -153,16 +154,17 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_gdoOperation">The generated-file operation.</param>
 		private void ApplyGenerateDataFile(GenerateDataFileOperation p_gdoOperation)
 		{
-			if (!ShouldProjectFileDestination(p_gdoOperation.LinkDecision))
+			ScriptedFileDeploymentDecision decision = p_gdoOperation.DeploymentDecision;
+			if (decision != null ? !decision.Activate : !ShouldProjectFileDestination(p_gdoOperation.LinkDecision))
 				return;
 
 			string strDestination = GetAdjustedDataPath(p_gdoOperation.DestinationPath);
-			if (p_gdoOperation.HasResolvedStagingOverwrite && !p_gdoOperation.StageFile)
+			if (decision != null && decision.Method == ModInstallMethod.Virtual && !decision.WritePayload)
 			{
-				if (String.IsNullOrEmpty(p_gdoOperation.StagingPath) || !File.Exists(p_gdoOperation.StagingPath))
+				if (String.IsNullOrEmpty(decision.StagingPath) || !File.Exists(decision.StagingPath))
 					return;
 
-				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(() => File.ReadAllBytes(p_gdoOperation.StagingPath));
+				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(() => File.ReadAllBytes(decision.StagingPath));
 			}
 			else
 				m_dicProjectedFiles[strDestination] = new ProjectedDataFile(p_gdoOperation.Data);

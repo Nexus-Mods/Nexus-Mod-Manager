@@ -3966,6 +3966,8 @@
 					() => _viewModel?.ReinstallMultipleMods(mods)), true);
 			}
 
+			AddOppositeInstallMethodSubmenu(mods, installed);
+
 			BarSubItem itemUninstall = CreatePopupSubItem(LanguageManager.Get("Mods.Context.UninstallDelete.Name", "Uninstall or Delete"), NmmIconAction.Uninstall);
 			if (singleMod)
 			{
@@ -4061,6 +4063,57 @@
 				AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Actions.ResetCache.Name", "Reset Mod Cache"), NmmIconAction.Reset, () => ResetSelectedModCache(mod)), true);
 
 			_gridPopupMenu.ShowPopup(Control.MousePosition);
+		}
+
+		/// <summary>
+		/// Adds the explicit install-method submenu opposite to the current per-game preference.
+		/// </summary>
+		private void AddOppositeInstallMethodSubmenu(List<IMod> p_lstMods, bool p_booFocusedModInstalled)
+		{
+			if (_viewModel == null || p_lstMods == null || p_lstMods.Count == 0)
+				return;
+
+			ModInstallMethod explicitMethod = _viewModel.PreferredInstallMethod == ModInstallMethod.Virtual
+				? ModInstallMethod.Direct
+				: ModInstallMethod.Virtual;
+			string caption = explicitMethod == ModInstallMethod.Direct
+				? LanguageManager.Get("Mods.Context.DirectInstall.Name", "Direct Install")
+				: LanguageManager.Get("Mods.Context.VirtualInstall.Name", "Virtual Install");
+			BarSubItem methodMenu = CreatePopupSubItem(caption, NmmIconAction.Reinstall);
+
+			if (p_lstMods.Count == 1)
+			{
+				IMod mod = p_lstMods[0];
+				if (!p_booFocusedModInstalled)
+				{
+					methodMenu.AddItem(CreatePopupButton(LanguageManager.Get("Mods.Context.InstallActivate.Name", "Install and activate"), NmmIconAction.InstallEnable,
+						() => _viewModel.ActivateMod(mod, explicitMethod, ModInstallRoot.Default)));
+
+					if (_viewModel.ModManager?.GameMode?.SupportsGameRootModInstall == true)
+					{
+						string gameModeName = _viewModel.ModManager.GameMode.Name;
+						if (String.IsNullOrWhiteSpace(gameModeName))
+							gameModeName = "game";
+						methodMenu.AddItem(CreatePopupButton(String.Format(LanguageManager.GetFormat("Mods.Context.InstallGameRoot.Name", "Install to {0} root (eg. SKSE)"), gameModeName), NmmIconAction.InstallRoot,
+							() => _viewModel.ActivateMod(mod, explicitMethod, ModInstallRoot.GameRoot)));
+					}
+				}
+				else
+				{
+					methodMenu.AddItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Reinstall.Name", "Reinstall Mod"), NmmIconAction.Reinstall,
+						() => _viewModel.ReinstallMod(mod, null, explicitMethod)));
+				}
+			}
+			else if (p_lstMods.All(IsModInstalled))
+			{
+				methodMenu.AddItem(CreatePopupButton(LanguageManager.Get("Mods.Context.ReinstallMultiple.Name", "Reinstall Mod/s"), NmmIconAction.Reinstall,
+					() => _viewModel.ReinstallMultipleMods(p_lstMods, explicitMethod)));
+			}
+
+			if (methodMenu.ItemLinks.Count > 0)
+				AddGridPopupItem(methodMenu, true);
+			else
+				methodMenu.Dispose();
 		}
 
 		/// <summary>

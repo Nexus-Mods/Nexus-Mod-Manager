@@ -29,6 +29,7 @@ namespace Nexus.Client.ModManagement
 		private List<IMod> m_lstModList = null;
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
 		private ConfirmActionMethod m_camConfirm = null;
+		private ModInstallContext m_micInstallContext = null;
 
 		#endregion
 
@@ -38,12 +39,21 @@ namespace Nexus.Client.ModManagement
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
 		public ActivateMultipleModsTask(List<IMod> p_lstModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
+			: this(p_lstModList, p_iilInstallLog, p_mifModInstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a batch install using one immutable install context captured before the batch starts.
+		/// </summary>
+		public ActivateMultipleModsTask(List<IMod> p_lstModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
 			m_lstModList = p_lstModList;
 			m_camConfirm = p_camConfirm;
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate;
+			m_micInstallContext = p_micInstallContext;
 		}
 
 		#endregion
@@ -115,7 +125,9 @@ namespace Nexus.Client.ModManagement
 				if (m_iilInstallLog.ActiveMods.Contains(modMod))
 					continue;
 				
-				ModInstaller minInstaller = m_mifModInstallerFactory.CreateInstaller(modMod, m_dlgOverwriteConfirmationDelegate, null);
+				ModInstaller minInstaller = m_micInstallContext == null
+					? m_mifModInstallerFactory.CreateInstaller(modMod, m_dlgOverwriteConfirmationDelegate, null)
+					: m_mifModInstallerFactory.CreateInstaller(modMod, m_dlgOverwriteConfirmationDelegate, null, m_micInstallContext);
 				minInstaller.Install();
 
 				TaskSetWaiter.Wait(minInstaller);

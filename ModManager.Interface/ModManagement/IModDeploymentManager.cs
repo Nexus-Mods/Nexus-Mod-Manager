@@ -41,6 +41,27 @@ namespace Nexus.Client.ModManagement
 		string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager);
 
 		/// <summary>
+		/// Writes a generated Direct payload to its final game destination and records its ownership.
+		/// </summary>
+		string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, byte[] p_btePayload, TxFileManager p_tfmFileManager);
+
+		/// <summary>
+		/// Replaces a Direct owner's payload during an upgrade without changing its position in an existing owner stack.
+		/// </summary>
+		string UpgradeDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager);
+
+		/// <summary>
+		/// Replaces generated Direct payload bytes during an upgrade without changing the owner's stack position.
+		/// </summary>
+		string UpgradeDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, byte[] p_btePayload, TxFileManager p_tfmFileManager);
+
+		/// <summary>
+		/// Removes one owned deployment target while preserving/restoring the remaining owner stack.
+		/// </summary>
+		/// <returns>The physical path when the target is left absent; otherwise <c>null</c>.</returns>
+		string RemoveOwnedTarget(IMod p_modMod, ModDeploymentTarget p_mdtTarget, TxFileManager p_tfmFileManager);
+
+		/// <summary>
 		/// Registers a staged Virtual payload in a promoted stack and optionally makes it the physical winner.
 		/// </summary>
 		string InstallVirtualFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, string p_strLogicalPath,

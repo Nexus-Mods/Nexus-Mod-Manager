@@ -310,14 +310,26 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			if (ModInstallFileFilter.IsIgnored(p_strFrom) || ModInstallFileFilter.IsIgnored(p_strTo))
 				return true;
 
-			InstallModFileOperation imoOperation = new InstallModFileOperation(p_strFrom, p_strTo);
+			// The legacy XML installer treats an empty or dot destination as the source file name.
+			string strProjectedDestination = GetEffectiveInstallDestination(p_strFrom, p_strTo);
+			ScriptedFileDeploymentDecision sddDecision = null;
+			if (Installers.InstallContext.Method == ModInstallMethod.Direct &&
+				Installers.FileInstaller is IModFileInstallDecisionSupport)
+			{
+				bool deploy = ((IModFileInstallDecisionSupport)Installers.FileInstaller).ResolveDataFileOverwrite(strProjectedDestination);
+				sddDecision = ScriptedFileDeploymentDecision.ForDirect(deploy);
+			}
+
+			InstallModFileOperation imoOperation = sddDecision == null
+				? new InstallModFileOperation(p_strFrom, p_strTo)
+				: new InstallModFileOperation(p_strFrom, p_strTo, sddDecision);
 			if (!InstallationSession.Submit(imoOperation))
 				return false;
 
-			// The legacy XML installer treats an empty or dot destination as the source file name.
-			// Project that effective destination without changing the operation persisted for replay compatibility.
-			string strProjectedDestination = GetEffectiveInstallDestination(p_strFrom, p_strTo);
-			m_spsProjectedState.Apply(new InstallModFileOperation(p_strFrom, strProjectedDestination));
+			// Project the effective destination while preserving the original mapping in the replay operation.
+			m_spsProjectedState.Apply(sddDecision == null
+				? new InstallModFileOperation(p_strFrom, strProjectedDestination)
+				: new InstallModFileOperation(p_strFrom, strProjectedDestination, sddDecision));
 			return true;
 		}
 

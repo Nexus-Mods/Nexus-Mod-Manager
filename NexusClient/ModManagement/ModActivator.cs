@@ -86,9 +86,9 @@ namespace Nexus.Client.ModManagement
 			switch (curAction)
 			{
 				case ConfirmUpgradeResult.Upgrade:
-					if (p_micInstallContext.Method == ModInstallMethod.Direct)
-						throw new NotSupportedException("Direct upgrade and conversion are implemented in Step 6.");
-					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod, p_dlgOverwriteConfirmationDelegate);
+					ModInstallContext upgradeContext = CaptureInstalledContext(modOldVersion);
+					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod,
+						p_dlgOverwriteConfirmationDelegate, upgradeContext);
 					return muiUpgrader;
 				case ConfirmUpgradeResult.NormalActivation:
 					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext);
@@ -116,7 +116,9 @@ namespace Nexus.Client.ModManagement
 		{
 			if (InstallationLog.ActiveMods.Contains(p_modNewMod))
 				throw new InvalidOperationException(String.Format("Cannot upgrade to a mod that is already active. (Trying to upgrade {0} {1} to {2} {3})", p_modOldMod.ModName, p_modOldMod.HumanReadableVersion, p_modNewMod.ModName, p_modNewMod.HumanReadableVersion));
-			ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(p_modOldMod, p_modNewMod, p_dlgOverwriteConfirmationDelegate);
+			ModInstallContext installContext = CaptureInstalledContext(p_modOldMod);
+			ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(p_modOldMod, p_modNewMod,
+				p_dlgOverwriteConfirmationDelegate, installContext);
 			muiUpgrader.Install();
 			return muiUpgrader;
 		}
@@ -133,9 +135,24 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTaskSet Reactivate(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(p_modMod, p_modMod, p_dlgOverwriteConfirmationDelegate);
+			ModInstallContext installContext = CaptureInstalledContext(p_modMod);
+			ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(p_modMod, p_modMod,
+				p_dlgOverwriteConfirmationDelegate, installContext);
 			muiUpgrader.Install();
 			return muiUpgrader;
 		}
+		/// <summary>
+		/// Captures the installed mod's immutable method/root before any upgrade mutation begins.
+		/// </summary>
+		private ModInstallContext CaptureInstalledContext(IMod p_modMod)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
+
+			return new ModInstallContext(
+				InstallationLog.GetModInstallMethod(p_modMod),
+				InstallationLog.GetModInstallRoot(p_modMod));
+		}
+
 	}
 }

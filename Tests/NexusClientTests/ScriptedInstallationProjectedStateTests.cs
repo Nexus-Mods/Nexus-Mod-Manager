@@ -4,6 +4,7 @@ namespace NexusClientTests
     using System.IO;
     using System.Linq;
 
+    using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModManagement.Scripting.Operations;
 
@@ -58,6 +59,46 @@ namespace NexusClientTests
                 Assert.AreEqual(0, ctx.ModGetFileCallCount);
                 CollectionAssert.AreEqual(bteData, spsState.GetExistingDataFile("textures/foo.dds"));
                 Assert.AreEqual(1, ctx.ModGetFileCallCount);
+            }
+        }
+
+        /// <summary>
+        /// Verifies that a Direct deployment decision projects the final logical destination without staging.
+        /// </summary>
+        [Test]
+        public void DirectDecision_ProjectsIncomingArchiveBytesAtLogicalDestination()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(tmp.Path, "12345", false, false, "linked");
+                byte[] data = { 10, 11, 12 };
+                ctx.AddModFile(@"scripts\direct.pex", data);
+                var state = new ScriptedInstallationProjectedState(ctx.Mod, ctx.GameMode, ctx.Installers);
+
+                state.Apply(new InstallModFileOperation(
+                    "scripts/direct.pex", "scripts/direct.pex", ScriptedFileDeploymentDecision.ForDirect(true)));
+
+                Assert.IsTrue(state.DataFileExists("scripts/direct.pex"));
+                CollectionAssert.AreEqual(data, state.GetExistingDataFile("scripts/direct.pex"));
+                Assert.AreEqual(0, ctx.FileInstaller.InstallCallCount);
+            }
+        }
+
+        /// <summary>
+        /// Verifies that a rejected Direct overwrite does not appear in projected state.
+        /// </summary>
+        [Test]
+        public void DirectDecision_RejectedOverwriteDoesNotChangeProjectedState()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(tmp.Path, "12345", false, false, "linked");
+                var state = new ScriptedInstallationProjectedState(ctx.Mod, ctx.GameMode, ctx.Installers);
+
+                state.Apply(new GenerateDataFileOperation(
+                    "config/direct.ini", new byte[] { 1 }, ScriptedFileDeploymentDecision.ForDirect(false)));
+
+                Assert.IsFalse(state.DataFileExists("config/direct.ini"));
             }
         }
 

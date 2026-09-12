@@ -127,9 +127,11 @@ namespace Nexus.Client.ModManagement.Scripting
 		protected bool TryEnableDeferredInstallation()
 		{
 			if (!(Installers.FileInstaller is IModFileInstallDecisionSupport) ||
-				!(ModLinkInstaller is IModLinkInstallDecisionSupport) ||
 				!(Installers.IniInstaller is IIniEditDecisionSupport) ||
 				((Installers.GameSpecificValueInstaller != null) && !(Installers.GameSpecificValueInstaller is IGameSpecificValueInstallDecisionSupport)))
+				return false;
+			if (Installers.InstallContext.Method == ModInstallMethod.Virtual &&
+				!(ModLinkInstaller is IModLinkInstallDecisionSupport))
 				return false;
 
 			m_hstPlannedStagingWrites.Clear();
@@ -338,15 +340,24 @@ namespace Nexus.Client.ModManagement.Scripting
 					return InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo));
 
 				string strDestination = p_strTo.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-				string strStagingPath = ScriptedInstallStagingPathResolver.GetStagingPath(Mod, GameMode, VirtualModActivator, strDestination, false);
 				bool booSourceAvailable = ModContainsFile(p_strFrom);
+				if (Installers.InstallContext.Method == ModInstallMethod.Direct)
+				{
+					if (!booSourceAvailable || !((IModFileInstallDecisionSupport)Installers.FileInstaller).ResolveDataFileOverwrite(strDestination))
+						return false;
+
+					return InstallationSession.Submit(new InstallModFileOperation(
+						p_strFrom, p_strTo, ScriptedFileDeploymentDecision.ForDirect(true)));
+				}
+
+				string strStagingPath = ScriptedInstallStagingPathResolver.GetStagingPath(Mod, GameMode, VirtualModActivator, strDestination, false);
 				bool booStageFile = ResolveDeferredStagingWrite(strStagingPath, booSourceAvailable);
-				ModLinkInstallDecision midLinkDecision = ResolveDeferredLinkDecision(strDestination);
-				if (!InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo, strStagingPath, booStageFile, midLinkDecision)))
+				ScriptedFileDeploymentDecision sddDecision = ResolveDeferredVirtualDeploymentDecision(strDestination, strStagingPath, booStageFile);
+				if (!InstallationSession.Submit(new InstallModFileOperation(p_strFrom, p_strTo, sddDecision)))
 					return false;
 
-				// The legacy implementation reports success once staging/link processing is accepted, regardless of whether
-				// the incoming file becomes the active virtual link. InstallFolderFromMod relies on this contract to continue.
+				// The legacy Virtual implementation reports success once staging/deployment processing is accepted, regardless
+				// of whether the incoming file becomes the physical winner. InstallFolderFromMod relies on this contract.
 				return true;
 			});
 		}
@@ -503,10 +514,19 @@ namespace Nexus.Client.ModManagement.Scripting
 					return InstallationSession.Submit(new GenerateDataFileOperation(p_strPath, p_bteData));
 
 				string strDestination = p_strPath.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+				if (Installers.InstallContext.Method == ModInstallMethod.Direct)
+				{
+					if (!((IModFileInstallDecisionSupport)Installers.FileInstaller).ResolveDataFileOverwrite(strDestination))
+						return false;
+
+					return InstallationSession.Submit(new GenerateDataFileOperation(
+						p_strPath, p_bteData, ScriptedFileDeploymentDecision.ForDirect(true)));
+				}
+
 				string strStagingPath = ScriptedInstallStagingPathResolver.GetStagingPath(Mod, GameMode, VirtualModActivator, strDestination, true);
 				bool booStageFile = ResolveDeferredStagingWrite(strStagingPath, true);
-				ModLinkInstallDecision midLinkDecision = ResolveDeferredLinkDecision(strDestination);
-				return InstallationSession.Submit(new GenerateDataFileOperation(p_strPath, p_bteData, strStagingPath, booStageFile, midLinkDecision));
+				ScriptedFileDeploymentDecision sddDecision = ResolveDeferredVirtualDeploymentDecision(strDestination, strStagingPath, booStageFile);
+				return InstallationSession.Submit(new GenerateDataFileOperation(p_strPath, p_bteData, sddDecision));
 			});
 		}
 
@@ -636,14 +656,27 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
+		/// Flushes pending Direct plugin registration before an immediate-compatibility script reads plugin state.
+		/// </summary>
+		private void FlushImmediateDirectPluginState()
+		{
+			if (InstallationSession.ProjectedState == null && Installers.InstallContext.Method == ModInstallMethod.Direct)
+				Installers.FileInstaller.FinalizeInstall();
+		}
+
+		/// <summary>
 		/// Gets a list of all installed plugins.
 		/// </summary>
 		/// <returns>A list of all installed plugins.</returns>
 		public string[] GetAllPlugins()
 		{
-			return ExecuteWithFullTrust(() => InstallationSession.ProjectedState == null
-				? RelativizePluginPaths(Installers.PluginManager.ManagedPlugins)
-				: InstallationSession.ProjectedState.GetAllPlugins());
+			return ExecuteWithFullTrust(() =>
+			{
+				FlushImmediateDirectPluginState();
+				return InstallationSession.ProjectedState == null
+					? RelativizePluginPaths(Installers.PluginManager.ManagedPlugins)
+					: InstallationSession.ProjectedState.GetAllPlugins();
+			});
 		}
 
 		#region Plugin Activation Management
@@ -654,9 +687,13 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>A list of currently active plugins.</returns>
 		public string[] GetActivePlugins()
 		{
-			return ExecuteWithFullTrust(() => InstallationSession.ProjectedState == null
-				? RelativizePluginPaths(Installers.PluginManager.ActivePlugins)
-				: InstallationSession.ProjectedState.GetActivePlugins());
+			return ExecuteWithFullTrust(() =>
+			{
+				FlushImmediateDirectPluginState();
+				return InstallationSession.ProjectedState == null
+					? RelativizePluginPaths(Installers.PluginManager.ActivePlugins)
+					: InstallationSession.ProjectedState.GetActivePlugins();
+			});
 		}
 
 		/// <summary>
@@ -892,7 +929,33 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
-		/// Resolves the virtual-link outcome used by a deferred file operation without mutating deployment state.
+		/// Resolves the method-neutral Virtual deployment outcome without mutating deployment state.
+		/// </summary>
+		/// <param name="p_strDestinationPath">The logical destination path of the file.</param>
+		/// <returns>The link decision and projected outcome to associate with the operation.</returns>
+		private ScriptedFileDeploymentDecision ResolveDeferredVirtualDeploymentDecision(string p_strDestinationPath,
+			string p_strStagingPath, bool p_booStageFile)
+		{
+			if (Installers.DeploymentManager != null && Installers.DeploymentManager.HasPromotedTargets)
+			{
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+					GameMode, Mod, p_strDestinationPath, Installers.InstallContext.InstallRoot);
+				if (Installers.DeploymentManager.IsPromoted(target))
+				{
+					if (Installers.DeploymentOverwriteResolver == null)
+						throw new InvalidOperationException("Promoted scripted deployment requires an overwrite resolver.");
+
+					return ScriptedFileDeploymentDecision.ForPromotedVirtual(
+						p_strStagingPath, p_booStageFile, Installers.DeploymentOverwriteResolver.ShouldActivate(target));
+				}
+			}
+
+			return ScriptedFileDeploymentDecision.ForVirtual(
+				p_strStagingPath, p_booStageFile, ResolveDeferredLinkDecision(p_strDestinationPath));
+		}
+
+		/// <summary>
+		/// Resolves the pure-Virtual link outcome used by a deferred file operation without mutating deployment state.
 		/// </summary>
 		/// <param name="p_strDestinationPath">The logical destination path of the file.</param>
 		/// <returns>The link decision and projected outcome to associate with the operation.</returns>
@@ -902,7 +965,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (m_hstProjectedActiveLinks.Contains(strDestination))
 				return new ModLinkInstallDecision().WithLinkOutcome(true, false);
 
-			ModLinkInstallDecision midDecision = ((IModLinkInstallDecisionSupport)ModLinkInstaller).ResolveFileLinkDecision(Mod, p_strDestinationPath, ModInstallRoot.Default);
+			ModLinkInstallDecision midDecision = ((IModLinkInstallDecisionSupport)ModLinkInstaller).ResolveFileLinkDecision(Mod, p_strDestinationPath, Installers.InstallContext.InstallRoot);
 			if (midDecision.HasLinkOutcome && (midDecision.LinkOutcome == true))
 				m_hstProjectedActiveLinks.Add(strDestination);
 			return midDecision;

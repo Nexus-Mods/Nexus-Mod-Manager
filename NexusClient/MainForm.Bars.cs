@@ -11,6 +11,7 @@
 
 	using Nexus.Client.Commands;
 	using Nexus.Client.Games.Tools;
+	using Nexus.Client.ModManagement;
 	using Nexus.Client.UI;
 
 	public partial class MainForm
@@ -28,6 +29,10 @@
 
 		private BarButtonItem spbLaunch;
 		private BarButtonItem spbProfiles;
+		private BarStaticItem _installMethodLabel;
+		private BarEditItem _installMethodSelector;
+		private RepositoryItemComboBox _installMethodRepository;
+		private bool _updatingInstallMethodSelector;
 		private BarButtonItem spbHelp;
 		private BarButtonItem spbChangeMode;
 		private BarButtonItem toolStripSplitButtonTools;
@@ -122,6 +127,8 @@
 			barMainToolbar.ClearLinks();
 			AddMainToolbarItem(spbLaunch);
 			AddMainToolbarItem(spbProfiles);
+			AddMainToolbarItem(_installMethodLabel, true);
+			AddMainToolbarItem(_installMethodSelector);
 			AddMainToolbarItem(toolStripSplitButtonTools, true);
 			AddMainToolbarItem(spbFolders);
 			AddMainToolbarItem(tsbSettings);
@@ -205,6 +212,25 @@
 
 			spbProfiles = CreateDropDownButton(L("MainForm.Toolbar.Profiles", "Profiles"), popupProfiles, false, BarItemPaintStyle.CaptionGlyph);
 			spbProfiles.ItemClick += SpbProfiles_ItemClick;
+
+			_installMethodLabel = new BarStaticItem
+			{
+				Manager = barManagerMain,
+				Caption = L("MainForm.InstallMethod.Label", "Install:")
+			};
+			_installMethodRepository = new RepositoryItemComboBox
+			{
+				TextEditStyle = TextEditStyles.DisableTextEditor
+			};
+			_installMethodRepository.Items.Add(L("MainForm.InstallMethod.Virtual", "Virtual"));
+			_installMethodRepository.Items.Add(L("MainForm.InstallMethod.Direct", "Direct"));
+			barManagerMain.RepositoryItems.Add(_installMethodRepository);
+			_installMethodSelector = new BarEditItem(barManagerMain, _installMethodRepository)
+			{
+				EditWidth = 82,
+				Hint = L("MainForm.InstallMethod.Hint", "Preferred install method for new mod installations")
+			};
+			_installMethodSelector.EditValueChanged += InstallMethodSelector_EditValueChanged;
 
 			spbHelp = CreateDropDownButton(L("MainForm.Toolbar.Help", "Help"), popupHelp, true, BarItemPaintStyle.Standard);
 			spbHelp.Alignment = BarItemLinkAlignment.Right;
@@ -417,6 +443,41 @@
 		{
 			Command command = _launchDefaultItem?.Tag as Command;
 			command?.Execute();
+		}
+
+		/// <summary>
+		/// Reloads the per-game install method into the main toolbar selector.
+		/// </summary>
+		private void RefreshInstallMethodSelector()
+		{
+			if (_installMethodSelector == null || ViewModel?.ModManagerVM == null)
+				return;
+
+			_updatingInstallMethodSelector = true;
+			try
+			{
+				_installMethodSelector.EditValue = ViewModel.ModManagerVM.PreferredInstallMethod == ModInstallMethod.Direct
+					? L("MainForm.InstallMethod.Direct", "Direct")
+					: L("MainForm.InstallMethod.Virtual", "Virtual");
+			}
+			finally
+			{
+				_updatingInstallMethodSelector = false;
+			}
+		}
+
+		/// <summary>
+		/// Persists a toolbar install-method change for the current game.
+		/// </summary>
+		private void InstallMethodSelector_EditValueChanged(object sender, EventArgs e)
+		{
+			if (_updatingInstallMethodSelector || ViewModel?.ModManagerVM == null)
+				return;
+
+			string selected = Convert.ToString(_installMethodSelector.EditValue);
+			ViewModel.ModManagerVM.PreferredInstallMethod = String.Equals(selected, L("MainForm.InstallMethod.Direct", "Direct"), StringComparison.CurrentCultureIgnoreCase)
+				? ModInstallMethod.Direct
+				: ModInstallMethod.Virtual;
 		}
 
 		/// <summary>

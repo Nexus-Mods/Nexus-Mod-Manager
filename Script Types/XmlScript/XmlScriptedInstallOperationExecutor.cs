@@ -46,7 +46,9 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			try
 			{
-				return new LegacyXmlDeploymentBatch(new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations));
+				return m_igpInstallers.InstallContext.Method == ModInstallMethod.Virtual
+					? new LegacyXmlDeploymentBatch(new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations))
+					: null;
 			}
 			catch
 			{
@@ -92,18 +94,58 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 			try
 			{
-				string strVirtualPath = ScriptedInstallStagingPathResolver.GetStagingPath(m_modMod, m_gmdGameMode, m_ivaVirtualModActivator, strInstallDestination, true);
-				m_igpInstallers.FileInstaller.InstallFileFromMod(p_imoOperation.SourcePath, strVirtualPath);
-				m_mliModLinkInstaller.AddFileLink(m_modMod, strInstallDestination, strVirtualPath, true);
+				if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct)
+				{
+					ScriptedFileDeploymentDecision decision = p_imoOperation.DeploymentDecision;
+					if (decision == null || decision.WritePayload)
+					{
+						if (decision != null)
+							((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(p_imoOperation.SourcePath, strInstallDestination, false);
+						else
+							m_igpInstallers.FileInstaller.InstallFileFromMod(p_imoOperation.SourcePath, strInstallDestination);
+					}
+				}
+				else
+				{
+					string strVirtualPath = ScriptedInstallStagingPathResolver.GetStagingPath(m_modMod, m_gmdGameMode, m_ivaVirtualModActivator, strInstallDestination, true);
+					m_igpInstallers.FileInstaller.InstallFileFromMod(p_imoOperation.SourcePath, strVirtualPath);
+
+					ModDeploymentTarget target = GetPromotedTarget(strInstallDestination);
+					if (target != null)
+					{
+						if (m_igpInstallers.TransactionalFileManager == null || m_igpInstallers.DeploymentOverwriteResolver == null)
+							throw new InvalidOperationException("Promoted XML deployment requires transactional deployment services.");
+						bool activate = m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
+						m_igpInstallers.DeploymentManager.InstallVirtualFile(
+							m_modMod, target, strInstallDestination, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
+							activate, m_igpInstallers.TransactionalFileManager);
+						m_igpInstallers.MarkPromotedDeploymentUsed();
+					}
+					else
+						m_mliModLinkInstaller.AddFileLink(m_modMod, strInstallDestination, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
+				}
 			}
 			catch
 			{
-				// The legacy XML installer intentionally ignored file-install and link failures at this level.
+				// The legacy XML installer intentionally ignored file-install and deployment failures at this level.
 			}
 
 			// The legacy XML path persisted the selected mapping even when its internal file-install helper returned false.
 			m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
 			return true;
+		}
+
+		/// <summary>
+		/// Resolves a destination only when the XML operation targets an already promoted file.
+		/// </summary>
+		private ModDeploymentTarget GetPromotedTarget(string p_strDestinationPath)
+		{
+			if (m_igpInstallers.DeploymentManager == null || !m_igpInstallers.DeploymentManager.HasPromotedTargets)
+				return null;
+
+			ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+				m_gmdGameMode, m_modMod, p_strDestinationPath, m_igpInstallers.InstallContext.InstallRoot);
+			return m_igpInstallers.DeploymentManager.IsPromoted(target) ? target : null;
 		}
 
 		/// <summary>
@@ -144,13 +186,11 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			public void Dispose()
 			{
 				IDisposable dspDeploymentBatch = m_dspDeploymentBatch;
-				if (dspDeploymentBatch == null)
-					return;
-
 				m_dspDeploymentBatch = null;
 				try
 				{
-					dspDeploymentBatch.Dispose();
+					if (dspDeploymentBatch != null)
+						dspDeploymentBatch.Dispose();
 				}
 				catch
 				{

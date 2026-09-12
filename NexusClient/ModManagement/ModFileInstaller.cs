@@ -354,6 +354,14 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Writes a staged archive file after overwrite resolution; plugin handling remains a deployment concern.
+		/// </summary>
+		public virtual bool InstallFileFromModWithResolvedOverwrite(string p_strModFilePath, string p_strInstallPath, bool p_booHandlePlugin)
+		{
+			return InstallFileFromModWithResolvedOverwrite(p_strModFilePath, p_strInstallPath);
+		}
+
 		private void DeleteTemporaryModStreamFile(string p_strFilePath)
 		{
 			if (string.IsNullOrWhiteSpace(p_strFilePath) || m_eifEnvironmentInfo == null || string.IsNullOrWhiteSpace(m_eifEnvironmentInfo.TemporaryPath))

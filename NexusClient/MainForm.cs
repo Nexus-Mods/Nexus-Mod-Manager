@@ -198,6 +198,7 @@
 				}
 
 				BindCommands();
+				RefreshInstallMethodSelector();
 			}
 		}
 
@@ -841,6 +842,10 @@
 
 			if (frmSetup.ShowDialog(this) == DialogResult.OK)
 			{
+				RefreshInstallMethodSelector();
+				if (!vmlSetup.StoragePathsChanged)
+					return;
+
 				if (ViewModel.ProfileManager.CurrentProfile == null)
 				{
 					byte[] bteLoadOrder = null;
@@ -1787,7 +1792,7 @@
 			backupMenu.AddItem(CreateCommandBarButton(restoreBackupProfileCommand, NmmIconAction.Restore));
 			popupTools.AddItem(backupMenu);
 
-			Command configureVirtualFoldersCommand = new Command(L("MainForm.Tools.VirtualFolders.Name", "Change Virtual folders..."), L("MainForm.Tools.VirtualFolders.Description", "Virtual folders setup menu."), ChangeVirtualFolders);
+			Command configureVirtualFoldersCommand = new Command(L("MainForm.Tools.GameStorageManager.Name", "Game Storage Manager..."), L("MainForm.Tools.GameStorageManager.Description", "Configure storage folders and the preferred install method for this game."), ChangeVirtualFolders);
 			popupTools.AddItem(CreateCommandBarButton(configureVirtualFoldersCommand, NmmIconAction.OpenFolder));
 
 			if (ViewModel.UsesPlugins && ViewModel.SupportsPluginAutoSorting)

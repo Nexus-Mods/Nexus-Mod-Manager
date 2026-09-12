@@ -52,7 +52,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_UsesPlugins">Game using plugin or mods (True for plugins).</param>
         /// <param name="p_eifEnvironmentInfo">Environment info for the entire program.</param>
 		public ModFileUpgradeInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins, IEnvironmentInfo p_eifEnvironmentInfo)
-			:base(p_gmiGameModeInfo, p_modMod, p_ilgInstallLog, p_pmgPluginManager, p_dfuDataFileUtility, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, p_UsesPlugins, p_eifEnvironmentInfo)
+			: this(p_gmiGameModeInfo, p_modMod, p_ilgInstallLog, p_pmgPluginManager, p_dfuDataFileUtility, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, p_UsesPlugins, p_eifEnvironmentInfo, p_gmiGameModeInfo.InstallationPath)
+		{
+		}
+
+		/// <summary>
+		/// Initializes an upgrade installer for the captured physical install root.
+		/// </summary>
+		public ModFileUpgradeInstaller(IGameModeEnvironmentInfo p_gmiGameModeInfo, IMod p_modMod, IInstallLog p_ilgInstallLog, IPluginManager p_pmgPluginManager, IDataFileUtil p_dfuDataFileUtility, TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, bool p_UsesPlugins, IEnvironmentInfo p_eifEnvironmentInfo, string p_strInstallBasePath)
+			: base(p_gmiGameModeInfo, p_modMod, p_ilgInstallLog, p_pmgPluginManager, p_dfuDataFileUtility, p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, p_UsesPlugins, p_eifEnvironmentInfo, p_strInstallBasePath)
 		{
 			OriginallyInstalledFiles = new Set<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (string strFile in InstallLog.GetInstalledModFiles(Mod))
@@ -107,7 +115,7 @@ namespace Nexus.Client.ModManagement
 		public override bool GenerateDataFileWithResolvedOverwrite(string p_strPath, byte[] p_bteData)
 		{
 			DataFileUtility.AssertFilePathIsSafe(p_strPath);
-			string strInstallFilePath = Path.Combine(GameModeInfo.InstallationPath, p_strPath);
+			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
 
 			IList<IMod> lstInstallers = InstallLog.GetFileInstallers(p_strPath);
 			if (!lstInstallers.Contains(Mod, ModComparer.Filename))

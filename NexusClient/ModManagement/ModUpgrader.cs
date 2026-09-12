@@ -44,10 +44,10 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode</param>
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
-		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IProfileManager p_ipmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
-			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, null)
+		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IProfileManager p_ipmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext)
+			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, null, p_micInstallContext)
 		{
-			OldMod = p_modOldMod;
+			OldMod = p_modOldMod ?? throw new ArgumentNullException(nameof(p_modOldMod));
 		}
 
 		#endregion
@@ -65,7 +65,19 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The file installer to use to install the mod's files.</returns>
 		protected override IModFileInstaller CreateFileInstaller(TxFileManager p_tfmFileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			return new ModFileUpgradeInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo);
+			if (InstallContext.Method == ModInstallMethod.Direct)
+			{
+				return new DirectModFileInstaller(Mod, OldMod, GameMode, ModInstallLog, DeploymentManager, PluginManager,
+					p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, EnvironmentInfo, InstallContext, true);
+			}
+
+			string installBasePath = InstallContext.InstallRoot == ModInstallRoot.GameRoot
+				? GameMode.InstallationPath
+				: GameMode.GameModeEnvironmentInfo.InstallationPath;
+
+			return new ModFileUpgradeInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager,
+				new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager,
+				p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo, installBasePath);
 		}
 
 		/// <summary>
@@ -103,7 +115,24 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected override void RegisterMod()
 		{
-			ModInstallLog.ReplaceActiveMod(OldMod, Mod);
+			ModInstallLog.ReplaceActiveMod(OldMod, Mod, InstallContext.InstallRoot, InstallContext.Method);
+		}
+
+		/// <summary>
+		/// Removes promoted Virtual ownership entries for files that belonged to the old version but were not
+		/// reinstalled by the replacement version. Reinstalled targets already point at the new staged payload.
+		/// </summary>
+		protected override void FinalizeDeploymentAfterInstall(TxFileManager p_tfmFileManager)
+		{
+			if (InstallContext.Method != ModInstallMethod.Virtual || DeploymentManager == null || !DeploymentManager.HasPromotedTargets)
+				return;
+
+			var deploymentBackend = VirtualModActivator as Nexus.Client.ModManagement.VirtualModActivator;
+			if (deploymentBackend == null)
+				throw new InvalidOperationException("Promoted Virtual upgrades require the transaction-aware VMA deployment backend.");
+
+			foreach (ModDeploymentTarget target in deploymentBackend.GetStalePromotedVirtualTargetsForUpgrade(OldMod))
+				DeploymentManager.RemoveOwnedTarget(Mod, target, p_tfmFileManager);
 		}
 	}
 }

@@ -300,18 +300,16 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunScript(TxFileManager p_tfmFileManager)
 		{
-			if (InstallContext.Method == ModInstallMethod.Direct && Mod.HasInstallScript)
-				throw new NotSupportedException("Direct scripted installation is implemented in Step 5.");
-
 			m_booUsedPromotedDeployment = false;
 			m_booUsePromotedDeploymentPath = InstallContext.Method == ModInstallMethod.Virtual &&
 				!Mod.HasInstallScript &&
 				DeploymentManager != null &&
 				DeploymentManager.HasPromotedTargets;
-			m_dorOverwriteResolver = DeploymentManager == null ||
-				(InstallContext.Method != ModInstallMethod.Direct && !m_booUsePromotedDeploymentPath)
-				? null
-				: new ModDeploymentOverwriteResolver(Mod, ModInstallLog, DeploymentManager, m_dlgOverwriteConfirmationDelegate);
+			bool booNeedsDeploymentOverwriteResolver = DeploymentManager != null &&
+				(InstallContext.Method == ModInstallMethod.Direct || DeploymentManager.HasPromotedTargets);
+			m_dorOverwriteResolver = booNeedsDeploymentOverwriteResolver
+				? new ModDeploymentOverwriteResolver(Mod, ModInstallLog, DeploymentManager, m_dlgOverwriteConfirmationDelegate)
+				: null;
 			IModFileInstaller mfiFileInstaller = CreateFileInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 			bool booResult = false;
 			IIniInstaller iniIniInstaller = null;
@@ -329,11 +327,14 @@ namespace Nexus.Client.ModManagement
 						iniIniInstaller = CreateIniInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 						gviGameSpecificValueInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 
-						InstallerGroup ipgInstallers = new InstallerGroup(dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager);
+						InstallerGroup ipgInstallers = new InstallerGroup(
+							dfuDataFileUtility, mfiFileInstaller, iniIniInstaller, gviGameSpecificValueInstaller, PluginManager,
+							InstallContext, DeploymentManager, p_tfmFileManager, m_dorOverwriteResolver);
 						IScriptExecutor sexScript = Mod.InstallScript.Type.CreateExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ipgInstallers, UIContext);
 						sexScript.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(ScriptExecutor_TaskStarted);
 						sexScript.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(ScriptExecutor_TaskSetCompleted);
 						booResult = sexScript.Execute(Mod.InstallScript);
+						m_booUsedPromotedDeployment |= ipgInstallers.UsedPromotedDeployment;
 					}
 					catch (Exception ex)
 					{
@@ -350,7 +351,15 @@ namespace Nexus.Client.ModManagement
 			else
 				booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, null, p_tfmFileManager);
 			mfiFileInstaller.FinalizeInstall();
+			FinalizeDeploymentAfterInstall(p_tfmFileManager);
 			return booResult;
+		}
+
+		/// <summary>
+		/// Allows specialized installers to finalize method-neutral deployment state after file finalization.
+		/// </summary>
+		protected virtual void FinalizeDeploymentAfterInstall(TxFileManager p_tfmFileManager)
+		{
 		}
 
 		/// <summary>

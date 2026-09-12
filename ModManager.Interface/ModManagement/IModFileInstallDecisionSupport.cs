@@ -21,6 +21,15 @@ namespace Nexus.Client.ModManagement
 		bool InstallFileFromModWithResolvedOverwrite(string p_strModFilePath, string p_strInstallPath);
 
 		/// <summary>
+		/// Installs a file after overwrite processing while explicitly controlling legacy plugin handling.
+		/// </summary>
+		/// <param name="p_strModFilePath">The path of the source file in the mod archive.</param>
+		/// <param name="p_strInstallPath">The destination path relative to the installer's data root.</param>
+		/// <param name="p_booHandlePlugin">Whether the deployed file should be handled as an automatically activated plugin.</param>
+		/// <returns><c>true</c> if the source file is written; otherwise, <c>false</c>.</returns>
+		bool InstallFileFromModWithResolvedOverwrite(string p_strModFilePath, string p_strInstallPath, bool p_booHandlePlugin);
+
+		/// <summary>
 		/// Writes generated data without performing overwrite-decision processing.
 		/// </summary>
 		/// <param name="p_strPath">The destination path relative to the installer's data root.</param>

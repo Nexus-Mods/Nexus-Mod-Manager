@@ -93,6 +93,38 @@ namespace Nexus.Client.ModManagement
 				link.VirtualModPath);
 		}
 
+		/// <summary>
+		/// Returns promoted targets whose Virtual link still references the pre-upgrade archive after the upgrade
+		/// file pass. Targets that were reinstalled already point at the replacement archive and are excluded.
+		/// </summary>
+		public IReadOnlyList<ModDeploymentTarget> GetStalePromotedVirtualTargetsForUpgrade(IMod p_modOldMod)
+		{
+			if (p_modOldMod == null)
+				throw new ArgumentNullException(nameof(p_modOldMod));
+
+			string ownerKey = ModInstallLog.GetModKey(p_modOldMod);
+			if (string.IsNullOrWhiteSpace(ownerKey))
+				return new ModDeploymentTarget[0];
+
+			string oldModFileName = Path.GetFileName(p_modOldMod.Filename);
+			var staleTargets = new List<ModDeploymentTarget>();
+			foreach (ModDeploymentTarget target in ModInstallLog.GetDeploymentTargetsForMod(ownerKey))
+			{
+				if (!ModInstallLog.IsDeploymentTargetPromoted(target))
+					continue;
+
+				IVirtualModLink link = FindVirtualOwnerLink(target, ownerKey);
+				if (link != null && link.ModInfo != null &&
+					!string.IsNullOrEmpty(link.ModInfo.ModFileName) &&
+					link.ModInfo.ModFileName.Equals(oldModFileName, StringComparison.OrdinalIgnoreCase))
+				{
+					staleTargets.Add(target);
+				}
+			}
+
+			return staleTargets;
+		}
+
 		/// <inheritdoc />
 		public void RegisterVirtualLink(ModDeploymentTarget p_mdtTarget, IMod p_modMod, string p_strLogicalPath,
 			string p_strStagedSource, ModInstallRoot p_mirInstallRoot, int p_intPriority)

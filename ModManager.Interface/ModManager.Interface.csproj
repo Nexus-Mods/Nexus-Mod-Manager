@@ -205,6 +205,7 @@
     <Compile Include="ModManagement\Scripting\ScriptedInstallOperation.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationPlan.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationProjectedState.cs" />
+    <Compile Include="ModManagement\Scripting\ScriptedFileDeploymentDecision.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedFileSelectionCache.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationSession.cs" />
     <Compile Include="ModManagement\Scripting\ScriptFunctionProxy.cs" />

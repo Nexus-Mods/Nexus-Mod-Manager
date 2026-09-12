@@ -39,6 +39,31 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void DirectGeneratedFile_WritesFinalDestinationWithoutVirtualStaging()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod mod = environment.RegisterDirectMod("Generated");
+				var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+				var overwriteResolver = new ModDeploymentOverwriteResolver(
+					mod, environment.InstallLog, environment.Manager, (message, allowGroup, hasOwner) => OverwriteResult.Yes);
+				using (var scope = new TransactionScope())
+				{
+					var installer = new DirectModFileInstaller(mod, environment.GameMode, environment.Manager, null,
+						new TxFileManager(), null, context, overwriteResolver);
+					Assert.IsTrue(installer.GenerateDataFile(@"config\generated.ini", new byte[] { 1, 2, 3, 4 }));
+					scope.Complete();
+				}
+
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+					environment.GameMode, mod, @"config\generated.ini", ModInstallRoot.Data);
+				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(environment.Manager.GetDeploymentPath(target)));
+				Assert.IsFalse(Directory.EnumerateFiles(environment.VirtualPath, "*", SearchOption.AllDirectories).Any());
+				Assert.IsFalse(Directory.EnumerateFiles(environment.LinkPath, "*", SearchOption.AllDirectories).Any());
+			}
+		}
+
+		[Test]
 		public void DirectOverwrite_UninstallWinnerRestoresPreviousDirectOwner()
 		{
 			using (var environment = new DirectTestEnvironment())
@@ -224,7 +249,7 @@ namespace NexusClientTests
 						return OverwritePath;
 					return null;
 				});
-				IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
+				GameMode = InterfaceStub<IGameMode>.Create((method, args) =>
 				{
 					if (method.Name == "get_GameModeEnvironmentInfo")
 						return gameModeInfo;
@@ -238,9 +263,10 @@ namespace NexusClientTests
 					method.Name == "GetVirtualOwnerKeys" ? (object)new string[0] : null);
 
 				InstallLog = CreateInstallLog(ModPath, Path.Combine(m_strRootPath, "InstallInfo", "InstallLog.xml"));
-				Manager = new ModDeploymentManager(InstallLog, virtualModActivator, gameMode);
+				Manager = new ModDeploymentManager(InstallLog, virtualModActivator, GameMode);
 			}
 
+			public IGameMode GameMode { get; }
 			public string DataPath { get; }
 			public string GameRootPath { get; }
 			public string SecondaryPath { get; }

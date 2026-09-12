@@ -17,6 +17,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.Mods;
     using Nexus.Client.PluginManagement;
     using Nexus.Client.SSO;
+    using Nexus.Client.Settings;
     using Nexus.Client.UI;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
@@ -511,10 +512,8 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTaskSet ActivateMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			if (InstallationLog.ActiveMods.Contains(p_modMod))
-				return null;
-			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false);
+			return ActivateMod(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, CapturePreferredInstallContext(ModInstallRoot.Default));
 		}
 
 		/// <summary>
@@ -536,10 +535,8 @@ namespace Nexus.Client.ModManagement
 
 		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			if (InstallationLog.ActiveMods.Contains(p_modMod))
-				return null;
-			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, false, ModInstallRoot.GameRoot);
+			return ActivateMod(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, CapturePreferredInstallContext(ModInstallRoot.GameRoot));
 		}
 
 		/// <summary>
@@ -552,8 +549,45 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
 		public IBackgroundTaskSet ReinstallMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
+			ModInstallContext installContext = InstallationLog.ActiveMods.Contains(p_modMod)
+				? CaptureInstalledContext(p_modMod)
+				: CapturePreferredInstallContext(ModInstallRoot.Default);
+			return ReinstallMod(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, installContext);
+		}
+
+		/// <summary>
+		/// Reinstalls the given mod using an explicitly captured method/root.
+		/// </summary>
+		public IBackgroundTaskSet ReinstallMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			ModInstallContext p_micInstallContext)
+		{
+			if (p_micInstallContext == null)
+				throw new ArgumentNullException(nameof(p_micInstallContext));
+
 			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, true);
+			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, true, p_micInstallContext);
+		}
+
+		/// <summary>
+		/// Captures the currently installed method/root for a mod.
+		/// </summary>
+		public ModInstallContext CaptureInstalledContext(IMod p_modMod)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
+
+			return new ModInstallContext(InstallationLog.GetModInstallMethod(p_modMod), InstallationLog.GetModInstallRoot(p_modMod));
+		}
+
+		/// <summary>
+		/// Captures the per-game preferred method for a new operation and combines it with the requested root.
+		/// </summary>
+		public ModInstallContext CapturePreferredInstallContext(ModInstallRoot p_mirInstallRoot)
+		{
+			return new ModInstallContext(EnvironmentInfo.Settings.GetPreferredInstallMethod(GameMode.ModeId), p_mirInstallRoot);
 		}
 
 	/// <summary>
@@ -779,7 +813,9 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask ActivateMultipleMods(List<IMod> p_lstModList, bool p_booAllowCancel, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, InstallationLog, InstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
+			ModInstallContext installContext = CapturePreferredInstallContext(ModInstallRoot.Default);
+			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, InstallationLog, InstallerFactory,
+				p_camConfirm, p_dlgOverwriteConfirmationDelegate, installContext);
 			ammActivateAllMods.Update(p_camConfirm);
 			return ammActivateAllMods;
 		}
@@ -792,7 +828,9 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask ProfileActivateMultipleMods(List<IMod> p_lstModList, bool p_booAllowCancel, ConfirmActionMethod p_camConfirm, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate)
 		{
-			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, InstallationLog, InstallerFactory, p_camConfirm, p_dlgOverwriteConfirmationDelegate);
+			var profileContext = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
+			ActivateMultipleModsTask ammActivateAllMods = new ActivateMultipleModsTask(p_lstModList, InstallationLog, InstallerFactory,
+				p_camConfirm, p_dlgOverwriteConfirmationDelegate, profileContext);
 			ammActivateAllMods.Update(p_camConfirm);
 			return ammActivateAllMods;
 		}
