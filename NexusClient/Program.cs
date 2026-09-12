@@ -80,6 +80,7 @@
 				Application.SetCompatibleTextRenderingDefault(false);
 
 				UpgradeSettings(Properties.Settings.Default);
+				ApplyDailyProgramUpdateCheckInterval(Properties.Settings.Default);
 				EnvironmentInfo = new EnvironmentInfo(Properties.Settings.Default);
 
                 if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
@@ -327,6 +328,19 @@
 				p_setSettings.Save();
 			}
 
+		}
+
+		/// <summary>
+		/// Applies the daily program-update interval once, preserving subsequent user changes.
+		/// </summary>
+		private static void ApplyDailyProgramUpdateCheckInterval(Properties.Settings p_setSettings)
+		{
+			if (p_setSettings.UpdateCheckIntervalDailyDefaultApplied)
+				return;
+
+			p_setSettings.UpdateCheckInterval = 1;
+			p_setSettings.UpdateCheckIntervalDailyDefaultApplied = true;
+			p_setSettings.Save();
 		}
 
 		/// <summary>

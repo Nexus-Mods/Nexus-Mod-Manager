@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Nexus.Client.Games;
 
@@ -39,7 +40,9 @@ namespace Nexus.Client.ModManagement.Scripting
 				Trace.Unindent();
 				return stgRegistry;
 			}
-			string[] strAssemblies = Directory.GetFiles(p_strSearchPath, "*.dll");
+			string[] strAssemblies = Directory.GetFiles(p_strSearchPath, "*.dll")
+                .Where(IsPotentialScriptTypeAssembly)
+                .ToArray();
 			RegisterScriptTypes(stgRegistry, strAssemblies, p_lstDeletedDLL);
 			Trace.Unindent();
 
@@ -115,29 +118,43 @@ namespace Nexus.Client.ModManagement.Scripting
 					Trace.TraceInformation("Checking: {0}", Path.GetFileName(strAssembly));
 					Trace.Indent();
 
-					if (!p_lstRemovedDLL.Contains(Path.GetFileName(strAssembly)))
-					{
-						Assembly asmGameMode = Assembly.LoadFrom(strAssembly);
-						Type[] tpeTypes = asmGameMode.GetExportedTypes();
-						foreach (Type tpeType in tpeTypes)
-						{
-							if (typeof(IScriptType).IsAssignableFrom(tpeType) && !tpeType.IsAbstract)
-							{
-								Trace.TraceInformation("Initializing: {0}", tpeType.FullName);
-								Trace.Indent();
-
-								IScriptType sctScriptType = null;
-								ConstructorInfo cifConstructor = tpeType.GetConstructor(new Type[] { });
-								if (cifConstructor != null)
-									sctScriptType = (IScriptType)cifConstructor.Invoke(null);
-								if (sctScriptType != null)
-									p_stgScriptTypeRegistry.RegisterType(sctScriptType);
-
-								Trace.Unindent();
-							}
-						}
-					}
-					Trace.Unindent();
+                    try
+                    {
+                        if (!p_lstRemovedDLL.Contains(Path.GetFileName(strAssembly)))
+                        {
+                            Assembly asmGameMode = Assembly.LoadFrom(strAssembly);
+                            Type[] tpeTypes = asmGameMode.GetExportedTypes();
+                            foreach (Type tpeType in tpeTypes)
+                            {
+                                if (typeof(IScriptType).IsAssignableFrom(tpeType) && !tpeType.IsAbstract)
+                                {
+                                    Trace.TraceInformation("Initializing: {0}", tpeType.FullName);
+                                    Trace.Indent();
+                                    try
+                                    {
+                                        IScriptType sctScriptType = null;
+                                        ConstructorInfo cifConstructor = tpeType.GetConstructor(new Type[] { });
+                                        if (cifConstructor != null)
+                                            sctScriptType = (IScriptType)cifConstructor.Invoke(null);
+                                        if (sctScriptType != null)
+                                            p_stgScriptTypeRegistry.RegisterType(sctScriptType);
+                                    }
+                                    finally
+                                    {
+                                        Trace.Unindent();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        TraceScriptTypeLoadFailure(strAssembly, e);
+                    }
+                    finally
+                    {
+                        Trace.Unindent();
+                    }
 				}
 			}
 			finally
@@ -145,6 +162,39 @@ namespace Nexus.Client.ModManagement.Scripting
 				AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
 			}
 		}
+
+        /// <summary>
+        /// Determines whether an assembly can contain a Script Type without loading it into the execution context.
+        /// </summary>
+        private static bool IsPotentialScriptTypeAssembly(string assembly)
+        {
+            try
+            {
+                Assembly reflectionAssembly = Assembly.ReflectionOnlyLoadFrom(assembly);
+                string contractAssemblyName = typeof(IScriptType).Assembly.GetName().Name;
+                return reflectionAssembly.GetReferencedAssemblies().Any(reference => String.Equals(reference.Name, contractAssemblyName, StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception e)
+            {
+                Trace.TraceWarning("Ignoring unreadable Script Type candidate {0}: {1}: {2}", Path.GetFileName(assembly), e.GetType().Name, e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Traces a Script Type assembly failure without aborting the remaining Script Type discovery.
+        /// </summary>
+        private static void TraceScriptTypeLoadFailure(string assembly, Exception exception)
+        {
+            Trace.TraceError("Cannot load Script Type {0}: {1}: {2}", assembly, exception.GetType().Name, exception.Message);
+            ReflectionTypeLoadException reflectionTypeLoadException = exception as ReflectionTypeLoadException;
+            if (reflectionTypeLoadException == null)
+                return;
+
+            foreach (Exception loaderException in reflectionTypeLoadException.LoaderExceptions)
+                if (loaderException != null)
+                    Trace.TraceError("    Loader exception: {0}: {1}", loaderException.GetType().Name, loaderException.Message);
+        }
 
 		/// <summary>
 		/// Handles the <see cref="AppDomain.AssemblyResolve"/> event.

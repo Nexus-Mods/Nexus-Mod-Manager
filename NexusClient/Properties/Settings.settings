@@ -57,7 +57,10 @@
 			<Value Profile="(Default)">True</Value>
 		</Setting>
 		<Setting Name="UpdateCheckInterval" Type="System.Int32" Scope="User">
-			<Value Profile="(Default)">3</Value>
+			<Value Profile="(Default)">1</Value>
+		</Setting>
+		<Setting Name="UpdateCheckIntervalDailyDefaultApplied" Type="System.Boolean" Scope="User">
+			<Value Profile="(Default)">False</Value>
 		</Setting>
 		<Setting Name="LastUpdateCheckDate" Type="System.String" Scope="User">
 			<Value Profile="(Default)" />
