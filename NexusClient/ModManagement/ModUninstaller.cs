@@ -177,15 +177,9 @@ namespace Nexus.Client.ModManagement
 					ModInstallMethod installMethod = booIsInstallLogActive
 						? ModInstallLog.GetModInstallMethod(Mod)
 						: ModInstallMethod.Virtual;
+					bool booHasPromotedFiles = DeploymentManager != null && DeploymentManager.HasPromotedFiles(Mod);
 
-					if (installMethod == ModInstallMethod.Direct && booHasVirtualLinks)
-					{
-						strErrorMessage = "Mixed Virtual/Direct ownership is implemented in Step 4 and cannot be uninstalled by the standalone Direct path.";
-						OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
-						return;
-					}
-
-					if (installMethod == ModInstallMethod.Virtual && booHasVirtualLinks)
+					if (installMethod == ModInstallMethod.Virtual && booHasVirtualLinks && !booHasPromotedFiles)
 					{
 						VirtualModDisableTask vdtDisableTask = new VirtualModDisableTask(Mod, VirtualModActivator, DisableVirtualFilesOnly);
 						OnTaskStarted(vdtDisableTask);
@@ -214,9 +208,9 @@ namespace Nexus.Client.ModManagement
 						{
 							TxFileManager tfmFileManager = new TxFileManager();
 
-							if (installMethod == ModInstallMethod.Direct)
+							if (installMethod == ModInstallMethod.Direct || booHasPromotedFiles)
 							{
-								IReadOnlyCollection<string> absentPaths = DeploymentManager.UninstallDirectMod(Mod, tfmFileManager);
+								IReadOnlyCollection<string> absentPaths = DeploymentManager.UninstallMixedMod(Mod, tfmFileManager);
 								if (PluginManager != null && absentPaths.Count > 0)
 								{
 									List<string> removedPlugins = new List<string>();

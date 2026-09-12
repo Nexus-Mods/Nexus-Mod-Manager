@@ -25,6 +25,9 @@ namespace Nexus.Client.ModManagement
 	public class ModInstaller : ModInstallerBase
 	{
 		private ConfirmItemOverwriteDelegate m_dlgOverwriteConfirmationDelegate = null;
+		private ModDeploymentOverwriteResolver m_dorOverwriteResolver;
+		private bool m_booUsedPromotedDeployment;
+		private bool m_booUsePromotedDeploymentPath;
 
 		#region Properties
 
@@ -222,7 +225,7 @@ namespace Nexus.Client.ModManagement
 						{
 							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
-							if (InstallContext.Method == ModInstallMethod.Virtual)
+							if (InstallContext.Method == ModInstallMethod.Virtual && !m_booUsedPromotedDeployment)
 								VirtualModActivator.SaveList(true);
 							strMessage = "The mod was successfully activated.";
 						}
@@ -300,6 +303,15 @@ namespace Nexus.Client.ModManagement
 			if (InstallContext.Method == ModInstallMethod.Direct && Mod.HasInstallScript)
 				throw new NotSupportedException("Direct scripted installation is implemented in Step 5.");
 
+			m_booUsedPromotedDeployment = false;
+			m_booUsePromotedDeploymentPath = InstallContext.Method == ModInstallMethod.Virtual &&
+				!Mod.HasInstallScript &&
+				DeploymentManager != null &&
+				DeploymentManager.HasPromotedTargets;
+			m_dorOverwriteResolver = DeploymentManager == null ||
+				(InstallContext.Method != ModInstallMethod.Direct && !m_booUsePromotedDeploymentPath)
+				? null
+				: new ModDeploymentOverwriteResolver(Mod, ModInstallLog, DeploymentManager, m_dlgOverwriteConfirmationDelegate);
 			IModFileInstaller mfiFileInstaller = CreateFileInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
 			bool booResult = false;
 			IIniInstaller iniIniInstaller = null;
@@ -307,7 +319,7 @@ namespace Nexus.Client.ModManagement
 			if (Mod.HasInstallScript)
 			{
 				if (CheckScriptedModLog())
-					booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, LoadXMLModFilesToInstall());
+					booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, LoadXMLModFilesToInstall(), p_tfmFileManager);
 				else
 				{
 					try
@@ -336,7 +348,7 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 			else
-				booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, null);
+				booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, null, p_tfmFileManager);
 			mfiFileInstaller.FinalizeInstall();
 			return booResult;
 		}
@@ -381,11 +393,28 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_dicInstallFiles">The list of specific files to install, if null the mod will be installed as usual.</param>
 		/// <returns><c>true</c> if the installation was successful;
 		/// <c>false</c> otherwise.</returns>
-		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles)
+		protected bool RunBasicInstallScript(IModFileInstaller p_mfiFileInstaller,
+			ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles,
+			TxFileManager p_tfmFileManager)
 		{
-			BasicInstallTask bitTask = new BasicInstallTask(Mod, GameMode, p_mfiFileInstaller, PluginManager, VirtualModActivator, EnvironmentInfo.Settings.SkipReadmeFiles, p_rolActiveMods, p_dicInstallFiles, InstallContext);
+			IModDeploymentManager deploymentManager = m_booUsePromotedDeploymentPath ? DeploymentManager : null;
+			BasicInstallTask bitTask = new BasicInstallTask(
+				Mod,
+				GameMode,
+				p_mfiFileInstaller,
+				PluginManager,
+				VirtualModActivator,
+				EnvironmentInfo.Settings.SkipReadmeFiles,
+				p_rolActiveMods,
+				p_dicInstallFiles,
+				InstallContext,
+				deploymentManager,
+				p_tfmFileManager,
+				deploymentManager == null ? null : m_dorOverwriteResolver);
 			OnTaskStarted(bitTask);
-			return bitTask.Execute();
+			bool result = bitTask.Execute();
+			m_booUsedPromotedDeployment |= bitTask.UsedPromotedDeployment;
+			return result;
 		}
 
 		#endregion
@@ -405,8 +434,8 @@ namespace Nexus.Client.ModManagement
 		{
 			if (InstallContext.Method == ModInstallMethod.Direct)
 			{
-				return new DirectModFileInstaller(Mod, GameMode, ModInstallLog, DeploymentManager, PluginManager,
-					p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, EnvironmentInfo, InstallContext);
+				return new DirectModFileInstaller(Mod, GameMode, DeploymentManager, PluginManager,
+					p_tfmFileManager, EnvironmentInfo, InstallContext, m_dorOverwriteResolver);
 			}
 
 			return new ModFileInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager, new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager, p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo, GetInstallBasePath());

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
@@ -72,6 +73,14 @@ namespace Nexus.Client.ModManagement
 		protected List<KeyValuePair<string, string>> FilesToInstall { get; private set; }
 		protected ModInstallContext InstallContext { get; private set; }
 		protected ModInstallRoot InstallRoot => InstallContext.InstallRoot;
+		protected IModDeploymentManager DeploymentManager { get; private set; }
+		protected TxFileManager FileManager { get; private set; }
+		protected ModDeploymentOverwriteResolver OverwriteResolver { get; private set; }
+
+		/// <summary>
+		/// Gets whether this task used the promoted deployment path.
+		/// </summary>
+		public bool UsedPromotedDeployment { get; private set; }
 
 		#endregion
 
@@ -101,6 +110,19 @@ namespace Nexus.Client.ModManagement
 		/// Initializes a basic install task with the immutable deployment context captured for the operation.
 		/// </summary>
 		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme, ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles, ModInstallContext p_micInstallContext)
+			: this(p_modMod, p_gmdGameMode, p_mfiFileInstaller, p_pmgPluginManager, p_ivaVirtualModActivator,
+				p_booSkipReadme, p_rolActiveMods, p_dicInstallFiles, p_micInstallContext, null, null, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a basic install task with optional promoted-deployment services.
+		/// </summary>
+		public BasicInstallTask(IMod p_modMod, IGameMode p_gmdGameMode, IModFileInstaller p_mfiFileInstaller,
+			IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, bool p_booSkipReadme,
+			ReadOnlyObservableList<IMod> p_rolActiveMods, List<KeyValuePair<string, string>> p_dicInstallFiles,
+			ModInstallContext p_micInstallContext, IModDeploymentManager p_mdmDeploymentManager,
+			TxFileManager p_tfmFileManager, ModDeploymentOverwriteResolver p_dorOverwriteResolver)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -111,6 +133,9 @@ namespace Nexus.Client.ModManagement
 			ActiveMods = p_rolActiveMods;
 			FilesToInstall = p_dicInstallFiles;
 			InstallContext = p_micInstallContext ?? throw new ArgumentNullException(nameof(p_micInstallContext));
+			DeploymentManager = p_mdmDeploymentManager;
+			FileManager = p_tfmFileManager;
+			OverwriteResolver = p_dorOverwriteResolver;
 		}
 
 		#endregion
@@ -235,6 +260,7 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidDataException(string.Format("This mod does not have the correct file structure for a {0} mod that NMM can use. It will not work with NMM.", GameMode.Name));
 
 			List<string> deployedPluginPaths = new List<string>();
+			bool checkPromotedTargets = DeploymentManager != null && DeploymentManager.HasPromotedTargets;
 
 			if (VirtualModActivator.DisableLinkCreation && lstFilesToLink.Count > 0)
 				throw new InvalidOperationException("Mod file deployment is currently disabled. The installation cannot complete safely.");
@@ -245,7 +271,30 @@ namespace Nexus.Client.ModManagement
 				{
 					if (!VirtualModActivator.DisableLinkCreation)
 					{
-						string strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false, false, InstallRoot);
+						string strFileLink;
+						ModDeploymentTarget target = checkPromotedTargets
+							? ModDeploymentTargetResolver.Resolve(GameMode, Mod, strLink.Key, InstallRoot)
+							: null;
+						if (target != null && DeploymentManager.IsPromoted(target))
+						{
+							if (FileManager == null || OverwriteResolver == null)
+								throw new InvalidOperationException("Promoted Virtual deployment requires transactional deployment services.");
+
+							bool activate = OverwriteResolver.ShouldActivate(target);
+							strFileLink = DeploymentManager.InstallVirtualFile(
+								Mod,
+								target,
+								strLink.Key,
+								strLink.Value,
+								InstallRoot,
+								activate,
+								FileManager);
+							UsedPromotedDeployment = true;
+						}
+						else
+						{
+							strFileLink = ModLinkInstaller.AddFileLink(Mod, strLink.Key, strLink.Value, false, false, InstallRoot);
+						}
 
 						if (!string.IsNullOrEmpty(strFileLink) &&
 							PluginManager != null &&
@@ -261,7 +310,8 @@ namespace Nexus.Client.ModManagement
 			if (PluginManager != null && deployedPluginPaths.Count > 0)
 				PluginManager.IntegrateDeployedPlugins(deployedPluginPaths);
 
-			VirtualModActivator.SaveList();
+			if (!UsedPromotedDeployment)
+				VirtualModActivator.SaveList();
 			return true;
 		}
 

@@ -160,6 +160,7 @@
     <Compile Include="ModManagement\ModInstallContext.cs" />
     <Compile Include="ModManagement\ModDeploymentRoot.cs" />
     <Compile Include="ModManagement\ModDeploymentTarget.cs" />
+    <Compile Include="ModManagement\ModDeploymentOverwriteResolver.cs" />
     <Compile Include="ModManagement\ModDeploymentTargetResolver.cs" />
     <Compile Include="Settings\InstallMethodSettingsExtensions.cs" />
     <Compile Include="ModManagement\ModInstallFileFilter.cs" />

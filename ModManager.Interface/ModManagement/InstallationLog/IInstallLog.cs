@@ -110,6 +110,16 @@
 		ModInstallMethod GetModInstallMethod(IMod mod);
 
 		/// <summary>
+		/// Gets the recorded install method for a real deployment owner key.
+		/// </summary>
+		ModInstallMethod GetModInstallMethod(string modKey);
+
+		/// <summary>
+		/// Gets whether the sparse method-neutral deployment registry contains any promoted targets.
+		/// </summary>
+		bool HasDeploymentTargets { get; }
+
+		/// <summary>
 		/// Gets the persisted owner stack for a promoted deployment target, ordered fallback to current winner.
 		/// </summary>
 		IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target);

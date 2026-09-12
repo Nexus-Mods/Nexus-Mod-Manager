@@ -809,6 +809,15 @@
 		}
 
 		/// <inheritdoc />
+		public ModInstallMethod GetModInstallMethod(string modKey)
+		{
+			return GetEnlistment().GetModInstallMethodByKey(modKey);
+		}
+
+		/// <inheritdoc />
+		public bool HasDeploymentTargets => GetEnlistment().HasDeploymentTargets;
+
+		/// <inheritdoc />
 		public IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target)
 		{
 			return GetEnlistment().GetDeploymentOwnerKeys(target);

@@ -86,9 +86,22 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		IReadOnlyList<string> GetVirtualOwnerKeys(ModDeploymentTarget p_mdtTarget);
 		/// <summary>
+		/// Gets the canonical Virtual deployment targets owned by the specified mod.
+		/// </summary>
+		IReadOnlyCollection<ModDeploymentTarget> GetVirtualTargetsForMod(IMod p_modMod);
+		/// <summary>
 		/// Gets the staged source file for a Virtual owner at the specified deployment target.
 		/// </summary>
 		string GetVirtualSourceForOwner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+		/// <summary>
+		/// Gets the legacy VMA loose-file overwrite path associated with a Virtual owner and target.
+		/// </summary>
+		string GetVirtualOverwritePath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+		/// <summary>
+		/// Registers an existing staged source as a Virtual owner without deploying it or persisting immediately.
+		/// </summary>
+		void RegisterVirtualLink(ModDeploymentTarget p_mdtTarget, IMod p_modMod, string p_strLogicalPath,
+			string p_strStagedSource, ModInstallRoot p_mirInstallRoot, int p_intPriority);
 		/// <summary>
 		/// Detaches the selected deployed Virtual file without selecting a fallback, changing plugins, or persisting immediately.
 		/// </summary>
@@ -105,6 +118,10 @@ namespace Nexus.Client.ModManagement
 		/// Changes only the selected Virtual link active state.
 		/// </summary>
 		void SetVirtualLinkActiveState(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, bool p_booActive);
+		/// <summary>
+		/// Removes the mod's Virtual metadata when it has no remaining Virtual link records.
+		/// </summary>
+		void RemoveVirtualModInfoIfUnused(IMod p_modMod);
 		/// <summary>
 		/// Gets the current active virtual-file owners for the specified paths.
 		/// </summary>

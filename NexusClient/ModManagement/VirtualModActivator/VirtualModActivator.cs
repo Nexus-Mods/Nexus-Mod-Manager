@@ -989,7 +989,10 @@
 				List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>(m_tslVirtualModList);
 				Dictionary<IVirtualModInfo, IMod> dicManagedModsByModInfo = BuildManagedModLookupForVirtualLinks(lstVirtualLinks);
 				VirtualLinkIndex vliVirtualLinkIndex = new VirtualLinkIndex(lstVirtualLinks.Count);
-				vliVirtualLinkIndex.Rebuild(lstVirtualLinks, x => GetVirtualLinkDeploymentPathKeys(x, dicManagedModsByModInfo));
+				vliVirtualLinkIndex.Rebuild(
+					lstVirtualLinks,
+					x => GetVirtualLinkDeploymentPathKeys(x, dicManagedModsByModInfo),
+					x => GetVirtualLinkOwnerKey(x, dicManagedModsByModInfo));
 
 				lock (m_objVirtualLinkIndexLock)
 				{
@@ -1080,6 +1083,15 @@
 
 			foreach (string strDeploymentPathKey in GetVirtualLinkDeploymentPathKeys(p_vmlLink, modMod))
 				yield return strDeploymentPathKey;
+		}
+
+		private string GetVirtualLinkOwnerKey(IVirtualModLink p_vmlLink, IDictionary<IVirtualModInfo, IMod> p_dicManagedModsByModInfo)
+		{
+			IMod modMod = null;
+			if (p_vmlLink != null && p_vmlLink.ModInfo != null && p_dicManagedModsByModInfo != null)
+				p_dicManagedModsByModInfo.TryGetValue(p_vmlLink.ModInfo, out modMod);
+
+			return modMod == null ? null : ModInstallLog.GetModKey(modMod);
 		}
 
 		private IEnumerable<string> GetVirtualLinkDeploymentPathKeys(IVirtualModLink p_vmlLink, IMod p_modMod)
@@ -1207,6 +1219,7 @@
 			string strRawDeploymentPathKey;
 			string strAdjustedDeploymentPathKey;
 			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawDeploymentPathKey, out strAdjustedDeploymentPathKey);
+			string strOwnerKey = p_modMod == null ? null : ModInstallLog.GetModKey(p_modMod);
 
 			if (booOwnIndexMutationScope)
 				m_alcVirtualLinkIndexMutationNesting.Value++;
@@ -1224,7 +1237,7 @@
 			{
 				if (!m_booVirtualLinkIndexDirty)
 				{
-					m_vliVirtualLinkIndex.Add(p_vmlLink, strRawDeploymentPathKey, strAdjustedDeploymentPathKey);
+					m_vliVirtualLinkIndex.Add(p_vmlLink, strRawDeploymentPathKey, strAdjustedDeploymentPathKey, strOwnerKey);
 					m_intVirtualLinkIndexRevision++;
 				}
 			}
@@ -1250,6 +1263,7 @@
 			string strRawDeploymentPathKey;
 			string strAdjustedDeploymentPathKey;
 			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawDeploymentPathKey, out strAdjustedDeploymentPathKey);
+			string strOwnerKey = p_modMod == null ? null : ModInstallLog.GetModKey(p_modMod);
 			bool booRemoved;
 
 			if (booOwnIndexMutationScope)
@@ -1271,7 +1285,7 @@
 			{
 				if (!m_booVirtualLinkIndexDirty)
 				{
-					m_vliVirtualLinkIndex.Remove(p_vmlLink, strRawDeploymentPathKey, strAdjustedDeploymentPathKey);
+					m_vliVirtualLinkIndex.Remove(p_vmlLink, strRawDeploymentPathKey, strAdjustedDeploymentPathKey, strOwnerKey);
 					m_intVirtualLinkIndexRevision++;
 				}
 			}

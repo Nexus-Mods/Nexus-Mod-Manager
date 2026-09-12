@@ -25,7 +25,7 @@
 				_modInstallMethods[key] = NormalizeInstallMethod(installMethod);
 			}
 
-			private ModInstallMethod GetModInstallMethodByKey(string key)
+			public ModInstallMethod GetModInstallMethodByKey(string key)
 			{
 				ModInstallMethod installMethod;
 				if (!string.IsNullOrEmpty(key) && _modInstallMethods.TryGetValue(key, out installMethod))
@@ -37,6 +37,19 @@
 			public ModInstallMethod GetModInstallMethod(IMod mod)
 			{
 				return GetModInstallMethodByKey(GetModKey(mod));
+			}
+
+			public bool HasDeploymentTargets
+			{
+				get
+				{
+					if (_deploymentChanges.Count > 0)
+						return true;
+					if (_removedDeploymentTargets.Count == 0)
+						return EnlistedInstallLog.HasDeploymentTargetsCore;
+
+					return EnlistedInstallLog._deploymentByTarget.Keys.Any(x => !_removedDeploymentTargets.Contains(x));
+				}
 			}
 
 			public IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target)

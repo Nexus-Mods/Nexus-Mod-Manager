@@ -123,7 +123,9 @@
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
+    <Compile Include="BasicInstallPromotedRoutingTests.cs" />
     <Compile Include="DirectInstallStep3Tests.cs" />
+    <Compile Include="MixedDeploymentStep4Tests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
     <Compile Include="NexusDescriptionFormatterTests.cs" />

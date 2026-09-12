@@ -46,6 +46,9 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <inheritdoc />
+		public bool HasPromotedTargets => m_ilgInstallLog.HasDeploymentTargets;
+
+		/// <inheritdoc />
 		public bool IsPromoted(ModDeploymentTarget p_mdtTarget)
 		{
 			if (p_mdtTarget == null)
@@ -89,9 +92,8 @@ namespace Nexus.Client.ModManagement
 			if (p_fstPayload == null)
 				throw new ArgumentNullException(nameof(p_fstPayload));
 
-			EnsureStandaloneDirectTarget(p_mdtTarget);
 			string modKey = RequireDirectModKey(p_modMod);
-			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+			List<string> owners = GetOrPromoteOwnerStack(p_mdtTarget, p_tfmFileManager);
 			string deploymentPath = GetDeploymentPath(p_mdtTarget);
 			int existingOwnerIndex = owners.FindIndex(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase));
 
@@ -112,12 +114,7 @@ namespace Nexus.Client.ModManagement
 				}
 
 				if (currentOwnerKey != null)
-				{
-					if (!File.Exists(deploymentPath))
-						throw new FileNotFoundException("The current Direct deployment winner is missing and cannot be backed up.", deploymentPath);
-
-					MoveToBackup(p_mdtTarget, currentOwnerKey, deploymentPath, p_tfmFileManager);
-				}
+					DisplaceCurrentOwner(p_mdtTarget, currentOwnerKey, deploymentPath, p_tfmFileManager);
 
 				owners.Add(modKey);
 			}
@@ -132,60 +129,87 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <inheritdoc />
+		public string InstallVirtualFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, string p_strLogicalPath,
+			string p_strStagedSource, ModInstallRoot p_mirInstallRoot, bool p_booActivate, TxFileManager p_tfmFileManager)
+		{
+			RequireMutationArguments(p_modMod, p_mdtTarget, p_tfmFileManager);
+			string modKey = RequireVirtualModKey(p_modMod);
+			if (!m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
+				throw new InvalidOperationException("Only promoted Virtual targets may use the method-neutral deployment path.");
+
+			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+			if (owners.Any(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase)))
+				throw new NotSupportedException("Virtual reinstall and conversion are implemented in Step 6.");
+
+			int priority = p_booActivate ? 0 : CountVirtualOwners(owners);
+			m_vmaVirtualModActivator.RegisterVirtualLink(
+				p_mdtTarget,
+				p_modMod,
+				p_strLogicalPath,
+				p_strStagedSource,
+				p_mirInstallRoot,
+				priority);
+
+			if (!p_booActivate)
+			{
+				int insertionIndex = owners.Count > 0 &&
+					owners[0].Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+				owners.Insert(insertionIndex, modKey);
+				m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
+				return string.Empty;
+			}
+
+			string deploymentPath = GetDeploymentPath(p_mdtTarget);
+			string currentOwnerKey = owners.Count == 0 ? null : owners[owners.Count - 1];
+			if (currentOwnerKey != null)
+				DisplaceCurrentOwner(p_mdtTarget, currentOwnerKey, deploymentPath, p_tfmFileManager);
+
+			owners.Add(modKey);
+			m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, modKey, p_tfmFileManager);
+			m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
+			return deploymentPath;
+		}
+
+		/// <inheritdoc />
 		public IReadOnlyCollection<string> UninstallDirectMod(IMod p_modMod, TxFileManager p_tfmFileManager)
 		{
-			if (p_modMod == null)
-				throw new ArgumentNullException(nameof(p_modMod));
-			if (p_tfmFileManager == null)
-				throw new ArgumentNullException(nameof(p_tfmFileManager));
-			RequireAmbientTransaction();
+			RequireDirectModKey(p_modMod);
+			return UninstallMixedMod(p_modMod, p_tfmFileManager);
+		}
 
-			string modKey = RequireDirectModKey(p_modMod);
-			ModDeploymentTarget[] targets = m_ilgInstallLog.GetDeploymentTargetsForMod(modKey).ToArray();
+		/// <inheritdoc />
+		public IReadOnlyCollection<string> UninstallMixedMod(IMod p_modMod, TxFileManager p_tfmFileManager)
+		{
+			RequireMutationArguments(p_modMod, null, p_tfmFileManager);
+			string modKey = RequireModKey(p_modMod);
+			ModInstallMethod installMethod = m_ilgInstallLog.GetModInstallMethod(p_modMod);
+			var targets = new HashSet<ModDeploymentTarget>(m_ilgInstallLog.GetDeploymentTargetsForMod(modKey));
+			if (installMethod == ModInstallMethod.Virtual)
+				targets.UnionWith(m_vmaVirtualModActivator.GetVirtualTargetsForMod(p_modMod));
+
 			var absentPaths = new List<string>();
 			foreach (ModDeploymentTarget target in targets)
 			{
-				EnsureStandaloneDirectTarget(target);
-				var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(target));
-				int ownerIndex = owners.FindIndex(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase));
-				if (ownerIndex < 0)
-					continue;
-
-				string deploymentPath = GetDeploymentPath(target);
-				bool isCurrentWinner = ownerIndex == owners.Count - 1;
-				owners.RemoveAt(ownerIndex);
-
-				if (!isCurrentWinner)
-				{
-					DeleteBackupIfPresent(target, modKey, p_tfmFileManager);
-					m_ilgInstallLog.SetDeploymentOwners(target, owners);
-					continue;
-				}
-
-				if (File.Exists(deploymentPath))
-					p_tfmFileManager.Delete(deploymentPath);
-
-				string restoreOwnerKey = owners.Count == 0 ? null : owners[owners.Count - 1];
-				if (restoreOwnerKey == null)
-				{
-					m_ilgInstallLog.RemoveDeploymentTarget(target);
-					absentPaths.Add(deploymentPath);
-					continue;
-				}
-
-				RestoreBackup(target, restoreOwnerKey, deploymentPath, p_tfmFileManager);
-				if (restoreOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
-				{
-					owners.RemoveAt(owners.Count - 1);
-					m_ilgInstallLog.RemoveDeploymentTarget(target);
-				}
-				else
-				{
-					m_ilgInstallLog.SetDeploymentOwners(target, owners);
-				}
+				if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
+					RemovePromotedOwner(target, modKey, p_tfmFileManager, absentPaths);
+				else if (installMethod == ModInstallMethod.Virtual)
+					RemovePureVirtualOwner(target, modKey, p_tfmFileManager, absentPaths);
 			}
 
+			if (installMethod == ModInstallMethod.Virtual)
+				m_vmaVirtualModActivator.RemoveVirtualModInfoIfUnused(p_modMod);
 			return absentPaths;
+		}
+
+		/// <inheritdoc />
+		public bool HasPromotedFiles(IMod p_modMod)
+		{
+			if (p_modMod == null)
+				return false;
+
+			string modKey = m_ilgInstallLog.GetModKey(p_modMod);
+			return !string.IsNullOrWhiteSpace(modKey) &&
+				m_ilgInstallLog.GetDeploymentTargetsForMod(modKey).Count > 0;
 		}
 
 		/// <inheritdoc />
@@ -203,10 +227,15 @@ namespace Nexus.Client.ModManagement
 
 		private void RequireDirectMutationArguments(IMod p_modMod, ModDeploymentTarget p_mdtTarget, TxFileManager p_tfmFileManager)
 		{
-			if (p_modMod == null)
-				throw new ArgumentNullException(nameof(p_modMod));
 			if (p_mdtTarget == null)
 				throw new ArgumentNullException(nameof(p_mdtTarget));
+			RequireMutationArguments(p_modMod, p_mdtTarget, p_tfmFileManager);
+		}
+
+		private static void RequireMutationArguments(IMod p_modMod, ModDeploymentTarget p_mdtTarget, TxFileManager p_tfmFileManager)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
 			if (p_tfmFileManager == null)
 				throw new ArgumentNullException(nameof(p_tfmFileManager));
 
@@ -230,10 +259,201 @@ namespace Nexus.Client.ModManagement
 			return modKey;
 		}
 
-		private void EnsureStandaloneDirectTarget(ModDeploymentTarget p_mdtTarget)
+		private string RequireVirtualModKey(IMod p_modMod)
 		{
-			if (m_vmaVirtualModActivator.GetVirtualOwnerKeys(p_mdtTarget).Count > 0)
-				throw new NotSupportedException("Mixed Virtual/Direct ownership is implemented in Step 4 and is not available yet.");
+			string modKey = RequireModKey(p_modMod);
+			if (m_ilgInstallLog.GetModInstallMethod(p_modMod) != ModInstallMethod.Virtual)
+				throw new InvalidOperationException("Promoted Virtual deployment requires a mod recorded with the Virtual install method.");
+			return modKey;
+		}
+
+		private string RequireModKey(IMod p_modMod)
+		{
+			string modKey = m_ilgInstallLog.GetModKey(p_modMod);
+			if (string.IsNullOrWhiteSpace(modKey))
+				throw new InvalidOperationException("The mod must be registered with InstallLog before changing deployment ownership.");
+			return modKey;
+		}
+
+		private List<string> GetOrPromoteOwnerStack(ModDeploymentTarget p_mdtTarget, TxFileManager p_tfmFileManager)
+		{
+			if (m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
+				return new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+
+			IReadOnlyList<string> virtualOwners = m_vmaVirtualModActivator.GetVirtualOwnerKeys(p_mdtTarget);
+			var owners = new List<string>(virtualOwners.Count + 1);
+			string legacyOverwritePath = FindExistingVirtualOverwritePath(p_mdtTarget, virtualOwners);
+			if (!string.IsNullOrEmpty(legacyOverwritePath))
+			{
+				ClaimLegacyOriginalBackup(p_mdtTarget, legacyOverwritePath, p_tfmFileManager);
+				owners.Add(m_ilgInstallLog.OriginalValuesKey);
+			}
+			owners.AddRange(virtualOwners);
+			return owners;
+		}
+
+		private void DisplaceCurrentOwner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey,
+			string p_strDeploymentPath, TxFileManager p_tfmFileManager)
+		{
+			if (GetOwnerMethod(p_strOwnerKey) == ModInstallMethod.Virtual)
+			{
+				m_vmaVirtualModActivator.DetachVirtualLinkWithoutFallback(p_mdtTarget, p_strOwnerKey, p_tfmFileManager);
+				if (File.Exists(p_strDeploymentPath))
+					throw new IOException(string.Format("Virtual deployment target '{0}' remained attached after detachment.", p_mdtTarget));
+				return;
+			}
+
+			if (!File.Exists(p_strDeploymentPath))
+				throw new FileNotFoundException("The current deployment winner is missing and cannot be backed up.", p_strDeploymentPath);
+			MoveToBackup(p_mdtTarget, p_strOwnerKey, p_strDeploymentPath, p_tfmFileManager);
+		}
+
+		private void RemovePromotedOwner(ModDeploymentTarget p_mdtTarget, string p_strModKey,
+			TxFileManager p_tfmFileManager, ICollection<string> p_colAbsentPaths)
+		{
+			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
+			int ownerIndex = owners.FindIndex(x => x.Equals(p_strModKey, StringComparison.OrdinalIgnoreCase));
+			if (ownerIndex < 0)
+				return;
+
+			bool virtualOwner = GetOwnerMethod(p_strModKey) == ModInstallMethod.Virtual;
+			bool currentWinner = ownerIndex == owners.Count - 1;
+			string deploymentPath = GetDeploymentPath(p_mdtTarget);
+			if (currentWinner)
+			{
+				if (virtualOwner)
+					m_vmaVirtualModActivator.DetachVirtualLinkWithoutFallback(p_mdtTarget, p_strModKey, p_tfmFileManager);
+				else if (File.Exists(deploymentPath))
+					p_tfmFileManager.Delete(deploymentPath);
+			}
+
+			if (virtualOwner)
+				m_vmaVirtualModActivator.RemoveVirtualLinkRecord(p_mdtTarget, p_strModKey);
+			else if (!currentWinner)
+				DeleteBackupIfPresent(p_mdtTarget, p_strModKey, p_tfmFileManager);
+
+			owners.RemoveAt(ownerIndex);
+			if (!currentWinner)
+			{
+				m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
+				return;
+			}
+
+			RestorePromotedWinner(p_mdtTarget, deploymentPath, owners, p_tfmFileManager, p_colAbsentPaths);
+		}
+
+		private void RestorePromotedWinner(ModDeploymentTarget p_mdtTarget, string p_strDeploymentPath,
+			List<string> p_lstOwners, TxFileManager p_tfmFileManager, ICollection<string> p_colAbsentPaths)
+		{
+			string restoreOwnerKey = p_lstOwners.Count == 0 ? null : p_lstOwners[p_lstOwners.Count - 1];
+			if (restoreOwnerKey == null)
+			{
+				m_ilgInstallLog.RemoveDeploymentTarget(p_mdtTarget);
+				p_colAbsentPaths.Add(p_strDeploymentPath);
+				return;
+			}
+
+			if (restoreOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+			{
+				RestoreBackup(p_mdtTarget, restoreOwnerKey, p_strDeploymentPath, p_tfmFileManager);
+				m_ilgInstallLog.RemoveDeploymentTarget(p_mdtTarget);
+				return;
+			}
+
+			if (GetOwnerMethod(restoreOwnerKey) == ModInstallMethod.Virtual)
+				m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, restoreOwnerKey, p_tfmFileManager);
+			else
+				RestoreBackup(p_mdtTarget, restoreOwnerKey, p_strDeploymentPath, p_tfmFileManager);
+			m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, p_lstOwners);
+		}
+
+		private void RemovePureVirtualOwner(ModDeploymentTarget p_mdtTarget, string p_strModKey,
+			TxFileManager p_tfmFileManager, ICollection<string> p_colAbsentPaths)
+		{
+			var owners = new List<string>(m_vmaVirtualModActivator.GetVirtualOwnerKeys(p_mdtTarget));
+			int ownerIndex = owners.FindIndex(x => x.Equals(p_strModKey, StringComparison.OrdinalIgnoreCase));
+			if (ownerIndex < 0)
+				return;
+
+			string deploymentPath = GetDeploymentPath(p_mdtTarget);
+			string legacyOverwritePath = FindExistingVirtualOverwritePath(p_mdtTarget, owners);
+			bool currentWinner = ownerIndex == owners.Count - 1;
+			if (currentWinner)
+				m_vmaVirtualModActivator.DetachVirtualLinkWithoutFallback(p_mdtTarget, p_strModKey, p_tfmFileManager);
+			m_vmaVirtualModActivator.RemoveVirtualLinkRecord(p_mdtTarget, p_strModKey);
+			owners.RemoveAt(ownerIndex);
+
+			if (owners.Count > 0)
+			{
+				RelocateLegacyVirtualOverwrite(p_mdtTarget, legacyOverwritePath, owners[0], p_tfmFileManager);
+				if (currentWinner)
+					m_vmaVirtualModActivator.DeploySpecificVirtualLink(p_mdtTarget, owners[owners.Count - 1], p_tfmFileManager);
+				return;
+			}
+
+			if (currentWinner && !string.IsNullOrEmpty(legacyOverwritePath) && File.Exists(legacyOverwritePath))
+				MoveOrCopyDelete(legacyOverwritePath, deploymentPath, p_tfmFileManager);
+			else if (currentWinner)
+				p_colAbsentPaths.Add(deploymentPath);
+		}
+
+		private void RelocateLegacyVirtualOverwrite(ModDeploymentTarget p_mdtTarget, string p_strSourcePath,
+			string p_strDestinationOwnerKey, TxFileManager p_tfmFileManager)
+		{
+			if (string.IsNullOrEmpty(p_strSourcePath) || !File.Exists(p_strSourcePath))
+				return;
+
+			string destinationPath = m_vmaVirtualModActivator.GetVirtualOverwritePath(p_mdtTarget, p_strDestinationOwnerKey);
+			if (string.IsNullOrWhiteSpace(destinationPath) ||
+				string.Equals(p_strSourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
+			{
+				return;
+			}
+			if (File.Exists(destinationPath))
+				throw new IOException(string.Format("Legacy Virtual overwrite destination '{0}' already exists.", destinationPath));
+
+			string directory = Path.GetDirectoryName(destinationPath);
+			if (!Directory.Exists(directory))
+				p_tfmFileManager.CreateDirectory(directory);
+			MoveOrCopyDelete(p_strSourcePath, destinationPath, p_tfmFileManager);
+		}
+
+		private string FindExistingVirtualOverwritePath(ModDeploymentTarget p_mdtTarget, IEnumerable<string> p_enmOwnerKeys)
+		{
+			foreach (string ownerKey in p_enmOwnerKeys)
+			{
+				string overwritePath = m_vmaVirtualModActivator.GetVirtualOverwritePath(p_mdtTarget, ownerKey);
+				if (!string.IsNullOrEmpty(overwritePath) && File.Exists(overwritePath))
+					return overwritePath;
+			}
+			return null;
+		}
+
+		private void ClaimLegacyOriginalBackup(ModDeploymentTarget p_mdtTarget, string p_strLegacyPath,
+			TxFileManager p_tfmFileManager)
+		{
+			string backupPath = GetBackupPath(p_mdtTarget, m_ilgInstallLog.OriginalValuesKey);
+			if (File.Exists(backupPath))
+				throw new IOException(string.Format("A shared original backup already exists for '{0}'.", p_mdtTarget));
+
+			string backupDirectory = Path.GetDirectoryName(backupPath);
+			if (!Directory.Exists(backupDirectory))
+				p_tfmFileManager.CreateDirectory(backupDirectory);
+			MoveOrCopyDelete(p_strLegacyPath, backupPath, p_tfmFileManager);
+		}
+
+		private ModInstallMethod GetOwnerMethod(string p_strOwnerKey)
+		{
+			if (p_strOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase))
+				return ModInstallMethod.Direct;
+			return m_ilgInstallLog.GetModInstallMethod(p_strOwnerKey);
+		}
+
+		private int CountVirtualOwners(IEnumerable<string> p_enmOwnerKeys)
+		{
+			return p_enmOwnerKeys.Count(x =>
+				!x.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase) &&
+				GetOwnerMethod(x) == ModInstallMethod.Virtual);
 		}
 
 		private string GetDeploymentRootPath(ModDeploymentRoot p_mdrRoot)

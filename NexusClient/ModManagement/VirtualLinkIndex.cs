@@ -138,6 +138,7 @@ namespace Nexus.Client.ModManagement
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByVirtualPath;
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByFileName;
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByDeploymentPath;
+		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByOwnerKey;
 		private int m_intReservedLinkCount;
 
 		public VirtualLinkIndex()
@@ -151,6 +152,7 @@ namespace Nexus.Client.ModManagement
 			m_dicLinksByVirtualPath = CreateIndex(expectedLinkCount);
 			m_dicLinksByFileName = CreateIndex(expectedLinkCount);
 			m_dicLinksByDeploymentPath = CreateIndex(GetDeploymentCapacity(expectedLinkCount));
+			m_dicLinksByOwnerKey = CreateIndex(expectedLinkCount);
 			m_intReservedLinkCount = expectedLinkCount;
 		}
 
@@ -168,6 +170,7 @@ namespace Nexus.Client.ModManagement
 			m_dicLinksByVirtualPath = CopyIndex(m_dicLinksByVirtualPath, reservedLinkCount);
 			m_dicLinksByFileName = CopyIndex(m_dicLinksByFileName, reservedLinkCount);
 			m_dicLinksByDeploymentPath = CopyIndex(m_dicLinksByDeploymentPath, GetDeploymentCapacity(reservedLinkCount));
+			m_dicLinksByOwnerKey = CopyIndex(m_dicLinksByOwnerKey, reservedLinkCount);
 			m_intReservedLinkCount = reservedLinkCount;
 		}
 
@@ -178,13 +181,22 @@ namespace Nexus.Client.ModManagement
 
 		public void Rebuild(IEnumerable<IVirtualModLink> p_enmLinks, Func<IVirtualModLink, IEnumerable<string>> p_dlgDeploymentPathKeyFactory)
 		{
+			Rebuild(p_enmLinks, p_dlgDeploymentPathKeyFactory, null);
+		}
+
+		/// <summary>
+		/// Rebuilds the indexes, including the runtime owner-to-links inverse index.
+		/// </summary>
+		public void Rebuild(IEnumerable<IVirtualModLink> p_enmLinks, Func<IVirtualModLink, IEnumerable<string>> p_dlgDeploymentPathKeyFactory,
+			Func<IVirtualModLink, string> p_dlgOwnerKeyFactory)
+		{
 			Clear();
 
 			if (p_enmLinks == null)
 				return;
 
 			foreach (IVirtualModLink vmlLink in p_enmLinks)
-				Add(vmlLink, GetDeploymentPathKeys(p_dlgDeploymentPathKeyFactory, vmlLink));
+				Add(vmlLink, GetDeploymentPathKeys(p_dlgDeploymentPathKeyFactory, vmlLink), GetOwnerKey(p_dlgOwnerKeyFactory, vmlLink));
 		}
 
 		/// <summary>
@@ -195,11 +207,12 @@ namespace Nexus.Client.ModManagement
 			m_dicLinksByVirtualPath.Clear();
 			m_dicLinksByFileName.Clear();
 			m_dicLinksByDeploymentPath.Clear();
+			m_dicLinksByOwnerKey.Clear();
 		}
 
 		public void Add(IVirtualModLink p_vmlLink)
 		{
-			Add(p_vmlLink, null, null);
+			Add(p_vmlLink, null, null, null);
 		}
 
 		/// <summary>
@@ -209,11 +222,20 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_enmDeploymentPathKeys">The deployment path keys associated with the link.</param>
 		public void Add(IVirtualModLink p_vmlLink, IEnumerable<string> p_enmDeploymentPathKeys)
 		{
+			Add(p_vmlLink, p_enmDeploymentPathKeys, null);
+		}
+
+		/// <summary>
+		/// Adds a virtual link, its deployment keys, and its managed owner key to the indexes.
+		/// </summary>
+		public void Add(IVirtualModLink p_vmlLink, IEnumerable<string> p_enmDeploymentPathKeys, string p_strOwnerKey)
+		{
 			if (p_vmlLink == null)
 				return;
 
 			Add(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
 			Add(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
+			Add(m_dicLinksByOwnerKey, p_strOwnerKey, p_vmlLink);
 
 			if (p_enmDeploymentPathKeys == null)
 				return;
@@ -230,12 +252,21 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strSecondaryDeploymentPathKey">The secondary deployment path key.</param>
 		public void Add(IVirtualModLink p_vmlLink, string p_strPrimaryDeploymentPathKey, string p_strSecondaryDeploymentPathKey)
 		{
+			Add(p_vmlLink, p_strPrimaryDeploymentPathKey, p_strSecondaryDeploymentPathKey, null);
+		}
+
+		/// <summary>
+		/// Adds a virtual link, up to two deployment keys, and its managed owner key to the indexes.
+		/// </summary>
+		public void Add(IVirtualModLink p_vmlLink, string p_strPrimaryDeploymentPathKey, string p_strSecondaryDeploymentPathKey, string p_strOwnerKey)
+		{
 			if (p_vmlLink == null)
 				return;
 
 			Add(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
 			Add(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
 			Add(m_dicLinksByDeploymentPath, p_strPrimaryDeploymentPathKey, p_vmlLink);
+			Add(m_dicLinksByOwnerKey, p_strOwnerKey, p_vmlLink);
 
 			if (!String.Equals(p_strPrimaryDeploymentPathKey, p_strSecondaryDeploymentPathKey, StringComparison.OrdinalIgnoreCase))
 				Add(m_dicLinksByDeploymentPath, p_strSecondaryDeploymentPathKey, p_vmlLink);
@@ -243,7 +274,7 @@ namespace Nexus.Client.ModManagement
 
 		public void Remove(IVirtualModLink p_vmlLink)
 		{
-			Remove(p_vmlLink, null, null);
+			Remove(p_vmlLink, null, null, null);
 		}
 
 		/// <summary>
@@ -253,11 +284,20 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_enmDeploymentPathKeys">The deployment path keys associated with the link.</param>
 		public void Remove(IVirtualModLink p_vmlLink, IEnumerable<string> p_enmDeploymentPathKeys)
 		{
+			Remove(p_vmlLink, p_enmDeploymentPathKeys, null);
+		}
+
+		/// <summary>
+		/// Removes a virtual link, its deployment keys, and its managed owner key from the indexes.
+		/// </summary>
+		public void Remove(IVirtualModLink p_vmlLink, IEnumerable<string> p_enmDeploymentPathKeys, string p_strOwnerKey)
+		{
 			if (p_vmlLink == null)
 				return;
 
 			Remove(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
 			Remove(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
+			Remove(m_dicLinksByOwnerKey, p_strOwnerKey, p_vmlLink);
 
 			if (p_enmDeploymentPathKeys == null)
 				return;
@@ -274,12 +314,21 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_strSecondaryDeploymentPathKey">The secondary deployment path key.</param>
 		public void Remove(IVirtualModLink p_vmlLink, string p_strPrimaryDeploymentPathKey, string p_strSecondaryDeploymentPathKey)
 		{
+			Remove(p_vmlLink, p_strPrimaryDeploymentPathKey, p_strSecondaryDeploymentPathKey, null);
+		}
+
+		/// <summary>
+		/// Removes a virtual link, up to two deployment keys, and its managed owner key from the indexes.
+		/// </summary>
+		public void Remove(IVirtualModLink p_vmlLink, string p_strPrimaryDeploymentPathKey, string p_strSecondaryDeploymentPathKey, string p_strOwnerKey)
+		{
 			if (p_vmlLink == null)
 				return;
 
 			Remove(m_dicLinksByVirtualPath, p_vmlLink.VirtualModPath, p_vmlLink);
 			Remove(m_dicLinksByFileName, GetFileNameKey(p_vmlLink.VirtualModPath), p_vmlLink);
 			Remove(m_dicLinksByDeploymentPath, p_strPrimaryDeploymentPathKey, p_vmlLink);
+			Remove(m_dicLinksByOwnerKey, p_strOwnerKey, p_vmlLink);
 
 			if (!String.Equals(p_strPrimaryDeploymentPathKey, p_strSecondaryDeploymentPathKey, StringComparison.OrdinalIgnoreCase))
 				Remove(m_dicLinksByDeploymentPath, p_strSecondaryDeploymentPathKey, p_vmlLink);
@@ -306,6 +355,14 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Finds the virtual links registered to a managed mod owner.
+		/// </summary>
+		public VirtualLinkIndexBucket FindByOwnerKey(string p_strOwnerKey)
+		{
+			return Find(m_dicLinksByOwnerKey, p_strOwnerKey);
+		}
+
+		/// <summary>
 		/// Creates an immutable copy of the path indexes for read-only consumers.
 		/// </summary>
 		/// <returns>A snapshot that can be used without holding the index lock.</returns>
@@ -319,6 +376,11 @@ namespace Nexus.Client.ModManagement
 		private static IEnumerable<string> GetDeploymentPathKeys(Func<IVirtualModLink, IEnumerable<string>> p_dlgDeploymentPathKeyFactory, IVirtualModLink p_vmlLink)
 		{
 			return p_dlgDeploymentPathKeyFactory == null ? null : p_dlgDeploymentPathKeyFactory(p_vmlLink);
+		}
+
+		private static string GetOwnerKey(Func<IVirtualModLink, string> p_dlgOwnerKeyFactory, IVirtualModLink p_vmlLink)
+		{
+			return p_dlgOwnerKeyFactory == null ? null : p_dlgOwnerKeyFactory(p_vmlLink);
 		}
 
 		/// <summary>

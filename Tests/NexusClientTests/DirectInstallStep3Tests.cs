@@ -191,30 +191,12 @@ namespace NexusClientTests
 			}
 		}
 
-		[Test]
-		public void DirectInstall_RejectsVirtualOwnedTargetUntilStep4()
-		{
-			using (var environment = new DirectTestEnvironment(true))
-			{
-				IMod mod = environment.RegisterDirectMod("Direct");
-				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "mixed.dds");
-				string payloadPath = environment.CreatePayload("direct");
-
-				using (var scope = new TransactionScope())
-				using (FileStream stream = File.OpenRead(payloadPath))
-				{
-					Assert.Throws<NotSupportedException>(() =>
-						environment.Manager.InstallDirectFile(mod, target, stream, new TxFileManager()));
-				}
-			}
-		}
-
 		private sealed class DirectTestEnvironment : IDisposable
 		{
 			private readonly string m_strRootPath;
 			private int m_intPayloadNumber;
 
-			public DirectTestEnvironment(bool p_booHasVirtualOwner = false)
+			public DirectTestEnvironment()
 			{
 				m_strRootPath = Path.Combine(Path.GetTempPath(), "NMM-Step3-" + Guid.NewGuid().ToString("N"));
 				DataPath = Path.Combine(m_strRootPath, "Data");
@@ -253,9 +235,7 @@ namespace NexusClientTests
 					return null;
 				});
 				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
-					method.Name == "GetVirtualOwnerKeys" && p_booHasVirtualOwner
-						? (object)new[] { "VirtualOwner" }
-						: method.Name == "GetVirtualOwnerKeys" ? new string[0] : null);
+					method.Name == "GetVirtualOwnerKeys" ? (object)new string[0] : null);
 
 				InstallLog = CreateInstallLog(ModPath, Path.Combine(m_strRootPath, "InstallInfo", "InstallLog.xml"));
 				Manager = new ModDeploymentManager(InstallLog, virtualModActivator, gameMode);

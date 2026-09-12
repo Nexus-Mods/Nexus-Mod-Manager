@@ -14,6 +14,8 @@
 		private Dictionary<ModDeploymentTarget, DeploymentEntry> _deploymentByTarget = new Dictionary<ModDeploymentTarget, DeploymentEntry>();
 		private Dictionary<string, HashSet<ModDeploymentTarget>> _deploymentTargetsByModKey = new Dictionary<string, HashSet<ModDeploymentTarget>>(StringComparer.OrdinalIgnoreCase);
 
+		private bool HasDeploymentTargetsCore => _deploymentByTarget.Count > 0;
+
 		/// <summary>
 		/// Stores the owner sequence for one promoted target from restoration fallback to physical winner.
 		/// </summary>

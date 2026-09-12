@@ -79,6 +79,53 @@ namespace NexusClientTests
         }
 
         [Test]
+        public void OwnerIndex_RebuildAndIncrementalMutationsPreserveLookup()
+        {
+            const string firstOwner = "owner-one";
+            const string secondOwner = "owner-two";
+            IVirtualModInfo modInfo = CreateModInfo();
+            IVirtualModLink rebuiltLink = CreateLink(modInfo, @"Scripts\First.pex", ModInstallRoot.Data);
+            IVirtualModLink addedLink = CreateLink(modInfo, @"Scripts\Second.pex", ModInstallRoot.Data);
+            object index = CreateIndex();
+
+            Rebuild(index, new[] { rebuiltLink }, GetDeploymentKeys, link => firstOwner);
+
+            AssertContainsReference(FindByOwnerKey(index, firstOwner), rebuiltLink);
+
+            Add(index, addedLink, DeploymentKey(addedLink.VirtualModPath, addedLink.InstallRoot), null, secondOwner);
+            AssertContainsReference(FindByOwnerKey(index, secondOwner), addedLink);
+
+            Remove(index, addedLink, DeploymentKey(addedLink.VirtualModPath, addedLink.InstallRoot), null, secondOwner);
+            Assert.That(FindByOwnerKey(index, secondOwner), Is.Empty);
+            AssertContainsReference(FindByOwnerKey(index, firstOwner), rebuiltLink);
+        }
+
+        [Test]
+        [Timeout(5000)]
+        public void OwnerIndex_LookupsDoNotRescanAllLinks()
+        {
+            const int linkCount = 5000;
+            IVirtualModInfo modInfo = CreateModInfo();
+            List<IVirtualModLink> links = new List<IVirtualModLink>();
+            for (int i = 0; i < linkCount; i++)
+                links.Add(CreateLink(modInfo, @"Textures\Owners\File" + i + ".dds", ModInstallRoot.Data));
+
+            int ownerFactoryCalls = 0;
+            object index = CreateIndex();
+            Rebuild(index, links, GetDeploymentKeys, link =>
+            {
+                ownerFactoryCalls++;
+                return "shared-owner";
+            });
+
+            for (int i = 0; i < 1000; i++)
+                FindByOwnerKey(index, "missing-owner-" + i);
+
+            Assert.AreEqual(linkCount, ownerFactoryCalls, "Owner lookups must not call the owner-key factory again.");
+            Assert.AreEqual(linkCount, FindByOwnerKey(index, "shared-owner").Count);
+        }
+
+        [Test]
         [Timeout(5000)]
         public void DeploymentPathIndex_LookupsDoNotRebuildOrRescanAllLinks()
         {
@@ -152,6 +199,14 @@ namespace NexusClientTests
             method.Invoke(index, new object[] { links, keyFactory });
         }
 
+        private static void Rebuild(object index, IEnumerable<IVirtualModLink> links, Func<IVirtualModLink, IEnumerable<string>> keyFactory,
+            Func<IVirtualModLink, string> ownerKeyFactory)
+        {
+            MethodInfo method = GetIndexType().GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .First(x => x.Name == "Rebuild" && x.GetParameters().Length == 3);
+            method.Invoke(index, new object[] { links, keyFactory, ownerKeyFactory });
+        }
+
         private static void Add(object index, IVirtualModLink link, IEnumerable<string> keys)
         {
             MethodInfo method = GetIndexType().GetMethods(BindingFlags.Instance | BindingFlags.Public)
@@ -166,10 +221,35 @@ namespace NexusClientTests
             method.Invoke(index, new object[] { link, keys });
         }
 
+        private static void Add(object index, IVirtualModLink link, string primaryKey, string secondaryKey, string ownerKey)
+        {
+            MethodInfo method = GetIndexType().GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .First(x => x.Name == "Add" && x.GetParameters().Length == 4);
+            method.Invoke(index, new object[] { link, primaryKey, secondaryKey, ownerKey });
+        }
+
+        private static void Remove(object index, IVirtualModLink link, string primaryKey, string secondaryKey, string ownerKey)
+        {
+            MethodInfo method = GetIndexType().GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .First(x => x.Name == "Remove" && x.GetParameters().Length == 4);
+            method.Invoke(index, new object[] { link, primaryKey, secondaryKey, ownerKey });
+        }
+
         private static List<IVirtualModLink> FindByDeploymentPath(object index, string key)
         {
             MethodInfo method = GetIndexType().GetMethod("FindByDeploymentPath", BindingFlags.Instance | BindingFlags.Public);
             object bucket = method.Invoke(index, new object[] { key });
+            if (bucket == null)
+                return new List<IVirtualModLink>();
+
+            MethodInfo toArray = bucket.GetType().GetMethod("ToArray", BindingFlags.Instance | BindingFlags.Public);
+            return ((IVirtualModLink[])toArray.Invoke(bucket, null)).ToList();
+        }
+
+        private static List<IVirtualModLink> FindByOwnerKey(object index, string ownerKey)
+        {
+            MethodInfo method = GetIndexType().GetMethod("FindByOwnerKey", BindingFlags.Instance | BindingFlags.Public);
+            object bucket = method.Invoke(index, new object[] { ownerKey });
             if (bucket == null)
                 return new List<IVirtualModLink>();
 
