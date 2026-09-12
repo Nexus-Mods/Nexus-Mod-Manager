@@ -78,6 +78,16 @@
 	/// </summary>
 	internal sealed class TreeModListSurface : IModCategorySurface
 	{
+		/// <summary>
+		/// Captures a stable viewport anchor across TreeList hierarchy and visibility changes.
+		/// </summary>
+		private sealed class TreeViewportState
+		{
+			internal IMod TopMod { get; set; }
+			internal string TopCategoryName { get; set; }
+			internal int TopVisibleIndex { get; set; }
+		}
+
 		private readonly ModCategoryTreeDXControl _viewControl;
 		private readonly TreeList _treeList;
 		private readonly IList<IMod> _mods;
@@ -171,6 +181,7 @@
 		/// </summary>
 		public void SetMods(IEnumerable<IMod> mods)
 		{
+			TreeViewportState viewport = CaptureViewportState();
 			// Full rebuilds are intentionally limited to initial population and collection
 			// resets. Category-only changes are reconciled incrementally by SetAvailableCategories.
 			IList<string> collapsed = _categoryNodes.Count > 0
@@ -220,6 +231,7 @@
 			RestoreCollapsedCategories(collapsed);
 			ApplyVisibilityFilterAfterStructureChange();
 			RestoreSelection(selected, focused);
+			RestoreViewportState(viewport);
 		}
 
 		/// <summary>
@@ -250,6 +262,7 @@
 		public void RemoveMods(IEnumerable<IMod> mods)
 		{
 			if (mods == null) return;
+			TreeViewportState viewport = CaptureViewportState();
 			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUnboundLoad();
 			try
@@ -263,6 +276,7 @@
 				_viewControl.EndInternalDataUpdate();
 			}
 			ApplyVisibilityFilterAfterStructureChange();
+			RestoreViewportState(viewport);
 		}
 
 		/// <summary>
@@ -279,6 +293,7 @@
 				return;
 			}
 
+			TreeViewportState viewport = CaptureViewportState();
 			_viewControl.BeginInternalDataUpdate();
 			try
 			{
@@ -303,6 +318,7 @@
 			finally
 			{
 				_viewControl.EndInternalDataUpdate();
+				RestoreViewportState(viewport);
 			}
 		}
 
@@ -514,6 +530,7 @@
 		/// </summary>
 		public void RestoreCollapsedCategories(IEnumerable<string> categoryNames)
 		{
+			TreeViewportState viewport = CaptureViewportState();
 			var collapsed = new HashSet<string>(categoryNames ?? Enumerable.Empty<string>(), StringComparer.CurrentCultureIgnoreCase);
 			_pendingCollapsedCategoryNames.Clear();
 			_pendingCollapsedCategoryNames.UnionWith(collapsed);
@@ -524,6 +541,7 @@
 				if (pair.Value.Expanded != expanded)
 					pair.Value.Expanded = expanded;
 			}
+			RestoreViewportState(viewport);
 		}
 
 		/// <summary>
@@ -935,6 +953,61 @@
 		}
 
 		/// <summary>
+		/// Captures the current top visible row without relying on TopVisibleNode, which can throw when DevExpress retains a stale index.
+		/// </summary>
+		private TreeViewportState CaptureViewportState()
+		{
+			var state = new TreeViewportState { TopVisibleIndex = Math.Max(0, _treeList.TopVisibleNodeIndex) };
+			TreeListNode topNode = null;
+			try
+			{
+				topNode = _treeList.GetNodeByVisibleIndex(state.TopVisibleIndex);
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				// A structural update can leave DevExpress with a stale top-visible index until it is normalized below.
+			}
+
+			IMod topMod = topNode?.Tag as IMod;
+			if (topMod != null)
+				state.TopMod = topMod;
+			else
+				state.TopCategoryName = (topNode?.Tag as ModCategoryTreeCategory)?.Name;
+			return state;
+		}
+
+		/// <summary>
+		/// Restores a valid top-visible row after hierarchy or filter changes and clamps removed anchors to the last visible node.
+		/// </summary>
+		private void RestoreViewportState(TreeViewportState state)
+		{
+			if (state == null)
+				return;
+
+			TreeListNode targetNode = null;
+			if (state.TopMod != null)
+				_modNodes.TryGetValue(state.TopMod, out targetNode);
+			else if (!String.IsNullOrEmpty(state.TopCategoryName))
+				_categoryNodes.TryGetValue(state.TopCategoryName, out targetNode);
+
+			int targetIndex = targetNode == null ? -1 : _treeList.GetVisibleIndexByNode(targetNode);
+			if (targetIndex < 0)
+			{
+				TreeListNode lastVisibleNode = _treeList.NodesIterator.Visible.LastOrDefault(node => node != null);
+				if (lastVisibleNode == null)
+				{
+					_treeList.TopVisibleNodeIndex = 0;
+					return;
+				}
+
+				int lastVisibleIndex = _treeList.GetVisibleIndexByNode(lastVisibleNode);
+				targetIndex = Math.Max(0, Math.Min(state.TopVisibleIndex, lastVisibleIndex));
+			}
+
+			_treeList.TopVisibleNodeIndex = targetIndex;
+		}
+
+		/// <summary>
 		/// Builds the unbound TreeList value array for a mod node.
 		/// </summary>
 		private object[] BuildModValues(IMod mod)
@@ -996,6 +1069,7 @@
 		/// </summary>
 		private void ApplyVisibilityFilter()
 		{
+			TreeViewportState viewport = CaptureViewportState();
 			bool changed = false;
 			_treeList.BeginUpdate();
 			try
@@ -1044,6 +1118,7 @@
 			{
 				_treeList.LayoutChanged();
 				_treeList.Invalidate();
+				RestoreViewportState(viewport);
 			}
 		}
 
@@ -1052,6 +1127,7 @@
 		/// </summary>
 		private void ReconcileCategories(IEnumerable<string> removedCategoryNames)
 		{
+			TreeViewportState viewport = CaptureViewportState();
 			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUpdate();
 			_treeList.BeginUnboundLoad();
@@ -1104,6 +1180,7 @@
 			}
 
 			ApplyVisibilityFilterAfterStructureChange();
+			RestoreViewportState(viewport);
 		}
 
 		/// <summary>

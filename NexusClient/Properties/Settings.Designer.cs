@@ -238,7 +238,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("3")]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
         public int UpdateCheckInterval {
             get {
                 return ((int)(this["UpdateCheckInterval"]));
@@ -248,6 +248,18 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool UpdateCheckIntervalDailyDefaultApplied {
+            get {
+                return ((bool)(this["UpdateCheckIntervalDailyDefaultApplied"]));
+            }
+            set {
+                this["UpdateCheckIntervalDailyDefaultApplied"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]

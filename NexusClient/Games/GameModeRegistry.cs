@@ -26,8 +26,8 @@ namespace Nexus.Client.Games
 			Trace.TraceInformation("Discovering Game Mode Factories...");
 			Trace.Indent();
 
-            var appDirectory = Path.GetDirectoryName(Application.ExecutablePath);
-			var gameModesPath = Path.Combine(appDirectory ?? string.Empty, "GameModes");
+            var appDirectory = Path.GetDirectoryName(Application.ExecutablePath) ?? string.Empty;
+			var gameModesPath = Path.Combine(appDirectory, "GameModes");
             var definitionsPath = Path.Combine(gameModesPath, "Definitions");
 
 		    if (!Directory.Exists(gameModesPath))
@@ -37,7 +37,9 @@ namespace Nexus.Client.Games
 
             Trace.TraceInformation("Looking in: {0}", gameModesPath);
 
-		    var assemblies = Directory.GetFiles(gameModesPath, "*.dll");
+		    var assemblies = Directory.GetFiles(gameModesPath, "*.dll")
+                .Where(IsPotentialGameModeAssembly)
+                .ToArray();
             bool hasDefinitions = Directory.Exists(definitionsPath) && Directory.EnumerateFiles(definitionsPath, "*.json", SearchOption.AllDirectories).Any();
 
             //If there are no assemblies detected then an exception must be thrown
@@ -58,46 +60,43 @@ namespace Nexus.Client.Games
 				Trace.TraceInformation("Checking: {0}", Path.GetFileName(assembly));
 				Trace.Indent();
 
-				var gameMode = Assembly.LoadFrom(assembly);
+                try
+                {
+                    var gameMode = Assembly.LoadFrom(assembly);
+                    var types = gameMode.GetExportedTypes();
 
-			    try
-				{
-					var types = gameMode.GetExportedTypes();
+                    foreach (var type in types)
+                    {
+                        if (!typeof(IGameModeFactory).IsAssignableFrom(type) || type.IsAbstract) continue;
 
-				    foreach (var type in types)
-					{
-					    if (!typeof(IGameModeFactory).IsAssignableFrom(type) || type.IsAbstract) continue;
+                        Trace.TraceInformation("Initializing: {0}", type.FullName);
+                        Trace.Indent();
+                        try
+                        {
+                            var constructor = type.GetConstructor(new[] { typeof(IEnvironmentInfo) });
+                            if (constructor == null)
+                            {
+                                Trace.TraceInformation("No constructor accepting one argument of type IEnvironmentInfo found.");
+                                continue;
+                            }
 
-					    Trace.TraceInformation("Initializing: {0}", type.FullName);
-					    Trace.Indent();
-
-					    var constructor = type.GetConstructor(new[] { typeof(IEnvironmentInfo) });
-
-					    if (constructor == null)
-					    {
-					        Trace.TraceInformation("No constructor accepting one argument of type IEnvironmentInfo found.");
-					        Trace.Unindent();
-
-					        continue;
-					    }
-
-					    var gmfGameModeFactory = (IGameModeFactory)constructor.Invoke(new object[] { environmentInfo });
-					    registry.RegisterGameMode(gmfGameModeFactory);
-
-					    Trace.Unindent();
-					}
-				}
-				catch (FileNotFoundException e)
-				{
-					Trace.TraceError($"Cannot load {assembly}: cannot find dependency {e.FileName}");
-					// some dependencies were missing, so we couldn't load the assembly
-					// given that these are plugins we don't have control over the dependencies:
-					// we may not even know what they (we can get their name, but if it's a custom
-					// dll not part of the client code base, we can't provide it even if we wanted to)
-					// there's nothing we can do, so simply skip the assembly
-				}
-
-			    Trace.Unindent();
+                            var gmfGameModeFactory = (IGameModeFactory)constructor.Invoke(new object[] { environmentInfo });
+                            registry.RegisterGameMode(gmfGameModeFactory);
+                        }
+                        finally
+                        {
+                            Trace.Unindent();
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    TraceAssemblyLoadFailure(assembly, e);
+                }
+                finally
+                {
+                    Trace.Unindent();
+                }
 			}
 
             registry.RegisterDataDrivenGameModes(environmentInfo, definitionsPath);
@@ -106,6 +105,66 @@ namespace Nexus.Client.Games
 
 			return registry;
 		}
+
+        /// <summary>
+        /// Determines whether an assembly can contain a Game Mode factory without loading it into the execution context.
+        /// </summary>
+        private static bool IsPotentialGameModeAssembly(string assembly)
+        {
+            var fileName = Path.GetFileName(assembly);
+            if (String.IsNullOrEmpty(fileName))
+                return false;
+
+            if (IsScriptTypeAssembly(fileName))
+            {
+                Trace.TraceInformation("Ignoring Script Type assembly during Game Mode discovery: {0}", fileName);
+                return false;
+            }
+
+            try
+            {
+                var reflectionAssembly = Assembly.ReflectionOnlyLoadFrom(assembly);
+                var contractAssemblyName = typeof(IGameModeFactory).Assembly.GetName().Name;
+                if (reflectionAssembly.GetReferencedAssemblies().Any(reference => String.Equals(reference.Name, contractAssemblyName, StringComparison.OrdinalIgnoreCase)))
+                    return true;
+
+                Trace.TraceInformation("Ignoring non-Game-Mode assembly: {0}", fileName);
+            }
+            catch (Exception e)
+            {
+                Trace.TraceWarning("Ignoring unreadable assembly {0}: {1}: {2}", fileName, e.GetType().Name, e.Message);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Determines whether the specified file is a generic or game-specific built-in Script Type assembly.
+        /// </summary>
+        private static bool IsScriptTypeAssembly(string fileName)
+        {
+            string[] scriptTypeAssemblies = { "CSharpScript.dll", "ModScript.dll", "XmlScript.dll" };
+            foreach (var scriptTypeAssembly in scriptTypeAssemblies)
+                if (fileName.Equals(scriptTypeAssembly, StringComparison.OrdinalIgnoreCase) ||
+                    fileName.EndsWith("." + scriptTypeAssembly, StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// Traces an assembly discovery failure without aborting the remaining plugin discovery.
+        /// </summary>
+        private static void TraceAssemblyLoadFailure(string assembly, Exception exception)
+        {
+            Trace.TraceError("Cannot load {0}: {1}: {2}", assembly, exception.GetType().Name, exception.Message);
+            var reflectionTypeLoadException = exception as ReflectionTypeLoadException;
+            if (reflectionTypeLoadException == null)
+                return;
+
+            foreach (var loaderException in reflectionTypeLoadException.LoaderExceptions.Where(item => item != null))
+                Trace.TraceError("    Loader exception: {0}: {1}", loaderException.GetType().Name, loaderException.Message);
+        }
 
         private void RegisterDataDrivenGameModes(EnvironmentInfo environmentInfo, string definitionsPath)
         {

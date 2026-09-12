@@ -18,6 +18,8 @@ namespace Nexus.Client.ModManagement
 		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
 		private const String CATEGORY_FILE = "Categories.xml";
 		private const String CUSTOM_ATTRIBUTE = "isCustom";
+		private const String REMOVED_REPOSITORY_CATEGORIES_ELEMENT = "removedRepositoryCategories";
+		private const String REMOVED_REPOSITORY_CATEGORY_ELEMENT = "removed";
 		internal const Int32 FIRST_CUSTOM_CATEGORY_ID = 1000000;
 
 		#region Events
@@ -96,6 +98,7 @@ namespace Nexus.Client.ModManagement
 
 		private readonly ThreadSafeObservableList<IModCategory> m_tslCategories = new ThreadSafeObservableList<IModCategory>();
 		private readonly HashSet<Int32> m_hstCustomCategoryIds = new HashSet<Int32>();
+		private readonly HashSet<Int32> m_hstRemovedRepositoryCategoryIds = new HashSet<Int32>();
 
 		#region Properties
 
@@ -187,6 +190,7 @@ namespace Nexus.Client.ModManagement
 			{
 				m_tslCategories.Clear();
 				m_hstCustomCategoryIds.Clear();
+				m_hstRemovedRepositoryCategoryIds.Clear();
 
 				if (!File.Exists(CategoryFilePath))
 				{
@@ -196,7 +200,9 @@ namespace Nexus.Client.ModManagement
 				}
 				else
 				{
-					shouldSave = LoadCategories(XDocument.Load(CategoryFilePath), repositoryCategories, false);
+					XDocument docPersistedCategories = XDocument.Load(CategoryFilePath);
+					LoadRemovedRepositoryCategoryIds(docPersistedCategories);
+					shouldSave = LoadCategories(docPersistedCategories, repositoryCategories, false);
 				}
 
 				EnsureUnassignedCategory();
@@ -302,7 +308,9 @@ namespace Nexus.Client.ModManagement
 		public void ResetRepositoryCategories(string p_strDefaultCategories, Action<IDictionary<Int32, Int32>> p_actRemapCategoryAssignments)
 		{
 			XDocument docDefaultCategories = ParseCategoryDocument(p_strDefaultCategories);
-			List<IModCategory> repositoryCategories = GetRepositoryCategories(docDefaultCategories);
+			List<IModCategory> repositoryCategories = GetRepositoryCategories(docDefaultCategories)
+				.Where(category => category != null && !m_hstRemovedRepositoryCategoryIds.Contains(category.Id))
+				.ToList();
 			PrepareRepositoryCategories(repositoryCategories, p_actRemapCategoryAssignments);
 			List<IModCategory> customCategories = Categories.Where(IsCustomCategory).ToList();
 
@@ -312,6 +320,9 @@ namespace Nexus.Client.ModManagement
 				m_hstCustomCategoryIds.Clear();
 				if (docDefaultCategories != null)
 					LoadCategories(docDefaultCategories, null, true);
+				foreach (IModCategory removedCategory in m_tslCategories
+					.Where(category => category != null && m_hstRemovedRepositoryCategoryIds.Contains(category.Id)).ToList())
+					m_tslCategories.Remove(removedCategory);
 				EnsureUnassignedCategory();
 
 				foreach (IModCategory customCategory in customCategories)
@@ -331,7 +342,8 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Restores bundled repository category IDs that are missing from the persisted category file
 		/// or are occupied by a legacy custom category, without replacing repository definitions that
-		/// are already present. Exact-name migrated custom definitions are folded back automatically.
+		/// are already present or categories the user deliberately removed. Exact-name migrated custom
+		/// definitions are folded back automatically.
 		/// </summary>
 		/// <param name="p_strDefaultCategories">The bundled repository category document.</param>
 		/// <param name="p_actRemapCategoryAssignments">The callback used to remap affected mod assignments.</param>
@@ -341,7 +353,7 @@ namespace Nexus.Client.ModManagement
 			List<IModCategory> missingCategories = repositoryCategories
 				.Where(category =>
 				{
-					if (category == null || category.Id == 0)
+					if (category == null || category.Id == 0 || m_hstRemovedRepositoryCategoryIds.Contains(category.Id))
 						return false;
 
 					IModCategory existingCategory = FindCategoryInternal(category.Id);
@@ -354,7 +366,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Merges repository categories without overwriting user-created categories that share an ID.
+		/// Merges repository categories without overwriting user-created categories or restoring repository categories the user removed.
 		/// </summary>
 		/// <param name="p_enmRepositoryCategories">The repository categories to merge.</param>
 		/// <param name="p_actRemapCategoryAssignments">The callback used to apply old-to-new category ID mappings.</param>
@@ -364,7 +376,8 @@ namespace Nexus.Client.ModManagement
 				return;
 
 			List<IModCategory> repositoryCategories = p_enmRepositoryCategories
-				.Where(category => category != null && category.Id != 0 && !String.IsNullOrWhiteSpace(category.CategoryName))
+				.Where(category => category != null && category.Id != 0 && !String.IsNullOrWhiteSpace(category.CategoryName) &&
+					!m_hstRemovedRepositoryCategoryIds.Contains(category.Id))
 				.GroupBy(category => category.Id)
 				.Select(group => group.Last())
 				.ToList();
@@ -593,6 +606,16 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_docCategories">The repository category document, or <c>null</c> for only Unassigned.</param>
 		private void ResetCategories(XDocument p_docCategories)
 		{
+			if (p_docCategories == null)
+			{
+				foreach (IModCategory category in Categories.Where(category => category != null && category.Id != 0 && !IsCustomCategory(category)))
+					m_hstRemovedRepositoryCategoryIds.Add(category.Id);
+			}
+			else
+			{
+				m_hstRemovedRepositoryCategoryIds.Clear();
+			}
+
 			using (m_tslCategories.BeginUpdate())
 			{
 				m_tslCategories.Clear();
@@ -684,6 +707,28 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Loads repository category IDs that the user explicitly removed from the persisted category file.
+		/// </summary>
+		/// <param name="p_docCategories">The persisted category document.</param>
+		private void LoadRemovedRepositoryCategoryIds(XDocument p_docCategories)
+		{
+			if (p_docCategories == null)
+				return;
+
+			XElement xelRemovedCategories = p_docCategories.Descendants(REMOVED_REPOSITORY_CATEGORIES_ELEMENT).FirstOrDefault();
+			if (xelRemovedCategories == null)
+				return;
+
+			foreach (XElement xelRemovedCategory in xelRemovedCategories.Elements(REMOVED_REPOSITORY_CATEGORY_ELEMENT))
+			{
+				XAttribute xatId = xelRemovedCategory.Attribute("ID");
+				Int32 categoryId;
+				if (xatId != null && Int32.TryParse(xatId.Value, out categoryId) && categoryId > 0)
+					m_hstRemovedRepositoryCategoryIds.Add(categoryId);
+			}
+		}
+
+		/// <summary>
 		/// Ensures that the special Unassigned category exists exactly once.
 		/// </summary>
 		private void EnsureUnassignedCategory()
@@ -710,6 +755,14 @@ namespace Nexus.Client.ModManagement
 					new XAttribute("ID", mct.Id),
 					new XAttribute(CUSTOM_ATTRIBUTE, IsCustomCategory(mct)),
 					new XElement("name", new XText(mct.CategoryName))));
+
+			if (m_hstRemovedRepositoryCategoryIds.Count > 0)
+			{
+				XElement xelRemovedCategories = new XElement(REMOVED_REPOSITORY_CATEGORIES_ELEMENT);
+				xelRemovedCategories.Add(from categoryId in m_hstRemovedRepositoryCategoryIds.OrderBy(id => id)
+					select new XElement(REMOVED_REPOSITORY_CATEGORY_ELEMENT, new XAttribute("ID", categoryId)));
+				xelRoot.Add(xelRemovedCategories);
+			}
 
 			if (!Directory.Exists(CategoryPath))
 				Directory.CreateDirectory(CategoryPath);
@@ -788,7 +841,11 @@ namespace Nexus.Client.ModManagement
 		public void RemoveCategory(IModCategory p_mctCategory)
 		{
 			if (p_mctCategory != null)
+			{
+				if (p_mctCategory.Id != 0 && !IsCustomCategory(p_mctCategory))
+					m_hstRemovedRepositoryCategoryIds.Add(p_mctCategory.Id);
 				m_hstCustomCategoryIds.Remove(p_mctCategory.Id);
+			}
 			m_tslCategories.Remove(p_mctCategory);
 			SaveCategories();
 			OnCategoriesChanged();

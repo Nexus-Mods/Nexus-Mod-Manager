@@ -6,16 +6,16 @@
 [Setup]
 AppName=NMM
 AppID=6af12c54-643b-4752-87d0-8335503010de
-AppVersion=0.92.10
-AppVerName=NMM 0.92.10
+AppVersion=0.92.11
+AppVerName=NMM 0.92.11
 AppCopyright=Copyright � DuskDweller 2019-2026
-VersionInfoVersion=0.92.10
+VersionInfoVersion=0.92.11
 VersionInfoCompany=DuskDweller
 AppPublisher=DuskDweller
 ;AppPublisherURL=http://...
 ;AppSupportURL=http://...
 ;AppUpdatesURL=http://...
-OutputBaseFilename=NMM-0.92.10
+OutputBaseFilename=NMM-0.92.11
 DefaultGroupName=NMM
 DefaultDirName={pf}\NMM
 UninstallDisplayName=NMM
@@ -57,13 +57,25 @@ Name: associateNxmUrls; Description: Associate NXM: &URLs with NMM; GroupDescrip
 Name: associateFomodFiles; Description: &Associate *.FOMOD files with NMM; GroupDescription: Other tasks:;
 Name: associateOmodFiles; Description: &Associate *.OMOD files with NMM; GroupDescription: Other tasks:;
 
+[InstallDelete]
+; Remove NMM-owned Script Type assemblies left in legacy/non-canonical locations.
+Type: files; Name: "{app}\CSharpScript.dll"
+Type: files; Name: "{app}\ModScript.dll"
+Type: files; Name: "{app}\XmlScript.dll"
+Type: files; Name: "{app}\ScriptTypes\AntlrUtil.dll"
+Type: files; Name: "{app}\GameModes\Antlr3.Runtime.dll"
+Type: files; Name: "{app}\GameModes\AntlrUtil.dll"
+Type: files; Name: "{app}\GameModes\CSharpScript.dll"
+Type: files; Name: "{app}\GameModes\ModScript.dll"
+Type: files; Name: "{app}\GameModes\XmlScript.dll"
+
 [Files]
 Source: "..\Stage\Release\*.exe"; Excludes: "*.vshost.exe"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.config"; Excludes: "*.vshost.exe.config"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\*.dll"; DestDir: {app}; Flags: ignoreversion
 Source: "..\Stage\Release\data\*"; Excludes: "*.pdb"; DestDir: {app}\data; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\Languages\*"; DestDir: {app}\Languages; Flags: ignoreversion recursesubdirs
-Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
+Source: "..\Stage\Release\GameModes\*"; Excludes: "*.pdb,Antlr3.Runtime.dll,AntlrUtil.dll,CSharpScript.dll,ModScript.dll,XmlScript.dll"; DestDir: {app}\GameModes; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ModFormats\*"; Excludes: "*.pdb"; DestDir: {app}\ModFormats; Flags: ignoreversion recursesubdirs
 Source: "..\Stage\Release\ScriptTypes\*"; Excludes: "*.pdb"; DestDir: {app}\ScriptTypes; Flags: ignoreversion recursesubdirs
 
