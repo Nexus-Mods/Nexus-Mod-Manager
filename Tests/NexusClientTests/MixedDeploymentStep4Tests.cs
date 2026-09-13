@@ -5,6 +5,8 @@
 	using System.IO;
 	using System.Linq;
 	using System.Reflection;
+	using System.Text;
+	using System.Xml.Linq;
 
 	using ChinhDo.Transactions;
 	using Nexus.Client.Games;
@@ -384,8 +386,95 @@
 				using (FileStream stream = File.OpenRead(payload))
 					environment.Manager.InstallDirectFile(direct, target, stream, new TxFileManager());
 
+				string deployedPath = environment.Manager.GetDeploymentPath(target);
+				Assert.IsTrue((File.GetAttributes(deployedPath) & FileAttributes.ReparsePoint) != 0,
+					"Rollback must restore a symbolic-link reparse point, not only matching bytes.");
+				Assert.IsTrue(new TxFileManager { TxEnabled = false }.IsSameFile(deployedPath, source));
 				File.WriteAllText(source, "changed-through-source");
 				Assert.AreEqual("changed-through-source", environment.ReadTarget(target));
+			}
+		}
+
+		/// <summary>
+		/// Verifies that rollback captures and recreates a symbolic link whose source is dangling.
+		/// </summary>
+		[Test]
+		public void CancelledDelete_RestoresDanglingSymbolicLinkTopology()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-DanglingLink-" + Guid.NewGuid().ToString("N"));
+			string source = Path.Combine(root, "missing-source.bin");
+			string link = Path.Combine(root, "dangling-link.bin");
+			Directory.CreateDirectory(root);
+			try
+			{
+				using (var setupScope = new TransactionScope())
+				{
+					try
+					{
+						new TxFileManager().CreateSymbolicLink(link, source);
+					}
+					catch (IOException ex)
+					{
+						Assert.Ignore("Symbolic-link setup is unavailable in the current Windows environment: " + ex.Message);
+					}
+					setupScope.Complete();
+				}
+
+				using (var scope = new TransactionScope())
+					new TxFileManager().DeleteLink(link, source);
+
+				File.WriteAllText(source, "late-source");
+				Assert.IsTrue((File.GetAttributes(link) & FileAttributes.ReparsePoint) != 0);
+				Assert.AreEqual("late-source", File.ReadAllText(link));
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// Verifies startup crash recovery recreates a Virtual symbolic-link winner after restart.
+		/// </summary>
+		[Test]
+		public void PendingDeploymentRecoveryJournal_RestoresVirtualSymbolicLinkWinnerAfterRestart()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("RecoveryVirtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"bin\recovery-symlink.dll");
+				string source = environment.AddVirtualOwner(virtualMod, target, "virtual", true, 0, null, false, true);
+				string transactionDirectory = environment.CreateVirtualRecoveryJournal(target, environment.Key(virtualMod));
+				string deployedPath = environment.Manager.GetDeploymentPath(target);
+
+				File.Delete(deployedPath);
+				new ModDeploymentManager(environment.InstallLog, environment.VirtualState.Activator, environment.GameMode);
+
+				Assert.IsTrue((File.GetAttributes(deployedPath) & FileAttributes.ReparsePoint) != 0);
+				Assert.IsTrue(new TxFileManager { TxEnabled = false }.IsSameFile(deployedPath, source));
+				Assert.IsFalse(Directory.Exists(transactionDirectory));
+			}
+		}
+
+		/// <summary>
+		/// Verifies failed startup recovery retains its durable journal for a later retry.
+		/// </summary>
+		[Test]
+		public void PendingDeploymentRecoveryJournal_FailedVirtualRecoveryRetainsJournal()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("BrokenRecoveryVirtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"bin\recovery-missing-source.dll");
+				string source = environment.AddVirtualOwner(virtualMod, target, "virtual", true, 0, null, false, true);
+				string transactionDirectory = environment.CreateVirtualRecoveryJournal(target, environment.Key(virtualMod));
+				File.Delete(environment.Manager.GetDeploymentPath(target));
+				File.Delete(source);
+
+				Assert.Throws<FileNotFoundException>(() =>
+					new ModDeploymentManager(environment.InstallLog, environment.VirtualState.Activator, environment.GameMode));
+				Assert.IsTrue(Directory.Exists(transactionDirectory));
 			}
 		}
 
@@ -743,6 +832,36 @@
 				return path;
 			}
 
+			/// <summary>
+			/// Creates a durable pre-commit Virtual deployment journal for startup recovery tests.
+			/// </summary>
+			public string CreateVirtualRecoveryJournal(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+			{
+				string transactionDirectory = Path.Combine(OverwritePath, "deployment", "_recovery",
+					"test-" + Guid.NewGuid().ToString("N"));
+				Directory.CreateDirectory(transactionDirectory);
+				new XDocument(new XElement("deploymentRecovery",
+					new XAttribute("transactionId", "test"),
+					new XAttribute("preCommitSequence", InstallLog.DeploymentCommitSequence)))
+					.Save(Path.Combine(transactionDirectory, "transaction.xml"));
+
+				var record = new XElement("target",
+					new XAttribute("root", p_mdtTarget.Root),
+					new XAttribute("path", p_mdtTarget.RelativePath),
+					new XAttribute("deploymentState", "Virtual"),
+					new XAttribute("virtualOwnerKey", p_strOwnerKey),
+					new XElement("owners"),
+					new XElement("backups"));
+				byte[] payload = Encoding.UTF8.GetBytes(record.ToString(SaveOptions.DisableFormatting));
+				using (var stream = new FileStream(Path.Combine(transactionDirectory, "targets.bin"), FileMode.Create, FileAccess.Write, FileShare.None))
+				using (var writer = new BinaryWriter(stream, Encoding.UTF8))
+				{
+					writer.Write(payload.Length);
+					writer.Write(payload);
+				}
+				return transactionDirectory;
+			}
+
 			public void Dispose()
 			{
 				InstallLog.Release();
@@ -758,13 +877,26 @@
 					using (var scope = new TransactionScope())
 					{
 						TxFileManager fileManager = new TxFileManager();
-						bool created = p_booHardLink
-							? fileManager.CreateHardLink(p_strTarget, p_strSource)
-							: fileManager.CreateSymbolicLink(p_strTarget, p_strSource);
+						bool created;
+						if (p_booHardLink)
+						{
+							created = fileManager.CreateHardLink(p_strTarget, p_strSource);
+						}
+						else
+						{
+							try
+							{
+								created = fileManager.CreateSymbolicLink(p_strTarget, p_strSource);
+							}
+							catch (IOException ex)
+							{
+								Assert.Ignore("Symbolic-link setup is unavailable in the current Windows environment: " + ex.Message);
+								return;
+							}
+						}
+
 						if (!created)
-							Assert.Ignore(p_booHardLink
-								? "Hard links are not available in the current test environment."
-								: "Symbolic links are not available in the current test environment.");
+							Assert.Ignore("Hard links are not available in the current test environment.");
 						scope.Complete();
 						return;
 					}
@@ -894,6 +1026,9 @@
 					case "RecoverVirtualDeploymentWinner":
 						ModDeploymentTarget recoveryTarget = (ModDeploymentTarget)p_objArguments[0];
 						VirtualOwner recoveryOwner = Require(recoveryTarget, (string)p_objArguments[1]);
+						if (!File.Exists(recoveryOwner.Source))
+							throw new FileNotFoundException("The test Virtual source required for recovery is missing.", recoveryOwner.Source);
+
 						string recoveryPath = GetDeploymentPath(recoveryTarget);
 						Directory.CreateDirectory(Path.GetDirectoryName(recoveryPath));
 						var recoveryFileManager = new TxFileManager { TxEnabled = false };
@@ -911,8 +1046,10 @@
 							bool recovered = recoveryOwner.HardLink
 								? recoveryFileManager.CreateHardLink(recoveryPath, recoveryOwner.Source)
 								: recoveryFileManager.CreateSymbolicLink(recoveryPath, recoveryOwner.Source);
-							if (!recovered)
+							if (!recovered || !recoveryFileManager.IsSameFile(recoveryPath, recoveryOwner.Source))
 								throw new IOException("The test Virtual winner could not be recovered with its original link topology.");
+							if (recoveryOwner.SymbolicLink && (File.GetAttributes(recoveryPath) & FileAttributes.ReparsePoint) == 0)
+								throw new IOException("The test Virtual symbolic-link winner was recovered with the wrong topology.");
 						}
 						else
 						{

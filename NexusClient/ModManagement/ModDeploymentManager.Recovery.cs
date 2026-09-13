@@ -154,7 +154,8 @@ namespace Nexus.Client.ModManagement
 					RestoreSnapshotFile(p_strTransactionDirectory, (string)p_xelRecord.Attribute("deploymentSnapshot"), deploymentPath);
 					break;
 				case "Virtual":
-					DeleteFileIfPresent(deploymentPath);
+					// Normal transaction rollback may already have restored the correct Virtual link.
+					// The Virtual backend verifies that state before replacing anything.
 					m_vmaVirtualModActivator.RecoverVirtualDeploymentWinner(target, (string)p_xelRecord.Attribute("virtualOwnerKey"));
 					break;
 				default:
@@ -294,7 +295,9 @@ namespace Nexus.Client.ModManagement
 			if (!String.IsNullOrWhiteSpace(destinationDirectory) && !Directory.Exists(destinationDirectory))
 				Directory.CreateDirectory(destinationDirectory);
 
-			string temporaryPath = p_strDestinationPath + ".nmm-recover-" + Guid.NewGuid().ToString("N") + ".tmp";
+			string temporaryPath = Path.Combine(
+				destinationDirectory,
+				".nmm-recover-" + Guid.NewGuid().ToString("N").Substring(0, 16) + ".tmp");
 			try
 			{
 				using (var source = new FileStream(snapshotPath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -458,6 +461,8 @@ namespace Nexus.Client.ModManagement
 
 			public void Rollback(Enlistment p_enlEnlistment)
 			{
+				// Normal resource-manager rollback must finish before durable deployment recovery runs.
+				// The terminal TransactionCompleted callback executes after every participant has rolled back.
 				p_enlEnlistment.Done();
 			}
 
@@ -472,17 +477,19 @@ namespace Nexus.Client.ModManagement
 				try
 				{
 					if (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Committed)
-					{
 						DeleteRecoveryDirectory(m_strTransactionDirectory);
-					}
 					else if (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Aborted)
-					{
 						m_mdmOwner.RecoverDeploymentTransactionDirectory(m_strTransactionDirectory);
-					}
 				}
 				catch (Exception ex)
 				{
 					Trace.TraceError("Unable to finalize deployment recovery journal '{0}': {1}", m_strTransactionDirectory, ex);
+					if (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Aborted)
+					{
+						throw new TransactionException(
+							"Deployment rollback recovery failed. The recovery journal was retained at '" +
+							m_strTransactionDirectory + "'.", ex);
+					}
 				}
 				finally
 				{

@@ -437,41 +437,38 @@ namespace ChinhDo.Transactions
 				public RollbackFile(string fileName, string expectedLinkTarget)
 				{
 					_originalFileName = fileName;
-					_existed = File.Exists(fileName);
+					_entryState = GetFileEntryState(fileName, expectedLinkTarget);
+					_linkTarget = _entryState == FileEntryState.HardLink || _entryState == FileEntryState.SymbolicLink
+						? expectedLinkTarget
+						: null;
 
-					if (_existed)
+					if (_entryState == FileEntryState.RegularFile)
 					{
-						_linkType = GetFileLinkType(fileName, expectedLinkTarget);
-						_linkTarget = _linkType == FileLinkType.None ? null : expectedLinkTarget;
-						if (_linkType == FileLinkType.None)
-						{
-							_backupFileName = CreateTempFileName(Path.GetExtension(fileName));
-							File.Copy(_originalFileName, _backupFileName);
-						}
+						_backupFileName = CreateTempFileName(Path.GetExtension(fileName));
+						File.Copy(_originalFileName, _backupFileName);
 					}
 				}
 
 				public override void Rollback()
 				{
-					if (_linkType != FileLinkType.None)
+					if (_entryState == FileEntryState.HardLink || _entryState == FileEntryState.SymbolicLink)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
 						if (!Directory.Exists(strDirectory))
 							Directory.CreateDirectory(strDirectory);
-						if (File.Exists(_originalFileName))
-							File.Delete(_originalFileName);
-						RestoreFileLink(_linkType, _originalFileName, _linkTarget);
+						RestoreFileLink(_entryState, _originalFileName, _linkTarget);
 					}
-					else if (_backupFileName != null)
+					else if (_entryState == FileEntryState.RegularFile)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
 						if (!Directory.Exists(strDirectory))
 							Directory.CreateDirectory(strDirectory);
+						DeleteFileEntryIfPresent(_originalFileName);
 						File.Copy(_backupFileName, _originalFileName, true);
 					}
-					else if (!_existed && File.Exists(_originalFileName))
+					else
 					{
-						File.Delete(_originalFileName);
+						DeleteFileEntryIfPresent(_originalFileName);
 					}
 				}
 
@@ -495,8 +492,7 @@ namespace ChinhDo.Transactions
 
 				private readonly string _originalFileName;
 				private readonly string _backupFileName;
-				private readonly bool _existed;
-				private readonly FileLinkType _linkType;
+				private readonly FileEntryState _entryState;
 				private readonly string _linkTarget;
 			}
 

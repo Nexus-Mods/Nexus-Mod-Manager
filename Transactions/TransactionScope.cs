@@ -76,10 +76,18 @@ namespace Nexus.Transactions
 		/// </remarks>
 		public void Dispose()
 		{
-			if (!m_booCompleted)
-				m_trnTransaction.Rollback();
-			if (m_booOwnsTransaction)
-				Transaction.Current = null;
+			try
+			{
+				if (!m_booCompleted)
+					m_trnTransaction.Rollback();
+			}
+			finally
+			{
+				// A rollback participant or terminal recovery callback can fail. Never leave an
+				// aborted transaction installed as the process-wide ambient transaction.
+				if (m_booOwnsTransaction)
+					Transaction.Current = null;
+			}
 		}
 
 		#endregion
