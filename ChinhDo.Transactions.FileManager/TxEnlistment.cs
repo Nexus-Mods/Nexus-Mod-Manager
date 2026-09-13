@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -185,7 +185,7 @@ namespace ChinhDo.Transactions
 				var r = new RollbackFile(path, targetPath);
 				try
 				{
-					File.Delete(path);
+					DeleteFileEntryIfPresentCore(path);
 				}
 				catch (Exception e)
 				{
@@ -438,11 +438,11 @@ namespace ChinhDo.Transactions
 				{
 					_originalFileName = fileName;
 					_entryState = GetFileEntryState(fileName, expectedLinkTarget);
-					_linkTarget = _entryState == FileEntryState.HardLink || _entryState == FileEntryState.SymbolicLink
+					_linkTarget = _entryState == FileEntryKind.HardLink || _entryState == FileEntryKind.SymbolicLink
 						? expectedLinkTarget
 						: null;
 
-					if (_entryState == FileEntryState.RegularFile)
+					if (_entryState == FileEntryKind.RegularFile)
 					{
 						_backupFileName = CreateTempFileName(Path.GetExtension(fileName));
 						File.Copy(_originalFileName, _backupFileName);
@@ -451,24 +451,24 @@ namespace ChinhDo.Transactions
 
 				public override void Rollback()
 				{
-					if (_entryState == FileEntryState.HardLink || _entryState == FileEntryState.SymbolicLink)
+					if (_entryState == FileEntryKind.HardLink || _entryState == FileEntryKind.SymbolicLink)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
 						if (!Directory.Exists(strDirectory))
 							Directory.CreateDirectory(strDirectory);
 						RestoreFileLink(_entryState, _originalFileName, _linkTarget);
 					}
-					else if (_entryState == FileEntryState.RegularFile)
+					else if (_entryState == FileEntryKind.RegularFile)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
 						if (!Directory.Exists(strDirectory))
 							Directory.CreateDirectory(strDirectory);
-						DeleteFileEntryIfPresent(_originalFileName);
+						DeleteFileEntryIfPresentCore(_originalFileName);
 						File.Copy(_backupFileName, _originalFileName, true);
 					}
 					else
 					{
-						DeleteFileEntryIfPresent(_originalFileName);
+						DeleteFileEntryIfPresentCore(_originalFileName);
 					}
 				}
 
@@ -492,7 +492,7 @@ namespace ChinhDo.Transactions
 
 				private readonly string _originalFileName;
 				private readonly string _backupFileName;
-				private readonly FileEntryState _entryState;
+				private readonly FileEntryKind _entryState;
 				private readonly string _linkTarget;
 			}
 

@@ -113,7 +113,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Recreates the physical deployment for an existing Virtual winner during startup crash recovery.
 		/// </summary>
-		void RecoverVirtualDeploymentWinner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey);
+		void RecoverVirtualDeploymentWinner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, FileEntryKind p_fekExpectedKind);
 		/// <summary>
 		/// Removes the selected Virtual link record without changing the deployed file or selecting a fallback.
 		/// </summary>

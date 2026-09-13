@@ -8,6 +8,7 @@ namespace Nexus.Client.ModManagement
 	using System.Text;
 	using System.Xml.Linq;
 
+	using ChinhDo.Transactions;
 	using Nexus.Transactions;
 
 	/// <summary>
@@ -154,9 +155,13 @@ namespace Nexus.Client.ModManagement
 					RestoreSnapshotFile(p_strTransactionDirectory, (string)p_xelRecord.Attribute("deploymentSnapshot"), deploymentPath);
 					break;
 				case "Virtual":
-					// Normal transaction rollback may already have restored the correct Virtual link.
-					// The Virtual backend verifies that state before replacing anything.
-					m_vmaVirtualModActivator.RecoverVirtualDeploymentWinner(target, (string)p_xelRecord.Attribute("virtualOwnerKey"));
+					// Normal transaction rollback may already have restored the correct Virtual entry.
+					// The Virtual backend verifies both topology and source identity before replacing anything.
+					FileEntryKind expectedKind = ParseVirtualDeploymentKind(p_xelRecord);
+					m_vmaVirtualModActivator.RecoverVirtualDeploymentWinner(
+						target,
+						(string)p_xelRecord.Attribute("virtualOwnerKey"),
+						expectedKind);
 					break;
 				default:
 					throw new InvalidDataException("Unknown deployment recovery state.");
@@ -206,11 +211,11 @@ namespace Nexus.Client.ModManagement
 			if (currentOwnerKey != null && !currentOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase) &&
 				m_ilgInstallLog.GetModInstallMethod(currentOwnerKey) == ModInstallMethod.Virtual)
 			{
-				record.Add(new XAttribute("deploymentState", "Virtual"), new XAttribute("virtualOwnerKey", currentOwnerKey));
+				CaptureVirtualDeploymentState(record, p_mdtTarget, deploymentPath, currentOwnerKey);
 			}
 			else if (currentOwnerKey == null && virtualOwners.Length > 0)
 			{
-				record.Add(new XAttribute("deploymentState", "Virtual"), new XAttribute("virtualOwnerKey", virtualOwners[virtualOwners.Length - 1]));
+				CaptureVirtualDeploymentState(record, p_mdtTarget, deploymentPath, virtualOwners[virtualOwners.Length - 1]);
 			}
 			else if (File.Exists(deploymentPath))
 			{
@@ -242,6 +247,49 @@ namespace Nexus.Client.ModManagement
 				record.Add(CaptureFileState(p_strTransactionDirectory, "legacyOverwrite", legacyOverwritePath, new XAttribute("path", legacyOverwritePath)));
 
 			return record;
+		}
+
+		/// <summary>
+		/// Captures the physical topology of the current Virtual winner in the durable recovery record.
+		/// </summary>
+		private void CaptureVirtualDeploymentState(XElement p_xelRecord, ModDeploymentTarget p_mdtTarget,
+			string p_strDeploymentPath, string p_strOwnerKey)
+		{
+			string sourcePath = m_vmaVirtualModActivator.GetVirtualSourceForOwner(p_mdtTarget, p_strOwnerKey);
+			var fileManager = new TxFileManager { TxEnabled = false };
+			FileEntryKind entryKind = fileManager.GetFileEntryKind(p_strDeploymentPath, sourcePath);
+
+			if (entryKind == FileEntryKind.Absent)
+			{
+				p_xelRecord.Add(new XAttribute("deploymentState", "Absent"));
+				return;
+			}
+
+			p_xelRecord.Add(
+				new XAttribute("deploymentState", "Virtual"),
+				new XAttribute("virtualOwnerKey", p_strOwnerKey),
+				new XAttribute("virtualDeploymentKind", entryKind));
+		}
+
+		/// <summary>
+		/// Reads the captured Virtual deployment topology, preserving compatibility with older recovery journals.
+		/// </summary>
+		private static FileEntryKind ParseVirtualDeploymentKind(XElement p_xelRecord)
+		{
+			string value = (string)p_xelRecord.Attribute("virtualDeploymentKind");
+			if (String.IsNullOrWhiteSpace(value))
+				return FileEntryKind.Unknown;
+
+			FileEntryKind entryKind;
+			if (!Enum.TryParse(value, true, out entryKind) ||
+				entryKind == FileEntryKind.Unknown ||
+				entryKind == FileEntryKind.Absent ||
+				!Enum.IsDefined(typeof(FileEntryKind), entryKind))
+			{
+				throw new InvalidDataException("Invalid Virtual deployment topology in recovery target.");
+			}
+
+			return entryKind;
 		}
 
 		private XElement CaptureFileState(string p_strTransactionDirectory, string p_strElementName, string p_strPath, params XAttribute[] p_xatAttributes)
@@ -322,14 +370,7 @@ namespace Nexus.Client.ModManagement
 			if (String.IsNullOrWhiteSpace(p_strPath))
 				return;
 
-			try
-			{
-				File.Delete(p_strPath);
-			}
-			catch (DirectoryNotFoundException)
-			{
-				// Restoring an absent file is already complete when its parent directory is absent.
-			}
+			new TxFileManager { TxEnabled = false }.DeleteFileEntryIfPresent(p_strPath);
 		}
 
 		private static void ValidateRecoveryPath(string p_strPath, string p_strRoot, string p_strDescription)

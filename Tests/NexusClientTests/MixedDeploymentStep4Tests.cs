@@ -420,11 +420,17 @@
 					setupScope.Complete();
 				}
 
+				var fileManager = new TxFileManager { TxEnabled = false };
+				Assert.AreEqual(FileEntryKind.SymbolicLink, fileManager.GetFileEntryKind(link, source),
+					"A dangling symbolic link must be observable before the transactional delete.");
+
 				using (var scope = new TransactionScope())
 					new TxFileManager().DeleteLink(link, source);
 
+				Assert.AreEqual(FileEntryKind.SymbolicLink, fileManager.GetFileEntryKind(link, source),
+					"Rollback must recreate the dangling symbolic-link entry itself.");
 				File.WriteAllText(source, "late-source");
-				Assert.IsTrue((File.GetAttributes(link) & FileAttributes.ReparsePoint) != 0);
+				Assert.IsTrue(fileManager.IsSameFile(link, source));
 				Assert.AreEqual("late-source", File.ReadAllText(link));
 			}
 			finally
@@ -845,11 +851,17 @@
 					new XAttribute("preCommitSequence", InstallLog.DeploymentCommitSequence)))
 					.Save(Path.Combine(transactionDirectory, "transaction.xml"));
 
+				string sourcePath = VirtualState.Activator.GetVirtualSourceForOwner(p_mdtTarget, p_strOwnerKey);
+				var fileManager = new TxFileManager { TxEnabled = false };
+				FileEntryKind entryKind = fileManager.GetFileEntryKind(Manager.GetDeploymentPath(p_mdtTarget), sourcePath);
+				Assert.AreNotEqual(FileEntryKind.Absent, entryKind);
+
 				var record = new XElement("target",
 					new XAttribute("root", p_mdtTarget.Root),
 					new XAttribute("path", p_mdtTarget.RelativePath),
 					new XAttribute("deploymentState", "Virtual"),
 					new XAttribute("virtualOwnerKey", p_strOwnerKey),
+					new XAttribute("virtualDeploymentKind", entryKind),
 					new XElement("owners"),
 					new XElement("backups"));
 				byte[] payload = Encoding.UTF8.GetBytes(record.ToString(SaveOptions.DisableFormatting));
@@ -1026,34 +1038,52 @@
 					case "RecoverVirtualDeploymentWinner":
 						ModDeploymentTarget recoveryTarget = (ModDeploymentTarget)p_objArguments[0];
 						VirtualOwner recoveryOwner = Require(recoveryTarget, (string)p_objArguments[1]);
-						if (!File.Exists(recoveryOwner.Source))
-							throw new FileNotFoundException("The test Virtual source required for recovery is missing.", recoveryOwner.Source);
+						FileEntryKind expectedKind = (FileEntryKind)p_objArguments[2];
 
 						string recoveryPath = GetDeploymentPath(recoveryTarget);
 						Directory.CreateDirectory(Path.GetDirectoryName(recoveryPath));
 						var recoveryFileManager = new TxFileManager { TxEnabled = false };
+						if (expectedKind == FileEntryKind.Unknown)
+						{
+							expectedKind = recoveryOwner.HardLink
+								? FileEntryKind.HardLink
+								: recoveryOwner.SymbolicLink ? FileEntryKind.SymbolicLink : FileEntryKind.RegularFile;
+						}
 
-						if ((recoveryOwner.HardLink || recoveryOwner.SymbolicLink) &&
-							recoveryFileManager.IsSameFile(recoveryPath, recoveryOwner.Source))
+						if (!File.Exists(recoveryOwner.Source))
+							throw new FileNotFoundException("The test Virtual source required for recovery is missing.", recoveryOwner.Source);
+
+						FileEntryKind currentKind = recoveryFileManager.GetFileEntryKind(recoveryPath, recoveryOwner.Source);
+						if ((expectedKind == FileEntryKind.HardLink || expectedKind == FileEntryKind.SymbolicLink) &&
+							currentKind == expectedKind && recoveryFileManager.IsSameFile(recoveryPath, recoveryOwner.Source))
 						{
 							recoveryOwner.Active = true;
 							return null;
 						}
 
-						File.Delete(recoveryPath);
-						if (recoveryOwner.HardLink || recoveryOwner.SymbolicLink)
+						recoveryFileManager.DeleteFileEntryIfPresent(recoveryPath);
+						switch (expectedKind)
 						{
-							bool recovered = recoveryOwner.HardLink
-								? recoveryFileManager.CreateHardLink(recoveryPath, recoveryOwner.Source)
-								: recoveryFileManager.CreateSymbolicLink(recoveryPath, recoveryOwner.Source);
-							if (!recovered || !recoveryFileManager.IsSameFile(recoveryPath, recoveryOwner.Source))
-								throw new IOException("The test Virtual winner could not be recovered with its original link topology.");
-							if (recoveryOwner.SymbolicLink && (File.GetAttributes(recoveryPath) & FileAttributes.ReparsePoint) == 0)
-								throw new IOException("The test Virtual symbolic-link winner was recovered with the wrong topology.");
+							case FileEntryKind.HardLink:
+								if (!recoveryFileManager.CreateHardLink(recoveryPath, recoveryOwner.Source))
+									throw new IOException("The test Virtual hard-link winner could not be recreated.");
+								break;
+							case FileEntryKind.SymbolicLink:
+								recoveryFileManager.CreateSymbolicLink(recoveryPath, recoveryOwner.Source);
+								break;
+							case FileEntryKind.RegularFile:
+								File.Copy(recoveryOwner.Source, recoveryPath, true);
+								break;
+							default:
+								throw new InvalidOperationException("Unexpected Virtual deployment topology in the test recovery backend.");
 						}
-						else
+
+						currentKind = recoveryFileManager.GetFileEntryKind(recoveryPath, recoveryOwner.Source);
+						if (currentKind != expectedKind ||
+							((expectedKind == FileEntryKind.HardLink || expectedKind == FileEntryKind.SymbolicLink) &&
+							 !recoveryFileManager.IsSameFile(recoveryPath, recoveryOwner.Source)))
 						{
-							File.Copy(recoveryOwner.Source, recoveryPath, true);
+							throw new IOException("The test Virtual winner could not be recovered with its captured topology.");
 						}
 
 						recoveryOwner.Active = true;

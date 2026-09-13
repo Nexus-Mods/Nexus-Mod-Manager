@@ -217,25 +217,102 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <inheritdoc />
-		public void RecoverVirtualDeploymentWinner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+		public void RecoverVirtualDeploymentWinner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey, FileEntryKind p_fekExpectedKind)
 		{
+			if (p_fekExpectedKind == FileEntryKind.Absent)
+				throw new ArgumentOutOfRangeException(nameof(p_fekExpectedKind));
+
 			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
 			string sourcePath = ResolveVirtualSourcePath(link, p_mdtTarget);
-			if (String.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
-				throw new FileNotFoundException("The staged Virtual source required for deployment recovery could not be found.", sourcePath);
-
 			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
 			string deployedDirectory = Path.GetDirectoryName(deployedPath);
 			if (!String.IsNullOrWhiteSpace(deployedDirectory) && !Directory.Exists(deployedDirectory))
 				Directory.CreateDirectory(deployedDirectory);
 
+			if (String.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+				throw new FileNotFoundException("The staged Virtual source required for deployment recovery could not be found.", sourcePath);
+
 			var recoveryFileManager = new TxFileManager { TxEnabled = false };
-			if (!recoveryFileManager.IsSameFile(deployedPath, sourcePath))
+			if (IsRecoveredVirtualEntry(recoveryFileManager, deployedPath, sourcePath, p_fekExpectedKind))
 			{
-				File.Delete(deployedPath);
-				DeployVirtualSource(recoveryFileManager, sourcePath, deployedPath);
+				link.Active = true;
+				return;
 			}
+
+			recoveryFileManager.DeleteFileEntryIfPresent(deployedPath);
+			RestoreVirtualDeploymentEntry(recoveryFileManager, sourcePath, deployedPath, p_fekExpectedKind);
+			VerifyRecoveredVirtualEntry(recoveryFileManager, deployedPath, sourcePath, p_fekExpectedKind);
 			link.Active = true;
+		}
+
+		/// <summary>
+		/// Determines whether crash recovery can leave an already-restored Virtual deployment entry untouched.
+		/// </summary>
+		private static bool IsRecoveredVirtualEntry(TxFileManager p_tfmFileManager, string p_strDeployedPath,
+			string p_strSourcePath, FileEntryKind p_fekExpectedKind)
+		{
+			if (p_fekExpectedKind == FileEntryKind.Unknown)
+				return p_tfmFileManager.IsSameFile(p_strDeployedPath, p_strSourcePath);
+			if (p_fekExpectedKind != FileEntryKind.HardLink && p_fekExpectedKind != FileEntryKind.SymbolicLink)
+				return false;
+
+			return p_tfmFileManager.GetFileEntryKind(p_strDeployedPath, p_strSourcePath) == p_fekExpectedKind &&
+				p_tfmFileManager.IsSameFile(p_strDeployedPath, p_strSourcePath);
+		}
+
+		/// <summary>
+		/// Recreates a Virtual deployment entry using the topology captured before the interrupted mutation.
+		/// </summary>
+		private void RestoreVirtualDeploymentEntry(TxFileManager p_tfmFileManager, string p_strSourcePath,
+			string p_strDeployedPath, FileEntryKind p_fekExpectedKind)
+		{
+			switch (p_fekExpectedKind)
+			{
+				case FileEntryKind.Unknown:
+					DeployVirtualSource(p_tfmFileManager, p_strSourcePath, p_strDeployedPath);
+					break;
+				case FileEntryKind.RegularFile:
+					p_tfmFileManager.Copy(p_strSourcePath, p_strDeployedPath, true);
+					break;
+				case FileEntryKind.HardLink:
+					if (!p_tfmFileManager.CreateHardLink(p_strDeployedPath, p_strSourcePath))
+						throw new IOException(string.Format("Unable to restore hard link '{0}' -> '{1}' during deployment recovery.",
+							p_strDeployedPath, p_strSourcePath));
+					break;
+				case FileEntryKind.SymbolicLink:
+					p_tfmFileManager.CreateSymbolicLink(p_strDeployedPath, p_strSourcePath);
+					break;
+				default:
+					throw new ArgumentOutOfRangeException(nameof(p_fekExpectedKind));
+			}
+		}
+
+		/// <summary>
+		/// Verifies the topology and source identity of a recreated Virtual deployment entry.
+		/// </summary>
+		private static void VerifyRecoveredVirtualEntry(TxFileManager p_tfmFileManager, string p_strDeployedPath,
+			string p_strSourcePath, FileEntryKind p_fekExpectedKind)
+		{
+			FileEntryKind actualKind = p_tfmFileManager.GetFileEntryKind(p_strDeployedPath, p_strSourcePath);
+			if (actualKind == FileEntryKind.Absent)
+				throw new IOException(string.Format("Deployment recovery did not recreate '{0}' from '{1}'.", p_strDeployedPath, p_strSourcePath));
+
+			if (p_fekExpectedKind == FileEntryKind.Unknown)
+				return;
+			if (actualKind != p_fekExpectedKind)
+			{
+				throw new IOException(string.Format(
+					"Deployment recovery restored '{0}' with topology '{1}' instead of '{2}'. Source: '{3}'.",
+					p_strDeployedPath, actualKind, p_fekExpectedKind, p_strSourcePath));
+			}
+
+			if ((p_fekExpectedKind == FileEntryKind.HardLink || p_fekExpectedKind == FileEntryKind.SymbolicLink) &&
+				!p_tfmFileManager.IsSameFile(p_strDeployedPath, p_strSourcePath))
+			{
+				throw new IOException(string.Format(
+					"Deployment recovery restored link '{0}', but it does not resolve to the expected source '{1}'.",
+					p_strDeployedPath, p_strSourcePath));
+			}
 		}
 
 		/// <inheritdoc />
