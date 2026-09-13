@@ -954,6 +954,34 @@
 		}
 
 		/// <summary>
+		/// Restores the flat-grid viewport and keeps focus at the same visual row after a sorted value moves the focused mod.
+		/// </summary>
+		private void RestoreModGridVisualPosition(ModGridViewState state)
+		{
+			if (state == null || gridView.RowCount <= 0)
+				return;
+
+			bool wasRestoring = _restoringGridLayout;
+			_restoringGridLayout = true;
+			try
+			{
+				int focusedRowHandle = GetNearestVisibleDataRowHandle(state.FocusedVisibleIndex);
+				gridView.ClearSelection();
+				if (focusedRowHandle >= 0)
+				{
+					gridView.FocusedRowHandle = focusedRowHandle;
+					gridView.SelectRow(focusedRowHandle);
+				}
+
+				gridView.TopRowIndex = Math.Max(0, Math.Min(state.TopVisibleIndex, gridView.RowCount - 1));
+			}
+			finally
+			{
+				_restoringGridLayout = wasRestoring;
+			}
+		}
+
+		/// <summary>
 		/// Restores the flat-grid top row using a surviving mod identity with an index fallback.
 		/// </summary>
 		private void RestoreModGridViewport(ModGridViewState state)
@@ -1062,13 +1090,51 @@
 			bool focusTopAfterSortedPropertyChange = ShouldFocusTopAfterSortedPropertyChange(e.PropertyName);
 			if (sender is IMod mod)
 			{
+				bool preserveFocusedVisualPosition = ShouldPreserveFocusedVisualPosition(mod, e.PropertyName);
 				_presentationState.InvalidateMod(mod);
-				_gridModListSurface.RefreshMod(mod, e.PropertyName);
-				_categoryModListSurface?.RefreshMod(mod, e.PropertyName);
+
+				if (preserveFocusedVisualPosition && ReferenceEquals(_activeModListSurface, _gridModListSurface))
+				{
+					ModGridViewState gridState = CaptureModGridViewState();
+					_gridModListSurface.RefreshData();
+					RestoreModGridVisualPosition(gridState);
+				}
+				else
+				{
+					_gridModListSurface.RefreshMod(mod, e.PropertyName);
+				}
+
+				_categoryModListSurface?.RefreshMod(
+					mod,
+					e.PropertyName,
+					preserveFocusedVisualPosition && ReferenceEquals(_activeModListSurface, _categoryModListSurface));
 			}
 
 			if (focusTopAfterSortedPropertyChange)
 				QueueFocusFirstVisibleDataRow();
+		}
+
+		/// <summary>
+		/// Determines whether a sorted install-date update should keep focus at its previous visual position.
+		/// </summary>
+		private bool ShouldPreserveFocusedVisualPosition(IMod mod, string propertyName)
+		{
+			if (_focusTopRowAfterInstallDateChange ||
+				mod == null ||
+				!string.Equals(propertyName, ColInstallDate, StringComparison.Ordinal) ||
+				!ReferenceEquals(SelectedMod, mod))
+			{
+				return false;
+			}
+
+			List<IMod> selectedMods = SelectedMods;
+			if (selectedMods.Count != 1 || !ReferenceEquals(selectedMods[0], mod))
+				return false;
+
+			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+				return _categoryModListSurface != null && _categoryModListSurface.IsSortedByColumn(ModCategoryTreeColumns.InstallDate);
+
+			return IsGridSortedByColumn(ColInstallDate);
 		}
 
 		private bool ShouldFocusTopAfterSortedPropertyChange(string propertyName)

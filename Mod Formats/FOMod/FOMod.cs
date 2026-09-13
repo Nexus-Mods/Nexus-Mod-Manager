@@ -47,7 +47,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string _humanReadableVersion;
 		private string _lastKnownVersion;
 		private int _categoryId;
-		private int _customCategoryId;
+		private int _customCategoryId = -1;
 		private bool? _isEndorsed = false;
 		private Version _machineVersion;
 		private string _author;
