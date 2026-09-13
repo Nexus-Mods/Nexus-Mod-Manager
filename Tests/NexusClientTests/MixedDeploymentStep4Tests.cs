@@ -1,5 +1,13 @@
 ﻿namespace NexusClientTests
 {
+	using ChinhDo.Transactions;
+	using Microsoft.VisualStudio.TestPlatform.PlatformAbstractions.Interfaces;
+	using Nexus.Client.Games;
+	using Nexus.Client.ModManagement;
+	using Nexus.Client.ModManagement.InstallationLog;
+	using Nexus.Client.Mods;
+	using Nexus.Transactions;
+	using NUnit.Framework;
 	using System;
 	using System.Collections.Generic;
 	using System.ComponentModel;
@@ -8,15 +16,6 @@
 	using System.Reflection;
 	using System.Text;
 	using System.Xml.Linq;
-
-	using ChinhDo.Transactions;
-	using Nexus.Client.Games;
-	using Nexus.Client.ModManagement;
-	using Nexus.Client.ModManagement.InstallationLog;
-	using Nexus.Client.Mods;
-	using Nexus.Transactions;
-
-	using NUnit.Framework;
 
 	/// <summary>
 	/// Verifies mixed Virtual/Direct ownership, restoration, and rollback introduced by Step 4.
@@ -395,6 +394,44 @@
 				Assert.AreEqual("changed-through-source", environment.ReadTarget(target));
 			}
 		}
+
+		/// <summary>
+		/// Verifies cancelling an in-place promoted Virtual replacement restores the previous symbolic-link source and owner stack.
+		/// </summary>
+		[Test]
+		public void CancelledSameOwnerVirtualReplacement_RestoresOriginalSymbolicLinkSource()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("Virtual", ModInstallMethod.Virtual);
+				IMod directMod = environment.RegisterMod("Direct", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"bin\same-owner-symlink.dll");
+				string originalSource = environment.AddVirtualOwner(virtualMod, target, "original", true, 0, null, false, true);
+				environment.InstallDirect(directMod, target, "direct");
+				environment.Uninstall(directMod);
+				string replacementSource = environment.StageVirtual(virtualMod, target, "replacement");
+
+				using (var scope = new TransactionScope())
+				{
+					environment.Manager.InstallVirtualFile(
+						virtualMod,
+						target,
+						target.RelativePath,
+						replacementSource,
+						ModInstallRoot.Data,
+						true,
+						new TxFileManager());
+				}
+
+				string deployedPath = environment.Manager.GetDeploymentPath(target);
+				var fileManager = new TxFileManager { TxEnabled = false };
+				Assert.AreEqual(FileEntryKind.SymbolicLink, fileManager.GetFileEntryKind(deployedPath, originalSource));
+				Assert.IsTrue(fileManager.IsSameFile(deployedPath, originalSource));
+				Assert.IsFalse(fileManager.IsSameFile(deployedPath, replacementSource));
+				Assert.AreEqual("original", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(new[] { environment.Key(virtualMod) }, environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+       }
 
 		/// <summary>
 		/// Verifies native symbolic-link failure is reported without replacing an existing destination.

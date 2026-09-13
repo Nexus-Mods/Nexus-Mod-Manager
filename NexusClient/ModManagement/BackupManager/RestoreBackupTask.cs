@@ -343,6 +343,9 @@ namespace Nexus.Client.ModManagement
 			string FileFrom = string.Empty;
 			string VIRTUALINSTALLpath = VirtualModActivator.VirtualFoder;
 			string NMMLINKpath = VirtualModActivator.HDLinkFolder;
+			if (string.IsNullOrEmpty(NMMLINKpath))
+				NMMLINKpath = VIRTUALINSTALLpath;
+			bool SeparateNmmLinkRoot = !AreSameDirectoryPath(VIRTUALINSTALLpath, NMMLINKpath);
 			string ModArchivesPath = ModManager.GameMode.GameModeEnvironmentInfo.ModDirectory;
 			string ModCacheArchivesPath = ModManager.GameMode.GameModeEnvironmentInfo.ModCacheDirectory;
 			string dir = string.Empty;
@@ -351,8 +354,10 @@ namespace Nexus.Client.ModManagement
 			string ModInstallFolder = ModManager.GameMode.PluginDirectory;
 			string ModInstallBackup = ModInstallFolder + "_oldbkp";
 			string VirtualInstallBackup = VIRTUALINSTALLpath + "_oldbkp";
+			string NmmLinkBackup = NMMLINKpath + "_oldbkp";
 			bool PurgedModInstall = false;
 			bool PurgedVirtualInstall = false;
+			bool PurgedNmmLink = false;
 			ModProfile mprModProfile = null;
 			TransactionScope deploymentRestoreTransaction = null;
 			TxFileManager deploymentFileManager = null;
@@ -371,24 +376,29 @@ namespace Nexus.Client.ModManagement
 				return null;
 			}
 
-			if (PurgeFolders)
+			try
 			{
-				if (p_lstLooseFiles.Count > 0)
-					if (Directory.Exists(ModInstallFolder))
-					{
-						FileUtil.RenameDirectory(ModInstallFolder, ModInstallBackup);
-						PurgedModInstall = true;
-					}
-				if (p_lstInstalledModFiles.Count > 0)
-					if (Directory.Exists(VIRTUALINSTALLpath))
+				if (PurgeFolders)
+				{
+					if (p_lstLooseFiles.Count > 0)
+						if (Directory.Exists(ModInstallFolder))
+						{
+							FileUtil.RenameDirectory(ModInstallFolder, ModInstallBackup);
+							PurgedModInstall = true;
+						}
+					bool restoreVirtualRoot = p_lstInstalledModFiles.Count > 0 || (!SeparateNmmLinkRoot && p_lstInstalledNMMLINKFiles.Count > 0);
+					if (restoreVirtualRoot && Directory.Exists(VIRTUALINSTALLpath))
 					{
 						FileUtil.RenameDirectory(VIRTUALINSTALLpath, VirtualInstallBackup);
 						PurgedVirtualInstall = true;
 					}
-			}
+					if (SeparateNmmLinkRoot && p_lstInstalledNMMLINKFiles.Count > 0 && Directory.Exists(NMMLINKpath))
+					{
+						FileUtil.RenameDirectory(NMMLINKpath, NmmLinkBackup);
+						PurgedNmmLink = true;
+					}
+				}
 
-			try
-			{
 				deploymentRestoreTransaction = new TransactionScope();
 				deploymentFileManager = new TxFileManager();
 				ClearCurrentPromotedDeploymentFiles(deploymentFileManager);
@@ -429,25 +439,13 @@ namespace Nexus.Client.ModManagement
 				{
 					OverallProgressMaximum = p_lstInstalledModFiles.Count();
 
-					if (!Directory.Exists(VIRTUALINSTALLpath))
-						Directory.CreateDirectory(VIRTUALINSTALLpath);
-
 					counter = 0;
 					foreach (BackupInfo bkInfo in p_lstInstalledModFiles)
 					{
-						dir = Path.GetDirectoryName(Path.Combine(bkInfo.ModID, bkInfo.VirtualModPath));
-						if (!string.IsNullOrEmpty(dir))
-						{
-							if (Directory.Exists(Path.Combine(VIRTUALINSTALLpath, dir)))
-								Directory.Delete(Path.Combine(VIRTUALINSTALLpath, dir), true);
-
-							Directory.CreateDirectory(Path.Combine(VIRTUALINSTALLpath, dir));
-						}
-
 						FileFrom = bkInfo.RealModPath;
 						FileTo = bkInfo.VirtualModPath == "VirtualModConfig.xml" ? Path.Combine(VIRTUALINSTALLpath, bkInfo.VirtualModPath) : Path.Combine(VIRTUALINSTALLpath, bkInfo.ModID, bkInfo.VirtualModPath);
 
-						File.Copy(FileFrom, FileTo, true);
+						RestorePayloadFile(deploymentFileManager, FileFrom, FileTo);
 
 						if (counter < p_lstInstalledModFiles.Count())
 						{
@@ -467,31 +465,13 @@ namespace Nexus.Client.ModManagement
 				{
 					OverallProgressMaximum = p_lstInstalledNMMLINKFiles.Count();
 					
-					if (string.IsNullOrEmpty(NMMLINKpath))
-						NMMLINKpath = VIRTUALINSTALLpath;
-
-					if (!Directory.Exists(NMMLINKpath))
-						Directory.CreateDirectory(NMMLINKpath);
-					
 					counter = 0;
 					foreach (BackupInfo bkInfo in p_lstInstalledNMMLINKFiles)
 					{
-						if (ModManager.VirtualModActivator.MultiHDMode)
-						{
-							dir = Path.GetDirectoryName(Path.Combine(bkInfo.ModID, bkInfo.VirtualModPath));
-							if (!string.IsNullOrEmpty(dir))
-							{
-								if (Directory.Exists(Path.Combine(NMMLINKpath, dir)))
-									Directory.Delete(Path.Combine(NMMLINKpath, dir), true);
-
-								Directory.CreateDirectory(Path.Combine(NMMLINKpath, dir));
-							}
-						}
-
 						FileFrom = bkInfo.RealModPath;
 						FileTo = Path.Combine(NMMLINKpath, bkInfo.VirtualModPath);
 
-						File.Copy(FileFrom, FileTo, true);
+						RestorePayloadFile(deploymentFileManager, FileFrom, FileTo);
 
 
 						if (counter < p_lstInstalledNMMLINKFiles.Count())
@@ -623,9 +603,9 @@ namespace Nexus.Client.ModManagement
 				}
 
 				deploymentRestoreTransaction.Complete();
-				deploymentRestoreCommitted = true;
 				deploymentRestoreTransaction.Dispose();
 				deploymentRestoreTransaction = null;
+				deploymentRestoreCommitted = true;
 				DiscardDeploymentBackupRollback(deploymentBackupRollback);
 				deploymentBackupRollback = null;
 								
@@ -641,6 +621,9 @@ namespace Nexus.Client.ModManagement
 
 				if (Directory.Exists(VirtualInstallBackup))
 					FileUtil.ForceDelete(VirtualInstallBackup);
+
+				if (PurgedNmmLink && Directory.Exists(NmmLinkBackup))
+					FileUtil.ForceDelete(NmmLinkBackup);
 			}
 			catch (Exception e)
 			{
@@ -680,10 +663,11 @@ namespace Nexus.Client.ModManagement
 					}
 				}
 
-				if (PurgeFolders)
+				if (PurgeFolders && !deploymentRestoreCommitted)
 				{
 					string ModInstallDelete = ModInstallFolder + "_DELETE";
 					string VirtualInstallDelete = VIRTUALINSTALLpath + "_DELETE";
+					string NmmLinkDelete = NMMLINKpath + "_DELETE";
 
 					if (PurgedModInstall)
 					{
@@ -708,6 +692,18 @@ namespace Nexus.Client.ModManagement
 						if (Directory.Exists(VirtualInstallDelete))
 							FileUtil.ForceDelete(VirtualInstallDelete);
 					}
+
+					if (PurgedNmmLink)
+					{
+						if (Directory.Exists(NMMLINKpath))
+							FileUtil.RenameDirectory(NMMLINKpath, NmmLinkDelete);
+
+						if (Directory.Exists(NmmLinkBackup))
+							FileUtil.RenameDirectory(NmmLinkBackup, NMMLINKpath);
+
+						if (Directory.Exists(NmmLinkDelete))
+							FileUtil.ForceDelete(NmmLinkDelete);
+					}
 				}
 
 				string ErrorMessage = string.Format("Exception: {0}" + Environment.NewLine + Environment.NewLine + "From: {1}" + Environment.NewLine + "To: {2}", e.Message, FileFrom, FileTo);
@@ -716,6 +712,31 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return mprModProfile;
+		}
+
+		/// <summary>
+		/// Restores one Virtual/NMMLINK payload without deleting sibling content and journals the write for rollback.
+		/// </summary>
+		private static void RestorePayloadFile(TxFileManager p_tfmFileManager, string p_strSourcePath, string p_strDestinationPath)
+		{
+			string directory = Path.GetDirectoryName(p_strDestinationPath);
+			if (!String.IsNullOrEmpty(directory))
+				p_tfmFileManager.CreateDirectory(directory);
+
+			p_tfmFileManager.Copy(p_strSourcePath, p_strDestinationPath, true);
+		}
+
+		/// <summary>
+		/// Compares two restore-root paths using Windows filesystem semantics.
+		/// </summary>
+		private static bool AreSameDirectoryPath(string p_strFirstPath, string p_strSecondPath)
+		{
+			if (String.IsNullOrWhiteSpace(p_strFirstPath) || String.IsNullOrWhiteSpace(p_strSecondPath))
+				return String.Equals(p_strFirstPath, p_strSecondPath, StringComparison.OrdinalIgnoreCase);
+
+			string firstPath = Path.GetFullPath(p_strFirstPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			string secondPath = Path.GetFullPath(p_strSecondPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			return String.Equals(firstPath, secondPath, StringComparison.OrdinalIgnoreCase);
 		}
 
 		/// <summary>

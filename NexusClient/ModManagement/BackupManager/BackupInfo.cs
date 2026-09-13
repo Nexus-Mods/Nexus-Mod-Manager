@@ -14,6 +14,7 @@ namespace Nexus.Client.ModManagement
 		public string ModID { get; set; }
 		public string Directory { get; set; }
 		public long Size { get; set; }
+		public bool RequiredDeploymentPayload { get; private set; }
 
 
 		#endregion
@@ -21,12 +22,18 @@ namespace Nexus.Client.ModManagement
 		#region Constructors
 
 		public BackupInfo(string p_strVirtualModPath, string p_strRealModPath, string p_strModID, string p_strDirectory, long p_lngSize)
+			: this(p_strVirtualModPath, p_strRealModPath, p_strModID, p_strDirectory, p_lngSize, false)
+		{
+		}
+
+		public BackupInfo(string p_strVirtualModPath, string p_strRealModPath, string p_strModID, string p_strDirectory, long p_lngSize, bool p_booRequiredDeploymentPayload)
 		{
 			VirtualModPath = p_strVirtualModPath;
 			RealModPath = p_strRealModPath;
 			ModID = p_strModID;
 			Directory = p_strDirectory;
 			Size = p_lngSize;
+			RequiredDeploymentPayload = p_booRequiredDeploymentPayload;
 		}
 
 		#endregion

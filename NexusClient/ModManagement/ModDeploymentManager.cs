@@ -382,6 +382,8 @@ namespace Nexus.Client.ModManagement
 				bool isCurrentWinner = existingOwnerIndex == owners.Count - 1;
 				int preservedPriority = CountVirtualOwnersAbove(owners, existingOwnerIndex);
 
+				if (isCurrentWinner)
+					m_vmaVirtualModActivator.DetachVirtualLinkWithoutFallback(p_mdtTarget, modKey, p_tfmFileManager);
 				m_vmaVirtualModActivator.RemoveVirtualLinkRecord(p_mdtTarget, modKey);
 				m_vmaVirtualModActivator.RegisterVirtualLink(
 					p_mdtTarget,

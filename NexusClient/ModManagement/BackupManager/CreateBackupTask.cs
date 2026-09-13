@@ -253,12 +253,7 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, bkInfo.Directory, dir));
 
-						try
-						{ 
-							File.Copy(bkInfo.RealModPath, Path.Combine(BackupDirectory, bkInfo.Directory, bkInfo.ModID, bkInfo.VirtualModPath), true);
-						}
-						catch (FileNotFoundException)
-						{ }
+						CopyInstalledBackupFile(bkInfo, GetBackupFilePath(BackupDirectory, bkInfo));
 
 						if (ItemProgress < ItemProgressMaximum)
 						{
@@ -372,6 +367,8 @@ namespace Nexus.Client.ModManagement
 				if (File.Exists(installLog))
 					File.Copy(installLog, Path.Combine(BackupDirectory, "InstallLog.xml"));
 
+				ValidateRequiredDeploymentPayloads(BackupDirectory);
+
 				string startPath = BackupDirectory;
 				string zipPath = Path.Combine(EnvironmentInfo.ApplicationPersonalDataFolderPath, "NMM_BACKUP.zip");
 
@@ -404,6 +401,56 @@ namespace Nexus.Client.ModManagement
 				return (string.Format("Not enough space on drive: {0} - ({1}Mb required)", drive.Name, ((TotalFileSize / 1024)/ 1024).ToString()));
 
 			return null;
+		}
+
+		/// <summary>
+		/// Gets the temporary-backup destination for an installed-file payload.
+		/// </summary>
+		private static string GetBackupFilePath(string p_strBackupDirectory, BackupInfo p_bifBackupInfo)
+		{
+			return Path.Combine(p_strBackupDirectory, p_bifBackupInfo.Directory, p_bifBackupInfo.ModID, p_bifBackupInfo.VirtualModPath);
+		}
+
+		/// <summary>
+		/// Copies one installed payload while preserving legacy best-effort handling for non-deployment files.
+		/// </summary>
+		private static void CopyInstalledBackupFile(BackupInfo p_bifBackupInfo, string p_strDestinationPath)
+		{
+			try
+			{
+				File.Copy(p_bifBackupInfo.RealModPath, p_strDestinationPath, true);
+			}
+			catch (FileNotFoundException ex)
+			{
+				if (!p_bifBackupInfo.RequiredDeploymentPayload)
+					return;
+
+				throw new FileNotFoundException(
+					String.Format("The deployment payload required to complete the backup is missing: '{0}'.", p_bifBackupInfo.RealModPath),
+					p_bifBackupInfo.RealModPath,
+					ex);
+			}
+		}
+
+		/// <summary>
+		/// Verifies that every deployment payload required by the captured ownership state reached the temporary backup tree.
+		/// </summary>
+		private void ValidateRequiredDeploymentPayloads(string p_strBackupDirectory)
+		{
+			foreach (BackupInfo backupInfo in BackupManager.lstInstalledModFiles.Where(x => x.RequiredDeploymentPayload))
+			{
+				string backupPath = GetBackupFilePath(p_strBackupDirectory, backupInfo);
+				if (!File.Exists(backupPath))
+					throw new InvalidDataException(String.Format("Required deployment payload was not copied into the backup: '{0}'.", backupInfo.RealModPath));
+
+				long copiedSize = new FileInfo(backupPath).Length;
+				if (copiedSize != backupInfo.Size)
+					throw new InvalidDataException(String.Format(
+						"Required deployment payload '{0}' changed size while the backup was being created. Expected {1} bytes, copied {2} bytes.",
+						backupInfo.RealModPath,
+						backupInfo.Size,
+						copiedSize));
+			}
 		}
 
 		private bool CheckPathLimit(string p_strBackupDirectory)

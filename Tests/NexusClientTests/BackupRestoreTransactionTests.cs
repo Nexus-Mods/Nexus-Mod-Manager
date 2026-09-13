@@ -2,10 +2,12 @@ namespace NexusClientTests
 {
 	using System;
 	using System.Collections.Generic;
+	using System.ComponentModel;
 	using System.IO;
 	using System.Reflection;
 	using System.Runtime.Serialization;
 
+	using ChinhDo.Transactions;
 	using Nexus.Client;
 	using Nexus.Client.Games;
 	using Nexus.Client.ModManagement;
@@ -104,9 +106,299 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Cancels an in-place Virtual winner replacement through the real VMA backend and restores the original symbolic-link target.
+		/// </summary>
+		[Test]
+		public void SameOwnerVirtualReplacement_Cancelled_RestoresOriginalSymbolicLinkTarget()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-VirtualReplacementRollback-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				const string modeId = "TestMode";
+				const string ownerKey = "VirtualOwner";
+				string dataPath = Path.Combine(root, "Data");
+				string gamePath = Path.Combine(root, "Game");
+				string modFolder = Path.Combine(root, "Mods");
+				string virtualRoot = Path.Combine(root, "VirtualRoot");
+				Directory.CreateDirectory(dataPath);
+				Directory.CreateDirectory(gamePath);
+				Directory.CreateDirectory(modFolder);
+
+				IGameMode gameMode = CreateGameMode(modeId, gamePath, dataPath, false);
+				IEnvironmentInfo environmentInfo = CreateEnvironmentInfo(modeId, virtualRoot, true);
+				IInstallLog installLog = CreateInstallLog(ownerKey);
+				IMod mod = CreateMod(Path.Combine(modFolder, "Virtual.7z"));
+				ModManager modManager = CreateModManagerShell(gameMode, installLog, mod);
+				var virtualModActivator = new VirtualModActivator(
+					modManager,
+					InterfaceStub<IPluginManager>.Create((method, args) => null),
+					gameMode,
+					installLog,
+					environmentInfo,
+					modFolder);
+
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "winner.txt");
+				string originalSource = Path.Combine(virtualRoot, VirtualModActivator.ACTIVATOR_FOLDER, "Virtual", "winner.txt");
+				string replacementSource = Path.Combine(virtualRoot, VirtualModActivator.ACTIVATOR_FOLDER, "VirtualReplacement", "winner.txt");
+				Directory.CreateDirectory(Path.GetDirectoryName(originalSource));
+				Directory.CreateDirectory(Path.GetDirectoryName(replacementSource));
+				File.WriteAllText(originalSource, "original");
+				File.WriteAllText(replacementSource, "replacement");
+
+				try
+				{
+					using (TransactionScope transaction = new TransactionScope())
+					{
+						virtualModActivator.RegisterVirtualLink(target, mod, "winner.txt", originalSource, ModInstallRoot.Data, 0);
+						virtualModActivator.DeploySpecificVirtualLink(target, ownerKey, new TxFileManager());
+						transaction.Complete();
+					}
+				}
+				catch (IOException ex)
+				{
+					Win32Exception nativeError = ex.InnerException as Win32Exception;
+					if (nativeError != null && (nativeError.NativeErrorCode == 1314 || nativeError.NativeErrorCode == 50))
+						Assert.Ignore("Symbolic-link setup requires Windows symlink privileges or a supported filesystem: " + ex.Message);
+					throw;
+				}
+
+				string deployedPath = Path.Combine(dataPath, "winner.txt");
+				var topology = new TxFileManager { TxEnabled = false };
+				Assert.AreEqual(FileEntryKind.SymbolicLink, topology.GetFileEntryKind(deployedPath, originalSource));
+				Assert.IsTrue(topology.IsSameFile(deployedPath, originalSource));
+
+				using (var transaction = new TransactionScope())
+				{
+					var fileManager = new TxFileManager();
+					virtualModActivator.DetachVirtualLinkWithoutFallback(target, ownerKey, fileManager);
+					virtualModActivator.RemoveVirtualLinkRecord(target, ownerKey);
+					virtualModActivator.RegisterVirtualLink(target, mod, "winner.txt", replacementSource, ModInstallRoot.Data, 0);
+					virtualModActivator.DeploySpecificVirtualLink(target, ownerKey, fileManager);
+
+					Assert.AreEqual(FileEntryKind.SymbolicLink, topology.GetFileEntryKind(deployedPath, replacementSource));
+					Assert.IsTrue(topology.IsSameFile(deployedPath, replacementSource));
+				}
+
+				Assert.AreEqual(FileEntryKind.SymbolicLink, topology.GetFileEntryKind(deployedPath, originalSource));
+				Assert.IsTrue(topology.IsSameFile(deployedPath, originalSource));
+				Assert.IsFalse(topology.IsSameFile(deployedPath, replacementSource));
+				Assert.AreEqual("original", File.ReadAllText(deployedPath));
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// Restoring sibling and nested Virtual payloads must not delete files restored earlier in the same directory tree.
+		/// </summary>
+		[Test]
+		public void RestorePayloadFile_PreservesSiblingAndNestedFiles()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-BackupPayloadSiblings-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string sourceRoot = Path.Combine(root, "Backup");
+				string destinationRoot = Path.Combine(root, "VirtualInstall");
+				Directory.CreateDirectory(sourceRoot);
+				Directory.CreateDirectory(Path.Combine(destinationRoot, "ModA", "textures"));
+
+				string sourceA = Path.Combine(sourceRoot, "a.dds");
+				string sourceB = Path.Combine(sourceRoot, "b.dds");
+				string sourceNested = Path.Combine(sourceRoot, "nested.dds");
+				File.WriteAllText(sourceA, "a");
+				File.WriteAllText(sourceB, "b");
+				File.WriteAllText(sourceNested, "nested");
+
+				string sibling = Path.Combine(destinationRoot, "ModA", "textures", "existing.dds");
+				File.WriteAllText(sibling, "existing");
+
+				using (TransactionScope transaction = new TransactionScope())
+				{
+					var fileManager = new TxFileManager();
+					InvokeRestorePayloadFile(fileManager, sourceA, Path.Combine(destinationRoot, "ModA", "textures", "a.dds"));
+					InvokeRestorePayloadFile(fileManager, sourceB, Path.Combine(destinationRoot, "ModA", "textures", "b.dds"));
+					InvokeRestorePayloadFile(fileManager, sourceNested, Path.Combine(destinationRoot, "ModA", "textures", "nested", "c.dds"));
+					transaction.Complete();
+				}
+
+				Assert.AreEqual("a", File.ReadAllText(Path.Combine(destinationRoot, "ModA", "textures", "a.dds")));
+				Assert.AreEqual("b", File.ReadAllText(Path.Combine(destinationRoot, "ModA", "textures", "b.dds")));
+				Assert.AreEqual("nested", File.ReadAllText(Path.Combine(destinationRoot, "ModA", "textures", "nested", "c.dds")));
+				Assert.AreEqual("existing", File.ReadAllText(sibling));
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// A failed non-purge restore must restore overwritten payloads and remove payloads newly created by that restore.
+		/// </summary>
+		[Test]
+		public void RestorePayloadFile_AbortedTransactionRestoresOverlayState()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-BackupPayloadRollback-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string sourceRoot = Path.Combine(root, "Backup");
+				string destinationRoot = Path.Combine(root, "VirtualInstall");
+				Directory.CreateDirectory(sourceRoot);
+				Directory.CreateDirectory(destinationRoot);
+
+				string replacementSource = Path.Combine(sourceRoot, "replacement.bin");
+				string newSource = Path.Combine(sourceRoot, "new.bin");
+				string existingDestination = Path.Combine(destinationRoot, "existing.bin");
+				string newDestination = Path.Combine(destinationRoot, "nested", "new.bin");
+				File.WriteAllText(replacementSource, "replacement");
+				File.WriteAllText(newSource, "new");
+				File.WriteAllText(existingDestination, "original");
+
+				using (new TransactionScope())
+				{
+					var fileManager = new TxFileManager();
+					InvokeRestorePayloadFile(fileManager, replacementSource, existingDestination);
+					InvokeRestorePayloadFile(fileManager, newSource, newDestination);
+					Assert.AreEqual("replacement", File.ReadAllText(existingDestination));
+					Assert.AreEqual("new", File.ReadAllText(newDestination));
+				}
+
+				Assert.AreEqual("original", File.ReadAllText(existingDestination));
+				Assert.IsFalse(File.Exists(newDestination));
+				Assert.IsFalse(Directory.Exists(Path.GetDirectoryName(newDestination)));
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// A required Direct/mixed deployment payload that disappears after enumeration must fail backup creation explicitly.
+		/// </summary>
+		[Test]
+		public void CopyInstalledBackupFile_RequiredDeploymentPayloadMissing_Throws()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-RequiredBackupPayload-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string source = Path.Combine(root, "missing.bin");
+				string destination = Path.Combine(root, "backup.bin");
+				var backupInfo = new BackupInfo("Data\\required.bin", source, String.Empty, Path.Combine("DEPLOYMENT", "active"), 4, true);
+
+				TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() => InvokeCopyInstalledBackupFile(backupInfo, destination));
+				Assert.IsInstanceOf<FileNotFoundException>(exception.InnerException);
+				Assert.AreEqual(source, ((FileNotFoundException)exception.InnerException).FileName);
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// Missing legacy installed-file payloads retain the existing best-effort backup behavior.
+		/// </summary>
+		[Test]
+		public void CopyInstalledBackupFile_OptionalLegacyPayloadMissing_IsIgnored()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-OptionalBackupPayload-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string destination = Path.Combine(root, "backup.bin");
+				var backupInfo = new BackupInfo("optional.bin", Path.Combine(root, "missing.bin"), String.Empty, "VIRTUAL INSTALL", 4);
+
+				Assert.DoesNotThrow(() => InvokeCopyInstalledBackupFile(backupInfo, destination));
+				Assert.IsFalse(File.Exists(destination));
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// Required deployment payload validation rejects a temporary backup whose copied bytes do not match the captured size.
+		/// </summary>
+		[Test]
+		public void ValidateRequiredDeploymentPayloads_SizeMismatch_Throws()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-BackupPayloadValidation-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				var backupInfo = new BackupInfo("Data\\required.bin", Path.Combine(root, "source.bin"), String.Empty, Path.Combine("DEPLOYMENT", "active"), 8, true);
+				string destination = Path.Combine(root, backupInfo.Directory, backupInfo.VirtualModPath);
+				Directory.CreateDirectory(Path.GetDirectoryName(destination));
+				File.WriteAllBytes(destination, new byte[4]);
+
+				var backupManager = (BackupManager)FormatterServices.GetUninitializedObject(typeof(BackupManager));
+				backupManager.lstInstalledModFiles = new List<BackupInfo> { backupInfo };
+				var createTask = (CreateBackupTask)FormatterServices.GetUninitializedObject(typeof(CreateBackupTask));
+				SetField(createTask, "BackupManager", backupManager);
+
+				TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() => InvokeValidateRequiredDeploymentPayloads(createTask, root));
+				Assert.IsInstanceOf<InvalidDataException>(exception.InnerException);
+			}
+			finally
+			{
+				if (Directory.Exists(root))
+					Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// Invokes the installed-file backup copy primitive while keeping it private to CreateBackupTask.
+		/// </summary>
+		private static void InvokeCopyInstalledBackupFile(BackupInfo p_bifBackupInfo, string p_strDestinationPath)
+		{
+			MethodInfo copyPayload = typeof(CreateBackupTask).GetMethod(
+				"CopyInstalledBackupFile",
+				BindingFlags.Static | BindingFlags.NonPublic);
+			Assert.NotNull(copyPayload);
+			copyPayload.Invoke(null, new object[] { p_bifBackupInfo, p_strDestinationPath });
+		}
+
+		/// <summary>
+		/// Invokes required deployment-payload validation while keeping it private to CreateBackupTask.
+		/// </summary>
+		private static void InvokeValidateRequiredDeploymentPayloads(CreateBackupTask p_cbtCreateTask, string p_strBackupDirectory)
+		{
+			MethodInfo validate = typeof(CreateBackupTask).GetMethod(
+				"ValidateRequiredDeploymentPayloads",
+				BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.NotNull(validate);
+			validate.Invoke(p_cbtCreateTask, new object[] { p_strBackupDirectory });
+		}
+
+		/// <summary>
+		/// Invokes the production payload restore primitive while keeping it private to RestoreBackupTask.
+		/// </summary>
+		private static void InvokeRestorePayloadFile(TxFileManager p_tfmFileManager, string p_strSourcePath, string p_strDestinationPath)
+		{
+			MethodInfo restorePayload = typeof(RestoreBackupTask).GetMethod(
+				"RestorePayloadFile",
+				BindingFlags.Static | BindingFlags.NonPublic);
+			Assert.NotNull(restorePayload);
+			restorePayload.Invoke(null, new object[] { p_tfmFileManager, p_strSourcePath, p_strDestinationPath });
+		}
+
+		/// <summary>
 		/// Creates the minimal game-mode contract required by the real VMA deployment backend.
 		/// </summary>
-		private static IGameMode CreateGameMode(string p_strModeId, string p_strGamePath, string p_strDataPath)
+		private static IGameMode CreateGameMode(string p_strModeId, string p_strGamePath, string p_strDataPath, bool p_booRealFileRequired = true)
 		{
 			return InterfaceStub<IGameMode>.Create((method, args) =>
 			{
@@ -125,7 +417,7 @@ namespace NexusClientTests
 					case "HardlinkRequiredFilesType":
 						return false;
 					case "RealFileRequired":
-						return true;
+						return p_booRealFileRequired;
 					default:
 						return null;
 				}
@@ -135,14 +427,14 @@ namespace NexusClientTests
 		/// <summary>
 		/// Creates isolated Virtual-storage settings for the test game mode.
 		/// </summary>
-		private static IEnvironmentInfo CreateEnvironmentInfo(string p_strModeId, string p_strVirtualRoot)
+		private static IEnvironmentInfo CreateEnvironmentInfo(string p_strModeId, string p_strVirtualRoot, bool p_booMultiHd = false)
 		{
 			var virtualFolders = new PerGameModeSettings<string>();
 			virtualFolders[p_strModeId] = p_strVirtualRoot;
 			var linkFolders = new PerGameModeSettings<string>();
 			linkFolders[p_strModeId] = string.Empty;
 			var multiHd = new PerGameModeSettings<bool>();
-			multiHd[p_strModeId] = false;
+			multiHd[p_strModeId] = p_booMultiHd;
 			ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
 			{
 				switch (method.Name)

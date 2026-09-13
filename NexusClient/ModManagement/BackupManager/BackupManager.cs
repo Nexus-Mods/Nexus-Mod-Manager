@@ -201,7 +201,7 @@ namespace Nexus.Client.ModManagement
 
 					FileInfo fileInfo = new FileInfo(sourcePath);
 					InstalledModFileSize += fileInfo.Length;
-					lstInstalledModFiles.Add(new BackupInfo(archiveRelativePath, sourcePath, String.Empty, archiveDirectory, fileInfo.Length));
+					lstInstalledModFiles.Add(new BackupInfo(archiveRelativePath, sourcePath, String.Empty, archiveDirectory, fileInfo.Length, true));
 				}
 			}
 		}
