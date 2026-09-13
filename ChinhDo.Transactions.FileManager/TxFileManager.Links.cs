@@ -84,6 +84,19 @@
 		}
 
 		/// <summary>
+		/// Determines whether two existing paths resolve to the same underlying file.
+		/// </summary>
+		public bool IsSameFile(string p_strFirstPath, string p_strSecondPath)
+		{
+			if (string.IsNullOrWhiteSpace(p_strFirstPath) || string.IsNullOrWhiteSpace(p_strSecondPath))
+				return false;
+			if (!File.Exists(p_strFirstPath) || !File.Exists(p_strSecondPath))
+				return false;
+
+			return AreSameFile(p_strFirstPath, p_strSecondPath);
+		}
+
+		/// <summary>
 		/// Determines whether a deployed path is the expected hard link or a symbolic link that must be recreated on rollback.
 		/// </summary>
 		private static FileLinkType GetFileLinkType(string p_strPath, string p_strExpectedTarget)

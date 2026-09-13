@@ -19,8 +19,8 @@
     <TargetFrameworkProfile />
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
-    <OutputPath>..\..\Stage\$(Configuration)\</OutputPath>
-    <IntermediateOutputPath>..\..\Stage\obj\$(Configuration)\</IntermediateOutputPath>
+    <OutputPath>..\..\Stage\Tests\$(MSBuildProjectName)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>..\..\Stage\obj\Tests\$(MSBuildProjectName)\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -184,4 +184,7 @@
   <Import Project="..\..\Stage\packages\Microsoft.Testing.Platform.2.3.3\build\netstandard2.0\Microsoft.Testing.Platform.targets" Condition="Exists('..\..\Stage\packages\Microsoft.Testing.Platform.2.3.3\build\netstandard2.0\Microsoft.Testing.Platform.targets')" />
   <Import Project="..\..\Stage\packages\Microsoft.Testing.Platform.MSBuild.2.3.3\build\Microsoft.Testing.Platform.MSBuild.targets" Condition="Exists('..\..\Stage\packages\Microsoft.Testing.Platform.MSBuild.2.3.3\build\Microsoft.Testing.Platform.MSBuild.targets')" />
   <Import Project="..\..\Stage\packages\NUnit3TestAdapter.6.3.0\build\net462\NUnit3TestAdapter.targets" Condition="Exists('..\..\Stage\packages\NUnit3TestAdapter.6.3.0\build\net462\NUnit3TestAdapter.targets')" />
+  <Target Name="RemoveLegacySharedTestOutput" BeforeTargets="BeforeBuild">
+    <Delete Files="..\..\Stage\$(Configuration)\$(AssemblyName).dll;..\..\Stage\$(Configuration)\$(AssemblyName).pdb;..\..\Stage\$(Configuration)\$(AssemblyName).dll.config" />
+  </Target>
 </Project>

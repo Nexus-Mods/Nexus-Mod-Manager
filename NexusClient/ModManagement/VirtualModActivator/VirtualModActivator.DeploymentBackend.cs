@@ -228,9 +228,13 @@ namespace Nexus.Client.ModManagement
 			string deployedDirectory = Path.GetDirectoryName(deployedPath);
 			if (!String.IsNullOrWhiteSpace(deployedDirectory) && !Directory.Exists(deployedDirectory))
 				Directory.CreateDirectory(deployedDirectory);
-			File.Delete(deployedPath);
 
-			DeployVirtualSource(new TxFileManager(), sourcePath, deployedPath);
+			var recoveryFileManager = new TxFileManager { TxEnabled = false };
+			if (!recoveryFileManager.IsSameFile(deployedPath, sourcePath))
+			{
+				File.Delete(deployedPath);
+				DeployVirtualSource(recoveryFileManager, sourcePath, deployedPath);
+			}
 			link.Active = true;
 		}
 

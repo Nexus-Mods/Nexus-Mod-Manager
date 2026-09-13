@@ -896,11 +896,18 @@
 						VirtualOwner recoveryOwner = Require(recoveryTarget, (string)p_objArguments[1]);
 						string recoveryPath = GetDeploymentPath(recoveryTarget);
 						Directory.CreateDirectory(Path.GetDirectoryName(recoveryPath));
-						File.Delete(recoveryPath);
+						var recoveryFileManager = new TxFileManager { TxEnabled = false };
 
+						if ((recoveryOwner.HardLink || recoveryOwner.SymbolicLink) &&
+							recoveryFileManager.IsSameFile(recoveryPath, recoveryOwner.Source))
+						{
+							recoveryOwner.Active = true;
+							return null;
+						}
+
+						File.Delete(recoveryPath);
 						if (recoveryOwner.HardLink || recoveryOwner.SymbolicLink)
 						{
-							var recoveryFileManager = new TxFileManager();
 							bool recovered = recoveryOwner.HardLink
 								? recoveryFileManager.CreateHardLink(recoveryPath, recoveryOwner.Source)
 								: recoveryFileManager.CreateSymbolicLink(recoveryPath, recoveryOwner.Source);

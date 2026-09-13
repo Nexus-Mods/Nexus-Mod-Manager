@@ -15,8 +15,8 @@
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <TargetFrameworkProfile />
-    <OutputPath>..\..\Stage\$(Configuration)\</OutputPath>
-    <IntermediateOutputPath>..\..\Stage\obj\$(Configuration)\</IntermediateOutputPath>
+    <OutputPath>..\..\Stage\Tests\$(MSBuildProjectName)\$(Configuration)\</OutputPath>
+    <IntermediateOutputPath>..\..\Stage\obj\Tests\$(MSBuildProjectName)\$(Configuration)\</IntermediateOutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -72,5 +72,8 @@
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('..\..\Stage\packages\NUnit.4.2.2\build\NUnit.props')" Text="$([System.String]::Format('$(ErrorText)', '..\..\Stage\packages\NUnit.4.2.2\build\NUnit.props'))" />
+  </Target>
+  <Target Name="RemoveLegacySharedTestOutput" BeforeTargets="BeforeBuild">
+    <Delete Files="..\..\Stage\$(Configuration)\$(AssemblyName).dll;..\..\Stage\$(Configuration)\$(AssemblyName).pdb;..\..\Stage\$(Configuration)\$(AssemblyName).dll.config" />
   </Target>
 </Project>
