@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.Mods;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -88,14 +89,38 @@ namespace Nexus.Client.ModManagement
 			bool readOnly = new FileInfo(deploymentPath).IsReadOnly;
 			bool hasManagedOwner = !string.IsNullOrEmpty(currentOwnerKey) &&
 				!currentOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase);
-			string message = hasManagedOwner
-				? "Game file '{0}' is already owned by another managed mod"
-				: "Game file '{0}' already exists";
-			message += readOnly ? " and is read-only." : ".";
-			message += Environment.NewLine + string.Format("Overwrite with {0} mod's file?", m_modMod.ModName);
+			string message;
+			if (hasManagedOwner)
+			{
+				message = readOnly
+					? LanguageManager.Format(
+						"Mods.DeploymentOverwrite.ManagedReadOnly",
+						"Game file '{0}' is already owned by another managed mod and is read-only.",
+						p_mdtTarget.RelativePath)
+					: LanguageManager.Format(
+						"Mods.DeploymentOverwrite.Managed",
+						"Game file '{0}' is already owned by another managed mod.",
+						p_mdtTarget.RelativePath);
+			}
+			else
+			{
+				message = readOnly
+					? LanguageManager.Format(
+						"Mods.DeploymentOverwrite.ExistingReadOnly",
+						"Game file '{0}' already exists and is read-only.",
+						p_mdtTarget.RelativePath)
+					: LanguageManager.Format(
+						"Mods.DeploymentOverwrite.Existing",
+						"Game file '{0}' already exists.",
+						p_mdtTarget.RelativePath);
+			}
+			message += Environment.NewLine + LanguageManager.Format(
+				"Mods.DeploymentOverwrite.Question",
+				"Overwrite with {0} mod's file?",
+				m_modMod.ModName);
 
 			OverwriteResult result = m_dlgOverwriteConfirmationDelegate(
-				string.Format(message, p_mdtTarget.RelativePath),
+				message,
 				true,
 				hasManagedOwner);
 			switch (result)

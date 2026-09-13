@@ -30,6 +30,7 @@
 			"NexusClient",
 			"NexusClient.Interface",
 			"ModManager.Interface",
+			"Script Types",
 			"Util",
 			"UI",
 			"Game Modes",
@@ -68,11 +69,38 @@
 			Assert.That(pack.Strings, Is.Not.Null.And.Not.Empty);
 		}
 
+		[Test]
+		public void ShippedTranslationsMatchEnglishTemplateKeys()
+		{
+			string repositoryRoot = FindRepositoryRoot();
+			LanguagePack english = LoadEnglishTemplate(repositoryRoot);
+			HashSet<string> englishKeys = new HashSet<string>(english.Strings.Keys, StringComparer.Ordinal);
+			string languagesDirectory = Path.Combine(repositoryRoot, "NexusClient", "Languages");
+
+			foreach (string path in Directory.EnumerateFiles(languagesDirectory, "*.json", SearchOption.TopDirectoryOnly)
+				.Where(candidate => !Path.GetFileName(candidate).Equals("English.json", StringComparison.OrdinalIgnoreCase))
+				.OrderBy(candidate => candidate, StringComparer.Ordinal))
+			{
+				LanguagePack pack = LoadLanguagePack(path);
+				HashSet<string> translatedKeys = new HashSet<string>(pack.Strings.Keys, StringComparer.Ordinal);
+				string[] missing = englishKeys.Except(translatedKeys, StringComparer.Ordinal).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+				string[] extra = translatedKeys.Except(englishKeys, StringComparer.Ordinal).OrderBy(key => key, StringComparer.Ordinal).ToArray();
+				string fileName = Path.GetFileName(path);
+
+				Assert.That(missing, Is.Empty, fileName + " is missing localization keys: " + String.Join(", ", missing));
+				Assert.That(extra, Is.Empty, fileName + " contains keys not present in English.json: " + String.Join(", ", extra));
+			}
+		}
+
 		private static LanguagePack LoadEnglishTemplate(string repositoryRoot)
 		{
 			string path = Path.Combine(repositoryRoot, "NexusClient", "Languages", "English.json");
 			Assert.That(File.Exists(path), Is.True, "English language template was not found at " + path);
+			return LoadLanguagePack(path);
+		}
 
+		private static LanguagePack LoadLanguagePack(string path)
+		{
 			DataContractJsonSerializer serializer = new DataContractJsonSerializer(
 				typeof(LanguagePack),
 				new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });

@@ -14,8 +14,9 @@
         [Test]
         public void ClassifyUsesPolicyDrivenAddressClassesAndSpecialFlags()
         {
-            PluginManagementPolicy policy = PluginManagementPolicy.CreateDefault(
-                new[] { ".esm", ".esp" }, null, null, null, 254);
+            PluginManagementPolicy policy = new PluginManagementPolicy();
+            policy.AddExtension(new PluginExtensionPolicy(".esm", PluginHeaderFlags.Master, PluginAddressClass.None));
+            policy.AddExtension(new PluginExtensionPolicy(".esp", PluginHeaderFlags.None, PluginAddressClass.None));
             policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(PluginHeaderFlagSource.RecordFlags1, 0x00000400, PluginHeaderFlags.Medium));
             policy.AddHeaderFlagMapping(new PluginHeaderFlagMapping(PluginHeaderFlagSource.RecordFlags1, 0x00000800, PluginHeaderFlags.Small));
             policy.AddBlueprintPluginPrefix("BlueprintShips-");

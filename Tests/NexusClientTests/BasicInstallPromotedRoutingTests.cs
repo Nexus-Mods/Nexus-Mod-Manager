@@ -107,6 +107,8 @@ namespace NexusClientTests
 							return deployedPath;
 						case "GetCurrentOwnerKey":
 							return "DirectOwner";
+						case "GetOwnerKeys":
+							return new[] { "DirectOwner" };
 						case "InstallVirtualFile":
 							coordinatorCalls++;
 							Assert.IsTrue((bool)args[5]);

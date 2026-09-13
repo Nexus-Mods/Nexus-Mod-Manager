@@ -189,7 +189,7 @@ namespace Nexus.Client.ModManagement
 				TaskSetWaiter.Wait(munUninstaller);
 				if (!munUninstaller.Succeeded)
 					throw new InvalidOperationException(String.IsNullOrWhiteSpace(munUninstaller.CompletionMessage)
-						? String.Format("Profile switch failed while uninstalling '{0}'.", modMod.ModName)
+						? LanguageManager.Format("Profiles.Switch.UninstallFailedForMod", "Profile switch failed while uninstalling '{0}'.", modMod.ModName)
 						: munUninstaller.CompletionMessage);
 
 				if (ItemProgress < ItemProgressMaximum)
@@ -239,7 +239,7 @@ namespace Nexus.Client.ModManagement
 				TaskSetWaiter.Wait(minInstaller);
 				if (!minInstaller.Succeeded)
 					throw new InvalidOperationException(String.IsNullOrWhiteSpace(minInstaller.CompletionMessage)
-						? String.Format("Profile switch failed while installing '{0}'.", modMod.ModName)
+						? LanguageManager.Format("Profiles.Switch.InstallFailedForMod", "Profile switch failed while installing '{0}'.", modMod.ModName)
 						: minInstaller.CompletionMessage);
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();

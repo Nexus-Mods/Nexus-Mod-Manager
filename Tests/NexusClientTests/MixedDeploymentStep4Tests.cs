@@ -684,7 +684,7 @@
 				bool p_booActive, int p_intPriority, string p_strOriginal = null, bool p_booHardLink = false, bool p_booSymbolicLink = false)
 			{
 				string source = StageVirtual(p_modMod, p_mdtTarget, p_strContents);
-				VirtualState.Add(p_modMod, Key(p_modMod), p_mdtTarget, source, p_booActive, p_intPriority);
+				VirtualState.Add(p_modMod, Key(p_modMod), p_mdtTarget, source, p_booActive, p_intPriority, p_booHardLink, p_booSymbolicLink);
 				if (p_booActive)
 				DeployInitial(source, Manager.GetDeploymentPath(p_mdtTarget), p_booHardLink, p_booSymbolicLink);
 				if (p_strOriginal != null)
@@ -806,7 +806,7 @@
 			public Func<ModDeploymentTarget, string> GetDeploymentPath { get; set; }
 
 			public void Add(IMod p_modMod, string p_strModKey, ModDeploymentTarget p_mdtTarget,
-				string p_strSource, bool p_booActive, int p_intPriority)
+				string p_strSource, bool p_booActive, int p_intPriority, bool p_booHardLink = false, bool p_booSymbolicLink = false)
 			{
 				m_lstOwners.Add(new VirtualOwner
 				{
@@ -817,7 +817,9 @@
 					LogicalPath = p_mdtTarget.RelativePath,
 					InstallRoot = ModInstallRoot.Data,
 					Active = p_booActive,
-					Priority = p_intPriority
+					Priority = p_intPriority,
+					HardLink = p_booHardLink,
+					SymbolicLink = p_booSymbolicLink
 				});
 			}
 
@@ -888,6 +890,29 @@
 							(ModDeploymentTarget)p_objArguments[0],
 							(string)p_objArguments[1],
 							(TxFileManager)p_objArguments[2]);
+						return null;
+					case "RecoverVirtualDeploymentWinner":
+						ModDeploymentTarget recoveryTarget = (ModDeploymentTarget)p_objArguments[0];
+						VirtualOwner recoveryOwner = Require(recoveryTarget, (string)p_objArguments[1]);
+						string recoveryPath = GetDeploymentPath(recoveryTarget);
+						Directory.CreateDirectory(Path.GetDirectoryName(recoveryPath));
+						File.Delete(recoveryPath);
+
+						if (recoveryOwner.HardLink || recoveryOwner.SymbolicLink)
+						{
+							var recoveryFileManager = new TxFileManager();
+							bool recovered = recoveryOwner.HardLink
+								? recoveryFileManager.CreateHardLink(recoveryPath, recoveryOwner.Source)
+								: recoveryFileManager.CreateSymbolicLink(recoveryPath, recoveryOwner.Source);
+							if (!recovered)
+								throw new IOException("The test Virtual winner could not be recovered with its original link topology.");
+						}
+						else
+						{
+							File.Copy(recoveryOwner.Source, recoveryPath, true);
+						}
+
+						recoveryOwner.Active = true;
 						return null;
 					case "RemoveVirtualLinkRecord":
 						Enlist();
@@ -998,6 +1023,8 @@
 				public ModInstallRoot InstallRoot { get; set; }
 				public bool Active { get; set; }
 				public int Priority { get; set; }
+				public bool HardLink { get; set; }
+				public bool SymbolicLink { get; set; }
 
 				public VirtualOwner Clone()
 				{

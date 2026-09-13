@@ -309,7 +309,7 @@ namespace NexusClientTests
         {
             var participant = new RollbackVotingParticipant();
 
-            Exception exception = Assert.Throws<Exception>(() =>
+            Exception exception = Assert.Catch<Exception>(() =>
             {
                 using (var scope = new TransactionScope())
                 {

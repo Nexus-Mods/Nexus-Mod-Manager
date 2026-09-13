@@ -7,6 +7,7 @@ using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement.Scripting.XmlScript
 {
@@ -394,13 +395,22 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			InstallModFileOperation imoInstallFile = p_sioOperation as InstallModFileOperation;
 			if (imoInstallFile != null)
-				return "Installing " + (String.IsNullOrEmpty(imoInstallFile.DestinationPath) ? imoInstallFile.SourcePath : imoInstallFile.DestinationPath);
+			{
+				string destination = String.IsNullOrEmpty(imoInstallFile.DestinationPath)
+					? imoInstallFile.SourcePath
+					: imoInstallFile.DestinationPath;
+				return LanguageManager.Format("ScriptedInstall.Progress.InstallingFile", "Installing {0}", destination);
+			}
 
 			SetPluginActivationOperation saoActivation = p_sioOperation as SetPluginActivationOperation;
 			if (saoActivation != null)
-				return (saoActivation.Activate ? "Activating " : "Deactivating ") + saoActivation.PluginPath;
+			{
+				if (saoActivation.Activate)
+					return LanguageManager.Format("ScriptedInstall.Progress.ActivatingPlugin", "Activating {0}", saoActivation.PluginPath);
+				return LanguageManager.Format("ScriptedInstall.Progress.DeactivatingPlugin", "Deactivating {0}", saoActivation.PluginPath);
+			}
 
-			return "Applying scripted installation operation";
+			return LanguageManager.Get("ScriptedInstall.Progress.ApplyingOperation", "Applying scripted installation operation");
 		}
 
 		/// <summary>

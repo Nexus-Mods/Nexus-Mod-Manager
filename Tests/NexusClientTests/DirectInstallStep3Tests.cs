@@ -540,6 +540,8 @@ namespace NexusClientTests
 						return GameRootPath;
 					if (method.Name == "get_SecondaryInstallationPath")
 						return SecondaryPath;
+					if (method.Name == "GetModFormatAdjustedPath")
+						return args[1];
 					return null;
 				});
 				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
