@@ -2,6 +2,7 @@
 {
 	using System;
 	using System.Collections.Generic;
+	using System.ComponentModel;
 	using System.IO;
 	using System.Linq;
 	using System.Reflection;
@@ -396,6 +397,61 @@
 		}
 
 		/// <summary>
+		/// Verifies native symbolic-link failure is reported without replacing an existing destination.
+		/// </summary>
+		[Test]
+		public void CreateSymbolicLink_ExistingDestinationThrowsAndPreservesFile()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-LinkFailure-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string source = Path.Combine(root, "source.bin");
+				string destination = Path.Combine(root, "existing.bin");
+				File.WriteAllText(source, "source");
+				File.WriteAllText(destination, "original");
+				TxFileManager fileManager = new TxFileManager { TxEnabled = false };
+
+				IOException error = Assert.Throws<IOException>(() => fileManager.CreateSymbolicLink(destination, source));
+				Assert.IsInstanceOf<Win32Exception>(error.InnerException);
+				Assert.AreNotEqual(0, ((Win32Exception)error.InnerException).NativeErrorCode);
+				StringAssert.Contains(destination, error.Message);
+				StringAssert.Contains(source, error.Message);
+				Assert.AreEqual(FileEntryKind.RegularFile, fileManager.GetFileEntryKind(destination, source));
+				Assert.AreEqual("original", File.ReadAllText(destination));
+				Assert.AreEqual("source", File.ReadAllText(source));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>
+		/// Creates a verified test link, skipping only explicit privilege or filesystem capability failures.
+		/// </summary>
+		private static void CreateTestSymbolicLink(TxFileManager p_tfmFileManager, string p_strLink, string p_strSource)
+		{
+			try
+			{
+				Assert.IsTrue(p_tfmFileManager.CreateSymbolicLink(p_strLink, p_strSource));
+			}
+			catch (IOException ex)
+			{
+				Win32Exception nativeError = ex.InnerException as Win32Exception;
+				if (nativeError != null && (nativeError.NativeErrorCode == 1314 || nativeError.NativeErrorCode == 50))
+					Assert.Ignore("Symbolic-link setup requires Windows symlink privileges or a supported filesystem: " + ex.Message);
+				throw;
+			}
+
+			Assert.AreEqual(FileEntryKind.SymbolicLink, p_tfmFileManager.GetFileEntryKind(p_strLink, p_strSource),
+				"Symbolic-link setup must create an observable link before the operation under test.");
+			if (File.Exists(p_strSource))
+				Assert.IsTrue(p_tfmFileManager.IsSameFile(p_strLink, p_strSource),
+					"Symbolic-link setup must resolve to the expected source.");
+		}
+
+		/// <summary>
 		/// Verifies that rollback captures and recreates a symbolic link whose source is dangling.
 		/// </summary>
 		[Test]
@@ -409,14 +465,7 @@
 			{
 				using (var setupScope = new TransactionScope())
 				{
-					try
-					{
-						new TxFileManager().CreateSymbolicLink(link, source);
-					}
-					catch (IOException ex)
-					{
-						Assert.Ignore("Symbolic-link setup is unavailable in the current Windows environment: " + ex.Message);
-					}
+					CreateTestSymbolicLink(new TxFileManager(), link, source);
 					setupScope.Complete();
 				}
 
@@ -896,15 +945,8 @@
 						}
 						else
 						{
-							try
-							{
-								created = fileManager.CreateSymbolicLink(p_strTarget, p_strSource);
-							}
-							catch (IOException ex)
-							{
-								Assert.Ignore("Symbolic-link setup is unavailable in the current Windows environment: " + ex.Message);
-								return;
-							}
+							CreateTestSymbolicLink(fileManager, p_strTarget, p_strSource);
+							created = true;
 						}
 
 						if (!created)

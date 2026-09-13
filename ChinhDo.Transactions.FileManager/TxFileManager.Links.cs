@@ -27,6 +27,7 @@
 		private static extern bool CreateHardLinkNative(string lpFileName, string lpExistingFileName, IntPtr lpSecurityAttributes);
 
 		[DllImport("Kernel32.dll", EntryPoint = "CreateSymbolicLinkW", CharSet = CharSet.Unicode, SetLastError = true)]
+		[return: MarshalAs(UnmanagedType.U1)]
 		private static extern bool CreateSymbolicLinkNative(string lpSymlinkFileName, string lpTargetFileName, int dwFlags);
 
 		[DllImport("Kernel32.dll", EntryPoint = "CreateFileW", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -51,6 +52,8 @@
 		private static readonly IntPtr InvalidHandleValue = new IntPtr(-1);
 		private const int ErrorFileNotFound = 2;
 		private const int ErrorPathNotFound = 3;
+		private const int ErrorInvalidParameter = 87;
+		private const int SymbolicLinkFlagAllowUnprivilegedCreate = 0x2;
 		private const uint FileShareRead = 0x00000001;
 		private const uint FileShareWrite = 0x00000002;
 		private const uint FileShareDelete = 0x00000004;
@@ -127,11 +130,37 @@
 				throw new ArgumentException("A link target is required.", nameof(p_strTargetPath));
 
 			Snapshot(p_strLinkName);
-			if (CreateSymbolicLinkNative(p_strLinkName, p_strTargetPath, 0))
-				return true;
+			return CreateSymbolicLinkCore(p_strLinkName, p_strTargetPath, "create");
+		}
 
-			int error = Marshal.GetLastWin32Error();
-			throw CreateLinkIOException("create", "symbolic", p_strLinkName, p_strTargetPath, error);
+		/// <summary>
+		/// Creates and verifies a symbolic-link entry, allowing Developer Mode with a fallback for older Windows versions.
+		/// </summary>
+		private static bool CreateSymbolicLinkCore(string p_strLinkName, string p_strTargetPath, string p_strAction)
+		{
+			bool created = CreateSymbolicLinkNative(p_strLinkName, p_strTargetPath, SymbolicLinkFlagAllowUnprivilegedCreate);
+			if (!created)
+			{
+				int error = Marshal.GetLastWin32Error();
+				// Older Windows versions reject the unprivileged-create flag; retain their privileged creation path.
+				if (error == ErrorInvalidParameter)
+				{
+					created = CreateSymbolicLinkNative(p_strLinkName, p_strTargetPath, 0);
+					if (!created)
+						error = Marshal.GetLastWin32Error();
+				}
+
+				if (!created)
+					throw CreateLinkIOException(p_strAction, "symbolic", p_strLinkName, p_strTargetPath, error);
+			}
+
+			// Inspect the entry itself: a valid symbolic link need not have an existing target.
+			if (GetFileEntryState(p_strLinkName, null) != FileEntryKind.SymbolicLink)
+				throw new IOException(string.Format(
+					"Unable to {0} symbolic link '{1}' -> '{2}': Windows reported success, but no symbolic-link entry exists.",
+					p_strAction, p_strLinkName, p_strTargetPath));
+
+			return true;
 		}
 
 		/// <summary>
@@ -306,7 +335,7 @@
 					break;
 				case FileEntryKind.SymbolicLink:
 					linkKind = "symbolic";
-					restored = CreateSymbolicLinkNative(p_strLinkName, p_strTargetPath, 0);
+					restored = CreateSymbolicLinkCore(p_strLinkName, p_strTargetPath, "restore");
 					break;
 				default:
 					throw new ArgumentOutOfRangeException(nameof(p_fekEntryKind));
