@@ -3,11 +3,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
-using System.Transactions;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Transactions;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Localization;
@@ -354,6 +354,22 @@ namespace Nexus.Client.ModManagement
 			bool PurgedModInstall = false;
 			bool PurgedVirtualInstall = false;
 			ModProfile mprModProfile = null;
+			TransactionScope deploymentRestoreTransaction = null;
+			TxFileManager deploymentFileManager = null;
+			string deploymentBackupRollback = null;
+			bool deploymentBackupStoreReplaced = false;
+			string installLogPath = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+			bool installLogRestoreStarted = false;
+			bool deploymentRestoreCommitted = false;
+
+			try
+			{
+				PrevalidateDeploymentRestore(p_lstDirectDeploymentFiles, p_lstDeploymentBackupFiles, p_booHasDeploymentState, p_strInstallLog);
+			}
+			catch
+			{
+				return null;
+			}
 
 			if (PurgeFolders)
 			{
@@ -373,7 +389,9 @@ namespace Nexus.Client.ModManagement
 
 			try
 			{
-				ClearCurrentPromotedDeploymentFiles();
+				deploymentRestoreTransaction = new TransactionScope();
+				deploymentFileManager = new TxFileManager();
+				ClearCurrentPromotedDeploymentFiles(deploymentFileManager);
 
 				if (p_lstLooseFiles.Count() > 0)
 				{
@@ -554,9 +572,10 @@ namespace Nexus.Client.ModManagement
 				}
 
 				// Always replace the shared deployment store so stale payloads from the pre-restore state cannot satisfy restored ownership metadata.
-				RestoreDeploymentBackups(p_lstDeploymentBackupFiles);
+				deploymentBackupRollback = RestoreDeploymentBackups(p_lstDeploymentBackupFiles);
+				deploymentBackupStoreReplaced = true;
 				if (p_booHasDeploymentState)
-					RestoreDirectWinners(p_lstDirectDeploymentFiles);
+					RestoreDirectWinners(p_lstDirectDeploymentFiles, deploymentFileManager);
 
 				if (p_lstProfileFiles.Count() > 0)
 				{
@@ -596,11 +615,19 @@ namespace Nexus.Client.ModManagement
 
 				if (!string.IsNullOrEmpty(p_strInstallLog))
 				{
-					File.Copy(p_strInstallLog, Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml"), true);
-					ModManager.ReinitializeInstallLog(Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml"));
+					installLogRestoreStarted = true;
+					deploymentFileManager.Copy(p_strInstallLog, installLogPath, true);
+					ModManager.ReinitializeInstallLog(installLogPath);
 					RestoreVirtualPromotedWinners();
 					ValidateRestoredDeploymentState();
 				}
+
+				deploymentRestoreTransaction.Complete();
+				deploymentRestoreCommitted = true;
+				deploymentRestoreTransaction.Dispose();
+				deploymentRestoreTransaction = null;
+				DiscardDeploymentBackupRollback(deploymentBackupRollback);
+				deploymentBackupRollback = null;
 								
 				OverallMessage = LanguageManager.Get("Tools.Restore.Progress.DeleteLeftovers", "Deleting the leftovers.");
 				StepOverallProgress();
@@ -617,6 +644,42 @@ namespace Nexus.Client.ModManagement
 			}
 			catch (Exception e)
 			{
+				if (!deploymentRestoreCommitted)
+				{
+					if (deploymentRestoreTransaction != null)
+					{
+						try
+						{
+							deploymentRestoreTransaction.Dispose();
+						}
+						catch
+						{
+						}
+					}
+
+					if (deploymentBackupStoreReplaced)
+					{
+						try
+						{
+							RollbackDeploymentBackups(deploymentBackupRollback);
+						}
+						catch
+						{
+						}
+					}
+
+					if (installLogRestoreStarted && File.Exists(installLogPath))
+					{
+						try
+						{
+							ModManager.ReinitializeInstallLog(installLogPath);
+						}
+						catch
+						{
+						}
+					}
+				}
+
 				if (PurgeFolders)
 				{
 					string ModInstallDelete = ModInstallFolder + "_DELETE";
@@ -672,40 +735,140 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Removes current promoted physical winners before applying the backup so stale Direct files or Virtual links cannot survive the restore.
+		/// Validates Direct deployment restore inputs before current promoted state is displaced.
 		/// </summary>
-		private void ClearCurrentPromotedDeploymentFiles()
+		private void PrevalidateDeploymentRestore(IEnumerable<BackupInfo> p_enmDirectFiles, IEnumerable<BackupInfo> p_enmDeploymentBackups, bool p_booHasDeploymentState, string p_strInstallLog)
+		{
+			string backupRoot = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.OverwriteDirectory, "deployment");
+			foreach (BackupInfo backupInfo in p_enmDeploymentBackups)
+			{
+				if (!File.Exists(backupInfo.RealModPath))
+					throw new FileNotFoundException("A deployment backup payload required by the restore is missing.", backupInfo.RealModPath);
+				ResolveContainedPath(backupRoot, backupInfo.VirtualModPath);
+			}
+
+			foreach (BackupInfo backupInfo in p_enmDirectFiles)
+			{
+				if (!File.Exists(backupInfo.RealModPath))
+					throw new FileNotFoundException("A Direct winner payload required by the restore is missing.", backupInfo.RealModPath);
+				ModManager.DeploymentManager.GetDeploymentPath(ParseDeploymentTarget(backupInfo.VirtualModPath));
+			}
+
+			if (!p_booHasDeploymentState)
+				return;
+			if (String.IsNullOrEmpty(p_strInstallLog) || !File.Exists(p_strInstallLog))
+				throw new FileNotFoundException("The InstallLog required by the deployment restore is missing.", p_strInstallLog);
+
+			XDocument.Load(p_strInstallLog);
+		}
+
+		/// <summary>
+		/// Removes current promoted physical winners while retaining enough transactional state to restore them on failure.
+		/// </summary>
+		private void ClearCurrentPromotedDeploymentFiles(TxFileManager p_tfmFileManager)
 		{
 			if (ModManager.DeploymentManager == null || !ModManager.DeploymentManager.HasPromotedTargets)
 				return;
 
 			foreach (ModDeploymentTarget target in ModManager.DeploymentManager.GetPromotedTargets())
-				File.Delete(ModManager.DeploymentManager.GetDeploymentPath(target));
+			{
+				string deploymentPath = ModManager.DeploymentManager.GetDeploymentPath(target);
+				if (!File.Exists(deploymentPath))
+					continue;
+
+				IReadOnlyList<string> owners = ModManager.DeploymentManager.GetOwnerKeys(target);
+				if (owners.Count > 0)
+				{
+					string winnerKey = owners[owners.Count - 1];
+					bool isOriginal = winnerKey.Equals(ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase);
+					if (!isOriginal && ModManager.InstallationLog.GetModInstallMethod(winnerKey) == ModInstallMethod.Virtual)
+					{
+						string sourcePath = ModManager.DeploymentManager.GetOwnerSourcePath(target, winnerKey);
+						if (!String.IsNullOrEmpty(sourcePath))
+						{
+							p_tfmFileManager.DeleteLink(deploymentPath, sourcePath);
+							continue;
+						}
+					}
+				}
+
+				p_tfmFileManager.Delete(deploymentPath);
+			}
 		}
 
 		/// <summary>
-		/// Restores the shared Direct/original overwrite store exactly as captured by the backup.
+		/// Replaces the shared Direct/original overwrite store while retaining the previous store until restore commit.
 		/// </summary>
-		private void RestoreDeploymentBackups(IEnumerable<BackupInfo> p_enmFiles)
+		private string RestoreDeploymentBackups(IEnumerable<BackupInfo> p_enmFiles)
+		{
+			string backupRoot = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.OverwriteDirectory, "deployment");
+			bool hadOriginalStore = Directory.Exists(backupRoot);
+			string rollbackRoot = null;
+
+			try
+			{
+				if (hadOriginalStore)
+				{
+					string candidateRollbackRoot = backupRoot + ".restore-" + Guid.NewGuid().ToString("N");
+					FileUtil.RenameDirectory(backupRoot, candidateRollbackRoot);
+					rollbackRoot = candidateRollbackRoot;
+				}
+
+				foreach (BackupInfo backupInfo in p_enmFiles)
+				{
+					string destination = ResolveContainedPath(backupRoot, backupInfo.VirtualModPath);
+					string directory = Path.GetDirectoryName(destination);
+					if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+						Directory.CreateDirectory(directory);
+					File.Copy(backupInfo.RealModPath, destination, true);
+				}
+			}
+			catch
+			{
+				if (rollbackRoot != null)
+					RollbackDeploymentBackups(rollbackRoot);
+				else if (!hadOriginalStore && Directory.Exists(backupRoot))
+					FileUtil.ForceDelete(backupRoot);
+				throw;
+			}
+
+			return rollbackRoot;
+		}
+
+		/// <summary>
+		/// Restores the retained pre-restore deployment backup store.
+		/// </summary>
+		private void RollbackDeploymentBackups(string p_strRollbackRoot)
 		{
 			string backupRoot = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.OverwriteDirectory, "deployment");
 			if (Directory.Exists(backupRoot))
 				FileUtil.ForceDelete(backupRoot);
+			if (!String.IsNullOrEmpty(p_strRollbackRoot) && Directory.Exists(p_strRollbackRoot))
+				FileUtil.RenameDirectory(p_strRollbackRoot, backupRoot);
+		}
 
-			foreach (BackupInfo backupInfo in p_enmFiles)
+		/// <summary>
+		/// Discards the retained pre-restore deployment backup store after a successful restore commit.
+		/// </summary>
+		private void DiscardDeploymentBackupRollback(string p_strRollbackRoot)
+		{
+			if (String.IsNullOrEmpty(p_strRollbackRoot) || !Directory.Exists(p_strRollbackRoot))
+				return;
+
+			try
 			{
-				string destination = ResolveContainedPath(backupRoot, backupInfo.VirtualModPath);
-				string directory = Path.GetDirectoryName(destination);
-				if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-					Directory.CreateDirectory(directory);
-				File.Copy(backupInfo.RealModPath, destination, true);
+				FileUtil.ForceDelete(p_strRollbackRoot);
+			}
+			catch
+			{
+				// Cleanup failure must not invalidate an otherwise committed restore.
 			}
 		}
 
 		/// <summary>
 		/// Restores exact bytes for Direct owners that were physical winners when the backup was created.
 		/// </summary>
-		private void RestoreDirectWinners(IEnumerable<BackupInfo> p_enmFiles)
+		private void RestoreDirectWinners(IEnumerable<BackupInfo> p_enmFiles, TxFileManager p_tfmFileManager)
 		{
 			foreach (BackupInfo backupInfo in p_enmFiles)
 			{
@@ -713,11 +876,12 @@ namespace Nexus.Client.ModManagement
 				string destination = ModManager.DeploymentManager.GetDeploymentPath(target);
 				string directory = Path.GetDirectoryName(destination);
 				if (!String.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-					Directory.CreateDirectory(directory);
+					p_tfmFileManager.CreateDirectory(directory);
 
 				// Delete first so a pre-restore hardlink/symlink can never redirect the Direct write into Virtual storage.
-				File.Delete(destination);
-				File.Copy(backupInfo.RealModPath, destination, false);
+				if (String.IsNullOrEmpty(directory) || Directory.Exists(directory))
+					p_tfmFileManager.Delete(destination);
+				p_tfmFileManager.Copy(backupInfo.RealModPath, destination, false);
 			}
 		}
 

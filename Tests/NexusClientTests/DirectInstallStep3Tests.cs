@@ -289,6 +289,56 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void FailedInstallLogCommit_RestoresDirectWinnerMetadataAndSequence()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod first = environment.RegisterDirectMod("CommitFailureFirst");
+				IMod second = new InstallLog.DummyMod("CommitFailureSecond", Path.Combine(environment.ModPath, "CommitFailureSecond.7z"));
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"recovery\commit-failure.bin");
+				environment.Install(first, target, "before");
+
+				string firstModKey = environment.InstallLog.GetModKey(first);
+				long sequence = environment.InstallLog.DeploymentCommitSequence;
+				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				string payloadPath = environment.CreatePayload("after");
+
+				using (var installLogLock = new FileStream(environment.InstallLogPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+				{
+					Assert.Throws<TransactionException>(() =>
+					{
+						using (var scope = new TransactionScope())
+						using (FileStream stream = File.OpenRead(payloadPath))
+						{
+							environment.InstallLog.AddActiveMod(second, ModInstallRoot.Data, ModInstallMethod.Direct);
+							environment.Manager.InstallDirectFile(second, target, stream, new TxFileManager());
+							scope.Complete();
+						}
+					});
+				}
+
+				Assert.AreEqual(sequence, environment.InstallLog.DeploymentCommitSequence);
+				Assert.IsNull(environment.InstallLog.GetModKey(second));
+				CollectionAssert.AreEqual(new[] { firstModKey }, environment.InstallLog.GetDeploymentOwnerKeys(target));
+				Assert.AreEqual("before", File.ReadAllText(deploymentPath));
+				Assert.AreEqual(0, environment.GetBackupFiles().Length);
+				Assert.AreEqual(sequence.ToString(), (string)XDocument.Load(environment.InstallLogPath).Root.Attribute("deploymentCommitSequence"));
+
+				InstallLog reloadedInstallLog = environment.ReloadInstallLog();
+				try
+				{
+					Assert.AreEqual(sequence, reloadedInstallLog.DeploymentCommitSequence);
+					Assert.IsNull(reloadedInstallLog.GetModKey(second));
+					CollectionAssert.AreEqual(new[] { firstModKey }, reloadedInstallLog.GetDeploymentOwnerKeys(target));
+				}
+				finally
+				{
+					reloadedInstallLog.Release();
+				}
+			}
+		}
+
+		[Test]
 		public void PendingDeploymentRecoveryJournal_RestoresPreTransactionDirectWinner()
 		{
 			using (var environment = new DirectTestEnvironment())
@@ -298,8 +348,11 @@ namespace NexusClientTests
 				environment.Install(mod, target, "before-crash");
 				long sequence = environment.InstallLog.DeploymentCommitSequence;
 				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				string originalBackupPath = environment.Manager.GetOwnerBackupPath(target, environment.InstallLog.OriginalValuesKey);
+				string originalBackupDirectory = Path.GetDirectoryName(originalBackupPath);
 				string transactionDirectory = CreateRecoveryJournal(environment, target, sequence, "before-crash");
 
+				Assert.IsFalse(Directory.Exists(originalBackupDirectory));
 				File.WriteAllText(deploymentPath, "interrupted-write");
 				InstallLog reloadedInstallLog = environment.ReloadInstallLog();
 				try
@@ -313,6 +366,7 @@ namespace NexusClientTests
 				}
 
 				Assert.AreEqual("before-crash", File.ReadAllText(deploymentPath));
+				Assert.IsFalse(Directory.Exists(originalBackupDirectory));
 				Assert.IsFalse(Directory.Exists(transactionDirectory));
 			}
 		}

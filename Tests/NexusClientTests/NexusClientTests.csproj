@@ -124,6 +124,7 @@
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
     <Compile Include="BasicInstallPromotedRoutingTests.cs" />
+    <Compile Include="BackupRestoreTransactionTests.cs" />
     <Compile Include="DirectInstallStep3Tests.cs" />
     <Compile Include="MixedDeploymentStep4Tests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />

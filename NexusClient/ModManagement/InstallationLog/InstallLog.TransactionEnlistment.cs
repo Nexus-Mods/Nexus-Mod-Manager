@@ -36,6 +36,178 @@
 			private readonly HashSet<string> _removedModKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			private bool _enlisted;
 
+			/// <summary>
+			/// Captures committed InstallLog state needed to undo a failed Direct/promoted durable save.
+			/// </summary>
+			private sealed class InstallLogStateSnapshot
+			{
+				private readonly List<ActiveModRegistrationSnapshot> _activeMods = new List<ActiveModRegistrationSnapshot>();
+				private readonly Dictionary<string, ModInstallRoot> _modInstallRoots;
+				private readonly Dictionary<string, ModInstallMethod> _modInstallMethods;
+				private readonly long _deploymentCommitSequence;
+				private readonly List<InstalledItemSnapshot<string, object>> _installedFiles;
+				private readonly List<InstalledItemSnapshot<IniEdit, string>> _installedIniEdits;
+				private readonly List<InstalledItemSnapshot<string, byte[]>> _gameSpecificValueEdits;
+				private readonly Dictionary<ModDeploymentTarget, string[]> _deploymentOwners = new Dictionary<ModDeploymentTarget, string[]>();
+
+				/// <summary>
+				/// Captures stable global metadata plus only installed-item entries this transaction can mutate.
+				/// </summary>
+				public InstallLogStateSnapshot(TransactionEnlistment enlistment)
+				{
+					InstallLog installLog = enlistment.EnlistedInstallLog;
+					foreach (IMod mod in installLog._activeModRegistry.RegisteredMods)
+						_activeMods.Add(new ActiveModRegistrationSnapshot(mod, installLog._activeModRegistry.GetKey(mod), false));
+					foreach (KeyValuePair<IMod, string> registration in installLog._activeModRegistry.Registrations)
+					{
+						if (installLog._activeModRegistry.IsModHidden(registration.Key))
+							_activeMods.Add(new ActiveModRegistrationSnapshot(registration.Key, registration.Value, true));
+					}
+
+					_modInstallRoots = new Dictionary<string, ModInstallRoot>(installLog._modInstallRoots, StringComparer.OrdinalIgnoreCase);
+					_modInstallMethods = new Dictionary<string, ModInstallMethod>(installLog._modInstallMethods, StringComparer.OrdinalIgnoreCase);
+					_deploymentCommitSequence = installLog._deploymentCommitSequence;
+
+					bool captureAllInstalledItems = enlistment._removedModKeys.Count > 0;
+					_installedFiles = CaptureInstalledItems(
+						installLog._installedFiles, StringComparer.OrdinalIgnoreCase, captureAllInstalledItems,
+						enlistment._installedFiles, enlistment._uninstalledFiles);
+					_installedIniEdits = CaptureInstalledItems(
+						installLog._installedIniEdits, EqualityComparer<IniEdit>.Default, captureAllInstalledItems,
+						enlistment._installedIniEdits, enlistment._replacedIniEdits, enlistment._uninstalledIniEdits);
+					_gameSpecificValueEdits = CaptureInstalledItems(
+						installLog._gameSpecificValueEdits, EqualityComparer<string>.Default, captureAllInstalledItems,
+						enlistment._installedGameSpecificValueEdits, enlistment._replacedGameSpecificValueEdits, enlistment._uninstalledGameSpecificValueEdits);
+
+					foreach (KeyValuePair<ModDeploymentTarget, DeploymentEntry> deployment in installLog._deploymentByTarget)
+						_deploymentOwners.Add(deployment.Key, deployment.Value.OwnerKeys.ToArray());
+				}
+
+				/// <summary>
+				/// Restores the captured state after the durable InstallLog write fails.
+				/// </summary>
+				public void Restore(InstallLog installLog)
+				{
+					foreach (KeyValuePair<IMod, string> registration in installLog._activeModRegistry.Registrations.ToArray())
+						installLog._activeModRegistry.DeregisterMod(registration.Key);
+					foreach (ActiveModRegistrationSnapshot registration in _activeMods)
+						installLog._activeModRegistry.RegisterMod(registration.Mod, registration.Key, registration.Hidden);
+
+					RestoreDictionary(installLog._modInstallRoots, _modInstallRoots);
+					RestoreDictionary(installLog._modInstallMethods, _modInstallMethods);
+					installLog._deploymentCommitSequence = _deploymentCommitSequence;
+					RestoreInstalledItems(installLog._installedFiles, _installedFiles);
+					RestoreInstalledItems(installLog._installedIniEdits, _installedIniEdits);
+					RestoreInstalledItems(installLog._gameSpecificValueEdits, _gameSpecificValueEdits);
+
+					installLog._deploymentByTarget = new Dictionary<ModDeploymentTarget, DeploymentEntry>();
+					installLog._deploymentTargetsByModKey = new Dictionary<string, HashSet<ModDeploymentTarget>>(StringComparer.OrdinalIgnoreCase);
+					foreach (KeyValuePair<ModDeploymentTarget, string[]> deployment in _deploymentOwners)
+						installLog.SetDeploymentOwnersCore(deployment.Key, deployment.Value);
+				}
+
+				/// <summary>
+				/// Captures live installed-item entries that transaction-local changes can mutate.
+				/// </summary>
+				private static List<InstalledItemSnapshot<T, K>> CaptureInstalledItems<T, K>(
+					InstalledItemDictionary<T, K> liveItems, IEqualityComparer<T> comparer, bool captureAll,
+					params InstalledItemDictionary<T, K>[] changedItems)
+				{
+					var items = new HashSet<T>(comparer);
+					if (captureAll)
+					{
+						foreach (InstalledItemDictionary<T, K>.ItemInstallers item in liveItems)
+							items.Add(item.Item);
+					}
+					foreach (InstalledItemDictionary<T, K> changedDictionary in changedItems)
+					{
+						foreach (InstalledItemDictionary<T, K>.ItemInstallers item in changedDictionary)
+							items.Add(item.Item);
+					}
+
+					var result = new List<InstalledItemSnapshot<T, K>>(items.Count);
+					foreach (T item in items)
+					{
+						bool existed = liveItems.ContainsItem(item);
+						var snapshot = new InstalledItemSnapshot<T, K>(item, existed);
+						if (existed)
+						{
+							foreach (InstalledValue<K> installer in liveItems[item])
+								snapshot.Installers.Add(new InstalledValue<K>(installer.InstallerKey, installer.Value));
+						}
+						result.Add(snapshot);
+					}
+					return result;
+				}
+
+				/// <summary>
+				/// Restores captured installed-item entries without disturbing unrelated InstallLog entries.
+				/// </summary>
+				private static void RestoreInstalledItems<T, K>(InstalledItemDictionary<T, K> destination, IEnumerable<InstalledItemSnapshot<T, K>> source)
+				{
+					foreach (InstalledItemSnapshot<T, K> item in source)
+					{
+						destination.Remove(item.Item);
+						if (!item.Existed)
+							continue;
+
+						InstallerStack<K> installers = destination[item.Item];
+						foreach (InstalledValue<K> installer in item.Installers)
+							installers.Push(installer.InstallerKey, installer.Value);
+					}
+				}
+
+				/// <summary>
+				/// Replaces a captured string-keyed InstallLog dictionary.
+				/// </summary>
+				private static void RestoreDictionary<T>(Dictionary<string, T> destination, IDictionary<string, T> source)
+				{
+					destination.Clear();
+					foreach (KeyValuePair<string, T> item in source)
+						destination.Add(item.Key, item.Value);
+				}
+			}
+
+			/// <summary>
+			/// Captures one active-mod registration without replacing the mod instance.
+			/// </summary>
+			private sealed class ActiveModRegistrationSnapshot
+			{
+				/// <summary>
+				/// Initializes a captured active-mod registration.
+				/// </summary>
+				public ActiveModRegistrationSnapshot(IMod mod, string key, bool hidden)
+				{
+					Mod = mod;
+					Key = key;
+					Hidden = hidden;
+				}
+
+				public IMod Mod { get; private set; }
+				public string Key { get; private set; }
+				public bool Hidden { get; private set; }
+			}
+
+			/// <summary>
+			/// Captures one installed item and its ordered installer stack.
+			/// </summary>
+			private sealed class InstalledItemSnapshot<T, K>
+			{
+				/// <summary>
+				/// Initializes a captured installed item.
+				/// </summary>
+				public InstalledItemSnapshot(T item, bool existed)
+				{
+					Item = item;
+					Existed = existed;
+					Installers = new List<InstalledValue<K>>();
+				}
+
+				public T Item { get; private set; }
+				public bool Existed { get; private set; }
+				public List<InstalledValue<K>> Installers { get; private set; }
+			}
+
 			#region Properties
 
 			/// <summary>
@@ -84,28 +256,40 @@
 			/// </summary>
 			public void Commit()
 			{
-				// Merge registered mods
-				foreach (var mod in _activeModRegistry.Registrations)
-                {
-                    EnlistedInstallLog._activeModRegistry.RegisterMod(mod.Key, mod.Value, _activeModRegistry.IsModHidden(mod.Key));
-					EnlistedInstallLog.SetModInstallRoot(mod.Value, GetModInstallRootByKey(mod.Value));
-					EnlistedInstallLog.SetModInstallMethod(mod.Value, GetModInstallMethodByKey(mod.Value));
-                }
+				InstallLogStateSnapshot stateSnapshot = _deploymentRecoveryEnlisted ? new InstallLogStateSnapshot(this) : null;
+				try
+				{
+					// Merge registered mods
+					foreach (var mod in _activeModRegistry.Registrations)
+                    {
+                        EnlistedInstallLog._activeModRegistry.RegisterMod(mod.Key, mod.Value, _activeModRegistry.IsModHidden(mod.Key));
+						EnlistedInstallLog.SetModInstallRoot(mod.Value, GetModInstallRootByKey(mod.Value));
+						EnlistedInstallLog.SetModInstallMethod(mod.Value, GetModInstallMethodByKey(mod.Value));
+                    }
 
-                CommitFileChanges();
-				CommitIniEditChanges();
-				CommitGameSpecificValueEditChanges();
-				CommitDeploymentChanges();
+                    CommitFileChanges();
+					CommitIniEditChanges();
+					CommitGameSpecificValueEditChanges();
+					CommitDeploymentChanges();
 
-				// Remove registered mods
-				foreach (var removedModKey in _removedModKeys)
-                {
-                    EnlistedInstallLog._activeModRegistry.DeregisterMod(removedModKey);
-					EnlistedInstallLog._modInstallRoots.Remove(removedModKey);
-					EnlistedInstallLog._modInstallMethods.Remove(removedModKey);
-                }
+					// Remove registered mods
+					foreach (var removedModKey in _removedModKeys)
+                    {
+                        EnlistedInstallLog._activeModRegistry.DeregisterMod(removedModKey);
+						EnlistedInstallLog._modInstallRoots.Remove(removedModKey);
+						EnlistedInstallLog._modInstallMethods.Remove(removedModKey);
+                    }
 
-                EnlistedInstallLog.SaveInstallLog();
+					long committedDeploymentSequence = EnlistedInstallLog._deploymentCommitSequence + (_deploymentRecoveryEnlisted ? 1 : 0);
+                    EnlistedInstallLog.SaveInstallLog(committedDeploymentSequence);
+					EnlistedInstallLog._deploymentCommitSequence = committedDeploymentSequence;
+				}
+				catch
+				{
+					if (stateSnapshot != null)
+						stateSnapshot.Restore(EnlistedInstallLog);
+					throw;
+				}
 
 				_enlisted = false;
 				_activeModRegistry.Clear();

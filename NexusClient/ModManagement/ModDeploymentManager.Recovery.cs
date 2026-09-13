@@ -316,8 +316,17 @@ namespace Nexus.Client.ModManagement
 
 		private static void DeleteFileIfPresent(string p_strPath)
 		{
-			if (!String.IsNullOrWhiteSpace(p_strPath))
+			if (String.IsNullOrWhiteSpace(p_strPath))
+				return;
+
+			try
+			{
 				File.Delete(p_strPath);
+			}
+			catch (DirectoryNotFoundException)
+			{
+				// Restoring an absent file is already complete when its parent directory is absent.
+			}
 		}
 
 		private static void ValidateRecoveryPath(string p_strPath, string p_strRoot, string p_strDescription)

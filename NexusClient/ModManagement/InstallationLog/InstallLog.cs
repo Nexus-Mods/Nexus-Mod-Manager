@@ -522,10 +522,18 @@
 		/// </summary>
 		protected void SaveInstallLog()
 		{
+			SaveInstallLog(_deploymentCommitSequence);
+		}
+
+		/// <summary>
+		/// Saves the current InstallLog state with the deployment sequence that becomes live only after the durable write succeeds.
+		/// </summary>
+		private void SaveInstallLog(long p_lngDeploymentCommitSequence)
+		{
 			var log = new XDocument();
 			var root = new XElement("installLog", new XAttribute("fileVersion", CurrentVersion));
-			if (_deploymentCommitSequence > 0)
-				root.Add(new XAttribute("deploymentCommitSequence", _deploymentCommitSequence));
+			if (p_lngDeploymentCommitSequence > 0)
+				root.Add(new XAttribute("deploymentCommitSequence", p_lngDeploymentCommitSequence));
 			log.Add(root);
 
 			var modList = new XElement("modList");

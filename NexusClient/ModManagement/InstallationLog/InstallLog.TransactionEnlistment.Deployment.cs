@@ -150,9 +150,6 @@
 
 				foreach (KeyValuePair<ModDeploymentTarget, string[]> change in _deploymentChanges)
 					EnlistedInstallLog.SetDeploymentOwnersCore(change.Key, change.Value);
-
-				if (_deploymentRecoveryEnlisted)
-					EnlistedInstallLog._deploymentCommitSequence++;
 			}
 
 			private void ClearFoundationChanges()
