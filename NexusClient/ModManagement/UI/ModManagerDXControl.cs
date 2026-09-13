@@ -445,10 +445,11 @@
 			var mod = SelectedMod;
 			if (mod != null)
 			{
-				bool active = _viewModel.VirtualModActivator.ActiveModList
+				bool directInstalled = _viewModel.IsInstalledDirectMod(mod);
+				bool active = !directInstalled && _viewModel.VirtualModActivator.ActiveModList
 					.Contains(Path.GetFileName(mod.Filename).ToLowerInvariant());
 				_viewModel.DisableModCommand.CanExecute = active;
-				_viewModel.ActivateModCommand.CanExecute = !active;
+				_viewModel.ActivateModCommand.CanExecute = !directInstalled && !active;
 				_viewModel.DeleteModCommand.CanExecute = true;
 				_viewModel.TagModCommand.CanExecute = true;
 			}
@@ -3878,7 +3879,7 @@
 		private void ToggleSelectedMod()
 		{
 			var mod = SelectedMod;
-			if (mod == null || _viewModel == null) return;
+			if (mod == null || _viewModel == null || _viewModel.IsInstalledDirectMod(mod)) return;
 			SetCommandExecutableStatus();
 			bool active = _viewModel.VirtualModActivator.ActiveModList
 				.Contains(Path.GetFileName(mod.Filename).ToLowerInvariant());
@@ -3924,6 +3925,7 @@
 			bool singleMod = mods.Count == 1;
 			bool active = IsModActive(mod);
 			bool installed = IsModInstalled(mod);
+			bool directInstalled = installed && _viewModel.IsInstalledDirectMod(mod);
 
 			EnsureGridPopupMenu();
 			ClearGridPopupItems();
@@ -3947,15 +3949,16 @@
 							() => _viewModel?.ActivateModInGameRoot(mod)));
 					}
 				}
-				else if (!active)
+				else if (!active && !directInstalled)
 				{
 					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Activate.Name", "Activate"), NmmIconAction.InstallEnable,
 						() => _viewModel?.ActivateModCommand.Execute(new List<IMod> { mod })), true);
 				}
 				else
 				{
-					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Deactivate.Name", "Deactivate"), NmmIconAction.Disable,
-						() => _viewModel?.DisableModCommand.Execute(new List<IMod> { mod })), true);
+					if (!directInstalled)
+						AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Deactivate.Name", "Deactivate"), NmmIconAction.Disable,
+							() => _viewModel?.DisableModCommand.Execute(new List<IMod> { mod })), true);
 					AddGridPopupItem(CreatePopupButton(LanguageManager.Get("Mods.Context.Reinstall.Name", "Reinstall Mod"), NmmIconAction.Reinstall,
 						() => _viewModel?.ReinstallMod(mod, null)));
 				}
@@ -4462,7 +4465,7 @@
 
 		private void UpdateToolbarState()
 		{
-			tsbDeactivate.Enabled = SelectedMods.Count > 0;
+			tsbDeactivate.Enabled = _viewModel != null && _viewModel.DisableModCommand.CanExecute;
 			ApplyToolbarActionLabels();
 		}
 

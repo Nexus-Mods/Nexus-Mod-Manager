@@ -50,6 +50,66 @@
 		}
 
 		[Test]
+		public void LinkActivationTask_DisableAndReactivatePromotedVirtualWinner_UsesCoordinator()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstVirtual = environment.RegisterMod("FirstVirtual", ModInstallMethod.Virtual);
+				IMod direct = environment.RegisterMod("Direct", ModInstallMethod.Direct);
+				IMod lastVirtual = environment.RegisterMod("LastVirtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"meshes\activation.nif");
+				environment.AddVirtualOwner(firstVirtual, target, "first", true, 0);
+				environment.InstallDirect(direct, target, "direct");
+				string lastSource = environment.StageVirtual(lastVirtual, target, "last");
+				environment.InstallVirtual(lastVirtual, target, lastSource, true);
+
+				new SynchronousLinkActivationTask(environment, lastVirtual).Execute();
+
+				Assert.AreEqual("direct", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(firstVirtual), environment.Key(direct) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+				Assert.AreEqual(ModInstallMethod.Virtual, environment.InstallLog.GetModInstallMethod(lastVirtual));
+
+				var deploymentService = new VirtualDeploymentService(environment.VirtualState.Activator, environment.Manager);
+				VirtualDeploymentResult result = deploymentService.ActivateModLinks(lastVirtual, new VirtualDeploymentOptions
+				{
+					InstallRoot = ModInstallRoot.Data
+				});
+
+				Assert.IsNull(result.Failure);
+				Assert.AreEqual(1, result.LinkedFileCount);
+				Assert.AreEqual("last", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(firstVirtual), environment.Key(direct), environment.Key(lastVirtual) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
+		public void LinkActivationTask_DisablingInactivePromotedVirtualOwner_LeavesWinnerUntouched()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstVirtual = environment.RegisterMod("FirstVirtual", ModInstallMethod.Virtual);
+				IMod direct = environment.RegisterMod("Direct", ModInstallMethod.Direct);
+				IMod lastVirtual = environment.RegisterMod("LastVirtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"scripts\inactive.pex");
+				environment.AddVirtualOwner(firstVirtual, target, "first", true, 0);
+				environment.InstallDirect(direct, target, "direct");
+				string lastSource = environment.StageVirtual(lastVirtual, target, "last");
+				environment.InstallVirtual(lastVirtual, target, lastSource, true);
+
+				new SynchronousLinkActivationTask(environment, firstVirtual).Execute();
+
+				Assert.AreEqual("last", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(
+					new[] { environment.Key(direct), environment.Key(lastVirtual) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+			}
+		}
+
+		[Test]
 		public void DirectToVirtual_UninstallVirtualWinnerRestoresDirectOwner()
 		{
 			using (var environment = new MixedTestEnvironment())
@@ -512,6 +572,27 @@
 			}
 		}
 
+		/// <summary>
+		/// Executes the activation task synchronously for mixed-deployment regression coverage.
+		/// </summary>
+		private sealed class SynchronousLinkActivationTask : LinkActivationTask
+		{
+			public SynchronousLinkActivationTask(MixedTestEnvironment environment, IMod mod)
+				: base(null, environment.VirtualState.Activator,
+					new VirtualDeploymentService(environment.VirtualState.Activator, environment.Manager),
+					mod, true, null, ModInstallRoot.Data, environment.Manager)
+			{
+			}
+
+			/// <summary>
+			/// Runs the protected task body on the calling test thread.
+			/// </summary>
+			public void Execute()
+			{
+				DoWork(new object[0]);
+			}
+		}
+
 		private sealed class MixedTestEnvironment : IDisposable
 		{
 			private readonly string m_strRootPath;
@@ -543,7 +624,7 @@
 						return OverwritePath;
 					return null;
 				});
-				IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
+				GameMode = InterfaceStub<IGameMode>.Create((method, args) =>
 				{
 					if (method.Name == "get_GameModeEnvironmentInfo")
 						return gameModeInfo;
@@ -557,8 +638,8 @@
 				});
 
 				InstallLog = CreateInstallLog(ModPath, Path.Combine(m_strRootPath, "InstallInfo", "InstallLog.xml"));
-				VirtualState = new TransactionalVirtualState(InstallLog, VirtualPath);
-				Manager = new ModDeploymentManager(InstallLog, VirtualState.Activator, gameMode);
+				VirtualState = new TransactionalVirtualState(InstallLog, VirtualPath, GameMode);
+				Manager = new ModDeploymentManager(InstallLog, VirtualState.Activator, GameMode);
 				VirtualState.GetDeploymentPath = Manager.GetDeploymentPath;
 			}
 
@@ -568,6 +649,7 @@
 			public string OverwritePath { get; private set; }
 			public string VirtualPath { get; private set; }
 			public string ModPath { get; private set; }
+			public IGameMode GameMode { get; private set; }
 			public InstallLog InstallLog { get; private set; }
 			public ModDeploymentManager Manager { get; private set; }
 			public TransactionalVirtualState VirtualState { get; private set; }
@@ -708,13 +790,15 @@
 		{
 			private readonly IInstallLog m_ilgInstallLog;
 			private readonly string m_strVirtualPath;
+			private readonly IGameMode m_gmdGameMode;
 			private List<VirtualOwner> m_lstOwners = new List<VirtualOwner>();
 			private string m_strEnlistedTransaction;
 
-			public TransactionalVirtualState(IInstallLog p_ilgInstallLog, string p_strVirtualPath)
+			public TransactionalVirtualState(IInstallLog p_ilgInstallLog, string p_strVirtualPath, IGameMode p_gmdGameMode)
 			{
 				m_ilgInstallLog = p_ilgInstallLog;
 				m_strVirtualPath = p_strVirtualPath;
+				m_gmdGameMode = p_gmdGameMode;
 				Activator = InterfaceStub<IVirtualModActivator>.Create(HandleCall);
 			}
 
@@ -762,6 +846,8 @@
 			{
 				switch (p_mifMethod.Name)
 				{
+					case "get_GameMode":
+						return m_gmdGameMode;
 					case "get_VirtualPath":
 						return m_strVirtualPath;
 					case "GetVirtualOwnerKeys":

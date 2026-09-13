@@ -745,6 +745,9 @@ namespace Nexus.Client.ModManagement.UI
 			{
 				foreach (IMod modMod in p_lstMod)
 				{
+					if (IsInstalledDirectMod(modMod))
+						continue;
+
 					if (!ActiveMods.Contains(modMod))
 					{
 						ModMatcher mmcMatcher = new ModMatcher(ModManager.InstallationLog.ActiveMods, true);
@@ -1116,8 +1119,20 @@ namespace Nexus.Client.ModManagement.UI
 
 		#region Virtual Mod Activation
 
+		/// <summary>
+		/// Determines whether the mod is already installed using Direct Install and therefore has no supported activation toggle.
+		/// </summary>
+		public bool IsInstalledDirectMod(IMod p_modMod)
+		{
+			return p_modMod != null && ActiveMods.Contains(p_modMod) &&
+				ModManager.InstallationLog.GetModInstallMethod(p_modMod) == ModInstallMethod.Direct;
+		}
+
 		public void EnableMod(IMod p_modMod)
 		{
+			if (IsInstalledDirectMod(p_modMod))
+				return;
+
 			if (VirtualModActivator.MultiHDMode && !UacUtil.IsElevated)
 			{
 				MessageBox.Show(LanguageManager.Get("Mods.MultiHd.AdminRequired.Message", "It looks like MultiHD mode is enabled but you're not running NMM as Administrator, you will be unable to install/activate mods or switch profiles." + Environment.NewLine + Environment.NewLine + "Close NMM and run it as Administrator to fix this."), LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1131,6 +1146,9 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			foreach (var Mod in p_modMods)
 			{
+				if (IsInstalledDirectMod(Mod))
+					continue;
+
 				ActivatingMod(Mod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(Mod, true, ConfirmUpdaterAction)));
 			}
 		}

@@ -3125,7 +3125,8 @@
 					return null;
 
 			ModInstallRoot installRoot = p_booDisabling || ModInstallLog == null ? ModInstallRoot.Default : ModInstallLog.GetModInstallRoot(p_modMod);
-			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, new VirtualDeploymentService(this), p_modMod, p_booDisabling, p_camConfirm, installRoot);
+			IModDeploymentManager deploymentManager = ModManager == null ? null : ModManager.DeploymentManager;
+			LinkActivationTask latActivatingMod = new LinkActivationTask(PluginManager, this, new VirtualDeploymentService(this, deploymentManager), p_modMod, p_booDisabling, p_camConfirm, installRoot, deploymentManager);
 			if (GameMode.LoadOrderManager != null)
 				GameMode.LoadOrderManager.MonitorExternalTask(latActivatingMod);
 			else

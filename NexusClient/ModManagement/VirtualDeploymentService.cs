@@ -5,7 +5,10 @@ namespace Nexus.Client.ModManagement
     using System.IO;
     using System.Linq;
 
+    using ChinhDo.Transactions;
+
     using Nexus.Client.Mods;
+    using Nexus.Transactions;
 
     /// <summary>
     /// Compatibility deployment boundary backed by the existing virtual activator and link installer.
@@ -13,11 +16,13 @@ namespace Nexus.Client.ModManagement
     public sealed class VirtualDeploymentService : IVirtualDeploymentService
     {
         private readonly IVirtualModActivator _virtualModActivator;
+        private readonly IModDeploymentManager _deploymentManager;
 
-        public VirtualDeploymentService(IVirtualModActivator virtualModActivator)
+        public VirtualDeploymentService(IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager = null)
         {
             if (virtualModActivator == null) throw new ArgumentNullException(nameof(virtualModActivator));
             _virtualModActivator = virtualModActivator;
+            _deploymentManager = deploymentManager;
         }
 
         public VirtualDeploymentResult ActivateModLinks(IMod mod, VirtualDeploymentOptions options)
@@ -98,7 +103,8 @@ namespace Nexus.Client.ModManagement
                 session.SetFileCount(result.FileCount);
                 ReportProgress(deploymentOptions, result.SourceRoot, result.FileCount, 0, null);
 
-                IModLinkInstaller modLinkInstaller = _virtualModActivator.GetModLinkInstaller();
+                bool hasPromotedTargets = _deploymentManager != null && _deploymentManager.HasPromotedTargets;
+                IModLinkInstaller modLinkInstaller = hasPromotedTargets ? null : _virtualModActivator.GetModLinkInstaller();
                 int processedFileCount = 0;
                 using (IEnumerator<string> fileEnumerator = files.GetEnumerator())
                 {
@@ -125,7 +131,19 @@ namespace Nexus.Client.ModManagement
                         string linkedFilePath;
                         try
                         {
-                            linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false, false, deploymentOptions.InstallRoot);
+                            ModDeploymentTarget target = !hasPromotedTargets
+                                ? null
+                                : ModDeploymentTargetResolver.Resolve(_virtualModActivator.GameMode, mod, relativeFilePath, deploymentOptions.InstallRoot);
+                            if (target != null && _deploymentManager.IsPromoted(target))
+                            {
+                                linkedFilePath = ActivatePromotedVirtualFile(mod, target, relativeFilePath, file, deploymentOptions.InstallRoot);
+                            }
+                            else
+                            {
+                                if (modLinkInstaller == null)
+                                    modLinkInstaller = _virtualModActivator.GetModLinkInstaller();
+                                linkedFilePath = modLinkInstaller.AddFileLink(mod, relativeFilePath, sourceFilePath, false, false, deploymentOptions.InstallRoot);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -174,6 +192,26 @@ namespace Nexus.Client.ModManagement
                         session.TraceSummary();
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Reactivates one Virtual file through the promoted ownership coordinator.
+        /// </summary>
+        private string ActivatePromotedVirtualFile(IMod mod, ModDeploymentTarget target, string relativeFilePath, string stagedSource, ModInstallRoot installRoot)
+        {
+            using (TransactionScope transaction = new TransactionScope())
+            {
+                string deployedPath = _deploymentManager.InstallVirtualFile(
+                    mod,
+                    target,
+                    relativeFilePath,
+                    stagedSource,
+                    installRoot,
+                    true,
+                    new TxFileManager());
+                transaction.Complete();
+                return deployedPath;
             }
         }
 

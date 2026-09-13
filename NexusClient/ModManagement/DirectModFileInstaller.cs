@@ -13,7 +13,7 @@ namespace Nexus.Client.ModManagement
 	/// <summary>
 	/// Streams files from a basic mod archive directly to their final game destinations.
 	/// </summary>
-	public sealed class DirectModFileInstaller : IModFileInstaller, IModFileInstallDecisionSupport
+	public sealed class DirectModFileInstaller : IModFileInstaller, IModFileInstallDecisionSupport, IModFilePluginRegistrationSupport
 	{
 		private readonly IMod m_modMod;
 		private readonly IMod m_modDeploymentOwner;
@@ -173,6 +173,14 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <inheritdoc />
+		public void FlushPendingPluginRegistrations()
+		{
+			if (m_pmgPluginManager != null && m_hstDeployedPluginPaths.Count > 0)
+				m_pmgPluginManager.IntegrateDeployedPlugins(new List<string>(m_hstDeployedPluginPaths));
+			m_hstDeployedPluginPaths.Clear();
+		}
+
+		/// <inheritdoc />
 		public void FinalizeInstall()
 		{
 			if (m_booUpgrade && m_hstUpgradeRemainingTargets != null)
@@ -189,15 +197,10 @@ namespace Nexus.Client.ModManagement
 				m_hstUpgradeRemainingTargets.Clear();
 			}
 
-			if (m_pmgPluginManager != null)
-			{
-				if (m_hstRemovedPluginPaths.Count > 0)
-					m_pmgPluginManager.RemovePlugins(new List<string>(m_hstRemovedPluginPaths));
-				if (m_hstDeployedPluginPaths.Count > 0)
-					m_pmgPluginManager.IntegrateDeployedPlugins(new List<string>(m_hstDeployedPluginPaths));
-			}
+			if (m_pmgPluginManager != null && m_hstRemovedPluginPaths.Count > 0)
+				m_pmgPluginManager.RemovePlugins(new List<string>(m_hstRemovedPluginPaths));
 			m_hstRemovedPluginPaths.Clear();
-			m_hstDeployedPluginPaths.Clear();
+			FlushPendingPluginRegistrations();
 		}
 
 		/// <summary>

@@ -31,6 +31,7 @@ namespace Nexus.Client.UI.Controls
 		private ToolStripMenuItem m_mniModReadme;
 		private ToolStripMenuItem m_mniModWarnings;
 		private ToolStripMenuItem m_mniModChecks;
+		private Func<IMod, bool> m_fncIsInstalledDirectMod;
 
 
 		#region Custom Events
@@ -290,7 +291,7 @@ namespace Nexus.Client.UI.Controls
 		/// </summary>
 		/// <param name="p_lvwList">The source list view.</param>
 		/// <param name="p_cmgCategoryManager">The mod Category Manager.</param>
-		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, IVirtualModActivator p_ivaVirtualModActivator, CategoryManager p_cmgCategoryManager, ISettings p_Settings)
+		public void Setup(ReadOnlyObservableList<IMod> p_rolManagedMods, ReadOnlyObservableList<IMod> p_rolActiveMods, IModRepository p_mmrModRepository, IVirtualModActivator p_ivaVirtualModActivator, CategoryManager p_cmgCategoryManager, ISettings p_Settings, Func<IMod, bool> p_fncIsInstalledDirectMod)
 		{
 			this.Tag = false;
 
@@ -305,6 +306,7 @@ namespace Nexus.Client.UI.Controls
 			m_rolActiveMods = p_rolActiveMods;
 			VirtualModActivator = p_ivaVirtualModActivator;
 			Settings = p_Settings;
+			m_fncIsInstalledDirectMod = p_fncIsInstalledDirectMod;
 
 			// Setup menuStrip commands
 			RefreshContextMenuCategoryList();
@@ -1302,6 +1304,10 @@ namespace Nexus.Client.UI.Controls
 					m_mniModActivate.Text = @"Install and activate";
 					cmsContextMenu.Items.Add(m_mniModActivate);
 				}
+				else if (IsInstalledDirectMod(SelectedMod))
+				{
+					cmsContextMenu.Items.Add(m_mniModReinstall);
+				}
 				else if (!IsModActive(SelectedMod))
 				{
 					m_mniModActivate.Text = @"Activate";
@@ -1655,6 +1661,14 @@ namespace Nexus.Client.UI.Controls
 			{
 				return false;
 			}
+		}
+
+		/// <summary>
+		/// Checks whether an installed mod uses Direct Install and therefore has no activation toggle.
+		/// </summary>
+		private bool IsInstalledDirectMod(IMod p_modMod)
+		{
+			return m_fncIsInstalledDirectMod != null && m_fncIsInstalledDirectMod(p_modMod);
 		}
 
 		/// <summary>

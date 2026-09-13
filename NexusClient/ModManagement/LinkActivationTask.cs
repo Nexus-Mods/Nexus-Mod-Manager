@@ -5,6 +5,9 @@ namespace Nexus.Client.ModManagement
     using System.IO;
     using System.Linq;
     using BackgroundTasks;
+    using ChinhDo.Transactions;
+
+    using Nexus.Transactions;
 
     using Nexus.Client.Mods;
     using Nexus.Client.PluginManagement;
@@ -29,6 +32,8 @@ namespace Nexus.Client.ModManagement
 		protected IVirtualModActivator VirtualModActivator { get; }
 
         protected IVirtualDeploymentService VirtualDeploymentService { get; }
+
+        protected IModDeploymentManager DeploymentManager { get; }
 
 		protected ConfirmActionMethod ConfirmActionMethod { get; }
 
@@ -116,11 +121,13 @@ namespace Nexus.Client.ModManagement
 		/// <param name="mod">The mod.</param>
 		/// <param name="disable">Whether or not we're disabling the given mod.</param>
 		/// <param name="confirmActionMethod">The delegate to call to confirm an action.</param>
-		public LinkActivationTask(IPluginManager pluginManager, IVirtualModActivator virtualModActivator, IVirtualDeploymentService virtualDeploymentService, IMod mod, bool disable, ConfirmActionMethod confirmActionMethod, ModInstallRoot installRoot)
+		/// <param name="deploymentManager">The method-neutral deployment coordinator, when available.</param>
+		public LinkActivationTask(IPluginManager pluginManager, IVirtualModActivator virtualModActivator, IVirtualDeploymentService virtualDeploymentService, IMod mod, bool disable, ConfirmActionMethod confirmActionMethod, ModInstallRoot installRoot, IModDeploymentManager deploymentManager = null)
 		{
 			PluginManager = pluginManager;
 			VirtualModActivator = virtualModActivator;
             VirtualDeploymentService = virtualDeploymentService;
+            DeploymentManager = deploymentManager;
 			Mod = mod;
             InstallRoot = installRoot;
 			Disabling = disable;
@@ -135,6 +142,39 @@ namespace Nexus.Client.ModManagement
 		}
 
 		#endregion
+
+        /// <summary>
+        /// Disables a Virtual mod through the method-neutral coordinator when it owns promoted targets.
+        /// </summary>
+        private bool DisablePromotedVirtualMod()
+        {
+            if (Mod == null || DeploymentManager == null || !DeploymentManager.HasPromotedFiles(Mod))
+                return false;
+
+            int targetCount = VirtualModActivator.GetVirtualTargetsForMod(Mod).Count;
+            ItemProgressMaximum = Math.Max(1, Math.Min(1000, targetCount));
+            ItemProgressStepSize = 1;
+
+            IReadOnlyCollection<string> absentPaths;
+            using (TransactionScope transaction = new TransactionScope())
+            {
+                absentPaths = DeploymentManager.UninstallMixedMod(Mod, new TxFileManager());
+                transaction.Complete();
+            }
+
+            if (PluginManager != null && absentPaths.Count > 0)
+            {
+                List<string> removedPlugins = absentPaths
+                    .Where(PluginManager.IsActivatiblePluginFile)
+                    .ToList();
+                if (removedPlugins.Count > 0)
+                    PluginManager.RemovePlugins(removedPlugins);
+            }
+
+            ItemProgress = ItemProgressMaximum;
+            VirtualModActivator.FinalizeModDeactivation(Mod);
+            return true;
+        }
 
 		/// <summary>
 		/// Starts the update.
@@ -197,7 +237,7 @@ namespace Nexus.Client.ModManagement
 			}
 			else
 			{
-				if (Mod != null)
+				if (Mod != null && !DisablePromotedVirtualMod())
 				{
 					var ivlLinks = VirtualModActivator.VirtualLinks
                         .Where(x => x.ModInfo != null && string.Equals(x.ModInfo.ModFileName, Path.GetFileName(Mod.Filename), StringComparison.OrdinalIgnoreCase))

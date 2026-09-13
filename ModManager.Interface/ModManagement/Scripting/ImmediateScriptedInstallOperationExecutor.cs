@@ -521,11 +521,22 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
-		/// Flushes Direct and promoted Virtual plugin additions after final physical winners are known.
+		/// Flushes plugin registrations needed by scripted plugin-state operations without prematurely finalizing Direct upgrade cleanup.
 		/// </summary>
 		private void FlushPendingPluginRegistrations()
 		{
-			m_igpInstallers.FileInstaller.FinalizeInstall();
+			if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct)
+			{
+				IModFilePluginRegistrationSupport prsPluginRegistration = m_igpInstallers.FileInstaller as IModFilePluginRegistrationSupport;
+				if (prsPluginRegistration == null)
+					throw new InvalidOperationException("Direct scripted installation requires plugin-registration flush support.");
+				prsPluginRegistration.FlushPendingPluginRegistrations();
+			}
+			else
+			{
+				m_igpInstallers.FileInstaller.FinalizeInstall();
+			}
+
 			if (m_igpInstallers.PluginManager != null && m_hstCoordinatorPluginPaths.Count > 0)
 				m_igpInstallers.PluginManager.IntegrateDeployedPlugins(new List<string>(m_hstCoordinatorPluginPaths));
 			m_hstCoordinatorPluginPaths.Clear();

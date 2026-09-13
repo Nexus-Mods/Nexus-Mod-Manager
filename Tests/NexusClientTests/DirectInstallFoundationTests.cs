@@ -5,13 +5,17 @@ namespace NexusClientTests
     using System.IO;
     using System.Linq;
     using System.Reflection;
+    using System.Runtime.Serialization;
     using System.Xml.Linq;
 
     using Nexus.Client.Games;
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.InstallationLog;
     using Nexus.Client.ModManagement.InstallationLog.Upgraders;
+    using Nexus.Client.ModManagement.UI;
+    using Nexus.Client.Mods;
     using Nexus.Client.Settings;
+    using Nexus.Client.Util.Collections;
     using Nexus.Transactions;
 
     using NUnit.Framework;
@@ -72,6 +76,41 @@ namespace NexusClientTests
         public void DeploymentTarget_RejectsRootEscapeAndAbsolutePaths(string path)
         {
             Assert.Throws<InvalidDataException>(() => ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, path));
+        }
+
+        /// <summary>
+        /// Installed Direct mods remain deployed and must not participate in the Virtual activate/deactivate command path.
+        /// </summary>
+        [Test]
+        public void InstalledDirectMod_DisablesActivationTogglePolicy()
+        {
+            var mod = new InstallLog.DummyMod("Direct UI Policy", "DirectUiPolicy.7z");
+            var activeMods = new ThreadSafeObservableList<IMod>();
+            activeMods.Add(mod);
+            var readOnlyActiveMods = new ReadOnlyObservableList<IMod>(activeMods);
+            ModInstallMethod method = ModInstallMethod.Direct;
+            IInstallLog installLog = InterfaceStub<IInstallLog>.Create((invokedMethod, args) =>
+            {
+                if (invokedMethod.Name == "get_ActiveMods")
+                    return readOnlyActiveMods;
+                if (invokedMethod.Name == "GetModInstallMethod")
+                    return method;
+                return null;
+            });
+
+            var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+            SetPrivateField(manager, "<InstallationLog>k__BackingField", installLog);
+            var viewModel = (ModManagerVM)FormatterServices.GetUninitializedObject(typeof(ModManagerVM));
+            SetPrivateField(viewModel, "<ModManager>k__BackingField", manager);
+
+            Assert.IsTrue(viewModel.IsInstalledDirectMod(mod));
+
+            method = ModInstallMethod.Virtual;
+            Assert.IsFalse(viewModel.IsInstalledDirectMod(mod));
+
+            method = ModInstallMethod.Direct;
+            activeMods.Remove(mod);
+            Assert.IsFalse(viewModel.IsInstalledDirectMod(mod), "An uninstalled archive may still be selected for a new Direct install.");
         }
 
         [Test]
@@ -295,6 +334,16 @@ namespace NexusClientTests
 
             Assert.NotNull(constructor);
             return (InstallLog)constructor.Invoke(new object[] { registry, null, modDirectory, logPath });
+        }
+
+        /// <summary>
+        /// Assigns one auto-property backing field without running the application bootstrap.
+        /// </summary>
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(field, "Missing field: " + fieldName);
+            field.SetValue(target, value);
         }
 
         private static string CreateTempDirectory()

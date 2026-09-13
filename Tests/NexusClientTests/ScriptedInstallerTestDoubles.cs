@@ -75,7 +75,7 @@ namespace NexusClientTests
     /// <summary>
     /// Records file-installer calls made by scripted installer proxies while preserving configurable return values.
     /// </summary>
-    internal sealed class RecordingModFileInstaller : IModFileInstaller
+    internal sealed class RecordingModFileInstaller : IModFileInstaller, IModFilePluginRegistrationSupport
     {
         /// <summary>
         /// Gets or sets the result returned by archive-file installation requests.
@@ -116,6 +116,16 @@ namespace NexusClientTests
         /// Gets the number of generated-file requests received by the installer.
         /// </summary>
         public int GenerateCallCount { get; private set; }
+
+        /// <summary>
+        /// Gets the number of plugin-registration-only flushes requested by scripted compatibility paths.
+        /// </summary>
+        public int PluginRegistrationFlushCallCount { get; private set; }
+
+        /// <summary>
+        /// Gets the number of full installation finalizations requested by callers.
+        /// </summary>
+        public int FinalizeCallCount { get; private set; }
 
         /// <summary>
         /// Records an archive-file installation request.
@@ -169,10 +179,19 @@ namespace NexusClientTests
         }
 
         /// <summary>
-        /// Performs no work because installation finalization is outside this characterization fixture.
+        /// Records a plugin-registration-only flush without finalizing file cleanup.
+        /// </summary>
+        public void FlushPendingPluginRegistrations()
+        {
+            PluginRegistrationFlushCallCount++;
+        }
+
+        /// <summary>
+        /// Records full installation finalization requests.
         /// </summary>
         public void FinalizeInstall()
         {
+            FinalizeCallCount++;
         }
 
         /// <summary>

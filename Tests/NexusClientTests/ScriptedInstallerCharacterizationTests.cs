@@ -216,6 +216,26 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies that an immediate Direct plugin-state read flushes registrations without finalizing upgrade file cleanup.
+        /// </summary>
+        [Test]
+        public void ScriptProxy_DirectPluginRead_FlushesRegistrationsWithoutFinalizingFiles()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(
+                    tmp.Path, null, false, false, "linked", null, ModInstallMethod.Direct);
+                ctx.AddManagedPlugin("Test.esp");
+
+                string[] plugins = ctx.Proxy.GetAllPlugins();
+
+                CollectionAssert.AreEqual(new[] { "Test.esp" }, plugins);
+                Assert.AreEqual(1, ctx.FileInstaller.PluginRegistrationFlushCallCount);
+                Assert.AreEqual(0, ctx.FileInstaller.FinalizeCallCount);
+            }
+        }
+
+        /// <summary>
         /// Verifies the legacy SetLoadOrder overload that validates the supplied permutation but reapplies the current plugin sequence by index.
         /// </summary>
         [Test]

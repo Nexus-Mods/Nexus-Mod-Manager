@@ -660,8 +660,13 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// </summary>
 		private void FlushImmediateDirectPluginState()
 		{
-			if (InstallationSession.ProjectedState == null && Installers.InstallContext.Method == ModInstallMethod.Direct)
-				Installers.FileInstaller.FinalizeInstall();
+			if (InstallationSession.ProjectedState != null || Installers.InstallContext.Method != ModInstallMethod.Direct)
+				return;
+
+			IModFilePluginRegistrationSupport prsPluginRegistration = Installers.FileInstaller as IModFilePluginRegistrationSupport;
+			if (prsPluginRegistration == null)
+				throw new InvalidOperationException("Direct scripted installation requires plugin-registration flush support.");
+			prsPluginRegistration.FlushPendingPluginRegistrations();
 		}
 
 		/// <summary>

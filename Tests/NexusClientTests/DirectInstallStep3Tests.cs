@@ -11,7 +11,10 @@ namespace NexusClientTests
 	using Nexus.Client.Games;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.InstallationLog;
+	using Nexus.Client.ModManagement.Scripting;
+	using Nexus.Client.ModManagement.Scripting.Operations;
 	using Nexus.Client.Mods;
+	using Nexus.Client.PluginManagement;
 	using Nexus.Transactions;
 
 	using NUnit.Framework;
@@ -62,6 +65,62 @@ namespace NexusClientTests
 				CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(environment.Manager.GetDeploymentPath(target)));
 				Assert.IsFalse(Directory.EnumerateFiles(environment.VirtualPath, "*", SearchOption.AllDirectories).Any());
 				Assert.IsFalse(Directory.EnumerateFiles(environment.LinkPath, "*", SearchOption.AllDirectories).Any());
+			}
+		}
+
+		/// <summary>
+		/// Verifies that a plugin-state flush during a Direct upgrade does not finalize stale-target cleanup before later file operations run.
+		/// </summary>
+		[Test]
+		public void DirectUpgrade_PluginStateFlushBeforeLaterFile_PreservesOwnerPrecedence()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod first = environment.RegisterDirectMod("A");
+				IMod second = environment.RegisterDirectMod("B");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "later.txt");
+				environment.Install(first, target, "A-old");
+				environment.Install(second, target, "B-winner");
+
+				IGameMode scriptedGameMode = InterfaceStub<IGameMode>.Create((method, args) =>
+				{
+					if (method.Name == "get_GameModeEnvironmentInfo")
+						return environment.GameMode.GameModeEnvironmentInfo;
+					if (method.Name == "get_InstallationPath")
+						return environment.GameRootPath;
+					if (method.Name == "get_UsesPlugins")
+						return true;
+					if (method.Name == "GetModFormatAdjustedPath")
+						return args[1];
+					return null;
+				});
+				IPluginManager pluginManager = InterfaceStub<IPluginManager>.Create((method, args) => null);
+				var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+				var fileManager = new TxFileManager();
+				var overwriteResolver = new ModDeploymentOverwriteResolver(
+					first, environment.InstallLog, environment.Manager, (message, allowGroup, hasOwner) => OverwriteResult.Yes);
+				var fileInstaller = new DirectModFileInstaller(
+					first, first, scriptedGameMode, environment.InstallLog, environment.Manager, pluginManager, fileManager,
+					(message, allowGroup, hasOwner) => OverwriteResult.Yes, null, context, true);
+				var installers = new InstallerGroup(
+					null, fileInstaller, null, null, pluginManager, context, environment.Manager, fileManager, overwriteResolver);
+				var executor = new ImmediateScriptedInstallOperationExecutor(
+					first, scriptedGameMode, null, CreateEmptyVirtualActivator(), null, installers, null, null);
+
+				using (var scope = new TransactionScope())
+				{
+					Assert.IsTrue(executor.Execute(new SetPluginActivationOperation("dummy.esp", true)));
+					Assert.IsTrue(executor.Execute(new GenerateDataFileOperation("later.txt", Encoding.UTF8.GetBytes("A-new"))));
+					fileInstaller.FinalizeInstall();
+					scope.Complete();
+				}
+
+				string firstKey = environment.InstallLog.GetModKey(first);
+				CollectionAssert.AreEqual(
+					new[] { firstKey, environment.InstallLog.GetModKey(second) },
+					environment.InstallLog.GetDeploymentOwnerKeys(target));
+				Assert.AreEqual("B-winner", File.ReadAllText(environment.Manager.GetDeploymentPath(target)));
+				Assert.AreEqual("A-new", File.ReadAllText(environment.Manager.GetOwnerBackupPath(target, firstKey)));
 			}
 		}
 

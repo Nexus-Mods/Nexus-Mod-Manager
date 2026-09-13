@@ -458,12 +458,14 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			if ((clwCategoryView.SelectedIndices.Count > 0 || clwCategoryView.SelectedObjects.Count > 0) && clwCategoryView.Visible && clwCategoryView.GetSelectedItem.GetType() != typeof(ModCategory))
 			{
+				IMod selectedMod = GetSelectedMod();
+				bool directInstalled = ViewModel.IsInstalledDirectMod(selectedMod);
 				if (clwCategoryView.Visible)
 				{
-					ViewModel.DisableModCommand.CanExecute = ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(GetSelectedMod().Filename).ToLowerInvariant());
+					ViewModel.DisableModCommand.CanExecute = !directInstalled && ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(selectedMod.Filename).ToLowerInvariant());
 				}
 
-				ViewModel.ActivateModCommand.CanExecute = !ViewModel.DisableModCommand.CanExecute;
+				ViewModel.ActivateModCommand.CanExecute = !directInstalled && !ViewModel.DisableModCommand.CanExecute;
 
 				ViewModel.DeleteModCommand.CanExecute = true;
 				ViewModel.TagModCommand.CanExecute = true;
@@ -801,7 +803,7 @@ namespace Nexus.Client.ModManagement.UI
 
 			if (clwCategoryView.Tag == null)
 			{
-				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator, ViewModel.CategoryManager, ViewModel.Settings);
+				clwCategoryView.Setup(ViewModel.ManagedMods, ViewModel.ActiveMods, ViewModel.ModRepository, ViewModel.VirtualModActivator, ViewModel.CategoryManager, ViewModel.Settings, ViewModel.IsInstalledDirectMod);
 
 				// handles the selectedindexchanged event of the cateogry view
 				clwCategoryView.SelectedIndexChanged += delegate (object sender, EventArgs e)
@@ -837,6 +839,8 @@ namespace Nexus.Client.ModManagement.UI
 								if (modMod != null)
 								{
 									SetCommandExecutableStatus();
+									if (ViewModel.IsInstalledDirectMod(modMod))
+										return;
 
 									if (ViewModel.VirtualModActivator.ActiveModList.Contains(Path.GetFileName(modMod.Filename).ToLowerInvariant()))
 										ViewModel.DisableModCommand.Execute(new List<IMod> { modMod });
