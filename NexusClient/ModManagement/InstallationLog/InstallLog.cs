@@ -160,6 +160,7 @@
 		private readonly ActiveModRegistry _activeModRegistry = new ActiveModRegistry();
 		private readonly Dictionary<string, ModInstallRoot> _modInstallRoots = new Dictionary<string, ModInstallRoot>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, ModInstallMethod> _modInstallMethods = new Dictionary<string, ModInstallMethod>(StringComparer.OrdinalIgnoreCase);
+		private long _deploymentCommitSequence;
 
 		private readonly InstalledItemDictionary<string, object> _installedFiles;
 		private readonly InstalledItemDictionary<IniEdit, string> _installedIniEdits;
@@ -397,6 +398,15 @@
 				throw new Exception($"Invalid Install Log version: \"{logVersion}\", expected \"{CurrentVersion}\"");
 			}
 
+			long deploymentCommitSequence = 0;
+			string deploymentCommitSequenceValue = docLog.Element("installLog")?.Attribute("deploymentCommitSequence")?.Value;
+			if (!String.IsNullOrWhiteSpace(deploymentCommitSequenceValue) &&
+				(!Int64.TryParse(deploymentCommitSequenceValue, out deploymentCommitSequence) || deploymentCommitSequence < 0))
+			{
+				throw new InvalidDataException("Invalid deployment commit sequence in Install Log.");
+			}
+			_deploymentCommitSequence = String.IsNullOrWhiteSpace(deploymentCommitSequenceValue) ? 0 : deploymentCommitSequence;
+
             var modList = docLog.Descendants("modList").FirstOrDefault();
 			
             if (modList != null)
@@ -514,6 +524,8 @@
 		{
 			var log = new XDocument();
 			var root = new XElement("installLog", new XAttribute("fileVersion", CurrentVersion));
+			if (_deploymentCommitSequence > 0)
+				root.Add(new XAttribute("deploymentCommitSequence", _deploymentCommitSequence));
 			log.Add(root);
 
 			var modList = new XElement("modList");
@@ -580,7 +592,55 @@
                 Directory.CreateDirectory(logDirectory);
             }
 
-            log.Save(LogPath);
+			SaveInstallLogAtomically(log, LogPath);
+		}
+
+		/// <summary>
+		/// Writes the InstallLog through a flushed same-directory temporary file before replacing the durable copy.
+		/// </summary>
+		private static void SaveInstallLogAtomically(XDocument p_xdcLog, string p_strLogPath)
+		{
+			string temporaryPath = p_strLogPath + ".tmp";
+			try
+			{
+				if (File.Exists(temporaryPath))
+					File.Delete(temporaryPath);
+
+				var settings = new XmlWriterSettings
+				{
+					Encoding = new UTF8Encoding(false),
+					Indent = true
+				};
+				using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+				using (XmlWriter writer = XmlWriter.Create(stream, settings))
+				{
+					p_xdcLog.Save(writer);
+					writer.Flush();
+					stream.Flush(true);
+				}
+
+				if (File.Exists(p_strLogPath))
+				{
+					try
+					{
+						File.Replace(temporaryPath, p_strLogPath, null);
+					}
+					catch (PlatformNotSupportedException)
+					{
+						File.Delete(p_strLogPath);
+						File.Move(temporaryPath, p_strLogPath);
+					}
+				}
+				else
+				{
+					File.Move(temporaryPath, p_strLogPath);
+				}
+			}
+			finally
+			{
+				if (File.Exists(temporaryPath))
+					File.Delete(temporaryPath);
+			}
 		}
 
 		#endregion
@@ -833,6 +893,15 @@
 
 		/// <inheritdoc />
 		public bool HasDeploymentTargets => GetEnlistment().HasDeploymentTargets;
+
+		/// <inheritdoc />
+		public long DeploymentCommitSequence => _deploymentCommitSequence;
+
+		/// <inheritdoc />
+		public long EnlistDeploymentRecoveryTransaction()
+		{
+			return GetEnlistment().EnlistDeploymentRecoveryTransaction();
+		}
 
 		/// <inheritdoc />
 		public IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target)

@@ -145,7 +145,26 @@ namespace Nexus.Client.ModManagement.Scripting
 				m_igpInstallers.TransactionalFileManager, m_igpInstallers.DeploymentOverwriteResolver);
 			if (m_actTaskStarted != null)
 				m_actTaskStarted(bitTask);
-			bool installed = bitTask.Execute();
+
+			bool installed;
+			try
+			{
+				installed = bitTask.Execute();
+			}
+			catch (Exception ex)
+			{
+				if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct || bitTask.UsedPromotedDeployment)
+					throw CreateDeploymentException("Scripted basic-install deployment failed.", ex);
+				throw;
+			}
+
+			if (bitTask.UsedPromotedDeployment)
+				m_igpInstallers.MarkPromotedDeploymentUsed();
+			if (!installed && bitTask.Status != TaskStatus.Cancelling &&
+				(m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct || bitTask.UsedPromotedDeployment))
+			{
+				throw new ScriptedDeploymentException("Scripted basic-install deployment did not complete successfully.");
+			}
 			if (installed && m_sfcFileSelectionCache != null)
 				m_sfcFileSelectionCache.RecordBasicInstall();
 			return installed;
@@ -170,9 +189,18 @@ namespace Nexus.Client.ModManagement.Scripting
 				if (decision != null && !decision.WritePayload)
 					return false;
 
-				bool installed = decision != null
-					? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(strFrom, strTo)
-					: m_igpInstallers.FileInstaller.InstallFileFromMod(strFrom, strTo);
+				bool installed;
+				try
+				{
+					installed = decision != null
+						? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(strFrom, strTo)
+						: m_igpInstallers.FileInstaller.InstallFileFromMod(strFrom, strTo);
+				}
+				catch (Exception ex)
+				{
+					throw CreateDeploymentException("Scripted Direct file deployment failed.", ex);
+				}
+
 				if (installed && m_sfcFileSelectionCache != null)
 					m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
 				return installed;
@@ -197,10 +225,17 @@ namespace Nexus.Client.ModManagement.Scripting
 				bool activate = decision != null && decision.UseDeploymentCoordinator
 					? decision.Activate
 					: m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
-				strLinkResult = m_igpInstallers.DeploymentManager.InstallVirtualFile(
-					m_modMod, target, strTo, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
-					activate, m_igpInstallers.TransactionalFileManager);
 				m_igpInstallers.MarkPromotedDeploymentUsed();
+				try
+				{
+					strLinkResult = m_igpInstallers.DeploymentManager.InstallVirtualFile(
+						m_modMod, target, strTo, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
+						activate, m_igpInstallers.TransactionalFileManager);
+				}
+				catch (Exception ex)
+				{
+					throw CreateDeploymentException("Scripted promoted Virtual file deployment failed.", ex);
+				}
 				TrackCoordinatorPlugin(strLinkResult);
 			}
 			else
@@ -232,9 +267,19 @@ namespace Nexus.Client.ModManagement.Scripting
 			{
 				if (decision != null && !decision.WritePayload)
 					return false;
-				bool generated = decision != null
-					? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).GenerateDataFileWithResolvedOverwrite(strPath, p_gdoOperation.Data)
-					: m_igpInstallers.FileInstaller.GenerateDataFile(strPath, p_gdoOperation.Data);
+
+				bool generated;
+				try
+				{
+					generated = decision != null
+						? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).GenerateDataFileWithResolvedOverwrite(strPath, p_gdoOperation.Data)
+						: m_igpInstallers.FileInstaller.GenerateDataFile(strPath, p_gdoOperation.Data);
+				}
+				catch (Exception ex)
+				{
+					throw CreateDeploymentException("Scripted Direct generated-file deployment failed.", ex);
+				}
+
 				if (generated && m_sfcFileSelectionCache != null)
 					m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
 				return generated;
@@ -258,10 +303,17 @@ namespace Nexus.Client.ModManagement.Scripting
 				bool activate = decision != null && decision.UseDeploymentCoordinator
 					? decision.Activate
 					: m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
-				m_igpInstallers.DeploymentManager.InstallVirtualFile(
-					m_modMod, target, strPath, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
-					activate, m_igpInstallers.TransactionalFileManager);
 				m_igpInstallers.MarkPromotedDeploymentUsed();
+				try
+				{
+					m_igpInstallers.DeploymentManager.InstallVirtualFile(
+						m_modMod, target, strPath, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
+						activate, m_igpInstallers.TransactionalFileManager);
+				}
+				catch (Exception ex)
+				{
+					throw CreateDeploymentException("Scripted promoted Virtual generated-file deployment failed.", ex);
+				}
 			}
 			else
 			{
@@ -274,6 +326,15 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (m_sfcFileSelectionCache != null)
 				m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
 			return true;
+		}
+
+		/// <summary>
+		/// Wraps a coordinator/filesystem exception in the fatal scripted-deployment marker without double wrapping it.
+		/// </summary>
+		private static ScriptedDeploymentException CreateDeploymentException(string p_strMessage, Exception p_exException)
+		{
+			ScriptedDeploymentException deploymentException = p_exException as ScriptedDeploymentException;
+			return deploymentException ?? new ScriptedDeploymentException(p_strMessage, p_exException);
 		}
 
 		/// <summary>

@@ -4,6 +4,8 @@ namespace NexusClientTests
 	using System.IO;
 	using System.Linq;
 	using System.Reflection;
+	using System.Text;
+	using System.Xml.Linq;
 
 	using ChinhDo.Transactions;
 	using Nexus.Client.Games;
@@ -186,6 +188,53 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>
+		/// Verifies that a failed transactional stream write restores an existing destination before ambient rollback runs.
+		/// </summary>
+		[Test]
+		public void FailedTransactionalStreamWrite_RestoresExistingDestinationImmediately()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				string destination = Path.Combine(environment.DataPath, "failure-atomic-existing.bin");
+				File.WriteAllText(destination, "original");
+				string payload = environment.CreatePayload("replacement");
+
+				using (FileStream stream = File.OpenRead(payload))
+				{
+					stream.Dispose();
+					using (var scope = new TransactionScope())
+					{
+						Assert.Throws<Exception>(() => new TxFileManager().WriteFileStream(destination, stream));
+						Assert.AreEqual("original", File.ReadAllText(destination));
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Verifies that a failed transactional stream write removes a newly-created partial destination immediately.
+		/// </summary>
+		[Test]
+		public void FailedTransactionalStreamWrite_RemovesNewPartialDestinationImmediately()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				string destination = Path.Combine(environment.DataPath, "failure-atomic-new.bin");
+				string payload = environment.CreatePayload("replacement");
+
+				using (FileStream stream = File.OpenRead(payload))
+				{
+					stream.Dispose();
+					using (var scope = new TransactionScope())
+					{
+						Assert.Throws<Exception>(() => new TxFileManager().WriteFileStream(destination, stream));
+						Assert.IsFalse(File.Exists(destination));
+					}
+				}
+			}
+		}
+
 		[Test]
 		public void FailedDirectOverwrite_RollsBackWinnerBackupAndDeploymentMetadata()
 		{
@@ -216,6 +265,126 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void DeploymentCommitSequence_AdvancesOnlyForCommittedDeploymentTransactions()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod mod = environment.RegisterDirectMod("Sequence");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"sequence\file.bin");
+				Assert.AreEqual(0, environment.InstallLog.DeploymentCommitSequence);
+
+				environment.Install(mod, target, "committed");
+				Assert.AreEqual(1, environment.InstallLog.DeploymentCommitSequence);
+				Assert.AreEqual("1", (string)XDocument.Load(environment.InstallLogPath).Root.Attribute("deploymentCommitSequence"));
+
+				string payloadPath = environment.CreatePayload("rolled-back");
+				using (var scope = new TransactionScope())
+				using (FileStream stream = File.OpenRead(payloadPath))
+					environment.Manager.UpgradeDirectFile(mod, target, stream, new TxFileManager());
+
+				Assert.AreEqual(1, environment.InstallLog.DeploymentCommitSequence);
+				Assert.AreEqual("committed", File.ReadAllText(environment.Manager.GetDeploymentPath(target)));
+			}
+		}
+
+		[Test]
+		public void PendingDeploymentRecoveryJournal_RestoresPreTransactionDirectWinner()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod mod = environment.RegisterDirectMod("Recovery");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"recovery\winner.bin");
+				environment.Install(mod, target, "before-crash");
+				long sequence = environment.InstallLog.DeploymentCommitSequence;
+				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				string transactionDirectory = CreateRecoveryJournal(environment, target, sequence, "before-crash");
+
+				File.WriteAllText(deploymentPath, "interrupted-write");
+				InstallLog reloadedInstallLog = environment.ReloadInstallLog();
+				try
+				{
+					Assert.AreEqual(sequence, reloadedInstallLog.DeploymentCommitSequence);
+					new ModDeploymentManager(reloadedInstallLog, CreateEmptyVirtualActivator(), environment.GameMode);
+				}
+				finally
+				{
+					reloadedInstallLog.Release();
+				}
+
+				Assert.AreEqual("before-crash", File.ReadAllText(deploymentPath));
+				Assert.IsFalse(Directory.Exists(transactionDirectory));
+			}
+		}
+
+		[Test]
+		public void CommittedDeploymentRecoveryJournal_IsCleanedWithoutRollingBackWinner()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod mod = environment.RegisterDirectMod("CommittedRecovery");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"recovery\committed.bin");
+				environment.Install(mod, target, "committed");
+				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				long committedSequence = environment.InstallLog.DeploymentCommitSequence;
+				string transactionDirectory = CreateRecoveryJournal(environment, target, committedSequence - 1, "stale-before");
+
+				InstallLog reloadedInstallLog = environment.ReloadInstallLog();
+				try
+				{
+					Assert.AreEqual(committedSequence, reloadedInstallLog.DeploymentCommitSequence);
+					new ModDeploymentManager(reloadedInstallLog, CreateEmptyVirtualActivator(), environment.GameMode);
+				}
+				finally
+				{
+					reloadedInstallLog.Release();
+				}
+
+				Assert.AreEqual("committed", File.ReadAllText(deploymentPath));
+				Assert.IsFalse(Directory.Exists(transactionDirectory));
+			}
+		}
+
+		private static string CreateRecoveryJournal(DirectTestEnvironment p_dteEnvironment, ModDeploymentTarget p_mdtTarget,
+			long p_lngPreCommitSequence, string p_strDeploymentSnapshotContents)
+		{
+			string transactionDirectory = Path.Combine(
+				p_dteEnvironment.OverwritePath, "deployment", "_recovery", "test-" + Guid.NewGuid().ToString("N"));
+			string snapshotsDirectory = Path.Combine(transactionDirectory, "snapshots");
+			Directory.CreateDirectory(snapshotsDirectory);
+			new XDocument(new XElement("deploymentRecovery",
+				new XAttribute("transactionId", "test"),
+				new XAttribute("preCommitSequence", p_lngPreCommitSequence)))
+				.Save(Path.Combine(transactionDirectory, "transaction.xml"));
+
+			const string snapshotName = "deployment.bin";
+			File.WriteAllText(Path.Combine(snapshotsDirectory, snapshotName), p_strDeploymentSnapshotContents);
+			var record = new XElement("target",
+				new XAttribute("root", p_mdtTarget.Root),
+				new XAttribute("path", p_mdtTarget.RelativePath),
+				new XAttribute("deploymentState", "Snapshot"),
+				new XAttribute("deploymentSnapshot", snapshotName),
+				new XElement("owners"),
+				new XElement("backups",
+					new XElement("backup",
+						new XAttribute("ownerKey", p_dteEnvironment.InstallLog.OriginalValuesKey),
+						new XAttribute("existed", false))));
+			byte[] payload = Encoding.UTF8.GetBytes(record.ToString(SaveOptions.DisableFormatting));
+			using (var stream = new FileStream(Path.Combine(transactionDirectory, "targets.bin"), FileMode.Create, FileAccess.Write, FileShare.None))
+			using (var writer = new BinaryWriter(stream, Encoding.UTF8))
+			{
+				writer.Write(payload.Length);
+				writer.Write(payload);
+			}
+			return transactionDirectory;
+		}
+
+		private static IVirtualModActivator CreateEmptyVirtualActivator()
+		{
+			return InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+				method.Name == "GetVirtualOwnerKeys" ? (object)new string[0] : null);
+		}
+
 		private sealed class DirectTestEnvironment : IDisposable
 		{
 			private readonly string m_strRootPath;
@@ -231,6 +400,7 @@ namespace NexusClientTests
 				VirtualPath = Path.Combine(m_strRootPath, "VirtualInstall");
 				LinkPath = Path.Combine(m_strRootPath, "NMMLink");
 				ModPath = Path.Combine(m_strRootPath, "Mods");
+				InstallLogPath = Path.Combine(m_strRootPath, "InstallInfo", "InstallLog.xml");
 				Directory.CreateDirectory(DataPath);
 				Directory.CreateDirectory(GameRootPath);
 				Directory.CreateDirectory(SecondaryPath);
@@ -262,7 +432,7 @@ namespace NexusClientTests
 				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
 					method.Name == "GetVirtualOwnerKeys" ? (object)new string[0] : null);
 
-				InstallLog = CreateInstallLog(ModPath, Path.Combine(m_strRootPath, "InstallInfo", "InstallLog.xml"));
+				InstallLog = CreateInstallLog(ModPath, InstallLogPath);
 				Manager = new ModDeploymentManager(InstallLog, virtualModActivator, GameMode);
 			}
 
@@ -274,6 +444,7 @@ namespace NexusClientTests
 			public string VirtualPath { get; }
 			public string LinkPath { get; }
 			public string ModPath { get; }
+			public string InstallLogPath { get; }
 			public InstallLog InstallLog { get; }
 			public ModDeploymentManager Manager { get; }
 
@@ -303,6 +474,12 @@ namespace NexusClientTests
 					InstallLog.RemoveMod(p_modMod);
 					scope.Complete();
 				}
+			}
+
+
+			public InstallLog ReloadInstallLog()
+			{
+				return CreateInstallLog(ModPath, InstallLogPath);
 			}
 
 			public string CreatePayload(string p_strContents)

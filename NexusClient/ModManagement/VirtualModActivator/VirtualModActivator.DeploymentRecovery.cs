@@ -5,6 +5,8 @@ namespace Nexus.Client.ModManagement
 	using System.Diagnostics;
 	using System.IO;
 	using System.Linq;
+	using System.Text;
+	using System.Xml;
 	using System.Xml.Linq;
 
 	/// <summary>
@@ -41,16 +43,12 @@ namespace Nexus.Client.ModManagement
 			var document = new XDocument(
 				new XElement("virtualDeploymentRecovery",
 					new XAttribute("transactionId", p_strTransactionId ?? string.Empty),
+					new XAttribute("deploymentCommitSequence", ModInstallLog.DeploymentCommitSequence),
 					new XElement("targets", targets.Select(x => CreateRecoveryTargetElement(x, p_dicInitialOwnerStacks))),
 					new XElement("modInfos", modInfos.Select(CreateRecoveryModInfoElement)),
 					new XElement("links", links.Select(CreateRecoveryLinkElement))));
 
-			if (File.Exists(temporaryPath))
-				File.Delete(temporaryPath);
-			document.Save(temporaryPath);
-			if (File.Exists(journalPath))
-				File.Delete(journalPath);
-			File.Move(temporaryPath, journalPath);
+			WriteRecoveryDocumentDurably(document, temporaryPath, journalPath);
 			return journalPath;
 		}
 
@@ -78,8 +76,7 @@ namespace Nexus.Client.ModManagement
 		{
 			return new XElement("modInfo",
 				CreateRecoveryModInfoState("before", p_vmsSnapshot.State, p_vmsSnapshot.WasPresent),
-				CreateRecoveryModInfoState("after", p_vmsSnapshot.ModInfo,
-					m_tslVirtualModInfo.Any(x => ReferenceEquals(x, p_vmsSnapshot.ModInfo))));
+				CreateRecoveryModInfoState("after", p_vmsSnapshot.ModInfo, p_vmsSnapshot.IsPresent));
 		}
 
 		/// <summary>
@@ -91,8 +88,7 @@ namespace Nexus.Client.ModManagement
 				p_vlsSnapshot.Target == null ? null : new XAttribute("root", p_vlsSnapshot.Target.Root),
 				p_vlsSnapshot.Target == null ? null : new XAttribute("path", p_vlsSnapshot.Target.RelativePath),
 				CreateRecoveryLinkState("before", p_vlsSnapshot.State, p_vlsSnapshot.WasPresent),
-				CreateRecoveryLinkState("after", p_vlsSnapshot.Link,
-					m_tslVirtualModList.Any(x => ReferenceEquals(x, p_vlsSnapshot.Link))));
+				CreateRecoveryLinkState("after", p_vlsSnapshot.Link, p_vlsSnapshot.IsPresent));
 		}
 
 		/// <summary>
@@ -176,7 +172,7 @@ namespace Nexus.Client.ModManagement
 
 			XElement targetsElement = root.Element("targets");
 			XElement[] targetRecords = targetsElement == null ? new XElement[0] : targetsElement.Elements("target").ToArray();
-			bool usePostState = ResolveRecoveryOutcome(targetRecords);
+			bool usePostState = ResolveRecoveryOutcome(root, targetRecords);
 			string stateName = usePostState ? "after" : "before";
 
 			XElement modInfosElement = root.Element("modInfos");
@@ -203,8 +199,20 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Determines whether a pending recovery journal represents the durable pre-transaction or post-transaction state.
 		/// </summary>
-		private bool ResolveRecoveryOutcome(IEnumerable<XElement> p_enmTargetRecords)
+		private bool ResolveRecoveryOutcome(XElement p_xelRoot, IEnumerable<XElement> p_enmTargetRecords)
 		{
+			long journalSequence;
+			string journalSequenceValue = (string)(p_xelRoot == null ? null : p_xelRoot.Attribute("deploymentCommitSequence"));
+			if (!String.IsNullOrWhiteSpace(journalSequenceValue))
+			{
+				if (!Int64.TryParse(journalSequenceValue, out journalSequence) || journalSequence < 0)
+					throw new InvalidDataException("Invalid deployment commit sequence in Virtual recovery journal.");
+				if (ModInstallLog.DeploymentCommitSequence < journalSequence)
+					throw new InvalidDataException("InstallLog deployment commit sequence predates the pending Virtual recovery journal.");
+
+				return ModInstallLog.DeploymentCommitSequence > journalSequence;
+			}
+
 			bool sawPreState = false;
 			bool sawPostState = false;
 			foreach (XElement record in p_enmTargetRecords ?? Enumerable.Empty<XElement>())
@@ -372,6 +380,32 @@ namespace Nexus.Client.ModManagement
 		private static bool RecoveryStatePresent(XElement p_xelState)
 		{
 			return p_xelState != null && ((bool?)p_xelState.Attribute("present") ?? false);
+		}
+
+		/// <summary>
+		/// Writes a recovery XML document through a flushed temporary file before publishing it.
+		/// </summary>
+		private static void WriteRecoveryDocumentDurably(XDocument p_xdcDocument, string p_strTemporaryPath, string p_strJournalPath)
+		{
+			if (File.Exists(p_strTemporaryPath))
+				File.Delete(p_strTemporaryPath);
+
+			var settings = new XmlWriterSettings
+			{
+				Encoding = new UTF8Encoding(false),
+				Indent = true
+			};
+			using (var stream = new FileStream(p_strTemporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+			using (XmlWriter writer = XmlWriter.Create(stream, settings))
+			{
+				p_xdcDocument.Save(writer);
+				writer.Flush();
+				stream.Flush(true);
+			}
+
+			if (File.Exists(p_strJournalPath))
+				File.Delete(p_strJournalPath);
+			File.Move(p_strTemporaryPath, p_strJournalPath);
 		}
 
 		/// <summary>

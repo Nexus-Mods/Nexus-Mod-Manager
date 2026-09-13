@@ -16,6 +16,7 @@
 			private readonly Dictionary<string, ModInstallMethod> _modInstallMethods = new Dictionary<string, ModInstallMethod>(StringComparer.OrdinalIgnoreCase);
 			private readonly Dictionary<ModDeploymentTarget, string[]> _deploymentChanges = new Dictionary<ModDeploymentTarget, string[]>();
 			private readonly HashSet<ModDeploymentTarget> _removedDeploymentTargets = new HashSet<ModDeploymentTarget>();
+			private bool _deploymentRecoveryEnlisted;
 
 			private void SetModInstallMethod(string key, ModInstallMethod installMethod)
 			{
@@ -37,6 +38,22 @@
 			public ModInstallMethod GetModInstallMethod(IMod mod)
 			{
 				return GetModInstallMethodByKey(GetModKey(mod));
+			}
+
+			/// <summary>
+			/// Ensures this ambient transaction advances the durable deployment commit marker on commit.
+			/// </summary>
+			public long EnlistDeploymentRecoveryTransaction()
+			{
+				if (CurrentTransaction == null)
+					throw new InvalidOperationException("Deployment crash recovery requires an ambient transaction.");
+
+				if (!_deploymentRecoveryEnlisted)
+				{
+					_deploymentRecoveryEnlisted = true;
+					Enlist();
+				}
+				return EnlistedInstallLog._deploymentCommitSequence;
 			}
 
 			public bool HasDeploymentTargets
@@ -133,6 +150,9 @@
 
 				foreach (KeyValuePair<ModDeploymentTarget, string[]> change in _deploymentChanges)
 					EnlistedInstallLog.SetDeploymentOwnersCore(change.Key, change.Value);
+
+				if (_deploymentRecoveryEnlisted)
+					EnlistedInstallLog._deploymentCommitSequence++;
 			}
 
 			private void ClearFoundationChanges()
@@ -140,6 +160,7 @@
 				_modInstallMethods.Clear();
 				_deploymentChanges.Clear();
 				_removedDeploymentTargets.Clear();
+				_deploymentRecoveryEnlisted = false;
 			}
 
 			private void PersistOrEnlistFoundationChanges()

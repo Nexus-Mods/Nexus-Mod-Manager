@@ -16,7 +16,7 @@ namespace Nexus.Client.ModManagement
 	/// <summary>
 	/// Coordinates method-neutral deployment ownership queries while preserving VMA as the authority for pure Virtual targets.
 	/// </summary>
-	public sealed class ModDeploymentManager : IModDeploymentManager
+	public sealed partial class ModDeploymentManager : IModDeploymentManager
 	{
 		private readonly IInstallLog m_ilgInstallLog;
 		private readonly IVirtualModActivator m_vmaVirtualModActivator;
@@ -43,6 +43,8 @@ namespace Nexus.Client.ModManagement
 			m_ilgInstallLog = p_ilgInstallLog;
 			m_vmaVirtualModActivator = p_vmaVirtualModActivator;
 			m_gmdGameMode = p_gmdGameMode;
+			if (m_gmdGameMode != null)
+				RecoverPendingDeploymentTransactions();
 		}
 
 		/// <inheritdoc />
@@ -166,6 +168,7 @@ namespace Nexus.Client.ModManagement
 			using (var transaction = new TransactionScope())
 			{
 				var fileManager = new TxFileManager();
+				TouchDeploymentRecoveryTarget(p_mdtTarget);
 				DisplaceCurrentOwner(p_mdtTarget, currentOwnerKey, deploymentPath, fileManager);
 
 				if (GetOwnerMethod(p_strSelectedOwnerKey) == ModInstallMethod.Virtual)
@@ -295,6 +298,7 @@ namespace Nexus.Client.ModManagement
 			if (ownerIndex < 0)
 				return InstallDirectFileCore(p_modMod, p_mdtTarget, p_tfmFileManager, p_actWritePayload);
 
+			TouchDeploymentRecoveryTarget(p_mdtTarget);
 			if (ownerIndex == owners.Count - 1)
 			{
 				string deploymentPath = GetDeploymentPath(p_mdtTarget);
@@ -325,6 +329,7 @@ namespace Nexus.Client.ModManagement
 				throw new ArgumentNullException(nameof(p_actWritePayload));
 
 			string modKey = RequireDirectModKey(p_modMod);
+			TouchDeploymentRecoveryTarget(p_mdtTarget);
 			List<string> owners = GetOrPromoteOwnerStack(p_mdtTarget, p_tfmFileManager);
 			string deploymentPath = GetDeploymentPath(p_mdtTarget);
 			int existingOwnerIndex = owners.FindIndex(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase));
@@ -369,6 +374,7 @@ namespace Nexus.Client.ModManagement
 			if (!m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget))
 				throw new InvalidOperationException("Only promoted Virtual targets may use the method-neutral deployment path.");
 
+			TouchDeploymentRecoveryTarget(p_mdtTarget);
 			var owners = new List<string>(m_ilgInstallLog.GetDeploymentOwnerKeys(p_mdtTarget));
 			int existingOwnerIndex = owners.FindIndex(x => x.Equals(modKey, StringComparison.OrdinalIgnoreCase));
 			if (existingOwnerIndex >= 0)
@@ -567,6 +573,7 @@ namespace Nexus.Client.ModManagement
 			if (ownerIndex < 0)
 				return;
 
+			TouchDeploymentRecoveryTarget(p_mdtTarget);
 			bool virtualOwner = GetOwnerMethod(p_strModKey) == ModInstallMethod.Virtual;
 			bool currentWinner = ownerIndex == owners.Count - 1;
 			string deploymentPath = GetDeploymentPath(p_mdtTarget);

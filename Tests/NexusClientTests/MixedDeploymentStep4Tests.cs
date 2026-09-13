@@ -1,4 +1,4 @@
-namespace NexusClientTests
+﻿namespace NexusClientTests
 {
 	using System;
 	using System.Collections.Generic;
@@ -283,6 +283,52 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>
+		/// Verifies that cancelling a promoted Direct overwrite recreates the original Virtual hard link, not just its bytes.
+		/// </summary>
+		[Test]
+		public void CancelledPromotion_RestoresVirtualHardLinkTopology()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("Virtual", ModInstallMethod.Virtual);
+				IMod direct = environment.RegisterMod("Direct", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"bin\rollback-hardlink.dll");
+				string source = environment.AddVirtualOwner(virtualMod, target, "virtual", true, 0, null, true);
+				string payload = environment.CreatePayload("direct");
+
+				using (var scope = new TransactionScope())
+				using (FileStream stream = File.OpenRead(payload))
+					environment.Manager.InstallDirectFile(direct, target, stream, new TxFileManager());
+
+				File.WriteAllText(source, "changed-through-source");
+				Assert.AreEqual("changed-through-source", environment.ReadTarget(target));
+			}
+		}
+
+		/// <summary>
+		/// Verifies that cancelling a promoted Direct overwrite recreates the original Virtual symbolic link when supported.
+		/// </summary>
+		[Test]
+		public void CancelledPromotion_RestoresVirtualSymbolicLinkTopology()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("Virtual", ModInstallMethod.Virtual);
+				IMod direct = environment.RegisterMod("Direct", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"bin\rollback-symlink.dll");
+				string source = environment.AddVirtualOwner(virtualMod, target, "virtual", true, 0, null, false, true);
+				string payload = environment.CreatePayload("direct");
+
+				using (var scope = new TransactionScope())
+				using (FileStream stream = File.OpenRead(payload))
+					environment.Manager.InstallDirectFile(direct, target, stream, new TxFileManager());
+
+				File.WriteAllText(source, "changed-through-source");
+				Assert.AreEqual("changed-through-source", environment.ReadTarget(target));
+			}
+		}
+
 		[Test]
 		public void CancelledPromotion_RestoresVirtualWinnerLegacyBackupAndMetadata()
 		{
@@ -553,12 +599,12 @@ namespace NexusClientTests
 			}
 
 			public string AddVirtualOwner(IMod p_modMod, ModDeploymentTarget p_mdtTarget, string p_strContents,
-				bool p_booActive, int p_intPriority, string p_strOriginal = null, bool p_booHardLink = false)
+				bool p_booActive, int p_intPriority, string p_strOriginal = null, bool p_booHardLink = false, bool p_booSymbolicLink = false)
 			{
 				string source = StageVirtual(p_modMod, p_mdtTarget, p_strContents);
 				VirtualState.Add(p_modMod, Key(p_modMod), p_mdtTarget, source, p_booActive, p_intPriority);
 				if (p_booActive)
-				DeployInitial(source, Manager.GetDeploymentPath(p_mdtTarget), p_booHardLink);
+				DeployInitial(source, Manager.GetDeploymentPath(p_mdtTarget), p_booHardLink, p_booSymbolicLink);
 				if (p_strOriginal != null)
 				File.WriteAllText(VirtualState.GetOverwritePath(p_mdtTarget, Key(p_modMod)), p_strOriginal);
 				return source;
@@ -622,18 +668,23 @@ namespace NexusClientTests
 					Directory.Delete(m_strRootPath, true);
 			}
 
-			private static void DeployInitial(string p_strSource, string p_strTarget, bool p_booHardLink)
+			private static void DeployInitial(string p_strSource, string p_strTarget, bool p_booHardLink, bool p_booSymbolicLink)
 			{
 				Directory.CreateDirectory(Path.GetDirectoryName(p_strTarget));
-				if (p_booHardLink)
+				if (p_booHardLink || p_booSymbolicLink)
 				{
 					using (var scope = new TransactionScope())
 					{
-						if (new TxFileManager().CreateHardLink(p_strTarget, p_strSource))
-						{
-							scope.Complete();
-							return;
-						}
+						TxFileManager fileManager = new TxFileManager();
+						bool created = p_booHardLink
+							? fileManager.CreateHardLink(p_strTarget, p_strSource)
+							: fileManager.CreateSymbolicLink(p_strTarget, p_strSource);
+						if (!created)
+							Assert.Ignore(p_booHardLink
+								? "Hard links are not available in the current test environment."
+								: "Symbolic links are not available in the current test environment.");
+						scope.Complete();
+						return;
 					}
 				}
 				File.Copy(p_strSource, p_strTarget, true);
@@ -803,7 +854,7 @@ namespace NexusClientTests
 				VirtualOwner owner = Require(p_mdtTarget, p_strOwnerKey);
 				string targetPath = GetDeploymentPath(p_mdtTarget);
 				if (owner.Active && File.Exists(targetPath))
-					p_tfmFileManager.Delete(targetPath);
+					p_tfmFileManager.DeleteLink(targetPath, owner.Source);
 				owner.Active = false;
 			}
 

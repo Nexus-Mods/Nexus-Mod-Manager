@@ -6,6 +6,7 @@ namespace NexusClientTests
     using System.Xml.Linq;
 
     using Nexus.Client.ModManagement;
+    using Nexus.Client.ModManagement.Scripting;
 
     using NUnit.Framework;
 
@@ -279,6 +280,24 @@ namespace NexusClientTests
                 Assert.IsTrue(installer.ExecutePlannedOperations());
                 Assert.AreEqual(Path.Combine(ctx.VirtualPath, "12345", "MyPlugin.esp"), ctx.FileInstaller.LastInstallPath);
                 Assert.AreEqual("MyPlugin.esp", ctx.LastLinkedDestination);
+            }
+        }
+
+        /// <summary>
+        /// Verifies that Direct XML file deployment failures escape legacy best-effort handling and abort the scripted plan.
+        /// </summary>
+        [Test]
+        public void XmlInstaller_DirectDeploymentFailureIsFatal()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(
+                    tmp.Path, "12345", false, false, "linked", null, ModInstallMethod.Direct);
+                ctx.FileInstaller.InstallException = new IOException("Simulated Direct deployment failure.");
+                TestableXmlScriptInstaller installer = new TestableXmlScriptInstaller(ctx.Mod, ctx.GameMode, ctx.Installers, ctx.VirtualModActivator);
+
+                Assert.IsTrue(installer.InstallSingleFile("textures/failure.dds", "textures/failure.dds"));
+                Assert.Throws<ScriptedDeploymentException>(() => installer.ExecutePlannedOperations());
             }
         }
 

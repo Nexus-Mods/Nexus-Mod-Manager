@@ -154,13 +154,15 @@ namespace Nexus.Client.ModManagement
 			if (modInfo == null)
 			{
 				modInfo = new VirtualModInfo(p_modMod.Id, p_modMod.DownloadId, p_modMod.ModName, p_modMod.Filename, p_modMod.HumanReadableVersion);
-				enlistment.TouchModInfo(modInfo);
+				enlistment.TouchModInfo(modInfo, false);
 				AddVirtualModInfo(modInfo);
+				enlistment.SetModInfoPresent(modInfo, true);
 			}
 
 			var link = new VirtualModLink(realPath, p_strLogicalPath, p_intPriority, false, modInfo, p_mirInstallRoot);
-			enlistment.Touch(link, p_mdtTarget);
+			enlistment.Touch(link, p_mdtTarget, false);
 			AddVirtualLink(link, p_modMod);
+			enlistment.SetLinkPresent(link, true);
 			enlistment.MarkDirty();
 
 			if (FindVirtualOwnerLink(p_mdtTarget, ownerKey) == null)
@@ -175,11 +177,14 @@ namespace Nexus.Client.ModManagement
 
 			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link, p_mdtTarget);
+			enlistment.Touch(link, p_mdtTarget, true);
 
 			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
 			if (link.Active && File.Exists(deployedPath))
-				p_tfmFileManager.Delete(deployedPath);
+			{
+				string sourcePath = ResolveVirtualSourcePath(link, p_mdtTarget);
+				p_tfmFileManager.DeleteLink(deployedPath, sourcePath);
+			}
 
 			link.Active = false;
 			enlistment.MarkDirty();
@@ -197,7 +202,7 @@ namespace Nexus.Client.ModManagement
 				throw new FileNotFoundException("The staged Virtual source for the requested deployment owner could not be found.", sourcePath);
 
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link, p_mdtTarget);
+			enlistment.Touch(link, p_mdtTarget, true);
 
 			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
 			string deployedDirectory = Path.GetDirectoryName(deployedPath);
@@ -212,13 +217,32 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <inheritdoc />
+		public void RecoverVirtualDeploymentWinner(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+		{
+			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
+			string sourcePath = ResolveVirtualSourcePath(link, p_mdtTarget);
+			if (String.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+				throw new FileNotFoundException("The staged Virtual source required for deployment recovery could not be found.", sourcePath);
+
+			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
+			string deployedDirectory = Path.GetDirectoryName(deployedPath);
+			if (!String.IsNullOrWhiteSpace(deployedDirectory) && !Directory.Exists(deployedDirectory))
+				Directory.CreateDirectory(deployedDirectory);
+			File.Delete(deployedPath);
+
+			DeployVirtualSource(new TxFileManager(), sourcePath, deployedPath);
+			link.Active = true;
+		}
+
+		/// <inheritdoc />
 		public void RemoveVirtualLinkRecord(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
 		{
 			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link, p_mdtTarget);
+			enlistment.Touch(link, p_mdtTarget, true);
 
 			RemoveVirtualLink(link, FindManagedMod(link.ModInfo));
+			enlistment.SetLinkPresent(link, false);
 			enlistment.MarkDirty();
 		}
 
@@ -230,7 +254,7 @@ namespace Nexus.Client.ModManagement
 				return;
 
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link, p_mdtTarget);
+			enlistment.Touch(link, p_mdtTarget, true);
 			link.Active = p_booActive;
 			enlistment.MarkDirty();
 		}
@@ -257,8 +281,9 @@ namespace Nexus.Client.ModManagement
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
 			foreach (IVirtualModInfo modInfo in modInfos)
 			{
-				enlistment.TouchModInfo(modInfo);
+				enlistment.TouchModInfo(modInfo, true);
 				m_tslVirtualModInfo.Remove(modInfo);
+				enlistment.SetModInfoPresent(modInfo, false);
 			}
 			MarkVirtualModInfoLookupDirty();
 			enlistment.MarkDirty();
@@ -464,7 +489,11 @@ namespace Nexus.Client.ModManagement
 			private readonly Transaction m_trnTransaction;
 			private readonly string m_strTransactionId;
 			private readonly List<VirtualLinkSnapshot> m_lstTouchedLinks = new List<VirtualLinkSnapshot>();
+			private readonly Dictionary<IVirtualModLink, VirtualLinkSnapshot> m_dicTouchedLinks =
+				new Dictionary<IVirtualModLink, VirtualLinkSnapshot>(ReferenceEqualityComparer<IVirtualModLink>.Instance);
 			private readonly List<VirtualModInfoSnapshot> m_lstTouchedModInfos = new List<VirtualModInfoSnapshot>();
+			private readonly Dictionary<IVirtualModInfo, VirtualModInfoSnapshot> m_dicTouchedModInfos =
+				new Dictionary<IVirtualModInfo, VirtualModInfoSnapshot>(ReferenceEqualityComparer<IVirtualModInfo>.Instance);
 			private readonly Dictionary<ModDeploymentTarget, string[]> m_dicInitialOwnerStacks = new Dictionary<ModDeploymentTarget, string[]>();
 			private bool m_booDirty;
 			private bool m_booPreparedDurably;
@@ -483,22 +512,39 @@ namespace Nexus.Client.ModManagement
 			/// <summary>
 			/// Captures the pre-mutation state of one Virtual link and its deployment owner stack.
 			/// </summary>
-			public void Touch(IVirtualModLink p_vmlLink, ModDeploymentTarget p_mdtTarget)
+			public void Touch(IVirtualModLink p_vmlLink, ModDeploymentTarget p_mdtTarget, bool p_booWasPresent)
 			{
 				if (p_vmlLink == null)
 					return;
 
 				if (p_mdtTarget != null && !m_dicInitialOwnerStacks.ContainsKey(p_mdtTarget))
-					m_dicInitialOwnerStacks.Add(p_mdtTarget, m_vmaOwner.ModInstallLog.GetDeploymentOwnerKeys(p_mdtTarget).ToArray());
+				{
+					string[] ownerStack = m_vmaOwner.ModInstallLog.GetDeploymentOwnerKeys(p_mdtTarget).ToArray();
+					m_dicInitialOwnerStacks.Add(p_mdtTarget, ownerStack);
+					if (ownerStack.Length > 0)
+						m_vmaOwner.ModInstallLog.EnlistDeploymentRecoveryTransaction();
+				}
 
-				if (m_lstTouchedLinks.Any(x => ReferenceEquals(x.Link, p_vmlLink)))
+				if (m_dicTouchedLinks.ContainsKey(p_vmlLink))
 					return;
 
-				m_lstTouchedLinks.Add(new VirtualLinkSnapshot(
+				var snapshot = new VirtualLinkSnapshot(
 					p_vmlLink,
 					new VirtualModLink(p_vmlLink),
-					m_vmaOwner.m_tslVirtualModList.Any(x => ReferenceEquals(x, p_vmlLink)),
-					p_mdtTarget));
+					p_booWasPresent,
+					p_mdtTarget);
+				m_lstTouchedLinks.Add(snapshot);
+				m_dicTouchedLinks.Add(p_vmlLink, snapshot);
+			}
+
+			/// <summary>
+			/// Updates the transaction-local membership state after a coordinator link add/remove.
+			/// </summary>
+			public void SetLinkPresent(IVirtualModLink p_vmlLink, bool p_booPresent)
+			{
+				VirtualLinkSnapshot snapshot;
+				if (p_vmlLink != null && m_dicTouchedLinks.TryGetValue(p_vmlLink, out snapshot))
+					snapshot.IsPresent = p_booPresent;
 			}
 
 			public void MarkDirty()
@@ -506,14 +552,24 @@ namespace Nexus.Client.ModManagement
 				m_booDirty = true;
 			}
 
-			public void TouchModInfo(IVirtualModInfo p_vmiModInfo)
+			public void TouchModInfo(IVirtualModInfo p_vmiModInfo, bool p_booWasPresent)
 			{
-				if (p_vmiModInfo == null || m_lstTouchedModInfos.Any(x => ReferenceEquals(x.ModInfo, p_vmiModInfo)))
+				if (p_vmiModInfo == null || m_dicTouchedModInfos.ContainsKey(p_vmiModInfo))
 					return;
 
-				m_lstTouchedModInfos.Add(new VirtualModInfoSnapshot(
-					p_vmiModInfo,
-					m_vmaOwner.m_tslVirtualModInfo.Any(x => ReferenceEquals(x, p_vmiModInfo))));
+				var snapshot = new VirtualModInfoSnapshot(p_vmiModInfo, p_booWasPresent);
+				m_lstTouchedModInfos.Add(snapshot);
+				m_dicTouchedModInfos.Add(p_vmiModInfo, snapshot);
+			}
+
+			/// <summary>
+			/// Updates the transaction-local membership state after a coordinator mod-info add/remove.
+			/// </summary>
+			public void SetModInfoPresent(IVirtualModInfo p_vmiModInfo, bool p_booPresent)
+			{
+				VirtualModInfoSnapshot snapshot;
+				if (p_vmiModInfo != null && m_dicTouchedModInfos.TryGetValue(p_vmiModInfo, out snapshot))
+					snapshot.IsPresent = p_booPresent;
 			}
 
 			public void Commit(Enlistment p_enlEnlistment)
@@ -615,12 +671,8 @@ namespace Nexus.Client.ModManagement
 					for (int i = m_lstTouchedModInfos.Count - 1; i >= 0; i--)
 						RestoreModInfoSnapshot(m_lstTouchedModInfos[i]);
 
-					if (m_lstTouchedLinks.Count > 0 || m_lstTouchedModInfos.Count > 0)
-					{
+					if (m_lstTouchedModInfos.Count > 0)
 						m_vmaOwner.MarkVirtualModInfoLookupDirty();
-						m_vmaOwner.MarkVirtualLinkIndexDirty();
-						m_vmaOwner.RebuildVirtualLinkIndex();
-					}
 
 					if (m_booPreparePersistenceAttempted)
 					{
@@ -638,13 +690,12 @@ namespace Nexus.Client.ModManagement
 
 			private void RestoreModInfoSnapshot(VirtualModInfoSnapshot p_vmsSnapshot)
 			{
-				bool currentlyPresent = m_vmaOwner.m_tslVirtualModInfo.Any(x => ReferenceEquals(x, p_vmsSnapshot.ModInfo));
 				if (p_vmsSnapshot.WasPresent)
 				{
-					if (!currentlyPresent)
+					if (!p_vmsSnapshot.IsPresent)
 						m_vmaOwner.AddVirtualModInfo(p_vmsSnapshot.ModInfo);
 				}
-				else if (currentlyPresent)
+				else if (p_vmsSnapshot.IsPresent)
 				{
 					m_vmaOwner.m_tslVirtualModInfo.Remove(p_vmsSnapshot.ModInfo);
 				}
@@ -652,16 +703,19 @@ namespace Nexus.Client.ModManagement
 
 			private void RestoreSnapshot(VirtualLinkSnapshot p_vlsSnapshot)
 			{
-				bool currentlyPresent = m_vmaOwner.m_tslVirtualModList.Any(x => ReferenceEquals(x, p_vlsSnapshot.Link));
 				if (!p_vlsSnapshot.WasPresent)
 				{
-					if (currentlyPresent)
+					if (p_vlsSnapshot.IsPresent)
 						m_vmaOwner.RemoveVirtualLink(p_vlsSnapshot.Link);
 					return;
 				}
 
-				if (!currentlyPresent)
-					m_vmaOwner.AddVirtualLink(p_vlsSnapshot.Link, m_vmaOwner.FindManagedMod(p_vlsSnapshot.State.ModInfo));
+				bool reindex = p_vlsSnapshot.IsPresent && RequiresReindex(p_vlsSnapshot);
+				if (reindex)
+				{
+					m_vmaOwner.RemoveVirtualLink(p_vlsSnapshot.Link, m_vmaOwner.FindManagedMod(p_vlsSnapshot.Link.ModInfo));
+					p_vlsSnapshot.IsPresent = false;
+				}
 
 				p_vlsSnapshot.Link.VirtualModPath = p_vlsSnapshot.State.VirtualModPath;
 				p_vlsSnapshot.Link.RealModPath = p_vlsSnapshot.State.RealModPath;
@@ -669,12 +723,31 @@ namespace Nexus.Client.ModManagement
 				p_vlsSnapshot.Link.Active = p_vlsSnapshot.State.Active;
 				p_vlsSnapshot.Link.ModInfo = p_vlsSnapshot.State.ModInfo;
 				p_vlsSnapshot.Link.InstallRoot = p_vlsSnapshot.State.InstallRoot;
+
+				if (!p_vlsSnapshot.IsPresent)
+				{
+					m_vmaOwner.AddVirtualLink(p_vlsSnapshot.Link, m_vmaOwner.FindManagedMod(p_vlsSnapshot.State.ModInfo));
+					p_vlsSnapshot.IsPresent = true;
+				}
+			}
+
+			/// <summary>
+			/// Returns whether restoring the snapshot changes a value used by the Virtual-link indexes.
+			/// </summary>
+			private static bool RequiresReindex(VirtualLinkSnapshot p_vlsSnapshot)
+			{
+				return !String.Equals(p_vlsSnapshot.Link.VirtualModPath, p_vlsSnapshot.State.VirtualModPath, StringComparison.OrdinalIgnoreCase) ||
+					!String.Equals(p_vlsSnapshot.Link.RealModPath, p_vlsSnapshot.State.RealModPath, StringComparison.OrdinalIgnoreCase) ||
+					!ReferenceEquals(p_vlsSnapshot.Link.ModInfo, p_vlsSnapshot.State.ModInfo) ||
+					p_vlsSnapshot.Link.InstallRoot != p_vlsSnapshot.State.InstallRoot;
 			}
 
 			private void Cleanup()
 			{
 				m_lstTouchedLinks.Clear();
+				m_dicTouchedLinks.Clear();
 				m_lstTouchedModInfos.Clear();
+				m_dicTouchedModInfos.Clear();
 				m_dicInitialOwnerStacks.Clear();
 				m_vmaOwner.ReleaseVirtualDeploymentEnlistment(m_strTransactionId);
 			}
@@ -690,11 +763,13 @@ namespace Nexus.Client.ModManagement
 					p_vmiModInfo.ModName, p_vmiModInfo.ModFileName, p_vmiModInfo.NewFileName,
 					p_vmiModInfo.ModFilePath, p_vmiModInfo.FileVersion);
 				WasPresent = p_booWasPresent;
+				IsPresent = p_booWasPresent;
 			}
 
 			public IVirtualModInfo ModInfo { get; private set; }
 			public IVirtualModInfo State { get; private set; }
 			public bool WasPresent { get; private set; }
+			public bool IsPresent { get; set; }
 		}
 
 		private sealed class VirtualLinkSnapshot
@@ -707,12 +782,14 @@ namespace Nexus.Client.ModManagement
 				Link = p_vmlLink;
 				State = p_vmlState;
 				WasPresent = p_booWasPresent;
+				IsPresent = p_booWasPresent;
 				Target = p_mdtTarget;
 			}
 
 			public IVirtualModLink Link { get; private set; }
 			public VirtualModLink State { get; private set; }
 			public bool WasPresent { get; private set; }
+			public bool IsPresent { get; set; }
 			public ModDeploymentTarget Target { get; private set; }
 		}
 	}

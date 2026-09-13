@@ -113,6 +113,24 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies that a fatal deployment exception marks the session rollback-only and rejects later operations.
+        /// </summary>
+        [Test]
+        public void Submit_DeploymentFailureMarksSessionFatalAndRejectsFurtherOperations()
+        {
+            ThrowingScriptedDeploymentExecutor executor = new ThrowingScriptedDeploymentExecutor();
+            ScriptedInstallationSession session = new ScriptedInstallationSession(executor);
+            InstallModFileOperation first = new InstallModFileOperation("textures/a.dds", "textures/a.dds");
+            InstallModFileOperation second = new InstallModFileOperation("textures/b.dds", "textures/b.dds");
+
+            Assert.Throws<ScriptedDeploymentException>(() => session.Submit(first));
+            Assert.IsTrue(session.HasFatalDeploymentFailure);
+            Assert.AreEqual(1, session.Plan.Count);
+            Assert.IsFalse(session.Submit(second));
+            Assert.AreEqual(1, session.Plan.Count);
+        }
+
+        /// <summary>
         /// Verifies that relative load-order requests containing only unregistered plugins are treated as a no-op.
         /// </summary>
         [Test]
@@ -157,6 +175,20 @@ namespace NexusClientTests
                 Assert.AreEqual("Borderless", ctx.Proxy.GetIniString("game.ini", "Display", "Mode"));
                 Assert.IsTrue(ctx.LastPluginActivationState.Value);
             }
+        }
+    }
+
+    /// <summary>
+    /// Simulates a coordinator/filesystem failure that must abort a scripted installation session.
+    /// </summary>
+    internal sealed class ThrowingScriptedDeploymentExecutor : IScriptedInstallOperationExecutor
+    {
+        /// <summary>
+        /// Always throws the fatal deployment marker used by Direct/promoted scripted execution.
+        /// </summary>
+        public bool Execute(ScriptedInstallOperation p_sioOperation)
+        {
+            throw new ScriptedDeploymentException("Simulated deployment failure.");
         }
     }
 

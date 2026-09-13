@@ -178,6 +178,28 @@ namespace ChinhDo.Transactions
 			}
 
 			/// <summary>
+			/// Deletes a deployed link while preserving enough topology information to recreate it on rollback.
+			/// </summary>
+			public void DeleteLink(string path, string targetPath)
+			{
+				var r = new RollbackFile(path, targetPath);
+				try
+				{
+					File.Delete(path);
+				}
+				catch (Exception e)
+				{
+					r.CleanUp();
+					throw new Exception(e.Message, e);
+				}
+				if (_tx != null)
+				{
+					_journal.Add(r);
+					Enlist();
+				}
+			}
+
+			/// <summary>
 			/// Moves the specified file to a new location.
 			/// </summary>
 			/// <param name="srcFileName">The name of the file to move.</param>
@@ -256,6 +278,15 @@ namespace ChinhDo.Transactions
 				}
 				catch (Exception e)
 				{
+					try
+					{
+						r.Rollback();
+					}
+					catch (Exception rollbackException)
+					{
+						throw new Exception("The file write failed and the previous file state could not be restored.",
+							new AggregateException(e, rollbackException));
+					}
 					r.CleanUp();
 					throw new Exception(e.Message, e);
 				}
@@ -285,6 +316,15 @@ namespace ChinhDo.Transactions
                 }
                 catch (Exception e)
                 {
+                    try
+                    {
+                        r.Rollback();
+                    }
+                    catch (Exception rollbackException)
+                    {
+                        throw new Exception("The file write failed and the previous file state could not be restored.",
+                            new AggregateException(e, rollbackException));
+                    }
                     r.CleanUp();
                     throw new Exception(e.Message, e);
                 }
@@ -390,29 +430,48 @@ namespace ChinhDo.Transactions
 			private class RollbackFile : RollbackOperation
 			{
 				public RollbackFile(string fileName)
+					: this(fileName, null)
+				{
+				}
+
+				public RollbackFile(string fileName, string expectedLinkTarget)
 				{
 					_originalFileName = fileName;
+					_existed = File.Exists(fileName);
 
-					if (File.Exists(fileName))
+					if (_existed)
 					{
-						_backupFileName = CreateTempFileName(Path.GetExtension(fileName));
-						File.Copy(_originalFileName, _backupFileName);
+						_linkType = GetFileLinkType(fileName, expectedLinkTarget);
+						_linkTarget = _linkType == FileLinkType.None ? null : expectedLinkTarget;
+						if (_linkType == FileLinkType.None)
+						{
+							_backupFileName = CreateTempFileName(Path.GetExtension(fileName));
+							File.Copy(_originalFileName, _backupFileName);
+						}
 					}
 				}
 
 				public override void Rollback()
 				{
-					if (_backupFileName != null)
+					if (_linkType != FileLinkType.None)
+					{
+						string strDirectory = Path.GetDirectoryName(_originalFileName);
+						if (!Directory.Exists(strDirectory))
+							Directory.CreateDirectory(strDirectory);
+						if (File.Exists(_originalFileName))
+							File.Delete(_originalFileName);
+						RestoreFileLink(_linkType, _originalFileName, _linkTarget);
+					}
+					else if (_backupFileName != null)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
 						if (!Directory.Exists(strDirectory))
 							Directory.CreateDirectory(strDirectory);
 						File.Copy(_backupFileName, _originalFileName, true);
 					}
-					else
+					else if (!_existed && File.Exists(_originalFileName))
 					{
-						if (File.Exists(_originalFileName))
-							File.Delete(_originalFileName);
+						File.Delete(_originalFileName);
 					}
 				}
 
@@ -436,6 +495,9 @@ namespace ChinhDo.Transactions
 
 				private readonly string _originalFileName;
 				private readonly string _backupFileName;
+				private readonly bool _existed;
+				private readonly FileLinkType _linkType;
+				private readonly string _linkTarget;
 			}
 
 			private class RollbackDirectory : RollbackOperation

@@ -120,6 +120,16 @@
 		bool HasDeploymentTargets { get; }
 
 		/// <summary>
+		/// Gets the durable sequence of the last committed Direct/promoted deployment transaction.
+		/// </summary>
+		long DeploymentCommitSequence { get; }
+
+		/// <summary>
+		/// Enlists the current transaction in deployment crash recovery and returns the pre-commit sequence.
+		/// </summary>
+		long EnlistDeploymentRecoveryTransaction();
+
+		/// <summary>
 		/// Gets the persisted owner stack for a promoted deployment target, ordered fallback to current winner.
 		/// </summary>
 		IReadOnlyList<string> GetDeploymentOwnerKeys(ModDeploymentTarget target);

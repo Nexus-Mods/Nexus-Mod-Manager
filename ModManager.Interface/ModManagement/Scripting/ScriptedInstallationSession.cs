@@ -31,6 +31,7 @@ namespace Nexus.Client.ModManagement.Scripting
 	{
 		private readonly IScriptedInstallOperationExecutor m_sioExecutor;
 		private int m_intExecutedOperationCount;
+		private bool m_booFatalDeploymentFailure;
 
 		#region Properties
 
@@ -48,6 +49,14 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// Gets the optional projected state maintained for operations accepted by this session.
 		/// </summary>
 		public ScriptedInstallationProjectedState ProjectedState { get; private set; }
+
+		/// <summary>
+		/// Gets whether a Direct or promoted deployment failure has made this scripted installation unsafe to commit.
+		/// </summary>
+		public bool HasFatalDeploymentFailure
+		{
+			get { return m_booFatalDeploymentFailure; }
+		}
 
 		/// <summary>
 		/// Gets whether the plan contains operations that have not yet been executed.
@@ -120,6 +129,8 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			if (p_sioOperation == null)
 				throw new ArgumentNullException(nameof(p_sioOperation));
+			if (m_booFatalDeploymentFailure)
+				return false;
 
 			Plan.Add(p_sioOperation);
 			if (Mode == ScriptedInstallationSessionMode.Deferred)
@@ -141,13 +152,24 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> when no operation is pending or the next operation completes successfully; otherwise, <c>false</c>.</returns>
 		public bool ExecuteNext()
 		{
+			if (m_booFatalDeploymentFailure)
+				return false;
 			if (!HasPendingOperations)
 				return true;
 
 			ScriptedInstallOperation sioOperation = Plan.Operations[m_intExecutedOperationCount];
-			bool booResult = m_sioExecutor.Execute(sioOperation);
-			m_intExecutedOperationCount++;
-			return booResult;
+			try
+			{
+				bool booResult = m_sioExecutor.Execute(sioOperation);
+				m_intExecutedOperationCount++;
+				return booResult;
+			}
+			catch (ScriptedDeploymentException)
+			{
+				m_booFatalDeploymentFailure = true;
+				m_intExecutedOperationCount++;
+				throw;
+			}
 		}
 
 		/// <summary>

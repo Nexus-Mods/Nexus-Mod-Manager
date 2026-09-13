@@ -251,6 +251,7 @@
     <Compile Include="ModManagement\VirtualDeploymentService.cs" />
     <Compile Include="ModManagement\VirtualDeploymentSession.cs" />
     <Compile Include="ModManagement\ModDeploymentManager.cs" />
+    <Compile Include="ModManagement\ModDeploymentManager.Recovery.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
     <Compile Include="ModManagement\ProfileActivationTask.cs" />

@@ -203,6 +203,7 @@
     <Compile Include="ModManagement\Scripting\Operations\SetPluginOrderIndexOperation.cs" />
     <Compile Include="ModManagement\Scripting\Operations\SetRelativeLoadOrderOperation.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallOperation.cs" />
+    <Compile Include="ModManagement\Scripting\ScriptedDeploymentException.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationPlan.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationProjectedState.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedFileDeploymentDecision.cs" />

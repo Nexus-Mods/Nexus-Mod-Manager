@@ -47,7 +47,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			try
 			{
 				return m_igpInstallers.InstallContext.Method == ModInstallMethod.Virtual
-					? new LegacyXmlDeploymentBatch(new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations))
+					? new LegacyXmlDeploymentBatch(new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations), m_igpInstallers)
 					: null;
 			}
 			catch
@@ -92,6 +92,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				? Path.GetFileName(p_imoOperation.SourcePath)
 				: p_imoOperation.DestinationPath;
 
+			bool fatalDeploymentPath = m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct;
 			try
 			{
 				if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct)
@@ -113,26 +114,39 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					ModDeploymentTarget target = GetPromotedTarget(strInstallDestination);
 					if (target != null)
 					{
+						fatalDeploymentPath = true;
+						m_igpInstallers.MarkPromotedDeploymentUsed();
 						if (m_igpInstallers.TransactionalFileManager == null || m_igpInstallers.DeploymentOverwriteResolver == null)
 							throw new InvalidOperationException("Promoted XML deployment requires transactional deployment services.");
 						bool activate = m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
 						m_igpInstallers.DeploymentManager.InstallVirtualFile(
 							m_modMod, target, strInstallDestination, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
 							activate, m_igpInstallers.TransactionalFileManager);
-						m_igpInstallers.MarkPromotedDeploymentUsed();
 					}
 					else
 						m_mliModLinkInstaller.AddFileLink(m_modMod, strInstallDestination, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
 				}
 			}
-			catch
+			catch (Exception ex)
 			{
-				// The legacy XML installer intentionally ignored file-install and deployment failures at this level.
+				if (fatalDeploymentPath)
+					throw CreateDeploymentException("XML scripted Direct/promoted deployment failed.", ex);
+
+				// Pure-Virtual XML file failures retain the historical best-effort behavior.
 			}
 
 			// The legacy XML path persisted the selected mapping even when its internal file-install helper returned false.
 			m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
 			return true;
+		}
+
+		/// <summary>
+		/// Wraps a fatal XML deployment error without obscuring an existing deployment exception.
+		/// </summary>
+		private static ScriptedDeploymentException CreateDeploymentException(string p_strMessage, Exception p_exException)
+		{
+			ScriptedDeploymentException deploymentException = p_exException as ScriptedDeploymentException;
+			return deploymentException ?? new ScriptedDeploymentException(p_strMessage, p_exException);
 		}
 
 		/// <summary>
@@ -170,14 +184,17 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		private sealed class LegacyXmlDeploymentBatch : IDisposable
 		{
 			private IDisposable m_dspDeploymentBatch;
+			private readonly InstallerGroup m_igpInstallers;
 
 			/// <summary>
 			/// Initializes a compatibility wrapper around a deployment batch.
 			/// </summary>
 			/// <param name="p_dspDeploymentBatch">The deployment batch whose completion errors should follow legacy XML semantics.</param>
-			public LegacyXmlDeploymentBatch(IDisposable p_dspDeploymentBatch)
+			/// <param name="p_igpInstallers">The installer group used to detect whether promoted deployment participated.</param>
+			public LegacyXmlDeploymentBatch(IDisposable p_dspDeploymentBatch, InstallerGroup p_igpInstallers)
 			{
 				m_dspDeploymentBatch = p_dspDeploymentBatch;
+				m_igpInstallers = p_igpInstallers;
 			}
 
 			/// <summary>
@@ -192,9 +209,12 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					if (dspDeploymentBatch != null)
 						dspDeploymentBatch.Dispose();
 				}
-				catch
+				catch (Exception ex)
 				{
-					// File deployment failures in the legacy XML path are intentionally non-fatal at this level.
+					if (m_igpInstallers != null && m_igpInstallers.UsedPromotedDeployment)
+						throw CreateDeploymentException("XML promoted deployment batch finalization failed.", ex);
+
+					// Pure-Virtual XML deployment maintenance retains the historical best-effort behavior.
 				}
 			}
 		}

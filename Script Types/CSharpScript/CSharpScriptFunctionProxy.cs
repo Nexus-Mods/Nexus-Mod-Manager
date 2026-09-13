@@ -13,6 +13,14 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 	/// </summary>
 	public class CSharpScriptFunctionProxy : ScriptFunctionProxy
 	{
+		/// <summary>
+		/// Gets whether a Direct/promoted deployment failure occurred even if the sandboxed script swallowed the exception.
+		/// </summary>
+		internal bool HasFatalDeploymentFailure
+		{
+			get { return InstallationSession.HasFatalDeploymentFailure; }
+		}
+
 		#region Constructors
 
 		/// <summary>

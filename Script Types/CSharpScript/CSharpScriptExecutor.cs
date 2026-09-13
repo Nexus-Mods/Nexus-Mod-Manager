@@ -98,7 +98,8 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				}
 				using (m_csfFunctions.BeginModInfoUpdateBatch())
 				{
-					return srnRunner.Execute(bteScript);
+					bool scriptSucceeded = srnRunner.Execute(bteScript);
+					return scriptSucceeded && !m_csfFunctions.HasFatalDeploymentFailure;
 				}
 			}
 			finally

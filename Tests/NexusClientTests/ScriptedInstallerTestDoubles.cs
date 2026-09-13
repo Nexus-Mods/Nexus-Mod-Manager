@@ -83,6 +83,11 @@ namespace NexusClientTests
         public bool InstallResult { get; set; } = true;
 
         /// <summary>
+        /// Gets or sets an exception to throw from archive-file installation requests.
+        /// </summary>
+        public Exception InstallException { get; set; }
+
+        /// <summary>
         /// Gets the last archive source path supplied to the installer.
         /// </summary>
         public string LastModFilePath { get; private set; }
@@ -123,6 +128,8 @@ namespace NexusClientTests
             InstallCallCount++;
             LastModFilePath = p_strModFilePath;
             LastInstallPath = p_strInstallPath;
+            if (InstallException != null)
+                throw InstallException;
             return InstallResult;
         }
 
@@ -518,7 +525,8 @@ namespace NexusClientTests
         /// <param name="p_booGameRequiresHardlink">Whether arbitrary files require HD-link staging.</param>
         /// <param name="p_strLinkResult">The value returned by virtual link creation.</param>
         /// <param name="p_pgfPluginFactory">The optional plugin factory used to parse projected plugin contents.</param>
-        public ScriptProxyContext(string p_strRootPath, string p_strDownloadId, bool p_booMultiHd, bool p_booGameRequiresHardlink, string p_strLinkResult, IPluginFactory p_pgfPluginFactory = null)
+        /// <param name="p_mimInstallMethod">The install method captured for the scripted operation.</param>
+        public ScriptProxyContext(string p_strRootPath, string p_strDownloadId, bool p_booMultiHd, bool p_booGameRequiresHardlink, string p_strLinkResult, IPluginFactory p_pgfPluginFactory = null, ModInstallMethod p_mimInstallMethod = ModInstallMethod.Virtual)
         {
             VirtualPath = Path.Combine(p_strRootPath, "Virtual");
             HdLinkPath = Path.Combine(p_strRootPath, "HdLink");
@@ -653,7 +661,9 @@ namespace NexusClientTests
             });
 
             IGameSpecificValueInstaller gviInstaller = InterfaceStub<IGameSpecificValueInstaller>.Create((p_mifMethod, p_objArgs) => null);
-            Installers = new InstallerGroup(DataFileUtil, FileInstaller, IniInstaller, gviInstaller, pmgPluginManager);
+            Installers = new InstallerGroup(
+                DataFileUtil, FileInstaller, IniInstaller, gviInstaller, pmgPluginManager,
+                new ModInstallContext(p_mimInstallMethod, ModInstallRoot.Default), null, null, null);
             Proxy = new TestableScriptFunctionProxy(Mod, GameMode, null, VirtualModActivator, Installers, null);
         }
 

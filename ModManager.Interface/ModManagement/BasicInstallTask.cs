@@ -281,6 +281,7 @@ namespace Nexus.Client.ModManagement
 								throw new InvalidOperationException("Promoted Virtual deployment requires transactional deployment services.");
 
 							bool activate = OverwriteResolver.ShouldActivate(target);
+							UsedPromotedDeployment = true;
 							strFileLink = DeploymentManager.InstallVirtualFile(
 								Mod,
 								target,
@@ -289,7 +290,6 @@ namespace Nexus.Client.ModManagement
 								InstallRoot,
 								activate,
 								FileManager);
-							UsedPromotedDeployment = true;
 						}
 						else
 						{
