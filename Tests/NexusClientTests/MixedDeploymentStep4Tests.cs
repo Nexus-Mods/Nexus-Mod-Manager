@@ -406,10 +406,30 @@
 				IMod virtualMod = environment.RegisterMod("Virtual", ModInstallMethod.Virtual);
 				IMod directMod = environment.RegisterMod("Direct", ModInstallMethod.Direct);
 				ModDeploymentTarget target = environment.Target(@"bin\same-owner-symlink.dll");
+				string virtualKey = environment.Key(virtualMod);
 				string originalSource = environment.AddVirtualOwner(virtualMod, target, "original", true, 0, null, false, true);
 				environment.InstallDirect(directMod, target, "direct");
 				environment.Uninstall(directMod);
-				string replacementSource = environment.StageVirtual(virtualMod, target, "replacement");
+
+				string replacementSource = Path.Combine(
+					environment.VirtualPath,
+					Path.GetFileNameWithoutExtension(virtualMod.Filename) + "-Replacement",
+					target.RelativePath);
+				Directory.CreateDirectory(Path.GetDirectoryName(replacementSource));
+				File.WriteAllText(replacementSource, "replacement");
+				Assert.AreNotEqual(originalSource, replacementSource,
+					"The replacement payload must use a distinct staged source so rollback can distinguish both versions.");
+
+				string deployedPath = environment.Manager.GetDeploymentPath(target);
+				var fileManager = new TxFileManager { TxEnabled = false };
+				if (File.Exists(deployedPath))
+					File.Delete(deployedPath);
+				CreateTestSymbolicLink(fileManager, deployedPath, originalSource);
+				Assert.AreEqual(FileEntryKind.SymbolicLink, fileManager.GetFileEntryKind(deployedPath, originalSource));
+				Assert.IsTrue(fileManager.IsSameFile(deployedPath, originalSource));
+				Assert.IsFalse(fileManager.IsSameFile(deployedPath, replacementSource));
+				Assert.AreEqual("original", environment.ReadTarget(target));
+				Assert.AreEqual(originalSource, environment.VirtualState.Activator.GetVirtualSourceForOwner(target, virtualKey));
 
 				using (var scope = new TransactionScope())
 				{
@@ -421,15 +441,17 @@
 						ModInstallRoot.Data,
 						true,
 						new TxFileManager());
+
+					Assert.AreEqual("replacement", environment.ReadTarget(target));
+					Assert.AreEqual(replacementSource, environment.VirtualState.Activator.GetVirtualSourceForOwner(target, virtualKey));
 				}
 
-				string deployedPath = environment.Manager.GetDeploymentPath(target);
-				var fileManager = new TxFileManager { TxEnabled = false };
 				Assert.AreEqual(FileEntryKind.SymbolicLink, fileManager.GetFileEntryKind(deployedPath, originalSource));
 				Assert.IsTrue(fileManager.IsSameFile(deployedPath, originalSource));
 				Assert.IsFalse(fileManager.IsSameFile(deployedPath, replacementSource));
 				Assert.AreEqual("original", environment.ReadTarget(target));
-				CollectionAssert.AreEqual(new[] { environment.Key(virtualMod) }, environment.InstallLog.GetDeploymentOwnerKeys(target));
+				Assert.AreEqual(originalSource, environment.VirtualState.Activator.GetVirtualSourceForOwner(target, virtualKey));
+				CollectionAssert.AreEqual(new[] { virtualKey }, environment.InstallLog.GetDeploymentOwnerKeys(target));
 			}
        }
 
