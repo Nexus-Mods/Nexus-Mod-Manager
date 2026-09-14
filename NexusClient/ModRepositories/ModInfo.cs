@@ -86,7 +86,7 @@
 		/// Gets the user custom CategoryId of the mod.
 		/// </summary>
 		/// <value>The user custom CategoryId of the mod.</value>
-		public int CustomCategoryId { get; set; }
+		public int CustomCategoryId { get; set; } = -1;
 
 		/// <summary>
 		/// Gets or sets whether a category update must explicitly replace the current custom assignment.

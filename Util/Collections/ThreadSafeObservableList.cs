@@ -346,22 +346,30 @@ namespace Nexus.Client.Util.Collections
 		/// <c>false</c> otherwise.</returns>
 		public bool Remove(T p_tItem)
 		{
+			Int32 intIndex = -1;
+			T tOldItem = default(T);
 			try
 			{
 				m_rwlLock.EnterWriteLock();
-				Int32 intIndex = IndexOf(p_tItem);
+				intIndex = IndexOf(p_tItem);
 				if (intIndex > -1)
 				{
-					RemoveAt(intIndex);
-					return true;
+					tOldItem = m_lstItems[intIndex];
+					m_lstItems.RemoveAt(intIndex);
 				}
-				return false;
 			}
 			finally
 			{
 				if (m_rwlLock.IsWriteLockHeld)
 					m_rwlLock.ExitWriteLock();
 			}
+
+			if (intIndex < 0)
+				return false;
+
+			OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, tOldItem, intIndex));
+			OnPropertyChanged(new PropertyChangedEventArgs(ObjectHelper.GetPropertyName(() => Count)));
+			return true;
 		}
 
 		#endregion

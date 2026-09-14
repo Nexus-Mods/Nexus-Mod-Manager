@@ -284,6 +284,14 @@
 		/// </summary>
 		public void RefreshMod(IMod mod, string propertyName)
 		{
+			RefreshMod(mod, propertyName, false);
+		}
+
+		/// <summary>
+		/// Refreshes a mod node and optionally keeps a single focused mod at the same visual row when sorting moves it.
+		/// </summary>
+		internal void RefreshMod(IMod mod, string propertyName, bool preserveFocusedVisualPosition)
+		{
 			if (mod == null) return;
 			TreeListNode node;
 			if (!_modNodes.TryGetValue(mod, out node))
@@ -293,6 +301,9 @@
 				return;
 			}
 
+			int focusedVisibleIndex = preserveFocusedVisualPosition && ReferenceEquals(FocusedMod, mod)
+				? _treeList.GetVisibleIndexByNode(_treeList.FocusedNode)
+				: -1;
 			TreeViewportState viewport = CaptureViewportState();
 			_viewControl.BeginInternalDataUpdate();
 			try
@@ -318,7 +329,16 @@
 			finally
 			{
 				_viewControl.EndInternalDataUpdate();
-				RestoreViewportState(viewport);
+				if (focusedVisibleIndex >= 0)
+				{
+					RestoreViewportIndex(viewport);
+					RestoreFocusedVisualPosition(focusedVisibleIndex);
+					RestoreViewportIndex(viewport);
+				}
+				else
+				{
+					RestoreViewportState(viewport);
+				}
 			}
 		}
 
@@ -1005,6 +1025,65 @@
 			}
 
 			_treeList.TopVisibleNodeIndex = targetIndex;
+		}
+
+		/// <summary>
+		/// Restores the previous top visible index after a sort-driven row move without following the moved mod identity.
+		/// </summary>
+		private void RestoreViewportIndex(TreeViewportState state)
+		{
+			if (state == null)
+				return;
+
+			TreeListNode lastVisibleNode = _treeList.NodesIterator.Visible.LastOrDefault(node => node != null);
+			if (lastVisibleNode == null)
+			{
+				_treeList.TopVisibleNodeIndex = 0;
+				return;
+			}
+
+			int lastVisibleIndex = _treeList.GetVisibleIndexByNode(lastVisibleNode);
+			_treeList.TopVisibleNodeIndex = Math.Max(0, Math.Min(state.TopVisibleIndex, lastVisibleIndex));
+		}
+
+		/// <summary>
+		/// Focuses and selects the nearest mod row to a previous visible index after sorting repositions the original mod.
+		/// </summary>
+		private void RestoreFocusedVisualPosition(int visibleIndex)
+		{
+			TreeListNode targetNode = null;
+			int bestDistance = Int32.MaxValue;
+			foreach (TreeListNode candidate in _treeList.NodesIterator.Visible)
+			{
+				if (!(candidate?.Tag is IMod))
+					continue;
+
+				int candidateIndex = _treeList.GetVisibleIndexByNode(candidate);
+				int distance = Math.Abs(candidateIndex - visibleIndex);
+				if (distance >= bestDistance)
+					continue;
+
+				targetNode = candidate;
+				bestDistance = distance;
+				if (distance == 0)
+					break;
+			}
+
+			if (targetNode == null)
+				return;
+
+			_suppressSelectionChanged = true;
+			try
+			{
+				_treeList.Selection.Clear();
+				_treeList.Selection.Add(targetNode);
+				_treeList.FocusedNode = targetNode;
+			}
+			finally
+			{
+				_suppressSelectionChanged = false;
+			}
+			SelectionChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>

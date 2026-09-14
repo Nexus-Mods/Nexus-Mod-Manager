@@ -15,8 +15,8 @@
 	{
 		private readonly HashSet<string> _activeModFileNames =
 			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-		private readonly HashSet<IMod> _installedMods =
-			new HashSet<IMod>();
+		private readonly HashSet<string> _installedModArchivePaths =
+			new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache =
 			new Dictionary<IMod, ModVisualStatus>();
 		private readonly Dictionary<IMod, ModInstallMethod> _modInstallMethodCache =
@@ -54,7 +54,7 @@
 		public void Clear()
 		{
 			_activeModFileNames.Clear();
-			_installedMods.Clear();
+			_installedModArchivePaths.Clear();
 			_modVisualStatusCache.Clear();
 			_modInstallMethodCache.Clear();
 			_outdatedModCache.Clear();
@@ -98,7 +98,7 @@
 		public void RebuildActivationState()
 		{
 			_activeModFileNames.Clear();
-			_installedMods.Clear();
+			_installedModArchivePaths.Clear();
 			_modVisualStatusCache.Clear();
 			_modInstallMethodCache.Clear();
 
@@ -116,8 +116,9 @@
 
 			foreach (IMod mod in _viewModel.ActiveMods)
 			{
-				if (mod != null)
-					_installedMods.Add(mod);
+				string archivePath = GetArchiveIdentity(mod);
+				if (!String.IsNullOrEmpty(archivePath))
+					_installedModArchivePaths.Add(archivePath);
 			}
 		}
 
@@ -134,7 +135,8 @@
 		/// </summary>
 		public bool IsModInstalled(IMod mod)
 		{
-			return mod != null && _installedMods.Contains(mod);
+			string archivePath = GetArchiveIdentity(mod);
+			return !String.IsNullOrEmpty(archivePath) && _installedModArchivePaths.Contains(archivePath);
 		}
 
 		/// <summary>
@@ -142,7 +144,7 @@
 		/// </summary>
 		public ModInstallMethod? GetModInstallMethod(IMod mod)
 		{
-			if (mod == null || !_installedMods.Contains(mod))
+			if (!IsModInstalled(mod))
 				return null;
 
 			ModInstallMethod installMethod;
@@ -262,6 +264,14 @@
 				bool missing;
 				return _missingArchiveByFileName.TryGetValue(mod.Filename, out missing) && missing;
 			}
+		}
+
+		/// <summary>
+		/// Gets the stable archive identity used to correlate managed archives with InstallLog-backed active mods.
+		/// </summary>
+		private static string GetArchiveIdentity(IMod mod)
+		{
+			return mod?.Filename;
 		}
 
 		/// <summary>
