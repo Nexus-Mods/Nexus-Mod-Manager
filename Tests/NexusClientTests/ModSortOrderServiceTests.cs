@@ -3,13 +3,16 @@
 	using System;
 	using System.Collections;
 	using System.Collections.Generic;
+	using System.Collections.Specialized;
 	using System.Data.SQLite;
 	using System.IO;
 	using System.Reflection;
+	using System.Runtime.Serialization;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.InstallationLog;
 	using Nexus.Client.Mods;
 	using Nexus.Client.Mods.Formats.FOMod;
+	using Nexus.Client.Util.Collections;
 	using NUnit.Framework;
 
 	/// <summary>
@@ -194,6 +197,100 @@
 		}
 
 		/// <summary>
+		/// Ensures replacing the install log moves ActiveMods tracking and rebuilds binding protectors, including a second rollback-style replacement.
+		/// </summary>
+		[Test]
+		public void InstallLogReplacementRebindsSortActiveModsTracking()
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			var registry = new ModRegistry(null, null);
+			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			SetPrivateField(manager, "<ManagedModRegistry>k__BackingField", registry);
+			SetPrivateField(manager, "<SortOrderService>k__BackingField", service);
+
+			var oldItems = new ThreadSafeObservableList<IMod>();
+			var newItems = new ThreadSafeObservableList<IMod>();
+			var rollbackItems = new ThreadSafeObservableList<IMod>();
+			var oldProtector = CreateMod(Path.Combine(storage.ModDirectory, "Old.7z"), "810", "910");
+			var newProtector = CreateMod(Path.Combine(storage.ModDirectory, "New.7z"), "811", "911");
+			var rollbackProtector = CreateMod(Path.Combine(storage.ModDirectory, "Rollback.7z"), "812", "912");
+			oldItems.Add(oldProtector);
+			newItems.Add(newProtector);
+			rollbackItems.Add(rollbackProtector);
+			var oldLog = CreateInstallLog(oldItems);
+			var newLog = CreateInstallLog(newItems);
+			var rollbackLog = CreateInstallLog(rollbackItems);
+
+			SetPrivateField(manager, "<InstallationLog>k__BackingField", oldLog);
+			service.RebuildCurrentArchiveInventory(new IMod[0], new[] { oldProtector });
+			service.Resolve(oldProtector, ModSortOrderAssignmentContext.StartupOrDiscovery, new IMod[0]);
+			service.SetSortNumber(oldProtector, 25);
+			SubscribeActiveModsHandler(manager, oldLog);
+
+			SetPrivateField(manager, "<InstallationLog>k__BackingField", newLog);
+			InvokeRebindSortOrderActiveModsTracking(manager, oldLog);
+			Assert.That(GetCurrentArchiveCount(service), Is.EqualTo(1));
+
+			var restoredOld = CreateMod(Path.Combine(storage.ModDirectory, "OldRestored.7z"), "810", "910");
+			service.TrackManagedMod(restoredOld);
+			Assert.That(service.Resolve(restoredOld, ModSortOrderAssignmentContext.AddOrDownload, new[] { restoredOld }), Is.EqualTo(25), "The obsolete protector must not block exact recovery after replacement.");
+			service.UntrackManagedMod(restoredOld);
+
+			service.SetSortNumber(newProtector, 30);
+			var duplicateNew = CreateMod(Path.Combine(storage.ModDirectory, "NewDuplicate.7z"), "811", "911");
+			service.TrackManagedMod(duplicateNew);
+			Assert.That(service.Resolve(duplicateNew, ModSortOrderAssignmentContext.AddOrDownload, new[] { duplicateNew }), Is.Null, "The replacement protector must prevent another current copy from stealing its exact assignment.");
+			service.UntrackManagedMod(duplicateNew);
+
+			oldItems.Add(CreateMod(Path.Combine(storage.ModDirectory, "OldIgnored.7z"), "813", "913"));
+			Assert.That(GetCurrentArchiveCount(service), Is.EqualTo(1), "The replaced ActiveMods collection must be detached.");
+			newItems.Add(CreateMod(Path.Combine(storage.ModDirectory, "NewTracked.7z"), "814", "914"));
+			Assert.That(GetCurrentArchiveCount(service), Is.EqualTo(2), "The replacement ActiveMods collection must be tracked.");
+
+			SetPrivateField(manager, "<InstallationLog>k__BackingField", rollbackLog);
+			InvokeRebindSortOrderActiveModsTracking(manager, newLog);
+			Assert.That(GetCurrentArchiveCount(service), Is.EqualTo(1));
+			newItems.Add(CreateMod(Path.Combine(storage.ModDirectory, "NewIgnored.7z"), "815", "915"));
+			Assert.That(GetCurrentArchiveCount(service), Is.EqualTo(1), "Rollback replacement must detach the intermediate ActiveMods collection.");
+			rollbackItems.Add(CreateMod(Path.Combine(storage.ModDirectory, "RollbackTracked.7z"), "816", "916"));
+			Assert.That(GetCurrentArchiveCount(service), Is.EqualTo(2), "Rollback replacement must track the restored ActiveMods collection.");
+		}
+
+		/// <summary>
+		/// Ensures manager startup/reset subscription rebuilds perform one add/remove operation per managed object.
+		/// </summary>
+		[Test]
+		public void ManagerIdentityTrackingBulkRebuildIsLinearInSubscriptions()
+		{
+			const int modCount = 5000;
+			var addCount = 0;
+			var removeCount = 0;
+			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			var tracked = CreateManagerIdentityTrackingSet();
+			SetPrivateField(manager, "m_setSortOrderTrackedManagedMods", tracked);
+			var mods = new List<IMod>(modCount);
+			for (var index = 0; index < modCount; index++)
+			{
+				mods.Add(CreateIdentityTrackingMod(() => addCount++, () => removeCount++));
+			}
+
+			InvokeRebuildSortOrderManagedIdentityTracking(manager, mods);
+			Assert.That(addCount, Is.EqualTo(modCount));
+			Assert.That(removeCount, Is.Zero);
+			Assert.That(tracked.Count, Is.EqualTo(modCount));
+
+			InvokeRebuildSortOrderManagedIdentityTracking(manager, mods);
+			Assert.That(addCount, Is.EqualTo(modCount * 2));
+			Assert.That(removeCount, Is.EqualTo(modCount));
+			Assert.That(tracked.Count, Is.EqualTo(modCount));
+
+			InvokeClearSortOrderManagedIdentityTracking(manager);
+			Assert.That(removeCount, Is.EqualTo(modCount * 2));
+			Assert.That(tracked.Count, Is.Zero);
+		}
+
+		/// <summary>
 		/// Ensures passive startup resolution uses the prebuilt current-identity indexes rather than rescanning the supplied library.
 		/// </summary>
 		[Test]
@@ -213,6 +310,111 @@
 			{
 				Assert.DoesNotThrow(() => service.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, new ThrowingEnumerable<IMod>()));
 			}
+		}
+
+		/// <summary>
+		/// Creates the manager's production reference-identity set for an uninitialized manager test shell.
+		/// </summary>
+		private static HashSet<IMod> CreateManagerIdentityTrackingSet()
+		{
+			var field = typeof(ModManager).GetField("m_setSortOrderTrackedManagedMods", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(field, Is.Not.Null);
+			Assert.That(field.FieldType, Is.EqualTo(typeof(HashSet<IMod>)));
+
+			var comparerType = typeof(ModManager).GetNestedType("ModReferenceEqualityComparer", BindingFlags.NonPublic);
+			Assert.That(comparerType, Is.Not.Null);
+			var instanceField = comparerType.GetField("Instance", BindingFlags.Static | BindingFlags.Public);
+			Assert.That(instanceField, Is.Not.Null);
+			return new HashSet<IMod>((IEqualityComparer<IMod>)instanceField.GetValue(null));
+		}
+
+		/// <summary>
+		/// Creates an IMod proxy that counts manager PropertyChanged subscription operations.
+		/// </summary>
+		private static IMod CreateIdentityTrackingMod(Action onAdd, Action onRemove)
+		{
+			return InterfaceStub<IMod>.Create((method, args) =>
+			{
+				if (method.Name == "add_PropertyChanged")
+				{
+					onAdd();
+				}
+				else if (method.Name == "remove_PropertyChanged")
+				{
+					onRemove();
+				}
+				return null;
+			});
+		}
+
+		/// <summary>
+		/// Invokes the manager's bulk identity-subscription rebuild used by startup and registry Reset handling.
+		/// </summary>
+		private static void InvokeRebuildSortOrderManagedIdentityTracking(ModManager manager, IEnumerable<IMod> mods)
+		{
+			var method = typeof(ModManager).GetMethod("RebuildSortOrderManagedIdentityTracking", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(method, Is.Not.Null);
+			method.Invoke(manager, new object[] { mods });
+		}
+
+		/// <summary>
+		/// Invokes the manager's linear bulk unsubscribe path used during rebuild and release.
+		/// </summary>
+		private static void InvokeClearSortOrderManagedIdentityTracking(ModManager manager)
+		{
+			var method = typeof(ModManager).GetMethod("ClearSortOrderManagedIdentityTracking", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(method, Is.Not.Null);
+			method.Invoke(manager, null);
+		}
+
+		/// <summary>
+		/// Creates a lightweight install-log proxy exposing the supplied observable ActiveMods collection.
+		/// </summary>
+		private static IInstallLog CreateInstallLog(ThreadSafeObservableList<IMod> activeMods)
+		{
+			var readOnlyActiveMods = new ReadOnlyObservableList<IMod>(activeMods);
+			return InterfaceStub<IInstallLog>.Create((method, args) => method.Name == "get_ActiveMods" ? readOnlyActiveMods : null);
+		}
+
+		/// <summary>
+		/// Subscribes the manager's private ActiveMods handler to reproduce the initial manager state before replacement.
+		/// </summary>
+		private static void SubscribeActiveModsHandler(ModManager manager, IInstallLog installLog)
+		{
+			var method = typeof(ModManager).GetMethod("ActiveMods_SortOrderCollectionChanged", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(method, Is.Not.Null);
+			var handler = (NotifyCollectionChangedEventHandler)Delegate.CreateDelegate(typeof(NotifyCollectionChangedEventHandler), manager, method);
+			installLog.ActiveMods.CollectionChanged += handler;
+		}
+
+		/// <summary>
+		/// Invokes the manager's install-log Sort rebinding helper without constructing unrelated UI/deployment dependencies.
+		/// </summary>
+		private static void InvokeRebindSortOrderActiveModsTracking(ModManager manager, IInstallLog previousInstallLog)
+		{
+			var method = typeof(ModManager).GetMethod("RebindSortOrderActiveModsTracking", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(method, Is.Not.Null);
+			method.Invoke(manager, new object[] { previousInstallLog });
+		}
+
+		/// <summary>
+		/// Reads the service's live current-archive inventory size for event-subscription assertions.
+		/// </summary>
+		private static int GetCurrentArchiveCount(ModSortOrderService service)
+		{
+			var field = typeof(ModSortOrderService).GetField("_currentArchivesByLocator", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(field, Is.Not.Null);
+			return ((IDictionary)field.GetValue(service)).Count;
+		}
+
+		/// <summary>
+		/// Assigns a private auto-property backing field on an uninitialized manager test shell.
+		/// </summary>
+		private static void SetPrivateField(object target, string fieldName, object value)
+		{
+			var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(field, Is.Not.Null, "Missing field: " + fieldName);
+			field.SetValue(target, value);
 		}
 
 		/// <summary>

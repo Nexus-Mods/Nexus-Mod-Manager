@@ -93,7 +93,7 @@ namespace Nexus.Client.ModManagement
 		private readonly SynchronizationContext m_scxUIContext;
 		private readonly IPluginManager m_pmgPluginManager;
 		private IProfileManager m_ipmProfileManager;
-		private readonly List<IMod> m_lstSortOrderTrackedManagedMods = new List<IMod>();
+		private readonly HashSet<IMod> m_setSortOrderTrackedManagedMods = new HashSet<IMod>(ModReferenceEqualityComparer.Instance);
 
 		#region events
 
@@ -414,8 +414,8 @@ namespace Nexus.Client.ModManagement
 			foreach (var mod in managedMods)
 			{
 				ResolveStartupSortOrder(mod, managedMods);
-				TrackSortOrderManagedIdentity(mod);
 			}
+			RebuildSortOrderManagedIdentityTracking(managedMods);
 
 			foreach (var mod in bindingProtectors)
 			{
@@ -501,13 +501,7 @@ namespace Nexus.Client.ModManagement
 
 			if (e.Action == NotifyCollectionChangedAction.Reset)
 			{
-				var managedMods = GetManagedModsSnapshot();
-				var bindingProtectors = GetSortOrderBindingProtectors();
-				SortOrderService.RebuildCurrentArchiveInventory(managedMods, bindingProtectors);
-				foreach (var mod in bindingProtectors)
-				{
-					ResolveStartupSortOrder(mod, managedMods);
-				}
+				RefreshSortOrderBindingProtectors();
 				return;
 			}
 
@@ -572,24 +566,59 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private void RebuildSortOrderCurrentArchiveState()
 		{
-			foreach (var mod in new List<IMod>(m_lstSortOrderTrackedManagedMods))
-			{
-				UntrackSortOrderManagedIdentity(mod);
-			}
-
 			var managedMods = GetManagedModsSnapshot();
 			var bindingProtectors = GetSortOrderBindingProtectors();
 			SortOrderService.RebuildCurrentArchiveInventory(managedMods, bindingProtectors);
+			RebuildSortOrderManagedIdentityTracking(managedMods);
 
 			foreach (var mod in managedMods)
 			{
-				TrackSortOrderManagedIdentity(mod);
 				ResolveStartupSortOrder(mod, managedMods);
 			}
 			foreach (var mod in bindingProtectors)
 			{
 				ResolveStartupSortOrder(mod, managedMods);
 			}
+		}
+
+		/// <summary>
+		/// Rebuilds the live Sort inventory after the active install-log collection changes wholesale.
+		/// </summary>
+		private void RefreshSortOrderBindingProtectors()
+		{
+			if (SortOrderService == null)
+			{
+				return;
+			}
+
+			var managedMods = GetManagedModsSnapshot();
+			var bindingProtectors = GetSortOrderBindingProtectors();
+			SortOrderService.RebuildCurrentArchiveInventory(managedMods, bindingProtectors);
+			foreach (var mod in bindingProtectors)
+			{
+				ResolveStartupSortOrder(mod, managedMods);
+			}
+		}
+
+		/// <summary>
+		/// Moves Sort ActiveMods tracking from a replaced install log to the current one and refreshes binding protection.
+		/// </summary>
+		private void RebindSortOrderActiveModsTracking(IInstallLog previousInstallLog)
+		{
+			if (SortOrderService == null)
+			{
+				return;
+			}
+
+			if (previousInstallLog?.ActiveMods != null)
+			{
+				previousInstallLog.ActiveMods.CollectionChanged -= ActiveMods_SortOrderCollectionChanged;
+			}
+			if (InstallationLog?.ActiveMods != null)
+			{
+				InstallationLog.ActiveMods.CollectionChanged += ActiveMods_SortOrderCollectionChanged;
+			}
+			RefreshSortOrderBindingProtectors();
 		}
 
 		/// <summary>
@@ -634,12 +663,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private void TrackSortOrderManagedIdentity(IMod mod)
 		{
-			if (mod == null || ContainsReference(m_lstSortOrderTrackedManagedMods, mod))
+			if (mod == null || !m_setSortOrderTrackedManagedMods.Add(mod))
 			{
 				return;
 			}
 			mod.PropertyChanged += ManagedMod_SortOrderIdentityChanged;
-			m_lstSortOrderTrackedManagedMods.Add(mod);
 		}
 
 		/// <summary>
@@ -647,18 +675,39 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private void UntrackSortOrderManagedIdentity(IMod mod)
 		{
-			if (mod == null)
+			if (mod == null || !m_setSortOrderTrackedManagedMods.Remove(mod))
 			{
 				return;
 			}
-			for (var index = m_lstSortOrderTrackedManagedMods.Count - 1; index >= 0; index--)
+			mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
+		}
+
+		/// <summary>
+		/// Replaces managed-mod identity subscriptions in one linear pass for startup and registry Reset handling.
+		/// </summary>
+		private void RebuildSortOrderManagedIdentityTracking(IEnumerable<IMod> managedMods)
+		{
+			ClearSortOrderManagedIdentityTracking();
+			if (managedMods == null)
 			{
-				if (ReferenceEquals(m_lstSortOrderTrackedManagedMods[index], mod))
-				{
-					mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
-					m_lstSortOrderTrackedManagedMods.RemoveAt(index);
-				}
+				return;
 			}
+			foreach (var mod in managedMods)
+			{
+				TrackSortOrderManagedIdentity(mod);
+			}
+		}
+
+		/// <summary>
+		/// Removes all managed-mod identity subscriptions without repeated set lookups.
+		/// </summary>
+		private void ClearSortOrderManagedIdentityTracking()
+		{
+			foreach (var mod in m_setSortOrderTrackedManagedMods)
+			{
+				mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
+			}
+			m_setSortOrderTrackedManagedMods.Clear();
 		}
 
 		/// <summary>
@@ -677,6 +726,30 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Compares managed mods strictly by object identity for subscription ownership tracking.
+		/// </summary>
+		private sealed class ModReferenceEqualityComparer : IEqualityComparer<IMod>
+		{
+			public static readonly ModReferenceEqualityComparer Instance = new ModReferenceEqualityComparer();
+
+			/// <summary>
+			/// Returns whether both values are the same managed-mod object.
+			/// </summary>
+			public bool Equals(IMod left, IMod right)
+			{
+				return ReferenceEquals(left, right);
+			}
+
+			/// <summary>
+			/// Returns an identity-based hash code that is unaffected by IMod equality overrides.
+			/// </summary>
+			public int GetHashCode(IMod mod)
+			{
+				return mod == null ? 0 : System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(mod);
+			}
+		}
+
+		/// <summary>
 		/// Removes Sort identity and collection tracking subscriptions owned by this manager instance.
 		/// </summary>
 		private void DetachSortOrderIdentityTracking()
@@ -691,10 +764,7 @@ namespace Nexus.Client.ModManagement
 			{
 				InstallationLog.ActiveMods.CollectionChanged -= ActiveMods_SortOrderCollectionChanged;
 			}
-			foreach (var mod in new List<IMod>(m_lstSortOrderTrackedManagedMods))
-			{
-				UntrackSortOrderManagedIdentity(mod);
-			}
+			ClearSortOrderManagedIdentityTracking();
 		}
 
 		#endregion
@@ -829,7 +899,10 @@ namespace Nexus.Client.ModManagement
 
 		public void ReinitializeInstallLog(string p_strInstallLogPath)
 		{
-			InstallationLog = InstallationLog.ReInitialize(p_strInstallLogPath);
+			var previousInstallLog = InstallationLog;
+			var replacementInstallLog = previousInstallLog.ReInitialize(p_strInstallLogPath);
+			InstallationLog = replacementInstallLog;
+			RebindSortOrderActiveModsTracking(previousInstallLog);
 			m_vmaVirtualModActivator.ReinitializeInstallLog(InstallationLog);
 			m_mdmDeploymentManager = new ModDeploymentManager(InstallationLog, m_vmaVirtualModActivator, GameMode);
 			InstallerFactory = new ModInstallerFactory(GameMode, EnvironmentInfo, m_futFileUtility, m_scxUIContext, InstallationLog, m_pmgPluginManager, m_vmaVirtualModActivator, m_mdmDeploymentManager);
