@@ -240,6 +240,8 @@
     <Compile Include="ModManagement\ModInstallerFactory.cs" />
     <Compile Include="ModManagement\ModLinkInstaller.cs" />
     <Compile Include="ModManagement\ModManager.cs" />
+    <Compile Include="ModManagement\ModSortOrderComparer.cs" />
+    <Compile Include="ModManagement\ModSortOrderService.cs" />
     <Compile Include="ModManagement\ModProfile.cs" />
     <Compile Include="ModManagement\ModRegistry.cs" />
     <Compile Include="ModManagement\LinkActivationTask.cs" />

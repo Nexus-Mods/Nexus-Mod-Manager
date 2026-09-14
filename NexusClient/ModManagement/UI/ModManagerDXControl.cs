@@ -77,6 +77,7 @@
 		private Bitmap _inlineAcceptIcon;
 		private Bitmap _inlineCancelIcon;
 		private RepositoryItemButtonEdit _renameButtonEdit;
+		private RepositoryItemSpinEdit _sortNumberSpinEdit;
 		private readonly ToolTip _missingArchiveToolTip;
 		private Control _renameActiveEditor;
 		private BarSubItem _displayOptionsButton;
@@ -91,6 +92,9 @@
 		private int _renameRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 		private bool _renamingModName;
 		private bool _cancelRenameEdit;
+		private bool _editingSortNumber;
+		private IMod _sortEditMod;
+		private int? _sortEditOriginalValue;
 		private bool _refreshAfterRename;
 		private bool _suppressNextDoubleClick;
 		private bool _testingRenameButtonHit;
@@ -175,6 +179,7 @@
 		private const string ColModStatus = "ModStatus";
 		private const string ColInstallMethod = "InstallMethod";
 		private const string ColModName = "ModName";
+		private const string ColSortNumber = "SortNumber";
 		private const string ColVersion = "HumanReadableVersion";
 		private const string ColLastKnown = "LastKnownVersion";
 		private const string ColAuthor = "Author";
@@ -230,7 +235,7 @@
 
 		private static readonly ColumnSizingDefinition[] GridColumnSizingDefinitions =
 		{
-			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColInstallMethod, ColumnSizingRole.Fixed, 80, 64, 100), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
+			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColInstallMethod, ColumnSizingRole.Fixed, 80, 64, 100), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColSortNumber, ColumnSizingRole.Fixed, 72, 58, 100), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
 		};
 		private const int ModStatusIconSize = 20;
 		private const int InlineEditIconSize = 18;
@@ -283,6 +288,7 @@
 			ApplyToolbarActionLabels();
 			Text = LanguageManager.Get("Mods.Title", "Mods");
 			InitializeInlineRenameEditor();
+			InitializeSortNumberEditor();
 			SetupGrid();
 			_gridModListSurface = new GridModListSurface(_modGridControl, _modList, ColModName);
 			_activeModListSurface = _gridModListSurface;
@@ -1868,6 +1874,8 @@
 			AddCol(ColModStatus, LanguageManager.Get("Common.Column.Status", "Status"), HorzAlignment.Center, true);
 			AddCol(ColInstallMethod, LanguageManager.Get("Mods.Columns.InstallMethod.Header", "METHOD"), HorzAlignment.Center, true);
 			GridColumn modNameCol = AddCol(ColModName, LanguageManager.Get("Mods.Columns.ModName.Header", "MOD NAME"), HorzAlignment.Default, true);
+			GridColumn sortNumberCol = AddCol(ColSortNumber, LanguageManager.Get("Mods.Columns.SortNumber.Header", "SORT"), HorzAlignment.Center, true);
+			ConfigureSortNumberColumn(sortNumberCol);
 			AddCol(ColVersion, LanguageManager.Get("Mods.Columns.Version.Header", "VERSION"), HorzAlignment.Center, false);
 			AddCol(ColLastKnown, LanguageManager.Get("Mods.Columns.Latest.Header", "LATEST"), HorzAlignment.Center, false);
 			AddCol(ColAuthor, LanguageManager.Get("Mods.Columns.Author.Header", "AUTHOR"), HorzAlignment.Default, false);
@@ -1890,6 +1898,29 @@
 			column.OptionsColumn.AllowEdit = true;
 			column.OptionsColumn.ReadOnly = false;
 		}
+		/// <summary>
+		/// Configures the flat-grid Sort column as an editable nullable signed integer with custom sorting.
+		/// </summary>
+		private void ConfigureSortNumberColumn(GridColumn column)
+		{
+			if (column == null) return;
+			column.UnboundType = DevExpress.Data.UnboundColumnType.Integer;
+			column.ColumnEdit = _sortNumberSpinEdit;
+			column.OptionsColumn.AllowEdit = true;
+			column.OptionsColumn.ReadOnly = false;
+			column.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
+			column.OptionsFilter.AutoFilterCondition = AutoFilterCondition.Equals;
+		}
+
+		/// <summary>
+		/// Restores non-layout editing and custom-sort invariants after a persisted grid layout is loaded.
+		/// </summary>
+		private void EnsureGridColumnInvariants()
+		{
+			ConfigureModNameRenameColumn(gridView.Columns[ColModName]);
+			ConfigureSortNumberColumn(gridView.Columns[ColSortNumber]);
+		}
+
 		private void ApplyAutoFilterDefaults()
 		{
 			foreach (GridColumn col in gridView.Columns)
@@ -1910,7 +1941,9 @@
 		private void ApplyAutoFilterDefaults(GridColumn col)
 		{
 			if (col == null || col.FieldName == ColEndorsed) return;
-			col.OptionsFilter.AutoFilterCondition = AutoFilterCondition.Contains;
+			col.OptionsFilter.AutoFilterCondition = col.FieldName == ColSortNumber
+				? AutoFilterCondition.Equals
+				: AutoFilterCondition.Contains;
 			col.OptionsFilter.AllowFilterModeChanging = DefaultBoolean.True;
 		}
 
@@ -1919,6 +1952,11 @@
 			if (e.IsSetData && e.Column.FieldName == ColModName)
 			{
 				CommitInlineRenameValue(e.ListSourceRowIndex, e.Value);
+				return;
+			}
+			if (e.IsSetData && e.Column.FieldName == ColSortNumber)
+			{
+				CommitSortNumberValue(e.Value);
 				return;
 			}
 
@@ -1931,6 +1969,7 @@
 				case ColModStatus: e.Value = GetModStatusText(mod); break;
 				case ColInstallMethod: e.Value = GetModInstallMethodText(mod); break;
 				case ColModName: e.Value = mod.ModName; break;
+				case ColSortNumber: e.Value = _viewModel?.GetModSortNumber(mod); break;
 				case ColVersion: e.Value = mod.HumanReadableVersion; break;
 				case ColLastKnown: e.Value = mod.LastKnownVersion; break;
 				case ColAuthor: e.Value = mod.Author; break;
@@ -2154,7 +2193,23 @@
 
 		private void GridView_CustomColumnSort(object sender, DevExpress.XtraGrid.Views.Base.CustomColumnSortEventArgs e)
 		{
-			if (e.Column == null || (e.Column.FieldName != ColInstallDate && e.Column.FieldName != ColDownloadDate))
+			if (e.Column == null)
+				return;
+
+			if (e.Column.FieldName == ColSortNumber)
+			{
+				int? sortLeft = ReadSortNumber(e.Value1);
+				int? sortRight = ReadSortNumber(e.Value2);
+				bool descending = e.SortOrder == DevExpress.Data.ColumnSortOrder.Descending;
+				int result = ModSortOrderComparer.Compare(sortLeft, sortRight, descending);
+				// XtraGrid applies descending direction after the custom comparison. Compensate
+				// here so blank values remain last instead of being inverted to the front.
+				e.Result = descending ? -result : result;
+				e.Handled = true;
+				return;
+			}
+
+			if (e.Column.FieldName != ColInstallDate && e.Column.FieldName != ColDownloadDate)
 				return;
 
 			DateTime left;
@@ -2838,6 +2893,7 @@
 				DevExpressGridLayoutPersistence.ClearTransientFilters(gridView);
 				gridView.OptionsView.ShowColumnHeaders = true;
 				RestoreGridDisplayMetricsAndColumnWidths();
+				EnsureGridColumnInvariants();
 
 				ApplyAutoFilterDefaults();
 				ApplyDateSortDefaults();
@@ -3068,6 +3124,7 @@
 				_modList,
 				GetCachedCategoryName,
 				GetModStatusText,
+				mod => _viewModel?.GetModSortNumber(mod),
 				mod => _newModTracker.IsNew(mod),
 				mod => GetModVisualStatus(mod) == ModVisualStatus.InstalledActive,
 				(activeCount, totalCount) => String.Format(_categoryNodeCountFormat, activeCount, totalCount));
@@ -3090,6 +3147,7 @@
 				}
 			};
 			_modCategoryTreeControl.RenameRequested += ModCategoryTree_RenameRequested;
+			_modCategoryTreeControl.SortNumberEditRequested += ModCategoryTree_SortNumberEditRequested;
 
 			// Restore column/layout state before the expensive first node population.
 			// Filter state is also established up-front so the initial tree is laid out once.
@@ -3146,6 +3204,25 @@
 			// manager owns the ViewModel mutation and the surface only owns the editor.
 			_viewModel.UpdateModName(e.Mod, e.NewName);
 			_categoryModListSurface?.RefreshMod(e.Mod, ColModName);
+		}
+
+		/// <summary>
+		/// Durably commits a Category Tree Sort-number edit and rolls the displayed value back on failure.
+		/// </summary>
+		private void ModCategoryTree_SortNumberEditRequested(object sender, ModTreeSortNumberEditEventArgs e)
+		{
+			if (_viewModel == null || e?.Mod == null)
+				return;
+
+			if (TryPersistSortNumber(e.Mod, e.SortNumber))
+			{
+				_gridModListSurface.RefreshData();
+				_categoryModListSurface?.RefreshMod(e.Mod, ColSortNumber, true);
+			}
+			else
+			{
+				_categoryModListSurface?.RefreshMod(e.Mod, ColSortNumber);
+			}
 		}
 
 		/// <summary>
@@ -3447,6 +3524,24 @@
 			Cancel,
 		}
 
+		/// <summary>
+		/// Creates the nullable signed integer editor shared by all flat-grid Sort cells.
+		/// </summary>
+		private void InitializeSortNumberEditor()
+		{
+			_sortNumberSpinEdit = new RepositoryItemSpinEdit
+			{
+				AutoHeight = false,
+				IsFloatValue = false,
+				MinValue = Int32.MinValue,
+				MaxValue = Int32.MaxValue,
+				AllowNullInput = DefaultBoolean.True,
+				NullText = String.Empty,
+				InplaceModeImmediatePostChanges = DefaultBoolean.False
+			};
+			gridControl.RepositoryItems.Add(_sortNumberSpinEdit);
+		}
+
 		private void InitializeInlineRenameEditor()
 		{
 			_renameButtonEdit = new RepositoryItemButtonEdit
@@ -3546,6 +3641,15 @@
 				return;
 			}
 
+			if (gridView.FocusedColumn != null && gridView.FocusedColumn.FieldName == ColSortNumber && IsDataRowHandle(gridView.FocusedRowHandle))
+			{
+				_sortEditMod = GetModForRowHandle(gridView.FocusedRowHandle);
+				_sortEditOriginalValue = _viewModel?.GetModSortNumber(_sortEditMod);
+				_editingSortNumber = _sortEditMod != null;
+				e.Cancel = !_editingSortNumber;
+				return;
+			}
+
 			if (gridView.FocusedColumn == null || gridView.FocusedColumn.FieldName != ColModName || !IsDataRowHandle(gridView.FocusedRowHandle))
 			{
 				e.Cancel = true;
@@ -3563,6 +3667,8 @@
 
 		private void GridView_ShownEditor(object sender, EventArgs e)
 		{
+			if (_editingSortNumber) return;
+
 			_renameActiveEditor = gridView.ActiveEditor as Control;
 			if (_renameActiveEditor != null)
 				_renameActiveEditor.KeyDown += RenameEditor_KeyDown;
@@ -3590,6 +3696,14 @@
 
 		private void GridView_HiddenEditor(object sender, EventArgs e)
 		{
+			if (_editingSortNumber)
+			{
+				// CustomUnboundColumnData can complete as the editor is being hidden.
+				// Clear the captured identity after the current DevExpress event chain.
+				BeginInvoke((MethodInvoker)EndSortNumberEdit);
+				return;
+			}
+
 			if (_renameActiveEditor != null)
 			{
 				_renameActiveEditor.KeyDown -= RenameEditor_KeyDown;
@@ -3606,6 +3720,111 @@
 				gridControl.RefreshDataSource();
 			if (rowHandle >= 0)
 				gridView.InvalidateRow(rowHandle);
+		}
+
+		/// <summary>
+		/// Commits the current flat-grid Sort edit against the mod identity captured before any resort can occur.
+		/// </summary>
+		private void CommitSortNumberValue(object value)
+		{
+			IMod mod = _sortEditMod;
+			if (!_editingSortNumber || mod == null) return;
+
+			int? sortNumber;
+			if (!TryReadSortNumber(value, out sortNumber))
+			{
+				ShowSortNumberValidationError();
+				_gridModListSurface.RefreshData();
+				return;
+			}
+
+			if (sortNumber == _sortEditOriginalValue)
+				return;
+
+			ModGridViewState state = CaptureModGridViewState();
+			if (!TryPersistSortNumber(mod, sortNumber))
+			{
+				_gridModListSurface.RefreshData();
+				RestoreModGridViewState(state, false);
+				return;
+			}
+
+			_gridModListSurface.RefreshData();
+			_categoryModListSurface?.RefreshMod(mod, ColSortNumber);
+			RestoreModGridViewState(state, false);
+		}
+
+		/// <summary>
+		/// Persists one Sort edit and reports storage failures without leaving an uncommitted value visible.
+		/// </summary>
+		private bool TryPersistSortNumber(IMod mod, int? sortNumber)
+		{
+			try
+			{
+				_viewModel.SetModSortNumber(mod, sortNumber);
+				return true;
+			}
+			catch (Exception ex)
+			{
+				string message = LanguageManager.Get("Mods.SortNumber.SaveFailed.Message", "NMM couldn't save the Sort number. The previous value has been restored.");
+				if (!String.IsNullOrWhiteSpace(ex.Message))
+					message += Environment.NewLine + Environment.NewLine + ex.Message;
+				XtraMessageBox.Show(this, message, LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Converts a SpinEdit value to the nullable signed integer Sort contract.
+		/// </summary>
+		private static bool TryReadSortNumber(object value, out int? sortNumber)
+		{
+			sortNumber = null;
+			if (value == null || value == DBNull.Value || String.IsNullOrWhiteSpace(Convert.ToString(value)))
+				return true;
+
+			try
+			{
+				decimal numeric = Convert.ToDecimal(value, CultureInfo.CurrentCulture);
+				if (numeric != Decimal.Truncate(numeric) || numeric < Int32.MinValue || numeric > Int32.MaxValue)
+					return false;
+				sortNumber = Decimal.ToInt32(numeric);
+				return true;
+			}
+			catch (Exception ex) when (ex is FormatException || ex is InvalidCastException || ex is OverflowException)
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Reads a previously resolved Sort value used by custom comparison and rollback paths.
+		/// </summary>
+		private static int? ReadSortNumber(object value)
+		{
+			int? sortNumber;
+			return TryReadSortNumber(value, out sortNumber) ? sortNumber : null;
+		}
+
+		/// <summary>
+		/// Shows the localized validation message for an invalid Sort-number edit.
+		/// </summary>
+		private void ShowSortNumberValidationError()
+		{
+			XtraMessageBox.Show(this,
+				LanguageManager.Get("Mods.SortNumber.Invalid.Message", "Enter a whole number between -2147483648 and 2147483647, or leave the cell blank."),
+				LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"),
+				MessageBoxButtons.OK, MessageBoxIcon.Error);
+		}
+
+		/// <summary>
+		/// Clears the identity and value captured for the current flat-grid Sort edit.
+		/// </summary>
+		private void EndSortNumberEdit()
+		{
+			_editingSortNumber = false;
+			_sortEditMod = null;
+			_sortEditOriginalValue = null;
 		}
 
 		private void RenameEditor_KeyDown(object sender, KeyEventArgs e)
@@ -3829,6 +4048,9 @@
 				return;
 			}
 
+			if (info.InRowCell && info.Column != null && info.Column.FieldName == ColSortNumber)
+				return;
+
 			if (info.InRow || info.InRowCell)
 				ToggleSelectedMod();
 		}
@@ -3836,6 +4058,7 @@
 		private void GridView_KeyDown(object sender, KeyEventArgs e)
 		{
 			if (_renamingModName) return;
+			if (_editingSortNumber) return;
 			if (e.KeyCode == Keys.F2 && TryStartModNameRenameFromKeyboard()) { e.Handled = true; return; }
 			if (e.KeyCode == Keys.Return) { e.Handled = true; ToggleSelectedMod(); return; }
 			if (e.KeyCode == Keys.Delete) { e.Handled = true; DeleteSelectedModsFromKey(); return; }

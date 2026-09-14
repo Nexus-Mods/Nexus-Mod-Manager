@@ -10,11 +10,13 @@
 
 	using DevExpress.Utils;
 	using DevExpress.XtraEditors.Controls;
+	using DevExpress.XtraEditors.Repository;
 	using DevExpress.XtraTreeList;
 	using DevExpress.XtraTreeList.Columns;
 	using DevExpress.XtraTreeList.Nodes;
 	using DevExpress.XtraTreeList.Nodes.Operations;
 
+	using Nexus.Client.ModManagement;
 	using Nexus.Client.Mods;
 	using Nexus.Client.Util.Localization;
 
@@ -25,6 +27,7 @@
 	{
 		internal const string Status = "ModStatus";
 		internal const string ModName = "ModName";
+		internal const string SortNumber = "SortNumber";
 		internal const string Version = "HumanReadableVersion";
 		internal const string Latest = "LastKnownVersion";
 		internal const string Author = "Author";
@@ -93,6 +96,7 @@
 		private readonly IList<IMod> _mods;
 		private readonly Func<IMod, string> _categoryNameResolver;
 		private readonly Func<IMod, string> _statusTextResolver;
+		private readonly Func<IMod, int?> _sortNumberResolver;
 		private readonly Func<IMod, bool> _newModResolver;
 		private readonly Func<IMod, bool> _activeModResolver;
 		private readonly Func<int, int, string> _categoryCountFormatter;
@@ -111,6 +115,7 @@
 		private Func<IMod, bool> _visibilityPredicate;
 		private Func<ModCategoryTreeCategory, bool> _categoryVisibilityPredicate;
 		private bool _suppressSelectionChanged;
+		private RepositoryItemSpinEdit _sortNumberEditor;
 
 		/// <summary>
 		/// Initializes the unbound Category Tree surface and its shared mod/category resolvers.
@@ -120,6 +125,7 @@
 			IList<IMod> mods,
 			Func<IMod, string> categoryNameResolver,
 			Func<IMod, string> statusTextResolver,
+			Func<IMod, int?> sortNumberResolver,
 			Func<IMod, bool> newModResolver,
 			Func<IMod, bool> activeModResolver,
 			Func<int, int, string> categoryCountFormatter)
@@ -133,6 +139,7 @@
 			_mods = mods;
 			_categoryNameResolver = categoryNameResolver;
 			_statusTextResolver = statusTextResolver;
+			_sortNumberResolver = sortNumberResolver ?? (_ => null);
 			_newModResolver = newModResolver;
 			_activeModResolver = activeModResolver;
 			_categoryCountFormatter = categoryCountFormatter ?? ((active, total) => String.Format("{0}/{1} Mods", active, total));
@@ -662,6 +669,7 @@
 		private void EnsureTreeColumnInvariants()
 		{
 			TreeListColumn modName = _treeList.Columns[ModCategoryTreeColumns.ModName];
+			TreeListColumn sortNumber = _treeList.Columns[ModCategoryTreeColumns.SortNumber];
 			if (modName != null)
 			{
 				modName.Visible = true;
@@ -669,12 +677,20 @@
 				modName.OptionsColumn.ReadOnly = false;
 				_treeList.HierarchyColumn = modName;
 			}
+			if (sortNumber != null)
+			{
+				sortNumber.OptionsColumn.AllowEdit = true;
+				sortNumber.OptionsColumn.ReadOnly = false;
+				sortNumber.ColumnEdit = _sortNumberEditor;
+			}
 			foreach (TreeListColumn column in _treeList.Columns)
 			{
 				column.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
-				column.OptionsFilter.AutoFilterCondition = AutoFilterCondition.Contains;
+				column.OptionsFilter.AutoFilterCondition = column.FieldName == ModCategoryTreeColumns.SortNumber
+					? AutoFilterCondition.Equals
+					: AutoFilterCondition.Contains;
 				column.OptionsFilter.AllowAutoFilter = column.FieldName != ModCategoryTreeColumns.Endorsed;
-				if (!ReferenceEquals(column, modName))
+				if (!ReferenceEquals(column, modName) && !ReferenceEquals(column, sortNumber))
 				{
 					column.OptionsColumn.AllowEdit = false;
 					column.OptionsColumn.ReadOnly = true;
@@ -705,6 +721,16 @@
 			IMod mod2 = e.Node2.Tag as IMod;
 			if (mod1 == null || mod2 == null)
 				return;
+
+			if (e.Column.FieldName == ModCategoryTreeColumns.SortNumber)
+			{
+				bool descending = e.SortOrder == SortOrder.Descending;
+				int result = ModSortOrderComparer.Compare(_sortNumberResolver(mod1), _sortNumberResolver(mod2), descending);
+				// TreeList applies descending direction after the custom result. Reverse the
+				// requested comparison here so null remains last after that final inversion.
+				e.Result = descending ? -result : result;
+				return;
+			}
 
 			e.Result = CompareMods(mod1, mod2, e.Column.FieldName);
 		}
@@ -783,6 +809,8 @@
 			_treeList.Columns.Clear();
 			AddColumn(ModCategoryTreeColumns.Status, LanguageManager.Get("Common.Column.Status", "Status"), 58, 48, 80, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.ModName, LanguageManager.Get("Mods.Columns.ModName.Header", "MOD NAME"), 220, 100, 0, HorzAlignment.Default);
+			TreeListColumn sortNumber = AddColumn(ModCategoryTreeColumns.SortNumber, LanguageManager.Get("Mods.Columns.SortNumber.Header", "SORT"), 72, 58, 100, HorzAlignment.Center);
+			ConfigureSortNumberColumn(sortNumber);
 			AddColumn(ModCategoryTreeColumns.Version, LanguageManager.Get("Mods.Columns.Version.Header", "VERSION"), 70, 60, 110, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.Latest, LanguageManager.Get("Mods.Columns.Latest.Header", "LATEST"), 70, 60, 110, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.Author, LanguageManager.Get("Mods.Columns.Author.Header", "AUTHOR"), 128, 90, 240, HorzAlignment.Default);
@@ -822,6 +850,30 @@
 			column.AppearanceCell.TextOptions.HAlignment = alignment;
 			_treeList.Columns.Add(column);
 			return column;
+		}
+
+		/// <summary>
+		/// Configures the nullable signed integer editor used by actual mod rows in the Sort column.
+		/// </summary>
+		private void ConfigureSortNumberColumn(TreeListColumn column)
+		{
+			if (column == null) return;
+
+			_sortNumberEditor = new RepositoryItemSpinEdit
+			{
+				AutoHeight = false,
+				IsFloatValue = false,
+				MinValue = Int32.MinValue,
+				MaxValue = Int32.MaxValue,
+				AllowNullInput = DefaultBoolean.True,
+				NullText = String.Empty,
+				InplaceModeImmediatePostChanges = DefaultBoolean.False
+			};
+			_treeList.RepositoryItems.Add(_sortNumberEditor);
+			column.ColumnEdit = _sortNumberEditor;
+			column.OptionsColumn.AllowEdit = true;
+			column.OptionsColumn.ReadOnly = false;
+			column.OptionsFilter.AutoFilterCondition = AutoFilterCondition.Equals;
 		}
 
 		/// <summary>
@@ -1094,6 +1146,7 @@
 			var values = new object[_treeList.Columns.Count];
 			values[_treeList.Columns[ModCategoryTreeColumns.Status].AbsoluteIndex] = _statusTextResolver?.Invoke(mod) ?? String.Empty;
 			values[_treeList.Columns[ModCategoryTreeColumns.ModName].AbsoluteIndex] = mod.ModName;
+			values[_treeList.Columns[ModCategoryTreeColumns.SortNumber].AbsoluteIndex] = _sortNumberResolver(mod);
 			values[_treeList.Columns[ModCategoryTreeColumns.Version].AbsoluteIndex] = mod.HumanReadableVersion;
 			values[_treeList.Columns[ModCategoryTreeColumns.Latest].AbsoluteIndex] = mod.LastKnownVersion;
 			values[_treeList.Columns[ModCategoryTreeColumns.Author].AbsoluteIndex] = mod.Author;
@@ -1112,6 +1165,7 @@
 			if (node == null || mod == null) return;
 			node.SetValue(ModCategoryTreeColumns.Status, _statusTextResolver?.Invoke(mod) ?? String.Empty);
 			node.SetValue(ModCategoryTreeColumns.ModName, mod.ModName);
+			node.SetValue(ModCategoryTreeColumns.SortNumber, _sortNumberResolver(mod));
 			node.SetValue(ModCategoryTreeColumns.Version, mod.HumanReadableVersion);
 			node.SetValue(ModCategoryTreeColumns.Latest, mod.LastKnownVersion);
 			node.SetValue(ModCategoryTreeColumns.Author, mod.Author);

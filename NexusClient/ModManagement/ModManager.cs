@@ -2,6 +2,9 @@ namespace Nexus.Client.ModManagement
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.Specialized;
+    using System.ComponentModel;
+    using System.Diagnostics;
     using System.IO;
     using System.Text.RegularExpressions;
     using System.Threading;
@@ -16,6 +19,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
+    using Nexus.Client.Mods.Formats.FOMod;
     using Nexus.Client.PluginManagement;
     using Nexus.Client.SSO;
     using Nexus.Client.Settings;
@@ -73,6 +77,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public void Release()
 		{
+			DetachSortOrderIdentityTracking();
 			ModAdditionQueue.Dispose();
 			ModAdditionQueue = null;
 			m_mmgCurrent = null;
@@ -186,6 +191,11 @@ namespace Nexus.Client.ModManagement
 		/// Gets the cache manager for the current game mode.
 		/// </summary>
 		protected IModCacheManager ModCacheManager { get; private set; }
+
+		/// <summary>
+		/// Gets the Sort-assignment service bound to the current game storage, or <c>null</c> if its supplemental store is unavailable.
+		/// </summary>
+		public ModSortOrderService SortOrderService { get; private set; }
 
 		/// <summary>
 		/// Gets the <see cref="AddModQueue"/> that contains the list
@@ -368,9 +378,141 @@ namespace Nexus.Client.ModManagement
 			InstallerFactory = new ModInstallerFactory(p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgInstallLog, p_pmgPluginManager, m_vmaVirtualModActivator, m_mdmDeploymentManager);
 			DownloadMonitor = p_dmrMonitor;
 			ModActivationMonitor = p_mamMonitor;
+			InitializeSortOrderService();
 			ModAdditionQueue = new AddModQueue(p_eifEnvironmentInfo, this);
 			AutoUpdater = new AutoUpdater(p_mrpModRepository, p_mdrManagedModRegistry, p_eifEnvironmentInfo);
 			LoginTask = new AuthenticationFormTask(this);
+		}
+
+		/// <summary>
+		/// Initializes Sort assignments for passive discovery and tracks identity changes only for explicit Add/download rows.
+		/// </summary>
+		private void InitializeSortOrderService()
+		{
+			try
+			{
+				var store = new ModSortOrderStore(ModCacheManager.ModCacheDirectory, GameMode.GameModeEnvironmentInfo.ModDirectory);
+				if (!store.IsUsable)
+				{
+					Trace.TraceWarning("Mod Sort assignments are unavailable because the supplemental SQLite store could not be initialized.");
+					return;
+				}
+				SortOrderService = new ModSortOrderService(store);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Unable to initialize Mod Sort assignments: {0}", ex);
+				SortOrderService = null;
+				return;
+			}
+
+			var managedMods = new List<IMod>();
+			foreach (IMod mod in ManagedModRegistry.RegisteredMods)
+			{
+				managedMods.Add(mod);
+			}
+
+			foreach (IMod mod in managedMods)
+			{
+				ResolveStartupSortOrder(mod, managedMods);
+				mod.PropertyChanged += ManagedMod_SortOrderIdentityChanged;
+			}
+
+			foreach (IMod mod in InstallationLog.ActiveMods)
+			{
+				if (mod is InstallLog.DummyMod && !string.IsNullOrWhiteSpace(mod.ModArchivePath) && Path.IsPathRooted(mod.ModArchivePath))
+				{
+					ResolveStartupSortOrder(mod, managedMods);
+				}
+			}
+
+			ManagedModRegistry.RegisteredMods.CollectionChanged += ManagedMods_SortOrderCollectionChanged;
+		}
+
+		/// <summary>
+		/// Resolves one passive-discovery assignment without allowing a Sort failure to prevent application startup.
+		/// </summary>
+		private void ResolveStartupSortOrder(IMod mod, IEnumerable<IMod> managedMods)
+		{
+			try
+			{
+				SortOrderService.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, managedMods);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Unable to resolve startup Mod Sort assignment for {0}: {1}", mod?.ModArchivePath, ex);
+			}
+		}
+
+		/// <summary>
+		/// Tracks replacement/addition of managed mod objects so delayed identity can only complete rows created by Add/download.
+		/// </summary>
+		private void ManagedMods_SortOrderCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (e.OldItems != null)
+			{
+				foreach (var item in e.OldItems)
+				{
+					if (item is IMod mod)
+					{
+						mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
+					}
+				}
+			}
+
+			if (e.NewItems != null)
+			{
+				foreach (var item in e.NewItems)
+				{
+					if (item is IMod mod)
+					{
+						mod.PropertyChanged += ManagedMod_SortOrderIdentityChanged;
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Completes identity reconciliation only for a row that was explicitly marked pending by Add/download.
+		/// </summary>
+		private void ManagedMod_SortOrderIdentityChanged(object sender, PropertyChangedEventArgs e)
+		{
+			if (SortOrderService == null || (e.PropertyName != nameof(IMod.Id) && e.PropertyName != nameof(IMod.DownloadId)))
+			{
+				return;
+			}
+
+			var mod = sender as IMod;
+			if (mod == null || !SortOrderService.IsPendingAddIdentity(mod))
+			{
+				return;
+			}
+
+			try
+			{
+				SortOrderService.Resolve(mod, ModSortOrderAssignmentContext.IdentityResolvedForPendingAdd, ManagedModRegistry.RegisteredMods);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Unable to reconcile pending Mod Sort identity for {0}: {1}", mod.ModArchivePath, ex);
+			}
+		}
+
+		/// <summary>
+		/// Removes Sort identity tracking subscriptions owned by this manager instance.
+		/// </summary>
+		private void DetachSortOrderIdentityTracking()
+		{
+			if (ManagedModRegistry == null)
+			{
+				return;
+			}
+
+			ManagedModRegistry.RegisteredMods.CollectionChanged -= ManagedMods_SortOrderCollectionChanged;
+			foreach (IMod mod in ManagedModRegistry.RegisteredMods)
+			{
+				mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
+			}
 		}
 
 		#endregion

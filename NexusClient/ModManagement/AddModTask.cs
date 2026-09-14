@@ -114,6 +114,7 @@
 		private readonly IModFormatRegistry _modFormatRegistry;
 		private readonly ConfirmOverwriteCallback _confirmOverwriteCallback;
 		private readonly Int32? _categoryOverrideId;
+		private readonly ModSortOrderService _modSortOrderService;
 		private readonly Dictionary<IBackgroundTask, DownloadProgressState> _downloaderProgress = new Dictionary<IBackgroundTask, DownloadProgressState>();
 		private readonly List<IBackgroundTask> _runningTasks = new List<IBackgroundTask>();
 		private bool _finishedDownloads;
@@ -422,6 +423,24 @@
 		/// <param name="confirmOverwriteCallback">The delegate to call to resolve conflicts with existing files.</param>
 		/// <param name="categoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
 		public AddModTask(IGameMode gameMode, ReadMeManager readMeManager, IEnvironmentInfo environmentInfo, ModRegistry modRegistry, IModFormatRegistry formatRegistry, IModRepository modRepository, Uri downloadPath, ConfirmOverwriteCallback confirmOverwriteCallback, Int32? categoryOverrideId)
+			: this(gameMode, readMeManager, environmentInfo, modRegistry, formatRegistry, modRepository, downloadPath, confirmOverwriteCallback, categoryOverrideId, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a mod-add task with Sort-assignment lifecycle integration.
+		/// </summary>
+		/// <param name="gameMode">The game mode for which mods are being managed.</param>
+		/// <param name="readMeManager">The ReadMe Manager info.</param>
+		/// <param name="environmentInfo">The application's environment info.</param>
+		/// <param name="modRegistry">The registry that contains the managed mods.</param>
+		/// <param name="formatRegistry">The registry of supported mod formats.</param>
+		/// <param name="modRepository">The mod repository from which to get metadata.</param>
+		/// <param name="downloadPath">The path to the mod to add.</param>
+		/// <param name="confirmOverwriteCallback">The delegate to call to resolve conflicts with existing files.</param>
+		/// <param name="categoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
+		/// <param name="modSortOrderService">The active storage's Sort-assignment service, or <c>null</c> when unavailable.</param>
+		public AddModTask(IGameMode gameMode, ReadMeManager readMeManager, IEnvironmentInfo environmentInfo, ModRegistry modRegistry, IModFormatRegistry formatRegistry, IModRepository modRepository, Uri downloadPath, ConfirmOverwriteCallback confirmOverwriteCallback, Int32? categoryOverrideId, ModSortOrderService modSortOrderService)
 		{
 			_gameMode = gameMode;
 			_environmentInfo = environmentInfo;
@@ -431,6 +450,7 @@
 			_downloadPath = downloadPath;
 			_confirmOverwriteCallback = confirmOverwriteCallback;
 			_categoryOverrideId = categoryOverrideId;
+			_modSortOrderService = modSortOrderService;
 			_readMeManager = readMeManager;
 			_localID = _counter++;
 
@@ -639,6 +659,58 @@
 				ForceCustomCategoryId = true
 			};
 			mod.UpdateInfo(explicitInfo, false);
+		}
+
+		/// <summary>
+		/// Resolves the Sort assignment for a successfully added archive before it is published to managed-mod listeners.
+		/// </summary>
+		private void ResolveSortOrderForAddedMod(IMod mod)
+		{
+			if (_modSortOrderService == null || mod == null)
+			{
+				return;
+			}
+
+			GetTrustedRepositoryIdentity(out var modId, out var downloadId);
+			_modSortOrderService.ResolveAddOrDownload(mod, _modRegistry.RegisteredMods, modId, downloadId);
+		}
+
+		/// <summary>
+		/// Gets repository identity from the explicit download context first, falling back to retrieved metadata.
+		/// </summary>
+		private void GetTrustedRepositoryIdentity(out string modId, out string downloadId)
+		{
+			modId = null;
+			downloadId = null;
+
+			var sourceUri = Descriptor?.SourceUri ?? _downloadPath;
+			if (sourceUri != null && sourceUri.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase))
+			{
+				try
+				{
+					var nexusUrl = new NexusUrl(sourceUri);
+					if (ModFileIdentity.IsUsableRepositoryId(nexusUrl.ModId))
+					{
+						modId = nexusUrl.ModId;
+					}
+					if (ModFileIdentity.IsUsableRepositoryId(nexusUrl.FileId))
+					{
+						downloadId = nexusUrl.FileId;
+					}
+				}
+				catch (ArgumentException)
+				{
+				}
+			}
+
+			if (!ModFileIdentity.IsUsableRepositoryId(modId) && ModInfo != null && ModFileIdentity.IsUsableRepositoryId(ModInfo.Id))
+			{
+				modId = ModInfo.Id;
+			}
+			if (!ModFileIdentity.IsUsableRepositoryId(downloadId) && ModInfo != null && ModFileIdentity.IsUsableRepositoryId(ModInfo.DownloadId))
+			{
+				downloadId = ModInfo.DownloadId;
+			}
 		}
 
 		/// <summary>
@@ -1301,8 +1373,12 @@
 						if (registeredMod == null)
 						{
 							registeredMod = _environmentInfo.Settings.AddMissingInfoToMods
-								? _modRegistry.RegisterMod(strMod, ModInfo, _environmentInfo)
-								: _modRegistry.RegisterMod(strMod);
+								? _modRegistry.RegisterMod(strMod, ModInfo, _environmentInfo, ResolveSortOrderForAddedMod)
+								: _modRegistry.RegisterMod(strMod, null, null, ResolveSortOrderForAddedMod);
+						}
+						else
+						{
+							ResolveSortOrderForAddedMod(registeredMod);
 						}
 
 						ApplyCategoryOverride(registeredMod);

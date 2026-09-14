@@ -1108,6 +1108,26 @@ namespace Nexus.Client.ModManagement.UI
 			p_modMod.UpdateInfo(mifNewInfo, true);
 		}
 
+		/// <summary>
+		/// Gets the resolved user Sort number from the active storage's in-memory assignment cache.
+		/// </summary>
+		public int? GetModSortNumber(IMod mod)
+		{
+			return ModManager.SortOrderService?.GetSortNumber(mod);
+		}
+
+		/// <summary>
+		/// Durably sets or clears the user Sort number for one mod.
+		/// </summary>
+		public void SetModSortNumber(IMod mod, int? sortNumber)
+		{
+			if (mod == null) throw new ArgumentNullException(nameof(mod));
+			if (ModManager.SortOrderService == null)
+				throw new InvalidOperationException("The mod Sort service is not available for the active storage.");
+
+			ModManager.SortOrderService.SetSortNumber(mod, sortNumber);
+		}
+
 		public void UpdateModLoadOrder(IMod p_modMod, int p_intNewPosition)
 		{
 			ModInfo mifNewInfo = new ModInfo(p_modMod);

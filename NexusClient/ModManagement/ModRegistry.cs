@@ -205,16 +205,25 @@ namespace Nexus.Client.ModManagement
 		/// could not be registered.</returns>
 		public IMod RegisterMod(string p_strModPath, IModInfo p_mifTagInfo, IEnvironmentInfo p_eiEnvironmentInfo)
 		{
+			return RegisterMod(p_strModPath, p_mifTagInfo, p_eiEnvironmentInfo, null);
+		}
+
+		/// <summary>
+		/// Registers the specified mod and invokes a lifecycle callback after metadata is applied but before collection publication.
+		/// </summary>
+		public IMod RegisterMod(string p_strModPath, IModInfo p_mifTagInfo, IEnvironmentInfo p_eiEnvironmentInfo, Action<IMod> p_actBeforePublish)
+		{
 			Int32 intExistingIndex = -1;
 			IMod modMod = null;
 			for (intExistingIndex = 0; intExistingIndex < m_oclRegisteredMods.Count; intExistingIndex++)
 				if (p_strModPath.Equals(m_oclRegisteredMods[intExistingIndex].Filename, StringComparison.OrdinalIgnoreCase))
 					break;
 			modMod = CreateMod(p_strModPath, string.Empty, GameMode, p_eiEnvironmentInfo, false);
-			if (p_mifTagInfo != null)
-				modMod.UpdateInfo(p_mifTagInfo, true);
 			if (modMod == null)
 				return null;
+			if (p_mifTagInfo != null)
+				modMod.UpdateInfo(p_mifTagInfo, true);
+			p_actBeforePublish?.Invoke(modMod);
 			string previousFileName = intExistingIndex < m_oclRegisteredMods.Count ? m_oclRegisteredMods[intExistingIndex].Filename : null;
 			if (intExistingIndex < m_oclRegisteredMods.Count)
 				m_oclRegisteredMods[intExistingIndex] = modMod;

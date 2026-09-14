@@ -16,7 +16,7 @@
 	/// </summary>
 	internal sealed class FOModArchiveMetadataCache
 	{
-		private const string DatabaseFileName = "fomodArchiveMetadata.sqlite";
+		internal const string DatabaseFileName = "fomodArchiveMetadata.sqlite";
 		private const int SchemaVersion = 1;
 		private const int CommitBatchSize = 50;
 		private static readonly object NativeLoadLock = new object();
@@ -34,8 +34,7 @@
 
 			try
 			{
-				EnsureSQLiteInteropLoaded();
-				_database = GetDatabase(_databasePath);
+				_database = GetSharedDatabase(cacheDirectory);
 				_available = true;
 			}
 			catch (Exception e)
@@ -414,6 +413,20 @@ VALUES
 			}
 		}
 
+		/// <summary>
+		/// Gets the shared SQLite database used by FOMod metadata and supplemental durable metadata stores.
+		/// </summary>
+		internal static SharedDatabase GetSharedDatabase(string cacheDirectory)
+		{
+			if (string.IsNullOrWhiteSpace(cacheDirectory))
+			{
+				throw new ArgumentException("A cache directory is required.", nameof(cacheDirectory));
+			}
+
+			EnsureSQLiteInteropLoaded();
+			return GetDatabase(Path.Combine(cacheDirectory, DatabaseFileName));
+		}
+
 		private static SharedDatabase GetDatabase(string databasePath)
 		{
 			lock (DatabaseLock)
@@ -472,7 +485,7 @@ VALUES
 		/// <summary>
 		/// Represents the file-system identity used to validate cached archive metadata.
 		/// </summary>
-		private struct ArchiveFingerprint
+		internal struct ArchiveFingerprint
 		{
 			public ArchiveFingerprint(long length, long writeTimeUtcTicks)
 			{
@@ -484,7 +497,7 @@ VALUES
 			public long WriteTimeUtcTicks { get; }
 		}
 
-		private sealed class SharedDatabase
+		internal sealed class SharedDatabase
 		{
 			public readonly object SyncRoot = new object();
 			public readonly SQLiteConnection Connection;
@@ -539,6 +552,58 @@ VALUES
 				{
 					Transaction = Connection.BeginTransaction();
 				}
+			}
+
+			/// <summary>
+			/// Executes a user-metadata write under the shared database lock and commits it before returning.
+			/// </summary>
+			public void ExecuteDurableWrite(Action<SQLiteConnection, SQLiteTransaction> writeAction)
+			{
+				if (writeAction == null)
+				{
+					throw new ArgumentNullException(nameof(writeAction));
+				}
+
+				lock (SyncRoot)
+				{
+					try
+					{
+						// User-authored metadata must not remain buffered behind cache-data batching.
+						CommitDatabase(this);
+						EnsureTransaction();
+						writeAction(Connection, Transaction);
+						PendingWrites++;
+						CommitDatabase(this);
+					}
+					catch
+					{
+						ResetTransactionAfterFailedWrite();
+						throw;
+					}
+				}
+			}
+
+			/// <summary>
+			/// Discards the current transaction after a failed durable write so later cache work can retry cleanly.
+			/// </summary>
+			private void ResetTransactionAfterFailedWrite()
+			{
+				if (Transaction != null)
+				{
+					try
+					{
+						Transaction.Rollback();
+					}
+					catch (SQLiteException)
+					{
+					}
+
+					Transaction.Dispose();
+					Transaction = null;
+				}
+
+				PendingWrites = 0;
+				LastCommitUtc = DateTime.UtcNow;
 			}
 
 			/// <summary>
@@ -693,7 +758,7 @@ WHERE NOT EXISTS (SELECT 1 FROM schema_info);";
 			}
 		}
 
-		private void EnsureSQLiteInteropLoaded()
+		private static void EnsureSQLiteInteropLoaded()
 		{
 			if (_sqliteInteropHandle != IntPtr.Zero)
 			{

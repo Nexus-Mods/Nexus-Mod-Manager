@@ -129,6 +129,7 @@
     <Compile Include="MixedDeploymentStep4Tests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
+    <Compile Include="ModSortOrderComparerTests.cs" />
     <Compile Include="NexusDescriptionFormatterTests.cs" />
     <Compile Include="NexusModLinkParserTests.cs" />
     <Compile Include="EnglishLanguageCatalogTests.cs" />

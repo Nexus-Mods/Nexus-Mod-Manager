@@ -17,6 +17,7 @@
 
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
+	using Nexus.Client.Util.Localization;
 
 	/// <summary>
 	/// Carries a Mod Name edit request from the Category Tree frontend to the Mod Manager.
@@ -42,6 +43,23 @@
 		internal string NewName { get; }
 	}
 
+	/// <summary>
+	/// Carries a validated nullable Sort-number edit from the Category Tree to the Mod Manager.
+	/// </summary>
+	internal sealed class ModTreeSortNumberEditEventArgs : EventArgs
+	{
+		/// <summary>
+		/// Initializes a Sort-number edit request for the specified mod.
+		/// </summary>
+		internal ModTreeSortNumberEditEventArgs(IMod mod, int? sortNumber)
+		{
+			Mod = mod;
+			SortNumber = sortNumber;
+		}
+
+		internal IMod Mod { get; }
+		internal int? SortNumber { get; }
+	}
 
 	/// <summary>
 	/// Hosts the hierarchical Category View frontend independently from the
@@ -73,6 +91,9 @@
 		private IMod _renameMod;
 		private string _renameOriginalName;
 		private Control _renameActiveEditor;
+		private bool _editingSortNumber;
+		private IMod _sortEditMod;
+		private int? _sortOriginalValue;
 		private bool _lastFindPanelVisible;
 		private Color _latestVersionForeColor;
 		private Color _outdatedVersionForeColor;
@@ -138,6 +159,10 @@
 		/// Occurs when an inline Mod Name edit has been validated and should be committed by the Mod Manager.
 		/// </summary>
 		internal event EventHandler<ModTreeRenameEventArgs> RenameRequested;
+		/// <summary>
+		/// Occurs when a nullable Sort number has been validated and should be durably committed.
+		/// </summary>
+		internal event EventHandler<ModTreeSortNumberEditEventArgs> SortNumberEditRequested;
 
 		/// <summary>
 		/// Applies shared Mods presentation settings, palette resolvers, fonts and row density to the TreeList.
@@ -644,10 +669,18 @@
 		{
 			// ShowingEditor is not raised for the Auto Filter Row, so restricting normal
 			// nodes here does not interfere with filter-row editing.
-			e.Cancel = !_renameRequested ||
-				!(treeList.FocusedNode?.Tag is IMod) ||
-				treeList.FocusedColumn == null ||
-				treeList.FocusedColumn.FieldName != ModCategoryTreeColumns.ModName;
+			IMod focusedMod = treeList.FocusedNode?.Tag as IMod;
+			string fieldName = treeList.FocusedColumn?.FieldName;
+			if (focusedMod != null && fieldName == ModCategoryTreeColumns.SortNumber)
+			{
+				_editingSortNumber = true;
+				_sortEditMod = focusedMod;
+				_sortOriginalValue = ReadSortNumber(treeList.FocusedNode.GetValue(ModCategoryTreeColumns.SortNumber));
+				e.Cancel = false;
+				return;
+			}
+
+			e.Cancel = !_renameRequested || focusedMod == null || fieldName != ModCategoryTreeColumns.ModName;
 		}
 
 		/// <summary>
@@ -656,6 +689,7 @@
 		private void TreeList_ShownEditor(object sender, EventArgs e)
 		{
 			_renameRequested = false;
+			if (_editingSortNumber) return;
 			_renameActiveEditor = treeList.ActiveEditor as Control;
 			if (_renameActiveEditor != null)
 				_renameActiveEditor.KeyDown += RenameEditor_KeyDown;
@@ -669,6 +703,14 @@
 		/// </summary>
 		private void TreeList_HiddenEditor(object sender, EventArgs e)
 		{
+			if (_editingSortNumber)
+			{
+				// CellValueChanged can complete as the editor is being hidden. Preserve
+				// the captured target/original value until this event chain is finished.
+				BeginInvoke((MethodInvoker)EndSortNumberEdit);
+				return;
+			}
+
 			if (_renameActiveEditor != null)
 			{
 				_renameActiveEditor.KeyDown -= RenameEditor_KeyDown;
@@ -701,6 +743,25 @@
 		/// </summary>
 		private void TreeList_CellValueChanged(object sender, CellValueChangedEventArgs e)
 		{
+			if (_editingSortNumber && e.ChangedByUser && e.Column != null && e.Column.FieldName == ModCategoryTreeColumns.SortNumber)
+			{
+				IMod sortMod = e.Node?.Tag as IMod ?? _sortEditMod;
+				int? sortNumber;
+				if (sortMod == null || !TryReadSortNumber(e.Value, out sortNumber))
+				{
+					if (e.Node != null)
+						e.Node.SetValue(ModCategoryTreeColumns.SortNumber, _sortOriginalValue);
+					XtraMessageBox.Show(this,
+						LanguageManager.Get("Mods.SortNumber.Invalid.Message", "Enter a whole number between -2147483648 and 2147483647, or leave the cell blank."),
+						LanguageManager.Get("Common.Dialog.ErrorTitle", "Error"),
+						MessageBoxButtons.OK, MessageBoxIcon.Error);
+					return;
+				}
+
+				SortNumberEditRequested?.Invoke(this, new ModTreeSortNumberEditEventArgs(sortMod, sortNumber));
+				return;
+			}
+
 			if (!_renamingModName || !e.ChangedByUser ||
 				e.Column == null || e.Column.FieldName != ModCategoryTreeColumns.ModName)
 				return;
@@ -718,6 +779,48 @@
 			}
 
 			RenameRequested?.Invoke(this, new ModTreeRenameEventArgs(mod, newName));
+		}
+
+		/// <summary>
+		/// Converts the SpinEdit value into the nullable signed integer contract used by Sort assignments.
+		/// </summary>
+		private static bool TryReadSortNumber(object value, out int? sortNumber)
+		{
+			sortNumber = null;
+			if (value == null || value == DBNull.Value || String.IsNullOrWhiteSpace(Convert.ToString(value)))
+				return true;
+
+			try
+			{
+				decimal numeric = Convert.ToDecimal(value);
+				if (numeric != Decimal.Truncate(numeric) || numeric < Int32.MinValue || numeric > Int32.MaxValue)
+					return false;
+				sortNumber = Decimal.ToInt32(numeric);
+				return true;
+			}
+			catch (Exception ex) when (ex is FormatException || ex is InvalidCastException || ex is OverflowException)
+			{
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Reads a previously validated node value for rollback bookkeeping.
+		/// </summary>
+		private static int? ReadSortNumber(object value)
+		{
+			int? sortNumber;
+			return TryReadSortNumber(value, out sortNumber) ? sortNumber : null;
+		}
+
+		/// <summary>
+		/// Clears transient Category Tree Sort-edit state.
+		/// </summary>
+		private void EndSortNumberEdit()
+		{
+			_editingSortNumber = false;
+			_sortEditMod = null;
+			_sortOriginalValue = null;
 		}
 
 		/// <summary>
@@ -764,6 +867,8 @@
 			treeList.FocusedNode = hitInfo.Node;
 			if (hitInfo.Node.Tag is IMod)
 			{
+				if (hitInfo.Column != null && hitInfo.Column.FieldName == ModCategoryTreeColumns.SortNumber)
+					return;
 				ModInteractionOccurred?.Invoke(this, EventArgs.Empty);
 				ModToggleRequested?.Invoke(this, EventArgs.Empty);
 			}
@@ -783,6 +888,10 @@
 				treeList.ShowFindPanel();
 				return;
 			}
+
+			// Sort editing owns keyboard gestures through the complete DevExpress commit chain.
+			if (_editingSortNumber)
+				return;
 
 			// The active editor owns Enter/Escape while an inline rename is in progress.
 			if (treeList.ActiveEditor != null)

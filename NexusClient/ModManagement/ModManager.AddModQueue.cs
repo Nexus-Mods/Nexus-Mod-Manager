@@ -112,7 +112,7 @@ namespace Nexus.Client.ModManagement
 						return m_dicActiveTasks[p_uriPath];
 
 					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
-					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId);
+					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, m_mmgModManager.SortOrderService);
 					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 					amtModAdder.IsRemote = booIsRemote;
 					m_dicActiveTasks[p_uriPath] = amtModAdder;
