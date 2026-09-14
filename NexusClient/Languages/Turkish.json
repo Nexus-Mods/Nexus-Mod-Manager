@@ -908,6 +908,7 @@
     "Mods.Columns.DownloadId.Header": "İNDİRME ID",
     "Mods.Columns.Endorsed.Header": "TAVSİYE EDİLDİ",
     "Mods.Columns.InstallDate.Header": "YÜKLEME TARİHİ",
+    "Mods.Columns.InstallMethod.Header": "YÖNTEM",
     "Mods.Columns.Latest.Header": "EN SON",
     "Mods.Columns.ModName.Header": "MOD ADI",
     "Mods.Columns.Version.Header": "SÜRÜM",

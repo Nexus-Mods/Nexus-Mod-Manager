@@ -908,6 +908,7 @@
     "Mods.Columns.DownloadId.Header": "DOWNLOAD ID",
     "Mods.Columns.Endorsed.Header": "ENDORSED",
     "Mods.Columns.InstallDate.Header": "INSTALL DATE",
+    "Mods.Columns.InstallMethod.Header": "METHOD",
     "Mods.Columns.Latest.Header": "LATEST",
     "Mods.Columns.ModName.Header": "MOD NAME",
     "Mods.Columns.Version.Header": "VERSION",

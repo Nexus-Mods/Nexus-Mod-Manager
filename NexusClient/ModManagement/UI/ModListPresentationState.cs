@@ -19,6 +19,8 @@
 			new HashSet<IMod>();
 		private readonly Dictionary<IMod, ModVisualStatus> _modVisualStatusCache =
 			new Dictionary<IMod, ModVisualStatus>();
+		private readonly Dictionary<IMod, ModInstallMethod> _modInstallMethodCache =
+			new Dictionary<IMod, ModInstallMethod>();
 		private readonly Dictionary<IMod, bool> _outdatedModCache =
 			new Dictionary<IMod, bool>();
 		private readonly Dictionary<IMod, string> _categoryNameCache =
@@ -54,6 +56,7 @@
 			_activeModFileNames.Clear();
 			_installedMods.Clear();
 			_modVisualStatusCache.Clear();
+			_modInstallMethodCache.Clear();
 			_outdatedModCache.Clear();
 			_categoryNameCache.Clear();
 			lock (_missingArchiveLock)
@@ -97,6 +100,7 @@
 			_activeModFileNames.Clear();
 			_installedMods.Clear();
 			_modVisualStatusCache.Clear();
+			_modInstallMethodCache.Clear();
 
 			if (_viewModel == null)
 				return;
@@ -134,6 +138,26 @@
 		}
 
 		/// <summary>
+		/// Gets the cached install method for an installed mod, or null when the mod is not installed.
+		/// </summary>
+		public ModInstallMethod? GetModInstallMethod(IMod mod)
+		{
+			if (mod == null || !_installedMods.Contains(mod))
+				return null;
+
+			ModInstallMethod installMethod;
+			if (_modInstallMethodCache.TryGetValue(mod, out installMethod))
+				return installMethod;
+
+			if (_viewModel?.ModManager?.InstallationLog == null)
+				return null;
+
+			installMethod = _viewModel.ModManager.InstallationLog.GetModInstallMethod(mod);
+			_modInstallMethodCache[mod] = installMethod;
+			return installMethod;
+		}
+
+		/// <summary>
 		/// Gets the cached visual installation state used consistently by all Mods surfaces.
 		/// </summary>
 		public ModVisualStatus GetModVisualStatus(IMod mod)
@@ -146,8 +170,7 @@
 				return status;
 
 			bool installed = IsModInstalled(mod);
-			bool direct = installed && _viewModel?.ModManager?.InstallationLog != null &&
-				_viewModel.ModManager.InstallationLog.GetModInstallMethod(mod) == ModInstallMethod.Direct;
+			bool direct = installed && GetModInstallMethod(mod) == ModInstallMethod.Direct;
 			bool linked = installed && (direct ||
 				(!String.IsNullOrEmpty(mod.Filename) && _activeModFileNames.Contains(Path.GetFileName(mod.Filename))));
 

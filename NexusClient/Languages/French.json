@@ -908,6 +908,7 @@
     "Mods.Columns.DownloadId.Header": "ID DE TÉLÉCHARGEMENT",
     "Mods.Columns.Endorsed.Header": "RECOMMANDÉ",
     "Mods.Columns.InstallDate.Header": "DATE D’INSTALLATION",
+    "Mods.Columns.InstallMethod.Header": "MÉTHODE",
     "Mods.Columns.Latest.Header": "DERNIÈRE VERSION",
     "Mods.Columns.ModName.Header": "NOM DU MOD",
     "Mods.Columns.Version.Header": "VERSION",

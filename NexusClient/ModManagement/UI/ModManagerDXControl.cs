@@ -77,6 +77,7 @@
 		private Bitmap _inlineAcceptIcon;
 		private Bitmap _inlineCancelIcon;
 		private RepositoryItemButtonEdit _renameButtonEdit;
+		private readonly ToolTip _missingArchiveToolTip;
 		private Control _renameActiveEditor;
 		private BarSubItem _displayOptionsButton;
 		private BarButtonItem _toggleColouredCategoriesMenuItem;
@@ -94,6 +95,7 @@
 		private bool _suppressNextDoubleClick;
 		private bool _testingRenameButtonHit;
 		private bool _missingArchiveScanQueued;
+		private int _missingArchiveToolTipRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
 		private string _gridFontFamilyName = DefaultGridFontFamily;
 		private float _gridFontSizePt = DefaultGridFontSizePt;
 		private string _gridDensity = DefaultGridDensity;
@@ -113,6 +115,9 @@
 		private readonly string _installedActiveStatusText;
 		private readonly string _installedUnlinkedStatusText;
 		private readonly string _uninstalledStatusText;
+		private readonly string _directInstallMethodText;
+		private readonly string _virtualInstallMethodText;
+		private readonly string _missingArchiveToolTipText;
 		private BarButtonItem _toolbarPositionButton;
 		private BarStaticItem _toolbarSeparatorAfterDisable;
 		private BarStaticItem _toolbarSeparatorAfterEndorse;
@@ -166,6 +171,7 @@
 		// column field-name constants (used as column names, not as PropertyDescriptor field names)
 
 		private const string ColModStatus = "ModStatus";
+		private const string ColInstallMethod = "InstallMethod";
 		private const string ColModName = "ModName";
 		private const string ColVersion = "HumanReadableVersion";
 		private const string ColLastKnown = "LastKnownVersion";
@@ -222,7 +228,7 @@
 
 		private static readonly ColumnSizingDefinition[] GridColumnSizingDefinitions =
 		{
-			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
+			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColInstallMethod, ColumnSizingRole.Fixed, 80, 64, 100), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
 		};
 		private const int ModStatusIconSize = 20;
 		private const int InlineEditIconSize = 18;
@@ -258,7 +264,11 @@
 			_installedActiveStatusText = LanguageManager.Get("Mods.Values.InstalledActive", "Installed/Active");
 			_installedUnlinkedStatusText = LanguageManager.Get("Mods.Values.InstalledUnlinked", "Installed/Unlinked");
 			_uninstalledStatusText = LanguageManager.Get("Mods.Values.Uninstalled", "Uninstalled");
+			_directInstallMethodText = LanguageManager.Get("MainForm.InstallMethod.Direct", "Direct");
+			_virtualInstallMethodText = LanguageManager.Get("MainForm.InstallMethod.Virtual", "Virtual");
+			_missingArchiveToolTipText = LanguageManager.Get("Mods.MissingArchive.Title", "Missing Mod Archive");
 			InitializeComponent();
+			_missingArchiveToolTip = new ToolTip(components) { ShowAlways = true };
 			_modGridControl = new ModGridDXControl
 			{
 				Dock = DockStyle.Fill
@@ -1574,6 +1584,8 @@
 			gridView.RowCellStyle += GridView_RowCellStyle;
 			gridView.RowCellClick += GridView_RowCellClick;
 			gridView.MouseDown += GridView_MouseDown;
+			gridControl.MouseMove += GridControl_MouseMove;
+			gridControl.MouseLeave += GridControl_MouseLeave;
 			gridView.DoubleClick += GridView_DoubleClick;
 			gridView.KeyDown += GridView_KeyDown;
 			gridView.PopupMenuShowing += gridView_PopupMenuShowing;
@@ -1652,6 +1664,7 @@
 		private void BuildColumns()
 		{
 			AddCol(ColModStatus, LanguageManager.Get("Common.Column.Status", "Status"), HorzAlignment.Center, true);
+			AddCol(ColInstallMethod, LanguageManager.Get("Mods.Columns.InstallMethod.Header", "METHOD"), HorzAlignment.Center, true);
 			GridColumn modNameCol = AddCol(ColModName, LanguageManager.Get("Mods.Columns.ModName.Header", "MOD NAME"), HorzAlignment.Default, true);
 			AddCol(ColVersion, LanguageManager.Get("Mods.Columns.Version.Header", "VERSION"), HorzAlignment.Center, false);
 			AddCol(ColLastKnown, LanguageManager.Get("Mods.Columns.Latest.Header", "LATEST"), HorzAlignment.Center, false);
@@ -1714,6 +1727,7 @@
 			switch (e.Column.FieldName)
 			{
 				case ColModStatus: e.Value = GetModStatusText(mod); break;
+				case ColInstallMethod: e.Value = GetModInstallMethodText(mod); break;
 				case ColModName: e.Value = mod.ModName; break;
 				case ColVersion: e.Value = mod.HumanReadableVersion; break;
 				case ColLastKnown: e.Value = mod.LastKnownVersion; break;
@@ -1731,6 +1745,26 @@
 							? _endorsedNoImage
 							: _endorsedEmptyImage;
 					break;
+			}
+		}
+
+		/// <summary>
+		/// Gets the localized cached install-method label shown for an installed mod.
+		/// </summary>
+		private string GetModInstallMethodText(IMod mod)
+		{
+			ModInstallMethod? installMethod = _presentationState.GetModInstallMethod(mod);
+			if (!installMethod.HasValue)
+				return String.Empty;
+
+			switch (installMethod.Value)
+			{
+				case ModInstallMethod.Direct:
+					return _directInstallMethodText;
+				case ModInstallMethod.Virtual:
+					return _virtualInstallMethodText;
+				default:
+					return String.Empty;
 			}
 		}
 
@@ -1792,6 +1826,44 @@
 		{
 			Image image = NmmIconProvider.GetBitmap(action, size, false);
 			return image == null ? null : new Bitmap(image);
+		}
+
+		/// <summary>
+		/// Updates the archive-missing tooltip while the pointer moves across mod-name cells.
+		/// </summary>
+		private void GridControl_MouseMove(object sender, MouseEventArgs e)
+		{
+			GridHitInfo hit = gridView.CalcHitInfo(e.Location);
+			int toolTipRowHandle = DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+			if (hit.InRowCell && hit.RowHandle >= 0 && hit.Column != null && hit.Column.FieldName == ColModName)
+			{
+				int sourceIndex = gridView.GetDataSourceRowIndex(hit.RowHandle);
+				if (sourceIndex >= 0 && sourceIndex < _modList.Count && IsModArchiveMissing(_modList[sourceIndex]))
+					toolTipRowHandle = hit.RowHandle;
+			}
+
+			SetMissingArchiveToolTipRow(toolTipRowHandle);
+		}
+
+		/// <summary>
+		/// Hides the archive-missing tooltip when the pointer leaves the Mods grid.
+		/// </summary>
+		private void GridControl_MouseLeave(object sender, EventArgs e)
+		{
+			SetMissingArchiveToolTipRow(DevExpress.XtraGrid.GridControl.InvalidRowHandle);
+		}
+
+		/// <summary>
+		/// Changes the row that exposes the localized archive-missing tooltip.
+		/// </summary>
+		private void SetMissingArchiveToolTipRow(int rowHandle)
+		{
+			if (_missingArchiveToolTipRowHandle == rowHandle)
+				return;
+
+			_missingArchiveToolTipRowHandle = rowHandle;
+			_missingArchiveToolTip.SetToolTip(gridControl,
+				rowHandle >= 0 ? _missingArchiveToolTipText : null);
 		}
 
 		private void QueueMissingArchiveScan()

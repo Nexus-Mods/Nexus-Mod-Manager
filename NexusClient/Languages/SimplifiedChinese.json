@@ -908,6 +908,7 @@
     "Mods.Columns.DownloadId.Header": "下载 ID",
     "Mods.Columns.Endorsed.Header": "已认可",
     "Mods.Columns.InstallDate.Header": "安装日期",
+    "Mods.Columns.InstallMethod.Header": "方式",
     "Mods.Columns.Latest.Header": "最新版本",
     "Mods.Columns.ModName.Header": "MOD 名称",
     "Mods.Columns.Version.Header": "版本",
