@@ -240,20 +240,36 @@
 		public void AddMods(IEnumerable<IMod> mods)
 		{
 			if (mods == null) return;
+			TreeViewportState viewport = CaptureViewportState();
+			TreeListNode focused = _treeList.FocusedNode;
+			IList<TreeListNode> selected = _treeList.Selection.Cast<TreeListNode>().ToList();
+			bool wasSuppressingSelectionChanged = _suppressSelectionChanged;
+			_suppressSelectionChanged = true;
 			_viewControl.BeginInternalDataUpdate();
-			_treeList.BeginUnboundLoad();
 			try
 			{
-				foreach (IMod mod in mods)
-					if (mod != null && !_modNodes.ContainsKey(mod))
-						AddModCore(mod);
+				_treeList.BeginUnboundLoad();
+				try
+				{
+					foreach (IMod mod in mods)
+						if (mod != null && !_modNodes.ContainsKey(mod))
+							AddModCore(mod);
+				}
+				finally
+				{
+					_treeList.EndUnboundLoad();
+				}
+				ApplyVisibilityFilterAfterStructureChange();
+				RestoreNodeSelection(selected, focused);
+				RestoreViewportState(viewport);
 			}
 			finally
 			{
-				_treeList.EndUnboundLoad();
 				_viewControl.EndInternalDataUpdate();
+				_suppressSelectionChanged = wasSuppressingSelectionChanged;
 			}
-			ApplyVisibilityFilterAfterStructureChange();
+			if (!wasSuppressingSelectionChanged)
+				SelectionChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>
@@ -465,29 +481,63 @@
 		}
 
 		/// <summary>
-		/// Refreshes all mod-node values without changing category membership.
+		/// Refreshes all mod-node values while preserving selection and the scroll position across activation-driven sorts.
 		/// </summary>
 		public void RefreshData()
 		{
+			TreeViewportState viewport = CaptureViewportState();
+			TreeListNode focused = _treeList.FocusedNode;
+			IList<TreeListNode> selected = _treeList.Selection.Cast<TreeListNode>().ToList();
+			bool wasSuppressingSelectionChanged = _suppressSelectionChanged;
+			_suppressSelectionChanged = true;
 			_viewControl.BeginInternalDataUpdate();
-			_treeList.BeginUpdate();
 			try
 			{
-				ResetCategoryAggregateState();
-				foreach (KeyValuePair<IMod, TreeListNode> pair in _modNodes.ToList())
+				// BeginUpdate only suppresses painting. Batch unbound data changes as well
+				// so activation does not repeatedly sort the entire tree for each cell.
+				_treeList.BeginUnboundLoad();
+				try
 				{
-					UpdateModNode(pair.Value, pair.Key);
-					AccumulateCategoryState(pair.Value.ParentNode, pair.Key);
+					ResetCategoryAggregateState();
+					foreach (KeyValuePair<IMod, TreeListNode> pair in _modNodes.ToList())
+					{
+						UpdateModNode(pair.Value, pair.Key);
+						AccumulateCategoryState(pair.Value.ParentNode, pair.Key);
+					}
+					RefreshCategoryCaptions();
 				}
-				RefreshCategoryCaptions();
+				finally
+				{
+					_treeList.EndUnboundLoad();
+				}
+				ApplyVisibilityFilterAfterStructureChange();
+				RestoreNodeSelection(selected, focused);
+				// Keep the viewport in place even when its former top mod changes status
+				// and sorts elsewhere. Focus restoration may scroll, so restore this last.
+				RestoreViewportIndex(viewport);
+				_treeList.Invalidate();
 			}
 			finally
 			{
-				_treeList.EndUpdate();
 				_viewControl.EndInternalDataUpdate();
+				_suppressSelectionChanged = wasSuppressingSelectionChanged;
 			}
-			ApplyVisibilityFilterAfterStructureChange();
-			_treeList.Invalidate();
+			if (!wasSuppressingSelectionChanged)
+				SelectionChanged?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Restores existing mod and category nodes after a non-destructive refresh, without selecting a different mod by row index.
+		/// </summary>
+		private void RestoreNodeSelection(IList<TreeListNode> selected, TreeListNode focused)
+		{
+			_treeList.FocusedNode = focused != null && _treeList.GetVisibleIndexByNode(focused) >= 0 ? focused : null;
+			_treeList.Selection.Clear();
+			foreach (TreeListNode node in selected)
+			{
+				if (_treeList.GetVisibleIndexByNode(node) >= 0)
+					_treeList.Selection.Add(node);
+			}
 		}
 
 		/// <summary>
