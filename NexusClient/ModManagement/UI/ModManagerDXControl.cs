@@ -95,6 +95,8 @@
 		private bool _editingSortNumber;
 		private IMod _sortEditMod;
 		private int? _sortEditOriginalValue;
+		private long _editorSessionGeneration;
+		private long _sortEditSessionGeneration;
 		private bool _refreshAfterRename;
 		private bool _suppressNextDoubleClick;
 		private bool _testingRenameButtonHit;
@@ -3635,8 +3637,10 @@
 
 		private void GridView_ShowingEditor(object sender, CancelEventArgs e)
 		{
+			long editorSession = ++_editorSessionGeneration;
 			if (gridView.FocusedRowHandle == DevExpress.XtraGrid.GridControl.AutoFilterRowHandle)
 			{
+				InvalidateSortNumberEditSession();
 				e.Cancel = false;
 				return;
 			}
@@ -3646,10 +3650,12 @@
 				_sortEditMod = GetModForRowHandle(gridView.FocusedRowHandle);
 				_sortEditOriginalValue = _viewModel?.GetModSortNumber(_sortEditMod);
 				_editingSortNumber = _sortEditMod != null;
+				_sortEditSessionGeneration = _editingSortNumber ? editorSession : 0;
 				e.Cancel = !_editingSortNumber;
 				return;
 			}
 
+			InvalidateSortNumberEditSession();
 			if (gridView.FocusedColumn == null || gridView.FocusedColumn.FieldName != ColModName || !IsDataRowHandle(gridView.FocusedRowHandle))
 			{
 				e.Cancel = true;
@@ -3699,8 +3705,9 @@
 			if (_editingSortNumber)
 			{
 				// CustomUnboundColumnData can complete as the editor is being hidden.
-				// Clear the captured identity after the current DevExpress event chain.
-				BeginInvoke((MethodInvoker)EndSortNumberEdit);
+				// Clear only the session that scheduled this callback; a newer editor may already be active.
+				long closingSession = _sortEditSessionGeneration;
+				BeginInvoke((MethodInvoker)(() => EndSortNumberEdit(closingSession)));
 				return;
 			}
 
@@ -3818,13 +3825,23 @@
 		}
 
 		/// <summary>
-		/// Clears the identity and value captured for the current flat-grid Sort edit.
+		/// Clears the captured flat-grid Sort edit only when the deferred callback still owns the active session.
 		/// </summary>
-		private void EndSortNumberEdit()
+		private void EndSortNumberEdit(long sessionGeneration)
+		{
+			if (!_editingSortNumber || _sortEditSessionGeneration != sessionGeneration) return;
+			InvalidateSortNumberEditSession();
+		}
+
+		/// <summary>
+		/// Invalidates stale Sort-edit state before another editor session becomes authoritative.
+		/// </summary>
+		private void InvalidateSortNumberEditSession()
 		{
 			_editingSortNumber = false;
 			_sortEditMod = null;
 			_sortEditOriginalValue = null;
+			_sortEditSessionGeneration = 0;
 		}
 
 		private void RenameEditor_KeyDown(object sender, KeyEventArgs e)

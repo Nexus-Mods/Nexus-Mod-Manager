@@ -93,6 +93,7 @@ namespace Nexus.Client.ModManagement
 		private readonly SynchronizationContext m_scxUIContext;
 		private readonly IPluginManager m_pmgPluginManager;
 		private IProfileManager m_ipmProfileManager;
+		private readonly List<IMod> m_lstSortOrderTrackedManagedMods = new List<IMod>();
 
 		#region events
 
@@ -385,7 +386,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Initializes Sort assignments for passive discovery and tracks identity changes only for explicit Add/download rows.
+		/// Initializes the current-archive inventory first, then resolves passive startup assignments against that complete inventory.
 		/// </summary>
 		private void InitializeSortOrderService()
 		{
@@ -406,27 +407,23 @@ namespace Nexus.Client.ModManagement
 				return;
 			}
 
-			var managedMods = new List<IMod>();
-			foreach (IMod mod in ManagedModRegistry.RegisteredMods)
-			{
-				managedMods.Add(mod);
-			}
+			var managedMods = GetManagedModsSnapshot();
+			var bindingProtectors = GetSortOrderBindingProtectors();
+			SortOrderService.RebuildCurrentArchiveInventory(managedMods, bindingProtectors);
 
-			foreach (IMod mod in managedMods)
+			foreach (var mod in managedMods)
 			{
 				ResolveStartupSortOrder(mod, managedMods);
-				mod.PropertyChanged += ManagedMod_SortOrderIdentityChanged;
+				TrackSortOrderManagedIdentity(mod);
 			}
 
-			foreach (IMod mod in InstallationLog.ActiveMods)
+			foreach (var mod in bindingProtectors)
 			{
-				if (mod is InstallLog.DummyMod && !string.IsNullOrWhiteSpace(mod.ModArchivePath) && Path.IsPathRooted(mod.ModArchivePath))
-				{
-					ResolveStartupSortOrder(mod, managedMods);
-				}
+				ResolveStartupSortOrder(mod, managedMods);
 			}
 
 			ManagedModRegistry.RegisteredMods.CollectionChanged += ManagedMods_SortOrderCollectionChanged;
+			InstallationLog.ActiveMods.CollectionChanged += ActiveMods_SortOrderCollectionChanged;
 		}
 
 		/// <summary>
@@ -445,35 +442,107 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Tracks replacement/addition of managed mod objects so delayed identity can only complete rows created by Add/download.
+		/// Maintains current managed-archive bindings incrementally; Reset performs the only full inventory reconstruction.
 		/// </summary>
 		private void ManagedMods_SortOrderCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (e.OldItems != null)
+			if (SortOrderService == null)
 			{
-				foreach (var item in e.OldItems)
-				{
-					if (item is IMod mod)
-					{
-						mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
-					}
-				}
+				return;
 			}
 
+			if (e.Action == NotifyCollectionChangedAction.Reset)
+			{
+				RebuildSortOrderCurrentArchiveState();
+				return;
+			}
+
+			var newMods = new List<IMod>();
 			if (e.NewItems != null)
 			{
 				foreach (var item in e.NewItems)
 				{
 					if (item is IMod mod)
 					{
-						mod.PropertyChanged += ManagedMod_SortOrderIdentityChanged;
+						newMods.Add(mod);
+						TrackSortOrderManagedIdentity(mod);
+						SortOrderService.TrackManagedMod(mod);
 					}
 				}
+			}
+
+			if (e.OldItems != null)
+			{
+				foreach (var item in e.OldItems)
+				{
+					if (item is IMod mod && !ContainsReference(newMods, mod))
+					{
+						UntrackSortOrderManagedIdentity(mod);
+						SortOrderService.UntrackManagedMod(mod);
+					}
+				}
+			}
+
+			foreach (var mod in newMods)
+			{
+				ResolveStartupSortOrder(mod, ManagedModRegistry.RegisteredMods);
 			}
 		}
 
 		/// <summary>
-		/// Completes identity reconciliation only for a row that was explicitly marked pending by Add/download.
+		/// Tracks active placeholders separately so they may protect bindings without ever becoming MIN donors.
+		/// </summary>
+		private void ActiveMods_SortOrderCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+		{
+			if (SortOrderService == null)
+			{
+				return;
+			}
+
+			if (e.Action == NotifyCollectionChangedAction.Reset)
+			{
+				var managedMods = GetManagedModsSnapshot();
+				var bindingProtectors = GetSortOrderBindingProtectors();
+				SortOrderService.RebuildCurrentArchiveInventory(managedMods, bindingProtectors);
+				foreach (var mod in bindingProtectors)
+				{
+					ResolveStartupSortOrder(mod, managedMods);
+				}
+				return;
+			}
+
+			var newProtectors = new List<IMod>();
+			if (e.NewItems != null)
+			{
+				foreach (var item in e.NewItems)
+				{
+					if (item is IMod mod && IsSortOrderBindingProtector(mod))
+					{
+						newProtectors.Add(mod);
+						SortOrderService.TrackBindingProtector(mod);
+					}
+				}
+			}
+
+			if (e.OldItems != null)
+			{
+				foreach (var item in e.OldItems)
+				{
+					if (item is IMod mod && IsSortOrderBindingProtector(mod) && !ContainsReference(newProtectors, mod))
+					{
+						SortOrderService.UntrackBindingProtector(mod);
+					}
+				}
+			}
+
+			foreach (var mod in newProtectors)
+			{
+				ResolveStartupSortOrder(mod, ManagedModRegistry.RegisteredMods);
+			}
+		}
+
+		/// <summary>
+		/// Reconciles newly available repository identity for pending and explicit assignments; only pending Add rows may inherit.
 		/// </summary>
 		private void ManagedMod_SortOrderIdentityChanged(object sender, PropertyChangedEventArgs e)
 		{
@@ -483,23 +552,132 @@ namespace Nexus.Client.ModManagement
 			}
 
 			var mod = sender as IMod;
-			if (mod == null || !SortOrderService.IsPendingAddIdentity(mod))
+			if (mod == null)
 			{
 				return;
 			}
 
 			try
 			{
-				SortOrderService.Resolve(mod, ModSortOrderAssignmentContext.IdentityResolvedForPendingAdd, ManagedModRegistry.RegisteredMods);
+				SortOrderService.ReconcileIdentity(mod);
 			}
 			catch (Exception ex)
 			{
-				Trace.TraceError("Unable to reconcile pending Mod Sort identity for {0}: {1}", mod.ModArchivePath, ex);
+				Trace.TraceError("Unable to reconcile Mod Sort identity for {0}: {1}", mod.ModArchivePath, ex);
 			}
 		}
 
 		/// <summary>
-		/// Removes Sort identity tracking subscriptions owned by this manager instance.
+		/// Rebuilds the two-phase current archive inventory after a managed-registry Reset.
+		/// </summary>
+		private void RebuildSortOrderCurrentArchiveState()
+		{
+			foreach (var mod in new List<IMod>(m_lstSortOrderTrackedManagedMods))
+			{
+				UntrackSortOrderManagedIdentity(mod);
+			}
+
+			var managedMods = GetManagedModsSnapshot();
+			var bindingProtectors = GetSortOrderBindingProtectors();
+			SortOrderService.RebuildCurrentArchiveInventory(managedMods, bindingProtectors);
+
+			foreach (var mod in managedMods)
+			{
+				TrackSortOrderManagedIdentity(mod);
+				ResolveStartupSortOrder(mod, managedMods);
+			}
+			foreach (var mod in bindingProtectors)
+			{
+				ResolveStartupSortOrder(mod, managedMods);
+			}
+		}
+
+		/// <summary>
+		/// Captures the current managed collection for deterministic two-phase startup/rebuild processing.
+		/// </summary>
+		private List<IMod> GetManagedModsSnapshot()
+		{
+			var managedMods = new List<IMod>();
+			foreach (IMod mod in ManagedModRegistry.RegisteredMods)
+			{
+				managedMods.Add(mod);
+			}
+			return managedMods;
+		}
+
+		/// <summary>
+		/// Captures active missing-archive placeholders that may keep an installed archive binding alive.
+		/// </summary>
+		private List<IMod> GetSortOrderBindingProtectors()
+		{
+			var protectors = new List<IMod>();
+			foreach (IMod mod in InstallationLog.ActiveMods)
+			{
+				if (IsSortOrderBindingProtector(mod))
+				{
+					protectors.Add(mod);
+				}
+			}
+			return protectors;
+		}
+
+		/// <summary>
+		/// Determines whether an active mod is a usable missing-archive placeholder for Sort binding lifetime.
+		/// </summary>
+		private static bool IsSortOrderBindingProtector(IMod mod)
+		{
+			return mod is InstallLog.DummyMod && !string.IsNullOrWhiteSpace(mod.ModArchivePath) && Path.IsPathRooted(mod.ModArchivePath);
+		}
+
+		/// <summary>
+		/// Subscribes to identity changes once for one managed mod object.
+		/// </summary>
+		private void TrackSortOrderManagedIdentity(IMod mod)
+		{
+			if (mod == null || ContainsReference(m_lstSortOrderTrackedManagedMods, mod))
+			{
+				return;
+			}
+			mod.PropertyChanged += ManagedMod_SortOrderIdentityChanged;
+			m_lstSortOrderTrackedManagedMods.Add(mod);
+		}
+
+		/// <summary>
+		/// Removes identity tracking for the exact managed mod object.
+		/// </summary>
+		private void UntrackSortOrderManagedIdentity(IMod mod)
+		{
+			if (mod == null)
+			{
+				return;
+			}
+			for (var index = m_lstSortOrderTrackedManagedMods.Count - 1; index >= 0; index--)
+			{
+				if (ReferenceEquals(m_lstSortOrderTrackedManagedMods[index], mod))
+				{
+					mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
+					m_lstSortOrderTrackedManagedMods.RemoveAt(index);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Determines whether a list contains the exact mod object reference.
+		/// </summary>
+		private static bool ContainsReference(IEnumerable<IMod> mods, IMod target)
+		{
+			foreach (var mod in mods)
+			{
+				if (ReferenceEquals(mod, target))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Removes Sort identity and collection tracking subscriptions owned by this manager instance.
 		/// </summary>
 		private void DetachSortOrderIdentityTracking()
 		{
@@ -509,9 +687,13 @@ namespace Nexus.Client.ModManagement
 			}
 
 			ManagedModRegistry.RegisteredMods.CollectionChanged -= ManagedMods_SortOrderCollectionChanged;
-			foreach (IMod mod in ManagedModRegistry.RegisteredMods)
+			if (InstallationLog?.ActiveMods != null)
 			{
-				mod.PropertyChanged -= ManagedMod_SortOrderIdentityChanged;
+				InstallationLog.ActiveMods.CollectionChanged -= ActiveMods_SortOrderCollectionChanged;
+			}
+			foreach (var mod in new List<IMod>(m_lstSortOrderTrackedManagedMods))
+			{
+				UntrackSortOrderManagedIdentity(mod);
 			}
 		}
 

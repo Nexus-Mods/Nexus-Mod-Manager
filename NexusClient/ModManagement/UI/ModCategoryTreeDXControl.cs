@@ -94,6 +94,8 @@
 		private bool _editingSortNumber;
 		private IMod _sortEditMod;
 		private int? _sortOriginalValue;
+		private long _editorSessionGeneration;
+		private long _sortEditSessionGeneration;
 		private bool _lastFindPanelVisible;
 		private Color _latestVersionForeColor;
 		private Color _outdatedVersionForeColor;
@@ -669,6 +671,7 @@
 		{
 			// ShowingEditor is not raised for the Auto Filter Row, so restricting normal
 			// nodes here does not interfere with filter-row editing.
+			long editorSession = ++_editorSessionGeneration;
 			IMod focusedMod = treeList.FocusedNode?.Tag as IMod;
 			string fieldName = treeList.FocusedColumn?.FieldName;
 			if (focusedMod != null && fieldName == ModCategoryTreeColumns.SortNumber)
@@ -676,10 +679,12 @@
 				_editingSortNumber = true;
 				_sortEditMod = focusedMod;
 				_sortOriginalValue = ReadSortNumber(treeList.FocusedNode.GetValue(ModCategoryTreeColumns.SortNumber));
+				_sortEditSessionGeneration = editorSession;
 				e.Cancel = false;
 				return;
 			}
 
+			InvalidateSortNumberEditSession();
 			e.Cancel = !_renameRequested || focusedMod == null || fieldName != ModCategoryTreeColumns.ModName;
 		}
 
@@ -707,7 +712,8 @@
 			{
 				// CellValueChanged can complete as the editor is being hidden. Preserve
 				// the captured target/original value until this event chain is finished.
-				BeginInvoke((MethodInvoker)EndSortNumberEdit);
+				long closingSession = _sortEditSessionGeneration;
+				BeginInvoke((MethodInvoker)(() => EndSortNumberEdit(closingSession)));
 				return;
 			}
 
@@ -814,13 +820,23 @@
 		}
 
 		/// <summary>
-		/// Clears transient Category Tree Sort-edit state.
+		/// Clears Category Tree Sort-edit state only when the deferred callback still owns the active session.
 		/// </summary>
-		private void EndSortNumberEdit()
+		private void EndSortNumberEdit(long sessionGeneration)
+		{
+			if (!_editingSortNumber || _sortEditSessionGeneration != sessionGeneration) return;
+			InvalidateSortNumberEditSession();
+		}
+
+		/// <summary>
+		/// Invalidates stale Sort-edit state before another tree editor session becomes authoritative.
+		/// </summary>
+		private void InvalidateSortNumberEditSession()
 		{
 			_editingSortNumber = false;
 			_sortEditMod = null;
 			_sortOriginalValue = null;
+			_sortEditSessionGeneration = 0;
 		}
 
 		/// <summary>

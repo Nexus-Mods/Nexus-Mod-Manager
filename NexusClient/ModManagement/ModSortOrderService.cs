@@ -46,6 +46,31 @@
 		private readonly Dictionary<string, List<ModSortOrderRecord>> _recordsByLocator = new Dictionary<string, List<ModSortOrderRecord>>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, List<ModSortOrderRecord>> _recordsByRepositoryFile = new Dictionary<string, List<ModSortOrderRecord>>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, ModSortOrderRecord> _resolvedByLocator = new Dictionary<string, ModSortOrderRecord>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, CurrentArchiveState> _currentArchivesByLocator = new Dictionary<string, CurrentArchiveState>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, HashSet<string>> _currentLocatorsByRepositoryFile = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, HashSet<string>> _currentManagedLocatorsByModId = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+		/// <summary>
+		/// Tracks the current archive objects that may own a live binding. Managed archives may donate MIN values; placeholders only protect bindings.
+		/// </summary>
+		private sealed class CurrentArchiveState
+		{
+			public CurrentArchiveState(string locator)
+			{
+				Locator = locator;
+			}
+
+			public string Locator { get; }
+			public List<IMod> ManagedMods { get; } = new List<IMod>();
+			public List<IMod> BindingProtectors { get; } = new List<IMod>();
+			public string ModId { get; set; }
+			public string DownloadId { get; set; }
+			public bool IdentityConflict { get; set; }
+			public string IndexedRepositoryKey { get; set; }
+			public string IndexedManagedModId { get; set; }
+			public bool HasManagedArchive => ManagedMods.Count > 0;
+			public bool ProtectsBinding => HasManagedArchive || BindingProtectors.Count > 0;
+		}
 
 		/// <summary>
 		/// Initializes the service and loads durable assignment rows into memory once.
@@ -63,6 +88,144 @@
 		/// Raised after a durable write succeeds or an existing durable row becomes the active in-memory assignment.
 		/// </summary>
 		public event EventHandler<ModSortOrderChangedEventArgs> AssignmentChanged = delegate { };
+
+		/// <summary>
+		/// Rebuilds the current-archive inventory before startup assignment resolution or after a collection Reset.
+		/// </summary>
+		public void RebuildCurrentArchiveInventory(IEnumerable<IMod> managedMods, IEnumerable<IMod> bindingProtectors)
+		{
+			lock (_syncRoot)
+			{
+				_currentArchivesByLocator.Clear();
+				_currentLocatorsByRepositoryFile.Clear();
+				_currentManagedLocatorsByModId.Clear();
+				if (managedMods != null)
+				{
+					foreach (var mod in managedMods)
+					{
+						TrackCurrentArchive(mod, true);
+					}
+				}
+				if (bindingProtectors != null)
+				{
+					foreach (var mod in bindingProtectors)
+					{
+						TrackCurrentArchive(mod, false);
+					}
+				}
+
+				foreach (var locator in _resolvedByLocator.Keys.Where(x => !_currentArchivesByLocator.ContainsKey(x)).ToList())
+				{
+					_resolvedByLocator.Remove(locator);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Adds or refreshes one current managed archive. Managed archives are eligible MIN donors.
+		/// </summary>
+		public void TrackManagedMod(IMod mod)
+		{
+			if (mod == null)
+			{
+				return;
+			}
+			lock (_syncRoot)
+			{
+				TrackCurrentArchive(mod, true);
+			}
+		}
+
+		/// <summary>
+		/// Removes one managed archive from the live inventory while retaining its durable historical assignment.
+		/// </summary>
+		public void UntrackManagedMod(IMod mod)
+		{
+			if (mod == null)
+			{
+				return;
+			}
+			lock (_syncRoot)
+			{
+				UntrackCurrentArchive(mod, true);
+			}
+		}
+
+		/// <summary>
+		/// Adds an active placeholder that protects an installed archive binding but never donates a MIN value.
+		/// </summary>
+		public void TrackBindingProtector(IMod mod)
+		{
+			if (mod == null)
+			{
+				return;
+			}
+			lock (_syncRoot)
+			{
+				TrackCurrentArchive(mod, false);
+			}
+		}
+
+		/// <summary>
+		/// Removes an active placeholder from the live inventory without deleting historical metadata.
+		/// </summary>
+		public void UntrackBindingProtector(IMod mod)
+		{
+			if (mod == null)
+			{
+				return;
+			}
+			lock (_syncRoot)
+			{
+				UntrackCurrentArchive(mod, false);
+			}
+		}
+
+		/// <summary>
+		/// Reconciles newly available repository identity for any current assignment without allowing passive rows to inherit.
+		/// </summary>
+		public int? ReconcileIdentity(IMod mod)
+		{
+			if (mod == null)
+			{
+				throw new ArgumentNullException(nameof(mod));
+			}
+
+			ModSortOrderRecord resolved;
+			string locator;
+			lock (_syncRoot)
+			{
+				locator = GetLocator(mod);
+				var current = GetResolvedRecord(locator);
+				if (current == null)
+				{
+					resolved = ResolveStartupOrDiscovery(mod, locator, null);
+				}
+				else if (HasIdentityConflict(current, mod))
+				{
+					// Do not merge a known different repository file into this durable assignment.
+					resolved = current;
+				}
+				else if (current.AssignmentState == ModSortOrderAssignmentState.PendingAddIdentity)
+				{
+					resolved = ResolvePendingAddIdentity(mod, locator, null);
+				}
+				else if (IsExplicit(current))
+				{
+					resolved = ReconcileExplicitIdentity(current, mod, locator);
+				}
+				else
+				{
+					resolved = AttachIdentityIfNeeded(current, mod, locator);
+				}
+
+				Bind(locator, resolved);
+				RefreshTrackedArchiveIdentity(locator);
+			}
+
+			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, resolved.SortNumber));
+			return resolved.SortNumber;
+		}
 
 		/// <summary>
 		/// Resolves an assignment for a lifecycle boundary without performing UI-time I/O.
@@ -98,6 +261,7 @@
 						throw new ArgumentOutOfRangeException(nameof(context));
 				}
 				Bind(locator, resolved);
+				RefreshTrackedArchiveIdentity(locator);
 			}
 
 			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, resolved.SortNumber));
@@ -121,6 +285,7 @@
 				locator = GetLocator(mod);
 				resolved = ResolveAddOrDownload(mod, locator, managedMods, repositoryModId, repositoryDownloadId);
 				Bind(locator, resolved);
+				RefreshTrackedArchiveIdentity(locator);
 			}
 
 			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, resolved.SortNumber));
@@ -154,6 +319,7 @@
 					DateTime.UtcNow);
 				saved = PersistRecord(edited);
 				Bind(locator, saved);
+				RefreshTrackedArchiveIdentity(locator);
 			}
 
 			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, saved.SortNumber));
@@ -542,13 +708,18 @@
 		/// </summary>
 		private ModSortOrderRecord FindUniqueExactRepositoryRecord(string modId, string downloadId, string targetLocator, long? excludedAssignmentId, IEnumerable<IMod> managedMods)
 		{
-			if (!HasExactRepositoryIdentity(modId, downloadId) || HasOtherCurrentRepositoryCopy(modId, downloadId, targetLocator, managedMods))
+			if (!HasExactRepositoryIdentity(modId, downloadId))
 			{
 				return null;
 			}
 
 			var key = GetRepositoryKey(modId, downloadId);
 			if (!_recordsByRepositoryFile.TryGetValue(key, out var records))
+			{
+				return null;
+			}
+
+			if (HasOtherCurrentRepositoryCopy(modId, downloadId, targetLocator, managedMods))
 			{
 				return null;
 			}
@@ -571,28 +742,17 @@
 		}
 
 		/// <summary>
-		/// Determines whether another currently managed archive already has the supplied exact repository identity.
+		/// Determines whether another current managed archive or binding protector has the supplied exact repository identity.
 		/// </summary>
 		private bool HasOtherCurrentRepositoryCopy(string modId, string downloadId, string targetLocator, IEnumerable<IMod> managedMods)
 		{
-			if (managedMods == null)
+			if (!HasExactRepositoryIdentity(modId, downloadId) ||
+				!_currentLocatorsByRepositoryFile.TryGetValue(GetRepositoryKey(modId, downloadId), out var locators))
 			{
 				return false;
 			}
 
-			foreach (var sibling in managedMods)
-			{
-				if (sibling == null || !ModFileIdentity.IsSameRepositoryFile(modId, downloadId, sibling.Id, sibling.DownloadId))
-				{
-					continue;
-				}
-
-				if (!string.Equals(GetLocator(sibling), targetLocator, StringComparison.OrdinalIgnoreCase))
-				{
-					return true;
-				}
-			}
-			return false;
+			return locators.Any(x => !string.Equals(x, targetLocator, StringComparison.OrdinalIgnoreCase));
 		}
 
 		/// <summary>
@@ -633,7 +793,7 @@
 		}
 
 		/// <summary>
-		/// Computes the minimum non-blank Sort value from currently present, already-resolved same-ModId siblings.
+		/// Computes the minimum non-blank Sort value from currently present managed, already-resolved same-ModId siblings.
 		/// </summary>
 		private int? GetMinimumSiblingValue(IMod mod, string locator, IEnumerable<IMod> managedMods)
 		{
@@ -645,31 +805,270 @@
 		/// </summary>
 		private int? GetMinimumSiblingValue(string modId, string locator, IEnumerable<IMod> managedMods)
 		{
-			if (!ModFileIdentity.IsUsableRepositoryId(modId) || managedMods == null)
+			if (!ModFileIdentity.IsUsableRepositoryId(modId) ||
+				!_currentManagedLocatorsByModId.TryGetValue(GetRepositoryIdKey(modId), out var siblingLocators))
 			{
 				return null;
 			}
 
 			int? minimum = null;
-			foreach (var sibling in managedMods)
+			foreach (var siblingLocator in siblingLocators)
 			{
-				if (sibling == null || !ModFileIdentity.IsUsableRepositoryId(sibling.Id) || !string.Equals(sibling.Id, modId, StringComparison.OrdinalIgnoreCase))
+				if (string.Equals(siblingLocator, locator, StringComparison.OrdinalIgnoreCase) ||
+					!_resolvedByLocator.TryGetValue(siblingLocator, out var siblingRecord) ||
+					!siblingRecord.SortNumber.HasValue)
 				{
 					continue;
 				}
 
-				var siblingLocator = GetLocator(sibling);
-				if (string.Equals(siblingLocator, locator, StringComparison.OrdinalIgnoreCase))
-				{
-					continue;
-				}
-				if (_resolvedByLocator.TryGetValue(siblingLocator, out var siblingRecord) && siblingRecord.SortNumber.HasValue &&
-					(!minimum.HasValue || siblingRecord.SortNumber.Value < minimum.Value))
+				if (!minimum.HasValue || siblingRecord.SortNumber.Value < minimum.Value)
 				{
 					minimum = siblingRecord.SortNumber.Value;
 				}
 			}
 			return minimum;
+		}
+
+		/// <summary>
+		/// Tracks one current archive object by reference and refreshes its effective trusted identity.
+		/// </summary>
+		private void TrackCurrentArchive(IMod mod, bool managed)
+		{
+			if (mod == null)
+			{
+				return;
+			}
+
+			var locator = GetLocator(mod);
+			if (!_currentArchivesByLocator.TryGetValue(locator, out var state))
+			{
+				state = new CurrentArchiveState(locator);
+				_currentArchivesByLocator[locator] = state;
+			}
+
+			var list = managed ? state.ManagedMods : state.BindingProtectors;
+			if (!ContainsReference(list, mod))
+			{
+				list.Add(mod);
+			}
+			RefreshCurrentArchiveIdentity(state);
+		}
+
+		/// <summary>
+		/// Removes one current archive object by reference and drops only the live binding when the locator is no longer represented.
+		/// </summary>
+		private void UntrackCurrentArchive(IMod mod, bool managed)
+		{
+			var locator = GetLocator(mod);
+			if (!_currentArchivesByLocator.TryGetValue(locator, out var state))
+			{
+				return;
+			}
+
+			RemoveReference(managed ? state.ManagedMods : state.BindingProtectors, mod);
+			if (!state.ProtectsBinding)
+			{
+				RemoveCurrentArchiveIndexes(state);
+				_currentArchivesByLocator.Remove(locator);
+				_resolvedByLocator.Remove(locator);
+				return;
+			}
+			RefreshCurrentArchiveIdentity(state);
+		}
+
+		/// <summary>
+		/// Refreshes identity for a currently tracked locator after a successful durable assignment change.
+		/// </summary>
+		private void RefreshTrackedArchiveIdentity(string locator)
+		{
+			if (_currentArchivesByLocator.TryGetValue(locator, out var state))
+			{
+				RefreshCurrentArchiveIdentity(state);
+			}
+		}
+
+		/// <summary>
+		/// Resolves current identity from live metadata plus compatible saved/bound records without performing I/O.
+		/// </summary>
+		private void RefreshCurrentArchiveIdentity(CurrentArchiveState state)
+		{
+			RemoveCurrentArchiveIndexes(state);
+			state.ModId = null;
+			state.DownloadId = null;
+			state.IdentityConflict = false;
+
+			foreach (var mod in state.ManagedMods)
+			{
+				MergeCurrentIdentity(state, mod.Id, mod.DownloadId);
+			}
+			foreach (var mod in state.BindingProtectors)
+			{
+				MergeCurrentIdentity(state, mod.Id, mod.DownloadId);
+			}
+
+			if (_resolvedByLocator.TryGetValue(state.Locator, out var boundRecord))
+			{
+				if (HasIdentityConflict(boundRecord, state.ModId, state.DownloadId))
+				{
+					state.IdentityConflict = true;
+				}
+				else
+				{
+					MergeCurrentIdentity(state, boundRecord.ModId, boundRecord.DownloadId);
+				}
+			}
+
+			if (!state.IdentityConflict && _recordsByLocator.TryGetValue(state.Locator, out var records))
+			{
+				var compatible = records.Where(x => !HasIdentityConflict(x, state.ModId, state.DownloadId)).ToList();
+				if (!ModFileIdentity.IsUsableRepositoryId(state.ModId))
+				{
+					var modIds = compatible.Select(x => x.ModId).Where(ModFileIdentity.IsUsableRepositoryId).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+					if (modIds.Count == 1)
+					{
+						state.ModId = modIds[0];
+					}
+				}
+
+				if (!ModFileIdentity.IsUsableRepositoryId(state.DownloadId) && ModFileIdentity.IsUsableRepositoryId(state.ModId))
+				{
+					var downloadIds = compatible
+						.Where(x => !ModFileIdentity.IsUsableRepositoryId(x.ModId) || string.Equals(x.ModId, state.ModId, StringComparison.OrdinalIgnoreCase))
+						.Select(x => x.DownloadId)
+						.Where(ModFileIdentity.IsUsableRepositoryId)
+						.Distinct(StringComparer.OrdinalIgnoreCase)
+						.ToList();
+					if (downloadIds.Count == 1)
+					{
+						state.DownloadId = downloadIds[0];
+					}
+				}
+			}
+
+			IndexCurrentArchive(state);
+		}
+
+		/// <summary>
+		/// Adds the current locator to exact-file and MIN-donor indexes after its effective identity is stable.
+		/// </summary>
+		private void IndexCurrentArchive(CurrentArchiveState state)
+		{
+			if (state.IdentityConflict)
+			{
+				return;
+			}
+
+			if (state.ProtectsBinding && HasExactRepositoryIdentity(state.ModId, state.DownloadId))
+			{
+				state.IndexedRepositoryKey = GetRepositoryKey(state.ModId, state.DownloadId);
+				AddCurrentLocator(_currentLocatorsByRepositoryFile, state.IndexedRepositoryKey, state.Locator);
+			}
+
+			if (state.HasManagedArchive && ModFileIdentity.IsUsableRepositoryId(state.ModId))
+			{
+				state.IndexedManagedModId = GetRepositoryIdKey(state.ModId);
+				AddCurrentLocator(_currentManagedLocatorsByModId, state.IndexedManagedModId, state.Locator);
+			}
+		}
+
+		/// <summary>
+		/// Removes the locator's previous identity-index entries before recalculating its effective identity.
+		/// </summary>
+		private void RemoveCurrentArchiveIndexes(CurrentArchiveState state)
+		{
+			if (!string.IsNullOrEmpty(state.IndexedRepositoryKey))
+			{
+				RemoveCurrentLocator(_currentLocatorsByRepositoryFile, state.IndexedRepositoryKey, state.Locator);
+				state.IndexedRepositoryKey = null;
+			}
+
+			if (!string.IsNullOrEmpty(state.IndexedManagedModId))
+			{
+				RemoveCurrentLocator(_currentManagedLocatorsByModId, state.IndexedManagedModId, state.Locator);
+				state.IndexedManagedModId = null;
+			}
+		}
+
+		/// <summary>
+		/// Adds one locator to a current multi-value identity index.
+		/// </summary>
+		private static void AddCurrentLocator(IDictionary<string, HashSet<string>> index, string key, string locator)
+		{
+			if (!index.TryGetValue(key, out var locators))
+			{
+				locators = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				index[key] = locators;
+			}
+			locators.Add(locator);
+		}
+
+		/// <summary>
+		/// Removes one locator from a current multi-value identity index.
+		/// </summary>
+		private static void RemoveCurrentLocator(IDictionary<string, HashSet<string>> index, string key, string locator)
+		{
+			if (!index.TryGetValue(key, out var locators))
+			{
+				return;
+			}
+
+			locators.Remove(locator);
+			if (locators.Count == 0)
+			{
+				index.Remove(key);
+			}
+		}
+
+		/// <summary>
+		/// Merges one trusted identity source, marking conflicts rather than silently combining unrelated repository files.
+		/// </summary>
+		private static void MergeCurrentIdentity(CurrentArchiveState state, string modId, string downloadId)
+		{
+			if (ModFileIdentity.IsUsableRepositoryId(modId))
+			{
+				if (ModFileIdentity.IsUsableRepositoryId(state.ModId) && !string.Equals(state.ModId, modId, StringComparison.OrdinalIgnoreCase))
+				{
+					state.IdentityConflict = true;
+				}
+				else
+				{
+					state.ModId = modId;
+				}
+			}
+
+			if (ModFileIdentity.IsUsableRepositoryId(downloadId))
+			{
+				if (ModFileIdentity.IsUsableRepositoryId(state.DownloadId) && !string.Equals(state.DownloadId, downloadId, StringComparison.OrdinalIgnoreCase))
+				{
+					state.IdentityConflict = true;
+				}
+				else
+				{
+					state.DownloadId = downloadId;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Determines whether a list already contains the exact object reference.
+		/// </summary>
+		private static bool ContainsReference(IEnumerable<IMod> mods, IMod target)
+		{
+			return mods.Any(x => ReferenceEquals(x, target));
+		}
+
+		/// <summary>
+		/// Removes the exact object reference without relying on mod filename equality.
+		/// </summary>
+		private static void RemoveReference(IList<IMod> mods, IMod target)
+		{
+			for (var index = mods.Count - 1; index >= 0; index--)
+			{
+				if (ReferenceEquals(mods[index], target))
+				{
+					mods.RemoveAt(index);
+				}
+			}
 		}
 
 		/// <summary>
@@ -932,7 +1331,15 @@
 		/// </summary>
 		private static string GetRepositoryKey(string modId, string downloadId)
 		{
-			return (modId ?? string.Empty).Trim() + "\u001f" + (downloadId ?? string.Empty).Trim();
+			return GetRepositoryIdKey(modId) + "\u001f" + GetRepositoryIdKey(downloadId);
+		}
+
+		/// <summary>
+		/// Normalizes one repository identifier for case-insensitive in-memory identity indexes.
+		/// </summary>
+		private static string GetRepositoryIdKey(string repositoryId)
+		{
+			return (repositoryId ?? string.Empty).Trim();
 		}
 	}
 }
