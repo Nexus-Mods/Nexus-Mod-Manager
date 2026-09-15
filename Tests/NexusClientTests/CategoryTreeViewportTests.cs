@@ -546,6 +546,49 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Reveals an already-focused mod after installation sorting moves it outside the preserved viewport, only when requested.
+		/// </summary>
+		[TestCase(true, true, SortOrder.Ascending)]
+		[TestCase(true, true, SortOrder.Descending)]
+		[TestCase(false, true, SortOrder.Descending)]
+		[TestCase(true, false, SortOrder.Descending)]
+		public void ManagerInstallDateNavigationRevealsAlreadyFocusedMod(bool optionEnabled, bool installDatePrimary, SortOrder sortOrder)
+		{
+			PrepareSort(installDatePrimary ? "InstallDate" : "ModName", installDatePrimary ? sortOrder : SortOrder.Ascending);
+			if (!installDatePrimary)
+			{
+				_tree.Columns["InstallDate"].SortOrder = sortOrder;
+				_tree.Columns["InstallDate"].SortIndex = 1;
+			}
+
+			IMod mod = _mods[90];
+			TreeListNode node = _tree.NodesIterator.All.First(candidate => ReferenceEquals(candidate.Tag, mod));
+			_tree.FocusedNode = node;
+			_tree.Selection.Clear();
+			_tree.Selection.Add(node);
+			_tree.TopVisibleNodeIndex = 130;
+			DrainPostedCallbacks();
+			int previousTopIndex = _tree.TopVisibleNodeIndex;
+
+			using (Control manager = CreateManagerHarness(optionEnabled, false))
+			{
+				mod.InstallDate = sortOrder == SortOrder.Ascending ? "1900-01-01" : "2099-12-31";
+				InvokeNonPublic(manager, "Mod_PropertyChanged", mod, new PropertyChangedEventArgs("InstallDate"));
+				Assert.That(_tree.FocusedNode, Is.SameAs(node));
+				Assert.That(_tree.TopVisibleNodeIndex, Is.EqualTo(previousTopIndex), "The refresh must preserve the viewport until explicit navigation runs.");
+				DrainPostedCallbacks();
+
+				Assert.That(_tree.FocusedNode, Is.SameAs(node));
+				Assert.That(_tree.Selection.Contains(node), Is.True);
+				int targetIndex = _tree.GetVisibleIndexByNode(node);
+				Assert.That(targetIndex, Is.LessThan(previousTopIndex), "The target must be above the preserved viewport to exercise explicit reveal.");
+				Assert.That(_tree.TopVisibleNodeIndex,
+					Is.EqualTo(optionEnabled && installDatePrimary ? targetIndex : previousTopIndex),
+					"Reveal the changed mod only when the option is enabled and Install Date is the primary sort.");
+			}
+		}
+
+		/// <summary>
 		/// Reveals the changed mod in its own collapsed category instead of searching the first expanded category.
 		/// </summary>
 		[Test]

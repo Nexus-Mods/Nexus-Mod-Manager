@@ -793,6 +793,8 @@
 			_treeList.Selection.Clear();
 			_treeList.Selection.Add(node);
 			_treeList.FocusedNode = node;
+			// Assigning the same focused node does not scroll after a sort moves it off-screen.
+			_treeList.MakeNodeVisible(node);
 		}
 
 		/// <summary>
