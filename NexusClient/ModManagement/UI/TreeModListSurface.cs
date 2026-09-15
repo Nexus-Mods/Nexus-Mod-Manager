@@ -1153,6 +1153,15 @@
 		}
 
 		/// <summary>
+		/// Determines whether the specified field is the primary TreeList sort column.
+		/// </summary>
+		internal bool IsPrimarySortColumn(string fieldName)
+		{
+			TreeListColumn column = _treeList.SortedColumnCount > 0 ? _treeList.GetSortColumn(0) : null;
+			return column != null && String.Equals(column.FieldName, fieldName, StringComparison.Ordinal);
+		}
+
+		/// <summary>
 		/// Focuses the first visible mod node in the TreeList's current visual order.
 		/// </summary>
 		internal void FocusFirstVisibleMod()

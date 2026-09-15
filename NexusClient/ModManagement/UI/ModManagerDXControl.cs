@@ -107,7 +107,7 @@
 		private bool _showActiveModsInBold;
 		private bool _latestColumnOpensModPage;
 		private bool _focusTopRowAfterSorting = true;
-		private bool _focusTopRowAfterInstallDateChange = true;
+		private bool _focusTopRowAfterInstallDateChange;
 		private bool _lastFindPanelVisible;
 		private bool _restoringFindPanelVisibility;
 		private bool _toolbarPositionLeft;
@@ -429,7 +429,7 @@
 			SetActiveModsBold(false, false);
 			SetLatestColumnOpensModPage(false, false);
 			SetFocusTopRowAfterSorting(true, false);
-			SetFocusTopRowAfterInstallDateChange(true, false);
+			SetFocusTopRowAfterInstallDateChange(false, false);
 			SetHideDefaultNexusCategories(false, false);
 			SetShowCategoryModCountIcons(false, false);
 			SetToolbarPosition(DefaultToolbarPositionLeft, true);
@@ -1141,9 +1141,16 @@
 				return false;
 
 			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
-				return _categoryModListSurface != null && _categoryModListSurface.IsSortedByColumn(ModCategoryTreeColumns.InstallDate);
+				return _categoryModListSurface != null && _categoryModListSurface.IsPrimarySortColumn(ModCategoryTreeColumns.InstallDate);
 
-			return IsGridSortedByColumn(ColInstallDate);
+			return IsGridPrimarySortColumn(ColInstallDate);
+		}
+
+		private bool IsGridPrimarySortColumn(string fieldName)
+		{
+			return gridView.SortInfo.Count > 0 &&
+				gridView.SortInfo[0].Column != null &&
+				string.Equals(gridView.SortInfo[0].Column.FieldName, fieldName, StringComparison.Ordinal);
 		}
 
 		private bool IsGridSortedByColumn(string fieldName)
@@ -1455,7 +1462,7 @@
 			SetActiveModsBold(ReadGridDisplayOption(GridActiveModsBoldKey, false), false);
 			SetLatestColumnOpensModPage(ReadGridDisplayOption(GridLatestColumnOpensModPageKey, false), false);
 			SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
-			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
+			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, false), false);
 			SetHideDefaultNexusCategories(ReadGridDisplayOption(CategoryTreeHideDefaultNexusCategoriesKey, false), false);
 			SetShowCategoryModCountIcons(ReadGridDisplayOption(CategoryTreeShowModCountIconsKey, false), false);
 			SetToolbarPosition(RestoreToolbarPosition(), false);
