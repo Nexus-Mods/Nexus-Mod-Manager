@@ -25,6 +25,7 @@ namespace Nexus.Client.ModManagement.Scripting
 	public class ScriptFunctionProxy : MarshalByRefObject
 	{
 		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
+		private readonly ScriptedPluginActivationState m_spaPluginActivationState = new ScriptedPluginActivationState();
 		private readonly HashSet<string> m_hstPlannedStagingWrites = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		private readonly HashSet<string> m_hstProjectedActiveLinks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		private HashSet<string> m_hstModFiles;
@@ -151,6 +152,18 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
+		/// Completes retained installation-scoped work after the owning script has finished successfully.
+		/// </summary>
+		public void CompleteInstallation()
+		{
+			ExecuteWithFullTrust(() =>
+			{
+				InstallationSession.CompleteExecution();
+				return true;
+			});
+		}
+
+		/// <summary>
 		/// Configures the proxy to execute every submitted operation synchronously for legacy scripts that can observe the filesystem directly.
 		/// </summary>
 		/// <exception cref="InvalidOperationException">Thrown when deferred operations are still pending.</exception>
@@ -193,7 +206,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_spsProjectedState">The projected-state overlay used while planning, or <c>null</c> for immediate execution.</param>
 		private void ConfigureInstallationSession(ScriptedInstallationSessionMode p_simMode, ScriptedInstallationProjectedState p_spsProjectedState)
 		{
-			ImmediateScriptedInstallOperationExecutor sioExecutor = new ImmediateScriptedInstallOperationExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ModLinkInstaller, Installers, OnTaskStarted, m_sfcFileSelectionCache);
+			ImmediateScriptedInstallOperationExecutor sioExecutor = new ImmediateScriptedInstallOperationExecutor(Mod, GameMode, EnvironmentInfo, VirtualModActivator, ModLinkInstaller, Installers, OnTaskStarted, m_sfcFileSelectionCache, m_spaPluginActivationState);
 			InstallationSession = new ScriptedInstallationSession(sioExecutor, p_simMode, p_spsProjectedState);
 		}
 

@@ -186,6 +186,7 @@
     <Compile Include="ModManagement\Scripting\ScriptedInstallStagingPathResolver.cs" />
     <Compile Include="ModManagement\Scripting\IScriptedInstallOperationExecutor.cs" />
     <Compile Include="ModManagement\Scripting\IScriptedInstallOperationBatchExecutor.cs" />
+    <Compile Include="ModManagement\Scripting\IScriptedInstallOperationCompletionExecutor.cs" />
     <Compile Include="ModManagement\Scripting\IScript.cs" />
     <Compile Include="ModManagement\Scripting\IScriptEditor.cs" />
     <Compile Include="ModManagement\Scripting\IScriptExecutor.cs" />
@@ -207,6 +208,7 @@
     <Compile Include="ModManagement\Scripting\ScriptedDeploymentException.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationPlan.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationProjectedState.cs" />
+    <Compile Include="ModManagement\Scripting\ScriptedPluginActivationState.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedFileDeploymentDecision.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedFileSelectionCache.cs" />
     <Compile Include="ModManagement\Scripting\ScriptedInstallationSession.cs" />

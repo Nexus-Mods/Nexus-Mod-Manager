@@ -186,6 +186,22 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
+		/// Completes executor-specific installation work after the entire scripted installation succeeds.
+		/// </summary>
+		/// <exception cref="InvalidOperationException">Thrown when operations remain pending or a fatal deployment failure has occurred.</exception>
+		public void CompleteExecution()
+		{
+			if (HasPendingOperations)
+				throw new InvalidOperationException("Pending scripted installation operations must be executed before completion.");
+			if (m_booFatalDeploymentFailure)
+				throw new InvalidOperationException("A scripted installation with a fatal deployment failure cannot be completed.");
+
+			IScriptedInstallOperationCompletionExecutor sicCompletionExecutor = m_sioExecutor as IScriptedInstallOperationCompletionExecutor;
+			if (sicCompletionExecutor != null)
+				sicCompletionExecutor.CompleteExecution();
+		}
+
+		/// <summary>
 		/// Executes all operations that remain pending in the installation plan.
 		/// </summary>
 		/// <returns><c>true</c> when every pending operation completes successfully; otherwise, <c>false</c>.</returns>

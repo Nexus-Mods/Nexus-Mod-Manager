@@ -18,7 +18,7 @@ namespace Nexus.Client.ModManagement.Scripting
 	/// The executor applies one operation synchronously when invoked. The owning <see cref="ScriptedInstallationSession"/>
 	/// determines whether that invocation occurs immediately or after deferred planning has completed.
 	/// </remarks>
-	public class ImmediateScriptedInstallOperationExecutor : IScriptedInstallOperationExecutor, IScriptedInstallOperationBatchExecutor
+	public class ImmediateScriptedInstallOperationExecutor : IScriptedInstallOperationExecutor, IScriptedInstallOperationBatchExecutor, IScriptedInstallOperationCompletionExecutor
 	{
 		private readonly IMod m_modMod;
 		private readonly IGameMode m_gmdGameMode;
@@ -28,6 +28,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly InstallerGroup m_igpInstallers;
 		private readonly Action<IBackgroundTask> m_actTaskStarted;
 		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
+		private readonly ScriptedPluginActivationState m_spaPluginActivationState;
 		private readonly HashSet<string> m_hstCoordinatorPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		#region Constructors
@@ -44,7 +45,18 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_actTaskStarted">The optional callback invoked when a background installation task starts.</param>
 		/// <param name="p_sfcFileSelectionCache">The optional cache used to record successfully linked scripted file selections.</param>
 		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, new ScriptedPluginActivationState())
 		{
+		}
+
+		/// <summary>
+		/// Initializes an executor using activation state shared across all sessions in one scripted installation.
+		/// </summary>
+		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, ScriptedPluginActivationState p_spaPluginActivationState)
+		{
+			if (p_spaPluginActivationState == null)
+				throw new ArgumentNullException(nameof(p_spaPluginActivationState));
+
 			m_modMod = p_modMod;
 			m_gmdGameMode = p_gmdGameMode;
 			m_eifEnvironmentInfo = p_eifEnvironmentInfo;
@@ -53,6 +65,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_igpInstallers = p_igpInstallers;
 			m_actTaskStarted = p_actTaskStarted;
 			m_sfcFileSelectionCache = p_sfcFileSelectionCache;
+			m_spaPluginActivationState = p_spaPluginActivationState;
 		}
 
 		#endregion
@@ -70,6 +83,19 @@ namespace Nexus.Client.ModManagement.Scripting
 				? new VirtualModDeploymentBatch(m_ivaVirtualModActivator, p_intExpectedFileOperations)
 				: null;
 			return new ScriptedDeploymentBatch(dspVirtualBatch, FlushPendingPluginRegistrations);
+		}
+
+		#endregion
+
+		#region Successful Completion
+
+		/// <summary>
+		/// Completes retained scripted installation work after the owning installation has succeeded.
+		/// </summary>
+		public void CompleteExecution()
+		{
+			FlushPendingPluginRegistrations();
+			m_spaPluginActivationState.Reconcile(m_igpInstallers.PluginManager);
 		}
 
 		#endregion
@@ -201,8 +227,12 @@ namespace Nexus.Client.ModManagement.Scripting
 					throw CreateDeploymentException("Scripted Direct file deployment failed.", ex);
 				}
 
-				if (installed && m_sfcFileSelectionCache != null)
-					m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
+				if (installed)
+				{
+					TrackDeployedPlugin(GetPhysicalDeploymentPath(strTo));
+					if (m_sfcFileSelectionCache != null)
+						m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
+				}
 				return installed;
 			}
 
@@ -247,8 +277,12 @@ namespace Nexus.Client.ModManagement.Scripting
 					strLinkResult = m_mliModLinkInstaller.AddFileLink(m_modMod, strTo, strVirtualPath, true, true, m_igpInstallers.InstallContext.InstallRoot);
 			}
 
-			if (!String.IsNullOrEmpty(strLinkResult) && (m_sfcFileSelectionCache != null))
-				m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
+			if (!String.IsNullOrEmpty(strLinkResult))
+			{
+				TrackDeployedPlugin(strLinkResult);
+				if (m_sfcFileSelectionCache != null)
+					m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
+			}
 
 			return true;
 		}
@@ -346,6 +380,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			string strFixedPath = m_gmdGameMode.GetModFormatAdjustedPath(m_modMod.Format, p_saoOperation.PluginPath, false);
 			m_igpInstallers.PluginManager.SetPluginActivation(strFixedPath, p_saoOperation.Activate);
+			m_spaPluginActivationState.RecordActivationRequest(GetPhysicalPluginPath(strFixedPath), p_saoOperation.Activate);
 			return true;
 		}
 
@@ -507,6 +542,38 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (m_igpInstallers.DeploymentManager == null || m_igpInstallers.TransactionalFileManager == null ||
 				m_igpInstallers.DeploymentOverwriteResolver == null)
 				throw new InvalidOperationException("Promoted scripted deployment requires transactional deployment services.");
+		}
+
+		/// <summary>
+		/// Resolves a scripted destination to the physical path deployed by the current install method.
+		/// </summary>
+		private string GetPhysicalDeploymentPath(string p_strDestinationPath)
+		{
+			ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+				m_gmdGameMode, m_modMod, p_strDestinationPath, m_igpInstallers.InstallContext.InstallRoot);
+			return ModDeploymentTargetResolver.GetPhysicalPath(m_gmdGameMode, target);
+		}
+
+		/// <summary>
+		/// Resolves the game-mode-adjusted plugin path to the physical path used by plugin management.
+		/// </summary>
+		private string GetPhysicalPluginPath(string p_strPluginPath)
+		{
+			return Path.IsPathRooted(p_strPluginPath)
+				? p_strPluginPath
+				: Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath, p_strPluginPath);
+		}
+
+		/// <summary>
+		/// Records a successfully deployed plugin as an implicit activation request for this scripted installation.
+		/// </summary>
+		private void TrackDeployedPlugin(string p_strDeployedPath)
+		{
+			if (String.IsNullOrEmpty(p_strDeployedPath) || m_igpInstallers.PluginManager == null ||
+				!m_igpInstallers.PluginManager.IsActivatiblePluginFile(p_strDeployedPath))
+				return;
+
+			m_spaPluginActivationState.RecordDeployedPlugin(p_strDeployedPath);
 		}
 
 		/// <summary>

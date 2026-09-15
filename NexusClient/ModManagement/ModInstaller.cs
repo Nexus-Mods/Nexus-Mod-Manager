@@ -617,6 +617,9 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 
+			if (result)
+				executor.CompleteExecution();
+
 			m_booUsedPromotedDeployment |= installers.UsedPromotedDeployment;
 			iniInstaller.FinalizeInstall();
 			if (gameSpecificInstaller != null)

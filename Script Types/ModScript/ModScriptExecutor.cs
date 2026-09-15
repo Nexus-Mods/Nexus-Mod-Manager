@@ -77,7 +77,11 @@ namespace Nexus.Client.ModManagement.Scripting.ModScript
 					AppDomain.CurrentDomain.AssemblyResolve -= CurrentDomain_AssemblyResolve;
 				}
 				bool booScriptResult = srnRunner.Execute(mscScript.Code);
-				return booScriptResult && m_msfFunctions.ExecuteInstallationPlan();
+				if (!booScriptResult || !m_msfFunctions.ExecuteInstallationPlan())
+					return false;
+
+				m_msfFunctions.CompleteInstallation();
+				return true;
 			}
 			finally
 			{

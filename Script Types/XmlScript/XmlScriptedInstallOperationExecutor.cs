@@ -9,7 +9,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// <summary>
 	/// Executes XML scripted-installer operations using the deployment semantics of the legacy XML installer.
 	/// </summary>
-	internal sealed class XmlScriptedInstallOperationExecutor : IScriptedInstallOperationExecutor, IScriptedInstallOperationBatchExecutor
+	internal sealed class XmlScriptedInstallOperationExecutor : IScriptedInstallOperationExecutor, IScriptedInstallOperationBatchExecutor, IScriptedInstallOperationCompletionExecutor
 	{
 		private readonly IMod m_modMod;
 		private readonly IGameMode m_gmdGameMode;
@@ -17,6 +17,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		private readonly IVirtualModActivator m_ivaVirtualModActivator;
 		private readonly IModLinkInstaller m_mliModLinkInstaller;
 		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
+		private readonly ScriptedPluginActivationState m_spaPluginActivationState = new ScriptedPluginActivationState();
 
 		/// <summary>
 		/// Initializes an executor for the current XML scripted installation context.
@@ -58,6 +59,15 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		}
 
 		/// <summary>
+		/// Completes retained XML scripted installation work after the owning installation has succeeded.
+		/// </summary>
+		public void CompleteExecution()
+		{
+			FlushPendingPluginRegistrations();
+			m_spaPluginActivationState.Reconcile(m_igpInstallers.PluginManager);
+		}
+
+		/// <summary>
 		/// Executes an operation produced by the XML scripted installer.
 		/// </summary>
 		/// <param name="p_sioOperation">The logical installation operation to execute.</param>
@@ -93,6 +103,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				: p_imoOperation.DestinationPath;
 
 			bool fatalDeploymentPath = m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct;
+			string strDeployedPath = null;
 			try
 			{
 				if (m_igpInstallers.InstallContext.Method == ModInstallMethod.Direct)
@@ -100,10 +111,11 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					ScriptedFileDeploymentDecision decision = p_imoOperation.DeploymentDecision;
 					if (decision == null || decision.WritePayload)
 					{
-						if (decision != null)
-							((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(p_imoOperation.SourcePath, strInstallDestination, false);
-						else
-							m_igpInstallers.FileInstaller.InstallFileFromMod(p_imoOperation.SourcePath, strInstallDestination);
+						bool installed = decision != null
+							? ((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).InstallFileFromModWithResolvedOverwrite(p_imoOperation.SourcePath, strInstallDestination, false)
+							: m_igpInstallers.FileInstaller.InstallFileFromMod(p_imoOperation.SourcePath, strInstallDestination);
+						if (installed)
+							strDeployedPath = GetPhysicalDeploymentPath(strInstallDestination);
 					}
 				}
 				else
@@ -119,12 +131,12 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 						if (m_igpInstallers.TransactionalFileManager == null || m_igpInstallers.DeploymentOverwriteResolver == null)
 							throw new InvalidOperationException("Promoted XML deployment requires transactional deployment services.");
 						bool activate = m_igpInstallers.DeploymentOverwriteResolver.ShouldActivate(target);
-						m_igpInstallers.DeploymentManager.InstallVirtualFile(
+						strDeployedPath = m_igpInstallers.DeploymentManager.InstallVirtualFile(
 							m_modMod, target, strInstallDestination, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
 							activate, m_igpInstallers.TransactionalFileManager);
 					}
 					else
-						m_mliModLinkInstaller.AddFileLink(m_modMod, strInstallDestination, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
+						strDeployedPath = m_mliModLinkInstaller.AddFileLink(m_modMod, strInstallDestination, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
 				}
 			}
 			catch (Exception ex)
@@ -134,6 +146,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 				// Pure-Virtual XML file failures retain the historical best-effort behavior.
 			}
+
+			TrackDeployedPlugin(strDeployedPath);
 
 			// The legacy XML path persisted the selected mapping even when its internal file-install helper returned false.
 			m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
@@ -174,8 +188,58 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 			string strPluginPath = m_gmdGameMode.GetModFormatAdjustedPath(m_modMod.Format, p_saoOperation.PluginPath, false);
 			if (m_igpInstallers.PluginManager.IsActivatiblePluginFile(strPluginPath))
+			{
 				m_igpInstallers.PluginManager.SetPluginActivation(strPluginPath, p_saoOperation.Activate);
+				m_spaPluginActivationState.RecordActivationRequest(GetPhysicalPluginPath(strPluginPath), p_saoOperation.Activate);
+			}
 			return true;
+		}
+
+		/// <summary>
+		/// Resolves an XML scripted destination to the physical path deployed by the current install method.
+		/// </summary>
+		private string GetPhysicalDeploymentPath(string p_strDestinationPath)
+		{
+			ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+				m_gmdGameMode, m_modMod, p_strDestinationPath, m_igpInstallers.InstallContext.InstallRoot);
+			return ModDeploymentTargetResolver.GetPhysicalPath(m_gmdGameMode, target);
+		}
+
+		/// <summary>
+		/// Resolves the game-mode-adjusted plugin path to the physical path used by plugin management.
+		/// </summary>
+		private string GetPhysicalPluginPath(string p_strPluginPath)
+		{
+			return Path.IsPathRooted(p_strPluginPath)
+				? p_strPluginPath
+				: Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath, p_strPluginPath);
+		}
+
+		/// <summary>
+		/// Flushes Direct plugin registration work before the final XML activation state is reconciled.
+		/// </summary>
+		private void FlushPendingPluginRegistrations()
+		{
+			if (m_igpInstallers.InstallContext.Method != ModInstallMethod.Direct)
+				return;
+
+			IModFilePluginRegistrationSupport prsPluginRegistration = m_igpInstallers.FileInstaller as IModFilePluginRegistrationSupport;
+			if (prsPluginRegistration == null)
+				throw new InvalidOperationException("Direct XML scripted installation requires plugin-registration flush support.");
+
+			prsPluginRegistration.FlushPendingPluginRegistrations();
+		}
+
+		/// <summary>
+		/// Records a successfully deployed plugin as an implicit activation request for this XML scripted installation.
+		/// </summary>
+		private void TrackDeployedPlugin(string p_strDeployedPath)
+		{
+			if (String.IsNullOrEmpty(p_strDeployedPath) || m_igpInstallers.PluginManager == null ||
+				!m_igpInstallers.PluginManager.IsActivatiblePluginFile(p_strDeployedPath))
+				return;
+
+			m_spaPluginActivationState.RecordDeployedPlugin(p_strDeployedPath);
 		}
 
 		/// <summary>

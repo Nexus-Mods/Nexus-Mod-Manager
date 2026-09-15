@@ -382,8 +382,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 						return false;
 					StepOverallProgress();
 				}
-				return true;
 			}
+
+			InstallationSession.CompleteExecution();
+			return true;
 		}
 
 		/// <summary>

@@ -131,6 +131,52 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies that successful execution invokes executor completion only when explicitly requested by the owning installer.
+        /// </summary>
+        [Test]
+        public void CompleteExecution_AfterSuccessfulDeferredExecutionInvokesCompletion()
+        {
+            CompletionRecordingScriptedInstallOperationExecutor executor = new CompletionRecordingScriptedInstallOperationExecutor(true, false);
+            ScriptedInstallationSession session = new ScriptedInstallationSession(executor, ScriptedInstallationSessionMode.Deferred);
+            session.Submit(new InstallModFileOperation("textures/a.dds", "textures/a.dds"));
+
+            Assert.IsTrue(session.ExecutePendingOperations());
+            Assert.AreEqual(0, executor.CompletionCallCount);
+
+            session.CompleteExecution();
+
+            Assert.AreEqual(1, executor.CompletionCallCount);
+        }
+
+        /// <summary>
+        /// Verifies that completion is rejected while deferred operations remain unexecuted.
+        /// </summary>
+        [Test]
+        public void CompleteExecution_WithPendingOperationsDoesNotInvokeCompletion()
+        {
+            CompletionRecordingScriptedInstallOperationExecutor executor = new CompletionRecordingScriptedInstallOperationExecutor(true, false);
+            ScriptedInstallationSession session = new ScriptedInstallationSession(executor, ScriptedInstallationSessionMode.Deferred);
+            session.Submit(new InstallModFileOperation("textures/a.dds", "textures/a.dds"));
+
+            Assert.Throws<InvalidOperationException>(() => session.CompleteExecution());
+            Assert.AreEqual(0, executor.CompletionCallCount);
+        }
+
+        /// <summary>
+        /// Verifies that a fatal deployment failure permanently blocks the success-completion hook.
+        /// </summary>
+        [Test]
+        public void CompleteExecution_AfterFatalDeploymentFailureDoesNotInvokeCompletion()
+        {
+            CompletionRecordingScriptedInstallOperationExecutor executor = new CompletionRecordingScriptedInstallOperationExecutor(true, true);
+            ScriptedInstallationSession session = new ScriptedInstallationSession(executor);
+
+            Assert.Throws<ScriptedDeploymentException>(() => session.Submit(new InstallModFileOperation("textures/a.dds", "textures/a.dds")));
+            Assert.Throws<InvalidOperationException>(() => session.CompleteExecution());
+            Assert.AreEqual(0, executor.CompletionCallCount);
+        }
+
+        /// <summary>
         /// Verifies that relative load-order requests containing only unregistered plugins are treated as a no-op.
         /// </summary>
         [Test]
@@ -189,6 +235,48 @@ namespace NexusClientTests
         public bool Execute(ScriptedInstallOperation p_sioOperation)
         {
             throw new ScriptedDeploymentException("Simulated deployment failure.");
+        }
+    }
+
+    /// <summary>
+    /// Records successful-completion calls and can simulate fatal deployment failure during operation execution.
+    /// </summary>
+    internal sealed class CompletionRecordingScriptedInstallOperationExecutor : IScriptedInstallOperationExecutor, IScriptedInstallOperationCompletionExecutor
+    {
+        private readonly bool m_booResult;
+        private readonly bool m_booThrowFatalDeploymentFailure;
+
+        /// <summary>
+        /// Initializes the executor with the requested execution behavior.
+        /// </summary>
+        public CompletionRecordingScriptedInstallOperationExecutor(bool p_booResult, bool p_booThrowFatalDeploymentFailure)
+        {
+            m_booResult = p_booResult;
+            m_booThrowFatalDeploymentFailure = p_booThrowFatalDeploymentFailure;
+        }
+
+        /// <summary>
+        /// Gets the number of successful-completion calls received by the executor.
+        /// </summary>
+        public int CompletionCallCount { get; private set; }
+
+        /// <summary>
+        /// Executes an operation using the configured success or fatal-failure behavior.
+        /// </summary>
+        public bool Execute(ScriptedInstallOperation p_sioOperation)
+        {
+            if (m_booThrowFatalDeploymentFailure)
+                throw new ScriptedDeploymentException("Simulated deployment failure.");
+
+            return m_booResult;
+        }
+
+        /// <summary>
+        /// Records successful installation completion.
+        /// </summary>
+        public void CompleteExecution()
+        {
+            CompletionCallCount++;
         }
     }
 

@@ -99,7 +99,11 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 				using (m_csfFunctions.BeginModInfoUpdateBatch())
 				{
 					bool scriptSucceeded = srnRunner.Execute(bteScript);
-					return scriptSucceeded && !m_csfFunctions.HasFatalDeploymentFailure;
+					if (!scriptSucceeded || m_csfFunctions.HasFatalDeploymentFailure)
+						return false;
+
+					m_csfFunctions.CompleteInstallation();
+					return true;
 				}
 			}
 			finally
