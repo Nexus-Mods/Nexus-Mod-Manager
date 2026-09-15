@@ -44,6 +44,10 @@ namespace Nexus.Client.ModManagement
 		void Reset();
 		bool SaveList();
 		bool SaveList(bool p_booModActivationChange);
+		/// <summary>
+		/// Publishes committed deployment changes that were deferred until the outer transaction completed.
+		/// </summary>
+		void PublishPendingDeploymentChanges();
 		void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks);
 		List<IVirtualModLink> LoadList(string p_strXMLFilePath);
 		List<IVirtualModLink> LoadImportedList(string p_strXML, string p_strSavePath);

@@ -53,6 +53,62 @@ namespace Nexus.Client.ModManagement
 			return new ModDeploymentTarget(root, NormalizeRelativePath(relativePath));
 		}
 
+		/// <summary>
+		/// Resolves a canonical deployment root to its physical game path.
+		/// </summary>
+		/// <param name="gameMode">The current game mode.</param>
+		/// <param name="root">The canonical deployment root.</param>
+		/// <returns>The configured physical root path.</returns>
+		public static string GetPhysicalRootPath(IGameMode gameMode, ModDeploymentRoot root)
+		{
+			if (gameMode == null)
+				throw new ArgumentNullException(nameof(gameMode));
+
+			string rootPath;
+			switch (root)
+			{
+				case ModDeploymentRoot.Data:
+					rootPath = gameMode.UsesPlugins ? gameMode.PluginDirectory : gameMode.InstallationPath;
+					break;
+				case ModDeploymentRoot.GameRoot:
+					rootPath = gameMode.InstallationPath;
+					break;
+				case ModDeploymentRoot.Secondary:
+					rootPath = gameMode.SecondaryInstallationPath;
+					break;
+				default:
+					throw new ArgumentOutOfRangeException(nameof(root));
+			}
+
+			if (string.IsNullOrWhiteSpace(rootPath))
+				throw new InvalidOperationException(string.Format("Deployment root '{0}' is not configured for the current game mode.", root));
+
+			return rootPath;
+		}
+
+		/// <summary>
+		/// Resolves a canonical deployment target to its contained physical filesystem path.
+		/// </summary>
+		/// <param name="gameMode">The current game mode.</param>
+		/// <param name="target">The canonical deployment target.</param>
+		/// <returns>The physical deployment path.</returns>
+		public static string GetPhysicalPath(IGameMode gameMode, ModDeploymentTarget target)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+
+			string rootPath = Path.GetFullPath(GetPhysicalRootPath(gameMode, target.Root));
+			string rootPrefix = rootPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ||
+				rootPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+					? rootPath
+					: rootPath + Path.DirectorySeparatorChar;
+			string path = Path.GetFullPath(Path.Combine(rootPath, target.RelativePath));
+			if (!path.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidDataException(string.Format("The deployment path '{0}' escapes its configured root.", target.RelativePath));
+
+			return path;
+		}
+
 		private static ModInstallRoot NormalizeInstallRoot(ModInstallRoot installRoot)
 		{
 			if (installRoot == ModInstallRoot.Data)

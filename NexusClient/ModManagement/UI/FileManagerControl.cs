@@ -49,6 +49,7 @@
         private readonly LabelControl _statusLabel;
         private readonly RepositoryItemLookUpEdit _emptyOwnerLookup;
         private readonly RepositoryItemLookUpEdit _ownerLookup;
+        private readonly RepositoryItemLookUpEdit _ownerFilterLookup;
         private readonly RepositoryItemLookUpEdit _emptySourceLookup;
         private readonly RepositoryItemLookUpEdit _sourceLookup;
         private readonly RepositoryItemLookUpEdit _sourceFilterLookup;
@@ -208,6 +209,17 @@
             };
             _ownerLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", LanguageManager.Get("FileManager.Lookup.Mod.Header", "Mod")));
             _gridControl.RepositoryItems.Add(_ownerLookup);
+            _ownerFilterLookup = new RepositoryItemLookUpEdit
+            {
+                DisplayMember = "ModName",
+                ValueMember = "OwnerKey",
+                NullText = String.Empty,
+                ShowHeader = false,
+                TextEditStyle = DevExpress.XtraEditors.Controls.TextEditStyles.DisableTextEditor
+            };
+            _ownerFilterLookup.Columns.Add(new DevExpress.XtraEditors.Controls.LookUpColumnInfo("ModName", LanguageManager.Get("FileManager.Columns.Owner.Header", "Owner")));
+            _gridControl.RepositoryItems.Add(_ownerFilterLookup);
+            _gridView.Columns["OwnerKey"].ColumnEdit = _ownerFilterLookup;
             _emptySourceLookup = new RepositoryItemLookUpEdit { NullText = String.Empty, ShowHeader = false };
             _gridControl.RepositoryItems.Add(_emptySourceLookup);
             _sourceLookup = new RepositoryItemLookUpEdit
@@ -723,6 +735,32 @@
                 _ownerLookup.Columns[0].Width = Math.Max(0, popupWidth - 24);
         }
 
+        /// <summary>
+        /// Populates the Auto Filter Row owner lookup from owners currently represented in the grid.
+        /// </summary>
+        private void ConfigureOwnerFilterLookup()
+        {
+            List<FileManagerOwnerCandidate> candidates = new List<FileManagerOwnerCandidate>();
+            HashSet<string> ownerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (_fileManagerVM != null && _fileManagerVM.Rows != null)
+            {
+                foreach (FileManagerRow row in _fileManagerVM.Rows)
+                {
+                    if (row == null || String.IsNullOrWhiteSpace(row.OwnerKey) || !ownerKeys.Add(row.OwnerKey))
+                        continue;
+
+                    candidates.Add(new FileManagerOwnerCandidate(row.OwnerKey, row.OwnerName ?? String.Empty, 0));
+                }
+            }
+
+            candidates.Sort((left, right) => StringComparer.CurrentCultureIgnoreCase.Compare(left.ModName, right.ModName));
+            int popupWidth = GetOwnerLookupPopupWidth(candidates);
+            _ownerFilterLookup.DataSource = candidates;
+            _ownerFilterLookup.PopupWidth = popupWidth;
+            if (_ownerFilterLookup.Columns.Count > 0)
+                _ownerFilterLookup.Columns[0].Width = Math.Max(0, popupWidth - 24);
+        }
+
         private int GetOwnerLookupPopupWidth(List<FileManagerOwnerCandidate> candidates)
         {
             int width = OwnerLookupMinimumPopupWidth;
@@ -855,7 +893,8 @@
             if (e.Column.FieldName == "OwnerKey")
             {
                 FileManagerRow row = GetRowByListSourceIndex(e.ListSourceRowIndex);
-                e.DisplayText = row == null ? String.Empty : row.OwnerName ?? String.Empty;
+                if (row != null)
+                    e.DisplayText = row.OwnerName ?? String.Empty;
                 return;
             }
 
@@ -882,6 +921,15 @@
 
 		private void GridView_CustomRowCellEdit(object sender, CustomRowCellEditEventArgs e)
         {
+            if (e.RowHandle == GridControl.AutoFilterRowHandle)
+            {
+                if (e.Column.FieldName == "Source")
+                    e.RepositoryItem = _sourceFilterLookup;
+                else if (e.Column.FieldName == "OwnerKey")
+                    e.RepositoryItem = _ownerFilterLookup;
+                return;
+            }
+
             FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
             if (e.Column.FieldName == "Source")
             {
@@ -897,7 +945,22 @@
 
         private void GridView_CustomRowCellEditForEditing(object sender, CustomRowCellEditEventArgs e)
         {
-            if (e.Column == null || e.Column.FieldName != "OwnerKey")
+            if (e.Column == null)
+                return;
+
+            if (e.RowHandle == GridControl.AutoFilterRowHandle)
+            {
+                if (e.Column.FieldName == "Source")
+                    e.RepositoryItem = _sourceFilterLookup;
+                else if (e.Column.FieldName == "OwnerKey")
+                {
+                    ConfigureOwnerFilterLookup();
+                    e.RepositoryItem = _ownerFilterLookup;
+                }
+                return;
+            }
+
+            if (e.Column.FieldName != "OwnerKey")
                 return;
 
             FileManagerRow row = _gridView.GetRow(e.RowHandle) as FileManagerRow;
@@ -916,10 +979,11 @@
             if (_gridView.FocusedColumn == null)
                 return;
 
+            bool isAutoFilterRow = _gridView.FocusedRowHandle == GridControl.AutoFilterRowHandle;
             FileManagerRow row = _gridView.GetFocusedRow() as FileManagerRow;
             if (_gridView.FocusedColumn.FieldName == "Source")
             {
-                if (row == null || !row.SourceEditable)
+                if (!isAutoFilterRow && (row == null || !row.SourceEditable))
                     e.Cancel = true;
                 return;
             }
@@ -927,7 +991,7 @@
             if (_gridView.FocusedColumn.FieldName != "OwnerKey")
                 return;
 
-            if (row == null || !row.OwnerEditable || _fileManagerVM == null || !_fileManagerVM.CanChangeFileOwner)
+            if (!isAutoFilterRow && (row == null || !row.OwnerEditable || _fileManagerVM == null || !_fileManagerVM.CanChangeFileOwner))
                 e.Cancel = true;
         }
 

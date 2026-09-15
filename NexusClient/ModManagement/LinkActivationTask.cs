@@ -151,15 +151,26 @@ namespace Nexus.Client.ModManagement
             if (Mod == null || DeploymentManager == null || !DeploymentManager.HasPromotedFiles(Mod))
                 return false;
 
-            int targetCount = VirtualModActivator.GetVirtualTargetsForMod(Mod).Count;
-            ItemProgressMaximum = Math.Max(1, Math.Min(1000, targetCount));
+            ItemProgressMaximum = 1;
             ItemProgressStepSize = 1;
 
             IReadOnlyCollection<string> absentPaths;
-            using (TransactionScope transaction = new TransactionScope())
+            try
             {
-                absentPaths = DeploymentManager.UninstallMixedMod(Mod, new TxFileManager());
-                transaction.Complete();
+                using (TransactionScope transaction = new TransactionScope())
+                {
+                    ModDeploymentManager deploymentManager = DeploymentManager as ModDeploymentManager;
+                    absentPaths = deploymentManager == null
+                        ? DeploymentManager.UninstallMixedMod(Mod, new TxFileManager())
+                        : deploymentManager.UninstallMixedMod(Mod, new TxFileManager(), UpdatePromotedDisableProgress, IsPromotedDisableCancellationRequested);
+                    if (Status == TaskStatus.Cancelling)
+                        return true;
+                    transaction.Complete();
+                }
+            }
+            catch (OperationCanceledException) when (Status == TaskStatus.Cancelling || Status == TaskStatus.Cancelled)
+            {
+                return true;
             }
 
             if (PluginManager != null && absentPaths.Count > 0)
@@ -174,6 +185,30 @@ namespace Nexus.Client.ModManagement
             ItemProgress = ItemProgressMaximum;
             VirtualModActivator.FinalizeModDeactivation(Mod);
             return true;
+        }
+
+        /// <summary>
+        /// Updates promoted-target disable progress without changing the existing 1000-step UI cap.
+        /// </summary>
+        private void UpdatePromotedDisableProgress(ModDeploymentTarget p_mdtTarget, int p_intProcessed, int p_intTotal)
+        {
+            int progressMaximum = Math.Max(1, Math.Min(1000, p_intTotal));
+            ItemProgressMaximum = progressMaximum;
+            if (p_mdtTarget != null)
+                ItemMessage = String.Format(_disablingFileFormat, p_mdtTarget.RelativePath);
+
+            if (p_intTotal <= 1000)
+                ItemProgress = Math.Min(p_intProcessed, progressMaximum);
+            else
+                ItemProgress = Math.Min(progressMaximum, (int)Math.Floor(p_intProcessed * (1000d / p_intTotal)));
+        }
+
+        /// <summary>
+        /// Gets whether cancellation was requested while disabling promoted targets.
+        /// </summary>
+        private bool IsPromotedDisableCancellationRequested()
+        {
+            return Status == TaskStatus.Cancelling || Status == TaskStatus.Cancelled;
         }
 
 		/// <summary>
@@ -227,6 +262,7 @@ namespace Nexus.Client.ModManagement
 
 				if (deploymentResult.Failure != null)
 				{
+					VirtualModActivator.PublishPendingDeploymentChanges();
 					TraceUtil.TraceException(deploymentResult.Failure);
 					OverallMessage = LanguageManager.Format("Tasks.ModLinks.Failed", "LinkActivationTask failed: {0}", deploymentResult.Failure.Message);
 					Status = TaskStatus.Error;

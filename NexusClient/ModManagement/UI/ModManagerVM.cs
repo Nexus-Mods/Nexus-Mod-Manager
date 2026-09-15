@@ -638,7 +638,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// <param name="p_modMod">The mod to activate.</param>
 		public void ActivateMod(IMod p_modMod)
 		{
-			ActivateMod(p_modMod, new ModInstallContext(PreferredInstallMethod, ModInstallRoot.Default));
+			ActivateMod(p_modMod, new ModInstallContext(PreferredInstallMethod, ModInstallRoot.Default), false);
 		}
 
 		/// <summary>
@@ -646,7 +646,7 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void ActivateModInGameRoot(IMod p_modMod)
 		{
-			ActivateMod(p_modMod, new ModInstallContext(PreferredInstallMethod, ModInstallRoot.GameRoot));
+			ActivateMod(p_modMod, new ModInstallContext(PreferredInstallMethod, ModInstallRoot.GameRoot), false);
 		}
 
 		/// <summary>
@@ -654,10 +654,10 @@ namespace Nexus.Client.ModManagement.UI
 		/// </summary>
 		public void ActivateMod(IMod p_modMod, ModInstallMethod p_mimInstallMethod, ModInstallRoot p_mirInstallRoot)
 		{
-			ActivateMod(p_modMod, new ModInstallContext(p_mimInstallMethod, p_mirInstallRoot));
+			ActivateMod(p_modMod, new ModInstallContext(p_mimInstallMethod, p_mirInstallRoot), true);
 		}
 
-		private void ActivateMod(IMod p_modMod, ModInstallContext p_micInstallContext)
+		private void ActivateMod(IMod p_modMod, ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride)
 		{
 			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
@@ -685,10 +685,13 @@ namespace Nexus.Client.ModManagement.UI
 						switch (MessageBox.Show(strUpgradeMessage, LanguageManager.Get("Mods.Upgrade.Title", "Upgrade"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question))
 						{
 							case DialogResult.Yes:
-								ReinstallMod(modOldVersion, p_modMod);
+								if (p_booExplicitMethodOverride)
+									ReinstallModWithContext(modOldVersion, p_modMod, p_micInstallContext);
+								else
+									ReinstallMod(modOldVersion, p_modMod);
 								break;
 							case DialogResult.No:
-								AddActivationTask(CreateActivateTask(p_modMod, p_micInstallContext));
+								AddActivationTask(CreateActivateTask(p_modMod, p_micInstallContext, p_booExplicitMethodOverride));
 								break;
 							case DialogResult.Cancel:
 							default:
@@ -697,7 +700,7 @@ namespace Nexus.Client.ModManagement.UI
 					}
 					else
 					{
-						AddActivationTask(CreateActivateTask(p_modMod, p_micInstallContext));
+						AddActivationTask(CreateActivateTask(p_modMod, p_micInstallContext, p_booExplicitMethodOverride));
 					}
 				}
 				else
@@ -711,9 +714,9 @@ namespace Nexus.Client.ModManagement.UI
 			}
 		}
 
-		private IBackgroundTaskSet CreateActivateTask(IMod p_modMod, ModInstallContext p_micInstallContext)
+		private IBackgroundTaskSet CreateActivateTask(IMod p_modMod, ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride = false)
 		{
-			return ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods, p_micInstallContext);
+			return ModManager.ActivateMod(p_modMod, ConfirmModUpgrade, ConfirmItemOverwrite, ModManager.ActiveMods, p_micInstallContext, p_booExplicitMethodOverride);
 		}
 
 		private void AddActivationTask(IBackgroundTaskSet p_btsInstall)
@@ -850,19 +853,28 @@ namespace Nexus.Client.ModManagement.UI
 			ModInstallContext installContext = p_mimExplicitMethod.HasValue
 				? new ModInstallContext(p_mimExplicitMethod.Value, installedContext.InstallRoot)
 				: installedContext;
+			ReinstallModWithContext(p_modMod, p_modUpgrade, installContext);
+		}
 
-			if (!EnsureInstallOperationAllowed(installContext))
+		/// <summary>
+		/// Reinstalls the given mod using the supplied immutable install context.
+		/// </summary>
+		private void ReinstallModWithContext(IMod p_modMod, IMod p_modUpgrade, ModInstallContext p_micInstallContext)
+		{
+			if (p_micInstallContext == null)
+				throw new ArgumentNullException(nameof(p_micInstallContext));
+			if (!EnsureInstallOperationAllowed(p_micInstallContext))
 				return;
 
 			IBackgroundTaskSet btsUninstall = ModManager.DeactivateMod(p_modMod, ModManager.ActiveMods);
 			if (btsUninstall != null)
 			{
-				RunAfterUninstallCompletes(btsUninstall, () => StartReinstallMod(p_modMod, p_modUpgrade, installContext));
+				RunAfterUninstallCompletes(btsUninstall, () => StartReinstallMod(p_modMod, p_modUpgrade, p_micInstallContext));
 				ModManager.ModActivationMonitor.AddActivity(btsUninstall);
 				return;
 			}
 
-			StartReinstallMod(p_modMod, p_modUpgrade, installContext);
+			StartReinstallMod(p_modMod, p_modUpgrade, p_micInstallContext);
 		}
 
 		private void StartReinstallMod(IMod p_modMod, IMod p_modUpgrade, ModInstallContext p_micInstallContext)

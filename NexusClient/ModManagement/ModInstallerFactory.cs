@@ -119,7 +119,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod uninstaller for the given mod.</returns>
 		public ModUninstaller CreateUninstaller(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+			return new ModUninstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods, m_ipmProfileManager);
 		}
 
 		/// <summary>
@@ -130,7 +130,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>A mod deleter for the given mod.</returns>
 		public ModDeleter CreateDelete(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
-			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods);
+			return new ModDeleter(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ilgInstallLog, m_pmgPluginManager, p_rolActiveMods, m_ipmProfileManager);
 		}
 
 		/// <summary>

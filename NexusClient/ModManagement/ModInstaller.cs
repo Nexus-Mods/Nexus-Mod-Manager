@@ -234,12 +234,18 @@ namespace Nexus.Client.ModManagement
 						booSuccess = RunScript(tfmFileManager);
 						if (booSuccess)
 						{
-							Mod.InstallDate = DateTime.Now.ToString();
 							tsTransaction.Complete();
+							Mod.InstallDate = DateTime.Now.ToString();
 							if (InstallContext.Method == ModInstallMethod.Virtual && !m_booUsedPromotedDeployment)
 								VirtualModActivator.SaveList(true);
 							strMessage = "The mod was successfully activated.";
 						}
+					}
+
+					if (booSuccess)
+					{
+						VirtualModActivator.PublishPendingDeploymentChanges();
+						ProfileManager?.UpdateCurrentDeploymentManifest();
 					}
 				}
 			}

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Runtime.CompilerServices;
 
 namespace Nexus.Client.ModManagement
 {
@@ -94,6 +95,89 @@ namespace Nexus.Client.ModManagement
 	}
 
 	/// <summary>
+	/// Stores the links for one managed owner with constant-time reference removals.
+	/// </summary>
+	internal sealed class VirtualLinkOwnerIndexBucket
+	{
+		private readonly List<IVirtualModLink> m_lstLinks = new List<IVirtualModLink>();
+		private readonly Dictionary<IVirtualModLink, int> m_dicPositions =
+			new Dictionary<IVirtualModLink, int>(VirtualLinkReferenceComparer.Instance);
+
+		public int Count
+		{
+			get { return m_lstLinks.Count; }
+		}
+
+		/// <summary>
+		/// Adds a link to the owner bucket.
+		/// </summary>
+		public void Add(IVirtualModLink p_vmlLink)
+		{
+			if (p_vmlLink == null)
+				return;
+
+			m_dicPositions[p_vmlLink] = m_lstLinks.Count;
+			m_lstLinks.Add(p_vmlLink);
+		}
+
+		/// <summary>
+		/// Removes a link without shifting the remaining owner links.
+		/// </summary>
+		public bool Remove(IVirtualModLink p_vmlLink)
+		{
+			if (p_vmlLink == null || m_lstLinks.Count == 0)
+				return false;
+
+			int index;
+			if (!m_dicPositions.TryGetValue(p_vmlLink, out index))
+			{
+				EqualityComparer<IVirtualModLink> comparer = EqualityComparer<IVirtualModLink>.Default;
+				index = m_lstLinks.FindIndex(x => comparer.Equals(x, p_vmlLink));
+				if (index < 0)
+					return false;
+			}
+
+			int lastIndex = m_lstLinks.Count - 1;
+			IVirtualModLink removedLink = m_lstLinks[index];
+			if (index != lastIndex)
+			{
+				IVirtualModLink lastLink = m_lstLinks[lastIndex];
+				m_lstLinks[index] = lastLink;
+				m_dicPositions[lastLink] = index;
+			}
+
+			m_lstLinks.RemoveAt(lastIndex);
+			m_dicPositions.Remove(removedLink);
+			return true;
+		}
+
+		/// <summary>
+		/// Copies the owner links into a compact array.
+		/// </summary>
+		public IVirtualModLink[] ToArray()
+		{
+			return m_lstLinks.ToArray();
+		}
+
+		private sealed class VirtualLinkReferenceComparer : IEqualityComparer<IVirtualModLink>
+		{
+			public static readonly VirtualLinkReferenceComparer Instance = new VirtualLinkReferenceComparer();
+
+			/// <inheritdoc />
+			public bool Equals(IVirtualModLink p_vmlLeft, IVirtualModLink p_vmlRight)
+			{
+				return ReferenceEquals(p_vmlLeft, p_vmlRight);
+			}
+
+			/// <inheritdoc />
+			public int GetHashCode(IVirtualModLink p_vmlLink)
+			{
+				return p_vmlLink == null ? 0 : RuntimeHelpers.GetHashCode(p_vmlLink);
+			}
+		}
+	}
+
+	/// <summary>
 	/// Represents one immutable virtual-link index entry.
 	/// </summary>
 	internal sealed class VirtualLinkIndexSnapshotEntry
@@ -138,7 +222,7 @@ namespace Nexus.Client.ModManagement
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByVirtualPath;
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByFileName;
 		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByDeploymentPath;
-		private Dictionary<string, VirtualLinkIndexBucket> m_dicLinksByOwnerKey;
+		private Dictionary<string, VirtualLinkOwnerIndexBucket> m_dicLinksByOwnerKey;
 		private int m_intReservedLinkCount;
 
 		public VirtualLinkIndex()
@@ -152,7 +236,7 @@ namespace Nexus.Client.ModManagement
 			m_dicLinksByVirtualPath = CreateIndex(expectedLinkCount);
 			m_dicLinksByFileName = CreateIndex(expectedLinkCount);
 			m_dicLinksByDeploymentPath = CreateIndex(GetDeploymentCapacity(expectedLinkCount));
-			m_dicLinksByOwnerKey = CreateIndex(expectedLinkCount);
+			m_dicLinksByOwnerKey = CreateOwnerIndex(expectedLinkCount);
 			m_intReservedLinkCount = expectedLinkCount;
 		}
 
@@ -170,7 +254,7 @@ namespace Nexus.Client.ModManagement
 			m_dicLinksByVirtualPath = CopyIndex(m_dicLinksByVirtualPath, reservedLinkCount);
 			m_dicLinksByFileName = CopyIndex(m_dicLinksByFileName, reservedLinkCount);
 			m_dicLinksByDeploymentPath = CopyIndex(m_dicLinksByDeploymentPath, GetDeploymentCapacity(reservedLinkCount));
-			m_dicLinksByOwnerKey = CopyIndex(m_dicLinksByOwnerKey, reservedLinkCount);
+			m_dicLinksByOwnerKey = CopyOwnerIndex(m_dicLinksByOwnerKey, reservedLinkCount);
 			m_intReservedLinkCount = reservedLinkCount;
 		}
 
@@ -357,7 +441,7 @@ namespace Nexus.Client.ModManagement
 		/// <summary>
 		/// Finds the virtual links registered to a managed mod owner.
 		/// </summary>
-		public VirtualLinkIndexBucket FindByOwnerKey(string p_strOwnerKey)
+		public VirtualLinkOwnerIndexBucket FindByOwnerKey(string p_strOwnerKey)
 		{
 			return Find(m_dicLinksByOwnerKey, p_strOwnerKey);
 		}
@@ -423,6 +507,49 @@ namespace Nexus.Client.ModManagement
 				p_dicIndex.Remove(p_strKey);
 		}
 
+		/// <summary>
+		/// Adds a link to the owner index.
+		/// </summary>
+		private static void Add(Dictionary<string, VirtualLinkOwnerIndexBucket> p_dicIndex, string p_strKey, IVirtualModLink p_vmlLink)
+		{
+			if (String.IsNullOrEmpty(p_strKey))
+				return;
+
+			VirtualLinkOwnerIndexBucket bucket;
+			if (!p_dicIndex.TryGetValue(p_strKey, out bucket))
+			{
+				bucket = new VirtualLinkOwnerIndexBucket();
+				p_dicIndex.Add(p_strKey, bucket);
+			}
+
+			bucket.Add(p_vmlLink);
+		}
+
+		/// <summary>
+		/// Removes a link from the owner index.
+		/// </summary>
+		private static void Remove(Dictionary<string, VirtualLinkOwnerIndexBucket> p_dicIndex, string p_strKey, IVirtualModLink p_vmlLink)
+		{
+			if (String.IsNullOrEmpty(p_strKey))
+				return;
+
+			VirtualLinkOwnerIndexBucket bucket;
+			if (!p_dicIndex.TryGetValue(p_strKey, out bucket))
+				return;
+
+			if (bucket.Remove(p_vmlLink) && bucket.Count == 0)
+				p_dicIndex.Remove(p_strKey);
+		}
+
+		/// <summary>
+		/// Finds the bucket for one managed owner.
+		/// </summary>
+		private static VirtualLinkOwnerIndexBucket Find(Dictionary<string, VirtualLinkOwnerIndexBucket> p_dicIndex, string p_strKey)
+		{
+			VirtualLinkOwnerIndexBucket bucket;
+			return !String.IsNullOrEmpty(p_strKey) && p_dicIndex.TryGetValue(p_strKey, out bucket) ? bucket : null;
+		}
+
 		private static VirtualLinkIndexBucket Find(Dictionary<string, VirtualLinkIndexBucket> p_dicIndex, string p_strKey)
 		{
 			VirtualLinkIndexBucket bucket;
@@ -442,6 +569,16 @@ namespace Nexus.Client.ModManagement
 			return new ReadOnlyCollection<VirtualLinkIndexSnapshotEntry>(entries);
 		}
 
+		/// <summary>
+		/// Creates an owner index with the requested initial capacity.
+		/// </summary>
+		private static Dictionary<string, VirtualLinkOwnerIndexBucket> CreateOwnerIndex(int p_intCapacity)
+		{
+			return p_intCapacity > 0
+				? new Dictionary<string, VirtualLinkOwnerIndexBucket>(p_intCapacity, StringComparer.OrdinalIgnoreCase)
+				: new Dictionary<string, VirtualLinkOwnerIndexBucket>(StringComparer.OrdinalIgnoreCase);
+		}
+
 		private static Dictionary<string, VirtualLinkIndexBucket> CreateIndex(int p_intCapacity)
 		{
 			return p_intCapacity > 0
@@ -453,6 +590,17 @@ namespace Nexus.Client.ModManagement
 		{
 			Dictionary<string, VirtualLinkIndexBucket> copy = CreateIndex(Math.Max(p_intCapacity, p_dicSource.Count));
 			foreach (KeyValuePair<string, VirtualLinkIndexBucket> pair in p_dicSource)
+				copy.Add(pair.Key, pair.Value);
+			return copy;
+		}
+
+		/// <summary>
+		/// Copies the owner index into a dictionary with the requested capacity.
+		/// </summary>
+		private static Dictionary<string, VirtualLinkOwnerIndexBucket> CopyOwnerIndex(Dictionary<string, VirtualLinkOwnerIndexBucket> p_dicSource, int p_intCapacity)
+		{
+			Dictionary<string, VirtualLinkOwnerIndexBucket> copy = CreateOwnerIndex(Math.Max(p_intCapacity, p_dicSource.Count));
+			foreach (KeyValuePair<string, VirtualLinkOwnerIndexBucket> pair in p_dicSource)
 				copy.Add(pair.Key, pair.Value);
 			return copy;
 		}

@@ -73,6 +73,17 @@ namespace Nexus.Client.ModManagement
 			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
 			bool p_booOverrideUpgrade, ModInstallContext p_micInstallContext)
 		{
+			return Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, p_booOverrideUpgrade, p_micInstallContext, false);
+		}
+
+		/// <summary>
+		/// Activates a mod and optionally preserves the supplied install context when upgrading an older version.
+		/// </summary>
+		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			bool p_booOverrideUpgrade, ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride)
+		{
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 
@@ -86,7 +97,7 @@ namespace Nexus.Client.ModManagement
 			switch (curAction)
 			{
 				case ConfirmUpgradeResult.Upgrade:
-					ModInstallContext upgradeContext = CaptureInstalledContext(modOldVersion);
+					ModInstallContext upgradeContext = p_booExplicitMethodOverride ? p_micInstallContext : CaptureInstalledContext(modOldVersion);
 					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod,
 						p_dlgOverwriteConfirmationDelegate, upgradeContext);
 					return muiUpgrader;

@@ -83,8 +83,7 @@ namespace Nexus.Client.ModManagement
 			if (p_mdtTarget == null)
 				throw new ArgumentNullException(nameof(p_mdtTarget));
 
-			string rootPath = GetDeploymentRootPath(p_mdtTarget.Root);
-			return GetContainedPath(rootPath, p_mdtTarget.RelativePath, "deployment");
+			return ModDeploymentTargetResolver.GetPhysicalPath(m_gmdGameMode, p_mdtTarget);
 		}
 
 		/// <inheritdoc />
@@ -181,6 +180,8 @@ namespace Nexus.Client.ModManagement
 				m_ilgInstallLog.SetDeploymentOwners(p_mdtTarget, owners);
 				transaction.Complete();
 			}
+
+			m_vmaVirtualModActivator.PublishPendingDeploymentChanges();
 		}
 
 		/// <inheritdoc />
@@ -439,6 +440,15 @@ namespace Nexus.Client.ModManagement
 		/// <inheritdoc />
 		public IReadOnlyCollection<string> UninstallMixedMod(IMod p_modMod, TxFileManager p_tfmFileManager)
 		{
+			return UninstallMixedMod(p_modMod, p_tfmFileManager, null, null);
+		}
+
+		/// <summary>
+		/// Removes the mod from method-neutral ownership stacks while reporting target-level progress and honoring cooperative cancellation.
+		/// </summary>
+		public IReadOnlyCollection<string> UninstallMixedMod(IMod p_modMod, TxFileManager p_tfmFileManager,
+			Action<ModDeploymentTarget, int, int> p_actProgress, Func<bool> p_fncCancellationRequested)
+		{
 			RequireMutationArguments(p_modMod, null, p_tfmFileManager);
 			string modKey = RequireModKey(p_modMod);
 			ModInstallMethod installMethod = m_ilgInstallLog.GetModInstallMethod(p_modMod);
@@ -447,17 +457,32 @@ namespace Nexus.Client.ModManagement
 				targets.UnionWith(m_vmaVirtualModActivator.GetVirtualTargetsForMod(p_modMod));
 
 			var absentPaths = new List<string>();
+			int processedTargetCount = 0;
 			foreach (ModDeploymentTarget target in targets)
 			{
+				ThrowIfUninstallCancelled(p_fncCancellationRequested);
 				if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
 					RemovePromotedOwner(target, modKey, p_tfmFileManager, absentPaths);
 				else if (installMethod == ModInstallMethod.Virtual)
 					RemovePureVirtualOwner(target, modKey, p_tfmFileManager, absentPaths);
+
+				processedTargetCount++;
+				p_actProgress?.Invoke(target, processedTargetCount, targets.Count);
 			}
 
+			ThrowIfUninstallCancelled(p_fncCancellationRequested);
 			if (installMethod == ModInstallMethod.Virtual)
 				m_vmaVirtualModActivator.RemoveVirtualModInfoIfUnused(p_modMod);
 			return absentPaths;
+		}
+
+		/// <summary>
+		/// Throws when the caller requested cancellation of a mixed deployment uninstall.
+		/// </summary>
+		private static void ThrowIfUninstallCancelled(Func<bool> p_fncCancellationRequested)
+		{
+			if (p_fncCancellationRequested != null && p_fncCancellationRequested())
+				throw new OperationCanceledException();
 		}
 
 		/// <inheritdoc />
@@ -732,33 +757,6 @@ namespace Nexus.Client.ModManagement
 				}
 			}
 			return count;
-		}
-
-		private string GetDeploymentRootPath(ModDeploymentRoot p_mdrRoot)
-		{
-			if (m_gmdGameMode == null)
-				throw new InvalidOperationException("This deployment coordinator was not initialized with game paths.");
-
-			string rootPath;
-			switch (p_mdrRoot)
-			{
-				case ModDeploymentRoot.Data:
-					rootPath = m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath;
-					break;
-				case ModDeploymentRoot.GameRoot:
-					rootPath = m_gmdGameMode.InstallationPath;
-					break;
-				case ModDeploymentRoot.Secondary:
-					rootPath = m_gmdGameMode.SecondaryInstallationPath;
-					break;
-				default:
-					throw new ArgumentOutOfRangeException(nameof(p_mdrRoot));
-			}
-
-			if (string.IsNullOrWhiteSpace(rootPath))
-				throw new InvalidOperationException(string.Format("Deployment root '{0}' is not configured for the current game mode.", p_mdrRoot));
-
-			return rootPath;
 		}
 
 		/// <inheritdoc />

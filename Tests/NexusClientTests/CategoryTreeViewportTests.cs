@@ -27,6 +27,8 @@ namespace NexusClientTests
 		private const int WmLButtonUp = 0x0202;
 		private const int WmLButtonDoubleClick = 0x0203;
 		private const int MkLButton = 0x0001;
+		private const string StatusFieldName = "ModStatus";
+		private const string LatestFieldName = "LastKnownVersion";
 
 		private Form _host;
 		private Control _view;
@@ -385,7 +387,7 @@ namespace NexusClientTests
 			Assert.That(editor, Is.Not.Null);
 			editor.Text = "Pending rename text";
 			string pendingText = editor.Text;
-			string statusBefore = Convert.ToString(focused.GetValue("Status"));
+			string statusBefore = Convert.ToString(focused.GetValue(StatusFieldName));
 
 			ToggleActive(mod);
 			InvokeSurface("RefreshData");
@@ -393,12 +395,12 @@ namespace NexusClientTests
 
 			Assert.That(_tree.ActiveEditor, Is.Not.Null, "A programmatic refresh must not close a genuine rename editor.");
 			Assert.That(editor.Text, Is.EqualTo(pendingText), "A deferred refresh must not overwrite pending user text.");
-			Assert.That(Convert.ToString(focused.GetValue("Status")), Is.EqualTo(statusBefore), "The disruptive refresh must remain deferred while the editor is active.");
+			Assert.That(Convert.ToString(focused.GetValue(StatusFieldName)), Is.EqualTo(statusBefore), "The disruptive refresh must remain deferred while the editor is active.");
 
 			_tree.HideEditor();
 			DrainPostedCallbacks();
 			Assert.That(_tree.ActiveEditor, Is.Null);
-			Assert.That(Convert.ToString(focused.GetValue("Status")), Is.Not.EqualTo(statusBefore), "The latest model state must be reconciled after editing ends.");
+			Assert.That(Convert.ToString(focused.GetValue(StatusFieldName)), Is.Not.EqualTo(statusBefore), "The latest model state must be reconciled after editing ends.");
 		}
 
 		/// <summary>
@@ -407,6 +409,9 @@ namespace NexusClientTests
 		[Test]
 		public void AutoFilterEditorDefersRefreshUntilEditorCloses()
 		{
+			IMod mod = _mods[0];
+			TreeListNode target = FindVisibleNode(mod);
+			Assert.That(target, Is.Not.Null);
 			Point filterPoint = FindAutoFilterPoint("ModName");
 			SendNativeClick(filterPoint);
 			Application.DoEvents();
@@ -421,9 +426,7 @@ namespace NexusClientTests
 			Assert.That(editor, Is.Not.Null);
 			editor.Text = "Mod";
 			string pendingText = editor.Text;
-			TreeListNode target = _tree.NodesIterator.Visible.First(node => node?.Tag is IMod);
-			IMod mod = (IMod)target.Tag;
-			string statusBefore = Convert.ToString(target.GetValue("Status"));
+			string statusBefore = Convert.ToString(target.GetValue(StatusFieldName));
 
 			ToggleActive(mod);
 			InvokeSurface("RefreshData");
@@ -431,13 +434,13 @@ namespace NexusClientTests
 
 			Assert.That(_tree.ActiveEditor, Is.Not.Null);
 			Assert.That(editor.Text, Is.EqualTo(pendingText), "Filter input must not be overwritten by a background refresh.");
-			Assert.That(Convert.ToString(target.GetValue("Status")), Is.EqualTo(statusBefore));
+			Assert.That(Convert.ToString(target.GetValue(StatusFieldName)), Is.EqualTo(statusBefore));
 
 			_tree.HideEditor();
 			DrainPostedCallbacks();
 			TreeListNode current = FindVisibleNode(mod);
 			Assert.That(current, Is.Not.Null);
-			Assert.That(Convert.ToString(current.GetValue("Status")), Is.Not.EqualTo(statusBefore), "Deferred model state must be applied after Auto Filter editing ends.");
+			Assert.That(Convert.ToString(current.GetValue(StatusFieldName)), Is.Not.EqualTo(statusBefore), "Deferred model state must be applied after Auto Filter editing ends.");
 		}
 
 		/// <summary>
@@ -459,7 +462,7 @@ namespace NexusClientTests
 			Assert.That((bool)InvokeViewNonPublicResult("BeginInlineRename"), Is.True);
 			Assert.That(_tree.ActiveEditor, Is.Not.Null);
 
-			InvokeSurfaceNonPublic("SetVisibilityPredicate", null);
+			InvokeSurfaceNonPublic("SetVisibilityPredicate", (object)null);
 			Application.DoEvents();
 			Assert.That(VisibleModCount(), Is.EqualTo(filteredCount), "Visibility changes must stay deferred while editing is active.");
 
@@ -525,12 +528,13 @@ namespace NexusClientTests
 		public void ManagerInstallDateNavigationWaitsForEditorReconciliation(bool optionEnabled)
 		{
 			PrepareSort("InstallDate", SortOrder.Ascending);
-			TreeListNode focused = _tree.GetNodeByVisibleIndex(90);
+			_tree.TopVisibleNodeIndex = 70;
+			Application.DoEvents();
+			TreeListNode focused = _tree.GetNodeByVisibleIndex(_tree.TopVisibleNodeIndex + 4);
 			IMod mod = (IMod)focused.Tag;
 			_tree.FocusedNode = focused;
 			_tree.Selection.Clear();
 			_tree.Selection.Add(focused);
-			_tree.TopVisibleNodeIndex = 70;
 			Assert.That((bool)InvokeViewNonPublicResult("BeginInlineRename"), Is.True);
 
 			using (Control manager = CreateManagerHarness(optionEnabled, false))
@@ -635,12 +639,13 @@ namespace NexusClientTests
 		public void ManagerSortNavigationWaitsForEditorCompletion(bool optionEnabled)
 		{
 			PrepareSort("ModName", SortOrder.Ascending);
-			TreeListNode focused = _tree.GetNodeByVisibleIndex(90);
+			_tree.TopVisibleNodeIndex = 70;
+			Application.DoEvents();
+			TreeListNode focused = _tree.GetNodeByVisibleIndex(_tree.TopVisibleNodeIndex + 4);
 			IMod mod = (IMod)focused.Tag;
 			_tree.FocusedNode = focused;
 			_tree.Selection.Clear();
 			_tree.Selection.Add(focused);
-			_tree.TopVisibleNodeIndex = 70;
 			Assert.That((bool)InvokeViewNonPublicResult("BeginInlineRename"), Is.True);
 
 			using (Control manager = CreateManagerHarness(false, optionEnabled))
@@ -668,7 +673,8 @@ namespace NexusClientTests
 		{
 			PrepareSort("ModName", SortOrder.Ascending);
 			_tree.TopVisibleNodeIndex = 70;
-			TreeListNode focused = _tree.GetNodeByVisibleIndex(90);
+			Application.DoEvents();
+			TreeListNode focused = _tree.GetNodeByVisibleIndex(_tree.TopVisibleNodeIndex + 4);
 			Assert.That(focused?.Tag, Is.InstanceOf<IMod>());
 			IMod mod = (IMod)focused.Tag;
 			_tree.FocusedNode = focused;
@@ -951,7 +957,7 @@ namespace NexusClientTests
 		private void PrepareSort(string fieldName, SortOrder sortOrder)
 		{
 			_tree.ClearSorting();
-			_tree.Columns[fieldName].SortOrder = sortOrder;
+			_tree.Columns[ResolveTreeFieldName(fieldName)].SortOrder = sortOrder;
 			Application.DoEvents();
 			_userSortNotifications = 0;
 			_nativeSortNotifications = 0;
@@ -1008,14 +1014,23 @@ namespace NexusClientTests
 		/// </summary>
 		private Point FindVisiblePoint(TreeListNode targetNode, string fieldName = null)
 		{
-			for (int y = 0; y < _tree.ClientSize.Height; y += 2)
+			string resolvedFieldName = ResolveTreeFieldName(fieldName);
+			if (resolvedFieldName != null)
 			{
-				for (int x = 0; x < _tree.ClientSize.Width; x += 4)
+				var column = _tree.Columns[resolvedFieldName];
+				Assert.That(column, Is.Not.Null, "Missing TreeList column: " + resolvedFieldName);
+				_tree.MakeColumnVisible(column);
+			}
+			_tree.Update();
+
+			for (int y = 0; y < _tree.ClientSize.Height; y++)
+			{
+				for (int x = 0; x < _tree.ClientSize.Width; x += 2)
 				{
 					Point point = new Point(x, y);
 					TreeListHitInfo hitInfo = _tree.CalcHitInfo(point);
-					if (ReferenceEquals(hitInfo.Node, targetNode) &&
-						(fieldName == null || String.Equals(hitInfo.Column?.FieldName, fieldName, StringComparison.Ordinal)))
+					if (IsSameTreeNode(hitInfo.Node, targetNode) &&
+						(resolvedFieldName == null || String.Equals(hitInfo.Column?.FieldName, resolvedFieldName, StringComparison.Ordinal)))
 						return point;
 				}
 			}
@@ -1029,13 +1044,18 @@ namespace NexusClientTests
 		/// </summary>
 		private Point FindColumnHeaderPoint(string fieldName)
 		{
+			string resolvedFieldName = ResolveTreeFieldName(fieldName);
+			var column = _tree.Columns[resolvedFieldName];
+			Assert.That(column, Is.Not.Null, "Missing TreeList column: " + resolvedFieldName);
+			_tree.MakeColumnVisible(column);
+			_tree.Update();
 			for (int y = 0; y < Math.Min(80, _tree.ClientSize.Height); y++)
 			{
 				for (int x = 0; x < _tree.ClientSize.Width; x += 2)
 				{
 					Point point = new Point(x, y);
 					TreeListHitInfo hitInfo = _tree.CalcHitInfo(point);
-					if (hitInfo.Node == null && String.Equals(hitInfo.Column?.FieldName, fieldName, StringComparison.Ordinal))
+					if (hitInfo.Node == null && String.Equals(hitInfo.Column?.FieldName, resolvedFieldName, StringComparison.Ordinal))
 						return point;
 				}
 			}
@@ -1049,6 +1069,11 @@ namespace NexusClientTests
 		/// </summary>
 		private Point FindAutoFilterPoint(string fieldName)
 		{
+			string resolvedFieldName = ResolveTreeFieldName(fieldName);
+			var column = _tree.Columns[resolvedFieldName];
+			Assert.That(column, Is.Not.Null, "Missing TreeList column: " + resolvedFieldName);
+			_tree.MakeColumnVisible(column);
+			_tree.Update();
 			for (int y = 0; y < Math.Min(120, _tree.ClientSize.Height); y++)
 			{
 				for (int x = 0; x < _tree.ClientSize.Width; x += 2)
@@ -1056,13 +1081,38 @@ namespace NexusClientTests
 					Point point = new Point(x, y);
 					TreeListHitInfo hitInfo = _tree.CalcHitInfo(point);
 					if (hitInfo.Node != null && hitInfo.Node.Id == TreeList.AutoFilterNodeId &&
-						String.Equals(hitInfo.Column?.FieldName, fieldName, StringComparison.Ordinal))
+						String.Equals(hitInfo.Column?.FieldName, resolvedFieldName, StringComparison.Ordinal))
 						return point;
 				}
 			}
 
 			Assert.Fail("Could not find the requested Auto Filter Row cell.");
 			return Point.Empty;
+		}
+
+		/// <summary>
+		/// Resolves logical test column names to the current unbound Category Tree field names.
+		/// </summary>
+		private static string ResolveTreeFieldName(string fieldName)
+		{
+			switch (fieldName)
+			{
+				case "Status": return StatusFieldName;
+				case "Latest": return LatestFieldName;
+				default: return fieldName;
+			}
+		}
+
+		/// <summary>
+		/// Compares TreeList nodes by stable row identity so hit testing does not depend on DevExpress returning the same node wrapper instance.
+		/// </summary>
+		private static bool IsSameTreeNode(TreeListNode first, TreeListNode second)
+		{
+			if (ReferenceEquals(first, second)) return true;
+			if (first == null || second == null) return false;
+			if (first.Tag != null || second.Tag != null)
+				return ReferenceEquals(first.Tag, second.Tag);
+			return first.Id == second.Id;
 		}
 
 		/// <summary>

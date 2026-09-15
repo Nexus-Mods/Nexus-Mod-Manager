@@ -1100,10 +1100,11 @@ namespace Nexus.Client.ModManagement
 
 		public void SetCurrentProfile(IModProfile p_impProfile)
 		{
-			if (p_impProfile != null)
-				m_strCurrentProfileId = p_impProfile.Id;
-			else
-				m_strCurrentProfileId = null;
+			string profileId = p_impProfile == null ? null : p_impProfile.Id;
+			if (!String.Equals(m_strCurrentProfileId, profileId, StringComparison.OrdinalIgnoreCase))
+				MarkCurrentDeploymentManifestDirty();
+
+			m_strCurrentProfileId = profileId;
 		}
 
 		/// <summary>
@@ -1162,7 +1163,7 @@ namespace Nexus.Client.ModManagement
 				}
 
 				if (p_impModProfile.Id == m_strCurrentProfileId)
-					SaveDeploymentManifest(p_impModProfile);
+					UpdateCurrentDeploymentManifest();
 
 				string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
 
@@ -1447,6 +1448,7 @@ namespace Nexus.Client.ModManagement
 			if (!VirtualModActivator.DisableLinkCreation)
 				if (CurrentProfile != null)
 				{
+					MarkCurrentDeploymentManifestDirty();
 					UpdateCurrentProfileModCount();
 
 					if (CurrentProfile.BackupDate != "")
@@ -1501,7 +1503,7 @@ namespace Nexus.Client.ModManagement
 							break;
 					}
 					UpdateCurrentProfileModCount();
-					UpdateCurrentDeploymentManifest();
+					MarkCurrentDeploymentManifestDirty();
 				}
 		}
 

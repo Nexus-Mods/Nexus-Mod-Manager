@@ -576,7 +576,10 @@
 			}
 
 			if (p_booModActivationChange)
+			{
+				ClearDeploymentPublicationPending();
 				ModActivationChanged(null, new EventArgs());
+			}
 
 			return writtenTo;
 		}

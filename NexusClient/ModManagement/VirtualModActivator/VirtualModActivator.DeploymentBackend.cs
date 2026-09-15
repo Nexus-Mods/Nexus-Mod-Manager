@@ -20,6 +20,7 @@ namespace Nexus.Client.ModManagement
 	{
 		private readonly object m_objDeploymentTransactionLock = new object();
 		private Dictionary<string, VirtualDeploymentTransactionEnlistment> m_dicDeploymentTransactionEnlistments;
+		private bool m_booDeploymentPublicationPending;
 
 		/// <inheritdoc />
 		public IReadOnlyList<string> GetVirtualOwnerKeys(ModDeploymentTarget p_mdtTarget)
@@ -430,7 +431,7 @@ namespace Nexus.Client.ModManagement
 					if (m_booVirtualLinkIndexDirty)
 						continue;
 
-					VirtualLinkIndexBucket bucket = m_vliVirtualLinkIndex.FindByOwnerKey(p_strOwnerKey);
+					VirtualLinkOwnerIndexBucket bucket = m_vliVirtualLinkIndex.FindByOwnerKey(p_strOwnerKey);
 					return bucket == null ? new IVirtualModLink[0] : bucket.ToArray();
 				}
 			}
@@ -438,29 +439,7 @@ namespace Nexus.Client.ModManagement
 
 		private string GetDeploymentPathForTarget(ModDeploymentTarget p_mdtTarget)
 		{
-			if (p_mdtTarget == null)
-				throw new ArgumentNullException(nameof(p_mdtTarget));
-
-			string rootPath;
-			switch (p_mdtTarget.Root)
-			{
-				case ModDeploymentRoot.Data:
-					rootPath = m_strGameDataPath;
-					break;
-				case ModDeploymentRoot.GameRoot:
-					rootPath = GameMode.InstallationPath;
-					break;
-				case ModDeploymentRoot.Secondary:
-					rootPath = GameMode.SecondaryInstallationPath;
-					break;
-				default:
-					throw new ArgumentOutOfRangeException(nameof(p_mdtTarget));
-			}
-
-			if (string.IsNullOrWhiteSpace(rootPath))
-				throw new InvalidOperationException(string.Format("Deployment root '{0}' is not configured for the current game mode.", p_mdtTarget.Root));
-
-			return Path.GetFullPath(Path.Combine(rootPath, p_mdtTarget.RelativePath));
+			return ModDeploymentTargetResolver.GetPhysicalPath(GameMode, p_mdtTarget);
 		}
 
 		private string ResolveVirtualSourcePath(IVirtualModLink p_vmlLink, ModDeploymentTarget p_mdtTarget)
@@ -564,6 +543,48 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>
+		/// Records that a committed deployment transaction has externally visible VMA changes to publish.
+		/// </summary>
+		private void MarkDeploymentPublicationPending()
+		{
+			lock (m_objDeploymentTransactionLock)
+				m_booDeploymentPublicationPending = true;
+		}
+
+		/// <summary>
+		/// Clears a deferred deployment publication when another final-state notification supersedes it.
+		/// </summary>
+		private void ClearDeploymentPublicationPending()
+		{
+			lock (m_objDeploymentTransactionLock)
+				m_booDeploymentPublicationPending = false;
+		}
+
+		/// <inheritdoc />
+		public void PublishPendingDeploymentChanges()
+		{
+			EventHandler handler;
+			lock (m_objDeploymentTransactionLock)
+			{
+				if (!m_booDeploymentPublicationPending)
+					return;
+
+				m_booDeploymentPublicationPending = false;
+				handler = ModActivationChanged;
+			}
+
+			try
+			{
+				if (handler != null)
+					handler(null, EventArgs.Empty);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Unable to publish committed Virtual deployment changes: {0}", ex);
+			}
+		}
+
 		private sealed class VirtualDeploymentTransactionEnlistment : IEnlistmentNotification
 		{
 			private readonly VirtualModActivator m_vmaOwner;
@@ -659,13 +680,6 @@ namespace Nexus.Client.ModManagement
 				{
 					if (m_booDirty && !m_booPreparedDurably && !m_vmaOwner.SaveList(false))
 						Trace.TraceError("Unable to persist pure-Virtual VMA state during transaction commit.");
-
-					if (m_booDirty)
-					{
-						EventHandler handler = m_vmaOwner.ModActivationChanged;
-						if (handler != null)
-							handler(null, new EventArgs());
-					}
 				}
 				finally
 				{
@@ -687,6 +701,9 @@ namespace Nexus.Client.ModManagement
 			private void TransactionCompleted(object p_objSender, EventArgs p_eaEventArgs)
 			{
 				m_trnTransaction.TransactionCompleted -= TransactionCompleted;
+				if (m_trnTransaction.TransactionInformation.Status == TransactionStatus.Committed && m_booDirty)
+				m_vmaOwner.MarkDeploymentPublicationPending();
+
 				if (String.IsNullOrWhiteSpace(m_strRecoveryJournalPath) || !File.Exists(m_strRecoveryJournalPath))
 					return;
 

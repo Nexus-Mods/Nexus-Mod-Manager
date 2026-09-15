@@ -31,7 +31,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		public ModDeleter(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
-			:base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ilgModInstallLog, p_pmgPluginManager, p_rolActiveMods)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ilgModInstallLog, p_pmgPluginManager, p_rolActiveMods, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a mod deleter with the profile manager used to flush the final deployment snapshot.
+		/// </summary>
+		public ModDeleter(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods, IProfileManager p_ipmProfileManager)
+			: base(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ilgModInstallLog, p_pmgPluginManager, p_rolActiveMods, p_ipmProfileManager)
 		{
 		}
 

@@ -934,6 +934,17 @@ namespace Nexus.Client.ModManagement
 			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
 			ModInstallContext p_micInstallContext)
 		{
+			return ActivateMod(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, p_micInstallContext, false);
+		}
+
+		/// <summary>
+		/// Activates the given mod while preserving an explicit install context if an upgrade is selected.
+		/// </summary>
+		public IBackgroundTaskSet ActivateMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride)
+		{
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
@@ -941,7 +952,7 @@ namespace Nexus.Client.ModManagement
 
 			DeleteXMLInstalledFile(p_modMod);
 			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
-				p_rolActiveMods, false, p_micInstallContext);
+				p_rolActiveMods, false, p_micInstallContext, p_booExplicitMethodOverride);
 		}
 
 		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)

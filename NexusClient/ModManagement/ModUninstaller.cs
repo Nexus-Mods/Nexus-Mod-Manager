@@ -96,6 +96,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected IModDeploymentManager DeploymentManager { get; private set; }
 
+		/// <summary>
+		/// Gets the profile manager used to flush deferred deployment snapshots.
+		/// </summary>
+		protected IProfileManager ProfileManager { get; private set; }
+
 		public bool DisableVirtualFilesOnly { get; set; }
 
 		public bool Succeeded { get; private set; }
@@ -119,6 +124,14 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
 		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ilgModInstallLog, p_pmgPluginManager, p_rolActiveMods, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes an uninstaller with the profile manager used to flush the final deployment snapshot.
+		/// </summary>
+		public ModUninstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, ReadOnlyObservableList<IMod> p_rolActiveMods, IProfileManager p_ipmProfileManager)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -128,6 +141,7 @@ namespace Nexus.Client.ModManagement
 			ActiveMods = p_rolActiveMods;
 			VirtualModActivator = p_ivaVirtualModActivator;
 			DeploymentManager = p_mdmDeploymentManager;
+			ProfileManager = p_ipmProfileManager;
 		}
 
 		#endregion
@@ -167,6 +181,7 @@ namespace Nexus.Client.ModManagement
 			// as a result, we only allow one mod to be installed at a time,
 			// hence the lock.
 			bool booSuccess = false;
+			bool booCancelled = false;
 			string strErrorMessage = String.Empty;
 			try
 			{
@@ -207,14 +222,20 @@ namespace Nexus.Client.ModManagement
 						using (TransactionScope tsTransaction = new TransactionScope())
 						{
 							TxFileManager tfmFileManager = new TxFileManager();
+							bool deploymentRemovalSucceeded = true;
 
 							if (installMethod == ModInstallMethod.Direct || booHasPromotedFiles)
 							{
-								IReadOnlyCollection<string> absentPaths = DeploymentManager.UninstallMixedMod(Mod, tfmFileManager);
-								if (PluginManager != null && absentPaths.Count > 0)
+								MixedModDeploymentRemovalTask removalTask = new MixedModDeploymentRemovalTask(Mod, DeploymentManager, tfmFileManager);
+								OnTaskStarted(removalTask);
+								deploymentRemovalSucceeded = removalTask.Execute();
+								booCancelled = removalTask.Status == TaskStatus.Cancelled || removalTask.Status == TaskStatus.Cancelling;
+								if (!deploymentRemovalSucceeded)
+									strErrorMessage = removalTask.ErrorMessage;
+								else if (PluginManager != null && removalTask.AbsentPaths.Count > 0)
 								{
 									List<string> removedPlugins = new List<string>();
-									foreach (string path in absentPaths)
+									foreach (string path in removalTask.AbsentPaths)
 									{
 										if (PluginManager.IsActivatiblePluginFile(path))
 											removedPlugins.Add(path);
@@ -224,18 +245,25 @@ namespace Nexus.Client.ModManagement
 								}
 							}
 
-							booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
-							if (booSuccess)
+							if (deploymentRemovalSucceeded)
 							{
-								Mod.InstallDate = null;
-								ModInstallLog.RemoveMod(Mod);
-								tsTransaction.Complete();
+								booSuccess = RunBasicUninstallScript(tfmFileManager, out strErrorMessage);
+								if (booSuccess)
+								{
+									ModInstallLog.RemoveMod(Mod);
+									tsTransaction.Complete();
+									Mod.InstallDate = null;
+								}
 							}
 						}
 					}
 
 					if (booSuccess)
+					{
+						VirtualModActivator.PublishPendingDeploymentChanges();
+						ProfileManager?.UpdateCurrentDeploymentManifest();
 						DeleteXMLInstalledFile(Mod);
+					}
 				}
 			}
 			catch (Exception ex)
@@ -244,7 +272,9 @@ namespace Nexus.Client.ModManagement
 				booSuccess = false;
 			}
 
-			if (booSuccess)
+			if (booCancelled)
+				OnTaskSetCompleted(false, "The mod deactivation was cancelled.", Mod);
+			else if (booSuccess)
 				OnTaskSetCompleted(booSuccess, "The mod was successfully deactivated." + Environment.NewLine + strErrorMessage, Mod);
 			else
 				OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
@@ -305,6 +335,107 @@ namespace Nexus.Client.ModManagement
 				gviGameSpecificValueInstaller.FinalizeInstall();
 
 			return booResult;
+		}
+	}
+
+	/// <summary>
+	/// Reports progress and exposes cooperative cancellation while removing mixed deployment targets.
+	/// </summary>
+	internal sealed class MixedModDeploymentRemovalTask : BackgroundTask
+	{
+		private readonly IMod m_modMod;
+		private readonly IModDeploymentManager m_mdmDeploymentManager;
+		private readonly TxFileManager m_tfmFileManager;
+		private readonly string m_strDisablingFilesText;
+		private readonly string m_strDisablingFilesFormat;
+		private readonly string m_strDisablingFileFormat;
+		private readonly string m_strCancelledText;
+		private readonly string m_strDisabledFilesText;
+
+		/// <summary>
+		/// Initializes a mixed deployment removal task.
+		/// </summary>
+		public MixedModDeploymentRemovalTask(IMod p_modMod, IModDeploymentManager p_mdmDeploymentManager, TxFileManager p_tfmFileManager)
+		{
+			m_modMod = p_modMod;
+			m_mdmDeploymentManager = p_mdmDeploymentManager;
+			m_tfmFileManager = p_tfmFileManager;
+			m_strDisablingFilesText = LanguageManager.Get("Tasks.Mods.DisablingDeployedFiles", "Disabling deployed files...");
+			m_strDisablingFilesFormat = LanguageManager.GetFormat("Tasks.Mods.DisablingDeployedFilesForMod", "Disabling deployed files: {0}");
+			m_strDisablingFileFormat = LanguageManager.GetFormat("Tasks.ModLinks.DisablingFile", "Disabling: {0}");
+			m_strCancelledText = LanguageManager.Get("Common.Status.Cancelled", "Cancelled");
+			m_strDisabledFilesText = LanguageManager.Get("Tasks.Mods.DisabledDeployedFiles", "Disabled deployed files.");
+			AbsentPaths = new string[0];
+		}
+
+		public string ErrorMessage { get; private set; }
+
+		public IReadOnlyCollection<string> AbsentPaths { get; private set; }
+
+		/// <summary>
+		/// Removes mixed deployment targets synchronously inside the caller-owned transaction.
+		/// </summary>
+		public bool Execute()
+		{
+			OverallMessage = String.Format(m_strDisablingFilesFormat, m_modMod == null ? String.Empty : m_modMod.ModName);
+			ItemMessage = m_strDisablingFilesText;
+			ShowItemProgress = true;
+			ShowItemProgressAsMarquee = true;
+			ItemProgress = 0;
+			ItemProgressStepSize = 1;
+
+			try
+			{
+				ModDeploymentManager deploymentManager = m_mdmDeploymentManager as ModDeploymentManager;
+				AbsentPaths = deploymentManager == null
+					? m_mdmDeploymentManager.UninstallMixedMod(m_modMod, m_tfmFileManager)
+					: deploymentManager.UninstallMixedMod(m_modMod, m_tfmFileManager, UpdateProgress, IsCancellationRequested);
+
+				if (Status == TaskStatus.Cancelling)
+				{
+					Status = TaskStatus.Cancelled;
+					OnTaskEnded(m_strCancelledText, m_modMod);
+					return false;
+				}
+
+				ShowItemProgressAsMarquee = false;
+				Status = TaskStatus.Complete;
+				OnTaskEnded(m_strDisabledFilesText, m_modMod);
+				return true;
+			}
+			catch (OperationCanceledException) when (IsCancellationRequested())
+			{
+				Status = TaskStatus.Cancelled;
+				OnTaskEnded(m_strCancelledText, m_modMod);
+				return false;
+			}
+			catch (Exception ex)
+			{
+				ErrorMessage = ex.Message;
+				Status = TaskStatus.Error;
+				OnTaskEnded(ex.Message, m_modMod);
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Gets whether the user requested cancellation of this removal task.
+		/// </summary>
+		private bool IsCancellationRequested()
+		{
+			return Status == TaskStatus.Cancelling || Status == TaskStatus.Cancelled;
+		}
+
+		/// <summary>
+		/// Updates the task progress after a mixed deployment target is removed.
+		/// </summary>
+		private void UpdateProgress(ModDeploymentTarget p_mdtTarget, int p_intProcessed, int p_intTotal)
+		{
+			ShowItemProgressAsMarquee = false;
+			ItemProgressMaximum = Math.Max(1, p_intTotal);
+			ItemProgress = Math.Min(p_intProcessed, ItemProgressMaximum);
+			if (p_mdtTarget != null)
+				ItemMessage = String.Format(m_strDisablingFileFormat, p_mdtTarget.RelativePath);
 		}
 	}
 

@@ -113,10 +113,20 @@
 		}
 
 		/// <summary>
-		/// Invalidates the row for a mod whose presentation state has changed.
+		/// Refreshes a mod row and reapplies the grid sort when the changed property is a sort key.
 		/// </summary>
 		public void RefreshMod(IMod mod, string propertyName)
 		{
+			if (!String.IsNullOrEmpty(propertyName))
+			{
+				var column = _gridView.Columns[propertyName];
+				if (column != null && column.SortIndex >= 0)
+				{
+					_gridView.RefreshData();
+					return;
+				}
+			}
+
 			InvalidateMod(mod);
 		}
 

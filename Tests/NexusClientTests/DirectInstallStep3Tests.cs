@@ -525,7 +525,7 @@ namespace NexusClientTests
 				IGameModeEnvironmentInfo gameModeInfo = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
 				{
 					if (method.Name == "get_InstallationPath")
-						return DataPath;
+						return GameRootPath;
 					if (method.Name == "get_SecondaryInstallationPath")
 						return SecondaryPath;
 					if (method.Name == "get_OverwriteDirectory")
@@ -538,6 +538,10 @@ namespace NexusClientTests
 						return gameModeInfo;
 					if (method.Name == "get_InstallationPath")
 						return GameRootPath;
+					if (method.Name == "get_PluginDirectory")
+						return DataPath;
+					if (method.Name == "get_UsesPlugins")
+						return true;
 					if (method.Name == "get_SecondaryInstallationPath")
 						return SecondaryPath;
 					if (method.Name == "GetModFormatAdjustedPath")

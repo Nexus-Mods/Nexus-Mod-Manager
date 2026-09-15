@@ -14,6 +14,10 @@ namespace Nexus.Client.ModManagement
 	{
 		private const string DEPLOYMENT_FILE = "deployment.xml";
 		private static readonly Version DEPLOYMENT_VERSION = new Version("1.0.0.0");
+		private readonly object m_objDeploymentManifestStateLock = new object();
+		private long m_lngDeploymentManifestRevision;
+		private long m_lngSavedDeploymentManifestRevision = -1;
+		private string m_strSavedDeploymentManifestProfileId;
 
 		/// <summary>
 		/// Loads method-neutral deployment state for a profile, or synthesizes Virtual-only state for a legacy profile.
@@ -85,8 +89,33 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public void UpdateCurrentDeploymentManifest()
 		{
-			if (CurrentProfile != null && !VirtualModActivator.DisableLinkCreation)
-				SaveDeploymentManifest(CurrentProfile);
+			IModProfile currentProfile = CurrentProfile;
+			if (currentProfile == null || VirtualModActivator.DisableLinkCreation || !IsCurrentDeploymentManifestDirty(currentProfile))
+				return;
+
+			SaveDeploymentManifest(currentProfile);
+		}
+
+		/// <summary>
+		/// Marks the current deployment snapshot stale without serializing it immediately.
+		/// </summary>
+		private void MarkCurrentDeploymentManifestDirty()
+		{
+			lock (m_objDeploymentManifestStateLock)
+				m_lngDeploymentManifestRevision++;
+		}
+
+		/// <summary>
+		/// Returns whether the current profile requires a new deployment snapshot.
+		/// </summary>
+		private bool IsCurrentDeploymentManifestDirty(IModProfile p_impProfile)
+		{
+			lock (m_objDeploymentManifestStateLock)
+			{
+				return !String.Equals(m_strSavedDeploymentManifestProfileId, p_impProfile.Id, StringComparison.OrdinalIgnoreCase)
+					|| m_lngSavedDeploymentManifestRevision != m_lngDeploymentManifestRevision
+					|| !File.Exists(GetProfileDeploymentPath(p_impProfile));
+			}
 		}
 
 		/// <summary>
@@ -137,6 +166,8 @@ namespace Nexus.Client.ModManagement
 
 				transaction.Complete();
 			}
+
+			ModManager.VirtualModActivator.PublishPendingDeploymentChanges();
 		}
 
 		/// <summary>
@@ -144,7 +175,21 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private void SaveDeploymentManifest(IModProfile p_impProfile)
 		{
+			long revision;
+			lock (m_objDeploymentManifestStateLock)
+				revision = m_lngDeploymentManifestRevision;
+
 			SaveDeploymentManifest(p_impProfile, m_strProfileManagerPath);
+
+			if (CurrentProfile == null || !String.Equals(CurrentProfile.Id, p_impProfile.Id, StringComparison.OrdinalIgnoreCase))
+				return;
+
+			lock (m_objDeploymentManifestStateLock)
+			{
+				m_strSavedDeploymentManifestProfileId = p_impProfile.Id;
+				if (m_lngSavedDeploymentManifestRevision < revision)
+					m_lngSavedDeploymentManifestRevision = revision;
+			}
 		}
 
 		/// <summary>
@@ -183,10 +228,11 @@ namespace Nexus.Client.ModManagement
 				previous = ReadDeploymentManifest(path);
 
 			var manifest = new ProfileDeploymentManifest();
+			var previousModIndex = previous == null ? null : new ProfileDeploymentModIndex(previous.Mods);
 			var runtimeToProfileId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			foreach (IMod mod in ModManager.InstallationLog.ActiveMods)
 			{
-				ProfileDeploymentMod oldEntry = previous == null ? null : FindProfileMod(previous.Mods, mod);
+				ProfileDeploymentMod oldEntry = previousModIndex == null ? null : previousModIndex.Find(mod);
 				var entry = CreateProfileMod(mod, oldEntry == null ? Guid.NewGuid().ToString("N") : oldEntry.ProfileModId);
 				manifest.Mods.Add(entry);
 
@@ -294,6 +340,101 @@ namespace Nexus.Client.ModManagement
 			// LoadReplayOperations validates generated sidecar lengths/hashes without retaining payload bytes.
 			if (replay.LoadReplayOperations() == null)
 				throw new InvalidDataException(String.Format("Direct profile restore for scripted mod '{0}' has no replayable file operations.", p_pdmMod.FileName));
+		}
+
+		/// <summary>
+		/// Indexes a persisted deployment manifest while preserving the existing profile-mod matching precedence.
+		/// </summary>
+		private sealed class ProfileDeploymentModIndex
+		{
+			private readonly Dictionary<string, List<ProfileDeploymentMod>> m_dicByFileName = new Dictionary<string, List<ProfileDeploymentMod>>(StringComparer.OrdinalIgnoreCase);
+			private readonly Dictionary<string, List<ProfileDeploymentMod>> m_dicByDownloadId = new Dictionary<string, List<ProfileDeploymentMod>>(StringComparer.OrdinalIgnoreCase);
+			private readonly Dictionary<string, List<ProfileDeploymentMod>> m_dicByModId = new Dictionary<string, List<ProfileDeploymentMod>>(StringComparer.OrdinalIgnoreCase);
+			private readonly Dictionary<ProfileDeploymentMod, int> m_dicPositions = new Dictionary<ProfileDeploymentMod, int>();
+
+			/// <summary>
+			/// Builds lookup buckets in persisted manifest order so duplicate identities retain first-match semantics.
+			/// </summary>
+			public ProfileDeploymentModIndex(IEnumerable<ProfileDeploymentMod> p_enmEntries)
+			{
+				if (p_enmEntries == null)
+					return;
+
+				int position = 0;
+				foreach (ProfileDeploymentMod entry in p_enmEntries)
+				{
+					if (entry == null)
+						continue;
+
+					if (!m_dicPositions.ContainsKey(entry))
+						m_dicPositions.Add(entry, position);
+					position++;
+					AddEntry(m_dicByFileName, entry.FileName, entry);
+					AddEntry(m_dicByDownloadId, entry.DownloadId, entry);
+					AddEntry(m_dicByModId, entry.ModId, entry);
+				}
+			}
+
+			/// <summary>
+			/// Finds the same persisted manifest entry selected by the legacy linear matcher.
+			/// </summary>
+			public ProfileDeploymentMod Find(IMod p_modMod)
+			{
+				if (p_modMod == null)
+					return null;
+
+				ProfileDeploymentMod exact = FindVersionMatch(m_dicByFileName, Path.GetFileName(p_modMod.Filename), p_modMod);
+				if (exact != null)
+					return exact;
+
+				ProfileDeploymentMod downloadMatch = FindVersionMatch(m_dicByDownloadId, p_modMod.DownloadId, p_modMod);
+				ProfileDeploymentMod modMatch = FindVersionMatch(m_dicByModId, p_modMod.Id, p_modMod);
+				if (downloadMatch == null)
+					return modMatch;
+				if (modMatch == null || ReferenceEquals(downloadMatch, modMatch))
+					return downloadMatch;
+
+				return m_dicPositions[downloadMatch] < m_dicPositions[modMatch] ? downloadMatch : modMatch;
+			}
+
+			/// <summary>
+			/// Adds a non-empty identity to a case-insensitive bucket while retaining manifest order.
+			/// </summary>
+			private static void AddEntry(Dictionary<string, List<ProfileDeploymentMod>> p_dicIndex, string p_strKey, ProfileDeploymentMod p_pdmEntry)
+			{
+				if (String.IsNullOrWhiteSpace(p_strKey))
+					return;
+
+				List<ProfileDeploymentMod> entries;
+				if (!p_dicIndex.TryGetValue(p_strKey, out entries))
+				{
+					entries = new List<ProfileDeploymentMod>();
+					p_dicIndex.Add(p_strKey, entries);
+				}
+
+				entries.Add(p_pdmEntry);
+			}
+
+			/// <summary>
+			/// Returns the first version-compatible entry from an indexed identity bucket.
+			/// </summary>
+			private static ProfileDeploymentMod FindVersionMatch(Dictionary<string, List<ProfileDeploymentMod>> p_dicIndex, string p_strKey, IMod p_modMod)
+			{
+				if (String.IsNullOrWhiteSpace(p_strKey))
+					return null;
+
+				List<ProfileDeploymentMod> entries;
+				if (!p_dicIndex.TryGetValue(p_strKey, out entries))
+					return null;
+
+				foreach (ProfileDeploymentMod entry in entries)
+				{
+					if (VersionMatches(entry, p_modMod))
+						return entry;
+				}
+
+				return null;
+			}
 		}
 
 		private static ProfileDeploymentMod FindProfileMod(IEnumerable<ProfileDeploymentMod> p_enmEntries, IMod p_modMod)

@@ -931,6 +931,8 @@ namespace Nexus.Client.ModManagement
 				}
 				transaction.Complete();
 			}
+
+			ModManager.VirtualModActivator.PublishPendingDeploymentChanges();
 		}
 
 		/// <summary>
