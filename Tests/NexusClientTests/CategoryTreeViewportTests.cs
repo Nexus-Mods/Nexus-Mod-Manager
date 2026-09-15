@@ -538,11 +538,44 @@ namespace NexusClientTests
 
 				_tree.HideEditor();
 				DrainPostedCallbacks();
-				IMod firstVisible = FirstVisibleMod();
-				if (optionEnabled)
-					Assert.That(_tree.FocusedNode?.Tag, Is.SameAs(firstVisible), "Enabled install-date navigation should run only after deferred reconciliation.");
-				else
-					Assert.That(_tree.FocusedNode?.Tag, Is.SameAs(mod), "Disabled install-date navigation must remain disabled after reconciliation.");
+				Assert.That(_tree.FocusedNode?.Tag, Is.SameAs(mod),
+					optionEnabled
+						? "Enabled install-date navigation should focus the changed mod only after deferred reconciliation."
+						: "Disabled install-date navigation must remain disabled after reconciliation.");
+			}
+		}
+
+		/// <summary>
+		/// Reveals the changed mod in its own collapsed category instead of searching the first expanded category.
+		/// </summary>
+		[Test]
+		public void ManagerInstallDateNavigationFocusesChangedModInCollapsedCategory()
+		{
+			for (int index = 0; index < _mods.Count; index++)
+				_categories[_mods[index]] = index < 120 ? "A Other" : "Z Target";
+
+			InvokeSurface("SetMods", _mods);
+			PrepareSort("InstallDate", SortOrder.Descending);
+			IMod mod = _mods[180];
+			TreeListNode modNode = _tree.NodesIterator.All.First(node => ReferenceEquals(node?.Tag, mod));
+			TreeListNode targetCategory = modNode.ParentNode;
+			Assert.That(_tree.Nodes.Count, Is.EqualTo(2));
+			TreeListNode otherCategory = ReferenceEquals(_tree.Nodes[0], targetCategory) ? _tree.Nodes[1] : _tree.Nodes[0];
+			otherCategory.Expanded = false;
+			targetCategory.Expanded = false;
+			Application.DoEvents();
+			Assert.That(_tree.GetVisibleIndexByNode(modNode), Is.EqualTo(-1), "The target mod must begin inside a collapsed category.");
+
+			using (Control manager = CreateManagerHarness(true, false))
+			{
+				mod.InstallDate = "2099-12-31";
+				InvokeNonPublic(manager, "Mod_PropertyChanged", mod, new PropertyChangedEventArgs("InstallDate"));
+				DrainPostedCallbacks();
+
+				Assert.That(targetCategory.Expanded, Is.True, "Install-date navigation must expand the changed mod's category.");
+				Assert.That(otherCategory.Expanded, Is.False, "Install-date navigation must not expand an unrelated leading category.");
+				Assert.That(_tree.FocusedNode?.Tag, Is.SameAs(mod), "Category View must focus the mod whose install date changed.");
+				Assert.That(_tree.GetVisibleIndexByNode(_tree.FocusedNode), Is.GreaterThanOrEqualTo(0));
 			}
 		}
 

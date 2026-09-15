@@ -72,6 +72,7 @@
 		private bool _restoringGridLayout;
 		private int _focusFirstVisibleGeneration;
 		private bool _pendingCategoryFocusTopAfterInstallDateChange;
+		private IMod _pendingCategoryFocusTopAfterInstallDateChangeMod;
 		private bool _pendingCategoryFocusTopAfterSorting;
 
 		// lazy-initialised flat warning-triangle icon drawn in GetWarningIcon()
@@ -1111,7 +1112,7 @@
 			}
 
 			if (focusTopAfterSortedPropertyChange)
-				RequestCategoryAwareFocusAfterInstallDateChange();
+				RequestCategoryAwareFocusAfterInstallDateChange(sender as IMod);
 		}
 
 		/// <summary>
@@ -1175,14 +1176,53 @@
 		/// <summary>
 		/// Requests install-date navigation without interrupting an active Category View editor or its deferred reconciliation.
 		/// </summary>
-		private void RequestCategoryAwareFocusAfterInstallDateChange()
+		private void RequestCategoryAwareFocusAfterInstallDateChange(IMod mod)
 		{
+			if (!ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+			{
+				QueueFocusFirstVisibleDataRow();
+				return;
+			}
+
+			if (mod == null || !_modList.Contains(mod))
+				return;
+
 			if (ShouldDeferCategoryAutomaticNavigation())
 			{
 				_pendingCategoryFocusTopAfterInstallDateChange = true;
+				_pendingCategoryFocusTopAfterInstallDateChangeMod = mod;
 				return;
 			}
-			QueueFocusFirstVisibleDataRow();
+			QueueFocusCategoryInstallDateMod(mod);
+		}
+
+		/// <summary>
+		/// Queues Category View navigation to the mod whose install date changed.
+		/// </summary>
+		private void QueueFocusCategoryInstallDateMod(IMod mod)
+		{
+			if (IsDisposed || !IsHandleCreated || mod == null) return;
+
+			int generation = ++_focusFirstVisibleGeneration;
+			IModListSurface expectedSurface = _activeModListSurface;
+			BeginInvoke(new MethodInvoker(() => FocusCategoryInstallDateMod(generation, expectedSurface, mod)));
+		}
+
+		/// <summary>
+		/// Reveals and focuses the changed mod in Category View after revalidating the install-date option.
+		/// </summary>
+		private void FocusCategoryInstallDateMod(int generation, IModListSurface expectedSurface, IMod mod)
+		{
+			if (IsDisposed || generation != _focusFirstVisibleGeneration ||
+				!ReferenceEquals(expectedSurface, _activeModListSurface) ||
+				!ReferenceEquals(_activeModListSurface, _categoryModListSurface) ||
+				mod == null || !_modList.Contains(mod) ||
+				!ShouldFocusTopAfterSortedPropertyChange(ColInstallDate))
+			{
+				return;
+			}
+
+			_categoryModListSurface?.FocusMod(mod);
 		}
 
 		/// <summary>
@@ -1218,18 +1258,28 @@
 			if (!ReferenceEquals(_activeModListSurface, _categoryModListSurface))
 			{
 				_pendingCategoryFocusTopAfterInstallDateChange = false;
+				_pendingCategoryFocusTopAfterInstallDateChangeMod = null;
 				_pendingCategoryFocusTopAfterSorting = false;
 				return;
 			}
 			if (ShouldDeferCategoryAutomaticNavigation())
 				return;
 
-			bool shouldFocus =
-				(_pendingCategoryFocusTopAfterInstallDateChange && ShouldFocusTopAfterSortedPropertyChange(ColInstallDate)) ||
-				(_pendingCategoryFocusTopAfterSorting && _focusTopRowAfterSorting && !_restoringGridLayout && !_restoringGridSort);
+			IMod installDateMod = _pendingCategoryFocusTopAfterInstallDateChangeMod;
+			bool shouldFocusInstallDateMod =
+				_pendingCategoryFocusTopAfterInstallDateChange &&
+				installDateMod != null && _modList.Contains(installDateMod) &&
+				ShouldFocusTopAfterSortedPropertyChange(ColInstallDate);
+			bool shouldFocusAfterSorting =
+				_pendingCategoryFocusTopAfterSorting && _focusTopRowAfterSorting &&
+				!_restoringGridLayout && !_restoringGridSort;
 			_pendingCategoryFocusTopAfterInstallDateChange = false;
+			_pendingCategoryFocusTopAfterInstallDateChangeMod = null;
 			_pendingCategoryFocusTopAfterSorting = false;
-			if (shouldFocus)
+
+			if (shouldFocusInstallDateMod)
+				QueueFocusCategoryInstallDateMod(installDateMod);
+			else if (shouldFocusAfterSorting)
 				QueueFocusFirstVisibleDataRow();
 		}
 
@@ -1252,6 +1302,7 @@
 		{
 			unchecked { _focusFirstVisibleGeneration++; }
 			_pendingCategoryFocusTopAfterInstallDateChange = false;
+			_pendingCategoryFocusTopAfterInstallDateChangeMod = null;
 			_pendingCategoryFocusTopAfterSorting = false;
 		}
 
