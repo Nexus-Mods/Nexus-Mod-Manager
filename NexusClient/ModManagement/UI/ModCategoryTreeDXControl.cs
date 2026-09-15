@@ -17,6 +17,7 @@
 
 	using Nexus.Client.Mods;
 	using Nexus.Client.UI;
+	using Nexus.Client.UI.Controls;
 
 	/// <summary>
 	/// Carries a Mod Name edit request from the Category Tree frontend to the Mod Manager.
@@ -80,6 +81,34 @@
 		private ImageList _categoryModCountImages;
 		private readonly Dictionary<int, int> _categoryModCountImageIndexes = new Dictionary<int, int>();
 		private bool _showCategoryModCountIcons;
+		private TreeGestureTarget _gestureTarget;
+		private string _sortSignature = String.Empty;
+
+		/// <summary>
+		/// Captures the stable target of one native mouse gesture so later layout movement cannot retarget the action.
+		/// </summary>
+		private sealed class TreeGestureTarget
+		{
+			/// <summary>
+			/// Initializes one stable mouse gesture target captured before later layout or focus changes.
+			/// </summary>
+			internal TreeGestureTarget(TreeListNode node, string columnFieldName, MouseButtons button, Point location, bool wasSelected)
+			{
+				Node = node;
+				Mod = node?.Tag as IMod;
+				ColumnFieldName = columnFieldName;
+				Button = button;
+				Location = location;
+				WasSelected = wasSelected;
+			}
+
+			internal TreeListNode Node { get; }
+			internal IMod Mod { get; }
+			internal string ColumnFieldName { get; }
+			internal MouseButtons Button { get; }
+			internal Point Location { get; }
+			internal bool WasSelected { get; }
+		}
 
 		/// <summary>
 		/// Initializes the hierarchical Category View frontend and its DevExpress interaction rules.
@@ -103,9 +132,14 @@
 		internal TreeList TreeList => treeList;
 
 		/// <summary>
-		/// Occurs when the user requests activation or deactivation of the focused mod.
+		/// Gets whether a native TreeList editor is currently active.
 		/// </summary>
-		internal event EventHandler ModToggleRequested;
+		internal bool HasActiveEditor => treeList.ActiveEditor != null;
+
+		/// <summary>
+		/// Occurs when the user requests activation or deactivation of a specific mod.
+		/// </summary>
+		internal event EventHandler<ModEventArgs> ModToggleRequested;
 		/// <summary>
 		/// Occurs when the user requests deletion of the current mod selection.
 		/// </summary>
@@ -115,9 +149,9 @@
 		/// </summary>
 		internal event EventHandler ContextMenuRequested;
 		/// <summary>
-		/// Occurs when the Latest column is activated for the focused mod.
+		/// Occurs when the Latest column is activated for a specific mod.
 		/// </summary>
-		internal event EventHandler LatestLinkRequested;
+		internal event EventHandler<ModEventArgs> LatestLinkRequested;
 		/// <summary>
 		/// Occurs when the user interacts with a mod row and any new-mod marker may be acknowledged.
 		/// </summary>
@@ -138,6 +172,14 @@
 		/// Occurs when an inline Mod Name edit has been validated and should be committed by the Mod Manager.
 		/// </summary>
 		internal event EventHandler<ModTreeRenameEventArgs> RenameRequested;
+		/// <summary>
+		/// Occurs after a native TreeList editor has finished and deferred surface updates may be reconciled.
+		/// </summary>
+		internal event EventHandler EditSessionEnded;
+		/// <summary>
+		/// Occurs when user navigation supersedes any queued automatic Category View navigation.
+		/// </summary>
+		internal event EventHandler UserNavigationOccurred;
 
 		/// <summary>
 		/// Applies shared Mods presentation settings, palette resolvers, fonts and row density to the TreeList.
@@ -363,6 +405,25 @@
 		{
 			if (_internalDataUpdateDepth > 0)
 				_internalDataUpdateDepth--;
+
+			if (_internalDataUpdateDepth == 0)
+				SynchronizeSortSignature();
+		}
+
+		/// <summary>
+		/// Synchronizes the current complete TreeList sort signature after a suppressed/programmatic sort change.
+		/// </summary>
+		internal void SynchronizeSortSignature()
+		{
+			_sortSignature = CaptureSortSignature();
+		}
+
+		/// <summary>
+		/// Invalidates the current mouse gesture target after a structural or view change.
+		/// </summary>
+		internal void InvalidateGestureTarget()
+		{
+			_gestureTarget = null;
 		}
 
 		/// <summary>
@@ -377,6 +438,7 @@
 			treeList.OptionsView.ShowAutoFilterRow = true;
 			treeList.OptionsView.AutoWidth = false;
 			treeList.OptionsBehavior.Editable = true;
+			treeList.OptionsBehavior.AutoScrollOnSorting = false;
 			treeList.OptionsSelection.MultiSelect = true;
 			treeList.OptionsSelection.EnableAppearanceFocusedCell = false;
 			treeList.OptionsSelection.EnableAppearanceFocusedRow = true;
@@ -398,8 +460,11 @@
 			treeList.DoubleClick += TreeList_DoubleClick;
 			treeList.KeyDown += TreeList_KeyDown;
 			treeList.KeyUp += TreeList_KeyUp;
+			treeList.MouseDown += TreeList_MouseDown;
+			treeList.MouseMove += TreeList_MouseMove;
 			treeList.MouseUp += TreeList_MouseUp;
 			treeList.MouseClick += TreeList_MouseClick;
+			treeList.TopVisibleNodeIndexChanged += TreeList_TopVisibleNodeIndexChanged;
 			treeList.AfterExpand += TreeList_CategoryExpansionChanged;
 			treeList.AfterCollapse += TreeList_CategoryExpansionChanged;
 			treeList.ColumnWidthChanged += (sender, args) => RaiseLayoutStateChanged();
@@ -407,13 +472,32 @@
 			treeList.EndSorting += (sender, args) =>
 			{
 				RaiseLayoutStateChanged();
-				// EndSorting also fires when an already-sorted TreeList repositions nodes
-				// after add/remove/refresh operations. Only expose sorts performed outside
-				// those internal data updates to the user-facing focus option.
-				if (_internalDataUpdateDepth == 0)
+				string currentSignature = CaptureSortSignature();
+				bool sortChanged = !String.Equals(_sortSignature, currentSignature, StringComparison.Ordinal);
+				_sortSignature = currentSignature;
+
+				// EndSorting also fires when data changes reorder an already-sorted tree.
+				// A user-facing sorting action requires both a changed complete sort signature
+				// and execution outside NMM's suppressed/programmatic update scope.
+				if (_internalDataUpdateDepth == 0 && sortChanged)
 					SortingCompleted?.Invoke(this, EventArgs.Empty);
 			};
 			treeList.LayoutUpdated += TreeList_LayoutUpdated;
+		}
+
+		/// <summary>
+		/// Captures all sorted columns in precedence order, including each direction.
+		/// </summary>
+		private string CaptureSortSignature()
+		{
+			var parts = new List<string>();
+			for (int index = 0; index < treeList.SortedColumnCount; index++)
+			{
+				TreeListColumn column = treeList.GetSortColumn(index);
+				if (column != null)
+					parts.Add(String.Format("{0}:{1}", column.FieldName ?? String.Empty, column.SortOrder));
+			}
+			return String.Join("|", parts);
 		}
 
 		/// <summary>
@@ -675,6 +759,7 @@
 				_renameActiveEditor = null;
 			}
 			EndInlineRename();
+			EditSessionEnded?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>
@@ -756,19 +841,20 @@
 		/// </summary>
 		private void TreeList_DoubleClick(object sender, EventArgs e)
 		{
-			Point clientPoint = treeList.PointToClient(Control.MousePosition);
-			TreeListHitInfo hitInfo = treeList.CalcHitInfo(clientPoint);
-			if (hitInfo.Node == null)
+			TreeGestureTarget target = _gestureTarget;
+			InvalidateGestureTarget();
+			if (!IsGestureTargetValid(target, MouseButtons.Left))
 				return;
 
-			treeList.FocusedNode = hitInfo.Node;
-			if (hitInfo.Node.Tag is IMod)
+			if (target.Mod != null)
 			{
 				ModInteractionOccurred?.Invoke(this, EventArgs.Empty);
-				ModToggleRequested?.Invoke(this, EventArgs.Empty);
+				ModToggleRequested?.Invoke(this, new ModEventArgs(target.Mod));
+				return;
 			}
-			else if (hitInfo.Node.Tag is ModCategoryTreeCategory)
-				hitInfo.Node.Expanded = !hitInfo.Node.Expanded;
+
+			if (target.Node.Tag is ModCategoryTreeCategory)
+				target.Node.Expanded = !target.Node.Expanded;
 		}
 
 		/// <summary>
@@ -788,7 +874,10 @@
 			if (treeList.ActiveEditor != null)
 				return;
 
-			if (!(treeList.FocusedNode?.Tag is IMod))
+			if (IsUserNavigationKey(e.KeyCode))
+				UserNavigationOccurred?.Invoke(this, EventArgs.Empty);
+
+			if (!(treeList.FocusedNode?.Tag is IMod focusedMod))
 				return;
 
 			if (e.KeyCode == Keys.F2)
@@ -800,7 +889,7 @@
 			else if (e.KeyCode == Keys.Return)
 			{
 				e.Handled = true;
-				ModToggleRequested?.Invoke(this, EventArgs.Empty);
+				ModToggleRequested?.Invoke(this, new ModEventArgs(focusedMod));
 			}
 			else if (e.KeyCode == Keys.Delete)
 			{
@@ -833,6 +922,40 @@
 		}
 
 		/// <summary>
+		/// Captures one stable mouse target before native focus/selection processing can be followed by layout movement.
+		/// </summary>
+		private void TreeList_MouseDown(object sender, MouseEventArgs e)
+		{
+			UserNavigationOccurred?.Invoke(this, EventArgs.Empty);
+
+			// Preserve the first target during the second MouseDown of a native double-click.
+			if (e.Clicks != 1)
+				return;
+
+			TreeListHitInfo hitInfo = treeList.CalcHitInfo(e.Location);
+			bool wasSelected = hitInfo.Node != null && treeList.Selection.Contains(hitInfo.Node);
+			_gestureTarget = new TreeGestureTarget(hitInfo.Node, hitInfo.Column?.FieldName, e.Button, e.Location, wasSelected);
+		}
+
+		/// <summary>
+		/// Cancels a pending mouse target once pointer movement becomes a drag gesture.
+		/// </summary>
+		private void TreeList_MouseMove(object sender, MouseEventArgs e)
+		{
+			if (_gestureTarget == null || e.Button != MouseButtons.Left || _gestureTarget.Button != MouseButtons.Left)
+				return;
+
+			Size dragSize = SystemInformation.DragSize;
+			Rectangle dragBounds = new Rectangle(
+				_gestureTarget.Location.X - dragSize.Width / 2,
+				_gestureTarget.Location.Y - dragSize.Height / 2,
+				dragSize.Width,
+				dragSize.Height);
+			if (!dragBounds.Contains(e.Location))
+				InvalidateGestureTarget();
+		}
+
+		/// <summary>
 		/// Normalizes right-click focus and selection before requesting the shared context menu.
 		/// </summary>
 		private void TreeList_MouseUp(object sender, MouseEventArgs e)
@@ -840,50 +963,90 @@
 			if (e.Button != MouseButtons.Right)
 				return;
 
-			TreeListHitInfo hitInfo = treeList.CalcHitInfo(e.Location);
-			if (hitInfo.Node == null)
+			TreeGestureTarget target = _gestureTarget;
+			InvalidateGestureTarget();
+			if (!IsGestureTargetValid(target, MouseButtons.Right))
 				return;
 
 			// Category nodes use the TreeList native node menu. The Mod Manager extends
 			// that menu through PopupMenuShowing instead of opening a competing popup.
-			if (hitInfo.Node.Tag is ModCategoryTreeCategory)
+			if (target.Node.Tag is ModCategoryTreeCategory)
 				return;
 
-			if (!(hitInfo.Node.Tag is IMod))
+			if (target.Mod == null)
 				return;
 
 			// Capture selection state before changing focus. With DevExpress multi-select,
 			// assigning FocusedNode may select the node immediately; testing afterwards
 			// can therefore preserve a stale previous selection and make context actions
 			// operate on both mods.
-			bool wasSelected = treeList.Selection.Contains(hitInfo.Node);
-			if (!wasSelected)
+			if (!target.WasSelected)
 			{
 				treeList.Selection.Clear();
-				treeList.Selection.Add(hitInfo.Node);
+				treeList.Selection.Add(target.Node);
 			}
 
-			treeList.FocusedNode = hitInfo.Node;
+			treeList.FocusedNode = target.Node;
 			ContextMenuRequested?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>
-		/// Handles mod-row interaction and Latest-column navigation on left click.
+		/// Handles mod-row interaction and Latest-column navigation using the original MouseDown target.
 		/// </summary>
 		private void TreeList_MouseClick(object sender, MouseEventArgs e)
 		{
 			if (e.Button != MouseButtons.Left)
 				return;
 
-			TreeListHitInfo hitInfo = treeList.CalcHitInfo(e.Location);
-			if (!(hitInfo.Node?.Tag is IMod))
+			TreeGestureTarget target = _gestureTarget;
+			if (!IsGestureTargetValid(target, MouseButtons.Left) || target.Mod == null)
 				return;
 
-			treeList.FocusedNode = hitInfo.Node;
+			// Let the TreeList own normal focus and Ctrl/Shift selection semantics. The
+			// captured target is only the identity used by actions originating from this gesture.
 			ModInteractionOccurred?.Invoke(this, EventArgs.Empty);
 
-			if (hitInfo.Column != null && hitInfo.Column.FieldName == ModCategoryTreeColumns.Latest)
-				LatestLinkRequested?.Invoke(this, EventArgs.Empty);
+			if (String.Equals(target.ColumnFieldName, ModCategoryTreeColumns.Latest, StringComparison.Ordinal))
+				LatestLinkRequested?.Invoke(this, new ModEventArgs(target.Mod));
+		}
+
+		/// <summary>
+		/// Invalidates queued automatic navigation when the user scrolls the TreeList outside an internal update.
+		/// </summary>
+		private void TreeList_TopVisibleNodeIndexChanged(object sender, EventArgs e)
+		{
+			if (_internalDataUpdateDepth == 0)
+				UserNavigationOccurred?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Gets whether a captured gesture still represents the same node/action target.
+		/// </summary>
+		private static bool IsGestureTargetValid(TreeGestureTarget target, MouseButtons button)
+		{
+			if (target == null || target.Node == null || target.Button != button)
+				return false;
+
+			return target.Mod == null || ReferenceEquals(target.Node.Tag, target.Mod);
+		}
+
+		/// <summary>
+		/// Gets whether a key can represent explicit user row/viewport navigation.
+		/// </summary>
+		private static bool IsUserNavigationKey(Keys keyCode)
+		{
+			switch (keyCode)
+			{
+				case Keys.Up:
+				case Keys.Down:
+				case Keys.PageUp:
+				case Keys.PageDown:
+				case Keys.Home:
+				case Keys.End:
+					return true;
+				default:
+					return false;
+			}
 		}
 
 		/// <summary>

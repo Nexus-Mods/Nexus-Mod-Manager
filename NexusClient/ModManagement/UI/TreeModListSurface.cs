@@ -110,6 +110,13 @@
 		private string _textFilter = String.Empty;
 		private Func<IMod, bool> _visibilityPredicate;
 		private Func<ModCategoryTreeCategory, bool> _categoryVisibilityPredicate;
+		private readonly HashSet<IMod> _pendingModRefreshes = new HashSet<IMod>();
+		private IList<IMod> _pendingStructuralMods;
+		private bool _pendingFullRefresh;
+		private bool _pendingStructuralRefresh;
+		private bool _pendingFilterReconciliation;
+		private bool _deferredReconcileQueued;
+		private bool _applyingDeferredRefresh;
 		private bool _suppressSelectionChanged;
 
 		/// <summary>
@@ -138,9 +145,11 @@
 			_categoryCountFormatter = categoryCountFormatter ?? ((active, total) => String.Format("{0}/{1} Mods", active, total));
 
 			BuildColumns();
+			_viewControl.SynchronizeSortSignature();
 			_treeList.FocusedNodeChanged += TreeList_SelectionChanged;
 			_treeList.SelectionChanged += TreeList_SelectionChanged;
 			_treeList.CustomColumnSort += TreeList_CustomColumnSort;
+			_viewControl.EditSessionEnded += ViewControl_EditSessionEnded;
 		}
 
 		/// <summary>
@@ -177,10 +186,186 @@
 		public event EventHandler SelectionChanged;
 
 		/// <summary>
+		/// Occurs after an editor has closed and all deferred Category View work has been reconciled.
+		/// </summary>
+		internal event EventHandler EditReconciliationCompleted;
+
+		/// <summary>
+		/// Gets whether editor-driven work is still pending or currently being reconciled.
+		/// </summary>
+		internal bool HasPendingDeferredUpdates => HasPendingDeferredRefresh || _deferredReconcileQueued || _applyingDeferredRefresh;
+
+		/// <summary>
+		/// Gets whether disruptive TreeList work should be deferred until the native editor finishes.
+		/// </summary>
+		private bool ShouldDeferDisruptiveUpdate => !_applyingDeferredRefresh && _viewControl.HasActiveEditor;
+
+		/// <summary>
+		/// Gets whether any deferred refresh work is waiting for editor completion.
+		/// </summary>
+		private bool HasPendingDeferredRefresh => _pendingStructuralRefresh || _pendingFullRefresh || _pendingFilterReconciliation || _pendingModRefreshes.Count > 0;
+
+		/// <summary>
+		/// Queues a structural rebuild and supersedes all less comprehensive deferred refreshes.
+		/// </summary>
+		private void QueueDeferredStructuralRefresh(IEnumerable<IMod> mods = null)
+		{
+			_pendingStructuralRefresh = true;
+			_pendingStructuralMods = mods != null && !ReferenceEquals(mods, _mods)
+				? mods.Where(mod => mod != null).ToList()
+				: null;
+			_pendingFullRefresh = false;
+			_pendingFilterReconciliation = false;
+			_pendingModRefreshes.Clear();
+		}
+
+		/// <summary>
+		/// Queues one full value reconciliation and supersedes individual mod refreshes.
+		/// </summary>
+		private void QueueDeferredFullRefresh()
+		{
+			if (_pendingStructuralRefresh)
+				return;
+
+			_pendingFullRefresh = true;
+			_pendingModRefreshes.Clear();
+		}
+
+		/// <summary>
+		/// Queues visibility reconciliation independently so clearing the final filter still restores hidden nodes.
+		/// </summary>
+		private void QueueDeferredFilterReconciliation()
+		{
+			if (!_pendingStructuralRefresh)
+				_pendingFilterReconciliation = true;
+		}
+
+		/// <summary>
+		/// Queues one mod refresh, promoting category changes to a structural rebuild.
+		/// </summary>
+		private void QueueDeferredModRefresh(IMod mod, string propertyName)
+		{
+			if (String.Equals(propertyName, "CategoryId", StringComparison.Ordinal) ||
+				String.Equals(propertyName, "CustomCategoryId", StringComparison.Ordinal))
+			{
+				QueueDeferredStructuralRefresh();
+				return;
+			}
+
+			if (!_pendingStructuralRefresh && !_pendingFullRefresh && mod != null)
+				_pendingModRefreshes.Add(mod);
+		}
+
+		/// <summary>
+		/// Schedules deferred refresh reconciliation after DevExpress has fully closed the native editor.
+		/// </summary>
+		private void ViewControl_EditSessionEnded(object sender, EventArgs e)
+		{
+			QueueDeferredReconciliation();
+		}
+
+		/// <summary>
+		/// Posts a single deferred-refresh reconciliation callback to avoid running inside HiddenEditor.
+		/// </summary>
+		private void QueueDeferredReconciliation()
+		{
+			if (_deferredReconcileQueued || _viewControl.IsDisposed || _viewControl.Disposing)
+				return;
+
+			_deferredReconcileQueued = true;
+			_viewControl.BeginInvoke(new Action(ApplyDeferredRefreshes));
+		}
+
+		/// <summary>
+		/// Applies the highest-priority coalesced refresh after the editor has ended.
+		/// </summary>
+		private void ApplyDeferredRefreshes()
+		{
+			_deferredReconcileQueued = false;
+			if (_viewControl.IsDisposed || _viewControl.Disposing || _viewControl.HasActiveEditor)
+				return;
+
+			if (!HasPendingDeferredRefresh)
+			{
+				EditReconciliationCompleted?.Invoke(this, EventArgs.Empty);
+				return;
+			}
+
+			bool rebuild = _pendingStructuralRefresh;
+			bool fullRefresh = _pendingFullRefresh;
+			bool reconcileFilter = _pendingFilterReconciliation;
+			IList<IMod> structuralMods = _pendingStructuralMods;
+			IList<IMod> modRefreshes = _pendingModRefreshes.Where(mod => mod != null && _mods.Contains(mod)).ToList();
+
+			_pendingStructuralRefresh = false;
+			_pendingStructuralMods = null;
+			_pendingFullRefresh = false;
+			_pendingFilterReconciliation = false;
+			_pendingModRefreshes.Clear();
+
+			_applyingDeferredRefresh = true;
+			try
+			{
+				if (rebuild)
+				{
+					SetMods(structuralMods ?? _mods);
+				}
+				else if (fullRefresh)
+				{
+					RefreshData(reconcileFilter);
+				}
+				else if (modRefreshes.Count > 0)
+				{
+					RefreshModValues(modRefreshes, reconcileFilter);
+				}
+				else if (reconcileFilter)
+				{
+					ApplyDeferredVisibilityFilter();
+				}
+			}
+			finally
+			{
+				_applyingDeferredRefresh = false;
+			}
+
+			if (HasPendingDeferredRefresh && !_viewControl.HasActiveEditor)
+			{
+				QueueDeferredReconciliation();
+				return;
+			}
+
+			EditReconciliationCompleted?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Reconciles a filter-only deferred edit inside the internal guard so viewport restoration is not mistaken for user navigation.
+		/// </summary>
+		private void ApplyDeferredVisibilityFilter()
+		{
+			_viewControl.BeginInternalDataUpdate();
+			try
+			{
+				_viewControl.InvalidateGestureTarget();
+				ApplyVisibilityFilter();
+			}
+			finally
+			{
+				_viewControl.EndInternalDataUpdate();
+			}
+		}
+
+		/// <summary>
 		/// Rebuilds the Category Tree from the supplied mods while preserving expansion, focus and selection state.
 		/// </summary>
 		public void SetMods(IEnumerable<IMod> mods)
 		{
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredStructuralRefresh(mods);
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			TreeViewportState viewport = CaptureViewportState();
 			// Full rebuilds are intentionally limited to initial population and collection
 			// resets. Category-only changes are reconciled incrementally by SetAvailableCategories.
@@ -240,6 +425,13 @@
 		public void AddMods(IEnumerable<IMod> mods)
 		{
 			if (mods == null) return;
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredStructuralRefresh();
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			TreeViewportState viewport = CaptureViewportState();
 			TreeListNode focused = _treeList.FocusedNode;
 			IList<TreeListNode> selected = _treeList.Selection.Cast<TreeListNode>().ToList();
@@ -278,6 +470,13 @@
 		public void RemoveMods(IEnumerable<IMod> mods)
 		{
 			if (mods == null) return;
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredStructuralRefresh();
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			TreeViewportState viewport = CaptureViewportState();
 			_viewControl.BeginInternalDataUpdate();
 			_treeList.BeginUnboundLoad();
@@ -296,19 +495,17 @@
 		}
 
 		/// <summary>
-		/// Refreshes a mod node and moves it between category parents when its category assignment changes.
+		/// Refreshes a mod node and preserves the current interaction state when the update only changes values.
 		/// </summary>
 		public void RefreshMod(IMod mod, string propertyName)
 		{
-			RefreshMod(mod, propertyName, false);
-		}
-
-		/// <summary>
-		/// Refreshes a mod node and optionally keeps a single focused mod at the same visual row when sorting moves it.
-		/// </summary>
-		internal void RefreshMod(IMod mod, string propertyName, bool preserveFocusedVisualPosition)
-		{
 			if (mod == null) return;
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredModRefresh(mod, propertyName);
+				return;
+			}
+
 			TreeListNode node;
 			if (!_modNodes.TryGetValue(mod, out node))
 			{
@@ -317,45 +514,142 @@
 				return;
 			}
 
-			int focusedVisibleIndex = preserveFocusedVisualPosition && ReferenceEquals(FocusedMod, mod)
-				? _treeList.GetVisibleIndexByNode(_treeList.FocusedNode)
-				: -1;
+			bool categoryChanged = String.Equals(propertyName, "CategoryId", StringComparison.Ordinal) ||
+				String.Equals(propertyName, "CustomCategoryId", StringComparison.Ordinal);
+			if (!categoryChanged)
+			{
+				RefreshModValues(new[] { mod }, false);
+				return;
+			}
+
+			string categoryName = ResolveCategoryName(mod);
+			if (node.ParentNode?.Tag is ModCategoryTreeCategory currentCategory &&
+				String.Equals(currentCategory.Name, categoryName, StringComparison.CurrentCultureIgnoreCase))
+			{
+				RefreshModValues(new[] { mod }, false);
+				return;
+			}
+
 			TreeViewportState viewport = CaptureViewportState();
+			TreeListNode focused = _treeList.FocusedNode;
+			IList<TreeListNode> selected = _treeList.Selection.Cast<TreeListNode>().ToList();
+			IMod focusedModBefore = FocusedMod;
+			IList<IMod> selectedModsBefore = SelectedMods;
+			bool wasSuppressingSelectionChanged = _suppressSelectionChanged;
+			_suppressSelectionChanged = true;
+
 			_viewControl.BeginInternalDataUpdate();
+			_treeList.BeginSort();
 			try
 			{
-				// Category changes alter hierarchy, not just cell values. Move only the affected
-				// node so expansion and viewport state of unrelated categories remain untouched.
-				if (String.Equals(propertyName, "CategoryId", StringComparison.Ordinal) ||
-					String.Equals(propertyName, "CustomCategoryId", StringComparison.Ordinal))
+				_treeList.BeginUnboundLoad();
+				try
 				{
-					string categoryName = ResolveCategoryName(mod);
-					if (!(node.ParentNode?.Tag is ModCategoryTreeCategory currentCategory) ||
-						!String.Equals(currentCategory.Name, categoryName, StringComparison.CurrentCultureIgnoreCase))
-					{
-						MoveModToCategory(mod, node, categoryName);
-						return;
-					}
+					MoveModToCategory(mod, node, categoryName, false);
+				}
+				finally
+				{
+					_treeList.EndUnboundLoad();
 				}
 
-				UpdateModNode(node, mod);
-				ApplyVisibilityFilterAfterStructureChange();
-				_treeList.RefreshNode(node);
+				ApplyVisibilityFilterAfterStructureChange(false);
+				_viewControl.InvalidateGestureTarget();
 			}
 			finally
 			{
-				_viewControl.EndInternalDataUpdate();
-				if (focusedVisibleIndex >= 0)
+				try
 				{
-					RestoreViewportIndex(viewport);
-					RestoreFocusedVisualPosition(focusedVisibleIndex);
-					RestoreViewportIndex(viewport);
-				}
-				else
-				{
+					_treeList.EndSort();
+					RestoreNodeSelection(selected, focused, true, viewport);
 					RestoreViewportState(viewport);
 				}
+				finally
+				{
+					_viewControl.EndInternalDataUpdate();
+					_suppressSelectionChanged = wasSuppressingSelectionChanged;
+				}
 			}
+
+			if (!wasSuppressingSelectionChanged && HasEffectiveModSelectionChanged(focusedModBefore, selectedModsBefore))
+				SelectionChanged?.Invoke(this, EventArgs.Empty);
+		}
+
+		/// <summary>
+		/// Reconciles one or more value-only mod updates in one TreeList transaction and sorts only when an active sort key changed.
+		/// </summary>
+		private void RefreshModValues(IEnumerable<IMod> mods, bool forceVisibilityReconciliation)
+		{
+			var refreshItems = (mods ?? Enumerable.Empty<IMod>())
+				.Where(mod => mod != null && _mods.Contains(mod))
+				.Distinct()
+				.Select(mod => new KeyValuePair<IMod, TreeListNode>(mod, _modNodes.TryGetValue(mod, out TreeListNode node) ? node : null))
+				.ToList();
+			if (refreshItems.Count == 0)
+			{
+				if (forceVisibilityReconciliation)
+					ApplyVisibilityFilter();
+				return;
+			}
+
+			if (refreshItems.Any(item => item.Value == null))
+			{
+				SetMods(_mods);
+				return;
+			}
+
+			TreeViewportState viewport = CaptureViewportState();
+			TreeListNode focused = _treeList.FocusedNode;
+			IList<TreeListNode> selected = _treeList.Selection.Cast<TreeListNode>().ToList();
+			IMod focusedModBefore = FocusedMod;
+			IList<IMod> selectedModsBefore = SelectedMods;
+			bool sortRequired = refreshItems.Any(item => HasChangedSortedModValue(item.Value, item.Key));
+			bool focusedNodeModified = false;
+			bool visibilityChanged = false;
+			bool wasSuppressingSelectionChanged = _suppressSelectionChanged;
+			_suppressSelectionChanged = true;
+
+			_viewControl.BeginInternalDataUpdate();
+			if (sortRequired)
+				_treeList.BeginSort();
+			try
+			{
+				foreach (KeyValuePair<IMod, TreeListNode> item in refreshItems)
+				{
+					bool nodeModified = UpdateModNode(item.Value, item.Key);
+					if (nodeModified && ReferenceEquals(item.Value, focused))
+						focusedNodeModified = true;
+					if (nodeModified)
+						_treeList.RefreshNode(item.Value);
+				}
+
+				visibilityChanged = forceVisibilityReconciliation
+					? ApplyVisibilityFilter(false)
+					: ApplyVisibilityFilterAfterStructureChange(false);
+				if (visibilityChanged)
+					_viewControl.InvalidateGestureTarget();
+			}
+			finally
+			{
+				try
+				{
+					if (sortRequired)
+						_treeList.EndSort();
+					SettleProgrammaticFocusedNodeEdit(focusedNodeModified);
+					RestoreNodeSelection(selected, focused, visibilityChanged, viewport);
+					if (visibilityChanged)
+						RestoreViewportState(viewport);
+					else
+						RestoreViewportIndex(viewport);
+				}
+				finally
+				{
+					_viewControl.EndInternalDataUpdate();
+					_suppressSelectionChanged = wasSuppressingSelectionChanged;
+				}
+			}
+
+			if (!wasSuppressingSelectionChanged && HasEffectiveModSelectionChanged(focusedModBefore, selectedModsBefore))
+				SelectionChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>
@@ -368,6 +662,13 @@
 				return;
 
 			_textFilter = normalized;
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredFilterReconciliation();
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			ApplyVisibilityFilter();
 		}
 
@@ -380,6 +681,13 @@
 				return;
 
 			_visibilityPredicate = predicate;
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredFilterReconciliation();
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			ApplyVisibilityFilter();
 		}
 
@@ -389,6 +697,13 @@
 		internal void SetCategoryVisibilityPredicate(Func<ModCategoryTreeCategory, bool> predicate)
 		{
 			_categoryVisibilityPredicate = predicate;
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredFilterReconciliation();
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			ApplyVisibilityFilter();
 		}
 
@@ -432,6 +747,13 @@
 				_availableCategoryIds[pair.Key] = pair.Value;
 			_showEmptyCategories = showEmptyCategories;
 
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredStructuralRefresh();
+				return;
+			}
+
+			_viewControl.InvalidateGestureTarget();
 			foreach (KeyValuePair<string, TreeListNode> pair in _categoryNodes)
 			{
 				if (pair.Value?.Tag is ModCategoryTreeCategory treeCategory &&
@@ -464,6 +786,7 @@
 		public void FocusMod(IMod mod)
 		{
 			if (mod == null) return;
+			_viewControl.InvalidateGestureTarget();
 			TreeListNode node;
 			if (!_modNodes.TryGetValue(mod, out node)) return;
 			if (node.ParentNode != null) node.ParentNode.Expanded = true;
@@ -481,63 +804,198 @@
 		}
 
 		/// <summary>
-		/// Refreshes all mod-node values while preserving selection and the scroll position across activation-driven sorts.
+		/// Refreshes all mod-node values and fully settles sort state before restoring selection and viewport.
 		/// </summary>
 		public void RefreshData()
 		{
+			RefreshData(false);
+		}
+
+		/// <summary>
+		/// Refreshes all values and optionally forces visibility reconciliation even when the resulting filter set is empty.
+		/// </summary>
+		private void RefreshData(bool forceVisibilityReconciliation)
+		{
+			if (ShouldDeferDisruptiveUpdate)
+			{
+				QueueDeferredFullRefresh();
+				return;
+			}
+
 			TreeViewportState viewport = CaptureViewportState();
 			TreeListNode focused = _treeList.FocusedNode;
 			IList<TreeListNode> selected = _treeList.Selection.Cast<TreeListNode>().ToList();
+			bool focusedNodeModified = false;
+			bool visibilityChanged = false;
 			bool wasSuppressingSelectionChanged = _suppressSelectionChanged;
 			_suppressSelectionChanged = true;
+
 			_viewControl.BeginInternalDataUpdate();
+			_treeList.BeginSort();
 			try
 			{
-				// BeginUpdate only suppresses painting. Batch unbound data changes as well
-				// so activation does not repeatedly sort the entire tree for each cell.
+				// Batch unbound cell changes while sorting is locked so repeated property
+				// updates cannot repeatedly rearrange the tree.
 				_treeList.BeginUnboundLoad();
 				try
 				{
 					ResetCategoryAggregateState();
 					foreach (KeyValuePair<IMod, TreeListNode> pair in _modNodes.ToList())
 					{
-						UpdateModNode(pair.Value, pair.Key);
+						bool nodeModified = UpdateModNode(pair.Value, pair.Key);
+						if (nodeModified && ReferenceEquals(pair.Value, focused))
+							focusedNodeModified = true;
 						AccumulateCategoryState(pair.Value.ParentNode, pair.Key);
 					}
-					RefreshCategoryCaptions();
+					focusedNodeModified |= RefreshCategoryCaptions(focused);
 				}
 				finally
 				{
 					_treeList.EndUnboundLoad();
 				}
-				ApplyVisibilityFilterAfterStructureChange();
-				RestoreNodeSelection(selected, focused);
-				// Keep the viewport in place even when its former top mod changes status
-				// and sorts elsewhere. Focus restoration may scroll, so restore this last.
-				RestoreViewportIndex(viewport);
-				_treeList.Invalidate();
+
+				visibilityChanged = forceVisibilityReconciliation
+					? ApplyVisibilityFilter(false)
+					: ApplyVisibilityFilterAfterStructureChange(false);
+				if (visibilityChanged)
+					_viewControl.InvalidateGestureTarget();
 			}
 			finally
 			{
-				_viewControl.EndInternalDataUpdate();
-				_suppressSelectionChanged = wasSuppressingSelectionChanged;
+				try
+				{
+					_treeList.EndSort();
+					SettleProgrammaticFocusedNodeEdit(focusedNodeModified);
+					RestoreNodeSelection(selected, focused, visibilityChanged, viewport);
+					if (visibilityChanged)
+						RestoreViewportState(viewport);
+					else
+						RestoreViewportIndex(viewport);
+					_treeList.Invalidate();
+				}
+				finally
+				{
+					_viewControl.EndInternalDataUpdate();
+					_suppressSelectionChanged = wasSuppressingSelectionChanged;
+				}
 			}
 			if (!wasSuppressingSelectionChanged)
 				SelectionChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>
-		/// Restores existing mod and category nodes after a non-destructive refresh, without selecting a different mod by row index.
+		/// Finalizes programmatic changes on the focused node without forcing another sort or disturbing a real editor.
 		/// </summary>
-		private void RestoreNodeSelection(IList<TreeListNode> selected, TreeListNode focused)
+		private void SettleProgrammaticFocusedNodeEdit(bool focusedNodeModified)
 		{
-			_treeList.FocusedNode = focused != null && _treeList.GetVisibleIndexByNode(focused) >= 0 ? focused : null;
+			if (focusedNodeModified && _treeList.ActiveEditor == null)
+				_treeList.EndCurrentEdit(false);
+		}
+
+		/// <summary>
+		/// Restores surviving node identities after a refresh and optionally chooses a visible fallback after a structural change.
+		/// </summary>
+		private void RestoreNodeSelection(IList<TreeListNode> selected, TreeListNode focused, bool allowFallback = false, TreeViewportState viewport = null)
+		{
+			TreeListNode focusedNode = ResolveCurrentNode(focused);
+			if (focusedNode == null || _treeList.GetVisibleIndexByNode(focusedNode) < 0)
+				focusedNode = allowFallback && focused != null ? FindVisibleFallbackNode(viewport?.TopVisibleIndex ?? 0) : null;
+
+			_treeList.FocusedNode = focusedNode;
 			_treeList.Selection.Clear();
-			foreach (TreeListNode node in selected)
+			foreach (TreeListNode capturedNode in selected ?? Enumerable.Empty<TreeListNode>())
 			{
-				if (_treeList.GetVisibleIndexByNode(node) >= 0)
-					_treeList.Selection.Add(node);
+				TreeListNode currentNode = ResolveCurrentNode(capturedNode);
+				if (currentNode != null && _treeList.GetVisibleIndexByNode(currentNode) >= 0)
+					_treeList.Selection.Add(currentNode);
 			}
+		}
+
+		/// <summary>
+		/// Resolves a captured node to its current mod or category node after a structural refresh.
+		/// </summary>
+		private TreeListNode ResolveCurrentNode(TreeListNode capturedNode)
+		{
+			if (capturedNode == null)
+				return null;
+
+			if (capturedNode.Tag is IMod mod)
+			{
+				TreeListNode modNode;
+				return _modNodes.TryGetValue(mod, out modNode) ? modNode : null;
+			}
+
+			if (capturedNode.Tag is ModCategoryTreeCategory category)
+			{
+				TreeListNode categoryNode;
+				return _categoryNodes.TryGetValue(category.Name, out categoryNode) ? categoryNode : null;
+			}
+
+			return null;
+		}
+
+		/// <summary>
+		/// Finds a deterministic visible focus fallback near the previous viewport, preferring mod rows over category rows.
+		/// </summary>
+		private TreeListNode FindVisibleFallbackNode(int preferredVisibleIndex)
+		{
+			TreeListNode lastVisibleNode = _treeList.NodesIterator.Visible.LastOrDefault(node => node != null);
+			if (lastVisibleNode == null)
+				return null;
+
+			int lastVisibleIndex = _treeList.GetVisibleIndexByNode(lastVisibleNode);
+			int startIndex = Math.Max(0, Math.Min(preferredVisibleIndex, lastVisibleIndex));
+			for (int index = startIndex; index <= lastVisibleIndex; index++)
+			{
+				TreeListNode node = GetNodeByVisibleIndexSafe(index);
+				if (node?.Tag is IMod)
+					return node;
+			}
+
+			for (int index = startIndex - 1; index >= 0; index--)
+			{
+				TreeListNode node = GetNodeByVisibleIndexSafe(index);
+				if (node?.Tag is IMod)
+					return node;
+			}
+
+			return GetNodeByVisibleIndexSafe(startIndex);
+		}
+
+		/// <summary>
+		/// Gets a visible node while tolerating stale DevExpress visible indexes during a structural update.
+		/// </summary>
+		private TreeListNode GetNodeByVisibleIndexSafe(int visibleIndex)
+		{
+			try
+			{
+				return _treeList.GetNodeByVisibleIndex(visibleIndex);
+			}
+			catch (ArgumentOutOfRangeException)
+			{
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Determines whether a refresh changed the effective focused or selected mod identities.
+		/// </summary>
+		private bool HasEffectiveModSelectionChanged(IMod focusedBefore, IList<IMod> selectedBefore)
+		{
+			if (!ReferenceEquals(focusedBefore, FocusedMod))
+				return true;
+
+			IList<IMod> selectedAfter = SelectedMods;
+			if ((selectedBefore?.Count ?? 0) != selectedAfter.Count)
+				return true;
+
+			foreach (IMod mod in selectedBefore ?? Enumerable.Empty<IMod>())
+			{
+				if (!selectedAfter.Any(selectedMod => ReferenceEquals(selectedMod, mod)))
+					return true;
+			}
+
+			return false;
 		}
 
 		/// <summary>
@@ -572,6 +1030,7 @@
 		/// </summary>
 		public void CollapseAllCategories()
 		{
+			_viewControl.InvalidateGestureTarget();
 			_treeList.CollapseAll();
 		}
 
@@ -580,6 +1039,7 @@
 		/// </summary>
 		public void ExpandAllCategories()
 		{
+			_viewControl.InvalidateGestureTarget();
 			_treeList.ExpandAll();
 		}
 
@@ -633,22 +1093,32 @@
 		{
 			if (String.IsNullOrEmpty(serializedLayout))
 				return;
+
+			_viewControl.InvalidateGestureTarget();
+			_viewControl.BeginInternalDataUpdate();
 			try
 			{
-				// DevExpress layout data is persisted as text in the existing settings store.
-				// Reapply invariants afterwards because older layouts may contain obsolete
-				// editability, hierarchy or grouping state.
-				byte[] bytes = Encoding.UTF8.GetBytes(serializedLayout);
-				using (var stream = new MemoryStream(bytes))
+				try
 				{
-					_treeList.ForceInitialize();
-					_treeList.RestoreLayoutFromStream(stream);
+					// DevExpress layout data is persisted as text in the existing settings store.
+					// Reapply invariants afterwards because older layouts may contain obsolete
+					// editability, hierarchy or grouping state.
+					byte[] bytes = Encoding.UTF8.GetBytes(serializedLayout);
+					using (var stream = new MemoryStream(bytes))
+					{
+						_treeList.ForceInitialize();
+						_treeList.RestoreLayoutFromStream(stream);
+					}
+					EnsureTreeColumnInvariants();
 				}
-				EnsureTreeColumnInvariants();
+				catch
+				{
+					// Ignore stale/incompatible layouts; the current defaults remain usable.
+				}
 			}
-			catch
+			finally
 			{
-				// Ignore stale/incompatible layouts; the current defaults remain usable.
+				_viewControl.EndInternalDataUpdate();
 			}
 		}
 
@@ -711,6 +1181,7 @@
 		/// </summary>
 		private void EnsureTreeColumnInvariants()
 		{
+			_treeList.OptionsBehavior.AutoScrollOnSorting = false;
 			TreeListColumn modName = _treeList.Columns[ModCategoryTreeColumns.ModName];
 			if (modName != null)
 			{
@@ -937,6 +1408,7 @@
 		/// </summary>
 		private void MoveModToCategory(IMod mod, TreeListNode oldNode, string categoryName, bool applyVisibility = true)
 		{
+			_viewControl.InvalidateGestureTarget();
 			// Reparenting an unbound node is implemented as remove/add. Preserve identity at
 			// the surface level so a category reassignment does not appear as lost selection.
 			bool wasFocused = ReferenceEquals(_treeList.FocusedNode, oldNode);
@@ -1006,20 +1478,22 @@
 		}
 
 		/// <summary>
-		/// Updates a category node caption with its current mod count.
+		/// Updates a category node caption with its current mod count and reports whether the cell value changed.
 		/// </summary>
-		private void UpdateCategoryCaption(TreeListNode categoryNode)
+		private bool UpdateCategoryCaption(TreeListNode categoryNode)
 		{
 			ModCategoryTreeCategory category = categoryNode?.Tag as ModCategoryTreeCategory;
-			if (category == null) return;
+			if (category == null) return false;
 
 			string countText = _categoryCountFormatter(category.ActiveModCount, category.ModCount);
-			categoryNode.SetValue(
+			bool changed = SetValueIfChanged(
+				categoryNode,
 				ModCategoryTreeColumns.ModName,
 				String.IsNullOrWhiteSpace(countText)
 					? category.Name
 					: String.Format("{0} ({1})", category.Name, countText));
 			_viewControl.UpdateCategoryModCountIcon(categoryNode, category.ModCount);
+			return changed;
 		}
 
 		/// <summary>
@@ -1096,45 +1570,6 @@
 			_treeList.TopVisibleNodeIndex = Math.Max(0, Math.Min(state.TopVisibleIndex, lastVisibleIndex));
 		}
 
-		/// <summary>
-		/// Focuses and selects the nearest mod row to a previous visible index after sorting repositions the original mod.
-		/// </summary>
-		private void RestoreFocusedVisualPosition(int visibleIndex)
-		{
-			TreeListNode targetNode = null;
-			int bestDistance = Int32.MaxValue;
-			foreach (TreeListNode candidate in _treeList.NodesIterator.Visible)
-			{
-				if (!(candidate?.Tag is IMod))
-					continue;
-
-				int candidateIndex = _treeList.GetVisibleIndexByNode(candidate);
-				int distance = Math.Abs(candidateIndex - visibleIndex);
-				if (distance >= bestDistance)
-					continue;
-
-				targetNode = candidate;
-				bestDistance = distance;
-				if (distance == 0)
-					break;
-			}
-
-			if (targetNode == null)
-				return;
-
-			_suppressSelectionChanged = true;
-			try
-			{
-				_treeList.Selection.Clear();
-				_treeList.Selection.Add(targetNode);
-				_treeList.FocusedNode = targetNode;
-			}
-			finally
-			{
-				_suppressSelectionChanged = false;
-			}
-			SelectionChanged?.Invoke(this, EventArgs.Empty);
-		}
 
 		/// <summary>
 		/// Builds the unbound TreeList value array for a mod node.
@@ -1155,20 +1590,72 @@
 		}
 
 		/// <summary>
-		/// Synchronizes all displayed values of an existing mod node.
+		/// Gets whether at least one currently sorted mod value would change during this refresh.
 		/// </summary>
-		private void UpdateModNode(TreeListNode node, IMod mod)
+		private bool HasChangedSortedModValue(TreeListNode node, IMod mod)
 		{
-			if (node == null || mod == null) return;
-			node.SetValue(ModCategoryTreeColumns.Status, _statusTextResolver?.Invoke(mod) ?? String.Empty);
-			node.SetValue(ModCategoryTreeColumns.ModName, mod.ModName);
-			node.SetValue(ModCategoryTreeColumns.Version, mod.HumanReadableVersion);
-			node.SetValue(ModCategoryTreeColumns.Latest, mod.LastKnownVersion);
-			node.SetValue(ModCategoryTreeColumns.Author, mod.Author);
-			node.SetValue(ModCategoryTreeColumns.InstallDate, mod.InstallDate);
-			node.SetValue(ModCategoryTreeColumns.DownloadDate, mod.DownloadDate);
-			node.SetValue(ModCategoryTreeColumns.DownloadId, mod.DownloadId);
-			node.SetValue(ModCategoryTreeColumns.Endorsed, mod.IsEndorsed);
+			if (node == null || mod == null)
+				return false;
+
+			for (int index = 0; index < _treeList.SortedColumnCount; index++)
+			{
+				TreeListColumn column = _treeList.GetSortColumn(index);
+				if (column != null && !Object.Equals(node.GetValue(column.FieldName), GetModColumnValue(mod, column.FieldName)))
+					return true;
+			}
+			return false;
+		}
+
+		/// <summary>
+		/// Resolves the displayed value used by one Category View mod column.
+		/// </summary>
+		private object GetModColumnValue(IMod mod, string fieldName)
+		{
+			switch (fieldName)
+			{
+				case ModCategoryTreeColumns.Status: return _statusTextResolver?.Invoke(mod) ?? String.Empty;
+				case ModCategoryTreeColumns.ModName: return mod.ModName;
+				case ModCategoryTreeColumns.Version: return mod.HumanReadableVersion;
+				case ModCategoryTreeColumns.Latest: return mod.LastKnownVersion;
+				case ModCategoryTreeColumns.Author: return mod.Author;
+				case ModCategoryTreeColumns.InstallDate: return mod.InstallDate;
+				case ModCategoryTreeColumns.DownloadDate: return mod.DownloadDate;
+				case ModCategoryTreeColumns.DownloadId: return mod.DownloadId;
+				case ModCategoryTreeColumns.Endorsed: return mod.IsEndorsed;
+				default: return null;
+			}
+		}
+
+		/// <summary>
+		/// Synchronizes changed displayed values of an existing mod node and reports whether any cell changed.
+		/// </summary>
+		private bool UpdateModNode(TreeListNode node, IMod mod)
+		{
+			if (node == null || mod == null) return false;
+
+			bool changed = false;
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Status, _statusTextResolver?.Invoke(mod) ?? String.Empty);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.ModName, mod.ModName);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Version, mod.HumanReadableVersion);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Latest, mod.LastKnownVersion);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Author, mod.Author);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.InstallDate, mod.InstallDate);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.DownloadDate, mod.DownloadDate);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.DownloadId, mod.DownloadId);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Endorsed, mod.IsEndorsed);
+			return changed;
+		}
+
+		/// <summary>
+		/// Writes an unbound TreeList cell only when its effective value has changed.
+		/// </summary>
+		private static bool SetValueIfChanged(TreeListNode node, string fieldName, object value)
+		{
+			if (node == null || Object.Equals(node.GetValue(fieldName), value))
+				return false;
+
+			node.SetValue(fieldName, value);
+			return true;
 		}
 
 		/// <summary>
@@ -1185,20 +1672,20 @@
 		/// <summary>
 		/// Re-evaluates node visibility after a structural change only when an actual filter is active.
 		/// </summary>
-		private void ApplyVisibilityFilterAfterStructureChange()
+		private bool ApplyVisibilityFilterAfterStructureChange(bool restoreViewport = true)
 		{
-			if (String.IsNullOrEmpty(_textFilter) && _visibilityPredicate == null)
-				return;
+			if (String.IsNullOrEmpty(_textFilter) && _visibilityPredicate == null && _categoryVisibilityPredicate == null)
+				return false;
 
-			ApplyVisibilityFilter();
+			return ApplyVisibilityFilter(restoreViewport);
 		}
 
 		/// <summary>
-		/// Applies text and predicate filters to mod nodes and derives visibility of their category parents.
+		/// Applies text and predicate filters to mod nodes, optionally restoring the structural viewport anchor.
 		/// </summary>
-		private void ApplyVisibilityFilter()
+		private bool ApplyVisibilityFilter(bool restoreViewport = true)
 		{
-			TreeViewportState viewport = CaptureViewportState();
+			TreeViewportState viewport = restoreViewport ? CaptureViewportState() : null;
 			bool changed = false;
 			_treeList.BeginUpdate();
 			try
@@ -1247,8 +1734,11 @@
 			{
 				_treeList.LayoutChanged();
 				_treeList.Invalidate();
-				RestoreViewportState(viewport);
+				if (restoreViewport)
+					RestoreViewportState(viewport);
 			}
+
+			return changed;
 		}
 
 		/// <summary>
@@ -1343,12 +1833,18 @@
 		}
 
 		/// <summary>
-		/// Refreshes category captions after aggregate counters have changed.
+		/// Refreshes category captions and reports whether the currently focused category value changed.
 		/// </summary>
-		private void RefreshCategoryCaptions()
+		private bool RefreshCategoryCaptions(TreeListNode focusedNode)
 		{
+			bool focusedNodeModified = false;
 			foreach (TreeListNode categoryNode in _categoryNodes.Values)
-				UpdateCategoryCaption(categoryNode);
+			{
+				bool changed = UpdateCategoryCaption(categoryNode);
+				if (changed && ReferenceEquals(categoryNode, focusedNode))
+					focusedNodeModified = true;
+			}
+			return focusedNodeModified;
 		}
 
 		/// <summary>
