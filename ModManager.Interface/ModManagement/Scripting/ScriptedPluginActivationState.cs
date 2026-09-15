@@ -10,12 +10,13 @@ namespace Nexus.Client.ModManagement.Scripting
 	/// Tracks the plugin activation state requested during a single scripted installation.
 	/// </summary>
 	/// <remarks>
-	/// Successfully deployed plugins implicitly request activation unless an explicit activation instruction overrides that default.
-	/// Explicit instructions are retained independently of deployment order, with the latest instruction winning.
+	/// Deployments are tracked independently from activation intent so scripted paths that historically suppress plugin handling remain unchanged.
+	/// Normal plugin deployments implicitly request activation, while explicit instructions override that intent with the latest instruction winning.
 	/// </remarks>
 	public sealed class ScriptedPluginActivationState
 	{
 		private readonly HashSet<string> m_hstDeployedPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		private readonly HashSet<string> m_hstImplicitActivationRequests = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, bool> m_dicExplicitActivationRequests = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
 		#region Properties
@@ -33,13 +34,25 @@ namespace Nexus.Client.ModManagement.Scripting
 		#region State Tracking
 
 		/// <summary>
-		/// Records a plugin successfully deployed by the current scripted installation.
+		/// Records a plugin successfully deployed by the current scripted installation using normal plugin activation semantics.
 		/// </summary>
 		/// <param name="p_strPluginPath">The canonical path identifying the deployed plugin.</param>
 		public void RecordDeployedPlugin(string p_strPluginPath)
 		{
+			RecordDeployedPlugin(p_strPluginPath, true);
+		}
+
+		/// <summary>
+		/// Records a plugin successfully deployed by the current scripted installation and whether deployment implicitly requests activation.
+		/// </summary>
+		/// <param name="p_strPluginPath">The canonical path identifying the deployed plugin.</param>
+		/// <param name="p_booRequestActivation">Whether the deployment itself requests plugin activation.</param>
+		public void RecordDeployedPlugin(string p_strPluginPath, bool p_booRequestActivation)
+		{
 			ValidatePluginPath(p_strPluginPath);
 			m_hstDeployedPluginPaths.Add(p_strPluginPath);
+			if (p_booRequestActivation)
+				m_hstImplicitActivationRequests.Add(p_strPluginPath);
 		}
 
 		/// <summary>
@@ -58,7 +71,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// </summary>
 		/// <param name="p_strPluginPath">The canonical path identifying the plugin.</param>
 		/// <param name="p_booActivate">The requested activation state when the method returns <c>true</c>.</param>
-		/// <returns><c>true</c> when the plugin was deployed or received an explicit activation instruction; otherwise, <c>false</c>.</returns>
+		/// <returns><c>true</c> when deployment or an explicit instruction requested an activation state; otherwise, <c>false</c>.</returns>
 		public bool TryGetRequestedActivation(string p_strPluginPath, out bool p_booActivate)
 		{
 			ValidatePluginPath(p_strPluginPath);
@@ -66,7 +79,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (m_dicExplicitActivationRequests.TryGetValue(p_strPluginPath, out p_booActivate))
 				return true;
 
-			if (m_hstDeployedPluginPaths.Contains(p_strPluginPath))
+			if (m_hstImplicitActivationRequests.Contains(p_strPluginPath))
 			{
 				p_booActivate = true;
 				return true;
@@ -82,7 +95,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns>The case-insensitive effective activation set for the current scripted installation.</returns>
 		public IList<string> GetRequestedActivePluginPaths()
 		{
-			HashSet<string> hstRequestedActive = new HashSet<string>(m_hstDeployedPluginPaths, StringComparer.OrdinalIgnoreCase);
+			HashSet<string> hstRequestedActive = new HashSet<string>(m_hstImplicitActivationRequests, StringComparer.OrdinalIgnoreCase);
 
 			foreach (KeyValuePair<string, bool> kvpRequest in m_dicExplicitActivationRequests)
 			{
@@ -96,6 +109,21 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
+		/// Gets a snapshot of the final requested activation state for every plugin controlled by the current scripted installation.
+		/// </summary>
+		/// <returns>The case-insensitive final activation state keyed by plugin path.</returns>
+		public IDictionary<string, bool> GetRequestedActivationStates()
+		{
+			Dictionary<string, bool> dicRequestedStates = m_hstImplicitActivationRequests
+				.ToDictionary(x => x, x => true, StringComparer.OrdinalIgnoreCase);
+
+			foreach (KeyValuePair<string, bool> kvpRequest in m_dicExplicitActivationRequests)
+				dicRequestedStates[kvpRequest.Key] = kvpRequest.Value;
+
+			return dicRequestedStates;
+		}
+
+		/// <summary>
 		/// Reconciles the complete scripted activation intent after all deployment work has succeeded.
 		/// </summary>
 		/// <param name="p_pmgPluginManager">The plugin manager used to register and validate the final state.</param>
@@ -104,33 +132,18 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (p_pmgPluginManager == null)
 				return;
 
-			IList<string> lstDeployedPluginPaths = DeployedPluginPaths;
-			if (lstDeployedPluginPaths.Count > 0)
-				p_pmgPluginManager.IntegrateDeployedPlugins(lstDeployedPluginPaths);
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+			bool booReconciled = p_pmgPluginManager.TryReconcileDeployedPlugins(
+				DeployedPluginPaths, GetRequestedActivationStates(), out lstBlockingDiagnostics);
 
-			HashSet<string> hstTrackedPluginPaths = new HashSet<string>(m_hstDeployedPluginPaths, StringComparer.OrdinalIgnoreCase);
-			hstTrackedPluginPaths.UnionWith(m_dicExplicitActivationRequests.Keys);
-
-			List<Plugin> lstTrackedPlugins = hstTrackedPluginPaths
-				.Select(p_pmgPluginManager.GetRegisteredPlugin)
-				.Where(x => x != null)
-				.GroupBy(x => x.Filename, StringComparer.OrdinalIgnoreCase)
-				.Select(x => x.First())
-				.ToList();
-
-			if (lstTrackedPlugins.Count > 0)
+			if (!booReconciled)
 			{
-				IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
-				p_pmgPluginManager.TrySetPluginActivation(lstTrackedPlugins, false, out lstBlockingDiagnostics);
+				System.Diagnostics.Trace.TraceWarning(
+					"One or more scripted plugin activation requests could not be applied during final reconciliation.");
 			}
 
-			List<string> lstRequestedActivePluginPaths = GetRequestedActivePluginPaths()
-				.Where(x => m_hstDeployedPluginPaths.Contains(x) || p_pmgPluginManager.GetRegisteredPlugin(x) != null)
-				.ToList();
-			if (lstRequestedActivePluginPaths.Count > 0)
-				p_pmgPluginManager.IntegrateDeployedPlugins(lstRequestedActivePluginPaths);
-
 			m_hstDeployedPluginPaths.Clear();
+			m_hstImplicitActivationRequests.Clear();
 			m_dicExplicitActivationRequests.Clear();
 		}
 

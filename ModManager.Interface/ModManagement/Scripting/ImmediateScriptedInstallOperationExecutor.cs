@@ -191,8 +191,13 @@ namespace Nexus.Client.ModManagement.Scripting
 			{
 				throw new ScriptedDeploymentException("Scripted basic-install deployment did not complete successfully.");
 			}
-			if (installed && m_sfcFileSelectionCache != null)
-				m_sfcFileSelectionCache.RecordBasicInstall();
+			if (installed)
+			{
+				foreach (string strDeployedPluginPath in bitTask.DeployedPluginPaths)
+					TrackDeployedPlugin(strDeployedPluginPath, true);
+				if (m_sfcFileSelectionCache != null)
+					m_sfcFileSelectionCache.RecordBasicInstall();
+			}
 			return installed;
 		}
 
@@ -314,8 +319,12 @@ namespace Nexus.Client.ModManagement.Scripting
 					throw CreateDeploymentException("Scripted Direct generated-file deployment failed.", ex);
 				}
 
-				if (generated && m_sfcFileSelectionCache != null)
-					m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
+				if (generated)
+				{
+					TrackDeployedPlugin(GetPhysicalDeploymentPath(strPath), false);
+					if (m_sfcFileSelectionCache != null)
+						m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
+				}
 				return generated;
 			}
 
@@ -328,6 +337,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			else if (p_gdoOperation.StageFile)
 				((IModFileInstallDecisionSupport)m_igpInstallers.FileInstaller).GenerateDataFileWithResolvedOverwrite(strVirtualPath, p_gdoOperation.Data);
 
+			string strDeployedPath;
 			ModDeploymentTarget target = GetPromotedTarget(strPath);
 			if ((decision != null && decision.UseDeploymentCoordinator) || target != null)
 			{
@@ -340,7 +350,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				m_igpInstallers.MarkPromotedDeploymentUsed();
 				try
 				{
-					m_igpInstallers.DeploymentManager.InstallVirtualFile(
+					strDeployedPath = m_igpInstallers.DeploymentManager.InstallVirtualFile(
 						m_modMod, target, strPath, strVirtualPath, m_igpInstallers.InstallContext.InstallRoot,
 						activate, m_igpInstallers.TransactionalFileManager);
 				}
@@ -353,10 +363,11 @@ namespace Nexus.Client.ModManagement.Scripting
 			{
 				IModLinkInstallDecisionSupport ldsLinkDecisionSupport = m_mliModLinkInstaller as IModLinkInstallDecisionSupport;
 				if ((p_gdoOperation.LinkDecision != null) && (ldsLinkDecisionSupport != null))
-					ldsLinkDecisionSupport.AddFileLinkWithResolvedDecision(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot, p_gdoOperation.LinkDecision);
+					strDeployedPath = ldsLinkDecisionSupport.AddFileLinkWithResolvedDecision(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot, p_gdoOperation.LinkDecision);
 				else
-					m_mliModLinkInstaller.AddFileLink(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
+					strDeployedPath = m_mliModLinkInstaller.AddFileLink(m_modMod, strPath, strVirtualPath, true, false, m_igpInstallers.InstallContext.InstallRoot);
 			}
+			TrackDeployedPlugin(strDeployedPath, false);
 			if (m_sfcFileSelectionCache != null)
 				m_sfcFileSelectionCache.RecordGeneratedFile(p_gdoOperation.DestinationPath, p_gdoOperation.Data);
 			return true;
@@ -569,11 +580,19 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// </summary>
 		private void TrackDeployedPlugin(string p_strDeployedPath)
 		{
+			TrackDeployedPlugin(p_strDeployedPath, true);
+		}
+
+		/// <summary>
+		/// Records a successfully deployed plugin and whether that deployment implicitly requests activation.
+		/// </summary>
+		private void TrackDeployedPlugin(string p_strDeployedPath, bool p_booRequestActivation)
+		{
 			if (String.IsNullOrEmpty(p_strDeployedPath) || m_igpInstallers.PluginManager == null ||
 				!m_igpInstallers.PluginManager.IsActivatiblePluginFile(p_strDeployedPath))
 				return;
 
-			m_spaPluginActivationState.RecordDeployedPlugin(p_strDeployedPath);
+			m_spaPluginActivationState.RecordDeployedPlugin(p_strDeployedPath, p_booRequestActivation);
 		}
 
 		/// <summary>

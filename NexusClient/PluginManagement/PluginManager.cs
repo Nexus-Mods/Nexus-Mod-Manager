@@ -447,40 +447,48 @@ namespace Nexus.Client.PluginManagement
 				return false;
 			}
 
-			HashSet<Plugin> hstCurrentActivePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
-			bool booOrderChanged = !PluginOrdersEqual(PluginOrderLog.OrderedPlugins, correctedOrder);
-			List<Plugin> lstPluginsToDeactivate = hstCurrentActivePlugins.Where(x => !desiredActivePlugins.Contains(x)).ToList();
-			List<Plugin> lstPluginsToActivate = desiredActivePlugins.Where(x => !hstCurrentActivePlugins.Contains(x)).ToList();
+			ApplyValidatedPluginState(correctedOrder, desiredActivePlugins, snapshot);
+			return true;
+		}
 
-			if (!booOrderChanged && lstPluginsToDeactivate.Count == 0 && lstPluginsToActivate.Count == 0)
+		/// <summary>
+		/// Persists a plugin state that has already passed validation.
+		/// </summary>
+		private void ApplyValidatedPluginState(IList<Plugin> p_lstCorrectedOrder, ISet<Plugin> p_setDesiredActivePlugins, PluginSnapshot p_psnSnapshot)
+		{
+			HashSet<Plugin> currentActivePlugins = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			bool orderChanged = !PluginOrdersEqual(PluginOrderLog.OrderedPlugins, p_lstCorrectedOrder);
+			List<Plugin> pluginsToDeactivate = currentActivePlugins.Where(x => !p_setDesiredActivePlugins.Contains(x)).ToList();
+			List<Plugin> pluginsToActivate = p_setDesiredActivePlugins.Where(x => !currentActivePlugins.Contains(x)).ToList();
+
+			if (!orderChanged && pluginsToDeactivate.Count == 0 && pluginsToActivate.Count == 0)
 			{
-				m_psnCurrentSnapshot = snapshot;
-				return true;
+				m_psnCurrentSnapshot = p_psnSnapshot;
+				return;
 			}
 
-			Transactions.TransactionScope tsTransaction = null;
+			Transactions.TransactionScope transaction = null;
 
 			try
 			{
-				tsTransaction = new Transactions.TransactionScope();
+				transaction = new Transactions.TransactionScope();
 
-				if (booOrderChanged)
-					PluginOrderLog.SetPluginOrder(correctedOrder);
+				if (orderChanged)
+					PluginOrderLog.SetPluginOrder(p_lstCorrectedOrder);
 
-				if (lstPluginsToDeactivate.Count > 0)
-					ActivePluginLog.DeactivatePlugins(lstPluginsToDeactivate);
+				if (pluginsToDeactivate.Count > 0)
+					ActivePluginLog.DeactivatePlugins(pluginsToDeactivate);
 
-				if (lstPluginsToActivate.Count > 0)
-					ActivePluginLog.ActivatePlugins(lstPluginsToActivate);
+				if (pluginsToActivate.Count > 0)
+					ActivePluginLog.ActivatePlugins(pluginsToActivate);
 
-				tsTransaction.Complete();
-				m_psnCurrentSnapshot = snapshot;
-				return true;
+				transaction.Complete();
+				m_psnCurrentSnapshot = p_psnSnapshot;
 			}
 			finally
 			{
-				if (tsTransaction != null)
-					tsTransaction.Dispose();
+				if (transaction != null)
+					transaction.Dispose();
 			}
 		}
 
@@ -508,6 +516,25 @@ namespace Nexus.Client.PluginManagement
 			return candidateErrors
 				.Where(x => !currentErrorKeys.Contains(GetValidationDiagnosticKey(x)))
 				.ToList();
+		}
+
+		/// <summary>
+		/// Adds validation diagnostics without duplicating the same plugin/issue/message identity.
+		/// </summary>
+		private static void AddUniqueDiagnostics(ICollection<PluginValidationDiagnostic> p_clcTarget, IEnumerable<PluginValidationDiagnostic> p_enmDiagnostics)
+		{
+			if (p_clcTarget == null)
+				return;
+
+			HashSet<string> existingKeys = new HashSet<string>(
+				p_clcTarget.Where(x => x != null).Select(GetValidationDiagnosticKey),
+				StringComparer.OrdinalIgnoreCase);
+
+			foreach (PluginValidationDiagnostic diagnostic in p_enmDiagnostics ?? Enumerable.Empty<PluginValidationDiagnostic>())
+			{
+				if (diagnostic != null && existingKeys.Add(GetValidationDiagnosticKey(diagnostic)))
+					p_clcTarget.Add(diagnostic);
+			}
 		}
 
 		/// <summary>
@@ -786,104 +813,7 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		public void IntegrateDeployedPlugins(IList<string> p_lstPluginPaths)
 		{
-			List<string> pluginPaths = (p_lstPluginPaths ?? new List<string>())
-				.Where(x => !String.IsNullOrWhiteSpace(x) && IsActivatiblePluginFile(x))
-				.Distinct(StringComparer.OrdinalIgnoreCase)
-				.ToList();
-
-			if (pluginPaths.Count == 0)
-				return;
-
-			List<Plugin> requestedPlugins = new List<Plugin>();
-			HashSet<Plugin> requestedPluginSet = new HashSet<Plugin>(PluginComparer.Filename);
-			Transactions.TransactionScope registrationTransaction = null;
-
-			try
-			{
-				registrationTransaction = new Transactions.TransactionScope();
-
-				// Register the entire deployment in one transaction and repair the order once.
-				// Calling AddPlugin for every file rebuilds and persists the complete order repeatedly.
-				foreach (string pluginPath in pluginPaths)
-				{
-					Plugin plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
-
-					if (!File.Exists(pluginPath))
-						throw new FileNotFoundException("A deployed plugin disappeared before it could be registered.", pluginPath);
-
-					if (plugin == null)
-					{
-						if (!ManagedPluginRegistry.RegisterPlugin(pluginPath))
-							throw new InvalidOperationException(string.Format("Failed to register deployed plugin '{0}'.", pluginPath));
-
-						plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
-						if (plugin == null)
-							throw new InvalidOperationException(string.Format("Plugin '{0}' was reported as registered but could not be loaded from the managed plugin registry.", pluginPath));
-					}
-
-					if (requestedPluginSet.Add(plugin))
-						requestedPlugins.Add(plugin);
-				}
-
-				if (requestedPlugins.Count > 0)
-				{
-					Dictionary<Plugin, Plugin> canonicalRequestedPlugins = new Dictionary<Plugin, Plugin>(PluginComparer.Filename);
-
-					foreach (Plugin plugin in requestedPlugins)
-						canonicalRequestedPlugins[plugin] = plugin;
-
-					List<Plugin> repairedOrder = new List<Plugin>();
-					HashSet<Plugin> orderedPlugins = new HashSet<Plugin>(PluginComparer.Filename);
-
-					foreach (Plugin orderedPlugin in PluginOrderLog.OrderedPlugins.Where(x => x != null))
-					{
-						Plugin canonicalPlugin;
-						Plugin plugin = canonicalRequestedPlugins.TryGetValue(orderedPlugin, out canonicalPlugin)
-							? canonicalPlugin
-							: orderedPlugin;
-
-						if (orderedPlugins.Add(plugin))
-							repairedOrder.Add(plugin);
-					}
-
-					foreach (Plugin plugin in requestedPlugins)
-					{
-						if (orderedPlugins.Add(plugin))
-							repairedOrder.Add(plugin);
-					}
-
-					List<Plugin> correctedRegistrationOrder = GetPolicyCorrectedOrder(repairedOrder);
-
-					if (!PluginOrdersEqual(PluginOrderLog.OrderedPlugins, correctedRegistrationOrder) ||
-						!PluginOrderLog.OrderedPlugins.SequenceEqual(correctedRegistrationOrder))
-					{
-						PluginOrderLog.SetPluginOrder(correctedRegistrationOrder);
-					}
-
-					Dictionary<Plugin, Plugin> activePluginsByFilename = new Dictionary<Plugin, Plugin>(PluginComparer.Filename);
-
-					foreach (Plugin activePlugin in ActivePlugins.Where(x => x != null))
-						activePluginsByFilename[activePlugin] = activePlugin;
-
-					foreach (Plugin plugin in requestedPlugins)
-					{
-						Plugin activeMatch;
-
-						if (activePluginsByFilename.TryGetValue(plugin, out activeMatch) && !ReferenceEquals(activeMatch, plugin))
-						{
-							ActivePluginLog.DeactivatePlugin(activeMatch);
-							ActivePluginLog.ActivatePlugin(plugin);
-						}
-					}
-				}
-
-				registrationTransaction.Complete();
-			}
-			finally
-			{
-				if (registrationTransaction != null)
-					registrationTransaction.Dispose();
-			}
+			List<Plugin> requestedPlugins = RegisterDeployedPlugins(p_lstPluginPaths);
 
 			if (requestedPlugins.Count == 0)
 				return;
@@ -962,6 +892,272 @@ namespace Nexus.Client.PluginManagement
 				rejectedActive.UnionWith(pending);
 				TracePluginDiagnostics(
 					BuildPluginSnapshot(correctedOrder, rejectedActive));
+			}
+		}
+
+		/// <summary>
+		/// Registers deployed plugins and applies the maximal valid installation-wide activation state without transient activation changes.
+		/// </summary>
+		/// <param name="p_lstDeployedPluginPaths">The plugin files deployed by the installation.</param>
+		/// <param name="p_dicRequestedActivationStates">The final requested activation state keyed by plugin path.</param>
+		/// <param name="p_lstBlockingDiagnostics">Validation errors for requests that could not be honored.</param>
+		/// <returns><c>true</c> when every applicable request was honored; otherwise, <c>false</c>.</returns>
+		public bool TryReconcileDeployedPlugins(IList<string> p_lstDeployedPluginPaths, IDictionary<string, bool> p_dicRequestedActivationStates, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			RegisterDeployedPlugins(p_lstDeployedPluginPaths);
+
+			List<PluginValidationDiagnostic> blockingDiagnostics = new List<PluginValidationDiagnostic>();
+			p_lstBlockingDiagnostics = blockingDiagnostics;
+
+			Dictionary<Plugin, bool> requestedStates = new Dictionary<Plugin, bool>(PluginComparer.Filename);
+			foreach (KeyValuePair<string, bool> request in p_dicRequestedActivationStates ?? new Dictionary<string, bool>())
+			{
+				if (String.IsNullOrWhiteSpace(request.Key))
+					continue;
+
+				Plugin plugin = GetRegisteredPlugin(request.Key);
+				if (plugin != null)
+					requestedStates[plugin] = request.Value;
+			}
+
+			if (requestedStates.Count == 0)
+				return true;
+
+			List<Plugin> correctedOrder = GetPolicyCorrectedOrder(new List<Plugin>(PluginOrderLog.OrderedPlugins));
+			HashSet<Plugin> currentActive = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+			PluginSnapshot currentSnapshot = CurrentSnapshot;
+
+			// Most scripted installs already describe a dependency-valid final state. Validate that complete
+			// state once and apply it directly; only invalid requests need the granular recovery path below.
+			HashSet<Plugin> completeRequestedActive = new HashSet<Plugin>(currentActive, PluginComparer.Filename);
+			foreach (KeyValuePair<Plugin, bool> request in requestedStates)
+			{
+				if (!CanChangeActiveState(request.Key))
+					continue;
+
+				if (request.Value)
+					completeRequestedActive.Add(request.Key);
+				else
+					completeRequestedActive.Remove(request.Key);
+			}
+
+			foreach (Plugin protectedPlugin in correctedOrder.Where(IsProtectedPlugin))
+				completeRequestedActive.Add(protectedPlugin);
+
+			PluginSnapshot completeRequestedSnapshot = BuildPluginSnapshot(correctedOrder, completeRequestedActive);
+			if (GetNewBlockingDiagnostics(currentSnapshot, completeRequestedSnapshot).Count == 0)
+			{
+				ApplyValidatedPluginState(correctedOrder, completeRequestedActive, completeRequestedSnapshot);
+				return true;
+			}
+
+			HashSet<Plugin> resolvedActive = new HashSet<Plugin>(currentActive, PluginComparer.Filename);
+			HashSet<Plugin> requestedActive = new HashSet<Plugin>(
+				requestedStates.Where(x => x.Value && CanChangeActiveState(x.Key)).Select(x => x.Key),
+				PluginComparer.Filename);
+			HashSet<Plugin> pendingDeactivation = new HashSet<Plugin>(
+				requestedStates.Where(x => !x.Value && CanChangeActiveState(x.Key) && currentActive.Contains(x.Key)).Select(x => x.Key),
+				PluginComparer.Filename);
+
+			// Resolve explicit/implicit disables first. Requested-active plugins are controlled by this
+			// scripted installation, so they may be dropped while evaluating a disable. Unrelated active
+			// plugins are preserved and therefore correctly block an unsafe master deactivation.
+			foreach (Plugin candidate in correctedOrder.AsEnumerable().Reverse().Where(x => pendingDeactivation.Contains(x)).ToList())
+			{
+				HashSet<Plugin> testActive = new HashSet<Plugin>(resolvedActive, PluginComparer.Filename);
+				testActive.Remove(candidate);
+
+				List<PluginValidationDiagnostic> candidateDiagnostics = ResolveControlledActivationErrors(
+					correctedOrder, currentSnapshot, requestedActive, testActive);
+
+				if (candidateDiagnostics.Count == 0)
+				{
+					resolvedActive = testActive;
+					pendingDeactivation.Remove(candidate);
+					continue;
+				}
+
+				Trace.TraceWarning(
+					"Scripted plugin deactivation request was rejected to preserve the current valid state: {0}",
+					candidate.Filename);
+				AddUniqueDiagnostics(blockingDiagnostics, candidateDiagnostics);
+			}
+
+			// Reapply requested activations against the deactivation-resolved state. Iterating in the
+			// corrected order naturally considers masters before their dependants.
+			HashSet<Plugin> pendingActivation = new HashSet<Plugin>(
+				requestedActive.Where(x => !resolvedActive.Contains(x)),
+				PluginComparer.Filename);
+			bool stateExpanded;
+			do
+			{
+				stateExpanded = false;
+
+				foreach (Plugin candidate in correctedOrder.Where(x => pendingActivation.Contains(x)).ToList())
+				{
+					HashSet<Plugin> testActive = new HashSet<Plugin>(resolvedActive, PluginComparer.Filename);
+					testActive.Add(candidate);
+
+					if (GetNewBlockingDiagnostics(currentSnapshot, BuildPluginSnapshot(correctedOrder, testActive)).Count > 0)
+						continue;
+
+					resolvedActive.Add(candidate);
+					pendingActivation.Remove(candidate);
+					stateExpanded = true;
+				}
+			}
+			while (stateExpanded);
+
+			foreach (Plugin candidate in pendingActivation)
+			{
+				HashSet<Plugin> rejectedActive = new HashSet<Plugin>(resolvedActive, PluginComparer.Filename);
+				rejectedActive.Add(candidate);
+				List<PluginValidationDiagnostic> candidateDiagnostics = GetNewBlockingDiagnostics(
+					currentSnapshot, BuildPluginSnapshot(correctedOrder, rejectedActive));
+
+				Trace.TraceWarning(
+					"Scripted plugin activation request remains invalid after final reconciliation: {0}",
+					candidate.Filename);
+				AddUniqueDiagnostics(blockingDiagnostics, candidateDiagnostics);
+			}
+
+			IList<PluginValidationDiagnostic> applyDiagnostics;
+			bool applied = TryApplyPluginState(correctedOrder, resolvedActive, out applyDiagnostics);
+			if (!applied)
+				AddUniqueDiagnostics(blockingDiagnostics, applyDiagnostics);
+
+			if (blockingDiagnostics.Count > 0)
+				TracePluginDiagnostics(blockingDiagnostics);
+
+			p_lstBlockingDiagnostics = blockingDiagnostics;
+			return applied && pendingDeactivation.Count == 0 && pendingActivation.Count == 0;
+		}
+
+		/// <summary>
+		/// Registers deployed plugin files and repairs plugin-order/canonical references without changing requested activation state.
+		/// </summary>
+		/// <param name="p_lstPluginPaths">The deployed plugin paths to register.</param>
+		/// <returns>The canonical registered plugin instances corresponding to the supplied paths.</returns>
+		private List<Plugin> RegisterDeployedPlugins(IList<string> p_lstPluginPaths)
+		{
+			List<string> pluginPaths = (p_lstPluginPaths ?? new List<string>())
+				.Where(x => !String.IsNullOrWhiteSpace(x) && IsActivatiblePluginFile(x))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+			List<Plugin> registeredPlugins = new List<Plugin>();
+
+			if (pluginPaths.Count == 0)
+				return registeredPlugins;
+
+			HashSet<Plugin> registeredPluginSet = new HashSet<Plugin>(PluginComparer.Filename);
+			Transactions.TransactionScope registrationTransaction = null;
+
+			try
+			{
+				registrationTransaction = new Transactions.TransactionScope();
+
+				foreach (string pluginPath in pluginPaths)
+				{
+					Plugin plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
+
+					if (!File.Exists(pluginPath))
+						throw new FileNotFoundException("A deployed plugin disappeared before it could be registered.", pluginPath);
+
+					if (plugin == null)
+					{
+						if (!ManagedPluginRegistry.RegisterPlugin(pluginPath))
+							throw new InvalidOperationException(string.Format("Failed to register deployed plugin '{0}'.", pluginPath));
+
+						plugin = ManagedPluginRegistry.GetPlugin(pluginPath);
+						if (plugin == null)
+							throw new InvalidOperationException(string.Format("Plugin '{0}' was reported as registered but could not be loaded from the managed plugin registry.", pluginPath));
+					}
+
+					if (registeredPluginSet.Add(plugin))
+						registeredPlugins.Add(plugin);
+				}
+
+				if (registeredPlugins.Count > 0)
+				{
+					Dictionary<Plugin, Plugin> canonicalRegisteredPlugins = new Dictionary<Plugin, Plugin>(PluginComparer.Filename);
+					foreach (Plugin plugin in registeredPlugins)
+						canonicalRegisteredPlugins[plugin] = plugin;
+
+					List<Plugin> repairedOrder = new List<Plugin>();
+					HashSet<Plugin> orderedPlugins = new HashSet<Plugin>(PluginComparer.Filename);
+
+					foreach (Plugin orderedPlugin in PluginOrderLog.OrderedPlugins.Where(x => x != null))
+					{
+						Plugin canonicalPlugin;
+						Plugin plugin = canonicalRegisteredPlugins.TryGetValue(orderedPlugin, out canonicalPlugin)
+							? canonicalPlugin
+							: orderedPlugin;
+
+						if (orderedPlugins.Add(plugin))
+							repairedOrder.Add(plugin);
+					}
+
+					foreach (Plugin plugin in registeredPlugins)
+					{
+						if (orderedPlugins.Add(plugin))
+							repairedOrder.Add(plugin);
+					}
+
+					List<Plugin> correctedRegistrationOrder = GetPolicyCorrectedOrder(repairedOrder);
+					if (!PluginOrdersEqual(PluginOrderLog.OrderedPlugins, correctedRegistrationOrder) ||
+						!PluginOrderLog.OrderedPlugins.SequenceEqual(correctedRegistrationOrder))
+					{
+						PluginOrderLog.SetPluginOrder(correctedRegistrationOrder);
+					}
+
+					Dictionary<Plugin, Plugin> activePluginsByFilename = new Dictionary<Plugin, Plugin>(PluginComparer.Filename);
+					foreach (Plugin activePlugin in ActivePlugins.Where(x => x != null))
+						activePluginsByFilename[activePlugin] = activePlugin;
+
+					foreach (Plugin plugin in registeredPlugins)
+					{
+						Plugin activeMatch;
+
+						if (activePluginsByFilename.TryGetValue(plugin, out activeMatch) && !ReferenceEquals(activeMatch, plugin))
+						{
+							ActivePluginLog.DeactivatePlugin(activeMatch);
+							ActivePluginLog.ActivatePlugin(plugin);
+						}
+					}
+				}
+
+				registrationTransaction.Complete();
+			}
+			finally
+			{
+				if (registrationTransaction != null)
+					registrationTransaction.Dispose();
+			}
+
+			return registeredPlugins;
+		}
+
+		/// <summary>
+		/// Removes requested-active plugins that become newly invalid while evaluating a scripted deactivation.
+		/// </summary>
+		private List<PluginValidationDiagnostic> ResolveControlledActivationErrors(IList<Plugin> p_lstCorrectedOrder, PluginSnapshot p_psnCurrentSnapshot, ISet<Plugin> p_setRequestedActive, HashSet<Plugin> p_hstCandidateActive)
+		{
+			while (true)
+			{
+				List<PluginValidationDiagnostic> diagnostics = GetNewBlockingDiagnostics(
+					p_psnCurrentSnapshot, BuildPluginSnapshot(p_lstCorrectedOrder, p_hstCandidateActive));
+
+				List<Plugin> controlledInvalidPlugins = diagnostics
+					.Where(x => x != null && x.Plugin != null && p_setRequestedActive.Contains(x.Plugin) && p_hstCandidateActive.Contains(x.Plugin))
+					.Select(x => x.Plugin)
+					.Distinct(PluginComparer.Filename)
+					.ToList();
+
+				if (controlledInvalidPlugins.Count == 0)
+					return diagnostics;
+
+				foreach (Plugin plugin in controlledInvalidPlugins)
+					p_hstCandidateActive.Remove(plugin);
 			}
 		}
 

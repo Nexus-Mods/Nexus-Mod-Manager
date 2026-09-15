@@ -88,6 +88,8 @@ namespace NexusClientTests
 						return environment.GameMode.GameModeEnvironmentInfo;
 					if (method.Name == "get_InstallationPath")
 						return environment.GameRootPath;
+					if (method.Name == "get_PluginDirectory")
+						return environment.DataPath;
 					if (method.Name == "get_UsesPlugins")
 						return true;
 					if (method.Name == "GetModFormatAdjustedPath")

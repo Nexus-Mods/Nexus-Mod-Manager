@@ -133,6 +133,7 @@
     <Compile Include="ScriptedInstallationProjectedStateTests.cs" />
     <Compile Include="ScriptedInstallationSessionTests.cs" />
     <Compile Include="ScriptedPluginActivationStateTests.cs" />
+    <Compile Include="ScriptedPluginReconciliationIntegrationTests.cs" />
     <Compile Include="ScriptedInstallerTestDoubles.cs" />
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />

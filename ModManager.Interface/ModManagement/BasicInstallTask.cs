@@ -22,6 +22,8 @@ namespace Nexus.Client.ModManagement
 	/// </remarks>
 	public class BasicInstallTask : ThreadedBackgroundTask
 	{
+		private readonly HashSet<string> m_hstDeployedPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
 		#region Properties
 
 		/// <summary>
@@ -81,6 +83,14 @@ namespace Nexus.Client.ModManagement
 		/// Gets whether this task used the promoted deployment path.
 		/// </summary>
 		public bool UsedPromotedDeployment { get; private set; }
+
+		/// <summary>
+		/// Gets the plugin paths successfully deployed by this basic install.
+		/// </summary>
+		public IList<string> DeployedPluginPaths
+		{
+			get { return new List<string>(m_hstDeployedPluginPaths).AsReadOnly(); }
+		}
 
 		#endregion
 
@@ -301,6 +311,7 @@ namespace Nexus.Client.ModManagement
 							PluginManager.IsActivatiblePluginFile(strFileLink))
 						{
 							deployedPluginPaths.Add(strFileLink);
+							m_hstDeployedPluginPaths.Add(strFileLink);
 						}
 					}
 					StepOverallProgress();
@@ -368,7 +379,14 @@ namespace Nexus.Client.ModManagement
 					if (!skipReadme)
 					{
 						eligibleFiles++;
-						FileInstaller.InstallFileFromMod(file.Key, destination);
+						bool installed = FileInstaller.InstallFileFromMod(file.Key, destination);
+						if (installed)
+						{
+							ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, Mod, destination, InstallRoot);
+							string deployedPath = ModDeploymentTargetResolver.GetPhysicalPath(GameMode, target);
+							if (PluginManager != null && PluginManager.IsActivatiblePluginFile(deployedPath))
+								m_hstDeployedPluginPaths.Add(deployedPath);
+						}
 					}
 				}
 				StepOverallProgress();

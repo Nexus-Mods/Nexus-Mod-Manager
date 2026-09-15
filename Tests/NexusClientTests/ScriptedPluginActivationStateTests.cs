@@ -96,6 +96,23 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies that deployment-only tracking does not introduce an implicit plugin activation request.
+        /// </summary>
+        [Test]
+        public void DeploymentOnly_DoesNotRequestActivation()
+        {
+            ScriptedPluginActivationState state = new ScriptedPluginActivationState();
+            const string plugin = @"C:\Game\Data\Generated.esp";
+
+            state.RecordDeployedPlugin(plugin, false);
+
+            CollectionAssert.AreEquivalent(new[] { plugin }, state.DeployedPluginPaths);
+            Assert.AreEqual(0, state.GetRequestedActivePluginPaths().Count);
+            bool requestedActive;
+            Assert.IsFalse(state.TryGetRequestedActivation(plugin, out requestedActive));
+        }
+
+        /// <summary>
         /// Verifies that explicit activation intent for an already-registered external plugin is retained even when this installation did not deploy it.
         /// </summary>
         [Test]
@@ -111,27 +128,30 @@ namespace NexusClientTests
         }
 
         /// <summary>
-        /// Verifies that final reconciliation integrates the complete deployment, resets tracked plugins together, then reapplies only final requested activations.
+        /// Verifies that deployment-only tracking does not expand reconciliation beyond plugins with activation intent.
         /// </summary>
         [Test]
-        public void Reconcile_IntegratesFullDeploymentThenReappliesFinalRequestedSet()
+        public void Reconcile_SubmitsCompleteDeploymentAndFinalRequestedStateOnce()
         {
             const string dependent = @"C:\Game\Data\Dependent.esp";
             const string master = @"C:\Game\Data\Master.esm";
+            const string generated = @"C:\Game\Data\Generated.esp";
             ScriptedPluginActivationState state = new ScriptedPluginActivationState();
-            RecordingPluginManagerProxy pluginManager = new RecordingPluginManagerProxy(new[] { dependent, master });
+            RecordingPluginManagerProxy pluginManager = new RecordingPluginManagerProxy(new[] { dependent, master, generated });
 
             state.RecordDeployedPlugin(dependent);
             state.RecordDeployedPlugin(master);
+            state.RecordDeployedPlugin(generated, false);
             state.RecordActivationRequest(master, false);
 
             state.Reconcile(pluginManager.Manager);
 
-            Assert.AreEqual(2, pluginManager.IntegrationCalls.Count);
-            CollectionAssert.AreEquivalent(new[] { dependent, master }, pluginManager.IntegrationCalls[0]);
-            CollectionAssert.AreEquivalent(new[] { dependent }, pluginManager.IntegrationCalls[1]);
-            Assert.IsFalse(pluginManager.LastBatchActivationState.Value);
-            CollectionAssert.AreEquivalent(new[] { dependent, master }, pluginManager.LastBatchPluginPaths);
+            Assert.AreEqual(1, pluginManager.ReconciliationCalls);
+            CollectionAssert.AreEquivalent(new[] { dependent, master, generated }, pluginManager.LastDeployedPluginPaths);
+            Assert.AreEqual(2, pluginManager.LastRequestedActivationStates.Count);
+            Assert.IsTrue(pluginManager.LastRequestedActivationStates[dependent]);
+            Assert.IsFalse(pluginManager.LastRequestedActivationStates[master]);
+            Assert.IsFalse(pluginManager.LastRequestedActivationStates.ContainsKey(generated));
             Assert.AreEqual(0, state.DeployedPluginPaths.Count);
             Assert.AreEqual(0, state.GetRequestedActivePluginPaths().Count);
         }
@@ -148,8 +168,9 @@ namespace NexusClientTests
             state.RecordActivationRequest(@"C:\Game\Data\Missing.esp", true);
 
             Assert.DoesNotThrow(() => state.Reconcile(pluginManager.Manager));
-            Assert.AreEqual(0, pluginManager.IntegrationCalls.Count);
-            Assert.AreEqual(0, pluginManager.LastBatchPluginPaths.Count);
+            Assert.AreEqual(1, pluginManager.ReconciliationCalls);
+            Assert.AreEqual(0, pluginManager.LastDeployedPluginPaths.Count);
+            Assert.AreEqual(1, pluginManager.LastRequestedActivationStates.Count);
         }
     }
 
@@ -178,19 +199,19 @@ namespace NexusClientTests
         public IPluginManager Manager { get; private set; }
 
         /// <summary>
-        /// Gets each deployed-plugin integration request in invocation order.
+        /// Gets the number of final reconciliation requests.
         /// </summary>
-        public List<IList<string>> IntegrationCalls { get; } = new List<IList<string>>();
+        public int ReconciliationCalls { get; private set; }
 
         /// <summary>
-        /// Gets the plugin paths passed to the most recent batch activation request.
+        /// Gets the deployment paths passed to the latest reconciliation request.
         /// </summary>
-        public List<string> LastBatchPluginPaths { get; } = new List<string>();
+        public List<string> LastDeployedPluginPaths { get; } = new List<string>();
 
         /// <summary>
-        /// Gets the activation state passed to the most recent batch activation request.
+        /// Gets the requested activation states passed to the latest reconciliation request.
         /// </summary>
-        public bool? LastBatchActivationState { get; private set; }
+        public Dictionary<string, bool> LastRequestedActivationStates { get; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Dispatches the reconciliation-specific plugin-manager calls to recording behavior.
@@ -203,18 +224,20 @@ namespace NexusClientTests
             {
                 switch (call.MethodName)
                 {
-                    case "IntegrateDeployedPlugins":
-                        IntegrationCalls.Add(new List<string>((IList<string>)call.Args[0]));
-                        return CreateReturnMessage(call, null, null);
+                    case "TryReconcileDeployedPlugins":
+                        ReconciliationCalls++;
+                        LastDeployedPluginPaths.Clear();
+                        LastDeployedPluginPaths.AddRange((IList<string>)call.Args[0]);
+                        LastRequestedActivationStates.Clear();
+                        foreach (KeyValuePair<string, bool> request in (IDictionary<string, bool>)call.Args[1])
+                            LastRequestedActivationStates[request.Key] = request.Value;
+                        object[] returnArgs = (object[])call.Args.Clone();
+                        returnArgs[2] = new List<PluginValidationDiagnostic>();
+                        return new ReturnMessage(true, returnArgs, 1, call.LogicalCallContext, call);
                     case "GetRegisteredPlugin":
                         Plugin plugin;
                         m_dicRegisteredPlugins.TryGetValue((string)call.Args[0], out plugin);
-                        return CreateReturnMessage(call, plugin, null);
-                    case "TrySetPluginActivation":
-                        LastBatchPluginPaths.Clear();
-                        LastBatchPluginPaths.AddRange(((IList<Plugin>)call.Args[0]).Select(x => x.Filename));
-                        LastBatchActivationState = (bool)call.Args[1];
-                        return CreateReturnMessage(call, true, new object[] { new List<PluginValidationDiagnostic>() });
+                        return new ReturnMessage(plugin, call.Args, 0, call.LogicalCallContext, call);
                     default:
                         throw new NotSupportedException("Unexpected plugin-manager call: " + call.MethodName);
                 }
@@ -223,15 +246,6 @@ namespace NexusClientTests
             {
                 return new ReturnMessage(ex, call);
             }
-        }
-
-        /// <summary>
-        /// Creates a successful remoting response with optional out-parameter values.
-        /// </summary>
-        private static IMessage CreateReturnMessage(IMethodCallMessage p_mcmCall, object p_objReturnValue, object[] p_objOutArgs)
-        {
-            object[] outArgs = p_objOutArgs ?? new object[0];
-            return new ReturnMessage(p_objReturnValue, outArgs, outArgs.Length, p_mcmCall.LogicalCallContext, p_mcmCall);
         }
     }
 }

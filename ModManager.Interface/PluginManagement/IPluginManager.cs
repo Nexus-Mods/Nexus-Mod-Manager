@@ -72,6 +72,15 @@ namespace Nexus.Client.PluginManagement
 		void IntegrateDeployedPlugins(IList<string> p_lstPluginPaths);
 
 		/// <summary>
+		/// Registers deployed plugins and reconciles an installation-wide requested activation state without transient activation churn.
+		/// </summary>
+		/// <param name="p_lstDeployedPluginPaths">The plugin files deployed by the installation.</param>
+		/// <param name="p_dicRequestedActivationStates">The final requested activation state keyed by plugin path.</param>
+		/// <param name="p_lstBlockingDiagnostics">Validation errors for requests that could not be honored.</param>
+		/// <returns><c>true</c> when every applicable activation request was honored; otherwise, <c>false</c>.</returns>
+		bool TryReconcileDeployedPlugins(IList<string> p_lstDeployedPluginPaths, IDictionary<string, bool> p_dicRequestedActivationStates, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics);
+
+		/// <summary>
 		/// Removes the given plugin from the list of managed plugins.
 		/// </summary>
 		/// <param name="p_plgPlugin">The plugin to remove.</param>

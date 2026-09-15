@@ -160,6 +160,7 @@ namespace NexusClientTests
 				Assert.AreEqual(0, linkCalls);
 				Assert.AreEqual(0, saveCalls);
 				Assert.AreEqual(1, pluginBatches);
+				CollectionAssert.AreEqual(new[] { deployedPath }, task.DeployedPluginPaths);
 				Assert.IsTrue(task.UsedPromotedDeployment);
 			}
 			finally
