@@ -95,6 +95,19 @@
     <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\..\Stage\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
     </Reference>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="DevExpress.Data.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Data.v25.2.dll</HintPath>
+    </Reference>
+    <Reference Include="DevExpress.Utils.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Utils.v25.2.dll</HintPath>
+    </Reference>
+    <Reference Include="DevExpress.XtraEditors.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraEditors.v25.2.dll</HintPath>
+    </Reference>
+    <Reference Include="DevExpress.XtraTreeList.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraTreeList.v25.2.dll</HintPath>
+    </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -123,6 +136,7 @@
     <Compile Include="GameStorageServiceTests.cs" />
     <Compile Include="FileManagerManualSourceTests.cs" />
     <Compile Include="CategoryManagerTests.cs" />
+    <Compile Include="CategoryTreeViewportTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />

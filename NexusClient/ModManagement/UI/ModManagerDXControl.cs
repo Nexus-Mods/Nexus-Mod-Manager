@@ -70,6 +70,10 @@
 		private GridControl gridControl => _modGridControl.GridControl;
 		private GridView gridView => _modGridControl.GridView;
 		private bool _restoringGridLayout;
+		private int _focusFirstVisibleGeneration;
+		private bool _pendingCategoryFocusTopAfterInstallDateChange;
+		private IMod _pendingCategoryFocusTopAfterInstallDateChangeMod;
+		private bool _pendingCategoryFocusTopAfterSorting;
 
 		// lazy-initialised flat warning-triangle icon drawn in GetWarningIcon()
 		private Bitmap _warningIcon;
@@ -112,7 +116,7 @@
 		private bool _showActiveModsInBold;
 		private bool _latestColumnOpensModPage;
 		private bool _focusTopRowAfterSorting = true;
-		private bool _focusTopRowAfterInstallDateChange = true;
+		private bool _focusTopRowAfterInstallDateChange;
 		private bool _lastFindPanelVisible;
 		private bool _restoringFindPanelVisibility;
 		private bool _toolbarPositionLeft;
@@ -444,7 +448,7 @@
 			SetActiveModsBold(false, false);
 			SetLatestColumnOpensModPage(false, false);
 			SetFocusTopRowAfterSorting(true, false);
-			SetFocusTopRowAfterInstallDateChange(true, false);
+			SetFocusTopRowAfterInstallDateChange(false, false);
 			SetHideDefaultNexusCategories(false, false);
 			SetShowCategoryModCountIcons(false, false);
 			SetToolbarPosition(DefaultToolbarPositionLeft, true);
@@ -1123,22 +1127,20 @@
 					_gridModListSurface.RefreshMod(mod, e.PropertyName);
 				}
 
-				_categoryModListSurface?.RefreshMod(
-					mod,
-					e.PropertyName,
-					preserveFocusedVisualPosition && ReferenceEquals(_activeModListSurface, _categoryModListSurface));
+				_categoryModListSurface?.RefreshMod(mod, e.PropertyName);
 			}
 
 			if (focusTopAfterSortedPropertyChange)
-				QueueFocusFirstVisibleDataRow();
+				RequestCategoryAwareFocusAfterInstallDateChange(sender as IMod);
 		}
 
 		/// <summary>
-		/// Determines whether a sorted install-date update should keep focus at its previous visual position.
+		/// Determines whether the active flat grid should preserve the focused install-date row at its previous visual position.
 		/// </summary>
 		private bool ShouldPreserveFocusedVisualPosition(IMod mod, string propertyName)
 		{
-			if (_focusTopRowAfterInstallDateChange ||
+			if (!ReferenceEquals(_activeModListSurface, _gridModListSurface) ||
+				_focusTopRowAfterInstallDateChange ||
 				mod == null ||
 				!string.Equals(propertyName, ColInstallDate, StringComparison.Ordinal) ||
 				!ReferenceEquals(SelectedMod, mod))
@@ -1147,13 +1149,9 @@
 			}
 
 			List<IMod> selectedMods = SelectedMods;
-			if (selectedMods.Count != 1 || !ReferenceEquals(selectedMods[0], mod))
-				return false;
-
-			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
-				return _categoryModListSurface != null && _categoryModListSurface.IsSortedByColumn(ModCategoryTreeColumns.InstallDate);
-
-			return IsGridSortedByColumn(ColInstallDate);
+			return selectedMods.Count == 1 &&
+				ReferenceEquals(selectedMods[0], mod) &&
+				IsGridSortedByColumn(ColInstallDate);
 		}
 
 		private bool ShouldFocusTopAfterSortedPropertyChange(string propertyName)
@@ -1163,9 +1161,16 @@
 				return false;
 
 			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
-				return _categoryModListSurface != null && _categoryModListSurface.IsSortedByColumn(ModCategoryTreeColumns.InstallDate);
+				return _categoryModListSurface != null && _categoryModListSurface.IsPrimarySortColumn(ModCategoryTreeColumns.InstallDate);
 
-			return IsGridSortedByColumn(ColInstallDate);
+			return IsGridPrimarySortColumn(ColInstallDate);
+		}
+
+		private bool IsGridPrimarySortColumn(string fieldName)
+		{
+			return gridView.SortInfo.Count > 0 &&
+				gridView.SortInfo[0].Column != null &&
+				string.Equals(gridView.SortInfo[0].Column.FieldName, fieldName, StringComparison.Ordinal);
 		}
 
 		private bool IsGridSortedByColumn(string fieldName)
@@ -1181,12 +1186,152 @@
 		private void QueueFocusFirstVisibleDataRow()
 		{
 			if (IsDisposed || !IsHandleCreated) return;
-			BeginInvoke(new MethodInvoker(FocusFirstVisibleDataRow));
+
+			int generation = ++_focusFirstVisibleGeneration;
+			IModListSurface expectedSurface = _activeModListSurface;
+			BeginInvoke(new MethodInvoker(() => FocusFirstVisibleDataRow(generation, expectedSurface)));
 		}
 
-		private void FocusFirstVisibleDataRow()
+		/// <summary>
+		/// Requests install-date navigation without interrupting an active Category View editor or its deferred reconciliation.
+		/// </summary>
+		private void RequestCategoryAwareFocusAfterInstallDateChange(IMod mod)
 		{
-			if (IsDisposed) return;
+			if (!ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+			{
+				QueueFocusFirstVisibleDataRow();
+				return;
+			}
+
+			if (mod == null || !_modList.Contains(mod))
+				return;
+
+			if (ShouldDeferCategoryAutomaticNavigation())
+			{
+				_pendingCategoryFocusTopAfterInstallDateChange = true;
+				_pendingCategoryFocusTopAfterInstallDateChangeMod = mod;
+				return;
+			}
+			QueueFocusCategoryInstallDateMod(mod);
+		}
+
+		/// <summary>
+		/// Queues Category View navigation to the mod whose install date changed.
+		/// </summary>
+		private void QueueFocusCategoryInstallDateMod(IMod mod)
+		{
+			if (IsDisposed || !IsHandleCreated || mod == null) return;
+
+			int generation = ++_focusFirstVisibleGeneration;
+			IModListSurface expectedSurface = _activeModListSurface;
+			BeginInvoke(new MethodInvoker(() => FocusCategoryInstallDateMod(generation, expectedSurface, mod)));
+		}
+
+		/// <summary>
+		/// Reveals and focuses the changed mod in Category View after revalidating the install-date option.
+		/// </summary>
+		private void FocusCategoryInstallDateMod(int generation, IModListSurface expectedSurface, IMod mod)
+		{
+			if (IsDisposed || generation != _focusFirstVisibleGeneration ||
+				!ReferenceEquals(expectedSurface, _activeModListSurface) ||
+				!ReferenceEquals(_activeModListSurface, _categoryModListSurface) ||
+				mod == null || !_modList.Contains(mod) ||
+				!ShouldFocusTopAfterSortedPropertyChange(ColInstallDate))
+			{
+				return;
+			}
+
+			_categoryModListSurface?.FocusMod(mod);
+		}
+
+		/// <summary>
+		/// Requests post-sort navigation without interrupting an active Category View editor or its deferred reconciliation.
+		/// </summary>
+		private void RequestCategoryAwareFocusAfterSorting()
+		{
+			if (ShouldDeferCategoryAutomaticNavigation())
+			{
+				_pendingCategoryFocusTopAfterSorting = true;
+				return;
+			}
+			QueueFocusFirstVisibleDataRow();
+		}
+
+		/// <summary>
+		/// Gets whether Category View automatic navigation must wait for editor reconciliation.
+		/// </summary>
+		private bool ShouldDeferCategoryAutomaticNavigation()
+		{
+			return ReferenceEquals(_activeModListSurface, _categoryModListSurface) &&
+				((_modCategoryTreeControl != null && _modCategoryTreeControl.HasActiveEditor) ||
+				 (_categoryModListSurface != null && _categoryModListSurface.HasPendingDeferredUpdates));
+		}
+
+		/// <summary>
+		/// Revalidates automatic Category View navigation only after the editor and all deferred surface work have settled.
+		/// </summary>
+		private void CategoryModListSurface_EditReconciliationCompleted(object sender, EventArgs e)
+		{
+			if (!_pendingCategoryFocusTopAfterInstallDateChange && !_pendingCategoryFocusTopAfterSorting)
+				return;
+			if (!ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+			{
+				_pendingCategoryFocusTopAfterInstallDateChange = false;
+				_pendingCategoryFocusTopAfterInstallDateChangeMod = null;
+				_pendingCategoryFocusTopAfterSorting = false;
+				return;
+			}
+			if (ShouldDeferCategoryAutomaticNavigation())
+				return;
+
+			IMod installDateMod = _pendingCategoryFocusTopAfterInstallDateChangeMod;
+			bool shouldFocusInstallDateMod =
+				_pendingCategoryFocusTopAfterInstallDateChange &&
+				installDateMod != null && _modList.Contains(installDateMod) &&
+				ShouldFocusTopAfterSortedPropertyChange(ColInstallDate);
+			bool shouldFocusAfterSorting =
+				_pendingCategoryFocusTopAfterSorting && _focusTopRowAfterSorting &&
+				!_restoringGridLayout && !_restoringGridSort;
+			_pendingCategoryFocusTopAfterInstallDateChange = false;
+			_pendingCategoryFocusTopAfterInstallDateChangeMod = null;
+			_pendingCategoryFocusTopAfterSorting = false;
+
+			if (shouldFocusInstallDateMod)
+				QueueFocusCategoryInstallDateMod(installDateMod);
+			else if (shouldFocusAfterSorting)
+				QueueFocusFirstVisibleDataRow();
+		}
+
+		/// <summary>
+		/// Handles a genuine Category View sort change and coordinates optional navigation with editor deferral.
+		/// </summary>
+		private void ModCategoryTree_SortingCompleted(object sender, EventArgs e)
+		{
+			if (_focusTopRowAfterSorting && !_restoringGridLayout && !_restoringGridSort &&
+				ReferenceEquals(_activeModListSurface, _categoryModListSurface))
+			{
+				RequestCategoryAwareFocusAfterSorting();
+			}
+		}
+
+		/// <summary>
+		/// Invalidates automatic navigation queued before a newer user navigation decision.
+		/// </summary>
+		private void InvalidateQueuedFocusFirstVisibleDataRow()
+		{
+			unchecked { _focusFirstVisibleGeneration++; }
+			_pendingCategoryFocusTopAfterInstallDateChange = false;
+			_pendingCategoryFocusTopAfterInstallDateChangeMod = null;
+			_pendingCategoryFocusTopAfterSorting = false;
+		}
+
+		private void FocusFirstVisibleDataRow(int generation, IModListSurface expectedSurface)
+		{
+			if (IsDisposed || generation != _focusFirstVisibleGeneration ||
+				!ReferenceEquals(expectedSurface, _activeModListSurface))
+			{
+				return;
+			}
 
 			if (ReferenceEquals(_activeModListSurface, _categoryModListSurface))
 			{
@@ -1387,7 +1532,7 @@
 			SetActiveModsBold(ReadGridDisplayOption(GridActiveModsBoldKey, false), false);
 			SetLatestColumnOpensModPage(ReadGridDisplayOption(GridLatestColumnOpensModPageKey, false), false);
 			SetFocusTopRowAfterSorting(ReadGridDisplayOption(GridFocusTopAfterSortKey, true), false);
-			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, true), false);
+			SetFocusTopRowAfterInstallDateChange(ReadGridDisplayOption(GridFocusTopAfterInstallDateChangeKey, false), false);
 			SetHideDefaultNexusCategories(ReadGridDisplayOption(CategoryTreeHideDefaultNexusCategoriesKey, false), false);
 			SetShowCategoryModCountIcons(ReadGridDisplayOption(CategoryTreeShowModCountIconsKey, false), false);
 			SetToolbarPosition(RestoreToolbarPosition(), false);
@@ -3051,6 +3196,8 @@
 		/// </summary>
 		private void SwitchModListSurface(ModViewMode mode, bool expandAll)
 		{
+			InvalidateQueuedFocusFirstVisibleDataRow();
+			_modCategoryTreeControl?.InvalidateGestureTarget();
 			IMod focusedMod = _activeModListSurface?.FocusedMod;
 			IModListSurface nextSurface;
 
@@ -3131,23 +3278,22 @@
 				mod => GetModVisualStatus(mod) == ModVisualStatus.InstalledActive,
 				(activeCount, totalCount) => String.Format(_categoryNodeCountFormat, activeCount, totalCount));
 			_categoryModListSurface.SelectionChanged += (sender, args) => SetCommandExecutableStatus();
+			_categoryModListSurface.EditReconciliationCompleted += CategoryModListSurface_EditReconciliationCompleted;
 
-			_modCategoryTreeControl.ModToggleRequested += (sender, args) => ToggleSelectedMod();
+			_modCategoryTreeControl.ModToggleRequested += (sender, args) =>
+			{
+				if (args.Mod != null && _modList.Contains(args.Mod))
+					ToggleMod(args.Mod);
+			};
 			_modCategoryTreeControl.DeleteRequested += (sender, args) => DeleteSelectedModsFromKey();
 			_modCategoryTreeControl.ContextMenuRequested += (sender, args) => ShowCurrentModContextMenu();
 			_modCategoryTreeControl.TreeList.PopupMenuShowing += ModCategoryTree_PopupMenuShowing;
-			_modCategoryTreeControl.LatestLinkRequested += (sender, args) => NavigateSelectedModLatest();
+			_modCategoryTreeControl.LatestLinkRequested += (sender, args) => NavigateModLatest(args.Mod);
 			_modCategoryTreeControl.ModInteractionOccurred += (sender, args) => AcknowledgeSelectedNewMods(-1);
+			_modCategoryTreeControl.UserNavigationOccurred += (sender, args) => InvalidateQueuedFocusFirstVisibleDataRow();
 			_modCategoryTreeControl.CategoryExpansionChanged += (sender, args) => QueueGridLayoutSave();
 			_modCategoryTreeControl.LayoutStateChanged += (sender, args) => QueueGridLayoutSave();
-			_modCategoryTreeControl.SortingCompleted += (sender, args) =>
-			{
-				if (_focusTopRowAfterSorting && !_restoringGridLayout && !_restoringGridSort &&
-					ReferenceEquals(_activeModListSurface, _categoryModListSurface))
-				{
-					QueueFocusFirstVisibleDataRow();
-				}
-			};
+			_modCategoryTreeControl.SortingCompleted += ModCategoryTree_SortingCompleted;
 			_modCategoryTreeControl.RenameRequested += ModCategoryTree_RenameRequested;
 			_modCategoryTreeControl.SortNumberEditRequested += ModCategoryTree_SortNumberEditRequested;
 
@@ -3219,7 +3365,9 @@
 			if (TryPersistSortNumber(e.Mod, e.SortNumber))
 			{
 				_gridModListSurface.RefreshData();
-				_categoryModListSurface?.RefreshMod(e.Mod, ColSortNumber, true);
+				// The editor has already posted the cell value, so force reconciliation
+				// against the persisted Sort number even when the displayed value matches.
+				_categoryModListSurface?.RefreshData();
 			}
 			else
 			{
@@ -3300,12 +3448,11 @@
 		}
 
 		/// <summary>
-		/// Navigates the focused mod's Latest cell using the configured file-page or mod-page behavior.
+		/// Navigates a specific mod's Latest cell using the configured file-page or mod-page behavior.
 		/// </summary>
-		private void NavigateSelectedModLatest()
+		private void NavigateModLatest(IMod mod)
 		{
-			IMod mod = SelectedMod;
-			if (mod == null || String.IsNullOrEmpty(mod.LastKnownVersion)) return;
+			if (mod == null || !_modList.Contains(mod) || String.IsNullOrEmpty(mod.LastKnownVersion)) return;
 
 			string gameDomain = _viewModel?.ModRepository?.GameDomainName;
 			Uri url = NexusModLinkParser.ResolveNavigationUri(mod.Website, gameDomain, mod.Id, mod.DownloadId, _latestColumnOpensModPage);
@@ -4413,7 +4560,14 @@
 
 		private void ToggleSelectedMod()
 		{
-			var mod = SelectedMod;
+			ToggleMod(SelectedMod);
+		}
+
+		/// <summary>
+		/// Toggles activation for the specified mod without depending on the current UI focus.
+		/// </summary>
+		private void ToggleMod(IMod mod)
+		{
 			if (mod == null || _viewModel == null || _viewModel.IsInstalledDirectMod(mod)) return;
 			SetCommandExecutableStatus();
 			bool active = _viewModel.VirtualModActivator.ActiveModList
