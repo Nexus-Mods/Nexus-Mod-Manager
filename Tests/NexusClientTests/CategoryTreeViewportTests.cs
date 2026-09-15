@@ -145,6 +145,90 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Preserves a non-zero viewport when the final category is collapsed and its hidden children trail the node iterator.
+		/// </summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void CollapsedTrailingCategoryDoesNotResetPassiveRefreshViewport(bool fullRefresh)
+		{
+			ConfigureCollapsedTrailingCategory();
+			PrepareSort("ModName", SortOrder.Ascending);
+			_tree.TopVisibleNodeIndex = 120;
+			Application.DoEvents();
+			int topIndex = _tree.TopVisibleNodeIndex;
+			Assert.That(topIndex, Is.GreaterThan(0));
+
+			TreeListNode focused = _tree.GetNodeByVisibleIndex(topIndex + 4);
+			Assert.That(focused?.Tag, Is.InstanceOf<IMod>());
+			IMod mod = (IMod)focused.Tag;
+			_tree.FocusedNode = focused;
+			_tree.Selection.Clear();
+			_tree.Selection.Add(focused);
+
+			ToggleActive(mod);
+			if (fullRefresh)
+				InvokeSurface("RefreshData");
+			else
+				InvokeSurface("RefreshMod", mod, "Status");
+			Application.DoEvents();
+
+			Assert.That(_tree.TopVisibleNodeIndex, Is.EqualTo(topIndex), "Collapsed descendants must not make viewport clamping resolve to index zero.");
+			Assert.That(_tree.FocusedNode?.Tag, Is.SameAs(mod));
+		}
+
+		/// <summary>
+		/// Keeps structural fallback near the previous viewport when the old top-row identity is removed above a collapsed trailing category.
+		/// </summary>
+		[Test]
+		public void CollapsedTrailingCategoryDoesNotResetStructuralFallbackViewport()
+		{
+			ConfigureCollapsedTrailingCategory();
+			PrepareSort("ModName", SortOrder.Ascending);
+			_tree.TopVisibleNodeIndex = 120;
+			Application.DoEvents();
+			int topIndex = _tree.TopVisibleNodeIndex;
+			TreeListNode topNode = _tree.GetNodeByVisibleIndex(topIndex);
+			Assert.That(topNode?.Tag, Is.InstanceOf<IMod>());
+			IMod removed = (IMod)topNode.Tag;
+
+			_mods.Remove(removed);
+			_active.Remove(removed);
+			_categories.Remove(removed);
+			InvokeSurface("RemoveMods", (object)new[] { removed });
+			Application.DoEvents();
+
+			Assert.That(_tree.TopVisibleNodeIndex, Is.EqualTo(topIndex), "A removed viewport anchor should fall back to the previous displayed-row index, not the top.");
+		}
+
+		/// <summary>
+		/// Chooses a nearby displayed mod as focus fallback even when the iterator ends on a child hidden by a collapsed category.
+		/// </summary>
+		[Test]
+		public void CollapsedTrailingCategoryUsesNearbyVisibleFocusFallback()
+		{
+			ConfigureCollapsedTrailingCategory();
+			PrepareSort("ModName", SortOrder.Ascending);
+			_tree.TopVisibleNodeIndex = 120;
+			Application.DoEvents();
+			int topIndex = _tree.TopVisibleNodeIndex;
+			TreeListNode focused = _tree.GetNodeByVisibleIndex(topIndex + 5);
+			Assert.That(focused?.Tag, Is.InstanceOf<IMod>());
+			IMod mod = (IMod)focused.Tag;
+			_tree.FocusedNode = focused;
+			_tree.Selection.Clear();
+			_tree.Selection.Add(focused);
+
+			InvokeSurfaceNonPublic("SetVisibilityPredicate", new Func<IMod, bool>(candidate => !String.Equals(candidate.ModName, "HIDDEN COLLAPSED TEST", StringComparison.Ordinal)));
+			((InstallLog.DummyMod)mod).ModName = "HIDDEN COLLAPSED TEST";
+			InvokeSurface("RefreshMod", mod, "ModName");
+			Application.DoEvents();
+
+			Assert.That(_tree.FocusedNode?.Tag, Is.InstanceOf<IMod>());
+			Assert.That(_tree.FocusedNode.Tag, Is.Not.SameAs(mod));
+			Assert.That(_tree.GetVisibleIndexByNode(_tree.FocusedNode), Is.GreaterThanOrEqualTo(Math.Max(1, topIndex - 1)), "Fallback focus should remain near the prior viewport rather than collapsing to the first root row.");
+		}
+
+		/// <summary>
 		/// Verifies that a settled refresh cannot defer another native sort until the user's next focus-changing click.
 		/// </summary>
 		[TestCase("InstallDate", SortOrder.Ascending)]
@@ -724,6 +808,28 @@ namespace NexusClientTests
 		private IMod FirstVisibleMod()
 		{
 			return _tree.NodesIterator.Visible.Select(node => node?.Tag as IMod).First(mod => mod != null);
+		}
+
+		/// <summary>
+		/// Builds two categories with the trailing category collapsed so its child mods are absent from displayed-row indexing.
+		/// </summary>
+		private void ConfigureCollapsedTrailingCategory()
+		{
+			for (int index = 0; index < _mods.Count; index++)
+				_categories[_mods[index]] = index < 200 ? "A Expanded" : "Z Collapsed";
+
+			InvokeSurface("SetMods", _mods);
+			Application.DoEvents();
+			Assert.That(_tree.Nodes.Count, Is.EqualTo(2));
+			_tree.Nodes[0].Expanded = true;
+			_tree.Nodes[1].Expanded = false;
+			Application.DoEvents();
+			Assert.That(_tree.VisibleNodesCount, Is.GreaterThan(150));
+
+			TreeListNode iteratorLast = _tree.NodesIterator.Visible.LastOrDefault(node => node != null);
+			Assert.That(iteratorLast, Is.Not.Null);
+			Assert.That(iteratorLast.ParentNode, Is.SameAs(_tree.Nodes[1]), "The regression requires NodesIterator.Visible to trail into the collapsed category.");
+			Assert.That(_tree.GetVisibleIndexByNode(iteratorLast), Is.EqualTo(-1), "Collapsed descendants must not have displayed-row indexes.");
 		}
 
 		/// <summary>

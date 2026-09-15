@@ -939,11 +939,10 @@
 		/// </summary>
 		private TreeListNode FindVisibleFallbackNode(int preferredVisibleIndex)
 		{
-			TreeListNode lastVisibleNode = _treeList.NodesIterator.Visible.LastOrDefault(node => node != null);
-			if (lastVisibleNode == null)
+			int lastVisibleIndex = GetLastDisplayedNodeIndex();
+			if (lastVisibleIndex < 0)
 				return null;
 
-			int lastVisibleIndex = _treeList.GetVisibleIndexByNode(lastVisibleNode);
 			int startIndex = Math.Max(0, Math.Min(preferredVisibleIndex, lastVisibleIndex));
 			for (int index = startIndex; index <= lastVisibleIndex; index++)
 			{
@@ -1537,14 +1536,13 @@
 			int targetIndex = targetNode == null ? -1 : _treeList.GetVisibleIndexByNode(targetNode);
 			if (targetIndex < 0)
 			{
-				TreeListNode lastVisibleNode = _treeList.NodesIterator.Visible.LastOrDefault(node => node != null);
-				if (lastVisibleNode == null)
+				int lastVisibleIndex = GetLastDisplayedNodeIndex();
+				if (lastVisibleIndex < 0)
 				{
 					_treeList.TopVisibleNodeIndex = 0;
 					return;
 				}
 
-				int lastVisibleIndex = _treeList.GetVisibleIndexByNode(lastVisibleNode);
 				targetIndex = Math.Max(0, Math.Min(state.TopVisibleIndex, lastVisibleIndex));
 			}
 
@@ -1559,15 +1557,22 @@
 			if (state == null)
 				return;
 
-			TreeListNode lastVisibleNode = _treeList.NodesIterator.Visible.LastOrDefault(node => node != null);
-			if (lastVisibleNode == null)
+			int lastVisibleIndex = GetLastDisplayedNodeIndex();
+			if (lastVisibleIndex < 0)
 			{
 				_treeList.TopVisibleNodeIndex = 0;
 				return;
 			}
 
-			int lastVisibleIndex = _treeList.GetVisibleIndexByNode(lastVisibleNode);
 			_treeList.TopVisibleNodeIndex = Math.Max(0, Math.Min(state.TopVisibleIndex, lastVisibleIndex));
+		}
+
+		/// <summary>
+		/// Gets the last displayed-row index without counting children hidden inside collapsed categories.
+		/// </summary>
+		private int GetLastDisplayedNodeIndex()
+		{
+			return _treeList.VisibleNodesCount > 0 ? _treeList.VisibleNodesCount - 1 : -1;
 		}
 
 
