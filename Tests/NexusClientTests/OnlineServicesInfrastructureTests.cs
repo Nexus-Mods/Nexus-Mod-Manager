@@ -128,6 +128,23 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Ensures signed download diagnostics can redact authorization values without knowing provider-specific parameter names.
+        /// </summary>
+        [Test]
+        public void Diagnostics_RedactsAllQueryValuesForSignedUrls()
+        {
+            var uri = new Uri("https://cdn.example.test/file?X-Amz-Credential=cred-secret-value&X-Amz-Signature=sig-secret-value&custom_auth=custom-secret-value");
+            string sanitized = ApiDiagnosticSanitizer.SanitizeUri(uri, null, true);
+
+            StringAssert.DoesNotContain("cred-secret-value", sanitized);
+            StringAssert.DoesNotContain("sig-secret-value", sanitized);
+            StringAssert.DoesNotContain("custom-secret-value", sanitized);
+            StringAssert.Contains("X-Amz-Credential=", sanitized);
+            StringAssert.Contains("X-Amz-Signature=", sanitized);
+            StringAssert.Contains("custom_auth=", sanitized);
+        }
+
+        /// <summary>
         /// Ensures the shared JSON helper round-trips simple provider DTOs using Newtonsoft.Json.
         /// </summary>
         [Test]

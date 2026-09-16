@@ -268,7 +268,7 @@ namespace Nexus.Client.Util.Downloader
 						catch (WebException e)
 						{
 							intLineTracker = 31;
-							Trace.TraceError(String.Format("[{0}] Block Downloader - Problem getting the block. Status: {1}, Message: {2}", m_fdrFileDownloader.URL, e.Status, e.Message));
+							Trace.TraceError(String.Format("[{0}] Block Downloader - Problem getting the block. Status: {1}, Message: {2}", m_fdrFileDownloader.DiagnosticUrl, e.Status, e.Message));
 							if (e.Response != null)
 							{
 								using (HttpWebResponse wrpDownload = (HttpWebResponse)e.Response)
@@ -313,7 +313,7 @@ namespace Nexus.Client.Util.Downloader
 						catch (IOException e)
 						{
 							intLineTracker = 36;
-							Trace.TraceError(String.Format("[{0}] Block Downloader - Problem getting the block. Message: {1}", m_fdrFileDownloader.URL, e.Message));
+							Trace.TraceError(String.Format("[{0}] Block Downloader - Problem getting the block. Message: {1}", m_fdrFileDownloader.DiagnosticUrl, e.Message));
 							intLineTracker = 37;
 						}
 						intLineTracker = 38;
@@ -321,12 +321,12 @@ namespace Nexus.Client.Util.Downloader
 				}
 				catch (ArgumentOutOfRangeException)
 				{
-					Trace.TraceError(String.Format("[{0}] Block Downloader: ArgumentOutOfRangeException: LineTracker: {1}: Block Range {2}-{3}", m_fdrFileDownloader.URL, intLineTracker, p_rngBlockToDownload.StartByte, p_rngBlockToDownload.EndByte));
+					Trace.TraceError(String.Format("[{0}] Block Downloader: ArgumentOutOfRangeException: LineTracker: {1}: Block Range {2}-{3}", m_fdrFileDownloader.DiagnosticUrl, intLineTracker, p_rngBlockToDownload.StartByte, p_rngBlockToDownload.EndByte));
 					throw;
 				}
 				catch (NullReferenceException)
 				{
-					Trace.TraceError(String.Format("[{0}] Block Downloader: NullReferenceException: LineTracker: {1}", m_fdrFileDownloader.URL, intLineTracker));
+					Trace.TraceError(String.Format("[{0}] Block Downloader: NullReferenceException: LineTracker: {1}", m_fdrFileDownloader.DiagnosticUrl, intLineTracker));
 					throw;
 				}
 				return;

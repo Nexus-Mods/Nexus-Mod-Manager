@@ -99,6 +99,13 @@
         /// <returns>True if valid, otherwise false.</returns>
         AuthenticationStatus Authenticate();
 
+        /// <summary>
+        /// Verifies the configured API key and optionally clears the originating credential generation if authentication fails.
+        /// </summary>
+        /// <param name="clearCredentialsOnFailure">Whether failed authentication should clear the credentials used by that attempt.</param>
+        /// <returns>The authentication result.</returns>
+        AuthenticationStatus Authenticate(bool clearCredentialsOnFailure);
+
 		/// <summary>
 		/// Logs the user out of the mod repository.
 		/// </summary>

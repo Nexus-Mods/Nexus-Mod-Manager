@@ -15,6 +15,7 @@
     /// </remarks>
     public class ApiCallManager
     {
+        private readonly object _credentialSync = new object();
         private readonly IEnvironmentInfo _environmentInfo;
         private readonly NexusModsService _nexusService;
 
@@ -32,14 +33,29 @@
         /// </summary>
         public void UpdateNexusClient()
         {
+            lock (_credentialSync)
+                ReplaceCredentialsFromSettings();
+        }
+
+        /// <summary>
+        /// Starts one authentication attempt and returns the exact credential generation it owns.
+        /// </summary>
+        internal NexusSessionContext BeginAuthenticationSession()
+        {
+            lock (_credentialSync)
+                return ReplaceCredentialsFromSettings();
+        }
+
+        /// <summary>
+        /// Updates credentials from settings and returns the resulting session generation.
+        /// </summary>
+        private NexusSessionContext ReplaceCredentialsFromSettings()
+        {
             string apiKey = _environmentInfo.Settings.ApiKey;
             if (string.IsNullOrWhiteSpace(apiKey))
-            {
-                _nexusService.ClearCredentials();
-                return;
-            }
+                return _nexusService.ClearCredentials();
 
-            _nexusService.ReplaceCredentials(NexusCredentials.FromApiKey(apiKey));
+            return _nexusService.ReplaceCredentials(NexusCredentials.FromApiKey(apiKey));
         }
 
         /// <summary>
@@ -47,9 +63,90 @@
         /// </summary>
         public void ClearApiKey()
         {
+            lock (_credentialSync)
+                ClearApiKeyCore(null);
+        }
+
+        /// <summary>
+        /// Clears credentials and applies related account-state changes under the same lifecycle lock.
+        /// </summary>
+        /// <remarks>
+        /// The state update must not raise UI notifications. Callers should notify after this method returns,
+        /// so synchronous UI marshaling can never run while the credential lifecycle lock is held.
+        /// </remarks>
+        internal void ClearApiKey(Action stateUpdate)
+        {
+            lock (_credentialSync)
+                ClearApiKeyCore(stateUpdate);
+        }
+
+        /// <summary>
+        /// Clears credentials only when the supplied authentication generation is still current.
+        /// </summary>
+        internal bool ClearApiKey(NexusSessionContext expectedSession)
+        {
+            lock (_credentialSync)
+            {
+                if (!IsCurrentSessionCore(expectedSession))
+                    return false;
+
+                ClearApiKeyCore(null);
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Updates account state only while the originating authentication generation is still current.
+        /// </summary>
+        /// <remarks>
+        /// The state update must not raise UI notifications. Callers should notify after this method returns,
+        /// so synchronous UI marshaling can never run while the credential lifecycle lock is held.
+        /// </remarks>
+        internal bool TryUpdateAuthenticationState(NexusSessionContext expectedSession, Action stateUpdate)
+        {
+            if (stateUpdate == null)
+                throw new ArgumentNullException(nameof(stateUpdate));
+
+            lock (_credentialSync)
+            {
+                if (!IsCurrentSessionCore(expectedSession))
+                    return false;
+
+                stateUpdate();
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// Gets whether the supplied authentication generation is still current.
+        /// </summary>
+        internal bool IsCurrentSession(NexusSessionContext expectedSession)
+        {
+            lock (_credentialSync)
+                return IsCurrentSessionCore(expectedSession);
+        }
+
+        /// <summary>
+        /// Invalidates service credentials before persisting the cleared setting.
+        /// </summary>
+        private void ClearApiKeyCore(Action stateUpdate)
+        {
+            _nexusService.ClearCredentials();
+            stateUpdate?.Invoke();
             _environmentInfo.Settings.ApiKey = string.Empty;
             _environmentInfo.Settings.Save();
-            UpdateNexusClient();
+        }
+
+        /// <summary>
+        /// Compares one captured session with the currently active credential generation.
+        /// </summary>
+        private bool IsCurrentSessionCore(NexusSessionContext expectedSession)
+        {
+            if (expectedSession == null)
+                return false;
+
+            NexusSessionContext current = _nexusService.CaptureSession();
+            return ReferenceEquals(current, expectedSession) && current.Generation == expectedSession.Generation;
         }
 
         /// <summary>

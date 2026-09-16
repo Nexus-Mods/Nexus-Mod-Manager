@@ -1484,11 +1484,14 @@
 				}
 				else
 				{
-					ModRepository.Logout();
-					ModManager.Logout();
-
-					EnvironmentInfo.Settings.ApiKey = string.Empty;
-					EnvironmentInfo.Settings.Save();
+					try
+					{
+						ModRepository.Logout();
+					}
+					finally
+					{
+						ModManager.Logout();
+					}
 				}
 			}
 		}

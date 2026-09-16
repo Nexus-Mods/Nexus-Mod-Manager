@@ -109,12 +109,13 @@
 
             EnvironmentInfo.Settings.ApiKey = ApiKey;
 
-            var authenticationResults = ModRepository.Authenticate();
+            var authenticationResults = ModRepository.Authenticate(true);
+            if (authenticationResults == AuthenticationStatus.Successful && ModRepository.UserStatus == null)
+                authenticationResults = AuthenticationStatus.Unknown;
 
             if (authenticationResults != AuthenticationStatus.Successful)
             {
                 Trace.TraceWarning($"Couldn't authenticate with the configured Nexus Mods API key, result: {authenticationResults}.");
-                EnvironmentInfo.Settings.ApiKey = string.Empty;
                 ErrorMessage = $"Couldn't authenticate user: {authenticationResults}";
 
                 return false;

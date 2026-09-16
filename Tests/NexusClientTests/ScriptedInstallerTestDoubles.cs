@@ -551,10 +551,16 @@ namespace NexusClientTests
             HdLinkPath = Path.Combine(p_strRootPath, "HdLink");
             string strInstallInfoPath = Path.Combine(p_strRootPath, "InstallInfo");
             string strInstallationPath = Path.Combine(p_strRootPath, "Game", "Data");
+            string strModDirectory = Path.Combine(p_strRootPath, "Mods");
+            string strModCacheDirectory = Path.Combine(p_strRootPath, "ModCache");
+            string strOverwriteDirectory = Path.Combine(p_strRootPath, "Overwrite");
             Directory.CreateDirectory(VirtualPath);
             Directory.CreateDirectory(HdLinkPath);
             Directory.CreateDirectory(strInstallInfoPath);
             Directory.CreateDirectory(strInstallationPath);
+            Directory.CreateDirectory(strModDirectory);
+            Directory.CreateDirectory(strModCacheDirectory);
+            Directory.CreateDirectory(strOverwriteDirectory);
 
             FileInstaller = new RecordingModFileInstaller();
             DataFileUtil = new RecordingDataFileUtil();
@@ -569,6 +575,12 @@ namespace NexusClientTests
                         return strInstallInfoPath;
                     case "get_InstallationPath":
                         return strInstallationPath;
+                    case "get_ModDirectory":
+                        return strModDirectory;
+                    case "get_ModCacheDirectory":
+                        return strModCacheDirectory;
+                    case "get_OverwriteDirectory":
+                        return strOverwriteDirectory;
                     default:
                         return null;
                 }
@@ -584,6 +596,8 @@ namespace NexusClientTests
                         return strInstallationPath;
                     case "get_PluginExtensions":
                         return new[] { ".esp", ".esm", ".esl" };
+                    case "get_WritablePaths":
+                        return new string[0];
                     case "HardlinkRequiredFilesType":
                         return p_booGameRequiresHardlink;
                     case "GetModFormatAdjustedPath":

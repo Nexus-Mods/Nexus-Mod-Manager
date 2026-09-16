@@ -36,18 +36,7 @@
 		public string Name => "Nexus";
 
 		/// <inheritdoc cref="IModRepository"/>
-		public RepositoryUserStatus UserStatus
-		{
-			get => _userStatus;
-			private set
-			{
-				if (_userStatus != value)
-				{
-					_userStatus = value;
-					UserStatusUpdate?.Invoke(this, EventArgs.Empty);
-				}
-			}
-		}
+		public RepositoryUserStatus UserStatus => _userStatus;
 
 		/// <inheritdoc cref="IModRepository"/>
 		public string UserAgent => ApiCallManager.UserAgent;
@@ -121,20 +110,53 @@
 		/// <inheritdoc />
 		public AuthenticationStatus Authenticate()
 		{
-			_apiCallManager.UpdateNexusClient();
+			return Authenticate(false);
+		}
+
+		/// <inheritdoc />
+		public AuthenticationStatus Authenticate(bool clearCredentialsOnFailure)
+		{
+			NexusSessionContext authenticationSession = _apiCallManager.BeginAuthenticationSession();
 
 			// A credential replacement invalidates account-scoped state before validation begins.
-			UserStatus = null;
-			AllowedConnections = 1;
-			MaxConcurrentDownloads = 5;
+			bool userStatusChanged = false;
+			if (!_apiCallManager.TryUpdateAuthenticationState(authenticationSession, () =>
+			{
+				userStatusChanged = SetUserStatusWithoutNotification(null);
+				AllowedConnections = 1;
+				MaxConcurrentDownloads = 5;
+			}))
+				return AuthenticationStatus.Unknown;
+
+			if (userStatusChanged)
+				OnUserStatusUpdate();
 
 			try
 			{
 				NexusV1Client client = _apiCallManager.V1;
 				if (client == null)
+					return CompleteAuthenticationFailure(AuthenticationStatus.Unknown, authenticationSession, clearCredentialsOnFailure);
+
+				RepositoryUserStatus validatedUserStatus = NexusV1Mapper.ToRepositoryUserStatus(client.ValidateUserAsync().GetAwaiter().GetResult());
+				if (validatedUserStatus == null)
+					return CompleteAuthenticationFailure(AuthenticationStatus.Unknown, authenticationSession, clearCredentialsOnFailure);
+
+				userStatusChanged = false;
+				if (!_apiCallManager.TryUpdateAuthenticationState(authenticationSession, () =>
+				{
+					userStatusChanged = SetUserStatusWithoutNotification(validatedUserStatus);
+					AllowedConnections = validatedUserStatus.IsPremium ? 2 : 1;
+					MaxConcurrentDownloads = validatedUserStatus.IsPremium ? 10 : 5;
+				}))
 					return AuthenticationStatus.Unknown;
 
-				UserStatus = NexusV1Mapper.ToRepositoryUserStatus(client.ValidateUserAsync().GetAwaiter().GetResult());
+				if (userStatusChanged)
+					OnUserStatusUpdate();
+
+				// Notification callbacks may synchronously log out or replace credentials.
+				// Never report this authentication attempt as successful once its generation is obsolete.
+				if (!_apiCallManager.IsCurrentSession(authenticationSession))
+					return AuthenticationStatus.Unknown;
 			}
 			catch (ApiException ex)
 			{
@@ -142,25 +164,27 @@
 				TraceUtil.TraceException(ex);
 
 				AuthenticationStatus status = MapAuthenticationError(ex);
-				if (status == AuthenticationStatus.InvalidKey)
-					_apiCallManager.ClearApiKey();
-
-				return status;
+				return CompleteAuthenticationFailure(status, authenticationSession, clearCredentialsOnFailure);
 			}
 			catch (Exception ex)
 			{
 				Trace.TraceError("Unexpected error encountered while validating API key.");
 				TraceUtil.TraceException(ex);
-				return AuthenticationStatus.Unknown;
+				return CompleteAuthenticationFailure(AuthenticationStatus.Unknown, authenticationSession, clearCredentialsOnFailure);
 			}
 
-			if (UserStatus == null)
-				return AuthenticationStatus.Unknown;
-
-			AllowedConnections = UserStatus.IsPremium ? 2 : 1;
-			MaxConcurrentDownloads = UserStatus.IsPremium ? 10 : 5;
-
 			return AuthenticationStatus.Successful;
+		}
+
+		/// <summary>
+		/// Completes one failed authentication attempt without allowing an obsolete generation to clear replacement credentials.
+		/// </summary>
+		private AuthenticationStatus CompleteAuthenticationFailure(AuthenticationStatus status, NexusSessionContext authenticationSession, bool clearCredentialsOnFailure)
+		{
+			if (clearCredentialsOnFailure || status == AuthenticationStatus.InvalidKey)
+				return _apiCallManager.ClearApiKey(authenticationSession) ? status : AuthenticationStatus.Unknown;
+
+			return _apiCallManager.IsCurrentSession(authenticationSession) ? status : AuthenticationStatus.Unknown;
 		}
 
 		/// <summary>
@@ -186,9 +210,40 @@
 		/// <inheritdoc cref="IModRepository"/>
 		public void Logout()
 		{
-			UserStatus = null;
-			_apiCallManager.ClearApiKey();
-			UserStatusUpdate?.Invoke(this, new EventArgs());
+			try
+			{
+				_apiCallManager.ClearApiKey(() =>
+				{
+					SetUserStatusWithoutNotification(null);
+					AllowedConnections = 1;
+					MaxConcurrentDownloads = 5;
+				});
+			}
+			finally
+			{
+				// Preserve the repository's logout refresh while ensuring UI callbacks run after the lifecycle lock is released.
+				OnUserStatusUpdate();
+			}
+		}
+
+		/// <summary>
+		/// Updates the cached repository user without raising UI-facing notifications.
+		/// </summary>
+		private bool SetUserStatusWithoutNotification(RepositoryUserStatus value)
+		{
+			if (_userStatus == value)
+				return false;
+
+			_userStatus = value;
+			return true;
+		}
+
+		/// <summary>
+		/// Raises the user-status notification after credential lifecycle synchronization has been released.
+		/// </summary>
+		private void OnUserStatusUpdate()
+		{
+			UserStatusUpdate?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <inheritdoc cref="IModRepository"/>

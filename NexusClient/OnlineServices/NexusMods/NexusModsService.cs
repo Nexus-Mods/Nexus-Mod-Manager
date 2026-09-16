@@ -19,6 +19,7 @@ namespace Nexus.Client.OnlineServices.NexusMods
         private readonly ApiTransport _transport;
         private readonly bool _ownsTransport;
         private readonly List<NexusSessionContext> _retiredSessions = new List<NexusSessionContext>();
+        private readonly Dictionary<NexusSessionContext, int> _inFlightRequests = new Dictionary<NexusSessionContext, int>();
         private NexusSessionContext _session;
         private long _generation;
         private bool _disposed;
@@ -109,11 +110,27 @@ namespace Nexus.Client.OnlineServices.NexusMods
                 _generation = checked(_generation + 1);
                 current = new NexusSessionContext(_generation, credentials);
                 _session = current;
-                _retiredSessions.Add(previous);
                 RateLimits.Reset(_generation);
             }
 
-            previous.Cancel();
+            try
+            {
+                previous.Cancel();
+            }
+            finally
+            {
+                bool disposePrevious;
+                lock (_sync)
+                {
+                    disposePrevious = _disposed || !_inFlightRequests.ContainsKey(previous);
+                    if (!disposePrevious)
+                        _retiredSessions.Add(previous);
+                }
+
+                if (disposePrevious)
+                    previous.Dispose();
+            }
+
             return current;
         }
 
@@ -131,35 +148,42 @@ namespace Nexus.Client.OnlineServices.NexusMods
         /// </summary>
         public async Task<ApiResponse> SendAsync(NexusApiSurface surface, HttpMethod method, Uri uri, HttpContent content = null, CancellationToken cancellationToken = default(CancellationToken))
         {
-            NexusSessionContext session = CaptureSession();
-            using (HttpRequestMessage request = RequestPolicy.CreateRequest(method, uri, session.Credentials, content))
-            using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.Token))
+            NexusSessionContext session = AcquireRequestSession();
+            try
             {
-                ApiResponse response;
-                try
+                using (HttpRequestMessage request = RequestPolicy.CreateRequest(method, uri, session.Credentials, content))
+                using (var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.Token))
                 {
-                    response = await _transport.SendAsync(request, linkedCancellation.Token).ConfigureAwait(false);
+                    ApiResponse response;
+                    try
+                    {
+                        response = await _transport.SendAsync(request, linkedCancellation.Token).ConfigureAwait(false);
+                    }
+                    catch (ApiException ex)
+                    {
+                        if (ex.ErrorKind == ApiErrorKind.Cancelled && !cancellationToken.IsCancellationRequested && !IsCurrent(session))
+                            throw new ApiException(ApiErrorKind.Cancelled, "The Nexus Mods session changed before the request completed.", innerException: ex);
+
+                        throw;
+                    }
+
+                    if (!IsCurrent(session))
+                        throw new ApiException(ApiErrorKind.Cancelled, "The Nexus Mods session changed before the request completed.");
+
+                    if (!RateLimits.Update(surface, session.Generation, response) || !IsCurrent(session))
+                        throw new ApiException(ApiErrorKind.Cancelled, "The Nexus Mods session changed before the request completed.");
+
+                    if (!response.IsSuccessStatusCode)
+                        throw surface == NexusApiSurface.V3
+                            ? NexusV3ErrorMapper.CreateException(response)
+                            : NexusErrorMapper.CreateException(response);
+
+                    return response;
                 }
-                catch (ApiException ex)
-                {
-                    if (ex.ErrorKind == ApiErrorKind.Cancelled && !cancellationToken.IsCancellationRequested && !IsCurrent(session))
-                        throw new ApiException(ApiErrorKind.Cancelled, "The Nexus Mods session changed before the request completed.", innerException: ex);
-
-                    throw;
-                }
-
-                if (!IsCurrent(session))
-                    throw new ApiException(ApiErrorKind.Cancelled, "The Nexus Mods session changed before the request completed.");
-
-                if (!RateLimits.Update(surface, session.Generation, response) || !IsCurrent(session))
-                    throw new ApiException(ApiErrorKind.Cancelled, "The Nexus Mods session changed before the request completed.");
-
-                if (!response.IsSuccessStatusCode)
-                    throw surface == NexusApiSurface.V3
-                        ? NexusV3ErrorMapper.CreateException(response)
-                        : NexusErrorMapper.CreateException(response);
-
-                return response;
+            }
+            finally
+            {
+                ReleaseRequestSession(session);
             }
         }
 
@@ -177,6 +201,7 @@ namespace Nexus.Client.OnlineServices.NexusMods
                 _disposed = true;
                 sessions = new List<NexusSessionContext>(_retiredSessions) { _session };
                 _retiredSessions.Clear();
+                _inFlightRequests.Clear();
                 _session = null;
             }
 
@@ -188,6 +213,48 @@ namespace Nexus.Client.OnlineServices.NexusMods
 
             if (_ownsTransport)
                 _transport.Dispose();
+        }
+
+        /// <summary>
+        /// Captures the active session and records one in-flight request before credential replacement can retire it.
+        /// </summary>
+        private NexusSessionContext AcquireRequestSession()
+        {
+            lock (_sync)
+            {
+                ThrowIfDisposed();
+
+                NexusSessionContext session = _session;
+                _inFlightRequests.TryGetValue(session, out int count);
+                _inFlightRequests[session] = count + 1;
+                return session;
+            }
+        }
+
+        /// <summary>
+        /// Releases one request lease and disposes a retired session as soon as its final request has completed.
+        /// </summary>
+        private void ReleaseRequestSession(NexusSessionContext session)
+        {
+            bool disposeSession = false;
+            lock (_sync)
+            {
+                if (!_inFlightRequests.TryGetValue(session, out int count))
+                    return;
+
+                if (count > 1)
+                {
+                    _inFlightRequests[session] = count - 1;
+                    return;
+                }
+
+                _inFlightRequests.Remove(session);
+                if (_retiredSessions.Remove(session))
+                    disposeSession = true;
+            }
+
+            if (disposeSession)
+                session.Dispose();
         }
 
         /// <summary>

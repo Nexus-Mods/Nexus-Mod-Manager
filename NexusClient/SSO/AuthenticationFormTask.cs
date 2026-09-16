@@ -79,7 +79,15 @@
 			Status = TaskStatus.Queued;
 			OverallMessage = LanguageManager.Get("Authentication.Task.AttemptingLogin", "Attempting to login...");
 
-            return TokenLogin() || LoginUser();
+            if (TokenLogin())
+                return true;
+
+            // Reset() is used by logout to invalidate the in-flight background attempt.
+            // Do not turn that reset into a fresh interactive login prompt.
+            if (Status == TaskStatus.Error)
+                return false;
+
+            return LoginUser();
         }
 
 		private void LoginForm_Authenticating(object sender, EventArgs e)
@@ -92,12 +100,25 @@
 
             if (AuthenticationFormViewModel.Login())
 			{
-				Status = TaskStatus.Complete;
-				OverallMessage = LanguageManager.Format("Authentication.Task.LoggedInAs", "Logged in as {0}.", ModManager.ModRepository.UserStatus.Name);
-				LoginForm.DialogResult = DialogResult.OK;
+				// Coordinate completion with the UI logout path, which uses the repository as its lifecycle lock.
+				// A logout that wins this race leaves UserStatus null and the task in its reset state.
+				lock (ModManager.ModRepository)
+				{
+					RepositoryUserStatus userStatus = ModManager.ModRepository.UserStatus;
+					if (userStatus == null || Status == TaskStatus.Error)
+						return;
+
+					Status = TaskStatus.Complete;
+					OverallMessage = LanguageManager.Format("Authentication.Task.LoggedInAs", "Logged in as {0}.", userStatus.Name);
+					LoginForm.DialogResult = DialogResult.OK;
+				}
 			}
 			else
 			{
+				// Logout may have reset this task while authentication notifications were being delivered.
+				if (Status == TaskStatus.Error && ModManager.ModRepository.UserStatus == null)
+					return;
+
 				Status = TaskStatus.Error;
 				OverallMessage = LanguageManager.Format("Authentication.Task.LoginError", "Login error: {0}", AuthenticationFormViewModel.ErrorMessage);
 			}
@@ -109,7 +130,7 @@
 		/// <param name="p_vmlViewModel">The view model that provides the data and operations for this view.</param>
 		/// <returns><c>true</c> if the user was successfully logged in;
 		/// <c>false</c> otherwise</returns>
-		protected bool LoginUser()
+		protected virtual bool LoginUser()
 		{
 			var strMessage = $"You must log into the {ModManager.ModRepository.Name} website.";
 			var strCancelWarning = $"If you do not login {CommonData.ModManagerName} will close.";
@@ -141,7 +162,7 @@
 		/// <param name="p_mrpModRepository">The mod repository to use to retrieve mods and mod metadata.</param>
 		/// <returns><c>true</c> if the user was successfully logged in;
 		/// <c>false</c> otherwise</returns>
-		public bool TokenLogin()
+		public virtual bool TokenLogin()
 		{
             if (string.IsNullOrEmpty(ModManager.EnvironmentInfo.Settings.ApiKey))
             {
@@ -154,16 +175,26 @@
 
             var authenticationResult = ModManager.ModRepository.Authenticate();
 
+            // A logout can be initiated synchronously by an authentication notification.
+            // Preserve the reset task state instead of replacing it with a stale completion result.
+            if (Status == TaskStatus.Error && ModManager.ModRepository.UserStatus == null)
+                return false;
+
             switch (authenticationResult)
             {
                 case AuthenticationStatus.Successful:
-                    Status = TaskStatus.Complete;
-                    OverallMessage = LanguageManager.Format("Authentication.Task.LoggedInAs", "Logged in as {0}.", ModManager.ModRepository.UserStatus.Name);
-                    return true;
+                    lock (ModManager.ModRepository)
+                    {
+                        RepositoryUserStatus userStatus = ModManager.ModRepository.UserStatus;
+                        if (userStatus == null || Status == TaskStatus.Error)
+                            return false;
+
+                        Status = TaskStatus.Complete;
+                        OverallMessage = LanguageManager.Format("Authentication.Task.LoggedInAs", "Logged in as {0}.", userStatus.Name);
+                        return true;
+                    }
                 case AuthenticationStatus.InvalidKey:
                     Status = TaskStatus.Incomplete;
-                    ModManager.EnvironmentInfo.Settings.ApiKey = string.Empty;
-                    ModManager.EnvironmentInfo.Settings.Save();
                     OverallMessage = LanguageManager.Get("Authentication.Task.InvalidApiKey", "Not logged in: API key invalid.");
                     return false;
                 case AuthenticationStatus.NetworkError:

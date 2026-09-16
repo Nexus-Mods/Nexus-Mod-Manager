@@ -36,16 +36,16 @@ namespace Nexus.Client.OnlineServices.Infrastructure
         }
 
         /// <summary>
-        /// Returns a URI string with caller-specified query parameters redacted.
+        /// Returns a URI string with caller-specified query parameters redacted, or with every query value redacted when requested.
         /// </summary>
-        public static string SanitizeUri(Uri uri, IEnumerable<string> sensitiveQueryNames = null)
+        public static string SanitizeUri(Uri uri, IEnumerable<string> sensitiveQueryNames = null, bool redactAllQueryValues = false)
         {
             if (uri == null)
                 return string.Empty;
 
             var sensitiveNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             AddNames(sensitiveNames, sensitiveQueryNames);
-            if (sensitiveNames.Count == 0 || string.IsNullOrEmpty(uri.Query))
+            if ((!redactAllQueryValues && sensitiveNames.Count == 0) || string.IsNullOrEmpty(uri.Query))
                 return uri.ToString();
 
             var builder = new UriBuilder(uri);
@@ -61,7 +61,7 @@ namespace Nexus.Client.OnlineServices.Infrastructure
                 int separator = pair.IndexOf('=');
                 string encodedName = separator < 0 ? pair : pair.Substring(0, separator);
                 string decodedName = Uri.UnescapeDataString(encodedName.Replace("+", " "));
-                if (!sensitiveNames.Contains(decodedName))
+                if (!redactAllQueryValues && !sensitiveNames.Contains(decodedName))
                 {
                     sanitized.Append(pair);
                     continue;

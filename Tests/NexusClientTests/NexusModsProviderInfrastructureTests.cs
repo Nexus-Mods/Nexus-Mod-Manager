@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.OnlineServices.Infrastructure;
@@ -110,6 +111,48 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Ensures retired sessions are retained only while requests from that generation are still in flight.
+        /// </summary>
+        [Test]
+        public void Service_RetiredSessionsAreReleasedAfterInFlightRequestsComplete()
+        {
+            var started = new TaskCompletionSource<bool>();
+            var release = new TaskCompletionSource<bool>();
+            var handler = new StubHttpMessageHandler(async (request, token) =>
+            {
+                started.TrySetResult(true);
+                await release.Task.ConfigureAwait(false);
+                return CreateHttpResponse(HttpStatusCode.OK);
+            });
+
+            using (var transport = new ApiTransport(handler, TimeSpan.FromSeconds(5)))
+            using (var service = new NexusModsService(transport, "NMM-Test/1.0", "NMM-Test", "1.0"))
+            {
+                service.ReplaceCredentials(NexusCredentials.FromApiKey("first"));
+                Assert.AreEqual(0, GetRetiredSessionCount(service));
+
+                Task<ApiResponse> request = service.SendAsync(
+                    NexusApiSurface.V1,
+                    HttpMethod.Get,
+                    new Uri("https://api.nexusmods.com/v1/games.json"));
+                started.Task.GetAwaiter().GetResult();
+
+                service.ReplaceCredentials(NexusCredentials.FromApiKey("second"));
+                Assert.AreEqual(1, GetRetiredSessionCount(service));
+
+                release.TrySetResult(true);
+                ApiException exception = Assert.Throws<ApiException>(() => request.GetAwaiter().GetResult());
+                Assert.AreEqual(ApiErrorKind.Cancelled, exception.ErrorKind);
+                Assert.AreEqual(0, GetRetiredSessionCount(service));
+
+                for (int index = 0; index < 32; index++)
+                    service.ReplaceCredentials(NexusCredentials.FromApiKey("replacement-" + index));
+
+                Assert.AreEqual(0, GetRetiredSessionCount(service));
+            }
+        }
+
+        /// <summary>
         /// Ensures quota state is isolated by API surface and stale responses cannot increase the remaining count in the same window.
         /// </summary>
         [Test]
@@ -204,6 +247,17 @@ namespace NexusClientTests
             NexusCredentials credentials = NexusCredentials.FromApiKey("super-secret-value");
             Assert.AreEqual("ApiKey", credentials.ToString());
             StringAssert.DoesNotContain("super-secret-value", credentials.ToString());
+        }
+
+        /// <summary>
+        /// Reads the number of retired sessions retained by the service without widening the production API surface.
+        /// </summary>
+        private static int GetRetiredSessionCount(NexusModsService service)
+        {
+            FieldInfo field = typeof(NexusModsService).GetField("_retiredSessions", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.IsNotNull(field);
+            var sessions = (List<NexusSessionContext>)field.GetValue(service);
+            return sessions.Count;
         }
 
         /// <summary>

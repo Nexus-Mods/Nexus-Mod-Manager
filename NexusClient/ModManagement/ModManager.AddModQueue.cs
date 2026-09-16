@@ -4,6 +4,7 @@ using System.IO;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModRepositories;
+using Nexus.Client.OnlineServices.Infrastructure;
 using Nexus.Client.Settings;
 using Nexus.Client.Util;
 using System.Diagnostics;
@@ -73,7 +74,7 @@ namespace Nexus.Client.ModManagement
 					}
 					foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
 					{
-						Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", kvpMod.Key.ToString()));
+						Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", SanitizeDownloadUri(new Uri(kvpMod.Key))));
 						kvpMod.Value.Status = TaskStatus.Paused;
 						AddMod(new Uri(kvpMod.Key), ConfirmFileOverwrite);
 					}
@@ -111,7 +112,7 @@ namespace Nexus.Client.ModManagement
 					if (m_dicActiveTasks.ContainsKey(p_uriPath))
 						return m_dicActiveTasks[p_uriPath];
 
-					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", p_uriPath.ToString()));
+					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", SanitizeDownloadUri(p_uriPath)));
 					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, m_mmgModManager.SortOrderService);
 					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 					amtModAdder.IsRemote = booIsRemote;
@@ -122,6 +123,14 @@ namespace Nexus.Client.ModManagement
 				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
 				amtModAdder.AddMod(booQueueTask);
 				return amtModAdder;
+			}
+
+			/// <summary>
+			/// Redacts Nexus temporary download authorization before a URI reaches diagnostics.
+			/// </summary>
+			private static string SanitizeDownloadUri(Uri uri)
+			{
+				return ApiDiagnosticSanitizer.SanitizeUri(uri, null, true);
 			}
 
 			/// <summary>

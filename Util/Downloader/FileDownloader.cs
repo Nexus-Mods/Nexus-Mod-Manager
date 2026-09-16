@@ -45,6 +45,11 @@ namespace Nexus.Client.Util.Downloader
         /// </summary>
         /// <value>The URL of the file being downloaded.</value>
         public Uri URL { get; }
+
+        /// <summary>
+        /// Gets a diagnostic-safe form of the download URL with all authorization-bearing URI components removed.
+        /// </summary>
+        private string DiagnosticUrl => SanitizeUriForDiagnostics(URL);
         
 		/// <summary>
 		/// Gets the number of bytes that have been downloaded.
@@ -314,10 +319,10 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void StartDownload()
 		{
-			Trace.TraceInformation($"[{URL}] Downloading.");
+			Trace.TraceInformation($"[{DiagnosticUrl}] Downloading.");
 
 		    if (!FileExists)
-				throw new FileNotFoundException("The file to download does not exist.", URL.ToString());
+				throw new FileNotFoundException("The file to download does not exist.", DiagnosticUrl);
 
 			int intConnectionsToUse = _metadata.SupportsResume ? _maxConnections : 1;
 
@@ -441,7 +446,7 @@ namespace Nexus.Client.Util.Downloader
                     }
                     catch (IOException e)
                     {
-                        Trace.TraceError($"[{URL}] Could not move downloaded file to its destination. Error message: \"{e.Message}\"");
+                        Trace.TraceError($"[{DiagnosticUrl}] Could not move downloaded file to its destination. Error message: \"{e.Message}\"");
 
                         failureMessage = e.Message;
 
@@ -508,13 +513,39 @@ namespace Nexus.Client.Util.Downloader
 			}
 		}
 
+		/// <summary>
+		/// Removes every query value, fragment, and embedded user information before a download URI reaches diagnostics.
+		/// Download URLs can use provider-specific authorization parameter names, so diagnostics must not depend on a name allowlist.
+		/// </summary>
+		private static string SanitizeUriForDiagnostics(Uri uri)
+		{
+			if (uri == null)
+				return string.Empty;
+
+			if (!uri.IsAbsoluteUri)
+			{
+				string relative = uri.ToString();
+				int queryOrFragment = relative.IndexOfAny(new[] { '?', '#' });
+				return queryOrFragment < 0 ? relative : relative.Substring(0, queryOrFragment);
+			}
+
+			var builder = new UriBuilder(uri)
+			{
+				Query = string.Empty,
+				Fragment = string.Empty,
+				UserName = string.Empty,
+				Password = string.Empty
+			};
+			return builder.Uri.ToString();
+		}
+
 	    /// <summary>
 	    /// Gets the file's metadata.
 	    /// </summary>
 	    /// <returns>The file's metadata.</returns>
 	    protected FileMetadata GetMetadata(Uri uri, string httpMethod = WebRequestMethods.Http.Head)
 		{
-			Trace.TraceInformation($"[{uri}] Retrieving meta data.");
+			Trace.TraceInformation($"[{SanitizeUriForDiagnostics(uri)}] Retrieving meta data.");
 
 		    var webMetaData = (HttpWebRequest)WebRequest.Create(uri);
 

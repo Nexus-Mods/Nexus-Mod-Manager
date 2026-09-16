@@ -5,6 +5,8 @@ using System.Reflection;
 using System.Security;
 using System.Security.Permissions;
 using System.Threading;
+using Nexus.Client;
+using Nexus.Client.Games.Fallout3.Scripting.CSharpScript;
 using Nexus.Client.ModManagement.Scripting.CSharpScript;
 using NUnit.Framework;
 
@@ -113,6 +115,66 @@ public class Script : CSharpBaseScript
 
             Assert.That(ExecuteInSandbox(Compile(failedScript)), Is.False);
             Assert.That(ExecuteInSandbox(Compile(ValidScript)), Is.True);
+        }
+
+        /// <summary>
+        /// Exercises the production executor, its sandbox construction, a real cross-domain function-proxy call,
+        /// a representative game-specific base-script assembly, successful installation completion, and AppDomain cleanup.
+        /// </summary>
+        [Test]
+        public void ProductionExecutor_GameSpecificBase_ExecutesProxyCallAndCompletes()
+        {
+            const string scriptCode = @"
+using System;
+using Nexus.Client.ModManagement.Scripting.CSharpScript;
+
+public class Script : CSharpBaseScript
+{
+    public bool OnActivate()
+    {
+        return GetFommVersion() == new Version(9, 8, 7, 6);
+    }
+}";
+
+            using (var temporaryDirectory = new TemporaryDirectory())
+            {
+                var context = new ScriptProxyContext(temporaryDirectory.Path, "123", false, false, null);
+                IEnvironmentInfo environmentInfo = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+                {
+                    switch (method.Name)
+                    {
+                        case "get_TemporaryPath":
+                            return temporaryDirectory.Path;
+                        case "get_ApplicationVersion":
+                            return new Version(9, 8, 7, 6);
+                        default:
+                            return null;
+                    }
+                });
+
+                var functionProxy = new CSharpScriptFunctionProxy(
+                    context.Mod,
+                    context.GameMode,
+                    environmentInfo,
+                    context.VirtualModActivator,
+                    context.Installers,
+                    null);
+                var scriptType = new Fallout3CSharpScriptType();
+                var script = new CSharpScript(scriptType, scriptCode);
+                var executor = new CSharpScriptExecutor(
+                    context.GameMode,
+                    environmentInfo,
+                    functionProxy,
+                    typeof(Fallout3CSharpBaseScript),
+                    string.Empty);
+
+                Assert.That(executor.DoExecute(script), Is.True);
+                Assert.That(context.FileInstaller.FinalizeCallCount, Is.EqualTo(1));
+
+                // A second complete execution verifies that the production cleanup path unloaded the first sandbox cleanly.
+                Assert.That(executor.DoExecute(script), Is.True);
+                Assert.That(context.FileInstaller.FinalizeCallCount, Is.EqualTo(2));
+            }
         }
 
         /// <summary>

@@ -158,6 +158,7 @@
     <Compile Include="NexusGraphQlClientTests.cs" />
     <Compile Include="NexusV3ClientTests.cs" />
     <Compile Include="NexusSessionLifecycleTests.cs" />
+    <Compile Include="AuthenticationFormTaskTests.cs" />
     <Compile Include="NexusV1ClientTests.cs" />
     <Compile Include="OnlineServicesInfrastructureTests.cs" />
     <Compile Include="EnglishLanguageCatalogTests.cs" />
@@ -186,6 +187,10 @@
     <ProjectReference Include="..\..\NexusClient.Interface\NexusClient.Interface.csproj">
       <Project>{D586E7D8-9C8E-48F0-B20C-31A52B37E9D3}</Project>
       <Name>NexusClient.Interface</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Game Modes\Fallout3.CSharpScript\Fallout3.CSharpScript.csproj">
+      <Project>{A11C9C68-3133-48BF-BB4D-C0DB2AC1D201}</Project>
+      <Name>Fallout3.CSharpScript</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Script Types\CSharpScript\CSharpScript.csproj">
       <Project>{6C3901C6-BFCA-47FC-929B-0CD030325FBD}</Project>

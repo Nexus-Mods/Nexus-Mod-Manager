@@ -17,6 +17,7 @@
     using Nexus.Client.ModAuthoring;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
+    using Nexus.Client.OnlineServices.Infrastructure;
     using Nexus.Client.Settings;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
@@ -495,7 +496,7 @@
 			var strNexusError = string.Empty;
 			var strNexusErrorInfo = string.Empty;
 
-            Trace.TraceInformation($"[{_downloadPath}] Starting Add Mod Task.");
+			Trace.TraceInformation($"[{SanitizeDownloadUri(_downloadPath)}] Starting Add Mod Task.");
 			Status = TaskStatus.Running;
 			OverallProgress = 0;
 			OverallProgressStepSize = 1;
@@ -737,7 +738,7 @@
 
                     if (string.IsNullOrEmpty(nxuModUrl.ModId) || string.IsNullOrEmpty(nxuModUrl.FileId))
                     {
-                        throw new ArgumentException("Invalid Nexus URI: " + descriptor.SourceUri);
+                        throw new ArgumentException("Invalid Nexus URI: " + SanitizeDownloadUri(descriptor.SourceUri));
                     }
 
                     ModInfo modInfo = null;
@@ -789,8 +790,8 @@
 
                     return modInfo;
 				default:
-					Trace.TraceInformation($"[{descriptor.SourceUri}] Can't get mod info.");
-					throw new Exception("Unable to retrieve mod info: " + descriptor.SourceUri);
+					Trace.TraceInformation($"[{SanitizeDownloadUri(descriptor.SourceUri)}] Can't get mod info.");
+					throw new Exception("Unable to retrieve mod info: " + SanitizeDownloadUri(descriptor.SourceUri));
 			}
 		}
 
@@ -858,7 +859,7 @@
 
 						if (string.IsNullOrEmpty(nxuModUrl.ModId))
 						{
-							Trace.TraceError("Invalid Nexus URI: " + path);
+							Trace.TraceError("Invalid Nexus URI: " + SanitizeDownloadUri(path));
 							return null;
 						}
 
@@ -869,7 +870,7 @@
 
                         if (fileInfo == null)
                         {
-                            Trace.TraceInformation($"[{path}] Can't get the file: no file.");
+                            Trace.TraceInformation($"[{SanitizeDownloadUri(path)}] Can't get the file: no file.");
                             return null;
                         }
 
@@ -902,8 +903,8 @@
 						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions, fileInfo.Name, fileInfo.Filename);
 						break;
 					default:
-						Trace.TraceInformation($"[{path}] Can't get the file.");
-						throw new Exception("Unable to retrieve file: " + path);
+						Trace.TraceInformation($"[{SanitizeDownloadUri(path)}] Can't get the file.");
+						throw new Exception("Unable to retrieve file: " + SanitizeDownloadUri(path));
 				}
 
 				queuedMods[path.ToString()] = descriptor;
@@ -926,8 +927,8 @@
         /// <param name="queued"></param>
         protected void DownloadFiles(List<Uri> files, bool queued)
 		{
-			Trace.TraceInformation($"[{Descriptor.SourceUri}] Downloading Files.");
-			Trace.TraceInformation($"[{Descriptor.SourceUri}] Launching downloading of {files[0]}.");
+			Trace.TraceInformation($"[{SanitizeDownloadUri(Descriptor.SourceUri)}] Downloading Files.");
+			Trace.TraceInformation($"[{SanitizeDownloadUri(Descriptor.SourceUri)}] Launching downloading of {SanitizeDownloadUri(files[0])}.");
 			var intConnections = _environmentInfo.Settings.UseMultithreadedDownloads ? _modRepository.AllowedConnections : 1;
 
 			var downloader = new FileDownloadTask(_modRepository, intConnections, 1024 * 500, _modRepository.UserAgent);
@@ -936,6 +937,14 @@
             
 			_runningTasks.Add(downloader);
 			downloader.DownloadAsync(files, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
+		}
+
+		/// <summary>
+		/// Redacts Nexus temporary download authorization before a URI reaches diagnostics.
+		/// </summary>
+		private static string SanitizeDownloadUri(Uri uri)
+		{
+			return ApiDiagnosticSanitizer.SanitizeUri(uri, null, true);
 		}
 
 		/// <summary>
