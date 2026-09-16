@@ -652,7 +652,7 @@ begin
 			NetFx45:
 			begin
 				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion);
-				Result := (regVersion >= 394802);
+				Result := (regVersion >= 528040);
 				Exit;
 			end;
 		end;
@@ -710,9 +710,9 @@ end;
 
 
 [CustomMessages]
-dotnetfx45_title=.NET Framework 4.6.2
+dotnetfx45_title=.NET Framework 4.8
 
-dotnetfx45_size=1 MB - 68 MB
+dotnetfx45_size=1.4 MB + required components
 
 ;http://www.microsoft.com/globaldev/reference/lcid-all.mspx
 en.dotnetfx45_lcid=''
@@ -721,7 +721,7 @@ de.dotnetfx45_lcid='/lcid 1031 '
 
 [Code]
 const
-	dotnetfx45_url = 'https://go.microsoft.com/fwlink/?LinkId=780596';
+	dotnetfx45_url = 'https://go.microsoft.com/fwlink/?LinkId=2085155';
 
 procedure dotnetfx45(MinVersion: integer);
 begin

@@ -1,7 +1,6 @@
 ﻿namespace Nexus.Client.ModRepositories
 {
     using System;
-    using Pathoschild.FluentNexus;
 
     /// <summary>
     /// Arguments related to events for exceeding the rate limit.
@@ -11,13 +10,13 @@
         /// <summary>
         /// Current Rate Limit status.
         /// </summary>
-        public IRateLimitManager RateLimit { get; }
+        public RepositoryRateLimit RateLimit { get; }
 
         /// <summary>
         /// Creates a new <see cref="RateLimitExceededArgs"/>.
         /// </summary>
         /// <param name="rateLimit">Rate limit status when this event was invoked.</param>
-        public RateLimitExceededArgs(IRateLimitManager rateLimit)
+        public RateLimitExceededArgs(RepositoryRateLimit rateLimit)
         {
             RateLimit = rateLimit;
         }

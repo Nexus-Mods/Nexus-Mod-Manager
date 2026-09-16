@@ -863,7 +863,7 @@
 						}
 
 						List<Uri> uriFilesToDownload = new List<Uri>();
-						List<Pathoschild.FluentNexus.Models.ModFileDownloadLink> downloadLinks;
+						List<RepositoryDownloadLink> downloadLinks;
 
 						IModFileInfo fileInfo = string.IsNullOrEmpty(nxuModUrl.FileId) ? _modRepository.GetDefaultFileInfo(nxuModUrl.ModId) : _modRepository.GetFileInfo(nxuModUrl.ModId, nxuModUrl.FileId);
 
@@ -888,7 +888,7 @@
                                 if (link.Uri != null)
                                 {
                                     uriFilesToDownload.Add(link.Uri);
-                                    _fileserverCaptions.Add(link.CdnShortName);
+                                    _fileserverCaptions.Add(link.SourceName);
                                 }
                             }
                         }

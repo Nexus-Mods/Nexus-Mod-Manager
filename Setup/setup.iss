@@ -201,7 +201,7 @@ begin
 	msi31('3.1');
 #endif
 #ifdef use_dotnetfx45
-    dotnetfx45(394802); // min allowed version is .NET Framework 4.6.2
+    dotnetfx45(528040); // min allowed version is .NET Framework 4.8
 #endif
 
   Result := True; // in case when no previous version is found

@@ -68,7 +68,7 @@ using Nexus.Client.Util.Localization;
         /// </summary>
         private static JArray DownloadReleaseList(string releasesApi)
         {
-            // .NET Framework 4.6.2 can still inherit a legacy TLS protocol set from the
+            // .NET Framework applications can still inherit a legacy TLS protocol set from the
             // machine configuration. GitHub requires TLS 1.2 or newer. Preserve any
             // explicitly enabled protocols and add TLS 1.2 when necessary.
             var securityProtocols = ServicePointManager.SecurityProtocol;

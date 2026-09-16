@@ -113,7 +113,7 @@
 
             if (authenticationResults != AuthenticationStatus.Successful)
             {
-                Trace.TraceWarning($"Couldn't authenticate with API key \"{ApiKey}\", result: {authenticationResults}.");
+                Trace.TraceWarning($"Couldn't authenticate with the configured Nexus Mods API key, result: {authenticationResults}.");
                 EnvironmentInfo.Settings.ApiKey = string.Empty;
                 ErrorMessage = $"Couldn't authenticate user: {authenticationResults}";
 

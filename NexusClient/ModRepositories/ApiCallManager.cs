@@ -1,8 +1,8 @@
 ﻿namespace Nexus.Client.ModRepositories
 {
     using System;
-    using Pathoschild.FluentNexus;
-    using Pathoschild.FluentNexus.Endpoints;
+    using Nexus.Client.OnlineServices.NexusMods;
+    using Nexus.Client.OnlineServices.NexusMods.V1;
     using Util;
 
     /// <summary>
@@ -16,26 +16,30 @@
     public class ApiCallManager
     {
         private readonly IEnvironmentInfo _environmentInfo;
-        private NexusClient _nexusClient;
+        private readonly NexusModsService _nexusService;
 
         private static ApiCallManager _instance;
 
         private ApiCallManager(IEnvironmentInfo environmentInfo)
         {
             _environmentInfo = environmentInfo;
+            _nexusService = new NexusModsService(TimeSpan.FromSeconds(100), UserAgent, "NMM", CommonData.VersionString);
             UpdateNexusClient();
         }
 
         /// <summary>
-        /// Updates the NexusClient object for making API calls.
+        /// Updates the Nexus Mods service credentials used for API calls.
         /// </summary>
         public void UpdateNexusClient()
         {
-            if (!string.IsNullOrEmpty(_environmentInfo.Settings.ApiKey))
+            string apiKey = _environmentInfo.Settings.ApiKey;
+            if (string.IsNullOrWhiteSpace(apiKey))
             {
-                _nexusClient = new NexusClient(_environmentInfo.Settings.ApiKey, "NMM", CommonData.VersionString);
-                _nexusClient.SetUserAgent(UserAgent);
+                _nexusService.ClearCredentials();
+                return;
             }
+
+            _nexusService.ReplaceCredentials(NexusCredentials.FromApiKey(apiKey));
         }
 
         /// <summary>
@@ -66,38 +70,14 @@
         public static string UserAgent => $"NexusModManager/{CommonData.VersionString} ({Environment.OSVersion})";
 
         /// <summary>
-        /// Gets the current rate limits.
+        /// Gets the NMM-owned Nexus Mods service.
         /// </summary>
-        public IRateLimitManager RateLimit => _nexusClient?.GetRateLimits().Result;
-
-        #region EndPoints
+        internal NexusModsService NexusService => _nexusService;
 
         /// <summary>
-        /// End point for getting ColourSchemes info from Nexus.
+        /// Gets the owned REST v1 client while an authenticated Nexus session is available.
         /// </summary>
-        public NexusColorSchemesClient ColourSchemes => _nexusClient?.ColorSchemes;
-
-        /// <summary>
-        /// End point for getting Games info from Nexus.
-        /// </summary>
-        public NexusGamesClient Games => _nexusClient?.Games;
-
-        /// <summary>
-        /// End point for getting User info from Nexus.
-        /// </summary>
-        public NexusUsersClient Users => _nexusClient?.Users;
-
-        /// <summary>
-        /// End point for getting Mods info from Nexus.
-        /// </summary>
-        public NexusModsClient Mods => _nexusClient?.Mods;
-
-        /// <summary>
-        /// End point for getting Mods info from Nexus.
-        /// </summary>
-        public NexusModFilesClient ModFiles => _nexusClient?.ModFiles;
-
-        #endregion
+        internal NexusV1Client V1 => _nexusService.CaptureSession().Credentials.HasCredentials ? _nexusService.V1 : null;
 
         #endregion
     }

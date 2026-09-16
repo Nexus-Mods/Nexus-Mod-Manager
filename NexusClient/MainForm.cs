@@ -318,7 +318,14 @@
 
 		private void OnRateLimitExceeded(RateLimitExceededArgs args)
 		{
-			XtraMessageBox.Show(this, LanguageManager.Format("MainForm.RateLimit.Exceeded.Message", "You've reached your daily and hourly limit. Try again in {0} minutes.", Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes)), L("MainForm.RateLimit.Exceeded.Title", "API Rate Limit exceeded"), MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+			if (args?.RateLimit == null)
+			{
+				XtraMessageBox.Show(this, L("MainForm.RateLimit.Exceeded.UnknownMessage", "The Nexus Mods API reported that the request limit was exceeded. Try again later."), L("MainForm.RateLimit.Exceeded.Title", "API Rate Limit exceeded"), MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
+				return;
+			}
+
+			var minutes = Math.Max(0, Math.Floor((args.RateLimit.HourlyReset - DateTimeOffset.UtcNow).TotalMinutes));
+			XtraMessageBox.Show(this, LanguageManager.Format("MainForm.RateLimit.Exceeded.Message", "You've reached your daily and hourly limit. Try again in {0} minutes.", minutes), L("MainForm.RateLimit.Exceeded.Title", "API Rate Limit exceeded"), MessageBoxButtons.OK, MessageBoxIcon.Asterisk);
 		}
 
 		private void ToolStripButtonRateLimitOnClick(object sender, EventArgs e)
@@ -326,6 +333,12 @@
 			if (ViewModel.UserStatus != null)
 			{
 				var rateLimit = ViewModel.ModRepository.RateLimit;
+				if (rateLimit == null)
+				{
+					XtraMessageBox.Show(this, L("MainForm.RateLimit.Unavailable", "Rate limit information is not available yet."), L("MainForm.RateLimit.Status.Title", "API Rate Limit status"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+
 				var dailyReset = rateLimit.DailyReset - DateTimeOffset.UtcNow;
 
 				var info = LanguageManager.Format("MainForm.RateLimit.Status.Message", "Daily: {0}/{1} requests left (resets in {2}h {3} m)\nHourly: {4}/{5} requests left (resets in {6} m)",

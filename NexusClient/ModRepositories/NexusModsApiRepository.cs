@@ -10,15 +10,16 @@
 	using System.Threading;
 	using System.Threading.Tasks;
 	using ModManagement;
+	using Nexus.Client.OnlineServices.Infrastructure;
+	using Nexus.Client.OnlineServices.NexusMods;
+	using Nexus.Client.OnlineServices.NexusMods.V1;
 	using Mods;
-	using Pathoschild.FluentNexus;
-	using Pathoschild.FluentNexus.Models;
 	using Util;
 	using Util.Collections;
 
 	public class NexusModsApiRepository : IModRepository
 	{
-		private User _userStatus;
+		private RepositoryUserStatus _userStatus;
 
 		/// <inheritdoc cref="IModRepository"/>
 		public event EventHandler UserStatusUpdate;
@@ -35,7 +36,7 @@
 		public string Name => "Nexus";
 
 		/// <inheritdoc cref="IModRepository"/>
-		public User UserStatus
+		public RepositoryUserStatus UserStatus
 		{
 			get => _userStatus;
 			private set
@@ -69,7 +70,14 @@
 		public string GameDomainName => string.IsNullOrEmpty(_gameDomain) ? string.Empty : _gameDomain.ToLower();
 
         /// <inheritdoc cref="IModRepository"/>
-		public IRateLimitManager RateLimit => _apiCallManager.RateLimit;
+		public RepositoryRateLimit RateLimit
+		{
+			get
+			{
+				var owned = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.V1);
+				return NexusV1Mapper.ToRepositoryRateLimit(owned);
+			}
+		}
 
 		#endregion
 
@@ -88,7 +96,7 @@
 		{
 			public ModHashLookupOutcome(
 			 ModHashLookupStatus status,
-			 ModHashResult result = null)
+			 NexusV1ModHashResult result = null)
 			{
 				Status = status;
 				Result = result;
@@ -96,7 +104,7 @@
 
 			public ModHashLookupStatus Status { get; }
 
-			public ModHashResult Result { get; }
+			public NexusV1ModHashResult Result { get; }
 		}
 
 		/// <summary>
@@ -115,39 +123,64 @@
 		{
 			_apiCallManager.UpdateNexusClient();
 
-			var status = AuthenticationStatus.Unknown;
+			// A credential replacement invalidates account-scoped state before validation begins.
+			UserStatus = null;
+			AllowedConnections = 1;
+			MaxConcurrentDownloads = 5;
 
 			try
 			{
-				UserStatus = _apiCallManager.Users?.ValidateAsync().Result;
+				NexusV1Client client = _apiCallManager.V1;
+				if (client == null)
+					return AuthenticationStatus.Unknown;
+
+				UserStatus = NexusV1Mapper.ToRepositoryUserStatus(client.ValidateUserAsync().GetAwaiter().GetResult());
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
 				Trace.TraceError("Error encountered while validating API key.");
-				TraceUtil.TraceAggregateException(a);
+				TraceUtil.TraceException(ex);
 
-				if (a.InnerExceptions.Any(ex => ex.GetType() == typeof(HttpRequestException)))
-				{
-					status = AuthenticationStatus.NetworkError;
-				}
-				else if (a.InnerExceptions.Any(ex => ex.Message.Contains("Please provide a valid API Key")))
-				{
-					status = AuthenticationStatus.InvalidKey;
-				}
-			}
-
-			if (UserStatus == null)
-			{
-				AllowedConnections = 1;
-				MaxConcurrentDownloads = 5;
+				AuthenticationStatus status = MapAuthenticationError(ex);
+				if (status == AuthenticationStatus.InvalidKey)
+					_apiCallManager.ClearApiKey();
 
 				return status;
 			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Unexpected error encountered while validating API key.");
+				TraceUtil.TraceException(ex);
+				return AuthenticationStatus.Unknown;
+			}
+
+			if (UserStatus == null)
+				return AuthenticationStatus.Unknown;
 
 			AllowedConnections = UserStatus.IsPremium ? 2 : 1;
 			MaxConcurrentDownloads = UserStatus.IsPremium ? 10 : 5;
 
 			return AuthenticationStatus.Successful;
+		}
+
+		/// <summary>
+		/// Maps owned API failures to the repository's legacy authentication result contract.
+		/// </summary>
+		private static AuthenticationStatus MapAuthenticationError(ApiException exception)
+		{
+			if (exception == null)
+				return AuthenticationStatus.Unknown;
+
+			switch (exception.ErrorKind)
+			{
+				case ApiErrorKind.Authentication:
+					return AuthenticationStatus.InvalidKey;
+				case ApiErrorKind.Network:
+				case ApiErrorKind.Timeout:
+					return AuthenticationStatus.NetworkError;
+				default:
+					return AuthenticationStatus.Unknown;
+			}
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
@@ -284,9 +317,9 @@
 
 				return result;
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
 			catch (Exception ex)
@@ -305,7 +338,7 @@
 			return hashLookup.Status ==
 			  ModHashLookupStatus.Match &&
 			 hashLookup.Result?.File != null
-			  ? new ModFileInfo(
+			  ? NexusV1Mapper.ToModFileInfo(
 			   hashLookup.Result.File)
 			  : null;
 		}
@@ -340,103 +373,38 @@
 
 			try
 			{
-				var hashResults =
-				 _apiCallManager.Mods?
-				  .GetModsByFileHash(
-				   GameDomainName,
-				   hash)?
-				  .Result;
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return new ModHashLookupOutcome(ModHashLookupStatus.NoMatch);
 
-				var hashResult =
-				 hashResults?
-				  .FirstOrDefault(
-				   result =>
-					result?.Mod != null ||
-					result?.File != null);
+				var hashResults = client.FindModsByMd5Async(GameDomainName, hash).GetAwaiter().GetResult();
+				var hashResult = hashResults?.FirstOrDefault(result => result?.Mod != null || result?.File != null);
 
 				return hashResult == null
-				 ? new ModHashLookupOutcome(
-				  ModHashLookupStatus.NoMatch)
-				 : new ModHashLookupOutcome(
-				  ModHashLookupStatus.Match,
-				  hashResult);
+				 ? new ModHashLookupOutcome(ModHashLookupStatus.NoMatch)
+				 : new ModHashLookupOutcome(ModHashLookupStatus.Match, hashResult);
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				TraceUtil.TraceAggregateException(a);
-
-				if (IsRateLimitException(a))
-				{
-					RateLimitExceeded?.Invoke(
-					 this,
-					 new RateLimitExceededArgs(
-					  RateLimit));
-
-					return new ModHashLookupOutcome(
-					 ModHashLookupStatus
-					  .RateLimitExceeded);
-				}
+				if (ReactToApiException(ex))
+					return new ModHashLookupOutcome(ModHashLookupStatus.RateLimitExceeded);
 
 				/*
 				 * This can represent an isolated failure of the
 				 * MD5 endpoint. GetModInfoForFile will continue
 				 * with filename/ID recognition.
 				 */
-				return new ModHashLookupOutcome(
-				 ModHashLookupStatus.RequestFailed);
+				return new ModHashLookupOutcome(ModHashLookupStatus.RequestFailed);
 			}
 			catch (Exception ex)
 			{
 				TraceUtil.TraceException(ex);
 
-				return new ModHashLookupOutcome(
-				 ModHashLookupStatus.RequestFailed);
+				return new ModHashLookupOutcome(ModHashLookupStatus.RequestFailed);
 			}
 		}
 
-		private static bool IsRateLimitException(AggregateException exception)
-		{
-			if (exception == null)
-			{
-				return false;
-			}
-
-			return exception
-			 .Flatten()
-			 .InnerExceptions
-			 .Any(
-			  innerException =>
-			  {
-				  if (innerException == null)
-				  {
-					  return false;
-				  }
-
-				  if (innerException.Message.IndexOf(
-		 "Too Many Requests",
-		 StringComparison
-		  .OrdinalIgnoreCase) >= 0)
-				  {
-					  return true;
-				  }
-
-				  var apiException =
-		innerException as
-		 Pathoschild.Http.Client
-		  .ApiException;
-
-				  return apiException != null &&
-		apiException.Status ==
-		 System.Net.HttpStatusCode
-		  .Forbidden &&
-		apiException.Message.IndexOf(
-		 "Mod not available",
-		 StringComparison
-		  .OrdinalIgnoreCase) < 0;
-			  });
-		}
-
-		private static IModInfo CreateModInfoFromHashResult(ModHashResult hashResult)
+		private static IModInfo CreateModInfoFromHashResult(NexusV1ModHashResult hashResult)
 		{
 			if (hashResult?.Mod == null)
 			{
@@ -444,11 +412,11 @@
 			}
 
 			var modInfo =
-			 new ModInfo(hashResult.Mod);
+			 NexusV1Mapper.ToModInfo(hashResult.Mod);
 
 			var fileInfo = hashResult.File == null
 			 ? null
-			 : new ModFileInfo(hashResult.File);
+			 : NexusV1Mapper.ToModFileInfo(hashResult.File);
 
 			if (fileInfo == null)
 			{
@@ -499,12 +467,17 @@
 		{
 			try
 			{
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
 				string id = ParseModId(modId);
-				return new ModInfo(_apiCallManager.Mods?.GetMod(GameDomainName, Convert.ToInt32(id)).Result);
+				var nexusMod = client.GetModAsync(GameDomainName, Convert.ToInt32(id)).GetAwaiter().GetResult();
+				return NexusV1Mapper.ToModInfo(nexusMod);
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -538,7 +511,8 @@
 					}
 
 					modRequests++;
-					var nexusMod = _apiCallManager.Mods?.GetMod(GameDomainName, numericModId).Result;
+					var client = _apiCallManager.V1;
+					var nexusMod = client == null ? null : client.GetModAsync(GameDomainName, numericModId).GetAwaiter().GetResult();
 
 					if (nexusMod == null)
 					{
@@ -546,10 +520,10 @@
 						continue;
 					}
 
-					ModInfo modInfo = new ModInfo(nexusMod);
+					ModInfo modInfo = NexusV1Mapper.ToModInfo(nexusMod);
 					bool fileMetadataResolved = false;
 					Task.Delay(50);
-					var nexusFiles = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, numericModId, new FileCategory[0]).Result;
+					var nexusFiles = client.GetModFilesAsync(GameDomainName, numericModId, new NexusV1FileCategory[0]).GetAwaiter().GetResult();
 					int currentFileId = 0;
 
 					if (ModFileIdentity.IsUsableRepositoryId(downloadId))
@@ -562,7 +536,7 @@
 							string.Equals(file.FileName, currentFilename, StringComparison.OrdinalIgnoreCase));
 
 						if (currentFile != null)
-							currentFileId = currentFile.FileID;
+							currentFileId = currentFile.FileId;
 						else if (nexusFiles.FileUpdates != null)
 						{
 							var filenameUpdate = nexusFiles.FileUpdates.FirstOrDefault(update =>
@@ -572,38 +546,26 @@
 							if (filenameUpdate != null)
 							{
 								currentFileId = string.Equals(filenameUpdate.OldFileName, currentFilename, StringComparison.OrdinalIgnoreCase)
-									? filenameUpdate.OldFileID
-									: filenameUpdate.NewFileID;
+									? filenameUpdate.OldFileId
+									: filenameUpdate.NewFileId;
 							}
 						}
 					}
 
-					int latestFileId = currentFileId;
-					if (latestFileId > 0 && nexusFiles?.FileUpdates != null)
-					{
-						var visitedFileIds = new HashSet<int>();
-						while (visitedFileIds.Add(latestFileId))
-						{
-							var fileUpdate = nexusFiles.FileUpdates.FirstOrDefault(update => update.OldFileID == latestFileId);
-							if (fileUpdate == null || fileUpdate.NewFileID <= 0 || fileUpdate.NewFileID == latestFileId)
-								break;
-
-							latestFileId = fileUpdate.NewFileID;
-						}
-					}
+					int latestFileId = ResolveLatestFileId(currentFileId, nexusFiles?.FileUpdates);
 
 					if (latestFileId > 0)
 					{
-						var latestFile = nexusFiles?.Files?.FirstOrDefault(file => file.FileID == latestFileId);
+						var latestFile = nexusFiles?.Files?.FirstOrDefault(file => file.FileId == latestFileId);
 						if (latestFile == null)
 						{
 							Task.Delay(50);
-							latestFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, numericModId, latestFileId).Result;
+							latestFile = client.GetModFileAsync(GameDomainName, numericModId, latestFileId).GetAwaiter().GetResult();
 						}
 
 						if (latestFile != null)
 						{
-							modInfo = new ModInfo(AutoTagger.CombineInfo(modInfo, new ModFileInfo(latestFile)));
+							modInfo = new ModInfo(AutoTagger.CombineInfo(modInfo, NexusV1Mapper.ToModFileInfo(latestFile)));
 							fileMetadataResolved = true;
 						}
 						else
@@ -624,10 +586,10 @@
 
 					list.Add(modInfo);
 				}
-				catch (AggregateException a)
+				catch (ApiException ex)
 				{
 					list.Add(new ModInfo());
-					if (ReactToAggregateException(a))
+					if (ReactToApiException(ex))
 					{
 						// Breaking the foreach will cause the updated list and the base list to lose their alignment.
 						break;
@@ -644,6 +606,28 @@
 			return list;
 		}
 
+		/// <summary>
+		/// Follows Nexus file-update relationships to the newest reachable file while safely stopping on cycles.
+		/// </summary>
+		private static int ResolveLatestFileId(int currentFileId, IEnumerable<NexusV1ModFileUpdate> fileUpdates)
+		{
+			if (currentFileId <= 0 || fileUpdates == null)
+				return currentFileId;
+
+			int latestFileId = currentFileId;
+			var visitedFileIds = new HashSet<int>();
+			while (visitedFileIds.Add(latestFileId))
+			{
+				var fileUpdate = fileUpdates.FirstOrDefault(update => update.OldFileId == latestFileId);
+				if (fileUpdate == null || fileUpdate.NewFileId <= 0 || fileUpdate.NewFileId == latestFileId)
+					break;
+
+				latestFileId = fileUpdate.NewFileId;
+			}
+
+			return latestFileId;
+		}
+
 		/// <inheritdoc cref="IModRepository"/>
 		public List<string> GetUpdated(string period)
 		{
@@ -651,13 +635,17 @@
 
 			try
 			{
-				ModUpdate[] updates = _apiCallManager.Mods.GetUpdated(GameDomainName, period).Result;
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return updatedMods;
+
+				NexusV1ModUpdate[] updates = client.GetUpdatedModsAsync(GameDomainName, period).GetAwaiter().GetResult();
 				if (updates.Length > 0)
-					updatedMods = updates.Select(x => x.ModID.ToString()).ToList();
+					updatedMods = updates.Select(x => x.ModId.ToString()).ToList();
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 			}
 			catch (Exception ex)
 			{
@@ -675,6 +663,10 @@
 
 			try
 			{
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
 				Task action = null;
 
 				switch (localState)
@@ -682,13 +674,16 @@
 					case -1:
 					case 0:
 						// -1 is abstained, 0 is null. Toggling these states will endorse the mod.
-						action = _apiCallManager.Mods?.Endorse(GameDomainName, id, version);
+						action = client.EndorseAsync(GameDomainName, id, version);
 						break;
 					case 1:
 						// 1 is endorsed, toggling this state will abstain from endorsing the mod.
-						action = _apiCallManager.Mods?.Unendorse(GameDomainName, id, version);
+						action = client.UnendorseAsync(GameDomainName, id, version);
 						break;
 				}
+
+				if (action == null)
+					return null;
 
 				var timeout = 5000;
 
@@ -704,23 +699,14 @@
 					}
 				}
 
-				if (action.Status != TaskStatus.Faulted)
-				{
-					// We'll trust that if nothing went wrong we can figure out the new state.
-					return localStateAfterCompletion;
-				}
-
-				if (ReactToAggregateException(action.Exception))
-				{
-					return !localStateAfterCompletion;
-				}
-
-				Trace.TraceError($"Endorsement Toggle for mod {modId}, result: {action.Status}");
-				return null;
+				await action;
+				return localStateAfterCompletion;
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				if (ReactToApiException(ex))
+					return !localStateAfterCompletion;
+
 				return null;
 			}
             catch (Exception ex)
@@ -735,12 +721,24 @@
 		{
 			try
 			{
-				var modFiles = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main, FileCategory.Miscellaneous, FileCategory.Optional, FileCategory.Update, FileCategory.Deleted, FileCategory.Old).Result.Files;
-				return modFiles.Select(modFileInfo => new ModFileInfo(modFileInfo)).Cast<IModFileInfo>().ToList();
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
+				var result = client.GetModFilesAsync(
+					GameDomainName,
+					Convert.ToInt32(modId),
+					NexusV1FileCategory.Main,
+					NexusV1FileCategory.Miscellaneous,
+					NexusV1FileCategory.Optional,
+					NexusV1FileCategory.Update,
+					NexusV1FileCategory.Deleted,
+					NexusV1FileCategory.Old).GetAwaiter().GetResult();
+				return result.Files.Select(NexusV1Mapper.ToModFileInfo).Cast<IModFileInfo>().ToList();
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -751,21 +749,25 @@
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
-		public List<ModFileDownloadLink> GetFilePartInfo(string modId, string fileId, string key = "", int expiry = -1)
+		public List<RepositoryDownloadLink> GetFilePartInfo(string modId, string fileId, string key = "", int expiry = -1)
 		{
 			var mod = Convert.ToInt32(modId);
 			var file = Convert.ToInt32(fileId);
 
 			try
 			{
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
 				var downloadUris = UserStatus.IsPremium ?
-					_apiCallManager.ModFiles?.GetDownloadLinks(GameDomainName, mod, file).Result :
-					_apiCallManager.ModFiles?.GetDownloadLinks(GameDomainName, mod, file, key, expiry).Result;
-				return downloadUris.ToList();
+					client.GetDownloadLinksAsync(GameDomainName, mod, file).GetAwaiter().GetResult() :
+					client.GetDownloadLinksAsync(GameDomainName, mod, file, key, expiry).GetAwaiter().GetResult();
+				return downloadUris.Select(NexusV1Mapper.ToRepositoryDownloadLink).ToList();
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -780,12 +782,16 @@
 		{
 			try
 			{
-				var modFile = _apiCallManager.ModFiles?.GetModFile(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).Result;
-				return modFile == null ? null : new ModFileInfo(modFile);
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
+				var modFile = client.GetModFileAsync(GameDomainName, Convert.ToInt32(modId), Convert.ToInt32(fileId)).GetAwaiter().GetResult();
+				return NexusV1Mapper.ToModFileInfo(modFile);
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -808,7 +814,7 @@
 				  ModHashLookupStatus.Match &&
 				 hashLookup.Result?.File != null)
 				{
-					return new ModFileInfo(
+					return NexusV1Mapper.ToModFileInfo(
 					 hashLookup.Result.File);
 				}
 
@@ -830,9 +836,9 @@
 				 fileName,
 				 modId);
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
 			catch (Exception ex)
@@ -858,23 +864,24 @@
 				return null;
 			}
 
+			var client = _apiCallManager.V1;
+			if (client == null)
+				return null;
+
 			/*
 			 * Keep Old and Deleted in the requested categories.
-			 * This allows legacy matching for files that Nexus
-			 * still exposes but no longer lists as active files.
+			 * The v1 client intentionally omits Deleted from the
+			 * category query, matching the previous v1 behavior.
 			 */
-			var modFilesResult =
-			 _apiCallManager.ModFiles?
-			  .GetModFiles(
-			   GameDomainName,
-			   Convert.ToInt32(modId),
-			   FileCategory.Main,
-			   FileCategory.Miscellaneous,
-			   FileCategory.Optional,
-			   FileCategory.Update,
-			   FileCategory.Deleted,
-			   FileCategory.Old)
-			  .Result;
+			var modFilesResult = client.GetModFilesAsync(
+			 GameDomainName,
+			 Convert.ToInt32(modId),
+			 NexusV1FileCategory.Main,
+			 NexusV1FileCategory.Miscellaneous,
+			 NexusV1FileCategory.Optional,
+			 NexusV1FileCategory.Update,
+			 NexusV1FileCategory.Deleted,
+			 NexusV1FileCategory.Old).GetAwaiter().GetResult();
 
 			var files = modFilesResult?.Files;
 
@@ -884,37 +891,33 @@
 			}
 
 			var fileInfo =
-			 files.Find(
+			 files.FirstOrDefault(
 			  file => string.Equals(
 			   file.FileName,
 			   filename,
-			   StringComparison
-				.OrdinalIgnoreCase)) ??
+			   StringComparison.OrdinalIgnoreCase)) ??
 
-			 files.Find(
+			 files.FirstOrDefault(
 			  file => string.Equals(
 			   file.Name,
 			   filename,
-			   StringComparison
-				.OrdinalIgnoreCase)) ??
+			   StringComparison.OrdinalIgnoreCase)) ??
 
-			 files.Find(
+			 files.FirstOrDefault(
 			  file => string.Equals(
 			   file.Name?.Replace(
 				' ',
 				'_'),
 			   filename,
-			   StringComparison
-				.OrdinalIgnoreCase)) ??
+			   StringComparison.OrdinalIgnoreCase)) ??
 
-			 files.Find(
+			 files.FirstOrDefault(
 			  file => string.Equals(
 			   file.Name?.Replace(
 				' ',
 				'-'),
 			   filename,
-			   StringComparison
-				.OrdinalIgnoreCase));
+			   StringComparison.OrdinalIgnoreCase));
 
 			/*
 			 * The old code returned new ModFileInfo(null),
@@ -923,7 +926,7 @@
 			 */
 			return fileInfo == null
 			 ? null
-			 : new ModFileInfo(fileInfo);
+			 : NexusV1Mapper.ToModFileInfo(fileInfo);
 		}
 
 		/// <summary>
@@ -1098,19 +1101,23 @@
 		{
 			try
 			{
-				var mfiFiles = _apiCallManager.ModFiles?.GetModFiles(GameDomainName, Convert.ToInt32(modId), FileCategory.Main).Result.Files;
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
+				var mfiFiles = client.GetModFilesAsync(GameDomainName, Convert.ToInt32(modId), NexusV1FileCategory.Main).GetAwaiter().GetResult().Files;
 
 				var mfiDefault = (from f in mfiFiles
-								  orderby f.UploadedTimestamp descending
-								  select f).FirstOrDefault() ?? (from f in mfiFiles
-																 orderby f.UploadedTimestamp descending
-																 select f).FirstOrDefault();
+									  orderby f.UploadedTimestamp descending
+									  select f).FirstOrDefault() ?? (from f in mfiFiles
+																	 orderby f.UploadedTimestamp descending
+																	 select f).FirstOrDefault();
 
-				return new ModFileInfo(mfiDefault);
+				return NexusV1Mapper.ToModFileInfo(mfiDefault);
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -1125,12 +1132,16 @@
 		{
 			try
 			{
-				var categories = _apiCallManager.Games?.GetGame(gameId).Result.Categories;
-				return categories.Select(category => new CategoriesInfo(category)).ToList();
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return null;
+
+				var categories = client.GetGameAsync(gameId).GetAwaiter().GetResult().Categories;
+				return categories?.Select(NexusV1Mapper.ToCategoriesInfo).ToList();
 			}
-			catch (AggregateException a)
+			catch (ApiException ex)
 			{
-				ReactToAggregateException(a);
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -1141,22 +1152,21 @@
 		}
 
 		/// <summary>
-		/// Checks and reacts to contents of an AggregateException.
+		/// Reacts to an NMM-owned API failure from migrated Nexus operations.
 		/// </summary>
-		/// <param name="a">AggregateException to react to.</param>
-		/// <returns>A value indicating whether or not the rate limit has been exceeded.</returns>
-		private bool ReactToAggregateException(AggregateException a)
+		/// <param name="exception">API failure to process.</param>
+		/// <returns>Whether the failure represents an actual Nexus rate-limit response.</returns>
+		private bool ReactToApiException(ApiException exception)
 		{
-			TraceUtil.TraceAggregateException(a);
+			TraceUtil.TraceException(exception);
 
-			if (a.InnerExceptions.Any(ex => ex.Message.Contains("Too Many Requests") || (a.InnerExceptions.Count > 0 && ((Pathoschild.Http.Client.ApiException)a.InnerException).Status == System.Net.HttpStatusCode.Forbidden && ((Pathoschild.Http.Client.ApiException)a.InnerException).Message.IndexOf("Mod not available", StringComparison.OrdinalIgnoreCase) < 0)))
-			{
-				RateLimitExceeded?.Invoke(this, new RateLimitExceededArgs(RateLimit));
-				return true;
-			}
+			if (exception?.ErrorKind != ApiErrorKind.RateLimit)
+				return false;
 
-			return false;
+			RateLimitExceeded?.Invoke(this, new RateLimitExceededArgs(RateLimit));
+			return true;
 		}
+
 
 		/// <summary>
 		/// Catch'em all failsafe to try and avoid idiotic crashes when the modId is borked.

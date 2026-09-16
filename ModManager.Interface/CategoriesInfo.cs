@@ -1,18 +1,10 @@
 ﻿namespace Nexus.Client.ModManagement
 {
     using System.Runtime.Serialization;
-    using Pathoschild.FluentNexus.Models;
 
     [DataContract]
 	public class CategoriesInfo
 	{
-        public CategoriesInfo(GameCategory gameCategory)
-        {
-            Id = gameCategory.ID;
-            ParentId = gameCategory.ParentCategory;
-            Name = gameCategory.Name;
-        }
-
 		#region Properties
 
 		[DataMember(Name = "id")]

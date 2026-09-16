@@ -32,7 +32,6 @@
 	using Nexus.Client.Util.Localization;
 	using Nexus.Client.Commands.Generic;
 	using Nexus.UI.Controls;
-	using Pathoschild.FluentNexus.Models;
 	using System.Configuration;
 
 	/// <summary>
@@ -480,7 +479,7 @@
 		/// Gets the user membership status.
 		/// </summary>
 		/// <value>Gets the user membership status.</value>
-		public User UserStatus => ModRepository.UserStatus;
+		public RepositoryUserStatus UserStatus => ModRepository.UserStatus;
 
 		/// <summary>
 		/// Gets whether the manager is currently installing/uninstalling a mod.

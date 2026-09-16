@@ -49,7 +49,7 @@ namespace NexusClientTests
 		private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
 
 		/// <summary>
-		/// Creates an off-screen UI host with enough rows to reproduce activation refreshes while scrolled down.
+		/// Creates an almost-transparent UI host with enough rows to reproduce activation refreshes while scrolled down.
 		/// </summary>
 		[SetUp]
 		public void SetUp()
@@ -87,8 +87,10 @@ namespace NexusClientTests
 			{
 				ShowInTaskbar = false,
 				StartPosition = FormStartPosition.Manual,
-				Location = new Point(-30000, -30000),
-				ClientSize = new Size(900, 400)
+				Location = SystemInformation.WorkingArea.Location,
+				ClientSize = new Size(900, 400),
+				FormBorderStyle = FormBorderStyle.None,
+				Opacity = 0.01
 			};
 			_view.Dock = DockStyle.Fill;
 			_host.Controls.Add(_view);
@@ -1014,6 +1016,12 @@ namespace NexusClientTests
 		/// </summary>
 		private Point FindVisiblePoint(TreeListNode targetNode, string fieldName = null)
 		{
+			int topVisibleNodeIndex = _tree.TopVisibleNodeIndex;
+			_tree.Focus();
+			Application.DoEvents();
+			_tree.TopVisibleNodeIndex = topVisibleNodeIndex;
+			Application.DoEvents();
+
 			string resolvedFieldName = ResolveTreeFieldName(fieldName);
 			if (resolvedFieldName != null)
 			{
@@ -1021,7 +1029,8 @@ namespace NexusClientTests
 				Assert.That(column, Is.Not.Null, "Missing TreeList column: " + resolvedFieldName);
 				_tree.MakeColumnVisible(column);
 			}
-			_tree.Update();
+			_tree.Refresh();
+			Application.DoEvents();
 
 			for (int y = 0; y < _tree.ClientSize.Height; y++)
 			{
@@ -1069,11 +1078,15 @@ namespace NexusClientTests
 		/// </summary>
 		private Point FindAutoFilterPoint(string fieldName)
 		{
+			_tree.Focus();
+			Application.DoEvents();
+
 			string resolvedFieldName = ResolveTreeFieldName(fieldName);
 			var column = _tree.Columns[resolvedFieldName];
 			Assert.That(column, Is.Not.Null, "Missing TreeList column: " + resolvedFieldName);
 			_tree.MakeColumnVisible(column);
-			_tree.Update();
+			_tree.Refresh();
+			Application.DoEvents();
 			for (int y = 0; y < Math.Min(120, _tree.ClientSize.Height); y++)
 			{
 				for (int x = 0; x < _tree.ClientSize.Width; x += 2)
@@ -1139,7 +1152,6 @@ namespace NexusClientTests
 		/// </summary>
 		private void SendNativeMouseDown(Point point)
 		{
-			_tree.Focus();
 			SendMessage(_tree.Handle, WmLButtonDown, new IntPtr(MkLButton), MakeLParam(point));
 		}
 

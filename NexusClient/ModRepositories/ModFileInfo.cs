@@ -1,7 +1,5 @@
 ﻿namespace Nexus.Client.ModRepositories
 {
-    using Pathoschild.FluentNexus.Models;
-
     public class ModFileInfo :  IModFileInfo
     {
         /// <inheritdoc />
@@ -15,30 +13,6 @@
 
         /// <inheritdoc />
         public string HumanReadableVersion { get; }
-
-        /// <summary>
-        /// Creates a <see cref="ModFileInfo"/> from a <see cref="ModFile"/>.
-        /// </summary>
-        /// <param name="modFile">ModFile to get information from.</param>
-        public ModFileInfo(ModFile modFile)
-        {
-            Id = modFile?.FileID.ToString();
-            Filename = modFile?.FileName;
-            Name = modFile?.Name;
-            HumanReadableVersion = modFile?.ModVersion;
-        }
-
-        /// <summary>
-        /// Creates a <see cref="ModFileInfo"/> from a hash lookup file result.
-        /// </summary>
-        /// <param name="modFile">Mod file hash result to get information from.</param>
-        public ModFileInfo(ModFileWithHash modFile)
-        {
-            Id = modFile?.FileID.ToString();
-            Filename = modFile?.FileName;
-            Name = modFile?.Name;
-            HumanReadableVersion = modFile?.ModVersion;
-        }
 
         public ModFileInfo(string id, string filename, string name, string modVersion)
         {

@@ -10,7 +10,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>Nexus.Client</RootNamespace>
     <AssemblyName>NexusClient</AssemblyName>
-    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ApplicationIcon>NMM_CE_P_Logo.ico</ApplicationIcon>
     <TargetZone>Internet</TargetZone>
@@ -132,7 +132,34 @@
     <Compile Include="ModManagement\UI\ModManagerDXControl.Designer.cs">
       <DependentUpon>ModManagerDXControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="OnlineServices\Infrastructure\ApiDiagnosticSanitizer.cs" />
+    <Compile Include="OnlineServices\Infrastructure\ApiErrorKind.cs" />
+    <Compile Include="OnlineServices\Infrastructure\ApiException.cs" />
+    <Compile Include="OnlineServices\Infrastructure\ApiJson.cs" />
+    <Compile Include="OnlineServices\Infrastructure\ApiResponse.cs" />
+    <Compile Include="OnlineServices\Infrastructure\ApiTransport.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusApiSurface.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusCredentialKind.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusCredentials.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusErrorMapper.cs" />
+    <Compile Include="OnlineServices\NexusMods\GraphQl\NexusGraphQlClient.cs" />
+    <Compile Include="OnlineServices\NexusMods\GraphQl\NexusGraphQlModels.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusModsService.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusRateLimitSnapshot.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusRateLimitTracker.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusRequestPolicy.cs" />
+    <Compile Include="OnlineServices\NexusMods\NexusSessionContext.cs" />
+    <Compile Include="OnlineServices\NexusMods\V1\NexusV1Client.cs" />
+    <Compile Include="OnlineServices\NexusMods\V1\NexusV1Models.cs" />
+    <Compile Include="OnlineServices\NexusMods\V3\NexusV3ApiException.cs" />
+    <Compile Include="OnlineServices\NexusMods\V3\NexusV3Client.cs" />
+    <Compile Include="OnlineServices\NexusMods\V3\NexusV3ErrorMapper.cs" />
+    <Compile Include="OnlineServices\NexusMods\V3\NexusV3Models.cs" />
     <Compile Include="ModRepositories\AuthenticationStatus.cs" />
+    <Compile Include="ModRepositories\NexusV1Mapper.cs" />
+    <Compile Include="ModRepositories\RepositoryDownloadLink.cs" />
+    <Compile Include="ModRepositories\RepositoryRateLimit.cs" />
+    <Compile Include="ModRepositories\RepositoryUserStatus.cs" />
     <Compile Include="ModRepositories\RateLimitExceededArgs.cs" />
     <Compile Include="SSO\AuthenticationCancelledReason.cs" />
     <Compile Include="SSO\AuthenticationFormTask.cs" />
@@ -618,7 +645,6 @@
     <Content Include="data\boss64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="data\FluentNexus.dll" />
     <Content Include="data\libwebp_x64.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -635,9 +661,6 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="data\Third-Party Licenses\DockPanel Suite License.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="data\Third-Party Licenses\FluentNexus License.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="data\Third-Party Licenses\Icons License.txt" />
@@ -1116,10 +1139,6 @@
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Dialogs.v25.2.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="FluentNexus, Version=1.1.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>data\FluentNexus.dll</HintPath>
-    </Reference>
     <Reference Include="ICSharpCode.TextEditor, Version=3.2.1.6466, Culture=neutral, PublicKeyToken=4d61825e8dd49f1a, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\lib\ICSharpCode.TextEditor.dll</HintPath>
@@ -1183,9 +1202,6 @@
     <Reference Include="DevExpress.Data.Desktop.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.Data.Desktop.v25.2.dll</HintPath>
       <Private>True</Private>
-    </Reference>
-    <Reference Include="Pathoschild.Http.Client, Version=4.4.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\Stage\packages\Pathoschild.Http.FluentClient.4.4.1\lib\net452\Pathoschild.Http.Client.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=1.6.2.24, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
       <HintPath>..\Stage\packages\Squid-Box.SevenZipSharp.1.6.2.24\lib\netstandard2.0\SevenZipSharp.dll</HintPath>

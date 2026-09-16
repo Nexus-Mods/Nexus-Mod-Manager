@@ -1,10 +1,7 @@
 ﻿namespace Nexus.Client.ModRepositories
 {
     using System;
-    using System.Diagnostics;
-    using System.Text.RegularExpressions;
     using Mods;
-    using Pathoschild.FluentNexus.Models;
     using Util;
 
     /// <summary>
@@ -153,43 +150,6 @@
 		public ModInfo()
 		{
 		}
-
-        /// <summary>
-        /// Creates a <see cref="ModInfo"/> from a <see cref="Mod"/>.
-        /// </summary>
-        /// <param name="result">Mod to get info from.</param>
-        public ModInfo(Mod result)
-        {
-            bool? endorsementState = null;
-
-            if (result.Endorsement?.EndorseStatus == EndorsementStatus.Endorsed)
-            {
-                endorsementState = true;
-            }
-
-            var properVersion = FindProperVersion(result.Version);
-
-			// TODO: Figure out if the null values are required for NMM to work...
-			SetAllInfo(true,
-                result.ModID.ToString(),
-                null,
-                result.Name,
-                null,
-                result.Version,
-                result.Version,
-                endorsementState,
-                properVersion,
-                result.Author,
-                result.CategoryID,
-                -1,
-                result.Description,
-                null,
-                new Uri($"https://www.nexusmods.com/{GameDomainTranslator.DetermineGameDomain(result.DomainName)}/mods/{result.ModID}"),
-                null,
-                false,
-                false
-                );
-        }
 
 		/// <summary>
 		/// The copy constructor.
@@ -348,59 +308,6 @@
 			SetAllInfo(overwriteAllValues == true, modInfo.Id, modInfo.DownloadId, modInfo.ModName, modInfo.FileName, modInfo.HumanReadableVersion, modInfo.LastKnownVersion, modInfo.IsEndorsed, modInfo.MachineVersion, modInfo.Author, modInfo.CategoryId, modInfo.CustomCategoryId, modInfo.Description, modInfo.InstallDate, modInfo.Website, modInfo.Screenshot, modInfo.UpdateWarningEnabled, modInfo.UpdateChecksEnabled);
 		}
 
-        /// <summary>
-        /// Figures out a clean version number from the real mod version.
-        /// </summary>
-        /// <remarks>Nexus allows the craziest things for version numbers.</remarks>
-        /// <param name="input">The version number from Nexus.</param>
-        /// <returns>A cleaned up <see cref="Version"/>.</returns>
-        private Version FindProperVersion(string input)
-        {
-            var properVersion = new Version(0, 0);
 
-            // Attempt to simply clean out the non-numbers/non-periods from the version.
-            var version = Regex.Replace(input, "[^.0-9]", "");
-
-            // If a version ends with a period, remove it.
-            if (version.EndsWith("."))
-            {
-                version = version.TrimEnd('.');
-            }
-
-            try
-            {
-                // We've got something to work with.
-                if (!string.IsNullOrEmpty(version))
-                {
-                    // Find the index of the first period.
-                    var crazyVersioningCheck = version.IndexOf(".");
-
-                    if (crazyVersioningCheck > 0)
-                    {
-                        // It's not the first character, let's go for it!
-                        properVersion = new Version(version);
-                    }
-                    else if (crazyVersioningCheck == 0)
-                    {
-                        // It's the first character, we'll add a zero at the start.
-                        properVersion = new Version("0" + version);
-                    }
-                    else
-                    {
-                        // There's no period, we'll add ".0" to the end to make a valid version.
-                        properVersion = new Version(version + ".0");
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Trace.TraceError($"Could not determine version from \"{input}\", falling back to default version.");
-                TraceUtil.TraceException(e);
-
-                return properVersion;
-            }
-
-            return properVersion;
-        }
 	}
 }

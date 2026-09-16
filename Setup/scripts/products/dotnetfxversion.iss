@@ -27,8 +27,8 @@ begin
 			NetFx45:
 			begin
 				RegQueryDWordValue(HKLM, netfx11plus_reg + 'v4\Full' + lcid, 'Release', regVersion);
-				// >= .NET Framework 4.6.2
-				Result := (regVersion >= 394802);
+				// >= .NET Framework 4.8
+				Result := (regVersion >= 528040);
 				Exit;
 			end;
 		end;

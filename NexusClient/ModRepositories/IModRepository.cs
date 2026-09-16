@@ -5,8 +5,6 @@
 	using System.Threading.Tasks;
 	using ModManagement;
     using Mods;
-    using Pathoschild.FluentNexus;
-    using Pathoschild.FluentNexus.Models;
 
     /// <summary>
 	/// Describes the methods and properties of a mod repository.
@@ -49,7 +47,7 @@
         /// </summary>
         /// <value>The user membership status.</value>
 
-        User UserStatus { get; }
+        RepositoryUserStatus UserStatus { get; }
 
 		/// <summary>
 		/// Gets the User Agent used for the mod repository.
@@ -89,7 +87,7 @@
         /// <summary>
         /// Gets the current rate limits.
         /// </summary>
-        IRateLimitManager RateLimit { get; }
+        RepositoryRateLimit RateLimit { get; }
 
         #endregion
 
@@ -160,7 +158,7 @@
         /// <param name="fileId">The id of the file whose parts' URLs are to be retrieved.</param>
         /// <returns>The FileServerInfo of the file parts for the default download file.</returns>
         /// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
-        List<ModFileDownloadLink> GetFilePartInfo(string modId, string fileId, string key = "", int expiry = -1);
+        List<RepositoryDownloadLink> GetFilePartInfo(string modId, string fileId, string key = "", int expiry = -1);
 
         /// <summary>
         /// Gets the file info for the specified download file of the specified mod.

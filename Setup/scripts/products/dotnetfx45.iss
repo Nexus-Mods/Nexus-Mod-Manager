@@ -1,11 +1,11 @@
-// requires Windows 7 Service Pack 1, Windows 8, Windows 8.1, Windows Server 2008 R2 SP1, Windows Server 2008 Service Pack 2, Windows Server 2012, Windows Server 2012 R2, Windows Vista Service Pack 2
-// WARNING: express setup (downloads and installs the components depending on your OS) if you want to deploy it on cd or network download the full bootsrapper on website below
-// https://dotnet.microsoft.com/download/dotnet-framework/net462
+// requires Windows 7 Service Pack 1, Windows 8.1, Windows 10, or a corresponding supported Windows Server version
+// Uses the Microsoft .NET Framework 4.8 web runtime installer.
+// https://dotnet.microsoft.com/download/dotnet-framework/net48
 
 [CustomMessages]
-dotnetfx45_title=.NET Framework 4.6.2
+dotnetfx45_title=.NET Framework 4.8
 
-dotnetfx45_size=1 MB - 68 MB
+dotnetfx45_size=1.4 MB + required components
 
 ;http://www.microsoft.com/globaldev/reference/lcid-all.mspx
 en.dotnetfx45_lcid=''
@@ -14,7 +14,7 @@ de.dotnetfx45_lcid='/lcid 1031 '
 
 [Code]
 const
-	dotnetfx45_url = 'https://go.microsoft.com/fwlink/?LinkId=780596';
+	dotnetfx45_url = 'https://go.microsoft.com/fwlink/?LinkId=2085155';
 
 procedure dotnetfx45(MinVersion: integer);
 begin
