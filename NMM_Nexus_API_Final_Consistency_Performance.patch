@@ -1,0 +1,68 @@
+diff --git a/NexusClient/ModRepositories/NexusModsApiRepository.cs b/NexusClient/ModRepositories/NexusModsApiRepository.cs
+index 7a42d0f..a482624 100644
+--- a/NexusClient/ModRepositories/NexusModsApiRepository.cs
++++ b/NexusClient/ModRepositories/NexusModsApiRepository.cs
+@@ -546,8 +546,6 @@
+ 		public List<IModInfo> GetFileListInfo(List<string> modFileList)
+ 		{
+ 			var list = new List<IModInfo>();
+-			int modRequests = 0;
+-
+ 			foreach (var mod in modFileList)
+ 			{
+ 				try
+@@ -557,15 +555,6 @@
+ 					string currentFilename = ParseFilename(mod);
+ 					int numericModId = Convert.ToInt32(modId);
+ 
+-					if (modRequests <= 10)
+-						Task.Delay(50);
+-					else
+-					{
+-						modRequests = 1;
+-						Task.Delay(250);
+-					}
+-
+-					modRequests++;
+ 					var client = _apiCallManager.V1;
+ 					var nexusMod = client == null ? null : client.GetModAsync(GameDomainName, numericModId).GetAwaiter().GetResult();
+ 
+@@ -577,7 +566,6 @@
+ 
+ 					ModInfo modInfo = NexusV1Mapper.ToModInfo(nexusMod);
+ 					bool fileMetadataResolved = false;
+-					Task.Delay(50);
+ 					var nexusFiles = client.GetModFilesAsync(GameDomainName, numericModId, new NexusV1FileCategory[0]).GetAwaiter().GetResult();
+ 					int currentFileId = 0;
+ 
+@@ -614,7 +602,6 @@
+ 						var latestFile = nexusFiles?.Files?.FirstOrDefault(file => file.FileId == latestFileId);
+ 						if (latestFile == null)
+ 						{
+-							Task.Delay(50);
+ 							latestFile = client.GetModFileAsync(GameDomainName, numericModId, latestFileId).GetAwaiter().GetResult();
+ 						}
+ 
+@@ -740,18 +727,11 @@
+ 				if (action == null)
+ 					return null;
+ 
+-				var timeout = 5000;
+-
+-				while (!action.IsCompleted)
++				Task completedTask = await Task.WhenAny(action, Task.Delay(5000));
++				if (!ReferenceEquals(completedTask, action))
+ 				{
+-					await Task.Delay(250);
+-					timeout -= 250;
+-
+-					if (timeout <= 0)
+-					{
+-						Trace.TraceError("Timed out waiting for endorsement toggle to complete.");
+-						return null;
+-					}
++					Trace.TraceError("Timed out waiting for endorsement toggle to complete.");
++					return null;
+ 				}
+ 
+ 				await action;
