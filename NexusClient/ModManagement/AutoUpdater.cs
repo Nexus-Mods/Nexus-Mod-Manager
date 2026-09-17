@@ -150,13 +150,35 @@
 		}
 
 		/// <summary>
+		/// Applies only the repository category returned by Nexus while preserving all local/custom metadata.
+		/// </summary>
+		/// <param name="p_modMod">The mod whose repository category should be refreshed.</param>
+		/// <param name="p_intCategoryId">The repository category ID returned by Nexus.</param>
+		public void ApplyRepositoryCategory(IMod p_modMod, int p_intCategoryId)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
+
+			ModInfo mifUpdatedMod = new ModInfo(
+				p_modMod.Id, p_modMod.DownloadId, p_modMod.ModName, p_modMod.FileName, p_modMod.HumanReadableVersion,
+				p_modMod.LastKnownVersion, p_modMod.IsEndorsed, p_modMod.MachineVersion, p_modMod.Author, p_intCategoryId,
+				p_modMod.CustomCategoryId, p_modMod.Description, p_modMod.InstallDate, p_modMod.Website, null,
+				p_modMod.UpdateWarningEnabled, p_modMod.UpdateChecksEnabled);
+			p_modMod.UpdateInfo(mifUpdatedMod, false);
+		}
+
+		/// <summary>
 		/// Switches the mod category.
 		/// </summary>
 		/// <param name="p_modMod">The mod.</param>
 		/// <param name="p_intCategoryId">The new category id.</param>
 		public void SwitchModCategory(IMod p_modMod, int p_intCategoryId)
 		{
-			ModInfo mifUpdatedMod = new ModInfo(p_modMod);
+			ModInfo mifUpdatedMod = new ModInfo(
+				p_modMod.Id, p_modMod.DownloadId, p_modMod.ModName, p_modMod.FileName, p_modMod.HumanReadableVersion,
+				p_modMod.LastKnownVersion, p_modMod.IsEndorsed, p_modMod.MachineVersion, p_modMod.Author, p_modMod.CategoryId,
+				p_modMod.CustomCategoryId, p_modMod.Description, p_modMod.InstallDate, p_modMod.Website, null,
+				p_modMod.UpdateWarningEnabled, p_modMod.UpdateChecksEnabled);
 			mifUpdatedMod.CustomCategoryId = p_intCategoryId;
 			mifUpdatedMod.UpdateWarningEnabled = p_modMod.UpdateWarningEnabled;
 			mifUpdatedMod.UpdateChecksEnabled = p_modMod.UpdateChecksEnabled;

@@ -62,6 +62,16 @@ namespace Nexus.Client.ModRepositories
         }
 
         /// <summary>
+        /// Maps one REST v1 updated-mod record into the repository model without discarding provider freshness timestamps.
+        /// </summary>
+        public static RepositoryModUpdate ToRepositoryModUpdate(NexusV1ModUpdate update)
+        {
+            return update == null
+                ? null
+                : new RepositoryModUpdate(update.ModId.ToString(), update.LatestFileUpdate, update.LatestModActivity);
+        }
+
+        /// <summary>
         /// Maps one REST v1 download source into the repository download-link model.
         /// </summary>
         public static RepositoryDownloadLink ToRepositoryDownloadLink(NexusV1DownloadLink link)
@@ -107,7 +117,7 @@ namespace Nexus.Client.ModRepositories
         /// <summary>
         /// Converts Nexus' free-form mod version into the legacy NMM machine version.
         /// </summary>
-        private static Version FindProperVersion(string input)
+        internal static Version FindProperVersion(string input)
         {
             var properVersion = new Version(0, 0);
             var version = Regex.Replace(input, "[^.0-9]", string.Empty);

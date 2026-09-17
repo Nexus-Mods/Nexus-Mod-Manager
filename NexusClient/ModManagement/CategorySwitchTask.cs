@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
@@ -100,6 +101,8 @@ namespace Nexus.Client.ModManagement
 			ItemProgressMaximum = 1;
 			OverallProgressMaximum = ModList.Count;
 
+			var assignmentStopwatch = Stopwatch.StartNew();
+			int completedCount = 0;
 			foreach (IMod modMod in ModList)
 			{
 				if (m_booCancel)
@@ -107,10 +110,14 @@ namespace Nexus.Client.ModManagement
 				ItemMessage = modMod.ModName;
 				ItemProgress = 1;
 				ModManager.SwitchModCategory(modMod, CategoryId);
+				completedCount++;
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 				ItemProgress = 0;
 			}
+			assignmentStopwatch.Stop();
+			Trace.TraceInformation("NMM category assignments completed: elapsedMs={0}, requested={1}, completed={2}, cancelled={3}.",
+				assignmentStopwatch.ElapsedMilliseconds, ModList.Count, completedCount, m_booCancel);
 			return null;
 		}
 	}

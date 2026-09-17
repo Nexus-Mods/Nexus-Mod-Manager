@@ -22,10 +22,26 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 		#region Constructors
 		
 		/// <summary>
+		/// A parameterless constructor used when the runner is activated across an AppDomain boundary.
+		/// </summary>
+		public ScriptRunner()
+		{
+		}
+
+		/// <summary>
 		/// A simple construtor that initializes the object with the given dependencies.
 		/// </summary>
 		/// <param name="p_csfFunctions">The object that implements the script functions.</param>
 		public ScriptRunner(CSharpScriptFunctionProxy p_csfFunctions)
+		{
+			Initialize(p_csfFunctions);
+		}
+
+		/// <summary>
+		/// Supplies the host-side script function proxy after cross-AppDomain activation.
+		/// </summary>
+		/// <param name="p_csfFunctions">The object that implements the script functions.</param>
+		public void Initialize(CSharpScriptFunctionProxy p_csfFunctions)
 		{
 			m_csfFunctions = p_csfFunctions;
 		}

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -83,7 +84,11 @@ namespace Nexus.Client.ModManagement
 
 			try
 			{
+				var fetchStopwatch = Stopwatch.StartNew();
 				List<CategoriesInfo> categories = ModRepository.GetCategories(ModRepository.GameDomainName);
+				fetchStopwatch.Stop();
+				Trace.TraceInformation("NMM category-definition fetch completed: elapsedMs={0}, returned={1}.",
+					fetchStopwatch.ElapsedMilliseconds, categories == null ? -1 : categories.Count);
 				if (categories.Count > 0)
 				{
 					List<IModCategory> repositoryCategories = new List<IModCategory>(categories.Count);
@@ -91,7 +96,11 @@ namespace Nexus.Client.ModManagement
 						repositoryCategories.Add(new ModCategory(category.Id, category.Name, category.Name));
 
 					OverallMessage = LanguageManager.Get("Tasks.Categories.Saving", "Saving the categories list... 2/2");
+					var mergeStopwatch = Stopwatch.StartNew();
 					CategoryManager.MergeRepositoryCategories(repositoryCategories, ModManager.RemapCategoryAssignments);
+					mergeStopwatch.Stop();
+					Trace.TraceInformation("NMM category-definition merge completed: elapsedMs={0}, definitions={1}.",
+						mergeStopwatch.ElapsedMilliseconds, repositoryCategories.Count);
 					StepOverallProgress();
 				}
 			}

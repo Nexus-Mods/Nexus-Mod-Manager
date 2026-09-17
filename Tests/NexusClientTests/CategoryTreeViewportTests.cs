@@ -1184,10 +1184,27 @@ namespace NexusClientTests
 		/// <summary>
 		/// Drains posted BeginInvoke work used by deferred editor reconciliation.
 		/// </summary>
-		private static void DrainPostedCallbacks()
+		private void DrainPostedCallbacks()
 		{
-			Application.DoEvents();
-			Application.DoEvents();
+			const int maxMessagePumpPasses = 50;
+			PropertyInfo pendingProperty = _surface.GetType().GetProperty("HasPendingDeferredUpdates", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(pendingProperty, Is.Not.Null);
+
+			for (int pass = 0; pass < maxMessagePumpPasses; pass++)
+			{
+				Application.DoEvents();
+				bool pending = (bool)pendingProperty.GetValue(_surface, null);
+				if (!pending)
+				{
+					// Give manager-owned callbacks posted by EditReconciliationCompleted one final turn.
+					Application.DoEvents();
+					return;
+				}
+
+				Thread.Sleep(1);
+			}
+
+			Assert.Fail("Deferred Category View reconciliation did not settle after the editor closed.");
 		}
 
 		/// <summary>

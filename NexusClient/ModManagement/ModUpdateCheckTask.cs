@@ -96,7 +96,8 @@
 		/// <returns>Always null.</returns>
 		protected override object DoWork(object[] args)
 		{
-			List<string> updatedMods = new List<string>();
+			List<RepositoryModUpdate> updatedMods = new List<RepositoryModUpdate>();
+			int libraryCandidateCount = _modList.Count;
 
 			var modList = new List<string>();
 			var modCheck = new List<IMod>();
@@ -113,12 +114,20 @@
 			OverallProgressMaximum = _modList.Count * 2;
 			ItemProgressMaximum = _modList.Count;
 
+			if (_overrideCategorySetup && _missingDownloadId == false)
+				return RefreshRepositoryCategories();
+
 			if (!string.IsNullOrEmpty(_period))
 			{
 				// Get updated mods in the chosen period
-				updatedMods = ModRepository.GetUpdated(_period);
+				var updatedListStopwatch = Stopwatch.StartNew();
+				updatedMods = ModRepository.GetUpdatedWithMetadata(_period);
+				updatedListStopwatch.Stop();
+				Trace.TraceInformation("NMM updated-mod list completed: elapsedMs={0}, returned={1}.",
+					updatedListStopwatch.ElapsedMilliseconds, updatedMods == null ? -1 : updatedMods.Count);
 			}
 
+			var setupStopwatch = Stopwatch.StartNew();
 			for (int i = 0; i < _modList.Count; i++)
 			{
 				if (_cancel)
@@ -166,7 +175,7 @@
 				// If we're looking for missing download Ids
 				if (_missingDownloadId == null || _missingDownloadId == true && (string.IsNullOrEmpty(modCurrent.DownloadId) || modCurrent.DownloadId == "0" || modCurrent.DownloadId == "-1"))
 				{
-					if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
+					if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Any(update => string.Equals(update.ModId, modId, StringComparison.OrdinalIgnoreCase)))
 					{
 						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, modId, modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
 						modCheck.Add(modCurrent);
@@ -188,7 +197,7 @@
 						modCheck.Add(modCurrent);
 					}
 					// If we're performing a period-based update check
-					else if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Contains(modId, StringComparer.OrdinalIgnoreCase))
+					else if (updatedMods.Count > 0 && !string.IsNullOrWhiteSpace(modId) && updatedMods.Any(update => string.Equals(update.ModId, modId, StringComparison.OrdinalIgnoreCase)))
 					{
 						modList.Add(string.Format("{0}|{1}|{2}|{3}", modName, string.IsNullOrWhiteSpace(modId) ? "0" : modId, string.IsNullOrWhiteSpace(modCurrent.DownloadId) ? "0" : modCurrent.DownloadId, Path.GetFileName(modCurrent.Filename)));
 						modCheck.Add(modCurrent);
@@ -222,9 +231,13 @@
 				//}
 			}
 
+			setupStopwatch.Stop();
+			Trace.TraceInformation("NMM mod-update setup completed: elapsedMs={0}, candidates={1}, selected={2}, cancelled={3}.",
+				setupStopwatch.ElapsedMilliseconds, libraryCandidateCount, modList.Count, _cancel);
+
 			if (!_cancel && modList.Count > 0)
 			{
-				string strResult = CheckForModListUpdate(modList, modCheck);
+				string strResult = CheckForModListUpdate(modList, modCheck, updatedMods);
 
 				if (!string.IsNullOrEmpty(strResult))
 				{
@@ -235,6 +248,109 @@
 
 			_modList.Clear();
 
+			return _newDownloadID;
+		}
+
+		/// <summary>
+		/// Refreshes only repository category IDs after a category reset without entering file/update-chain resolution.
+		/// </summary>
+		private object RefreshRepositoryCategories()
+		{
+			var modsToRefresh = new List<IMod>();
+			var normalizedModIds = new List<string>();
+			var normalizedIdByMod = new Dictionary<IMod, string>();
+			var setupStopwatch = Stopwatch.StartNew();
+
+			foreach (IMod mod in _modList)
+			{
+				if (_cancel)
+					break;
+
+				ItemMessage = mod.ModName;
+				int numericModId;
+				if (mod.CategoryId == 0
+					&& mod.CustomCategoryId < 0
+					&& mod.UpdateChecksEnabled
+					&& Int32.TryParse(mod.Id, out numericModId)
+					&& numericModId > 0)
+				{
+					string normalizedModId = numericModId.ToString();
+					modsToRefresh.Add(mod);
+					normalizedModIds.Add(normalizedModId);
+					normalizedIdByMod[mod] = normalizedModId;
+				}
+
+				if (ItemProgress < ItemProgressMaximum)
+					StepItemProgress();
+				if (OverallProgress < OverallProgressMaximum)
+					StepOverallProgress();
+			}
+
+			setupStopwatch.Stop();
+			Trace.TraceInformation(
+				"NMM category metadata setup completed: elapsedMs={0}, candidates={1}, selected={2}, uniqueMods={3}, cancelled={4}.",
+				setupStopwatch.ElapsedMilliseconds,
+				_modList.Count,
+				modsToRefresh.Count,
+				normalizedModIds.Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+				_cancel);
+
+			if (_cancel || modsToRefresh.Count == 0)
+			{
+				_modList.Clear();
+				return _newDownloadID;
+			}
+
+			OverallMessage = LanguageManager.Get("Tasks.ModUpdates.GettingOnlineUpdates", "Updating mods info: getting online updates..");
+			var fetchStopwatch = Stopwatch.StartNew();
+			Dictionary<string, int> repositoryCategories = ModRepository.GetModCategoryIds(normalizedModIds);
+			fetchStopwatch.Stop();
+			Trace.TraceInformation(
+				"NMM category metadata fetch completed: elapsedMs={0}, requested={1}, returned={2}.",
+				fetchStopwatch.ElapsedMilliseconds,
+				modsToRefresh.Count,
+				repositoryCategories == null ? -1 : repositoryCategories.Count);
+
+			if (repositoryCategories == null)
+			{
+				_modList.Clear();
+				return _newDownloadID;
+			}
+
+			var applyStopwatch = Stopwatch.StartNew();
+			int applied = 0;
+			ItemProgress = 0;
+			ItemProgressMaximum = modsToRefresh.Count;
+			foreach (IMod mod in modsToRefresh)
+			{
+				if (_cancel)
+					break;
+
+				ItemMessage = mod.ModName;
+				int repositoryCategoryId;
+				string normalizedModId = normalizedIdByMod[mod];
+				if (repositoryCategories.TryGetValue(normalizedModId, out repositoryCategoryId))
+				{
+					AutoUpdater.ApplyRepositoryCategory(mod, repositoryCategoryId);
+					applied++;
+				}
+
+				if (ItemProgress < ItemProgressMaximum)
+					StepItemProgress();
+				if (OverallProgress < OverallProgressMaximum)
+					StepOverallProgress();
+			}
+
+			applyStopwatch.Stop();
+			Trace.TraceInformation(
+				"NMM category metadata apply completed: elapsedMs={0}, selected={1}, resolved={2}, applied={3}, cancelled={4}.",
+				applyStopwatch.ElapsedMilliseconds,
+				modsToRefresh.Count,
+				repositoryCategories.Count,
+				applied,
+				_cancel);
+
+			_modList.Clear();
 			return _newDownloadID;
 		}
 
@@ -272,16 +388,22 @@
 		/// Checks for the updated information for the given mods.
 		/// </summary>
 		/// <param name="modList">The mods for which to check for updates.</param>
-		private string CheckForModListUpdate(List<string> modList, List<IMod> modsToCheck)
+		/// <param name="modsToCheck">The local mods aligned with the repository request rows.</param>
+		/// <param name="providerUpdates">The current provider freshness records, when this is a period-based update check.</param>
+		private string CheckForModListUpdate(List<string> modList, List<IMod> modsToCheck, List<RepositoryModUpdate> providerUpdates)
 		{
 			OverallMessage = _missingDownloadId != false ? LanguageManager.Get("Tasks.ModUpdates.RetrievingDownloadIds", "Updating mods info: retrieving download ids..") : LanguageManager.Get("Tasks.ModUpdates.GettingOnlineUpdates", "Updating mods info: getting online updates..");
 			List<IModInfo> fileListInfo = new List<IModInfo>();
+			List<RepositoryFileUpdateCheckpoint> checkpointCandidates = new List<RepositoryFileUpdateCheckpoint>();
 			IMod[] modCheckList = modsToCheck.ToArray();
 
 			//get mod info
+			var fetchStopwatch = Stopwatch.StartNew();
 			for (int i = 0; i <= _retries; i++)
 			{
-				fileListInfo = ModRepository.GetFileListInfo(modList);
+				RepositoryFileListInfoResult fetchResult = ModRepository.GetFileListInfoWithFreshness(modList, providerUpdates);
+				fileListInfo = fetchResult?.ModInfo;
+				checkpointCandidates = fetchResult?.Checkpoints ?? new List<RepositoryFileUpdateCheckpoint>();
 
 				if (fileListInfo != null)
 				{
@@ -290,9 +412,14 @@
 
 				Task.Delay(2500);
 			}
+			fetchStopwatch.Stop();
+			Trace.TraceInformation("NMM mod-update fetch completed: elapsedMs={0}, requested={1}, returned={2}.",
+				fetchStopwatch.ElapsedMilliseconds, modList.Count, fileListInfo == null ? -1 : fileListInfo.Count);
 
 			if (fileListInfo != null)
 			{
+				var applyStopwatch = Stopwatch.StartNew();
+				int appliedCount = 0;
 				IModInfo[] modUpdates = fileListInfo.ToArray();
 				ItemProgress = 0;
 				ItemProgressMaximum = fileListInfo.Count;
@@ -383,11 +510,25 @@
 					if (!string.IsNullOrEmpty(mod.ModName))
 						modUpdate.ModName = string.Empty;
 					mod.UpdateInfo(modUpdate, null);
+					appliedCount++;
 					ItemProgress = 0;
 				}
 
 				if (modUpdates.Count() < modCheckList.Count())
 					Cancel();
+
+				bool completeFreshnessRun = !_cancel
+					&& modUpdates.Length == modCheckList.Length
+					&& appliedCount == modCheckList.Length
+					&& checkpointCandidates.Count == modUpdates.Length
+					&& checkpointCandidates.Count > 0
+					&& checkpointCandidates.All(candidate => candidate != null);
+				bool checkpointsPersisted = completeFreshnessRun && ModRepository.CommitFileUpdateCheckpoints(checkpointCandidates);
+
+				applyStopwatch.Stop();
+				Trace.TraceInformation("NMM mod-update apply completed: elapsedMs={0}, requested={1}, returned={2}, applied={3}, cancelled={4}, checkpointCandidates={5}, checkpointsPersisted={6}.",
+					applyStopwatch.ElapsedMilliseconds, modCheckList.Length, modUpdates.Length, appliedCount, _cancel,
+					checkpointCandidates.Count(candidate => candidate != null), checkpointsPersisted);
 			}
 
 			return null;

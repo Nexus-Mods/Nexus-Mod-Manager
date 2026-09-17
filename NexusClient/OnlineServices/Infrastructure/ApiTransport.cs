@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -49,6 +50,8 @@ namespace Nexus.Client.OnlineServices.Infrastructure
                 throw new ArgumentNullException(nameof(request));
 
             ThrowIfDisposed();
+            var transportStopwatch = Stopwatch.StartNew();
+            HttpStatusCode? observedStatus = null;
             using (var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 requestCancellation.CancelAfter(_defaultTimeout);
@@ -56,6 +59,7 @@ namespace Nexus.Client.OnlineServices.Infrastructure
                 {
                     using (HttpResponseMessage response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, requestCancellation.Token).ConfigureAwait(false))
                     {
+                        observedStatus = response.StatusCode;
                         string content = response.Content == null ? string.Empty : await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                         return ApiResponse.FromHttpResponse(response, content);
                     }
@@ -70,6 +74,17 @@ namespace Nexus.Client.OnlineServices.Infrastructure
                 catch (HttpRequestException ex)
                 {
                     throw new ApiException(ApiErrorKind.Network, "The API request failed because of a network error.", innerException: ex);
+                }
+                finally
+                {
+                    transportStopwatch.Stop();
+                    if (transportStopwatch.ElapsedMilliseconds >= 250)
+                    {
+                        Trace.TraceInformation("NMM API transport completed: method={0}, status={1}, elapsedMs={2}.",
+                            request.Method == null ? "unknown" : request.Method.Method,
+                            observedStatus.HasValue ? ((int)observedStatus.Value).ToString() : "none",
+                            transportStopwatch.ElapsedMilliseconds);
+                    }
                 }
             }
         }

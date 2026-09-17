@@ -143,6 +143,7 @@
     <Compile Include="OnlineServices\NexusMods\NexusCredentials.cs" />
     <Compile Include="OnlineServices\NexusMods\NexusErrorMapper.cs" />
     <Compile Include="OnlineServices\NexusMods\GraphQl\NexusGraphQlClient.cs" />
+    <Compile Include="OnlineServices\NexusMods\GraphQl\NexusLegacyModGraphQlClient.cs" />
     <Compile Include="OnlineServices\NexusMods\GraphQl\NexusGraphQlModels.cs" />
     <Compile Include="OnlineServices\NexusMods\NexusModsService.cs" />
     <Compile Include="OnlineServices\NexusMods\NexusRateLimitSnapshot.cs" />
@@ -156,8 +157,13 @@
     <Compile Include="OnlineServices\NexusMods\V3\NexusV3ErrorMapper.cs" />
     <Compile Include="OnlineServices\NexusMods\V3\NexusV3Models.cs" />
     <Compile Include="ModRepositories\AuthenticationStatus.cs" />
+    <Compile Include="ModRepositories\NexusFileUpdateCheckpointStore.cs" />
+    <Compile Include="ModRepositories\NexusGraphQlMapper.cs" />
     <Compile Include="ModRepositories\NexusV1Mapper.cs" />
     <Compile Include="ModRepositories\RepositoryDownloadLink.cs" />
+    <Compile Include="ModRepositories\RepositoryFileListInfoResult.cs" />
+    <Compile Include="ModRepositories\RepositoryFileUpdateCheckpoint.cs" />
+    <Compile Include="ModRepositories\RepositoryModUpdate.cs" />
     <Compile Include="ModRepositories\RepositoryRateLimit.cs" />
     <Compile Include="ModRepositories\RepositoryUserStatus.cs" />
     <Compile Include="ModRepositories\RateLimitExceededArgs.cs" />

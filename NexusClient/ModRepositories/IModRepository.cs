@@ -135,12 +135,34 @@
         IModInfo GetModInfo(string modId);
 
 		/// <summary>
+		/// Gets repository category IDs for the specified Nexus mod IDs without resolving file metadata.
+		/// </summary>
+		/// <param name="modIds">The Nexus mod IDs whose repository categories should be retrieved.</param>
+		/// <returns>A map of normalized Nexus mod ID to repository category ID for identities resolved successfully.</returns>
+		Dictionary<string, int> GetModCategoryIds(IEnumerable<string> modIds);
+
+		/// <summary>
 		/// Gets the info for the specified file list.
 		/// </summary>
 		/// <param name="modFileList">The file list to submit.</param>
 		/// <returns>The update mods' list.</returns>
 		/// <exception cref="RepositoryUnavailableException">Thrown if the repository cannot be reached.</exception>
 		List<IModInfo> GetFileListInfo(List<string> modFileList);
+
+		/// <summary>
+		/// Gets update metadata while reusing persisted file-resolution results whose provider freshness timestamp is unchanged.
+		/// </summary>
+		/// <param name="modFileList">The file list to submit.</param>
+		/// <param name="providerUpdates">The provider freshness records for the current update-check period.</param>
+		/// <returns>The aligned metadata and checkpoint candidates.</returns>
+		RepositoryFileListInfoResult GetFileListInfoWithFreshness(List<string> modFileList, IEnumerable<RepositoryModUpdate> providerUpdates);
+
+		/// <summary>
+		/// Publishes file-resolution checkpoints after the corresponding local metadata application completed successfully.
+		/// </summary>
+		/// <param name="checkpoints">The successfully applied checkpoint candidates.</param>
+		/// <returns>Whether the checkpoint data was persisted successfully.</returns>
+		bool CommitFileUpdateCheckpoints(IEnumerable<RepositoryFileUpdateCheckpoint> checkpoints);
 
         /// <summary>
         /// Toggles the mod Endorsement state.
@@ -188,6 +210,13 @@
 		/// <param name="period">The time period: 1d, 1w, 1m.</param>
 		/// <returns>List of mod IDs.</returns>
 		List<string> GetUpdated(string period);
+
+		/// <summary>
+		/// Gets the updated mods together with the provider freshness timestamps returned for the period.
+		/// </summary>
+		/// <param name="period">The time period: 1d, 1w, 1m.</param>
+		/// <returns>The updated repository mod records.</returns>
+		List<RepositoryModUpdate> GetUpdatedWithMetadata(string period);
 
 		/// <summary>
 		/// Gets the file info for the default file of the specified mod.

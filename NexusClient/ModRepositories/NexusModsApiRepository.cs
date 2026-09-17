@@ -12,6 +12,7 @@
 	using ModManagement;
 	using Nexus.Client.OnlineServices.Infrastructure;
 	using Nexus.Client.OnlineServices.NexusMods;
+	using Nexus.Client.OnlineServices.NexusMods.GraphQl;
 	using Nexus.Client.OnlineServices.NexusMods.V1;
 	using Mods;
 	using Util;
@@ -70,7 +71,10 @@
 
 		#endregion
 
+		private const int FileResolutionMaxConcurrency = 4;
+
 		private readonly ApiCallManager _apiCallManager;
+		private readonly NexusFileUpdateCheckpointStore _fileUpdateCheckpointStore;
 
 		private enum ModHashLookupStatus
 		{
@@ -97,14 +101,174 @@
 		}
 
 		/// <summary>
+		/// Captures one parsed update-check row while preserving its original position.
+		/// </summary>
+		private sealed class FileListInfoRequest
+		{
+			public FileListInfoRequest(int originalIndex, string source, int modId, string downloadId, string currentFilename)
+			{
+				OriginalIndex = originalIndex;
+				Source = source;
+				ModId = modId;
+				DownloadId = downloadId;
+				CurrentFilename = currentFilename;
+			}
+
+			public FileListInfoRequest(int originalIndex, string source, Exception parseException)
+			{
+				OriginalIndex = originalIndex;
+				Source = source;
+				ParseException = parseException;
+			}
+
+			public int OriginalIndex { get; }
+
+			public string Source { get; }
+
+			public int ModId { get; }
+
+			public string DownloadId { get; }
+
+			public string CurrentFilename { get; }
+
+			public Exception ParseException { get; }
+		}
+
+		/// <summary>
+		/// Stores one operation-scoped provider result, including a failure that must not be retried for duplicate rows.
+		/// </summary>
+		private sealed class OperationRequestResult<T> where T : class
+		{
+			private OperationRequestResult(T value, ApiException apiException, Exception exception)
+			{
+				Value = value;
+				ApiException = apiException;
+				UnexpectedException = exception;
+			}
+
+			public T Value { get; }
+
+			public ApiException ApiException { get; }
+
+			public Exception UnexpectedException { get; }
+
+			public bool FailureHandled { get; set; }
+
+			public bool HasFailure => ApiException != null || UnexpectedException != null;
+
+			public static OperationRequestResult<T> Capture(Func<T> request)
+			{
+				try
+				{
+					return new OperationRequestResult<T>(request(), null, null);
+				}
+				catch (ApiException ex)
+				{
+					return new OperationRequestResult<T>(null, ex, null);
+				}
+				catch (Exception ex)
+				{
+					return new OperationRequestResult<T>(null, null, ex);
+				}
+			}
+
+			/// <summary>
+			/// Captures one asynchronous provider result without losing its typed API failure.
+			/// </summary>
+			public static async Task<OperationRequestResult<T>> CaptureAsync(Func<Task<T>> request)
+			{
+				try
+				{
+					return new OperationRequestResult<T>(await request().ConfigureAwait(false), null, null);
+				}
+				catch (ApiException ex)
+				{
+					return new OperationRequestResult<T>(null, ex, null);
+				}
+				catch (Exception ex)
+				{
+					return new OperationRequestResult<T>(null, null, ex);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Associates one bounded file-resolution request with the session generation that produced it.
+		/// </summary>
+		private sealed class FileResolutionRequestOutcome
+		{
+			public FileResolutionRequestOutcome(
+				long generation,
+				int modId,
+				OperationRequestResult<NexusV1ModFileList> result,
+				Dictionary<int, OperationRequestResult<NexusV1ModFile>> successorResults)
+			{
+				Generation = generation;
+				ModId = modId;
+				Result = result;
+				SuccessorResults = successorResults ?? new Dictionary<int, OperationRequestResult<NexusV1ModFile>>();
+			}
+
+			public long Generation { get; }
+
+			public int ModId { get; }
+
+			public OperationRequestResult<NexusV1ModFileList> Result { get; }
+
+			public Dictionary<int, OperationRequestResult<NexusV1ModFile>> SuccessorResults { get; }
+		}
+
+		/// <summary>
+		/// Collects the completed work and observed concurrency of one independently safe file-resolution segment.
+		/// </summary>
+		private sealed class FileResolutionSegmentResult
+		{
+			public List<FileResolutionRequestOutcome> Outcomes { get; } = new List<FileResolutionRequestOutcome>();
+
+			public int PeakConcurrency { get; set; }
+
+			public bool RateLimitObserved { get; set; }
+		}
+
+		/// <summary>
+		/// Records provider request counts produced while preparing bounded file-resolution work.
+		/// </summary>
+		private sealed class FileListPreparationSummary
+		{
+			public int ParentRequests { get; set; }
+
+			public int FileListRequests { get; set; }
+
+			public int BoundedFileListRequests { get; set; }
+
+			public int FileResolutionSegments { get; set; }
+
+			public int SuccessorFileRequests { get; set; }
+
+			public int PeakFileResolutionConcurrency { get; set; }
+		}
+
+		/// <summary>
 		/// Creates a new instance of the <see cref="NexusModsApiRepository"/>.
 		/// </summary>
 		/// <param name="currentGameDomain">Currently selected game.</param>
 		/// <param name="apiCallManager"><see cref="ApiCallManager"/> to use for API calls.</param>
 		public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager)
+			: this(currentGameDomain, apiCallManager, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates a Nexus repository with optional per-game persistent file-update checkpoints.
+		/// </summary>
+		/// <param name="currentGameDomain">Currently selected game.</param>
+		/// <param name="apiCallManager"><see cref="ApiCallManager"/> to use for API calls.</param>
+		/// <param name="installInfoDirectory">The game install-info directory used for derived update-check checkpoint data.</param>
+		public NexusModsApiRepository(string currentGameDomain, ApiCallManager apiCallManager, string installInfoDirectory)
 		{
 			_gameDomain = GameDomainTranslator.DetermineGameDomain(currentGameDomain);
 			_apiCallManager = apiCallManager;
+			_fileUpdateCheckpointStore = new NexusFileUpdateCheckpointStore(installInfoDirectory);
 		}
 
 		/// <inheritdoc />
@@ -543,66 +707,289 @@
 		}
 
 		/// <inheritdoc cref="IModRepository"/>
-		public List<IModInfo> GetFileListInfo(List<string> modFileList)
+		public Dictionary<string, int> GetModCategoryIds(IEnumerable<string> modIds)
 		{
-			var list = new List<IModInfo>();
-			foreach (var mod in modFileList)
+			var requestedIds = new List<int>();
+			var seenIds = new HashSet<int>();
+			int requestedCount = 0;
+			if (modIds != null)
+			{
+				foreach (string modId in modIds)
+				{
+					requestedCount++;
+					int numericModId;
+					if (Int32.TryParse(modId, out numericModId) && numericModId > 0 && seenIds.Add(numericModId))
+						requestedIds.Add(numericModId);
+				}
+			}
+
+			var categories = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			if (requestedIds.Count == 0)
+				return categories;
+
+			NexusRateLimitSnapshot graphQlQuotaBefore = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.GraphQl);
+			NexusRateLimitSnapshot v1QuotaBefore = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.V1);
+			NexusLegacyModLookupResult graphQlParents = ResolveGraphQlParentMetadata(requestedIds);
+			var client = _apiCallManager.V1;
+			int graphQlCategoryRows = 0;
+			int v1ParentRequests = 0;
+			int unresolved = 0;
+
+			foreach (int modId in requestedIds)
 			{
 				try
 				{
-					string modId = ParseModId(mod);
-					string downloadId = ParseDownloadId(mod);
-					string currentFilename = ParseFilename(mod);
-					int numericModId = Convert.ToInt32(modId);
-
-					var client = _apiCallManager.V1;
-					var nexusMod = client == null ? null : client.GetModAsync(GameDomainName, numericModId).GetAwaiter().GetResult();
-
-					if (nexusMod == null)
+					long generation = _apiCallManager.NexusService.CaptureSession().Generation;
+					NexusLegacyModMetadata graphQlParent;
+					if (graphQlParents != null
+						&& graphQlParents.Generation == generation
+						&& graphQlParents.Mods.TryGetValue(modId, out graphQlParent)
+						&& graphQlParent.CategoryId.HasValue)
 					{
-						list.Add(new ModInfo());
+						categories[modId.ToString()] = graphQlParent.CategoryId.Value;
+						graphQlCategoryRows++;
 						continue;
 					}
 
-					ModInfo modInfo = NexusV1Mapper.ToModInfo(nexusMod);
-					bool fileMetadataResolved = false;
-					var nexusFiles = client.GetModFilesAsync(GameDomainName, numericModId, new NexusV1FileCategory[0]).GetAwaiter().GetResult();
-					int currentFileId = 0;
-
-					if (ModFileIdentity.IsUsableRepositoryId(downloadId))
+					if (client == null)
 					{
-						Int32.TryParse(downloadId, out currentFileId);
+						unresolved++;
+						continue;
 					}
-					else if (!string.IsNullOrWhiteSpace(currentFilename) && nexusFiles?.Files != null)
-					{
-						var currentFile = nexusFiles.Files.FirstOrDefault(file =>
-							string.Equals(file.FileName, currentFilename, StringComparison.OrdinalIgnoreCase));
 
-						if (currentFile != null)
-							currentFileId = currentFile.FileId;
-						else if (nexusFiles.FileUpdates != null)
+					v1ParentRequests++;
+					NexusV1Mod nexusMod = client.GetModAsync(GameDomainName, modId).GetAwaiter().GetResult();
+					if (nexusMod == null)
+					{
+						unresolved++;
+						continue;
+					}
+
+					categories[modId.ToString()] = nexusMod.CategoryId;
+				}
+				catch (ApiException ex)
+				{
+					unresolved++;
+					if (ReactToApiException(ex))
+						break;
+				}
+				catch (Exception ex)
+				{
+					unresolved++;
+					Trace.TraceError("Exception while retrieving repository category for Nexus mod ID {0}.", modId);
+					TraceUtil.TraceException(ex);
+				}
+			}
+
+			NexusRateLimitSnapshot graphQlQuotaAfter = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.GraphQl);
+			NexusRateLimitSnapshot v1QuotaAfter = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.V1);
+			Trace.TraceInformation(
+				"NMM category metadata coalescing completed: requested={0}, uniqueMods={1}, graphQlRequests={2}, graphQlCategoryRows={3}, v1ParentRequests={4}, resolved={5}, unresolved={6}, graphQlQuotaDelta={7}, v1QuotaDelta={8}.",
+				requestedCount,
+				requestedIds.Count,
+				graphQlParents?.RequestCount ?? 0,
+				graphQlCategoryRows,
+				v1ParentRequests,
+				categories.Count,
+				unresolved,
+				FormatQuotaDelta(graphQlQuotaBefore, graphQlQuotaAfter),
+				FormatQuotaDelta(v1QuotaBefore, v1QuotaAfter));
+
+			return categories;
+		}
+
+		/// <inheritdoc cref="IModRepository"/>
+		public List<IModInfo> GetFileListInfo(List<string> modFileList)
+		{
+			return GetFileListInfoWithFreshness(modFileList, null).ModInfo;
+		}
+
+		/// <inheritdoc cref="IModRepository"/>
+		public RepositoryFileListInfoResult GetFileListInfoWithFreshness(List<string> modFileList, IEnumerable<RepositoryModUpdate> providerUpdates)
+		{
+			List<FileListInfoRequest> requests = ParseFileListInfoRequests(modFileList);
+			var list = new List<IModInfo>(requests.Count);
+			var checkpoints = new List<RepositoryFileUpdateCheckpoint>(requests.Count);
+			var providerUpdatesByModId = BuildProviderUpdateLookup(providerUpdates);
+			var parentResults = new Dictionary<Tuple<long, string, int>, OperationRequestResult<NexusV1Mod>>();
+			var fileListResults = new Dictionary<Tuple<long, string, int>, OperationRequestResult<NexusV1ModFileList>>();
+			var successorResults = new Dictionary<Tuple<long, string, int, int>, OperationRequestResult<NexusV1ModFile>>();
+			var uniqueModIds = new HashSet<int>(requests.Where(request => request.ParseException == null).Select(request => request.ModId));
+			NexusRateLimitSnapshot graphQlQuotaBefore = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.GraphQl);
+			NexusRateLimitSnapshot v1QuotaBefore = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.V1);
+			NexusLegacyModLookupResult graphQlParents = ResolveGraphQlParentMetadata(uniqueModIds);
+			NexusV1Client client = _apiCallManager.V1;
+			FileListPreparationSummary preparation = client == null
+				? new FileListPreparationSummary()
+				: PrepareBoundedFileListRequests(
+					requests,
+					providerUpdatesByModId,
+					graphQlParents,
+					parentResults,
+					fileListResults,
+					successorResults,
+					client);
+
+			int parentRequests = preparation.ParentRequests;
+			int fileListRequests = preparation.FileListRequests;
+			int successorFileRequests = preparation.SuccessorFileRequests;
+			int reusedParentResults = 0;
+			int reusedFileListResults = 0;
+			int graphQlParentRows = 0;
+			int freshnessCacheHits = 0;
+			int freshnessCacheMisses = 0;
+			var consumedParentResults = new HashSet<Tuple<long, string, int>>();
+			var consumedFileListResults = new HashSet<Tuple<long, string, int>>();
+
+			foreach (FileListInfoRequest request in requests)
+			{
+				if (request.ParseException != null)
+				{
+					TraceFileListInfoException(request.Source, request.ParseException);
+					list.Add(new ModInfo());
+					checkpoints.Add(null);
+					continue;
+				}
+
+				try
+				{
+					if (client == null)
+					{
+						list.Add(new ModInfo());
+						checkpoints.Add(null);
+						continue;
+					}
+
+					long parentGeneration = _apiCallManager.NexusService.CaptureSession().Generation;
+					ModInfo modInfo = null;
+					NexusLegacyModMetadata graphQlParent;
+					if (graphQlParents != null && graphQlParents.Generation == parentGeneration && graphQlParents.Mods.TryGetValue(request.ModId, out graphQlParent))
+					{
+						modInfo = NexusGraphQlMapper.ToModInfo(graphQlParent);
+						if (modInfo != null)
+							graphQlParentRows++;
+					}
+
+					if (modInfo == null)
+					{
+						var parentKey = Tuple.Create(parentGeneration, GameDomainName, request.ModId);
+						OperationRequestResult<NexusV1Mod> parentResult;
+						if (parentResults.TryGetValue(parentKey, out parentResult))
 						{
-							var filenameUpdate = nexusFiles.FileUpdates.FirstOrDefault(update =>
-								string.Equals(update.OldFileName, currentFilename, StringComparison.OrdinalIgnoreCase)
-								|| string.Equals(update.NewFileName, currentFilename, StringComparison.OrdinalIgnoreCase));
-
-							if (filenameUpdate != null)
-							{
-								currentFileId = string.Equals(filenameUpdate.OldFileName, currentFilename, StringComparison.OrdinalIgnoreCase)
-									? filenameUpdate.OldFileId
-									: filenameUpdate.NewFileId;
-							}
+							if (!consumedParentResults.Add(parentKey))
+								reusedParentResults++;
 						}
+						else
+						{
+							parentRequests++;
+							parentResult = OperationRequestResult<NexusV1Mod>.Capture(() =>
+								client.GetModAsync(GameDomainName, request.ModId).GetAwaiter().GetResult());
+							parentResults[parentKey] = parentResult;
+							consumedParentResults.Add(parentKey);
+						}
+
+						if (parentResult.HasFailure)
+						{
+							list.Add(new ModInfo());
+							checkpoints.Add(null);
+							if (HandleOperationRequestFailure(request.Source, parentResult))
+								break;
+							continue;
+						}
+
+						if (parentResult.Value == null)
+						{
+							list.Add(new ModInfo());
+							checkpoints.Add(null);
+							continue;
+						}
+
+						modInfo = NexusV1Mapper.ToModInfo(parentResult.Value);
 					}
+
+					RepositoryModUpdate providerUpdate;
+					bool hasUsableFreshness = providerUpdatesByModId.TryGetValue(request.ModId, out providerUpdate)
+						&& providerUpdate.LatestFileUpdateUtc != default(DateTimeOffset)
+						&& _fileUpdateCheckpointStore.IsEnabled;
+					RepositoryFileUpdateCheckpoint checkpoint;
+					if (hasUsableFreshness && _fileUpdateCheckpointStore.TryGet(
+						GameDomainName,
+						request.ModId,
+						providerUpdate.LatestFileUpdateUtc,
+						request.DownloadId,
+						request.CurrentFilename,
+						out checkpoint))
+					{
+						freshnessCacheHits++;
+						modInfo = ApplyFileUpdateCheckpoint(modInfo, checkpoint, request.CurrentFilename);
+						list.Add(modInfo);
+						checkpoints.Add(checkpoint);
+						continue;
+					}
+
+					if (hasUsableFreshness)
+						freshnessCacheMisses++;
+
+					bool fileMetadataResolved = false;
+
+					long fileListGeneration = _apiCallManager.NexusService.CaptureSession().Generation;
+					var fileListKey = Tuple.Create(fileListGeneration, GameDomainName, request.ModId);
+					OperationRequestResult<NexusV1ModFileList> fileListResult;
+					if (fileListResults.TryGetValue(fileListKey, out fileListResult))
+					{
+						if (!consumedFileListResults.Add(fileListKey))
+							reusedFileListResults++;
+					}
+					else
+					{
+						fileListRequests++;
+						fileListResult = OperationRequestResult<NexusV1ModFileList>.Capture(() =>
+							client.GetModFilesAsync(GameDomainName, request.ModId, new NexusV1FileCategory[0]).GetAwaiter().GetResult());
+						fileListResults[fileListKey] = fileListResult;
+						consumedFileListResults.Add(fileListKey);
+					}
+
+					if (fileListResult.HasFailure)
+					{
+						list.Add(new ModInfo());
+						checkpoints.Add(null);
+						if (HandleOperationRequestFailure(request.Source, fileListResult))
+							break;
+						continue;
+					}
+
+					NexusV1ModFileList nexusFiles = fileListResult.Value;
+					int currentFileId = ResolveCurrentFileId(request, nexusFiles);
 
 					int latestFileId = ResolveLatestFileId(currentFileId, nexusFiles?.FileUpdates);
+					NexusV1ModFile latestFile = null;
 
 					if (latestFileId > 0)
 					{
-						var latestFile = nexusFiles?.Files?.FirstOrDefault(file => file.FileId == latestFileId);
+						latestFile = nexusFiles?.Files?.FirstOrDefault(file => file.FileId == latestFileId);
 						if (latestFile == null)
 						{
-							latestFile = client.GetModFileAsync(GameDomainName, numericModId, latestFileId).GetAwaiter().GetResult();
+							long successorGeneration = _apiCallManager.NexusService.CaptureSession().Generation;
+							var successorKey = Tuple.Create(successorGeneration, GameDomainName, request.ModId, latestFileId);
+							OperationRequestResult<NexusV1ModFile> successorResult;
+							if (!successorResults.TryGetValue(successorKey, out successorResult))
+							{
+								successorFileRequests++;
+								successorResult = OperationRequestResult<NexusV1ModFile>.Capture(() =>
+									client.GetModFileAsync(GameDomainName, request.ModId, latestFileId).GetAwaiter().GetResult());
+								successorResults[successorKey] = successorResult;
+							}
+
+							if (successorResult.HasFailure)
+							{
+								list.Add(new ModInfo());
+								checkpoints.Add(null);
+								if (HandleOperationRequestFailure(request.Source, successorResult))
+									break;
+								continue;
+							}
+
+							latestFile = successorResult.Value;
 						}
 
 						if (latestFile != null)
@@ -623,29 +1010,566 @@
 						modInfo.MachineVersion = null;
 					}
 
-					if (string.IsNullOrWhiteSpace(modInfo.FileName) && !string.IsNullOrWhiteSpace(currentFilename))
-						modInfo.FileName = currentFilename;
+					if (string.IsNullOrWhiteSpace(modInfo.FileName) && !string.IsNullOrWhiteSpace(request.CurrentFilename))
+						modInfo.FileName = request.CurrentFilename;
 
+					checkpoint = hasUsableFreshness
+						? CreateFileUpdateCheckpoint(request, providerUpdate, latestFile, latestFileId, fileMetadataResolved)
+						: null;
 					list.Add(modInfo);
-				}
-				catch (ApiException ex)
-				{
-					list.Add(new ModInfo());
-					if (ReactToApiException(ex))
-					{
-						// Breaking the foreach will cause the updated list and the base list to lose their alignment.
-						break;
-					}
+					checkpoints.Add(checkpoint);
 				}
 				catch (Exception ex)
 				{
-					Trace.TraceError($"Exception while parsing mod ID from mod \"{mod}\".");
-					TraceUtil.TraceException(ex);
+					TraceFileListInfoException(request.Source, ex);
 					list.Add(new ModInfo());
+					checkpoints.Add(null);
 				}
 			}
 
-			return list;
+			NexusRateLimitSnapshot graphQlQuotaAfter = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.GraphQl);
+			NexusRateLimitSnapshot v1QuotaAfter = _apiCallManager.NexusService.RateLimits.GetSnapshot(NexusApiSurface.V1);
+			int graphQlRequests = graphQlParents?.RequestCount ?? 0;
+			Trace.TraceInformation(
+				"NMM metadata coalescing completed: requested={0}, uniqueMods={1}, graphQlRequests={2}, graphQlParents={3}, graphQlParentRows={4}, v1ParentRequests={5}, fileListRequests={6}, boundedFileListRequests={7}, fileResolutionSegments={8}, peakFileResolutionConcurrency={9}, successorFileRequests={10}, reusedV1Parent={11}, reusedFileList={12}, freshnessCacheHits={13}, freshnessCacheMisses={14}, checkpointCandidates={15}, graphQlQuotaDelta={16}, v1QuotaDelta={17}.",
+				requests.Count,
+				uniqueModIds.Count,
+				graphQlRequests,
+				graphQlParents?.Mods.Count ?? 0,
+				graphQlParentRows,
+				parentRequests,
+				fileListRequests,
+				preparation.BoundedFileListRequests,
+				preparation.FileResolutionSegments,
+				preparation.PeakFileResolutionConcurrency,
+				successorFileRequests,
+				reusedParentResults,
+				reusedFileListResults,
+				freshnessCacheHits,
+				freshnessCacheMisses,
+				checkpoints.Count(candidate => candidate != null),
+				FormatQuotaDelta(graphQlQuotaBefore, graphQlQuotaAfter),
+				FormatQuotaDelta(v1QuotaBefore, v1QuotaAfter));
+
+			return new RepositoryFileListInfoResult(list, checkpoints);
+		}
+
+		/// <inheritdoc cref="IModRepository"/>
+		public bool CommitFileUpdateCheckpoints(IEnumerable<RepositoryFileUpdateCheckpoint> checkpoints)
+		{
+			try
+			{
+				return _fileUpdateCheckpointStore.Commit(checkpoints);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to persist Nexus file-update checkpoints; future update checks will refetch file metadata.");
+				TraceUtil.TraceException(ex);
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Builds a provider-update lookup without assuming Nexus returns each mod ID only once.
+		/// </summary>
+		private static Dictionary<int, RepositoryModUpdate> BuildProviderUpdateLookup(IEnumerable<RepositoryModUpdate> providerUpdates)
+		{
+			var lookup = new Dictionary<int, RepositoryModUpdate>();
+			if (providerUpdates == null)
+				return lookup;
+
+			foreach (RepositoryModUpdate update in providerUpdates)
+			{
+				int modId;
+				if (update == null || !Int32.TryParse(update.ModId, out modId) || modId <= 0)
+					continue;
+
+				RepositoryModUpdate current;
+				if (!lookup.TryGetValue(modId, out current) || update.LatestFileUpdateUtc > current.LatestFileUpdateUtc)
+					lookup[modId] = update;
+			}
+
+			return lookup;
+		}
+
+		/// <summary>
+		/// Resolves REST parent fallbacks in row order and batches only the file-resolution work that is safe to overlap between those barriers.
+		/// </summary>
+		private FileListPreparationSummary PrepareBoundedFileListRequests(
+			IList<FileListInfoRequest> requests,
+			Dictionary<int, RepositoryModUpdate> providerUpdatesByModId,
+			NexusLegacyModLookupResult graphQlParents,
+			Dictionary<Tuple<long, string, int>, OperationRequestResult<NexusV1Mod>> parentResults,
+			Dictionary<Tuple<long, string, int>, OperationRequestResult<NexusV1ModFileList>> fileListResults,
+			Dictionary<Tuple<long, string, int, int>, OperationRequestResult<NexusV1ModFile>> successorResults,
+			NexusV1Client client)
+		{
+			var summary = new FileListPreparationSummary();
+			var resolutionRequestsByModId = new Dictionary<int, List<FileListInfoRequest>>();
+			var orderedMods = new List<int>();
+
+			foreach (FileListInfoRequest request in requests)
+			{
+				if (request.ParseException != null)
+					continue;
+
+				if (!resolutionRequestsByModId.ContainsKey(request.ModId))
+				{
+					resolutionRequestsByModId.Add(request.ModId, new List<FileListInfoRequest>());
+					orderedMods.Add(request.ModId);
+				}
+
+				if (RequestNeedsFileListResolution(request, providerUpdatesByModId))
+					resolutionRequestsByModId[request.ModId].Add(request);
+			}
+
+			var segment = new List<int>();
+			bool stopAfterRateLimit = false;
+			foreach (int modId in orderedMods)
+			{
+				long generation = _apiCallManager.NexusService.CaptureSession().Generation;
+				NexusLegacyModMetadata graphQlParent;
+				bool hasGraphQlParent = graphQlParents != null
+					&& graphQlParents.Generation == generation
+					&& graphQlParents.Mods.TryGetValue(modId, out graphQlParent)
+					&& graphQlParent != null
+					&& graphQlParent.HasRequiredParentMetadata;
+
+				if (!hasGraphQlParent)
+				{
+					if (!FlushFileResolutionSegment(segment, resolutionRequestsByModId, client, fileListResults, successorResults, summary))
+					{
+						stopAfterRateLimit = true;
+						break;
+					}
+
+					segment.Clear();
+					generation = _apiCallManager.NexusService.CaptureSession().Generation;
+					var parentKey = Tuple.Create(generation, GameDomainName, modId);
+					OperationRequestResult<NexusV1Mod> parentResult;
+					if (!parentResults.TryGetValue(parentKey, out parentResult))
+					{
+						summary.ParentRequests++;
+						parentResult = OperationRequestResult<NexusV1Mod>.Capture(() =>
+							client.GetModAsync(GameDomainName, modId).GetAwaiter().GetResult());
+						parentResults[parentKey] = parentResult;
+					}
+
+					if (parentResult.ApiException?.ErrorKind == ApiErrorKind.RateLimit)
+					{
+						stopAfterRateLimit = true;
+						break;
+					}
+
+					if (parentResult.HasFailure || parentResult.Value == null)
+						continue;
+
+					// Keep a REST-parent fallback as a complete ordering barrier: its file resolution
+					// finishes before later GraphQL-resolved mods are allowed to overlap.
+					if (resolutionRequestsByModId[modId].Count > 0
+						&& !FlushFileResolutionSegment(new[] { modId }, resolutionRequestsByModId, client, fileListResults, successorResults, summary))
+					{
+						stopAfterRateLimit = true;
+						break;
+					}
+
+					continue;
+				}
+
+				if (resolutionRequestsByModId[modId].Count > 0)
+					segment.Add(modId);
+			}
+
+			if (!stopAfterRateLimit)
+				FlushFileResolutionSegment(segment, resolutionRequestsByModId, client, fileListResults, successorResults, summary);
+
+			return summary;
+		}
+
+		/// <summary>
+		/// Returns whether one local archive lacks a reusable provider-fresh file checkpoint.
+		/// </summary>
+		private bool RequestNeedsFileListResolution(
+			FileListInfoRequest request,
+			Dictionary<int, RepositoryModUpdate> providerUpdatesByModId)
+		{
+			RepositoryModUpdate providerUpdate;
+			bool hasUsableFreshness = providerUpdatesByModId.TryGetValue(request.ModId, out providerUpdate)
+				&& providerUpdate.LatestFileUpdateUtc != default(DateTimeOffset)
+				&& _fileUpdateCheckpointStore.IsEnabled;
+			RepositoryFileUpdateCheckpoint checkpoint;
+			return !hasUsableFreshness || !_fileUpdateCheckpointStore.TryGet(
+				GameDomainName,
+				request.ModId,
+				providerUpdate.LatestFileUpdateUtc,
+				request.DownloadId,
+				request.CurrentFilename,
+				out checkpoint);
+		}
+
+		/// <summary>
+		/// Executes one row-ordered segment with a small fixed concurrency bound and stops starting new work after a rate-limit response.
+		/// </summary>
+		private bool FlushFileResolutionSegment(
+			IList<int> modIds,
+			Dictionary<int, List<FileListInfoRequest>> requestsByModId,
+			NexusV1Client client,
+			Dictionary<Tuple<long, string, int>, OperationRequestResult<NexusV1ModFileList>> fileListResults,
+			Dictionary<Tuple<long, string, int, int>, OperationRequestResult<NexusV1ModFile>> successorResults,
+			FileListPreparationSummary summary)
+		{
+			if (modIds == null || modIds.Count == 0)
+				return true;
+
+			FileResolutionSegmentResult segment = ExecuteFileResolutionSegmentAsync(modIds, requestsByModId, client).GetAwaiter().GetResult();
+			summary.FileResolutionSegments++;
+			summary.BoundedFileListRequests += segment.Outcomes.Count;
+			summary.FileListRequests += segment.Outcomes.Count;
+			summary.SuccessorFileRequests += segment.Outcomes.Sum(outcome => outcome.SuccessorResults.Count);
+			summary.PeakFileResolutionConcurrency = Math.Max(summary.PeakFileResolutionConcurrency, segment.PeakConcurrency);
+
+			foreach (FileResolutionRequestOutcome outcome in segment.Outcomes)
+			{
+				fileListResults[Tuple.Create(outcome.Generation, GameDomainName, outcome.ModId)] = outcome.Result;
+				foreach (KeyValuePair<int, OperationRequestResult<NexusV1ModFile>> successor in outcome.SuccessorResults)
+				{
+					successorResults[Tuple.Create(outcome.Generation, GameDomainName, outcome.ModId, successor.Key)] = successor.Value;
+				}
+			}
+
+			return !segment.RateLimitObserved;
+		}
+
+		/// <summary>
+		/// Runs one independent file-resolution segment with FIFO dispatch and at most four active REST requests.
+		/// </summary>
+		private async Task<FileResolutionSegmentResult> ExecuteFileResolutionSegmentAsync(
+			IList<int> modIds,
+			Dictionary<int, List<FileListInfoRequest>> requestsByModId,
+			NexusV1Client client)
+		{
+			var result = new FileResolutionSegmentResult();
+			var queue = new Queue<int>(modIds);
+			var active = new List<Task<FileResolutionRequestOutcome>>();
+			int activeRequests = 0;
+			int peakConcurrency = 0;
+			bool stopScheduling = false;
+
+			Func<int, Task<FileResolutionRequestOutcome>> start = modId => ResolveFileResolutionRequestAsync(
+				modId,
+				requestsByModId,
+				client,
+				() => Interlocked.Increment(ref activeRequests),
+				() => Interlocked.Decrement(ref activeRequests),
+				concurrency => UpdatePeakConcurrency(ref peakConcurrency, concurrency));
+
+			while (active.Count < FileResolutionMaxConcurrency && queue.Count > 0)
+				active.Add(start(queue.Dequeue()));
+
+			while (active.Count > 0)
+			{
+				Task<FileResolutionRequestOutcome> completedTask = await Task.WhenAny(active).ConfigureAwait(false);
+				active.Remove(completedTask);
+				FileResolutionRequestOutcome outcome = await completedTask.ConfigureAwait(false);
+				result.Outcomes.Add(outcome);
+
+				if (HasRateLimit(outcome))
+				{
+					stopScheduling = true;
+					result.RateLimitObserved = true;
+				}
+
+				if (!stopScheduling && queue.Count > 0)
+					active.Add(start(queue.Dequeue()));
+			}
+
+			result.PeakConcurrency = peakConcurrency;
+			return result;
+		}
+
+		/// <summary>
+		/// Resolves the file list and any missing successor files for one unique mod.
+		/// </summary>
+		private async Task<FileResolutionRequestOutcome> ResolveFileResolutionRequestAsync(
+			int modId,
+			Dictionary<int, List<FileListInfoRequest>> requestsByModId,
+			NexusV1Client client,
+			Func<int> enter,
+			Action exit,
+			Action<int> observeConcurrency)
+		{
+			NexusSessionContext session = _apiCallManager.NexusService.CaptureSession();
+			OperationRequestResult<NexusV1ModFileList> requestResult = await CaptureBoundedRequestAsync(
+				() => client.GetModFilesAsync(GameDomainName, modId, session.Token, new NexusV1FileCategory[0]),
+				enter,
+				exit,
+				observeConcurrency).ConfigureAwait(false);
+			var successorOutcomes = new Dictionary<int, OperationRequestResult<NexusV1ModFile>>();
+
+			if (!requestResult.HasFailure && requestResult.Value != null)
+			{
+				foreach (FileListInfoRequest request in requestsByModId[modId])
+				{
+					int currentFileId = ResolveCurrentFileId(request, requestResult.Value);
+					int latestFileId = ResolveLatestFileId(currentFileId, requestResult.Value.FileUpdates);
+					if (latestFileId <= 0
+						|| requestResult.Value.Files?.Any(file => file.FileId == latestFileId) == true
+						|| successorOutcomes.ContainsKey(latestFileId))
+					{
+						continue;
+					}
+
+					OperationRequestResult<NexusV1ModFile> successorResult = await CaptureBoundedRequestAsync(
+						() => client.GetModFileAsync(GameDomainName, modId, latestFileId, session.Token),
+						enter,
+						exit,
+						observeConcurrency).ConfigureAwait(false);
+					successorOutcomes.Add(latestFileId, successorResult);
+					if (successorResult.ApiException?.ErrorKind == ApiErrorKind.RateLimit)
+						break;
+				}
+			}
+
+			return new FileResolutionRequestOutcome(session.Generation, modId, requestResult, successorOutcomes);
+		}
+
+		/// <summary>
+		/// Gets whether one completed unique-mod resolution observed a Nexus rate-limit response.
+		/// </summary>
+		private static bool HasRateLimit(FileResolutionRequestOutcome outcome)
+		{
+			if (outcome?.Result?.ApiException?.ErrorKind == ApiErrorKind.RateLimit)
+				return true;
+
+			return outcome?.SuccessorResults != null
+				&& outcome.SuccessorResults.Values.Any(result => result?.ApiException?.ErrorKind == ApiErrorKind.RateLimit);
+		}
+
+		/// <summary>
+		/// Captures one provider request while contributing to the operation-wide active-request counter.
+		/// </summary>
+		private static async Task<OperationRequestResult<T>> CaptureBoundedRequestAsync<T>(
+			Func<Task<T>> request,
+			Func<int> enter,
+			Action exit,
+			Action<int> observeConcurrency) where T : class
+		{
+			int active = enter();
+			observeConcurrency(active);
+			try
+			{
+				return await OperationRequestResult<T>.CaptureAsync(request).ConfigureAwait(false);
+			}
+			finally
+			{
+				exit();
+			}
+		}
+
+		/// <summary>
+		/// Atomically records the highest number of simultaneous file-list requests observed by this operation.
+		/// </summary>
+		private static void UpdatePeakConcurrency(ref int peakConcurrency, int activeRequests)
+		{
+			while (true)
+			{
+				int observed = peakConcurrency;
+				if (activeRequests <= observed || Interlocked.CompareExchange(ref peakConcurrency, activeRequests, observed) == observed)
+					return;
+			}
+		}
+
+		/// <summary>
+		/// Reconstructs the file-specific portion of one update result from a previously applied public-file checkpoint.
+		/// </summary>
+		private static ModInfo ApplyFileUpdateCheckpoint(ModInfo modInfo, RepositoryFileUpdateCheckpoint checkpoint, string currentFilename)
+		{
+			if (checkpoint.FileMetadataResolved)
+			{
+				modInfo = new ModInfo(AutoTagger.CombineInfo(modInfo, new ModFileInfo(
+					checkpoint.ResolvedDownloadId,
+					checkpoint.ResolvedFilename,
+					checkpoint.ResolvedName,
+					checkpoint.HumanReadableVersion)));
+			}
+			else
+			{
+				if (ModFileIdentity.IsUsableRepositoryId(checkpoint.ResolvedDownloadId))
+					modInfo.DownloadId = checkpoint.ResolvedDownloadId;
+
+				modInfo.HumanReadableVersion = null;
+				modInfo.LastKnownVersion = null;
+				modInfo.MachineVersion = null;
+			}
+
+			if (string.IsNullOrWhiteSpace(modInfo.FileName) && !string.IsNullOrWhiteSpace(currentFilename))
+				modInfo.FileName = currentFilename;
+
+			return modInfo;
+		}
+
+		/// <summary>
+		/// Captures only the public file-resolution data required to reproduce the existing update result on an unchanged provider timestamp.
+		/// </summary>
+		private RepositoryFileUpdateCheckpoint CreateFileUpdateCheckpoint(
+			FileListInfoRequest request,
+			RepositoryModUpdate providerUpdate,
+			NexusV1ModFile latestFile,
+			int latestFileId,
+			bool fileMetadataResolved)
+		{
+			return new RepositoryFileUpdateCheckpoint(
+				GameDomainName,
+				request.ModId,
+				providerUpdate.LatestFileUpdateUtc,
+				request.DownloadId,
+				request.CurrentFilename,
+				fileMetadataResolved && latestFile != null ? latestFile.FileId.ToString() : latestFileId > 0 ? latestFileId.ToString() : null,
+				fileMetadataResolved && latestFile != null ? latestFile.FileName : null,
+				fileMetadataResolved && latestFile != null ? latestFile.Name : null,
+				fileMetadataResolved && latestFile != null ? latestFile.ModVersion : null,
+				fileMetadataResolved);
+		}
+
+		/// <summary>
+		/// Resolves parent metadata in bounded GraphQL batches while leaving missing, incomplete, or failed identities for REST v1 fallback.
+		/// </summary>
+		private NexusLegacyModLookupResult ResolveGraphQlParentMetadata(IEnumerable<int> uniqueModIds)
+		{
+			if (_apiCallManager.V1 == null)
+				return null;
+
+			NexusLegacyModLookupResult result = _apiCallManager.NexusService.LegacyModsGraphQl
+				.GetModsByDomainAsync(GameDomainName, uniqueModIds)
+				.GetAwaiter()
+				.GetResult();
+
+			if (result?.ApiException != null)
+			{
+				Trace.TraceWarning(
+					"NMM GraphQL parent metadata unavailable; using REST v1 fallback. kind={0}, status={1}.",
+					result.ApiException.ErrorKind,
+					result.ApiException.StatusCode.HasValue ? ((int)result.ApiException.StatusCode.Value).ToString() : "none");
+			}
+			else if (result?.UnexpectedException != null)
+			{
+				Trace.TraceWarning("NMM GraphQL parent metadata failed unexpectedly; using REST v1 fallback.");
+				TraceUtil.TraceException(result.UnexpectedException);
+			}
+			else if (result != null && result.IsIncomplete)
+			{
+				Trace.TraceWarning("NMM GraphQL parent metadata was incomplete; missing identities will use REST v1 fallback.");
+			}
+
+			return result;
+		}
+
+		/// <summary>
+		/// Formats the observed quota consumption for one API surface without inventing missing provider values.
+		/// </summary>
+		private static string FormatQuotaDelta(NexusRateLimitSnapshot before, NexusRateLimitSnapshot after)
+		{
+			if (before == null || after == null)
+				return "unknown";
+
+			if (before.HourlyRemaining.HasValue && after.HourlyRemaining.HasValue)
+			{
+				int hourlyDelta = before.HourlyRemaining.Value - after.HourlyRemaining.Value;
+				return hourlyDelta >= 0 ? hourlyDelta.ToString() : "unknown";
+			}
+
+			if (before.DailyRemaining.HasValue && after.DailyRemaining.HasValue)
+			{
+				int dailyDelta = before.DailyRemaining.Value - after.DailyRemaining.Value;
+				return dailyDelta >= 0 ? dailyDelta.ToString() : "unknown";
+			}
+
+			return "unknown";
+		}
+
+		/// <summary>
+		/// Parses all requested archive identities once while retaining malformed rows for aligned empty results.
+		/// </summary>
+		private List<FileListInfoRequest> ParseFileListInfoRequests(List<string> modFileList)
+		{
+			var requests = new List<FileListInfoRequest>(modFileList.Count);
+			for (int index = 0; index < modFileList.Count; index++)
+			{
+				string source = modFileList[index];
+				try
+				{
+					string modId = ParseModId(source);
+					string downloadId = ParseDownloadId(source);
+					string currentFilename = ParseFilename(source);
+					requests.Add(new FileListInfoRequest(index, source, Convert.ToInt32(modId), downloadId, currentFilename));
+				}
+				catch (Exception ex)
+				{
+					requests.Add(new FileListInfoRequest(index, source, ex));
+				}
+			}
+
+			return requests;
+		}
+
+		/// <summary>
+		/// Applies the repository's existing API-failure reaction once for a coalesced provider request.
+		/// </summary>
+		private bool HandleOperationRequestFailure<T>(string source, OperationRequestResult<T> result) where T : class
+		{
+			if (result.FailureHandled)
+				return false;
+
+			result.FailureHandled = true;
+			if (result.ApiException != null)
+				return ReactToApiException(result.ApiException);
+
+			TraceFileListInfoException(source, result.UnexpectedException);
+			return false;
+		}
+
+		/// <summary>
+		/// Preserves the legacy per-row diagnostic for malformed identities and unexpected metadata failures.
+		/// </summary>
+		private static void TraceFileListInfoException(string source, Exception exception)
+		{
+			Trace.TraceError($"Exception while parsing mod ID from mod \"{source}\".");
+			TraceUtil.TraceException(exception);
+		}
+
+		/// <summary>
+		/// Resolves the local archive's current legacy file identity from its stored ID or filename fallback.
+		/// </summary>
+		private static int ResolveCurrentFileId(FileListInfoRequest request, NexusV1ModFileList nexusFiles)
+		{
+			int currentFileId = 0;
+			if (ModFileIdentity.IsUsableRepositoryId(request.DownloadId))
+			{
+				Int32.TryParse(request.DownloadId, out currentFileId);
+			}
+			else if (!string.IsNullOrWhiteSpace(request.CurrentFilename) && nexusFiles?.Files != null)
+			{
+				var currentFile = nexusFiles.Files.FirstOrDefault(file =>
+					string.Equals(file.FileName, request.CurrentFilename, StringComparison.OrdinalIgnoreCase));
+
+				if (currentFile != null)
+					currentFileId = currentFile.FileId;
+				else if (nexusFiles.FileUpdates != null)
+				{
+					var filenameUpdate = nexusFiles.FileUpdates.FirstOrDefault(update =>
+						string.Equals(update.OldFileName, request.CurrentFilename, StringComparison.OrdinalIgnoreCase)
+						|| string.Equals(update.NewFileName, request.CurrentFilename, StringComparison.OrdinalIgnoreCase));
+
+					if (filenameUpdate != null)
+					{
+						currentFileId = string.Equals(filenameUpdate.OldFileName, request.CurrentFilename, StringComparison.OrdinalIgnoreCase)
+							? filenameUpdate.OldFileId
+							: filenameUpdate.NewFileId;
+					}
+				}
+			}
+
+			return currentFileId;
 		}
 
 		/// <summary>
@@ -673,7 +1597,13 @@
 		/// <inheritdoc cref="IModRepository"/>
 		public List<string> GetUpdated(string period)
 		{
-			List<string> updatedMods = new List<string>();
+			return GetUpdatedWithMetadata(period).Select(update => update.ModId).ToList();
+		}
+
+		/// <inheritdoc cref="IModRepository"/>
+		public List<RepositoryModUpdate> GetUpdatedWithMetadata(string period)
+		{
+			List<RepositoryModUpdate> updatedMods = new List<RepositoryModUpdate>();
 
 			try
 			{
@@ -682,8 +1612,8 @@
 					return updatedMods;
 
 				NexusV1ModUpdate[] updates = client.GetUpdatedModsAsync(GameDomainName, period).GetAwaiter().GetResult();
-				if (updates.Length > 0)
-					updatedMods = updates.Select(x => x.ModId.ToString()).ToList();
+				if (updates != null && updates.Length > 0)
+					updatedMods = updates.Select(NexusV1Mapper.ToRepositoryModUpdate).Where(update => update != null).ToList();
 			}
 			catch (ApiException ex)
 			{

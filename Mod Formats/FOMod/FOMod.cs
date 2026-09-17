@@ -1134,6 +1134,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// or just the empty ones.</param>
 		public void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues)
 		{
+			var totalStopwatch = Stopwatch.StartNew();
+			var applyStopwatch = Stopwatch.StartNew();
+			long xmlAndCacheMs = 0;
+			long screenshotMs = 0;
 			var booChangedValue = false;
 			var explicitCategoryAssignment = modInfo as IExplicitCategoryAssignment;
 			bool forceCustomCategoryId = explicitCategoryAssignment != null && explicitCategoryAssignment.ForceCustomCategoryId;
@@ -1239,8 +1243,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				booChangedValue = true;
 			}
 
+			applyStopwatch.Stop();
+
 			if (booChangedValue)
 			{
+				var xmlStopwatch = Stopwatch.StartNew();
 				var xmlInfo = new XmlDocument();
 				xmlInfo.AppendChild(SaveInfo(xmlInfo));
 
@@ -1249,23 +1256,38 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					xmlInfo.Save(mstInfo);
 					ReplaceFile("fomod/info.xml", mstInfo.ToArray());
 				}
+				xmlStopwatch.Stop();
+				xmlAndCacheMs = xmlStopwatch.ElapsedMilliseconds;
 			}
 
-			if (overwriteAllValues == true || Screenshot != modInfo.Screenshot)
+			var screenshotStopwatch = Stopwatch.StartNew();
+			ExtendedImage incomingScreenshot = modInfo.Screenshot;
+			if (overwriteAllValues == true || (incomingScreenshot != null && Screenshot != incomingScreenshot))
 			{
-				if (modInfo.Screenshot == null)
+				if (incomingScreenshot == null)
 				{
 					if (Screenshot != null && overwriteAllValues == true)
 					{
 						DeleteFile(ScreenshotPath);
-						Screenshot = modInfo.Screenshot;
+						Screenshot = null;
 					}
 				}
 				else
 				{
-					Screenshot = modInfo.Screenshot;
+					Screenshot = incomingScreenshot;
 					CreateOrReplaceFile(ScreenshotPath, Screenshot.Data);
 				}
+			}
+			screenshotStopwatch.Stop();
+			screenshotMs = screenshotStopwatch.ElapsedMilliseconds;
+
+			totalStopwatch.Stop();
+			if (totalStopwatch.ElapsedMilliseconds >= 100)
+			{
+				Trace.TraceInformation(
+					"NMM metadata update completed: totalMs={0}, applyMs={1}, xmlAndCacheMs={2}, screenshotMs={3}, overwriteAll={4}, changed={5}.",
+					totalStopwatch.ElapsedMilliseconds, applyStopwatch.ElapsedMilliseconds, xmlAndCacheMs, screenshotMs,
+					overwriteAllValues.HasValue ? overwriteAllValues.Value.ToString() : "null", booChangedValue);
 			}
 		}
 

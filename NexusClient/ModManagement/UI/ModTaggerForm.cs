@@ -170,9 +170,12 @@
 		{
 			if (!DesignMode && ViewModel != null)
 			{
+				var settingsStopwatch = Stopwatch.StartNew();
 				ViewModel.Settings.WindowPositions.SetWindowPosition(WindowSettingsKey, this);
 				ViewModel.Settings.DockPanelLayouts[SplitterSettingsKey] = splitMain.SplitterPosition.ToString();
 				ViewModel.Settings.Save();
+				settingsStopwatch.Stop();
+				Trace.TraceInformation("NMM Get Mod Info window-settings save completed: elapsedMs={0}.", settingsStopwatch.ElapsedMilliseconds);
 			}
 			base.OnFormClosing(e);
 		}
@@ -456,6 +459,7 @@
 
 			errorProvider.ClearErrors();
 			ModTaggerSaveError error;
+			var saveStopwatch = Stopwatch.StartNew();
 			if (!ViewModel.TrySaveTags(
 				txtName.Text,
 				txtVersion.Text,
@@ -470,6 +474,8 @@
 				ApplySaveError(error);
 				return;
 			}
+			saveStopwatch.Stop();
+			Trace.TraceInformation("NMM Get Mod Info tags save completed: elapsedMs={0}.", saveStopwatch.ElapsedMilliseconds);
 
 			DialogResult = DialogResult.OK;
 			Close();

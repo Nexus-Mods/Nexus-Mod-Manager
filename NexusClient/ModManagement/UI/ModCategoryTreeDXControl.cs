@@ -92,6 +92,8 @@
 		private IMod _renameMod;
 		private string _renameOriginalName;
 		private Control _renameActiveEditor;
+		private bool _autoFilterEditorActive;
+		private bool _autoFilterEditorClosing;
 		private bool _editingSortNumber;
 		private IMod _sortEditMod;
 		private int? _sortOriginalValue;
@@ -157,7 +159,7 @@
 		/// <summary>
 		/// Gets whether a native TreeList editor or its pending Sort-number commit is active.
 		/// </summary>
-		internal bool HasActiveEditor => treeList.ActiveEditor != null || _editingSortNumber;
+		internal bool HasActiveEditor => treeList.ActiveEditor != null || _editingSortNumber || _autoFilterEditorClosing;
 
 		/// <summary>
 		/// Occurs when the user requests activation or deactivation of a specific mod.
@@ -778,7 +780,16 @@
 		private void TreeList_ShownEditor(object sender, EventArgs e)
 		{
 			_renameRequested = false;
+			_autoFilterEditorActive = false;
+			_autoFilterEditorClosing = false;
 			if (_editingSortNumber) return;
+
+			if (treeList.FocusedNode?.Id == TreeList.AutoFilterNodeId)
+			{
+				_autoFilterEditorActive = true;
+				return;
+			}
+
 			_renameActiveEditor = treeList.ActiveEditor as Control;
 			if (_renameActiveEditor != null)
 				_renameActiveEditor.KeyDown += RenameEditor_KeyDown;
@@ -798,6 +809,32 @@
 				// the captured target/original value until this event chain is finished.
 				long closingSession = _sortEditSessionGeneration;
 				BeginInvoke((MethodInvoker)(() => EndSortNumberEdit(closingSession)));
+				return;
+			}
+
+			if (_autoFilterEditorActive)
+			{
+				_autoFilterEditorActive = false;
+				_autoFilterEditorClosing = true;
+				// HiddenEditor is raised before the Auto Filter Row has finished all of its posted native
+				// filter work. The first post yields back to DevExpress so it can queue that work after
+				// this event returns; the second post then runs behind those callbacks and releases the
+				// deferred surface refresh. Keep HasActiveEditor true across both turns so no background
+				// refresh can race the native filter commit.
+				BeginInvoke((MethodInvoker)(() =>
+				{
+					if (IsDisposed || Disposing)
+						return;
+
+					BeginInvoke((MethodInvoker)(() =>
+					{
+						if (IsDisposed || Disposing)
+							return;
+
+						_autoFilterEditorClosing = false;
+						EditSessionEnded?.Invoke(this, EventArgs.Empty);
+					}));
+				}));
 				return;
 			}
 
@@ -1130,8 +1167,22 @@
 			if (!IsGestureTargetValid(target, MouseButtons.Left) || target.Mod == null)
 				return;
 
-			// Let the TreeList own normal focus and Ctrl/Shift selection semantics. The
-			// captured target is only the identity used by actions originating from this gesture.
+			// DevExpress normally focuses the clicked row before MouseClick. After a
+			// programmatic resort, however, its native focus bookkeeping can retain the
+			// previously focused node even though the hit-tested click target is correct.
+			// Reassert only an ordinary click that still points at the captured mod; if
+			// layout moved between MouseDown and MouseUp, gesture identity remains stable
+			// without pulling focus back to a row that is no longer under the pointer.
+			TreeListNode nodeUnderPointer = treeList.CalcHitInfo(e.Location).Node;
+			if (ReferenceEquals(nodeUnderPointer?.Tag, target.Mod) &&
+				!ReferenceEquals(treeList.FocusedNode?.Tag, target.Mod))
+			{
+				int topVisibleNodeIndex = treeList.TopVisibleNodeIndex;
+				treeList.FocusedNode = target.Node;
+				if (treeList.TopVisibleNodeIndex != topVisibleNodeIndex)
+					treeList.TopVisibleNodeIndex = topVisibleNodeIndex;
+			}
+
 			ModInteractionOccurred?.Invoke(this, EventArgs.Empty);
 
 			if (String.Equals(target.ColumnFieldName, ModCategoryTreeColumns.Latest, StringComparison.Ordinal))

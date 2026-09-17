@@ -85,12 +85,15 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			try
 			{
 				m_csfFunctions.TaskStarted += new EventHandler<EventArgs<IBackgroundTask>>(Functions_TaskStarted);
-				object[] args = { m_csfFunctions };
 				AppDomain.CurrentDomain.AssemblyResolve += new ResolveEventHandler(CurrentDomain_AssemblyResolve);
 				ScriptRunner srnRunner = null;
 				try
 				{
-					srnRunner = (ScriptRunner)admScript.CreateInstanceFromAndUnwrap(typeof(ScriptRunner).Assembly.ManifestModule.FullyQualifiedName, typeof(ScriptRunner).FullName, false, BindingFlags.Default, null, args, null, null);
+					// Constructor binding across AppDomains can fail for MarshalByRefObject arguments because the
+					// activation binder sees a transparent proxy rather than the concrete proxy type. Activate the
+					// runner without arguments and pass the host proxy through an ordinary remoted method instead.
+					srnRunner = (ScriptRunner)admScript.CreateInstanceFromAndUnwrap(typeof(ScriptRunner).Assembly.ManifestModule.FullyQualifiedName, typeof(ScriptRunner).FullName);
+					srnRunner.Initialize(m_csfFunctions);
 				}
 				finally
 				{
@@ -162,9 +165,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			CompilerErrorCollection cecErrors = null;
 
 			string strBaseScriptClassName = m_regScriptClass.Match(p_strCode).Groups[2].ToString();
-			string strCode = m_regScriptClass.Replace(p_strCode, "using " + BaseScriptType.Namespace + ";\r\n$1" + BaseScriptType.Name);
+			string strBaseScriptTypeName = BaseScriptType.FullName ?? BaseScriptType.Name;
+			string strCode = m_regScriptClass.Replace(p_strCode, match => match.Groups[1].Value + strBaseScriptTypeName);
 			Regex regOtherScriptClasses = new Regex(String.Format(@"(class\s+\S+\s*:.*?)(?<!\w){0}", strBaseScriptClassName));
-			strCode = regOtherScriptClasses.Replace(strCode, "$1" + BaseScriptType.Name);
+			strCode = regOtherScriptClasses.Replace(strCode, match => match.Groups[1].Value + strBaseScriptTypeName);
 			strCode = m_regFommUsing.Replace(strCode, "");
 			byte[] bteAssembly = sccCompiler.Compile(strCode, BaseScriptType, out cecErrors);
 
@@ -219,6 +223,7 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			//should this be different from the current ApplicationBase?
 			adsInfo.ApplicationBase = Path.GetDirectoryName(Application.ExecutablePath);
 			Set<string> setPaths = new Set<string>(StringComparer.OrdinalIgnoreCase);
+			setPaths.Add(Path.GetDirectoryName(typeof(ScriptRunner).Assembly.Location));
 			Type tpeBaseScript = BaseScriptType;
 			while ((tpeBaseScript != null) && (tpeBaseScript != typeof(object)))
 			{
@@ -244,6 +249,13 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			pstGrantSet.AddPermission(new SecurityPermission(SecurityPermissionFlag.Execution));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, Path.GetDirectoryName(Application.ExecutablePath)));
 			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, Path.GetDirectoryName(Application.ExecutablePath)));
+			foreach (string strPath in setPaths)
+			{
+				if (String.IsNullOrWhiteSpace(strPath))
+					continue;
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, strPath));
+				pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, strPath));
+			}
 			pstGrantSet.AddPermission(new ReflectionPermission(ReflectionPermissionFlag.RestrictedMemberAccess));
 
 #if DEBUG

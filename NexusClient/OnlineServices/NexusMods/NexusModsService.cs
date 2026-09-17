@@ -51,6 +51,7 @@ namespace Nexus.Client.OnlineServices.NexusMods
             RateLimits = new NexusRateLimitTracker();
             V1 = new NexusV1Client(this);
             GraphQl = new NexusGraphQlClient(this);
+            LegacyModsGraphQl = new NexusLegacyModGraphQlClient(this);
             V3 = new NexusV3Client(this);
             _session = new NexusSessionContext(0, NexusCredentials.None);
             RateLimits.Reset(0);
@@ -75,6 +76,11 @@ namespace Nexus.Client.OnlineServices.NexusMods
         /// Gets the NMM-owned GraphQL v2 protocol client.
         /// </summary>
         public NexusGraphQlClient GraphQl { get; }
+
+        /// <summary>
+        /// Gets the Nexus GraphQL bulk resolver for legacy domain/mod identities.
+        /// </summary>
+        internal NexusLegacyModGraphQlClient LegacyModsGraphQl { get; }
 
         /// <summary>
         /// Gets the NMM-owned REST v3 protocol client.

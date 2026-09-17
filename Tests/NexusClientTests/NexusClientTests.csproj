@@ -127,6 +127,7 @@
     <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
     <Compile Include="InstallDecisionSeparationTests.cs" />
+    <Compile Include="ModOperationLifecycleCharacterizationTests.cs" />
     <Compile Include="ScriptedFileSelectionCacheTests.cs" />
     <Compile Include="ScriptedInstallerCharacterizationTests.cs" />
     <Compile Include="ScriptedInstallationPlanTests.cs" />
@@ -154,6 +155,8 @@
     <Compile Include="NexusDescriptionFormatterTests.cs" />
     <Compile Include="NexusModLinkParserTests.cs" />
     <Compile Include="NexusRepositoryCharacterizationTests.cs" />
+    <Compile Include="NexusRepositoryRequestCoalescingTests.cs" />
+    <Compile Include="MetadataRefreshPerformanceTests.cs" />
     <Compile Include="NexusModsProviderInfrastructureTests.cs" />
     <Compile Include="NexusGraphQlClientTests.cs" />
     <Compile Include="NexusV3ClientTests.cs" />
