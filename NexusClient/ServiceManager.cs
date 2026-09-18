@@ -95,5 +95,18 @@ namespace Nexus.Client
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Reloads InstallLog and the native services that derive ownership/deployment state from it.
+		/// </summary>
+		/// <remarks>
+		/// Collection cross-process validation uses this only while the canonical target mutation reservation is held.
+		/// </remarks>
+		/// <param name="installLogPath">The authoritative InstallLog path to reload.</param>
+		public void ReinitializeInstallLog(string installLogPath)
+		{
+			ModManager.ReinitializeInstallLog(installLogPath);
+			ModInstallLog = ModManager.InstallationLog;
+		}
 	}
 }

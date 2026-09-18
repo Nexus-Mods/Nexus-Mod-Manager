@@ -220,8 +220,10 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 
 			Evidence eviSecurityInfo = null;
 			AppDomainSetup adsInfo = new AppDomainSetup();
-			//should this be different from the current ApplicationBase?
-			adsInfo.ApplicationBase = Path.GetDirectoryName(Application.ExecutablePath);
+			string strApplicationBase = AppDomain.CurrentDomain.SetupInformation.ApplicationBase;
+			if (String.IsNullOrWhiteSpace(strApplicationBase))
+				strApplicationBase = Path.GetDirectoryName(Application.ExecutablePath);
+			adsInfo.ApplicationBase = strApplicationBase;
 			Set<string> setPaths = new Set<string>(StringComparer.OrdinalIgnoreCase);
 			setPaths.Add(Path.GetDirectoryName(typeof(ScriptRunner).Assembly.Location));
 			Type tpeBaseScript = BaseScriptType;
@@ -247,8 +249,8 @@ namespace Nexus.Client.ModManagement.Scripting.CSharpScript
 			adsInfo.DisallowPublisherPolicy = true;
 			PermissionSet pstGrantSet = new PermissionSet(PermissionState.None);
 			pstGrantSet.AddPermission(new SecurityPermission(SecurityPermissionFlag.Execution));
-			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, Path.GetDirectoryName(Application.ExecutablePath)));
-			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, Path.GetDirectoryName(Application.ExecutablePath)));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.PathDiscovery, strApplicationBase));
+			pstGrantSet.AddPermission(new FileIOPermission(FileIOPermissionAccess.Read, strApplicationBase));
 			foreach (string strPath in setPaths)
 			{
 				if (String.IsNullOrWhiteSpace(strPath))

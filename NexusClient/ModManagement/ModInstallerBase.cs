@@ -2,6 +2,7 @@
 using System.Runtime.Remoting.Messaging;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
+using Nexus.Client.CollectionManagement;
 using Nexus.Client.Mods;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.Util;
@@ -13,6 +14,8 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public abstract class ModInstallerBase : IBackgroundTaskSet
 	{
+		private const string LegacyUnidentifiedMutationTarget = "nmm-process-legacy-native-mutation";
+
 		/// <summary>
 		/// We only want on installer running at a time, so as not to mess up
 		/// the file system, of settings files. As such, all installers lock
@@ -49,6 +52,7 @@ namespace Nexus.Client.ModManagement
 
 		private EventWaitHandle m_ewhSetCompleted = new EventWaitHandle(false, EventResetMode.ManualReset);
 		private ModOperationResult m_morOperationResult;
+		private CollectionTargetMutationLease m_ctlParentMutationLease;
 
 		#region Properties
 
@@ -119,6 +123,51 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("The native operation identity has already been assigned.");
 
 			OperationIdentity = p_moiIdentity;
+		}
+
+		/// <summary>
+		/// Assigns the parent Collection mutation reservation that this native child must inherit when it starts.
+		/// </summary>
+		/// <remarks>
+		/// The parent handle remains owned by the caller. The native operation creates and disposes its own inherited handle.
+		/// </remarks>
+		protected internal void AssignParentMutationLease(CollectionTargetMutationLease p_ctlParentLease)
+		{
+			if (p_ctlParentLease == null)
+				throw new ArgumentNullException(nameof(p_ctlParentLease));
+			if (p_ctlParentLease.IsDisposed)
+				throw new ObjectDisposedException(nameof(p_ctlParentLease));
+			if (m_ctlParentMutationLease != null)
+				throw new InvalidOperationException("The native operation already has a parent mutation lease.");
+
+			m_ctlParentMutationLease = p_ctlParentLease;
+		}
+
+		/// <summary>
+		/// Acquires the common in-process mutation reservation for this native operation.
+		/// </summary>
+		/// <remarks>
+		/// Production tasks submitted through the C3 seam use their immutable target fingerprint. Legacy direct native calls
+		/// without an identity still join the same process gate through a conservative fallback token.
+		/// </remarks>
+		protected CollectionTargetMutationLease AcquireMutationLease()
+		{
+			ModOperationIdentity identity = OperationIdentity;
+			if (identity == null)
+			{
+				if (m_ctlParentMutationLease != null)
+					throw new InvalidOperationException("A parent mutation lease cannot be inherited by an unidentified native operation.");
+
+				return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(LegacyUnidentifiedMutationTarget);
+			}
+
+			if (m_ctlParentMutationLease != null)
+			{
+				return m_ctlParentMutationLease.Manager.InheritNativeOperation(
+					m_ctlParentMutationLease, identity.Fingerprint.TargetFingerprint);
+			}
+
+			return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(identity.Fingerprint.TargetFingerprint);
 		}
 
 		#endregion

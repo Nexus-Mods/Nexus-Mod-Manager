@@ -562,6 +562,67 @@
 			  : null;
 		}
 
+		/// <summary>
+		/// Verifies a precomputed MD5 digest against one exact Nexus game/mod/file identity without filename fallback.
+		/// </summary>
+		/// <remarks>
+		/// This is an internal acquisition seam used when Collection bytes have already been sealed into immutable SHA-256
+		/// storage. All Nexus hash results are inspected because one digest lookup can return more than one record. Failure or
+		/// rate limiting returns <c>false</c>; callers must not downgrade to filename-based proof.
+		/// </remarks>
+		internal bool IsExactArchiveIdentityByMd5(string md5, string expectedGameDomain, int expectedModId,
+			int expectedFileId, CancellationToken cancellationToken)
+		{
+			if (String.IsNullOrWhiteSpace(md5) || md5.Length != 32 || !md5.All(IsHexCharacter) ||
+				String.IsNullOrWhiteSpace(expectedGameDomain) || expectedModId <= 0 || expectedFileId <= 0 ||
+				!StringComparer.OrdinalIgnoreCase.Equals(GameDomainName, expectedGameDomain))
+				return false;
+
+			try
+			{
+				var client = _apiCallManager.V1;
+				if (client == null)
+					return false;
+
+				NexusV1ModHashResult[] results = client.FindModsByMd5Async(GameDomainName, md5, cancellationToken).GetAwaiter().GetResult();
+				if (results == null)
+					return false;
+
+				return results.Any(result =>
+				{
+					if (result?.Mod == null || result.File == null ||
+						result.Mod.ModId != expectedModId || result.File.FileId != expectedFileId)
+						return false;
+
+					string resultDomain = String.IsNullOrWhiteSpace(result.Mod.DomainName)
+						? GameDomainName
+						: result.Mod.DomainName.Trim();
+					return StringComparer.OrdinalIgnoreCase.Equals(resultDomain, expectedGameDomain);
+				});
+			}
+			catch (OperationCanceledException)
+			{
+				throw;
+			}
+			catch (ApiException ex)
+			{
+				ReactToApiException(ex);
+				return false;
+			}
+			catch (Exception ex)
+			{
+				TraceUtil.TraceException(ex);
+				return false;
+			}
+		}
+
+		private static bool IsHexCharacter(char value)
+		{
+			return (value >= '0' && value <= '9') ||
+				(value >= 'a' && value <= 'f') ||
+				(value >= 'A' && value <= 'F');
+		}
+
 		private ModHashLookupOutcome GetModHashLookupForFile(string fileName)
 		{
 			if (string.IsNullOrWhiteSpace(fileName) ||

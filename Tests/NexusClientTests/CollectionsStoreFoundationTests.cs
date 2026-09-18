@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Data.SQLite;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using NUnit.Framework;
@@ -9,7 +11,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	/// <summary>
-	/// C4.4 feature-store/schema foundation coverage.
+	/// C4.5/C4.9/C4.12 feature-store schema, migration, availability and failure-handling coverage.
 	/// </summary>
 	public class CollectionsStoreFoundationTests
 	{
@@ -47,6 +49,10 @@ namespace NexusClientTests
 			{
 				var store = new CollectionsStore(root);
 				Assert.IsFalse(store.Exists);
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.Missing, inspection.Availability);
+				Assert.IsFalse(inspection.CanReadFeatureState);
+				Assert.IsFalse(inspection.CanWriteFeatureState);
 				Assert.Throws<FileNotFoundException>(() => store.OpenExisting());
 				Assert.Throws<FileNotFoundException>(() => store.ReadStoreId());
 				Assert.IsFalse(File.Exists(store.DatabasePath));
@@ -77,6 +83,12 @@ namespace NexusClientTests
 				Assert.AreEqual(CollectionsStore.BusyTimeoutMilliseconds, status.BusyTimeoutMilliseconds);
 				Assert.IsTrue(status.HasRequiredDurabilitySettings);
 				Assert.AreEqual(createdStoreId, store.ReadStoreId());
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.Ready, inspection.Availability);
+				Assert.AreEqual(createdStoreId, inspection.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, inspection.SchemaVersion);
+				Assert.IsTrue(inspection.CanReadFeatureState);
+				Assert.IsTrue(inspection.CanWriteFeatureState);
 
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
@@ -101,6 +113,8 @@ namespace NexusClientTests
 						"local_capture_native_mappings",
 						"retained_artifacts",
 						"retained_artifact_references",
+						"retained_artifact_tombstones",
+						"collection_acquisition_requests",
 						"collection_operations",
 						"native_operation_children"
 					};
@@ -129,6 +143,8 @@ namespace NexusClientTests
 					string[] indexes =
 					{
 						"ix_collection_revisions_collection",
+						"ix_revision_sources_raw_bundle_artifact",
+						"ix_revision_sources_raw_manifest_artifact",
 						"ix_resolved_plans_revision",
 						"ix_target_associations_target",
 						"ix_member_bindings_native",
@@ -137,7 +153,9 @@ namespace NexusClientTests
 						"ix_local_captures_revision",
 						"ix_retained_artifact_references_artifact",
 						"ix_collection_operations_pending",
-						"ix_native_operation_children_native"
+						"ix_native_operation_children_native",
+						"ix_collection_acquisition_queue",
+						"ix_collection_acquisition_verified_artifact"
 					};
 
 					foreach (string index in indexes)
@@ -146,6 +164,8 @@ namespace NexusClientTests
 					Assert.Greater(ForeignKeyCount(connection, "member_bindings"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "native_operation_children"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "revision_sources"), 0);
+					Assert.Greater(ForeignKeyCount(connection, "retained_artifact_tombstones"), 0);
+					Assert.Greater(ForeignKeyCount(connection, "collection_acquisition_requests"), 0);
 				}
 			}
 			finally
@@ -199,6 +219,94 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void OpenExisting_MigratesVersion1ThroughCurrentSchemaWithoutLosingRetainedState()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				var retainedStore = new CollectionsRetainedArtifactStore(store);
+				CollectionsRetainedArtifact artifact;
+				using (var source = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("schema migration retained bytes"), false))
+					artifact = retainedStore.Publish(source);
+				var referenceStore = new CollectionsRetainedArtifactReferenceStore(store);
+				referenceStore.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
+					"migration-operation", "recovery");
+
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP INDEX ix_collection_acquisition_queue;");
+					Execute(connection, null, "DROP TABLE collection_acquisition_requests;");
+					Execute(connection, null, "DROP TABLE retained_artifact_tombstones;");
+					Execute(connection, null, "DROP INDEX ix_revision_sources_raw_bundle_artifact;");
+					Execute(connection, null, "DROP INDEX ix_revision_sources_raw_manifest_artifact;");
+					Execute(connection, null, "UPDATE store_metadata SET value='1' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=1;");
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.MigrationRequired, inspection.Availability);
+				Assert.AreEqual(1, inspection.SchemaVersion);
+				Assert.IsFalse(inspection.CanReadFeatureState);
+				Assert.IsFalse(inspection.CanWriteFeatureState);
+
+				CollectionsStoreStatus migrated = store.OpenExisting();
+				Assert.AreEqual(storeId, migrated.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, migrated.SchemaVersion);
+				Assert.IsTrue(retainedStore.VerifyArtifact(artifact.ArtifactId));
+				Assert.AreEqual(1, referenceStore.GetReferencesForArtifact(artifact.ArtifactId).Count);
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion.ToString(CultureInfo.InvariantCulture), ScalarString(connection, "SELECT value FROM store_metadata WHERE key='schema_version';"));
+					Assert.IsTrue(TableExists(connection, "retained_artifact_tombstones"));
+					Assert.IsTrue(TableExists(connection, "collection_acquisition_requests"));
+					Assert.AreEqual(1, ScalarInt(connection, "SELECT COUNT(*) FROM retained_artifacts;"));
+					Assert.AreEqual(1, ScalarInt(connection, "SELECT COUNT(*) FROM retained_artifact_references;"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void InspectExisting_CorruptVersion1StoreIsNotRelabeledOrMigrated()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP TABLE retained_artifact_tombstones;");
+					Execute(connection, null, "DROP INDEX ix_revision_sources_raw_bundle_artifact;");
+					Execute(connection, null, "DROP INDEX ix_revision_sources_raw_manifest_artifact;");
+					Execute(connection, null, "DROP INDEX ix_member_bindings_native;");
+					Execute(connection, null, "UPDATE store_metadata SET value='1' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=1;");
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.InvalidOrCorrupt, inspection.Availability);
+				Assert.Throws<CollectionsStoreSchemaException>(() => store.OpenExisting());
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.AreEqual(1, ScalarInt(connection, "PRAGMA user_version;"));
+					Assert.AreEqual("1", ScalarString(connection, "SELECT value FROM store_metadata WHERE key='schema_version';"));
+					Assert.IsFalse(TableExists(connection, "retained_artifact_tombstones"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void OpenExisting_RejectsUnknownNewerSchemaWithoutDowngradingIt()
 		{
 			string root = CreateTemporaryDirectory();
@@ -218,7 +326,15 @@ namespace NexusClientTests
 					}
 				}
 
-				Assert.Throws<CollectionsStoreSchemaException>(() => store.OpenExisting());
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.UnsupportedNewerSchema, inspection.Availability);
+				Assert.AreEqual(999, inspection.SchemaVersion);
+				Assert.IsFalse(inspection.CanReadFeatureState);
+				Assert.IsFalse(inspection.CanWriteFeatureState);
+
+				CollectionsStoreSchemaException schemaException = Assert.Throws<CollectionsStoreSchemaException>(() => store.OpenExisting());
+				Assert.AreEqual(CollectionsStoreSchemaFailureKind.NewerThanSupported, schemaException.FailureKind);
+				Assert.AreEqual(999, schemaException.DetectedSchemaVersion);
 
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
@@ -227,6 +343,106 @@ namespace NexusClientTests
 					Assert.AreEqual("wal", ScalarString(connection, "PRAGMA journal_mode;").ToLowerInvariant(),
 						"An unknown newer store must be rejected before NMM mutates its journal mode or schema.");
 				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void InspectExisting_CorruptStoreIsNotReplacedOrReinitialized()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Directory.CreateDirectory(store.StoreDirectory);
+				byte[] corruptBytes = { 0x4e, 0x4d, 0x4d, 0x2d, 0x43, 0x34, 0x2e, 0x39 };
+				File.WriteAllBytes(store.DatabasePath, corruptBytes);
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.InvalidOrCorrupt, inspection.Availability);
+				Assert.IsFalse(inspection.CanReadFeatureState);
+				Assert.IsFalse(inspection.CanWriteFeatureState);
+				CollectionsStoreAccessException exception = Assert.Throws<CollectionsStoreAccessException>(() => store.OpenExisting());
+				Assert.AreEqual(CollectionsStoreAccessFailureKind.Corrupt, exception.FailureKind);
+				CollectionAssert.AreEqual(corruptBytes, File.ReadAllBytes(store.DatabasePath));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void ReadOnlyStore_RemainsReadableButFeatureWritesAreBlocked()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				FileAttributes originalAttributes = File.GetAttributes(store.DatabasePath);
+				try
+				{
+					File.SetAttributes(store.DatabasePath, originalAttributes | FileAttributes.ReadOnly);
+					CollectionsStoreInspection inspection = store.InspectExisting();
+					Assert.AreEqual(CollectionsStoreAvailability.ReadOnly, inspection.Availability);
+					Assert.AreEqual(storeId, inspection.StoreId);
+					Assert.IsTrue(inspection.CanReadFeatureState);
+					Assert.IsFalse(inspection.CanWriteFeatureState);
+					Assert.AreEqual(storeId, store.ReadStoreId());
+					CollectionsStoreAccessException openException = Assert.Throws<CollectionsStoreAccessException>(() => store.OpenExisting());
+					Assert.AreEqual(CollectionsStoreAccessFailureKind.ReadOnly, openException.FailureKind);
+
+					var catalog = new CollectionsCatalogStore(store);
+					var definition = new CollectionDefinition(CollectionIdentity.FromNexus("read-only-c4-9"), "Read only", null, null);
+					CollectionsStoreAccessException exception = Assert.Throws<CollectionsStoreAccessException>(() => catalog.SaveDefinition(definition));
+					Assert.AreEqual(CollectionsStoreAccessFailureKind.ReadOnly, exception.FailureKind);
+					Assert.IsNull(catalog.GetDefinition(definition.Identity));
+				}
+				finally
+				{
+					File.SetAttributes(store.DatabasePath, originalAttributes);
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void BusyWriter_FailsWithinConfiguredBoundAndDoesNotCommitFeatureState()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var catalog = new CollectionsCatalogStore(store);
+				var definition = new CollectionDefinition(CollectionIdentity.FromNexus("busy-c4-9"), "Busy", null, null);
+
+				using (SQLiteConnection blocker = OpenDatabase(store.DatabasePath))
+				{
+					Execute(blocker, null, "BEGIN IMMEDIATE;");
+					try
+					{
+						Stopwatch watch = Stopwatch.StartNew();
+						CollectionsStoreAccessException exception = Assert.Throws<CollectionsStoreAccessException>(() => catalog.SaveDefinition(definition));
+						watch.Stop();
+						Assert.AreEqual(CollectionsStoreAccessFailureKind.Busy, exception.FailureKind);
+						Assert.Less(watch.ElapsedMilliseconds, CollectionsStore.BusyTimeoutMilliseconds + 5000,
+							"SQLite busy handling must remain bounded rather than spinning or waiting indefinitely.");
+					}
+					finally
+					{
+						Execute(blocker, null, "ROLLBACK;");
+					}
+				}
+
+				Assert.IsNull(catalog.GetDefinition(definition.Identity));
 			}
 			finally
 			{
@@ -245,7 +461,7 @@ namespace NexusClientTests
 
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
-					Execute(connection, null, "UPDATE store_metadata SET value='2' WHERE key='schema_version';");
+					Execute(connection, null, "UPDATE store_metadata SET value='1' WHERE key='schema_version';");
 				}
 
 				Assert.Throws<CollectionsStoreSchemaException>(() => store.OpenExisting());
@@ -270,6 +486,9 @@ namespace NexusClientTests
 					Execute(connection, null, "DROP INDEX ix_member_bindings_native;");
 				}
 
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.InvalidOrCorrupt, inspection.Availability);
+				Assert.IsFalse(inspection.CanReadFeatureState);
 				Assert.Throws<CollectionsStoreSchemaException>(() => store.OpenExisting());
 			}
 			finally

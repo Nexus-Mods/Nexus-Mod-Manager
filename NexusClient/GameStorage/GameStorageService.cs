@@ -421,6 +421,18 @@ namespace Nexus.Client.GameStorage
 		}
 
 		/// <summary>
+		/// Resolves a persisted Game Storage identity for the exact selected path set without creating metadata or
+		/// borrowing the active identity of another storage. Conflicting persisted evidence fails closed.
+		/// </summary>
+		public bool TryResolveExistingStorageId(GameStoragePathSet paths, out string storageId)
+		{
+			if (paths == null)
+				throw new ArgumentNullException(nameof(paths));
+
+			return TryResolveExistingStorageId(paths, LoadRegistry(), out storageId);
+		}
+
+		/// <summary>
 		/// Compatibility overload. The initializeIfValid argument no longer causes
 		/// writes; use InitializeMetadataForStorage for an explicit metadata update.
 		/// </summary>
@@ -962,6 +974,51 @@ namespace Nexus.Client.GameStorage
             entry.LastKnownVirtualFileCount = CountVirtualInstallPayloadFiles(paths.VirtualInstallPath);
             registry.ActiveStorageByGame[paths.GameId] = storageId;
         }
+
+		/// <summary>
+		/// Resolves one existing storage identity only when folder, registry and root-manifest evidence do not conflict.
+		/// </summary>
+		private bool TryResolveExistingStorageId(GameStoragePathSet paths, GameStorageRegistry registry, out string storageId)
+		{
+			storageId = null;
+			if (paths == null || registry == null)
+				return false;
+
+			var candidates = new List<string>();
+			var folderStorageIds = new List<string>();
+			AddFolderManifestStorageId(folderStorageIds, paths, paths.InstallInfoPath, GameStorageFolderRole.InstallInfo);
+			AddFolderManifestStorageId(folderStorageIds, paths, paths.ModsPath, GameStorageFolderRole.Mods);
+			AddFolderManifestStorageId(folderStorageIds, paths, paths.VirtualInstallPath, GameStorageFolderRole.VirtualInstall);
+			if (paths.LinkFolderRequired)
+				AddFolderManifestStorageId(folderStorageIds, paths, paths.LinkFolderPath, GameStorageFolderRole.LinkFolder);
+
+			List<string> distinctFolderStorageIds = folderStorageIds
+				.Where(x => !string.IsNullOrWhiteSpace(x))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+			if (distinctFolderStorageIds.Count > 1)
+				return false;
+			if (distinctFolderStorageIds.Count == 1)
+				candidates.Add(distinctFolderStorageIds[0]);
+
+			string registryStorageId = FindExactRegistryStorageId(paths, registry);
+			if (!string.IsNullOrWhiteSpace(registryStorageId))
+				candidates.Add(registryStorageId);
+
+			string rootManifestStorageId = ResolveMatchingRootManifestStorageId(paths);
+			if (!string.IsNullOrWhiteSpace(rootManifestStorageId))
+				candidates.Add(rootManifestStorageId);
+
+			List<string> distinctCandidates = candidates
+				.Where(x => !string.IsNullOrWhiteSpace(x))
+				.Distinct(StringComparer.OrdinalIgnoreCase)
+				.ToList();
+			if (distinctCandidates.Count != 1)
+				return false;
+
+			storageId = distinctCandidates[0];
+			return true;
+		}
 
         private string ResolveStorageId(GameStoragePathSet paths, GameStorageRegistry registry)
         {

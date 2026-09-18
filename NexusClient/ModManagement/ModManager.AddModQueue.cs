@@ -23,6 +23,7 @@ namespace Nexus.Client.ModManagement
 			private ModManager m_mmgModManager = null;
 			private IEnvironmentInfo m_eifEnvironmentInfo = null;
 			private Dictionary<Uri, AddModTask> m_dicActiveTasks = new Dictionary<Uri, AddModTask>();
+			private Dictionary<Guid, AddModTask> m_dicActiveTasksByOperationId = new Dictionary<Guid, AddModTask>();
 
 			/// <summary>
 			/// The number of running local addmod tasks.
@@ -74,6 +75,11 @@ namespace Nexus.Client.ModManagement
 					}
 					foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
 					{
+						if (kvpMod.Value != null && kvpMod.Value.QueueOperationId.HasValue)
+						{
+							Trace.TraceInformation("Deferring externally correlated AddMod restart state for explicit reconciliation.");
+							continue;
+						}
 						Trace.TraceInformation(String.Format("[{0}] Adding from serialized queue", SanitizeDownloadUri(new Uri(kvpMod.Key))));
 						kvpMod.Value.Status = TaskStatus.Paused;
 						AddMod(new Uri(kvpMod.Key), ConfirmFileOverwrite);
@@ -103,26 +109,76 @@ namespace Nexus.Client.ModManagement
 			/// <param name="p_intCategoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
 			public IBackgroundTask AddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite, Int32? p_intCategoryOverrideId)
 			{
+				return AddMod(p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, null);
+			}
+
+			/// <summary>
+			/// Adds a mod with an optional explicit queue-operation identity for external request correlation.
+			/// </summary>
+			public IBackgroundTask AddMod(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite, Int32? p_intCategoryOverrideId, Guid? p_gudQueueOperationId)
+			{
+				if (p_gudQueueOperationId.HasValue && p_gudQueueOperationId.Value == Guid.Empty)
+					throw new ArgumentException("A non-empty AddMod queue-operation identifier is required when correlation is requested.", nameof(p_gudQueueOperationId));
+
 				AddModTask amtModAdder = null;
 				bool booIsRemote = p_uriPath.Scheme.ToLowerInvariant().ToString() == "nxm";
 				bool booQueueTask = false;
 
 				lock (m_dicActiveTasks)
 				{
-					if (m_dicActiveTasks.ContainsKey(p_uriPath))
-						return m_dicActiveTasks[p_uriPath];
+					AddModTask existingTask;
+					if (p_gudQueueOperationId.HasValue && m_dicActiveTasksByOperationId.TryGetValue(p_gudQueueOperationId.Value, out existingTask))
+						return existingTask;
+
+					if (m_dicActiveTasks.TryGetValue(p_uriPath, out existingTask))
+					{
+						if (p_gudQueueOperationId.HasValue && existingTask.QueueOperationId != p_gudQueueOperationId.Value)
+							throw new InvalidOperationException("The requested source is already owned by another active AddMod queue operation. Shared acquisition ownership is not enabled at this stage.");
+						return existingTask;
+					}
+
+					// Only replace persisted restart correlation when this call is actually creating a new producer.
+					// A live producer with the same operation ID remains authoritative and must not lose its restart descriptor.
+					if (p_gudQueueOperationId.HasValue)
+						RemoveStalePersistedCorrelation(p_gudQueueOperationId.Value, p_uriPath);
 
 					Trace.TraceInformation(String.Format("[{0}] Adding Mod to AddModQueue", SanitizeDownloadUri(p_uriPath)));
-					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, m_mmgModManager.SortOrderService);
+					Guid queueOperationId = p_gudQueueOperationId ?? Guid.NewGuid();
+					amtModAdder = new AddModTask(m_mmgModManager.GameMode, m_mmgModManager.ReadMeManager, m_mmgModManager.EnvironmentInfo, m_mmgModManager.ManagedModRegistry, m_mmgModManager.FormatRegistry, m_mmgModManager.ModRepository, p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, m_mmgModManager.SortOrderService, queueOperationId);
 					amtModAdder.TaskEnded += new EventHandler<TaskEndedEventArgs>(ModAdder_TaskEnded);
 					amtModAdder.IsRemote = booIsRemote;
 					m_dicActiveTasks[p_uriPath] = amtModAdder;
+					m_dicActiveTasksByOperationId[queueOperationId] = amtModAdder;
 					booQueueTask = booIsRemote || LocalTaskCount > 1;
 				}
 
 				m_mmgModManager.DownloadMonitor.AddActivity(amtModAdder);
 				amtModAdder.AddMod(booQueueTask);
 				return amtModAdder;
+			}
+
+			/// <summary>
+			/// Removes an older persisted URI for the same external queue operation before fresh authorization is queued.
+			/// </summary>
+			private void RemoveStalePersistedCorrelation(Guid queueOperationId, Uri currentSource)
+			{
+				if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
+					return;
+				KeyedSettings<AddModDescriptor> queued = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId];
+				if (queued == null)
+					return;
+				string currentKey = currentSource == null ? null : currentSource.ToString();
+				List<string> staleKeys = queued
+					.Where(pair => pair.Value != null && pair.Value.QueueOperationId.HasValue &&
+						pair.Value.QueueOperationId.Value == queueOperationId &&
+						!StringComparer.Ordinal.Equals(pair.Key, currentKey))
+					.Select(pair => pair.Key).ToList();
+				if (staleKeys.Count == 0)
+					return;
+				foreach (string staleKey in staleKeys)
+					queued.Remove(staleKey);
+				lock (m_eifEnvironmentInfo.Settings)
+					m_eifEnvironmentInfo.Settings.Save();
 			}
 
 			/// <summary>
@@ -152,6 +208,9 @@ namespace Nexus.Client.ModManagement
 									  select k.Key).FirstOrDefault();
 						if (uriKey != null)
 							m_dicActiveTasks.Remove(uriKey);
+						AddModTask endedTask = sender as AddModTask;
+						if (endedTask != null)
+							m_dicActiveTasksByOperationId.Remove(endedTask.QueueOperationId);
 						if(m_dicActiveTasks.Count > 0)
 							ResumeQueued();
 					}

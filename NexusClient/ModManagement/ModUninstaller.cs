@@ -190,6 +190,7 @@ namespace Nexus.Client.ModManagement
 			string strErrorMessage = String.Empty;
 			try
 			{
+				using (var mutationLease = AcquireMutationLease())
 				lock (objUninstallLock)
 				{
 					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);

@@ -230,6 +230,7 @@ namespace Nexus.Client.ModManagement
 			
 			try
 			{
+				using (var mutationLease = AcquireMutationLease())
 				lock (objInstallLock)
 				{
 					using (TransactionScope tsTransaction = new TransactionScope())

@@ -378,6 +378,15 @@
 		public string ErrorInfo { get; private set; }
 
 		/// <summary>
+		/// Gets the stable identity of this AddMod queue operation for in-memory correlation.
+		/// </summary>
+		/// <remarks>
+		/// This identifier is not archive identity. C4.22 persists it for externally correlated descriptors; legacy descriptors
+		/// without the attribute remain valid and simply have no restart correlation.
+		/// </remarks>
+		public Guid QueueOperationId { get; private set; }
+
+		/// <summary>
 		/// Gets the current Descriptor source path.
 		/// </summary>
 		/// <value>The current Descriptor source path.</value>
@@ -442,7 +451,19 @@
 		/// <param name="categoryOverrideId">The explicit category ID, or <c>null</c> to keep normal Nexus category resolution.</param>
 		/// <param name="modSortOrderService">The active storage's Sort-assignment service, or <c>null</c> when unavailable.</param>
 		public AddModTask(IGameMode gameMode, ReadMeManager readMeManager, IEnvironmentInfo environmentInfo, ModRegistry modRegistry, IModFormatRegistry formatRegistry, IModRepository modRepository, Uri downloadPath, ConfirmOverwriteCallback confirmOverwriteCallback, Int32? categoryOverrideId, ModSortOrderService modSortOrderService)
+			: this(gameMode, readMeManager, environmentInfo, modRegistry, formatRegistry, modRepository, downloadPath, confirmOverwriteCallback, categoryOverrideId, modSortOrderService, Guid.NewGuid())
 		{
+		}
+
+		/// <summary>
+		/// Initializes a mod-add task with an explicit queue-operation identity used for request correlation.
+		/// </summary>
+		public AddModTask(IGameMode gameMode, ReadMeManager readMeManager, IEnvironmentInfo environmentInfo, ModRegistry modRegistry, IModFormatRegistry formatRegistry, IModRepository modRepository, Uri downloadPath, ConfirmOverwriteCallback confirmOverwriteCallback, Int32? categoryOverrideId, ModSortOrderService modSortOrderService, Guid queueOperationId)
+		{
+			if (queueOperationId == Guid.Empty)
+				throw new ArgumentException("A non-empty AddMod queue-operation identifier is required.", nameof(queueOperationId));
+
+			QueueOperationId = queueOperationId;
 			_gameMode = gameMode;
 			_environmentInfo = environmentInfo;
 			_modRegistry = modRegistry;
@@ -824,7 +845,7 @@
                 }
                 else
 				{
-					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty, string.Empty);
+					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty, string.Empty, QueueOperationId);
 					queuedMods[path.ToString()] = descriptor;
 
                     lock (_environmentInfo.Settings)
@@ -900,7 +921,7 @@
                         }
 
                         var strSourcePath = Path.Combine(_gameMode.GameModeEnvironmentInfo.ModDownloadCacheDirectory, fileInfo.Filename);
-						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions, fileInfo.Name, fileInfo.Filename);
+						descriptor = new AddModDescriptor(path, strSourcePath, uriFilesToDownload, TaskStatus.Running, _fileserverCaptions, fileInfo.Name, fileInfo.Filename, QueueOperationId);
 						break;
 					default:
 						Trace.TraceInformation($"[{SanitizeDownloadUri(path)}] Can't get the file.");
@@ -1453,7 +1474,7 @@
 
 			if (Descriptor == null)
 			{
-				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null, string.Empty, string.Empty);
+				Descriptor = new AddModDescriptor(_downloadPath, string.Empty, null, Status, null, string.Empty, string.Empty, QueueOperationId);
 				OverallMessage = string.Format(_cancelledPathFormat, _downloadPath);
 				OnTaskEnded(OverallMessage, null);
 				return;

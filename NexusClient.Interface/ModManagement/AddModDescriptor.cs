@@ -87,6 +87,11 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public string FileName { get; private set; }
 
+		/// <summary>
+		/// Gets the stable external queue-operation identity when this descriptor belongs to correlated acquisition work.
+		/// </summary>
+		public Guid? QueueOperationId { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -112,8 +117,18 @@ namespace Nexus.Client.ModManagement
 		/// <param name="modFileName">The name of the specific mod file being added.</param>
 		/// <param name="fileName">The name of the file being added.</param>
 		public AddModDescriptor(Uri p_uriSourceUri, string p_strDefaultSourcePath, IEnumerable<Uri> p_enmDownloadFiles, TaskStatus p_tstStatus, List<string> p_lstSourceName, string modFileName, string fileName)
+			: this(p_uriSourceUri, p_strDefaultSourcePath, p_enmDownloadFiles, p_tstStatus, p_lstSourceName, modFileName, fileName, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates a descriptor with an optional stable external queue-operation identity.
+		/// </summary>
+		public AddModDescriptor(Uri p_uriSourceUri, string p_strDefaultSourcePath, IEnumerable<Uri> p_enmDownloadFiles, TaskStatus p_tstStatus, List<string> p_lstSourceName, string modFileName, string fileName, Guid? queueOperationId)
 			: this()
 		{
+			if (queueOperationId.HasValue && queueOperationId.Value == Guid.Empty)
+				throw new ArgumentException("A persisted AddMod queue-operation identity cannot be empty.", nameof(queueOperationId));
 			SourceUri = p_uriSourceUri;
 			DefaultSourcePath = p_strDefaultSourcePath;
 			if (p_enmDownloadFiles != null)
@@ -122,6 +137,7 @@ namespace Nexus.Client.ModManagement
 			Status = p_tstStatus;
 			ModFileName = modFileName;
 			FileName = fileName;
+			QueueOperationId = queueOperationId;
 		}
 
 		#endregion
@@ -143,6 +159,14 @@ namespace Nexus.Client.ModManagement
 		/// <param name="reader">The xml reader from which to deserialize the object.</param>
 		public void ReadXml(XmlReader reader)
 		{
+			string queueOperationId = reader.GetAttribute("queueOperationId");
+			if (!String.IsNullOrWhiteSpace(queueOperationId))
+			{
+				Guid parsedQueueOperationId;
+				if (!Guid.TryParse(queueOperationId, out parsedQueueOperationId) || parsedQueueOperationId == Guid.Empty)
+					throw new XmlException("Invalid persisted AddMod queue-operation identity.");
+				QueueOperationId = parsedQueueOperationId;
+			}
 			bool booIsEmpty = reader.IsEmptyElement;
 			if (booIsEmpty)
 				return;
@@ -239,6 +263,8 @@ namespace Nexus.Client.ModManagement
 		/// <param name="writer">The xml writer to which to serialize the object.</param>
 		public void WriteXml(XmlWriter writer)
 		{
+			if (QueueOperationId.HasValue)
+				writer.WriteAttributeString("queueOperationId", QueueOperationId.Value.ToString("D"));
 			writer.WriteStartElement("sourceUri");
 			XmlSerializer xsrSerializer = new XmlSerializer(typeof(string));
 			xsrSerializer.Serialize(writer, SourceUri.ToString());

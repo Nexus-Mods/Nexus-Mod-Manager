@@ -9,9 +9,9 @@ namespace Nexus.Client.CollectionManagement
 	/// Immutable collection-operation journal snapshot spanning preparation, native children, verification and recovery.
 	/// </summary>
 	/// <remarks>
-	/// This is a persistence/domain contract, not an executor. A later store/coordinator advances checkpoints only after the
-	/// required durable ordering has been satisfied. Native child durability remains authoritative and is never collapsed into
-	/// the collection-level result.
+	/// This is a persistence/domain contract, not an executor. The Collections operation journal/coordinator advances
+	/// checkpoints only after the required durable ordering has been satisfied. Native child durability remains authoritative
+	/// and is never collapsed into the collection-level result.
 	/// </remarks>
 	public sealed class CollectionOperation
 	{
@@ -116,7 +116,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionPlanIdentity PlanIdentity { get; }
 
 		/// <summary>
-		/// Gets the monotonically increasing durable checkpoint sequence assigned by the future feature store.
+		/// Gets the monotonically increasing durable checkpoint sequence assigned by the Collections operation journal.
 		/// </summary>
 		public long CheckpointSequence { get; }
 

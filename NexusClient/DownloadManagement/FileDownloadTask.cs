@@ -91,6 +91,7 @@ namespace Nexus.Client.DownloadManagement
 		private FileDownloader m_fdrDownloader = null;
 		private AutoResetEvent m_areWaitForDownload = null;
 		private readonly ManualResetEvent m_mreRetryWait = new ManualResetEvent(false);
+		private readonly object m_objRetryWaitLock = new object();
 		private State m_steState = null;
 
 		#region Properties
@@ -434,10 +435,12 @@ namespace Nexus.Client.DownloadManagement
 		/// <returns><c>true</c> if the retry interval elapsed; otherwise, <c>false</c>.</returns>
 		private bool WaitForRetryInterval()
 		{
-			m_mreRetryWait.Reset();
-
-			if (IsRetryWaitInterrupted())
-				return false;
+			lock (m_objRetryWaitLock)
+			{
+				m_mreRetryWait.Reset();
+				if (IsRetryWaitInterrupted())
+					return false;
+			}
 
 			m_mreRetryWait.WaitOne(m_intRetryInterval);
 			return !IsRetryWaitInterrupted();
@@ -491,6 +494,10 @@ namespace Nexus.Client.DownloadManagement
             {
                 OnTaskEnded(String.Format(m_strPausedFormat, ((FileDownloader)sender).URL), ((FileDownloader)sender).TempFiles);
             }
+            else if (Status == TaskStatus.Queued)
+            {
+                OnTaskEnded(null, ((FileDownloader)sender).TempFiles);
+            }
             else if (!e.GotEntireFile)
             {
                 if (Status == TaskStatus.Cancelling)
@@ -536,14 +543,20 @@ namespace Nexus.Client.DownloadManagement
 		{
 			if (Status == TaskStatus.Retrying)
 			{
-				Status = TaskStatus.Cancelling;
+				lock (m_objRetryWaitLock)
+				{
+					Status = TaskStatus.Cancelling;
+					m_mreRetryWait.Set();
+				}
 				base.Cancel();
-				m_mreRetryWait.Set();
 			}
 			else
 			{
-				Status = TaskStatus.Cancelled;
-				m_mreRetryWait.Set();
+				lock (m_objRetryWaitLock)
+				{
+					Status = TaskStatus.Cancelled;
+					m_mreRetryWait.Set();
+				}
 
                 if (m_fdrDownloader != null)
                 {
@@ -560,8 +573,11 @@ namespace Nexus.Client.DownloadManagement
 		/// <exception cref="InvalidOperationException">Thrown if the task does not support pausing.</exception>
 		public override void Pause()
 		{
-			Status = TaskStatus.Paused;
-			m_mreRetryWait.Set();
+			lock (m_objRetryWaitLock)
+			{
+				Status = TaskStatus.Paused;
+				m_mreRetryWait.Set();
+			}
 
             if (m_fdrDownloader != null)
             {
@@ -579,8 +595,11 @@ namespace Nexus.Client.DownloadManagement
 		/// <exception cref="InvalidOperationException">Thrown if the task does not support queuing.</exception>
 		public override void Queue()
 		{
-			Status = TaskStatus.Queued;
-			m_mreRetryWait.Set();
+			lock (m_objRetryWaitLock)
+			{
+				Status = TaskStatus.Queued;
+				m_mreRetryWait.Set();
+			}
 
             if (m_fdrDownloader != null)
             {

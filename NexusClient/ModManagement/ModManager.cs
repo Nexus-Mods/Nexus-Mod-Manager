@@ -855,6 +855,27 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Adds a mod through the existing queue with an explicit queue-operation identity for feature correlation.
+		/// </summary>
+		internal IBackgroundTask AddModWithQueueOperationId(Uri p_uriPath, ConfirmOverwriteCallback p_cocConfirmOverwrite, Int32? p_intCategoryOverrideId, Guid p_gudQueueOperationId)
+		{
+			if (p_uriPath == null)
+				throw new ArgumentNullException(nameof(p_uriPath));
+			if (p_gudQueueOperationId == Guid.Empty)
+				throw new ArgumentException("A non-empty AddMod queue-operation identifier is required.", nameof(p_gudQueueOperationId));
+
+			if (p_uriPath.Scheme.Equals("nxm", StringComparison.OrdinalIgnoreCase) && ModRepository.IsOffline)
+			{
+				Login();
+				IBackgroundTask offlineTask = ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, p_gudQueueOperationId);
+				AsyncAddModTask(offlineTask);
+				return offlineTask;
+			}
+
+			return ModAdditionQueue.AddMod(p_uriPath, p_cocConfirmOverwrite, p_intCategoryOverrideId, p_gudQueueOperationId);
+		}
+
+		/// <summary>
 		/// Loads the list of mods that are queued to be added to the mod manager.
 		/// </summary>
 		public void LoadQueuedMods()

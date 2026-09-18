@@ -17,8 +17,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	/// </remarks>
 	public sealed class CollectionsStore
 	{
-		public const int CurrentSchemaVersion = 1;
+		public const int CurrentSchemaVersion = 3;
 		public const int BusyTimeoutMilliseconds = 5000;
+		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private const string SchemaName = "nmm-ce-collections";
 		private const string SchemaVersionMetadataKey = "schema_version";
 		private const string StoreIdMetadataKey = "store_id";
@@ -64,14 +65,14 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		{
 			lock (_writerGate)
 			{
-				Directory.CreateDirectory(StoreDirectory);
-				if (File.Exists(DatabasePath))
-					throw new IOException("A Collections feature store already exists at: " + DatabasePath);
-
 				Guid storeId = Guid.NewGuid();
 				bool claimedFile = false;
 				try
 				{
+					Directory.CreateDirectory(StoreDirectory);
+					if (File.Exists(DatabasePath))
+						throw new IOException("A Collections feature store already exists at: " + DatabasePath);
+
 					using (FileStream stream = new FileStream(DatabasePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
 					{
 						claimedFile = true;
@@ -86,6 +87,21 @@ namespace Nexus.Client.CollectionManagement.Persistence
 
 					return storeId;
 				}
+				catch (SQLiteException ex)
+				{
+					if (claimedFile)
+						CleanupFailedCreation();
+					CollectionsStoreAccessException mapped = CreateAccessException("create the Collections feature store", ex);
+					if (mapped != null)
+						throw mapped;
+					throw;
+				}
+				catch (UnauthorizedAccessException ex)
+				{
+					if (claimedFile)
+						CleanupFailedCreation();
+					throw CreateReadOnlyAccessException("create the Collections feature store", ex);
+				}
 				catch
 				{
 					if (claimedFile)
@@ -96,29 +112,148 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		}
 
 		/// <summary>
+		/// Inspects an existing store without creating, replacing, migrating or committing feature state.
+		/// </summary>
+		/// <remarks>
+		/// A successful inspection performs a rolled-back no-op write probe so read-only and cross-process busy states are
+		/// distinguished from a genuinely writable current-schema store. The probe does not publish Collections data.
+		/// </remarks>
+		public CollectionsStoreInspection InspectExisting()
+		{
+			if (!File.Exists(DatabasePath))
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.Missing, null, null,
+					"The Collections feature store is missing; it was not recreated.");
+
+			Guid? storeId = null;
+			int? version = null;
+			try
+			{
+				using (SQLiteConnection connection = OpenConnection(true, true))
+				{
+					ConfigureReadConnection(connection);
+					version = ReadAndValidateVersion(connection);
+					if (version.Value > CurrentSchemaVersion)
+						return new CollectionsStoreInspection(CollectionsStoreAvailability.UnsupportedNewerSchema, null, version,
+							"The Collections feature store was created by a newer NMM version and will not be downgraded.");
+					if (version.Value < CurrentSchemaVersion)
+					{
+						bool canMigrate = CanMigrateFrom(version.Value);
+						if (canMigrate)
+							ValidateMigrationSource(connection, version.Value);
+						CollectionsStoreAvailability availability = canMigrate
+							? CollectionsStoreAvailability.MigrationRequired
+							: CollectionsStoreAvailability.UnsupportedOlderSchema;
+						return new CollectionsStoreInspection(availability, null, version,
+							canMigrate
+								? "The Collections feature store requires a known forward migration before feature writes are allowed."
+								: "The Collections feature store uses an older schema for which this NMM version has no migration path.");
+					}
+
+					ValidateCurrentSchema(connection);
+					storeId = ReadStoreId(connection);
+				}
+			}
+			catch (CollectionsStoreSchemaException ex)
+			{
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.InvalidOrCorrupt, storeId, version, ex.Message);
+			}
+			catch (SQLiteException ex)
+			{
+				return CreateInspectionFromSQLiteFailure(ex, storeId, version);
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.ReadOnly, storeId, version, ex.Message);
+			}
+			catch (IOException ex)
+			{
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.Unavailable, storeId, version, ex.Message);
+			}
+
+			if (IsDatabaseMarkedReadOnly())
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.ReadOnly, storeId, version,
+					"The Collections feature-store database file is marked read-only.");
+
+			try
+			{
+				lock (_writerGate)
+				{
+					VerifyWritableAccessWithoutChangingState();
+				}
+			}
+			catch (CollectionsStoreSchemaException ex)
+			{
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.InvalidOrCorrupt, storeId, version, ex.Message);
+			}
+			catch (CollectionsStoreAccessException ex)
+			{
+				CollectionsStoreAvailability availability = ex.FailureKind == CollectionsStoreAccessFailureKind.ReadOnly
+					? CollectionsStoreAvailability.ReadOnly
+					: ex.FailureKind == CollectionsStoreAccessFailureKind.Busy
+						? CollectionsStoreAvailability.Busy
+						: ex.FailureKind == CollectionsStoreAccessFailureKind.Corrupt
+							? CollectionsStoreAvailability.InvalidOrCorrupt
+							: CollectionsStoreAvailability.Unavailable;
+				return new CollectionsStoreInspection(availability, storeId, version, ex.Message);
+			}
+			catch (SQLiteException ex)
+			{
+				return CreateInspectionFromSQLiteFailure(ex, storeId, version);
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.ReadOnly, storeId, version, ex.Message);
+			}
+			catch (IOException ex)
+			{
+				return new CollectionsStoreInspection(CollectionsStoreAvailability.Unavailable, storeId, version, ex.Message);
+			}
+
+			return new CollectionsStoreInspection(CollectionsStoreAvailability.Ready, storeId, version,
+				"The Collections feature store is current, readable and writable.");
+		}
+
+		/// <summary>
 		/// Opens and validates an existing store, applying only known forward migrations under the writer gate.
 		/// </summary>
 		/// <returns>The durable store identity and effective SQLite settings observed on the writable connection.</returns>
 		public CollectionsStoreStatus OpenExisting()
 		{
-			lock (_writerGate)
+			try
 			{
-				int observedVersion = PreflightExistingStore();
-				if (observedVersion > CurrentSchemaVersion)
-					throw NewerSchemaException(observedVersion);
-
-				using (SQLiteConnection connection = OpenConnection(false, true))
+				lock (_writerGate)
 				{
-					ConfigureWritableConnection(connection);
-					int version = ReadAndValidateVersion(connection);
-					if (version > CurrentSchemaVersion)
-						throw NewerSchemaException(version);
-					if (version < CurrentSchemaVersion)
-						Migrate(connection, version);
+					int observedVersion = PreflightExistingStore();
+					if (observedVersion > CurrentSchemaVersion)
+						throw NewerSchemaException(observedVersion);
+					if (observedVersion < CurrentSchemaVersion && !CanMigrateFrom(observedVersion))
+						throw MigrationUnavailableException(observedVersion);
+					EnsureDatabaseIsWritable();
 
-					ValidateCurrentSchema(connection);
-					return ReadEffectiveStatus(connection);
+					using (SQLiteConnection connection = OpenConnection(false, true))
+					{
+						ConfigureWritableConnection(connection);
+						int version = ReadAndValidateVersion(connection);
+						if (version > CurrentSchemaVersion)
+							throw NewerSchemaException(version);
+						if (version < CurrentSchemaVersion)
+							Migrate(connection, version);
+
+						ValidateCurrentSchema(connection);
+						return ReadEffectiveStatus(connection);
+					}
 				}
+			}
+			catch (SQLiteException ex)
+			{
+				CollectionsStoreAccessException mapped = CreateAccessException("open the Collections feature store", ex);
+				if (mapped != null)
+					throw mapped;
+				throw;
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				throw CreateReadOnlyAccessException("open the Collections feature store", ex);
 			}
 		}
 
@@ -130,11 +265,25 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (!File.Exists(DatabasePath))
 				throw new FileNotFoundException("The Collections feature store is missing.", DatabasePath);
 
-			using (SQLiteConnection connection = OpenConnection(true, true))
+			try
 			{
-				ConfigureReadConnection(connection);
-				ValidateCurrentSchema(connection);
-				return ReadStoreId(connection);
+				using (SQLiteConnection connection = OpenConnection(true, true))
+				{
+					ConfigureReadConnection(connection);
+					ValidateCurrentSchema(connection);
+					return ReadStoreId(connection);
+				}
+			}
+			catch (SQLiteException ex)
+			{
+				CollectionsStoreAccessException mapped = CreateAccessException("read the Collections feature store identity", ex);
+				if (mapped != null)
+					throw mapped;
+				throw;
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				throw CreateReadOnlyAccessException("read the Collections feature store identity", ex);
 			}
 		}
 
@@ -146,24 +295,39 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (writeAction == null)
 				throw new ArgumentNullException(nameof(writeAction));
 
-			lock (_writerGate)
+			try
 			{
-				int observedVersion = PreflightExistingStore();
-				if (observedVersion > CurrentSchemaVersion)
-					throw NewerSchemaException(observedVersion);
-				if (observedVersion < CurrentSchemaVersion)
-					throw new CollectionsStoreSchemaException("Collections store must be migrated before feature writes are allowed.");
-
-				using (SQLiteConnection connection = OpenConnection(false, true))
+				lock (_writerGate)
 				{
-					ConfigureWritableConnection(connection);
-					ValidateCurrentSchema(connection);
-					using (SQLiteTransaction transaction = connection.BeginTransaction())
+					int observedVersion = PreflightExistingStore();
+					if (observedVersion > CurrentSchemaVersion)
+						throw NewerSchemaException(observedVersion);
+					if (observedVersion < CurrentSchemaVersion)
+						throw MigrationUnavailableException(observedVersion);
+					EnsureDatabaseIsWritable();
+
+					using (SQLiteConnection connection = OpenConnection(false, true))
 					{
-						writeAction(connection, transaction);
-						transaction.Commit();
+						ConfigureWritableConnection(connection);
+						ValidateCurrentSchema(connection);
+						using (SQLiteTransaction transaction = connection.BeginTransaction())
+						{
+							writeAction(connection, transaction);
+							transaction.Commit();
+						}
 					}
 				}
+			}
+			catch (SQLiteException ex)
+			{
+				CollectionsStoreAccessException mapped = CreateAccessException("write the Collections feature store", ex);
+				if (mapped != null)
+					throw mapped;
+				throw;
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				throw CreateReadOnlyAccessException("write the Collections feature store", ex);
 			}
 		}
 
@@ -177,16 +341,30 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (!File.Exists(DatabasePath))
 				throw new FileNotFoundException("The Collections feature store is missing.", DatabasePath);
 
-			using (SQLiteConnection connection = OpenConnection(true, true))
+			try
 			{
-				ConfigureReadConnection(connection);
-				ValidateCurrentSchema(connection);
-				using (SQLiteTransaction transaction = connection.BeginTransaction())
+				using (SQLiteConnection connection = OpenConnection(true, true))
 				{
-					T result = readAction(connection, transaction);
-					transaction.Commit();
-					return result;
+					ConfigureReadConnection(connection);
+					ValidateCurrentSchema(connection);
+					using (SQLiteTransaction transaction = connection.BeginTransaction())
+					{
+						T result = readAction(connection, transaction);
+						transaction.Commit();
+						return result;
+					}
 				}
+			}
+			catch (SQLiteException ex)
+			{
+				CollectionsStoreAccessException mapped = CreateAccessException("read the Collections feature store", ex);
+				if (mapped != null)
+					throw mapped;
+				throw;
+			}
+			catch (UnauthorizedAccessException ex)
+			{
+				throw CreateReadOnlyAccessException("read the Collections feature store", ex);
 			}
 		}
 
@@ -205,11 +383,159 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 		}
 
+		private static bool CanMigrateFrom(int version)
+		{
+			switch (version)
+			{
+				case 1:
+				case 2:
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		private static void ValidateMigrationSource(SQLiteConnection connection, int version)
+		{
+			switch (version)
+			{
+				case 1:
+					ValidateSchemaVersion1(connection);
+					return;
+				case 2:
+					ValidateSchemaVersion2(connection);
+					return;
+				default:
+					throw MigrationUnavailableException(version);
+			}
+		}
+
 		private static CollectionsStoreSchemaException NewerSchemaException(int version)
 		{
-			return new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
-				"Collections store schema {0} is newer than supported schema {1}; refusing to downgrade.",
-				version, CurrentSchemaVersion));
+			return new CollectionsStoreSchemaException(CollectionsStoreSchemaFailureKind.NewerThanSupported, version,
+				string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is newer than supported schema {1}; refusing to downgrade.",
+					version, CurrentSchemaVersion));
+		}
+
+		private static CollectionsStoreSchemaException MigrationUnavailableException(int version)
+		{
+			return new CollectionsStoreSchemaException(CollectionsStoreSchemaFailureKind.MigrationUnavailable, version,
+				string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} has no supported migration path to schema {1}.",
+					version, CurrentSchemaVersion));
+		}
+
+		private void EnsureDatabaseIsWritable()
+		{
+			if (IsDatabaseMarkedReadOnly())
+				throw new CollectionsStoreAccessException(CollectionsStoreAccessFailureKind.ReadOnly,
+					"The Collections feature-store database file is marked read-only: " + DatabasePath);
+		}
+
+		private bool IsDatabaseMarkedReadOnly()
+		{
+			return File.Exists(DatabasePath) && (File.GetAttributes(DatabasePath) & FileAttributes.ReadOnly) != 0;
+		}
+
+		private void VerifyWritableAccessWithoutChangingState()
+		{
+			EnsureDatabaseIsWritable();
+			using (SQLiteConnection connection = OpenConnection(false, true))
+			{
+				ConfigureReadConnection(connection);
+				using (SQLiteTransaction transaction = connection.BeginTransaction())
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "UPDATE store_metadata SET value=value WHERE key=@key;";
+					command.Parameters.AddWithValue("@key", StoreIdMetadataKey);
+					if (command.ExecuteNonQuery() != 1)
+						throw new CollectionsStoreSchemaException("Collections store is missing its durable store identity metadata.");
+					transaction.Rollback();
+				}
+			}
+		}
+
+		private static CollectionsStoreInspection CreateInspectionFromSQLiteFailure(SQLiteException exception,
+			Guid? storeId, int? schemaVersion)
+		{
+			CollectionsStoreAccessFailureKind? failureKind = ClassifySQLiteAccessFailure(exception);
+			CollectionsStoreAvailability availability = CollectionsStoreAvailability.Unavailable;
+			if (failureKind.HasValue)
+			{
+				switch (failureKind.Value)
+				{
+					case CollectionsStoreAccessFailureKind.Busy:
+						availability = CollectionsStoreAvailability.Busy;
+						break;
+					case CollectionsStoreAccessFailureKind.ReadOnly:
+						availability = CollectionsStoreAvailability.ReadOnly;
+						break;
+					case CollectionsStoreAccessFailureKind.Corrupt:
+						availability = CollectionsStoreAvailability.InvalidOrCorrupt;
+						break;
+				}
+			}
+
+			return new CollectionsStoreInspection(availability, storeId, schemaVersion, exception.Message);
+		}
+
+		private static CollectionsStoreAccessException CreateAccessException(string operation, SQLiteException exception)
+		{
+			CollectionsStoreAccessFailureKind? failureKind = ClassifySQLiteAccessFailure(exception);
+			if (!failureKind.HasValue)
+				return null;
+
+			string reason;
+			switch (failureKind.Value)
+			{
+				case CollectionsStoreAccessFailureKind.Busy:
+					reason = "is busy or locked by another writer";
+					break;
+				case CollectionsStoreAccessFailureKind.ReadOnly:
+					reason = "is read-only or access was denied";
+					break;
+				case CollectionsStoreAccessFailureKind.Corrupt:
+					reason = "is corrupt or is not a valid SQLite database";
+					break;
+				default:
+					reason = "is unavailable";
+					break;
+			}
+
+			return new CollectionsStoreAccessException(failureKind.Value,
+				"Cannot " + operation + " because the store " + reason + ". No replacement store was created.", exception);
+		}
+
+		private static CollectionsStoreAccessException CreateReadOnlyAccessException(string operation, UnauthorizedAccessException exception)
+		{
+			return new CollectionsStoreAccessException(CollectionsStoreAccessFailureKind.ReadOnly,
+				"Cannot " + operation + " because the store path is read-only or access was denied. No replacement store was created.", exception);
+		}
+
+		private static CollectionsStoreAccessFailureKind? ClassifySQLiteAccessFailure(SQLiteException exception)
+		{
+			// SQLite extended result codes retain the primary result code in the low byte.
+			int primaryResultCode = ((int)exception.ResultCode) & 0xff;
+			switch (primaryResultCode)
+			{
+				case 5: // SQLITE_BUSY
+				case 6: // SQLITE_LOCKED
+					return CollectionsStoreAccessFailureKind.Busy;
+				case 3: // SQLITE_PERM
+				case 8: // SQLITE_READONLY
+					return CollectionsStoreAccessFailureKind.ReadOnly;
+				case 11: // SQLITE_CORRUPT
+				case 26: // SQLITE_NOTADB
+					return CollectionsStoreAccessFailureKind.Corrupt;
+				case 10: // SQLITE_IOERR
+				case 13: // SQLITE_FULL
+				case 14: // SQLITE_CANTOPEN
+					return CollectionsStoreAccessFailureKind.Unavailable;
+				default:
+					return null;
+			}
 		}
 
 		private static object GetWriterGate(string databasePath)
@@ -235,7 +561,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				ForeignKeys = true,
 				Pooling = false,
 				ReadOnly = readOnly,
-				FailIfMissing = failIfMissing
+				FailIfMissing = failIfMissing,
+				DefaultTimeout = BusyTimeoutSeconds
 			};
 
 			SQLiteConnection connection = new SQLiteConnection(builder.ConnectionString);
@@ -495,6 +822,38 @@ CREATE TABLE retained_artifact_references (
 	CHECK (owner_kind > 0)
 );");
 				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE retained_artifact_tombstones (
+	artifact_id TEXT NOT NULL PRIMARY KEY,
+	marked_utc TEXT NOT NULL,
+	FOREIGN KEY (artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE CASCADE
+);");
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE collection_acquisition_requests (
+	request_id TEXT NOT NULL PRIMARY KEY,
+	plan_id TEXT NOT NULL,
+	plan_version INTEGER NOT NULL,
+	revision_identity TEXT NOT NULL,
+	target_fingerprint TEXT NOT NULL,
+	member_key_kind INTEGER NOT NULL,
+	member_key_value TEXT NOT NULL,
+	requirement INTEGER NOT NULL,
+	artifact_scheme TEXT NOT NULL,
+	artifact_stable_id TEXT NOT NULL,
+	expected_content_hash TEXT NULL,
+	recipe_fingerprint TEXT NOT NULL,
+	mode INTEGER NOT NULL,
+	state INTEGER NOT NULL,
+	queue_operation_id TEXT NULL,
+	verified_artifact_id TEXT NULL,
+	updated_utc TEXT NOT NULL,
+	FOREIGN KEY (verified_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (plan_version > 0),
+	CHECK (member_key_kind > 0),
+	CHECK (requirement > 0),
+	CHECK (mode > 0),
+	CHECK (state > 0)
+);");
+				ExecuteSchemaStatement(connection, transaction, @"
 CREATE TABLE collection_operations (
 	operation_id TEXT NOT NULL PRIMARY KEY,
 	kind INTEGER NOT NULL,
@@ -546,6 +905,8 @@ CREATE TABLE native_operation_children (
 );");
 
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_revisions_collection ON collection_revisions(origin, collection_id);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_revision_sources_raw_bundle_artifact ON revision_sources(raw_bundle_artifact_id);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_revision_sources_raw_manifest_artifact ON revision_sources(raw_manifest_artifact_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_resolved_plans_revision ON resolved_plans(origin, collection_id, revision_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_target_associations_target ON target_associations(target_fingerprint, state);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_member_bindings_native ON member_bindings(native_target_fingerprint, native_mod_key);");
@@ -555,6 +916,8 @@ CREATE TABLE native_operation_children (
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_retained_artifact_references_artifact ON retained_artifact_references(artifact_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_operations_pending ON collection_operations(phase, result_state, target_fingerprint);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_native_operation_children_native ON native_operation_children(native_operation_id, native_attempt_id);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_acquisition_queue ON collection_acquisition_requests(queue_operation_id, state);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_acquisition_verified_artifact ON collection_acquisition_requests(verified_artifact_id);");
 
 				SetMetadata(connection, transaction, SchemaNameMetadataKey, SchemaName);
 				SetMetadata(connection, transaction, SchemaVersionMetadataKey, CurrentSchemaVersion.ToString(CultureInfo.InvariantCulture));
@@ -567,8 +930,83 @@ CREATE TABLE native_operation_children (
 
 		private static void Migrate(SQLiteConnection connection, int version)
 		{
-			throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
-				"Collections store schema {0} has no supported migration path to schema {1}.", version, CurrentSchemaVersion));
+			if (connection == null)
+				throw new ArgumentNullException(nameof(connection));
+
+			while (version < CurrentSchemaVersion)
+			{
+				switch (version)
+				{
+					case 1:
+						MigrateVersion1To2(connection);
+						version = 2;
+						break;
+					case 2:
+						MigrateVersion2To3(connection);
+						version = 3;
+						break;
+					default:
+						throw MigrationUnavailableException(version);
+				}
+			}
+		}
+
+		private static void MigrateVersion1To2(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion1(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE retained_artifact_tombstones (
+	artifact_id TEXT NOT NULL PRIMARY KEY,
+	marked_utc TEXT NOT NULL,
+	FOREIGN KEY (artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE CASCADE
+);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_revision_sources_raw_bundle_artifact ON revision_sources(raw_bundle_artifact_id);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_revision_sources_raw_manifest_artifact ON revision_sources(raw_manifest_artifact_id);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "2");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=2;");
+				transaction.Commit();
+			}
+		}
+
+		private static void MigrateVersion2To3(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion2(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE collection_acquisition_requests (
+	request_id TEXT NOT NULL PRIMARY KEY,
+	plan_id TEXT NOT NULL,
+	plan_version INTEGER NOT NULL,
+	revision_identity TEXT NOT NULL,
+	target_fingerprint TEXT NOT NULL,
+	member_key_kind INTEGER NOT NULL,
+	member_key_value TEXT NOT NULL,
+	requirement INTEGER NOT NULL,
+	artifact_scheme TEXT NOT NULL,
+	artifact_stable_id TEXT NOT NULL,
+	expected_content_hash TEXT NULL,
+	recipe_fingerprint TEXT NOT NULL,
+	mode INTEGER NOT NULL,
+	state INTEGER NOT NULL,
+	queue_operation_id TEXT NULL,
+	verified_artifact_id TEXT NULL,
+	updated_utc TEXT NOT NULL,
+	FOREIGN KEY (verified_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (plan_version > 0),
+	CHECK (member_key_kind > 0),
+	CHECK (requirement > 0),
+	CHECK (mode > 0),
+	CHECK (state > 0)
+);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_acquisition_queue ON collection_acquisition_requests(queue_operation_id, state);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_acquisition_verified_artifact ON collection_acquisition_requests(verified_artifact_id);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "3");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=3;");
+				transaction.Commit();
+			}
 		}
 
 		private static int ReadAndValidateVersion(SQLiteConnection connection)
@@ -598,6 +1036,43 @@ CREATE TABLE native_operation_children (
 				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
 					"Collections store schema {0} is not the supported schema {1}.", version, CurrentSchemaVersion));
 
+			ValidateSchemaVersion2Tables(connection);
+			RequireTable(connection, "collection_acquisition_requests", "request_id", "plan_id", "plan_version",
+				"revision_identity", "target_fingerprint", "member_key_kind", "member_key_value", "requirement",
+				"artifact_scheme", "artifact_stable_id", "expected_content_hash", "recipe_fingerprint", "mode", "state",
+				"queue_operation_id", "verified_artifact_id", "updated_utc");
+			RequireIndex(connection, "ix_collection_acquisition_queue");
+			RequireIndex(connection, "ix_collection_acquisition_verified_artifact");
+		}
+
+		private static void ValidateSchemaVersion2(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 2)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 2.", version));
+			ValidateSchemaVersion2Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion2Tables(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion1Tables(connection);
+			RequireTable(connection, "retained_artifact_tombstones", "artifact_id", "marked_utc");
+			RequireIndex(connection, "ix_revision_sources_raw_bundle_artifact");
+			RequireIndex(connection, "ix_revision_sources_raw_manifest_artifact");
+		}
+
+		private static void ValidateSchemaVersion1(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 1)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 1.", version));
+			ValidateSchemaVersion1Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion1Tables(SQLiteConnection connection)
+		{
 			RequireTable(connection, "collections", "origin", "collection_id", "display_name", "author_display_name", "summary");
 			RequireTable(connection, "collection_revisions", "origin", "collection_id", "revision_id", "nexus_revision_number", "declared_member_count");
 			RequireTable(connection, "revision_sources", "origin", "collection_id", "revision_id", "source_input_kind", "bundle_hash_algorithm", "bundle_hash_value", "bundle_byte_length", "manifest_entry_name", "manifest_hash_algorithm", "manifest_hash_value", "manifest_byte_length", "schema_identity", "normalizer_version", "raw_bundle_artifact_id", "raw_manifest_artifact_id");
@@ -734,6 +1209,19 @@ CREATE TABLE native_operation_children (
 				command.Parameters.AddWithValue("@key", key);
 				command.Parameters.AddWithValue("@value", value);
 				command.ExecuteNonQuery();
+			}
+		}
+
+		private static void UpdateMetadata(SQLiteConnection connection, SQLiteTransaction transaction, string key, string value)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "UPDATE store_metadata SET value=@value WHERE key=@key;";
+				command.Parameters.AddWithValue("@key", key);
+				command.Parameters.AddWithValue("@value", value);
+				if (command.ExecuteNonQuery() != 1)
+					throw new CollectionsStoreSchemaException("Collections store is missing required schema-version metadata during migration.");
 			}
 		}
 
