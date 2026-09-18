@@ -555,6 +555,7 @@ namespace Nexus.Client
 			_pluginManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_categoryManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
 			_fileManagerControl?.ApplyDisplaySettings(_devExpressDisplaySettings);
+			DevExpressDisplaySettingsApplier.ApplyToControlTree(_collectionsPreviewControl, _devExpressDisplaySettings);
 		}
 
 		private sealed class ButtonPresentationScopeChoice

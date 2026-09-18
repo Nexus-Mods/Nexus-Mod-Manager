@@ -152,6 +152,12 @@
     <Compile Include="ModManagement\ModInstallRoot.cs" />
     <Compile Include="ModManagement\ModInstallMethod.cs" />
     <Compile Include="ModManagement\ModInstallContext.cs" />
+    <Compile Include="ModManagement\Operations\ModOperationDurability.cs" />
+    <Compile Include="ModManagement\Operations\ModOperationFingerprint.cs" />
+    <Compile Include="ModManagement\Operations\ModOperationIdentity.cs" />
+    <Compile Include="ModManagement\Operations\ModOperationOrigin.cs" />
+    <Compile Include="ModManagement\Operations\ModOperationReportedStatus.cs" />
+    <Compile Include="ModManagement\Operations\ModOperationResult.cs" />
     <Compile Include="ModManagement\ModDeploymentRoot.cs" />
     <Compile Include="ModManagement\ModDeploymentTarget.cs" />
     <Compile Include="ModManagement\ModDeploymentOverwriteResolver.cs" />

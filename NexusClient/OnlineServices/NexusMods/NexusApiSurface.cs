@@ -18,6 +18,11 @@ namespace Nexus.Client.OnlineServices.NexusMods
         /// <summary>
         /// Nexus Mods REST v3 endpoints.
         /// </summary>
-        V3
+        V3,
+
+        /// <summary>
+        /// Nexus Collections authorization endpoints under the Nexus v2 API surface.
+        /// </summary>
+        Collections
     }
 }

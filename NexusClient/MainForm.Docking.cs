@@ -48,7 +48,7 @@
 				Form = this
 			};
 
-			// Mods, Plugins, Categories and File Manager are still Form/DockContent
+			// Mods, Plugins, Collections, Categories and File Manager are Form/DockContent
 			// descendants. Use DocumentManager's native MDI mode so TabbedView can
 			// wrap those forms as permanent documents without a second docking system.
 			IsMdiContainer = true;
@@ -198,6 +198,9 @@
 			if (!Object.ReferenceEquals(preferredControl, (Control)_modManagerControl))
 				EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
 
+			if (!Object.ReferenceEquals(preferredControl, _collectionsPreviewControl))
+				EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
+
 			if (!Object.ReferenceEquals(preferredControl, _categoryManagerControl))
 				EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 
@@ -213,6 +216,8 @@
 
 			if (Object.ReferenceEquals(preferredControl, _pluginManagerControl))
 				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
+			else if (Object.ReferenceEquals(preferredControl, _collectionsPreviewControl))
+				EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
 			else if (Object.ReferenceEquals(preferredControl, _categoryManagerControl))
 				EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 			else if (Object.ReferenceEquals(preferredControl, _fileManagerControl))
@@ -233,6 +238,8 @@
 				return _pluginManagerControl;
 			if (MatchesMainDocumentName((Control)_modManagerControl, "ModManagerDocument", savedName))
 				return (Control)_modManagerControl;
+			if (MatchesMainDocumentName(_collectionsPreviewControl, "CollectionsDocument", savedName))
+				return _collectionsPreviewControl;
 			if (MatchesMainDocumentName(_categoryManagerControl, "CategoryManagerDocument", savedName))
 				return _categoryManagerControl;
 			if (IsFileManagerAvailable() && MatchesMainDocumentName(_fileManagerControl, "FileManagerDocument", savedName))
@@ -310,13 +317,14 @@
 		}
 
 		/// <summary>
-		/// Applies the canonical Plugins, Mods, Categories and File Manager tab order.
+		/// Applies the canonical Plugins, Mods, Collections, Categories and File Manager tab order.
 		/// </summary>
 		private void ApplyDefaultMainDocumentOrder()
 		{
 			int targetIndex = 0;
 			MoveMainDocument(_pluginManagerControl, ref targetIndex);
 			MoveMainDocument((Control)_modManagerControl, ref targetIndex);
+			MoveMainDocument(_collectionsPreviewControl, ref targetIndex);
 			MoveMainDocument(_categoryManagerControl, ref targetIndex);
 			MoveMainDocument(_fileManagerControl, ref targetIndex);
 		}
@@ -564,6 +572,15 @@
 		{
 			if (_mainTabbedView != null && FindMainDocument((Control)_modManagerControl) != null)
 				_mainTabbedView.ActivateDocument((Control)_modManagerControl);
+		}
+
+		/// <summary>
+		/// Activates the dedicated read-only Collections document for an incoming NXM preview.
+		/// </summary>
+		private void ActivateCollectionsDocument()
+		{
+			if (_mainTabbedView != null && FindMainDocument(_collectionsPreviewControl) != null)
+				_mainTabbedView.ActivateDocument(_collectionsPreviewControl);
 		}
 
 		/// <summary>

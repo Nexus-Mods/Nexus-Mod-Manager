@@ -21,6 +21,7 @@
 	using Nexus.Client.BackgroundTasks;
 	using Nexus.Client.BackgroundTasks.UI;
 	using Nexus.Client.Commands;
+	using Nexus.Client.CollectionManagement.UI;
 	using Nexus.Client.DownloadMonitoring.UI;
 	using Nexus.Client.UI.Controls;
 	using Nexus.Client.Games;
@@ -59,6 +60,7 @@
 		private readonly ModActivationMonitorControl _modActivationMonitorControl;
 		private readonly CategoryManagerControl _categoryManagerControl;
 		private readonly FileManagerControl _fileManagerControl;
+		private readonly CollectionsPreviewControl _collectionsPreviewControl;
 		private readonly Timer _activePluginsProfileSaveTimer = new Timer();
 		private bool _activePluginsProfileSavePending;
 		private readonly List<ITool> _boundGameTools = new List<ITool>();
@@ -163,6 +165,7 @@
 
 				_modActivationMonitorControl.ViewModel = _viewModel.ModActivationMonitorVM;
 				_fileManagerControl.ViewModel = _viewModel.ModManagerVM;
+				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher);
 				_downloadMonitorControl.ViewModel = _viewModel.DownloadMonitorVM;
 				_downloadMonitorControl.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 				_downloadMonitorControl.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;
@@ -281,6 +284,8 @@
 			_categoryManagerControl.CollapseAllCategoriesRequested += CategoryManagerControl_CollapseAllCategoriesRequested;
 			_categoryManagerControl.ExpandAllCategoriesRequested += CategoryManagerControl_ExpandAllCategoriesRequested;
 			_fileManagerControl = new FileManagerControl();
+			_collectionsPreviewControl = new CollectionsPreviewControl();
+			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
 			InitializeMainDockingInfrastructure();
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
 			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
@@ -3311,6 +3316,17 @@
 		{
 			Process.Start(
 				"https://www.youtube.com/channel/UCguaVgGHs4Xeknas--3YUsQ/videos");
+		}
+
+		private void CollectionsPreviewControl_PreviewActivated(object sender, EventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				BeginInvoke((Action<object, EventArgs>)CollectionsPreviewControl_PreviewActivated, sender, e);
+				return;
+			}
+
+			ActivateCollectionsDocument();
 		}
 
 		private void CategoryManagerControl_CollapseAllCategoriesRequested(object sender, EventArgs e)

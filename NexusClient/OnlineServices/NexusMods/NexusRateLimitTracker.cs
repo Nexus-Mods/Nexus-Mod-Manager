@@ -14,6 +14,7 @@ namespace Nexus.Client.OnlineServices.NexusMods
         private long _generation;
         private NexusRateLimitSnapshot _v1 = NexusRateLimitSnapshot.Empty;
         private NexusRateLimitSnapshot _graphQl = NexusRateLimitSnapshot.Empty;
+        private NexusRateLimitSnapshot _collections = NexusRateLimitSnapshot.Empty;
         private NexusRateLimitSnapshot _v3 = NexusRateLimitSnapshot.Empty;
 
         /// <summary>
@@ -26,6 +27,7 @@ namespace Nexus.Client.OnlineServices.NexusMods
                 _generation = generation;
                 _v1 = NexusRateLimitSnapshot.Empty;
                 _graphQl = NexusRateLimitSnapshot.Empty;
+                _collections = NexusRateLimitSnapshot.Empty;
                 _v3 = NexusRateLimitSnapshot.Empty;
             }
         }
@@ -43,6 +45,8 @@ namespace Nexus.Client.OnlineServices.NexusMods
                         return _v1;
                     case NexusApiSurface.GraphQl:
                         return _graphQl;
+                    case NexusApiSurface.Collections:
+                        return _collections;
                     case NexusApiSurface.V3:
                         return _v3;
                     default:
@@ -73,6 +77,9 @@ namespace Nexus.Client.OnlineServices.NexusMods
                         break;
                     case NexusApiSurface.GraphQl:
                         _graphQl = Merge(_graphQl, observed);
+                        break;
+                    case NexusApiSurface.Collections:
+                        _collections = Merge(_collections, observed);
                         break;
                     case NexusApiSurface.V3:
                         _v3 = Merge(_v3, observed);

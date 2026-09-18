@@ -12,6 +12,7 @@
     using Nexus.Client.BackgroundTasks;
     using Nexus.Client.Games;
     using Nexus.Client.ModRepositories;
+    using Nexus.Client.OnlineServices.NexusMods.Collections;
     using Nexus.Client.Properties;
     using Nexus.Client.Settings;
     using Nexus.Client.Util;
@@ -284,11 +285,12 @@
 
 					var gameMode = appInitializer.GameMode;
 					var services = appInitializer.Services;
+					var collectionNxmDispatcher = new NexusCollectionNxmDispatcher(ApiCallManager.Instance(_environmentInfo).NexusService.Collections);
 
-					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager);
+					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher);
 					var mainForm = new MainForm(mainFormViewModel);
 
-					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm))
+					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm, collectionNxmDispatcher))
 					{
 						if (modToAdd != null)
 						{

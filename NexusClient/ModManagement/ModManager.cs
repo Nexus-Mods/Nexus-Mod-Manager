@@ -16,6 +16,7 @@ namespace Nexus.Client.ModManagement
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.ModAuthoring;
     using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.ModManagement.Operations;
     using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.Mods;
@@ -950,9 +951,9 @@ namespace Nexus.Client.ModManagement
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
 
-			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+			IBackgroundTaskSet operation = Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
 				p_rolActiveMods, false, p_micInstallContext, p_booExplicitMethodOverride);
+			return AttachManualOperationIdentity(operation, p_micInstallContext);
 		}
 
 		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
@@ -988,9 +989,9 @@ namespace Nexus.Client.ModManagement
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 
-			DeleteXMLInstalledFile(p_modMod);
-			return Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+			IBackgroundTaskSet operation = Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
 				p_rolActiveMods, true, p_micInstallContext);
+			return AttachManualOperationIdentity(operation, p_micInstallContext);
 		}
 
 		/// <summary>
@@ -1051,7 +1052,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="p_modMod">The mod to deactivate.</param>
 		/// <param name="p_rolActiveMods">The list of active mods.</param>
-		/// <returns>A background task set allowing the caller to track the progress of the operation.</returns>
+		/// <returns>An unstarted background task set to submit through <see cref="ModActivationMonitor"/>, or <c>null</c> when no managed state exists.</returns>
 		public IBackgroundTaskSet DeactivateMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
 			bool booIsInstallLogActive = InstallationLog.ActiveMods.Contains(p_modMod);
@@ -1059,9 +1060,48 @@ namespace Nexus.Client.ModManagement
 			if (!booIsInstallLogActive && !booHasManagedFiles)
 				return null;
 
-			ModUninstaller munUninstaller = InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods);
-			munUninstaller.Install();
-			return munUninstaller;
+			ModInstallContext installContext = booIsInstallLogActive
+				? CaptureInstalledContext(p_modMod)
+				: new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
+			return AttachManualOperationIdentity(InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods), installContext);
+		}
+
+		/// <summary>
+		/// Attaches a new manual-operation identity to a native task before it reaches the shared submission seam.
+		/// </summary>
+		private IBackgroundTaskSet AttachManualOperationIdentity(IBackgroundTaskSet p_btsOperation, ModInstallContext p_micFallbackContext)
+		{
+			if (p_btsOperation == null)
+				return null;
+
+			ModInstallerBase nativeOperation = p_btsOperation as ModInstallerBase;
+			if (nativeOperation == null)
+				throw new InvalidOperationException("Only native mod installer task sets can receive a mod-operation identity.");
+
+			ModInstallContext installContext = p_micFallbackContext;
+			ModInstaller installer = p_btsOperation as ModInstaller;
+			if (installer != null)
+				installContext = installer.OperationInstallContext;
+			if (installContext == null)
+				throw new InvalidOperationException("A native mod operation requires an immutable install context before submission.");
+
+			ModOperationFingerprint fingerprint = new ModOperationFingerprint(BuildManualOperationTargetFingerprint(), installContext, null);
+			nativeOperation.AssignOperationIdentity(ModOperationIdentity.CreateNew(ModOperationOrigin.Manual, fingerprint));
+			return p_btsOperation;
+		}
+
+		/// <summary>
+		/// Builds the descriptive target token used by C3 operation identity. C4 will provide canonical shared-target authority.
+		/// </summary>
+		private string BuildManualOperationTargetFingerprint()
+		{
+			string modeId = GameMode == null ? String.Empty : GameMode.ModeId ?? String.Empty;
+			string gamePath = GameMode == null ? String.Empty : GameMode.InstallationPath ?? String.Empty;
+			string installInfoPath = GameMode == null || GameMode.GameModeEnvironmentInfo == null
+				? String.Empty
+				: GameMode.GameModeEnvironmentInfo.InstallInfoDirectory ?? String.Empty;
+
+			return String.Format("nmm-target-v1|mode={0}|game={1}|installInfo={2}", modeId, gamePath, installInfoPath);
 		}
 
 		#endregion
@@ -1579,15 +1619,6 @@ namespace Nexus.Client.ModManagement
 		{
 			m_ipmProfileManager = p_ipmProfileManager;
 			InstallerFactory.SetProfileManager(p_ipmProfileManager);
-		}
-
-		/// <summary>
-		/// If the mod is scripted, deletes the XMLInstalledFiles file inside the InstallInfo\Scripted folder.
-		/// </summary>
-		private void DeleteXMLInstalledFile(IMod p_modMod)
-		{
-			string strInstallFilesPath = Path.Combine(Path.Combine(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
-			ScriptedFileSelectionCache.DeleteArtifacts(strInstallFilesPath);
 		}
 
 		/// <summary>

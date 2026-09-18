@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 using DevExpress.XtraBars;
 using DevExpress.XtraEditors;
@@ -32,7 +31,6 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		private bool _columnWidthsRestored;
 		private bool _formClosingHooked;
 
-		public List<IBackgroundTaskSet> QueuedTasks = new List<IBackgroundTaskSet>();
 
 		#region Events
 
@@ -55,7 +53,6 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 			{
 				m_vmlViewModel = value;
 				_rows.Clear();
-				QueuedTasks.Clear();
 				if (m_vmlViewModel == null)
 					return;
 
@@ -224,7 +221,6 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		private void RemoveQueuedTasks()
 		{
 			ViewModel.RemoveQueuedTasks();
-			QueuedTasks.RemoveAll(x => x.IsQueued);
 			UpdateBottomBarFeedback(null, EventArgs.Empty);
 		}
 
@@ -232,11 +228,6 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		{
 			string taskName = GetSelectedTask();
 			ViewModel.RemoveSelectedTask(taskName);
-			if (QueuedTasks.Count > 0)
-			{
-				ViewModel.RunningTask = QueuedTasks.First();
-				QueuedTasks.Remove(ViewModel.RunningTask);
-			}
 			UpdateBottomBarFeedback(null, EventArgs.Empty);
 		}
 
@@ -267,7 +258,7 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 		}
 
 		/// <summary>
-		/// Adds the given task to the view's list if it is not already present.
+		/// Adds the given task to the view's list if it is not already present. Execution is owned by the monitor submission seam.
 		/// </summary>
 		protected void AddTaskToList(IBackgroundTaskSet task)
 		{
@@ -275,95 +266,18 @@ namespace Nexus.Client.ModActivationMonitoring.UI
 				if (existing.Task == task)
 					return;
 
-			if (ShouldDiscardDuplicateTask(task))
-			{
-				DiscardDuplicateTask(task);
-				return;
-			}
-
 			task.TaskSetCompleted += TaskSet_TaskSetCompleted;
 			ModActivationMonitorRow row = new ModActivationMonitorRow(task, this);
 			_rows.Add(row);
 			gridView.RefreshData();
 			CallUpdateBottomBarFeedback(row);
 			EnsureVisible(row);
-
-			if ((ViewModel.RunningTask == null) || ViewModel.RunningTask.IsCompleted)
-			{
-				ViewModel.RunningTask = task;
-				StartTask(ViewModel.RunningTask);
-			}
-			else
-			{
-				QueuedTasks.Add(task);
-			}
-		}
-
-		private static string GetTaskModFileName(IBackgroundTaskSet task)
-		{
-			if (task is ModInstaller installer)
-				return installer.ModFileName;
-			if (task is ModUninstaller uninstaller)
-				return uninstaller.ModFileName;
-			if (task is ModUpgrader upgrader)
-				return upgrader.ModFileName;
-			return null;
-		}
-
-		private bool ShouldDiscardDuplicateTask(IBackgroundTaskSet task)
-		{
-			if (ViewModel == null || ViewModel.RunningTask == null)
-				return false;
-
-			string taskFileName = GetTaskModFileName(task);
-			if (String.IsNullOrEmpty(taskFileName))
-				return false;
-
-			if (QueuedTasks.Any(x => x.IsQueued && String.Equals(GetTaskModFileName(x), taskFileName, StringComparison.OrdinalIgnoreCase)))
-				return true;
-
-			string runningFileName = GetTaskModFileName(ViewModel.RunningTask);
-			return !ViewModel.RunningTask.IsCompleted &&
-				!String.IsNullOrEmpty(runningFileName) && String.Equals(runningFileName, taskFileName, StringComparison.OrdinalIgnoreCase);
-		}
-
-		private void DiscardDuplicateTask(IBackgroundTaskSet task)
-		{
-			if (task is ModInstaller installer)
-				m_vmlViewModel.RemoveUselessTask(installer);
-			else if (task is ModUninstaller uninstaller)
-				m_vmlViewModel.RemoveUselessTaskUn(uninstaller);
-			else if (task is ModUpgrader upgrader)
-				m_vmlViewModel.RemoveUselessTaskUpg(upgrader);
-		}
-
-		private static void StartTask(IBackgroundTaskSet task)
-		{
-			if (task is ModInstaller installer)
-				installer.Install();
-			else if (task is ModUninstaller uninstaller)
-				uninstaller.Install();
-			else if (task is ModUpgrader upgrader)
-				upgrader.Install();
 		}
 
 		private void TaskSet_TaskSetCompleted(object sender, TaskSetCompletedEventArgs e)
 		{
-			IBackgroundTaskSet completedTask = sender as IBackgroundTaskSet;
-			if ((ViewModel.RunningTask == null) || (ViewModel.RunningTask == completedTask))
-			{
-				ViewModel.RunningTask = null;
-				if (QueuedTasks.Count > 0)
-				{
-					ViewModel.RunningTask = QueuedTasks.First();
-					QueuedTasks.Remove(ViewModel.RunningTask);
-					StartTask(ViewModel.RunningTask);
-				}
-				else if (EmptyQueue != null)
-				{
-					EmptyQueue(this, EventArgs.Empty);
-				}
-			}
+			if ((ViewModel != null) && (ViewModel.RunningTask == null) && (EmptyQueue != null))
+				EmptyQueue(this, EventArgs.Empty);
 		}
 
 		private void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)

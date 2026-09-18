@@ -9,6 +9,7 @@ using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
@@ -29,6 +30,10 @@ namespace Nexus.Client.ModManagement
 		private ModDeploymentOverwriteResolver m_dorOverwriteResolver;
 		private bool m_booUsedPromotedDeployment;
 		private bool m_booUsePromotedDeploymentPath;
+		private bool m_booNativeMutationStarted;
+		private bool m_booNativeTransactionCommitted;
+		private bool m_booVirtualStorePersistenceRequired;
+		private bool m_booVirtualStorePersisted;
 
 		#region Properties
 
@@ -137,6 +142,11 @@ namespace Nexus.Client.ModManagement
 
 		protected ModInstallContext InstallContext { get; private set; }
 
+		/// <summary>
+		/// Gets the resolved immutable installation context used by this native operation.
+		/// </summary>
+		internal ModInstallContext OperationInstallContext => InstallContext;
+
 		protected ModInstallRoot InstallRoot => InstallContext.InstallRoot;
 
 		#endregion
@@ -215,6 +225,7 @@ namespace Nexus.Client.ModManagement
 			// as a result, we only allow one mod to be installed at a time,
 			// hence the lock.
 			bool booSuccess = false;
+			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strMessage = "The mod was not activated.";
 			
 			try
@@ -229,7 +240,14 @@ namespace Nexus.Client.ModManagement
 						TxFileManager tfmFileManager = new TxFileManager();
 
 						if (!BeginModReadOnlyTransaction())
+						{
+							reportedStatus = ModOperationReportedStatus.Cancelled;
+							strMessage = "The mod activation was cancelled.";
 							return;
+						}
+
+						m_booNativeMutationStarted = true;
+						DeleteLiveScriptedReplayArtifacts();
 						RegisterMod();
 						booSuccess = RunScript(tfmFileManager);
 						if (booSuccess)
@@ -237,28 +255,44 @@ namespace Nexus.Client.ModManagement
 							tsTransaction.Complete();
 							Mod.InstallDate = DateTime.Now.ToString();
 							if (InstallContext.Method == ModInstallMethod.Virtual && !m_booUsedPromotedDeployment)
-								VirtualModActivator.SaveList(true);
+							{
+								m_booVirtualStorePersistenceRequired = true;
+								m_booVirtualStorePersisted = VirtualModActivator.SaveList(true);
+							}
 							strMessage = "The mod was successfully activated.";
 						}
 					}
 
 					if (booSuccess)
+						m_booNativeTransactionCommitted = true;
+
+					if (booSuccess)
 					{
 						VirtualModActivator.PublishPendingDeploymentChanges();
 						ProfileManager?.UpdateCurrentDeploymentManifest();
+						reportedStatus = ModOperationReportedStatus.Succeeded;
 					}
 				}
 			}
-			catch (TransactionException)
+			catch (TransactionException e)
 			{
+				booSuccess = false;
+				reportedStatus = ModOperationReportedStatus.Failed;
+				strMessage = "The mod activation failed: " + e.Message;
 				throw;
 			}
-			catch (SecurityException)
+			catch (SecurityException e)
 			{
+				booSuccess = false;
+				reportedStatus = ModOperationReportedStatus.Failed;
+				strMessage = "The mod activation failed: " + e.Message;
 				throw;
 			}
-			catch (ObjectDisposedException)
+			catch (ObjectDisposedException e)
 			{
+				booSuccess = false;
+				reportedStatus = ModOperationReportedStatus.Failed;
+				strMessage = "The mod activation failed: " + e.Message;
 				throw;
 			}
 			//this blobck used to be conditionally excluded from debug builds,
@@ -268,6 +302,7 @@ namespace Nexus.Client.ModManagement
 			catch (Exception e)
 			{
 				booSuccess = false;
+				reportedStatus = ModOperationReportedStatus.Failed;
 				StringBuilder stbError = new StringBuilder(e.Message);
 				if (e is FileNotFoundException)
 					stbError.Append(" (" + ((FileNotFoundException)e).FileName + ")");
@@ -290,9 +325,59 @@ namespace Nexus.Client.ModManagement
 			}
 			finally
 			{
-				Mod.EndReadOnlyTransaction();
+				try
+				{
+					Mod.EndReadOnlyTransaction();
+				}
+				catch (Exception e)
+				{
+					booSuccess = false;
+					reportedStatus = ModOperationReportedStatus.Failed;
+					strMessage = "The mod activation cleanup failed: " + e.Message;
+					throw;
+				}
+				finally
+				{
+					// Completion is a terminal scheduling signal, not a durability verdict. Publish it even when
+					// preparation returned early or an exception is about to escape so the shared operation queue
+					// cannot remain permanently occupied by an in-process task that has already stopped running.
+					if (!IsCompleted)
+						OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), booSuccess, strMessage, Mod);
+				}
 			}
-			OnTaskSetCompleted(booSuccess, strMessage, Mod);
+		}
+
+		/// <summary>
+		/// Determines what can be proven about durable native state after this installer terminates.
+		/// </summary>
+		/// <remarks>
+		/// This deliberately verifies only the native registration/persistence boundary available at C3.7. Detailed
+		/// collection recipe/effect verification is performed by later collection planning/execution layers. Failure
+		/// after mutation begins remains unknown unless the native committed state can be positively verified.
+		/// </remarks>
+		protected virtual ModOperationDurability DetermineOperationDurability()
+		{
+			if (!m_booNativeMutationStarted)
+				return ModOperationDurability.NotStarted;
+			if (!m_booNativeTransactionCommitted || ModInstallLog == null)
+				return ModOperationDurability.Unknown;
+
+			try
+			{
+				if (String.IsNullOrEmpty(ModInstallLog.GetModKey(Mod)))
+					return ModOperationDurability.Unknown;
+				if (ModInstallLog.GetModInstallRoot(Mod) != InstallContext.InstallRoot ||
+					ModInstallLog.GetModInstallMethod(Mod) != InstallContext.Method)
+					return ModOperationDurability.Unknown;
+				if (m_booVirtualStorePersistenceRequired && !m_booVirtualStorePersisted)
+					return ModOperationDurability.Unknown;
+
+				return ModOperationDurability.VerifiedCommitted;
+			}
+			catch
+			{
+				return ModOperationDurability.Unknown;
+			}
 		}
 
 		/// <summary>
@@ -315,6 +400,19 @@ namespace Nexus.Client.ModManagement
 			PrepareModTask pmtTask = new PrepareModTask(FileUtility);
 			OnTaskStarted(pmtTask);
 			return pmtTask.PrepareMod(Mod);
+		}
+
+		/// <summary>
+		/// Deletes the current live scripted replay only after native mod preparation has succeeded.
+		/// </summary>
+		/// <remarks>
+		/// Construction and queueing must remain read-only so callers can persist intent and retain recovery inputs before start.
+		/// Profile replay artifacts use separate paths and are not removed here.
+		/// </remarks>
+		private void DeleteLiveScriptedReplayArtifacts()
+		{
+			ScriptedFileSelectionCache liveCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			ScriptedFileSelectionCache.DeleteArtifacts(liveCache.FilePath);
 		}
 
 		#region Script Execution

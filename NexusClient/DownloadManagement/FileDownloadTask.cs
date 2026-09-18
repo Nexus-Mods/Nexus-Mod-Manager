@@ -81,6 +81,7 @@ namespace Nexus.Client.DownloadManagement
 		private readonly string m_strFinishErrorFormat;
 		private readonly string m_strCancelledText;
 		private readonly string m_strServerErrorFormat;
+		private readonly string m_strNoDownloadLocationsText;
 		private string m_strUserAgent = "";
 		private Int32 m_intMaxConnections = 4;
 		private Int32 m_intMinBlockSize = 1000 * 1024;
@@ -89,6 +90,7 @@ namespace Nexus.Client.DownloadManagement
 		private System.Timers.Timer m_tmrUpdater = new System.Timers.Timer(1000);
 		private FileDownloader m_fdrDownloader = null;
 		private AutoResetEvent m_areWaitForDownload = null;
+		private readonly ManualResetEvent m_mreRetryWait = new ManualResetEvent(false);
 		private State m_steState = null;
 
 		#region Properties
@@ -230,6 +232,7 @@ namespace Nexus.Client.DownloadManagement
 			m_strFinishErrorFormat = LanguageManager.GetFormat("Downloads.Task.FinishError", "Error: {0} , unable to finish the download.");
 			m_strCancelledText = LanguageManager.Get("Downloads.Task.Cancelled", "Download cancelled.");
 			m_strServerErrorFormat = LanguageManager.GetFormat("Downloads.Task.ServerError", "{1}: {0} , ");
+			m_strNoDownloadLocationsText = LanguageManager.Get("Downloads.Task.NoDownloadLocations", "No download locations are available.");
 		}
 
 		#endregion
@@ -299,14 +302,24 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		public void DownloadAsync(List<Uri> p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
-			System.Diagnostics.Stopwatch swRetry = new System.Diagnostics.Stopwatch();
+			if (p_uriURL == null)
+				throw new ArgumentNullException("p_uriURL");
+
+			if (p_uriURL.Count == 0)
+			{
+				Status = TaskStatus.Error;
+				OnTaskEnded(m_strNoDownloadLocationsText, null);
+				return;
+			}
+
 			int retries = 1;
 			int i = 0;
 			Uri uriURL = p_uriURL[i];
 			ItemProgress = i;
 			Status = TaskStatus.Running;
 
-			while ((retries <= m_intRetries) || (Status != TaskStatus.Paused) || (Status != TaskStatus.Queued))
+			while ((retries <= m_intRetries) && (Status != TaskStatus.Paused) && (Status != TaskStatus.Queued) &&
+				(Status != TaskStatus.Cancelling) && (Status != TaskStatus.Cancelled))
 			{
                 if ((Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
                 {
@@ -339,12 +352,11 @@ namespace Nexus.Client.DownloadManagement
 				{
 					if (m_fdrDownloader.FileNotFound)
 					{
-						swRetry.Start();
 						retries = 1;
 						OverallMessage = String.Format(m_strFileNotFoundRetryFormat, retries, m_intRetries);
 						Status = TaskStatus.Retrying;
 
-						if (i++ == p_uriURL.Count)
+						if (++i >= p_uriURL.Count)
 						{
 							Status = TaskStatus.Error;
 							OnTaskEnded(String.Format(m_strFileMissingFormat, uriURL.ToString()), null);
@@ -354,16 +366,11 @@ namespace Nexus.Client.DownloadManagement
 						ItemProgress = i;
 						uriURL = p_uriURL[i];
 
-						while ((swRetry.ElapsedMilliseconds < m_intRetryInterval) && swRetry.IsRunning)
+						if (!WaitForRetryInterval())
 						{
-                            if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
-                            {
-                                break;
-                            }
+							CompleteRetryCancellation();
+							return;
 						}
-
-						swRetry.Stop();
-						swRetry.Reset();
 					}
 					else if (m_fdrDownloader.ErrorCode == "666")
 					{
@@ -375,7 +382,6 @@ namespace Nexus.Client.DownloadManagement
 					}
 					else if (++retries <= m_intRetries)
 					{
-						swRetry.Start();
 						OverallMessage = String.Format(m_strServerBusyRetryFormat, retries, m_intRetries);
 						Status = TaskStatus.Retrying;
 
@@ -386,16 +392,11 @@ namespace Nexus.Client.DownloadManagement
 							uriURL = p_uriURL[i];
 						}
 
-						while ((swRetry.ElapsedMilliseconds < m_intRetryInterval) && swRetry.IsRunning)
+						if (!WaitForRetryInterval())
 						{
-                            if ((Status == TaskStatus.Cancelling) || (Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
-                            {
-                                break;
-                            }
+							CompleteRetryCancellation();
+							return;
 						}
-
-						swRetry.Stop();
-						swRetry.Reset();
 					}
 					else
 					{
@@ -410,6 +411,12 @@ namespace Nexus.Client.DownloadManagement
 				}
 			}
 
+			if (Status == TaskStatus.Cancelling)
+			{
+				CompleteRetryCancellation();
+				return;
+			}
+
             if (ModRepository.IsOffline)
             {
                 this.Pause();
@@ -419,6 +426,48 @@ namespace Nexus.Client.DownloadManagement
                 m_fdrDownloader.StartDownload();
                 m_tmrUpdater.Start();
             }
+		}
+
+		/// <summary>
+		/// Waits for the retry interval without consuming a worker core while allowing task control to interrupt the wait.
+		/// </summary>
+		/// <returns><c>true</c> if the retry interval elapsed; otherwise, <c>false</c>.</returns>
+		private bool WaitForRetryInterval()
+		{
+			m_mreRetryWait.Reset();
+
+			if (IsRetryWaitInterrupted())
+				return false;
+
+			m_mreRetryWait.WaitOne(m_intRetryInterval);
+			return !IsRetryWaitInterrupted();
+		}
+
+		/// <summary>
+		/// Gets whether task control interrupted the current retry delay.
+		/// </summary>
+		private bool IsRetryWaitInterrupted()
+		{
+			return (Status == TaskStatus.Cancelling) || (Status == TaskStatus.Cancelled) ||
+				(Status == TaskStatus.Paused) || (Status == TaskStatus.Queued);
+		}
+
+		/// <summary>
+		/// Publishes the terminal cancellation that was requested while waiting to retry.
+		/// </summary>
+		private void CompleteRetryCancellation()
+		{
+			if (Status != TaskStatus.Cancelling)
+				return;
+
+			Status = TaskStatus.Cancelled;
+			if (m_fdrDownloader != null)
+				m_fdrDownloader.Cleanup();
+
+			if (m_areWaitForDownload != null)
+				m_areWaitForDownload.Set();
+
+			OnTaskEnded(m_strCancelledText, (m_fdrDownloader != null ? m_fdrDownloader.URL : new Uri(Links.NexusMods)));
 		}
 
 		/// <summary>
@@ -489,10 +538,12 @@ namespace Nexus.Client.DownloadManagement
 			{
 				Status = TaskStatus.Cancelling;
 				base.Cancel();
+				m_mreRetryWait.Set();
 			}
 			else
 			{
 				Status = TaskStatus.Cancelled;
+				m_mreRetryWait.Set();
 
                 if (m_fdrDownloader != null)
                 {
@@ -510,6 +561,7 @@ namespace Nexus.Client.DownloadManagement
 		public override void Pause()
 		{
 			Status = TaskStatus.Paused;
+			m_mreRetryWait.Set();
 
             if (m_fdrDownloader != null)
             {
@@ -528,6 +580,7 @@ namespace Nexus.Client.DownloadManagement
 		public override void Queue()
 		{
 			Status = TaskStatus.Queued;
+			m_mreRetryWait.Set();
 
             if (m_fdrDownloader != null)
             {
@@ -600,6 +653,8 @@ namespace Nexus.Client.DownloadManagement
 				m_fdrDownloader.Stop();
 				m_fdrDownloader = null;
 			}
+
+			m_mreRetryWait.Dispose();
 		}
 
 		#endregion

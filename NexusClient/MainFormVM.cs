@@ -19,6 +19,7 @@
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.UI;
 	using Nexus.Client.ModRepositories;
+	using Nexus.Client.OnlineServices.NexusMods.Collections;
 	using Nexus.Client.Mods;
 	using Nexus.Client.Plugins;
 	using Nexus.Client.PluginManagement;
@@ -300,6 +301,11 @@
 		public IModRepository ModRepository { get; private set; }
 
 		/// <summary>
+		/// Gets the read-only incoming Nexus Collection NXM dispatcher shared with the application protocol listener.
+		/// </summary>
+		public NexusCollectionNxmDispatcher CollectionNxmDispatcher { get; private set; }
+
+		/// <summary>
 		/// Gets the view model that encapsulates the data
 		/// and operations for displaying the mod manager.
 		/// </summary>
@@ -575,6 +581,14 @@
 		/// <param name="p_mmgModManager">The <see cref="ModManager"/> to use to manage mods.</param>
 		/// <param name="p_pmgPluginManager">The <see cref="PluginManager"/> to use to manage plugins.</param>
 		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, ModActivationMonitor p_mamMonitor, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager)
+			: this(p_eifEnvironmentInfo, p_gmrInstalledGames, p_gmdGameMode, p_mrpModRepository, p_dmtMonitor, p_mamMonitor, p_mmgModManager, p_pmgPluginManager, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes the main form view model with the read-only incoming Collection NXM dispatcher.
+		/// </summary>
+		public MainFormVM(IEnvironmentInfo p_eifEnvironmentInfo, GameModeRegistry p_gmrInstalledGames, IGameMode p_gmdGameMode, IModRepository p_mrpModRepository, DownloadMonitor p_dmtMonitor, ModActivationMonitor p_mamMonitor, ModManager p_mmgModManager, IPluginManager p_pmgPluginManager, NexusCollectionNxmDispatcher p_collectionNxmDispatcher)
 		{
 			EnvironmentInfo = p_eifEnvironmentInfo;
 			GameMode = p_gmdGameMode;
@@ -584,6 +598,7 @@
 			ProfileManager = new ProfileManager(ModManager.VirtualModActivator, ModManager, p_mrpModRepository, p_eifEnvironmentInfo.Settings.ModFolder[GameMode.ModeId], GameMode.UsesPlugins);
 			ModManager.SetProfileManager(ProfileManager);
 			ModRepository = p_mrpModRepository;
+			CollectionNxmDispatcher = p_collectionNxmDispatcher;
 			UpdateManager = new UpdateManager(GameMode, EnvironmentInfo);
 			BackupManager = new BackupManager(ModManager, ProfileManager);
 			ModManagerVM = new ModManagerVM(p_mmgModManager, ProfileManager, p_eifEnvironmentInfo.Settings, p_gmdGameMode.ModeTheme);

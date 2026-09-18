@@ -5,6 +5,7 @@ using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
@@ -21,6 +22,8 @@ namespace Nexus.Client.ModManagement
 	/// </summary>
 	public class ModUninstaller : ModInstallerBase
 	{
+		private bool m_booNativeMutationStarted;
+
 		#region Properties
 
 		/// <summary>
@@ -157,7 +160,8 @@ namespace Nexus.Client.ModManagement
 				: VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
 			if (!booIsInstallLogActive && !booHasManagedFiles)
 			{
-				OnTaskSetCompleted(true, "The mod was successfully deactivated.", Mod);
+				OnTaskSetCompleted(ModOperationReportedStatus.NoOp, ModOperationDurability.NotStarted, true,
+					"The mod was successfully deactivated.", Mod);
 				return;
 			}
 
@@ -182,6 +186,7 @@ namespace Nexus.Client.ModManagement
 			// hence the lock.
 			bool booSuccess = false;
 			bool booCancelled = false;
+			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strErrorMessage = String.Empty;
 			try
 			{
@@ -198,16 +203,21 @@ namespace Nexus.Client.ModManagement
 					{
 						VirtualModDisableTask vdtDisableTask = new VirtualModDisableTask(Mod, VirtualModActivator, DisableVirtualFilesOnly);
 						OnTaskStarted(vdtDisableTask);
+						m_booNativeMutationStarted = true;
 						if (!vdtDisableTask.Execute())
 						{
+							booCancelled = vdtDisableTask.Status == TaskStatus.Cancelled || vdtDisableTask.Status == TaskStatus.Cancelling;
+							reportedStatus = booCancelled ? ModOperationReportedStatus.Cancelled : ModOperationReportedStatus.Failed;
 							strErrorMessage = vdtDisableTask.ErrorMessage;
-							OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
+							OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), false,
+								"The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
 							return;
 						}
 
 						if (vdtDisableTask.Status == TaskStatus.Cancelled || vdtDisableTask.Status == TaskStatus.Cancelling)
 						{
-							OnTaskSetCompleted(false, "The mod deactivation was cancelled.", Mod);
+							OnTaskSetCompleted(ModOperationReportedStatus.Cancelled, DetermineOperationDurability(), false,
+								"The mod deactivation was cancelled.", Mod);
 							return;
 						}
 					}
@@ -219,6 +229,7 @@ namespace Nexus.Client.ModManagement
 					}
 					else
 					{
+						m_booNativeMutationStarted = true;
 						using (TransactionScope tsTransaction = new TransactionScope())
 						{
 							TxFileManager tfmFileManager = new TxFileManager();
@@ -273,11 +284,48 @@ namespace Nexus.Client.ModManagement
 			}
 
 			if (booCancelled)
-				OnTaskSetCompleted(false, "The mod deactivation was cancelled.", Mod);
+			{
+				reportedStatus = ModOperationReportedStatus.Cancelled;
+				OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), false, "The mod deactivation was cancelled.", Mod);
+			}
 			else if (booSuccess)
-				OnTaskSetCompleted(booSuccess, "The mod was successfully deactivated." + Environment.NewLine + strErrorMessage, Mod);
+			{
+				reportedStatus = ModOperationReportedStatus.Succeeded;
+				OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), true,
+					"The mod was successfully deactivated." + Environment.NewLine + strErrorMessage, Mod);
+			}
 			else
-				OnTaskSetCompleted(false, "The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
+			{
+				OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), false,
+					"The mod was not deactivated." + Environment.NewLine + strErrorMessage, Mod);
+			}
+		}
+
+		/// <summary>
+		/// Determines what can be proven about durable native state after this uninstaller terminates.
+		/// </summary>
+		protected virtual ModOperationDurability DetermineOperationDurability()
+		{
+			if (!m_booNativeMutationStarted)
+				return ModOperationDurability.NotStarted;
+			if (ModInstallLog == null)
+				return ModOperationDurability.Unknown;
+
+			try
+			{
+				if (!String.IsNullOrEmpty(ModInstallLog.GetModKey(Mod)))
+					return ModOperationDurability.Unknown;
+				if (VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod))
+					return ModOperationDurability.Unknown;
+				if (DeploymentManager != null && DeploymentManager.HasManagedFiles(Mod))
+					return ModOperationDurability.Unknown;
+
+				return ModOperationDurability.VerifiedCommitted;
+			}
+			catch
+			{
+				return ModOperationDurability.Unknown;
+			}
 		}
 
 		/// <summary>

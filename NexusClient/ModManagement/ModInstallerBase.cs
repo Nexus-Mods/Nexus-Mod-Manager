@@ -3,6 +3,7 @@ using System.Runtime.Remoting.Messaging;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Mods;
+using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.Util;
 
 namespace Nexus.Client.ModManagement
@@ -47,6 +48,7 @@ namespace Nexus.Client.ModManagement
 		#endregion
 
 		private EventWaitHandle m_ewhSetCompleted = new EventWaitHandle(false, EventResetMode.ManualReset);
+		private ModOperationResult m_morOperationResult;
 
 		#region Properties
 
@@ -80,6 +82,20 @@ namespace Nexus.Client.ModManagement
 		/// <value>Whether the task set is queued.</value>
 		public bool IsQueued { get;  set; }
 
+		/// <summary>
+		/// Gets the immutable operation identity assigned before this native task is submitted.
+		/// </summary>
+		public ModOperationIdentity OperationIdentity { get; private set; }
+
+		/// <summary>
+		/// Gets the immutable terminal operation result when an identified native operation has completed.
+		/// </summary>
+		/// <remarks>
+		/// Reported task status and verified durability are intentionally independent. A failed task may still have
+		/// committed native state, while a nominally successful task may remain durability-unknown until reconciliation.
+		/// </remarks>
+		public ModOperationResult OperationResult => m_morOperationResult;
+
 		#endregion
 
 		#region Constructors
@@ -89,6 +105,20 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public ModInstallerBase()
 		{
+		}
+
+		/// <summary>
+		/// Assigns the operation identity exactly once before submission.
+		/// </summary>
+		/// <param name="p_moiIdentity">The identity to attach to this native task.</param>
+		protected internal void AssignOperationIdentity(ModOperationIdentity p_moiIdentity)
+		{
+			if (p_moiIdentity == null)
+				throw new ArgumentNullException(nameof(p_moiIdentity));
+			if (OperationIdentity != null)
+				throw new InvalidOperationException("The native operation identity has already been assigned.");
+
+			OperationIdentity = p_moiIdentity;
 		}
 
 		#endregion
@@ -175,20 +205,55 @@ namespace Nexus.Client.ModManagement
 		/// <param name="e">A <see cref="TaskSetCompletedEventArgs"/> describing the task that was started.</param>
 		protected virtual void OnTaskSetCompleted(TaskSetCompletedEventArgs e)
 		{
+			if (OperationIdentity != null && OperationResult == null)
+			{
+				SetOperationResult(e.Success ? ModOperationReportedStatus.Succeeded : ModOperationReportedStatus.Failed,
+					ModOperationDurability.Unknown, e.Message);
+			}
+
 			IsCompleted = true;
 			m_ewhSetCompleted.Set();
 			((Action<TaskSetCompletedEventArgs>)RaiseTaskSetCompleted).BeginInvoke(e, EndTaskSetCompletedCallback, null);
 		}
 
 		/// <summary>
-		/// Raises the <see cref="TaskSetCompleted"/> event.
+		/// Records the explicit native-operation result before publishing ordinary task-set completion.
+		/// </summary>
+		/// <param name="p_mrsReportedStatus">The terminal status reported by the workflow.</param>
+		/// <param name="p_modDurability">The independently verified native durability.</param>
+		/// <param name="p_booSuccess">Whether the legacy task-set completion should report success.</param>
+		/// <param name="p_strMessage">The task-set completion message.</param>
+		/// <param name="p_modMod">The mod the operation acted upon.</param>
+		protected void OnTaskSetCompleted(ModOperationReportedStatus p_mrsReportedStatus, ModOperationDurability p_modDurability,
+			bool p_booSuccess, string p_strMessage, IMod p_modMod)
+		{
+			SetOperationResult(p_mrsReportedStatus, p_modDurability, p_strMessage);
+			OnTaskSetCompleted(new TaskSetCompletedEventArgs(p_booSuccess, p_strMessage, p_modMod));
+		}
+
+		/// <summary>
+		/// Raises the <see cref="TaskSetCompleted"/> event using the legacy result contract.
 		/// </summary>
 		/// <param name="p_booSuccess">Whether or not the task set completed successfully.</param>
 		/// <param name="p_strMessage">The message of the completed task set.</param>
 		/// <param name="p_modMod">The mod the installer acted upon.</param>
 		protected void OnTaskSetCompleted(bool p_booSuccess, string p_strMessage, IMod p_modMod)
 		{
-			OnTaskSetCompleted(new TaskSetCompletedEventArgs(p_booSuccess, p_strMessage, p_modMod));
+			OnTaskSetCompleted(p_booSuccess ? ModOperationReportedStatus.Succeeded : ModOperationReportedStatus.Failed,
+				ModOperationDurability.Unknown, p_booSuccess, p_strMessage, p_modMod);
+		}
+
+		/// <summary>
+		/// Publishes an immutable operation result exactly once when this task has an assigned operation identity.
+		/// </summary>
+		private void SetOperationResult(ModOperationReportedStatus p_mrsReportedStatus, ModOperationDurability p_modDurability, string p_strMessage)
+		{
+			ModOperationIdentity identity = OperationIdentity;
+			if (identity == null || OperationResult != null)
+				return;
+
+			var result = new ModOperationResult(identity, p_mrsReportedStatus, p_modDurability, p_strMessage);
+			Interlocked.CompareExchange(ref m_morOperationResult, result, null);
 		}
 
 		#endregion

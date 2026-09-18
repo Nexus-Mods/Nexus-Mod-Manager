@@ -7,6 +7,7 @@ using System.Runtime.Remoting.Channels.Ipc;
 using System.Windows.Forms;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.Util;
 
 namespace Nexus.Client
@@ -33,13 +34,21 @@ namespace Nexus.Client
 		/// <param name="p_frmMainForm">The main application form.</param>
 		public static IMessager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, MainForm p_frmMainForm)
 		{
+			return InitializeListener(p_eifEnvironmentInfo, p_gmdGameModeInfo, p_mmgModManager, p_frmMainForm, null);
+		}
+
+		/// <summary>
+		/// Starts the IPC listener with a dedicated Collection NXM route in addition to the legacy mod/file route.
+		/// </summary>
+		public static IMessager InitializeListener(EnvironmentInfo p_eifEnvironmentInfo, IGameModeDescriptor p_gmdGameModeInfo, ModManager p_mmgModManager, MainForm p_frmMainForm, NexusCollectionNxmDispatcher p_collectionNxmDispatcher)
+		{
 			if (m_schMessagerChannel != null)
 				throw new InvalidOperationException("The IPC Channel has already been created as a SERVER.");
 
 			string strUri = String.Format("{0}-{1}IpcServer", CommonData.ModManagerName, p_gmdGameModeInfo.ModeId);
 			m_schMessagerChannel = new IpcServerChannel(strUri);
 			RegisterIpcChannel(m_schMessagerChannel);
-			MessagerServer msgMessager = new MessagerServer(p_mmgModManager, p_frmMainForm);
+			MessagerServer msgMessager = new MessagerServer(p_mmgModManager, p_frmMainForm, p_collectionNxmDispatcher);
 			string strEndpoint = String.Format("{0}Listener", p_gmdGameModeInfo.ModeId);
 			RemotingServices.Marshal(msgMessager, strEndpoint, typeof(IMessager));
 
@@ -82,6 +91,11 @@ namespace Nexus.Client
 		/// <value>The main application form.</value>
 		protected MainForm MainForm { get; private set; }
 
+		/// <summary>
+		/// Gets the Collection NXM dispatcher. It may be null only for callers using the preserved legacy listener overload.
+		/// </summary>
+		protected NexusCollectionNxmDispatcher CollectionNxmDispatcher { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -91,10 +105,11 @@ namespace Nexus.Client
 		/// </summary>
 		/// <param name="p_mmgModManager">The mod manager to use to manage mods.</param>
 		/// <param name="p_frmMainForm">The main form of the client for which we listening for messages.</param>
-		private MessagerServer(ModManager p_mmgModManager, MainForm p_frmMainForm)
+		private MessagerServer(ModManager p_mmgModManager, MainForm p_frmMainForm, NexusCollectionNxmDispatcher p_collectionNxmDispatcher)
 		{
 			ModManager = p_mmgModManager;
 			MainForm = p_frmMainForm;
+			CollectionNxmDispatcher = p_collectionNxmDispatcher;
 		}
 
 		#endregion
@@ -136,6 +151,34 @@ namespace Nexus.Client
 		/// <param name="p_strFilePath">The path or URL of the mod to add to the mod manager.</param>
 		public void AddMod(string p_strFilePath)
 		{
+			NexusCollectionNxmLink collectionLink;
+			NexusNxmLinkDisposition disposition = NexusCollectionNxmLinkParser.Classify(p_strFilePath, out collectionLink);
+			if (disposition == NexusNxmLinkDisposition.Collection)
+			{
+				if (CollectionNxmDispatcher == null)
+				{
+					Trace.TraceError("A Nexus Collection NXM link was received, but the Collections dispatcher is unavailable.");
+				}
+				else
+				{
+					Trace.TraceInformation(
+						"Routing Nexus Collection NXM link for slug {0}, revision {1}.",
+						collectionLink.CollectionSlug,
+						collectionLink.RevisionRequest.IsLatest ? "latest" : collectionLink.RevisionRequest.RevisionNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+					CollectionNxmDispatcher.Enqueue(collectionLink);
+				}
+
+				BringToFront();
+				return;
+			}
+
+			if (disposition == NexusNxmLinkDisposition.InvalidCollection)
+			{
+				Trace.TraceError("Rejected malformed Nexus Collection NXM link before the legacy mod downloader.");
+				BringToFront();
+				return;
+			}
+
 			if (p_strFilePath.Contains("profiles"))
 			{
 			}
