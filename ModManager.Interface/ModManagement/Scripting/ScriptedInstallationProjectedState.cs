@@ -23,6 +23,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly IMod m_modMod;
 		private readonly IGameMode m_gmdGameMode;
 		private readonly InstallerGroup m_igpInstallers;
+		private readonly IPluginManager m_pmgPluginManager;
 		private readonly Dictionary<string, ProjectedDataFile> m_dicProjectedFiles = new Dictionary<string, ProjectedDataFile>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, Plugin> m_dicProjectedPluginInfo = new Dictionary<string, Plugin>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, string> m_dicIniValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -49,6 +50,32 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_modMod = p_modMod;
 			m_gmdGameMode = p_gmdGameMode;
 			m_igpInstallers = p_igpInstallers;
+			m_pmgPluginManager = p_igpInstallers.PluginManager;
+		}
+
+		/// <summary>
+		/// Initializes a projected-state view limited to additive plugin-condition evaluation.
+		/// </summary>
+		/// <remarks>
+		/// This overload preserves the current native plugin snapshot and overlays planned file/plugin operations without
+		/// requiring mutable installer services. Data-file and INI baseline reads remain available only through the full
+		/// <see cref="InstallerGroup"/> constructor.
+		/// </remarks>
+		/// <param name="p_modMod">The mod whose planned archive files may contribute projected plugins.</param>
+		/// <param name="p_gmdGameMode">The current game mode.</param>
+		/// <param name="p_pmgPluginManager">The current authoritative plugin manager used as the additive baseline.</param>
+		public ScriptedInstallationProjectedState(IMod p_modMod, IGameMode p_gmdGameMode, IPluginManager p_pmgPluginManager)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
+			if (p_gmdGameMode == null)
+				throw new ArgumentNullException(nameof(p_gmdGameMode));
+			if (p_pmgPluginManager == null)
+				throw new ArgumentNullException(nameof(p_pmgPluginManager));
+
+			m_modMod = p_modMod;
+			m_gmdGameMode = p_gmdGameMode;
+			m_pmgPluginManager = p_pmgPluginManager;
 		}
 
 		#endregion
@@ -190,7 +217,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			EnsurePluginSnapshot();
 			string strPlugin = NormalizeRelativePath(p_saoOperation.PluginPath);
-			if (!ContainsPlugin(strPlugin) && IsPotentialPluginPath(strPlugin) && DataFileExists(strPlugin) && FindEffectivePlugin(strPlugin) != null)
+			if (!ContainsPlugin(strPlugin) && IsPotentialPluginPath(strPlugin) && IsProjectedOrInstalledDataFile(strPlugin) && FindEffectivePlugin(strPlugin) != null)
 			{
 				m_lstManagedPlugins.Add(strPlugin);
 				ApplyPolicyCorrectedPluginOrder();
@@ -306,6 +333,19 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Determines whether a plugin candidate exists in projected state or, for a full projection, the current data-file baseline.
+		/// </summary>
+		/// <param name="p_strPath">The script-visible plugin path.</param>
+		/// <returns><c>true</c> when the candidate is visible to the projection; otherwise, <c>false</c>.</returns>
+		private bool IsProjectedOrInstalledDataFile(string p_strPath)
+		{
+			string strPath = GetAdjustedDataPath(p_strPath);
+			if (m_dicProjectedFiles.ContainsKey(strPath))
+				return true;
+			return m_igpInstallers != null && m_igpInstallers.DataFileUtility.DataFileExists(strPath);
+		}
 
 		#region Data File State
 
@@ -461,8 +501,8 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (m_lstManagedPlugins != null)
 				return;
 
-			m_lstManagedPlugins = RelativizePluginPaths(m_igpInstallers.PluginManager.ManagedPlugins).ToList();
-			m_hstActivePlugins = new HashSet<string>(RelativizePluginPaths(m_igpInstallers.PluginManager.ActivePlugins), StringComparer.OrdinalIgnoreCase);
+			m_lstManagedPlugins = RelativizePluginPaths(m_pmgPluginManager.ManagedPlugins).ToList();
+			m_hstActivePlugins = new HashSet<string>(RelativizePluginPaths(m_pmgPluginManager.ActivePlugins), StringComparer.OrdinalIgnoreCase);
 		}
 
 		/// <summary>
@@ -507,7 +547,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				lstEffectivePlugins.Add(plgPlugin);
 			}
 
-			IList<Plugin> lstResolvedOrder = m_igpInstallers.PluginManager.ResolvePluginOrder(lstEffectivePlugins);
+			IList<Plugin> lstResolvedOrder = m_pmgPluginManager.ResolvePluginOrder(lstEffectivePlugins);
 			if (lstResolvedOrder != null)
 				m_lstManagedPlugins = RelativizePluginPaths(lstResolvedOrder).ToList();
 		}
@@ -527,7 +567,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				!TryResolveEffectivePlugins(m_lstManagedPlugins, m_hstActivePlugins, out lstRequestedOrderedPlugins, out lstRequestedActivePlugins))
 				return;
 
-			PluginStateResolution psrResolution = m_igpInstallers.PluginManager.ResolvePluginState(lstPreviousOrderedPlugins, lstPreviousActivePlugins, lstRequestedOrderedPlugins, lstRequestedActivePlugins);
+			PluginStateResolution psrResolution = m_pmgPluginManager.ResolvePluginState(lstPreviousOrderedPlugins, lstPreviousActivePlugins, lstRequestedOrderedPlugins, lstRequestedActivePlugins);
 			if (psrResolution == null)
 				return;
 			if (!psrResolution.IsAllowed)
@@ -580,7 +620,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			string strAdjustedPath = m_gmdGameMode.GetModFormatAdjustedPath(m_modMod.Format, p_strPluginPath, false);
 			string strAbsolutePath = Path.Combine(m_gmdGameMode.GameModeEnvironmentInfo.InstallationPath, strAdjustedPath);
-			return m_igpInstallers.PluginManager.ManagedPlugins.FirstOrDefault(p_plgPlugin => p_plgPlugin != null && String.Equals(p_plgPlugin.Filename, strAbsolutePath, StringComparison.OrdinalIgnoreCase));
+			return m_pmgPluginManager.ManagedPlugins.FirstOrDefault(p_plgPlugin => p_plgPlugin != null && String.Equals(p_plgPlugin.Filename, strAbsolutePath, StringComparison.OrdinalIgnoreCase));
 		}
 
 		/// <summary>
@@ -719,7 +759,7 @@ namespace Nexus.Client.ModManagement.Scripting
 				return false;
 
 			Plugin plgEffectivePlugin = FindEffectivePlugin(p_strPlugin);
-			if ((plgEffectivePlugin != null) && !m_igpInstallers.PluginManager.CanChangePluginOrder(plgEffectivePlugin))
+			if ((plgEffectivePlugin != null) && !m_pmgPluginManager.CanChangePluginOrder(plgEffectivePlugin))
 				return false;
 
 			List<string> lstPreviousOrder = new List<string>(m_lstManagedPlugins);

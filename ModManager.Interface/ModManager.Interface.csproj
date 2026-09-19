@@ -152,6 +152,14 @@
     <Compile Include="ModManagement\ModInstallRoot.cs" />
     <Compile Include="ModManagement\ModInstallMethod.cs" />
     <Compile Include="ModManagement\ModInstallContext.cs" />
+    <Compile Include="ModManagement\IModInstallationFomodRecipeAdapter.cs" />
+    <Compile Include="ModManagement\ModInstallationFomodSelectionRecipe.cs" />
+    <Compile Include="ModManagement\ModInstallationReplicatedLayoutRecipe.cs" />
+    <Compile Include="ModManagement\ModInstallationReplicatedLayoutRecipeAdapter.cs" />
+    <Compile Include="ModManagement\ModInstallationRecipeInput.cs" />
+    <Compile Include="ModManagement\ModInstallationRecipeValidation.cs" />
+    <Compile Include="ModManagement\ModInstallationSimpleFileRecipe.cs" />
+    <Compile Include="ModManagement\ModInstallationSimpleFileRecipeAdapter.cs" />
     <Compile Include="ModManagement\Operations\ModOperationDurability.cs" />
     <Compile Include="ModManagement\Operations\ModOperationFingerprint.cs" />
     <Compile Include="ModManagement\Operations\ModOperationIdentity.cs" />

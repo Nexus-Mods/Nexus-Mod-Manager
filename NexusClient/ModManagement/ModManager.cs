@@ -967,14 +967,25 @@ namespace Nexus.Client.ModManagement
 			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
 			ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride)
 		{
+			return ActivateMod(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods,
+				p_micInstallContext, p_booExplicitMethodOverride, null);
+		}
+
+		/// <summary>
+		/// Activates the given mod while carrying an optional explicit recipe input through native installer construction.
+		/// </summary>
+		public IBackgroundTaskSet ActivateMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride, ModInstallationRecipeInput p_mriRecipeInput)
+		{
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 			if (InstallationLog.ActiveMods.Contains(p_modMod))
 				return null;
 
 			IBackgroundTaskSet operation = Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
-				p_rolActiveMods, false, p_micInstallContext, p_booExplicitMethodOverride);
-			return AttachManualOperationIdentity(operation, p_micInstallContext);
+				p_rolActiveMods, false, p_micInstallContext, p_booExplicitMethodOverride, p_mriRecipeInput);
+			return p_mriRecipeInput == null ? AttachManualOperationIdentity(operation, p_micInstallContext) : AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
 		}
 
 		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
@@ -1007,12 +1018,23 @@ namespace Nexus.Client.ModManagement
 			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
 			ModInstallContext p_micInstallContext)
 		{
+			return ReinstallMod(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, p_micInstallContext, null);
+		}
+
+		/// <summary>
+		/// Reinstalls the given mod while carrying an optional explicit recipe input through native installer construction.
+		/// </summary>
+		public IBackgroundTaskSet ReinstallMod(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			ModInstallContext p_micInstallContext, ModInstallationRecipeInput p_mriRecipeInput)
+		{
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 
 			IBackgroundTaskSet operation = Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
-				p_rolActiveMods, true, p_micInstallContext);
-			return AttachManualOperationIdentity(operation, p_micInstallContext);
+				p_rolActiveMods, true, p_micInstallContext, false, p_mriRecipeInput);
+			return p_mriRecipeInput == null ? AttachManualOperationIdentity(operation, p_micInstallContext) : AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
 		}
 
 		/// <summary>
@@ -1085,6 +1107,24 @@ namespace Nexus.Client.ModManagement
 				? CaptureInstalledContext(p_modMod)
 				: new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
 			return AttachManualOperationIdentity(InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods), installContext);
+		}
+
+		/// <summary>
+		/// Attaches the explicit recipe-owned operation identity to a native task before it reaches the shared submission seam.
+		/// </summary>
+		private IBackgroundTaskSet AttachRecipeOperationIdentity(IBackgroundTaskSet p_btsOperation, ModInstallationRecipeInput p_mriRecipeInput)
+		{
+			if (p_btsOperation == null)
+				return null;
+			if (p_mriRecipeInput == null)
+				throw new ArgumentNullException(nameof(p_mriRecipeInput));
+
+			ModInstallerBase nativeOperation = p_btsOperation as ModInstallerBase;
+			if (nativeOperation == null)
+				throw new InvalidOperationException("Only native mod installer task sets can receive a mod-operation identity.");
+
+			nativeOperation.AssignOperationIdentity(p_mriRecipeInput.OperationIdentity);
+			return p_btsOperation;
 		}
 
 		/// <summary>

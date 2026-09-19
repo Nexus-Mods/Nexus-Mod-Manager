@@ -29,6 +29,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly Action<IBackgroundTask> m_actTaskStarted;
 		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
 		private readonly ScriptedPluginActivationState m_spaPluginActivationState;
+		private readonly bool m_booRequireSuccessfulPluginReconciliation;
 		private readonly HashSet<string> m_hstCoordinatorPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		#region Constructors
@@ -45,7 +46,16 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_actTaskStarted">The optional callback invoked when a background installation task starts.</param>
 		/// <param name="p_sfcFileSelectionCache">The optional cache used to record successfully linked scripted file selections.</param>
 		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache)
-			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, new ScriptedPluginActivationState())
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, new ScriptedPluginActivationState(), false)
+		{
+		}
+
+		/// <summary>
+		/// Initializes an executor whose final plugin reconciliation may be required to succeed.
+		/// </summary>
+		/// <param name="p_booRequireSuccessfulPluginReconciliation">Whether an invalid final plugin state must fail completion instead of retaining legacy best-effort behavior.</param>
+		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, bool p_booRequireSuccessfulPluginReconciliation)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, new ScriptedPluginActivationState(), p_booRequireSuccessfulPluginReconciliation)
 		{
 		}
 
@@ -53,6 +63,14 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// Initializes an executor using activation state shared across all sessions in one scripted installation.
 		/// </summary>
 		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, ScriptedPluginActivationState p_spaPluginActivationState)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, p_spaPluginActivationState, false)
+		{
+		}
+
+		/// <summary>
+		/// Initializes an executor using shared activation state and an explicit final-reconciliation policy.
+		/// </summary>
+		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, ScriptedPluginActivationState p_spaPluginActivationState, bool p_booRequireSuccessfulPluginReconciliation)
 		{
 			if (p_spaPluginActivationState == null)
 				throw new ArgumentNullException(nameof(p_spaPluginActivationState));
@@ -66,6 +84,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_actTaskStarted = p_actTaskStarted;
 			m_sfcFileSelectionCache = p_sfcFileSelectionCache;
 			m_spaPluginActivationState = p_spaPluginActivationState;
+			m_booRequireSuccessfulPluginReconciliation = p_booRequireSuccessfulPluginReconciliation;
 		}
 
 		#endregion
@@ -95,7 +114,14 @@ namespace Nexus.Client.ModManagement.Scripting
 		public void CompleteExecution()
 		{
 			FlushPendingPluginRegistrations();
-			m_spaPluginActivationState.Reconcile(m_igpInstallers.PluginManager);
+			if (!m_booRequireSuccessfulPluginReconciliation)
+			{
+				m_spaPluginActivationState.Reconcile(m_igpInstallers.PluginManager);
+				return;
+			}
+
+			if (!m_spaPluginActivationState.TryReconcile(m_igpInstallers.PluginManager))
+				throw new InvalidOperationException("The final plugin state requested by the installation recipe could not be reconciled safely.");
 		}
 
 		#endregion
@@ -386,10 +412,16 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// Applies a plugin activation change using the game-mode-adjusted plugin path.
 		/// </summary>
 		/// <param name="p_saoOperation">The plugin activation operation to execute.</param>
-		/// <returns><c>true</c> after the activation request has been forwarded.</returns>
+		/// <returns><c>true</c> after the activation request has been evaluated and, when applicable, forwarded.</returns>
 		private bool ExecuteSetPluginActivation(SetPluginActivationOperation p_saoOperation)
 		{
+			if (m_igpInstallers.PluginManager == null)
+				return true;
+
 			string strFixedPath = m_gmdGameMode.GetModFormatAdjustedPath(m_modMod.Format, p_saoOperation.PluginPath, false);
+			if (p_saoOperation.RequireActivatablePlugin && !m_igpInstallers.PluginManager.IsActivatiblePluginFile(strFixedPath))
+				return true;
+
 			m_igpInstallers.PluginManager.SetPluginActivation(strFixedPath, p_saoOperation.Activate);
 			m_spaPluginActivationState.RecordActivationRequest(GetPhysicalPluginPath(strFixedPath), p_saoOperation.Activate);
 			return true;

@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following 
@@ -7,6 +8,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle(Nexus.Client.Util.CommonData.ModManagerName + " Mod Manager Interface")]
 [assembly: AssemblyDescription("The interface classes for the mod manager component of the Mod Manager the Nexus network of game mod websites.")]
 [assembly: AssemblyProduct("ModManager.Interface")]
+[assembly: InternalsVisibleTo("XmlScript")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 

@@ -84,6 +84,18 @@ namespace Nexus.Client.ModManagement
 			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
 			bool p_booOverrideUpgrade, ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride)
 		{
+			return Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
+				p_rolActiveMods, p_booOverrideUpgrade, p_micInstallContext, p_booExplicitMethodOverride, null);
+		}
+
+		/// <summary>
+		/// Activates a mod while carrying an optional explicit recipe input through native installer construction.
+		/// </summary>
+		public IBackgroundTaskSet Activate(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods,
+			bool p_booOverrideUpgrade, ModInstallContext p_micInstallContext, bool p_booExplicitMethodOverride,
+			ModInstallationRecipeInput p_mriRecipeInput)
+		{
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 
@@ -99,10 +111,11 @@ namespace Nexus.Client.ModManagement
 				case ConfirmUpgradeResult.Upgrade:
 					ModInstallContext upgradeContext = p_booExplicitMethodOverride ? p_micInstallContext : CaptureInstalledContext(modOldVersion);
 					ModInstaller muiUpgrader = InstallerFactory.CreateUpgradeInstaller(modOldVersion, p_modMod,
-						p_dlgOverwriteConfirmationDelegate, upgradeContext);
+						p_dlgOverwriteConfirmationDelegate, upgradeContext, p_mriRecipeInput);
 					return muiUpgrader;
 				case ConfirmUpgradeResult.NormalActivation:
-					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext);
+					ModInstaller minInstaller = InstallerFactory.CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate,
+						p_rolActiveMods, p_micInstallContext, p_mriRecipeInput);
 					return minInstaller;
 				case ConfirmUpgradeResult.Cancel:
 					return null;

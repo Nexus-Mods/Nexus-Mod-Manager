@@ -27,7 +27,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// This is the script that allows scripting using an XML language. It is meant
 	/// to be easier to learn and more accessible than the more advanced C# script.
 	/// </remarks>
-	public class XmlScriptType : IScriptType
+	public class XmlScriptType : IScriptType, IModInstallationFomodRecipeAdapter
 	{
 		private static Version[] m_verScriptVersions = { new Version(1, 0),
 														new Version(2, 0),
@@ -47,6 +47,58 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				return m_verScriptVersions;
 			}
 		}
+
+		#region IModInstallationFomodRecipeAdapter Members
+
+		/// <summary>
+		/// Gets the exact native FOMOD-selection adapter identifier implemented by this XML script type.
+		/// </summary>
+		public string AdapterId
+		{
+			get { return XmlScriptFomodRecipeAdapter.AdapterId; }
+		}
+
+		/// <summary>
+		/// Gets the exact native FOMOD-selection adapter contract version implemented by this XML script type.
+		/// </summary>
+		public int AdapterVersion
+		{
+			get { return XmlScriptFomodRecipeAdapter.AdapterVersion; }
+		}
+
+		/// <summary>
+		/// Gets the FOMOD-selection capability identifier consumed by this XML script type.
+		/// </summary>
+		public string CapabilityId
+		{
+			get { return XmlScriptFomodRecipeAdapter.CapabilityId; }
+		}
+
+		/// <summary>
+		/// Gets the supported FOMOD-selection capability contract version.
+		/// </summary>
+		public int CapabilityVersion
+		{
+			get { return XmlScriptFomodRecipeAdapter.CapabilityVersion; }
+		}
+
+		/// <summary>
+		/// Translates exact FOMOD selections against the mod's actual parsed XML installer definition.
+		/// </summary>
+		/// <param name="recipeInput">The validated native recipe envelope.</param>
+		/// <param name="mod">The verified mod archive whose XML definition is authoritative.</param>
+		/// <param name="gameMode">The current native game mode.</param>
+		/// <param name="environmentInfo">The current application environment.</param>
+		/// <param name="pluginManager">The current plugin manager, or <c>null</c> for pluginless games.</param>
+		/// <param name="recipe">The exact FOMOD step/group/option selection recipe.</param>
+		/// <returns>A new immutable recipe input carrying native typed operations.</returns>
+		public ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
+		{
+			return new XmlScriptFomodRecipeAdapter().Translate(recipeInput, mod, gameMode, environmentInfo, pluginManager, recipe);
+		}
+
+		#endregion
 
 		#region IScriptType Members
 

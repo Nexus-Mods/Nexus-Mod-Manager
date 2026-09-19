@@ -17,6 +17,11 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		/// </summary>
 		public bool Activate { get; private set; }
 
+		/// <summary>
+		/// Gets whether native plugin activatability must be checked after the corresponding file operation before applying this request.
+		/// </summary>
+		public bool RequireActivatablePlugin { get; private set; }
+
 		#endregion
 
 		#region Constructors
@@ -27,9 +32,21 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		/// <param name="p_strPluginPath">The logical path of the plugin to update.</param>
 		/// <param name="p_booActivate">Whether the plugin should be activated.</param>
 		public SetPluginActivationOperation(string p_strPluginPath, bool p_booActivate)
+			: this(p_strPluginPath, p_booActivate, false)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a new plugin-activation operation with an optional execution-time activatability guard.
+		/// </summary>
+		/// <param name="p_strPluginPath">The logical path of the plugin to update.</param>
+		/// <param name="p_booActivate">Whether the plugin should be activated.</param>
+		/// <param name="p_booRequireActivatablePlugin">Whether the native executor must verify activatability immediately before applying the request.</param>
+		public SetPluginActivationOperation(string p_strPluginPath, bool p_booActivate, bool p_booRequireActivatablePlugin)
 		{
 			PluginPath = p_strPluginPath;
 			Activate = p_booActivate;
+			RequireActivatablePlugin = p_booRequireActivatablePlugin;
 		}
 
 		#endregion

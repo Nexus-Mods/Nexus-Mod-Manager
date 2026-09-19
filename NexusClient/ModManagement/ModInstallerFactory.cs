@@ -77,9 +77,18 @@ namespace Nexus.Client.ModManagement
 		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate,
 			ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallContext p_micInstallContext)
 		{
+			return CreateInstaller(p_modMod, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext, null);
+		}
+
+		/// <summary>
+		/// Creates a mod installer carrying an optional explicit recipe input through the native construction path.
+		/// </summary>
+		public ModInstaller CreateInstaller(IMod p_modMod, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate,
+			ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallContext p_micInstallContext, ModInstallationRecipeInput p_mriRecipeInput)
+		{
 			return new ModInstaller(p_modMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility, m_scxUIContext,
 				m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_mdmDeploymentManager, m_ipmProfileManager,
-				p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext);
+				p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext, p_mriRecipeInput);
 		}
 
 		/// <summary>
@@ -103,12 +112,22 @@ namespace Nexus.Client.ModManagement
 		public ModInstaller CreateUpgradeInstaller(IMod p_modOldMod, IMod p_modNewMod,
 			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext)
 		{
+			return CreateUpgradeInstaller(p_modOldMod, p_modNewMod, p_dlgOverwriteConfirmationDelegate, p_micInstallContext, null);
+		}
+
+		/// <summary>
+		/// Creates an upgrader carrying an optional explicit recipe input through the native construction path.
+		/// </summary>
+		public ModInstaller CreateUpgradeInstaller(IMod p_modOldMod, IMod p_modNewMod,
+			ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext,
+			ModInstallationRecipeInput p_mriRecipeInput)
+		{
 			if (p_micInstallContext == null)
 				throw new ArgumentNullException(nameof(p_micInstallContext));
 
 			return new ModUpgrader(p_modOldMod, p_modNewMod, m_gmdGameMode, m_eifEnvironmentInfo, m_futFileUtility,
 				m_scxUIContext, m_ilgInstallLog, m_pmgPluginManager, m_ivaVirtualModActivator, m_mdmDeploymentManager,
-				m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_micInstallContext);
+				m_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_micInstallContext, p_mriRecipeInput);
 		}
 
 		/// <summary>

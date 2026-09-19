@@ -157,6 +157,12 @@
     <Compile Include="CollectionsRetainedArtifactStoreTests.cs" />
     <Compile Include="CollectionsRetainedArtifactReferenceStoreTests.cs" />
     <Compile Include="CollectionsRetainedArtifactCleanupStoreTests.cs" />
+    <Compile Include="ModInstallationRecipeInputTests.cs" />
+    <Compile Include="ModInstallationReplicatedLayoutRecipeAdapterTests.cs" />
+    <Compile Include="ModInstallationFomodRecipeAdapterTests.cs" />
+    <Compile Include="ModInstallationRecipeExecutionTests.cs" />
+    <Compile Include="ModInstallationRecipeThreadingTests.cs" />
+    <Compile Include="ModInstallationSimpleFileRecipeAdapterTests.cs" />
     <Compile Include="ModOperationModelTests.cs" />
     <Compile Include="ModOperationSubmissionTests.cs" />
     <Compile Include="ScriptedFileSelectionCacheTests.cs" />

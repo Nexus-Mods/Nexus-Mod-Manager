@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using ChinhDo.Transactions;
@@ -143,6 +144,11 @@ namespace Nexus.Client.ModManagement
 		protected ModInstallContext InstallContext { get; private set; }
 
 		/// <summary>
+		/// Gets the optional explicit installation recipe input carried by this native installer.
+		/// </summary>
+		protected ModInstallationRecipeInput InstallationRecipeInput { get; private set; }
+
+		/// <summary>
 		/// Gets the resolved immutable installation context used by this native operation.
 		/// </summary>
 		internal ModInstallContext OperationInstallContext => InstallContext;
@@ -180,6 +186,14 @@ namespace Nexus.Client.ModManagement
 		/// Initializes an installer with the immutable deployment context captured for this operation.
 		/// </summary>
 		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IProfileManager p_prmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallContext p_micInstallContext)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_prmProfileManager, p_dlgOverwriteConfirmationDelegate, p_rolActiveMods, p_micInstallContext, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes an installer with the immutable deployment context and optional explicit recipe input captured for this operation.
+		/// </summary>
+		public ModInstaller(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IProfileManager p_prmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods, ModInstallContext p_micInstallContext, ModInstallationRecipeInput p_mriRecipeInput)
 		{
 			Mod = p_modMod;
 			GameMode = p_gmdGameMode;
@@ -194,6 +208,13 @@ namespace Nexus.Client.ModManagement
 			m_dlgOverwriteConfirmationDelegate = p_dlgOverwriteConfirmationDelegate;
 			ActiveMods = p_rolActiveMods;
 			InstallContext = p_micInstallContext ?? throw new ArgumentNullException(nameof(p_micInstallContext));
+			if (p_mriRecipeInput != null &&
+				(p_mriRecipeInput.InstallContext.Method != InstallContext.Method ||
+				p_mriRecipeInput.InstallContext.InstallRoot != InstallContext.InstallRoot))
+			{
+				throw new ArgumentException("Recipe input method/root must match the native installer context.", nameof(p_mriRecipeInput));
+			}
+			InstallationRecipeInput = p_mriRecipeInput;
 			if (InstallContext.Method == ModInstallMethod.Direct && DeploymentManager == null)
 				throw new ArgumentNullException(nameof(p_mdmDeploymentManager));
 		}
@@ -247,6 +268,7 @@ namespace Nexus.Client.ModManagement
 							return;
 						}
 
+						ValidateInstallationRecipeExecutionInput();
 						m_booNativeMutationStarted = true;
 						DeleteLiveScriptedReplayArtifacts();
 						RegisterMod();
@@ -416,6 +438,98 @@ namespace Nexus.Client.ModManagement
 			ScriptedFileSelectionCache.DeleteArtifacts(liveCache.FilePath);
 		}
 
+		/// <summary>
+		/// Revalidates an explicit recipe immediately before native mutation begins.
+		/// </summary>
+		/// <remarks>
+		/// Recipe-less manual installs retain their existing behavior. Recipe-bearing installs fail closed when translation
+		/// has not produced a native plan or when the archive bytes no longer match the immutable C5.3 expectation.
+		/// </remarks>
+		private void ValidateInstallationRecipeExecutionInput()
+		{
+			if (InstallationRecipeInput == null)
+				return;
+
+			ModOperationIdentity recipeOperation = InstallationRecipeInput.OperationIdentity;
+			if (OperationIdentity == null ||
+				OperationIdentity.OperationId != recipeOperation.OperationId ||
+				OperationIdentity.AttemptId != recipeOperation.AttemptId ||
+				OperationIdentity.Origin != recipeOperation.Origin ||
+				!OperationIdentity.Fingerprint.Equals(recipeOperation.Fingerprint))
+			{
+				throw new InvalidDataException("Explicit installation recipe input must execute under its assigned native operation identity.");
+			}
+
+			if (!InstallationRecipeInput.HasNativePlan ||
+				InstallationRecipeInput.NativeOperations == null ||
+				InstallationRecipeInput.NativeOperations.Count == 0)
+			{
+				throw new InvalidDataException("Explicit installation recipe input has not been translated into a native operation plan.");
+			}
+
+			ValidateLegacyReplayBasenameCollision();
+
+			ModInstallationRecipeExpectedContent expectedContent = InstallationRecipeInput.Validation.ExpectedContent;
+			using (var stream = new FileStream(Mod.Filename, FileMode.Open, FileAccess.Read, FileShare.Read))
+			{
+				if (stream.Length != expectedContent.ByteLength)
+					throw new InvalidDataException("The installation recipe source no longer matches its expected byte length.");
+
+				string actualSha256 = ComputeSha256Hex(stream);
+				if (!StringComparer.Ordinal.Equals(actualSha256, expectedContent.Sha256))
+					throw new InvalidDataException("The installation recipe source no longer matches its expected SHA-256 digest.");
+			}
+		}
+
+		/// <summary>
+		/// Rejects a recipe when another active native archive maps to the same legacy live replay path.
+		/// </summary>
+		/// <remarks>
+		/// Native mod identity uses the full archive filename while the legacy scripted replay cache uses only the
+		/// filename stem. Distinct active archive identities must therefore not share one replay XML/payload location.
+		/// </remarks>
+		private void ValidateLegacyReplayBasenameCollision()
+		{
+			if (ModInstallLog == null || ModInstallLog.ActiveMods == null)
+				return;
+
+			string replayPath = new ScriptedFileSelectionCache(Mod, GameMode).FilePath;
+			foreach (IMod activeMod in ModInstallLog.ActiveMods)
+			{
+				if (activeMod == null || IsActiveModExemptFromReplayBasenameCollision(activeMod))
+					continue;
+				if (StringComparer.OrdinalIgnoreCase.Equals(activeMod.Filename, Mod.Filename))
+					continue;
+
+				string activeReplayPath = new ScriptedFileSelectionCache(activeMod, GameMode).FilePath;
+				if (StringComparer.OrdinalIgnoreCase.Equals(activeReplayPath, replayPath))
+				{
+					throw new InvalidDataException(String.Format(
+						"The installation recipe archive '{0}' collides with active archive '{1}' at legacy replay basename '{2}'.",
+						Path.GetFileName(Mod.Filename), Path.GetFileName(activeMod.Filename), Path.GetFileName(replayPath)));
+				}
+			}
+		}
+
+		/// <summary>
+		/// Returns whether an active mod is the native identity intentionally replaced by this installer.
+		/// </summary>
+		/// <param name="p_modActiveMod">The active mod sharing the candidate replay basename.</param>
+		/// <returns><c>true</c> when this installer may replace that identity; otherwise, <c>false</c>.</returns>
+		protected virtual bool IsActiveModExemptFromReplayBasenameCollision(IMod p_modActiveMod)
+		{
+			return false;
+		}
+
+		/// <summary>
+		/// Computes the canonical lowercase SHA-256 identity used by the C5 recipe content contract.
+		/// </summary>
+		private static string ComputeSha256Hex(Stream p_stmStream)
+		{
+			using (SHA256 sha256 = SHA256.Create())
+				return BitConverter.ToString(sha256.ComputeHash(p_stmStream)).Replace("-", String.Empty).ToLowerInvariant();
+		}
+
 		#region Script Execution
 
 		/// <summary>
@@ -440,7 +554,17 @@ namespace Nexus.Client.ModManagement
 			bool booResult = false;
 			IIniInstaller iniIniInstaller = null;
 			IGameSpecificValueInstaller gviGameSpecificValueInstaller = null;
-			if (Mod.HasInstallScript)
+			if (InstallationRecipeInput != null)
+			{
+				if (!InstallationRecipeInput.HasNativePlan ||
+					InstallationRecipeInput.NativeOperations == null ||
+					InstallationRecipeInput.NativeOperations.Count == 0)
+				{
+					throw new InvalidDataException("Explicit installation recipe input has not been translated into a native operation plan.");
+				}
+				booResult = RunInstallationRecipe(mfiFileInstaller, InstallationRecipeInput.NativeOperations, p_tfmFileManager);
+			}
+			else if (Mod.HasInstallScript)
 			{
 				if (CheckScriptedModLog())
 				{
@@ -496,6 +620,52 @@ namespace Nexus.Client.ModManagement
 			mfiFileInstaller.FinalizeInstall();
 			FinalizeDeploymentAfterInstall(p_tfmFileManager);
 			return booResult;
+		}
+
+		/// <summary>
+		/// Executes an already-validated native recipe plan through the existing scripted installer group and executor.
+		/// </summary>
+		/// <remarks>
+		/// The caller owns the native transaction and has already registered the mod. Replayable file operations are
+		/// recorded through the same native scripted-selection cache used by ordinary scripted installs, including
+		/// generated-file payload sidecars. Non-file effects remain owned by their existing native subsystems.
+		/// </remarks>
+		private bool RunInstallationRecipe(IModFileInstaller p_mfiFileInstaller, IReadOnlyList<ScriptedInstallOperation> p_lstOperations, TxFileManager p_tfmFileManager)
+		{
+			if (p_lstOperations == null || p_lstOperations.Count == 0)
+				throw new InvalidDataException("Explicit installation recipe input requires at least one native operation.");
+
+			IDataFileUtil dataFileUtility = new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath);
+			IIniInstaller iniInstaller = CreateIniInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+			IGameSpecificValueInstaller gameSpecificInstaller = CreateGameSpecificValueInstaller(p_tfmFileManager, m_dlgOverwriteConfirmationDelegate);
+			var installers = new InstallerGroup(
+				dataFileUtility, p_mfiFileInstaller, iniInstaller, gameSpecificInstaller, PluginManager,
+				InstallContext, DeploymentManager, p_tfmFileManager, m_dorOverwriteResolver);
+			IScriptedFileSelectionCache replayCache = new ScriptedFileSelectionCache(Mod, GameMode);
+			var executor = new ImmediateScriptedInstallOperationExecutor(
+				Mod, GameMode, EnvironmentInfo, VirtualModActivator, VirtualModActivator.GetModLinkInstaller(), installers,
+				x => OnTaskStarted(x), replayCache, true);
+
+			bool result = true;
+			using (executor.BeginExecutionBatch(p_lstOperations.Count))
+			{
+				foreach (ScriptedInstallOperation operation in p_lstOperations)
+				{
+					if (!executor.Execute(operation))
+					{
+						result = false;
+						break;
+					}
+				}
+			}
+
+			if (result)
+				executor.CompleteExecution();
+
+			m_booUsedPromotedDeployment |= installers.UsedPromotedDeployment;
+			iniInstaller?.FinalizeInstall();
+			gameSpecificInstaller?.FinalizeInstall();
+			return result;
 		}
 
 		/// <summary>

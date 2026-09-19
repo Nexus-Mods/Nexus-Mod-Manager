@@ -272,6 +272,7 @@
       <DependentUpon>OptionsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="XmlScriptExecutor.cs" />
+    <Compile Include="XmlScriptFomodRecipeAdapter.cs" />
     <Compile Include="XmlScriptInstaller.cs" />
     <Compile Include="XmlScriptedInstallOperationExecutor.cs" />
     <Compile Include="XmlScriptType.cs" />

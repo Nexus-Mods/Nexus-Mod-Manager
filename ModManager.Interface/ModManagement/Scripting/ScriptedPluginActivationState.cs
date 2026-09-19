@@ -129,22 +129,31 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_pmgPluginManager">The plugin manager used to register and validate the final state.</param>
 		public void Reconcile(IPluginManager p_pmgPluginManager)
 		{
+			if (!TryReconcile(p_pmgPluginManager))
+			{
+				System.Diagnostics.Trace.TraceWarning(
+					"One or more scripted plugin activation requests could not be applied during final reconciliation.");
+			}
+		}
+
+		/// <summary>
+		/// Attempts to reconcile the complete scripted activation intent and reports whether every requested state was honored.
+		/// </summary>
+		/// <param name="p_pmgPluginManager">The plugin manager used to register and validate the final state.</param>
+		/// <returns><c>true</c> when plugin management is unavailable or every applicable request was reconciled; otherwise, <c>false</c>.</returns>
+		internal bool TryReconcile(IPluginManager p_pmgPluginManager)
+		{
 			if (p_pmgPluginManager == null)
-				return;
+				return true;
 
 			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
 			bool booReconciled = p_pmgPluginManager.TryReconcileDeployedPlugins(
 				DeployedPluginPaths, GetRequestedActivationStates(), out lstBlockingDiagnostics);
 
-			if (!booReconciled)
-			{
-				System.Diagnostics.Trace.TraceWarning(
-					"One or more scripted plugin activation requests could not be applied during final reconciliation.");
-			}
-
 			m_hstDeployedPluginPaths.Clear();
 			m_hstImplicitActivationRequests.Clear();
 			m_dicExplicitActivationRequests.Clear();
+			return booReconciled;
 		}
 
 		#endregion

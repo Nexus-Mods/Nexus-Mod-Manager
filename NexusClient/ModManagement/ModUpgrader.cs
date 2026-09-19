@@ -45,7 +45,15 @@ namespace Nexus.Client.ModManagement
 		/// <param name="p_pmgPluginManager">The plugin manager.</param>
 		/// <param name="p_dlgOverwriteConfirmationDelegate">The method to call in order to confirm an overwrite.</param>
 		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IProfileManager p_ipmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext)
-			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, null, p_micInstallContext)
+			: this(p_modOldMod, p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, p_micInstallContext, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes an upgrader with the immutable deployment context and optional explicit recipe input captured for this operation.
+		/// </summary>
+		public ModUpgrader(IMod p_modOldMod, IMod p_modNewMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, FileUtil p_futFileUtility, SynchronizationContext p_scxUIContext, IInstallLog p_ilgModInstallLog, IPluginManager p_pmgPluginManager, IVirtualModActivator p_ivaVirtualModActivator, IModDeploymentManager p_mdmDeploymentManager, IProfileManager p_ipmProfileManager, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext, ModInstallationRecipeInput p_mriRecipeInput)
+			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, null, p_micInstallContext, p_mriRecipeInput)
 		{
 			OldMod = p_modOldMod ?? throw new ArgumentNullException(nameof(p_modOldMod));
 		}
@@ -109,6 +117,15 @@ namespace Nexus.Client.ModManagement
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Allows the active mod being replaced by this native upgrade to reuse its legacy replay basename.
+		/// </summary>
+		protected override bool IsActiveModExemptFromReplayBasenameCollision(IMod p_modActiveMod)
+		{
+			return p_modActiveMod != null && OldMod != null &&
+				StringComparer.OrdinalIgnoreCase.Equals(p_modActiveMod.Filename, OldMod.Filename);
+		}
 
 		/// <summary>
 		/// Registers the mod being upgraded with the install log.

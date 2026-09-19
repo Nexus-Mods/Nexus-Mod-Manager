@@ -143,6 +143,36 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies additive final reconciliation preserves unrelated active plugins while applying the incoming plugin request.
+        /// </summary>
+        [Test]
+        public void IncomingPluginActivation_PreservesUnrelatedActivePlugin()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(
+                new[]
+                {
+                    new PluginDefinition("Existing.esp"),
+                    new PluginDefinition("Incoming.esp")
+                },
+                new[] { "Existing.esp" }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool reconciled = context.Manager.TryReconcileDeployedPlugins(
+                    new[] { context.PathOf("Incoming.esp") },
+                    new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { context.PathOf("Incoming.esp"), true }
+                    },
+                    out diagnostics);
+
+                Assert.IsTrue(reconciled);
+                Assert.AreEqual(0, diagnostics.Count);
+                CollectionAssert.AreEquivalent(new[] { "Existing.esp", "Incoming.esp" }, context.ActivePluginNames);
+                Assert.AreEqual(1, context.ActivePluginSaveCount);
+            }
+        }
+
+        /// <summary>
         /// Verifies that deployment-only plugin registration preserves the historical generated-file inactive state.
         /// </summary>
         [Test]

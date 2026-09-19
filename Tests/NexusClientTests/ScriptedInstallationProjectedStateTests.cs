@@ -196,6 +196,28 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// Verifies the plugin-only additive projection starts from the native plugin snapshot and overlays planned plugins without mutation.
+        /// </summary>
+        [Test]
+        public void PluginOnlyProjection_PreservesCurrentPluginsAndAddsPlannedPlugin()
+        {
+            using (TemporaryDirectory tmp = new TemporaryDirectory())
+            {
+                ScriptProxyContext ctx = new ScriptProxyContext(tmp.Path, "12345", false, false, "linked", new ScriptedInstallerTestPluginFactory());
+                ctx.AddManagedPlugin("Existing.esp");
+                ctx.AddModFile("optional\newplugin.esp", new byte[] { 1, 2, 3 });
+                ScriptedInstallationProjectedState spsState = new ScriptedInstallationProjectedState(ctx.Mod, ctx.GameMode, ctx.Installers.PluginManager);
+
+                spsState.Apply(new InstallModFileOperation("optional/newplugin.esp", "NewPlugin.esp"));
+
+                CollectionAssert.AreEqual(new[] { "Existing.esp", "NewPlugin.esp" }, spsState.GetAllPlugins());
+                CollectionAssert.AreEqual(new[] { "Existing.esp", "NewPlugin.esp" }, spsState.GetActivePlugins());
+                Assert.AreEqual(0, ctx.FileInstaller.InstallCallCount);
+                Assert.AreEqual(0, ctx.PluginOrderCalls.Count);
+            }
+        }
+
+        /// <summary>
         /// Verifies that immediate sessions do not project failed operations as successful state changes.
         /// </summary>
         [Test]

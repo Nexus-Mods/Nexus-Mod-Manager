@@ -172,6 +172,25 @@ namespace NexusClientTests
             Assert.AreEqual(0, pluginManager.LastDeployedPluginPaths.Count);
             Assert.AreEqual(1, pluginManager.LastRequestedActivationStates.Count);
         }
+
+        /// <summary>
+        /// Verifies legacy scripted callers retain best-effort completion when native final reconciliation reports a conflict.
+        /// </summary>
+        [Test]
+        public void Reconcile_FailedNativeResultRetainsLegacyBestEffortBehavior()
+        {
+            ScriptedPluginActivationState state = new ScriptedPluginActivationState();
+            RecordingPluginManagerProxy pluginManager = new RecordingPluginManagerProxy(new string[0])
+            {
+                ReconciliationResult = false
+            };
+
+            state.RecordActivationRequest(@"C:\Game\Data\Blocked.esp", true);
+
+            Assert.DoesNotThrow(() => state.Reconcile(pluginManager.Manager));
+            Assert.AreEqual(1, pluginManager.ReconciliationCalls);
+            Assert.AreEqual(0, state.GetRequestedActivePluginPaths().Count);
+        }
     }
 
     /// <summary>
@@ -204,6 +223,11 @@ namespace NexusClientTests
         public int ReconciliationCalls { get; private set; }
 
         /// <summary>
+        /// Gets or sets the result returned by final plugin reconciliation.
+        /// </summary>
+        public bool ReconciliationResult { get; set; } = true;
+
+        /// <summary>
         /// Gets the deployment paths passed to the latest reconciliation request.
         /// </summary>
         public List<string> LastDeployedPluginPaths { get; } = new List<string>();
@@ -233,7 +257,11 @@ namespace NexusClientTests
                             LastRequestedActivationStates[request.Key] = request.Value;
                         object[] returnArgs = (object[])call.Args.Clone();
                         returnArgs[2] = new List<PluginValidationDiagnostic>();
-                        return new ReturnMessage(true, returnArgs, 1, call.LogicalCallContext, call);
+                        return new ReturnMessage(ReconciliationResult, returnArgs, 1, call.LogicalCallContext, call);
+                    case "SetPluginActivation":
+                        return new ReturnMessage(null, call.Args, 0, call.LogicalCallContext, call);
+                    case "IsActivatiblePluginFile":
+                        return new ReturnMessage(true, call.Args, 0, call.LogicalCallContext, call);
                     case "GetRegisteredPlugin":
                         Plugin plugin;
                         m_dicRegisteredPlugins.TryGetValue((string)call.Args[0], out plugin);
