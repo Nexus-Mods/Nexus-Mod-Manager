@@ -266,6 +266,49 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void TargetSnapshot_LoadsOnlyRequestedTargetRelationships()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore featureStore = CreateFeatureStore(root);
+				CollectionTargetAssociation requested = SeedAssociation(featureStore, "target-snapshot-a", "rev-a", 1, "target-a");
+				CollectionTargetAssociation other = SeedAssociation(featureStore, "target-snapshot-b", "rev-b", 1, "target-b");
+				var associations = new CollectionsAssociationStore(featureStore);
+				associations.SaveBinding(new CollectionMemberBinding(requested, CollectionMemberKey.FromProvider("member-a"),
+					new NativeModInstanceIdentity(requested.Target, "native-a"), CollectionRecipeIdentity.FromFingerprint("recipe-a"),
+					CollectionMemberBindingKind.AdoptedExisting));
+				associations.SaveBinding(new CollectionMemberBinding(other, CollectionMemberKey.FromProvider("member-b"),
+					new NativeModInstanceIdentity(other.Target, "native-b"), CollectionRecipeIdentity.FromFingerprint("recipe-b"),
+					CollectionMemberBindingKind.AdoptedExisting));
+
+				var requirement = new CollectionRequirementReference(requested, CollectionMemberKey.FromProvider("member-a"),
+					CollectionRequirementAspect.MemberEnabledState, null);
+				associations.SaveOverride(new UserOverride(Guid.NewGuid(), requirement,
+					CollectionRequirementState.Present("bool-v1", "enabled"), CollectionRequirementState.Absent(), null));
+
+				CollectionsAssociationTargetSnapshot snapshot = associations.GetTargetSnapshot(requested.Target);
+
+				Assert.AreEqual(requested.Target, snapshot.Target);
+				Assert.AreEqual(1, snapshot.Associations.Count);
+				Assert.AreEqual(requested.AssociationId, snapshot.Associations[0].AssociationId);
+				Assert.AreEqual(1, snapshot.Bindings.Count);
+				Assert.AreEqual("native-a", snapshot.Bindings[0].NativeMod.NativeModKey);
+				Assert.AreEqual(1, snapshot.Overrides.Count);
+				Assert.AreEqual(requested.AssociationId, snapshot.Overrides[0].Requirement.AssociationId);
+
+				CollectionsAssociationTargetSnapshot empty = associations.GetTargetSnapshot(CollectionTargetIdentity.FromFingerprint("target-empty"));
+				Assert.AreEqual(0, empty.Associations.Count);
+				Assert.AreEqual(0, empty.Bindings.Count);
+				Assert.AreEqual(0, empty.Overrides.Count);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void LocalAssociationAndLocalMemberIdentity_RoundTripWithoutNexusIdentityAssumptions()
 		{
 			string root = CreateTemporaryDirectory();

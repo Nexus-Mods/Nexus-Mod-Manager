@@ -72,6 +72,93 @@ ORDER BY ta.association_id;";
 			});
 		}
 
+
+		/// <summary>
+		/// Loads the complete persisted Collection relationship state for one target in a single read transaction.
+		/// </summary>
+		public CollectionsAssociationTargetSnapshot GetTargetSnapshot(CollectionTargetIdentity target)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var associations = new List<CollectionTargetAssociation>();
+				var associationsById = new Dictionary<Guid, CollectionTargetAssociation>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = AssociationSelect + @"
+WHERE ta.target_fingerprint = @target_fingerprint
+ORDER BY ta.association_id;";
+					command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							CollectionTargetAssociation association = ReadAssociation(reader);
+							associations.Add(association);
+							associationsById.Add(association.AssociationId, association);
+						}
+					}
+				}
+
+				var bindings = new List<CollectionMemberBinding>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT mb.association_id, mb.member_key_kind, mb.member_key_value, mb.native_target_fingerprint,
+       mb.native_mod_key, mb.verified_recipe_fingerprint, mb.binding_kind
+FROM member_bindings mb
+JOIN target_associations ta ON ta.association_id = mb.association_id
+WHERE ta.target_fingerprint = @target_fingerprint
+ORDER BY mb.association_id, mb.member_key_kind, mb.member_key_value;";
+					command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							Guid associationId = ReadCanonicalGuid(reader.GetString(0), "Collection member binding association");
+							CollectionTargetAssociation association;
+							if (!associationsById.TryGetValue(associationId, out association))
+								throw new CollectionsStoreSchemaException("A persisted Collection member binding references a missing target association.");
+							bindings.Add(ReadBinding(reader, association));
+						}
+					}
+				}
+
+				var overrides = new List<UserOverride>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT uo.override_id, uo.association_id, uo.baseline_revision_id, uo.target_fingerprint,
+       uo.member_key_kind, uo.member_key_value, uo.aspect, uo.subject_key,
+       uo.baseline_state_kind, uo.baseline_state_format_version, uo.baseline_state_fingerprint,
+       uo.chosen_state_kind, uo.chosen_state_format_version, uo.chosen_state_fingerprint, uo.note
+FROM user_overrides uo
+JOIN target_associations ta ON ta.association_id = uo.association_id
+WHERE ta.target_fingerprint = @target_fingerprint
+ORDER BY uo.association_id, uo.override_id;";
+					command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							Guid associationId = ReadCanonicalGuid(reader.GetString(1), "Collection user override association");
+							CollectionTargetAssociation association;
+							if (!associationsById.TryGetValue(associationId, out association))
+								throw new CollectionsStoreSchemaException("A persisted Collection user override references a missing target association.");
+							overrides.Add(ReadOverride(reader, association));
+						}
+					}
+				}
+
+				return new CollectionsAssociationTargetSnapshot(target, associations, bindings, overrides);
+			});
+		}
+
 		/// <summary>
 		/// Persists the current native-mod binding for one member of an existing exact association baseline.
 		/// </summary>

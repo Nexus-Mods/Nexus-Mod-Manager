@@ -140,6 +140,13 @@
     <Compile Include="CollectionExecutionPolicyTests.cs" />
     <Compile Include="CollectionManifestNormalizationModelTests.cs" />
     <Compile Include="CollectionCapabilityReportTests.cs" />
+    <Compile Include="CollectionNativeStateIndexTests.cs" />
+    <Compile Include="CollectionMemberMatchEngineTests.cs" />
+    <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
+    <Compile Include="CollectionConflictImpactPlannerTests.cs" />
+    <Compile Include="CollectionOperationCoordinatorTests.cs" />
+    <Compile Include="CollectionNativeChildPreparationCoordinatorTests.cs" />
+    <Compile Include="CollectionNativeChildExecutionCoordinatorTests.cs" />
     <Compile Include="ResolvedCollectionPlanTests.cs" />
     <Compile Include="CollectionAcquisitionRequestTests.cs" />
     <Compile Include="CollectionAcquisitionSharingTests.cs" />
@@ -154,6 +161,7 @@
     <Compile Include="CollectionsCatalogStoreTests.cs" />
     <Compile Include="CollectionsAssociationStoreTests.cs" />
     <Compile Include="CollectionsOperationStoreTests.cs" />
+    <Compile Include="CollectionsResolvedPlanStoreTests.cs" />
     <Compile Include="CollectionsRetainedArtifactStoreTests.cs" />
     <Compile Include="CollectionsRetainedArtifactReferenceStoreTests.cs" />
     <Compile Include="CollectionsRetainedArtifactCleanupStoreTests.cs" />

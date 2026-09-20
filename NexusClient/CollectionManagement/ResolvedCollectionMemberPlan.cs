@@ -39,6 +39,7 @@ namespace Nexus.Client.CollectionManagement
 			ArtifactChoice = artifactChoice;
 			RecipeIdentity = member.RecipeIdentity;
 			DisplayName = member.DisplayName;
+			InstallationPhase = member.InstallationPhase;
 		}
 
 		/// <summary>
@@ -70,5 +71,10 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets optional decorative member text copied for plan diagnostics/preview.
 		/// </summary>
 		public string DisplayName { get; }
+
+		/// <summary>
+		/// Gets the sparse installation phase captured from the normalized member.
+		/// </summary>
+		public double InstallationPhase { get; }
 	}
 }

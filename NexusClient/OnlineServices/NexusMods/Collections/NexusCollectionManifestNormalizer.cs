@@ -23,8 +23,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 	{
 		public const int MaxManifestBytes = 8 * 1024 * 1024;
 		public const string SchemaIdentity = "vortex.collection-json/ICollection@2.6.3";
-		public const string NormalizerVersion = "nmm-ce.collections.normalizer/1";
+		public const string NormalizerVersion = "nmm-ce.collections.normalizer/3";
 		private const int MaxJsonDepth = 64;
+		private const double OptionalInstallationPhase = 666d;
 
 		private static readonly HashSet<string> RootFields = new HashSet<string>(StringComparer.Ordinal)
 		{
@@ -208,7 +209,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					draft.Optional ? CollectionMemberSelection.Unselected : CollectionMemberSelection.Selected,
 					draft.Artifact,
 					draft.RecipeIdentity,
-					draft.DisplayName);
+					draft.DisplayName,
+					draft.InstallationPhase);
 				members.Add(member);
 
 				foreach (PendingMemberIssue pending in draft.Issues)
@@ -222,6 +224,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				}
 			}
 
+			List<CollectionFilePriorityRule> filePriorityRules = NormalizeFilePriorityRules(
+				root["modRules"] as JArray, drafts, members, allDeclaredIssues);
+
 			CollectionManifestMemberSetCompleteness completeness = memberSetIncomplete
 				? CollectionManifestMemberSetCompleteness.Incomplete
 				: CollectionManifestMemberSetCompleteness.Complete;
@@ -230,7 +235,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				source,
 				completeness,
 				memberSetIncomplete ? incompletenessReason : null,
-				members);
+				members,
+				null,
+				filePriorityRules);
 
 			if (revision.DeclaredMemberCount.HasValue && rawMembers != null && revision.DeclaredMemberCount.Value != rawMembers.Count)
 			{
@@ -258,6 +265,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			ValidateOptionalString(memberObject, "author", memberPath, draft.Issues);
 
 			draft.DisplayName = NormalizeDisplayValue(ReadString(memberObject, "name"));
+			draft.Version = ReadString(memberObject, "version");
 			draft.RecipeIdentity = CollectionRecipeIdentity.FromFingerprint("sha256:" + ComputeSha256Hex(Canonicalize(BuildRecipeToken(memberObject))));
 
 			JObject source = memberObject["source"] as JObject;
@@ -274,7 +282,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				NormalizeSource(memberObject, source, memberPath, draft);
 			}
 
-			ValidateInstallBehavior(memberObject, memberPath, draft.Issues);
+			ValidateInstallBehavior(memberObject, memberPath, draft);
+			if (draft.Optional)
+				draft.InstallationPhase = OptionalInstallationPhase;
 			return draft;
 		}
 
@@ -288,6 +298,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			ValidateOptionalString(source, "logicalFilename", sourcePath, draft.Issues);
 			ValidateOptionalString(source, "fileExpression", sourcePath, draft.Issues);
 			ValidateOptionalString(source, "tag", sourcePath, draft.Issues);
+			string sourceTag = ReadString(source, "tag");
+			if (!String.IsNullOrWhiteSpace(sourceTag) && StringComparer.Ordinal.Equals(sourceTag, sourceTag.Trim()))
+				draft.SourceTag = sourceTag;
 			ValidateOptionalBoolean(source, "adultContent", sourcePath, draft.Issues);
 			ValidateOptionalNumber(source, "fileSize", sourcePath, draft.Issues);
 
@@ -349,6 +362,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			string stableArtifactId = string.Format(CultureInfo.InvariantCulture, "{0}/{1}/{2}", domain, modId, fileId);
 			draft.StableMatchKey = "nexus-mod-file:" + stableArtifactId;
 			draft.Artifact = new CollectionArtifactReference("nexus-mod-file", stableArtifactId, null);
+			draft.SourceDomain = domain;
+			draft.SourceModId = modId;
+			draft.SourceFileId = fileId;
+			draft.SourceMd5 = ReadString(source, "md5");
+			draft.SourceLogicalFilename = ReadString(source, "logicalFilename");
+			draft.SourceFileExpression = ReadString(source, "fileExpression");
 
 			JToken updatePolicyToken = source["updatePolicy"];
 			if (updatePolicyToken == null || updatePolicyToken.Type == JTokenType.Null)
@@ -383,8 +402,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				sourcePath + ".updatePolicy"));
 		}
 
-		private static void ValidateInstallBehavior(JObject memberObject, string memberPath, List<PendingMemberIssue> issues)
+		private static void ValidateInstallBehavior(JObject memberObject, string memberPath, MemberDraft draft)
 		{
+			List<PendingMemberIssue> issues = draft.Issues;
 			AddUnsupportedWhenPopulated(memberObject, "hashes", "member.file-list-unsupported",
 				"C2.5 has not yet translated Vortex hashes/fileList install specifications into native NMM recipe input.", memberPath, issues);
 			AddUnsupportedWhenPopulated(memberObject, "choices", "member.installer-choices-unsupported",
@@ -401,12 +421,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				if (!TryReadFiniteNumber(phase, out phaseValue))
 				{
 					issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-						"member.phase-invalid", "A collection member phase must be numeric.", memberPath + ".phase"));
+						"member.phase-invalid", "A collection member phase must be a finite number.", memberPath + ".phase"));
 				}
-				else if (Math.Abs(phaseValue) > Double.Epsilon)
+				else
 				{
-					issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-						"member.phase-unsupported", "Non-zero collection installation phases require the later typed dependency/phase planner.", memberPath + ".phase"));
+					draft.InstallationPhase = phaseValue;
 				}
 			}
 
@@ -434,6 +453,240 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 		}
 
+		/// <summary>
+		/// Characterizes portable before/after modRules whose endpoints resolve exactly to normalized members.
+		/// </summary>
+		private static List<CollectionFilePriorityRule> NormalizeFilePriorityRules(JArray rawRules,
+			IReadOnlyList<MemberDraft> drafts, IReadOnlyList<NormalizedCollectionMember> members,
+			List<CollectionCapabilityIssue> issues)
+		{
+			var result = new List<CollectionFilePriorityRule>();
+			if (rawRules == null || rawRules.Count == 0)
+				return result;
+
+			var candidates = new List<RuleReferenceCandidate>();
+			for (int index = 0; index < drafts.Count && index < members.Count; index++)
+			{
+				if (!members[index].IdentityResolution.IsResolved)
+					continue;
+				candidates.Add(new RuleReferenceCandidate(members[index].IdentityResolution.Key, drafts[index]));
+			}
+
+			var unique = new HashSet<CollectionFilePriorityRule>();
+			for (int index = 0; index < rawRules.Count; index++)
+			{
+				string path = "$.modRules[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				JObject rule = rawRules[index] as JObject;
+				if (rule == null)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.mod-rule-invalid", "A collection modRule must be a JSON object.", path));
+					continue;
+				}
+
+				string type = ReadString(rule, "type");
+				if (!StringComparer.Ordinal.Equals(type, "before") && !StringComparer.Ordinal.Equals(type, "after"))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.mod-rule-type-unsupported", "C6.4 currently characterizes only Vortex before/after file-priority rules; other modRule types remain unsupported.", path + ".type"));
+					continue;
+				}
+
+				CollectionMemberKey sourceMember;
+				CollectionMemberKey referenceMember;
+				string failure;
+				if (!TryResolveRuleReference(rule["source"] as JObject, candidates, out sourceMember, out failure))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.mod-rule-source-unresolved", failure, path + ".source"));
+					continue;
+				}
+				if (!TryResolveRuleReference(rule["reference"] as JObject, candidates, out referenceMember, out failure))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.mod-rule-reference-unresolved", failure, path + ".reference"));
+					continue;
+				}
+				if (sourceMember.Equals(referenceMember))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.mod-rule-self-reference", "A before/after file-priority rule cannot target the same normalized member.", path));
+					continue;
+				}
+
+				CollectionFilePriorityRule normalized = StringComparer.Ordinal.Equals(type, "before")
+					? new CollectionFilePriorityRule(sourceMember, referenceMember)
+					: new CollectionFilePriorityRule(referenceMember, sourceMember);
+				if (unique.Add(normalized))
+					result.Add(normalized);
+			}
+			return result;
+		}
+
+		private static bool TryResolveRuleReference(JObject reference,
+			IEnumerable<RuleReferenceCandidate> candidates, out CollectionMemberKey memberKey, out string failure)
+		{
+			memberKey = null;
+			failure = "The modRule endpoint does not expose an exact portable member reference supported by C6.4.";
+			if (reference == null)
+				return false;
+
+			HashSet<string> allowed = new HashSet<string>(StringComparer.Ordinal)
+			{
+				"id", "idHint", "archiveId", "md5Hint", "description", "instructions",
+				"fileMD5", "logicalFileName", "fileExpression", "versionMatch", "repo", "tag", "gameId"
+			};
+			foreach (JProperty property in reference.Properties())
+			{
+				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+				{
+					failure = "The modRule endpoint contains an uncharacterized matching field ('" + property.Name + "'); C6.4 will not ignore narrowing reference semantics.";
+					return false;
+				}
+			}
+
+			foreach (string field in new[] { "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
+			{
+				JToken token = reference[field];
+				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
+				{
+					failure = "The modRule endpoint field '" + field + "' must be a string when present.";
+					return false;
+				}
+			}
+
+			JObject repo = reference["repo"] as JObject;
+			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null && repo == null)
+			{
+				failure = "The modRule repository reference is malformed.";
+				return false;
+			}
+			if (repo != null)
+			{
+				HashSet<string> allowedRepo = new HashSet<string>(StringComparer.Ordinal)
+				{
+					"repository", "gameId", "modId", "fileId", "campaign"
+				};
+				foreach (JProperty property in repo.Properties())
+				{
+					if (!allowedRepo.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+					{
+						failure = "The modRule repository reference contains an uncharacterized matching field ('" + property.Name + "').";
+						return false;
+					}
+				}
+			}
+
+			string tag = ReadString(reference, "tag");
+			if (!String.IsNullOrWhiteSpace(tag))
+			{
+				if (!StringComparer.Ordinal.Equals(tag, tag.Trim()))
+				{
+					failure = "The modRule tag reference contains leading/trailing whitespace and is not normalized.";
+					return false;
+				}
+				List<RuleReferenceCandidate> tagMatches = candidates.Where(x => StringComparer.Ordinal.Equals(x.SourceTag, tag)).ToList();
+				if (tagMatches.Count == 1)
+				{
+					memberKey = tagMatches[0].MemberKey;
+					return true; // Vortex treats a matching collection reference tag as decisive.
+				}
+				if (tagMatches.Count > 1)
+				{
+					failure = "The modRule tag matches more than one normalized member.";
+					return false;
+				}
+			}
+
+			string versionMatch = ReadString(reference, "versionMatch");
+			if (!String.IsNullOrWhiteSpace(versionMatch) && versionMatch != "*" &&
+				(versionMatch.StartsWith(">", StringComparison.Ordinal) || versionMatch.StartsWith("<", StringComparison.Ordinal) ||
+				 versionMatch.StartsWith("=", StringComparison.Ordinal) || versionMatch.IndexOf("+prefer", StringComparison.Ordinal) >= 0 ||
+				 versionMatch.IndexOf(" ", StringComparison.Ordinal) >= 0 || versionMatch.IndexOf("||", StringComparison.Ordinal) >= 0))
+			{
+				failure = "The modRule endpoint uses a fuzzy/range version matcher which C6.4 does not reinterpret without the Vortex semver matcher.";
+				return false;
+			}
+
+			List<RuleReferenceCandidate> matches = candidates.Where(x => RuleReferenceMatches(reference, repo, x)).ToList();
+			if (matches.Count == 0)
+			{
+				failure = "The modRule endpoint does not match a member in the retained collection revision under the characterized Vortex reference subset.";
+				return false;
+			}
+			if (matches.Count != 1)
+			{
+				failure = "The modRule endpoint matches more than one normalized member and cannot be used as a deterministic file-priority rule.";
+				return false;
+			}
+
+			memberKey = matches[0].MemberKey;
+			return true;
+		}
+
+		private static bool RuleReferenceMatches(JObject reference, JObject repo, RuleReferenceCandidate candidate)
+		{
+			bool hasMarker = false;
+			string fileMd5 = ReadString(reference, "fileMD5");
+			string logicalFileName = ReadString(reference, "logicalFileName");
+			string fileExpression = ReadString(reference, "fileExpression");
+			string versionMatch = ReadString(reference, "versionMatch");
+			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
+			bool fuzzyVersion = StringComparer.Ordinal.Equals(versionMatch, "*");
+
+			if (repo != null)
+			{
+				hasMarker = true;
+				string repository = ReadString(repo, "repository");
+				long modId;
+				long fileId;
+				if (!StringComparer.OrdinalIgnoreCase.Equals(repository, "nexus") ||
+					!TryReadPositiveIntegerFlexible(repo["modId"], out modId) ||
+					!TryReadPositiveIntegerFlexible(repo["fileId"], out fileId) ||
+					candidate.SourceModId != modId || candidate.SourceFileId != fileId)
+					return false;
+				string repoGame = NormalizeDomain(ReadString(repo, "gameId"));
+				if (repoGame != null && !StringComparer.Ordinal.Equals(repoGame, candidate.SourceDomain))
+					return false;
+			}
+			if (gameId != null && !StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain))
+				return false;
+			if (!String.IsNullOrEmpty(fileMd5))
+			{
+				hasMarker = true;
+				if (!fuzzyVersion && !StringComparer.Ordinal.Equals(fileMd5, candidate.SourceMd5))
+					return false;
+			}
+			if (!String.IsNullOrEmpty(logicalFileName))
+			{
+				hasMarker = true;
+				if (!StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename))
+					return false;
+			}
+			if (!String.IsNullOrEmpty(fileExpression))
+			{
+				hasMarker = true;
+				// Vortex supports glob matching here. NMM accepts only the exact retained expression in C6.4 rather than guessing glob semantics.
+				if (!StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))
+					return false;
+			}
+			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*" &&
+				!StringComparer.Ordinal.Equals(versionMatch, candidate.Version))
+				return false;
+			return hasMarker;
+		}
+
+		private static bool TryReadPositiveIntegerFlexible(JToken token, out long value)
+		{
+			if (TryReadPositiveInteger(token, out value))
+				return true;
+			value = 0;
+			if (token == null || token.Type != JTokenType.String)
+				return false;
+			return Int64.TryParse((string)token, NumberStyles.None, CultureInfo.InvariantCulture, out value) && value > 0;
+		}
+
+
 		private static void ValidateTopLevelBehavior(JObject root, List<CollectionCapabilityIssue> issues)
 		{
 			JToken modRules = root["modRules"];
@@ -441,11 +694,6 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{
 				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 					"manifest.mod-rules-invalid", "The verified Vortex collection schema requires a modRules array.", "$.modRules"));
-			}
-			else if (((JArray)modRules).Count > 0)
-			{
-				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-					"manifest.mod-rules-unsupported", "Collection dependency/order/conflict rules require the later typed dependency planner.", "$.modRules"));
 			}
 
 			AddUnsupportedManifestWhenPopulated(root, "collectionConfig", "manifest.collection-config-unsupported",
@@ -525,6 +773,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		private static JToken BuildRecipeToken(JObject memberObject)
 		{
 			JObject recipe = (JObject)memberObject.DeepClone();
+			// Installation phase is scheduler metadata, not installed-output identity.
+			recipe.Remove("phase");
 			recipe.Remove("name");
 			recipe.Remove("author");
 			recipe.Remove("instructions");
@@ -721,6 +971,31 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return trimmed.ToLowerInvariant();
 		}
 
+		private sealed class RuleReferenceCandidate
+		{
+			public RuleReferenceCandidate(CollectionMemberKey memberKey, MemberDraft draft)
+			{
+				MemberKey = memberKey;
+				SourceTag = draft.SourceTag;
+				SourceDomain = draft.SourceDomain;
+				SourceModId = draft.SourceModId;
+				SourceFileId = draft.SourceFileId;
+				SourceMd5 = draft.SourceMd5;
+				SourceLogicalFilename = draft.SourceLogicalFilename;
+				SourceFileExpression = draft.SourceFileExpression;
+				Version = draft.Version;
+			}
+			public CollectionMemberKey MemberKey { get; }
+			public string SourceTag { get; }
+			public string SourceDomain { get; }
+			public long SourceModId { get; }
+			public long SourceFileId { get; }
+			public string SourceMd5 { get; }
+			public string SourceLogicalFilename { get; }
+			public string SourceFileExpression { get; }
+			public string Version { get; }
+		}
+
 		private sealed class MemberDraft
 		{
 			public MemberDraft(int sourceOrdinal, bool optional)
@@ -733,9 +1008,18 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			public int SourceOrdinal { get; }
 			public bool Optional { get; }
 			public string StableMatchKey { get; set; }
+			public string SourceTag { get; set; }
+			public string SourceDomain { get; set; }
+			public long SourceModId { get; set; }
+			public long SourceFileId { get; set; }
+			public string SourceMd5 { get; set; }
+			public string SourceLogicalFilename { get; set; }
+			public string SourceFileExpression { get; set; }
+			public string Version { get; set; }
 			public CollectionArtifactReference Artifact { get; set; }
 			public CollectionRecipeIdentity RecipeIdentity { get; set; }
 			public string DisplayName { get; set; }
+			public double InstallationPhase { get; set; }
 			public List<PendingMemberIssue> Issues { get; }
 		}
 

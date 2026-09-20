@@ -185,8 +185,12 @@ namespace Nexus.Client.CollectionManagement
 					manifest.IncompletenessReason));
 			}
 
+			Dictionary<CollectionMemberKey, NormalizedCollectionMember> resolvedMembers = new Dictionary<CollectionMemberKey, NormalizedCollectionMember>();
 			foreach (NormalizedCollectionMember member in manifest.Members)
 			{
+				if (member.IdentityResolution.IsResolved)
+					resolvedMembers.Add(member.IdentityResolution.Key, member);
+
 				if (!member.IdentityResolution.IsResolved)
 				{
 					issues.Add(CollectionCapabilityIssue.ForMember(
@@ -226,6 +230,21 @@ namespace Nexus.Client.CollectionManagement
 						"member.required-omitted",
 						"A required collection member is explicitly unselected, so the current selection is a deviation.",
 						member,
+						"selection"));
+				}
+			}
+
+			foreach (CollectionMemberDependency dependency in manifest.Dependencies)
+			{
+				NormalizedCollectionMember prerequisite = resolvedMembers[dependency.PrerequisiteMemberKey];
+				NormalizedCollectionMember dependent = resolvedMembers[dependency.DependentMemberKey];
+				if (dependent.IsSelected && !prerequisite.IsSelected)
+				{
+					issues.Add(CollectionCapabilityIssue.ForMember(
+						CollectionCompatibilityStatus.ActionRequired,
+						"member.prerequisite-unselected",
+						"A selected Collection member requires another member that is currently unselected.",
+						dependent,
 						"selection"));
 				}
 			}

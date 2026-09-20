@@ -125,6 +125,15 @@
 		long DeploymentCommitSequence { get; }
 
 		/// <summary>
+		/// Captures one detached read-only view of committed InstallLog registrations and ownership histories.
+		/// </summary>
+		/// <remarks>
+		/// This read is not valid from inside an ambient native install transaction because transaction-local state must not
+		/// be mixed with the committed registration list used by collection planning.
+		/// </remarks>
+		InstallLogReadSnapshot GetCommittedStateSnapshot();
+
+		/// <summary>
 		/// Enlists the current transaction in deployment crash recovery and returns the pre-commit sequence.
 		/// </summary>
 		long EnlistDeploymentRecoveryTransaction();

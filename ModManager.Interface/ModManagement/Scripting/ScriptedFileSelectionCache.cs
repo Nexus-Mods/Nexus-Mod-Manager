@@ -75,7 +75,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <param name="p_modMod">The mod whose scripted file selections are stored.</param>
 		/// <param name="p_gmdGameMode">The game mode that provides the install-info directory.</param>
 		public ScriptedFileSelectionCache(IMod p_modMod, IGameMode p_gmdGameMode)
-			: this(GetDefaultFilePath(p_modMod, p_gmdGameMode), p_modMod.ModName, p_modMod.HumanReadableVersion)
+			: this(GetDefaultFilePath(p_modMod.Filename, p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory), p_modMod.ModName, p_modMod.HumanReadableVersion)
 		{
 		}
 
@@ -397,14 +397,19 @@ namespace Nexus.Client.ModManagement.Scripting
 		}
 
 		/// <summary>
-		/// Builds the default scripted file-selection cache path for the specified mod and game mode.
+		/// Builds the canonical default scripted file-selection cache path from the native mod filename and InstallInfo directory.
 		/// </summary>
-		/// <param name="p_modMod">The mod whose cache path is required.</param>
-		/// <param name="p_gmdGameMode">The game mode that provides the install-info directory.</param>
+		/// <remarks>Recovery/preparation code should use this helper rather than duplicating the legacy basename convention.</remarks>
+		/// <param name="p_strModFileName">The native mod filename used by the replay naming convention.</param>
+		/// <param name="p_strInstallInfoDirectory">The game mode InstallInfo directory.</param>
 		/// <returns>The full default scripted file-selection cache path.</returns>
-		private static string GetDefaultFilePath(IMod p_modMod, IGameMode p_gmdGameMode)
+		public static string GetDefaultFilePath(string p_strModFileName, string p_strInstallInfoDirectory)
 		{
-			return Path.Combine(Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_modMod.Filename)) + ".xml";
+			if (String.IsNullOrWhiteSpace(p_strModFileName))
+				throw new ArgumentException("A native mod filename is required.", nameof(p_strModFileName));
+			if (String.IsNullOrWhiteSpace(p_strInstallInfoDirectory))
+				throw new ArgumentException("The InstallInfo directory is required.", nameof(p_strInstallInfoDirectory));
+			return Path.Combine(Path.Combine(p_strInstallInfoDirectory, "Scripted"), Path.GetFileNameWithoutExtension(p_strModFileName)) + ".xml";
 		}
 
 		/// <summary>

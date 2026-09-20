@@ -69,6 +69,71 @@ VALUES
 		}
 
 		/// <summary>
+		/// Acquires an idempotent reference while requiring one owner/role to identify exactly one retained artifact.
+		/// </summary>
+		/// <remarks>Recovery-input roles use this to reject restart attempts that would silently bind the same role to changed bytes.</remarks>
+		public CollectionsRetainedArtifactReferenceRecord AcquireExclusiveRoleReference(string artifactId,
+			CollectionsRetainedArtifactOwnerKind ownerKind, string ownerId, string role)
+		{
+			artifactId = CollectionIdentityValidation.RequireOpaqueToken(artifactId, nameof(artifactId));
+			ValidateOwnerKind(ownerKind);
+			ownerId = CollectionsRetainedArtifactReferenceValidation.RequireOwnerId(ownerId, nameof(ownerId));
+			role = CollectionIdentityValidation.RequireOpaqueToken(role, nameof(role));
+			CollectionsRetainedArtifactReferenceRecord result = null;
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				RequireSealedArtifact(connection, transaction, artifactId);
+				IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> existing = ReadReferencesForOwnerRole(connection, transaction, ownerKind, ownerId, role);
+				if (existing.Count > 1)
+					throw new CollectionsStoreSchemaException("A retained-artifact owner role is ambiguously bound to multiple artifacts.");
+				if (existing.Count == 1)
+				{
+					if (!StringComparer.Ordinal.Equals(existing[0].ArtifactId, artifactId))
+						throw new InvalidOperationException("A retained-artifact owner role is already bound to different immutable bytes.");
+					result = existing[0];
+					return;
+				}
+				string referenceId = Guid.NewGuid().ToString("D");
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+INSERT INTO retained_artifact_references
+    (reference_id, artifact_id, owner_kind, owner_id, role)
+VALUES
+    (@reference_id, @artifact_id, @owner_kind, @owner_id, @role);";
+					command.Parameters.AddWithValue("@reference_id", referenceId);
+					command.Parameters.AddWithValue("@artifact_id", artifactId);
+					command.Parameters.AddWithValue("@owner_kind", (int)ownerKind);
+					command.Parameters.AddWithValue("@owner_id", ownerId);
+					command.Parameters.AddWithValue("@role", role);
+					command.ExecuteNonQuery();
+				}
+				IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> inserted = ReadReferencesForOwnerRole(connection, transaction, ownerKind, ownerId, role);
+				if (inserted.Count != 1 || !StringComparer.Ordinal.Equals(inserted[0].ArtifactId, artifactId))
+					throw new CollectionsStoreSchemaException("An exclusive retained-artifact owner role could not be read after durable acquisition.");
+				result = inserted[0];
+			});
+			return result;
+		}
+
+		/// <summary>Loads the unique retained-artifact reference for one exact owner/role, or <c>null</c> when none exists.</summary>
+		public CollectionsRetainedArtifactReferenceRecord GetReferenceForOwnerRole(
+			CollectionsRetainedArtifactOwnerKind ownerKind, string ownerId, string role)
+		{
+			ValidateOwnerKind(ownerKind);
+			ownerId = CollectionsRetainedArtifactReferenceValidation.RequireOwnerId(ownerId, nameof(ownerId));
+			role = CollectionIdentityValidation.RequireOpaqueToken(role, nameof(role));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> references = ReadReferencesForOwnerRole(connection, transaction, ownerKind, ownerId, role);
+				if (references.Count > 1)
+					throw new CollectionsStoreSchemaException("A retained-artifact owner role is ambiguously bound to multiple artifacts.");
+				return references.Count == 0 ? null : references[0];
+			});
+		}
+
+		/// <summary>
 		/// Loads one durable retained-artifact reference by identity, or <c>null</c> when it is absent.
 		/// </summary>
 		public CollectionsRetainedArtifactReferenceRecord GetReference(string referenceId)
@@ -214,6 +279,19 @@ WHERE a.artifact_id=@artifact_id;";
 					return reader.Read() ? ReadReference(reader) : null;
 				}
 			}
+		}
+
+		private static IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> ReadReferencesForOwnerRole(
+			SQLiteConnection connection, SQLiteTransaction transaction, CollectionsRetainedArtifactOwnerKind ownerKind,
+			string ownerId, string role)
+		{
+			return ReadReferences(connection, transaction,
+				"owner_kind=@owner_kind AND owner_id=@owner_id AND role=@role", command =>
+				{
+					command.Parameters.AddWithValue("@owner_kind", (int)ownerKind);
+					command.Parameters.AddWithValue("@owner_id", ownerId);
+					command.Parameters.AddWithValue("@role", role);
+				});
 		}
 
 		private static CollectionsRetainedArtifactReferenceRecord ReadReferenceByOwner(SQLiteConnection connection,

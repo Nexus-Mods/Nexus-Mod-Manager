@@ -182,6 +182,7 @@
     <Compile Include="ModManagement\IModFileInstallDecisionSupport.cs" />
     <Compile Include="ModManagement\IModProfile.cs" />
     <Compile Include="ModManagement\InstallationLog\IInstallLog.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLogReadSnapshot.cs" />
     <Compile Include="ModManagement\InstallationLog\IniEdit.cs" />
     <Compile Include="ModManagement\InstallerGroup.cs" />
     <Compile Include="ModManagement\Delegates.cs" />
@@ -233,6 +234,7 @@
     <Compile Include="ModManagement\VirtualModActivator\IModLinkInstallDecisionSupport.cs" />
     <Compile Include="ModManagement\VirtualModActivator\ModLinkInstallDecision.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModActivator.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModReadSnapshot.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModInfo.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModLink.cs" />
     <Compile Include="Mods\FilenameModComparer.cs" />

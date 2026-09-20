@@ -138,6 +138,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (actual.SourceOrdinal != expected.SourceOrdinal ||
 				actual.Requirement != expected.Requirement ||
+				actual.InstallationPhase != expected.InstallationPhase ||
 				!Equals(actual.RecipeIdentity, expected.RecipeIdentity) ||
 				!Equals(actual.ArtifactChoice.RequestedArtifact, expected.Artifact))
 				throw new ArgumentException("A resolved member plan does not match the normalized selected member it identifies.", parameterName);

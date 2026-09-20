@@ -24,6 +24,8 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class NormalizedCollectionManifest
 	{
 		private readonly ReadOnlyCollection<NormalizedCollectionMember> _members;
+		private readonly ReadOnlyCollection<CollectionMemberDependency> _dependencies;
+		private readonly ReadOnlyCollection<CollectionFilePriorityRule> _filePriorityRules;
 
 		/// <summary>
 		/// Creates an immutable normalized collection manifest snapshot.
@@ -34,6 +36,35 @@ namespace Nexus.Client.CollectionManagement
 			CollectionManifestMemberSetCompleteness memberSetCompleteness,
 			string incompletenessReason,
 			IEnumerable<NormalizedCollectionMember> members)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, null, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates an immutable normalized collection manifest snapshot with characterized member dependencies.
+		/// </summary>
+		public NormalizedCollectionManifest(
+			CollectionRevisionIdentity revision,
+			CollectionManifestSourceSnapshot source,
+			CollectionManifestMemberSetCompleteness memberSetCompleteness,
+			string incompletenessReason,
+			IEnumerable<NormalizedCollectionMember> members,
+			IEnumerable<CollectionMemberDependency> dependencies)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates an immutable normalized collection manifest with characterized prerequisite and file-priority relationships.
+		/// </summary>
+		public NormalizedCollectionManifest(
+			CollectionRevisionIdentity revision,
+			CollectionManifestSourceSnapshot source,
+			CollectionManifestMemberSetCompleteness memberSetCompleteness,
+			string incompletenessReason,
+			IEnumerable<NormalizedCollectionMember> members,
+			IEnumerable<CollectionMemberDependency> dependencies,
+			IEnumerable<CollectionFilePriorityRule> filePriorityRules)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -68,11 +99,45 @@ namespace Nexus.Client.CollectionManagement
 				copiedMembers.Add(member);
 			}
 
+			List<CollectionMemberDependency> copiedDependencies = new List<CollectionMemberDependency>();
+			HashSet<CollectionMemberDependency> uniqueDependencies = new HashSet<CollectionMemberDependency>();
+			if (dependencies != null)
+			{
+				foreach (CollectionMemberDependency dependency in dependencies)
+				{
+					if (dependency == null)
+						throw new ArgumentException("A normalized manifest cannot contain a null dependency.", nameof(dependencies));
+					if (!resolvedKeys.Contains(dependency.PrerequisiteMemberKey) || !resolvedKeys.Contains(dependency.DependentMemberKey))
+						throw new ArgumentException("A normalized dependency must reference resolved members in the same manifest.", nameof(dependencies));
+					if (!uniqueDependencies.Add(dependency))
+						throw new ArgumentException("A normalized manifest cannot contain duplicate dependency edges.", nameof(dependencies));
+					copiedDependencies.Add(dependency);
+				}
+			}
+
+			List<CollectionFilePriorityRule> copiedFilePriorityRules = new List<CollectionFilePriorityRule>();
+			HashSet<CollectionFilePriorityRule> uniqueFilePriorityRules = new HashSet<CollectionFilePriorityRule>();
+			if (filePriorityRules != null)
+			{
+				foreach (CollectionFilePriorityRule rule in filePriorityRules)
+				{
+					if (rule == null)
+						throw new ArgumentException("A normalized manifest cannot contain a null file-priority rule.", nameof(filePriorityRules));
+					if (!resolvedKeys.Contains(rule.LowerPriorityMemberKey) || !resolvedKeys.Contains(rule.HigherPriorityMemberKey))
+						throw new ArgumentException("A normalized file-priority rule must reference resolved members in the same manifest.", nameof(filePriorityRules));
+					if (!uniqueFilePriorityRules.Add(rule))
+						throw new ArgumentException("A normalized manifest cannot contain duplicate file-priority rules.", nameof(filePriorityRules));
+					copiedFilePriorityRules.Add(rule);
+				}
+			}
+
 			Revision = revision;
 			Source = source;
 			MemberSetCompleteness = memberSetCompleteness;
 			IncompletenessReason = incompletenessReason;
 			_members = new ReadOnlyCollection<NormalizedCollectionMember>(copiedMembers);
+			_dependencies = new ReadOnlyCollection<CollectionMemberDependency>(copiedDependencies);
+			_filePriorityRules = new ReadOnlyCollection<CollectionFilePriorityRule>(copiedFilePriorityRules);
 		}
 
 		/// <summary>
@@ -104,6 +169,22 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<NormalizedCollectionMember> Members
 		{
 			get { return _members; }
+		}
+
+		/// <summary>
+		/// Gets characterized member-prerequisite edges. Uncharacterized raw rule systems are not silently translated here.
+		/// </summary>
+		public ReadOnlyCollection<CollectionMemberDependency> Dependencies
+		{
+			get { return _dependencies; }
+		}
+
+		/// <summary>
+		/// Gets exact characterized lower-to-higher file-priority relationships between members.
+		/// </summary>
+		public ReadOnlyCollection<CollectionFilePriorityRule> FilePriorityRules
+		{
+			get { return _filePriorityRules; }
 		}
 
 		/// <summary>

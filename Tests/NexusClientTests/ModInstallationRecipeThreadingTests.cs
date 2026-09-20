@@ -130,6 +130,32 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Verifies C6.7 can construct an explicit unstarted upgrade while preserving the prepared recipe operation identity.
+		/// </summary>
+		[Test]
+		public void ModManager_CreateUpgradeModOperation_PreservesRecipeIdentityWithoutStart()
+		{
+			IMod oldMod = CreateMod("Collection mod", "collection-old.7z", "1.0");
+			IMod newMod = CreateMod("Collection mod", "collection-new.7z", "2.0");
+			var activeList = new ThreadSafeObservableList<IMod>();
+			activeList.Add(oldMod);
+			var activeMods = new ReadOnlyObservableList<IMod>(activeList);
+			IInstallLog installLog = CreateInstallLog(activeMods);
+			ModInstallerFactory factory = CreateFactory(installLog);
+			ModManager manager = CreateManagerShell(installLog, new ModActivator(installLog, factory));
+			SetField(manager, "<InstallerFactory>k__BackingField", factory);
+			ModInstallationRecipeInput recipeInput = CreateRecipeInput(ModInstallMethod.Virtual, ModInstallRoot.Data);
+
+			var operation = (ModInstaller)manager.CreateUpgradeModOperation(oldMod, newMod, null,
+				recipeInput.InstallContext, recipeInput);
+
+			Assert.That(operation, Is.TypeOf<ModUpgrader>());
+			Assert.That(GetRecipeInput(operation), Is.SameAs(recipeInput));
+			Assert.That(operation.OperationIdentity, Is.SameAs(recipeInput.OperationIdentity));
+			Assert.That(operation.IsCompleted, Is.False);
+		}
+
+		/// <summary>
 		/// Verifies existing ModManager activation still creates a manual recipe-less operation through the old overload.
 		/// </summary>
 		[Test]

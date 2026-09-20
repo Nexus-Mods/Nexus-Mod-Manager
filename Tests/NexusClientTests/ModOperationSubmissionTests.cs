@@ -296,6 +296,95 @@ namespace NexusClientTests
         }
 
         /// <summary>
+        /// The C6 submission seam invokes its durable acceptance callback before native worker start.
+        /// </summary>
+        [Test]
+        public void SubmitWhenIdle_CallbackRunsBeforeWorkerStart()
+        {
+            string archive = Path.GetTempFileName();
+            try
+            {
+                var mod = new BlockingSubmissionMod("Exclusive", archive);
+                var installer = new SubmissionTestInstaller(mod, true, ModOperationOrigin.Collection);
+                var monitor = new ModActivationMonitor();
+                bool callbackObserved = false;
+
+                Assert.That(monitor.SubmitWhenIdle(installer, () => callbackObserved = true), Is.True);
+                Assert.That(callbackObserved, Is.True);
+                Assert.That(mod.PreparationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+
+                mod.AllowPreparationToContinue.Set();
+                Assert.That(SpinWait.SpinUntil(() => installer.IsCompleted, TimeSpan.FromSeconds(5)), Is.True);
+            }
+            finally
+            {
+                File.Delete(archive);
+            }
+        }
+
+        /// <summary>
+        /// The C6 seam never queues behind existing native work and therefore never invokes its durable callback while busy.
+        /// </summary>
+        [Test]
+        public void SubmitWhenIdle_BusyLaneRejectsWithoutCallbackOrStart()
+        {
+            string firstArchive = Path.GetTempFileName();
+            string secondArchive = Path.GetTempFileName();
+            try
+            {
+                var firstMod = new BlockingSubmissionMod("First", firstArchive);
+                var secondMod = new BlockingSubmissionMod("Second", secondArchive);
+                var first = new SubmissionTestInstaller(firstMod);
+                var second = new SubmissionTestInstaller(secondMod, true, ModOperationOrigin.Collection);
+                var monitor = new ModActivationMonitor();
+                bool callbackObserved = false;
+
+                Assert.That(monitor.Submit(first), Is.True);
+                Assert.That(firstMod.PreparationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
+                Assert.That(monitor.SubmitWhenIdle(second, () => callbackObserved = true), Is.False);
+                Assert.That(callbackObserved, Is.False);
+                Assert.That(secondMod.PreparationEntered.Wait(TimeSpan.FromMilliseconds(250)), Is.False);
+                Assert.That(monitor.Tasks.Count, Is.EqualTo(1));
+
+                firstMod.AllowPreparationToContinue.Set();
+                Assert.That(SpinWait.SpinUntil(() => first.IsCompleted, TimeSpan.FromSeconds(5)), Is.True);
+            }
+            finally
+            {
+                File.Delete(firstArchive);
+                File.Delete(secondArchive);
+            }
+        }
+
+        /// <summary>
+        /// A failed durable-before-start callback unpublishes the task without ever entering native preparation.
+        /// </summary>
+        [Test]
+        public void SubmitWhenIdle_CallbackFailureDoesNotStartNativeTask()
+        {
+            string archive = Path.GetTempFileName();
+            try
+            {
+                var mod = new BlockingSubmissionMod("Callback failure", archive);
+                var installer = new SubmissionTestInstaller(mod, true, ModOperationOrigin.Collection);
+                var monitor = new ModActivationMonitor();
+
+                Assert.Throws<InvalidOperationException>(() => monitor.SubmitWhenIdle(installer, () =>
+                {
+                    throw new InvalidOperationException("durable callback failed");
+                }));
+
+                Assert.That(mod.PreparationEntered.Wait(TimeSpan.FromMilliseconds(250)), Is.False);
+                Assert.That(monitor.RunningTask, Is.Null);
+                Assert.That(monitor.Tasks.Count, Is.EqualTo(0));
+            }
+            finally
+            {
+                File.Delete(archive);
+            }
+        }
+
+        /// <summary>
         /// A native task cannot be relabelled with a different logical operation after its identity is assigned.
         /// </summary>
         [Test]

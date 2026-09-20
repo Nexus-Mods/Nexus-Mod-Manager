@@ -177,6 +177,87 @@ namespace Nexus.Client.ModActivationMonitoring
 			return true;
 		}
 
+		/// <summary>
+		/// Submits one native operation only when the serialized native lane is idle, invoking a durable acceptance callback before worker start.
+		/// </summary>
+		/// <remarks>
+		/// This is the C6 Collection submission boundary. The accepted task reserves the running slot before publication so ordinary
+		/// submissions cannot start ahead of it. The callback runs after observers can see the task but before <see cref="StartTask"/>;
+		/// if the callback fails the task is removed without starting and the ordinary queue resumes.
+		/// </remarks>
+		/// <param name="p_bstTask">The fully constructed native operation.</param>
+		/// <param name="p_actAcceptedBeforeStart">Durable callback that must complete before native worker start.</param>
+		/// <returns><c>true</c> when the idle lane accepted and started the task; <c>false</c> when any native operation is already pending.</returns>
+		public bool SubmitWhenIdle(IBackgroundTaskSet p_bstTask, Action p_actAcceptedBeforeStart)
+		{
+			if (p_bstTask == null)
+				throw new ArgumentNullException(nameof(p_bstTask));
+			if (p_actAcceptedBeforeStart == null)
+				throw new ArgumentNullException(nameof(p_actAcceptedBeforeStart));
+			if (!IsSupportedOperationTask(p_bstTask))
+				throw new ArgumentException("Only native mod install, upgrade and uninstall task sets can be submitted.", nameof(p_bstTask));
+			ModInstallerBase nativeOperation = (ModInstallerBase)p_bstTask;
+			if (nativeOperation.OperationIdentity == null)
+				throw new InvalidOperationException("Native mod operations must have an operation identity before submission.");
+			if (p_bstTask.IsCompleted)
+				return false;
+
+			lock (m_objSubmissionLock)
+			{
+				if ((m_btsRunningTask != null && !m_btsRunningTask.IsCompleted) || m_lstQueuedTasks.Count != 0 ||
+					m_lstPublishingTasks.Count != 0 || ContainsTaskReference(p_bstTask) || ShouldRejectLegacyDuplicate(p_bstTask))
+					return false;
+
+				p_bstTask.IsQueued = true;
+				p_bstTask.TaskSetCompleted += SubmittedTask_TaskSetCompleted;
+				m_lstPublishingTasks.Add(p_bstTask);
+				m_btsRunningTask = p_bstTask;
+			}
+
+			try
+			{
+				m_oclTasks.Add(p_bstTask);
+				p_actAcceptedBeforeStart();
+
+				lock (m_objSubmissionLock)
+				{
+					m_lstPublishingTasks.Remove(p_bstTask);
+					if (p_bstTask.IsCompleted)
+					{
+						p_bstTask.IsQueued = false;
+						return true;
+					}
+					p_bstTask.IsQueued = false;
+				}
+
+				StartTask(p_bstTask);
+				return true;
+			}
+			catch
+			{
+				// Keep the running-slot reservation while unpublishing outside the submission lock; CollectionChanged
+				// may synchronously marshal to the UI and must not wait on a lock held by this thread.
+				lock (m_objSubmissionLock)
+				{
+					m_lstPublishingTasks.Remove(p_bstTask);
+					p_bstTask.IsQueued = false;
+					p_bstTask.TaskSetCompleted -= SubmittedTask_TaskSetCompleted;
+				}
+				m_oclTasks.Remove(p_bstTask);
+
+				IBackgroundTaskSet nextTask = null;
+				lock (m_objSubmissionLock)
+				{
+					if (ReferenceEquals(m_btsRunningTask, p_bstTask))
+						m_btsRunningTask = null;
+					nextTask = DequeueNextTaskCore();
+				}
+				if (nextTask != null)
+					StartTask(nextTask);
+				throw;
+			}
+		}
+
 		private bool ContainsTaskReference(IBackgroundTaskSet p_bstTask)
 		{
 			foreach (IBackgroundTaskSet task in m_oclTasks)
@@ -252,25 +333,31 @@ namespace Nexus.Client.ModActivationMonitoring
 					return;
 
 				m_btsRunningTask = null;
-				while (m_lstQueuedTasks.Count > 0)
-				{
-					IBackgroundTaskSet candidate = m_lstQueuedTasks[0];
-					m_lstQueuedTasks.RemoveAt(0);
-					if (!ContainsTaskReference(candidate) || candidate.IsCompleted)
-					{
-						candidate.IsQueued = false;
-						continue;
-					}
-
-					candidate.IsQueued = false;
-					m_btsRunningTask = candidate;
-					nextTask = candidate;
-					break;
-				}
+				nextTask = DequeueNextTaskCore();
 			}
 
 			if (nextTask != null)
 				StartTask(nextTask);
+		}
+
+		/// <summary>Returns the next valid queued task while the submission lock is held.</summary>
+		private IBackgroundTaskSet DequeueNextTaskCore()
+		{
+			while (m_lstQueuedTasks.Count > 0)
+			{
+				IBackgroundTaskSet candidate = m_lstQueuedTasks[0];
+				m_lstQueuedTasks.RemoveAt(0);
+				if (!ContainsTaskReference(candidate) || candidate.IsCompleted)
+				{
+					candidate.IsQueued = false;
+					continue;
+				}
+
+				candidate.IsQueued = false;
+				m_btsRunningTask = candidate;
+				return candidate;
+			}
+			return null;
 		}
 
 		private void RemoveQueuedTaskCore(IBackgroundTaskSet p_bstTask)

@@ -110,6 +110,18 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Member_RejectsNonFiniteInstallationPhase()
+		{
+			CollectionMemberIdentityResolution identity = CollectionMemberIdentityResolution.Resolved(
+				CollectionMemberKey.FromProvider("phase-member"));
+
+			Assert.Throws<ArgumentOutOfRangeException>(() => new NormalizedCollectionMember(0, identity,
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected, null, null, "Phase member", Double.NaN));
+			Assert.Throws<ArgumentOutOfRangeException>(() => new NormalizedCollectionMember(0, identity,
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected, null, null, "Phase member", Double.PositiveInfinity));
+		}
+
+		[Test]
 		public void Manifest_CopiesInputAndRejectsDuplicateResolvedMemberKeys()
 		{
 			NormalizedCollectionMember member = CreateMember(0,
@@ -153,6 +165,8 @@ namespace NexusClientTests
 			AssertNoPublicSetters(typeof(CollectionArtifactReference));
 			AssertNoPublicSetters(typeof(CollectionMemberIdentityResolution));
 			AssertNoPublicSetters(typeof(NormalizedCollectionMember));
+			AssertNoPublicSetters(typeof(CollectionMemberDependency));
+			AssertNoPublicSetters(typeof(CollectionFilePriorityRule));
 			AssertNoPublicSetters(typeof(NormalizedCollectionManifest));
 		}
 

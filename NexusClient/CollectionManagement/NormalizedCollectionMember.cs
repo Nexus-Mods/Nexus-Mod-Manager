@@ -43,6 +43,22 @@ namespace Nexus.Client.CollectionManagement
 			CollectionArtifactReference artifact,
 			CollectionRecipeIdentity recipeIdentity,
 			string displayName)
+			: this(sourceOrdinal, identityResolution, requirement, selection, artifact, recipeIdentity, displayName, 0)
+		{
+		}
+
+		/// <summary>
+		/// Creates one normalized member snapshot with an explicit installation phase.
+		/// </summary>
+		public NormalizedCollectionMember(
+			int sourceOrdinal,
+			CollectionMemberIdentityResolution identityResolution,
+			CollectionMemberRequirement requirement,
+			CollectionMemberSelection selection,
+			CollectionArtifactReference artifact,
+			CollectionRecipeIdentity recipeIdentity,
+			string displayName,
+			double installationPhase)
 		{
 			if (sourceOrdinal < 0)
 				throw new ArgumentOutOfRangeException(nameof(sourceOrdinal), "Source ordinal cannot be negative.");
@@ -52,6 +68,8 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentOutOfRangeException(nameof(requirement));
 			if (!Enum.IsDefined(typeof(CollectionMemberSelection), selection) || selection == CollectionMemberSelection.Unknown)
 				throw new ArgumentOutOfRangeException(nameof(selection));
+			if (Double.IsNaN(installationPhase) || Double.IsInfinity(installationPhase))
+				throw new ArgumentOutOfRangeException(nameof(installationPhase), "Installation phase must be a finite number.");
 
 			SourceOrdinal = sourceOrdinal;
 			IdentityResolution = identityResolution;
@@ -60,6 +78,7 @@ namespace Nexus.Client.CollectionManagement
 			Artifact = artifact;
 			RecipeIdentity = recipeIdentity;
 			DisplayName = CollectionDomainValidation.OptionalDisplayValue(displayName, nameof(displayName));
+			InstallationPhase = installationPhase;
 		}
 
 		/// <summary>
@@ -96,6 +115,14 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets optional decorative member text. It is never used as member identity.
 		/// </summary>
 		public string DisplayName { get; }
+
+		/// <summary>
+		/// Gets the sparse installation phase declared for this member.
+		/// </summary>
+		/// <remarks>
+		/// Phase is scheduling metadata, not member identity or installed-recipe identity. C6.3 establishes ordering/barriers.
+		/// </remarks>
+		public double InstallationPhase { get; }
 
 		/// <summary>
 		/// Gets whether the revision requires this member.

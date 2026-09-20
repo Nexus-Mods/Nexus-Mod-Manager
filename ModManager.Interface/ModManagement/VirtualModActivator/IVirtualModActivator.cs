@@ -84,6 +84,10 @@ namespace Nexus.Client.ModManagement
 		IModLinkInstaller GetModLinkInstaller();
 		void PurgeMods(List<IMod> p_lstMods, string p_strPath);
 		bool CheckHasActiveLinks(IMod p_modMod);
+		/// <summary>
+		/// Captures the current Virtual link records as detached target/owner observations without changing deployment state.
+		/// </summary>
+		VirtualModReadSnapshot GetReadSnapshot();
 		string GetCurrentFileOwner(string p_strPath);
 		/// <summary>
 		/// Gets the effective Virtual owners for a canonical deployment target, ordered fallback to current winner.

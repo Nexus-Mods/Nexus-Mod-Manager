@@ -1057,6 +1057,34 @@ namespace Nexus.Client.ModManagement
 		}
 
 	/// <summary>
+	/// Constructs an explicit unstarted upgrade operation for an already reviewed old/new mod pair.
+	/// </summary>
+	/// <remarks>
+	/// Collection execution uses this instead of <see cref="ForceUpgrade"/> so the C3 submission seam owns exactly-once start
+	/// and C5 recipe identity remains attached to the native task. No relationship inference or upgrade prompt is performed.
+	/// </remarks>
+	public IBackgroundTaskSet CreateUpgradeModOperation(IMod p_modOldMod, IMod p_modNewMod,
+		ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ModInstallContext p_micInstallContext,
+		ModInstallationRecipeInput p_mriRecipeInput)
+	{
+		if (p_modOldMod == null)
+			throw new ArgumentNullException(nameof(p_modOldMod));
+		if (p_modNewMod == null)
+			throw new ArgumentNullException(nameof(p_modNewMod));
+		if (p_micInstallContext == null)
+			throw new ArgumentNullException(nameof(p_micInstallContext));
+		if (!InstallationLog.ActiveMods.Contains(p_modOldMod))
+			throw new InvalidOperationException("Cannot construct an explicit upgrade from a native mod that is not active.");
+		if (InstallationLog.ActiveMods.Contains(p_modNewMod) && !ReferenceEquals(p_modOldMod, p_modNewMod))
+			throw new InvalidOperationException("Cannot construct an upgrade to a different native mod that is already active.");
+
+		IBackgroundTaskSet operation = InstallerFactory.CreateUpgradeInstaller(p_modOldMod, p_modNewMod,
+			p_dlgOverwriteConfirmationDelegate, p_micInstallContext, p_mriRecipeInput);
+		return p_mriRecipeInput == null ? AttachManualOperationIdentity(operation, p_micInstallContext) :
+			AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+	}
+
+	/// <summary>
 	/// Forces an upgrade from one mod to another.
 	/// </summary>
 	/// <remarks>

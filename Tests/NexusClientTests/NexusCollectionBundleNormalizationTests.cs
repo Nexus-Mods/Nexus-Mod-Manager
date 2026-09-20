@@ -18,7 +18,7 @@ namespace NexusClientTests
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required Mod\",\"version\":\"1.0\",\"optional\":false,\"domainName\":\"SkyrimSpecialEdition\",\"source\":{\"type\":\"nexus\",\"modId\":100,\"fileId\":200,\"updatePolicy\":\"exact\"}}," +
-				"{\"name\":\"Optional Mod\",\"version\":\"2.0\",\"optional\":true,\"domainName\":\"SkyrimSpecialEdition\",\"source\":{\"type\":\"nexus\",\"modId\":101,\"fileId\":201}}",
+				"{\"name\":\"Optional Mod\",\"version\":\"2.0\",\"optional\":true,\"domainName\":\"SkyrimSpecialEdition\",\"phase\":3,\"source\":{\"type\":\"nexus\",\"modId\":101,\"fileId\":201}}",
 				"[]");
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
@@ -39,6 +39,7 @@ namespace NexusClientTests
 
 			NormalizedCollectionMember optional = result.Manifest.Members[1];
 			Assert.AreEqual(CollectionMemberRequirement.Optional, optional.Requirement);
+			Assert.AreEqual(666, optional.InstallationPhase, "Vortex optionals use the dedicated trailing install phase.");
 			Assert.IsFalse(optional.IsSelected, "Remote optional members are visible but not silently selected by normalization.");
 			Assert.IsFalse(optional.IsRequiredOmission);
 		}
@@ -120,17 +121,101 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Normalize_ModRulesAreWholeManifestUnsupportedUntilTypedDependencyPlannerExists()
+		public void Normalize_BeforeAfterModRulesBecomeExactFilePriorityEdges()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"A\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}," +
+				"{\"name\":\"B\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21}}",
+				"[{\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"10\",\"fileId\":\"20\"}},\"type\":\"before\",\"reference\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"11\",\"fileId\":\"21\"}}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].LowerPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].HigherPriorityMemberKey);
+		}
+
+		[Test]
+		public void Normalize_VortexStyleExactReferenceFieldsResolveToMembers()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"A\",\"version\":\"1.0.0\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\",\"logicalFilename\":\"A File\"}}," +
+				"{\"name\":\"B\",\"version\":\"2.0.0\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21,\"md5\":\"hash-b\",\"logicalFilename\":\"B File\"}}",
+				"[{\"source\":{\"fileMD5\":\"hash-a\",\"logicalFileName\":\"A File\",\"versionMatch\":\"1.0.0\"},\"type\":\"before\",\"reference\":{\"fileMD5\":\"hash-b\",\"logicalFileName\":\"B File\",\"versionMatch\":\"2.0.0\"}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.FilePriorityRules.Single().LowerPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, result.Manifest.FilePriorityRules.Single().HigherPriorityMemberKey);
+		}
+
+		[Test]
+		public void Normalize_FuzzyRangeModRuleReferenceFailsClosedInsteadOfGuessingVortexSemver()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"A\",\"version\":\"1.2.0\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\"}}," +
+				"{\"name\":\"B\",\"version\":\"2.0.0\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21,\"md5\":\"hash-b\"}}",
+				"[{\"source\":{\"fileMD5\":\"hash-a\",\"versionMatch\":\">=1.0.0+prefer\"},\"type\":\"before\",\"reference\":{\"fileMD5\":\"hash-b\",\"versionMatch\":\"2.0.0\"}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_UncharacterizedModRuleTypeStillFailsClosed()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
-				"[{\"source\":{},\"type\":\"after\",\"reference\":{}}]");
+				"[{\"source\":{\"tag\":\"a\"},\"type\":\"conflicts\",\"reference\":{\"tag\":\"b\"}}]");
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			CollectionCapabilityIssue issue = result.CapabilityReport.ManifestIssues.Single(x => x.Code == "manifest.mod-rules-unsupported");
-			Assert.AreEqual("$.modRules", issue.FieldPath);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-type-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_NonZeroFinitePhaseIsSupportedAndRetainedAsSchedulingMetadata()
+		{
+			string phased = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"phase\":10.5,\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]");
+			string defaultPhase = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]");
+			string earlierPhase = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"phase\":-5.25,\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult phasedResult = Normalize(phased, 1);
+			NexusCollectionManifestNormalizationResult defaultResult = Normalize(defaultPhase, 1);
+			NexusCollectionManifestNormalizationResult earlierResult = Normalize(earlierPhase, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, phasedResult.CapabilityReport.Status);
+			Assert.AreEqual(10.5d, phasedResult.Manifest.Members[0].InstallationPhase);
+			Assert.AreEqual(0d, defaultResult.Manifest.Members[0].InstallationPhase);
+			Assert.AreEqual(-5.25d, earlierResult.Manifest.Members[0].InstallationPhase);
+			Assert.AreEqual(defaultResult.Manifest.Members[0].RecipeIdentity, phasedResult.Manifest.Members[0].RecipeIdentity,
+				"Installation phase must not change installed-recipe identity.");
+			Assert.AreEqual("nmm-ce.collections.normalizer/3", phasedResult.Manifest.Source.NormalizerVersion);
+		}
+
+		[TestCase("\"not-a-number\"")]
+		[TestCase("true")]
+		public void Normalize_InvalidPhaseFailsClosed(string phase)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"phase\":" + phase + ",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.phase-invalid"));
 		}
 
 		[Test]
