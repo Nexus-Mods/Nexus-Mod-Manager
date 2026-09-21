@@ -749,7 +749,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionUninstallEffectsPlan plan)
 		{
 			return new CollectionUninstallEffectsResult(operation, _associationStore.GetAssociation(associationId), false,
-				plan == null ? new CollectionUninstallNativeImpact[0] : plan.Impacts);
+				plan == null ? Enumerable.Empty<CollectionUninstallNativeImpact>() : plan.Impacts);
 		}
 
 		private static CollectionNativeChildOperation RequireChild(CollectionOperation operation, int sequence,
