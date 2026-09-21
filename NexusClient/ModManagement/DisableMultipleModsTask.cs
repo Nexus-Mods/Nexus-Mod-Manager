@@ -19,6 +19,7 @@ namespace Nexus.Client.ModManagement
 
 		private VirtualModActivator m_ivaVirtualModActivator = null;
 		private List<IMod> m_rolModList = null;
+		private ModManager m_mmgModManager = null;
 
 		#endregion
 
@@ -28,9 +29,18 @@ namespace Nexus.Client.ModManagement
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
 		public DisableMultipleModsTask(List<IMod> p_rolModList, VirtualModActivator p_ivaVirtualModActivator)
+			: this(p_rolModList, p_ivaVirtualModActivator, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes the task with optional Collection drift tracking for ordinary user disables.
+		/// </summary>
+		public DisableMultipleModsTask(List<IMod> p_rolModList, VirtualModActivator p_ivaVirtualModActivator, ModManager p_mmgModManager)
 		{
 			m_ivaVirtualModActivator = p_ivaVirtualModActivator;
 			m_rolModList = p_rolModList;
+			m_mmgModManager = p_mmgModManager;
 		}
 
 		#endregion
@@ -82,7 +92,20 @@ namespace Nexus.Client.ModManagement
 
 			foreach (IMod modMod in m_rolModList)
 			{
-				m_ivaVirtualModActivator.DisableMod(modMod);
+				CollectionManagement.CollectionManualMutationCapture driftCapture = m_mmgModManager == null ? null :
+					m_mmgModManager.BeginManualCollectionMutation(modMod, CollectionManagement.CollectionManualMutationKind.VirtualDisable);
+				try
+				{
+					m_ivaVirtualModActivator.DisableMod(modMod);
+					if (m_mmgModManager != null)
+						m_mmgModManager.CompleteManualCollectionMutation(driftCapture, modMod);
+				}
+				catch
+				{
+					if (m_mmgModManager != null)
+						m_mmgModManager.RecordAmbiguousManualCollectionMutation(driftCapture, modMod);
+					throw;
+				}
 				if (OverallProgress < OverallProgressMaximum)
 					StepOverallProgress();
 

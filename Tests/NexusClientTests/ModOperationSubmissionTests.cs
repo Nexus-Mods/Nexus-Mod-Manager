@@ -377,6 +377,36 @@ namespace NexusClientTests
                 Assert.That(mod.PreparationEntered.Wait(TimeSpan.FromMilliseconds(250)), Is.False);
                 Assert.That(monitor.RunningTask, Is.Null);
                 Assert.That(monitor.Tasks.Count, Is.EqualTo(0));
+                Assert.That(installer.IsQueued, Is.False);
+            }
+            finally
+            {
+                File.Delete(archive);
+            }
+        }
+
+        /// <summary>
+        /// Cancellation observed by the durable-before-start callback removes the native task from the monitor without starting it.
+        /// </summary>
+        [Test]
+        public void SubmitWhenIdle_CancelledAcceptanceCallbackDoesNotStartNativeTask()
+        {
+            string archive = Path.GetTempFileName();
+            try
+            {
+                var mod = new BlockingSubmissionMod("Cancelled acceptance", archive);
+                var installer = new SubmissionTestInstaller(mod, true, ModOperationOrigin.Collection);
+                var monitor = new ModActivationMonitor();
+                using (var cancellation = new CancellationTokenSource())
+                {
+                    cancellation.Cancel();
+                    Assert.Throws<OperationCanceledException>(() => monitor.SubmitWhenIdle(installer, () =>
+                        cancellation.Token.ThrowIfCancellationRequested()));
+                }
+
+                Assert.That(mod.PreparationEntered.Wait(TimeSpan.FromMilliseconds(250)), Is.False);
+                Assert.That(monitor.RunningTask, Is.Null);
+                Assert.That(monitor.Tasks.Count, Is.EqualTo(0));
             }
             finally
             {

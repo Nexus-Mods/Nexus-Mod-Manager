@@ -92,6 +92,10 @@
     <Compile Include="CollectionManagement\CollectionTargetAssociation.cs" />
     <Compile Include="CollectionManagement\NativeModProvenance.cs" />
     <Compile Include="CollectionManagement\CollectionMemberBinding.cs" />
+    <Compile Include="CollectionManagement\CollectionManualMutationDriftCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionPinOverrideCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionDetachCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionUninstallEffectsCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionExecutionPolicy.cs" />
     <Compile Include="CollectionManagement\CollectionContentHash.cs" />
     <Compile Include="CollectionManagement\CollectionManifestSourceSnapshot.cs" />
@@ -119,8 +123,12 @@
     <Compile Include="CollectionManagement\CollectionConflictImpactPlan.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOperationCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionAssociationReconciliationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildRecoveryManifest.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildExecutionCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeChildExecutionEvidence.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeChildRestartReconciliationCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeChildVerificationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionNativeChildPreparationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionResolvedArtifactChoice.cs" />
     <Compile Include="CollectionManagement\ResolvedCollectionMemberPlan.cs" />

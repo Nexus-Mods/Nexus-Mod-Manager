@@ -6,11 +6,13 @@ namespace Nexus.Client.ModManagement
     using System.ComponentModel;
     using System.Diagnostics;
     using System.IO;
+    using System.Linq;
     using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Windows.Forms;
     using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.CollectionManagement;
     using Nexus.Client.DownloadMonitoring;
     using Nexus.Client.Games;
     using Nexus.Client.ModActivationMonitoring;
@@ -899,7 +901,13 @@ namespace Nexus.Client.ModManagement
 		/// or <c>null</c> if no long-running operation needs to be done.</returns>
 		public IBackgroundTaskSet DeleteMod(IMod p_modMod, ReadOnlyObservableList<IMod> p_rolActiveMods)
 		{
+			bool isActive = InstallationLog.ActiveMods.Contains(p_modMod);
+			ModInstallContext installContext = isActive
+				? CaptureInstalledContext(p_modMod)
+				: new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
 			ModDeleter mddDeleter = InstallerFactory.CreateDelete(p_modMod, p_rolActiveMods);
+			AttachManualOperationIdentity(mddDeleter, installContext);
+			TrackManualCollectionMutation(mddDeleter, CollectionManualMutationKind.Delete, p_modMod, null);
 			mddDeleter.TaskSetCompleted += new EventHandler<TaskSetCompletedEventArgs>(Deactivator_TaskSetCompleted);
 			mddDeleter.Install();
 			return mddDeleter;
@@ -985,7 +993,14 @@ namespace Nexus.Client.ModManagement
 
 			IBackgroundTaskSet operation = Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
 				p_rolActiveMods, false, p_micInstallContext, p_booExplicitMethodOverride, p_mriRecipeInput);
-			return p_mriRecipeInput == null ? AttachManualOperationIdentity(operation, p_micInstallContext) : AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+			if (p_mriRecipeInput != null)
+				return AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+
+			AttachManualOperationIdentity(operation, p_micInstallContext);
+			ModUpgrader upgrader = operation as ModUpgrader;
+			return TrackManualCollectionMutation(operation,
+				upgrader == null ? CollectionManualMutationKind.Activate : CollectionManualMutationKind.Upgrade,
+				upgrader == null ? null : upgrader.ReplacedMod, p_modMod);
 		}
 
 		public IBackgroundTaskSet ActivateModInGameRoot(IMod p_modMod, ConfirmModUpgradeDelegate p_dlgUpgradeConfirmationDelegate, ConfirmItemOverwriteDelegate p_dlgOverwriteConfirmationDelegate, ReadOnlyObservableList<IMod> p_rolActiveMods)
@@ -1034,7 +1049,11 @@ namespace Nexus.Client.ModManagement
 
 			IBackgroundTaskSet operation = Activator.Activate(p_modMod, p_dlgUpgradeConfirmationDelegate, p_dlgOverwriteConfirmationDelegate,
 				p_rolActiveMods, true, p_micInstallContext, false, p_mriRecipeInput);
-			return p_mriRecipeInput == null ? AttachManualOperationIdentity(operation, p_micInstallContext) : AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+			if (p_mriRecipeInput != null)
+				return AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+
+			AttachManualOperationIdentity(operation, p_micInstallContext);
+			return TrackManualCollectionMutation(operation, CollectionManualMutationKind.Reinstall, p_modMod, p_modMod);
 		}
 
 		/// <summary>
@@ -1080,8 +1099,11 @@ namespace Nexus.Client.ModManagement
 
 		IBackgroundTaskSet operation = InstallerFactory.CreateUpgradeInstaller(p_modOldMod, p_modNewMod,
 			p_dlgOverwriteConfirmationDelegate, p_micInstallContext, p_mriRecipeInput);
-		return p_mriRecipeInput == null ? AttachManualOperationIdentity(operation, p_micInstallContext) :
-			AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+		if (p_mriRecipeInput != null)
+			return AttachRecipeOperationIdentity(operation, p_mriRecipeInput);
+
+		AttachManualOperationIdentity(operation, p_micInstallContext);
+		return TrackManualCollectionMutation(operation, CollectionManualMutationKind.Upgrade, p_modOldMod, p_modNewMod);
 	}
 
 	/// <summary>
@@ -1134,7 +1156,290 @@ namespace Nexus.Client.ModManagement
 			ModInstallContext installContext = booIsInstallLogActive
 				? CaptureInstalledContext(p_modMod)
 				: new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
-			return AttachManualOperationIdentity(InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods), installContext);
+			IBackgroundTaskSet operation = AttachManualOperationIdentity(InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods), installContext);
+			return TrackManualCollectionMutation(operation, CollectionManualMutationKind.Deactivate, p_modMod, null);
+		}
+
+		/// <summary>
+		/// Constructs an unstarted Collection-owned native deactivation operation with the exact durable C3 identity supplied by the caller.
+		/// </summary>
+		/// <remarks>
+		/// C6.14 uses this instead of <see cref="DeactivateMod"/> so the Collection journal owns the operation identity and the ordinary
+		/// manual-drift hook is not invoked for Collection-authored removal. The returned task must still be submitted through the shared
+		/// native activation monitor seam.
+		/// </remarks>
+		public IBackgroundTaskSet CreateCollectionDeactivationOperation(IMod p_modMod,
+			ReadOnlyObservableList<IMod> p_rolActiveMods, ModOperationIdentity p_moiOperationIdentity)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
+			if (p_rolActiveMods == null)
+				throw new ArgumentNullException(nameof(p_rolActiveMods));
+			if (p_moiOperationIdentity == null)
+				throw new ArgumentNullException(nameof(p_moiOperationIdentity));
+			if (p_moiOperationIdentity.Origin != ModOperationOrigin.Collection &&
+				p_moiOperationIdentity.Origin != ModOperationOrigin.LocalRestore &&
+				p_moiOperationIdentity.Origin != ModOperationOrigin.Recovery)
+				throw new ArgumentException("A Collection deactivation operation must use Collection, LocalRestore or Recovery origin.", nameof(p_moiOperationIdentity));
+			if (p_moiOperationIdentity.Fingerprint.RecipeFingerprint != null)
+				throw new ArgumentException("A native deactivation operation does not carry an installation recipe fingerprint.", nameof(p_moiOperationIdentity));
+
+			bool isInstallLogActive = InstallationLog.ActiveMods.Contains(p_modMod);
+			bool hasManagedFiles = DeploymentManager != null && DeploymentManager.HasManagedFiles(p_modMod);
+			if (!isInstallLogActive && !hasManagedFiles)
+				return null;
+
+			ModInstallContext installContext = isInstallLogActive
+				? CaptureInstalledContext(p_modMod)
+				: new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Default);
+			if (p_moiOperationIdentity.Fingerprint.InstallMethod != installContext.Method ||
+				p_moiOperationIdentity.Fingerprint.InstallRoot != installContext.InstallRoot)
+				throw new InvalidOperationException("The Collection deactivation identity no longer matches the native mod's installed method/root context.");
+
+			IBackgroundTaskSet operation = InstallerFactory.CreateUninstaller(p_modMod, p_rolActiveMods);
+			ModInstallerBase nativeOperation = operation as ModInstallerBase;
+			if (nativeOperation == null)
+				throw new InvalidOperationException("Only native mod uninstaller task sets can receive a Collection operation identity.");
+			nativeOperation.AssignOperationIdentity(p_moiOperationIdentity);
+			return operation;
+		}
+
+		/// <summary>
+		/// Attaches best-effort Collection drift tracking to one ordinary manual native operation.
+		/// </summary>
+		/// <remarks>
+		/// Collection feature-store failures are diagnostic only here: ordinary NMM mutation remains authoritative and must not
+		/// be blocked because supplemental Collection provenance cannot be refreshed. Only a positively verified native commit
+		/// invalidates association state.
+		/// </remarks>
+		private IBackgroundTaskSet TrackManualCollectionMutation(IBackgroundTaskSet operation, CollectionManualMutationKind kind,
+			IMod existingMod, IMod resultingMod)
+		{
+			ModInstallerBase nativeOperation = operation as ModInstallerBase;
+			if (nativeOperation == null || nativeOperation.OperationIdentity == null ||
+				nativeOperation.OperationIdentity.Origin != ModOperationOrigin.Manual)
+				return operation;
+
+			CollectionManualMutationCapture capture = BeginManualCollectionMutation(existingMod, kind);
+			if (capture == null)
+				return operation;
+
+			EventHandler<TaskSetCompletedEventArgs> handler = null;
+			handler = (sender, args) =>
+			{
+				operation.TaskSetCompleted -= handler;
+				try
+				{
+					ModOperationResult result = nativeOperation.OperationResult;
+					if (result == null || result.Identity == null || result.Identity.Origin != ModOperationOrigin.Manual)
+						return;
+
+					if (result.Durability == ModOperationDurability.VerifiedCommitted)
+						CompleteManualCollectionMutation(capture, resultingMod);
+					else if (result.Durability == ModOperationDurability.Unknown)
+						RecordAmbiguousManualCollectionMutation(capture, resultingMod);
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceWarning("Unable to refresh Collection provenance after manual native mutation: {0}", ex.Message);
+				}
+			};
+			operation.TaskSetCompleted += handler;
+			return operation;
+		}
+
+		/// <summary>
+		/// Gets Collection member pins affected by an ordinary operation on the supplied native mod.
+		/// </summary>
+		/// <remarks>
+		/// This is a read-only preflight seam for warning/impact UI and never creates an empty Collections store. A missing
+		/// feature store returns no pins, but an existing-store/target failure is propagated so callers cannot silently treat
+		/// unavailable pin state as an unassociated mod. The native action itself is not changed or blocked by this method.
+		/// </remarks>
+		public IReadOnlyList<CollectionMemberPinImpact> GetCollectionMemberPins(IMod mod)
+		{
+			if (mod == null)
+				throw new ArgumentNullException(nameof(mod));
+			CollectionPinOverrideCoordinator coordinator = CollectionPinOverrideCoordinator.CreateForCurrentTargetIfTracked(GameMode, EnvironmentInfo);
+			if (coordinator == null)
+				return new CollectionMemberPinImpact[0];
+
+			string nativeKey = InstallationLog.GetModKey(mod);
+			return String.IsNullOrWhiteSpace(nativeKey)
+				? (IReadOnlyList<CollectionMemberPinImpact>)new CollectionMemberPinImpact[0]
+				: coordinator.GetMemberPins(nativeKey);
+		}
+
+		/// <summary>
+		/// Captures Collection relationships before a legacy/batch ordinary mutation that does not use the C3 task seam.
+		/// </summary>
+		internal CollectionManualMutationCapture BeginManualCollectionMutation(IMod mod, CollectionManualMutationKind kind)
+		{
+			CollectionManualMutationDriftCoordinator coordinator = CollectionManualMutationDriftCoordinator.TryCreateForCurrentTarget(GameMode, EnvironmentInfo);
+			if (coordinator == null)
+				return null;
+			try
+			{
+				string nativeKey = mod == null ? null : InstallationLog.GetModKey(mod);
+				return coordinator.BeginNativeModMutation(kind, nativeKey, GetCollectionAffectedOwnerKeys(mod));
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to capture Collection provenance before manual mutation: {0}", ex.Message);
+				return null;
+			}
+		}
+
+		/// <summary>
+		/// Completes Collection invalidation after a legacy/batch ordinary mutation has positively succeeded.
+		/// </summary>
+		internal void CompleteManualCollectionMutation(CollectionManualMutationCapture capture, IMod resultingMod)
+		{
+			if (capture == null)
+				return;
+			CollectionManualMutationDriftCoordinator coordinator = CollectionManualMutationDriftCoordinator.TryCreateForCurrentTarget(GameMode, EnvironmentInfo);
+			if (coordinator == null)
+				return;
+			try
+			{
+				coordinator.RecordCommittedNativeMutation(capture, GetCollectionAffectedOwnerKeys(resultingMod));
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to refresh Collection provenance after manual mutation: {0}", ex.Message);
+			}
+		}
+
+		/// <summary>
+		/// Marks captured Collection relationships as requiring recovery after an ambiguous ordinary native outcome.
+		/// </summary>
+		internal void RecordAmbiguousManualCollectionMutation(CollectionManualMutationCapture capture, IMod resultingMod)
+		{
+			if (capture == null)
+				return;
+			CollectionManualMutationDriftCoordinator coordinator = CollectionManualMutationDriftCoordinator.TryCreateForCurrentTarget(GameMode, EnvironmentInfo);
+			if (coordinator == null)
+				return;
+			try
+			{
+				coordinator.RecordAmbiguousNativeMutation(capture, GetCollectionAffectedOwnerKeys(resultingMod));
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to mark Collection provenance as recovering after ambiguous manual mutation: {0}", ex.Message);
+			}
+		}
+
+		/// <summary>
+		/// Gets native owner keys sharing only paths owned by the affected mod, avoiding a whole-library association scan.
+		/// </summary>
+		private IReadOnlyCollection<string> GetCollectionAffectedOwnerKeys(IMod mod)
+		{
+			var ownerKeys = new HashSet<string>(StringComparer.Ordinal);
+			if (mod == null || InstallationLog == null)
+				return ownerKeys;
+
+			try
+			{
+				string modKey = InstallationLog.GetModKey(mod);
+				if (!String.IsNullOrEmpty(modKey))
+					ownerKeys.Add(modKey);
+
+				IList<string> installedFiles = InstallationLog.GetInstalledModFiles(mod);
+				if (installedFiles != null)
+				{
+					foreach (string path in installedFiles)
+					{
+						IList<IMod> installers = InstallationLog.GetFileInstallers(path);
+						if (installers == null)
+							continue;
+						foreach (IMod installer in installers)
+						{
+							string ownerKey = InstallationLog.GetModKey(installer);
+							if (!String.IsNullOrEmpty(ownerKey))
+								ownerKeys.Add(ownerKey);
+						}
+					}
+				}
+
+				if (!String.IsNullOrEmpty(modKey))
+				{
+					foreach (ModDeploymentTarget target in InstallationLog.GetDeploymentTargetsForMod(modKey))
+						foreach (string ownerKey in InstallationLog.GetDeploymentOwnerKeys(target))
+							if (!String.IsNullOrEmpty(ownerKey))
+								ownerKeys.Add(ownerKey);
+				}
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to enumerate all affected native owner keys for Collection drift tracking: {0}", ex.Message);
+			}
+			return ownerKeys;
+		}
+
+		/// <summary>
+		/// Starts an ordinary Virtual enable/disable action and records Collection drift only after a successful user disable.
+		/// </summary>
+		public IBackgroundTask ChangeVirtualModActivation(IMod mod, bool disabling, ConfirmActionMethod confirmAction)
+		{
+			CollectionManualMutationCapture capture = disabling
+				? BeginManualCollectionMutation(mod, CollectionManualMutationKind.VirtualDisable)
+				: null;
+			IBackgroundTask task = VirtualModActivator.ActivatingMod(mod, disabling, confirmAction);
+			if (!disabling || task == null || capture == null)
+				return task;
+
+			int completionHandled = 0;
+			EventHandler<TaskEndedEventArgs> handler = null;
+			handler = (sender, args) =>
+			{
+				if (Interlocked.Exchange(ref completionHandled, 1) != 0)
+					return;
+				task.TaskEnded -= handler;
+				if (args.Status == Nexus.Client.BackgroundTasks.TaskStatus.Complete)
+					CompleteManualCollectionMutation(capture, mod);
+				else
+					RecordAmbiguousManualCollectionMutation(capture, mod);
+			};
+			task.TaskEnded += handler;
+
+			// ActivatingMod starts the legacy LinkActivationTask before returning. Close the subscribe-after-start race
+			// without running the Collection callback twice when the TaskEnded event wins concurrently.
+			Nexus.Client.BackgroundTasks.TaskStatus status = task.Status;
+			bool alreadyTerminal = status == Nexus.Client.BackgroundTasks.TaskStatus.Complete ||
+				status == Nexus.Client.BackgroundTasks.TaskStatus.Cancelled ||
+				status == Nexus.Client.BackgroundTasks.TaskStatus.Error ||
+				status == Nexus.Client.BackgroundTasks.TaskStatus.Incomplete;
+			if (alreadyTerminal && Interlocked.Exchange(ref completionHandled, 1) == 0)
+			{
+				task.TaskEnded -= handler;
+				if (status == Nexus.Client.BackgroundTasks.TaskStatus.Complete)
+					CompleteManualCollectionMutation(capture, mod);
+				else
+					RecordAmbiguousManualCollectionMutation(capture, mod);
+			}
+			return task;
+		}
+
+		/// <summary>
+		/// Records an ordinary File Manager winner change against affected Collection associations.
+		/// </summary>
+		internal void RecordManualFileOwnerChange(string previousOwnerKey, string selectedOwnerKey, IEnumerable<string> affectedOwnerKeys)
+		{
+			CollectionManualMutationDriftCoordinator coordinator = CollectionManualMutationDriftCoordinator.TryCreateForCurrentTarget(GameMode, EnvironmentInfo);
+			if (coordinator == null)
+				return;
+			try
+			{
+				string[] nativeAffectedOwnerKeys = affectedOwnerKeys == null ? null :
+					affectedOwnerKeys.Select(ResolveCollectionNativeOwnerKey).Where(x => !String.IsNullOrWhiteSpace(x)).ToArray();
+				coordinator.RecordFileOwnerChange(ResolveCollectionNativeOwnerKey(previousOwnerKey),
+					ResolveCollectionNativeOwnerKey(selectedOwnerKey), nativeAffectedOwnerKeys);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Unable to record Collection drift after file-owner change: {0}", ex.Message);
+			}
 		}
 
 		/// <summary>
@@ -1408,6 +1713,43 @@ namespace Nexus.Client.ModManagement
         }
 
 		/// <summary>
+		/// Resolves a File Manager owner identity to the target-scoped native mod key used by Collection bindings.
+		/// </summary>
+		private string ResolveCollectionNativeOwnerKey(string ownerKey)
+		{
+			if (String.IsNullOrWhiteSpace(ownerKey))
+				return null;
+
+			try
+			{
+				IMod promotedOwner = DeploymentManager == null ? null : DeploymentManager.GetOwnerMod(ownerKey);
+				if (promotedOwner != null)
+					return InstallationLog.GetModKey(promotedOwner);
+			}
+			catch
+			{
+			}
+
+			try
+			{
+				foreach (IMod activeMod in InstallationLog.ActiveMods)
+				{
+					var virtualInfo = new VirtualModInfo(activeMod.Id, activeMod.DownloadId, activeMod.ModName,
+						activeMod.Filename, activeMod.HumanReadableVersion);
+					if (String.Equals(FileManagerQueryService.CreateOwnerKey(virtualInfo), ownerKey, StringComparison.OrdinalIgnoreCase))
+						return InstallationLog.GetModKey(activeMod);
+				}
+			}
+			catch
+			{
+			}
+
+			// Promoted File Manager owner keys already are native keys. Keeping an unresolved key is fail-safe:
+			// it can only match an existing Collection binding if it really is a native identity.
+			return ownerKey;
+		}
+
+		/// <summary>
 		/// Disables multiple mods.
 		/// </summary>
 		/// <param name="p_rolModList">The mod list.</param>
@@ -1415,7 +1757,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask DisableMultipleMods(List<IMod> p_rolModList, ConfirmActionMethod p_camConfirm)
 		{
-			DisableMultipleModsTask dmmDisableAllMods = new DisableMultipleModsTask(p_rolModList, VirtualModActivator);
+			DisableMultipleModsTask dmmDisableAllMods = new DisableMultipleModsTask(p_rolModList, VirtualModActivator, this);
 			dmmDisableAllMods.Update(p_camConfirm);
 			return dmmDisableAllMods;
 		}
@@ -1441,7 +1783,7 @@ namespace Nexus.Client.ModManagement
 		/// <returns>The background task that will run the updaters.</returns>
 		public IBackgroundTask DeactivateMultipleMods(ReadOnlyObservableList<IMod> p_rolModList, bool p_booFilesOnly, ConfirmActionMethod p_camConfirm)
 		{
-			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator, GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, p_booFilesOnly);
+			DeactivateMultipleModsTask dmmDeactivateAllMods = new DeactivateMultipleModsTask(p_rolModList, this.InstallationLog, this.InstallerFactory, this.VirtualModActivator, GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, p_booFilesOnly, this);
 			dmmDeactivateAllMods.Update(p_camConfirm);
 			return dmmDeactivateAllMods;
 		}

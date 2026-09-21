@@ -32,6 +32,7 @@ namespace Nexus.Client.ModManagement
 		private ReadOnlyObservableList<IMod> m_rolModList = null;
 		private string m_strLogPath = String.Empty;
 		private bool m_booFilesOnly = false;
+		private ModManager m_mmgModManager = null;
 		bool m_booCancel = false;
 
 		#region Constructors
@@ -40,6 +41,14 @@ namespace Nexus.Client.ModManagement
 		/// A simple constructor that initializes the object with its dependencies.
 		/// </summary>
 		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator, string p_strScriptedLogPath, bool p_booFilesOnly)
+			: this(p_rolModList, p_iilInstallLog, p_mifModInstallerFactory, p_vmaVirtualModActivator, p_strScriptedLogPath, p_booFilesOnly, null)
+		{
+		}
+
+		/// <summary>
+		/// Initializes the task with optional Collection drift tracking for ordinary user deactivation.
+		/// </summary>
+		public DeactivateMultipleModsTask(ReadOnlyObservableList<IMod> p_rolModList, IInstallLog p_iilInstallLog, ModInstallerFactory p_mifModInstallerFactory, VirtualModActivator p_vmaVirtualModActivator, string p_strScriptedLogPath, bool p_booFilesOnly, ModManager p_mmgModManager)
 		{
 			m_iilInstallLog = p_iilInstallLog;
 			m_mifModInstallerFactory = p_mifModInstallerFactory;
@@ -47,6 +56,7 @@ namespace Nexus.Client.ModManagement
 			VirtualModActivator = p_vmaVirtualModActivator;
 			m_strLogPath = p_strScriptedLogPath;
 			m_booFilesOnly = p_booFilesOnly;
+			m_mmgModManager = p_mmgModManager;
 		}
 
 		#endregion
@@ -112,6 +122,8 @@ namespace Nexus.Client.ModManagement
 					StepItemProgress();
 				}
 				
+				CollectionManagement.CollectionManualMutationCapture driftCapture = m_mmgModManager == null ? null :
+					m_mmgModManager.BeginManualCollectionMutation(modMod, CollectionManagement.CollectionManualMutationKind.Deactivate);
 				ModUninstaller munUninstaller = m_mifModInstallerFactory.CreateUninstaller(modMod, m_rolModList);
 				munUninstaller.DisableVirtualFilesOnly = m_booFilesOnly;
 				munUninstaller.Install();
@@ -125,10 +137,15 @@ namespace Nexus.Client.ModManagement
 				TaskSetWaiter.Wait(munUninstaller);
 				if (!munUninstaller.Succeeded)
 				{
+					if (m_mmgModManager != null)
+						m_mmgModManager.RecordAmbiguousManualCollectionMutation(driftCapture, null);
 					Status = TaskStatus.Error;
 					ItemMessage = munUninstaller.CompletionMessage;
 					return false;
 				}
+
+				if (m_mmgModManager != null)
+					m_mmgModManager.CompleteManualCollectionMutation(driftCapture, null);
 
 				if (ItemProgress < ItemProgressMaximum)
 				{

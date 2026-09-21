@@ -92,16 +92,20 @@ namespace Nexus.Client.ModManagement
 			{
 				OverallMessage = String.Format(deletingFormat, modMod.ModName);
 
+				CollectionManagement.CollectionManualMutationCapture driftCapture = ModManager.BeginManualCollectionMutation(
+					modMod, CollectionManagement.CollectionManualMutationKind.Delete);
 				ModDeleter mddDeleter = InstallerFactory.CreateDelete(modMod, ActiveMods);
 				mddDeleter.Install();
 				mddDeleter.Wait();
 				if (!mddDeleter.Succeeded)
 				{
+					ModManager.RecordAmbiguousManualCollectionMutation(driftCapture, null);
 					Status = TaskStatus.Error;
 					OverallMessage = mddDeleter.CompletionMessage;
 					return false;
 				}
 
+				ModManager.CompleteManualCollectionMutation(driftCapture, null);
 				ManagedModRegistry.UnregisterMod(modMod);
 
 				if (OverallProgress < OverallProgressMaximum)

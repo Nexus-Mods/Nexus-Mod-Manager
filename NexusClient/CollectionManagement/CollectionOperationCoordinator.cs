@@ -230,6 +230,24 @@ namespace Nexus.Client.CollectionManagement
 				current.Revision, current.PlanIdentity);
 		}
 
+		/// <summary>
+		/// Returns a restart-reconciled operation from Recovering to final verification after every submitted child is proven committed.
+		/// </summary>
+		public CollectionOperation ResumeVerifyingAfterRecovery(CollectionOperationIdentity operationIdentity, CollectionPlanIdentity expectedPlan)
+		{
+			CollectionOperation current = RequireCurrent(operationIdentity);
+			RequirePhase(current, CollectionOperationPhase.Recovering);
+			RequireExactPlan(current, expectedPlan);
+			RequireFullyReconciledNativeState(current, "Recovery cannot resume final verification while native durability or Collection reconciliation remains unresolved.");
+			foreach (CollectionNativeChildOperation child in current.NativeChildren)
+			{
+				if (!child.IsReconciled || !child.HasVerifiedCommittedNativeState)
+					throw new InvalidOperationException("Recovery can resume final verification only when every submitted native child is reconciled as VerifiedCommitted.");
+			}
+			return Advance(current, CollectionOperationPhase.Verifying, CollectionOperationResultState.Pending,
+				current.Revision, current.PlanIdentity);
+		}
+
 		/// <summary>Persists an explicit non-terminal RecoveryRequired state for unresolved native durability/reconciliation.</summary>
 		public CollectionOperation MarkRecoveryRequired(CollectionOperationIdentity operationIdentity)
 		{

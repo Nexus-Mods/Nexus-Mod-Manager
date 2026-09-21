@@ -1171,7 +1171,7 @@ namespace Nexus.Client.ModManagement.UI
 				return;
 			}
 
-			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(p_modMod, false, ConfirmUpdaterAction)));
+			ActivatingMod(p_modMod, new EventArgs<IBackgroundTask>(ModManager.ChangeVirtualModActivation(p_modMod, false, ConfirmUpdaterAction)));
 		}
 
 		public void DisableMods(List<IMod> p_modMods)
@@ -1181,7 +1181,7 @@ namespace Nexus.Client.ModManagement.UI
 				if (IsInstalledDirectMod(Mod))
 					continue;
 
-				ActivatingMod(Mod, new EventArgs<IBackgroundTask>(VirtualModActivator.ActivatingMod(Mod, true, ConfirmUpdaterAction)));
+				ActivatingMod(Mod, new EventArgs<IBackgroundTask>(ModManager.ChangeVirtualModActivation(Mod, true, ConfirmUpdaterAction)));
 			}
 		}
 

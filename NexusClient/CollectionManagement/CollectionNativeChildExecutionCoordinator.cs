@@ -12,6 +12,7 @@ using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
@@ -141,6 +142,22 @@ namespace Nexus.Client.CollectionManagement
 				if (!EffectPreviewsEqual(reviewedPreview, livePreview))
 					throw new InvalidOperationException("The translated C5 native effects no longer match the exact C6.4 impact preview approved for this child.");
 
+				CollectionNativeChildExecutionEvidence executionEvidence = await Task.Run(() =>
+					CaptureExecutionEvidence(member, reviewedPreview, recipeInput, incomingMod, paths.InstallInfoPath,
+						_services.ModManager.GameMode), cancellationToken).ConfigureAwait(true);
+				cancellationToken.ThrowIfCancellationRequested();
+				if (recovery.ExecutionEvidence == null)
+				{
+					_manifestStore.SaveManifest(recovery.WithExecutionEvidence(executionEvidence));
+					recovery = RequireRecoveryManifest(operation, child, plan);
+				}
+				else if (!ExecutionEvidenceEquals(recovery.ExecutionEvidence, executionEvidence))
+				{
+					throw new InvalidOperationException("The physical pre-start evidence changed after an earlier C6.7 submission attempt; the Collection must be replanned before mutation.");
+				}
+				if (recovery.ExecutionEvidence == null)
+					throw new InvalidDataException("The exact C6.7 restart-verification evidence was not durably retained before native submission.");
+
 				IBackgroundTaskSet nativeTask = CreateNativeTask(previousMod, incomingMod, recipeInput, _services.ModManager);
 				if (nativeTask == null)
 					throw new InvalidOperationException("The native operation unexpectedly resolved to no task; C6.7 cannot infer that the reviewed recipe is already satisfied.");
@@ -155,6 +172,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					// This callback executes after monitor publication but before native worker start. Persisting this checkpoint is the
 					// final durable ordering gate before any native mutation can begin.
+					cancellationToken.ThrowIfCancellationRequested();
 					CollectionOperation latest = RequireOperation(operationIdentity, plan);
 					CollectionNativeChildOperation latestChild = RequirePreparedChild(latest);
 					if (!Matches(latestChild.NativeOperation, child.NativeOperation))
@@ -170,7 +188,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("The native monitor accepted a Collection child without persisting NativeSubmitted first.");
 
 				CollectionNativeChildExecutionResult result = new CollectionNativeChildExecutionResult(submittedOperation,
-					submittedChild, nativeTask, rootLease);
+					submittedChild, nativeTask, recipeInput, incomingMod, rootLease);
 				rootLease = null; // Ownership transfers to the C6.8 verification result.
 				return result;
 			}
@@ -463,6 +481,188 @@ namespace Nexus.Client.CollectionManagement
 			return full.Substring(root.Length).Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
 		}
 
+		private static CollectionNativeChildExecutionEvidence CaptureExecutionEvidence(ResolvedCollectionMemberPlan member,
+			CollectionMemberEffectPreview reviewedPreview, ModInstallationRecipeInput recipeInput, IMod incomingMod,
+			string installInfoDirectory, Nexus.Client.Games.IGameMode gameMode)
+		{
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (reviewedPreview == null) throw new ArgumentNullException(nameof(reviewedPreview));
+			if (recipeInput == null) throw new ArgumentNullException(nameof(recipeInput));
+			if (incomingMod == null) throw new ArgumentNullException(nameof(incomingMod));
+			if (String.IsNullOrWhiteSpace(installInfoDirectory)) throw new ArgumentException("The InstallInfo directory is required.", nameof(installInfoDirectory));
+			if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
+
+			string domain;
+			long modId;
+			long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId))
+				throw new InvalidDataException("The selected Collection artifact is not an exact Nexus mod-file identity.");
+
+			var preFiles = new List<CollectionNativeFileContentEvidence>();
+			foreach (CollectionPlannedFileEffect file in reviewedPreview.Files)
+				preFiles.Add(CaptureFileEvidence(file.Target, ModDeploymentTargetResolver.GetPhysicalPath(gameMode, file.Target)));
+
+			var expectedByTarget = new Dictionary<ModDeploymentTarget, CollectionNativeFileContentEvidence>();
+			var sourceContents = new Dictionary<string, ContentIdentity>(StringComparer.Ordinal);
+			var expectedReplay = new List<CollectionExpectedReplayOperation>();
+			foreach (ScriptedInstallOperation operation in recipeInput.NativeOperations)
+			{
+				InstallModFileOperation install = operation as InstallModFileOperation;
+				if (install != null)
+				{
+					ContentIdentity content;
+					if (!sourceContents.TryGetValue(install.SourcePath, out content))
+					{
+						using (FileStream stream = incomingMod.GetFileStream(install.SourcePath)) content = ContentIdentity.FromStream(stream);
+						sourceContents.Add(install.SourcePath, content);
+					}
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
+						install.DestinationPath, recipeInput.InstallContext.InstallRoot);
+					expectedByTarget[target] = content.ToEvidence(target);
+					expectedReplay.Add(new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile,
+						install.SourcePath, install.DestinationPath, 0, null));
+					continue;
+				}
+
+				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+				if (generated != null)
+				{
+					if (generated.Data == null) throw new InvalidDataException("A generated-file recipe operation has no payload bytes.");
+					ContentIdentity content = ContentIdentity.FromBytes(generated.Data);
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
+						generated.DestinationPath, recipeInput.InstallContext.InstallRoot);
+					expectedByTarget[target] = content.ToEvidence(target);
+					expectedReplay.Add(new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.GeneratedFile,
+						null, generated.DestinationPath, content.Length, content.Sha256));
+				}
+			}
+
+			var expectedFiles = new List<CollectionNativeFileContentEvidence>();
+			foreach (CollectionPlannedFileEffect file in reviewedPreview.Files)
+			{
+				CollectionNativeFileContentEvidence evidence;
+				if (!expectedByTarget.TryGetValue(file.Target, out evidence))
+					throw new InvalidDataException("The exact C5 recipe does not provide bytes for every reviewed file target.");
+				expectedFiles.Add(evidence);
+			}
+			if (expectedByTarget.Count != expectedFiles.Count)
+				throw new InvalidDataException("The exact C5 recipe produces file targets outside the reviewed C6.4 effect set.");
+
+			CollectionReplayContentEvidence replayPreimage = CaptureReplayContentEvidence(incomingMod.Filename, installInfoDirectory);
+			return new CollectionNativeChildExecutionEvidence(domain, modId, fileId, incomingMod.Filename,
+				reviewedPreview, preFiles, expectedFiles, replayPreimage, expectedReplay);
+		}
+
+		private static CollectionNativeFileContentEvidence CaptureFileEvidence(ModDeploymentTarget target, string physicalPath)
+		{
+			if (String.IsNullOrWhiteSpace(physicalPath) || !File.Exists(physicalPath))
+				return new CollectionNativeFileContentEvidence(target, false, null, 0);
+			var info = new FileInfo(physicalPath);
+			return new CollectionNativeFileContentEvidence(target, true,
+				CollectionContentHash.FromSha256(ComputeSha256(physicalPath)), info.Length);
+		}
+
+		private static CollectionReplayContentEvidence CaptureReplayContentEvidence(string incomingFileName, string installInfoDirectory)
+		{
+			string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(incomingFileName, installInfoDirectory);
+			bool replayExists = File.Exists(replayPath);
+			CollectionContentHash replayHash = replayExists ? CollectionContentHash.FromSha256(ComputeSha256(replayPath)) : null;
+			long replayLength = replayExists ? new FileInfo(replayPath).Length : 0;
+			string payloadDirectory = ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath);
+			bool payloadDirectoryExists = Directory.Exists(payloadDirectory);
+			var payloads = new List<CollectionReplayPayloadContentEvidence>();
+			if (payloadDirectoryExists)
+			{
+				foreach (string file in Directory.GetFiles(payloadDirectory, "*", SearchOption.AllDirectories))
+				{
+					var info = new FileInfo(file);
+					payloads.Add(new CollectionReplayPayloadContentEvidence(GetRelativeReplayPayloadPath(payloadDirectory, file),
+						CollectionContentHash.FromSha256(ComputeSha256(file)), info.Length));
+				}
+			}
+			return new CollectionReplayContentEvidence(replayExists, replayHash, replayLength, payloadDirectoryExists, payloads);
+		}
+
+		private sealed class ContentIdentity
+		{
+			private ContentIdentity(long length, string sha256) { Length = length; Sha256 = sha256; }
+			public long Length { get; }
+			public string Sha256 { get; }
+			public CollectionNativeFileContentEvidence ToEvidence(ModDeploymentTarget target)
+			{ return new CollectionNativeFileContentEvidence(target, true, CollectionContentHash.FromSha256(Sha256), Length); }
+			public static ContentIdentity FromBytes(byte[] bytes)
+			{
+				using (var stream = new MemoryStream(bytes, false)) return FromStream(stream);
+			}
+			public static ContentIdentity FromStream(Stream stream)
+			{
+				long start = stream.CanSeek ? stream.Position : 0;
+				using (SHA256 sha = SHA256.Create())
+				{
+					byte[] hash = sha.ComputeHash(stream);
+					long length = stream.CanSeek ? stream.Position - start : -1;
+					if (length < 0) throw new InvalidDataException("The recipe source stream length could not be determined.");
+					return new ContentIdentity(length, BitConverter.ToString(hash).Replace("-", String.Empty).ToLowerInvariant());
+				}
+			}
+		}
+
+		private static bool ExecutionEvidenceEquals(CollectionNativeChildExecutionEvidence left, CollectionNativeChildExecutionEvidence right)
+		{
+			if (left == null || right == null ||
+				!StringComparer.OrdinalIgnoreCase.Equals(left.NexusGameDomain, right.NexusGameDomain) ||
+				left.NexusModId != right.NexusModId || left.NexusFileId != right.NexusFileId ||
+				!StringComparer.OrdinalIgnoreCase.Equals(left.IncomingFileName, right.IncomingFileName) ||
+				!EffectPreviewsEqual(left.ReviewedEffects, right.ReviewedEffects) ||
+				!FileEvidenceEquals(left.PreFileContents, right.PreFileContents) ||
+				!FileEvidenceEquals(left.ExpectedFileContents, right.ExpectedFileContents) ||
+				!ReplayEvidenceEquals(left.IncomingReplayPreimage, right.IncomingReplayPreimage) ||
+				left.ExpectedReplayOperations.Count != right.ExpectedReplayOperations.Count)
+				return false;
+
+			for (int index = 0; index < left.ExpectedReplayOperations.Count; index++)
+			{
+				CollectionExpectedReplayOperation a = left.ExpectedReplayOperations[index];
+				CollectionExpectedReplayOperation b = right.ExpectedReplayOperations[index];
+				if (a.Kind != b.Kind || !StringComparer.Ordinal.Equals(a.SourcePath, b.SourcePath) ||
+					!StringComparer.Ordinal.Equals(a.DestinationPath, b.DestinationPath) || a.PayloadLength != b.PayloadLength ||
+					!StringComparer.OrdinalIgnoreCase.Equals(a.PayloadSha256, b.PayloadSha256)) return false;
+			}
+			return true;
+		}
+
+		private static bool FileEvidenceEquals(IEnumerable<CollectionNativeFileContentEvidence> left,
+			IEnumerable<CollectionNativeFileContentEvidence> right)
+		{
+			List<CollectionNativeFileContentEvidence> a = left.ToList();
+			List<CollectionNativeFileContentEvidence> b = right.ToList();
+			if (a.Count != b.Count) return false;
+			for (int index = 0; index < a.Count; index++)
+			{
+				if (!a[index].Target.Equals(b[index].Target) || a[index].Existed != b[index].Existed ||
+					a[index].ByteLength != b[index].ByteLength ||
+					!StringComparer.OrdinalIgnoreCase.Equals(a[index].ContentHash == null ? null : a[index].ContentHash.Value,
+						b[index].ContentHash == null ? null : b[index].ContentHash.Value)) return false;
+			}
+			return true;
+		}
+
+		private static bool ReplayEvidenceEquals(CollectionReplayContentEvidence left, CollectionReplayContentEvidence right)
+		{
+			if (left == null || right == null || left.ReplayFileExisted != right.ReplayFileExisted ||
+				left.ReplayFileLength != right.ReplayFileLength || left.PayloadDirectoryExisted != right.PayloadDirectoryExisted ||
+				!StringComparer.OrdinalIgnoreCase.Equals(left.ReplayFileHash == null ? null : left.ReplayFileHash.Value,
+					right.ReplayFileHash == null ? null : right.ReplayFileHash.Value) || left.Payloads.Count != right.Payloads.Count) return false;
+			for (int index = 0; index < left.Payloads.Count; index++)
+			{
+				CollectionReplayPayloadContentEvidence a = left.Payloads[index];
+				CollectionReplayPayloadContentEvidence b = right.Payloads[index];
+				if (!StringComparer.OrdinalIgnoreCase.Equals(a.RelativePath, b.RelativePath) || a.ByteLength != b.ByteLength ||
+					!StringComparer.OrdinalIgnoreCase.Equals(a.ContentHash.Value, b.ContentHash.Value)) return false;
+			}
+			return true;
+		}
+
 		private static IBackgroundTaskSet CreateNativeTask(IMod previousMod, IMod incomingMod,
 			ModInstallationRecipeInput recipeInput, ModManager modManager)
 		{
@@ -587,11 +787,13 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionTargetMutationLease _mutationLease;
 
 		internal CollectionNativeChildExecutionResult(CollectionOperation operation, CollectionNativeChildOperation child,
-			IBackgroundTaskSet nativeTask, CollectionTargetMutationLease mutationLease)
+			IBackgroundTaskSet nativeTask, ModInstallationRecipeInput recipeInput, IMod incomingMod, CollectionTargetMutationLease mutationLease)
 		{
 			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
 			Child = child ?? throw new ArgumentNullException(nameof(child));
 			NativeTask = nativeTask ?? throw new ArgumentNullException(nameof(nativeTask));
+			RecipeInput = recipeInput ?? throw new ArgumentNullException(nameof(recipeInput));
+			IncomingMod = incomingMod ?? throw new ArgumentNullException(nameof(incomingMod));
 			_mutationLease = mutationLease ?? throw new ArgumentNullException(nameof(mutationLease));
 			if (child.Checkpoint != CollectionNativeChildCheckpoint.NativeSubmitted)
 				throw new ArgumentException("A C6.7 execution result requires the durable NativeSubmitted checkpoint.", nameof(child));
@@ -600,7 +802,20 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionOperation Operation { get; }
 		public CollectionNativeChildOperation Child { get; }
 		public IBackgroundTaskSet NativeTask { get; }
+		internal ModInstallationRecipeInput RecipeInput { get; }
+		internal IMod IncomingMod { get; }
 		public bool IsDisposed { get { return _mutationLease == null || _mutationLease.IsDisposed; } }
+
+		/// <summary>Gets the live root target reservation retained exclusively for C6.8 authoritative verification.</summary>
+		internal CollectionTargetMutationLease MutationLease
+		{
+			get
+			{
+				if (_mutationLease == null || _mutationLease.IsDisposed)
+					throw new ObjectDisposedException(nameof(CollectionNativeChildExecutionResult), "The C6.7 target reservation has already been released.");
+				return _mutationLease;
+			}
+		}
 
 		/// <summary>Releases the C4 target reservation only after C6.8 has completed authoritative verification.</summary>
 		internal void ReleaseAfterVerification()

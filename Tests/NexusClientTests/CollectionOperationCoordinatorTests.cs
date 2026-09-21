@@ -316,6 +316,34 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void ReconciledCommittedRecovery_CanResumeFinalVerification()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = MoveToApplying(fixture, out ReadyPlans plans);
+				CollectionNativeChildOperation submitted = CreateSubmittedChild(fixture, plans.Plan, 1);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { submitted });
+				operation = fixture.Coordinator.BeginRecovery(operation.Identity);
+
+				ModOperationResult committed = new ModOperationResult(submitted.NativeOperation,
+					ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, null);
+				CollectionNativeChildOperation reconciled = new CollectionNativeChildOperation(submitted.Sequence, submitted.Member,
+					submitted.Action, submitted.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, committed);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { reconciled });
+				operation = fixture.Coordinator.ResumeVerifyingAfterRecovery(operation.Identity, plans.Plan.Identity);
+
+				Assert.AreEqual(CollectionOperationPhase.Verifying, operation.Phase);
+				Assert.AreEqual(CollectionOperationResultState.Pending, operation.ResultState);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void ReconciledRecovery_CanCompleteRolledBackButCannotBeCancelledBeforeApply()
 		{
 			string root = CreateTemporaryDirectory();

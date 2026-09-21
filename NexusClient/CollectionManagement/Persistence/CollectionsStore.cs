@@ -17,7 +17,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	/// </remarks>
 	public sealed class CollectionsStore
 	{
-		public const int CurrentSchemaVersion = 3;
+		public const int CurrentSchemaVersion = 4;
 		public const int BusyTimeoutMilliseconds = 5000;
 		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private const string SchemaName = "nmm-ce-collections";
@@ -389,6 +389,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			{
 				case 1:
 				case 2:
+				case 3:
 					return true;
 				default:
 					return false;
@@ -404,6 +405,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					return;
 				case 2:
 					ValidateSchemaVersion2(connection);
+					return;
+				case 3:
+					ValidateSchemaVersion3(connection);
 					return;
 				default:
 					throw MigrationUnavailableException(version);
@@ -723,6 +727,14 @@ CREATE TABLE member_bindings (
 	CHECK (binding_kind > 0)
 );");
 				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE native_mod_provenance (
+	target_fingerprint TEXT NOT NULL,
+	native_mod_key TEXT NOT NULL,
+	standalone_use INTEGER NOT NULL,
+	PRIMARY KEY (target_fingerprint, native_mod_key),
+	CHECK (standalone_use > 0)
+);");
+				ExecuteSchemaStatement(connection, transaction, @"
 CREATE TABLE user_overrides (
 	override_id TEXT NOT NULL PRIMARY KEY,
 	association_id TEXT NOT NULL,
@@ -945,6 +957,10 @@ CREATE TABLE native_operation_children (
 						MigrateVersion2To3(connection);
 						version = 3;
 						break;
+					case 3:
+						MigrateVersion3To4(connection);
+						version = 4;
+						break;
 					default:
 						throw MigrationUnavailableException(version);
 				}
@@ -1009,6 +1025,25 @@ CREATE TABLE collection_acquisition_requests (
 			}
 		}
 
+		private static void MigrateVersion3To4(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion3(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE native_mod_provenance (
+	target_fingerprint TEXT NOT NULL,
+	native_mod_key TEXT NOT NULL,
+	standalone_use INTEGER NOT NULL,
+	PRIMARY KEY (target_fingerprint, native_mod_key),
+	CHECK (standalone_use > 0)
+);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "4");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=4;");
+				transaction.Commit();
+			}
+		}
+
 		private static int ReadAndValidateVersion(SQLiteConnection connection)
 		{
 			RequireTable(connection, "store_metadata", "key", "value");
@@ -1036,6 +1071,21 @@ CREATE TABLE collection_acquisition_requests (
 				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
 					"Collections store schema {0} is not the supported schema {1}.", version, CurrentSchemaVersion));
 
+			ValidateSchemaVersion3Tables(connection);
+			RequireTable(connection, "native_mod_provenance", "target_fingerprint", "native_mod_key", "standalone_use");
+		}
+
+		private static void ValidateSchemaVersion3(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 3)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 3.", version));
+			ValidateSchemaVersion3Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion3Tables(SQLiteConnection connection)
+		{
 			ValidateSchemaVersion2Tables(connection);
 			RequireTable(connection, "collection_acquisition_requests", "request_id", "plan_id", "plan_version",
 				"revision_identity", "target_fingerprint", "member_key_kind", "member_key_value", "requirement",

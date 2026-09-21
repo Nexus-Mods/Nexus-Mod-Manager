@@ -99,7 +99,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPlanIdentity planIdentity, CollectionOperationMemberReference member, CollectionNativeChildAction action,
 			ModOperationIdentity nativeOperation, CollectionCurrentStateFingerprint preparationStateFingerprint,
 			CollectionRecoveryArtifact incomingArchive, CollectionNativeModState previousNativeMod,
-			CollectionRecoveryArtifact previousArchive, CollectionScriptedReplayRecoverySnapshot scriptedReplay)
+			CollectionRecoveryArtifact previousArchive, CollectionScriptedReplayRecoverySnapshot scriptedReplay,
+			CollectionNativeChildExecutionEvidence executionEvidence = null)
 		{
 			OperationIdentity = operationIdentity ?? throw new ArgumentNullException(nameof(operationIdentity));
 			if (childSequence <= 0) throw new ArgumentOutOfRangeException(nameof(childSequence));
@@ -121,6 +122,17 @@ namespace Nexus.Client.CollectionManagement
 			ScriptedReplay = scriptedReplay ?? throw new ArgumentNullException(nameof(scriptedReplay));
 			if (previousNativeMod == null && (scriptedReplay.ReplayFileExisted || scriptedReplay.PayloadDirectoryExisted || scriptedReplay.Payloads.Count != 0))
 				throw new ArgumentException("A newly activated member cannot carry previous-install scripted replay recovery data.", nameof(scriptedReplay));
+			if (executionEvidence != null)
+			{
+				if (!executionEvidence.ReviewedEffects.MemberKey.Equals(member.MemberKey) ||
+					!StringComparer.Ordinal.Equals(executionEvidence.ReviewedEffects.RecipeIdentity.Fingerprint, nativeOperation.Fingerprint.RecipeFingerprint) ||
+					executionEvidence.ReviewedEffects.InstallMethod != nativeOperation.Fingerprint.InstallMethod ||
+					executionEvidence.ReviewedEffects.InstallRoot != nativeOperation.Fingerprint.InstallRoot)
+				{
+					throw new ArgumentException("Native-child execution evidence must match the exact prepared member recipe and install context.", nameof(executionEvidence));
+				}
+			}
+			ExecutionEvidence = executionEvidence;
 		}
 
 		public CollectionOperationIdentity OperationIdentity { get; }
@@ -134,6 +146,18 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionNativeModState PreviousNativeMod { get; }
 		public CollectionRecoveryArtifact PreviousArchive { get; }
 		public CollectionScriptedReplayRecoverySnapshot ScriptedReplay { get; }
+		/// <summary>Gets the durable pre-start C6.7 verification evidence, or <c>null</c> for legacy C6.6-only manifests.</summary>
+		public CollectionNativeChildExecutionEvidence ExecutionEvidence { get; }
+
+		/// <summary>Creates the immutable C6.7 form of this manifest after exact execution evidence has been retained.</summary>
+		public CollectionNativeChildRecoveryManifest WithExecutionEvidence(CollectionNativeChildExecutionEvidence executionEvidence)
+		{
+			if (executionEvidence == null) throw new ArgumentNullException(nameof(executionEvidence));
+			if (ExecutionEvidence != null) throw new InvalidOperationException("Native-child execution evidence is already attached to this recovery manifest.");
+			return new CollectionNativeChildRecoveryManifest(OperationIdentity, ChildSequence, PlanIdentity, Member, Action,
+				NativeOperation, PreparationStateFingerprint, IncomingArchive, PreviousNativeMod, PreviousArchive,
+				ScriptedReplay, executionEvidence);
+		}
 	}
 
 	/// <summary>Result returned once one C6.6 native child has durable intent and recovery inputs.</summary>

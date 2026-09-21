@@ -145,8 +145,15 @@
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />
     <Compile Include="CollectionOperationCoordinatorTests.cs" />
+    <Compile Include="CollectionAssociationReconciliationCoordinatorTests.cs" />
+    <Compile Include="CollectionManualMutationDriftCoordinatorTests.cs" />
+    <Compile Include="CollectionPinOverrideCoordinatorTests.cs" />
+    <Compile Include="CollectionDetachCoordinatorTests.cs" />
+    <Compile Include="CollectionUninstallEffectsCoordinatorTests.cs" />
     <Compile Include="CollectionNativeChildPreparationCoordinatorTests.cs" />
     <Compile Include="CollectionNativeChildExecutionCoordinatorTests.cs" />
+    <Compile Include="CollectionNativeChildVerificationCoordinatorTests.cs" />
+    <Compile Include="CollectionNativeChildRestartReconciliationCoordinatorTests.cs" />
     <Compile Include="ResolvedCollectionPlanTests.cs" />
     <Compile Include="CollectionAcquisitionRequestTests.cs" />
     <Compile Include="CollectionAcquisitionSharingTests.cs" />

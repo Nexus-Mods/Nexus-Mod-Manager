@@ -40,61 +40,74 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (operation == null)
 				throw new ArgumentNullException(nameof(operation));
 
-			_store.ExecuteWrite((connection, transaction) =>
+			_store.ExecuteWrite((connection, transaction) => SaveOperation(connection, transaction, operation));
+		}
+
+		/// <summary>
+		/// Persists one operation snapshot inside an existing short Collections transaction.
+		/// </summary>
+		/// <remarks>C6.10 uses this seam to checkpoint child provenance and its journal reconciliation atomically.</remarks>
+		internal static void SaveOperation(SQLiteConnection connection, SQLiteTransaction transaction, CollectionOperation operation)
+		{
+			if (connection == null)
+				throw new ArgumentNullException(nameof(connection));
+			if (transaction == null)
+				throw new ArgumentNullException(nameof(transaction));
+			if (operation == null)
+				throw new ArgumentNullException(nameof(operation));
+
+			RequirePersistedCollection(connection, transaction, operation.Collection);
+			if (operation.Revision != null)
+				RequirePersistedRevision(connection, transaction, operation.Revision);
+			if (operation.PlanIdentity != null)
+				RequirePersistedPlan(connection, transaction, operation, false);
+			foreach (CollectionNativeChildOperation child in operation.NativeChildren)
+				RequirePersistedRevision(connection, transaction, child.Member.Revision);
+
+			CollectionOperation existing = ReadOperation(connection, transaction, operation.Identity.OperationId);
+			if (existing == null)
 			{
-				RequirePersistedCollection(connection, transaction, operation.Collection);
-				if (operation.Revision != null)
-					RequirePersistedRevision(connection, transaction, operation.Revision);
-				if (operation.PlanIdentity != null)
-					RequirePersistedPlan(connection, transaction, operation, false);
+				InsertOperation(connection, transaction, operation);
 				foreach (CollectionNativeChildOperation child in operation.NativeChildren)
-					RequirePersistedRevision(connection, transaction, child.Member.Revision);
+					InsertChild(connection, transaction, operation.Identity.OperationId, child);
+				return;
+			}
 
-				CollectionOperation existing = ReadOperation(connection, transaction, operation.Identity.OperationId);
-				if (existing == null)
+			ValidateOperationProgression(existing, operation);
+			if (SnapshotsEqual(existing, operation))
+				return;
+
+			if (operation.CheckpointSequence <= existing.CheckpointSequence)
+				throw new InvalidOperationException("A changed Collection operation snapshot must advance its durable checkpoint sequence.");
+
+			Dictionary<int, CollectionNativeChildOperation> existingChildren = IndexChildren(existing.NativeChildren);
+			Dictionary<int, CollectionNativeChildOperation> incomingChildren = IndexChildren(operation.NativeChildren);
+			foreach (KeyValuePair<int, CollectionNativeChildOperation> pair in existingChildren)
+			{
+				CollectionNativeChildOperation incoming;
+				if (!incomingChildren.TryGetValue(pair.Key, out incoming))
+					throw new InvalidOperationException("A persisted Collection native-child intent cannot be removed from the operation journal.");
+				ValidateChildProgression(pair.Value, incoming);
+			}
+
+			int maximumExistingSequence = 0;
+			foreach (int sequence in existingChildren.Keys)
+				maximumExistingSequence = Math.Max(maximumExistingSequence, sequence);
+
+			foreach (CollectionNativeChildOperation child in operation.NativeChildren)
+			{
+				CollectionNativeChildOperation oldChild;
+				if (existingChildren.TryGetValue(child.Sequence, out oldChild))
+					UpdateChild(connection, transaction, operation.Identity.OperationId, child);
+				else
 				{
-					InsertOperation(connection, transaction, operation);
-					foreach (CollectionNativeChildOperation child in operation.NativeChildren)
-						InsertChild(connection, transaction, operation.Identity.OperationId, child);
-					return;
+					if (child.Sequence <= maximumExistingSequence)
+						throw new InvalidOperationException("New Collection native-child intents must append after existing journal sequences.");
+					InsertChild(connection, transaction, operation.Identity.OperationId, child);
 				}
+			}
 
-				ValidateOperationProgression(existing, operation);
-				if (SnapshotsEqual(existing, operation))
-					return;
-
-				if (operation.CheckpointSequence <= existing.CheckpointSequence)
-					throw new InvalidOperationException("A changed Collection operation snapshot must advance its durable checkpoint sequence.");
-
-				Dictionary<int, CollectionNativeChildOperation> existingChildren = IndexChildren(existing.NativeChildren);
-				Dictionary<int, CollectionNativeChildOperation> incomingChildren = IndexChildren(operation.NativeChildren);
-				foreach (KeyValuePair<int, CollectionNativeChildOperation> pair in existingChildren)
-				{
-					CollectionNativeChildOperation incoming;
-					if (!incomingChildren.TryGetValue(pair.Key, out incoming))
-						throw new InvalidOperationException("A persisted Collection native-child intent cannot be removed from the operation journal.");
-					ValidateChildProgression(pair.Value, incoming);
-				}
-
-				int maximumExistingSequence = 0;
-				foreach (int sequence in existingChildren.Keys)
-					maximumExistingSequence = Math.Max(maximumExistingSequence, sequence);
-
-				foreach (CollectionNativeChildOperation child in operation.NativeChildren)
-				{
-					CollectionNativeChildOperation oldChild;
-					if (existingChildren.TryGetValue(child.Sequence, out oldChild))
-						UpdateChild(connection, transaction, operation.Identity.OperationId, child);
-					else
-					{
-						if (child.Sequence <= maximumExistingSequence)
-							throw new InvalidOperationException("New Collection native-child intents must append after existing journal sequences.");
-						InsertChild(connection, transaction, operation.Identity.OperationId, child);
-					}
-				}
-
-				UpdateOperation(connection, transaction, operation);
-			});
+			UpdateOperation(connection, transaction, operation);
 		}
 
 		/// <summary>

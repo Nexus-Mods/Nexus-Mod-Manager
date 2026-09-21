@@ -5,6 +5,7 @@
     using System.Collections.Specialized;
     using System.ComponentModel;
     using System.Diagnostics;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -272,6 +273,10 @@
         {
             if (row == null) throw new ArgumentNullException("row");
 
+            string previousOwnerKey = row.OwnerKey;
+            string[] affectedOwnerKeys = row.OwnerCandidates == null
+                ? new string[0]
+                : row.OwnerCandidates.Select(x => x.OwnerKey).Where(x => !String.IsNullOrWhiteSpace(x)).ToArray();
             IModDeploymentManager deploymentManager = _modManagerViewModel.ModManager.DeploymentManager;
             if (row.DeploymentTarget != null && deploymentManager != null && deploymentManager.IsPromoted(row.DeploymentTarget))
             {
@@ -282,6 +287,7 @@
                         deploymentManager.SwitchPromotedOwner(row.DeploymentTarget, selectedOwnerKey);
                         if (_modManagerViewModel.ProfileManager != null)
                             _modManagerViewModel.ProfileManager.UpdateCurrentDeploymentManifest();
+                        _modManagerViewModel.ModManager.RecordManualFileOwnerChange(previousOwnerKey, selectedOwnerKey, affectedOwnerKeys);
                         return VirtualFileOwnerSwitchResult.Succeeded(row.RelativePath, selectedOwnerKey);
                     }
                     catch (Exception ex)
@@ -291,7 +297,13 @@
                 });
             }
 
-            return Task.Run(() => _deploymentService.SwitchFileOwner(row.RelativePath, selectedOwnerKey));
+            return Task.Run(() =>
+            {
+                VirtualFileOwnerSwitchResult result = _deploymentService.SwitchFileOwner(row.RelativePath, selectedOwnerKey);
+                if (result != null && result.Success)
+                    _modManagerViewModel.ModManager.RecordManualFileOwnerChange(previousOwnerKey, result.SelectedOwnerKey, affectedOwnerKeys);
+                return result;
+            });
         }
 
         public void SetManualSource(FileManagerRow row, FileManagerSource source, FileManagerSource previousSource)

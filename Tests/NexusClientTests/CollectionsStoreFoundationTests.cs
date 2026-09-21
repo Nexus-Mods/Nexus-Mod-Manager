@@ -105,6 +105,7 @@ namespace NexusClientTests
 						"resolved_plans",
 						"target_associations",
 						"member_bindings",
+						"native_mod_provenance",
 						"user_overrides",
 						"drift_observations",
 						"local_captures",
@@ -176,6 +177,40 @@ namespace NexusClientTests
 
 
 		[Test]
+		public void OpenExisting_MigratesVersion3ToStandaloneProvenanceSchema()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP TABLE native_mod_provenance;");
+					Execute(connection, null, "UPDATE store_metadata SET value='3' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=3;");
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.MigrationRequired, inspection.Availability);
+				Assert.AreEqual(3, inspection.SchemaVersion);
+
+				CollectionsStoreStatus migrated = store.OpenExisting();
+				Assert.AreEqual(storeId, migrated.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, migrated.SchemaVersion);
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.IsTrue(TableExists(connection, "native_mod_provenance"));
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Schema_DoesNotPersistCredentialsOrEphemeralDownloadLocations()
 		{
 			string root = CreateTemporaryDirectory();
@@ -236,6 +271,7 @@ namespace NexusClientTests
 
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
+					Execute(connection, null, "DROP TABLE native_mod_provenance;");
 					Execute(connection, null, "DROP INDEX ix_collection_acquisition_queue;");
 					Execute(connection, null, "DROP TABLE collection_acquisition_requests;");
 					Execute(connection, null, "DROP TABLE retained_artifact_tombstones;");
@@ -262,6 +298,7 @@ namespace NexusClientTests
 					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion.ToString(CultureInfo.InvariantCulture), ScalarString(connection, "SELECT value FROM store_metadata WHERE key='schema_version';"));
 					Assert.IsTrue(TableExists(connection, "retained_artifact_tombstones"));
 					Assert.IsTrue(TableExists(connection, "collection_acquisition_requests"));
+					Assert.IsTrue(TableExists(connection, "native_mod_provenance"));
 					Assert.AreEqual(1, ScalarInt(connection, "SELECT COUNT(*) FROM retained_artifacts;"));
 					Assert.AreEqual(1, ScalarInt(connection, "SELECT COUNT(*) FROM retained_artifact_references;"));
 				}

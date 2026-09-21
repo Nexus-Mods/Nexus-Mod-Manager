@@ -27,6 +27,9 @@ namespace Nexus.Client.ModManagement
 		/// <value>The mod that is being upgraded.</value>
 		protected IMod OldMod { get; private set; }
 
+		/// <summary>Gets the active native mod instance being replaced by this upgrade.</summary>
+		internal IMod ReplacedMod { get { return OldMod; } }
+
 		#endregion
 
 		#region Constructors
