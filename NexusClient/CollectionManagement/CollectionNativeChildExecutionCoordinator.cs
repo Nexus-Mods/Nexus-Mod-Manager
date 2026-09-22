@@ -138,7 +138,7 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 
 				CollectionMemberEffectPreview livePreview = new CollectionMemberEffectPreviewBuilder().Build(member,
-					recipeInput, _services.ModManager.GameMode, incomingMod);
+					recipeInput, _services.ModManager.GameMode, incomingMod, _services.PluginManager);
 				if (!EffectPreviewsEqual(reviewedPreview, livePreview))
 					throw new InvalidOperationException("The translated C5 native effects no longer match the exact C6.4 impact preview approved for this child.");
 

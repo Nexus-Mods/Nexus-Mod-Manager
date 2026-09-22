@@ -224,6 +224,57 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
+		/// Rebinds already verified immutable bytes to a refreshed plan-version request for the same exact member artifact.
+		/// </summary>
+		/// <remarks>
+		/// This is a lifetime/provenance rebind only. It never changes the selected artifact or recipe and never reuses bytes across
+		/// revisions, targets or members. Full retained-blob integrity is rechecked before the new request reference is published.
+		/// </remarks>
+		public CollectionVerifiedArchive RebindVerified(CollectionVerifiedArchive verifiedArchive,
+			CollectionAcquisitionRequest refreshedRequest, CancellationToken cancellationToken)
+		{
+			if (verifiedArchive == null)
+				throw new ArgumentNullException(nameof(verifiedArchive));
+			if (refreshedRequest == null)
+				throw new ArgumentNullException(nameof(refreshedRequest));
+
+			CollectionAcquisitionRequest previous = verifiedArchive.Request;
+			if (!previous.Revision.Equals(refreshedRequest.Revision) ||
+				!previous.Target.Equals(refreshedRequest.Target) ||
+				!previous.MemberKey.Equals(refreshedRequest.MemberKey) ||
+				previous.Requirement != refreshedRequest.Requirement ||
+				!previous.SelectedArtifact.Equals(refreshedRequest.SelectedArtifact) ||
+				!previous.RecipeIdentity.Equals(refreshedRequest.RecipeIdentity))
+			{
+				throw new ArgumentException("Verified Collection acquisition bytes may be rebound only to the same exact revision, target, member, artifact and recipe.", nameof(refreshedRequest));
+			}
+
+			if (!_artifactStore.VerifyArtifact(verifiedArchive.Artifact.ArtifactId, cancellationToken))
+				throw new InvalidDataException("The previously verified Collection acquisition artifact is missing or corrupt.");
+			if (refreshedRequest.SelectedArtifact.ExpectedContentHash != null &&
+				!refreshedRequest.SelectedArtifact.ExpectedContentHash.Equals(verifiedArchive.Artifact.ContentHash))
+				throw new InvalidDataException("The retained acquisition artifact no longer matches the refreshed request's expected digest.");
+
+			string ownerId = refreshedRequest.RequestId.ToString("D");
+			string role = CreateReferenceRole(refreshedRequest.SelectedArtifact);
+			CollectionVerifiedArchive existing = TryLoadExistingRequestReference(refreshedRequest, ownerId, role, cancellationToken);
+			if (existing != null)
+				return existing;
+
+			return Protect(refreshedRequest, verifiedArchive.Artifact, ownerId, role,
+				CollectionVerifiedArchiveSourceKind.RetainedContent, CollectionArchiveVerificationBasis.ExistingVerifiedReference);
+		}
+
+		/// <summary>
+		/// Rebinds verified immutable bytes without cancellation.
+		/// </summary>
+		public CollectionVerifiedArchive RebindVerified(CollectionVerifiedArchive verifiedArchive,
+			CollectionAcquisitionRequest refreshedRequest)
+		{
+			return RebindVerified(verifiedArchive, refreshedRequest, CancellationToken.None);
+		}
+
+		/// <summary>
 		/// Attempts verified adoption without cancellation.
 		/// </summary>
 		public CollectionVerifiedArchive TryAdopt(CollectionAcquisitionRequest request)

@@ -242,11 +242,8 @@ namespace Nexus.Client.ModManagement
 				{
 					if (!(GameMode.RequiresModFileMerge && (Path.GetFileName(File.Key) == GameMode.MergedFileName)))
 					{
-						string strSourceDirectory = Path.GetDirectoryName(File.Key);
-						string strTargetDirectory = Path.GetDirectoryName(strFixedPath);
-						bool booSkipReadme = SkipReadme && Readme.IsValidReadme(File.Key) &&
-							(string.IsNullOrEmpty(strSourceDirectory) ||
-							 (!string.IsNullOrEmpty(strTargetDirectory) && strTargetDirectory.Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)));
+						bool booSkipReadme = BasicInstallPlanBuilder.ShouldSkipReadme(
+							SkipReadme, File.Key, strFixedPath, GameMode.PluginDirectory);
 
 						if (!booSkipReadme)
 						{
@@ -369,12 +366,8 @@ namespace Nexus.Client.ModManagement
 
 				if (!(GameMode.RequiresModFileMerge && Path.GetFileName(file.Key) == GameMode.MergedFileName))
 				{
-					string sourceDirectory = Path.GetDirectoryName(file.Key);
-					string targetDirectory = Path.GetDirectoryName(adjustedPath);
-					bool skipReadme = SkipReadme && Readme.IsValidReadme(file.Key) &&
-						(string.IsNullOrEmpty(sourceDirectory) ||
-							(!string.IsNullOrEmpty(targetDirectory) &&
-							targetDirectory.Equals(Path.GetFileName(GameMode.PluginDirectory), StringComparison.CurrentCultureIgnoreCase)));
+					bool skipReadme = BasicInstallPlanBuilder.ShouldSkipReadme(
+						SkipReadme, file.Key, adjustedPath, GameMode.PluginDirectory);
 
 					if (!skipReadme)
 					{
@@ -404,114 +397,12 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private List<KeyValuePair<string, string>> StripGameRootWrapperFolder(List<KeyValuePair<string, string>> files)
 		{
-			if (files == null || files.Count == 0)
-				return files;
-
-			string commonTopFolder = null;
-			foreach (KeyValuePair<string, string> file in files)
-			{
-				string sourcePath = file.Key;
-				if (IsUnsafeGameRootArchivePath(sourcePath))
-					throw new InvalidDataException(string.Format("Game-root install path '{0}' cannot be installed safely.", sourcePath));
-
-				string topFolder = GetTopLevelFolder(sourcePath);
-				if (string.IsNullOrEmpty(topFolder))
-					return NormalizeGameRootFileMappings(files, false);
-
-				if (commonTopFolder == null)
-					commonTopFolder = topFolder;
-				else if (!commonTopFolder.Equals(topFolder, StringComparison.OrdinalIgnoreCase))
-					return NormalizeGameRootFileMappings(files, false);
-			}
-
-			bool hasRecognizableRootContent = files.Any(x => IsRecognizableGameRootContent(StripTopLevelFolder(x.Key)));
-			return NormalizeGameRootFileMappings(files, hasRecognizableRootContent);
-		}
-
-		private static List<KeyValuePair<string, string>> NormalizeGameRootFileMappings(List<KeyValuePair<string, string>> files, bool stripCommonWrapper)
-		{
-			return files.Select(x =>
-			{
-				string destination = stripCommonWrapper ? StripTopLevelFolder(x.Key) : x.Key;
-				return new KeyValuePair<string, string>(x.Key, NormalizeGameRootRelativePath(destination));
-			}).ToList();
-		}
-
-		private static string GetTopLevelFolder(string path)
-		{
-			if (string.IsNullOrWhiteSpace(path))
-				return null;
-
-			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-			int separatorIndex = normalizedPath.IndexOf(Path.DirectorySeparatorChar);
-			return separatorIndex <= 0 ? null : normalizedPath.Substring(0, separatorIndex);
-		}
-
-		private static string StripTopLevelFolder(string path)
-		{
-			if (string.IsNullOrWhiteSpace(path))
-				return path;
-
-			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-			int separatorIndex = normalizedPath.IndexOf(Path.DirectorySeparatorChar);
-			return separatorIndex < 0 || separatorIndex + 1 >= normalizedPath.Length ? normalizedPath : normalizedPath.Substring(separatorIndex + 1);
-		}
-
-		private static bool IsRecognizableGameRootContent(string path)
-		{
-			if (string.IsNullOrWhiteSpace(path))
-				return false;
-
-			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
-			if (normalizedPath.Equals("Data", StringComparison.OrdinalIgnoreCase) || normalizedPath.StartsWith("Data" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-				return true;
-
-			string fileName = Path.GetFileName(normalizedPath);
-			return fileName.Equals("skse64_loader.exe", StringComparison.OrdinalIgnoreCase) ||
-				(fileName.StartsWith("skse64_", StringComparison.OrdinalIgnoreCase) && fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
-		}
-
-		private static bool IsUnsafeGameRootArchivePath(string path)
-		{
-			if (string.IsNullOrWhiteSpace(path) || Path.IsPathRooted(path))
-				return true;
-
-			string normalizedPath = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			return normalizedPath.Split(Path.DirectorySeparatorChar).Any(x => x == "..");
-		}
-
-		private static string NormalizeGameRootRelativePath(string path)
-		{
-			if (string.IsNullOrWhiteSpace(path))
-				return string.Empty;
-
-			if (Path.IsPathRooted(path))
-				throw new InvalidDataException(string.Format("Game-root install path '{0}' is rooted and cannot be installed safely.", path));
-
-			List<string> pathParts = new List<string>();
-			foreach (string part in path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Split(Path.DirectorySeparatorChar))
-			{
-				if (string.IsNullOrEmpty(part) || part == ".")
-					continue;
-
-				if (part == "..")
-					throw new InvalidDataException(string.Format("Game-root install path '{0}' escapes the selected game root.", path));
-
-				pathParts.Add(part);
-			}
-
-			return string.Join(Path.DirectorySeparatorChar.ToString(), pathParts.ToArray());
+			return BasicInstallPlanBuilder.NormalizeGameRootFileMappings(files);
 		}
 
 		private string GetAdjustedPath(string path, ModPathContext context)
 		{
-			if (InstallRoot == ModInstallRoot.GameRoot)
-				return NormalizeGameRootRelativePath(path);
-
-			if (context == ModPathContext.GameInstall)
-				return GameMode.GetModFormatAdjustedPath(Mod.Format, path, Mod, context);
-
-			return GameMode.GetModFormatAdjustedPath(Mod.Format, path, context);
+			return BasicInstallPlanBuilder.GetAdjustedPath(GameMode, Mod, InstallRoot, path, context);
 		}
 
 		protected void ActivatePlugin(string p_strPlugin)

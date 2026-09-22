@@ -110,6 +110,98 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Verifies a reviewed translated recipe can be rebound to the final Collection-family child attempt without changing semantics.
+		/// </summary>
+		[TestCase(ModOperationOrigin.Collection)]
+		[TestCase(ModOperationOrigin.LocalRestore)]
+		[TestCase(ModOperationOrigin.Recovery)]
+		public void ForOperationIdentity_RebindsOnlyOperationAttempt(ModOperationOrigin p_mooOrigin)
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+			var reboundIdentity = new ModOperationIdentity(Guid.NewGuid(), Guid.NewGuid(), p_mooOrigin, input.OperationIdentity.Fingerprint);
+
+			ModInstallationRecipeInput rebound = input.ForOperationIdentity(reboundIdentity);
+
+			Assert.That(rebound, Is.Not.SameAs(input));
+			Assert.That(rebound.OperationIdentity, Is.SameAs(reboundIdentity));
+			Assert.That(input.OperationIdentity, Is.Not.SameAs(reboundIdentity));
+			Assert.That(rebound.Validation, Is.SameAs(input.Validation));
+			Assert.That(rebound.TargetFingerprint, Is.EqualTo(input.TargetFingerprint));
+			Assert.That(rebound.InstallContext.Method, Is.EqualTo(input.InstallContext.Method));
+			Assert.That(rebound.InstallContext.InstallRoot, Is.EqualTo(input.InstallContext.InstallRoot));
+			Assert.That(rebound.RecipeFingerprint, Is.EqualTo(input.RecipeFingerprint));
+			Assert.That(rebound.NativeOperations.Count, Is.EqualTo(input.NativeOperations.Count));
+			for (int index = 0; index < input.NativeOperations.Count; index++)
+				Assert.That(rebound.NativeOperations[index], Is.SameAs(input.NativeOperations[index]));
+		}
+
+		/// <summary>
+		/// Verifies one translated recipe instance cannot be rebound repeatedly to different native attempts.
+		/// </summary>
+		[Test]
+		public void ForOperationIdentity_RejectsSecondRebind()
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+			ModInstallationRecipeInput rebound = input.ForOperationIdentity(input.OperationIdentity.CreateNextAttempt());
+
+			Assert.Throws<InvalidOperationException>(() => rebound.ForOperationIdentity(rebound.OperationIdentity.CreateNextAttempt()));
+		}
+
+		/// <summary>
+		/// Verifies operation rebinding is available only after a supported adapter has produced the reviewed native plan.
+		/// </summary>
+		[Test]
+		public void ForOperationIdentity_RejectsUntranslatedRecipe()
+		{
+			ModOperationIdentity operation = CreateOperation(ModOperationOrigin.Collection, ModInstallMethod.Virtual, ModInstallRoot.Data, "recipe:v1");
+			var input = new ModInstallationRecipeInput(operation, CreateValidation(ModInstallMethod.Virtual, ModInstallRoot.Data));
+
+			Assert.Throws<InvalidOperationException>(() => input.ForOperationIdentity(operation.CreateNextAttempt()));
+		}
+
+		/// <summary>
+		/// Verifies rebinding remains limited to the Collection-family operation scopes admitted by explicit recipe input.
+		/// </summary>
+		[TestCase(ModOperationOrigin.Manual)]
+		[TestCase(ModOperationOrigin.Profile)]
+		public void ForOperationIdentity_RejectsNonRecipeOperationScope(ModOperationOrigin p_mooOrigin)
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+			var identity = new ModOperationIdentity(Guid.NewGuid(), Guid.NewGuid(), p_mooOrigin, input.OperationIdentity.Fingerprint);
+
+			Assert.Throws<ArgumentException>(() => input.ForOperationIdentity(identity));
+		}
+
+		/// <summary>
+		/// Verifies a final child identity cannot alter any semantic fingerprint component of the reviewed translated recipe.
+		/// </summary>
+		[TestCase("target", ModInstallMethod.Virtual, ModInstallRoot.Data, "recipe:c6.15.6-v1")]
+		[TestCase("same", ModInstallMethod.Direct, ModInstallRoot.Data, "recipe:c6.15.6-v1")]
+		[TestCase("same", ModInstallMethod.Virtual, ModInstallRoot.GameRoot, "recipe:c6.15.6-v1")]
+		[TestCase("same", ModInstallMethod.Virtual, ModInstallRoot.Data, "recipe:changed")]
+		public void ForOperationIdentity_RejectsSemanticFingerprintChanges(string p_strTargetVariant,
+			ModInstallMethod p_mimMethod, ModInstallRoot p_mirRoot, string p_strRecipeFingerprint)
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+			string target = p_strTargetVariant == "same" ? input.TargetFingerprint : "target-sha256:" + new string('f', 64);
+			var fingerprint = new ModOperationFingerprint(target, new ModInstallContext(p_mimMethod, p_mirRoot), p_strRecipeFingerprint);
+			var identity = new ModOperationIdentity(Guid.NewGuid(), Guid.NewGuid(), ModOperationOrigin.Collection, fingerprint);
+
+			Assert.Throws<ArgumentException>(() => input.ForOperationIdentity(identity));
+		}
+
+		/// <summary>
+		/// Verifies a missing final native operation identity is rejected explicitly.
+		/// </summary>
+		[Test]
+		public void ForOperationIdentity_RejectsNullIdentity()
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+
+			Assert.Throws<ArgumentNullException>(() => input.ForOperationIdentity(null));
+		}
+
+		/// <summary>
 		/// Verifies recipe paths are canonical relative Windows paths before an adapter can translate them.
 		/// </summary>
 		[Test]
@@ -224,6 +316,37 @@ namespace NexusClientTests
 				Assert.That(type.GetProperties().Any(property => property.SetMethod != null && property.SetMethod.IsPublic),
 					Is.False, type.FullName);
 			}
+		}
+
+		/// <summary>
+		/// Creates a translated one-file recipe suitable for operation-identity rebinding tests.
+		/// </summary>
+		private static ModInstallationRecipeInput CreateTranslatedInput()
+		{
+			const string source = @"meshes\body.nif";
+			const string destination = @"meshes\body.nif";
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			var recipe = new ModInstallationSimpleFileRecipe(new[]
+			{
+				new ModInstallationSimpleFileMapping(source, destination)
+			});
+			var operation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint("target-sha256:" + new string('a', 64), context, "recipe:c6.15.6-v1"));
+			var validation = new ModInstallationRecipeValidation(
+				ModInstallationSimpleFileRecipeAdapter.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterVersion, context,
+				new ModInstallationRecipeExpectedContent(new string('b', 64), 4096),
+				new[]
+				{
+					new ModInstallationRecipeCapability(ModInstallationSimpleFileRecipeAdapter.CapabilityId,
+						ModInstallationSimpleFileRecipeAdapter.CapabilityVersion)
+				},
+				new[]
+				{
+					new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, source),
+					new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, destination)
+				});
+
+			return new ModInstallationSimpleFileRecipeAdapter().Translate(new ModInstallationRecipeInput(operation, validation), recipe);
 		}
 
 		/// <summary>

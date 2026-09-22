@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
@@ -56,6 +59,191 @@ namespace NexusClientTests
 			Assert.AreEqual(1, preview.Files.Count);
 			Assert.AreEqual(ModDeploymentRoot.GameRoot, preview.Files[0].Target.Root);
 			Assert.AreEqual("root\\one.bin", preview.Files[0].Target.RelativePath);
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_DirectInstalledPluginRequestsImplicitActivationUsingNativePhysicalIdentity()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-direct", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			IPluginManager pluginManager = CreatePluginPreviewManager();
+			IMod mod = CreatePluginPreviewMod();
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Example.esp", "Example.esp", ScriptedFileDeploymentDecision.ForDirect(true)));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, mod, pluginManager);
+
+			Assert.IsTrue(preview.IsComplete);
+			Assert.AreEqual(1, preview.PluginEffects.Count);
+			Assert.AreEqual(CollectionPlannedPluginEffectKind.Activation, preview.PluginEffects[0].Kind);
+			Assert.AreEqual(true, preview.PluginEffects[0].Active);
+			Assert.AreEqual(Path.GetFullPath(Path.Combine(pluginDirectory, "Example.esp")), preview.PluginEffects[0].PluginPaths.Single());
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_PromotedVirtualPluginUsesSamePhysicalIdentityAsNativeDeployment()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-virtual", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			IPluginManager pluginManager = CreatePluginPreviewManager();
+			IMod mod = CreatePluginPreviewMod();
+			string stagingPath = Path.Combine(Path.GetTempPath(), "nmm-c6-15-8", "Example.esp");
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Example.esp", "Example.esp",
+					ScriptedFileDeploymentDecision.ForPromotedVirtual(stagingPath, true, true)));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, mod, pluginManager);
+
+			Assert.AreEqual(1, preview.PluginEffects.Count);
+			Assert.AreEqual(Path.GetFullPath(Path.Combine(pluginDirectory, "Example.esp")), preview.PluginEffects[0].PluginPaths.Single());
+			Assert.AreEqual(true, preview.PluginEffects[0].Active);
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_PureVirtualPluginUsesSamePhysicalIdentityAsNativeLinkDeployment()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-pure-virtual", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			string stagingPath = Path.Combine(Path.GetTempPath(), "nmm-c6-15-8-pure", "Example.esp");
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Example.esp", "Example.esp",
+					ScriptedFileDeploymentDecision.ForVirtual(stagingPath, true, null)));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod(), CreatePluginPreviewManager());
+
+			Assert.AreEqual(1, preview.PluginEffects.Count);
+			Assert.AreEqual(Path.GetFullPath(Path.Combine(pluginDirectory, "Example.esp")), preview.PluginEffects[0].PluginPaths.Single());
+			Assert.AreEqual(true, preview.PluginEffects[0].Active);
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_InactivePromotedVirtualPluginDoesNotRequestImplicitActivation()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-inactive", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Example.esp", "Example.esp",
+					ScriptedFileDeploymentDecision.ForPromotedVirtual(Path.Combine(Path.GetTempPath(), "Example.esp"), true, false)));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod(), CreatePluginPreviewManager());
+
+			Assert.AreEqual(0, preview.PluginEffects.Count);
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_GeneratedPluginDoesNotRequestImplicitActivation()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-generated", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new GenerateDataFileOperation("Generated.esp", new byte[] { 1, 2, 3 }));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod(), CreatePluginPreviewManager());
+
+			Assert.AreEqual(1, preview.Files.Count);
+			Assert.AreEqual(0, preview.PluginEffects.Count);
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_GeneratedPluginActivationRequiresExplicitPluginOperation()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-generated-explicit", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new GenerateDataFileOperation("Generated.esp", new byte[] { 1 }),
+				new SetPluginActivationOperation("Generated.esp", true));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod(), CreatePluginPreviewManager());
+
+			Assert.AreEqual(1, preview.PluginEffects.Count);
+			Assert.AreEqual(true, preview.PluginEffects[0].Active);
+			Assert.AreEqual(Path.GetFullPath(Path.Combine(installationPath, "Data", "Generated.esp")), preview.PluginEffects[0].PluginPaths.Single());
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_ExplicitActivationOverridesImplicitArchivePluginActivation()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-explicit-override", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Example.esp", "Example.esp"),
+				new SetPluginActivationOperation("Example.esp", false));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod(), CreatePluginPreviewManager());
+
+			Assert.AreEqual(1, preview.PluginEffects.Count, "Native ScriptedPluginActivationState keeps one final request per physical plugin identity.");
+			Assert.AreEqual(false, preview.PluginEffects[0].Active);
+			Assert.AreEqual(Path.GetFullPath(Path.Combine(pluginDirectory, "Example.esp")), preview.PluginEffects[0].PluginPaths.Single());
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_PluginlessGameDoesNotInferActivationFromPluginLikeFileName()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "pluginless", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(false, out installationPath, out pluginDirectory);
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\LooksLikeAPlugin.esp", "LooksLikeAPlugin.esp"));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod());
+
+			Assert.AreEqual(1, preview.Files.Count);
+			Assert.AreEqual(0, preview.PluginEffects.Count);
+		}
+
+		[Test]
+		public void EffectPreviewBuilder_PluginEnabledGameRequiresPluginManagerForExactPreview()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-manager-required", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Example.esp", "Example.esp"));
+
+			Assert.Throws<ArgumentNullException>(() => new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, CreatePluginPreviewMod()));
 		}
 
 		[Test]
@@ -292,6 +480,29 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Plan_PhysicalPluginIdentityStillRecognizesFileWrittenByIncomingMember()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-physical", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState incoming = CreateNativeMod(target, "native-incoming", 100, 200);
+			ModDeploymentTarget pluginTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Example.esp");
+			CollectionNativeFileState pluginFile = CreateFile(pluginTarget, incoming.Identity.NativeModKey);
+			string physicalPluginPath = "C:\\Game\\Data\\Example.esp";
+			var plugin = new CollectionNativePluginState(physicalPluginPath, false, 1, 0, "00", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0],
+				new CollectionNativePluginDiagnostic[0]);
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { incoming }, new[] { pluginFile },
+				null, null, null, CollectionNativeStateCoverage.Complete, null, null, new[] { plugin });
+			CollectionMemberEffectPreview preview = CreatePreview(member, pluginTarget,
+				new[] { CollectionPlannedPluginEffect.Activation(physicalPluginPath, true) });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired));
+		}
+
+		[Test]
 		public void Plan_ExistingConfigurationOwnedByUnrelatedModRequiresAdditiveReview()
 		{
 			NormalizedCollectionMember member = CreateMember(0, "member", 100, 200, 0);
@@ -360,6 +571,73 @@ namespace NexusClientTests
 			Assert.IsTrue((impact.Kind & CollectionAssociationImpactKind.SharedNativeInstance) != 0);
 			Assert.IsTrue((impact.Kind & CollectionAssociationImpactKind.UserOverride) != 0);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingUserOverride));
+		}
+
+		private static ModInstallationRecipeInput CreatePreviewRecipeInput(NormalizedCollectionMember member,
+			ModInstallContext context, params ScriptedInstallOperation[] operations)
+		{
+			var operationIdentity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint("target-sha256:" + new string('c', 64), context, member.RecipeIdentity.Fingerprint));
+			var validation = new ModInstallationRecipeValidation(
+				"c6-15-8-preview", 1, context,
+				new ModInstallationRecipeExpectedContent(new string('d', 64), 1),
+				new[] { new ModInstallationRecipeCapability("plugin-preview", 1) },
+				new ModInstallationRecipePath[0]);
+			var input = new ModInstallationRecipeInput(operationIdentity, validation);
+			MethodInfo withNativePlan = typeof(ModInstallationRecipeInput).GetMethod(
+				"WithNativePlan", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.IsNotNull(withNativePlan);
+			return (ModInstallationRecipeInput)withNativePlan.Invoke(input, new object[] { operations });
+		}
+
+		private static IGameMode CreatePluginPreviewGameMode(bool usesPlugins, out string installationPath, out string pluginDirectory)
+		{
+			installationPath = Path.Combine(Path.GetTempPath(), "NmmCollectionPluginPreview", "Game");
+			pluginDirectory = Path.Combine(installationPath, "Data");
+			string capturedInstallationPath = installationPath;
+			string capturedPluginDirectory = pluginDirectory;
+			IGameModeEnvironmentInfo environmentInfo = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
+			{
+				if (method.Name == "get_InstallationPath") return capturedInstallationPath;
+				return null;
+			});
+
+			return InterfaceStub<IGameMode>.Create((method, args) =>
+			{
+				if (method.Name == "get_UsesPlugins") return usesPlugins;
+				if (method.Name == "get_InstallationPath") return capturedInstallationPath;
+				if (method.Name == "get_PluginDirectory") return capturedPluginDirectory;
+				if (method.Name == "get_GameModeEnvironmentInfo") return environmentInfo;
+				if (method.Name == "get_HasSecondaryInstallPath") return false;
+				if (method.Name == "CheckSecondaryInstall") return false;
+				if (method.Name == "GetModFormatAdjustedPath")
+				{
+					string path = (string)args[1];
+					bool ignoreIfPresent = args.Length > 0 && args[args.Length - 1] is bool && (bool)args[args.Length - 1];
+					return usesPlugins && !ignoreIfPresent ? Path.Combine("Data", path) : path;
+				}
+				return null;
+			});
+		}
+
+		private static IPluginManager CreatePluginPreviewManager()
+		{
+			return InterfaceStub<IPluginManager>.Create((method, args) =>
+			{
+				if (method.Name == "IsActivatiblePluginFile")
+				{
+					string extension = Path.GetExtension((string)args[0]);
+					return StringComparer.OrdinalIgnoreCase.Equals(extension, ".esp") ||
+						StringComparer.OrdinalIgnoreCase.Equals(extension, ".esm") ||
+						StringComparer.OrdinalIgnoreCase.Equals(extension, ".esl");
+				}
+				return null;
+			});
+		}
+
+		private static IMod CreatePluginPreviewMod()
+		{
+			return InterfaceStub<IMod>.Create((method, args) => null);
 		}
 
 		private static CollectionMemberEffectPreview CreatePreview(NormalizedCollectionMember member, ModDeploymentTarget fileTarget,

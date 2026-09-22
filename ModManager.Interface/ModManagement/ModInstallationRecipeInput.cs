@@ -17,6 +17,7 @@ namespace Nexus.Client.ModManagement
 	public sealed class ModInstallationRecipeInput
 	{
 		private readonly ReadOnlyCollection<ScriptedInstallOperation> m_rocNativeOperations;
+		private readonly bool m_booOperationIdentityRebound;
 
 		/// <summary>
 		/// Initializes an explicit recipe input from the already-captured native operation identity and validation metadata.
@@ -24,7 +25,7 @@ namespace Nexus.Client.ModManagement
 		/// <param name="operationIdentity">The native operation/attempt, target, install context and recipe identity.</param>
 		/// <param name="validation">The validated expected content, adapter capabilities and relative paths.</param>
 		public ModInstallationRecipeInput(ModOperationIdentity operationIdentity, ModInstallationRecipeValidation validation)
-			: this(operationIdentity, validation, null)
+			: this(operationIdentity, validation, null, false)
 		{
 		}
 
@@ -32,7 +33,7 @@ namespace Nexus.Client.ModManagement
 		/// Initializes one immutable recipe input, optionally with a translated native-operation snapshot.
 		/// </summary>
 		private ModInstallationRecipeInput(ModOperationIdentity operationIdentity, ModInstallationRecipeValidation validation,
-			IEnumerable<ScriptedInstallOperation> nativeOperations)
+			IEnumerable<ScriptedInstallOperation> nativeOperations, bool operationIdentityRebound)
 		{
 			if (operationIdentity == null)
 				throw new ArgumentNullException(nameof(operationIdentity));
@@ -61,6 +62,7 @@ namespace Nexus.Client.ModManagement
 			InstallContext = new ModInstallContext(operationIdentity.Fingerprint.InstallMethod, operationIdentity.Fingerprint.InstallRoot);
 			RecipeFingerprint = recipeFingerprint;
 			Validation = validation;
+			m_booOperationIdentityRebound = operationIdentityRebound;
 
 			if (nativeOperations != null)
 			{
@@ -130,7 +132,43 @@ namespace Nexus.Client.ModManagement
 			if (nativeOperations == null)
 				throw new ArgumentNullException(nameof(nativeOperations));
 
-			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations);
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound);
+		}
+
+		/// <summary>
+		/// Returns this translated recipe plan bound to another exact Collection-family native operation identity.
+		/// </summary>
+		/// <param name="operationIdentity">The final native operation/attempt identity established by the owning workflow.</param>
+		/// <returns>A new immutable recipe input preserving the validation metadata and translated native operations.</returns>
+		/// <remarks>
+		/// Rebinding changes only the operation/attempt identity. Target, install method/root and recipe fingerprint must remain
+		/// byte-for-byte equivalent to the already reviewed translated plan. A rebound result cannot be rebound again.
+		/// </remarks>
+		public ModInstallationRecipeInput ForOperationIdentity(ModOperationIdentity operationIdentity)
+		{
+			if (operationIdentity == null)
+				throw new ArgumentNullException(nameof(operationIdentity));
+			if (!HasNativePlan)
+				throw new InvalidOperationException("A recipe input must have a translated native plan before its operation identity can be rebound.");
+			if (m_booOperationIdentityRebound)
+				throw new InvalidOperationException("A translated recipe input can be rebound to its final native operation identity only once.");
+			if (operationIdentity.Origin != ModOperationOrigin.Collection &&
+				operationIdentity.Origin != ModOperationOrigin.LocalRestore &&
+				operationIdentity.Origin != ModOperationOrigin.Recovery)
+			{
+				throw new ArgumentException("Recipe operation identity rebinding is limited to Collection, LocalRestore and Recovery operation scopes.", nameof(operationIdentity));
+			}
+
+			ModOperationFingerprint fingerprint = operationIdentity.Fingerprint;
+			if (!StringComparer.Ordinal.Equals(TargetFingerprint, fingerprint.TargetFingerprint) ||
+				InstallContext.Method != fingerprint.InstallMethod ||
+				InstallContext.InstallRoot != fingerprint.InstallRoot ||
+				!StringComparer.Ordinal.Equals(RecipeFingerprint, fingerprint.RecipeFingerprint))
+			{
+				throw new ArgumentException("The rebound operation identity must preserve the exact target, install context and recipe fingerprint of the translated recipe.", nameof(operationIdentity));
+			}
+
+			return new ModInstallationRecipeInput(operationIdentity, Validation, m_rocNativeOperations, true);
 		}
 	}
 }

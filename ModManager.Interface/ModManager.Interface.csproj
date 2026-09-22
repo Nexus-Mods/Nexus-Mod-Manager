@@ -146,6 +146,7 @@
     <Compile Include="IModProfileInfo.cs" />
     <Compile Include="ModManagement\BackupManager\IBackupInfo.cs" />
     <Compile Include="ModManagement\BasicInstallTask.cs" />
+    <Compile Include="ModManagement\BasicInstallPlan.cs" />
     <Compile Include="ModManagement\VirtualModDeploymentBatch.cs" />
     <Compile Include="ModManagement\CategoryManager\ICategoryManager.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />

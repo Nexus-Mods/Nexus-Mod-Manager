@@ -17,19 +17,22 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionCapabilityIssue> _manifestIssues;
 		private readonly ReadOnlyCollection<CollectionMemberCapabilityReport> _memberReports;
 		private readonly ReadOnlyCollection<CollectionCapabilityIssue> _allIssues;
+		private readonly ReadOnlyCollection<CollectionCapabilityIssue> _declaredIssues;
 
 		private CollectionCapabilityReport(
 			NormalizedCollectionManifest manifest,
 			CollectionCompatibilityStatus status,
 			IList<CollectionCapabilityIssue> manifestIssues,
 			IList<CollectionMemberCapabilityReport> memberReports,
-			IList<CollectionCapabilityIssue> allIssues)
+			IList<CollectionCapabilityIssue> allIssues,
+			IList<CollectionCapabilityIssue> declaredIssues)
 		{
 			Manifest = manifest;
 			Status = status;
 			_manifestIssues = new ReadOnlyCollection<CollectionCapabilityIssue>(new List<CollectionCapabilityIssue>(manifestIssues));
 			_memberReports = new ReadOnlyCollection<CollectionMemberCapabilityReport>(new List<CollectionMemberCapabilityReport>(memberReports));
 			_allIssues = new ReadOnlyCollection<CollectionCapabilityIssue>(new List<CollectionCapabilityIssue>(allIssues));
+			_declaredIssues = new ReadOnlyCollection<CollectionCapabilityIssue>(new List<CollectionCapabilityIssue>(declaredIssues));
 		}
 
 		/// <summary>
@@ -103,7 +106,7 @@ namespace Nexus.Client.CollectionManagement
 			if (manifest == null)
 				throw new ArgumentNullException(nameof(manifest));
 
-			List<CollectionCapabilityIssue> issues = BuildIntrinsicIssues(manifest);
+			List<CollectionCapabilityIssue> copiedDeclaredIssues = new List<CollectionCapabilityIssue>();
 			if (declaredIssues != null)
 			{
 				foreach (CollectionCapabilityIssue issue in declaredIssues)
@@ -111,9 +114,12 @@ namespace Nexus.Client.CollectionManagement
 					if (issue == null)
 						throw new ArgumentException("A capability report cannot contain a null issue.", nameof(declaredIssues));
 					ValidateDeclaredIssueTarget(manifest, issue);
-					issues.Add(issue);
+					copiedDeclaredIssues.Add(issue);
 				}
 			}
+
+			List<CollectionCapabilityIssue> issues = BuildIntrinsicIssues(manifest);
+			issues.AddRange(copiedDeclaredIssues);
 
 			issues.Sort(CompareIssues);
 
@@ -152,7 +158,53 @@ namespace Nexus.Client.CollectionManagement
 					overall = CombineStatus(overall, CollectionCompatibilityStatus.ActionRequired);
 			}
 
-			return new CollectionCapabilityReport(manifest, overall, manifestIssues, memberReports, issues);
+			return new CollectionCapabilityReport(manifest, overall, manifestIssues, memberReports, issues, copiedDeclaredIssues);
+		}
+
+		/// <summary>
+		/// Recalculates intrinsic and selected-closure capability for a selection-only manifest projection while preserving
+		/// the explicit adapter/normalizer findings which belong to the same immutable source.
+		/// </summary>
+		internal CollectionCapabilityReport RecalculateForSelection(NormalizedCollectionManifest manifest)
+		{
+			if (manifest == null)
+				throw new ArgumentNullException(nameof(manifest));
+			ValidateSelectionProjection(Manifest, manifest);
+
+			return Create(manifest, _declaredIssues);
+		}
+
+		private static void ValidateSelectionProjection(NormalizedCollectionManifest source, NormalizedCollectionManifest candidate)
+		{
+			if (!source.Revision.Equals(candidate.Revision) || !source.Source.Equals(candidate.Source) ||
+				source.MemberSetCompleteness != candidate.MemberSetCompleteness ||
+				!StringComparer.Ordinal.Equals(source.IncompletenessReason, candidate.IncompletenessReason) ||
+				source.Members.Count != candidate.Members.Count || source.Dependencies.Count != candidate.Dependencies.Count ||
+				source.FilePriorityRules.Count != candidate.FilePriorityRules.Count)
+				throw new ArgumentException("Capability can be recalculated only for a selection-only projection of the same normalized manifest.", nameof(candidate));
+
+			for (int index = 0; index < source.Members.Count; index++)
+			{
+				NormalizedCollectionMember left = source.Members[index];
+				NormalizedCollectionMember right = candidate.Members[index];
+				if (left.SourceOrdinal != right.SourceOrdinal || !left.IdentityResolution.Equals(right.IdentityResolution) ||
+					left.Requirement != right.Requirement || !Equals(left.Artifact, right.Artifact) ||
+					!Equals(left.RecipeIdentity, right.RecipeIdentity) ||
+					!StringComparer.Ordinal.Equals(left.DisplayName, right.DisplayName) || left.InstallationPhase != right.InstallationPhase)
+					throw new ArgumentException("Capability can be recalculated only when member selection is the sole normalized-member change.", nameof(candidate));
+			}
+
+			for (int index = 0; index < source.Dependencies.Count; index++)
+			{
+				if (!source.Dependencies[index].Equals(candidate.Dependencies[index]))
+					throw new ArgumentException("A selection projection cannot change normalized dependency edges.", nameof(candidate));
+			}
+
+			for (int index = 0; index < source.FilePriorityRules.Count; index++)
+			{
+				if (!source.FilePriorityRules[index].Equals(candidate.FilePriorityRules[index]))
+					throw new ArgumentException("A selection projection cannot change normalized file-priority rules.", nameof(candidate));
+			}
 		}
 
 		/// <summary>

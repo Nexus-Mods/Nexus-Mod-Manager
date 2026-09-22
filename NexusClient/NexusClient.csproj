@@ -91,12 +91,17 @@
     <Compile Include="CollectionManagement\CollectionRecipeIdentity.cs" />
     <Compile Include="CollectionManagement\CollectionTargetAssociation.cs" />
     <Compile Include="CollectionManagement\NativeModProvenance.cs" />
+    <Compile Include="CollectionManagement\CollectionMemberAcquisitionCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionMemberBinding.cs" />
     <Compile Include="CollectionManagement\CollectionManualMutationDriftCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionPinOverrideCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionDetachCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionUninstallEffectsCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionExecutionPolicy.cs" />
+    <Compile Include="CollectionManagement\CollectionEffectiveSelection.cs" />
+    <Compile Include="CollectionManagement\CollectionResolvedPlanBuilder.cs" />
+    <Compile Include="CollectionManagement\CollectionAdditivePlanPreparationService.cs" />
+    <Compile Include="CollectionManagement\CollectionAdditivePlanRevalidationService.cs" />
     <Compile Include="CollectionManagement\CollectionContentHash.cs" />
     <Compile Include="CollectionManagement\CollectionManifestSourceSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionArtifactReference.cs" />
@@ -120,6 +125,7 @@
     <Compile Include="CollectionManagement\CollectionFilePriorityRule.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreview.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
+    <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlan.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOperationCoordinator.cs" />
@@ -182,6 +188,7 @@
     <Compile Include="CollectionManagement\Persistence\CollectionsStoreStatus.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsCatalogStore.cs" />
+    <Compile Include="CollectionManagement\Persistence\CollectionsRevisionSourceStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsAssociationStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsAssociationTargetSnapshot.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsOperationStore.cs" />
@@ -283,6 +290,7 @@
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImportModels.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionManifestNormalizer.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImporter.cs" />
+    <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleAcquirer.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionPreviewSnapshot.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionPreviewController.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionArchiveIdentityVerifier.cs" />

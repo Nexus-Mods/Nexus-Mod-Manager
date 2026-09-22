@@ -525,8 +525,11 @@ namespace Nexus.Client.CollectionManagement
 		private static bool PreviewWritesPlugin(CollectionMemberEffectPreview preview, string pluginPath)
 		{
 			string normalized = (pluginPath ?? String.Empty).Replace('/', '\\');
+			string fileName = Path.GetFileName(normalized);
 			return preview.Files.Any(x => x.Target.Root == ModDeploymentRoot.Data &&
-				StringComparer.OrdinalIgnoreCase.Equals(x.Target.RelativePath, normalized));
+				(StringComparer.OrdinalIgnoreCase.Equals(x.Target.RelativePath, normalized) ||
+				(!String.IsNullOrWhiteSpace(fileName) &&
+					StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Target.RelativePath), fileName))));
 		}
 
 		private static bool PluginEffectChangesExistingState(CollectionPlannedPluginEffect effect, CollectionNativePluginState current)

@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
+using Nexus.Client.PluginManagement;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -18,7 +20,7 @@ namespace Nexus.Client.CollectionManagement
 		/// Builds a root-aware read-only effect preview from one exact resolved member and translated native recipe.
 		/// </summary>
 		public CollectionMemberEffectPreview Build(ResolvedCollectionMemberPlan member, ModInstallationRecipeInput recipeInput,
-			IGameMode gameMode, IMod mod)
+			IGameMode gameMode, IMod mod, IPluginManager pluginManager = null)
 		{
 			if (member == null)
 				throw new ArgumentNullException(nameof(member));
@@ -36,7 +38,8 @@ namespace Nexus.Client.CollectionManagement
 			var files = new Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect>();
 			var iniEdits = new Dictionary<CollectionNativeIniKey, CollectionPlannedIniEffect>();
 			var gameValues = new Dictionary<string, CollectionPlannedGameValueEffect>(StringComparer.Ordinal);
-			var plugins = new List<CollectionPlannedPluginEffect>();
+			var requestedPluginActivations = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+			var pluginOrderingEffects = new List<CollectionPlannedPluginEffect>();
 			var issues = new List<CollectionEffectPreviewIssue>();
 
 			foreach (ScriptedInstallOperation operation in recipeInput.NativeOperations)
@@ -44,13 +47,16 @@ namespace Nexus.Client.CollectionManagement
 				InstallModFileOperation installFile = operation as InstallModFileOperation;
 				if (installFile != null)
 				{
-					AddFile(files, ResolveTarget(gameMode, mod, installFile.DestinationPath, recipeInput.InstallContext.InstallRoot));
+					ModDeploymentTarget target = ResolveTarget(gameMode, mod, installFile.DestinationPath, recipeInput.InstallContext.InstallRoot);
+					AddFile(files, target);
+					AddImplicitPluginActivation(requestedPluginActivations, gameMode, pluginManager, target, installFile);
 					continue;
 				}
 
 				GenerateDataFileOperation generatedFile = operation as GenerateDataFileOperation;
 				if (generatedFile != null)
 				{
+					// Native C5 execution registers generated plugins but deliberately does not request implicit activation.
 					AddFile(files, ResolveTarget(gameMode, mod, generatedFile.DestinationPath, recipeInput.InstallContext.InstallRoot));
 					continue;
 				}
@@ -73,21 +79,21 @@ namespace Nexus.Client.CollectionManagement
 				SetPluginActivationOperation activation = operation as SetPluginActivationOperation;
 				if (activation != null)
 				{
-					plugins.Add(CollectionPlannedPluginEffect.Activation(activation.PluginPath, activation.Activate));
+					AddExplicitPluginActivation(requestedPluginActivations, gameMode, mod, pluginManager, activation);
 					continue;
 				}
 
 				SetPluginOrderIndexOperation absoluteOrder = operation as SetPluginOrderIndexOperation;
 				if (absoluteOrder != null)
 				{
-					plugins.Add(CollectionPlannedPluginEffect.AbsoluteOrder(absoluteOrder.PluginPath, absoluteOrder.NewIndex));
+					pluginOrderingEffects.Add(CollectionPlannedPluginEffect.AbsoluteOrder(absoluteOrder.PluginPath, absoluteOrder.NewIndex));
 					continue;
 				}
 
 				SetRelativeLoadOrderOperation relativeOrder = operation as SetRelativeLoadOrderOperation;
 				if (relativeOrder != null)
 				{
-					plugins.Add(CollectionPlannedPluginEffect.RelativeOrder(relativeOrder.PluginPaths));
+					pluginOrderingEffects.Add(CollectionPlannedPluginEffect.RelativeOrder(relativeOrder.PluginPaths));
 					continue;
 				}
 
@@ -109,6 +115,12 @@ namespace Nexus.Client.CollectionManagement
 					operation.GetType().FullName, "The translated native operation has no characterized C6.4 impact adapter."));
 			}
 
+			var plugins = requestedPluginActivations
+				.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase)
+				.Select(x => CollectionPlannedPluginEffect.Activation(x.Key, x.Value))
+				.Concat(pluginOrderingEffects)
+				.ToList();
+
 			return new CollectionMemberEffectPreview(member.MemberKey, member.RecipeIdentity,
 				recipeInput.InstallContext.Method, recipeInput.InstallContext.InstallRoot,
 				files.Values.OrderBy(x => x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase),
@@ -120,6 +132,48 @@ namespace Nexus.Client.CollectionManagement
 		private static ModDeploymentTarget ResolveTarget(IGameMode gameMode, IMod mod, string destinationPath, ModInstallRoot installRoot)
 		{
 			return ModDeploymentTargetResolver.Resolve(gameMode, mod, destinationPath, installRoot);
+		}
+
+		private static void AddImplicitPluginActivation(IDictionary<string, bool> requestedActivations, IGameMode gameMode,
+			IPluginManager pluginManager, ModDeploymentTarget target, InstallModFileOperation operation)
+		{
+			if (!WillBecomePhysicalWinner(operation))
+				return;
+			if (pluginManager == null)
+			{
+				if (gameMode.UsesPlugins)
+					throw new ArgumentNullException(nameof(pluginManager), "Plugin-enabled Collection file-effect preview requires the live plugin manager so implicit activation can be characterized exactly.");
+				return;
+			}
+
+			string deployedPath = ModDeploymentTargetResolver.GetPhysicalPath(gameMode, target);
+			if (pluginManager.IsActivatiblePluginFile(deployedPath) && !requestedActivations.ContainsKey(deployedPath))
+				requestedActivations.Add(deployedPath, true);
+		}
+
+		private static void AddExplicitPluginActivation(IDictionary<string, bool> requestedActivations, IGameMode gameMode, IMod mod,
+			IPluginManager pluginManager, SetPluginActivationOperation activation)
+		{
+			if (pluginManager == null)
+			{
+				if (gameMode.UsesPlugins)
+					throw new ArgumentNullException(nameof(pluginManager), "Plugin-enabled Collection activation preview requires the live plugin manager.");
+				return;
+			}
+
+			string fixedPath = gameMode.GetModFormatAdjustedPath(mod.Format, activation.PluginPath, false);
+			if (activation.RequireActivatablePlugin && !pluginManager.IsActivatiblePluginFile(fixedPath))
+				return;
+
+			string physicalPath = Path.IsPathRooted(fixedPath)
+				? fixedPath
+				: Path.Combine(gameMode.GameModeEnvironmentInfo.InstallationPath, fixedPath);
+			requestedActivations[physicalPath] = activation.Activate;
+		}
+
+		private static bool WillBecomePhysicalWinner(InstallModFileOperation operation)
+		{
+			return operation.DeploymentDecision == null || operation.DeploymentDecision.Activate;
 		}
 
 		private static void AddFile(IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> files, ModDeploymentTarget target)

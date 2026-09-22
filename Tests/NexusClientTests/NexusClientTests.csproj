@@ -140,6 +140,9 @@
     <Compile Include="CollectionExecutionPolicyTests.cs" />
     <Compile Include="CollectionManifestNormalizationModelTests.cs" />
     <Compile Include="CollectionCapabilityReportTests.cs" />
+    <Compile Include="CollectionEffectiveSelectionTests.cs" />
+    <Compile Include="CollectionResolvedPlanBuilderTests.cs" />
+    <Compile Include="CollectionNativeRecipePreparerTests.cs" />
     <Compile Include="CollectionNativeStateIndexTests.cs" />
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
@@ -161,11 +164,13 @@
     <Compile Include="CollectionVerifiedArchiveAdopterTests.cs" />
     <Compile Include="CollectionPremiumAcquisitionTests.cs" />
     <Compile Include="CollectionManualAcquisitionTests.cs" />
+    <Compile Include="CollectionMemberAcquisitionCoordinatorTests.cs" />
     <Compile Include="LocalCaptureContractsTests.cs" />
     <Compile Include="CollectionOverrideDriftContractsTests.cs" />
     <Compile Include="CollectionOperationContractsTests.cs" />
     <Compile Include="CollectionsStoreFoundationTests.cs" />
     <Compile Include="CollectionsCatalogStoreTests.cs" />
+    <Compile Include="CollectionsRevisionSourceStoreTests.cs" />
     <Compile Include="CollectionsAssociationStoreTests.cs" />
     <Compile Include="CollectionsOperationStoreTests.cs" />
     <Compile Include="CollectionsResolvedPlanStoreTests.cs" />
@@ -194,6 +199,7 @@
     <Compile Include="CSharpScriptCompatibilityTests.cs" />
     <Compile Include="CategoryTreeViewportTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
+    <Compile Include="BasicInstallPlanBuilderTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
     <Compile Include="BasicInstallPromotedRoutingTests.cs" />
@@ -213,6 +219,7 @@
     <Compile Include="NexusCollectionsClientTests.cs" />
     <Compile Include="NexusCollectionNxmDispatchTests.cs" />
     <Compile Include="NexusCollectionBundleNormalizationTests.cs" />
+    <Compile Include="NexusCollectionBundleAcquirerTests.cs" />
     <Compile Include="NexusCollectionPreviewControllerTests.cs" />
     <Compile Include="NexusCollectionsReadOnlyAcceptanceTests.cs" />
     <Compile Include="NexusGraphQlClientTests.cs" />
