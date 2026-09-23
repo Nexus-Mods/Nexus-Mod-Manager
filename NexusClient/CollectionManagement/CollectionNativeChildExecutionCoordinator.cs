@@ -287,9 +287,12 @@ namespace Nexus.Client.CollectionManagement
 				if (impact == null || impact.Writers.Count <= 1)
 					continue;
 
-				throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
-					"C6.7 cannot yet encode the reviewed per-path winner for '{0}' into the C5 native file operations. " +
-					"The additive operation is blocked before its first native submission rather than falling back to installation order.", impact.Target));
+				if (impact.PlannedWinner == null || !impact.Writers.Contains(impact.PlannedWinner))
+					throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
+						"The reviewed multi-writer target '{0}' has no deterministic C6.4 winner and cannot be submitted.", impact.Target));
+
+				// C6.15.11 reconciles the exact reviewed winner after every required writer owner exists.
+				// Child installation order is therefore transient native state, never the authoritative final priority decision.
 			}
 		}
 

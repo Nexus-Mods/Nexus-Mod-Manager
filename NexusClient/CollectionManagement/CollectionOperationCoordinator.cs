@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 
@@ -17,7 +15,7 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionOperationCoordinator
 	{
-		private const string PersistedPlanPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
+		private const string PersistedPlanPayloadFormat = CollectionReviewedWorkflowSnapshotCodec.PayloadFormat;
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsResolvedPlanStore _planStore;
 
@@ -148,19 +146,34 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionOperation MarkReadyForReview(CollectionOperationIdentity operationIdentity,
 			ResolvedCollectionPlan plan, CollectionDependencyPhasePlan dependencyPlan, CollectionConflictImpactPlan impactPlan)
 		{
+			return MarkReadyForReview(operationIdentity, plan, dependencyPlan, impactPlan,
+				Enumerable.Empty<PreparedCollectionNativeRecipe>());
+		}
+
+		/// <summary>
+		/// Persists the exact ready C6.1-C6.4 review plus reproducible C6.15.9 native-recipe descriptors as workflow snapshot v2.
+		/// </summary>
+		public CollectionOperation MarkReadyForReview(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan plan, CollectionDependencyPhasePlan dependencyPlan, CollectionConflictImpactPlan impactPlan,
+			IEnumerable<PreparedCollectionNativeRecipe> preparedRecipes)
+		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
 			if (dependencyPlan == null)
 				throw new ArgumentNullException(nameof(dependencyPlan));
 			if (impactPlan == null)
 				throw new ArgumentNullException(nameof(impactPlan));
+			if (preparedRecipes == null)
+				throw new ArgumentNullException(nameof(preparedRecipes));
 
 			CollectionOperation current = RequireCurrent(operationIdentity);
 			RequirePhase(current, CollectionOperationPhase.Preparing);
 			RequireBeforeNativeBoundary(current, "A Collection review plan cannot be replaced after native mutation began.");
 			ValidateReviewInputs(current, plan, dependencyPlan, impactPlan);
 
-			byte[] payload = SerializeReviewSnapshot(plan, dependencyPlan, impactPlan);
+			CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(
+				plan, dependencyPlan, impactPlan, preparedRecipes);
+			byte[] payload = CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot);
 			_planStore.SavePlan(plan, PersistedPlanPayloadFormat, payload);
 			return Advance(current, CollectionOperationPhase.ReadyForReview, CollectionOperationResultState.Pending,
 				plan.Revision, plan.Identity);
@@ -420,242 +433,5 @@ namespace Nexus.Client.CollectionManagement
 			throw new InvalidOperationException("Invalid Collection operation transition from " + operation.Phase + ".");
 		}
 
-		private static byte[] SerializeReviewSnapshot(ResolvedCollectionPlan plan,
-			CollectionDependencyPhasePlan dependencyPlan, CollectionConflictImpactPlan impactPlan)
-		{
-			using (var stream = new MemoryStream())
-			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
-			{
-				writer.Write(1);
-				WriteRevision(writer, plan.Revision);
-				writer.Write(plan.Target.Fingerprint);
-				writer.Write((int)plan.Policy.Kind);
-				writer.Write((int)plan.Policy.ReplacementBackupChoice);
-				writer.Write(plan.CurrentStateFingerprint.FormatVersion);
-				writer.Write(plan.CurrentStateFingerprint.Value);
-				writer.Write((int)plan.ManifestSource.ContentHash.Algorithm);
-				writer.Write(plan.ManifestSource.ContentHash.Value);
-				writer.Write(plan.ManifestSource.ByteLength);
-				writer.Write(plan.ManifestSource.SchemaIdentity);
-				writer.Write(plan.ManifestSource.NormalizerVersion);
-
-				writer.Write(plan.SelectedMembers.Count);
-				foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
-				{
-					WriteMemberKey(writer, member.MemberKey);
-					writer.Write(member.SourceOrdinal);
-					writer.Write((int)member.Requirement);
-					writer.Write(member.InstallationPhase);
-					writer.Write(member.RecipeIdentity.Fingerprint);
-					writer.Write((int)member.ArtifactChoice.Kind);
-					WriteArtifact(writer, member.ArtifactChoice.RequestedArtifact);
-					WriteArtifact(writer, member.ArtifactChoice.SelectedArtifact);
-					WriteNullableString(writer, member.ArtifactChoice.SubstitutionRuleId);
-				}
-
-				List<CollectionMemberDependency> dependencies = plan.CapabilityReport.Manifest.Dependencies
-					.OrderBy(x => x.PrerequisiteMemberKey.Kind).ThenBy(x => x.PrerequisiteMemberKey.Value, StringComparer.Ordinal)
-					.ThenBy(x => x.DependentMemberKey.Kind).ThenBy(x => x.DependentMemberKey.Value, StringComparer.Ordinal)
-					.ThenBy(x => x.Kind).ToList();
-				writer.Write(dependencies.Count);
-				foreach (CollectionMemberDependency dependency in dependencies)
-				{
-					WriteMemberKey(writer, dependency.PrerequisiteMemberKey);
-					WriteMemberKey(writer, dependency.DependentMemberKey);
-					writer.Write((int)dependency.Kind);
-				}
-
-				List<CollectionFilePriorityRule> priorityRules = plan.CapabilityReport.Manifest.FilePriorityRules
-					.OrderBy(x => x.LowerPriorityMemberKey.Kind).ThenBy(x => x.LowerPriorityMemberKey.Value, StringComparer.Ordinal)
-					.ThenBy(x => x.HigherPriorityMemberKey.Kind).ThenBy(x => x.HigherPriorityMemberKey.Value, StringComparer.Ordinal).ToList();
-				writer.Write(priorityRules.Count);
-				foreach (CollectionFilePriorityRule rule in priorityRules)
-				{
-					WriteMemberKey(writer, rule.LowerPriorityMemberKey);
-					WriteMemberKey(writer, rule.HigherPriorityMemberKey);
-				}
-
-				writer.Write(dependencyPlan.Phases.Count);
-				foreach (CollectionExecutionPhase phase in dependencyPlan.Phases)
-				{
-					writer.Write(phase.PhaseNumber);
-					writer.Write(phase.Members.Count);
-					foreach (CollectionPlannedPhaseMember member in phase.Members)
-					{
-						WriteMemberKey(writer, member.MemberKey);
-						WriteMatchEvidence(writer, member.Match);
-					}
-				}
-
-				writer.Write(dependencyPlan.Barriers.Count);
-				foreach (CollectionPhaseBarrier barrier in dependencyPlan.Barriers)
-				{
-					writer.Write(barrier.CompletedPhase);
-					writer.Write(barrier.NextPhase);
-					writer.Write((int)barrier.Kind);
-				}
-
-				List<CollectionFileImpact> files = impactPlan.FileImpacts.OrderBy(x => x.Target.Root)
-					.ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToList();
-				writer.Write(files.Count);
-				foreach (CollectionFileImpact impact in files)
-				{
-					WriteDeploymentTarget(writer, impact.Target);
-					writer.Write(impact.Writers.Count);
-					foreach (CollectionMemberKey writerKey in impact.Writers)
-						WriteMemberKey(writer, writerKey);
-					WriteNullableMemberKey(writer, impact.PlannedWinner);
-					WriteNullableString(writer, impact.CurrentOwnerKey);
-					WriteGuids(writer, impact.AffectedAssociationIds);
-				}
-
-				List<CollectionPluginImpact> plugins = impactPlan.PluginImpacts
-					.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal)
-					.ThenBy(x => x.Effect.Kind).ThenBy(x => String.Join("\u001f", x.Effect.PluginPaths), StringComparer.OrdinalIgnoreCase).ToList();
-				writer.Write(plugins.Count);
-				foreach (CollectionPluginImpact impact in plugins)
-				{
-					WriteMemberKey(writer, impact.MemberKey);
-					writer.Write((int)impact.Effect.Kind);
-					writer.Write(impact.Effect.PluginPaths.Count);
-					foreach (string pluginPath in impact.Effect.PluginPaths)
-						writer.Write(pluginPath);
-					writer.Write(impact.Effect.Active.HasValue);
-					if (impact.Effect.Active.HasValue) writer.Write(impact.Effect.Active.Value);
-					writer.Write(impact.Effect.AbsoluteIndex.HasValue);
-					if (impact.Effect.AbsoluteIndex.HasValue) writer.Write(impact.Effect.AbsoluteIndex.Value);
-					WriteGuids(writer, impact.AffectedAssociationIds);
-				}
-
-				List<CollectionConfigurationImpact> configs = impactPlan.ConfigurationImpacts
-					.OrderBy(x => x.Kind).ThenBy(x => x.SubjectKey, StringComparer.Ordinal)
-					.ThenBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList();
-				writer.Write(configs.Count);
-				foreach (CollectionConfigurationImpact impact in configs)
-				{
-					WriteMemberKey(writer, impact.MemberKey);
-					writer.Write((int)impact.Kind);
-					writer.Write(impact.SubjectKey);
-					WriteNullableString(writer, impact.CurrentOwnerKey);
-					writer.Write(impact.ChangesRecordedValue);
-					WriteGuids(writer, impact.AffectedAssociationIds);
-				}
-
-				List<CollectionAssociationImpact> associations = impactPlan.AssociationImpacts
-					.OrderBy(x => x.Association.AssociationId).ToList();
-				writer.Write(associations.Count);
-				foreach (CollectionAssociationImpact impact in associations)
-				{
-					writer.Write(impact.Association.AssociationId.ToByteArray());
-					writer.Write((int)impact.Kind);
-				}
-
-				writer.Flush();
-				return stream.ToArray();
-			}
-		}
-
-		private static void WriteMatchEvidence(BinaryWriter writer, CollectionMemberMatchResult match)
-		{
-			writer.Write((int)match.Disposition);
-			writer.Write((int)match.Reason);
-
-			List<CollectionNativeModState> candidates = match.NativeCandidates
-				.OrderBy(x => x.Identity.Target.Fingerprint, StringComparer.Ordinal)
-				.ThenBy(x => x.Identity.NativeModKey, StringComparer.Ordinal).ToList();
-			writer.Write(candidates.Count);
-			foreach (CollectionNativeModState candidate in candidates)
-			{
-				writer.Write(candidate.Identity.Target.Fingerprint);
-				writer.Write(candidate.Identity.NativeModKey);
-				writer.Write(candidate.NexusModId);
-				writer.Write(candidate.NexusFileId);
-				writer.Write((int)candidate.InstallRoot);
-				writer.Write((int)candidate.InstallMethod);
-			}
-
-			List<CollectionMemberBinding> bindings = match.ExistingBindings
-				.OrderBy(x => x.Association.AssociationId)
-				.ThenBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList();
-			writer.Write(bindings.Count);
-			foreach (CollectionMemberBinding binding in bindings)
-			{
-				writer.Write(binding.Association.AssociationId.ToByteArray());
-				writer.Write((int)binding.Association.State);
-				WriteMemberKey(writer, binding.MemberKey);
-				writer.Write(binding.NativeMod.Target.Fingerprint);
-				writer.Write(binding.NativeMod.NativeModKey);
-				writer.Write(binding.VerifiedRecipe.Fingerprint);
-				writer.Write((int)binding.BindingKind);
-			}
-
-			CollectionVerifiedArchive archive = match.VerifiedArchive;
-			writer.Write(archive != null);
-			if (archive != null)
-			{
-				writer.Write(archive.Artifact.ArtifactId);
-				writer.Write((int)archive.Artifact.ContentHash.Algorithm);
-				writer.Write(archive.Artifact.ContentHash.Value);
-				writer.Write(archive.Artifact.ByteLength);
-				writer.Write((int)archive.SourceKind);
-				writer.Write((int)archive.VerificationBasis);
-			}
-		}
-
-		private static void WriteRevision(BinaryWriter writer, CollectionRevisionIdentity revision)
-		{
-			writer.Write((int)revision.Collection.Origin);
-			writer.Write(revision.Collection.StableId);
-			writer.Write(revision.StableRevisionId);
-			writer.Write(revision.NexusRevisionNumber.HasValue);
-			if (revision.NexusRevisionNumber.HasValue)
-				writer.Write(revision.NexusRevisionNumber.Value);
-		}
-
-		private static void WriteMemberKey(BinaryWriter writer, CollectionMemberKey key)
-		{
-			writer.Write((int)key.Kind);
-			writer.Write(key.Value);
-		}
-
-		private static void WriteNullableMemberKey(BinaryWriter writer, CollectionMemberKey key)
-		{
-			writer.Write(key != null);
-			if (key != null)
-				WriteMemberKey(writer, key);
-		}
-
-		private static void WriteArtifact(BinaryWriter writer, CollectionArtifactReference artifact)
-		{
-			writer.Write(artifact.Scheme);
-			writer.Write(artifact.StableId);
-			writer.Write(artifact.ExpectedContentHash != null);
-			if (artifact.ExpectedContentHash != null)
-			{
-				writer.Write((int)artifact.ExpectedContentHash.Algorithm);
-				writer.Write(artifact.ExpectedContentHash.Value);
-			}
-		}
-
-		private static void WriteDeploymentTarget(BinaryWriter writer, ModDeploymentTarget target)
-		{
-			writer.Write((int)target.Root);
-			writer.Write(target.RelativePath);
-		}
-
-		private static void WriteNullableString(BinaryWriter writer, string value)
-		{
-			writer.Write(value != null);
-			if (value != null)
-				writer.Write(value);
-		}
-
-		private static void WriteGuids(BinaryWriter writer, IEnumerable<Guid> values)
-		{
-			List<Guid> ordered = values.OrderBy(x => x).ToList();
-			writer.Write(ordered.Count);
-			foreach (Guid value in ordered)
-				writer.Write(value.ToByteArray());
-		}
 	}
 }

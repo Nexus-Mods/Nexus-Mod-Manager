@@ -6,6 +6,7 @@ using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.OnlineServices.NexusMods.Collections;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -39,8 +40,12 @@ namespace NexusClientTests
 				Assert.AreEqual(planIdentity, operation.PlanIdentity);
 				CollectionResolvedPlanRecord persisted = fixture.PlanStore.GetPlan(planIdentity);
 				Assert.IsNotNull(persisted);
-				Assert.AreEqual("nmm-ce.collections.coordinator-plan/1", persisted.PayloadFormat);
+				Assert.AreEqual(CollectionReviewedWorkflowSnapshotCodec.PayloadFormat, persisted.PayloadFormat);
 				Assert.Greater(persisted.Payload.Length, 0);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshotCodec.Deserialize(persisted.Payload);
+				Assert.AreEqual(planIdentity, snapshot.Identity);
+				Assert.AreEqual(fixture.Revision, snapshot.Revision);
+				Assert.AreEqual(1, snapshot.Members.Count);
 
 				operation = fixture.Coordinator.MarkReadyToApply(operation.Identity, planIdentity);
 				operation = fixture.Coordinator.BeginApplying(operation.Identity, planIdentity);
@@ -51,6 +56,175 @@ namespace NexusClientTests
 				Assert.AreEqual(CollectionOperationResultState.Committed, operation.ResultState);
 				Assert.IsTrue(operation.IsSuccessful);
 				Assert.AreEqual(operation.CheckpointSequence, fixture.OperationStore.GetOperation(operation.Identity).CheckpointSequence);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void ReviewedWorkflowV2_RehydratesOnlyAfterRetainedSourceAndCurrentStateValidation()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = PrepareOperation(fixture);
+				CollectionPlanIdentity identity = fixture.Coordinator.CreateNextPlanIdentity(operation.Identity);
+				ReadyPlans plans = CreateReadyPlans(fixture, identity);
+				operation = fixture.Coordinator.MarkReadyForReview(operation.Identity, plans.Plan, plans.DependencyPlan, plans.ImpactPlan);
+
+				var source = new CollectionRevisionSourceRecord(fixture.Revision, CollectionRevisionSourceInputKind.RawManifest,
+					plans.Plan.ManifestSource.ContentHash, plans.Plan.ManifestSource.ByteLength, "collection.json", plans.Plan.ManifestSource,
+					null, "artifact-manifest");
+				var artifact = new CollectionsRetainedArtifact("artifact-manifest", plans.Plan.ManifestSource.ContentHash,
+					plans.Plan.ManifestSource.ByteLength);
+				bool manifestLoaded = false;
+				bool stateCaptured = false;
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
+					revision => source,
+					(revision, expected) => { manifestLoaded = true; Assert.AreEqual(plans.Plan.ManifestSource, expected); return new byte[10]; },
+					artifactId => { Assert.AreEqual("artifact-manifest", artifactId); return artifact; },
+					target => { stateCaptured = true; return plans.State; });
+
+				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
+
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.Ready, result.Status);
+				Assert.IsTrue(result.CanResume);
+				Assert.IsTrue(manifestLoaded);
+				Assert.IsTrue(stateCaptured);
+				Assert.AreEqual(identity, result.Snapshot.Identity);
+				Assert.AreEqual(1, result.RemainingMembers.Count);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void ReviewedWorkflowV2_ChangedNativeStateRequiresRepreparation()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = PrepareOperation(fixture);
+				CollectionPlanIdentity identity = fixture.Coordinator.CreateNextPlanIdentity(operation.Identity);
+				ReadyPlans plans = CreateReadyPlans(fixture, identity);
+				operation = fixture.Coordinator.MarkReadyForReview(operation.Identity, plans.Plan, plans.DependencyPlan, plans.ImpactPlan);
+
+				var source = new CollectionRevisionSourceRecord(fixture.Revision, CollectionRevisionSourceInputKind.RawManifest,
+					plans.Plan.ManifestSource.ContentHash, plans.Plan.ManifestSource.ByteLength, "collection.json", plans.Plan.ManifestSource,
+					null, "artifact-manifest");
+				var artifact = new CollectionsRetainedArtifact("artifact-manifest", plans.Plan.ManifestSource.ContentHash,
+					plans.Plan.ManifestSource.ByteLength);
+				CollectionNativeStateIndex changedState = new CollectionNativeStateIndex(fixture.Target,
+					new CollectionNativeRootState[0], new CollectionNativeModState[0], new CollectionNativeFileState[0],
+					new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
+					CollectionNativeStateCoverage.NotApplicable, new CollectionTargetAssociation[0], new CollectionMemberBinding[0],
+					new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 99);
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
+					revision => source, (revision, expected) => new byte[10], artifactId => artifact, target => changedState);
+
+				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
+
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.CurrentStateChanged, result.Status);
+				Assert.IsFalse(result.CanResume);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void ReviewedWorkflowV1_IsExplicitlyRepreparationRequired()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = PrepareOperation(fixture);
+				CollectionPlanIdentity identity = fixture.Coordinator.CreateNextPlanIdentity(operation.Identity);
+				ReadyPlans plans = CreateReadyPlans(fixture, identity);
+				fixture.PlanStore.SavePlan(plans.Plan, CollectionReviewedWorkflowSnapshotCodec.LegacyPayloadFormat, new byte[] { 1 });
+				operation = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, identity, operation.CheckpointSequence + 1, CollectionOperationPhase.ReadyForReview,
+					CollectionOperationResultState.Pending, operation.NativeChildren);
+				fixture.OperationStore.SaveOperation(operation);
+
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
+					revision => { throw new AssertionException("Legacy v1 must not load retained source."); },
+					(revision, source) => { throw new AssertionException("Legacy v1 must not load manifest bytes."); },
+					artifactId => { throw new AssertionException("Legacy v1 must not load retained artifacts."); },
+					target => { throw new AssertionException("Legacy v1 must not capture native state."); });
+
+				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
+
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, result.Status);
+				StringAssert.Contains("v1", result.Message);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void ReviewedWorkflowV2_UnreconciledNativeChildRoutesThroughRecoveryBeforeRehydration()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = MoveToApplying(fixture, out ReadyPlans plans);
+				CollectionNativeChildOperation submitted = CreateSubmittedChild(fixture, plans.Plan, 1);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { submitted });
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
+					revision => { throw new AssertionException("Ambiguous child must route through recovery before source load."); },
+					(revision, source) => { throw new AssertionException("Ambiguous child must route through recovery before manifest load."); },
+					artifactId => { throw new AssertionException("Ambiguous child must route through recovery before artifact load."); },
+					target => { throw new AssertionException("Ambiguous child must route through recovery before state recapture."); });
+
+				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
+
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired, result.Status);
+				Assert.IsFalse(result.CanResume);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void ReviewedWorkflowV2_ReconciledCommittedChildResumesFromVerifiedSafeBoundary()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = MoveToApplying(fixture, out ReadyPlans plans);
+				CollectionNativeChildOperation submitted = CreateSubmittedChild(fixture, plans.Plan, 1);
+				var committedResult = new ModOperationResult(submitted.NativeOperation, ModOperationReportedStatus.Succeeded,
+					ModOperationDurability.VerifiedCommitted, null);
+				var reconciled = new CollectionNativeChildOperation(submitted.Sequence, submitted.Member, submitted.Action,
+					submitted.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, committedResult);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { reconciled });
+				var source = new CollectionRevisionSourceRecord(fixture.Revision, CollectionRevisionSourceInputKind.RawManifest,
+					plans.Plan.ManifestSource.ContentHash, plans.Plan.ManifestSource.ByteLength, "collection.json", plans.Plan.ManifestSource,
+					null, "artifact-manifest");
+				var artifact = new CollectionsRetainedArtifact("artifact-manifest", plans.Plan.ManifestSource.ContentHash,
+					plans.Plan.ManifestSource.ByteLength);
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
+					revision => source, (revision, expected) => new byte[10], artifactId => artifact, target => plans.State);
+
+				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
+
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.Ready, result.Status);
+				Assert.AreEqual(0, result.RemainingMembers.Count);
 			}
 			finally
 			{
@@ -427,7 +601,7 @@ namespace NexusClientTests
 				CollectionNativeStateCoverage.NotApplicable, new[] { association }, new[] { binding }, new UserOverride[0],
 				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(fixture.Revision,
-				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256), 10, "schema", "normalizer-v3"),
+				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256), 10, NexusCollectionManifestNormalizer.SchemaIdentity, NexusCollectionManifestNormalizer.NormalizerVersion),
 				CollectionManifestMemberSetCompleteness.Complete, null, new[] { member });
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			ResolvedCollectionPlan plan = new ResolvedCollectionPlan(identity, fixture.Target,
@@ -440,7 +614,7 @@ namespace NexusClientTests
 				state, new CollectionMemberEffectPreview[0]);
 			Assert.IsTrue(dependencyPlan.IsReady);
 			Assert.IsTrue(impactPlan.IsReady);
-			return new ReadyPlans(plan, dependencyPlan, impactPlan);
+			return new ReadyPlans(plan, dependencyPlan, impactPlan, state);
 		}
 
 		private static NormalizedCollectionMember CreateMember()
@@ -496,15 +670,17 @@ namespace NexusClientTests
 		private sealed class ReadyPlans
 		{
 			public ReadyPlans(ResolvedCollectionPlan plan, CollectionDependencyPhasePlan dependencyPlan,
-				CollectionConflictImpactPlan impactPlan)
+				CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex state)
 			{
 				Plan = plan;
 				DependencyPlan = dependencyPlan;
 				ImpactPlan = impactPlan;
+				State = state;
 			}
 			public ResolvedCollectionPlan Plan { get; }
 			public CollectionDependencyPhasePlan DependencyPlan { get; }
 			public CollectionConflictImpactPlan ImpactPlan { get; }
+			public CollectionNativeStateIndex State { get; }
 		}
 	}
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -98,6 +98,8 @@ namespace NexusClientTests
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
 					fixture.InstallContext, fixture.State, true);
 
+				Assert.That(keepReadmes.SkipReadmeFiles, Is.False);
+				Assert.That(skipReadmes.SkipReadmeFiles, Is.True);
 				Assert.That(skipReadmes.PreparedNativeIdentity, Is.Not.EqualTo(keepReadmes.PreparedNativeIdentity));
 			}
 			finally

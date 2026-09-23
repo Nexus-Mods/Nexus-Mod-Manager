@@ -24,17 +24,27 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void ValidateExecutableFilePriorities_MultipleSelectedWritersBlockInsteadOfUsingInstallOrder()
+		public void ValidateExecutableFilePriorities_MultipleSelectedWritersWithReviewedWinnerAreAllowedForC61511Reconciliation()
 		{
 			CollectionMemberKey lower = CollectionMemberKey.FromProvider("member-a");
 			CollectionMemberKey winner = CollectionMemberKey.FromProvider("member-b");
 			CollectionFileImpact impact = CreateImpact(new[] { lower, winner }, winner);
 
+			Assert.DoesNotThrow(() => InvokeFilePriorityValidation(new[] { impact }));
+		}
+
+		[Test]
+		public void ValidateExecutableFilePriorities_MultipleSelectedWritersWithoutReviewedWinnerStillBlock()
+		{
+			CollectionMemberKey first = CollectionMemberKey.FromProvider("member-a");
+			CollectionMemberKey second = CollectionMemberKey.FromProvider("member-b");
+			CollectionFileImpact impact = CreateImpact(new[] { first, second }, null);
+
 			TargetInvocationException error = Assert.Throws<TargetInvocationException>(() =>
 				InvokeFilePriorityValidation(new[] { impact }));
 
 			Assert.IsInstanceOf<InvalidOperationException>(error.InnerException);
-			StringAssert.Contains("installation order", error.InnerException.Message);
+			StringAssert.Contains("no deterministic C6.4 winner", error.InnerException.Message);
 		}
 
 		private static CollectionFileImpact CreateImpact(IEnumerable<CollectionMemberKey> writers, CollectionMemberKey winner)

@@ -148,6 +148,7 @@
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />
     <Compile Include="CollectionOperationCoordinatorTests.cs" />
+    <Compile Include="CollectionReviewedFileWinnerReconciliationCoordinatorTests.cs" />
     <Compile Include="CollectionAssociationReconciliationCoordinatorTests.cs" />
     <Compile Include="CollectionManualMutationDriftCoordinatorTests.cs" />
     <Compile Include="CollectionPinOverrideCoordinatorTests.cs" />

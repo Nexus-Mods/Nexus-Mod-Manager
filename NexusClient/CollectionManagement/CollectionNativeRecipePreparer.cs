@@ -69,12 +69,13 @@ namespace Nexus.Client.CollectionManagement
 
 		internal PreparedCollectionNativeRecipe(ResolvedCollectionMemberPlan member,
 			PreparedCollectionNativeRecipeIdentity preparedNativeIdentity, ModInstallationRecipeInput recipeInput,
-			CollectionMemberEffectPreview effectPreview, IEnumerable<string> retainedArtifactIds)
+			CollectionMemberEffectPreview effectPreview, bool skipReadmeFiles, IEnumerable<string> retainedArtifactIds)
 		{
 			Member = member ?? throw new ArgumentNullException(nameof(member));
 			PreparedNativeIdentity = preparedNativeIdentity ?? throw new ArgumentNullException(nameof(preparedNativeIdentity));
 			RecipeInput = recipeInput ?? throw new ArgumentNullException(nameof(recipeInput));
 			EffectPreview = effectPreview ?? throw new ArgumentNullException(nameof(effectPreview));
+			SkipReadmeFiles = skipReadmeFiles;
 			if (!recipeInput.HasNativePlan)
 				throw new ArgumentException("A prepared Collection native recipe requires translated C5 operations.", nameof(recipeInput));
 			if (!effectPreview.IsComplete)
@@ -115,6 +116,9 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets the exact C6 effect preview corresponding to the translated C5 operations.</summary>
 		public CollectionMemberEffectPreview EffectPreview { get; }
+
+		/// <summary>Gets the exact readme-suppression setting used while preparing the native recipe.</summary>
+		public bool SkipReadmeFiles { get; }
 
 		/// <summary>Gets the retained immutable inputs required to reproduce this preparation after restart.</summary>
 		public ReadOnlyCollection<string> RetainedArtifactIds { get { return _retainedArtifactIds; } }
@@ -212,7 +216,7 @@ namespace Nexus.Client.CollectionManagement
 
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedIdentity(plan, member,
 				verifiedArchive.Artifact, basicResult.Plan, translated, effectPreview, skipReadmeFiles);
-			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview,
+			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId });
 		}
 
