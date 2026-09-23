@@ -122,11 +122,11 @@ namespace Nexus.Client.CollectionManagement
 				ValidateRecipeInput(plan, child, member, recovery, recipeInput);
 
 				CollectionNativeStateIndex liveState = CaptureReloadedState(plan.Target);
-				if (!liveState.Fingerprint.Equals(recovery.PreparationStateFingerprint) ||
-					!liveState.Fingerprint.Equals(plan.CurrentStateFingerprint) ||
-					!liveState.Fingerprint.Equals(impactPlan.StateFingerprint))
+				CollectionCurrentStateFingerprint expectedPreparationState = ResolveExpectedPreparationStateFingerprint(operation, child, plan);
+				if (!recovery.PreparationStateFingerprint.Equals(expectedPreparationState) ||
+					!liveState.Fingerprint.Equals(recovery.PreparationStateFingerprint))
 				{
-					throw new InvalidOperationException("Authoritative native state changed after C6.6 preparation; the Collection must be replanned before submission.");
+					throw new InvalidOperationException("Authoritative native state changed after C6.6 preparation or no longer matches the latest verified Collection safe boundary.");
 				}
 
 				IMod previousMod = ResolvePreviousActiveMod(recovery, liveState, _services.ModManager);
@@ -255,6 +255,24 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The retained C6.6 recovery manifest does not match the exact prepared native child.");
 			}
 			return recovery;
+		}
+
+		private CollectionCurrentStateFingerprint ResolveExpectedPreparationStateFingerprint(CollectionOperation operation,
+			CollectionNativeChildOperation currentChild, ResolvedCollectionPlan plan)
+		{
+			CollectionCurrentStateFingerprint expected = plan.CurrentStateFingerprint;
+			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
+			{
+				if (previous.Sequence >= currentChild.Sequence) break;
+				if (!previous.IsReconciled || previous.NativeResult == null ||
+					previous.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
+					throw new InvalidOperationException("Every earlier Collection child must be reconciled as VerifiedCommitted before a later reviewed child can be submitted.");
+				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, previous);
+				if (manifest == null || manifest.SafeBoundaryStateFingerprint == null)
+					throw new InvalidDataException("An earlier committed Collection child is missing its durable C6.10 safe-boundary fingerprint.");
+				expected = manifest.SafeBoundaryStateFingerprint;
+			}
+			return expected;
 		}
 
 		private static ResolvedCollectionMemberPlan RequireMember(ResolvedCollectionPlan plan, CollectionNativeChildOperation child)

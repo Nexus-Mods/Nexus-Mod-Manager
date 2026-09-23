@@ -120,6 +120,17 @@ namespace Nexus.Client.CollectionManagement
 				ModOperationDurability verifiedDurability = exactReportedIdentity
 					? DetermineVerifiedDurability(reportedResult, committed, rolledBack)
 					: ModOperationDurability.Unknown;
+				if (verifiedDurability == ModOperationDurability.VerifiedCommitted)
+				{
+					if (recovery.TerminalStateFingerprint == null)
+					{
+						_manifestStore.SaveManifest(recovery.WithTerminalStateFingerprint(state.Fingerprint));
+						recovery = RequireRecoveryManifest(operation, child, plan);
+					}
+					if (!state.Fingerprint.Equals(recovery.TerminalStateFingerprint))
+						throw new InvalidDataException("The retained committed terminal-state fingerprint does not match authoritative C6.8 native state.");
+				}
+
 				var verifiedResult = new ModOperationResult(child.NativeOperation, reportedResult.ReportedStatus,
 					verifiedDurability, reportedResult.Message);
 				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,

@@ -129,6 +129,9 @@
     <Compile Include="CollectionManagement\CollectionConflictImpactPlan.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowSnapshot.cs" />
+    <Compile Include="CollectionManagement\CollectionReviewedWorkflowRuntime.cs" />
+    <Compile Include="CollectionManagement\CollectionAdditiveWorkflowCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionAdditiveApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedFileWinnerReconciliationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionOperationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionAssociationReconciliationCoordinator.cs" />

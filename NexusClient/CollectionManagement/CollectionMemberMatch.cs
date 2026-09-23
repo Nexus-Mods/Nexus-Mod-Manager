@@ -112,11 +112,22 @@ namespace Nexus.Client.CollectionManagement
 
 		internal CollectionMemberMatchSet(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionMemberMatchResult> members)
+			: this(plan, nativeState == null ? null : nativeState.Fingerprint, members)
+		{
+			if (nativeState == null)
+				throw new ArgumentNullException(nameof(nativeState));
+		}
+
+		/// <summary>Reconstructs a persisted reviewed match set against its original approved state fingerprint.</summary>
+		internal CollectionMemberMatchSet(ResolvedCollectionPlan plan, CollectionCurrentStateFingerprint stateFingerprint,
+			IEnumerable<CollectionMemberMatchResult> members)
 		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
-			if (nativeState == null)
-				throw new ArgumentNullException(nameof(nativeState));
+			if (stateFingerprint == null)
+				throw new ArgumentNullException(nameof(stateFingerprint));
+			if (!stateFingerprint.Equals(plan.CurrentStateFingerprint))
+				throw new ArgumentException("A reviewed member-match set must remain bound to the plan's approved native-state fingerprint.", nameof(stateFingerprint));
 			if (members == null)
 				throw new ArgumentNullException(nameof(members));
 
@@ -140,7 +151,7 @@ namespace Nexus.Client.CollectionManagement
 
 			PlanIdentity = plan.Identity;
 			Target = plan.Target;
-			StateFingerprint = nativeState.Fingerprint;
+			StateFingerprint = stateFingerprint;
 			_members = new ReadOnlyCollection<CollectionMemberMatchResult>(copied);
 			_membersByKey = new ReadOnlyDictionary<CollectionMemberKey, CollectionMemberMatchResult>(byKey);
 		}

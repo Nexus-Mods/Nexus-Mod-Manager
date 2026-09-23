@@ -195,6 +195,47 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void ReconciledCommittedChild_AllowsLatestVerifiedSafeBoundaryInsteadOfOriginalReviewState()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				PlanContext context = CreatePlanContext(fixture, null, new CollectionNativeFileState[0]);
+				CollectionVerifiedArchive archive = CreateVerifiedArchive(fixture, context.Plan, context.Member.MemberKey, "incoming");
+				PreparedPlans plans = FinalizePlans(fixture, context, archive);
+				CollectionNativeChildPreparationResult prepared = fixture.Preparer.PrepareNext(plans.Operation.Identity,
+					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory);
+
+				CollectionNativeStateIndex safeState = CloneStateWithDeploymentSequence(plans.State, 1);
+				var evidence = new CollectionNativeChildExecutionEvidence("game", 100, 200, "incoming.7z", plans.Preview,
+					new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+					new CollectionExpectedReplayOperation[0]);
+				CollectionNativeChildRecoveryManifest safeManifest = prepared.RecoveryManifest.WithExecutionEvidence(evidence)
+					.WithTerminalStateFingerprint(safeState.Fingerprint).WithSafeBoundaryStateFingerprint(safeState.Fingerprint);
+				fixture.ManifestStore.SaveManifest(safeManifest);
+
+				var nativeResult = new ModOperationResult(prepared.Child.NativeOperation, ModOperationReportedStatus.Succeeded,
+					ModOperationDurability.VerifiedCommitted, null);
+				var reconciledChild = new CollectionNativeChildOperation(prepared.Child.Sequence, prepared.Child.Member,
+					prepared.Child.Action, prepared.Child.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, nativeResult);
+				var reconciledOperation = new CollectionOperation(prepared.Operation.Identity, prepared.Operation.Kind,
+					prepared.Operation.Collection, prepared.Operation.Target, prepared.Operation.Revision, prepared.Operation.PlanIdentity,
+					prepared.Operation.CheckpointSequence + 1, prepared.Operation.Phase, prepared.Operation.ResultState,
+					new[] { reconciledChild });
+				fixture.OperationStore.SaveOperation(reconciledOperation);
+
+				CollectionNativeChildPreparationResult next = fixture.Preparer.PrepareNext(plans.Operation.Identity,
+					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, safeState,
+					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory);
+				Assert.IsNull(next, "The only member is already reconciled; validation should accept the durable safe boundary and find no further child.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void ExclusiveRecoveryRole_RejectsDifferentImmutableBytes()
 		{
 			string root = CreateTemporaryDirectory();
@@ -242,8 +283,9 @@ namespace NexusClientTests
 			var resolvedMember = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
 			var plan = new ResolvedCollectionPlan(identity, fixture.Target, CollectionExecutionPolicy.InstallIntoCurrentSetup(),
 				state.Fingerprint, report, new[] { resolvedMember });
+			ModDeploymentTarget plannedTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "planned\\member.txt");
 			var preview = new CollectionMemberEffectPreview(member.IdentityResolution.Key, member.RecipeIdentity,
-				ModInstallMethod.Virtual, ModInstallRoot.Data, new CollectionPlannedFileEffect[0], new CollectionPlannedIniEffect[0],
+				ModInstallMethod.Virtual, ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(plannedTarget) }, new CollectionPlannedIniEffect[0],
 				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
 			return new PlanContext(operation, plan, state, resolvedMember, preview);
 		}
@@ -257,10 +299,45 @@ namespace NexusClientTests
 				context.State, new[] { context.Preview });
 			Assert.IsTrue(dependency.IsReady);
 			Assert.IsTrue(impact.IsReady);
-			CollectionOperation operation = fixture.Coordinator.MarkReadyForReview(context.Operation.Identity, context.Plan, dependency, impact);
+			PreparedCollectionNativeRecipe preparedRecipe = CreatePreparedRecipe(context, archive);
+			CollectionOperation operation = fixture.Coordinator.MarkReadyForReview(context.Operation.Identity, context.Plan, dependency, impact,
+				new[] { preparedRecipe });
 			operation = fixture.Coordinator.MarkReadyToApply(operation.Identity, context.Plan.Identity);
 			operation = fixture.Coordinator.BeginApplying(operation.Identity, context.Plan.Identity);
 			return new PreparedPlans(operation, context.Plan, matches, dependency, impact, context.State, context.Member, context.Preview);
+		}
+
+		private static PreparedCollectionNativeRecipe CreatePreparedRecipe(PlanContext context, CollectionVerifiedArchive archive)
+		{
+			if (archive == null) throw new ArgumentNullException(nameof(archive));
+			const string sourcePath = "content\\member.txt";
+			const string destinationPath = "planned\\member.txt";
+			var installContext = new ModInstallContext(context.Preview.InstallMethod, context.Preview.InstallRoot);
+			var validation = new ModInstallationRecipeValidation(ModInstallationSimpleFileRecipeAdapter.AdapterId,
+				ModInstallationSimpleFileRecipeAdapter.AdapterVersion, installContext,
+				new ModInstallationRecipeExpectedContent(archive.Artifact.ContentHash.Value, archive.Artifact.ByteLength),
+				new[] { new ModInstallationRecipeCapability(ModInstallationSimpleFileRecipeAdapter.CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityVersion) },
+				new[]
+				{
+					new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, sourcePath),
+					new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, destinationPath)
+				});
+			var fingerprint = new ModOperationFingerprint(context.Plan.Target.Fingerprint, installContext, context.Member.RecipeIdentity.Fingerprint);
+			var operation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
+			var input = new ModInstallationRecipeInput(operation, validation);
+			var recipe = new ModInstallationSimpleFileRecipe(new[] { new ModInstallationSimpleFileMapping(sourcePath, destinationPath) });
+			ModInstallationRecipeInput translated = new ModInstallationSimpleFileRecipeAdapter().Translate(input, recipe);
+			return new PreparedCollectionNativeRecipe(context.Member,
+				PreparedCollectionNativeRecipeIdentity.FromFingerprint("prepared-c6-6-" + archive.Artifact.ContentHash.Value),
+				translated, context.Preview, false, new[] { archive.Artifact.ArtifactId });
+		}
+
+		private static CollectionNativeStateIndex CloneStateWithDeploymentSequence(CollectionNativeStateIndex state, long sequence)
+		{
+			return new CollectionNativeStateIndex(state.Target, state.Roots, state.Mods.Values, state.Files.Values, state.IniEdits.Values,
+				state.GameValues.Values, state.Plugins.Values, state.PluginCoverage, state.Associations.Values,
+				state.BindingsByAssociation.Values.SelectMany(x => x), state.OverridesByAssociation.Values.SelectMany(x => x),
+				state.AssociationCoverage, state.Issues, sequence);
 		}
 
 		private static NormalizedCollectionMember CreateMember()
@@ -308,7 +385,7 @@ namespace NexusClientTests
 			var preparer = new CollectionNativeChildPreparationCoordinator(operationStore, planStore, artifacts, references, manifests);
 			string installInfo = Path.Combine(root, "InstallInfo"); Directory.CreateDirectory(installInfo);
 			return new Fixture(revision, CollectionTargetIdentity.FromFingerprint("target-c6-6-" + Guid.NewGuid().ToString("N")),
-				operationStore, planStore, artifacts, references, coordinator, preparer, installInfo);
+				operationStore, planStore, artifacts, references, manifests, coordinator, preparer, installInfo);
 		}
 
 		private static string CreateTemporaryDirectory()
@@ -338,12 +415,13 @@ namespace NexusClientTests
 		{
 			public Fixture(CollectionRevisionIdentity revision, CollectionTargetIdentity target, CollectionsOperationStore operationStore,
 				CollectionsResolvedPlanStore planStore, CollectionsRetainedArtifactStore artifacts, CollectionsRetainedArtifactReferenceStore references,
-				CollectionOperationCoordinator coordinator, CollectionNativeChildPreparationCoordinator preparer, string installInfoDirectory)
-			{ Revision = revision; Target = target; OperationStore = operationStore; PlanStore = planStore; Artifacts = artifacts; References = references; Coordinator = coordinator; Preparer = preparer; InstallInfoDirectory = installInfoDirectory; }
+				CollectionsNativeChildRecoveryManifestStore manifestStore, CollectionOperationCoordinator coordinator,
+				CollectionNativeChildPreparationCoordinator preparer, string installInfoDirectory)
+			{ Revision = revision; Target = target; OperationStore = operationStore; PlanStore = planStore; Artifacts = artifacts; References = references; ManifestStore = manifestStore; Coordinator = coordinator; Preparer = preparer; InstallInfoDirectory = installInfoDirectory; }
 			public CollectionRevisionIdentity Revision { get; } public CollectionTargetIdentity Target { get; } public CollectionsOperationStore OperationStore { get; }
 			public CollectionsResolvedPlanStore PlanStore { get; } public CollectionsRetainedArtifactStore Artifacts { get; }
-			public CollectionsRetainedArtifactReferenceStore References { get; } public CollectionOperationCoordinator Coordinator { get; }
-			public CollectionNativeChildPreparationCoordinator Preparer { get; } public string InstallInfoDirectory { get; }
+			public CollectionsRetainedArtifactReferenceStore References { get; } public CollectionsNativeChildRecoveryManifestStore ManifestStore { get; }
+			public CollectionOperationCoordinator Coordinator { get; } public CollectionNativeChildPreparationCoordinator Preparer { get; } public string InstallInfoDirectory { get; }
 		}
 	}
 }

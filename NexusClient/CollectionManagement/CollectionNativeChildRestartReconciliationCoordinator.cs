@@ -124,6 +124,17 @@ namespace Nexus.Client.CollectionManagement
 						? ModOperationDurability.Unknown
 						: DetermineRestartDurability(priorDurability, committed, rolledBack);
 
+					if (durability == ModOperationDurability.VerifiedCommitted)
+					{
+						if (recovery.TerminalStateFingerprint == null)
+						{
+							_manifestStore.SaveManifest(recovery.WithTerminalStateFingerprint(state.Fingerprint));
+							recovery = RequireRecoveryManifest(operation, child, plan);
+						}
+						if (!state.Fingerprint.Equals(recovery.TerminalStateFingerprint))
+							throw new InvalidDataException("The retained committed terminal-state fingerprint does not match authoritative C6.9 native state.");
+					}
+
 					var reconciledResult = new ModOperationResult(child.NativeOperation, reportedStatus, durability, reportedMessage);
 					child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
 						CollectionNativeChildCheckpoint.NativeTerminalObserved, reconciledResult);

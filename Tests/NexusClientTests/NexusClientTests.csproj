@@ -148,6 +148,10 @@
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />
     <Compile Include="CollectionOperationCoordinatorTests.cs" />
+    <Compile Include="CollectionAdditiveWorkflowVerticalPreparationTests.cs" />
+    <Compile Include="CollectionAdditiveWorkflowVerticalApplyTests.cs" />
+    <Compile Include="CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests.cs" />
+    <Compile Include="CollectionReviewedWorkflowRuntimeReconstructorTests.cs" />
     <Compile Include="CollectionReviewedFileWinnerReconciliationCoordinatorTests.cs" />
     <Compile Include="CollectionAssociationReconciliationCoordinatorTests.cs" />
     <Compile Include="CollectionManualMutationDriftCoordinatorTests.cs" />

@@ -414,7 +414,8 @@ namespace Nexus.Client.CollectionManagement
 			return CollectionAcquisitionRequest.Create(CreateStableRequestId(plan.Identity, memberKey), plan, memberKey);
 		}
 
-		private static Guid CreateStableRequestId(CollectionPlanIdentity planIdentity, CollectionMemberKey memberKey)
+		/// <summary>Creates the deterministic C4 acquisition request identity used for one exact plan/member pair.</summary>
+		internal static Guid CreateStableRequestId(CollectionPlanIdentity planIdentity, CollectionMemberKey memberKey)
 		{
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))

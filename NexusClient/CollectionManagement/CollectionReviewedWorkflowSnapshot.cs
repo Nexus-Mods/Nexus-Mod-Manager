@@ -7,6 +7,7 @@ using System.Text;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 
 namespace Nexus.Client.CollectionManagement
@@ -470,14 +471,29 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionAssociationImpactKind Kind { get; }
 	}
 
+	/// <summary>One exact source/destination mapping required to reproduce a reviewed simple-file native recipe.</summary>
+	public sealed class CollectionReviewedSimpleFileMappingSnapshot
+	{
+		internal CollectionReviewedSimpleFileMappingSnapshot(string sourcePath, string destinationPath)
+		{
+			var mapping = new ModInstallationSimpleFileMapping(sourcePath, destinationPath);
+			SourcePath = mapping.SourcePath;
+			DestinationPath = mapping.DestinationPath;
+		}
+
+		public string SourcePath { get; }
+		public string DestinationPath { get; }
+	}
+
 	/// <summary>Reproducible descriptor for one exact C6.15.9 prepared native recipe.</summary>
 	public sealed class CollectionReviewedPreparedRecipeSnapshot
 	{
 		private readonly ReadOnlyCollection<string> _retainedArtifactIds;
+		private readonly ReadOnlyCollection<CollectionReviewedSimpleFileMappingSnapshot> _simpleFileMappings;
 		internal CollectionReviewedPreparedRecipeSnapshot(CollectionMemberKey memberKey, int sourceOrdinal,
 			string providerRecipeFingerprint, string preparedNativeFingerprint, bool skipReadmeFiles,
 			ModInstallationRecipeValidation validation, CollectionMemberEffectPreview effectPreview,
-			IEnumerable<string> retainedArtifactIds)
+			IEnumerable<string> retainedArtifactIds, IEnumerable<CollectionReviewedSimpleFileMappingSnapshot> simpleFileMappings = null)
 		{
 			MemberKey = memberKey ?? throw new ArgumentNullException(nameof(memberKey));
 			if (sourceOrdinal < 0) throw new ArgumentOutOfRangeException(nameof(sourceOrdinal));
@@ -496,6 +512,10 @@ namespace Nexus.Client.CollectionManagement
 			if (ids.Count == 0 || ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)
 				throw new ArgumentException("Prepared recipe retained artifact ids must be non-empty and unique.", nameof(retainedArtifactIds));
 			_retainedArtifactIds = new ReadOnlyCollection<string>(ids);
+			List<CollectionReviewedSimpleFileMappingSnapshot> mappings = (simpleFileMappings ?? Enumerable.Empty<CollectionReviewedSimpleFileMappingSnapshot>()).ToList();
+			if (mappings.Any(x => x == null))
+				throw new ArgumentException("Prepared recipe simple-file mappings cannot contain null values.", nameof(simpleFileMappings));
+			_simpleFileMappings = new ReadOnlyCollection<CollectionReviewedSimpleFileMappingSnapshot>(mappings);
 		}
 		public CollectionMemberKey MemberKey { get; }
 		public int SourceOrdinal { get; }
@@ -505,12 +525,26 @@ namespace Nexus.Client.CollectionManagement
 		public ModInstallationRecipeValidation Validation { get; }
 		public CollectionMemberEffectPreview EffectPreview { get; }
 		public ReadOnlyCollection<string> RetainedArtifactIds { get { return _retainedArtifactIds; } }
+		public ReadOnlyCollection<CollectionReviewedSimpleFileMappingSnapshot> SimpleFileMappings { get { return _simpleFileMappings; } }
 
 		internal static CollectionReviewedPreparedRecipeSnapshot From(PreparedCollectionNativeRecipe recipe)
 		{
+			var mappings = new List<CollectionReviewedSimpleFileMappingSnapshot>();
+			if (!StringComparer.Ordinal.Equals(recipe.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterId))
+				throw new NotSupportedException("The reviewed-workflow v2 executable descriptor currently supports only the characterized simple-file adapter.");
+			foreach (var operation in recipe.RecipeInput.NativeOperations)
+			{
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				if (file == null || file.DeploymentDecision != null)
+					throw new NotSupportedException("A reviewed simple-file recipe can persist only unresolved exact InstallModFile operations.");
+				mappings.Add(new CollectionReviewedSimpleFileMappingSnapshot(file.SourcePath, file.DestinationPath));
+			}
+			if (mappings.Count == 0)
+				throw new InvalidDataException("A reviewed simple-file recipe requires at least one reproducible source/destination mapping.");
+
 			return new CollectionReviewedPreparedRecipeSnapshot(recipe.Member.MemberKey, recipe.Member.SourceOrdinal,
 				recipe.ProviderRecipeIdentity.Fingerprint, recipe.PreparedNativeIdentity.Fingerprint, recipe.SkipReadmeFiles,
-				recipe.Validation, recipe.EffectPreview, recipe.RetainedArtifactIds);
+				recipe.Validation, recipe.EffectPreview, recipe.RetainedArtifactIds, mappings);
 		}
 	}
 
@@ -519,7 +553,8 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
-		private const int BinaryVersion = 2;
+		private const int BinaryVersion = 3;
+		private const int LegacyBinaryVersion = 2;
 		private const int MaxCount = 100000;
 		private const int MaxPayloadLength = 64 * 1024 * 1024;
 
@@ -565,7 +600,8 @@ namespace Nexus.Client.CollectionManagement
 				using (var stream = new MemoryStream(payload, false))
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
-					if (reader.ReadInt32() != BinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					int binaryVersion = reader.ReadInt32();
+					if (binaryVersion != BinaryVersion && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -582,7 +618,7 @@ namespace Nexus.Client.CollectionManagement
 					List<CollectionReviewedPluginImpactSnapshot> plugins = ReadPluginImpacts(reader);
 					List<CollectionReviewedConfigurationImpactSnapshot> configs = ReadConfigurationImpacts(reader);
 					List<CollectionReviewedAssociationImpactSnapshot> associations = ReadAssociationImpacts(reader);
-					List<CollectionReviewedPreparedRecipeSnapshot> recipes = ReadPreparedRecipes(reader);
+					List<CollectionReviewedPreparedRecipeSnapshot> recipes = ReadPreparedRecipes(reader, binaryVersion);
 					if (stream.Position != stream.Length) throw new InvalidDataException("Reviewed workflow payload contains trailing bytes.");
 					return new CollectionReviewedWorkflowSnapshot(identity, revision, target, policy, backup, state, manifestSource,
 						members, dependencies, priorities, phases, barriers, files, plugins, configs, associations, recipes);
@@ -721,16 +757,21 @@ namespace Nexus.Client.CollectionManagement
 			{
 				WriteMemberKey(writer, x.MemberKey); writer.Write(x.SourceOrdinal); writer.Write(x.ProviderRecipeFingerprint); writer.Write(x.PreparedNativeFingerprint); writer.Write(x.SkipReadmeFiles);
 				WriteValidation(writer, x.Validation); WriteEffectPreview(writer, x.EffectPreview); writer.Write(x.RetainedArtifactIds.Count); foreach (string id in x.RetainedArtifactIds.OrderBy(y => y, StringComparer.Ordinal)) writer.Write(id);
+				writer.Write(x.SimpleFileMappings.Count);
+				foreach (CollectionReviewedSimpleFileMappingSnapshot mapping in x.SimpleFileMappings) { writer.Write(mapping.SourcePath); writer.Write(mapping.DestinationPath); }
 			}
 		}
-		private static List<CollectionReviewedPreparedRecipeSnapshot> ReadPreparedRecipes(BinaryReader reader)
+		private static List<CollectionReviewedPreparedRecipeSnapshot> ReadPreparedRecipes(BinaryReader reader, int binaryVersion)
 		{
 			var result = new List<CollectionReviewedPreparedRecipeSnapshot>();
 			for (int i = 0, count = ReadCount(reader); i < count; i++)
 			{
 				CollectionMemberKey key = ReadMemberKey(reader); int ordinal = reader.ReadInt32(); string provider = ReadRequiredString(reader); string prepared = ReadRequiredString(reader); bool skip = reader.ReadBoolean();
 				ModInstallationRecipeValidation validation = ReadValidation(reader); CollectionMemberEffectPreview preview = ReadEffectPreview(reader); var ids = new List<string>(); for (int j = 0, c = ReadCount(reader); j < c; j++) ids.Add(ReadRequiredString(reader));
-				result.Add(new CollectionReviewedPreparedRecipeSnapshot(key, ordinal, provider, prepared, skip, validation, preview, ids));
+				var mappings = new List<CollectionReviewedSimpleFileMappingSnapshot>();
+				if (binaryVersion >= 3)
+					for (int j = 0, c = ReadCount(reader); j < c; j++) mappings.Add(new CollectionReviewedSimpleFileMappingSnapshot(ReadRequiredString(reader), ReadRequiredString(reader)));
+				result.Add(new CollectionReviewedPreparedRecipeSnapshot(key, ordinal, provider, prepared, skip, validation, preview, ids, mappings));
 			}
 			return result;
 		}
@@ -868,16 +909,26 @@ namespace Nexus.Client.CollectionManagement
 		private readonly Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]> _manifestLoader;
 		private readonly Func<string, CollectionsRetainedArtifact> _artifactLoader;
 		private readonly Func<CollectionTargetIdentity, CollectionNativeStateIndex> _stateCapture;
+		private readonly Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> _recoveryManifestLoader;
 
 		/// <summary>Creates a rehydrator over the durable Collections stores and the authoritative C6.1 native-state reader.</summary>
 		public CollectionReviewedWorkflowRehydrator(CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
 			CollectionsRevisionSourceStore revisionSourceStore, CollectionsRetainedArtifactStore artifactStore,
 			CollectionNativeStateReader nativeStateReader)
+			: this(operationStore, planStore, revisionSourceStore, artifactStore, nativeStateReader, null)
+		{
+		}
+
+		/// <summary>Creates a rehydrator that can continue across already reconciled committed native children.</summary>
+		public CollectionReviewedWorkflowRehydrator(CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
+			CollectionsRevisionSourceStore revisionSourceStore, CollectionsRetainedArtifactStore artifactStore,
+			CollectionNativeStateReader nativeStateReader, CollectionsNativeChildRecoveryManifestStore manifestStore)
 			: this(operationStore, planStore,
 				revisionSourceStore == null ? null : new Func<CollectionRevisionIdentity, CollectionRevisionSourceRecord>(revisionSourceStore.GetSource),
 				revisionSourceStore == null ? null : new Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]>(revisionSourceStore.LoadManifest),
 				artifactStore == null ? null : new Func<string, CollectionsRetainedArtifact>(artifactId => LoadVerifiedArtifact(artifactStore, artifactId)),
-				nativeStateReader == null ? null : new Func<CollectionTargetIdentity, CollectionNativeStateIndex>(nativeStateReader.Capture))
+				nativeStateReader == null ? null : new Func<CollectionTargetIdentity, CollectionNativeStateIndex>(nativeStateReader.Capture),
+				manifestStore == null ? null : new Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest>(manifestStore.GetManifest))
 		{
 		}
 
@@ -887,6 +938,17 @@ namespace Nexus.Client.CollectionManagement
 			Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]> manifestLoader,
 			Func<string, CollectionsRetainedArtifact> artifactLoader,
 			Func<CollectionTargetIdentity, CollectionNativeStateIndex> stateCapture)
+			: this(operationStore, planStore, sourceRecordLoader, manifestLoader, artifactLoader, stateCapture, null)
+		{
+		}
+
+		/// <summary>Creates a read-only rehydrator with an explicit committed-child safe-boundary manifest loader.</summary>
+		public CollectionReviewedWorkflowRehydrator(CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
+			Func<CollectionRevisionIdentity, CollectionRevisionSourceRecord> sourceRecordLoader,
+			Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]> manifestLoader,
+			Func<string, CollectionsRetainedArtifact> artifactLoader,
+			Func<CollectionTargetIdentity, CollectionNativeStateIndex> stateCapture,
+			Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> recoveryManifestLoader)
 		{
 			_operationStore = operationStore ?? throw new ArgumentNullException(nameof(operationStore));
 			_planStore = planStore ?? throw new ArgumentNullException(nameof(planStore));
@@ -894,6 +956,7 @@ namespace Nexus.Client.CollectionManagement
 			_manifestLoader = manifestLoader ?? throw new ArgumentNullException(nameof(manifestLoader));
 			_artifactLoader = artifactLoader ?? throw new ArgumentNullException(nameof(artifactLoader));
 			_stateCapture = stateCapture ?? throw new ArgumentNullException(nameof(stateCapture));
+			_recoveryManifestLoader = recoveryManifestLoader;
 		}
 
 		/// <summary>Loads and validates one exact reviewed operation without performing native or Collection mutation.</summary>
@@ -943,23 +1006,30 @@ namespace Nexus.Client.CollectionManagement
 				return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, null, null, ex.Message);
 			}
 
+			var remaining = new HashSet<CollectionMemberKey>(snapshot.Members.Select(x => x.MemberKey));
+			CollectionCurrentStateFingerprint expectedStateFingerprint = snapshot.ApprovedStateFingerprint;
+			foreach (CollectionNativeChildOperation child in operation.NativeChildren.OrderBy(x => x.Sequence))
+			{
+				if (!child.Member.Revision.Equals(snapshot.Revision) || !remaining.Contains(child.Member.MemberKey))
+					return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, null, null, "A persisted native child does not belong to the reviewed workflow closure.");
+				if (!child.IsReconciled)
+					return Result(CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired, snapshot, null, null, "A native child has not been reconciled through C6.9/C6.10.");
+				if (child.NativeResult == null || child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
+					return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, null, null, "A reconciled child is not a verified committed result; remaining work must be re-prepared.");
+				if (_recoveryManifestLoader == null)
+					return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, null, null, "Committed-child safe-boundary recovery data is unavailable; the workflow must be re-prepared.");
+				CollectionNativeChildRecoveryManifest recovery = _recoveryManifestLoader(operation, child);
+				if (recovery == null || recovery.SafeBoundaryStateFingerprint == null)
+					return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, null, null, "A verified committed child is missing its durable C6.10 safe-boundary fingerprint.");
+				expectedStateFingerprint = recovery.SafeBoundaryStateFingerprint;
+				remaining.Remove(child.Member.MemberKey);
+			}
+
 			CollectionNativeStateIndex currentState = _stateCapture(snapshot.Target);
 			if (currentState == null || !currentState.Target.Equals(snapshot.Target))
 				return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, currentState, null, "Native-state recapture did not return the reviewed target.");
-			if (!currentState.Fingerprint.Equals(snapshot.ApprovedStateFingerprint))
-				return Result(CollectionReviewedWorkflowRehydrationStatus.CurrentStateChanged, snapshot, currentState, null, "Relevant native state changed since review; the workflow must be re-prepared before any new mutation.");
-
-			var remaining = new HashSet<CollectionMemberKey>(snapshot.Members.Select(x => x.MemberKey));
-			foreach (CollectionNativeChildOperation child in operation.NativeChildren)
-			{
-				if (!child.Member.Revision.Equals(snapshot.Revision) || !remaining.Contains(child.Member.MemberKey))
-					return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, currentState, null, "A persisted native child does not belong to the reviewed workflow closure.");
-				if (!child.IsReconciled)
-					return Result(CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired, snapshot, currentState, null, "A native child has not been reconciled through C6.9/C6.10.");
-				if (child.NativeResult == null || child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
-					return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, currentState, null, "A reconciled child is not a verified committed result; remaining work must be re-prepared.");
-				remaining.Remove(child.Member.MemberKey);
-			}
+			if (!currentState.Fingerprint.Equals(expectedStateFingerprint))
+				return Result(CollectionReviewedWorkflowRehydrationStatus.CurrentStateChanged, snapshot, currentState, null, "Relevant native state differs from the latest verified Collection safe boundary; the workflow must be re-prepared before any new mutation.");
 			List<CollectionMemberKey> ordered = snapshot.Phases.OrderBy(x => x.PhaseNumber)
 				.SelectMany(x => x.Members).Select(x => x.MemberKey).Where(remaining.Contains).ToList();
 			return Result(CollectionReviewedWorkflowRehydrationStatus.Ready, snapshot, currentState, ordered, "The exact reviewed workflow is safe to continue from the verified boundary.");
@@ -976,6 +1046,8 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.Ordinal.Equals(recipe.Validation.Capabilities[0].CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityId) ||
 					recipe.Validation.Capabilities[0].Version != ModInstallationSimpleFileRecipeAdapter.CapabilityVersion)
 					throw new NotSupportedException("The reviewed native recipe capability contract changed and must be re-prepared.");
+				if (recipe.SimpleFileMappings.Count == 0)
+					throw new NotSupportedException("The reviewed native recipe predates executable simple-file mapping persistence and must be re-prepared.");
 				bool foundExpectedArchive = false;
 				foreach (string artifactId in recipe.RetainedArtifactIds)
 				{

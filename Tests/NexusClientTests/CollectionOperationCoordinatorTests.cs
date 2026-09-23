@@ -218,8 +218,11 @@ namespace NexusClientTests
 					null, "artifact-manifest");
 				var artifact = new CollectionsRetainedArtifact("artifact-manifest", plans.Plan.ManifestSource.ContentHash,
 					plans.Plan.ManifestSource.ByteLength);
+				CollectionNativeStateIndex safeState = CloneStateWithDeploymentSequence(plans.State, 1);
+				CollectionNativeChildRecoveryManifest recovery = CreateSafeBoundaryManifest(operation, reconciled, plans.Plan, safeState.Fingerprint);
 				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
-					revision => source, (revision, expected) => new byte[10], artifactId => artifact, target => plans.State);
+					revision => source, (revision, expected) => new byte[10], artifactId => artifact, target => safeState,
+					(op, child) => recovery);
 
 				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
 
@@ -518,6 +521,34 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void ReconciledCommittedRecovery_CanResumeRemainingNativeChildren()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = MoveToApplying(fixture, out ReadyPlans plans);
+				CollectionNativeChildOperation submitted = CreateSubmittedChild(fixture, plans.Plan, 1);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { submitted });
+				operation = fixture.Coordinator.BeginRecovery(operation.Identity);
+
+				ModOperationResult committed = new ModOperationResult(submitted.NativeOperation,
+					ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, null);
+				CollectionNativeChildOperation reconciled = new CollectionNativeChildOperation(submitted.Sequence, submitted.Member,
+					submitted.Action, submitted.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, committed);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { reconciled });
+				operation = fixture.Coordinator.ResumeApplyingAfterRecovery(operation.Identity, plans.Plan.Identity);
+
+				Assert.AreEqual(CollectionOperationPhase.ApplyingNativeChildren, operation.Phase);
+				Assert.AreEqual(CollectionOperationResultState.Pending, operation.ResultState);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void ReconciledRecovery_CanCompleteRolledBackButCannotBeCancelledBeforeApply()
 		{
 			string root = CreateTemporaryDirectory();
@@ -572,6 +603,31 @@ namespace NexusClientTests
 				operation.Phase, operation.ResultState, children);
 			store.SaveOperation(updated);
 			return updated;
+		}
+
+		private static CollectionNativeStateIndex CloneStateWithDeploymentSequence(CollectionNativeStateIndex state, long sequence)
+		{
+			return new CollectionNativeStateIndex(state.Target, state.Roots, state.Mods.Values, state.Files.Values, state.IniEdits.Values,
+				state.GameValues.Values, state.Plugins.Values, state.PluginCoverage, state.Associations.Values,
+				state.BindingsByAssociation.Values.SelectMany(x => x), state.OverridesByAssociation.Values.SelectMany(x => x),
+				state.AssociationCoverage, state.Issues, sequence);
+		}
+
+		private static CollectionNativeChildRecoveryManifest CreateSafeBoundaryManifest(CollectionOperation operation,
+			CollectionNativeChildOperation child, ResolvedCollectionPlan plan, CollectionCurrentStateFingerprint safeBoundary)
+		{
+			ResolvedCollectionMemberPlan member = plan.SelectedMembers.Single(x => x.MemberKey.Equals(child.Member.MemberKey));
+			var preview = new CollectionMemberEffectPreview(member.MemberKey, member.RecipeIdentity, ModInstallMethod.Virtual,
+				ModInstallRoot.Data, new CollectionPlannedFileEffect[0], new CollectionPlannedIniEffect[0],
+				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			var evidence = new CollectionNativeChildExecutionEvidence("game", 100, 200, "member.7z", preview,
+				new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+				new CollectionExpectedReplayOperation[0]);
+			return new CollectionNativeChildRecoveryManifest(operation.Identity, child.Sequence, plan.Identity, child.Member, child.Action,
+				child.NativeOperation, plan.CurrentStateFingerprint,
+				new CollectionRecoveryArtifact("artifact-child", CollectionContentHash.FromSha256(Sha256), 1), null, null,
+				new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]), evidence, safeBoundary, safeBoundary);
 		}
 
 		private static CollectionNativeChildOperation CreateSubmittedChild(Fixture fixture, ResolvedCollectionPlan plan, int sequence)

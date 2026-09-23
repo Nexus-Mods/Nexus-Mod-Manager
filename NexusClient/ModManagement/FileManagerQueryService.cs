@@ -109,7 +109,7 @@
                 long classificationStart = Stopwatch.GetTimestamp();
                 FileManagerPathOwnership ownership;
                 ownershipByPath.TryGetValue(normalizedPath, out ownership);
-                ApplySourceClassification(row, ownership, baseFiles, manualSources);
+                ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manualSources);
                 classificationTicks += Stopwatch.GetTimestamp() - classificationStart;
 
                 long indexConstructionStart = Stopwatch.GetTimestamp();
@@ -172,7 +172,7 @@
 
                 FileManagerPathOwnership ownership;
                 ownershipByPath.TryGetValue(row.RelativePath, out ownership);
-                ApplySourceClassification(row, ownership, baseFiles, manualSources);
+                ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manualSources);
                 counts.Add(row.Source);
             }
 
@@ -227,7 +227,7 @@
                         continue;
                     }
 
-                    ApplySourceClassification(row, (FileManagerPathOwnership)null, baseFiles, manualSources);
+                    ApplySourceClassificationFromOwnership(row, null, baseFiles, manualSources);
                 }
 
                 if (!rowsByNormalizedPath.ContainsKey(row.RelativePath))
@@ -252,7 +252,7 @@
                 if (!ownershipByPath.TryGetValue(row.RelativePath, out canonicalOwnership))
                     canonicalOwnership = ownership;
 
-                ApplySourceClassification(row, canonicalOwnership, baseFiles, manualSources);
+                ApplySourceClassificationFromOwnership(row, canonicalOwnership, baseFiles, manualSources);
                 rows.Add(row);
                 rowsByNormalizedPath.Add(row.RelativePath, row);
             }
@@ -351,10 +351,10 @@
 
         public static void ApplySourceClassification(FileManagerRow row, IList<IVirtualModLink> pathLinks, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
         {
-            ApplySourceClassification(row, BuildOwnership(pathLinks), baseFiles, manualSources);
+            ApplySourceClassificationFromOwnership(row, BuildOwnership(pathLinks), baseFiles, manualSources);
         }
 
-        internal static void ApplySourceClassification(FileManagerRow row, FileManagerPathOwnership ownership, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
+        internal static void ApplySourceClassificationFromOwnership(FileManagerRow row, FileManagerPathOwnership ownership, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
         {
             if (row == null) throw new ArgumentNullException("row");
 

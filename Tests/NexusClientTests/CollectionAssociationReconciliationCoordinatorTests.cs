@@ -29,9 +29,10 @@ namespace NexusClientTests
 				CollectionOperation operation = CreateApplyingOperation(fixture.Plan, child);
 				fixture.OperationStore.SaveOperation(operation);
 				CollectionNativeChildVerificationResult verification = CreateVerificationResult(operation, child, postState, nativeMod);
+				SaveTerminalManifest(fixture, operation, child, postState.Fingerprint);
 
 				var coordinator = new CollectionAssociationReconciliationCoordinator(
-					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore);
+					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore, fixture.ManifestStore);
 				CollectionAssociationReconciliationResult result = coordinator.ReconcileVerifiedChild(verification, fixture.Plan);
 
 				Assert.AreEqual(CollectionNativeChildCheckpoint.Reconciled, result.Child.Checkpoint);
@@ -44,6 +45,15 @@ namespace NexusClientTests
 				Assert.AreEqual(fixture.Plan.SelectedMembers[0].RecipeIdentity, result.Binding.VerifiedRecipe);
 				Assert.AreEqual(CollectionNativeChildCheckpoint.Reconciled,
 					fixture.OperationStore.GetOperation(operation.Identity).NativeChildren.Single().Checkpoint);
+				CollectionNativeChildRecoveryManifest recovery = fixture.ManifestStore.GetManifest(result.Operation, result.Child);
+				Assert.IsNotNull(recovery.SafeBoundaryStateFingerprint);
+				Assert.AreNotEqual(postState.Fingerprint, recovery.SafeBoundaryStateFingerprint,
+					"C6.10 provenance changes participate in the next safe-boundary fingerprint.");
+				Assert.AreEqual(operation.Identity.OperationId, result.Association.AssociationId,
+					"New child provenance uses a deterministic association identity so safe-boundary publication is retry-stable.");
+				CollectionNativeStateIndex expectedSafeState = CreateState(fixture.Plan.Target, new[] { nativeMod },
+					new[] { result.Association }, new[] { result.Binding });
+				Assert.AreEqual(expectedSafeState.Fingerprint, recovery.SafeBoundaryStateFingerprint);
 			}
 			finally
 			{
@@ -65,7 +75,7 @@ namespace NexusClientTests
 				CollectionNativeChildVerificationResult verification = CreateVerificationResult(operation, child, postState, null);
 
 				var coordinator = new CollectionAssociationReconciliationCoordinator(
-					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore);
+					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore, fixture.ManifestStore);
 				CollectionAssociationReconciliationResult result = coordinator.ReconcileVerifiedChild(verification, fixture.Plan);
 
 				Assert.AreEqual(CollectionNativeChildCheckpoint.Reconciled, result.Child.Checkpoint);
@@ -134,8 +144,9 @@ namespace NexusClientTests
 				CollectionOperation operation = CreateApplyingOperation(fixture.Plan, child);
 				fixture.OperationStore.SaveOperation(operation);
 				CollectionNativeChildVerificationResult verification = CreateVerificationResult(operation, child, postState, nativeMod);
+				SaveTerminalManifest(fixture, operation, child, postState.Fingerprint);
 				var coordinator = new CollectionAssociationReconciliationCoordinator(
-					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore);
+					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore, fixture.ManifestStore);
 				CollectionAssociationReconciliationResult reconciled = coordinator.ReconcileVerifiedChild(verification, fixture.Plan);
 
 				CollectionAssociationFinalizationResult result = coordinator.FinalizeAppliedAssociation(reconciled.Operation.Identity,
@@ -164,7 +175,7 @@ namespace NexusClientTests
 				fixture.OperationStore.SaveOperation(operation);
 
 				var coordinator = new CollectionAssociationReconciliationCoordinator(
-					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore);
+					fixture.OperationStore, fixture.PlanStore, fixture.AssociationStore, fixture.ManifestStore);
 				CollectionAssociationFinalizationResult result = coordinator.FinalizeAppliedAssociation(operation.Identity,
 					fixture.Plan, matches);
 
@@ -196,6 +207,9 @@ namespace NexusClientTests
 			var operationStore = new CollectionsOperationStore(featureStore);
 			var planStore = new CollectionsResolvedPlanStore(featureStore);
 			var associationStore = new CollectionsAssociationStore(featureStore);
+			var artifactStore = new CollectionsRetainedArtifactStore(featureStore);
+			var referenceStore = new CollectionsRetainedArtifactReferenceStore(featureStore);
+			var manifestStore = new CollectionsNativeChildRecoveryManifestStore(artifactStore, referenceStore);
 			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c610-" + Guid.NewGuid().ToString("N"));
 			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(
 				CollectionIdentity.FromNexus("collection-c610"), "revision-1", 1);
@@ -238,7 +252,7 @@ namespace NexusClientTests
 				initialState.Fingerprint, CollectionCapabilityReport.Create(manifest),
 				new[] { new ResolvedCollectionMemberPlan(normalized, CollectionResolvedArtifactChoice.Exact(normalized.Artifact)) });
 			planStore.SavePlan(plan, "c610-test/1", new byte[] { 1 });
-			return new Fixture(plan, initialState, operationStore, planStore, associationStore);
+			return new Fixture(plan, initialState, operationStore, planStore, associationStore, artifactStore, referenceStore, manifestStore);
 		}
 
 		private static CollectionNativeStateIndex CreateState(CollectionTargetIdentity target, CollectionNativeModState[] mods,
@@ -257,6 +271,28 @@ namespace NexusClientTests
 			return new CollectionNativeModState(new NativeModInstanceIdentity(target, nativeKey),
 				"C:\\Mods\\Example.7z", "Example.7z", nexusModId, nexusFileId, "1.0", "1.0.0.0",
 				ModInstallRoot.Data, ModInstallMethod.Virtual);
+		}
+
+		private static void SaveTerminalManifest(Fixture fixture, CollectionOperation operation, CollectionNativeChildOperation child,
+			CollectionCurrentStateFingerprint terminalStateFingerprint)
+		{
+			CollectionsRetainedArtifact incoming;
+			using (var stream = new MemoryStream(new byte[] { 1, 2, 3 })) incoming = fixture.ArtifactStore.Publish(stream);
+			fixture.ReferenceStore.AcquireExclusiveRoleReference(incoming.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
+				operation.Identity.ToString(), CollectionsNativeChildRecoveryManifestStore.GetIncomingArchiveRole(child.Sequence));
+			ResolvedCollectionMemberPlan member = fixture.Plan.SelectedMembers.Single(x => x.MemberKey.Equals(child.Member.MemberKey));
+			var preview = new CollectionMemberEffectPreview(member.MemberKey, member.RecipeIdentity, ModInstallMethod.Virtual,
+				ModInstallRoot.Data, new CollectionPlannedFileEffect[0], new CollectionPlannedIniEffect[0],
+				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			var evidence = new CollectionNativeChildExecutionEvidence("skyrimspecialedition", 100, 200, "Example.7z", preview,
+				new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+				new CollectionExpectedReplayOperation[0]);
+			var manifest = new CollectionNativeChildRecoveryManifest(operation.Identity, child.Sequence, fixture.Plan.Identity, child.Member,
+				child.Action, child.NativeOperation, fixture.Plan.CurrentStateFingerprint, CollectionRecoveryArtifact.FromRetainedArtifact(incoming),
+				null, null, new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]),
+				evidence, terminalStateFingerprint);
+			fixture.ManifestStore.SaveManifest(manifest);
 		}
 
 		private static CollectionNativeChildOperation CreateTerminalChild(ResolvedCollectionPlan plan, ModOperationDurability durability)
@@ -313,13 +349,17 @@ namespace NexusClientTests
 		{
 			public Fixture(ResolvedCollectionPlan plan, CollectionNativeStateIndex initialState,
 				CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
-				CollectionsAssociationStore associationStore)
+				CollectionsAssociationStore associationStore, CollectionsRetainedArtifactStore artifactStore,
+				CollectionsRetainedArtifactReferenceStore referenceStore, CollectionsNativeChildRecoveryManifestStore manifestStore)
 			{
 				Plan = plan;
 				InitialState = initialState;
 				OperationStore = operationStore;
 				PlanStore = planStore;
 				AssociationStore = associationStore;
+				ArtifactStore = artifactStore;
+				ReferenceStore = referenceStore;
+				ManifestStore = manifestStore;
 			}
 
 			public ResolvedCollectionPlan Plan { get; }
@@ -327,6 +367,9 @@ namespace NexusClientTests
 			public CollectionsOperationStore OperationStore { get; }
 			public CollectionsResolvedPlanStore PlanStore { get; }
 			public CollectionsAssociationStore AssociationStore { get; }
+			public CollectionsRetainedArtifactStore ArtifactStore { get; }
+			public CollectionsRetainedArtifactReferenceStore ReferenceStore { get; }
+			public CollectionsNativeChildRecoveryManifestStore ManifestStore { get; }
 		}
 	}
 }

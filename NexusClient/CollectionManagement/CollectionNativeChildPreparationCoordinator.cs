@@ -106,7 +106,8 @@ namespace Nexus.Client.CollectionManagement
 				{
 					CollectionNativeChildRecoveryManifest readyManifest = _manifestStore.GetManifest(operation, child);
 					if (readyManifest == null) throw new InvalidDataException("A RecoveryInputsReady Collection child is missing its retained recovery manifest.");
-					if (!readyManifest.PreparationStateFingerprint.Equals(currentState.Fingerprint))
+					if (!readyManifest.PreparationStateFingerprint.Equals(currentState.Fingerprint) ||
+						!readyManifest.PreparationStateFingerprint.Equals(ResolveExpectedPreparationStateFingerprint(operation, plan)))
 						throw new InvalidOperationException("The native-state observation changed after this child was prepared; revalidation is required before submission.");
 					return new CollectionNativeChildPreparationResult(operation, child, readyManifest);
 				}
@@ -163,14 +164,36 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("A Collection operation cannot prepare native children until C6.2-C6.4 are fully ready.");
 			if (!currentState.Target.Equals(plan.Target))
 				throw new ArgumentException("The preparation native-state observation belongs to a different target.", nameof(currentState));
-			if (!currentState.Fingerprint.Equals(plan.CurrentStateFingerprint) || !matches.StateFingerprint.Equals(currentState.Fingerprint) ||
-				!dependencyPlan.StateFingerprint.Equals(currentState.Fingerprint) || !impactPlan.StateFingerprint.Equals(currentState.Fingerprint))
-				throw new InvalidOperationException("The managed native state changed after the reviewed Collection plan; replan before child preparation.");
+			if (!matches.StateFingerprint.Equals(plan.CurrentStateFingerprint) ||
+				!dependencyPlan.StateFingerprint.Equals(plan.CurrentStateFingerprint) ||
+				!impactPlan.StateFingerprint.Equals(plan.CurrentStateFingerprint))
+				throw new InvalidOperationException("The C6.2-C6.4 inputs no longer represent the exact originally reviewed Collection state.");
+
+			CollectionCurrentStateFingerprint expectedPreparationState = ResolveExpectedPreparationStateFingerprint(operation, plan);
+			if (!currentState.Fingerprint.Equals(expectedPreparationState))
+				throw new InvalidOperationException("Authoritative native state differs from the latest verified Collection safe boundary; revalidation is required before preparing another child.");
 
 			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
 			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
 				persisted.PolicyKind != plan.Policy.Kind || !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint))
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for child preparation.");
+		}
+
+		private CollectionCurrentStateFingerprint ResolveExpectedPreparationStateFingerprint(CollectionOperation operation, ResolvedCollectionPlan plan)
+		{
+			CollectionCurrentStateFingerprint expected = plan.CurrentStateFingerprint;
+			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
+			{
+				if (!previous.IsReconciled)
+					continue;
+				if (previous.NativeResult == null || previous.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
+					throw new InvalidOperationException("A non-committed reconciled Collection child prevents later reviewed children from continuing without re-preparation.");
+				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, previous);
+				if (manifest == null || manifest.SafeBoundaryStateFingerprint == null)
+					throw new InvalidDataException("A verified committed Collection child is missing its durable C6.10 safe-boundary fingerprint.");
+				expected = manifest.SafeBoundaryStateFingerprint;
+			}
+			return expected;
 		}
 
 		private static Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> IndexPreviews(ResolvedCollectionPlan plan,

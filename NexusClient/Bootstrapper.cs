@@ -10,6 +10,8 @@
     using System.Xml.Serialization;
 
     using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.CollectionManagement;
+    using Nexus.Client.GameStorage;
     using Nexus.Client.Games;
     using Nexus.Client.ModRepositories;
     using Nexus.Client.OnlineServices.NexusMods.Collections;
@@ -286,8 +288,12 @@
 					var gameMode = appInitializer.GameMode;
 					var services = appInitializer.Services;
 					var collectionNxmDispatcher = new NexusCollectionNxmDispatcher(ApiCallManager.Instance(_environmentInfo).NexusService.Collections);
+					var gameStorageService = new GameStorageService(_environmentInfo);
 
 					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher);
+					var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
+						gameStorageService, collectionNxmDispatcher.Provider);
+					mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);
 					var mainForm = new MainForm(mainFormViewModel);
 
 					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm, collectionNxmDispatcher))

@@ -118,6 +118,92 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void RecoveryManifestV3_RoundTripsCommittedTerminalFingerprint()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c69-terminal");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c69-terminal");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-c69-terminal", 1);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("member-c69-terminal");
+			var member = new CollectionOperationMemberReference(revision, memberKey);
+			CollectionPlanIdentity plan = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), "recipe-c69-terminal"));
+			var child = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+				native, CollectionNativeChildCheckpoint.NativeTerminalObserved,
+				new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, null));
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				collection, target, revision, plan, 8, CollectionOperationPhase.ApplyingNativeChildren,
+				CollectionOperationResultState.Pending, new[] { child });
+			var preview = new CollectionMemberEffectPreview(memberKey, CollectionRecipeIdentity.FromFingerprint("recipe-c69-terminal"),
+				ModInstallMethod.Direct, ModInstallRoot.Data, new CollectionPlannedFileEffect[0],
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+				new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+				new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+				new CollectionExpectedReplayOperation[0]);
+			var terminal = new CollectionCurrentStateFingerprint("c6-native-state/1", "terminal-c69");
+			var manifest = new CollectionNativeChildRecoveryManifest(operation.Identity, 1, plan, member,
+				CollectionNativeChildAction.ActivateOrReinstall, native,
+				new CollectionCurrentStateFingerprint("c6-native-state/1", "state-c69"),
+				new CollectionRecoveryArtifact("incoming-artifact", CollectionContentHash.FromSha256(ShaA), 1),
+				null, null, new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]),
+				evidence, terminal);
+
+			byte[] bytes = InvokeSerialize(manifest);
+			using (var stream = new MemoryStream(bytes, false))
+			using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+				Assert.AreEqual("nmm-ce.collections.child-recovery/3", reader.ReadString());
+
+			CollectionNativeChildRecoveryManifest roundTrip = InvokeDeserialize(bytes, operation, child);
+			Assert.AreEqual(terminal, roundTrip.TerminalStateFingerprint);
+			Assert.IsNull(roundTrip.SafeBoundaryStateFingerprint);
+		}
+
+		[Test]
+		public void RecoveryManifestV4_RoundTripsCommittedTerminalAndSafeBoundaryFingerprints()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c69-safe-boundary");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c69-safe-boundary");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-c69-safe-boundary", 1);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("member-c69-safe-boundary");
+			var member = new CollectionOperationMemberReference(revision, memberKey);
+			CollectionPlanIdentity plan = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), "recipe-c69-safe-boundary"));
+			var child = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+				native, CollectionNativeChildCheckpoint.Reconciled, new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, null));
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				collection, target, revision, plan, 8, CollectionOperationPhase.ApplyingNativeChildren,
+				CollectionOperationResultState.Pending, new[] { child });
+			var preview = new CollectionMemberEffectPreview(memberKey, CollectionRecipeIdentity.FromFingerprint("recipe-c69-safe-boundary"),
+				ModInstallMethod.Direct, ModInstallRoot.Data, new CollectionPlannedFileEffect[0],
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+				new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+				new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+				new CollectionExpectedReplayOperation[0]);
+			var terminal = new CollectionCurrentStateFingerprint("c6-native-state/1", "terminal-c69");
+			var safeBoundary = new CollectionCurrentStateFingerprint("c6-native-state/1", "safe-c69");
+			var manifest = new CollectionNativeChildRecoveryManifest(operation.Identity, 1, plan, member,
+				CollectionNativeChildAction.ActivateOrReinstall, native,
+				new CollectionCurrentStateFingerprint("c6-native-state/1", "state-c69"),
+				new CollectionRecoveryArtifact("incoming-artifact", CollectionContentHash.FromSha256(ShaA), 1),
+				null, null, new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]),
+				evidence, terminal, safeBoundary);
+
+			byte[] bytes = InvokeSerialize(manifest);
+			using (var stream = new MemoryStream(bytes, false))
+			using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+				Assert.AreEqual("nmm-ce.collections.child-recovery/4", reader.ReadString());
+
+			CollectionNativeChildRecoveryManifest roundTrip = InvokeDeserialize(bytes, operation, child);
+			Assert.AreEqual(terminal, roundTrip.TerminalStateFingerprint);
+			Assert.AreEqual(safeBoundary, roundTrip.SafeBoundaryStateFingerprint);
+		}
+
+		[Test]
 		public void ExecutionEvidence_RequiresExactReviewedFileCoverage()
 		{
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");

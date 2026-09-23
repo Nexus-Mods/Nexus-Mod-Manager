@@ -100,7 +100,9 @@ namespace Nexus.Client.CollectionManagement
 			ModOperationIdentity nativeOperation, CollectionCurrentStateFingerprint preparationStateFingerprint,
 			CollectionRecoveryArtifact incomingArchive, CollectionNativeModState previousNativeMod,
 			CollectionRecoveryArtifact previousArchive, CollectionScriptedReplayRecoverySnapshot scriptedReplay,
-			CollectionNativeChildExecutionEvidence executionEvidence = null)
+			CollectionNativeChildExecutionEvidence executionEvidence = null,
+			CollectionCurrentStateFingerprint terminalStateFingerprint = null,
+			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint = null)
 		{
 			OperationIdentity = operationIdentity ?? throw new ArgumentNullException(nameof(operationIdentity));
 			if (childSequence <= 0) throw new ArgumentOutOfRangeException(nameof(childSequence));
@@ -132,7 +134,13 @@ namespace Nexus.Client.CollectionManagement
 					throw new ArgumentException("Native-child execution evidence must match the exact prepared member recipe and install context.", nameof(executionEvidence));
 				}
 			}
+			if (terminalStateFingerprint != null && executionEvidence == null)
+				throw new ArgumentException("A terminal native-state fingerprint requires retained C6.7 execution evidence.", nameof(terminalStateFingerprint));
+			if (safeBoundaryStateFingerprint != null && terminalStateFingerprint == null)
+				throw new ArgumentException("A reconciled safe-boundary fingerprint requires a terminal native-state fingerprint.", nameof(safeBoundaryStateFingerprint));
 			ExecutionEvidence = executionEvidence;
+			TerminalStateFingerprint = terminalStateFingerprint;
+			SafeBoundaryStateFingerprint = safeBoundaryStateFingerprint;
 		}
 
 		public CollectionOperationIdentity OperationIdentity { get; }
@@ -148,6 +156,10 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionScriptedReplayRecoverySnapshot ScriptedReplay { get; }
 		/// <summary>Gets the durable pre-start C6.7 verification evidence, or <c>null</c> for legacy C6.6-only manifests.</summary>
 		public CollectionNativeChildExecutionEvidence ExecutionEvidence { get; }
+		/// <summary>Gets the exact authoritative native-state fingerprint observed when this child was verified committed.</summary>
+		public CollectionCurrentStateFingerprint TerminalStateFingerprint { get; }
+		/// <summary>Gets the expected state fingerprint after C6.10 provenance reconciliation, suitable as the next child safe boundary.</summary>
+		public CollectionCurrentStateFingerprint SafeBoundaryStateFingerprint { get; }
 
 		/// <summary>Creates the immutable C6.7 form of this manifest after exact execution evidence has been retained.</summary>
 		public CollectionNativeChildRecoveryManifest WithExecutionEvidence(CollectionNativeChildExecutionEvidence executionEvidence)
@@ -157,6 +169,28 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionNativeChildRecoveryManifest(OperationIdentity, ChildSequence, PlanIdentity, Member, Action,
 				NativeOperation, PreparationStateFingerprint, IncomingArchive, PreviousNativeMod, PreviousArchive,
 				ScriptedReplay, executionEvidence);
+		}
+
+		/// <summary>Creates the immutable C6.8/C6.9 committed-terminal form of this recovery manifest.</summary>
+		public CollectionNativeChildRecoveryManifest WithTerminalStateFingerprint(CollectionCurrentStateFingerprint terminalStateFingerprint)
+		{
+			if (terminalStateFingerprint == null) throw new ArgumentNullException(nameof(terminalStateFingerprint));
+			if (ExecutionEvidence == null) throw new InvalidOperationException("Terminal state cannot be retained before C6.7 execution evidence.");
+			if (TerminalStateFingerprint != null) throw new InvalidOperationException("A terminal native-state fingerprint is already attached to this recovery manifest.");
+			return new CollectionNativeChildRecoveryManifest(OperationIdentity, ChildSequence, PlanIdentity, Member, Action,
+				NativeOperation, PreparationStateFingerprint, IncomingArchive, PreviousNativeMod, PreviousArchive,
+				ScriptedReplay, ExecutionEvidence, terminalStateFingerprint);
+		}
+
+		/// <summary>Creates the immutable C6.10 safe-boundary form used to continue later reviewed children.</summary>
+		public CollectionNativeChildRecoveryManifest WithSafeBoundaryStateFingerprint(CollectionCurrentStateFingerprint safeBoundaryStateFingerprint)
+		{
+			if (safeBoundaryStateFingerprint == null) throw new ArgumentNullException(nameof(safeBoundaryStateFingerprint));
+			if (TerminalStateFingerprint == null) throw new InvalidOperationException("A safe boundary cannot be retained before committed terminal state was verified.");
+			if (SafeBoundaryStateFingerprint != null) throw new InvalidOperationException("A safe-boundary native-state fingerprint is already attached to this recovery manifest.");
+			return new CollectionNativeChildRecoveryManifest(OperationIdentity, ChildSequence, PlanIdentity, Member, Action,
+				NativeOperation, PreparationStateFingerprint, IncomingArchive, PreviousNativeMod, PreviousArchive,
+				ScriptedReplay, ExecutionEvidence, TerminalStateFingerprint, safeBoundaryStateFingerprint);
 		}
 	}
 

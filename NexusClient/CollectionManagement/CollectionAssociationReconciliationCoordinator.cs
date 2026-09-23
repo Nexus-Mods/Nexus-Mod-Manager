@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement.Operations;
@@ -19,15 +20,18 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsAssociationStore _associationStore;
+		private readonly CollectionsNativeChildRecoveryManifestStore _manifestStore;
 		private readonly CollectionOperationCoordinator _operationCoordinator;
 
 		/// <summary>Creates a C6.10 provenance coordinator over the existing Collections stores/state machine.</summary>
 		public CollectionAssociationReconciliationCoordinator(CollectionsOperationStore operationStore,
-			CollectionsResolvedPlanStore planStore, CollectionsAssociationStore associationStore)
+			CollectionsResolvedPlanStore planStore, CollectionsAssociationStore associationStore,
+			CollectionsNativeChildRecoveryManifestStore manifestStore)
 		{
 			_operationStore = operationStore ?? throw new ArgumentNullException(nameof(operationStore));
 			if (planStore == null) throw new ArgumentNullException(nameof(planStore));
 			_associationStore = associationStore ?? throw new ArgumentNullException(nameof(associationStore));
+			_manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
 			_operationCoordinator = new CollectionOperationCoordinator(operationStore, planStore);
 		}
 
@@ -218,7 +222,15 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("The durable native child does not map to the exact selected Collection member recipe.");
 
 			if (child.IsReconciled)
+			{
+				if (child.NativeResult.Durability == ModOperationDurability.VerifiedCommitted)
+				{
+					CollectionNativeChildRecoveryManifest reconciledManifest = _manifestStore.GetManifest(operation, child);
+					if (reconciledManifest == null || reconciledManifest.SafeBoundaryStateFingerprint == null)
+						throw new InvalidDataException("A reconciled committed Collection child is missing its durable C6.10 safe-boundary fingerprint.");
+				}
 				return LoadReconciledResult(operation, child, plan, member);
+			}
 			if (child.Checkpoint != CollectionNativeChildCheckpoint.NativeTerminalObserved)
 				throw new InvalidOperationException("C6.10 requires NativeTerminalObserved before provenance can be reconciled.");
 			if (operation.CheckpointSequence == Int64.MaxValue)
@@ -229,14 +241,26 @@ namespace Nexus.Client.CollectionManagement
 			if (child.NativeResult.Durability == ModOperationDurability.VerifiedCommitted)
 			{
 				ValidateVerifiedNativeMod(verifiedNativeMod, nativeState, plan.Target);
+				CollectionNativeChildRecoveryManifest terminalManifest = _manifestStore.GetManifest(operation, child);
+				if (terminalManifest == null || terminalManifest.TerminalStateFingerprint == null ||
+					!terminalManifest.TerminalStateFingerprint.Equals(nativeState.Fingerprint))
+					throw new InvalidDataException("C6.10 requires the exact committed terminal native-state fingerprint retained by C6.8/C6.9.");
 				association = ResolveExactAssociation(plan.Revision, plan.Target);
+				ValidateAssociationBaseline(nativeState, plan.Revision, association);
 				if (association == null)
-					association = new CollectionTargetAssociation(Guid.NewGuid(), plan.Revision, plan.Target, CollectionAssociationState.Incomplete);
+				{
+					// Use the durable operation ID so a retry after safe-boundary publication but before the atomic
+					// association/journal transaction reconstructs the exact same intended provenance fingerprint.
+					association = new CollectionTargetAssociation(operation.Identity.OperationId, plan.Revision, plan.Target, CollectionAssociationState.Incomplete);
+				}
 				else if (association.State != CollectionAssociationState.Incomplete)
 					association = association.WithState(CollectionAssociationState.Incomplete);
 				binding = new CollectionMemberBinding(association, member.MemberKey, verifiedNativeMod.Identity,
 					member.RecipeIdentity, CollectionMemberBindingKind.InstalledForCollection);
 			}
+
+			if (association != null)
+				PersistSafeBoundaryFingerprint(operation, child, nativeState, association, binding);
 
 			var reconciledChild = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action,
 				child.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, child.NativeResult);
@@ -255,6 +279,57 @@ namespace Nexus.Client.CollectionManagement
 			CollectionMemberBinding persistedBinding = persistedAssociation == null ? null : _associationStore.GetBindings(persistedAssociation.AssociationId)
 				.SingleOrDefault(x => x.MemberKey.Equals(member.MemberKey));
 			return new CollectionAssociationReconciliationResult(persisted, persistedChild, persistedAssociation, persistedBinding);
+		}
+
+
+		private static void ValidateAssociationBaseline(CollectionNativeStateIndex terminalState,
+			CollectionRevisionIdentity revision, CollectionTargetAssociation liveAssociation)
+		{
+			List<CollectionTargetAssociation> observed = terminalState.Associations.Values.Where(x => x.Revision.Equals(revision)).ToList();
+			if (liveAssociation == null)
+			{
+				if (observed.Count != 0)
+					throw new InvalidOperationException("Collection association state changed after C6.8/C6.9 verification and before C6.10 reconciliation.");
+				return;
+			}
+			if (observed.Count != 1 || observed[0].AssociationId != liveAssociation.AssociationId || observed[0].State != liveAssociation.State)
+				throw new InvalidOperationException("Collection association state changed after C6.8/C6.9 verification and before C6.10 reconciliation.");
+		}
+
+		private void PersistSafeBoundaryFingerprint(CollectionOperation operation, CollectionNativeChildOperation child,
+			CollectionNativeStateIndex terminalState, CollectionTargetAssociation association, CollectionMemberBinding binding)
+		{
+			CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, child);
+			if (manifest == null || manifest.TerminalStateFingerprint == null ||
+				!manifest.TerminalStateFingerprint.Equals(terminalState.Fingerprint))
+				throw new InvalidDataException("The committed child recovery manifest no longer matches the C6.8/C6.9 terminal state.");
+
+			CollectionCurrentStateFingerprint safeBoundary = BuildPostReconciliationState(terminalState, association, binding).Fingerprint;
+			if (manifest.SafeBoundaryStateFingerprint != null)
+			{
+				if (!manifest.SafeBoundaryStateFingerprint.Equals(safeBoundary))
+					throw new InvalidDataException("The retained C6.10 safe-boundary fingerprint contradicts the deterministic provenance reconciliation result.");
+				return;
+			}
+			_manifestStore.SaveManifest(manifest.WithSafeBoundaryStateFingerprint(safeBoundary));
+		}
+
+		private static CollectionNativeStateIndex BuildPostReconciliationState(CollectionNativeStateIndex terminalState,
+			CollectionTargetAssociation association, CollectionMemberBinding binding)
+		{
+			List<CollectionTargetAssociation> associations = terminalState.Associations.Values
+				.Where(x => x.AssociationId != association.AssociationId).ToList();
+			associations.Add(association);
+
+			List<CollectionMemberBinding> bindings = terminalState.BindingsByAssociation.Values.SelectMany(x => x)
+				.Where(x => x.Association.AssociationId != association.AssociationId || !x.MemberKey.Equals(binding.MemberKey)).ToList();
+			bindings.Add(binding);
+			List<UserOverride> overrides = terminalState.OverridesByAssociation.Values.SelectMany(x => x).ToList();
+
+			return new CollectionNativeStateIndex(terminalState.Target, terminalState.Roots, terminalState.Mods.Values,
+				terminalState.Files.Values, terminalState.IniEdits.Values, terminalState.GameValues.Values, terminalState.Plugins.Values,
+				terminalState.PluginCoverage, associations, bindings, overrides, terminalState.AssociationCoverage, terminalState.Issues,
+				terminalState.DeploymentCommitSequence);
 		}
 
 		private CollectionAssociationReconciliationResult LoadReconciledResult(CollectionOperation operation,

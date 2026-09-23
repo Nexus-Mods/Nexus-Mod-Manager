@@ -221,6 +221,24 @@ namespace Nexus.Client.CollectionManagement
 				current.Revision, current.PlanIdentity);
 		}
 
+		/// <summary>
+		/// Returns a restart-reconciled operation from Recovering to native-child coordination when remaining reviewed work still exists.
+		/// </summary>
+		public CollectionOperation ResumeApplyingAfterRecovery(CollectionOperationIdentity operationIdentity, CollectionPlanIdentity expectedPlan)
+		{
+			CollectionOperation current = RequireCurrent(operationIdentity);
+			RequirePhase(current, CollectionOperationPhase.Recovering);
+			RequireExactPlan(current, expectedPlan);
+			RequireFullyReconciledNativeState(current, "Recovery cannot resume native-child coordination while native durability or Collection reconciliation remains unresolved.");
+			foreach (CollectionNativeChildOperation child in current.NativeChildren)
+			{
+				if (!child.IsReconciled || !child.HasVerifiedCommittedNativeState)
+					throw new InvalidOperationException("Recovery can resume remaining native children only when every submitted native child is reconciled as VerifiedCommitted.");
+			}
+			return Advance(current, CollectionOperationPhase.ApplyingNativeChildren, CollectionOperationResultState.Pending,
+				current.Revision, current.PlanIdentity);
+		}
+
 		/// <summary>Moves from native-child coordination to authoritative final verification.</summary>
 		public CollectionOperation BeginVerifying(CollectionOperationIdentity operationIdentity)
 		{

@@ -12,6 +12,7 @@
 	using Nexus.Client.DownloadMonitoring;
 	using Nexus.Client.DownloadMonitoring.UI;
 	using Nexus.Client.Commands;
+	using Nexus.Client.CollectionManagement;
 	using Nexus.Client.Games;
 	using Nexus.Client.Games.Tools;
 	using Nexus.Client.ModActivationMonitoring;
@@ -304,6 +305,23 @@
 		/// Gets the read-only incoming Nexus Collection NXM dispatcher shared with the application protocol listener.
 		/// </summary>
 		public NexusCollectionNxmDispatcher CollectionNxmDispatcher { get; private set; }
+
+		/// <summary>
+		/// Gets the application-level additive Collections workflow service for the active game mode.
+		/// </summary>
+		public CollectionAdditiveApplicationService CollectionWorkflow { get; private set; }
+
+		/// <summary>
+		/// Supplies the application-level additive Collections workflow after the profile manager has been constructed.
+		/// </summary>
+		public void InitializeCollectionWorkflow(CollectionAdditiveApplicationService collectionWorkflow)
+		{
+			if (collectionWorkflow == null)
+				throw new ArgumentNullException(nameof(collectionWorkflow));
+			if (CollectionWorkflow != null && !ReferenceEquals(CollectionWorkflow, collectionWorkflow))
+				throw new InvalidOperationException("The additive Collections workflow has already been initialized.");
+			CollectionWorkflow = collectionWorkflow;
+		}
 
 		/// <summary>
 		/// Gets the view model that encapsulates the data

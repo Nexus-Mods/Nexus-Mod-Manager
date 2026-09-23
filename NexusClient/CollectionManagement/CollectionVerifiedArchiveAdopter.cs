@@ -357,7 +357,8 @@ namespace Nexus.Client.CollectionManagement
 			return StringComparer.Ordinal.Equals(candidate.StableId, requestedArtifact.StableId);
 		}
 
-		private static string CreateReferenceRole(CollectionArtifactReference artifact)
+		/// <summary>Creates the deterministic durable verified-acquisition role for one exact selected artifact.</summary>
+		internal static string CreateReferenceRole(CollectionArtifactReference artifact)
 		{
 			string expectedHash = artifact.ExpectedContentHash == null ? String.Empty : artifact.ExpectedContentHash.ToString();
 			string payload = artifact.Scheme + "\n" + artifact.StableId + "\n" + expectedHash;

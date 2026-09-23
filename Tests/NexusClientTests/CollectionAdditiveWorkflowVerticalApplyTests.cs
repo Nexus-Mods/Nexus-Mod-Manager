@@ -1,0 +1,599 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.Serialization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Nexus.Client;
+using Nexus.Client.BackgroundTasks;
+using Nexus.Client.CollectionManagement;
+using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.GameStorage;
+using Nexus.Client.Games;
+using Nexus.Client.ModAuthoring;
+using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
+using Nexus.Client.ModRepositories;
+using Nexus.Client.Mods;
+using Nexus.Client.OnlineServices.NexusMods.Collections;
+using Nexus.Client.Settings;
+using Nexus.Client.Util.Collections;
+using NUnit.Framework;
+
+namespace NexusClientTests
+{
+	/// <summary>
+	/// C6.15.14b vertical apply coverage through the real additive coordinator, C6.6 durable preparation,
+	/// C6.10 provenance reconciliation and final association publication.
+	/// </summary>
+	[TestFixture]
+	public class CollectionAdditiveWorkflowVerticalApplyTests
+	{
+		[Test]
+		public void ApproveAndApply_InstalledCompatibleNoOp_CommitsWithoutNativeChild()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Compatible, ModInstallMethod.Virtual))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.Runtime.Matches.Members.Single().Disposition,
+					Is.EqualTo(CollectionMemberMatchDisposition.InstalledCompatible));
+				Assert.That(prepared.Runtime.PreparedRecipes, Is.Empty);
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(applied.Operation.IsSuccessful, Is.True);
+				Assert.That(applied.Operation.NativeChildren, Is.Empty,
+					"A verified installed-compatible member must remain a true zero-native-write Collection apply.");
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+				Assert.That(fixture.WinnerBarrier.CallCount, Is.EqualTo(1));
+				Assert.That(applied.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
+				Assert.That(applied.Finalization.Bindings.Single().BindingKind,
+					Is.EqualTo(CollectionMemberBindingKind.AdoptedExisting));
+			}
+		}
+
+		[TestCase(ModInstallMethod.Direct)]
+		[TestCase(ModInstallMethod.Virtual)]
+		public void PrepareAndApply_ExactSimpleArchive_UsesReviewedInstallContextAndCommits(ModInstallMethod installMethod)
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, installMethod))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				CollectionMemberMatchResult match = prepared.Runtime.Matches.Members.Single();
+				PreparedCollectionNativeRecipe recipe = prepared.Runtime.PreparedRecipes.Single();
+
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(match.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ArchiveOnlyReuse));
+				Assert.That(recipe.InstallContext.Method, Is.EqualTo(installMethod));
+				Assert.That(recipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.Data));
+				Assert.That(recipe.RecipeInput.NativeOperations.Count, Is.EqualTo(1));
+				Assert.That(recipe.RecipeInput.NativeOperations.All(x => x is InstallModFileOperation), Is.True,
+					"Gate-A BasicInstall preparation must be expanded to explicit typed file operations before review.");
+				Assert.That(recipe.RecipeInput.NativeOperations.Any(x => x is PerformBasicInstallOperation), Is.False);
+				Assert.That(recipe.EffectPreview.IsComplete, Is.True);
+				Assert.That(recipe.EffectPreview.Files.Count, Is.EqualTo(1));
+				Assert.That(recipe.EffectPreview.InstallMethod, Is.EqualTo(installMethod));
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(1));
+				Assert.That(fixture.NativeBoundary.LastRecipe.InstallContext.Method, Is.EqualTo(installMethod));
+				Assert.That(fixture.NativeBoundary.LastPreparedManifest.PreviousNativeMod, Is.Null);
+				Assert.That(applied.Operation.NativeChildren.Count, Is.EqualTo(1));
+				Assert.That(applied.Operation.NativeChildren.Single().Checkpoint, Is.EqualTo(CollectionNativeChildCheckpoint.Reconciled));
+				Assert.That(applied.Operation.NativeChildren.Single().NativeResult.Durability,
+					Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+				Assert.That(applied.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
+				Assert.That(applied.Finalization.Bindings.Single().BindingKind,
+					Is.EqualTo(CollectionMemberBindingKind.InstalledForCollection));
+				Assert.That(fixture.WinnerBarrier.CallCount, Is.EqualTo(1));
+			}
+		}
+
+		[Test]
+		public void PrepareAndApply_ExactInstalledArchiveWithoutVerifiedRecipe_ReinstallsUsingExistingContext()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.ExactArtifactUnverified, ModInstallMethod.Virtual))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				CollectionMemberMatchResult match = prepared.Runtime.Matches.Members.Single();
+				PreparedCollectionNativeRecipe recipe = prepared.Runtime.PreparedRecipes.Single();
+
+				Assert.That(match.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ReinstallRequired));
+				Assert.That(match.Reason, Is.EqualTo(CollectionMemberMatchReason.ExactArtifactRecipeUnverified));
+				Assert.That(recipe.InstallContext.Method, Is.EqualTo(ModInstallMethod.Direct),
+					"Reviewed reinstall must preserve the native instance's existing method instead of taking the current global preference.");
+				Assert.That(recipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.Data));
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(1));
+				Assert.That(fixture.NativeBoundary.LastPreparedManifest.PreviousNativeMod, Is.Not.Null);
+				Assert.That(fixture.NativeBoundary.LastPreparedManifest.PreviousNativeMod.InstallMethod,
+					Is.EqualTo(ModInstallMethod.Direct));
+				Assert.That(fixture.NativeBoundary.LastRecipe.InstallContext.Method, Is.EqualTo(ModInstallMethod.Direct));
+				Assert.That(applied.Finalization.Bindings.Single().BindingKind,
+					Is.EqualTo(CollectionMemberBindingKind.InstalledForCollection));
+			}
+		}
+
+		private enum InitialNativeState
+		{
+			Empty = 0,
+			Compatible = 1,
+			ExactArtifactUnverified = 2
+		}
+
+		private sealed class Fixture : IDisposable
+		{
+			private bool _disposed;
+
+			private Fixture(string root, GameStoragePathSet paths, CollectionsStore store,
+				CollectionRevision revision, NormalizedCollectionManifest manifest, NormalizedCollectionMember member,
+				CollectionTargetIdentity target, CollectionsAssociationStore associations,
+				CollectionAdditiveWorkflowCoordinator workflow, DeterministicNativeBoundary nativeBoundary,
+				RecordingWinnerBarrier winnerBarrier)
+			{
+				Root = root;
+				Paths = paths;
+				Store = store;
+				Revision = revision;
+				Manifest = manifest;
+				Member = member;
+				Target = target;
+				Associations = associations;
+				Workflow = workflow;
+				NativeBoundary = nativeBoundary;
+				WinnerBarrier = winnerBarrier;
+			}
+
+			public string Root { get; }
+			public GameStoragePathSet Paths { get; }
+			public CollectionsStore Store { get; }
+			public CollectionRevision Revision { get; }
+			public NormalizedCollectionManifest Manifest { get; }
+			public NormalizedCollectionMember Member { get; }
+			public CollectionTargetIdentity Target { get; }
+			public CollectionsAssociationStore Associations { get; }
+			public CollectionAdditiveWorkflowCoordinator Workflow { get; }
+			public DeterministicNativeBoundary NativeBoundary { get; }
+			public RecordingWinnerBarrier WinnerBarrier { get; }
+
+			public static Fixture Create(InitialNativeState initialState, ModInstallMethod preferredInstallMethod)
+			{
+				string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-14b-" + Guid.NewGuid().ToString("N"));
+				Directory.CreateDirectory(root);
+				var storageService = new GameStorageService(Path.Combine(root, "Registry"), new Version(9, 3));
+				GameStoragePathSet paths = CreateStoragePaths(root);
+				storageService.InitializeMetadataForStorage(paths);
+				CollectionTargetIdentity target = new CollectionTargetIdentityResolver(storageService).Resolve(paths).Target;
+
+				var store = new CollectionsStore(Path.Combine(root, "Collections"));
+				store.CreateNew();
+				var catalog = new CollectionsCatalogStore(store);
+				var revisionSources = new CollectionsRevisionSourceStore(store);
+				var operationStore = new CollectionsOperationStore(store);
+				var planStore = new CollectionsResolvedPlanStore(store);
+				var associations = new CollectionsAssociationStore(store);
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var acquisitions = new CollectionsAcquisitionStore(store);
+				var recoveryManifests = new CollectionsNativeChildRecoveryManifestStore(artifacts, references);
+				var operationCoordinator = new CollectionOperationCoordinator(operationStore, planStore);
+
+				CollectionIdentity collection = CollectionIdentity.FromNexus("c61514b-" + Guid.NewGuid().ToString("N"));
+				var revision = new CollectionRevision(CollectionRevisionIdentity.FromNexus(collection, "revision-one", 1),
+					"Revision 1", null, 1);
+				catalog.SaveDefinitionAndRevision(new CollectionDefinition(collection, "C6.15.14b", null, null), revision);
+
+				byte[] archiveBytes = Encoding.UTF8.GetBytes("C6.15.14b deterministic exact archive bytes");
+				string archivePath = Path.Combine(root, "member.zip");
+				File.WriteAllBytes(archivePath, archiveBytes);
+				string manifestJson = "{" +
+					"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"C6.15.14b\",\"description\":\"Vertical apply fixture\",\"domainName\":\"skyrimspecialedition\"}," +
+					"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":100,\"fileId\":200,\"updatePolicy\":\"exact\"}}],\"modRules\":[]}";
+				byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
+				NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
+				Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
+				NormalizedCollectionManifest manifest = normalization.Manifest;
+				NormalizedCollectionMember member = manifest.Members.Single();
+				revisionSources.RetainManifest(manifest, CollectionRevisionSourceInputKind.RawManifest,
+					manifest.Source.ContentHash, manifest.Source.ByteLength, "collection.json", manifestBytes);
+
+				IMod managedMod = CreateManagedMod(archivePath);
+				var activeMods = new ThreadSafeObservableList<IMod>();
+				var readOnlyActiveMods = new ReadOnlyObservableList<IMod>(activeMods);
+				var installState = new MutableInstallLogSnapshot();
+				if (initialState == InitialNativeState.Empty)
+					installState.Set(CreateInstallSnapshot(null, archivePath, preferredInstallMethod, 0, new ModDeploymentTarget[0]));
+				else
+				{
+					activeMods.Add(managedMod);
+					installState.Set(CreateInstallSnapshot("native-required", archivePath, ModInstallMethod.Direct, 0, new ModDeploymentTarget[0]));
+				}
+
+				if (initialState == InitialNativeState.Compatible)
+				{
+					var association = new CollectionTargetAssociation(Guid.NewGuid(), revision.Identity, target, CollectionAssociationState.Applied);
+					associations.SaveAssociation(association);
+					associations.SaveBinding(new CollectionMemberBinding(association, member.IdentityResolution.Key,
+						new NativeModInstanceIdentity(target, "native-required"), member.RecipeIdentity,
+						CollectionMemberBindingKind.AdoptedExisting));
+				}
+
+				IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) =>
+				{
+					switch (method.Name)
+					{
+						case "GetCommittedStateSnapshot": return installState.Get();
+						case "get_ActiveMods": return readOnlyActiveMods;
+						case "GetModKey": return args != null && args.Length > 0 && args[0] != null ? "native-required" : null;
+						default: return null;
+					}
+				});
+				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+					method.Name == "GetReadSnapshot" ? new VirtualModReadSnapshot(new VirtualModReadLink[0]) : null);
+				IGameMode gameMode = CreateGameMode(paths);
+				var nativeStateReader = new CollectionNativeStateReader(installLog, virtualModActivator, null, gameMode, associations);
+				var targetResolver = new CollectionTargetIdentityResolver(storageService);
+				var planBuilder = new CollectionResolvedPlanBuilder(catalog, revisionSources, operationCoordinator);
+				var planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder);
+
+				var archiveSource = new FixedArchiveSource(new CollectionManagedArchiveCandidate(
+					"nexus-mod-file", "skyrimspecialedition/100/200", archivePath));
+				var adopter = new CollectionVerifiedArchiveAdopter(archiveSource, new AcceptingVerifier(), artifacts, references, acquisitions);
+				var queue = new FailingQueue();
+				var requestCoordinator = new CollectionAcquisitionRequestCoordinator(queue, acquisitions);
+				var premiumCoordinator = new CollectionPremiumAcquisitionCoordinator(requestCoordinator, new FixedAccountProvider(false));
+				var manualCoordinator = new CollectionManualAcquisitionCoordinator(requestCoordinator, adopter);
+				var acquisitionRestart = new CollectionAcquisitionRestartCoordinator(acquisitions,
+					new EmptyPersistedAddModStateSource(), adopter, premiumCoordinator);
+				var memberAcquisition = new CollectionMemberAcquisitionCoordinator(new CollectionMemberMatchEngine(), adopter,
+					premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator);
+				var revalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
+					operationCoordinator, planBuilder, memberAcquisition);
+
+				ModManager manager = CreateModManagerShell(gameMode, installLog, managedMod, preferredInstallMethod);
+				var services = new ServiceManager(installLog, null, null, null, manager, null, null, null);
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore, revisionSources,
+					artifacts, nativeStateReader, recoveryManifests);
+				var runtimeReconstructor = new CollectionReviewedWorkflowRuntimeReconstructor(store);
+				var childPreparation = new CollectionNativeChildPreparationCoordinator(operationStore, planStore,
+					artifacts, references, recoveryManifests);
+				var childExecution = new CollectionNativeChildExecutionCoordinator(services, storageService,
+					operationStore, planStore, associations, recoveryManifests);
+				var childVerification = new CollectionNativeChildVerificationCoordinator(services, storageService,
+					operationStore, planStore, associations, recoveryManifests);
+				var childRestart = new CollectionNativeChildRestartReconciliationCoordinator(services, storageService,
+					operationStore, planStore, associations, recoveryManifests);
+				var associationCoordinator = new CollectionAssociationReconciliationCoordinator(operationStore, planStore,
+					associations, recoveryManifests);
+				var winnerCoordinator = new CollectionReviewedFileWinnerReconciliationCoordinator(operationStore, planStore,
+					associations, artifacts, references,
+					InterfaceStub<IModDeploymentManager>.Create((method, args) => null),
+					InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null),
+					targetIdentity => nativeStateReader.Capture(targetIdentity), () => { });
+				var nativeBoundary = new DeterministicNativeBoundary(operationStore, recoveryManifests, nativeStateReader,
+					installState, archivePath);
+				var winnerBarrier = new RecordingWinnerBarrier();
+
+				var workflow = new CollectionAdditiveWorkflowCoordinator(services, storageService, operationStore, planStore,
+					planPreparation, revalidation, memberAcquisition, new CollectionNativeRecipePreparer(store),
+					new CollectionDependencyPhasePlanner(), new CollectionConflictImpactPlanner(), operationCoordinator,
+					rehydrator, runtimeReconstructor, nativeStateReader, childPreparation, childExecution, childVerification,
+					childRestart, associationCoordinator, winnerCoordinator, CollectionTargetMutationLeaseManager.Shared,
+					new CollectionTargetOwnershipAuthorityValidator(storageService, services), nativeBoundary.ApplyAsync,
+					winnerBarrier.ReconcileAsync);
+
+				return new Fixture(root, paths, store, revision, manifest, member, target, associations, workflow,
+					nativeBoundary, winnerBarrier);
+			}
+
+			public CollectionAdditiveWorkflowPreparationResult Prepare()
+			{
+				CollectionCapabilityReport report = CollectionCapabilityReport.Create(Manifest);
+				CollectionEffectiveSelection selection = new CollectionEffectiveSelectionBuilder().Build(report,
+					new CollectionOptionalMemberSelection[0]);
+				return Workflow.PrepareAsync(selection, Paths, null, CancellationToken.None).GetAwaiter().GetResult();
+			}
+
+			public CollectionAdditiveWorkflowApplyResult Apply(CollectionAdditiveWorkflowPreparationResult prepared)
+			{
+				return Workflow.ApproveAndApplyAsync(prepared.Operation.Identity, prepared.Runtime.Plan.Identity,
+					Paths, CancellationToken.None).GetAwaiter().GetResult();
+			}
+
+			public void Dispose()
+			{
+				if (_disposed) return;
+				_disposed = true;
+				if (Directory.Exists(Root)) Directory.Delete(Root, true);
+			}
+		}
+
+		private sealed class DeterministicNativeBoundary
+		{
+			private readonly CollectionsOperationStore _operationStore;
+			private readonly CollectionsNativeChildRecoveryManifestStore _manifestStore;
+			private readonly CollectionNativeStateReader _nativeStateReader;
+			private readonly MutableInstallLogSnapshot _installState;
+			private readonly string _archivePath;
+			private long _deploymentSequence;
+
+			public DeterministicNativeBoundary(CollectionsOperationStore operationStore,
+				CollectionsNativeChildRecoveryManifestStore manifestStore, CollectionNativeStateReader nativeStateReader,
+				MutableInstallLogSnapshot installState, string archivePath)
+			{
+				_operationStore = operationStore;
+				_manifestStore = manifestStore;
+				_nativeStateReader = nativeStateReader;
+				_installState = installState;
+				_archivePath = archivePath;
+				_deploymentSequence = installState.Get().DeploymentCommitSequence;
+			}
+
+			public int CallCount { get; private set; }
+			public ModInstallationRecipeInput LastRecipe { get; private set; }
+			public CollectionNativeChildRecoveryManifest LastPreparedManifest { get; private set; }
+
+			public Task<CollectionNativeChildVerificationResult> ApplyAsync(CollectionNativeChildPreparationResult prepared,
+				ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview reviewedPreview,
+				ModInstallationRecipeInput childRecipe, GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				CallCount++;
+				LastRecipe = childRecipe;
+				CollectionOperation operation = _operationStore.GetOperation(prepared.Operation.Identity);
+				CollectionNativeChildOperation child = operation.NativeChildren.Single(x => x.Sequence == prepared.Child.Sequence);
+				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, child);
+				LastPreparedManifest = manifest;
+
+				var preFiles = reviewedPreview.Files.Select(x =>
+					new CollectionNativeFileContentEvidence(x.Target, false, null, 0)).ToArray();
+				CollectionContentHash expectedHash = ComputeHash(Encoding.UTF8.GetBytes("deterministic-native-boundary"));
+				var expectedFiles = reviewedPreview.Files.Select(x =>
+					new CollectionNativeFileContentEvidence(x.Target, true, expectedHash, 29)).ToArray();
+				var expectedReplay = childRecipe.NativeOperations.OfType<InstallModFileOperation>()
+					.Select(x => new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile,
+						x.SourcePath, x.DestinationPath, 0, null)).ToArray();
+				var evidence = new CollectionNativeChildExecutionEvidence("skyrimspecialedition", 100, 200,
+					Path.GetFileName(_archivePath), reviewedPreview, preFiles, expectedFiles,
+					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+					expectedReplay);
+				_manifestStore.SaveManifest(manifest.WithExecutionEvidence(evidence));
+
+				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
+					CollectionNativeChildCheckpoint.NativeSubmitted, null);
+				operation = SaveChild(operation, child);
+
+				string nativeKey = manifest.PreviousNativeMod == null ? "native-required" : manifest.PreviousNativeMod.Identity.NativeModKey;
+				_deploymentSequence++;
+				_installState.Set(CreateInstallSnapshot(nativeKey, _archivePath, childRecipe.InstallContext.Method,
+					_deploymentSequence, reviewedPreview.Files.Select(x => x.Target)));
+				CollectionNativeStateIndex terminalState = _nativeStateReader.Capture(plan.Target);
+				CollectionNativeModState verifiedNativeMod = terminalState.Mods.Values.Single(x =>
+					x.Identity.NativeModKey.Equals(nativeKey, StringComparison.OrdinalIgnoreCase));
+
+				manifest = _manifestStore.GetManifest(operation, child);
+				_manifestStore.SaveManifest(manifest.WithTerminalStateFingerprint(terminalState.Fingerprint));
+				var nativeResult = new ModOperationResult(child.NativeOperation, ModOperationReportedStatus.Succeeded,
+					ModOperationDurability.VerifiedCommitted, "C6.15.14 deterministic native boundary committed.");
+				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
+					CollectionNativeChildCheckpoint.NativeTerminalObserved, nativeResult);
+				operation = SaveChild(operation, child);
+
+				return Task.FromResult(new CollectionNativeChildVerificationResult(operation, child, terminalState,
+					verifiedNativeMod, ModOperationDurability.VerifiedCommitted));
+			}
+
+			private CollectionOperation SaveChild(CollectionOperation operation, CollectionNativeChildOperation child)
+			{
+				List<CollectionNativeChildOperation> children = operation.NativeChildren.Where(x => x.Sequence != child.Sequence).ToList();
+				children.Add(child);
+				var updated = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, operation.PlanIdentity, checked(operation.CheckpointSequence + 1), operation.Phase,
+					operation.ResultState, children);
+				_operationStore.SaveOperation(updated);
+				return _operationStore.GetOperation(operation.Identity);
+			}
+		}
+
+		private sealed class RecordingWinnerBarrier
+		{
+			public int CallCount { get; private set; }
+
+			public Task ReconcileAsync(CollectionOperationIdentity operationIdentity, ResolvedCollectionPlan plan,
+				CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan, GameStoragePathSet targetPaths,
+				CancellationToken cancellationToken)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				CallCount++;
+				return Task.CompletedTask;
+			}
+		}
+
+		private sealed class MutableInstallLogSnapshot
+		{
+			private InstallLogReadSnapshot _snapshot;
+			public InstallLogReadSnapshot Get() { return _snapshot; }
+			public void Set(InstallLogReadSnapshot snapshot) { _snapshot = snapshot; }
+		}
+
+		private sealed class FixedArchiveSource : ICollectionManagedArchiveSource
+		{
+			private readonly CollectionManagedArchiveCandidate _candidate;
+			public FixedArchiveSource(CollectionManagedArchiveCandidate candidate) { _candidate = candidate; }
+			public IReadOnlyList<CollectionManagedArchiveCandidate> FindCandidates(CollectionArtifactReference requestedArtifact)
+			{
+				return new[] { _candidate };
+			}
+		}
+
+		private sealed class AcceptingVerifier : ICollectionArchiveIdentityVerifier
+		{
+			public bool IsExactMatch(CollectionArtifactReference requestedArtifact, Stream immutableArchive,
+				CancellationToken cancellationToken)
+			{
+				return true;
+			}
+		}
+
+		private sealed class FixedAccountProvider : ICollectionPremiumAcquisitionAccountProvider
+		{
+			private readonly bool _premium;
+			public FixedAccountProvider(bool premium) { _premium = premium; }
+			public CollectionPremiumAcquisitionAccountState Capture()
+			{
+				return new CollectionPremiumAcquisitionAccountState("skyrimspecialedition", true, _premium);
+			}
+		}
+
+		private sealed class EmptyPersistedAddModStateSource : ICollectionPersistedAddModStateSource
+		{
+			public CollectionPersistedAddModState Find(Guid queueOperationId) { return null; }
+		}
+
+		private sealed class FailingQueue : ICollectionAddModQueue
+		{
+			public IBackgroundTask Queue(Uri sourceUri, ConfirmOverwriteCallback confirmOverwriteCallback, Guid queueOperationId)
+			{
+				throw new InvalidOperationException("C6.15.14b exact-archive fixtures must not enqueue an acquisition.");
+			}
+		}
+
+		private static GameStoragePathSet CreateStoragePaths(string root)
+		{
+			string storage = Path.Combine(root, "Storage");
+			string installInfo = Path.Combine(storage, "InstallInfo");
+			string mods = Path.Combine(storage, "Mods");
+			string virtualInstall = Path.Combine(storage, "VirtualInstall");
+			string game = Path.Combine(root, "Game");
+			Directory.CreateDirectory(installInfo);
+			Directory.CreateDirectory(mods);
+			Directory.CreateDirectory(virtualInstall);
+			Directory.CreateDirectory(game);
+			File.WriteAllText(Path.Combine(installInfo, "InstallLog.xml"), "<installLog />");
+			return new GameStoragePathSet
+			{
+				GameId = "SkyrimSE",
+				GameName = "Skyrim SE",
+				GameInstallPath = game,
+				InstallInfoPath = installInfo,
+				ModsPath = mods,
+				VirtualInstallPath = virtualInstall,
+				LinkFolderRequired = false
+			};
+		}
+
+		private static IGameMode CreateGameMode(GameStoragePathSet paths)
+		{
+			return InterfaceStub<IGameMode>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_ModeId": return paths.GameId;
+					case "get_InstallationPath": return paths.GameInstallPath;
+					case "get_PluginDirectory": return paths.GameInstallPath;
+					case "get_HasSecondaryInstallPath": return false;
+					case "get_UsesPlugins": return false;
+					case "GetModFormatAdjustedPath": return args[1];
+					default: return null;
+				}
+			});
+		}
+
+		private static IMod CreateManagedMod(string archivePath)
+		{
+			return InterfaceStub<IMod>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_Id": return "100";
+					case "get_DownloadId": return "200";
+					case "get_ModName": return "Required";
+					case "get_Filename":
+					case "get_ModArchivePath": return archivePath;
+					case "get_FileName": return Path.GetFileName(archivePath);
+					case "get_HumanReadableVersion": return "1.0";
+					case "GetFileList": return new List<string> { @"meshes\body.nif" };
+					default: return null;
+				}
+			});
+		}
+
+		private static ModManager CreateModManagerShell(IGameMode gameMode, IInstallLog installLog, IMod mod,
+			ModInstallMethod preferredInstallMethod)
+		{
+			var registry = new ModRegistry(InterfaceStub<IModFormatRegistry>.Create((method, args) => null), gameMode);
+			FieldInfo registeredModsField = typeof(ModRegistry).GetField("m_oclRegisteredMods", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(registeredModsField, Is.Not.Null);
+			var registeredMods = (ThreadSafeObservableList<IMod>)registeredModsField.GetValue(registry);
+			registeredMods.Add(mod);
+
+			var preferred = new PerGameModeSettings<string>();
+			preferred["SkyrimSE"] = preferredInstallMethod.ToString();
+			ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_PreferredInstallMethod": return preferred;
+					case "get_SkipReadmeFiles": return false;
+					default: return null;
+				}
+			});
+			IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+				method.Name == "get_Settings" ? settings : null);
+			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
+				method.Name == "get_GameDomainName" ? "skyrimspecialedition" : null);
+
+			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			SetField(manager, "<GameMode>k__BackingField", gameMode);
+			SetField(manager, "<InstallationLog>k__BackingField", installLog);
+			SetField(manager, "<ManagedModRegistry>k__BackingField", registry);
+			SetField(manager, "<EnvironmentInfo>k__BackingField", environment);
+			SetField(manager, "<ModRepository>k__BackingField", repository);
+			return manager;
+		}
+
+		private static InstallLogReadSnapshot CreateInstallSnapshot(string nativeKey, string archivePath,
+			ModInstallMethod installMethod, long deploymentSequence, IEnumerable<ModDeploymentTarget> files)
+		{
+			var mods = new List<InstallLogReadMod>();
+			var installedFiles = new List<InstallLogReadFile>();
+			if (!String.IsNullOrEmpty(nativeKey))
+			{
+				mods.Add(new InstallLogReadMod(nativeKey, archivePath, Path.GetFileName(archivePath), "100", "200",
+					"1.0", "1.0", false, ModInstallRoot.Data, installMethod, false));
+				foreach (ModDeploymentTarget target in files)
+					installedFiles.Add(new InstallLogReadFile(target.RelativePath, target, new[] { nativeKey }));
+			}
+			return new InstallLogReadSnapshot("original-values", deploymentSequence, mods, installedFiles,
+				new InstallLogReadIniEdit[0], new InstallLogReadGameValue[0], new InstallLogReadDeploymentTarget[0]);
+		}
+
+		private static void SetField(object target, string fieldName, object value)
+		{
+			FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(field, Is.Not.Null, "Missing field: " + fieldName);
+			field.SetValue(target, value);
+		}
+
+		private static CollectionContentHash ComputeHash(byte[] bytes)
+		{
+			using (SHA256 sha256 = SHA256.Create())
+				return CollectionContentHash.FromSha256(BitConverter.ToString(sha256.ComputeHash(bytes))
+					.Replace("-", String.Empty).ToLowerInvariant());
+		}
+	}
+}

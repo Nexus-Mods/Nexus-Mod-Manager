@@ -172,12 +172,24 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionFileImpact> fileImpacts, IEnumerable<CollectionPluginImpact> pluginImpacts,
 			IEnumerable<CollectionConfigurationImpact> configurationImpacts, IEnumerable<CollectionAssociationImpact> associationImpacts,
 			IEnumerable<CollectionConflictImpactIssue> issues)
+			: this(plan, nativeState == null ? null : nativeState.Fingerprint, fileImpacts, pluginImpacts, configurationImpacts, associationImpacts, issues)
+		{
+			if (nativeState == null) throw new ArgumentNullException(nameof(nativeState));
+		}
+
+		/// <summary>Reconstructs persisted reviewed impacts against the plan's original approved state fingerprint.</summary>
+		internal CollectionConflictImpactPlan(ResolvedCollectionPlan plan, CollectionCurrentStateFingerprint stateFingerprint,
+			IEnumerable<CollectionFileImpact> fileImpacts, IEnumerable<CollectionPluginImpact> pluginImpacts,
+			IEnumerable<CollectionConfigurationImpact> configurationImpacts, IEnumerable<CollectionAssociationImpact> associationImpacts,
+			IEnumerable<CollectionConflictImpactIssue> issues)
 		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
-			if (nativeState == null) throw new ArgumentNullException(nameof(nativeState));
+			if (stateFingerprint == null) throw new ArgumentNullException(nameof(stateFingerprint));
+			if (!stateFingerprint.Equals(plan.CurrentStateFingerprint))
+				throw new ArgumentException("A reviewed impact plan must remain bound to the plan's approved native-state fingerprint.", nameof(stateFingerprint));
 			PlanIdentity = plan.Identity;
 			Target = plan.Target;
-			StateFingerprint = nativeState.Fingerprint;
+			StateFingerprint = stateFingerprint;
 			_fileImpacts = Copy(fileImpacts, nameof(fileImpacts));
 			_pluginImpacts = Copy(pluginImpacts, nameof(pluginImpacts));
 			_configurationImpacts = Copy(configurationImpacts, nameof(configurationImpacts));

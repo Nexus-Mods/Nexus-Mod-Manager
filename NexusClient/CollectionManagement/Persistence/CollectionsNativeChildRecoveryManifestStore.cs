@@ -16,6 +16,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	{
 		private const string PayloadFormatV1 = "nmm-ce.collections.child-recovery/1";
 		private const string PayloadFormatV2 = "nmm-ce.collections.child-recovery/2";
+		private const string PayloadFormatV3 = "nmm-ce.collections.child-recovery/3";
+		private const string PayloadFormatV4 = "nmm-ce.collections.child-recovery/4";
 		private const long MaximumManifestBytes = 16L * 1024L * 1024L;
 		private const int MaximumPayloadCount = 100000;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -41,7 +43,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			CollectionsRetainedArtifact retained;
 			using (var stream = new MemoryStream(payload, false)) retained = _artifactStore.Publish(stream);
 			_referenceStore.AcquireExclusiveRoleReference(retained.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
-				manifest.OperationIdentity.ToString(), manifest.ExecutionEvidence == null ? GetManifestRole(manifest.ChildSequence) : GetExecutionManifestRole(manifest.ChildSequence));
+				manifest.OperationIdentity.ToString(), GetManifestRoleForState(manifest));
 			return CollectionRecoveryArtifact.FromRetainedArtifact(retained);
 		}
 
@@ -55,7 +57,13 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				throw new ArgumentException("The native child must belong to the supplied Collection operation.", nameof(child));
 
 			CollectionsRetainedArtifactReferenceRecord reference = _referenceStore.GetReferenceForOwnerRole(
-				CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.ToString(), GetExecutionManifestRole(child.Sequence));
+				CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.ToString(), GetSafeBoundaryManifestRole(child.Sequence));
+			if (reference == null)
+				reference = _referenceStore.GetReferenceForOwnerRole(CollectionsRetainedArtifactOwnerKind.Operation,
+					operation.Identity.ToString(), GetTerminalManifestRole(child.Sequence));
+			if (reference == null)
+				reference = _referenceStore.GetReferenceForOwnerRole(CollectionsRetainedArtifactOwnerKind.Operation,
+					operation.Identity.ToString(), GetExecutionManifestRole(child.Sequence));
 			if (reference == null)
 				reference = _referenceStore.GetReferenceForOwnerRole(CollectionsRetainedArtifactOwnerKind.Operation,
 					operation.Identity.ToString(), GetManifestRole(child.Sequence));
@@ -121,6 +129,28 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			return String.Format("child-{0:D8}-recovery-manifest-v2", childSequence);
 		}
 
+		/// <summary>Returns the exclusive retained-reference role used after C6.8/C6.9 verifies committed terminal state.</summary>
+		public static string GetTerminalManifestRole(int childSequence)
+		{
+			RequireSequence(childSequence);
+			return String.Format("child-{0:D8}-recovery-manifest-v3", childSequence);
+		}
+
+		/// <summary>Returns the exclusive retained-reference role used after C6.10 establishes the next safe continuation boundary.</summary>
+		public static string GetSafeBoundaryManifestRole(int childSequence)
+		{
+			RequireSequence(childSequence);
+			return String.Format("child-{0:D8}-recovery-manifest-v4", childSequence);
+		}
+
+		private static string GetManifestRoleForState(CollectionNativeChildRecoveryManifest manifest)
+		{
+			if (manifest.SafeBoundaryStateFingerprint != null) return GetSafeBoundaryManifestRole(manifest.ChildSequence);
+			if (manifest.TerminalStateFingerprint != null) return GetTerminalManifestRole(manifest.ChildSequence);
+			if (manifest.ExecutionEvidence != null) return GetExecutionManifestRole(manifest.ChildSequence);
+			return GetManifestRole(manifest.ChildSequence);
+		}
+
 		private void ValidateRetainedInputs(CollectionNativeChildRecoveryManifest manifest)
 		{
 			ValidateArtifactLease(manifest, GetIncomingArchiveRole(manifest.ChildSequence), manifest.IncomingArchive);
@@ -160,7 +190,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 			{
-				writer.Write(manifest.ExecutionEvidence == null ? PayloadFormatV1 : PayloadFormatV2);
+				string payloadFormat = manifest.SafeBoundaryStateFingerprint != null ? PayloadFormatV4 :
+					manifest.TerminalStateFingerprint != null ? PayloadFormatV3 :
+					manifest.ExecutionEvidence != null ? PayloadFormatV2 : PayloadFormatV1;
+				writer.Write(payloadFormat);
 				writer.Write(manifest.OperationIdentity.OperationId.ToString("D"));
 				writer.Write(manifest.ChildSequence);
 				writer.Write(manifest.PlanIdentity.PlanId.ToString("D"));
@@ -189,6 +222,16 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				}
 				if (manifest.ExecutionEvidence != null)
 					WriteExecutionEvidence(writer, manifest.ExecutionEvidence);
+				if (manifest.TerminalStateFingerprint != null)
+				{
+					writer.Write(manifest.TerminalStateFingerprint.FormatVersion);
+					writer.Write(manifest.TerminalStateFingerprint.Value);
+				}
+				if (manifest.SafeBoundaryStateFingerprint != null)
+				{
+					writer.Write(manifest.SafeBoundaryStateFingerprint.FormatVersion);
+					writer.Write(manifest.SafeBoundaryStateFingerprint.Value);
+				}
 				writer.Flush();
 				return stream.ToArray();
 			}
@@ -198,8 +241,24 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		{
 			string payloadFormat = reader.ReadString();
 			bool hasExecutionEvidence;
-			if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV1)) hasExecutionEvidence = false;
-			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV2)) hasExecutionEvidence = true;
+			bool hasTerminalStateFingerprint;
+			bool hasSafeBoundaryStateFingerprint;
+			if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV1))
+			{
+				hasExecutionEvidence = false; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
+			}
+			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV2))
+			{
+				hasExecutionEvidence = true; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
+			}
+			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV3))
+			{
+				hasExecutionEvidence = true; hasTerminalStateFingerprint = true; hasSafeBoundaryStateFingerprint = false;
+			}
+			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV4))
+			{
+				hasExecutionEvidence = true; hasTerminalStateFingerprint = true; hasSafeBoundaryStateFingerprint = true;
+			}
 			else throw new InvalidDataException("The child recovery manifest uses an unsupported format.");
 			Guid operationId = ReadGuid(reader.ReadString(), "operation");
 			int sequence = reader.ReadInt32();
@@ -225,6 +284,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			var payloads = new List<CollectionReplayRecoveryPayload>(payloadCount);
 			for (int i = 0; i < payloadCount; i++) payloads.Add(new CollectionReplayRecoveryPayload(reader.ReadString(), ReadArtifact(reader)));
 			CollectionNativeChildExecutionEvidence executionEvidence = hasExecutionEvidence ? ReadExecutionEvidence(reader) : null;
+			CollectionCurrentStateFingerprint terminalStateFingerprint = hasTerminalStateFingerprint
+				? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
+			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint = hasSafeBoundaryStateFingerprint
+				? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
 
 			if (operationId != operation.Identity.OperationId || sequence != child.Sequence || operation.PlanIdentity == null ||
 				planId != operation.PlanIdentity.PlanId || planVersion != operation.PlanIdentity.Version || !memberKey.Equals(child.Member.MemberKey) ||
@@ -233,7 +296,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 
 			return new CollectionNativeChildRecoveryManifest(operation.Identity, sequence, operation.PlanIdentity, child.Member, action,
 				nativeOperation, stateFingerprint, incoming, previousNativeMod, previousArchive,
-				new CollectionScriptedReplayRecoverySnapshot(replayFileExisted, replayFile, payloadDirectoryExisted, payloads), executionEvidence);
+				new CollectionScriptedReplayRecoverySnapshot(replayFileExisted, replayFile, payloadDirectoryExisted, payloads),
+				executionEvidence, terminalStateFingerprint, safeBoundaryStateFingerprint);
 		}
 
 
