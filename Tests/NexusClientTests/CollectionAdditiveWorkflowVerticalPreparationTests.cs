@@ -2,10 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Nexus.Client;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.CollectionManagement;
@@ -21,11 +24,61 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	/// <summary>
-	/// C6.15.14a vertical planning/preparation coverage through the real headless additive workflow coordinator.
+	/// C6.15.14a/14g vertical planning/preparation coverage through the real headless additive workflow coordinator.
 	/// </summary>
 	[TestFixture]
 	public class CollectionAdditiveWorkflowVerticalPreparationTests
 	{
+		private const string SourceArchiveBase64 = "UEsDBBQAAAAIAI2QN11CiHJS4QAAAGIBAAAPAAAAY29sbGVjdGlvbi5qc29ujVC7TsQwEOz5itPWVnJBQOGWigahk6BBV6zsDbfCL/w4JYry79jJ0dPtzM7sjHYBdqMHuQCWfPERJDyXiLlO4ka9R1PZS84hyb6nCW0w1LG7omHd32wCHFpq7qdueOyGh69KaUoqcsjsXd18UMys0BySL1HRYeQpl0hN5y2ye90PpO85sk2BFKMhzZt7FWC9TiA/l7+gE/0UjqSr/0ox7RlDRX4LxFp6RJPoP+cF7J3aH/Icms7RVBJssS8a5HA8ChjZUAP3DZSgMdObN6zmqq9/URnW9bxZTsVQa3te734BUEsBAh4DFAAAAAgAjZA3XUKIclLhAAAAYgEAAA8AAAAAAAAAAQAAAKSBAAAAAGNvbGxlY3Rpb24uanNvblBLBQYAAAAAAQABAD0AAAAOAQAAAAA=";
+
+		public enum RevisionSourceMode
+		{
+			DirectRetainedManifest = 0,
+			LocalRawImport = 1,
+			LocalArchiveImport = 2,
+			RemoteArchiveAcquisition = 3
+		}
+
+		[TestCase(RevisionSourceMode.LocalRawImport)]
+		[TestCase(RevisionSourceMode.LocalArchiveImport)]
+		[TestCase(RevisionSourceMode.RemoteArchiveAcquisition)]
+		public void Prepare_ImportedOrAcquiredRevisionSource_ComposesIntoDurableReadyReview(RevisionSourceMode sourceMode)
+		{
+			using (Fixture fixture = Fixture.Create(seedCompatibleNativeState: true, premium: false, includeOptional: false, sourceMode: sourceMode))
+			{
+				CollectionAdditiveWorkflowPreparationResult result = fixture.Workflow.PrepareAsync(
+					fixture.BuildSelection(false), fixture.Paths, null, CancellationToken.None).GetAwaiter().GetResult();
+
+				Assert.That(result.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(result.Runtime.Plan.ManifestSource, Is.EqualTo(fixture.Manifest.Source));
+				Assert.That(result.Runtime.Matches.Members.Single().Disposition,
+					Is.EqualTo(CollectionMemberMatchDisposition.InstalledCompatible));
+				CollectionRevisionSourceRecord source = new CollectionsRevisionSourceStore(fixture.Store).GetSource(fixture.Revision.Identity);
+				Assert.That(source, Is.Not.Null);
+				Assert.That(source.RawManifestArtifactId, Is.Not.Null.And.Not.Empty);
+				Assert.That(source.RawBundleArtifactId, Is.Not.Null.And.Not.Empty);
+				Assert.That(source.InputKind, Is.EqualTo(sourceMode == RevisionSourceMode.LocalRawImport
+					? CollectionRevisionSourceInputKind.RawManifest
+					: CollectionRevisionSourceInputKind.Archive));
+				Assert.That(fixture.Workflow.GetReview(result.Operation.Identity).IsReady, Is.True);
+			}
+		}
+		[TestCase("latest")]
+		[TestCase("prefer")]
+		public void Prepare_UnresolvedSourcePolicy_RemainsActionRequiredAndCreatesNoWorkflowOperation(string updatePolicy)
+		{
+			using (Fixture fixture = Fixture.Create(seedCompatibleNativeState: true, premium: false, includeOptional: false,
+				updatePolicy: updatePolicy))
+			{
+				CollectionEffectiveSelection selection = fixture.BuildSelection(false);
+				Assert.That(selection.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.ActionRequired));
+				Assert.Throws<InvalidOperationException>(() => fixture.Workflow.PrepareAsync(
+					selection, fixture.Paths, null, CancellationToken.None).GetAwaiter().GetResult());
+				Assert.That(new CollectionsOperationStore(fixture.Store).GetIncompleteOperations(), Is.Empty,
+					"An unresolved latest/prefer source policy must not create a durable apply operation before an exact artifact is chosen.");
+			}
+		}
+
 		[Test]
 		public void Prepare_RequiredInstalledCompatibleMember_ReachesDurableReadyReviewWithoutRecipeOrAcquisition()
 		{
@@ -153,7 +206,7 @@ namespace NexusClientTests
 
 			private Fixture(string root, GameStorageService storageService, GameStoragePathSet paths,
 				CollectionsStore store, CollectionRevision revision, NormalizedCollectionManifest manifest,
-				NormalizedCollectionMember requiredMember, NormalizedCollectionMember optionalMember,
+				CollectionCapabilityReport capabilityReport, NormalizedCollectionMember requiredMember, NormalizedCollectionMember optionalMember,
 				CollectionTargetIdentity target, MutableInstallLogSnapshot installState,
 				CollectionsAssociationStore associations, CollectionTargetAssociation compatibleAssociation,
 				NativeModInstanceIdentity requiredNativeIdentity, NativeModInstanceIdentity optionalNativeIdentity,
@@ -166,6 +219,7 @@ namespace NexusClientTests
 				Store = store;
 				Revision = revision;
 				Manifest = manifest;
+				CapabilityReport = capabilityReport ?? throw new ArgumentNullException(nameof(capabilityReport));
 				RequiredMember = requiredMember;
 				OptionalMember = optionalMember;
 				Target = target;
@@ -186,6 +240,7 @@ namespace NexusClientTests
 			public CollectionsStore Store { get; }
 			public CollectionRevision Revision { get; }
 			public NormalizedCollectionManifest Manifest { get; }
+			public CollectionCapabilityReport CapabilityReport { get; }
 			public NormalizedCollectionMember RequiredMember { get; }
 			public NormalizedCollectionMember OptionalMember { get; }
 			public CollectionTargetIdentity Target { get; }
@@ -193,7 +248,8 @@ namespace NexusClientTests
 			public RecordingQueue Queue { get; }
 			public CollectionAdditiveWorkflowCoordinator Workflow { get; }
 
-			public static Fixture Create(bool seedCompatibleNativeState, bool premium, bool includeOptional)
+			public static Fixture Create(bool seedCompatibleNativeState, bool premium, bool includeOptional,
+				RevisionSourceMode sourceMode = RevisionSourceMode.DirectRetainedManifest, string updatePolicy = "exact")
 			{
 				string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-14a-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(root);
@@ -215,8 +271,13 @@ namespace NexusClientTests
 				var recoveryManifests = new CollectionsNativeChildRecoveryManifestStore(artifacts, references);
 				var operationCoordinator = new CollectionOperationCoordinator(operationStore, planStore);
 
-				CollectionIdentity collection = CollectionIdentity.FromNexus("c61514a-" + Guid.NewGuid().ToString("N"));
-				var revision = new CollectionRevision(CollectionRevisionIdentity.FromNexus(collection, "revision-one", 1),
+				if (sourceMode != RevisionSourceMode.DirectRetainedManifest && (includeOptional || !StringComparer.OrdinalIgnoreCase.Equals(updatePolicy, "exact")))
+					throw new InvalidOperationException("C6.15.14g imported/acquired source fixtures use the required-only exact-policy manifest.");
+				CollectionIdentity collection = sourceMode == RevisionSourceMode.RemoteArchiveAcquisition
+					? CollectionIdentity.FromNexus("2210")
+					: CollectionIdentity.FromNexus("c61514a-" + Guid.NewGuid().ToString("N"));
+				var revision = new CollectionRevision(CollectionRevisionIdentity.FromNexus(collection,
+					sourceMode == RevisionSourceMode.RemoteArchiveAcquisition ? "772530" : "revision-one", 1),
 					"Revision 1", null, includeOptional ? 2 : 1);
 				catalog.SaveDefinitionAndRevision(new CollectionDefinition(collection, "C6.15.14a", null, null), revision);
 
@@ -226,19 +287,21 @@ namespace NexusClientTests
 
 				string manifestJson = "{" +
 					"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"C6.15.14a\",\"description\":\"Vertical preparation fixture\",\"domainName\":\"skyrimspecialedition\"}," +
-					"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":100,\"fileId\":200,\"updatePolicy\":\"exact\"}}" +
+					"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":100,\"fileId\":200,\"updatePolicy\":\"" + updatePolicy + "\"}}" +
 					(includeOptional ? ",{\"name\":\"Optional\",\"version\":\"1\",\"optional\":true,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":101,\"fileId\":201,\"updatePolicy\":\"exact\"}}" : String.Empty) +
 					"],\"modRules\":[]}";
 				byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
-				NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
-				Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
-				NormalizedCollectionManifest manifest = normalization.Manifest;
+				CollectionCapabilityReport retainedCapability;
+				NormalizedCollectionManifest manifest = RetainRevisionSource(root, store, revisionSources, revision, manifestBytes,
+					sourceMode, out retainedCapability);
+				CollectionCompatibilityStatus expectedCapability = StringComparer.OrdinalIgnoreCase.Equals(updatePolicy, "exact")
+					? CollectionCompatibilityStatus.Supported
+					: CollectionCompatibilityStatus.ActionRequired;
+				Assert.That(retainedCapability.Status, Is.EqualTo(expectedCapability));
 				NormalizedCollectionMember required = manifest.Members.Single(x => x.Artifact.StableId == "skyrimspecialedition/100/200");
 				NormalizedCollectionMember optional = includeOptional
 					? manifest.Members.Single(x => x.Artifact.StableId == "skyrimspecialedition/101/201")
 					: null;
-				revisionSources.RetainManifest(manifest, CollectionRevisionSourceInputKind.RawManifest,
-					manifest.Source.ContentHash, manifest.Source.ByteLength, "collection.json", manifestBytes);
 
 				var compatibleAssociation = new CollectionTargetAssociation(Guid.NewGuid(), revision.Identity, target,
 					CollectionAssociationState.Applied);
@@ -317,17 +380,61 @@ namespace NexusClientTests
 					CollectionTargetMutationLeaseManager.Shared,
 					new CollectionTargetOwnershipAuthorityValidator(storageService, services));
 
-				return new Fixture(root, storageService, paths, store, revision, manifest, required, optional, target,
+				return new Fixture(root, storageService, paths, store, revision, manifest, retainedCapability, required, optional, target,
 					installState, associations, compatibleAssociation, requiredNativeIdentity, optionalNativeIdentity,
 					archiveSource, queue, workflow, archivePath);
 			}
 
+			private static NormalizedCollectionManifest RetainRevisionSource(string root, CollectionsStore store,
+				CollectionsRevisionSourceStore revisionSources, CollectionRevision revision, byte[] manifestBytes, RevisionSourceMode sourceMode,
+				out CollectionCapabilityReport capabilityReport)
+			{
+				if (sourceMode == RevisionSourceMode.DirectRetainedManifest)
+				{
+					NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
+					revisionSources.RetainManifest(normalization.Manifest, CollectionRevisionSourceInputKind.RawManifest,
+						normalization.Manifest.Source.ContentHash, normalization.Manifest.Source.ByteLength, "collection.json", manifestBytes);
+					capabilityReport = normalization.CapabilityReport;
+					return normalization.Manifest;
+				}
+
+				byte[] sourceBytes = sourceMode == RevisionSourceMode.LocalRawImport
+					? manifestBytes
+					: Convert.FromBase64String(SourceArchiveBase64);
+				if (sourceMode == RevisionSourceMode.RemoteArchiveAcquisition)
+				{
+					var providerRevision = new NexusCollectionRevisionMetadata(2210, 772530, 1, 1, "/v2/collections/2210/revisions/772530/download_link");
+					Uri contentUri = new Uri("https://collection-cdn.example.invalid/revision-1.zip?token=ephemeral");
+					var provider = new FixedBundleProvider(providerRevision, contentUri);
+					using (var acquirer = new NexusCollectionBundleAcquirer(provider, store,
+						new FixedContentHandler(sourceBytes), NexusCollectionBundleAcquirer.DefaultMaximumBundleBytes))
+					{
+						NexusCollectionBundleAcquisitionResult acquired = acquirer.AcquireAsync(providerRevision, revision).GetAwaiter().GetResult();
+						Assert.That(provider.ResolveCallCount, Is.EqualTo(1));
+						capabilityReport = acquired.BundleImport.Normalization.CapabilityReport;
+						return acquired.BundleImport.Manifest;
+					}
+				}
+
+				string sourcePath = Path.Combine(root, sourceMode == RevisionSourceMode.LocalRawImport ? "collection.json" : "collection.zip");
+				File.WriteAllBytes(sourcePath, sourceBytes);
+				NexusCollectionBundleImportResult imported = new NexusCollectionBundleImporter().ImportFile(sourcePath, revision);
+				CollectionRevisionSourceInputKind inputKind = imported.InputKind == NexusCollectionBundleInputKind.RawManifest
+					? CollectionRevisionSourceInputKind.RawManifest
+					: CollectionRevisionSourceInputKind.Archive;
+				revisionSources.RetainManifest(imported.Manifest, inputKind, imported.BundleContentHash, imported.BundleByteLength,
+					imported.ManifestEntryName, imported.Normalization.GetRawManifestBytes());
+				using (FileStream stream = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+					revisionSources.RetainBundle(revision.Identity, stream, CancellationToken.None);
+				capabilityReport = imported.Normalization.CapabilityReport;
+				return imported.Manifest;
+			}
+
 			public CollectionEffectiveSelection BuildSelection(bool selectOptional)
 			{
-				CollectionCapabilityReport report = CollectionCapabilityReport.Create(Manifest);
 				if (OptionalMember == null)
-					return new CollectionEffectiveSelectionBuilder().Build(report, new CollectionOptionalMemberSelection[0]);
-				return new CollectionEffectiveSelectionBuilder().Build(report, new[]
+					return new CollectionEffectiveSelectionBuilder().Build(CapabilityReport, new CollectionOptionalMemberSelection[0]);
+				return new CollectionEffectiveSelectionBuilder().Build(CapabilityReport, new[]
 				{
 					new CollectionOptionalMemberSelection(OptionalMember.IdentityResolution.Key,
 						selectOptional ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected)
@@ -471,7 +578,7 @@ namespace NexusClientTests
 					switch (method.Name)
 					{
 						case "get_Status":
-						case "get_InnerTaskStatus": return TaskStatus.Queued;
+						case "get_InnerTaskStatus": return Nexus.Client.BackgroundTasks.TaskStatus.Queued;
 						case "add_TaskEnded": _taskEnded += (EventHandler<TaskEndedEventArgs>)args[0]; return null;
 						case "remove_TaskEnded": _taskEnded -= (EventHandler<TaskEndedEventArgs>)args[0]; return null;
 						case "add_PropertyChanged": _propertyChanged += (System.ComponentModel.PropertyChangedEventHandler)args[0]; return null;
@@ -480,6 +587,49 @@ namespace NexusClientTests
 						case "get_ItemMessage": return String.Empty;
 						default: return null;
 					}
+				});
+			}
+		}
+
+		private sealed class FixedBundleProvider : INexusCollectionsProvider
+		{
+			private readonly NexusCollectionRevisionMetadata _revision;
+			private readonly Uri _contentUri;
+			public FixedBundleProvider(NexusCollectionRevisionMetadata revision, Uri contentUri)
+			{
+				_revision = revision;
+				_contentUri = contentUri;
+			}
+			public int ResolveCallCount { get; private set; }
+			public Task<NexusCollectionSummaryLookupResult> GetSummaryAsync(string collectionSlug, CancellationToken cancellationToken = default(CancellationToken))
+			{
+				throw new NotSupportedException();
+			}
+			public Task<NexusCollectionRevisionLookupResult> GetRevisionAsync(NexusCollectionRevisionRequest request, CancellationToken cancellationToken = default(CancellationToken))
+			{
+				throw new NotSupportedException();
+			}
+			public Task<NexusCollectionBundleResolutionResult> ResolveBundleAsync(NexusCollectionRevisionMetadata revision, CancellationToken cancellationToken = default(CancellationToken))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				ResolveCallCount++;
+				return Task.FromResult(new NexusCollectionBundleResolutionResult(_revision, 1, new[]
+				{
+					new NexusCollectionBundleDownloadLocation(_contentUri, "fixture", "fixture")
+				}));
+			}
+		}
+
+		private sealed class FixedContentHandler : HttpMessageHandler
+		{
+			private readonly byte[] _content;
+			public FixedContentHandler(byte[] content) { _content = content; }
+			protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+				{
+					Content = new ByteArrayContent(_content)
 				});
 			}
 		}

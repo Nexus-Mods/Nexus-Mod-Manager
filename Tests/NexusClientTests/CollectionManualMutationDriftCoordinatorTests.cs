@@ -53,7 +53,7 @@ namespace NexusClientTests
 					CollectionManualMutationKind.VirtualDisable, "native-a", null);
 				coordinator.RecordCommittedNativeMutation(capture, null);
 
-				Assert.AreEqual(CollectionAssociationState.Modified, fixture.Associations.GetAssociation(association.AssociationId).State);
+				Assert.AreEqual(CollectionAssociationState.Incomplete, fixture.Associations.GetAssociation(association.AssociationId).State);
 				CollectionDriftObservation drift = fixture.Associations.GetDriftObservations(association.AssociationId).Single();
 				Assert.AreEqual(CollectionRequirementAspect.MemberEnabledState, drift.Requirement.Aspect);
 				Assert.AreEqual(CollectionRequirementStateKind.Present, drift.ExpectedState.Kind);

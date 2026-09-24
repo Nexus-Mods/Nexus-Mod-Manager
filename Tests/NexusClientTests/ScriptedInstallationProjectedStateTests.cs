@@ -205,7 +205,7 @@ namespace NexusClientTests
             {
                 ScriptProxyContext ctx = new ScriptProxyContext(tmp.Path, "12345", false, false, "linked", new ScriptedInstallerTestPluginFactory());
                 ctx.AddManagedPlugin("Existing.esp");
-                ctx.AddModFile("optional\newplugin.esp", new byte[] { 1, 2, 3 });
+                ctx.AddModFile("optional\\newplugin.esp", new byte[] { 1, 2, 3 });
                 ScriptedInstallationProjectedState spsState = new ScriptedInstallationProjectedState(ctx.Mod, ctx.GameMode, ctx.Installers.PluginManager);
 
                 spsState.Apply(new InstallModFileOperation("optional/newplugin.esp", "NewPlugin.esp"));

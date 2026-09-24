@@ -64,6 +64,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private bool _initialized;
 		private bool _workflowBusy;
 		private bool _selectionDirty;
+		private bool _selectionCapabilityBlocked;
 		private bool _suppressMemberCheckEvents;
 
 		/// <summary>
@@ -453,6 +454,12 @@ namespace Nexus.Client.CollectionManagement.UI
 
 				CollectionEffectiveSelection selection = _workflow.BuildEffectiveSelection(snapshot, BuildOptionalSelections());
 				_selectionDirty = false;
+				_selectionCapabilityBlocked = false;
+				if (selection.CapabilityReport.Status != CollectionCompatibilityStatus.Supported)
+				{
+					RenderCapabilityPreparationGate(selection.CapabilityReport);
+					return;
+				}
 				CollectionAdditiveWorkflowPreparationResult result = await _workflow.PrepareAsync(selection, ConfirmArchiveOverwrite, token);
 				if (token.IsCancellationRequested || IsDisposed)
 					return;
@@ -651,6 +658,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (IsDisposed)
 					return;
 				_selectionDirty = true;
+				_selectionCapabilityBlocked = false;
 				if (_operationSnapshot == null || !_operationSnapshot.HasCrossedNativeBoundary)
 				{
 					TryCancelUnappliedPreparation();
@@ -797,6 +805,37 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				_issuesView.EndUpdate();
 			}
+		}
+
+		private void RenderCapabilityPreparationGate(CollectionCapabilityReport report)
+		{
+			if (report == null)
+				throw new ArgumentNullException(nameof(report));
+
+			CollectionCapabilityIssue blockingIssue = report.ManifestIssues.FirstOrDefault(x => x.Status == report.Status) ??
+				report.MemberReports.Where(x => x.IsSelected).SelectMany(x => x.Issues).FirstOrDefault(x => x.Status == report.Status) ??
+				report.AllIssues.FirstOrDefault(x => x.Status == report.Status);
+			string reason = blockingIssue == null
+				? L("Collections.Workflow.CapabilityGate", "The selected Collection behavior is outside the executable Gate-A capability set.")
+				: blockingIssue.Reason;
+
+			_preparation = null;
+			_acquisitionBatch = null;
+			_selectionCapabilityBlocked = true;
+			_operationIdentity = null;
+			_operationSnapshot = null;
+			_reviewedPlanIdentity = null;
+			if (_snapshot != null)
+				RenderIssues(_snapshot);
+			AddIssueRow(FormatCompatibility(report.Status), "workflow.capability-gate",
+				blockingIssue == null ? string.Empty : blockingIssue.FieldPath ?? string.Empty, reason);
+			_contentValue.Text = report.Status == CollectionCompatibilityStatus.ActionRequired
+				? L("Collections.Status.Content.ActionRequired", "Selected Collection behavior requires a concrete decision/resolution before preparation")
+				: L("Collections.Status.Content.Blocked", "Selected Collection behavior is not supported by the current additive capability set");
+			_appliedValue.Text = L("Collections.Status.Applied.Blocked", "Not applied - blocked before native preparation");
+			_workflowStatusLabel.Text = "Workflow: " + reason;
+			UpdateIssuesHeader();
+			UpdateActionButtons();
 		}
 
 		private void RenderPreparationResult(CollectionAdditiveWorkflowPreparationResult result)
@@ -949,7 +988,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_workflowStatusLabel.Text = "Workflow: " + matching.Message;
 			_appliedValue.Text = matching.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume
 				? L("Collections.Status.Applied.ResumeReady", "Incomplete apply reconciled - explicit resume available")
-				: L("Collections.Status.Applied.ReviewReady", "Recovered review awaits explicit approval");
+				: LanguageManager.Get("Collections.Status.Applied.RecoveredReviewReady", "Recovered review awaits explicit approval");
 			UpdateActionButtons();
 		}
 
@@ -1140,6 +1179,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_operationSnapshot = null;
 			_reviewedPlanIdentity = null;
 			_selectionDirty = false;
+			_selectionCapabilityBlocked = false;
 			_workflowStatusLabel.Text = _workflow == null
 				? L("Collections.Workflow.PreviewOnly", "Workflow: preview only - additive application service is unavailable.")
 				: L("Collections.Workflow.Idle", "Workflow: idle");
@@ -1149,7 +1189,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			bool hasConcreteRevision = _snapshot != null && _snapshot.HasConcreteRevision;
 			_importButton.Enabled = !_workflowBusy && hasConcreteRevision;
-			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision &&
+			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision && !_selectionCapabilityBlocked &&
 				(_acquisitionBatch == null || _selectionDirty || (_preparation != null &&
 				 (_preparation.Status == CollectionAdditiveWorkflowPreparationStatus.PreparationRequired ||
 				  _preparation.Status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired ||

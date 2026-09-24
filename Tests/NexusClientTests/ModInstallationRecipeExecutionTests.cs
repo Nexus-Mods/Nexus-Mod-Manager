@@ -271,7 +271,7 @@ namespace NexusClientTests
 		{
 			using (TemporaryDirectory tmp = new TemporaryDirectory())
 			{
-				var context = new ScriptProxyContext(tmp.Path, null, false, false, "linked");
+				var context = new ScriptProxyContext(tmp.Path, null, false, false, "linked", p_booCanonicalDeploymentPaths: true);
 				byte[] archiveBytes = { 61, 62, 63, 64 };
 				byte[] generatedBytes = { 7, 1, 7, 2, 7, 3 };
 				const string destination = @"config\generated.bin";
@@ -282,7 +282,7 @@ namespace NexusClientTests
 				installer.ExecuteSynchronously();
 
 				var replay = new ScriptedFileSelectionCache(context.Mod, context.GameMode);
-				Assert.That(installer.Succeeded, Is.True);
+				Assert.That(installer.Succeeded, Is.True, installer.CompletionMessage);
 				Assert.That(context.FileInstaller.GenerateCallCount, Is.EqualTo(1));
 				Assert.That(context.LinkCallCount, Is.EqualTo(0));
 				Assert.That(replay.HasCompleteReplay, Is.True);

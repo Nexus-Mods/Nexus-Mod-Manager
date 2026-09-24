@@ -254,9 +254,15 @@ namespace NexusClientTests
 			var ownerA = new CollectionNativeOwnerState("owner-a", null, CollectionNativeOwnerKind.NativeMod, true, 2, "a");
 			var ownerB = new CollectionNativeOwnerState("owner-b", null, CollectionNativeOwnerKind.NativeMod, true, 1, "b");
 			var ownerC = new CollectionNativeOwnerState("owner-c", null, CollectionNativeOwnerKind.NativeMod, true, 0, "c");
-			CollectionNativeOwnerState[] allOwners = includeThirdOwner ? new[] { ownerA, ownerB, ownerC } : new[] { ownerA, ownerB };
+			var allOwners = new List<CollectionNativeOwnerState> { ownerA, ownerB };
+			if (includeThirdOwner) allOwners.Add(ownerC);
+			CollectionNativeOwnerState effectiveOwner = allOwners.Single(x =>
+				x.OwnerKey.Equals(ownerKey, StringComparison.OrdinalIgnoreCase));
+			allOwners.Remove(effectiveOwner);
+			allOwners.Add(effectiveOwner);
+			CollectionNativeOwnerState[] ownerStack = allOwners.ToArray();
 			var file = new CollectionNativeFileState(fileTarget, "C:\\Game\\Data\\meshes\\winner.bin", promoted, promoted, !promoted, ownerKey,
-				new CollectionNativeOwnerState[0], promoted ? allOwners : new CollectionNativeOwnerState[0], promoted ? new CollectionNativeOwnerState[0] : allOwners);
+				new CollectionNativeOwnerState[0], promoted ? ownerStack : new CollectionNativeOwnerState[0], promoted ? new CollectionNativeOwnerState[0] : ownerStack);
 			return new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], mods, new[] { file },
 				new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
 				CollectionNativeStateCoverage.NotApplicable, new CollectionTargetAssociation[0], new CollectionMemberBinding[0],

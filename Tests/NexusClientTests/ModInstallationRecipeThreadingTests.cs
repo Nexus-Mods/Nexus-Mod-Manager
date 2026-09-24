@@ -237,6 +237,11 @@ namespace NexusClientTests
 						return p_strFilename;
 					case "get_HumanReadableVersion":
 						return p_strVersion;
+					case "Equals":
+						IMod other = args[0] as IMod;
+						return other != null && String.Equals(other.Filename, p_strFilename, StringComparison.OrdinalIgnoreCase);
+					case "GetHashCode":
+						return StringComparer.OrdinalIgnoreCase.GetHashCode(p_strFilename ?? String.Empty);
 					default:
 						return null;
 				}

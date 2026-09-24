@@ -208,10 +208,24 @@ namespace NexusClientTests
 			ResolvedCollectionPlan stalePlan = CreatePlan(fixture.Plan.Target, fixture.Plan.Revision,
 				fixture.NormalizedMember, new CollectionCurrentStateFingerprint("collection-native-state-v1", "stale"));
 
-			CollectionMemberMatchResult result = new CollectionMemberMatchEngine().Match(stalePlan, fixture.State).Members[0];
+			CollectionMemberMatchSet matches = new CollectionMemberMatchEngine().Match(stalePlan, fixture.State);
+			CollectionMemberMatchResult result = matches.Members[0];
 
+			Assert.That(matches.StateFingerprint, Is.EqualTo(stalePlan.CurrentStateFingerprint));
+			Assert.That(matches.StateFingerprint, Is.Not.EqualTo(fixture.State.Fingerprint));
 			Assert.That(result.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.Blocked));
 			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.CurrentStateChanged));
+		}
+
+		[Test]
+		public void Match_CurrentStateFingerprint_BindsResultToApprovedPlanState()
+		{
+			Fixture fixture = CreateFixture(null, null, null, null, false);
+
+			CollectionMemberMatchSet matches = new CollectionMemberMatchEngine().Match(fixture.Plan, fixture.State);
+
+			Assert.That(matches.StateFingerprint, Is.EqualTo(fixture.Plan.CurrentStateFingerprint));
+			Assert.That(matches.StateFingerprint, Is.EqualTo(fixture.State.Fingerprint));
 		}
 
 		[Test]

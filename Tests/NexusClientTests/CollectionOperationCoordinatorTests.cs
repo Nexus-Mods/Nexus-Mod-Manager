@@ -200,6 +200,41 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void ReviewedWorkflowV2_PreparedUnsubmittedChildRemainsSafePendingWork()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionOperation operation = MoveToApplying(fixture, out ReadyPlans plans);
+				CollectionNativeChildOperation submitted = CreateSubmittedChild(fixture, plans.Plan, 1);
+				var prepared = new CollectionNativeChildOperation(submitted.Sequence, submitted.Member, submitted.Action,
+					submitted.NativeOperation, CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
+				operation = ReplaceChildren(fixture.OperationStore, operation, new[] { prepared });
+				operation = fixture.Coordinator.PauseAtSafeBoundary(operation.Identity);
+
+				var source = new CollectionRevisionSourceRecord(fixture.Revision, CollectionRevisionSourceInputKind.RawManifest,
+					plans.Plan.ManifestSource.ContentHash, plans.Plan.ManifestSource.ByteLength, "collection.json", plans.Plan.ManifestSource,
+					null, "artifact-manifest");
+				var artifact = new CollectionsRetainedArtifact("artifact-manifest", plans.Plan.ManifestSource.ContentHash,
+					plans.Plan.ManifestSource.ByteLength);
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(fixture.OperationStore, fixture.PlanStore,
+					revision => source, (revision, expected) => new byte[10], artifactId => artifact, target => plans.State);
+
+				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
+
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.Ready, result.Status);
+				Assert.IsTrue(result.CanResume);
+				Assert.AreEqual(1, result.RemainingMembers.Count);
+				Assert.AreEqual(prepared.Member.MemberKey, result.RemainingMembers.Single());
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void ReviewedWorkflowV2_ReconciledCommittedChildResumesFromVerifiedSafeBoundary()
 		{
 			string root = CreateTemporaryDirectory();

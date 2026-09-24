@@ -202,7 +202,7 @@ namespace NexusClientTests
 			return new NormalizedCollectionMember(sourceOrdinal,
 				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider(key)),
 				requirement, selection,
-				new CollectionArtifactReference("nexusmods.file", "skyrim/" + (100 + sourceOrdinal) + "/" + (200 + sourceOrdinal), null),
+				new CollectionArtifactReference("nexus-mod-file", "skyrim/" + (100 + sourceOrdinal) + "/" + (200 + sourceOrdinal), null),
 				CollectionRecipeIdentity.FromFingerprint("recipe-" + key), "Member " + key, phase);
 		}
 

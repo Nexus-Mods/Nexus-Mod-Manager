@@ -43,7 +43,7 @@ namespace Nexus.Client.CollectionManagement
 				return BuildUniformBlockedSet(plan, nativeState, archivesByMember, CollectionMemberMatchReason.UnsupportedExecutionPolicy);
 
 			if (!plan.CurrentStateFingerprint.Equals(nativeState.Fingerprint))
-				return BuildUniformBlockedSet(plan, nativeState, archivesByMember, CollectionMemberMatchReason.CurrentStateChanged);
+				return BuildUniformBlockedSet(plan, plan.CurrentStateFingerprint, archivesByMember, CollectionMemberMatchReason.CurrentStateChanged);
 
 			if (nativeState.AssociationCoverage != CollectionNativeStateCoverage.Complete)
 				return BuildUniformBlockedSet(plan, nativeState, archivesByMember, CollectionMemberMatchReason.AssociationStateUnavailable);
@@ -173,6 +173,14 @@ namespace Nexus.Client.CollectionManagement
 			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionVerifiedArchive> archives,
 			CollectionMemberMatchReason reason)
 		{
+			return BuildUniformBlockedSet(plan, nativeState.Fingerprint, archives, reason);
+		}
+
+		/// <summary>Builds a blocked match set while preserving the exact reviewed plan-state fingerprint.</summary>
+		private static CollectionMemberMatchSet BuildUniformBlockedSet(ResolvedCollectionPlan plan,
+			CollectionCurrentStateFingerprint stateFingerprint, IDictionary<CollectionMemberKey, CollectionVerifiedArchive> archives,
+			CollectionMemberMatchReason reason)
+		{
 			var results = new List<CollectionMemberMatchResult>(plan.SelectedMembers.Count);
 			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
 			{
@@ -180,7 +188,7 @@ namespace Nexus.Client.CollectionManagement
 				archives.TryGetValue(member.MemberKey, out archive);
 				results.Add(Result(member, CollectionMemberMatchDisposition.Blocked, reason, null, null, archive));
 			}
-			return new CollectionMemberMatchSet(plan, nativeState, results);
+			return new CollectionMemberMatchSet(plan, stateFingerprint, results);
 		}
 
 		private static Dictionary<CollectionMemberKey, CollectionVerifiedArchive> ValidateVerifiedArchives(

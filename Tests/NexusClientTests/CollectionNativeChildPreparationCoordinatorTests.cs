@@ -209,8 +209,12 @@ namespace NexusClientTests
 					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory);
 
 				CollectionNativeStateIndex safeState = CloneStateWithDeploymentSequence(plans.State, 1);
+				CollectionNativeFileContentEvidence[] preFiles = plans.Preview.Files.Select(x =>
+					new CollectionNativeFileContentEvidence(x.Target, false, null, 0)).ToArray();
+				CollectionNativeFileContentEvidence[] expectedFiles = plans.Preview.Files.Select(x =>
+					new CollectionNativeFileContentEvidence(x.Target, true, CollectionContentHash.FromSha256(ManifestSha), 1)).ToArray();
 				var evidence = new CollectionNativeChildExecutionEvidence("game", 100, 200, "incoming.7z", plans.Preview,
-					new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+					preFiles, expectedFiles,
 					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
 					new CollectionExpectedReplayOperation[0]);
 				CollectionNativeChildRecoveryManifest safeManifest = prepared.RecoveryManifest.WithExecutionEvidence(evidence)

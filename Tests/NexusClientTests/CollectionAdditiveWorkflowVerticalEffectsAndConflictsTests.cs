@@ -32,7 +32,8 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	/// <summary>
-	/// C6.15.14c vertical coverage for reviewed plugin effects and additive file-winner behavior.
+	/// C6.15.14c/14e vertical coverage for reviewed plugin effects, additive file-winner behavior,
+	/// safe-boundary resume, crossed-native-boundary reconciliation and final multi-member provenance.
 	/// </summary>
 	[TestFixture]
 	public class CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests
@@ -95,7 +96,78 @@ namespace NexusClientTests
 				Assert.That(fixture.WinnerBarrier.LastAppliedMember, Is.EqualTo(fixture.MemberB.Key));
 				Assert.That(fixture.WinnerBarrier.PlannedWinner, Is.Not.EqualTo(fixture.WinnerBarrier.LastAppliedMember),
 					"The final file winner must come from the reviewed priority rule, never from child installation order.");
+				Assert.That(applied.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
 				Assert.That(applied.Finalization.Bindings.Count, Is.EqualTo(2));
+				Assert.That(applied.Finalization.Bindings.Select(x => x.MemberKey),
+					Is.EquivalentTo(new[] { fixture.MemberA.Key, fixture.MemberB.Key }));
+			}
+		}
+
+		[Test]
+		public void Apply_TwoMembersPauseAfterFirstVerifiedCommit_RestartResumesOnlyRemainingMember()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				fixture.NativeBoundary.PauseBeforeCommitOnCall = 2;
+
+				CollectionAdditiveWorkflowApplyResult paused = fixture.Apply(prepared);
+
+				Assert.That(paused.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary));
+				Assert.That(paused.Operation.Phase, Is.EqualTo(CollectionOperationPhase.PausedAtSafeBoundary));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+				Assert.That(paused.Operation.NativeChildren.Count(x => x.HasVerifiedCommittedNativeState), Is.EqualTo(1));
+
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
+					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
+					x.Operation.Identity.Equals(prepared.Operation.Identity));
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
+					"Safe-boundary restart classification must not replay the already verified first child.");
+
+				fixture.NativeBoundary.PauseBeforeCommitOnCall = null;
+				CollectionAdditiveWorkflowApplyResult resumed = fixture.Apply(prepared);
+
+				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(2));
+				Assert.That(fixture.NativeBoundary.AppliedMembers.Distinct().Count(), Is.EqualTo(2),
+					"Resume must execute only the remaining member, never replay the verified child.");
+				Assert.That(resumed.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
+				Assert.That(resumed.Finalization.Bindings.Count, Is.EqualTo(2));
+			}
+		}
+
+		[Test]
+		public void Apply_CrossedNativeBoundaryFailure_C69ReconcilesRealityBeforeAnyRetry()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.PluginlessSingleMember))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				fixture.NativeBoundary.FailAfterNativeCommitOnCall = 1;
+
+				Assert.Throws<InvalidOperationException>(() => fixture.Apply(prepared));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
+					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
+					x.Operation.Identity.Equals(prepared.Operation.Identity));
+
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(operationRecovery.Operation.NativeChildren.Single().NativeResult.Durability,
+					Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+				Assert.That(operationRecovery.Operation.NativeChildren.Single().IsReconciled, Is.True);
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
+					"C6.9 must reconcile the crossed boundary from authoritative reality before any retry is considered.");
+
+				fixture.NativeBoundary.FailAfterNativeCommitOnCall = null;
+				CollectionAdditiveWorkflowApplyResult resumed = fixture.Apply(prepared);
+
+				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
+					"A restart-reconciled committed child must never be blindly reinstalled.");
+				Assert.That(resumed.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
 			}
 		}
 
@@ -122,7 +194,8 @@ namespace NexusClientTests
 		{
 			PluginArchive = 1,
 			TwoWritersWithPriority = 2,
-			UnrelatedExistingOwner = 3
+			UnrelatedExistingOwner = 3,
+			PluginlessSingleMember = 4
 		}
 
 		private sealed class MemberSpec
@@ -322,7 +395,7 @@ namespace NexusClientTests
 					targetIdentity => nativeStateReader.Capture(targetIdentity), () => { });
 				var specByKey = specs.ToDictionary(x => x.Key);
 				var nativeBoundary = new DeterministicNativeBoundary(operationStore, recoveryManifests, nativeStateReader,
-					installState, specByKey, pluginState);
+					installState, specByKey, pluginState, gameMode, paths.InstallInfoPath);
 				var winnerBarrier = new RecordingWinnerBarrier(nativeBoundary);
 
 				var workflow = new CollectionAdditiveWorkflowCoordinator(services, storageService, operationStore, planStore,
@@ -330,7 +403,8 @@ namespace NexusClientTests
 					new CollectionDependencyPhasePlanner(), new CollectionConflictImpactPlanner(), operationCoordinator,
 					rehydrator, runtimeReconstructor, nativeStateReader, childPreparation, childExecution, childVerification,
 					childRestart, associationCoordinator, winnerCoordinator, CollectionTargetMutationLeaseManager.Shared,
-					new CollectionTargetOwnershipAuthorityValidator(storageService, services), nativeBoundary.ApplyAsync,
+					new CollectionTargetOwnershipAuthorityValidator(storageService, new NoOpNativeStateReloader(),
+						new CollectionTargetOwnershipAuthorityStore(Path.Combine(root, "MachineAuthority"))), nativeBoundary.ApplyAsync,
 					winnerBarrier.ReconcileAsync);
 
 				return new Fixture(root, paths, store, manifest, workflow, nativeBoundary, winnerBarrier,
@@ -367,11 +441,14 @@ namespace NexusClientTests
 			private readonly MutableInstallLogState _installState;
 			private readonly IDictionary<CollectionMemberKey, MemberSpec> _specs;
 			private readonly MutablePluginState _pluginState;
+			private readonly IGameMode _gameMode;
+			private readonly string _installInfoPath;
 			private readonly List<CollectionMemberKey> _appliedMembers = new List<CollectionMemberKey>();
 
 			public DeterministicNativeBoundary(CollectionsOperationStore operationStore,
 				CollectionsNativeChildRecoveryManifestStore manifestStore, CollectionNativeStateReader nativeStateReader,
-				MutableInstallLogState installState, IDictionary<CollectionMemberKey, MemberSpec> specs, MutablePluginState pluginState)
+				MutableInstallLogState installState, IDictionary<CollectionMemberKey, MemberSpec> specs, MutablePluginState pluginState,
+				IGameMode gameMode, string installInfoPath)
 			{
 				_operationStore = operationStore;
 				_manifestStore = manifestStore;
@@ -379,9 +456,14 @@ namespace NexusClientTests
 				_installState = installState;
 				_specs = specs;
 				_pluginState = pluginState;
+				_gameMode = gameMode ?? throw new ArgumentNullException(nameof(gameMode));
+				_installInfoPath = installInfoPath ?? throw new ArgumentNullException(nameof(installInfoPath));
 			}
 
 			public int CallCount { get; private set; }
+			public int CommitCount { get; private set; }
+			public int? PauseBeforeCommitOnCall { get; set; }
+			public int? FailAfterNativeCommitOnCall { get; set; }
 			public IReadOnlyList<CollectionMemberKey> AppliedMembers { get { return _appliedMembers; } }
 			public CollectionNativeStateIndex LastTerminalState { get; private set; }
 
@@ -391,6 +473,8 @@ namespace NexusClientTests
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				CallCount++;
+				if (PauseBeforeCommitOnCall.HasValue && PauseBeforeCommitOnCall.Value == CallCount)
+					return Task.FromResult<CollectionNativeChildVerificationResult>(null);
 				MemberSpec spec = _specs[prepared.Child.Member.MemberKey];
 				_appliedMembers.Add(spec.Key);
 				CollectionOperation operation = _operationStore.GetOperation(prepared.Operation.Identity);
@@ -399,9 +483,10 @@ namespace NexusClientTests
 
 				var preFiles = reviewedPreview.Files.Select(x =>
 					new CollectionNativeFileContentEvidence(x.Target, false, null, 0)).ToArray();
-				CollectionContentHash expectedHash = ComputeHash(Encoding.UTF8.GetBytes("c6-15-14c-native-boundary"));
+				byte[] committedBytes = Encoding.UTF8.GetBytes("c6-15-14e-native-boundary");
+				CollectionContentHash expectedHash = ComputeHash(committedBytes);
 				var expectedFiles = reviewedPreview.Files.Select(x =>
-					new CollectionNativeFileContentEvidence(x.Target, true, expectedHash, 25)).ToArray();
+					new CollectionNativeFileContentEvidence(x.Target, true, expectedHash, committedBytes.LongLength)).ToArray();
 				var expectedReplay = childRecipe.NativeOperations.OfType<InstallModFileOperation>()
 					.Select(x => new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile,
 						x.SourcePath, x.DestinationPath, 0, null)).ToArray();
@@ -416,10 +501,14 @@ namespace NexusClientTests
 				operation = SaveChild(operation, child);
 
 				_installState.Commit(spec, childRecipe.InstallContext.Method, reviewedPreview.Files.Select(x => x.Target));
+				MaterializeCommittedEffects(spec, childRecipe, reviewedPreview, committedBytes);
+				CommitCount++;
 				if (_pluginState != null)
 					_pluginState.ApplyNativeRecipe(childRecipe);
 				CollectionNativeStateIndex terminalState = _nativeStateReader.Capture(plan.Target);
 				LastTerminalState = terminalState;
+				if (FailAfterNativeCommitOnCall.HasValue && FailAfterNativeCommitOnCall.Value == CallCount)
+					throw new InvalidOperationException("Injected C6.15.14e failure after the native commit boundary.");
 				CollectionNativeModState verifiedNativeMod = terminalState.Mods.Values.Single(x =>
 					x.Identity.NativeModKey.Equals(spec.NativeKey, StringComparison.OrdinalIgnoreCase));
 
@@ -433,6 +522,24 @@ namespace NexusClientTests
 
 				return Task.FromResult(new CollectionNativeChildVerificationResult(operation, child, terminalState,
 					verifiedNativeMod, ModOperationDurability.VerifiedCommitted));
+			}
+
+			private void MaterializeCommittedEffects(MemberSpec spec, ModInstallationRecipeInput childRecipe,
+				CollectionMemberEffectPreview reviewedPreview, byte[] committedBytes)
+			{
+				foreach (CollectionPlannedFileEffect file in reviewedPreview.Files)
+				{
+					string path = ModDeploymentTargetResolver.GetPhysicalPath(_gameMode, file.Target);
+					string directory = Path.GetDirectoryName(path);
+					if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+					File.WriteAllBytes(path, committedBytes);
+				}
+
+				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(Path.GetFileName(spec.ArchivePath), _installInfoPath);
+				ScriptedFileSelectionCache.DeleteArtifacts(replayPath);
+				var cache = new ScriptedFileSelectionCache(replayPath);
+				foreach (InstallModFileOperation operation in childRecipe.NativeOperations.OfType<InstallModFileOperation>())
+					cache.RecordSelection(operation.SourcePath, operation.DestinationPath);
 			}
 
 			private CollectionOperation SaveChild(CollectionOperation operation, CollectionNativeChildOperation child)
@@ -562,6 +669,13 @@ namespace NexusClientTests
 			}
 		}
 
+		private sealed class NoOpNativeStateReloader : ICollectionNativeStateReloader
+		{
+			public void Reload(string installLogPath)
+			{
+			}
+		}
+
 		private static string BuildManifest(IList<MemberSpec> specs, string modRules)
 		{
 			string members = String.Join(",", specs.Select(x => String.Format(
@@ -583,7 +697,7 @@ namespace NexusClientTests
 			Directory.CreateDirectory(mods);
 			Directory.CreateDirectory(virtualInstall);
 			Directory.CreateDirectory(game);
-			File.WriteAllText(Path.Combine(installInfo, "InstallLog.xml"), "<installLog />");
+			File.WriteAllText(Path.Combine(installInfo, "InstallLog.xml"), "<installLog fileVersion=\"0.6.0.0\" />");
 			return new GameStoragePathSet
 			{
 				GameId = "SkyrimSE",

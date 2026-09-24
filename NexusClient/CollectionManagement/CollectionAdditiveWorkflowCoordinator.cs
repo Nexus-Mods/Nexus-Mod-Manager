@@ -329,7 +329,18 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionAdditiveWorkflowReview review = GetReview(operationIdentity);
 			if (!review.IsReady)
+			{
+				if (!review.Operation.HasCrossedNativeBoundary &&
+					(review.Operation.Phase == CollectionOperationPhase.ReadyForReview ||
+					 review.Operation.Phase == CollectionOperationPhase.ReadyToApply) &&
+					review.Rehydration.Status != CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired)
+				{
+					CollectionOperation reopened = _operationCoordinator.ReopenPreparation(operationIdentity);
+					return ApplyResult(CollectionAdditiveWorkflowApplyStatus.RepreparationRequired, reopened, null,
+						review.Rehydration.Message);
+				}
 				return HandleNonResumableApplyReview(review);
+			}
 			if (!review.Runtime.Plan.Identity.Equals(expectedPlan))
 				throw new InvalidOperationException("The reconstructed reviewed workflow does not match the exact approved plan identity.");
 

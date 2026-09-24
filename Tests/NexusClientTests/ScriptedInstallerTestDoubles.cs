@@ -545,7 +545,8 @@ namespace NexusClientTests
         /// <param name="p_strLinkResult">The value returned by virtual link creation.</param>
         /// <param name="p_pgfPluginFactory">The optional plugin factory used to parse projected plugin contents.</param>
         /// <param name="p_mimInstallMethod">The install method captured for the scripted operation.</param>
-        public ScriptProxyContext(string p_strRootPath, string p_strDownloadId, bool p_booMultiHd, bool p_booGameRequiresHardlink, string p_strLinkResult, IPluginFactory p_pgfPluginFactory = null, ModInstallMethod p_mimInstallMethod = ModInstallMethod.Virtual)
+        /// <param name="p_booCanonicalDeploymentPaths">Whether game-format path adjustment should preserve a canonical relative deployment path instead of the characterization marker.</param>
+        public ScriptProxyContext(string p_strRootPath, string p_strDownloadId, bool p_booMultiHd, bool p_booGameRequiresHardlink, string p_strLinkResult, IPluginFactory p_pgfPluginFactory = null, ModInstallMethod p_mimInstallMethod = ModInstallMethod.Virtual, bool p_booCanonicalDeploymentPaths = false)
         {
             VirtualPath = Path.Combine(p_strRootPath, "Virtual");
             HdLinkPath = Path.Combine(p_strRootPath, "HdLink");
@@ -602,7 +603,8 @@ namespace NexusClientTests
                         return p_booGameRequiresHardlink;
                     case "GetModFormatAdjustedPath":
                         string strRequestedPath = (string)p_objArgs[1];
-                        return strRequestedPath == null ? String.Empty : "adjusted:" + strRequestedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                        string strNormalizedPath = strRequestedPath == null ? String.Empty : strRequestedPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                        return p_booCanonicalDeploymentPaths ? strNormalizedPath : "adjusted:" + strNormalizedPath;
                     case "GetPluginFactory":
                         return p_pgfPluginFactory;
                     default:

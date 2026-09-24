@@ -1012,8 +1012,14 @@ namespace Nexus.Client.CollectionManagement
 			{
 				if (!child.Member.Revision.Equals(snapshot.Revision) || !remaining.Contains(child.Member.MemberKey))
 					return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, null, null, "A persisted native child does not belong to the reviewed workflow closure.");
+
+				// Persisted intent/recovery inputs are still before the native mutation boundary. They remain reviewed
+				// pending work and must not be routed through C6.9 merely because they are not reconciled yet.
+				if (!child.HasCrossedNativeBoundary)
+					continue;
+
 				if (!child.IsReconciled)
-					return Result(CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired, snapshot, null, null, "A native child has not been reconciled through C6.9/C6.10.");
+					return Result(CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired, snapshot, null, null, "A submitted native child has not been reconciled through C6.9/C6.10.");
 				if (child.NativeResult == null || child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
 					return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, null, null, "A reconciled child is not a verified committed result; remaining work must be re-prepared.");
 				if (_recoveryManifestLoader == null)

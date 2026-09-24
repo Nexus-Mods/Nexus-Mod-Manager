@@ -272,11 +272,22 @@ namespace NexusClientTests
 			IModInstallationFomodRecipeAdapter adapter = scriptType;
 			IMod mod = CreateMod(script, @"docs\readme.txt", @"plugins\choice.esp");
 			int activationQueries = 0;
+			var managedPlugins = new ReadOnlyObservableList<Plugin>(new ThreadSafeObservableList<Plugin>());
+			var activePlugins = new ReadOnlyObservableList<Plugin>(new ThreadSafeObservableList<Plugin>());
 			IPluginManager pluginManager = InterfaceStub<IPluginManager>.Create((method, args) =>
 			{
-				if (method.Name == "IsActivatiblePluginFile")
-					activationQueries++;
-				return null;
+				switch (method.Name)
+				{
+					case "get_ManagedPlugins":
+						return managedPlugins;
+					case "get_ActivePlugins":
+						return activePlugins;
+					case "IsActivatiblePluginFile":
+						activationQueries++;
+						return false;
+					default:
+						return null;
+				}
 			});
 			ModInstallationRecipeInput input = CreateInput(adapter,
 				PathSource(@"docs\readme.txt"), PathDestination(@"readme.txt"),
@@ -307,11 +318,12 @@ namespace NexusClientTests
 			step.OptionGroups.Add(group);
 			script.InstallSteps.Add(step);
 			IModInstallationFomodRecipeAdapter adapter = scriptType;
-			IPluginManager pluginManager = InterfaceStub<IPluginManager>.Create((method, args) => null);
+			IGameMode gameMode = CreateGameMode();
+			IPluginManager pluginManager = CreatePluginManager(gameMode, new string[0], new string[0]);
 
 			ModInstallationRecipeInput translated = adapter.Translate(
 				CreateInput(adapter, PathSource(@"plugins\optional.esp"), PathDestination(@"optional.esp")),
-				CreateMod(script, @"plugins\optional.esp"), CreateGameMode(), CreateEnvironmentInfo(), pluginManager,
+				CreateMod(script, @"plugins\optional.esp"), gameMode, CreateEnvironmentInfo(), pluginManager,
 				Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group"))));
 
 			SetPluginActivationOperation activation = translated.NativeOperations.OfType<SetPluginActivationOperation>().Single();
