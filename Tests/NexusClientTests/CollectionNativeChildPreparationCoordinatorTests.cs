@@ -50,6 +50,75 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void InjectedFailureAfterIntentPersisted_RestartResumesExactPendingChildWithoutRecovery()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				PlanContext context = CreatePlanContext(fixture, null, new CollectionNativeFileState[0]);
+				CollectionVerifiedArchive archive = CreateVerifiedArchive(fixture, context.Plan, context.Member.MemberKey, "incoming-bytes");
+				PreparedPlans plans = FinalizePlans(fixture, context, archive);
+				int injectedCalls = 0;
+				var failingPreparer = new CollectionNativeChildPreparationCoordinator(fixture.OperationStore, fixture.PlanStore,
+					fixture.Artifacts, fixture.References, fixture.ManifestStore, (operation, child) =>
+					{
+						injectedCalls++;
+						throw new IOException("Injected C6.16 failure after durable child intent.");
+					});
+
+				Assert.Throws<IOException>(() => failingPreparer.PrepareNext(plans.Operation.Identity,
+					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory));
+
+				Assert.AreEqual(1, injectedCalls);
+				CollectionOperation persisted = fixture.OperationStore.GetOperation(plans.Operation.Identity);
+				Assert.AreEqual(1, persisted.NativeChildren.Count);
+				CollectionNativeChildOperation durableIntent = persisted.NativeChildren.Single();
+				Assert.AreEqual(CollectionNativeChildCheckpoint.IntentPersisted, durableIntent.Checkpoint);
+				Assert.IsNull(durableIntent.NativeResult);
+				Assert.AreEqual(CollectionOperationPhase.ApplyingNativeChildren, persisted.Phase);
+				Assert.IsFalse(persisted.HasCrossedNativeBoundary);
+				Assert.IsFalse(persisted.RequiresRecovery);
+				Assert.IsNull(fixture.ManifestStore.GetManifest(persisted, durableIntent));
+				Assert.AreEqual(0, fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+					plans.Operation.Identity.ToString()).Count);
+
+				var restartedStore = new CollectionsStore(root);
+				var restartedOperationStore = new CollectionsOperationStore(restartedStore);
+				var restartedPlanStore = new CollectionsResolvedPlanStore(restartedStore);
+				var restartedArtifacts = new CollectionsRetainedArtifactStore(restartedStore);
+				var restartedReferences = new CollectionsRetainedArtifactReferenceStore(restartedStore);
+				var restartedManifestStore = new CollectionsNativeChildRecoveryManifestStore(restartedArtifacts, restartedReferences);
+				int restartInjectionCalls = 0;
+				var restartedPreparer = new CollectionNativeChildPreparationCoordinator(restartedOperationStore, restartedPlanStore,
+					restartedArtifacts, restartedReferences, restartedManifestStore, (operation, child) =>
+					{
+						restartInjectionCalls++;
+						throw new IOException("The post-intent boundary must not be re-entered for an already durable child.");
+					});
+				CollectionNativeChildPreparationResult resumed = restartedPreparer.PrepareNext(plans.Operation.Identity,
+					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory);
+
+				Assert.AreEqual(0, restartInjectionCalls);
+				Assert.AreEqual(CollectionNativeChildCheckpoint.RecoveryInputsReady, resumed.Child.Checkpoint);
+				Assert.AreEqual(durableIntent.Sequence, resumed.Child.Sequence);
+				Assert.AreEqual(durableIntent.Member.MemberKey, resumed.Child.Member.MemberKey);
+				Assert.AreEqual(durableIntent.NativeOperation.OperationId, resumed.Child.NativeOperation.OperationId);
+				Assert.AreEqual(durableIntent.NativeOperation.AttemptId, resumed.Child.NativeOperation.AttemptId);
+				Assert.IsFalse(resumed.Child.HasCrossedNativeBoundary);
+				CollectionOperation resumedOperation = restartedOperationStore.GetOperation(plans.Operation.Identity);
+				Assert.AreEqual(1, resumedOperation.NativeChildren.Count, "Restart must resume the durable child instead of creating another native attempt.");
+				Assert.IsFalse(resumedOperation.RequiresRecovery);
+				Assert.IsNotNull(restartedManifestStore.GetManifest(resumedOperation, resumed.Child));
+				Assert.AreEqual(2, restartedReferences.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+					plans.Operation.Identity.ToString()).Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void Reinstall_RetainsPreviousArchiveReplayAndGeneratedPayloadBeforeReadyCheckpoint()
 		{
 			string root = CreateTemporaryDirectory();

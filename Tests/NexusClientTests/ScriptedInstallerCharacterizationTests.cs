@@ -224,7 +224,7 @@ namespace NexusClientTests
             using (TemporaryDirectory tmp = new TemporaryDirectory())
             {
                 ScriptProxyContext ctx = new ScriptProxyContext(
-                    tmp.Path, null, false, false, "linked", null, ModInstallMethod.Direct);
+                    tmp.Path, null, false, false, "linked", null, ModInstallMethod.Direct, true);
                 ctx.AddManagedPlugin("Test.esp");
 
                 string[] plugins = ctx.Proxy.GetAllPlugins();

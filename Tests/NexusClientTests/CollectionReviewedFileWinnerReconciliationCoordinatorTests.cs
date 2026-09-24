@@ -10,7 +10,7 @@ using NUnit.Framework;
 
 namespace NexusClientTests
 {
-	/// <summary>C6.15.11 durable reviewed file-winner reconciliation coverage.</summary>
+	/// <summary>C6.15.11 reviewed file-winner reconciliation and C6.16-E failure/restart coverage.</summary>
 	[TestFixture]
 	public class CollectionReviewedFileWinnerReconciliationCoordinatorTests
 	{
@@ -87,6 +87,48 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void FailureBeforeWinnerSwitch_RestartRetriesPersistedIntentFromExactPreimageOnce()
+		{
+			using (Fixture fixture = CreateFixture(true))
+			{
+				int switchCalls = 0;
+				int nativeMutations = 0;
+				bool failBeforeMutation = true;
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						switchCalls++;
+						if (failBeforeMutation) throw new IOException("simulated failure before winner mutation");
+						nativeMutations++;
+						fixture.SetOwner("owner-b");
+					}
+					return null;
+				});
+				fixture.VirtualService = InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null);
+
+				Assert.Throws<IOException>(() => fixture.CreateCoordinator().ReconcileValidated(fixture.Operation.Identity, fixture.Plan,
+					fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
+				Assert.AreEqual(1, switchCalls);
+				Assert.AreEqual(0, nativeMutations);
+				Assert.AreEqual("owner-a", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+				IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> beforeRestart = fixture.References.GetReferencesForOwner(
+					CollectionsRetainedArtifactOwnerKind.Operation, fixture.Operation.Identity.ToString());
+				Assert.AreEqual(1, beforeRestart.Count(x => x.Role.StartsWith("file-winner-intent-", StringComparison.Ordinal)));
+				Assert.AreEqual(0, beforeRestart.Count(x => x.Role.StartsWith("file-winner-verified-", StringComparison.Ordinal)));
+
+				failBeforeMutation = false;
+				CollectionReviewedFileWinnerReconciliationResult recovered = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(2, switchCalls, "Restart may retry the persisted intent only because native reality still equals the exact durable preimage.");
+				Assert.AreEqual(1, nativeMutations, "Only one native winner mutation may occur across failure and restart.");
+				Assert.AreEqual("owner-b", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.SwitchedAndVerified, recovered.Winners.Single().Outcome);
+			}
+		}
+
+		[Test]
 		public void Restart_AfterNativeSwitchBeforeCheckpoint_ReconcilesRealityWithoutSecondSwitch()
 		{
 			using (Fixture fixture = CreateFixture(true))
@@ -113,9 +155,15 @@ namespace NexusClientTests
 				Assert.AreEqual(1, fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
 					fixture.Operation.Identity.ToString()).Count(x => x.Role.StartsWith("file-winner-intent-", StringComparison.Ordinal)));
 
+				Assert.Throws<IOException>(() => fixture.CreateRestartedCoordinator().ReconcileValidated(fixture.Operation.Identity,
+					fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
+				Assert.AreEqual(1, switches, "A reconciliation failure after the native switch must not replay the winner mutation.");
+				Assert.AreEqual(0, fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+					fixture.Operation.Identity.ToString()).Count(x => x.Role.StartsWith("file-winner-verified-", StringComparison.Ordinal)));
+
 				failProfileUpdate = false;
-				CollectionReviewedFileWinnerReconciliationResult recovered = coordinator.ReconcileValidated(fixture.Operation.Identity,
-					fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+				CollectionReviewedFileWinnerReconciliationResult recovered = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
 
 				Assert.AreEqual(1, switches, "Restart must reconcile the already-switched native reality, not replay the mutation.");
 				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.RecoveredCommitted, recovered.Winners.Single().Outcome);
@@ -129,9 +177,14 @@ namespace NexusClientTests
 		{
 			using (Fixture fixture = CreateFixture(true))
 			{
+				int switches = 0;
 				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
 				{
-					if (method.Name == "SwitchPromotedOwner") throw new IOException("simulated switch failure");
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						switches++;
+						throw new IOException("simulated switch failure");
+					}
 					return null;
 				});
 				fixture.VirtualService = InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null);
@@ -140,8 +193,9 @@ namespace NexusClientTests
 					fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
 
 				fixture.SetOwner("owner-c", true);
-				Assert.Throws<CollectionReviewedFileWinnerRecoveryRequiredException>(() => coordinator.ReconcileValidated(
+				Assert.Throws<CollectionReviewedFileWinnerRecoveryRequiredException>(() => fixture.CreateRestartedCoordinator().ReconcileValidated(
 					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
+				Assert.AreEqual(1, switches, "Divergent native reality must block restart before any second winner switch.");
 			}
 		}
 
@@ -166,7 +220,7 @@ namespace NexusClientTests
 					fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
 
 				fixture.SetOwner("owner-a", true);
-				Assert.Throws<CollectionReviewedFileWinnerRecoveryRequiredException>(() => coordinator.ReconcileValidated(
+				Assert.Throws<CollectionReviewedFileWinnerRecoveryRequiredException>(() => fixture.CreateRestartedCoordinator().ReconcileValidated(
 					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
 				Assert.AreEqual(1, switches, "A changed durable preimage must block retry before a second native switch.");
 			}
@@ -335,8 +389,24 @@ namespace NexusClientTests
 
 			public CollectionReviewedFileWinnerReconciliationCoordinator CreateCoordinator()
 			{
+				return CreateCoordinator(OperationStore, PlanStore, Associations, Artifacts, References);
+			}
+
+			public CollectionReviewedFileWinnerReconciliationCoordinator CreateRestartedCoordinator()
+			{
+				var restartedStore = new CollectionsStore(Root);
+				restartedStore.OpenExisting();
+				return CreateCoordinator(new CollectionsOperationStore(restartedStore), new CollectionsResolvedPlanStore(restartedStore),
+					new CollectionsAssociationStore(restartedStore), new CollectionsRetainedArtifactStore(restartedStore),
+					new CollectionsRetainedArtifactReferenceStore(restartedStore));
+			}
+
+			private CollectionReviewedFileWinnerReconciliationCoordinator CreateCoordinator(CollectionsOperationStore operationStore,
+				CollectionsResolvedPlanStore planStore, CollectionsAssociationStore associations,
+				CollectionsRetainedArtifactStore artifacts, CollectionsRetainedArtifactReferenceStore references)
+			{
 				Action update = ProfileUpdate ?? (() => ProfileUpdates++);
-				return new CollectionReviewedFileWinnerReconciliationCoordinator(OperationStore, PlanStore, Associations, Artifacts, References,
+				return new CollectionReviewedFileWinnerReconciliationCoordinator(operationStore, planStore, associations, artifacts, references,
 					DeploymentManager ?? InterfaceStub<IModDeploymentManager>.Create((method, args) => null),
 					VirtualService ?? InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null),
 					target => CurrentState, update);

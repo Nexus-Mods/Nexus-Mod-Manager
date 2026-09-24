@@ -215,6 +215,7 @@
     <Compile Include="BackupRestoreTransactionTests.cs" />
     <Compile Include="DirectInstallStep3Tests.cs" />
     <Compile Include="MixedDeploymentStep4Tests.cs" />
+    <Compile Include="VirtualModStoreFailureInjectionTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
     <Compile Include="ModSortOrderComparerTests.cs" />

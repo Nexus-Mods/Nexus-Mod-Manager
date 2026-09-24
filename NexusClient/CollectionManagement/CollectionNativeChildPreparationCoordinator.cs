@@ -19,17 +19,28 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
 		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
 		private readonly CollectionsNativeChildRecoveryManifestStore _manifestStore;
+		private readonly Action<CollectionOperation, CollectionNativeChildOperation> _afterIntentPersisted;
 
 		/// <summary>Creates a durable child-preparation coordinator over existing C4-C6 stores.</summary>
 		public CollectionNativeChildPreparationCoordinator(CollectionsOperationStore operationStore,
 			CollectionsResolvedPlanStore planStore, CollectionsRetainedArtifactStore artifactStore,
 			CollectionsRetainedArtifactReferenceStore referenceStore, CollectionsNativeChildRecoveryManifestStore manifestStore)
+			: this(operationStore, planStore, artifactStore, referenceStore, manifestStore, null)
+		{
+		}
+
+		/// <summary>Creates a coordinator with one deterministic post-intent boundary callback for focused failure-injection tests.</summary>
+		internal CollectionNativeChildPreparationCoordinator(CollectionsOperationStore operationStore,
+			CollectionsResolvedPlanStore planStore, CollectionsRetainedArtifactStore artifactStore,
+			CollectionsRetainedArtifactReferenceStore referenceStore, CollectionsNativeChildRecoveryManifestStore manifestStore,
+			Action<CollectionOperation, CollectionNativeChildOperation> afterIntentPersisted)
 		{
 			_operationStore = operationStore ?? throw new ArgumentNullException(nameof(operationStore));
 			_planStore = planStore ?? throw new ArgumentNullException(nameof(planStore));
 			_artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
 			_referenceStore = referenceStore ?? throw new ArgumentNullException(nameof(referenceStore));
 			_manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
+			_afterIntentPersisted = afterIntentPersisted;
 		}
 
 		/// <summary>Prepares the next mutating member in deterministic C6.3 order, or returns <c>null</c> when no native child remains.</summary>
@@ -98,6 +109,7 @@ namespace Nexus.Client.CollectionManagement
 					new CollectionOperationMemberReference(plan.Revision, match.Member.MemberKey),
 					CollectionNativeChildAction.ActivateOrReinstall, nativeOperation, CollectionNativeChildCheckpoint.IntentPersisted, null);
 				operation = SaveChild(operation, child);
+				_afterIntentPersisted?.Invoke(operation, child);
 			}
 			else
 			{

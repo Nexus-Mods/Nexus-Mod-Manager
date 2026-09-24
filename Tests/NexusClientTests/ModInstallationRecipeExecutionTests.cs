@@ -291,7 +291,7 @@ namespace NexusClientTests
 				Assert.That(operations[0].Kind, Is.EqualTo(ScriptedReplayOperationKind.GeneratedFile));
 				Assert.That(operations[0].DestinationPath, Is.EqualTo(destination));
 				Assert.That(operations[0].PayloadLength, Is.EqualTo(generatedBytes.LongLength));
-				Assert.That(operations[0].PayloadHash, Is.EqualTo(ComputeSha256Hex(generatedBytes)));
+				StringAssert.AreEqualIgnoringCase(ComputeSha256Hex(generatedBytes), operations[0].PayloadHash);
 				CollectionAssert.AreEqual(generatedBytes, File.ReadAllBytes(operations[0].PayloadPath));
 				Assert.That(Path.GetDirectoryName(operations[0].PayloadPath),
 					Is.EqualTo(ScriptedFileSelectionCache.GetPayloadDirectoryPath(replay.FilePath)));

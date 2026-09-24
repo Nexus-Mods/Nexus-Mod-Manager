@@ -32,8 +32,8 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	/// <summary>
-	/// C6.15.14c/14e vertical coverage for reviewed plugin effects, additive file-winner behavior,
-	/// safe-boundary resume, crossed-native-boundary reconciliation and final multi-member provenance.
+	/// C6.15.14c/14e vertical coverage plus C6.16-C/F/G injected commit, checkpoint, cancellation and final Gate-A matrix coverage
+	/// for reviewed plugin effects, additive file-winner behavior, safe-boundary resume, crossed-native-boundary reconciliation and final provenance.
 	/// </summary>
 	[TestFixture]
 	public class CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests
@@ -104,6 +104,53 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void CancelBeforeApply_BeforeAnyChild_TerminatesWithoutNativeMutation()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+
+				CollectionOperation cancelled = fixture.Workflow.CancelBeforeApply(prepared.Operation.Identity);
+
+				Assert.That(cancelled.IsTerminal, Is.True);
+				Assert.That(cancelled.ResultState, Is.EqualTo(CollectionOperationResultState.CancelledBeforeApply));
+				Assert.That(cancelled.NativeChildren, Is.Empty);
+				Assert.That(cancelled.HasCrossedNativeBoundary, Is.False);
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(0));
+			}
+		}
+
+		[Test]
+		public void CancelBeforeApply_WhilePausedBeforeNativeStart_PreservesZeroMutationTerminalState()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				fixture.NativeBoundary.PauseBeforeCommitOnCall = 1;
+
+				CollectionAdditiveWorkflowApplyResult paused = fixture.Apply(prepared);
+				Assert.That(paused.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary));
+				Assert.That(paused.Operation.Phase, Is.EqualTo(CollectionOperationPhase.PausedAtSafeBoundary));
+				Assert.That(paused.Operation.NativeChildren.Count, Is.EqualTo(1));
+				Assert.That(paused.Operation.NativeChildren.Single().Checkpoint,
+					Is.EqualTo(CollectionNativeChildCheckpoint.RecoveryInputsReady));
+				Assert.That(paused.Operation.HasCrossedNativeBoundary, Is.False);
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(0));
+
+				CollectionOperation cancelled = fixture.Workflow.CancelBeforeApply(prepared.Operation.Identity);
+
+				Assert.That(cancelled.IsTerminal, Is.True);
+				Assert.That(cancelled.ResultState, Is.EqualTo(CollectionOperationResultState.CancelledBeforeApply));
+				Assert.That(cancelled.NativeChildren.Single().Checkpoint,
+					Is.EqualTo(CollectionNativeChildCheckpoint.RecoveryInputsReady));
+				Assert.That(cancelled.HasCrossedNativeBoundary, Is.False);
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(0),
+					"Cancelling a safe pre-native pause must not manufacture or compensate any native work.");
+			}
+		}
+
+		[Test]
 		public void Apply_TwoMembersPauseAfterFirstVerifiedCommit_RestartResumesOnlyRemainingMember()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
@@ -139,6 +186,72 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Apply_CancellationRequestedAfterFirstCommit_RestartResumesOnlyRemainingMember()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
+			using (var cancellation = new CancellationTokenSource())
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				fixture.NativeBoundary.CancelAfterCommitOnCall = 1;
+				fixture.NativeBoundary.CancelAfterCommit = cancellation.Cancel;
+
+				Assert.Throws<OperationCanceledException>(() => fixture.Apply(prepared, cancellation.Token));
+
+				CollectionOperation interrupted = new CollectionsOperationStore(fixture.Store).GetOperation(prepared.Operation.Identity);
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(1),
+					"Cancellation requested after the first commit must be observed before a second child starts.");
+				Assert.That(interrupted.IsTerminal, Is.False);
+				Assert.That(interrupted.ResultState, Is.EqualTo(CollectionOperationResultState.Pending));
+				Assert.That(interrupted.Phase, Is.EqualTo(CollectionOperationPhase.ApplyingNativeChildren));
+				Assert.That(interrupted.NativeChildren.Count, Is.EqualTo(1));
+				CollectionNativeChildOperation committedChild = interrupted.NativeChildren.Single();
+				Assert.That(committedChild.IsReconciled, Is.True);
+				Assert.That(committedChild.NativeResult.Durability, Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+				Assert.That(interrupted.HasCrossedNativeBoundary, Is.True);
+				IReadOnlyList<CollectionTargetAssociation> partialAssociations = GetExactAssociations(fixture.Store, prepared.Runtime.Plan);
+				Assert.That(partialAssociations.Count, Is.EqualTo(1));
+				Assert.That(partialAssociations.Single().State, Is.EqualTo(CollectionAssociationState.Incomplete));
+				Assert.That(new CollectionsAssociationStore(fixture.Store).GetBindings(partialAssociations.Single().AssociationId).Count,
+					Is.EqualTo(1), "Only the independently verified first member may have provenance after partial progress.");
+				Assert.That(fixture.WinnerBarrier.CallCount, Is.EqualTo(0),
+					"Reviewed winner reconciliation must not run while a selected writer is still pending.");
+				Assert.Throws<InvalidOperationException>(() => fixture.Workflow.CancelBeforeApply(prepared.Operation.Identity),
+					"A cancellation request after committed native work must never relabel the operation CancelledBeforeApply.");
+
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
+					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
+					x.Operation.Identity.Equals(prepared.Operation.Identity));
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(operationRecovery.Rehydration.CanResume, Is.True);
+				Assert.That(operationRecovery.Rehydration.RemainingMembers.Count, Is.EqualTo(1));
+				Assert.That(operationRecovery.Rehydration.RemainingMembers.Single(), Is.Not.EqualTo(committedChild.Member.MemberKey));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
+					"Restart classification must preserve the committed child without replaying it.");
+				Assert.That(GetExactAssociations(fixture.Store, prepared.Runtime.Plan).Single().State,
+					Is.EqualTo(CollectionAssociationState.Incomplete));
+				Assert.That(fixture.WinnerBarrier.CallCount, Is.EqualTo(0));
+
+				fixture.NativeBoundary.CancelAfterCommitOnCall = null;
+				fixture.NativeBoundary.CancelAfterCommit = null;
+				CollectionAdditiveWorkflowApplyResult resumed = fixture.Apply(prepared);
+
+				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(2));
+				Assert.That(fixture.NativeBoundary.AppliedMembers.Count, Is.EqualTo(2));
+				Assert.That(fixture.NativeBoundary.AppliedMembers.Distinct().Count(), Is.EqualTo(2),
+					"Resume after cancellation must execute only the remaining member.");
+				Assert.That(fixture.WinnerBarrier.CallCount, Is.EqualTo(1));
+				Assert.That(fixture.WinnerBarrier.NativeCallsAtBarrier, Is.EqualTo(2));
+				Assert.That(fixture.WinnerBarrier.PlannedWinner, Is.EqualTo(fixture.MemberA.Key));
+				Assert.That(fixture.WinnerBarrier.LastAppliedMember, Is.EqualTo(fixture.MemberB.Key));
+				Assert.That(resumed.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
+				Assert.That(resumed.Finalization.Bindings.Count, Is.EqualTo(2));
+			}
+		}
+
+		[Test]
 		public void Apply_CrossedNativeBoundaryFailure_C69ReconcilesRealityBeforeAnyRetry()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.PluginlessSingleMember))
@@ -149,15 +262,26 @@ namespace NexusClientTests
 				Assert.Throws<InvalidOperationException>(() => fixture.Apply(prepared));
 				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
 
+				CollectionOperation interrupted = new CollectionsOperationStore(fixture.Store).GetOperation(prepared.Operation.Identity);
+				CollectionNativeChildOperation interruptedChild = interrupted.NativeChildren.Single();
+				Guid nativeOperationId = interruptedChild.NativeOperation.OperationId;
+				Guid nativeAttemptId = interruptedChild.NativeOperation.AttemptId;
+				Assert.That(interrupted.Phase, Is.EqualTo(CollectionOperationPhase.RecoveryRequired));
+				Assert.That(interruptedChild.Checkpoint, Is.EqualTo(CollectionNativeChildCheckpoint.NativeSubmitted));
+				Assert.That(interruptedChild.NativeResult, Is.Null,
+					"The injected failure occurs after native commit but before any durable terminal Collection checkpoint.");
+
 				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
 					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
 				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
 					x.Operation.Identity.Equals(prepared.Operation.Identity));
 
 				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
-				Assert.That(operationRecovery.Operation.NativeChildren.Single().NativeResult.Durability,
-					Is.EqualTo(ModOperationDurability.VerifiedCommitted));
-				Assert.That(operationRecovery.Operation.NativeChildren.Single().IsReconciled, Is.True);
+				CollectionNativeChildOperation recoveredChild = operationRecovery.Operation.NativeChildren.Single();
+				Assert.That(recoveredChild.NativeResult.Durability, Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+				Assert.That(recoveredChild.IsReconciled, Is.True);
+				Assert.That(recoveredChild.NativeOperation.OperationId, Is.EqualTo(nativeOperationId));
+				Assert.That(recoveredChild.NativeOperation.AttemptId, Is.EqualTo(nativeAttemptId));
 				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
 					"C6.9 must reconcile the crossed boundary from authoritative reality before any retry is considered.");
 
@@ -167,6 +291,50 @@ namespace NexusClientTests
 				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
 				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
 					"A restart-reconciled committed child must never be blindly reinstalled.");
+				Assert.That(resumed.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
+			}
+		}
+
+		[Test]
+		public void Apply_FailureAfterNativeTerminalCheckpoint_C69ReconcilesProvenanceWithoutReplay()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.PluginlessSingleMember))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				fixture.NativeBoundary.FailAfterTerminalCheckpointOnCall = 1;
+
+				Assert.Throws<InvalidOperationException>(() => fixture.Apply(prepared));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+
+				CollectionOperation interrupted = new CollectionsOperationStore(fixture.Store).GetOperation(prepared.Operation.Identity);
+				CollectionNativeChildOperation interruptedChild = interrupted.NativeChildren.Single();
+				Guid nativeOperationId = interruptedChild.NativeOperation.OperationId;
+				Guid nativeAttemptId = interruptedChild.NativeOperation.AttemptId;
+				Assert.That(interrupted.Phase, Is.EqualTo(CollectionOperationPhase.RecoveryRequired));
+				Assert.That(interruptedChild.Checkpoint, Is.EqualTo(CollectionNativeChildCheckpoint.NativeTerminalObserved));
+				Assert.That(interruptedChild.NativeResult.Durability, Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+				Assert.That(interruptedChild.IsReconciled, Is.False,
+					"The injected failure is after the durable terminal child checkpoint but before C6.10 provenance reconciliation.");
+
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
+					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
+					x.Operation.Identity.Equals(prepared.Operation.Identity));
+
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				CollectionNativeChildOperation recoveredChild = operationRecovery.Operation.NativeChildren.Single();
+				Assert.That(recoveredChild.IsReconciled, Is.True);
+				Assert.That(recoveredChild.NativeResult.Durability, Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+				Assert.That(recoveredChild.NativeOperation.OperationId, Is.EqualTo(nativeOperationId));
+				Assert.That(recoveredChild.NativeOperation.AttemptId, Is.EqualTo(nativeAttemptId));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
+					"C6.9/C6.10 must consume the persisted terminal evidence instead of replaying the native child.");
+
+				fixture.NativeBoundary.FailAfterTerminalCheckpointOnCall = null;
+				CollectionAdditiveWorkflowApplyResult resumed = fixture.Apply(prepared);
+
+				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
 				Assert.That(resumed.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
 			}
 		}
@@ -188,6 +356,139 @@ namespace NexusClientTests
 				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
 				Assert.That(fixture.WinnerBarrier.CallCount, Is.EqualTo(0));
 			}
+		}
+
+		[TestCase(ModInstallMethod.Direct, (int)GateAFailureBoundary.SafeBeforeNativeCommit, false)]
+		[TestCase(ModInstallMethod.Virtual, (int)GateAFailureBoundary.SafeBeforeNativeCommit, false)]
+		[TestCase(ModInstallMethod.Direct, (int)GateAFailureBoundary.AfterNativeCommit, false)]
+		[TestCase(ModInstallMethod.Virtual, (int)GateAFailureBoundary.AfterNativeCommit, false)]
+		[TestCase(ModInstallMethod.Direct, (int)GateAFailureBoundary.AfterNativeTerminalCheckpoint, true)]
+		[TestCase(ModInstallMethod.Virtual, (int)GateAFailureBoundary.AfterNativeTerminalCheckpoint, true)]
+		public void GateA_SingleMemberFailureMatrix_ResumesExactlyOnceWithoutPrematureAppliedProvenance(
+			ModInstallMethod installMethod, int failureBoundaryValue, bool pluginArchive)
+		{
+			GateAFailureBoundary failureBoundary = (GateAFailureBoundary)failureBoundaryValue;
+			Scenario scenario = pluginArchive ? Scenario.PluginArchive : Scenario.PluginlessSingleMember;
+			using (Fixture fixture = Fixture.Create(scenario, installMethod))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.Runtime.PreparedRecipes.Single().InstallContext.Method, Is.EqualTo(installMethod));
+
+				CollectionOperation interrupted;
+				switch (failureBoundary)
+				{
+					case GateAFailureBoundary.SafeBeforeNativeCommit:
+						fixture.NativeBoundary.PauseBeforeCommitOnCall = 1;
+						CollectionAdditiveWorkflowApplyResult paused = fixture.Apply(prepared);
+						Assert.That(paused.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary));
+						interrupted = paused.Operation;
+						Assert.That(interrupted.Phase, Is.EqualTo(CollectionOperationPhase.PausedAtSafeBoundary));
+						Assert.That(interrupted.NativeChildren.Single().Checkpoint,
+							Is.EqualTo(CollectionNativeChildCheckpoint.RecoveryInputsReady));
+						Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(0));
+						break;
+					case GateAFailureBoundary.AfterNativeCommit:
+						fixture.NativeBoundary.FailAfterNativeCommitOnCall = 1;
+						Assert.Throws<InvalidOperationException>(() => fixture.Apply(prepared));
+						interrupted = new CollectionsOperationStore(fixture.Store).GetOperation(prepared.Operation.Identity);
+						Assert.That(interrupted.Phase, Is.EqualTo(CollectionOperationPhase.RecoveryRequired));
+						Assert.That(interrupted.NativeChildren.Single().Checkpoint,
+							Is.EqualTo(CollectionNativeChildCheckpoint.NativeSubmitted));
+						Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+						break;
+					case GateAFailureBoundary.AfterNativeTerminalCheckpoint:
+						fixture.NativeBoundary.FailAfterTerminalCheckpointOnCall = 1;
+						Assert.Throws<InvalidOperationException>(() => fixture.Apply(prepared));
+						interrupted = new CollectionsOperationStore(fixture.Store).GetOperation(prepared.Operation.Identity);
+						Assert.That(interrupted.Phase, Is.EqualTo(CollectionOperationPhase.RecoveryRequired));
+						Assert.That(interrupted.NativeChildren.Single().Checkpoint,
+							Is.EqualTo(CollectionNativeChildCheckpoint.NativeTerminalObserved));
+						Assert.That(interrupted.NativeChildren.Single().NativeResult.Durability,
+							Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+						Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+						break;
+					default:
+						throw new ArgumentOutOfRangeException(nameof(failureBoundary));
+				}
+
+				CollectionNativeChildOperation interruptedChild = interrupted.NativeChildren.Single();
+				Guid operationId = interruptedChild.NativeOperation.OperationId;
+				Guid attemptId = interruptedChild.NativeOperation.AttemptId;
+				Assert.That(GetExactAssociations(fixture.Store, prepared.Runtime.Plan), Is.Empty,
+					"A failure before C6.10 must not publish Collection provenance, especially not a premature Applied association.");
+
+				int commitsBeforeRecovery = fixture.NativeBoundary.CommitCount;
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
+					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
+					x.Operation.Identity.Equals(prepared.Operation.Identity));
+
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(commitsBeforeRecovery),
+					"Recovery classification/reconciliation must never execute a new native mutation.");
+				CollectionNativeChildOperation recoveredChild = operationRecovery.Operation.NativeChildren.Single();
+				Assert.That(recoveredChild.NativeOperation.OperationId, Is.EqualTo(operationId));
+				Assert.That(recoveredChild.NativeOperation.AttemptId, Is.EqualTo(attemptId));
+
+				IReadOnlyList<CollectionTargetAssociation> recoveryAssociations = GetExactAssociations(fixture.Store, prepared.Runtime.Plan);
+				if (failureBoundary == GateAFailureBoundary.SafeBeforeNativeCommit)
+				{
+					Assert.That(recoveredChild.Checkpoint, Is.EqualTo(CollectionNativeChildCheckpoint.RecoveryInputsReady));
+					Assert.That(recoveredChild.HasCrossedNativeBoundary, Is.False);
+					Assert.That(recoveryAssociations, Is.Empty,
+						"Safe pending work must remain provenance-free until native success is independently verified.");
+				}
+				else
+				{
+					Assert.That(recoveredChild.IsReconciled, Is.True);
+					Assert.That(recoveredChild.NativeResult.Durability, Is.EqualTo(ModOperationDurability.VerifiedCommitted));
+					Assert.That(recoveryAssociations.Count, Is.EqualTo(1));
+					Assert.That(recoveryAssociations.Single().State, Is.EqualTo(CollectionAssociationState.Incomplete),
+						"C6.9/C6.10 may preserve verified partial provenance but must not publish Applied before final workflow verification.");
+					Assert.That(new CollectionsAssociationStore(fixture.Store).GetBindings(recoveryAssociations.Single().AssociationId).Count,
+						Is.EqualTo(1));
+				}
+
+				fixture.NativeBoundary.PauseBeforeCommitOnCall = null;
+				fixture.NativeBoundary.FailAfterNativeCommitOnCall = null;
+				fixture.NativeBoundary.FailAfterTerminalCheckpointOnCall = null;
+				CollectionAdditiveWorkflowApplyResult resumed = fixture.Apply(prepared);
+
+				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(resumed.Operation.IsSuccessful, Is.True);
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1),
+					"Every Gate-A failure row must converge on exactly one native commit for the member.");
+				Assert.That(fixture.NativeBoundary.AppliedMembers.Count, Is.EqualTo(1));
+				Assert.That(fixture.NativeBoundary.AppliedMembers.Distinct().Count(), Is.EqualTo(1));
+				Assert.That(resumed.Finalization.Association.State, Is.EqualTo(CollectionAssociationState.Applied));
+				Assert.That(resumed.Finalization.Bindings.Count, Is.EqualTo(1));
+				Assert.That(new CollectionsOperationStore(fixture.Store).GetIncompleteOperations(prepared.Runtime.Plan.Target)
+					.Any(x => x.Identity.Equals(prepared.Operation.Identity)), Is.False);
+
+				if (scenario == Scenario.PluginArchive)
+				{
+					CollectionPlannedPluginEffect reviewedPlugin = prepared.Runtime.PreparedRecipes.Single()
+						.EffectPreview.PluginEffects.Single();
+					CollectionNativePluginState nativePlugin = fixture.NativeBoundary.LastTerminalState.Plugins.Values.Single();
+					Assert.That(nativePlugin.FileName, Is.EqualTo(reviewedPlugin.PluginPaths.Single()));
+					Assert.That(nativePlugin.Active, Is.EqualTo(reviewedPlugin.Active.Value));
+				}
+			}
+		}
+
+		private static IReadOnlyList<CollectionTargetAssociation> GetExactAssociations(CollectionsStore store,
+			ResolvedCollectionPlan plan)
+		{
+			return new CollectionsAssociationStore(store).GetAssociationsForTarget(plan.Target)
+				.Where(x => x.Revision.Equals(plan.Revision)).ToArray();
+		}
+
+		private enum GateAFailureBoundary
+		{
+			SafeBeforeNativeCommit = 1,
+			AfterNativeCommit = 2,
+			AfterNativeTerminalCheckpoint = 3
 		}
 
 		private enum Scenario
@@ -251,7 +552,7 @@ namespace NexusClientTests
 			public MemberSpec MemberB { get; }
 			public string PluginDirectory { get; }
 
-			public static Fixture Create(Scenario scenario)
+			public static Fixture Create(Scenario scenario, ModInstallMethod preferredInstallMethod = ModInstallMethod.Direct)
 			{
 				string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-14c-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(root);
@@ -373,7 +674,7 @@ namespace NexusClientTests
 				var revalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 					operationCoordinator, planBuilder, memberAcquisition);
 
-				ModManager manager = CreateModManagerShell(gameMode, installLog, managedMods.Values, ModInstallMethod.Direct);
+				ModManager manager = CreateModManagerShell(root, gameMode, installLog, managedMods.Values, pluginManager, preferredInstallMethod);
 				var services = new ServiceManager(installLog, null, null, null, manager, pluginManager, null, null);
 				var rehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore, revisionSources,
 					artifacts, nativeStateReader, recoveryManifests);
@@ -384,8 +685,11 @@ namespace NexusClientTests
 					operationStore, planStore, associations, recoveryManifests);
 				var childVerification = new CollectionNativeChildVerificationCoordinator(services, storageService,
 					operationStore, planStore, associations, recoveryManifests);
+				var authorityValidator = new CollectionTargetOwnershipAuthorityValidator(storageService, new NoOpNativeStateReloader(),
+					new CollectionTargetOwnershipAuthorityStore(Path.Combine(root, "MachineAuthority")));
 				var childRestart = new CollectionNativeChildRestartReconciliationCoordinator(services, storageService,
-					operationStore, planStore, associations, recoveryManifests);
+					operationStore, planStore, associations, recoveryManifests, CollectionTargetMutationLeaseManager.Shared,
+					authorityValidator);
 				var associationCoordinator = new CollectionAssociationReconciliationCoordinator(operationStore, planStore,
 					associations, recoveryManifests);
 				var winnerCoordinator = new CollectionReviewedFileWinnerReconciliationCoordinator(operationStore, planStore,
@@ -403,9 +707,7 @@ namespace NexusClientTests
 					new CollectionDependencyPhasePlanner(), new CollectionConflictImpactPlanner(), operationCoordinator,
 					rehydrator, runtimeReconstructor, nativeStateReader, childPreparation, childExecution, childVerification,
 					childRestart, associationCoordinator, winnerCoordinator, CollectionTargetMutationLeaseManager.Shared,
-					new CollectionTargetOwnershipAuthorityValidator(storageService, new NoOpNativeStateReloader(),
-						new CollectionTargetOwnershipAuthorityStore(Path.Combine(root, "MachineAuthority"))), nativeBoundary.ApplyAsync,
-					winnerBarrier.ReconcileAsync);
+					authorityValidator, nativeBoundary.ApplyAsync, winnerBarrier.ReconcileAsync);
 
 				return new Fixture(root, paths, store, manifest, workflow, nativeBoundary, winnerBarrier,
 					memberA, memberB, pluginDirectory);
@@ -421,8 +723,14 @@ namespace NexusClientTests
 
 			public CollectionAdditiveWorkflowApplyResult Apply(CollectionAdditiveWorkflowPreparationResult prepared)
 			{
+				return Apply(prepared, CancellationToken.None);
+			}
+
+			public CollectionAdditiveWorkflowApplyResult Apply(CollectionAdditiveWorkflowPreparationResult prepared,
+				CancellationToken cancellationToken)
+			{
 				return Workflow.ApproveAndApplyAsync(prepared.Operation.Identity, prepared.Runtime.Plan.Identity,
-					Paths, CancellationToken.None).GetAwaiter().GetResult();
+					Paths, cancellationToken).GetAwaiter().GetResult();
 			}
 
 			public void Dispose()
@@ -464,6 +772,9 @@ namespace NexusClientTests
 			public int CommitCount { get; private set; }
 			public int? PauseBeforeCommitOnCall { get; set; }
 			public int? FailAfterNativeCommitOnCall { get; set; }
+			public int? FailAfterTerminalCheckpointOnCall { get; set; }
+			public int? CancelAfterCommitOnCall { get; set; }
+			public Action CancelAfterCommit { get; set; }
 			public IReadOnlyList<CollectionMemberKey> AppliedMembers { get { return _appliedMembers; } }
 			public CollectionNativeStateIndex LastTerminalState { get; private set; }
 
@@ -508,7 +819,7 @@ namespace NexusClientTests
 				CollectionNativeStateIndex terminalState = _nativeStateReader.Capture(plan.Target);
 				LastTerminalState = terminalState;
 				if (FailAfterNativeCommitOnCall.HasValue && FailAfterNativeCommitOnCall.Value == CallCount)
-					throw new InvalidOperationException("Injected C6.15.14e failure after the native commit boundary.");
+					throw new InvalidOperationException("Injected C6.16-C failure after the native commit boundary.");
 				CollectionNativeModState verifiedNativeMod = terminalState.Mods.Values.Single(x =>
 					x.Identity.NativeModKey.Equals(spec.NativeKey, StringComparison.OrdinalIgnoreCase));
 
@@ -519,6 +830,10 @@ namespace NexusClientTests
 				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
 					CollectionNativeChildCheckpoint.NativeTerminalObserved, nativeResult);
 				operation = SaveChild(operation, child);
+				if (FailAfterTerminalCheckpointOnCall.HasValue && FailAfterTerminalCheckpointOnCall.Value == CallCount)
+					throw new InvalidOperationException("Injected C6.16-C failure after the durable native terminal checkpoint.");
+				if (CancelAfterCommitOnCall.HasValue && CancelAfterCommitOnCall.Value == CallCount)
+					CancelAfterCommit?.Invoke();
 
 				return Task.FromResult(new CollectionNativeChildVerificationResult(operation, child, terminalState,
 					verifiedNativeMod, ModOperationDurability.VerifiedCommitted));
@@ -800,8 +1115,8 @@ namespace NexusClientTests
 			});
 		}
 
-		private static ModManager CreateModManagerShell(IGameMode gameMode, IInstallLog installLog,
-			IEnumerable<IMod> mods, ModInstallMethod preferredInstallMethod)
+		private static ModManager CreateModManagerShell(string root, IGameMode gameMode, IInstallLog installLog,
+			IEnumerable<IMod> mods, IPluginManager pluginManager, ModInstallMethod preferredInstallMethod)
 		{
 			var registry = new ModRegistry(InterfaceStub<IModFormatRegistry>.Create((method, args) => null), gameMode);
 			FieldInfo registeredModsField = typeof(ModRegistry).GetField("m_oclRegisteredMods", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -810,13 +1125,22 @@ namespace NexusClientTests
 			foreach (IMod mod in mods) registeredMods.Add(mod);
 
 			var preferred = new PerGameModeSettings<string>();
-			preferred["SkyrimSE"] = preferredInstallMethod.ToString();
+			preferred[gameMode.ModeId] = preferredInstallMethod.ToString();
+			var virtualFolders = new PerGameModeSettings<string>();
+			virtualFolders[gameMode.ModeId] = Path.Combine(root, "Virtual");
+			var linkFolders = new PerGameModeSettings<string>();
+			linkFolders[gameMode.ModeId] = String.Empty;
+			var multiHd = new PerGameModeSettings<bool>();
+			multiHd[gameMode.ModeId] = false;
 			ISettings settings = InterfaceStub<ISettings>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
 					case "get_PreferredInstallMethod": return preferred;
 					case "get_SkipReadmeFiles": return false;
+					case "get_VirtualFolder": return virtualFolders;
+					case "get_HDLinkFolder": return linkFolders;
+					case "get_MultiHDInstall": return multiHd;
 					default: return null;
 				}
 			});
@@ -831,6 +1155,10 @@ namespace NexusClientTests
 			SetField(manager, "<ManagedModRegistry>k__BackingField", registry);
 			SetField(manager, "<EnvironmentInfo>k__BackingField", environment);
 			SetField(manager, "<ModRepository>k__BackingField", repository);
+			Directory.CreateDirectory(Path.Combine(root, "Mods"));
+			var virtualModActivator = new VirtualModActivator(manager, pluginManager, gameMode, installLog, environment,
+				Path.Combine(root, "Mods"));
+			SetField(manager, "m_vmaVirtualModActivator", virtualModActivator);
 			return manager;
 		}
 
