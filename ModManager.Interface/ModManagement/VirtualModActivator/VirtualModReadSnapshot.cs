@@ -32,6 +32,13 @@ namespace Nexus.Client.ModManagement
 		/// <summary>Creates one detached Virtual link record.</summary>
 		public VirtualModReadLink(ModDeploymentTarget target, string ownerKey, string ownerReference, bool active, int priority,
 			string stagedSourcePath)
+			: this(target, ownerKey, ownerReference, active, priority, stagedSourcePath, String.Empty)
+		{
+		}
+
+		/// <summary>Creates one detached Virtual link record including its resolved live payload source when available.</summary>
+		public VirtualModReadLink(ModDeploymentTarget target, string ownerKey, string ownerReference, bool active, int priority,
+			string stagedSourcePath, string resolvedPayloadSourcePath)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			OwnerKey = ownerKey;
@@ -39,6 +46,7 @@ namespace Nexus.Client.ModManagement
 			Active = active;
 			Priority = priority;
 			StagedSourcePath = stagedSourcePath;
+			ResolvedPayloadSourcePath = resolvedPayloadSourcePath ?? String.Empty;
 		}
 
 		public ModDeploymentTarget Target { get; }
@@ -47,5 +55,7 @@ namespace Nexus.Client.ModManagement
 		public bool Active { get; }
 		public int Priority { get; }
 		public string StagedSourcePath { get; }
+		/// <summary>Gets the VMA-resolved physical source path for the live payload, or an empty string when unavailable.</summary>
+		public string ResolvedPayloadSourcePath { get; }
 	}
 }

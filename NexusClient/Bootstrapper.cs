@@ -294,6 +294,8 @@
 					var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
 						gameStorageService, collectionNxmDispatcher.Provider);
 					mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);
+					var collectionCaptureWorkflow = new CollectionLocalCaptureApplicationService(services, gameStorageService);
+					mainFormViewModel.InitializeCollectionCaptureWorkflow(collectionCaptureWorkflow);
 					var mainForm = new MainForm(mainFormViewModel);
 
 					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm, collectionNxmDispatcher))

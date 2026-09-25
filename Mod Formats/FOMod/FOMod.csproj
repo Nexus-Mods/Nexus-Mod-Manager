@@ -80,6 +80,7 @@
     </Compile>
     <Compile Include="FOMod.cs" />
     <Compile Include="FOModArchiveMetadataCache.cs" />
+    <Compile Include="FOModUserMetadataReader.cs" />
     <Compile Include="ModSortOrderStore.cs" />
     <Compile Include="FomodCacheRepairTool.cs" />
     <Compile Include="FOModFormat.cs" />

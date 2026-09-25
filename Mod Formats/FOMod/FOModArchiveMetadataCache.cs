@@ -257,6 +257,47 @@ WHERE archive_path = @archive_path
 		}
 
 		/// <summary>
+		/// Reads the generated screenshot override row for one archive path without exporting or replacing the shared database.
+		/// </summary>
+		internal FOModScreenshotOverrideReadResult ReadScreenshotOverride(string archivePath)
+		{
+			if (string.IsNullOrWhiteSpace(archivePath))
+				throw new ArgumentException("An archive path is required.", nameof(archivePath));
+			if (!_available)
+				throw new InvalidOperationException("The FOMod archive metadata store is unavailable.");
+
+			FOModScreenshotOverrideRecord record = null;
+			lock (_database.SyncRoot)
+			using (var command = _database.Connection.CreateCommand())
+			{
+				if (_database.Transaction != null)
+					command.Transaction = _database.Transaction;
+				command.CommandText = @"
+SELECT archive_length, archive_write_time_utc, screenshot_path, screenshot_data, updated_utc
+FROM archive_screenshot_cache
+WHERE archive_path = @archive_path;";
+				command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+				using (var reader = command.ExecuteReader())
+				{
+					if (!reader.Read())
+						return new FOModScreenshotOverrideReadResult(FOModScreenshotOverrideReadState.None, null);
+					if (reader.IsDBNull(0) || reader.IsDBNull(1) || reader.IsDBNull(2) || reader.IsDBNull(3) || reader.IsDBNull(4))
+						throw new InvalidDataException("A persisted screenshot override is incomplete.");
+					record = new FOModScreenshotOverrideRecord(reader.GetInt64(0), reader.GetInt64(1), reader.GetString(2),
+						(byte[])reader.GetValue(3), reader.GetInt64(4));
+				}
+			}
+
+			var archiveInfo = new FileInfo(archivePath);
+			if (!archiveInfo.Exists)
+				return new FOModScreenshotOverrideReadResult(FOModScreenshotOverrideReadState.ArchiveUnavailable, record);
+			bool current = archiveInfo.Length == record.ArchiveLength &&
+				archiveInfo.LastWriteTimeUtc.Ticks == record.ArchiveWriteTimeUtcTicks;
+			return new FOModScreenshotOverrideReadResult(current ? FOModScreenshotOverrideReadState.Current :
+				FOModScreenshotOverrideReadState.Stale, record);
+		}
+
+		/// <summary>
 		/// Stores a generated screenshot override in SQLite without creating a loose cache file.
 		/// </summary>
 		public void SaveScreenshot(string archivePath, string screenshotPath, byte[] screenshotData)

@@ -179,7 +179,7 @@ ORDER BY CASE WHEN nexus_revision_number IS NULL THEN 1 ELSE 0 END, nexus_revisi
 			});
 		}
 
-		private static void SaveDefinition(SQLiteConnection connection, SQLiteTransaction transaction, CollectionDefinition definition)
+		internal static void SaveDefinition(SQLiteConnection connection, SQLiteTransaction transaction, CollectionDefinition definition)
 		{
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
@@ -211,7 +211,7 @@ VALUES
 			}
 		}
 
-		private static void SaveRevision(SQLiteConnection connection, SQLiteTransaction transaction, CollectionRevision revision)
+		internal static void SaveRevision(SQLiteConnection connection, SQLiteTransaction transaction, CollectionRevision revision)
 		{
 			CollectionRevision existing = ReadRevision(connection, transaction, revision.Identity);
 			if (existing != null)

@@ -15,18 +15,20 @@ using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.OnlineServices.NexusMods.GraphQl;
 using Nexus.Client.UI;
 using Nexus.Client.Util.Localization;
+using Nexus.UI.Controls;
 
 namespace Nexus.Client.CollectionManagement.UI
 {
 	/// <summary>
-	/// C6.15 additive Collections surface for provider preview, durable preparation, exact review and explicit apply.
+	/// C6.15/C7.8 Collections surface for provider preview, additive apply and explicit Local Collection capture.
 	/// </summary>
 	/// <remarks>
-	/// The control consumes one application-level workflow service and never constructs or invokes native C4/C5/C6
+	/// The control consumes application-level workflow services and never constructs or invokes native C4/C5/C6
 	/// persistence or mutation coordinators directly. Replacement and later management commands remain out of scope.
 	/// </remarks>
 	public sealed class CollectionsPreviewControl : ManagedFontDockContent
 	{
+		private readonly Button _saveCurrentSetupButton;
 		private readonly Button _importButton;
 		private readonly Button _downloadPrepareButton;
 		private readonly Button _resumeButton;
@@ -51,6 +53,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private NexusCollectionNxmDispatcher _dispatcher;
 		private NexusCollectionPreviewController _controller;
 		private CollectionAdditiveApplicationService _workflow;
+		private CollectionLocalCaptureApplicationService _captureWorkflow;
 		private NexusCollectionPreviewSnapshot _snapshot;
 		private CollectionAdditiveWorkflowPreparationResult _preparation;
 		private CollectionMemberAcquisitionBatch _acquisitionBatch;
@@ -103,6 +106,13 @@ namespace Nexus.Client.CollectionManagement.UI
 				FlowDirection = FlowDirection.LeftToRight,
 				Padding = new Padding(0, 0, 0, 6)
 			};
+			_saveCurrentSetupButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.SaveCurrentSetup", "Save current setup as Local Collection"),
+				Enabled = false
+			};
+			_saveCurrentSetupButton.Click += SaveCurrentSetupButton_Click;
 			_importButton = new Button
 			{
 				AutoSize = true,
@@ -153,6 +163,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Padding = new Padding(12, 6, 0, 0),
 				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link, download or import its exact bundle, choose supported optional members, prepare the review, then explicitly approve installation.")
 			};
+			toolbar.Controls.Add(_saveCurrentSetupButton);
 			toolbar.Controls.Add(_importButton);
 			toolbar.Controls.Add(_downloadPrepareButton);
 			toolbar.Controls.Add(_resumeButton);
@@ -252,13 +263,21 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Connects the surface to the incoming Collection dispatcher in preview-only compatibility mode.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher)
 		{
-			Initialize(dispatcher, null);
+			Initialize(dispatcher, null, null);
 		}
 
 		/// <summary>Connects the surface to the incoming dispatcher and production additive workflow service.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow)
 		{
-			if (ReferenceEquals(_dispatcher, dispatcher) && ReferenceEquals(_workflow, workflow) && _initialized)
+			Initialize(dispatcher, workflow, null);
+		}
+
+		/// <summary>Connects additive and Local Collection capture application workflows to this permanent surface.</summary>
+		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow,
+			CollectionLocalCaptureApplicationService captureWorkflow)
+		{
+			if (ReferenceEquals(_dispatcher, dispatcher) && ReferenceEquals(_workflow, workflow) &&
+				ReferenceEquals(_captureWorkflow, captureWorkflow) && _initialized)
 				return;
 
 			DetachDispatcher();
@@ -266,6 +285,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CancelWorkflowWork();
 			_snapshot = null;
 			_workflow = workflow;
+			_captureWorkflow = captureWorkflow;
 			ResetWorkflowViewState();
 			RenderEmptyState();
 
@@ -368,6 +388,82 @@ namespace Nexus.Client.CollectionManagement.UI
 				Trace.TraceError("Collection preview metadata failed: " + ex);
 				RenderUnexpectedFailure(dispatch.Link, ex);
 			}
+		}
+
+		private async void SaveCurrentSetupButton_Click(object sender, EventArgs e)
+		{
+			if (_captureWorkflow == null || _workflowBusy)
+				return;
+
+			PromptDialog nameDialog = PromptDialog.ShowDialog(null, this,
+				L("Collections.Capture.NamePrompt", "Name for the Local Collection:"),
+				L("Collections.Actions.SaveCurrentSetup", "Save current setup as Local Collection"),
+				L("Collections.Capture.DefaultName", "Current setup"), null, null);
+			if (nameDialog == null || String.IsNullOrWhiteSpace(nameDialog.EnteredText))
+				return;
+
+			DialogResult capabilityChoice = MessageBox.Show(this,
+				L("Collections.Capture.CapabilityPrompt",
+					"Choose the capture promise.\r\n\r\nYes: Locally restorable within scope (fails rather than silently downgrading if required content/state cannot be retained).\r\n\r\nNo: Recipe only (records reconstruction intent even when external acquisition/manual work may still be required)."),
+				L("Collections.Capture.CapabilityTitle", "Local Collection capture capability"),
+				MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1);
+			if (capabilityChoice == DialogResult.Cancel)
+				return;
+
+			LocalCaptureCapability capability = capabilityChoice == DialogResult.Yes
+				? LocalCaptureCapability.LocallyRestorableWithinScope
+				: LocalCaptureCapability.RecipeOnly;
+			CancellationToken token = BeginWorkflowWork(L("Collections.Capture.Saving",
+				"Capturing, verifying and retaining the current setup..."));
+			try
+			{
+				var request = new CollectionSaveCurrentSetupRequest(nameDialog.EnteredText, capability);
+				CollectionSaveCurrentSetupResult result = await _captureWorkflow.SaveCurrentSetupAsync(request, token);
+				if (token.IsCancellationRequested || IsDisposed)
+					return;
+
+				if (result.IsSaved)
+				{
+					string capabilityLabel = FormatCaptureCapability(result.Capture.Capability);
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Capture.SavedStatus",
+						"Workflow: Local Collection saved - {0}.", capabilityLabel);
+					MessageBox.Show(this, LanguageManager.Format("Collections.Capture.SavedMessage",
+						"The current setup was saved as '{0}'.\r\n\r\nCapability: {1}",
+						result.Definition.DisplayName, capabilityLabel),
+						L("Collections.Capture.SavedTitle", "Local Collection saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+					return;
+				}
+
+				string reasons = result.Issues.Count == 0
+					? L("Collections.Capture.NotSealedUnknown", "The capture could not be sealed.")
+					: String.Join(Environment.NewLine, result.Issues.Select(x => "- " + x.Message));
+				_workflowStatusLabel.Text = L("Collections.Capture.NotSaved", "Workflow: Local Collection was not saved; requested capability could not be sealed.");
+				MessageBox.Show(this, LanguageManager.Format("Collections.Capture.NotSavedMessage",
+					"Nothing was saved and the requested capability was not downgraded.\r\n\r\n{0}", reasons),
+					L("Collections.Capture.NotSavedTitle", "Local Collection not saved"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+			catch (OperationCanceledException)
+			{
+				_workflowStatusLabel.Text = L("Collections.Capture.Cancelled", "Workflow: Local Collection capture cancelled before publication.");
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Local Collection capture failed: " + ex);
+				_workflowStatusLabel.Text = L("Collections.Capture.Failed", "Workflow: Local Collection capture failed; nothing was published.");
+				MessageBox.Show(this, ex.Message, L("Collections.Capture.FailedTitle", "Local Collection capture failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork();
+			}
+		}
+
+		private static string FormatCaptureCapability(LocalCaptureCapability capability)
+		{
+			return capability == LocalCaptureCapability.LocallyRestorableWithinScope
+				? L("Collections.Capture.Capability.Restorable", "Locally restorable within scope")
+				: L("Collections.Capture.Capability.RecipeOnly", "Recipe only");
 		}
 
 		private async void ImportButton_Click(object sender, EventArgs e)
@@ -1187,6 +1283,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void UpdateActionButtons()
 		{
+			_saveCurrentSetupButton.Enabled = !_workflowBusy && _captureWorkflow != null;
 			bool hasConcreteRevision = _snapshot != null && _snapshot.HasConcreteRevision;
 			_importButton.Enabled = !_workflowBusy && hasConcreteRevision;
 			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision && !_selectionCapabilityBlocked &&

@@ -323,6 +323,19 @@
 			CollectionWorkflow = collectionWorkflow;
 		}
 
+		/// <summary>Gets the application-level Local Collection capture workflow for the active game mode.</summary>
+		public CollectionLocalCaptureApplicationService CollectionCaptureWorkflow { get; private set; }
+
+		/// <summary>Supplies the Local Collection capture workflow after native services have been constructed.</summary>
+		public void InitializeCollectionCaptureWorkflow(CollectionLocalCaptureApplicationService captureWorkflow)
+		{
+			if (captureWorkflow == null)
+				throw new ArgumentNullException(nameof(captureWorkflow));
+			if (CollectionCaptureWorkflow != null && !ReferenceEquals(CollectionCaptureWorkflow, captureWorkflow))
+				throw new InvalidOperationException("The Local Collection capture workflow has already been initialized.");
+			CollectionCaptureWorkflow = captureWorkflow;
+		}
+
 		/// <summary>
 		/// Gets the view model that encapsulates the data
 		/// and operations for displaying the mod manager.

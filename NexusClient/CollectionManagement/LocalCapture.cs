@@ -31,6 +31,12 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class LocalCapture
 	{
+		/// <summary>Gets the current serialized Local Collection capture schema version.</summary>
+		public const int CurrentSchemaVersion = 1;
+
+		/// <summary>Gets the current restoration-capability contract version.</summary>
+		public const int CurrentCapabilityVersion = 1;
+
 		private readonly ReadOnlyCollection<RetainedArtifactReference> _retainedArtifacts;
 		private readonly ReadOnlyCollection<LocalCaptureExclusion> _exclusions;
 		private readonly ReadOnlyCollection<LocalCaptureNativeRecordMapping> _nativeRecordMappings;
@@ -45,6 +51,26 @@ namespace Nexus.Client.CollectionManagement
 			CollectionCurrentStateFingerprint capturedStateFingerprint,
 			LocalCaptureScope scope,
 			LocalCaptureCapability capability,
+			IEnumerable<RetainedArtifactReference> retainedArtifacts,
+			IEnumerable<LocalCaptureExclusion> exclusions,
+			IEnumerable<LocalCaptureNativeRecordMapping> nativeRecordMappings)
+			: this(identity, revision, sourceTarget, capturedStateFingerprint, scope, capability,
+				CurrentSchemaVersion, CurrentCapabilityVersion, retainedArtifacts, exclusions, nativeRecordMappings)
+		{
+		}
+
+		/// <summary>
+		/// Creates a sealed Local Collection capture contract with explicit persisted schema/capability versions.
+		/// </summary>
+		public LocalCapture(
+			LocalCaptureIdentity identity,
+			CollectionRevisionIdentity revision,
+			CollectionTargetIdentity sourceTarget,
+			CollectionCurrentStateFingerprint capturedStateFingerprint,
+			LocalCaptureScope scope,
+			LocalCaptureCapability capability,
+			int schemaVersion,
+			int capabilityVersion,
 			IEnumerable<RetainedArtifactReference> retainedArtifacts,
 			IEnumerable<LocalCaptureExclusion> exclusions,
 			IEnumerable<LocalCaptureNativeRecordMapping> nativeRecordMappings)
@@ -63,6 +89,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(scope));
 			if (!Enum.IsDefined(typeof(LocalCaptureCapability), capability) || capability == LocalCaptureCapability.Unknown)
 				throw new ArgumentOutOfRangeException(nameof(capability));
+			if (schemaVersion <= 0)
+				throw new ArgumentOutOfRangeException(nameof(schemaVersion));
+			if (capabilityVersion <= 0)
+				throw new ArgumentOutOfRangeException(nameof(capabilityVersion));
 			if (retainedArtifacts == null)
 				throw new ArgumentNullException(nameof(retainedArtifacts));
 			if (exclusions == null)
@@ -71,13 +101,24 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(nativeRecordMappings));
 
 			List<RetainedArtifactReference> copiedArtifacts = new List<RetainedArtifactReference>();
-			HashSet<string> retainedArtifactIds = new HashSet<string>(StringComparer.Ordinal);
+			HashSet<string> retainedArtifactRoles = new HashSet<string>(StringComparer.Ordinal);
+			Dictionary<string, RetainedArtifactReference> retainedArtifactsById =
+				new Dictionary<string, RetainedArtifactReference>(StringComparer.Ordinal);
 			foreach (RetainedArtifactReference artifact in retainedArtifacts)
 			{
 				if (artifact == null)
 					throw new ArgumentException("A capture cannot contain a null retained artifact reference.", nameof(retainedArtifacts));
-				if (!retainedArtifactIds.Add(artifact.StableArtifactId))
-					throw new ArgumentException("A capture cannot reference the same retained artifact identity more than once.", nameof(retainedArtifacts));
+				if (!retainedArtifactRoles.Add(artifact.Role))
+					throw new ArgumentException("A capture cannot bind the same retained-artifact role more than once.", nameof(retainedArtifacts));
+
+				RetainedArtifactReference existingArtifact;
+				if (retainedArtifactsById.TryGetValue(artifact.StableArtifactId, out existingArtifact))
+				{
+					if (!existingArtifact.ContentHash.Equals(artifact.ContentHash) || existingArtifact.ByteLength != artifact.ByteLength)
+						throw new ArgumentException("References to the same retained artifact identity must agree on SHA-256 and length.", nameof(retainedArtifacts));
+				}
+				else
+					retainedArtifactsById.Add(artifact.StableArtifactId, artifact);
 
 				copiedArtifacts.Add(artifact);
 			}
@@ -121,6 +162,8 @@ namespace Nexus.Client.CollectionManagement
 			CapturedStateFingerprint = capturedStateFingerprint;
 			Scope = scope;
 			Capability = capability;
+			SchemaVersion = schemaVersion;
+			CapabilityVersion = capabilityVersion;
 			_retainedArtifacts = new ReadOnlyCollection<RetainedArtifactReference>(copiedArtifacts);
 			_exclusions = new ReadOnlyCollection<LocalCaptureExclusion>(copiedExclusions);
 			_nativeRecordMappings = new ReadOnlyCollection<LocalCaptureNativeRecordMapping>(copiedMappings);
@@ -155,6 +198,12 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets the restoration capability promised by this sealed capture.
 		/// </summary>
 		public LocalCaptureCapability Capability { get; }
+
+		/// <summary>Gets the persisted Local Collection capture schema version.</summary>
+		public int SchemaVersion { get; }
+
+		/// <summary>Gets the persisted restoration-capability contract version.</summary>
+		public int CapabilityVersion { get; }
 
 		/// <summary>
 		/// Gets immutable content retained for this capture.

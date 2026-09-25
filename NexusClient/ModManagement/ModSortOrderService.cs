@@ -366,6 +366,24 @@
 		}
 
 		/// <summary>
+		/// Tries to get the complete already-resolved Sort assignment for one archive path without performing a write or re-resolution.
+		/// </summary>
+		public bool TryGetResolvedAssignment(string archivePath, out ModSortOrderRecord assignment)
+		{
+			assignment = null;
+			if (String.IsNullOrWhiteSpace(archivePath))
+			{
+				return false;
+			}
+
+			var locator = _store.GetArchiveLocator(archivePath);
+			lock (_syncRoot)
+			{
+				return _resolvedByLocator.TryGetValue(locator, out assignment);
+			}
+		}
+
+		/// <summary>
 		/// Gets whether the currently bound row is waiting for identity from an explicit Add/download lifecycle.
 		/// </summary>
 		public bool IsPendingAddIdentity(IMod mod)

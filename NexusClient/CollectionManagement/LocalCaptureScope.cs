@@ -28,6 +28,9 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class LocalCaptureScope : IEquatable<LocalCaptureScope>
 	{
+		/// <summary>Gets the current Local Collection capture-scope contract version.</summary>
+		public const int CurrentVersion = 1;
+
 		private readonly ReadOnlyCollection<LocalCaptureScopeArea> _areas;
 
 		/// <summary>

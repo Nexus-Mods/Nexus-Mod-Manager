@@ -112,6 +112,7 @@ namespace NexusClientTests
 						"local_capture_scope_areas",
 						"local_capture_exclusions",
 						"local_capture_native_mappings",
+						"local_capture_packages",
 						"retained_artifacts",
 						"retained_artifact_references",
 						"retained_artifact_tombstones",
@@ -152,6 +153,7 @@ namespace NexusClientTests
 						"ix_user_overrides_association",
 						"ix_drift_observations_association",
 						"ix_local_captures_revision",
+						"ix_local_capture_packages_artifact",
 						"ix_retained_artifact_references_artifact",
 						"ix_collection_operations_pending",
 						"ix_native_operation_children_native",
@@ -165,6 +167,7 @@ namespace NexusClientTests
 					Assert.Greater(ForeignKeyCount(connection, "member_bindings"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "native_operation_children"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "revision_sources"), 0);
+					Assert.Greater(ForeignKeyCount(connection, "local_capture_packages"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "retained_artifact_tombstones"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "collection_acquisition_requests"), 0);
 				}
@@ -186,6 +189,8 @@ namespace NexusClientTests
 				Guid storeId = store.CreateNew();
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
+					Execute(connection, null, "DROP INDEX ix_local_capture_packages_artifact;");
+					Execute(connection, null, "DROP TABLE local_capture_packages;");
 					Execute(connection, null, "DROP TABLE native_mod_provenance;");
 					Execute(connection, null, "UPDATE store_metadata SET value='3' WHERE key='schema_version';");
 					Execute(connection, null, "PRAGMA user_version=3;");
@@ -201,6 +206,43 @@ namespace NexusClientTests
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
 					Assert.IsTrue(TableExists(connection, "native_mod_provenance"));
+					Assert.IsTrue(TableExists(connection, "local_capture_packages"));
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void OpenExisting_MigratesVersion4ToDurableLocalCapturePackageSchema()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP INDEX ix_local_capture_packages_artifact;");
+					Execute(connection, null, "DROP TABLE local_capture_packages;");
+					Execute(connection, null, "UPDATE store_metadata SET value='4' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=4;");
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.MigrationRequired, inspection.Availability);
+				Assert.AreEqual(4, inspection.SchemaVersion);
+
+				CollectionsStoreStatus migrated = store.OpenExisting();
+				Assert.AreEqual(storeId, migrated.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, migrated.SchemaVersion);
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.IsTrue(TableExists(connection, "local_capture_packages"));
+					Assert.IsTrue(IndexExists(connection, "ix_local_capture_packages_artifact"));
 					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
 				}
 			}
@@ -271,6 +313,8 @@ namespace NexusClientTests
 
 				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
 				{
+					Execute(connection, null, "DROP INDEX ix_local_capture_packages_artifact;");
+					Execute(connection, null, "DROP TABLE local_capture_packages;");
 					Execute(connection, null, "DROP TABLE native_mod_provenance;");
 					Execute(connection, null, "DROP INDEX ix_collection_acquisition_queue;");
 					Execute(connection, null, "DROP TABLE collection_acquisition_requests;");
@@ -299,6 +343,7 @@ namespace NexusClientTests
 					Assert.IsTrue(TableExists(connection, "retained_artifact_tombstones"));
 					Assert.IsTrue(TableExists(connection, "collection_acquisition_requests"));
 					Assert.IsTrue(TableExists(connection, "native_mod_provenance"));
+					Assert.IsTrue(TableExists(connection, "local_capture_packages"));
 					Assert.AreEqual(1, ScalarInt(connection, "SELECT COUNT(*) FROM retained_artifacts;"));
 					Assert.AreEqual(1, ScalarInt(connection, "SELECT COUNT(*) FROM retained_artifact_references;"));
 				}

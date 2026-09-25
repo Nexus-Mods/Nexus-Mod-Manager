@@ -9,6 +9,7 @@ namespace NexusClientTests
 	public class LocalCaptureContractsTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+		private const string Sha256B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
 
 		[Test]
 		public void RecipeOnlyCapture_DoesNotClaimLocalRestorability()
@@ -19,6 +20,8 @@ namespace NexusClientTests
 			Assert.That(capture.IsLocallyRestorableWithinScope, Is.False);
 			Assert.That(capture.Scope.Contains(LocalCaptureScopeArea.ManagedModState), Is.True);
 			Assert.That(capture.Revision.Collection.Origin, Is.EqualTo(CollectionOrigin.Local));
+			Assert.That(capture.SchemaVersion, Is.EqualTo(LocalCapture.CurrentSchemaVersion));
+			Assert.That(capture.CapabilityVersion, Is.EqualTo(LocalCapture.CurrentCapabilityVersion));
 		}
 
 		[Test]
@@ -161,6 +164,28 @@ namespace NexusClientTests
 					new LocalCaptureNativeRecordMapping(firstMember, native),
 					new LocalCaptureNativeRecordMapping(secondMember, native)
 				}));
+		}
+
+
+		[Test]
+		public void Capture_AllowsContentDedupAcrossDistinctRetainedRolesButRejectsDuplicateRole()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-1");
+			RetainedArtifactReference first = new RetainedArtifactReference("blob-shared", "owner-payload:a",
+				CollectionContentHash.FromSha256(Sha256A), 100);
+			RetainedArtifactReference second = new RetainedArtifactReference("blob-shared", "owner-payload:b",
+				CollectionContentHash.FromSha256(Sha256A), 100);
+
+			LocalCapture capture = CreateCapture(LocalCaptureCapability.RecipeOnly, CreateLocalRevision(), target,
+				CreateScope(), new[] { first, second }, new LocalCaptureExclusion[0], new LocalCaptureNativeRecordMapping[0]);
+
+			Assert.That(capture.RetainedArtifacts.Count, Is.EqualTo(2));
+			Assert.Throws<ArgumentException>(() => CreateCapture(LocalCaptureCapability.RecipeOnly, CreateLocalRevision(), target,
+				CreateScope(), new[] { first, new RetainedArtifactReference("blob-other", "owner-payload:a",
+					CollectionContentHash.FromSha256(Sha256A), 100) }, new LocalCaptureExclusion[0], new LocalCaptureNativeRecordMapping[0]));
+			Assert.Throws<ArgumentException>(() => CreateCapture(LocalCaptureCapability.RecipeOnly, CreateLocalRevision(), target,
+				CreateScope(), new[] { first, new RetainedArtifactReference("blob-shared", "owner-payload:c",
+					CollectionContentHash.FromSha256(Sha256B), 100) }, new LocalCaptureExclusion[0], new LocalCaptureNativeRecordMapping[0]));
 		}
 
 		[Test]

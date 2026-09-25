@@ -76,6 +76,11 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private FOModArchiveMetadataCache MetadataCache { get; set; }
 
 		/// <summary>
+		/// Gets the logical read-only surface for selected non-rebuildable FOMod user metadata.
+		/// </summary>
+		public FOModUserMetadataReader UserMetadataReader { get; private set; }
+
+		/// <summary>
 		/// Gets the registry of supported script types.
 		/// </summary>
 		/// <value>The registry of supported script types.</value>
@@ -94,6 +99,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		{
 			ModCacheManager = p_mcmModCacheManager;
 			MetadataCache = new FOModArchiveMetadataCache(p_mcmModCacheManager.ModCacheDirectory);
+			UserMetadataReader = new FOModUserMetadataReader(MetadataCache);
 			IScriptTypeRegistry = p_stgScriptTypeRegistry;
 		}
 

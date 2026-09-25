@@ -148,6 +148,16 @@
     <Compile Include="CollectionResolvedPlanBuilderTests.cs" />
     <Compile Include="CollectionNativeRecipePreparerTests.cs" />
     <Compile Include="CollectionNativeStateIndexTests.cs" />
+    <Compile Include="CollectionNativeEffectCaptureReaderTests.cs" />
+    <Compile Include="CollectionUserMetadataCaptureServiceTests.cs" />
+    <Compile Include="CollectionCaptureSealerTests.cs" />
+    <Compile Include="CollectionLocalCapturePackageCodecTests.cs" />
+    <Compile Include="CollectionLocalRestorePlannerTests.cs" />
+    <Compile Include="CollectionsLocalCaptureStoreTests.cs" />
+    <Compile Include="NativeStateCaptureReaderTests.cs" />
+    <Compile Include="CollectionInstalledIdentityCaptureReaderTests.cs" />
+    <Compile Include="CollectionOwnerPayloadCaptureServiceTests.cs" />
+    <Compile Include="CollectionScriptedReplayCaptureServiceTests.cs" />
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />

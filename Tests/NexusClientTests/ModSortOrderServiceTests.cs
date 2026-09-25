@@ -76,6 +76,27 @@
 		}
 
 		/// <summary>
+		/// Ensures logical capture can read the complete already-resolved Sort state without re-resolving or flattening explicit blank.
+		/// </summary>
+		[Test]
+		public void ResolvedAssignmentReadPreservesExplicitState()
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			var mod = CreateMod("Capture.7z", "110", "210");
+			service.RebuildCurrentArchiveInventory(new[] { mod }, null);
+			service.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, new[] { mod });
+			service.SetSortNumber(mod, null);
+
+			ModSortOrderRecord assignment;
+			Assert.That(service.TryGetResolvedAssignment(mod.ModArchivePath, out assignment), Is.True);
+			Assert.That(assignment.AssignmentState, Is.EqualTo(ModSortOrderAssignmentState.ExplicitBlank));
+			Assert.That(assignment.SortNumber, Is.Null);
+			Assert.That(assignment.ModId, Is.EqualTo("110"));
+			Assert.That(assignment.DownloadId, Is.EqualTo("210"));
+		}
+
+		/// <summary>
 		/// Ensures a failed durable identity write leaves both SQLite and the active in-memory value unchanged.
 		/// </summary>
 		[Test]

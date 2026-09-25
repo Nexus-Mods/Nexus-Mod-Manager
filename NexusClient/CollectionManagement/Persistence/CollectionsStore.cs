@@ -17,7 +17,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	/// </remarks>
 	public sealed class CollectionsStore
 	{
-		public const int CurrentSchemaVersion = 4;
+		public const int CurrentSchemaVersion = 5;
 		public const int BusyTimeoutMilliseconds = 5000;
 		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private const string SchemaName = "nmm-ce-collections";
@@ -390,6 +390,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				case 1:
 				case 2:
 				case 3:
+				case 4:
 					return true;
 				default:
 					return false;
@@ -408,6 +409,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					return;
 				case 3:
 					ValidateSchemaVersion3(connection);
+					return;
+				case 4:
+					ValidateSchemaVersion4(connection);
 					return;
 				default:
 					throw MigrationUnavailableException(version);
@@ -823,6 +827,19 @@ CREATE TABLE local_capture_native_mappings (
 	CHECK (member_key_kind > 0)
 );");
 				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE local_capture_packages (
+	capture_id TEXT NOT NULL PRIMARY KEY,
+	capture_schema_version INTEGER NOT NULL,
+	capability_version INTEGER NOT NULL,
+	package_format_version INTEGER NOT NULL,
+	package_artifact_id TEXT NOT NULL,
+	FOREIGN KEY (capture_id) REFERENCES local_captures(capture_id) ON DELETE CASCADE,
+	FOREIGN KEY (package_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (capture_schema_version > 0),
+	CHECK (capability_version > 0),
+	CHECK (package_format_version > 0)
+);");
+				ExecuteSchemaStatement(connection, transaction, @"
 CREATE TABLE retained_artifact_references (
 	reference_id TEXT NOT NULL PRIMARY KEY,
 	artifact_id TEXT NOT NULL,
@@ -925,6 +942,7 @@ CREATE TABLE native_operation_children (
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_user_overrides_association ON user_overrides(association_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_drift_observations_association ON drift_observations(association_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_local_captures_revision ON local_captures(origin, collection_id, revision_id);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_local_capture_packages_artifact ON local_capture_packages(package_artifact_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_retained_artifact_references_artifact ON retained_artifact_references(artifact_id);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_collection_operations_pending ON collection_operations(phase, result_state, target_fingerprint);");
 				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_native_operation_children_native ON native_operation_children(native_operation_id, native_attempt_id);");
@@ -960,6 +978,10 @@ CREATE TABLE native_operation_children (
 					case 3:
 						MigrateVersion3To4(connection);
 						version = 4;
+						break;
+					case 4:
+						MigrateVersion4To5(connection);
+						version = 5;
 						break;
 					default:
 						throw MigrationUnavailableException(version);
@@ -1044,6 +1066,32 @@ CREATE TABLE native_mod_provenance (
 			}
 		}
 
+		private static void MigrateVersion4To5(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion4(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE local_capture_packages (
+	capture_id TEXT NOT NULL PRIMARY KEY,
+	capture_schema_version INTEGER NOT NULL,
+	capability_version INTEGER NOT NULL,
+	package_format_version INTEGER NOT NULL,
+	package_artifact_id TEXT NOT NULL,
+	FOREIGN KEY (capture_id) REFERENCES local_captures(capture_id) ON DELETE CASCADE,
+	FOREIGN KEY (package_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (capture_schema_version > 0),
+	CHECK (capability_version > 0),
+	CHECK (package_format_version > 0)
+);");
+				ExecuteSchemaStatement(connection, transaction,
+					"CREATE INDEX ix_local_capture_packages_artifact ON local_capture_packages(package_artifact_id);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "5");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=5;");
+				transaction.Commit();
+			}
+		}
+
 		private static int ReadAndValidateVersion(SQLiteConnection connection)
 		{
 			RequireTable(connection, "store_metadata", "key", "value");
@@ -1071,6 +1119,23 @@ CREATE TABLE native_mod_provenance (
 				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
 					"Collections store schema {0} is not the supported schema {1}.", version, CurrentSchemaVersion));
 
+			ValidateSchemaVersion4Tables(connection);
+			RequireTable(connection, "local_capture_packages", "capture_id", "capture_schema_version", "capability_version",
+				"package_format_version", "package_artifact_id");
+			RequireIndex(connection, "ix_local_capture_packages_artifact");
+		}
+
+		private static void ValidateSchemaVersion4(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 4)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 4.", version));
+			ValidateSchemaVersion4Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion4Tables(SQLiteConnection connection)
+		{
 			ValidateSchemaVersion3Tables(connection);
 			RequireTable(connection, "native_mod_provenance", "target_fingerprint", "native_mod_key", "standalone_use");
 		}

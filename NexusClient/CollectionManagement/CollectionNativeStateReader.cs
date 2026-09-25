@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Transactions;
+using Nexus.Transactions;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -48,9 +48,25 @@ namespace Nexus.Client.CollectionManagement
 			if (Transaction.Current != null)
 				throw new InvalidOperationException("Collection native state cannot be captured from inside an ambient native transaction.");
 
+			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(_installLog, _virtualModActivator,
+				null, _pluginManager, _gameMode).Capture();
+			return Capture(target, nativeCapture);
+		}
+
+		/// <summary>Builds the Collection planning index from one already-established generic native observation.</summary>
+		internal CollectionNativeStateIndex Capture(CollectionTargetIdentity target, NativeStateCaptureSnapshot nativeCapture)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+			if (nativeCapture == null)
+				throw new ArgumentNullException(nameof(nativeCapture));
+			if (Transaction.Current != null)
+				throw new InvalidOperationException("Collection native state cannot be captured from inside an ambient native transaction.");
+
 			var issues = new List<CollectionNativeStateIssue>();
-			InstallLogReadSnapshot install = _installLog.GetCommittedStateSnapshot();
-			VirtualModReadSnapshot virtualState = _virtualModActivator.GetReadSnapshot();
+			AppendNativeCaptureIssues(nativeCapture, issues);
+			InstallLogReadSnapshot install = nativeCapture.InstallLog;
+			VirtualModReadSnapshot virtualState = nativeCapture.VirtualState;
 
 			var nativeMods = new List<CollectionNativeModState>();
 			var modsByKey = new Dictionary<string, CollectionNativeModState>(StringComparer.OrdinalIgnoreCase);
@@ -64,13 +80,18 @@ namespace Nexus.Client.CollectionManagement
 				modsByKey[record.ModKey] = state;
 			}
 
-			List<CollectionNativeRootState> roots = CaptureRoots(issues);
+			List<CollectionNativeRootState> roots = nativeCapture.Roots
+				.Select(x => new CollectionNativeRootState(x.Root, x.PhysicalPath)).ToList();
 			List<CollectionNativeFileState> files = CaptureFiles(install, virtualState, modsByKey, issues);
 			List<CollectionNativeIniState> iniEdits = CaptureIniEdits(install, issues);
 			List<CollectionNativeGameValueState> gameValues = CaptureGameValues(install);
 
-			CollectionNativeStateCoverage pluginCoverage;
-			List<CollectionNativePluginState> plugins = CapturePlugins(issues, out pluginCoverage);
+			CollectionNativeStateCoverage pluginCoverage = MapCoverage(nativeCapture.PluginCoverage);
+			List<CollectionNativePluginState> plugins = nativeCapture.Plugins.Select(plugin =>
+				new CollectionNativePluginState(plugin.FileName, plugin.Active, plugin.Priority, plugin.AllocatedIndex, plugin.ModIndex,
+					plugin.ParseStatus, plugin.AddressClass, plugin.HeaderFlags, plugin.SpecialFlags, plugin.EffectiveMaster,
+					plugin.FormVersion, plugin.Masters, plugin.Diagnostics.Select(x => new CollectionNativePluginDiagnostic(x.Kind, x.Severity))))
+				.ToList();
 
 			CollectionNativeStateCoverage associationCoverage;
 			IReadOnlyList<CollectionTargetAssociation> associations;
@@ -83,26 +104,35 @@ namespace Nexus.Client.CollectionManagement
 				install.DeploymentCommitSequence);
 		}
 
-		private List<CollectionNativeRootState> CaptureRoots(List<CollectionNativeStateIssue> issues)
+		private static void AppendNativeCaptureIssues(NativeStateCaptureSnapshot nativeCapture, List<CollectionNativeStateIssue> issues)
 		{
-			var result = new List<CollectionNativeRootState>();
-			foreach (ModDeploymentRoot root in Enum.GetValues(typeof(ModDeploymentRoot)))
+			foreach (NativeStateCaptureIssue issue in nativeCapture.Issues)
 			{
-				if (root == ModDeploymentRoot.Secondary && !_gameMode.HasSecondaryInstallPath)
-					continue;
-				try
+				switch (issue.Kind)
 				{
-					result.Add(new CollectionNativeRootState(root,
-						Path.GetFullPath(ModDeploymentTargetResolver.GetPhysicalRootPath(_gameMode, root))));
-				}
-				catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException ||
-					exception is IOException || exception is NotSupportedException)
-				{
-					issues.Add(new CollectionNativeStateIssue(CollectionNativeStateIssueKind.PhysicalRootUnavailable,
-						root.ToString(), exception.Message));
+					case NativeStateCaptureIssueKind.PhysicalRootUnavailable:
+						issues.Add(new CollectionNativeStateIssue(CollectionNativeStateIssueKind.PhysicalRootUnavailable,
+							issue.ResourceKey, issue.Message));
+						break;
+					case NativeStateCaptureIssueKind.PluginStateUnavailable:
+						issues.Add(new CollectionNativeStateIssue(CollectionNativeStateIssueKind.PluginStateUnavailable,
+							issue.ResourceKey, issue.Message));
+						break;
 				}
 			}
-			return result;
+		}
+
+		private static CollectionNativeStateCoverage MapCoverage(NativeStateCaptureCoverage coverage)
+		{
+			switch (coverage)
+			{
+				case NativeStateCaptureCoverage.Complete:
+					return CollectionNativeStateCoverage.Complete;
+				case NativeStateCaptureCoverage.NotApplicable:
+					return CollectionNativeStateCoverage.NotApplicable;
+				default:
+					return CollectionNativeStateCoverage.Unavailable;
+			}
 		}
 
 		private List<CollectionNativeFileState> CaptureFiles(InstallLogReadSnapshot install, VirtualModReadSnapshot virtualState,
@@ -256,35 +286,6 @@ namespace Nexus.Client.CollectionManagement
 				value.Values.Select(x => new CollectionNativeBinaryOwnerValue(x.OwnerKey, x.Value)))).ToList();
 		}
 
-		private List<CollectionNativePluginState> CapturePlugins(List<CollectionNativeStateIssue> issues,
-			out CollectionNativeStateCoverage coverage)
-		{
-			if (!_gameMode.UsesPlugins)
-			{
-				coverage = CollectionNativeStateCoverage.NotApplicable;
-				return new List<CollectionNativePluginState>();
-			}
-			PluginSnapshot snapshot = _pluginManager == null ? null : _pluginManager.CurrentSnapshot;
-			if (snapshot == null)
-			{
-				coverage = CollectionNativeStateCoverage.Unavailable;
-				issues.Add(new CollectionNativeStateIssue(CollectionNativeStateIssueKind.PluginStateUnavailable,
-					"plugins", "The native plugin snapshot is unavailable for a plugin-enabled game."));
-				return new List<CollectionNativePluginState>();
-			}
-
-			coverage = CollectionNativeStateCoverage.Complete;
-			return snapshot.Entries.Where(x => x != null && x.Plugin != null).Select(entry =>
-			{
-				Plugin plugin = entry.Plugin;
-				PluginMetadata metadata = plugin.Metadata ?? PluginMetadata.Unknown(plugin.Filename);
-				return new CollectionNativePluginState(plugin.Filename, entry.Active, entry.Priority,
-					entry.AllocatedIndex, entry.ModIndex, metadata.ParseStatus, metadata.AddressClass,
-					metadata.HeaderFlags, metadata.SpecialFlags, metadata.EffectiveMaster, metadata.FormVersion,
-					plugin.Masters == null ? Enumerable.Empty<string>() : plugin.Masters.ToArray(),
-					entry.Diagnostics.Select(x => new CollectionNativePluginDiagnostic(x.Kind, x.Severity)));
-			}).ToList();
-		}
 
 		private void CaptureAssociations(CollectionTargetIdentity target, List<CollectionNativeStateIssue> issues,
 			out CollectionNativeStateCoverage coverage, out IReadOnlyList<CollectionTargetAssociation> associations,
