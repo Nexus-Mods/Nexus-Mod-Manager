@@ -102,6 +102,8 @@
     <Compile Include="CollectionManagement\CollectionLocalCapturePackageCodec.cs" />
     <Compile Include="CollectionManagement\CollectionLocalCaptureApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlan.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreMemberExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreOwnershipExecutor.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadCaptureService.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadSnapshot.cs" />
@@ -459,6 +461,7 @@
     <Compile Include="ModManagement\VirtualDeploymentResult.cs" />
     <Compile Include="ModManagement\VirtualDeploymentService.cs" />
     <Compile Include="ModManagement\VirtualDeploymentSession.cs" />
+    <Compile Include="ModManagement\ModDeploymentManager.LocalRestore.cs" />
     <Compile Include="ModManagement\ModDeploymentManager.cs" />
     <Compile Include="ModManagement\NativeStateCaptureReader.cs" />
     <Compile Include="ModManagement\NativeStateCaptureSnapshot.cs" />

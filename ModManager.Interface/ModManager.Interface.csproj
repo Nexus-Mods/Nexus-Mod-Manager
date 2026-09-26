@@ -158,6 +158,8 @@
     <Compile Include="ModManagement\ModInstallationReplicatedLayoutRecipe.cs" />
     <Compile Include="ModManagement\ModInstallationReplicatedLayoutRecipeAdapter.cs" />
     <Compile Include="ModManagement\ModInstallationRecipeInput.cs" />
+    <Compile Include="ModManagement\ModInstallationRestoreRegistrationRecipeAdapter.cs" />
+    <Compile Include="ModManagement\Scripting\Operations\RestoreNativeRegistrationOperation.cs" />
     <Compile Include="ModManagement\ModInstallationRecipeValidation.cs" />
     <Compile Include="ModManagement\ModInstallationSimpleFileRecipe.cs" />
     <Compile Include="ModManagement\ModInstallationSimpleFileRecipeAdapter.cs" />
@@ -179,6 +181,7 @@
     <Compile Include="ModManagement\IIniEditDecisionSupport.cs" />
     <Compile Include="ModManagement\IModFileInstaller.cs" />
     <Compile Include="ModManagement\IModFilePluginRegistrationSupport.cs" />
+    <Compile Include="ModManagement\ModDeploymentRestoreOwner.cs" />
     <Compile Include="ModManagement\IModDeploymentManager.cs" />
     <Compile Include="ModManagement\IModFileInstallDecisionSupport.cs" />
     <Compile Include="ModManagement\IModProfile.cs" />

@@ -757,6 +757,65 @@
 		}
 
 		[Test]
+		public void LocalRestoreCapturedOwnerStack_PromotedMixed_RebuildsExactPayloadsOrderAndWinner()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod direct = environment.RegisterMod("RestoreDirect", ModInstallMethod.Direct);
+				IMod virtualMod = environment.RegisterMod("RestoreVirtual", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"textures\local-restore-mixed.dds");
+				string directPayload = environment.CreatePayload("captured-direct");
+				string virtualPayload = environment.CreatePayload("captured-virtual");
+
+				environment.Manager.RestoreCapturedOwnerStack(target, true, new[]
+				{
+					new ModDeploymentRestoreOwner(environment.Key(direct), ModDeploymentRestoreOwnerKind.Direct,
+						direct, ModInstallRoot.Data, directPayload),
+					new ModDeploymentRestoreOwner(environment.Key(virtualMod), ModDeploymentRestoreOwnerKind.Virtual,
+						virtualMod, ModInstallRoot.Data, virtualPayload)
+				});
+
+				Assert.IsTrue(environment.Manager.IsPromoted(target));
+				CollectionAssert.AreEqual(new[] { environment.Key(direct), environment.Key(virtualMod) },
+					environment.Manager.GetOwnerKeys(target));
+				Assert.AreEqual("captured-direct", File.ReadAllText(environment.Manager.GetOwnerSourcePath(target, environment.Key(direct))));
+				Assert.AreEqual("captured-virtual", File.ReadAllText(environment.Manager.GetOwnerSourcePath(target, environment.Key(virtualMod))));
+				Assert.AreEqual("captured-virtual", environment.ReadTarget(target));
+			}
+		}
+
+		[Test]
+		public void LocalRestoreCapturedOwnerStack_PureVirtual_PreservesUnmanagedFallbackAndExactWinnerOrder()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod firstVirtual = environment.RegisterMod("RestoreVirtualA", ModInstallMethod.Virtual);
+				IMod secondVirtual = environment.RegisterMod("RestoreVirtualB", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"meshes\local-restore-virtual.nif");
+				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				Directory.CreateDirectory(Path.GetDirectoryName(deploymentPath));
+				File.WriteAllText(deploymentPath, "unmanaged-fallback");
+
+				environment.Manager.RestoreCapturedOwnerStack(target, false, new[]
+				{
+					new ModDeploymentRestoreOwner(environment.Key(firstVirtual), ModDeploymentRestoreOwnerKind.Virtual,
+						firstVirtual, ModInstallRoot.Data, environment.CreatePayload("captured-a")),
+					new ModDeploymentRestoreOwner(environment.Key(secondVirtual), ModDeploymentRestoreOwnerKind.Virtual,
+						secondVirtual, ModInstallRoot.Data, environment.CreatePayload("captured-b"))
+				});
+
+				Assert.IsFalse(environment.Manager.IsPromoted(target));
+				CollectionAssert.AreEqual(new[] { environment.Key(firstVirtual), environment.Key(secondVirtual) },
+					environment.Manager.GetOwnerKeys(target));
+				Assert.AreEqual("captured-a", File.ReadAllText(environment.Manager.GetOwnerSourcePath(target, environment.Key(firstVirtual))));
+				Assert.AreEqual("captured-b", File.ReadAllText(environment.Manager.GetOwnerSourcePath(target, environment.Key(secondVirtual))));
+				Assert.AreEqual("captured-b", environment.ReadTarget(target));
+				Assert.AreEqual("unmanaged-fallback", File.ReadAllText(
+					environment.VirtualState.GetOverwritePath(target, environment.Key(firstVirtual))));
+			}
+		}
+
+		[Test]
 		public void UninstallLastVirtualWinner_ReturnsAbsentPluginCandidateOnlyWhenNoFallbackExists()
 		{
 			using (var environment = new MixedTestEnvironment())

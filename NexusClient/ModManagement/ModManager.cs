@@ -2031,6 +2031,30 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Registers an already-retained Local Collection archive without repository lookup or download behavior.
+		/// </summary>
+		/// <remarks>
+		/// C7 restore materializes verified immutable bytes into the current game mod library first. This narrow native boundary
+		/// then creates the ordinary managed mod instance through the existing registry while remaining completely offline.
+		/// It deliberately refuses paths outside the current game's mod library.
+		/// </remarks>
+		public IMod RegisterLocalRestoreArchive(string p_strArchivePath, IModInfo p_mifTagInfo)
+		{
+			if (String.IsNullOrWhiteSpace(p_strArchivePath))
+				throw new ArgumentException("A Local Collection restore archive path is required.", nameof(p_strArchivePath));
+
+			string archivePath = Path.GetFullPath(p_strArchivePath);
+			string modDirectory = Path.GetFullPath(CurrentGameModeModDirectory);
+			string rootedModDirectory = modDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			if (!archivePath.StartsWith(rootedModDirectory, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidOperationException("A Local Collection restore archive must be materialized inside the current game mod library before registration.");
+			if (!File.Exists(archivePath))
+				throw new FileNotFoundException("The retained Local Collection archive was not materialized before native registration.", archivePath);
+
+			return ManagedModRegistry.RegisterMod(archivePath, p_mifTagInfo, EnvironmentInfo);
+		}
+
+		/// <summary>
 		/// Returns the mod registered with the given downloadId.
 		/// </summary>
 		/// <param name="p_strDownloadID">The path of the mod to return</param>

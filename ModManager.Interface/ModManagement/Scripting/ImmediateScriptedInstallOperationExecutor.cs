@@ -141,6 +141,10 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (IsPluginStateOperation(p_sioOperation))
 				FlushPendingPluginRegistrations();
 
+			RestoreNativeRegistrationOperation rnrRegistration = p_sioOperation as RestoreNativeRegistrationOperation;
+			if (rnrRegistration != null)
+				return true;
+
 			PerformBasicInstallOperation bioBasicInstall = p_sioOperation as PerformBasicInstallOperation;
 			if (bioBasicInstall != null)
 				return ExecutePerformBasicInstall();

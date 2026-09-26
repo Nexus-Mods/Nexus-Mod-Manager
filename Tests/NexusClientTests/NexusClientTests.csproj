@@ -198,6 +198,8 @@
     <Compile Include="CollectionsRetainedArtifactCleanupStoreTests.cs" />
     <Compile Include="ModInstallationRecipeInputTests.cs" />
     <Compile Include="ModInstallationReplicatedLayoutRecipeAdapterTests.cs" />
+    <Compile Include="ModInstallationRestoreRegistrationRecipeAdapterTests.cs" />
+    <Compile Include="ModDeploymentRestoreOwnerTests.cs" />
     <Compile Include="ModInstallationFomodRecipeAdapterTests.cs" />
     <Compile Include="ModInstallationRecipeExecutionTests.cs" />
     <Compile Include="ModInstallationRecipeThreadingTests.cs" />

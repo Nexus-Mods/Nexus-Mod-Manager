@@ -270,7 +270,8 @@ namespace Nexus.Client.ModManagement
 
 						ValidateInstallationRecipeExecutionInput();
 						m_booNativeMutationStarted = true;
-						DeleteLiveScriptedReplayArtifacts();
+						if (!IsRestoreRegistrationOnlyRecipe())
+							DeleteLiveScriptedReplayArtifacts();
 						RegisterMod();
 						booSuccess = RunScript(tfmFileManager);
 						if (booSuccess)
@@ -467,7 +468,16 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidDataException("Explicit installation recipe input has not been translated into a native operation plan.");
 			}
 
-			ValidateLegacyReplayBasenameCollision();
+			bool hasRestoreRegistration = InstallationRecipeInput.NativeOperations.Any(x => x is RestoreNativeRegistrationOperation);
+			if (hasRestoreRegistration &&
+				(InstallationRecipeInput.NativeOperations.Count != 1 ||
+				(recipeOperation.Origin != ModOperationOrigin.LocalRestore && recipeOperation.Origin != ModOperationOrigin.Recovery)))
+			{
+				throw new InvalidDataException("Registration-only installation is restricted to one LocalRestore or Recovery native operation.");
+			}
+
+			if (!hasRestoreRegistration)
+				ValidateLegacyReplayBasenameCollision();
 
 			ModInstallationRecipeExpectedContent expectedContent = InstallationRecipeInput.Validation.ExpectedContent;
 			using (var stream = new FileStream(Mod.Filename, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -479,6 +489,14 @@ namespace Nexus.Client.ModManagement
 				if (!StringComparer.Ordinal.Equals(actualSha256, expectedContent.Sha256))
 					throw new InvalidDataException("The installation recipe source no longer matches its expected SHA-256 digest.");
 			}
+		}
+
+		/// <summary>Returns whether the explicit recipe is the single restore-only registration marker used by Local Collection restore/recovery.</summary>
+		private bool IsRestoreRegistrationOnlyRecipe()
+		{
+			return InstallationRecipeInput != null && InstallationRecipeInput.NativeOperations != null &&
+				InstallationRecipeInput.NativeOperations.Count == 1 &&
+				InstallationRecipeInput.NativeOperations[0] is RestoreNativeRegistrationOperation;
 		}
 
 		/// <summary>

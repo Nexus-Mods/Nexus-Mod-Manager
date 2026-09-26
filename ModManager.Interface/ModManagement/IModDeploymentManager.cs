@@ -66,6 +66,12 @@ namespace Nexus.Client.ModManagement
 		void RestorePromotedOwnerStack(ModDeploymentTarget p_mdtTarget, IReadOnlyList<string> p_lstOwnerKeys);
 
 		/// <summary>
+		/// Reconstructs one exact captured deployment owner stack from already-remapped managed owners and retained payload bytes.
+		/// </summary>
+		void RestoreCapturedOwnerStack(ModDeploymentTarget p_mdtTarget, bool p_booPromoted,
+			IReadOnlyList<ModDeploymentRestoreOwner> p_lstOwners);
+
+		/// <summary>
 		/// Streams a standalone Direct payload to its final game destination and records its ownership.
 		/// </summary>
 		string InstallDirectFile(IMod p_modMod, ModDeploymentTarget p_mdtTarget, FileStream p_fstPayload, TxFileManager p_tfmFileManager);

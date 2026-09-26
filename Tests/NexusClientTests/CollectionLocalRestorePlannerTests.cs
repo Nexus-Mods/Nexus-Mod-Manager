@@ -324,9 +324,17 @@ namespace NexusClientTests
 
 		private static CollectionsStore CreateStore(string root)
 		{
-			var store = new CollectionsStore(new Nexus.Client.GameStorage.GameStoragePathSet("TEST", root,
-				Path.Combine(root, "mods"), Path.Combine(root, "info"), Path.Combine(root, "cache"),
-				Path.Combine(root, "overwrite"), Path.Combine(root, "profiles")));
+			var store = new CollectionsStore(new Nexus.Client.GameStorage.GameStoragePathSet
+			{
+				GameId = "TEST",
+				GameName = "TEST",
+				GameInstallPath = root,
+				InstallInfoPath = Path.Combine(root, "info"),
+				ModsPath = Path.Combine(root, "mods"),
+				VirtualInstallPath = Path.Combine(root, "cache"),
+				LinkFolderPath = Path.Combine(root, "overwrite"),
+				LinkFolderRequired = false
+			});
 			store.CreateNew();
 			return store;
 		}
