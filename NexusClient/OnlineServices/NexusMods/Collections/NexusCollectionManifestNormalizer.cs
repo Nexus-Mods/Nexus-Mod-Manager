@@ -263,8 +263,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			JArray rawModRules = root["modRules"] as JArray;
+			List<CollectionExternalFilePriorityRule> externalFilePriorityRules;
 			List<CollectionFilePriorityRule> filePriorityRules = NormalizeFilePriorityRules(
-				rawModRules, drafts, members, allDeclaredIssues);
+				rawModRules, drafts, members, allDeclaredIssues, out externalFilePriorityRules);
 			List<CollectionConflictConstraint> conflictConstraints = NormalizeConflictConstraints(
 				rawModRules, drafts, members, allDeclaredIssues);
 			List<CollectionDesiredPluginState> pluginStates = NormalizePluginStates(root["plugins"], allDeclaredIssues);
@@ -281,7 +282,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				null,
 				filePriorityRules,
 				pluginStates,
-				conflictConstraints);
+				conflictConstraints,
+				externalFilePriorityRules);
 
 			if (revision.DeclaredMemberCount.HasValue && rawMembers != null && revision.DeclaredMemberCount.Value != rawMembers.Count)
 			{
@@ -720,9 +722,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		/// </summary>
 		private static List<CollectionFilePriorityRule> NormalizeFilePriorityRules(JArray rawRules,
 			IReadOnlyList<MemberDraft> drafts, IReadOnlyList<NormalizedCollectionMember> members,
-			List<CollectionCapabilityIssue> issues)
+			List<CollectionCapabilityIssue> issues, out List<CollectionExternalFilePriorityRule> externalRules)
 		{
 			var result = new List<CollectionFilePriorityRule>();
+			externalRules = new List<CollectionExternalFilePriorityRule>();
 			if (rawRules == null || rawRules.Count == 0)
 				return result;
 
@@ -735,6 +738,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			var unique = new HashSet<CollectionFilePriorityRule>();
+			var uniqueExternal = new HashSet<CollectionExternalFilePriorityRule>();
 			for (int index = 0; index < rawRules.Count; index++)
 			{
 				string path = "$.modRules[" + index.ToString(CultureInfo.InvariantCulture) + "]";
@@ -759,7 +763,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				CollectionMemberKey sourceMember;
 				CollectionMemberKey referenceMember;
 				string failure;
-				if (!TryResolveRuleReference(rule["source"] as JObject, candidates, out sourceMember, out failure))
+				if (!TryResolveFilePrioritySourceReference(rule["source"] as JObject, candidates, out sourceMember, out failure))
 				{
 					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 						"manifest.mod-rule-source-unresolved", failure, path + ".source"));
@@ -767,8 +771,17 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				}
 				if (!TryResolveRuleReference(rule["reference"] as JObject, candidates, out referenceMember, out failure))
 				{
-					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.mod-rule-reference-unresolved", failure, path + ".reference"));
+					RuleReferenceCandidate sourceCandidate = candidates.Single(x => x.MemberKey.Equals(sourceMember));
+					CollectionConflictReference externalReference;
+					if (!TryNormalizeExternalPriorityReference(rule["reference"] as JObject, sourceCandidate.SourceDomain, out externalReference, out failure))
+					{
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.mod-rule-reference-unresolved", failure, path + ".reference"));
+						continue;
+					}
+					CollectionExternalFilePriorityRule external = new CollectionExternalFilePriorityRule(sourceMember, externalReference,
+						StringComparer.Ordinal.Equals(type, "before"));
+					if (uniqueExternal.Add(external)) externalRules.Add(external);
 					continue;
 				}
 				if (sourceMember.Equals(referenceMember))
@@ -785,6 +798,163 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					result.Add(normalized);
 			}
 			return result;
+		}
+
+
+		/// <summary>
+		/// Resolves the Collection-member side of a before/after rule. Vortex may export the installed archive
+		/// fileExpression on a rule even though that expression is not retained on the Collection member source.
+		/// When generic exact resolution cannot observe that expression, one unique exact source MD5 plus every
+		/// other retained identity field may bind the rule source without guessing archive-name semantics.
+		/// </summary>
+		private static bool TryResolveFilePrioritySourceReference(JObject reference, IEnumerable<RuleReferenceCandidate> candidates,
+			out CollectionMemberKey memberKey, out string failure)
+		{
+			if (TryResolveRuleReference(reference, candidates, out memberKey, out failure))
+				return true;
+
+			memberKey = null;
+			if (reference == null)
+				return false;
+
+			HashSet<string> allowed = new HashSet<string>(StringComparer.Ordinal)
+			{
+				"id", "idHint", "archiveId", "md5Hint", "description", "instructions",
+				"fileMD5", "logicalFileName", "fileExpression", "versionMatch", "repo", "tag", "gameId"
+			};
+			foreach (JProperty property in reference.Properties())
+			{
+				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+				{
+					failure = "The before/after rule source contains an uncharacterized matching field ('" + property.Name + "').";
+					return false;
+				}
+			}
+			foreach (string field in new[] { "idHint", "archiveId", "md5Hint", "description", "instructions", "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
+			{
+				JToken token = reference[field];
+				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
+				{
+					failure = "The before/after rule source field '" + field + "' must be a string when present.";
+					return false;
+				}
+			}
+			if (reference["id"] != null && reference["id"].Type != JTokenType.Null)
+			{
+				failure = "A Vortex-local before/after rule source id cannot be rebound to a retained Collection member.";
+				return false;
+			}
+			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null)
+			{
+				failure = "The characterized MD5 fallback for a before/after rule source does not ignore repository narrowing semantics.";
+				return false;
+			}
+			if (!String.IsNullOrEmpty(ReadString(reference, "tag")))
+			{
+				failure = "The characterized MD5 fallback for a before/after rule source does not ignore Vortex reference-tag semantics.";
+				return false;
+			}
+
+			string fileMd5 = ReadString(reference, "fileMD5");
+			if (String.IsNullOrWhiteSpace(fileMd5) || !StringComparer.Ordinal.Equals(fileMd5, fileMd5.Trim()))
+			{
+				failure = "A before/after rule source that cannot be resolved by the exact Vortex reference subset requires one normalized exact fileMD5 to bind it to the retained member.";
+				return false;
+			}
+
+			string logicalFileName = ReadString(reference, "logicalFileName");
+			string fileExpression = ReadString(reference, "fileExpression");
+			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
+			string versionMatch = ReadString(reference, "versionMatch");
+			if (!IsNormalizedOptionalString(logicalFileName) || !IsNormalizedOptionalString(fileExpression) ||
+				!IsNormalizedOptionalString(versionMatch))
+			{
+				failure = "Before/after rule source identity strings must not contain leading/trailing whitespace.";
+				return false;
+			}
+			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
+			{
+				failure = "The characterized before/after rule source fallback does not reinterpret Vortex glob fileExpression semantics.";
+				return false;
+			}
+			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*" &&
+				(versionMatch.StartsWith(">", StringComparison.Ordinal) || versionMatch.StartsWith("<", StringComparison.Ordinal) ||
+				 versionMatch.StartsWith("=", StringComparison.Ordinal) || versionMatch.IndexOf("+prefer", StringComparison.Ordinal) >= 0 ||
+				 versionMatch.IndexOf(" ", StringComparison.Ordinal) >= 0 || versionMatch.IndexOf("||", StringComparison.Ordinal) >= 0))
+			{
+				failure = "The before/after rule source uses a fuzzy/range version matcher outside the characterized exact-MD5 fallback.";
+				return false;
+			}
+
+			List<RuleReferenceCandidate> matches = candidates.Where(candidate =>
+				StringComparer.Ordinal.Equals(fileMd5, candidate.SourceMd5) &&
+				(String.IsNullOrEmpty(logicalFileName) || StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename)) &&
+				(String.IsNullOrEmpty(gameId) || StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain)) &&
+				(String.IsNullOrEmpty(versionMatch) || versionMatch == "*" || StringComparer.Ordinal.Equals(versionMatch, candidate.Version)) &&
+				(String.IsNullOrEmpty(fileExpression) || String.IsNullOrEmpty(candidate.SourceFileExpression) ||
+					StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))).ToList();
+			if (matches.Count != 1)
+			{
+				failure = matches.Count == 0
+					? "The before/after rule source does not match a retained Collection member by its exact source MD5 and retained identity fields."
+					: "The before/after rule source MD5/identity fields match more than one retained Collection member.";
+				return false;
+			}
+
+			memberKey = matches[0].MemberKey;
+			failure = null;
+			return true;
+		}
+
+
+		private static bool TryNormalizeExternalPriorityReference(JObject reference, string sourceDomain,
+			out CollectionConflictReference normalized, out string failure)
+		{
+			normalized = null;
+			failure = "The external before/after endpoint is not a characterized portable Vortex reference.";
+			if (reference == null) return false;
+
+			HashSet<string> allowed = new HashSet<string>(StringComparer.Ordinal)
+			{
+				"id", "idHint", "archiveId", "md5Hint", "description", "instructions",
+				"fileMD5", "logicalFileName", "fileExpression", "versionMatch", "repo", "tag", "gameId"
+			};
+			foreach (JProperty property in reference.Properties())
+				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+				{ failure = "The external priority endpoint contains an uncharacterized matching field ('" + property.Name + "')."; return false; }
+			if (reference["id"] != null && reference["id"].Type != JTokenType.Null)
+			{ failure = "A Vortex-local external priority endpoint id cannot be replayed as portable NMM review state."; return false; }
+			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null)
+			{ failure = "External before/after Nexus repository endpoints are not yet characterized by this bounded compatibility slice."; return false; }
+			foreach (string field in new[] { "idHint", "archiveId", "md5Hint", "description", "instructions", "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
+			{
+				JToken token = reference[field];
+				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
+				{ failure = "The external priority endpoint field '" + field + "' must be a string when present."; return false; }
+			}
+			string logical = ReadString(reference, "logicalFileName");
+			string expression = ReadString(reference, "fileExpression");
+			string fileMd5 = ReadString(reference, "fileMD5");
+			string tag = ReadString(reference, "tag");
+			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
+			string version = ReadString(reference, "versionMatch");
+			if (!String.IsNullOrEmpty(tag))
+			{ failure = "External priority reference tags are not retained by NMM native mod state."; return false; }
+			if (!String.IsNullOrEmpty(gameId) && !StringComparer.Ordinal.Equals(gameId, sourceDomain))
+			{ failure = "Cross-game external before/after endpoints are outside the characterized single-target model."; return false; }
+			if (!IsNormalizedOptionalString(logical) || !IsNormalizedOptionalString(expression) || !IsNormalizedOptionalString(fileMd5))
+			{ failure = "External priority identity strings must not contain leading/trailing whitespace."; return false; }
+			if (!String.IsNullOrEmpty(expression) && ContainsGlobSyntax(expression))
+			{ failure = "Vortex glob fileExpression matching is not characterized for external before/after endpoints."; return false; }
+			if (String.IsNullOrWhiteSpace(version)) version = "*";
+			if (!StringComparer.Ordinal.Equals(version, "*"))
+			{ failure = "Only wildcard-version external before/after endpoints are characterized by this compatibility slice."; return false; }
+			if (String.IsNullOrWhiteSpace(logical))
+			{ failure = "A characterized external before/after endpoint requires an exact logicalFileName."; return false; }
+			CollectionVortexVersionMatch matcher;
+			if (!CollectionVortexVersionMatch.TryCreate(version, out matcher, out failure)) return false;
+			normalized = new CollectionConflictReference(fileMd5, logical, expression, gameId, null, null, null, null, null, matcher);
+			return true;
 		}
 
 

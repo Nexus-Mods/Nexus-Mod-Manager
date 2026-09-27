@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Nexus.Client.Mods;
 using Nexus.Transactions;
@@ -39,6 +40,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 						currentModKey = ownerKeys[index];
 				}
 
+				if (currentModKey != null && IsVirtualStorageOnlyFileRecord(item.Item, GetModInstallMethodByKey(currentModKey)))
+					continue;
+
 				ModInstallRoot installRoot = currentModKey == null ? ModInstallRoot.Data : GetModInstallRootByKey(currentModKey);
 				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, currentMod, item.Item, installRoot);
 				files.Add(new InstallLogReadFile(item.Item, target, ownerKeys));
@@ -65,5 +69,19 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			return new InstallLogReadSnapshot(OriginalValuesKey, _deploymentCommitSequence,
 				mods, files, iniEdits, gameValues, deploymentTargets);
 		}
+		/// <summary>
+		/// Identifies the absolute staging-file records produced by Virtual installers. These paths describe NMM storage,
+		/// not a game deployment target; deployed Virtual targets are captured authoritatively from the VMA link store.
+		/// </summary>
+		internal static bool IsVirtualStorageOnlyFileRecord(string path, ModInstallMethod installMethod)
+		{
+			if (installMethod != ModInstallMethod.Virtual || String.IsNullOrWhiteSpace(path))
+				return false;
+
+			string normalized = path.Replace('/', '\\');
+			return Path.IsPathRooted(path) || normalized[0] == '\\' ||
+				(normalized.Length > 1 && normalized[1] == ':');
+		}
+
 	}
 }

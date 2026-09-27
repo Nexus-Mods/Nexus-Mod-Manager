@@ -183,6 +183,15 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void InstallLogSnapshot_ClassifiesRootedVirtualStorageAsNonDeploymentState()
+		{
+			string staged = @"G:\Games\Nexus Mod Manager\Fallout4\VirtualInstall\398481\Docs\Unofficial Fallout 4 Patch Readme + Credits.html";
+			Assert.IsTrue(InstallLog.IsVirtualStorageOnlyFileRecord(staged, ModInstallMethod.Virtual));
+			Assert.IsFalse(InstallLog.IsVirtualStorageOnlyFileRecord(@"Docs\Unofficial Fallout 4 Patch Readme + Credits.html", ModInstallMethod.Virtual));
+			Assert.IsFalse(InstallLog.IsVirtualStorageOnlyFileRecord(staged, ModInstallMethod.Direct));
+		}
+
 		private static NativeStateCaptureReader CreateReader(string root, string installInfo,
 			InstallLogReadSnapshot install, VirtualModReadSnapshot virtualState, IModDeploymentManager deploymentManager,
 			Func<ModDeploymentTarget, string, string> overwritePathResolver = null)

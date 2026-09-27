@@ -627,6 +627,45 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingUserOverride));
 		}
 
+
+		[Test]
+		public void Plan_AbsentExternalBeforeAfterEndpointIsNonBlocking()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "enb-helper", 56566, 1, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, "NAC X Legacy edition", true);
+			Fixture fixture = CreateFixture(target, new[] { source }, null,
+				new[] { CreateNativeMod(target, "native-source", 56566, 1, "ENB Helper for Fallout 4") },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent));
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityReferenceEvaluationRequired));
+		}
+
+		[Test]
+		public void Plan_InstalledExternalBeforeAfterEndpointRequiresReview()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "enb-helper", 56566, 1, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, "NAC X Legacy edition", true);
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-source", 56566, 1, "ENB Helper for Fallout 4");
+			CollectionNativeModState nac = CreateNativeMod(target, "native-nacx", 46722, 2, "NAC X Legacy edition");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, nac },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent &&
+				x.SubjectKey == "native:native-nacx"));
+		}
+
 		[Test]
 		public void Plan_ConflictConstraintExcludesItsOwnSourceNativeInstance()
 		{
@@ -822,7 +861,8 @@ namespace NexusClientTests
 			CollectionTargetAssociation[] associations, CollectionMemberBinding[] bindings, UserOverride[] overrides,
 			CollectionNativeStateCoverage pluginCoverage, CollectionNativeIniState[] iniStates = null,
 			CollectionNativeGameValueState[] gameValues = null, CollectionNativePluginState[] plugins = null,
-			CollectionDesiredPluginState[] desiredPlugins = null, CollectionConflictConstraint[] conflictConstraints = null)
+			CollectionDesiredPluginState[] desiredPlugins = null, CollectionConflictConstraint[] conflictConstraints = null,
+			CollectionExternalFilePriorityRule[] externalPriorityRules = null)
 		{
 			CollectionNativeStateIndex state = new CollectionNativeStateIndex(target,
 				new CollectionNativeRootState[0], mods ?? new CollectionNativeModState[0], files ?? new CollectionNativeFileState[0],
@@ -833,7 +873,7 @@ namespace NexusClientTests
 			CollectionRevisionIdentity revision = CreateRevision();
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(revision,
 				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256A), 10, "schema", "normalizer-v3"),
-				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules, desiredPlugins, conflictConstraints);
+				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules, desiredPlugins, conflictConstraints, externalPriorityRules);
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, report.Status);
 			ResolvedCollectionPlan plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
@@ -860,6 +900,16 @@ namespace NexusClientTests
 			var reference = new CollectionConflictReference(null, logicalFileName, null, null, null, null, null, null, null, version);
 			return new CollectionConflictConstraint(source.IdentityResolution.Key, reference,
 				matchingMemberKeys ?? new CollectionMemberKey[0]);
+		}
+
+		private static CollectionExternalFilePriorityRule CreateExternalPriority(NormalizedCollectionMember source,
+			string logicalFileName, bool memberIsLowerPriority)
+		{
+			CollectionVortexVersionMatch version;
+			string failure;
+			Assert.IsTrue(CollectionVortexVersionMatch.TryCreate("*", out version, out failure), failure);
+			var reference = new CollectionConflictReference(null, logicalFileName, null, null, null, null, null, null, null, version);
+			return new CollectionExternalFilePriorityRule(source.IdentityResolution.Key, reference, memberIsLowerPriority);
 		}
 
 		private static CollectionNativeFileState CreateFile(ModDeploymentTarget target, string ownerKey)

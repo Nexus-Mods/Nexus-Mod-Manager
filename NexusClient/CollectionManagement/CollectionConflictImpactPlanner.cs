@@ -41,6 +41,7 @@ namespace Nexus.Client.CollectionManagement
 			Dictionary<CollectionMemberKey, CollectionMemberMatchResult> matchByKey = matches.MembersByKey.ToDictionary(x => x.Key, x => x.Value);
 
 			EvaluateCompatibilityConstraints(plan, matches, nativeState, issues);
+			EvaluateExternalPriorityRules(plan, matches, nativeState, issues);
 
 			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
 			{
@@ -162,6 +163,50 @@ namespace Nexus.Client.CollectionManagement
 							"NMM cannot prove whether an existing native mod satisfies every identifying/version field of this Vortex conflict reference from committed metadata alone; explicit review is required."));
 					}
 				}
+			}
+		}
+
+
+		private static void EvaluateExternalPriorityRules(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionNativeStateIndex nativeState, IList<CollectionConflictImpactIssue> issues)
+		{
+			if (plan.CapabilityReport.Manifest.ExternalFilePriorityRules.Count == 0) return;
+			var selected = new HashSet<CollectionMemberKey>(plan.SelectedMembers.Select(x => x.MemberKey));
+			var represented = new HashSet<NativeModInstanceIdentity>(matches.Members
+				.Where(x => x.MatchedNativeMod != null).Select(x => x.MatchedNativeMod.Identity));
+
+			foreach (CollectionExternalFilePriorityRule rule in plan.CapabilityReport.Manifest.ExternalFilePriorityRules)
+			{
+				if (!selected.Contains(rule.MemberKey)) continue;
+				var matchesFound = new List<CollectionNativeModState>();
+				var unknown = new List<CollectionNativeModState>();
+				foreach (CollectionNativeModState nativeMod in nativeState.Mods.Values
+					.Where(x => !represented.Contains(x.Identity)).OrderBy(x => x.Identity.NativeModKey, StringComparer.Ordinal))
+				{
+					CollectionConflictNativeMatch result = MatchConflictReference(rule.ExternalReference, nativeMod);
+					if (result == CollectionConflictNativeMatch.Match) matchesFound.Add(nativeMod);
+					else if (result == CollectionConflictNativeMatch.Unknown) unknown.Add(nativeMod);
+				}
+
+				if (matchesFound.Count > 0)
+				{
+					string subject = matchesFound.Count == 1 ? "native:" + matchesFound[0].Identity.NativeModKey : "external-priority:" + rule.MemberKey;
+					string relation = rule.MemberIsLowerPriority ? "must remain higher priority than the Collection member" : "must remain lower priority than the Collection member";
+					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent,
+						CollectionConflictImpactStatus.ActionRequired, rule.MemberKey, subject,
+						matchesFound.Count == 1
+							? "An installed external NMM mod exactly matches a Vortex before/after endpoint and " + relation + "; review the existing native ownership/order before applying."
+							: "More than one installed external NMM mod matches a Vortex before/after endpoint; NMM cannot choose which native instance the Collection rule refers to."));
+					continue;
+				}
+
+				if (unknown.Count > 0)
+				{
+					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExternalPriorityReferenceEvaluationRequired,
+						CollectionConflictImpactStatus.ActionRequired, rule.MemberKey, "external-priority:" + rule.MemberKey,
+						"NMM cannot prove that every installed native mod is distinct from the external Vortex before/after endpoint using committed metadata alone; explicit review is required."));
+				}
+				// No exact/unknown native endpoint is the characterized Vortex absent-endpoint case: the stored rule has no current deployment edge.
 			}
 		}
 

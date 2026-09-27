@@ -56,6 +56,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<NormalizedCollectionMember> _members;
 		private readonly ReadOnlyCollection<CollectionMemberDependency> _dependencies;
 		private readonly ReadOnlyCollection<CollectionFilePriorityRule> _filePriorityRules;
+		private readonly ReadOnlyCollection<CollectionExternalFilePriorityRule> _externalFilePriorityRules;
 		private readonly ReadOnlyCollection<CollectionConflictConstraint> _conflictConstraints;
 		private readonly ReadOnlyCollection<CollectionDesiredPluginState> _pluginStates;
 
@@ -68,7 +69,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionManifestMemberSetCompleteness memberSetCompleteness,
 			string incompletenessReason,
 			IEnumerable<NormalizedCollectionMember> members)
-			: this(revision, source, memberSetCompleteness, incompletenessReason, members, null, null, null, null)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, null, null, null, null, null)
 		{
 		}
 
@@ -82,7 +83,7 @@ namespace Nexus.Client.CollectionManagement
 			string incompletenessReason,
 			IEnumerable<NormalizedCollectionMember> members,
 			IEnumerable<CollectionMemberDependency> dependencies)
-			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, null, null, null)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, null, null, null, null)
 		{
 		}
 
@@ -97,7 +98,7 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<NormalizedCollectionMember> members,
 			IEnumerable<CollectionMemberDependency> dependencies,
 			IEnumerable<CollectionFilePriorityRule> filePriorityRules)
-			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, null, null)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, null, null, null)
 		{
 		}
 
@@ -113,7 +114,7 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionMemberDependency> dependencies,
 			IEnumerable<CollectionFilePriorityRule> filePriorityRules,
 			IEnumerable<CollectionDesiredPluginState> pluginStates)
-			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, pluginStates, null)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, pluginStates, null, null)
 		{
 		}
 
@@ -130,6 +131,24 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionFilePriorityRule> filePriorityRules,
 			IEnumerable<CollectionDesiredPluginState> pluginStates,
 			IEnumerable<CollectionConflictConstraint> conflictConstraints)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, pluginStates, conflictConstraints, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates an immutable normalized collection manifest including characterized external before/after endpoints.
+		/// </summary>
+		public NormalizedCollectionManifest(
+			CollectionRevisionIdentity revision,
+			CollectionManifestSourceSnapshot source,
+			CollectionManifestMemberSetCompleteness memberSetCompleteness,
+			string incompletenessReason,
+			IEnumerable<NormalizedCollectionMember> members,
+			IEnumerable<CollectionMemberDependency> dependencies,
+			IEnumerable<CollectionFilePriorityRule> filePriorityRules,
+			IEnumerable<CollectionDesiredPluginState> pluginStates,
+			IEnumerable<CollectionConflictConstraint> conflictConstraints,
+			IEnumerable<CollectionExternalFilePriorityRule> externalFilePriorityRules)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -203,6 +222,20 @@ namespace Nexus.Client.CollectionManagement
 			_members = new ReadOnlyCollection<NormalizedCollectionMember>(copiedMembers);
 			_dependencies = new ReadOnlyCollection<CollectionMemberDependency>(copiedDependencies);
 			_filePriorityRules = new ReadOnlyCollection<CollectionFilePriorityRule>(copiedFilePriorityRules);
+
+			List<CollectionExternalFilePriorityRule> copiedExternalFilePriorityRules = new List<CollectionExternalFilePriorityRule>();
+			HashSet<CollectionExternalFilePriorityRule> uniqueExternalFilePriorityRules = new HashSet<CollectionExternalFilePriorityRule>();
+			if (externalFilePriorityRules != null)
+			{
+				foreach (CollectionExternalFilePriorityRule rule in externalFilePriorityRules)
+				{
+					if (rule == null) throw new ArgumentException("A normalized manifest cannot contain a null external file-priority rule.", nameof(externalFilePriorityRules));
+					if (!resolvedKeys.Contains(rule.MemberKey)) throw new ArgumentException("An external file-priority rule must reference a resolved member in the same manifest.", nameof(externalFilePriorityRules));
+					if (!uniqueExternalFilePriorityRules.Add(rule)) throw new ArgumentException("A normalized manifest cannot contain duplicate external file-priority rules.", nameof(externalFilePriorityRules));
+					copiedExternalFilePriorityRules.Add(rule);
+				}
+			}
+			_externalFilePriorityRules = new ReadOnlyCollection<CollectionExternalFilePriorityRule>(copiedExternalFilePriorityRules);
 
 			List<CollectionConflictConstraint> copiedConflictConstraints = new List<CollectionConflictConstraint>();
 			HashSet<CollectionConflictConstraint> uniqueConflictConstraints = new HashSet<CollectionConflictConstraint>();
@@ -283,6 +316,12 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionFilePriorityRule> FilePriorityRules
 		{
 			get { return _filePriorityRules; }
+		}
+
+		/// <summary>Gets characterized before/after rules whose other endpoint is outside the retained Collection member set.</summary>
+		public ReadOnlyCollection<CollectionExternalFilePriorityRule> ExternalFilePriorityRules
+		{
+			get { return _externalFilePriorityRules; }
 		}
 
 		/// <summary>Gets characterized Vortex conflict constraints. These are compatibility checks, never file-priority rules.</summary>

@@ -491,6 +491,7 @@ namespace NexusClientTests
 				switch (method.Name)
 				{
 					case "get_Name": return "Test Game";
+					case "get_GameModeEnvironmentInfo": return CreateGameModeEnvironmentInfo();
 					case "get_PluginDirectory": return @"C:\Game\Data";
 					case "get_UsesPlugins": return pluginExtensions != null;
 					case "get_PluginExtensions": return pluginExtensions;
@@ -522,6 +523,27 @@ namespace NexusClientTests
 			return path;
 		}
 
+
+		private static IGameModeEnvironmentInfo CreateGameModeEnvironmentInfo()
+		{
+			return InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_InstallationPath": return @"C:\Game";
+					case "get_SecondaryInstallationPath": return null;
+					case "get_ExecutablePath": return @"C:\Game\Game.exe";
+					case "get_InstallInfoDirectory": return @"C:\Game\NMM\InstallInfo";
+					case "get_OverwriteDirectory": return @"C:\Game\NMM\Overwrite";
+					case "get_ModDirectory": return @"C:\Game\NMM\Mods";
+					case "get_ModCacheDirectory": return @"C:\Game\NMM\Cache";
+					case "get_ModDownloadCacheDirectory": return @"C:\Game\NMM\Downloads";
+					case "get_ModReadMeDirectory": return @"C:\Game\NMM\ReadMe";
+					case "get_CategoryDirectory": return @"C:\Game\NMM\Categories";
+					default: return null;
+				}
+			});
+		}
 
 		private static IPluginManager CreateEmptyPluginManager()
 		{

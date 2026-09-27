@@ -48,4 +48,37 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 	}
+	/// <summary>
+	/// Characterized before/after priority relationship between one Collection member and one portable external Vortex reference.
+	/// </summary>
+	/// <remarks>
+	/// This record does not create a second mod-rule store. It exists so review can characterize the current effect of a
+	/// Vortex rule whose other endpoint is outside the retained Collection member closure.
+	/// </remarks>
+	public sealed class CollectionExternalFilePriorityRule : IEquatable<CollectionExternalFilePriorityRule>
+	{
+		public CollectionExternalFilePriorityRule(CollectionMemberKey memberKey, CollectionConflictReference externalReference,
+			bool memberIsLowerPriority)
+		{
+			MemberKey = memberKey ?? throw new ArgumentNullException(nameof(memberKey));
+			ExternalReference = externalReference ?? throw new ArgumentNullException(nameof(externalReference));
+			MemberIsLowerPriority = memberIsLowerPriority;
+		}
+
+		public CollectionMemberKey MemberKey { get; }
+		public CollectionConflictReference ExternalReference { get; }
+		public bool MemberIsLowerPriority { get; }
+
+		public bool Equals(CollectionExternalFilePriorityRule other)
+		{
+			return other != null && MemberKey.Equals(other.MemberKey) &&
+				ExternalReference.Equals(other.ExternalReference) && MemberIsLowerPriority == other.MemberIsLowerPriority;
+		}
+		public override bool Equals(object obj) { return Equals(obj as CollectionExternalFilePriorityRule); }
+		public override int GetHashCode()
+		{
+			unchecked { return ((MemberKey.GetHashCode() * 397) ^ ExternalReference.GetHashCode()) * 397 ^ MemberIsLowerPriority.GetHashCode(); }
+		}
+	}
+
 }

@@ -38,7 +38,9 @@ namespace Nexus.Client.CollectionManagement
 		ExistingPluginStateDecisionRequired = 16,
 		ExistingConfigurationDecisionRequired = 17,
 		CompatibilityConflict = 18,
-		ConflictReferenceEvaluationRequired = 19
+		ConflictReferenceEvaluationRequired = 19,
+		ExternalPriorityEndpointPresent = 20,
+		ExternalPriorityReferenceEvaluationRequired = 21
 	}
 
 	/// <summary>One deterministic C6.4 planning issue.</summary>

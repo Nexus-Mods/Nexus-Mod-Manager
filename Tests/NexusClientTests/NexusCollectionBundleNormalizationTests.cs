@@ -455,7 +455,7 @@ namespace NexusClientTests
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
 			Assert.IsTrue(result.CapabilityReport.HasUnselectedUnsupportedOptionals);
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.MemberReports[1].Status);
-			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.installer-choices-invalid"));
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.installer-choices-type-unsupported"));
 		}
 
 		[Test]
@@ -468,7 +468,7 @@ namespace NexusClientTests
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.installer-choices-invalid"));
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.installer-choices-type-unsupported"));
 		}
 
 		[Test]
@@ -676,6 +676,68 @@ namespace NexusClientTests
 
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
 			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.phase-invalid"));
+		}
+
+
+		[Test]
+		public void Normalize_ExternalBeforeEndpointWithWildcardLogicalNameIsCharacterized()
+		{
+			string member = "{\"name\":\"ENB Helper for Fallout 4\",\"version\":\"1.0.2\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":56566,\"fileId\":123}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":56566,\"fileId\":123}},\"reference\":{\"logicalFileName\":\"NAC X Legacy edition\",\"versionMatch\":\"*\",\"idHint\":\"NAC X Legacy edition-46722-1-0-0-1596620706\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(1, result.Manifest.ExternalFilePriorityRules.Count);
+			CollectionExternalFilePriorityRule rule = result.Manifest.ExternalFilePriorityRules.Single();
+			Assert.AreEqual(result.Manifest.Members.Single().IdentityResolution.Key, rule.MemberKey);
+			Assert.IsTrue(rule.MemberIsLowerPriority);
+			Assert.AreEqual("NAC X Legacy edition", rule.ExternalReference.LogicalFileName);
+		}
+
+		[Test]
+		public void Normalize_FixtureStyleExternalBeforeSourceUsesExactMd5WhenGeneratedExpressionIsNotRetained()
+		{
+			const string md5 = "bbf65ccae4a6e350a8eb80c361ae702e";
+			string member = "{\"name\":\"enbhelperf4\",\"version\":\"1.0.2\",\"optional\":true,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"nexus\",\"modId\":56566,\"fileId\":268795,\"md5\":\"" + md5 + "\",\"logicalFilename\":\"ENB Helper for Fallout 4\",\"tag\":\"7qp1yhzkdXL\"}}";
+			string source = "{\"fileExpression\":\"ENB Helper for Fallout 4-56566-1-0-2-1677522163\",\"fileMD5\":\"" + md5 + "\",\"versionMatch\":\"1.0.2\",\"logicalFileName\":\"ENB Helper for Fallout 4\"}";
+			string rules = "[{\"type\":\"before\",\"source\":" + source + ",\"reference\":{\"logicalFileName\":\"NAC X Legacy edition\",\"versionMatch\":\"*\",\"idHint\":\"NAC X Legacy edition-46722-1-0-0-1596620706\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(1, result.Manifest.ExternalFilePriorityRules.Count);
+			Assert.AreEqual(result.Manifest.Members.Single().IdentityResolution.Key, result.Manifest.ExternalFilePriorityRules.Single().MemberKey);
+			Assert.IsFalse(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_ExternalBeforeSourceGeneratedExpressionDoesNotBypassExactMd5Mismatch()
+		{
+			string member = "{\"name\":\"enbhelperf4\",\"version\":\"1.0.2\",\"optional\":true,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"nexus\",\"modId\":56566,\"fileId\":268795,\"md5\":\"bbf65ccae4a6e350a8eb80c361ae702e\",\"logicalFilename\":\"ENB Helper for Fallout 4\"}}";
+			string source = "{\"fileExpression\":\"ENB Helper for Fallout 4-56566-1-0-2-1677522163\",\"fileMD5\":\"00000000000000000000000000000000\",\"versionMatch\":\"1.0.2\",\"logicalFileName\":\"ENB Helper for Fallout 4\"}";
+			string rules = "[{\"type\":\"before\",\"source\":" + source + ",\"reference\":{\"logicalFileName\":\"NAC X Legacy edition\",\"versionMatch\":\"*\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_ExternalBeforeEndpointWithUncharacterizedVersionRangeRemainsUnsupported()
+		{
+			string member = "{\"name\":\"ENB Helper for Fallout 4\",\"version\":\"1.0.2\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":56566,\"fileId\":123}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":56566,\"fileId\":123}},\"reference\":{\"logicalFileName\":\"NAC X Legacy edition\",\"versionMatch\":\">=1.0\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "manifest.mod-rule-reference-unresolved"));
 		}
 
 		[Test]

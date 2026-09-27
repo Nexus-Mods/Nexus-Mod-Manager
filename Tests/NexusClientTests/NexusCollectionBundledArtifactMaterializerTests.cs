@@ -150,7 +150,7 @@ namespace NexusClientTests
 					new CollectionDefinition(collection, "Bundle fixture", null, null), revision);
 
 				string json = "{" +
-					"\"info\":{\"author\":\"Curator\",\"name\":\"Bundle fixture\",\"domainName\":\"fallout4\"}," +
+					"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Bundle fixture\",\"description\":\"Bundle fixture\",\"domainName\":\"fallout4\"}," +
 					"\"mods\":[{" +
 					"\"name\":\"Bundled member\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\"," +
 					"\"source\":{\"type\":\"bundle\",\"fileSize\":" + fileSize.ToString(System.Globalization.CultureInfo.InvariantCulture) +
