@@ -73,6 +73,29 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareAndApply_CollectionPluginOverlay_DisablesIncludedPluginAbsentFromEnabledList()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.PluginArchiveDesiredDisabled))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.Runtime.PreparedRecipes.Single().EffectPreview.PluginEffects.Single().Active, Is.EqualTo(true),
+					"The ordinary native child still requests its normal implicit plugin activation before the final Collection overlay.");
+				CollectionPluginImpact reviewed = prepared.ImpactPlan.PluginImpacts.Single();
+				Assert.That(reviewed.Effect.Active, Is.EqualTo(false),
+					"An included plugin omitted from the Collection enabled list must be reviewed as finally disabled.");
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.PluginState, Is.Not.Null);
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.False,
+					"Final native plugin reconciliation must apply the reviewed Collection state after the member installation completes.");
+			}
+		}
+
+		[Test]
 		public void PrepareAndApply_TwoWritersWithPriority_ReconcilesReviewedWinnerAfterAllWritersExist()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
@@ -497,7 +520,8 @@ namespace NexusClientTests
 			PluginArchive = 1,
 			TwoWritersWithPriority = 2,
 			UnrelatedExistingOwner = 3,
-			PluginlessSingleMember = 4
+			PluginlessSingleMember = 4,
+			PluginArchiveDesiredDisabled = 5
 		}
 
 		private sealed class MemberSpec
@@ -528,7 +552,7 @@ namespace NexusClientTests
 			private Fixture(string root, GameStoragePathSet paths, CollectionsStore store,
 				NormalizedCollectionManifest manifest, CollectionAdditiveWorkflowCoordinator workflow,
 				DeterministicNativeBoundary nativeBoundary, RecordingWinnerBarrier winnerBarrier,
-				MemberSpec memberA, MemberSpec memberB, string pluginDirectory)
+				MemberSpec memberA, MemberSpec memberB, string pluginDirectory, MutablePluginState pluginState)
 			{
 				Root = root;
 				Paths = paths;
@@ -540,6 +564,7 @@ namespace NexusClientTests
 				MemberA = memberA;
 				MemberB = memberB;
 				PluginDirectory = pluginDirectory;
+				PluginState = pluginState;
 			}
 
 			public string Root { get; }
@@ -552,6 +577,7 @@ namespace NexusClientTests
 			public MemberSpec MemberA { get; }
 			public MemberSpec MemberB { get; }
 			public string PluginDirectory { get; }
+			public MutablePluginState PluginState { get; }
 
 			public static Fixture Create(Scenario scenario, ModInstallMethod preferredInstallMethod = ModInstallMethod.Direct)
 			{
@@ -585,9 +611,9 @@ namespace NexusClientTests
 				File.WriteAllBytes(archiveA, Encoding.UTF8.GetBytes("C6.15.14c archive A"));
 				MemberSpec memberA;
 				MemberSpec memberB = null;
-				bool usesPlugins = scenario == Scenario.PluginArchive;
+				bool usesPlugins = scenario == Scenario.PluginArchive || scenario == Scenario.PluginArchiveDesiredDisabled;
 				string modRules = "[]";
-				if (scenario == Scenario.PluginArchive)
+				if (usesPlugins)
 				{
 					memberA = new MemberSpec("Plugin Member", 100, 200, "native-a", archiveA, "Example.esp");
 				}
@@ -605,7 +631,8 @@ namespace NexusClientTests
 
 				var specs = new List<MemberSpec> { memberA };
 				if (memberB != null) specs.Add(memberB);
-				string manifestJson = BuildManifest(specs, modRules);
+				string manifestJson = BuildManifest(specs, modRules,
+					scenario == Scenario.PluginArchiveDesiredDisabled ? "[]" : null);
 				byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
 				NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
 				Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
@@ -711,7 +738,7 @@ namespace NexusClientTests
 					authorityValidator, nativeBoundary.ApplyAsync, winnerBarrier.ReconcileAsync);
 
 				return new Fixture(root, paths, store, manifest, workflow, nativeBoundary, winnerBarrier,
-					memberA, memberB, pluginDirectory);
+					memberA, memberB, pluginDirectory, pluginState);
 			}
 
 			public CollectionAdditiveWorkflowPreparationResult Prepare()
@@ -1013,14 +1040,15 @@ namespace NexusClientTests
 			}
 		}
 
-		private static string BuildManifest(IList<MemberSpec> specs, string modRules)
+		private static string BuildManifest(IList<MemberSpec> specs, string modRules, string plugins = null)
 		{
 			string members = String.Join(",", specs.Select(x => String.Format(
 				"{{\"name\":\"{0}\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{{\"type\":\"nexus\",\"modId\":{1},\"fileId\":{2},\"updatePolicy\":\"exact\"}}}}",
 				x.Name, x.ModId, x.FileId)));
+			string pluginSection = plugins == null ? String.Empty : ",\"plugins\":" + plugins;
 			return "{" +
 				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"C6.15.14c\",\"description\":\"Vertical effects/conflicts fixture\",\"domainName\":\"skyrimspecialedition\"}," +
-				"\"mods\":[" + members + "],\"modRules\":" + modRules + "}";
+				"\"mods\":[" + members + "],\"modRules\":" + modRules + pluginSection + "}";
 		}
 
 		private static GameStoragePathSet CreateStoragePaths(string root)
@@ -1086,6 +1114,17 @@ namespace NexusClientTests
 				}
 			}
 
+			public bool Reconcile(IList<string> deployedPluginPaths, IDictionary<string, bool> requestedStates)
+			{
+				foreach (string path in deployedPluginPaths ?? new string[0])
+				{
+					bool requested;
+					if (requestedStates != null && requestedStates.TryGetValue(path, out requested))
+						_active[Path.GetFullPath(path)] = requested;
+				}
+				return true;
+			}
+
 			public void ApplyNativeRecipe(ModInstallationRecipeInput recipe)
 			{
 				foreach (InstallModFileOperation operation in recipe.NativeOperations.OfType<InstallModFileOperation>())
@@ -1113,6 +1152,8 @@ namespace NexusClientTests
 						return extension.Equals(".esp", StringComparison.OrdinalIgnoreCase) ||
 							extension.Equals(".esm", StringComparison.OrdinalIgnoreCase) ||
 							extension.Equals(".esl", StringComparison.OrdinalIgnoreCase);
+					case "TryReconcileDeployedPlugins":
+						return state.Reconcile((IList<string>)args[0], (IDictionary<string, bool>)args[1]);
 					default: return null;
 				}
 			});

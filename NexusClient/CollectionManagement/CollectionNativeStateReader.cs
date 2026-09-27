@@ -93,7 +93,7 @@ namespace Nexus.Client.CollectionManagement
 			{
 				NativeModInstanceIdentity identity = new NativeModInstanceIdentity(target, record.ModKey);
 				CollectionNativeModState state = new CollectionNativeModState(identity, record.ArchivePath,
-					record.FileName, record.NexusModId, record.NexusFileId, record.HumanReadableVersion,
+					record.FileName, record.ModName, record.NexusModId, record.NexusFileId, record.HumanReadableVersion,
 					record.MachineVersion, record.HasInstallScript, record.InstallRoot, record.InstallMethod);
 				nativeMods.Add(state);
 				modsByKey[record.ModKey] = state;

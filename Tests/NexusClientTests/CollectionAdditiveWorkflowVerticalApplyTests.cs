@@ -258,6 +258,77 @@ namespace NexusClientTests
 			}
 		}
 
+		[TestCase(ModInstallMethod.Direct)]
+		[TestCase(ModInstallMethod.Virtual)]
+		public void PrepareAndApply_DinputMember_UsesNativeGameRootModeAndF4seWrapper(ModInstallMethod installMethod)
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, installMethod,
+				modType: "dinput", archiveFiles: new[]
+				{
+					@"f4se_0_07_09\f4se_loader.exe",
+					@"f4se_0_07_09\f4se_1_10_163.dll",
+					@"f4se_0_07_09\Data\Scripts\f4se.pex"
+				}))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				PreparedCollectionNativeRecipe recipe = prepared.Runtime.PreparedRecipes.Single();
+				InstallModFileOperation[] operations = recipe.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(fixture.Member.RequiresGameRootInstall, Is.True);
+				Assert.That(prepared.Runtime.Matches.Members.Single().Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ArchiveOnlyReuse));
+				Assert.That(recipe.InstallContext.Method, Is.EqualTo(installMethod));
+				Assert.That(recipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				CollectionAssert.AreEqual(new[] { "f4se_loader.exe", "f4se_1_10_163.dll", @"Data\Scripts\f4se.pex" },
+					operations.Select(x => x.DestinationPath).ToArray());
+				Assert.That(recipe.EffectPreview.Files.All(x => x.Target.Root == ModDeploymentRoot.GameRoot), Is.True);
+
+				CollectionAdditiveWorkflowReview rehydrated = fixture.Workflow.GetReview(prepared.Operation.Identity);
+				Assert.That(rehydrated.IsReady, Is.True);
+				Assert.That(rehydrated.Runtime.PreparedRecipes.Single().InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.LastRecipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+			}
+		}
+
+		[Test]
+		public void Prepare_DinputMemberInstalledUnderData_PreservesMethodButForcesGameRootReinstall()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.ExactArtifactUnverified, ModInstallMethod.Virtual,
+				installedRoot: ModInstallRoot.Data, modType: "dinput",
+				archiveFiles: new[] { @"f4se_0_07_09\f4se_loader.exe" }))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				CollectionMemberMatchResult match = prepared.Runtime.Matches.Members.Single();
+				PreparedCollectionNativeRecipe recipe = prepared.Runtime.PreparedRecipes.Single();
+
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(match.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ReinstallRequired));
+				Assert.That(match.Reason, Is.EqualTo(CollectionMemberMatchReason.RequiredInstallRootMismatch));
+				Assert.That(recipe.InstallContext.Method, Is.EqualTo(ModInstallMethod.Direct),
+					"Changing the required root must not silently change the existing native deployment method.");
+				Assert.That(recipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+			}
+		}
+
+		[Test]
+		public void Prepare_DinputMemberWhenGameRootUnsupported_BlocksBeforeNativeChild()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, ModInstallMethod.Virtual,
+				modType: "dinput", supportsGameRootInstall: false))
+			{
+				CollectionAdditiveWorkflowPreparationResult result = fixture.Prepare();
+
+				Assert.That(result.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.Blocked));
+				StringAssert.Contains("game-root", result.Message);
+				Assert.That(result.Operation.HasCrossedNativeBoundary, Is.False);
+				Assert.That(result.Operation.NativeChildren, Is.Empty);
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+			}
+		}
+
 		[Test]
 		public void Prepare_ModFileMergeGamePath_IsBlockedBeforeAnyNativeChild()
 		{
@@ -388,7 +459,8 @@ namespace NexusClientTests
 			public static Fixture Create(InitialNativeState initialState, ModInstallMethod preferredInstallMethod,
 				bool requiresSpecialFileInstallation = false, bool requiresModFileMerge = false, bool skipReadmeFiles = false,
 				ModInstallRoot installedRoot = ModInstallRoot.Data, string[] archiveFiles = null,
-				bool seedCompatibleBindingForDifferentCollection = false)
+				bool seedCompatibleBindingForDifferentCollection = false, string modType = null,
+				bool supportsGameRootInstall = true)
 			{
 				string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-14b-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(root);
@@ -419,9 +491,12 @@ namespace NexusClientTests
 				string archivePath = Path.Combine(root, "member.zip");
 				File.WriteAllBytes(archivePath, archiveBytes);
 				archiveFiles = archiveFiles ?? new[] { @"meshes\body.nif" };
+				string detailsJson = String.IsNullOrWhiteSpace(modType)
+					? String.Empty
+					: ",\"details\":{\"type\":\"" + modType + "\"}";
 				string manifestJson = "{" +
 					"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"C6.15.14b\",\"description\":\"Vertical apply fixture\",\"domainName\":\"skyrimspecialedition\"}," +
-					"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":100,\"fileId\":200,\"updatePolicy\":\"exact\"}}],\"modRules\":[]}";
+					"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":100,\"fileId\":200,\"updatePolicy\":\"exact\"}" + detailsJson + "}],\"modRules\":[]}";
 				byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
 				NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
 				Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
@@ -472,7 +547,7 @@ namespace NexusClientTests
 				});
 				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
 					method.Name == "GetReadSnapshot" ? new VirtualModReadSnapshot(new VirtualModReadLink[0]) : null);
-				IGameMode gameMode = CreateGameMode(paths, requiresSpecialFileInstallation, requiresModFileMerge);
+				IGameMode gameMode = CreateGameMode(paths, requiresSpecialFileInstallation, requiresModFileMerge, supportsGameRootInstall);
 				var nativeStateReader = new CollectionNativeStateReader(installLog, virtualModActivator, null, gameMode, associations);
 				var targetResolver = new CollectionTargetIdentityResolver(storageService);
 				var planBuilder = new CollectionResolvedPlanBuilder(catalog, revisionSources, operationCoordinator);
@@ -790,7 +865,8 @@ namespace NexusClientTests
 			};
 		}
 
-		private static IGameMode CreateGameMode(GameStoragePathSet paths, bool requiresSpecialFileInstallation, bool requiresModFileMerge)
+		private static IGameMode CreateGameMode(GameStoragePathSet paths, bool requiresSpecialFileInstallation, bool requiresModFileMerge,
+			bool supportsGameRootInstall)
 		{
 			return InterfaceStub<IGameMode>.Create((method, args) =>
 			{
@@ -801,6 +877,7 @@ namespace NexusClientTests
 					case "get_PluginDirectory": return paths.GameInstallPath;
 					case "get_HasSecondaryInstallPath": return false;
 					case "get_UsesPlugins": return false;
+					case "get_SupportsGameRootModInstall": return supportsGameRootInstall;
 					case "get_RequiresSpecialFileInstallation": return requiresSpecialFileInstallation;
 					case "IsSpecialFile": return requiresSpecialFileInstallation;
 					case "get_RequiresModFileMerge": return requiresModFileMerge;

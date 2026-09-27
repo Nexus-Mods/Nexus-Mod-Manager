@@ -4,19 +4,25 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using Nexus.Client;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
+using Nexus.Client.ModManagement.Scripting.XmlScript;
 using Nexus.Client.Mods;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
+using Nexus.Client.PluginManagement;
+using Nexus.Client.Plugins;
+using Nexus.Client.Util.Collections;
 using NUnit.Framework;
 
 namespace NexusClientTests
 {
 	/// <summary>
-	/// Verifies C6.15.9 retained-source to native-recipe preparation for the initial characterized basic/simple capability.
+	/// Verifies C6.15.9 retained-source to native-recipe preparation for characterized basic/simple and bounded FOMOD capabilities.
 	/// </summary>
 	[TestFixture]
 	public class CollectionNativeRecipePreparerTests
@@ -187,7 +193,237 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void PrepareBasicSimpleExact_DinputAtArchiveRootUsesNativeGameRootPlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateGameRootFixture(root, "dinput-root", "dinput", "dinput8.dll", "preset.ini");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				Assert.That(prepared.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				CollectionAssert.AreEquivalent(new[] { "dinput8.dll", "preset.ini" },
+					prepared.EffectPreview.Files.Select(x => x.Target.RelativePath).ToArray());
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareBasicSimpleExact_DinputInSingleWrapperUsesNativeWrapperNormalization()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateGameRootFixture(root, "dinput-wrapper", "dinput",
+					@"Injector\dinput8.dll", @"Injector\preset.ini");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				CollectionAssert.AreEquivalent(new[] { "dinput8.dll", "preset.ini" },
+					prepared.EffectPreview.Files.Select(x => x.Target.RelativePath).ToArray());
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareBasicSimpleExact_EnbUsesNativeGameRootPlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateGameRootFixture(root, "enb-root", "enb",
+					@"ENBWrapper\enbseries.ini", @"ENBWrapper\d3d11.dll");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				Assert.That(fixture.Member.InstallRootBehavior, Is.EqualTo(CollectionMemberInstallRootBehavior.VortexEnbGameRoot));
+				Assert.That(prepared.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				CollectionAssert.AreEquivalent(new[] { "enbseries.ini", "d3d11.dll" },
+					prepared.EffectPreview.Files.Select(x => x.Target.RelativePath).ToArray());
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[TestCase(@"Wrapper\Bin\dinput8.dll", @"Wrapper\Bin\preset.ini", TestName = "Prepare_DinputNestedBase_FailsClosed")]
+		[TestCase(@"Wrapper\dinput8.dll", "readme.txt", TestName = "Prepare_DinputFilesOutsideBase_FailsClosed")]
+		[TestCase("dinput8.dll", @"Other\dinput8.dll", TestName = "Prepare_DinputMultipleMarkers_FailsClosed")]
+		public void PrepareBasicSimpleExact_UnrepresentableDinputLayoutFailsClosed(string first, string second)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateGameRootFixture(root, "dinput-unsupported-" + Guid.NewGuid().ToString("N"), "dinput", first, second);
+
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareBasicSimpleExact_DinputRequiresGameRootContextAtPreparationBoundary()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateGameRootFixture(root, "dinput-wrong-root", "dinput", "f4se_loader.exe");
+				var wrongContext = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+
+				Assert.Throws<ArgumentException>(() => fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					wrongContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFomodChoiceUsesNativeSelectionAndFreezesExactFilePlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodFixture(root, "fomod-map", false);
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+
+				Assert.That(fixture.Member.HasVortexFomodSelection, Is.True);
+				Assert.That(prepared.AdapterId, Is.EqualTo(ModInstallationSimpleFileRecipeAdapter.AdapterId),
+					"Reviewed persistence stays on the existing durable simple-file recipe after native FOMOD validation.");
+				InstallModFileOperation file = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(file.SourcePath, Is.EqualTo(@"textures\map-4k.dds"));
+				Assert.That(file.DestinationPath, Is.EqualTo(@"textures\map.dds"));
+				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(1));
+				Assert.That(prepared.PreparedNativeIdentity.Fingerprint, Does.StartWith("sha256:"));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFomodPluginFileRemainsBlockedUntilPluginStateStage()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodPluginFixture(root, "fomod-plugin");
+
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFomodChoiceNameMismatchAgainstActualArchiveFailsClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodFixture(root, "fomod-stale", true);
+
+				Assert.Throws<InvalidDataException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		private static Fixture CreateFixture(string root, string suffix, params string[] archiveFiles)
+		{
+			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, archiveFiles);
+		}
+
+		private static Fixture CreateGameRootFixture(string root, string suffix, string modType, params string[] archiveFiles)
+		{
+			return CreateFixtureCore(root, suffix, modType, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.GameRoot), true, archiveFiles);
+		}
+
+		private static Fixture CreateFomodFixture(string root, string suffix, bool staleActualOptionName)
+		{
+			var scriptType = new XmlScriptType();
+			var script = new XmlScript(scriptType, new Version(5, 0));
+			var step = new InstallStep("Install Map with Locations", null, SortOrder.Explicit);
+			var group = new OptionGroup("Map with All Locations", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			group.Options.Add(CreateFomodOption(staleActualOptionName ? "Renamed 4k Option" : "4k With All Locations",
+				@"textures\map-4k.dds", @"textures\map.dds"));
+			group.Options.Add(CreateFomodOption("2k With All Locations", @"textures\map-2k.dds", @"textures\map.dds"));
+			step.OptionGroups.Add(group);
+			script.InstallSteps.Add(step);
+
+			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Install Map with Locations\",\"groups\":[" +
+				"{\"name\":\"Map with All Locations\",\"choices\":[{\"name\":\"4k With All Locations\",\"idx\":0}]}]}]}";
+			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				choicesJson, script, @"textures\map-4k.dds", @"textures\map-2k.dds");
+		}
+
+		private static Fixture CreateFomodPluginFixture(string root, string suffix)
+		{
+			var scriptType = new XmlScriptType();
+			var script = new XmlScript(scriptType, new Version(5, 0));
+			var step = new InstallStep("Plugin Step", null, SortOrder.Explicit);
+			var group = new OptionGroup("Plugin Group", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			group.Options.Add(CreateFomodOption("Plugin", @"plugin\choice.esp", @"choice.esp"));
+			step.OptionGroups.Add(group);
+			script.InstallSteps.Add(step);
+
+			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Plugin Step\",\"groups\":[" +
+				"{\"name\":\"Plugin Group\",\"choices\":[{\"name\":\"Plugin\",\"idx\":0}]}]}]}";
+			Fixture fixture = CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				choicesJson, script, @"plugin\choice.esp");
+			fixture.GameMode = CreateGameMode(false, null, false, new[] { ".esp", ".esm", ".esl" });
+			return fixture;
+		}
+
+		private static Option CreateFomodOption(string name, string source, string destination)
+		{
+			var option = new Option(name, String.Empty, null, new StaticOptionTypeResolver(OptionType.Optional));
+			option.Files.Add(new InstallableFile(source, destination, false, 0, false, false));
+			return option;
+		}
+
+		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
+			bool supportsGameRootInstall, params string[] archiveFiles)
+		{
+			return CreateFixtureCore(root, suffix, modType, installContext, supportsGameRootInstall, null, null, archiveFiles);
+		}
+
+		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
+			bool supportsGameRootInstall, string choicesJson, IScript installScript, params string[] archiveFiles)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
@@ -197,9 +433,11 @@ namespace NexusClientTests
 			new CollectionsCatalogStore(store).SaveDefinitionAndRevision(
 				new CollectionDefinition(collection, suffix, null, null), revision);
 
+			string details = String.IsNullOrEmpty(modType) ? String.Empty : ",\"details\":{\"type\":\"" + modType + "\"}";
+			string choices = String.IsNullOrEmpty(choicesJson) ? String.Empty : ",\"choices\":" + choicesJson;
 			string json = "{" +
 				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Example\",\"description\":\"Example\",\"domainName\":\"skyrim\"}," +
-				"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"updatePolicy\":\"exact\"}}]," +
+				"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"updatePolicy\":\"exact\"}" + details + choices + "}]," +
 				"\"modRules\":[]}";
 			byte[] manifestBytes = Encoding.UTF8.GetBytes(json);
 			NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
@@ -234,16 +472,19 @@ namespace NexusClientTests
 				{
 					case "get_Filename": return modArchivePath;
 					case "get_FileName": return Path.GetFileName(modArchivePath);
+					case "get_HasInstallScript": return installScript != null;
+					case "get_InstallScript": return installScript;
 					case "GetFileList": return new List<string>(fileList);
 					default: return null;
 				}
 			});
 
 			return new Fixture(store, target, state, plan, member, sourceRecord, verifiedArchive, mod, modArchivePath,
-				CreateGameMode(false, null), new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data));
+				CreateGameMode(false, null, supportsGameRootInstall), installContext);
 		}
 
-		private static IGameMode CreateGameMode(bool specialFile, Action onSpecialInstall)
+		private static IGameMode CreateGameMode(bool specialFile, Action onSpecialInstall, bool supportsGameRootInstall = false,
+			IEnumerable<string> pluginExtensions = null)
 		{
 			return InterfaceStub<IGameMode>.Create((method, args) =>
 			{
@@ -251,7 +492,9 @@ namespace NexusClientTests
 				{
 					case "get_Name": return "Test Game";
 					case "get_PluginDirectory": return @"C:\Game\Data";
-					case "get_UsesPlugins": return false;
+					case "get_UsesPlugins": return pluginExtensions != null;
+					case "get_PluginExtensions": return pluginExtensions;
+					case "get_SupportsGameRootModInstall": return supportsGameRootInstall;
 					case "get_RequiresSpecialFileInstallation": return specialFile;
 					case "IsSpecialFile": return specialFile;
 					case "SpecialFileInstall":
@@ -277,6 +520,29 @@ namespace NexusClientTests
 			if (args.Length == 3 && args[2] is bool)
 				return @"Target\" + path;
 			return path;
+		}
+
+
+		private static IPluginManager CreateEmptyPluginManager()
+		{
+			var managed = new ReadOnlyObservableList<Plugin>(new ThreadSafeObservableList<Plugin>());
+			var active = new ReadOnlyObservableList<Plugin>(new ThreadSafeObservableList<Plugin>());
+			return InterfaceStub<IPluginManager>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_ManagedPlugins": return managed;
+					case "get_ActivePlugins": return active;
+					case "CanChangeActiveState":
+					case "CanChangePluginOrder": return true;
+					default: return null;
+				}
+			});
+		}
+
+		private static IEnvironmentInfo CreateEnvironmentInfo()
+		{
+			return InterfaceStub<IEnvironmentInfo>.Create((method, args) => null);
 		}
 
 		private static CollectionNativeStateIndex CreateState(CollectionTargetIdentity target, long deploymentCommitSequence)

@@ -27,6 +27,31 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Match_VerifiedGameRootMemberInstalledUnderData_RequiresRootCorrectingReinstall()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c6-2-root-mismatch");
+			CollectionRevisionIdentity revision = CreateRevision();
+			CollectionRecipeIdentity recipe = CollectionRecipeIdentity.FromFingerprint("recipe-root");
+			NormalizedCollectionMember member = new NormalizedCollectionMember(0,
+				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider("member-root")),
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/100/200", null),
+				recipe, "Root member", 0, CollectionMemberInstallRootBehavior.VortexDInputGameRoot);
+			CollectionNativeModState nativeMod = CreateNativeMod(target, "native-root", "100", "200");
+			var association = new CollectionTargetAssociation(Guid.NewGuid(), revision, target, CollectionAssociationState.Applied);
+			var binding = new CollectionMemberBinding(association, member.IdentityResolution.Key, nativeMod.Identity, recipe,
+				CollectionMemberBindingKind.InstalledForCollection);
+			CollectionNativeStateIndex state = CreateState(target, new[] { nativeMod }, new[] { association }, new[] { binding },
+				CollectionNativeStateCoverage.Complete);
+			ResolvedCollectionPlan plan = CreatePlan(target, revision, member, state.Fingerprint);
+
+			CollectionMemberMatchResult result = new CollectionMemberMatchEngine().Match(plan, state).Members[0];
+
+			Assert.That(result.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ReinstallRequired));
+			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.RequiredInstallRootMismatch));
+		}
+
+		[Test]
 		public void Match_CompatibleAppliedBindingFromAnotherAssociation_ReusesSharedInstance()
 		{
 			Fixture fixture = CreateFixture("recipe-1", "100", "200", CollectionAssociationState.Applied, false,

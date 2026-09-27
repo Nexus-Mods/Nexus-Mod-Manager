@@ -15,7 +15,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 	/// Converts retained Vortex/Nexus collection.json bytes into the provider-neutral C1 normalized model.
 	/// </summary>
 	/// <remarks>
-	/// C2.5 intentionally advertises only a narrow, verified subset. Fields which can change installation behavior but
+	/// The normalizer intentionally advertises only a narrow, verified subset. Fields which can change installation behavior but
 	/// do not yet have a native NMM adapter are retained in the raw bytes and reported as Unsupported instead of being
 	/// silently ignored. Optional unsupported members stay visible without blocking while unselected.
 	/// </remarks>
@@ -26,15 +26,31 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		public const string NormalizerVersion = "nmm-ce.collections.normalizer/3";
 		private const int MaxJsonDepth = 64;
 		private const double OptionalInstallationPhase = 666d;
+		private const string SupportedReferenceTagScheme = "v1";
 
 		private static readonly HashSet<string> RootFields = new HashSet<string>(StringComparer.Ordinal)
 		{
-			"info", "mods", "modRules", "collectionConfig", "plugins", "pluginRules"
+			"info", "mods", "modRules", "collectionConfig", "plugins", "pluginRules", "tools"
 		};
 
 		private static readonly HashSet<string> InfoFields = new HashSet<string>(StringComparer.Ordinal)
 		{
 			"author", "authorUrl", "name", "description", "installInstructions", "domainName", "gameVersions"
+		};
+
+		private static readonly HashSet<string> CollectionConfigFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"recommendNewProfile", "referenceTagScheme"
+		};
+
+		private static readonly HashSet<string> PluginRuleFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"plugins", "groups"
+		};
+
+		private static readonly HashSet<string> PluginStateFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"name", "enabled"
 		};
 
 		private static readonly HashSet<string> MemberFields = new HashSet<string>(StringComparer.Ordinal)
@@ -54,6 +70,26 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			"type", "category"
 		};
 
+		private static readonly HashSet<string> FomodChoiceRootFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"type", "options"
+		};
+
+		private static readonly HashSet<string> FomodStepFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"name", "groups"
+		};
+
+		private static readonly HashSet<string> FomodGroupFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"name", "choices"
+		};
+
+		private static readonly HashSet<string> FomodSelectedChoiceFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"name", "idx"
+		};
+
 		/// <summary>
 		/// Normalizes exact collection.json bytes for one immutable Nexus Collection revision.
 		/// </summary>
@@ -66,7 +102,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (!revision.IsRemoteBaseline)
 				throw new ArgumentException("The Nexus collection manifest adapter requires a Nexus Collection revision.", nameof(revision));
 			if (rawManifestBytes.Length > MaxManifestBytes)
-				throw new InvalidDataException("collection.json exceeds the C2.5 bounded manifest size limit.");
+				throw new InvalidDataException("collection.json exceeds the bounded manifest size limit.");
 
 			byte[] retainedBytes = (byte[])rawManifestBytes.Clone();
 			CollectionManifestSourceSnapshot source = CreateSourceSnapshot(retainedBytes);
@@ -167,7 +203,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						continue;
 					}
 
-					drafts.Add(CreateMemberDraft(memberObject, index, optional));
+					drafts.Add(CreateMemberDraft(memberObject, index, optional, revision.Identity));
 				}
 			}
 
@@ -194,7 +230,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				else if (candidateCounts[draft.StableMatchKey] > 1)
 				{
 					identityResolution = CollectionMemberIdentityResolution.Ambiguous(
-						"More than one manifest member references the same exact Nexus game/mod/file identity; review is required before assigning a durable member key.");
+						"More than one manifest member references the same exact normalized artifact identity; review is required before assigning a durable member key.");
 				}
 				else
 				{
@@ -210,7 +246,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					draft.Artifact,
 					draft.RecipeIdentity,
 					draft.DisplayName,
-					draft.InstallationPhase);
+					draft.InstallationPhase,
+					draft.InstallRootBehavior,
+					draft.VortexFomodSelection);
 				members.Add(member);
 
 				foreach (PendingMemberIssue pending in draft.Issues)
@@ -224,8 +262,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				}
 			}
 
+			JArray rawModRules = root["modRules"] as JArray;
 			List<CollectionFilePriorityRule> filePriorityRules = NormalizeFilePriorityRules(
-				root["modRules"] as JArray, drafts, members, allDeclaredIssues);
+				rawModRules, drafts, members, allDeclaredIssues);
+			List<CollectionConflictConstraint> conflictConstraints = NormalizeConflictConstraints(
+				rawModRules, drafts, members, allDeclaredIssues);
+			List<CollectionDesiredPluginState> pluginStates = NormalizePluginStates(root["plugins"], allDeclaredIssues);
 
 			CollectionManifestMemberSetCompleteness completeness = memberSetIncomplete
 				? CollectionManifestMemberSetCompleteness.Incomplete
@@ -237,7 +279,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				memberSetIncomplete ? incompletenessReason : null,
 				members,
 				null,
-				filePriorityRules);
+				filePriorityRules,
+				pluginStates,
+				conflictConstraints);
 
 			if (revision.DeclaredMemberCount.HasValue && rawMembers != null && revision.DeclaredMemberCount.Value != rawMembers.Count)
 			{
@@ -252,7 +296,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return new NexusCollectionManifestNormalizationResult(retainedBytes, manifest, report);
 		}
 
-		private static MemberDraft CreateMemberDraft(JObject memberObject, int sourceOrdinal, bool optional)
+		private static MemberDraft CreateMemberDraft(JObject memberObject, int sourceOrdinal, bool optional, CollectionRevisionIdentity revision)
 		{
 			var draft = new MemberDraft(sourceOrdinal, optional);
 			string memberPath = "$.mods[" + sourceOrdinal.ToString(CultureInfo.InvariantCulture) + "]";
@@ -279,7 +323,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 			else
 			{
-				NormalizeSource(memberObject, source, memberPath, draft);
+				NormalizeSource(memberObject, source, memberPath, draft, revision);
 			}
 
 			ValidateInstallBehavior(memberObject, memberPath, draft);
@@ -288,7 +332,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return draft;
 		}
 
-		private static void NormalizeSource(JObject memberObject, JObject source, string memberPath, MemberDraft draft)
+		private static void NormalizeSource(JObject memberObject, JObject source, string memberPath, MemberDraft draft, CollectionRevisionIdentity revision)
 		{
 			string sourcePath = memberPath + ".source";
 			AddUnknownMemberFields(source, SourceFields, sourcePath, draft.Issues);
@@ -318,12 +362,18 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				return;
 			}
 
+			if (StringComparer.Ordinal.Equals(sourceType, "bundle"))
+			{
+				NormalizeBundledSource(source, sourcePath, draft, revision);
+				return;
+			}
+
 			if (!StringComparer.Ordinal.Equals(sourceType, "nexus"))
 			{
 				draft.Issues.Add(new PendingMemberIssue(
 					CollectionCompatibilityStatus.Unsupported,
 					"member.source-type-unsupported",
-					"C2.5 does not yet translate the Vortex source type '" + sourceType + "' into NMM acquisition semantics.",
+					"The Vortex source type '" + sourceType + "' does not have a characterized NMM acquisition mapping.",
 					sourcePath + ".type"));
 				return;
 			}
@@ -402,13 +452,72 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				sourcePath + ".updatePolicy"));
 		}
 
+		private static void NormalizeBundledSource(JObject source, string sourcePath, MemberDraft draft, CollectionRevisionIdentity revision)
+		{
+			string tag = ReadString(source, "tag");
+			string fileExpression = ReadString(source, "fileExpression");
+			long fileSize;
+
+			if (!CollectionBundledArtifactIdentity.IsValidReferenceTag(tag))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.bundle-tag-invalid",
+					"A bundled Vortex member requires one normalized path-free reference tag so logical identity remains stable across recompression.",
+					sourcePath + ".tag"));
+				return;
+			}
+			if (!NexusCollectionBundledArtifactMaterializer.IsSafeLeafName(fileExpression))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.bundle-path-invalid",
+					"A bundled Vortex member must identify exactly one safe directory name beneath the Collection's bundled/ root.",
+					sourcePath + ".fileExpression"));
+				return;
+			}
+			if (!TryReadPositiveInteger(source["fileSize"], out fileSize) || fileSize > NexusCollectionBundleAcquirer.DefaultMaximumBundleBytes)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.bundle-size-invalid",
+					"A bundled Vortex member requires a positive bounded integer fileSize before NMM can materialize its embedded directory safely.",
+					sourcePath + ".fileSize"));
+				return;
+			}
+
+			foreach (string unsupportedField in new[] { "url", "modId", "fileId", "md5", "logicalFilename" })
+			{
+				JToken token = source[unsupportedField];
+				if (HasContent(token))
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.bundle-source-semantics-unsupported",
+						"The bundled Vortex source also contains uncharacterized source narrowing data; NMM will not silently ignore it.",
+						sourcePath + "." + unsupportedField));
+				}
+			}
+
+			JToken updatePolicyToken = source["updatePolicy"];
+			if (updatePolicyToken != null && updatePolicyToken.Type != JTokenType.Null &&
+				(updatePolicyToken.Type != JTokenType.String || !StringComparer.Ordinal.Equals((string)updatePolicyToken, "exact")))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.bundle-update-policy-unsupported",
+					"Embedded Collection members are characterized only for exact Vortex bundle acquisition.",
+					sourcePath + ".updatePolicy"));
+			}
+
+			string stableArtifactId = CollectionBundledArtifactIdentity.Format(revision, tag);
+			draft.StableMatchKey = CollectionBundledArtifactIdentity.Scheme + ":" + stableArtifactId;
+			draft.Artifact = new CollectionArtifactReference(CollectionBundledArtifactIdentity.Scheme, stableArtifactId, null);
+			draft.SourceTag = tag;
+			draft.SourceFileExpression = fileExpression;
+		}
+
 		private static void ValidateInstallBehavior(JObject memberObject, string memberPath, MemberDraft draft)
 		{
 			List<PendingMemberIssue> issues = draft.Issues;
 			AddUnsupportedWhenPopulated(memberObject, "hashes", "member.file-list-unsupported",
-				"C2.5 has not yet translated Vortex hashes/fileList install specifications into native NMM recipe input.", memberPath, issues);
-			AddUnsupportedWhenPopulated(memberObject, "choices", "member.installer-choices-unsupported",
-				"C2.5 has not yet translated Vortex installer choices into a native NMM installer recipe.", memberPath, issues);
+				"Vortex hashes/fileList install specifications do not have a characterized native NMM recipe translation.", memberPath, issues);
+			ValidateFomodChoices(memberObject["choices"], memberPath + ".choices", draft);
 			AddUnsupportedWhenPopulated(memberObject, "patches", "member.patches-unsupported",
 				"Collection member patches require a separately validated native ownership/removal adapter.", memberPath, issues);
 			AddUnsupportedWhenPopulated(memberObject, "fileOverrides", "member.file-overrides-unsupported",
@@ -446,11 +555,164 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					string modType = ReadString(details, "type");
 					if (!string.IsNullOrWhiteSpace(modType))
 					{
-						issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-							"member.mod-type-unsupported", "A Vortex-specific member type needs an explicit NMM native ownership/deployment mapping.", memberPath + ".details.type"));
+						if (modType.Equals("dinput", StringComparison.OrdinalIgnoreCase))
+						{
+							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.VortexDInputGameRoot;
+						}
+						else if (modType.Equals("enb", StringComparison.OrdinalIgnoreCase))
+						{
+							draft.InstallRootBehavior = CollectionMemberInstallRootBehavior.VortexEnbGameRoot;
+						}
+						else
+						{
+							issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+								"member.mod-type-unsupported",
+								"This Vortex member type has no characterized NMM native install-root mapping.",
+								memberPath + ".details.type"));
+						}
 					}
 				}
 			}
+
+			if (draft.VortexFomodSelection != null && draft.InstallRootBehavior != CollectionMemberInstallRootBehavior.Default)
+			{
+				issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.fomod-mod-type-combination-unsupported",
+					"Vortex FOMOD choice replay combined with a game-root mod type has no characterized native installer-priority translation.",
+					memberPath + ".choices"));
+			}
+		}
+
+
+		private static void ValidateFomodChoices(JToken token, string path, MemberDraft draft)
+		{
+			if (token == null || token.Type == JTokenType.Null)
+				return;
+			JObject root = token as JObject;
+			if (root == null)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.installer-choices-invalid", "Vortex installer choices must be a JSON object.", path));
+				return;
+			}
+			AddUnknownMemberFields(root, FomodChoiceRootFields, path, draft.Issues);
+			JToken typeToken = root["type"];
+			if (typeToken == null || typeToken.Type != JTokenType.String ||
+				!StringComparer.Ordinal.Equals(typeToken.Value<string>(), "fomod"))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.installer-choices-type-unsupported", "Only Vortex FOMOD installer choices are characterized by this native translation.", path + ".type"));
+				return;
+			}
+			JArray options = root["options"] as JArray;
+			if (options == null || options.Count == 0)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.installer-choices-invalid", "A characterized Vortex FOMOD choice record requires a non-empty options array.", path + ".options"));
+				return;
+			}
+
+			var steps = new List<CollectionVortexFomodStepSelection>();
+			bool valid = true;
+			for (int stepIndex = 0; stepIndex < options.Count; stepIndex++)
+			{
+				string stepPath = path + ".options[" + stepIndex.ToString(CultureInfo.InvariantCulture) + "]";
+				JObject stepObject = options[stepIndex] as JObject;
+				if (stepObject == null)
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.installer-choices-invalid", "A Vortex FOMOD install step must be a JSON object.", stepPath));
+					valid = false; continue;
+				}
+				AddUnknownMemberFields(stepObject, FomodStepFields, stepPath, draft.Issues);
+				string stepName;
+				if (!TryReadNonBlankString(stepObject["name"], out stepName))
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.installer-choices-invalid", "A Vortex FOMOD install step requires a non-empty name.", stepPath + ".name"));
+					valid = false; continue;
+				}
+				JArray groupsToken = stepObject["groups"] as JArray;
+				if (groupsToken == null)
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.installer-choices-invalid", "A Vortex FOMOD install step requires a groups array.", stepPath + ".groups"));
+					valid = false; continue;
+				}
+				var groups = new List<CollectionVortexFomodGroupSelection>();
+				for (int groupIndex = 0; groupIndex < groupsToken.Count; groupIndex++)
+				{
+					string groupPath = stepPath + ".groups[" + groupIndex.ToString(CultureInfo.InvariantCulture) + "]";
+					JObject groupObject = groupsToken[groupIndex] as JObject;
+					if (groupObject == null)
+					{
+						draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+							"member.installer-choices-invalid", "A Vortex FOMOD option group must be a JSON object.", groupPath));
+						valid = false; continue;
+					}
+					AddUnknownMemberFields(groupObject, FomodGroupFields, groupPath, draft.Issues);
+					string groupName;
+					if (!TryReadNonBlankString(groupObject["name"], out groupName))
+					{
+						draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+							"member.installer-choices-invalid", "A Vortex FOMOD option group requires a non-empty name.", groupPath + ".name"));
+						valid = false; continue;
+					}
+					JArray choicesToken = groupObject["choices"] as JArray;
+					if (choicesToken == null)
+					{
+						draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+							"member.installer-choices-invalid", "A Vortex FOMOD option group requires a choices array, including an empty array when nothing was selected.", groupPath + ".choices"));
+						valid = false; continue;
+					}
+					var choices = new List<CollectionVortexFomodChoice>();
+					var indices = new HashSet<int>();
+					for (int choiceIndex = 0; choiceIndex < choicesToken.Count; choiceIndex++)
+					{
+						string choicePath = groupPath + ".choices[" + choiceIndex.ToString(CultureInfo.InvariantCulture) + "]";
+						JObject choiceObject = choicesToken[choiceIndex] as JObject;
+						if (choiceObject == null)
+						{
+							draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+								"member.installer-choices-invalid", "A selected Vortex FOMOD option must be a JSON object.", choicePath));
+							valid = false; continue;
+						}
+						AddUnknownMemberFields(choiceObject, FomodSelectedChoiceFields, choicePath, draft.Issues);
+						string choiceName; int idx;
+						if (!TryReadNonBlankString(choiceObject["name"], out choiceName) || !TryReadNonNegativeInt(choiceObject["idx"], out idx) || !indices.Add(idx))
+						{
+							draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+								"member.installer-choices-invalid", "A selected Vortex FOMOD option requires a non-empty name and a unique non-negative integer idx.", choicePath));
+							valid = false; continue;
+						}
+						choices.Add(new CollectionVortexFomodChoice(idx, choiceName));
+					}
+					groups.Add(new CollectionVortexFomodGroupSelection(groupName, choices));
+				}
+				steps.Add(new CollectionVortexFomodStepSelection(stepName, groups));
+			}
+			if (valid)
+				draft.VortexFomodSelection = new CollectionVortexFomodSelection(steps);
+		}
+
+		private static bool TryReadNonBlankString(JToken token, out string value)
+		{
+			value = token != null && token.Type == JTokenType.String ? token.Value<string>() : null;
+			return !String.IsNullOrWhiteSpace(value);
+		}
+
+		private static bool TryReadNonNegativeInt(JToken token, out int value)
+		{
+			value = 0;
+			if (token == null || token.Type != JTokenType.Integer)
+				return false;
+			long raw;
+			try { raw = token.Value<long>(); }
+			catch (Exception ex) when (ex is OverflowException || ex is FormatException || ex is InvalidCastException) { return false; }
+			if (raw < 0 || raw > Int32.MaxValue)
+				return false;
+			value = (int)raw;
+			return true;
 		}
 
 		/// <summary>
@@ -485,10 +747,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				}
 
 				string type = ReadString(rule, "type");
+				if (StringComparer.Ordinal.Equals(type, "conflicts"))
+					continue; // Compatibility constraints are normalized separately; never reinterpret them as file priority.
 				if (!StringComparer.Ordinal.Equals(type, "before") && !StringComparer.Ordinal.Equals(type, "after"))
 				{
 					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.mod-rule-type-unsupported", "C6.4 currently characterizes only Vortex before/after file-priority rules; other modRule types remain unsupported.", path + ".type"));
+						"manifest.mod-rule-type-unsupported", "Only characterized Vortex before/after priority rules and conflicts compatibility constraints are supported; other modRule types remain unsupported.", path + ".type"));
 					continue;
 				}
 
@@ -523,11 +787,165 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return result;
 		}
 
-		private static bool TryResolveRuleReference(JObject reference,
-			IEnumerable<RuleReferenceCandidate> candidates, out CollectionMemberKey memberKey, out string failure)
+
+		/// <summary>
+		/// Characterizes Vortex conflicts rules as compatibility constraints. The source must resolve to one Collection member;
+		/// the target reference remains portable so it can be checked against both the selected closure and current NMM state.
+		/// </summary>
+		private static List<CollectionConflictConstraint> NormalizeConflictConstraints(JArray rawRules,
+			IReadOnlyList<MemberDraft> drafts, IReadOnlyList<NormalizedCollectionMember> members,
+			List<CollectionCapabilityIssue> issues)
 		{
+			var result = new List<CollectionConflictConstraint>();
+			if (rawRules == null || rawRules.Count == 0)
+				return result;
+
+			var candidates = new List<RuleReferenceCandidate>();
+			for (int index = 0; index < drafts.Count && index < members.Count; index++)
+			{
+				if (!members[index].IdentityResolution.IsResolved)
+					continue;
+				candidates.Add(new RuleReferenceCandidate(members[index].IdentityResolution.Key, drafts[index]));
+			}
+
+			var unique = new HashSet<CollectionConflictConstraint>();
+			for (int index = 0; index < rawRules.Count; index++)
+			{
+				JObject rule = rawRules[index] as JObject;
+				if (rule == null || !StringComparer.Ordinal.Equals(ReadString(rule, "type"), "conflicts"))
+					continue;
+
+				string path = "$.modRules[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				CollectionMemberKey sourceMember;
+				string failure;
+				if (!TryResolveConflictSourceReference(rule["source"] as JObject, candidates, out sourceMember, out failure))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.conflict-rule-source-unresolved", failure, path + ".source"));
+					continue;
+				}
+
+				RuleReferenceCandidate sourceCandidate = candidates.Single(x => x.MemberKey.Equals(sourceMember));
+				CollectionConflictReference reference;
+				if (!TryNormalizeConflictReference(rule["reference"] as JObject, sourceCandidate.SourceDomain, out reference, out failure))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.conflict-rule-reference-unsupported", failure, path + ".reference"));
+					continue;
+				}
+
+				List<CollectionMemberKey> memberMatches = candidates
+					.Where(candidate => ConflictReferenceMatchesCandidate(reference, candidate))
+					.Select(candidate => candidate.MemberKey)
+					.OrderBy(key => (int)key.Kind).ThenBy(key => key.Value, StringComparer.Ordinal).ToList();
+				CollectionConflictConstraint normalized = new CollectionConflictConstraint(sourceMember, reference, memberMatches);
+				if (unique.Add(normalized))
+					result.Add(normalized);
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Resolves the source side of a conflicts rule to the retained Collection member that owns the rule.
+		/// Vortex exports Nexus conflict sources with a generated fileExpression that is not repeated in the
+		/// Collection member source object. When exact generic resolution cannot observe that expression, a
+		/// unique exact source MD5 plus all other retained source fields may bind it more strictly than Vortex.
+		/// </summary>
+		private static bool TryResolveConflictSourceReference(JObject reference, IEnumerable<RuleReferenceCandidate> candidates,
+			out CollectionMemberKey memberKey, out string failure)
+		{
+			if (TryResolveRuleReference(reference, candidates, out memberKey, out failure))
+				return true;
+
 			memberKey = null;
-			failure = "The modRule endpoint does not expose an exact portable member reference supported by C6.4.";
+			if (reference == null)
+				return false;
+			HashSet<string> allowed = new HashSet<string>(StringComparer.Ordinal)
+			{
+				"id", "idHint", "archiveId", "md5Hint", "description", "instructions",
+				"fileMD5", "logicalFileName", "fileExpression", "versionMatch", "repo", "tag", "gameId"
+			};
+			foreach (JProperty property in reference.Properties())
+			{
+				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+				{
+					failure = "The conflicts-rule source contains an uncharacterized matching field ('" + property.Name + "').";
+					return false;
+				}
+			}
+			foreach (string field in new[] { "idHint", "archiveId", "md5Hint", "description", "instructions", "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
+			{
+				JToken token = reference[field];
+				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
+				{
+					failure = "The conflicts-rule source field '" + field + "' must be a string when present.";
+					return false;
+				}
+			}
+			if (!String.IsNullOrEmpty(ReadString(reference, "tag")))
+			{
+				failure = "The characterized conflicts-rule source MD5 fallback does not ignore Vortex reference-tag semantics.";
+				return false;
+			}
+			string fileMd5 = ReadString(reference, "fileMD5");
+			if (String.IsNullOrWhiteSpace(fileMd5) || !StringComparer.Ordinal.Equals(fileMd5, fileMd5.Trim()))
+			{
+				failure = "A conflicts-rule source that cannot be resolved by the exact Vortex reference subset requires one normalized exact fileMD5 to bind it to the retained member.";
+				return false;
+			}
+			if (reference["id"] != null && reference["id"].Type != JTokenType.Null)
+			{
+				failure = "A Vortex-local conflicts-rule source id cannot be rebound to a retained Collection member.";
+				return false;
+			}
+			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null)
+			{
+				failure = "The characterized MD5 fallback for a conflicts-rule source does not ignore repository narrowing semantics.";
+				return false;
+			}
+
+			string versionMatch = ReadString(reference, "versionMatch");
+			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*")
+			{
+				failure = "The characterized MD5 fallback for a conflicts-rule source accepts only Vortex wildcard source versions.";
+				return false;
+			}
+			string logicalFileName = ReadString(reference, "logicalFileName");
+			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
+			string fileExpression = ReadString(reference, "fileExpression");
+			if (!IsNormalizedOptionalString(logicalFileName) || !IsNormalizedOptionalString(fileExpression))
+			{
+				failure = "Conflicts-rule source identity strings must not contain leading/trailing whitespace.";
+				return false;
+			}
+			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
+			{
+				failure = "The characterized conflicts-rule source fallback does not reinterpret Vortex glob fileExpression semantics.";
+				return false;
+			}
+
+			List<RuleReferenceCandidate> exactMd5Matches = candidates.Where(candidate =>
+				StringComparer.Ordinal.Equals(fileMd5, candidate.SourceMd5) &&
+				(String.IsNullOrEmpty(logicalFileName) || StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename)) &&
+				(String.IsNullOrEmpty(gameId) || StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain)) &&
+				(String.IsNullOrEmpty(fileExpression) || String.IsNullOrEmpty(candidate.SourceFileExpression) ||
+					StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))).ToList();
+			if (exactMd5Matches.Count != 1)
+			{
+				failure = exactMd5Matches.Count == 0
+					? "The conflicts-rule source does not match a retained Collection member by its exact source MD5 and retained identity fields."
+					: "The conflicts-rule source MD5/identity fields match more than one retained Collection member.";
+				return false;
+			}
+			memberKey = exactMd5Matches[0].MemberKey;
+			failure = null;
+			return true;
+		}
+
+		private static bool TryNormalizeConflictReference(JObject reference, string sourceDomain, out CollectionConflictReference normalized, out string failure)
+		{
+			normalized = null;
+			failure = "The Vortex conflict rule does not contain a characterized portable target reference.";
 			if (reference == null)
 				return false;
 
@@ -540,7 +958,198 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{
 				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
 				{
-					failure = "The modRule endpoint contains an uncharacterized matching field ('" + property.Name + "'); C6.4 will not ignore narrowing reference semantics.";
+					failure = "The conflict target contains an uncharacterized matching field ('" + property.Name + "').";
+					return false;
+				}
+			}
+
+			// id is local Vortex state and changes the matcher itself; NMM will not pretend it is portable.
+			if (reference["id"] != null && reference["id"].Type != JTokenType.Null)
+			{
+				failure = "A Vortex-local conflict reference id cannot be replayed as a portable NMM compatibility constraint.";
+				return false;
+			}
+			foreach (string field in new[] { "idHint", "archiveId", "md5Hint", "description", "instructions", "fileMD5", "logicalFileName", "fileExpression", "versionMatch", "tag", "gameId" })
+			{
+				JToken token = reference[field];
+				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
+				{
+					failure = "The conflict target field '" + field + "' must be a string when present.";
+					return false;
+				}
+			}
+
+			string fileMd5 = ReadString(reference, "fileMD5");
+			string logicalFileName = ReadString(reference, "logicalFileName");
+			string fileExpression = ReadString(reference, "fileExpression");
+			string tag = ReadString(reference, "tag");
+			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
+			if (!String.IsNullOrEmpty(tag))
+			{
+				failure = "Conflict target reference tags are not retained by NMM native mod state and therefore cannot be used for a complete compatibility check.";
+				return false;
+			}
+			if (!String.IsNullOrEmpty(gameId) && !StringComparer.Ordinal.Equals(gameId, sourceDomain))
+			{
+				failure = "Cross-game Vortex conflict references are outside the characterized single-target Collection compatibility model.";
+				return false;
+			}
+			if (!IsNormalizedOptionalString(fileMd5) || !IsNormalizedOptionalString(logicalFileName) ||
+				!IsNormalizedOptionalString(fileExpression) || !IsNormalizedOptionalString(tag))
+			{
+				failure = "Conflict identity strings must not contain leading/trailing whitespace.";
+				return false;
+			}
+			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
+			{
+				failure = "Vortex glob fileExpression conflict matching is not characterized; only exact archive expressions are supported.";
+				return false;
+			}
+
+			string rawVersion = ReadString(reference, "versionMatch");
+			if (String.IsNullOrWhiteSpace(rawVersion)) rawVersion = "*";
+			CollectionVortexVersionMatch versionMatch;
+			if (!CollectionVortexVersionMatch.TryCreate(rawVersion, out versionMatch, out failure))
+				return false;
+
+			string repository = null;
+			string repositoryGameId = null;
+			long? repositoryModId = null;
+			long? repositoryFileId = null;
+			JObject repo = reference["repo"] as JObject;
+			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null && repo == null)
+			{
+				failure = "The conflict target repository reference is malformed.";
+				return false;
+			}
+			if (repo != null)
+			{
+				HashSet<string> allowedRepo = new HashSet<string>(StringComparer.Ordinal)
+				{
+					"repository", "gameId", "modId", "fileId", "campaign"
+				};
+				foreach (JProperty property in repo.Properties())
+				{
+					if (!allowedRepo.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+					{
+						failure = "The conflict repository reference contains an uncharacterized field ('" + property.Name + "').";
+						return false;
+					}
+				}
+				repository = ReadString(repo, "repository");
+				if (!StringComparer.OrdinalIgnoreCase.Equals(repository, "nexus"))
+				{
+					failure = "Only Nexus repository conflict references are characterized.";
+					return false;
+				}
+				long modId;
+				if (!TryReadPositiveIntegerFlexible(repo["modId"], out modId))
+				{
+					failure = "A Nexus conflict repository reference requires a positive modId.";
+					return false;
+				}
+				repositoryModId = modId;
+				if (repo["fileId"] != null && repo["fileId"].Type != JTokenType.Null)
+				{
+					long fileId;
+					if (!TryReadPositiveIntegerFlexible(repo["fileId"], out fileId))
+					{
+						failure = "A Nexus conflict repository fileId must be a positive integer when present.";
+						return false;
+					}
+					repositoryFileId = fileId;
+				}
+				repositoryGameId = NormalizeDomain(ReadString(repo, "gameId"));
+				if (!String.IsNullOrEmpty(repositoryGameId) && !StringComparer.Ordinal.Equals(repositoryGameId, sourceDomain))
+				{
+					failure = "Cross-game Nexus conflict repository references are outside the characterized single-target Collection compatibility model.";
+					return false;
+				}
+				if (!versionMatch.IsAny && !versionMatch.IsRange && !repositoryFileId.HasValue)
+				{
+					failure = "An exact-version Nexus conflict repository reference requires fileId under the characterized Vortex matcher subset.";
+					return false;
+				}
+			}
+
+			bool fuzzyVersion = versionMatch.IsAny || versionMatch.IsRange;
+			bool hasPortableIdentity = !String.IsNullOrWhiteSpace(logicalFileName) || !String.IsNullOrWhiteSpace(fileExpression) ||
+				!String.IsNullOrWhiteSpace(tag) || !String.IsNullOrWhiteSpace(repository) ||
+				(!fuzzyVersion && !String.IsNullOrWhiteSpace(fileMd5));
+			if (!hasPortableIdentity)
+			{
+				failure = "The conflict target has no portable identifying marker under Vortex fuzzy-version semantics; versionMatch (and fuzzy fileMD5) cannot identify a mod by themselves.";
+				return false;
+			}
+
+			normalized = new CollectionConflictReference(fileMd5, logicalFileName, fileExpression, gameId, tag,
+				repository, repositoryGameId, repositoryModId, repositoryFileId, versionMatch);
+			return true;
+		}
+
+		private static bool ConflictReferenceMatchesCandidate(CollectionConflictReference reference, RuleReferenceCandidate candidate)
+		{
+			bool fuzzy = reference.VersionMatch.IsAny || reference.VersionMatch.IsRange;
+			if (!String.IsNullOrEmpty(reference.Tag) && StringComparer.Ordinal.Equals(reference.Tag, candidate.SourceTag))
+				return true; // Vortex reference tags are decisive when they hit.
+			if (!String.IsNullOrEmpty(reference.FileMd5) && !fuzzy &&
+				!StringComparer.Ordinal.Equals(reference.FileMd5, candidate.SourceMd5))
+				return false;
+
+			if (!String.IsNullOrEmpty(reference.Repository))
+			{
+				if (!reference.RepositoryModId.HasValue || candidate.SourceModId != reference.RepositoryModId.Value)
+					return false;
+				if (!String.IsNullOrEmpty(reference.RepositoryGameId) &&
+					!StringComparer.Ordinal.Equals(reference.RepositoryGameId, candidate.SourceDomain))
+					return false;
+				if (!fuzzy)
+					return reference.RepositoryFileId.HasValue && candidate.SourceFileId == reference.RepositoryFileId.Value;
+			}
+			else if (!String.IsNullOrEmpty(reference.FileMd5) && !fuzzy &&
+				StringComparer.Ordinal.Equals(reference.FileMd5, candidate.SourceMd5))
+				return true;
+
+			if (!String.IsNullOrEmpty(reference.LogicalFileName) &&
+				!StringComparer.Ordinal.Equals(reference.LogicalFileName, candidate.SourceLogicalFilename) &&
+				String.IsNullOrEmpty(reference.FileExpression))
+				return false;
+			if (!String.IsNullOrEmpty(reference.FileExpression) &&
+				!StringComparer.Ordinal.Equals(reference.FileExpression, candidate.SourceFileExpression))
+				return false;
+			if (!String.IsNullOrEmpty(reference.GameId) && !StringComparer.Ordinal.Equals(reference.GameId, candidate.SourceDomain))
+				return false;
+			return reference.VersionMatch.Evaluate(candidate.Version) == CollectionVortexVersionMatchResult.Match;
+		}
+
+		private static bool IsNormalizedOptionalString(string value)
+		{
+			return value == null || (!String.IsNullOrWhiteSpace(value) && StringComparer.Ordinal.Equals(value, value.Trim()));
+		}
+
+		private static bool ContainsGlobSyntax(string value)
+		{
+			return value.IndexOf('*') >= 0 || value.IndexOf('?') >= 0 || value.IndexOf('[') >= 0 || value.IndexOf(']') >= 0;
+		}
+
+		private static bool TryResolveRuleReference(JObject reference,
+			IEnumerable<RuleReferenceCandidate> candidates, out CollectionMemberKey memberKey, out string failure)
+		{
+			memberKey = null;
+			failure = "The modRule endpoint does not expose an exact portable member reference supported by the current file-priority characterization.";
+			if (reference == null)
+				return false;
+
+			HashSet<string> allowed = new HashSet<string>(StringComparer.Ordinal)
+			{
+				"id", "idHint", "archiveId", "md5Hint", "description", "instructions",
+				"fileMD5", "logicalFileName", "fileExpression", "versionMatch", "repo", "tag", "gameId"
+			};
+			foreach (JProperty property in reference.Properties())
+			{
+				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
+				{
+					failure = "The modRule endpoint contains an uncharacterized matching field ('" + property.Name + "'); NMM will not ignore narrowing reference semantics.";
 					return false;
 				}
 			}
@@ -604,7 +1213,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				 versionMatch.StartsWith("=", StringComparison.Ordinal) || versionMatch.IndexOf("+prefer", StringComparison.Ordinal) >= 0 ||
 				 versionMatch.IndexOf(" ", StringComparison.Ordinal) >= 0 || versionMatch.IndexOf("||", StringComparison.Ordinal) >= 0))
 			{
-				failure = "The modRule endpoint uses a fuzzy/range version matcher which C6.4 does not reinterpret without the Vortex semver matcher.";
+				failure = "The modRule endpoint uses a fuzzy/range version matcher which NMM does not reinterpret without characterized Vortex semver semantics.";
 				return false;
 			}
 
@@ -666,7 +1275,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (!String.IsNullOrEmpty(fileExpression))
 			{
 				hasMarker = true;
-				// Vortex supports glob matching here. NMM accepts only the exact retained expression in C6.4 rather than guessing glob semantics.
+				// Vortex supports glob matching here. NMM accepts only the exact retained expression rather than guessing glob semantics.
 				if (!StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))
 					return false;
 			}
@@ -696,12 +1305,216 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					"manifest.mod-rules-invalid", "The verified Vortex collection schema requires a modRules array.", "$.modRules"));
 			}
 
-			AddUnsupportedManifestWhenPopulated(root, "collectionConfig", "manifest.collection-config-unsupported",
-				"collectionConfig contains manager/game behavior which C2.5 does not execute or silently ignore.", issues);
-			AddUnsupportedManifestWhenPopulated(root, "plugins", "manifest.plugins-unsupported",
-				"Collection plugin state requires a native plugin-state adapter and ownership/recovery semantics.", issues);
-			AddUnsupportedManifestWhenPopulated(root, "pluginRules", "manifest.plugin-rules-unsupported",
-				"Collection plugin rules require the later native plugin/load-order planner.", issues);
+			ValidateTools(root["tools"], issues);
+			ValidateCollectionConfig(root["collectionConfig"], issues);
+			ValidatePluginRules(root["pluginRules"], issues);
+		}
+
+		/// <summary>
+		/// Accepts only the characterized no-op tools representation; executable Collection tools remain unsupported.
+		/// </summary>
+		private static void ValidateTools(JToken toolsToken, List<CollectionCapabilityIssue> issues)
+		{
+			if (toolsToken == null || toolsToken.Type == JTokenType.Null)
+				return;
+
+			JArray tools = toolsToken as JArray;
+			if (tools == null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.tools-invalid", "tools must be an array when present.", "$.tools"));
+				return;
+			}
+
+			if (tools.Count > 0)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.tools-unsupported", "Non-empty Collection tools/commands require an explicitly characterized safe execution lifecycle.", "$.tools"));
+			}
+		}
+
+		/// <summary>
+		/// Validates the narrow Collection configuration subset that does not change native installation effects.
+		/// </summary>
+		private static void ValidateCollectionConfig(JToken configToken, List<CollectionCapabilityIssue> issues)
+		{
+			if (configToken == null || configToken.Type == JTokenType.Null)
+				return;
+
+			JObject config = configToken as JObject;
+			if (config == null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.collection-config-invalid", "collectionConfig must be an object when present.", "$.collectionConfig"));
+				return;
+			}
+
+			foreach (JProperty property in config.Properties())
+			{
+				if (!CollectionConfigFields.Contains(property.Name))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.collection-config-field-unsupported",
+						"collectionConfig contains an uncharacterized manager behavior; NMM will not silently ignore it.",
+						"$.collectionConfig." + property.Name));
+				}
+			}
+
+			// Vortex treats this as profile/setup guidance. It is validated here but does not change native install effects.
+			JToken recommendNewProfile = config["recommendNewProfile"];
+			if (recommendNewProfile != null && recommendNewProfile.Type != JTokenType.Null && recommendNewProfile.Type != JTokenType.Boolean)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.collection-config-invalid",
+					"collectionConfig.recommendNewProfile must be a boolean; it is advisory and does not alter native install semantics.",
+					"$.collectionConfig.recommendNewProfile"));
+			}
+
+			// v1 identifies Vortex deterministic reference tags. NMM consumes retained source.tag values exactly and never
+			// regenerates a different tag while normalizing this characterized scheme.
+			JToken referenceTagScheme = config["referenceTagScheme"];
+			if (referenceTagScheme == null || referenceTagScheme.Type == JTokenType.Null)
+				return;
+			if (referenceTagScheme.Type != JTokenType.String)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.reference-tag-scheme-invalid", "collectionConfig.referenceTagScheme must be a string when present.",
+					"$.collectionConfig.referenceTagScheme"));
+				return;
+			}
+
+			if (!StringComparer.Ordinal.Equals((string)referenceTagScheme, SupportedReferenceTagScheme))
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.reference-tag-scheme-unsupported",
+					"The Collection uses an uncharacterized referenceTagScheme; NMM will not assume compatible member-reference semantics.",
+					"$.collectionConfig.referenceTagScheme"));
+			}
+		}
+
+		/// <summary>Normalizes Vortex desired plugin declarations without assigning them to unselected/non-member plugins.</summary>
+		private static List<CollectionDesiredPluginState> NormalizePluginStates(JToken pluginsToken, List<CollectionCapabilityIssue> issues)
+		{
+			if (pluginsToken == null)
+				return null;
+			if (pluginsToken.Type == JTokenType.Null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugins-invalid", "plugins must be an array when present.", "$.plugins"));
+				return new List<CollectionDesiredPluginState>();
+			}
+			var result = new List<CollectionDesiredPluginState>();
+			JArray plugins = pluginsToken as JArray;
+			if (plugins == null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugins-invalid", "plugins must be an array when present.", "$.plugins"));
+				return result;
+			}
+
+			var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			for (int index = 0; index < plugins.Count; index++)
+			{
+				string path = "$.plugins[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				JObject plugin = plugins[index] as JObject;
+				if (plugin == null)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugins-invalid", "Each plugins entry must be an object.", path));
+					continue;
+				}
+				foreach (JProperty property in plugin.Properties())
+					if (!PluginStateFields.Contains(property.Name))
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugins-field-unsupported", "A Collection plugin entry contains an uncharacterized field.", path + "." + property.Name));
+
+				JToken nameToken = plugin["name"];
+				string name = nameToken != null && nameToken.Type == JTokenType.String ? (string)nameToken : null;
+				if (String.IsNullOrWhiteSpace(name) || !StringComparer.Ordinal.Equals(name, name.Trim()) ||
+					name.IndexOf('/') >= 0 || name.IndexOf('\\') >= 0)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugins-invalid", "A Collection plugin name must be one non-empty file name without path separators.", path + ".name"));
+					continue;
+				}
+				JToken enabledToken = plugin["enabled"];
+				bool enabled = false;
+				if (enabledToken != null)
+				{
+					if (enabledToken.Type != JTokenType.Boolean)
+					{
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugins-invalid", "Collection plugin enabled must be a boolean when present.", path + ".enabled"));
+						continue;
+					}
+					enabled = (bool)enabledToken;
+				}
+				if (!names.Add(name))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugins-duplicate", "Collection plugin declarations must be unique by plugin file name.", path + ".name"));
+					continue;
+				}
+				result.Add(new CollectionDesiredPluginState(name, enabled));
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Accepts structurally empty Vortex pluginRules while keeping actual plugin/load-order rules fail-closed.
+		/// </summary>
+		private static void ValidatePluginRules(JToken pluginRulesToken, List<CollectionCapabilityIssue> issues)
+		{
+			if (pluginRulesToken == null || pluginRulesToken.Type == JTokenType.Null)
+				return;
+
+			JObject pluginRules = pluginRulesToken as JObject;
+			if (pluginRules == null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugin-rules-invalid", "pluginRules must be an object when present.", "$.pluginRules"));
+				return;
+			}
+
+			foreach (JProperty property in pluginRules.Properties())
+			{
+				if (!PluginRuleFields.Contains(property.Name))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-rules-field-unsupported",
+						"pluginRules contains an uncharacterized field; NMM will not assume it is cosmetic.",
+						"$.pluginRules." + property.Name));
+				}
+			}
+
+			ValidateEmptyPluginRuleArray(pluginRules, "plugins", issues);
+			ValidateEmptyPluginRuleArray(pluginRules, "groups", issues);
+		}
+
+		/// <summary>
+		/// Validates one pluginRules array as either absent/empty or explicitly unsupported when populated.
+		/// </summary>
+		private static void ValidateEmptyPluginRuleArray(JObject pluginRules, string field, List<CollectionCapabilityIssue> issues)
+		{
+			JToken token = pluginRules[field];
+			if (token == null || token.Type == JTokenType.Null)
+				return;
+
+			JArray array = token as JArray;
+			if (array == null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugin-rules-invalid", "pluginRules." + field + " must be an array when present.", "$.pluginRules." + field));
+				return;
+			}
+
+			if (array.Count > 0)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugin-rules-unsupported",
+					"Non-empty Collection plugin/load-order rules require characterized native plugin-rule semantics.",
+					"$.pluginRules." + field));
+			}
 		}
 
 		private static void ValidateInfo(JToken infoToken, List<CollectionCapabilityIssue> issues)
@@ -1020,6 +1833,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			public CollectionRecipeIdentity RecipeIdentity { get; set; }
 			public string DisplayName { get; set; }
 			public double InstallationPhase { get; set; }
+			public CollectionMemberInstallRootBehavior InstallRootBehavior { get; set; }
+			public CollectionVortexFomodSelection VortexFomodSelection { get; set; }
 			public List<PendingMemberIssue> Issues { get; }
 		}
 

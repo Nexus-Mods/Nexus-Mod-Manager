@@ -35,7 +35,7 @@ namespace Nexus.Client.CollectionManagement
 			Dictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes = preparedRecipes.ToDictionary(x => x.Member.MemberKey);
 			Dictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember = ResolveSelectedNativeMembers(plan, matches, recipes, state);
 			VerifyManagedFiles(impactPlan, recipes, nativeByMember, state);
-			VerifyNonFileEffects(recipes, nativeByMember, state);
+			VerifyNonFileEffects(impactPlan, recipes, nativeByMember, state);
 		}
 
 		private static Dictionary<CollectionMemberKey, CollectionNativeModState> ResolveSelectedNativeMembers(ResolvedCollectionPlan plan,
@@ -145,7 +145,8 @@ namespace Nexus.Client.CollectionManagement
 				.Any(x => x.Kind == CollectionNativeOwnerKind.NativeMod && StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey));
 		}
 
-		private static void VerifyNonFileEffects(IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes,
+		private static void VerifyNonFileEffects(CollectionConflictImpactPlan impactPlan,
+			IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes,
 			IDictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember, CollectionNativeStateIndex state)
 		{
 			foreach (PreparedCollectionNativeRecipe recipe in recipes.Values)
@@ -172,12 +173,13 @@ namespace Nexus.Client.CollectionManagement
 						throw new InvalidOperationException("A reviewed Collection game-specific effect no longer matches final native state.");
 				}
 
-				if (recipe.EffectPreview.PluginEffects.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)
-					throw new InvalidOperationException("Final Collection verification cannot prove plugin effects because plugin state is unavailable.");
-				foreach (CollectionPlannedPluginEffect effect in recipe.EffectPreview.PluginEffects)
-					if (!CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(state, effect))
-						throw new InvalidOperationException("A reviewed Collection plugin effect no longer matches final native state.");
 			}
+
+			if (impactPlan.PluginImpacts.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)
+				throw new InvalidOperationException("Final Collection verification cannot prove reviewed plugin effects because plugin state is unavailable.");
+			foreach (CollectionPluginImpact impact in impactPlan.PluginImpacts)
+				if (!CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(state, impact.Effect))
+					throw new InvalidOperationException("A reviewed Collection plugin effect no longer matches final native state.");
 		}
 
 		private static bool ByteArraysEqual(byte[] left, byte[] right)

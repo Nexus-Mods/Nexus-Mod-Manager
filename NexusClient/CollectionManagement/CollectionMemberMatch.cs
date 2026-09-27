@@ -39,7 +39,8 @@ namespace Nexus.Client.CollectionManagement
 		BoundNativeArtifactMismatch = 13,
 		AssociationNotApplied = 14,
 		AssociationRequiresRecovery = 15,
-		UnsupportedExecutionPolicy = 16
+		UnsupportedExecutionPolicy = 16,
+		RequiredInstallRootMismatch = 17
 	}
 
 	/// <summary>

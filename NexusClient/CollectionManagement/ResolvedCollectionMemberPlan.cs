@@ -40,6 +40,8 @@ namespace Nexus.Client.CollectionManagement
 			RecipeIdentity = member.RecipeIdentity;
 			DisplayName = member.DisplayName;
 			InstallationPhase = member.InstallationPhase;
+			InstallRootBehavior = member.InstallRootBehavior;
+			VortexFomodSelection = member.VortexFomodSelection;
 		}
 
 		/// <summary>
@@ -76,5 +78,24 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets the sparse installation phase captured from the normalized member.
 		/// </summary>
 		public double InstallationPhase { get; }
+
+		/// <summary>
+		/// Gets the characterized native install-root behavior copied from the normalized member.
+		/// </summary>
+		public CollectionMemberInstallRootBehavior InstallRootBehavior { get; }
+
+		/// <summary>Gets exact characterized Vortex FOMOD selections, or null for ordinary/basic members.</summary>
+		public CollectionVortexFomodSelection VortexFomodSelection { get; }
+
+		/// <summary>Gets whether this member requires exact Vortex FOMOD choice replay.</summary>
+		public bool HasVortexFomodSelection { get { return VortexFomodSelection != null; } }
+
+		/// <summary>
+		/// Gets whether native installation for this member must use NMM's game-root install mode.
+		/// </summary>
+		public bool RequiresGameRootInstall
+		{
+			get { return InstallRootBehavior != CollectionMemberInstallRootBehavior.Default; }
+		}
 	}
 }

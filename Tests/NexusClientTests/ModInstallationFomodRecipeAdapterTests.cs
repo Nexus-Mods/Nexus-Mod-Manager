@@ -40,6 +40,39 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Verifies orchestration can derive both the actual FOMOD version and the exact path trust boundary from native translation.
+		/// </summary>
+		[Test]
+		public void Adapter_ExposesActualScriptVersionAndExactValidationPaths()
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(scriptType, OptionGroupType.SelectExactlyOne,
+				Option("4k With All Locations", OptionType.Optional, File(@"textures\4k.dds", @"textures\map.dds", 0)),
+				Option("2k", OptionType.Optional, File(@"textures\2k.dds", @"textures\map.dds", 0)));
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			IMod mod = CreateMod(script, @"textures\4k.dds", @"textures\2k.dds");
+			ModInstallationFomodSelectionRecipe recipe = Recipe(new Version(5, 0),
+				Step(0, "Step", Group(0, "Group", Selection(0, "4k With All Locations"))));
+
+			Assert.That(adapter.GetScriptVersion(mod), Is.EqualTo(new Version(5, 0)));
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(
+				mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+
+			Assert.That(paths.Select(path => path.Kind), Is.EqualTo(new[]
+			{
+				ModInstallationRecipePathKind.ArchiveSource,
+				ModInstallationRecipePathKind.Destination
+			}));
+			Assert.That(paths.Select(path => path.Path), Is.EqualTo(new[] { @"textures\4k.dds", @"textures\map.dds" }));
+
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			InstallModFileOperation file = translated.NativeOperations.OfType<InstallModFileOperation>().Single();
+			Assert.That(file.SourcePath, Is.EqualTo(@"textures\4k.dds"));
+			Assert.That(file.DestinationPath, Is.EqualTo(@"textures\map.dds"));
+		}
+
+		/// <summary>
 		/// Verifies required, selected, always-install and flag-conditional files become native typed operations in native order.
 		/// </summary>
 		[Test]

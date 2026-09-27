@@ -38,6 +38,25 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Build_PreservesExplicitEmptyPluginStateOverlayThroughSelectionProjection()
+		{
+			NormalizedCollectionMember required = CreateMember(
+				0, "required-plugin-overlay", CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
+			CollectionIdentity collection = CollectionIdentity.FromNexus("c6153-plugin-overlay");
+			var manifest = new NormalizedCollectionManifest(
+				CollectionRevisionIdentity.FromNexus(collection, "revision-plugin-overlay", 1),
+				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256A), 123, "test-schema", "test-normalizer"),
+				CollectionManifestMemberSetCompleteness.Complete, null, new[] { required }, null, null,
+				new CollectionDesiredPluginState[0]);
+
+			CollectionEffectiveSelection effective = new CollectionEffectiveSelectionBuilder().Build(
+				CollectionCapabilityReport.Create(manifest), new CollectionOptionalMemberSelection[0]);
+
+			Assert.That(effective.Manifest.HasPluginStateSection, Is.True);
+			Assert.That(effective.Manifest.PluginStates, Is.Empty);
+		}
+
+		[Test]
 		public void Build_SelectedOptionalStartsContributingDeclaredCapabilityIssues()
 		{
 			NormalizedCollectionMember required = CreateMember(

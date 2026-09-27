@@ -69,7 +69,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionNativeModState(NativeModInstanceIdentity identity, string archivePath, string fileName,
 			string nexusModId, string nexusFileId, string humanReadableVersion, string machineVersion,
 			ModInstallRoot installRoot, ModInstallMethod installMethod)
-			: this(identity, archivePath, fileName, nexusModId, nexusFileId, humanReadableVersion, machineVersion, false, installRoot, installMethod)
+			: this(identity, archivePath, fileName, String.Empty, nexusModId, nexusFileId, humanReadableVersion, machineVersion, false, installRoot, installMethod)
 		{
 		}
 
@@ -77,10 +77,19 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionNativeModState(NativeModInstanceIdentity identity, string archivePath, string fileName,
 			string nexusModId, string nexusFileId, string humanReadableVersion, string machineVersion, bool hasInstallScript,
 			ModInstallRoot installRoot, ModInstallMethod installMethod)
+			: this(identity, archivePath, fileName, String.Empty, nexusModId, nexusFileId, humanReadableVersion, machineVersion, hasInstallScript, installRoot, installMethod)
+		{
+		}
+
+		/// <summary>Creates one detached native mod state including the recorded NMM display name.</summary>
+		public CollectionNativeModState(NativeModInstanceIdentity identity, string archivePath, string fileName, string modName,
+			string nexusModId, string nexusFileId, string humanReadableVersion, string machineVersion, bool hasInstallScript,
+			ModInstallRoot installRoot, ModInstallMethod installMethod)
 		{
 			Identity = identity ?? throw new ArgumentNullException(nameof(identity));
 			ArchivePath = archivePath ?? String.Empty;
 			FileName = fileName ?? String.Empty;
+			ModName = modName ?? String.Empty;
 			NexusModId = nexusModId ?? String.Empty;
 			NexusFileId = nexusFileId ?? String.Empty;
 			HumanReadableVersion = humanReadableVersion ?? String.Empty;
@@ -93,6 +102,7 @@ namespace Nexus.Client.CollectionManagement
 		public NativeModInstanceIdentity Identity { get; }
 		public string ArchivePath { get; }
 		public string FileName { get; }
+		public string ModName { get; }
 		public string NexusModId { get; }
 		public string NexusFileId { get; }
 		public string HumanReadableVersion { get; }

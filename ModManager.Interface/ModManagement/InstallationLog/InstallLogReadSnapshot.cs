@@ -56,12 +56,19 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		/// <summary>Creates one detached native mod registration observation.</summary>
 		public InstallLogReadMod(string modKey, string archivePath, string fileName, string nexusModId, string nexusFileId,
 			string humanReadableVersion, string machineVersion, ModInstallRoot installRoot, ModInstallMethod installMethod, bool hidden)
-			: this(modKey, archivePath, fileName, nexusModId, nexusFileId, humanReadableVersion, machineVersion, false, installRoot, installMethod, hidden)
+			: this(modKey, archivePath, fileName, String.Empty, nexusModId, nexusFileId, humanReadableVersion, machineVersion, false, installRoot, installMethod, hidden)
 		{
 		}
 
 		/// <summary>Creates one detached native mod registration observation including scripted-installer capability.</summary>
 		public InstallLogReadMod(string modKey, string archivePath, string fileName, string nexusModId, string nexusFileId,
+			string humanReadableVersion, string machineVersion, bool hasInstallScript, ModInstallRoot installRoot, ModInstallMethod installMethod, bool hidden)
+			: this(modKey, archivePath, fileName, String.Empty, nexusModId, nexusFileId, humanReadableVersion, machineVersion, hasInstallScript, installRoot, installMethod, hidden)
+		{
+		}
+
+		/// <summary>Creates one detached native mod registration observation including its recorded display name.</summary>
+		public InstallLogReadMod(string modKey, string archivePath, string fileName, string modName, string nexusModId, string nexusFileId,
 			string humanReadableVersion, string machineVersion, bool hasInstallScript, ModInstallRoot installRoot, ModInstallMethod installMethod, bool hidden)
 		{
 			if (String.IsNullOrWhiteSpace(modKey))
@@ -69,6 +76,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			ModKey = modKey;
 			ArchivePath = archivePath ?? String.Empty;
 			FileName = fileName ?? String.Empty;
+			ModName = modName ?? String.Empty;
 			NexusModId = nexusModId ?? String.Empty;
 			NexusFileId = nexusFileId ?? String.Empty;
 			HumanReadableVersion = humanReadableVersion ?? String.Empty;
@@ -82,6 +90,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		public string ModKey { get; }
 		public string ArchivePath { get; }
 		public string FileName { get; }
+		public string ModName { get; }
 		public string NexusModId { get; }
 		public string NexusFileId { get; }
 		public string HumanReadableVersion { get; }

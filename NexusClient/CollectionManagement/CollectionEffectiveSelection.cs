@@ -151,7 +151,9 @@ namespace Nexus.Client.CollectionManagement
 					member.Artifact,
 					member.RecipeIdentity,
 					member.DisplayName,
-					member.InstallationPhase));
+					member.InstallationPhase,
+					member.InstallRootBehavior,
+					member.VortexFomodSelection));
 			}
 
 			NormalizedCollectionManifest effectiveManifest = new NormalizedCollectionManifest(
@@ -161,7 +163,9 @@ namespace Nexus.Client.CollectionManagement
 				sourceManifest.IncompletenessReason,
 				effectiveMembers,
 				sourceManifest.Dependencies,
-				sourceManifest.FilePriorityRules);
+				sourceManifest.FilePriorityRules,
+				sourceManifest.HasPluginStateSection ? sourceManifest.PluginStates : null,
+				sourceManifest.ConflictConstraints);
 			CollectionCapabilityReport effectiveCapabilityReport = normalizedCapabilityReport.RecalculateForSelection(effectiveManifest);
 
 			return new CollectionEffectiveSelection(

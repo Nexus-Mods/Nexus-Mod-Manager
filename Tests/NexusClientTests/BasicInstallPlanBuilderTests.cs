@@ -69,6 +69,24 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Verifies native GameRoot wrapper recognition covers the root markers used by the characterized Vortex dinput/enb members.
+		/// </summary>
+		[TestCase(@"f4se_0_07_09\f4se_loader.exe", "f4se_loader.exe")]
+		[TestCase(@"EngineInjector\dinput8.dll", "dinput8.dll")]
+		[TestCase(@"ENBWrapper\enbseries.ini", "enbseries.ini")]
+		public void Build_DirectGameRoot_StripsCharacterizedRootTypeWrappers(string sourcePath, string destinationPath)
+		{
+			IMod mod = CreateMod("RootType.7z", sourcePath);
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot);
+
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(mod, CreateGameMode(), context, false);
+
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Single().DestinationPath, Is.EqualTo(destinationPath));
+			Assert.That(result.Plan.Files.Single().DeploymentTarget.Root, Is.EqualTo(ModDeploymentRoot.GameRoot));
+		}
+
+		/// <summary>
 		/// Verifies a special-file game reports the unsupported behavior without invoking its mutating transformation.
 		/// </summary>
 		[Test]

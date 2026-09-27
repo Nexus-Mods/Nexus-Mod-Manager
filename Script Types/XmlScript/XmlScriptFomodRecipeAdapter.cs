@@ -60,6 +60,29 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			public bool Activate { get; }
 		}
 
+		/// <summary>Gets the exact parsed XML/FOMOD version from the verified mod.</summary>
+		internal Version GetScriptVersion(IMod mod)
+		{
+			return GetScript(mod).Version;
+		}
+
+		/// <summary>Resolves the exact file-path trust boundary for one selection before C5.3 validation.</summary>
+		internal IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
+		{
+			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe);
+			var result = new List<ModInstallationRecipePath>();
+			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (InstallModFileOperation operation in operations.OfType<InstallModFileOperation>())
+			{
+				var source = new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, operation.SourcePath);
+				var destination = new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, operation.DestinationPath);
+				if (seen.Add("S\0" + source.Path)) result.Add(source);
+				if (seen.Add("D\0" + destination.Path)) result.Add(destination);
+			}
+			return result;
+		}
+
 		/// <summary>
 		/// Translates one validated exact FOMOD selection recipe against the mod's actual parsed XML installer definition.
 		/// </summary>
@@ -68,20 +91,21 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			if (recipeInput == null)
 				throw new ArgumentNullException(nameof(recipeInput));
-			if (mod == null)
-				throw new ArgumentNullException(nameof(mod));
-			if (gameMode == null)
-				throw new ArgumentNullException(nameof(gameMode));
-			if (environmentInfo == null)
-				throw new ArgumentNullException(nameof(environmentInfo));
-			if (recipe == null)
-				throw new ArgumentNullException(nameof(recipe));
-
 			ValidateAdapterContract(recipeInput.Validation);
+			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe);
+			ValidateDeclaredPaths(recipeInput.Validation.Paths, operations);
+			return recipeInput.WithNativePlan(operations);
+		}
 
-			XmlScript script = mod.InstallScript as XmlScript;
-			if (!mod.HasInstallScript || script == null || !(script.Type is XmlScriptType))
-				throw new NotSupportedException("The FOMOD selection adapter requires the mod's actual XML installer definition.");
+		private static IReadOnlyList<ScriptedInstallOperation> BuildPlan(IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
+		{
+			if (mod == null) throw new ArgumentNullException(nameof(mod));
+			if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
+			if (environmentInfo == null) throw new ArgumentNullException(nameof(environmentInfo));
+			if (recipe == null) throw new ArgumentNullException(nameof(recipe));
+
+			XmlScript script = GetScript(mod);
 			if (!recipe.ScriptVersion.Equals(script.Version))
 			{
 				throw new InvalidDataException(string.Format(
@@ -103,7 +127,6 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 			foreach (InstallableFile requiredFile in script.RequiredInstallFiles)
 				AppendInstallableFile(plan, projectedState, mod, archiveFiles, requiredFile, true, pluginManager != null);
-
 			foreach (FileIntent intent in optionFiles)
 				AppendInstallableFile(plan, projectedState, mod, archiveFiles, intent.File, intent.Activate, pluginManager != null);
 
@@ -117,13 +140,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				{
 					if (fileSet == null || fileSet.Condition == null)
 						throw new InvalidDataException("The actual FOMOD installer contains a conditional file set without a condition.");
-					if (!fileSet.Condition.GetIsFulfilled(stateManager))
-						continue;
-
+					if (!fileSet.Condition.GetIsFulfilled(stateManager)) continue;
 					foreach (InstallableFile file in fileSet.Files)
 					{
-						if (IsUnselectedOptionFallback(fileSet, file, selectableSources))
-							continue;
+						if (IsUnselectedOptionFallback(fileSet, file, selectableSources)) continue;
 						AppendInstallableFile(plan, projectedState, mod, archiveFiles, file, true, pluginManager != null);
 					}
 				}
@@ -135,9 +155,16 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 			if (plan.Count == 0)
 				throw new InvalidDataException("The exact FOMOD selection produced no supported native installation operations.");
+			return plan.Operations;
+		}
 
-			ValidateDeclaredPaths(recipeInput.Validation.Paths, plan.Operations);
-			return recipeInput.WithNativePlan(plan.Operations);
+		private static XmlScript GetScript(IMod mod)
+		{
+			if (mod == null) throw new ArgumentNullException(nameof(mod));
+			XmlScript script = mod.InstallScript as XmlScript;
+			if (!mod.HasInstallScript || script == null || !(script.Type is XmlScriptType))
+				throw new NotSupportedException("The FOMOD selection adapter requires the mod's actual XML installer definition.");
+			return script;
 		}
 
 		/// <summary>

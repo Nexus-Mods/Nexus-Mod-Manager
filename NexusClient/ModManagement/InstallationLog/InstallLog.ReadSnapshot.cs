@@ -20,7 +20,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			{
 				bool hidden = _activeModRegistry.IsModHidden(registration.Key);
 				mods.Add(new InstallLogReadMod(registration.Value, registration.Key.ModArchivePath, registration.Key.Filename,
-					registration.Key.Id, registration.Key.DownloadId, registration.Key.HumanReadableVersion,
+					registration.Key.ModName, registration.Key.Id, registration.Key.DownloadId, registration.Key.HumanReadableVersion,
 					registration.Key.MachineVersion == null ? String.Empty : registration.Key.MachineVersion.ToString(),
 					registration.Key.HasInstallScript, GetModInstallRootByKey(registration.Value), GetModInstallMethodByKey(registration.Value), hidden));
 				if (!hidden)

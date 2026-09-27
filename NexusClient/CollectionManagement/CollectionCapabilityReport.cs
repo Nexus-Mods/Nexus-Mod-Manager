@@ -180,7 +180,8 @@ namespace Nexus.Client.CollectionManagement
 				source.MemberSetCompleteness != candidate.MemberSetCompleteness ||
 				!StringComparer.Ordinal.Equals(source.IncompletenessReason, candidate.IncompletenessReason) ||
 				source.Members.Count != candidate.Members.Count || source.Dependencies.Count != candidate.Dependencies.Count ||
-				source.FilePriorityRules.Count != candidate.FilePriorityRules.Count)
+				source.FilePriorityRules.Count != candidate.FilePriorityRules.Count || source.ConflictConstraints.Count != candidate.ConflictConstraints.Count ||
+				source.PluginStates.Count != candidate.PluginStates.Count || source.HasPluginStateSection != candidate.HasPluginStateSection)
 				throw new ArgumentException("Capability can be recalculated only for a selection-only projection of the same normalized manifest.", nameof(candidate));
 
 			for (int index = 0; index < source.Members.Count; index++)
@@ -204,6 +205,18 @@ namespace Nexus.Client.CollectionManagement
 			{
 				if (!source.FilePriorityRules[index].Equals(candidate.FilePriorityRules[index]))
 					throw new ArgumentException("A selection projection cannot change normalized file-priority rules.", nameof(candidate));
+			}
+
+			for (int index = 0; index < source.ConflictConstraints.Count; index++)
+			{
+				if (!source.ConflictConstraints[index].Equals(candidate.ConflictConstraints[index]))
+					throw new ArgumentException("A selection projection cannot change normalized conflict constraints.", nameof(candidate));
+			}
+
+			for (int index = 0; index < source.PluginStates.Count; index++)
+			{
+				if (!source.PluginStates[index].Equals(candidate.PluginStates[index]))
+					throw new ArgumentException("A selection projection cannot change normalized Collection plugin-state declarations.", nameof(candidate));
 			}
 		}
 

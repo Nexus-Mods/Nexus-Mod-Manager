@@ -40,6 +40,8 @@ namespace Nexus.Client.CollectionManagement
 			Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews = IndexPreviews(plan, effectPreviews, issues);
 			Dictionary<CollectionMemberKey, CollectionMemberMatchResult> matchByKey = matches.MembersByKey.ToDictionary(x => x.Key, x => x.Value);
 
+			EvaluateCompatibilityConstraints(plan, matches, nativeState, issues);
+
 			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
 			{
 				CollectionMemberMatchResult match = matchByKey[member.MemberKey];
@@ -85,7 +87,7 @@ namespace Nexus.Client.CollectionManagement
 			AddSharedNativeInstanceImpacts(matches, nativeState, associationKinds);
 
 			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues);
-			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(nativeState, matches, mutationPreviews, associationKinds, issues);
+			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues);
 			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues);
 
 			ReviewAffectedAssociations(nativeState, associationKinds, issues);
@@ -95,6 +97,159 @@ namespace Nexus.Client.CollectionManagement
 
 			issues.Sort(CompareIssues);
 			return new CollectionConflictImpactPlan(plan, nativeState, fileImpacts, pluginImpacts, configImpacts, associationImpacts, issues);
+		}
+
+
+		private static void EvaluateCompatibilityConstraints(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionNativeStateIndex nativeState, IList<CollectionConflictImpactIssue> issues)
+		{
+			if (plan.CapabilityReport.Manifest.ConflictConstraints.Count == 0)
+				return;
+
+			var selectedByKey = plan.SelectedMembers.ToDictionary(x => x.MemberKey);
+			var matchByKey = matches.MembersByKey;
+
+			foreach (CollectionConflictConstraint constraint in plan.CapabilityReport.Manifest.ConflictConstraints)
+			{
+				ResolvedCollectionMemberPlan sourceMember;
+				if (!selectedByKey.TryGetValue(constraint.SourceMemberKey, out sourceMember))
+					continue; // A conflicts rule attached to an unselected optional member is inactive, matching Vortex enabled-mod behavior.
+
+				var representedNativeIds = new HashSet<NativeModInstanceIdentity>();
+				foreach (CollectionMemberKey targetKey in constraint.MatchingMemberKeys)
+				{
+					if (targetKey.Equals(constraint.SourceMemberKey) || !selectedByKey.ContainsKey(targetKey))
+						continue; // Vortex excludes the rule's own source instance before testing the reference.
+					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.CompatibilityConflict,
+						CollectionConflictImpactStatus.ActionRequired, constraint.SourceMemberKey, "member:" + targetKey,
+						"The effective Collection selection contains another member matched by a Vortex conflicts rule; change the optional selection or resolve the incompatibility before applying."));
+					CollectionMemberMatchResult targetMatch;
+					if (matchByKey.TryGetValue(targetKey, out targetMatch) && targetMatch.MatchedNativeMod != null)
+						representedNativeIds.Add(targetMatch.MatchedNativeMod.Identity);
+				}
+
+				CollectionMemberMatchResult sourceMatch;
+				NativeModInstanceIdentity sourceNative = matchByKey.TryGetValue(constraint.SourceMemberKey, out sourceMatch) &&
+					sourceMatch.MatchedNativeMod != null ? sourceMatch.MatchedNativeMod.Identity : null;
+				if (sourceNative != null) representedNativeIds.Add(sourceNative);
+
+				List<CollectionNativeModState> externalNativeMods = nativeState.Mods.Values
+					.Where(x => !representedNativeIds.Contains(x.Identity))
+					.OrderBy(x => x.Identity.NativeModKey, StringComparer.Ordinal).ToList();
+				if (!HasNativeCandidateMarker(constraint.Reference) && externalNativeMods.Count > 0)
+				{
+					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ConflictReferenceEvaluationRequired,
+						CollectionConflictImpactStatus.ActionRequired, constraint.SourceMemberKey, "constraint:" + constraint.SourceMemberKey,
+						"NMM cannot identify external native candidates for this Vortex conflict reference from committed metadata alone; explicit review is required."));
+					continue;
+				}
+
+				foreach (CollectionNativeModState nativeMod in externalNativeMods)
+				{
+					CollectionConflictNativeMatch nativeMatch = MatchConflictReference(constraint.Reference, nativeMod);
+					if (nativeMatch == CollectionConflictNativeMatch.NoMatch)
+						continue;
+					if (nativeMatch == CollectionConflictNativeMatch.Match)
+					{
+						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.CompatibilityConflict,
+							CollectionConflictImpactStatus.ActionRequired, constraint.SourceMemberKey, "native:" + nativeMod.Identity.NativeModKey,
+							"An existing NMM mod matches a Vortex conflicts rule for the selected Collection member; remove/replace the conflicting native mod or change the Collection selection before applying."));
+					}
+					else
+					{
+						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ConflictReferenceEvaluationRequired,
+							CollectionConflictImpactStatus.ActionRequired, constraint.SourceMemberKey, "native:" + nativeMod.Identity.NativeModKey,
+							"NMM cannot prove whether an existing native mod satisfies every identifying/version field of this Vortex conflict reference from committed metadata alone; explicit review is required."));
+					}
+				}
+			}
+		}
+
+
+		private static bool HasNativeCandidateMarker(CollectionConflictReference reference)
+		{
+			return !String.IsNullOrEmpty(reference.Repository) || !String.IsNullOrEmpty(reference.LogicalFileName) ||
+				!String.IsNullOrEmpty(reference.FileExpression);
+		}
+
+		private enum CollectionConflictNativeMatch
+		{
+			NoMatch = 0,
+			Match = 1,
+			Unknown = 2
+		}
+
+		private static CollectionConflictNativeMatch MatchConflictReference(CollectionConflictReference reference,
+			CollectionNativeModState nativeMod)
+		{
+			bool fuzzy = reference.VersionMatch.IsAny || reference.VersionMatch.IsRange;
+			bool hasObservableMarker = false;
+			bool identityUnknown = false;
+
+			if (!String.IsNullOrEmpty(reference.Repository))
+			{
+				hasObservableMarker = true;
+				long nativeModId;
+				if (!Int64.TryParse(nativeMod.NexusModId, out nativeModId) || !reference.RepositoryModId.HasValue ||
+					nativeModId != reference.RepositoryModId.Value)
+					return CollectionConflictNativeMatch.NoMatch;
+				if (!fuzzy)
+				{
+					long nativeFileId;
+					if (!reference.RepositoryFileId.HasValue || !Int64.TryParse(nativeMod.NexusFileId, out nativeFileId) ||
+						nativeFileId != reference.RepositoryFileId.Value)
+						return CollectionConflictNativeMatch.NoMatch;
+				}
+			}
+
+			if (!String.IsNullOrEmpty(reference.LogicalFileName))
+			{
+				hasObservableMarker = true;
+				if (String.IsNullOrWhiteSpace(nativeMod.ModName))
+					identityUnknown = true;
+				else if (!StringComparer.Ordinal.Equals(reference.LogicalFileName, nativeMod.ModName) &&
+					String.IsNullOrEmpty(reference.FileExpression))
+					return CollectionConflictNativeMatch.NoMatch;
+			}
+
+			if (!String.IsNullOrEmpty(reference.FileExpression))
+			{
+				hasObservableMarker = true;
+				if (String.IsNullOrWhiteSpace(nativeMod.FileName))
+					identityUnknown = true;
+				else if (!StringComparer.Ordinal.Equals(reference.FileExpression, SanitizeVortexFileExpressionCandidate(nativeMod.FileName)))
+					return CollectionConflictNativeMatch.NoMatch;
+			}
+
+			if (!String.IsNullOrEmpty(reference.FileMd5) && !fuzzy)
+			{
+				// InstallLog does not persist the archive MD5. Do not hash mutable archive paths outside the approved native-state fingerprint.
+				identityUnknown = true;
+			}
+			if (!String.IsNullOrEmpty(reference.Tag) && !hasObservableMarker)
+				identityUnknown = true; // Vortex reference tags are not native NMM metadata.
+
+			if (!hasObservableMarker && !identityUnknown)
+				return CollectionConflictNativeMatch.NoMatch;
+			if (identityUnknown)
+				return CollectionConflictNativeMatch.Unknown;
+
+			string version = !String.IsNullOrWhiteSpace(nativeMod.HumanReadableVersion)
+				? nativeMod.HumanReadableVersion : nativeMod.MachineVersion;
+			CollectionVortexVersionMatchResult versionResult = reference.VersionMatch.Evaluate(version);
+			if (versionResult == CollectionVortexVersionMatchResult.Unknown)
+				return CollectionConflictNativeMatch.Unknown;
+			return versionResult == CollectionVortexVersionMatchResult.Match
+				? CollectionConflictNativeMatch.Match
+				: CollectionConflictNativeMatch.NoMatch;
+		}
+
+		private static string SanitizeVortexFileExpressionCandidate(string fileName)
+		{
+			string name = Path.GetFileNameWithoutExtension(fileName ?? String.Empty);
+			if (String.IsNullOrEmpty(name)) return String.Empty;
+			name = System.Text.RegularExpressions.Regex.Replace(name, @"\.\d+$", String.Empty);
+			return System.Text.RegularExpressions.Regex.Replace(name, @" \(\d+\)$", String.Empty);
 		}
 
 		private static CollectionConflictImpactPlan Empty(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
@@ -269,12 +424,48 @@ namespace Nexus.Client.CollectionManagement
 			return false;
 		}
 
-		private static List<CollectionPluginImpact> BuildPluginImpacts(CollectionNativeStateIndex nativeState, CollectionMemberMatchSet matches,
-			IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
+		private static List<CollectionPluginImpact> BuildPluginImpacts(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
+			CollectionMemberMatchSet matches, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues)
 		{
-			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all = previews.Values.Where(x => x.IsComplete)
+			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> original = previews.Values.Where(x => x.IsComplete)
 				.SelectMany(x => x.PluginEffects.Select(effect => Tuple.Create(x.MemberKey, effect))).ToList();
+			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all;
+
+			if (plan.CapabilityReport.Manifest.HasPluginStateSection)
+			{
+				var candidates = new Dictionary<string, List<Tuple<CollectionMemberKey, string>>>(StringComparer.OrdinalIgnoreCase);
+				foreach (Tuple<CollectionMemberKey, CollectionPlannedPluginEffect> item in original.Where(x => x.Item2.Kind == CollectionPlannedPluginEffectKind.Activation))
+					AddPluginCandidate(candidates, item.Item1, item.Item2.PluginPaths[0]);
+
+				foreach (CollectionMemberMatchResult match in matches.Members.Where(x => x.Disposition == CollectionMemberMatchDisposition.InstalledCompatible && x.MatchedNativeMod != null))
+				{
+					string ownerKey = match.MatchedNativeMod.Identity.NativeModKey;
+					foreach (CollectionNativePluginState plugin in nativeState.Plugins.Values)
+					{
+						CollectionNativeFileState file = FindFileForPlugin(nativeState, plugin.FileName);
+						if (file != null && FileHasNativeOwner(file, ownerKey))
+							AddPluginCandidate(candidates, match.Member.MemberKey, String.IsNullOrWhiteSpace(file.PhysicalPath) ? plugin.FileName : file.PhysicalPath);
+					}
+				}
+
+				var enabledNames = new HashSet<string>(plan.CapabilityReport.Manifest.PluginStates.Where(x => x.Enabled).Select(x => x.PluginName),
+					StringComparer.OrdinalIgnoreCase);
+				all = original.Where(x => x.Item2.Kind != CollectionPlannedPluginEffectKind.Activation).ToList();
+				foreach (KeyValuePair<string, List<Tuple<CollectionMemberKey, string>>> candidate in candidates.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+				{
+					CollectionMemberKey memberKey = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
+					CollectionNativeFileState existingFile = FindFileForPlugin(nativeState, candidate.Key);
+					string path = existingFile != null && !String.IsNullOrWhiteSpace(existingFile.PhysicalPath)
+						? existingFile.PhysicalPath
+						: candidate.Value.Select(x => x.Item2).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First();
+					all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key))));
+				}
+
+			}
+			else
+				all = original;
+
 			if (all.Count == 0) return new List<CollectionPluginImpact>();
 			if (nativeState.PluginCoverage != CollectionNativeStateCoverage.Complete)
 			{
@@ -285,11 +476,10 @@ namespace Nexus.Client.CollectionManagement
 
 			DetectConflictingPluginIntent(all, issues);
 			var result = new List<CollectionPluginImpact>();
+			var selectedKeys = new HashSet<CollectionMemberKey>(plan.SelectedMembers.Select(x => x.MemberKey));
 			foreach (Tuple<CollectionMemberKey, CollectionPlannedPluginEffect> item in all)
 			{
-				CollectionNativePluginState current = item.Item2.PluginPaths.Count == 1
-					? FindPlugin(nativeState, item.Item2.PluginPaths[0])
-					: null;
+				CollectionNativePluginState current = item.Item2.PluginPaths.Count == 1 ? FindPlugin(nativeState, item.Item2.PluginPaths[0]) : null;
 				var affected = new HashSet<Guid>();
 				bool changesExistingUnrelatedPlugin = false;
 				foreach (string pluginPath in item.Item2.PluginPaths)
@@ -297,12 +487,13 @@ namespace Nexus.Client.CollectionManagement
 					affected.UnionWith(AssociationIdsForPlugin(nativeState, pluginPath));
 					CollectionNativeFileState pluginFile = FindFileForPlugin(nativeState, pluginPath);
 					string ownerKey = pluginFile == null ? null : pluginFile.EffectiveOwnerKey;
-					if (!String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, previews.Keys, matches.MembersByKey))
+					if (!String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey))
 						changesExistingUnrelatedPlugin = true;
 					CollectionNativePluginState existingPlugin = FindPlugin(nativeState, pluginPath);
-					CollectionMemberEffectPreview memberPreview = previews[item.Item1];
+					CollectionMemberEffectPreview memberPreview;
+					bool previewWrites = previews.TryGetValue(item.Item1, out memberPreview) && PreviewWritesPlugin(memberPreview, pluginPath);
 					if (existingPlugin != null && PluginEffectChangesExistingState(item.Item2, existingPlugin) &&
-						(String.IsNullOrWhiteSpace(ownerKey) || !PreviewWritesPlugin(memberPreview, pluginPath)))
+						(String.IsNullOrWhiteSpace(ownerKey) || (!previewWrites && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey))))
 						changesExistingUnrelatedPlugin = true;
 				}
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.PluginState);
@@ -321,6 +512,28 @@ namespace Nexus.Client.CollectionManagement
 				result.Add(new CollectionPluginImpact(item.Item1, item.Item2, current, affected));
 			}
 			return result;
+		}
+
+		private static void AddPluginCandidate(IDictionary<string, List<Tuple<CollectionMemberKey, string>>> candidates,
+			CollectionMemberKey memberKey, string pluginPath)
+		{
+			string name = Path.GetFileName((pluginPath ?? String.Empty).Replace('/', '\\'));
+			if (String.IsNullOrWhiteSpace(name)) return;
+			List<Tuple<CollectionMemberKey, string>> values;
+			if (!candidates.TryGetValue(name, out values))
+			{
+				values = new List<Tuple<CollectionMemberKey, string>>();
+				candidates.Add(name, values);
+			}
+			if (!values.Any(x => x.Item1.Equals(memberKey) && StringComparer.OrdinalIgnoreCase.Equals(x.Item2, pluginPath)))
+				values.Add(Tuple.Create(memberKey, pluginPath));
+		}
+
+		private static bool FileHasNativeOwner(CollectionNativeFileState file, string ownerKey)
+		{
+			if (file == null || String.IsNullOrWhiteSpace(ownerKey)) return false;
+			return file.InstallLogOwners.Concat(file.DeploymentOwners).Concat(file.VirtualOwners).Any(x =>
+				x.Kind == CollectionNativeOwnerKind.NativeMod && StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey));
 		}
 
 		private static void DetectConflictingPluginIntent(IEnumerable<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> effects,

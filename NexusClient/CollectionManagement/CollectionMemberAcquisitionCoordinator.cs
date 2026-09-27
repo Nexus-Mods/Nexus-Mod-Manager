@@ -22,7 +22,10 @@ namespace Nexus.Client.CollectionManagement
 		PremiumQueued = 3,
 		ManualInputRequired = 4,
 		RestartActionRequired = 5,
-		Blocked = 6
+		Blocked = 6,
+
+		/// <summary>A deterministic embedded Collection archive is being imported through native AddMod.</summary>
+		BundledQueued = 7
 	}
 
 	/// <summary>
@@ -112,12 +115,22 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionManualAcquisitionCoordinator _manualCoordinator;
 		private readonly CollectionAcquisitionRestartCoordinator _restartCoordinator;
 		private readonly CollectionOperationCoordinator _operationCoordinator;
+		private readonly ICollectionBundledMemberAcquisitionCoordinator _bundledCoordinator;
 
 		/// <summary>Creates the C6.15.5 member-acquisition composition service.</summary>
 		public CollectionMemberAcquisitionCoordinator(CollectionMemberMatchEngine matchEngine,
 			CollectionVerifiedArchiveAdopter archiveAdopter, CollectionPremiumAcquisitionCoordinator premiumCoordinator,
 			CollectionManualAcquisitionCoordinator manualCoordinator, CollectionAcquisitionRestartCoordinator restartCoordinator,
 			CollectionOperationCoordinator operationCoordinator)
+			: this(matchEngine, archiveAdopter, premiumCoordinator, manualCoordinator, restartCoordinator, operationCoordinator, null)
+		{
+		}
+
+		/// <summary>Creates the member-acquisition service with optional embedded Collection bundle support.</summary>
+		public CollectionMemberAcquisitionCoordinator(CollectionMemberMatchEngine matchEngine,
+			CollectionVerifiedArchiveAdopter archiveAdopter, CollectionPremiumAcquisitionCoordinator premiumCoordinator,
+			CollectionManualAcquisitionCoordinator manualCoordinator, CollectionAcquisitionRestartCoordinator restartCoordinator,
+			CollectionOperationCoordinator operationCoordinator, ICollectionBundledMemberAcquisitionCoordinator bundledCoordinator)
 		{
 			_matchEngine = matchEngine ?? throw new ArgumentNullException(nameof(matchEngine));
 			_archiveAdopter = archiveAdopter ?? throw new ArgumentNullException(nameof(archiveAdopter));
@@ -125,6 +138,7 @@ namespace Nexus.Client.CollectionManagement
 			_manualCoordinator = manualCoordinator ?? throw new ArgumentNullException(nameof(manualCoordinator));
 			_restartCoordinator = restartCoordinator ?? throw new ArgumentNullException(nameof(restartCoordinator));
 			_operationCoordinator = operationCoordinator ?? throw new ArgumentNullException(nameof(operationCoordinator));
+			_bundledCoordinator = bundledCoordinator;
 		}
 
 		/// <summary>
@@ -148,7 +162,9 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				CollectionAcquisitionRequest request = CreateRequest(plan, match.Member.MemberKey);
 				requests.Add(match.Member.MemberKey, request);
-				CollectionVerifiedArchive verified = _archiveAdopter.TryAdopt(request, cancellationToken);
+				CollectionVerifiedArchive verified = IsBundled(request)
+					? _bundledCoordinator.TryComplete(request, cancellationToken)
+					: _archiveAdopter.TryAdopt(request, cancellationToken);
 				if (verified != null)
 					verifiedArchives.Add(verified);
 			}
@@ -194,6 +210,24 @@ namespace Nexus.Client.CollectionManagement
 					requests[match.Member.MemberKey] = request;
 				}
 
+				if (IsBundled(request))
+				{
+					CollectionBundledMemberAcquisitionResult bundled = _bundledCoordinator.Begin(
+						request, confirmOverwriteCallback, cancellationToken);
+					if (bundled.IsManagedArchiveReady)
+					{
+						states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
+							request, bundled.VerifiedArchive, null, null, null, null));
+					}
+					else
+					{
+						// The sealed bytes are intentionally not exposed as ready until AddMod has registered those exact bytes natively.
+						states.Add(State(match, CollectionMemberAcquisitionDisposition.BundledQueued,
+							request, null, bundled.QueueCorrelation, null, null, null));
+					}
+					continue;
+				}
+
 				CollectionPremiumAcquisitionAvailability availability = _premiumCoordinator.GetAvailability(request);
 				if (availability == CollectionPremiumAcquisitionAvailability.Available)
 				{
@@ -236,7 +270,9 @@ namespace Nexus.Client.CollectionManagement
 				}
 				if (state.Request == null)
 					continue;
-				CollectionVerifiedArchive archive = _archiveAdopter.TryAdopt(state.Request, cancellationToken);
+				CollectionVerifiedArchive archive = IsBundled(state.Request)
+					? _bundledCoordinator.TryComplete(state.Request, cancellationToken)
+					: _archiveAdopter.TryAdopt(state.Request, cancellationToken);
 				if (archive != null)
 					verified.Add(archive);
 			}
@@ -338,12 +374,16 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				CollectionAcquisitionRequest request = CreateRequest(planBuild.Plan, match.Member.MemberKey);
 				requests.Add(match.Member.MemberKey, request);
-				CollectionVerifiedArchive adopted = _archiveAdopter.TryAdopt(request, cancellationToken);
+				CollectionVerifiedArchive adopted = IsBundled(request)
+					? _bundledCoordinator.TryComplete(request, cancellationToken)
+					: _archiveAdopter.TryAdopt(request, cancellationToken);
 				if (adopted != null)
 				{
 					verified.Add(adopted);
 					continue;
 				}
+				if (IsBundled(request))
+					continue; // Never auto-replay local AddMod work during restart reconciliation.
 				CollectionAcquisitionRestartResult restart = _restartCoordinator.Reconcile(request, cancellationToken);
 				restartByMember.Add(match.Member.MemberKey, restart);
 				if (restart.VerifiedArchive != null)
@@ -381,6 +421,11 @@ namespace Nexus.Client.CollectionManagement
 			if (!planBuild.Operation.Target.Equals(planBuild.Plan.Target) ||
 				planBuild.Operation.Revision == null || !planBuild.Operation.Revision.Equals(planBuild.Plan.Revision))
 				throw new ArgumentException("The additive plan build result is not bound to its durable Collection operation.", nameof(planBuild));
+		}
+
+		private bool IsBundled(CollectionAcquisitionRequest request)
+		{
+			return request != null && _bundledCoordinator != null && _bundledCoordinator.Supports(request.SelectedArtifact);
 		}
 
 		private static bool RequiresArchiveInput(CollectionMemberMatchResult match)

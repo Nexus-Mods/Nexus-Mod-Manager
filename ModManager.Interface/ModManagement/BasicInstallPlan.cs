@@ -402,7 +402,11 @@ namespace Nexus.Client.ModManagement
 
 			string fileName = Path.GetFileName(normalizedPath);
 			return fileName.Equals("skse64_loader.exe", StringComparison.OrdinalIgnoreCase) ||
-				(fileName.StartsWith("skse64_", StringComparison.OrdinalIgnoreCase) && fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase));
+				(fileName.StartsWith("skse64_", StringComparison.OrdinalIgnoreCase) && fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) ||
+				fileName.Equals("f4se_loader.exe", StringComparison.OrdinalIgnoreCase) ||
+				(fileName.StartsWith("f4se_", StringComparison.OrdinalIgnoreCase) && fileName.EndsWith(".dll", StringComparison.OrdinalIgnoreCase)) ||
+				fileName.Equals("dinput8.dll", StringComparison.OrdinalIgnoreCase) ||
+				fileName.Equals("enbseries.ini", StringComparison.OrdinalIgnoreCase);
 		}
 
 		private static bool IsUnsafeGameRootArchivePath(string path)

@@ -87,6 +87,8 @@
       <HintPath>..\..\Stage\packages\System.Diagnostics.DiagnosticSource.6.0.0\lib\net461\System.Diagnostics.DiagnosticSource.dll</HintPath>
     </Reference>
     <Reference Include="System.Drawing" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\..\Stage\packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
     </Reference>
@@ -252,6 +254,7 @@
     <Compile Include="NexusCollectionsClientTests.cs" />
     <Compile Include="NexusCollectionNxmDispatchTests.cs" />
     <Compile Include="NexusCollectionBundleNormalizationTests.cs" />
+    <Compile Include="NexusCollectionBundledArtifactMaterializerTests.cs" />
     <Compile Include="NexusCollectionBundleAcquirerTests.cs" />
     <Compile Include="NexusCollectionPreviewControllerTests.cs" />
     <Compile Include="NexusCollectionsReadOnlyAcceptanceTests.cs" />

@@ -11,7 +11,7 @@ namespace Nexus.Client.CollectionManagement
 	/// </summary>
 	internal static class CollectionNativeStateFingerprintBuilder
 	{
-		private const string FormatVersion = "native-state-index-v2";
+		private const string FormatVersion = "native-state-index-v3";
 
 		/// <summary>Builds the deterministic composite fingerprint for one captured state index.</summary>
 		public static CollectionCurrentStateFingerprint Build(CollectionNativeStateIndex index)
@@ -40,6 +40,7 @@ namespace Nexus.Client.CollectionManagement
 					Write(writer, mod.Identity.NativeModKey);
 					Write(writer, mod.ArchivePath);
 					Write(writer, mod.FileName);
+					Write(writer, mod.ModName);
 					Write(writer, mod.NexusModId);
 					Write(writer, mod.NexusFileId);
 					Write(writer, mod.HumanReadableVersion);

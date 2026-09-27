@@ -23,6 +23,16 @@ namespace Nexus.Client.CollectionManagement
 	}
 
 	/// <summary>
+	/// Describes characterized native install-root behavior derived from a Vortex member type.
+	/// </summary>
+	public enum CollectionMemberInstallRootBehavior
+	{
+		Default = 0,
+		VortexDInputGameRoot = 1,
+		VortexEnbGameRoot = 2
+	}
+
+	/// <summary>
 	/// Immutable normalized collection-member record independent from API pagination or UI ordering.
 	/// </summary>
 	public sealed class NormalizedCollectionMember
@@ -43,7 +53,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionArtifactReference artifact,
 			CollectionRecipeIdentity recipeIdentity,
 			string displayName)
-			: this(sourceOrdinal, identityResolution, requirement, selection, artifact, recipeIdentity, displayName, 0)
+			: this(sourceOrdinal, identityResolution, requirement, selection, artifact, recipeIdentity, displayName, 0, CollectionMemberInstallRootBehavior.Default)
 		{
 		}
 
@@ -59,6 +69,41 @@ namespace Nexus.Client.CollectionManagement
 			CollectionRecipeIdentity recipeIdentity,
 			string displayName,
 			double installationPhase)
+			: this(sourceOrdinal, identityResolution, requirement, selection, artifact, recipeIdentity, displayName, installationPhase, CollectionMemberInstallRootBehavior.Default)
+		{
+		}
+
+		/// <summary>
+		/// Creates one normalized member snapshot with an explicit installation phase and characterized native install-root behavior.
+		/// </summary>
+		public NormalizedCollectionMember(
+			int sourceOrdinal,
+			CollectionMemberIdentityResolution identityResolution,
+			CollectionMemberRequirement requirement,
+			CollectionMemberSelection selection,
+			CollectionArtifactReference artifact,
+			CollectionRecipeIdentity recipeIdentity,
+			string displayName,
+			double installationPhase,
+			CollectionMemberInstallRootBehavior installRootBehavior)
+			: this(sourceOrdinal, identityResolution, requirement, selection, artifact, recipeIdentity, displayName, installationPhase, installRootBehavior, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates one normalized member snapshot with explicit native install-root behavior and optional characterized Vortex FOMOD selections.
+		/// </summary>
+		public NormalizedCollectionMember(
+			int sourceOrdinal,
+			CollectionMemberIdentityResolution identityResolution,
+			CollectionMemberRequirement requirement,
+			CollectionMemberSelection selection,
+			CollectionArtifactReference artifact,
+			CollectionRecipeIdentity recipeIdentity,
+			string displayName,
+			double installationPhase,
+			CollectionMemberInstallRootBehavior installRootBehavior,
+			CollectionVortexFomodSelection vortexFomodSelection)
 		{
 			if (sourceOrdinal < 0)
 				throw new ArgumentOutOfRangeException(nameof(sourceOrdinal), "Source ordinal cannot be negative.");
@@ -70,6 +115,8 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentOutOfRangeException(nameof(selection));
 			if (Double.IsNaN(installationPhase) || Double.IsInfinity(installationPhase))
 				throw new ArgumentOutOfRangeException(nameof(installationPhase), "Installation phase must be a finite number.");
+			if (!Enum.IsDefined(typeof(CollectionMemberInstallRootBehavior), installRootBehavior))
+				throw new ArgumentOutOfRangeException(nameof(installRootBehavior));
 
 			SourceOrdinal = sourceOrdinal;
 			IdentityResolution = identityResolution;
@@ -79,6 +126,8 @@ namespace Nexus.Client.CollectionManagement
 			RecipeIdentity = recipeIdentity;
 			DisplayName = CollectionDomainValidation.OptionalDisplayValue(displayName, nameof(displayName));
 			InstallationPhase = installationPhase;
+			InstallRootBehavior = installRootBehavior;
+			VortexFomodSelection = vortexFomodSelection;
 		}
 
 		/// <summary>
@@ -123,6 +172,30 @@ namespace Nexus.Client.CollectionManagement
 		/// Phase is scheduling metadata, not member identity or installed-recipe identity. C6.3 establishes ordering/barriers.
 		/// </remarks>
 		public double InstallationPhase { get; }
+
+		/// <summary>
+		/// Gets the characterized native install-root behavior for this member.
+		/// </summary>
+		public CollectionMemberInstallRootBehavior InstallRootBehavior { get; }
+
+		/// <summary>
+		/// Gets the exact characterized Vortex FOMOD selections retained from collection.json, or null for non-FOMOD/basic members.
+		/// </summary>
+		public CollectionVortexFomodSelection VortexFomodSelection { get; }
+
+		/// <summary>Gets whether this member requires exact Vortex FOMOD choice replay.</summary>
+		public bool HasVortexFomodSelection
+		{
+			get { return VortexFomodSelection != null; }
+		}
+
+		/// <summary>
+		/// Gets whether this member must use NMM's native game-root installation mode rather than the ordinary Data-root behavior.
+		/// </summary>
+		public bool RequiresGameRootInstall
+		{
+			get { return InstallRootBehavior != CollectionMemberInstallRootBehavior.Default; }
+		}
 
 		/// <summary>
 		/// Gets whether the revision requires this member.

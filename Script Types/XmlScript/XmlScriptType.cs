@@ -27,7 +27,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// This is the script that allows scripting using an XML language. It is meant
 	/// to be easier to learn and more accessible than the more advanced C# script.
 	/// </remarks>
-	public class XmlScriptType : IScriptType, IModInstallationFomodRecipeAdapter
+	public class XmlScriptType : IScriptType, IModInstallationFomodRecipePlanningAdapter
 	{
 		private static Version[] m_verScriptVersions = { new Version(1, 0),
 														new Version(2, 0),
@@ -80,6 +80,19 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		public int CapabilityVersion
 		{
 			get { return XmlScriptFomodRecipeAdapter.CapabilityVersion; }
+		}
+
+		/// <summary>Gets the exact parsed XML/FOMOD script version from the verified mod.</summary>
+		public Version GetScriptVersion(IMod mod)
+		{
+			return new XmlScriptFomodRecipeAdapter().GetScriptVersion(mod);
+		}
+
+		/// <summary>Resolves the exact FOMOD file paths consumed by C5.3 validation.</summary>
+		public IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
+		{
+			return new XmlScriptFomodRecipeAdapter().GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, recipe);
 		}
 
 		/// <summary>

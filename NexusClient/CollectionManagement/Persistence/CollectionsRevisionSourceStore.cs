@@ -290,6 +290,40 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		}
 
 		/// <summary>
+		/// Opens the exact retained outer archive for one immutable Collection revision after full ownership/provenance verification.
+		/// </summary>
+		/// <remarks>
+		/// Embedded-member materialization must consume the revision-owned retained bundle rather than the original mutable
+		/// import/download path. Raw-manifest revisions cannot supply embedded bundle members.
+		/// </remarks>
+		public Stream OpenBundle(CollectionRevisionIdentity revision, CancellationToken cancellationToken = default(CancellationToken))
+		{
+			if (revision == null)
+				throw new ArgumentNullException(nameof(revision));
+
+			CollectionRevisionSourceRecord source = GetSource(revision);
+			if (source == null)
+				throw new FileNotFoundException("The Collection revision has no retained source provenance.");
+			if (source.InputKind != CollectionRevisionSourceInputKind.Archive)
+				throw new InvalidOperationException("Embedded Collection members require an archived Collection revision source.");
+			if (String.IsNullOrEmpty(source.RawBundleArtifactId))
+				throw new CollectionsStoreSchemaException("The Collection revision source has no retained outer-bundle artifact binding.");
+
+			CollectionsRetainedArtifactReferenceRecord reference = _referenceStore.GetReferenceForOwnerRole(
+				CollectionsRetainedArtifactOwnerKind.Revision, GetRevisionOwnerId(revision), BundleRole);
+			if (reference == null || !StringComparer.Ordinal.Equals(reference.ArtifactId, source.RawBundleArtifactId))
+				throw new CollectionsStoreSchemaException("The Collection revision source is missing its exact revision-owned bundle reference.");
+
+			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(source.RawBundleArtifactId);
+			if (artifact == null || !artifact.ContentHash.Equals(source.BundleContentHash) || artifact.ByteLength != source.BundleByteLength)
+				throw new CollectionsStoreSchemaException("The Collection revision source points to missing or mismatched retained bundle metadata.");
+			if (!_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
+				throw new InvalidDataException("The retained Collection revision bundle failed its integrity check.");
+
+			return _artifactStore.OpenRead(artifact.ArtifactId);
+		}
+
+		/// <summary>
 		/// Loads exact retained collection.json bytes after verifying revision ownership, source provenance and full blob integrity.
 		/// </summary>
 		public byte[] LoadManifest(CollectionRevisionIdentity revision, CollectionManifestSourceSnapshot expectedSource)

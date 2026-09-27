@@ -43,6 +43,39 @@ namespace NexusClientTests
 			Assert.That(second.Fingerprint, Is.Not.EqualTo(first.Fingerprint));
 		}
 
+		[Test]
+		public void NativeStateReader_PreservesCommittedModDisplayNameForCompatibilityMatching()
+		{
+			InstallLogReadSnapshot snapshot = new InstallLogReadSnapshot("ORIGINAL", 1,
+				new[]
+				{
+					new InstallLogReadMod("native-f4se", "C:\\Mods\\f4se.7z", "f4se.7z",
+						"Fallout 4 Script Extender (F4SE)", "42147", "407709", "0.7.9", "0.7.9", false,
+						ModInstallRoot.GameRoot, ModInstallMethod.Virtual, false)
+				},
+				new InstallLogReadFile[0], new InstallLogReadIniEdit[0], new InstallLogReadGameValue[0],
+				new InstallLogReadDeploymentTarget[0]);
+			IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) =>
+				method.Name == "GetCommittedStateSnapshot" ? snapshot : null);
+			IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+				method.Name == "GetReadSnapshot" ? new VirtualModReadSnapshot(new VirtualModReadLink[0]) : null);
+			IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_InstallationPath": return Path.GetTempPath();
+					case "get_HasSecondaryInstallPath": return false;
+					case "get_UsesPlugins": return false;
+					default: return null;
+				}
+			});
+
+			CollectionNativeStateIndex state = new CollectionNativeStateReader(installLog, virtualModActivator, null, gameMode, null)
+				.Capture(CollectionTargetIdentity.FromFingerprint("target-native-mod-name"));
+
+			Assert.AreEqual("Fallout 4 Script Extender (F4SE)", state.ModsByNativeKey["native-f4se"].ModName);
+		}
+
 		private static IInstallLog CreateInstallLog(long deploymentCommitSequence)
 		{
 			InstallLogReadSnapshot snapshot = new InstallLogReadSnapshot("ORIGINAL", deploymentCommitSequence,
@@ -110,6 +143,21 @@ namespace NexusClientTests
 
 			CollectionNativeStateIndex first = CreateIndex(target, new[] { firstMod, secondMod }, new[] { firstOrder }, null);
 			CollectionNativeStateIndex second = CreateIndex(target, new[] { firstMod, secondMod }, new[] { secondOrder }, null);
+
+			Assert.AreNotEqual(first.Fingerprint, second.Fingerprint);
+		}
+
+		[Test]
+		public void Fingerprint_ChangesWhenCommittedModDisplayNameChanges()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c6-mod-name");
+			var firstMod = new CollectionNativeModState(new NativeModInstanceIdentity(target, "mod-a"), "C:\\Mods\\A.7z",
+				"A.7z", "Name A", "100", "200", "1.0", "1.0", false, ModInstallRoot.Data, ModInstallMethod.Virtual);
+			var renamed = new CollectionNativeModState(new NativeModInstanceIdentity(target, "mod-a"), "C:\\Mods\\A.7z",
+				"A.7z", "Name B", "100", "200", "1.0", "1.0", false, ModInstallRoot.Data, ModInstallMethod.Virtual);
+
+			CollectionNativeStateIndex first = CreateIndex(target, new[] { firstMod }, new CollectionNativeFileState[0], null);
+			CollectionNativeStateIndex second = CreateIndex(target, new[] { renamed }, new CollectionNativeFileState[0], null);
 
 			Assert.AreNotEqual(first.Fingerprint, second.Fingerprint);
 		}

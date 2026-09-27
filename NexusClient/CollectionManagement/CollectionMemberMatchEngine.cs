@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using Nexus.Client.ModManagement;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -62,6 +63,9 @@ namespace Nexus.Client.CollectionManagement
 		private static CollectionMemberMatchResult MatchMember(CollectionNativeStateIndex nativeState, MatchingContext context,
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive)
 		{
+			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact))
+				return MatchBundledMember(nativeState, context, member, verifiedArchive);
+
 			string gameDomain;
 			long selectedModId;
 			long selectedFileId;
@@ -122,11 +126,12 @@ namespace Nexus.Client.CollectionManagement
 					.Where(x => x.VerifiedRecipe.Equals(member.RecipeIdentity) &&
 						x.Association.State == CollectionAssociationState.Applied)
 					.ToList();
+				bool installRootMismatch = member.RequiresGameRootInstall && candidate.InstallRoot != ModInstallRoot.GameRoot;
 				bool exactArtifact = exactArtifactCandidates.Contains(candidate.Identity);
 				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
 					x.VerifiedRecipe.Equals(member.RecipeIdentity) && x.Association.State == CollectionAssociationState.Applied);
 
-				if ((exactArtifact || directRecipeBinding) && verifiedApplied.Count > 0 &&
+				if (!installRootMismatch && (exactArtifact || directRecipeBinding) && verifiedApplied.Count > 0 &&
 					bindings.All(x => x.Association.State == CollectionAssociationState.Applied))
 				{
 					CollectionMemberMatchReason reason = directRecipeBinding
@@ -149,6 +154,12 @@ namespace Nexus.Client.CollectionManagement
 						CollectionMemberMatchReason.AssociationNotApplied, new[] { candidate }, bindings, verifiedArchive);
 				}
 
+				if (installRootMismatch)
+				{
+					return Result(member, CollectionMemberMatchDisposition.ReinstallRequired,
+						CollectionMemberMatchReason.RequiredInstallRootMismatch, new[] { candidate }, bindings, verifiedArchive);
+				}
+
 				if (exactArtifact || directBindings.Any(x => x.NativeMod.Equals(candidate.Identity)))
 				{
 					return Result(member, CollectionMemberMatchDisposition.ReinstallRequired,
@@ -157,6 +168,80 @@ namespace Nexus.Client.CollectionManagement
 
 				return Result(member, CollectionMemberMatchDisposition.ReinstallRequired,
 					CollectionMemberMatchReason.AlternateArtifactInstalled, new[] { candidate }, bindings, verifiedArchive);
+			}
+
+			if (verifiedArchive != null)
+			{
+				return Result(member, CollectionMemberMatchDisposition.ArchiveOnlyReuse,
+					CollectionMemberMatchReason.VerifiedArchiveAvailable, null, null, verifiedArchive);
+			}
+
+			return Result(member, CollectionMemberMatchDisposition.AcquisitionRequired,
+				CollectionMemberMatchReason.NoReusableInput, null, null, null);
+		}
+
+		private static CollectionMemberMatchResult MatchBundledMember(CollectionNativeStateIndex nativeState, MatchingContext context,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive)
+		{
+			List<CollectionMemberBinding> directBindings = context.GetDirectBindings(member.MemberKey);
+			var candidates = new Dictionary<NativeModInstanceIdentity, CollectionNativeModState>();
+			foreach (CollectionMemberBinding binding in directBindings)
+			{
+				CollectionNativeModState bound;
+				if (!nativeState.Mods.TryGetValue(binding.NativeMod, out bound))
+				{
+					return Result(member, CollectionMemberMatchDisposition.Blocked,
+						CollectionMemberMatchReason.MissingBoundNativeMod, null, directBindings, verifiedArchive);
+				}
+				candidates[bound.Identity] = bound;
+			}
+
+			if (candidates.Count > 1)
+			{
+				return Result(member, CollectionMemberMatchDisposition.Blocked,
+					CollectionMemberMatchReason.AmbiguousInstalledCandidates, candidates.Values, directBindings, verifiedArchive);
+			}
+
+			if (candidates.Count == 1)
+			{
+				CollectionNativeModState candidate = candidates.Values.Single();
+				List<CollectionMemberBinding> bindings = GetBindings(nativeState, new[] { candidate.Identity });
+				if (bindings.Any(x => !x.VerifiedRecipe.Equals(member.RecipeIdentity)))
+				{
+					return Result(member, CollectionMemberMatchDisposition.Blocked,
+						CollectionMemberMatchReason.ConflictingVerifiedRecipe, new[] { candidate }, bindings, verifiedArchive);
+				}
+
+				bool installRootMismatch = member.RequiresGameRootInstall && candidate.InstallRoot != ModInstallRoot.GameRoot;
+				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
+					x.VerifiedRecipe.Equals(member.RecipeIdentity) && x.Association.State == CollectionAssociationState.Applied);
+				if (!installRootMismatch && directRecipeBinding && bindings.Any(x => x.VerifiedRecipe.Equals(member.RecipeIdentity)) &&
+					bindings.All(x => x.Association.State == CollectionAssociationState.Applied))
+				{
+					return Result(member, CollectionMemberMatchDisposition.InstalledCompatible,
+						CollectionMemberMatchReason.ExistingVerifiedBinding, new[] { candidate }, bindings, verifiedArchive);
+				}
+
+				if (bindings.Any(x => x.Association.State == CollectionAssociationState.Incomplete ||
+					x.Association.State == CollectionAssociationState.Recovering))
+				{
+					return Result(member, CollectionMemberMatchDisposition.Blocked,
+						CollectionMemberMatchReason.AssociationRequiresRecovery, new[] { candidate }, bindings, verifiedArchive);
+				}
+				if (bindings.Any(x => x.Association.State == CollectionAssociationState.Modified))
+				{
+					return Result(member, CollectionMemberMatchDisposition.ReinstallRequired,
+						CollectionMemberMatchReason.AssociationNotApplied, new[] { candidate }, bindings, verifiedArchive);
+				}
+
+				if (installRootMismatch)
+				{
+					return Result(member, CollectionMemberMatchDisposition.ReinstallRequired,
+						CollectionMemberMatchReason.RequiredInstallRootMismatch, new[] { candidate }, bindings, verifiedArchive);
+				}
+
+				return Result(member, CollectionMemberMatchDisposition.ReinstallRequired,
+					CollectionMemberMatchReason.ExactArtifactRecipeUnverified, new[] { candidate }, bindings, verifiedArchive);
 			}
 
 			if (verifiedArchive != null)

@@ -36,7 +36,9 @@ namespace Nexus.Client.CollectionManagement
 		ExistingFileOwnershipUnresolved = 14,
 		PluginOrderImpactRequiresReview = 15,
 		ExistingPluginStateDecisionRequired = 16,
-		ExistingConfigurationDecisionRequired = 17
+		ExistingConfigurationDecisionRequired = 17,
+		CompatibilityConflict = 18,
+		ConflictReferenceEvaluationRequired = 19
 	}
 
 	/// <summary>One deterministic C6.4 planning issue.</summary>

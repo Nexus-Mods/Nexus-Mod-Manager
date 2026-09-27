@@ -458,6 +458,7 @@ namespace Nexus.Client.CollectionManagement
 			else
 				await _winnerCoordinator.ReconcileAsync(operationIdentity, runtime.Plan, runtime.Matches,
 					runtime.ImpactPlan, targetPaths, cancellationToken).ConfigureAwait(false);
+			await ReconcileReviewedPluginStateAsync(runtime.Plan, runtime.ImpactPlan, targetPaths, cancellationToken).ConfigureAwait(false);
 			CollectionAssociationFinalizationResult finalization = await VerifyAndFinalizeAppliedAssociationAsync(operationIdentity,
 				runtime, targetPaths, cancellationToken).ConfigureAwait(false);
 			return ApplyResult(CollectionAdditiveWorkflowApplyStatus.Committed, finalization.Operation, finalization,
@@ -649,18 +650,47 @@ namespace Nexus.Client.CollectionManagement
 				CollectionVerifiedArchive archive = acquisitionState.VerifiedArchive ?? match.VerifiedArchive;
 				if (archive == null)
 					throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
-				IMod managedMod = ResolveManagedMod(match);
-				ModInstallContext installContext = match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired
-					? new ModInstallContext(match.MatchedNativeMod.InstallMethod, match.MatchedNativeMod.InstallRoot)
-					: _services.ModManager.CapturePreferredInstallContext(ModInstallRoot.Default);
+				IMod managedMod = ResolveManagedMod(match, archive, cancellationToken);
+				ModInstallContext installContext = ResolveInstallContext(match);
 				bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
-				recipes.Add(_nativeRecipePreparer.PrepareBasicSimpleExact(plan, match.Member, archive, managedMod,
-					_services.ModManager.GameMode, installContext, state, skipReadme, _services.PluginManager, cancellationToken));
+				recipes.Add(_nativeRecipePreparer.PrepareExact(plan, match.Member, archive, managedMod,
+					_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, state, skipReadme,
+					_services.PluginManager, cancellationToken));
 			}
 			return recipes;
 		}
 
-		private IMod ResolveManagedMod(CollectionMemberMatchResult match)
+		private ModInstallContext ResolveInstallContext(CollectionMemberMatchResult match)
+		{
+			if (match == null)
+				throw new ArgumentNullException(nameof(match));
+
+			if (!match.Member.RequiresGameRootInstall)
+			{
+				return match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired
+					? new ModInstallContext(match.MatchedNativeMod.InstallMethod, match.MatchedNativeMod.InstallRoot)
+					: _services.ModManager.CapturePreferredInstallContext(ModInstallRoot.Default);
+			}
+
+			if (!_services.ModManager.GameMode.SupportsGameRootModInstall)
+			{
+				throw new NotSupportedException(String.Format(
+					"Collection member '{0}' requires NMM's native game-root installation mode, but the current game mode does not support game-root installs.",
+					match.Member.DisplayName ?? match.Member.MemberKey.Value));
+			}
+
+			if (match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired)
+			{
+				if (match.MatchedNativeMod == null)
+					throw new InvalidOperationException("A reviewed game-root reinstall does not identify exactly one current native mod instance.");
+				return new ModInstallContext(match.MatchedNativeMod.InstallMethod, ModInstallRoot.GameRoot);
+			}
+
+			return _services.ModManager.CapturePreferredInstallContext(ModInstallRoot.GameRoot);
+		}
+
+		private IMod ResolveManagedMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,
+			CancellationToken cancellationToken)
 		{
 			IMod previous = null;
 			if (match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired)
@@ -675,12 +705,26 @@ namespace Nexus.Client.CollectionManagement
 				previous = previousMatches[0];
 			}
 
+			if (CollectionBundledArtifactIdentity.IsBundle(match.Member.ArtifactChoice.SelectedArtifact))
+			{
+				if (archive == null)
+					throw new InvalidOperationException("A Collection bundle member reached native preparation without its sealed materialized archive.");
+				if (previous != null && CollectionArchiveContentMatcher.MatchesFile(previous.ModArchivePath, archive.Artifact, cancellationToken))
+					return previous;
+				List<IMod> exactManaged = CollectionArchiveContentMatcher.FindExactManagedMods(_services.ModManager, archive.Artifact, cancellationToken);
+				if (exactManaged.Count != 1)
+					throw new InvalidOperationException(exactManaged.Count == 0
+						? "The exact materialized Collection bundle archive is not present in the native managed-mod registry. Import it through the existing Add Mod pipeline before preparing the Collection."
+						: "Multiple native managed archives contain the exact materialized Collection bundle bytes; preparation cannot choose by filename or timing.");
+				return exactManaged[0];
+			}
+
 			string domain;
 			long nexusModId;
 			long nexusFileId;
 			if (!NexusCollectionModFileArtifactIdentity.TryParse(match.Member.ArtifactChoice.SelectedArtifact,
 				out domain, out nexusModId, out nexusFileId))
-				throw new NotSupportedException("C6.15 Gate A prepares only exact Nexus mod-file artifacts.");
+				throw new NotSupportedException("The selected Collection artifact scheme has no characterized native recipe input mapping.");
 			string currentDomain = _services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName;
 			if (!StringComparer.OrdinalIgnoreCase.Equals(domain, currentDomain))
 				throw new InvalidOperationException("The active native repository game does not match the selected Collection artifact domain.");
@@ -698,6 +742,47 @@ namespace Nexus.Client.CollectionManagement
 			return candidates[0];
 		}
 
+
+		private async Task ReconcileReviewedPluginStateAsync(ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan,
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+		{
+			var requested = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+			foreach (CollectionPluginImpact impact in impactPlan.PluginImpacts.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation))
+			{
+				string path = impact.Effect.PluginPaths[0];
+				bool active = impact.Effect.Active.Value;
+				bool prior;
+				if (requested.TryGetValue(path, out prior) && prior != active)
+					throw new InvalidDataException("The reviewed Collection contains contradictory final plugin activation requests.");
+				requested[path] = active;
+			}
+			if (requested.Count == 0) return;
+			if (_services.PluginManager == null)
+				throw new InvalidOperationException("The reviewed Collection requires final plugin-state reconciliation, but the native plugin manager is unavailable.");
+
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
+			if (!authority.Target.Equals(plan.Target))
+				throw new InvalidOperationException("The live canonical target changed before reviewed Collection plugin-state reconciliation.");
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
+				CollectionNativeStateIndex currentState = _nativeStateReader.Capture(plan.Target);
+				bool alreadySatisfied = impactPlan.PluginImpacts
+					.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation)
+					.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(currentState, x.Effect));
+				if (alreadySatisfied) return;
+
+				IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
+				if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
+				{
+					string detail = diagnostics == null || diagnostics.Count == 0
+						? "The native plugin policy could not honor every reviewed Collection activation request."
+						: "The native plugin policy rejected the reviewed Collection activation state: " + String.Join(", ", diagnostics.Select(x => x.Kind.ToString()));
+					throw new InvalidOperationException(detail);
+				}
+			}
+		}
 
 		/// <summary>Recaptures complete native reality under the target reservation and publishes Applied only against that same observation boundary.</summary>
 		private async Task<CollectionAssociationFinalizationResult> VerifyAndFinalizeAppliedAssociationAsync(

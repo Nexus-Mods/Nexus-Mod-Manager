@@ -92,6 +92,7 @@
     <Compile Include="CollectionManagement\CollectionTargetAssociation.cs" />
     <Compile Include="CollectionManagement\NativeModProvenance.cs" />
     <Compile Include="CollectionManagement\CollectionMemberAcquisitionCoordinator.cs" />
+    <Compile Include="CollectionManagement\ICollectionBundledMemberAcquisitionCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionMemberBinding.cs" />
     <Compile Include="CollectionManagement\CollectionInstalledIdentityCaptureReader.cs" />
     <Compile Include="CollectionManagement\CollectionNativeEffectCaptureReader.cs" />
@@ -135,8 +136,11 @@
     <Compile Include="CollectionManagement\CollectionContentHash.cs" />
     <Compile Include="CollectionManagement\CollectionManifestSourceSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionArtifactReference.cs" />
+    <Compile Include="CollectionManagement\CollectionBundledArtifactIdentity.cs" />
+    <Compile Include="CollectionManagement\CollectionArchiveContentMatcher.cs" />
     <Compile Include="CollectionManagement\CollectionMemberIdentityResolution.cs" />
     <Compile Include="CollectionManagement\NormalizedCollectionMember.cs" />
+    <Compile Include="CollectionManagement\CollectionVortexFomodSelection.cs" />
     <Compile Include="CollectionManagement\CollectionMemberDependency.cs" />
     <Compile Include="CollectionManagement\NormalizedCollectionManifest.cs" />
     <Compile Include="CollectionManagement\CollectionCompatibilityStatus.cs" />
@@ -153,6 +157,7 @@
     <Compile Include="CollectionManagement\CollectionDependencyPhasePlan.cs" />
     <Compile Include="CollectionManagement\CollectionDependencyPhasePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionFilePriorityRule.cs" />
+    <Compile Include="CollectionManagement\CollectionConflictConstraint.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreview.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
@@ -329,6 +334,8 @@
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImportModels.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionManifestNormalizer.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImporter.cs" />
+    <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundledArtifactMaterializer.cs" />
+    <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundledMemberAcquisitionCoordinator.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleAcquirer.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionPreviewSnapshot.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionPreviewController.cs" />

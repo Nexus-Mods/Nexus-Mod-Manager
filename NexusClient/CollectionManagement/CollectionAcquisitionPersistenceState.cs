@@ -10,7 +10,10 @@ namespace Nexus.Client.CollectionManagement
 		Unknown = 0,
 		PremiumNxm = 1,
 		Manual = 2,
-		VerifiedReuse = 3
+		VerifiedReuse = 3,
+
+		/// <summary>Deterministic embedded-member archive imported through native AddMod.</summary>
+		BundleMaterialization = 4
 	}
 
 	/// <summary>

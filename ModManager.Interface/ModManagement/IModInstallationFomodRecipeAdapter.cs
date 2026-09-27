@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
@@ -33,6 +35,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		int CapabilityVersion { get; }
 
+
 		/// <summary>
 		/// Translates exact FOMOD selections against the actual installer definition into native typed installation operations.
 		/// </summary>
@@ -44,6 +47,23 @@ namespace Nexus.Client.ModManagement
 		/// <param name="recipe">The exact step/group/option selections to validate against the actual installer definition.</param>
 		/// <returns>A new immutable recipe input carrying the translated native operation plan.</returns>
 		ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe);
+	}
+
+	/// <summary>
+	/// Optional exact-planning extension used by orchestration which must bind a validated path envelope before translation.
+	/// Implementations remain full <see cref="IModInstallationFomodRecipeAdapter"/> translators; adapters which do not expose
+	/// this planning contract remain valid native adapters but are not eligible for non-interactive Collection replay.
+	/// </summary>
+	public interface IModInstallationFomodRecipePlanningAdapter : IModInstallationFomodRecipeAdapter
+	{
+		/// <summary>Gets the exact parsed FOMOD/XML script version from the verified mod archive.</summary>
+		Version GetScriptVersion(IMod mod);
+
+		/// <summary>
+		/// Resolves the exact archive-source/destination path set produced by one FOMOD selection before C5.3 validation.
+		/// </summary>
+		IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe);
 	}
 }

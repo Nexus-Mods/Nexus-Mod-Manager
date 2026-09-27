@@ -11,7 +11,10 @@ namespace Nexus.Client.CollectionManagement
 		Unknown = 0,
 		ExistingVerifiedReference = 1,
 		ExpectedContentHash = 2,
-		ProviderContentIdentity = 3
+		ProviderContentIdentity = 3,
+
+		/// <summary>Bytes deterministically materialized from one exact revision-owned embedded bundle directory.</summary>
+		RevisionBundleMaterialization = 4
 	}
 
 	/// <summary>
@@ -24,7 +27,10 @@ namespace Nexus.Client.CollectionManagement
 		ManagedArchive = 2,
 
 		/// <summary>Verified bytes supplied explicitly by the user as a local archive candidate.</summary>
-		ManualFile = 3
+		ManualFile = 3,
+
+		/// <summary>Bytes deterministically materialized from the immutable retained Collection revision bundle.</summary>
+		RevisionBundle = 4
 	}
 
 	/// <summary>

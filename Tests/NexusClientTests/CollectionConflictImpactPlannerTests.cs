@@ -503,6 +503,60 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Plan_CollectionPluginOverlayTouchesOnlyPluginsOwnedBySelectedMembers()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "selected", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState selected = CreateNativeMod(target, "native-selected", 100, 200);
+			CollectionNativeModState unrelated = CreateNativeMod(target, "native-unrelated", 999, 999);
+			CollectionNativeFileState selectedFile = CreateFile(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Selected.esp"), selected.Identity.NativeModKey);
+			CollectionNativeFileState unrelatedFile = CreateFile(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Optional.esp"), unrelated.Identity.NativeModKey);
+			var selectedPlugin = new CollectionNativePluginState("Selected.esp", true, 1, 0, "00", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0], new CollectionNativePluginDiagnostic[0]);
+			var unrelatedPlugin = new CollectionNativePluginState("Optional.esp", true, 2, 1, "01", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0], new CollectionNativePluginDiagnostic[0]);
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { selected, unrelated }, new[] { selectedFile, unrelatedFile },
+				null, null, null, CollectionNativeStateCoverage.Complete, null, null, new[] { selectedPlugin, unrelatedPlugin },
+				new[] { new CollectionDesiredPluginState("Selected.esp", true), new CollectionDesiredPluginState("Optional.esp", true) });
+
+			CollectionMemberEffectPreview preview = CreatePreview(member, selectedFile.Target,
+				new[] { CollectionPlannedPluginEffect.Activation(selectedFile.PhysicalPath, true) });
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.AreEqual(1, result.PluginImpacts.Count);
+			Assert.AreEqual("Selected.esp", Path.GetFileName(result.PluginImpacts[0].Effect.PluginPaths.Single()));
+			Assert.AreEqual(true, result.PluginImpacts[0].Effect.Active);
+		}
+
+		[Test]
+		public void Plan_CollectionPluginOverlayDefaultsIncludedPluginToDisabledForAlreadyInstalledMember()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "selected-disable", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState selected = CreateNativeMod(target, "native-selected", 100, 200);
+			CollectionNativeFileState selectedFile = CreateFile(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Selected.esp"), selected.Identity.NativeModKey);
+			var selectedPlugin = new CollectionNativePluginState("Selected.esp", true, 1, 0, "00", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0], new CollectionNativePluginDiagnostic[0]);
+			CollectionTargetAssociation association = new CollectionTargetAssociation(Guid.NewGuid(), CreateRevision(), target, CollectionAssociationState.Applied);
+			CollectionMemberBinding binding = new CollectionMemberBinding(association, member.IdentityResolution.Key, selected.Identity,
+				member.RecipeIdentity, CollectionMemberBindingKind.AdoptedExisting);
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { selected }, new[] { selectedFile },
+				new[] { association }, new[] { binding }, null, CollectionNativeStateCoverage.Complete, null, null, new[] { selectedPlugin },
+				new CollectionDesiredPluginState[0]);
+			Assert.AreEqual(CollectionMemberMatchDisposition.InstalledCompatible, fixture.Matches.Members.Single().Disposition);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new CollectionMemberEffectPreview[0]);
+
+			Assert.AreEqual(1, result.PluginImpacts.Count);
+			Assert.AreEqual(false, result.PluginImpacts[0].Effect.Active);
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Status != CollectionConflictImpactStatus.Ready));
+		}
+
+		[Test]
 		public void Plan_ExistingConfigurationOwnedByUnrelatedModRequiresAdditiveReview()
 		{
 			NormalizedCollectionMember member = CreateMember(0, "member", 100, 200, 0);
@@ -571,6 +625,119 @@ namespace NexusClientTests
 			Assert.IsTrue((impact.Kind & CollectionAssociationImpactKind.SharedNativeInstance) != 0);
 			Assert.IsTrue((impact.Kind & CollectionAssociationImpactKind.UserOverride) != 0);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingUserOverride));
+		}
+
+		[Test]
+		public void Plan_ConflictConstraintExcludesItsOwnSourceNativeInstance()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "f4se", 42147, 407709, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-f4se", 42147, 407709,
+				"Fallout 4 Script Extender (F4SE)", "0.7.9", "Fallout 4 Script Extender.7z");
+			CollectionConflictConstraint constraint = CreateConflict(source, "Fallout 4 Script Extender (F4SE)",
+				"<0.7.9 || >0.7.9");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				conflictConstraints: new[] { constraint });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.CompatibilityConflict));
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ConflictReferenceEvaluationRequired));
+		}
+
+		[Test]
+		public void Plan_ConflictConstraintFlagsMatchingExistingNativeModOutsideCollectionClosure()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "f4se", 42147, 407709, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-f4se", 42147, 407709,
+				"Fallout 4 Script Extender", "0.7.9", "Fallout 4 Script Extender.7z");
+			CollectionNativeModState conflicting = CreateNativeMod(target, "native-old-f4se", 90000, 90001,
+				"Fallout 4 Script Extender (F4SE)", "0.7.8", "Legacy F4SE.7z");
+			CollectionConflictConstraint constraint = CreateConflict(source, "Fallout 4 Script Extender (F4SE)",
+				"<0.7.9 || >0.7.9");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, conflicting },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				conflictConstraints: new[] { constraint });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.CompatibilityConflict &&
+				x.SubjectKey == "native:native-old-f4se"));
+		}
+
+		[Test]
+		public void Plan_OldSourceCandidateBeingReinstalledIsNotTreatedAsExternalConflict()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "f4se", 42147, 407709, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState oldSource = CreateNativeMod(target, "native-old-source", 42147, 400000,
+				"Fallout 4 Script Extender (F4SE)", "0.7.8", "Fallout 4 Script Extender old.7z");
+			CollectionConflictConstraint constraint = CreateConflict(source, "Fallout 4 Script Extender (F4SE)",
+				"<0.7.9 || >0.7.9");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { oldSource },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				conflictConstraints: new[] { constraint });
+
+			Assert.AreEqual(CollectionMemberMatchDisposition.ReinstallRequired,
+				fixture.Matches.MembersByKey[source.IdentityResolution.Key].Disposition);
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.CompatibilityConflict));
+		}
+
+		[Test]
+		public void Plan_ConflictConstraintFlagsAnotherSelectedMemberMatchedByReference()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "source", 100, 200, 0);
+			NormalizedCollectionMember targetMember = CreateMember(1, "target", 101, 201, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionConflictConstraint constraint = CreateConflict(source, "Conflicting Mod", "*",
+				new[] { targetMember.IdentityResolution.Key });
+			Fixture fixture = CreateFixture(target, new[] { source, targetMember }, null,
+				new[] { CreateNativeMod(target, "native-source", 100, 200), CreateNativeMod(target, "native-target", 101, 201) },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				conflictConstraints: new[] { constraint });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State,
+				new[] { CreatePreview(source, null), CreatePreview(targetMember, null) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.CompatibilityConflict &&
+				x.SubjectKey == "member:" + targetMember.IdentityResolution.Key));
+		}
+
+		[Test]
+		public void Plan_ExactMd5ConflictWithoutCommittedMd5RequiresSingleExplicitEvaluation()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "source", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionVortexVersionMatch version;
+			string failure;
+			Assert.IsTrue(CollectionVortexVersionMatch.TryCreate("1.0", out version, out failure), failure);
+			var reference = new CollectionConflictReference("0123456789abcdef0123456789abcdef", null, null, null, null,
+				null, null, null, null, version);
+			var constraint = new CollectionConflictConstraint(source.IdentityResolution.Key, reference, new CollectionMemberKey[0]);
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-source", 100, 200);
+			CollectionNativeModState unknownA = CreateNativeMod(target, "native-unknown-a", 999, 999, "Other A", "1.0", "other-a.7z");
+			CollectionNativeModState unknownB = CreateNativeMod(target, "native-unknown-b", 998, 998, "Other B", "1.0", "other-b.7z");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, unknownA, unknownB },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				conflictConstraints: new[] { constraint });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.AreEqual(1, result.Issues.Count(x => x.Kind == CollectionConflictImpactIssueKind.ConflictReferenceEvaluationRequired));
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ConflictReferenceEvaluationRequired &&
+				x.SubjectKey == "constraint:" + source.IdentityResolution.Key));
 		}
 
 		private static ModInstallationRecipeInput CreatePreviewRecipeInput(NormalizedCollectionMember member,
@@ -654,7 +821,8 @@ namespace NexusClientTests
 			CollectionFilePriorityRule[] rules, CollectionNativeModState[] mods, CollectionNativeFileState[] files,
 			CollectionTargetAssociation[] associations, CollectionMemberBinding[] bindings, UserOverride[] overrides,
 			CollectionNativeStateCoverage pluginCoverage, CollectionNativeIniState[] iniStates = null,
-			CollectionNativeGameValueState[] gameValues = null, CollectionNativePluginState[] plugins = null)
+			CollectionNativeGameValueState[] gameValues = null, CollectionNativePluginState[] plugins = null,
+			CollectionDesiredPluginState[] desiredPlugins = null, CollectionConflictConstraint[] conflictConstraints = null)
 		{
 			CollectionNativeStateIndex state = new CollectionNativeStateIndex(target,
 				new CollectionNativeRootState[0], mods ?? new CollectionNativeModState[0], files ?? new CollectionNativeFileState[0],
@@ -665,7 +833,7 @@ namespace NexusClientTests
 			CollectionRevisionIdentity revision = CreateRevision();
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(revision,
 				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256A), 10, "schema", "normalizer-v3"),
-				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules);
+				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules, desiredPlugins, conflictConstraints);
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, report.Status);
 			ResolvedCollectionPlan plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
@@ -676,10 +844,22 @@ namespace NexusClientTests
 			return new Fixture(plan, state, matches, dependencyPlan);
 		}
 
-		private static CollectionNativeModState CreateNativeMod(CollectionTargetIdentity target, string nativeKey, long modId, long fileId)
+		private static CollectionNativeModState CreateNativeMod(CollectionTargetIdentity target, string nativeKey, long modId, long fileId,
+			string modName = "", string version = "1.0", string fileName = null)
 		{
-			return new CollectionNativeModState(new NativeModInstanceIdentity(target, nativeKey), "archive", nativeKey + ".7z",
-				modId.ToString(), fileId.ToString(), "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Virtual);
+			return new CollectionNativeModState(new NativeModInstanceIdentity(target, nativeKey), "archive", fileName ?? nativeKey + ".7z",
+				modName, modId.ToString(), fileId.ToString(), version, version, false, ModInstallRoot.Data, ModInstallMethod.Virtual);
+		}
+
+		private static CollectionConflictConstraint CreateConflict(NormalizedCollectionMember source, string logicalFileName,
+			string versionExpression, IEnumerable<CollectionMemberKey> matchingMemberKeys = null)
+		{
+			CollectionVortexVersionMatch version;
+			string failure;
+			Assert.IsTrue(CollectionVortexVersionMatch.TryCreate(versionExpression, out version, out failure), failure);
+			var reference = new CollectionConflictReference(null, logicalFileName, null, null, null, null, null, null, null, version);
+			return new CollectionConflictConstraint(source.IdentityResolution.Key, reference,
+				matchingMemberKeys ?? new CollectionMemberKey[0]);
 		}
 
 		private static CollectionNativeFileState CreateFile(ModDeploymentTarget target, string ownerKey)

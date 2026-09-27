@@ -69,16 +69,30 @@ namespace Nexus.Client.CollectionManagement
 			Uri sourceUri,
 			ConfirmOverwriteCallback confirmOverwriteCallback)
 		{
-			if (request == null)
-				throw new ArgumentNullException(nameof(request));
-			if (sourceUri == null)
-				throw new ArgumentNullException(nameof(sourceUri));
-			if (!sourceUri.IsAbsoluteUri)
-				throw new ArgumentException("An absolute AddMod source URI is required.", nameof(sourceUri));
-
+			if (request == null) throw new ArgumentNullException(nameof(request));
+			if (sourceUri == null) throw new ArgumentNullException(nameof(sourceUri));
+			if (!sourceUri.IsAbsoluteUri) throw new ArgumentException("An absolute AddMod source URI is required.", nameof(sourceUri));
 			ValidateSourceMatchesRequest(request, sourceUri);
-			string producerKey = CreateProducerKey(request.SelectedArtifact);
+			return QueueCore(request, sourceUri, confirmOverwriteCallback, GetPersistenceMode(sourceUri));
+		}
 
+		/// <summary>Queues one trusted deterministic embedded-member archive through the same native AddMod pipeline.</summary>
+		internal CollectionAcquisitionQueueCorrelation QueueMaterializedLocal(CollectionAcquisitionRequest request,
+			string archivePath, ConfirmOverwriteCallback confirmOverwriteCallback)
+		{
+			if (request == null) throw new ArgumentNullException(nameof(request));
+			if (!CollectionBundledArtifactIdentity.IsBundle(request.SelectedArtifact))
+				throw new ArgumentException("Only characterized Collection bundle artifacts may use materialized local AddMod input.", nameof(request));
+			if (String.IsNullOrWhiteSpace(archivePath)) throw new ArgumentException("A materialized archive path is required.", nameof(archivePath));
+			string fullPath = System.IO.Path.GetFullPath(archivePath);
+			if (!System.IO.File.Exists(fullPath)) throw new System.IO.FileNotFoundException("The materialized Collection bundle archive no longer exists.", fullPath);
+			return QueueCore(request, new Uri(fullPath), confirmOverwriteCallback, CollectionAcquisitionPersistenceMode.BundleMaterialization);
+		}
+
+		private CollectionAcquisitionQueueCorrelation QueueCore(CollectionAcquisitionRequest request, Uri sourceUri,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionAcquisitionPersistenceMode persistenceMode)
+		{
+			string producerKey = CreateProducerKey(request.SelectedArtifact);
 			lock (_syncRoot)
 			{
 				AcquisitionRequestIdentity existingIdentity;
@@ -116,12 +130,10 @@ namespace Nexus.Client.CollectionManagement
 					if (_acquisitionStore != null)
 					{
 						Guid? persistedQueueOperationId = _acquisitionStore.GetReusableQueueOperationId(request);
-						if (persistedQueueOperationId.HasValue)
-							queueOperationId = persistedQueueOperationId.Value;
+						if (persistedQueueOperationId.HasValue) queueOperationId = persistedQueueOperationId.Value;
 					}
 					IBackgroundTask task = _queue.Queue(sourceUri, confirmOverwriteCallback, queueOperationId);
-					if (task == null)
-						throw new InvalidOperationException("The native AddMod queue returned no background task for the acquisition request.");
+					if (task == null) throw new InvalidOperationException("The native AddMod queue returned no background task for the acquisition request.");
 
 					producer = new SharedAcquisitionProducer(producerKey, queueOperationId, task);
 					if (!CollectionAcquisitionConsumerTask.IsTerminal(task.Status))
@@ -133,17 +145,13 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				CollectionAcquisitionConsumerTask consumerTask = null;
-				consumerTask = new CollectionAcquisitionConsumerTask(
-					producer.Task,
+				consumerTask = new CollectionAcquisitionConsumerTask(producer.Task,
 					consumer => DetachConsumer(producer, request.RequestId, consumer));
-				var correlation = new CollectionAcquisitionQueueCorrelation(
-					request,
-					producer.QueueOperationId,
-					consumerTask);
+				var correlation = new CollectionAcquisitionQueueCorrelation(request, producer.QueueOperationId, consumerTask);
 
 				if (_acquisitionStore != null)
 				{
-					_acquisitionStore.TrackQueued(request, producer.QueueOperationId, GetPersistenceMode(sourceUri));
+					_acquisitionStore.TrackQueued(request, producer.QueueOperationId, persistenceMode);
 					if (CollectionAcquisitionConsumerTask.IsTerminal(producer.Task.Status))
 						_acquisitionStore.MarkProducerState(producer.QueueOperationId, producer.Task.Status);
 				}
@@ -229,11 +237,14 @@ namespace Nexus.Client.CollectionManagement
 			string gameDomain;
 			long modId;
 			long fileId;
-			if (!NexusCollectionModFileArtifactIdentity.TryParse(artifact, out gameDomain, out modId, out fileId))
-				throw new InvalidOperationException("The resolved Nexus artifact identity is malformed and cannot participate in shared acquisition.");
-
-			return NexusCollectionModFileArtifactIdentity.Scheme + ":" +
-				NexusCollectionModFileArtifactIdentity.Format(gameDomain, modId, fileId);
+			if (NexusCollectionModFileArtifactIdentity.TryParse(artifact, out gameDomain, out modId, out fileId))
+			{
+				return NexusCollectionModFileArtifactIdentity.Scheme + ":" +
+					NexusCollectionModFileArtifactIdentity.Format(gameDomain, modId, fileId);
+			}
+			if (CollectionBundledArtifactIdentity.IsBundle(artifact))
+				return CollectionBundledArtifactIdentity.Scheme + ":" + artifact.StableId;
+			throw new InvalidOperationException("The resolved artifact identity cannot participate in shared acquisition.");
 		}
 
 

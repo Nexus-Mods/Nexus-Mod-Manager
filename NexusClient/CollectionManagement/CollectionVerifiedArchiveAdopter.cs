@@ -224,6 +224,41 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
+		/// Protects deterministic archive bytes materialized from the exact revision-owned Collection bundle.
+		/// </summary>
+		/// <remarks>
+		/// The caller must already have resolved the embedded Vortex member against the retained manifest and bundle. This method
+		/// performs the retained-content integrity/lifetime transition only; it does not accept arbitrary local files as bundle input.
+		/// </remarks>
+		internal CollectionVerifiedArchive AdoptRevisionBundleMaterialization(CollectionAcquisitionRequest request,
+			CollectionsRetainedArtifact artifact, CancellationToken cancellationToken)
+		{
+			if (request == null) throw new ArgumentNullException(nameof(request));
+			if (artifact == null) throw new ArgumentNullException(nameof(artifact));
+			if (!CollectionBundledArtifactIdentity.IsBundle(request.SelectedArtifact))
+				throw new ArgumentException("Only a normalized Collection bundle artifact can use revision-bundle materialization.", nameof(request));
+			if (request.SelectedArtifact.ExpectedContentHash != null && !request.SelectedArtifact.ExpectedContentHash.Equals(artifact.ContentHash))
+				throw new InvalidDataException("The materialized Collection bundle archive does not match the request's expected digest.");
+			CollectionsRetainedArtifact stored = _artifactStore.GetArtifact(artifact.ArtifactId);
+			if (stored == null || !stored.ContentHash.Equals(artifact.ContentHash) || stored.ByteLength != artifact.ByteLength ||
+				!_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
+				throw new InvalidDataException("The materialized Collection bundle archive is not intact in retained storage.");
+
+			string role = CreateReferenceRole(request.SelectedArtifact);
+			string ownerId = request.RequestId.ToString("D");
+			CollectionVerifiedArchive existing = TryLoadExistingRequestReference(request, ownerId, role, cancellationToken);
+			if (existing != null)
+			{
+				if (!existing.Artifact.ContentHash.Equals(artifact.ContentHash) || existing.Artifact.ByteLength != artifact.ByteLength)
+					throw new InvalidDataException("The same Collection bundle request is already bound to different materialized bytes.");
+				return existing;
+			}
+
+			return Protect(request, artifact, ownerId, role, CollectionVerifiedArchiveSourceKind.RevisionBundle,
+				CollectionArchiveVerificationBasis.RevisionBundleMaterialization);
+		}
+
+		/// <summary>
 		/// Rebinds already verified immutable bytes to a refreshed plan-version request for the same exact member artifact.
 		/// </summary>
 		/// <remarks>

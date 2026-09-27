@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -12,6 +13,35 @@ namespace Nexus.Client.CollectionManagement
 		Unknown = 0,
 		Complete = 1,
 		Incomplete = 2
+	}
+
+	/// <summary>One normalized Vortex Collection plugin-state declaration.</summary>
+	/// <remarks>
+	/// Vortex applies these declarations only to plugin files contributed by the effective installed Collection member closure.
+	/// A contributed plugin absent from the enabled declarations is desired inactive. This record preserves the exact source name/state;
+	/// it does not independently claim ownership of a native plugin.
+	/// </remarks>
+	public sealed class CollectionDesiredPluginState : IEquatable<CollectionDesiredPluginState>
+	{
+		public CollectionDesiredPluginState(string pluginName, bool enabled)
+		{
+			PluginName = CollectionDomainValidation.RequireDisplayValue(pluginName, nameof(pluginName));
+			Enabled = enabled;
+		}
+
+		public string PluginName { get; }
+		public bool Enabled { get; }
+
+		public bool Equals(CollectionDesiredPluginState other)
+		{
+			return other != null && StringComparer.OrdinalIgnoreCase.Equals(PluginName, other.PluginName) && Enabled == other.Enabled;
+		}
+
+		public override bool Equals(object obj) { return Equals(obj as CollectionDesiredPluginState); }
+		public override int GetHashCode()
+		{
+			unchecked { return (StringComparer.OrdinalIgnoreCase.GetHashCode(PluginName) * 397) ^ Enabled.GetHashCode(); }
+		}
 	}
 
 	/// <summary>
@@ -26,6 +56,8 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<NormalizedCollectionMember> _members;
 		private readonly ReadOnlyCollection<CollectionMemberDependency> _dependencies;
 		private readonly ReadOnlyCollection<CollectionFilePriorityRule> _filePriorityRules;
+		private readonly ReadOnlyCollection<CollectionConflictConstraint> _conflictConstraints;
+		private readonly ReadOnlyCollection<CollectionDesiredPluginState> _pluginStates;
 
 		/// <summary>
 		/// Creates an immutable normalized collection manifest snapshot.
@@ -36,7 +68,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionManifestMemberSetCompleteness memberSetCompleteness,
 			string incompletenessReason,
 			IEnumerable<NormalizedCollectionMember> members)
-			: this(revision, source, memberSetCompleteness, incompletenessReason, members, null, null)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, null, null, null, null)
 		{
 		}
 
@@ -50,7 +82,7 @@ namespace Nexus.Client.CollectionManagement
 			string incompletenessReason,
 			IEnumerable<NormalizedCollectionMember> members,
 			IEnumerable<CollectionMemberDependency> dependencies)
-			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, null)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, null, null, null)
 		{
 		}
 
@@ -65,6 +97,39 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<NormalizedCollectionMember> members,
 			IEnumerable<CollectionMemberDependency> dependencies,
 			IEnumerable<CollectionFilePriorityRule> filePriorityRules)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, null, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates an immutable normalized collection manifest with characterized member relationships and Collection plugin-state declarations.
+		/// </summary>
+		public NormalizedCollectionManifest(
+			CollectionRevisionIdentity revision,
+			CollectionManifestSourceSnapshot source,
+			CollectionManifestMemberSetCompleteness memberSetCompleteness,
+			string incompletenessReason,
+			IEnumerable<NormalizedCollectionMember> members,
+			IEnumerable<CollectionMemberDependency> dependencies,
+			IEnumerable<CollectionFilePriorityRule> filePriorityRules,
+			IEnumerable<CollectionDesiredPluginState> pluginStates)
+			: this(revision, source, memberSetCompleteness, incompletenessReason, members, dependencies, filePriorityRules, pluginStates, null)
+		{
+		}
+
+		/// <summary>
+		/// Creates an immutable normalized collection manifest with characterized relationships, plugin state and conflict constraints.
+		/// </summary>
+		public NormalizedCollectionManifest(
+			CollectionRevisionIdentity revision,
+			CollectionManifestSourceSnapshot source,
+			CollectionManifestMemberSetCompleteness memberSetCompleteness,
+			string incompletenessReason,
+			IEnumerable<NormalizedCollectionMember> members,
+			IEnumerable<CollectionMemberDependency> dependencies,
+			IEnumerable<CollectionFilePriorityRule> filePriorityRules,
+			IEnumerable<CollectionDesiredPluginState> pluginStates,
+			IEnumerable<CollectionConflictConstraint> conflictConstraints)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -138,6 +203,39 @@ namespace Nexus.Client.CollectionManagement
 			_members = new ReadOnlyCollection<NormalizedCollectionMember>(copiedMembers);
 			_dependencies = new ReadOnlyCollection<CollectionMemberDependency>(copiedDependencies);
 			_filePriorityRules = new ReadOnlyCollection<CollectionFilePriorityRule>(copiedFilePriorityRules);
+
+			List<CollectionConflictConstraint> copiedConflictConstraints = new List<CollectionConflictConstraint>();
+			HashSet<CollectionConflictConstraint> uniqueConflictConstraints = new HashSet<CollectionConflictConstraint>();
+			if (conflictConstraints != null)
+			{
+				foreach (CollectionConflictConstraint constraint in conflictConstraints)
+				{
+					if (constraint == null)
+						throw new ArgumentException("A normalized manifest cannot contain a null conflict constraint.", nameof(conflictConstraints));
+					if (!resolvedKeys.Contains(constraint.SourceMemberKey) || constraint.MatchingMemberKeys.Any(x => !resolvedKeys.Contains(x)))
+						throw new ArgumentException("A normalized conflict constraint must reference only resolved members in the same manifest.", nameof(conflictConstraints));
+					if (!uniqueConflictConstraints.Add(constraint))
+						throw new ArgumentException("A normalized manifest cannot contain duplicate conflict constraints.", nameof(conflictConstraints));
+					copiedConflictConstraints.Add(constraint);
+				}
+			}
+			_conflictConstraints = new ReadOnlyCollection<CollectionConflictConstraint>(copiedConflictConstraints);
+
+			HasPluginStateSection = pluginStates != null;
+			List<CollectionDesiredPluginState> copiedPluginStates = new List<CollectionDesiredPluginState>();
+			HashSet<string> pluginNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			if (pluginStates != null)
+			{
+				foreach (CollectionDesiredPluginState pluginState in pluginStates)
+				{
+					if (pluginState == null)
+						throw new ArgumentException("A normalized manifest cannot contain a null plugin-state declaration.", nameof(pluginStates));
+					if (!pluginNames.Add(pluginState.PluginName))
+						throw new ArgumentException("A normalized manifest cannot contain duplicate plugin-state declarations.", nameof(pluginStates));
+					copiedPluginStates.Add(pluginState);
+				}
+			}
+			_pluginStates = new ReadOnlyCollection<CollectionDesiredPluginState>(copiedPluginStates);
 		}
 
 		/// <summary>
@@ -186,6 +284,24 @@ namespace Nexus.Client.CollectionManagement
 		{
 			get { return _filePriorityRules; }
 		}
+
+		/// <summary>Gets characterized Vortex conflict constraints. These are compatibility checks, never file-priority rules.</summary>
+		public ReadOnlyCollection<CollectionConflictConstraint> ConflictConstraints
+		{
+			get { return _conflictConstraints; }
+		}
+
+		/// <summary>
+		/// Gets Collection plugin-state declarations retained from the manifest. They are interpreted only against plugin files
+		/// contributed by the effective selected member closure.
+		/// </summary>
+		public ReadOnlyCollection<CollectionDesiredPluginState> PluginStates
+		{
+			get { return _pluginStates; }
+		}
+
+		/// <summary>Gets whether collection.json explicitly supplied the Vortex plugins array, including an intentionally empty array.</summary>
+		public bool HasPluginStateSection { get; }
 
 		/// <summary>
 		/// Gets whether the source member set is known to be complete.

@@ -189,8 +189,11 @@ namespace Nexus.Client.CollectionManagement
 			var acquisitionRestart = new CollectionAcquisitionRestartCoordinator(acquisitionStore,
 				new SettingsCollectionPersistedAddModStateSource(_services.ModManager.EnvironmentInfo, _services.ModManager.GameMode.ModeId),
 				archiveAdopter, premiumCoordinator);
+			var bundledMaterializer = new NexusCollectionBundledArtifactMaterializer(_store, _revisionSourceStore);
+			var bundledAcquisition = new NexusCollectionBundledMemberAcquisitionCoordinator(bundledMaterializer,
+				archiveAdopter, requestCoordinator, _services.ModManager);
 			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(new CollectionMemberMatchEngine(), archiveAdopter,
-				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator);
+				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator, bundledAcquisition);
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);
 
