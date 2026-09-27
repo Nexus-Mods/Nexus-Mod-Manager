@@ -947,6 +947,8 @@
     "Mods.DeploymentOverwrite.Existing": "Spieldatei „{0}“ existiert bereits.",
     "Mods.DeploymentOverwrite.ExistingReadOnly": "Spieldatei „{0}“ existiert bereits und ist schreibgeschützt.",
     "Mods.DeploymentOverwrite.Managed": "Spieldatei „{0}“ gehört bereits zu einem anderen verwalteten Mod.",
+    "Mods.DeploymentOverwrite.ManagedOwner": "Spieldatei „{0}“ gehört bereits zum verwalteten Mod „{1}“.",
+    "Mods.DeploymentOverwrite.ManagedOwnerReadOnly": "Spieldatei „{0}“ gehört bereits zum verwalteten Mod „{1}“ und ist schreibgeschützt.",
     "Mods.DeploymentOverwrite.ManagedReadOnly": "Spieldatei „{0}“ gehört bereits zu einem anderen verwalteten Mod und ist schreibgeschützt.",
     "Mods.DeploymentOverwrite.Question": "Mit der Datei des Mods {0} überschreiben?",
     "Mods.DisableAll.Confirm.Message": "Möchtest du alle aktiven Mods deaktivieren?",

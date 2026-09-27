@@ -947,6 +947,8 @@
     "Mods.DeploymentOverwrite.Existing": "Oyun dosyası '{0}' zaten mevcut.",
     "Mods.DeploymentOverwrite.ExistingReadOnly": "Oyun dosyası '{0}' zaten mevcut ve salt okunur.",
     "Mods.DeploymentOverwrite.Managed": "Oyun dosyası '{0}' zaten başka bir yönetilen moda ait.",
+    "Mods.DeploymentOverwrite.ManagedOwner": "Oyun dosyası '{0}' zaten yönetilen '{1}' moduna ait.",
+    "Mods.DeploymentOverwrite.ManagedOwnerReadOnly": "Oyun dosyası '{0}' zaten yönetilen '{1}' moduna ait ve salt okunur.",
     "Mods.DeploymentOverwrite.ManagedReadOnly": "Oyun dosyası '{0}' zaten başka bir yönetilen moda ait ve salt okunur.",
     "Mods.DeploymentOverwrite.Question": "{0} modunun dosyasıyla üzerine yazılsın mı?",
     "Mods.DisableAll.Confirm.Message": "Tüm etkin modları devre dışı bırakmak istiyor musunuz?",

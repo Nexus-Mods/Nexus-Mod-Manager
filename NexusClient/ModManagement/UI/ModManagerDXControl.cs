@@ -53,6 +53,7 @@
 		// ── fields ──────────────────────────────────────────────────────────
 
 		private ModManagerVM _viewModel;
+		private ReadOnlyObservableList<IMod> _subscribedActiveMods;
 		private readonly ModGridDXControl _modGridControl;
 		private readonly GridModListSurface _gridModListSurface;
 		private ModCategoryTreeDXControl _modCategoryTreeControl;
@@ -281,6 +282,7 @@
 			_virtualInstallMethodText = LanguageManager.Get("MainForm.InstallMethod.Virtual", "Virtual");
 			_missingArchiveToolTipText = LanguageManager.Get("Mods.MissingArchive.Title", "Missing Mod Archive");
 			InitializeComponent();
+			Disposed += ModManagerDXControl_Disposed;
 			_missingArchiveToolTip = new ToolTip(components) { ShowAlways = true };
 			_modGridControl = new ModGridDXControl
 			{
@@ -545,7 +547,8 @@
 			_viewModel.ExportSucceeded += VM_ExportSucceeded;
 
 			_viewModel.ManagedMods.CollectionChanged += ManagedMods_CollectionChanged;
-			_viewModel.ActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
+			_viewModel.ModManager.NativeStateReinitialized += ModManager_NativeStateReinitialized;
+			RebindActiveModsCollection();
 			if (_viewModel.CategoryManager != null)
 				_viewModel.CategoryManager.CategoriesChanged += CategoryManager_CategoriesChanged;
 
@@ -591,6 +594,15 @@
 			_toolbarCommandBindings.Clear();
 		}
 
+		private void ModManagerDXControl_Disposed(object sender, EventArgs e)
+		{
+			if (_viewModel == null)
+				return;
+
+			_viewModel.ModManager.NativeStateReinitialized -= ModManager_NativeStateReinitialized;
+			UnbindActiveModsCollection();
+		}
+
 		private void UnhookViewModel()
 		{
 			DisposeToolbarCommandBindings();
@@ -616,7 +628,8 @@
 			_viewModel.ExportSucceeded -= VM_ExportSucceeded;
 
 			_viewModel.ManagedMods.CollectionChanged -= ManagedMods_CollectionChanged;
-			_viewModel.ActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			_viewModel.ModManager.NativeStateReinitialized -= ModManager_NativeStateReinitialized;
+			UnbindActiveModsCollection();
 			if (_viewModel.CategoryManager != null)
 				_viewModel.CategoryManager.CategoriesChanged -= CategoryManager_CategoriesChanged;
 
@@ -1072,6 +1085,48 @@
 			}
 
 			return DevExpress.XtraGrid.GridControl.InvalidRowHandle;
+		}
+
+		/// <summary>Moves the UI subscription to the current ActiveMods collection after native authority reload.</summary>
+		private void RebindActiveModsCollection()
+		{
+			ReadOnlyObservableList<IMod> current = _viewModel?.ActiveMods;
+			if (ReferenceEquals(current, _subscribedActiveMods))
+				return;
+
+			if (_subscribedActiveMods != null)
+				_subscribedActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			_subscribedActiveMods = current;
+			if (_subscribedActiveMods != null)
+				_subscribedActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
+		}
+
+		/// <summary>Detaches the UI from whichever ActiveMods instance it actually subscribed to.</summary>
+		private void UnbindActiveModsCollection()
+		{
+			if (_subscribedActiveMods != null)
+				_subscribedActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			_subscribedActiveMods = null;
+		}
+
+		private void ModManager_NativeStateReinitialized(object sender, EventArgs e)
+		{
+			// Rebind synchronously: the native operation may mutate the replacement collection as soon as this event returns.
+			RebindActiveModsCollection();
+
+			if (IsDisposed || Disposing || !IsHandleCreated)
+				return;
+
+			Action refresh = () =>
+			{
+				if (_viewModel == null || IsDisposed || Disposing)
+					return;
+				ActiveMods_CollectionChanged(_subscribedActiveMods, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+			};
+			if (InvokeRequired)
+				BeginInvoke(refresh);
+			else
+				refresh();
 		}
 
 		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)

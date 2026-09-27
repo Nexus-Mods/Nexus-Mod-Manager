@@ -104,6 +104,15 @@ namespace Nexus.Client.ModManagement
 		public event EventHandler<EventArgs<IBackgroundTask>> UpdateCategoriesCheckStarted = delegate { };
 		public event EventHandler<EventArgs<IBackgroundTask>> AutomaticDownloadStarted = delegate { };
 
+		/// <summary>
+		/// Raised after the authoritative InstallLog and all native services derived from it have been rebound.
+		/// </summary>
+		/// <remarks>
+		/// Long-lived consumers that subscribe directly to <see cref="ActiveMods"/> must move their subscription to the
+		/// replacement collection before a post-reload mutation begins. The event is raised synchronously for that reason.
+		/// </remarks>
+		public event EventHandler NativeStateReinitialized = delegate { };
+
 		#endregion
 
 		#region Properties
@@ -947,6 +956,7 @@ namespace Nexus.Client.ModManagement
 			if (m_ipmProfileManager != null)
 				InstallerFactory.SetProfileManager(m_ipmProfileManager);
 			m_macModActivator = null;
+			NativeStateReinitialized(this, EventArgs.Empty);
 		}
 
 		#region Mod Activation/Deactivation

@@ -162,7 +162,7 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken, GameStoragePathSet paths, CollectionTargetIdentity target)
 		{
 			var store = new CollectionsStore(paths);
-			EnsureStoreAvailable(store);
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(store);
 			var associationStore = new CollectionsAssociationStore(store);
 			var artifactStore = new CollectionsRetainedArtifactStore(store);
 			var referenceStore = new CollectionsRetainedArtifactReferenceStore(store);
@@ -256,23 +256,6 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private static void EnsureStoreAvailable(CollectionsStore store)
-		{
-			if (!store.Exists)
-			{
-				try
-				{
-					store.CreateNew();
-					return;
-				}
-				catch (IOException)
-				{
-					if (!store.Exists)
-						throw;
-				}
-			}
-			store.OpenExisting();
-		}
 
 		private static IReadOnlyList<LocalCaptureNativeRecordMapping> CreateNativeMappings(LocalCaptureIdentity captureIdentity,
 			CollectionTargetIdentity target, IEnumerable<CollectionInstalledModIdentity> mods)

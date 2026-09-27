@@ -452,6 +452,67 @@ VALUES
 			}
 		}
 
+		/// <summary>
+		/// Stores FOMod metadata and commits it before returning. Use this for user-visible metadata that
+		/// cannot be reconstructed from the unchanged archive when archive edits are disabled.
+		/// </summary>
+		internal void SaveDurable(string archivePath, FOModArchiveMetadata metadata)
+		{
+			try
+			{
+				// This trusted metadata write can be reached through a callback from the restricted C# script AppDomain.
+				new PermissionSet(PermissionState.Unrestricted).Assert();
+
+				if (!_available)
+				{
+					throw new InvalidOperationException("The FOMod archive metadata store is unavailable.");
+				}
+				if (metadata == null || metadata.InfoXml == null)
+				{
+					throw new ArgumentException("FOMod metadata with info.xml content is required.", nameof(metadata));
+				}
+
+				var archiveInfo = new FileInfo(archivePath);
+				if (!archiveInfo.Exists)
+				{
+					throw new FileNotFoundException("The archive required by the FOMod metadata update is unavailable.", archivePath);
+				}
+
+				_database.ExecuteDurableWrite((connection, transaction) =>
+				{
+					using (var command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = @"
+INSERT OR REPLACE INTO archive_metadata
+	(archive_path, archive_length, archive_write_time_utc, prefix_path, install_script_path, install_script_type, nested_archive, info_xml, screenshot_path, updated_utc)
+VALUES
+	(@archive_path, @archive_length, @archive_write_time_utc, @prefix_path, @install_script_path, @install_script_type, @nested_archive, @info_xml, @screenshot_path, @updated_utc);";
+						command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+						command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+						command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
+						command.Parameters.AddWithValue("@prefix_path", (object)metadata.PrefixPath ?? DBNull.Value);
+						command.Parameters.AddWithValue("@install_script_path", (object)metadata.InstallScriptPath ?? DBNull.Value);
+						command.Parameters.AddWithValue("@install_script_type", (object)metadata.InstallScriptType ?? DBNull.Value);
+						command.Parameters.AddWithValue("@nested_archive", metadata.HasNestedArchive);
+						command.Parameters.AddWithValue("@info_xml", metadata.InfoXml);
+						command.Parameters.AddWithValue("@screenshot_path", (object)metadata.ScreenshotPath ?? DBNull.Value);
+						command.Parameters.AddWithValue("@updated_utc", DateTime.UtcNow.Ticks);
+						command.ExecuteNonQuery();
+					}
+				});
+
+				lock (_database.SyncRoot)
+				{
+					_database.AddArchiveFingerprint(archivePath, archiveInfo.Length, archiveInfo.LastWriteTimeUtc.Ticks);
+				}
+			}
+			finally
+			{
+				PermissionSet.RevertAssert();
+			}
+		}
+
 		public void Save(string archivePath, FOModArchiveMetadata metadata)
 		{
 			try

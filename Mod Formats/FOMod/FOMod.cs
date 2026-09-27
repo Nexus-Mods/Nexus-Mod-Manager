@@ -540,14 +540,14 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 		}
 
-		private void SaveMetadataCache()
+		private void SaveMetadataCache(bool durable = false)
 		{
 			if (_metadataCache == null || _cachedInfoXml == null)
 			{
 				return;
 			}
 
-			_metadataCache.Save(ModArchivePath, new FOModArchiveMetadata
+			var metadata = new FOModArchiveMetadata
 			{
 				PrefixPath = string.IsNullOrEmpty(_prefixPath) ? null : _prefixPath,
 				InstallScriptPath = string.IsNullOrEmpty(_installScriptPath) ? null : _installScriptPath,
@@ -555,7 +555,16 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				HasNestedArchive = !string.IsNullOrEmpty(_nestedFilePath),
 				InfoXml = _cachedInfoXml,
 				ScreenshotPath = ScreenshotPath
-			});
+			};
+
+			if (durable)
+			{
+				_metadataCache.SaveDurable(ModArchivePath, metadata);
+			}
+			else
+			{
+				_metadataCache.Save(ModArchivePath, metadata);
+			}
 		}
 
 		#endregion
@@ -926,7 +935,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (IsInfoFile(path))
 			{
 				_cachedInfoXml = data;
-				SaveMetadataCache();
+				SaveMetadataCache(true);
 			}
 			else if (IsScreenshotFile(path))
 			{
@@ -960,7 +969,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			if (IsInfoFile(path))
 			{
 				_cachedInfoXml = Encoding.UTF8.GetBytes(data);
-				SaveMetadataCache();
+				SaveMetadataCache(true);
 			}
 
 			if (AllowArchiveEdits && !ArchiveFile.ReadOnly && !ArchiveFile.IsSolid)

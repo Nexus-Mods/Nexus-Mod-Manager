@@ -947,6 +947,8 @@
     "Mods.DeploymentOverwrite.Existing": "游戏文件“{0}”已存在。",
     "Mods.DeploymentOverwrite.ExistingReadOnly": "游戏文件“{0}”已存在且为只读。",
     "Mods.DeploymentOverwrite.Managed": "游戏文件“{0}”已由另一个受管理的 Mod 拥有。",
+    "Mods.DeploymentOverwrite.ManagedOwner": "游戏文件“{0}”已由受管理的 Mod“{1}”拥有。",
+    "Mods.DeploymentOverwrite.ManagedOwnerReadOnly": "游戏文件“{0}”已由受管理的 Mod“{1}”拥有且为只读。",
     "Mods.DeploymentOverwrite.ManagedReadOnly": "游戏文件“{0}”已由另一个受管理的 Mod 拥有且为只读。",
     "Mods.DeploymentOverwrite.Question": "是否使用 Mod {0} 的文件覆盖？",
     "Mods.DisableAll.Confirm.Message": "是否要禁用所有已激活的 Mod？",

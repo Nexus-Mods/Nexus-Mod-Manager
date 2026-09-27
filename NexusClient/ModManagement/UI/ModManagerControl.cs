@@ -28,6 +28,7 @@ namespace Nexus.Client.ModManagement.UI
 	public partial class ModManagerControl : ManagedFontDockContent, IModManagerView
 	{
 		private ModManagerVM _viewModel = null;
+		private ReadOnlyObservableList<IMod> m_rolSubscribedActiveMods = null;
 		private List<IBackgroundTaskSet> lstRunningTaskSets = new List<IBackgroundTaskSet>();
 		private bool m_booResizing = false;
 		private Timer m_tmrColumnSizer = new Timer();
@@ -70,7 +71,8 @@ namespace Nexus.Client.ModManagement.UI
 				_viewModel.ChangingModActivation += ViewModel_ChangingModActivation;
 				_viewModel.TaggingMod += ViewModel_TaggingMod;
 				_viewModel.ManagedMods.CollectionChanged += ManagedMods_CollectionChanged;
-				_viewModel.ActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
+				_viewModel.ModManager.NativeStateReinitialized += ModManager_NativeStateReinitialized;
+				RebindActiveModsCollection();
 
 				_viewModel.ExportFailed += new EventHandler<ExportFailedEventArgs>(ViewModel_ExportFailed);
 				_viewModel.ExportSucceeded += new EventHandler<ExportSucceededEventArgs>(ViewModel_ExportSucceeded);
@@ -132,6 +134,7 @@ namespace Nexus.Client.ModManagement.UI
 		{
 			Load += ModManagerControl_Load;
 			InitializeComponent();
+			Disposed += ModManagerControl_Disposed;
 
 			clwCategoryView.BeforeSorting += clwCategoryView_BeforeSorting;
 			clwCategoryView.ColumnClick += clwCategoryView_ColumnClick;
@@ -2156,6 +2159,42 @@ namespace Nexus.Client.ModManagement.UI
 			e.Argument.TaskStarted += TaskSet_TaskStarted;
 			e.Argument.TaskSetCompleted += TaskSet_TaskSetCompleted;
 			lstRunningTaskSets.Add(e.Argument);
+		}
+
+		/// <summary>Moves the legacy UI subscription to the current ActiveMods collection after native authority reload.</summary>
+		private void RebindActiveModsCollection()
+		{
+			ReadOnlyObservableList<IMod> current = _viewModel?.ActiveMods;
+			if (ReferenceEquals(current, m_rolSubscribedActiveMods))
+				return;
+
+			if (m_rolSubscribedActiveMods != null)
+				m_rolSubscribedActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			m_rolSubscribedActiveMods = current;
+			if (m_rolSubscribedActiveMods != null)
+				m_rolSubscribedActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
+		}
+
+		private void ModManager_NativeStateReinitialized(object sender, EventArgs e)
+		{
+			// Rebind before the reloaded native operation is allowed to continue.
+			RebindActiveModsCollection();
+			if (IsDisposed || Disposing || !IsHandleCreated)
+				return;
+
+			ActiveMods_CollectionChanged(m_rolSubscribedActiveMods,
+				new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+		}
+
+		private void ModManagerControl_Disposed(object sender, EventArgs e)
+		{
+			if (_viewModel == null)
+				return;
+
+			_viewModel.ModManager.NativeStateReinitialized -= ModManager_NativeStateReinitialized;
+			if (m_rolSubscribedActiveMods != null)
+				m_rolSubscribedActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			m_rolSubscribedActiveMods = null;
 		}
 
 		/// <summary>

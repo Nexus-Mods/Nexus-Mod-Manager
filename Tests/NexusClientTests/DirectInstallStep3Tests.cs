@@ -44,6 +44,32 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void DirectOverwritePrompt_NamesCurrentManagedWinner()
+		{
+			using (var environment = new DirectTestEnvironment())
+			{
+				IMod currentWinner = environment.RegisterDirectMod("Current Winner");
+				IMod incoming = environment.RegisterDirectMod("Incoming");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"textures\conflict.dds");
+				environment.Install(currentWinner, target, "winner");
+
+				string prompt = null;
+				var resolver = new ModDeploymentOverwriteResolver(
+					incoming, environment.InstallLog, environment.Manager,
+					(message, allowGroup, hasOwner) =>
+					{
+						prompt = message;
+						Assert.IsTrue(hasOwner);
+						return OverwriteResult.No;
+					});
+
+				Assert.IsFalse(resolver.ShouldActivate(target));
+				StringAssert.Contains("Current Winner", prompt);
+				StringAssert.Contains("Incoming", prompt);
+			}
+		}
+
+		[Test]
 		public void DirectGeneratedFile_WritesFinalDestinationWithoutVirtualStaging()
 		{
 			using (var environment = new DirectTestEnvironment())

@@ -947,6 +947,8 @@
     "Mods.DeploymentOverwrite.Existing": "Le fichier du jeu « {0} » existe déjà.",
     "Mods.DeploymentOverwrite.ExistingReadOnly": "Le fichier du jeu « {0} » existe déjà et est en lecture seule.",
     "Mods.DeploymentOverwrite.Managed": "Le fichier du jeu « {0} » appartient déjà à un autre mod géré.",
+    "Mods.DeploymentOverwrite.ManagedOwner": "Le fichier du jeu « {0} » appartient déjà au mod géré « {1} ».",
+    "Mods.DeploymentOverwrite.ManagedOwnerReadOnly": "Le fichier du jeu « {0} » appartient déjà au mod géré « {1} » et est en lecture seule.",
     "Mods.DeploymentOverwrite.ManagedReadOnly": "Le fichier du jeu « {0} » appartient déjà à un autre mod géré et est en lecture seule.",
     "Mods.DeploymentOverwrite.Question": "Écraser avec le fichier du mod {0} ?",
     "Mods.DisableAll.Confirm.Message": "Voulez-vous désactiver tous les mods actifs ?",

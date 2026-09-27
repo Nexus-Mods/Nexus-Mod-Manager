@@ -73,6 +73,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("A concrete Collection revision must be resolved before importing its bundle.");
 			if (String.IsNullOrWhiteSpace(sourcePath)) throw new ArgumentException("A bundle path is required.", nameof(sourcePath));
 			cancellationToken.ThrowIfCancellationRequested();
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
 
 			NexusCollectionBundleImportResult bundleImport = _bundleImporter.ImportFile(sourcePath, preview.Revision);
 			_catalogStore.SaveDefinitionAndRevision(preview.Definition, preview.Revision);
@@ -94,6 +95,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!preview.HasConcreteRevision || preview.RevisionLookup == null || preview.RevisionLookup.Revision == null)
 				throw new InvalidOperationException("A concrete provider revision must be resolved before downloading its Collection bundle.");
 
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
 			_catalogStore.SaveDefinitionAndRevision(preview.Definition, preview.Revision);
 			using (var acquirer = new NexusCollectionBundleAcquirer(_provider, _store))
 			{
@@ -118,6 +120,7 @@ namespace Nexus.Client.CollectionManagement
 		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection selection,
 			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
 		{
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
 			return _workflow.PrepareAsync(selection, GetTargetPaths(), confirmOverwriteCallback, cancellationToken);
 		}
 
@@ -150,6 +153,8 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Reconciles incomplete additive operations for the active target before resume.</summary>
 		public Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(CancellationToken cancellationToken)
 		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return Task.FromResult((IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>)new CollectionAdditiveWorkflowRecoveryResult[0]);
 			return _workflow.ReconcileIncompleteTargetAsync(GetTargetPaths(), cancellationToken);
 		}
 

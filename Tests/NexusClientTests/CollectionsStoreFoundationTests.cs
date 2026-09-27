@@ -64,6 +64,64 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void StoreBootstrap_ExplicitFeatureUseCreatesMissingStoreAndPreservesExistingIdentity()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				CollectionsStoreStatus created = CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(store);
+				Assert.IsTrue(store.Exists);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, created.SchemaVersion);
+				Assert.IsTrue(created.HasRequiredDurabilitySettings);
+
+				CollectionsStoreStatus reopened = CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(store);
+				Assert.AreEqual(created.StoreId, reopened.StoreId);
+				Assert.AreEqual(created.StoreId, store.ReadStoreId());
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void StoreBootstrap_ReadProbeDoesNotCreateMissingStore()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Assert.IsNull(CollectionsStoreBootstrap.OpenExistingIfPresent(store));
+				Assert.IsFalse(store.Exists);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void StoreBootstrap_DoesNotReplaceAnExistingCorruptStore()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Directory.CreateDirectory(store.StoreDirectory);
+				byte[] corruptBytes = { 0x4e, 0x4d, 0x4d, 0x2d, 0x46, 0x49, 0x58, 0x34 };
+				File.WriteAllBytes(store.DatabasePath, corruptBytes);
+
+				Assert.Throws<CollectionsStoreAccessException>(() => CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(store));
+				CollectionAssert.AreEqual(corruptBytes, File.ReadAllBytes(store.DatabasePath));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void CreateNew_CreatesVersionedFeatureSchemaAndStableStoreIdentity()
 		{
 			string root = CreateTemporaryDirectory();

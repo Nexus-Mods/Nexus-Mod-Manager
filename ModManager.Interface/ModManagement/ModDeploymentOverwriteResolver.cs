@@ -89,8 +89,22 @@ namespace Nexus.Client.ModManagement
 			bool readOnly = new FileInfo(deploymentPath).IsReadOnly;
 			bool hasManagedOwner = !string.IsNullOrEmpty(currentOwnerKey) &&
 				!currentOwnerKey.Equals(m_ilgInstallLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase);
+			IMod currentOwner = hasManagedOwner ? m_mdmDeploymentManager.GetOwnerMod(currentOwnerKey) : null;
+			string currentOwnerName = currentOwner == null ? null : currentOwner.ModName;
 			string message;
-			if (hasManagedOwner)
+			if (hasManagedOwner && !string.IsNullOrWhiteSpace(currentOwnerName))
+			{
+				message = readOnly
+					? LanguageManager.Format(
+						"Mods.DeploymentOverwrite.ManagedOwnerReadOnly",
+						"Game file '{0}' is already owned by managed mod '{1}' and is read-only.",
+						p_mdtTarget.RelativePath, currentOwnerName)
+					: LanguageManager.Format(
+						"Mods.DeploymentOverwrite.ManagedOwner",
+						"Game file '{0}' is already owned by managed mod '{1}'.",
+						p_mdtTarget.RelativePath, currentOwnerName);
+			}
+			else if (hasManagedOwner)
 			{
 				message = readOnly
 					? LanguageManager.Format(

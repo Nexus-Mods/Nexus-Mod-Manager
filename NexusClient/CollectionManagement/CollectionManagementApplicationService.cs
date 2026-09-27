@@ -72,6 +72,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly ServiceManager _services;
 		private readonly GameStorageService _gameStorageService;
+		private readonly CollectionsStore _store;
 		private readonly CollectionsCatalogStore _catalogStore;
 		private readonly CollectionsAssociationStore _associationStore;
 		private readonly CollectionsOperationStore _operationStore;
@@ -88,15 +89,15 @@ namespace Nexus.Client.CollectionManagement
 			if (_services.ModManager == null)
 				throw new InvalidOperationException("Collection management requires the active native ModManager.");
 
-			var store = new CollectionsStore(GetTargetPaths());
-			_catalogStore = new CollectionsCatalogStore(store);
-			_associationStore = new CollectionsAssociationStore(store);
-			_operationStore = new CollectionsOperationStore(store);
+			_store = new CollectionsStore(GetTargetPaths());
+			_catalogStore = new CollectionsCatalogStore(_store);
+			_associationStore = new CollectionsAssociationStore(_store);
+			_operationStore = new CollectionsOperationStore(_store);
 			_uninstallCoordinator = new CollectionUninstallEffectsCoordinator(_services, _gameStorageService,
 				_operationStore, _associationStore);
-			_localCaptureStore = new CollectionsLocalCaptureStore(store);
-			var artifactStore = new CollectionsRetainedArtifactStore(store);
-			var referenceStore = new CollectionsRetainedArtifactReferenceStore(store);
+			_localCaptureStore = new CollectionsLocalCaptureStore(_store);
+			var artifactStore = new CollectionsRetainedArtifactStore(_store);
+			var referenceStore = new CollectionsRetainedArtifactReferenceStore(_store);
 			_localRestoreResumeCoordinator = new CollectionLocalRestoreMemberResumeCoordinator(_services, _gameStorageService,
 				_operationStore, _associationStore, _localCaptureStore, artifactStore, referenceStore);
 			_localRestoreWorkflow = new CollectionLocalRestoreApplicationService(_services, _gameStorageService, _operationStore,
@@ -106,6 +107,8 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Returns installed Collection associations for the current canonical target.</summary>
 		public IReadOnlyList<CollectionManagementAssociation> GetAssociations()
 		{
+			if (!_store.Exists)
+				return new CollectionManagementAssociation[0];
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var result = new List<CollectionManagementAssociation>();
 			foreach (CollectionTargetAssociation association in _associationStore.GetAssociationsForTarget(target))
@@ -124,6 +127,8 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Returns persisted Local Collection captures belonging to the current canonical target.</summary>
 		public IReadOnlyList<CollectionManagementLocalCapture> GetLocalCaptures()
 		{
+			if (!_store.Exists)
+				return new CollectionManagementLocalCapture[0];
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var result = new List<CollectionManagementLocalCapture>();
 			foreach (LocalCapture capture in _localCaptureStore.GetCapturesForTarget(target))
@@ -176,6 +181,8 @@ namespace Nexus.Client.CollectionManagement
 		public async Task<IReadOnlyList<CollectionLocalRestoreWorkflowResult>> ReconcileInterruptedLocalRestoresAsync(
 			CancellationToken cancellationToken)
 		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionLocalRestoreWorkflowResult[0];
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var results = new List<CollectionLocalRestoreWorkflowResult>();
 			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
@@ -195,6 +202,8 @@ namespace Nexus.Client.CollectionManagement
 		public async Task<IReadOnlyList<CollectionLocalRestoreMemberResumeResult>> ReconcileInterruptedLocalRestoreMembersAsync(
 			CancellationToken cancellationToken)
 		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionLocalRestoreMemberResumeResult[0];
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var results = new List<CollectionLocalRestoreMemberResumeResult>();
 			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
@@ -211,6 +220,8 @@ namespace Nexus.Client.CollectionManagement
 		public async Task<IReadOnlyList<CollectionUninstallEffectsResult>> ReconcileInterruptedEffectRemovalAsync(
 			CancellationToken cancellationToken)
 		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionUninstallEffectsResult[0];
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var results = new List<CollectionUninstallEffectsResult>();
 			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)

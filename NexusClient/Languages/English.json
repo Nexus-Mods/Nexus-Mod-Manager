@@ -961,6 +961,8 @@
     "Mods.DeploymentOverwrite.Existing": "Game file '{0}' already exists.",
     "Mods.DeploymentOverwrite.ExistingReadOnly": "Game file '{0}' already exists and is read-only.",
     "Mods.DeploymentOverwrite.Managed": "Game file '{0}' is already owned by another managed mod.",
+    "Mods.DeploymentOverwrite.ManagedOwner": "Game file '{0}' is already owned by managed mod '{1}'.",
+    "Mods.DeploymentOverwrite.ManagedOwnerReadOnly": "Game file '{0}' is already owned by managed mod '{1}' and is read-only.",
     "Mods.DeploymentOverwrite.ManagedReadOnly": "Game file '{0}' is already owned by another managed mod and is read-only.",
     "Mods.DeploymentOverwrite.Question": "Overwrite with {0} mod's file?",
     "Mods.DisableAll.Confirm.Message": "Do you want to disable all the active mods?",

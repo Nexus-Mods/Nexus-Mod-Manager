@@ -947,6 +947,8 @@
     "Mods.DeploymentOverwrite.Existing": "El archivo del juego \"{0}\" ya existe.",
     "Mods.DeploymentOverwrite.ExistingReadOnly": "El archivo del juego \"{0}\" ya existe y es de solo lectura.",
     "Mods.DeploymentOverwrite.Managed": "El archivo del juego \"{0}\" ya pertenece a otro mod administrado.",
+    "Mods.DeploymentOverwrite.ManagedOwner": "El archivo del juego \"{0}\" ya pertenece al mod administrado \"{1}\".",
+    "Mods.DeploymentOverwrite.ManagedOwnerReadOnly": "El archivo del juego \"{0}\" ya pertenece al mod administrado \"{1}\" y es de solo lectura.",
     "Mods.DeploymentOverwrite.ManagedReadOnly": "El archivo del juego \"{0}\" ya pertenece a otro mod administrado y es de solo lectura.",
     "Mods.DeploymentOverwrite.Question": "¿Sobrescribir con el archivo del mod {0}?",
     "Mods.DisableAll.Confirm.Message": "¿Quieres desactivar todos los mods activos?",

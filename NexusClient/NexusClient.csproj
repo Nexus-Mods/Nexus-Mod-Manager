@@ -224,6 +224,7 @@
     <Compile Include="CollectionManagement\Persistence\CollectionsStoreSchemaException.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsStoreStatus.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsStore.cs" />
+    <Compile Include="CollectionManagement\Persistence\CollectionsStoreBootstrap.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsCatalogStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsLocalCaptureStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsRevisionSourceStore.cs" />

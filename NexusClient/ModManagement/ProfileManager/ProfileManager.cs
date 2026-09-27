@@ -27,6 +27,7 @@ namespace Nexus.Client.ModManagement
 		#region Static Properties
 
 		private static readonly object m_objLock = new object();
+		private ReadOnlyObservableList<IMod> m_rolSubscribedActiveMods;
 		private static readonly Version CURRENT_VERSION = new Version("0.1.0.0");
 		public static readonly string PROFILE_FOLDER = "ModProfiles";
 		public static readonly string PROFILE_FILE = "ProfileManagerCfg.xml";
@@ -267,6 +268,9 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public void Release()
 		{
+			VirtualModActivator.ModActivationChanged -= VirtualModActivator_ModActivationChanged;
+			ModManager.NativeStateReinitialized -= ModManager_NativeStateReinitialized;
+			UnbindActiveModsCollection();
 		}
 
 		#endregion
@@ -284,7 +288,8 @@ namespace Nexus.Client.ModManagement
 			ModManager = p_mmgModManager;
 			ModRepository = p_mrModRepository;
 			VirtualModActivator.ModActivationChanged += new EventHandler(VirtualModActivator_ModActivationChanged);
-			ModManager.ActiveMods.CollectionChanged += new NotifyCollectionChangedEventHandler(ActiveMods_CollectionChanged);
+			ModManager.NativeStateReinitialized += ModManager_NativeStateReinitialized;
+			RebindActiveModsCollection();
 			m_strProfileManagerPath = Path.Combine(p_strModInstallDirectory, PROFILE_FOLDER);
 			m_strProfileManagerConfigPath = Path.Combine(m_strProfileManagerPath, PROFILE_FILE);
 			m_strBackedProfileManagerConfigPath = Path.Combine(m_strProfileManagerPath, BACKEDPROFILE_FILE);
@@ -1467,6 +1472,37 @@ namespace Nexus.Client.ModManagement
 						SaveConfig();
 					}
 				}
+		}
+
+		/// <summary>Moves profile tracking to the replacement ActiveMods collection after native state reload.</summary>
+		private void RebindActiveModsCollection()
+		{
+			ReadOnlyObservableList<IMod> current = ModManager?.ActiveMods;
+			if (ReferenceEquals(current, m_rolSubscribedActiveMods))
+				return;
+
+			if (m_rolSubscribedActiveMods != null)
+				m_rolSubscribedActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			m_rolSubscribedActiveMods = current;
+			if (m_rolSubscribedActiveMods != null)
+				m_rolSubscribedActiveMods.CollectionChanged += ActiveMods_CollectionChanged;
+		}
+
+		private void UnbindActiveModsCollection()
+		{
+			if (m_rolSubscribedActiveMods != null)
+				m_rolSubscribedActiveMods.CollectionChanged -= ActiveMods_CollectionChanged;
+			m_rolSubscribedActiveMods = null;
+		}
+
+		private void ModManager_NativeStateReinitialized(object sender, EventArgs e)
+		{
+			RebindActiveModsCollection();
+			if (!VirtualModActivator.DisableLinkCreation && CurrentProfile != null)
+			{
+				UpdateCurrentProfileModCount();
+				MarkCurrentDeploymentManifestDirty();
+			}
 		}
 
 		private void ActiveMods_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
