@@ -221,6 +221,19 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		/// <inheritdoc />
+		protected internal override void RebindNativeMutationServices(ModManager p_mmgModManager)
+		{
+			if (p_mmgModManager == null)
+				throw new ArgumentNullException(nameof(p_mmgModManager));
+
+			ModInstallLog = p_mmgModManager.InstallationLog;
+			VirtualModActivator = p_mmgModManager.VirtualModActivator;
+			DeploymentManager = p_mmgModManager.DeploymentManager;
+			if (ActiveMods != null)
+				ActiveMods = ModInstallLog.ActiveMods;
+		}
+
 		/// <summary>
 		/// Installs the mod.
 		/// </summary>

@@ -21,7 +21,7 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionNativeStateReader
 	{
-		private readonly IInstallLog _installLog;
+		private readonly Func<IInstallLog> _installLogProvider;
 		private readonly IVirtualModActivator _virtualModActivator;
 		private readonly IPluginManager _pluginManager;
 		private readonly IGameMode _gameMode;
@@ -30,8 +30,15 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Creates a read-only native-state reader over already-established NMM services.</summary>
 		public CollectionNativeStateReader(IInstallLog installLog, IVirtualModActivator virtualModActivator,
 			IPluginManager pluginManager, IGameMode gameMode, CollectionsAssociationStore associationStore)
+			: this(CreateStaticInstallLogProvider(installLog), virtualModActivator, pluginManager, gameMode, associationStore)
 		{
-			_installLog = installLog ?? throw new ArgumentNullException(nameof(installLog));
+		}
+
+		/// <summary>Creates a reader that resolves the current InstallLog each time native state is captured.</summary>
+		internal CollectionNativeStateReader(Func<IInstallLog> installLogProvider, IVirtualModActivator virtualModActivator,
+			IPluginManager pluginManager, IGameMode gameMode, CollectionsAssociationStore associationStore)
+		{
+			_installLogProvider = installLogProvider ?? throw new ArgumentNullException(nameof(installLogProvider));
 			_virtualModActivator = virtualModActivator ?? throw new ArgumentNullException(nameof(virtualModActivator));
 			_gameMode = gameMode ?? throw new ArgumentNullException(nameof(gameMode));
 			_pluginManager = pluginManager;
@@ -48,9 +55,21 @@ namespace Nexus.Client.CollectionManagement
 			if (Transaction.Current != null)
 				throw new InvalidOperationException("Collection native state cannot be captured from inside an ambient native transaction.");
 
-			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(_installLog, _virtualModActivator,
+			IInstallLog installLog = _installLogProvider();
+			if (installLog == null)
+				throw new InvalidOperationException("The current authoritative InstallLog is unavailable.");
+
+			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(installLog, _virtualModActivator,
 				null, _pluginManager, _gameMode).Capture();
 			return Capture(target, nativeCapture);
+		}
+
+		/// <summary>Wraps an already-established InstallLog in the same provider contract used by reload-aware readers.</summary>
+		private static Func<IInstallLog> CreateStaticInstallLogProvider(IInstallLog installLog)
+		{
+			if (installLog == null)
+				throw new ArgumentNullException(nameof(installLog));
+			return () => installLog;
 		}
 
 		/// <summary>Builds the Collection planning index from one already-established generic native observation.</summary>

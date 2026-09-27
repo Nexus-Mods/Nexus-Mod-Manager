@@ -81,6 +81,7 @@ namespace NexusClientTests
 			{
 				string firstPath = WritePayload(root, "virtual-high.bin", "high");
 				string secondPath = WritePayload(root, "virtual-low.bin", "low");
+				string fallbackPath = WritePayload(root, "virtual-fallback.bin", "unmanaged-fallback");
 				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(
 					ModDeploymentRoot.GameRoot, "textures\\shared.dds");
 				InstallLogReadSnapshot install = CreateInstall(
@@ -102,6 +103,10 @@ namespace NexusClientTests
 					{
 						new NativeStateCaptureVirtualPayloadSource(deploymentTarget, "virtual-high", "high-ref", firstPath),
 						new NativeStateCaptureVirtualPayloadSource(deploymentTarget, "virtual-low", "low-ref", secondPath)
+					}, new[]
+					{
+						new NativeStateCaptureVirtualFallback(deploymentTarget,
+							NativeStateCaptureVirtualFallbackState.Present, fallbackPath)
 					});
 				CollectionsStore store;
 				CollectionOwnerPayloadCaptureService service = CreateService(root, out store);
@@ -120,6 +125,47 @@ namespace NexusClientTests
 				Assert.IsTrue(captured.Owners.All(x => x.RetainedPayload != null));
 				AssertRetainedText(store, captured.Owners[0].RetainedPayload, "high");
 				AssertRetainedText(store, captured.Owners[1].RetainedPayload, "low");
+				Assert.AreEqual(CollectionOwnerPayloadVirtualFallbackState.Retained, captured.VirtualFallback.State);
+				AssertRetainedText(store, captured.VirtualFallback.RetainedPayload, "unmanaged-fallback");
+				Assert.AreEqual(3, new CollectionsRetainedArtifactReferenceStore(store)
+					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, snapshot.CaptureIdentity.ToString()).Count);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Capture_NonPromotedVirtualStackRecordsExplicitlyAbsentFallbackWithoutInventingContent()
+		{
+			string root = CreateTemporaryDirectory("nmm-c73-virtual-absent-");
+			try
+			{
+				string payloadPath = WritePayload(root, "virtual.bin", "managed");
+				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(
+					ModDeploymentRoot.Data, "textures\\no-fallback.dds");
+				InstallLogReadSnapshot install = CreateInstall(
+					new[] { CreateMod("virtual-a", ModInstallMethod.Virtual) },
+					new[] { new InstallLogReadFile("textures\\no-fallback.dds", deploymentTarget, new[] { "virtual-a" }) },
+					new InstallLogReadDeploymentTarget[0]);
+				var links = new[] { new VirtualModReadLink(deploymentTarget, "virtual-a", "a-ref", true, 0, payloadPath) };
+				NativeStateCaptureSnapshot nativeState = CreateNativeState(install, links,
+					new NativeStateCaptureDeploymentTarget[0], NativeStateCaptureCoverage.NotApplicable,
+					new[] { new NativeStateCaptureVirtualPayloadSource(deploymentTarget, "virtual-a", "a-ref", payloadPath) },
+					new[] { new NativeStateCaptureVirtualFallback(deploymentTarget,
+						NativeStateCaptureVirtualFallbackState.ExplicitlyAbsent, String.Empty) });
+				CollectionsStore store;
+				CollectionOwnerPayloadCaptureService service = CreateService(root, out store);
+
+				CollectionOwnerPayloadSnapshot snapshot = service.Capture(
+					CollectionTargetIdentity.FromFingerprint("target-c73-virtual-absent"),
+					LocalCaptureIdentity.From(Guid.Parse("10000000-0000-0000-0000-000000000006")), nativeState, CancellationToken.None);
+
+				CollectionOwnerPayloadTarget captured = snapshot.Targets.Single();
+				Assert.AreEqual(NativeStateCaptureCoverage.Complete, snapshot.Coverage);
+				Assert.AreEqual(CollectionOwnerPayloadVirtualFallbackState.ExplicitlyAbsent, captured.VirtualFallback.State);
+				Assert.IsNull(captured.VirtualFallback.RetainedPayload);
 			}
 			finally
 			{
@@ -240,10 +286,12 @@ namespace NexusClientTests
 		private static NativeStateCaptureSnapshot CreateNativeState(InstallLogReadSnapshot install,
 			IEnumerable<VirtualModReadLink> links, IEnumerable<NativeStateCaptureDeploymentTarget> deployments,
 			NativeStateCaptureCoverage deploymentCoverage,
-			IEnumerable<NativeStateCaptureVirtualPayloadSource> virtualPayloadSources = null)
+			IEnumerable<NativeStateCaptureVirtualPayloadSource> virtualPayloadSources = null,
+			IEnumerable<NativeStateCaptureVirtualFallback> virtualFallbacks = null)
 		{
 			return new NativeStateCaptureSnapshot(install, new VirtualModReadSnapshot(links),
 				virtualPayloadSources ?? new NativeStateCaptureVirtualPayloadSource[0],
+				virtualFallbacks ?? new NativeStateCaptureVirtualFallback[0],
 				new NativeStateCaptureRoot[0], deployments, deploymentCoverage,
 				new NativeStateCaptureReplayReference[0], new NativeStateCapturePlugin[0],
 				NativeStateCaptureCoverage.NotApplicable, new NativeStateCaptureIssue[0]);

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.PluginManagement;
 using NUnit.Framework;
 
@@ -12,6 +15,43 @@ namespace NexusClientTests
 	/// </summary>
 	public class CollectionNativeStateIndexTests
 	{
+		[Test]
+		public void NativeStateReader_InstallLogProviderResolvesCurrentAuthorityForEveryCapture()
+		{
+			IInstallLog currentInstallLog = CreateInstallLog(1);
+			IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+				method.Name == "GetReadSnapshot" ? new VirtualModReadSnapshot(new VirtualModReadLink[0]) : null);
+			IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_InstallationPath": return Path.GetTempPath();
+					case "get_HasSecondaryInstallPath": return false;
+					case "get_UsesPlugins": return false;
+					default: return null;
+				}
+			});
+			var reader = new CollectionNativeStateReader(() => currentInstallLog, virtualModActivator, null, gameMode, null);
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-live-authority");
+
+			CollectionNativeStateIndex first = reader.Capture(target);
+			currentInstallLog = CreateInstallLog(2);
+			CollectionNativeStateIndex second = reader.Capture(target);
+
+			Assert.That(first.DeploymentCommitSequence, Is.EqualTo(1));
+			Assert.That(second.DeploymentCommitSequence, Is.EqualTo(2));
+			Assert.That(second.Fingerprint, Is.Not.EqualTo(first.Fingerprint));
+		}
+
+		private static IInstallLog CreateInstallLog(long deploymentCommitSequence)
+		{
+			InstallLogReadSnapshot snapshot = new InstallLogReadSnapshot("ORIGINAL", deploymentCommitSequence,
+				new InstallLogReadMod[0], new InstallLogReadFile[0], new InstallLogReadIniEdit[0],
+				new InstallLogReadGameValue[0], new InstallLogReadDeploymentTarget[0]);
+			return InterfaceStub<IInstallLog>.Create((method, args) =>
+				method.Name == "GetCommittedStateSnapshot" ? snapshot : null);
+		}
+
 		[Test]
 		public void IniKey_UsesCaseInsensitiveEqualityAndMatchingHashCode()
 		{

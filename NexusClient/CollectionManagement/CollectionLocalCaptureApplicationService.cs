@@ -66,6 +66,48 @@ namespace Nexus.Client.CollectionManagement
 	}
 
 	/// <summary>
+	/// Establishes the coordinated read boundary required while capturing and publishing one Local Collection snapshot.
+	/// </summary>
+	/// <remarks>
+	/// The boundary owns both the process-wide mutation gate and the canonical cross-process target reservation, reloads the
+	/// authoritative native service graph, then keeps that reservation alive until the complete capture/publication callback
+	/// returns. It does not create a SQLite transaction around long-running retained-content copies.
+	/// </remarks>
+	internal sealed class CollectionLocalCaptureBoundary
+	{
+		private readonly GameStorageService _gameStorageService;
+		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
+		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
+
+		internal CollectionLocalCaptureBoundary(GameStorageService gameStorageService,
+			CollectionTargetMutationLeaseManager mutationLeaseManager,
+			CollectionTargetOwnershipAuthorityValidator authorityValidator)
+		{
+			_gameStorageService = gameStorageService ?? throw new ArgumentNullException(nameof(gameStorageService));
+			_mutationLeaseManager = mutationLeaseManager ?? throw new ArgumentNullException(nameof(mutationLeaseManager));
+			_authorityValidator = authorityValidator ?? throw new ArgumentNullException(nameof(authorityValidator));
+		}
+
+		/// <summary>Runs one capture/publication callback while the exact target authority remains reserved and freshly reloaded.</summary>
+		internal T Execute<T>(GameStoragePathSet paths, Func<CollectionTargetIdentity, T> captureAndPublish,
+			CancellationToken cancellationToken)
+		{
+			if (paths == null)
+				throw new ArgumentNullException(nameof(paths));
+			if (captureAndPublish == null)
+				throw new ArgumentNullException(nameof(captureAndPublish));
+
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			using (CollectionTargetMutationLease lease = _mutationLeaseManager.Acquire(authority, cancellationToken))
+			{
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				cancellationToken.ThrowIfCancellationRequested();
+				return captureAndPublish(authority.Target);
+			}
+		}
+	}
+
+	/// <summary>
 	/// C7.8 product-level application service that saves the active NMM-managed setup as one sealed Local Collection.
 	/// </summary>
 	/// <remarks>
@@ -76,6 +118,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly ServiceManager _services;
 		private readonly GameStorageService _gameStorageService;
+		private readonly CollectionLocalCaptureBoundary _captureBoundary;
 
 		public CollectionLocalCaptureApplicationService(ServiceManager services, GameStorageService gameStorageService)
 		{
@@ -85,6 +128,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Saving a Local Collection requires the active native ModManager.");
 			if (_services.ModRepository == null)
 				throw new InvalidOperationException("Saving a Local Collection requires the active mod repository identity service.");
+
+			_captureBoundary = new CollectionLocalCaptureBoundary(_gameStorageService,
+				CollectionTargetMutationLeaseManager.Shared,
+				new CollectionTargetOwnershipAuthorityValidator(_gameStorageService, _services));
 		}
 
 		/// <summary>
@@ -106,14 +153,20 @@ namespace Nexus.Client.CollectionManagement
 			cancellationToken.ThrowIfCancellationRequested();
 
 			GameStoragePathSet paths = _gameStorageService.FromGameMode(_services.ModManager.GameMode);
+			return _captureBoundary.Execute(paths, target =>
+				SaveCurrentSetupWithinStableBoundary(request, cancellationToken, paths, target), cancellationToken);
+		}
+
+		/// <summary>Captures, seals and publishes one Local Collection while the coordinated target boundary remains held.</summary>
+		private CollectionSaveCurrentSetupResult SaveCurrentSetupWithinStableBoundary(CollectionSaveCurrentSetupRequest request,
+			CancellationToken cancellationToken, GameStoragePathSet paths, CollectionTargetIdentity target)
+		{
 			var store = new CollectionsStore(paths);
 			EnsureStoreAvailable(store);
 			var associationStore = new CollectionsAssociationStore(store);
 			var artifactStore = new CollectionsRetainedArtifactStore(store);
 			var referenceStore = new CollectionsRetainedArtifactReferenceStore(store);
 			var localCaptureStore = new CollectionsLocalCaptureStore(store);
-			CollectionTargetIdentity target = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths).Target;
-
 			CollectionIdentity collectionIdentity = CollectionIdentity.FromLocal(Guid.NewGuid());
 			CollectionRevisionIdentity revisionIdentity = CollectionRevisionIdentity.FromLocal(collectionIdentity, Guid.NewGuid());
 			LocalCaptureIdentity captureIdentity = LocalCaptureIdentity.From(Guid.NewGuid());

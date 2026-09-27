@@ -623,8 +623,9 @@ namespace Nexus.Client.ModManagement
 				{
 					string[] ownerStack = m_vmaOwner.ModInstallLog.GetDeploymentOwnerKeys(p_mdtTarget).ToArray();
 					m_dicInitialOwnerStacks.Add(p_mdtTarget, ownerStack);
-					if (ownerStack.Length > 0)
-						m_vmaOwner.ModInstallLog.EnlistDeploymentRecoveryTransaction();
+					// Pure-Virtual target mutations need the same durable commit marker as promoted
+					// mutations so a prepared VMA recovery journal can choose pre/post state after restart.
+					m_vmaOwner.ModInstallLog.EnlistDeploymentRecoveryTransaction();
 				}
 
 				if (m_dicTouchedLinks.ContainsKey(p_vmlLink))
@@ -722,7 +723,7 @@ namespace Nexus.Client.ModManagement
 
 			public void Prepare(PreparingEnlistment p_prePreparingEnlistment)
 			{
-				if (!m_booDirty || !HasPromotedRecoveryBoundary())
+				if (!m_booDirty || !HasDeploymentRecoveryBoundary())
 				{
 					p_prePreparingEnlistment.Prepared();
 					return;
@@ -740,23 +741,17 @@ namespace Nexus.Client.ModManagement
 				}
 				catch (Exception ex)
 				{
-					Trace.TraceError("Unable to persist promoted VMA state during transaction prepare: {0}", ex);
+					Trace.TraceError("Unable to persist crash-recoverable VMA state during transaction prepare: {0}", ex);
 					p_prePreparingEnlistment.ForceRollback();
 				}
 			}
 
 			/// <summary>
-			/// Returns whether this transaction touches a target whose pre/post InstallLog owner stack is promoted.
+			/// Returns whether this transaction touched a concrete deployment target whose VMA state must be crash-recoverable.
 			/// </summary>
-			private bool HasPromotedRecoveryBoundary()
+			private bool HasDeploymentRecoveryBoundary()
 			{
-				foreach (KeyValuePair<ModDeploymentTarget, string[]> pair in m_dicInitialOwnerStacks)
-				{
-					if ((pair.Value != null && pair.Value.Length > 0) ||
-						m_vmaOwner.ModInstallLog.GetDeploymentOwnerKeys(pair.Key).Count > 0)
-						return true;
-				}
-				return false;
+				return m_dicInitialOwnerStacks.Count > 0;
 			}
 
 			public void Rollback(Enlistment p_enlEnlistment)

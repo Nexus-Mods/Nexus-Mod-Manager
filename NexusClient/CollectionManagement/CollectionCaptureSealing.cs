@@ -384,6 +384,20 @@ namespace Nexus.Client.CollectionManagement
 								"A captured file-owner stack contains an unresolved owner or missing retained fallback payload.");
 						}
 					}
+
+					if (!target.Promoted)
+					{
+						CollectionOwnerPayloadVirtualFallback fallback = target.VirtualFallback;
+						if (fallback == null || fallback.FormatVersion != CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion ||
+							fallback.State == CollectionOwnerPayloadVirtualFallbackState.LegacyUncaptured ||
+							fallback.State == CollectionOwnerPayloadVirtualFallbackState.Unavailable ||
+							(fallback.State == CollectionOwnerPayloadVirtualFallbackState.Retained && fallback.RetainedPayload == null))
+						{
+							AddRestorableBlocker(issues, CollectionCaptureSealIssueKind.OwnerPayloadIncomplete,
+								LocalCaptureScopeArea.FileOwnershipAndFallbackPayloads, target.Target.ToString(),
+								"A pure-Virtual target does not have a complete versioned unmanaged fallback capture.");
+						}
+					}
 				}
 			}
 
@@ -543,6 +557,11 @@ namespace Nexus.Client.CollectionManagement
 					.Where(x => x.RetainedPayload != null)
 					.Select(x => new RetainedArtifactReference(x.RetainedPayload.StableArtifactId,
 						x.RetainedPayload.ReferenceRole, x.RetainedPayload.ContentHash, x.RetainedPayload.ByteLength)));
+				result.AddRange(request.OwnerPayloads.Targets
+					.Where(x => x.VirtualFallback != null && x.VirtualFallback.RetainedPayload != null)
+					.Select(x => new RetainedArtifactReference(x.VirtualFallback.RetainedPayload.StableArtifactId,
+						x.VirtualFallback.RetainedPayload.ReferenceRole, x.VirtualFallback.RetainedPayload.ContentHash,
+						x.VirtualFallback.RetainedPayload.ByteLength)));
 			}
 			if (request.Scope.Contains(LocalCaptureScopeArea.InstallerReplayAndGeneratedPayloads))
 			{

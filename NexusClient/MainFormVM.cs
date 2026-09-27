@@ -326,6 +326,9 @@
 		/// <summary>Gets the application-level Local Collection capture workflow for the active game mode.</summary>
 		public CollectionLocalCaptureApplicationService CollectionCaptureWorkflow { get; private set; }
 
+		/// <summary>Gets the basic installed-Collection management workflow for the active game mode.</summary>
+		public CollectionManagementApplicationService CollectionManagementWorkflow { get; private set; }
+
 		/// <summary>Supplies the Local Collection capture workflow after native services have been constructed.</summary>
 		public void InitializeCollectionCaptureWorkflow(CollectionLocalCaptureApplicationService captureWorkflow)
 		{
@@ -334,6 +337,16 @@
 			if (CollectionCaptureWorkflow != null && !ReferenceEquals(CollectionCaptureWorkflow, captureWorkflow))
 				throw new InvalidOperationException("The Local Collection capture workflow has already been initialized.");
 			CollectionCaptureWorkflow = captureWorkflow;
+		}
+
+		/// <summary>Supplies the installed-Collection management workflow after native services have been constructed.</summary>
+		public void InitializeCollectionManagementWorkflow(CollectionManagementApplicationService managementWorkflow)
+		{
+			if (managementWorkflow == null)
+				throw new ArgumentNullException(nameof(managementWorkflow));
+			if (CollectionManagementWorkflow != null && !ReferenceEquals(CollectionManagementWorkflow, managementWorkflow))
+				throw new InvalidOperationException("The Collection management workflow has already been initialized.");
+			CollectionManagementWorkflow = managementWorkflow;
 		}
 
 		/// <summary>

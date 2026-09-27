@@ -7,6 +7,7 @@ using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Operations;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -51,6 +52,45 @@ namespace NexusClientTests
 				Assert.AreEqual("current-original", deployment.Owners[0].CurrentNativeKey);
 				Assert.AreEqual(CollectionLocalRestoreOwnerBindingKind.ExistingNative, deployment.Owners[1].BindingKind);
 				Assert.AreEqual("native-a", deployment.Owners[1].CurrentNativeKey);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Plan_ReusableNativeWithExtraCurrentFileEffectForcesConservativeRecreation()
+		{
+			string root = CreateTemporaryDirectory("nmm-c79-extra-effect-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("archive-a"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "native-a",
+					LocalCaptureCapability.LocallyRestorableWithinScope, includeOwnerPayload: true);
+				ModDeploymentTarget capturedTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "example.bin");
+				ModDeploymentTarget extraTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "extra.bin");
+				NativeStateCaptureSnapshot current = CreateNativeState("current-original", new[]
+				{
+					CreateCurrentMod("native-a", archivePath, ModInstallMethod.Direct)
+				}, new[]
+				{
+					CreateCurrentDeployment(capturedTarget, "current-original", "native-a"),
+					CreateCurrentDeployment(extraTarget, "current-original", "native-a")
+				});
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+
+				CollectionLocalRestorePlan plan = planner.Plan(capture, capture.Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "current-extra-effect"), current);
+
+				Assert.IsTrue(plan.IsReadyForReview);
+				Assert.AreEqual(CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, plan.Members.Single().Action);
+				Assert.AreEqual(String.Empty, plan.Members.Single().CurrentNativeKey);
+				CollectionAssert.AreEqual(new[] { "native-a" }, plan.CurrentNativeKeysToRemove);
+				Assert.AreEqual(CollectionLocalRestoreOwnerBindingKind.RecreatedSnapshotMember,
+					plan.DeploymentTargets.Single().Owners[1].BindingKind);
 			}
 			finally
 			{
@@ -240,6 +280,238 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void Plan_PreFallbackCapabilityVersionCannotEnterAutomaticRestorePlanning()
+		{
+			string root = CreateTemporaryDirectory("nmm-c79-old-capability-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("archive"));
+				CollectionSealedCaptureSnapshot currentCapture = CreateCapture(store, archivePath, "native-a",
+					LocalCaptureCapability.LocallyRestorableWithinScope, includeOwnerPayload: true);
+				LocalCapture source = currentCapture.Capture;
+				var oldContract = new LocalCapture(source.Identity, source.Revision, source.SourceTarget,
+					source.CapturedStateFingerprint, source.Scope, source.Capability,
+					LocalCapture.CurrentSchemaVersion, 1, source.RetainedArtifacts, source.Exclusions, source.NativeRecordMappings);
+				var oldCapture = new CollectionSealedCaptureSnapshot(oldContract, currentCapture.InstalledIdentities,
+					currentCapture.Archives, currentCapture.OwnerPayloads, currentCapture.ScriptedReplay,
+					currentCapture.NativeEffects, currentCapture.UserMetadata);
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+
+				CollectionLocalRestorePlan plan = planner.Plan(oldCapture, source.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "old-capability"),
+					CreateNativeState("original", new InstallLogReadMod[0]));
+
+				Assert.IsFalse(plan.IsReadyForReview);
+				Assert.IsTrue(plan.Issues.Any(x => x.Kind == CollectionLocalRestorePlanIssueKind.UnsupportedCaptureVersion));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void RestoreIntentCodec_RoundTripsExactReviewedPlan()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710a-intent-roundtrip-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("intent archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-key",
+					LocalCaptureCapability.LocallyRestorableWithinScope, includeOwnerPayload: true);
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+				CollectionLocalRestorePlan reviewed = planner.Plan(capture, capture.Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "reviewed"),
+					CreateNativeState("current-original", new InstallLogReadMod[0]));
+
+				byte[] bytes = CollectionLocalRestoreIntentCodec.Serialize(capture.Capture.Identity, reviewed);
+				CollectionLocalRestorePlan rehydrated = CollectionLocalRestoreIntentCodec.Deserialize(bytes, capture);
+
+				Assert.AreEqual(reviewed.PlanFingerprint, rehydrated.PlanFingerprint);
+				Assert.AreEqual(reviewed.Target, rehydrated.Target);
+				Assert.AreEqual(reviewed.CurrentStateFingerprint, rehydrated.CurrentStateFingerprint);
+				Assert.AreEqual(reviewed.CurrentDeploymentCommitSequence, rehydrated.CurrentDeploymentCommitSequence);
+				Assert.AreEqual(reviewed.CurrentOriginalValuesKey, rehydrated.CurrentOriginalValuesKey);
+				Assert.AreEqual(reviewed.Members.Single().SnapshotMemberKey, rehydrated.Members.Single().SnapshotMemberKey);
+				Assert.AreEqual(reviewed.Members.Single().Action, rehydrated.Members.Single().Action);
+				Assert.AreEqual(reviewed.Members.Single().RetainedArchive.RetainedArtifact.StableArtifactId,
+					rehydrated.Members.Single().RetainedArchive.RetainedArtifact.StableArtifactId);
+				Assert.AreEqual(reviewed.DeploymentTargets.Single().Owners.Count, rehydrated.DeploymentTargets.Single().Owners.Count);
+				CollectionAssert.AreEqual(reviewed.CurrentNativeKeysToRemove, rehydrated.CurrentNativeKeysToRemove);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void RestoreIntentCodec_RejectsNonCanonicalPersistedPayload()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710a-intent-canonical-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("intent archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-key",
+					LocalCaptureCapability.LocallyRestorableWithinScope, includeOwnerPayload: true);
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+				CollectionLocalRestorePlan reviewed = planner.Plan(capture, capture.Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "reviewed"),
+					CreateNativeState("current-original", new InstallLogReadMod[0]));
+				byte[] canonical = CollectionLocalRestoreIntentCodec.Serialize(capture.Capture.Identity, reviewed);
+				string json = Encoding.UTF8.GetString(canonical);
+				byte[] nonCanonical = Encoding.UTF8.GetBytes("{ " + json.Substring(1));
+
+				Assert.Throws<InvalidDataException>(() => CollectionLocalRestoreIntentCodec.Deserialize(nonCanonical, capture));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void RestoreIntentCodec_RejectsCanonicalPayloadWithAlteredPlanFingerprint()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710a-intent-fingerprint-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("intent archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-key",
+					LocalCaptureCapability.LocallyRestorableWithinScope, includeOwnerPayload: true);
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+				CollectionLocalRestorePlan reviewed = planner.Plan(capture, capture.Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "reviewed"),
+					CreateNativeState("current-original", new InstallLogReadMod[0]));
+				string canonical = Encoding.UTF8.GetString(CollectionLocalRestoreIntentCodec.Serialize(capture.Capture.Identity, reviewed));
+				string replacement = "restore-plan-sha256:" + new string('0', 64);
+				Assert.AreNotEqual(reviewed.PlanFingerprint, replacement);
+				byte[] altered = Encoding.UTF8.GetBytes(canonical.Replace(reviewed.PlanFingerprint, replacement));
+
+				Assert.Throws<InvalidDataException>(() => CollectionLocalRestoreIntentCodec.Deserialize(altered, capture));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void LocalRestoreResumeClassifier_RemovalPresenceDistinguishesRollbackFromCommit()
+		{
+			CollectionNativeChildOperation child;
+			CollectionLocalRestoreMemberRehydrationResult rolledBack = CreateRemovalRecoveryState(true, out child);
+			Assert.AreEqual(ModOperationDurability.VerifiedRolledBack,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(rolledBack, child));
+
+			CollectionLocalRestoreMemberRehydrationResult committed = CreateRemovalRecoveryState(false, out child);
+			Assert.AreEqual(ModOperationDurability.VerifiedCommitted,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(committed, child));
+		}
+
+		[Test]
+		public void LocalRestoreResumeClassifier_MemberProjectionDistinguishesRollbackFromCommit()
+		{
+			CollectionNativeChildOperation child;
+			CollectionLocalRestoreMemberRehydrationResult rolledBack = CreateMemberRecoveryState(
+				CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, out child);
+			Assert.AreEqual(ModOperationDurability.VerifiedRolledBack,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(rolledBack, child));
+
+			CollectionLocalRestoreMemberRehydrationResult committed = CreateMemberRecoveryState(
+				CollectionLocalRestoreMemberAction.ReuseExistingNative, out child);
+			Assert.AreEqual(ModOperationDurability.VerifiedCommitted,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(committed, child));
+
+			CollectionLocalRestoreMemberRehydrationResult ambiguous = CreateMemberRecoveryState(
+				CollectionLocalRestoreMemberAction.ManualReviewRequired, out child);
+			Assert.AreEqual(ModOperationDurability.Unknown,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(ambiguous, child));
+
+			CollectionLocalRestoreMemberRehydrationResult contradictory = CreateMemberRecoveryState(
+				CollectionLocalRestoreMemberAction.ReuseExistingNative, out child, ModOperationDurability.VerifiedRolledBack);
+			Assert.AreEqual(ModOperationDurability.Unknown,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(contradictory, child));
+
+			CollectionLocalRestoreMemberRehydrationResult notStarted = CreateMemberRecoveryState(
+				CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, out child, ModOperationDurability.NotStarted);
+			Assert.AreEqual(ModOperationDurability.NotStarted,
+				CollectionLocalRestoreMemberResumeCoordinator.ClassifyDurability(notStarted, child));
+		}
+
+		private static CollectionLocalRestoreMemberRehydrationResult CreateRemovalRecoveryState(bool stillRequiresRemoval,
+			out CollectionNativeChildOperation child)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c710a-recovery-removal");
+			CollectionIdentity collection = CollectionIdentity.FromLocal(Guid.NewGuid());
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromLocal(collection, Guid.NewGuid());
+			CollectionOperationIdentity operationIdentity = CollectionOperationIdentity.CreateNew();
+			CollectionMemberKey journalKey = CollectionMemberKey.FromLocal(Guid.NewGuid());
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.LocalRestore,
+				new ModOperationFingerprint(target.Fingerprint, context, null));
+			child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(revision, journalKey),
+				CollectionNativeChildAction.Deactivate, native, CollectionNativeChildCheckpoint.NativeSubmitted, null);
+			var operation = new CollectionOperation(operationIdentity, CollectionOperationKind.RestoreLocalCapture, collection, target, revision,
+				null, 2, CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired, new[] { child });
+			var plan = CreateClassificationPlan(target, new CollectionLocalRestoreMemberPlan[0],
+				stillRequiresRemoval ? new[] { "native-remove" } : new string[0], new CollectionLocalRestorePlanIssue[0]);
+			var removal = new CollectionLocalRestoreRemovalProgress("native-remove", child, false, true);
+			return new CollectionLocalRestoreMemberRehydrationResult(CollectionLocalRestoreMemberRehydrationStatus.NativeRecoveryRequired,
+				operation, null, plan, plan, null, null, new[] { removal }, "recovery test");
+		}
+
+		private static CollectionLocalRestoreMemberRehydrationResult CreateMemberRecoveryState(
+			CollectionLocalRestoreMemberAction currentAction, out CollectionNativeChildOperation child,
+			ModOperationDurability? priorDurability = null)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c710a-recovery-member");
+			CollectionIdentity collection = CollectionIdentity.FromLocal(Guid.NewGuid());
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromLocal(collection, Guid.NewGuid());
+			CollectionMemberKey memberKey = CollectionMemberKey.FromLocal(Guid.NewGuid());
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+			var reviewedMember = new CollectionLocalRestoreMemberPlan(memberKey, "captured-member",
+				CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, String.Empty, context, null);
+			var currentMember = new CollectionLocalRestoreMemberPlan(memberKey, "captured-member", currentAction,
+				currentAction == CollectionLocalRestoreMemberAction.ReuseExistingNative ? "restored-native" : String.Empty, context, null);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.LocalRestore,
+				new ModOperationFingerprint(target.Fingerprint, context, "restore-recipe"));
+			ModOperationResult prior = priorDurability.HasValue
+				? new ModOperationResult(native, ModOperationReportedStatus.Failed, priorDurability.Value, "persisted restart result")
+				: null;
+			child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(revision, memberKey),
+				CollectionNativeChildAction.ActivateOrReinstall, native,
+				prior == null ? CollectionNativeChildCheckpoint.NativeSubmitted : CollectionNativeChildCheckpoint.NativeTerminalObserved, prior);
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.RestoreLocalCapture,
+				collection, target, revision, null, 2, CollectionOperationPhase.RecoveryRequired,
+				CollectionOperationResultState.RecoveryRequired, new[] { child });
+			CollectionLocalRestorePlan reviewed = CreateClassificationPlan(target, new[] { reviewedMember }, new string[0],
+				new CollectionLocalRestorePlanIssue[0]);
+			CollectionLocalRestorePlan current = CreateClassificationPlan(target, new[] { currentMember }, new string[0],
+				new CollectionLocalRestorePlanIssue[0]);
+			var progress = new CollectionLocalRestoreMemberProgress(reviewedMember,
+				CollectionLocalRestoreMemberProgressStatus.NativeRecoveryRequired, child, String.Empty);
+			return new CollectionLocalRestoreMemberRehydrationResult(CollectionLocalRestoreMemberRehydrationStatus.NativeRecoveryRequired,
+				operation, null, reviewed, current, null, new[] { progress }, null, "recovery test");
+		}
+
+		private static CollectionLocalRestorePlan CreateClassificationPlan(CollectionTargetIdentity target,
+			IEnumerable<CollectionLocalRestoreMemberPlan> members, IEnumerable<string> removals, IEnumerable<CollectionLocalRestorePlanIssue> issues)
+		{
+			return new CollectionLocalRestorePlan(LocalCaptureIdentity.From(Guid.NewGuid()), target,
+				new CollectionCurrentStateFingerprint("state-v1", Guid.NewGuid().ToString("N")), 1, "original",
+				"classification-plan-" + Guid.NewGuid().ToString("N"), members, new CollectionLocalRestoreDeploymentPlan[0], removals, issues);
+		}
+
 		private static CollectionSealedCaptureSnapshot CreateCapture(CollectionsStore store, string archivePath,
 			string capturedNativeKey, LocalCaptureCapability capability, bool includeOwnerPayload)
 		{
@@ -313,13 +585,30 @@ namespace NexusClientTests
 
 		private static NativeStateCaptureSnapshot CreateNativeState(string originalKey, IEnumerable<InstallLogReadMod> mods)
 		{
+			return CreateNativeState(originalKey, mods, new NativeStateCaptureDeploymentTarget[0]);
+		}
+
+		private static NativeStateCaptureSnapshot CreateNativeState(string originalKey, IEnumerable<InstallLogReadMod> mods,
+			IEnumerable<NativeStateCaptureDeploymentTarget> deploymentTargets)
+		{
+			NativeStateCaptureDeploymentTarget[] targets = deploymentTargets.ToArray();
 			var install = new InstallLogReadSnapshot(originalKey, 101, mods,
 				new InstallLogReadFile[0], new InstallLogReadIniEdit[0], new InstallLogReadGameValue[0],
-				new InstallLogReadDeploymentTarget[0]);
+				targets.Select(x => new InstallLogReadDeploymentTarget(x.Target, x.Owners.Select(owner => owner.OwnerKey))));
 			return new NativeStateCaptureSnapshot(install, new VirtualModReadSnapshot(new VirtualModReadLink[0]),
-				new NativeStateCaptureRoot[0], new NativeStateCaptureDeploymentTarget[0], NativeStateCaptureCoverage.Complete,
+				new NativeStateCaptureRoot[0], targets, NativeStateCaptureCoverage.Complete,
 				new NativeStateCaptureReplayReference[0], new NativeStateCapturePlugin[0], NativeStateCaptureCoverage.Complete,
 				new NativeStateCaptureIssue[0]);
+		}
+
+		private static NativeStateCaptureDeploymentTarget CreateCurrentDeployment(ModDeploymentTarget target,
+			string originalKey, string modKey)
+		{
+			return new NativeStateCaptureDeploymentTarget(target, target.RelativePath, new[]
+			{
+				new NativeStateCaptureDeploymentOwner(originalKey, NativeStateCaptureDeploymentOwnerKind.OriginalValue, false, target.RelativePath + ".original"),
+				new NativeStateCaptureDeploymentOwner(modKey, NativeStateCaptureDeploymentOwnerKind.Direct, true, target.RelativePath)
+			});
 		}
 
 		private static CollectionsStore CreateStore(string root)

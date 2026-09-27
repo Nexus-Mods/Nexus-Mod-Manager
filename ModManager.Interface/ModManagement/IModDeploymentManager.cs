@@ -66,10 +66,16 @@ namespace Nexus.Client.ModManagement
 		void RestorePromotedOwnerStack(ModDeploymentTarget p_mdtTarget, IReadOnlyList<string> p_lstOwnerKeys);
 
 		/// <summary>
-		/// Reconstructs one exact captured deployment owner stack from already-remapped managed owners and retained payload bytes.
+		/// Reconstructs one captured deployment owner stack using legacy pure-Virtual fallback-preservation semantics.
 		/// </summary>
 		void RestoreCapturedOwnerStack(ModDeploymentTarget p_mdtTarget, bool p_booPromoted,
 			IReadOnlyList<ModDeploymentRestoreOwner> p_lstOwners);
+
+		/// <summary>
+		/// Reconstructs one exact captured deployment owner stack and explicit pure-Virtual fallback state.
+		/// </summary>
+		void RestoreCapturedOwnerStack(ModDeploymentTarget p_mdtTarget, bool p_booPromoted,
+			IReadOnlyList<ModDeploymentRestoreOwner> p_lstOwners, ModDeploymentRestoreFallback p_mdrFallback);
 
 		/// <summary>
 		/// Streams a standalone Direct payload to its final game destination and records its ownership.

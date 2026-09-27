@@ -608,7 +608,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private static bool VerifyPluginEffect(CollectionNativeStateIndex state, CollectionPlannedPluginEffect effect)
+		internal static bool VerifyPluginEffect(CollectionNativeStateIndex state, CollectionPlannedPluginEffect effect)
 		{
 			if (effect.Kind == CollectionPlannedPluginEffectKind.Activation)
 			{

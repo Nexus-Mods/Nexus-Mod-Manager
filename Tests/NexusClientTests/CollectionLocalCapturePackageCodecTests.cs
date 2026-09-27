@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Text;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.ModManagement;
 using NUnit.Framework;
@@ -55,6 +57,8 @@ namespace NexusClientTests
 			Assert.AreEqual("native-a", restored.InstalledIdentities.Mods[0].NativeSnapshotKey);
 			Assert.AreEqual(ModInstallMethod.Direct, restored.InstalledIdentities.Mods[0].InstallContext.Method);
 			Assert.AreEqual("example.bin", restored.OwnerPayloads.Targets[0].Target.RelativePath);
+			Assert.AreEqual(CollectionOwnerPayloadVirtualFallbackState.NotApplicable,
+				restored.OwnerPayloads.Targets[0].VirtualFallback.State);
 			Assert.AreEqual(new string('a', 64), restored.Capture.RetainedArtifacts[0].ContentHash.Value);
 		}
 
@@ -63,6 +67,22 @@ namespace NexusClientTests
 		{
 			byte[] malformed = Encoding.UTF8.GetBytes("{\"format\":\"nmm-ce-local-collection-capture\",\"formatVersion\":1}");
 			Assert.Throws<InvalidDataException>(() => CollectionLocalCapturePackageCodec.Inspect(malformed));
+		}
+
+		[Test]
+		public void Deserialize_PreFallbackPureVirtualShapeIsExplicitlyLegacyUncaptured()
+		{
+			CollectionCaptureSealResult result = CreateSealedResult();
+			JObject root = JObject.Parse(Encoding.UTF8.GetString(CollectionLocalCapturePackageCodec.Serialize(result)));
+			JObject target = (JObject)root["ownerPayloads"]["Targets"][0];
+			target["Promoted"] = false;
+			target.Remove("VirtualFallback");
+
+			CollectionSealedCaptureSnapshot restored = CollectionLocalCapturePackageCodec.Deserialize(
+				Encoding.UTF8.GetBytes(root.ToString(Formatting.None)));
+
+			Assert.AreEqual(CollectionOwnerPayloadVirtualFallbackState.LegacyUncaptured,
+				restored.OwnerPayloads.Targets[0].VirtualFallback.State);
 		}
 
 		private static CollectionCaptureSealResult CreateSealedResult()

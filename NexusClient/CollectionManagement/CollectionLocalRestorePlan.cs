@@ -40,7 +40,8 @@ namespace Nexus.Client.CollectionManagement
 		RetainedArtifactCorrupt = 12,
 		CapturedOwnerUnresolved = 13,
 		CapturedOwnerMethodMismatch = 14,
-		CurrentOriginalOwnerUnavailable = 15
+		CurrentOriginalOwnerUnavailable = 15,
+		CapturedVirtualFallbackUnavailable = 16
 	}
 
 	/// <summary>Records one deterministic C7.9 planning condition requiring review before native mutation.</summary>

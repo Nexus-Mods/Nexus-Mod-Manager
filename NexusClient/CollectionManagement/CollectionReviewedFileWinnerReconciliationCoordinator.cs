@@ -95,8 +95,8 @@ namespace Nexus.Client.CollectionManagement
 		private readonly IProfileManager _profileManager;
 		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
 		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
-		private readonly IModDeploymentManager _deploymentManager;
-		private readonly IVirtualDeploymentService _virtualDeploymentService;
+		private readonly IModDeploymentManager _fixedDeploymentManager;
+		private readonly IVirtualDeploymentService _fixedVirtualDeploymentService;
 		private readonly Func<CollectionTargetIdentity, CollectionNativeStateIndex> _captureState;
 		private readonly Action _updateProfileDeployment;
 
@@ -128,9 +128,10 @@ namespace Nexus.Client.CollectionManagement
 			_mutationLeaseManager = mutationLeaseManager ?? throw new ArgumentNullException(nameof(mutationLeaseManager));
 			_authorityValidator = authorityValidator ?? throw new ArgumentNullException(nameof(authorityValidator));
 			if (_services.ModManager == null) throw new InvalidOperationException("C6.15.11 requires the live ModManager service.");
-			_deploymentManager = _services.ModManager.DeploymentManager ?? throw new InvalidOperationException("C6.15.11 requires the native deployment manager.");
-			_virtualDeploymentService = new VirtualDeploymentService(_services.ModManager.VirtualModActivator, _deploymentManager);
-			_captureState = target => new CollectionNativeStateReader(_services.ModManager.InstallationLog,
+			if (_services.ModManager.DeploymentManager == null) throw new InvalidOperationException("C6.15.11 requires the native deployment manager.");
+			_fixedDeploymentManager = null;
+			_fixedVirtualDeploymentService = null;
+			_captureState = target => new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore).Capture(target);
 			_updateProfileDeployment = () => _profileManager.UpdateCurrentDeploymentManifest();
 		}
@@ -147,8 +148,8 @@ namespace Nexus.Client.CollectionManagement
 			_associationStore = associationStore ?? throw new ArgumentNullException(nameof(associationStore));
 			_artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
 			_referenceStore = referenceStore ?? throw new ArgumentNullException(nameof(referenceStore));
-			_deploymentManager = deploymentManager ?? throw new ArgumentNullException(nameof(deploymentManager));
-			_virtualDeploymentService = virtualDeploymentService ?? throw new ArgumentNullException(nameof(virtualDeploymentService));
+			_fixedDeploymentManager = deploymentManager ?? throw new ArgumentNullException(nameof(deploymentManager));
+			_fixedVirtualDeploymentService = virtualDeploymentService ?? throw new ArgumentNullException(nameof(virtualDeploymentService));
 			_captureState = captureState ?? throw new ArgumentNullException(nameof(captureState));
 			_updateProfileDeployment = updateProfileDeployment ?? throw new ArgumentNullException(nameof(updateProfileDeployment));
 		}
@@ -187,6 +188,8 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken)
 		{
 			ValidateInputs(operationIdentity, plan, matches, impactPlan);
+			IModDeploymentManager deploymentManager = GetCurrentDeploymentManager();
+			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
 			var results = new List<CollectionReviewedFileWinnerResult>();
 			foreach (CollectionFileImpact impact in impactPlan.FileImpacts
 				.Where(x => x.PlannedWinner != null && x.Writers.Count > 1)
@@ -241,7 +244,7 @@ namespace Nexus.Client.CollectionManagement
 						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The native owner stack changed after the reviewed-winner intent was persisted.");
 				}
 
-				ApplyWinner(intent);
+				ApplyWinner(intent, deploymentManager, virtualDeploymentService);
 				CollectionNativeStateIndex after = _captureState(plan.Target);
 				CollectionNativeFileState verified = RequireLiveFile(after, impact.Target);
 				if (!StringComparer.OrdinalIgnoreCase.Equals(verified.EffectiveOwnerKey, desiredOwner) ||
@@ -372,16 +375,35 @@ namespace Nexus.Client.CollectionManagement
 			return left.SequenceEqual(right, StringComparer.OrdinalIgnoreCase);
 		}
 
-		private void ApplyWinner(CollectionReviewedFileWinnerIntent intent)
+		private void ApplyWinner(CollectionReviewedFileWinnerIntent intent, IModDeploymentManager deploymentManager,
+			IVirtualDeploymentService virtualDeploymentService)
 		{
 			if (intent.DispatchKind == CollectionReviewedFileWinnerDispatchKind.Promoted)
 			{
-				_deploymentManager.SwitchPromotedOwner(intent.Target, intent.DesiredOwnerKey);
+				deploymentManager.SwitchPromotedOwner(intent.Target, intent.DesiredOwnerKey);
 				return;
 			}
-			VirtualFileOwnerSwitchResult result = _virtualDeploymentService.SwitchFileOwner(intent.Target.RelativePath, intent.DesiredOwnerKey);
+			VirtualFileOwnerSwitchResult result = virtualDeploymentService.SwitchFileOwner(intent.Target.RelativePath, intent.DesiredOwnerKey);
 			if (result == null || !result.Success || !StringComparer.OrdinalIgnoreCase.Equals(result.SelectedOwnerKey, intent.DesiredOwnerKey))
 				throw new InvalidOperationException("The native Virtual owner switch did not report the reviewed owner as selected.", result == null ? null : result.Failure);
+		}
+
+		/// <summary>Resolves the deployment manager from the current post-reload native service graph.</summary>
+		private IModDeploymentManager GetCurrentDeploymentManager()
+		{
+			if (_services == null)
+				return _fixedDeploymentManager;
+			if (_services.ModManager == null || _services.ModManager.DeploymentManager == null)
+				throw new InvalidOperationException("The current native deployment manager is unavailable after authority reload.");
+			return _services.ModManager.DeploymentManager;
+		}
+
+		/// <summary>Creates the Virtual owner-switch service against the same current deployment manager.</summary>
+		private IVirtualDeploymentService GetCurrentVirtualDeploymentService(IModDeploymentManager deploymentManager)
+		{
+			if (_services == null)
+				return _fixedVirtualDeploymentService;
+			return new VirtualDeploymentService(_services.ModManager.VirtualModActivator, deploymentManager);
 		}
 
 		private CollectionReviewedFileWinnerIntent LoadIntent(CollectionOperationIdentity operationIdentity, ResolvedCollectionPlan plan, ModDeploymentTarget target)

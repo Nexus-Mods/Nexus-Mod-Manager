@@ -115,8 +115,9 @@ namespace Nexus.Client.CollectionManagement
 		/// Acquires only the shared process reservation for an existing native-operation fingerprint.
 		/// </summary>
 		/// <remarks>
-		/// C3 manual/native operations still carry a descriptive pre-C4 target fingerprint. They remain protected by the C4.14
-		/// process gate. Collection children inherit their canonical parent's cross-process reservation instead of reacquiring it.
+		/// This is the early/test fallback when the production manual-native boundary is not configured. Normal runtime root
+		/// operations acquire canonical process + cross-process authority through that boundary; Collection children inherit their
+		/// canonical parent reservation instead of reacquiring it.
 		/// </remarks>
 		internal CollectionTargetMutationLease AcquireNativeOperation(string targetFingerprint)
 		{

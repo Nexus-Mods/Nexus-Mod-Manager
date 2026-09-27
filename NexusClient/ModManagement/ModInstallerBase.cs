@@ -144,30 +144,41 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Acquires the common in-process mutation reservation for this native operation.
+		/// Acquires the shared native mutation reservation for this operation.
 		/// </summary>
 		/// <remarks>
-		/// Production tasks submitted through the C3 seam use their immutable target fingerprint. Legacy direct native calls
-		/// without an identity still join the same process gate through a conservative fallback token.
+		/// Collection children inherit their reviewed canonical parent reservation. Ordinary root operations use the configured
+		/// manual-native boundary, which adds the same physical-target cross-process reservation and authoritative reload used by
+		/// Collections. Early/test contexts without that production boundary retain the legacy process-only fallback.
 		/// </remarks>
 		protected CollectionTargetMutationLease AcquireMutationLease()
 		{
 			ModOperationIdentity identity = OperationIdentity;
-			if (identity == null)
-			{
-				if (m_ctlParentMutationLease != null)
-					throw new InvalidOperationException("A parent mutation lease cannot be inherited by an unidentified native operation.");
-
-				return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(LegacyUnidentifiedMutationTarget);
-			}
-
 			if (m_ctlParentMutationLease != null)
 			{
+				if (identity == null)
+					throw new InvalidOperationException("A parent mutation lease cannot be inherited by an unidentified native operation.");
+
 				return m_ctlParentMutationLease.Manager.InheritNativeOperation(
 					m_ctlParentMutationLease, identity.Fingerprint.TargetFingerprint);
 			}
 
-			return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(identity.Fingerprint.TargetFingerprint);
+			CollectionTargetMutationLease coordinatedLease;
+			if (CollectionManualNativeMutationBoundary.TryAcquire(this, out coordinatedLease))
+				return coordinatedLease;
+
+			string targetFingerprint = identity == null
+				? LegacyUnidentifiedMutationTarget
+				: identity.Fingerprint.TargetFingerprint;
+			return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation(targetFingerprint);
+		}
+
+		/// <summary>
+		/// Rebinds mutable native services after a root manual operation reloads authoritative target state.
+		/// </summary>
+		/// <remarks>Known production installer/uninstaller subclasses override this. Test-only probes may keep the no-op default.</remarks>
+		protected internal virtual void RebindNativeMutationServices(ModManager p_mmgModManager)
+		{
 		}
 
 		#endregion

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Newtonsoft.Json;
 using Nexus.Client.ModManagement;
 
 namespace Nexus.Client.CollectionManagement
@@ -15,7 +16,8 @@ namespace Nexus.Client.CollectionManagement
 		OwnerUnresolved = 2,
 		PayloadSourceUnavailable = 3,
 		PayloadSourceMissing = 4,
-		LegacyPayloadSourceUnavailable = 5
+		LegacyPayloadSourceUnavailable = 5,
+		VirtualFallbackUnavailable = 6
 	}
 
 	/// <summary>
@@ -67,6 +69,42 @@ namespace Nexus.Client.CollectionManagement
 		public long ByteLength { get; }
 	}
 
+	/// <summary>Classifies the captured unmanaged/original fallback beneath a pure-Virtual owner stack.</summary>
+	public enum CollectionOwnerPayloadVirtualFallbackState
+	{
+		LegacyUncaptured = 0,
+		NotApplicable = 1,
+		ExplicitlyAbsent = 2,
+		Retained = 3,
+		Unavailable = 4
+	}
+
+	/// <summary>Captures the versioned pure-Virtual fallback state independently of managed Virtual owners.</summary>
+	public sealed class CollectionOwnerPayloadVirtualFallback
+	{
+		public const int CurrentFormatVersion = 1;
+
+		/// <summary>Creates one immutable pure-Virtual fallback record.</summary>
+		public CollectionOwnerPayloadVirtualFallback(int formatVersion, CollectionOwnerPayloadVirtualFallbackState state,
+			CollectionOwnerPayloadRetention retainedPayload)
+		{
+			if (formatVersion <= 0)
+				throw new ArgumentOutOfRangeException(nameof(formatVersion));
+			if (!Enum.IsDefined(typeof(CollectionOwnerPayloadVirtualFallbackState), state))
+				throw new ArgumentOutOfRangeException(nameof(state));
+			if ((state == CollectionOwnerPayloadVirtualFallbackState.Retained) != (retainedPayload != null))
+				throw new ArgumentException("A retained Virtual fallback must have exactly one retained payload descriptor.", nameof(retainedPayload));
+
+			FormatVersion = formatVersion;
+			State = state;
+			RetainedPayload = retainedPayload;
+		}
+
+		public int FormatVersion { get; }
+		public CollectionOwnerPayloadVirtualFallbackState State { get; }
+		public CollectionOwnerPayloadRetention RetainedPayload { get; }
+	}
+
 	/// <summary>
 	/// Captures one owner in the exact fallback-to-winner order for a deployment target.
 	/// </summary>
@@ -106,8 +144,9 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionOwnerPayloadOwner> _owners;
 
 		/// <summary>Creates one immutable target ownership snapshot.</summary>
+		[JsonConstructor]
 		public CollectionOwnerPayloadTarget(ModDeploymentTarget target, bool promoted,
-			IEnumerable<CollectionOwnerPayloadOwner> owners)
+			IEnumerable<CollectionOwnerPayloadOwner> owners, CollectionOwnerPayloadVirtualFallback virtualFallback = null)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			List<CollectionOwnerPayloadOwner> copied = (owners ?? throw new ArgumentNullException(nameof(owners))).ToList();
@@ -123,6 +162,14 @@ namespace Nexus.Client.CollectionManagement
 					throw new ArgumentException("The final captured owner must be the unique current winner.", nameof(owners));
 			}
 			Promoted = promoted;
+			VirtualFallback = virtualFallback ?? new CollectionOwnerPayloadVirtualFallback(
+				CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
+				promoted ? CollectionOwnerPayloadVirtualFallbackState.NotApplicable : CollectionOwnerPayloadVirtualFallbackState.LegacyUncaptured,
+				null);
+			if (promoted && VirtualFallback.State != CollectionOwnerPayloadVirtualFallbackState.NotApplicable)
+				throw new ArgumentException("A promoted deployment target cannot carry a pure-Virtual fallback record.", nameof(virtualFallback));
+			if (!promoted && VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.NotApplicable)
+				throw new ArgumentException("A pure-Virtual deployment target must describe its unmanaged fallback state.", nameof(virtualFallback));
 			_owners = new ReadOnlyCollection<CollectionOwnerPayloadOwner>(copied);
 		}
 
@@ -130,6 +177,7 @@ namespace Nexus.Client.CollectionManagement
 		public bool Promoted { get; }
 		public ReadOnlyCollection<CollectionOwnerPayloadOwner> Owners { get { return _owners; } }
 		public CollectionOwnerPayloadOwner CurrentWinner { get { return _owners[_owners.Count - 1]; } }
+		public CollectionOwnerPayloadVirtualFallback VirtualFallback { get; }
 	}
 
 	/// <summary>

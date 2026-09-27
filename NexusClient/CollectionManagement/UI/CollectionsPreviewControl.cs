@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -20,15 +20,18 @@ using Nexus.UI.Controls;
 namespace Nexus.Client.CollectionManagement.UI
 {
 	/// <summary>
-	/// C6.15/C7.8 Collections surface for provider preview, additive apply and explicit Local Collection capture.
+	/// C6.15/C7.8 Collections surface for provider preview, additive apply, Local capture and basic installed management.
 	/// </summary>
 	/// <remarks>
 	/// The control consumes application-level workflow services and never constructs or invokes native C4/C5/C6
-	/// persistence or mutation coordinators directly. Replacement and later management commands remain out of scope.
+	/// persistence or mutation coordinators directly. Replacement and richer management commands remain out of scope.
 	/// </remarks>
 	public sealed class CollectionsPreviewControl : ManagedFontDockContent
 	{
 		private readonly Button _saveCurrentSetupButton;
+		private readonly ComboBox _managedAssociationCombo;
+		private readonly Button _detachAssociationButton;
+		private readonly Button _removeAssociationEffectsButton;
 		private readonly Button _importButton;
 		private readonly Button _downloadPrepareButton;
 		private readonly Button _resumeButton;
@@ -54,6 +57,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private NexusCollectionPreviewController _controller;
 		private CollectionAdditiveApplicationService _workflow;
 		private CollectionLocalCaptureApplicationService _captureWorkflow;
+		private CollectionManagementApplicationService _managementWorkflow;
 		private NexusCollectionPreviewSnapshot _snapshot;
 		private CollectionAdditiveWorkflowPreparationResult _preparation;
 		private CollectionMemberAcquisitionBatch _acquisitionBatch;
@@ -61,6 +65,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionOperation _operationSnapshot;
 		private CollectionPlanIdentity _reviewedPlanIdentity;
 		private IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> _recoveryResults = new CollectionAdditiveWorkflowRecoveryResult[0];
+		private IReadOnlyList<CollectionLocalRestoreMemberResumeResult> _localRestoreRecoveryResults = new CollectionLocalRestoreMemberResumeResult[0];
 		private CancellationTokenSource _previewCancellation;
 		private CancellationTokenSource _workflowCancellation;
 		private int _previewGeneration;
@@ -113,6 +118,27 @@ namespace Nexus.Client.CollectionManagement.UI
 				Enabled = false
 			};
 			_saveCurrentSetupButton.Click += SaveCurrentSetupButton_Click;
+			_managedAssociationCombo = new ComboBox
+			{
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Width = 280,
+				Enabled = false
+			};
+			_managedAssociationCombo.SelectedIndexChanged += ManagedAssociationCombo_SelectedIndexChanged;
+			_detachAssociationButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.DetachTracking", "Detach tracking"),
+				Enabled = false
+			};
+			_detachAssociationButton.Click += DetachAssociationButton_Click;
+			_removeAssociationEffectsButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.RemoveEffects", "Remove Collection effects"),
+				Enabled = false
+			};
+			_removeAssociationEffectsButton.Click += RemoveAssociationEffectsButton_Click;
 			_importButton = new Button
 			{
 				AutoSize = true,
@@ -164,6 +190,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link, download or import its exact bundle, choose supported optional members, prepare the review, then explicitly approve installation.")
 			};
 			toolbar.Controls.Add(_saveCurrentSetupButton);
+			toolbar.Controls.Add(_managedAssociationCombo);
+			toolbar.Controls.Add(_detachAssociationButton);
+			toolbar.Controls.Add(_removeAssociationEffectsButton);
 			toolbar.Controls.Add(_importButton);
 			toolbar.Controls.Add(_downloadPrepareButton);
 			toolbar.Controls.Add(_resumeButton);
@@ -263,21 +292,28 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Connects the surface to the incoming Collection dispatcher in preview-only compatibility mode.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher)
 		{
-			Initialize(dispatcher, null, null);
+			Initialize(dispatcher, null, null, null);
 		}
 
 		/// <summary>Connects the surface to the incoming dispatcher and production additive workflow service.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow)
 		{
-			Initialize(dispatcher, workflow, null);
+			Initialize(dispatcher, workflow, null, null);
 		}
 
 		/// <summary>Connects additive and Local Collection capture application workflows to this permanent surface.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow,
 			CollectionLocalCaptureApplicationService captureWorkflow)
 		{
+			Initialize(dispatcher, workflow, captureWorkflow, null);
+		}
+
+		/// <summary>Connects additive, capture and basic installed-Collection management workflows to this permanent surface.</summary>
+		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow,
+			CollectionLocalCaptureApplicationService captureWorkflow, CollectionManagementApplicationService managementWorkflow)
+		{
 			if (ReferenceEquals(_dispatcher, dispatcher) && ReferenceEquals(_workflow, workflow) &&
-				ReferenceEquals(_captureWorkflow, captureWorkflow) && _initialized)
+				ReferenceEquals(_captureWorkflow, captureWorkflow) && ReferenceEquals(_managementWorkflow, managementWorkflow) && _initialized)
 				return;
 
 			DetachDispatcher();
@@ -286,7 +322,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			_snapshot = null;
 			_workflow = workflow;
 			_captureWorkflow = captureWorkflow;
+			_managementWorkflow = managementWorkflow;
 			ResetWorkflowViewState();
+			RefreshManagedAssociations();
 			RenderEmptyState();
 
 			_dispatcher = dispatcher;
@@ -299,7 +337,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (IsHandleCreated)
 			{
 				BeginInvoke((Action)DrainIncomingQueue);
-				if (_workflow != null)
+				if (_workflow != null || _managementWorkflow != null)
 					BeginInvoke((Action)BeginRecoveryReconciliation);
 			}
 		}
@@ -310,7 +348,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_initialized)
 			{
 				BeginInvoke((Action)DrainIncomingQueue);
-				if (_workflow != null)
+				if (_workflow != null || _managementWorkflow != null)
 					BeginInvoke((Action)BeginRecoveryReconciliation);
 			}
 		}
@@ -387,6 +425,165 @@ namespace Nexus.Client.CollectionManagement.UI
 					return;
 				Trace.TraceError("Collection preview metadata failed: " + ex);
 				RenderUnexpectedFailure(dispatch.Link, ex);
+			}
+		}
+
+		private void ManagedAssociationCombo_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			UpdateActionButtons();
+		}
+
+		private void RefreshManagedAssociations()
+		{
+			Guid selectedId = Guid.Empty;
+			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			if (selected != null)
+				selectedId = selected.AssociationId;
+
+			_managedAssociationCombo.BeginUpdate();
+			try
+			{
+				_managedAssociationCombo.Items.Clear();
+				if (_managementWorkflow == null)
+					return;
+
+				IReadOnlyList<CollectionManagementAssociation> associations = _managementWorkflow.GetAssociations();
+				foreach (CollectionManagementAssociation association in associations)
+					_managedAssociationCombo.Items.Add(association);
+
+				if (_managedAssociationCombo.Items.Count > 0)
+				{
+					int selectedIndex = 0;
+					if (selectedId != Guid.Empty)
+					{
+						for (int index = 0; index < _managedAssociationCombo.Items.Count; index++)
+						{
+							CollectionManagementAssociation candidate = _managedAssociationCombo.Items[index] as CollectionManagementAssociation;
+							if (candidate != null && candidate.AssociationId == selectedId)
+							{
+								selectedIndex = index;
+								break;
+							}
+						}
+					}
+					_managedAssociationCombo.SelectedIndex = selectedIndex;
+				}
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Installed Collection management list refresh failed: " + ex);
+			}
+			finally
+			{
+				_managedAssociationCombo.EndUpdate();
+				UpdateActionButtons();
+			}
+		}
+
+		private void DetachAssociationButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			if (_managementWorkflow == null || selected == null || _workflowBusy)
+				return;
+
+			string message = LanguageManager.Format("Collections.Management.DetachPrompt",
+				"Detach '{0}' from Collection tracking?\r\n\r\nInstalled mods, files, plugins and configuration effects are left exactly as they are. They become standalone user-managed state.",
+				selected.DisplayName);
+			if (MessageBox.Show(this, message, L("Collections.Actions.DetachTracking", "Detach tracking"),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+				return;
+
+			BeginWorkflowWork(L("Collections.Management.Detaching", "Detaching Collection tracking without changing native state..."));
+			try
+			{
+				CollectionDetachResult result = _managementWorkflow.Detach(selected.AssociationId);
+				RefreshManagedAssociations();
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.Detached",
+					"Workflow: '{0}' tracking detached; native state was preserved.", selected.DisplayName);
+				MessageBox.Show(this, LanguageManager.Format("Collections.Management.DetachedMessage",
+					"'{0}' is no longer tracked as an installed Collection. {1} native mod instance(s) were preserved as standalone use.",
+					selected.DisplayName, result.StandaloneProvenance.Count),
+					L("Collections.Management.DetachedTitle", "Collection detached"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection detach failed: " + ex);
+				MessageBox.Show(this, ex.Message, L("Collections.Management.DetachFailed", "Collection detach failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork();
+			}
+		}
+
+		private async void RemoveAssociationEffectsButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			if (_managementWorkflow == null || selected == null || _workflowBusy)
+				return;
+
+			CancellationToken token = BeginWorkflowWork(L("Collections.Management.ReviewingRemoval",
+				"Reviewing which Collection effects can be removed safely..."));
+			try
+			{
+				CollectionUninstallEffectsPlan plan = await _managementWorkflow.PreviewEffectRemovalAsync(selected.AssociationId, token);
+				if (token.IsCancellationRequested || IsDisposed)
+					return;
+
+				if (plan.HasBlockedImpacts)
+				{
+					string blocked = String.Join(Environment.NewLine, plan.Impacts.Where(x => x.BlocksExecution)
+						.Select(x => "- " + x.NativeMod.NativeModKey + ": " + x.Reason));
+					MessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalBlockedMessage",
+						"Safe automatic removal is blocked by current native state. Nothing was changed.\r\n\r\n{0}", blocked),
+						L("Collections.Management.RemovalBlockedTitle", "Collection effect removal blocked"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+
+				int removeCount = plan.Impacts.Count(x => x.RequiresNativeRemoval);
+				int preserveCount = plan.Impacts.Count - removeCount;
+				string confirmation = LanguageManager.Format("Collections.Management.RemoveEffectsPrompt",
+					"Remove dispensable effects for '{0}'?\r\n\r\nNative mods proven exclusive and dispensable: {1}\r\nShared, standalone, customized, already absent or conservatively preserved instances: {2}\r\n\r\nThe plan will be revalidated before mutation. The Collection association is removed only after verified native completion.",
+					selected.DisplayName, removeCount, preserveCount);
+				if (MessageBox.Show(this, confirmation, L("Collections.Actions.RemoveEffects", "Remove Collection effects"),
+					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+					return;
+
+				_workflowStatusLabel.Text = L("Collections.Management.RemovingEffects",
+					"Removing only reviewed dispensable Collection effects through native NMM services...");
+				CollectionUninstallEffectsResult result = await _managementWorkflow.RemoveEffectsAsync(plan, token);
+				if (token.IsCancellationRequested || IsDisposed)
+					return;
+				RefreshManagedAssociations();
+				if (result.IsSuccessful)
+				{
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.RemovalComplete",
+						"Workflow: '{0}' dispensable effects removed and association cleared.", selected.DisplayName);
+					MessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalCompleteMessage",
+						"Safe Collection effect removal completed for '{0}'. Preserved/shared state was left in place.", selected.DisplayName),
+						L("Collections.Management.RemovalCompleteTitle", "Collection effects removed"),
+						MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+				else
+					_workflowStatusLabel.Text = L("Collections.Management.RemovalStopped",
+						"Workflow: Collection effect removal stopped before a verified complete result; recovery may be required.");
+			}
+			catch (OperationCanceledException)
+			{
+				_workflowStatusLabel.Text = L("Collections.Management.RemovalCancelled",
+					"Workflow: Collection effect-removal cancellation requested; durable native state will be reconciled before further work.");
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection effect removal failed: " + ex);
+				MessageBox.Show(this, ex.Message, L("Collections.Management.RemovalFailed", "Collection effect removal failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork();
 			}
 		}
 
@@ -665,6 +862,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (token.IsCancellationRequested || IsDisposed)
 					return;
 				RenderApplyResult(result);
+				RefreshManagedAssociations();
 			}
 			catch (OperationCanceledException)
 			{
@@ -696,23 +894,32 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private async void BeginRecoveryReconciliation()
 		{
-			if (_workflow == null || _workflowBusy || IsDisposed || Disposing)
+			if ((_workflow == null && _managementWorkflow == null) || _workflowBusy || IsDisposed || Disposing)
 				return;
 			CancellationToken token = BeginWorkflowWork(L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target..."));
 			try
 			{
-				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> results = await _workflow.ReconcileIncompleteTargetAsync(token);
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> results = _workflow == null
+					? new CollectionAdditiveWorkflowRecoveryResult[0]
+					: await _workflow.ReconcileIncompleteTargetAsync(token);
+				IReadOnlyList<CollectionLocalRestoreMemberResumeResult> localRestoreResults = _managementWorkflow == null
+					? new CollectionLocalRestoreMemberResumeResult[0]
+					: await _managementWorkflow.ReconcileInterruptedLocalRestoreMembersAsync(token);
+				if (_managementWorkflow != null)
+					await _managementWorkflow.ReconcileInterruptedEffectRemovalAsync(token);
 				if (token.IsCancellationRequested || IsDisposed)
 					return;
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
+				_localRestoreRecoveryResults = localRestoreResults ?? new CollectionLocalRestoreMemberResumeResult[0];
+				RefreshManagedAssociations();
 				if (_snapshot != null)
 				{
 					RenderIssues(_snapshot);
 					BindMatchingRecovery();
 				}
-				else if (_recoveryResults.Count > 0)
+				else if (_recoveryResults.Count + _localRestoreRecoveryResults.Count > 0)
 				{
-					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.IncompleteCount", "Workflow: {0} incomplete Collection operation(s) reconciled for this target. Open the matching revision to review/resume.", _recoveryResults.Count);
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.IncompleteCount", "Workflow: {0} incomplete Collection operation(s) reconciled for this target. Open the matching revision to review/resume.", _recoveryResults.Count + _localRestoreRecoveryResults.Count);
 				}
 				else
 					_workflowStatusLabel.Text = L("Collections.Workflow.Idle", "Workflow: idle");
@@ -1066,6 +1273,12 @@ namespace Nexus.Client.CollectionManagement.UI
 				AddIssueRow(FormatRecoveryStatus(recovery.Status), "recovery." + recovery.Status.ToString().ToLowerInvariant(),
 					recovery.Operation.Revision == null ? recovery.Operation.Identity.ToString() : recovery.Operation.Revision.ToString(), recovery.Message);
 			}
+			foreach (CollectionLocalRestoreMemberResumeResult recovery in _localRestoreRecoveryResults)
+			{
+				if (!recovery.IsMemberPhaseComplete)
+					AddIssueRow(L("Collections.Status.ActionRequired", "Action required"), "workflow.local-restore-recovery",
+						recovery.Operation.Revision == null ? recovery.Operation.Identity.ToString() : recovery.Operation.Revision.ToString(), recovery.Message);
+			}
 		}
 
 		private void BindMatchingRecovery()
@@ -1284,6 +1497,10 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void UpdateActionButtons()
 		{
 			_saveCurrentSetupButton.Enabled = !_workflowBusy && _captureWorkflow != null;
+			bool hasManagedAssociation = _managementWorkflow != null && _managedAssociationCombo.SelectedItem is CollectionManagementAssociation;
+			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Items.Count > 0;
+			_detachAssociationButton.Enabled = !_workflowBusy && hasManagedAssociation;
+			_removeAssociationEffectsButton.Enabled = !_workflowBusy && hasManagedAssociation;
 			bool hasConcreteRevision = _snapshot != null && _snapshot.HasConcreteRevision;
 			_importButton.Enabled = !_workflowBusy && hasConcreteRevision;
 			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision && !_selectionCapabilityBlocked &&

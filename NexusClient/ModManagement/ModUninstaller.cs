@@ -149,22 +149,24 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		/// <inheritdoc />
+		protected internal override void RebindNativeMutationServices(ModManager p_mmgModManager)
+		{
+			if (p_mmgModManager == null)
+				throw new ArgumentNullException(nameof(p_mmgModManager));
+
+			ModInstallLog = p_mmgModManager.InstallationLog;
+			VirtualModActivator = p_mmgModManager.VirtualModActivator;
+			DeploymentManager = p_mmgModManager.DeploymentManager;
+			if (ActiveMods != null)
+				ActiveMods = ModInstallLog.ActiveMods;
+		}
+
 		/// <summary>
 		/// Uninstalls the mod.
 		/// </summary>
 		public void Install()
 		{
-			bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
-			bool booHasManagedFiles = DeploymentManager != null
-				? DeploymentManager.HasManagedFiles(Mod)
-				: VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
-			if (!booIsInstallLogActive && !booHasManagedFiles)
-			{
-				OnTaskSetCompleted(ModOperationReportedStatus.NoOp, ModOperationDurability.NotStarted, true,
-					"The mod was successfully deactivated.", Mod);
-				return;
-			}
-
 			TrackedThread thdWorker = new TrackedThread(RunTasks);
 			thdWorker.Thread.IsBackground = false;
 			thdWorker.Start();
@@ -194,6 +196,16 @@ namespace Nexus.Client.ModManagement
 				lock (objUninstallLock)
 				{
 					bool booIsInstallLogActive = ModInstallLog.ActiveMods.Contains(Mod);
+					bool booHasManagedFiles = DeploymentManager != null
+						? DeploymentManager.HasManagedFiles(Mod)
+						: VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
+					if (!booIsInstallLogActive && !booHasManagedFiles)
+					{
+						OnTaskSetCompleted(ModOperationReportedStatus.NoOp, ModOperationDurability.NotStarted, true,
+							"The mod was successfully deactivated.", Mod);
+						return;
+					}
+
 					bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
 					ModInstallMethod installMethod = booIsInstallLogActive
 						? ModInstallLog.GetModInstallMethod(Mod)

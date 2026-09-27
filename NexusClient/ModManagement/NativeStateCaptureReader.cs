@@ -49,6 +49,7 @@ namespace Nexus.Client.ModManagement
 			VirtualModReadSnapshot virtualState = RequireVirtualSnapshot(_virtualModActivator.GetReadSnapshot());
 			var issues = new List<NativeStateCaptureIssue>();
 			List<NativeStateCaptureVirtualPayloadSource> activeVirtualPayloadSources = CaptureActiveVirtualPayloadSources(virtualState, issues);
+			List<NativeStateCaptureVirtualFallback> virtualFallbacks = CaptureVirtualFallbacks(install, virtualState, issues);
 			List<NativeStateCaptureRoot> roots = CaptureRoots(issues);
 
 			NativeStateCaptureCoverage deploymentCoverage;
@@ -58,7 +59,8 @@ namespace Nexus.Client.ModManagement
 			NativeStateCaptureCoverage pluginCoverage;
 			List<NativeStateCapturePlugin> plugins = CapturePlugins(issues, out pluginCoverage);
 
-			return new NativeStateCaptureSnapshot(install, virtualState, activeVirtualPayloadSources, roots, deploymentTargets, deploymentCoverage,
+			return new NativeStateCaptureSnapshot(install, virtualState, activeVirtualPayloadSources, virtualFallbacks,
+				roots, deploymentTargets, deploymentCoverage,
 				replayReferences, plugins, pluginCoverage, issues);
 		}
 
@@ -98,6 +100,87 @@ namespace Nexus.Client.ModManagement
 
 				result.Add(new NativeStateCaptureVirtualPayloadSource(link.Target, link.OwnerKey, link.OwnerReference, sourcePath));
 			}
+			return result;
+		}
+
+		private List<NativeStateCaptureVirtualFallback> CaptureVirtualFallbacks(InstallLogReadSnapshot install,
+			VirtualModReadSnapshot virtualState, List<NativeStateCaptureIssue> issues)
+		{
+			var promotedTargets = new HashSet<ModDeploymentTarget>(install.DeploymentTargets.Select(x => x.Target));
+			var result = new List<NativeStateCaptureVirtualFallback>();
+
+			foreach (IGrouping<ModDeploymentTarget, VirtualModReadLink> group in virtualState.Links
+				.GroupBy(x => x.Target)
+				.OrderBy(x => (int)x.Key.Root).ThenBy(x => x.Key.RelativePath, StringComparer.OrdinalIgnoreCase))
+			{
+				ModDeploymentTarget target = group.Key;
+				if (promotedTargets.Contains(target) || !group.Any(x => x.Active))
+					continue;
+
+				string[] ownerKeys = group.Select(x => x.OwnerKey)
+					.Where(x => !String.IsNullOrWhiteSpace(x))
+					.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+				if (ownerKeys.Length == 0 || group.Any(x => String.IsNullOrWhiteSpace(x.OwnerKey)))
+				{
+					issues.Add(new NativeStateCaptureIssue(NativeStateCaptureIssueKind.VirtualFallbackStateUnavailable,
+						target.ToString(), "The pure-Virtual owner stack contains an owner without a native key, so its unmanaged fallback cannot be inspected authoritatively."));
+					result.Add(new NativeStateCaptureVirtualFallback(target,
+						NativeStateCaptureVirtualFallbackState.Unavailable, String.Empty));
+					continue;
+				}
+
+				var existingFallbacks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				bool unavailable = false;
+				foreach (string ownerKey in ownerKeys)
+				{
+					try
+					{
+						string overwritePath = _virtualModActivator.GetVirtualOverwritePath(target, ownerKey);
+						if (String.IsNullOrWhiteSpace(overwritePath))
+						{
+							unavailable = true;
+							break;
+						}
+						if (File.Exists(overwritePath))
+							existingFallbacks.Add(Path.GetFullPath(overwritePath));
+					}
+					catch (Exception exception) when (IsPathObservationException(exception))
+					{
+						issues.Add(new NativeStateCaptureIssue(NativeStateCaptureIssueKind.VirtualFallbackStateUnavailable,
+							target.ToString(), exception.Message));
+						unavailable = true;
+						break;
+					}
+				}
+
+				if (unavailable)
+				{
+					if (!issues.Any(x => x.Kind == NativeStateCaptureIssueKind.VirtualFallbackStateUnavailable &&
+						String.Equals(x.ResourceKey, target.ToString(), StringComparison.Ordinal)))
+					{
+						issues.Add(new NativeStateCaptureIssue(NativeStateCaptureIssueKind.VirtualFallbackStateUnavailable,
+							target.ToString(), "The pure-Virtual overwrite/fallback path could not be resolved for every active owner."));
+					}
+					result.Add(new NativeStateCaptureVirtualFallback(target,
+						NativeStateCaptureVirtualFallbackState.Unavailable, String.Empty));
+					continue;
+				}
+
+				if (existingFallbacks.Count > 1)
+				{
+					issues.Add(new NativeStateCaptureIssue(NativeStateCaptureIssueKind.VirtualFallbackStateUnavailable,
+						target.ToString(), "More than one legacy Virtual overwrite payload exists for the same pure-Virtual target."));
+					result.Add(new NativeStateCaptureVirtualFallback(target,
+						NativeStateCaptureVirtualFallbackState.Unavailable, String.Empty));
+					continue;
+				}
+
+				string fallbackPath = existingFallbacks.SingleOrDefault();
+				result.Add(new NativeStateCaptureVirtualFallback(target,
+					fallbackPath == null ? NativeStateCaptureVirtualFallbackState.ExplicitlyAbsent : NativeStateCaptureVirtualFallbackState.Present,
+					fallbackPath ?? String.Empty));
+			}
+
 			return result;
 		}
 
@@ -305,7 +388,8 @@ namespace Nexus.Client.ModManagement
 		private static bool IsPathObservationException(Exception exception)
 		{
 			return exception is ArgumentException || exception is InvalidOperationException || exception is IOException ||
-				exception is NotSupportedException;
+				exception is NotSupportedException || exception is UnauthorizedAccessException ||
+				exception is System.Security.SecurityException;
 		}
 	}
 }

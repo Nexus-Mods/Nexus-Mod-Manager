@@ -816,6 +816,52 @@
 		}
 
 		[Test]
+		public void LocalRestoreCapturedOwnerStack_PureVirtual_RestoresExactRetainedFallback()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("RestoreVirtualExact", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"meshes\local-restore-exact-fallback.nif");
+				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				Directory.CreateDirectory(Path.GetDirectoryName(deploymentPath));
+				File.WriteAllText(deploymentPath, "current-unmanaged-fallback");
+				string desiredFallback = environment.CreatePayload("captured-unmanaged-fallback");
+
+				environment.Manager.RestoreCapturedOwnerStack(target, false, new[]
+				{
+					new ModDeploymentRestoreOwner(environment.Key(virtualMod), ModDeploymentRestoreOwnerKind.Virtual,
+						virtualMod, ModInstallRoot.Data, environment.CreatePayload("captured-winner"))
+				}, new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.Retained, desiredFallback));
+
+				Assert.AreEqual("captured-winner", environment.ReadTarget(target));
+				Assert.AreEqual("captured-unmanaged-fallback", File.ReadAllText(
+					environment.VirtualState.GetOverwritePath(target, environment.Key(virtualMod))));
+			}
+		}
+
+		[Test]
+		public void LocalRestoreCapturedOwnerStack_PureVirtual_ExplicitAbsenceRemovesCurrentFallback()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("RestoreVirtualNoFallback", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"meshes\local-restore-no-fallback.nif");
+				string deploymentPath = environment.Manager.GetDeploymentPath(target);
+				Directory.CreateDirectory(Path.GetDirectoryName(deploymentPath));
+				File.WriteAllText(deploymentPath, "current-unmanaged-fallback");
+
+				environment.Manager.RestoreCapturedOwnerStack(target, false, new[]
+				{
+					new ModDeploymentRestoreOwner(environment.Key(virtualMod), ModDeploymentRestoreOwnerKind.Virtual,
+						virtualMod, ModInstallRoot.Data, environment.CreatePayload("captured-winner"))
+				}, new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.ExplicitlyAbsent, null));
+
+				Assert.AreEqual("captured-winner", environment.ReadTarget(target));
+				Assert.IsFalse(File.Exists(environment.VirtualState.GetOverwritePath(target, environment.Key(virtualMod))));
+			}
+		}
+
+		[Test]
 		public void UninstallLastVirtualWinner_ReturnsAbsentPluginCandidateOnlyWhenNoFallbackExists()
 		{
 			using (var environment = new MixedTestEnvironment())

@@ -17,31 +17,41 @@
 		public void RestoreCapturedOwnerStack(ModDeploymentTarget p_mdtTarget, bool p_booPromoted,
 			IReadOnlyList<ModDeploymentRestoreOwner> p_lstOwners)
 		{
-			ValidateCapturedRestoreStack(p_mdtTarget, p_booPromoted, p_lstOwners);
+			RestoreCapturedOwnerStack(p_mdtTarget, p_booPromoted, p_lstOwners,
+				p_booPromoted ? null : new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.PreserveCurrent, null));
+		}
+
+		/// <inheritdoc />
+		public void RestoreCapturedOwnerStack(ModDeploymentTarget p_mdtTarget, bool p_booPromoted,
+			IReadOnlyList<ModDeploymentRestoreOwner> p_lstOwners, ModDeploymentRestoreFallback p_mdrFallback)
+		{
+			ValidateCapturedRestoreStack(p_mdtTarget, p_booPromoted, p_lstOwners, p_mdrFallback);
 
 			using (var transaction = new TransactionScope())
 			{
 				var fileManager = new TxFileManager();
-				if (m_ilgInstallLog.IsDeploymentTargetPromoted(p_mdtTarget) || p_booPromoted)
-					TouchDeploymentRecoveryTarget(p_mdtTarget);
+				// Exact Local restore must have a crash-recovery boundary even for pure-Virtual targets.
+				// The VMA transaction uses the same InstallLog deployment commit marker to distinguish
+				// prepared pre/post state after restart.
+				TouchDeploymentRecoveryTarget(p_mdtTarget);
 				ClearCurrentTargetOwnership(p_mdtTarget, fileManager);
 
 				if (p_booPromoted)
 					RestorePromotedCapturedStack(p_mdtTarget, p_lstOwners, fileManager);
 				else
-					RestorePureVirtualCapturedStack(p_mdtTarget, p_lstOwners, fileManager);
+					RestorePureVirtualCapturedStack(p_mdtTarget, p_lstOwners, p_mdrFallback, fileManager);
 
 				transaction.Complete();
 			}
 
-			if (!p_booPromoted && !m_vmaVirtualModActivator.SaveList(false))
-				throw new IOException("The restored pure-Virtual owner stack could not be persisted durably.");
+			// VMA target mutations are now persisted during transaction Prepare for both promoted
+			// and pure-Virtual targets, so no post-commit SaveList crash window remains here.
 			m_vmaVirtualModActivator.PublishPendingDeploymentChanges();
 		}
 
 		/// <summary>Rejects malformed or context-inconsistent exact-restore owner inputs before filesystem mutation.</summary>
 		private void ValidateCapturedRestoreStack(ModDeploymentTarget target, bool promoted,
-			IReadOnlyList<ModDeploymentRestoreOwner> owners)
+			IReadOnlyList<ModDeploymentRestoreOwner> owners, ModDeploymentRestoreFallback fallback)
 		{
 			if (target == null)
 				throw new ArgumentNullException(nameof(target));
@@ -87,6 +97,12 @@
 				throw new InvalidDataException("A non-promoted captured target may contain only Virtual managed owners.");
 			if (promoted && owners.Count == 1 && owners[0].Kind == ModDeploymentRestoreOwnerKind.OriginalValue)
 				throw new InvalidDataException("An original-only target is not a promoted managed deployment stack.");
+			if (promoted && fallback != null && fallback.Kind != ModDeploymentRestoreFallbackKind.PreserveCurrent)
+				throw new InvalidDataException("A promoted captured restore cannot declare a pure-Virtual fallback payload.");
+			if (!promoted && fallback == null)
+				throw new InvalidDataException("A pure-Virtual captured restore must declare its unmanaged fallback state explicitly.");
+			if (!promoted && fallback.Kind == ModDeploymentRestoreFallbackKind.Retained && !File.Exists(fallback.PayloadPath))
+				throw new FileNotFoundException("The retained pure-Virtual fallback payload is missing.", fallback.PayloadPath);
 		}
 
 		/// <summary>Removes the current managed target through existing native owner-removal semantics before exact reconstruction.</summary>
@@ -152,11 +168,18 @@
 				m_vmaVirtualModActivator.DeploySpecificVirtualLink(target, desiredWinner.OwnerKey, fileManager);
 		}
 
-		/// <summary>Recreates exact pure-Virtual owner order while preserving the current unmanaged fallback beneath the stack.</summary>
+		/// <summary>Recreates exact pure-Virtual owner order and the requested unmanaged fallback beneath the stack.</summary>
 		private void RestorePureVirtualCapturedStack(ModDeploymentTarget target,
-			IReadOnlyList<ModDeploymentRestoreOwner> owners, TxFileManager fileManager)
+			IReadOnlyList<ModDeploymentRestoreOwner> owners, ModDeploymentRestoreFallback fallback, TxFileManager fileManager)
 		{
 			string deploymentPath = GetDeploymentPath(target);
+			if (fallback.Kind != ModDeploymentRestoreFallbackKind.PreserveCurrent)
+			{
+				if (File.Exists(deploymentPath))
+					fileManager.Delete(deploymentPath);
+				if (fallback.Kind == ModDeploymentRestoreFallbackKind.Retained)
+					WriteRestorePayload(fallback.PayloadPath, deploymentPath, fileManager);
+			}
 			bool hasUnmanagedFallback = File.Exists(deploymentPath);
 			for (int index = 0; index < owners.Count; index++)
 			{

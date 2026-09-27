@@ -10,7 +10,7 @@ namespace Nexus.Client.ModManagement
 	using System.Xml.Linq;
 
 	/// <summary>
-	/// Crash recovery for transaction-enlisted Virtual state used by promoted Direct/Virtual targets.
+	/// Crash recovery for transaction-enlisted Virtual deployment state, including pure-Virtual and promoted targets.
 	/// </summary>
 	public partial class VirtualModActivator
 	{

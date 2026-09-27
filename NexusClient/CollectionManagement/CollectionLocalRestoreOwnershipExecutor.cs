@@ -70,7 +70,7 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionLocalRestoreOwnershipExecutor
 	{
-		private const string IntentFormat = "nmm-ce.collections.local-restore-owner-intent/1";
+		private const string IntentFormat = "nmm-ce.collections.local-restore-owner-intent/2";
 		private const string IntentRolePrefix = "local-restore-owner-intent-";
 		private const string VerifiedRolePrefix = "local-restore-owner-verified-";
 		private const string CompleteRole = "local-restore-owner-phase-complete-v1";
@@ -83,7 +83,6 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
 		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
 		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
-		private readonly IModDeploymentManager _deploymentManager;
 
 		/// <summary>Creates the production C7.10b1 exact owner/payload restore executor.</summary>
 		public CollectionLocalRestoreOwnershipExecutor(ServiceManager services, GameStorageService gameStorageService,
@@ -108,7 +107,17 @@ namespace Nexus.Client.CollectionManagement
 			_authorityValidator = authorityValidator ?? throw new ArgumentNullException(nameof(authorityValidator));
 			if (_services.ModManager == null || _services.ModManager.DeploymentManager == null)
 				throw new InvalidOperationException("C7.10b1 requires the live native ModManager and deployment manager.");
-			_deploymentManager = _services.ModManager.DeploymentManager;
+		}
+
+		/// <summary>Gets the deployment manager from the current post-reload native service graph.</summary>
+		private IModDeploymentManager CurrentDeploymentManager
+		{
+			get
+			{
+				if (_services.ModManager == null || _services.ModManager.DeploymentManager == null)
+					throw new InvalidOperationException("The current native deployment manager is unavailable after authority reload.");
+				return _services.ModManager.DeploymentManager;
+			}
 		}
 
 		/// <summary>Restores and verifies all captured managed file-owner targets after the C7.10a member phase.</summary>
@@ -202,7 +211,8 @@ namespace Nexus.Client.CollectionManagement
 						cancellationToken.ThrowIfCancellationRequested();
 						try
 						{
-							_deploymentManager.RestoreCapturedOwnerStack(captured.Target, captured.Promoted, nativeOwners);
+							ModDeploymentRestoreFallback nativeFallback = MaterializeNativeFallback(captured, tempDirectory, cancellationToken);
+							CurrentDeploymentManager.RestoreCapturedOwnerStack(captured.Target, captured.Promoted, nativeOwners, nativeFallback);
 						}
 						catch
 						{
@@ -323,7 +333,7 @@ namespace Nexus.Client.CollectionManagement
 
 		private IMod RequireLiveOwner(string nativeKey)
 		{
-			IMod mod = _deploymentManager.GetOwnerMod(nativeKey);
+			IMod mod = CurrentDeploymentManager.GetOwnerMod(nativeKey);
 			if (mod == null)
 				throw new InvalidOperationException("A reviewed C7.10b1 native owner is no longer active.");
 			return mod;
@@ -368,9 +378,9 @@ namespace Nexus.Client.CollectionManagement
 		private bool VerifyLiveTarget(CollectionOwnerPayloadTarget captured, IList<DesiredOwner> desired,
 			CancellationToken cancellationToken)
 		{
-			if (_deploymentManager.IsPromoted(captured.Target) != captured.Promoted)
+			if (CurrentDeploymentManager.IsPromoted(captured.Target) != captured.Promoted)
 				return false;
-			IReadOnlyList<string> liveOwners = _deploymentManager.GetOwnerKeys(captured.Target);
+			IReadOnlyList<string> liveOwners = CurrentDeploymentManager.GetOwnerKeys(captured.Target);
 			if (!liveOwners.SequenceEqual(desired.Select(x => x.NativeKey), StringComparer.OrdinalIgnoreCase))
 				return false;
 
@@ -379,15 +389,38 @@ namespace Nexus.Client.CollectionManagement
 				DesiredOwner owner = desired[index];
 				string sourcePath;
 				if (owner.Captured.Kind == NativeStateCaptureDeploymentOwnerKind.OriginalValue)
-					sourcePath = _deploymentManager.GetOwnerBackupPath(captured.Target, owner.NativeKey);
+					sourcePath = CurrentDeploymentManager.GetOwnerBackupPath(captured.Target, owner.NativeKey);
 				else
-					sourcePath = _deploymentManager.GetOwnerSourcePath(captured.Target, owner.NativeKey);
+					sourcePath = CurrentDeploymentManager.GetOwnerSourcePath(captured.Target, owner.NativeKey);
 				if (!FileMatches(sourcePath, owner.Captured.RetainedPayload, cancellationToken))
 					return false;
 			}
 
 			DesiredOwner winner = desired[desired.Count - 1];
-			return FileMatches(_deploymentManager.GetDeploymentPath(captured.Target), winner.Captured.RetainedPayload, cancellationToken);
+			if (!FileMatches(CurrentDeploymentManager.GetDeploymentPath(captured.Target), winner.Captured.RetainedPayload, cancellationToken))
+				return false;
+			return MatchesDesiredVirtualFallback(captured, liveOwners, cancellationToken);
+		}
+
+		private bool MatchesDesiredVirtualFallback(CollectionOwnerPayloadTarget captured, IReadOnlyList<string> liveOwners,
+			CancellationToken cancellationToken)
+		{
+			if (captured.Promoted)
+				return captured.VirtualFallback != null && captured.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.NotApplicable;
+			if (captured.VirtualFallback == null)
+				return false;
+
+			string fallbackPath;
+			bool exists = TryResolvePureVirtualFallback(captured.Target, liveOwners, out fallbackPath);
+			switch (captured.VirtualFallback.State)
+			{
+				case CollectionOwnerPayloadVirtualFallbackState.ExplicitlyAbsent:
+					return !exists;
+				case CollectionOwnerPayloadVirtualFallbackState.Retained:
+					return exists && FileMatches(fallbackPath, captured.VirtualFallback.RetainedPayload, cancellationToken);
+				default:
+					return false;
+			}
 		}
 
 		private static bool FileMatches(string path, CollectionOwnerPayloadRetention retained, CancellationToken cancellationToken)
@@ -416,9 +449,22 @@ namespace Nexus.Client.CollectionManagement
 		private OwnerIntent CaptureIntent(LocalCaptureIdentity captureIdentity, CollectionLocalRestorePlan plan,
 			CollectionOwnerPayloadTarget captured, IList<DesiredOwner> desired)
 		{
+			bool preimagePromoted = CurrentDeploymentManager.IsPromoted(captured.Target);
+			string[] preimageOwnerKeys = CurrentDeploymentManager.GetOwnerKeys(captured.Target).ToArray();
+			var preimageOwners = new List<OwnerPreimage>(preimageOwnerKeys.Length);
+			foreach (string ownerKey in preimageOwnerKeys)
+			{
+				string sourcePath = ownerKey.Equals(_services.ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase)
+					? CurrentDeploymentManager.GetOwnerBackupPath(captured.Target, ownerKey)
+					: CurrentDeploymentManager.GetOwnerSourcePath(captured.Target, ownerKey);
+				preimageOwners.Add(new OwnerPreimage(ownerKey, CaptureFileState(sourcePath, CancellationToken.None)));
+			}
+
+			FileState deployment = CaptureFileState(CurrentDeploymentManager.GetDeploymentPath(captured.Target), CancellationToken.None);
+			VirtualFallbackPreimage fallback = CaptureVirtualFallbackPreimage(captured.Target, preimagePromoted, preimageOwnerKeys);
 			return new OwnerIntent(captureIdentity.ToString(), plan.PlanFingerprint, captured.Target, captured.Promoted,
-				_deploymentManager.IsPromoted(captured.Target), _deploymentManager.GetOwnerKeys(captured.Target).ToArray(),
-				desired.Select(x => x.NativeKey).ToArray(), desired.Select(x => x.Captured.RetainedPayload.StableArtifactId).ToArray());
+				preimagePromoted, preimageOwners, deployment, fallback, desired.Select(x => x.NativeKey).ToArray(),
+				desired.Select(x => x.Captured.RetainedPayload.StableArtifactId).ToArray(), CreateDesiredFallbackIdentity(captured));
 		}
 
 		private void PersistIntent(string ownerId, string role, OwnerIntent intent)
@@ -448,8 +494,22 @@ namespace Nexus.Client.CollectionManagement
 
 		private bool MatchesPreimage(OwnerIntent intent)
 		{
-			return _deploymentManager.IsPromoted(intent.Target) == intent.PreimagePromoted &&
-				_deploymentManager.GetOwnerKeys(intent.Target).SequenceEqual(intent.PreimageOwners, StringComparer.OrdinalIgnoreCase);
+			if (CurrentDeploymentManager.IsPromoted(intent.Target) != intent.PreimagePromoted)
+				return false;
+			string[] liveOwners = CurrentDeploymentManager.GetOwnerKeys(intent.Target).ToArray();
+			if (!liveOwners.SequenceEqual(intent.PreimageOwners.Select(x => x.OwnerKey), StringComparer.OrdinalIgnoreCase))
+				return false;
+			foreach (OwnerPreimage owner in intent.PreimageOwners)
+			{
+				string sourcePath = owner.OwnerKey.Equals(_services.ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase)
+					? CurrentDeploymentManager.GetOwnerBackupPath(intent.Target, owner.OwnerKey)
+					: CurrentDeploymentManager.GetOwnerSourcePath(intent.Target, owner.OwnerKey);
+				if (!MatchesFileState(sourcePath, owner.Payload, CancellationToken.None))
+					return false;
+			}
+			if (!MatchesFileState(CurrentDeploymentManager.GetDeploymentPath(intent.Target), intent.PreimageDeployment, CancellationToken.None))
+				return false;
+			return MatchesVirtualFallbackPreimage(intent.Target, liveOwners, intent.PreimageFallback);
 		}
 
 		private void ValidateIntent(OwnerIntent intent, LocalCaptureIdentity captureIdentity, CollectionLocalRestorePlan plan,
@@ -459,7 +519,8 @@ namespace Nexus.Client.CollectionManagement
 				!StringComparer.Ordinal.Equals(intent.PlanFingerprint, plan.PlanFingerprint) || !intent.Target.Equals(captured.Target) ||
 				intent.DesiredPromoted != captured.Promoted ||
 				!intent.DesiredOwners.SequenceEqual(desired.Select(x => x.NativeKey), StringComparer.OrdinalIgnoreCase) ||
-				!intent.ArtifactIds.SequenceEqual(desired.Select(x => x.Captured.RetainedPayload.StableArtifactId), StringComparer.Ordinal))
+				!intent.ArtifactIds.SequenceEqual(desired.Select(x => x.Captured.RetainedPayload.StableArtifactId), StringComparer.Ordinal) ||
+				!StringComparer.Ordinal.Equals(intent.DesiredFallbackIdentity, CreateDesiredFallbackIdentity(captured)))
 				throw new InvalidDataException("The durable C7.10b1 owner intent differs from the reviewed restore plan.");
 		}
 
@@ -472,11 +533,12 @@ namespace Nexus.Client.CollectionManagement
 			{
 				JObject root = JObject.Parse(reader.ReadToEnd());
 				if (!StringComparer.Ordinal.Equals((string)root["format"], IntentFormat))
-					throw new InvalidDataException("Unsupported C7.10b1 owner-intent format.");
+					throw new InvalidDataException("Unsupported C7.10b1 owner-intent format. Exact payload/fallback preimage evidence is required.");
 				return new OwnerIntent((string)root["captureId"], (string)root["planFingerprint"],
 					ReadTarget((JObject)root["target"]), (bool)root["desiredPromoted"], (bool)root["preimagePromoted"],
-					ReadStrings((JArray)root["preimageOwners"]), ReadStrings((JArray)root["desiredOwners"]),
-					ReadStrings((JArray)root["artifactIds"]));
+					ReadOwnerPreimages((JArray)root["preimageOwners"]), ReadFileState((JObject)root["preimageDeployment"]),
+					ReadFallbackPreimage((JObject)root["preimageFallback"]), ReadStrings((JArray)root["desiredOwners"]),
+					ReadStrings((JArray)root["artifactIds"]), (string)root["desiredFallbackIdentity"]);
 			}
 		}
 
@@ -493,12 +555,158 @@ namespace Nexus.Client.CollectionManagement
 				writer.WritePropertyName("target"); WriteTarget(writer, intent.Target);
 				writer.WritePropertyName("desiredPromoted"); writer.WriteValue(intent.DesiredPromoted);
 				writer.WritePropertyName("preimagePromoted"); writer.WriteValue(intent.PreimagePromoted);
-				WriteStrings(writer, "preimageOwners", intent.PreimageOwners);
+				writer.WritePropertyName("preimageOwners"); writer.WriteStartArray();
+				foreach (OwnerPreimage owner in intent.PreimageOwners)
+				{
+					writer.WriteStartObject(); writer.WritePropertyName("ownerKey"); writer.WriteValue(owner.OwnerKey);
+					writer.WritePropertyName("payload"); WriteFileState(writer, owner.Payload); writer.WriteEndObject();
+				}
+				writer.WriteEndArray();
+				writer.WritePropertyName("preimageDeployment"); WriteFileState(writer, intent.PreimageDeployment);
+				writer.WritePropertyName("preimageFallback"); WriteFallbackPreimage(writer, intent.PreimageFallback);
 				WriteStrings(writer, "desiredOwners", intent.DesiredOwners);
 				WriteStrings(writer, "artifactIds", intent.ArtifactIds);
+				writer.WritePropertyName("desiredFallbackIdentity"); writer.WriteValue(intent.DesiredFallbackIdentity);
 				writer.WriteEndObject(); writer.Flush(); text.Flush();
 				return stream.ToArray();
 			}
+		}
+
+		private ModDeploymentRestoreFallback MaterializeNativeFallback(CollectionOwnerPayloadTarget captured, string tempDirectory,
+			CancellationToken cancellationToken)
+		{
+			if (captured.Promoted)
+				return null;
+			if (captured.VirtualFallback == null)
+				throw new InvalidDataException("A pure-Virtual restore is missing its sealed fallback state.");
+			switch (captured.VirtualFallback.State)
+			{
+				case CollectionOwnerPayloadVirtualFallbackState.ExplicitlyAbsent:
+					return new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.ExplicitlyAbsent, null);
+				case CollectionOwnerPayloadVirtualFallbackState.Retained:
+					string path = Path.Combine(tempDirectory, "virtual-fallback.payload");
+					Materialize(captured.VirtualFallback.RetainedPayload, path, cancellationToken);
+					return new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.Retained, path);
+				default:
+					throw new InvalidDataException("A pure-Virtual restore requires an explicit absent or retained fallback state.");
+			}
+		}
+
+		private VirtualFallbackPreimage CaptureVirtualFallbackPreimage(ModDeploymentTarget target, bool promoted,
+			IReadOnlyList<string> ownerKeys)
+		{
+			if (promoted)
+				return new VirtualFallbackPreimage(VirtualFallbackPreimageKind.NotApplicable, null);
+			string path;
+			bool exists = TryResolvePureVirtualFallback(target, ownerKeys, out path);
+			return exists
+				? new VirtualFallbackPreimage(VirtualFallbackPreimageKind.Present, CaptureFileState(path, CancellationToken.None))
+				: new VirtualFallbackPreimage(VirtualFallbackPreimageKind.ExplicitlyAbsent, null);
+		}
+
+		private bool MatchesVirtualFallbackPreimage(ModDeploymentTarget target, IReadOnlyList<string> ownerKeys,
+			VirtualFallbackPreimage expected)
+		{
+			if (expected == null) return false;
+			if (expected.Kind == VirtualFallbackPreimageKind.NotApplicable)
+				return CurrentDeploymentManager.IsPromoted(target);
+			string path;
+			bool exists = TryResolvePureVirtualFallback(target, ownerKeys, out path);
+			if (expected.Kind == VirtualFallbackPreimageKind.ExplicitlyAbsent) return !exists;
+			return exists && MatchesFileState(path, expected.Payload, CancellationToken.None);
+		}
+
+		private bool TryResolvePureVirtualFallback(ModDeploymentTarget target, IReadOnlyList<string> ownerKeys, out string fallbackPath)
+		{
+			fallbackPath = String.Empty;
+			if (ownerKeys == null || ownerKeys.Count == 0)
+			{
+				string deploymentPath = CurrentDeploymentManager.GetDeploymentPath(target);
+				if (!File.Exists(deploymentPath)) return false;
+				fallbackPath = deploymentPath;
+				return true;
+			}
+			var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (string ownerKey in ownerKeys)
+			{
+				string path = _services.ModManager.VirtualModActivator.GetVirtualOverwritePath(target, ownerKey);
+				if (!String.IsNullOrWhiteSpace(path) && File.Exists(path)) paths.Add(Path.GetFullPath(path));
+			}
+			if (paths.Count > 1)
+				throw new InvalidDataException("The pure-Virtual target exposes more than one unmanaged fallback payload.");
+			if (paths.Count == 0) return false;
+			fallbackPath = paths.Single();
+			return true;
+		}
+
+		private static FileState CaptureFileState(string path, CancellationToken cancellationToken)
+		{
+			if (String.IsNullOrWhiteSpace(path) || !File.Exists(path)) return new FileState(false, 0, String.Empty);
+			var info = new FileInfo(path);
+			using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, CopyBufferSize, FileOptions.SequentialScan))
+			using (SHA256 sha = SHA256.Create())
+			{
+				var buffer = new byte[CopyBufferSize]; int read;
+				while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					sha.TransformBlock(buffer, 0, read, buffer, 0);
+				}
+				sha.TransformFinalBlock(new byte[0], 0, 0);
+				return new FileState(true, info.Length, BitConverter.ToString(sha.Hash).Replace("-", String.Empty).ToLowerInvariant());
+			}
+		}
+
+		private static bool MatchesFileState(string path, FileState expected, CancellationToken cancellationToken)
+		{
+			if (expected == null) return false;
+			FileState actual = CaptureFileState(path, cancellationToken);
+			return actual.Exists == expected.Exists && actual.ByteLength == expected.ByteLength &&
+				StringComparer.Ordinal.Equals(actual.Sha256, expected.Sha256);
+		}
+
+		private static string CreateDesiredFallbackIdentity(CollectionOwnerPayloadTarget captured)
+		{
+			if (captured.Promoted) return "not-applicable";
+			if (captured.VirtualFallback == null) return "missing";
+			if (captured.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.ExplicitlyAbsent) return "absent";
+			if (captured.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.Retained && captured.VirtualFallback.RetainedPayload != null)
+				return "retained:" + captured.VirtualFallback.RetainedPayload.StableArtifactId;
+			return "unsupported:" + (int)captured.VirtualFallback.State;
+		}
+
+		private static void WriteFileState(JsonWriter writer, FileState value)
+		{
+			writer.WriteStartObject(); writer.WritePropertyName("exists"); writer.WriteValue(value.Exists);
+			writer.WritePropertyName("byteLength"); writer.WriteValue(value.ByteLength);
+			writer.WritePropertyName("sha256"); writer.WriteValue(value.Sha256); writer.WriteEndObject();
+		}
+
+		private static FileState ReadFileState(JObject value)
+		{
+			if (value == null) throw new InvalidDataException("A C7.10b1 exact file preimage is missing.");
+			return new FileState((bool)value["exists"], (long)value["byteLength"], (string)value["sha256"]);
+		}
+
+		private static OwnerPreimage[] ReadOwnerPreimages(JArray array)
+		{
+			if (array == null) throw new InvalidDataException("The C7.10b1 owner preimage sequence is missing.");
+			return array.Select(x => (JObject)x).Select(x => new OwnerPreimage((string)x["ownerKey"], ReadFileState((JObject)x["payload"]))).ToArray();
+		}
+
+		private static void WriteFallbackPreimage(JsonWriter writer, VirtualFallbackPreimage value)
+		{
+			writer.WriteStartObject(); writer.WritePropertyName("kind"); writer.WriteValue((int)value.Kind);
+			writer.WritePropertyName("payload"); if (value.Payload == null) writer.WriteNull(); else WriteFileState(writer, value.Payload); writer.WriteEndObject();
+		}
+
+		private static VirtualFallbackPreimage ReadFallbackPreimage(JObject value)
+		{
+			if (value == null) throw new InvalidDataException("The C7.10b1 pure-Virtual fallback preimage is missing.");
+			VirtualFallbackPreimageKind kind = (VirtualFallbackPreimageKind)(int)value["kind"];
+			if (!Enum.IsDefined(typeof(VirtualFallbackPreimageKind), kind)) throw new InvalidDataException("Unknown C7.10b1 fallback preimage kind.");
+			JObject payload = value["payload"] as JObject;
+			return new VirtualFallbackPreimage(kind, payload == null ? null : ReadFileState(payload));
 		}
 
 		private CollectionOperation CompleteOwnershipPhase(CollectionOperation operation, LocalCaptureIdentity captureIdentity,
@@ -692,24 +900,78 @@ namespace Nexus.Client.CollectionManagement
 			internal int TargetCount { get; }
 		}
 
+		private enum VirtualFallbackPreimageKind
+		{
+			NotApplicable = 0,
+			ExplicitlyAbsent = 1,
+			Present = 2
+		}
+
+		private sealed class FileState
+		{
+			internal FileState(bool exists, long byteLength, string sha256)
+			{
+				if (byteLength < 0) throw new ArgumentOutOfRangeException(nameof(byteLength));
+				if (exists && (String.IsNullOrWhiteSpace(sha256) || sha256.Length != 64))
+					throw new InvalidDataException("An existing exact file preimage requires a SHA-256 digest.");
+				if (!exists && (byteLength != 0 || !String.IsNullOrEmpty(sha256)))
+					throw new InvalidDataException("An absent exact file preimage cannot carry payload metadata.");
+				Exists = exists; ByteLength = byteLength; Sha256 = sha256 ?? String.Empty;
+			}
+			internal bool Exists { get; }
+			internal long ByteLength { get; }
+			internal string Sha256 { get; }
+		}
+
+		private sealed class OwnerPreimage
+		{
+			internal OwnerPreimage(string ownerKey, FileState payload)
+			{
+				if (String.IsNullOrWhiteSpace(ownerKey)) throw new InvalidDataException("An exact owner preimage requires its native key.");
+				OwnerKey = ownerKey; Payload = payload ?? throw new ArgumentNullException(nameof(payload));
+			}
+			internal string OwnerKey { get; }
+			internal FileState Payload { get; }
+		}
+
+		private sealed class VirtualFallbackPreimage
+		{
+			internal VirtualFallbackPreimage(VirtualFallbackPreimageKind kind, FileState payload)
+			{
+				if ((kind == VirtualFallbackPreimageKind.Present) != (payload != null))
+					throw new InvalidDataException("Only a present pure-Virtual fallback preimage may carry payload bytes.");
+				Kind = kind; Payload = payload;
+			}
+			internal VirtualFallbackPreimageKind Kind { get; }
+			internal FileState Payload { get; }
+		}
+
 		private sealed class OwnerIntent
 		{
 			internal OwnerIntent(string captureId, string planFingerprint, ModDeploymentTarget target, bool desiredPromoted,
-				bool preimagePromoted, IEnumerable<string> preimageOwners, IEnumerable<string> desiredOwners,
-				IEnumerable<string> artifactIds)
+				bool preimagePromoted, IEnumerable<OwnerPreimage> preimageOwners, FileState preimageDeployment,
+				VirtualFallbackPreimage preimageFallback, IEnumerable<string> desiredOwners, IEnumerable<string> artifactIds,
+				string desiredFallbackIdentity)
 			{
 				CaptureId = captureId; PlanFingerprint = planFingerprint; Target = target; DesiredPromoted = desiredPromoted;
 				PreimagePromoted = preimagePromoted; PreimageOwners = preimageOwners.ToArray();
+				PreimageDeployment = preimageDeployment ?? throw new ArgumentNullException(nameof(preimageDeployment));
+				PreimageFallback = preimageFallback ?? throw new ArgumentNullException(nameof(preimageFallback));
 				DesiredOwners = desiredOwners.ToArray(); ArtifactIds = artifactIds.ToArray();
+				DesiredFallbackIdentity = desiredFallbackIdentity ?? String.Empty;
 			}
 			internal string CaptureId { get; }
 			internal string PlanFingerprint { get; }
 			internal ModDeploymentTarget Target { get; }
 			internal bool DesiredPromoted { get; }
 			internal bool PreimagePromoted { get; }
-			internal string[] PreimageOwners { get; }
+			internal OwnerPreimage[] PreimageOwners { get; }
+			internal FileState PreimageDeployment { get; }
+			internal VirtualFallbackPreimage PreimageFallback { get; }
 			internal string[] DesiredOwners { get; }
 			internal string[] ArtifactIds { get; }
+			internal string DesiredFallbackIdentity { get; }
 		}
+
 	}
 }

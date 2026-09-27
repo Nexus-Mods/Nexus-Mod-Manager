@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.GameStorage;
 using NUnit.Framework;
@@ -29,6 +30,42 @@ namespace NexusClientTests
 		{
 			if (!string.IsNullOrWhiteSpace(_tempRoot) && Directory.Exists(_tempRoot))
 				Directory.Delete(_tempRoot, true);
+		}
+
+		[Test]
+		public void LocalCaptureBoundary_ReloadsBeforeCaptureAndHoldsProcessGateThroughPublicationCallback()
+		{
+			GameStoragePathSet paths = CreateStorage("SkyrimSE", "CaptureStorage", "CaptureGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var reloader = new RecordingReloader();
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, reloader, _authorityStore);
+			var leaseManager = new CollectionTargetMutationLeaseManager();
+			var boundary = new CollectionLocalCaptureBoundary(_storageService, leaseManager, validator);
+			var nativeAttemptStarted = new ManualResetEventSlim(false);
+			var nativeAttemptAcquired = new ManualResetEventSlim(false);
+			Task nativeAttempt = null;
+
+			string observedTarget = boundary.Execute(paths, target =>
+			{
+				Assert.That(reloader.ReloadCount, Is.EqualTo(1), "Capture must reload authoritative native state before reading any domain.");
+				nativeAttempt = Task.Run(() =>
+				{
+					nativeAttemptStarted.Set();
+					using (leaseManager.AcquireNativeOperation("manual-native-capture-test"))
+						nativeAttemptAcquired.Set();
+				});
+
+				Assert.That(nativeAttemptStarted.Wait(TimeSpan.FromSeconds(2)), Is.True);
+				Assert.That(nativeAttemptAcquired.Wait(TimeSpan.FromMilliseconds(150)), Is.False,
+					"A cooperating native mutation must remain blocked for the complete capture/publication callback.");
+				return target.Fingerprint;
+			}, CancellationToken.None);
+
+			Assert.That(observedTarget, Is.EqualTo(authority.Target.Fingerprint));
+			Assert.That(nativeAttemptAcquired.Wait(TimeSpan.FromSeconds(2)), Is.True,
+				"The process mutation gate must be released after capture publication completes.");
+			Assert.That(nativeAttempt.Wait(TimeSpan.FromSeconds(2)), Is.True);
 		}
 
 		[Test]

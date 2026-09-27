@@ -96,6 +96,27 @@
 			Assert.That(assignment.DownloadId, Is.EqualTo("210"));
 		}
 
+		/// <summary>Ensures Local restore can reinstate the exact persisted Sort state rather than flattening it into an explicit edit.</summary>
+		[Test]
+		public void RestoreResolvedAssignmentPreservesCapturedLogicalState()
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			var mod = CreateMod("Restore.7z", "120", "220");
+			service.RebuildCurrentArchiveInventory(new[] { mod }, null);
+			service.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, new[] { mod });
+			service.SetSortNumber(mod, 99);
+
+			service.RestoreResolvedAssignment(mod, 15, ModSortOrderAssignmentState.InheritedNumeric, "120", "220");
+
+			ModSortOrderRecord restored;
+			Assert.IsTrue(service.TryGetResolvedAssignment(mod.ModArchivePath, out restored));
+			Assert.AreEqual(15, restored.SortNumber);
+			Assert.AreEqual(ModSortOrderAssignmentState.InheritedNumeric, restored.AssignmentState);
+			Assert.AreEqual("120", restored.ModId);
+			Assert.AreEqual("220", restored.DownloadId);
+		}
+
 		/// <summary>
 		/// Ensures a failed durable identity write leaves both SQLite and the active in-memory value unchanged.
 		/// </summary>

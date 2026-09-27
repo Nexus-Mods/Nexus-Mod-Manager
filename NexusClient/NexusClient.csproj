@@ -102,8 +102,16 @@
     <Compile Include="CollectionManagement\CollectionLocalCapturePackageCodec.cs" />
     <Compile Include="CollectionManagement\CollectionLocalCaptureApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlan.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreIntentCodec.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestoreMemberExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreMemberRehydrator.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreMemberResumeCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestoreOwnershipExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreReplayExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestorePluginExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreIniExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreGameValueExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreUserMetadataExecutor.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadCaptureService.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadSnapshot.cs" />
@@ -111,6 +119,7 @@
     <Compile Include="CollectionManagement\CollectionScriptedReplaySnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionInstalledIdentitySnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionManualMutationDriftCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionManualNativeMutationBoundary.cs" />
     <Compile Include="CollectionManagement\CollectionPinOverrideCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionDetachCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionUninstallEffectsCoordinator.cs" />
@@ -149,6 +158,8 @@
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowRuntime.cs" />
     <Compile Include="CollectionManagement\CollectionAdditiveWorkflowCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionAdditiveApplicationService.cs" />
+    <Compile Include="CollectionManagement\CollectionManagementApplicationService.cs" />
+    <Compile Include="CollectionManagement\CollectionAdditiveFinalStateVerifier.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedFileWinnerReconciliationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionOperationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionAssociationReconciliationCoordinator.cs" />
@@ -448,6 +459,8 @@
     <Compile Include="ModManagement\ModInstaller.cs" />
     <Compile Include="ModManagement\ModInstallerFactory.cs" />
     <Compile Include="ModManagement\ModLinkInstaller.cs" />
+    <Compile Include="ModManagement\ModManager.LocalRestoreIni.cs" />
+    <Compile Include="ModManagement\ModManager.LocalRestoreGameValues.cs" />
     <Compile Include="ModManagement\ModManager.cs" />
     <Compile Include="ModManagement\ModSortOrderComparer.cs" />
     <Compile Include="ModManagement\ModSortOrderService.cs" />
@@ -497,6 +510,7 @@
     <Compile Include="ModManagement\VirtualModActivator\VirtualConfigFixTask.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciliationReport.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciler.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.LocalRestoreIni.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.ReadSnapshot.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.DeploymentBackend.cs" />

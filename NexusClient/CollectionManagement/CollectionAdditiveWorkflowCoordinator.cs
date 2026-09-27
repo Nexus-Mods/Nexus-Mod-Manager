@@ -369,10 +369,10 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReviewedWorkflowRuntime runtime = review.Runtime;
 			if (operation.Phase == CollectionOperationPhase.Verifying)
 			{
-				CollectionAssociationFinalizationResult resumedFinalization = _associationCoordinator.FinalizeAppliedAssociation(operationIdentity,
-					runtime.Plan, runtime.Matches);
+				CollectionAssociationFinalizationResult resumedFinalization = await VerifyAndFinalizeAppliedAssociationAsync(operationIdentity,
+					runtime, targetPaths, cancellationToken).ConfigureAwait(false);
 				return ApplyResult(CollectionAdditiveWorkflowApplyStatus.Committed, resumedFinalization.Operation,
-					resumedFinalization, "The additive Collection was finalized from its verified boundary.");
+					resumedFinalization, "The additive Collection was reverified and finalized from its durable verification boundary.");
 			}
 
 			CollectionNativeStateIndex currentState = runtime.CurrentState;
@@ -458,10 +458,10 @@ namespace Nexus.Client.CollectionManagement
 			else
 				await _winnerCoordinator.ReconcileAsync(operationIdentity, runtime.Plan, runtime.Matches,
 					runtime.ImpactPlan, targetPaths, cancellationToken).ConfigureAwait(false);
-			CollectionAssociationFinalizationResult finalization = _associationCoordinator.FinalizeAppliedAssociation(operationIdentity,
-				runtime.Plan, runtime.Matches);
+			CollectionAssociationFinalizationResult finalization = await VerifyAndFinalizeAppliedAssociationAsync(operationIdentity,
+				runtime, targetPaths, cancellationToken).ConfigureAwait(false);
 			return ApplyResult(CollectionAdditiveWorkflowApplyStatus.Committed, finalization.Operation, finalization,
-				"The exact reviewed additive Collection plan was applied and verified.");
+				"The exact reviewed additive Collection plan was applied, aggregate-verified and finalized.");
 		}
 
 		/// <summary>
@@ -696,6 +696,27 @@ namespace Nexus.Client.CollectionManagement
 					? "The exact verified incoming archive is not present in the native managed-mod registry. Import it through the existing Add Mod pipeline before preparing the Collection."
 					: "Multiple native managed archives match the exact selected Nexus mod/file identity.");
 			return candidates[0];
+		}
+
+
+		/// <summary>Recaptures complete native reality under the target reservation and publishes Applied only against that same observation boundary.</summary>
+		private async Task<CollectionAssociationFinalizationResult> VerifyAndFinalizeAppliedAssociationAsync(
+			CollectionOperationIdentity operationIdentity, CollectionReviewedWorkflowRuntime runtime,
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+		{
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
+			if (!authority.Target.Equals(runtime.Plan.Target))
+				throw new InvalidOperationException("The live canonical target changed before aggregate Collection verification.");
+
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
+				CollectionNativeStateIndex finalState = _nativeStateReader.Capture(runtime.Plan.Target);
+				new CollectionAdditiveFinalStateVerifier().Verify(runtime.Plan, runtime.Matches, runtime.ImpactPlan,
+					runtime.PreparedRecipes, finalState);
+				return _associationCoordinator.FinalizeAppliedAssociation(operationIdentity, runtime.Plan, runtime.Matches);
+			}
 		}
 
 		private async Task ReloadTargetAuthorityAsync(CollectionTargetAuthority authority, GameStoragePathSet paths,

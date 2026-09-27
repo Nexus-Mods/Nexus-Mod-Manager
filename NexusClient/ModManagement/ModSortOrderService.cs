@@ -2,6 +2,7 @@
 {
 	using System;
 	using System.Collections.Generic;
+	using System.IO;
 	using System.Linq;
 	using Nexus.Client.Mods;
 	using Nexus.Client.Mods.Formats.FOMod;
@@ -290,6 +291,47 @@
 
 			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, resolved.SortNumber));
 			return resolved.SortNumber;
+		}
+
+		/// <summary>
+		/// Durably restores one exact captured logical Sort assignment without re-running inheritance or edit semantics.
+		/// </summary>
+		public void RestoreResolvedAssignment(IMod mod, int? sortNumber, ModSortOrderAssignmentState assignmentState,
+			string recordedModId, string recordedDownloadId)
+		{
+			if (mod == null)
+				throw new ArgumentNullException(nameof(mod));
+			if (!Enum.IsDefined(typeof(ModSortOrderAssignmentState), assignmentState) ||
+				assignmentState == ModSortOrderAssignmentState.PendingAddIdentity)
+				throw new ArgumentOutOfRangeException(nameof(assignmentState));
+			bool numeric = assignmentState == ModSortOrderAssignmentState.InheritedNumeric ||
+				assignmentState == ModSortOrderAssignmentState.ExplicitNumeric;
+			if (numeric != sortNumber.HasValue)
+				throw new InvalidDataException("The captured Sort number does not match its persisted assignment state.");
+
+			ModSortOrderRecord saved;
+			string locator;
+			lock (_syncRoot)
+			{
+				locator = GetLocator(mod);
+				ModSortOrderRecord current = GetResolvedRecord(locator);
+				if (current != null && HasIdentityConflict(current, recordedModId, recordedDownloadId) &&
+					HasIdentityConflict(current, mod))
+					throw new InvalidDataException("The current Sort binding belongs to a different repository file.");
+				if ((ModFileIdentity.IsUsableRepositoryId(recordedModId) && ModFileIdentity.IsUsableRepositoryId(mod.Id) &&
+					!StringComparer.OrdinalIgnoreCase.Equals(recordedModId.Trim(), mod.Id.Trim())) ||
+					(ModFileIdentity.IsUsableRepositoryId(recordedDownloadId) && ModFileIdentity.IsUsableRepositoryId(mod.DownloadId) &&
+					!StringComparer.OrdinalIgnoreCase.Equals(recordedDownloadId.Trim(), mod.DownloadId.Trim())))
+					throw new InvalidDataException("The captured Sort repository identity no longer matches the restored native member.");
+
+				var restored = new ModSortOrderRecord(current == null ? 0 : current.AssignmentId, locator,
+					recordedModId, recordedDownloadId, sortNumber, assignmentState, DateTime.UtcNow);
+				saved = PersistRecord(restored);
+				Bind(locator, saved);
+				RefreshTrackedArchiveIdentity(locator);
+			}
+
+			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, saved.SortNumber));
 		}
 
 		/// <summary>

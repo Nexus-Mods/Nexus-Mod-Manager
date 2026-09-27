@@ -289,6 +289,7 @@
 					var services = appInitializer.Services;
 					var collectionNxmDispatcher = new NexusCollectionNxmDispatcher(ApiCallManager.Instance(_environmentInfo).NexusService.Collections);
 					var gameStorageService = new GameStorageService(_environmentInfo);
+					CollectionManualNativeMutationBoundary.Configure(services, gameStorageService);
 
 					var mainFormViewModel = new MainFormVM(_environmentInfo, installedGames, gameMode, services.ModRepository, services.DownloadMonitor, services.ModActivationMonitor, services.ModManager, services.PluginManager, collectionNxmDispatcher);
 					var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
@@ -296,6 +297,8 @@
 					mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);
 					var collectionCaptureWorkflow = new CollectionLocalCaptureApplicationService(services, gameStorageService);
 					mainFormViewModel.InitializeCollectionCaptureWorkflow(collectionCaptureWorkflow);
+					var collectionManagementWorkflow = new CollectionManagementApplicationService(services, gameStorageService);
+					mainFormViewModel.InitializeCollectionManagementWorkflow(collectionManagementWorkflow);
 					var mainForm = new MainForm(mainFormViewModel);
 
 					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm, collectionNxmDispatcher))
@@ -464,6 +467,7 @@
 		/// <param name="serviceManager">The services to dispose.</param>
 		protected void DisposeServices(ServiceManager serviceManager)
 		{
+			CollectionManualNativeMutationBoundary.Clear(serviceManager);
 		    serviceManager?.ModInstallLog.Release();
 		    serviceManager?.ActivePluginLog?.Release();
 		    serviceManager?.PluginOrderLog?.Release();

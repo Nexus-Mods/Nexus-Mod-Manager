@@ -35,7 +35,7 @@ namespace Nexus.Client.CollectionManagement
 		public const int CurrentSchemaVersion = 1;
 
 		/// <summary>Gets the current restoration-capability contract version.</summary>
-		public const int CurrentCapabilityVersion = 1;
+		public const int CurrentCapabilityVersion = 2;
 
 		private readonly ReadOnlyCollection<RetainedArtifactReference> _retainedArtifacts;
 		private readonly ReadOnlyCollection<LocalCaptureExclusion> _exclusions;

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="..\..\Stage\packages\NUnit3TestAdapter.6.3.0\build\net462\NUnit3TestAdapter.props" Condition="Exists('..\..\Stage\packages\NUnit3TestAdapter.6.3.0\build\net462\NUnit3TestAdapter.props')" />
   <Import Project="..\..\Stage\packages\Microsoft.Testing.Extensions.Telemetry.2.3.3\build\netstandard2.0\Microsoft.Testing.Extensions.Telemetry.props" Condition="Exists('..\..\Stage\packages\Microsoft.Testing.Extensions.Telemetry.2.3.3\build\netstandard2.0\Microsoft.Testing.Extensions.Telemetry.props')" />
@@ -67,6 +67,9 @@
     </Reference>
     <Reference Include="nunit.framework, Version=3.13.3.0, Culture=neutral, PublicKeyToken=2638cd05610744eb, processorArchitecture=MSIL">
       <HintPath>..\..\Stage\packages\NUnit.3.13.3\lib\net45\nunit.framework.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="SevenZipSharp, Version=1.6.2.24, Culture=neutral, PublicKeyToken=c8ff6ba0184838bb, processorArchitecture=MSIL">
       <HintPath>..\..\Stage\packages\Squid-Box.SevenZipSharp.1.6.2.24\lib\netstandard2.0\SevenZipSharp.dll</HintPath>
@@ -138,6 +141,7 @@
     <Compile Include="CollectionDefinitionRevisionTests.cs" />
     <Compile Include="CollectionProvenanceAssociationTests.cs" />
     <Compile Include="CollectionTargetIdentityResolverTests.cs" />
+    <Compile Include="CollectionManualNativeMutationBoundaryTests.cs" />
     <Compile Include="CollectionTargetMutationLeaseTests.cs" />
     <Compile Include="CollectionTargetCrossProcessLeaseTests.cs" />
     <Compile Include="CollectionTargetOwnershipAuthorityValidatorTests.cs" />
@@ -153,6 +157,11 @@
     <Compile Include="CollectionCaptureSealerTests.cs" />
     <Compile Include="CollectionLocalCapturePackageCodecTests.cs" />
     <Compile Include="CollectionLocalRestorePlannerTests.cs" />
+    <Compile Include="CollectionLocalRestoreReplayExecutorTests.cs" />
+    <Compile Include="CollectionLocalRestorePluginExecutorTests.cs" />
+    <Compile Include="CollectionLocalRestoreIniExecutorTests.cs" />
+    <Compile Include="CollectionLocalRestoreGameValueExecutorTests.cs" />
+    <Compile Include="CollectionLocalRestoreUserMetadataExecutorTests.cs" />
     <Compile Include="CollectionsLocalCaptureStoreTests.cs" />
     <Compile Include="NativeStateCaptureReaderTests.cs" />
     <Compile Include="CollectionInstalledIdentityCaptureReaderTests.cs" />
@@ -163,6 +172,7 @@
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />
     <Compile Include="CollectionOperationCoordinatorTests.cs" />
     <Compile Include="CollectionAdditiveWorkflowVerticalPreparationTests.cs" />
+    <Compile Include="CollectionAdditiveFinalStateVerifierTests.cs" />
     <Compile Include="CollectionAdditiveWorkflowVerticalApplyTests.cs" />
     <Compile Include="CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests.cs" />
     <Compile Include="CollectionReviewedWorkflowRuntimeReconstructorTests.cs" />

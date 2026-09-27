@@ -77,6 +77,8 @@ namespace Nexus.Client.CollectionManagement
 				.GroupBy(x => x.Target).ToDictionary(x => x.Key, x => x.ToList());
 			Dictionary<ModDeploymentTarget, List<NativeStateCaptureVirtualPayloadSource>> virtualPayloadSources =
 				nativeState.ActiveVirtualPayloadSources.GroupBy(x => x.Target).ToDictionary(x => x.Key, x => x.ToList());
+			Dictionary<ModDeploymentTarget, NativeStateCaptureVirtualFallback> virtualFallbacks = ToUniqueDictionary(
+				nativeState.VirtualFallbacks, x => x.Target, "pure-Virtual fallback observation");
 
 			var targets = new HashSet<ModDeploymentTarget>(promoted.Keys);
 			targets.UnionWith(legacy.Keys);
@@ -104,8 +106,10 @@ namespace Nexus.Client.CollectionManagement
 				{
 					List<NativeStateCaptureVirtualPayloadSource> payloadSources;
 					virtualPayloadSources.TryGetValue(deploymentTarget, out payloadSources);
+					NativeStateCaptureVirtualFallback fallback;
+					virtualFallbacks.TryGetValue(deploymentTarget, out fallback);
 					capturedTargets.Add(CaptureVirtualTarget(captureIdentity, deploymentTarget, activeOwners,
-						payloadSources, modsByKey, issues, ref coverage, cancellationToken));
+						payloadSources, fallback, modsByKey, issues, ref coverage, cancellationToken));
 					continue;
 				}
 
@@ -185,6 +189,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionOwnerPayloadTarget CaptureVirtualTarget(LocalCaptureIdentity captureIdentity,
 			ModDeploymentTarget target, IList<VirtualModReadLink> activeOwners,
 			IList<NativeStateCaptureVirtualPayloadSource> payloadSources,
+			NativeStateCaptureVirtualFallback fallback,
 			IDictionary<string, InstallLogReadMod> modsByKey, List<CollectionOwnerPayloadIssue> issues,
 			ref NativeStateCaptureCoverage coverage, CancellationToken cancellationToken)
 		{
@@ -205,7 +210,42 @@ namespace Nexus.Client.CollectionManagement
 				owners.Add(new CollectionOwnerPayloadOwner(index, link.OwnerKey, link.OwnerReference, kind,
 					index == activeOwners.Count - 1, retained));
 			}
-			return new CollectionOwnerPayloadTarget(target, false, owners);
+
+			CollectionOwnerPayloadVirtualFallback capturedFallback = CaptureVirtualFallback(captureIdentity, target,
+				fallback, issues, ref coverage, cancellationToken);
+			return new CollectionOwnerPayloadTarget(target, false, owners, capturedFallback);
+		}
+
+		private CollectionOwnerPayloadVirtualFallback CaptureVirtualFallback(LocalCaptureIdentity captureIdentity,
+			ModDeploymentTarget target, NativeStateCaptureVirtualFallback fallback,
+			List<CollectionOwnerPayloadIssue> issues, ref NativeStateCaptureCoverage coverage,
+			CancellationToken cancellationToken)
+		{
+			if (fallback == null || fallback.State == NativeStateCaptureVirtualFallbackState.Unavailable)
+			{
+				coverage = NativeStateCaptureCoverage.Partial;
+				issues.Add(new CollectionOwnerPayloadIssue(CollectionOwnerPayloadIssueKind.VirtualFallbackUnavailable,
+					target.ToString(), "The unmanaged/original fallback beneath this pure-Virtual owner stack could not be observed authoritatively."));
+				return new CollectionOwnerPayloadVirtualFallback(CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
+					CollectionOwnerPayloadVirtualFallbackState.Unavailable, null);
+			}
+
+			if (fallback.State == NativeStateCaptureVirtualFallbackState.ExplicitlyAbsent)
+			{
+				return new CollectionOwnerPayloadVirtualFallback(CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
+					CollectionOwnerPayloadVirtualFallbackState.ExplicitlyAbsent, null);
+			}
+
+			CollectionOwnerPayloadRetention retained = RetainPayload(captureIdentity, target, -1,
+				fallback.PayloadSourcePath, issues, ref coverage, cancellationToken);
+			if (retained == null)
+			{
+				return new CollectionOwnerPayloadVirtualFallback(CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
+					CollectionOwnerPayloadVirtualFallbackState.Unavailable, null);
+			}
+
+			return new CollectionOwnerPayloadVirtualFallback(CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
+				CollectionOwnerPayloadVirtualFallbackState.Retained, retained);
 		}
 
 		private static CollectionOwnerPayloadTarget CaptureLegacyTarget(ModDeploymentTarget target,
@@ -255,7 +295,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				CollectionsRetainedArtifact artifact = _artifactStore.PublishFile(sourcePath, cancellationToken);
-				string role = CreateReferenceRole(target, stackIndex);
+				string role = stackIndex < 0 ? CreateVirtualFallbackReferenceRole(target) : CreateReferenceRole(target, stackIndex);
 				_referenceStore.AcquireExclusiveRoleReference(artifact.ArtifactId,
 					CollectionsRetainedArtifactOwnerKind.Capture, captureIdentity.ToString(), role);
 				return new CollectionOwnerPayloadRetention(artifact.ArtifactId, role,
@@ -298,6 +338,12 @@ namespace Nexus.Client.CollectionManagement
 		{
 			return String.Format(CultureInfo.InvariantCulture, "owner-payload:{0}:{1}:{2}",
 				(int)target.Root, stackIndex, target.RelativePath);
+		}
+
+		private static string CreateVirtualFallbackReferenceRole(ModDeploymentTarget target)
+		{
+			return String.Format(CultureInfo.InvariantCulture, "virtual-fallback:{0}:{1}",
+				(int)target.Root, target.RelativePath);
 		}
 
 		private static NativeStateCaptureDeploymentOwnerKind ResolveOwnerKind(InstallLogReadSnapshot install,

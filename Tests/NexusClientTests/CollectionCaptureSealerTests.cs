@@ -102,6 +102,63 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Seal_RestorablePureVirtualTargetRequiresVersionedFallbackCapture()
+		{
+			string root = CreateTemporaryDirectory("nmm-c77-virtual-fallback-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				var artifactStore = new CollectionsRetainedArtifactStore(store);
+				var referenceStore = new CollectionsRetainedArtifactReferenceStore(store);
+				var sealer = new CollectionCaptureSealer(artifactStore, referenceStore);
+				CollectionTargetIdentity target = CreateTarget();
+				LocalCaptureIdentity captureIdentity = CreateCaptureIdentity();
+				string payloadPath = Path.Combine(root, "managed.bin");
+				File.WriteAllText(payloadPath, "managed", Encoding.UTF8);
+				CollectionsRetainedArtifact artifact = artifactStore.PublishFile(payloadPath);
+				string role = "owner-payload:legacy-virtual";
+				referenceStore.AcquireExclusiveRoleReference(artifact.ArtifactId,
+					CollectionsRetainedArtifactOwnerKind.Capture, captureIdentity.ToString(), role);
+				var retained = new CollectionOwnerPayloadRetention(artifact.ArtifactId, role,
+					artifact.ContentHash, artifact.ByteLength);
+				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(
+					ModDeploymentRoot.Data, "textures\\legacy-fallback.dds");
+				var owner = new CollectionOwnerPayloadOwner(0, "native-a", null,
+					NativeStateCaptureDeploymentOwnerKind.Virtual, true, retained);
+				var ownerPayloads = new CollectionOwnerPayloadSnapshot(target, captureIdentity, Checkpoint,
+					new[] { new CollectionOwnerPayloadTarget(deploymentTarget, false, new[] { owner }) },
+					NativeStateCaptureCoverage.Complete, new CollectionOwnerPayloadIssue[0]);
+				LocalCaptureScope scope = new LocalCaptureScope(LocalCaptureScope.CurrentVersion, new[]
+				{
+					LocalCaptureScopeArea.ManagedModState,
+					LocalCaptureScopeArea.FileOwnershipAndFallbackPayloads
+				});
+
+				CollectionCaptureSealResult result = sealer.Seal(CreateRequest(root, String.Empty,
+					LocalCaptureCapability.LocallyRestorableWithinScope, scope, ownerPayloads: ownerPayloads));
+
+				Assert.IsFalse(result.IsSealed);
+				Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionCaptureSealIssueKind.OwnerPayloadIncomplete &&
+					x.ResourceKey == deploymentTarget.ToString()));
+
+				var explicitAbsent = new CollectionOwnerPayloadVirtualFallback(
+					CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
+					CollectionOwnerPayloadVirtualFallbackState.ExplicitlyAbsent, null);
+				var completePayloads = new CollectionOwnerPayloadSnapshot(target, captureIdentity, Checkpoint,
+					new[] { new CollectionOwnerPayloadTarget(deploymentTarget, false, new[] { owner }, explicitAbsent) },
+					NativeStateCaptureCoverage.Complete, new CollectionOwnerPayloadIssue[0]);
+				CollectionCaptureSealResult complete = sealer.Seal(CreateRequest(root, String.Empty,
+					LocalCaptureCapability.LocallyRestorableWithinScope, scope, ownerPayloads: completePayloads));
+				Assert.IsTrue(complete.IsSealed);
+				Assert.IsFalse(complete.HasRestorabilityBlockers);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Seal_StateFingerprintDriftBlocksEvenRecipeOnlyPublication()
 		{
 			string root = CreateTemporaryDirectory("nmm-c77-state-drift-");

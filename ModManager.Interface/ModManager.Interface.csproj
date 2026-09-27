@@ -176,11 +176,13 @@
     <Compile Include="Settings\InstallMethodSettingsExtensions.cs" />
     <Compile Include="ModManagement\ModInstallFileFilter.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstaller.cs" />
+    <Compile Include="ModManagement\IGameSpecificValueRestoreSupport.cs" />
     <Compile Include="ModManagement\IGameSpecificValueInstallDecisionSupport.cs" />
     <Compile Include="ModManagement\IIniInstaller.cs" />
     <Compile Include="ModManagement\IIniEditDecisionSupport.cs" />
     <Compile Include="ModManagement\IModFileInstaller.cs" />
     <Compile Include="ModManagement\IModFilePluginRegistrationSupport.cs" />
+    <Compile Include="ModManagement\ModDeploymentRestoreFallback.cs" />
     <Compile Include="ModManagement\ModDeploymentRestoreOwner.cs" />
     <Compile Include="ModManagement\IModDeploymentManager.cs" />
     <Compile Include="ModManagement\IModFileInstallDecisionSupport.cs" />

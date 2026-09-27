@@ -12,7 +12,7 @@ namespace Nexus.Client.Games.Gamebryo.ModManagement
 	/// <summary>
 	/// Installs values that are specific to a game mode.
 	/// </summary>
-	public class GamebryoGameSpecificValueInstaller : IGameSpecificValueInstaller, IGameSpecificValueInstallDecisionSupport
+	public class GamebryoGameSpecificValueInstaller : IGameSpecificValueInstaller, IGameSpecificValueInstallDecisionSupport, IGameSpecificValueRestoreSupport
 	{
 		/// <summary>
 		/// Describes an edit made to a shader.
@@ -303,6 +303,36 @@ namespace Nexus.Client.Games.Gamebryo.ModManagement
 			// remains
 		}
 
+		/// <summary>Attempts to read exact current shader bytes for Local Collection restore verification.</summary>
+		public bool TryReadGameSpecificValue(string p_strKey, out byte[] p_bteValue)
+		{
+			p_bteValue = null;
+			try
+			{
+				ShaderEdit shader = new ShaderEdit(p_strKey);
+				p_bteValue = new SDPArchives(GameModeInfo, FileUtility).GetShader(shader.Package, shader.ShaderName);
+				return p_bteValue != null;
+			}
+			catch (FormatException) { return false; }
+			catch (OverflowException) { return false; }
+			catch (IndexOutOfRangeException) { return false; }
+		}
+
+		/// <summary>Attempts to replace exact current shader bytes for Local Collection restore.</summary>
+		public bool TryRestoreGameSpecificValue(string p_strKey, byte[] p_bteValue)
+		{
+			if (p_bteValue == null)
+				return false;
+			try
+			{
+				EnsureGameSpecificValueSnapshot(p_strKey);
+				ShaderEdit shader = new ShaderEdit(p_strKey);
+				return new SDPArchives(GameModeInfo, FileUtility).RestoreShader(shader.Package, shader.ShaderName, p_bteValue, 0);
+			}
+			catch (FormatException) { return false; }
+			catch (OverflowException) { return false; }
+			catch (IndexOutOfRangeException) { return false; }
+		}
 		/// <summary>
 		/// Finalizes the installation of the values.
 		/// </summary>

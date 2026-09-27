@@ -101,6 +101,49 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Capture_PureVirtualFallbackDistinguishesRetainedSourceFromExplicitAbsence()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-c71-virtual-fallback-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				ModDeploymentTarget withFallback = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "meshes\\with.nif");
+				ModDeploymentTarget withoutFallback = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "meshes\\without.nif");
+				string retainedFallback = Path.Combine(root, "with.overwrite");
+				File.WriteAllText(retainedFallback, "unmanaged");
+				InstallLogReadSnapshot install = new InstallLogReadSnapshot("original-values", 0,
+					new[]
+					{
+						new InstallLogReadMod("virtual-a", "a.zip", "a.zip", "1", "1", "1", "1", false,
+							ModInstallRoot.Data, ModInstallMethod.Virtual, false)
+					},
+					new InstallLogReadFile[0], new InstallLogReadIniEdit[0], new InstallLogReadGameValue[0],
+					new InstallLogReadDeploymentTarget[0]);
+				VirtualModReadSnapshot virtualState = new VirtualModReadSnapshot(new[]
+				{
+					new VirtualModReadLink(withFallback, "virtual-a", "with", true, 0, "with.nif", Path.Combine(root, "managed-with")),
+					new VirtualModReadLink(withoutFallback, "virtual-a", "without", true, 0, "without.nif", Path.Combine(root, "managed-without"))
+				});
+
+				NativeStateCaptureSnapshot snapshot = CreateReader(root, Path.Combine(root, "InstallInfo"), install,
+					virtualState, null, (target, ownerKey) => target.Equals(withFallback)
+						? retainedFallback : Path.Combine(root, "missing.overwrite")).Capture();
+
+				Assert.AreEqual(2, snapshot.VirtualFallbacks.Count);
+				NativeStateCaptureVirtualFallback present = snapshot.VirtualFallbacks.Single(x => x.Target.Equals(withFallback));
+				NativeStateCaptureVirtualFallback absent = snapshot.VirtualFallbacks.Single(x => x.Target.Equals(withoutFallback));
+				Assert.AreEqual(NativeStateCaptureVirtualFallbackState.Present, present.State);
+				Assert.AreEqual(retainedFallback, present.PayloadSourcePath);
+				Assert.AreEqual(NativeStateCaptureVirtualFallbackState.ExplicitlyAbsent, absent.State);
+				Assert.AreEqual(String.Empty, absent.PayloadSourcePath);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Capture_WithoutDeploymentManagerLeavesTopologyInInstallLogAndMarksReferencesUnavailable()
 		{
 			string root = Path.Combine(Path.GetTempPath(), "nmm-c71-partial-" + Guid.NewGuid().ToString("N"));
@@ -141,12 +184,18 @@ namespace NexusClientTests
 		}
 
 		private static NativeStateCaptureReader CreateReader(string root, string installInfo,
-			InstallLogReadSnapshot install, VirtualModReadSnapshot virtualState, IModDeploymentManager deploymentManager)
+			InstallLogReadSnapshot install, VirtualModReadSnapshot virtualState, IModDeploymentManager deploymentManager,
+			Func<ModDeploymentTarget, string, string> overwritePathResolver = null)
 		{
 			IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) =>
 				method.Name == "GetCommittedStateSnapshot" ? install : null);
 			IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
-				method.Name == "GetReadSnapshot" ? virtualState : null);
+			{
+				if (method.Name == "GetReadSnapshot") return virtualState;
+				if (method.Name == "GetVirtualOverwritePath" && overwritePathResolver != null)
+					return overwritePathResolver((ModDeploymentTarget)args[0], (string)args[1]);
+				return null;
+			});
 			IGameModeEnvironmentInfo environment = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
 			{
 				if (method.Name == "get_InstallInfoDirectory") return installInfo;

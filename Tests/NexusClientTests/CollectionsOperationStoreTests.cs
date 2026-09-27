@@ -249,6 +249,60 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void LocalRestoreRecovery_RolledBackAttemptRemainsImmutableAndRecoveryRetryAppends()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore featureStore = CreateFeatureStore(root);
+				var catalog = new CollectionsCatalogStore(featureStore);
+				CollectionIdentity collection = CollectionIdentity.FromLocal(Guid.NewGuid());
+				CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromLocal(collection, Guid.NewGuid());
+				catalog.SaveDefinitionAndRevision(new CollectionDefinition(collection, "Local recovery", null, null),
+					new CollectionRevision(revision, "Local recovery", null, 1));
+				var journal = new CollectionsOperationStore(featureStore);
+				CollectionOperationIdentity operationId = CollectionOperationIdentity.CreateNew();
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("local-restore-retry-target");
+				CollectionOperationMemberReference member = new CollectionOperationMemberReference(revision, CollectionMemberKey.FromLocal(Guid.NewGuid()));
+				ModOperationIdentity firstAttempt = CreateNativeIdentity(target.Fingerprint, ModOperationOrigin.LocalRestore,
+					ModInstallMethod.Direct, ModInstallRoot.Data, "restore-recipe");
+				var submitted = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+					firstAttempt, CollectionNativeChildCheckpoint.NativeSubmitted, null);
+				journal.SaveOperation(CreateOperation(operationId, CollectionOperationKind.RestoreLocalCapture, collection, target, revision, 1,
+					CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired, new[] { submitted }));
+
+				var rolledBackResult = new ModOperationResult(firstAttempt, ModOperationReportedStatus.Failed,
+					ModOperationDurability.VerifiedRolledBack, "verified after reload");
+				var terminal = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+					firstAttempt, CollectionNativeChildCheckpoint.NativeTerminalObserved, rolledBackResult);
+				journal.SaveOperation(CreateOperation(operationId, CollectionOperationKind.RestoreLocalCapture, collection, target, revision, 2,
+					CollectionOperationPhase.Recovering, CollectionOperationResultState.Pending, new[] { terminal }));
+
+				var reconciled = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+					firstAttempt, CollectionNativeChildCheckpoint.Reconciled, rolledBackResult);
+				ModOperationIdentity retryIdentity = ModOperationIdentity.CreateNew(ModOperationOrigin.Recovery, firstAttempt.Fingerprint);
+				var retry = new CollectionNativeChildOperation(2, member, CollectionNativeChildAction.ActivateOrReinstall, retryIdentity,
+					CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
+				journal.SaveOperation(CreateOperation(operationId, CollectionOperationKind.RestoreLocalCapture, collection, target, revision, 3,
+					CollectionOperationPhase.ApplyingNativeChildren, CollectionOperationResultState.Pending, new[] { reconciled, retry }));
+
+				CollectionOperation loaded = journal.GetOperation(operationId);
+				Assert.AreEqual(2, loaded.NativeChildren.Count);
+				Assert.AreEqual(firstAttempt.OperationId, loaded.NativeChildren[0].NativeOperation.OperationId);
+				Assert.AreEqual(firstAttempt.AttemptId, loaded.NativeChildren[0].NativeOperation.AttemptId);
+				Assert.AreEqual(ModOperationDurability.VerifiedRolledBack, loaded.NativeChildren[0].NativeResult.Durability);
+				Assert.AreEqual(ModOperationOrigin.Recovery, loaded.NativeChildren[1].NativeOperation.Origin);
+				Assert.AreNotEqual(firstAttempt.OperationId, loaded.NativeChildren[1].NativeOperation.OperationId);
+				Assert.AreEqual(firstAttempt.Fingerprint, loaded.NativeChildren[1].NativeOperation.Fingerprint);
+				Assert.AreEqual(CollectionNativeChildCheckpoint.RecoveryInputsReady, loaded.NativeChildren[1].Checkpoint);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Queries_ReturnIncompleteOperationsAndCorrelateExactNativeAttempt()
 		{
 			string root = CreateTemporaryDirectory();

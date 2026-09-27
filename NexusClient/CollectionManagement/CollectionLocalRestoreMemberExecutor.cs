@@ -7,7 +7,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
@@ -225,6 +224,195 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Continues the exact persisted C7.10a member phase reconstructed by the restart rehydrator.</summary>
+		internal Task<CollectionLocalRestoreMemberExecutionResult> ResumeAsync(CollectionLocalRestoreMemberRehydrationResult rehydration,
+			GameStoragePathSet paths)
+		{
+			return ResumeAsync(rehydration, paths, CancellationToken.None);
+		}
+
+		/// <summary>Continues only work proven pending at a safe boundary; submitted ambiguous work must be reconciled first.</summary>
+		internal async Task<CollectionLocalRestoreMemberExecutionResult> ResumeAsync(CollectionLocalRestoreMemberRehydrationResult rehydration,
+			GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			RequireLiveServices();
+			if (rehydration == null) throw new ArgumentNullException(nameof(rehydration));
+			if (paths == null) throw new ArgumentNullException(nameof(paths));
+			if (rehydration.Status != CollectionLocalRestoreMemberRehydrationStatus.ReadyToResume &&
+				rehydration.Status != CollectionLocalRestoreMemberRehydrationStatus.MemberPhaseComplete)
+				throw new InvalidOperationException("C7.10a resume requires a rehydrated safe member boundary with no ambiguous native child.");
+			if (rehydration.SealedCapture == null || rehydration.ReviewedPlan == null || rehydration.CurrentPlan == null)
+				throw new InvalidOperationException("C7.10a resume requires the exact retained capture, reviewed intent and current native projection.");
+
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			if (!authority.Target.Equals(rehydration.Operation.Target) || !authority.Target.Equals(rehydration.ReviewedPlan.Target))
+				throw new InvalidOperationException("The live canonical target no longer matches the persisted Local Collection restore.");
+
+			using (CollectionTargetMutationLease rootLease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				_authorityValidator.ValidateAndReload(rootLease, authority, paths);
+				CollectionOperation operation = RequireOperation(rehydration.Operation.Identity);
+				if (operation.CheckpointSequence != rehydration.Operation.CheckpointSequence)
+					throw new InvalidOperationException("The Local restore journal advanced after restart reconstruction; rehydrate it again before resume.");
+				if (operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability)
+					throw new InvalidOperationException("Native recovery must be reconciled before C7.10a can submit more member work.");
+
+				NativeObservation observation = CaptureState(operation.Target);
+				CollectionLocalRestorePlan livePlan = CreatePlanner().Plan(rehydration.SealedCapture, operation.Target,
+					observation.CollectionState.Fingerprint, observation.NativeState, cancellationToken);
+				if (!PlansEqual(rehydration.CurrentPlan, livePlan))
+					throw new InvalidOperationException("Native state changed after Local restore restart reconstruction; rehydrate before continuing.");
+
+				if (rehydration.Status == CollectionLocalRestoreMemberRehydrationStatus.MemberPhaseComplete)
+					return FinalizeResumedMemberPhase(operation, rehydration.SealedCapture, rehydration.ReviewedPlan, rootLease, authority, paths, cancellationToken);
+
+				if (operation.Phase != CollectionOperationPhase.ApplyingNativeChildren)
+				{
+					if (operation.Phase != CollectionOperationPhase.PausedAtSafeBoundary)
+						throw new InvalidOperationException("The Local restore operation is not at an application-safe resumable phase.");
+					operation = WithOperationState(operation, CollectionOperationPhase.ApplyingNativeChildren, CollectionOperationResultState.Pending);
+					_operationStore.SaveOperation(operation);
+				}
+
+				int nextSequence = operation.NativeChildren.Count == 0 ? 1 : checked(operation.NativeChildren.Max(x => x.Sequence) + 1);
+				foreach (CollectionLocalRestoreRemovalProgress progress in rehydration.Removals)
+				{
+					if (progress.IsComplete)
+						continue;
+					if (progress.RequiresRecovery)
+						throw new InvalidOperationException("An interrupted Local restore removal must be reconciled before resume.");
+					PauseBeforeCancelledChild(operation, cancellationToken);
+					IMod nativeMod = ResolveLiveMod(progress.NativeKey);
+					if (nativeMod == null)
+						throw new InvalidOperationException("A pending reviewed Local restore removal disappeared before safe resume.");
+					ModInstallContext context = _services.ModManager.CaptureInstalledContext(nativeMod);
+					CollectionNativeChildOperation child = progress.Child;
+					if (child == null)
+					{
+						child = CreateRemovalChild(operation, rehydration.SealedCapture.Capture.Revision, progress.NativeKey, context, nextSequence++);
+						operation = SaveChild(operation, child);
+					}
+					else
+						ValidatePreparedRemovalChild(child, context);
+
+					IBackgroundTaskSet nativeTask = _services.ModManager.CreateCollectionDeactivationOperation(nativeMod,
+						_services.ModManager.ActiveMods, child.NativeOperation);
+					if (nativeTask == null)
+						throw new InvalidOperationException("A pending Local restore removal could not create its native deactivation task.");
+					AssignLeaseAndValidateIdentity(nativeTask, child.NativeOperation, rootLease);
+					operation = await SubmitVerifyAndReconcileAsync(operation, child, nativeTask, rootLease, authority, paths,
+						() => ResolveLiveMod(progress.NativeKey) == null, () => ResolveLiveMod(progress.NativeKey) != null, cancellationToken).ConfigureAwait(true);
+				}
+
+				foreach (CollectionLocalRestoreMemberProgress progress in rehydration.Members)
+				{
+					if (progress.IsComplete)
+						continue;
+					if (progress.Status != CollectionLocalRestoreMemberProgressStatus.PendingRecreation)
+						throw new InvalidOperationException("An interrupted Local restore member must be reconciled before resume.");
+					PauseBeforeCancelledChild(operation, cancellationToken);
+					CollectionLocalRestoreMemberPlan member = progress.ReviewedMember;
+					CollectionInstalledModIdentity captured = RequireCapturedIdentity(rehydration.SealedCapture, member.CapturedNativeKey);
+					string archivePath = MaterializeRetainedArchive(member.RetainedArchive, cancellationToken);
+					IMod mod = RegisterRestoredArchive(archivePath, captured);
+					CollectionNativeChildOperation child = progress.Child;
+					if (child == null)
+					{
+						string recipeFingerprint = CreateRecipeFingerprint(rehydration.SealedCapture.Capture.Identity, member);
+						var memberReference = new CollectionOperationMemberReference(rehydration.SealedCapture.Capture.Revision, member.SnapshotMemberKey);
+						ModOperationFingerprint fingerprint = new ModOperationFingerprint(operation.Target.Fingerprint, member.InstallContext, recipeFingerprint);
+						ModOperationIdentity nativeIdentity = CreateResumeIdentity(operation, memberReference,
+							CollectionNativeChildAction.ActivateOrReinstall, fingerprint);
+						child = new CollectionNativeChildOperation(nextSequence++, memberReference,
+							CollectionNativeChildAction.ActivateOrReinstall, nativeIdentity, CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
+						operation = SaveChild(operation, child);
+					}
+					else
+						ValidatePreparedRecreationChild(child, rehydration.SealedCapture.Capture.Identity, member);
+
+					ModInstallationRecipeInput recipeInput = BuildRecipeInput(member, child.NativeOperation);
+					IBackgroundTaskSet nativeTask = _services.ModManager.ActivateMod(mod,
+						(oldMod, newMod) => ConfirmUpgradeResult.NormalActivation,
+						(message, perGroup, perMod) => OverwriteResult.YesToAll,
+						_services.ModManager.ActiveMods, member.InstallContext, true, recipeInput);
+					if (nativeTask == null)
+						throw new InvalidOperationException("The retained Local Collection member could not create a native activation task during resume.");
+					AssignLeaseAndValidateIdentity(nativeTask, child.NativeOperation, rootLease);
+					string remappedKey = null;
+					operation = await SubmitVerifyAndReconcileAsync(operation, child, nativeTask, rootLease, authority, paths,
+						() => TryResolveCommittedMember(archivePath, member.InstallContext, out remappedKey),
+						() => ResolveLiveModByArchive(archivePath) == null, cancellationToken).ConfigureAwait(true);
+				}
+
+				return FinalizeResumedMemberPhase(operation, rehydration.SealedCapture, rehydration.ReviewedPlan, rootLease, authority, paths, cancellationToken);
+			}
+		}
+
+		private CollectionLocalRestoreMemberExecutionResult FinalizeResumedMemberPhase(CollectionOperation operation,
+			CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan, CollectionTargetMutationLease rootLease,
+			CollectionTargetAuthority authority, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			_authorityValidator.ValidateAndReload(rootLease, authority, paths);
+			NativeObservation observation = CaptureState(reviewedPlan.Target);
+			CollectionLocalRestorePlan finalPlan = CreatePlanner().Plan(sealedCapture, reviewedPlan.Target,
+				observation.CollectionState.Fingerprint, observation.NativeState, cancellationToken);
+			if (finalPlan.Issues.Count != 0 || finalPlan.CurrentNativeKeysToRemove.Count != 0 ||
+				finalPlan.Members.Count != reviewedPlan.Members.Count ||
+				finalPlan.Members.Any(x => x.Action != CollectionLocalRestoreMemberAction.ReuseExistingNative || String.IsNullOrWhiteSpace(x.CurrentNativeKey)))
+			{
+				operation = MarkRecoveryRequired(_operationStore.GetOperation(operation.Identity) ?? operation);
+				throw new InvalidOperationException("C7.10a resume completed native children but authoritative state does not prove the captured native member set is restored.");
+			}
+
+			var finalByMember = finalPlan.Members.ToDictionary(x => x.SnapshotMemberKey);
+			var remaps = new List<CollectionLocalRestoreMemberRemap>();
+			foreach (CollectionLocalRestoreMemberPlan reviewedMember in reviewedPlan.Members)
+			{
+				CollectionLocalRestoreMemberPlan current;
+				if (!finalByMember.TryGetValue(reviewedMember.SnapshotMemberKey, out current) ||
+					current.InstallContext.Method != reviewedMember.InstallContext.Method ||
+					current.InstallContext.InstallRoot != reviewedMember.InstallContext.InstallRoot)
+				{
+					operation = MarkRecoveryRequired(_operationStore.GetOperation(operation.Identity) ?? operation);
+					throw new InvalidOperationException("The restored member set no longer matches the reviewed Local Collection install contexts.");
+				}
+				remaps.Add(new CollectionLocalRestoreMemberRemap(reviewedMember.SnapshotMemberKey, current.CurrentNativeKey));
+			}
+
+			operation = _operationStore.GetOperation(operation.Identity) ?? operation;
+			if (operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability)
+				throw new InvalidOperationException("C7.10a cannot publish its member safe boundary while a native child remains unreconciled.");
+			if (operation.Phase != CollectionOperationPhase.PausedAtSafeBoundary || operation.ResultState != CollectionOperationResultState.Pending)
+			{
+				operation = WithOperationState(operation, CollectionOperationPhase.PausedAtSafeBoundary, CollectionOperationResultState.Pending);
+				_operationStore.SaveOperation(operation);
+			}
+			return new CollectionLocalRestoreMemberExecutionResult(operation, remaps.OrderBy(x => x.MemberKey.ToString(), StringComparer.Ordinal));
+		}
+
+		private static void ValidatePreparedRemovalChild(CollectionNativeChildOperation child, ModInstallContext currentContext)
+		{
+			if (child == null || child.Action != CollectionNativeChildAction.Deactivate ||
+				child.Checkpoint != CollectionNativeChildCheckpoint.RecoveryInputsReady ||
+				child.NativeOperation.Fingerprint.RecipeFingerprint != null ||
+				child.NativeOperation.Fingerprint.InstallMethod != currentContext.Method ||
+				child.NativeOperation.Fingerprint.InstallRoot != currentContext.InstallRoot)
+				throw new InvalidOperationException("The persisted Local restore removal is not a safe prepared native attempt for current state.");
+		}
+
+		private static void ValidatePreparedRecreationChild(CollectionNativeChildOperation child, LocalCaptureIdentity captureIdentity,
+			CollectionLocalRestoreMemberPlan member)
+		{
+			string expectedRecipe = CreateRecipeFingerprint(captureIdentity, member);
+			if (child == null || child.Action != CollectionNativeChildAction.ActivateOrReinstall ||
+				child.Checkpoint != CollectionNativeChildCheckpoint.RecoveryInputsReady ||
+				child.NativeOperation.Fingerprint.InstallMethod != member.InstallContext.Method ||
+				child.NativeOperation.Fingerprint.InstallRoot != member.InstallContext.InstallRoot ||
+				!StringComparer.Ordinal.Equals(child.NativeOperation.Fingerprint.RecipeFingerprint, expectedRecipe))
+				throw new InvalidOperationException("The persisted Local restore recreation is not the exact prepared attempt approved by the durable restore intent.");
+		}
+
 		/// <summary>Creates the read-only C7.9 planner over the same sealed retained-artifact authority used by this executor.</summary>
 		private CollectionLocalRestorePlanner CreatePlanner()
 		{
@@ -246,84 +434,7 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Serializes the exact reviewed C7.9 plan so later C7.10 recovery/effect phases never reconstruct approval from guesses.</summary>
 		internal static byte[] SerializeRestoreIntent(LocalCaptureIdentity captureIdentity, CollectionLocalRestorePlan plan)
 		{
-			if (captureIdentity == null) throw new ArgumentNullException(nameof(captureIdentity));
-			if (plan == null) throw new ArgumentNullException(nameof(plan));
-			using (var stream = new MemoryStream())
-			using (var text = new StreamWriter(stream, new UTF8Encoding(false), 4096, true))
-			using (var writer = new JsonTextWriter(text))
-			{
-				writer.Formatting = Formatting.None;
-				writer.WriteStartObject();
-				WriteProperty(writer, "format", "nmm-ce.collections.local-restore-plan/1");
-				WriteProperty(writer, "captureId", captureIdentity.ToString());
-				WriteProperty(writer, "targetFingerprint", plan.Target.Fingerprint);
-				WriteProperty(writer, "planFingerprint", plan.PlanFingerprint);
-				writer.WritePropertyName("stateFingerprint");
-				writer.WriteStartObject();
-				writer.WritePropertyName("formatVersion"); writer.WriteValue(plan.CurrentStateFingerprint.FormatVersion);
-				WriteProperty(writer, "value", plan.CurrentStateFingerprint.Value);
-				writer.WriteEndObject();
-				writer.WritePropertyName("deploymentCommitSequence"); writer.WriteValue(plan.CurrentDeploymentCommitSequence);
-				WriteProperty(writer, "originalValuesKey", plan.CurrentOriginalValuesKey);
-
-				writer.WritePropertyName("members");
-				writer.WriteStartArray();
-				foreach (CollectionLocalRestoreMemberPlan member in plan.Members)
-				{
-					writer.WriteStartObject();
-					writer.WritePropertyName("keyKind"); writer.WriteValue((int)member.SnapshotMemberKey.Kind);
-					WriteProperty(writer, "keyValue", member.SnapshotMemberKey.Value);
-					WriteProperty(writer, "capturedNativeKey", member.CapturedNativeKey);
-					writer.WritePropertyName("action"); writer.WriteValue((int)member.Action);
-					WriteProperty(writer, "currentNativeKey", member.CurrentNativeKey);
-					writer.WritePropertyName("installMethod"); writer.WriteValue((int)member.InstallContext.Method);
-					writer.WritePropertyName("installRoot"); writer.WriteValue((int)member.InstallContext.InstallRoot);
-					WriteProperty(writer, "archiveArtifactId", member.RetainedArchive == null ? String.Empty : member.RetainedArchive.RetainedArtifact.StableArtifactId);
-					writer.WriteEndObject();
-				}
-				writer.WriteEndArray();
-
-				writer.WritePropertyName("removeNativeKeys");
-				writer.WriteStartArray();
-				foreach (string key in plan.CurrentNativeKeysToRemove) writer.WriteValue(key);
-				writer.WriteEndArray();
-
-				writer.WritePropertyName("deploymentTargets");
-				writer.WriteStartArray();
-				foreach (CollectionLocalRestoreDeploymentPlan deployment in plan.DeploymentTargets)
-				{
-					writer.WriteStartObject();
-					writer.WritePropertyName("root"); writer.WriteValue((int)deployment.Target.Root);
-					WriteProperty(writer, "path", deployment.Target.RelativePath);
-					writer.WritePropertyName("promoted"); writer.WriteValue(deployment.Promoted);
-					writer.WritePropertyName("owners"); writer.WriteStartArray();
-					foreach (CollectionLocalRestoreOwnerBinding owner in deployment.Owners)
-					{
-						writer.WriteStartObject();
-						writer.WritePropertyName("stackIndex"); writer.WriteValue(owner.StackIndex);
-						WriteProperty(writer, "capturedOwnerKey", owner.CapturedOwnerKey);
-						writer.WritePropertyName("capturedOwnerKind"); writer.WriteValue((int)owner.CapturedOwnerKind);
-						writer.WritePropertyName("currentWinner"); writer.WriteValue(owner.CurrentWinner);
-						writer.WritePropertyName("bindingKind"); writer.WriteValue((int)owner.BindingKind);
-						WriteProperty(writer, "currentNativeKey", owner.CurrentNativeKey);
-						WriteProperty(writer, "recreatedMember", owner.RecreatedSnapshotMember == null ? String.Empty : owner.RecreatedSnapshotMember.ToString());
-						writer.WriteEndObject();
-					}
-					writer.WriteEndArray();
-					writer.WriteEndObject();
-				}
-				writer.WriteEndArray();
-				writer.WriteEndObject();
-				writer.Flush(); text.Flush();
-				return stream.ToArray();
-			}
-		}
-
-		/// <summary>Writes one non-null string property into the durable restore-intent payload.</summary>
-		private static void WriteProperty(JsonWriter writer, string name, string value)
-		{
-			writer.WritePropertyName(name);
-			writer.WriteValue(value ?? String.Empty);
+			return CollectionLocalRestoreIntentCodec.Serialize(captureIdentity, plan);
 		}
 
 		/// <summary>Captures authoritative native and Collection-indexed state for one target in a single observation.</summary>
@@ -407,15 +518,31 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionNativeChildOperation CreateRemovalChild(CollectionOperation operation,
 			CollectionRevisionIdentity revision, string nativeKey, ModInstallContext context, int sequence)
 		{
-			var identity = ModOperationIdentity.CreateNew(ModOperationOrigin.LocalRestore,
-				new ModOperationFingerprint(operation.Target.Fingerprint, context, null));
 			var member = new CollectionOperationMemberReference(revision, CreateRemovalJournalKey(operation, nativeKey));
+			ModOperationFingerprint fingerprint = new ModOperationFingerprint(operation.Target.Fingerprint, context, null);
+			ModOperationIdentity identity = CreateResumeIdentity(operation, member, CollectionNativeChildAction.Deactivate, fingerprint);
 			return new CollectionNativeChildOperation(sequence, member, CollectionNativeChildAction.Deactivate,
 				identity, CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
 		}
 
+		/// <summary>Creates a new native intent, preserving the exact prior fingerprint when a verified rolled-back action is retried.</summary>
+		private static ModOperationIdentity CreateResumeIdentity(CollectionOperation operation, CollectionOperationMemberReference member,
+			CollectionNativeChildAction action, ModOperationFingerprint fingerprint)
+		{
+			CollectionNativeChildOperation prior = operation.NativeChildren
+				.Where(x => x.Member.Equals(member) && x.Action == action).OrderBy(x => x.Sequence).LastOrDefault();
+			if (prior == null)
+				return ModOperationIdentity.CreateNew(ModOperationOrigin.LocalRestore, fingerprint);
+			if (!prior.IsReconciled || prior.NativeResult == null ||
+				(prior.NativeResult.Durability != ModOperationDurability.VerifiedRolledBack &&
+				 prior.NativeResult.Durability != ModOperationDurability.NotStarted) ||
+				!prior.NativeOperation.Fingerprint.Equals(fingerprint))
+				throw new InvalidOperationException("A Local restore retry requires an exact reconciled verified rollback of the same native intent.");
+			return ModOperationIdentity.CreateNew(ModOperationOrigin.Recovery, prior.NativeOperation.Fingerprint);
+		}
+
 		/// <summary>Creates a deterministic journal-only member key for a current native mod that has no captured member identity.</summary>
-		private static CollectionMemberKey CreateRemovalJournalKey(CollectionOperation operation, string nativeKey)
+		internal static CollectionMemberKey CreateRemovalJournalKey(CollectionOperation operation, string nativeKey)
 		{
 			byte[] bytes = Encoding.UTF8.GetBytes(operation.Identity.OperationId.ToString("D") + "\n" + nativeKey);
 			using (SHA256 sha = SHA256.Create())
@@ -510,7 +637,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>Creates the deterministic recipe identity for registration-only restoration of one captured member.</summary>
-		private static string CreateRecipeFingerprint(LocalCaptureIdentity captureIdentity,
+		internal static string CreateRecipeFingerprint(LocalCaptureIdentity captureIdentity,
 			CollectionLocalRestoreMemberPlan member)
 		{
 			string value = captureIdentity + "\n" + member.SnapshotMemberKey + "\n" +

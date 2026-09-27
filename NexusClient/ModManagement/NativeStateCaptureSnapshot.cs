@@ -31,7 +31,8 @@ namespace Nexus.Client.ModManagement
 		DeploymentPayloadSourceUnavailable = 5,
 		ReplayReferenceUnavailable = 6,
 		PluginStateUnavailable = 7,
-		VirtualPayloadSourceUnavailable = 8
+		VirtualPayloadSourceUnavailable = 8,
+		VirtualFallbackStateUnavailable = 9
 	}
 
 	/// <summary>
@@ -157,6 +158,40 @@ namespace Nexus.Client.ModManagement
 		public string PayloadSourcePath { get; }
 	}
 
+	/// <summary>Classifies the unmanaged/original fallback beneath one pure-Virtual managed owner stack.</summary>
+	public enum NativeStateCaptureVirtualFallbackState
+	{
+		Unavailable = 0,
+		ExplicitlyAbsent = 1,
+		Present = 2
+	}
+
+	/// <summary>
+	/// Captures whether one pure-Virtual target has an unmanaged/original fallback and, when present, its live payload path.
+	/// </summary>
+	public sealed class NativeStateCaptureVirtualFallback
+	{
+		/// <summary>Creates one immutable pure-Virtual fallback observation.</summary>
+		public NativeStateCaptureVirtualFallback(ModDeploymentTarget target, NativeStateCaptureVirtualFallbackState state,
+			string payloadSourcePath)
+		{
+			Target = target ?? throw new ArgumentNullException(nameof(target));
+			if (!Enum.IsDefined(typeof(NativeStateCaptureVirtualFallbackState), state))
+				throw new ArgumentOutOfRangeException(nameof(state));
+			if (state == NativeStateCaptureVirtualFallbackState.Present && String.IsNullOrWhiteSpace(payloadSourcePath))
+				throw new ArgumentException("A present Virtual fallback requires its live payload source path.", nameof(payloadSourcePath));
+			if (state != NativeStateCaptureVirtualFallbackState.Present && !String.IsNullOrWhiteSpace(payloadSourcePath))
+				throw new ArgumentException("Only a present Virtual fallback may carry a live payload source path.", nameof(payloadSourcePath));
+
+			State = state;
+			PayloadSourcePath = payloadSourcePath ?? String.Empty;
+		}
+
+		public ModDeploymentTarget Target { get; }
+		public NativeStateCaptureVirtualFallbackState State { get; }
+		public string PayloadSourcePath { get; }
+	}
+
 	/// <summary>
 	/// Captures the native live replay XML and generated-payload sidecar locations associated with one scripted mod.
 	/// </summary>
@@ -252,7 +287,8 @@ namespace Nexus.Client.ModManagement
 			NativeStateCaptureCoverage deploymentCoverage, IEnumerable<NativeStateCaptureReplayReference> replayReferences,
 			IEnumerable<NativeStateCapturePlugin> plugins, NativeStateCaptureCoverage pluginCoverage,
 			IEnumerable<NativeStateCaptureIssue> issues)
-			: this(installLog, virtualState, new NativeStateCaptureVirtualPayloadSource[0], roots, deploymentTargets,
+			: this(installLog, virtualState, new NativeStateCaptureVirtualPayloadSource[0],
+				new NativeStateCaptureVirtualFallback[0], roots, deploymentTargets,
 				deploymentCoverage, replayReferences, plugins, pluginCoverage, issues)
 		{
 		}
@@ -260,6 +296,19 @@ namespace Nexus.Client.ModManagement
 		/// <summary>Creates one immutable generic native-state capture including resolved active Virtual payload sources.</summary>
 		public NativeStateCaptureSnapshot(InstallLogReadSnapshot installLog, VirtualModReadSnapshot virtualState,
 			IEnumerable<NativeStateCaptureVirtualPayloadSource> activeVirtualPayloadSources,
+			IEnumerable<NativeStateCaptureRoot> roots, IEnumerable<NativeStateCaptureDeploymentTarget> deploymentTargets,
+			NativeStateCaptureCoverage deploymentCoverage, IEnumerable<NativeStateCaptureReplayReference> replayReferences,
+			IEnumerable<NativeStateCapturePlugin> plugins, NativeStateCaptureCoverage pluginCoverage,
+			IEnumerable<NativeStateCaptureIssue> issues)
+			: this(installLog, virtualState, activeVirtualPayloadSources, new NativeStateCaptureVirtualFallback[0],
+				roots, deploymentTargets, deploymentCoverage, replayReferences, plugins, pluginCoverage, issues)
+		{
+		}
+
+		/// <summary>Creates one immutable generic native-state capture including pure-Virtual fallback observations.</summary>
+		public NativeStateCaptureSnapshot(InstallLogReadSnapshot installLog, VirtualModReadSnapshot virtualState,
+			IEnumerable<NativeStateCaptureVirtualPayloadSource> activeVirtualPayloadSources,
+			IEnumerable<NativeStateCaptureVirtualFallback> virtualFallbacks,
 			IEnumerable<NativeStateCaptureRoot> roots, IEnumerable<NativeStateCaptureDeploymentTarget> deploymentTargets,
 			NativeStateCaptureCoverage deploymentCoverage, IEnumerable<NativeStateCaptureReplayReference> replayReferences,
 			IEnumerable<NativeStateCapturePlugin> plugins, NativeStateCaptureCoverage pluginCoverage,
@@ -272,6 +321,7 @@ namespace Nexus.Client.ModManagement
 			if (!Enum.IsDefined(typeof(NativeStateCaptureCoverage), pluginCoverage))
 				throw new ArgumentOutOfRangeException(nameof(pluginCoverage));
 			ActiveVirtualPayloadSources = Copy(activeVirtualPayloadSources, nameof(activeVirtualPayloadSources));
+			VirtualFallbacks = Copy(virtualFallbacks, nameof(virtualFallbacks));
 			Roots = Copy(roots, nameof(roots));
 			DeploymentTargets = Copy(deploymentTargets, nameof(deploymentTargets));
 			DeploymentCoverage = deploymentCoverage;
@@ -284,6 +334,7 @@ namespace Nexus.Client.ModManagement
 		public InstallLogReadSnapshot InstallLog { get; }
 		public VirtualModReadSnapshot VirtualState { get; }
 		public ReadOnlyCollection<NativeStateCaptureVirtualPayloadSource> ActiveVirtualPayloadSources { get; }
+		public ReadOnlyCollection<NativeStateCaptureVirtualFallback> VirtualFallbacks { get; }
 		public ReadOnlyCollection<NativeStateCaptureRoot> Roots { get; }
 		public ReadOnlyCollection<NativeStateCaptureDeploymentTarget> DeploymentTargets { get; }
 		public NativeStateCaptureCoverage DeploymentCoverage { get; }

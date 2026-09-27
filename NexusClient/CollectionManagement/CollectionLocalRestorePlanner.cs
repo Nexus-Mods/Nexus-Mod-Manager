@@ -93,6 +93,9 @@ namespace Nexus.Client.CollectionManagement
 
 				InstallLogReadMod reusable = FindReusableNative(capturedMod, retainedArchive, currentMods,
 					usedCurrentKeys, fileIdentityCache, issues, cancellationToken);
+				if (reusable != null && HasExtraCurrentFileEffects(sealedCapture, capturedMod.NativeSnapshotKey, reusable.ModKey, currentNativeState))
+					reusable = null;
+
 				CollectionLocalRestoreMemberAction action;
 				string currentNativeKey;
 				if (reusable != null)
@@ -137,6 +140,28 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionLocalRestorePlan(capture.Identity, currentTarget, currentStateFingerprint,
 				currentNativeState.InstallLog.DeploymentCommitSequence, currentNativeState.InstallLog.OriginalValuesKey,
 				fingerprint, members, deploymentPlans, removeKeys, issues);
+		}
+
+		private static bool HasExtraCurrentFileEffects(CollectionSealedCaptureSnapshot sealedCapture, string capturedNativeKey,
+			string currentNativeKey, NativeStateCaptureSnapshot currentNativeState)
+		{
+			var capturedTargets = new HashSet<ModDeploymentTarget>(sealedCapture.OwnerPayloads.Targets
+				.Where(x => x.Owners.Any(owner => StringComparer.OrdinalIgnoreCase.Equals(owner.OwnerKey, capturedNativeKey)))
+				.Select(x => x.Target));
+
+			var currentTargets = new HashSet<ModDeploymentTarget>();
+			foreach (NativeStateCaptureDeploymentTarget target in currentNativeState.DeploymentTargets)
+			{
+				if (target.Owners.Any(owner => StringComparer.OrdinalIgnoreCase.Equals(owner.OwnerKey, currentNativeKey)))
+					currentTargets.Add(target.Target);
+			}
+			foreach (NativeStateCaptureVirtualPayloadSource source in currentNativeState.ActiveVirtualPayloadSources)
+			{
+				if (StringComparer.OrdinalIgnoreCase.Equals(source.OwnerKey, currentNativeKey))
+					currentTargets.Add(source.Target);
+			}
+
+			return currentTargets.Any(x => !capturedTargets.Contains(x));
 		}
 
 		private static void ValidateCaptureEnvelope(CollectionSealedCaptureSnapshot sealedCapture,
@@ -186,6 +211,26 @@ namespace Nexus.Client.CollectionManagement
 					ValidateSnapshotReference(new RetainedArtifactReference(owner.RetainedPayload.StableArtifactId,
 						owner.RetainedPayload.ReferenceRole, owner.RetainedPayload.ContentHash, owner.RetainedPayload.ByteLength),
 						byRole, issues);
+			}
+			foreach (CollectionOwnerPayloadTarget target in sealedCapture.OwnerPayloads.Targets)
+			{
+				if (!target.Promoted && (target.VirtualFallback == null ||
+					target.VirtualFallback.FormatVersion != CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion ||
+					target.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.LegacyUncaptured ||
+					target.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.NotApplicable ||
+					target.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.Unavailable ||
+					(target.VirtualFallback.State == CollectionOwnerPayloadVirtualFallbackState.Retained &&
+						target.VirtualFallback.RetainedPayload == null)))
+				{
+					issues.Add(new CollectionLocalRestorePlanIssue(CollectionLocalRestorePlanIssueKind.CapturedVirtualFallbackUnavailable,
+						target.Target.ToString(), "The packaged pure-Virtual target does not contain a complete supported unmanaged fallback capture."));
+				}
+				if (target.VirtualFallback != null && target.VirtualFallback.RetainedPayload != null)
+				{
+					CollectionOwnerPayloadRetention retained = target.VirtualFallback.RetainedPayload;
+					ValidateSnapshotReference(new RetainedArtifactReference(retained.StableArtifactId,
+						retained.ReferenceRole, retained.ContentHash, retained.ByteLength), byRole, issues);
+				}
 			}
 			foreach (CollectionScriptedReplayArtifactSet replay in sealedCapture.ScriptedReplay.ArtifactSets)
 			{
@@ -497,7 +542,7 @@ namespace Nexus.Client.CollectionManagement
 			return result;
 		}
 
-		private static string CreatePlanFingerprint(LocalCapture capture, CollectionTargetIdentity currentTarget,
+		internal static string CreatePlanFingerprint(LocalCapture capture, CollectionTargetIdentity currentTarget,
 			CollectionCurrentStateFingerprint currentStateFingerprint, long deploymentCommitSequence, string currentOriginalValuesKey,
 			IEnumerable<CollectionLocalRestoreMemberPlan> members, IEnumerable<CollectionLocalRestoreDeploymentPlan> deployments,
 			IEnumerable<string> removeKeys, IEnumerable<CollectionLocalRestorePlanIssue> issues)

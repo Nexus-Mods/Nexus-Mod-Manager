@@ -298,6 +298,64 @@ WHERE archive_path = @archive_path;";
 		}
 
 		/// <summary>
+		/// Durably restores one exact logical screenshot override for the archive fingerprint currently present at its path.
+		/// </summary>
+		internal void RestoreScreenshotOverride(string archivePath, string screenshotPath, byte[] screenshotData, long updatedUtcTicks)
+		{
+			if (string.IsNullOrWhiteSpace(archivePath))
+				throw new ArgumentException("An archive path is required.", nameof(archivePath));
+			if (string.IsNullOrWhiteSpace(screenshotPath))
+				throw new ArgumentException("A screenshot override path is required.", nameof(screenshotPath));
+			if (screenshotData == null || screenshotData.Length == 0)
+				throw new ArgumentException("Screenshot override bytes are required.", nameof(screenshotData));
+			if (!_available)
+				throw new InvalidOperationException("The FOMod archive metadata store is unavailable.");
+
+			var archiveInfo = new FileInfo(archivePath);
+			if (!archiveInfo.Exists)
+				throw new FileNotFoundException("The archive required by the screenshot override is unavailable.", archivePath);
+
+			_database.ExecuteDurableWrite((connection, transaction) =>
+			{
+				using (var command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+INSERT OR REPLACE INTO archive_screenshot_cache
+	(archive_path, archive_length, archive_write_time_utc, screenshot_path, screenshot_data, updated_utc)
+VALUES
+	(@archive_path, @archive_length, @archive_write_time_utc, @screenshot_path, @screenshot_data, @updated_utc);";
+					command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+					command.Parameters.AddWithValue("@archive_length", archiveInfo.Length);
+					command.Parameters.AddWithValue("@archive_write_time_utc", archiveInfo.LastWriteTimeUtc.Ticks);
+					command.Parameters.AddWithValue("@screenshot_path", NormalizeVirtualPath(screenshotPath));
+					command.Parameters.AddWithValue("@screenshot_data", screenshotData);
+					command.Parameters.AddWithValue("@updated_utc", updatedUtcTicks);
+					command.ExecuteNonQuery();
+				}
+			});
+		}
+
+		/// <summary>Durably removes any persisted screenshot override row for one archive path.</summary>
+		internal void RemoveScreenshotOverride(string archivePath)
+		{
+			if (string.IsNullOrWhiteSpace(archivePath))
+				throw new ArgumentException("An archive path is required.", nameof(archivePath));
+			if (!_available)
+				throw new InvalidOperationException("The FOMod archive metadata store is unavailable.");
+			_database.ExecuteDurableWrite((connection, transaction) =>
+			{
+				using (var command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "DELETE FROM archive_screenshot_cache WHERE archive_path = @archive_path;";
+					command.Parameters.AddWithValue("@archive_path", NormalizeArchivePath(archivePath));
+					command.ExecuteNonQuery();
+				}
+			});
+		}
+
+		/// <summary>
 		/// Stores a generated screenshot override in SQLite without creating a loose cache file.
 		/// </summary>
 		public void SaveScreenshot(string archivePath, string screenshotPath, byte[] screenshotData)

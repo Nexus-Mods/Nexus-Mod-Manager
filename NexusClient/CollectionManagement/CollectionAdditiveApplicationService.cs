@@ -163,7 +163,7 @@ namespace Nexus.Client.CollectionManagement
 			var acquisitionStore = new CollectionsAcquisitionStore(_store);
 			var recoveryManifestStore = new CollectionsNativeChildRecoveryManifestStore(artifactStore, referenceStore);
 			var operationCoordinator = new CollectionOperationCoordinator(operationStore, planStore);
-			var nativeStateReader = new CollectionNativeStateReader(_services.ModManager.InstallationLog,
+			var nativeStateReader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, associationStore);
 			var targetResolver = new CollectionTargetIdentityResolver(_gameStorageService);
 			var planBuilder = new CollectionResolvedPlanBuilder(_catalogStore, _revisionSourceStore, operationCoordinator);
