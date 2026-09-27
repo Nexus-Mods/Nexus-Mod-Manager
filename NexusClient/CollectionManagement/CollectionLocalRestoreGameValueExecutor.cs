@@ -183,6 +183,25 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies captured game-specific values and owner history without mutation.</summary>
+		internal void VerifyFinalState(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+			CollectionLocalRestoreMemberExecutionResult memberPhase)
+		{
+			if (sealedCapture == null) throw new ArgumentNullException(nameof(sealedCapture));
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			if (memberPhase == null) throw new ArgumentNullException(nameof(memberPhase));
+			bool applicable = sealedCapture.Capture.Scope.Contains(LocalCaptureScopeArea.NativeConfigurationEffects);
+			CollectionLocalRestoreGameValueState desired = BuildDesiredState(sealedCapture, reviewedPlan, memberPhase, applicable);
+			if (!applicable)
+			{
+				if (sealedCapture.NativeEffects.GameValueCoverage == NativeStateCaptureCoverage.NotApplicable && sealedCapture.NativeEffects.GameValues.Count != 0)
+					throw new InvalidDataException("A non-applicable native game-specific capture cannot contain game-value records.");
+				return;
+			}
+			if (!CaptureCurrentState(reviewedPlan.Target).Equals(desired))
+				throw new InvalidOperationException("Final Local restore verification found game-specific state that no longer matches the sealed capture.");
+		}
+
 		private void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreMemberExecutionResult memberPhase, CollectionLocalRestoreIniExecutionResult iniPhase,
 			GameStoragePathSet paths)
@@ -378,7 +397,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation persisted = _operationStore.GetOperation(operation.Identity) ?? operation;
 			if (persisted.CheckpointSequence == completion.CheckpointBefore)
 				return AdvanceSafeBoundary(persisted);
-			if (persisted.CheckpointSequence == completion.CheckpointBefore + 1 &&
+			if (persisted.CheckpointSequence >= completion.CheckpointBefore + 1 &&
 				persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary &&
 				persisted.ResultState == CollectionOperationResultState.Pending)
 				return persisted;

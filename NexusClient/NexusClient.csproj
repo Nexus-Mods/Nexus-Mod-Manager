@@ -114,6 +114,8 @@
     <Compile Include="CollectionManagement\CollectionLocalRestoreUserMetadataExecutor.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestoreProfileBoundaryCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestoreProfileAssociationExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreFinalStateVerifier.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadCaptureService.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadSnapshot.cs" />

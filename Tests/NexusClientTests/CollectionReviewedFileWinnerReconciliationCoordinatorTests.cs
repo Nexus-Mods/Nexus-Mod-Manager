@@ -12,6 +12,7 @@ namespace NexusClientTests
 {
 	/// <summary>C6.15.11 reviewed file-winner reconciliation and C6.16-E failure/restart coverage.</summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionReviewedFileWinnerReconciliationCoordinatorTests
 	{
 		private const string Sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

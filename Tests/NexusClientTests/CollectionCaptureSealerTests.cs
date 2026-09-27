@@ -12,6 +12,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.7 sealing/completeness gate characterization.</summary>
 	[TestFixture]
+	[Category("CollectionsGateL")]
 	public class CollectionCaptureSealerTests
 	{
 		private const long Checkpoint = 17;

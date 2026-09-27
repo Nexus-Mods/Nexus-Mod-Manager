@@ -17,6 +17,7 @@ namespace NexusClientTests
 	/// <summary>
 	/// C7.4 scripted replay/generated-payload retention characterization.
 	/// </summary>
+	[Category("CollectionsGateL")]
 	public class CollectionScriptedReplayCaptureServiceTests
 	{
 		[Test]
@@ -54,7 +55,10 @@ namespace NexusClientTests
 				Assert.AreEqual(2, artifactSet.ReplayOperationCount);
 				Assert.AreEqual(1, artifactSet.GeneratedPayloads.Count);
 				Assert.AreEqual(1, artifactSet.GeneratedPayloads[0].ReplayOperationIndex);
-				Assert.AreEqual("generated.bin", artifactSet.GeneratedPayloads[0].PayloadFileName);
+				ScriptedReplayOperation generatedOperation = cache.LoadReplayOperations().Single(x =>
+					x.Kind == ScriptedReplayOperationKind.GeneratedFile);
+				Assert.AreEqual(Path.GetFileName(generatedOperation.PayloadPath), artifactSet.GeneratedPayloads[0].PayloadFileName);
+				Assert.AreEqual(@"Data\generated.bin", artifactSet.GeneratedPayloads[0].DestinationPath);
 				Assert.AreEqual("recipe-c74", artifactSet.Provenance.Single().VerifiedRecipe.Fingerprint);
 				Assert.AreEqual(2, new CollectionsRetainedArtifactReferenceStore(store)
 					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, captureIdentity.ToString()).Count);

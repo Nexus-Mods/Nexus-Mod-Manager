@@ -9,6 +9,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	/// <summary>C6.13 safe detach/provenance coverage.</summary>
+	[Category("CollectionsGateA")]
 	public class CollectionDetachCoordinatorTests
 	{
 		[Test]

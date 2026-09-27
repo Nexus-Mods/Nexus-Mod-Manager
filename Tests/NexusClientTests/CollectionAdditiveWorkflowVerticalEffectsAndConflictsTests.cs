@@ -36,6 +36,7 @@ namespace NexusClientTests
 	/// for reviewed plugin effects, additive file-winner behavior, safe-boundary resume, crossed-native-boundary reconciliation and final provenance.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests
 	{
 		[Test]
@@ -778,6 +779,15 @@ namespace NexusClientTests
 			public IReadOnlyList<CollectionMemberKey> AppliedMembers { get { return _appliedMembers; } }
 			public CollectionNativeStateIndex LastTerminalState { get; private set; }
 
+			public void ReconcileReviewedWinners(CollectionConflictImpactPlan impactPlan)
+			{
+				foreach (CollectionFileImpact impact in impactPlan.FileImpacts.Where(x => x.PlannedWinner != null))
+				{
+					MemberSpec winner = _specs[impact.PlannedWinner];
+					_installState.SetCurrentOwner(impact.Target, winner.NativeKey);
+				}
+			}
+
 			public Task<CollectionNativeChildVerificationResult> ApplyAsync(CollectionNativeChildPreparationResult prepared,
 				ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview reviewedPreview,
 				ModInstallationRecipeInput childRecipe, GameStoragePathSet targetPaths, CancellationToken cancellationToken)
@@ -888,6 +898,7 @@ namespace NexusClientTests
 				CollectionFileImpact multiWriter = impactPlan.FileImpacts.SingleOrDefault(x => x.Writers.Count > 1);
 				PlannedWinner = multiWriter == null ? null : multiWriter.PlannedWinner;
 				LastAppliedMember = _nativeBoundary.AppliedMembers.LastOrDefault();
+				_nativeBoundary.ReconcileReviewedWinners(impactPlan);
 				return Task.CompletedTask;
 			}
 		}
@@ -917,6 +928,17 @@ namespace NexusClientTests
 					owners.RemoveAll(x => x.Equals(spec.NativeKey, StringComparison.OrdinalIgnoreCase));
 					owners.Add(spec.NativeKey);
 				}
+				_deploymentSequence++;
+			}
+
+			public void SetCurrentOwner(ModDeploymentTarget target, string ownerKey)
+			{
+				List<string> owners;
+				if (!_owners.TryGetValue(target, out owners) ||
+					!owners.Any(x => x.Equals(ownerKey, StringComparison.OrdinalIgnoreCase)))
+					throw new InvalidOperationException("The deterministic winner fixture cannot select an owner that was not installed.");
+				owners.RemoveAll(x => x.Equals(ownerKey, StringComparison.OrdinalIgnoreCase));
+				owners.Add(ownerKey);
 				_deploymentSequence++;
 			}
 

@@ -290,8 +290,14 @@ namespace NexusClientTests
                 });
                 var uninstaller = new LifecycleCharacterizationUninstaller(mod, installLog, readOnlyActiveMods);
                 uninstaller.AssignIdentity();
+                using (var completed = new ManualResetEventSlim(false))
+                {
+                    uninstaller.TaskSetCompleted += (sender, args) => completed.Set();
+                    uninstaller.Install();
 
-                uninstaller.Install();
+                    Assert.That(completed.Wait(TimeSpan.FromSeconds(5)), Is.True,
+                        "The asynchronous no-op uninstaller did not publish terminal completion.");
+                }
 
                 Assert.That(uninstaller.IsCompleted, Is.True);
                 Assert.That(uninstaller.Succeeded, Is.True);

@@ -20,15 +20,17 @@ using Nexus.UI.Controls;
 namespace Nexus.Client.CollectionManagement.UI
 {
 	/// <summary>
-	/// C6.15/C7.8 Collections surface for provider preview, additive apply, Local capture and basic installed management.
+	/// Collections surface for provider preview, additive apply, Local capture/restore and installed Collection management.
 	/// </summary>
 	/// <remarks>
 	/// The control consumes application-level workflow services and never constructs or invokes native C4/C5/C6
-	/// persistence or mutation coordinators directly. Replacement and richer management commands remain out of scope.
+	/// persistence or mutation coordinators directly. Remote/local recipe replacement and richer management commands remain out of scope.
 	/// </remarks>
 	public sealed class CollectionsPreviewControl : ManagedFontDockContent
 	{
 		private readonly Button _saveCurrentSetupButton;
+		private readonly ComboBox _localCaptureCombo;
+		private readonly Button _restoreLocalCaptureButton;
 		private readonly ComboBox _managedAssociationCombo;
 		private readonly Button _detachAssociationButton;
 		private readonly Button _removeAssociationEffectsButton;
@@ -65,7 +67,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionOperation _operationSnapshot;
 		private CollectionPlanIdentity _reviewedPlanIdentity;
 		private IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> _recoveryResults = new CollectionAdditiveWorkflowRecoveryResult[0];
-		private IReadOnlyList<CollectionLocalRestoreMemberResumeResult> _localRestoreRecoveryResults = new CollectionLocalRestoreMemberResumeResult[0];
+		private IReadOnlyList<CollectionLocalRestoreWorkflowResult> _localRestoreRecoveryResults = new CollectionLocalRestoreWorkflowResult[0];
 		private CancellationTokenSource _previewCancellation;
 		private CancellationTokenSource _workflowCancellation;
 		private int _previewGeneration;
@@ -118,6 +120,20 @@ namespace Nexus.Client.CollectionManagement.UI
 				Enabled = false
 			};
 			_saveCurrentSetupButton.Click += SaveCurrentSetupButton_Click;
+			_localCaptureCombo = new ComboBox
+			{
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Width = 280,
+				Enabled = false
+			};
+			_localCaptureCombo.SelectedIndexChanged += LocalCaptureCombo_SelectedIndexChanged;
+			_restoreLocalCaptureButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.RestoreLocal", "Restore Local Collection..."),
+				Enabled = false
+			};
+			_restoreLocalCaptureButton.Click += RestoreLocalCaptureButton_Click;
 			_managedAssociationCombo = new ComboBox
 			{
 				DropDownStyle = ComboBoxStyle.DropDownList,
@@ -187,9 +203,11 @@ namespace Nexus.Client.CollectionManagement.UI
 				AutoSize = true,
 				MaximumSize = new Size(760, 0),
 				Padding = new Padding(12, 6, 0, 0),
-				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link, download or import its exact bundle, choose supported optional members, prepare the review, then explicitly approve installation.")
+				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link to prepare/apply it, or select a saved Local Collection above to review and restore its sealed managed setup.")
 			};
 			toolbar.Controls.Add(_saveCurrentSetupButton);
+			toolbar.Controls.Add(_localCaptureCombo);
+			toolbar.Controls.Add(_restoreLocalCaptureButton);
 			toolbar.Controls.Add(_managedAssociationCombo);
 			toolbar.Controls.Add(_detachAssociationButton);
 			toolbar.Controls.Add(_removeAssociationEffectsButton);
@@ -324,6 +342,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_captureWorkflow = captureWorkflow;
 			_managementWorkflow = managementWorkflow;
 			ResetWorkflowViewState();
+			RefreshLocalCaptures();
 			RefreshManagedAssociations();
 			RenderEmptyState();
 
@@ -425,6 +444,53 @@ namespace Nexus.Client.CollectionManagement.UI
 					return;
 				Trace.TraceError("Collection preview metadata failed: " + ex);
 				RenderUnexpectedFailure(dispatch.Link, ex);
+			}
+		}
+
+		private void LocalCaptureCombo_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			UpdateActionButtons();
+		}
+
+		private void RefreshLocalCaptures()
+		{
+			LocalCaptureIdentity selectedId = null;
+			CollectionManagementLocalCapture selected = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
+			if (selected != null) selectedId = selected.CaptureIdentity;
+
+			_localCaptureCombo.BeginUpdate();
+			try
+			{
+				_localCaptureCombo.Items.Clear();
+				if (_managementWorkflow == null) return;
+				foreach (CollectionManagementLocalCapture capture in _managementWorkflow.GetLocalCaptures())
+					_localCaptureCombo.Items.Add(capture);
+				if (_localCaptureCombo.Items.Count > 0)
+				{
+					int selectedIndex = 0;
+					if (selectedId != null)
+					{
+						for (int index = 0; index < _localCaptureCombo.Items.Count; index++)
+						{
+							CollectionManagementLocalCapture candidate = _localCaptureCombo.Items[index] as CollectionManagementLocalCapture;
+							if (candidate != null && candidate.CaptureIdentity.Equals(selectedId))
+							{
+								selectedIndex = index;
+								break;
+							}
+						}
+					}
+					_localCaptureCombo.SelectedIndex = selectedIndex;
+				}
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Local Collection capture list refresh failed: " + ex);
+			}
+			finally
+			{
+				_localCaptureCombo.EndUpdate();
+				UpdateActionButtons();
 			}
 		}
 
@@ -587,6 +653,75 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		private async void RestoreLocalCaptureButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementLocalCapture selected = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
+			if (_managementWorkflow == null || selected == null || _workflowBusy) return;
+			CancellationToken token = BeginWorkflowWork(L("Collections.LocalRestore.Preparing", "Preparing exact Local Collection restore review..."));
+			try
+			{
+				CollectionLocalRestorePreview preview = await Task.Run(() =>
+					_managementWorkflow.PreviewLocalRestoreAsync(selected.CaptureIdentity, token), token);
+				if (token.IsCancellationRequested || IsDisposed) return;
+				if (!preview.IsReadyForRestore)
+				{
+					string reasons = preview.Plan.Issues.Count == 0
+						? L("Collections.LocalRestore.BlockedUnknown", "The saved capture cannot be restored automatically from the current state.")
+						: String.Join(Environment.NewLine, preview.Plan.Issues.Select(x => "- " + x.Message));
+					_workflowStatusLabel.Text = L("Collections.LocalRestore.Blocked", "Workflow: Local Collection restore requires action before it can run.");
+					MessageBox.Show(this, reasons, L("Collections.LocalRestore.BlockedTitle", "Local Collection restore blocked"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+
+				string review = LanguageManager.Format("Collections.LocalRestore.ReviewPrompt",
+					"Restore the saved Local Collection '{0}'?\r\n\r\nReviewed native members: {1}\r\nCurrent native registrations to remove: {2}\r\nManaged deployment targets to restore: {3}\r\n\r\nThis is a replacement-style restore of the NMM-managed state within the sealed capture scope. The current NMM profile is preserved and detached before mutation; outgoing Collection associations are superseded rather than left falsely Applied. Unknown/unmanaged files are not blanket-deleted.\r\n\r\nProceed with this exact reviewed plan?",
+					selected.DisplayName, preview.Plan.Members.Count, preview.Plan.CurrentNativeKeysToRemove.Count, preview.Plan.DeploymentTargets.Count);
+				if (MessageBox.Show(this, review, L("Collections.Actions.RestoreLocal", "Restore Local Collection..."),
+					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+				{
+					_workflowStatusLabel.Text = L("Collections.LocalRestore.ReviewCancelled", "Workflow: Local Collection restore review cancelled; no restore operation was created.");
+					return;
+				}
+
+				_workflowStatusLabel.Text = L("Collections.LocalRestore.Applying", "Workflow: restoring Local Collection and verifying final native state...");
+				CollectionLocalRestoreWorkflowResult result = await Task.Run(() =>
+					_managementWorkflow.RestoreLocalCaptureAsync(preview, token), token);
+				if (token.IsCancellationRequested || IsDisposed) return;
+				RefreshLocalCaptures();
+				RefreshManagedAssociations();
+				if (result.IsSuccessful)
+				{
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.LocalRestore.Completed",
+						"Workflow: Local Collection '{0}' restored and fully verified.", selected.DisplayName);
+					MessageBox.Show(this, LanguageManager.Format("Collections.LocalRestore.CompletedMessage",
+						"'{0}' was restored. Members, owner stacks/payloads, replay artifacts, supported plugin/configuration state, logical metadata and the profile/association boundary all passed final verification.", selected.DisplayName),
+						L("Collections.LocalRestore.CompletedTitle", "Local Collection restored"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+				else
+				{
+					_workflowStatusLabel.Text = "Workflow: " + result.Message;
+					MessageBox.Show(this, result.Message, L("Collections.LocalRestore.RecoveryTitle", "Local Collection restore requires recovery"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				_workflowStatusLabel.Text = L("Collections.LocalRestore.Paused", "Workflow: Local Collection restore paused at a safe boundary; startup reconciliation will resume it.");
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Local Collection restore failed: " + ex);
+				_workflowStatusLabel.Text = L("Collections.LocalRestore.Failed", "Workflow: Local Collection restore stopped; inspect recovery status before further managed changes.");
+				MessageBox.Show(this, ex.Message, L("Collections.LocalRestore.FailedTitle", "Local Collection restore stopped"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork();
+			}
+		}
+
 		private async void SaveCurrentSetupButton_Click(object sender, EventArgs e)
 		{
 			if (_captureWorkflow == null || _workflowBusy)
@@ -621,6 +756,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 				if (result.IsSaved)
 				{
+					RefreshLocalCaptures();
 					string capabilityLabel = FormatCaptureCapability(result.Capture.Capability);
 					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Capture.SavedStatus",
 						"Workflow: Local Collection saved - {0}.", capabilityLabel);
@@ -902,27 +1038,35 @@ namespace Nexus.Client.CollectionManagement.UI
 				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> results = _workflow == null
 					? new CollectionAdditiveWorkflowRecoveryResult[0]
 					: await _workflow.ReconcileIncompleteTargetAsync(token);
-				IReadOnlyList<CollectionLocalRestoreMemberResumeResult> localRestoreResults = _managementWorkflow == null
-					? new CollectionLocalRestoreMemberResumeResult[0]
-					: await _managementWorkflow.ReconcileInterruptedLocalRestoreMembersAsync(token);
-				if (_managementWorkflow != null)
+				IReadOnlyList<CollectionLocalRestoreWorkflowResult> localRestoreResults = _managementWorkflow == null
+					? new CollectionLocalRestoreWorkflowResult[0]
+					: await Task.Run(() => _managementWorkflow.ReconcileInterruptedLocalRestoresAsync(token), token);
+				if (_managementWorkflow != null && localRestoreResults.All(x => x.IsSuccessful))
 					await _managementWorkflow.ReconcileInterruptedEffectRemovalAsync(token);
 				if (token.IsCancellationRequested || IsDisposed)
 					return;
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
-				_localRestoreRecoveryResults = localRestoreResults ?? new CollectionLocalRestoreMemberResumeResult[0];
+				_localRestoreRecoveryResults = localRestoreResults ?? new CollectionLocalRestoreWorkflowResult[0];
+				RefreshLocalCaptures();
 				RefreshManagedAssociations();
 				if (_snapshot != null)
 				{
 					RenderIssues(_snapshot);
 					BindMatchingRecovery();
 				}
-				else if (_recoveryResults.Count + _localRestoreRecoveryResults.Count > 0)
-				{
-					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.IncompleteCount", "Workflow: {0} incomplete Collection operation(s) reconciled for this target. Open the matching revision to review/resume.", _recoveryResults.Count + _localRestoreRecoveryResults.Count);
-				}
 				else
-					_workflowStatusLabel.Text = L("Collections.Workflow.Idle", "Workflow: idle");
+				{
+					int unresolvedCount = _recoveryResults.Count + _localRestoreRecoveryResults.Count(x => !x.IsSuccessful);
+					int completedLocalRestores = _localRestoreRecoveryResults.Count(x => x.IsSuccessful);
+					if (unresolvedCount > 0)
+						_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.IncompleteCount",
+							"Workflow: {0} incomplete Collection operation(s) reconciled for this target. Review the reported recovery state before new managed work.", unresolvedCount);
+					else if (completedLocalRestores > 0)
+						_workflowStatusLabel.Text = LanguageManager.Format("Collections.LocalRestore.StartupCompleted",
+							"Workflow: {0} interrupted Local Collection restore operation(s) resumed and fully verified.", completedLocalRestores);
+					else
+						_workflowStatusLabel.Text = L("Collections.Workflow.Idle", "Workflow: idle");
+				}
 			}
 			catch (OperationCanceledException)
 			{
@@ -1273,9 +1417,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				AddIssueRow(FormatRecoveryStatus(recovery.Status), "recovery." + recovery.Status.ToString().ToLowerInvariant(),
 					recovery.Operation.Revision == null ? recovery.Operation.Identity.ToString() : recovery.Operation.Revision.ToString(), recovery.Message);
 			}
-			foreach (CollectionLocalRestoreMemberResumeResult recovery in _localRestoreRecoveryResults)
+			foreach (CollectionLocalRestoreWorkflowResult recovery in _localRestoreRecoveryResults)
 			{
-				if (!recovery.IsMemberPhaseComplete)
+				if (!recovery.IsSuccessful)
 					AddIssueRow(L("Collections.Status.ActionRequired", "Action required"), "workflow.local-restore-recovery",
 						recovery.Operation.Revision == null ? recovery.Operation.Identity.ToString() : recovery.Operation.Revision.ToString(), recovery.Message);
 			}
@@ -1497,6 +1641,11 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void UpdateActionButtons()
 		{
 			_saveCurrentSetupButton.Enabled = !_workflowBusy && _captureWorkflow != null;
+			CollectionManagementLocalCapture selectedCapture = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
+			bool hasLocalCapture = _managementWorkflow != null && selectedCapture != null;
+			_localCaptureCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localCaptureCombo.Items.Count > 0;
+			_restoreLocalCaptureButton.Enabled = !_workflowBusy && hasLocalCapture &&
+				selectedCapture.Capability == LocalCaptureCapability.LocallyRestorableWithinScope;
 			bool hasManagedAssociation = _managementWorkflow != null && _managedAssociationCombo.SelectedItem is CollectionManagementAssociation;
 			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Items.Count > 0;
 			_detachAssociationButton.Enabled = !_workflowBusy && hasManagedAssociation;

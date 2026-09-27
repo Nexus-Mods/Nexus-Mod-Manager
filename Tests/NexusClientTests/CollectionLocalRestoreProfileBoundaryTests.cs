@@ -8,6 +8,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	/// <summary>C7.11 profile-preservation and outgoing-association boundary coverage.</summary>
+	[Category("CollectionsGateL")]
 	public class CollectionLocalRestoreProfileBoundaryTests
 	{
 		[Test]

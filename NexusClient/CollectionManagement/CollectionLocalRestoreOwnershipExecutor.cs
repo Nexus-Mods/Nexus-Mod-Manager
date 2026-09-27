@@ -242,6 +242,24 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies the exact restored owner stacks, payload bytes and pure-Virtual fallback without mutating native state.</summary>
+		internal void VerifyFinalState(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+			CollectionLocalRestoreMemberExecutionResult memberPhase, CancellationToken cancellationToken)
+		{
+			if (sealedCapture == null) throw new ArgumentNullException(nameof(sealedCapture));
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			if (memberPhase == null) throw new ArgumentNullException(nameof(memberPhase));
+			Dictionary<CollectionMemberKey, string> remaps = BuildRemaps(reviewedPlan, memberPhase);
+			foreach (CollectionLocalRestoreDeploymentPlan deploymentPlan in reviewedPlan.DeploymentTargets)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				CollectionOwnerPayloadTarget captured = RequireCapturedTarget(sealedCapture, deploymentPlan);
+				List<DesiredOwner> desired = BuildDesiredOwners(captured, deploymentPlan, remaps);
+				if (!VerifyLiveTarget(captured, desired, cancellationToken))
+					throw new InvalidOperationException("Final Local restore verification found an owner stack, payload, winner or Virtual fallback that no longer matches the sealed capture.");
+			}
+		}
+
 		private void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreMemberExecutionResult memberPhase, GameStoragePathSet paths)
 		{
@@ -750,7 +768,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation persisted = _operationStore.GetOperation(operation.Identity) ?? operation;
 			if (persisted.CheckpointSequence == completion.CheckpointBefore)
 				return AdvanceSafeBoundary(persisted);
-			if (persisted.CheckpointSequence == completion.CheckpointBefore + 1 &&
+			if (persisted.CheckpointSequence >= completion.CheckpointBefore + 1 &&
 				persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary &&
 				persisted.ResultState == CollectionOperationResultState.Pending)
 				return persisted;

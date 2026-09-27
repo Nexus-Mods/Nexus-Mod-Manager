@@ -13,6 +13,7 @@ namespace NexusClientTests
 {
 	/// <summary>C6.6 durable native-child preparation and recovery-input coverage.</summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionNativeChildPreparationCoordinatorTests
 	{
 		private const string ManifestSha = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";

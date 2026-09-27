@@ -182,6 +182,21 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies captured logical Sort/screenshot metadata without replacing or mutating the shared metadata database.</summary>
+		internal void VerifyFinalState(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+			CollectionLocalRestoreMemberExecutionResult memberPhase)
+		{
+			if (sealedCapture == null) throw new ArgumentNullException(nameof(sealedCapture));
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			if (memberPhase == null) throw new ArgumentNullException(nameof(memberPhase));
+			bool applicable = sealedCapture.Capture.Scope.Contains(LocalCaptureScopeArea.UserMetadata);
+			CollectionLocalRestoreUserMetadataState desired = BuildDesiredState(sealedCapture, reviewedPlan, memberPhase, applicable);
+			if (!applicable)
+				return;
+			if (!CaptureCurrentState(desired).Equals(desired))
+				throw new InvalidOperationException("Final Local restore verification found logical user metadata that no longer matches the sealed capture.");
+		}
+
 		private void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreMemberExecutionResult memberPhase, CollectionLocalRestoreGameValueExecutionResult gameValuePhase,
 			GameStoragePathSet paths)
@@ -509,7 +524,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation persisted = _operationStore.GetOperation(operation.Identity) ?? operation;
 			if (persisted.CheckpointSequence == completion.CheckpointBefore)
 				return AdvanceSafeBoundary(persisted);
-			if (persisted.CheckpointSequence == completion.CheckpointBefore + 1 && persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary &&
+			if (persisted.CheckpointSequence >= completion.CheckpointBefore + 1 && persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary &&
 				persisted.ResultState == CollectionOperationResultState.Pending)
 				return persisted;
 			MarkRecoveryRequired(persisted);

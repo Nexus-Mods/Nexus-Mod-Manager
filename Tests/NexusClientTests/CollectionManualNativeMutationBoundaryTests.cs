@@ -10,6 +10,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionManualNativeMutationBoundaryTests
 	{
 		private string _tempRoot;

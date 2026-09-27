@@ -34,6 +34,7 @@ namespace NexusClientTests
 	/// C6.10 provenance reconciliation, reviewed-state invalidation, retained-input integrity and restart-safe approval boundaries.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionAdditiveWorkflowVerticalApplyTests
 	{
 		[Test]
@@ -512,7 +513,7 @@ namespace NexusClientTests
 					InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null),
 					targetIdentity => nativeStateReader.Capture(targetIdentity), () => { });
 				var nativeBoundary = new DeterministicNativeBoundary(operationStore, recoveryManifests, nativeStateReader,
-					installState, archivePath);
+					installState, archivePath, gameMode);
 				var winnerBarrier = new RecordingWinnerBarrier();
 
 				var workflow = new CollectionAdditiveWorkflowCoordinator(services, storageService, operationStore, planStore,
@@ -600,17 +601,19 @@ namespace NexusClientTests
 			private readonly CollectionNativeStateReader _nativeStateReader;
 			private readonly MutableInstallLogSnapshot _installState;
 			private readonly string _archivePath;
+			private readonly IGameMode _gameMode;
 			private long _deploymentSequence;
 
 			public DeterministicNativeBoundary(CollectionsOperationStore operationStore,
 				CollectionsNativeChildRecoveryManifestStore manifestStore, CollectionNativeStateReader nativeStateReader,
-				MutableInstallLogSnapshot installState, string archivePath)
+				MutableInstallLogSnapshot installState, string archivePath, IGameMode gameMode)
 			{
 				_operationStore = operationStore;
 				_manifestStore = manifestStore;
 				_nativeStateReader = nativeStateReader;
 				_installState = installState;
 				_archivePath = archivePath;
+				_gameMode = gameMode ?? throw new ArgumentNullException(nameof(gameMode));
 				_deploymentSequence = installState.Get().DeploymentCommitSequence;
 			}
 
@@ -652,6 +655,7 @@ namespace NexusClientTests
 				_deploymentSequence++;
 				_installState.Set(CreateInstallSnapshot(nativeKey, _archivePath, childRecipe.InstallContext.Method,
 					_deploymentSequence, reviewedPreview.Files.Select(x => x.Target), childRecipe.InstallContext.InstallRoot));
+				MaterializeCommittedFiles(reviewedPreview);
 				CollectionNativeStateIndex terminalState = _nativeStateReader.Capture(plan.Target);
 				CollectionNativeModState verifiedNativeMod = terminalState.Mods.Values.Single(x =>
 					x.Identity.NativeModKey.Equals(nativeKey, StringComparison.OrdinalIgnoreCase));
@@ -666,6 +670,18 @@ namespace NexusClientTests
 
 				return Task.FromResult(new CollectionNativeChildVerificationResult(operation, child, terminalState,
 					verifiedNativeMod, ModOperationDurability.VerifiedCommitted));
+			}
+
+			private void MaterializeCommittedFiles(CollectionMemberEffectPreview reviewedPreview)
+			{
+				byte[] content = Encoding.UTF8.GetBytes("deterministic-native-boundary");
+				foreach (CollectionPlannedFileEffect file in reviewedPreview.Files)
+				{
+					string path = ModDeploymentTargetResolver.GetPhysicalPath(_gameMode, file.Target);
+					string directory = Path.GetDirectoryName(path);
+					if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+					File.WriteAllBytes(path, content);
+				}
 			}
 
 			private CollectionOperation SaveChild(CollectionOperation operation, CollectionNativeChildOperation child)

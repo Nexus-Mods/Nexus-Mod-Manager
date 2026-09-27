@@ -145,6 +145,35 @@ VALUES
 			});
 		}
 
+		/// <summary>Loads all persisted sealed captures for one exact canonical target in stable identity order.</summary>
+		public IReadOnlyList<LocalCapture> GetCapturesForTarget(CollectionTargetIdentity target)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var captureIds = new List<string>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT capture_id
+FROM local_captures
+WHERE source_target_fingerprint=@target_fingerprint
+ORDER BY capture_id;";
+					command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+						while (reader.Read())
+							captureIds.Add(reader.GetString(0));
+				}
+
+				var result = new List<LocalCapture>(captureIds.Count);
+				foreach (string captureId in captureIds)
+					result.Add(ReadCapture(connection, transaction, captureId));
+				return result;
+			});
+		}
+
 		/// <summary>Loads one persisted sealed capture contract, or <c>null</c> when no such capture exists.</summary>
 		public LocalCapture GetCapture(LocalCaptureIdentity identity)
 		{

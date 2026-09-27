@@ -172,6 +172,25 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies captured INI values and owner history, including the Virtual replay shadow, without mutation.</summary>
+		internal void VerifyFinalState(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+			CollectionLocalRestoreMemberExecutionResult memberPhase)
+		{
+			if (sealedCapture == null) throw new ArgumentNullException(nameof(sealedCapture));
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			if (memberPhase == null) throw new ArgumentNullException(nameof(memberPhase));
+			bool applicable = sealedCapture.Capture.Scope.Contains(LocalCaptureScopeArea.NativeConfigurationEffects);
+			CollectionLocalRestoreIniState desired = BuildDesiredState(sealedCapture, reviewedPlan, memberPhase, applicable);
+			if (!applicable)
+			{
+				if (sealedCapture.NativeEffects.IniCoverage == NativeStateCaptureCoverage.NotApplicable && sealedCapture.NativeEffects.IniEdits.Count != 0)
+					throw new InvalidDataException("A non-applicable native INI capture cannot contain INI records.");
+				return;
+			}
+			if (!CaptureCurrentState(reviewedPlan.Target).Equals(desired) || !VmaReplayMatches(desired))
+				throw new InvalidOperationException("Final Local restore verification found INI state that no longer matches the sealed capture.");
+		}
+
 		private void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreMemberExecutionResult memberPhase, CollectionLocalRestorePluginExecutionResult pluginPhase,
 			GameStoragePathSet paths)
@@ -331,7 +350,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			CollectionOperation persisted = _operationStore.GetOperation(operation.Identity) ?? operation;
 			if (persisted.CheckpointSequence == completion.CheckpointBefore) return AdvanceSafeBoundary(persisted);
-			if (persisted.CheckpointSequence == completion.CheckpointBefore + 1 && persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary && persisted.ResultState == CollectionOperationResultState.Pending) return persisted;
+			if (persisted.CheckpointSequence >= completion.CheckpointBefore + 1 && persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary && persisted.ResultState == CollectionOperationResultState.Pending) return persisted;
 			MarkRecoveryRequired(persisted); throw new InvalidOperationException("The INI phase-completion checkpoint no longer matches the durable operation journal.");
 		}
 		private static byte[] SerializePhaseCompletion(IniPhaseCompletion completion)

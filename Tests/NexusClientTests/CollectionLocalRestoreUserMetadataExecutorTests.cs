@@ -4,6 +4,7 @@ using NUnit.Framework;
 
 namespace NexusClientTests
 {
+	[Category("CollectionsGateL")]
 	public class CollectionLocalRestoreUserMetadataExecutorTests
 	{
 		[Test]

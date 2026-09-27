@@ -17,6 +17,7 @@ namespace NexusClientTests
     /// Verifies that native mod-operation submission and serialized start no longer depend on the monitor UI control.
     /// </summary>
     [TestFixture]
+    [Category("CollectionsGateA")]
     public class ModOperationSubmissionTests
     {
         /// <summary>

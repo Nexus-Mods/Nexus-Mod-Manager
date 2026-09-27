@@ -8,6 +8,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.10b1 native retained-owner input contract tests.</summary>
 	[TestFixture]
+	[Category("CollectionsGateL")]
 	public class ModDeploymentRestoreOwnerTests
 	{
 		[Test]

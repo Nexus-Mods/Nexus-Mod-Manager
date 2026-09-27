@@ -9,6 +9,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionTargetCrossProcessLeaseTests
 	{
 		private string _tempRoot;

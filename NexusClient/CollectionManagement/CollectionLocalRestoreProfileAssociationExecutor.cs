@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -134,7 +135,7 @@ namespace Nexus.Client.CollectionManagement
 							CollectionOperationPhase.PausedAtSafeBoundary, CollectionOperationResultState.Pending, persisted.NativeChildren);
 						_operationStore.SaveOperation(persisted);
 					}
-					else if (persisted.CheckpointSequence != completion.CheckpointBefore + 1 ||
+					else if (persisted.CheckpointSequence < completion.CheckpointBefore + 1 ||
 						persisted.Phase != CollectionOperationPhase.PausedAtSafeBoundary ||
 						persisted.ResultState != CollectionOperationResultState.Pending)
 					{
@@ -154,6 +155,16 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies that the C7.11 profile boundary and superseded association state still hold at final commit.</summary>
+		internal void VerifyFinalState(CollectionOperation operation, CollectionSealedCaptureSnapshot sealedCapture,
+			CollectionLocalRestorePlan reviewedPlan)
+		{
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			CollectionLocalRestoreProfileBoundaryIntent intent = _boundaryCoordinator.RequireIntent(operation, sealedCapture, reviewedPlan);
+			_boundaryCoordinator.VerifyProfilePreserved(intent);
+			VerifyAssociationsFinalized(operation.Target, intent);
+		}
+
 		private static void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreUserMetadataExecutionResult userMetadataPhase, GameStoragePathSet paths)
 		{
@@ -169,10 +180,13 @@ namespace Nexus.Client.CollectionManagement
 
 		private void VerifyAssociationsFinalized(CollectionTargetIdentity target, CollectionLocalRestoreProfileBoundaryIntent intent)
 		{
-			foreach (CollectionLocalRestoreOutgoingAssociation outgoing in intent.Associations)
+			IReadOnlyList<CollectionTargetAssociation> current = _associationStore.GetAssociationsForTarget(target);
+			var expectedIds = new HashSet<Guid>(intent.Associations.Select(x => x.AssociationId));
+			if (!expectedIds.SetEquals(current.Select(x => x.AssociationId)))
+				throw new InvalidOperationException("The outgoing Collection association set changed after the Local restore profile boundary was established.");
+			foreach (CollectionTargetAssociation association in current)
 			{
-				CollectionTargetAssociation association = _associationStore.GetAssociation(outgoing.AssociationId);
-				if (association == null || !association.Target.Equals(target) || association.State != CollectionAssociationState.Incomplete)
+				if (association.State != CollectionAssociationState.Incomplete)
 					throw new InvalidOperationException("A superseded outgoing Collection association was not durably reconciled as Incomplete.");
 			}
 		}

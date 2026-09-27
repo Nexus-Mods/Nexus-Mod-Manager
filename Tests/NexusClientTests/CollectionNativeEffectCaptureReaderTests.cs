@@ -13,6 +13,7 @@ namespace NexusClientTests
 	/// <summary>
 	/// C7.5 INI/game-specific/plugin native effect capture characterization.
 	/// </summary>
+	[Category("CollectionsGateL")]
 	public class CollectionNativeEffectCaptureReaderTests
 	{
 		[Test]

@@ -246,6 +246,34 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies the complete restored scripted replay XML and generated payload set without mutating live artifacts.</summary>
+		internal void VerifyFinalState(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+			CollectionLocalRestoreMemberExecutionResult memberPhase, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			if (sealedCapture == null) throw new ArgumentNullException(nameof(sealedCapture));
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			if (memberPhase == null) throw new ArgumentNullException(nameof(memberPhase));
+			if (paths == null) throw new ArgumentNullException(nameof(paths));
+			Dictionary<CollectionMemberKey, string> remaps = BuildRemaps(reviewedPlan, memberPhase);
+			foreach (ReplayJob job in BuildJobs(sealedCapture, reviewedPlan, remaps, paths))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				string tempDirectory = CreateTemporaryDirectory();
+				try
+				{
+					string stagingReplayPath = MaterializeDesired(job.ArtifactSet, tempDirectory, cancellationToken);
+					CollectionLocalRestoreReplayArtifactState desired = CollectionLocalRestoreReplayFileSystem.Capture(stagingReplayPath, cancellationToken);
+					ValidateDesiredState(job.ArtifactSet, desired);
+					if (!CollectionLocalRestoreReplayFileSystem.Capture(job.DestinationReplayPath, cancellationToken).Equals(desired))
+						throw new InvalidOperationException("Final Local restore verification found scripted replay artifacts that no longer match the sealed capture.");
+				}
+				finally
+				{
+					TryDeleteDirectory(tempDirectory);
+				}
+			}
+		}
+
 		private void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreMemberExecutionResult memberPhase, CollectionLocalRestoreOwnershipExecutionResult ownershipPhase,
 			GameStoragePathSet paths)
@@ -552,7 +580,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation persisted = _operationStore.GetOperation(operation.Identity) ?? operation;
 			if (persisted.CheckpointSequence == completion.CheckpointBefore)
 				return AdvanceSafeBoundary(persisted);
-			if (persisted.CheckpointSequence == completion.CheckpointBefore + 1 &&
+			if (persisted.CheckpointSequence >= completion.CheckpointBefore + 1 &&
 				persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary &&
 				persisted.ResultState == CollectionOperationResultState.Pending)
 				return persisted;

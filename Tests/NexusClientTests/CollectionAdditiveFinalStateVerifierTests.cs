@@ -10,6 +10,7 @@ namespace NexusClientTests
 {
 	/// <summary>Aggregate authoritative-state verification coverage before additive Applied publication.</summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionAdditiveFinalStateVerifierTests
 	{
 		private const string Sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

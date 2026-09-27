@@ -14,6 +14,7 @@ namespace NexusClientTests
 {
 	/// <summary>C6.14 safe uninstall planning/persistence coverage without invoking the native uninstaller.</summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionUninstallEffectsCoordinatorTests
 	{
 		[Test]

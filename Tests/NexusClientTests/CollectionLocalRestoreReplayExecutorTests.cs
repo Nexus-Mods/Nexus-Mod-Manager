@@ -11,6 +11,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsGateL")]
 	public class CollectionLocalRestoreReplayExecutorTests
 	{
 		[Test]

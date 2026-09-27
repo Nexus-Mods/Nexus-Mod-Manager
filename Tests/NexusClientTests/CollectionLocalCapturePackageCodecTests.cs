@@ -11,6 +11,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.8 durable sealed-capture package format coverage.</summary>
 	[TestFixture]
+	[Category("CollectionsGateL")]
 	public class CollectionLocalCapturePackageCodecTests
 	{
 		[Test]

@@ -17,6 +17,7 @@ namespace NexusClientTests
 	/// <summary>
 	/// C7.6 logical Sort/screenshot user-metadata capture characterization.
 	/// </summary>
+	[Category("CollectionsGateL")]
 	public class CollectionUserMetadataCaptureServiceTests
 	{
 		[Test]

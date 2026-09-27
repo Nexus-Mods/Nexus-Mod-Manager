@@ -10,6 +10,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.8 durable Local Collection capture catalog/package binding coverage.</summary>
 	[TestFixture]
+	[Category("CollectionsGateL")]
 	public class CollectionsLocalCaptureStoreTests
 	{
 		[Test]
@@ -120,6 +121,61 @@ namespace NexusClientTests
 			{
 				Directory.Delete(root, true);
 			}
+		}
+
+		[Test]
+		public void GetCapturesForTarget_IsTargetScopedAndStableRegardlessOfSaveOrder()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				CollectionTargetIdentity targetA = CollectionTargetIdentity.FromFingerprint("target-c78-list-a");
+				CollectionTargetIdentity targetB = CollectionTargetIdentity.FromFingerprint("target-c78-list-b");
+
+				LocalCapture second = SaveMinimalCapture(captures, artifacts, references, targetA,
+					Guid.Parse("22222222-2222-2222-2222-222222222222"));
+				SaveMinimalCapture(captures, artifacts, references, targetB,
+					Guid.Parse("33333333-3333-3333-3333-333333333333"));
+				LocalCapture first = SaveMinimalCapture(captures, artifacts, references, targetA,
+					Guid.Parse("11111111-1111-1111-1111-111111111111"));
+
+				LocalCapture[] targetCaptures = captures.GetCapturesForTarget(targetA).ToArray();
+
+				Assert.AreEqual(2, targetCaptures.Length);
+				Assert.AreEqual(first.Identity, targetCaptures[0].Identity);
+				Assert.AreEqual(second.Identity, targetCaptures[1].Identity);
+				Assert.IsTrue(targetCaptures.All(x => x.SourceTarget.Equals(targetA)));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		private static LocalCapture SaveMinimalCapture(CollectionsLocalCaptureStore captures,
+			CollectionsRetainedArtifactStore artifacts, CollectionsRetainedArtifactReferenceStore references,
+			CollectionTargetIdentity target, Guid captureGuid)
+		{
+			CollectionIdentity collectionIdentity = CollectionIdentity.FromLocal(Guid.NewGuid());
+			CollectionRevisionIdentity revisionIdentity = CollectionRevisionIdentity.FromLocal(collectionIdentity, Guid.NewGuid());
+			LocalCaptureIdentity captureIdentity = LocalCaptureIdentity.From(captureGuid);
+			var definition = new CollectionDefinition(collectionIdentity, "Gate L capture", null, null);
+			var revision = new CollectionRevision(revisionIdentity, "Gate L revision", null, 0);
+			var capture = new LocalCapture(captureIdentity, revisionIdentity, target,
+				new CollectionCurrentStateFingerprint("state-v1", captureGuid.ToString("N")),
+				new LocalCaptureScope(LocalCaptureScope.CurrentVersion, new[] { LocalCaptureScopeArea.ManagedModState }),
+				LocalCaptureCapability.RecipeOnly, new RetainedArtifactReference[0],
+				new LocalCaptureExclusion[0], new LocalCaptureNativeRecordMapping[0]);
+			CollectionsRetainedArtifact package = Publish(artifacts, "gate-l-package-" + captureGuid.ToString("N"));
+			references.AcquireExclusiveRoleReference(package.ArtifactId, CollectionsRetainedArtifactOwnerKind.Capture,
+				captureIdentity.ToString(), CollectionsLocalCaptureStore.PackageReferenceRole);
+			captures.Save(definition, revision, capture, CollectionLocalCapturePackageCodec.CurrentFormatVersion, package.ArtifactId);
+			return capture;
 		}
 
 		private static CollectionsRetainedArtifact Publish(CollectionsRetainedArtifactStore store, string text)

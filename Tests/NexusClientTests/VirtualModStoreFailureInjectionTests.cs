@@ -12,6 +12,7 @@
 	/// C6.16-D failure coverage for the SQLite Virtual primary store and its XML compatibility shadow.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class VirtualModStoreFailureInjectionTests
 	{
 		private static readonly Version CurrentVersion = new Version("0.3.0.0");

@@ -13,6 +13,7 @@ namespace NexusClientTests
 {
 	/// <summary>C6.9 restart reconciliation and durable execution-evidence coverage.</summary>
 	[TestFixture]
+	[Category("CollectionsGateA")]
 	public class CollectionNativeChildRestartReconciliationCoordinatorTests
 	{
 		private const string ShaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

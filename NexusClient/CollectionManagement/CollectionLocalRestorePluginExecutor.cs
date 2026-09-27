@@ -198,6 +198,25 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Verifies the exact captured plugin order/activation state without writing plugin policy.</summary>
+		internal void VerifyFinalState(CollectionSealedCaptureSnapshot sealedCapture)
+		{
+			if (sealedCapture == null) throw new ArgumentNullException(nameof(sealedCapture));
+			IPluginManager pluginManager = _services.PluginManager;
+			bool applicable = sealedCapture.Capture.Scope.Contains(LocalCaptureScopeArea.PluginState) &&
+				sealedCapture.NativeEffects.PluginCoverage != NativeStateCaptureCoverage.NotApplicable;
+			CollectionLocalRestorePluginState desired = BuildDesiredState(sealedCapture, pluginManager, applicable);
+			if (!applicable)
+			{
+				if (sealedCapture.NativeEffects.PluginCoverage == NativeStateCaptureCoverage.NotApplicable && sealedCapture.NativeEffects.Plugins.Count != 0)
+					throw new InvalidDataException("A non-applicable native plugin capture cannot contain plugin records.");
+				return;
+			}
+			ValidatePolicyCanReproduceDesired(pluginManager, desired);
+			if (!CaptureState(pluginManager).Equals(desired))
+				throw new InvalidOperationException("Final Local restore verification found plugin order or activation state that no longer matches the sealed capture.");
+		}
+
 		private void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreReplayExecutionResult replayPhase, GameStoragePathSet paths)
 		{
@@ -377,7 +396,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation persisted = _operationStore.GetOperation(operation.Identity) ?? operation;
 			if (persisted.CheckpointSequence == completion.CheckpointBefore)
 				return AdvanceSafeBoundary(persisted);
-			if (persisted.CheckpointSequence == completion.CheckpointBefore + 1 &&
+			if (persisted.CheckpointSequence >= completion.CheckpointBefore + 1 &&
 				persisted.Phase == CollectionOperationPhase.PausedAtSafeBoundary &&
 				persisted.ResultState == CollectionOperationResultState.Pending)
 				return persisted;

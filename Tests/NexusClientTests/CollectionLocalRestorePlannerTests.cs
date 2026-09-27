@@ -14,6 +14,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.9 read-only native mapping/remap planner characterization.</summary>
 	[TestFixture]
+	[Category("CollectionsGateL")]
 	public class CollectionLocalRestorePlannerTests
 	{
 		private const long Checkpoint = 17;

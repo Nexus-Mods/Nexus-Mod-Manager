@@ -16,6 +16,7 @@ namespace NexusClientTests
 	/// <summary>
 	/// C7.3 owner/fallback payload retention characterization.
 	/// </summary>
+	[Category("CollectionsGateL")]
 	public class CollectionOwnerPayloadCaptureServiceTests
 	{
 		[Test]
