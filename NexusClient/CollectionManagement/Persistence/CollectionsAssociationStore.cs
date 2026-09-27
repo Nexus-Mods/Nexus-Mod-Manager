@@ -673,6 +673,70 @@ ORDER BY override_id;";
 			});
 		}
 
+		/// <summary>Marks the exact outgoing target associations as Recovering before a Local Collection restore can mutate native state.</summary>
+		internal void MarkLocalRestoreOutgoingAssociationsRecovering(CollectionTargetIdentity target,
+			IReadOnlyDictionary<Guid, CollectionAssociationState> expectedStates)
+		{
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			if (expectedStates == null) throw new ArgumentNullException(nameof(expectedStates));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				HashSet<Guid> expectedIds = new HashSet<Guid>(expectedStates.Keys);
+				HashSet<Guid> currentIds = ReadAssociationIdsForTarget(connection, transaction, target);
+				if (!currentIds.SetEquals(expectedIds))
+					throw new InvalidOperationException("The outgoing Collection association set changed after Local restore review and cannot be superseded silently.");
+
+				foreach (KeyValuePair<Guid, CollectionAssociationState> expected in expectedStates.OrderBy(x => x.Key))
+				{
+					RequireGuid(expected.Key, nameof(expectedStates));
+					if (!Enum.IsDefined(typeof(CollectionAssociationState), expected.Value) ||
+						expected.Value == CollectionAssociationState.Unknown || expected.Value == CollectionAssociationState.Recovering)
+						throw new ArgumentOutOfRangeException(nameof(expectedStates),
+							"A Local restore cannot adopt an already-recovering outgoing association boundary.");
+
+					CollectionTargetAssociation current = ReadAssociation(connection, transaction, expected.Key);
+					if (current == null || !current.Target.Equals(target))
+						throw new InvalidOperationException("An outgoing Collection association disappeared or moved before the Local restore profile boundary was established.");
+					if (current.State == CollectionAssociationState.Recovering)
+						continue;
+					if (current.State != expected.Value)
+						throw new InvalidOperationException("An outgoing Collection association changed after Local restore review and cannot be superseded silently.");
+
+					SaveAssociation(connection, transaction, current.WithState(CollectionAssociationState.Recovering));
+				}
+			});
+		}
+
+		/// <summary>Finalizes a verified Local restore by leaving every superseded outgoing association explicitly Incomplete.</summary>
+		internal void FinalizeLocalRestoreOutgoingAssociations(CollectionTargetIdentity target, IEnumerable<Guid> associationIds)
+		{
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			if (associationIds == null) throw new ArgumentNullException(nameof(associationIds));
+			List<Guid> ids = associationIds.Distinct().OrderBy(x => x).ToList();
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				HashSet<Guid> currentIds = ReadAssociationIdsForTarget(connection, transaction, target);
+				if (!currentIds.SetEquals(ids))
+					throw new InvalidOperationException("The outgoing Collection association set changed before Local restore reconciliation completed.");
+
+				foreach (Guid associationId in ids)
+				{
+					RequireGuid(associationId, nameof(associationIds));
+					CollectionTargetAssociation current = ReadAssociation(connection, transaction, associationId);
+					if (current == null || !current.Target.Equals(target))
+						throw new InvalidOperationException("A superseded Collection association disappeared before Local restore reconciliation completed.");
+					if (current.State == CollectionAssociationState.Incomplete)
+						continue;
+					if (current.State != CollectionAssociationState.Recovering)
+						throw new InvalidOperationException("A superseded Collection association no longer owns the expected Local restore recovery boundary.");
+
+					SaveAssociation(connection, transaction, current.WithState(CollectionAssociationState.Incomplete));
+				}
+			});
+		}
+
 		/// <summary>
 		/// Atomically updates association drift state and the exact current observations produced by one manual native mutation.
 		/// </summary>
@@ -1236,6 +1300,24 @@ VALUES
 				AddOverrideParameters(command, userOverride);
 				command.ExecuteNonQuery();
 			}
+		}
+
+		private static HashSet<Guid> ReadAssociationIdsForTarget(SQLiteConnection connection, SQLiteTransaction transaction,
+			CollectionTargetIdentity target)
+		{
+			var result = new HashSet<Guid>();
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = "SELECT association_id FROM target_associations WHERE target_fingerprint = @target_fingerprint;";
+				command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+						result.Add(ReadCanonicalGuid(reader.GetString(0), "Collection target association"));
+				}
+			}
+			return result;
 		}
 
 		private static CollectionTargetAssociation ReadAssociation(SQLiteConnection connection, SQLiteTransaction transaction, Guid associationId)

@@ -1107,6 +1107,16 @@ namespace Nexus.Client.ModManagement
 			m_strCurrentProfileId = profileId;
 		}
 
+		/// <inheritdoc />
+		public void DetachCurrentProfileForExternalMutation()
+		{
+			// Always persist the cleared default marker, even when an earlier failed attempt already cleared
+			// the in-memory current profile before SaveConfig completed.
+			SetDefaultProfile(null);
+			SetCurrentProfile(null);
+			SaveConfig();
+		}
+
 		/// <summary>
 		/// Saves the profile file.
 		/// </summary>

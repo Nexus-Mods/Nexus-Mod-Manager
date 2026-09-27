@@ -124,6 +124,15 @@ namespace Nexus.Client.ModManagement
 		void SetCurrentProfile(IModProfile p_impProfile);
 
 		/// <summary>
+		/// Detaches the current profile selection for an external replacement/restore while preserving the profile itself.
+		/// </summary>
+		/// <remarks>
+		/// The caller must persist the current deployment manifest before this boundary. This method clears both the
+		/// in-memory current-profile selection and the persisted default-profile marker so restart cannot silently reattach it.
+		/// </remarks>
+		void DetachCurrentProfileForExternalMutation();
+
+		/// <summary>
 		/// Persists the current profile's method-neutral deployment state.
 		/// </summary>
 		void UpdateCurrentDeploymentManifest();

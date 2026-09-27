@@ -162,6 +162,7 @@
     <Compile Include="CollectionLocalRestoreIniExecutorTests.cs" />
     <Compile Include="CollectionLocalRestoreGameValueExecutorTests.cs" />
     <Compile Include="CollectionLocalRestoreUserMetadataExecutorTests.cs" />
+    <Compile Include="CollectionLocalRestoreProfileBoundaryTests.cs" />
     <Compile Include="CollectionsLocalCaptureStoreTests.cs" />
     <Compile Include="NativeStateCaptureReaderTests.cs" />
     <Compile Include="CollectionInstalledIdentityCaptureReaderTests.cs" />

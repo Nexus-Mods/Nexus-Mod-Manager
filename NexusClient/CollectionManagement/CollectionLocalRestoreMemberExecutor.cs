@@ -73,6 +73,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsRetainedArtifactReferenceStore _artifactReferenceStore;
 		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
 		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
+		private readonly CollectionLocalRestoreProfileBoundaryCoordinator _profileBoundaryCoordinator;
 
 		/// <summary>Creates the production C7.10a executor over existing native and Collections services.</summary>
 		public CollectionLocalRestoreMemberExecutor(ServiceManager services, GameStorageService gameStorageService,
@@ -96,6 +97,8 @@ namespace Nexus.Client.CollectionManagement
 			_artifactReferenceStore = artifactReferenceStore ?? throw new ArgumentNullException(nameof(artifactReferenceStore));
 			_mutationLeaseManager = mutationLeaseManager ?? throw new ArgumentNullException(nameof(mutationLeaseManager));
 			_authorityValidator = authorityValidator ?? throw new ArgumentNullException(nameof(authorityValidator));
+			_profileBoundaryCoordinator = new CollectionLocalRestoreProfileBoundaryCoordinator(_services, _operationStore,
+				_associationStore, _artifactStore, _artifactReferenceStore);
 		}
 
 		/// <summary>Executes only the C7.10a native-member phase of one exact reviewed C7.9 plan.</summary>
@@ -143,6 +146,7 @@ namespace Nexus.Client.CollectionManagement
 					CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
 				PersistRestoreIntent(operation, sealedCapture.Capture.Identity, reviewedPlan);
 				_operationStore.SaveOperation(operation);
+				_profileBoundaryCoordinator.Prepare(operation, sealedCapture, reviewedPlan);
 
 				int nextSequence = 1;
 				foreach (string nativeKey in reviewedPlan.CurrentNativeKeysToRemove)
@@ -255,6 +259,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionOperation operation = RequireOperation(rehydration.Operation.Identity);
 				if (operation.CheckpointSequence != rehydration.Operation.CheckpointSequence)
 					throw new InvalidOperationException("The Local restore journal advanced after restart reconstruction; rehydrate it again before resume.");
+				_profileBoundaryCoordinator.EnsurePrepared(operation, rehydration.SealedCapture, rehydration.ReviewedPlan);
+				operation = RequireOperation(rehydration.Operation.Identity);
 				if (operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability)
 					throw new InvalidOperationException("Native recovery must be reconciled before C7.10a can submit more member work.");
 

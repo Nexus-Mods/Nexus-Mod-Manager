@@ -112,6 +112,8 @@
     <Compile Include="CollectionManagement\CollectionLocalRestoreIniExecutor.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestoreGameValueExecutor.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestoreUserMetadataExecutor.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreProfileBoundaryCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalRestoreProfileAssociationExecutor.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadCaptureService.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadSnapshot.cs" />

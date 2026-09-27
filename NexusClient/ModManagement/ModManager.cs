@@ -138,6 +138,14 @@ namespace Nexus.Client.ModManagement
 		public AutoUpdater AutoUpdater { get; private set; }
 
 		/// <summary>
+		/// Gets the currently configured native profile manager, if profile support has been initialized.
+		/// </summary>
+		public IProfileManager ProfileManager
+		{
+			get { return m_ipmProfileManager; }
+		}
+
+		/// <summary>
 		/// Gets the mod auto updater.
 		/// </summary>
 		/// <value>The mod auto updater.</value>
