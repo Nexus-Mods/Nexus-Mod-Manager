@@ -149,18 +149,36 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionNativeFileContentEvidence> _expectedFileContents;
 		private readonly ReadOnlyCollection<CollectionExpectedReplayOperation> _expectedReplayOperations;
 
-		/// <summary>Creates one immutable native-child restart-verification evidence snapshot.</summary>
+		/// <summary>Creates one immutable native-child restart-verification evidence snapshot for an exact Nexus mod-file artifact.</summary>
 		public CollectionNativeChildExecutionEvidence(string nexusGameDomain, long nexusModId, long nexusFileId,
 			string incomingFileName, CollectionMemberEffectPreview reviewedEffects,
 			IEnumerable<CollectionNativeFileContentEvidence> preFileContents,
 			IEnumerable<CollectionNativeFileContentEvidence> expectedFileContents,
 			CollectionReplayContentEvidence incomingReplayPreimage,
 			IEnumerable<CollectionExpectedReplayOperation> expectedReplayOperations)
+			: this(CreateNexusArtifact(nexusGameDomain, nexusModId, nexusFileId),
+				incomingFileName, reviewedEffects, preFileContents, expectedFileContents, incomingReplayPreimage, expectedReplayOperations)
 		{
-			if (String.IsNullOrWhiteSpace(nexusGameDomain) || !StringComparer.Ordinal.Equals(nexusGameDomain, nexusGameDomain.Trim()))
-				throw new ArgumentException("A canonical Nexus game domain is required.", nameof(nexusGameDomain));
-			if (nexusModId <= 0) throw new ArgumentOutOfRangeException(nameof(nexusModId));
-			if (nexusFileId <= 0) throw new ArgumentOutOfRangeException(nameof(nexusFileId));
+		}
+
+		/// <summary>Creates one immutable native-child restart-verification evidence snapshot for a supported exact Collection artifact.</summary>
+		public CollectionNativeChildExecutionEvidence(CollectionArtifactReference selectedArtifact,
+			string incomingFileName, CollectionMemberEffectPreview reviewedEffects,
+			IEnumerable<CollectionNativeFileContentEvidence> preFileContents,
+			IEnumerable<CollectionNativeFileContentEvidence> expectedFileContents,
+			CollectionReplayContentEvidence incomingReplayPreimage,
+			IEnumerable<CollectionExpectedReplayOperation> expectedReplayOperations)
+		{
+			if (selectedArtifact == null) throw new ArgumentNullException(nameof(selectedArtifact));
+
+			string nexusGameDomain;
+			long nexusModId;
+			long nexusFileId;
+			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(selectedArtifact,
+				out nexusGameDomain, out nexusModId, out nexusFileId);
+			if (!isNexus && !CollectionBundledArtifactIdentity.IsBundle(selectedArtifact))
+				throw new ArgumentException("Restart evidence supports only exact Nexus mod-file or retained Collection-bundle artifacts.", nameof(selectedArtifact));
+
 			if (String.IsNullOrWhiteSpace(incomingFileName) || !StringComparer.Ordinal.Equals(incomingFileName, incomingFileName.Trim()))
 				throw new ArgumentException("The incoming native mod file name must be a non-empty exact value without surrounding whitespace.", nameof(incomingFileName));
 			ReviewedEffects = reviewedEffects ?? throw new ArgumentNullException(nameof(reviewedEffects));
@@ -177,14 +195,22 @@ namespace Nexus.Client.CollectionManagement
 			if (expectedReplayOperations == null) throw new ArgumentNullException(nameof(expectedReplayOperations));
 			List<CollectionExpectedReplayOperation> replay = expectedReplayOperations.ToList();
 			if (replay.Any(x => x == null)) throw new ArgumentException("Expected replay operations cannot contain null entries.", nameof(expectedReplayOperations));
-			NexusGameDomain = nexusGameDomain;
-			NexusModId = nexusModId;
-			NexusFileId = nexusFileId;
+
+			SelectedArtifact = new CollectionArtifactReference(selectedArtifact.Scheme, selectedArtifact.StableId, null);
+			NexusGameDomain = isNexus ? nexusGameDomain : null;
+			NexusModId = isNexus ? nexusModId : 0;
+			NexusFileId = isNexus ? nexusFileId : 0;
 			IncomingFileName = incomingFileName;
 			IncomingReplayPreimage = incomingReplayPreimage;
 			_expectedReplayOperations = new ReadOnlyCollection<CollectionExpectedReplayOperation>(replay);
 		}
 
+		/// <summary>Gets the exact logical Collection artifact whose retained bytes were submitted.</summary>
+		public CollectionArtifactReference SelectedArtifact { get; }
+		/// <summary>Gets whether <see cref="SelectedArtifact"/> is an exact Nexus mod-file identity.</summary>
+		public bool IsNexusModFileArtifact { get { return StringComparer.Ordinal.Equals(SelectedArtifact.Scheme, NexusCollectionModFileArtifactIdentity.Scheme); } }
+		/// <summary>Gets whether <see cref="SelectedArtifact"/> is an exact retained Collection-bundle identity.</summary>
+		public bool IsCollectionBundleArtifact { get { return CollectionBundledArtifactIdentity.IsBundle(SelectedArtifact); } }
 		public string NexusGameDomain { get; }
 		public long NexusModId { get; }
 		public long NexusFileId { get; }
@@ -194,6 +220,16 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionNativeFileContentEvidence> ExpectedFileContents { get { return _expectedFileContents; } }
 		public CollectionReplayContentEvidence IncomingReplayPreimage { get; }
 		public ReadOnlyCollection<CollectionExpectedReplayOperation> ExpectedReplayOperations { get { return _expectedReplayOperations; } }
+
+		private static CollectionArtifactReference CreateNexusArtifact(string nexusGameDomain, long nexusModId, long nexusFileId)
+		{
+			if (String.IsNullOrWhiteSpace(nexusGameDomain) || !StringComparer.Ordinal.Equals(nexusGameDomain, nexusGameDomain.Trim()))
+				throw new ArgumentException("A canonical Nexus game domain is required.", nameof(nexusGameDomain));
+			if (nexusModId <= 0) throw new ArgumentOutOfRangeException(nameof(nexusModId));
+			if (nexusFileId <= 0) throw new ArgumentOutOfRangeException(nameof(nexusFileId));
+			return new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+				NexusCollectionModFileArtifactIdentity.Format(nexusGameDomain, nexusModId, nexusFileId), null);
+		}
 
 		private static ReadOnlyCollection<CollectionNativeFileContentEvidence> CopyUnique(
 			IEnumerable<CollectionNativeFileContentEvidence> values, string parameterName)

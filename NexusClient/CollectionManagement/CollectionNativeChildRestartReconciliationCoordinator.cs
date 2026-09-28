@@ -271,17 +271,28 @@ namespace Nexus.Client.CollectionManagement
 		{
 			nativeMod = null;
 			if (recovery == null || evidence == null || state == null || gameMode == null || !evidence.ReviewedEffects.IsComplete ||
-				String.IsNullOrWhiteSpace(installInfoDirectory) ||
-				!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, evidence.NexusGameDomain))
+				String.IsNullOrWhiteSpace(installInfoDirectory))
 				return false;
 
-			string modId = evidence.NexusModId.ToString(CultureInfo.InvariantCulture);
-			string fileId = evidence.NexusFileId.ToString(CultureInfo.InvariantCulture);
+			string expectedDomain;
+			long expectedModId;
+			long expectedFileId;
+			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(evidence.SelectedArtifact,
+				out expectedDomain, out expectedModId, out expectedFileId);
+			bool isBundle = CollectionBundledArtifactIdentity.IsBundle(evidence.SelectedArtifact);
+			if (!isNexus && !isBundle)
+				return false;
+			if (isNexus && !StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain))
+				return false;
+
+			string modId = isNexus ? expectedModId.ToString(CultureInfo.InvariantCulture) : null;
+			string fileId = isNexus ? expectedFileId.ToString(CultureInfo.InvariantCulture) : null;
 			List<CollectionNativeModState> candidates = state.Mods.Values.Where(x =>
-				StringComparer.Ordinal.Equals(x.NexusModId, modId) && StringComparer.Ordinal.Equals(x.NexusFileId, fileId) &&
 				x.InstallMethod == evidence.ReviewedEffects.InstallMethod && x.InstallRoot == evidence.ReviewedEffects.InstallRoot &&
 				StringComparer.OrdinalIgnoreCase.Equals(x.FileName, evidence.IncomingFileName) &&
-				MatchesArtifactFile(x.ArchivePath, recovery.IncomingArchive)).ToList();
+				MatchesArtifactFile(x.ArchivePath, recovery.IncomingArchive) &&
+				(!isNexus || (StringComparer.Ordinal.Equals(x.NexusModId, modId) &&
+					StringComparer.Ordinal.Equals(x.NexusFileId, fileId)))).ToList();
 			if (candidates.Count != 1)
 				return false;
 

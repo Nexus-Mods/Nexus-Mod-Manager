@@ -273,7 +273,8 @@ namespace Nexus.Client.ModManagement.Scripting
 
 			string strVirtualPath = p_imoOperation.HasResolvedStagingOverwrite
 				? p_imoOperation.StagingPath
-				: ScriptedInstallStagingPathResolver.GetStagingPath(m_modMod, m_gmdGameMode, m_ivaVirtualModActivator, strTo, false);
+				: ScriptedInstallStagingPathResolver.GetStagingPath(m_modMod, m_gmdGameMode, m_ivaVirtualModActivator,
+					strTo, m_igpInstallers.InstallContext.InstallRoot, false);
 
 			if (!p_imoOperation.HasResolvedStagingOverwrite)
 				m_igpInstallers.FileInstaller.InstallFileFromMod(strFrom, strVirtualPath);

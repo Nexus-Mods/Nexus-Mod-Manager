@@ -28,6 +28,39 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (p_ivaVirtualModActivator == null)
 				throw new ArgumentNullException(nameof(p_ivaVirtualModActivator));
 
+			return GetStagingPathCore(p_modMod, p_gmdGameMode, p_ivaVirtualModActivator, p_strDestinationPath, p_booIgnoreSentinelDownloadId);
+		}
+
+		/// <summary>
+		/// Resolves the native Virtual staging location for a logical install destination and an explicit install root.
+		/// </summary>
+		/// <remarks>
+		/// Data-root installs must apply the game mode's VirtualStorage path projection before choosing the staging file.
+		/// Game-root installs already carry game-root-relative destinations and therefore bypass that projection.
+		/// </remarks>
+		public static string GetStagingPath(IMod p_modMod, IGameMode p_gmdGameMode, IVirtualModActivator p_ivaVirtualModActivator,
+			string p_strDestinationPath, ModInstallRoot p_mirInstallRoot, bool p_booIgnoreSentinelDownloadId)
+		{
+			if (p_modMod == null)
+				throw new ArgumentNullException(nameof(p_modMod));
+			if (p_gmdGameMode == null)
+				throw new ArgumentNullException(nameof(p_gmdGameMode));
+			if (p_ivaVirtualModActivator == null)
+				throw new ArgumentNullException(nameof(p_ivaVirtualModActivator));
+
+			string strVirtualStoragePath = Nexus.Client.ModManagement.BasicInstallPlanBuilder.GetAdjustedPath(
+				p_gmdGameMode, p_modMod, p_mirInstallRoot, p_strDestinationPath, ModPathContext.VirtualStorage);
+
+			if (String.IsNullOrWhiteSpace(strVirtualStoragePath))
+				throw new InvalidDataException(String.Format(
+					"The logical destination '{0}' does not resolve to a usable Virtual staging path.", p_strDestinationPath));
+
+			return GetStagingPathCore(p_modMod, p_gmdGameMode, p_ivaVirtualModActivator, strVirtualStoragePath, p_booIgnoreSentinelDownloadId);
+		}
+
+		private static string GetStagingPathCore(IMod p_modMod, IGameMode p_gmdGameMode, IVirtualModActivator p_ivaVirtualModActivator,
+			string p_strDestinationPath, bool p_booIgnoreSentinelDownloadId)
+		{
 			string strFileType = Path.GetExtension(p_strDestinationPath);
 			if (!strFileType.StartsWith("."))
 				strFileType = "." + strFileType;

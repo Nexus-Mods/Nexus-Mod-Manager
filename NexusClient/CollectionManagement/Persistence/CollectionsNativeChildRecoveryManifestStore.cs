@@ -18,6 +18,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string PayloadFormatV2 = "nmm-ce.collections.child-recovery/2";
 		private const string PayloadFormatV3 = "nmm-ce.collections.child-recovery/3";
 		private const string PayloadFormatV4 = "nmm-ce.collections.child-recovery/4";
+		private const string PayloadFormatV5 = "nmm-ce.collections.child-recovery/5";
 		private const long MaximumManifestBytes = 16L * 1024L * 1024L;
 		private const int MaximumPayloadCount = 100000;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -190,7 +191,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 			{
-				string payloadFormat = manifest.SafeBoundaryStateFingerprint != null ? PayloadFormatV4 :
+				bool generalizedExecutionEvidence = manifest.ExecutionEvidence != null && !manifest.ExecutionEvidence.IsNexusModFileArtifact;
+				string payloadFormat = generalizedExecutionEvidence ? PayloadFormatV5 :
+					manifest.SafeBoundaryStateFingerprint != null ? PayloadFormatV4 :
 					manifest.TerminalStateFingerprint != null ? PayloadFormatV3 :
 					manifest.ExecutionEvidence != null ? PayloadFormatV2 : PayloadFormatV1;
 				writer.Write(payloadFormat);
@@ -221,16 +224,37 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					WriteArtifact(writer, payload.Artifact);
 				}
 				if (manifest.ExecutionEvidence != null)
-					WriteExecutionEvidence(writer, manifest.ExecutionEvidence);
-				if (manifest.TerminalStateFingerprint != null)
 				{
-					writer.Write(manifest.TerminalStateFingerprint.FormatVersion);
-					writer.Write(manifest.TerminalStateFingerprint.Value);
+					if (generalizedExecutionEvidence) WriteExecutionEvidenceV5(writer, manifest.ExecutionEvidence);
+					else WriteExecutionEvidence(writer, manifest.ExecutionEvidence);
 				}
-				if (manifest.SafeBoundaryStateFingerprint != null)
+				if (generalizedExecutionEvidence)
 				{
-					writer.Write(manifest.SafeBoundaryStateFingerprint.FormatVersion);
-					writer.Write(manifest.SafeBoundaryStateFingerprint.Value);
+					writer.Write(manifest.TerminalStateFingerprint != null);
+					if (manifest.TerminalStateFingerprint != null)
+					{
+						writer.Write(manifest.TerminalStateFingerprint.FormatVersion);
+						writer.Write(manifest.TerminalStateFingerprint.Value);
+					}
+					writer.Write(manifest.SafeBoundaryStateFingerprint != null);
+					if (manifest.SafeBoundaryStateFingerprint != null)
+					{
+						writer.Write(manifest.SafeBoundaryStateFingerprint.FormatVersion);
+						writer.Write(manifest.SafeBoundaryStateFingerprint.Value);
+					}
+				}
+				else
+				{
+					if (manifest.TerminalStateFingerprint != null)
+					{
+						writer.Write(manifest.TerminalStateFingerprint.FormatVersion);
+						writer.Write(manifest.TerminalStateFingerprint.Value);
+					}
+					if (manifest.SafeBoundaryStateFingerprint != null)
+					{
+						writer.Write(manifest.SafeBoundaryStateFingerprint.FormatVersion);
+						writer.Write(manifest.SafeBoundaryStateFingerprint.Value);
+					}
 				}
 				writer.Flush();
 				return stream.ToArray();
@@ -243,6 +267,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			bool hasExecutionEvidence;
 			bool hasTerminalStateFingerprint;
 			bool hasSafeBoundaryStateFingerprint;
+			bool generalizedExecutionEvidence = false;
 			if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV1))
 			{
 				hasExecutionEvidence = false; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
@@ -258,6 +283,11 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV4))
 			{
 				hasExecutionEvidence = true; hasTerminalStateFingerprint = true; hasSafeBoundaryStateFingerprint = true;
+			}
+			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV5))
+			{
+				hasExecutionEvidence = true; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
+				generalizedExecutionEvidence = true;
 			}
 			else throw new InvalidDataException("The child recovery manifest uses an unsupported format.");
 			Guid operationId = ReadGuid(reader.ReadString(), "operation");
@@ -283,11 +313,26 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (payloadCount < 0 || payloadCount > MaximumPayloadCount) throw new InvalidDataException("The child recovery manifest contains an invalid replay-payload count.");
 			var payloads = new List<CollectionReplayRecoveryPayload>(payloadCount);
 			for (int i = 0; i < payloadCount; i++) payloads.Add(new CollectionReplayRecoveryPayload(reader.ReadString(), ReadArtifact(reader)));
-			CollectionNativeChildExecutionEvidence executionEvidence = hasExecutionEvidence ? ReadExecutionEvidence(reader) : null;
-			CollectionCurrentStateFingerprint terminalStateFingerprint = hasTerminalStateFingerprint
-				? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
-			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint = hasSafeBoundaryStateFingerprint
-				? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
+			CollectionNativeChildExecutionEvidence executionEvidence = hasExecutionEvidence
+				? (generalizedExecutionEvidence ? ReadExecutionEvidenceV5(reader) : ReadExecutionEvidence(reader)) : null;
+			CollectionCurrentStateFingerprint terminalStateFingerprint;
+			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint;
+			if (generalizedExecutionEvidence)
+			{
+				hasTerminalStateFingerprint = reader.ReadBoolean();
+				terminalStateFingerprint = hasTerminalStateFingerprint
+					? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
+				hasSafeBoundaryStateFingerprint = reader.ReadBoolean();
+				safeBoundaryStateFingerprint = hasSafeBoundaryStateFingerprint
+					? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
+			}
+			else
+			{
+				terminalStateFingerprint = hasTerminalStateFingerprint
+					? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
+				safeBoundaryStateFingerprint = hasSafeBoundaryStateFingerprint
+					? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
+			}
 
 			if (operationId != operation.Identity.OperationId || sequence != child.Sequence || operation.PlanIdentity == null ||
 				planId != operation.PlanIdentity.PlanId || planVersion != operation.PlanIdentity.Version || !memberKey.Equals(child.Member.MemberKey) ||
@@ -320,6 +365,51 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				writer.Write(operation.PayloadLength);
 				writer.Write(operation.PayloadSha256 ?? String.Empty);
 			}
+		}
+
+		private static void WriteExecutionEvidenceV5(BinaryWriter writer, CollectionNativeChildExecutionEvidence evidence)
+		{
+			writer.Write(evidence.SelectedArtifact.Scheme);
+			writer.Write(evidence.SelectedArtifact.StableId);
+			writer.Write(evidence.IncomingFileName);
+			WriteEffectPreview(writer, evidence.ReviewedEffects);
+			WriteFileEvidence(writer, evidence.PreFileContents);
+			WriteFileEvidence(writer, evidence.ExpectedFileContents);
+			WriteReplayContentEvidence(writer, evidence.IncomingReplayPreimage);
+			writer.Write(evidence.ExpectedReplayOperations.Count);
+			foreach (CollectionExpectedReplayOperation operation in evidence.ExpectedReplayOperations)
+			{
+				writer.Write((int)operation.Kind);
+				writer.Write(operation.SourcePath ?? String.Empty);
+				writer.Write(operation.DestinationPath);
+				writer.Write(operation.PayloadLength);
+				writer.Write(operation.PayloadSha256 ?? String.Empty);
+			}
+		}
+
+		private static CollectionNativeChildExecutionEvidence ReadExecutionEvidenceV5(BinaryReader reader)
+		{
+			var artifact = new CollectionArtifactReference(reader.ReadString(), reader.ReadString(), null);
+			string fileName = reader.ReadString();
+			CollectionMemberEffectPreview preview = ReadEffectPreview(reader);
+			IReadOnlyList<CollectionNativeFileContentEvidence> preFiles = ReadFileEvidence(reader);
+			IReadOnlyList<CollectionNativeFileContentEvidence> expectedFiles = ReadFileEvidence(reader);
+			CollectionReplayContentEvidence replayPreimage = ReadReplayContentEvidence(reader);
+			int replayCount = reader.ReadInt32();
+			if (replayCount < 0 || replayCount > MaximumPayloadCount) throw new InvalidDataException("The execution evidence contains an invalid replay-operation count.");
+			var replay = new List<CollectionExpectedReplayOperation>(replayCount);
+			for (int i = 0; i < replayCount; i++)
+			{
+				ScriptedReplayOperationKind kind = (ScriptedReplayOperationKind)reader.ReadInt32();
+				string source = reader.ReadString();
+				string destination = reader.ReadString();
+				long payloadLength = reader.ReadInt64();
+				string payloadHash = reader.ReadString();
+				replay.Add(new CollectionExpectedReplayOperation(kind, String.IsNullOrEmpty(source) ? null : source,
+					destination, payloadLength, String.IsNullOrEmpty(payloadHash) ? null : payloadHash));
+			}
+			return new CollectionNativeChildExecutionEvidence(artifact, fileName, preview,
+				preFiles, expectedFiles, replayPreimage, replay);
 		}
 
 		private static CollectionNativeChildExecutionEvidence ReadExecutionEvidence(BinaryReader reader)

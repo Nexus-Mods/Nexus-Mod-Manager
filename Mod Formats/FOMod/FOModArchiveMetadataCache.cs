@@ -19,6 +19,8 @@
 		internal const string DatabaseFileName = "fomodArchiveMetadata.sqlite";
 		private const int SchemaVersion = 1;
 		private const int CommitBatchSize = 50;
+		private const int BusyTimeoutMilliseconds = 5000;
+		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private static readonly object NativeLoadLock = new object();
 		private static readonly object DatabaseLock = new object();
 		private static readonly Dictionary<string, SharedDatabase> Databases = new Dictionary<string, SharedDatabase>(StringComparer.OrdinalIgnoreCase);
@@ -683,11 +685,13 @@ VALUES
 					ForeignKeys = true,
 					JournalMode = SQLiteJournalModeEnum.Delete,
 					Pooling = false,
-					SyncMode = SynchronizationModes.Normal
+					SyncMode = SynchronizationModes.Normal,
+					DefaultTimeout = BusyTimeoutSeconds
 				};
 
 				Connection = new SQLiteConnection(builder.ConnectionString);
 				Connection.Open();
+				ConfigureBusyTimeout(Connection);
 
 				EnsureDeleteJournalMode(Connection);
 
@@ -867,6 +871,15 @@ CREATE TABLE IF NOT EXISTS archive_screenshot_cache (
 	screenshot_data BLOB NOT NULL,
 	updated_utc INTEGER NOT NULL
 );";
+					command.ExecuteNonQuery();
+				}
+			}
+
+			private static void ConfigureBusyTimeout(SQLiteConnection connection)
+			{
+				using (var command = connection.CreateCommand())
+				{
+					command.CommandText = "PRAGMA busy_timeout=" + BusyTimeoutMilliseconds + ";";
 					command.ExecuteNonQuery();
 				}
 			}

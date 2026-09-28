@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using Nexus.Client.ModManagement;
 using Nexus.Client.Mods;
 using Nexus.Client.Mods.Formats.FOMod;
@@ -40,7 +42,7 @@ namespace Nexus.Client.CollectionManagement
 			var candidates = new List<CollectionManagedArchiveCandidate>();
 			foreach (IMod mod in _modManager.ManagedMods)
 			{
-				if (!MatchesRepositoryFileIdentity(mod, _modManager.SortOrderService, expectedModIdText, expectedFileIdText))
+				if (!IsRepositoryFileCandidate(mod, _modManager.SortOrderService, expectedModIdText, expectedFileIdText))
 					continue;
 
 				candidates.Add(new CollectionManagedArchiveCandidate(
@@ -78,6 +80,70 @@ namespace Nexus.Client.CollectionManagement
 
 			return sortOrderService != null && sortOrderService.HasDurableRepositoryFileIdentity(
 				mod.ModArchivePath, expectedModId, expectedFileId);
+		}
+
+		/// <summary>
+		/// Determines whether one managed archive is a bounded candidate for immutable-byte verification.
+		/// </summary>
+		/// <remarks>
+		/// Exact repository identity remains preferred. The legacy fallback deliberately accepts only a matching live ModId with
+		/// a missing FileId; known contradictory metadata still rejects the archive. This keeps discovery bounded to one Nexus mod
+		/// while the adopter performs the provider-backed exact-file verification before any identity is trusted.
+		/// </remarks>
+		internal static bool IsRepositoryFileCandidate(IMod mod, ModSortOrderService sortOrderService,
+			string expectedModId, string expectedFileId)
+		{
+			if (MatchesRepositoryFileIdentity(mod, sortOrderService, expectedModId, expectedFileId))
+				return true;
+			if (mod == null || String.IsNullOrWhiteSpace(mod.ModArchivePath) ||
+				!ModFileIdentity.IsUsableRepositoryId(expectedModId) ||
+				!ModFileIdentity.IsUsableRepositoryId(expectedFileId))
+				return false;
+
+			bool hasLiveModId = ModFileIdentity.IsUsableRepositoryId(mod.Id);
+			bool hasLiveFileId = ModFileIdentity.IsUsableRepositoryId(mod.DownloadId);
+			if ((hasLiveModId && !StringComparer.OrdinalIgnoreCase.Equals(mod.Id, expectedModId)) ||
+				(hasLiveFileId && !StringComparer.OrdinalIgnoreCase.Equals(mod.DownloadId, expectedFileId)))
+				return false;
+
+			return hasLiveModId && !hasLiveFileId;
+		}
+
+		/// <summary>Records exact repository identity after the adopter has verified this candidate's immutable bytes.</summary>
+		internal void ConfirmVerifiedCandidate(CollectionManagedArchiveCandidate candidate, CollectionArtifactReference requestedArtifact)
+		{
+			if (candidate == null)
+				throw new ArgumentNullException(nameof(candidate));
+			if (requestedArtifact == null)
+				throw new ArgumentNullException(nameof(requestedArtifact));
+
+			string expectedDomain;
+			long expectedModId;
+			long expectedFileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(requestedArtifact, out expectedDomain, out expectedModId, out expectedFileId))
+				throw new InvalidDataException("The verified managed archive does not use a Nexus mod/file artifact identity.");
+
+			string currentDomain = _modManager.ModRepository == null ? null : _modManager.ModRepository.GameDomainName;
+			if (!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain))
+				throw new InvalidDataException("The verified managed archive belongs to a different Nexus game domain.");
+
+			string candidatePath = Path.GetFullPath(candidate.ArchivePath);
+			List<IMod> matches = _modManager.ManagedMods.Where(x => x != null && !String.IsNullOrWhiteSpace(x.ModArchivePath) &&
+				StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(x.ModArchivePath), candidatePath)).ToList();
+			if (matches.Count != 1)
+				throw new InvalidDataException("The verified managed archive can no longer be resolved to exactly one native managed mod.");
+
+			string modId = expectedModId.ToString(CultureInfo.InvariantCulture);
+			string fileId = expectedFileId.ToString(CultureInfo.InvariantCulture);
+			IMod mod = matches[0];
+			if (!IsRepositoryFileCandidate(mod, _modManager.SortOrderService, modId, fileId))
+				throw new InvalidDataException("The managed archive repository metadata changed while exact Collection verification was running.");
+			if (_modManager.SortOrderService == null)
+				throw new InvalidOperationException("Verified Collection archive reuse requires the native durable repository-identity store.");
+
+			// Do not mutate live IMod metadata here: preparation fingerprints include those fields. The durable Sort identity row is
+			// sufficient for later exact managed-archive resolution and does not make a read-only Collection plan stale.
+			_modManager.SortOrderService.ConfirmVerifiedRepositoryFileIdentity(mod, modId, fileId);
 		}
 
 		/// <summary>

@@ -205,6 +205,56 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void RecoveryManifestV5_RoundTripsCollectionBundleIdentityAndFingerprints()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c69-bundle");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c69-bundle");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-c69-bundle", 1);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("member-c69-bundle");
+			var member = new CollectionOperationMemberReference(revision, memberKey);
+			CollectionPlanIdentity plan = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot), "recipe-c69-bundle"));
+			var child = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+				native, CollectionNativeChildCheckpoint.Reconciled, new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, null));
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				collection, target, revision, plan, 8, CollectionOperationPhase.ApplyingNativeChildren,
+				CollectionOperationResultState.Pending, new[] { child });
+			var preview = new CollectionMemberEffectPreview(memberKey, CollectionRecipeIdentity.FromFingerprint("recipe-c69-bundle"),
+				ModInstallMethod.Direct, ModInstallRoot.GameRoot, new CollectionPlannedFileEffect[0],
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+				new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			var artifact = new CollectionArtifactReference("collection-bundle", "revision-fingerprint/bundleTag", null);
+			var evidence = new CollectionNativeChildExecutionEvidence(artifact, "bundle-member.7z", preview,
+				new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
+				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+				new CollectionExpectedReplayOperation[0]);
+			var terminal = new CollectionCurrentStateFingerprint("c6-native-state/1", "terminal-c69-bundle");
+			var safeBoundary = new CollectionCurrentStateFingerprint("c6-native-state/1", "safe-c69-bundle");
+			var manifest = new CollectionNativeChildRecoveryManifest(operation.Identity, 1, plan, member,
+				CollectionNativeChildAction.ActivateOrReinstall, native,
+				new CollectionCurrentStateFingerprint("c6-native-state/1", "state-c69-bundle"),
+				new CollectionRecoveryArtifact("incoming-artifact", CollectionContentHash.FromSha256(ShaA), 1),
+				null, null, new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]),
+				evidence, terminal, safeBoundary);
+
+			byte[] bytes = InvokeSerialize(manifest);
+			using (var stream = new MemoryStream(bytes, false))
+			using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+				Assert.AreEqual("nmm-ce.collections.child-recovery/5", reader.ReadString());
+
+			CollectionNativeChildRecoveryManifest roundTrip = InvokeDeserialize(bytes, operation, child);
+			Assert.IsTrue(roundTrip.ExecutionEvidence.IsCollectionBundleArtifact);
+			Assert.AreEqual("collection-bundle", roundTrip.ExecutionEvidence.SelectedArtifact.Scheme);
+			Assert.AreEqual("revision-fingerprint/bundleTag", roundTrip.ExecutionEvidence.SelectedArtifact.StableId);
+			Assert.IsNull(roundTrip.ExecutionEvidence.NexusGameDomain);
+			Assert.AreEqual(0, roundTrip.ExecutionEvidence.NexusModId);
+			Assert.AreEqual(0, roundTrip.ExecutionEvidence.NexusFileId);
+			Assert.AreEqual(terminal, roundTrip.TerminalStateFingerprint);
+			Assert.AreEqual(safeBoundary, roundTrip.SafeBoundaryStateFingerprint);
+		}
+
+		[Test]
 		public void ExecutionEvidence_RequiresExactReviewedFileCoverage()
 		{
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");

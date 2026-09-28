@@ -6,6 +6,7 @@ using System.Reflection;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using NUnit.Framework;
@@ -124,17 +125,21 @@ namespace NexusClientTests
 
 
 		/// <summary>
-		/// Verifies a game-specific Virtual staging remap is not silently collapsed into the one-path C5 file operation.
+		/// Verifies a game-specific Virtual staging remap remains a bounded BasicInstall mapping.
+		/// The exact-file executor now reproduces the same VirtualStorage projection at execution time.
 		/// </summary>
 		[Test]
-		public void Build_VirtualStorageRemap_FailsClosed()
+		public void Build_VirtualStorageRemap_IsSupportedAndRetained()
 		{
 			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
 				CreateMod("Remap.7z", @"meshes\body.nif"), CreateGameMode(remapVirtualStorage: true),
 				new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false);
 
-			Assert.That(result.IsSupported, Is.False);
-			Assert.That(result.UnsupportedReason, Is.EqualTo(BasicInstallPlanUnsupportedReasonKind.UnrepresentableVirtualStoragePath));
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.UnsupportedReason, Is.EqualTo(BasicInstallPlanUnsupportedReasonKind.None));
+			Assert.That(result.Plan.Files.Count, Is.EqualTo(1));
+			Assert.That(result.Plan.Files[0].DestinationPath, Is.EqualTo(@"meshes\body.nif"));
+			Assert.That(result.Plan.Files[0].VirtualStoragePath, Is.EqualTo(@"Virtual\meshes\body.nif"));
 		}
 
 		/// <summary>
@@ -186,6 +191,38 @@ namespace NexusClientTests
 			Assert.That(translated.NativeOperations.Count, Is.EqualTo(2));
 			Assert.That(translated.NativeOperations.All(operation => operation is InstallModFileOperation), Is.True);
 			Assert.That(translated.NativeOperations.Any(operation => operation is PerformBasicInstallOperation), Is.False);
+		}
+
+		/// <summary>
+		/// Verifies exact-file execution derives the same VirtualStorage staging projection used by BasicInstall planning.
+		/// </summary>
+		[Test]
+		public void StagingResolver_InstallRootAware_UsesVirtualStorageProjection()
+		{
+			IMod mod = CreateMod("Remap.7z", @"meshes\body.nif");
+			IGameMode gameMode = CreateGameMode(remapVirtualStorage: true);
+			IVirtualModActivator virtualActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_MultiHDMode":
+						return false;
+					case "get_VirtualPath":
+						return @"C:\Virtual";
+					case "get_HDLinkFolder":
+						return @"C:\Links";
+					default:
+						return null;
+				}
+			});
+
+			string dataRootPath = ScriptedInstallStagingPathResolver.GetStagingPath(
+				mod, gameMode, virtualActivator, @"meshes\body.nif", ModInstallRoot.Data, false);
+			string gameRootPath = ScriptedInstallStagingPathResolver.GetStagingPath(
+				mod, gameMode, virtualActivator, @"meshes\body.nif", ModInstallRoot.GameRoot, false);
+
+			Assert.That(dataRootPath, Is.EqualTo(Path.Combine(@"C:\Virtual", "Remap", @"Virtual\meshes\body.nif")));
+			Assert.That(gameRootPath, Is.EqualTo(Path.Combine(@"C:\Virtual", "Remap", @"meshes\body.nif")));
 		}
 
 		private static IMod CreateMod(string fileName, params string[] files)

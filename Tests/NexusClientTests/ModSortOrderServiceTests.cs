@@ -185,6 +185,56 @@
 				rediscovered, reloaded, "33946", "323314"), Is.True);
 		}
 
+		/// <summary>
+		/// Ensures a legacy archive with the correct live ModId but no FileId reaches exact immutable verification instead of being skipped.
+		/// </summary>
+		[Test]
+		public void CollectionArchiveCandidateAllowsMatchingLiveModIdWithMissingFileId()
+		{
+			IMod mod = CreateMod("LegacyCollection.7z", "33946", null);
+
+			Assert.That(ModManagerCollectionManagedArchiveSource.IsRepositoryFileCandidate(
+				mod, null, "33946", "323314"), Is.True);
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				mod, null, "33946", "323314"), Is.False);
+		}
+
+		/// <summary>
+		/// Ensures candidate discovery still fails closed when any known live repository identity contradicts the requested file.
+		/// </summary>
+		[Test]
+		public void CollectionArchiveCandidateRejectsContradictoryLiveFileId()
+		{
+			IMod mod = CreateMod("WrongLegacyCollection.7z", "33946", "999999");
+
+			Assert.That(ModManagerCollectionManagedArchiveSource.IsRepositoryFileCandidate(
+				mod, null, "33946", "323314"), Is.False);
+		}
+
+		/// <summary>
+		/// Ensures provider-verified Collection provenance completes the durable file identity without changing live metadata or user Sort.
+		/// </summary>
+		[Test]
+		public void VerifiedCollectionIdentityCompletesDurableFileIdWithoutChangingSort()
+		{
+			var storage = CreateStorage();
+			var store = storage.CreateStore();
+			var service = new ModSortOrderService(store);
+			IMod mod = CreateMod(Path.Combine(storage.ModDirectory, "LegacyVerified.7z"), "33946", null);
+			service.RebuildCurrentArchiveInventory(new[] { mod }, null);
+			service.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, new[] { mod });
+			service.SetSortNumber(mod, 17);
+
+			service.ConfirmVerifiedRepositoryFileIdentity(mod, "33946", "323314");
+
+			Assert.That(mod.DownloadId, Is.Null, "Collection preparation must not mutate fingerprinted live IMod metadata.");
+			Assert.That(service.GetSortNumber(mod), Is.EqualTo(17));
+			Assert.That(service.HasDurableRepositoryFileIdentity(mod.ModArchivePath, "33946", "323314"), Is.True);
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				mod, service, "33946", "323314"), Is.True);
+			AssertAssignment(storage, store, "LegacyVerified.7z", "33946", "323314", 17, ModSortOrderAssignmentState.ExplicitNumeric);
+		}
+
 		[Test]
 		public void TrustedAddIdentityPopulatesBlankLiveRepositoryIds()
 		{

@@ -262,11 +262,10 @@ namespace Nexus.Client.ModManagement
 				if (installContext.Method == ModInstallMethod.Virtual)
 				{
 					virtualStoragePath = GetAdjustedPath(gameMode, mod, installContext.InstallRoot, destination, ModPathContext.VirtualStorage);
-					if (String.IsNullOrEmpty(virtualStoragePath) ||
-						!PathsEqual(virtualStoragePath, destination))
+					if (String.IsNullOrEmpty(virtualStoragePath))
 					{
 						return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.UnrepresentableVirtualStoragePath,
-							String.Format("The BasicInstall destination '{0}' requires a distinct Virtual staging path that the existing C5 exact-file operation cannot encode.", destination));
+							String.Format("The BasicInstall destination '{0}' does not resolve to a usable Virtual staging path.", destination));
 					}
 				}
 
@@ -350,13 +349,6 @@ namespace Nexus.Client.ModManagement
 				(String.IsNullOrEmpty(sourceDirectory) ||
 					(!String.IsNullOrEmpty(targetDirectory) &&
 					 targetDirectory.Equals(Path.GetFileName(pluginDirectory), StringComparison.CurrentCultureIgnoreCase)));
-		}
-
-		private static bool PathsEqual(string left, string right)
-		{
-			string normalizedLeft = left == null ? null : left.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			string normalizedRight = right == null ? null : right.Trim().Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			return String.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
 		}
 
 		private static List<KeyValuePair<string, string>> NormalizeGameRootFileMappings(List<KeyValuePair<string, string>> files, bool stripCommonWrapper)

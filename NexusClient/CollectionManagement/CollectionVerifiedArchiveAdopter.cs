@@ -91,6 +91,7 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionsRetainedArtifact verifiedArtifact = null;
 			CollectionsRetainedArtifactReferenceRecord verifiedTemporary = null;
+			CollectionManagedArchiveCandidate verifiedCandidate = null;
 			var visitedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			try
 			{
@@ -133,6 +134,7 @@ namespace Nexus.Client.CollectionManagement
 						{
 							verifiedArtifact = candidateArtifact;
 							verifiedTemporary = temporary;
+							verifiedCandidate = candidate;
 							keepTemporary = true;
 						}
 					}
@@ -145,6 +147,10 @@ namespace Nexus.Client.CollectionManagement
 
 				if (verifiedArtifact == null)
 					return null;
+
+				ModManagerCollectionManagedArchiveSource managedSource = _archiveSource as ModManagerCollectionManagedArchiveSource;
+				if (managedSource != null)
+					managedSource.ConfirmVerifiedCandidate(verifiedCandidate, request.SelectedArtifact);
 
 				return Protect(request, verifiedArtifact, ownerId, referenceRole,
 					CollectionVerifiedArchiveSourceKind.ManagedArchive,

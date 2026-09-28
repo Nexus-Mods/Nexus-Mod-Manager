@@ -458,6 +458,58 @@
 		}
 
 		/// <summary>
+		/// Durably records an exact repository file identity established by external immutable-byte verification without changing Sort semantics.
+		/// </summary>
+		/// <remarks>
+		/// This is deliberately narrower than Add/download resolution: it preserves the current Sort number/state and only fills identity
+		/// after a caller has independently proven the archive bytes. Live metadata contradictions fail closed. A contradictory durable path
+		/// row is retained as history while the verified current bytes receive a new exact binding.
+		/// </remarks>
+		internal void ConfirmVerifiedRepositoryFileIdentity(IMod mod, string repositoryModId, string repositoryDownloadId)
+		{
+			if (mod == null)
+				throw new ArgumentNullException(nameof(mod));
+			if (!ModFileIdentity.IsUsableRepositoryId(repositoryModId) ||
+				!ModFileIdentity.IsUsableRepositoryId(repositoryDownloadId))
+				throw new ArgumentException("A complete verified repository mod/file identity is required.");
+			if ((ModFileIdentity.IsUsableRepositoryId(mod.Id) && !StringComparer.OrdinalIgnoreCase.Equals(mod.Id, repositoryModId)) ||
+				(ModFileIdentity.IsUsableRepositoryId(mod.DownloadId) && !StringComparer.OrdinalIgnoreCase.Equals(mod.DownloadId, repositoryDownloadId)))
+				throw new InvalidDataException("The verified repository identity contradicts the managed mod's live metadata.");
+
+			ModSortOrderRecord saved;
+			string locator;
+			lock (_syncRoot)
+			{
+				locator = GetLocator(mod);
+				ModSortOrderRecord current = GetResolvedRecord(locator);
+				ModSortOrderRecord exactAtLocator = FindExactAtLocator(repositoryModId, repositoryDownloadId, locator);
+				if (current == null)
+					current = exactAtLocator ?? FindUniquePathRecord(mod, locator);
+
+				if (current != null && HasIdentityConflict(current, repositoryModId, repositoryDownloadId))
+				{
+					// The current immutable bytes are stronger evidence than stale path history. Preserve that history and bind a
+					// new/existing exact row while carrying forward the user's current Sort value/state.
+					if (exactAtLocator != null)
+						saved = PersistRecord(CreateRecord(exactAtLocator.AssignmentId, locator, repositoryModId, repositoryDownloadId, current.SortNumber, current.AssignmentState));
+					else
+						saved = PersistRecord(CreateRecord(0, locator, repositoryModId, repositoryDownloadId, current.SortNumber, current.AssignmentState));
+				}
+				else if (current == null)
+					saved = PersistRecord(CreateRecord(0, locator, repositoryModId, repositoryDownloadId, null, ModSortOrderAssignmentState.BaselineBlank));
+				else
+					saved = AttachIdentityIfNeeded(current, locator, repositoryModId, repositoryDownloadId);
+
+				if (saved == null || !IsSameRepositoryFile(saved, repositoryModId, repositoryDownloadId))
+					throw new InvalidDataException("The verified repository identity could not be recorded unambiguously.");
+				Bind(locator, saved);
+				RefreshTrackedArchiveIdentity(locator);
+			}
+
+			AssignmentChanged(this, new ModSortOrderChangedEventArgs(locator, saved.SortNumber));
+		}
+
+		/// <summary>
 		/// Gets whether the currently bound row is waiting for identity from an explicit Add/download lifecycle.
 		/// </summary>
 		public bool IsPendingAddIdentity(IMod mod)

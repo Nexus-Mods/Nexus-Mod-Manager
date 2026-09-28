@@ -12,16 +12,22 @@ namespace Nexus.Client.ModManagement
 	internal sealed class SQLiteVirtualModStore : IVirtualModStore
 	{
 		private const int SCHEMA_VERSION = 1;
+		private const int BUSY_TIMEOUT_MILLISECONDS = 5000;
+		private const int BUSY_TIMEOUT_SECONDS = (BUSY_TIMEOUT_MILLISECONDS + 999) / 1000;
+		private static readonly object DatabaseAccessGatesLock = new object();
+		private static readonly Dictionary<string, object> DatabaseAccessGates = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 		private readonly string m_strXmlFilePath;
 		private readonly string m_strDatabasePath;
 		private readonly Version m_vrsCurrentVersion;
 		private readonly Func<Version, bool> m_fncIsValidVersion;
 		private readonly XmlVirtualModStore m_xmsXmlStore;
+		private readonly object m_objDatabaseAccessGate;
 
 		public SQLiteVirtualModStore(string xmlFilePath, string databasePath, Version currentVersion, Func<Version, bool> isValidVersion, XmlVirtualModStore xmlStore)
 		{
 			m_strXmlFilePath = Path.GetFullPath(xmlFilePath);
 			m_strDatabasePath = Path.GetFullPath(databasePath);
+			m_objDatabaseAccessGate = GetDatabaseAccessGate(m_strDatabasePath);
 			m_vrsCurrentVersion = currentVersion;
 			m_fncIsValidVersion = isValidVersion;
 			m_xmsXmlStore = xmlStore;
@@ -34,10 +40,13 @@ namespace Nexus.Client.ModManagement
 
 		public void Initialize()
 		{
-			EnsureDatabaseDirectory();
-			using (SQLiteConnection connection = OpenConnection())
+			lock (m_objDatabaseAccessGate)
 			{
-				EnsureSchema(connection);
+				EnsureDatabaseDirectory();
+				using (SQLiteConnection connection = OpenConnection())
+				{
+					EnsureSchema(connection);
+				}
 			}
 		}
 
@@ -48,10 +57,11 @@ namespace Nexus.Client.ModManagement
 
 			try
 			{
-				using (SQLiteConnection connection = OpenReadOnlyConnection())
-				{
-					return HasCompatibleSchema(connection, m_fncIsValidVersion);
-				}
+				lock (m_objDatabaseAccessGate)
+					using (SQLiteConnection connection = OpenReadOnlyConnection())
+					{
+						return HasCompatibleSchema(connection, m_fncIsValidVersion);
+					}
 			}
 			catch
 			{
@@ -153,18 +163,19 @@ namespace Nexus.Client.ModManagement
 			Stopwatch syncWatch = Stopwatch.StartNew();
 			StoreSyncStatistics statistics = new StoreSyncStatistics();
 
-			using (SQLiteConnection connection = OpenConnection())
-			{
-				EnsureSchema(connection);
-				using (SQLiteTransaction transaction = connection.BeginTransaction())
+			lock (m_objDatabaseAccessGate)
+				using (SQLiteConnection connection = OpenConnection())
 				{
-					List<PersistedModRecord> storedRecords = LoadPersistedRecords(connection, transaction);
-					SynchronizeRecords(connection, transaction, storedRecords, records, statistics);
-					SetMetadata(connection, transaction, "schema_version", SCHEMA_VERSION.ToString());
-					SetMetadata(connection, transaction, "file_version", fileVersion.ToString());
-					transaction.Commit();
+					EnsureSchema(connection);
+					using (SQLiteTransaction transaction = connection.BeginTransaction())
+					{
+						List<PersistedModRecord> storedRecords = LoadPersistedRecords(connection, transaction);
+						SynchronizeRecords(connection, transaction, storedRecords, records, statistics);
+						SetMetadata(connection, transaction, "schema_version", SCHEMA_VERSION.ToString());
+						SetMetadata(connection, transaction, "file_version", fileVersion.ToString());
+						transaction.Commit();
+					}
 				}
-			}
 
 			syncWatch.Stop();
 			Trace.TraceInformation(
@@ -539,26 +550,27 @@ namespace Nexus.Client.ModManagement
 			if (!File.Exists(m_strDatabasePath))
 				return new SQLiteLoadResult(new VirtualModStoreData(lstVirtualMods, lstVirtualLinks), false);
 
-			using (SQLiteConnection connection = OpenReadOnlyConnection())
-			{
-				if (!HasCompatibleSchema(connection, m_fncIsValidVersion))
-					throw new InvalidOperationException("SQLite virtual mod store failed validation.");
-
-				using (SQLiteCommand modCommand = connection.CreateCommand())
+			lock (m_objDatabaseAccessGate)
+				using (SQLiteConnection connection = OpenReadOnlyConnection())
 				{
-					modCommand.CommandText = "SELECT VirtualModId, ModId, DownloadId, UpdatedDownloadId, ModName, ModFileName, ModNewFileName, ModFilePath, FileVersion FROM VirtualMods ORDER BY ModOrder;";
-					using (SQLiteDataReader modReader = modCommand.ExecuteReader())
+					if (!HasCompatibleSchema(connection, m_fncIsValidVersion))
+						throw new InvalidOperationException("SQLite virtual mod store failed validation.");
+
+					using (SQLiteCommand modCommand = connection.CreateCommand())
 					{
-						while (modReader.Read())
+						modCommand.CommandText = "SELECT VirtualModId, ModId, DownloadId, UpdatedDownloadId, ModName, ModFileName, ModNewFileName, ModFilePath, FileVersion FROM VirtualMods ORDER BY ModOrder;";
+						using (SQLiteDataReader modReader = modCommand.ExecuteReader())
 						{
-							hasStoredMods = true;
-							long modKey = modReader.GetInt64(0);
-							VirtualModInfo modInfo = new VirtualModInfo(GetString(modReader, 1), GetString(modReader, 2), GetString(modReader, 3), GetString(modReader, 4), GetString(modReader, 5), GetString(modReader, 6), GetString(modReader, 7), GetString(modReader, 8));
-							LoadLinks(connection, modKey, modInfo, lstVirtualMods, lstVirtualLinks);
+							while (modReader.Read())
+							{
+								hasStoredMods = true;
+								long modKey = modReader.GetInt64(0);
+								VirtualModInfo modInfo = new VirtualModInfo(GetString(modReader, 1), GetString(modReader, 2), GetString(modReader, 3), GetString(modReader, 4), GetString(modReader, 5), GetString(modReader, 6), GetString(modReader, 7), GetString(modReader, 8));
+								LoadLinks(connection, modKey, modInfo, lstVirtualMods, lstVirtualLinks);
+							}
 						}
 					}
 				}
-			}
 
 			return new SQLiteLoadResult(new VirtualModStoreData(lstVirtualMods, lstVirtualLinks), reportStoredMods && hasStoredMods);
 		}
@@ -693,6 +705,21 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		private static object GetDatabaseAccessGate(string databasePath)
+		{
+			string key = Path.GetFullPath(databasePath);
+			lock (DatabaseAccessGatesLock)
+			{
+				object gate;
+				if (!DatabaseAccessGates.TryGetValue(key, out gate))
+				{
+					gate = new object();
+					DatabaseAccessGates.Add(key, gate);
+				}
+				return gate;
+			}
+		}
+
 		private void EnsureDatabaseDirectory()
 		{
 			string directory = Path.GetDirectoryName(m_strDatabasePath);
@@ -706,11 +733,14 @@ namespace Nexus.Client.ModManagement
 			{
 				DataSource = m_strDatabasePath,
 				ForeignKeys = true,
-				JournalMode = SQLiteJournalModeEnum.Delete
+				JournalMode = SQLiteJournalModeEnum.Delete,
+				Pooling = false,
+				DefaultTimeout = BUSY_TIMEOUT_SECONDS
 			};
 
 			SQLiteConnection connection = new SQLiteConnection(builder.ConnectionString);
 			connection.Open();
+			ConfigureBusyTimeout(connection);
 			return connection;
 		}
 
@@ -721,13 +751,21 @@ namespace Nexus.Client.ModManagement
 				DataSource = m_strDatabasePath,
 				ForeignKeys = true,
 				JournalMode = SQLiteJournalModeEnum.Delete,
+				Pooling = false,
 				ReadOnly = true,
-				FailIfMissing = true
+				FailIfMissing = true,
+				DefaultTimeout = BUSY_TIMEOUT_SECONDS
 			};
 
 			SQLiteConnection connection = new SQLiteConnection(builder.ConnectionString);
 			connection.Open();
+			ConfigureBusyTimeout(connection);
 			return connection;
+		}
+
+		private static void ConfigureBusyTimeout(SQLiteConnection connection)
+		{
+			ExecuteNonQuery(connection, null, "PRAGMA busy_timeout=" + BUSY_TIMEOUT_MILLISECONDS + ";");
 		}
 
 		private static void EnsureSchema(SQLiteConnection connection)

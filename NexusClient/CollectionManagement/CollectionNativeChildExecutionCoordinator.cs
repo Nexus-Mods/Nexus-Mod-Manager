@@ -130,7 +130,8 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				IMod previousMod = ResolvePreviousActiveMod(recovery, liveState, _services.ModManager);
-				IMod incomingMod = ResolveIncomingManagedMod(member, previousMod, _services.ModManager);
+				IMod incomingMod = ResolveIncomingManagedMod(member, previousMod, recovery.IncomingArchive,
+					_services.ModManager, cancellationToken);
 
 				// Hashing and replay enumeration may be expensive. Keep the reservation, but do the I/O off the UI continuation.
 				await Task.Run(() => ValidateLiveContentAtSubmission(previousMod, incomingMod, recovery,
@@ -369,15 +370,39 @@ namespace Nexus.Client.CollectionManagement
 			return matches[0];
 		}
 
-		private static IMod ResolveIncomingManagedMod(ResolvedCollectionMemberPlan member, IMod previousMod, ModManager modManager)
+		private static IMod ResolveIncomingManagedMod(ResolvedCollectionMemberPlan member, IMod previousMod,
+			CollectionRecoveryArtifact incomingArchive, ModManager modManager, CancellationToken cancellationToken)
 		{
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (incomingArchive == null) throw new ArgumentNullException(nameof(incomingArchive));
+			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
+
+			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact))
+			{
+				if (previousMod != null && MatchesManagedArchive(previousMod, incomingArchive, cancellationToken))
+					return previousMod;
+
+				var candidates = new List<IMod>();
+				foreach (IMod candidate in modManager.ManagedMods)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					if (candidate != null && MatchesManagedArchive(candidate, incomingArchive, cancellationToken))
+						candidates.Add(candidate);
+				}
+				if (candidates.Count != 1)
+					throw new InvalidOperationException(candidates.Count == 0
+						? "The exact materialized Collection-bundle archive is not present in the native managed-mod registry."
+						: "Multiple native managed archives contain the exact materialized Collection-bundle bytes.");
+				return candidates[0];
+			}
+
 			string expectedDomain;
 			long expectedModId;
 			long expectedFileId;
 			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact,
 				out expectedDomain, out expectedModId, out expectedFileId))
 			{
-				throw new InvalidOperationException("C6.7 currently executes only exact Nexus mod-file artifacts supported by the C4 acquisition pipeline.");
+				throw new InvalidOperationException("C6.7 supports only exact Nexus mod-file or retained Collection-bundle artifacts prepared by the C4 acquisition pipeline.");
 			}
 
 			string currentDomain = modManager.ModRepository == null ? null : modManager.ModRepository.GameDomainName;
@@ -390,14 +415,48 @@ namespace Nexus.Client.CollectionManagement
 				previousMod, modManager.SortOrderService, modId, fileId))
 				return previousMod;
 
-			List<IMod> candidates = modManager.ManagedMods.Where(x =>
+			List<IMod> nexusCandidates = modManager.ManagedMods.Where(x =>
 				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
 					x, modManager.SortOrderService, modId, fileId)).ToList();
-			if (candidates.Count != 1)
-				throw new InvalidOperationException(candidates.Count == 0
+			if (nexusCandidates.Count != 1)
+				throw new InvalidOperationException(nexusCandidates.Count == 0
 					? "The exact verified incoming archive is not present in the native managed-mod registry."
 					: "Multiple native managed archives match the exact prepared Nexus mod/file identity.");
-			return candidates[0];
+			return nexusCandidates[0];
+		}
+
+		private static bool MatchesManagedArchive(IMod mod, CollectionRecoveryArtifact expected, CancellationToken cancellationToken)
+		{
+			if (mod == null || expected == null || expected.ContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
+				return false;
+			string path = !String.IsNullOrWhiteSpace(mod.ModArchivePath) ? mod.ModArchivePath : mod.Filename;
+			if (String.IsNullOrWhiteSpace(path) || !File.Exists(path))
+				return false;
+			try
+			{
+				var info = new FileInfo(path);
+				if (info.Length != expected.ByteLength)
+					return false;
+				using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+				using (SHA256 sha = SHA256.Create())
+				{
+					byte[] buffer = new byte[64 * 1024];
+					int read;
+					while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
+					{
+						cancellationToken.ThrowIfCancellationRequested();
+						sha.TransformBlock(buffer, 0, read, null, 0);
+					}
+					sha.TransformFinalBlock(new byte[0], 0, 0);
+					return StringComparer.OrdinalIgnoreCase.Equals(BitConverter.ToString(sha.Hash).Replace("-", String.Empty),
+						expected.ContentHash.Value);
+				}
+			}
+			catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
+				exception is NotSupportedException || exception is System.Security.SecurityException || exception is ArgumentException)
+			{
+				return false;
+			}
 		}
 
 		private static void ValidateLiveContentAtSubmission(IMod previousMod, IMod incomingMod,
@@ -515,12 +574,6 @@ namespace Nexus.Client.CollectionManagement
 			if (String.IsNullOrWhiteSpace(installInfoDirectory)) throw new ArgumentException("The InstallInfo directory is required.", nameof(installInfoDirectory));
 			if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
 
-			string domain;
-			long modId;
-			long fileId;
-			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId))
-				throw new InvalidDataException("The selected Collection artifact is not an exact Nexus mod-file identity.");
-
 			var preFiles = new List<CollectionNativeFileContentEvidence>();
 			foreach (CollectionPlannedFileEffect file in reviewedPreview.Files)
 				preFiles.Add(CaptureFileEvidence(file.Target, ModDeploymentTargetResolver.GetPhysicalPath(gameMode, file.Target)));
@@ -572,7 +625,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The exact C5 recipe produces file targets outside the reviewed C6.4 effect set.");
 
 			CollectionReplayContentEvidence replayPreimage = CaptureReplayContentEvidence(incomingMod.Filename, installInfoDirectory);
-			return new CollectionNativeChildExecutionEvidence(domain, modId, fileId, incomingMod.Filename,
+			return new CollectionNativeChildExecutionEvidence(member.ArtifactChoice.SelectedArtifact, incomingMod.Filename,
 				reviewedPreview, preFiles, expectedFiles, replayPreimage, expectedReplay);
 		}
 
@@ -633,8 +686,7 @@ namespace Nexus.Client.CollectionManagement
 		private static bool ExecutionEvidenceEquals(CollectionNativeChildExecutionEvidence left, CollectionNativeChildExecutionEvidence right)
 		{
 			if (left == null || right == null ||
-				!StringComparer.OrdinalIgnoreCase.Equals(left.NexusGameDomain, right.NexusGameDomain) ||
-				left.NexusModId != right.NexusModId || left.NexusFileId != right.NexusFileId ||
+				!ArtifactIdentitiesEqual(left.SelectedArtifact, right.SelectedArtifact) ||
 				!StringComparer.OrdinalIgnoreCase.Equals(left.IncomingFileName, right.IncomingFileName) ||
 				!EffectPreviewsEqual(left.ReviewedEffects, right.ReviewedEffects) ||
 				!FileEvidenceEquals(left.PreFileContents, right.PreFileContents) ||
@@ -652,6 +704,13 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.OrdinalIgnoreCase.Equals(a.PayloadSha256, b.PayloadSha256)) return false;
 			}
 			return true;
+		}
+
+		private static bool ArtifactIdentitiesEqual(CollectionArtifactReference left, CollectionArtifactReference right)
+		{
+			return left != null && right != null &&
+				StringComparer.Ordinal.Equals(left.Scheme, right.Scheme) &&
+				StringComparer.Ordinal.Equals(left.StableId, right.StableId);
 		}
 
 		private static bool FileEvidenceEquals(IEnumerable<CollectionNativeFileContentEvidence> left,

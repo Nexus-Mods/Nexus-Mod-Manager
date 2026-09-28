@@ -343,26 +343,33 @@ namespace Nexus.Client.CollectionManagement
 			if (member == null || preview == null || recovery == null || state == null || recipeInput == null || incomingMod == null || gameMode == null)
 				return false;
 
+			CollectionArtifactReference artifact = member.ArtifactChoice.SelectedArtifact;
 			string expectedDomain;
 			long expectedModId;
 			long expectedFileId;
-			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact,
-				out expectedDomain, out expectedModId, out expectedFileId) || String.IsNullOrWhiteSpace(expectedDomain) ||
-				!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain))
+			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(artifact,
+				out expectedDomain, out expectedModId, out expectedFileId);
+			bool isBundle = CollectionBundledArtifactIdentity.IsBundle(artifact);
+			if (!isNexus && !isBundle)
+				return false;
+			if (isNexus && (String.IsNullOrWhiteSpace(expectedDomain) ||
+				!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain)))
 				return false;
 
-			string modId = expectedModId.ToString(CultureInfo.InvariantCulture);
-			string fileId = expectedFileId.ToString(CultureInfo.InvariantCulture);
+			string modId = isNexus ? expectedModId.ToString(CultureInfo.InvariantCulture) : null;
+			string fileId = isNexus ? expectedFileId.ToString(CultureInfo.InvariantCulture) : null;
 			List<CollectionNativeModState> candidates = state.Mods.Values.Where(x =>
-				StringComparer.Ordinal.Equals(x.NexusModId, modId) &&
-				StringComparer.Ordinal.Equals(x.NexusFileId, fileId) &&
 				x.InstallMethod == preview.InstallMethod && x.InstallRoot == preview.InstallRoot &&
-				MatchesArchive(x.ArchivePath, recovery.IncomingArchive)).ToList();
+				MatchesArchive(x.ArchivePath, recovery.IncomingArchive) &&
+				(!isNexus || (StringComparer.Ordinal.Equals(x.NexusModId, modId) &&
+					StringComparer.Ordinal.Equals(x.NexusFileId, fileId)))).ToList();
 			if (candidates.Count != 1)
 				return false;
 
 			nativeMod = candidates[0];
-			if (!MatchesArchive(incomingMod.Filename, recovery.IncomingArchive) ||
+			string incomingArchivePath = !String.IsNullOrWhiteSpace(incomingMod.ModArchivePath)
+				? incomingMod.ModArchivePath : incomingMod.Filename;
+			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive) ||
 				!VerifyMemberEffects(state, nativeMod, preview) ||
 				!VerifyExpectedFileContents(state, preview, recipeInput, incomingMod, gameMode) ||
 				!VerifyLiveReplayAgainstRecipe(recipeInput, incomingMod, gameMode))
