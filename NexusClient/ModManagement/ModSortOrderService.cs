@@ -426,6 +426,38 @@
 		}
 
 		/// <summary>
+		/// Returns whether durable Sort history for one exact archive path records the supplied repository mod/file identity.
+		/// </summary>
+		/// <remarks>
+		/// This method is identity evidence only. A caller reusing archive bytes must independently verify the current file content,
+		/// because an archive path can be overwritten after an older durable assignment was recorded.
+		/// </remarks>
+		public bool HasDurableRepositoryFileIdentity(string archivePath, string repositoryModId, string repositoryDownloadId)
+		{
+			if (String.IsNullOrWhiteSpace(archivePath) ||
+				!ModFileIdentity.IsUsableRepositoryId(repositoryModId) ||
+				!ModFileIdentity.IsUsableRepositoryId(repositoryDownloadId))
+			{
+				return false;
+			}
+
+			var locator = _store.GetArchiveLocator(archivePath);
+			lock (_syncRoot)
+			{
+				ModSortOrderRecord current;
+				if (_resolvedByLocator.TryGetValue(locator, out current) &&
+					IsSameRepositoryFile(current, repositoryModId, repositoryDownloadId))
+				{
+					return true;
+				}
+
+				List<ModSortOrderRecord> records;
+				return _recordsByLocator.TryGetValue(locator, out records) &&
+					records.Any(x => IsSameRepositoryFile(x, repositoryModId, repositoryDownloadId));
+			}
+		}
+
+		/// <summary>
 		/// Gets whether the currently bound row is waiting for identity from an explicit Add/download lifecycle.
 		/// </summary>
 		public bool IsPendingAddIdentity(IMod mod)

@@ -1296,7 +1296,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_snapshot != null)
 				RenderIssues(_snapshot);
 
-			AddIssueRow(FormatPreparationStatus(result.Status), "workflow.preparation", result.Operation.Identity.ToString(), result.Message);
+			AddIssueRow(FormatPreparationStatus(result), "workflow.preparation", result.Operation.Identity.ToString(), result.Message);
 			AppendAcquisitionReview(result.AcquisitionBatch);
 			AppendDependencyReview(result.DependencyPlan);
 			AppendImpactReview(result.ImpactPlan);
@@ -1305,8 +1305,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			switch (result.Status)
 			{
 				case CollectionAdditiveWorkflowPreparationStatus.AwaitingInput:
-					_contentValue.Text = L("Collections.Status.Content.AwaitingInput", "Member archives awaiting download / user input");
-					_appliedValue.Text = L("Collections.Status.Applied.Preparing", "Not applied - preparation paused for input");
+					if (HasManualAcquisitionAction(result.AcquisitionBatch))
+					{
+						_contentValue.Text = L("Collections.Status.Content.AwaitingInput", "Member archives awaiting download / user input");
+						_appliedValue.Text = L("Collections.Status.Applied.Preparing", "Not applied - preparation paused for input");
+					}
+					else
+					{
+						_contentValue.Text = L("Collections.Status.Content.AcquisitionPending", "Member archives are downloading / queued for native registration");
+						_appliedValue.Text = L("Collections.Status.Applied.AcquisitionPending", "Not applied - waiting for member acquisition");
+					}
 					break;
 				case CollectionAdditiveWorkflowPreparationStatus.ReadyForReview:
 					_contentValue.Text = L("Collections.Status.Content.ReviewReady", "All required content verified; exact impact review ready");
@@ -1368,7 +1376,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				string reason = state.Disposition.ToString();
 				if (state.PendingAction != null)
 					reason += " - manual/free input supported: " + state.PendingAction.AllowedActions;
-				AddIssueRow(state.IsReady ? L("Collections.Status.Supported", "Ready") : L("Collections.Status.ActionRequired", "Action required"),
+				AddIssueRow(FormatAcquisitionStatus(state.Disposition),
 					"acquisition." + state.Disposition.ToString().ToLowerInvariant(), subject, reason);
 			}
 		}
@@ -1825,13 +1833,50 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
-		private static string FormatPreparationStatus(CollectionAdditiveWorkflowPreparationStatus status)
+		private static string FormatPreparationStatus(CollectionAdditiveWorkflowPreparationResult result)
 		{
-			switch (status)
+			if (result == null)
+				return L("Collections.Status.ActionRequired", "Action required");
+
+			switch (result.Status)
 			{
-				case CollectionAdditiveWorkflowPreparationStatus.ReadyForReview: return L("Collections.Status.Supported", "Ready");
-				case CollectionAdditiveWorkflowPreparationStatus.Blocked: return L("Collections.Status.Unsupported", "Blocked");
-				default: return L("Collections.Status.ActionRequired", "Action required");
+				case CollectionAdditiveWorkflowPreparationStatus.ReadyForReview:
+					return L("Collections.Status.Supported", "Ready");
+				case CollectionAdditiveWorkflowPreparationStatus.Blocked:
+					return L("Collections.Status.Unsupported", "Blocked");
+				case CollectionAdditiveWorkflowPreparationStatus.AwaitingInput:
+					if (result.AcquisitionBatch != null &&
+						result.AcquisitionBatch.Members.Any(x => x.Disposition == CollectionMemberAcquisitionDisposition.Blocked))
+						return L("Collections.Status.Unsupported", "Blocked");
+					return HasManualAcquisitionAction(result.AcquisitionBatch)
+						? L("Collections.Status.ActionRequired", "Action required")
+						: L("Collections.Status.Pending", "Pending");
+				default:
+					return L("Collections.Status.ActionRequired", "Action required");
+			}
+		}
+
+		private static bool HasManualAcquisitionAction(CollectionMemberAcquisitionBatch batch)
+		{
+			return batch != null && batch.Members.Any(x =>
+				x.Disposition == CollectionMemberAcquisitionDisposition.ManualInputRequired ||
+				x.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired);
+		}
+
+		private static string FormatAcquisitionStatus(CollectionMemberAcquisitionDisposition disposition)
+		{
+			switch (disposition)
+			{
+				case CollectionMemberAcquisitionDisposition.ReadyInstalled:
+				case CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive:
+					return L("Collections.Status.Supported", "Ready");
+				case CollectionMemberAcquisitionDisposition.PremiumQueued:
+				case CollectionMemberAcquisitionDisposition.BundledQueued:
+					return L("Collections.Status.Pending", "Pending");
+				case CollectionMemberAcquisitionDisposition.Blocked:
+					return L("Collections.Status.Unsupported", "Blocked");
+				default:
+					return L("Collections.Status.ActionRequired", "Action required");
 			}
 		}
 

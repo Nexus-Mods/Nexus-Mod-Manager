@@ -386,11 +386,13 @@ namespace Nexus.Client.CollectionManagement
 
 			string modId = expectedModId.ToString(CultureInfo.InvariantCulture);
 			string fileId = expectedFileId.ToString(CultureInfo.InvariantCulture);
-			if (previousMod != null && ModFileIdentity.IsSameRepositoryFile(previousMod.Id, previousMod.DownloadId, modId, fileId))
+			if (previousMod != null && ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				previousMod, modManager.SortOrderService, modId, fileId))
 				return previousMod;
 
-			List<IMod> candidates = modManager.ManagedMods.Where(x => x != null &&
-				ModFileIdentity.IsSameRepositoryFile(x.Id, x.DownloadId, modId, fileId)).ToList();
+			List<IMod> candidates = modManager.ManagedMods.Where(x =>
+				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+					x, modManager.SortOrderService, modId, fileId)).ToList();
 			if (candidates.Count != 1)
 				throw new InvalidOperationException(candidates.Count == 0
 					? "The exact verified incoming archive is not present in the native managed-mod registry."

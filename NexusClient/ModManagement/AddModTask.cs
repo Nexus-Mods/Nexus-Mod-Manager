@@ -167,6 +167,7 @@
 		#region Statics
 
 		private static int _counter;
+		private static readonly object _registrationSyncRoot = new object();
 		private static readonly Dictionary<string, int> _sourceUri = new Dictionary<string, int>();
 
 		#endregion
@@ -668,6 +669,15 @@
 		}
 
 		/// <summary>
+		/// Finalizes native provenance which must exist before a newly registered mod becomes observable.
+		/// </summary>
+		private void PrepareRegisteredMod(IMod mod)
+		{
+			ResolveSortOrderForAddedMod(mod);
+			ApplyTrustedRepositoryIdentity(mod);
+		}
+
+		/// <summary>
 		/// Applies the optional explicit category assignment to a registered mod.
 		/// </summary>
 		/// <param name="mod">The registered mod to update.</param>
@@ -695,6 +705,42 @@
 
 			GetTrustedRepositoryIdentity(out var modId, out var downloadId);
 			_modSortOrderService.ResolveAddOrDownload(mod, _modRegistry.RegisteredMods, modId, downloadId);
+		}
+
+		/// <summary>
+		/// Persists trusted repository identity from the Add/download source even when cosmetic missing-info tagging is disabled.
+		/// </summary>
+		/// <remarks>
+		/// Repository mod/file IDs are acquisition provenance, not optional descriptive metadata. Existing non-empty IDs are never
+		/// overwritten here; contradictory live identity therefore remains visible and downstream exact matching fails closed.
+		/// </remarks>
+		private void ApplyTrustedRepositoryIdentity(IMod mod)
+		{
+			if (mod == null)
+				return;
+
+			GetTrustedRepositoryIdentity(out var modId, out var downloadId);
+			ApplyTrustedRepositoryIdentity(mod, modId, downloadId);
+		}
+
+		internal static void ApplyTrustedRepositoryIdentity(IMod mod, string modId, string downloadId)
+		{
+			if (mod == null ||
+				!ModFileIdentity.IsUsableRepositoryId(modId) ||
+				!ModFileIdentity.IsUsableRepositoryId(downloadId))
+				return;
+
+			bool missingModId = !ModFileIdentity.IsUsableRepositoryId(mod.Id);
+			bool missingDownloadId = !ModFileIdentity.IsUsableRepositoryId(mod.DownloadId);
+			if (!missingModId && !missingDownloadId)
+				return;
+
+			var trustedIdentity = new ModInfo(mod);
+			if (missingModId)
+				trustedIdentity.Id = modId;
+			if (missingDownloadId)
+				trustedIdentity.DownloadId = downloadId;
+			mod.UpdateInfo(trustedIdentity, false);
 		}
 
 		/// <summary>
@@ -1399,29 +1445,35 @@
 
 					try
 					{
-						IMod registeredMod = _modRegistry.RegisteredMods.SingleOrDefault(x => x.Filename == strMod);
-						if (registeredMod == null)
+						// Downloads may complete concurrently, but registration mutates shared native state
+						// (mod registry plus SQLite-backed metadata/Sort stores). Keep downloads parallel
+						// while serializing this final mutation boundary across AddModTask instances.
+						lock (_registrationSyncRoot)
 						{
-							registeredMod = _environmentInfo.Settings.AddMissingInfoToMods
-								? _modRegistry.RegisterMod(strMod, ModInfo, _environmentInfo, ResolveSortOrderForAddedMod)
-								: _modRegistry.RegisterMod(strMod, null, null, ResolveSortOrderForAddedMod);
-						}
-						else
-						{
-							ResolveSortOrderForAddedMod(registeredMod);
-						}
+							IMod registeredMod = _modRegistry.RegisteredMods.SingleOrDefault(x => x.Filename == strMod);
+							if (registeredMod == null)
+							{
+								registeredMod = _environmentInfo.Settings.AddMissingInfoToMods
+									? _modRegistry.RegisterMod(strMod, ModInfo, _environmentInfo, PrepareRegisteredMod)
+									: _modRegistry.RegisterMod(strMod, null, null, PrepareRegisteredMod);
+							}
+							else
+							{
+								PrepareRegisteredMod(registeredMod);
+							}
 
-						ApplyCategoryOverride(registeredMod);
+							ApplyCategoryOverride(registeredMod);
 
-						if (_readMeManager != null)
-						{
-							var tfmFileManager = new TxFileManager();
+							if (_readMeManager != null)
+							{
+								var tfmFileManager = new TxFileManager();
 
-                            if (_readMeManager.VerifyReadMeFile(tfmFileManager, strMod))
-                            {
-                                _readMeManager.SaveReadMeConfig();
+                                if (_readMeManager.VerifyReadMeFile(tfmFileManager, strMod))
+                                {
+                                    _readMeManager.SaveReadMeConfig();
+                                }
                             }
-                        }
+						}
 					}
 					catch (Exception ex)
 					{

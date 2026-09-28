@@ -8,6 +8,7 @@
 	using System.IO;
 	using System.Reflection;
 	using System.Runtime.Serialization;
+	using Nexus.Client.CollectionManagement;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.InstallationLog;
 	using Nexus.Client.Mods;
@@ -142,6 +143,89 @@
 		/// <summary>
 		/// Ensures trusted download identities remain MIN donors even when the live IMod metadata is empty, including after reload.
 		/// </summary>
+		/// <summary>
+		/// Ensures Collection acquisition can identify a Nexus archive added while cosmetic mod-info tagging is disabled.
+		/// </summary>
+		[Test]
+		public void CollectionArchiveIdentityUsesTrustedSortRecordWhenLiveMetadataIsBlank()
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			var managed = new List<IMod>();
+			service.RebuildCurrentArchiveInventory(managed, null);
+
+			IMod mod = AddTrustedDownload(service, managed, Path.Combine(storage.ModDirectory, "Collection.7z"), "33946", "323314");
+			Assert.That(mod.Id, Is.Null);
+			Assert.That(mod.DownloadId, Is.Null);
+
+			string modId;
+			string fileId;
+			Assert.That(ModManagerCollectionManagedArchiveSource.TryResolveRepositoryFileIdentity(mod, service, out modId, out fileId), Is.True);
+			Assert.That(modId, Is.EqualTo("33946"));
+			Assert.That(fileId, Is.EqualTo("323314"));
+		}
+
+		/// <summary>
+		/// Ensures Collection acquisition can use committed Add/download provenance before a reloaded Sort service resolves a live binding.
+		/// </summary>
+		[Test]
+		public void CollectionArchiveIdentityUsesDurableHistoryBeforeCurrentBindingIsResolved()
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			var managed = new List<IMod>();
+			service.RebuildCurrentArchiveInventory(managed, null);
+
+			string archivePath = Path.Combine(storage.ModDirectory, "CollectionReload.7z");
+			AddTrustedDownload(service, managed, archivePath, "33946", "323314");
+
+			var reloaded = new ModSortOrderService(storage.CreateStore());
+			IMod rediscovered = CreateMod(archivePath);
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				rediscovered, reloaded, "33946", "323314"), Is.True);
+		}
+
+		[Test]
+		public void TrustedAddIdentityPopulatesBlankLiveRepositoryIds()
+		{
+			IMod mod = CreateMod("TrustedIdentity.7z");
+
+			AddModTask.ApplyTrustedRepositoryIdentity(mod, "33946", "323314");
+
+			Assert.That(mod.Id, Is.EqualTo("33946"));
+			Assert.That(mod.DownloadId, Is.EqualTo("323314"));
+		}
+
+		[Test]
+		public void TrustedAddIdentityDoesNotOverwriteContradictoryLiveRepositoryIds()
+		{
+			IMod mod = CreateMod("TrustedIdentityConflict.7z", "999", "888");
+
+			AddModTask.ApplyTrustedRepositoryIdentity(mod, "33946", "323314");
+
+			Assert.That(mod.Id, Is.EqualTo("999"));
+			Assert.That(mod.DownloadId, Is.EqualTo("888"));
+		}
+
+		/// <summary>
+		/// Ensures a stale Sort identity cannot override contradictory live repository metadata.
+		/// </summary>
+		[Test]
+		public void CollectionArchiveIdentityRejectsConflictingPartialLiveMetadata()
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			var managed = new List<IMod>();
+			service.RebuildCurrentArchiveInventory(managed, null);
+
+			IMod mod = AddTrustedDownload(service, managed, Path.Combine(storage.ModDirectory, "CollectionConflict.7z"), "33946", "323314");
+			mod.Id = "99999";
+
+			string modId;
+			string fileId;
+			Assert.That(ModManagerCollectionManagedArchiveSource.TryResolveRepositoryFileIdentity(mod, service, out modId, out fileId), Is.False);
+		}
+
 		[Test]
 		public void MetadataDisabledDownloadsUsePersistedEffectiveIdentityForMinimumInheritance()
 		{
