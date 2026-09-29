@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Security.Cryptography;
@@ -22,9 +23,14 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string BlobDirectoryName = "sha256";
 		private const string StagingDirectoryName = ".staging";
 		private const string BlobExtension = ".blob";
-		private const int CopyBufferSize = 81920;
+		private const int CopyBufferSize = 1024 * 1024;
 
 		private readonly CollectionsStore _store;
+		private readonly object _verificationCacheLock = new object();
+		private readonly Dictionary<string, ArtifactVerificationStamp> _verifiedArtifacts =
+			new Dictionary<string, ArtifactVerificationStamp>(StringComparer.Ordinal);
+		private readonly Dictionary<string, PublishedMd5Stamp> _publishedMd5 =
+			new Dictionary<string, PublishedMd5Stamp>(StringComparer.Ordinal);
 
 		/// <summary>
 		/// Creates a retained-artifact store over an existing Collections feature store.
@@ -71,7 +77,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				PublishStagedBlob(stagingPath, publishedPath, contentHash, copied.ByteLength, cancellationToken);
 				stagingPath = null;
 
-				return PublishMetadata(new CollectionsRetainedArtifact(artifactId, contentHash, copied.ByteLength), relativePath);
+				CollectionsRetainedArtifact persisted = PublishMetadata(
+					new CollectionsRetainedArtifact(artifactId, contentHash, copied.ByteLength), relativePath);
+				RememberPublishedMd5(persisted, publishedPath, copied.Md5Value);
+				return persisted;
 			}
 			finally
 			{
@@ -173,8 +182,80 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (info.Length != artifact.ByteLength)
 				return false;
 
+			if (IsVerifiedArtifactCached(artifact, info))
+				return true;
+
 			string actualHash = ComputeFileHash(path, cancellationToken);
-			return StringComparer.Ordinal.Equals(actualHash, artifact.ContentHash.Value);
+			if (!StringComparer.Ordinal.Equals(actualHash, artifact.ContentHash.Value))
+			{
+				ForgetVerifiedArtifact(artifact.ArtifactId);
+				return false;
+			}
+
+			RememberVerifiedArtifact(artifact, path);
+			return true;
+		}
+
+		/// <summary>
+		/// Returns an MD5 digest calculated during this process' publication pass when available.
+		/// </summary>
+		/// <remarks>
+		/// The digest is an optimization for provider identity lookup only; SHA-256 remains the retained-artifact identity.
+		/// The cache is intentionally process-local and is not persisted as trusted state.
+		/// </remarks>
+		internal bool TryGetPublishedMd5(string artifactId, out string md5)
+		{
+			artifactId = CollectionIdentityValidation.RequireOpaqueToken(artifactId, nameof(artifactId));
+			CollectionsRetainedArtifact artifact = GetArtifact(artifactId);
+			if (artifact == null)
+			{
+				md5 = null;
+				return false;
+			}
+
+			string path = GetValidatedPhysicalPath(artifact);
+			var info = new FileInfo(path);
+			lock (_verificationCacheLock)
+			{
+				PublishedMd5Stamp stamp;
+				if (_publishedMd5.TryGetValue(artifactId, out stamp) && info.Exists &&
+					stamp.ByteLength == info.Length && stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
+				{
+					md5 = stamp.Md5;
+					return true;
+				}
+			}
+			md5 = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Promotes bytes just published by this process into the process-local integrity cache without rereading the blob.
+		/// </summary>
+		/// <remarks>
+		/// Publication already calculated the artifact SHA-256 while copying. Promotion is allowed only while the retained file's
+		/// length and last-write stamp still match the publication stamp. Restarted processes have no such stamp and therefore
+		/// perform a normal cryptographic <see cref="VerifyArtifact(string, CancellationToken)"/> pass.
+		/// </remarks>
+		internal bool PromotePublishedArtifactVerification(CollectionsRetainedArtifact artifact)
+		{
+			if (artifact == null)
+				throw new ArgumentNullException(nameof(artifact));
+			string path = GetValidatedPhysicalPath(artifact);
+			var info = new FileInfo(path);
+			if (!info.Exists || info.Length != artifact.ByteLength)
+				return false;
+
+			lock (_verificationCacheLock)
+			{
+				PublishedMd5Stamp published;
+				if (!_publishedMd5.TryGetValue(artifact.ArtifactId, out published) ||
+					published.ByteLength != info.Length || published.LastWriteUtcTicks != info.LastWriteTimeUtc.Ticks)
+					return false;
+				_verifiedArtifacts[artifact.ArtifactId] = new ArtifactVerificationStamp(
+					artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks);
+				return true;
+			}
 		}
 
 		private CollectionsRetainedArtifact PublishMetadata(CollectionsRetainedArtifact candidate, string relativePath)
@@ -338,6 +419,7 @@ WHERE a.artifact_id=@artifact_id;";
 			byte[] buffer = new byte[CopyBufferSize];
 			long byteLength = 0;
 			using (SHA256 sha256 = SHA256.Create())
+			using (MD5 md5 = MD5.Create())
 			using (FileStream target = new FileStream(stagingPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
 				CopyBufferSize, FileOptions.SequentialScan))
 			{
@@ -347,13 +429,15 @@ WHERE a.artifact_id=@artifact_id;";
 					cancellationToken.ThrowIfCancellationRequested();
 					target.Write(buffer, 0, read);
 					sha256.TransformBlock(buffer, 0, read, buffer, 0);
+					md5.TransformBlock(buffer, 0, read, buffer, 0);
 					byteLength += read;
 				}
 
 				cancellationToken.ThrowIfCancellationRequested();
 				sha256.TransformFinalBlock(new byte[0], 0, 0);
+				md5.TransformFinalBlock(new byte[0], 0, 0);
 				target.Flush(true);
-				return new CopyResult(ToHex(sha256.Hash), byteLength);
+				return new CopyResult(ToHex(sha256.Hash), ToHex(md5.Hash), byteLength);
 			}
 		}
 
@@ -411,6 +495,51 @@ WHERE a.artifact_id=@artifact_id;";
 			}
 		}
 
+		private bool IsVerifiedArtifactCached(CollectionsRetainedArtifact artifact, FileInfo info)
+		{
+			lock (_verificationCacheLock)
+			{
+				ArtifactVerificationStamp stamp;
+				return _verifiedArtifacts.TryGetValue(artifact.ArtifactId, out stamp) &&
+					stamp.ByteLength == info.Length &&
+					stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks &&
+					StringComparer.Ordinal.Equals(stamp.HashValue, artifact.ContentHash.Value);
+			}
+		}
+
+		private void RememberVerifiedArtifact(CollectionsRetainedArtifact artifact, string path)
+		{
+			var info = new FileInfo(path);
+			if (!info.Exists || info.Length != artifact.ByteLength)
+				return;
+
+			lock (_verificationCacheLock)
+			{
+				_verifiedArtifacts[artifact.ArtifactId] = new ArtifactVerificationStamp(
+					artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks);
+			}
+		}
+
+		private void RememberPublishedMd5(CollectionsRetainedArtifact artifact, string path, string md5)
+		{
+			if (String.IsNullOrWhiteSpace(md5))
+				return;
+			var info = new FileInfo(path);
+			if (!info.Exists || info.Length != artifact.ByteLength)
+				return;
+			lock (_verificationCacheLock)
+				_publishedMd5[artifact.ArtifactId] = new PublishedMd5Stamp(md5, info.Length, info.LastWriteTimeUtc.Ticks);
+		}
+
+		private void ForgetVerifiedArtifact(string artifactId)
+		{
+			lock (_verificationCacheLock)
+			{
+				_verifiedArtifacts.Remove(artifactId);
+				_publishedMd5.Remove(artifactId);
+			}
+		}
+
 		private static string CreateArtifactId(CollectionContentHash contentHash)
 		{
 			return HashAlgorithmName + ":" + contentHash.Value;
@@ -461,14 +590,44 @@ WHERE a.artifact_id=@artifact_id;";
 
 		private sealed class CopyResult
 		{
-			public CopyResult(string hashValue, long byteLength)
+			public CopyResult(string hashValue, string md5Value, long byteLength)
 			{
 				HashValue = hashValue;
+				Md5Value = md5Value;
 				ByteLength = byteLength;
 			}
 
 			public string HashValue { get; }
+			public string Md5Value { get; }
 			public long ByteLength { get; }
+		}
+
+		private sealed class PublishedMd5Stamp
+		{
+			public PublishedMd5Stamp(string md5, long byteLength, long lastWriteUtcTicks)
+			{
+				Md5 = md5;
+				ByteLength = byteLength;
+				LastWriteUtcTicks = lastWriteUtcTicks;
+			}
+
+			public string Md5 { get; }
+			public long ByteLength { get; }
+			public long LastWriteUtcTicks { get; }
+		}
+
+		private sealed class ArtifactVerificationStamp
+		{
+			public ArtifactVerificationStamp(string hashValue, long byteLength, long lastWriteUtcTicks)
+			{
+				HashValue = hashValue;
+				ByteLength = byteLength;
+				LastWriteUtcTicks = lastWriteUtcTicks;
+			}
+
+			public string HashValue { get; }
+			public long ByteLength { get; }
+			public long LastWriteUtcTicks { get; }
 		}
 	}
 }

@@ -15,7 +15,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 	/// MD5 is used only as Nexus' provider lookup key. The retained object itself is independently sealed by C4.10 with
 	/// SHA-256 and later consumers use that stronger local immutable content identity.
 	/// </remarks>
-	public sealed class NexusCollectionArchiveIdentityVerifier : ICollectionArchiveIdentityVerifier
+	public sealed class NexusCollectionArchiveIdentityVerifier : ICollectionArchiveIdentityVerifier, ICollectionArchiveMd5IdentityVerifier
 	{
 		private const int BufferSize = 81920;
 		private readonly NexusModsApiRepository _repository;
@@ -50,6 +50,28 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				return false;
 
 			string md5 = ComputeMd5(immutableArchive, cancellationToken);
+			return IsExactMatchByMd5(requestedArtifact, md5, cancellationToken);
+		}
+
+		/// <inheritdoc />
+		public bool IsExactMatchByMd5(CollectionArtifactReference requestedArtifact, string md5,
+			CancellationToken cancellationToken)
+		{
+			if (requestedArtifact == null)
+				throw new ArgumentNullException(nameof(requestedArtifact));
+			if (String.IsNullOrWhiteSpace(md5) || md5.Length != 32)
+				throw new ArgumentException("A normalized MD5 digest is required.", nameof(md5));
+
+			string expectedDomain;
+			long expectedModId;
+			long expectedFileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(requestedArtifact,
+				out expectedDomain, out expectedModId, out expectedFileId))
+				return false;
+
+			if (expectedModId > Int32.MaxValue || expectedFileId > Int32.MaxValue)
+				return false;
+
 			return _repository.IsExactArchiveIdentityByMd5(md5, expectedDomain, (int)expectedModId,
 				(int)expectedFileId, cancellationToken);
 		}

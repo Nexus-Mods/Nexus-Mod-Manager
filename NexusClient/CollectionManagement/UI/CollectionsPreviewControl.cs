@@ -78,6 +78,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private bool _selectionCapabilityBlocked;
 		private bool _suppressMemberCheckEvents;
 		private bool _suppressManagedAssociationSelection;
+		private readonly System.Windows.Forms.Timer _acquisitionRefreshTimer;
+		private readonly HashSet<Guid> _autoResumedQueueOperations = new HashSet<Guid>();
 
 		/// <summary>
 		/// Raised on the UI thread when an incoming Collection NXM request should bring this permanent document forward.
@@ -91,6 +93,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			HideOnClose = true;
 			AutoScaleMode = AutoScaleMode.Font;
 			BackColor = SystemColors.Window;
+			_acquisitionRefreshTimer = new System.Windows.Forms.Timer { Interval = 750 };
+			_acquisitionRefreshTimer.Tick += AcquisitionRefreshTimer_Tick;
 
 			var root = new TableLayoutPanel
 			{
@@ -379,6 +383,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			if (disposing)
 			{
+				_acquisitionRefreshTimer.Stop();
+				_acquisitionRefreshTimer.Dispose();
 				DetachDispatcher();
 				CancelPreviewWork();
 				CancelWorkflowWork();
@@ -631,7 +637,10 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (snapshot != null)
 				{
 					RenderSnapshot(snapshot);
+					if (presentation.Association.State == CollectionAssociationState.Applied)
+						RenderIssues(snapshot, false, false);
 					ApplyManagedAssociationMemberState(presentation);
+					AppendAppliedManifestResolutionIssues(presentation);
 					AppendManagedAssociationIssues(presentation);
 				}
 				else
@@ -664,6 +673,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (presentation == null || presentation.RetainedManifest == null)
 				return;
 			var bound = new HashSet<CollectionMemberKey>(presentation.BoundMemberKeys);
+			bool applied = presentation.Association.State == CollectionAssociationState.Applied;
 			_suppressMemberCheckEvents = true;
 			try
 			{
@@ -677,11 +687,42 @@ namespace Nexus.Client.CollectionManagement.UI
 						item.SubItems[2].Text = item.Checked
 							? L("Collections.Member.Selected", "Selected")
 							: L("Collections.Member.Unselected", "Not selected");
+					if (applied && item.Checked && item.SubItems.Count > 3)
+						item.SubItems[3].Text = L("Collections.Status.Supported", "Supported");
 				}
 			}
 			finally
 			{
 				_suppressMemberCheckEvents = false;
+			}
+		}
+
+		/// <summary>
+		/// Replaces raw pre-install Prefer Exact warnings with the durable outcome proven by an Applied association.
+		/// </summary>
+		private void AppendAppliedManifestResolutionIssues(CollectionManagementAssociationPresentation presentation)
+		{
+			if (presentation == null || presentation.Association.State != CollectionAssociationState.Applied ||
+				presentation.RetainedManifest == null || presentation.RetainedManifest.CapabilityReport == null)
+				return;
+
+			var bound = new HashSet<CollectionMemberKey>(presentation.BoundMemberKeys);
+			foreach (CollectionMemberCapabilityReport memberReport in presentation.RetainedManifest.CapabilityReport.MemberReports)
+			{
+				NormalizedCollectionMember member = memberReport.Member;
+				if (member == null || !member.IdentityResolution.IsResolved || !bound.Contains(member.IdentityResolution.Key))
+					continue;
+
+				CollectionCapabilityIssue preferIssue = memberReport.Issues.FirstOrDefault(x =>
+					StringComparer.Ordinal.Equals(x.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode));
+				if (preferIssue == null)
+					continue;
+
+				string artifact = member.Artifact == null ? member.IdentityResolution.Key.ToString() : member.Artifact.ToString();
+				AddIssueRow(L("Collections.Status.Supported", "Ready"), "member.source-policy-prefer-resolved-exact",
+					preferIssue.FieldPath ?? string.Empty,
+					LanguageManager.Format("Collections.PreferExact.AppliedResolution",
+						"Vortex 'prefer' was resolved during preparation to the curator's exact Nexus file ({0}); the applied member was verified. Newer-file fallback was not used.", artifact));
 			}
 		}
 
@@ -1147,6 +1188,89 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		/// <summary>
+		/// Keeps an input-paused Premium/bundled acquisition moving once all native AddMod tasks have finished.
+		/// Manual/free acquisition remains explicitly user-driven.
+		/// </summary>
+		private void UpdateAutomatedAcquisitionRefresh(CollectionMemberAcquisitionBatch batch)
+		{
+			_acquisitionRefreshTimer.Stop();
+			if (batch == null || batch.IsReady || !batch.IsAwaitingInput || HasManualAcquisitionAction(batch))
+				return;
+
+			if (GetQueuedAcquisitionStates(batch).Count > 0)
+				_acquisitionRefreshTimer.Start();
+		}
+
+		private async void AcquisitionRefreshTimer_Tick(object sender, EventArgs e)
+		{
+			if (_workflowBusy || _workflow == null || _acquisitionBatch == null || !_acquisitionBatch.IsAwaitingInput)
+				return;
+
+			List<CollectionMemberAcquisitionState> queued = GetQueuedAcquisitionStates(_acquisitionBatch);
+			if (queued.Count == 0)
+			{
+				_acquisitionRefreshTimer.Stop();
+				return;
+			}
+
+			// Do not auto-retry failed/cancelled native work. The explicit resume button remains available
+			// so the next probe can surface the durable acquisition/restart state to the user.
+			if (queued.Any(x => x.QueueCorrelation.Task.Status == Nexus.Client.BackgroundTasks.TaskStatus.Error ||
+				x.QueueCorrelation.Task.Status == Nexus.Client.BackgroundTasks.TaskStatus.Cancelled))
+			{
+				_acquisitionRefreshTimer.Stop();
+				return;
+			}
+
+			if (queued.Any(x => x.QueueCorrelation.Task.Status != Nexus.Client.BackgroundTasks.TaskStatus.Complete))
+				return;
+
+			List<Guid> queueOperations = queued.Select(x => x.QueueCorrelation.QueueOperationId).Distinct().ToList();
+			if (queueOperations.All(x => _autoResumedQueueOperations.Contains(x)))
+			{
+				_acquisitionRefreshTimer.Stop();
+				return;
+			}
+
+			foreach (Guid operation in queueOperations)
+				_autoResumedQueueOperations.Add(operation);
+			_acquisitionRefreshTimer.Stop();
+
+			CancellationToken token = BeginWorkflowWork(L("Collections.Workflow.AcquisitionCompleted",
+				"Queued Collection downloads completed; verifying archives and continuing preparation..."));
+			try
+			{
+				CollectionAdditiveWorkflowPreparationResult result = await _workflow.ResumePreparationAsync(_acquisitionBatch, token);
+				if (token.IsCancellationRequested || IsDisposed)
+					return;
+				RenderPreparationResult(result);
+			}
+			catch (OperationCanceledException)
+			{
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection automatic preparation resume failed: " + ex);
+				_workflowStatusLabel.Text = L("Collections.Workflow.ResumeFailed", "Workflow: preparation resume failed.");
+				AddIssueRow(L("Collections.Status.ActionRequired", "Action required"), "workflow.resume-failed", string.Empty, ex.Message);
+			}
+			finally
+			{
+				EndWorkflowWork();
+			}
+		}
+
+		private static List<CollectionMemberAcquisitionState> GetQueuedAcquisitionStates(CollectionMemberAcquisitionBatch batch)
+		{
+			if (batch == null)
+				return new List<CollectionMemberAcquisitionState>();
+			return batch.Members.Where(x =>
+				(x.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
+				 x.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued) &&
+				x.QueueCorrelation != null && x.QueueCorrelation.Task != null).ToList();
+		}
+
 		private void OpenPendingButton_Click(object sender, EventArgs e)
 		{
 			CollectionManualAcquisitionPendingAction pending = GetSelectedOrFirstPendingAction();
@@ -1455,6 +1579,15 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void RenderIssues(NexusCollectionPreviewSnapshot snapshot)
 		{
+			RenderIssues(snapshot, true, true);
+		}
+
+		/// <summary>
+		/// Renders provider diagnostics, optionally including raw manifest capability and startup-recovery rows.
+		/// Exact reviewed plans suppress those pre-review rows because their decisions have already been resolved durably.
+		/// </summary>
+		private void RenderIssues(NexusCollectionPreviewSnapshot snapshot, bool includeCapabilityIssues, bool includeRecoveryIssues)
+		{
 			_issuesView.BeginUpdate();
 			try
 			{
@@ -1467,7 +1600,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					AddIssueRow(L("Collections.Status.ActionRequired", "Action required"), "provider.identity-mismatch", string.Empty, snapshot.MetadataWarning);
 				AddGraphQlErrors("provider.revision", snapshot.RevisionLookup?.Errors);
 				AddGraphQlErrors("provider.summary", snapshot.SummaryLookup?.Errors);
-				if (snapshot.HasManifestPreview)
+				if (includeCapabilityIssues && snapshot.HasManifestPreview)
 				{
 					foreach (CollectionCapabilityIssue issue in snapshot.CapabilityReport.AllIssues)
 						AddIssueRow(FormatCompatibility(issue.Status), issue.Code, issue.FieldPath ?? string.Empty, issue.Reason);
@@ -1475,7 +1608,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (!snapshot.HasConcreteRevision && snapshot.RevisionError == null)
 					AddIssueRow(L("Collections.Status.ActionRequired", "Action required"), "provider.identity-incomplete", string.Empty,
 						L("Collections.Preview.IdentityIncomplete", "The provider response did not contain the stable collection and revision identity required for a trusted manifest preview."));
-				AppendRecoveryIssues();
+				if (includeRecoveryIssues)
+					AppendRecoveryIssues();
 				UpdateIssuesHeader();
 			}
 			finally
@@ -1540,12 +1674,13 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			_preparation = result ?? throw new ArgumentNullException(nameof(result));
 			_acquisitionBatch = result.AcquisitionBatch;
+			UpdateAutomatedAcquisitionRefresh(_acquisitionBatch);
 			_operationIdentity = result.Operation.Identity;
 			_operationSnapshot = result.Operation;
 			_reviewedPlanIdentity = result.IsReadyForReview ? result.Operation.PlanIdentity : null;
 			_selectionDirty = false;
 			if (_snapshot != null)
-				RenderIssues(_snapshot);
+				RenderIssues(_snapshot, !result.IsReadyForReview, !result.IsReadyForReview);
 
 			AddIssueRow(FormatPreparationStatus(result), "workflow.preparation", result.Operation.Identity.ToString(), result.Message);
 			AppendAcquisitionReview(result.AcquisitionBatch);
@@ -1781,7 +1916,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (review == null || review.Runtime == null)
 				return;
 			if (_snapshot != null)
-				RenderIssues(_snapshot);
+				RenderIssues(_snapshot, false, false);
 			AddIssueRow(L("Collections.Status.Supported", "Ready"), "workflow.exact-review", review.Operation.PlanIdentity.ToString(),
 				"Exact reviewed plan revalidated against current native state.");
 			AppendDependencyReview(review.Runtime.DependencyPlan);
@@ -1891,6 +2026,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void ResetWorkflowViewState()
 		{
+			_acquisitionRefreshTimer.Stop();
+			_autoResumedQueueOperations.Clear();
 			_preparation = null;
 			_acquisitionBatch = null;
 			_operationIdentity = null;

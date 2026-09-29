@@ -137,7 +137,6 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionNativeRecipePreparer
 	{
 		private const string PreparedIdentityFormat = "nmm-ce.collections.prepared-native-recipe/1";
-		private const int HashBufferSize = 81920;
 		private readonly CollectionsCatalogStore _catalogStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -439,30 +438,13 @@ namespace Nexus.Client.CollectionManagement
 		private static void ValidateManagedModArchive(IMod mod, CollectionsRetainedArtifact expectedArtifact,
 			CancellationToken cancellationToken)
 		{
-			if (String.IsNullOrWhiteSpace(mod.Filename))
+			string path = !String.IsNullOrWhiteSpace(mod.ModArchivePath) ? mod.ModArchivePath : mod.Filename;
+			if (String.IsNullOrWhiteSpace(path))
 				throw new InvalidDataException("The managed mod has no archive path for exact recipe preparation.");
-			string path = Path.GetFullPath(mod.Filename);
+			path = Path.GetFullPath(path);
 			if (!File.Exists(path))
 				throw new FileNotFoundException("The managed mod archive required for recipe preparation is missing.", path);
-			FileInfo info = new FileInfo(path);
-			if (info.Length != expectedArtifact.ByteLength)
-				throw new InvalidDataException("The managed mod archive length does not match the verified immutable Collection archive.");
-
-			string hash;
-			using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, HashBufferSize, FileOptions.SequentialScan))
-			using (SHA256 sha256 = SHA256.Create())
-			{
-				byte[] buffer = new byte[HashBufferSize];
-				int read;
-				while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					sha256.TransformBlock(buffer, 0, read, buffer, 0);
-				}
-				sha256.TransformFinalBlock(new byte[0], 0, 0);
-				hash = BitConverter.ToString(sha256.Hash).Replace("-", String.Empty).ToLowerInvariant();
-			}
-			if (!StringComparer.Ordinal.Equals(hash, expectedArtifact.ContentHash.Value))
+			if (!CollectionArchiveContentMatcher.MatchesFile(path, expectedArtifact, cancellationToken))
 				throw new InvalidDataException("The managed mod archive bytes do not match the verified immutable Collection archive.");
 		}
 

@@ -120,12 +120,25 @@ namespace Nexus.Client.CollectionManagement
 						}
 						else
 						{
-							using (Stream immutableArchive = _artifactStore.OpenRead(candidateArtifact.ArtifactId))
-								exact = _identityVerifier.IsExactMatch(request.SelectedArtifact, immutableArchive, cancellationToken);
+							string publishedMd5;
+							ICollectionArchiveMd5IdentityVerifier md5Verifier = _identityVerifier as ICollectionArchiveMd5IdentityVerifier;
+							if (md5Verifier != null && _artifactStore.TryGetPublishedMd5(candidateArtifact.ArtifactId, out publishedMd5))
+								exact = md5Verifier.IsExactMatchByMd5(request.SelectedArtifact, publishedMd5, cancellationToken);
+							else
+							{
+								using (Stream immutableArchive = _artifactStore.OpenRead(candidateArtifact.ArtifactId))
+									exact = _identityVerifier.IsExactMatch(request.SelectedArtifact, immutableArchive, cancellationToken);
+							}
 						}
 
 						if (!exact)
 							continue;
+
+						// PublishFile already SHA-256 hashed these exact bytes. Once provider/expected identity agrees,
+						// promote that just-published proof so later preparation does not reread multi-gigabyte retained content.
+						if (!_artifactStore.PromotePublishedArtifactVerification(candidateArtifact) &&
+							!_artifactStore.VerifyArtifact(candidateArtifact.ArtifactId, cancellationToken))
+							throw new InvalidDataException("The just-published Collection archive changed during exact identity verification.");
 
 						if (verifiedArtifact != null && !verifiedArtifact.Equals(candidateArtifact))
 							throw new InvalidDataException("Multiple managed archives claim the same Collection artifact identity but verify to different immutable bytes.");
@@ -204,13 +217,23 @@ namespace Nexus.Client.CollectionManagement
 				}
 				else
 				{
-					using (Stream immutableArchive = _artifactStore.OpenRead(candidateArtifact.ArtifactId))
-						exact = _identityVerifier.IsExactMatch(request.SelectedArtifact, immutableArchive, cancellationToken);
+					string publishedMd5;
+					ICollectionArchiveMd5IdentityVerifier md5Verifier = _identityVerifier as ICollectionArchiveMd5IdentityVerifier;
+					if (md5Verifier != null && _artifactStore.TryGetPublishedMd5(candidateArtifact.ArtifactId, out publishedMd5))
+						exact = md5Verifier.IsExactMatchByMd5(request.SelectedArtifact, publishedMd5, cancellationToken);
+					else
+					{
+						using (Stream immutableArchive = _artifactStore.OpenRead(candidateArtifact.ArtifactId))
+							exact = _identityVerifier.IsExactMatch(request.SelectedArtifact, immutableArchive, cancellationToken);
+					}
 					verificationBasis = CollectionArchiveVerificationBasis.ProviderContentIdentity;
 				}
 
 				if (!exact)
 					return null;
+				if (!_artifactStore.PromotePublishedArtifactVerification(candidateArtifact) &&
+					!_artifactStore.VerifyArtifact(candidateArtifact.ArtifactId, cancellationToken))
+					throw new InvalidDataException("The just-published manual Collection archive changed during exact identity verification.");
 
 				return Protect(request, candidateArtifact, ownerId, referenceRole,
 					CollectionVerifiedArchiveSourceKind.ManualFile, verificationBasis);

@@ -473,15 +473,21 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
+			List<CollectionOperation> incompleteApplyOperations = _operationStore.GetIncompleteOperations(authority.Target)
+				.Where(x => x.Kind == CollectionOperationKind.ApplyResolvedPlan).ToList();
+			if (incompleteApplyOperations.Count == 0)
+				return new CollectionAdditiveWorkflowRecoveryResult[0];
+
+			// Reloading native authority acquires the target-wide mutation lease and rebuilds InstallLog/VMA/deployment state.
+			// That recovery boundary is required when there is additive work to reconcile, but it is needlessly expensive
+			// when the Collections tab is merely displaying already-terminal Applied associations. Probe the journal first.
 			await ReloadTargetAuthorityAsync(authority, targetPaths, cancellationToken).ConfigureAwait(false);
 
 			var results = new List<CollectionAdditiveWorkflowRecoveryResult>();
-			foreach (CollectionOperation persisted in _operationStore.GetIncompleteOperations(authority.Target))
+			foreach (CollectionOperation persisted in incompleteApplyOperations)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				CollectionOperation operation = RequireOperation(persisted.Identity);
-				if (operation.Kind != CollectionOperationKind.ApplyResolvedPlan)
-					continue;
 
 				if (operation.PlanIdentity == null || operation.Revision == null || !HasReviewedSnapshot(operation))
 				{
