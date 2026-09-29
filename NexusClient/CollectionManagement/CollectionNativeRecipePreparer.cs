@@ -155,6 +155,15 @@ namespace Nexus.Client.CollectionManagement
 		{
 		}
 
+		/// <summary>Creates a recipe preparer which shares the additive workflow's retained-artifact verification caches.</summary>
+		internal CollectionNativeRecipePreparer(CollectionsStore store, CollectionsRevisionSourceStore revisionSourceStore,
+			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore)
+			: this(new CollectionsCatalogStore(store), revisionSourceStore, artifactStore, referenceStore,
+				new NexusCollectionManifestNormalizer(), new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(),
+				new CollectionMemberEffectPreviewBuilder())
+		{
+		}
+
 		internal CollectionNativeRecipePreparer(CollectionsCatalogStore catalogStore,
 			CollectionsRevisionSourceStore revisionSourceStore, CollectionsRetainedArtifactStore artifactStore,
 			CollectionsRetainedArtifactReferenceStore referenceStore, NexusCollectionManifestNormalizer normalizer, BasicInstallPlanBuilder basicInstallPlanBuilder,
@@ -218,7 +227,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The retained Collection revision source is missing its immutable manifest artifact binding.");
 
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
-			ValidateManagedModArchive(mod, verifiedArchive.Artifact, cancellationToken);
+			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 			ValidateCharacterizedInstallRootBehavior(member, mod);
 
 			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles);
@@ -229,7 +238,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			// Re-check after archive enumeration/planning so a mutable library archive cannot change unnoticed during preparation.
-			ValidateManagedModArchive(mod, verifiedArchive.Artifact, cancellationToken);
+			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe simpleRecipe = basicResult.Plan.CreateSimpleFileRecipe();
 			ModInstallationRecipeValidation validation = CreateValidation(verifiedArchive.Artifact, installContext, simpleRecipe);
@@ -274,7 +283,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The retained Collection revision source is missing its immutable manifest artifact binding.");
 
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
-			ValidateManagedModArchive(mod, verifiedArchive.Artifact, cancellationToken);
+			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 			ValidateCharacterizedInstallRootBehavior(member, mod);
 
 			IModInstallationFomodRecipePlanningAdapter fomodAdapter = mod.InstallScript == null
@@ -304,7 +313,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			// Re-check after the actual native FOMOD definition has been enumerated and evaluated.
-			ValidateManagedModArchive(mod, verifiedArchive.Artifact, cancellationToken);
+			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
@@ -431,21 +440,65 @@ namespace Nexus.Client.CollectionManagement
 			CollectionContentHash expectedHash = verifiedArchive.Request.SelectedArtifact.ExpectedContentHash;
 			if (expectedHash != null && !expectedHash.Equals(artifact.ContentHash))
 				throw new InvalidDataException("The retained verified archive no longer matches the manifest-selected expected content hash.");
+			if (CanDeferRepeatedPrepareVerification(verifiedArchive))
+			{
+				// The retained bytes were cryptographically/provider verified by an earlier acquisition. Repeated Download/Prepare
+				// does not consume those payload bytes, so validate sealed metadata/path/length here and leave the full digest
+				// check to GetReview/apply/recovery. This avoids rereading multi-gigabyte blobs merely to redraw a review.
+				using (Stream retained = _artifactStore.OpenRead(artifact.ArtifactId))
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+				}
+				return;
+			}
+
 			if (!_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
 				throw new InvalidDataException("The retained verified archive failed its integrity check before recipe preparation.");
 		}
 
-		private static void ValidateManagedModArchive(IMod mod, CollectionsRetainedArtifact expectedArtifact,
+		private void ValidateManagedModArchive(IMod mod, CollectionVerifiedArchive verifiedArchive,
 			CancellationToken cancellationToken)
 		{
+			CollectionsRetainedArtifact expectedArtifact = verifiedArchive.Artifact;
 			string path = !String.IsNullOrWhiteSpace(mod.ModArchivePath) ? mod.ModArchivePath : mod.Filename;
 			if (String.IsNullOrWhiteSpace(path))
 				throw new InvalidDataException("The managed mod has no archive path for exact recipe preparation.");
 			path = Path.GetFullPath(path);
 			if (!File.Exists(path))
 				throw new FileNotFoundException("The managed mod archive required for recipe preparation is missing.", path);
+
+			var info = new FileInfo(path);
+			if (info.Length != expectedArtifact.ByteLength)
+				throw new InvalidDataException("The managed mod archive length no longer matches the previously verified Collection archive.");
+
+			// Adoption just streamed this exact source into retained storage while calculating SHA-256. Reuse that process-local
+			// proof while size/write-time are unchanged; the native installer still performs the final SHA-256 before mutation.
+			if (_artifactStore.IsPublishedSourceCurrent(path, expectedArtifact))
+				return;
+
+			// For a provider artifact already verified by a previous Prepare, C6.2/ResolveManagedMod has already selected the
+			// exact Nexus mod/file identity. Re-hashing the whole archive here makes review O(total archive bytes) even though
+			// the native installer's final SHA-256 gate will reject any changed bytes before mutation. Keep Prepare cheap and
+			// defer the cryptographic recheck to that mutation boundary.
+			if (CanDeferRepeatedPrepareVerification(verifiedArchive))
+				return;
+
 			if (!CollectionArchiveContentMatcher.MatchesFile(path, expectedArtifact, cancellationToken))
 				throw new InvalidDataException("The managed mod archive bytes do not match the verified immutable Collection archive.");
+		}
+
+		private static bool CanDeferRepeatedPrepareVerification(CollectionVerifiedArchive verifiedArchive)
+		{
+			if (verifiedArchive == null ||
+				verifiedArchive.SourceKind != CollectionVerifiedArchiveSourceKind.RetainedContent ||
+				verifiedArchive.VerificationBasis != CollectionArchiveVerificationBasis.ExistingVerifiedReference)
+				return false;
+
+			string domain;
+			long modId;
+			long fileId;
+			return NexusCollectionModFileArtifactIdentity.TryParse(verifiedArchive.Request.SelectedArtifact,
+				out domain, out modId, out fileId);
 		}
 
 		private static void ValidateCharacterizedInstallRootBehavior(ResolvedCollectionMemberPlan member, IMod mod)

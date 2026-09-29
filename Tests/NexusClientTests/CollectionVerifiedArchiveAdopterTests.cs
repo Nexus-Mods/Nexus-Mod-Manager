@@ -234,6 +234,75 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void TryAdopt_DifferentRequestForSameProviderArtifact_ReusesPriorVerifiedBytesWithoutManagedRescan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Stores stores = CreateStores(root);
+				string archivePath = Path.Combine(root, "candidate-cross-plan.7z");
+				File.WriteAllText(archivePath, "provider verified once across plan requests");
+				var source = new RecordingArchiveSource(new[] { ExactCandidate(archivePath) });
+				var verifier = new RecordingVerifier { Handler = (artifact, stream) => true };
+				var adopter = new CollectionVerifiedArchiveAdopter(source, verifier, stores.Artifacts, stores.References);
+
+				CollectionAcquisitionRequest firstRequest = CreateRequest(null);
+				CollectionVerifiedArchive first = adopter.TryAdopt(firstRequest);
+				source.ThrowOnFind = true;
+				verifier.ThrowOnCall = true;
+				CollectionAcquisitionRequest secondRequest = CreateRequest(null);
+				CollectionVerifiedArchive second = adopter.TryAdopt(secondRequest);
+
+				Assert.That(second, Is.Not.Null);
+				Assert.That(second.Artifact, Is.EqualTo(first.Artifact));
+				Assert.That(second.Reference.OwnerId, Is.EqualTo(secondRequest.RequestId.ToString("D")));
+				Assert.That(second.Reference.ReferenceId, Is.Not.EqualTo(first.Reference.ReferenceId));
+				Assert.That(second.SourceKind, Is.EqualTo(CollectionVerifiedArchiveSourceKind.RetainedContent));
+				Assert.That(second.VerificationBasis, Is.EqualTo(CollectionArchiveVerificationBasis.ExistingVerifiedReference));
+				Assert.That(source.CallCount, Is.EqualTo(1));
+				Assert.That(verifier.CallCount, Is.EqualTo(1));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void TryAdopt_DurableVerifiedAcquisitionRecord_ReusesBytesAfterOldRequestReferenceIsReleased()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Stores stores = CreateStores(root);
+				string archivePath = Path.Combine(root, "candidate-durable-reuse.7z");
+				File.WriteAllText(archivePath, "provider verified durable acquisition result");
+				var source = new RecordingArchiveSource(new[] { ExactCandidate(archivePath) });
+				var verifier = new RecordingVerifier { Handler = (artifact, stream) => true };
+				var adopter = new CollectionVerifiedArchiveAdopter(source, verifier, stores.Artifacts, stores.References, stores.Acquisitions);
+
+				CollectionAcquisitionRequest firstRequest = CreateRequest(null);
+				CollectionVerifiedArchive first = adopter.TryAdopt(firstRequest);
+				Assert.That(stores.References.ReleaseReference(first.Reference.ReferenceId), Is.True);
+				source.ThrowOnFind = true;
+				verifier.ThrowOnCall = true;
+
+				CollectionAcquisitionRequest secondRequest = CreateRequest(null);
+				CollectionVerifiedArchive second = adopter.TryAdopt(secondRequest);
+
+				Assert.That(second, Is.Not.Null);
+				Assert.That(second.Artifact, Is.EqualTo(first.Artifact));
+				Assert.That(second.VerificationBasis, Is.EqualTo(CollectionArchiveVerificationBasis.ExistingVerifiedReference));
+				Assert.That(source.CallCount, Is.EqualTo(1));
+				Assert.That(verifier.CallCount, Is.EqualTo(1));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void TryAdopt_TwoProviderVerifiedCandidatesWithDifferentBytes_FailsClosed()
 		{
 			string root = CreateTemporaryDirectory();
@@ -289,7 +358,7 @@ namespace NexusClientTests
 			var featureStore = new CollectionsStore(root);
 			featureStore.CreateNew();
 			return new Stores(new CollectionsRetainedArtifactStore(featureStore),
-				new CollectionsRetainedArtifactReferenceStore(featureStore));
+				new CollectionsRetainedArtifactReferenceStore(featureStore), new CollectionsAcquisitionStore(featureStore));
 		}
 
 		private static CollectionManagedArchiveCandidate ExactCandidate(string path)
@@ -360,14 +429,17 @@ namespace NexusClientTests
 
 		private sealed class Stores
 		{
-			public Stores(CollectionsRetainedArtifactStore artifacts, CollectionsRetainedArtifactReferenceStore references)
+			public Stores(CollectionsRetainedArtifactStore artifacts, CollectionsRetainedArtifactReferenceStore references,
+				CollectionsAcquisitionStore acquisitions)
 			{
 				Artifacts = artifacts;
 				References = references;
+				Acquisitions = acquisitions;
 			}
 
 			public CollectionsRetainedArtifactStore Artifacts { get; }
 			public CollectionsRetainedArtifactReferenceStore References { get; }
+			public CollectionsAcquisitionStore Acquisitions { get; }
 		}
 
 		private sealed class RecordingArchiveSource : ICollectionManagedArchiveSource

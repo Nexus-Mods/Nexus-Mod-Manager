@@ -110,6 +110,44 @@ WHERE queue_operation_id=@queue_operation_id AND state=@queued;";
 			return _store.ExecuteRead((connection, transaction) => ReadOne(connection, transaction, requestId));
 		}
 
+		/// <summary>Loads distinct retained artifacts previously verified for one exact provider artifact identity.</summary>
+		/// <remarks>
+		/// Plan/request identities intentionally change across preparations. This lookup is limited to records that already reached
+		/// the durable Verified state and therefore provides a stable reuse hint for the same provider artifact. The caller still
+		/// validates retained metadata and any currently required expected digest before reuse.
+		/// </remarks>
+		public IReadOnlyList<string> GetVerifiedArtifactIds(CollectionArtifactReference selectedArtifact)
+		{
+			if (selectedArtifact == null)
+				throw new ArgumentNullException(nameof(selectedArtifact));
+
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var result = new List<string>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT DISTINCT verified_artifact_id
+FROM collection_acquisition_requests
+WHERE state=@verified
+  AND artifact_scheme=@artifact_scheme
+  AND artifact_stable_id=@artifact_stable_id
+  AND verified_artifact_id IS NOT NULL
+ORDER BY verified_artifact_id;";
+					command.Parameters.AddWithValue("@verified", (int)CollectionAcquisitionPersistenceState.Verified);
+					command.Parameters.AddWithValue("@artifact_scheme", selectedArtifact.Scheme);
+					command.Parameters.AddWithValue("@artifact_stable_id", selectedArtifact.StableId);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+							result.Add(reader.GetString(0));
+					}
+				}
+				return (IReadOnlyList<string>)result;
+			});
+		}
+
 		/// <summary>
 		/// Returns the previously persisted native producer identity when the request is still pending or queued and may resume it.
 		/// </summary>

@@ -86,6 +86,14 @@ namespace Nexus.Client.CollectionManagement
 		{
 		}
 
+		/// <summary>Creates a runtime reconstructor sharing the additive workflow's retained-artifact verification caches.</summary>
+		internal CollectionReviewedWorkflowRuntimeReconstructor(CollectionsStore store, CollectionsRevisionSourceStore revisionSourceStore,
+			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore)
+			: this(new CollectionsCatalogStore(store), revisionSourceStore, artifactStore, referenceStore,
+				new NexusCollectionManifestNormalizer(), new ModInstallationSimpleFileRecipeAdapter(), new CollectionEffectiveSelectionBuilder())
+		{
+		}
+
 		internal CollectionReviewedWorkflowRuntimeReconstructor(CollectionsCatalogStore catalogStore,
 			CollectionsRevisionSourceStore revisionSourceStore, CollectionsRetainedArtifactStore artifactStore,
 			CollectionsRetainedArtifactReferenceStore referenceStore, NexusCollectionManifestNormalizer normalizer,

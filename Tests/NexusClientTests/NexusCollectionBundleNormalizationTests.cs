@@ -800,6 +800,36 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Normalize_GeneratedReferenceExpressionBindsEquivalentZeroPaddedNumericVersions()
+		{
+			string members =
+				"{\"name\":\"Natural Landscapes 2K\",\"version\":\"0.5\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":38841,\"fileId\":231741,\"md5\":\"76e4ecfbd9308179311a69df08a93657\",\"logicalFilename\":\"Natural Landscapes 2K\"}}," +
+				"{\"name\":\"A Forest 0.8\",\"version\":\"0.8\",\"optional\":true,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":45330,\"fileId\":211049,\"md5\":\"1831fe84b026ee2b6b75203574d400bb\",\"logicalFilename\":\"A Forest 0.8\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileExpression\":\"Natural Landscapes 2K-38841-0-5-1646962452\",\"fileMD5\":\"76e4ecfbd9308179311a69df08a93657\",\"versionMatch\":\"0.5.0\",\"logicalFileName\":\"Natural Landscapes 2K\"},\"reference\":{\"fileExpression\":\"A Forest 0.8-45330-0-8-1624579585\",\"fileMD5\":\"1831fe84b026ee2b6b75203574d400bb\",\"versionMatch\":\"0.8.0\",\"logicalFileName\":\"A Forest 0.8\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.IsFalse(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+			Assert.IsFalse(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-reference-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_EquivalentNumericVersionBindingDoesNotBroadenTextVersions()
+		{
+			string members =
+				"{\"name\":\"Text Version\",\"version\":\"0.5b\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"logicalFilename\":\"Text Version\"}}," +
+				"{\"name\":\"Other\",\"version\":\"1.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":30,\"fileId\":40,\"md5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"logicalFilename\":\"Other\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileExpression\":\"Text Version-10-0-5b\",\"fileMD5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"versionMatch\":\"0.5.0\",\"logicalFileName\":\"Text Version\"},\"reference\":{\"fileMD5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"versionMatch\":\"1.0\",\"logicalFileName\":\"Other\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
 		public void Normalize_Module02HudFixtureLeavesOnlyPreferExactPoliciesForProviderResolution()
 		{
 			string members =

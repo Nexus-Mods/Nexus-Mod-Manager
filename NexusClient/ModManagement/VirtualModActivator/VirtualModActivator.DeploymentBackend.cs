@@ -127,6 +127,97 @@ namespace Nexus.Client.ModManagement
 			return staleTargets;
 		}
 
+		/// <summary>
+		/// Rebinds legacy Virtual owner metadata to the replacement archive during a native Virtual upgrade.
+		/// </summary>
+		/// <remarks>
+		/// InstallLog replacement preserves the native owner key, but legacy VMA records identify their owner by
+		/// archive/file metadata. Without this rebind an upgrade can leave Virtual links resolving to the old, now
+		/// inactive library archive. The mutation participates in the existing deployment transaction so rollback and
+		/// crash recovery restore the previous VMA state.
+		/// </remarks>
+		internal void RebindVirtualModInfoForUpgrade(IMod p_modOldMod, IMod p_modNewMod)
+		{
+			if (p_modOldMod == null)
+				throw new ArgumentNullException(nameof(p_modOldMod));
+			if (p_modNewMod == null)
+				throw new ArgumentNullException(nameof(p_modNewMod));
+
+			string oldModFileName = Path.GetFileName(p_modOldMod.Filename);
+			IVirtualModInfo[] oldModInfos = m_tslVirtualModInfo
+				.Where(x => VirtualModInfoMatchesMod(x, p_modOldMod, oldModFileName))
+				.ToArray();
+			if (oldModInfos.Length == 0)
+				return;
+
+			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
+			bool changed = false;
+			foreach (IVirtualModInfo oldModInfo in oldModInfos)
+			{
+				IVirtualModLink[] links = m_tslVirtualModList
+					.Where(x => x != null && ReferenceEquals(x.ModInfo, oldModInfo))
+					.ToArray();
+				if (links.Length == 0)
+					continue;
+
+				IVirtualModInfo replacementInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modNewMod.Filename));
+				bool addedReplacementInfo = replacementInfo == null || ReferenceEquals(replacementInfo, oldModInfo);
+				if (addedReplacementInfo)
+				{
+					VirtualModInfo upgradedInfo = new VirtualModInfo(oldModInfo);
+					if (!String.IsNullOrWhiteSpace(p_modNewMod.DownloadId))
+						upgradedInfo.UpdatedDownloadId = p_modNewMod.DownloadId;
+					replacementInfo = upgradedInfo;
+					enlistment.TouchModInfo(replacementInfo, false);
+					AddVirtualModInfo(replacementInfo);
+					enlistment.SetModInfoPresent(replacementInfo, true);
+				}
+
+				foreach (IVirtualModLink link in links)
+				{
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(
+						GameMode, p_modNewMod, link.VirtualModPath, link.InstallRoot);
+					enlistment.Touch(link, target, true);
+					link.ModInfo = replacementInfo;
+
+					string upgradedRealPath = ResolveUpgradedVirtualRealPath(p_modNewMod, link.VirtualModPath);
+					if (!String.IsNullOrWhiteSpace(upgradedRealPath))
+						link.RealModPath = upgradedRealPath;
+				}
+
+				enlistment.TouchModInfo(oldModInfo, true);
+				m_tslVirtualModInfo.Remove(oldModInfo);
+				enlistment.SetModInfoPresent(oldModInfo, false);
+				changed = true;
+			}
+
+			if (!changed)
+				return;
+
+			MarkVirtualModInfoLookupDirty();
+			MarkVirtualLinkIndexDirty();
+			enlistment.MarkDirty();
+		}
+
+		/// <summary>
+		/// Resolves the replacement staging path for a Virtual link when the upgraded archive contains that path.
+		/// </summary>
+		private string ResolveUpgradedVirtualRealPath(IMod p_modNewMod, string p_strVirtualPath)
+		{
+			string relativePath = GetRealFilePath(p_modNewMod, p_strVirtualPath, m_strVirtualActivatorPath);
+			if (!String.IsNullOrWhiteSpace(relativePath) && File.Exists(Path.Combine(m_strVirtualActivatorPath, relativePath)))
+				return relativePath;
+
+			if (MultiHDMode && !String.IsNullOrWhiteSpace(HDLinkFolder))
+			{
+				relativePath = GetRealFilePath(p_modNewMod, p_strVirtualPath, HDLinkFolder);
+				if (!String.IsNullOrWhiteSpace(relativePath) && File.Exists(Path.Combine(HDLinkFolder, relativePath)))
+					return relativePath;
+			}
+
+			return null;
+		}
+
 		/// <inheritdoc />
 		public void RegisterVirtualLink(ModDeploymentTarget p_mdtTarget, IMod p_modMod, string p_strLogicalPath,
 			string p_strStagedSource, ModInstallRoot p_mirInstallRoot, int p_intPriority)
@@ -355,7 +446,7 @@ namespace Nexus.Client.ModManagement
 				return;
 
 			IVirtualModInfo[] modInfos = m_tslVirtualModInfo
-				.Where(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName))
+				.Where(x => VirtualModInfoBelongsToMod(x, p_modMod, modFileName))
 				.ToArray();
 			if (modInfos.Length == 0)
 				return;

@@ -1382,15 +1382,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (token.IsCancellationRequested || IsDisposed)
 					return;
 
-				// Metadata participates in C6 native-state fingerprints. Repair legacy missing Nexus metadata only when no
-				// additive/restore/removal operation remains in flight, so a cosmetic repair can never invalidate recovery evidence.
-				if (_managementWorkflow != null && (results == null || results.Count == 0) && localRestoreResults.All(x => x.IsSuccessful) &&
-					effectRemovalResults.All(x => x.IsSuccessful))
-				{
-					_workflowStatusLabel.Text = L("Collections.Workflow.RefreshingNexusMetadata",
-						"Refreshing Nexus metadata for applied Collection members...");
-					await Task.Run(() => _managementWorkflow.RefreshAppliedNexusMetadata(), token);
-				}
+				// Applied-member metadata enrichment already runs after successful additive finalization. Startup recovery must
+				// not turn an idle Collections tab into an unsolicited Nexus metadata scan for previously applied Collections.
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
 				_localRestoreRecoveryResults = localRestoreResults ?? new CollectionLocalRestoreWorkflowResult[0];
 				RefreshLocalCaptures();

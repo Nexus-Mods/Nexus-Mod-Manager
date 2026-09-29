@@ -144,15 +144,22 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		protected override void FinalizeDeploymentAfterInstall(TxFileManager p_tfmFileManager)
 		{
-			if (InstallContext.Method != ModInstallMethod.Virtual || DeploymentManager == null || !DeploymentManager.HasPromotedTargets)
+			if (InstallContext.Method != ModInstallMethod.Virtual)
 				return;
 
 			var deploymentBackend = VirtualModActivator as Nexus.Client.ModManagement.VirtualModActivator;
-			if (deploymentBackend == null)
-				throw new InvalidOperationException("Promoted Virtual upgrades require the transaction-aware VMA deployment backend.");
+			if (DeploymentManager != null && DeploymentManager.HasPromotedTargets)
+			{
+				if (deploymentBackend == null)
+					throw new InvalidOperationException("Promoted Virtual upgrades require the transaction-aware VMA deployment backend.");
 
-			foreach (ModDeploymentTarget target in deploymentBackend.GetStalePromotedVirtualTargetsForUpgrade(OldMod))
-				DeploymentManager.RemoveOwnedTarget(Mod, target, p_tfmFileManager);
+				foreach (ModDeploymentTarget target in deploymentBackend.GetStalePromotedVirtualTargetsForUpgrade(OldMod))
+					DeploymentManager.RemoveOwnedTarget(Mod, target, p_tfmFileManager);
+			}
+
+			// ReplaceActiveMod deliberately preserves the native InstallLog key. Keep legacy VMA owner metadata
+			// correlated with that same logical owner when the archive/file identity changes during the upgrade.
+			deploymentBackend?.RebindVirtualModInfoForUpgrade(OldMod, Mod);
 		}
 	}
 }

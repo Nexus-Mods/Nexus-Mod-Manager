@@ -150,7 +150,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Plan_IncompleteNativeCoverageBlocksAutomaticRemoval()
+		public void Plan_IncompleteNativeCoverageOnOwnedTargetBlocksAutomaticRemoval()
 		{
 			string root = CreateTemporaryDirectory();
 			try
@@ -158,14 +158,40 @@ namespace NexusClientTests
 				Fixture fixture = CreateFixture(root, "incomplete-coverage");
 				fixture.Associations.SaveNativeModProvenance(new NativeModProvenance(fixture.NativeMod,
 					StandaloneModUse.NoStandaloneUseVerified));
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\example.dds");
+				CollectionNativeFileState file = CreateOwnedFileState(fixture, target);
 				var issue = new CollectionNativeStateIssue(CollectionNativeStateIssueKind.UnresolvedOwner,
-					"Data\\example.dds", "Owner identity could not be resolved.");
+					target.ToString(), "Owner identity could not be resolved.");
 
 				CollectionUninstallEffectsPlan plan = BuildPlan(fixture.Associations, fixture.Association,
-					CreateState(fixture, true, null, null, new[] { issue }));
+					CreateState(fixture, true, null, null, new[] { issue }, new[] { file }));
 
 				Assert.AreEqual(CollectionUninstallNativeDisposition.BlockedNativeState, plan.Impacts.Single().Disposition);
 				Assert.IsTrue(plan.HasBlockedImpacts);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
+		public void Plan_UnrelatedNativeStateIssueDoesNotBlockAutomaticRemoval()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "unrelated-incomplete-coverage");
+				fixture.Associations.SaveNativeModProvenance(new NativeModProvenance(fixture.NativeMod,
+					StandaloneModUse.NoStandaloneUseVerified));
+				ModDeploymentTarget ownedTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\owned.dds");
+				ModDeploymentTarget unrelatedTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\unrelated.dds");
+				CollectionNativeFileState file = CreateOwnedFileState(fixture, ownedTarget);
+				var issue = new CollectionNativeStateIssue(CollectionNativeStateIssueKind.UnresolvedOwner,
+					unrelatedTarget.ToString(), "An unrelated owner identity could not be resolved.");
+
+				CollectionUninstallEffectsPlan plan = BuildPlan(fixture.Associations, fixture.Association,
+					CreateState(fixture, true, null, null, new[] { issue }, new[] { file }));
+
+				Assert.AreEqual(CollectionUninstallNativeDisposition.RemoveNativeMod, plan.Impacts.Single().Disposition);
+				Assert.IsFalse(plan.HasBlockedImpacts);
 			}
 			finally { Directory.Delete(root, true); }
 		}
@@ -494,7 +520,7 @@ END;";
 
 		private static CollectionNativeStateIndex CreateState(Fixture fixture, bool includeNativeMod,
 			IEnumerable<CollectionTargetAssociation> extraAssociations, IEnumerable<CollectionMemberBinding> extraBindings,
-			IEnumerable<CollectionNativeStateIssue> issues = null)
+			IEnumerable<CollectionNativeStateIssue> issues = null, IEnumerable<CollectionNativeFileState> files = null)
 		{
 			var associations = new List<CollectionTargetAssociation> { fixture.Association };
 			if (extraAssociations != null) associations.AddRange(extraAssociations);
@@ -502,10 +528,18 @@ END;";
 			if (extraBindings != null) bindings.AddRange(extraBindings);
 			return new CollectionNativeStateIndex(fixture.Target, new CollectionNativeRootState[0],
 				includeNativeMod ? new[] { fixture.NativeState } : new CollectionNativeModState[0],
-				new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
+				files ?? new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
 				new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
 				associations, bindings, new UserOverride[0], CollectionNativeStateCoverage.Complete,
 				issues ?? new CollectionNativeStateIssue[0], 0);
+		}
+
+		private static CollectionNativeFileState CreateOwnedFileState(Fixture fixture, ModDeploymentTarget target)
+		{
+			var owner = new CollectionNativeOwnerState(fixture.NativeMod.NativeModKey, null, CollectionNativeOwnerKind.NativeMod,
+				null, null, null);
+			return new CollectionNativeFileState(target, String.Empty, false, true, false, fixture.NativeMod.NativeModKey,
+				new[] { owner }, new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0]);
 		}
 
 		private static Fixture CreateFixture(string root, string collectionId)

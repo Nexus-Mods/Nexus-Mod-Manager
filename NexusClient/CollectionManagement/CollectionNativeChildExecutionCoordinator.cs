@@ -479,11 +479,11 @@ namespace Nexus.Client.CollectionManagement
 					StringComparer.Ordinal.Equals(recovery.PreviousArchive.ContentHash.Value, incomingExpected.Sha256) &&
 					recovery.PreviousArchive.ByteLength == incomingExpected.ByteLength;
 				if (samePhysicalArchive)
-					ValidateManagedArchiveBytes(incomingPath, incomingExpected);
+					ValidateIncomingArchivePresence(incomingPath, incomingExpected);
 				else
 				{
 					ValidateRecoveryArchiveBytes(previousPath, recovery.PreviousArchive);
-					ValidateManagedArchiveBytes(incomingPath, incomingExpected);
+					ValidateIncomingArchivePresence(incomingPath, incomingExpected);
 				}
 				ValidateLiveReplayPreimage(recovery, installInfoDirectory);
 			}
@@ -491,7 +491,7 @@ namespace Nexus.Client.CollectionManagement
 			{
 				if (recovery.PreviousArchive != null || recovery.PreviousNativeMod != null)
 					throw new InvalidDataException("A new activation child unexpectedly contains previous-install recovery identity.");
-				ValidateManagedArchiveBytes(incomingPath, incomingExpected);
+				ValidateIncomingArchivePresence(incomingPath, incomingExpected);
 			}
 		}
 
@@ -512,13 +512,16 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The live previous native archive changed after C6.6 recovery inputs were retained.");
 		}
 
-		private static void ValidateManagedArchiveBytes(string path, ModInstallationRecipeExpectedContent expected)
+		private static void ValidateIncomingArchivePresence(string path, ModInstallationRecipeExpectedContent expected)
 		{
 			if (String.IsNullOrWhiteSpace(path) || !File.Exists(path))
 				throw new FileNotFoundException("The exact incoming native archive is unavailable at the submission boundary.", path);
 			var info = new FileInfo(path);
-			if (info.Length != expected.ByteLength || !StringComparer.Ordinal.Equals(ComputeSha256(path), expected.Sha256))
-				throw new InvalidDataException("The incoming native archive bytes no longer match the exact C5 recipe content identity.");
+			if (info.Length != expected.ByteLength)
+				throw new InvalidDataException("The incoming native archive no longer matches the exact C5 recipe byte length.");
+
+			// ModInstaller.ValidateInstallationRecipeExecutionInput recomputes this exact SHA-256 immediately before native
+			// mutation. Rehashing a multi-gigabyte archive here as well only doubles I/O without adding a later trust boundary.
 		}
 
 		private static void ValidateLiveReplayPreimage(CollectionNativeChildRecoveryManifest recovery, string installInfoDirectory)

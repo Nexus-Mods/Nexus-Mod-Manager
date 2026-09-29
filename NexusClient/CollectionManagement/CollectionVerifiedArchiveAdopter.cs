@@ -64,6 +64,13 @@ namespace Nexus.Client.CollectionManagement
 			if (alreadyVerified != null)
 				return alreadyVerified;
 
+			// Plan IDs intentionally change when a user prepares/reviews again. The provider artifact identity does not.
+			// Reuse immutable bytes that a previous acquisition request already proved exact instead of re-copying and
+			// re-hashing the same multi-gigabyte managed archive into retained storage for every new plan.
+			CollectionVerifiedArchive reusableVerified = TryLoadReusableVerifiedArtifact(request, ownerId, referenceRole, cancellationToken);
+			if (reusableVerified != null)
+				return reusableVerified;
+
 			CollectionContentHash expectedHash = request.SelectedArtifact.ExpectedContentHash;
 			if (expectedHash != null)
 			{
@@ -344,6 +351,60 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionVerifiedArchive TryAdopt(CollectionAcquisitionRequest request)
 		{
 			return TryAdopt(request, CancellationToken.None);
+		}
+
+		private CollectionVerifiedArchive TryLoadReusableVerifiedArtifact(CollectionAcquisitionRequest request,
+			string ownerId, string expectedRole, CancellationToken cancellationToken)
+		{
+			var artifactIds = new HashSet<string>(StringComparer.Ordinal);
+
+			// Verified acquisition rows are the durable identity/result mapping. Unlike request-owned lifetime references,
+			// they survive plan/request replacement and therefore remain the primary cross-Prepare reuse source.
+			if (_acquisitionStore != null)
+			{
+				foreach (string artifactId in _acquisitionStore.GetVerifiedArtifactIds(request.SelectedArtifact))
+					artifactIds.Add(artifactId);
+			}
+
+			// Keep compatibility with older verified rows that may have a retained reference but no acquisition result row.
+			if (artifactIds.Count == 0)
+			{
+				IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> references = _referenceStore.GetReferencesForRole(
+					CollectionsRetainedArtifactOwnerKind.Download, expectedRole);
+				for (int index = 0; index < references.Count; index++)
+					artifactIds.Add(references[index].ArtifactId);
+			}
+
+			if (artifactIds.Count == 0)
+				return null;
+			if (artifactIds.Count != 1)
+				throw new InvalidDataException("The same exact Collection provider artifact is durably bound to different retained byte identities.");
+
+			string reusableArtifactId = null;
+			foreach (string artifactId in artifactIds)
+			{
+				reusableArtifactId = artifactId;
+				break;
+			}
+
+			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(reusableArtifactId);
+			if (artifact == null)
+				throw new InvalidDataException("Previously verified Collection acquisition content is no longer recorded in retained storage.");
+
+			// Download/Prepare does not consume retained payload bytes. At this stage require the sealed metadata/path/length
+			// to remain present, but defer the expensive full SHA-256 re-read to the trust-sensitive apply/recovery boundary.
+			// This keeps repeated Prepare O(metadata) while the native installer still performs the final archive SHA check.
+			using (Stream retained = _artifactStore.OpenRead(artifact.ArtifactId))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+			}
+
+			if (request.SelectedArtifact.ExpectedContentHash != null &&
+				!request.SelectedArtifact.ExpectedContentHash.Equals(artifact.ContentHash))
+				throw new InvalidDataException("Previously verified Collection acquisition content no longer matches the request's expected digest.");
+
+			return Protect(request, artifact, ownerId, expectedRole, CollectionVerifiedArchiveSourceKind.RetainedContent,
+				CollectionArchiveVerificationBasis.ExistingVerifiedReference);
 		}
 
 		private CollectionVerifiedArchive TryLoadExistingRequestReference(CollectionAcquisitionRequest request,

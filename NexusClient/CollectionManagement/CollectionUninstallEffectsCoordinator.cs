@@ -476,7 +476,6 @@ namespace Nexus.Client.CollectionManagement
 			IReadOnlyList<UserOverride> overrides = associationStore.GetOverrides(association.AssociationId);
 			IReadOnlyList<CollectionDriftObservation> drift = associationStore.GetDriftObservations(association.AssociationId);
 			bool modifiedWithoutDetail = association.State == CollectionAssociationState.Modified && overrides.Count == 0 && drift.Count == 0;
-			bool authoritativeCoverage = HasAuthoritativeRemovalCoverage(state);
 			var impacts = new List<CollectionUninstallNativeImpact>();
 
 			foreach (IGrouping<NativeModInstanceIdentity, CollectionMemberBinding> group in bindings.GroupBy(x => x.NativeMod)
@@ -496,10 +495,11 @@ namespace Nexus.Client.CollectionManagement
 
 				CollectionUninstallNativeDisposition disposition;
 				string reason;
-				if (!authoritativeCoverage)
+				string coverageFailure = GetAuthoritativeRemovalCoverageFailure(state, nativeMod);
+				if (coverageFailure != null)
 				{
 					disposition = CollectionUninstallNativeDisposition.BlockedNativeState;
-					reason = "The native-state index reported incomplete/unresolved coverage, so C6.14 cannot prove this member is dispensable or fully removable.";
+					reason = coverageFailure;
 				}
 				else if (!present && hasReferences)
 				{
@@ -552,11 +552,53 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionUninstallEffectsPlan(association, state.Fingerprint, impacts);
 		}
 
-		private static bool HasAuthoritativeRemovalCoverage(CollectionNativeStateIndex state)
+		private static string GetAuthoritativeRemovalCoverageFailure(CollectionNativeStateIndex state,
+			NativeModInstanceIdentity nativeMod)
 		{
-			return state.AssociationCoverage == CollectionNativeStateCoverage.Complete &&
-				state.PluginCoverage != CollectionNativeStateCoverage.Unavailable &&
-				state.Issues.Count == 0;
+			if (state.AssociationCoverage != CollectionNativeStateCoverage.Complete)
+				return "Collection association coverage is unavailable, so C6.14 cannot prove this member is dispensable.";
+			if (state.PluginCoverage == CollectionNativeStateCoverage.Unavailable)
+				return "Native plugin-state coverage is unavailable, so C6.14 cannot prove complete removal safely.";
+
+			ReadOnlyCollection<CollectionNativeFileState> ownedFiles;
+			ReadOnlyCollection<CollectionNativeIniState> ownedIni;
+			state.FilesByOwnerKey.TryGetValue(nativeMod.NativeModKey, out ownedFiles);
+			state.IniEditsByOwnerKey.TryGetValue(nativeMod.NativeModKey, out ownedIni);
+			IEnumerable<CollectionNativeFileState> relevantFiles = ownedFiles ?? Enumerable.Empty<CollectionNativeFileState>();
+			IEnumerable<CollectionNativeIniState> relevantIni = ownedIni ?? Enumerable.Empty<CollectionNativeIniState>();
+			var fileResources = new HashSet<string>(relevantFiles.Select(x => x.Target.ToString()), StringComparer.OrdinalIgnoreCase);
+			var fileRoots = new HashSet<string>(relevantFiles.Select(x => x.Target.Root.ToString()), StringComparer.OrdinalIgnoreCase);
+			var iniResources = new HashSet<string>(relevantIni.Select(x => x.Key.ToString()), StringComparer.OrdinalIgnoreCase);
+
+			foreach (CollectionNativeStateIssue issue in state.Issues)
+			{
+				bool relevant;
+				switch (issue.Kind)
+				{
+					case CollectionNativeStateIssueKind.AssociationStateUnavailable:
+					case CollectionNativeStateIssueKind.PluginStateUnavailable:
+						relevant = true;
+						break;
+					case CollectionNativeStateIssueKind.UnresolvedOwner:
+						relevant = fileResources.Contains(issue.ResourceKey);
+						break;
+					case CollectionNativeStateIssueKind.PhysicalRootUnavailable:
+						relevant = fileResources.Contains(issue.ResourceKey) || fileRoots.Contains(issue.ResourceKey);
+						break;
+					case CollectionNativeStateIssueKind.AmbiguousIniIdentity:
+						relevant = iniResources.Contains(issue.ResourceKey);
+						break;
+					default:
+						relevant = true;
+						break;
+				}
+
+				if (relevant)
+					return String.Format("Native-state coverage for this mod is incomplete at '{0}': {1}",
+						issue.ResourceKey, issue.Message);
+			}
+
+			return null;
 		}
 
 		private static bool RequirementSetTouchesMembers(IEnumerable<CollectionRequirementReference> requirements,

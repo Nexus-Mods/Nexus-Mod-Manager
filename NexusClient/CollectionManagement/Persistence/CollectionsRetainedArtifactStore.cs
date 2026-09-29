@@ -31,6 +31,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			new Dictionary<string, ArtifactVerificationStamp>(StringComparer.Ordinal);
 		private readonly Dictionary<string, PublishedMd5Stamp> _publishedMd5 =
 			new Dictionary<string, PublishedMd5Stamp>(StringComparer.Ordinal);
+		private readonly Dictionary<string, PublishedSourceStamp> _publishedSources =
+			new Dictionary<string, PublishedSourceStamp>(StringComparer.OrdinalIgnoreCase);
 
 		/// <summary>
 		/// Creates a retained-artifact store over an existing Collections feature store.
@@ -104,10 +106,47 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (string.IsNullOrWhiteSpace(sourcePath))
 				throw new ArgumentException("A retained-artifact source path is required.", nameof(sourcePath));
 
-			using (FileStream source = new FileStream(Path.GetFullPath(sourcePath), FileMode.Open, FileAccess.Read, FileShare.Read,
+			string fullPath = Path.GetFullPath(sourcePath);
+			using (FileStream source = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read,
 				CopyBufferSize, FileOptions.SequentialScan))
 			{
-				return Publish(source, cancellationToken);
+				long initialLength = source.Length;
+				long initialLastWriteUtcTicks = File.GetLastWriteTimeUtc(fullPath).Ticks;
+				CollectionsRetainedArtifact artifact = Publish(source, cancellationToken);
+				long finalLength = source.Length;
+				long finalLastWriteUtcTicks = File.GetLastWriteTimeUtc(fullPath).Ticks;
+				if (initialLength == finalLength && initialLength == artifact.ByteLength &&
+					initialLastWriteUtcTicks == finalLastWriteUtcTicks)
+				{
+					RememberPublishedSource(fullPath, artifact, finalLength, finalLastWriteUtcTicks);
+				}
+				return artifact;
+			}
+		}
+
+		/// <summary>
+		/// Returns whether a mutable source file still has the same size/write stamp as the exact bytes just published by this store.
+		/// </summary>
+		/// <remarks>
+		/// This is a process-local preparation optimization only. It never replaces the native installer's final SHA-256 check
+		/// immediately before mutation, and restarted processes intentionally have no source-file proof.
+		/// </remarks>
+		internal bool IsPublishedSourceCurrent(string sourcePath, CollectionsRetainedArtifact artifact)
+		{
+			if (artifact == null || string.IsNullOrWhiteSpace(sourcePath))
+				return false;
+
+			string fullPath = Path.GetFullPath(sourcePath);
+			var info = new FileInfo(fullPath);
+			if (!info.Exists || info.Length != artifact.ByteLength)
+				return false;
+
+			lock (_verificationCacheLock)
+			{
+				PublishedSourceStamp stamp;
+				return _publishedSources.TryGetValue(fullPath, out stamp) &&
+					stamp.ByteLength == info.Length && stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks &&
+					StringComparer.Ordinal.Equals(stamp.HashValue, artifact.ContentHash.Value);
 			}
 		}
 
@@ -520,6 +559,12 @@ WHERE a.artifact_id=@artifact_id;";
 			}
 		}
 
+		private void RememberPublishedSource(string fullPath, CollectionsRetainedArtifact artifact, long byteLength, long lastWriteUtcTicks)
+		{
+			lock (_verificationCacheLock)
+				_publishedSources[fullPath] = new PublishedSourceStamp(artifact.ContentHash.Value, byteLength, lastWriteUtcTicks);
+		}
+
 		private void RememberPublishedMd5(CollectionsRetainedArtifact artifact, string path, string md5)
 		{
 			if (String.IsNullOrWhiteSpace(md5))
@@ -612,6 +657,20 @@ WHERE a.artifact_id=@artifact_id;";
 			}
 
 			public string Md5 { get; }
+			public long ByteLength { get; }
+			public long LastWriteUtcTicks { get; }
+		}
+
+		private sealed class PublishedSourceStamp
+		{
+			public PublishedSourceStamp(string hashValue, long byteLength, long lastWriteUtcTicks)
+			{
+				HashValue = hashValue;
+				ByteLength = byteLength;
+				LastWriteUtcTicks = lastWriteUtcTicks;
+			}
+
+			public string HashValue { get; }
 			public long ByteLength { get; }
 			public long LastWriteUtcTicks { get; }
 		}

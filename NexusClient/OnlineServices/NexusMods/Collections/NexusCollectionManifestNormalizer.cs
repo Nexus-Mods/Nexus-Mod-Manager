@@ -892,7 +892,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				StringComparer.Ordinal.Equals(fileMd5, candidate.SourceMd5) &&
 				(String.IsNullOrEmpty(logicalFileName) || StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename)) &&
 				(String.IsNullOrEmpty(gameId) || StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain)) &&
-				(String.IsNullOrEmpty(versionMatch) || versionMatch == "*" || StringComparer.Ordinal.Equals(versionMatch, candidate.Version)) &&
+				FilePriorityVersionMatches(versionMatch, candidate.Version) &&
 				(String.IsNullOrEmpty(fileExpression) || String.IsNullOrEmpty(candidate.SourceFileExpression) ||
 					StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))).ToList();
 			if (matches.Count != 1)
@@ -1298,6 +1298,25 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return reference.VersionMatch.Evaluate(candidate.Version) == CollectionVortexVersionMatchResult.Match;
 		}
 
+		/// <summary>
+		/// Matches the exact-version subset used by portable file-priority endpoints. Vortex numeric versions are
+		/// compared semantically, so equivalent zero-padded forms such as 0.5 and 0.5.0 bind the same member.
+		/// Non-numeric versions remain exact-text matches; wildcard/range expansion is not introduced here.
+		/// </summary>
+		private static bool FilePriorityVersionMatches(string versionMatch, string candidateVersion)
+		{
+			if (String.IsNullOrEmpty(versionMatch) || StringComparer.Ordinal.Equals(versionMatch, "*"))
+				return true;
+			if (String.IsNullOrWhiteSpace(candidateVersion))
+				return false;
+
+			CollectionVortexVersionMatch matcher;
+			string failure;
+			return CollectionVortexVersionMatch.TryCreate(versionMatch, out matcher, out failure) &&
+				!matcher.IsAny && !matcher.IsRange &&
+				matcher.Evaluate(candidateVersion) == CollectionVortexVersionMatchResult.Match;
+		}
+
 		private static bool IsNormalizedOptionalString(string value)
 		{
 			return value == null || (!String.IsNullOrWhiteSpace(value) && StringComparer.Ordinal.Equals(value, value.Trim()));
@@ -1460,8 +1479,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				if (!StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))
 					return false;
 			}
-			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*" &&
-				!StringComparer.Ordinal.Equals(versionMatch, candidate.Version))
+			if (!FilePriorityVersionMatches(versionMatch, candidate.Version))
 				return false;
 			return hasMarker;
 		}

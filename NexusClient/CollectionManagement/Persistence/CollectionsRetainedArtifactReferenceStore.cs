@@ -170,6 +170,26 @@ VALUES
 		}
 
 		/// <summary>
+		/// Loads every retained-artifact reference with one exact owner kind/role, regardless of the individual owner identity.
+		/// </summary>
+		/// <remarks>
+		/// Acquisition uses this to reuse provider-verified immutable bytes across successive Collection plan identities.
+		/// The caller remains responsible for rejecting one role that is ambiguously bound to different artifact identities.
+		/// </remarks>
+		public IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> GetReferencesForRole(
+			CollectionsRetainedArtifactOwnerKind ownerKind, string role)
+		{
+			ValidateOwnerKind(ownerKind);
+			role = CollectionIdentityValidation.RequireOpaqueToken(role, nameof(role));
+			return _store.ExecuteRead((connection, transaction) =>
+				ReadReferences(connection, transaction, "owner_kind=@owner_kind AND role=@role", command =>
+				{
+					command.Parameters.AddWithValue("@owner_kind", (int)ownerKind);
+					command.Parameters.AddWithValue("@role", role);
+				}));
+		}
+
+		/// <summary>
 		/// Gets whether at least one durable owner currently protects an artifact from Collections cleanup.
 		/// </summary>
 		public bool IsReferenced(string artifactId)

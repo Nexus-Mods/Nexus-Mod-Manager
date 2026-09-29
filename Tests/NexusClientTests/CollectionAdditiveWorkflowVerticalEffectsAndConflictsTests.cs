@@ -40,6 +40,13 @@ namespace NexusClientTests
 	public class CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests
 	{
 		[Test]
+		public void VirtualOwnership_StalePreUpgradeMetadata_RecoversOnlyForExactActiveFootprint()
+		{
+			AssertStaleVirtualUpgradeResolution(true, true);
+			AssertStaleVirtualUpgradeResolution(false, false);
+		}
+
+		[Test]
 		public void Prepare_PluginProducingSimpleArchive_ReviewsImplicitActivationBeforeApproval()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.PluginArchive))
@@ -1049,6 +1056,75 @@ namespace NexusClientTests
 			return "{" +
 				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"C6.15.14c\",\"description\":\"Vertical effects/conflicts fixture\",\"domainName\":\"skyrimspecialedition\"}," +
 				"\"mods\":[" + members + "],\"modRules\":" + modRules + pluginSection + "}";
+		}
+
+		private static void AssertStaleVirtualUpgradeResolution(bool exactFootprint, bool expectedResolved)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-vma-upgrade-owner-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string[] logicalFiles =
+				{
+					@"Docs\Unofficial Fallout 4 Patch Readme + Credits.html",
+					@"Docs\Unofficial Fallout 4 Patch Version History.html",
+					"unofficial fallout 4 patch - main.ba2",
+					"unofficial fallout 4 patch - textures.ba2",
+					"unofficial fallout 4 patch.esp",
+					"unofficial fallout 4 patch.modgroups"
+				};
+				var oldSpec = new MemberSpec("UFO4P old", 4598, 398481, "d2ww3t2t", Path.Combine(root, "UFO4P-2.2.1a.7z"), logicalFiles);
+				var newSpec = new MemberSpec("UFO4P new", 4598, 407774, "d2ww3t2t", Path.Combine(root, "UFO4P-2.2.2a.7z"), logicalFiles);
+				IMod oldMod = CreateManagedMod(oldSpec);
+				IMod newMod = CreateManagedMod(newSpec);
+
+				var activeMods = new ThreadSafeObservableList<IMod>();
+				activeMods.Add(newMod);
+				var readOnlyActiveMods = new ReadOnlyObservableList<IMod>(activeMods);
+				string virtualRoot = Path.Combine(root, "Virtual", VirtualModActivator.ACTIVATOR_FOLDER);
+				List<string> installedFiles = logicalFiles
+					.Take(exactFootprint ? logicalFiles.Length : logicalFiles.Length - 1)
+					.Select(x => Path.Combine(virtualRoot, newSpec.FileId.ToString(), x))
+					.ToList();
+
+				IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) =>
+				{
+					switch (method.Name)
+					{
+						case "get_ActiveMods": return readOnlyActiveMods;
+						case "GetModKey": return ReferenceEquals(args[0], newMod) ? newSpec.NativeKey : null;
+						case "GetModInstallMethod": return ModInstallMethod.Virtual;
+						case "GetInstalledModFiles": return ReferenceEquals(args[0], newMod) ? installedFiles : new List<string>();
+						case "GetModInstallRoot": return ModInstallRoot.Default;
+						default: return null;
+					}
+				});
+
+				GameStoragePathSet paths = CreateStoragePaths(root);
+				IGameMode gameMode = CreateGameMode(paths, false, Path.Combine(paths.GameInstallPath, "Data"));
+				ModManager manager = CreateModManagerShell(root, gameMode, installLog, new[] { oldMod, newMod }, null, ModInstallMethod.Virtual);
+				VirtualModActivator vma = manager.VirtualModActivator;
+				var staleInfo = new VirtualModInfo(oldMod.Id, oldMod.DownloadId, oldMod.ModName, oldMod.Filename, oldMod.HumanReadableVersion);
+				vma.VirtualMods.Add(staleInfo);
+				foreach (string logicalFile in logicalFiles)
+					vma.VirtualLinks.Add(new VirtualModLink(Path.Combine(oldSpec.FileId.ToString(), logicalFile), logicalFile, 0, true, staleInfo));
+
+				VirtualModReadSnapshot snapshot = vma.GetReadSnapshot();
+				if (expectedResolved)
+				{
+					Assert.That(snapshot.Links.All(x => x.OwnerKey == newSpec.NativeKey), Is.True);
+					Assert.That(vma.CheckHasActiveLinks(newMod), Is.True);
+				}
+				else
+				{
+					Assert.That(snapshot.Links.All(x => String.IsNullOrWhiteSpace(x.OwnerKey)), Is.True);
+					Assert.That(vma.CheckHasActiveLinks(newMod), Is.False);
+				}
+			}
+			finally
+			{
+				try { Directory.Delete(root, true); } catch { }
+			}
 		}
 
 		private static GameStoragePathSet CreateStoragePaths(string root)

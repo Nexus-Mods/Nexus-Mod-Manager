@@ -84,6 +84,30 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PublishFile_TracksProcessLocalSourceProofUntilSourceMetadataChanges()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var featureStore = new CollectionsStore(root);
+				featureStore.CreateNew();
+				var retainedStore = new CollectionsRetainedArtifactStore(featureStore);
+				string sourcePath = Path.Combine(root, "large-source.bin");
+				File.WriteAllBytes(sourcePath, Encoding.UTF8.GetBytes("source bytes"));
+
+				CollectionsRetainedArtifact artifact = retainedStore.PublishFile(sourcePath);
+
+				Assert.IsTrue(retainedStore.IsPublishedSourceCurrent(sourcePath, artifact));
+				File.AppendAllText(sourcePath, " changed");
+				Assert.IsFalse(retainedStore.IsPublishedSourceCurrent(sourcePath, artifact));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Publish_AdoptsAnExistingVerifiedOrphanBlob()
 		{
 			string root = CreateTemporaryDirectory();

@@ -478,10 +478,11 @@ namespace Nexus.Client.CollectionManagement
 			if (incompleteApplyOperations.Count == 0)
 				return new CollectionAdditiveWorkflowRecoveryResult[0];
 
-			// Reloading native authority acquires the target-wide mutation lease and rebuilds InstallLog/VMA/deployment state.
-			// That recovery boundary is required when there is additive work to reconcile, but it is needlessly expensive
-			// when the Collections tab is merely displaying already-terminal Applied associations. Probe the journal first.
-			await ReloadTargetAuthorityAsync(authority, targetPaths, cancellationToken).ConfigureAwait(false);
+			// Reload native authority only when an operation actually crossed (or may have crossed) the native mutation boundary.
+			// A persisted ReadyForReview/ReadyToApply operation is safe pre-mutation state: startup may advertise it lazily and
+			// defer retained multi-gigabyte archive verification until the user explicitly opens Review/Resume.
+			if (incompleteApplyOperations.Any(RequiresStartupNativeRecovery))
+				await ReloadTargetAuthorityAsync(authority, targetPaths, cancellationToken).ConfigureAwait(false);
 
 			var results = new List<CollectionAdditiveWorkflowRecoveryResult>();
 			foreach (CollectionOperation persisted in incompleteApplyOperations)
@@ -499,6 +500,17 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				CollectionReviewedWorkflowSnapshot snapshot = LoadReviewedSnapshot(operation);
+
+				if (!RequiresStartupNativeRecovery(operation))
+				{
+					CollectionAdditiveWorkflowRecoveryStatus lazyStatus = operation.Phase == CollectionOperationPhase.ReadyForReview
+						? CollectionAdditiveWorkflowRecoveryStatus.ReviewRequired
+						: CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume;
+					results.Add(RecoveryResult(lazyStatus, operation, null,
+						"A persisted reviewed workflow is available. Its retained content will be revalidated when Review/Resume is opened explicitly."));
+					continue;
+				}
+
 				ResolvedCollectionPlan reviewedPlan = null;
 				if (operation.HasUnreconciledNativeChild || operation.RequiresRecovery || operation.Phase == CollectionOperationPhase.Recovering)
 				{
@@ -546,6 +558,14 @@ namespace Nexus.Client.CollectionManagement
 						: "The exact reviewed workflow is valid at its latest verified safe boundary and can be resumed explicitly."));
 			}
 			return new ReadOnlyCollection<CollectionAdditiveWorkflowRecoveryResult>(results);
+		}
+
+		private static bool RequiresStartupNativeRecovery(CollectionOperation operation)
+		{
+			if (operation == null)
+				return false;
+			return operation.HasCrossedNativeBoundary || operation.HasUnreconciledNativeChild || operation.RequiresRecovery ||
+				operation.Phase == CollectionOperationPhase.Recovering || operation.Phase == CollectionOperationPhase.RecoveryRequired;
 		}
 
 		private CollectionAdditiveWorkflowPreparationResult PrepareCore(CollectionEffectiveSelection effectiveSelection,
@@ -627,13 +647,24 @@ namespace Nexus.Client.CollectionManagement
 					impactPlan.Issues.Count == 0 ? "The Collection impact plan is not executable." : impactPlan.Issues[0].Message);
 			}
 
+			CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(
+				plan, dependencyPlan, impactPlan, recipes);
 			CollectionOperation ready = _operationCoordinator.MarkReadyForReview(planBuild.Operation.Identity,
 				plan, dependencyPlan, impactPlan, recipes);
-			CollectionAdditiveWorkflowReview durableReview = GetReview(ready.Identity);
-			if (!durableReview.IsReady)
-				throw new InvalidOperationException("The newly persisted reviewed workflow could not be rehydrated from its durable inputs: " + durableReview.Rehydration.Message);
+
+			// The exact review has just been built from the live C6.1 state and exact verified acquisition results in this
+			// process. Do not immediately round-trip through restart rehydration: that path intentionally performs full
+			// retained-artifact SHA verification and turns Download/Prepare back into an O(total archive bytes) operation.
+			// GetReview/Approve still rehydrate and cryptographically verify durable inputs before any native mutation.
+			List<CollectionVerifiedArchive> verifiedArchives = acquisition.Members
+				.Where(x => x.VerifiedArchive != null)
+				.Select(x => x.VerifiedArchive)
+				.ToList();
+			CollectionReviewedWorkflowRuntime runtime = new CollectionReviewedWorkflowRuntime(snapshot, plan, matches,
+				dependencyPlan, impactPlan, planBuild.NativeState, snapshot.Members.Select(x => x.MemberKey),
+				recipes, verifiedArchives);
 			return new CollectionAdditiveWorkflowPreparationResult(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview,
-				durableReview.Operation, acquisition, dependencyPlan, impactPlan, durableReview.Runtime,
+				ready, acquisition, dependencyPlan, impactPlan, runtime,
 				"The exact additive Collection review is ready for explicit approval.");
 		}
 

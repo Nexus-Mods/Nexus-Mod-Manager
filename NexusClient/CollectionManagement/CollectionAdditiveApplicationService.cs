@@ -198,12 +198,12 @@ namespace Nexus.Client.CollectionManagement
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);
 
-			var nativeRecipePreparer = new CollectionNativeRecipePreparer(_store);
+			var nativeRecipePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, artifactStore, referenceStore);
 			var dependencyPlanner = new CollectionDependencyPhasePlanner();
 			var impactPlanner = new CollectionConflictImpactPlanner();
 			var workflowRehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore,
 				_revisionSourceStore, artifactStore, nativeStateReader, recoveryManifestStore);
-			var runtimeReconstructor = new CollectionReviewedWorkflowRuntimeReconstructor(_store);
+			var runtimeReconstructor = new CollectionReviewedWorkflowRuntimeReconstructor(_store, _revisionSourceStore, artifactStore, referenceStore);
 			var childPreparation = new CollectionNativeChildPreparationCoordinator(operationStore, planStore,
 				artifactStore, referenceStore, recoveryManifestStore);
 			var childExecution = new CollectionNativeChildExecutionCoordinator(_services, _gameStorageService,

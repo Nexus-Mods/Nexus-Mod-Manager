@@ -2460,25 +2460,137 @@
 			if (p_vmiModInfo == null)
 				return null;
 
+			IMod inactiveMatch = null;
 			IMod mod = ModManager.GetModByFilename(p_vmiModInfo.ModFileName);
 			if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
-				return mod;
+			{
+				if (IsActiveNativeMod(mod))
+					return mod;
+				inactiveMatch = mod;
+			}
 
 			if (!String.IsNullOrWhiteSpace(p_vmiModInfo.DownloadId))
 			{
 				mod = ModManager.GetModByDownloadID(p_vmiModInfo.DownloadId);
 				if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
-					return mod;
+				{
+					if (IsActiveNativeMod(mod))
+						return mod;
+					if (inactiveMatch == null)
+						inactiveMatch = mod;
+				}
 			}
 
 			if (!String.IsNullOrWhiteSpace(p_vmiModInfo.UpdatedDownloadId))
 			{
 				mod = ModManager.GetModByDownloadID(p_vmiModInfo.UpdatedDownloadId);
 				if (mod != null && VirtualModInfoMatchesMod(p_vmiModInfo, mod, Path.GetFileName(mod.Filename)))
-					return mod;
+				{
+					if (IsActiveNativeMod(mod))
+						return mod;
+					if (inactiveMatch == null)
+						inactiveMatch = mod;
+				}
 			}
 
-			return null;
+			// Legacy Virtual metadata can survive a native upgrade while still naming the previous archive/file ID.
+			// Recover only when one active Virtual mod on the same Nexus page has exactly the same logical file
+			// footprint. Same-ModId alone is intentionally insufficient because several files from one Nexus mod
+			// page may legitimately coexist.
+			IMod upgradedMatch = FindUniqueActiveVirtualUpgradeMatch(p_vmiModInfo);
+			return upgradedMatch ?? inactiveMatch;
+		}
+
+		private bool IsActiveNativeMod(IMod p_modMod)
+		{
+			return p_modMod != null && ModInstallLog != null && !String.IsNullOrWhiteSpace(ModInstallLog.GetModKey(p_modMod));
+		}
+
+		private IMod FindUniqueActiveVirtualUpgradeMatch(IVirtualModInfo p_vmiModInfo)
+		{
+			if (p_vmiModInfo == null || String.IsNullOrWhiteSpace(p_vmiModInfo.ModId) ||
+				ModInstallLog == null || ModInstallLog.ActiveMods == null)
+				return null;
+
+			IMod match = null;
+			foreach (IMod activeMod in ModInstallLog.ActiveMods)
+			{
+				if (activeMod == null || !NexusModIdsEqual(p_vmiModInfo.ModId, activeMod.Id) ||
+					ModInstallLog.GetModInstallMethod(activeMod) != ModInstallMethod.Virtual ||
+					!VirtualFootprintMatchesActiveMod(p_vmiModInfo, activeMod))
+					continue;
+
+				if (match != null)
+					return null;
+				match = activeMod;
+			}
+
+			return match;
+		}
+
+		private bool VirtualFootprintMatchesActiveMod(IVirtualModInfo p_vmiModInfo, IMod p_modActiveMod)
+		{
+			var virtualPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (IVirtualModLink link in m_tslVirtualModList)
+			{
+				if (link == null || !ReferenceEquals(link.ModInfo, p_vmiModInfo) || String.IsNullOrWhiteSpace(link.VirtualModPath))
+					continue;
+
+				string logicalPath = NormalizeVirtualFileManagerPath(link.VirtualModPath);
+				if (!String.IsNullOrWhiteSpace(logicalPath))
+					virtualPaths.Add(logicalPath);
+			}
+
+			if (virtualPaths.Count == 0)
+				return false;
+
+			var installedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			IList<string> installedFiles = ModInstallLog.GetInstalledModFiles(p_modActiveMod);
+			if (installedFiles == null)
+				return false;
+
+			foreach (string installedFile in installedFiles)
+			{
+				string logicalPath;
+				if (TryGetLogicalVirtualPathFromInstalledFile(installedFile, out logicalPath))
+					installedPaths.Add(logicalPath);
+			}
+
+			return installedPaths.Count > 0 && virtualPaths.SetEquals(installedPaths);
+		}
+
+		private bool TryGetLogicalVirtualPathFromInstalledFile(string p_strInstalledFile, out string p_strLogicalPath)
+		{
+			p_strLogicalPath = null;
+			string relativePath;
+			if (!TryGetPathRelativeToRoot(p_strInstalledFile, m_strVirtualActivatorPath, out relativePath))
+			{
+				if (!MultiHDMode || String.IsNullOrWhiteSpace(HDLinkFolder) ||
+					!TryGetPathRelativeToRoot(p_strInstalledFile, HDLinkFolder, out relativePath))
+					return false;
+			}
+
+			int separatorIndex = relativePath.IndexOf(Path.DirectorySeparatorChar);
+			if (separatorIndex < 0)
+				separatorIndex = relativePath.IndexOf(Path.AltDirectorySeparatorChar);
+			if (separatorIndex < 0 || separatorIndex == relativePath.Length - 1)
+				return false;
+
+			p_strLogicalPath = NormalizeVirtualFileManagerPath(relativePath.Substring(separatorIndex + 1));
+			return !String.IsNullOrWhiteSpace(p_strLogicalPath);
+		}
+
+		private static bool NexusModIdsEqual(string p_strLeft, string p_strRight)
+		{
+			if (String.IsNullOrWhiteSpace(p_strLeft) || String.IsNullOrWhiteSpace(p_strRight))
+				return false;
+
+			string leftDigits = new string(p_strLeft.Where(Char.IsDigit).ToArray());
+			string rightDigits = new string(p_strRight.Where(Char.IsDigit).ToArray());
+			if (!String.IsNullOrEmpty(leftDigits) && !String.IsNullOrEmpty(rightDigits))
+				return leftDigits.Equals(rightDigits, StringComparison.OrdinalIgnoreCase);
+
+			return p_strLeft.Trim().Equals(p_strRight.Trim(), StringComparison.OrdinalIgnoreCase);
 		}
 
 		private bool VirtualOwnerSourceExists(IMod p_modMod, string p_strRelativePath)
@@ -2578,7 +2690,7 @@
 
 			RemoveIniEdits(p_modMod);
 
-			m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
+			m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoBelongsToMod(x, p_modMod, modFileName));
 
 			if (!p_booPurging)
 				SaveList(true);
@@ -2610,7 +2722,7 @@
 			RemoveIniEdits(p_modMod);
 
 			string modFileName = Path.GetFileName(p_modMod.Filename);
-			m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
+			m_tslVirtualModInfo.RemoveAll(x => VirtualModInfoBelongsToMod(x, p_modMod, modFileName));
 
 			SaveList(true);
 
@@ -2989,7 +3101,7 @@
 				return false;
 
 			string modFileName = Path.GetFileName(p_modMod.Filename);
-			return m_tslVirtualModInfo.Any(x => VirtualModInfoMatchesMod(x, p_modMod, modFileName));
+			return m_tslVirtualModInfo.Any(x => VirtualModInfoBelongsToMod(x, p_modMod, modFileName));
 		}
 
 		public bool CheckHasActiveLinks(IMod p_modMod)
@@ -3018,12 +3130,30 @@
 			return false;
 		}
 
-		private static bool VirtualModLinkMatchesMod(IVirtualModLink p_vmlLink, IMod p_modMod, string p_strModFileName)
+		private bool VirtualModInfoBelongsToMod(IVirtualModInfo p_vmiModInfo, IMod p_modMod, string p_strModFileName)
+		{
+			if (VirtualModInfoMatchesMod(p_vmiModInfo, p_modMod, p_strModFileName))
+				return true;
+
+			if (p_vmiModInfo == null || p_modMod == null || ModInstallLog == null)
+				return false;
+
+			string requestedOwnerKey = ModInstallLog.GetModKey(p_modMod);
+			if (String.IsNullOrWhiteSpace(requestedOwnerKey))
+				return false;
+
+			IMod resolvedMod = FindManagedMod(p_vmiModInfo);
+			string resolvedOwnerKey = resolvedMod == null ? null : ModInstallLog.GetModKey(resolvedMod);
+			return !String.IsNullOrWhiteSpace(resolvedOwnerKey) &&
+				resolvedOwnerKey.Equals(requestedOwnerKey, StringComparison.OrdinalIgnoreCase);
+		}
+
+		private bool VirtualModLinkMatchesMod(IVirtualModLink p_vmlLink, IMod p_modMod, string p_strModFileName)
 		{
 			if (p_vmlLink == null)
 				return false;
 
-			return VirtualModInfoMatchesMod(p_vmlLink.ModInfo, p_modMod, p_strModFileName);
+			return VirtualModInfoBelongsToMod(p_vmlLink.ModInfo, p_modMod, p_strModFileName);
 		}
 
 		/// <summary>

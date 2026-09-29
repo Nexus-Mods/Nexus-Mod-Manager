@@ -345,7 +345,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void ReconcileIncompleteTarget_RetainedManifestTampered_RequiresRepreparationWithoutNativeWrite()
+		public void ReconcileIncompleteTarget_RetainedManifestTampered_DefersValidationUntilExplicitReview()
 		{
 			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, ModInstallMethod.Virtual))
 			{
@@ -358,15 +358,19 @@ namespace NexusClientTests
 				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
 					x.Operation.Identity.Equals(prepared.Operation.Identity));
 
-				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired));
-				Assert.That(operationRecovery.Rehydration.Status, Is.EqualTo(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid));
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(operationRecovery.Rehydration, Is.Null);
 				Assert.That(operationRecovery.Operation.HasCrossedNativeBoundary, Is.False);
 				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+
+				CollectionAdditiveWorkflowReview review = fixture.Workflow.GetReview(prepared.Operation.Identity);
+				Assert.That(review.IsReady, Is.False);
+				Assert.That(review.Rehydration.Status, Is.EqualTo(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid));
 			}
 		}
 
 		[Test]
-		public void ReconcileIncompleteTarget_RetainedArchiveTampered_RequiresRepreparationWithoutNativeWrite()
+		public void ReconcileIncompleteTarget_RetainedArchiveTampered_DefersValidationUntilExplicitReview()
 		{
 			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, ModInstallMethod.Virtual))
 			{
@@ -379,15 +383,19 @@ namespace NexusClientTests
 				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x =>
 					x.Operation.Identity.Equals(prepared.Operation.Identity));
 
-				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired));
-				Assert.That(operationRecovery.Rehydration.Status, Is.EqualTo(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid));
+				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(operationRecovery.Rehydration, Is.Null);
 				Assert.That(operationRecovery.Operation.HasCrossedNativeBoundary, Is.False);
 				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+
+				CollectionAdditiveWorkflowReview review = fixture.Workflow.GetReview(prepared.Operation.Identity);
+				Assert.That(review.IsReady, Is.False);
+				Assert.That(review.Rehydration.Status, Is.EqualTo(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid));
 			}
 		}
 
 		[Test]
-		public void ReconcileIncompleteTarget_RestartAtReadyToApply_RehydratesThenResumesExactPlan()
+		public void ReconcileIncompleteTarget_RestartAtReadyToApply_AdvertisesLazyResumeThenExplicitReviewRehydrates()
 		{
 			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, ModInstallMethod.Virtual))
 			{
@@ -400,10 +408,13 @@ namespace NexusClientTests
 
 				CollectionAdditiveWorkflowRecoveryResult operationRecovery = recovered.Single(x => x.Operation.Identity.Equals(prepared.Operation.Identity));
 				Assert.That(operationRecovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
-				Assert.That(operationRecovery.Rehydration, Is.Not.Null);
-				Assert.That(operationRecovery.Rehydration.CanResume, Is.True);
+				Assert.That(operationRecovery.Rehydration, Is.Null);
 				Assert.That(operationRecovery.Operation.Phase, Is.EqualTo(CollectionOperationPhase.ReadyToApply));
 				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+
+				CollectionAdditiveWorkflowReview review = fixture.Workflow.GetReview(prepared.Operation.Identity);
+				Assert.That(review.IsReady, Is.True);
+				Assert.That(review.Rehydration.CanResume, Is.True);
 
 				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
 				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));

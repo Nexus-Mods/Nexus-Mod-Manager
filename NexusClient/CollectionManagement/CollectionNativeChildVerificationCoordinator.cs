@@ -358,18 +358,19 @@ namespace Nexus.Client.CollectionManagement
 
 			string modId = isNexus ? expectedModId.ToString(CultureInfo.InvariantCulture) : null;
 			string fileId = isNexus ? expectedFileId.ToString(CultureInfo.InvariantCulture) : null;
+			var archiveMatchCache = new Dictionary<string, ArchiveMatchStamp>(StringComparer.OrdinalIgnoreCase);
 			List<CollectionNativeModState> candidates = state.Mods.Values.Where(x =>
 				x.InstallMethod == preview.InstallMethod && x.InstallRoot == preview.InstallRoot &&
-				MatchesArchive(x.ArchivePath, recovery.IncomingArchive) &&
 				(!isNexus || (StringComparer.Ordinal.Equals(x.NexusModId, modId) &&
-					StringComparer.Ordinal.Equals(x.NexusFileId, fileId)))).ToList();
+					StringComparer.Ordinal.Equals(x.NexusFileId, fileId))) &&
+				MatchesArchive(x.ArchivePath, recovery.IncomingArchive, archiveMatchCache)).ToList();
 			if (candidates.Count != 1)
 				return false;
 
 			nativeMod = candidates[0];
 			string incomingArchivePath = !String.IsNullOrWhiteSpace(incomingMod.ModArchivePath)
 				? incomingMod.ModArchivePath : incomingMod.Filename;
-			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive) ||
+			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive, archiveMatchCache) ||
 				!VerifyMemberEffects(state, nativeMod, preview) ||
 				!VerifyExpectedFileContents(state, preview, recipeInput, incomingMod, gameMode) ||
 				!VerifyLiveReplayAgainstRecipe(recipeInput, incomingMod, gameMode))
@@ -656,6 +657,26 @@ namespace Nexus.Client.CollectionManagement
 			return MatchesFile(archivePath, expected);
 		}
 
+		private static bool MatchesArchive(string archivePath, CollectionRecoveryArtifact expected,
+			IDictionary<string, ArchiveMatchStamp> matchCache)
+		{
+			if (matchCache == null || String.IsNullOrWhiteSpace(archivePath))
+				return MatchesArchive(archivePath, expected);
+
+			string key = Path.GetFullPath(archivePath);
+			var info = new FileInfo(key);
+			ArchiveMatchStamp stamp;
+			if (info.Exists && matchCache.TryGetValue(key, out stamp) && stamp.ByteLength == info.Length &&
+				stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
+				return stamp.Matches;
+
+			bool matches = MatchesArchive(key, expected);
+			info.Refresh();
+			if (info.Exists)
+				matchCache[key] = new ArchiveMatchStamp(matches, info.Length, info.LastWriteTimeUtc.Ticks);
+			return matches;
+		}
+
 		private static bool MatchesFile(string path, CollectionRecoveryArtifact expected)
 		{
 			if (String.IsNullOrWhiteSpace(path) || expected == null ||
@@ -677,6 +698,20 @@ namespace Nexus.Client.CollectionManagement
 		{
 			return exception is IOException || exception is UnauthorizedAccessException || exception is NotSupportedException ||
 				exception is System.Security.SecurityException || exception is CryptographicException;
+		}
+
+		private sealed class ArchiveMatchStamp
+		{
+			public ArchiveMatchStamp(bool matches, long byteLength, long lastWriteUtcTicks)
+			{
+				Matches = matches;
+				ByteLength = byteLength;
+				LastWriteUtcTicks = lastWriteUtcTicks;
+			}
+
+			public bool Matches { get; }
+			public long ByteLength { get; }
+			public long LastWriteUtcTicks { get; }
 		}
 
 		private sealed class FileContentIdentity
