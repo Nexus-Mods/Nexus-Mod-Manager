@@ -1360,12 +1360,60 @@
 		public List<IVirtualModLink> LoadList(string p_strXMLFilePath)
 		{
 			VirtualModStoreData vmsData = m_vmsVirtualModStore.Load(p_strXMLFilePath, CURRENT_VERSION, PerformVersionCheck, GetModFileVersionForLoadList);
+			bool repairedInstallRoots = ReconcileLoadedLinkInstallRoots(vmsData.VirtualLinks);
 
 			DetachVirtualModInfoList(m_tslVirtualModInfo);
 			m_tslVirtualModInfo.Clear();
 			m_tslVirtualModInfo = new ThreadSafeObservableList<IVirtualModInfo>(vmsData.VirtualMods);
 			AttachVirtualModInfoList(m_tslVirtualModInfo);
+
+			if (repairedInstallRoots)
+			{
+				try
+				{
+					m_vmsVirtualModStore.Save(CURRENT_VERSION, p_strXMLFilePath, vmsData.VirtualMods, vmsData.VirtualLinks);
+					Trace.TraceInformation("Repaired and persisted legacy Virtual link install-root metadata from the authoritative InstallLog.");
+				}
+				catch (Exception e)
+				{
+					Trace.TraceWarning("Repaired legacy Virtual link install-root metadata in memory, but could not persist it: {0}", e.Message);
+				}
+			}
+
 			return vmsData.VirtualLinks;
+		}
+
+		private bool ReconcileLoadedLinkInstallRoots(IEnumerable<IVirtualModLink> virtualLinks)
+		{
+			if (virtualLinks == null || ModInstallLog == null)
+				return false;
+
+			List<IVirtualModLink> links = virtualLinks.Where(x => x != null && x.ModInfo != null).ToList();
+			Dictionary<IVirtualModInfo, IMod> managedMods = BuildManagedModLookupForVirtualLinks(links);
+			bool changed = false;
+
+			foreach (IVirtualModLink link in links)
+			{
+				IMod mod;
+				if (!managedMods.TryGetValue(link.ModInfo, out mod) || mod == null)
+					continue;
+
+				string nativeKey = ModInstallLog.GetModKey(mod);
+				if (String.IsNullOrWhiteSpace(nativeKey))
+					continue;
+
+				ModInstallRoot authoritativeRoot = ModInstallLog.GetModInstallRoot(mod);
+				if (link.InstallRoot == authoritativeRoot)
+					continue;
+
+				Trace.TraceInformation(
+					"Repairing Virtual link install root for native mod '{0}', path '{1}': {2} -> {3}.",
+					nativeKey, link.VirtualModPath, link.InstallRoot, authoritativeRoot);
+				link.InstallRoot = authoritativeRoot;
+				changed = true;
+			}
+
+			return changed;
 		}
 
 		/// <summary>

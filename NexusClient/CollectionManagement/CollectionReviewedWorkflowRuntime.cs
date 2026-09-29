@@ -143,12 +143,12 @@ namespace Nexus.Client.CollectionManagement
 			if (!normalized.Manifest.Revision.Equals(snapshot.Revision) || !normalized.Manifest.Source.Equals(snapshot.ManifestSource))
 				throw new InvalidDataException("The retained Collection manifest no longer reproduces the reviewed revision/source identity.");
 
-			CollectionEffectiveSelection effective = ReconstructEffectiveSelection(normalized.CapabilityReport, snapshot);
+			CollectionEffectiveSelection effective = ReconstructEffectiveSelection(normalized.CapabilityReport, snapshot, rawManifest);
 			return BuildPlan(effective, snapshot);
 		}
 
 		private CollectionEffectiveSelection ReconstructEffectiveSelection(CollectionCapabilityReport normalizedCapability,
-			CollectionReviewedWorkflowSnapshot snapshot)
+			CollectionReviewedWorkflowSnapshot snapshot, byte[] rawManifest)
 		{
 			var selected = new HashSet<CollectionMemberKey>(snapshot.Members.Select(x => x.MemberKey));
 			var decisions = new List<CollectionOptionalMemberSelection>();
@@ -161,6 +161,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			CollectionEffectiveSelection effective = _selectionBuilder.Build(normalizedCapability, decisions);
+			effective = CollectionNexusPreferExactPolicyResolver.ReapplyReviewedExactChoices(effective, rawManifest, snapshot.Members);
 			if (effective.CapabilityReport.Status != CollectionCompatibilityStatus.Supported)
 				throw new NotSupportedException("The retained manifest no longer reproduces a supported reviewed selected closure.");
 			ValidateManifestReviewIdentity(effective.Manifest, snapshot);

@@ -307,7 +307,7 @@ namespace Nexus.Client.CollectionManagement
 			// Re-check after the actual native FOMOD definition has been enumerated and evaluated.
 			ValidateManagedModArchive(mod, verifiedArchive.Artifact, cancellationToken);
 
-			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode);
+			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
 			var finalFingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, finalFingerprint);
@@ -388,8 +388,31 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("The retained Collection source contains manifest-level behavior outside the characterized C6.15.9 preparation capability.");
 			CollectionMemberCapabilityReport sourceReport = normalized.CapabilityReport.MemberReports
 				.SingleOrDefault(x => x.Member.SourceOrdinal == member.SourceOrdinal);
-			if (sourceReport == null || sourceReport.Status != CollectionCompatibilityStatus.Supported)
+			CollectionMemberCapabilityReport reviewedReport = plan.CapabilityReport.MemberReports
+				.SingleOrDefault(x => x.Member.SourceOrdinal == member.SourceOrdinal);
+			if (sourceReport == null ||
+				(sourceReport.Status != CollectionCompatibilityStatus.Supported &&
+				 !IsReviewedPreferExactResolution(member, sourceReport, reviewedReport)))
 				throw new NotSupportedException("The retained Collection member source contains behavior outside the characterized native recipe preparation capability.");
+		}
+
+		private static bool IsReviewedPreferExactResolution(ResolvedCollectionMemberPlan member,
+			CollectionMemberCapabilityReport sourceReport, CollectionMemberCapabilityReport reviewedReport)
+		{
+			if (member == null || sourceReport == null || reviewedReport == null ||
+				reviewedReport.Status != CollectionCompatibilityStatus.Supported ||
+				member.ArtifactChoice.Kind != CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact ||
+				!member.ArtifactChoice.RequestedArtifact.Equals(member.ArtifactChoice.SelectedArtifact) ||
+				sourceReport.Status != CollectionCompatibilityStatus.ActionRequired || sourceReport.Issues.Count == 0)
+				return false;
+
+			foreach (CollectionCapabilityIssue issue in sourceReport.Issues)
+			{
+				if (!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode))
+					return false;
+			}
+
+			return true;
 		}
 
 		private void ValidateVerifiedArchive(CollectionVerifiedArchive verifiedArchive, CancellationToken cancellationToken)
@@ -541,10 +564,29 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static ModInstallationSimpleFileRecipe FreezePureFileFomodPlan(ModInstallationRecipeInput translated,
-			IGameMode gameMode)
+			IGameMode gameMode, NormalizedCollectionManifest manifest)
 		{
 			if (translated == null || !translated.HasNativePlan)
 				throw new InvalidDataException("The native FOMOD adapter did not produce an executable operation plan.");
+			if (manifest == null)
+				throw new ArgumentNullException(nameof(manifest));
+
+			var pluginFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (InstallModFileOperation file in translated.NativeOperations.OfType<InstallModFileOperation>())
+			{
+				if (!IsGamePluginPath(file.DestinationPath, gameMode))
+					continue;
+
+				string pluginName = GetPortableFileName(NormalizePortableArchivePath(file.DestinationPath));
+				if (!ManifestDeclaresPluginState(manifest, pluginName))
+				{
+					throw new NotSupportedException(String.Format(
+						"FOMOD selection installs plugin '{0}', but collection.json does not explicitly declare its final state in the top-level plugins section.",
+						pluginName));
+				}
+				pluginFiles.Add(pluginName);
+			}
+
 			var mappings = new List<ModInstallationSimpleFileMapping>();
 			foreach (ScriptedInstallOperation operation in translated.NativeOperations)
 			{
@@ -553,8 +595,6 @@ namespace Nexus.Client.CollectionManagement
 				{
 					if (file.DeploymentDecision != null)
 						throw new NotSupportedException("A characterized Collection FOMOD plan cannot already contain mutable deployment decisions.");
-					if (IsGamePluginPath(file.DestinationPath, gameMode))
-						throw new NotSupportedException("FOMOD selections which install native plugin files remain unsupported until Collection plugin-state semantics are characterized.");
 					mappings.Add(new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath));
 					continue;
 				}
@@ -562,12 +602,26 @@ namespace Nexus.Client.CollectionManagement
 				SetPluginActivationOperation activation = operation as SetPluginActivationOperation;
 				if (activation != null)
 				{
-					// The current native XML adapter emits guarded activation intents for selected files when a plugin
-					// manager exists. They are provable no-ops only for paths that cannot be plugins in this game.
-					if (!activation.RequireActivatablePlugin || IsGamePluginPath(activation.PluginPath, gameMode))
+					// Vortex applies the Collection's top-level plugin state after its member installs. For this
+					// characterized slice, the selected FOMOD may therefore install a plugin file, while the
+					// durable Collection review remains authoritative for that plugin's final active state.
+					if (activation.RequireActivatablePlugin && IsGamePluginPath(activation.PluginPath, gameMode))
+					{
+						string pluginName = GetPortableFileName(NormalizePortableArchivePath(activation.PluginPath));
+						if (!pluginFiles.Contains(pluginName) || !ManifestDeclaresPluginState(manifest, pluginName))
+						{
+							throw new NotSupportedException(
+								"The FOMOD emits plugin-state intent that cannot be bound to an explicitly declared Collection plugin file.");
+						}
+						continue;
+					}
+
+					// Guarded activations for non-plugin files are no-ops. Any unguarded plugin-state operation
+					// remains outside the characterized durable simple-file contract.
+					if (!activation.RequireActivatablePlugin)
 					{
 						throw new NotSupportedException(
-							"The characterized Collection FOMOD path supports only selections whose native result has no real plugin-state effects.");
+							"The characterized Collection FOMOD path does not support unconditional installer-local plugin-state operations.");
 					}
 					continue;
 				}
@@ -586,6 +640,12 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException(
 					"The characterized Collection FOMOD path supports only one-to-one file mappings without source replication or destination collisions.", ex);
 			}
+		}
+
+		private static bool ManifestDeclaresPluginState(NormalizedCollectionManifest manifest, string pluginName)
+		{
+			return manifest != null && manifest.HasPluginStateSection && !String.IsNullOrWhiteSpace(pluginName) &&
+				manifest.PluginStates.Any(state => StringComparer.OrdinalIgnoreCase.Equals(state.PluginName, pluginName));
 		}
 
 		private static bool IsGamePluginPath(string path, IGameMode gameMode)

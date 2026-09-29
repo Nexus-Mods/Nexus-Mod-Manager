@@ -86,6 +86,35 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void EffectPreviewBuilder_PluginNotYetOnDiskUsesDeclaredPluginPathForPreMutationReview()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-future", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			string installationPath;
+			string pluginDirectory;
+			IGameMode gameMode = CreatePluginPreviewGameMode(true, out installationPath, out pluginDirectory);
+			IPluginManager pluginManager = InterfaceStub<IPluginManager>.Create((method, args) =>
+			{
+				if (method.Name == "IsActivatiblePluginFile")
+					return File.Exists((string)args[0]);
+				return null;
+			});
+			IMod mod = CreatePluginPreviewMod();
+			ModInstallationRecipeInput recipeInput = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("source\\Future.esp", "Future.esp"));
+
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(
+				resolved, recipeInput, gameMode, mod, pluginManager);
+
+			Assert.That(File.Exists(Path.Combine(pluginDirectory, "Future.esp")), Is.False);
+			Assert.That(preview.PluginEffects.Count, Is.EqualTo(1));
+			Assert.That(preview.PluginEffects.Single().Active, Is.True);
+			Assert.That(preview.PluginEffects.Single().PluginPaths.Single(),
+				Is.EqualTo(Path.GetFullPath(Path.Combine(pluginDirectory, "Future.esp"))));
+		}
+
+		[Test]
 		public void EffectPreviewBuilder_PromotedVirtualPluginUsesSamePhysicalIdentityAsNativeDeployment()
 		{
 			NormalizedCollectionMember member = CreateMember(0, "plugin-virtual", 100, 200, 0);
@@ -647,23 +676,94 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Plan_InstalledExternalBeforeAfterEndpointRequiresReview()
+		public void Plan_InstalledHigherPriorityExternalEndpointOnSharedTargetRequiresReview()
 		{
 			NormalizedCollectionMember source = CreateMember(0, "enb-helper", 56566, 1, 0);
 			CollectionTargetIdentity target = CreateTarget();
 			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, "NAC X Legacy edition", true);
 			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-source", 56566, 1, "ENB Helper for Fallout 4");
 			CollectionNativeModState nac = CreateNativeMod(target, "native-nacx", 46722, 2, "NAC X Legacy edition");
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\shared.swf");
 			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, nac },
-				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				new[] { CreateFile(shared, "native-nacx") }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
 				externalPriorityRules: new[] { external });
 
 			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
-				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, shared) });
 
 			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent &&
 				x.SubjectKey == "native:native-nacx"));
+		}
+
+		[Test]
+		public void Plan_InstalledExternalEndpointWithoutSharedTargetIsNonBlocking()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "enb-helper", 56566, 1, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, "NAC X Legacy edition", true);
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-source", 56566, 1, "ENB Helper for Fallout 4");
+			CollectionNativeModState nac = CreateNativeMod(target, "native-nacx", 46722, 2, "NAC X Legacy edition");
+			ModDeploymentTarget sourceTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\source.swf");
+			ModDeploymentTarget externalTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\external.swf");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, nac },
+				new[] { CreateFile(externalTarget, "native-nacx") }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, sourceTarget) });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent));
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityReferenceEvaluationRequired));
+		}
+
+		[Test]
+		public void Plan_CollectionMemberAfterExactExternalEndpointCanTakeSharedWinner()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "fallui-hud", 51813, 257220, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, "HUDFramework 1.0f", false, "1.0f",
+				"058abd525c9651cbc9277d2ec54529c1", "HUDFramework 1.0f-20309-1-0f");
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-source", 51813, 257220, "FallUI - HUD", "1.7.1");
+			CollectionNativeModState hudFramework = CreateNativeMod(target, "native-hudframework", 20309, 1, "HUDFramework 1.0f", "1.0f",
+				"HUDFramework 1.0f-20309-1-0f.7z");
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\shared.swf");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, hudFramework },
+				new[] { CreateFile(shared, "native-hudframework") }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, shared) });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent));
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityReferenceEvaluationRequired));
+		}
+
+		[Test]
+		public void Plan_ExternalAfterRuleAuthorizesIncomingWinnerOverExistingExternalOwner()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "fallui-hud", 51813, 257220, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, "HUDFramework 1.0f", false, "1.0f",
+				"058abd525c9651cbc9277d2ec54529c1", "HUDFramework 1.0f-20309-1-0f");
+			CollectionNativeModState hudFramework = CreateNativeMod(target, "native-hudframework", 20309, 1, "HUDFramework 1.0f", "1.0f",
+				"HUDFramework 1.0f-20309-1-0f.7z");
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\shared.swf");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { hudFramework },
+				new[] { CreateFile(shared, "native-hudframework") }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+			ResolvedCollectionMemberPlan plannedMember = fixture.Plan.SelectedMembers.Single();
+			var match = new CollectionMemberMatchResult(plannedMember, CollectionMemberMatchDisposition.ArchiveOnlyReuse,
+				CollectionMemberMatchReason.VerifiedArchiveAvailable, new CollectionNativeModState[0], new CollectionMemberBinding[0], null);
+			var matches = new CollectionMemberMatchSet(fixture.Plan, fixture.State, new[] { match });
+			CollectionDependencyPhasePlan dependency = new CollectionDependencyPhasePlanner().Plan(fixture.Plan, matches);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, matches, dependency, fixture.State, new[] { CreatePreview(source, shared) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+			Assert.AreEqual(source.IdentityResolution.Key, result.FileImpacts.Single().PlannedWinner);
 		}
 
 		[Test]
@@ -813,6 +913,7 @@ namespace NexusClientTests
 				if (method.Name == "get_UsesPlugins") return usesPlugins;
 				if (method.Name == "get_InstallationPath") return capturedInstallationPath;
 				if (method.Name == "get_PluginDirectory") return capturedPluginDirectory;
+				if (method.Name == "get_PluginExtensions") return new[] { ".esp", ".esm", ".esl" };
 				if (method.Name == "get_GameModeEnvironmentInfo") return environmentInfo;
 				if (method.Name == "get_HasSecondaryInstallPath") return false;
 				if (method.Name == "CheckSecondaryInstall") return false;
@@ -903,12 +1004,13 @@ namespace NexusClientTests
 		}
 
 		private static CollectionExternalFilePriorityRule CreateExternalPriority(NormalizedCollectionMember source,
-			string logicalFileName, bool memberIsLowerPriority)
+			string logicalFileName, bool memberIsLowerPriority, string versionExpression = "*", string fileMd5 = null,
+			string fileExpression = null)
 		{
 			CollectionVortexVersionMatch version;
 			string failure;
-			Assert.IsTrue(CollectionVortexVersionMatch.TryCreate("*", out version, out failure), failure);
-			var reference = new CollectionConflictReference(null, logicalFileName, null, null, null, null, null, null, null, version);
+			Assert.IsTrue(CollectionVortexVersionMatch.TryCreate(versionExpression, out version, out failure), failure);
+			var reference = new CollectionConflictReference(fileMd5, logicalFileName, fileExpression, null, null, null, null, null, null, version);
 			return new CollectionExternalFilePriorityRule(source.IdentityResolution.Key, reference, memberIsLowerPriority);
 		}
 

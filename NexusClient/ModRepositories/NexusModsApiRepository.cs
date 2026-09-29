@@ -1827,6 +1827,48 @@
             }
 		}
 
+		/// <summary>
+		/// Resolves whether a Vortex Collection <c>prefer</c> policy may keep the manifest-requested Nexus file exactly.
+		/// </summary>
+		/// <remarks>
+		/// This deliberately does not select a successor. NMM's first compatibility slice only turns Prefer Exact into an
+		/// immutable exact choice when Nexus proves that exact file is still available. Archived/deleted/not-found files
+		/// remain unresolved so a later characterized substitution policy can choose a successor explicitly.
+		/// </remarks>
+		internal bool TryResolveCollectionPreferExactFile(int modId, int fileId, out bool exactAvailable)
+		{
+			exactAvailable = false;
+			try
+			{
+				NexusV1Client client = _apiCallManager.V1;
+				if (client == null)
+					return false;
+
+				NexusV1ModFile file = client.GetModFileAsync(GameDomainName, modId, fileId).GetAwaiter().GetResult();
+				if (file == null || file.FileId != fileId)
+					return false;
+
+				exactAvailable = file.Category != NexusV1FileCategory.Archived && file.Category != NexusV1FileCategory.Deleted;
+				return true;
+			}
+			catch (ApiException ex)
+			{
+				if (ex.ErrorKind == ApiErrorKind.NotFound)
+				{
+					exactAvailable = false;
+					return true;
+				}
+
+				ReactToApiException(ex);
+				return false;
+			}
+			catch (Exception ex)
+			{
+				TraceUtil.TraceException(ex);
+				return false;
+			}
+		}
+
 		/// <inheritdoc cref="IModRepository"/>
 		/// <inheritdoc cref="IModRepository"/>
 		public IModFileInfo GetFileInfoForFile(string fileName)

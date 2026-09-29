@@ -65,6 +65,30 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareBasicSimpleExact_ReviewedPreferExactDecisionSurvivesRetainedSourceRevalidation()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixtureCore(root, "prefer-exact-reviewed", null,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+					choicesJson: null, installScript: null, pluginsJson: null, updatePolicy: "prefer",
+					archiveFiles: new[] { @"textures\body.dds" });
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				Assert.That(prepared.RecipeInput.HasNativePlan, Is.True);
+				Assert.That(fixture.Plan.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareBasicSimpleExact_SameInputsProduceSamePreparedNativeIdentity()
 		{
 			string root = CreateTemporaryDirectory();
@@ -328,16 +352,43 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void PrepareExact_VortexFomodPluginFileRemainsBlockedUntilPluginStateStage()
+		public void PrepareExact_VortexFomodPluginFileWithoutCollectionPluginStateRemainsBlocked()
 		{
 			string root = CreateTemporaryDirectory();
 			try
 			{
-				Fixture fixture = CreateFomodPluginFixture(root, "fomod-plugin");
+				Fixture fixture = CreateFomodPluginFixture(root, "fomod-plugin-blocked", false);
 
 				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareExact(
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
-					fixture.InstallContext, fixture.State, false));
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager()));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFomodPluginFileWithExplicitCollectionStateFreezesReviewedSimpleFilePlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodPluginFixture(root, "fomod-plugin-supported", true);
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+
+				Assert.That(prepared.AdapterId, Is.EqualTo(ModInstallationSimpleFileRecipeAdapter.AdapterId));
+				InstallModFileOperation file = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(file.SourcePath, Is.EqualTo(@"plugin\choice.esp"));
+				Assert.That(file.DestinationPath, Is.EqualTo(@"choice.esp"));
+				Assert.That(prepared.EffectPreview.PluginEffects.Count, Is.EqualTo(1));
+				Assert.That(prepared.EffectPreview.PluginEffects.Single().Active, Is.True);
+				Assert.That(fixture.Plan.CapabilityReport.Manifest.HasPluginStateSection, Is.True);
+				Assert.That(fixture.Plan.CapabilityReport.Manifest.PluginStates.Single().PluginName, Is.EqualTo("choice.esp"));
 			}
 			finally
 			{
@@ -391,7 +442,7 @@ namespace NexusClientTests
 				choicesJson, script, @"textures\map-4k.dds", @"textures\map-2k.dds");
 		}
 
-		private static Fixture CreateFomodPluginFixture(string root, string suffix)
+		private static Fixture CreateFomodPluginFixture(string root, string suffix, bool declarePluginState)
 		{
 			var scriptType = new XmlScriptType();
 			var script = new XmlScript(scriptType, new Version(5, 0));
@@ -403,8 +454,9 @@ namespace NexusClientTests
 
 			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Plugin Step\",\"groups\":[" +
 				"{\"name\":\"Plugin Group\",\"choices\":[{\"name\":\"Plugin\",\"idx\":0}]}]}]}";
+			string pluginsJson = declarePluginState ? "[{\"name\":\"choice.esp\",\"enabled\":true}]" : null;
 			Fixture fixture = CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
-				choicesJson, script, @"plugin\choice.esp");
+				choicesJson, script, pluginsJson, @"plugin\choice.esp");
 			fixture.GameMode = CreateGameMode(false, null, false, new[] { ".esp", ".esm", ".esl" });
 			return fixture;
 		}
@@ -419,11 +471,23 @@ namespace NexusClientTests
 		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
 			bool supportsGameRootInstall, params string[] archiveFiles)
 		{
-			return CreateFixtureCore(root, suffix, modType, installContext, supportsGameRootInstall, null, null, archiveFiles);
+			return CreateFixtureCore(root, suffix, modType, installContext, supportsGameRootInstall, null, null, null, "exact", archiveFiles);
 		}
 
 		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
 			bool supportsGameRootInstall, string choicesJson, IScript installScript, params string[] archiveFiles)
+		{
+			return CreateFixtureCore(root, suffix, modType, installContext, supportsGameRootInstall, choicesJson, installScript, null, "exact", archiveFiles);
+		}
+
+		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
+			bool supportsGameRootInstall, string choicesJson, IScript installScript, string pluginsJson, params string[] archiveFiles)
+		{
+			return CreateFixtureCore(root, suffix, modType, installContext, supportsGameRootInstall, choicesJson, installScript, pluginsJson, "exact", archiveFiles);
+		}
+
+		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
+			bool supportsGameRootInstall, string choicesJson, IScript installScript, string pluginsJson, string updatePolicy, params string[] archiveFiles)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
@@ -435,13 +499,21 @@ namespace NexusClientTests
 
 			string details = String.IsNullOrEmpty(modType) ? String.Empty : ",\"details\":{\"type\":\"" + modType + "\"}";
 			string choices = String.IsNullOrEmpty(choicesJson) ? String.Empty : ",\"choices\":" + choicesJson;
+			string plugins = String.IsNullOrEmpty(pluginsJson) ? String.Empty : ",\"plugins\":" + pluginsJson;
 			string json = "{" +
 				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Example\",\"description\":\"Example\",\"domainName\":\"skyrim\"}," +
-				"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"updatePolicy\":\"exact\"}" + details + choices + "}]," +
-				"\"modRules\":[]}";
+				"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"updatePolicy\":\"" + updatePolicy + "\"}" + details + choices + "}]," +
+				"\"modRules\":[]" + plugins + "}";
 			byte[] manifestBytes = Encoding.UTF8.GetBytes(json);
 			NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
-			Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
+			CollectionCapabilityReport reviewedCapability = normalization.CapabilityReport;
+			if (StringComparer.Ordinal.Equals(updatePolicy, "prefer"))
+			{
+				Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.ActionRequired));
+				reviewedCapability = normalization.CapabilityReport.FilterDeclaredIssues(issue =>
+					!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode));
+			}
+			Assert.That(reviewedCapability.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
 			var sourceStore = new CollectionsRevisionSourceStore(store);
 			CollectionRevisionSourceRecord sourceRecord = sourceStore.RetainManifest(normalization.Manifest,
 				CollectionRevisionSourceInputKind.RawManifest, normalization.Manifest.Source.ContentHash,
@@ -452,7 +524,7 @@ namespace NexusClientTests
 			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-sha256:" + new string('a', 64));
 			CollectionNativeStateIndex state = CreateState(target, 0);
 			var plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
-				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, normalization.CapabilityReport, new[] { member });
+				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, reviewedCapability, new[] { member });
 
 			string modArchivePath = Path.Combine(root, "managed-" + suffix + ".7z");
 			byte[] archiveBytes = Encoding.UTF8.GetBytes("verified archive bytes for " + suffix);
@@ -503,7 +575,7 @@ namespace NexusClientTests
 						return new[] { "transformed.bin" };
 					case "get_RequiresModFileMerge": return false;
 					case "get_HasSecondaryInstallPath": return false;
-					case "GetModFormatAdjustedPath": return AdjustPath(args);
+					case "GetModFormatAdjustedPath": return pluginExtensions != null ? (string)args[1] : AdjustPath(args);
 					default: return null;
 				}
 			});

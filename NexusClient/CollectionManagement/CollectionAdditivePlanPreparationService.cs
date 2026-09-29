@@ -15,16 +15,25 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionTargetIdentityResolver _targetIdentityResolver;
 		private readonly CollectionNativeStateReader _nativeStateReader;
 		private readonly CollectionResolvedPlanBuilder _resolvedPlanBuilder;
+		private readonly CollectionNexusPreferExactPolicyResolver _preferExactPolicyResolver;
 
 		/// <summary>
 		/// Creates the C6.15.4 preparation bridge over the existing C4 target resolver, C6.1 state reader and resolved-plan builder.
 		/// </summary>
 		public CollectionAdditivePlanPreparationService(CollectionTargetIdentityResolver targetIdentityResolver,
 			CollectionNativeStateReader nativeStateReader, CollectionResolvedPlanBuilder resolvedPlanBuilder)
+			: this(targetIdentityResolver, nativeStateReader, resolvedPlanBuilder, null)
+		{
+		}
+
+		internal CollectionAdditivePlanPreparationService(CollectionTargetIdentityResolver targetIdentityResolver,
+			CollectionNativeStateReader nativeStateReader, CollectionResolvedPlanBuilder resolvedPlanBuilder,
+			CollectionNexusPreferExactPolicyResolver preferExactPolicyResolver)
 		{
 			_targetIdentityResolver = targetIdentityResolver ?? throw new ArgumentNullException(nameof(targetIdentityResolver));
 			_nativeStateReader = nativeStateReader ?? throw new ArgumentNullException(nameof(nativeStateReader));
 			_resolvedPlanBuilder = resolvedPlanBuilder ?? throw new ArgumentNullException(nameof(resolvedPlanBuilder));
+			_preferExactPolicyResolver = preferExactPolicyResolver;
 		}
 
 		/// <summary>
@@ -36,6 +45,9 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(effectiveSelection));
 			if (targetPaths == null)
 				throw new ArgumentNullException(nameof(targetPaths));
+
+			if (_preferExactPolicyResolver != null)
+				effectiveSelection = _preferExactPolicyResolver.Resolve(effectiveSelection);
 
 			CollectionTargetAuthority authority = _targetIdentityResolver.Resolve(targetPaths);
 			CollectionNativeStateIndex nativeState = _nativeStateReader.Capture(authority.Target);

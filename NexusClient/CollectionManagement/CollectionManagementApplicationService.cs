@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
+using Nexus.Client.OnlineServices.NexusMods.Collections;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -36,6 +37,38 @@ namespace Nexus.Client.CollectionManagement
 				return "Revision " + revision.NexusRevisionNumber.Value;
 			return "Local revision " + revision.StableRevisionId;
 		}
+	}
+
+	/// <summary>
+	/// Read-only durable presentation data for one installed Collection association.
+	/// </summary>
+	/// <remarks>
+	/// The installed association remains authoritative for applied state. The retained manifest is re-normalized only to
+	/// rebuild the read-only Collection details/member list after restart; it does not create a new preparation or mutation.
+	/// </remarks>
+	public sealed class CollectionManagementAssociationPresentation
+	{
+		internal CollectionManagementAssociationPresentation(CollectionManagementAssociation association,
+			CollectionDefinition definition, CollectionRevision revision, NexusCollectionBundleImportResult retainedManifest,
+			IEnumerable<CollectionMemberKey> boundMemberKeys, string nexusGameDomain, string retainedSourceIssue)
+		{
+			Association = association ?? throw new ArgumentNullException(nameof(association));
+			Definition = definition;
+			Revision = revision;
+			RetainedManifest = retainedManifest;
+			BoundMemberKeys = new ReadOnlyCollection<CollectionMemberKey>((boundMemberKeys ?? Enumerable.Empty<CollectionMemberKey>()).ToList());
+			NexusGameDomain = String.IsNullOrWhiteSpace(nexusGameDomain) ? null : nexusGameDomain.Trim().ToLowerInvariant();
+			RetainedSourceIssue = retainedSourceIssue;
+		}
+
+		public CollectionManagementAssociation Association { get; }
+		public CollectionDefinition Definition { get; }
+		public CollectionRevision Revision { get; }
+		public NexusCollectionBundleImportResult RetainedManifest { get; }
+		public IReadOnlyList<CollectionMemberKey> BoundMemberKeys { get; }
+		public string NexusGameDomain { get; }
+		public string RetainedSourceIssue { get; }
+		public bool HasRetainedManifest { get { return RetainedManifest != null; } }
 	}
 
 	/// <summary>One persisted Local Collection capture available to the active target for explicit restore.</summary>
@@ -76,6 +109,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsCatalogStore _catalogStore;
 		private readonly CollectionsAssociationStore _associationStore;
 		private readonly CollectionsOperationStore _operationStore;
+		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
 		private readonly CollectionUninstallEffectsCoordinator _uninstallCoordinator;
 		private readonly CollectionsLocalCaptureStore _localCaptureStore;
 		private readonly CollectionLocalRestoreMemberResumeCoordinator _localRestoreResumeCoordinator;
@@ -93,6 +127,7 @@ namespace Nexus.Client.CollectionManagement
 			_catalogStore = new CollectionsCatalogStore(_store);
 			_associationStore = new CollectionsAssociationStore(_store);
 			_operationStore = new CollectionsOperationStore(_store);
+			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
 			_uninstallCoordinator = new CollectionUninstallEffectsCoordinator(_services, _gameStorageService,
 				_operationStore, _associationStore);
 			_localCaptureStore = new CollectionsLocalCaptureStore(_store);
@@ -122,6 +157,68 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionManagementAssociation>(result
 				.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase)
 				.ThenBy(x => x.RevisionLabel, StringComparer.CurrentCultureIgnoreCase).ToList());
+		}
+
+		/// <summary>
+		/// Rehydrates one installed Collection association for read-only presentation from durable catalog/retained source data.
+		/// </summary>
+		/// <remarks>
+		/// This method performs no provider/network access and no native mutation. Failure to reload the retained manifest is
+		/// returned as a presentation issue so the durable association can still be displayed and managed.
+		/// </remarks>
+		public CollectionManagementAssociationPresentation GetAssociationPresentation(Guid associationId)
+		{
+			if (associationId == Guid.Empty)
+				throw new ArgumentException("A non-empty association identifier is required.", nameof(associationId));
+			if (!_store.Exists)
+				return null;
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			CollectionTargetAssociation association = _associationStore.GetAssociationsForTarget(target)
+				.FirstOrDefault(x => x.AssociationId == associationId);
+			if (association == null)
+				return null;
+
+			CollectionDefinition definition = _catalogStore.GetDefinition(association.Revision.Collection);
+			CollectionRevision revision = _catalogStore.GetRevision(association.Revision);
+			var managedAssociation = new CollectionManagementAssociation(association,
+				definition == null ? null : definition.DisplayName,
+				revision == null ? null : revision.RevisionLabel);
+
+			NexusCollectionBundleImportResult retainedManifest = null;
+			string retainedSourceIssue = null;
+			if (revision == null)
+			{
+				retainedSourceIssue = "The installed Collection revision metadata is missing from the durable Collections catalog.";
+			}
+			else
+			{
+				try
+				{
+					CollectionRevisionSourceRecord source = _revisionSourceStore.GetSource(revision.Identity);
+					if (source == null)
+					{
+						retainedSourceIssue = "The exact retained Collection manifest is not available for this installed revision.";
+					}
+					else
+					{
+						byte[] rawManifest = _revisionSourceStore.LoadManifest(revision.Identity, source.ManifestSource);
+						NexusCollectionManifestNormalizationResult normalized = new NexusCollectionManifestNormalizer().Normalize(rawManifest, revision);
+						retainedManifest = new NexusCollectionBundleImportResult(
+							ToBundleInputKind(source.InputKind), source.BundleContentHash, source.BundleByteLength,
+							source.ManifestEntryName, normalized);
+					}
+				}
+				catch (Exception ex)
+				{
+					retainedSourceIssue = ex.Message;
+				}
+			}
+
+			IReadOnlyList<CollectionMemberBinding> bindings = _associationStore.GetBindings(associationId);
+			string gameDomain = _services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName;
+			return new CollectionManagementAssociationPresentation(managedAssociation, definition, revision, retainedManifest,
+				bindings.Select(x => x.MemberKey), gameDomain, retainedSourceIssue);
 		}
 
 		/// <summary>Returns persisted Local Collection captures belonging to the current canonical target.</summary>
@@ -175,6 +272,23 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken)
 		{
 			return _uninstallCoordinator.ExecuteAsync(reviewedPlan, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>
+		/// Repairs missing Nexus metadata for already-applied Collection members without changing installed effects or Collection provenance.
+		/// </summary>
+		public int RefreshAppliedNexusMetadata()
+		{
+			if (!_store.Exists)
+				return 0;
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var bindings = new List<CollectionMemberBinding>();
+			foreach (CollectionTargetAssociation association in _associationStore.GetAssociationsForTarget(target)
+				.Where(x => x.State == CollectionAssociationState.Applied))
+			{
+				bindings.AddRange(_associationStore.GetBindings(association.AssociationId));
+			}
+			return new CollectionNexusMetadataHydrator(_services.ModManager).Enrich(bindings);
 		}
 
 		/// <summary>Reconciles persisted Local restore operations through every remaining C7 phase and aggregate final verification.</summary>
@@ -242,6 +356,19 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionTargetIdentity ResolveCurrentTarget()
 		{
 			return new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths()).Target;
+		}
+
+		private static NexusCollectionBundleInputKind ToBundleInputKind(CollectionRevisionSourceInputKind inputKind)
+		{
+			switch (inputKind)
+			{
+				case CollectionRevisionSourceInputKind.RawManifest:
+					return NexusCollectionBundleInputKind.RawManifest;
+				case CollectionRevisionSourceInputKind.Archive:
+					return NexusCollectionBundleInputKind.Archive;
+				default:
+					throw new InvalidOperationException("The retained Collection revision has an unsupported source kind.");
+			}
 		}
 	}
 }

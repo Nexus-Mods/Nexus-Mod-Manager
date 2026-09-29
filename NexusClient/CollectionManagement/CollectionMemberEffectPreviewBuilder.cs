@@ -147,7 +147,14 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			string deployedPath = ModDeploymentTargetResolver.GetPhysicalPath(gameMode, target);
-			if (pluginManager.IsActivatiblePluginFile(deployedPath) && !requestedActivations.ContainsKey(deployedPath))
+			bool activatable = pluginManager.IsActivatiblePluginFile(deployedPath);
+			// Gamebryo's native plugin factory requires the file to exist. Collection review happens before
+			// mutation, so use the game mode's declared plugin directory/extensions to characterize a future
+			// plugin path when the exact reviewed file is not on disk yet. Never override a rejection for an
+			// already-existing file.
+			if (!activatable && !File.Exists(deployedPath))
+				activatable = IsPotentialActivatablePluginPath(gameMode, deployedPath);
+			if (activatable && !requestedActivations.ContainsKey(deployedPath))
 				requestedActivations.Add(deployedPath, true);
 		}
 
@@ -162,13 +169,40 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			string fixedPath = gameMode.GetModFormatAdjustedPath(mod.Format, activation.PluginPath, false);
-			if (activation.RequireActivatablePlugin && !pluginManager.IsActivatiblePluginFile(fixedPath))
-				return;
-
 			string physicalPath = Path.IsPathRooted(fixedPath)
 				? fixedPath
 				: Path.Combine(gameMode.GameModeEnvironmentInfo.InstallationPath, fixedPath);
+			if (activation.RequireActivatablePlugin)
+			{
+				bool activatable = pluginManager.IsActivatiblePluginFile(physicalPath);
+				if (!activatable && !File.Exists(physicalPath))
+					activatable = IsPotentialActivatablePluginPath(gameMode, physicalPath);
+				if (!activatable)
+					return;
+			}
+
 			requestedActivations[physicalPath] = activation.Activate;
+		}
+
+		private static bool IsPotentialActivatablePluginPath(IGameMode gameMode, string physicalPath)
+		{
+			if (gameMode == null || !gameMode.UsesPlugins || String.IsNullOrWhiteSpace(physicalPath) ||
+				gameMode.PluginExtensions == null)
+				return false;
+
+			string extension = Path.GetExtension(physicalPath);
+			if (String.IsNullOrEmpty(extension) || !gameMode.PluginExtensions.Any(candidate =>
+				String.Equals(candidate, extension, StringComparison.OrdinalIgnoreCase)))
+				return false;
+
+			string pluginDirectory = gameMode.PluginDirectory;
+			if (String.IsNullOrWhiteSpace(pluginDirectory))
+				return true;
+
+			string normalizedPluginDirectory = Path.GetFullPath(pluginDirectory).TrimEnd(
+				Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+			string normalizedFileDirectory = Path.GetDirectoryName(Path.GetFullPath(physicalPath));
+			return String.Equals(normalizedPluginDirectory, normalizedFileDirectory, StringComparison.OrdinalIgnoreCase);
 		}
 
 		private static bool WillBecomePhysicalWinner(InstallModFileOperation operation)

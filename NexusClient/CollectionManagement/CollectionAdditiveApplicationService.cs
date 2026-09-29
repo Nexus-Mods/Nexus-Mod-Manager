@@ -172,7 +172,6 @@ namespace Nexus.Client.CollectionManagement
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, associationStore);
 			var targetResolver = new CollectionTargetIdentityResolver(_gameStorageService);
 			var planBuilder = new CollectionResolvedPlanBuilder(_catalogStore, _revisionSourceStore, operationCoordinator);
-			var planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder);
 
 			var requestCoordinator = new CollectionAcquisitionRequestCoordinator(
 				new ModManagerCollectionAddModQueue(_services.ModManager), acquisitionStore);
@@ -180,6 +179,8 @@ namespace Nexus.Client.CollectionManagement
 			var nexusRepository = _services.ModRepository as NexusModsApiRepository;
 			if (nexusRepository == null)
 				throw new InvalidOperationException("Nexus Collections require the active NexusModsApiRepository implementation.");
+			var preferExactResolver = new CollectionNexusPreferExactPolicyResolver(_revisionSourceStore, nexusRepository);
+			var planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder, preferExactResolver);
 			var archiveVerifier = new NexusCollectionArchiveIdentityVerifier(nexusRepository);
 			var archiveAdopter = new CollectionVerifiedArchiveAdopter(archiveSource, archiveVerifier,
 				artifactStore, referenceStore, acquisitionStore);

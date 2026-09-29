@@ -82,6 +82,17 @@ namespace Nexus.Client.CollectionManagement
 		/// C6.15.4 can use this identity when deciding whether changed optional choices require a new resolved-plan version.
 		/// </remarks>
 		public string SelectionFingerprint { get; }
+
+		/// <summary>Returns the same selection projection with a resolver-refined capability report.</summary>
+		internal CollectionEffectiveSelection WithCapabilityReport(CollectionCapabilityReport capabilityReport)
+		{
+			if (capabilityReport == null)
+				throw new ArgumentNullException(nameof(capabilityReport));
+			if (!ReferenceEquals(Manifest, capabilityReport.Manifest))
+				throw new ArgumentException("A refined capability report must describe this exact effective manifest.", nameof(capabilityReport));
+
+			return new CollectionEffectiveSelection(Manifest, capabilityReport, SelectionFingerprintFormatVersion, SelectionFingerprint);
+		}
 	}
 
 	/// <summary>

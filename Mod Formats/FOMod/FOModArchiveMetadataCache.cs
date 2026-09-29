@@ -631,15 +631,29 @@ VALUES
 
 		private static void CommitDatabase(SharedDatabase database)
 		{
-			if (database.PendingWrites == 0)
+			if (database.Transaction == null)
 			{
 				return;
 			}
 
-			// Archive metadata is cache data, so batching commits avoids a disk flush per mod.
-			database.Transaction.Commit();
+			// Archive metadata cache writes may be batched while they are pending, but once a batch is
+			// committed there is no reason to keep a new SQLite write transaction open. In production
+			// FOMod.dll can be reached through more than one load context (the discovered ModFormats
+			// assembly and NMM-owned services referencing the same store). An idle transaction on one
+			// connection therefore prevents the other connection from beginning its own durable write.
+			if (database.PendingWrites > 0)
+			{
+				database.Transaction.Commit();
+			}
+			else
+			{
+				// A transaction with no published pending writes can only be an unused/failed batch.
+				// Roll it back so it cannot retain a writer reservation indefinitely.
+				database.Transaction.Rollback();
+			}
+
 			database.Transaction.Dispose();
-			database.Transaction = database.Connection.BeginTransaction();
+			database.Transaction = null;
 			database.PendingWrites = 0;
 			database.LastCommitUtc = DateTime.UtcNow;
 		}
@@ -685,6 +699,8 @@ VALUES
 					ForeignKeys = true,
 					JournalMode = SQLiteJournalModeEnum.Delete,
 					Pooling = false,
+					// This store owns its explicit SQLite transaction lifetime; do not inherit an installer TransactionScope.
+					Enlist = false,
 					SyncMode = SynchronizationModes.Normal,
 					DefaultTimeout = BusyTimeoutSeconds
 				};

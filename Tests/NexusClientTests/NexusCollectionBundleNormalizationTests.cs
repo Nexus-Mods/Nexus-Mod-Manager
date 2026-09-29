@@ -221,6 +221,35 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Normalize_ExcludePluginRulesIsValidatedAsExportTimeConfiguration()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"collectionConfig\":{\"recommendNewProfile\":false,\"excludePluginRules\":false,\"referenceTagScheme\":\"v1\"}");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.IsFalse(result.CapabilityReport.ManifestIssues.Any(x => x.FieldPath == "$.collectionConfig.excludePluginRules"));
+		}
+
+		[Test]
+		public void Normalize_InvalidExcludePluginRulesRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"collectionConfig\":{\"excludePluginRules\":\"no\"}");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x =>
+				x.Code == "manifest.collection-config-invalid" && x.FieldPath == "$.collectionConfig.excludePluginRules"));
+		}
+
+		[Test]
 		public void Normalize_UnknownReferenceTagSchemeRemainsFailClosed()
 		{
 			string json = BuildManifest(
@@ -726,6 +755,78 @@ namespace NexusClientTests
 
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
 			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_ExternalBeforeEndpointWithExactTextVersionIsCharacterized()
+		{
+			string member = "{\"name\":\"FallUI - HUD\",\"version\":\"1.7.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":51813,\"fileId\":257220,\"md5\":\"3871060641dc09aa27fe80442fe51d73\",\"logicalFilename\":\"FallUI - HUD\"}}";
+			string rules = "[{\"type\":\"after\",\"source\":{\"fileExpression\":\"FallUI - HUD-51813-1-7-1-1668637124\",\"fileMD5\":\"3871060641dc09aa27fe80442fe51d73\",\"versionMatch\":\"1.7.1\",\"logicalFileName\":\"FallUI - HUD\"},\"reference\":{\"fileExpression\":\"HUDFramework 1.0f-20309-1-0f\",\"fileMD5\":\"058abd525c9651cbc9277d2ec54529c1\",\"versionMatch\":\"1.0f\",\"logicalFileName\":\"HUDFramework 1.0f\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.ExternalFilePriorityRules.Count);
+			Assert.AreEqual("1.0f", result.Manifest.ExternalFilePriorityRules.Single().ExternalReference.VersionMatch.Expression);
+		}
+
+		[Test]
+		public void Normalize_ExternalEndpointCanUseExactFileExpressionWithoutLogicalName()
+		{
+			string member = "{\"name\":\"Bundled settings\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":10,\"fileExpression\":\"Module 02 settings\",\"tag\":\"settingsTag\"}}";
+			string rules = "[{\"type\":\"after\",\"source\":{\"fileExpression\":\"Module 02 settings\",\"versionMatch\":\"*\",\"tag\":\"settingsTag\"},\"reference\":{\"fileExpression\":\"Bundled - Module 05 settings (v1)\",\"fileMD5\":\"eca4836dadca1fe0bebd622d8b1910d9\",\"versionMatch\":\"1.0.0\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.ExternalFilePriorityRules.Count);
+			Assert.AreEqual("Bundled - Module 05 settings (v1)", result.Manifest.ExternalFilePriorityRules.Single().ExternalReference.FileExpression);
+		}
+
+		[Test]
+		public void Normalize_GeneratedReferenceExpressionCanBindAnotherCollectionMemberByExactMd5()
+		{
+			const string hudMd5 = "3871060641dc09aa27fe80442fe51d73";
+			string members =
+				"{\"name\":\"FallUI - HUD\",\"version\":\"1.7.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":51813,\"fileId\":257220,\"md5\":\"" + hudMd5 + "\",\"logicalFilename\":\"FallUI - HUD\"}}," +
+				"{\"name\":\"Bundled settings\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":10,\"fileExpression\":\"Bundled settings\",\"tag\":\"settingsTag\"}}";
+			string rules = "[{\"type\":\"after\",\"source\":{\"fileExpression\":\"Bundled settings\",\"versionMatch\":\"*\",\"tag\":\"settingsTag\"},\"reference\":{\"fileExpression\":\"FallUI - HUD-51813-1-7-1-1668637124\",\"fileMD5\":\"" + hudMd5 + "\",\"versionMatch\":\"1.7.1\",\"logicalFileName\":\"FallUI - HUD\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(0, result.Manifest.ExternalFilePriorityRules.Count);
+		}
+
+		[Test]
+		public void Normalize_Module02HudFixtureLeavesOnlyPreferExactPoliciesForProviderResolution()
+		{
+			string members =
+				"{\"name\":\"FallUI - HUD\",\"version\":\"1.7.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":51813,\"fileId\":257220,\"md5\":\"3871060641dc09aa27fe80442fe51d73\",\"logicalFilename\":\"FallUI - HUD\",\"updatePolicy\":\"exact\"}}," +
+				"{\"name\":\"FallUI - Inventory\",\"version\":\"2.2.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":48758,\"fileId\":254844,\"md5\":\"f51979f417a2ef1f38f21417d792cc3b\",\"logicalFilename\":\"FallUI - Inventory\",\"updatePolicy\":\"exact\"}}," +
+				"{\"name\":\"JHUD - FallUI HUD Preset\",\"version\":\"1.2\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":66566,\"fileId\":259831,\"md5\":\"8a417efec9f24b843ef58b334c4dd914\",\"logicalFilename\":\"JHUD - FallUI HUD Preset\",\"updatePolicy\":\"prefer\"}}," +
+				"{\"name\":\"FallUI - Sleep And Wait\",\"version\":\"1.4\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":49070,\"fileId\":256778,\"md5\":\"96f6441906b8174742789ee2be8593d4\",\"logicalFilename\":\"FallUI - Sleep And Wait\",\"updatePolicy\":\"prefer\"}}," +
+				"{\"name\":\"Neko FallUI_HUD Preset\",\"version\":\"1.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":71969,\"fileId\":279784,\"md5\":\"519fa511e7156bb81958abeed1c66143\",\"logicalFilename\":\"Neko FallUI_HUD Preset\",\"updatePolicy\":\"prefer\"}}," +
+				"{\"name\":\"[Module 02 - Settings] FallUI - Minimal.zip\",\"version\":\"1.0.0\",\"optional\":true,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":24576,\"updatePolicy\":\"exact\",\"fileExpression\":\"Bundled - [Module 02 - Settings] FallUI - Minimal.zip (v_63_)\",\"tag\":\"N_ykpPtEGz\"}}";
+			string rules = "[" +
+				"{\"type\":\"after\",\"source\":{\"fileExpression\":\"FallUI - HUD-51813-1-7-1-1668637124\",\"fileMD5\":\"3871060641dc09aa27fe80442fe51d73\",\"versionMatch\":\"1.7.1\",\"logicalFileName\":\"FallUI - HUD\"},\"reference\":{\"fileExpression\":\"HUDFramework 1.0f-20309-1-0f\",\"fileMD5\":\"058abd525c9651cbc9277d2ec54529c1\",\"versionMatch\":\"1.0f\",\"logicalFileName\":\"HUDFramework 1.0f\"}}," +
+				"{\"type\":\"after\",\"source\":{\"fileExpression\":\"FallUI - Inventory-48758-2-2-1-1666954336\",\"fileMD5\":\"f51979f417a2ef1f38f21417d792cc3b\",\"versionMatch\":\"2.2.1\",\"logicalFileName\":\"FallUI - Inventory\"},\"reference\":{\"fileExpression\":\"Vault Girl Interface - Neo's FOMOD Version-38220-1-0-3-1563051101\",\"fileMD5\":\"6dcef05b6133cf3b834371aaf17621fd\",\"versionMatch\":\"1.0.3\",\"logicalFileName\":\"Vault Girl Interface - Neo's FOMOD Version\"}}," +
+				"{\"type\":\"after\",\"source\":{\"fileExpression\":\"[Module 02 - Settings] FallUI - Minimal\",\"versionMatch\":\"*\",\"tag\":\"N_ykpPtEGz\"},\"reference\":{\"fileExpression\":\"Bundled - [Module 05 - Settings] FallUI - Minimal.7z (v_63_)\",\"fileMD5\":\"eca4836dadca1fe0bebd622d8b1910d9\",\"versionMatch\":\"1.0.0\"}}," +
+				"{\"type\":\"after\",\"source\":{\"fileExpression\":\"[Module 02 - Settings] FallUI - Minimal\",\"versionMatch\":\"*\",\"tag\":\"N_ykpPtEGz\"},\"reference\":{\"fileExpression\":\"FallUI - HUD-51813-1-7-1-1668637124\",\"fileMD5\":\"3871060641dc09aa27fe80442fe51d73\",\"versionMatch\":\"1.7.1\",\"logicalFileName\":\"FallUI - HUD\"}}]";
+			string json = BuildManifest(members, rules,
+				"\"collectionConfig\":{\"recommendNewProfile\":false,\"excludePluginRules\":false,\"referenceTagScheme\":\"v1\"}");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 6);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.ActionRequired, result.CapabilityReport.Status);
+			Assert.IsFalse(result.CapabilityReport.AllIssues.Any(x => x.Status == CollectionCompatibilityStatus.Unsupported));
+			CollectionAssert.AreEquivalent(new[] { 2, 3, 4 }, result.CapabilityReport.AllIssues
+				.Where(x => x.Code == "member.source-policy-prefer-needs-resolution")
+				.Select(x => x.SourceOrdinal.Value).ToArray());
+			Assert.AreEqual(3, result.Manifest.ExternalFilePriorityRules.Count);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count,
+				"The Module 02 settings -> FallUI HUD rule must bind back to the selected HUD member by exact MD5.");
 		}
 
 		[Test]

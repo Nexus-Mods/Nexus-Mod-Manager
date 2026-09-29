@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -172,6 +173,18 @@ namespace Nexus.Client.CollectionManagement
 			ValidateSelectionProjection(Manifest, manifest);
 
 			return Create(manifest, _declaredIssues);
+		}
+
+		/// <summary>
+		/// Rebuilds capability for the same immutable manifest after one pre-review resolver has proven that selected
+		/// declared findings no longer require user action. Intrinsic issues are always recalculated and cannot be filtered.
+		/// </summary>
+		internal CollectionCapabilityReport FilterDeclaredIssues(Func<CollectionCapabilityIssue, bool> keepIssue)
+		{
+			if (keepIssue == null)
+				throw new ArgumentNullException(nameof(keepIssue));
+
+			return Create(Manifest, _declaredIssues.Where(keepIssue));
 		}
 
 		private static void ValidateSelectionProjection(NormalizedCollectionManifest source, NormalizedCollectionManifest candidate)

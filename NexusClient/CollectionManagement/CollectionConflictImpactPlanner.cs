@@ -41,7 +41,7 @@ namespace Nexus.Client.CollectionManagement
 			Dictionary<CollectionMemberKey, CollectionMemberMatchResult> matchByKey = matches.MembersByKey.ToDictionary(x => x.Key, x => x.Value);
 
 			EvaluateCompatibilityConstraints(plan, matches, nativeState, issues);
-			EvaluateExternalPriorityRules(plan, matches, nativeState, issues);
+			EvaluateExternalPriorityRules(plan, matches, nativeState, previews, issues);
 
 			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
 			{
@@ -168,7 +168,8 @@ namespace Nexus.Client.CollectionManagement
 
 
 		private static void EvaluateExternalPriorityRules(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
-			CollectionNativeStateIndex nativeState, IList<CollectionConflictImpactIssue> issues)
+			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
+			IList<CollectionConflictImpactIssue> issues)
 		{
 			if (plan.CapabilityReport.Manifest.ExternalFilePriorityRules.Count == 0) return;
 			var selected = new HashSet<CollectionMemberKey>(plan.SelectedMembers.Select(x => x.MemberKey));
@@ -178,36 +179,76 @@ namespace Nexus.Client.CollectionManagement
 			foreach (CollectionExternalFilePriorityRule rule in plan.CapabilityReport.Manifest.ExternalFilePriorityRules)
 			{
 				if (!selected.Contains(rule.MemberKey)) continue;
+				HashSet<ModDeploymentTarget> memberTargets = GetMemberFileTargets(rule.MemberKey, matches, nativeState, previews);
+				if (memberTargets.Count == 0)
+					continue; // A deployment-priority edge has no native effect when the Collection member owns no file target.
+
 				var matchesFound = new List<CollectionNativeModState>();
 				var unknown = new List<CollectionNativeModState>();
 				foreach (CollectionNativeModState nativeMod in nativeState.Mods.Values
 					.Where(x => !represented.Contains(x.Identity)).OrderBy(x => x.Identity.NativeModKey, StringComparer.Ordinal))
 				{
+					if (!NativeModOwnsAnyTarget(nativeState, nativeMod.Identity.NativeModKey, memberTargets))
+						continue; // Vortex before/after only matters where the two mods actually compete for a deployed path.
 					CollectionConflictNativeMatch result = MatchConflictReference(rule.ExternalReference, nativeMod);
 					if (result == CollectionConflictNativeMatch.Match) matchesFound.Add(nativeMod);
 					else if (result == CollectionConflictNativeMatch.Unknown) unknown.Add(nativeMod);
 				}
 
-				if (matchesFound.Count > 0)
+				if (matchesFound.Count > 1)
 				{
-					string subject = matchesFound.Count == 1 ? "native:" + matchesFound[0].Identity.NativeModKey : "external-priority:" + rule.MemberKey;
-					string relation = rule.MemberIsLowerPriority ? "must remain higher priority than the Collection member" : "must remain lower priority than the Collection member";
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent,
-						CollectionConflictImpactStatus.ActionRequired, rule.MemberKey, subject,
-						matchesFound.Count == 1
-							? "An installed external NMM mod exactly matches a Vortex before/after endpoint and " + relation + "; review the existing native ownership/order before applying."
-							: "More than one installed external NMM mod matches a Vortex before/after endpoint; NMM cannot choose which native instance the Collection rule refers to."));
+						CollectionConflictImpactStatus.ActionRequired, rule.MemberKey, "external-priority:" + rule.MemberKey,
+						"More than one installed external NMM mod matches a Vortex before/after endpoint on a file target shared with the Collection member; NMM cannot choose which native instance the rule refers to."));
 					continue;
 				}
+
+				if (matchesFound.Count == 1 && rule.MemberIsLowerPriority)
+				{
+					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExternalPriorityEndpointPresent,
+						CollectionConflictImpactStatus.ActionRequired, rule.MemberKey, "native:" + matchesFound[0].Identity.NativeModKey,
+						"An installed external NMM mod exactly matches a Vortex before/after endpoint and must remain the higher-priority owner on shared files; the current additive winner model cannot yet persist that external winner decision."));
+					continue;
+				}
+
+				// One exact lower-priority external endpoint is fully characterized: the Collection rule itself authorizes the
+				// incoming member to become the winner on shared targets. BuildFileImpacts consumes that authorization.
+				if (matchesFound.Count == 1)
+					continue;
 
 				if (unknown.Count > 0)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExternalPriorityReferenceEvaluationRequired,
 						CollectionConflictImpactStatus.ActionRequired, rule.MemberKey, "external-priority:" + rule.MemberKey,
-						"NMM cannot prove that every installed native mod is distinct from the external Vortex before/after endpoint using committed metadata alone; explicit review is required."));
+						"NMM cannot prove whether an installed native mod sharing files with the Collection member satisfies the external Vortex before/after endpoint; explicit review is required."));
 				}
-				// No exact/unknown native endpoint is the characterized Vortex absent-endpoint case: the stored rule has no current deployment edge.
+				// No exact/unknown overlapping endpoint is the characterized Vortex absent/non-conflicting endpoint case.
 			}
+		}
+
+		private static HashSet<ModDeploymentTarget> GetMemberFileTargets(CollectionMemberKey memberKey, CollectionMemberMatchSet matches,
+			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews)
+		{
+			var result = new HashSet<ModDeploymentTarget>();
+			CollectionMemberEffectPreview preview;
+			if (previews.TryGetValue(memberKey, out preview) && preview.IsComplete)
+				foreach (CollectionPlannedFileEffect file in preview.Files) result.Add(file.Target);
+
+			CollectionMemberMatchResult match;
+			if (matches.MembersByKey.TryGetValue(memberKey, out match) && match.MatchedNativeMod != null)
+			{
+				ReadOnlyCollection<CollectionNativeFileState> existing;
+				if (nativeState.FilesByOwnerKey.TryGetValue(match.MatchedNativeMod.Identity.NativeModKey, out existing))
+					foreach (CollectionNativeFileState file in existing) result.Add(file.Target);
+			}
+			return result;
+		}
+
+		private static bool NativeModOwnsAnyTarget(CollectionNativeStateIndex nativeState, string ownerKey,
+			HashSet<ModDeploymentTarget> targets)
+		{
+			ReadOnlyCollection<CollectionNativeFileState> files;
+			return nativeState.FilesByOwnerKey.TryGetValue(ownerKey, out files) && files.Any(x => targets.Contains(x.Target));
 		}
 
 
@@ -262,13 +303,27 @@ namespace Nexus.Client.CollectionManagement
 				hasObservableMarker = true;
 				if (String.IsNullOrWhiteSpace(nativeMod.FileName))
 					identityUnknown = true;
-				else if (!StringComparer.Ordinal.Equals(reference.FileExpression, SanitizeVortexFileExpressionCandidate(nativeMod.FileName)))
-					return CollectionConflictNativeMatch.NoMatch;
+				else
+				{
+					string candidate = SanitizeVortexFileExpressionCandidate(nativeMod.FileName);
+					if (!StringComparer.Ordinal.Equals(reference.FileExpression, candidate))
+					{
+						// Vortex checks exact equality before minimatch. A retained expression containing literal brackets
+						// may therefore be an exact generated archive name, which is fully observable above. If exact
+						// equality fails, however, '[' / ']' could be a minimatch character class. Do not silently
+						// reinterpret that uncharacterized fallback as a definite non-match.
+						if (ContainsVortexBracketPatternSyntax(reference.FileExpression))
+							identityUnknown = true;
+						else
+							return CollectionConflictNativeMatch.NoMatch;
+					}
+				}
 			}
 
-			if (!String.IsNullOrEmpty(reference.FileMd5) && !fuzzy)
+			if (!String.IsNullOrEmpty(reference.FileMd5) && !fuzzy && !hasObservableMarker)
 			{
-				// InstallLog does not persist the archive MD5. Do not hash mutable archive paths outside the approved native-state fingerprint.
+				// Vortex treats fileMD5 as one positive identity path, not a mandatory conjunction with logical/file-expression/version
+				// matching. InstallLog does not retain MD5, so it is unknown only when no other committed marker can identify the endpoint.
 				identityUnknown = true;
 			}
 			if (!String.IsNullOrEmpty(reference.Tag) && !hasObservableMarker)
@@ -287,6 +342,11 @@ namespace Nexus.Client.CollectionManagement
 			return versionResult == CollectionVortexVersionMatchResult.Match
 				? CollectionConflictNativeMatch.Match
 				: CollectionConflictNativeMatch.NoMatch;
+		}
+
+		private static bool ContainsVortexBracketPatternSyntax(string expression)
+		{
+			return !String.IsNullOrEmpty(expression) && (expression.IndexOf('[') >= 0 || expression.IndexOf(']') >= 0);
 		}
 
 		private static string SanitizeVortexFileExpressionCandidate(string fileName)
@@ -406,7 +466,8 @@ namespace Nexus.Client.CollectionManagement
 				HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentOwner);
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.FileWinner);
 
-				if (winner != null && !String.IsNullOrWhiteSpace(currentOwner) && !CurrentOwnerIsIncomingWriter(currentOwner, entry.Value, matchByKey))
+				if (winner != null && !String.IsNullOrWhiteSpace(currentOwner) && !CurrentOwnerIsIncomingWriter(currentOwner, entry.Value, matchByKey) &&
+					!ExternalPriorityAuthorizesIncomingWinner(plan, winner, currentOwner, nativeState))
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
 						CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
@@ -416,6 +477,20 @@ namespace Nexus.Client.CollectionManagement
 				result.Add(new CollectionFileImpact(entry.Key, entry.Value, winner, currentOwner, affected));
 			}
 			return result;
+		}
+
+		private static bool ExternalPriorityAuthorizesIncomingWinner(ResolvedCollectionPlan plan, CollectionMemberKey winner,
+			string currentOwnerKey, CollectionNativeStateIndex nativeState)
+		{
+			CollectionNativeModState currentOwner;
+			if (!nativeState.ModsByNativeKey.TryGetValue(currentOwnerKey, out currentOwner)) return false;
+			foreach (CollectionExternalFilePriorityRule rule in plan.CapabilityReport.Manifest.ExternalFilePriorityRules)
+			{
+				if (!rule.MemberKey.Equals(winner) || rule.MemberIsLowerPriority) continue;
+				if (MatchConflictReference(rule.ExternalReference, currentOwner) == CollectionConflictNativeMatch.Match)
+					return true;
+			}
+			return false;
 		}
 
 		private static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers,

@@ -60,6 +60,41 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void BuildVerificationDiagnostics_ReportsBothFailedRecoveryPredicates()
+		{
+			MethodInfo method = typeof(CollectionNativeChildRestartReconciliationCoordinator).GetMethod(
+				"BuildVerificationDiagnostics", BindingFlags.Static | BindingFlags.NonPublic);
+			Assert.IsNotNull(method);
+			string diagnostics = (string)method.Invoke(null, new object[]
+			{
+				false, "native candidate count is 0",
+				false, "preparation fingerprint mismatch",
+				false, "unsafe residue"
+			});
+
+			StringAssert.Contains("committed verification: FAIL - native candidate count is 0", diagnostics);
+			StringAssert.Contains("rollback verification: FAIL - preparation fingerprint mismatch", diagnostics);
+			StringAssert.Contains("exact rollback residue repair: NOT APPLIED - unsafe residue", diagnostics);
+		}
+
+		[Test]
+		public void BuildVerificationDiagnostics_ReportsAppliedExactRollbackResidueRepair()
+		{
+			MethodInfo method = typeof(CollectionNativeChildRestartReconciliationCoordinator).GetMethod(
+				"BuildVerificationDiagnostics", BindingFlags.Static | BindingFlags.NonPublic);
+			Assert.IsNotNull(method);
+			string diagnostics = (string)method.Invoke(null, new object[]
+			{
+				false, "native candidate count is 0",
+				true, null,
+				true, "Removed exact child postimage residue"
+			});
+
+			StringAssert.Contains("rollback verification: PASS", diagnostics);
+			StringAssert.Contains("exact rollback residue repair: APPLIED - Removed exact child postimage residue", diagnostics);
+		}
+
+		[Test]
 		public void MatchesContentFile_RejectsChangedBytesWithSameLength()
 		{
 			string path = Path.GetTempFileName();

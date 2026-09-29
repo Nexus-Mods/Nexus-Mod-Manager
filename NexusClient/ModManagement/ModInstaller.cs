@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Security;
@@ -316,6 +317,7 @@ namespace Nexus.Client.ModManagement
 				booSuccess = false;
 				reportedStatus = ModOperationReportedStatus.Failed;
 				strMessage = "The mod activation failed: " + e.Message;
+				TraceInstallException(e);
 				throw;
 			}
 			catch (SecurityException e)
@@ -323,6 +325,7 @@ namespace Nexus.Client.ModManagement
 				booSuccess = false;
 				reportedStatus = ModOperationReportedStatus.Failed;
 				strMessage = "The mod activation failed: " + e.Message;
+				TraceInstallException(e);
 				throw;
 			}
 			catch (ObjectDisposedException e)
@@ -330,6 +333,7 @@ namespace Nexus.Client.ModManagement
 				booSuccess = false;
 				reportedStatus = ModOperationReportedStatus.Failed;
 				strMessage = "The mod activation failed: " + e.Message;
+				TraceInstallException(e);
 				throw;
 			}
 			//this blobck used to be conditionally excluded from debug builds,
@@ -340,6 +344,7 @@ namespace Nexus.Client.ModManagement
 			{
 				booSuccess = false;
 				reportedStatus = ModOperationReportedStatus.Failed;
+				TraceInstallException(e);
 				StringBuilder stbError = new StringBuilder(e.Message);
 				if (e is FileNotFoundException)
 					stbError.Append(" (" + ((FileNotFoundException)e).FileName + ")");
@@ -382,6 +387,21 @@ namespace Nexus.Client.ModManagement
 						OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), booSuccess, strMessage, Mod);
 				}
 			}
+		}
+
+		/// <summary>Writes the complete native installer exception to Trace before UI handling strips it to message text.</summary>
+		private void TraceInstallException(Exception exception)
+		{
+			Trace.TraceError(
+				"Native mod install failed for '{0}' (method={1}, root={2}, nativeMutationStarted={3}, nativeTransactionCommitted={4}, virtualStoreRequired={5}, virtualStorePersisted={6}): {7}",
+				Mod == null ? "<unknown>" : Mod.Filename,
+				InstallContext == null ? "<unknown>" : InstallContext.Method.ToString(),
+				InstallContext == null ? "<unknown>" : InstallContext.InstallRoot.ToString(),
+				m_booNativeMutationStarted,
+				m_booNativeTransactionCommitted,
+				m_booVirtualStorePersistenceRequired,
+				m_booVirtualStorePersisted,
+				exception);
 		}
 
 		/// <summary>

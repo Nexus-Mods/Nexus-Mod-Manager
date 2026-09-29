@@ -141,6 +141,39 @@
 		}
 
 		/// <summary>
+		/// Ensures a durable write does not leave an idle SQLite writer transaction behind.
+		/// A second FOMod assembly/load context must be able to begin its own durable transaction immediately.
+		/// </summary>
+		[Test]
+		public void DurableSortWriteReleasesSharedDatabaseWriterLock()
+		{
+			var storage = CreateStorage();
+			var store = storage.CreateStore();
+			store.Save(new ModSortOrderRecord(0, "LockProbe.7z", null, null, null,
+				ModSortOrderAssignmentState.BaselineBlank, DateTime.UtcNow));
+
+			var databaseField = typeof(ModSortOrderStore).GetField("_database", BindingFlags.Instance | BindingFlags.NonPublic);
+			Assert.That(databaseField, Is.Not.Null);
+			var database = databaseField.GetValue(store);
+			var transactionField = database.GetType().GetField("Transaction", BindingFlags.Instance | BindingFlags.Public);
+			Assert.That(transactionField, Is.Not.Null);
+			Assert.That(transactionField.GetValue(database), Is.Null, "A durable write must not retain an idle SQLite transaction.");
+
+			using (var independentConnection = OpenFreshConnection(storage.DatabasePath))
+			using (var independentTransaction = independentConnection.BeginTransaction())
+			{
+				using (var command = independentConnection.CreateCommand())
+				{
+					command.Transaction = independentTransaction;
+					command.CommandText = "UPDATE mod_sort_assignments SET updated_utc = updated_utc WHERE assignment_id = -1;";
+					command.ExecuteNonQuery();
+				}
+
+				independentTransaction.Rollback();
+			}
+		}
+
+		/// <summary>
 		/// Ensures trusted download identities remain MIN donors even when the live IMod metadata is empty, including after reload.
 		/// </summary>
 		/// <summary>

@@ -503,7 +503,7 @@ namespace Nexus.Client.CollectionManagement
 					{
 						operation = RequireOperation(operation.Identity);
 						results.Add(RecoveryResult(CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired, operation, null,
-							"Native durability is still ambiguous after C6.9 reconciliation."));
+							"Native durability is still ambiguous after C6.9 reconciliation. " + restart.VerificationDiagnostics));
 						continue;
 					}
 
@@ -802,9 +802,13 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeStateIndex finalState = _nativeStateReader.Capture(runtime.Plan.Target);
 				new CollectionAdditiveFinalStateVerifier().Verify(runtime.Plan, runtime.Matches, runtime.ImpactPlan,
 					runtime.PreparedRecipes, finalState);
-				return _associationCoordinator.FinalizeAppliedAssociation(operationIdentity, runtime.Plan, runtime.Matches);
+				CollectionAssociationFinalizationResult finalization = _associationCoordinator.FinalizeAppliedAssociation(
+					operationIdentity, runtime.Plan, runtime.Matches);
+				new CollectionNexusMetadataHydrator(_services.ModManager).Enrich(finalization.Bindings);
+				return finalization;
 			}
 		}
+
 
 		private async Task ReloadTargetAuthorityAsync(CollectionTargetAuthority authority, GameStoragePathSet paths,
 			CancellationToken cancellationToken)

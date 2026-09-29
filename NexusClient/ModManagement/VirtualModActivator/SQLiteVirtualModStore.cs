@@ -11,7 +11,8 @@ namespace Nexus.Client.ModManagement
 
 	internal sealed class SQLiteVirtualModStore : IVirtualModStore
 	{
-		private const int SCHEMA_VERSION = 1;
+		private const int SCHEMA_VERSION = 2;
+		private const int LEGACY_SCHEMA_VERSION = 1;
 		private const int BUSY_TIMEOUT_MILLISECONDS = 5000;
 		private const int BUSY_TIMEOUT_SECONDS = (BUSY_TIMEOUT_MILLISECONDS + 999) / 1000;
 		private static readonly object DatabaseAccessGatesLock = new object();
@@ -58,8 +59,9 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 				lock (m_objDatabaseAccessGate)
-					using (SQLiteConnection connection = OpenReadOnlyConnection())
+					using (SQLiteConnection connection = OpenConnection())
 					{
+						EnsureSchema(connection);
 						return HasCompatibleSchema(connection, m_fncIsValidVersion);
 					}
 			}
@@ -162,20 +164,40 @@ namespace Nexus.Client.ModManagement
 			EnsureDatabaseDirectory();
 			Stopwatch syncWatch = Stopwatch.StartNew();
 			StoreSyncStatistics statistics = new StoreSyncStatistics();
+			string phase = "waiting for in-process database gate";
 
-			lock (m_objDatabaseAccessGate)
-				using (SQLiteConnection connection = OpenConnection())
+			try
+			{
+				lock (m_objDatabaseAccessGate)
 				{
-					EnsureSchema(connection);
-					using (SQLiteTransaction transaction = connection.BeginTransaction())
+					phase = "opening connection";
+					using (SQLiteConnection connection = OpenConnection())
 					{
-						List<PersistedModRecord> storedRecords = LoadPersistedRecords(connection, transaction);
-						SynchronizeRecords(connection, transaction, storedRecords, records, statistics);
-						SetMetadata(connection, transaction, "schema_version", SCHEMA_VERSION.ToString());
-						SetMetadata(connection, transaction, "file_version", fileVersion.ToString());
-						transaction.Commit();
+						phase = "ensuring schema";
+						EnsureSchema(connection);
+						phase = "beginning write transaction";
+						using (SQLiteTransaction transaction = connection.BeginTransaction())
+						{
+							phase = "loading persisted records";
+							List<PersistedModRecord> storedRecords = LoadPersistedRecords(connection, transaction);
+							phase = "synchronizing mod/link records";
+							SynchronizeRecords(connection, transaction, storedRecords, records, statistics);
+							phase = "updating store metadata";
+							SetMetadata(connection, transaction, "schema_version", SCHEMA_VERSION.ToString());
+							SetMetadata(connection, transaction, "file_version", fileVersion.ToString());
+							phase = "committing write transaction";
+							transaction.Commit();
+						}
 					}
 				}
+			}
+			catch (SQLiteException exception)
+			{
+				Trace.TraceError(
+					"Virtual mod SQLite persistence failed during {0}. Database='{1}', SQLiteErrorCode={2}, message='{3}'. Full exception: {4}",
+					phase, m_strDatabasePath, exception.ErrorCode, exception.Message, exception);
+				throw;
+			}
 
 			syncWatch.Stop();
 			Trace.TraceInformation(
@@ -334,7 +356,7 @@ namespace Nexus.Client.ModManagement
 			for (int storedIndex = 0; storedIndex < storedRecord.Links.Count; storedIndex++)
 			{
 				PersistedLinkRecord storedLink = storedRecord.Links[storedIndex];
-				string identity = BuildLinkIdentity(storedLink.RealPath, storedLink.VirtualPath);
+				string identity = BuildLinkIdentity(storedLink.RealPath, storedLink.VirtualPath, storedLink.InstallRoot);
 				Queue<PersistedLinkRecord> matchingLinks;
 				if (!storedByIdentity.TryGetValue(identity, out matchingLinks))
 				{
@@ -350,7 +372,7 @@ namespace Nexus.Client.ModManagement
 			{
 				IVirtualModLink incomingLink = incomingLinks[incomingIndex];
 				Queue<PersistedLinkRecord> matchingLinks;
-				if (!storedByIdentity.TryGetValue(BuildLinkIdentity(incomingLink.RealModPath, incomingLink.VirtualModPath), out matchingLinks)
+				if (!storedByIdentity.TryGetValue(BuildLinkIdentity(incomingLink.RealModPath, incomingLink.VirtualModPath, incomingLink.InstallRoot), out matchingLinks)
 					|| matchingLinks.Count == 0)
 				{
 					InsertLink(connection, transaction, storedRecord.ModKey, incomingIndex, incomingLink);
@@ -409,7 +431,7 @@ namespace Nexus.Client.ModManagement
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
 				command.Transaction = transaction;
-				command.CommandText = "SELECT VirtualLinkId, VirtualModId, LinkOrder, RealPath, VirtualPath, Priority, IsActive FROM VirtualLinks ORDER BY VirtualModId, LinkOrder;";
+				command.CommandText = "SELECT VirtualLinkId, VirtualModId, LinkOrder, RealPath, VirtualPath, Priority, IsActive, InstallRoot FROM VirtualLinks ORDER BY VirtualModId, LinkOrder;";
 				using (SQLiteDataReader reader = command.ExecuteReader())
 				{
 					while (reader.Read())
@@ -424,7 +446,8 @@ namespace Nexus.Client.ModManagement
 							GetString(reader, 3),
 							GetString(reader, 4),
 							reader.GetInt32(5),
-							reader.GetInt32(6) != 0));
+							reader.GetInt32(6) != 0,
+							ReadInstallRoot(reader.GetInt32(7))));
 					}
 				}
 			}
@@ -481,12 +504,14 @@ namespace Nexus.Client.ModManagement
 			string realPath = RequiredString(link.RealModPath, "realPath");
 			string virtualPath = RequiredString(link.VirtualModPath, "virtualPath");
 			int isActive = link.Active ? 1 : 0;
+			ModInstallRoot installRoot = NormalizeInstallRoot(link.InstallRoot);
 
 			if (storedLink.LinkOrder == linkOrder
 				&& String.Equals(storedLink.RealPath, realPath, StringComparison.Ordinal)
 				&& String.Equals(storedLink.VirtualPath, virtualPath, StringComparison.Ordinal)
 				&& storedLink.Priority == link.Priority
-				&& storedLink.IsActive == (isActive != 0))
+				&& storedLink.IsActive == (isActive != 0)
+				&& storedLink.InstallRoot == installRoot)
 			{
 				return false;
 			}
@@ -494,12 +519,13 @@ namespace Nexus.Client.ModManagement
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
 				command.Transaction = transaction;
-				command.CommandText = "UPDATE VirtualLinks SET LinkOrder = @linkOrder, RealPath = @realPath, VirtualPath = @virtualPath, Priority = @priority, IsActive = @isActive WHERE VirtualLinkId = @virtualLinkId;";
+				command.CommandText = "UPDATE VirtualLinks SET LinkOrder = @linkOrder, RealPath = @realPath, VirtualPath = @virtualPath, Priority = @priority, IsActive = @isActive, InstallRoot = @installRoot WHERE VirtualLinkId = @virtualLinkId;";
 				command.Parameters.AddWithValue("@linkOrder", linkOrder);
 				command.Parameters.AddWithValue("@realPath", realPath);
 				command.Parameters.AddWithValue("@virtualPath", virtualPath);
 				command.Parameters.AddWithValue("@priority", link.Priority);
 				command.Parameters.AddWithValue("@isActive", isActive);
+				command.Parameters.AddWithValue("@installRoot", (int)installRoot);
 				command.Parameters.AddWithValue("@virtualLinkId", storedLink.LinkKey);
 				command.ExecuteNonQuery();
 			}
@@ -529,9 +555,10 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		private static string BuildLinkIdentity(string realPath, string virtualPath)
+		private static string BuildLinkIdentity(string realPath, string virtualPath, ModInstallRoot installRoot)
 		{
-			return NormalizeIdentityPath(realPath) + "\u001f" + NormalizeIdentityPath(virtualPath);
+			return NormalizeIdentityPath(realPath) + "\u001f" + NormalizeIdentityPath(virtualPath) + "\u001f" +
+				((int)NormalizeInstallRoot(installRoot)).ToString();
 		}
 
 		private static string NormalizeIdentityPath(string path)
@@ -580,7 +607,7 @@ namespace Nexus.Client.ModManagement
 			bool booNoFileLink = true;
 			using (SQLiteCommand linkCommand = connection.CreateCommand())
 			{
-				linkCommand.CommandText = "SELECT RealPath, VirtualPath, Priority, IsActive FROM VirtualLinks WHERE VirtualModId = @modKey ORDER BY LinkOrder;";
+				linkCommand.CommandText = "SELECT RealPath, VirtualPath, Priority, IsActive, InstallRoot FROM VirtualLinks WHERE VirtualModId = @modKey ORDER BY LinkOrder;";
 				linkCommand.Parameters.AddWithValue("@modKey", modKey);
 
 				using (SQLiteDataReader linkReader = linkCommand.ExecuteReader())
@@ -593,7 +620,8 @@ namespace Nexus.Client.ModManagement
 							virtualMods.Add(modInfo);
 						}
 
-						virtualLinks.Add(new VirtualModLink(GetString(linkReader, 0), GetString(linkReader, 1), linkReader.GetInt32(2), linkReader.GetInt32(3) != 0, modInfo));
+						virtualLinks.Add(new VirtualModLink(GetString(linkReader, 0), GetString(linkReader, 1), linkReader.GetInt32(2),
+							linkReader.GetInt32(3) != 0, modInfo, ReadInstallRoot(linkReader.GetInt32(4))));
 					}
 				}
 			}
@@ -694,13 +722,14 @@ namespace Nexus.Client.ModManagement
 			using (SQLiteCommand command = connection.CreateCommand())
 			{
 				command.Transaction = transaction;
-				command.CommandText = "INSERT INTO VirtualLinks (VirtualModId, LinkOrder, RealPath, VirtualPath, Priority, IsActive) VALUES (@virtualModId, @linkOrder, @realPath, @virtualPath, @priority, @isActive);";
+				command.CommandText = "INSERT INTO VirtualLinks (VirtualModId, LinkOrder, RealPath, VirtualPath, Priority, IsActive, InstallRoot) VALUES (@virtualModId, @linkOrder, @realPath, @virtualPath, @priority, @isActive, @installRoot);";
 				command.Parameters.AddWithValue("@virtualModId", modKey);
 				command.Parameters.AddWithValue("@linkOrder", linkOrder);
 				command.Parameters.AddWithValue("@realPath", RequiredString(link.RealModPath, "realPath"));
 				command.Parameters.AddWithValue("@virtualPath", RequiredString(link.VirtualModPath, "virtualPath"));
 				command.Parameters.AddWithValue("@priority", link.Priority);
 				command.Parameters.AddWithValue("@isActive", link.Active ? 1 : 0);
+				command.Parameters.AddWithValue("@installRoot", (int)NormalizeInstallRoot(link.InstallRoot));
 				command.ExecuteNonQuery();
 			}
 		}
@@ -735,6 +764,9 @@ namespace Nexus.Client.ModManagement
 				ForeignKeys = true,
 				JournalMode = SQLiteJournalModeEnum.Delete,
 				Pooling = false,
+				// VMA persistence participates in the ambient install transaction through its own enlistment.
+				// Auto-enlisting the SQLite connection can retain a self-lock until that transaction completes.
+				Enlist = false,
 				DefaultTimeout = BUSY_TIMEOUT_SECONDS
 			};
 
@@ -752,6 +784,8 @@ namespace Nexus.Client.ModManagement
 				ForeignKeys = true,
 				JournalMode = SQLiteJournalModeEnum.Delete,
 				Pooling = false,
+				// Reads must not inherit an ambient install transaction and retain a database lock past disposal.
+				Enlist = false,
 				ReadOnly = true,
 				FailIfMissing = true,
 				DefaultTimeout = BUSY_TIMEOUT_SECONDS
@@ -772,15 +806,26 @@ namespace Nexus.Client.ModManagement
 		{
 			ExecuteNonQuery(connection, null, "CREATE TABLE IF NOT EXISTS StoreMetadata (Key TEXT NOT NULL PRIMARY KEY, Value TEXT NOT NULL);");
 			ExecuteNonQuery(connection, null, "CREATE TABLE IF NOT EXISTS VirtualMods (VirtualModId INTEGER PRIMARY KEY AUTOINCREMENT, ModOrder INTEGER NOT NULL, ModId TEXT NOT NULL, DownloadId TEXT NOT NULL, UpdatedDownloadId TEXT NOT NULL, ModName TEXT NOT NULL, ModFileName TEXT NOT NULL, ModNewFileName TEXT NOT NULL, ModFilePath TEXT NOT NULL, FileVersion TEXT NOT NULL);");
-			ExecuteNonQuery(connection, null, "CREATE TABLE IF NOT EXISTS VirtualLinks (VirtualLinkId INTEGER PRIMARY KEY AUTOINCREMENT, VirtualModId INTEGER NOT NULL, LinkOrder INTEGER NOT NULL, RealPath TEXT NOT NULL, VirtualPath TEXT NOT NULL, Priority INTEGER NOT NULL, IsActive INTEGER NOT NULL, FOREIGN KEY(VirtualModId) REFERENCES VirtualMods(VirtualModId) ON DELETE CASCADE);");
+			ExecuteNonQuery(connection, null, "CREATE TABLE IF NOT EXISTS VirtualLinks (VirtualLinkId INTEGER PRIMARY KEY AUTOINCREMENT, VirtualModId INTEGER NOT NULL, LinkOrder INTEGER NOT NULL, RealPath TEXT NOT NULL, VirtualPath TEXT NOT NULL, Priority INTEGER NOT NULL, IsActive INTEGER NOT NULL, InstallRoot INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(VirtualModId) REFERENCES VirtualMods(VirtualModId) ON DELETE CASCADE);");
 			ExecuteNonQuery(connection, null, "CREATE INDEX IF NOT EXISTS IX_VirtualMods_ModOrder ON VirtualMods(ModOrder);");
 			ExecuteNonQuery(connection, null, "CREATE INDEX IF NOT EXISTS IX_VirtualLinks_ModOrder ON VirtualLinks(VirtualModId, LinkOrder);");
 
 			string schemaVersion = GetMetadata(connection, "schema_version");
-			if (string.IsNullOrEmpty(schemaVersion))
+			bool missingInstallRoot = !HasColumns(connection, "VirtualLinks", new[] { "InstallRoot" });
+			if (string.IsNullOrEmpty(schemaVersion) || string.Equals(schemaVersion, LEGACY_SCHEMA_VERSION.ToString(), StringComparison.Ordinal))
+			{
+				if (missingInstallRoot)
+					ExecuteNonQuery(connection, null, "ALTER TABLE VirtualLinks ADD COLUMN InstallRoot INTEGER NOT NULL DEFAULT 0;");
 				SetMetadata(connection, null, "schema_version", SCHEMA_VERSION.ToString());
+			}
 			else if (!string.Equals(schemaVersion, SCHEMA_VERSION.ToString(), StringComparison.Ordinal))
+			{
 				throw new InvalidOperationException(string.Format("Unsupported virtual mod SQLite schema version: {0}", schemaVersion));
+			}
+			else if (missingInstallRoot)
+			{
+				throw new InvalidOperationException("Virtual mod SQLite schema is missing the InstallRoot column.");
+			}
 		}
 
 		private static bool HasCompatibleSchema(SQLiteConnection connection, Func<Version, bool> isValidVersion)
@@ -794,7 +839,7 @@ namespace Nexus.Client.ModManagement
 			if (!HasColumns(connection, "VirtualMods", new[] { "VirtualModId", "ModOrder", "ModId", "DownloadId", "UpdatedDownloadId", "ModName", "ModFileName", "ModNewFileName", "ModFilePath", "FileVersion" }))
 				return false;
 
-			if (!HasColumns(connection, "VirtualLinks", new[] { "VirtualLinkId", "VirtualModId", "LinkOrder", "RealPath", "VirtualPath", "Priority", "IsActive" }))
+			if (!HasColumns(connection, "VirtualLinks", new[] { "VirtualLinkId", "VirtualModId", "LinkOrder", "RealPath", "VirtualPath", "Priority", "IsActive", "InstallRoot" }))
 				return false;
 
 			string schemaVersion = GetMetadata(connection, "schema_version");
@@ -877,6 +922,20 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		private static ModInstallRoot NormalizeInstallRoot(ModInstallRoot installRoot)
+		{
+			if (installRoot == ModInstallRoot.Data)
+				return ModInstallRoot.Data;
+			if (installRoot == ModInstallRoot.GameRoot)
+				return ModInstallRoot.GameRoot;
+			throw new InvalidDataException(String.Format("Unsupported Virtual link install root '{0}'.", installRoot));
+		}
+
+		private static ModInstallRoot ReadInstallRoot(int value)
+		{
+			return NormalizeInstallRoot((ModInstallRoot)value);
+		}
+
 		private bool IsMainStorePath(string filePath)
 		{
 			return string.Equals(Path.GetFullPath(filePath), m_strXmlFilePath, StringComparison.OrdinalIgnoreCase)
@@ -933,7 +992,7 @@ namespace Nexus.Client.ModManagement
 
 		private sealed class PersistedLinkRecord
 		{
-			public PersistedLinkRecord(long linkKey, int linkOrder, string realPath, string virtualPath, int priority, bool isActive)
+			public PersistedLinkRecord(long linkKey, int linkOrder, string realPath, string virtualPath, int priority, bool isActive, ModInstallRoot installRoot)
 			{
 				LinkKey = linkKey;
 				LinkOrder = linkOrder;
@@ -941,6 +1000,7 @@ namespace Nexus.Client.ModManagement
 				VirtualPath = virtualPath;
 				Priority = priority;
 				IsActive = isActive;
+				InstallRoot = installRoot;
 			}
 
 			public long LinkKey { get; private set; }
@@ -949,6 +1009,7 @@ namespace Nexus.Client.ModManagement
 			public string VirtualPath { get; private set; }
 			public int Priority { get; private set; }
 			public bool IsActive { get; private set; }
+			public ModInstallRoot InstallRoot { get; private set; }
 		}
 
 		private sealed class StoreSyncStatistics

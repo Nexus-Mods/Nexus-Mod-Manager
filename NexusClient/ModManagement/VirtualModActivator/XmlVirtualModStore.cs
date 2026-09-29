@@ -87,6 +87,7 @@ namespace Nexus.Client.ModManagement
 							   select new XElement("fileLink",
 								   new XAttribute("realPath", link.RealModPath),
 								   new XAttribute("virtualPath", link.VirtualModPath),
+								   new XAttribute("installRoot", NormalizeInstallRoot(link.InstallRoot)),
 								   new XElement("linkPriority",
 									   new XText(link.Priority.ToString())),
 								   new XElement("isActive",
@@ -206,8 +207,27 @@ namespace Nexus.Client.ModManagement
 					lstAddedModInfo.Add(strModFileName);
 				}
 
-				lstVirtualLinks.Add(new VirtualModLink(strRealPath, strVirtualPath, intPriority, booActive, vmiMod));
+				ModInstallRoot installRoot = ModInstallRoot.Data;
+				XAttribute installRootAttribute = xelLink.Attribute("installRoot");
+				if (installRootAttribute != null && !String.IsNullOrWhiteSpace(installRootAttribute.Value))
+				{
+					ModInstallRoot parsedRoot;
+					if (!Enum.TryParse(installRootAttribute.Value, true, out parsedRoot))
+						throw new InvalidDataException(String.Format("Invalid Virtual link install root '{0}'.", installRootAttribute.Value));
+					installRoot = NormalizeInstallRoot(parsedRoot);
+				}
+
+				lstVirtualLinks.Add(new VirtualModLink(strRealPath, strVirtualPath, intPriority, booActive, vmiMod, installRoot));
 			}
+		}
+
+		private static ModInstallRoot NormalizeInstallRoot(ModInstallRoot installRoot)
+		{
+			if (installRoot == ModInstallRoot.Data)
+				return ModInstallRoot.Data;
+			if (installRoot == ModInstallRoot.GameRoot)
+				return ModInstallRoot.GameRoot;
+			throw new InvalidDataException(String.Format("Unsupported Virtual link install root '{0}'.", installRoot));
 		}
 
 		private static Dictionary<IVirtualModInfo, List<IVirtualModLink>> BuildVirtualLinksByModInfo(IEnumerable<IVirtualModLink> virtualModLink)

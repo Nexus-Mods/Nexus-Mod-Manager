@@ -191,22 +191,22 @@ namespace NexusClientTests
 			Assert.That(effective.CapabilityReport.AllIssues.Any(x => x.Code == "member.source-policy-needs-resolution"), Is.False);
 		}
 
-		[TestCase("latest")]
-		[TestCase("prefer")]
-		public void NexusGateA_LatestOrPreferOptionalPolicyRemainsActionRequiredWhenSelected(string updatePolicy)
+		[TestCase("latest", "member.source-policy-needs-resolution")]
+		[TestCase("prefer", "member.source-policy-prefer-needs-resolution")]
+		public void NexusGateA_LatestOrPreferOptionalPolicyRemainsActionRequiredWhenSelected(string updatePolicy, string issueCode)
 		{
 			NexusCollectionManifestNormalizationResult normalized = NormalizeNexusManifest(updatePolicy);
 			NormalizedCollectionMember optional = normalized.Manifest.Members[1];
 			Assert.That(normalized.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported),
 				"An unresolved source policy on an unselected optional must remain visible without blocking the current closure.");
-			Assert.That(normalized.CapabilityReport.AllIssues.Any(x => x.Code == "member.source-policy-needs-resolution"), Is.True);
+			Assert.That(normalized.CapabilityReport.AllIssues.Any(x => x.Code == issueCode), Is.True);
 
 			CollectionEffectiveSelection effective = new CollectionEffectiveSelectionBuilder().Build(
 				normalized.CapabilityReport,
 				new[] { new CollectionOptionalMemberSelection(optional.IdentityResolution.Key, CollectionMemberSelection.Selected) });
 
 			Assert.That(effective.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.ActionRequired));
-			Assert.That(effective.CapabilityReport.AllIssues.Any(x => x.Code == "member.source-policy-needs-resolution"), Is.True);
+			Assert.That(effective.CapabilityReport.AllIssues.Any(x => x.Code == issueCode), Is.True);
 		}
 
 		private static NexusCollectionManifestNormalizationResult NormalizeNexusManifest(string optionalUpdatePolicy)

@@ -40,7 +40,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 		private static readonly HashSet<string> CollectionConfigFields = new HashSet<string>(StringComparer.Ordinal)
 		{
-			"recommendNewProfile", "referenceTagScheme"
+			"recommendNewProfile", "excludePluginRules", "referenceTagScheme"
 		};
 
 		private static readonly HashSet<string> PluginRuleFields = new HashSet<string>(StringComparer.Ordinal)
@@ -441,7 +441,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{
 				draft.Issues.Add(new PendingMemberIssue(
 					CollectionCompatibilityStatus.ActionRequired,
-					"member.source-policy-needs-resolution",
+					StringComparer.Ordinal.Equals(updatePolicy, "prefer")
+						? "member.source-policy-prefer-needs-resolution"
+						: "member.source-policy-needs-resolution",
 					"The Vortex '" + updatePolicy + "' policy must be resolved to a concrete Nexus file before an immutable NMM plan can be produced.",
 					sourcePath + ".updatePolicy"));
 				return;
@@ -763,13 +765,13 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				CollectionMemberKey sourceMember;
 				CollectionMemberKey referenceMember;
 				string failure;
-				if (!TryResolveFilePrioritySourceReference(rule["source"] as JObject, candidates, out sourceMember, out failure))
+				if (!TryResolveFilePriorityMemberReference(rule["source"] as JObject, candidates, out sourceMember, out failure))
 				{
 					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 						"manifest.mod-rule-source-unresolved", failure, path + ".source"));
 					continue;
 				}
-				if (!TryResolveRuleReference(rule["reference"] as JObject, candidates, out referenceMember, out failure))
+				if (!TryResolveFilePriorityMemberReference(rule["reference"] as JObject, candidates, out referenceMember, out failure))
 				{
 					RuleReferenceCandidate sourceCandidate = candidates.Single(x => x.MemberKey.Equals(sourceMember));
 					CollectionConflictReference externalReference;
@@ -802,12 +804,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 
 		/// <summary>
-		/// Resolves the Collection-member side of a before/after rule. Vortex may export the installed archive
+		/// Resolves the Collection-member endpoint of a before/after rule. Vortex may export the installed archive
 		/// fileExpression on a rule even though that expression is not retained on the Collection member source.
-		/// When generic exact resolution cannot observe that expression, one unique exact source MD5 plus every
-		/// other retained identity field may bind the rule source without guessing archive-name semantics.
+		/// When generic exact resolution cannot observe that expression, one unique exact endpoint MD5 plus every
+		/// other retained identity field may bind the rule endpoint without guessing archive-name semantics.
 		/// </summary>
-		private static bool TryResolveFilePrioritySourceReference(JObject reference, IEnumerable<RuleReferenceCandidate> candidates,
+		private static bool TryResolveFilePriorityMemberReference(JObject reference, IEnumerable<RuleReferenceCandidate> candidates,
 			out CollectionMemberKey memberKey, out string failure)
 		{
 			if (TryResolveRuleReference(reference, candidates, out memberKey, out failure))
@@ -826,7 +828,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{
 				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
 				{
-					failure = "The before/after rule source contains an uncharacterized matching field ('" + property.Name + "').";
+					failure = "The before/after rule endpoint contains an uncharacterized matching field ('" + property.Name + "').";
 					return false;
 				}
 			}
@@ -835,30 +837,30 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				JToken token = reference[field];
 				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
 				{
-					failure = "The before/after rule source field '" + field + "' must be a string when present.";
+					failure = "The before/after rule endpoint field '" + field + "' must be a string when present.";
 					return false;
 				}
 			}
 			if (reference["id"] != null && reference["id"].Type != JTokenType.Null)
 			{
-				failure = "A Vortex-local before/after rule source id cannot be rebound to a retained Collection member.";
+				failure = "A Vortex-local before/after rule endpoint id cannot be rebound to a retained Collection member.";
 				return false;
 			}
 			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null)
 			{
-				failure = "The characterized MD5 fallback for a before/after rule source does not ignore repository narrowing semantics.";
+				failure = "The characterized MD5 fallback for a before/after rule endpoint does not ignore repository narrowing semantics.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(ReadString(reference, "tag")))
 			{
-				failure = "The characterized MD5 fallback for a before/after rule source does not ignore Vortex reference-tag semantics.";
+				failure = "The characterized MD5 fallback for a before/after rule endpoint does not ignore Vortex reference-tag semantics.";
 				return false;
 			}
 
 			string fileMd5 = ReadString(reference, "fileMD5");
 			if (String.IsNullOrWhiteSpace(fileMd5) || !StringComparer.Ordinal.Equals(fileMd5, fileMd5.Trim()))
 			{
-				failure = "A before/after rule source that cannot be resolved by the exact Vortex reference subset requires one normalized exact fileMD5 to bind it to the retained member.";
+				failure = "A before/after rule endpoint that cannot be resolved by the exact Vortex reference subset requires one normalized exact fileMD5 to bind it to the retained member.";
 				return false;
 			}
 
@@ -869,12 +871,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (!IsNormalizedOptionalString(logicalFileName) || !IsNormalizedOptionalString(fileExpression) ||
 				!IsNormalizedOptionalString(versionMatch))
 			{
-				failure = "Before/after rule source identity strings must not contain leading/trailing whitespace.";
+				failure = "Before/after rule endpoint identity strings must not contain leading/trailing whitespace.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
 			{
-				failure = "The characterized before/after rule source fallback does not reinterpret Vortex glob fileExpression semantics.";
+				failure = "The characterized before/after rule endpoint fallback does not reinterpret Vortex glob fileExpression semantics.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*" &&
@@ -882,7 +884,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				 versionMatch.StartsWith("=", StringComparison.Ordinal) || versionMatch.IndexOf("+prefer", StringComparison.Ordinal) >= 0 ||
 				 versionMatch.IndexOf(" ", StringComparison.Ordinal) >= 0 || versionMatch.IndexOf("||", StringComparison.Ordinal) >= 0))
 			{
-				failure = "The before/after rule source uses a fuzzy/range version matcher outside the characterized exact-MD5 fallback.";
+				failure = "The before/after rule endpoint uses a fuzzy/range version matcher outside the characterized exact-MD5 fallback.";
 				return false;
 			}
 
@@ -896,8 +898,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (matches.Count != 1)
 			{
 				failure = matches.Count == 0
-					? "The before/after rule source does not match a retained Collection member by its exact source MD5 and retained identity fields."
-					: "The before/after rule source MD5/identity fields match more than one retained Collection member.";
+					? "The before/after rule endpoint does not match a retained Collection member by its exact endpoint MD5 and retained identity fields."
+					: "The before/after rule endpoint MD5/identity fields match more than one retained Collection member.";
 				return false;
 			}
 
@@ -944,15 +946,19 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{ failure = "Cross-game external before/after endpoints are outside the characterized single-target model."; return false; }
 			if (!IsNormalizedOptionalString(logical) || !IsNormalizedOptionalString(expression) || !IsNormalizedOptionalString(fileMd5))
 			{ failure = "External priority identity strings must not contain leading/trailing whitespace."; return false; }
-			if (!String.IsNullOrEmpty(expression) && ContainsGlobSyntax(expression))
-			{ failure = "Vortex glob fileExpression matching is not characterized for external before/after endpoints."; return false; }
+			// Vortex compares fileExpression to the sanitized archive basename for exact equality before it falls back
+			// to minimatch. Generated archive names commonly contain literal '[' / ']' characters (for example the
+			// Module 02/05 settings bundles), so brackets alone must not make an otherwise exact portable endpoint
+			// unsupported. '*' and '?' still require real wildcard matching and remain outside this bounded slice.
+			if (!String.IsNullOrEmpty(expression) && ContainsWildcardOperatorSyntax(expression))
+			{ failure = "Vortex wildcard fileExpression matching ('*'/'?') is not characterized for external before/after endpoints."; return false; }
 			if (String.IsNullOrWhiteSpace(version)) version = "*";
-			if (!StringComparer.Ordinal.Equals(version, "*"))
-			{ failure = "Only wildcard-version external before/after endpoints are characterized by this compatibility slice."; return false; }
-			if (String.IsNullOrWhiteSpace(logical))
-			{ failure = "A characterized external before/after endpoint requires an exact logicalFileName."; return false; }
+			if (String.IsNullOrWhiteSpace(logical) && String.IsNullOrWhiteSpace(expression))
+			{ failure = "A characterized external before/after endpoint requires an exact logicalFileName or non-glob fileExpression."; return false; }
 			CollectionVortexVersionMatch matcher;
 			if (!CollectionVortexVersionMatch.TryCreate(version, out matcher, out failure)) return false;
+			if (matcher.IsRange)
+			{ failure = "Comparator/range external before/after endpoint versions are not yet characterized by this bounded compatibility slice."; return false; }
 			normalized = new CollectionConflictReference(fileMd5, logical, expression, gameId, null, null, null, null, null, matcher);
 			return true;
 		}
@@ -1019,7 +1025,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		/// Resolves the source side of a conflicts rule to the retained Collection member that owns the rule.
 		/// Vortex exports Nexus conflict sources with a generated fileExpression that is not repeated in the
 		/// Collection member source object. When exact generic resolution cannot observe that expression, a
-		/// unique exact source MD5 plus all other retained source fields may bind it more strictly than Vortex.
+		/// unique exact endpoint MD5 plus all other retained source fields may bind it more strictly than Vortex.
 		/// </summary>
 		private static bool TryResolveConflictSourceReference(JObject reference, IEnumerable<RuleReferenceCandidate> candidates,
 			out CollectionMemberKey memberKey, out string failure)
@@ -1039,7 +1045,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{
 				if (!allowed.Contains(property.Name) && property.Value.Type != JTokenType.Null)
 				{
-					failure = "The conflicts-rule source contains an uncharacterized matching field ('" + property.Name + "').";
+					failure = "The conflicts-rule endpoint contains an uncharacterized matching field ('" + property.Name + "').";
 					return false;
 				}
 			}
@@ -1048,36 +1054,36 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				JToken token = reference[field];
 				if (token != null && token.Type != JTokenType.Null && token.Type != JTokenType.String)
 				{
-					failure = "The conflicts-rule source field '" + field + "' must be a string when present.";
+					failure = "The conflicts-rule endpoint field '" + field + "' must be a string when present.";
 					return false;
 				}
 			}
 			if (!String.IsNullOrEmpty(ReadString(reference, "tag")))
 			{
-				failure = "The characterized conflicts-rule source MD5 fallback does not ignore Vortex reference-tag semantics.";
+				failure = "The characterized conflicts-rule endpoint MD5 fallback does not ignore Vortex reference-tag semantics.";
 				return false;
 			}
 			string fileMd5 = ReadString(reference, "fileMD5");
 			if (String.IsNullOrWhiteSpace(fileMd5) || !StringComparer.Ordinal.Equals(fileMd5, fileMd5.Trim()))
 			{
-				failure = "A conflicts-rule source that cannot be resolved by the exact Vortex reference subset requires one normalized exact fileMD5 to bind it to the retained member.";
+				failure = "A conflicts-rule endpoint that cannot be resolved by the exact Vortex reference subset requires one normalized exact fileMD5 to bind it to the retained member.";
 				return false;
 			}
 			if (reference["id"] != null && reference["id"].Type != JTokenType.Null)
 			{
-				failure = "A Vortex-local conflicts-rule source id cannot be rebound to a retained Collection member.";
+				failure = "A Vortex-local conflicts-rule endpoint id cannot be rebound to a retained Collection member.";
 				return false;
 			}
 			if (reference["repo"] != null && reference["repo"].Type != JTokenType.Null)
 			{
-				failure = "The characterized MD5 fallback for a conflicts-rule source does not ignore repository narrowing semantics.";
+				failure = "The characterized MD5 fallback for a conflicts-rule endpoint does not ignore repository narrowing semantics.";
 				return false;
 			}
 
 			string versionMatch = ReadString(reference, "versionMatch");
 			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*")
 			{
-				failure = "The characterized MD5 fallback for a conflicts-rule source accepts only Vortex wildcard source versions.";
+				failure = "The characterized MD5 fallback for a conflicts-rule endpoint accepts only Vortex wildcard source versions.";
 				return false;
 			}
 			string logicalFileName = ReadString(reference, "logicalFileName");
@@ -1085,12 +1091,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			string fileExpression = ReadString(reference, "fileExpression");
 			if (!IsNormalizedOptionalString(logicalFileName) || !IsNormalizedOptionalString(fileExpression))
 			{
-				failure = "Conflicts-rule source identity strings must not contain leading/trailing whitespace.";
+				failure = "Conflicts-rule endpoint identity strings must not contain leading/trailing whitespace.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
 			{
-				failure = "The characterized conflicts-rule source fallback does not reinterpret Vortex glob fileExpression semantics.";
+				failure = "The characterized conflicts-rule endpoint fallback does not reinterpret Vortex glob fileExpression semantics.";
 				return false;
 			}
 
@@ -1103,8 +1109,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (exactMd5Matches.Count != 1)
 			{
 				failure = exactMd5Matches.Count == 0
-					? "The conflicts-rule source does not match a retained Collection member by its exact source MD5 and retained identity fields."
-					: "The conflicts-rule source MD5/identity fields match more than one retained Collection member.";
+					? "The conflicts-rule endpoint does not match a retained Collection member by its exact endpoint MD5 and retained identity fields."
+					: "The conflicts-rule endpoint MD5/identity fields match more than one retained Collection member.";
 				return false;
 			}
 			memberKey = exactMd5Matches[0].MemberKey;
@@ -1300,6 +1306,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		private static bool ContainsGlobSyntax(string value)
 		{
 			return value.IndexOf('*') >= 0 || value.IndexOf('?') >= 0 || value.IndexOf('[') >= 0 || value.IndexOf(']') >= 0;
+		}
+
+		private static bool ContainsWildcardOperatorSyntax(string value)
+		{
+			return value.IndexOf('*') >= 0 || value.IndexOf('?') >= 0;
 		}
 
 		private static bool TryResolveRuleReference(JObject reference,
@@ -1538,6 +1549,18 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					"manifest.collection-config-invalid",
 					"collectionConfig.recommendNewProfile must be a boolean; it is advisory and does not alter native install semantics.",
 					"$.collectionConfig.recommendNewProfile"));
+			}
+
+			// Vortex consumes excludePluginRules while AUTHORING the Collection: when true it omits the generated
+			// top-level pluginRules payload from collection.json. By install time the behavior is already materialized
+			// in the presence/absence of that section, so the flag itself has no additional native effect to replay.
+			JToken excludePluginRules = config["excludePluginRules"];
+			if (excludePluginRules != null && excludePluginRules.Type != JTokenType.Null && excludePluginRules.Type != JTokenType.Boolean)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.collection-config-invalid",
+					"collectionConfig.excludePluginRules must be a boolean; its export-time effect is represented by the retained pluginRules section itself.",
+					"$.collectionConfig.excludePluginRules"));
 			}
 
 			// v1 identifies Vortex deterministic reference tags. NMM consumes retained source.tag values exactly and never

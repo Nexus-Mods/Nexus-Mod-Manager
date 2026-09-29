@@ -130,6 +130,7 @@
     <Compile Include="CollectionManagement\CollectionUninstallEffectsCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionExecutionPolicy.cs" />
     <Compile Include="CollectionManagement\CollectionEffectiveSelection.cs" />
+    <Compile Include="CollectionManagement\CollectionNexusPreferExactPolicyResolver.cs" />
     <Compile Include="CollectionManagement\CollectionResolvedPlanBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionAdditivePlanPreparationService.cs" />
     <Compile Include="CollectionManagement\CollectionAdditivePlanRevalidationService.cs" />
@@ -191,6 +192,7 @@
     <Compile Include="CollectionManagement\CollectionManagedArchiveCandidate.cs" />
     <Compile Include="CollectionManagement\ICollectionManagedArchiveSource.cs" />
     <Compile Include="CollectionManagement\ICollectionArchiveIdentityVerifier.cs" />
+    <Compile Include="CollectionManagement\CollectionNexusMetadataHydrator.cs" />
     <Compile Include="CollectionManagement\ModManagerCollectionManagedArchiveSource.cs" />
     <Compile Include="CollectionManagement\CollectionVerifiedArchive.cs" />
     <Compile Include="CollectionManagement\CollectionVerifiedArchiveAdopter.cs" />
