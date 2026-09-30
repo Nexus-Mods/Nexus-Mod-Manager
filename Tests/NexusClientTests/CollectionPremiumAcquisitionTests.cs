@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.ModAuthoring;
@@ -28,6 +28,21 @@ namespace NexusClientTests
 			Assert.That(result.QueueOperationId, Is.EqualTo(request.RequestId));
 			Assert.That(result.Task, Is.Not.SameAs(queue.Task));
 			Assert.That(result.Task.Status, Is.EqualTo(queue.Task.Status));
+		}
+
+		[Test]
+		public void Queue_ExplicitAutomaticOverwritePolicy_IsOwnedByPremiumProducer()
+		{
+			CollectionAcquisitionRequest request = CreateRequest("nexus-mod-file", "skyrimspecialedition/100/200");
+			RecordingQueue queue = new RecordingQueue();
+			CollectionPremiumAcquisitionCoordinator coordinator = CreateCoordinator(
+				queue, new CollectionPremiumAcquisitionAccountState("SkyrimSpecialEdition", true, true));
+
+			CollectionAcquisitionQueueCorrelation result = coordinator.Queue(
+				request, null, CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
+
+			Assert.That(queue.CallCount, Is.EqualTo(1));
+			Assert.That(result.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
 		}
 
 		[Test]

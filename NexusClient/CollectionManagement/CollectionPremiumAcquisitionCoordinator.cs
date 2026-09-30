@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using Nexus.Client.ModAuthoring;
 
@@ -61,8 +61,19 @@ namespace Nexus.Client.CollectionManagement
 			CollectionAcquisitionRequest request,
 			ConfirmOverwriteCallback confirmOverwriteCallback)
 		{
+			return Queue(request, confirmOverwriteCallback, CollectionArchiveOverwritePolicy.Prompt);
+		}
+
+		/// <summary>Queues one exact Nexus mod file with an explicit in-memory archive-overwrite policy.</summary>
+		public CollectionAcquisitionQueueCorrelation Queue(
+			CollectionAcquisitionRequest request,
+			ConfirmOverwriteCallback confirmOverwriteCallback,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy)
+		{
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
+			if (archiveOverwritePolicy == null)
+				throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 
 			string gameDomain;
 			long modId;
@@ -76,7 +87,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Automated Premium Collection acquisition is unavailable: " + availability + ".");
 
 			Uri sourceUri = CreateUnsignedNxmUri(gameDomain, modId, fileId);
-			return _requestCoordinator.Queue(request, sourceUri, confirmOverwriteCallback);
+			return _requestCoordinator.Queue(request, sourceUri, confirmOverwriteCallback, archiveOverwritePolicy);
 		}
 
 		private static CollectionPremiumAcquisitionAvailability GetAvailability(

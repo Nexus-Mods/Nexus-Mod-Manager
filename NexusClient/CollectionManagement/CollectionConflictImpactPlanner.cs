@@ -33,7 +33,7 @@ namespace Nexus.Client.CollectionManagement
 			{
 				issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.UpstreamPlanBlocked,
 					CollectionConflictImpactStatus.Blocked, null, String.Empty,
-					"C6.4 cannot plan impacts until the exact C6.3 dependency/phase plan is ready."));
+					"Change-impact review cannot run until dependency planning produces an actionable installation order."));
 				return Empty(plan, nativeState, issues);
 			}
 
@@ -50,7 +50,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.AcquisitionOrTranslationRequired,
 						CollectionConflictImpactStatus.PreparationRequired, member.MemberKey, member.ArtifactChoice.SelectedArtifact.ToString(),
-						"The member still requires artifact acquisition and C5 translation before exact conflict/impact review."));
+						"The member still requires archive acquisition and installation preparation before its changes can be reviewed."));
 					continue;
 				}
 				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
@@ -59,7 +59,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.UpstreamPlanBlocked,
 						CollectionConflictImpactStatus.Blocked, member.MemberKey, String.Empty,
-						"The member is blocked by C6.2 matching and cannot participate in an impact plan."));
+						"Member compatibility matching blocked this member, so its installation effects cannot be reviewed yet."));
 					continue;
 				}
 
@@ -68,14 +68,14 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.AcquisitionOrTranslationRequired,
 						CollectionConflictImpactStatus.PreparationRequired, member.MemberKey, String.Empty,
-						"A member which would mutate native state requires an exact translated C5 effect preview."));
+						"A member that would change the installed setup requires a complete prepared-effects preview before installation."));
 					continue;
 				}
 				if (!preview.IsComplete)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.EffectPreviewIncomplete,
 						CollectionConflictImpactStatus.Blocked, member.MemberKey, String.Empty,
-						"The translated native recipe contains effects which C6.4 cannot bound exactly."));
+						"The prepared installation recipe contains effects that NMM cannot fully preview and review safely."));
 				}
 			}
 
@@ -445,13 +445,13 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FilePriorityCycle,
 						CollectionConflictImpactStatus.Blocked, null, entry.Key.ToString(),
-						"The characterized Collection file-priority rules form a cycle for members writing the same native target."));
+						"The Collection file-priority rules form a cycle for members that write the same installed file."));
 				}
 				else if (winner == null)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FileWinnerDecisionRequired,
 						CollectionConflictImpactStatus.ActionRequired, null, entry.Key.ToString(),
-						"Several selected members write the same native target without a unique characterized file-priority winner."));
+						"Several selected members write the same installed file, but the Collection does not define one unambiguous final provider."));
 				}
 
 				CollectionNativeFileState current;
@@ -461,7 +461,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileOwnershipUnresolved,
 						CollectionConflictImpactStatus.Blocked, winner, entry.Key.ToString(),
-						"The target has recorded managed ownership which C6.1 could not reduce to one effective native owner; exact additive winner planning must stop."));
+						"NMM found ambiguous managed ownership for this installed file and cannot determine one safe final provider."));
 				}
 				HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentOwner);
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.FileWinner);
@@ -471,7 +471,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
 						CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
-						"Applying the incoming file winner would replace an existing unrelated managed owner; additive mode requires explicit reviewed conflict handling."));
+						"The reviewed Collection file winner would replace an unrelated existing managed owner. Installing into the current setup requires an explicit supported resolution."));
 				}
 
 				result.Add(new CollectionFileImpact(entry.Key, entry.Value, winner, currentOwner, affected));
@@ -591,7 +591,7 @@ namespace Nexus.Client.CollectionManagement
 			{
 				issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.PluginStateUnavailable,
 					CollectionConflictImpactStatus.Blocked, null, String.Empty,
-					"The incoming recipe changes plugin state but the C6.1 plugin snapshot is not complete for this target."));
+					"The Collection would change plugin state, but NMM could not obtain a complete current plugin-state snapshot for this target."));
 			}
 
 			DetectConflictingPluginIntent(all, issues);
@@ -834,7 +834,7 @@ namespace Nexus.Client.CollectionManagement
 					associationKinds[associationId] |= CollectionAssociationImpactKind.UserOverride;
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingUserOverride,
 						CollectionConflictImpactStatus.ActionRequired, null, associationId.ToString("D"),
-						"An affected Collection association contains an explicit user override; C6.4 will not silently replace that local decision."));
+						"Another affected installed Collection contains an explicit user override. NMM will not silently replace that local decision."));
 				}
 			}
 		}

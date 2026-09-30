@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Nexus.Client.BackgroundTasks;
@@ -69,28 +69,48 @@ namespace Nexus.Client.CollectionManagement
 			Uri sourceUri,
 			ConfirmOverwriteCallback confirmOverwriteCallback)
 		{
+			return Queue(request, sourceUri, confirmOverwriteCallback, CollectionArchiveOverwritePolicy.Prompt);
+		}
+
+		/// <summary>Queues the supplied source with one explicit in-memory archive-overwrite policy.</summary>
+		public CollectionAcquisitionQueueCorrelation Queue(
+			CollectionAcquisitionRequest request,
+			Uri sourceUri,
+			ConfirmOverwriteCallback confirmOverwriteCallback,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy)
+		{
 			if (request == null) throw new ArgumentNullException(nameof(request));
 			if (sourceUri == null) throw new ArgumentNullException(nameof(sourceUri));
 			if (!sourceUri.IsAbsoluteUri) throw new ArgumentException("An absolute AddMod source URI is required.", nameof(sourceUri));
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			ValidateSourceMatchesRequest(request, sourceUri);
-			return QueueCore(request, sourceUri, confirmOverwriteCallback, GetPersistenceMode(sourceUri));
+			return QueueCore(request, sourceUri, confirmOverwriteCallback, archiveOverwritePolicy, GetPersistenceMode(sourceUri));
 		}
 
 		/// <summary>Queues one trusted deterministic embedded-member archive through the same native AddMod pipeline.</summary>
 		internal CollectionAcquisitionQueueCorrelation QueueMaterializedLocal(CollectionAcquisitionRequest request,
 			string archivePath, ConfirmOverwriteCallback confirmOverwriteCallback)
 		{
+			return QueueMaterializedLocal(request, archivePath, confirmOverwriteCallback, CollectionArchiveOverwritePolicy.Prompt);
+		}
+
+		/// <summary>Queues one trusted embedded-member archive with an explicit in-memory archive-overwrite policy.</summary>
+		internal CollectionAcquisitionQueueCorrelation QueueMaterializedLocal(CollectionAcquisitionRequest request,
+			string archivePath, ConfirmOverwriteCallback confirmOverwriteCallback, CollectionArchiveOverwritePolicy archiveOverwritePolicy)
+		{
 			if (request == null) throw new ArgumentNullException(nameof(request));
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			if (!CollectionBundledArtifactIdentity.IsBundle(request.SelectedArtifact))
 				throw new ArgumentException("Only characterized Collection bundle artifacts may use materialized local AddMod input.", nameof(request));
 			if (String.IsNullOrWhiteSpace(archivePath)) throw new ArgumentException("A materialized archive path is required.", nameof(archivePath));
 			string fullPath = System.IO.Path.GetFullPath(archivePath);
 			if (!System.IO.File.Exists(fullPath)) throw new System.IO.FileNotFoundException("The materialized Collection bundle archive no longer exists.", fullPath);
-			return QueueCore(request, new Uri(fullPath), confirmOverwriteCallback, CollectionAcquisitionPersistenceMode.BundleMaterialization);
+			return QueueCore(request, new Uri(fullPath), confirmOverwriteCallback, archiveOverwritePolicy, CollectionAcquisitionPersistenceMode.BundleMaterialization);
 		}
 
 		private CollectionAcquisitionQueueCorrelation QueueCore(CollectionAcquisitionRequest request, Uri sourceUri,
-			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionAcquisitionPersistenceMode persistenceMode)
+			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			CollectionAcquisitionPersistenceMode persistenceMode)
 		{
 			string producerKey = CreateProducerKey(request.SelectedArtifact);
 			lock (_syncRoot)
@@ -108,7 +128,11 @@ namespace Nexus.Client.CollectionManagement
 
 				CollectionAcquisitionQueueCorrelation existingCorrelation;
 				if (_requestCorrelations.TryGetValue(request.RequestId, out existingCorrelation))
+				{
+					if (!existingCorrelation.ArchiveOverwritePolicy.Equals(archiveOverwritePolicy))
+						throw new CollectionArchiveOverwritePolicyConflictException(existingCorrelation.ArchiveOverwritePolicy, archiveOverwritePolicy);
 					return existingCorrelation;
+				}
 
 				SharedAcquisitionProducer producer;
 				if (_activeProducers.TryGetValue(producerKey, out producer))
@@ -122,6 +146,10 @@ namespace Nexus.Client.CollectionManagement
 					{
 						throw new InvalidOperationException("The shared AddMod acquisition producer is already cancelling. Retry only after that native operation reaches a terminal state.");
 					}
+					else if (!producer.ArchiveOverwritePolicy.Equals(archiveOverwritePolicy))
+					{
+						throw new CollectionArchiveOverwritePolicyConflictException(producer.ArchiveOverwritePolicy, archiveOverwritePolicy);
+					}
 				}
 
 				if (producer == null)
@@ -132,10 +160,11 @@ namespace Nexus.Client.CollectionManagement
 						Guid? persistedQueueOperationId = _acquisitionStore.GetReusableQueueOperationId(request);
 						if (persistedQueueOperationId.HasValue) queueOperationId = persistedQueueOperationId.Value;
 					}
-					IBackgroundTask task = _queue.Queue(sourceUri, confirmOverwriteCallback, queueOperationId);
+					ConfirmOverwriteCallback effectiveOverwriteCallback = archiveOverwritePolicy.Bind(confirmOverwriteCallback);
+					IBackgroundTask task = _queue.Queue(sourceUri, effectiveOverwriteCallback, queueOperationId);
 					if (task == null) throw new InvalidOperationException("The native AddMod queue returned no background task for the acquisition request.");
 
-					producer = new SharedAcquisitionProducer(producerKey, queueOperationId, task);
+					producer = new SharedAcquisitionProducer(producerKey, queueOperationId, task, archiveOverwritePolicy);
 					if (!CollectionAcquisitionConsumerTask.IsTerminal(task.Status))
 					{
 						producer.TaskEndedHandler = (sender, args) => ProducerTaskEnded(producer, args);
@@ -147,7 +176,7 @@ namespace Nexus.Client.CollectionManagement
 				CollectionAcquisitionConsumerTask consumerTask = null;
 				consumerTask = new CollectionAcquisitionConsumerTask(producer.Task,
 					consumer => DetachConsumer(producer, request.RequestId, consumer));
-				var correlation = new CollectionAcquisitionQueueCorrelation(request, producer.QueueOperationId, consumerTask);
+				var correlation = new CollectionAcquisitionQueueCorrelation(request, producer.QueueOperationId, consumerTask, producer.ArchiveOverwritePolicy);
 
 				if (_acquisitionStore != null)
 				{
@@ -328,11 +357,13 @@ namespace Nexus.Client.CollectionManagement
 		private sealed class SharedAcquisitionProducer
 		{
 			/// <summary>Creates the shared producer record around one native AddMod task.</summary>
-			public SharedAcquisitionProducer(string producerKey, Guid queueOperationId, IBackgroundTask task)
+			public SharedAcquisitionProducer(string producerKey, Guid queueOperationId, IBackgroundTask task,
+				CollectionArchiveOverwritePolicy archiveOverwritePolicy)
 			{
 				ProducerKey = producerKey;
 				QueueOperationId = queueOperationId;
 				Task = task;
+				ArchiveOverwritePolicy = archiveOverwritePolicy ?? throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 				AcceptingConsumers = true;
 				Consumers = new Dictionary<Guid, CollectionAcquisitionConsumerTask>();
 			}
@@ -340,6 +371,7 @@ namespace Nexus.Client.CollectionManagement
 			public string ProducerKey { get; }
 			public Guid QueueOperationId { get; }
 			public IBackgroundTask Task { get; }
+			public CollectionArchiveOverwritePolicy ArchiveOverwritePolicy { get; }
 			public bool AcceptingConsumers { get; set; }
 			public Dictionary<Guid, CollectionAcquisitionConsumerTask> Consumers { get; }
 			public EventHandler<TaskEndedEventArgs> TaskEndedHandler { get; set; }

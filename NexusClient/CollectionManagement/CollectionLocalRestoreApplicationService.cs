@@ -157,7 +157,7 @@ namespace Nexus.Client.CollectionManagement
 			if (preview == null) throw new ArgumentNullException(nameof(preview));
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
 			if (!preview.IsReadyForRestore)
-				throw new InvalidOperationException("Only a Local restore preview with no blocking C7.9 issues can be applied.");
+				throw new InvalidOperationException("Only a Local Collection restore preview with no blocking review issues can be applied.");
 
 			CollectionLocalRestoreMemberExecutionResult memberPhase = await _memberExecutor.ExecuteAsync(
 				preview.SealedCapture, preview.Plan, paths, cancellationToken).ConfigureAwait(true);

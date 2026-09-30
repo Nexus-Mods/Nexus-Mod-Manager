@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -94,9 +94,11 @@ namespace NexusClientTests
 				CollectionManualAcquisitionPendingAction pending = context.Coordinator.CreatePendingAction(request);
 				Uri returned = new Uri("nxm://skyrimspecialedition/mods/100/files/200?key=temporary&expires=2147483647&user_id=42");
 
-				CollectionAcquisitionQueueCorrelation correlation = context.Coordinator.QueueReturnedNxm(pending, returned, null);
+				CollectionAcquisitionQueueCorrelation correlation = context.Coordinator.QueueReturnedNxm(
+					pending, returned, null, CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
 
 				Assert.That(context.Queue.CallCount, Is.EqualTo(1));
+				Assert.That(correlation.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
 				Assert.That(context.Queue.SourceUri, Is.EqualTo(returned));
 				Assert.That(context.Queue.QueueOperationId, Is.EqualTo(request.RequestId));
 				Assert.That(correlation.QueueOperationId, Is.EqualTo(request.RequestId));

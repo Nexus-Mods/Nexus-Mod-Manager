@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using Nexus.Client.ModAuthoring;
 
@@ -9,7 +9,8 @@ namespace Nexus.Client.CollectionManagement
 	{
 		bool Supports(CollectionArtifactReference artifact);
 		CollectionBundledMemberAcquisitionResult Begin(CollectionAcquisitionRequest request,
-			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken);
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
+			CancellationToken cancellationToken);
 		CollectionVerifiedArchive TryComplete(CollectionAcquisitionRequest request, CancellationToken cancellationToken);
 	}
 

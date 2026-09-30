@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
@@ -86,9 +86,21 @@ namespace Nexus.Client.CollectionManagement
 			Uri returnedNxmUri,
 			ConfirmOverwriteCallback confirmOverwriteCallback)
 		{
+			return QueueReturnedNxm(pendingAction, returnedNxmUri, confirmOverwriteCallback, CollectionArchiveOverwritePolicy.Prompt);
+		}
+
+		/// <summary>Queues a user-returned Nexus NXM callback with explicit in-memory archive-overwrite consent.</summary>
+		public CollectionAcquisitionQueueCorrelation QueueReturnedNxm(
+			CollectionManualAcquisitionPendingAction pendingAction,
+			Uri returnedNxmUri,
+			ConfirmOverwriteCallback confirmOverwriteCallback,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy)
+		{
 			ValidatePendingAction(pendingAction, CollectionManualAcquisitionActionKind.Nxm);
 			if (returnedNxmUri == null)
 				throw new ArgumentNullException(nameof(returnedNxmUri));
+			if (archiveOverwritePolicy == null)
+				throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			if (!returnedNxmUri.IsAbsoluteUri || !StringComparer.OrdinalIgnoreCase.Equals(returnedNxmUri.Scheme, "nxm"))
 				throw new ArgumentException("A Nexus NXM callback is required.", nameof(returnedNxmUri));
 
@@ -96,7 +108,7 @@ namespace Nexus.Client.CollectionManagement
 			if (String.IsNullOrWhiteSpace(nexusUrl.Key) || nexusUrl.Expiry <= 0 || nexusUrl.UserId <= 0)
 				throw new ArgumentException("The returned NXM URI does not contain Nexus' temporary user-mediated download authorization.", nameof(returnedNxmUri));
 
-			return _requestCoordinator.Queue(pendingAction.Request, returnedNxmUri, confirmOverwriteCallback);
+			return _requestCoordinator.Queue(pendingAction.Request, returnedNxmUri, confirmOverwriteCallback, archiveOverwritePolicy);
 		}
 
 		/// <summary>

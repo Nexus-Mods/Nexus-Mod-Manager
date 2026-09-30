@@ -30,9 +30,13 @@ namespace NexusClientTests
 				Fixture fixture = CreateFixture(root, true);
 				CollectionAdditivePlanBuildResult planBuild = fixture.BuildPlan(CreateState(fixture.Target, 0));
 
-				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(planBuild, null, CancellationToken.None);
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(planBuild,
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
 
 				Assert.That(batch.IsAwaitingInput, Is.True);
+				Assert.That(batch.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+				Assert.That(batch.Members.Single().QueueCorrelation.ArchiveOverwritePolicy,
+					Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
 				Assert.That(batch.IsReady, Is.False);
 				Assert.That(batch.Members.Single().Disposition, Is.EqualTo(CollectionMemberAcquisitionDisposition.PremiumQueued));
 				Assert.That(fixture.Queue.CallCount, Is.EqualTo(1));
@@ -170,11 +174,15 @@ namespace NexusClientTests
 			{
 				Fixture fixture = CreateFixture(root, false);
 				CollectionAdditivePlanBuildResult planBuild = fixture.BuildPlan(CreateState(fixture.Target, 0));
-				CollectionMemberAcquisitionBatch waiting = fixture.Acquisition.Begin(planBuild, null, CancellationToken.None);
+				CollectionMemberAcquisitionBatch waiting = fixture.Acquisition.Begin(planBuild,
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
 
 				CollectionMemberAcquisitionBatch reconciled = fixture.Acquisition.ReconcileRestart(
 					waiting.PlanBuild, CancellationToken.None);
 
+				Assert.That(waiting.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+				Assert.That(reconciled.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.Prompt),
+					"Automatic archive replacement consent must not be inferred from a previous application session.");
 				Assert.That(reconciled.IsAwaitingInput, Is.True);
 				Assert.That(reconciled.Members.Single().Disposition,
 					Is.EqualTo(CollectionMemberAcquisitionDisposition.RestartActionRequired));

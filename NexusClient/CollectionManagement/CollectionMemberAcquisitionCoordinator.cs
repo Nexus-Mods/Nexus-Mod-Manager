@@ -79,10 +79,12 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionMemberAcquisitionState> _members;
 
 		internal CollectionMemberAcquisitionBatch(CollectionAdditivePlanBuildResult planBuild,
-			CollectionMemberMatchSet matchSet, IEnumerable<CollectionMemberAcquisitionState> members)
+			CollectionMemberMatchSet matchSet, IEnumerable<CollectionMemberAcquisitionState> members,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy)
 		{
 			PlanBuild = planBuild ?? throw new ArgumentNullException(nameof(planBuild));
 			MatchSet = matchSet ?? throw new ArgumentNullException(nameof(matchSet));
+			ArchiveOverwritePolicy = archiveOverwritePolicy ?? throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			if (members == null)
 				throw new ArgumentNullException(nameof(members));
 			List<CollectionMemberAcquisitionState> copied = members.ToList();
@@ -93,6 +95,8 @@ namespace Nexus.Client.CollectionManagement
 
 		public CollectionAdditivePlanBuildResult PlanBuild { get; }
 		public CollectionMemberMatchSet MatchSet { get; }
+		/// <summary>Gets the immutable in-session archive-overwrite policy captured when this preparation batch began.</summary>
+		public CollectionArchiveOverwritePolicy ArchiveOverwritePolicy { get; }
 		public ReadOnlyCollection<CollectionMemberAcquisitionState> Members { get { return _members; } }
 		public bool IsReady { get { return _members.All(x => x.IsReady); } }
 		public bool HasBlockedMembers { get { return _members.Any(x => x.Disposition == CollectionMemberAcquisitionDisposition.Blocked); } }
@@ -147,12 +151,21 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionMemberAcquisitionBatch Begin(CollectionAdditivePlanBuildResult planBuild,
 			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
 		{
+			return Begin(planBuild, CollectionArchiveOverwritePolicy.Prompt, confirmOverwriteCallback, cancellationToken);
+		}
+
+		/// <summary>Starts member acquisition with one immutable archive-overwrite policy for the complete preparation batch.</summary>
+		public CollectionMemberAcquisitionBatch Begin(CollectionAdditivePlanBuildResult planBuild,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
+			CancellationToken cancellationToken)
+		{
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			ValidatePreparingPlan(planBuild);
 			ResolvedCollectionPlan plan = planBuild.Plan;
 			CollectionNativeStateIndex nativeState = planBuild.NativeState;
 			CollectionMemberMatchSet initial = _matchEngine.Match(plan, nativeState);
 			if (initial.HasBlockedMembers)
-				return BuildBlockedBatch(planBuild, initial);
+				return BuildBlockedBatch(planBuild, initial, archiveOverwritePolicy);
 
 			var requests = new Dictionary<CollectionMemberKey, CollectionAcquisitionRequest>();
 			var verifiedArchives = new List<CollectionVerifiedArchive>();
@@ -171,7 +184,7 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionMemberMatchSet rematched = _matchEngine.Match(plan, nativeState, verifiedArchives);
 			if (rematched.HasBlockedMembers)
-				return BuildBlockedBatch(planBuild, rematched);
+				return BuildBlockedBatch(planBuild, rematched, archiveOverwritePolicy);
 
 			bool awaitingInput = rematched.Members.Any(x =>
 				x.Disposition == CollectionMemberMatchDisposition.AcquisitionRequired ||
@@ -213,7 +226,7 @@ namespace Nexus.Client.CollectionManagement
 				if (IsBundled(request))
 				{
 					CollectionBundledMemberAcquisitionResult bundled = _bundledCoordinator.Begin(
-						request, confirmOverwriteCallback, cancellationToken);
+						request, archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
 					if (bundled.IsManagedArchiveReady)
 					{
 						states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
@@ -231,7 +244,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionPremiumAcquisitionAvailability availability = _premiumCoordinator.GetAvailability(request);
 				if (availability == CollectionPremiumAcquisitionAvailability.Available)
 				{
-					CollectionAcquisitionQueueCorrelation correlation = _premiumCoordinator.Queue(request, confirmOverwriteCallback);
+					CollectionAcquisitionQueueCorrelation correlation = _premiumCoordinator.Queue(
+						request, confirmOverwriteCallback, archiveOverwritePolicy);
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.PremiumQueued,
 						request, null, correlation, null, null, availability));
 				}
@@ -243,7 +257,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
-			return new CollectionMemberAcquisitionBatch(updatedBuild, rematched, states);
+			return new CollectionMemberAcquisitionBatch(updatedBuild, rematched, states, archiveOverwritePolicy);
 		}
 
 		/// <summary>
@@ -293,7 +307,7 @@ namespace Nexus.Client.CollectionManagement
 					states.Add(State(match, previous.Disposition, previous.Request, null, previous.QueueCorrelation,
 						previous.PendingAction, previous.RestartResult, previous.PremiumAvailability));
 			}
-			return new CollectionMemberAcquisitionBatch(batch.PlanBuild, rematched, states);
+			return new CollectionMemberAcquisitionBatch(batch.PlanBuild, rematched, states, batch.ArchiveOverwritePolicy);
 		}
 
 		/// <summary>
@@ -347,7 +361,7 @@ namespace Nexus.Client.CollectionManagement
 				else
 					throw new InvalidOperationException("Post-pause revalidation changed a previously acquisition-ready member into a state that requires new content. Prepare a new acquisition pass.");
 			}
-			return new CollectionMemberAcquisitionBatch(refreshedPlanBuild, rematched, states);
+			return new CollectionMemberAcquisitionBatch(refreshedPlanBuild, rematched, states, previousBatch.ArchiveOverwritePolicy);
 		}
 
 		/// <summary>
@@ -363,7 +377,7 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionMemberMatchSet initial = _matchEngine.Match(planBuild.Plan, planBuild.NativeState);
 			if (initial.HasBlockedMembers)
-				return BuildBlockedBatch(planBuild, initial);
+				return BuildBlockedBatch(planBuild, initial, CollectionArchiveOverwritePolicy.Prompt);
 
 			var verified = new List<CollectionVerifiedArchive>();
 			var restartByMember = new Dictionary<CollectionMemberKey, CollectionAcquisitionRestartResult>();
@@ -409,7 +423,7 @@ namespace Nexus.Client.CollectionManagement
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.RestartActionRequired,
 						request, null, null, null, restart, restart == null ? (CollectionPremiumAcquisitionAvailability?)null : restart.PremiumAvailability));
 			}
-			return new CollectionMemberAcquisitionBatch(planBuild, rematched, states);
+			return new CollectionMemberAcquisitionBatch(planBuild, rematched, states, CollectionArchiveOverwritePolicy.Prompt);
 		}
 
 		private static void ValidatePreparingPlan(CollectionAdditivePlanBuildResult planBuild)
@@ -436,7 +450,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static CollectionMemberAcquisitionBatch BuildBlockedBatch(CollectionAdditivePlanBuildResult planBuild,
-			CollectionMemberMatchSet matches)
+			CollectionMemberMatchSet matches, CollectionArchiveOverwritePolicy archiveOverwritePolicy)
 		{
 			var states = new List<CollectionMemberAcquisitionState>(matches.Members.Count);
 			foreach (CollectionMemberMatchResult match in matches.Members)
@@ -451,7 +465,7 @@ namespace Nexus.Client.CollectionManagement
 				else
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.Blocked, null, null, null, null, null, null));
 			}
-			return new CollectionMemberAcquisitionBatch(planBuild, matches, states);
+			return new CollectionMemberAcquisitionBatch(planBuild, matches, states, archiveOverwritePolicy);
 		}
 
 		private static CollectionAcquisitionRequest CreateRequest(ResolvedCollectionPlan plan, CollectionMemberKey memberKey)

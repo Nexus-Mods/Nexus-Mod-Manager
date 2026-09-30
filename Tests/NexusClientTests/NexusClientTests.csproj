@@ -201,6 +201,10 @@
     <Compile Include="CollectionNexusPreferExactPolicyResolverTests.cs" />
     <Compile Include="LocalCaptureContractsTests.cs" />
     <Compile Include="CollectionOverrideDriftContractsTests.cs" />
+    <Compile Include="CollectionReviewPresentationTests.cs" />
+    <Compile Include="CollectionTechnicalReportTests.cs" />
+    <Compile Include="CollectionUserMessagePresentationTests.cs" />
+    <Compile Include="CollectionUiContextTests.cs" />
     <Compile Include="CollectionOperationContractsTests.cs" />
     <Compile Include="CollectionsStoreFoundationTests.cs" />
     <Compile Include="CollectionsCatalogStoreTests.cs" />

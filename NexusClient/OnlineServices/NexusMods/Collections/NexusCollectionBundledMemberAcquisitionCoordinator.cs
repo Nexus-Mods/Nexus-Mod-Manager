@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -35,9 +35,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		}
 
 		public CollectionBundledMemberAcquisitionResult Begin(CollectionAcquisitionRequest request,
-			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
+			CancellationToken cancellationToken)
 		{
 			ValidateRequest(request);
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			NexusCollectionBundledArtifactMaterialization materialized = _materializer.Materialize(request, cancellationToken);
 			CollectionVerifiedArchive verified = _archiveAdopter.AdoptRevisionBundleMaterialization(
 				request, materialized.Artifact, cancellationToken);
@@ -52,7 +54,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			CollectionAcquisitionQueueCorrelation correlation = _requestCoordinator.QueueMaterializedLocal(
-				request, materialized.StagingPath, confirmOverwriteCallback);
+				request, materialized.StagingPath, confirmOverwriteCallback, archiveOverwritePolicy);
 			return new CollectionBundledMemberAcquisitionResult(verified, correlation);
 		}
 

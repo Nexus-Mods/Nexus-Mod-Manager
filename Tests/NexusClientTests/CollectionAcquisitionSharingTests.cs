@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using Nexus.Client;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.CollectionManagement;
@@ -16,6 +17,112 @@ namespace NexusClientTests
 		private const string HashB = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 		private const string ArtifactA = "skyrimspecialedition/100/200";
 		private const string ArtifactB = "skyrimspecialedition/100/201";
+
+		[Test]
+		public void OverwritePolicy_AutomaticCallbackUsesOriginalDestinationWithoutPrompt()
+		{
+			bool promptCalled = false;
+			ConfirmOverwriteCallback callback = CollectionArchiveOverwritePolicy.OverwriteExistingArchives.Bind(
+				delegate(string oldPath, out string newPath)
+				{
+					promptCalled = true;
+					newPath = oldPath + ".copy";
+					return false;
+				});
+
+			string destination;
+			bool accepted = callback(@"C:\mods\example.7z", out destination);
+
+			Assert.That(accepted, Is.True);
+			Assert.That(destination, Is.EqualTo(@"C:\mods\example.7z"));
+			Assert.That(promptCalled, Is.False);
+		}
+
+		[Test]
+		public void Queue_AutomaticPolicy_BindsOriginalDestinationCallbackAtProducerBoundary()
+		{
+			var queue = new RecordingQueue();
+			var coordinator = new CollectionAcquisitionRequestCoordinator(queue);
+			coordinator.Queue(
+				CreateRequest(Guid.NewGuid(), "collection-a", "member-a", ArtifactA, null, "recipe-a", "target-a"),
+				new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+				CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
+
+			Assert.That(queue.ConfirmOverwriteCallback, Is.Not.Null);
+			string destination;
+			bool accepted = queue.ConfirmOverwriteCallback(@"C:\mods\example.7z", out destination);
+			Assert.That(accepted, Is.True);
+			Assert.That(destination, Is.EqualTo(@"C:\mods\example.7z"));
+		}
+
+		[Test]
+		public void QueueMaterializedLocal_AutomaticPolicy_ReachesBundledProducer()
+		{
+			string archivePath = Path.GetTempFileName();
+			try
+			{
+				CollectionIdentity collection = CollectionIdentity.FromNexus("collection-bundle");
+				CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(
+					collection, "revision-collection-bundle", 1);
+				string stableArtifactId = CollectionBundledArtifactIdentity.Format(revision, "embedded-member");
+				CollectionAcquisitionRequest request = CreateRequest(Guid.NewGuid(), "collection-bundle", "member-a",
+					stableArtifactId, null, "recipe-a", "target-a", CollectionBundledArtifactIdentity.Scheme);
+				var queue = new RecordingQueue();
+				var coordinator = new CollectionAcquisitionRequestCoordinator(queue);
+
+				CollectionAcquisitionQueueCorrelation correlation = coordinator.QueueMaterializedLocal(
+					request, archivePath, null, CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
+
+				Assert.That(queue.CallCount, Is.EqualTo(1));
+				Assert.That(queue.ConfirmOverwriteCallback, Is.Not.Null);
+				Assert.That(correlation.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+			}
+			finally
+			{
+				File.Delete(archivePath);
+			}
+		}
+
+		[Test]
+		public void Queue_SameArtifactAndSameAutomaticPolicy_SharesProducerAndReportsPolicy()
+		{
+			var queue = new RecordingQueue();
+			var coordinator = new CollectionAcquisitionRequestCoordinator(queue);
+			CollectionAcquisitionQueueCorrelation first = coordinator.Queue(
+				CreateRequest(Guid.NewGuid(), "collection-a", "member-a", ArtifactA, null, "recipe-a", "target-a"),
+				new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+				CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
+			CollectionAcquisitionQueueCorrelation second = coordinator.Queue(
+				CreateRequest(Guid.NewGuid(), "collection-b", "member-b", ArtifactA, null, "recipe-b", "target-b"),
+				new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+				CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
+
+			Assert.That(queue.CallCount, Is.EqualTo(1));
+			Assert.That(second.QueueOperationId, Is.EqualTo(first.QueueOperationId));
+			Assert.That(first.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+			Assert.That(second.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+		}
+
+		[Test]
+		public void Queue_SharedProducerWithDifferentOverwritePolicy_RejectsLaterConsumer()
+		{
+			var queue = new RecordingQueue();
+			var coordinator = new CollectionAcquisitionRequestCoordinator(queue);
+			coordinator.Queue(
+				CreateRequest(Guid.NewGuid(), "collection-a", "member-a", ArtifactA, null, "recipe-a", "target-a"),
+				new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+				CollectionArchiveOverwritePolicy.Prompt);
+
+			CollectionArchiveOverwritePolicyConflictException exception = Assert.Throws<CollectionArchiveOverwritePolicyConflictException>(() =>
+				coordinator.Queue(
+					CreateRequest(Guid.NewGuid(), "collection-b", "member-b", ArtifactA, null, "recipe-b", "target-b"),
+					new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+
+			Assert.That(queue.CallCount, Is.EqualTo(1));
+			Assert.That(exception.ActivePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.Prompt));
+			Assert.That(exception.RequestedPolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
+		}
 
 		[Test]
 		public void Queue_TwoCollectionConsumersForSameArtifact_ShareOneNativeProducer()
@@ -62,6 +169,25 @@ namespace NexusClientTests
 			Assert.That(queue.CallCount, Is.EqualTo(1));
 			Assert.That(second.QueueOperationId, Is.EqualTo(first.QueueOperationId));
 			Assert.That(first.Request.SelectedArtifact.ExpectedContentHash, Is.Not.EqualTo(second.Request.SelectedArtifact.ExpectedContentHash));
+		}
+
+		[Test]
+		public void Queue_AfterPreviousProducerCompletes_SameRequestMayUseFreshOverwritePolicy()
+		{
+			var queue = new RecordingQueue();
+			var coordinator = new CollectionAcquisitionRequestCoordinator(queue);
+			CollectionAcquisitionRequest request = CreateRequest(
+				Guid.NewGuid(), "collection-a", "member-a", ArtifactA, null, "recipe-a", "target-a");
+			coordinator.Queue(request, new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+				CollectionArchiveOverwritePolicy.Prompt);
+			queue.Tasks[0].Complete();
+
+			CollectionAcquisitionQueueCorrelation fresh = coordinator.Queue(request,
+				new Uri("nxm://skyrimspecialedition/mods/100/files/200"), null,
+				CollectionArchiveOverwritePolicy.OverwriteExistingArchives);
+
+			Assert.That(queue.CallCount, Is.EqualTo(2));
+			Assert.That(fresh.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
 		}
 
 		[Test]
@@ -271,6 +397,12 @@ namespace NexusClientTests
 		private static CollectionAcquisitionRequest CreateRequest(Guid requestId, string collectionId, string memberId,
 			string stableArtifactId, CollectionContentHash expectedHash, string recipeId, string targetId)
 		{
+			return CreateRequest(requestId, collectionId, memberId, stableArtifactId, expectedHash, recipeId, targetId, "nexus-mod-file");
+		}
+
+		private static CollectionAcquisitionRequest CreateRequest(Guid requestId, string collectionId, string memberId,
+			string stableArtifactId, CollectionContentHash expectedHash, string recipeId, string targetId, string artifactScheme)
+		{
 			CollectionIdentity collection = CollectionIdentity.FromNexus(collectionId);
 			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-" + collectionId, 1);
 			CollectionManifestSourceSnapshot source = new CollectionManifestSourceSnapshot(
@@ -280,7 +412,7 @@ namespace NexusClientTests
 				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider(memberId)),
 				CollectionMemberRequirement.Required,
 				CollectionMemberSelection.Selected,
-				new CollectionArtifactReference("nexus-mod-file", stableArtifactId, expectedHash),
+				new CollectionArtifactReference(artifactScheme, stableArtifactId, expectedHash),
 				CollectionRecipeIdentity.FromFingerprint(recipeId),
 				memberId);
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(
@@ -300,11 +432,13 @@ namespace NexusClientTests
 		private sealed class RecordingQueue : ICollectionAddModQueue
 		{
 			public int CallCount { get; private set; }
+			public ConfirmOverwriteCallback ConfirmOverwriteCallback { get; private set; }
 			public List<RecordingBackgroundTask> Tasks { get; } = new List<RecordingBackgroundTask>();
 
 			public IBackgroundTask Queue(Uri sourceUri, ConfirmOverwriteCallback confirmOverwriteCallback, Guid queueOperationId)
 			{
 				CallCount++;
+				ConfirmOverwriteCallback = confirmOverwriteCallback;
 				var task = new RecordingBackgroundTask();
 				Tasks.Add(task);
 				return task;

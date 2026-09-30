@@ -270,16 +270,27 @@ namespace Nexus.Client.CollectionManagement
 			_nativeChildApplyOverride = nativeChildApplyOverride;
 			_winnerReconciliationOverride = winnerReconciliationOverride;
 			if (_services.ModManager == null)
-				throw new InvalidOperationException("C6.15.12 requires the live ModManager service.");
+				throw new InvalidOperationException("Collection workflow preparation requires the live ModManager service.");
 		}
 
 		/// <summary>Starts headless additive preparation and returns either pending input, a blocked/action state, or one durable exact review.</summary>
 		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection effectiveSelection,
 			GameStoragePathSet targetPaths, ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
 		{
+			return PrepareAsync(effectiveSelection, targetPaths, CollectionArchiveOverwritePolicy.Prompt,
+				confirmOverwriteCallback, cancellationToken);
+		}
+
+		/// <summary>Starts headless additive preparation with one immutable archive-overwrite policy for all correlated acquisition work.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection effectiveSelection,
+			GameStoragePathSet targetPaths, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
+		{
 			if (effectiveSelection == null) throw new ArgumentNullException(nameof(effectiveSelection));
 			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
-			return Task.Run(() => PrepareCore(effectiveSelection, targetPaths, confirmOverwriteCallback, cancellationToken), cancellationToken);
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
+			return Task.Run(() => PrepareCore(effectiveSelection, targetPaths, archiveOverwritePolicy,
+				confirmOverwriteCallback, cancellationToken), cancellationToken);
 		}
 
 		/// <summary>Resumes a previously returned acquisition/input pause, then revalidates target state before any later planning.</summary>
@@ -436,7 +447,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					operation = _operationCoordinator.MarkRecoveryRequired(operationIdentity);
 					return ApplyResult(CollectionAdditiveWorkflowApplyStatus.RecoveryRequired, operation, null,
-						"Native durability is ambiguous; C6.9 restart reconciliation is required before any further child can run.");
+						"Installed-state durability is ambiguous; restart reconciliation is required before any further Collection member can run.");
 				}
 
 				CollectionAssociationReconciliationResult reconciled = _associationCoordinator.ReconcileVerifiedChild(verification, runtime.Plan);
@@ -521,7 +532,7 @@ namespace Nexus.Client.CollectionManagement
 					{
 						operation = RequireOperation(operation.Identity);
 						results.Add(RecoveryResult(CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired, operation, null,
-							"Native durability is still ambiguous after C6.9 reconciliation. " + restart.VerificationDiagnostics));
+							"Installed-state durability is still ambiguous after restart reconciliation. " + restart.VerificationDiagnostics));
 						continue;
 					}
 
@@ -569,12 +580,13 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionAdditiveWorkflowPreparationResult PrepareCore(CollectionEffectiveSelection effectiveSelection,
-			GameStoragePathSet targetPaths, ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
+			GameStoragePathSet targetPaths, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			CollectionAdditivePlanBuildResult planBuild = _planPreparationService.Prepare(effectiveSelection, targetPaths);
 			CollectionMemberAcquisitionBatch acquisition = _memberAcquisitionCoordinator.Begin(planBuild,
-				confirmOverwriteCallback, cancellationToken);
+				archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
 			return ContinuePreparation(acquisition, targetPaths, cancellationToken);
 		}
 
@@ -681,7 +693,7 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				if (match.Disposition != CollectionMemberMatchDisposition.ArchiveOnlyReuse &&
 					match.Disposition != CollectionMemberMatchDisposition.ReinstallRequired)
-					throw new InvalidOperationException("A selected Collection member reached native recipe preparation without an executable C6.2 disposition.");
+					throw new InvalidOperationException("A selected Collection member reached installation preparation without an executable member-matching disposition.");
 
 				CollectionMemberAcquisitionState acquisitionState = acquisition.Members.Single(x => x.Match.Member.MemberKey.Equals(match.Member.MemberKey));
 				CollectionVerifiedArchive archive = acquisitionState.VerifiedArchive ?? match.VerifiedArchive;

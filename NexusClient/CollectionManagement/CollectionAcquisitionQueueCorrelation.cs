@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Nexus.Client.BackgroundTasks;
 
 namespace Nexus.Client.CollectionManagement
@@ -16,7 +16,8 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionAcquisitionQueueCorrelation(
 			CollectionAcquisitionRequest request,
 			Guid queueOperationId,
-			IBackgroundTask task)
+			IBackgroundTask task,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy)
 		{
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
@@ -24,10 +25,13 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("A non-empty AddMod queue-operation identifier is required.", nameof(queueOperationId));
 			if (task == null)
 				throw new ArgumentNullException(nameof(task));
+			if (archiveOverwritePolicy == null)
+				throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 
 			Request = request;
 			QueueOperationId = queueOperationId;
 			Task = task;
+			ArchiveOverwritePolicy = archiveOverwritePolicy;
 		}
 
 		/// <summary>Gets the Collection member acquisition intent.</summary>
@@ -38,6 +42,9 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets the consumer-scoped task view for the shared NMM acquisition/import producer.</summary>
 		public IBackgroundTask Task { get; }
+
+		/// <summary>Gets the in-memory archive-overwrite policy owned by the shared producer.</summary>
+		public CollectionArchiveOverwritePolicy ArchiveOverwritePolicy { get; }
 
 		/// <summary>
 		/// Cancels this Collection consumer. Shared native work continues while another consumer still requires it.

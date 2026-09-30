@@ -120,8 +120,17 @@ namespace Nexus.Client.CollectionManagement
 		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection selection,
 			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
 		{
+			return PrepareAsync(selection, CollectionArchiveOverwritePolicy.Prompt, confirmOverwriteCallback, cancellationToken);
+		}
+
+		/// <summary>Starts additive preparation with one immutable archive-overwrite policy for the acquisition batch.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection selection,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
+			CancellationToken cancellationToken)
+		{
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
-			return _workflow.PrepareAsync(selection, GetTargetPaths(), confirmOverwriteCallback, cancellationToken);
+			return _workflow.PrepareAsync(selection, GetTargetPaths(), archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
 		}
 
 		/// <summary>Resumes an input-paused preparation against freshly resolved active target paths.</summary>

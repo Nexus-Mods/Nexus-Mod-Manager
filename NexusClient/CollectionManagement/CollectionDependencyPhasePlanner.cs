@@ -35,7 +35,7 @@ namespace Nexus.Client.CollectionManagement
 				if (match.IsBlocked)
 				{
 					issues.Add(new CollectionDependencyPhaseIssue(CollectionDependencyPhaseIssueKind.BlockedMemberMatch,
-						"C6.2 blocked this member, so dependency/phase planning cannot produce an actionable order.",
+						"Member compatibility matching blocked this member, so dependency planning cannot produce an actionable installation order.",
 						match.Member.MemberKey, null, match.Member.InstallationPhase));
 				}
 			}
