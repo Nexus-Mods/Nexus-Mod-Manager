@@ -253,6 +253,7 @@
     <Compile Include="CollectionManagement\UI\CollectionTechnicalReport.cs" />
     <Compile Include="CollectionManagement\UI\CollectionUserMessagePresentation.cs" />
     <Compile Include="CollectionManagement\UI\CollectionUiContext.cs" />
+    <Compile Include="CollectionManagement\UI\CollectionWorkflowActivity.cs" />
     <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.cs">
       <SubType>Form</SubType>
     </Compile>

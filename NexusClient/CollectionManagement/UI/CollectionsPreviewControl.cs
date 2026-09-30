@@ -45,6 +45,9 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly Button _exportTechnicalReportButton;
 		private readonly Label _instructionLabel;
 		private readonly Label _workflowStatusLabel;
+		private readonly Label _workflowActivityIconLabel;
+		private readonly Label _workflowEtaLabel;
+		private readonly System.Windows.Forms.Timer _workflowActivityAnimationTimer;
 		private readonly Label _collectionValue;
 		private readonly Label _curatorValue;
 		private readonly Label _locatorValue;
@@ -54,6 +57,10 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly Label _appliedValue;
 		private readonly TextBox _summaryBox;
 		private readonly ListView _membersView;
+		private readonly Panel _membersHost;
+		private readonly Panel _membersLoadingOverlay;
+		private readonly Label _membersLoadingLabel;
+		private readonly ProgressBar _membersLoadingProgress;
 		private readonly ListView _issuesView;
 		private readonly ListView _reviewActionsView;
 		private readonly Label _membersHeader;
@@ -103,6 +110,12 @@ namespace Nexus.Client.CollectionManagement.UI
 		private Exception _lastTechnicalFailure;
 		private string _lastTechnicalFailureCode;
 		private int _lastTechnicalFailureGeneration = -1;
+		private CollectionWorkflowActivitySnapshot _workflowActivity;
+		private CollectionWorkflowEtaSnapshot _workflowEta;
+		private readonly CollectionWorkflowEtaEstimator _workflowEtaEstimator;
+		private int _workflowActivityAnimationFrame;
+
+		private static readonly string[] WorkflowActivityAnimationFrames = { "◐", "◓", "◑", "◒" };
 
 		/// <summary>
 		/// Raised on the UI thread when an incoming Collection NXM request should bring this permanent document forward.
@@ -118,7 +131,12 @@ namespace Nexus.Client.CollectionManagement.UI
 			BackColor = SystemColors.Window;
 			_acquisitionRefreshTimer = new System.Windows.Forms.Timer { Interval = 750 };
 			_acquisitionRefreshTimer.Tick += AcquisitionRefreshTimer_Tick;
+			_workflowActivityAnimationTimer = new System.Windows.Forms.Timer { Interval = 125 };
+			_workflowActivityAnimationTimer.Tick += WorkflowActivityAnimationTimer_Tick;
 			_toolTip = new ToolTip();
+			_workflowActivity = CollectionWorkflowActivityBuilder.Idle(L("Collections.Workflow.Idle", "Workflow: idle"));
+			_workflowEtaEstimator = new CollectionWorkflowEtaEstimator();
+			_workflowEta = CollectionWorkflowEtaSnapshot.Unavailable("idle");
 
 			var root = new TableLayoutPanel
 			{
@@ -252,21 +270,24 @@ namespace Nexus.Client.CollectionManagement.UI
 				Padding = new Padding(12, 6, 0, 0),
 				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link to load it, choose optional mods, download and prepare, review the changes, then install. Select a saved Local Collection above to review and restore it.")
 			};
-			toolbar.Controls.Add(_saveCurrentSetupButton);
-			toolbar.Controls.Add(_localCaptureCombo);
-			toolbar.Controls.Add(_restoreLocalCaptureButton);
-			toolbar.Controls.Add(_managedAssociationCombo);
-			toolbar.Controls.Add(_detachAssociationButton);
-			toolbar.Controls.Add(_removeAssociationEffectsButton);
-			toolbar.Controls.Add(_importButton);
-			toolbar.Controls.Add(_downloadPrepareButton);
-			toolbar.Controls.Add(_autoOverwriteArchivesCheckBox);
-			toolbar.Controls.Add(_resumeButton);
-			toolbar.Controls.Add(_openPendingButton);
-			toolbar.Controls.Add(_installButton);
-			toolbar.Controls.Add(_clearButton);
-			toolbar.Controls.Add(_exportTechnicalReportButton);
+			Control currentSetupGroup = CreateActionGroup(L("Collections.Context.CurrentSetup", "Current game setup"),
+				_saveCurrentSetupButton);
+			Control savedLocalGroup = CreateActionGroup(L("Collections.Context.SavedLocal", "Saved Local Collection"),
+				_localCaptureCombo, _restoreLocalCaptureButton);
+			Control installedGroup = CreateActionGroup(L("Collections.Context.Installed", "Installed Collection"),
+				_managedAssociationCombo, _detachAssociationButton, _removeAssociationEffectsButton);
+			Control incomingGroup = CreateActionGroup(L("Collections.Context.Incoming", "Incoming Collection"),
+				_importButton, _downloadPrepareButton, _autoOverwriteArchivesCheckBox, _resumeButton, _openPendingButton, _installButton, _clearButton);
+			Control supportGroup = CreateActionGroup(L("Collections.Context.Support", "Support"), _exportTechnicalReportButton);
+
+			toolbar.Controls.Add(currentSetupGroup);
+			toolbar.Controls.Add(savedLocalGroup);
+			toolbar.Controls.Add(installedGroup);
+			toolbar.Controls.Add(incomingGroup);
+			toolbar.Controls.Add(supportGroup);
+			toolbar.SetFlowBreak(supportGroup, true);
 			toolbar.Controls.Add(_instructionLabel);
+			toolbar.SetFlowBreak(_instructionLabel, true);
 			root.Controls.Add(toolbar, 0, 0);
 
 			var header = new TableLayoutPanel
@@ -303,6 +324,26 @@ namespace Nexus.Client.CollectionManagement.UI
 			};
 			root.Controls.Add(_summaryBox, 0, 2);
 
+			var workflowStatusPanel = new TableLayoutPanel
+			{
+				Dock = DockStyle.Fill,
+				AutoSize = true,
+				ColumnCount = 3,
+				RowCount = 1,
+				Margin = Padding.Empty
+			};
+			workflowStatusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 22F));
+			workflowStatusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+			workflowStatusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+			_workflowActivityIconLabel = new Label
+			{
+				Dock = DockStyle.Fill,
+				TextAlign = ContentAlignment.MiddleCenter,
+				Margin = Padding.Empty,
+				Padding = new Padding(0, 3, 3, 6),
+				Text = String.Empty,
+				AccessibleName = L("Collections.Workflow.ActivityIndicatorAccessibleName", "Workflow activity indicator")
+			};
 			_workflowStatusLabel = new Label
 			{
 				AutoSize = true,
@@ -310,7 +351,18 @@ namespace Nexus.Client.CollectionManagement.UI
 				Padding = new Padding(0, 3, 0, 6),
 				Text = L("Collections.Workflow.Idle", "Workflow: idle")
 			};
-			root.Controls.Add(_workflowStatusLabel, 0, 3);
+			_workflowEtaLabel = new Label
+			{
+				AutoSize = true,
+				TextAlign = ContentAlignment.MiddleRight,
+				Padding = new Padding(12, 3, 0, 6),
+				Text = String.Empty,
+				Visible = false
+			};
+			workflowStatusPanel.Controls.Add(_workflowActivityIconLabel, 0, 0);
+			workflowStatusPanel.Controls.Add(_workflowStatusLabel, 1, 0);
+			workflowStatusPanel.Controls.Add(_workflowEtaLabel, 2, 0);
+			root.Controls.Add(workflowStatusPanel, 0, 3);
 
 			var splitHeaders = new TableLayoutPanel
 			{
@@ -359,6 +411,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			contentGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
 			contentGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
 
+			_membersHost = new Panel
+			{
+				Dock = DockStyle.Fill,
+				Margin = Padding.Empty
+			};
 			_membersView = CreateListView();
 			_membersView.CheckBoxes = true;
 			_membersView.ItemCheck += MembersView_ItemCheck;
@@ -368,7 +425,48 @@ namespace Nexus.Client.CollectionManagement.UI
 			_membersView.Columns.Add(L("Collections.Columns.Selection", "Selection"), 82);
 			_membersView.Columns.Add(L("Collections.Columns.Compatibility", "Compatibility"), 112);
 			_membersView.Columns.Add(L("Collections.Columns.Artifact", "Artifact"), 240);
-			contentGrid.Controls.Add(_membersView, 0, 0);
+			_membersHost.Controls.Add(_membersView);
+
+			_membersLoadingOverlay = new Panel
+			{
+				Dock = DockStyle.Fill,
+				BackColor = SystemColors.Window,
+				BorderStyle = BorderStyle.FixedSingle,
+				Visible = false
+			};
+			var membersLoadingLayout = new TableLayoutPanel
+			{
+				Dock = DockStyle.Fill,
+				ColumnCount = 1,
+				RowCount = 4,
+				Padding = new Padding(16)
+			};
+			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+			_membersLoadingLabel = new Label
+			{
+				AutoSize = true,
+				Anchor = AnchorStyles.None,
+				MaximumSize = new Size(520, 0),
+				TextAlign = ContentAlignment.MiddleCenter,
+				Margin = new Padding(0, 0, 0, 8)
+			};
+			_membersLoadingProgress = new ProgressBar
+			{
+				Anchor = AnchorStyles.None,
+				Style = ProgressBarStyle.Marquee,
+				MarqueeAnimationSpeed = 30,
+				Width = 180,
+				Height = 16,
+				TabStop = false
+			};
+			membersLoadingLayout.Controls.Add(_membersLoadingLabel, 0, 1);
+			membersLoadingLayout.Controls.Add(_membersLoadingProgress, 0, 2);
+			_membersLoadingOverlay.Controls.Add(membersLoadingLayout);
+			_membersHost.Controls.Add(_membersLoadingOverlay);
+			contentGrid.Controls.Add(_membersHost, 0, 0);
 
 			_reviewPanel = new TableLayoutPanel
 			{
@@ -400,6 +498,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			root.Controls.Add(contentGrid, 0, 5);
 
 			_displayContext = CollectionUiContext.None(_previewGeneration);
+			RenderWorkflowActivity();
 			RenderEmptyState();
 		}
 
@@ -480,6 +579,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				DetachDispatcher();
 				CancelPreviewWork();
 				CancelWorkflowWork();
+				_workflowActivityAnimationTimer.Stop();
+				_workflowActivityAnimationTimer.Dispose();
 			}
 			base.Dispose(disposing);
 		}
@@ -500,7 +601,9 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void DrainIncomingQueue()
 		{
-			if (_dispatcher == null || IsDisposed || Disposing)
+			// Do not replace the visible context while a foreground workflow owns this surface. The dispatcher queue is
+			// bounded and retains the request; EndWorkflowWork schedules another drain after the foreground boundary closes.
+			if (_dispatcher == null || IsDisposed || Disposing || _workflowBusy)
 				return;
 			NexusCollectionNxmDispatchResult result;
 			NexusCollectionNxmDispatchResult newest = null;
@@ -922,7 +1025,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				!IsActionContextCurrent(context))
 				return;
 
-			BeginWorkflowWork(context, L("Collections.Management.Detaching", "Stopping Collection tracking without changing installed content..."));
+			BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing, L("Collections.Management.Detaching", "Stopping Collection tracking without changing installed content..."));
 			try
 			{
 				CollectionDetachResult result = _managementWorkflow.Detach(selected.AssociationId);
@@ -956,7 +1059,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				context.AssociationId != selected.AssociationId)
 				return;
 
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Management.ReviewingRemoval",
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing, L("Collections.Management.ReviewingRemoval",
 				"Reviewing which Collection effects can be removed safely..."));
 			try
 			{
@@ -1034,7 +1137,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionUiContext context = _localCaptureActionContext;
 			if (_managementWorkflow == null || selected == null || _workflowBusy || context == null ||
 				context.LocalCapture == null || !context.LocalCapture.Equals(selected.CaptureIdentity)) return;
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.LocalRestore.Preparing", "Preparing Local Collection restore review..."));
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Restoring, L("Collections.LocalRestore.Preparing", "Preparing Local Collection restore review..."));
 			try
 			{
 				CollectionLocalRestorePreview preview = await Task.Run(() =>
@@ -1134,7 +1237,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				: LocalCaptureCapability.RecipeOnly;
 			_currentSetupActionContext = CollectionUiContext.CurrentSetup(_previewGeneration);
 			CollectionUiContext context = _currentSetupActionContext;
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Capture.Saving",
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Capturing, L("Collections.Capture.Saving",
 				"Capturing, verifying and retaining the current setup..."));
 			try
 			{
@@ -1214,7 +1317,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (dialog.ShowDialog(this) != DialogResult.OK || !IsActionContextCurrent(context))
 					return;
 
-				CancellationToken token = BeginWorkflowWork(context, L("Collections.Workflow.Importing", "Importing and retaining the Collection source..."));
+				CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Importing, L("Collections.Workflow.Importing", "Importing and retaining the Collection source..."));
 				try
 				{
 					NexusCollectionPreviewSnapshot imported;
@@ -1271,7 +1374,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionArchiveOverwritePolicy archiveOverwritePolicy = _autoOverwriteArchivesCheckBox.Checked
 				? CollectionArchiveOverwritePolicy.OverwriteExistingArchives
 				: CollectionArchiveOverwritePolicy.Prompt;
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Workflow.Preparing", "Preparing Collection installation review..."));
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing, L("Collections.Workflow.Preparing", "Preparing Collection installation review..."));
 			try
 			{
 				if (_operationIdentity != null && (_operationSnapshot == null || !_operationSnapshot.HasCrossedNativeBoundary))
@@ -1344,7 +1447,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionUiContext context = _incomingActionContext;
 			if (_workflow == null || _acquisitionBatch == null || context == null)
 				return;
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Workflow.ResumingPreparation", "Checking acquired member archives and resuming preparation..."));
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing, L("Collections.Workflow.ResumingPreparation", "Checking acquired member archives and resuming preparation..."));
 			try
 			{
 				CollectionAdditiveWorkflowPreparationResult result = await _workflow.ResumePreparationAsync(_acquisitionBatch, token);
@@ -1380,6 +1483,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void UpdateAutomatedAcquisitionRefresh(CollectionMemberAcquisitionBatch batch)
 		{
 			_acquisitionRefreshTimer.Stop();
+			RefreshWorkflowActivity();
 			if (batch == null || batch.IsReady || !batch.IsAwaitingInput || HasManualAcquisitionAction(batch))
 				return;
 
@@ -1389,6 +1493,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private async void AcquisitionRefreshTimer_Tick(object sender, EventArgs e)
 		{
+			RefreshWorkflowActivity();
 			if (_workflowBusy || _workflow == null || _acquisitionBatch == null || !_acquisitionBatch.IsAwaitingInput)
 				return;
 
@@ -1425,7 +1530,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionUiContext context = _incomingActionContext;
 			if (context == null)
 				return;
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Workflow.AcquisitionCompleted",
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing, L("Collections.Workflow.AcquisitionCompleted",
 				"Queued Collection downloads completed; verifying archives and continuing preparation..."));
 			try
 			{
@@ -1495,7 +1600,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			context = context.WithOperation(reviewedOperationIdentity);
 
 			CollectionAdditiveWorkflowReview review;
-			CancellationToken reviewToken = BeginWorkflowWork(context,
+			CancellationToken reviewToken = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Reviewing,
 				L("Collections.Workflow.ValidatingReview", "Revalidating the reviewed plan before approval..."));
 			try
 			{
@@ -1524,6 +1629,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (!review.IsReady || review.Operation.PlanIdentity == null || !review.Operation.PlanIdentity.Equals(reviewedPlanIdentity))
 			{
 				_workflowStatusLabel.Text = L("Collections.Workflow.ReviewInvalid", "Workflow: the reviewed plan changed or is no longer safely resumable; prepare it again.");
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Paused(CollectionWorkflowActivityPhase.Reviewing, _workflowStatusLabel.Text, false));
 				_installButton.Enabled = false;
 				return;
 			}
@@ -1536,7 +1642,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				!IsActionContextCurrent(context))
 				return;
 
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Workflow.Applying", "Applying the approved Collection plan..."));
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Applying, L("Collections.Workflow.Applying", "Applying the approved Collection plan..."));
 			try
 			{
 				CollectionAdditiveWorkflowApplyResult result = await Task.Run(() =>
@@ -1669,13 +1775,27 @@ namespace Nexus.Client.CollectionManagement.UI
 			PopulateTechnicalReportRecovery(report);
 			PopulateTechnicalReportExceptions(report);
 
+			RefreshWorkflowActivity();
 			report.Progress = new CollectionTechnicalReportProgress
 			{
 				WorkflowStatus = CollectionTechnicalReportSanitizer.SanitizeText(_workflowStatusLabel.Text),
 				OperationPhase = _operationSnapshot == null ? null : _operationSnapshot.Phase.ToString(),
+				ActivityState = _workflowActivity == null ? null : _workflowActivity.State.ToString(),
+				ActivityPhase = _workflowActivity == null ? null : _workflowActivity.Phase.ToString(),
+				CommandsLocked = _workflowActivity != null && _workflowActivity.CommandsLocked,
+				WorkActive = _workflowActivity != null && _workflowActivity.IsWorkActive,
+				BackgroundContinuation = _workflowActivity != null && _workflowActivity.IsBackgroundContinuation,
+				ProgressCurrent = _workflowActivity == null ? null : _workflowActivity.Current,
+				ProgressTotal = _workflowActivity == null ? null : _workflowActivity.Total,
+				ProgressBasis = _workflowActivity == null ? null : _workflowActivity.ProgressBasis,
 				ArchiveOverwritePolicy = _acquisitionBatch == null ? null : _acquisitionBatch.ArchiveOverwritePolicy.ToString(),
-				EtaAvailable = false,
-				EtaBasis = "Unavailable in this build: phase-specific ETA telemetry is not implemented yet."
+				EtaAvailable = _workflowEta != null && _workflowEta.IsAvailable,
+				EtaEstimating = _workflowEta != null && _workflowEta.IsEstimating,
+				EtaSeconds = _workflowEta != null && _workflowEta.Remaining.HasValue ? (long?)Math.Ceiling(_workflowEta.Remaining.Value.TotalSeconds) : null,
+				EtaRemainingBytes = _workflowEta == null ? null : _workflowEta.RemainingBytes,
+				EtaBytesPerSecond = _workflowEta == null ? null : _workflowEta.BytesPerSecond,
+				EtaSampleCount = _workflowEta == null ? 0 : _workflowEta.SampleCount,
+				EtaBasis = _workflowEta == null ? "unavailable" : _workflowEta.Basis
 			};
 			if (_acquisitionBatch != null)
 			{
@@ -1689,7 +1809,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			else
 				report.UnavailableData.Add("acquisition-progress: unavailable because there is no active or retained acquisition batch in this UI context");
-			report.UnavailableData.Add("progress-samples: only acquisition disposition totals are available before the shared activity telemetry step");
+			report.UnavailableData.Add("progress-samples: workflow activity and deduplicated acquisition producer counts are available; byte/time samples are deferred to the ETA step");
 			report.UnavailableData.Add("eta: unavailable because ETA telemetry is scheduled for a later UX step");
 			if (_operationSnapshot == null)
 				report.UnavailableData.Add("operation: unavailable because no durable Collection operation exists for the displayed context");
@@ -1940,7 +2060,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if ((_workflow == null && _managementWorkflow == null) || _workflowBusy || IsDisposed || Disposing)
 				return;
 			CollectionUiContext context = CollectionUiContext.CurrentSetup(_previewGeneration);
-			CancellationToken token = BeginWorkflowWork(context, L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target..."));
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target..."));
 			try
 			{
 				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> results = _workflow == null
@@ -2054,6 +2174,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_installButton.Enabled = false;
 				UpdateMemberSelectionText();
 				_workflowStatusLabel.Text = L("Collections.Workflow.SelectionChanged", "Workflow: optional selection changed; prepare a new review before installation.");
+				RefreshWorkflowActivity();
 				UpdateActionButtons();
 			}));
 		}
@@ -2340,6 +2461,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					break;
 			}
 			SetWorkflowPresentation(userMessage);
+			RefreshWorkflowActivity();
 			UpdateActionButtons();
 		}
 
@@ -2375,6 +2497,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_appliedValue.Text = L("Collections.Status.Applied.Reprepare", "Not applied - preparation must be rebuilt");
 			else
 				_appliedValue.Text = L("Collections.Status.Applied.StoppedPartial", "Stopped after partial verified progress");
+			RefreshWorkflowActivity();
 			UpdateActionButtons();
 		}
 
@@ -2749,7 +2872,238 @@ namespace Nexus.Client.CollectionManagement.UI
 			return true;
 		}
 
-		private CancellationToken BeginWorkflowWork(CollectionUiContext context, string status)
+		private void RefreshWorkflowActivity()
+		{
+			if (_workflowBusy && _workflowContext != null)
+				return;
+
+			if (_acquisitionBatch != null && _acquisitionBatch.IsAwaitingInput)
+			{
+				List<CollectionWorkflowProducerActivity> producers = GetQueuedAcquisitionStates(_acquisitionBatch)
+					.Where(x => x.QueueCorrelation != null && x.QueueCorrelation.Task != null)
+					.Select(x => CollectionWorkflowProducerActivity.FromTask(x.QueueCorrelation.QueueOperationId, x.QueueCorrelation.Task))
+					.ToList();
+				bool waitingForUser = HasManualAcquisitionAction(_acquisitionBatch);
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.FromAcquisition(producers, waitingForUser, _workflowStatusLabel.Text));
+				if (!waitingForUser)
+					SetWorkflowEta(_workflowEtaEstimator.UpdateAcquisition(producers));
+				return;
+			}
+
+			if (_operationSnapshot != null)
+			{
+				if (_operationSnapshot.ResultState == CollectionOperationResultState.RecoveryRequired ||
+					_operationSnapshot.ResultState == CollectionOperationResultState.FailedBeforeApply ||
+					_operationSnapshot.ResultState == CollectionOperationResultState.StoppedPartial)
+				{
+					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Failed(ResolveOperationActivityPhase(_operationSnapshot.Phase), _workflowStatusLabel.Text));
+					return;
+				}
+				if (_operationSnapshot.Phase == CollectionOperationPhase.AwaitingInput)
+				{
+					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Waiting(CollectionWorkflowActivityPhase.Acquiring, _workflowStatusLabel.Text, false));
+					return;
+				}
+				if (_operationSnapshot.Phase == CollectionOperationPhase.PausedAtSafeBoundary ||
+					_operationSnapshot.Phase == CollectionOperationPhase.RecoveryRequired)
+				{
+					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Paused(ResolveOperationActivityPhase(_operationSnapshot.Phase), _workflowStatusLabel.Text, false));
+					return;
+				}
+				if (_operationSnapshot.ResultState == CollectionOperationResultState.Committed ||
+					_operationSnapshot.ResultState == CollectionOperationResultState.CancelledBeforeApply ||
+					_operationSnapshot.ResultState == CollectionOperationResultState.RolledBack ||
+					_operationSnapshot.Phase == CollectionOperationPhase.Completed ||
+					_operationSnapshot.Phase == CollectionOperationPhase.ReadyForReview || _operationSnapshot.Phase == CollectionOperationPhase.ReadyToApply)
+				{
+					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Completed(ResolveOperationActivityPhase(_operationSnapshot.Phase), _workflowStatusLabel.Text));
+					return;
+				}
+				if (_operationSnapshot.ResultState == CollectionOperationResultState.Pending)
+				{
+					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Paused(ResolveOperationActivityPhase(_operationSnapshot.Phase), _workflowStatusLabel.Text, false));
+					return;
+				}
+			}
+
+			SetWorkflowActivity(CollectionWorkflowActivityBuilder.Idle(_workflowStatusLabel.Text));
+		}
+
+		private void SetWorkflowActivity(CollectionWorkflowActivitySnapshot snapshot)
+		{
+			CollectionWorkflowActivityPhase previousPhase = _workflowActivity == null ? CollectionWorkflowActivityPhase.None : _workflowActivity.Phase;
+			_workflowActivity = snapshot ?? CollectionWorkflowActivityBuilder.Idle(_workflowStatusLabel == null ? String.Empty : _workflowStatusLabel.Text);
+			if (previousPhase != _workflowActivity.Phase || _workflowActivity.Phase != CollectionWorkflowActivityPhase.Acquiring ||
+				(_workflowActivity.State != CollectionWorkflowActivityState.Working && _workflowActivity.State != CollectionWorkflowActivityState.Queued))
+			{
+				_workflowEtaEstimator.Reset();
+				_workflowEta = CollectionWorkflowEtaSnapshot.Unavailable("activity-not-estimating");
+			}
+			RenderWorkflowActivity();
+			RenderWorkflowEta();
+		}
+
+		private void SetWorkflowEta(CollectionWorkflowEtaSnapshot snapshot)
+		{
+			_workflowEta = snapshot ?? CollectionWorkflowEtaSnapshot.Unavailable("eta-null");
+			RenderWorkflowEta();
+		}
+
+		private void RenderWorkflowEta()
+		{
+			if (_workflowEtaLabel == null)
+				return;
+
+			bool acquisitionCanEstimate = _workflowActivity != null && _workflowActivity.Phase == CollectionWorkflowActivityPhase.Acquiring &&
+				(_workflowActivity.State == CollectionWorkflowActivityState.Working || _workflowActivity.State == CollectionWorkflowActivityState.Queued);
+			if (!acquisitionCanEstimate || _workflowEta == null)
+			{
+				_workflowEtaLabel.Text = String.Empty;
+				_workflowEtaLabel.Visible = false;
+				return;
+			}
+
+			if (_workflowEta.IsAvailable && _workflowEta.Remaining.HasValue)
+			{
+				_workflowEtaLabel.Text = LanguageManager.Format("Collections.Workflow.Eta.Downloads",
+					"Downloads: about {0} remaining", FormatEtaDuration(_workflowEta.Remaining.Value));
+				_workflowEtaLabel.Visible = true;
+				return;
+			}
+
+			if (_workflowEta.IsEstimating)
+			{
+				_workflowEtaLabel.Text = L("Collections.Workflow.Eta.Estimating", "Estimating time remaining...");
+				_workflowEtaLabel.Visible = true;
+				return;
+			}
+
+			_workflowEtaLabel.Text = String.Empty;
+			_workflowEtaLabel.Visible = false;
+		}
+
+		private string FormatEtaDuration(TimeSpan remaining)
+		{
+			if (remaining < TimeSpan.FromMinutes(1))
+				return L("Collections.Workflow.Eta.LessThanMinute", "less than a minute");
+
+			int totalMinutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+			if (totalMinutes < 90)
+				return LanguageManager.Format("Collections.Workflow.Eta.Minutes", "{0} min", totalMinutes);
+
+			int hours = totalMinutes / 60;
+			int minutes = totalMinutes % 60;
+			return minutes == 0
+				? LanguageManager.Format("Collections.Workflow.Eta.Hours", "{0} hr", hours)
+				: LanguageManager.Format("Collections.Workflow.Eta.HoursMinutes", "{0} hr {1} min", hours, minutes);
+		}
+
+		private void RenderWorkflowActivity()
+		{
+			if (_workflowActivityIconLabel == null || _membersLoadingOverlay == null || _membersLoadingLabel == null ||
+				_membersLoadingProgress == null || _workflowActivityAnimationTimer == null)
+				return;
+
+			CollectionWorkflowActivityPresentation presentation = CollectionWorkflowActivityPresentationBuilder.Build(_workflowActivity);
+			_workflowActivityIconLabel.AccessibleDescription = FormatWorkflowActivityText(_workflowActivity);
+			_membersLoadingOverlay.BackColor = _membersView.BackColor;
+			_membersLoadingLabel.BackColor = _membersView.BackColor;
+			_membersLoadingLabel.ForeColor = _membersView.ForeColor;
+			if (presentation.AnimateIcon)
+			{
+				if (!_workflowActivityAnimationTimer.Enabled)
+				{
+					_workflowActivityAnimationFrame = 0;
+					_workflowActivityIconLabel.Text = WorkflowActivityAnimationFrames[0];
+					_workflowActivityAnimationTimer.Start();
+				}
+			}
+			else
+			{
+				_workflowActivityAnimationTimer.Stop();
+				_workflowActivityIconLabel.Text = presentation.IconText;
+			}
+
+			_membersLoadingOverlay.Visible = presentation.ShowMemberLoadingOverlay;
+			if (presentation.ShowMemberLoadingOverlay)
+			{
+				_membersLoadingLabel.Text = FormatWorkflowActivityText(_workflowActivity);
+				ConfigureMemberLoadingProgress(_workflowActivity);
+				_membersLoadingProgress.Visible = true;
+				_membersLoadingOverlay.BringToFront();
+			}
+			else
+			{
+				_membersLoadingProgress.Visible = false;
+			}
+		}
+
+		private void ConfigureMemberLoadingProgress(CollectionWorkflowActivitySnapshot snapshot)
+		{
+			if (snapshot != null && !snapshot.IsIndeterminate && snapshot.Current.HasValue && snapshot.Total.HasValue &&
+				snapshot.Total.Value > 0 && snapshot.Current.Value >= 0)
+			{
+				_membersLoadingProgress.Style = ProgressBarStyle.Continuous;
+				_membersLoadingProgress.Minimum = 0;
+				_membersLoadingProgress.Maximum = 1000;
+				double fraction = Math.Min(1D, (double)snapshot.Current.Value / snapshot.Total.Value);
+				_membersLoadingProgress.Value = Math.Max(0, Math.Min(_membersLoadingProgress.Maximum, (int)Math.Round(fraction * _membersLoadingProgress.Maximum)));
+				return;
+			}
+
+			_membersLoadingProgress.Style = ProgressBarStyle.Marquee;
+			_membersLoadingProgress.MarqueeAnimationSpeed = 30;
+		}
+
+		private void WorkflowActivityAnimationTimer_Tick(object sender, EventArgs e)
+		{
+			if (_workflowActivity == null || !_workflowActivity.IsWorkActive || _workflowActivity.State != CollectionWorkflowActivityState.Working)
+			{
+				_workflowActivityAnimationTimer.Stop();
+				RenderWorkflowActivity();
+				return;
+			}
+
+			_workflowActivityAnimationFrame = (_workflowActivityAnimationFrame + 1) % WorkflowActivityAnimationFrames.Length;
+			_workflowActivityIconLabel.Text = WorkflowActivityAnimationFrames[_workflowActivityAnimationFrame];
+		}
+
+		private static string FormatWorkflowActivityText(CollectionWorkflowActivitySnapshot snapshot)
+		{
+			if (snapshot == null)
+				return String.Empty;
+			if (snapshot.Current.HasValue && snapshot.Total.HasValue && snapshot.Total.Value > 0)
+				return String.Format(CultureInfo.CurrentCulture, "{0} ({1}/{2})", snapshot.StatusText, snapshot.Current.Value, snapshot.Total.Value);
+			return snapshot.StatusText;
+		}
+
+		private static CollectionWorkflowActivityPhase ResolveOperationActivityPhase(CollectionOperationPhase phase)
+		{
+			switch (phase)
+			{
+				case CollectionOperationPhase.Resolving:
+				case CollectionOperationPhase.Preparing:
+				case CollectionOperationPhase.Revalidating:
+					return CollectionWorkflowActivityPhase.Preparing;
+				case CollectionOperationPhase.AwaitingInput:
+					return CollectionWorkflowActivityPhase.Acquiring;
+				case CollectionOperationPhase.ReadyForReview:
+				case CollectionOperationPhase.ReadyToApply:
+					return CollectionWorkflowActivityPhase.Reviewing;
+				case CollectionOperationPhase.ApplyingNativeChildren:
+				case CollectionOperationPhase.PausedAtSafeBoundary:
+					return CollectionWorkflowActivityPhase.Applying;
+				case CollectionOperationPhase.Verifying:
+					return CollectionWorkflowActivityPhase.Verifying;
+				case CollectionOperationPhase.Recovering:
+				case CollectionOperationPhase.RecoveryRequired:
+					return CollectionWorkflowActivityPhase.Recovering;
+				default:
+					return CollectionWorkflowActivityPhase.None;
+			}
+		}
+
+		private CancellationToken BeginWorkflowWork(CollectionUiContext context, CollectionWorkflowActivityPhase phase, string status)
 		{
 			if (context == null)
 				throw new ArgumentNullException(nameof(context));
@@ -2759,6 +3113,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_workflowContext = context;
 			_workflowBusy = true;
 			_workflowStatusLabel.Text = status;
+			SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(phase, status));
 			UpdateActionButtons();
 			return _workflowCancellation.Token;
 		}
@@ -2770,7 +3125,22 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			_workflowContext = null;
 			_workflowBusy = false;
+			RefreshWorkflowActivity();
 			UpdateActionButtons();
+
+			// An NXM request may have arrived while apply/restore/capture owned the UI. Do not discard or activate it
+			// mid-mutation; once the foreground operation is finished, process the newest retained request normally.
+			if (_dispatcher != null && IsHandleCreated && !IsDisposed && !Disposing)
+			{
+				try
+				{
+					BeginInvoke((Action)DrainIncomingQueue);
+				}
+				catch (InvalidOperationException)
+				{
+					// Handle teardown can race the final workflow completion. The dispatcher queue remains bounded.
+				}
+			}
 		}
 
 		private bool IsWorkflowOwnerCurrent(CollectionUiContext context)
@@ -2825,6 +3195,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			_workflowContext = null;
 			_workflowBusy = false;
+			RefreshWorkflowActivity();
 		}
 
 		private void ResetWorkflowViewState()
@@ -2842,6 +3213,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_workflowStatusLabel.Text = _workflow == null
 				? L("Collections.Workflow.PreviewOnly", "Workflow: preview only - Collection installation is unavailable in this session.")
 				: L("Collections.Workflow.Idle", "Workflow: idle");
+			SetWorkflowActivity(CollectionWorkflowActivityBuilder.Idle(_workflowStatusLabel.Text));
 		}
 
 		private void UpdateActionButtons()
@@ -3221,8 +3593,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			_reviewPanel.RowStyles[0].SizeType = SizeType.Percent;
 			_reviewPanel.RowStyles[0].Height = visible ? 60F : 100F;
-			_reviewPanel.RowStyles[1].SizeType = SizeType.Absolute;
-			_reviewPanel.RowStyles[1].Height = visible ? 26F : 0F;
+			_reviewPanel.RowStyles[1].SizeType = visible ? SizeType.AutoSize : SizeType.Absolute;
+			_reviewPanel.RowStyles[1].Height = 0F;
 			_reviewPanel.RowStyles[2].SizeType = visible ? SizeType.Percent : SizeType.Absolute;
 			_reviewPanel.RowStyles[2].Height = visible ? 40F : 0F;
 		}
@@ -3230,13 +3602,11 @@ namespace Nexus.Client.CollectionManagement.UI
 		private static ListViewItem CreateReviewListViewItem(CollectionReviewItem reviewItem)
 		{
 			var item = new ListViewItem(reviewItem.StatusText) { Tag = reviewItem };
-			item.SubItems.Add(reviewItem.Code);
 			item.SubItems.Add(reviewItem.Subject);
 			item.SubItems.Add(reviewItem.Explanation);
 			item.SubItems.Add(reviewItem.NextAction);
 			var tooltip = new StringBuilder();
 			tooltip.AppendLine(reviewItem.StatusText);
-			if (!String.IsNullOrWhiteSpace(reviewItem.Code)) tooltip.AppendLine(reviewItem.Code);
 			if (!String.IsNullOrWhiteSpace(reviewItem.Subject)) tooltip.AppendLine(reviewItem.Subject);
 			if (!String.IsNullOrWhiteSpace(reviewItem.Explanation)) tooltip.AppendLine(reviewItem.Explanation);
 			if (!String.IsNullOrWhiteSpace(reviewItem.NextAction)) tooltip.Append(reviewItem.NextAction);
@@ -3267,14 +3637,55 @@ namespace Nexus.Client.CollectionManagement.UI
 				: "ordinal:" + member.SourceOrdinal.ToString(CultureInfo.InvariantCulture);
 		}
 
+		private static Control CreateActionGroup(string caption, params Control[] actions)
+		{
+			var group = new TableLayoutPanel
+			{
+				AutoSize = true,
+				AutoSizeMode = AutoSizeMode.GrowAndShrink,
+				ColumnCount = 1,
+				RowCount = 2,
+				Margin = new Padding(0, 0, 12, 4),
+				Padding = Padding.Empty
+			};
+			group.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			group.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+			var heading = new Label
+			{
+				AutoSize = true,
+				Text = caption ?? String.Empty,
+				Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold),
+				Margin = new Padding(3, 0, 3, 2)
+			};
+			var actionPanel = new FlowLayoutPanel
+			{
+				AutoSize = true,
+				AutoSizeMode = AutoSizeMode.GrowAndShrink,
+				WrapContents = true,
+				FlowDirection = FlowDirection.LeftToRight,
+				Margin = Padding.Empty,
+				Padding = Padding.Empty,
+				MaximumSize = new Size(760, 0)
+			};
+			foreach (Control action in actions ?? new Control[0])
+			{
+				if (action != null)
+					actionPanel.Controls.Add(action);
+			}
+
+			group.Controls.Add(heading, 0, 0);
+			group.Controls.Add(actionPanel, 0, 1);
+			return group;
+		}
+
 		private static ListView CreateReviewListView()
 		{
 			ListView view = CreateListView();
 			view.Columns.Add(L("Collections.Columns.Status", "Status"), 90);
-			view.Columns.Add(L("Collections.Columns.Code", "Support code"), 125);
-			view.Columns.Add(L("Collections.Columns.Field", "Subject"), 145);
-			view.Columns.Add(L("Collections.Columns.Reason", "What happened / planned change"), 275);
-			view.Columns.Add(L("Collections.Columns.NextAction", "What you can do"), 250);
+			view.Columns.Add(L("Collections.Columns.Field", "Subject"), 170);
+			view.Columns.Add(L("Collections.Columns.Reason", "What happened / planned change"), 315);
+			view.Columns.Add(L("Collections.Columns.NextAction", "What you can do"), 285);
 			return view;
 		}
 

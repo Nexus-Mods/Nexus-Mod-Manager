@@ -205,6 +205,7 @@
     <Compile Include="CollectionTechnicalReportTests.cs" />
     <Compile Include="CollectionUserMessagePresentationTests.cs" />
     <Compile Include="CollectionUiContextTests.cs" />
+    <Compile Include="CollectionWorkflowActivityTests.cs" />
     <Compile Include="CollectionOperationContractsTests.cs" />
     <Compile Include="CollectionsStoreFoundationTests.cs" />
     <Compile Include="CollectionsCatalogStoreTests.cs" />

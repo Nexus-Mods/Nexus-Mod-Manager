@@ -418,10 +418,37 @@ namespace Nexus.Client.CollectionManagement
 			List<IMod> nexusCandidates = modManager.ManagedMods.Where(x =>
 				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
 					x, modManager.SortOrderService, modId, fileId)).ToList();
-			if (nexusCandidates.Count != 1)
-				throw new InvalidOperationException(nexusCandidates.Count == 0
-					? "The exact verified incoming archive is not present in the native managed-mod registry."
-					: "Multiple native managed archives match the exact prepared Nexus mod/file identity.");
+			if (nexusCandidates.Count > 1)
+			{
+				// Preparation may have encountered duplicate/stale repository provenance in the native registry and
+				// disambiguated it against the exact retained archive. Repeat the same fail-closed byte check after
+				// authority reload so execution cannot regress to metadata-only ambiguity.
+				List<IMod> exactCandidates = nexusCandidates.Where(x =>
+					x != null && MatchesManagedArchive(x, incomingArchive, cancellationToken)).ToList();
+				if (exactCandidates.Count == 1)
+					return exactCandidates[0];
+				if (exactCandidates.Count == 0)
+					throw new InvalidOperationException(
+						"Multiple native managed entries claim the prepared Nexus mod/file identity, but none matches the exact prepared archive bytes.");
+				throw new InvalidOperationException(
+					"Multiple native managed archives match both the prepared Nexus mod/file identity and the exact prepared archive bytes.");
+			}
+			if (nexusCandidates.Count == 0)
+			{
+				// Keep the execution boundary resilient after authority reload/restart. A managed record with incomplete legacy
+				// metadata is usable only when its known metadata is non-contradictory and its bytes match the exact prepared
+				// recovery artifact.
+				List<IMod> exactContentCandidates = modManager.ManagedMods.Where(x =>
+					ModManagerCollectionManagedArchiveSource.IsMetadataCompatibleForVerifiedContent(x, modId, fileId) &&
+					MatchesManagedArchive(x, incomingArchive, cancellationToken)).ToList();
+				if (exactContentCandidates.Count == 0)
+					throw new InvalidOperationException("The exact verified incoming archive is not present in the native managed-mod registry.");
+
+				IMod recovered = ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exactContentCandidates);
+				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedRepositoryFileIdentity(
+					modManager, recovered, modId, fileId);
+				return recovered;
+			}
 			return nexusCandidates[0];
 		}
 

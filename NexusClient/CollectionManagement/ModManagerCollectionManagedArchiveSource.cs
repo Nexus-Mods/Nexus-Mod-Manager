@@ -109,6 +109,53 @@ namespace Nexus.Client.CollectionManagement
 			return hasLiveModId && !hasLiveFileId;
 		}
 
+		/// <summary>
+		/// Returns whether the repository metadata currently known for a managed archive does not contradict an exact
+		/// Nexus mod/file identity. Callers must still independently verify immutable archive bytes before trusting it.
+		/// </summary>
+		internal static bool IsMetadataCompatibleForVerifiedContent(IMod mod, string expectedModId, string expectedFileId)
+		{
+			if (mod == null || String.IsNullOrWhiteSpace(mod.ModArchivePath) ||
+				!ModFileIdentity.IsUsableRepositoryId(expectedModId) ||
+				!ModFileIdentity.IsUsableRepositoryId(expectedFileId))
+				return false;
+
+			bool hasLiveModId = ModFileIdentity.IsUsableRepositoryId(mod.Id);
+			bool hasLiveFileId = ModFileIdentity.IsUsableRepositoryId(mod.DownloadId);
+			if ((hasLiveModId && !StringComparer.OrdinalIgnoreCase.Equals(mod.Id, expectedModId)) ||
+				(hasLiveFileId && !StringComparer.OrdinalIgnoreCase.Equals(mod.DownloadId, expectedFileId)))
+				return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Persists exact repository identity after immutable-byte verification without mutating live IMod metadata.
+		/// </summary>
+		internal static void ConfirmVerifiedRepositoryFileIdentity(ModManager modManager, IMod mod,
+			string expectedModId, string expectedFileId)
+		{
+			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
+			if (!IsMetadataCompatibleForVerifiedContent(mod, expectedModId, expectedFileId))
+				throw new InvalidDataException("The verified managed archive has contradictory repository metadata.");
+			if (modManager.SortOrderService == null)
+				throw new InvalidOperationException("Verified Collection archive reuse requires the native durable repository-identity store.");
+
+			modManager.SortOrderService.ConfirmVerifiedRepositoryFileIdentity(mod, expectedModId, expectedFileId);
+		}
+
+		/// <summary>Chooses a stable native record when several records refer to byte-identical installation input.</summary>
+		internal static IMod SelectDeterministicEquivalentManagedMod(IEnumerable<IMod> candidates)
+		{
+			if (candidates == null)
+				throw new ArgumentNullException(nameof(candidates));
+			IMod selected = candidates.Where(x => x != null).OrderBy(
+				x => x.ModArchivePath ?? String.Empty, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+			if (selected == null)
+				throw new InvalidOperationException("No managed archive candidate is available.");
+			return selected;
+		}
+
 		/// <summary>Records exact repository identity after the adopter has verified this candidate's immutable bytes.</summary>
 		internal void ConfirmVerifiedCandidate(CollectionManagedArchiveCandidate candidate, CollectionArtifactReference requestedArtifact)
 		{

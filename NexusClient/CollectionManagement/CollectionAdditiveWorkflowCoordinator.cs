@@ -786,10 +786,39 @@ namespace Nexus.Client.CollectionManagement
 			List<IMod> candidates = _services.ModManager.ManagedMods.Where(x =>
 				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
 					x, _services.ModManager.SortOrderService, modId, fileId)).ToList();
-			if (candidates.Count != 1)
-				throw new InvalidOperationException(candidates.Count == 0
-					? "The exact verified incoming archive is not present in the native managed-mod registry. Import it through the existing Add Mod pipeline before preparing the Collection."
-					: "Multiple native managed archives match the exact selected Nexus mod/file identity.");
+			if (candidates.Count > 1)
+			{
+				// Repository metadata can legitimately be duplicated or stale even when only one usable archive exists.
+				// The acquisition stage has already established one exact immutable archive, so use those verified bytes only
+				// to break a metadata ambiguity rather than failing on registry multiplicity alone. This stays fail-closed:
+				// zero or multiple byte-identical candidates remain ambiguous.
+				List<IMod> exactCandidates = candidates.Where(x => x != null &&
+					CollectionArchiveContentMatcher.MatchesFile(x.ModArchivePath, archive.Artifact, cancellationToken)).ToList();
+				if (exactCandidates.Count == 1)
+					return exactCandidates[0];
+				if (exactCandidates.Count == 0)
+					throw new InvalidOperationException(
+						"Multiple native managed entries claim the selected Nexus mod/file identity, but none matches the exact verified Collection archive bytes.");
+				throw new InvalidOperationException(
+					"Multiple native managed archives match both the selected Nexus mod/file identity and the exact verified Collection archive bytes.");
+			}
+			if (candidates.Count == 0)
+			{
+				// Legacy/native records may have incomplete repository metadata even though acquisition has already proved the
+				// exact immutable archive bytes. Recover only from records whose known metadata does not contradict this Nexus
+				// identity and whose archive bytes exactly match the retained Collection artifact.
+				List<IMod> exactContentCandidates = _services.ModManager.ManagedMods.Where(x =>
+					ModManagerCollectionManagedArchiveSource.IsMetadataCompatibleForVerifiedContent(x, modId, fileId) &&
+					CollectionArchiveContentMatcher.MatchesFile(x.ModArchivePath, archive.Artifact, cancellationToken)).ToList();
+				if (exactContentCandidates.Count == 0)
+					throw new InvalidOperationException(
+						"The exact verified incoming archive is not present in the native managed-mod registry. Import it through the existing Add Mod pipeline before preparing the Collection.");
+
+				IMod recovered = ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exactContentCandidates);
+				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedRepositoryFileIdentity(
+					_services.ModManager, recovered, modId, fileId);
+				return recovered;
+			}
 			return candidates[0];
 		}
 

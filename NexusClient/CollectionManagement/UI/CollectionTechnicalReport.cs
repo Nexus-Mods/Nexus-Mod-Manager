@@ -166,9 +166,22 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		public string WorkflowStatus { get; internal set; }
 		public string OperationPhase { get; internal set; }
+		public string ActivityState { get; internal set; }
+		public string ActivityPhase { get; internal set; }
+		public bool CommandsLocked { get; internal set; }
+		public bool WorkActive { get; internal set; }
+		public bool BackgroundContinuation { get; internal set; }
+		public long? ProgressCurrent { get; internal set; }
+		public long? ProgressTotal { get; internal set; }
+		public string ProgressBasis { get; internal set; }
 		public string ArchiveOverwritePolicy { get; internal set; }
 		public Dictionary<string, int> AcquisitionCounts { get; private set; }
 		public bool EtaAvailable { get; internal set; }
+		public bool EtaEstimating { get; internal set; }
+		public long? EtaSeconds { get; internal set; }
+		public long? EtaRemainingBytes { get; internal set; }
+		public double? EtaBytesPerSecond { get; internal set; }
+		public int EtaSampleCount { get; internal set; }
 		public string EtaBasis { get; internal set; }
 	}
 
