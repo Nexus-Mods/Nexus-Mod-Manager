@@ -86,7 +86,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionAdditiveWorkflowApplyStatus.RecoveryRequired:
 					return Message("Collections.Messages.Apply.RecoveryRequired",
 						"Installation stopped because NMM cannot safely confirm the final managed state yet.",
-						"Collections.Messages.Next.CheckRecovery", "Check the recovery status before making further managed changes.", technicalDetail);
+						"Collections.Messages.Next.CheckRecoveryContinue", "Choose Check recovery and continue... to reconcile the interrupted installation and review the remaining changes.", technicalDetail);
 				case CollectionAdditiveWorkflowApplyStatus.RepreparationRequired:
 					return Message("Collections.Messages.Apply.Reprepare",
 						"The approved review is no longer valid for the current setup.",
@@ -119,7 +119,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired:
 					return Message("Collections.Messages.Recovery.Required",
 						"NMM could not safely reconcile the interrupted Collection operation automatically.",
-						"Collections.Messages.Next.CheckRecovery", "Check the recovery status before making further managed changes.", technicalDetail);
+						"Collections.Messages.Next.CheckRecoveryContinue", "Choose Check recovery and continue... to reconcile the interrupted installation and review the remaining changes.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.StoppedPartial:
 					return Message("Collections.Messages.Recovery.StoppedPartial",
 						"The interrupted operation was reconciled as partial verified progress and cannot continue automatically.",
@@ -153,8 +153,13 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
-		internal static CollectionUserMessagePresentation ForAcquisition(CollectionMemberAcquisitionDisposition disposition, string technicalDetail)
+		internal static CollectionUserMessagePresentation ForAcquisition(CollectionMemberAcquisitionDisposition disposition, string technicalDetail,
+			bool producerEndedWithoutArchive = false)
 		{
+			if (disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired && producerEndedWithoutArchive)
+				return Message("Collections.Messages.Acquisition.EndedUnverified", "The download or import ended without a verified archive for this Collection member.",
+					"Collections.Messages.Next.RetryAcquisition", "Choose Download / Prepare to retry acquisition, then check downloads again.", technicalDetail);
+
 			switch (disposition)
 			{
 				case CollectionMemberAcquisitionDisposition.ReadyInstalled:
@@ -237,8 +242,8 @@ namespace Nexus.Client.CollectionManagement.UI
 					return Message("Collections.Messages.Failure.Detach", "NMM could not stop tracking this Collection. Installed content was not intentionally changed.",
 						"Collections.Messages.Next.InspectInstalledCollection", "Inspect the installed Collection state before attempting another management action.", technicalDetail);
 				case "association.remove-failed":
-					return Message("Collections.Messages.Failure.Removal", "Collection effect removal stopped before NMM could verify a complete result.",
-						"Collections.Messages.Next.CheckRecovery", "Check the recovery status before making further managed changes.", technicalDetail);
+					return Message(String.Empty, SanitizeInternalTerminology(technicalDetail),
+						"Collections.Messages.Next.ResolveRemovalFailure", "Resolve the reported problem before reviewing removal again.", technicalDetail);
 				case "local-restore.failed":
 					return Message("Collections.Messages.Failure.LocalRestore", "Local Collection restore stopped before NMM could verify a complete result.",
 						"Collections.Messages.Next.CheckRecovery", "Check the recovery status before making further managed changes.", technicalDetail);

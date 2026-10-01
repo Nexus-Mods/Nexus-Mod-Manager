@@ -447,7 +447,9 @@ namespace Nexus.Client.CollectionManagement
 				{
 					operation = _operationCoordinator.MarkRecoveryRequired(operationIdentity);
 					return ApplyResult(CollectionAdditiveWorkflowApplyStatus.RecoveryRequired, operation, null,
-						"Installed-state durability is ambiguous; restart reconciliation is required before any further Collection member can run.");
+						"Installed-state durability is ambiguous; restart reconciliation is required before any further Collection member can run." +
+						(String.IsNullOrWhiteSpace(verification.Child.NativeResult.Message) ? String.Empty :
+							Environment.NewLine + verification.Child.NativeResult.Message));
 				}
 
 				CollectionAssociationReconciliationResult reconciled = _associationCoordinator.ReconcileVerifiedChild(verification, runtime.Plan);
@@ -614,11 +616,11 @@ namespace Nexus.Client.CollectionManagement
 
 			if (acquisition.IsAwaitingInput)
 				acquisition = _planRevalidationService.RevalidateAfterPause(acquisition, targetPaths, cancellationToken).AcquisitionBatch;
-			return FinalizePreparation(acquisition, cancellationToken);
+			return FinalizePreparation(acquisition, targetPaths, cancellationToken);
 		}
 
 		private CollectionAdditiveWorkflowPreparationResult FinalizePreparation(CollectionMemberAcquisitionBatch acquisition,
-			CancellationToken cancellationToken)
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
 		{
 			CollectionAdditivePlanBuildResult planBuild = acquisition.PlanBuild;
 			ResolvedCollectionPlan plan = planBuild.Plan;
@@ -631,7 +633,7 @@ namespace Nexus.Client.CollectionManagement
 			List<PreparedCollectionNativeRecipe> recipes;
 			try
 			{
-				recipes = PrepareNativeRecipes(acquisition, cancellationToken);
+				recipes = PrepareNativeRecipes(acquisition, targetPaths, cancellationToken);
 			}
 			catch (NotSupportedException ex)
 			{
@@ -681,9 +683,11 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private List<PreparedCollectionNativeRecipe> PrepareNativeRecipes(CollectionMemberAcquisitionBatch acquisition,
-			CancellationToken cancellationToken)
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
 		{
+			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
 			ResolvedCollectionPlan plan = acquisition.PlanBuild.Plan;
+			var retainedArtifactStore = new CollectionsRetainedArtifactStore(new CollectionsStore(targetPaths));
 			CollectionNativeStateIndex state = acquisition.PlanBuild.NativeState;
 			var recipes = new List<PreparedCollectionNativeRecipe>();
 			foreach (CollectionMemberMatchResult match in acquisition.MatchSet.Members)
@@ -699,12 +703,27 @@ namespace Nexus.Client.CollectionManagement
 				CollectionVerifiedArchive archive = acquisitionState.VerifiedArchive ?? match.VerifiedArchive;
 				if (archive == null)
 					throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
-				IMod managedMod = ResolveManagedMod(match, archive, cancellationToken);
-				ModInstallContext installContext = ResolveInstallContext(match);
-				bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
-				recipes.Add(_nativeRecipePreparer.PrepareExact(plan, match.Member, archive, managedMod,
-					_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, state, skipReadme,
-					_services.PluginManager, cancellationToken));
+				IMod managedMod = null;
+				try
+				{
+					managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken);
+					ModInstallContext installContext = ResolveInstallContext(match);
+					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
+					recipes.Add(_nativeRecipePreparer.PrepareExact(plan, match.Member, archive, managedMod,
+						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, state, skipReadme,
+						_services.PluginManager, cancellationToken));
+				}
+				catch (Exception ex) when (ex is NotSupportedException || ex is InvalidOperationException || ex is InvalidDataException)
+				{
+					string detail = String.Format(CultureInfo.InvariantCulture,
+						"Collection member '{0}' ({1}), artifact {2}, retained archive {3} ({4} bytes), native archive '{5}': {6}",
+						match.Member.DisplayName, match.Member.MemberKey, match.Member.ArtifactChoice.SelectedArtifact,
+						archive.Artifact.ArtifactId, archive.Artifact.ByteLength,
+						CollectionArchiveContentMatcher.GetManagedArchivePath(managedMod) ?? "unresolved", ex.Message);
+					if (ex is NotSupportedException) throw new NotSupportedException(detail, ex);
+					if (ex is InvalidDataException) throw new InvalidDataException(detail, ex);
+					throw new InvalidOperationException(detail, ex);
+				}
 			}
 			return recipes;
 		}
@@ -739,8 +758,10 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private IMod ResolveManagedMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,
-			CancellationToken cancellationToken)
+			CollectionsRetainedArtifactStore retainedArtifactStore, CancellationToken cancellationToken)
 		{
+			if (archive == null) throw new ArgumentNullException(nameof(archive));
+			if (retainedArtifactStore == null) throw new ArgumentNullException(nameof(retainedArtifactStore));
 			IMod previous = null;
 			if (match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired)
 			{
@@ -754,25 +775,29 @@ namespace Nexus.Client.CollectionManagement
 				previous = previousMatches[0];
 			}
 
+			string memberName = match.Member.DisplayName ?? match.Member.MemberKey.Value;
+			if (previous != null && CollectionArchiveContentMatcher.MatchesFile(
+				CollectionArchiveContentMatcher.GetManagedArchivePath(previous), archive.Artifact, cancellationToken))
+				return previous;
+
 			if (CollectionBundledArtifactIdentity.IsBundle(match.Member.ArtifactChoice.SelectedArtifact))
 			{
-				if (archive == null)
-					throw new InvalidOperationException("A Collection bundle member reached native preparation without its sealed materialized archive.");
-				if (previous != null && CollectionArchiveContentMatcher.MatchesFile(previous.ModArchivePath, archive.Artifact, cancellationToken))
-					return previous;
 				List<IMod> exactManaged = CollectionArchiveContentMatcher.FindExactManagedMods(_services.ModManager, archive.Artifact, cancellationToken);
-				if (exactManaged.Count != 1)
-					throw new InvalidOperationException(exactManaged.Count == 0
-						? "The exact materialized Collection bundle archive is not present in the native managed-mod registry. Import it through the existing Add Mod pipeline before preparing the Collection."
-						: "Multiple native managed archives contain the exact materialized Collection bundle bytes; preparation cannot choose by filename or timing.");
-				return exactManaged[0];
+				if (exactManaged.Count == 1) return exactManaged[0];
+				if (exactManaged.Count > 1)
+					throw new InvalidOperationException("Multiple native managed archives contain the exact materialized Collection bundle bytes; preparation cannot choose by filename or timing.");
+				IMod repaired = ModManagerCollectionManagedArchiveSource.TryRegisterExactLibraryArchive(
+					_services.ModManager, archive.Artifact, cancellationToken);
+				if (repaired != null) return repaired;
+				repaired = ModManagerCollectionManagedArchiveSource.MaterializeAndRegisterRetainedArchive(
+					_services.ModManager, retainedArtifactStore, archive.Artifact, memberName, cancellationToken);
+				if (repaired != null) return repaired;
+				throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
+					"The exact materialized archive for Collection member '{0}' is verified but could not be registered in the native mod library.", memberName));
 			}
 
-			string domain;
-			long nexusModId;
-			long nexusFileId;
-			if (!NexusCollectionModFileArtifactIdentity.TryParse(match.Member.ArtifactChoice.SelectedArtifact,
-				out domain, out nexusModId, out nexusFileId))
+			string domain; long nexusModId; long nexusFileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(match.Member.ArtifactChoice.SelectedArtifact, out domain, out nexusModId, out nexusFileId))
 				throw new NotSupportedException("The selected Collection artifact scheme has no characterized native recipe input mapping.");
 			string currentDomain = _services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName;
 			if (!StringComparer.OrdinalIgnoreCase.Equals(domain, currentDomain))
@@ -780,46 +805,51 @@ namespace Nexus.Client.CollectionManagement
 
 			string modId = nexusModId.ToString(CultureInfo.InvariantCulture);
 			string fileId = nexusFileId.ToString(CultureInfo.InvariantCulture);
-			if (previous != null && ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
-				previous, _services.ModManager.SortOrderService, modId, fileId))
-				return previous;
-			List<IMod> candidates = _services.ModManager.ManagedMods.Where(x =>
-				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
-					x, _services.ModManager.SortOrderService, modId, fileId)).ToList();
-			if (candidates.Count > 1)
+			List<IMod> identityCandidates = _services.ModManager.ManagedMods.Where(x =>
+				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(x, _services.ModManager.SortOrderService, modId, fileId)).ToList();
+			List<IMod> exactIdentityCandidates = identityCandidates.Where(x => CollectionArchiveContentMatcher.MatchesFile(
+				CollectionArchiveContentMatcher.GetManagedArchivePath(x), archive.Artifact, cancellationToken)).ToList();
+			if (exactIdentityCandidates.Count == 1)
 			{
-				// Repository metadata can legitimately be duplicated or stale even when only one usable archive exists.
-				// The acquisition stage has already established one exact immutable archive, so use those verified bytes only
-				// to break a metadata ambiguity rather than failing on registry multiplicity alone. This stays fail-closed:
-				// zero or multiple byte-identical candidates remain ambiguous.
-				List<IMod> exactCandidates = candidates.Where(x => x != null &&
-					CollectionArchiveContentMatcher.MatchesFile(x.ModArchivePath, archive.Artifact, cancellationToken)).ToList();
-				if (exactCandidates.Count == 1)
-					return exactCandidates[0];
-				if (exactCandidates.Count == 0)
-					throw new InvalidOperationException(
-						"Multiple native managed entries claim the selected Nexus mod/file identity, but none matches the exact verified Collection archive bytes.");
-				throw new InvalidOperationException(
-					"Multiple native managed archives match both the selected Nexus mod/file identity and the exact verified Collection archive bytes.");
+				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(_services.ModManager,
+					exactIdentityCandidates[0], modId, fileId, archive.Artifact.ByteLength, archive.Artifact.ContentHash, cancellationToken);
+				return exactIdentityCandidates[0];
 			}
-			if (candidates.Count == 0)
-			{
-				// Legacy/native records may have incomplete repository metadata even though acquisition has already proved the
-				// exact immutable archive bytes. Recover only from records whose known metadata does not contradict this Nexus
-				// identity and whose archive bytes exactly match the retained Collection artifact.
-				List<IMod> exactContentCandidates = _services.ModManager.ManagedMods.Where(x =>
-					ModManagerCollectionManagedArchiveSource.IsMetadataCompatibleForVerifiedContent(x, modId, fileId) &&
-					CollectionArchiveContentMatcher.MatchesFile(x.ModArchivePath, archive.Artifact, cancellationToken)).ToList();
-				if (exactContentCandidates.Count == 0)
-					throw new InvalidOperationException(
-						"The exact verified incoming archive is not present in the native managed-mod registry. Import it through the existing Add Mod pipeline before preparing the Collection.");
+			if (exactIdentityCandidates.Count > 1)
+				throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
+					"Multiple native managed archives for Collection member '{0}' match both Nexus identity {1}/{2} and the exact verified bytes.", memberName, modId, fileId));
 
+			List<IMod> exactContentCandidates = _services.ModManager.ManagedMods.Where(x =>
+				ModManagerCollectionManagedArchiveSource.IsMetadataCompatibleForVerifiedContent(x, modId, fileId) &&
+				CollectionArchiveContentMatcher.MatchesFile(CollectionArchiveContentMatcher.GetManagedArchivePath(x), archive.Artifact, cancellationToken)).ToList();
+			if (exactContentCandidates.Count != 0)
+			{
 				IMod recovered = ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exactContentCandidates);
-				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedRepositoryFileIdentity(
-					_services.ModManager, recovered, modId, fileId);
+				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(_services.ModManager,
+					recovered, modId, fileId, archive.Artifact.ByteLength, archive.Artifact.ContentHash, cancellationToken);
 				return recovered;
 			}
-			return candidates[0];
+
+			IMod registeredFromLibrary = ModManagerCollectionManagedArchiveSource.TryRegisterExactLibraryArchive(
+				_services.ModManager, archive.Artifact, cancellationToken);
+			if (registeredFromLibrary == null)
+			{
+				registeredFromLibrary = ModManagerCollectionManagedArchiveSource.MaterializeAndRegisterRetainedArchive(
+					_services.ModManager, retainedArtifactStore, archive.Artifact, memberName, cancellationToken);
+			}
+			if (registeredFromLibrary != null)
+			{
+				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(_services.ModManager,
+					registeredFromLibrary, modId, fileId, archive.Artifact.ByteLength, archive.Artifact.ContentHash, cancellationToken);
+				return registeredFromLibrary;
+			}
+
+			string reason = identityCandidates.Count == 0
+				? "no native managed archive is registered for those exact bytes"
+				: "the native managed entries claiming that Nexus identity do not contain the verified Collection bytes";
+			throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
+				"Collection member '{0}' ({1}/{2}) cannot be prepared because {3}. The exact retained archive could not be materialized and registered in the NMM mod library.",
+				memberName, modId, fileId, reason));
 		}
 
 

@@ -314,13 +314,29 @@ namespace Nexus.Client.ModManagement.Scripting
 			}
 
 			if (!String.IsNullOrEmpty(strLinkResult))
-			{
 				TrackDeployedPlugin(strLinkResult);
-				if (m_sfcFileSelectionCache != null)
-					m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
-			}
+
+			// A same-mod reinstall keeps its existing active link and returns no new link path.
+			// Retain that selection too: the recipe still requires the file in its complete replay.
+			if (m_sfcFileSelectionCache != null && (!String.IsNullOrEmpty(strLinkResult) ||
+				IsAlreadyActiveVirtualFile(strTo, strVirtualPath)))
+				m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
 
 			return true;
+		}
+
+		/// <summary>
+		/// Confirms an existing active Virtual file belongs to this mod before retaining a skipped link operation.
+		/// </summary>
+		private bool IsAlreadyActiveVirtualFile(string destinationPath, string stagingPath)
+		{
+			if (m_ivaVirtualModActivator == null || !File.Exists(stagingPath))
+				return false;
+			IMod currentOwner;
+			List<IVirtualModLink> links;
+			m_ivaVirtualModActivator.CheckFileLink(destinationPath, m_igpInstallers.InstallContext.InstallRoot,
+				out currentOwner, out links);
+			return ReferenceEquals(currentOwner, m_modMod) && File.Exists(GetPhysicalDeploymentPath(destinationPath));
 		}
 
 		/// <summary>

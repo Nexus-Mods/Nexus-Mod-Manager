@@ -8,7 +8,10 @@
 	using System.IO;
 	using System.Reflection;
 	using System.Runtime.Serialization;
+	using System.Security.Cryptography;
+	using System.Threading;
 	using Nexus.Client.CollectionManagement;
+	using Nexus.Client.Games;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModManagement.InstallationLog;
 	using Nexus.Client.Mods;
@@ -266,6 +269,99 @@
 			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
 				mod, service, "33946", "323314"), Is.True);
 			AssertAssignment(storage, store, "LegacyVerified.7z", "33946", "323314", 17, ModSortOrderAssignmentState.ExplicitNumeric);
+		}
+
+		/// <summary>Ensures exact inactive Collection bytes repair a stale file ID while preserving user Sort and metadata.</summary>
+		[TestCase(17)]
+		[TestCase(null)]
+		public void VerifiedCollectionArchiveRepairsStaleFileIdWithoutChangingSort(int? sortNumber)
+		{
+			var storage = CreateStorage();
+			var store = storage.CreateStore();
+			var service = new ModSortOrderService(store);
+			byte[] bytes = { 1, 2, 3, 4 };
+			string archivePath = Path.Combine(storage.ModDirectory, "WeaponDebrisCrashFix.zip");
+			File.WriteAllBytes(archivePath, bytes);
+			var mod = (InstallLog.DummyMod)CreateMod(archivePath, "48078", "408792");
+			mod.ModName = "Weapon Debris Crash Fix";
+			mod.HumanReadableVersion = "2.0.6";
+			mod.CustomCategoryId = 42;
+			service.RebuildCurrentArchiveInventory(new[] { mod }, null);
+			service.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, new[] { mod });
+			service.SetSortNumber(mod, sortNumber);
+			ModManager manager = CreateArchiveRepairManager(storage, service, new InstallLogReadMod[0]);
+
+			ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(manager, mod,
+				"48078", "412151", bytes.Length, HashArchiveBytes(bytes), CancellationToken.None);
+
+			Assert.That(mod.Id, Is.EqualTo("48078"));
+			Assert.That(mod.DownloadId, Is.EqualTo("412151"));
+			Assert.That(mod.ModName, Is.EqualTo("Weapon Debris Crash Fix"));
+			Assert.That(mod.HumanReadableVersion, Is.EqualTo("2.0.6"));
+			Assert.That(mod.CustomCategoryId, Is.EqualTo(42));
+			Assert.That(File.ReadAllBytes(archivePath), Is.EqualTo(bytes));
+			Assert.That(service.GetSortNumber(mod), Is.EqualTo(sortNumber));
+			AssertAssignment(storage, store, archivePath, "48078", "412151", sortNumber,
+				sortNumber.HasValue ? ModSortOrderAssignmentState.ExplicitNumeric : ModSortOrderAssignmentState.ExplicitBlank);
+			var reloaded = new ModSortOrderService(storage.CreateStore());
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				CreateMod(archivePath, "48078", "412151"), reloaded, "48078", "412151"), Is.True);
+			Assert.That(reloaded.HasDurableRepositoryFileIdentity(archivePath, "48078", "408792"), Is.True,
+				"The previous identity must remain in durable history.");
+		}
+
+		/// <summary>Ensures stale identity repair never changes installed metadata or adopts unverified/different-mod archives.</summary>
+		[TestCase("changed-bytes")]
+		[TestCase("wrong-length")]
+		[TestCase("different-mod")]
+		[TestCase("installed")]
+		[TestCase("hidden")]
+		[TestCase("outside-library")]
+		public void VerifiedCollectionArchiveRepairRejectsUnsafeInputs(string scenario)
+		{
+			var storage = CreateStorage();
+			var service = new ModSortOrderService(storage.CreateStore());
+			byte[] bytes = { 1, 2, 3, 4 };
+			string archivePath = Path.Combine(scenario == "outside-library" ? storage.CacheDirectory : storage.ModDirectory, "Archive.zip");
+			File.WriteAllBytes(archivePath, scenario == "changed-bytes" ? new byte[] { 4, 3, 2, 1 } : bytes);
+			IMod mod = CreateMod(archivePath, scenario == "different-mod" ? "99999" : "48078", "408792");
+			InstallLogReadMod[] installed = scenario == "installed" || scenario == "hidden"
+				? new[] { new InstallLogReadMod("native", archivePath, Path.GetFileName(archivePath), "48078", "408792",
+					"2.0.6", "2.0.6", ModInstallRoot.Data, ModInstallMethod.Virtual, scenario == "hidden") }
+				: new InstallLogReadMod[0];
+			ModManager manager = CreateArchiveRepairManager(storage, service, installed);
+
+			Assert.Throws<InvalidDataException>(() => ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(
+				manager, mod, "48078", "412151", scenario == "wrong-length" ? bytes.Length + 1 : bytes.Length,
+				HashArchiveBytes(bytes), CancellationToken.None));
+			Assert.That(mod.DownloadId, Is.EqualTo("408792"));
+			Assert.That(service.HasDurableRepositoryFileIdentity(archivePath, "48078", "412151"), Is.False);
+		}
+
+		/// <summary>Creates a native manager shell with isolated library paths and a detached installed-state snapshot.</summary>
+		private static ModManager CreateArchiveRepairManager(SortTestStorage storage, ModSortOrderService service,
+			IEnumerable<InstallLogReadMod> installedMods)
+		{
+			IGameModeEnvironmentInfo environment = InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
+				method.Name == "get_ModDirectory" ? storage.ModDirectory : null);
+			IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) =>
+				method.Name == "get_GameModeEnvironmentInfo" ? environment : null);
+			var snapshot = new InstallLogReadSnapshot("original-values", 0, installedMods, new InstallLogReadFile[0],
+				new InstallLogReadIniEdit[0], new InstallLogReadGameValue[0], new InstallLogReadDeploymentTarget[0]);
+			IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) =>
+				method.Name == "GetCommittedStateSnapshot" ? snapshot : null);
+			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			SetPrivateField(manager, "<GameMode>k__BackingField", gameMode);
+			SetPrivateField(manager, "<InstallationLog>k__BackingField", installLog);
+			SetPrivateField(manager, "<SortOrderService>k__BackingField", service);
+			return manager;
+		}
+
+		/// <summary>Calculates the exact SHA-256 expected by the archive identity repair boundary.</summary>
+		private static CollectionContentHash HashArchiveBytes(byte[] bytes)
+		{
+			using (SHA256 sha256 = SHA256.Create())
+				return CollectionContentHash.FromSha256(BitConverter.ToString(sha256.ComputeHash(bytes)).Replace("-", String.Empty).ToLowerInvariant());
 		}
 
 		[Test]

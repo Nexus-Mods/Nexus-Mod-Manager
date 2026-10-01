@@ -303,6 +303,12 @@ namespace Nexus.Client.CollectionManagement
 						previous.Request ?? match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, previous.PremiumAvailability));
 				else if (match.IsBlocked)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.Blocked, previous.Request, null, null, null, null, previous.PremiumAvailability));
+				else if ((previous.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
+					previous.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued) && previous.QueueCorrelation != null &&
+					CollectionAcquisitionConsumerTask.IsTerminal(previous.QueueCorrelation.Task.Status))
+					// A finished producer without verified bytes requires explicit retry; it is no longer downloading or importing.
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.RestartActionRequired, previous.Request, null,
+						previous.QueueCorrelation, previous.PendingAction, previous.RestartResult, previous.PremiumAvailability));
 				else
 					states.Add(State(match, previous.Disposition, previous.Request, null, previous.QueueCorrelation,
 						previous.PendingAction, previous.RestartResult, previous.PremiumAvailability));

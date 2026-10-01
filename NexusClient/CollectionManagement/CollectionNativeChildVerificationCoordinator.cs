@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.CollectionManagement.Persistence;
@@ -110,12 +111,16 @@ namespace Nexus.Client.CollectionManagement
 				operation = RequireOperation(executionResult, plan);
 				child = RequireTerminalChild(operation, executionResult);
 				recovery = RequireRecoveryManifest(operation, child, plan);
+				if (exactReportedIdentity && reportedResult.ReportedStatus == ModOperationReportedStatus.Succeeded)
+					ModManagerCollectionManagedArchiveSource.RestoreMissingNativeRepositoryIdentity(_services.ModManager, recovery, CancellationToken.None);
 				CollectionNativeStateIndex state = CaptureReloadedState(plan.Target);
 
 				CollectionNativeModState verifiedNativeMod = null;
+				string committedFailure = null;
 				bool committed = exactReportedIdentity && TryVerifyCommittedState(member, reviewedPreview, recovery, state,
 					executionResult.RecipeInput, executionResult.IncomingMod, _services.ModManager.GameMode,
-					_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName, out verifiedNativeMod);
+					_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
+					out verifiedNativeMod, out committedFailure);
 				bool rolledBack = exactReportedIdentity && TryVerifyRolledBackState(reportedResult, reviewedPreview, recovery, state, paths.InstallInfoPath);
 				ModOperationDurability verifiedDurability = exactReportedIdentity
 					? DetermineVerifiedDurability(reportedResult, committed, rolledBack)
@@ -131,8 +136,15 @@ namespace Nexus.Client.CollectionManagement
 						throw new InvalidDataException("The retained committed terminal-state fingerprint does not match authoritative C6.8 native state.");
 				}
 
+				string verificationMessage = reportedResult.Message;
+				if (verifiedDurability == ModOperationDurability.Unknown)
+					verificationMessage = String.Format(CultureInfo.InvariantCulture, "NMM could not verify '{0}': {1}",
+						String.IsNullOrWhiteSpace(member.DisplayName) ? member.MemberKey.ToString() : member.DisplayName,
+						exactReportedIdentity ? committedFailure ?? "The final managed state does not match the reviewed recipe." :
+						"The native result does not match the submitted operation identity.") +
+						(String.IsNullOrWhiteSpace(reportedResult.Message) ? String.Empty : Environment.NewLine + reportedResult.Message);
 				var verifiedResult = new ModOperationResult(child.NativeOperation, reportedResult.ReportedStatus,
-					verifiedDurability, reportedResult.Message);
+					verifiedDurability, verificationMessage);
 				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
 					CollectionNativeChildCheckpoint.NativeTerminalObserved, verifiedResult);
 				operation = SaveChild(operation, child,
@@ -337,11 +349,15 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool TryVerifyCommittedState(ResolvedCollectionMemberPlan member, CollectionMemberEffectPreview preview,
 			CollectionNativeChildRecoveryManifest recovery, CollectionNativeStateIndex state, ModInstallationRecipeInput recipeInput,
-			IMod incomingMod, IGameMode gameMode, string currentDomain, out CollectionNativeModState nativeMod)
+			IMod incomingMod, IGameMode gameMode, string currentDomain, out CollectionNativeModState nativeMod, out string failureReason)
 		{
 			nativeMod = null;
+			failureReason = null;
 			if (member == null || preview == null || recovery == null || state == null || recipeInput == null || incomingMod == null || gameMode == null)
+			{
+				failureReason = "The exact installation verification inputs are incomplete.";
 				return false;
+			}
 
 			CollectionArtifactReference artifact = member.ArtifactChoice.SelectedArtifact;
 			string expectedDomain;
@@ -351,10 +367,16 @@ namespace Nexus.Client.CollectionManagement
 				out expectedDomain, out expectedModId, out expectedFileId);
 			bool isBundle = CollectionBundledArtifactIdentity.IsBundle(artifact);
 			if (!isNexus && !isBundle)
+			{
+				failureReason = "The selected archive identity is unsupported.";
 				return false;
+			}
 			if (isNexus && (String.IsNullOrWhiteSpace(expectedDomain) ||
 				!StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain)))
+			{
+				failureReason = "The installed Nexus game domain differs from the reviewed archive.";
 				return false;
+			}
 
 			string modId = isNexus ? expectedModId.ToString(CultureInfo.InvariantCulture) : null;
 			string fileId = isNexus ? expectedFileId.ToString(CultureInfo.InvariantCulture) : null;
@@ -365,20 +387,27 @@ namespace Nexus.Client.CollectionManagement
 					StringComparer.Ordinal.Equals(x.NexusFileId, fileId))) &&
 				MatchesArchive(x.ArchivePath, recovery.IncomingArchive, archiveMatchCache)).ToList();
 			if (candidates.Count != 1)
+			{
+				failureReason = String.Format(CultureInfo.InvariantCulture,
+					"Expected one matching native archive registration; found {0}.", candidates.Count);
 				return false;
+			}
 
 			nativeMod = candidates[0];
 			string incomingArchivePath = !String.IsNullOrWhiteSpace(incomingMod.ModArchivePath)
 				? incomingMod.ModArchivePath : incomingMod.Filename;
-			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive, archiveMatchCache) ||
-				!VerifyMemberEffects(state, nativeMod, preview) ||
-				!VerifyExpectedFileContents(state, preview, recipeInput, incomingMod, gameMode) ||
-				!VerifyLiveReplayAgainstRecipe(recipeInput, incomingMod, gameMode))
-			{
-				nativeMod = null;
-				return false;
-			}
-			return true;
+			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive, archiveMatchCache))
+				failureReason = "The incoming archive bytes differ from the retained reviewed archive.";
+			else if (!VerifyMemberEffects(state, nativeMod, preview))
+				failureReason = "Installed file ownership, plugin activation or configuration effects differ from the reviewed recipe.";
+			else if (!VerifyExpectedFileContents(state, preview, recipeInput, incomingMod, gameMode))
+				failureReason = "Installed file bytes differ from the reviewed recipe.";
+			else if (!VerifyLiveReplayAgainstRecipe(recipeInput, incomingMod, gameMode))
+				failureReason = "The saved scripted installation replay is missing, incomplete or differs from the reviewed recipe: " +
+					ScriptedFileSelectionCache.GetDefaultFilePath(incomingMod.Filename, gameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
+			if (failureReason == null) return true;
+			nativeMod = null;
+			return false;
 		}
 
 		private static bool TryVerifyRolledBackState(ModOperationResult reportedResult, CollectionMemberEffectPreview preview,

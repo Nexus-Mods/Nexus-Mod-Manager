@@ -94,6 +94,16 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 		}
 
+		/// <summary>Opens the integrity-checked, operation-owned previous replay XML for bounded native-child recovery.</summary>
+		internal Stream OpenScriptedReplayRecoveryFile(CollectionNativeChildRecoveryManifest manifest)
+		{
+			if (manifest == null) throw new ArgumentNullException(nameof(manifest));
+			CollectionRecoveryArtifact replay = manifest.ScriptedReplay.ReplayFile;
+			if (replay == null) throw new InvalidDataException("The child has no retained previous scripted replay XML.");
+			ValidateArtifactLease(manifest, GetReplayXmlRole(manifest.ChildSequence), replay);
+			return _artifactStore.OpenRead(replay.ArtifactId);
+		}
+
 		/// <summary>Returns the operation-owned retained role for one incoming child archive.</summary>
 		public static string GetIncomingArchiveRole(int childSequence) { RequireSequence(childSequence); return String.Format("child-{0:D8}-incoming-archive", childSequence); }
 

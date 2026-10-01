@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -271,7 +273,82 @@ namespace Nexus.Client.CollectionManagement
 		public Task<CollectionUninstallEffectsResult> RemoveEffectsAsync(CollectionUninstallEffectsPlan reviewedPlan,
 			CancellationToken cancellationToken)
 		{
-			return _uninstallCoordinator.ExecuteAsync(reviewedPlan, GetTargetPaths(), cancellationToken);
+			return RemoveEffectsAsync(reviewedPlan, cancellationToken, null);
+		}
+
+		/// <summary>Executes reviewed removal and cleans obsolete retention while preserving an open incoming Collection preview.</summary>
+		public async Task<CollectionUninstallEffectsResult> RemoveEffectsAsync(CollectionUninstallEffectsPlan reviewedPlan,
+			CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection)
+		{
+			CollectionUninstallEffectsResult result = await _uninstallCoordinator.ExecuteAsync(reviewedPlan,
+				GetTargetPaths(), cancellationToken).ConfigureAwait(false);
+			if (result.IsSuccessful)
+				await CleanupRetainedContentAsync(CancellationToken.None, retainedPreviewCollection).ConfigureAwait(false);
+			return result;
+		}
+
+		/// <summary>
+		/// Releases obsolete removal retention and retries unreferenced Collections content cleanup at an idle target boundary.
+		/// </summary>
+		/// <remarks>
+		/// Cleanup failures never turn a committed removal into a failed uninstall. Locked blobs retain durable tombstones for
+		/// the next startup retry. The normal native archive library and live installed effects are outside this cleanup route.
+		/// </remarks>
+		public async Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection = null)
+		{
+			if (!_store.Exists)
+				return;
+			try
+			{
+				CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths());
+				using (CollectionTargetMutationLease lease = await CollectionTargetMutationLeaseManager.Shared
+					.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+				{
+					await Task.Run(() =>
+					{
+						var cleanup = new CollectionsRetainedArtifactCleanupStore(_store);
+						if (!cleanup.ReleaseRemovedCollectionContent(authority.Target, retainedPreviewCollection))
+							return;
+						var attempted = new HashSet<string>(StringComparer.Ordinal);
+						foreach (string artifactId in cleanup.GetPendingTombstones(Int32.MaxValue))
+							CollectRetainedArtifact(cleanup, artifactId, attempted, cancellationToken);
+						while (true)
+						{
+							cancellationToken.ThrowIfCancellationRequested();
+							List<string> candidates = cleanup.GetCleanupCandidates(128).Where(x => !attempted.Contains(x)).ToList();
+							if (candidates.Count == 0)
+								break;
+							foreach (string artifactId in candidates)
+								CollectRetainedArtifact(cleanup, artifactId, attempted, cancellationToken);
+						}
+					}, cancellationToken).ConfigureAwait(false);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				throw;
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Collection retained-content cleanup deferred: " + ex);
+			}
+		}
+
+		/// <summary>Collects one tracked blob once per sweep while leaving failed physical deletions available for retry.</summary>
+		private static void CollectRetainedArtifact(CollectionsRetainedArtifactCleanupStore cleanup, string artifactId,
+			HashSet<string> attempted, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			if (!attempted.Add(artifactId))
+				return;
+			try
+			{
+				cleanup.TryCollectUnreferencedArtifact(artifactId);
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+			{
+				Trace.TraceWarning("Collection retained artifact cleanup deferred for " + artifactId + ": " + ex);
+			}
 		}
 
 		/// <summary>

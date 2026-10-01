@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.ModAuthoring;
+using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.OnlineServices.NexusMods.GraphQl;
 using Nexus.Client.UI;
@@ -716,7 +717,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			ShowSelectedManagedAssociation();
 		}
 
-		private void RefreshManagedAssociations()
+		private void RefreshManagedAssociations(bool preserveWorkflowView = false)
 		{
 			Guid selectedId = Guid.Empty;
 			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
@@ -778,7 +779,26 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				_managedAssociationCombo.EndUpdate();
 				_suppressManagedAssociationSelection = false;
-				if (_snapshot == null || _managedAssociationPresentation != null)
+				if (preserveWorkflowView && _snapshot != null)
+				{
+					// Refresh the installed selector without resetting the current journal/result to a startup recovery snapshot.
+					CollectionManagementAssociation current = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+					if (_managedAssociationPresentation != null && current != null &&
+						current.AssociationId == _managedAssociationPresentation.Association.AssociationId)
+					{
+						try
+						{
+							_managedAssociationPresentation = _managementWorkflow.GetAssociationPresentation(current.AssociationId);
+							ApplyManagedAssociationMemberState(_managedAssociationPresentation);
+						}
+						catch (Exception ex)
+						{
+							Trace.TraceError("Installed Collection result presentation refresh failed: " + ex);
+						}
+					}
+					UpdateActionButtons();
+				}
+				else if (_snapshot == null || _managedAssociationPresentation != null)
 					ShowSelectedManagedAssociation();
 				else
 				{
@@ -1059,6 +1079,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				context.AssociationId != selected.AssociationId)
 				return;
 
+			bool removalApproved = false;
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing, L("Collections.Management.ReviewingRemoval",
 				"Reviewing which Collection effects can be removed safely..."));
 			try
@@ -1088,9 +1109,11 @@ namespace Nexus.Client.CollectionManagement.UI
 					!IsWorkflowContextCurrent(context, token))
 					return;
 
+				removalApproved = true;
 				_workflowStatusLabel.Text = L("Collections.Management.RemovingEffects",
 					"Removing only the reviewed dispensable Collection effects...");
-				CollectionUninstallEffectsResult result = await _managementWorkflow.RemoveEffectsAsync(plan, token);
+				CollectionUninstallEffectsResult result = await _managementWorkflow.RemoveEffectsAsync(plan, token,
+					_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null);
 				if (!IsWorkflowContextCurrent(context, token))
 					return;
 				RefreshManagedAssociations();
@@ -1121,8 +1144,12 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("association.remove-failed", ex.Message);
 					SetWorkflowPresentation(userMessage);
-					MessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.Management.RemovalFailed", "Collection effect removal stopped"),
-						MessageBoxButtons.OK, MessageBoxIcon.Error);
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "association.remove-failed", selected.DisplayName, userMessage);
+					MessageBox.Show(this, BuildUserDialogMessage(userMessage), removalApproved
+						? L("Collections.Management.RemovalFailed", "Collection effect removal stopped")
+						: L("Collections.Management.RemovalBlockedTitle", "Collection effect removal blocked"),
+						MessageBoxButtons.OK, removalApproved ? MessageBoxIcon.Error : MessageBoxIcon.Warning);
 				}
 			}
 			finally
@@ -1592,8 +1619,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private async void InstallButton_Click(object sender, EventArgs e)
 		{
-			CollectionUiContext context = _incomingActionContext;
-			if (_workflow == null || _operationIdentity == null || _reviewedPlanIdentity == null || _selectionDirty || context == null)
+			CollectionUiContext context = GetInstallActionContext();
+			if (_workflowBusy || context == null)
 				return;
 			CollectionOperationIdentity reviewedOperationIdentity = _operationIdentity;
 			CollectionPlanIdentity reviewedPlanIdentity = _reviewedPlanIdentity;
@@ -1607,6 +1634,28 @@ namespace Nexus.Client.CollectionManagement.UI
 				review = await Task.Run(() => _workflow.GetReview(reviewedOperationIdentity), reviewToken);
 				if (!IsWorkflowContextCurrent(context, reviewToken))
 					return;
+				_operationSnapshot = review.Operation;
+				if (review.Rehydration.Status == CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired)
+				{
+					_workflowStatusLabel.Text = L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target...");
+					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Recovering,
+						L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target...")));
+					IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovery = await Task.Run(() =>
+						_workflow.ReconcileIncompleteTargetAsync(reviewToken), reviewToken);
+					if (!IsWorkflowContextCurrent(context, reviewToken))
+						return;
+					_recoveryResults = recovery ?? new CollectionAdditiveWorkflowRecoveryResult[0];
+					CollectionAdditiveWorkflowRecoveryResult matching = _recoveryResults.FirstOrDefault(x => x.Operation.Identity.Equals(reviewedOperationIdentity));
+					if (matching != null)
+						_operationSnapshot = matching.Operation;
+					review = await Task.Run(() => _workflow.GetReview(reviewedOperationIdentity), reviewToken);
+					if (!IsWorkflowContextCurrent(context, reviewToken))
+						return;
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				return;
 			}
 			catch (Exception ex)
 			{
@@ -1628,13 +1677,39 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			if (!review.IsReady || review.Operation.PlanIdentity == null || !review.Operation.PlanIdentity.Equals(reviewedPlanIdentity))
 			{
-				_workflowStatusLabel.Text = L("Collections.Workflow.ReviewInvalid", "Workflow: the reviewed plan changed or is no longer safely resumable; prepare it again.");
-				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Paused(CollectionWorkflowActivityPhase.Reviewing, _workflowStatusLabel.Text, false));
-				_installButton.Enabled = false;
+				_operationSnapshot = review.Operation;
+				bool requiresRecovery = review.Rehydration.Status == CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired;
+				CollectionAdditiveWorkflowRecoveryStatus status = requiresRecovery
+					? CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired : CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired;
+				CollectionAdditiveWorkflowRecoveryResult recovery = _recoveryResults.FirstOrDefault(x =>
+					x.Operation.Identity.Equals(review.Operation.Identity) && x.Status == status &&
+					x.Operation.CheckpointSequence == review.Operation.CheckpointSequence);
+				string reviewMessage = recovery == null ? review.Rehydration.Message : recovery.Message;
+				CacheRecoveryResult(new CollectionAdditiveWorkflowRecoveryResult(status, review.Operation, review.Rehydration, reviewMessage));
+				_reviewedPlanIdentity = requiresRecovery ? review.Operation.PlanIdentity : null;
+				if (_snapshot != null)
+					RenderIssues(_snapshot, false, true);
+				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.FromRaw(reviewMessage,
+					ResolveNextAction(CollectionUserMessagePresenter.ForRecovery(status, reviewMessage)));
+				SetWorkflowPresentation(userMessage);
+				AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+					L("Collections.Status.ActionRequired", "Action required"), "workflow.review-invalid", GetCurrentCollectionSubject(), userMessage);
+				_appliedValue.Text = requiresRecovery
+					? L("Collections.Status.Applied.RecoveryRequired", "Recovery required before further mutation")
+					: L("Collections.Status.Applied.Reprepare", "Not applied - preparation must be rebuilt");
+				if (!requiresRecovery && !review.Operation.HasCrossedNativeBoundary)
+				{
+					_preparation = null;
+					_acquisitionBatch = null;
+				}
+				RefreshWorkflowActivity();
+				UpdateActionButtons();
 				return;
 			}
 
 			_operationSnapshot = review.Operation;
+			CacheRecoveryResult(new CollectionAdditiveWorkflowRecoveryResult(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume,
+				review.Operation, review.Rehydration, review.Rehydration.Message));
 			RenderExactReview(review);
 			string confirmation = BuildApprovalConfirmation(review);
 			if (MessageBox.Show(this, confirmation, L("Collections.Actions.InstallCurrent", "Review and install..."),
@@ -1650,7 +1725,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (!IsWorkflowContextCurrent(context, token))
 					return;
 				RenderApplyResult(result);
-				RefreshManagedAssociations();
+				RefreshManagedAssociations(true);
 			}
 			catch (OperationCanceledException)
 			{
@@ -2072,6 +2147,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				IReadOnlyList<CollectionUninstallEffectsResult> effectRemovalResults = new CollectionUninstallEffectsResult[0];
 				if (_managementWorkflow != null && localRestoreResults.All(x => x.IsSuccessful))
 					effectRemovalResults = await _managementWorkflow.ReconcileInterruptedEffectRemovalAsync(token);
+				if (_managementWorkflow != null)
+					await _managementWorkflow.CleanupRetainedContentAsync(token,
+						_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null);
 
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
 				_localRestoreRecoveryResults = localRestoreResults ?? new CollectionLocalRestoreWorkflowResult[0];
@@ -2472,6 +2550,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			_operationIdentity = result.Operation.Identity;
 			_operationSnapshot = result.Operation;
 			BindIncomingDisplayOperation(_operationIdentity);
+			CollectionAdditiveWorkflowRecoveryStatus recoveryStatus = result.Status == CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary
+				? CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume
+				: result.Status == CollectionAdditiveWorkflowApplyStatus.RecoveryRequired ? CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired
+				: result.Status == CollectionAdditiveWorkflowApplyStatus.RepreparationRequired ? CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired
+				: CollectionAdditiveWorkflowRecoveryStatus.StoppedPartial;
+			CacheRecoveryResult(new CollectionAdditiveWorkflowRecoveryResult(recoveryStatus, result.Operation, null, result.Message));
+			if (_snapshot != null)
+				RenderIssues(_snapshot, false, false);
 			CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForApply(result.Status, result.Message);
 			SetWorkflowPresentation(userMessage);
 			AddPresentedReviewItem(CollectionReviewPresentationClassifier.ForApply(result.Status),
@@ -2479,6 +2565,16 @@ namespace Nexus.Client.CollectionManagement.UI
 				result.IsCommitted ? L("Collections.Status.Supported", "Ready") : L("Collections.Status.ActionRequired", "Action required"),
 				"workflow.apply-result", GetCurrentCollectionSubject(), userMessage, null,
 				CombineTechnicalDetail("Apply status: " + result.Status, "Operation: " + result.Operation.Identity));
+			if (result.Status == CollectionAdditiveWorkflowApplyStatus.RecoveryRequired)
+			{
+				CollectionNativeChildOperation child = result.Operation.NativeChildren.LastOrDefault(x => !x.IsReconciled &&
+					x.NativeResult != null && x.NativeResult.Durability == ModOperationDurability.Unknown);
+				if (child != null && !String.IsNullOrWhiteSpace(child.NativeResult.Message))
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "workflow.native-verification",
+						FormatMemberSubject(child.Member.MemberKey),
+						CollectionUserMessagePresenter.FromRaw(child.NativeResult.Message, ResolveNextAction(userMessage)), child.Member.MemberKey);
+			}
 			UpdateIssuesHeader();
 			if (result.IsCommitted)
 			{
@@ -2511,7 +2607,11 @@ namespace Nexus.Client.CollectionManagement.UI
 				string technical = "Disposition: " + state.Disposition;
 				if (state.PendingAction != null)
 					technical += "; allowed manual actions: " + state.PendingAction.AllowedActions;
-				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForAcquisition(state.Disposition, technical);
+				if (state.QueueCorrelation != null)
+					technical += "; native task status: " + state.QueueCorrelation.Task.Status;
+				bool producerEndedWithoutArchive = state.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired &&
+					state.QueueCorrelation != null && CollectionAcquisitionConsumerTask.IsTerminal(state.QueueCorrelation.Task.Status);
+				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForAcquisition(state.Disposition, technical, producerEndedWithoutArchive);
 				AddPresentedReviewItem(CollectionReviewPresentationClassifier.ForAcquisition(state.Disposition),
 					CollectionReviewPresentationClassifier.KindForAcquisition(state.Disposition), FormatAcquisitionStatus(state.Disposition),
 					"acquisition." + state.Disposition.ToString().ToLowerInvariant(), FormatMemberSubject(memberKey), userMessage, memberKey,
@@ -2654,14 +2754,26 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		/// <summary>Replaces stale startup recovery data with the latest operation result without retaining completed work.</summary>
+		private void CacheRecoveryResult(CollectionAdditiveWorkflowRecoveryResult result)
+		{
+			List<CollectionAdditiveWorkflowRecoveryResult> results = _recoveryResults.Where(x => !x.Operation.Identity.Equals(result.Operation.Identity)).ToList();
+			if (!result.Operation.IsTerminal)
+				results.Add(result);
+			_recoveryResults = results;
+		}
+
 		private void BindMatchingRecovery()
 		{
 			if (_snapshot == null || _snapshot.Revision == null || _recoveryResults == null)
 				return;
 			CollectionAdditiveWorkflowRecoveryResult matching = _recoveryResults.FirstOrDefault(x =>
 				x != null && x.Operation != null && x.Operation.Revision != null && x.Operation.Revision.Equals(_snapshot.Revision.Identity) &&
-				(x.Status == CollectionAdditiveWorkflowRecoveryStatus.ReviewRequired || x.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
-			if (matching == null || matching.Operation.PlanIdentity == null)
+				(x.Status == CollectionAdditiveWorkflowRecoveryStatus.ReviewRequired || x.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume ||
+				 x.Status == CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired));
+			if (matching == null || matching.Operation.PlanIdentity == null || matching.Operation.IsTerminal ||
+				(_operationSnapshot != null && _operationSnapshot.Identity.Equals(matching.Operation.Identity) &&
+				 _operationSnapshot.CheckpointSequence > matching.Operation.CheckpointSequence))
 				return;
 			_operationIdentity = matching.Operation.Identity;
 			_operationSnapshot = matching.Operation;
@@ -2671,6 +2783,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			SetWorkflowPresentation(CollectionUserMessagePresenter.ForRecovery(matching.Status, matching.Message));
 			_appliedValue.Text = matching.Status == CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume
 				? L("Collections.Status.Applied.ResumeReady", "Incomplete apply reconciled - explicit resume available")
+				: matching.Status == CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired
+				? L("Collections.Status.Applied.RecoveryRequired", "Recovery required before further mutation")
 				: LanguageManager.Get("Collections.Status.Applied.RecoveredReviewReady", "Recovered review awaits explicit approval");
 			UpdateActionButtons();
 		}
@@ -3159,6 +3273,32 @@ namespace Nexus.Client.CollectionManagement.UI
 			return context != null && !IsDisposed && !Disposing && context.IsCurrentGeneration(_previewGeneration);
 		}
 
+		/// <summary>
+		/// Resolves the exact reviewed operation owned by the displayed incoming or installed Collection.
+		/// </summary>
+		private CollectionUiContext GetInstallActionContext()
+		{
+			CollectionUiContext context = _displayContext;
+			if (_workflow == null || _operationIdentity == null || _reviewedPlanIdentity == null || _selectionDirty ||
+				!IsActionContextCurrent(context) || _operationSnapshot == null || _operationSnapshot.IsTerminal ||
+				!_operationSnapshot.Identity.Equals(_operationIdentity) || _operationSnapshot.PlanIdentity == null ||
+				!_operationSnapshot.PlanIdentity.Equals(_reviewedPlanIdentity) || context.Revision == null ||
+				_operationSnapshot.Revision == null || !context.Revision.Equals(_operationSnapshot.Revision))
+				return null;
+
+			if (context.Kind == CollectionUiContextKind.InstalledCollection)
+			{
+				if (_managedAssociationPresentation == null ||
+					context.AssociationId != _managedAssociationPresentation.Association.AssociationId ||
+					!context.Revision.Equals(_managedAssociationPresentation.Association.Association.Revision))
+					return null;
+			}
+			else if (context.Kind != CollectionUiContextKind.IncomingCollection)
+				return null;
+
+			return context.WithOperation(_operationIdentity);
+		}
+
 		private void BindIncomingDisplayOperation(CollectionOperationIdentity operation)
 		{
 			if (_displayContext == null || _displayContext.Kind != CollectionUiContextKind.IncomingCollection ||
@@ -3248,7 +3388,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			bool installedAssociationView = _managedAssociationPresentation != null;
 			_importButton.Enabled = !_workflowBusy && hasConcreteRevision && !installedAssociationView && !sameRevisionAlreadyApplied;
 			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision && !installedAssociationView && !sameRevisionAlreadyApplied && !_selectionCapabilityBlocked &&
-				(_acquisitionBatch == null || _selectionDirty || (_preparation != null &&
+				(_acquisitionBatch == null || _selectionDirty || _acquisitionBatch.Members.Any(x => x.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired) ||
+				 (_preparation != null &&
 				 (_preparation.Status == CollectionAdditiveWorkflowPreparationStatus.PreparationRequired ||
 				  _preparation.Status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired ||
 				  _preparation.Status == CollectionAdditiveWorkflowPreparationStatus.Blocked)));
@@ -3259,10 +3400,12 @@ namespace Nexus.Client.CollectionManagement.UI
 			_openPendingButton.Visible = pendingDownload != null && pendingDownload.BrowserUri != null;
 			_openPendingButton.Enabled = !_workflowBusy && _openPendingButton.Visible;
 			UpdatePendingDownloadActionLabel(pendingDownload);
-			bool exactReview = _workflow != null && _operationIdentity != null && _reviewedPlanIdentity != null && !_selectionDirty;
+			bool exactReview = GetInstallActionContext() != null;
 			_installButton.Enabled = !_workflowBusy && exactReview && !sameRevisionAlreadyApplied;
 			if (sameRevisionAlreadyApplied)
 				_installButton.Text = L("Collections.Actions.AlreadyApplied", "Already applied");
+			else if (exactReview && (_operationSnapshot.RequiresRecovery || _operationSnapshot.HasUnreconciledNativeChild))
+				_installButton.Text = L("Collections.Actions.CheckRecoveryContinue", "Check recovery and continue...");
 			else if (exactReview && _preparation == null)
 				_installButton.Text = L("Collections.Actions.ResumeApply", "Review and continue...");
 			else

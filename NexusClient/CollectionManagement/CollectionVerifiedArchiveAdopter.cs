@@ -170,7 +170,7 @@ namespace Nexus.Client.CollectionManagement
 
 				ModManagerCollectionManagedArchiveSource managedSource = _archiveSource as ModManagerCollectionManagedArchiveSource;
 				if (managedSource != null)
-					managedSource.ConfirmVerifiedCandidate(verifiedCandidate, request.SelectedArtifact);
+					managedSource.ConfirmVerifiedCandidate(verifiedCandidate, request.SelectedArtifact, verifiedArtifact, cancellationToken);
 
 				return Protect(request, verifiedArtifact, ownerId, referenceRole,
 					CollectionVerifiedArchiveSourceKind.ManagedArchive,

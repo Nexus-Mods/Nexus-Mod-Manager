@@ -178,6 +178,7 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 				_authorityValidator.ValidateAndReload(lease, authority, paths);
 				association = RequireAssociation(associationId);
+				RequireNoIncompleteOperation(association.Target);
 				CollectionNativeStateIndex state = CaptureReloadedState(association.Target);
 				return BuildPlan(association, state);
 			}
@@ -210,9 +211,7 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 				_authorityValidator.ValidateAndReload(rootLease, authority, paths);
 				CollectionTargetAssociation association = RequireAssociation(reviewedPlan.Association.AssociationId);
-				IReadOnlyList<CollectionOperation> incompleteTargetOperations = _operationStore.GetIncompleteOperations(association.Target);
-				if (incompleteTargetOperations.Count != 0)
-					throw new InvalidOperationException("C6.14 cannot begin while another Collection operation for this target is incomplete; reconcile that operation first.");
+				RequireNoIncompleteOperation(association.Target);
 				CollectionNativeStateIndex state = CaptureReloadedState(association.Target);
 				CollectionUninstallEffectsPlan livePlan = BuildPlan(association, state);
 				if (!PlansEqual(reviewedPlan, livePlan))
@@ -669,6 +668,13 @@ namespace Nexus.Client.CollectionManagement
 			ModManager modManager = _services.ModManager;
 			return new CollectionNativeStateReader(modManager.InstallationLog, modManager.VirtualModActivator,
 				_services.PluginManager, modManager.GameMode, _associationStore).Capture(target);
+		}
+
+		/// <summary>Applies the same incomplete-operation gate to removal review and execution before approval or mutation.</summary>
+		private void RequireNoIncompleteOperation(CollectionTargetIdentity target)
+		{
+			if (_operationStore.GetIncompleteOperations(target).Count != 0)
+				throw new InvalidOperationException("Collection removal cannot begin while another Collection operation for this game is incomplete. Finish or reconcile that operation first.");
 		}
 
 		private CollectionTargetAssociation RequireAssociation(Guid associationId)

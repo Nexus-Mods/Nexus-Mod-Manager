@@ -102,6 +102,8 @@ namespace Nexus.Client.CollectionManagement
 					operation = RequireRecoveringOperation(operationIdentity);
 					child = RequireRestartChild(operation);
 					CollectionNativeChildRecoveryManifest recovery = RequireRecoveryManifest(operation, child, plan);
+					if (child.NativeResult != null && child.NativeResult.ReportedStatus == ModOperationReportedStatus.Succeeded)
+						ModManagerCollectionManagedArchiveSource.RestoreMissingNativeRepositoryIdentity(_services.ModManager, recovery, cancellationToken);
 					CollectionNativeStateIndex state = CaptureReloadedState(operation.Target);
 
 					ModOperationResult priorResult = child.NativeResult;
@@ -122,6 +124,17 @@ namespace Nexus.Client.CollectionManagement
 						paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure);
 					bool rolledBack = evidence != null && TryVerifyRolledBackState(recovery, evidence, state,
 						paths.InstallInfoPath, _services.ModManager.GameMode, out rolledBackFailure);
+					string replayRepairDetail = null;
+					if (evidence != null && !committed && !rolledBack && priorDurability == ModOperationDurability.Unknown &&
+						reportedStatus == ModOperationReportedStatus.Succeeded && TryRestoreExactReinstallReplay(recovery, evidence, state,
+							_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
+							paths.InstallInfoPath, _services.ModManager.GameMode, out replayRepairDetail))
+					{
+						state = CaptureReloadedState(operation.Target);
+						committed = TryVerifyCommittedState(recovery, evidence, state,
+							_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
+							paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure);
+					}
 					bool rollbackResidueRepaired = false;
 					string rollbackRepairDetail = null;
 					if (evidence != null && !committed && !rolledBack && priorDurability == ModOperationDurability.Unknown)
@@ -145,6 +158,8 @@ namespace Nexus.Client.CollectionManagement
 						? "C6.9 execution evidence is missing."
 						: BuildVerificationDiagnostics(committed, committedFailure, rolledBack, rolledBackFailure,
 							rollbackResidueRepaired, rollbackRepairDetail);
+					if (!String.IsNullOrWhiteSpace(replayRepairDetail))
+						verificationDiagnostics += " Reinstall replay recovery: " + replayRepairDetail;
 					ModOperationDurability durability = evidence == null
 						? ModOperationDurability.Unknown
 						: DetermineRestartDurability(priorDurability, committed, rolledBack);
@@ -292,7 +307,8 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool TryVerifyCommittedState(CollectionNativeChildRecoveryManifest recovery,
 			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string currentDomain,
-			string installInfoDirectory, IGameMode gameMode, out CollectionNativeModState nativeMod, out string failureReason)
+			string installInfoDirectory, IGameMode gameMode, out CollectionNativeModState nativeMod, out string failureReason,
+			bool verifyReplay = true)
 		{
 			nativeMod = null;
 			failureReason = null;
@@ -352,7 +368,7 @@ namespace Nexus.Client.CollectionManagement
 			string detail;
 			if (!VerifyMemberEffects(state, nativeMod, evidence.ReviewedEffects, out detail)) failures.Add(detail);
 			if (!VerifyFileEvidence(state, evidence.ExpectedFileContents, gameMode, out detail)) failures.Add(detail);
-			if (!VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out detail)) failures.Add(detail);
+			if (verifyReplay && !VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out detail)) failures.Add(detail);
 			if (failures.Count != 0)
 			{
 				failureReason = String.Join("; ", failures.Where(x => !String.IsNullOrWhiteSpace(x)));
@@ -538,12 +554,12 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static bool VerifyExpectedReplayAtPath(CollectionNativeChildExecutionEvidence evidence, string installInfoDirectory,
-			out string failureReason)
+			out string failureReason, string replayPathOverride = null)
 		{
 			failureReason = null;
 			try
 			{
-				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, installInfoDirectory);
+				string replayPath = replayPathOverride ?? ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, installInfoDirectory);
 				var cache = new ScriptedFileSelectionCache(replayPath);
 				string payloadDirectory = ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath);
 				if (evidence.ExpectedReplayOperations.Count == 0)
@@ -793,6 +809,75 @@ namespace Nexus.Client.CollectionManagement
 			{
 				failureReason = "previous replay inspection failed: " + exception.GetType().Name + ": " + exception.Message;
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Restores a missing same-archive reinstall replay only when its retained XML exactly matches the reviewed recipe.
+		/// </summary>
+		private bool TryRestoreExactReinstallReplay(CollectionNativeChildRecoveryManifest recovery,
+			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string currentDomain,
+			string installInfoDirectory, IGameMode gameMode, out string detail)
+		{
+			detail = null;
+			if (recovery.PreviousNativeMod == null || recovery.PreviousArchive == null ||
+				!recovery.PreviousArchive.ContentHash.Equals(recovery.IncomingArchive.ContentHash) ||
+				recovery.PreviousArchive.ByteLength != recovery.IncomingArchive.ByteLength ||
+				!state.Fingerprint.Equals(recovery.PreparationStateFingerprint) ||
+				!StringComparer.OrdinalIgnoreCase.Equals(recovery.PreviousNativeMod.FileName, evidence.IncomingFileName) ||
+				evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual ||
+				!recovery.ScriptedReplay.ReplayFileExisted || recovery.ScriptedReplay.ReplayFile == null ||
+				recovery.ScriptedReplay.PayloadDirectoryExisted || recovery.ScriptedReplay.Payloads.Count != 0 ||
+				evidence.ExpectedReplayOperations.Count == 0 ||
+				evidence.ExpectedReplayOperations.Any(x => x.Kind != ScriptedReplayOperationKind.ArchiveFile))
+				return false;
+
+			string stagingPath = null;
+			bool stagingCreated = false;
+			try
+			{
+				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, installInfoDirectory);
+				string payloadDirectory = ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath);
+				if (File.Exists(replayPath) || Directory.Exists(replayPath) || Directory.Exists(payloadDirectory)) return false;
+
+				// The native registration, ownership, exact installed bytes and plugin/effect state must already
+				// satisfy the reviewed postimage. Only the missing replay XML is eligible for this repair.
+				CollectionNativeModState nativeMod;
+				string failure;
+				if (!TryVerifyCommittedState(recovery, evidence, state, currentDomain, installInfoDirectory, gameMode,
+					out nativeMod, out failure, false) || !nativeMod.Identity.Equals(recovery.PreviousNativeMod.Identity))
+					return false;
+
+				string directory = Path.GetDirectoryName(replayPath);
+				Directory.CreateDirectory(directory);
+				stagingPath = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".recovery.tmp");
+				using (Stream retained = _manifestStore.OpenScriptedReplayRecoveryFile(recovery))
+				using (var staging = new FileStream(stagingPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+				{
+					stagingCreated = true;
+					retained.CopyTo(staging);
+				}
+
+				if (!MatchesArtifactFile(stagingPath, recovery.ScriptedReplay.ReplayFile) ||
+					!VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out failure, stagingPath))
+				{
+					detail = "Retained previous replay does not match the exact reviewed postimage; it was not restored.";
+					return false;
+				}
+				if (File.Exists(replayPath) || Directory.Exists(replayPath) || Directory.Exists(payloadDirectory)) return false;
+				File.Move(stagingPath, replayPath);
+				stagingPath = null;
+				detail = "Restored the exact retained same-archive replay XML for full committed-state verification.";
+				return true;
+			}
+			catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException)
+			{
+				detail = "Missing reinstall replay recovery failed safely: " + exception.GetType().Name + ": " + exception.Message;
+				return false;
+			}
+			finally
+			{
+				if (stagingCreated && stagingPath != null && File.Exists(stagingPath)) File.Delete(stagingPath);
 			}
 		}
 

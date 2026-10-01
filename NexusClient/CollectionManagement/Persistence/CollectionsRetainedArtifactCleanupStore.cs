@@ -29,6 +29,150 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		}
 
 		/// <summary>
+		/// Releases obsolete retention after verified Collection removal and reports whether the store is idle enough to collect content.
+		/// </summary>
+		/// <remarks>
+		/// Installed associations, saved captures and the currently open incoming preview keep their Collection content. Any
+		/// unfinished operation or potentially active acquisition defers cleanup. Catalog, source provenance, plans and terminal
+		/// journals are preserved; exact source bindings can be republished idempotently if the same revision is imported again.
+		/// </remarks>
+		public bool ReleaseRemovedCollectionContent(CollectionTargetIdentity target, CollectionIdentity retainedPreviewCollection = null)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+
+			bool canCollect = false;
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT 1 FROM collection_operations WHERE phase<>@completed
+UNION ALL
+SELECT 1 FROM collection_acquisition_requests
+WHERE state NOT IN (@pending, @verified, @cancelled, @failed)
+   OR (state=@pending AND queue_operation_id IS NOT NULL)
+LIMIT 1;";
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					command.Parameters.AddWithValue("@pending", (int)CollectionAcquisitionPersistenceState.PendingUserAction);
+					command.Parameters.AddWithValue("@verified", (int)CollectionAcquisitionPersistenceState.Verified);
+					command.Parameters.AddWithValue("@cancelled", (int)CollectionAcquisitionPersistenceState.Cancelled);
+					command.Parameters.AddWithValue("@failed", (int)CollectionAcquisitionPersistenceState.Failed);
+					if (command.ExecuteScalar() != null)
+						return;
+				}
+
+				var removedCollections = new List<CollectionIdentity>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT DISTINCT o.origin, o.collection_id
+FROM collection_operations o
+WHERE o.target_fingerprint=@target AND o.kind=@uninstall AND o.phase=@completed AND o.result_state=@committed
+  AND NOT EXISTS (SELECT 1 FROM target_associations a WHERE a.origin=o.origin AND a.collection_id=o.collection_id)
+  AND NOT EXISTS (SELECT 1 FROM local_captures c WHERE c.origin=o.origin AND c.collection_id=o.collection_id);";
+					command.Parameters.AddWithValue("@target", target.Fingerprint);
+					command.Parameters.AddWithValue("@uninstall", (int)CollectionOperationKind.UninstallCollectionEffects);
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					command.Parameters.AddWithValue("@committed", (int)CollectionOperationResultState.Committed);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							CollectionOrigin origin = (CollectionOrigin)reader.GetInt32(0);
+							CollectionIdentity collection;
+							if (origin == CollectionOrigin.NexusMods)
+								collection = CollectionIdentity.FromNexus(reader.GetString(1));
+							else if (origin == CollectionOrigin.Local)
+								collection = CollectionIdentity.FromLocal(Guid.ParseExact(reader.GetString(1), "D"));
+							else
+								throw new CollectionsStoreSchemaException("Retained-content cleanup encountered an unsupported Collection origin.");
+							if (!collection.Equals(retainedPreviewCollection))
+								removedCollections.Add(collection);
+						}
+					}
+				}
+				foreach (CollectionIdentity collection in removedCollections)
+					ReleaseRemovedCollectionReferences(connection, transaction, collection);
+				canCollect = true;
+			});
+			return canCollect;
+		}
+
+		/// <summary>
+		/// Releases completed operation, acquisition and revision ownership for one Collection with no remaining installed baseline.
+		/// </summary>
+		private static void ReleaseRemovedCollectionReferences(SQLiteConnection connection, SQLiteTransaction transaction,
+			CollectionIdentity collection)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.Parameters.AddWithValue("@origin", (int)collection.Origin);
+				command.Parameters.AddWithValue("@collection_id", collection.StableId);
+				command.Parameters.AddWithValue("@operation", (int)CollectionsRetainedArtifactOwnerKind.Operation);
+				command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+				command.CommandText = @"
+DELETE FROM retained_artifact_references
+WHERE owner_kind=@operation AND owner_id IN (
+    SELECT operation_id FROM collection_operations
+    WHERE origin=@origin AND collection_id=@collection_id AND phase=@completed);";
+				command.ExecuteNonQuery();
+			}
+
+			var revisionOwners = new List<string>();
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"
+SELECT revision_id, nexus_revision_number FROM collection_revisions
+WHERE origin=@origin AND collection_id=@collection_id;";
+				command.Parameters.AddWithValue("@origin", (int)collection.Origin);
+				command.Parameters.AddWithValue("@collection_id", collection.StableId);
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+					{
+						CollectionRevisionIdentity revision = collection.Origin == CollectionOrigin.NexusMods
+							? CollectionRevisionIdentity.FromNexus(collection, reader.GetString(0), reader.GetInt64(1))
+							: CollectionRevisionIdentity.FromLocal(collection, Guid.ParseExact(reader.GetString(0), "D"));
+						revisionOwners.Add(CollectionsRevisionSourceStore.GetRevisionOwnerId(revision));
+					}
+				}
+			}
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.Parameters.AddWithValue("@revision", (int)CollectionsRetainedArtifactOwnerKind.Revision);
+				command.Parameters.AddWithValue("@download", (int)CollectionsRetainedArtifactOwnerKind.Download);
+				command.Parameters.AddWithValue("@owner_id", String.Empty);
+				foreach (string ownerId in revisionOwners)
+				{
+					command.Parameters["@owner_id"].Value = ownerId;
+					// Early acquisition plans may never have reached resolved_plans. The durable exact revision identity
+					// also releases those requests, instead of leaving their Download references permanently pinned.
+					command.CommandText = @"
+DELETE FROM retained_artifact_references
+WHERE owner_kind=@download AND owner_id IN (
+    SELECT request_id FROM collection_acquisition_requests WHERE revision_identity=@owner_id);";
+					command.ExecuteNonQuery();
+					command.CommandText = "DELETE FROM collection_acquisition_requests WHERE revision_identity=@owner_id;";
+					command.ExecuteNonQuery();
+					command.CommandText = "DELETE FROM retained_artifact_references WHERE owner_kind=@revision AND owner_id=@owner_id;";
+					command.ExecuteNonQuery();
+				}
+				command.CommandText = @"
+UPDATE revision_sources SET raw_bundle_artifact_id=NULL, raw_manifest_artifact_id=NULL
+WHERE origin=@origin AND collection_id=@collection_id;";
+				command.Parameters.AddWithValue("@origin", (int)collection.Origin);
+				command.Parameters.AddWithValue("@collection_id", collection.StableId);
+				command.ExecuteNonQuery();
+			}
+		}
+
+		/// <summary>
 		/// Gets a bounded set of sealed tracked artifacts that currently have no durable references and are not already tombstoned.
 		/// </summary>
 		public IReadOnlyList<string> GetCleanupCandidates(int maximumCount)
@@ -49,6 +193,7 @@ WHERE a.sealed=1 AND r.reference_id IS NULL AND t.artifact_id IS NULL
   AND NOT EXISTS (SELECT 1 FROM revision_sources rs WHERE rs.raw_bundle_artifact_id=a.artifact_id)
   AND NOT EXISTS (SELECT 1 FROM revision_sources rs WHERE rs.raw_manifest_artifact_id=a.artifact_id)
   AND NOT EXISTS (SELECT 1 FROM collection_acquisition_requests car WHERE car.verified_artifact_id=a.artifact_id)
+  AND NOT EXISTS (SELECT 1 FROM local_capture_packages cp WHERE cp.package_artifact_id=a.artifact_id)
 ORDER BY a.artifact_id
 LIMIT @maximum_count;";
 					command.Parameters.AddWithValue("@maximum_count", maximumCount);
@@ -272,6 +417,8 @@ UNION ALL
 SELECT 1 FROM revision_sources WHERE raw_manifest_artifact_id=@artifact_id
 UNION ALL
 SELECT 1 FROM collection_acquisition_requests WHERE verified_artifact_id=@artifact_id
+UNION ALL
+SELECT 1 FROM local_capture_packages WHERE package_artifact_id=@artifact_id
 LIMIT 1;";
 				command.Parameters.AddWithValue("@artifact_id", artifactId);
 				return command.ExecuteScalar() != null;
