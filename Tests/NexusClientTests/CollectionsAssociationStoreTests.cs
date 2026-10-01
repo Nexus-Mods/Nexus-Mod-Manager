@@ -286,6 +286,16 @@ namespace NexusClientTests
 					CollectionRequirementAspect.MemberEnabledState, null);
 				associations.SaveOverride(new UserOverride(Guid.NewGuid(), requirement,
 					CollectionRequirementState.Present("bool-v1", "enabled"), CollectionRequirementState.Absent(), null));
+				var driftRequirement = new CollectionRequirementReference(requested, null,
+					CollectionRequirementAspect.PluginState, "Example.esp");
+				var drift = new CollectionDriftObservation(Guid.NewGuid(), driftRequirement,
+					CollectionRequirementState.Present("plugin-v1", "enabled"), CollectionRequirementState.Absent(), null);
+				associations.SaveManualMutationDrift(new[] { requested.WithState(CollectionAssociationState.Modified) },
+					new[] { drift }, new CollectionRequirementReference[0]);
+				associations.SaveNativeModProvenance(new NativeModProvenance(
+					new NativeModInstanceIdentity(requested.Target, "native-a"), StandaloneModUse.NoStandaloneUseVerified));
+				associations.SaveNativeModProvenance(new NativeModProvenance(
+					new NativeModInstanceIdentity(other.Target, "native-b"), StandaloneModUse.ExplicitStandaloneUse));
 
 				CollectionsAssociationTargetSnapshot snapshot = associations.GetTargetSnapshot(requested.Target);
 
@@ -296,11 +306,18 @@ namespace NexusClientTests
 				Assert.AreEqual("native-a", snapshot.Bindings[0].NativeMod.NativeModKey);
 				Assert.AreEqual(1, snapshot.Overrides.Count);
 				Assert.AreEqual(requested.AssociationId, snapshot.Overrides[0].Requirement.AssociationId);
+				Assert.AreEqual(1, snapshot.DriftObservations.Count);
+				Assert.AreEqual(drift.ObservationId, snapshot.DriftObservations[0].ObservationId);
+				Assert.AreEqual(1, snapshot.NativeModProvenance.Count);
+				Assert.AreEqual("native-a", snapshot.NativeModProvenance[0].NativeMod.NativeModKey);
+				Assert.AreEqual(StandaloneModUse.NoStandaloneUseVerified, snapshot.NativeModProvenance[0].StandaloneUse);
 
 				CollectionsAssociationTargetSnapshot empty = associations.GetTargetSnapshot(CollectionTargetIdentity.FromFingerprint("target-empty"));
 				Assert.AreEqual(0, empty.Associations.Count);
 				Assert.AreEqual(0, empty.Bindings.Count);
 				Assert.AreEqual(0, empty.Overrides.Count);
+				Assert.AreEqual(0, empty.DriftObservations.Count);
+				Assert.AreEqual(0, empty.NativeModProvenance.Count);
 			}
 			finally
 			{

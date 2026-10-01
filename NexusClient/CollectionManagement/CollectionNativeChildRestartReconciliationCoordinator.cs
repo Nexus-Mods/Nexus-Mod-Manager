@@ -70,18 +70,31 @@ namespace Nexus.Client.CollectionManagement
 			return ReconcileAsync(operationIdentity, paths, CancellationToken.None);
 		}
 
+		/// <summary>Reconciles one restart-ambiguous C8.6 incoming child without replaying replacement work.</summary>
+		internal Task<CollectionNativeChildRestartReconciliationResult> ReconcileReplacementIncomingAsync(
+			CollectionOperationIdentity operationIdentity, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			return ReconcileCoreAsync(operationIdentity, paths, cancellationToken, true);
+		}
+
 		/// <summary>Reconciles one restart-ambiguous native child while honoring cancellation before authority inspection begins.</summary>
-		public async Task<CollectionNativeChildRestartReconciliationResult> ReconcileAsync(CollectionOperationIdentity operationIdentity,
+		public Task<CollectionNativeChildRestartReconciliationResult> ReconcileAsync(CollectionOperationIdentity operationIdentity,
 			GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			return ReconcileCoreAsync(operationIdentity, paths, cancellationToken, false);
+		}
+
+		private async Task<CollectionNativeChildRestartReconciliationResult> ReconcileCoreAsync(CollectionOperationIdentity operationIdentity,
+			GameStoragePathSet paths, CancellationToken cancellationToken, bool replacementExecution)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
 			if (_services.ModManager == null)
 				throw new InvalidOperationException("C6.9 requires the live ModManager service.");
 
-			CollectionOperation operation = RequireRecoverableOperation(operationIdentity);
+			CollectionOperation operation = RequireRecoverableOperation(operationIdentity, replacementExecution);
 			CollectionNativeChildOperation child = RequireRestartChild(operation);
-			CollectionResolvedPlanRecord plan = RequirePersistedPlan(operation);
+			CollectionResolvedPlanRecord plan = RequirePersistedPlan(operation, replacementExecution);
 
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
 			if (!authority.Target.Equals(operation.Target) || !authority.Target.Equals(plan.Target))
@@ -91,7 +104,8 @@ namespace Nexus.Client.CollectionManagement
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				if (operation.Phase != CollectionOperationPhase.Recovering)
-					operation = _operationCoordinator.BeginRecovery(operationIdentity);
+					operation = replacementExecution ? SaveOperationState(operation, CollectionOperationPhase.Recovering, CollectionOperationResultState.Pending)
+						: _operationCoordinator.BeginRecovery(operationIdentity);
 
 				try
 				{
@@ -181,26 +195,30 @@ namespace Nexus.Client.CollectionManagement
 					operation = SaveChild(operation, child);
 
 					if (durability == ModOperationDurability.Unknown)
-						operation = _operationCoordinator.MarkRecoveryRequired(operation.Identity);
+						operation = replacementExecution ? SaveOperationState(operation, CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired)
+							: _operationCoordinator.MarkRecoveryRequired(operation.Identity);
 
 					return new CollectionNativeChildRestartReconciliationResult(operation, child, state, verifiedNativeMod,
 						evidence != null, priorDurability, verificationDiagnostics);
 				}
 				catch
 				{
-					TryMarkRecoveryRequired(operationIdentity);
+					TryMarkRecoveryRequired(operationIdentity, replacementExecution);
 					throw;
 				}
 			}
 		}
 
-		private void TryMarkRecoveryRequired(CollectionOperationIdentity identity)
+		private void TryMarkRecoveryRequired(CollectionOperationIdentity identity, bool replacementExecution)
 		{
 			try
 			{
 				CollectionOperation current = _operationStore.GetOperation(identity);
 				if (current != null && current.Phase == CollectionOperationPhase.Recovering && current.HasUnreconciledNativeChild)
-					_operationCoordinator.MarkRecoveryRequired(identity);
+				{
+					if (replacementExecution) SaveOperationState(current, CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired);
+					else _operationCoordinator.MarkRecoveryRequired(identity);
+				}
 			}
 			catch
 			{
@@ -208,26 +226,31 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private CollectionOperation RequireRecoverableOperation(CollectionOperationIdentity identity)
+		private CollectionOperation SaveOperationState(CollectionOperation operation, CollectionOperationPhase phase, CollectionOperationResultState result)
+		{
+			if (operation.CheckpointSequence == Int64.MaxValue) throw new InvalidOperationException("The Collection operation checkpoint sequence cannot be incremented further.");
+			var updated = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target, operation.Revision,
+				operation.PlanIdentity, operation.CheckpointSequence + 1, phase, result, operation.NativeChildren);
+			_operationStore.SaveOperation(updated);
+			return _operationStore.GetOperation(operation.Identity);
+		}
+
+		private CollectionOperation RequireRecoverableOperation(CollectionOperationIdentity identity, bool replacementExecution)
 		{
 			CollectionOperation operation = _operationStore.GetOperation(identity);
 			if (operation == null)
 				throw new InvalidOperationException("The Collection operation is not present in the durable operation journal.");
-			if (operation.Kind != CollectionOperationKind.ApplyResolvedPlan ||
-				(operation.ResultState != CollectionOperationResultState.Pending &&
-				 operation.ResultState != CollectionOperationResultState.RecoveryRequired))
-				throw new InvalidOperationException("C6.9 currently reconciles only additive Collection apply operations that crossed the native boundary.");
-			switch (operation.Phase)
-			{
-				case CollectionOperationPhase.ApplyingNativeChildren:
-				case CollectionOperationPhase.PausedAtSafeBoundary:
-				case CollectionOperationPhase.Verifying:
-				case CollectionOperationPhase.Recovering:
-				case CollectionOperationPhase.RecoveryRequired:
-					break;
-				default:
-					throw new InvalidOperationException("The Collection operation is not at a restart-reconcilable native boundary.");
-			}
+			CollectionOperationKind requiredKind = replacementExecution ? CollectionOperationKind.ReplaceCurrentManagedSetup : CollectionOperationKind.ApplyResolvedPlan;
+			if (operation.Kind != requiredKind ||
+				(operation.ResultState != CollectionOperationResultState.Pending && operation.ResultState != CollectionOperationResultState.RecoveryRequired))
+				throw new InvalidOperationException(replacementExecution
+					? "C8.6 restart reconciliation accepts only replacement operations with incoming native progress."
+					: "C6.9 currently reconciles only additive Collection apply operations that crossed the native boundary.");
+			bool phaseAllowed = replacementExecution
+				? operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren || operation.Phase == CollectionOperationPhase.Recovering || operation.Phase == CollectionOperationPhase.RecoveryRequired
+				: operation.Phase == CollectionOperationPhase.ApplyingNativeChildren || operation.Phase == CollectionOperationPhase.PausedAtSafeBoundary ||
+					operation.Phase == CollectionOperationPhase.Verifying || operation.Phase == CollectionOperationPhase.Recovering || operation.Phase == CollectionOperationPhase.RecoveryRequired;
+			if (!phaseAllowed) throw new InvalidOperationException("The Collection operation is not at a restart-reconcilable native boundary.");
 			if (!operation.HasCrossedNativeBoundary)
 				throw new InvalidOperationException("C6.9 cannot be used before a native child crossed the submission boundary.");
 			return operation;
@@ -242,14 +265,15 @@ namespace Nexus.Client.CollectionManagement
 			return operation;
 		}
 
-		private CollectionResolvedPlanRecord RequirePersistedPlan(CollectionOperation operation)
+		private CollectionResolvedPlanRecord RequirePersistedPlan(CollectionOperation operation, bool replacementExecution)
 		{
 			if (operation.PlanIdentity == null || operation.Revision == null)
 				throw new InvalidOperationException("A restart-reconcilable Collection operation must retain its exact plan and revision identities.");
 			CollectionResolvedPlanRecord plan = _planStore.GetPlan(operation.PlanIdentity);
-			if (plan == null || !plan.Revision.Equals(operation.Revision) || !plan.Target.Equals(operation.Target) ||
-				plan.PolicyKind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
-				throw new InvalidOperationException("The exact persisted additive plan required for restart reconciliation is unavailable or mismatched.");
+			CollectionExecutionPolicyKind expectedPolicy = replacementExecution
+				? CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup : CollectionExecutionPolicyKind.InstallIntoCurrentSetup;
+			if (plan == null || !plan.Revision.Equals(operation.Revision) || !plan.Target.Equals(operation.Target) || plan.PolicyKind != expectedPolicy)
+				throw new InvalidOperationException("The exact persisted plan required for restart reconciliation is unavailable or mismatched.");
 			return plan;
 		}
 

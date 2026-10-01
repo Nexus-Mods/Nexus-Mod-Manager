@@ -64,6 +64,30 @@ namespace Nexus.Client.CollectionManagement
 			return Capture(target, nativeCapture);
 		}
 
+		/// <summary>
+		/// Captures the C8.1 replacement snapshot, including drift and standalone provenance from the same Collection-store read
+		/// used to populate the native-state association/binding/override view.
+		/// </summary>
+		public CollectionReplacementCurrentSetupSnapshot CaptureReplacementCurrentSetup(CollectionTargetIdentity target)
+		{
+			if (target == null)
+				throw new ArgumentNullException(nameof(target));
+			if (Transaction.Current != null)
+				throw new InvalidOperationException("Collection replacement state cannot be captured from inside an ambient native transaction.");
+
+			IInstallLog installLog = _installLogProvider();
+			if (installLog == null)
+				throw new InvalidOperationException("The current authoritative InstallLog is unavailable.");
+
+			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(installLog, _virtualModActivator,
+				null, _pluginManager, _gameMode).Capture();
+			CollectionsAssociationTargetSnapshot associationSnapshot;
+			CollectionNativeStateIndex nativeState = Capture(target, nativeCapture, out associationSnapshot);
+			return new CollectionReplacementCurrentSetupSnapshot(nativeState,
+				associationSnapshot == null ? Enumerable.Empty<CollectionDriftObservation>() : associationSnapshot.DriftObservations,
+				associationSnapshot == null ? Enumerable.Empty<NativeModProvenance>() : associationSnapshot.NativeModProvenance);
+		}
+
 		/// <summary>Wraps an already-established InstallLog in the same provider contract used by reload-aware readers.</summary>
 		private static Func<IInstallLog> CreateStaticInstallLogProvider(IInstallLog installLog)
 		{
@@ -74,6 +98,13 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Builds the Collection planning index from one already-established generic native observation.</summary>
 		internal CollectionNativeStateIndex Capture(CollectionTargetIdentity target, NativeStateCaptureSnapshot nativeCapture)
+		{
+			CollectionsAssociationTargetSnapshot ignored;
+			return Capture(target, nativeCapture, out ignored);
+		}
+
+		private CollectionNativeStateIndex Capture(CollectionTargetIdentity target, NativeStateCaptureSnapshot nativeCapture,
+			out CollectionsAssociationTargetSnapshot associationSnapshot)
 		{
 			if (target == null)
 				throw new ArgumentNullException(nameof(target));
@@ -116,7 +147,7 @@ namespace Nexus.Client.CollectionManagement
 			IReadOnlyList<CollectionTargetAssociation> associations;
 			IReadOnlyList<CollectionMemberBinding> bindings;
 			IReadOnlyList<UserOverride> overrides;
-			CaptureAssociations(target, issues, out associationCoverage, out associations, out bindings, out overrides);
+			CaptureAssociations(target, issues, out associationSnapshot, out associationCoverage, out associations, out bindings, out overrides);
 
 			return new CollectionNativeStateIndex(target, roots, nativeMods, files, iniEdits, gameValues,
 				plugins, pluginCoverage, associations, bindings, overrides, associationCoverage, issues,
@@ -307,9 +338,11 @@ namespace Nexus.Client.CollectionManagement
 
 
 		private void CaptureAssociations(CollectionTargetIdentity target, List<CollectionNativeStateIssue> issues,
-			out CollectionNativeStateCoverage coverage, out IReadOnlyList<CollectionTargetAssociation> associations,
-			out IReadOnlyList<CollectionMemberBinding> bindings, out IReadOnlyList<UserOverride> overrides)
+			out CollectionsAssociationTargetSnapshot snapshot, out CollectionNativeStateCoverage coverage,
+			out IReadOnlyList<CollectionTargetAssociation> associations, out IReadOnlyList<CollectionMemberBinding> bindings,
+			out IReadOnlyList<UserOverride> overrides)
 		{
+			snapshot = null;
 			associations = new CollectionTargetAssociation[0];
 			bindings = new CollectionMemberBinding[0];
 			overrides = new UserOverride[0];
@@ -323,7 +356,7 @@ namespace Nexus.Client.CollectionManagement
 
 			try
 			{
-				CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(target);
+				snapshot = _associationStore.GetTargetSnapshot(target);
 				associations = snapshot.Associations;
 				bindings = snapshot.Bindings;
 				overrides = snapshot.Overrides;

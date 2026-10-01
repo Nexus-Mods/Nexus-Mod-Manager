@@ -155,7 +155,56 @@ ORDER BY uo.association_id, uo.override_id;";
 					}
 				}
 
-				return new CollectionsAssociationTargetSnapshot(target, associations, bindings, overrides);
+				var drift = new List<CollectionDriftObservation>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT d.observation_id, d.association_id, d.baseline_revision_id, d.target_fingerprint,
+       d.member_key_kind, d.member_key_value, d.aspect, d.subject_key,
+       d.expected_state_kind, d.expected_state_format_version, d.expected_state_fingerprint,
+       d.observed_state_kind, d.observed_state_format_version, d.observed_state_fingerprint, d.detail
+FROM drift_observations d
+JOIN target_associations ta ON ta.association_id = d.association_id
+WHERE ta.target_fingerprint = @target_fingerprint
+ORDER BY d.association_id, d.observation_id;";
+					command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							Guid associationId = ReadCanonicalGuid(reader.GetString(1), "Collection drift association");
+							CollectionTargetAssociation association;
+							if (!associationsById.TryGetValue(associationId, out association))
+								throw new CollectionsStoreSchemaException("A persisted Collection drift observation references a missing target association.");
+							drift.Add(ReadDriftObservation(reader, association));
+						}
+					}
+				}
+
+				var provenance = new List<NativeModProvenance>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT native_mod_key, standalone_use
+FROM native_mod_provenance
+WHERE target_fingerprint = @target_fingerprint
+ORDER BY native_mod_key;";
+					command.Parameters.AddWithValue("@target_fingerprint", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+						{
+							StandaloneModUse standaloneUse = (StandaloneModUse)Convert.ToInt32(reader.GetValue(1), CultureInfo.InvariantCulture);
+							if (!Enum.IsDefined(typeof(StandaloneModUse), standaloneUse) || standaloneUse == StandaloneModUse.Unknown)
+								throw new CollectionsStoreSchemaException("A persisted native-mod standalone provenance row has an invalid state.");
+							provenance.Add(new NativeModProvenance(new NativeModInstanceIdentity(target, reader.GetString(0)), standaloneUse));
+						}
+					}
+				}
+
+				return new CollectionsAssociationTargetSnapshot(target, associations, bindings, overrides, drift, provenance);
 			});
 		}
 

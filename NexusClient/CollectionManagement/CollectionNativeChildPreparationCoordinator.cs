@@ -51,6 +51,27 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionMemberEffectPreview> effectPreviews,
 			IEnumerable<CollectionVerifiedArchive> verifiedArchives, string installInfoDirectory)
 		{
+			return PrepareNextCore(operationIdentity, plan, matches, dependencyPlan, impactPlan, currentState,
+				effectPreviews, verifiedArchives, installInfoDirectory, false);
+		}
+
+		/// <summary>Prepares one C8.6 incoming child against the verified post-removal replacement execution baseline.</summary>
+		internal CollectionNativeChildPreparationResult PrepareNextForReplacement(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan executionPlan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
+			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionVerifiedArchive> verifiedArchives,
+			string installInfoDirectory)
+		{
+			return PrepareNextCore(operationIdentity, executionPlan, matches, dependencyPlan, impactPlan, currentState,
+				effectPreviews, verifiedArchives, installInfoDirectory, true);
+		}
+
+		private CollectionNativeChildPreparationResult PrepareNextCore(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
+			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionVerifiedArchive> verifiedArchives,
+			string installInfoDirectory, bool replacementExecution)
+		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
@@ -61,8 +82,8 @@ namespace Nexus.Client.CollectionManagement
 			if (verifiedArchives == null) throw new ArgumentNullException(nameof(verifiedArchives));
 			if (String.IsNullOrWhiteSpace(installInfoDirectory)) throw new ArgumentException("The native InstallInfo directory is required for child recovery preparation.", nameof(installInfoDirectory));
 
-			CollectionOperation operation = RequireOperation(operationIdentity);
-			ValidatePlanningInputs(operation, plan, matches, dependencyPlan, impactPlan, currentState);
+			CollectionOperation operation = RequireOperation(operationIdentity, replacementExecution);
+			ValidatePlanningInputs(operation, plan, matches, dependencyPlan, impactPlan, currentState, replacementExecution);
 			Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews = IndexPreviews(plan, effectPreviews);
 			Dictionary<CollectionMemberKey, CollectionVerifiedArchive> archives = IndexVerifiedArchives(plan, matches, verifiedArchives);
 
@@ -149,25 +170,32 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionNativeChildPreparationResult(operation, prepared, persisted);
 		}
 
-		private CollectionOperation RequireOperation(CollectionOperationIdentity identity)
+		private CollectionOperation RequireOperation(CollectionOperationIdentity identity, bool replacementExecution)
 		{
 			CollectionOperation operation = _operationStore.GetOperation(identity);
 			if (operation == null) throw new InvalidOperationException("The Collection operation is not present in the durable operation journal.");
-			if (operation.Kind != CollectionOperationKind.ApplyResolvedPlan || operation.Phase != CollectionOperationPhase.ApplyingNativeChildren ||
-				operation.ResultState != CollectionOperationResultState.Pending)
-				throw new InvalidOperationException("C6.6 child preparation requires an active additive operation in ApplyingNativeChildren.");
+			bool correctMode = replacementExecution
+				? operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren
+				: operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.Phase == CollectionOperationPhase.ApplyingNativeChildren;
+			if (!correctMode || operation.ResultState != CollectionOperationResultState.Pending)
+				throw new InvalidOperationException(replacementExecution
+					? "C8.6 child preparation requires an active replacement operation in InstallingIncomingNativeChildren."
+					: "C6.6 child preparation requires an active additive operation in ApplyingNativeChildren.");
 			return operation;
 		}
 
 		private void ValidatePlanningInputs(CollectionOperation operation, ResolvedCollectionPlan plan,
 			CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
-			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState)
+			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState, bool replacementExecution)
 		{
 			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(plan.Identity) || operation.Revision == null ||
 				!operation.Revision.Equals(plan.Revision) || !operation.Target.Equals(plan.Target))
 				throw new ArgumentException("Child preparation inputs must belong to the exact approved Collection operation plan.", nameof(plan));
-			if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
-				throw new ArgumentException("C6.6 only prepares additive Collection operations.", nameof(plan));
+			CollectionExecutionPolicyKind requiredPolicy = replacementExecution
+				? CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup : CollectionExecutionPolicyKind.InstallIntoCurrentSetup;
+			if (plan.Policy.Kind != requiredPolicy)
+				throw new ArgumentException(replacementExecution
+					? "C8.6 requires an explicit replacement execution plan." : "C6.6 only prepares additive Collection operations.", nameof(plan));
 			if (!matches.PlanIdentity.Equals(plan.Identity) || !matches.Target.Equals(plan.Target) ||
 				!dependencyPlan.PlanIdentity.Equals(plan.Identity) || !dependencyPlan.Target.Equals(plan.Target) ||
 				!impactPlan.PlanIdentity.Equals(plan.Identity) || !impactPlan.Target.Equals(plan.Target))
@@ -187,7 +215,7 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
 			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
-				persisted.PolicyKind != plan.Policy.Kind || !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint))
+				persisted.PolicyKind != plan.Policy.Kind || (!replacementExecution && !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint)))
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for child preparation.");
 		}
 
@@ -196,7 +224,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionCurrentStateFingerprint expected = plan.CurrentStateFingerprint;
 			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
 			{
-				if (!previous.IsReconciled)
+				if (previous.Action != CollectionNativeChildAction.ActivateOrReinstall || !previous.IsReconciled)
 					continue;
 				if (previous.NativeResult == null || previous.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
 					throw new InvalidOperationException("A non-committed reconciled Collection child prevents later reviewed children from continuing without re-preparation.");
@@ -257,9 +285,9 @@ namespace Nexus.Client.CollectionManagement
 
 		private static CollectionMemberMatchResult FindNextActionableMatch(CollectionDependencyPhasePlan dependencyPlan, CollectionOperation operation)
 		{
-			if (operation.NativeChildren.Any(x => x.IsReconciled && !x.HasVerifiedCommittedNativeState))
-				throw new InvalidOperationException("C6.6 will not advance past a reconciled native child that did not verify as committed; recovery/retry policy must decide the next action explicitly.");
-			var completed = new HashSet<CollectionMemberKey>(operation.NativeChildren.Where(x => x.IsReconciled && x.HasVerifiedCommittedNativeState).Select(x => x.Member.MemberKey));
+			if (operation.NativeChildren.Any(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled && !x.HasVerifiedCommittedNativeState))
+				throw new InvalidOperationException("C6.6/C8.6 will not advance past a reconciled incoming native child that did not verify as committed; recovery policy must decide the next action explicitly.");
+			var completed = new HashSet<CollectionMemberKey>(operation.NativeChildren.Where(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled && x.HasVerifiedCommittedNativeState).Select(x => x.Member.MemberKey));
 			foreach (CollectionExecutionPhase phase in dependencyPlan.Phases)
 				foreach (CollectionPlannedPhaseMember planned in phase.Members)
 				{

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Nexus.Client.Games;
 using Nexus.Client.Mods;
@@ -65,5 +65,19 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe);
+
+		/// <summary>
+		/// Resolves exact validation paths against an explicitly projected effective environment rather than the live plugin baseline.
+		/// </summary>
+		IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment);
+
+		/// <summary>
+		/// Translates exact selections against an explicitly projected effective environment.
+		/// </summary>
+		ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment);
 	}
 }

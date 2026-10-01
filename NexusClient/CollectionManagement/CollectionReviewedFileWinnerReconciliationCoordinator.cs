@@ -164,14 +164,14 @@ namespace Nexus.Client.CollectionManagement
 			if (_services == null || _gameStorageService == null || _mutationLeaseManager == null || _authorityValidator == null)
 				throw new InvalidOperationException("The production C6.15.11 entry point is unavailable on the test-only coordinator.");
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
-			ValidateInputs(operationIdentity, plan, matches, impactPlan);
+			ValidateInputs(operationIdentity, plan, matches, impactPlan, false);
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
 			if (!authority.Target.Equals(plan.Target)) throw new InvalidOperationException("The live canonical target no longer matches the reviewed Collection plan.");
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				_authorityValidator.ValidateAndReload(lease, authority, paths);
-				return ReconcileValidated(operationIdentity, plan, matches, impactPlan, cancellationToken);
+				return ReconcileValidated(operationIdentity, plan, matches, impactPlan, cancellationToken, false);
 			}
 		}
 
@@ -183,11 +183,37 @@ namespace Nexus.Client.CollectionManagement
 			return ReconcileAsync(operationIdentity, plan, matches, impactPlan, paths, CancellationToken.None);
 		}
 
+		/// <summary>Reconciles C8.6 reviewed replacement winners after all required incoming owners exist.</summary>
+		internal async Task<CollectionReviewedFileWinnerReconciliationResult> ReconcileReplacementAsync(
+			CollectionOperationIdentity operationIdentity, ResolvedCollectionPlan executionPlan, CollectionMemberMatchSet liveMatches,
+			CollectionConflictImpactPlan impactPlan, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			if (_services == null || _gameStorageService == null || _mutationLeaseManager == null || _authorityValidator == null)
+				throw new InvalidOperationException("The production reviewed-winner entry point is unavailable on the test-only coordinator.");
+			if (paths == null) throw new ArgumentNullException(nameof(paths));
+			ValidateInputs(operationIdentity, executionPlan, liveMatches, impactPlan, true);
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			if (!authority.Target.Equals(executionPlan.Target)) throw new InvalidOperationException("The live canonical target no longer matches the replacement execution plan.");
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				return ReconcileValidated(operationIdentity, executionPlan, liveMatches, impactPlan, cancellationToken, true);
+			}
+		}
+
 		internal CollectionReviewedFileWinnerReconciliationResult ReconcileValidated(CollectionOperationIdentity operationIdentity,
 			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan,
 			CancellationToken cancellationToken)
 		{
-			ValidateInputs(operationIdentity, plan, matches, impactPlan);
+			return ReconcileValidated(operationIdentity, plan, matches, impactPlan, cancellationToken, false);
+		}
+
+		private CollectionReviewedFileWinnerReconciliationResult ReconcileValidated(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan,
+			CancellationToken cancellationToken, bool replacementExecution)
+		{
+			ValidateInputs(operationIdentity, plan, matches, impactPlan, replacementExecution);
 			IModDeploymentManager deploymentManager = GetCurrentDeploymentManager();
 			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
 			var results = new List<CollectionReviewedFileWinnerResult>();
@@ -259,14 +285,16 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private void ValidateInputs(CollectionOperationIdentity operationIdentity, ResolvedCollectionPlan plan,
-			CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan)
+			CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan, bool replacementExecution)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
 			if (impactPlan == null) throw new ArgumentNullException(nameof(impactPlan));
-			if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
-				throw new ArgumentException("C6.15.11 only reconciles additive Collection plans.", nameof(plan));
+			CollectionExecutionPolicyKind requiredPolicy = replacementExecution
+				? CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup : CollectionExecutionPolicyKind.InstallIntoCurrentSetup;
+			if (plan.Policy.Kind != requiredPolicy)
+				throw new ArgumentException(replacementExecution ? "C8.6 requires an explicit replacement execution plan." : "C6.15.11 only reconciles additive Collection plans.", nameof(plan));
 			if (!matches.PlanIdentity.Equals(plan.Identity) || !matches.Target.Equals(plan.Target) ||
 				!impactPlan.PlanIdentity.Equals(plan.Identity) || !impactPlan.Target.Equals(plan.Target))
 				throw new ArgumentException("Winner reconciliation inputs do not belong to the exact reviewed Collection plan.");
@@ -275,19 +303,48 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("C6.15.11 requires the complete selected member closure to be resolved.");
 
 			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
-			if (operation == null || operation.Kind != CollectionOperationKind.ApplyResolvedPlan || operation.ResultState != CollectionOperationResultState.Pending ||
-				(operation.Phase != CollectionOperationPhase.ApplyingNativeChildren && operation.Phase != CollectionOperationPhase.PausedAtSafeBoundary && operation.Phase != CollectionOperationPhase.Recovering) ||
-				operation.PlanIdentity == null || !operation.PlanIdentity.Equals(plan.Identity) || operation.Revision == null || !operation.Revision.Equals(plan.Revision) || !operation.Target.Equals(plan.Target))
-				throw new InvalidOperationException("C6.15.11 requires the active operation for the exact reviewed additive plan.");
+			bool correctOperation = replacementExecution
+				? operation != null && operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren
+				: operation != null && operation.Kind == CollectionOperationKind.ApplyResolvedPlan &&
+					(operation.Phase == CollectionOperationPhase.ApplyingNativeChildren || operation.Phase == CollectionOperationPhase.PausedAtSafeBoundary || operation.Phase == CollectionOperationPhase.Recovering);
+			if (!correctOperation || operation.ResultState != CollectionOperationResultState.Pending || operation.PlanIdentity == null || !operation.PlanIdentity.Equals(plan.Identity) ||
+				operation.Revision == null || !operation.Revision.Equals(plan.Revision) || !operation.Target.Equals(plan.Target))
+				throw new InvalidOperationException(replacementExecution ? "C8.6 requires the active replacement incoming phase." : "C6.15.11 requires the active operation for the exact reviewed additive plan.");
 			if (operation.NativeChildren.Any(x => !x.IsReconciled))
 				throw new InvalidOperationException("Reviewed file winners may be reconciled only after every submitted native child reached a reconciled safe boundary.");
 			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
-			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target))
+			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) || persisted.PolicyKind != requiredPolicy)
 				throw new InvalidOperationException("The exact reviewed Collection plan is not durably persisted.");
-			if (!StringComparer.Ordinal.Equals(persisted.PayloadFormat, CollectionReviewedWorkflowSnapshotCodec.PayloadFormat))
-				throw new InvalidOperationException("C6.15.11 requires the exact durable reviewed-workflow v2 snapshot.");
-			CollectionReviewedWorkflowSnapshot reviewed = CollectionReviewedWorkflowSnapshotCodec.Deserialize(persisted.Payload);
-			ValidateReviewedWinners(reviewed, plan, impactPlan);
+			if (!replacementExecution)
+			{
+				if (!StringComparer.Ordinal.Equals(persisted.PayloadFormat, CollectionReviewedWorkflowSnapshotCodec.PayloadFormat))
+					throw new InvalidOperationException("C6.15.11 requires the exact durable reviewed-workflow v2 snapshot.");
+				CollectionReviewedWorkflowSnapshot reviewed = CollectionReviewedWorkflowSnapshotCodec.Deserialize(persisted.Payload);
+				ValidateReviewedWinners(reviewed, plan, impactPlan);
+			}
+			else
+			{
+				if (!StringComparer.Ordinal.Equals(persisted.PayloadFormat, CollectionReplacementReviewedIntentCodec.PayloadFormat))
+					throw new InvalidOperationException("C8.6 requires the exact durable replacement reviewed intent with explicit file-winner approvals.");
+				ValidateReplacementReviewedWinners(CollectionReplacementReviewedIntentCodec.Deserialize(persisted.Payload), impactPlan);
+			}
+		}
+
+		private static void ValidateReplacementReviewedWinners(CollectionReplacementReviewedIntent intent,
+			CollectionConflictImpactPlan impactPlan)
+		{
+			Dictionary<ModDeploymentTarget, CollectionReplacementFileWinnerApproval> approved = intent.FileWinnerApprovals
+				.ToDictionary(x => x.Target);
+			List<CollectionFileImpact> multiWriter = impactPlan.FileImpacts.Where(x => x.Writers.Count > 1).ToList();
+			foreach (CollectionFileImpact impact in multiWriter)
+			{
+				CollectionReplacementFileWinnerApproval winner;
+				if (impact.PlannedWinner == null || !approved.TryGetValue(impact.Target, out winner) ||
+					!winner.WinnerMemberKey.Equals(impact.PlannedWinner))
+					throw new InvalidOperationException("C8.6 will not reconcile a multi-writer file target unless its exact planned winner was durably approved by C8.3 review.");
+			}
+			if (approved.Keys.Any(target => multiWriter.All(x => !x.Target.Equals(target))))
+				throw new InvalidOperationException("The durable replacement review contains a file-winner approval that is not present in the current reviewed impact plan.");
 		}
 
 		private static void ValidateReviewedWinners(CollectionReviewedWorkflowSnapshot reviewed, ResolvedCollectionPlan plan,

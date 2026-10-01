@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,6 +24,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly IGameMode m_gmdGameMode;
 		private readonly InstallerGroup m_igpInstallers;
 		private readonly IPluginManager m_pmgPluginManager;
+		private readonly IModInstallationConditionEnvironment m_iceConditionEnvironment;
 		private readonly Dictionary<string, ProjectedDataFile> m_dicProjectedFiles = new Dictionary<string, ProjectedDataFile>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, Plugin> m_dicProjectedPluginInfo = new Dictionary<string, Plugin>(StringComparer.OrdinalIgnoreCase);
 		private readonly Dictionary<string, string> m_dicIniValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -76,6 +77,16 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_modMod = p_modMod;
 			m_gmdGameMode = p_gmdGameMode;
 			m_pmgPluginManager = p_pmgPluginManager;
+		}
+
+		/// <summary>
+		/// Initializes a plugin-condition projection over an explicitly supplied effective baseline.
+		/// </summary>
+		public ScriptedInstallationProjectedState(IMod p_modMod, IGameMode p_gmdGameMode, IPluginManager p_pmgPluginManager,
+			IModInstallationConditionEnvironment p_iceConditionEnvironment)
+			: this(p_modMod, p_gmdGameMode, p_pmgPluginManager)
+		{
+			m_iceConditionEnvironment = p_iceConditionEnvironment ?? throw new ArgumentNullException(nameof(p_iceConditionEnvironment));
 		}
 
 		#endregion
@@ -501,8 +512,18 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (m_lstManagedPlugins != null)
 				return;
 
-			m_lstManagedPlugins = RelativizePluginPaths(m_pmgPluginManager.ManagedPlugins).ToList();
-			m_hstActivePlugins = new HashSet<string>(RelativizePluginPaths(m_pmgPluginManager.ActivePlugins), StringComparer.OrdinalIgnoreCase);
+			if (m_iceConditionEnvironment != null)
+			{
+				m_lstManagedPlugins = m_iceConditionEnvironment.RegisteredPlugins
+					.Select(NormalizeRelativePath).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+				m_hstActivePlugins = new HashSet<string>(m_iceConditionEnvironment.ActivePlugins
+					.Select(NormalizeRelativePath), StringComparer.OrdinalIgnoreCase);
+			}
+			else
+			{
+				m_lstManagedPlugins = RelativizePluginPaths(m_pmgPluginManager.ManagedPlugins).ToList();
+				m_hstActivePlugins = new HashSet<string>(RelativizePluginPaths(m_pmgPluginManager.ActivePlugins), StringComparer.OrdinalIgnoreCase);
+			}
 		}
 
 		/// <summary>

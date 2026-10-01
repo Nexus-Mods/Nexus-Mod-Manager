@@ -172,6 +172,9 @@
     <Compile Include="CollectionOwnerPayloadCaptureServiceTests.cs" />
     <Compile Include="CollectionScriptedReplayCaptureServiceTests.cs" />
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
+    <Compile Include="CollectionReplacementDiffPlannerTests.cs" />
+    <Compile Include="CollectionReplacementOutgoingRemovalCoordinatorTests.cs" />
+    <Compile Include="CollectionReplacementPhaseBarrierCoordinatorTests.cs" />
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />
     <Compile Include="CollectionOperationCoordinatorTests.cs" />

@@ -153,6 +153,7 @@
     <Compile Include="ModManagement\ModInstallRoot.cs" />
     <Compile Include="ModManagement\ModInstallMethod.cs" />
     <Compile Include="ModManagement\ModInstallContext.cs" />
+    <Compile Include="ModManagement\IModInstallationConditionEnvironment.cs" />
     <Compile Include="ModManagement\IModInstallationFomodRecipeAdapter.cs" />
     <Compile Include="ModManagement\ModInstallationFomodSelectionRecipe.cs" />
     <Compile Include="ModManagement\ModInstallationReplicatedLayoutRecipe.cs" />

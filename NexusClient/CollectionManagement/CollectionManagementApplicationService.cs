@@ -368,6 +368,20 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionNexusMetadataHydrator(_services.ModManager).Enrich(bindings);
 		}
 
+		/// <summary>Inspects interrupted C8 replacement operations for startup routing without resuming or mutating native state.</summary>
+		public IReadOnlyList<CollectionReplacementStartupInspection> InspectInterruptedReplacements()
+		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionReplacementStartupInspection[0];
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var inspector = new CollectionReplacementOperationCoordinator(_operationStore,
+				new CollectionsResolvedPlanStore(_store), new CollectionsRetainedArtifactStore(_store),
+				new CollectionsRetainedArtifactReferenceStore(_store));
+			return new ReadOnlyCollection<CollectionReplacementStartupInspection>(_operationStore.GetIncompleteOperations(target)
+				.Where(x => x.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup)
+				.Select(inspector.InspectInterrupted).ToList());
+		}
+
 		/// <summary>Reconciles persisted Local restore operations through every remaining C7 phase and aggregate final verification.</summary>
 		public async Task<IReadOnlyList<CollectionLocalRestoreWorkflowResult>> ReconcileInterruptedLocalRestoresAsync(
 			CancellationToken cancellationToken)

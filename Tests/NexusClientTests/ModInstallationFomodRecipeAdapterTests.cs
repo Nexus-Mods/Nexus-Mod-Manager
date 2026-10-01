@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -436,6 +436,55 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Verifies the explicit replacement condition environment overrides the live plugin baseline for conditional files.
+		/// </summary>
+		[Test]
+		public void Translate_ConditionalFilesUseExplicitProjectedEnvironmentInsteadOfLivePluginState()
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File(@"base.bin", @"base.bin", 0));
+			script.ConditionallyInstalledFileSets.Add(new ConditionallyInstalledFileSet(
+				new PluginCondition(@"existing.esp", PluginState.Active),
+				new List<InstallableFile> { File(@"conditional.bin", @"conditional.bin", 0) }));
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			IGameMode gameMode = CreateGameMode();
+			IPluginManager livePluginManager = CreatePluginManager(gameMode, new string[0], new string[0]);
+			var projected = new TestConditionEnvironment(new[] { @"existing.esp" }, new[] { @"existing.esp" });
+			IMod mod = CreateMod(script, @"base.bin", @"conditional.bin");
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0), new ModInstallationFomodStepSelection[0]);
+
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(
+				mod, gameMode, CreateEnvironmentInfo(), livePluginManager, recipe, projected);
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod, gameMode,
+				CreateEnvironmentInfo(), livePluginManager, recipe, projected);
+
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Select(operation => operation.SourcePath),
+				Is.EqualTo(new[] { @"base.bin", @"conditional.bin" }));
+		}
+
+		/// <summary>
+		/// Verifies unprovable projected plugin facts fail closed instead of being interpreted as inactive/absent.
+		/// </summary>
+		[Test]
+		public void GetValidationPaths_UnprovableProjectedPluginCondition_FailsClosed()
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.ConditionallyInstalledFileSets.Add(new ConditionallyInstalledFileSet(
+				new PluginCondition(@"unknown.esp", PluginState.Active),
+				new List<InstallableFile> { File(@"conditional.bin", @"conditional.bin", 0) }));
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			IGameMode gameMode = CreateGameMode();
+			var projected = new TestConditionEnvironment(new string[0], new string[0], false);
+
+			Assert.Throws<NotSupportedException>(() => adapter.GetValidationPaths(
+				CreateMod(script, @"conditional.bin"), gameMode, CreateEnvironmentInfo(),
+				CreatePluginManager(gameMode, new string[0], new string[0]),
+				new ModInstallationFomodSelectionRecipe(new Version(5, 0), new ModInstallationFomodStepSelection[0]), projected));
+		}
+
+		/// <summary>
 		/// Verifies selected plugin files become visible to later FOMOD conditional file sets before native execution.
 		/// </summary>
 		[Test]
@@ -740,6 +789,47 @@ namespace NexusClientTests
 						return null;
 				}
 			});
+		}
+
+		private sealed class TestConditionEnvironment : IModInstallationConditionEnvironment
+		{
+			private readonly HashSet<string> _registered;
+			private readonly HashSet<string> _active;
+			private readonly bool _proveAbsence;
+
+			public TestConditionEnvironment(IEnumerable<string> registered, IEnumerable<string> active, bool proveAbsence = true)
+			{
+				_registered = new HashSet<string>(registered ?? new string[0], StringComparer.OrdinalIgnoreCase);
+				_active = new HashSet<string>(active ?? new string[0], StringComparer.OrdinalIgnoreCase);
+				_proveAbsence = proveAbsence;
+			}
+
+			public IReadOnlyList<string> RegisteredPlugins { get { return _registered.OrderBy(x => x).ToArray(); } }
+			public IReadOnlyList<string> ActivePlugins { get { return _active.OrderBy(x => x).ToArray(); } }
+
+			public bool TryGetDataFileExists(ModDeploymentRoot root, string relativePath, out bool exists)
+			{
+				exists = false;
+				return false;
+			}
+
+			public bool TryGetIniString(string settingsFileName, string section, string key, out string value)
+			{
+				value = null;
+				return false;
+			}
+
+			public bool TryGetPluginRegistered(string pluginPath, out bool registered)
+			{
+				registered = _registered.Contains(Path.GetFileName(pluginPath));
+				return registered || _proveAbsence;
+			}
+
+			public bool TryGetPluginActive(string pluginPath, out bool active)
+			{
+				active = _active.Contains(Path.GetFileName(pluginPath));
+				return active || _proveAbsence;
+			}
 		}
 
 		/// <summary>

@@ -28,6 +28,31 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionMemberMatchSet Match(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionVerifiedArchive> verifiedArchives)
 		{
+			return MatchCore(plan, nativeState, verifiedArchives, true);
+		}
+
+		/// <summary>
+		/// Exposes C6.2 matching facts to the C8.1 read-only replacement planner without weakening the public additive policy guard.
+		/// </summary>
+		internal CollectionMemberMatchSet MatchForReplacementPlanning(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState)
+		{
+			return MatchForReplacementExecution(plan, nativeState, Enumerable.Empty<CollectionVerifiedArchive>());
+		}
+
+		/// <summary>Matches one replacement execution baseline with exact already verified immutable archive inputs.</summary>
+		internal CollectionMemberMatchSet MatchForReplacementExecution(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
+			IEnumerable<CollectionVerifiedArchive> verifiedArchives)
+		{
+			if (plan == null)
+				throw new ArgumentNullException(nameof(plan));
+			if (plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)
+				throw new ArgumentException("Replacement matching facts require the explicit replacement policy.", nameof(plan));
+			return MatchCore(plan, nativeState, verifiedArchives ?? throw new ArgumentNullException(nameof(verifiedArchives)), false);
+		}
+
+		private CollectionMemberMatchSet MatchCore(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
+			IEnumerable<CollectionVerifiedArchive> verifiedArchives, bool requireAdditivePolicy)
+		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
 			if (nativeState == null)
@@ -40,7 +65,7 @@ namespace Nexus.Client.CollectionManagement
 			Dictionary<CollectionMemberKey, CollectionVerifiedArchive> archivesByMember =
 				ValidateVerifiedArchives(plan, verifiedArchives);
 
-			if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
+			if (requireAdditivePolicy && plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
 				return BuildUniformBlockedSet(plan, nativeState, archivesByMember, CollectionMemberMatchReason.UnsupportedExecutionPolicy);
 
 			if (!plan.CurrentStateFingerprint.Equals(nativeState.Fingerprint))

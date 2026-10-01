@@ -21,6 +21,22 @@ namespace Nexus.Client.CollectionManagement
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionMemberEffectPreview> effectPreviews)
 		{
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, false);
+		}
+
+		/// <summary>Builds the C8.6 native impact plan after C8.3 already reviewed replacement association/customization decisions.</summary>
+		internal CollectionConflictImpactPlan PlanForReplacementExecution(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState, IEnumerable<CollectionMemberEffectPreview> effectPreviews)
+		{
+			if (plan == null || plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)
+				throw new ArgumentException("Replacement execution impact planning requires the explicit replacement policy.", nameof(plan));
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, true);
+		}
+
+		private CollectionConflictImpactPlan PlanCore(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, bool replacementExecution)
+		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
 			if (dependencyPlan == null) throw new ArgumentNullException(nameof(dependencyPlan));
@@ -91,7 +107,8 @@ namespace Nexus.Client.CollectionManagement
 			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues);
 			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues);
 
-			ReviewAffectedAssociations(nativeState, associationKinds, issues);
+			if (!replacementExecution)
+				ReviewAffectedAssociations(nativeState, associationKinds, issues);
 			List<CollectionAssociationImpact> associationImpacts = associationKinds.OrderBy(x => x.Key)
 				.Where(x => nativeState.Associations.ContainsKey(x.Key))
 				.Select(x => new CollectionAssociationImpact(nativeState.Associations[x.Key], x.Value)).ToList();

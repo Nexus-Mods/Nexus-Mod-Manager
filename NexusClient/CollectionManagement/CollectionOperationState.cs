@@ -12,7 +12,8 @@
 		VerifyRepair = 4,
 		UninstallCollectionEffects = 5,
 		CaptureLocalCollection = 6,
-		DetachTracking = 7
+		DetachTracking = 7,
+		ReplaceCurrentManagedSetup = 8
 	}
 
 	/// <summary>
@@ -34,7 +35,28 @@
 		Verifying = 11,
 		Recovering = 12,
 		RecoveryRequired = 13,
-		Completed = 14
+		Completed = 14,
+
+		/// <summary>Replacement-specific native phase: exact reviewed outgoing deactivations are being executed.</summary>
+		RemovingOutgoingNativeChildren = 15,
+
+		/// <summary>Replacement-specific safe barrier: every reviewed outgoing deactivation is authoritatively verified.</summary>
+		OutgoingRemovalVerified = 16,
+
+		/// <summary>C8.5 found a supported post-mutation delta which requires a new explicit immutable phase amendment.</summary>
+		AwaitingReplacementPhaseAmendment = 17,
+
+		/// <summary>C8.5 verified the post-removal barrier; incoming native work may now begin.</summary>
+		ReadyForIncomingNativeChildren = 18,
+
+		/// <summary>C8.5 persisted an explicit phase amendment; the amended observation must be revalidated before native work resumes.</summary>
+		ReplacementBarrierRevalidationRequired = 19,
+
+		/// <summary>C8.6 replacement-specific phase: reviewed incoming activate/reinstall children are being executed.</summary>
+		InstallingIncomingNativeChildren = 20,
+
+		/// <summary>C8.6 safe barrier: all reviewed incoming children and supported final native state were verified.</summary>
+		IncomingNativeChildrenVerified = 21
 	}
 
 	/// <summary>

@@ -193,12 +193,34 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(member));
 			if (!member.HasVortexFomodSelection)
 			{
-				return PrepareBasicSimpleExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, cancellationToken);
+				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+					skipReadmeFiles, pluginManager, false, null, cancellationToken);
 			}
 
 			return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-				currentState, skipReadmeFiles, pluginManager, cancellationToken);
+				currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken);
+		}
+
+		/// <summary>
+		/// Re-prepares one exact incoming replacement recipe against the explicitly observed C8.5 condition environment.
+		/// This path is read-only and never authorizes or submits native installation.
+		/// </summary>
+		public PreparedCollectionNativeRecipe PrepareReplacementExact(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
+			CollectionReplacementEnvironmentProjection conditionEnvironment, bool skipReadmeFiles, IPluginManager pluginManager = null,
+			CancellationToken cancellationToken = default(CancellationToken))
+		{
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
+			if (!member.HasVortexFomodSelection)
+			{
+				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+					skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+			}
+
+			return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
+				currentState, skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
 		}
 
 		/// <summary>
@@ -209,7 +231,17 @@ namespace Nexus.Client.CollectionManagement
 			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
 			IPluginManager pluginManager = null, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState);
+			return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+				skipReadmeFiles, pluginManager, false, null, cancellationToken);
+		}
+
+		private PreparedCollectionNativeRecipe PrepareBasicSimpleExactCore(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
+			IPluginManager pluginManager, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment,
+			CancellationToken cancellationToken)
+		{
+			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (member.HasVortexFomodSelection)
 				throw new NotSupportedException("Vortex FOMOD choices require the exact FOMOD-aware native preparation path.");
 			cancellationToken.ThrowIfCancellationRequested();
@@ -259,9 +291,10 @@ namespace Nexus.Client.CollectionManagement
 		private PreparedCollectionNativeRecipe PrepareVortexFomodExact(ResolvedCollectionPlan plan,
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
-			bool skipReadmeFiles, IPluginManager pluginManager, CancellationToken cancellationToken)
+			bool skipReadmeFiles, IPluginManager pluginManager, bool replacement,
+			CollectionReplacementEnvironmentProjection conditionEnvironment, CancellationToken cancellationToken)
 		{
-			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState);
+			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (environmentInfo == null)
 				throw new ArgumentNullException(nameof(environmentInfo));
 			if (!member.HasVortexFomodSelection)
@@ -299,13 +332,18 @@ namespace Nexus.Client.CollectionManagement
 			{
 				Version scriptVersion = fomodAdapter.GetScriptVersion(mod);
 				fomodRecipe = CreateFomodRecipe(member.VortexFomodSelection, scriptVersion);
-				fomodPaths = fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe);
+				fomodPaths = conditionEnvironment == null
+					? fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe)
+					: fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe, conditionEnvironment);
 				ModInstallationRecipeValidation fomodValidation = CreateFomodValidation(verifiedArchive.Artifact, installContext,
 					fomodAdapter, fomodPaths);
 				var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 				ModOperationIdentity operation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
-				fomodTranslated = fomodAdapter.Translate(new ModInstallationRecipeInput(operation, fomodValidation), mod,
-					gameMode, environmentInfo, pluginManager, fomodRecipe);
+				fomodTranslated = conditionEnvironment == null
+					? fomodAdapter.Translate(new ModInstallationRecipeInput(operation, fomodValidation), mod,
+						gameMode, environmentInfo, pluginManager, fomodRecipe)
+					: fomodAdapter.Translate(new ModInstallationRecipeInput(operation, fomodValidation), mod,
+						gameMode, environmentInfo, pluginManager, fomodRecipe, conditionEnvironment);
 			}
 			catch (DependencyException ex)
 			{
@@ -333,7 +371,7 @@ namespace Nexus.Client.CollectionManagement
 
 		private static void ValidateInputs(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
 			CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode, ModInstallContext installContext,
-			CollectionNativeStateIndex currentState)
+			CollectionNativeStateIndex currentState, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment)
 		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
@@ -349,10 +387,25 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(installContext));
 			if (currentState == null)
 				throw new ArgumentNullException(nameof(currentState));
-			if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
-				throw new NotSupportedException("C6.15.9 native recipe preparation is additive-only.");
-			if (!plan.Target.Equals(currentState.Target) || !plan.CurrentStateFingerprint.Equals(currentState.Fingerprint))
-				throw new InvalidOperationException("Native recipe preparation requires the exact C6.1 state snapshot already bound to the resolved plan.");
+			if (replacement)
+			{
+				if (plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)
+					throw new NotSupportedException("Replacement recipe re-preparation requires the explicit replacement policy.");
+				if (conditionEnvironment == null || !conditionEnvironment.Diff.PlanIdentity.Equals(plan.Identity) ||
+					!conditionEnvironment.Diff.Target.Equals(plan.Target))
+					throw new InvalidOperationException("Replacement recipe re-preparation requires the exact C8 replacement environment for this plan and target.");
+				if (!conditionEnvironment.IsReadyForSupportedConditions)
+					throw new NotSupportedException("Replacement recipe re-preparation cannot evaluate against an unprovable condition environment.");
+				if (!plan.Target.Equals(currentState.Target))
+					throw new InvalidOperationException("Replacement recipe re-preparation requires current native state from the reviewed target.");
+			}
+			else
+			{
+				if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
+					throw new NotSupportedException("C6.15.9 native recipe preparation is additive-only unless the explicit C8 replacement re-preparation path is used.");
+				if (!plan.Target.Equals(currentState.Target) || !plan.CurrentStateFingerprint.Equals(currentState.Fingerprint))
+					throw new InvalidOperationException("Native recipe preparation requires the exact C6.1 state snapshot already bound to the resolved plan.");
+			}
 
 			ResolvedCollectionMemberPlan selected = plan.SelectedMembers.SingleOrDefault(x => x.MemberKey.Equals(member.MemberKey));
 			if (selected == null || selected.SourceOrdinal != member.SourceOrdinal ||

@@ -95,6 +95,14 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			return new XmlScriptFomodRecipeAdapter().GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, recipe);
 		}
 
+		/// <summary>Resolves exact FOMOD paths against an explicitly projected effective condition environment.</summary>
+		public IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment)
+		{
+			return new XmlScriptFomodRecipeAdapter().GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
+		}
+
 		/// <summary>
 		/// Translates exact FOMOD selections against the mod's actual parsed XML installer definition.
 		/// </summary>
@@ -109,6 +117,14 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
 		{
 			return new XmlScriptFomodRecipeAdapter().Translate(recipeInput, mod, gameMode, environmentInfo, pluginManager, recipe);
+		}
+
+		/// <summary>Translates exact FOMOD selections against an explicitly projected effective condition environment.</summary>
+		public ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment)
+		{
+			return new XmlScriptFomodRecipeAdapter().Translate(recipeInput, mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
 		}
 
 		#endregion

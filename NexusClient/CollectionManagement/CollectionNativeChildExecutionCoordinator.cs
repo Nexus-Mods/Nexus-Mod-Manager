@@ -81,9 +81,24 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>
 		/// Revalidates and submits the one prepared child while honoring cancellation before native worker start.
 		/// </summary>
-		public async Task<CollectionNativeChildExecutionResult> SubmitPreparedChildAsync(CollectionOperationIdentity operationIdentity,
+		public Task<CollectionNativeChildExecutionResult> SubmitPreparedChildAsync(CollectionOperationIdentity operationIdentity,
 			ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview reviewedPreview,
 			ModInstallationRecipeInput recipeInput, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			return SubmitPreparedChildCoreAsync(operationIdentity, plan, impactPlan, reviewedPreview, recipeInput, paths, cancellationToken, false);
+		}
+
+		/// <summary>Submits one C8.6 incoming replacement child through the same C3/C5 native task seam.</summary>
+		internal Task<CollectionNativeChildExecutionResult> SubmitPreparedReplacementChildAsync(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan executionPlan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview reviewedPreview,
+			ModInstallationRecipeInput recipeInput, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			return SubmitPreparedChildCoreAsync(operationIdentity, executionPlan, impactPlan, reviewedPreview, recipeInput, paths, cancellationToken, true);
+		}
+
+		private async Task<CollectionNativeChildExecutionResult> SubmitPreparedChildCoreAsync(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview reviewedPreview,
+			ModInstallationRecipeInput recipeInput, GameStoragePathSet paths, CancellationToken cancellationToken, bool replacementExecution)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -94,7 +109,7 @@ namespace Nexus.Client.CollectionManagement
 			if (_services.ModManager == null || _services.ModActivationMonitor == null)
 				throw new InvalidOperationException("C6.7 requires the live ModManager and ModActivationMonitor services.");
 
-			CollectionOperation operation = RequireOperation(operationIdentity, plan);
+			CollectionOperation operation = RequireOperation(operationIdentity, plan, replacementExecution);
 			CollectionNativeChildOperation child = RequirePreparedChild(operation);
 			CollectionNativeChildRecoveryManifest recovery = RequireRecoveryManifest(operation, child, plan);
 			ResolvedCollectionMemberPlan member = RequireMember(plan, child);
@@ -116,7 +131,7 @@ namespace Nexus.Client.CollectionManagement
 				_authorityValidator.ValidateAndReload(rootLease, authority, paths);
 
 				// Reload may have performed native recovery. Re-read every durable correlation before constructing a native task.
-				operation = RequireOperation(operationIdentity, plan);
+				operation = RequireOperation(operationIdentity, plan, replacementExecution);
 				child = RequirePreparedChild(operation);
 				recovery = RequireRecoveryManifest(operation, child, plan);
 				ValidateRecipeInput(plan, child, member, recovery, recipeInput);
@@ -174,7 +189,7 @@ namespace Nexus.Client.CollectionManagement
 					// This callback executes after monitor publication but before native worker start. Persisting this checkpoint is the
 					// final durable ordering gate before any native mutation can begin.
 					cancellationToken.ThrowIfCancellationRequested();
-					CollectionOperation latest = RequireOperation(operationIdentity, plan);
+					CollectionOperation latest = RequireOperation(operationIdentity, plan, replacementExecution);
 					CollectionNativeChildOperation latestChild = RequirePreparedChild(latest);
 					if (!Matches(latestChild.NativeOperation, child.NativeOperation))
 						throw new InvalidOperationException("The prepared native child changed before the native worker could start.");
@@ -200,28 +215,33 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private CollectionOperation RequireOperation(CollectionOperationIdentity identity, ResolvedCollectionPlan plan)
+		private CollectionOperation RequireOperation(CollectionOperationIdentity identity, ResolvedCollectionPlan plan, bool replacementExecution)
 		{
 			CollectionOperation operation = _operationStore.GetOperation(identity);
 			if (operation == null)
 				throw new InvalidOperationException("The Collection operation is not present in the durable operation journal.");
-			if (operation.Kind != CollectionOperationKind.ApplyResolvedPlan ||
-				operation.Phase != CollectionOperationPhase.ApplyingNativeChildren ||
-				operation.ResultState != CollectionOperationResultState.Pending)
+			bool correctMode = replacementExecution
+				? operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren
+				: operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.Phase == CollectionOperationPhase.ApplyingNativeChildren;
+			if (!correctMode || operation.ResultState != CollectionOperationResultState.Pending)
 			{
-				throw new InvalidOperationException("C6.7 requires an active additive operation in ApplyingNativeChildren.");
+				throw new InvalidOperationException(replacementExecution
+					? "C8.6 requires an active replacement operation in InstallingIncomingNativeChildren."
+					: "C6.7 requires an active additive operation in ApplyingNativeChildren.");
 			}
 			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(plan.Identity) ||
 				operation.Revision == null || !operation.Revision.Equals(plan.Revision) || !operation.Target.Equals(plan.Target))
 			{
 				throw new ArgumentException("The Collection execution inputs do not belong to the operation's exact approved plan.", nameof(plan));
 			}
-			if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
-				throw new ArgumentException("C6.7 only executes additive Collection plans.", nameof(plan));
+			CollectionExecutionPolicyKind requiredPolicy = replacementExecution
+				? CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup : CollectionExecutionPolicyKind.InstallIntoCurrentSetup;
+			if (plan.Policy.Kind != requiredPolicy)
+				throw new ArgumentException(replacementExecution ? "C8.6 requires an explicit replacement execution plan." : "C6.7 only executes additive Collection plans.", nameof(plan));
 
 			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
 			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
-				persisted.PolicyKind != plan.Policy.Kind || !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint))
+				persisted.PolicyKind != plan.Policy.Kind || (!replacementExecution && !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint)))
 			{
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for native submission.");
 			}
@@ -265,6 +285,7 @@ namespace Nexus.Client.CollectionManagement
 			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
 			{
 				if (previous.Sequence >= currentChild.Sequence) break;
+				if (previous.Action != CollectionNativeChildAction.ActivateOrReinstall) continue;
 				if (!previous.IsReconciled || previous.NativeResult == null ||
 					previous.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
 					throw new InvalidOperationException("Every earlier Collection child must be reconciled as VerifiedCommitted before a later reviewed child can be submitted.");

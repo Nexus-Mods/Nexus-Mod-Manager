@@ -60,6 +60,32 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			public bool Activate { get; }
 		}
 
+		private sealed class ConditionEnvironmentPluginStateProvider : IPluginConditionStateProvider
+		{
+			private readonly IModInstallationConditionEnvironment _environment;
+
+			public ConditionEnvironmentPluginStateProvider(IModInstallationConditionEnvironment environment)
+			{
+				_environment = environment ?? throw new ArgumentNullException(nameof(environment));
+			}
+
+			public bool IsPluginRegistered(string pluginPath)
+			{
+				bool value;
+				if (!_environment.TryGetPluginRegistered(pluginPath, out value))
+					throw new NotSupportedException("The projected replacement environment cannot prove plugin registration state for '" + pluginPath + "'.");
+				return value;
+			}
+
+			public bool IsPluginActive(string pluginPath)
+			{
+				bool value;
+				if (!_environment.TryGetPluginActive(pluginPath, out value))
+					throw new NotSupportedException("The projected replacement environment cannot prove plugin activation state for '" + pluginPath + "'.");
+				return value;
+			}
+		}
+
 		/// <summary>Gets the exact parsed XML/FOMOD version from the verified mod.</summary>
 		internal Version GetScriptVersion(IMod mod)
 		{
@@ -70,7 +96,14 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		internal IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
 		{
-			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe);
+			return GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, recipe, null);
+		}
+
+		internal IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment)
+		{
+			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
 			var result = new List<ModInstallationRecipePath>();
 			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (InstallModFileOperation operation in operations.OfType<InstallModFileOperation>())
@@ -89,16 +122,24 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		internal ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
 		{
+			return Translate(recipeInput, mod, gameMode, environmentInfo, pluginManager, recipe, null);
+		}
+
+		internal ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment)
+		{
 			if (recipeInput == null)
 				throw new ArgumentNullException(nameof(recipeInput));
 			ValidateAdapterContract(recipeInput.Validation);
-			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe);
+			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
 			ValidateDeclaredPaths(recipeInput.Validation.Paths, operations);
 			return recipeInput.WithNativePlan(operations);
 		}
 
 		private static IReadOnlyList<ScriptedInstallOperation> BuildPlan(IMod mod, IGameMode gameMode,
-			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe)
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe,
+			IModInstallationConditionEnvironment conditionEnvironment)
 		{
 			if (mod == null) throw new ArgumentNullException(nameof(mod));
 			if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
@@ -114,6 +155,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			}
 
 			var stateManager = ((XmlScriptType)script.Type).CreateConditionStateManager(mod, gameMode, pluginManager, environmentInfo);
+			if (conditionEnvironment != null)
+				stateManager.PluginConditionStateProvider = new ConditionEnvironmentPluginStateProvider(conditionEnvironment);
 			if (script.ModPrerequisites != null && !script.ModPrerequisites.GetIsFulfilled(stateManager))
 				throw new DependencyException(script.ModPrerequisites.GetMessage(stateManager));
 
@@ -123,7 +166,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 
 			var plan = new ScriptedInstallationPlan();
 			ISet<string> archiveFiles = GetNormalizedArchiveFiles(mod);
-			ScriptedInstallationProjectedState projectedState = CreateAdditiveProjectedState(mod, gameMode, pluginManager);
+			ScriptedInstallationProjectedState projectedState = CreateProjectedState(mod, gameMode, pluginManager, conditionEnvironment);
 
 			foreach (InstallableFile requiredFile in script.RequiredInstallFiles)
 				AppendInstallableFile(plan, projectedState, mod, archiveFiles, requiredFile, true, pluginManager != null);
@@ -420,10 +463,14 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <summary>
 		/// Creates the native additive projection used while conditional file sets are translated.
 		/// </summary>
-		private static ScriptedInstallationProjectedState CreateAdditiveProjectedState(IMod mod, IGameMode gameMode,
-			IPluginManager pluginManager)
+		private static ScriptedInstallationProjectedState CreateProjectedState(IMod mod, IGameMode gameMode,
+			IPluginManager pluginManager, IModInstallationConditionEnvironment conditionEnvironment)
 		{
-			return pluginManager == null ? null : new ScriptedInstallationProjectedState(mod, gameMode, pluginManager);
+			if (pluginManager == null)
+				return null;
+			return conditionEnvironment == null
+				? new ScriptedInstallationProjectedState(mod, gameMode, pluginManager)
+				: new ScriptedInstallationProjectedState(mod, gameMode, pluginManager, conditionEnvironment);
 		}
 
 		/// <summary>
