@@ -162,6 +162,9 @@
     <Compile Include="CollectionManagement\CollectionReplacementOutgoingRemovalCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionReplacementIncomingChildReconciliationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionReplacementIncomingInstallationCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionReplacementRecoveryCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionReplacementAggregateVerificationCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionReplacementApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionReplacementPhaseBarrierCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionMemberMatch.cs" />
     <Compile Include="CollectionManagement\CollectionMemberMatchEngine.cs" />

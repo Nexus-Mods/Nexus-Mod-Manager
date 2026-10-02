@@ -323,6 +323,19 @@
 			CollectionWorkflow = collectionWorkflow;
 		}
 
+		/// <summary>Gets the application-level replacement Collections workflow for the active game mode.</summary>
+		public CollectionReplacementApplicationService CollectionReplacementWorkflow { get; private set; }
+
+		/// <summary>Supplies the application-level replacement Collections workflow after native services have been constructed.</summary>
+		public void InitializeCollectionReplacementWorkflow(CollectionReplacementApplicationService replacementWorkflow)
+		{
+			if (replacementWorkflow == null)
+				throw new ArgumentNullException(nameof(replacementWorkflow));
+			if (CollectionReplacementWorkflow != null && !ReferenceEquals(CollectionReplacementWorkflow, replacementWorkflow))
+				throw new InvalidOperationException("The replacement Collections workflow has already been initialized.");
+			CollectionReplacementWorkflow = replacementWorkflow;
+		}
+
 		/// <summary>Gets the application-level Local Collection capture workflow for the active game mode.</summary>
 		public CollectionLocalCaptureApplicationService CollectionCaptureWorkflow { get; private set; }
 

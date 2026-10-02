@@ -21,11 +21,11 @@ using Nexus.UI.Controls;
 namespace Nexus.Client.CollectionManagement.UI
 {
 	/// <summary>
-	/// Collections surface for provider preview, additive apply, Local capture/restore and installed Collection management.
+	/// Collections surface for provider preview, additive/replacement apply, Local capture/restore and installed Collection management.
 	/// </summary>
 	/// <remarks>
-	/// The control consumes application-level workflow services and never constructs or invokes native C4/C5/C6
-	/// persistence or mutation coordinators directly. Remote/local recipe replacement and richer management commands remain out of scope.
+	/// The control consumes application-level workflow services and never constructs or invokes native C4/C5/C6/C8
+	/// persistence or mutation coordinators directly. Replacement is exposed as a separate explicitly reviewed product command.
 	/// </remarks>
 	public sealed class CollectionsPreviewControl : ManagedFontDockContent
 	{
@@ -42,6 +42,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly Button _resumeButton;
 		private readonly Button _openPendingButton;
 		private readonly Button _installButton;
+		private readonly CheckBox _replacementBackupCheckBox;
+		private readonly Button _replaceButton;
 		private readonly Button _clearButton;
 		private readonly Button _exportTechnicalReportButton;
 		private readonly Label _instructionLabel;
@@ -82,8 +84,10 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionAdditiveApplicationService _workflow;
 		private CollectionLocalCaptureApplicationService _captureWorkflow;
 		private CollectionManagementApplicationService _managementWorkflow;
+		private CollectionReplacementApplicationService _replacementWorkflow;
 		private NexusCollectionPreviewSnapshot _snapshot;
 		private CollectionAdditiveWorkflowPreparationResult _preparation;
+		private CollectionReplacementWorkflowReview _replacementReview;
 		private CollectionMemberAcquisitionBatch _acquisitionBatch;
 		private CollectionManagementAssociationPresentation _managedAssociationPresentation;
 		private CollectionOperationIdentity _operationIdentity;
@@ -104,6 +108,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private bool _workflowBusy;
 		private bool _selectionDirty;
 		private bool _selectionCapabilityBlocked;
+		private bool _hasInterruptedReplacement;
 		private bool _suppressMemberCheckEvents;
 		private bool _suppressManagedAssociationSelection;
 		private readonly System.Windows.Forms.Timer _acquisitionRefreshTimer;
@@ -251,6 +256,23 @@ namespace Nexus.Client.CollectionManagement.UI
 				Enabled = false
 			};
 			_installButton.Click += InstallButton_Click;
+			_replacementBackupCheckBox = new CheckBox
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.ReplaceBackup", "Create Local Collection backup first"),
+				Checked = true,
+				Enabled = false,
+				Padding = new Padding(3, 3, 3, 0)
+			};
+			_toolTip.SetToolTip(_replacementBackupCheckBox, L("Collections.Actions.ReplaceBackupHelp",
+				"Replacement always prepares mandatory operation recovery. This option additionally saves a persistent Local Collection before managed effects are removed."));
+			_replaceButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
+				Enabled = false
+			};
+			_replaceButton.Click += ReplaceButton_Click;
 			_clearButton = new Button
 			{
 				AutoSize = true,
@@ -269,7 +291,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				AutoSize = true,
 				MaximumSize = new Size(760, 0),
 				Padding = new Padding(12, 6, 0, 0),
-				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link to load it, choose optional mods, download and prepare, review the changes, then install. Select a saved Local Collection above to review and restore it.")
+				Text = L("Collections.Preview.Instructions", "Open a Nexus Collection NXM link to load it, choose optional mods, then Download / Prepare. Review and install preserves unrelated managed mods; Replace current managed setup performs a separate destructive reviewed transition. Select a saved Local Collection above to review and restore it.")
 			};
 			Control currentSetupGroup = CreateActionGroup(L("Collections.Context.CurrentSetup", "Current game setup"),
 				_saveCurrentSetupButton);
@@ -278,7 +300,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			Control installedGroup = CreateActionGroup(L("Collections.Context.Installed", "Installed Collection"),
 				_managedAssociationCombo, _detachAssociationButton, _removeAssociationEffectsButton);
 			Control incomingGroup = CreateActionGroup(L("Collections.Context.Incoming", "Incoming Collection"),
-				_importButton, _downloadPrepareButton, _autoOverwriteArchivesCheckBox, _resumeButton, _openPendingButton, _installButton, _clearButton);
+				_importButton, _downloadPrepareButton, _autoOverwriteArchivesCheckBox, _resumeButton, _openPendingButton, _installButton,
+				_replacementBackupCheckBox, _replaceButton, _clearButton);
 			Control supportGroup = CreateActionGroup(L("Collections.Context.Support", "Support"), _exportTechnicalReportButton);
 
 			toolbar.Controls.Add(currentSetupGroup);
@@ -506,28 +529,37 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Connects the surface to the incoming Collection dispatcher in preview-only compatibility mode.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher)
 		{
-			Initialize(dispatcher, null, null, null);
+			Initialize(dispatcher, null, null, null, null);
 		}
 
 		/// <summary>Connects the surface to the incoming dispatcher and production additive workflow service.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow)
 		{
-			Initialize(dispatcher, workflow, null, null);
+			Initialize(dispatcher, workflow, null, null, null);
 		}
 
 		/// <summary>Connects additive and Local Collection capture application workflows to this permanent surface.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow,
 			CollectionLocalCaptureApplicationService captureWorkflow)
 		{
-			Initialize(dispatcher, workflow, captureWorkflow, null);
+			Initialize(dispatcher, workflow, captureWorkflow, null, null);
 		}
 
 		/// <summary>Connects additive, capture and basic installed-Collection management workflows to this permanent surface.</summary>
 		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow,
 			CollectionLocalCaptureApplicationService captureWorkflow, CollectionManagementApplicationService managementWorkflow)
 		{
+			Initialize(dispatcher, workflow, captureWorkflow, managementWorkflow, null);
+		}
+
+		/// <summary>Connects additive, replacement, capture and installed-Collection workflows to this permanent surface.</summary>
+		public void Initialize(NexusCollectionNxmDispatcher dispatcher, CollectionAdditiveApplicationService workflow,
+			CollectionLocalCaptureApplicationService captureWorkflow, CollectionManagementApplicationService managementWorkflow,
+			CollectionReplacementApplicationService replacementWorkflow)
+		{
 			if (ReferenceEquals(_dispatcher, dispatcher) && ReferenceEquals(_workflow, workflow) &&
-				ReferenceEquals(_captureWorkflow, captureWorkflow) && ReferenceEquals(_managementWorkflow, managementWorkflow) && _initialized)
+				ReferenceEquals(_captureWorkflow, captureWorkflow) && ReferenceEquals(_managementWorkflow, managementWorkflow) &&
+				ReferenceEquals(_replacementWorkflow, replacementWorkflow) && _initialized)
 				return;
 
 			DetachDispatcher();
@@ -539,6 +571,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_workflow = workflow;
 			_captureWorkflow = captureWorkflow;
 			_managementWorkflow = managementWorkflow;
+			_replacementWorkflow = replacementWorkflow;
 			ResetWorkflowViewState();
 			RenderEmptyState();
 			RefreshLocalCaptures();
@@ -1617,6 +1650,252 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		private async void ReplaceButton_Click(object sender, EventArgs e)
+		{
+			if (_workflowBusy || _replacementWorkflow == null)
+				return;
+			if (_replacementReview != null)
+			{
+				await ContinueReplacementAsync();
+				return;
+			}
+			if (_workflow == null || _preparation == null ||
+				!_preparation.IsReadyForReview || _preparation.Runtime == null || _selectionDirty)
+				return;
+
+			CollectionUiContext context = _incomingActionContext;
+			if (context == null || !IsActionContextCurrent(context))
+				return;
+
+			CollectionReviewedWorkflowRuntime acquiredRuntime = _preparation.Runtime;
+			CollectionReplacementBackupChoice backupChoice = _replacementBackupCheckBox.Checked
+				? CollectionReplacementBackupChoice.CreateLocalCollection
+				: CollectionReplacementBackupChoice.ContinueWithoutLocalCollection;
+
+			string preflight = L("Collections.Replace.PreflightWarning",
+				"Replace current managed setup is destructive. NMM will build a separate exact replacement review before removing anything. Unknown/unmanaged content is preserved within the observed scope. Continue to build the replacement review?");
+			if (MessageBox.Show(this, preflight, L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+				return;
+
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Reviewing,
+				L("Collections.Replace.PreparingReview", "Building exact replacement review..."));
+			try
+			{
+				// Download / Prepare owns an additive review journal. Replacement is a distinct operation, so retire that
+				// pre-mutation journal only after preserving its immutable runtime/archive evidence in memory.
+				if (_operationIdentity != null && _operationSnapshot != null &&
+					_operationSnapshot.Kind == CollectionOperationKind.ApplyResolvedPlan && !_operationSnapshot.HasCrossedNativeBoundary && !_operationSnapshot.IsTerminal)
+					_workflow.CancelBeforeApply(_operationIdentity);
+
+				CollectionReplacementWorkflowReview review = await Task.Run(() =>
+					_replacementWorkflow.PrepareReviewAsync(acquiredRuntime, backupChoice, token), token);
+				if (!IsWorkflowContextCurrent(context, token))
+					return;
+
+				_replacementReview = review;
+				_operationIdentity = review.Operation.Identity;
+				_operationSnapshot = review.Operation;
+				_reviewedPlanIdentity = review.Plan.Identity;
+				BindIncomingDisplayOperation(review.Operation.Identity);
+				RenderReplacementReview(review);
+
+				string confirmation = BuildReplacementApprovalConfirmation(review);
+				if (MessageBox.Show(this, confirmation, L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
+					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
+				{
+					_operationSnapshot = _replacementWorkflow.CancelBeforeApply(review);
+					_replacementReview = null;
+					_operationIdentity = null;
+					_reviewedPlanIdentity = null;
+					ClearIncomingDisplayOperation();
+					_workflowStatusLabel.Text = L("Collections.Replace.Cancelled", "Workflow: replacement review cancelled before native mutation. Download / Prepare can be run again to build another review.");
+					return;
+				}
+
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Applying,
+					L("Collections.Replace.Applying", "Applying the approved replacement transition...")));
+				CollectionReplacementWorkflowApplyResult result = await Task.Run(() =>
+					_replacementWorkflow.ApproveAndApplyAsync(review, token), token);
+				if (!IsWorkflowContextCurrent(context, token))
+					return;
+				_operationSnapshot = result.Operation;
+				RenderReplacementApplyResult(result);
+				if (result.IsCommitted)
+				{
+					_preparation = null;
+					_acquisitionBatch = null;
+					_replacementReview = null;
+					RefreshManagedAssociations(true);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection replacement failed: " + ex);
+				RememberTechnicalFailure("replacement.failed", ex, context);
+				if (IsWorkflowContextCurrent(context, token))
+				{
+					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("replacement.failed", ex.Message);
+					SetWorkflowPresentation(userMessage);
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "replacement.failed", GetCurrentCollectionSubject(), userMessage);
+				}
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		private async Task ContinueReplacementAsync()
+		{
+			CollectionReplacementWorkflowReview review = _replacementReview;
+			CollectionUiContext context = _incomingActionContext;
+			if (review == null || context == null || !IsActionContextCurrent(context))
+				return;
+			CollectionOperation operation = _operationSnapshot ?? review.Operation;
+			if (operation.Phase == CollectionOperationPhase.AwaitingReplacementPhaseAmendment ||
+				operation.Phase == CollectionOperationPhase.ReplacementBarrierRevalidationRequired)
+			{
+				MessageBox.Show(this,
+					L("Collections.Replace.AmendmentRequired", "The live state changed after destructive replacement work began. The durable replacement journal requires a new exact phase review before further incoming mutation. No broader consent will be inferred automatically."),
+					L("Collections.Status.ActionRequired", "Action required"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
+
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering,
+				L("Collections.Replace.Continuing", "Checking replacement recovery and verified phase boundaries..."));
+			try
+			{
+				if (operation.RequiresRecovery || operation.ResultState == CollectionOperationResultState.RecoveryRequired ||
+					operation.Phase == CollectionOperationPhase.Recovering || operation.Phase == CollectionOperationPhase.RecoveryRequired)
+				{
+					CollectionReplacementRecoveryResult recovery = await Task.Run(() => _replacementWorkflow.RecoverAsync(review, token), token);
+					if (!IsWorkflowContextCurrent(context, token)) return;
+					_operationSnapshot = recovery.Operation;
+					if (recovery.IsRolledBack)
+					{
+						_workflowStatusLabel.Text = L("Collections.Replace.RolledBack", "Workflow: replacement recovery verified the protected original managed setup.");
+						_replacementReview = null;
+						_operationIdentity = null;
+						_reviewedPlanIdentity = null;
+						ClearIncomingDisplayOperation();
+						RefreshManagedAssociations(true);
+						return;
+					}
+					if (recovery.RequiresRecovery)
+					{
+						_workflowStatusLabel.Text = L("Collections.Replace.Recovery", "Workflow: replacement still requires explicit recovery before further managed mutation.");
+						return;
+					}
+				}
+
+				CollectionReplacementWorkflowApplyResult result = await Task.Run(() => _replacementWorkflow.ResumeAsync(review, token), token);
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				_operationSnapshot = result.Operation;
+				RenderReplacementApplyResult(result);
+				if (result.IsCommitted)
+				{
+					_replacementReview = null;
+					_preparation = null;
+					_acquisitionBatch = null;
+					RefreshManagedAssociations(true);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection replacement continuation failed: " + ex);
+				RememberTechnicalFailure("replacement.continue-failed", ex, context);
+				if (IsWorkflowContextCurrent(context, token))
+					SetWorkflowPresentation(CollectionUserMessagePresenter.ForFailure("replacement.continue-failed", ex.Message));
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		private void RenderReplacementReview(CollectionReplacementWorkflowReview review)
+		{
+			ClearReviewItems();
+			int removals = review.Diff.NativeMods.Count(x => x.RemovalDecision == CollectionReplacementRemovalDecision.EligibleForReviewedRemoval ||
+				x.RemovalDecision == CollectionReplacementRemovalDecision.RequiresExplicitReview);
+			int protectedMods = review.Diff.NativeMods.Count(x => x.RemovalDecision == CollectionReplacementRemovalDecision.Protected);
+			int incomingChanges = review.Diff.IncomingMembers.Count(x => x.Disposition == CollectionReplacementDiffDisposition.IncomingOnly ||
+				x.Disposition == CollectionReplacementDiffDisposition.ReinstallOrChange);
+			int outgoingAssociations = review.Diff.Associations.Count(x => x.Disposition != CollectionReplacementAssociationDisposition.SurvivesCompatible);
+			AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
+				L("Collections.Replace.DestructiveReview", "Destructive replacement"), "replacement.review.removals", GetCurrentCollectionSubject(),
+				LanguageManager.Format("Collections.Replace.RemovalCount", "{0} managed mod instance(s) are approved for outgoing removal.", removals));
+			AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Diagnostic,
+				L("Collections.Replace.Protected", "Protected / retained"), "replacement.review.protected", GetCurrentCollectionSubject(),
+				LanguageManager.Format("Collections.Replace.ProtectedCount", "{0} managed mod instance(s) are retained or protected; {1} incoming member(s) require install/reinstall.", protectedMods, incomingChanges));
+			AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Diagnostic,
+				L("Collections.Replace.Associations", "Association transitions"), "replacement.review.associations", GetCurrentCollectionSubject(),
+				LanguageManager.Format("Collections.Replace.AssociationCount", "{0} outgoing Collection association(s) will transition out after aggregate verification succeeds.", outgoingAssociations));
+			if (review.Plan.Policy.ReplacementBackupChoice == CollectionReplacementBackupChoice.CreateLocalCollection)
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Diagnostic,
+					L("Collections.Replace.Backup", "Local Collection backup"), "replacement.review.backup", GetCurrentCollectionSubject(),
+					L("Collections.Replace.BackupRequested", "A persistent Local Collection backup will be sealed before outgoing managed effects are removed. Mandatory operation recovery is prepared separately."));
+			else
+				AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
+					L("Collections.Replace.NoBackup", "No persistent Local Collection backup"), "replacement.review.no-backup", GetCurrentCollectionSubject(),
+					L("Collections.Replace.NoBackupDetail", "No saved Local Collection was requested. NMM will still prepare mandatory operation-owned recovery data before removal."));
+			_workflowStatusLabel.Text = L("Collections.Replace.ReviewReady", "Workflow: exact replacement review is ready. Nothing has been removed yet.");
+		}
+
+		private string BuildReplacementApprovalConfirmation(CollectionReplacementWorkflowReview review)
+		{
+			int removals = review.Diff.NativeMods.Count(x => x.RemovalDecision == CollectionReplacementRemovalDecision.EligibleForReviewedRemoval ||
+				x.RemovalDecision == CollectionReplacementRemovalDecision.RequiresExplicitReview);
+			int installs = review.Diff.IncomingMembers.Count(x => x.Disposition == CollectionReplacementDiffDisposition.IncomingOnly ||
+				x.Disposition == CollectionReplacementDiffDisposition.ReinstallOrChange);
+			var text = new StringBuilder();
+			text.AppendLine(L("Collections.Replace.ConfirmationIntro", "Approve this exact replacement transition?"));
+			text.AppendLine();
+			text.AppendLine(LanguageManager.Format("Collections.Replace.ConfirmationRemove", "Outgoing managed mod instances to remove: {0}", removals));
+			text.AppendLine(LanguageManager.Format("Collections.Replace.ConfirmationIncoming", "Incoming installs/reinstalls: {0}", installs));
+			text.AppendLine(review.Plan.Policy.ReplacementBackupChoice == CollectionReplacementBackupChoice.CreateLocalCollection
+				? L("Collections.Replace.ConfirmationBackup", "Persistent Local Collection backup: Yes")
+				: L("Collections.Replace.ConfirmationNoBackup", "Persistent Local Collection backup: No (mandatory operation recovery still required)"));
+			text.AppendLine();
+			text.AppendLine(L("Collections.Replace.ConfirmationFinal", "After approval, NMM may remove reviewed managed effects. If the live state differs from the approved projection, replacement stops for review or recovery instead of silently widening consent."));
+			return text.ToString();
+		}
+
+		private void RenderReplacementApplyResult(CollectionReplacementWorkflowApplyResult result)
+		{
+			if (result == null)
+				return;
+			switch (result.Status)
+			{
+				case CollectionReplacementWorkflowApplyStatus.Committed:
+					_workflowStatusLabel.Text = L("Collections.Replace.Completed", "Workflow: replacement completed and aggregate native verification passed.");
+					_appliedValue.Text = L("Collections.Status.Applied.Applied", "Applied");
+					break;
+				case CollectionReplacementWorkflowApplyStatus.ExplicitReviewRequired:
+					_workflowStatusLabel.Text = L("Collections.Replace.ReviewAgain", "Workflow: replacement paused because the verified post-mutation state requires a new explicit review.");
+					_appliedValue.Text = L("Collections.Status.ActionRequired", "Action required");
+					break;
+				case CollectionReplacementWorkflowApplyStatus.PausedAtSafeBoundary:
+					_workflowStatusLabel.Text = L("Collections.Replace.Paused", "Workflow: replacement paused at a verified safe boundary and can be recovered/resumed.");
+					_appliedValue.Text = L("Collections.Status.Pending", "Pending");
+				break;
+				default:
+					_workflowStatusLabel.Text = L("Collections.Replace.Recovery", "Workflow: replacement requires recovery before further managed mutation.");
+					_appliedValue.Text = L("Collections.Status.Applied.RecoveryRequired", "Recovery required before further mutation");
+				break;
+			}
+			if (!String.IsNullOrWhiteSpace(result.Message))
+				_summaryBox.Text = result.Message;
+		}
+
 		private async void InstallButton_Click(object sender, EventArgs e)
 		{
 			CollectionUiContext context = GetInstallActionContext();
@@ -2144,6 +2423,10 @@ namespace Nexus.Client.CollectionManagement.UI
 				IReadOnlyList<CollectionLocalRestoreWorkflowResult> localRestoreResults = _managementWorkflow == null
 					? new CollectionLocalRestoreWorkflowResult[0]
 					: await Task.Run(() => _managementWorkflow.ReconcileInterruptedLocalRestoresAsync(token), token);
+				IReadOnlyList<CollectionReplacementStartupInspection> replacementInspections = _managementWorkflow == null
+					? new CollectionReplacementStartupInspection[0]
+					: await Task.Run(() => _managementWorkflow.InspectInterruptedReplacements(), token);
+				_hasInterruptedReplacement = replacementInspections.Count > 0;
 				IReadOnlyList<CollectionUninstallEffectsResult> effectRemovalResults = new CollectionUninstallEffectsResult[0];
 				if (_managementWorkflow != null && localRestoreResults.All(x => x.IsSuccessful))
 					effectRemovalResults = await _managementWorkflow.ReconcileInterruptedEffectRemovalAsync(token);
@@ -2164,10 +2447,14 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					RenderIssues(_snapshot);
 					BindMatchingRecovery();
+					if (replacementInspections.Count > 0)
+						AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
+							L("Collections.Status.ActionRequired", "Action required"), "replacement.interrupted", GetCurrentCollectionSubject(),
+							LanguageManager.Format("Collections.Replace.InterruptedCount", "{0} interrupted replacement operation(s) exist for this target. Replacement recovery must be resolved before new managed mutation.", replacementInspections.Count));
 				}
 				else
 				{
-					int unresolvedCount = _recoveryResults.Count + _localRestoreRecoveryResults.Count(x => !x.IsSuccessful);
+					int unresolvedCount = _recoveryResults.Count + _localRestoreRecoveryResults.Count(x => !x.IsSuccessful) + replacementInspections.Count;
 					int completedLocalRestores = _localRestoreRecoveryResults.Count(x => x.IsSuccessful);
 					if (unresolvedCount > 0)
 						_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.IncompleteCount",
@@ -2247,6 +2534,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					ClearIncomingDisplayOperation();
 					_reviewedPlanIdentity = null;
 					_preparation = null;
+					_replacementReview = null;
 					_acquisitionBatch = null;
 				}
 				_installButton.Enabled = false;
@@ -2456,6 +2744,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForCapability(report.Status, reason);
 
 			_preparation = null;
+			_replacementReview = null;
 			_acquisitionBatch = null;
 			_selectionCapabilityBlocked = true;
 			_operationIdentity = null;
@@ -2901,11 +3190,15 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void TryCancelUnappliedPreparation()
 		{
-			if (_workflow == null || _operationIdentity == null)
+			if (_operationIdentity == null)
 				return;
 			try
 			{
-				_workflow.CancelBeforeApply(_operationIdentity);
+				if (_replacementReview != null && _replacementWorkflow != null && _operationSnapshot != null &&
+					_operationSnapshot.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && !_operationSnapshot.HasCrossedNativeBoundary)
+					_replacementWorkflow.CancelBeforeApply(_replacementReview);
+				else if (_workflow != null)
+					_workflow.CancelBeforeApply(_operationIdentity);
 			}
 			catch (InvalidOperationException)
 			{
@@ -3343,6 +3636,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_acquisitionRefreshTimer.Stop();
 			_autoResumedQueueOperations.Clear();
 			_preparation = null;
+			_replacementReview = null;
 			_acquisitionBatch = null;
 			_operationIdentity = null;
 			_operationSnapshot = null;
@@ -3350,6 +3644,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_reviewedPlanIdentity = null;
 			_selectionDirty = false;
 			_selectionCapabilityBlocked = false;
+			_hasInterruptedReplacement = false;
 			_workflowStatusLabel.Text = _workflow == null
 				? L("Collections.Workflow.PreviewOnly", "Workflow: preview only - Collection installation is unavailable in this session.")
 				: L("Collections.Workflow.Idle", "Workflow: idle");
@@ -3400,8 +3695,27 @@ namespace Nexus.Client.CollectionManagement.UI
 			_openPendingButton.Visible = pendingDownload != null && pendingDownload.BrowserUri != null;
 			_openPendingButton.Enabled = !_workflowBusy && _openPendingButton.Visible;
 			UpdatePendingDownloadActionLabel(pendingDownload);
-			bool exactReview = GetInstallActionContext() != null;
+			bool exactReview = GetInstallActionContext() != null && _operationSnapshot != null &&
+				_operationSnapshot.Kind == CollectionOperationKind.ApplyResolvedPlan;
 			_installButton.Enabled = !_workflowBusy && exactReview && !sameRevisionAlreadyApplied;
+			bool replacementReady = !_workflowBusy && _replacementWorkflow != null && _workflow != null && !installedAssociationView &&
+				!_hasInterruptedReplacement && !sameRevisionAlreadyApplied && !_selectionDirty && _replacementReview == null && _preparation != null &&
+				_preparation.IsReadyForReview && _preparation.Runtime != null;
+			bool replacementNeedsNewReview = _replacementReview != null && _operationSnapshot != null &&
+				(_operationSnapshot.Phase == CollectionOperationPhase.AwaitingReplacementPhaseAmendment ||
+				 _operationSnapshot.Phase == CollectionOperationPhase.ReplacementBarrierRevalidationRequired);
+			bool replacementCanContinue = !_workflowBusy && _replacementWorkflow != null && _replacementReview != null && _operationSnapshot != null &&
+				!_operationSnapshot.IsTerminal && !replacementNeedsNewReview;
+			_replaceButton.Enabled = replacementReady || replacementCanContinue || (!_workflowBusy && replacementNeedsNewReview);
+			_replacementBackupCheckBox.Enabled = replacementReady;
+			if (replacementNeedsNewReview)
+				_replaceButton.Text = L("Collections.Replace.ActionRequiredButton", "Replacement review required");
+			else if (replacementCanContinue && (_operationSnapshot.RequiresRecovery || _operationSnapshot.ResultState == CollectionOperationResultState.RecoveryRequired))
+				_replaceButton.Text = L("Collections.Replace.RecoverButton", "Check replacement recovery...");
+			else if (replacementCanContinue)
+				_replaceButton.Text = L("Collections.Replace.ResumeButton", "Resume replacement...");
+			else
+				_replaceButton.Text = L("Collections.Actions.ReplaceCurrent", "Replace current managed setup...");
 			if (sameRevisionAlreadyApplied)
 				_installButton.Text = L("Collections.Actions.AlreadyApplied", "Already applied");
 			else if (exactReview && (_operationSnapshot.RequiresRecovery || _operationSnapshot.HasUnreconciledNativeChild))
@@ -3410,7 +3724,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_installButton.Text = L("Collections.Actions.ResumeApply", "Review and continue...");
 			else
 				_installButton.Text = L("Collections.Actions.InstallCurrent", "Review and install...");
-			_clearButton.Enabled = !_workflowBusy && !installedAssociationView && (_snapshot != null || _operationIdentity != null || _preparation != null || _acquisitionBatch != null);
+			_clearButton.Enabled = !_workflowBusy && !installedAssociationView && (_snapshot != null || _operationIdentity != null || _preparation != null || _replacementReview != null || _acquisitionBatch != null);
 			_exportTechnicalReportButton.Enabled = HasTechnicalReportContent();
 			_membersView.Enabled = !_workflowBusy && (_operationSnapshot == null || (!_operationSnapshot.HasCrossedNativeBoundary && !_operationSnapshot.IsSuccessful));
 		}

@@ -566,6 +566,88 @@ WHERE association_id=@association_id
 		}
 
 		/// <summary>
+		/// Atomically commits C8.8 feature metadata after aggregate native replacement verification has already succeeded.
+		/// </summary>
+		/// <remarks>
+		/// The reviewed outgoing association set is compare-and-swapped in the same Collections transaction as the incoming
+		/// Applied association/bindings and terminal replacement journal result. TransitionOut deletes only feature tracking;
+		/// it does not manufacture standalone provenance for native mods which the replacement may already have removed.
+		/// </remarks>
+		internal void FinalizeReplacementAssociations(CollectionReplacementReviewedIntent intent,
+			CollectionTargetAssociation incomingAssociation, IEnumerable<CollectionMemberBinding> incomingBindings,
+			CollectionOperation committedOperation)
+		{
+			if (intent == null) throw new ArgumentNullException(nameof(intent));
+			if (incomingAssociation == null) throw new ArgumentNullException(nameof(incomingAssociation));
+			if (incomingBindings == null) throw new ArgumentNullException(nameof(incomingBindings));
+			if (committedOperation == null) throw new ArgumentNullException(nameof(committedOperation));
+			if (incomingAssociation.State != CollectionAssociationState.Applied || !incomingAssociation.Target.Equals(intent.Target) ||
+				!incomingAssociation.Revision.Equals(intent.Revision))
+				throw new ArgumentException("The C8.8 incoming association must be the exact reviewed revision/target and Applied.", nameof(incomingAssociation));
+			if (committedOperation.Kind != CollectionOperationKind.ReplaceCurrentManagedSetup ||
+				committedOperation.Phase != CollectionOperationPhase.Completed || committedOperation.ResultState != CollectionOperationResultState.Committed ||
+				committedOperation.PlanIdentity == null || !committedOperation.PlanIdentity.Equals(intent.PlanIdentity) ||
+				committedOperation.Revision == null || !committedOperation.Revision.Equals(intent.Revision) ||
+				!committedOperation.Target.Equals(intent.Target))
+				throw new ArgumentException("The C8.8 terminal operation does not match the exact reviewed replacement intent.", nameof(committedOperation));
+
+			List<CollectionMemberBinding> bindings = incomingBindings.ToList();
+			if (bindings.Any(x => x == null || x.Association.AssociationId != incomingAssociation.AssociationId ||
+				!x.Association.Revision.Equals(incomingAssociation.Revision) || !x.Association.Target.Equals(incomingAssociation.Target)))
+				throw new ArgumentException("Every C8.8 incoming binding must belong to the exact incoming association.", nameof(incomingBindings));
+			if (bindings.Select(x => x.MemberKey).Distinct().Count() != bindings.Count)
+				throw new ArgumentException("The C8.8 incoming association cannot contain duplicate member bindings.", nameof(incomingBindings));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				HashSet<Guid> expectedIds = new HashSet<Guid>(intent.AssociationApprovals.Select(x => x.AssociationId));
+				HashSet<Guid> currentIds = ReadAssociationIdsForTarget(connection, transaction, intent.Target);
+				if (!currentIds.SetEquals(expectedIds))
+					throw new InvalidOperationException("The target association set changed after replacement review; C8.8 will not publish stale transitions.");
+
+				foreach (CollectionReplacementAssociationApproval approval in intent.AssociationApprovals.OrderBy(x => x.AssociationId))
+				{
+					CollectionTargetAssociation current = ReadAssociation(connection, transaction, approval.AssociationId);
+					if (current == null || !current.Target.Equals(intent.Target))
+						throw new InvalidOperationException("A reviewed outgoing association disappeared or moved before replacement publication.");
+					if (approval.Decision == CollectionReplacementAssociationDecision.Preserve)
+					{
+						if (current.State == CollectionAssociationState.Recovering)
+							throw new InvalidOperationException("A reviewed preserved association entered recovery before replacement publication.");
+						continue;
+					}
+					if (approval.Decision != CollectionReplacementAssociationDecision.TransitionOut)
+						throw new InvalidOperationException("C8.8 encountered an unsupported reviewed association transition.");
+					if (current.AssociationId == incomingAssociation.AssociationId)
+						throw new InvalidOperationException("C8.8 cannot transition out the same association it is publishing as incoming.");
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = "DELETE FROM target_associations WHERE association_id=@association_id;";
+						command.Parameters.AddWithValue("@association_id", current.AssociationId.ToString("D"));
+						if (command.ExecuteNonQuery() != 1)
+							throw new CollectionsStoreSchemaException("A reviewed outgoing association disappeared during C8.8 publication.");
+					}
+				}
+
+				SaveAssociation(connection, transaction, incomingAssociation);
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "DELETE FROM member_bindings WHERE association_id=@association_id;";
+					command.Parameters.AddWithValue("@association_id", incomingAssociation.AssociationId.ToString("D"));
+					command.ExecuteNonQuery();
+				}
+				foreach (CollectionMemberBinding binding in bindings)
+				{
+					RequireMatchingAssociation(connection, transaction, binding.Association);
+					SaveBinding(connection, transaction, binding);
+				}
+				CollectionsOperationStore.SaveOperation(connection, transaction, committedOperation);
+			});
+		}
+
+		/// <summary>
 		/// Atomically publishes the complete C6.10 applied association/binding set after every selected member is satisfied.
 		/// </summary>
 		internal void SaveAppliedAssociation(CollectionTargetAssociation association, IEnumerable<CollectionMemberBinding> bindings,

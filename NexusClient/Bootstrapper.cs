@@ -295,6 +295,8 @@
 					var collectionWorkflow = new CollectionAdditiveApplicationService(services, mainFormViewModel.ProfileManager,
 						gameStorageService, collectionNxmDispatcher.Provider);
 					mainFormViewModel.InitializeCollectionWorkflow(collectionWorkflow);
+					var collectionReplacementWorkflow = new CollectionReplacementApplicationService(services, mainFormViewModel.ProfileManager, gameStorageService);
+					mainFormViewModel.InitializeCollectionReplacementWorkflow(collectionReplacementWorkflow);
 					var collectionCaptureWorkflow = new CollectionLocalCaptureApplicationService(services, gameStorageService);
 					mainFormViewModel.InitializeCollectionCaptureWorkflow(collectionCaptureWorkflow);
 					var collectionManagementWorkflow = new CollectionManagementApplicationService(services, gameStorageService);

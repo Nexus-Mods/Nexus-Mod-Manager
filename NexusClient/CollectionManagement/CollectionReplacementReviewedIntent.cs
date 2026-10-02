@@ -590,6 +590,20 @@ namespace Nexus.Client.CollectionManagement
 			return operation;
 		}
 
+		/// <summary>Cancels an exact replacement review before any native mutation/recovery preparation has begun.</summary>
+		public CollectionOperation CancelBeforeApply(CollectionOperationIdentity identity, CollectionPlanIdentity expectedPlan)
+		{
+			CollectionOperation operation = RequireOperation(identity, CollectionOperationPhase.ReadyForReview);
+			RequireIntent(operation, expectedPlan);
+			if (operation.HasCrossedNativeBoundary)
+				throw new InvalidOperationException("Replacement cannot be cancelled as pre-apply after native mutation has begun.");
+			var cancelled = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target, operation.Revision,
+				operation.PlanIdentity, checked(operation.CheckpointSequence + 1), CollectionOperationPhase.Completed,
+				CollectionOperationResultState.CancelledBeforeApply, operation.NativeChildren);
+			_operationStore.SaveOperation(cancelled);
+			return cancelled;
+		}
+
 		public CollectionOperation Approve(CollectionOperationIdentity identity, CollectionPlanIdentity expectedPlan,
 			CollectionReplacementCurrentSetupSnapshot current)
 		{
@@ -639,6 +653,17 @@ namespace Nexus.Client.CollectionManagement
 			return RequireIntent(operation, expectedPlan);
 		}
 
+		/// <summary>Loads and integrity-checks the operation-owned mandatory C8.3 recovery boundary for C8.7.</summary>
+		public CollectionReplacementRecoveryBoundary GetRecoveryBoundary(CollectionOperationIdentity identity, CollectionPlanIdentity expectedPlan)
+		{
+			if (identity == null) throw new ArgumentNullException(nameof(identity));
+			CollectionOperation operation = _operationStore.GetOperation(identity);
+			if (operation == null || operation.Kind != CollectionOperationKind.ReplaceCurrentManagedSetup || operation.IsTerminal)
+				throw new InvalidOperationException("Replacement operation is not present as an active durable journal entry.");
+			CollectionReplacementReviewedIntent intent = RequireIntent(operation, expectedPlan);
+			return LoadAndValidatePersistedRecoveryBoundary(operation, intent);
+		}
+
 		/// <summary>Crosses only the Collection journal boundary into C8.4 after revalidating exact review and mandatory recovery bytes.</summary>
 		public CollectionOperation BeginOutgoingRemoval(CollectionOperationIdentity identity, CollectionPlanIdentity expectedPlan,
 			CollectionReplacementCurrentSetupSnapshot current)
@@ -646,7 +671,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation operation = RequireOperation(identity, CollectionOperationPhase.ReadyToApply);
 			CollectionReplacementReviewedIntent intent = RequireIntent(operation, expectedPlan);
 			intent.ValidateCurrentSetup(current);
-			ValidatePersistedRecoveryBoundary(operation, intent);
+			LoadAndValidatePersistedRecoveryBoundary(operation, intent);
 			return Save(operation, CollectionOperationPhase.RemovingOutgoingNativeChildren);
 		}
 
@@ -697,7 +722,7 @@ namespace Nexus.Client.CollectionManagement
 			return intent;
 		}
 
-		private void ValidatePersistedRecoveryBoundary(CollectionOperation operation, CollectionReplacementReviewedIntent intent)
+		private CollectionReplacementRecoveryBoundary LoadAndValidatePersistedRecoveryBoundary(CollectionOperation operation, CollectionReplacementReviewedIntent intent)
 		{
 			string ownerId = operation.Identity.OperationId.ToString("D");
 			CollectionsRetainedArtifactReferenceRecord boundaryReference = _referenceStore.GetReferenceForOwnerRole(
@@ -741,6 +766,7 @@ namespace Nexus.Client.CollectionManagement
 					!_artifactStore.VerifyArtifact(input.ArtifactId))
 					throw new InvalidDataException("A mandatory replacement recovery input is no longer durably available: " + input.Role);
 			}
+			return boundary;
 		}
 
 		private static void ValidateRecoveryCoverage(CollectionReplacementReviewedIntent intent, IEnumerable<CollectionReplacementRecoveryInput> inputs)

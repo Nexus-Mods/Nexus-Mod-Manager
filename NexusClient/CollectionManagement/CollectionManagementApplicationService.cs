@@ -116,6 +116,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsLocalCaptureStore _localCaptureStore;
 		private readonly CollectionLocalRestoreMemberResumeCoordinator _localRestoreResumeCoordinator;
 		private readonly CollectionLocalRestoreApplicationService _localRestoreWorkflow;
+		private readonly CollectionReplacementRecoveryCoordinator _replacementRecovery;
 
 		/// <summary>Creates the production management route for the active game/storage target.</summary>
 		public CollectionManagementApplicationService(ServiceManager services, GameStorageService gameStorageService)
@@ -139,6 +140,10 @@ namespace Nexus.Client.CollectionManagement
 				_operationStore, _associationStore, _localCaptureStore, artifactStore, referenceStore);
 			_localRestoreWorkflow = new CollectionLocalRestoreApplicationService(_services, _gameStorageService, _operationStore,
 				_associationStore, _localCaptureStore, artifactStore, referenceStore);
+			var planStore = new CollectionsResolvedPlanStore(_store);
+			var manifestStore = new CollectionsNativeChildRecoveryManifestStore(artifactStore, referenceStore);
+			_replacementRecovery = new CollectionReplacementRecoveryCoordinator(_services, _gameStorageService, _operationStore,
+				planStore, _associationStore, artifactStore, referenceStore, manifestStore);
 		}
 
 		/// <summary>Returns installed Collection associations for the current canonical target.</summary>
@@ -380,6 +385,15 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionReplacementStartupInspection>(_operationStore.GetIncompleteOperations(target)
 				.Where(x => x.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup)
 				.Select(inspector.InspectInterrupted).ToList());
+		}
+
+		/// <summary>Runs C8.7 recovery for one interrupted replacement using its exact already-reviewed runtime plan.</summary>
+		public Task<CollectionReplacementRecoveryResult> RecoverInterruptedReplacementAsync(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan reviewedPlan, CancellationToken cancellationToken)
+		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				throw new InvalidOperationException("No durable Collections store exists for replacement recovery.");
+			return _replacementRecovery.RecoverAsync(operationIdentity, reviewedPlan, GetTargetPaths(), cancellationToken);
 		}
 
 		/// <summary>Reconciles persisted Local restore operations through every remaining C7 phase and aggregate final verification.</summary>
