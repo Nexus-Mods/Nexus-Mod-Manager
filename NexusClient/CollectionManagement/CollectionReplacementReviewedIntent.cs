@@ -531,8 +531,8 @@ namespace Nexus.Client.CollectionManagement
 			PlanIdentity = planIdentity ?? throw new ArgumentNullException(nameof(planIdentity));
 			OptionalBackup = optionalBackup ?? throw new ArgumentNullException(nameof(optionalBackup));
 			List<CollectionReplacementRecoveryInput> copied = (inputs ?? throw new ArgumentNullException(nameof(inputs))).ToList();
-			if (copied.Count == 0 || copied.Any(x => x == null) || copied.Select(x => x.Role).Distinct(StringComparer.Ordinal).Count() != copied.Count)
-				throw new ArgumentException("Replacement recovery preparation requires at least one uniquely-role-bound operation recovery input.", nameof(inputs));
+			if (copied.Any(x => x == null) || copied.Select(x => x.Role).Distinct(StringComparer.Ordinal).Count() != copied.Count)
+				throw new ArgumentException("Replacement recovery preparation requires uniquely-role-bound operation recovery inputs.", nameof(inputs));
 			_inputs = new ReadOnlyCollection<CollectionReplacementRecoveryInput>(copied.OrderBy(x => x.Role, StringComparer.Ordinal).ToList());
 		}
 		public CollectionPlanIdentity PlanIdentity { get; }
@@ -682,9 +682,25 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("Startup replacement inspection only accepts replacement operations.", nameof(operation));
 			try
 			{
-				RequireIntent(operation, operation.PlanIdentity);
-				string ownerId = operation.Identity.OperationId.ToString("D");
-				bool hasBoundary = _referenceStore.GetReferenceForOwnerRole(CollectionsRetainedArtifactOwnerKind.Operation, ownerId, RecoveryBoundaryRole) != null;
+				CollectionReplacementReviewedIntent intent = RequireIntent(operation, operation.PlanIdentity);
+				bool requiresRecoveryBoundary = !operation.IsTerminal && (operation.Phase == CollectionOperationPhase.ReadyToApply ||
+					operation.Phase == CollectionOperationPhase.RemovingOutgoingNativeChildren ||
+					operation.Phase == CollectionOperationPhase.PausedAtSafeBoundary ||
+					operation.Phase == CollectionOperationPhase.OutgoingRemovalVerified ||
+					operation.Phase == CollectionOperationPhase.AwaitingReplacementPhaseAmendment ||
+					operation.Phase == CollectionOperationPhase.ReadyForIncomingNativeChildren ||
+					operation.Phase == CollectionOperationPhase.ReplacementBarrierRevalidationRequired ||
+					operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren ||
+					operation.Phase == CollectionOperationPhase.IncomingNativeChildrenVerified ||
+					operation.Phase == CollectionOperationPhase.Recovering ||
+					operation.Phase == CollectionOperationPhase.RecoveryRequired ||
+					operation.HasCrossedNativeBoundary);
+				bool hasBoundary = false;
+				if (requiresRecoveryBoundary)
+				{
+					LoadAndValidatePersistedRecoveryBoundary(operation, intent);
+					hasBoundary = true;
+				}
 				if (operation.Phase == CollectionOperationPhase.OutgoingRemovalVerified)
 					return new CollectionReplacementStartupInspection(operation, CollectionReplacementStartupDisposition.OutgoingRemovalVerified, "Outgoing native removal is durably verified; continuation must enter the C8.5 replacement barrier rather than replaying removals.");
 				if (operation.Phase == CollectionOperationPhase.AwaitingReplacementPhaseAmendment)

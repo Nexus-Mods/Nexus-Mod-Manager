@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.GameStorage;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 
@@ -84,7 +85,13 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionOperation operation = RequireReadyOperation(operationIdentity, reviewedPlan);
 			if (operation.IsSuccessful)
-				return LoadCompleted(operation, reviewedPlan);
+			{
+				CollectionReplacementFinalizationResult completed = LoadCompleted(operation, reviewedPlan);
+				// Final association publication and operation commit are atomic, but retained-reference cleanup is intentionally
+				// outside that transaction. A process stop between those steps must therefore be repairable by an idempotent retry.
+				_recoveryCoordinator.ReleaseTerminalRecoveryReferences(operation.Identity);
+				return completed;
+			}
 
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
 			if (!authority.Target.Equals(reviewedPlan.Target))

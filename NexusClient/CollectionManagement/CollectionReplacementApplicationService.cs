@@ -222,7 +222,7 @@ namespace Nexus.Client.CollectionManagement
 			if (review.Plan.Policy.ReplacementBackupChoice == CollectionReplacementBackupChoice.CreateLocalCollection)
 			{
 				CollectionSaveCurrentSetupResult saved = await _localCapture.SaveCurrentSetupAsync(new CollectionSaveCurrentSetupRequest(
-					"Before replacement - " + review.Plan.Revision.Collection.StableId, LocalCaptureCapability.LocallyRestorable), cancellationToken).ConfigureAwait(false);
+					"Before replacement - " + review.Plan.Revision.Collection.StableId, LocalCaptureCapability.LocallyRestorableWithinScope), cancellationToken).ConfigureAwait(false);
 				if (!saved.IsSaved || saved.Capture == null || String.IsNullOrWhiteSpace(saved.PackageArtifactId))
 					throw new InvalidOperationException("The requested Local Collection backup could not be sealed before replacement.");
 				optionalBackup = CollectionReplacementOptionalBackupResult.Completed(saved.Capture.Identity.ToString());
@@ -465,7 +465,7 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeStateIndex sealing = nativeIndexReader.Capture(target);
 				var scope = new LocalCaptureScope(LocalCaptureScope.CurrentVersion, Enum.GetValues(typeof(LocalCaptureScopeArea)).Cast<LocalCaptureScopeArea>().Where(x => x != LocalCaptureScopeArea.Unknown));
 				var request = new CollectionCaptureSealRequest(captureIdentity, revisionIdentity, target, capturedIndex.Fingerprint, sealing.Fingerprint,
-					scope, LocalCaptureCapability.LocallyRestorable, identities, payloads, replay, effects, metadata,
+					scope, LocalCaptureCapability.LocallyRestorableWithinScope, identities, payloads, replay, effects, metadata,
 					new CollectionCapturedArchiveArtifact[0], new LocalCaptureExclusion[0], mappings);
 				CollectionCaptureSealResult sealedResult = new CollectionCaptureSealer(_artifactStore, _referenceStore).Seal(request, cancellationToken);
 				if (!sealedResult.IsSealed) throw new InvalidOperationException("Mandatory replacement recovery capture could not be sealed.");

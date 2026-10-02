@@ -175,6 +175,7 @@
     <Compile Include="CollectionReplacementDiffPlannerTests.cs" />
     <Compile Include="CollectionReplacementOutgoingRemovalCoordinatorTests.cs" />
     <Compile Include="CollectionReplacementPhaseBarrierCoordinatorTests.cs" />
+    <Compile Include="CollectionReplacementValidationGateTests.cs" />
     <Compile Include="CollectionDependencyPhasePlannerTests.cs" />
     <Compile Include="CollectionConflictImpactPlannerTests.cs" />
     <Compile Include="CollectionOperationCoordinatorTests.cs" />
