@@ -393,6 +393,128 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Plan_DurableIncomingWinnerDecisionResolvesExactExistingOwnerConflict()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState unrelated = CreateNativeMod(targetIdentity, "native-unrelated", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, unrelated },
+				new[] { CreateFile(target, unrelated.Identity.NativeModKey) }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			var decision = new CollectionConflictResolutionDecision(Guid.NewGuid(), fixture.Plan.Revision, fixture.Plan.Target,
+				incoming.IdentityResolution.Key, target.Root, target.RelativePath, unrelated.Identity.NativeModKey,
+				CollectionConflictResolutionDecisionKind.IncomingCollectionWinsFile, "reviewed");
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) },
+				new[] { decision });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+		}
+
+		[Test]
+		public void Plan_DurableKeepExistingWinnerDecisionResolvesExactExistingOwnerConflict()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState unrelated = CreateNativeMod(targetIdentity, "native-unrelated", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, unrelated },
+				new[] { CreateFile(target, unrelated.Identity.NativeModKey) }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			var decision = new CollectionConflictResolutionDecision(Guid.NewGuid(), fixture.Plan.Revision, fixture.Plan.Target,
+				incoming.IdentityResolution.Key, target.Root, target.RelativePath, unrelated.Identity.NativeModKey,
+				CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner, "keep existing");
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) },
+				new[] { decision });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+			Assert.IsTrue(result.FileImpacts.Single().PreserveCurrentOwner);
+			Assert.AreEqual(unrelated.Identity.NativeModKey, result.FileImpacts.Single().CurrentOwnerKey);
+		}
+
+		[Test]
+		public void Plan_DurableKeepExistingWinnerDecisionDoesNotSelectOriginalFallbackAsManagedOwner()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			const string originalOwnerKey = "original-values";
+			var originalOwner = new CollectionNativeOwnerState(originalOwnerKey, null, CollectionNativeOwnerKind.OriginalValue, null, null, null);
+			var originalFile = new CollectionNativeFileState(target, "C:\\Game\\Data\\textures\\shared.dds", false, true, false,
+				originalOwnerKey, new[] { originalOwner }, new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0]);
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod },
+				new[] { originalFile }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			var decision = new CollectionConflictResolutionDecision(Guid.NewGuid(), fixture.Plan.Revision, fixture.Plan.Target,
+				incoming.IdentityResolution.Key, target.Root, target.RelativePath, originalOwnerKey,
+				CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner, "keep fallback");
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) },
+				new[] { decision });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+			Assert.IsFalse(result.FileImpacts.Single().PreserveCurrentOwner);
+		}
+
+		[Test]
+		public void Plan_DurableKeepExistingWinnerDecisionUsesReviewedWinnerAsMultiWriterFallback()
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState nativeA = CreateNativeMod(targetIdentity, "native-a", 100, 200);
+			CollectionNativeModState nativeB = CreateNativeMod(targetIdentity, "native-b", 101, 201);
+			CollectionNativeModState unrelated = CreateNativeMod(targetIdentity, "native-unrelated", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { a, b },
+				new[] { new CollectionFilePriorityRule(a.IdentityResolution.Key, b.IdentityResolution.Key) },
+				new[] { nativeA, nativeB, unrelated }, new[] { CreateFile(target, unrelated.Identity.NativeModKey) },
+				null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			var decision = new CollectionConflictResolutionDecision(Guid.NewGuid(), fixture.Plan.Revision, fixture.Plan.Target,
+				b.IdentityResolution.Key, target.Root, target.RelativePath, unrelated.Identity.NativeModKey,
+				CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner, "keep existing");
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(a, target), CreatePreview(b, target) },
+				new[] { decision });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+			Assert.IsTrue(result.FileImpacts.Single().PreserveCurrentOwner);
+			Assert.AreEqual(b.IdentityResolution.Key, result.FileImpacts.Single().PlannedWinner);
+		}
+
+		[Test]
+		public void Plan_DurableIncomingWinnerDecisionForDifferentOwnerDoesNotAuthorizeCurrentConflict()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState unrelated = CreateNativeMod(targetIdentity, "native-unrelated", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, unrelated },
+				new[] { CreateFile(target, unrelated.Identity.NativeModKey) }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			var staleDecision = new CollectionConflictResolutionDecision(Guid.NewGuid(), fixture.Plan.Revision, fixture.Plan.Target,
+				incoming.IdentityResolution.Key, target.Root, target.RelativePath, "different-native-owner",
+				CollectionConflictResolutionDecisionKind.IncomingCollectionWinsFile, "stale");
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) },
+				new[] { staleDecision });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+		}
+
+		[Test]
 		public void Plan_UnresolvedRecordedManagedFileOwnershipBlocksExactWinnerPlanning()
 		{
 			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);

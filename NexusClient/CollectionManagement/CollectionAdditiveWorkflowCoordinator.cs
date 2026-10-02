@@ -171,6 +171,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionNativeChildRestartReconciliationCoordinator _restartCoordinator;
 		private readonly CollectionAssociationReconciliationCoordinator _associationCoordinator;
 		private readonly CollectionReviewedFileWinnerReconciliationCoordinator _winnerCoordinator;
+		private readonly CollectionConflictResolutionCoordinator _conflictResolutionCoordinator;
 		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
 		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
 		private readonly CollectionAdditiveNativeChildApplyDelegate _nativeChildApplyOverride;
@@ -200,6 +201,32 @@ namespace Nexus.Client.CollectionManagement
 		{
 		}
 
+		/// <summary>Creates the production additive workflow with durable C9 conflict decisions composed into impact planning.</summary>
+		internal CollectionAdditiveWorkflowCoordinator(ServiceManager services, GameStorageService gameStorageService,
+			CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
+			CollectionAdditivePlanPreparationService planPreparationService,
+			CollectionAdditivePlanRevalidationService planRevalidationService,
+			CollectionMemberAcquisitionCoordinator memberAcquisitionCoordinator,
+			CollectionNativeRecipePreparer nativeRecipePreparer,
+			CollectionDependencyPhasePlanner dependencyPlanner, CollectionConflictImpactPlanner impactPlanner,
+			CollectionOperationCoordinator operationCoordinator, CollectionReviewedWorkflowRehydrator workflowRehydrator,
+			CollectionReviewedWorkflowRuntimeReconstructor runtimeReconstructor, CollectionNativeStateReader nativeStateReader,
+			CollectionNativeChildPreparationCoordinator childPreparationCoordinator,
+			CollectionNativeChildExecutionCoordinator childExecutionCoordinator,
+			CollectionNativeChildVerificationCoordinator childVerificationCoordinator,
+			CollectionNativeChildRestartReconciliationCoordinator restartCoordinator,
+			CollectionAssociationReconciliationCoordinator associationCoordinator,
+			CollectionReviewedFileWinnerReconciliationCoordinator winnerCoordinator,
+			CollectionConflictResolutionCoordinator conflictResolutionCoordinator)
+			: this(services, gameStorageService, operationStore, planStore, planPreparationService, planRevalidationService,
+				memberAcquisitionCoordinator, nativeRecipePreparer, dependencyPlanner, impactPlanner, operationCoordinator,
+				workflowRehydrator, runtimeReconstructor, nativeStateReader, childPreparationCoordinator, childExecutionCoordinator,
+				childVerificationCoordinator, restartCoordinator, associationCoordinator, winnerCoordinator,
+				CollectionTargetMutationLeaseManager.Shared, new CollectionTargetOwnershipAuthorityValidator(gameStorageService, services),
+				null, null, conflictResolutionCoordinator)
+		{
+		}
+
 		internal CollectionAdditiveWorkflowCoordinator(ServiceManager services, GameStorageService gameStorageService,
 			CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
 			CollectionAdditivePlanPreparationService planPreparationService,
@@ -221,7 +248,7 @@ namespace Nexus.Client.CollectionManagement
 				memberAcquisitionCoordinator, nativeRecipePreparer, dependencyPlanner, impactPlanner, operationCoordinator,
 				workflowRehydrator, runtimeReconstructor, nativeStateReader, childPreparationCoordinator, childExecutionCoordinator,
 				childVerificationCoordinator, restartCoordinator, associationCoordinator, winnerCoordinator, mutationLeaseManager,
-				authorityValidator, null, null)
+				authorityValidator, null, null, null)
 		{
 		}
 
@@ -243,7 +270,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReviewedFileWinnerReconciliationCoordinator winnerCoordinator,
 			CollectionTargetMutationLeaseManager mutationLeaseManager, CollectionTargetOwnershipAuthorityValidator authorityValidator,
 			CollectionAdditiveNativeChildApplyDelegate nativeChildApplyOverride,
-			CollectionAdditiveWinnerReconciliationDelegate winnerReconciliationOverride)
+			CollectionAdditiveWinnerReconciliationDelegate winnerReconciliationOverride,
+			CollectionConflictResolutionCoordinator conflictResolutionCoordinator = null)
 		{
 			_services = services ?? throw new ArgumentNullException(nameof(services));
 			_gameStorageService = gameStorageService ?? throw new ArgumentNullException(nameof(gameStorageService));
@@ -265,6 +293,7 @@ namespace Nexus.Client.CollectionManagement
 			_restartCoordinator = restartCoordinator ?? throw new ArgumentNullException(nameof(restartCoordinator));
 			_associationCoordinator = associationCoordinator ?? throw new ArgumentNullException(nameof(associationCoordinator));
 			_winnerCoordinator = winnerCoordinator ?? throw new ArgumentNullException(nameof(winnerCoordinator));
+			_conflictResolutionCoordinator = conflictResolutionCoordinator;
 			_mutationLeaseManager = mutationLeaseManager ?? throw new ArgumentNullException(nameof(mutationLeaseManager));
 			_authorityValidator = authorityValidator ?? throw new ArgumentNullException(nameof(authorityValidator));
 			_nativeChildApplyOverride = nativeChildApplyOverride;
@@ -648,8 +677,11 @@ namespace Nexus.Client.CollectionManagement
 				return PreparationResult(CollectionAdditiveWorkflowPreparationStatus.Blocked, acquisition, dependencyPlan, null, null, ex.Message);
 			}
 
+			IEnumerable<CollectionConflictResolutionDecision> conflictDecisions = _conflictResolutionCoordinator == null
+				? Enumerable.Empty<CollectionConflictResolutionDecision>()
+				: _conflictResolutionCoordinator.GetDecisions(plan);
 			CollectionConflictImpactPlan impactPlan = _impactPlanner.Plan(plan, matches, dependencyPlan,
-				planBuild.NativeState, recipes.Select(x => x.EffectPreview));
+				planBuild.NativeState, recipes.Select(x => x.EffectPreview), conflictDecisions);
 			if (!impactPlan.IsReady)
 			{
 				CollectionAdditiveWorkflowPreparationStatus status = impactPlan.Status == CollectionConflictImpactStatus.ActionRequired

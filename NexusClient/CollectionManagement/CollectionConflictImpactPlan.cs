@@ -75,17 +75,29 @@ namespace Nexus.Client.CollectionManagement
 
 		internal CollectionFileImpact(ModDeploymentTarget target, IEnumerable<CollectionMemberKey> writers,
 			CollectionMemberKey plannedWinner, string currentOwnerKey, IEnumerable<Guid> affectedAssociationIds)
+			: this(target, writers, plannedWinner, currentOwnerKey, false, affectedAssociationIds)
+		{
+		}
+
+		internal CollectionFileImpact(ModDeploymentTarget target, IEnumerable<CollectionMemberKey> writers,
+			CollectionMemberKey plannedWinner, string currentOwnerKey, bool preserveCurrentOwner, IEnumerable<Guid> affectedAssociationIds)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			_writers = new ReadOnlyCollection<CollectionMemberKey>((writers ?? throw new ArgumentNullException(nameof(writers))).ToList());
 			PlannedWinner = plannedWinner;
 			CurrentOwnerKey = currentOwnerKey;
+			if (preserveCurrentOwner && String.IsNullOrWhiteSpace(currentOwnerKey))
+				throw new ArgumentException("Preserving the current managed file winner requires its exact native owner key.", nameof(currentOwnerKey));
+			if (preserveCurrentOwner && (plannedWinner == null || !_writers.Contains(plannedWinner)))
+				throw new ArgumentException("Preserving the current managed file winner requires one exact reviewed Collection fallback winner.", nameof(plannedWinner));
+			PreserveCurrentOwner = preserveCurrentOwner;
 			_affectedAssociationIds = new ReadOnlyCollection<Guid>((affectedAssociationIds ?? Enumerable.Empty<Guid>()).Distinct().OrderBy(x => x).ToList());
 		}
 		public ModDeploymentTarget Target { get; }
 		public ReadOnlyCollection<CollectionMemberKey> Writers { get { return _writers; } }
 		public CollectionMemberKey PlannedWinner { get; }
 		public string CurrentOwnerKey { get; }
+		public bool PreserveCurrentOwner { get; }
 		public ReadOnlyCollection<Guid> AffectedAssociationIds { get { return _affectedAssociationIds; } }
 	}
 

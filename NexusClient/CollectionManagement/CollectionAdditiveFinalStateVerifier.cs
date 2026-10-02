@@ -132,10 +132,29 @@ namespace Nexus.Client.CollectionManagement
 				CollectionFileImpact impact = impactPlan.FileImpacts.SingleOrDefault(x => x.Target.Equals(entry.Key));
 				if (impact == null)
 					throw new InvalidOperationException("A reviewed Collection file target is missing its durable impact decision.");
-				CollectionMemberKey winner = impact.PlannedWinner ?? (entry.Value.Count == 1 ? entry.Value[0] : null);
-				if (winner == null || !nativeByMember.ContainsKey(winner) ||
-					!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, nativeByMember[winner].Identity.NativeModKey))
-					throw new InvalidOperationException("The final native file winner no longer matches the reviewed Collection decision.");
+				if (impact.PreserveCurrentOwner)
+				{
+					if (String.IsNullOrWhiteSpace(impact.CurrentOwnerKey) ||
+						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, impact.CurrentOwnerKey))
+						throw new InvalidOperationException("The final native file winner no longer matches the reviewed decision to preserve the existing managed owner.");
+					if (impact.Writers.Count > 1)
+					{
+						CollectionNativeModState fallback;
+						if (impact.PlannedWinner == null || !nativeByMember.TryGetValue(impact.PlannedWinner, out fallback))
+							throw new InvalidOperationException("The reviewed preserved file winner no longer has one exact Collection fallback owner.");
+						List<string> owners = GetOrderedManagedOwnerKeys(file);
+						if (owners.Count < 2 || !StringComparer.OrdinalIgnoreCase.Equals(owners[owners.Count - 1], impact.CurrentOwnerKey) ||
+							!StringComparer.OrdinalIgnoreCase.Equals(owners[owners.Count - 2], fallback.Identity.NativeModKey))
+							throw new InvalidOperationException("The final native file owner stack no longer preserves the reviewed Collection fallback directly beneath the existing managed winner.");
+					}
+				}
+				else
+				{
+					CollectionMemberKey winner = impact.PlannedWinner ?? (entry.Value.Count == 1 ? entry.Value[0] : null);
+					if (winner == null || !nativeByMember.ContainsKey(winner) ||
+						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, nativeByMember[winner].Identity.NativeModKey))
+						throw new InvalidOperationException("The final native file winner no longer matches the reviewed Collection decision.");
+				}
 			}
 		}
 
@@ -143,6 +162,13 @@ namespace Nexus.Client.CollectionManagement
 		{
 			return file.InstallLogOwners.Concat(file.DeploymentOwners).Concat(file.VirtualOwners)
 				.Any(x => x.Kind == CollectionNativeOwnerKind.NativeMod && StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey));
+		}
+
+		private static List<string> GetOrderedManagedOwnerKeys(CollectionNativeFileState file)
+		{
+			IEnumerable<CollectionNativeOwnerState> owners = file.Promoted ? file.DeploymentOwners : file.VirtualOwners;
+			return owners.Where(x => x.Kind == CollectionNativeOwnerKind.NativeMod && !String.IsNullOrWhiteSpace(x.OwnerKey))
+				.Select(x => x.OwnerKey).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 		}
 
 		private static void VerifyNonFileEffects(CollectionConflictImpactPlan impactPlan,

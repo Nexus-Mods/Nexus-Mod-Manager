@@ -21,7 +21,16 @@ namespace Nexus.Client.CollectionManagement
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionMemberEffectPreview> effectPreviews)
 		{
-			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, false);
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, new CollectionConflictResolutionDecision[0], false);
+		}
+
+		/// <summary>Plans additive impacts while applying exact durable C9 conflict decisions.</summary>
+		public CollectionConflictImpactPlan Plan(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions)
+		{
+			if (decisions == null) throw new ArgumentNullException(nameof(decisions));
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, decisions, false);
 		}
 
 		/// <summary>Builds the C8.6 native impact plan after C8.3 already reviewed replacement association/customization decisions.</summary>
@@ -30,18 +39,19 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (plan == null || plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)
 				throw new ArgumentException("Replacement execution impact planning requires the explicit replacement policy.", nameof(plan));
-			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, true);
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, new CollectionConflictResolutionDecision[0], true);
 		}
 
 		private CollectionConflictImpactPlan PlanCore(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
-			IEnumerable<CollectionMemberEffectPreview> effectPreviews, bool replacementExecution)
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions, bool replacementExecution)
 		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
 			if (dependencyPlan == null) throw new ArgumentNullException(nameof(dependencyPlan));
 			if (nativeState == null) throw new ArgumentNullException(nameof(nativeState));
 			if (effectPreviews == null) throw new ArgumentNullException(nameof(effectPreviews));
+			if (decisions == null) throw new ArgumentNullException(nameof(decisions));
 			ValidateInputs(plan, matches, dependencyPlan, nativeState);
 
 			var issues = new List<CollectionConflictImpactIssue>();
@@ -103,7 +113,7 @@ namespace Nexus.Client.CollectionManagement
 			var associationKinds = new Dictionary<Guid, CollectionAssociationImpactKind>();
 			AddSharedNativeInstanceImpacts(matches, nativeState, associationKinds);
 
-			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues);
+			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues, decisions);
 			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues);
 			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues);
 
@@ -420,7 +430,7 @@ namespace Nexus.Client.CollectionManagement
 
 		private static List<CollectionFileImpact> BuildFileImpacts(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
-			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues)
+			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues, IEnumerable<CollectionConflictResolutionDecision> decisions)
 		{
 			var matchByKey = matches.MembersByKey;
 			var writersByTarget = new Dictionary<ModDeploymentTarget, List<CollectionMemberKey>>();
@@ -483,17 +493,69 @@ namespace Nexus.Client.CollectionManagement
 				HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentOwner);
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.FileWinner);
 
-				if (winner != null && !String.IsNullOrWhiteSpace(currentOwner) && !CurrentOwnerIsIncomingWriter(currentOwner, entry.Value, matchByKey) &&
-					!ExternalPriorityAuthorizesIncomingWinner(plan, winner, currentOwner, nativeState))
+				bool preserveCurrentOwner = false;
+				if (winner != null && !String.IsNullOrWhiteSpace(currentOwner) && !CurrentOwnerIsIncomingWriter(currentOwner, entry.Value, matchByKey))
 				{
-					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
-						CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
-						"The reviewed Collection file winner would replace an unrelated existing managed owner. Installing into the current setup requires an explicit supported resolution."));
+					bool currentOwnerIsNativeMod = nativeState.ModsByNativeKey.ContainsKey(currentOwner);
+					bool durableIncomingWinner = DurableDecisionAuthorizesIncomingWinner(plan, winner, entry.Key, currentOwner, decisions);
+					bool durableExistingWinner = DurableDecisionPreservesExistingWinner(plan, winner, entry.Key, currentOwner, decisions);
+					if (durableIncomingWinner && durableExistingWinner)
+					{
+						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
+							CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
+							"Conflicting durable decisions exist for this exact managed file winner. Clear the stale decision and review the conflict again."));
+					}
+					else if (durableExistingWinner && !currentOwnerIsNativeMod)
+					{
+						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
+							CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
+							"The stored keep-existing decision no longer identifies an active NMM mod owner. Original/unresolved fallback ownership cannot be selected as a C9 managed winner."));
+					}
+					else if (durableExistingWinner)
+					{
+						// C9.4 keeps the unrelated managed owner on top while the already reviewed Collection
+						// winner becomes the immediate managed fallback when several Collection members write the path.
+						preserveCurrentOwner = true;
+					}
+					else if (!ExternalPriorityAuthorizesIncomingWinner(plan, winner, currentOwner, nativeState) && !durableIncomingWinner)
+					{
+						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
+							CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
+							"The reviewed Collection file winner would replace an unrelated existing managed owner. Installing into the current setup requires an explicit supported resolution."));
+					}
 				}
 
-				result.Add(new CollectionFileImpact(entry.Key, entry.Value, winner, currentOwner, affected));
+				result.Add(new CollectionFileImpact(entry.Key, entry.Value, winner, currentOwner, preserveCurrentOwner, affected));
 			}
 			return result;
+		}
+
+		private static bool DurableDecisionAuthorizesIncomingWinner(ResolvedCollectionPlan plan, CollectionMemberKey winner,
+			ModDeploymentTarget target, string currentOwnerKey, IEnumerable<CollectionConflictResolutionDecision> decisions)
+		{
+			return HasDurableFileWinnerDecision(plan, winner, target, currentOwnerKey, decisions,
+				CollectionConflictResolutionDecisionKind.IncomingCollectionWinsFile);
+		}
+
+		private static bool DurableDecisionPreservesExistingWinner(ResolvedCollectionPlan plan, CollectionMemberKey winner,
+			ModDeploymentTarget target, string currentOwnerKey, IEnumerable<CollectionConflictResolutionDecision> decisions)
+		{
+			return HasDurableFileWinnerDecision(plan, winner, target, currentOwnerKey, decisions,
+				CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner);
+		}
+
+		private static bool HasDurableFileWinnerDecision(ResolvedCollectionPlan plan, CollectionMemberKey winner,
+			ModDeploymentTarget target, string currentOwnerKey, IEnumerable<CollectionConflictResolutionDecision> decisions,
+			CollectionConflictResolutionDecisionKind kind)
+		{
+			foreach (CollectionConflictResolutionDecision decision in decisions)
+			{
+				if (decision == null || decision.Kind != kind) continue;
+				if (!decision.Revision.Equals(plan.Revision) || !decision.Target.Equals(plan.Target) || !decision.MemberKey.Equals(winner)) continue;
+				if (decision.DeploymentRoot != target.Root || !StringComparer.OrdinalIgnoreCase.Equals(decision.RelativePath, target.RelativePath)) continue;
+				if (StringComparer.Ordinal.Equals(decision.ExistingOwnerKey, currentOwnerKey)) return true;
+			}
+			return false;
 		}
 
 		private static bool ExternalPriorityAuthorizesIncomingWinner(ResolvedCollectionPlan plan, CollectionMemberKey winner,

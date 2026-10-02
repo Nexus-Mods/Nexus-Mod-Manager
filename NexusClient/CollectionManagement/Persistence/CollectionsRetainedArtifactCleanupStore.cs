@@ -194,6 +194,7 @@ WHERE a.sealed=1 AND r.reference_id IS NULL AND t.artifact_id IS NULL
   AND NOT EXISTS (SELECT 1 FROM revision_sources rs WHERE rs.raw_manifest_artifact_id=a.artifact_id)
   AND NOT EXISTS (SELECT 1 FROM collection_acquisition_requests car WHERE car.verified_artifact_id=a.artifact_id)
   AND NOT EXISTS (SELECT 1 FROM local_capture_packages cp WHERE cp.package_artifact_id=a.artifact_id)
+  AND NOT EXISTS (SELECT 1 FROM local_working_copies wc WHERE wc.base_manifest_artifact_id=a.artifact_id OR wc.draft_manifest_artifact_id=a.artifact_id OR wc.base_bundle_artifact_id=a.artifact_id)
 ORDER BY a.artifact_id
 LIMIT @maximum_count;";
 					command.Parameters.AddWithValue("@maximum_count", maximumCount);
@@ -419,6 +420,8 @@ UNION ALL
 SELECT 1 FROM collection_acquisition_requests WHERE verified_artifact_id=@artifact_id
 UNION ALL
 SELECT 1 FROM local_capture_packages WHERE package_artifact_id=@artifact_id
+UNION ALL
+SELECT 1 FROM local_working_copies WHERE base_manifest_artifact_id=@artifact_id OR draft_manifest_artifact_id=@artifact_id OR base_bundle_artifact_id=@artifact_id
 LIMIT 1;";
 				command.Parameters.AddWithValue("@artifact_id", artifactId);
 				return command.ExecuteScalar() != null;

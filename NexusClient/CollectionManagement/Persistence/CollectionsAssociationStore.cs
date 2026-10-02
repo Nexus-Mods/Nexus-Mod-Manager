@@ -521,6 +521,241 @@ WHERE association_id=@association_id
 			});
 		}
 
+
+		/// <summary>Atomically validates one reviewed C9 installed-member removal baseline and creates its durable operation.</summary>
+		internal void BeginMemberRemoval(CollectionTargetAssociation expectedAssociation, CollectionMemberBinding expectedBinding,
+			CollectionOperation operation)
+		{
+			if (expectedAssociation == null) throw new ArgumentNullException(nameof(expectedAssociation));
+			if (expectedBinding == null) throw new ArgumentNullException(nameof(expectedBinding));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (expectedBinding.Association.AssociationId != expectedAssociation.AssociationId ||
+				operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects ||
+				operation.Phase != CollectionOperationPhase.ApplyingNativeChildren ||
+				operation.ResultState != CollectionOperationResultState.Pending || operation.NativeChildren.Count != 1 ||
+				operation.NativeChildren[0].Checkpoint != CollectionNativeChildCheckpoint.RecoveryInputsReady ||
+				operation.NativeChildren[0].Action != CollectionNativeChildAction.Deactivate || operation.PlanIdentity != null || operation.Revision == null || !operation.Revision.Equals(expectedAssociation.Revision) ||
+				!operation.NativeChildren[0].Member.Revision.Equals(expectedAssociation.Revision) ||
+				!operation.NativeChildren[0].Member.MemberKey.Equals(CollectionInstalledMemberRemovalCoordinator.CreateRemovalJournalKey(
+					expectedAssociation.AssociationId, expectedBinding.MemberKey)) ||
+				!operation.Collection.Equals(expectedAssociation.Revision.Collection) || !operation.Target.Equals(expectedAssociation.Target))
+				throw new ArgumentException("The installed-member removal operation does not match the exact reviewed association/member baseline.", nameof(operation));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation current = ReadAssociation(connection, transaction, expectedAssociation.AssociationId);
+				RequireSameAssociationSnapshot(current, expectedAssociation,
+					"The installed Collection association changed after member-removal review and must be reviewed again.");
+				if (current.State == CollectionAssociationState.Recovering || current.State == CollectionAssociationState.Incomplete)
+					throw new InvalidOperationException("Only Applied or Modified installed Collections can remove an optional member.");
+				CollectionMemberBinding binding = ReadBindings(connection, transaction, current, null)
+					.SingleOrDefault(x => x.MemberKey.Equals(expectedBinding.MemberKey));
+				if (!BindingsEqual(binding, expectedBinding))
+					throw new InvalidOperationException("The installed Collection member binding changed after review.");
+				if (HasIncompleteOperationForCollection(connection, transaction, current.Revision.Collection, current.Target))
+					throw new InvalidOperationException("Another Collection operation for this Collection/target is already incomplete.");
+				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
+			});
+		}
+
+		/// <summary>Marks the exact reviewed member-removal child NativeSubmitted before the native uninstaller starts.</summary>
+		internal void SaveMemberRemovalChildSubmission(Guid associationId, CollectionMemberKey memberKey,
+			CollectionOperation operation, NativeModInstanceIdentity nativeMod)
+		{
+			RequireGuid(associationId, nameof(associationId));
+			if (memberKey == null) throw new ArgumentNullException(nameof(memberKey));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (nativeMod == null) throw new ArgumentNullException(nameof(nativeMod));
+			if (operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects ||
+				operation.Phase != CollectionOperationPhase.ApplyingNativeChildren ||
+				operation.ResultState != CollectionOperationResultState.Pending || operation.NativeChildren.Count != 1 ||
+				!operation.NativeChildren[0].HasCrossedNativeBoundary)
+				throw new ArgumentException("The installed-member removal submission checkpoint is not an active submitted native child.", nameof(operation));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation association = ReadAssociation(connection, transaction, associationId);
+				RequireMemberRemovalOperationAssociation(association, operation);
+				CollectionMemberBinding binding = ReadBindings(connection, transaction, association, null)
+					.SingleOrDefault(x => x.MemberKey.Equals(memberKey));
+				if (binding == null || !binding.NativeMod.Equals(nativeMod))
+					throw new InvalidOperationException("The reviewed installed-member binding changed before native removal submission.");
+				IReadOnlyList<CollectionMemberBinding> nativeBindings = ReadBindings(connection, transaction, null, nativeMod);
+				if (nativeBindings.Count != 1 || nativeBindings[0].Association.AssociationId != associationId ||
+					!nativeBindings[0].MemberKey.Equals(memberKey))
+					throw new InvalidOperationException("The native mod gained another Collection binding after member-removal review; native removal is no longer authorized.");
+				if (HasCustomizationForMembers(connection, transaction, association, new[] { memberKey }))
+					throw new InvalidOperationException("The member gained a deliberate override or detected drift after review; native removal is no longer authorized.");
+				NativeModProvenance provenance = ReadNativeModProvenance(connection, transaction, nativeMod);
+				if (provenance == null || provenance.StandaloneUse != StandaloneModUse.NoStandaloneUseVerified)
+					throw new InvalidOperationException("Standalone provenance changed after member-removal review; native removal is no longer authorized.");
+
+				SaveAssociation(connection, transaction, association.WithState(CollectionAssociationState.Incomplete));
+				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
+			});
+		}
+
+		/// <summary>Persists unresolved native durability for an installed-member removal and marks the association Recovering.</summary>
+		internal void SaveMemberRemovalRecoveryRequired(Guid associationId, CollectionOperation operation)
+		{
+			RequireGuid(associationId, nameof(associationId));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects ||
+				operation.Phase != CollectionOperationPhase.RecoveryRequired ||
+				operation.ResultState != CollectionOperationResultState.RecoveryRequired)
+				throw new ArgumentException("Installed-member removal recovery requires the exact RecoveryRequired operation state.", nameof(operation));
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation association = ReadAssociation(connection, transaction, associationId);
+				RequireMemberRemovalOperationAssociation(association, operation);
+				SaveAssociation(connection, transaction, association.WithState(CollectionAssociationState.Recovering));
+				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
+			});
+		}
+
+		/// <summary>Stops a native member-removal attempt after the mutation boundary while keeping the association visibly incomplete.</summary>
+		internal void SaveMemberRemovalStoppedPartial(Guid associationId, CollectionOperation operation)
+		{
+			RequireGuid(associationId, nameof(associationId));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects ||
+				operation.Phase != CollectionOperationPhase.Completed ||
+				operation.ResultState != CollectionOperationResultState.StoppedPartial)
+				throw new ArgumentException("Installed-member removal partial-stop persistence requires Completed/StoppedPartial.", nameof(operation));
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation association = ReadAssociation(connection, transaction, associationId);
+				RequireMemberRemovalOperationAssociation(association, operation);
+				SaveAssociation(connection, transaction, association.WithState(CollectionAssociationState.Incomplete));
+				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
+			});
+		}
+
+		/// <summary>Atomically removes one member binding when no native mutation is required.</summary>
+		internal void CompleteMemberRemovalWithoutNativeMutation(CollectionTargetAssociation expectedAssociation,
+			CollectionMemberBinding expectedBinding, CollectionOperation operation, bool preserveAsStandalone, bool knownAbsent)
+		{
+			if (expectedAssociation == null) throw new ArgumentNullException(nameof(expectedAssociation));
+			if (expectedBinding == null) throw new ArgumentNullException(nameof(expectedBinding));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			ValidateCompletedMemberRemovalOperation(expectedAssociation, operation, false);
+			if (preserveAsStandalone && knownAbsent)
+				throw new ArgumentException("A preserved standalone member cannot simultaneously be known absent.");
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation current = ReadAssociation(connection, transaction, expectedAssociation.AssociationId);
+				RequireSameAssociationSnapshot(current, expectedAssociation,
+					"The installed Collection association changed after member-removal review and must be reviewed again.");
+				if (current.State == CollectionAssociationState.Recovering || current.State == CollectionAssociationState.Incomplete)
+					throw new InvalidOperationException("Only Applied or Modified installed Collections can remove an optional member.");
+				if (HasIncompleteOperationForCollection(connection, transaction, current.Revision.Collection, current.Target))
+					throw new InvalidOperationException("Another Collection operation for this Collection/target is already incomplete.");
+				CollectionMemberBinding binding = ReadBindings(connection, transaction, current, null)
+					.SingleOrDefault(x => x.MemberKey.Equals(expectedBinding.MemberKey));
+				if (!BindingsEqual(binding, expectedBinding))
+					throw new InvalidOperationException("The installed Collection member binding changed after review.");
+
+				DeleteMemberTracking(connection, transaction, current, binding.MemberKey);
+				bool stillBound = ReadBindings(connection, transaction, null, binding.NativeMod).Count != 0;
+				if (!stillBound && preserveAsStandalone)
+					SaveNativeModProvenance(connection, transaction,
+						new NativeModProvenance(binding.NativeMod, StandaloneModUse.ExplicitStandaloneUse));
+				else if (!stillBound && knownAbsent)
+					DeleteNativeModProvenance(connection, transaction, binding.NativeMod);
+				SaveAssociation(connection, transaction, current.WithState(CollectionAssociationState.Modified));
+				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
+			});
+		}
+
+		/// <summary>Atomically publishes one verified native optional-member removal and its Collection metadata change.</summary>
+		internal void CompleteMemberRemovalAfterNativeRemoval(Guid associationId, CollectionMemberKey memberKey,
+			NativeModInstanceIdentity nativeMod, CollectionOperation operation)
+		{
+			RequireGuid(associationId, nameof(associationId));
+			if (memberKey == null) throw new ArgumentNullException(nameof(memberKey));
+			if (nativeMod == null) throw new ArgumentNullException(nameof(nativeMod));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects ||
+				operation.Phase != CollectionOperationPhase.Completed || operation.ResultState != CollectionOperationResultState.Committed ||
+				operation.NativeChildren.Count != 1 || !operation.NativeChildren[0].IsReconciled ||
+				!operation.NativeChildren[0].HasVerifiedCommittedNativeState)
+				throw new ArgumentException("Native installed-member removal completion requires one reconciled verified-committed child.", nameof(operation));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation association = ReadAssociation(connection, transaction, associationId);
+				RequireMemberRemovalOperationAssociation(association, operation);
+				CollectionMemberBinding binding = ReadBindings(connection, transaction, association, null)
+					.SingleOrDefault(x => x.MemberKey.Equals(memberKey));
+				if (binding == null || !binding.NativeMod.Equals(nativeMod))
+					throw new InvalidOperationException("The installed Collection member binding changed before final member-removal publication.");
+				List<CollectionMemberBinding> survivingBindings = ReadBindings(connection, transaction, null, nativeMod)
+					.Where(x => x.Association.AssociationId != associationId || !x.MemberKey.Equals(memberKey)).ToList();
+				DeleteMemberTracking(connection, transaction, association, memberKey);
+				DeleteNativeModProvenance(connection, transaction, nativeMod);
+				bool currentAssociationStillReferencesRemovedNative = survivingBindings.Any(x => x.Association.AssociationId == associationId);
+				SaveAssociation(connection, transaction, association.WithState(currentAssociationStillReferencesRemovedNative
+					? CollectionAssociationState.Incomplete : CollectionAssociationState.Modified));
+				foreach (Guid survivingAssociationId in survivingBindings.Select(x => x.Association.AssociationId)
+					.Where(x => x != associationId).Distinct())
+				{
+					CollectionTargetAssociation survivingAssociation = ReadAssociation(connection, transaction, survivingAssociationId);
+					if (survivingAssociation != null && survivingAssociation.State != CollectionAssociationState.Recovering)
+						SaveAssociation(connection, transaction, survivingAssociation.WithState(CollectionAssociationState.Incomplete));
+				}
+				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
+			});
+		}
+
+		private static void ValidateCompletedMemberRemovalOperation(CollectionTargetAssociation association,
+			CollectionOperation operation, bool requireNativeChild)
+		{
+			if (operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects ||
+				operation.Phase != CollectionOperationPhase.Completed || operation.ResultState != CollectionOperationResultState.Committed ||
+				operation.PlanIdentity != null || operation.Revision == null || !operation.Revision.Equals(association.Revision) ||
+				!operation.Collection.Equals(association.Revision.Collection) || !operation.Target.Equals(association.Target) ||
+				(requireNativeChild ? operation.NativeChildren.Count != 1 : operation.NativeChildren.Count != 0))
+				throw new ArgumentException("The terminal installed-member removal operation does not match the exact association baseline.", nameof(operation));
+		}
+
+		private static bool BindingsEqual(CollectionMemberBinding left, CollectionMemberBinding right)
+		{
+			return left != null && right != null && left.Association.AssociationId == right.Association.AssociationId &&
+				left.MemberKey.Equals(right.MemberKey) && left.NativeMod.Equals(right.NativeMod) &&
+				left.VerifiedRecipe.Equals(right.VerifiedRecipe) && left.BindingKind == right.BindingKind;
+		}
+
+		private static void DeleteMemberTracking(SQLiteConnection connection, SQLiteTransaction transaction,
+			CollectionTargetAssociation association, CollectionMemberKey memberKey)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"DELETE FROM member_bindings
+WHERE association_id=@association_id AND member_key_kind=@member_key_kind AND member_key_value=@member_key_value;";
+				command.Parameters.AddWithValue("@association_id", association.AssociationId.ToString("D"));
+				command.Parameters.AddWithValue("@member_key_kind", (int)memberKey.Kind);
+				command.Parameters.AddWithValue("@member_key_value", memberKey.Value);
+				if (command.ExecuteNonQuery() != 1)
+					throw new InvalidOperationException("The installed Collection member binding disappeared during removal publication.");
+			}
+			string[] tables = { "user_overrides", "drift_observations" };
+			foreach (string table in tables)
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "DELETE FROM " + table +
+						" WHERE association_id=@association_id AND member_key_kind=@member_key_kind AND member_key_value=@member_key_value;";
+					command.Parameters.AddWithValue("@association_id", association.AssociationId.ToString("D"));
+					command.Parameters.AddWithValue("@member_key_kind", (int)memberKey.Kind);
+					command.Parameters.AddWithValue("@member_key_value", memberKey.Value);
+					command.ExecuteNonQuery();
+				}
+			}
+		}
+
 		/// <summary>
 		/// Persists the current native-mod binding for one member of an existing exact association baseline.
 		/// </summary>
@@ -1122,6 +1357,16 @@ WHERE target_fingerprint=@target_fingerprint AND native_mod_key=@native_mod_key;
 			if (current == null || expected == null || current.AssociationId != expected.AssociationId ||
 				!current.Revision.Equals(expected.Revision) || !current.Target.Equals(expected.Target) || current.State != expected.State)
 				throw new InvalidOperationException(message);
+		}
+
+		private static void RequireMemberRemovalOperationAssociation(CollectionTargetAssociation association, CollectionOperation operation)
+		{
+			if (association == null)
+				throw new InvalidOperationException("The Collection association required by the installed-member removal no longer exists.");
+			if (operation == null || operation.Kind != CollectionOperationKind.RemoveCollectionMemberEffects || operation.Revision == null ||
+				!association.Revision.Equals(operation.Revision) || !association.Target.Equals(operation.Target) ||
+				!association.Revision.Collection.Equals(operation.Collection))
+				throw new InvalidOperationException("The installed-member removal operation no longer matches the persisted Collection association.");
 		}
 
 		private static void RequireOperationAssociation(CollectionTargetAssociation association, CollectionOperation operation)

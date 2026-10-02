@@ -286,5 +286,73 @@ namespace Nexus.Client.Tests
 				return association;
 			}
 		}
+
+		[Test]
+		public void ManagementMemberImpact_ExposesSharedPinsAndAutomaticRemovalProtection()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-impact");
+			NativeModInstanceIdentity nativeMod = new NativeModInstanceIdentity(target, "native-shared");
+			CollectionIdentity firstCollection = CollectionIdentity.FromNexus("impact-a");
+			CollectionIdentity secondCollection = CollectionIdentity.FromNexus("impact-b");
+			CollectionTargetAssociation firstAssociation = new CollectionTargetAssociation(Guid.NewGuid(),
+				CollectionRevisionIdentity.FromNexus(firstCollection, "revision-a", 1), target, CollectionAssociationState.Modified);
+			CollectionTargetAssociation secondAssociation = new CollectionTargetAssociation(Guid.NewGuid(),
+				CollectionRevisionIdentity.FromNexus(secondCollection, "revision-b", 2), target, CollectionAssociationState.Applied);
+			CollectionMemberKey firstKey = CollectionMemberKey.FromProvider("member-a");
+			CollectionMemberBinding firstBinding = new CollectionMemberBinding(firstAssociation, firstKey, nativeMod,
+				CollectionRecipeIdentity.FromFingerprint("recipe-a"), CollectionMemberBindingKind.InstalledForCollection);
+			CollectionMemberBinding secondBinding = new CollectionMemberBinding(secondAssociation,
+				CollectionMemberKey.FromProvider("member-b"), nativeMod,
+				CollectionRecipeIdentity.FromFingerprint("recipe-b"), CollectionMemberBindingKind.AdoptedExisting);
+			CollectionRequirementReference requirement = new CollectionRequirementReference(firstAssociation, firstKey,
+				CollectionRequirementAspect.InstallerRecipe, null);
+			UserOverride userOverride = new UserOverride(Guid.NewGuid(), requirement,
+				CollectionRequirementState.Present("recipe-v1", "recipe-a"),
+				CollectionRequirementState.Present("recipe-v1", "recipe-local"), "Keep local recipe");
+			var firstPin = new CollectionMemberPinImpact(firstBinding, new[] { userOverride }, new CollectionDriftObservation[0]);
+			var secondPin = new CollectionMemberPinImpact(secondBinding, new UserOverride[0], new CollectionDriftObservation[0]);
+
+			var impact = new CollectionManagementMemberImpact(firstBinding,
+				new NativeModProvenance(nativeMod, StandaloneModUse.ExplicitStandaloneUse), new[] { firstPin, secondPin });
+
+			Assert.AreEqual(firstBinding, impact.SelectedBinding);
+			Assert.AreEqual(2, impact.CollectionAssociationCount);
+			Assert.IsTrue(impact.IsSharedAcrossCollections);
+			Assert.IsTrue(impact.StandaloneUseProtectsFromAutomaticRemoval);
+			Assert.IsTrue(impact.HasAnyOverride);
+			Assert.IsFalse(impact.HasAnyDrift);
+			Assert.AreEqual(2, impact.Pins.Count);
+		}
+
+		[Test]
+		public void ManagementMemberPresentation_ExposesSharedStandaloneOverrideAndDriftState()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-a");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-a");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-a", 1);
+			CollectionTargetAssociation association = new CollectionTargetAssociation(Guid.NewGuid(), revision, target, CollectionAssociationState.Applied);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("member-42");
+			NativeModInstanceIdentity nativeMod = new NativeModInstanceIdentity(target, "native-42");
+			CollectionMemberBinding binding = new CollectionMemberBinding(association, memberKey, nativeMod,
+				CollectionRecipeIdentity.FromFingerprint("recipe-42"), CollectionMemberBindingKind.AdoptedExisting);
+			CollectionRequirementReference requirement = new CollectionRequirementReference(association, memberKey,
+				CollectionRequirementAspect.InstallerRecipe, null);
+			CollectionRequirementState baseline = CollectionRequirementState.Present("state/1", "baseline");
+			CollectionRequirementState chosen = CollectionRequirementState.Present("state/1", "chosen");
+			CollectionRequirementState observed = CollectionRequirementState.Present("state/1", "observed");
+			UserOverride userOverride = new UserOverride(Guid.NewGuid(), requirement, baseline, chosen, "Keep my options");
+			CollectionDriftObservation drift = new CollectionDriftObservation(Guid.NewGuid(), requirement, chosen, observed, "changed");
+
+			var presentation = new CollectionManagementMemberPresentation(binding,
+				new NativeModProvenance(nativeMod, StandaloneModUse.ExplicitStandaloneUse), 2,
+				new[] { userOverride }, new[] { drift });
+
+			Assert.AreEqual(memberKey, presentation.MemberKey);
+			Assert.IsTrue(presentation.IsSharedAcrossCollections);
+			Assert.AreEqual(StandaloneModUse.ExplicitStandaloneUse, presentation.Provenance.StandaloneUse);
+			Assert.IsTrue(presentation.HasExplicitLocalDecision);
+			Assert.IsTrue(presentation.HasDetectedDrift);
+		}
+
 	}
 }

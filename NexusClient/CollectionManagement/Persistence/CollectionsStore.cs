@@ -17,7 +17,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	/// </remarks>
 	public sealed class CollectionsStore
 	{
-		public const int CurrentSchemaVersion = 5;
+		public const int CurrentSchemaVersion = 9;
 		public const int BusyTimeoutMilliseconds = 5000;
 		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private const string SchemaName = "nmm-ce-collections";
@@ -391,6 +391,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				case 2:
 				case 3:
 				case 4:
+				case 5:
+				case 6:
+				case 7:
+				case 8:
 					return true;
 				default:
 					return false;
@@ -412,6 +416,18 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					return;
 				case 4:
 					ValidateSchemaVersion4(connection);
+					return;
+				case 5:
+					ValidateSchemaVersion5(connection);
+					return;
+				case 6:
+					ValidateSchemaVersion6(connection);
+					return;
+				case 7:
+					ValidateSchemaVersion7(connection);
+					return;
+				case 8:
+					ValidateSchemaVersion8(connection);
 					return;
 				default:
 					throw MigrationUnavailableException(version);
@@ -783,6 +799,60 @@ CREATE TABLE drift_observations (
 	CHECK (observed_state_kind > 0)
 );");
 				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE conflict_resolution_decisions (
+	decision_id TEXT NOT NULL PRIMARY KEY,
+	origin INTEGER NOT NULL,
+	collection_id TEXT NOT NULL,
+	revision_id TEXT NOT NULL,
+	target_fingerprint TEXT NOT NULL,
+	member_key_kind INTEGER NOT NULL,
+	member_key_value TEXT NOT NULL,
+	deployment_root INTEGER NOT NULL,
+	relative_path TEXT NOT NULL,
+	existing_owner_key TEXT NOT NULL,
+	decision_kind INTEGER NOT NULL,
+	note TEXT NULL,
+	FOREIGN KEY (origin, collection_id, revision_id) REFERENCES collection_revisions(origin, collection_id, revision_id) ON DELETE CASCADE,
+	CHECK (member_key_kind > 0),
+	CHECK (deployment_root >= 0),
+	CHECK (decision_kind > 0),
+	UNIQUE (origin, collection_id, revision_id, target_fingerprint, member_key_kind, member_key_value, deployment_root, relative_path, existing_owner_key)
+);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_conflict_resolution_target ON conflict_resolution_decisions(target_fingerprint, origin, collection_id, revision_id);");
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE local_working_copies (
+	local_origin INTEGER NOT NULL,
+	local_collection_id TEXT NOT NULL,
+	source_origin INTEGER NOT NULL,
+	source_collection_id TEXT NOT NULL,
+	source_revision_id TEXT NOT NULL,
+	source_input_kind INTEGER NOT NULL,
+	bundle_hash_value TEXT NOT NULL,
+	bundle_byte_length INTEGER NOT NULL,
+	manifest_entry_name TEXT NOT NULL,
+	manifest_hash_value TEXT NOT NULL,
+	manifest_byte_length INTEGER NOT NULL,
+	schema_identity TEXT NOT NULL,
+	normalizer_version TEXT NOT NULL,
+	base_manifest_artifact_id TEXT NOT NULL,
+	draft_manifest_artifact_id TEXT NULL,
+	base_bundle_artifact_id TEXT NULL,
+	created_utc TEXT NOT NULL,
+	updated_utc TEXT NOT NULL,
+	PRIMARY KEY (local_origin, local_collection_id),
+	FOREIGN KEY (local_origin, local_collection_id) REFERENCES collections(origin, collection_id) ON DELETE CASCADE,
+	FOREIGN KEY (source_origin, source_collection_id, source_revision_id) REFERENCES collection_revisions(origin, collection_id, revision_id) ON DELETE RESTRICT,
+	FOREIGN KEY (base_manifest_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	FOREIGN KEY (draft_manifest_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	FOREIGN KEY (base_bundle_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (local_origin = 2),
+	CHECK (source_origin > 0),
+	CHECK (source_input_kind > 0),
+	CHECK (bundle_byte_length >= 0),
+	CHECK (manifest_byte_length >= 0)
+);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_local_working_copies_source ON local_working_copies(source_origin, source_collection_id, source_revision_id);");
+				ExecuteSchemaStatement(connection, transaction, @"
 CREATE TABLE local_captures (
 	capture_id TEXT NOT NULL PRIMARY KEY,
 	origin INTEGER NOT NULL,
@@ -983,6 +1053,22 @@ CREATE TABLE native_operation_children (
 						MigrateVersion4To5(connection);
 						version = 5;
 						break;
+					case 5:
+						MigrateVersion5To6(connection);
+						version = 6;
+						break;
+					case 6:
+						MigrateVersion6To7(connection);
+						version = 7;
+						break;
+					case 7:
+						MigrateVersion7To8(connection);
+						version = 8;
+						break;
+					case 8:
+						MigrateVersion8To9(connection);
+						version = 9;
+						break;
 					default:
 						throw MigrationUnavailableException(version);
 				}
@@ -1092,6 +1178,108 @@ CREATE TABLE local_capture_packages (
 			}
 		}
 
+		private static void MigrateVersion5To6(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion5(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE conflict_resolution_decisions (
+	decision_id TEXT NOT NULL PRIMARY KEY,
+	origin INTEGER NOT NULL,
+	collection_id TEXT NOT NULL,
+	revision_id TEXT NOT NULL,
+	target_fingerprint TEXT NOT NULL,
+	member_key_kind INTEGER NOT NULL,
+	member_key_value TEXT NOT NULL,
+	deployment_root INTEGER NOT NULL,
+	relative_path TEXT NOT NULL,
+	existing_owner_key TEXT NOT NULL,
+	decision_kind INTEGER NOT NULL,
+	note TEXT NULL,
+	FOREIGN KEY (origin, collection_id, revision_id) REFERENCES collection_revisions(origin, collection_id, revision_id) ON DELETE CASCADE,
+	CHECK (member_key_kind > 0),
+	CHECK (deployment_root >= 0),
+	CHECK (decision_kind > 0),
+	UNIQUE (origin, collection_id, revision_id, target_fingerprint, member_key_kind, member_key_value, deployment_root, relative_path, existing_owner_key)
+);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_conflict_resolution_target ON conflict_resolution_decisions(target_fingerprint, origin, collection_id, revision_id);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "6");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=6;");
+				transaction.Commit();
+			}
+		}
+
+		private static void MigrateVersion6To7(SQLiteConnection connection)
+		{
+			// Schema 7 is a compatibility fence for the expanded C9 decision_kind enum. The table layout is unchanged,
+			// but older schema-6 binaries must refuse a store that may contain KeepExistingManagedFileWinner rows.
+			ValidateSchemaVersion6(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "7");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=7;");
+				transaction.Commit();
+			}
+		}
+
+		private static void MigrateVersion7To8(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion7(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE local_working_copies (
+	local_origin INTEGER NOT NULL,
+	local_collection_id TEXT NOT NULL,
+	source_origin INTEGER NOT NULL,
+	source_collection_id TEXT NOT NULL,
+	source_revision_id TEXT NOT NULL,
+	source_input_kind INTEGER NOT NULL,
+	bundle_hash_value TEXT NOT NULL,
+	bundle_byte_length INTEGER NOT NULL,
+	manifest_entry_name TEXT NOT NULL,
+	manifest_hash_value TEXT NOT NULL,
+	manifest_byte_length INTEGER NOT NULL,
+	schema_identity TEXT NOT NULL,
+	normalizer_version TEXT NOT NULL,
+	base_manifest_artifact_id TEXT NOT NULL,
+	base_bundle_artifact_id TEXT NULL,
+	created_utc TEXT NOT NULL,
+	updated_utc TEXT NOT NULL,
+	PRIMARY KEY (local_origin, local_collection_id),
+	FOREIGN KEY (local_origin, local_collection_id) REFERENCES collections(origin, collection_id) ON DELETE CASCADE,
+	FOREIGN KEY (source_origin, source_collection_id, source_revision_id) REFERENCES collection_revisions(origin, collection_id, revision_id) ON DELETE RESTRICT,
+	FOREIGN KEY (base_manifest_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	FOREIGN KEY (base_bundle_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (local_origin = 2),
+	CHECK (source_origin > 0),
+	CHECK (source_input_kind > 0),
+	CHECK (bundle_byte_length >= 0),
+	CHECK (manifest_byte_length >= 0)
+);");
+				ExecuteSchemaStatement(connection, transaction, "CREATE INDEX ix_local_working_copies_source ON local_working_copies(source_origin, source_collection_id, source_revision_id);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "8");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=8;");
+				transaction.Commit();
+			}
+		}
+
+		private static void MigrateVersion8To9(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion8(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction,
+					"ALTER TABLE local_working_copies ADD COLUMN draft_manifest_artifact_id TEXT NULL REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT;");
+				ExecuteNonQuery(connection, transaction,
+					"UPDATE local_working_copies SET draft_manifest_artifact_id=base_manifest_artifact_id WHERE draft_manifest_artifact_id IS NULL;");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "9");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=9;");
+				transaction.Commit();
+			}
+		}
+
 		private static int ReadAndValidateVersion(SQLiteConnection connection)
 		{
 			RequireTable(connection, "store_metadata", "key", "value");
@@ -1119,6 +1307,72 @@ CREATE TABLE local_capture_packages (
 				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
 					"Collections store schema {0} is not the supported schema {1}.", version, CurrentSchemaVersion));
 
+			ValidateSchemaVersion9Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion8(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 8)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 8.", version));
+			ValidateSchemaVersion8Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion7(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 7)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 7.", version));
+			ValidateSchemaVersion6Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion9Tables(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion8Tables(connection);
+			RequireTable(connection, "local_working_copies", "draft_manifest_artifact_id");
+		}
+
+		private static void ValidateSchemaVersion8Tables(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion6Tables(connection);
+			RequireTable(connection, "local_working_copies", "local_origin", "local_collection_id", "source_origin",
+				"source_collection_id", "source_revision_id", "source_input_kind", "bundle_hash_value",
+				"bundle_byte_length", "manifest_entry_name", "manifest_hash_value", "manifest_byte_length",
+				"schema_identity", "normalizer_version", "base_manifest_artifact_id", "base_bundle_artifact_id",
+				"created_utc", "updated_utc");
+			RequireIndex(connection, "ix_local_working_copies_source");
+		}
+
+		private static void ValidateSchemaVersion6(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 6)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 6.", version));
+			ValidateSchemaVersion6Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion6Tables(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion5Tables(connection);
+			RequireTable(connection, "conflict_resolution_decisions", "decision_id", "origin", "collection_id", "revision_id",
+				"target_fingerprint", "member_key_kind", "member_key_value", "deployment_root", "relative_path", "existing_owner_key", "decision_kind", "note");
+			RequireIndex(connection, "ix_conflict_resolution_target");
+		}
+
+		private static void ValidateSchemaVersion5(SQLiteConnection connection)
+		{
+			int version = ReadAndValidateVersion(connection);
+			if (version != 5)
+				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
+					"Collections store schema {0} is not the expected migration source schema 5.", version));
+			ValidateSchemaVersion5Tables(connection);
+		}
+
+		private static void ValidateSchemaVersion5Tables(SQLiteConnection connection)
+		{
 			ValidateSchemaVersion4Tables(connection);
 			RequireTable(connection, "local_capture_packages", "capture_id", "capture_schema_version", "capability_version",
 				"package_format_version", "package_artifact_id");

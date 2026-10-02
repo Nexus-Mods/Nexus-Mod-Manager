@@ -1949,6 +1949,16 @@ namespace Nexus.Client.ModManagement.UI
 
 		#region Mod Activation
 
+		/// <summary>Focuses and selects one managed mod in the legacy category/mod list.</summary>
+		public void FocusMod(IMod mod)
+		{
+			if (mod == null)
+				return;
+			clwCategoryView.SelectObject(mod, true);
+			clwCategoryView.EnsureModelVisible(mod);
+			clwCategoryView.Focus();
+		}
+
 		/// <summary>
 		/// Handles the <see cref="ModManagerVM.DisablingMultipleMods"/> event of the view model.
 		/// </summary>

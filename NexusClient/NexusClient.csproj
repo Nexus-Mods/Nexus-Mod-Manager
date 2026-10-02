@@ -123,7 +123,9 @@
     <Compile Include="CollectionManagement\CollectionScriptedReplayCaptureService.cs" />
     <Compile Include="CollectionManagement\CollectionScriptedReplaySnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionInstalledIdentitySnapshot.cs" />
+    <Compile Include="CollectionManagement\CollectionInstalledMemberRemovalCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionManualMutationDriftCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionMemberRequirementStates.cs" />
     <Compile Include="CollectionManagement\CollectionManualNativeMutationBoundary.cs" />
     <Compile Include="CollectionManagement\CollectionPinOverrideCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionDetachCoordinator.cs" />
@@ -176,12 +178,15 @@
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlan.cs" />
+    <Compile Include="CollectionManagement\CollectionConflictResolutionDecision.cs" />
+    <Compile Include="CollectionManagement\CollectionConflictResolutionCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowRuntime.cs" />
     <Compile Include="CollectionManagement\CollectionAdditiveWorkflowCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionAdditiveApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionManagementApplicationService.cs" />
+    <Compile Include="CollectionManagement\CollectionLocalWorkingCopyEditor.cs" />
     <Compile Include="CollectionManagement\CollectionAdditiveFinalStateVerifier.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedFileWinnerReconciliationCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionOperationCoordinator.cs" />
@@ -248,8 +253,10 @@
     <Compile Include="CollectionManagement\Persistence\CollectionsStoreBootstrap.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsCatalogStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsLocalCaptureStore.cs" />
+    <Compile Include="CollectionManagement\Persistence\CollectionsLocalWorkingCopyStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsRevisionSourceStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsAssociationStore.cs" />
+    <Compile Include="CollectionManagement\Persistence\CollectionsConflictResolutionStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsAssociationTargetSnapshot.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsOperationStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionResolvedPlanRecord.cs" />
@@ -262,11 +269,15 @@
     <Compile Include="CollectionManagement\Persistence\CollectionsRetainedArtifactReferenceRecord.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsRetainedArtifactReferenceStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsRetainedArtifactCleanupStore.cs" />
+    <Compile Include="CollectionManagement\UI\CollectionMemberListPresentation.cs" />
     <Compile Include="CollectionManagement\UI\CollectionReviewPresentation.cs" />
     <Compile Include="CollectionManagement\UI\CollectionTechnicalReport.cs" />
     <Compile Include="CollectionManagement\UI\CollectionUserMessagePresentation.cs" />
     <Compile Include="CollectionManagement\UI\CollectionUiContext.cs" />
     <Compile Include="CollectionManagement\UI\CollectionWorkflowActivity.cs" />
+    <Compile Include="CollectionManagement\UI\CollectionLocalWorkingCopyEditorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.cs">
       <SubType>Form</SubType>
     </Compile>

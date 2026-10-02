@@ -88,6 +88,146 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PreserveExistingManagedWinner_RestoresReviewedExternalOwnerAfterIncomingWritersExist()
+		{
+			using (Fixture fixture = CreateFixture(true, true))
+			{
+				fixture.SetOwner("owner-b", true);
+				int switches = 0;
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						switches++;
+						Assert.AreEqual("owner-c", args[1]);
+						fixture.SetOwner("owner-c", true);
+					}
+					return null;
+				});
+				fixture.VirtualService = InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null);
+
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(1, switches);
+				Assert.AreEqual("owner-c", result.Winners.Single().DesiredOwnerKey);
+				Assert.AreEqual("owner-c", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.SwitchedAndVerified, result.Winners.Single().Outcome);
+			}
+		}
+
+		[Test]
+		public void PreserveExistingManagedWinner_UsesVirtualOwnerSwitchForOrdinaryVirtualTarget()
+		{
+			using (Fixture fixture = CreateFixture(false, true))
+			{
+				fixture.SetOwner("owner-b", true);
+				int virtualSwitches = 0;
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner") throw new AssertionException("Ordinary Virtual preservation must not use promoted switching.");
+					return null;
+				});
+				fixture.VirtualService = InterfaceStub<IVirtualDeploymentService>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchFileOwner")
+					{
+						virtualSwitches++;
+						Assert.AreEqual("owner-c", args[1]);
+						fixture.SetOwner("owner-c", true);
+						return VirtualFileOwnerSwitchResult.Succeeded((string)args[0], (string)args[1]);
+					}
+					return null;
+				});
+
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(1, virtualSwitches);
+				Assert.AreEqual(CollectionReviewedFileWinnerDispatchKind.Virtual, result.Winners.Single().DispatchKind);
+				Assert.AreEqual("owner-c", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+			}
+		}
+
+		[Test]
+		public void PreserveExistingManagedWinner_MultiWriterPlacesReviewedCollectionWinnerDirectlyUnderExistingOwner()
+		{
+			using (Fixture fixture = CreateFixture(true, true, true))
+			{
+				fixture.SetOwner("owner-a", true);
+				var switched = new List<string>();
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						string owner = (string)args[1];
+						switched.Add(owner);
+						fixture.SwitchOwner(owner);
+					}
+					return null;
+				});
+				fixture.VirtualService = InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null);
+
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				CollectionAssert.AreEqual(new[] { "owner-b", "owner-c" }, switched);
+				Assert.AreEqual("owner-c", result.Winners.Single().DesiredOwnerKey);
+				CollectionNativeFileState final = fixture.CurrentState.Files[fixture.FileTarget];
+				Assert.AreEqual("owner-c", final.EffectiveOwnerKey);
+				CollectionAssert.AreEqual(new[] { "owner-a", "owner-b", "owner-c" },
+					final.DeploymentOwners.Select(x => x.OwnerKey).ToArray());
+			}
+		}
+
+		[Test]
+		public void PreserveExistingManagedWinner_MultiWriterRestartResumesFromExactFallbackIntermediateState()
+		{
+			using (Fixture fixture = CreateFixture(true, true, true))
+			{
+				fixture.SetOwner("owner-a", true);
+				int firstRunSwitches = 0;
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						firstRunSwitches++;
+						string owner = (string)args[1];
+						if (owner == "owner-b")
+						{
+							fixture.SwitchOwner("owner-b");
+							return null;
+						}
+						throw new IOException("Injected failure after durable fallback switch.");
+					}
+					return null;
+				});
+				Assert.Throws<IOException>(() => fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
+				Assert.AreEqual(2, firstRunSwitches);
+				Assert.AreEqual("owner-b", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+
+				var restartedSwitches = new List<string>();
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						string owner = (string)args[1];
+						restartedSwitches.Add(owner);
+						fixture.SwitchOwner(owner);
+					}
+					return null;
+				});
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				CollectionAssert.AreEqual(new[] { "owner-c" }, restartedSwitches);
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.SwitchedAndVerified, result.Winners.Single().Outcome);
+				Assert.AreEqual("owner-c", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+			}
+		}
+
+		[Test]
 		public void FailureBeforeWinnerSwitch_RestartRetriesPersistedIntentFromExactPreimageOnce()
 		{
 			using (Fixture fixture = CreateFixture(true))
@@ -250,7 +390,7 @@ namespace NexusClientTests
 			}
 		}
 
-		private static Fixture CreateFixture(bool promoted)
+		private static Fixture CreateFixture(bool promoted, bool preserveExternalWinner = false, bool preserveExternalWithMultipleWriters = false)
 		{
 			string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-11-" + Guid.NewGuid().ToString("N"));
 			Directory.CreateDirectory(root);
@@ -269,7 +409,7 @@ namespace NexusClientTests
 				CollectionManifestMemberSetCompleteness.Complete, null, new[] { memberA, memberB });
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			ModDeploymentTarget fileTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "meshes\\winner.bin");
-			CollectionNativeStateIndex initialState = BuildState(target, fileTarget, promoted, "owner-a", false);
+			CollectionNativeStateIndex initialState = BuildState(target, fileTarget, promoted, preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner);
 			CollectionPlanIdentity planIdentity = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
 			var plan = new ResolvedCollectionPlan(planIdentity, target, CollectionExecutionPolicy.InstallIntoCurrentSetup(), initialState.Fingerprint,
 				report, new[]
@@ -278,8 +418,12 @@ namespace NexusClientTests
 					new ResolvedCollectionMemberPlan(memberB, CollectionResolvedArtifactChoice.Exact(memberB.Artifact))
 				});
 			CollectionMemberMatchSet matches = BuildMatches(plan, initialState, memberA, memberB);
+			IEnumerable<CollectionMemberKey> fileWriters = preserveExternalWinner && !preserveExternalWithMultipleWriters
+				? new[] { memberB.IdentityResolution.Key }
+				: new[] { memberA.IdentityResolution.Key, memberB.IdentityResolution.Key };
 			var impactPlan = new CollectionConflictImpactPlan(plan, initialState,
-				new[] { new CollectionFileImpact(fileTarget, new[] { memberA.IdentityResolution.Key, memberB.IdentityResolution.Key }, memberB.IdentityResolution.Key, "owner-a", new Guid[0]) },
+				new[] { new CollectionFileImpact(fileTarget, fileWriters, memberB.IdentityResolution.Key,
+					preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner, new Guid[0]) },
 				new CollectionPluginImpact[0], new CollectionConfigurationImpact[0], new CollectionAssociationImpact[0], new CollectionConflictImpactIssue[0]);
 			CollectionDependencyPhasePlan dependencyPlan = new CollectionDependencyPhasePlanner().Plan(plan, matches);
 			Assert.IsTrue(dependencyPlan.IsReady);
@@ -300,7 +444,7 @@ namespace NexusClientTests
 		}
 
 		private static CollectionNativeStateIndex BuildState(CollectionTargetIdentity target, ModDeploymentTarget fileTarget,
-			bool promoted, string ownerKey, bool includeThirdOwner)
+			bool promoted, string ownerKey, bool includeThirdOwner, IEnumerable<string> explicitOwnerOrder = null)
 		{
 			var modA = new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner-a"), "a.zip", "a.zip", "1", "1", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
 			var modB = new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner-b"), "b.zip", "b.zip", "2", "2", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
@@ -311,11 +455,23 @@ namespace NexusClientTests
 			var ownerC = new CollectionNativeOwnerState("owner-c", null, CollectionNativeOwnerKind.NativeMod, true, 0, "c");
 			var allOwners = new List<CollectionNativeOwnerState> { ownerA, ownerB };
 			if (includeThirdOwner) allOwners.Add(ownerC);
-			CollectionNativeOwnerState effectiveOwner = allOwners.Single(x =>
-				x.OwnerKey.Equals(ownerKey, StringComparison.OrdinalIgnoreCase));
-			allOwners.Remove(effectiveOwner);
-			allOwners.Add(effectiveOwner);
-			CollectionNativeOwnerState[] ownerStack = allOwners.ToArray();
+			CollectionNativeOwnerState[] ownerStack;
+			if (explicitOwnerOrder == null)
+			{
+				CollectionNativeOwnerState effectiveOwner = allOwners.Single(x =>
+					x.OwnerKey.Equals(ownerKey, StringComparison.OrdinalIgnoreCase));
+				allOwners.Remove(effectiveOwner);
+				allOwners.Add(effectiveOwner);
+				ownerStack = allOwners.ToArray();
+			}
+			else
+			{
+				var order = explicitOwnerOrder.ToList();
+				if (order.Count == 0 || !StringComparer.OrdinalIgnoreCase.Equals(order[order.Count - 1], ownerKey) ||
+					order.Count != allOwners.Count || order.Distinct(StringComparer.OrdinalIgnoreCase).Count() != order.Count)
+					throw new ArgumentException("Explicit owner order must contain every owner exactly once and end with the effective owner.", nameof(explicitOwnerOrder));
+				ownerStack = order.Select(key => allOwners.Single(x => StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, key))).ToArray();
+			}
 			var file = new CollectionNativeFileState(fileTarget, "C:\\Game\\Data\\meshes\\winner.bin", promoted, promoted, !promoted, ownerKey,
 				new CollectionNativeOwnerState[0], promoted ? ownerStack : new CollectionNativeOwnerState[0], promoted ? new CollectionNativeOwnerState[0] : ownerStack);
 			return new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], mods, new[] { file },
@@ -386,6 +542,20 @@ namespace NexusClientTests
 			public void SetOwner(string ownerKey, bool includeThirdOwner)
 			{
 				CurrentState = BuildState(Target, FileTarget, _promoted, ownerKey, includeThirdOwner);
+			}
+
+			public void SwitchOwner(string ownerKey)
+			{
+				CollectionNativeFileState file = CurrentState.Files[FileTarget];
+				IEnumerable<CollectionNativeOwnerState> source = _promoted ? file.DeploymentOwners : file.VirtualOwners;
+				var order = source.Select(x => x.OwnerKey).ToList();
+				int index = order.FindIndex(x => StringComparer.OrdinalIgnoreCase.Equals(x, ownerKey));
+				if (index < 0) throw new InvalidOperationException("The requested test owner is not present in the current stack.");
+				string selected = order[index];
+				order.RemoveAt(index);
+				order.Add(selected);
+				CurrentState = BuildState(Target, FileTarget, _promoted, selected,
+					order.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x, "owner-c")), order);
 			}
 
 			public CollectionReviewedFileWinnerReconciliationCoordinator CreateCoordinator()

@@ -61,8 +61,6 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionManualMutationDriftCoordinator
 	{
-		private const string ParticipationFormat = "participation-v1";
-		private const string EnabledFormat = "bool-v1";
 		private readonly CollectionsAssociationStore _associationStore;
 		private readonly CollectionTargetIdentity _target;
 
@@ -159,10 +157,10 @@ namespace Nexus.Client.CollectionManagement
 						CollectionRequirementReference requirement = new CollectionRequirementReference(association,
 							binding.MemberKey, aspect, null);
 						CollectionRequirementState baseline = aspect == CollectionRequirementAspect.MemberEnabledState
-							? CollectionRequirementState.Present(EnabledFormat, "enabled")
-							: CollectionRequirementState.Present(ParticipationFormat, "included");
+							? CollectionMemberRequirementStates.Enabled(true)
+							: CollectionMemberRequirementStates.Included();
 						CollectionRequirementState observed = aspect == CollectionRequirementAspect.MemberEnabledState
-							? CollectionRequirementState.Present(EnabledFormat, "disabled")
+							? CollectionMemberRequirementStates.Enabled(false)
 							: CollectionRequirementState.Absent();
 						CollectionRequirementState expected = ResolveExpectedState(requirement, baseline);
 						if (expected.Equals(observed))

@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
+using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -42,6 +43,80 @@ namespace Nexus.Client.CollectionManagement
 	}
 
 	/// <summary>
+	/// Read-only C9 presentation of one installed Collection member and the provenance/customization that protects it.
+	/// </summary>
+	public sealed class CollectionManagementMemberPresentation
+	{
+		private readonly ReadOnlyCollection<UserOverride> _userOverrides;
+		private readonly ReadOnlyCollection<CollectionDriftObservation> _driftObservations;
+
+		internal CollectionManagementMemberPresentation(CollectionMemberBinding binding, NativeModProvenance provenance,
+			int collectionAssociationCount, IEnumerable<UserOverride> userOverrides,
+			IEnumerable<CollectionDriftObservation> driftObservations)
+		{
+			Binding = binding ?? throw new ArgumentNullException(nameof(binding));
+			Provenance = provenance ?? throw new ArgumentNullException(nameof(provenance));
+			if (!Binding.NativeMod.Equals(Provenance.NativeMod))
+				throw new ArgumentException("The member presentation provenance must describe the bound native mod.", nameof(provenance));
+			if (collectionAssociationCount < 1)
+				throw new ArgumentOutOfRangeException(nameof(collectionAssociationCount));
+
+			List<UserOverride> overrides = (userOverrides ?? throw new ArgumentNullException(nameof(userOverrides))).ToList();
+			List<CollectionDriftObservation> drift = (driftObservations ?? throw new ArgumentNullException(nameof(driftObservations))).ToList();
+			if (overrides.Any(x => x == null || x.Requirement.AssociationId != binding.Association.AssociationId ||
+				x.Requirement.MemberKey == null || !x.Requirement.MemberKey.Equals(binding.MemberKey)))
+				throw new ArgumentException("Every member presentation override must belong to the exact Collection member binding.", nameof(userOverrides));
+			if (drift.Any(x => x == null || x.Requirement.AssociationId != binding.Association.AssociationId ||
+				x.Requirement.MemberKey == null || !x.Requirement.MemberKey.Equals(binding.MemberKey)))
+				throw new ArgumentException("Every member presentation drift observation must belong to the exact Collection member binding.", nameof(driftObservations));
+
+			CollectionAssociationCount = collectionAssociationCount;
+			_userOverrides = new ReadOnlyCollection<UserOverride>(overrides);
+			_driftObservations = new ReadOnlyCollection<CollectionDriftObservation>(drift);
+		}
+
+		public CollectionMemberBinding Binding { get; }
+		public CollectionMemberKey MemberKey { get { return Binding.MemberKey; } }
+		public NativeModInstanceIdentity NativeMod { get { return Binding.NativeMod; } }
+		public NativeModProvenance Provenance { get; }
+		public int CollectionAssociationCount { get; }
+		public bool IsSharedAcrossCollections { get { return CollectionAssociationCount > 1; } }
+		public ReadOnlyCollection<UserOverride> UserOverrides { get { return _userOverrides; } }
+		public ReadOnlyCollection<CollectionDriftObservation> DriftObservations { get { return _driftObservations; } }
+		public bool HasExplicitLocalDecision { get { return _userOverrides.Count > 0; } }
+		public bool HasDetectedDrift { get { return _driftObservations.Count > 0; } }
+	}
+
+	/// <summary>Detailed C9 pin/provenance impact for one installed Collection member.</summary>
+	public sealed class CollectionManagementMemberImpact
+	{
+		private readonly ReadOnlyCollection<CollectionMemberPinImpact> _pins;
+
+		internal CollectionManagementMemberImpact(CollectionMemberBinding selectedBinding, NativeModProvenance provenance,
+			IEnumerable<CollectionMemberPinImpact> pins)
+		{
+			SelectedBinding = selectedBinding ?? throw new ArgumentNullException(nameof(selectedBinding));
+			Provenance = provenance ?? throw new ArgumentNullException(nameof(provenance));
+			if (!SelectedBinding.NativeMod.Equals(Provenance.NativeMod))
+				throw new ArgumentException("The member-impact provenance must describe the selected native mod.", nameof(provenance));
+			List<CollectionMemberPinImpact> copied = (pins ?? throw new ArgumentNullException(nameof(pins))).ToList();
+			if (!copied.Any(x => x.Binding.Association.AssociationId == SelectedBinding.Association.AssociationId &&
+				x.Binding.MemberKey.Equals(SelectedBinding.MemberKey)))
+				throw new ArgumentException("The member-impact pin set must contain the selected Collection binding.", nameof(pins));
+			_pins = new ReadOnlyCollection<CollectionMemberPinImpact>(copied);
+		}
+
+		public CollectionMemberBinding SelectedBinding { get; }
+		public NativeModProvenance Provenance { get; }
+		public IReadOnlyList<CollectionMemberPinImpact> Pins { get { return _pins; } }
+		public int CollectionAssociationCount { get { return _pins.Select(x => x.Binding.Association.AssociationId).Distinct().Count(); } }
+		public bool IsSharedAcrossCollections { get { return CollectionAssociationCount > 1; } }
+		public bool StandaloneUseProtectsFromAutomaticRemoval { get { return Provenance.StandaloneUseProtectsFromAutomaticRemoval; } }
+		public bool HasAnyOverride { get { return _pins.Any(x => x.HasExplicitLocalDecision); } }
+		public bool HasAnyDrift { get { return _pins.Any(x => x.HasDetectedDrift); } }
+	}
+
+	/// <summary>
 	/// Read-only durable presentation data for one installed Collection association.
 	/// </summary>
 	/// <remarks>
@@ -52,13 +127,22 @@ namespace Nexus.Client.CollectionManagement
 	{
 		internal CollectionManagementAssociationPresentation(CollectionManagementAssociation association,
 			CollectionDefinition definition, CollectionRevision revision, NexusCollectionBundleImportResult retainedManifest,
-			IEnumerable<CollectionMemberKey> boundMemberKeys, string nexusGameDomain, string retainedSourceIssue)
+			IEnumerable<CollectionManagementMemberPresentation> members, CollectionAssociationCustomization customization,
+			string nexusGameDomain, string retainedSourceIssue)
 		{
 			Association = association ?? throw new ArgumentNullException(nameof(association));
 			Definition = definition;
 			Revision = revision;
 			RetainedManifest = retainedManifest;
-			BoundMemberKeys = new ReadOnlyCollection<CollectionMemberKey>((boundMemberKeys ?? Enumerable.Empty<CollectionMemberKey>()).ToList());
+			List<CollectionManagementMemberPresentation> copiedMembers = (members ?? Enumerable.Empty<CollectionManagementMemberPresentation>()).ToList();
+			if (copiedMembers.Any(x => x == null || x.Binding.Association.AssociationId != association.AssociationId))
+				throw new ArgumentException("Every managed member presentation must belong to the exact installed Collection association.", nameof(members));
+			Members = new ReadOnlyCollection<CollectionManagementMemberPresentation>(copiedMembers);
+			BoundMemberKeys = new ReadOnlyCollection<CollectionMemberKey>(copiedMembers.Select(x => x.MemberKey).ToList());
+			Customization = customization ?? new CollectionAssociationCustomization(association.Association,
+				Enumerable.Empty<UserOverride>(), Enumerable.Empty<CollectionDriftObservation>());
+			if (Customization.AssociationId != association.AssociationId)
+				throw new ArgumentException("The managed Collection customization snapshot must belong to the presented association.", nameof(customization));
 			NexusGameDomain = String.IsNullOrWhiteSpace(nexusGameDomain) ? null : nexusGameDomain.Trim().ToLowerInvariant();
 			RetainedSourceIssue = retainedSourceIssue;
 		}
@@ -67,7 +151,9 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionDefinition Definition { get; }
 		public CollectionRevision Revision { get; }
 		public NexusCollectionBundleImportResult RetainedManifest { get; }
+		public IReadOnlyList<CollectionManagementMemberPresentation> Members { get; }
 		public IReadOnlyList<CollectionMemberKey> BoundMemberKeys { get; }
+		public CollectionAssociationCustomization Customization { get; }
 		public string NexusGameDomain { get; }
 		public string RetainedSourceIssue { get; }
 		public bool HasRetainedManifest { get { return RetainedManifest != null; } }
@@ -95,6 +181,40 @@ namespace Nexus.Client.CollectionManagement
 		}
 	}
 
+	/// <summary>One mutable Local Collection working copy cloned from an exact retained source revision.</summary>
+	public sealed class CollectionManagementLocalWorkingCopy
+	{
+		internal CollectionManagementLocalWorkingCopy(CollectionLocalWorkingCopyRecord record, CollectionDefinition definition,
+			CollectionDefinition sourceDefinition, CollectionRevision sourceRevision)
+		{
+			Record = record ?? throw new ArgumentNullException(nameof(record));
+			Definition = definition ?? throw new ArgumentNullException(nameof(definition));
+			if (!Definition.Identity.Equals(Record.Collection))
+				throw new ArgumentException("The Local working-copy definition must match the durable working-copy identity.", nameof(definition));
+			SourceDefinition = sourceDefinition;
+			SourceRevision = sourceRevision ?? throw new ArgumentNullException(nameof(sourceRevision));
+			if (!SourceRevision.Identity.Equals(Record.SourceRevision))
+				throw new ArgumentException("The Local working-copy source revision metadata must match the durable source identity.", nameof(sourceRevision));
+		}
+
+		public CollectionLocalWorkingCopyRecord Record { get; }
+		public CollectionDefinition Definition { get; }
+		public CollectionDefinition SourceDefinition { get; }
+		public CollectionRevision SourceRevision { get; }
+		public CollectionIdentity Collection { get { return Record.Collection; } }
+		public string DisplayName { get { return String.IsNullOrWhiteSpace(Definition.DisplayName) ? Collection.StableId : Definition.DisplayName; } }
+		public string SourceDisplayName { get { return SourceDefinition == null || String.IsNullOrWhiteSpace(SourceDefinition.DisplayName) ? Record.SourceRevision.Collection.StableId : SourceDefinition.DisplayName; } }
+		public bool HasRetainedBundle { get { return !String.IsNullOrEmpty(Record.BaseSource.RawBundleArtifactId); } }
+
+		public override string ToString()
+		{
+			string revision = SourceRevision.Identity.NexusRevisionNumber.HasValue
+				? "Revision " + SourceRevision.Identity.NexusRevisionNumber.Value
+				: (String.IsNullOrWhiteSpace(SourceRevision.RevisionLabel) ? "Local revision " + SourceRevision.Identity.StableRevisionId : SourceRevision.RevisionLabel);
+			return DisplayName + " [working copy of " + SourceDisplayName + " - " + revision + "]";
+		}
+	}
+
 	/// <summary>
 	/// Application-level route for basic installed-Collection management over the existing C6.13/C6.14 coordinators.
 	/// </summary>
@@ -113,7 +233,10 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
 		private readonly CollectionUninstallEffectsCoordinator _uninstallCoordinator;
+		private readonly CollectionInstalledMemberRemovalCoordinator _memberRemovalCoordinator;
 		private readonly CollectionsLocalCaptureStore _localCaptureStore;
+		private readonly CollectionsLocalWorkingCopyStore _localWorkingCopyStore;
+		private readonly CollectionLocalWorkingCopyEditor _localWorkingCopyEditor;
 		private readonly CollectionLocalRestoreMemberResumeCoordinator _localRestoreResumeCoordinator;
 		private readonly CollectionLocalRestoreApplicationService _localRestoreWorkflow;
 		private readonly CollectionReplacementRecoveryCoordinator _replacementRecovery;
@@ -133,7 +256,11 @@ namespace Nexus.Client.CollectionManagement
 			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
 			_uninstallCoordinator = new CollectionUninstallEffectsCoordinator(_services, _gameStorageService,
 				_operationStore, _associationStore);
+			_memberRemovalCoordinator = new CollectionInstalledMemberRemovalCoordinator(_services, _gameStorageService,
+				_operationStore, _associationStore);
 			_localCaptureStore = new CollectionsLocalCaptureStore(_store);
+			_localWorkingCopyStore = new CollectionsLocalWorkingCopyStore(_store);
+			_localWorkingCopyEditor = new CollectionLocalWorkingCopyEditor(_store);
 			var artifactStore = new CollectionsRetainedArtifactStore(_store);
 			var referenceStore = new CollectionsRetainedArtifactReferenceStore(_store);
 			_localRestoreResumeCoordinator = new CollectionLocalRestoreMemberResumeCoordinator(_services, _gameStorageService,
@@ -181,7 +308,8 @@ namespace Nexus.Client.CollectionManagement
 				return null;
 
 			CollectionTargetIdentity target = ResolveCurrentTarget();
-			CollectionTargetAssociation association = _associationStore.GetAssociationsForTarget(target)
+			CollectionsAssociationTargetSnapshot targetSnapshot = _associationStore.GetTargetSnapshot(target);
+			CollectionTargetAssociation association = targetSnapshot.Associations
 				.FirstOrDefault(x => x.AssociationId == associationId);
 			if (association == null)
 				return null;
@@ -222,10 +350,35 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
-			IReadOnlyList<CollectionMemberBinding> bindings = _associationStore.GetBindings(associationId);
+			List<CollectionMemberBinding> bindings = targetSnapshot.Bindings
+				.Where(x => x.Association.AssociationId == associationId)
+				.OrderBy(x => x.MemberKey.ToString(), StringComparer.Ordinal).ToList();
+			List<UserOverride> overrides = targetSnapshot.Overrides
+				.Where(x => x.Requirement.AssociationId == associationId).ToList();
+			List<CollectionDriftObservation> drift = targetSnapshot.DriftObservations
+				.Where(x => x.Requirement.AssociationId == associationId).ToList();
+			var provenanceByNative = targetSnapshot.NativeModProvenance
+				.ToDictionary(x => x.NativeMod, x => x);
+			var associationCountsByNative = targetSnapshot.Bindings
+				.GroupBy(x => x.NativeMod)
+				.ToDictionary(x => x.Key, x => x.Select(y => y.Association.AssociationId).Distinct().Count());
+			var memberPresentations = new List<CollectionManagementMemberPresentation>();
+			foreach (CollectionMemberBinding binding in bindings)
+			{
+				NativeModProvenance provenance;
+				if (!provenanceByNative.TryGetValue(binding.NativeMod, out provenance))
+					provenance = new NativeModProvenance(binding.NativeMod, StandaloneModUse.Unknown);
+				int associationCount;
+				if (!associationCountsByNative.TryGetValue(binding.NativeMod, out associationCount))
+					associationCount = 1;
+				memberPresentations.Add(new CollectionManagementMemberPresentation(binding, provenance, associationCount,
+					overrides.Where(x => x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(binding.MemberKey)),
+					drift.Where(x => x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(binding.MemberKey))));
+			}
+			CollectionAssociationCustomization customization = new CollectionAssociationCustomization(association, overrides, drift);
 			string gameDomain = _services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName;
 			return new CollectionManagementAssociationPresentation(managedAssociation, definition, revision, retainedManifest,
-				bindings.Select(x => x.MemberKey), gameDomain, retainedSourceIssue);
+				memberPresentations, customization, gameDomain, retainedSourceIssue);
 		}
 
 		/// <summary>Returns persisted Local Collection captures belonging to the current canonical target.</summary>
@@ -247,6 +400,95 @@ namespace Nexus.Client.CollectionManagement
 				.ThenBy(x => x.RevisionLabel, StringComparer.CurrentCultureIgnoreCase).ToList());
 		}
 
+		/// <summary>Returns mutable Local Collection working copies persisted in this game/storage Collections store.</summary>
+		public IReadOnlyList<CollectionManagementLocalWorkingCopy> GetLocalWorkingCopies()
+		{
+			if (!_store.Exists)
+				return new CollectionManagementLocalWorkingCopy[0];
+			var result = new List<CollectionManagementLocalWorkingCopy>();
+			foreach (CollectionLocalWorkingCopyRecord record in _localWorkingCopyStore.GetAll())
+			{
+				CollectionDefinition definition = _catalogStore.GetDefinition(record.Collection);
+				CollectionDefinition sourceDefinition = _catalogStore.GetDefinition(record.SourceRevision.Collection);
+				CollectionRevision sourceRevision = _catalogStore.GetRevision(record.SourceRevision);
+				if (definition == null || sourceRevision == null)
+					throw new CollectionsStoreSchemaException("A Local Collection working copy is missing required catalog metadata.");
+				result.Add(new CollectionManagementLocalWorkingCopy(record, definition, sourceDefinition, sourceRevision));
+			}
+			return new ReadOnlyCollection<CollectionManagementLocalWorkingCopy>(result
+				.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+				.ThenBy(x => x.Collection.StableId, StringComparer.Ordinal).ToList());
+		}
+
+		/// <summary>Clones one installed immutable Collection revision into a new NMM-owned mutable Local working copy.</summary>
+		/// <remarks>This copies Collections recipe intent only; it never changes installed mods, associations, or native effects.</remarks>
+		public CollectionManagementLocalWorkingCopy CloneAssociationToLocalWorkingCopy(Guid associationId, string displayName)
+		{
+			displayName = CollectionDomainValidation.RequireDisplayValue(displayName, nameof(displayName));
+			if (associationId == Guid.Empty)
+				throw new ArgumentException("A non-empty association identifier is required.", nameof(associationId));
+			if (!_store.Exists)
+				throw new InvalidOperationException("No durable Collections store exists for this target.");
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			CollectionTargetAssociation association = _associationStore.GetAssociationsForTarget(target)
+				.SingleOrDefault(x => x.AssociationId == associationId);
+			if (association == null)
+				throw new InvalidOperationException("The selected installed Collection association is no longer present on this target.");
+
+			CollectionRevision sourceRevision = _catalogStore.GetRevision(association.Revision);
+			if (sourceRevision == null)
+				throw new CollectionsStoreSchemaException("The installed Collection revision metadata is missing from the durable catalog.");
+			CollectionRevisionSourceRecord source = _revisionSourceStore.GetSource(sourceRevision.Identity);
+			if (source == null || String.IsNullOrEmpty(source.RawManifestArtifactId))
+				throw new InvalidOperationException("The exact retained Collection recipe is unavailable, so this revision cannot be cloned safely.");
+			CollectionDefinition sourceDefinition = _catalogStore.GetDefinition(sourceRevision.Collection);
+
+			CollectionIdentity localIdentity = CollectionIdentity.FromLocal(Guid.NewGuid());
+			var localDefinition = new CollectionDefinition(localIdentity, displayName,
+				sourceDefinition == null ? null : sourceDefinition.AuthorDisplayName,
+				sourceDefinition == null ? null : sourceDefinition.Summary);
+			CollectionLocalWorkingCopyRecord record = _localWorkingCopyStore.CreateClone(localDefinition, sourceRevision, source);
+			return new CollectionManagementLocalWorkingCopy(record, localDefinition, sourceDefinition, sourceRevision);
+		}
+
+		/// <summary>Loads the current editable Local working-copy recipe without changing native state.</summary>
+		public CollectionLocalWorkingCopyEditSnapshot GetLocalWorkingCopyEditSnapshot(CollectionIdentity localCollection)
+		{
+			return _localWorkingCopyEditor.GetSnapshot(localCollection);
+		}
+
+		/// <summary>Saves Local working-copy metadata/member edits without changing installed/native state.</summary>
+		public CollectionLocalWorkingCopyEditSnapshot SaveLocalWorkingCopyDraft(CollectionLocalWorkingCopyEditSnapshot snapshot,
+			string displayName, string summary, IEnumerable<CollectionLocalWorkingCopyMemberDecision> decisions)
+		{
+			return _localWorkingCopyEditor.SaveDraft(snapshot, displayName, summary, decisions);
+		}
+
+		/// <summary>Seals the current mutable draft as a new immutable Local Collection revision.</summary>
+		public CollectionRevision SaveLocalWorkingCopyRevision(CollectionIdentity localCollection, string revisionLabel, string notes)
+		{
+			return _localWorkingCopyEditor.SealRevision(localCollection, revisionLabel, notes);
+		}
+
+		/// <summary>Returns detailed pin/provenance impact for one exact installed Collection member.</summary>
+		public CollectionManagementMemberImpact GetMemberImpact(Guid associationId, CollectionMemberKey memberKey)
+		{
+			if (associationId == Guid.Empty) throw new ArgumentException("A non-empty association identifier is required.", nameof(associationId));
+			if (memberKey == null) throw new ArgumentNullException(nameof(memberKey));
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(target);
+			CollectionMemberBinding binding = snapshot.Bindings.SingleOrDefault(x =>
+				x.Association.AssociationId == associationId && x.MemberKey.Equals(memberKey));
+			if (binding == null)
+				throw new InvalidOperationException("The selected Collection member is no longer bound to this installed association.");
+			NativeModProvenance provenance = snapshot.NativeModProvenance.FirstOrDefault(x => x.NativeMod.Equals(binding.NativeMod));
+			if (provenance == null)
+				provenance = new NativeModProvenance(binding.NativeMod, StandaloneModUse.Unknown);
+			var pinCoordinator = new CollectionPinOverrideCoordinator(_associationStore, target);
+			return new CollectionManagementMemberImpact(binding, provenance, pinCoordinator.GetMemberPins(binding.NativeMod));
+		}
+
 		/// <summary>Builds the explicit reviewed C7.9 Local restore plan for one saved capture.</summary>
 		public Task<CollectionLocalRestorePreview> PreviewLocalRestoreAsync(LocalCaptureIdentity captureIdentity,
 			CancellationToken cancellationToken)
@@ -259,6 +501,212 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken)
 		{
 			return _localRestoreWorkflow.ApplyAsync(preview, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Adopts one exact current member drift observation as an explicit local Collection decision.</summary>
+		/// <remarks>This changes only durable Collection intent/provenance; it never mutates the native mod or repairs files.</remarks>
+		public CollectionOverrideDecisionResult AcceptMemberDrift(Guid associationId, CollectionMemberKey memberKey,
+			Guid observationId, string note)
+		{
+			if (memberKey == null)
+				throw new ArgumentNullException(nameof(memberKey));
+			if (observationId == Guid.Empty)
+				throw new ArgumentException("A non-empty drift observation identifier is required.", nameof(observationId));
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var coordinator = new CollectionPinOverrideCoordinator(_associationStore, target);
+			CollectionAssociationCustomization customization = coordinator.GetCustomization(associationId);
+			CollectionDriftObservation drift = customization.DriftObservations.SingleOrDefault(x =>
+				x.ObservationId == observationId && x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(memberKey));
+			if (drift == null)
+				throw new InvalidOperationException("The selected Collection member drift observation is no longer current.");
+			if (!_associationStore.GetBindings(associationId).Any(x => x.MemberKey.Equals(memberKey)))
+				throw new InvalidOperationException("The selected Collection member is no longer bound to this installed association.");
+
+			return coordinator.AcceptCurrentDrift(associationId, observationId, note);
+		}
+
+		/// <summary>Clears one exact member override without changing native state.</summary>
+		/// <remarks>When reality still differs from the curator baseline, the coordinator immediately preserves that difference as drift.</remarks>
+		public CollectionOverrideDecisionResult ClearMemberOverride(Guid associationId, CollectionMemberKey memberKey,
+			Guid overrideId)
+		{
+			if (memberKey == null)
+				throw new ArgumentNullException(nameof(memberKey));
+			if (overrideId == Guid.Empty)
+				throw new ArgumentException("A non-empty override identifier is required.", nameof(overrideId));
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var coordinator = new CollectionPinOverrideCoordinator(_associationStore, target);
+			CollectionAssociationCustomization customization = coordinator.GetCustomization(associationId);
+			UserOverride userOverride = customization.UserOverrides.SingleOrDefault(x =>
+				x.OverrideId == overrideId && x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(memberKey));
+			if (userOverride == null)
+				throw new InvalidOperationException("The selected Collection member override is no longer current.");
+			if (!_associationStore.GetBindings(associationId).Any(x => x.MemberKey.Equals(memberKey)))
+				throw new InvalidOperationException("The selected Collection member is no longer bound to this installed association.");
+
+			CollectionDriftObservation drift = customization.DriftObservations
+				.SingleOrDefault(x => x.Requirement.Equals(userOverride.Requirement));
+			CollectionRequirementState observedState = drift == null ? userOverride.UserChosenState : drift.ObservedState;
+			return coordinator.ClearOverride(associationId, overrideId, observedState);
+		}
+
+		/// <summary>Resolves the exact live NMM mod bound to one installed Collection member for UI navigation.</summary>
+		public IMod ResolveManagedMemberMod(Guid associationId, CollectionMemberKey memberKey)
+		{
+			CollectionMemberBinding binding = RequireManagedMemberBinding(associationId, memberKey);
+			List<IMod> matches = FindLiveMemberMods(binding.NativeMod);
+			if (matches.Count != 1)
+				throw new InvalidOperationException(matches.Count == 0
+					? "The selected Collection member is no longer present as one live NMM mod instance."
+					: "The selected Collection member resolves to multiple live NMM mod instances and cannot be focused safely.");
+			return matches[0];
+		}
+
+		/// <summary>Accepts one exact missing/disabled member observation as an intentional ignored member difference.</summary>
+		public CollectionOverrideDecisionResult IgnoreMemberDifference(Guid associationId, CollectionMemberKey memberKey,
+			Guid observationId)
+		{
+			if (memberKey == null)
+				throw new ArgumentNullException(nameof(memberKey));
+			if (observationId == Guid.Empty)
+				throw new ArgumentException("A non-empty drift observation identifier is required.", nameof(observationId));
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var coordinator = new CollectionPinOverrideCoordinator(_associationStore, target);
+			CollectionAssociationCustomization customization = coordinator.GetCustomization(associationId);
+			CollectionDriftObservation drift = customization.DriftObservations.SingleOrDefault(x =>
+				x.ObservationId == observationId && x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(memberKey));
+			if (drift == null)
+				throw new InvalidOperationException("The selected Collection member difference is no longer current.");
+			if (!CollectionMemberRequirementStates.IsIgnorableMemberDifference(drift.Requirement.Aspect))
+				throw new InvalidOperationException("Only member participation or enabled-state differences can be ignored from the installed-member action.");
+			RequireManagedMemberBinding(associationId, memberKey);
+
+			return coordinator.AcceptCurrentDrift(associationId, observationId,
+				"Ignored from the installed Collection member management view.");
+		}
+
+		/// <summary>Stops ignoring one member participation/enabled-state override using freshly observed native state.</summary>
+		public CollectionOverrideDecisionResult StopIgnoringMemberDifference(Guid associationId, CollectionMemberKey memberKey,
+			Guid overrideId)
+		{
+			if (memberKey == null)
+				throw new ArgumentNullException(nameof(memberKey));
+			if (overrideId == Guid.Empty)
+				throw new ArgumentException("A non-empty override identifier is required.", nameof(overrideId));
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var coordinator = new CollectionPinOverrideCoordinator(_associationStore, target);
+			CollectionAssociationCustomization customization = coordinator.GetCustomization(associationId);
+			UserOverride userOverride = customization.UserOverrides.SingleOrDefault(x =>
+				x.OverrideId == overrideId && x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(memberKey));
+			if (userOverride == null)
+				throw new InvalidOperationException("The selected ignored Collection member difference is no longer current.");
+			if (!CollectionMemberRequirementStates.IsIgnorableMemberDifference(userOverride.Requirement.Aspect))
+				throw new InvalidOperationException("The selected local override is not an ignored member participation/enabled-state difference.");
+
+			CollectionMemberBinding binding = RequireManagedMemberBinding(associationId, memberKey);
+			CollectionRequirementState observedState = ObserveManagedMemberState(binding, userOverride.Requirement.Aspect);
+			return coordinator.ClearOverride(associationId, overrideId, observedState);
+		}
+
+		private CollectionMemberBinding RequireManagedMemberBinding(Guid associationId, CollectionMemberKey memberKey)
+		{
+			if (associationId == Guid.Empty)
+				throw new ArgumentException("A non-empty association identifier is required.", nameof(associationId));
+			if (memberKey == null)
+				throw new ArgumentNullException(nameof(memberKey));
+
+			CollectionTargetAssociation association = _associationStore.GetAssociation(associationId);
+			if (association == null || !association.Target.Equals(ResolveCurrentTarget()))
+				throw new InvalidOperationException("The selected installed Collection association is no longer current for this target.");
+			CollectionMemberBinding binding = _associationStore.GetBindings(associationId).SingleOrDefault(x => x.MemberKey.Equals(memberKey));
+			if (binding == null)
+				throw new InvalidOperationException("The selected Collection member is no longer bound to this installed association.");
+			return binding;
+		}
+
+		private List<IMod> FindLiveMemberMods(NativeModInstanceIdentity nativeMod)
+		{
+			return _services.ModManager.InstallationLog.ActiveMods.Where(mod =>
+			{
+				if (mod == null)
+					return false;
+				try
+				{
+					return StringComparer.OrdinalIgnoreCase.Equals(_services.ModManager.InstallationLog.GetModKey(mod), nativeMod.NativeModKey);
+				}
+				catch
+				{
+					return false;
+				}
+			}).ToList();
+		}
+
+		private CollectionRequirementState ObserveManagedMemberState(CollectionMemberBinding binding, CollectionRequirementAspect aspect)
+		{
+			List<IMod> matches = FindLiveMemberMods(binding.NativeMod);
+			if (matches.Count > 1)
+				throw new InvalidOperationException("The selected Collection member resolves to multiple live NMM mod instances.");
+
+			if (aspect == CollectionRequirementAspect.MemberParticipation)
+				return matches.Count == 0 ? CollectionRequirementState.Absent() : CollectionMemberRequirementStates.Included();
+
+			if (aspect != CollectionRequirementAspect.MemberEnabledState)
+				throw new InvalidOperationException("Only member participation/enabled-state requirements can be observed by this management action.");
+			if (matches.Count != 1)
+				throw new InvalidOperationException("The member is no longer installed, so its enabled/disabled state cannot be established safely.");
+
+			string fileName = Path.GetFileName(matches[0].Filename);
+			bool enabled = _services.ModManager.VirtualModActivator != null &&
+				_services.ModManager.VirtualModActivator.ActiveModList.Contains((fileName ?? String.Empty).ToLowerInvariant());
+			return CollectionMemberRequirementStates.Enabled(enabled);
+		}
+
+
+		/// <summary>Builds the exact safe-removal review for one currently bound optional installed Collection member.</summary>
+		public Task<CollectionInstalledMemberRemovalPlan> PreviewOptionalMemberRemovalAsync(Guid associationId,
+			CollectionMemberKey memberKey, CancellationToken cancellationToken)
+		{
+			RequireOptionalInstalledMember(associationId, memberKey);
+			return _memberRemovalCoordinator.PreviewAsync(associationId, memberKey, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Executes one explicitly reviewed optional-member removal after exact native/Collection revalidation.</summary>
+		public Task<CollectionInstalledMemberRemovalResult> RemoveOptionalMemberAsync(CollectionInstalledMemberRemovalPlan reviewedPlan,
+			CancellationToken cancellationToken)
+		{
+			if (reviewedPlan == null)
+				throw new ArgumentNullException(nameof(reviewedPlan));
+			RequireOptionalInstalledMember(reviewedPlan.Association.AssociationId, reviewedPlan.MemberKey);
+			return _memberRemovalCoordinator.ExecuteAsync(reviewedPlan, GetTargetPaths(), cancellationToken);
+		}
+
+		private NormalizedCollectionMember RequireOptionalInstalledMember(Guid associationId, CollectionMemberKey memberKey)
+		{
+			if (memberKey == null)
+				throw new ArgumentNullException(nameof(memberKey));
+			CollectionManagementAssociationPresentation presentation = GetAssociationPresentation(associationId);
+			if (presentation == null || !presentation.HasRetainedManifest)
+				throw new InvalidOperationException("The exact retained Collection manifest is required before an installed member can be removed.");
+			if (presentation.Association.State == CollectionAssociationState.Recovering ||
+				presentation.Association.State == CollectionAssociationState.Incomplete)
+				throw new InvalidOperationException("Only Applied or Modified installed Collections can remove an optional member.");
+			NormalizedCollectionMember member = presentation.RetainedManifest.Manifest.Members.SingleOrDefault(x =>
+				x != null && x.IdentityResolution.IsResolved && x.IdentityResolution.Key.Equals(memberKey));
+			if (member == null)
+				throw new InvalidOperationException("The selected installed member is not present in the exact retained Collection manifest.");
+			if (member.Requirement != CollectionMemberRequirement.Optional)
+				throw new InvalidOperationException("Required Collection members cannot be removed through optional-member management.");
+			if (!presentation.BoundMemberKeys.Contains(memberKey))
+				throw new InvalidOperationException("The selected optional Collection member is no longer part of the installed association.");
+			CollectionMemberDependency dependent = presentation.RetainedManifest.Manifest.Dependencies.FirstOrDefault(x =>
+				x.PrerequisiteMemberKey.Equals(memberKey) && presentation.BoundMemberKeys.Contains(x.DependentMemberKey));
+			if (dependent != null)
+				throw new InvalidOperationException("The selected optional Collection member is still a prerequisite of another installed member and cannot be removed independently.");
+			return member;
 		}
 
 		/// <summary>Detaches Collection tracking while preserving every native mod/effect.</summary>
@@ -435,6 +883,25 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionLocalRestoreMemberResumeResult>(results);
 		}
 
+
+		/// <summary>Reconciles interrupted C9 installed-member removals from authoritative native state.</summary>
+		public async Task<IReadOnlyList<CollectionInstalledMemberRemovalResult>> ReconcileInterruptedMemberRemovalsAsync(
+			CancellationToken cancellationToken)
+		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionInstalledMemberRemovalResult[0];
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var results = new List<CollectionInstalledMemberRemovalResult>();
+			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
+				.Where(x => x.Kind == CollectionOperationKind.RemoveCollectionMemberEffects).ToList())
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				results.Add(await _memberRemovalCoordinator.ReconcileInterruptedAsync(operation.Identity,
+					GetTargetPaths(), cancellationToken).ConfigureAwait(false));
+			}
+			return new ReadOnlyCollection<CollectionInstalledMemberRemovalResult>(results);
+		}
+
 		/// <summary>Reconciles only interrupted safe-effect-removal operations for the current target.</summary>
 		public async Task<IReadOnlyList<CollectionUninstallEffectsResult>> ReconcileInterruptedEffectRemovalAsync(
 			CancellationToken cancellationToken)
@@ -470,6 +937,7 @@ namespace Nexus.Client.CollectionManagement
 				case CollectionRevisionSourceInputKind.RawManifest:
 					return NexusCollectionBundleInputKind.RawManifest;
 				case CollectionRevisionSourceInputKind.Archive:
+				case CollectionRevisionSourceInputKind.LocalWorkingCopy:
 					return NexusCollectionBundleInputKind.Archive;
 				default:
 					throw new InvalidOperationException("The retained Collection revision has an unsupported source kind.");

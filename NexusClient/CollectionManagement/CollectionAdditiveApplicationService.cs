@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
@@ -30,6 +31,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
 		private readonly CollectionEffectiveSelectionBuilder _selectionBuilder;
 		private readonly NexusCollectionBundleImporter _bundleImporter;
+		private readonly CollectionConflictResolutionCoordinator _conflictResolutionCoordinator;
 		private readonly CollectionAdditiveWorkflowCoordinator _workflow;
 
 		/// <summary>
@@ -53,6 +55,7 @@ namespace Nexus.Client.CollectionManagement
 			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
 			_selectionBuilder = new CollectionEffectiveSelectionBuilder();
 			_bundleImporter = new NexusCollectionBundleImporter();
+			_conflictResolutionCoordinator = new CollectionConflictResolutionCoordinator(new CollectionsConflictResolutionStore(_store));
 			_workflow = BuildWorkflow(paths);
 		}
 
@@ -138,6 +141,56 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken)
 		{
 			return _workflow.ResumePreparationAsync(batch, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Records one explicit C9 decision allowing the reviewed incoming member to win an exact existing-owner file conflict.</summary>
+		public CollectionConflictResolutionDecision AuthorizeIncomingFileWinner(CollectionAdditiveWorkflowPreparationResult preparation,
+			ModDeploymentTarget target, string note)
+		{
+			ResolvedCollectionPlan plan = RequireConflictDecisionPlan(preparation, target);
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			return _conflictResolutionCoordinator.AuthorizeIncomingFileWinner(plan, preparation.ImpactPlan, target, note);
+		}
+
+		/// <summary>Returns whether C9 can preserve the exact current owner as a selectable managed winner.</summary>
+		public bool CanKeepExistingManagedFileWinner(CollectionAdditiveWorkflowPreparationResult preparation, ModDeploymentTarget target)
+		{
+			RequireConflictDecisionPlan(preparation, target);
+			CollectionFileImpact impact = preparation.ImpactPlan.FileImpacts.SingleOrDefault(x => x.Target.Equals(target));
+			return impact != null && impact.PlannedWinner != null && IsActiveNativeModOwner(impact.CurrentOwnerKey);
+		}
+
+		/// <summary>Records one explicit C9 decision preserving the current unrelated managed owner for an exact file conflict.</summary>
+		public CollectionConflictResolutionDecision KeepExistingManagedFileWinner(CollectionAdditiveWorkflowPreparationResult preparation,
+			ModDeploymentTarget target, string note)
+		{
+			ResolvedCollectionPlan plan = RequireConflictDecisionPlan(preparation, target);
+			CollectionFileImpact impact = preparation.ImpactPlan.FileImpacts.SingleOrDefault(x => x.Target.Equals(target));
+			if (impact == null || impact.PlannedWinner == null || !IsActiveNativeModOwner(impact.CurrentOwnerKey))
+				throw new NotSupportedException("C9 can preserve only an active NMM mod owner for a reviewed file conflict. Original/unresolved fallback ownership remains ActionRequired.");
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			return _conflictResolutionCoordinator.KeepExistingManagedFileWinner(plan, preparation.ImpactPlan, target, note);
+		}
+
+		private bool IsActiveNativeModOwner(string ownerKey)
+		{
+			if (String.IsNullOrWhiteSpace(ownerKey)) return false;
+			var installLog = _services.ModManager.InstallationLog;
+			if (StringComparer.OrdinalIgnoreCase.Equals(ownerKey, installLog.OriginalValuesKey)) return false;
+			foreach (var mod in installLog.ActiveMods)
+				if (StringComparer.OrdinalIgnoreCase.Equals(ownerKey, installLog.GetModKey(mod))) return true;
+			return false;
+		}
+
+		private static ResolvedCollectionPlan RequireConflictDecisionPlan(CollectionAdditiveWorkflowPreparationResult preparation,
+			ModDeploymentTarget target)
+		{
+			if (preparation == null) throw new ArgumentNullException(nameof(preparation));
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			if (preparation.Status != CollectionAdditiveWorkflowPreparationStatus.ActionRequired || preparation.AcquisitionBatch == null ||
+				preparation.ImpactPlan == null || preparation.AcquisitionBatch.PlanBuild == null || preparation.AcquisitionBatch.PlanBuild.Plan == null)
+				throw new InvalidOperationException("Only an exact ActionRequired additive preparation can record a file-winner decision.");
+			return preparation.AcquisitionBatch.PlanBuild.Plan;
 		}
 
 		/// <summary>Cancels a superseded additive preparation that has not crossed the native mutation boundary.</summary>
@@ -229,7 +282,7 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionAdditiveWorkflowCoordinator(_services, _gameStorageService, operationStore, planStore,
 				planPreparation, planRevalidation, memberAcquisition, nativeRecipePreparer, dependencyPlanner, impactPlanner,
 				operationCoordinator, workflowRehydrator, runtimeReconstructor, nativeStateReader, childPreparation,
-				childExecution, childVerification, childRestart, associationCoordinator, winnerCoordinator);
+				childExecution, childVerification, childRestart, associationCoordinator, winnerCoordinator, _conflictResolutionCoordinator);
 		}
 
 		private static CollectionRevisionSourceInputKind ToInputKind(NexusCollectionBundleInputKind inputKind)

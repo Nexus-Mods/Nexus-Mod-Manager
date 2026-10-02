@@ -287,6 +287,7 @@
 			_fileManagerControl = new FileManagerControl();
 			_collectionsPreviewControl = new CollectionsPreviewControl();
 			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
+			_collectionsPreviewControl.ManagedModRequested += CollectionsPreviewControl_ManagedModRequested;
 			InitializeMainDockingInfrastructure();
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
 			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
@@ -3317,6 +3318,20 @@
 		{
 			Process.Start(
 				"https://www.youtube.com/channel/UCguaVgGHs4Xeknas--3YUsQ/videos");
+		}
+
+		private void CollectionsPreviewControl_ManagedModRequested(object sender, CollectionManagedModRequestEventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				BeginInvoke((Action<object, CollectionManagedModRequestEventArgs>)CollectionsPreviewControl_ManagedModRequested, sender, e);
+				return;
+			}
+
+			if (e == null || e.Mod == null)
+				return;
+			ActivateModsDocument();
+			_modManagerControl.FocusMod(e.Mod);
 		}
 
 		private void CollectionsPreviewControl_PreviewActivated(object sender, EventArgs e)

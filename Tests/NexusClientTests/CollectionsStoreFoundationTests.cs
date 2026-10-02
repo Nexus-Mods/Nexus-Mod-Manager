@@ -166,6 +166,8 @@ namespace NexusClientTests
 						"native_mod_provenance",
 						"user_overrides",
 						"drift_observations",
+						"conflict_resolution_decisions",
+						"local_working_copies",
 						"local_captures",
 						"local_capture_scope_areas",
 						"local_capture_exclusions",
@@ -210,6 +212,8 @@ namespace NexusClientTests
 						"ix_member_bindings_native",
 						"ix_user_overrides_association",
 						"ix_drift_observations_association",
+						"ix_conflict_resolution_target",
+						"ix_local_working_copies_source",
 						"ix_local_captures_revision",
 						"ix_local_capture_packages_artifact",
 						"ix_retained_artifact_references_artifact",
@@ -226,6 +230,7 @@ namespace NexusClientTests
 					Assert.Greater(ForeignKeyCount(connection, "native_operation_children"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "revision_sources"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "local_capture_packages"), 0);
+					Assert.Greater(ForeignKeyCount(connection, "local_working_copies"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "retained_artifact_tombstones"), 0);
 					Assert.Greater(ForeignKeyCount(connection, "collection_acquisition_requests"), 0);
 				}
@@ -250,6 +255,9 @@ namespace NexusClientTests
 					Execute(connection, null, "DROP INDEX ix_local_capture_packages_artifact;");
 					Execute(connection, null, "DROP TABLE local_capture_packages;");
 					Execute(connection, null, "DROP TABLE native_mod_provenance;");
+					Execute(connection, null, "DROP TABLE conflict_resolution_decisions;");
+					Execute(connection, null, "DROP INDEX ix_local_working_copies_source;");
+					Execute(connection, null, "DROP TABLE local_working_copies;");
 					Execute(connection, null, "UPDATE store_metadata SET value='3' WHERE key='schema_version';");
 					Execute(connection, null, "PRAGMA user_version=3;");
 				}
@@ -286,6 +294,9 @@ namespace NexusClientTests
 				{
 					Execute(connection, null, "DROP INDEX ix_local_capture_packages_artifact;");
 					Execute(connection, null, "DROP TABLE local_capture_packages;");
+					Execute(connection, null, "DROP TABLE conflict_resolution_decisions;");
+					Execute(connection, null, "DROP INDEX ix_local_working_copies_source;");
+					Execute(connection, null, "DROP TABLE local_working_copies;");
 					Execute(connection, null, "UPDATE store_metadata SET value='4' WHERE key='schema_version';");
 					Execute(connection, null, "PRAGMA user_version=4;");
 				}
@@ -301,6 +312,145 @@ namespace NexusClientTests
 				{
 					Assert.IsTrue(TableExists(connection, "local_capture_packages"));
 					Assert.IsTrue(IndexExists(connection, "ix_local_capture_packages_artifact"));
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void OpenExisting_MigratesVersion6ToC9DecisionCompatibilityFence()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP INDEX ix_local_working_copies_source;");
+					Execute(connection, null, "DROP TABLE local_working_copies;");
+					Execute(connection, null, "UPDATE store_metadata SET value='6' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=6;");
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.MigrationRequired, inspection.Availability);
+				Assert.AreEqual(6, inspection.SchemaVersion);
+
+				CollectionsStoreStatus migrated = store.OpenExisting();
+				Assert.AreEqual(storeId, migrated.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, migrated.SchemaVersion);
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.IsTrue(TableExists(connection, "conflict_resolution_decisions"));
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void OpenExisting_MigratesVersion7ToLocalWorkingCopySchema()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP INDEX ix_local_working_copies_source;");
+					Execute(connection, null, "DROP TABLE local_working_copies;");
+					Execute(connection, null, "UPDATE store_metadata SET value='7' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=7;");
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.MigrationRequired, inspection.Availability);
+				Assert.AreEqual(7, inspection.SchemaVersion);
+
+				CollectionsStoreStatus migrated = store.OpenExisting();
+				Assert.AreEqual(storeId, migrated.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, migrated.SchemaVersion);
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.IsTrue(TableExists(connection, "local_working_copies"));
+					Assert.IsTrue(IndexExists(connection, "ix_local_working_copies_source"));
+					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+
+		[Test]
+		public void OpenExisting_MigratesVersion8ToWorkingCopyDraftManifestSchema()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP INDEX ix_local_working_copies_source;");
+					Execute(connection, null, "DROP TABLE local_working_copies;");
+					Execute(connection, null, @"
+CREATE TABLE local_working_copies (
+	local_origin INTEGER NOT NULL,
+	local_collection_id TEXT NOT NULL,
+	source_origin INTEGER NOT NULL,
+	source_collection_id TEXT NOT NULL,
+	source_revision_id TEXT NOT NULL,
+	source_input_kind INTEGER NOT NULL,
+	bundle_hash_value TEXT NOT NULL,
+	bundle_byte_length INTEGER NOT NULL,
+	manifest_entry_name TEXT NOT NULL,
+	manifest_hash_value TEXT NOT NULL,
+	manifest_byte_length INTEGER NOT NULL,
+	schema_identity TEXT NOT NULL,
+	normalizer_version TEXT NOT NULL,
+	base_manifest_artifact_id TEXT NOT NULL,
+	base_bundle_artifact_id TEXT NULL,
+	created_utc TEXT NOT NULL,
+	updated_utc TEXT NOT NULL,
+	PRIMARY KEY (local_origin, local_collection_id),
+	FOREIGN KEY (local_origin, local_collection_id) REFERENCES collections(origin, collection_id) ON DELETE CASCADE,
+	FOREIGN KEY (source_origin, source_collection_id, source_revision_id) REFERENCES collection_revisions(origin, collection_id, revision_id) ON DELETE RESTRICT,
+	FOREIGN KEY (base_manifest_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	FOREIGN KEY (base_bundle_artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE RESTRICT,
+	CHECK (local_origin = 2),
+	CHECK (source_origin > 0),
+	CHECK (source_input_kind > 0),
+	CHECK (bundle_byte_length >= 0),
+	CHECK (manifest_byte_length >= 0)
+);");
+					Execute(connection, null, "CREATE INDEX ix_local_working_copies_source ON local_working_copies(source_origin, source_collection_id, source_revision_id);");
+					Execute(connection, null, "UPDATE store_metadata SET value='8' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=8;");
+					Assert.IsFalse(ColumnExists(connection, "local_working_copies", "draft_manifest_artifact_id"));
+				}
+
+				CollectionsStoreInspection inspection = store.InspectExisting();
+				Assert.AreEqual(CollectionsStoreAvailability.MigrationRequired, inspection.Availability);
+				Assert.AreEqual(8, inspection.SchemaVersion);
+
+				CollectionsStoreStatus migrated = store.OpenExisting();
+				Assert.AreEqual(storeId, migrated.StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, migrated.SchemaVersion);
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Assert.IsTrue(ColumnExists(connection, "local_working_copies", "draft_manifest_artifact_id"));
 					Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, ScalarInt(connection, "PRAGMA user_version;"));
 				}
 			}
@@ -374,6 +524,9 @@ namespace NexusClientTests
 					Execute(connection, null, "DROP INDEX ix_local_capture_packages_artifact;");
 					Execute(connection, null, "DROP TABLE local_capture_packages;");
 					Execute(connection, null, "DROP TABLE native_mod_provenance;");
+					Execute(connection, null, "DROP TABLE conflict_resolution_decisions;");
+					Execute(connection, null, "DROP INDEX ix_local_working_copies_source;");
+					Execute(connection, null, "DROP TABLE local_working_copies;");
 					Execute(connection, null, "DROP INDEX ix_collection_acquisition_queue;");
 					Execute(connection, null, "DROP TABLE collection_acquisition_requests;");
 					Execute(connection, null, "DROP TABLE retained_artifact_tombstones;");
@@ -668,6 +821,22 @@ namespace NexusClientTests
 				command.Parameters.AddWithValue("@name", indexName);
 				return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture) == 1;
 			}
+		}
+
+
+		private static bool ColumnExists(SQLiteConnection connection, string tableName, string columnName)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.CommandText = "PRAGMA table_info([" + tableName + "]);";
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+						if (StringComparer.OrdinalIgnoreCase.Equals(reader.GetString(1), columnName))
+							return true;
+				}
+			}
+			return false;
 		}
 
 		private static int ForeignKeyCount(SQLiteConnection connection, string tableName)

@@ -297,7 +297,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReviewedWorkflowSnapshot snapshot, CollectionNativeStateIndex currentState)
 		{
 			var files = snapshot.FileImpacts.Select(x => new CollectionFileImpact(x.Target, x.Writers, x.PlannedWinner,
-				x.CurrentOwnerKey, x.AffectedAssociationIds)).ToList();
+				x.CurrentOwnerKey, x.PreserveCurrentOwner, x.AffectedAssociationIds)).ToList();
 			var plugins = snapshot.PluginImpacts.Select(x => new CollectionPluginImpact(x.MemberKey, x.Effect, null,
 				x.AffectedAssociationIds)).ToList();
 			var configs = snapshot.ConfigurationImpacts.Select(x => new CollectionConfigurationImpact(x.MemberKey, x.Kind,

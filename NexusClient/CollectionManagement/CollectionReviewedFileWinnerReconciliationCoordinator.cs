@@ -81,7 +81,8 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionReviewedFileWinnerReconciliationCoordinator
 	{
-		private const string IntentFormat = "nmm-ce.collections.file-winner-intent/1";
+		private const string IntentFormat = "nmm-ce.collections.file-winner-intent/2";
+		private const string LegacyIntentFormat = "nmm-ce.collections.file-winner-intent/1";
 		private const string IntentRolePrefix = "file-winner-intent-";
 		private const string VerifiedRolePrefix = "file-winner-verified-";
 
@@ -218,59 +219,75 @@ namespace Nexus.Client.CollectionManagement
 			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
 			var results = new List<CollectionReviewedFileWinnerResult>();
 			foreach (CollectionFileImpact impact in impactPlan.FileImpacts
-				.Where(x => x.PlannedWinner != null && x.Writers.Count > 1)
+				.Where(x => x.PreserveCurrentOwner || (x.PlannedWinner != null && x.Writers.Count > 1))
 				.OrderBy(x => (int)x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				CollectionNativeStateIndex state = _captureState(plan.Target);
 				CollectionNativeFileState file = RequireLiveFile(state, impact.Target);
 				Dictionary<CollectionMemberKey, string> writerOwners = ResolveWriterOwners(plan, matches, impact, file);
-				string desiredOwner = writerOwners[impact.PlannedWinner];
-				CollectionReviewedFileWinnerDispatchKind dispatch = ResolveDispatch(file);
-				if (StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner))
+				string desiredOwner;
+				string fallbackOwner = null;
+				if (impact.PreserveCurrentOwner)
 				{
-					CollectionReviewedFileWinnerIntent existing = LoadIntent(operationIdentity, plan, impact.Target);
-					if (existing != null)
-					{
-						ValidateIntent(existing, operationIdentity, plan, impact.Target, desiredOwner, dispatch);
-						if (!OwnerStacksEqual(GetOwnerPreimage(file), GetExpectedPostimage(existing)))
-							throw new CollectionReviewedFileWinnerRecoveryRequiredException("The native owner stack no longer matches the durable reviewed-winner postimage.");
-						if (!IsVerified(operationIdentity, existing))
-						{
-							_updateProfileDeployment();
-							MarkVerified(operationIdentity, existing);
-						}
-						results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
-							CollectionReviewedFileWinnerOutcome.RecoveredCommitted));
-					}
-					else
-						results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
-							CollectionReviewedFileWinnerOutcome.AlreadySatisfied));
-					continue;
-				}
-
-				if (!writerOwners.Values.Contains(file.EffectiveOwnerKey, StringComparer.Ordinal))
-					throw new CollectionReviewedFileWinnerRecoveryRequiredException("The current native file winner is no longer one of the reviewed incoming writer owners.");
-
-				CollectionReviewedFileWinnerIntent intent = LoadIntent(operationIdentity, plan, impact.Target);
-				if (intent == null)
-				{
-					intent = new CollectionReviewedFileWinnerIntent(operationIdentity, plan.Identity, impact.Target, dispatch,
-						file.EffectiveOwnerKey, desiredOwner, GetOwnerPreimage(file));
-					SaveIntent(intent);
+					desiredOwner = CollectionIdentityValidation.RequireOpaqueToken(impact.CurrentOwnerKey, nameof(impact.CurrentOwnerKey));
+					if (!GetRealOwnerKeys(file).Contains(desiredOwner, StringComparer.OrdinalIgnoreCase))
+						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The reviewed existing managed file winner is no longer present in the native owner stack.");
+					if (impact.Writers.Count > 1)
+						fallbackOwner = writerOwners[impact.PlannedWinner];
 				}
 				else
 				{
-					ValidateIntent(intent, operationIdentity, plan, impact.Target, desiredOwner, dispatch);
+					desiredOwner = writerOwners[impact.PlannedWinner];
+				}
+				CollectionReviewedFileWinnerDispatchKind dispatch = ResolveDispatch(file);
+				List<string> currentOwners = GetOwnerPreimage(file);
+				CollectionReviewedFileWinnerIntent intent = LoadIntent(operationIdentity, plan, impact.Target);
+				if (intent != null)
+				{
+					ValidateIntent(intent, operationIdentity, plan, impact.Target, desiredOwner, fallbackOwner, dispatch);
+					if (OwnerStacksEqual(currentOwners, GetExpectedPostimage(intent)))
+					{
+						if (!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner))
+							throw new CollectionReviewedFileWinnerRecoveryRequiredException("The reviewed-winner postimage does not expose the reviewed final owner.");
+						if (!IsVerified(operationIdentity, intent))
+						{
+							_updateProfileDeployment();
+							MarkVerified(operationIdentity, intent);
+						}
+						results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
+							CollectionReviewedFileWinnerOutcome.RecoveredCommitted));
+						continue;
+					}
 					if (IsVerified(operationIdentity, intent))
-						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The durable winner checkpoint says the switch was verified but native state reports another owner.");
-					if (!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, intent.PreviousOwnerKey))
-						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The native file winner no longer matches either the durable preimage or the reviewed winner.");
-					if (!OwnerStacksEqual(GetOwnerPreimage(file), intent.PreimageOwners))
-						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The native owner stack changed after the reviewed-winner intent was persisted.");
+						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The durable winner checkpoint says the switch was verified but native state no longer matches its exact postimage.");
+					List<string> intermediate = GetIntermediatePostimage(intent);
+					if (!OwnerStacksEqual(currentOwners, intent.PreimageOwners) &&
+						(intermediate == null || !OwnerStacksEqual(currentOwners, intermediate)))
+						throw new CollectionReviewedFileWinnerRecoveryRequiredException("The native owner stack no longer matches the durable reviewed-winner preimage, intermediate fallback state, or final postimage.");
+				}
+				else
+				{
+					bool alreadyExact = StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner) &&
+						(fallbackOwner == null || (currentOwners.Count >= 2 &&
+						StringComparer.OrdinalIgnoreCase.Equals(currentOwners[currentOwners.Count - 2], fallbackOwner)));
+					if (alreadyExact)
+					{
+						results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
+							CollectionReviewedFileWinnerOutcome.AlreadySatisfied));
+						continue;
+					}
+					if (!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner) &&
+						!writerOwners.Values.Contains(file.EffectiveOwnerKey, StringComparer.OrdinalIgnoreCase))
+						throw new CollectionReviewedFileWinnerRecoveryRequiredException(impact.PreserveCurrentOwner
+							? "The current native file winner is neither the reviewed preserved owner nor one of the reviewed incoming writer owners."
+							: "The current native file winner is no longer one of the reviewed incoming writer owners.");
+					intent = new CollectionReviewedFileWinnerIntent(operationIdentity, plan.Identity, impact.Target, dispatch,
+						file.EffectiveOwnerKey, desiredOwner, fallbackOwner, currentOwners);
+					SaveIntent(intent);
 				}
 
-				ApplyWinner(intent, deploymentManager, virtualDeploymentService);
+				ApplyWinner(intent, deploymentManager, virtualDeploymentService, currentOwners);
 				CollectionNativeStateIndex after = _captureState(plan.Target);
 				CollectionNativeFileState verified = RequireLiveFile(after, impact.Target);
 				if (!StringComparer.OrdinalIgnoreCase.Equals(verified.EffectiveOwnerKey, desiredOwner) ||
@@ -358,6 +375,8 @@ namespace Nexus.Client.CollectionManagement
 			{
 				CollectionReviewedFileImpactSnapshot persisted = reviewed.FileImpacts.SingleOrDefault(x => x.Target.Equals(impact.Target));
 				if (persisted == null || !Equals(persisted.PlannedWinner, impact.PlannedWinner) ||
+					persisted.PreserveCurrentOwner != impact.PreserveCurrentOwner ||
+					!StringComparer.OrdinalIgnoreCase.Equals(persisted.CurrentOwnerKey ?? String.Empty, impact.CurrentOwnerKey ?? String.Empty) ||
 					persisted.Writers.Count != impact.Writers.Count ||
 					!persisted.Writers.OrderBy(x => (int)x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal)
 						.SequenceEqual(impact.Writers.OrderBy(x => (int)x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal)))
@@ -418,11 +437,24 @@ namespace Nexus.Client.CollectionManagement
 				.Select(x => x.OwnerKey).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 		}
 
+		private static List<string> GetIntermediatePostimage(CollectionReviewedFileWinnerIntent intent)
+		{
+			if (String.IsNullOrWhiteSpace(intent.FallbackOwnerKey)) return null;
+			return MoveOwnerToEnd(intent.PreimageOwners, intent.FallbackOwnerKey);
+		}
+
 		private static List<string> GetExpectedPostimage(CollectionReviewedFileWinnerIntent intent)
 		{
-			var owners = intent.PreimageOwners
-				.Where(x => !StringComparer.OrdinalIgnoreCase.Equals(x, intent.DesiredOwnerKey)).ToList();
-			owners.Add(intent.DesiredOwnerKey);
+			List<string> owners = String.IsNullOrWhiteSpace(intent.FallbackOwnerKey)
+				? intent.PreimageOwners.ToList()
+				: MoveOwnerToEnd(intent.PreimageOwners, intent.FallbackOwnerKey);
+			return MoveOwnerToEnd(owners, intent.DesiredOwnerKey);
+		}
+
+		private static List<string> MoveOwnerToEnd(IEnumerable<string> source, string ownerKey)
+		{
+			var owners = source.Where(x => !StringComparer.OrdinalIgnoreCase.Equals(x, ownerKey)).ToList();
+			owners.Add(ownerKey);
 			return owners;
 		}
 
@@ -433,15 +465,24 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private void ApplyWinner(CollectionReviewedFileWinnerIntent intent, IModDeploymentManager deploymentManager,
-			IVirtualDeploymentService virtualDeploymentService)
+			IVirtualDeploymentService virtualDeploymentService, IReadOnlyList<string> currentOwners)
+		{
+			List<string> intermediate = GetIntermediatePostimage(intent);
+			if (intermediate != null && !OwnerStacksEqual(currentOwners, intermediate))
+				ApplyOwner(intent, intent.FallbackOwnerKey, deploymentManager, virtualDeploymentService);
+			ApplyOwner(intent, intent.DesiredOwnerKey, deploymentManager, virtualDeploymentService);
+		}
+
+		private static void ApplyOwner(CollectionReviewedFileWinnerIntent intent, string ownerKey,
+			IModDeploymentManager deploymentManager, IVirtualDeploymentService virtualDeploymentService)
 		{
 			if (intent.DispatchKind == CollectionReviewedFileWinnerDispatchKind.Promoted)
 			{
-				deploymentManager.SwitchPromotedOwner(intent.Target, intent.DesiredOwnerKey);
+				deploymentManager.SwitchPromotedOwner(intent.Target, ownerKey);
 				return;
 			}
-			VirtualFileOwnerSwitchResult result = virtualDeploymentService.SwitchFileOwner(intent.Target.RelativePath, intent.DesiredOwnerKey);
-			if (result == null || !result.Success || !StringComparer.OrdinalIgnoreCase.Equals(result.SelectedOwnerKey, intent.DesiredOwnerKey))
+			VirtualFileOwnerSwitchResult result = virtualDeploymentService.SwitchFileOwner(intent.Target.RelativePath, ownerKey);
+			if (result == null || !result.Success || !StringComparer.OrdinalIgnoreCase.Equals(result.SelectedOwnerKey, ownerKey))
 				throw new InvalidOperationException("The native Virtual owner switch did not report the reviewed owner as selected.", result == null ? null : result.Failure);
 		}
 
@@ -517,11 +558,13 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static void ValidateIntent(CollectionReviewedFileWinnerIntent intent, CollectionOperationIdentity operationIdentity,
-			ResolvedCollectionPlan plan, ModDeploymentTarget target, string desiredOwner, CollectionReviewedFileWinnerDispatchKind dispatch)
+			ResolvedCollectionPlan plan, ModDeploymentTarget target, string desiredOwner, string fallbackOwner,
+			CollectionReviewedFileWinnerDispatchKind dispatch)
 		{
 			if (!intent.OperationIdentity.Equals(operationIdentity) || !intent.PlanIdentity.Equals(plan.Identity) || !intent.Target.Equals(target) ||
-				intent.DispatchKind != dispatch || !StringComparer.OrdinalIgnoreCase.Equals(intent.DesiredOwnerKey, desiredOwner))
-				throw new InvalidDataException("The durable reviewed-winner intent contradicts the exact approved winner decision.");
+				intent.DispatchKind != dispatch || !StringComparer.OrdinalIgnoreCase.Equals(intent.DesiredOwnerKey, desiredOwner) ||
+				!StringComparer.OrdinalIgnoreCase.Equals(intent.FallbackOwnerKey ?? String.Empty, fallbackOwner ?? String.Empty))
+				throw new InvalidDataException("The durable reviewed-winner intent contradicts the exact approved winner/fallback decision.");
 		}
 
 		private static string GetIntentRole(ModDeploymentTarget target) { return IntentRolePrefix + GetTargetToken(target); }
@@ -543,7 +586,7 @@ namespace Nexus.Client.CollectionManagement
 
 			public CollectionReviewedFileWinnerIntent(CollectionOperationIdentity operationIdentity, CollectionPlanIdentity planIdentity,
 				ModDeploymentTarget target, CollectionReviewedFileWinnerDispatchKind dispatchKind, string previousOwnerKey,
-				string desiredOwnerKey, IEnumerable<string> preimageOwners)
+				string desiredOwnerKey, string fallbackOwnerKey, IEnumerable<string> preimageOwners)
 			{
 				OperationIdentity = operationIdentity ?? throw new ArgumentNullException(nameof(operationIdentity));
 				PlanIdentity = planIdentity ?? throw new ArgumentNullException(nameof(planIdentity));
@@ -553,12 +596,17 @@ namespace Nexus.Client.CollectionManagement
 				DispatchKind = dispatchKind;
 				PreviousOwnerKey = CollectionIdentityValidation.RequireOpaqueToken(previousOwnerKey, nameof(previousOwnerKey));
 				DesiredOwnerKey = CollectionIdentityValidation.RequireOpaqueToken(desiredOwnerKey, nameof(desiredOwnerKey));
+				FallbackOwnerKey = String.IsNullOrWhiteSpace(fallbackOwnerKey) ? null :
+					CollectionIdentityValidation.RequireOpaqueToken(fallbackOwnerKey, nameof(fallbackOwnerKey));
+				if (FallbackOwnerKey != null && StringComparer.OrdinalIgnoreCase.Equals(FallbackOwnerKey, DesiredOwnerKey))
+					throw new ArgumentException("The reviewed fallback owner must differ from the final reviewed owner.", nameof(fallbackOwnerKey));
 				_preimageOwners = new ReadOnlyCollection<string>((preimageOwners ?? throw new ArgumentNullException(nameof(preimageOwners)))
 					.Select(x => CollectionIdentityValidation.RequireOpaqueToken(x, nameof(preimageOwners))).ToList());
 				if (_preimageOwners.Count == 0 || !_preimageOwners.Contains(PreviousOwnerKey, StringComparer.OrdinalIgnoreCase) ||
 					!_preimageOwners.Contains(DesiredOwnerKey, StringComparer.OrdinalIgnoreCase) ||
+					(FallbackOwnerKey != null && !_preimageOwners.Contains(FallbackOwnerKey, StringComparer.OrdinalIgnoreCase)) ||
 					!StringComparer.OrdinalIgnoreCase.Equals(_preimageOwners[_preimageOwners.Count - 1], PreviousOwnerKey))
-					throw new ArgumentException("The winner preimage must contain both managed owners and end with the previous effective owner.", nameof(preimageOwners));
+					throw new ArgumentException("The winner preimage must contain the reviewed managed owners and end with the previous effective owner.", nameof(preimageOwners));
 			}
 
 			public CollectionOperationIdentity OperationIdentity { get; }
@@ -567,6 +615,7 @@ namespace Nexus.Client.CollectionManagement
 			public CollectionReviewedFileWinnerDispatchKind DispatchKind { get; }
 			public string PreviousOwnerKey { get; }
 			public string DesiredOwnerKey { get; }
+			public string FallbackOwnerKey { get; }
 			public ReadOnlyCollection<string> PreimageOwners { get { return _preimageOwners; } }
 
 			public void Serialize(BinaryWriter writer)
@@ -581,13 +630,17 @@ namespace Nexus.Client.CollectionManagement
 				writer.Write((int)DispatchKind);
 				writer.Write(PreviousOwnerKey);
 				writer.Write(DesiredOwnerKey);
+				writer.Write(FallbackOwnerKey != null);
+				if (FallbackOwnerKey != null) writer.Write(FallbackOwnerKey);
 				writer.Write(_preimageOwners.Count);
 				foreach (string owner in _preimageOwners) writer.Write(owner);
 			}
 
 			public static CollectionReviewedFileWinnerIntent Deserialize(BinaryReader reader)
 			{
-				if (!StringComparer.Ordinal.Equals(reader.ReadString(), IntentFormat)) throw new InvalidDataException("Unsupported reviewed-winner intent format.");
+				string format = reader.ReadString();
+				bool legacy = StringComparer.Ordinal.Equals(format, LegacyIntentFormat);
+				if (!legacy && !StringComparer.Ordinal.Equals(format, IntentFormat)) throw new InvalidDataException("Unsupported reviewed-winner intent format.");
 				Guid operationId = Guid.Parse(reader.ReadString());
 				ModOperationOrigin origin = (ModOperationOrigin)reader.ReadInt32();
 				if (origin != ModOperationOrigin.Collection) throw new InvalidDataException("Reviewed-winner intents must record Collection native origin.");
@@ -597,11 +650,12 @@ namespace Nexus.Client.CollectionManagement
 				var dispatch = (CollectionReviewedFileWinnerDispatchKind)reader.ReadInt32();
 				string previous = reader.ReadString();
 				string desired = reader.ReadString();
+				string fallback = !legacy && reader.ReadBoolean() ? reader.ReadString() : null;
 				int count = reader.ReadInt32();
 				if (count <= 0 || count > 4096) throw new InvalidDataException("Invalid reviewed-winner preimage owner count.");
 				var owners = new List<string>(count);
 				for (int i = 0; i < count; i++) owners.Add(reader.ReadString());
-				return new CollectionReviewedFileWinnerIntent(operation, plan, target, dispatch, previous, desired, owners);
+				return new CollectionReviewedFileWinnerIntent(operation, plan, target, dispatch, previous, desired, fallback, owners);
 			}
 		}
 	}

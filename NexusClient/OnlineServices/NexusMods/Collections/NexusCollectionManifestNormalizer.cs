@@ -91,7 +91,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		};
 
 		/// <summary>
-		/// Normalizes exact collection.json bytes for one immutable Nexus Collection revision.
+		/// Normalizes exact Vortex-schema collection.json bytes for one immutable Nexus or NMM-owned Local Collection revision.
 		/// </summary>
 		public NexusCollectionManifestNormalizationResult Normalize(byte[] rawManifestBytes, CollectionRevision revision)
 		{
@@ -99,8 +99,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				throw new ArgumentNullException(nameof(rawManifestBytes));
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
-			if (!revision.IsRemoteBaseline)
-				throw new ArgumentException("The Nexus collection manifest adapter requires a Nexus Collection revision.", nameof(revision));
+			if (revision.Collection.Origin != CollectionOrigin.NexusMods && revision.Collection.Origin != CollectionOrigin.Local)
+				throw new ArgumentException("The Vortex collection manifest adapter requires a Nexus or NMM-owned Local Collection revision.", nameof(revision));
 			if (rawManifestBytes.Length > MaxManifestBytes)
 				throw new InvalidDataException("collection.json exceeds the bounded manifest size limit.");
 

@@ -13,7 +13,8 @@
 		UninstallCollectionEffects = 5,
 		CaptureLocalCollection = 6,
 		DetachTracking = 7,
-		ReplaceCurrentManagedSetup = 8
+		ReplaceCurrentManagedSetup = 8,
+		RemoveCollectionMemberEffects = 9
 	}
 
 	/// <summary>

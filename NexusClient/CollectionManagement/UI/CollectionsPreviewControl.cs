@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.Mods;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.OnlineServices.NexusMods.GraphQl;
 using Nexus.Client.UI;
@@ -20,6 +21,17 @@ using Nexus.UI.Controls;
 
 namespace Nexus.Client.CollectionManagement.UI
 {
+	/// <summary>Requests navigation from an installed Collection member to its exact live NMM mod.</summary>
+	public sealed class CollectionManagedModRequestEventArgs : EventArgs
+	{
+		public CollectionManagedModRequestEventArgs(IMod mod)
+		{
+			Mod = mod ?? throw new ArgumentNullException(nameof(mod));
+		}
+
+		public IMod Mod { get; }
+	}
+
 	/// <summary>
 	/// Collections surface for provider preview, additive/replacement apply, Local capture/restore and installed Collection management.
 	/// </summary>
@@ -32,11 +44,23 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly Button _saveCurrentSetupButton;
 		private readonly ComboBox _localCaptureCombo;
 		private readonly Button _restoreLocalCaptureButton;
+		private readonly ComboBox _localWorkingCopyCombo;
+		private readonly Button _editLocalWorkingCopyButton;
+		private readonly Button _saveLocalWorkingCopyRevisionButton;
 		private readonly ComboBox _managedAssociationCombo;
-		private readonly Button _detachAssociationButton;
-		private readonly Button _removeAssociationEffectsButton;
+		private readonly Button _manageAssociationRemovalButton;
+		private readonly Button _cloneManagedAssociationButton;
+		private readonly Button _showManagedMemberButton;
+		private readonly Button _showManagedMemberImpactButton;
+		private readonly Button _addManagedOptionalMemberButton;
+		private readonly Button _removeManagedOptionalMemberButton;
+		private readonly Button _ignoreMemberDifferenceButton;
+		private readonly Button _stopIgnoringMemberDifferenceButton;
+		private readonly Button _acceptMemberDriftButton;
+		private readonly Button _clearMemberOverrideButton;
 		private readonly Button _importButton;
 		private readonly Button _downloadPrepareButton;
+		private readonly Button _resolveFileConflictsButton;
 		private readonly CheckBox _autoOverwriteArchivesCheckBox;
 		private readonly ToolTip _toolTip;
 		private readonly Button _resumeButton;
@@ -67,6 +91,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly ListView _issuesView;
 		private readonly ListView _reviewActionsView;
 		private readonly Label _membersHeader;
+		private readonly TextBox _memberSearchTextBox;
+		private readonly ComboBox _memberFilterCombo;
 		private readonly Label _issuesHeader;
 		private readonly Label _reviewActionsHeader;
 		private readonly CheckBox _showErrorIssuesCheckBox;
@@ -103,6 +129,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionUiContext _localCaptureActionContext;
 		private CollectionUiContext _managedAssociationActionContext;
 		private CollectionUiContext _incomingActionContext;
+		private Guid? _managedMemberExpansionAssociationId;
 		private int _previewGeneration;
 		private bool _initialized;
 		private bool _workflowBusy;
@@ -111,6 +138,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private bool _hasInterruptedReplacement;
 		private bool _suppressMemberCheckEvents;
 		private bool _suppressManagedAssociationSelection;
+		private readonly Dictionary<CollectionMemberKey, CollectionMemberSelection> _optionalMemberSelectionState =
+			new Dictionary<CollectionMemberKey, CollectionMemberSelection>();
 		private readonly System.Windows.Forms.Timer _acquisitionRefreshTimer;
 		private readonly HashSet<Guid> _autoResumedQueueOperations = new HashSet<Guid>();
 		private Exception _lastTechnicalFailure;
@@ -123,10 +152,26 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private static readonly string[] WorkflowActivityAnimationFrames = { "◐", "◓", "◑", "◒" };
 
+		private sealed class MemberFilterChoice
+		{
+			internal MemberFilterChoice(CollectionMemberListFilterKind kind, string label)
+			{
+				Kind = kind;
+				Label = label ?? String.Empty;
+			}
+
+			internal CollectionMemberListFilterKind Kind { get; }
+			internal string Label { get; }
+			public override string ToString() { return Label; }
+		}
+
 		/// <summary>
 		/// Raised on the UI thread when an incoming Collection NXM request should bring this permanent document forward.
 		/// </summary>
 		public event EventHandler PreviewActivated = delegate { };
+
+		/// <summary>Raised when the installed-member UI asks the main window to show the exact native NMM mod.</summary>
+		public event EventHandler<CollectionManagedModRequestEventArgs> ManagedModRequested = delegate { };
 
 		public CollectionsPreviewControl()
 		{
@@ -188,6 +233,27 @@ namespace Nexus.Client.CollectionManagement.UI
 				Enabled = false
 			};
 			_restoreLocalCaptureButton.Click += RestoreLocalCaptureButton_Click;
+			_localWorkingCopyCombo = new ComboBox
+			{
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Width = 320,
+				Enabled = false
+			};
+			_localWorkingCopyCombo.SelectedIndexChanged += LocalWorkingCopyCombo_SelectedIndexChanged;
+			_editLocalWorkingCopyButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.EditLocalWorkingCopy", "Edit working copy..."),
+				Enabled = false
+			};
+			_editLocalWorkingCopyButton.Click += EditLocalWorkingCopyButton_Click;
+			_saveLocalWorkingCopyRevisionButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.SaveLocalWorkingCopyRevision", "Save Local revision..."),
+				Enabled = false
+			};
+			_saveLocalWorkingCopyRevisionButton.Click += SaveLocalWorkingCopyRevisionButton_Click;
 			_managedAssociationCombo = new ComboBox
 			{
 				DropDownStyle = ComboBoxStyle.DropDownList,
@@ -195,20 +261,76 @@ namespace Nexus.Client.CollectionManagement.UI
 				Enabled = false
 			};
 			_managedAssociationCombo.SelectedIndexChanged += ManagedAssociationCombo_SelectedIndexChanged;
-			_detachAssociationButton = new Button
+			_manageAssociationRemovalButton = new Button
 			{
 				AutoSize = true,
-				Text = L("Collections.Actions.DetachTracking", "Stop tracking this Collection..."),
+				Text = L("Collections.Actions.ManageRemoval", "Remove / stop tracking..."),
 				Enabled = false
 			};
-			_detachAssociationButton.Click += DetachAssociationButton_Click;
-			_removeAssociationEffectsButton = new Button
+			_manageAssociationRemovalButton.Click += ManageAssociationRemovalButton_Click;
+			_cloneManagedAssociationButton = new Button
 			{
 				AutoSize = true,
-				Text = L("Collections.Actions.RemoveEffects", "Review removal..."),
+				Text = L("Collections.Actions.CloneLocalWorkingCopy", "Clone to Local working copy..."),
 				Enabled = false
 			};
-			_removeAssociationEffectsButton.Click += RemoveAssociationEffectsButton_Click;
+			_cloneManagedAssociationButton.Click += CloneManagedAssociationButton_Click;
+			_showManagedMemberButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.ShowMemberInMods", "Show selected member in Mods"),
+				Enabled = false
+			};
+			_showManagedMemberButton.Click += ShowManagedMemberButton_Click;
+			_showManagedMemberImpactButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.ShowMemberImpact", "Show member impact..."),
+				Enabled = false
+			};
+			_showManagedMemberImpactButton.Click += ShowManagedMemberImpactButton_Click;
+			_addManagedOptionalMemberButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.AddOptionalMember", "Add selected optional member..."),
+				Enabled = false
+			};
+			_addManagedOptionalMemberButton.Click += AddManagedOptionalMemberButton_Click;
+			_removeManagedOptionalMemberButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.RemoveOptionalMember", "Remove selected optional member..."),
+				Enabled = false
+			};
+			_removeManagedOptionalMemberButton.Click += RemoveManagedOptionalMemberButton_Click;
+			_ignoreMemberDifferenceButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.IgnoreMemberDifference", "Ignore selected member difference..."),
+				Enabled = false
+			};
+			_ignoreMemberDifferenceButton.Click += IgnoreMemberDifferenceButton_Click;
+			_stopIgnoringMemberDifferenceButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.StopIgnoringMemberDifference", "Stop ignoring selected member difference..."),
+				Enabled = false
+			};
+			_stopIgnoringMemberDifferenceButton.Click += StopIgnoringMemberDifferenceButton_Click;
+			_acceptMemberDriftButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.AcceptMemberDrift", "Adopt selected member change..."),
+				Enabled = false
+			};
+			_acceptMemberDriftButton.Click += AcceptMemberDriftButton_Click;
+			_clearMemberOverrideButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.ClearMemberOverride", "Clear selected member override..."),
+				Enabled = false
+			};
+			_clearMemberOverrideButton.Click += ClearMemberOverrideButton_Click;
 			_importButton = new Button
 			{
 				AutoSize = true,
@@ -223,6 +345,14 @@ namespace Nexus.Client.CollectionManagement.UI
 				Enabled = false
 			};
 			_downloadPrepareButton.Click += DownloadPrepareButton_Click;
+			_resolveFileConflictsButton = new Button
+			{
+				AutoSize = true,
+				Text = L("Collections.Actions.ResolveFileConflicts", "Resolve file conflicts..."),
+				Enabled = false,
+				Visible = false
+			};
+			_resolveFileConflictsButton.Click += ResolveFileConflictsButton_Click;
 			_autoOverwriteArchivesCheckBox = new CheckBox
 			{
 				AutoSize = true,
@@ -297,15 +427,20 @@ namespace Nexus.Client.CollectionManagement.UI
 				_saveCurrentSetupButton);
 			Control savedLocalGroup = CreateActionGroup(L("Collections.Context.SavedLocal", "Saved Local Collection"),
 				_localCaptureCombo, _restoreLocalCaptureButton);
+			Control localWorkingCopyGroup = CreateActionGroup(L("Collections.Context.LocalWorkingCopy", "Local working copies"),
+				_localWorkingCopyCombo, _editLocalWorkingCopyButton, _saveLocalWorkingCopyRevisionButton);
 			Control installedGroup = CreateActionGroup(L("Collections.Context.Installed", "Installed Collection"),
-				_managedAssociationCombo, _detachAssociationButton, _removeAssociationEffectsButton);
+				_managedAssociationCombo, _manageAssociationRemovalButton, _cloneManagedAssociationButton, _showManagedMemberButton, _showManagedMemberImpactButton, _addManagedOptionalMemberButton,
+				_removeManagedOptionalMemberButton, _ignoreMemberDifferenceButton, _stopIgnoringMemberDifferenceButton,
+				_acceptMemberDriftButton, _clearMemberOverrideButton);
 			Control incomingGroup = CreateActionGroup(L("Collections.Context.Incoming", "Incoming Collection"),
-				_importButton, _downloadPrepareButton, _autoOverwriteArchivesCheckBox, _resumeButton, _openPendingButton, _installButton,
+				_importButton, _downloadPrepareButton, _resolveFileConflictsButton, _autoOverwriteArchivesCheckBox, _resumeButton, _openPendingButton, _installButton,
 				_replacementBackupCheckBox, _replaceButton, _clearButton);
 			Control supportGroup = CreateActionGroup(L("Collections.Context.Support", "Support"), _exportTechnicalReportButton);
 
 			toolbar.Controls.Add(currentSetupGroup);
 			toolbar.Controls.Add(savedLocalGroup);
+			toolbar.Controls.Add(localWorkingCopyGroup);
 			toolbar.Controls.Add(installedGroup);
 			toolbar.Controls.Add(incomingGroup);
 			toolbar.Controls.Add(supportGroup);
@@ -396,7 +531,30 @@ namespace Nexus.Client.CollectionManagement.UI
 			};
 			splitHeaders.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
 			splitHeaders.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
-			_membersHeader = new Label { AutoSize = true, Text = L("Collections.Preview.Members", "Members") };
+			_membersHeader = new Label { AutoSize = true, Text = L("Collections.Preview.Members", "Members"), Margin = new Padding(0, 3, 10, 0) };
+			_memberSearchTextBox = new TextBox
+			{
+				Width = 180,
+				Margin = new Padding(0, 0, 8, 0),
+				Enabled = false
+			};
+			_memberSearchTextBox.TextChanged += MemberListFilter_Changed;
+			_memberFilterCombo = new ComboBox
+			{
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Width = 135,
+				Margin = Padding.Empty,
+				Enabled = false
+			};
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.All, L("Collections.MemberFilter.All", "All")));
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Selected, L("Collections.MemberFilter.Selected", "Selected")));
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Unselected, L("Collections.MemberFilter.Unselected", "Not selected")));
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Required, L("Collections.MemberFilter.Required", "Required")));
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Optional, L("Collections.MemberFilter.Optional", "Optional")));
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.NeedsAttention, L("Collections.MemberFilter.NeedsAttention", "Needs attention")));
+			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.ChangedLocally, L("Collections.MemberFilter.ChangedLocally", "Changed locally")));
+			_memberFilterCombo.SelectedIndex = 0;
+			_memberFilterCombo.SelectedIndexChanged += MemberListFilter_Changed;
 			_issuesHeader = new Label
 			{
 				AutoSize = true,
@@ -422,7 +580,25 @@ namespace Nexus.Client.CollectionManagement.UI
 			issuesHeaderPanel.Controls.Add(_showErrorIssuesCheckBox);
 			issuesHeaderPanel.Controls.Add(_showWarningIssuesCheckBox);
 			issuesHeaderPanel.Controls.Add(_showInfoIssuesCheckBox);
-			splitHeaders.Controls.Add(_membersHeader, 0, 0);
+
+			var membersHeaderPanel = new FlowLayoutPanel
+			{
+				Dock = DockStyle.Fill,
+				AutoSize = true,
+				WrapContents = true,
+				FlowDirection = FlowDirection.LeftToRight,
+				Margin = Padding.Empty
+			};
+			membersHeaderPanel.Controls.Add(_membersHeader);
+			membersHeaderPanel.Controls.Add(new Label
+			{
+				AutoSize = true,
+				Text = L("Collections.MemberFilter.Find", "Find:"),
+				Margin = new Padding(0, 3, 4, 0)
+			});
+			membersHeaderPanel.Controls.Add(_memberSearchTextBox);
+			membersHeaderPanel.Controls.Add(_memberFilterCombo);
+			splitHeaders.Controls.Add(membersHeaderPanel, 0, 0);
 			splitHeaders.Controls.Add(issuesHeaderPanel, 1, 0);
 			root.Controls.Add(splitHeaders, 0, 4);
 
@@ -449,6 +625,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_membersView.Columns.Add(L("Collections.Columns.Selection", "Selection"), 82);
 			_membersView.Columns.Add(L("Collections.Columns.Compatibility", "Compatibility"), 112);
 			_membersView.Columns.Add(L("Collections.Columns.Artifact", "Artifact"), 240);
+			_membersView.Columns.Add(L("Collections.Columns.ManagedState", "Installed state"), 220);
 			_membersHost.Controls.Add(_membersView);
 
 			_membersLoadingOverlay = new Panel
@@ -575,6 +752,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			ResetWorkflowViewState();
 			RenderEmptyState();
 			RefreshLocalCaptures();
+			RefreshLocalWorkingCopies();
 			RefreshManagedAssociations();
 
 			_dispatcher = dispatcher;
@@ -741,6 +919,55 @@ namespace Nexus.Client.CollectionManagement.UI
 				_localCaptureCombo.EndUpdate();
 				UpdateActionButtons();
 			}
+		}
+
+		private void RefreshLocalWorkingCopies(CollectionIdentity selectedCollection = null)
+		{
+			string selectedId = selectedCollection == null ? null : selectedCollection.StableId;
+			CollectionManagementLocalWorkingCopy current = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
+			if (selectedId == null && current != null)
+				selectedId = current.Collection.StableId;
+
+			_localWorkingCopyCombo.BeginUpdate();
+			try
+			{
+				_localWorkingCopyCombo.Items.Clear();
+				if (_managementWorkflow == null)
+					return;
+				foreach (CollectionManagementLocalWorkingCopy workingCopy in _managementWorkflow.GetLocalWorkingCopies())
+					_localWorkingCopyCombo.Items.Add(workingCopy);
+				if (_localWorkingCopyCombo.Items.Count > 0)
+				{
+					int selectedIndex = 0;
+					if (selectedId != null)
+					{
+						for (int index = 0; index < _localWorkingCopyCombo.Items.Count; index++)
+						{
+							CollectionManagementLocalWorkingCopy candidate = _localWorkingCopyCombo.Items[index] as CollectionManagementLocalWorkingCopy;
+							if (candidate != null && StringComparer.Ordinal.Equals(candidate.Collection.StableId, selectedId))
+							{
+								selectedIndex = index;
+								break;
+							}
+						}
+					}
+					_localWorkingCopyCombo.SelectedIndex = selectedIndex;
+				}
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Local Collection working-copy list refresh failed: " + ex);
+			}
+			finally
+			{
+				_localWorkingCopyCombo.EndUpdate();
+				UpdateActionButtons();
+			}
+		}
+
+		private void LocalWorkingCopyCombo_SelectedIndexChanged(object sender, EventArgs e)
+		{
+			UpdateActionButtons();
 		}
 
 		private void ManagedAssociationCombo_SelectedIndexChanged(object sender, EventArgs e)
@@ -935,7 +1162,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			if (presentation == null || presentation.RetainedManifest == null)
 				return;
-			var bound = new HashSet<CollectionMemberKey>(presentation.BoundMemberKeys);
+			Dictionary<CollectionMemberKey, CollectionManagementMemberPresentation> managedMembers = presentation.Members
+				.ToDictionary(x => x.MemberKey, x => x);
 			bool applied = presentation.Association.State == CollectionAssociationState.Applied;
 			_suppressMemberCheckEvents = true;
 			try
@@ -945,19 +1173,54 @@ namespace Nexus.Client.CollectionManagement.UI
 					NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
 					if (member == null || !member.IdentityResolution.IsResolved)
 						continue;
-					item.Checked = bound.Contains(member.IdentityResolution.Key);
+					CollectionManagementMemberPresentation managedMember;
+					bool bound = managedMembers.TryGetValue(member.IdentityResolution.Key, out managedMember);
+					item.Checked = bound;
 					if (item.SubItems.Count > 2)
 						item.SubItems[2].Text = item.Checked
 							? L("Collections.Member.Selected", "Selected")
 							: L("Collections.Member.Unselected", "Not selected");
 					if (applied && item.Checked && item.SubItems.Count > 3)
-						item.SubItems[3].Text = L("Collections.Status.Supported", "Supported");
+						item.SubItems[3].Text = managedMember.HasDetectedDrift
+							? L("Collections.Status.ActionRequired", "Action required")
+							: L("Collections.Status.Supported", "Supported");
+					if (item.SubItems.Count > 5)
+						item.SubItems[5].Text = bound
+							? FormatManagedMemberState(managedMember)
+							: L("Collections.Member.ManagedState.NotBound", "Not part of installed recipe");
 				}
 			}
 			finally
 			{
 				_suppressMemberCheckEvents = false;
 			}
+		}
+
+		private static string FormatManagedMemberState(CollectionManagementMemberPresentation member)
+		{
+			if (member == null)
+				return L("Collections.Value.Unknown", "Unknown");
+
+			var parts = new List<string>();
+			parts.Add(member.Binding.BindingKind == CollectionMemberBindingKind.AdoptedExisting
+				? L("Collections.Member.ManagedState.Adopted", "Adopted existing mod")
+				: L("Collections.Member.ManagedState.Installed", "Installed for Collection"));
+			if (member.IsSharedAcrossCollections)
+				parts.Add(LanguageManager.Format("Collections.Member.ManagedState.Shared", "shared by {0} Collections", member.CollectionAssociationCount));
+			switch (member.Provenance.StandaloneUse)
+			{
+				case StandaloneModUse.ExplicitStandaloneUse:
+					parts.Add(L("Collections.Member.ManagedState.Standalone", "also used standalone"));
+					break;
+				case StandaloneModUse.Unknown:
+					parts.Add(L("Collections.Member.ManagedState.ProvenanceUnknown", "standalone use unknown"));
+					break;
+			}
+			if (member.HasExplicitLocalDecision)
+				parts.Add(L("Collections.Member.ManagedState.Override", "local override"));
+			if (member.HasDetectedDrift)
+				parts.Add(L("Collections.Member.ManagedState.Drift", "drift detected"));
+			return String.Join(", ", parts);
 		}
 
 		/// <summary>
@@ -1007,7 +1270,45 @@ namespace Nexus.Client.CollectionManagement.UI
 					"association.retained-source", presentation.Association.Association.Revision.ToString(),
 					CollectionUserMessagePresenter.ForRetainedSourceIssue(presentation.RetainedSourceIssue));
 			}
+			AppendManagedCustomizationIssues(presentation);
 			UpdateIssuesHeader();
+		}
+
+		private void AppendManagedCustomizationIssues(CollectionManagementAssociationPresentation presentation)
+		{
+			if (presentation == null || presentation.Customization == null)
+				return;
+			foreach (UserOverride userOverride in presentation.Customization.UserOverrides)
+			{
+				string subject = FormatRequirementSubject(userOverride.Requirement);
+				string message = String.IsNullOrWhiteSpace(userOverride.Note)
+					? LanguageManager.Format("Collections.Management.OverrideMessage", "A deliberate local override is recorded for {0}. NMM will preserve this decision until you explicitly change it.", subject)
+					: LanguageManager.Format("Collections.Management.OverrideMessageWithNote", "A deliberate local override is recorded for {0}: {1}", subject, userOverride.Note);
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Progress,
+					L("Collections.Management.LocalOverride", "Local override"), "association.override." + userOverride.OverrideId.ToString("N"),
+					subject, message, userOverride.Requirement.MemberKey, null,
+					CombineTechnicalDetail("Baseline: " + userOverride.BaselineState, "Chosen: " + userOverride.UserChosenState));
+			}
+			foreach (CollectionDriftObservation drift in presentation.Customization.DriftObservations)
+			{
+				string subject = FormatRequirementSubject(drift.Requirement);
+				AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
+					L("Collections.Status.ActionRequired", "Action required"), "association.drift." + drift.ObservationId.ToString("N"), subject,
+					LanguageManager.Format("Collections.Management.DriftMessage", "The installed state differs from the expected Collection state for {0}. The difference is tracked and will not be silently repaired.", subject),
+					drift.Requirement.MemberKey, null, CombineTechnicalDetail("Expected: " + drift.ExpectedState, "Observed: " + drift.ObservedState));
+			}
+		}
+
+		private static string FormatRequirementSubject(CollectionRequirementReference requirement)
+		{
+			if (requirement == null)
+				return L("Collections.Value.Unknown", "Unknown");
+			string area = requirement.Aspect.ToString();
+			if (requirement.MemberKey != null)
+				return area + " / " + requirement.MemberKey;
+			if (!String.IsNullOrWhiteSpace(requirement.SubjectKey))
+				return area + " / " + requirement.SubjectKey;
+			return area;
 		}
 
 		private void RenderManagedAssociationHeaderOnly(CollectionManagementAssociationPresentation presentation)
@@ -1062,40 +1363,282 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
-		private void DetachAssociationButton_Click(object sender, EventArgs e)
+		private void CloneManagedAssociationButton_Click(object sender, EventArgs e)
 		{
+			if (_managementWorkflow == null || _workflowBusy)
+				return;
 			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
-			CollectionUiContext context = _managedAssociationActionContext;
-			if (_managementWorkflow == null || selected == null || _workflowBusy || context == null ||
-				context.AssociationId != selected.AssociationId)
+			if (selected == null)
 				return;
 
-			string message = LanguageManager.Format("Collections.Management.DetachPrompt",
-				"Stop tracking '{0}' as a Collection?\r\n\r\nInstalled mods, files, plugins and configuration effects will stay exactly as they are. NMM will simply stop associating them with this Collection.",
-				selected.DisplayName);
-			if (MessageBox.Show(this, message, L("Collections.Actions.DetachTracking", "Stop tracking this Collection..."),
+			string defaultName = selected.DisplayName + " (Local copy)";
+			PromptDialog nameDialog = PromptDialog.ShowDialog(null, this,
+				L("Collections.WorkingCopy.NamePrompt", "Name for the Local working copy:"),
+				L("Collections.Actions.CloneLocalWorkingCopy", "Clone to Local working copy..."),
+				defaultName, null, null);
+			if (nameDialog == null || String.IsNullOrWhiteSpace(nameDialog.EnteredText))
+				return;
+
+			try
+			{
+				CollectionManagementLocalWorkingCopy clone = _managementWorkflow
+					.CloneAssociationToLocalWorkingCopy(selected.AssociationId, nameDialog.EnteredText);
+				RefreshLocalWorkingCopies(clone.Collection);
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.WorkingCopy.CreatedStatus",
+					"Workflow: Local working copy '{0}' created from {1}.", clone.DisplayName, clone.SourceDisplayName);
+				MessageBox.Show(this, LanguageManager.Format("Collections.WorkingCopy.CreatedMessage",
+					"Created Local working copy '{0}'. The installed Collection and its native mods were not changed.", clone.DisplayName),
+					L("Collections.WorkingCopy.CreatedTitle", "Local working copy created"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection local working-copy clone failed: " + ex);
+				MessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.FailedTitle", "Local working-copy clone failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void EditLocalWorkingCopyButton_Click(object sender, EventArgs e)
+		{
+			if (_managementWorkflow == null || _workflowBusy) return;
+			CollectionManagementLocalWorkingCopy selected = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
+			if (selected == null) return;
+			try
+			{
+				CollectionLocalWorkingCopyEditSnapshot snapshot = _managementWorkflow.GetLocalWorkingCopyEditSnapshot(selected.Collection);
+				using (var dialog = new CollectionLocalWorkingCopyEditorDialog(snapshot))
+				{
+					if (dialog.ShowDialog(this) != DialogResult.OK) return;
+					CollectionLocalWorkingCopyEditSnapshot updated = _managementWorkflow.SaveLocalWorkingCopyDraft(snapshot,
+						dialog.DisplayName, dialog.Summary, dialog.GetDecisions());
+					RefreshLocalWorkingCopies(updated.Record.Collection);
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.WorkingCopy.EditedStatus",
+						"Workflow: Local working copy '{0}' updated. Installed mods were not changed.", updated.Definition.DisplayName);
+				}
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection Local working-copy edit failed: " + ex);
+				MessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.EditFailedTitle", "Local working-copy edit failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void SaveLocalWorkingCopyRevisionButton_Click(object sender, EventArgs e)
+		{
+			if (_managementWorkflow == null || _workflowBusy) return;
+			CollectionManagementLocalWorkingCopy selected = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
+			if (selected == null) return;
+			PromptDialog labelDialog = PromptDialog.ShowDialog(null, this,
+				L("Collections.WorkingCopy.RevisionLabelPrompt", "Label for the immutable Local revision:"),
+				L("Collections.Actions.SaveLocalWorkingCopyRevision", "Save Local revision..."),
+				"Local revision " + DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.CurrentCulture), null, null);
+			if (labelDialog == null || String.IsNullOrWhiteSpace(labelDialog.EnteredText)) return;
+			try
+			{
+				CollectionRevision revision = _managementWorkflow.SaveLocalWorkingCopyRevision(selected.Collection, labelDialog.EnteredText, null);
+				RefreshLocalWorkingCopies(selected.Collection);
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.WorkingCopy.RevisionSavedStatus",
+					"Workflow: immutable Local revision '{0}' saved from '{1}'.", revision.RevisionLabel, selected.DisplayName);
+				MessageBox.Show(this, LanguageManager.Format("Collections.WorkingCopy.RevisionSavedMessage",
+					"Saved Local revision '{0}'. This did not change the installed game setup.", revision.RevisionLabel),
+					L("Collections.WorkingCopy.RevisionSavedTitle", "Local revision saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection Local working-copy revision save failed: " + ex);
+				MessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.RevisionSaveFailedTitle", "Local revision save failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void ShowManagedMemberImpactButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation association = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementMemberPresentation member = GetSelectedManagedMemberPresentation();
+			if (_managementWorkflow == null || association == null || member == null || _workflowBusy) return;
+			try
+			{
+				CollectionManagementMemberImpact impact = _managementWorkflow.GetMemberImpact(association.AssociationId, member.MemberKey);
+				var lines = new List<string>
+				{
+					"Native mod: " + impact.SelectedBinding.NativeMod.NativeModKey,
+					"Standalone provenance: " + impact.Provenance.StandaloneUse,
+					"Collection associations using this native mod: " + impact.CollectionAssociationCount.ToString(CultureInfo.CurrentCulture),
+					"Automatic native removal protected: " + (impact.StandaloneUseProtectsFromAutomaticRemoval || impact.IsSharedAcrossCollections ? "yes" : "no"),
+					"Explicit local decisions: " + (impact.HasAnyOverride ? "yes" : "no"),
+					"Detected drift: " + (impact.HasAnyDrift ? "yes" : "no"),
+					String.Empty,
+					"Pins:"
+				};
+				foreach (CollectionMemberPinImpact pin in impact.Pins)
+					lines.Add("- " + pin.Revision + " / " + pin.Binding.MemberKey + " / recipe " + pin.VerifiedRecipe.Fingerprint);
+				MessageBox.Show(this, String.Join(Environment.NewLine, lines),
+					L("Collections.Management.MemberImpactTitle", "Collection member impact"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection member impact view failed: " + ex);
+				MessageBox.Show(this, ex.Message, L("Collections.Management.MemberImpactFailed", "Unable to inspect member impact"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void ShowManagedMemberButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementMemberPresentation member = GetSelectedManagedMemberPresentation();
+			CollectionUiContext context = _managedAssociationActionContext;
+			if (_managementWorkflow == null || selectedAssociation == null || member == null || _workflowBusy ||
+				context == null || context.AssociationId != selectedAssociation.AssociationId)
+				return;
+
+			try
+			{
+				IMod mod = _managementWorkflow.ResolveManagedMemberMod(selectedAssociation.AssociationId, member.MemberKey);
+				ManagedModRequested(this, new CollectionManagedModRequestEventArgs(mod));
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection member Mods navigation failed: " + ex);
+				RememberTechnicalFailure("association.member-show-mod-failed", ex, context);
+				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+					"association.member-show-mod-failed", ex.Message)),
+					L("Collections.Management.ShowMemberFailed", "Unable to show Collection member"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+		}
+
+		private void AddManagedOptionalMemberButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementAssociationPresentation presentation = _managedAssociationPresentation;
+			NormalizedCollectionMember member = GetSelectedNormalizedMember();
+			CollectionUiContext context = _managedAssociationActionContext;
+			if (_workflow == null || selectedAssociation == null || presentation == null || member == null || _workflowBusy ||
+				context == null || context.AssociationId != selectedAssociation.AssociationId ||
+				selectedAssociation.State != CollectionAssociationState.Applied || !presentation.HasRetainedManifest ||
+				member.Requirement != CollectionMemberRequirement.Optional || !member.IdentityResolution.IsResolved ||
+				presentation.BoundMemberKeys.Contains(member.IdentityResolution.Key))
+				return;
+
+			string memberName = member.DisplayName ?? member.IdentityResolution.Key.ToString();
+			string confirmation = LanguageManager.Format("Collections.Management.AddOptionalMemberPrompt",
+				"Add optional member '{0}' to this installed Collection?\r\n\r\nNMM will keep every currently bound member selected, add this member to the same revision, prepare the normal additive safety review, and will not remove unrelated mods.",
+				memberName);
+			if (MessageBox.Show(this, confirmation, L("Collections.Actions.AddOptionalMember", "Add selected optional member..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsActionContextCurrent(context))
 				return;
 
-			BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing, L("Collections.Management.Detaching", "Stopping Collection tracking without changing installed content..."));
+			NexusCollectionPreviewSnapshot snapshot = _snapshot;
+			if (snapshot == null || !snapshot.HasManifestPreview || snapshot.Revision == null ||
+				!snapshot.Revision.Identity.Equals(selectedAssociation.Association.Revision))
+				throw new InvalidOperationException("The installed Collection member view no longer has the exact retained revision required for member expansion.");
+
+			IReadOnlyList<CollectionOptionalMemberSelection> expansionSelections = BuildManagedMemberExpansionSelections(
+				snapshot.CapabilityReport.Manifest, presentation.BoundMemberKeys, member.IdentityResolution.Key);
+			CancelPreviewWork(false);
+			CancelWorkflowWork();
+			int generation = ++_previewGeneration;
+			ResetWorkflowViewState();
+			foreach (CollectionOptionalMemberSelection selection in expansionSelections)
+				_optionalMemberSelectionState[selection.MemberKey] = selection.Selection;
+
+			_managedMemberExpansionAssociationId = selectedAssociation.AssociationId;
+			_managedAssociationPresentation = null;
+			_displayContext = CollectionUiContext.Incoming(generation, snapshot.Revision.Identity, null);
+			_snapshot = snapshot;
+			RenderSnapshot(snapshot);
+			_instructionLabel.Text = LanguageManager.Format("Collections.Management.AddOptionalMemberInstructions",
+				"Adding optional member '{0}' to the installed Collection. Review the prepared additive changes before installation; existing bound members remain selected.",
+				memberName);
+			_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.AddOptionalMemberPreparing",
+				"Workflow: preparing '{0}' as an addition to the installed Collection...", memberName);
+			UpdateActionButtons();
+			DownloadPrepareButton_Click(_addManagedOptionalMemberButton, EventArgs.Empty);
+		}
+
+
+		private async void RemoveManagedOptionalMemberButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementAssociationPresentation presentation = _managedAssociationPresentation;
+			NormalizedCollectionMember normalizedMember = GetSelectedNormalizedMember();
+			CollectionManagementMemberPresentation managedMember = GetSelectedManagedMemberPresentation();
+			CollectionUiContext context = _managedAssociationActionContext;
+			if (_managementWorkflow == null || selectedAssociation == null || presentation == null || normalizedMember == null ||
+				managedMember == null || _workflowBusy || context == null || context.AssociationId != selectedAssociation.AssociationId ||
+				!presentation.HasRetainedManifest || normalizedMember.Requirement != CollectionMemberRequirement.Optional ||
+				!normalizedMember.IdentityResolution.IsResolved || !managedMember.MemberKey.Equals(normalizedMember.IdentityResolution.Key) ||
+				selectedAssociation.State == CollectionAssociationState.Recovering || selectedAssociation.State == CollectionAssociationState.Incomplete)
+				return;
+
+			string memberName = normalizedMember.DisplayName ?? normalizedMember.IdentityResolution.Key.ToString();
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				LanguageManager.Format("Collections.Management.ReviewingOptionalMemberRemoval",
+					"Reviewing safe removal of optional member '{0}'...", memberName));
 			try
 			{
-				CollectionDetachResult result = _managementWorkflow.Detach(selected.AssociationId);
-				RefreshManagedAssociations();
-				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.Detached",
-					"Workflow: NMM stopped tracking '{0}'; installed content was preserved.", selected.DisplayName);
-				MessageBox.Show(this, LanguageManager.Format("Collections.Management.DetachedMessage",
-					"'{0}' is no longer tracked as an installed Collection. {1} installed mod instance(s) remain available for standalone use.",
-					selected.DisplayName, result.StandaloneProvenance.Count),
-					L("Collections.Management.DetachedTitle", "Collection detached"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+				CollectionInstalledMemberRemovalPlan plan = await _managementWorkflow.PreviewOptionalMemberRemovalAsync(
+					selectedAssociation.AssociationId, managedMember.MemberKey, token);
+				if (!IsWorkflowContextCurrent(context, token))
+					return;
+				if (plan.HasBlockedImpact)
+				{
+					MessageBox.Show(this, LanguageManager.Format("Collections.Management.OptionalMemberRemovalBlocked",
+						"NMM cannot remove '{0}' safely from the installed Collection right now. Nothing was changed.\r\n\r\n{1}",
+						memberName, CollectionUserMessagePresenter.SanitizeInternalTerminology(plan.Reason)),
+						L("Collections.Management.OptionalMemberRemovalBlockedTitle", "Optional member removal blocked"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
+					return;
+				}
+
+				string effect = plan.RequiresNativeMutation
+					? L("Collections.Management.OptionalMemberRemovalNative", "The native mod is exclusive to this member and will be uninstalled through NMM's normal uninstaller.")
+					: L("Collections.Management.OptionalMemberRemovalPreserved", "The native mod will remain installed; only this Collection member association will be removed.");
+				string confirmation = LanguageManager.Format("Collections.Management.RemoveOptionalMemberPrompt",
+					"Remove optional member '{0}' from this installed Collection?\r\n\r\n{1}\r\n\r\nReason: {2}\r\n\r\nThe Collection will be marked Modified because its installed member set will intentionally differ from the retained revision.",
+					memberName, effect, CollectionUserMessagePresenter.SanitizeInternalTerminology(plan.Reason));
+				if (MessageBox.Show(this, confirmation, L("Collections.Actions.RemoveOptionalMember", "Remove selected optional member..."),
+					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
+					!IsWorkflowContextCurrent(context, token))
+					return;
+
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.RemovingOptionalMember",
+					"Removing optional member '{0}' from the installed Collection...", memberName);
+				CollectionInstalledMemberRemovalResult result = await _managementWorkflow.RemoveOptionalMemberAsync(plan, token);
+				if (!IsWorkflowContextCurrent(context, token))
+					return;
+				RefreshManagedAssociations(true);
+				if (result.IsSuccessful)
+				{
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.OptionalMemberRemoved",
+						"Workflow: optional member '{0}' was removed from the installed Collection.", memberName);
+					MessageBox.Show(this, LanguageManager.Format("Collections.Management.OptionalMemberRemovedMessage",
+						"Optional member '{0}' was removed from Collection tracking. {1}", memberName, effect),
+						L("Collections.Management.OptionalMemberRemovedTitle", "Optional member removed"),
+						MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
+				else
+				{
+					_workflowStatusLabel.Text = L("Collections.Management.OptionalMemberRemovalStopped",
+						"Workflow: optional-member removal stopped before a verified complete result; recovery may be required.");
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				if (IsWorkflowOwnerCurrent(context))
+					_workflowStatusLabel.Text = L("Collections.Management.OptionalMemberRemovalCancelled",
+						"Workflow: optional-member removal cancellation requested; NMM will reconcile native state before further managed work.");
 			}
 			catch (Exception ex)
 			{
-				Trace.TraceError("Collection detach failed: " + ex);
-				RememberTechnicalFailure("association.detach-failed", ex, context);
-				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("association.detach-failed", ex.Message);
-				MessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.Management.DetachFailed", "Collection tracking change failed"),
+				Trace.TraceError("Collection optional member removal failed: " + ex);
+				RememberTechnicalFailure("association.member-remove-failed", ex, context);
+				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+					"association.member-remove-failed", ex.Message)),
+					L("Collections.Management.OptionalMemberRemovalFailed", "Optional member removal failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 			finally
@@ -1104,13 +1647,266 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
-		private async void RemoveAssociationEffectsButton_Click(object sender, EventArgs e)
+		private void IgnoreMemberDifferenceButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementMemberPresentation member = GetSelectedManagedMemberPresentation();
+			CollectionUiContext context = _managedAssociationActionContext;
+			List<CollectionDriftObservation> memberStateDrift = member == null ? new List<CollectionDriftObservation>() : member.DriftObservations
+				.Where(x => CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect)).ToList();
+			if (_managementWorkflow == null || selectedAssociation == null || member == null || memberStateDrift.Count == 0 ||
+				_workflowBusy || context == null || context.AssociationId != selectedAssociation.AssociationId)
+				return;
+
+			CollectionDriftObservation drift = ChooseManagedCustomization(
+				L("Collections.Management.ChooseMemberDifferenceTitle", "Choose member difference"),
+				L("Collections.Management.ChooseMemberDifferencePrompt", "Choose the missing/disabled member difference that NMM should treat as an intentional local deviation."),
+				memberStateDrift, FormatDriftChoice);
+			if (drift == null)
+				return;
+
+			string memberName = GetMemberDisplayName(member.MemberKey) ?? member.MemberKey.ToString();
+			string confirmation = LanguageManager.Format("Collections.Management.IgnoreMemberDifferencePrompt",
+				"Ignore the current {0} difference for '{1}'?\r\n\r\nNMM will preserve this as an explicit local decision instead of treating the current missing/disabled state as unresolved drift. No native mod state is changed.",
+				FormatRequirementAspect(drift.Requirement.Aspect), memberName);
+			if (MessageBox.Show(this, confirmation, L("Collections.Actions.IgnoreMemberDifference", "Ignore selected member difference..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
+				!IsActionContextCurrent(context))
+				return;
+
+			BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.Management.IgnoringMemberDifference", "Recording the selected member difference as an intentional local decision..."));
+			try
+			{
+				_managementWorkflow.IgnoreMemberDifference(selectedAssociation.AssociationId, member.MemberKey, drift.ObservationId);
+				RefreshManagedAssociations();
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.MemberDifferenceIgnored",
+					"Workflow: the current {0} difference for '{1}' is now an intentional local Collection decision.",
+					FormatRequirementAspect(drift.Requirement.Aspect), memberName);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection member ignore failed: " + ex);
+				RememberTechnicalFailure("association.member-ignore-failed", ex, context);
+				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+					"association.member-ignore-failed", ex.Message)),
+					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		private void StopIgnoringMemberDifferenceButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementMemberPresentation member = GetSelectedManagedMemberPresentation();
+			CollectionUiContext context = _managedAssociationActionContext;
+			List<UserOverride> ignored = member == null ? new List<UserOverride>() : member.UserOverrides
+				.Where(x => CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect)).ToList();
+			if (_managementWorkflow == null || selectedAssociation == null || member == null || ignored.Count == 0 ||
+				_workflowBusy || context == null || context.AssociationId != selectedAssociation.AssociationId)
+				return;
+
+			UserOverride userOverride = ChooseManagedCustomization(
+				L("Collections.Management.ChooseIgnoredMemberDifferenceTitle", "Choose ignored member difference"),
+				L("Collections.Management.ChooseIgnoredMemberDifferencePrompt", "Choose the member difference that should return to the Collection baseline."),
+				ignored, FormatOverrideChoice);
+			if (userOverride == null)
+				return;
+
+			string memberName = GetMemberDisplayName(member.MemberKey) ?? member.MemberKey.ToString();
+			string confirmation = LanguageManager.Format("Collections.Management.StopIgnoringMemberDifferencePrompt",
+				"Stop ignoring the {0} difference for '{1}'?\r\n\r\nNMM will re-establish the Collection baseline as the expected state, using fresh native state to decide whether a difference still needs attention. It will not install, enable or remove anything automatically.",
+				FormatRequirementAspect(userOverride.Requirement.Aspect), memberName);
+			if (MessageBox.Show(this, confirmation, L("Collections.Actions.StopIgnoringMemberDifference", "Stop ignoring selected member difference..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
+				!IsActionContextCurrent(context))
+				return;
+
+			BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.Management.StopIgnoringMemberDifference", "Restoring the Collection baseline expectation for the selected member..."));
+			try
+			{
+				_managementWorkflow.StopIgnoringMemberDifference(selectedAssociation.AssociationId, member.MemberKey, userOverride.OverrideId);
+				RefreshManagedAssociations();
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.MemberDifferenceNoLongerIgnored",
+					"Workflow: '{0}' now follows the Collection baseline expectation again; any remaining native difference is shown as drift.", memberName);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection member stop-ignore failed: " + ex);
+				RememberTechnicalFailure("association.member-stop-ignore-failed", ex, context);
+				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+					"association.member-stop-ignore-failed", ex.Message)),
+					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		private void AcceptMemberDriftButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementMemberPresentation member = GetSelectedManagedMemberPresentation();
+			CollectionUiContext context = _managedAssociationActionContext;
+			List<CollectionDriftObservation> generalDrift = member == null ? new List<CollectionDriftObservation>() : member.DriftObservations
+				.Where(x => !CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect)).ToList();
+			if (_managementWorkflow == null || selectedAssociation == null || member == null || generalDrift.Count == 0 ||
+				_workflowBusy || context == null || context.AssociationId != selectedAssociation.AssociationId)
+				return;
+
+			CollectionDriftObservation drift = ChooseManagedCustomization(
+				L("Collections.Management.ChooseDriftTitle", "Choose detected member change"),
+				L("Collections.Management.ChooseDriftPrompt", "Choose the detected difference to adopt as an explicit local Collection decision."),
+				generalDrift, FormatDriftChoice);
+			if (drift == null)
+				return;
+
+			string memberName = GetMemberDisplayName(member.MemberKey) ?? member.MemberKey.ToString();
+			string confirmation = LanguageManager.Format("Collections.Management.AcceptDriftPrompt",
+				"Adopt the current {0} state for '{1}' as an explicit local Collection override?\r\n\r\nThis records your intent only. It does not change the installed mod, files, plugins or configuration. Future verify/update/repair work must preserve or explicitly revisit this local choice.",
+				FormatRequirementAspect(drift.Requirement.Aspect), memberName);
+			if (MessageBox.Show(this, confirmation, L("Collections.Actions.AcceptMemberDrift", "Adopt selected member change..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
+				!IsActionContextCurrent(context))
+				return;
+
+			BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.Management.AcceptingDrift", "Recording the selected installed state as a local Collection decision..."));
+			try
+			{
+				_managementWorkflow.AcceptMemberDrift(selectedAssociation.AssociationId, member.MemberKey, drift.ObservationId,
+					"Adopted from the installed Collection management view.");
+				RefreshManagedAssociations();
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.DriftAccepted",
+					"Workflow: the current {0} state for '{1}' is now tracked as an explicit local Collection choice.",
+					FormatRequirementAspect(drift.Requirement.Aspect), memberName);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection member drift adoption failed: " + ex);
+				RememberTechnicalFailure("association.member-drift-accept-failed", ex, context);
+				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+					"association.member-drift-accept-failed", ex.Message)),
+					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		private void ClearMemberOverrideButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
+			CollectionManagementMemberPresentation member = GetSelectedManagedMemberPresentation();
+			CollectionUiContext context = _managedAssociationActionContext;
+			List<UserOverride> generalOverrides = member == null ? new List<UserOverride>() : member.UserOverrides
+				.Where(x => !CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect)).ToList();
+			if (_managementWorkflow == null || selectedAssociation == null || member == null || generalOverrides.Count == 0 ||
+				_workflowBusy || context == null || context.AssociationId != selectedAssociation.AssociationId)
+				return;
+
+			UserOverride userOverride = ChooseManagedCustomization(
+				L("Collections.Management.ChooseOverrideTitle", "Choose local member override"),
+				L("Collections.Management.ChooseOverridePrompt", "Choose the explicit local decision to stop preserving as an override."),
+				generalOverrides, FormatOverrideChoice);
+			if (userOverride == null)
+				return;
+
+			string memberName = GetMemberDisplayName(member.MemberKey) ?? member.MemberKey.ToString();
+			string confirmation = LanguageManager.Format("Collections.Management.ClearOverridePrompt",
+				"Clear the local {0} override for '{1}'?\r\n\r\nThe installed state will not be changed. If it still differs from the Collection baseline, NMM will immediately keep that difference as detected drift requiring review.",
+				FormatRequirementAspect(userOverride.Requirement.Aspect), memberName);
+			if (MessageBox.Show(this, confirmation, L("Collections.Actions.ClearMemberOverride", "Clear selected member override..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
+				!IsActionContextCurrent(context))
+				return;
+
+			BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.Management.ClearingOverride", "Clearing the selected local Collection override without changing installed content..."));
+			try
+			{
+				_managementWorkflow.ClearMemberOverride(selectedAssociation.AssociationId, member.MemberKey, userOverride.OverrideId);
+				RefreshManagedAssociations();
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.OverrideCleared",
+					"Workflow: the local {0} override for '{1}' was cleared; installed content was not changed.",
+					FormatRequirementAspect(userOverride.Requirement.Aspect), memberName);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection member override clear failed: " + ex);
+				RememberTechnicalFailure("association.member-override-clear-failed", ex, context);
+				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+					"association.member-override-clear-failed", ex.Message)),
+					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		private void DetachManagedAssociation(CollectionManagementAssociation selected)
+		{
+			CollectionDetachResult result = _managementWorkflow.Detach(selected.AssociationId);
+			RefreshManagedAssociations();
+			_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.Detached",
+				"Workflow: NMM stopped tracking '{0}'; installed content was preserved.", selected.DisplayName);
+			MessageBox.Show(this, LanguageManager.Format("Collections.Management.DetachedMessage",
+				"'{0}' is no longer tracked as an installed Collection. {1} installed mod instance(s) remain available for standalone use.",
+				selected.DisplayName, result.StandaloneProvenance.Count),
+				L("Collections.Management.DetachedTitle", "Collection detached"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+
+		private async void ManageAssociationRemovalButton_Click(object sender, EventArgs e)
 		{
 			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
 			CollectionUiContext context = _managedAssociationActionContext;
 			if (_managementWorkflow == null || selected == null || _workflowBusy || context == null ||
 				context.AssociationId != selected.AssociationId)
 				return;
+
+			string choicePrompt = LanguageManager.Format("Collections.Management.RemoveOrDetachPrompt",
+				"Choose what to do with '{0}'.\r\n\r\nYes = review and remove only effects NMM can prove are dispensable, then stop tracking the Collection.\r\n\r\nNo = stop tracking only and keep all installed mods, files, plugins and configuration exactly as they are.\r\n\r\nCancel = make no changes.",
+				selected.DisplayName);
+			DialogResult choice = MessageBox.Show(this, choicePrompt,
+				L("Collections.Actions.ManageRemoval", "Remove / stop tracking..."), MessageBoxButtons.YesNoCancel,
+				MessageBoxIcon.Warning, MessageBoxDefaultButton.Button3);
+			if (choice == DialogResult.Cancel || !IsActionContextCurrent(context))
+				return;
+
+			if (choice == DialogResult.No)
+			{
+				BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+					L("Collections.Management.Detaching", "Stopping Collection tracking without changing installed content..."));
+				try
+				{
+					DetachManagedAssociation(selected);
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceError("Collection detach failed: " + ex);
+					RememberTechnicalFailure("association.detach-failed", ex, context);
+					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("association.detach-failed", ex.Message);
+					MessageBox.Show(this, BuildUserDialogMessage(userMessage),
+						L("Collections.Management.DetachFailed", "Collection tracking change failed"),
+						MessageBoxButtons.OK, MessageBoxIcon.Error);
+				}
+				finally
+				{
+					EndWorkflowWork(context);
+				}
+				return;
+			}
 
 			bool removalApproved = false;
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing, L("Collections.Management.ReviewingRemoval",
@@ -1125,8 +1921,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					string blocked = String.Join(Environment.NewLine, plan.Impacts.Where(x => x.BlocksExecution)
 						.Select(x => "- " + FormatUninstallImpactSubject(x) + ": " + CollectionUserMessagePresenter.SanitizeInternalTerminology(x.Reason)));
-					MessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalBlockedMessage",
-						"Safe automatic removal is blocked by the current managed setup. Nothing was changed.\r\n\r\n{0}", blocked),
+					MessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalBlockedMessageWithDetach",
+						"Safe automatic removal is blocked by the current managed setup. Nothing was changed.\r\n\r\n{0}\r\n\r\nYou can run Remove / stop tracking again and choose No to stop Collection tracking while preserving all installed content.", blocked),
 						L("Collections.Management.RemovalBlockedTitle", "Collection effect removal blocked"),
 						MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
@@ -1137,7 +1933,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				string confirmation = LanguageManager.Format("Collections.Management.RemoveEffectsPrompt",
 					"Remove dispensable effects for '{0}'?\r\n\r\nInstalled mods proven exclusive to this Collection and safe to remove: {1}\r\nShared, standalone, customized, already absent, or conservatively preserved instances: {2}\r\n\r\nNMM will recheck this review before changing anything. Collection tracking is removed only after the reviewed removal finishes and is verified.",
 					selected.DisplayName, removeCount, preserveCount);
-				if (MessageBox.Show(this, confirmation, L("Collections.Actions.RemoveEffects", "Review removal..."),
+				if (MessageBox.Show(this, confirmation, L("Collections.Actions.RemoveEffects", "Remove dispensable effects..."),
 					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 					!IsWorkflowContextCurrent(context, token))
 					return;
@@ -1499,6 +2295,85 @@ namespace Nexus.Client.CollectionManagement.UI
 			finally
 			{
 				EndWorkflowWork(context);
+			}
+		}
+
+		private void ResolveFileConflictsButton_Click(object sender, EventArgs e)
+		{
+			CollectionUiContext context = _incomingActionContext;
+			if (_workflow == null || _preparation == null || _preparation.ImpactPlan == null || context == null || _workflowBusy)
+				return;
+
+			List<CollectionConflictImpactIssue> issues = _preparation.ImpactPlan.Issues
+				.Where(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired)
+				.ToList();
+			if (issues.Count == 0)
+				return;
+
+			int saved = 0;
+			foreach (CollectionConflictImpactIssue issue in issues)
+			{
+				if (!IsActionContextCurrent(context)) return;
+				CollectionFileImpact impact = _preparation.ImpactPlan.FileImpacts.SingleOrDefault(x =>
+					StringComparer.Ordinal.Equals(x.Target.ToString(), issue.SubjectKey) &&
+					x.PlannedWinner != null && Equals(x.PlannedWinner, issue.MemberKey));
+				if (impact == null) continue;
+
+				string memberName = FormatMemberSubject(impact.PlannedWinner);
+				bool singleWriter = impact.Writers.Count == 1;
+				bool canKeepExisting = _workflow.CanKeepExistingManagedFileWinner(_preparation, impact.Target);
+				string prompt = canKeepExisting
+					? LanguageManager.Format(singleWriter
+						? "Collections.ConflictResolution.IncomingWinnerPrompt"
+						: "Collections.ConflictResolution.IncomingWinnerMultiWriterPrompt",
+						singleWriter
+						? "The Collection plans to make {0} the final provider of:\r\n\r\n{1}\r\n\r\nThis file is currently provided by another NMM-managed mod.\r\n\r\nYes = let the Collection member become the final provider.\r\nNo = keep the current managed mod as the final provider while still installing the Collection member underneath it.\r\nCancel = decide later.\r\n\r\nThe decision is stored only for this exact Collection revision, target and current owner. If ownership changes, NMM will require review again."
+						: "The Collection plans to make {0} the final Collection provider of:\r\n\r\n{1}\r\n\r\nThis file is currently provided by another NMM-managed mod and several Collection members also write it.\r\n\r\nYes = let the reviewed Collection winner replace the current managed provider.\r\nNo = keep the current managed mod as the final provider and keep the reviewed Collection winner directly underneath it as the managed fallback.\r\nCancel = decide later.\r\n\r\nThe decision is stored only for this exact Collection revision, target and current owner. If ownership changes, NMM will require review again.",
+						memberName, impact.Target.ToString())
+					: LanguageManager.Format("Collections.ConflictResolution.IncomingWinnerUnsupportedExistingPrompt",
+						"The Collection plans to make {0} the final provider of:\r\n\r\n{1}\r\n\r\nThe current provider is not an active NMM mod owner that C9 can safely re-select (for example, it may be an original/unresolved fallback).\r\n\r\nYes = let the Collection member become the final provider.\r\nNo = leave this conflict unresolved.\r\nCancel = stop reviewing conflicts for now.",
+						memberName, impact.Target.ToString());
+				DialogResult choice = MessageBox.Show(this, prompt, L("Collections.Actions.ResolveFileConflicts", "Resolve file conflicts..."),
+					MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
+				if (choice == DialogResult.Cancel) break;
+
+				try
+				{
+					if (choice == DialogResult.Yes)
+					{
+						_workflow.AuthorizeIncomingFileWinner(_preparation, impact.Target, "Incoming Collection winner authorized from the Collections file-conflict review UI.");
+						saved++;
+					}
+					else if (canKeepExisting)
+					{
+						_workflow.KeepExistingManagedFileWinner(_preparation, impact.Target, "Existing managed winner preserved from the Collections file-conflict review UI.");
+						saved++;
+					}
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceError("Collection file-conflict decision failed: " + ex);
+					RememberTechnicalFailure("conflict-resolution.file-winner", ex, context);
+					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("conflict-resolution.file-winner", ex.Message);
+					SetWorkflowPresentation(userMessage);
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "conflict-resolution.file-winner",
+						impact.Target.ToString(), userMessage, impact.PlannedWinner);
+					break;
+				}
+			}
+
+			if (saved > 0)
+			{
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.ConflictResolution.DecisionsSaved",
+					"Workflow: saved {0} file-conflict decision(s). Choose Download / Prepare again to rebuild the exact review.", saved);
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Progress,
+					L("Collections.Status.Supported", "Saved"), "conflict-resolution.saved", GetCurrentCollectionSubject(),
+					LanguageManager.Format("Collections.ConflictResolution.SavedExplanation",
+						"{0} durable file-conflict decision(s) were saved. Rebuild preparation to apply them to a fresh native-state observation.", saved));
+				_resolveFileConflictsButton.Enabled = false;
+				_downloadPrepareButton.Enabled = true;
+				UpdateIssuesHeader();
 			}
 		}
 
@@ -2004,6 +2879,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (!IsWorkflowContextCurrent(context, token))
 					return;
 				RenderApplyResult(result);
+				if (result.IsCommitted)
+					_managedMemberExpansionAssociationId = null;
 				RefreshManagedAssociations(true);
 			}
 			catch (OperationCanceledException)
@@ -2427,8 +3304,11 @@ namespace Nexus.Client.CollectionManagement.UI
 					? new CollectionReplacementStartupInspection[0]
 					: await Task.Run(() => _managementWorkflow.InspectInterruptedReplacements(), token);
 				_hasInterruptedReplacement = replacementInspections.Count > 0;
+				IReadOnlyList<CollectionInstalledMemberRemovalResult> memberRemovalResults = new CollectionInstalledMemberRemovalResult[0];
 				IReadOnlyList<CollectionUninstallEffectsResult> effectRemovalResults = new CollectionUninstallEffectsResult[0];
 				if (_managementWorkflow != null && localRestoreResults.All(x => x.IsSuccessful))
+					memberRemovalResults = await _managementWorkflow.ReconcileInterruptedMemberRemovalsAsync(token);
+				if (_managementWorkflow != null && localRestoreResults.All(x => x.IsSuccessful) && memberRemovalResults.All(x => x.IsSuccessful))
 					effectRemovalResults = await _managementWorkflow.ReconcileInterruptedEffectRemovalAsync(token);
 				if (_managementWorkflow != null)
 					await _managementWorkflow.CleanupRetainedContentAsync(token,
@@ -2454,7 +3334,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				else
 				{
-					int unresolvedCount = _recoveryResults.Count + _localRestoreRecoveryResults.Count(x => !x.IsSuccessful) + replacementInspections.Count;
+					int unresolvedCount = _recoveryResults.Count + _localRestoreRecoveryResults.Count(x => !x.IsSuccessful) +
+						memberRemovalResults.Count(x => !x.IsSuccessful) + replacementInspections.Count;
 					int completedLocalRestores = _localRestoreRecoveryResults.Count(x => x.IsSuccessful);
 					if (unresolvedCount > 0)
 						_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.IncompleteCount",
@@ -2490,6 +3371,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void MembersView_SelectedIndexChanged(object sender, EventArgs e)
 		{
 			UpdatePendingDownloadActionLabel(GetSelectedOrFirstPendingAction());
+			UpdateActionButtons();
 		}
 
 		private void MembersView_ItemCheck(object sender, ItemCheckEventArgs e)
@@ -2520,6 +3402,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				e.NewValue = e.CurrentValue;
 				return;
 			}
+			_optionalMemberSelectionState[member.IdentityResolution.Key] = e.NewValue == CheckState.Checked
+				? CollectionMemberSelection.Selected
+				: CollectionMemberSelection.Unselected;
 			BeginInvoke((Action)(() =>
 			{
 				if (!IsActionContextCurrent(selectionContext))
@@ -2538,7 +3423,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					_acquisitionBatch = null;
 				}
 				_installButton.Enabled = false;
-				UpdateMemberSelectionText();
+				if (GetCurrentMemberFilter() != CollectionMemberListFilterKind.All || !String.IsNullOrWhiteSpace(_memberSearchTextBox.Text))
+					RenderMembers(_snapshot, GetSelectedMemberToken(), _membersView.TopItem == null ? -1 : _membersView.TopItem.Index);
+				else
+					UpdateMemberSelectionText();
 				_workflowStatusLabel.Text = L("Collections.Workflow.SelectionChanged", "Workflow: optional selection changed; prepare a new review before installation.");
 				RefreshWorkflowActivity();
 				UpdateActionButtons();
@@ -2612,20 +3500,51 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 
 				CollectionCapabilityReport report = snapshot.CapabilityReport;
-				_membersHeader.Text = LanguageManager.Format("Collections.Preview.MemberCount", "Members ({0})", report.Manifest.Members.Count);
+				Dictionary<CollectionMemberKey, CollectionManagementMemberPresentation> managedMembers =
+					_managedAssociationPresentation == null
+						? new Dictionary<CollectionMemberKey, CollectionManagementMemberPresentation>()
+						: _managedAssociationPresentation.Members.ToDictionary(x => x.MemberKey, x => x);
+				CollectionMemberListFilterKind filter = GetCurrentMemberFilter();
+				string searchText = _memberSearchTextBox.Text;
+				int visibleCount = 0;
 				foreach (CollectionMemberCapabilityReport memberReport in report.MemberReports)
 				{
 					NormalizedCollectionMember member = memberReport.Member;
 					string token = MemberToken(member);
 					string displayName = string.IsNullOrWhiteSpace(member.DisplayName) ? token : member.DisplayName;
-					var item = new ListViewItem(displayName) { Tag = member, Checked = member.IsRequired || member.IsSelected };
+					string artifactText = member.Artifact == null ? L("Collections.Value.Unresolved", "Unresolved") : member.Artifact.ToString();
+
+					CollectionManagementMemberPresentation managedMember = null;
+					if (member.IdentityResolution.IsResolved)
+						managedMembers.TryGetValue(member.IdentityResolution.Key, out managedMember);
+					bool selected = _managedAssociationPresentation != null
+						? managedMember != null
+						: IsMemberEffectivelySelected(member);
+					string managedStateText = managedMember == null
+						? (_managedAssociationPresentation == null
+							? L("Collections.Member.ManagedState.NotApplied", "Not applied")
+							: L("Collections.Member.ManagedState.NotBound", "Not part of installed recipe"))
+						: FormatManagedMemberState(managedMember);
+
+					if (!CollectionMemberListPresentationFilter.Matches(filter, searchText, displayName, token, artifactText,
+						managedMember == null ? null : managedMember.NativeMod.NativeModKey, managedStateText, member.IsRequired, selected,
+						memberReport.Status, managedMember != null && managedMember.HasDetectedDrift,
+						managedMember != null && managedMember.HasExplicitLocalDecision))
+						continue;
+
+					var item = new ListViewItem(displayName) { Tag = member, Checked = selected };
 					item.SubItems.Add(member.IsRequired ? L("Collections.Member.Required", "Required") : L("Collections.Member.Optional", "Optional"));
 					item.SubItems.Add(item.Checked ? L("Collections.Member.Selected", "Selected") : L("Collections.Member.Unselected", "Not selected"));
-					item.SubItems.Add(FormatCompatibility(memberReport.Status));
-					item.SubItems.Add(member.Artifact == null ? L("Collections.Value.Unresolved", "Unresolved") : member.Artifact.ToString());
+					item.SubItems.Add(managedMember != null && _managedAssociationPresentation.Association.State == CollectionAssociationState.Applied
+						? (managedMember.HasDetectedDrift ? L("Collections.Status.ActionRequired", "Action required") : L("Collections.Status.Supported", "Supported"))
+						: FormatCompatibility(memberReport.Status));
+					item.SubItems.Add(artifactText);
+					item.SubItems.Add(managedStateText);
 					_membersView.Items.Add(item);
+					visibleCount++;
 				}
 
+				UpdateMembersHeader(report.Manifest.Members.Count, visibleCount);
 				if (!string.IsNullOrEmpty(selectedToken))
 				{
 					foreach (ListViewItem item in _membersView.Items)
@@ -2647,6 +3566,45 @@ namespace Nexus.Client.CollectionManagement.UI
 				_suppressMemberCheckEvents = false;
 				_membersView.EndUpdate();
 			}
+		}
+
+		private CollectionMemberListFilterKind GetCurrentMemberFilter()
+		{
+			MemberFilterChoice choice = _memberFilterCombo.SelectedItem as MemberFilterChoice;
+			return choice == null ? CollectionMemberListFilterKind.All : choice.Kind;
+		}
+
+		private bool IsMemberEffectivelySelected(NormalizedCollectionMember member)
+		{
+			if (member == null)
+				return false;
+			if (member.IsRequired)
+				return true;
+			if (!member.IdentityResolution.IsResolved)
+				return member.IsSelected;
+			CollectionMemberSelection selection;
+			return _optionalMemberSelectionState.TryGetValue(member.IdentityResolution.Key, out selection)
+				? selection == CollectionMemberSelection.Selected
+				: member.IsSelected;
+		}
+
+		private void UpdateMembersHeader(int totalCount, int visibleCount)
+		{
+			bool filtered = GetCurrentMemberFilter() != CollectionMemberListFilterKind.All ||
+				!String.IsNullOrWhiteSpace(_memberSearchTextBox.Text);
+			_membersHeader.Text = filtered
+				? LanguageManager.Format("Collections.Preview.MemberFilteredCount", "Members ({0} of {1})", visibleCount, totalCount)
+				: LanguageManager.Format("Collections.Preview.MemberCount", "Members ({0})", totalCount);
+		}
+
+		private void MemberListFilter_Changed(object sender, EventArgs e)
+		{
+			if (_snapshot == null || !_snapshot.HasManifestPreview || _workflowBusy)
+				return;
+			string selectedToken = GetSelectedMemberToken();
+			int previousTopIndex = _membersView.TopItem == null ? -1 : _membersView.TopItem.Index;
+			RenderMembers(_snapshot, selectedToken, previousTopIndex);
+			UpdateActionButtons();
 		}
 
 		private void RenderIssues(NexusCollectionPreviewSnapshot snapshot)
@@ -2950,7 +3908,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				string subject = issue.MemberKey == null
 					? (String.IsNullOrWhiteSpace(issue.SubjectKey) ? GetCurrentCollectionSubject() : issue.SubjectKey)
 					: FormatMemberSubject(issue.MemberKey);
-				AddPresentedReviewItem(CollectionReviewPresentationClassifier.ForImpact(issue.Status), CollectionReviewItemKind.Diagnostic,
+				CollectionReviewItemKind issueKind = issue.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired
+					? CollectionReviewItemKind.ManualAction : CollectionReviewItemKind.Diagnostic;
+				AddPresentedReviewItem(CollectionReviewPresentationClassifier.ForImpact(issue.Status), issueKind,
 					FormatImpactStatus(issue.Status), "impact." + issue.Kind.ToString().ToLowerInvariant(), subject,
 					CollectionUserMessagePresenter.ForImpact(issue.Status, issue.Message), issue.MemberKey,
 					CombineTechnicalDetail("Impact kind: " + issue.Kind, issue.SubjectKey, issue.MemberKey == null ? null : "Member: " + issue.MemberKey));
@@ -2959,11 +3919,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			foreach (CollectionFileImpact impact in impactPlan.FileImpacts)
 			{
 				string winnerName = impact.PlannedWinner == null ? L("Collections.Review.NoPlannedWinner", "No Collection member") : FormatMemberSubject(impact.PlannedWinner);
-				string explanation = impact.PlannedWinner == null
-					? L("Collections.Review.FileNoWinner", "No Collection member is selected as the final provider for this file.")
-					: LanguageManager.Format("Collections.Review.FileWinner", "After installation, {0} is planned to provide this file.", winnerName);
+				string explanation = impact.PreserveCurrentOwner
+					? L("Collections.Review.FileKeepExistingWinner", "The current NMM-managed provider will remain the final provider for this file; Collection writers will remain underneath it.")
+					: impact.PlannedWinner == null
+						? L("Collections.Review.FileNoWinner", "No Collection member is selected as the final provider for this file.")
+						: LanguageManager.Format("Collections.Review.FileWinner", "After installation, {0} is planned to provide this file.", winnerName);
 				string technical = CombineTechnicalDetail(
-					"Planned winner: " + (impact.PlannedWinner == null ? "none" : impact.PlannedWinner.ToString()),
+					"Planned Collection winner: " + (impact.PlannedWinner == null ? "none" : impact.PlannedWinner.ToString()),
+					"Preserve current owner: " + impact.PreserveCurrentOwner,
 					"Writers: " + string.Join(", ", impact.Writers.Select(x => x.ToString())),
 					"Current owner: " + (impact.CurrentOwnerKey ?? "none"));
 				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.PlannedEffect, L("Collections.Status.Supported", "Review"),
@@ -3078,18 +4041,195 @@ namespace Nexus.Client.CollectionManagement.UI
 			UpdateActionButtons();
 		}
 
+		internal static IReadOnlyList<CollectionOptionalMemberSelection> BuildManagedMemberExpansionSelections(
+			NormalizedCollectionManifest manifest, IEnumerable<CollectionMemberKey> boundMemberKeys, CollectionMemberKey requestedMemberKey)
+		{
+			if (manifest == null)
+				throw new ArgumentNullException(nameof(manifest));
+			if (boundMemberKeys == null)
+				throw new ArgumentNullException(nameof(boundMemberKeys));
+			if (requestedMemberKey == null)
+				throw new ArgumentNullException(nameof(requestedMemberKey));
+
+			var resolvedMembers = manifest.Members.Where(x => x != null && x.IdentityResolution.IsResolved)
+				.ToDictionary(x => x.IdentityResolution.Key);
+			NormalizedCollectionMember requested;
+			if (!resolvedMembers.TryGetValue(requestedMemberKey, out requested))
+				throw new InvalidOperationException("The requested installed-Collection expansion member is not present in the exact retained manifest.");
+			if (requested.Requirement != CollectionMemberRequirement.Optional)
+				throw new InvalidOperationException("Only an optional Collection member can be added through installed-member expansion.");
+
+			var bound = new HashSet<CollectionMemberKey>(boundMemberKeys);
+			if (bound.Contains(requestedMemberKey))
+				throw new InvalidOperationException("The requested optional Collection member is already part of the installed association.");
+			foreach (CollectionMemberKey key in bound)
+				if (key == null || !resolvedMembers.ContainsKey(key))
+					throw new InvalidOperationException("The installed Collection association contains a member that is not present in the exact retained manifest.");
+			foreach (NormalizedCollectionMember required in manifest.Members.Where(x => x != null && x.Requirement == CollectionMemberRequirement.Required))
+			{
+				if (!required.IdentityResolution.IsResolved || !bound.Contains(required.IdentityResolution.Key))
+					throw new InvalidOperationException("The installed Collection association is missing a required retained-manifest member and cannot be expanded additively.");
+			}
+
+			var result = new List<CollectionOptionalMemberSelection>();
+			foreach (NormalizedCollectionMember candidate in manifest.Members)
+			{
+				if (candidate == null || candidate.Requirement != CollectionMemberRequirement.Optional ||
+					!candidate.IdentityResolution.IsResolved)
+					continue;
+				CollectionMemberKey key = candidate.IdentityResolution.Key;
+				result.Add(new CollectionOptionalMemberSelection(key, bound.Contains(key) || key.Equals(requestedMemberKey)
+					? CollectionMemberSelection.Selected
+					: CollectionMemberSelection.Unselected));
+			}
+			return result.AsReadOnly();
+		}
+
 		private IEnumerable<CollectionOptionalMemberSelection> BuildOptionalSelections()
 		{
 			var result = new List<CollectionOptionalMemberSelection>();
-			foreach (ListViewItem item in _membersView.Items)
+			if (_snapshot == null || !_snapshot.HasManifestPreview)
+				return result;
+			foreach (NormalizedCollectionMember member in _snapshot.CapabilityReport.Manifest.Members)
 			{
-				NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
 				if (member == null || member.Requirement != CollectionMemberRequirement.Optional || !member.IdentityResolution.IsResolved)
 					continue;
 				result.Add(new CollectionOptionalMemberSelection(member.IdentityResolution.Key,
-					item.Checked ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected));
+					IsMemberEffectivelySelected(member) ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected));
 			}
 			return result;
+		}
+
+		private NormalizedCollectionMember GetSelectedNormalizedMember()
+		{
+			if (_membersView.SelectedItems.Count == 0)
+				return null;
+			return _membersView.SelectedItems[0].Tag as NormalizedCollectionMember;
+		}
+
+		private CollectionManagementMemberPresentation GetSelectedManagedMemberPresentation()
+		{
+			if (_managedAssociationPresentation == null || _membersView.SelectedItems.Count == 0)
+				return null;
+			NormalizedCollectionMember selected = GetSelectedNormalizedMember();
+			if (selected == null || !selected.IdentityResolution.IsResolved)
+				return null;
+			return _managedAssociationPresentation.Members.FirstOrDefault(x => x.MemberKey.Equals(selected.IdentityResolution.Key));
+		}
+
+		private T ChooseManagedCustomization<T>(string title, string prompt, IReadOnlyList<T> values, Func<T, string> formatter) where T : class
+		{
+			if (values == null || values.Count == 0)
+				return null;
+			if (values.Count == 1)
+				return values[0];
+
+			using (var dialog = new Form())
+			using (var list = new ListBox())
+			using (var ok = new Button())
+			using (var cancel = new Button())
+			{
+				dialog.Text = title;
+				dialog.StartPosition = FormStartPosition.CenterParent;
+				dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+				dialog.MinimizeBox = false;
+				dialog.MaximizeBox = false;
+				dialog.ShowInTaskbar = false;
+				dialog.ClientSize = new Size(560, 260);
+
+				var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Padding = new Padding(10) };
+				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+				layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+				var label = new Label { AutoSize = true, MaximumSize = new Size(530, 0), Text = prompt, Margin = new Padding(0, 0, 0, 8) };
+				list.Dock = DockStyle.Fill;
+				foreach (T value in values)
+					list.Items.Add(new ManagedCustomizationChoice<T>(value, formatter(value)));
+				list.SelectedIndex = 0;
+
+				ok.Text = L("Common.OK", "OK");
+				ok.AutoSize = true;
+				ok.DialogResult = DialogResult.OK;
+				cancel.Text = L("Common.Cancel", "Cancel");
+				cancel.AutoSize = true;
+				cancel.DialogResult = DialogResult.Cancel;
+				var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.RightToLeft };
+				buttons.Controls.Add(cancel);
+				buttons.Controls.Add(ok);
+
+				layout.Controls.Add(label, 0, 0);
+				layout.Controls.Add(list, 0, 1);
+				layout.Controls.Add(buttons, 0, 2);
+				dialog.Controls.Add(layout);
+				dialog.AcceptButton = ok;
+				dialog.CancelButton = cancel;
+				if (dialog.ShowDialog(this) != DialogResult.OK)
+					return null;
+				ManagedCustomizationChoice<T> selected = list.SelectedItem as ManagedCustomizationChoice<T>;
+				return selected == null ? null : selected.Value;
+			}
+		}
+
+		private static string FormatDriftChoice(CollectionDriftObservation drift)
+		{
+			string text = FormatRequirementAspect(drift.Requirement.Aspect);
+			if (!String.IsNullOrWhiteSpace(drift.Requirement.SubjectKey))
+				text += " - " + drift.Requirement.SubjectKey;
+			if (!String.IsNullOrWhiteSpace(drift.Detail))
+				text += ": " + CollectionUserMessagePresenter.SanitizeInternalTerminology(drift.Detail);
+			return text;
+		}
+
+		private static string FormatOverrideChoice(UserOverride userOverride)
+		{
+			string text = FormatRequirementAspect(userOverride.Requirement.Aspect);
+			if (!String.IsNullOrWhiteSpace(userOverride.Requirement.SubjectKey))
+				text += " - " + userOverride.Requirement.SubjectKey;
+			if (!String.IsNullOrWhiteSpace(userOverride.Note))
+				text += ": " + userOverride.Note;
+			return text;
+		}
+
+		private static string FormatRequirementAspect(CollectionRequirementAspect aspect)
+		{
+			switch (aspect)
+			{
+				case CollectionRequirementAspect.MemberParticipation:
+					return L("Collections.Requirement.MemberParticipation", "member participation");
+				case CollectionRequirementAspect.MemberEnabledState:
+					return L("Collections.Requirement.MemberEnabledState", "enabled/disabled");
+				case CollectionRequirementAspect.ArtifactSelection:
+					return L("Collections.Requirement.ArtifactSelection", "selected file/version");
+				case CollectionRequirementAspect.InstallerRecipe:
+					return L("Collections.Requirement.InstallerRecipe", "installer choices");
+				case CollectionRequirementAspect.FileWinner:
+					return L("Collections.Requirement.FileWinner", "file winner");
+				case CollectionRequirementAspect.PluginState:
+					return L("Collections.Requirement.PluginState", "plugin state");
+				case CollectionRequirementAspect.ConfigurationState:
+					return L("Collections.Requirement.ConfigurationState", "configuration state");
+				case CollectionRequirementAspect.AdditionalManagedContent:
+					return L("Collections.Requirement.AdditionalManagedContent", "additional managed content");
+				default:
+					return L("Collections.Requirement.Unknown", "Collection requirement");
+			}
+		}
+
+		private sealed class ManagedCustomizationChoice<T> where T : class
+		{
+			public ManagedCustomizationChoice(T value, string text)
+			{
+				Value = value ?? throw new ArgumentNullException(nameof(value));
+				Text = text ?? String.Empty;
+			}
+
+			public T Value { get; }
+			public string Text { get; }
+
+			public override string ToString()
+			{
+				return Text;
+			}
 		}
 
 		private CollectionManualAcquisitionPendingAction GetSelectedOrFirstPendingAction()
@@ -3644,6 +4784,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			_reviewedPlanIdentity = null;
 			_selectionDirty = false;
 			_selectionCapabilityBlocked = false;
+			_optionalMemberSelectionState.Clear();
+			_managedMemberExpansionAssociationId = null;
 			_hasInterruptedReplacement = false;
 			_workflowStatusLabel.Text = _workflow == null
 				? L("Collections.Workflow.PreviewOnly", "Workflow: preview only - Collection installation is unavailable in this session.")
@@ -3663,6 +4805,10 @@ namespace Nexus.Client.CollectionManagement.UI
 			_localCaptureCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localCaptureCombo.Items.Count > 0;
 			_restoreLocalCaptureButton.Enabled = !_workflowBusy && hasLocalCapture &&
 				selectedCapture.Capability == LocalCaptureCapability.LocallyRestorableWithinScope;
+			CollectionManagementLocalWorkingCopy selectedWorkingCopy = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
+			_localWorkingCopyCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localWorkingCopyCombo.Items.Count > 0;
+			_editLocalWorkingCopyButton.Enabled = !_workflowBusy && _managementWorkflow != null && selectedWorkingCopy != null;
+			_saveLocalWorkingCopyRevisionButton.Enabled = !_workflowBusy && _managementWorkflow != null && selectedWorkingCopy != null;
 
 			CollectionManagementAssociation selectedAssociation = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
 			bool hasManagedAssociation = _managementWorkflow != null && selectedAssociation != null;
@@ -3670,8 +4816,38 @@ namespace Nexus.Client.CollectionManagement.UI
 				? CollectionUiContext.Installed(_previewGeneration, selectedAssociation.Association.Revision, selectedAssociation.AssociationId)
 				: null;
 			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Items.Count > 0;
-			_detachAssociationButton.Enabled = !_workflowBusy && hasManagedAssociation;
-			_removeAssociationEffectsButton.Enabled = !_workflowBusy && hasManagedAssociation;
+			_manageAssociationRemovalButton.Enabled = !_workflowBusy && hasManagedAssociation;
+			_cloneManagedAssociationButton.Enabled = !_workflowBusy && hasManagedAssociation &&
+				_managedAssociationPresentation != null && _managedAssociationPresentation.HasRetainedManifest;
+			CollectionManagementMemberPresentation selectedManagedMember = GetSelectedManagedMemberPresentation();
+			bool canChangeMemberIntent = !_workflowBusy && hasManagedAssociation && selectedManagedMember != null &&
+				selectedAssociation.State != CollectionAssociationState.Recovering;
+			_showManagedMemberButton.Enabled = !_workflowBusy && hasManagedAssociation && selectedManagedMember != null;
+			_showManagedMemberImpactButton.Enabled = !_workflowBusy && hasManagedAssociation && selectedManagedMember != null;
+			NormalizedCollectionMember selectedNormalizedMember = GetSelectedNormalizedMember();
+			_addManagedOptionalMemberButton.Enabled = !_workflowBusy && _workflow != null && hasManagedAssociation &&
+				selectedAssociation.State == CollectionAssociationState.Applied && _managedAssociationPresentation != null &&
+				_managedAssociationPresentation.HasRetainedManifest && selectedNormalizedMember != null &&
+				selectedNormalizedMember.Requirement == CollectionMemberRequirement.Optional && selectedNormalizedMember.IdentityResolution.IsResolved &&
+				!_managedAssociationPresentation.BoundMemberKeys.Contains(selectedNormalizedMember.IdentityResolution.Key);
+			_removeManagedOptionalMemberButton.Enabled = !_workflowBusy && _managementWorkflow != null && hasManagedAssociation &&
+				selectedAssociation.State != CollectionAssociationState.Recovering && selectedAssociation.State != CollectionAssociationState.Incomplete &&
+				_managedAssociationPresentation != null && _managedAssociationPresentation.HasRetainedManifest &&
+				selectedNormalizedMember != null && selectedNormalizedMember.Requirement == CollectionMemberRequirement.Optional &&
+				selectedNormalizedMember.IdentityResolution.IsResolved && selectedManagedMember != null &&
+				selectedManagedMember.MemberKey.Equals(selectedNormalizedMember.IdentityResolution.Key);
+			_ignoreMemberDifferenceButton.Enabled = canChangeMemberIntent && selectedManagedMember.DriftObservations.Any(x =>
+				CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect));
+			_stopIgnoringMemberDifferenceButton.Enabled = canChangeMemberIntent && selectedManagedMember.UserOverrides.Any(x =>
+				CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect));
+			_acceptMemberDriftButton.Enabled = canChangeMemberIntent && selectedManagedMember.DriftObservations.Any(x =>
+				!CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect));
+			_clearMemberOverrideButton.Enabled = canChangeMemberIntent && selectedManagedMember.UserOverrides.Any(x =>
+				!CollectionMemberRequirementStates.IsIgnorableMemberDifference(x.Requirement.Aspect));
+
+			bool hasMemberList = _snapshot != null && _snapshot.HasManifestPreview;
+			_memberSearchTextBox.Enabled = !_workflowBusy && hasMemberList;
+			_memberFilterCombo.Enabled = !_workflowBusy && hasMemberList;
 
 			bool hasConcreteRevision = _snapshot != null && _snapshot.HasConcreteRevision;
 			_incomingActionContext = _displayContext != null && _displayContext.Kind == CollectionUiContextKind.IncomingCollection &&
@@ -3679,7 +4855,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_incomingActionContext != null && _operationIdentity != null)
 				_incomingActionContext = _incomingActionContext.WithOperation(_operationIdentity);
 			CollectionManagementAssociation matchingAssociation = FindMatchingManagedAssociation();
-			bool sameRevisionAlreadyApplied = matchingAssociation != null && matchingAssociation.State == CollectionAssociationState.Applied;
+			bool expandingManagedAssociation = matchingAssociation != null && _managedMemberExpansionAssociationId.HasValue &&
+				matchingAssociation.AssociationId == _managedMemberExpansionAssociationId.Value;
+			bool sameRevisionAlreadyApplied = matchingAssociation != null && matchingAssociation.State == CollectionAssociationState.Applied && !expandingManagedAssociation;
 			bool installedAssociationView = _managedAssociationPresentation != null;
 			_importButton.Enabled = !_workflowBusy && hasConcreteRevision && !installedAssociationView && !sameRevisionAlreadyApplied;
 			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision && !installedAssociationView && !sameRevisionAlreadyApplied && !_selectionCapabilityBlocked &&
@@ -3688,6 +4866,10 @@ namespace Nexus.Client.CollectionManagement.UI
 				 (_preparation.Status == CollectionAdditiveWorkflowPreparationStatus.PreparationRequired ||
 				  _preparation.Status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired ||
 				  _preparation.Status == CollectionAdditiveWorkflowPreparationStatus.Blocked)));
+			bool hasResolvableFileConflict = _preparation != null && _preparation.ImpactPlan != null &&
+				_preparation.ImpactPlan.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired);
+			_resolveFileConflictsButton.Visible = hasResolvableFileConflict;
+			_resolveFileConflictsButton.Enabled = !_workflowBusy && hasResolvableFileConflict && !installedAssociationView && !sameRevisionAlreadyApplied;
 			_autoOverwriteArchivesCheckBox.Enabled = _downloadPrepareButton.Enabled;
 			_resumeButton.Visible = _acquisitionBatch != null && !_acquisitionBatch.IsReady;
 			_resumeButton.Enabled = !_workflowBusy && _resumeButton.Visible;
@@ -3718,6 +4900,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				_replaceButton.Text = L("Collections.Actions.ReplaceCurrent", "Replace current managed setup...");
 			if (sameRevisionAlreadyApplied)
 				_installButton.Text = L("Collections.Actions.AlreadyApplied", "Already applied");
+			else if (expandingManagedAssociation)
+				_installButton.Text = L("Collections.Actions.AddOptionalMemberReview", "Review and add member...");
 			else if (exactReview && (_operationSnapshot.RequiresRecovery || _operationSnapshot.HasUnreconciledNativeChild))
 				_installButton.Text = L("Collections.Actions.CheckRecoveryContinue", "Check recovery and continue...");
 			else if (exactReview && _preparation == null)

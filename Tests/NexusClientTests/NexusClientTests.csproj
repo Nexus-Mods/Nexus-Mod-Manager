@@ -187,6 +187,7 @@
     <Compile Include="CollectionReviewedFileWinnerReconciliationCoordinatorTests.cs" />
     <Compile Include="CollectionAssociationReconciliationCoordinatorTests.cs" />
     <Compile Include="CollectionManualMutationDriftCoordinatorTests.cs" />
+    <Compile Include="CollectionMemberRequirementStatesTests.cs" />
     <Compile Include="CollectionPinOverrideCoordinatorTests.cs" />
     <Compile Include="CollectionDetachCoordinatorTests.cs" />
     <Compile Include="CollectionUninstallEffectsCoordinatorTests.cs" />
@@ -205,6 +206,9 @@
     <Compile Include="CollectionNexusPreferExactPolicyResolverTests.cs" />
     <Compile Include="LocalCaptureContractsTests.cs" />
     <Compile Include="CollectionOverrideDriftContractsTests.cs" />
+    <Compile Include="CollectionMemberListPresentationTests.cs" />
+    <Compile Include="CollectionInstalledMemberExpansionTests.cs" />
+    <Compile Include="CollectionInstalledMemberRemovalCoordinatorTests.cs" />
     <Compile Include="CollectionReviewPresentationTests.cs" />
     <Compile Include="CollectionTechnicalReportTests.cs" />
     <Compile Include="CollectionUserMessagePresentationTests.cs" />
@@ -214,6 +218,7 @@
     <Compile Include="CollectionsStoreFoundationTests.cs" />
     <Compile Include="CollectionsCatalogStoreTests.cs" />
     <Compile Include="CollectionsRevisionSourceStoreTests.cs" />
+    <Compile Include="CollectionsLocalWorkingCopyStoreTests.cs" />
     <Compile Include="CollectionsAssociationStoreTests.cs" />
     <Compile Include="CollectionsOperationStoreTests.cs" />
     <Compile Include="CollectionsResolvedPlanStoreTests.cs" />
@@ -323,6 +328,10 @@
     <ProjectReference Include="..\..\Script Types\XmlScript\XmlScript.csproj">
       <Project>{B0F526DB-967B-4A57-9EC9-2E4950E54F26}</Project>
       <Name>XmlScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\DockPanelSuite\DockPanelSuite.csproj">
+      <Project>{C75532C4-765B-418E-B09B-46D36B2ABDB1}</Project>
+      <Name>DockPanelSuite</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\NexusClient\NexusClient.csproj">
       <Project>{579B8F56-49F6-4B9D-8013-E11F69E5308C}</Project>

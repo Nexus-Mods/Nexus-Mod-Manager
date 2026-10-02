@@ -58,6 +58,35 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void SnapshotCodec_RoundTripsPreservedExistingManagedFileWinner()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionFileImpact original = fixture.ImpactPlan.FileImpacts.Single();
+				var impact = new CollectionConflictImpactPlan(fixture.Plan, fixture.State, new[]
+				{
+					new CollectionFileImpact(original.Target, original.Writers, original.PlannedWinner,
+						"external-owner", true, original.AffectedAssociationIds)
+				}, new CollectionPluginImpact[0], new CollectionConfigurationImpact[0],
+					new CollectionAssociationImpact[0], new CollectionConflictImpactIssue[0]);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, impact, new[] { fixture.PreparedRecipe });
+
+				CollectionReviewedWorkflowSnapshot roundTrip = CollectionReviewedWorkflowSnapshotCodec.Deserialize(
+					CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot));
+
+				Assert.IsTrue(roundTrip.FileImpacts.Single().PreserveCurrentOwner);
+				Assert.AreEqual("external-owner", roundTrip.FileImpacts.Single().CurrentOwnerKey);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void ReconstructPlan_ValidatesRetainedSourceWithoutClaimingSafeBoundaryResume()
 		{
 			string root = CreateTemporaryDirectory();

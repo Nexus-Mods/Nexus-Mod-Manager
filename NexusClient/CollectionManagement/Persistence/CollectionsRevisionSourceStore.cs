@@ -18,7 +18,13 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		RawManifest = 1,
 
 		/// <summary>The imported source was an archive containing root collection.json.</summary>
-		Archive = 2
+		Archive = 2,
+
+		/// <summary>
+		/// An NMM-owned Local working-copy revision whose edited collection.json is retained independently while
+		/// reusing the immutable outer bundle inherited from its cloned source revision.
+		/// </summary>
+		LocalWorkingCopy = 3
 	}
 
 	/// <summary>
@@ -304,8 +310,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			CollectionRevisionSourceRecord source = GetSource(revision);
 			if (source == null)
 				throw new FileNotFoundException("The Collection revision has no retained source provenance.");
-			if (source.InputKind != CollectionRevisionSourceInputKind.Archive)
-				throw new InvalidOperationException("Embedded Collection members require an archived Collection revision source.");
+			if (source.InputKind != CollectionRevisionSourceInputKind.Archive &&
+				source.InputKind != CollectionRevisionSourceInputKind.LocalWorkingCopy)
+				throw new InvalidOperationException("Embedded Collection members require an archived or Local-working-copy Collection revision source.");
 			if (String.IsNullOrEmpty(source.RawBundleArtifactId))
 				throw new CollectionsStoreSchemaException("The Collection revision source has no retained outer-bundle artifact binding.");
 

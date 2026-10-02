@@ -521,6 +521,14 @@
 		/// <summary>Returns all selected mods.</summary>
 		public List<IMod> SelectedMods => new List<IMod>(_activeModListSurface.SelectedMods);
 
+		/// <summary>Focuses and selects one managed mod in the active Mods surface.</summary>
+		public void FocusMod(IMod mod)
+		{
+			if (mod == null) return;
+			_activeModListSurface.FocusMod(mod);
+			_activeModListSurface.ViewControl.Focus();
+		}
+
 		// ── ViewModel wiring ─────────────────────────────────────────────────
 
 		private void HookViewModel()

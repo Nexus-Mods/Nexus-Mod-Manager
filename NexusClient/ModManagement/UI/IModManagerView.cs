@@ -47,6 +47,9 @@ namespace Nexus.Client.ModManagement.UI
         /// <summary>Applies a text filter to the mod list (called from the main-form search box).</summary>
         void FindItemWithText(string filter);
 
+        /// <summary>Focuses and selects one managed mod when it is present in the current Mods view.</summary>
+        void FocusMod(IMod mod);
+
         /// <summary>Refreshes the Skyrim SE download-mode button text/image.</summary>
         void SetSkyrimDownloadModeFeedback();
 

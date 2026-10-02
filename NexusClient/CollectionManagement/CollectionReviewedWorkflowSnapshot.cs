@@ -150,7 +150,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("Every reviewed member that will require native installation must have one exact prepared native recipe descriptor.");
 
 			var fileImpacts = impactPlan.FileImpacts.Select(x => new CollectionReviewedFileImpactSnapshot(x.Target, x.Writers,
-				x.PlannedWinner, x.CurrentOwnerKey, x.AffectedAssociationIds)).ToList();
+				x.PlannedWinner, x.CurrentOwnerKey, x.PreserveCurrentOwner, x.AffectedAssociationIds)).ToList();
 			var pluginImpacts = impactPlan.PluginImpacts.Select(x => new CollectionReviewedPluginImpactSnapshot(x.MemberKey,
 				x.Effect, x.AffectedAssociationIds)).ToList();
 			var configurationImpacts = impactPlan.ConfigurationImpacts.Select(x => new CollectionReviewedConfigurationImpactSnapshot(
@@ -406,17 +406,29 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<Guid> _affectedAssociationIds;
 		internal CollectionReviewedFileImpactSnapshot(ModDeploymentTarget target, IEnumerable<CollectionMemberKey> writers,
 			CollectionMemberKey plannedWinner, string currentOwnerKey, IEnumerable<Guid> affectedAssociationIds)
+			: this(target, writers, plannedWinner, currentOwnerKey, false, affectedAssociationIds)
+		{
+		}
+
+		internal CollectionReviewedFileImpactSnapshot(ModDeploymentTarget target, IEnumerable<CollectionMemberKey> writers,
+			CollectionMemberKey plannedWinner, string currentOwnerKey, bool preserveCurrentOwner, IEnumerable<Guid> affectedAssociationIds)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			_writers = new ReadOnlyCollection<CollectionMemberKey>((writers ?? throw new ArgumentNullException(nameof(writers))).ToList());
 			PlannedWinner = plannedWinner;
 			CurrentOwnerKey = currentOwnerKey;
+			if (preserveCurrentOwner && String.IsNullOrWhiteSpace(currentOwnerKey))
+				throw new ArgumentException("A reviewed preserved file winner requires its exact native owner key.", nameof(currentOwnerKey));
+			if (preserveCurrentOwner && (plannedWinner == null || !_writers.Contains(plannedWinner)))
+				throw new ArgumentException("A reviewed preserved file winner requires the exact Collection fallback winner.", nameof(plannedWinner));
+			PreserveCurrentOwner = preserveCurrentOwner;
 			_affectedAssociationIds = new ReadOnlyCollection<Guid>((affectedAssociationIds ?? throw new ArgumentNullException(nameof(affectedAssociationIds))).OrderBy(x => x).ToList());
 		}
 		public ModDeploymentTarget Target { get; }
 		public ReadOnlyCollection<CollectionMemberKey> Writers { get { return _writers; } }
 		public CollectionMemberKey PlannedWinner { get; }
 		public string CurrentOwnerKey { get; }
+		public bool PreserveCurrentOwner { get; }
 		public ReadOnlyCollection<Guid> AffectedAssociationIds { get { return _affectedAssociationIds; } }
 	}
 
@@ -553,7 +565,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
-		private const int BinaryVersion = 3;
+		private const int BinaryVersion = 4;
 		private const int LegacyBinaryVersion = 2;
 		private const int MaxCount = 100000;
 		private const int MaxPayloadLength = 64 * 1024 * 1024;
@@ -601,7 +613,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != BinaryVersion && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != BinaryVersion && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -614,7 +626,7 @@ namespace Nexus.Client.CollectionManagement
 					List<CollectionReviewedPrioritySnapshot> priorities = ReadPriorities(reader);
 					List<CollectionReviewedPhaseSnapshot> phases = ReadPhases(reader);
 					List<CollectionReviewedBarrierSnapshot> barriers = ReadBarriers(reader);
-					List<CollectionReviewedFileImpactSnapshot> files = ReadFileImpacts(reader);
+					List<CollectionReviewedFileImpactSnapshot> files = ReadFileImpacts(reader, binaryVersion);
 					List<CollectionReviewedPluginImpactSnapshot> plugins = ReadPluginImpacts(reader);
 					List<CollectionReviewedConfigurationImpactSnapshot> configs = ReadConfigurationImpacts(reader);
 					List<CollectionReviewedAssociationImpactSnapshot> associations = ReadAssociationImpacts(reader);
@@ -718,12 +730,21 @@ namespace Nexus.Client.CollectionManagement
 		private static void WriteFileImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedFileImpactSnapshot> values)
 		{
 			List<CollectionReviewedFileImpactSnapshot> list = values.OrderBy(x => x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToList(); writer.Write(list.Count);
-			foreach (var x in list) { WriteDeploymentTarget(writer, x.Target); writer.Write(x.Writers.Count); foreach (var key in x.Writers) WriteMemberKey(writer, key); WriteNullableMemberKey(writer, x.PlannedWinner); WriteNullableString(writer, x.CurrentOwnerKey); WriteGuids(writer, x.AffectedAssociationIds); }
+			foreach (var x in list) { WriteDeploymentTarget(writer, x.Target); writer.Write(x.Writers.Count); foreach (var key in x.Writers) WriteMemberKey(writer, key); WriteNullableMemberKey(writer, x.PlannedWinner); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.PreserveCurrentOwner); WriteGuids(writer, x.AffectedAssociationIds); }
 		}
-		private static List<CollectionReviewedFileImpactSnapshot> ReadFileImpacts(BinaryReader reader)
+		private static List<CollectionReviewedFileImpactSnapshot> ReadFileImpacts(BinaryReader reader, int binaryVersion)
 		{
 			var result = new List<CollectionReviewedFileImpactSnapshot>();
-			for (int i = 0, count = ReadCount(reader); i < count; i++) { ModDeploymentTarget target = ReadDeploymentTarget(reader); var writers = new List<CollectionMemberKey>(); for (int j = 0, wc = ReadCount(reader); j < wc; j++) writers.Add(ReadMemberKey(reader)); result.Add(new CollectionReviewedFileImpactSnapshot(target, writers, ReadNullableMemberKey(reader), ReadNullableString(reader), ReadGuids(reader))); }
+			for (int i = 0, count = ReadCount(reader); i < count; i++)
+			{
+				ModDeploymentTarget target = ReadDeploymentTarget(reader);
+				var writers = new List<CollectionMemberKey>();
+				for (int j = 0, wc = ReadCount(reader); j < wc; j++) writers.Add(ReadMemberKey(reader));
+				CollectionMemberKey plannedWinner = ReadNullableMemberKey(reader);
+				string currentOwnerKey = ReadNullableString(reader);
+				bool preserveCurrentOwner = binaryVersion >= 4 && reader.ReadBoolean();
+				result.Add(new CollectionReviewedFileImpactSnapshot(target, writers, plannedWinner, currentOwnerKey, preserveCurrentOwner, ReadGuids(reader)));
+			}
 			return result;
 		}
 		private static void WritePluginImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedPluginImpactSnapshot> values)
