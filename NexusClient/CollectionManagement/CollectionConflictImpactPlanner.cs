@@ -42,9 +42,21 @@ namespace Nexus.Client.CollectionManagement
 			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, new CollectionConflictResolutionDecision[0], true);
 		}
 
+		/// <summary>Builds the C10.6 candidate impact plan after the durable three-way update review already bound association/customization decisions.</summary>
+		internal CollectionConflictImpactPlan PlanForRevisionUpdateExecution(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState, IEnumerable<CollectionMemberEffectPreview> effectPreviews,
+			IEnumerable<CollectionConflictResolutionDecision> decisions, Guid reviewedAssociationId)
+		{
+			if (plan == null || plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
+				throw new ArgumentException("Revision-update execution impact planning requires the additive/current-setup policy.", nameof(plan));
+			if (decisions == null) throw new ArgumentNullException(nameof(decisions));
+			if (reviewedAssociationId == Guid.Empty) throw new ArgumentOutOfRangeException(nameof(reviewedAssociationId));
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, decisions, false, reviewedAssociationId);
+		}
+
 		private CollectionConflictImpactPlan PlanCore(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
-			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions, bool replacementExecution)
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions, bool skipAssociationReview, Guid? reviewedAssociationId = null)
 		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
@@ -117,8 +129,8 @@ namespace Nexus.Client.CollectionManagement
 			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues);
 			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues);
 
-			if (!replacementExecution)
-				ReviewAffectedAssociations(nativeState, associationKinds, issues);
+			if (!skipAssociationReview)
+				ReviewAffectedAssociations(nativeState, associationKinds, issues, reviewedAssociationId);
 			List<CollectionAssociationImpact> associationImpacts = associationKinds.OrderBy(x => x.Key)
 				.Where(x => nativeState.Associations.ContainsKey(x.Key))
 				.Select(x => new CollectionAssociationImpact(nativeState.Associations[x.Key], x.Value)).ToList();
@@ -891,10 +903,13 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static void ReviewAffectedAssociations(CollectionNativeStateIndex nativeState,
-			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues)
+			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
+			Guid? reviewedAssociationId)
 		{
 			foreach (Guid associationId in associationKinds.Keys.ToList())
 			{
+				if (reviewedAssociationId.HasValue && associationId == reviewedAssociationId.Value)
+					continue;
 				CollectionTargetAssociation association;
 				if (!nativeState.Associations.TryGetValue(associationId, out association)) continue;
 				if (association.State == CollectionAssociationState.Incomplete || association.State == CollectionAssociationState.Recovering)

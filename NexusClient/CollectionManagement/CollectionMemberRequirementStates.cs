@@ -18,6 +18,23 @@ namespace Nexus.Client.CollectionManagement
 			return CollectionRequirementState.Present(EnabledFormat, enabled ? "enabled" : "disabled");
 		}
 
+		/// <summary>Decodes only the canonical member-enabled state representation owned by this adapter.</summary>
+		internal static bool TryGetEnabled(CollectionRequirementState state, out bool enabled)
+		{
+			enabled = false;
+			if (state == null || state.Kind != CollectionRequirementStateKind.Present ||
+				!StringComparer.Ordinal.Equals(state.FormatVersion, EnabledFormat))
+				return false;
+			if (StringComparer.Ordinal.Equals(state.Fingerprint, "enabled"))
+			{
+				enabled = true;
+				return true;
+			}
+			if (StringComparer.Ordinal.Equals(state.Fingerprint, "disabled"))
+				return true;
+			return false;
+		}
+
 		internal static bool IsIgnorableMemberDifference(CollectionRequirementAspect aspect)
 		{
 			return aspect == CollectionRequirementAspect.MemberParticipation ||

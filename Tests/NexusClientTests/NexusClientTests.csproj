@@ -173,6 +173,15 @@
     <Compile Include="CollectionScriptedReplayCaptureServiceTests.cs" />
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
     <Compile Include="CollectionReplacementDiffPlannerTests.cs" />
+    <Compile Include="CollectionRevisionUpdatePlannerTests.cs" />
+    <Compile Include="CollectionRevisionUpdateReviewCoordinatorTests.cs" />
+    <Compile Include="CollectionRevisionUpdatePreparationCoordinatorTests.cs" />
+    <Compile Include="CollectionRevisionUpdateObsoleteEffectCoordinatorTests.cs" />
+    <Compile Include="CollectionRevisionUpdateOverridePreservationPlannerTests.cs" />
+    <Compile Include="CollectionRevisionUpdateCandidateExecutionPlanningTests.cs" />
+    <Compile Include="CollectionRevisionUpdateAggregateVerificationTests.cs" />
+    <Compile Include="CollectionRevisionUpdatePublicationTests.cs" />
+    <Compile Include="CollectionVerifyRepairPlannerTests.cs" />
     <Compile Include="CollectionReplacementOutgoingRemovalCoordinatorTests.cs" />
     <Compile Include="CollectionReplacementPhaseBarrierCoordinatorTests.cs" />
     <Compile Include="CollectionReplacementValidationGateTests.cs" />

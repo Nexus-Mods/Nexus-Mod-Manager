@@ -57,7 +57,53 @@
 		InstallingIncomingNativeChildren = 20,
 
 		/// <summary>C8.6 safe barrier: all reviewed incoming children and supported final native state were verified.</summary>
-		IncomingNativeChildrenVerified = 21
+		IncomingNativeChildrenVerified = 21,
+
+		/// <summary>
+		/// C10 revision update is removing exact reviewed obsolete old-revision native effects.
+		/// </summary>
+		RemovingObsoleteRevisionEffects = 22,
+
+		/// <summary>
+		/// C10 revision update has verified every qualified obsolete-effect removal.
+		/// </summary>
+		ObsoleteRevisionEffectsVerified = 23,
+
+		/// <summary>
+		/// C10 revision update is executing exact reviewed candidate activate/reinstall children.
+		/// </summary>
+		InstallingCandidateRevisionChildren = 24,
+
+		/// <summary>
+		/// C10 revision update has verified every candidate native child at a durable safe boundary.
+		/// </summary>
+		CandidateRevisionChildrenVerified = 25,
+
+		/// <summary>C10.7 is replaying the exact qualified C9 overrides after candidate native execution.</summary>
+		ReapplyingQualifiedRevisionOverrides = 26,
+
+		/// <summary>C10.7 has verified every replayable override against current authoritative/native activation state.</summary>
+		QualifiedRevisionOverridesVerified = 27,
+
+		/// <summary>C10.8 is verifying the complete supported candidate revision plus retained customization.</summary>
+		VerifyingCandidateRevisionAggregate = 28,
+
+		/// <summary>C10.8 durably sealed one fresh authoritative aggregate verification for later atomic publication.</summary>
+		CandidateRevisionAggregateVerified = 29,
+
+		/// <summary>C10.10c is executing exact qualified native repair children.</summary>
+		RepairingQualifiedEffects = 30,
+
+		/// <summary>C10.10c verified every qualified repair against fresh authoritative native state.</summary>
+		QualifiedEffectsVerified = 31
+	}
+
+	/// <summary>Identifies which high-level Collection workflow is using the shared C6 native-child pipeline.</summary>
+	internal enum CollectionNativeChildWorkflowMode
+	{
+		Additive = 0,
+		Replacement = 1,
+		RevisionUpdate = 2
 	}
 
 	/// <summary>

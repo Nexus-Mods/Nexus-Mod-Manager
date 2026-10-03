@@ -387,6 +387,14 @@ namespace Nexus.Client.CollectionManagement
 		internal static CollectionInstalledMemberRemovalPlan BuildPlanForState(CollectionsAssociationStore associationStore,
 			CollectionTargetAssociation association, CollectionMemberBinding binding, CollectionNativeStateIndex state)
 		{
+			return BuildPlanForState(associationStore, association, binding, state, null);
+		}
+
+		/// <summary>Internal planning seam used when a higher-level reviewed workflow has already proven selected overrides are satisfied by removal itself.</summary>
+		internal static CollectionInstalledMemberRemovalPlan BuildPlanForState(CollectionsAssociationStore associationStore,
+			CollectionTargetAssociation association, CollectionMemberBinding binding, CollectionNativeStateIndex state,
+			IEnumerable<Guid> ignoredOverrideIds)
+		{
 			if (associationStore == null) throw new ArgumentNullException(nameof(associationStore));
 			if (association == null) throw new ArgumentNullException(nameof(association));
 			if (binding == null) throw new ArgumentNullException(nameof(binding));
@@ -405,7 +413,9 @@ namespace Nexus.Client.CollectionManagement
 			NativeModProvenance provenance = associationStore.GetNativeModProvenance(binding.NativeMod);
 			IReadOnlyList<UserOverride> overrides = associationStore.GetOverrides(association.AssociationId);
 			IReadOnlyList<CollectionDriftObservation> drift = associationStore.GetDriftObservations(association.AssociationId);
-			bool customized = overrides.Any(x => x.Requirement.MemberKey == null || x.Requirement.MemberKey.Equals(binding.MemberKey)) ||
+			var ignored = new HashSet<Guid>(ignoredOverrideIds ?? Enumerable.Empty<Guid>());
+			bool customized = overrides.Any(x => !ignored.Contains(x.OverrideId) &&
+				(x.Requirement.MemberKey == null || x.Requirement.MemberKey.Equals(binding.MemberKey))) ||
 				drift.Any(x => x.Requirement.MemberKey == null || x.Requirement.MemberKey.Equals(binding.MemberKey));
 			bool present = IsNativeModPresent(state, binding.NativeMod);
 			bool hasReferences = HasNativeOwnerReferences(state, binding.NativeMod);

@@ -36,12 +36,28 @@ namespace Nexus.Client.CollectionManagement
 	/// <summary>One root-aware file effect produced by a translated native recipe.</summary>
 	public sealed class CollectionPlannedFileEffect
 	{
-		/// <summary>Creates one planned managed-file destination.</summary>
+		/// <summary>Creates one planned managed-file destination when exact destination bytes are not characterized.</summary>
 		public CollectionPlannedFileEffect(ModDeploymentTarget target)
+			: this(target, null, null)
+		{
+		}
+
+		/// <summary>Creates one planned managed-file destination with exact expected destination bytes.</summary>
+		public CollectionPlannedFileEffect(ModDeploymentTarget target, CollectionContentHash expectedContentHash, long? expectedByteLength)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
+			if ((expectedContentHash == null) != !expectedByteLength.HasValue)
+				throw new ArgumentException("Expected file content hash and byte length must either both be supplied or both be omitted.");
+			if (expectedByteLength.HasValue && expectedByteLength.Value < 0)
+				throw new ArgumentOutOfRangeException(nameof(expectedByteLength));
+			ExpectedContentHash = expectedContentHash;
+			ExpectedByteLength = expectedByteLength;
 		}
+
 		public ModDeploymentTarget Target { get; }
+		public CollectionContentHash ExpectedContentHash { get; }
+		public long? ExpectedByteLength { get; }
+		public bool HasExactContentIdentity { get { return ExpectedContentHash != null && ExpectedByteLength.HasValue; } }
 	}
 
 	/// <summary>One planned INI edit produced by a translated native recipe.</summary>

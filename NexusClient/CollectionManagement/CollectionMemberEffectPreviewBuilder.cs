@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Scripting;
@@ -48,7 +49,8 @@ namespace Nexus.Client.CollectionManagement
 				if (installFile != null)
 				{
 					ModDeploymentTarget target = ResolveTarget(gameMode, mod, installFile.DestinationPath, recipeInput.InstallContext.InstallRoot);
-					AddFile(files, target);
+					using (FileStream source = mod.GetFileStream(installFile.SourcePath))
+						AddFile(files, target, ComputeContentHash(source), source.Length);
 					AddImplicitPluginActivation(requestedPluginActivations, gameMode, pluginManager, target, installFile);
 					continue;
 				}
@@ -57,7 +59,9 @@ namespace Nexus.Client.CollectionManagement
 				if (generatedFile != null)
 				{
 					// Native C5 execution registers generated plugins but deliberately does not request implicit activation.
-					AddFile(files, ResolveTarget(gameMode, mod, generatedFile.DestinationPath, recipeInput.InstallContext.InstallRoot));
+					byte[] generatedBytes = generatedFile.Data ?? new byte[0];
+					AddFile(files, ResolveTarget(gameMode, mod, generatedFile.DestinationPath, recipeInput.InstallContext.InstallRoot),
+						ComputeContentHash(generatedBytes), generatedBytes.LongLength);
 					continue;
 				}
 
@@ -210,10 +214,32 @@ namespace Nexus.Client.CollectionManagement
 			return operation.DeploymentDecision == null || operation.DeploymentDecision.Activate;
 		}
 
-		private static void AddFile(IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> files, ModDeploymentTarget target)
+		private static void AddFile(IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> files, ModDeploymentTarget target,
+			CollectionContentHash contentHash, long byteLength)
 		{
-			if (!files.ContainsKey(target))
-				files.Add(target, new CollectionPlannedFileEffect(target));
+			files[target] = new CollectionPlannedFileEffect(target, contentHash, byteLength);
+		}
+
+		private static CollectionContentHash ComputeContentHash(Stream stream)
+		{
+			if (stream == null) throw new ArgumentNullException(nameof(stream));
+			long originalPosition = stream.CanSeek ? stream.Position : 0;
+			try
+			{
+				if (stream.CanSeek) stream.Position = 0;
+				using (SHA256 sha256 = SHA256.Create())
+					return CollectionContentHash.FromSha256(BitConverter.ToString(sha256.ComputeHash(stream)).Replace("-", String.Empty).ToLowerInvariant());
+			}
+			finally
+			{
+				if (stream.CanSeek) stream.Position = originalPosition;
+			}
+		}
+
+		private static CollectionContentHash ComputeContentHash(byte[] bytes)
+		{
+			using (SHA256 sha256 = SHA256.Create())
+				return CollectionContentHash.FromSha256(BitConverter.ToString(sha256.ComputeHash(bytes ?? new byte[0])).Replace("-", String.Empty).ToLowerInvariant());
 		}
 	}
 }

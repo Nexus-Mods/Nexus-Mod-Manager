@@ -381,6 +381,65 @@ namespace Nexus.Client.CollectionManagement
 				memberPresentations, customization, gameDomain, retainedSourceIssue);
 		}
 
+		/// <summary>Builds the read-only C10.10a verify/repair assessment for one installed Collection association.</summary>
+		/// <remarks>
+		/// The target authority is reloaded under the normal target lease before capture. This method never changes native state,
+		/// Collection customization, or the association. Exact effect repair remains blocked until a later qualified repair slice.
+		/// </remarks>
+		public async Task<CollectionVerifyRepairPlan> PreviewVerifyRepairAsync(Guid associationId, CancellationToken cancellationToken)
+		{
+			if (associationId == Guid.Empty)
+				throw new ArgumentException("A non-empty association identifier is required.", nameof(associationId));
+			if (!_store.Exists)
+				return null;
+
+			CollectionManagementAssociationPresentation presentation = GetAssociationPresentation(associationId);
+			if (presentation == null)
+				return null;
+			if (!presentation.HasRetainedManifest)
+				throw new InvalidOperationException(presentation.RetainedSourceIssue ??
+					"The exact retained Collection manifest is required for verify/repair planning.");
+
+			GameStoragePathSet paths = GetTargetPaths();
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			using (CollectionTargetMutationLease lease = await CollectionTargetMutationLeaseManager.Shared
+				.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				new CollectionTargetOwnershipAuthorityValidator(_gameStorageService, _services).ValidateAndReload(lease, authority, paths);
+				CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(authority.Target);
+				CollectionTargetAssociation association = snapshot.Associations.SingleOrDefault(x => x.AssociationId == associationId);
+				if (association == null)
+					throw new InvalidOperationException("The Collection association changed while verify/repair state was being captured.");
+				if (!association.Revision.Equals(presentation.Association.Association.Revision))
+					throw new InvalidOperationException("The Collection association revision changed while verify/repair state was being captured.");
+
+				var reader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
+					_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);
+				CollectionNativeStateIndex state = reader.Capture(authority.Target);
+				List<CollectionMemberBinding> bindings = snapshot.Bindings.Where(x => x.Association.AssociationId == associationId).ToList();
+				List<UserOverride> overrides = snapshot.Overrides.Where(x => x.Requirement.AssociationId == associationId).ToList();
+				List<CollectionDriftObservation> drift = snapshot.DriftObservations.Where(x => x.Requirement.AssociationId == associationId).ToList();
+				CollectionVerifyRepairPreparationResult preparation = new CollectionVerifyRepairPreparationService(_services, _store, _revisionSourceStore)
+					.Prepare(association, presentation.RetainedManifest, state, bindings, overrides, drift, cancellationToken);
+				IEnumerable<CollectionMemberEffectPreview> previews = preparation.IsComplete
+					? preparation.PreparedRecipes.Select(x => x.EffectPreview) : null;
+				return new CollectionVerifyRepairPlanner().Plan(association, presentation.RetainedManifest.Manifest, state, bindings, overrides, drift,
+					previews, preparation);
+			}
+		}
+
+		/// <summary>Executes the deliberately narrow C10.10b qualified repair subset for a previously verified exact plan.</summary>
+		public Task<CollectionVerifyRepairExecutionResult> ExecuteQualifiedRepairAsync(CollectionVerifyRepairPlan plan,
+			CancellationToken cancellationToken)
+		{
+			if (plan == null) throw new ArgumentNullException(nameof(plan));
+			if (!plan.Association.Target.Equals(ResolveCurrentTarget()))
+				throw new InvalidOperationException("The verify/repair plan does not belong to the current canonical target.");
+			var coordinator = new CollectionVerifyRepairExecutionCoordinator(_services, _gameStorageService, _store, _associationStore);
+			return coordinator.ExecuteAsync(plan, GetTargetPaths(), cancellationToken);
+		}
+
 		/// <summary>Returns persisted Local Collection captures belonging to the current canonical target.</summary>
 		public IReadOnlyList<CollectionManagementLocalCapture> GetLocalCaptures()
 		{

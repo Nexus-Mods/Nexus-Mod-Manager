@@ -52,7 +52,7 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionVerifiedArchive> verifiedArchives, string installInfoDirectory)
 		{
 			return PrepareNextCore(operationIdentity, plan, matches, dependencyPlan, impactPlan, currentState,
-				effectPreviews, verifiedArchives, installInfoDirectory, false);
+				effectPreviews, verifiedArchives, installInfoDirectory, CollectionNativeChildWorkflowMode.Additive);
 		}
 
 		/// <summary>Prepares one C8.6 incoming child against the verified post-removal replacement execution baseline.</summary>
@@ -63,14 +63,25 @@ namespace Nexus.Client.CollectionManagement
 			string installInfoDirectory)
 		{
 			return PrepareNextCore(operationIdentity, executionPlan, matches, dependencyPlan, impactPlan, currentState,
-				effectPreviews, verifiedArchives, installInfoDirectory, true);
+				effectPreviews, verifiedArchives, installInfoDirectory, CollectionNativeChildWorkflowMode.Replacement);
+		}
+
+		/// <summary>Prepares one C10.6 candidate revision-update child against the latest verified update safe boundary.</summary>
+		internal CollectionNativeChildPreparationResult PrepareNextForRevisionUpdate(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan executionPlan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
+			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionVerifiedArchive> verifiedArchives,
+			string installInfoDirectory)
+		{
+			return PrepareNextCore(operationIdentity, executionPlan, matches, dependencyPlan, impactPlan, currentState,
+				effectPreviews, verifiedArchives, installInfoDirectory, CollectionNativeChildWorkflowMode.RevisionUpdate);
 		}
 
 		private CollectionNativeChildPreparationResult PrepareNextCore(CollectionOperationIdentity operationIdentity,
 			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
 			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState,
 			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionVerifiedArchive> verifiedArchives,
-			string installInfoDirectory, bool replacementExecution)
+			string installInfoDirectory, CollectionNativeChildWorkflowMode workflowMode)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -82,8 +93,8 @@ namespace Nexus.Client.CollectionManagement
 			if (verifiedArchives == null) throw new ArgumentNullException(nameof(verifiedArchives));
 			if (String.IsNullOrWhiteSpace(installInfoDirectory)) throw new ArgumentException("The native InstallInfo directory is required for child recovery preparation.", nameof(installInfoDirectory));
 
-			CollectionOperation operation = RequireOperation(operationIdentity, replacementExecution);
-			ValidatePlanningInputs(operation, plan, matches, dependencyPlan, impactPlan, currentState, replacementExecution);
+			CollectionOperation operation = RequireOperation(operationIdentity, workflowMode);
+			ValidatePlanningInputs(operation, plan, matches, dependencyPlan, impactPlan, currentState, workflowMode);
 			Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews = IndexPreviews(plan, effectPreviews);
 			Dictionary<CollectionMemberKey, CollectionVerifiedArchive> archives = IndexVerifiedArchives(plan, matches, verifiedArchives);
 
@@ -115,7 +126,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("The native instance selected for reinstall changed before durable child preparation.");
 				previousNativeMod = currentNativeMod;
 				if (previousNativeMod.InstallMethod != preview.InstallMethod || previousNativeMod.InstallRoot != preview.InstallRoot)
-					throw new InvalidOperationException("C6 additive reinstall preparation cannot silently convert the installed member's native method or install root.");
+					throw new InvalidOperationException("Collection reinstall preparation cannot silently convert the installed member's native method or install root.");
 				RequireReinstallEffectsReviewed(previousNativeMod, preview, currentState);
 			}
 
@@ -170,32 +181,39 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionNativeChildPreparationResult(operation, prepared, persisted);
 		}
 
-		private CollectionOperation RequireOperation(CollectionOperationIdentity identity, bool replacementExecution)
+		private CollectionOperation RequireOperation(CollectionOperationIdentity identity, CollectionNativeChildWorkflowMode workflowMode)
 		{
 			CollectionOperation operation = _operationStore.GetOperation(identity);
 			if (operation == null) throw new InvalidOperationException("The Collection operation is not present in the durable operation journal.");
-			bool correctMode = replacementExecution
-				? operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren
-				: operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.Phase == CollectionOperationPhase.ApplyingNativeChildren;
+			bool correctMode;
+			switch (workflowMode)
+			{
+				case CollectionNativeChildWorkflowMode.Replacement:
+					correctMode = operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren;
+					break;
+				case CollectionNativeChildWorkflowMode.RevisionUpdate:
+					correctMode = operation.Kind == CollectionOperationKind.UpdateRevision && operation.Phase == CollectionOperationPhase.InstallingCandidateRevisionChildren;
+					break;
+				default:
+					correctMode = operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.Phase == CollectionOperationPhase.ApplyingNativeChildren;
+					break;
+			}
 			if (!correctMode || operation.ResultState != CollectionOperationResultState.Pending)
-				throw new InvalidOperationException(replacementExecution
-					? "C8.6 child preparation requires an active replacement operation in InstallingIncomingNativeChildren."
-					: "C6.6 child preparation requires an active additive operation in ApplyingNativeChildren.");
+				throw new InvalidOperationException("The Collection operation is not at the native-child preparation phase required by this workflow.");
 			return operation;
 		}
 
 		private void ValidatePlanningInputs(CollectionOperation operation, ResolvedCollectionPlan plan,
 			CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
-			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState, bool replacementExecution)
+			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState, CollectionNativeChildWorkflowMode workflowMode)
 		{
 			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(plan.Identity) || operation.Revision == null ||
 				!operation.Revision.Equals(plan.Revision) || !operation.Target.Equals(plan.Target))
 				throw new ArgumentException("Child preparation inputs must belong to the exact approved Collection operation plan.", nameof(plan));
-			CollectionExecutionPolicyKind requiredPolicy = replacementExecution
+			CollectionExecutionPolicyKind requiredPolicy = workflowMode == CollectionNativeChildWorkflowMode.Replacement
 				? CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup : CollectionExecutionPolicyKind.InstallIntoCurrentSetup;
 			if (plan.Policy.Kind != requiredPolicy)
-				throw new ArgumentException(replacementExecution
-					? "C8.6 requires an explicit replacement execution plan." : "C6.6 only prepares additive Collection operations.", nameof(plan));
+				throw new ArgumentException("The native-child preparation plan uses an execution policy that does not match the owning workflow.", nameof(plan));
 			if (!matches.PlanIdentity.Equals(plan.Identity) || !matches.Target.Equals(plan.Target) ||
 				!dependencyPlan.PlanIdentity.Equals(plan.Identity) || !dependencyPlan.Target.Equals(plan.Target) ||
 				!impactPlan.PlanIdentity.Equals(plan.Identity) || !impactPlan.Target.Equals(plan.Target))
@@ -215,7 +233,7 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
 			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
-				persisted.PolicyKind != plan.Policy.Kind || (!replacementExecution && !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint)))
+				persisted.PolicyKind != plan.Policy.Kind || (workflowMode == CollectionNativeChildWorkflowMode.Additive && !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint)))
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for child preparation.");
 		}
 

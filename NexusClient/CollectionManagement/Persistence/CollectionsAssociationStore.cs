@@ -883,6 +883,119 @@ WHERE association_id=@association_id AND member_key_kind=@member_key_kind AND me
 		}
 
 		/// <summary>
+		/// Atomically transitions one reviewed C10 association from its old revision to the verified candidate revision.
+		/// </summary>
+		/// <remarks>
+		/// The old concrete association identity is not rebound. It is compare-and-swapped out and a distinct candidate
+		/// association is inserted together with its bindings, rebased deliberate overrides and terminal UpdateRevision
+		/// journal result in one Collections transaction. Native state was already verified by C10.8 and is never written here.
+		/// </remarks>
+		internal void FinalizeRevisionUpdateAssociation(CollectionRevisionUpdateReviewedIntent reviewedIntent,
+			CollectionRevisionUpdateAggregateVerificationRecord verification, CollectionTargetAssociation incomingAssociation,
+			IEnumerable<CollectionMemberBinding> incomingBindings, IEnumerable<UserOverride> expectedOldOverrides,
+			IEnumerable<UserOverride> incomingOverrides, CollectionOperation committedOperation)
+		{
+			if (reviewedIntent == null) throw new ArgumentNullException(nameof(reviewedIntent));
+			if (verification == null) throw new ArgumentNullException(nameof(verification));
+			if (incomingAssociation == null) throw new ArgumentNullException(nameof(incomingAssociation));
+			if (incomingBindings == null) throw new ArgumentNullException(nameof(incomingBindings));
+			if (expectedOldOverrides == null) throw new ArgumentNullException(nameof(expectedOldOverrides));
+			if (incomingOverrides == null) throw new ArgumentNullException(nameof(incomingOverrides));
+			if (committedOperation == null) throw new ArgumentNullException(nameof(committedOperation));
+			if (incomingAssociation.AssociationId == reviewedIntent.AssociationId)
+				throw new ArgumentException("C10.9 publishes a distinct concrete-revision association identity instead of rebinding the old association.", nameof(incomingAssociation));
+			if (!incomingAssociation.Target.Equals(reviewedIntent.Target) || !incomingAssociation.Revision.Equals(reviewedIntent.CandidateRevision))
+				throw new ArgumentException("The C10.9 candidate association must be the exact reviewed candidate revision/target.", nameof(incomingAssociation));
+			if (verification.OperationId != committedOperation.Identity.OperationId ||
+				!verification.PlanIdentity.Equals(reviewedIntent.CandidatePlanIdentity) ||
+				!StringComparer.Ordinal.Equals(verification.ReviewFingerprint, reviewedIntent.ReviewFingerprint))
+				throw new ArgumentException("The C10.8 aggregate verification does not belong to the exact terminal revision-update operation/review.", nameof(verification));
+			if (committedOperation.Kind != CollectionOperationKind.UpdateRevision || committedOperation.Phase != CollectionOperationPhase.Completed ||
+				committedOperation.ResultState != CollectionOperationResultState.Committed || committedOperation.PlanIdentity == null ||
+				!committedOperation.PlanIdentity.Equals(reviewedIntent.CandidatePlanIdentity) || committedOperation.Revision == null ||
+				!committedOperation.Revision.Equals(reviewedIntent.CandidateRevision) || !committedOperation.Target.Equals(reviewedIntent.Target))
+				throw new ArgumentException("The C10.9 terminal operation does not match the exact reviewed candidate revision.", nameof(committedOperation));
+
+			List<CollectionMemberBinding> bindings = incomingBindings.ToList();
+			List<UserOverride> oldOverrides = expectedOldOverrides.OrderBy(x => x == null ? Guid.Empty : x.OverrideId).ToList();
+			List<UserOverride> newOverrides = incomingOverrides.OrderBy(x => x == null ? Guid.Empty : x.OverrideId).ToList();
+			if (bindings.Any(x => x == null || x.Association.AssociationId != incomingAssociation.AssociationId ||
+				!x.Association.Revision.Equals(incomingAssociation.Revision) || !x.Association.Target.Equals(incomingAssociation.Target)))
+				throw new ArgumentException("Every C10.9 binding must belong to the exact candidate association.", nameof(incomingBindings));
+			if (bindings.Select(x => x.MemberKey).Distinct().Count() != bindings.Count)
+				throw new ArgumentException("The C10.9 candidate association cannot contain duplicate member bindings.", nameof(incomingBindings));
+			if (oldOverrides.Any(x => x == null) || oldOverrides.Select(x => x.OverrideId).Distinct().Count() != oldOverrides.Count ||
+				!new HashSet<Guid>(oldOverrides.Select(x => x.OverrideId)).SetEquals(reviewedIntent.PreservedOverrideIds))
+				throw new ArgumentException("The C10.9 expected old override set must exactly match the decisions frozen by the review.", nameof(expectedOldOverrides));
+			if (newOverrides.Any(x => x == null) || newOverrides.Select(x => x.OverrideId).Distinct().Count() != newOverrides.Count ||
+				newOverrides.Any(x => !reviewedIntent.PreservedOverrideIds.Contains(x.OverrideId)))
+				throw new ArgumentException("C10.9 may only carry forward override identities frozen by the reviewed update.", nameof(incomingOverrides));
+			foreach (UserOverride userOverride in newOverrides)
+			{
+				if (userOverride.Requirement.AssociationId != incomingAssociation.AssociationId ||
+					!userOverride.Requirement.BaselineRevision.Equals(incomingAssociation.Revision) ||
+					!userOverride.Requirement.Target.Equals(incomingAssociation.Target))
+					throw new ArgumentException("Every C10.9 carried override must be rebased to the exact candidate association baseline.", nameof(incomingOverrides));
+			}
+			CollectionAssociationState expectedState = newOverrides.Count == 0 ? CollectionAssociationState.Applied : CollectionAssociationState.Modified;
+			if (incomingAssociation.State != expectedState)
+				throw new ArgumentException("The C10.9 candidate association state must reflect whether deliberate overrides remain after rebasing.", nameof(incomingAssociation));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation current = ReadAssociation(connection, transaction, reviewedIntent.AssociationId);
+				if (current == null || !current.Revision.Equals(reviewedIntent.OldRevision) || !current.Target.Equals(reviewedIntent.Target) ||
+					current.State != reviewedIntent.AssociationState)
+					throw new InvalidOperationException("The old Collection association changed after C10 review; candidate publication is stale.");
+				List<UserOverride> currentOverrides = ReadOverrides(connection, transaction, current).OrderBy(x => x.OverrideId).ToList();
+				if (!OverrideSetsEqual(oldOverrides, currentOverrides))
+					throw new InvalidOperationException("The old Collection override set changed after C10 review; candidate publication is stale.");
+				if (ReadDriftObservations(connection, transaction, current).Count != 0)
+					throw new InvalidOperationException("Unaccepted drift appeared before C10.9 publication.");
+
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT COUNT(*)
+FROM target_associations
+WHERE target_fingerprint=@target_fingerprint
+  AND origin=@origin
+  AND collection_id=@collection_id
+  AND association_id<>@old_association_id;";
+					command.Parameters.AddWithValue("@target_fingerprint", reviewedIntent.Target.Fingerprint);
+					command.Parameters.AddWithValue("@origin", (int)reviewedIntent.OldRevision.Collection.Origin);
+					command.Parameters.AddWithValue("@collection_id", reviewedIntent.OldRevision.Collection.StableId);
+					command.Parameters.AddWithValue("@old_association_id", reviewedIntent.AssociationId.ToString("D"));
+					if (Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture) != 0)
+						throw new InvalidOperationException("Another association for the same Collection/target exists; C10.9 will not create mixed revision tracking.");
+				}
+
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "DELETE FROM target_associations WHERE association_id=@association_id;";
+					command.Parameters.AddWithValue("@association_id", reviewedIntent.AssociationId.ToString("D"));
+					if (command.ExecuteNonQuery() != 1)
+						throw new CollectionsStoreSchemaException("The reviewed old association disappeared during C10.9 publication.");
+				}
+
+				SaveAssociation(connection, transaction, incomingAssociation);
+				foreach (CollectionMemberBinding binding in bindings)
+				{
+					RequireMatchingAssociation(connection, transaction, binding.Association);
+					SaveBinding(connection, transaction, binding);
+				}
+				foreach (UserOverride userOverride in newOverrides)
+				{
+					RequireAssociationForRequirement(connection, transaction, userOverride.Requirement);
+					SaveOverride(connection, transaction, userOverride);
+				}
+				CollectionsOperationStore.SaveOperation(connection, transaction, committedOperation);
+			});
+		}
+
+		/// <summary>
 		/// Atomically publishes the complete C6.10 applied association/binding set after every selected member is satisfied.
 		/// </summary>
 		internal void SaveAppliedAssociation(CollectionTargetAssociation association, IEnumerable<CollectionMemberBinding> bindings,
@@ -1000,26 +1113,7 @@ WHERE association_id=@association_id AND member_key_kind=@member_key_kind AND me
 				if (association == null)
 					return (IReadOnlyList<UserOverride>)new List<UserOverride>();
 
-				var overrides = new List<UserOverride>();
-				using (SQLiteCommand command = connection.CreateCommand())
-				{
-					command.Transaction = transaction;
-					command.CommandText = @"
-SELECT override_id, association_id, baseline_revision_id, target_fingerprint,
-       member_key_kind, member_key_value, aspect, subject_key,
-       baseline_state_kind, baseline_state_format_version, baseline_state_fingerprint,
-       chosen_state_kind, chosen_state_format_version, chosen_state_fingerprint, note
-FROM user_overrides
-WHERE association_id = @association_id
-ORDER BY override_id;";
-					command.Parameters.AddWithValue("@association_id", associationId.ToString("D"));
-					using (SQLiteDataReader reader = command.ExecuteReader())
-					{
-						while (reader.Read())
-							overrides.Add(ReadOverride(reader, association));
-					}
-				}
-				return overrides;
+				return ReadOverrides(connection, transaction, association);
 			});
 		}
 
@@ -1803,6 +1897,46 @@ ORDER BY mb.association_id, mb.member_key_kind, mb.member_key_value;";
 				throw new CollectionsStoreSchemaException("A persisted Collection member binding has an invalid binding kind.");
 
 			return new CollectionMemberBinding(association, memberKey, nativeMod, recipe, kind);
+		}
+
+		private static List<UserOverride> ReadOverrides(SQLiteConnection connection, SQLiteTransaction transaction,
+			CollectionTargetAssociation association)
+		{
+			var overrides = new List<UserOverride>();
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"
+SELECT override_id, association_id, baseline_revision_id, target_fingerprint,
+       member_key_kind, member_key_value, aspect, subject_key,
+       baseline_state_kind, baseline_state_format_version, baseline_state_fingerprint,
+       chosen_state_kind, chosen_state_format_version, chosen_state_fingerprint, note
+FROM user_overrides
+WHERE association_id = @association_id
+ORDER BY override_id;";
+				command.Parameters.AddWithValue("@association_id", association.AssociationId.ToString("D"));
+				using (SQLiteDataReader reader = command.ExecuteReader())
+				{
+					while (reader.Read())
+						overrides.Add(ReadOverride(reader, association));
+				}
+			}
+			return overrides;
+		}
+
+		private static bool OverrideSetsEqual(IList<UserOverride> left, IList<UserOverride> right)
+		{
+			if (left == null || right == null || left.Count != right.Count) return false;
+			Dictionary<Guid, UserOverride> byId = right.ToDictionary(x => x.OverrideId);
+			foreach (UserOverride expected in left)
+			{
+				UserOverride actual;
+				if (!byId.TryGetValue(expected.OverrideId, out actual) || !expected.Requirement.Equals(actual.Requirement) ||
+					!expected.BaselineState.Equals(actual.BaselineState) || !expected.UserChosenState.Equals(actual.UserChosenState) ||
+					!StringComparer.Ordinal.Equals(expected.Note, actual.Note))
+					return false;
+			}
+			return true;
 		}
 
 		private static UserOverride ReadOverride(SQLiteDataReader reader, CollectionTargetAssociation association)

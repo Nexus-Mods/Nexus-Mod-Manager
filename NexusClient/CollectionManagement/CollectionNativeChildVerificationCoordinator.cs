@@ -70,7 +70,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan,
 			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths)
 		{
-			return VerifySubmittedChildCoreAsync(executionResult, plan, reviewedPreview, paths, false);
+			return VerifySubmittedChildCoreAsync(executionResult, plan, reviewedPreview, paths, CollectionNativeChildWorkflowMode.Additive);
 		}
 
 		/// <summary>Verifies one C8.6 incoming replacement child against authoritative native state.</summary>
@@ -78,12 +78,20 @@ namespace Nexus.Client.CollectionManagement
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan executionPlan,
 			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths)
 		{
-			return VerifySubmittedChildCoreAsync(executionResult, executionPlan, reviewedPreview, paths, true);
+			return VerifySubmittedChildCoreAsync(executionResult, executionPlan, reviewedPreview, paths, CollectionNativeChildWorkflowMode.Replacement);
+		}
+
+		/// <summary>Verifies one C10.6 candidate revision-update child against authoritative native state.</summary>
+		internal Task<CollectionNativeChildVerificationResult> VerifySubmittedRevisionUpdateChildAsync(
+			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan executionPlan,
+			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths)
+		{
+			return VerifySubmittedChildCoreAsync(executionResult, executionPlan, reviewedPreview, paths, CollectionNativeChildWorkflowMode.RevisionUpdate);
 		}
 
 		private async Task<CollectionNativeChildVerificationResult> VerifySubmittedChildCoreAsync(
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan,
-			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, bool replacementExecution)
+			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, CollectionNativeChildWorkflowMode workflowMode)
 		{
 			if (executionResult == null) throw new ArgumentNullException(nameof(executionResult));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -97,7 +105,7 @@ namespace Nexus.Client.CollectionManagement
 			bool nativeCompleted = executionResult.NativeTask.IsCompleted;
 			try
 			{
-				CollectionOperation operation = RequireOperation(executionResult, plan, replacementExecution);
+				CollectionOperation operation = RequireOperation(executionResult, plan, workflowMode);
 				CollectionNativeChildOperation child = RequireSubmittedChild(operation, executionResult);
 				ResolvedCollectionMemberPlan member = RequireMember(plan, child);
 				ValidateReviewedPreview(member, reviewedPreview);
@@ -123,7 +131,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("The live canonical game/storage target changed before C6.8 verification.");
 				_authorityValidator.ValidateAndReload(executionResult.MutationLease, authority, paths);
 
-				operation = RequireOperation(executionResult, plan, replacementExecution);
+				operation = RequireOperation(executionResult, plan, workflowMode);
 				child = RequireTerminalChild(operation, executionResult);
 				recovery = RequireRecoveryManifest(operation, child, plan);
 				if (exactReportedIdentity && reportedResult.ReportedStatus == ModOperationReportedStatus.Succeeded)
@@ -187,29 +195,35 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private CollectionOperation RequireOperation(CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan, bool replacementExecution)
+		private CollectionOperation RequireOperation(CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan, CollectionNativeChildWorkflowMode workflowMode)
 		{
 			CollectionOperation operation = _operationStore.GetOperation(executionResult.Operation.Identity);
 			if (operation == null)
 				throw new InvalidOperationException("The Collection operation is not present in the durable operation journal.");
-			bool correctMode = replacementExecution
-				? operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren
-				: operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.Phase == CollectionOperationPhase.ApplyingNativeChildren;
-			if (!correctMode || operation.ResultState != CollectionOperationResultState.Pending)
+			bool correctMode;
+			switch (workflowMode)
 			{
-				throw new InvalidOperationException(replacementExecution
-					? "C8.6 requires an active replacement operation in InstallingIncomingNativeChildren."
-					: "C6.8 requires an active additive operation in ApplyingNativeChildren.");
+				case CollectionNativeChildWorkflowMode.Replacement:
+					correctMode = operation.Kind == CollectionOperationKind.ReplaceCurrentManagedSetup && operation.Phase == CollectionOperationPhase.InstallingIncomingNativeChildren;
+					break;
+				case CollectionNativeChildWorkflowMode.RevisionUpdate:
+					correctMode = operation.Kind == CollectionOperationKind.UpdateRevision && operation.Phase == CollectionOperationPhase.InstallingCandidateRevisionChildren;
+					break;
+				default:
+					correctMode = operation.Kind == CollectionOperationKind.ApplyResolvedPlan && operation.Phase == CollectionOperationPhase.ApplyingNativeChildren;
+					break;
 			}
+			if (!correctMode || operation.ResultState != CollectionOperationResultState.Pending)
+				throw new InvalidOperationException("The Collection operation is not at the native-child verification phase required by this workflow.");
 			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(plan.Identity) ||
 				operation.Revision == null || !operation.Revision.Equals(plan.Revision) || !operation.Target.Equals(plan.Target))
 			{
 				throw new ArgumentException("The Collection verification inputs do not belong to the operation's exact approved plan.", nameof(plan));
 			}
-			CollectionExecutionPolicyKind requiredPolicy = replacementExecution
+			CollectionExecutionPolicyKind requiredPolicy = workflowMode == CollectionNativeChildWorkflowMode.Replacement
 				? CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup : CollectionExecutionPolicyKind.InstallIntoCurrentSetup;
 			if (plan.Policy.Kind != requiredPolicy)
-				throw new ArgumentException(replacementExecution ? "C8.6 requires an explicit replacement execution plan." : "C6.8 only verifies additive Collection execution.", nameof(plan));
+				throw new ArgumentException("The native-child verification plan uses an execution policy that does not match the owning workflow.", nameof(plan));
 
 			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
 			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
