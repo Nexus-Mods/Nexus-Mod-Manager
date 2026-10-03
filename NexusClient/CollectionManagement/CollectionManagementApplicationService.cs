@@ -384,7 +384,7 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Builds the read-only C10.10a verify/repair assessment for one installed Collection association.</summary>
 		/// <remarks>
 		/// The target authority is reloaded under the normal target lease before capture. This method never changes native state,
-		/// Collection customization, or the association. Exact effect repair remains blocked until a later qualified repair slice.
+		/// Collection customization, or the association. Qualified repair remains a separate explicit command over this exact preview.
 		/// </remarks>
 		public async Task<CollectionVerifyRepairPlan> PreviewVerifyRepairAsync(Guid associationId, CancellationToken cancellationToken)
 		{
@@ -901,6 +901,68 @@ namespace Nexus.Client.CollectionManagement
 			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
 				throw new InvalidOperationException("No durable Collections store exists for replacement recovery.");
 			return _replacementRecovery.RecoverAsync(operationIdentity, reviewedPlan, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Rehydrates and resumes incomplete C10 UpdateRevision operations for the current target.</summary>
+		public async Task<IReadOnlyList<CollectionRevisionUpdateWorkflowResult>> ReconcileInterruptedRevisionUpdatesAsync(
+			CancellationToken cancellationToken)
+		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionRevisionUpdateWorkflowResult[0];
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var results = new List<CollectionRevisionUpdateWorkflowResult>();
+			CollectionRevisionUpdateApplicationService workflow = null;
+			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
+				.Where(x => x.Kind == CollectionOperationKind.UpdateRevision).ToList())
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (workflow == null) workflow = new CollectionRevisionUpdateApplicationService(_services, _gameStorageService);
+				CollectionRevisionUpdateWorkflowResult result = await workflow.ResumeAsync(operation.Identity, cancellationToken).ConfigureAwait(false);
+				results.Add(result);
+				if (!result.IsCommitted && result.Status != CollectionRevisionUpdateWorkflowStatus.AwaitingInput &&
+					result.Status != CollectionRevisionUpdateWorkflowStatus.ReadyForReview)
+					break;
+			}
+			return new ReadOnlyCollection<CollectionRevisionUpdateWorkflowResult>(results);
+		}
+
+		/// <summary>Rehydrates and resumes incomplete C10.10 qualified repairs from their exact durable reviewed scope.</summary>
+		public async Task<IReadOnlyList<CollectionVerifyRepairRecoveryResult>> ReconcileInterruptedVerifyRepairsAsync(
+			CancellationToken cancellationToken)
+		{
+			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
+				return new CollectionVerifyRepairRecoveryResult[0];
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var results = new List<CollectionVerifyRepairRecoveryResult>();
+			var coordinator = new CollectionVerifyRepairExecutionCoordinator(_services, _gameStorageService, _store, _associationStore);
+			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
+				.Where(x => x.Kind == CollectionOperationKind.VerifyRepair).ToList())
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				try
+				{
+					CollectionVerifyRepairReviewedIntent intent = coordinator.LoadReviewedIntent(operation.Identity);
+					CollectionVerifyRepairPlan currentPlan = await PreviewVerifyRepairAsync(intent.AssociationId, cancellationToken).ConfigureAwait(false);
+					if (currentPlan == null)
+						throw new InvalidOperationException("The installed Collection association required by the interrupted repair no longer exists.");
+					CollectionVerifyRepairExecutionResult execution = await coordinator.ResumeAsync(operation.Identity, currentPlan,
+						GetTargetPaths(), cancellationToken).ConfigureAwait(false);
+					results.Add(new CollectionVerifyRepairRecoveryResult(operation.Identity,
+						CollectionVerifyRepairRecoveryStatus.Committed, execution, "The interrupted qualified repair was resumed and verified."));
+				}
+				catch (OperationCanceledException)
+				{
+					throw;
+				}
+				catch (Exception ex)
+				{
+					coordinator.MarkRecoveryRequired(operation.Identity);
+					results.Add(new CollectionVerifyRepairRecoveryResult(operation.Identity,
+						CollectionVerifyRepairRecoveryStatus.RecoveryRequired, null, ex.Message));
+					break;
+				}
+			}
+			return new ReadOnlyCollection<CollectionVerifyRepairRecoveryResult>(results);
 		}
 
 		/// <summary>Reconciles persisted Local restore operations through every remaining C7 phase and aggregate final verification.</summary>

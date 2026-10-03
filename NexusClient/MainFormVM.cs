@@ -323,6 +323,19 @@
 			CollectionWorkflow = collectionWorkflow;
 		}
 
+		/// <summary>Gets the application-level C10 Collection revision-update workflow for the active game mode.</summary>
+		public CollectionRevisionUpdateApplicationService CollectionRevisionUpdateWorkflow { get; private set; }
+
+		/// <summary>Supplies the application-level C10 revision-update workflow after native services have been constructed.</summary>
+		public void InitializeCollectionRevisionUpdateWorkflow(CollectionRevisionUpdateApplicationService revisionUpdateWorkflow)
+		{
+			if (revisionUpdateWorkflow == null)
+				throw new ArgumentNullException(nameof(revisionUpdateWorkflow));
+			if (CollectionRevisionUpdateWorkflow != null && !ReferenceEquals(CollectionRevisionUpdateWorkflow, revisionUpdateWorkflow))
+				throw new InvalidOperationException("The Collection revision-update workflow has already been initialized.");
+			CollectionRevisionUpdateWorkflow = revisionUpdateWorkflow;
+		}
+
 		/// <summary>Gets the application-level replacement Collections workflow for the active game mode.</summary>
 		public CollectionReplacementApplicationService CollectionReplacementWorkflow { get; private set; }
 

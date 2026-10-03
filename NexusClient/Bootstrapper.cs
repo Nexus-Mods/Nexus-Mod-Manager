@@ -301,6 +301,8 @@
 					mainFormViewModel.InitializeCollectionCaptureWorkflow(collectionCaptureWorkflow);
 					var collectionManagementWorkflow = new CollectionManagementApplicationService(services, gameStorageService);
 					mainFormViewModel.InitializeCollectionManagementWorkflow(collectionManagementWorkflow);
+					var collectionRevisionUpdateWorkflow = new CollectionRevisionUpdateApplicationService(services, gameStorageService);
+					mainFormViewModel.InitializeCollectionRevisionUpdateWorkflow(collectionRevisionUpdateWorkflow);
 					var mainForm = new MainForm(mainFormViewModel);
 
 					using (var msgMessager = MessagerServer.InitializeListener(_environmentInfo, gameMode, services.ModManager, mainForm, collectionNxmDispatcher))

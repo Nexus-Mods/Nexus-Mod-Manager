@@ -166,7 +166,8 @@
 				_modActivationMonitorControl.ViewModel = _viewModel.ModActivationMonitorVM;
 				_fileManagerControl.ViewModel = _viewModel.ModManagerVM;
 				_collectionsPreviewControl.Initialize(_viewModel.CollectionNxmDispatcher, _viewModel.CollectionWorkflow,
-					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow);
+					_viewModel.CollectionCaptureWorkflow, _viewModel.CollectionManagementWorkflow, _viewModel.CollectionReplacementWorkflow,
+					_viewModel.CollectionRevisionUpdateWorkflow);
 				_downloadMonitorControl.ViewModel = _viewModel.DownloadMonitorVM;
 				_downloadMonitorControl.ViewModel.ActiveTasks.CollectionChanged += ActiveTasks_CollectionChanged;
 				_downloadMonitorControl.ViewModel.Tasks.CollectionChanged += Tasks_CollectionChanged;

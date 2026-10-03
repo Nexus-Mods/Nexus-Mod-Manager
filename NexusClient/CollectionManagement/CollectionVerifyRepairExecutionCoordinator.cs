@@ -13,6 +13,31 @@ using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
 {
+	/// <summary>Outcome of startup reconciliation for one interrupted qualified repair.</summary>
+	public enum CollectionVerifyRepairRecoveryStatus
+	{
+		Committed = 1,
+		RecoveryRequired = 2
+	}
+
+	/// <summary>Startup-safe result for one interrupted C10.10 repair operation.</summary>
+	public sealed class CollectionVerifyRepairRecoveryResult
+	{
+		internal CollectionVerifyRepairRecoveryResult(CollectionOperationIdentity operationIdentity,
+			CollectionVerifyRepairRecoveryStatus status, CollectionVerifyRepairExecutionResult executionResult, string detail)
+		{
+			OperationIdentity = operationIdentity ?? throw new ArgumentNullException(nameof(operationIdentity));
+			Status = status;
+			ExecutionResult = executionResult;
+			Detail = detail ?? String.Empty;
+		}
+		public CollectionOperationIdentity OperationIdentity { get; }
+		public CollectionVerifyRepairRecoveryStatus Status { get; }
+		public CollectionVerifyRepairExecutionResult ExecutionResult { get; }
+		public string Detail { get; }
+		public bool IsCommitted { get { return Status == CollectionVerifyRepairRecoveryStatus.Committed; } }
+	}
+
 	/// <summary>Result of one deliberately bounded qualified repair execution.</summary>
 	public sealed class CollectionVerifyRepairExecutionResult
 	{
@@ -37,6 +62,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsStore _store;
 		private readonly CollectionsAssociationStore _associationStore;
 		private readonly CollectionsOperationStore _operationStore;
+		private readonly CollectionsResolvedPlanStore _planStore;
 		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
 		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
 
@@ -48,12 +74,51 @@ namespace Nexus.Client.CollectionManagement
 			_store = store ?? throw new ArgumentNullException(nameof(store));
 			_associationStore = associationStore ?? throw new ArgumentNullException(nameof(associationStore));
 			_operationStore = new CollectionsOperationStore(store);
+			_planStore = new CollectionsResolvedPlanStore(store);
 			_mutationLeaseManager = CollectionTargetMutationLeaseManager.Shared;
 			_authorityValidator = new CollectionTargetOwnershipAuthorityValidator(gameStorageService, services);
 		}
 
-		public async Task<CollectionVerifyRepairExecutionResult> ExecuteAsync(CollectionVerifyRepairPlan plan,
+		public Task<CollectionVerifyRepairExecutionResult> ExecuteAsync(CollectionVerifyRepairPlan plan,
 			GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			return ExecuteCoreAsync(plan, paths, null, cancellationToken);
+		}
+
+		/// <summary>Resumes one interrupted qualified repair from its exact durable reviewed scope.</summary>
+		public Task<CollectionVerifyRepairExecutionResult> ResumeAsync(CollectionOperationIdentity operationIdentity,
+			CollectionVerifyRepairPlan currentPlan, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
+			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
+			if (operation == null || operation.Kind != CollectionOperationKind.VerifyRepair || operation.IsTerminal)
+				throw new InvalidOperationException("The verify/repair operation is not an incomplete durable repair journal entry.");
+			CollectionVerifyRepairReviewedIntent intent = LoadReviewedIntent(operation);
+			CollectionVerifyRepairPlan resumePlan = intent.BuildResumePlan(currentPlan);
+			return ExecuteCoreAsync(resumePlan, paths, operationIdentity, cancellationToken);
+		}
+
+		/// <summary>Loads the exact durable qualified repair scope for startup/recovery routing.</summary>
+		public CollectionVerifyRepairReviewedIntent LoadReviewedIntent(CollectionOperationIdentity operationIdentity)
+		{
+			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
+			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
+			if (operation == null || operation.Kind != CollectionOperationKind.VerifyRepair || operation.IsTerminal)
+				throw new InvalidOperationException("The verify/repair operation is not an incomplete durable repair journal entry.");
+			return LoadReviewedIntent(operation);
+		}
+
+		/// <summary>Fail-closes an interrupted repair whose exact reviewed intent cannot be safely resumed.</summary>
+		public void MarkRecoveryRequired(CollectionOperationIdentity operationIdentity)
+		{
+			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
+			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
+			if (operation == null || operation.Kind != CollectionOperationKind.VerifyRepair || operation.IsTerminal) return;
+			MarkRecoveryRequired(operation);
+		}
+
+		private async Task<CollectionVerifyRepairExecutionResult> ExecuteCoreAsync(CollectionVerifyRepairPlan plan,
+			GameStoragePathSet paths, CollectionOperationIdentity resumedOperationIdentity, CancellationToken cancellationToken)
 		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
@@ -73,12 +138,15 @@ namespace Nexus.Client.CollectionManagement
 				List<CollectionMemberBinding> bindings = _associationStore.GetBindings(plan.Association.AssociationId).ToList();
 				IReadOnlyList<UserOverride> currentOverrides = _associationStore.GetOverrides(plan.Association.AssociationId);
 				CollectionOperation existingRepair = FindExistingRepairOperation(currentAssociation);
+				if (resumedOperationIdentity != null && (existingRepair == null || !existingRepair.Identity.Equals(resumedOperationIdentity)))
+					throw new InvalidOperationException("The interrupted verify/repair operation no longer owns the current target repair boundary.");
 				bool crossedNativeBoundary = existingRepair != null && existingRepair.NativeChildren.Any(x => x.HasCrossedNativeBoundary);
-				if ((existingRepair == null || (!crossedNativeBoundary && existingRepair.Phase != CollectionOperationPhase.QualifiedEffectsVerified)) &&
+				if (resumedOperationIdentity == null &&
+					(existingRepair == null || (!crossedNativeBoundary && existingRepair.Phase != CollectionOperationPhase.QualifiedEffectsVerified)) &&
 					!before.Fingerprint.Equals(plan.StateFingerprint))
 					throw new InvalidOperationException("Native state changed after the verify/repair preview; build a new repair plan.");
 
-				CollectionOperation operation = RequireOrCreateOperation(plan, currentAssociation);
+				CollectionOperation operation = RequireOrCreateOperation(plan, currentAssociation, resumedOperationIdentity);
 				int repaired = 0;
 				var repairedRequirements = new List<CollectionRequirementReference>();
 				if (operation.Phase == CollectionOperationPhase.QualifiedEffectsVerified)
@@ -125,13 +193,16 @@ namespace Nexus.Client.CollectionManagement
 					{
 						if (child.NativeResult == null || child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
 							throw new InvalidOperationException("A previously reconciled verify/repair child is not durably committed.");
-						continue;
+						MarkRecoveryRequired(operation);
+						throw new InvalidOperationException("A previously committed verify/repair child no longer satisfies its reviewed effects; a new repair decision is required.");
 					}
 					if (child.HasCrossedNativeBoundary)
 					{
 						if (MemberEffectsSatisfied(plan.Association, binding, prepared.EffectPreview, liveBefore, currentOverrides))
 						{
 							operation = ReconcileRecoveredCommitted(operation, child);
+							foreach (CollectionVerifyRepairFinding finding in plan.Findings.Where(x => x.IsRepairable && x.MemberKey != null && x.MemberKey.Equals(memberKey)))
+								if (finding.Requirement != null) repairedRequirements.Add(finding.Requirement);
 							continue;
 						}
 						MarkRecoveryRequired(operation);
@@ -242,7 +313,8 @@ namespace Nexus.Client.CollectionManagement
 			_operationStore.SaveOperation(operation);
 		}
 
-		private CollectionOperation RequireOrCreateOperation(CollectionVerifyRepairPlan plan, CollectionTargetAssociation association)
+		private CollectionOperation RequireOrCreateOperation(CollectionVerifyRepairPlan plan, CollectionTargetAssociation association,
+			CollectionOperationIdentity resumedOperationIdentity)
 		{
 			List<CollectionOperation> incomplete = _operationStore.GetIncompleteOperations(association.Target).ToList();
 			CollectionOperation existing = incomplete.SingleOrDefault(x => x.Kind == CollectionOperationKind.VerifyRepair &&
@@ -251,6 +323,15 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Another incomplete Collection operation already owns this target.");
 			if (existing != null)
 			{
+				if (resumedOperationIdentity == null)
+				{
+					if (plan.ResolvedPlan == null || existing.PlanIdentity == null || !existing.PlanIdentity.Equals(plan.ResolvedPlan.Identity))
+						throw new InvalidOperationException("An interrupted verify/repair operation already exists; resume its exact durable reviewed scope instead of applying a new preview.");
+					LoadReviewedIntent(existing).ValidateInitialPlan(plan);
+				}
+				else if (!existing.Identity.Equals(resumedOperationIdentity))
+					throw new InvalidOperationException("Verify/repair restart operation identity mismatch.");
+
 				if (existing.Phase != CollectionOperationPhase.RepairingQualifiedEffects && existing.Phase != CollectionOperationPhase.RecoveryRequired &&
 					existing.Phase != CollectionOperationPhase.QualifiedEffectsVerified)
 					throw new InvalidOperationException("The existing verify/repair operation is not at a resumable repair boundary.");
@@ -259,12 +340,36 @@ namespace Nexus.Client.CollectionManagement
 				_operationStore.SaveOperation(existing);
 				return existing;
 			}
+
+			if (resumedOperationIdentity != null)
+				throw new InvalidOperationException("The interrupted verify/repair operation disappeared before it could be resumed.");
+			if (plan.ResolvedPlan == null)
+				throw new InvalidOperationException("Qualified verify/repair requires one exact resolved plan before durable approval.");
+			CollectionVerifyRepairReviewedIntent intent = CollectionVerifyRepairReviewedIntent.Create(plan);
+			_planStore.SavePlan(plan.ResolvedPlan, CollectionVerifyRepairReviewedIntentCodec.PayloadFormat,
+				CollectionVerifyRepairReviewedIntentCodec.Serialize(intent));
 			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.VerifyRepair,
-				association.Revision.Collection, association.Target, association.Revision, null, 0,
+				association.Revision.Collection, association.Target, association.Revision, plan.ResolvedPlan.Identity, 0,
 				CollectionOperationPhase.RepairingQualifiedEffects, CollectionOperationResultState.Pending,
 				Enumerable.Empty<CollectionNativeChildOperation>());
 			_operationStore.SaveOperation(operation);
 			return operation;
+		}
+
+		private CollectionVerifyRepairReviewedIntent LoadReviewedIntent(CollectionOperation operation)
+		{
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (operation.PlanIdentity == null)
+				throw new InvalidDataException("The interrupted verify/repair operation predates durable repair-scope persistence and cannot be resumed automatically.");
+			CollectionResolvedPlanRecord record = _planStore.GetPlan(operation.PlanIdentity);
+			if (record == null || !StringComparer.Ordinal.Equals(record.PayloadFormat, CollectionVerifyRepairReviewedIntentCodec.PayloadFormat))
+				throw new InvalidDataException("The interrupted verify/repair operation is missing its exact durable reviewed repair scope.");
+			if (!record.Revision.Equals(operation.Revision) || !record.Target.Equals(operation.Target))
+				throw new InvalidDataException("The persisted verify/repair review does not match its operation revision/target.");
+			CollectionVerifyRepairReviewedIntent intent = CollectionVerifyRepairReviewedIntentCodec.Deserialize(record.Payload);
+			if (!intent.Revision.Equals(operation.Revision) || !intent.Target.Equals(operation.Target))
+				throw new InvalidDataException("The persisted verify/repair intent does not match its durable operation identity.");
+			return intent;
 		}
 
 		private CollectionNativeChildOperation GetOrCreatePreparedChild(CollectionOperation operation, CollectionRevisionIdentity revision,

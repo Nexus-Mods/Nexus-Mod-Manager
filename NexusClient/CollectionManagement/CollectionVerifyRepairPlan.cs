@@ -62,8 +62,8 @@ namespace Nexus.Client.CollectionManagement
 	}
 
 	/// <summary>
-	/// Read-only C10.10a verification result. This slice deliberately proves member registration plus persisted customization;
-	/// exact prepared file/config/plugin effect verification is added before any generic repair execution is permitted.
+	/// Read-only C10 verify/repair result. Exact prepared effects permit only the characterized qualified-repair subset;
+	/// unsupported or ambiguous differences remain explicit ActionRequired findings.
 	/// </summary>
 	public sealed class CollectionVerifyRepairPlan
 	{
