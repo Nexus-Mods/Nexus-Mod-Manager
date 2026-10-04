@@ -120,6 +120,20 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void MemberPlan_RejectsFileOverridesDifferentFromNormalizedMember()
+		{
+			var overrides = new CollectionVortexFileOverrideList(new[] { @"Target\textures\one.dds" });
+			NormalizedCollectionMember expected = CreateMember(0, "a", CollectionMemberRequirement.Required,
+				CollectionMemberSelection.Selected, overrides);
+			NormalizedCollectionMember withoutOverrides = CreateMember(0, "a", CollectionMemberRequirement.Required,
+				CollectionMemberSelection.Selected);
+			CollectionCapabilityReport report = CollectionCapabilityReport.Create(CreateManifest(expected));
+
+			Assert.Throws<ArgumentException>(() => CreatePlan(report, CollectionExecutionPolicy.InstallIntoCurrentSetup(),
+				ExactPlan(withoutOverrides)));
+		}
+
+		[Test]
 		public void MemberPlan_RejectsArtifactDecisionFromDifferentManifestMember()
 		{
 			NormalizedCollectionMember first = CreateMember(0, "a", CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
@@ -216,6 +230,16 @@ namespace NexusClientTests
 			CollectionMemberRequirement requirement,
 			CollectionMemberSelection selection)
 		{
+			return CreateMember(sourceOrdinal, key, requirement, selection, null);
+		}
+
+		private static NormalizedCollectionMember CreateMember(
+			int sourceOrdinal,
+			string key,
+			CollectionMemberRequirement requirement,
+			CollectionMemberSelection selection,
+			CollectionVortexFileOverrideList vortexFileOverrides)
+		{
 			return new NormalizedCollectionMember(
 				sourceOrdinal,
 				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider(key)),
@@ -223,7 +247,12 @@ namespace NexusClientTests
 				selection,
 				new CollectionArtifactReference("nexusmods.file", "artifact-" + key, null),
 				CollectionRecipeIdentity.FromFingerprint("recipe-" + key),
-				"Member " + key);
+				"Member " + key,
+				0,
+				CollectionMemberInstallRootBehavior.Default,
+				null,
+				null,
+				vortexFileOverrides);
 		}
 
 		private static NormalizedCollectionManifest CreateManifest(params NormalizedCollectionMember[] members)

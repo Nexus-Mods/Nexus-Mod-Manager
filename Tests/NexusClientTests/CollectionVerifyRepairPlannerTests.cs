@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.ModManagement;
+using Nexus.Client.PluginManagement;
+using Nexus.Client.Plugins;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -118,6 +121,23 @@ namespace NexusClientTests
 
 
 		[Test]
+		public void Preparation_SelectedMembersPreserveInstalledSourcePolicySubstitution()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Applied, includeBinding: true, includeNative: true);
+			NormalizedCollectionMember normalized = f.Manifest.Members.Single();
+			var selectedArtifact = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+				NexusCollectionModFileArtifactIdentity.Format("skyrimspecialedition", 100, 300), null);
+			var choice = CollectionResolvedArtifactChoice.SupportedSubstitution(normalized.Artifact, selectedArtifact,
+				CollectionNexusSourcePolicyResolver.LatestSubstitutionRuleId);
+			var choices = new Dictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> { { f.MemberKey, choice } };
+
+			ResolvedCollectionMemberPlan member = CollectionVerifyRepairPreparationService.CreateSelectedMembers(f.Manifest, choices).Single();
+
+			Assert.That(member.ArtifactChoice, Is.EqualTo(choice));
+			Assert.That(member.ArtifactChoice.SelectedArtifact, Is.EqualTo(selectedArtifact));
+		}
+
+		[Test]
 		public void Plan_ExactNoEffectCoverage_QualifiesCanonicalVirtualEnabledRepair()
 		{
 			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
@@ -230,6 +250,64 @@ namespace NexusClientTests
 			Assert.That(plan.HasActionRequired, Is.True);
 			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch ||
 				x.Kind == CollectionVerifyRepairFindingKind.FileContentVerificationUnavailable), Is.True);
+		}
+
+		[Test]
+		public void ManifestPluginAfterRule_DriftIsQualifiedAsDirectPluginRepair()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Modified, includeBinding: true, includeNative: true);
+			var rule = new CollectionPluginRelativeOrderRule("A.esp", "B.esp");
+			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(f.Manifest.Revision, f.Manifest.Source,
+				CollectionManifestMemberSetCompleteness.Complete, null, f.Manifest.Members, null, null, null, null, null, new[] { rule });
+			CollectionNativePluginState a = Plugin("A.esp", 0);
+			CollectionNativePluginState b = Plugin("B.esp", 1);
+			CollectionNativeStateIndex state = new CollectionNativeStateIndex(f.Association.Target, f.State.Roots, f.State.Mods.Values,
+				f.State.Files.Values, f.State.IniEdits.Values, f.State.GameValues.Values, new[] { a, b }, CollectionNativeStateCoverage.Complete,
+				f.State.Associations.Values, f.Bindings, new UserOverride[0], f.State.AssociationCoverage, f.State.Issues, f.State.DeploymentCommitSequence);
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreview(f.MemberKey, manifest.Members[0].RecipeIdentity,
+				ModInstallMethod.Virtual, ModInstallRoot.Data, new CollectionPlannedFileEffect[0], new CollectionPlannedIniEffect[0],
+				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+
+			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, manifest, state, f.Bindings,
+				new UserOverride[0], new CollectionDriftObservation[0], new[] { preview });
+
+			CollectionVerifyRepairFinding finding = plan.Findings.Single(x => x.MemberKey == null &&
+				x.Kind == CollectionVerifyRepairFindingKind.PluginEffectMismatch);
+			Assert.That(finding.Disposition, Is.EqualTo(CollectionVerifyRepairDisposition.RestoreExpectedState));
+			Assert.That(finding.Requirement.Aspect, Is.EqualTo(CollectionRequirementAspect.PluginState));
+			Assert.That(finding.Requirement.SubjectKey, Is.EqualTo("after:b.esp|a.esp"));
+			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.UncharacterizedModification), Is.False);
+		}
+
+		[Test]
+		public void ManifestPluginAfterRule_ExplicitOverrideIsPreserved()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Modified, includeBinding: true, includeNative: true);
+			var rule = new CollectionPluginRelativeOrderRule("A.esp", "B.esp");
+			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(f.Manifest.Revision, f.Manifest.Source,
+				CollectionManifestMemberSetCompleteness.Complete, null, f.Manifest.Members, null, null, null, null, null, new[] { rule });
+			CollectionNativeStateIndex state = new CollectionNativeStateIndex(f.Association.Target, f.State.Roots, f.State.Mods.Values,
+				f.State.Files.Values, f.State.IniEdits.Values, f.State.GameValues.Values, new[] { Plugin("A.esp", 0), Plugin("B.esp", 1) },
+				CollectionNativeStateCoverage.Complete, f.State.Associations.Values, f.Bindings, new UserOverride[0],
+				f.State.AssociationCoverage, f.State.Issues, f.State.DeploymentCommitSequence);
+			var requirement = new CollectionRequirementReference(f.Association, null, CollectionRequirementAspect.PluginState,
+				"after:b.esp|a.esp");
+			var local = new UserOverride(Guid.NewGuid(), requirement, CollectionRequirementState.Present("plugin-order-v1", "curator"),
+				CollectionRequirementState.Present("plugin-order-v1", "local"), "Keep local order");
+
+			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, manifest, state, f.Bindings,
+				new[] { local }, new CollectionDriftObservation[0]);
+
+			Assert.That(plan.Findings.Any(x => x.Requirement != null && x.Requirement.Equals(requirement) &&
+				x.Kind == CollectionVerifyRepairFindingKind.PreservedExplicitOverride), Is.True);
+			Assert.That(plan.Findings.Any(x => x.Requirement != null && x.Requirement.Equals(requirement) && x.IsRepairable), Is.False);
+		}
+
+		private static CollectionNativePluginState Plugin(string name, int priority)
+		{
+			return new CollectionNativePluginState(name, true, priority, null, String.Empty, PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 0,
+				new string[0], new CollectionNativePluginDiagnostic[0]);
 		}
 
 		private static CollectionMemberEffectPreview ExactFilePreview(Fixture fixture, ModDeploymentTarget target, byte[] bytes)

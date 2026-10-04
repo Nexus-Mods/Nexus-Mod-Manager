@@ -1828,37 +1828,54 @@
 		}
 
 		/// <summary>
-		/// Resolves whether a Vortex Collection <c>prefer</c> policy may keep the manifest-requested Nexus file exactly.
+		/// Resolves the characterized Vortex Collection Nexus <c>latest</c>/<c>prefer</c> policy to one immutable Nexus file.
 		/// </summary>
 		/// <remarks>
-		/// This deliberately does not select a successor. NMM's first compatibility slice only turns Prefer Exact into an
-		/// immutable exact choice when Nexus proves that exact file is still available. Archived/deleted/not-found files
-		/// remain unresolved so a later characterized substitution policy can choose a successor explicitly.
+		/// <c>prefer</c> keeps the curator file while Nexus still exposes it as a normal downloadable file, then falls back to
+		/// the same update-chain matching used by Vortex. <c>latest</c> resolves the newest reachable update-chain file.
+		/// Provider/API uncertainty remains fail-closed.
 		/// </remarks>
-		internal bool TryResolveCollectionPreferExactFile(int modId, int fileId, out bool exactAvailable)
+		internal bool TryResolveCollectionSourcePolicyFile(int modId, int requestedFileId, string updatePolicy,
+			string requestedVersion, out int selectedFileId)
 		{
-			exactAvailable = false;
+			selectedFileId = 0;
+			if (modId <= 0 || requestedFileId <= 0 ||
+				(!StringComparer.Ordinal.Equals(updatePolicy, "latest") && !StringComparer.Ordinal.Equals(updatePolicy, "prefer")))
+				return false;
+
 			try
 			{
 				NexusV1Client client = _apiCallManager.V1;
 				if (client == null)
 					return false;
 
-				NexusV1ModFile file = client.GetModFileAsync(GameDomainName, modId, fileId).GetAwaiter().GetResult();
-				if (file == null || file.FileId != fileId)
-					return false;
+				if (StringComparer.Ordinal.Equals(updatePolicy, "prefer"))
+				{
+					try
+					{
+						NexusV1ModFile requested = client.GetModFileAsync(GameDomainName, modId, requestedFileId).GetAwaiter().GetResult();
+						if (IsCollectionPreferExactAvailable(requested, requestedFileId))
+						{
+							selectedFileId = requestedFileId;
+							return true;
+						}
+					}
+					catch (ApiException ex)
+					{
+						if (ex.ErrorKind != ApiErrorKind.NotFound)
+						{
+							ReactToApiException(ex);
+							return false;
+						}
+					}
+				}
 
-				exactAvailable = file.Category != NexusV1FileCategory.Archived && file.Category != NexusV1FileCategory.Deleted;
-				return true;
+				NexusV1ModFileList files = client.GetModFilesAsync(GameDomainName, modId, new NexusV1FileCategory[0]).GetAwaiter().GetResult();
+				selectedFileId = ResolveCollectionSourcePolicyCandidate(files, requestedFileId, updatePolicy, requestedVersion);
+				return selectedFileId > 0;
 			}
 			catch (ApiException ex)
 			{
-				if (ex.ErrorKind == ApiErrorKind.NotFound)
-				{
-					exactAvailable = false;
-					return true;
-				}
-
 				ReactToApiException(ex);
 				return false;
 			}
@@ -1866,6 +1883,135 @@
 			{
 				TraceUtil.TraceException(ex);
 				return false;
+			}
+		}
+
+		/// <summary>
+		/// Applies the characterized Vortex update-chain selection rule to an already fetched Nexus file list.
+		/// </summary>
+		internal static int ResolveCollectionSourcePolicyCandidate(NexusV1ModFileList fileList, int requestedFileId,
+			string updatePolicy, string requestedVersion)
+		{
+			if (fileList == null || requestedFileId <= 0 ||
+				(!StringComparer.Ordinal.Equals(updatePolicy, "latest") && !StringComparer.Ordinal.Equals(updatePolicy, "prefer")))
+				return 0;
+
+			CollectionSourcePolicyNumericVersion minimumVersion = default(CollectionSourcePolicyNumericVersion);
+			bool requireMinimum = StringComparer.Ordinal.Equals(updatePolicy, "prefer");
+			if (requireMinimum && !CollectionSourcePolicyNumericVersion.TryCoerce(requestedVersion, out minimumVersion))
+				return 0;
+
+			var filesById = (fileList.Files ?? new NexusV1ModFile[0])
+				.Where(x => x != null && x.FileId > 0)
+				.GroupBy(x => x.FileId)
+				.ToDictionary(x => x.Key, x => x.First());
+			var chainCandidates = new List<CollectionSourcePolicyCandidate>();
+			int currentFileId = requestedFileId;
+			var visited = new HashSet<int>();
+			while (visited.Add(currentFileId))
+			{
+				NexusV1ModFileUpdate update = (fileList.FileUpdates ?? new NexusV1ModFileUpdate[0])
+					.FirstOrDefault(x => x != null && x.OldFileId == currentFileId);
+				if (update == null || update.NewFileId <= 0 || update.NewFileId == currentFileId)
+					break;
+				currentFileId = update.NewFileId;
+				NexusV1ModFile candidate;
+				if (filesById.TryGetValue(currentFileId, out candidate) && MatchesCollectionSourcePolicyVersion(candidate, requireMinimum, minimumVersion))
+				{
+					DateTimeOffset timestamp = update.UploadedTimestamp != default(DateTimeOffset)
+						? update.UploadedTimestamp
+						: candidate.UploadedTimestamp;
+					chainCandidates.Add(new CollectionSourcePolicyCandidate(candidate.FileId, timestamp));
+				}
+			}
+
+			CollectionSourcePolicyCandidate newest = chainCandidates
+				.OrderByDescending(x => x.UploadedTimestamp)
+				.FirstOrDefault();
+			if (newest != null)
+				return newest.FileId;
+
+			NexusV1ModFile[] currentFiles = filesById.Values
+				.Where(x => x.Category != NexusV1FileCategory.Old && x.Category != NexusV1FileCategory.Deleted)
+				.Where(x => MatchesCollectionSourcePolicyVersion(x, requireMinimum, minimumVersion))
+				.ToArray();
+			if (currentFiles.Length == 1)
+				return currentFiles[0].FileId;
+
+			NexusV1ModFile requestedFile;
+			return filesById.TryGetValue(requestedFileId, out requestedFile) &&
+				requestedFile.Category != NexusV1FileCategory.Deleted
+				? requestedFileId
+				: 0;
+		}
+
+		private static bool IsCollectionPreferExactAvailable(NexusV1ModFile file, int requestedFileId)
+		{
+			return file != null && file.FileId == requestedFileId &&
+				file.Category != NexusV1FileCategory.Archived && file.Category != NexusV1FileCategory.Deleted;
+		}
+
+		private static bool MatchesCollectionSourcePolicyVersion(NexusV1ModFile file, bool requireMinimum,
+			CollectionSourcePolicyNumericVersion minimumVersion)
+		{
+			if (!requireMinimum)
+				return true;
+			CollectionSourcePolicyNumericVersion candidate;
+			return CollectionSourcePolicyNumericVersion.TryCoerce(file.FileVersion, out candidate) && candidate.CompareTo(minimumVersion) >= 0;
+		}
+
+		private sealed class CollectionSourcePolicyCandidate
+		{
+			internal CollectionSourcePolicyCandidate(int fileId, DateTimeOffset uploadedTimestamp)
+			{
+				FileId = fileId;
+				UploadedTimestamp = uploadedTimestamp;
+			}
+
+			internal int FileId { get; }
+			internal DateTimeOffset UploadedTimestamp { get; }
+		}
+
+		private struct CollectionSourcePolicyNumericVersion : IComparable<CollectionSourcePolicyNumericVersion>
+		{
+			private static readonly Regex CoercePattern = new Regex(
+				@"(?<![0-9])(?<major>[0-9]+)(?:\.(?<minor>[0-9]+))?(?:\.(?<patch>[0-9]+))?",
+				RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
+			private CollectionSourcePolicyNumericVersion(long major, long minor, long patch)
+			{
+				Major = major;
+				Minor = minor;
+				Patch = patch;
+			}
+
+			private long Major { get; }
+			private long Minor { get; }
+			private long Patch { get; }
+
+			public int CompareTo(CollectionSourcePolicyNumericVersion other)
+			{
+				int result = Major.CompareTo(other.Major);
+				if (result != 0) return result;
+				result = Minor.CompareTo(other.Minor);
+				return result != 0 ? result : Patch.CompareTo(other.Patch);
+			}
+
+			internal static bool TryCoerce(string value, out CollectionSourcePolicyNumericVersion version)
+			{
+				version = default(CollectionSourcePolicyNumericVersion);
+				if (String.IsNullOrWhiteSpace(value))
+					return false;
+				Match match = CoercePattern.Match(value.Trim());
+				long major;
+				long minor = 0;
+				long patch = 0;
+				if (!match.Success || !Int64.TryParse(match.Groups["major"].Value, out major) ||
+					(match.Groups["minor"].Success && !Int64.TryParse(match.Groups["minor"].Value, out minor)) ||
+					(match.Groups["patch"].Success && !Int64.TryParse(match.Groups["patch"].Value, out patch)))
+					return false;
+				version = new CollectionSourcePolicyNumericVersion(major, minor, patch);
+				return true;
 			}
 		}
 

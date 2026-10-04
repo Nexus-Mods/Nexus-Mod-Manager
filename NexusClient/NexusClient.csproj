@@ -132,7 +132,7 @@
     <Compile Include="CollectionManagement\CollectionUninstallEffectsCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionExecutionPolicy.cs" />
     <Compile Include="CollectionManagement\CollectionEffectiveSelection.cs" />
-    <Compile Include="CollectionManagement\CollectionNexusPreferExactPolicyResolver.cs" />
+    <Compile Include="CollectionManagement\CollectionNexusSourcePolicyResolver.cs" />
     <Compile Include="CollectionManagement\CollectionResolvedPlanBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionAdditivePlanPreparationService.cs" />
     <Compile Include="CollectionManagement\CollectionAdditivePlanRevalidationService.cs" />
@@ -144,6 +144,8 @@
     <Compile Include="CollectionManagement\CollectionMemberIdentityResolution.cs" />
     <Compile Include="CollectionManagement\NormalizedCollectionMember.cs" />
     <Compile Include="CollectionManagement\CollectionVortexFomodSelection.cs" />
+    <Compile Include="CollectionManagement\CollectionVortexFileList.cs" />
+    <Compile Include="CollectionManagement\CollectionVortexFileOverrideList.cs" />
     <Compile Include="CollectionManagement\CollectionMemberDependency.cs" />
     <Compile Include="CollectionManagement\NormalizedCollectionManifest.cs" />
     <Compile Include="CollectionManagement\CollectionCompatibilityStatus.cs" />
@@ -201,6 +203,7 @@
     <Compile Include="CollectionManagement\CollectionConflictImpactPlan.cs" />
     <Compile Include="CollectionManagement\CollectionConflictResolutionDecision.cs" />
     <Compile Include="CollectionManagement\CollectionConflictResolutionCoordinator.cs" />
+    <Compile Include="CollectionManagement\CollectionPluginRelativeOrderApplicator.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlanner.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionReviewedWorkflowRuntime.cs" />
@@ -229,6 +232,8 @@
     <Compile Include="CollectionManagement\CollectionArchiveOverwritePolicy.cs" />
     <Compile Include="CollectionManagement\CollectionAcquisitionRequestCoordinator.cs" />
     <Compile Include="CollectionManagement\NexusCollectionModFileArtifactIdentity.cs" />
+    <Compile Include="CollectionManagement\CollectionExternalArtifactIdentity.cs" />
+    <Compile Include="CollectionManagement\CollectionDirectAcquisitionCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionManagedArchiveCandidate.cs" />
     <Compile Include="CollectionManagement\ICollectionManagedArchiveSource.cs" />
     <Compile Include="CollectionManagement\ICollectionArchiveIdentityVerifier.cs" />
@@ -386,6 +391,8 @@
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionNxmDispatcher.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImportModels.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionManifestNormalizer.cs" />
+    <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionDirectAcquisitionSourceProvider.cs" />
+    <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionManualAcquisitionHintProvider.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundleImporter.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundledArtifactMaterializer.cs" />
     <Compile Include="OnlineServices\NexusMods\Collections\NexusCollectionBundledMemberAcquisitionCoordinator.cs" />

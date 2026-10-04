@@ -25,7 +25,10 @@ namespace Nexus.Client.CollectionManagement
 		Blocked = 6,
 
 		/// <summary>A deterministic embedded Collection archive is being imported through native AddMod.</summary>
-		BundledQueued = 7
+		BundledQueued = 7,
+
+		/// <summary>A characterized Vortex direct source is being downloaded through the Collection-owned HTTPS producer.</summary>
+		DirectQueued = 8
 	}
 
 	/// <summary>
@@ -120,6 +123,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionAcquisitionRestartCoordinator _restartCoordinator;
 		private readonly CollectionOperationCoordinator _operationCoordinator;
 		private readonly ICollectionBundledMemberAcquisitionCoordinator _bundledCoordinator;
+		private readonly CollectionDirectAcquisitionCoordinator _directCoordinator;
 
 		/// <summary>Creates the C6.15.5 member-acquisition composition service.</summary>
 		public CollectionMemberAcquisitionCoordinator(CollectionMemberMatchEngine matchEngine,
@@ -135,6 +139,17 @@ namespace Nexus.Client.CollectionManagement
 			CollectionVerifiedArchiveAdopter archiveAdopter, CollectionPremiumAcquisitionCoordinator premiumCoordinator,
 			CollectionManualAcquisitionCoordinator manualCoordinator, CollectionAcquisitionRestartCoordinator restartCoordinator,
 			CollectionOperationCoordinator operationCoordinator, ICollectionBundledMemberAcquisitionCoordinator bundledCoordinator)
+			: this(matchEngine, archiveAdopter, premiumCoordinator, manualCoordinator, restartCoordinator, operationCoordinator,
+				bundledCoordinator, null)
+		{
+		}
+
+		/// <summary>Creates the member-acquisition service with embedded bundle and characterized direct-source support.</summary>
+		public CollectionMemberAcquisitionCoordinator(CollectionMemberMatchEngine matchEngine,
+			CollectionVerifiedArchiveAdopter archiveAdopter, CollectionPremiumAcquisitionCoordinator premiumCoordinator,
+			CollectionManualAcquisitionCoordinator manualCoordinator, CollectionAcquisitionRestartCoordinator restartCoordinator,
+			CollectionOperationCoordinator operationCoordinator, ICollectionBundledMemberAcquisitionCoordinator bundledCoordinator,
+			CollectionDirectAcquisitionCoordinator directCoordinator)
 		{
 			_matchEngine = matchEngine ?? throw new ArgumentNullException(nameof(matchEngine));
 			_archiveAdopter = archiveAdopter ?? throw new ArgumentNullException(nameof(archiveAdopter));
@@ -143,6 +158,7 @@ namespace Nexus.Client.CollectionManagement
 			_restartCoordinator = restartCoordinator ?? throw new ArgumentNullException(nameof(restartCoordinator));
 			_operationCoordinator = operationCoordinator ?? throw new ArgumentNullException(nameof(operationCoordinator));
 			_bundledCoordinator = bundledCoordinator;
+			_directCoordinator = directCoordinator;
 		}
 
 		/// <summary>
@@ -241,6 +257,14 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				}
 
+				CollectionAcquisitionQueueCorrelation directCorrelation = _directCoordinator == null ? null : _directCoordinator.TryQueue(request);
+				if (directCorrelation != null)
+				{
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.DirectQueued,
+						request, null, directCorrelation, null, null, null));
+					continue;
+				}
+
 				CollectionPremiumAcquisitionAvailability availability = _premiumCoordinator.GetAvailability(request);
 				if (availability == CollectionPremiumAcquisitionAvailability.Available)
 				{
@@ -304,7 +328,8 @@ namespace Nexus.Client.CollectionManagement
 				else if (match.IsBlocked)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.Blocked, previous.Request, null, null, null, null, previous.PremiumAvailability));
 				else if ((previous.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
-					previous.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued) && previous.QueueCorrelation != null &&
+					previous.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ||
+					previous.Disposition == CollectionMemberAcquisitionDisposition.DirectQueued) && previous.QueueCorrelation != null &&
 					CollectionAcquisitionConsumerTask.IsTerminal(previous.QueueCorrelation.Task.Status))
 					// A finished producer without verified bytes requires explicit retry; it is no longer downloading or importing.
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.RestartActionRequired, previous.Request, null,
@@ -314,6 +339,20 @@ namespace Nexus.Client.CollectionManagement
 						previous.PendingAction, previous.RestartResult, previous.PremiumAvailability));
 			}
 			return new CollectionMemberAcquisitionBatch(batch.PlanBuild, rematched, states, batch.ArchiveOverwritePolicy);
+		}
+
+		/// <summary>Verifies a user-selected local file for one exact pending manual acquisition in this batch.</summary>
+		public CollectionVerifiedArchive VerifyLocalFile(CollectionMemberAcquisitionBatch batch,
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			if (pendingAction == null) throw new ArgumentNullException(nameof(pendingAction));
+			CollectionMemberAcquisitionState state = batch.Members.SingleOrDefault(x =>
+				x.PendingAction != null && x.PendingAction.ActionId == pendingAction.ActionId);
+			if (state == null || state.Disposition != CollectionMemberAcquisitionDisposition.ManualInputRequired ||
+				state.Request == null || state.Request.RequestId != pendingAction.Request.RequestId)
+				throw new ArgumentException("The pending manual acquisition action does not belong to this input-paused batch.", nameof(pendingAction));
+			return _manualCoordinator.VerifyLocalFile(pendingAction, localFilePath, cancellationToken);
 		}
 
 		/// <summary>

@@ -71,10 +71,19 @@ namespace Nexus.Client.CollectionManagement
 			List<CollectionDriftObservation> driftList = (drift ?? throw new ArgumentNullException(nameof(drift)))
 				.Where(x => x.Requirement.AssociationId == association.AssociationId).ToList();
 
+			var repository = _services.ModRepository as NexusModsApiRepository;
+			if (repository == null)
+				return new CollectionVerifyRepairPreparationResult(null, null,
+					"Exact verify/repair archive identity requires the active Nexus Mods repository implementation.");
+
 			CollectionEffectiveSelection effective;
+			CollectionNexusSourcePolicyResolution sourcePolicyResolution;
 			try
 			{
 				effective = BuildEffectiveSelection(retainedManifest.CapabilityReport, bindingList, overrideList, driftList);
+				sourcePolicyResolution = new CollectionNexusSourcePolicyResolver(_revisionSourceStore, repository)
+					.ResolveInstalled(effective, bindingList, state);
+				effective = sourcePolicyResolution.Selection;
 			}
 			catch (Exception ex)
 			{
@@ -85,17 +94,12 @@ namespace Nexus.Client.CollectionManagement
 				return new CollectionVerifyRepairPreparationResult(null, null,
 					"The installed revision's effective member selection is not fully supported by the current native recipe adapters.");
 
-			List<ResolvedCollectionMemberPlan> selected = effective.Manifest.Members.Where(x => x.IsSelected)
-				.Select(x => new ResolvedCollectionMemberPlan(x, CollectionResolvedArtifactChoice.Exact(x.Artifact))).ToList();
+			List<ResolvedCollectionMemberPlan> selected = CreateSelectedMembers(effective.Manifest, sourcePolicyResolution.ArtifactChoices);
 			var resolvedPlan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), association.Target,
 				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, effective.CapabilityReport, selected);
 
 			var prepared = new List<PreparedCollectionNativeRecipe>();
 			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore);
-			var repository = _services.ModRepository as NexusModsApiRepository;
-			if (repository == null)
-				return new CollectionVerifyRepairPreparationResult(resolvedPlan, null,
-					"Exact verify/repair archive identity requires the active Nexus Mods repository implementation.");
 			var adopter = new CollectionVerifiedArchiveAdopter(new ModManagerCollectionManagedArchiveSource(_services.ModManager),
 				new NexusCollectionArchiveIdentityVerifier(repository), _artifactStore, _referenceStore);
 
@@ -141,6 +145,33 @@ namespace Nexus.Client.CollectionManagement
 					"Exact verify/repair preparation failed closed: " + ex.Message);
 			}
 			return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, null);
+		}
+
+		internal static List<ResolvedCollectionMemberPlan> CreateSelectedMembers(NormalizedCollectionManifest manifest,
+			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices)
+		{
+			if (manifest == null) throw new ArgumentNullException(nameof(manifest));
+			if (artifactChoices == null) throw new ArgumentNullException(nameof(artifactChoices));
+			var selected = new List<ResolvedCollectionMemberPlan>();
+			var consumed = new HashSet<CollectionMemberKey>();
+			foreach (NormalizedCollectionMember member in manifest.Members.Where(x => x.IsSelected))
+			{
+				CollectionResolvedArtifactChoice choice;
+				if (member.IdentityResolution.IsResolved && artifactChoices.TryGetValue(member.IdentityResolution.Key, out choice))
+				{
+					if (choice == null || !member.Artifact.Equals(choice.RequestedArtifact))
+						throw new InvalidOperationException("An installed source-policy artifact choice no longer matches its normalized requested artifact.");
+					consumed.Add(member.IdentityResolution.Key);
+				}
+				else
+				{
+					choice = CollectionResolvedArtifactChoice.Exact(member.Artifact);
+				}
+				selected.Add(new ResolvedCollectionMemberPlan(member, choice));
+			}
+			if (consumed.Count != artifactChoices.Count)
+				throw new InvalidOperationException("An installed source-policy artifact choice does not belong to the reconstructed selected closure.");
+			return selected;
 		}
 
 		private static CollectionEffectiveSelection BuildEffectiveSelection(CollectionCapabilityReport capability,

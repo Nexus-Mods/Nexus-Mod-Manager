@@ -89,6 +89,342 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareBasicSimpleExact_ReviewedPreferSubstitutionIsPreparedAndBoundIntoRepairReview()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixtureCore(root, "prefer-substitution-reviewed", null,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+					choicesJson: null, installScript: null, pluginsJson: null, updatePolicy: "prefer",
+					archiveFiles: new[] { @"textures\body.dds" });
+
+				PreparedCollectionNativeRecipe exactPrepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				NormalizedCollectionMember normalized = fixture.Plan.CapabilityReport.Manifest.Members.Single();
+				var selectedArtifact = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+					NexusCollectionModFileArtifactIdentity.Format("skyrim", 10, 30), null);
+				var choice = CollectionResolvedArtifactChoice.SupportedSubstitution(normalized.Artifact, selectedArtifact,
+					CollectionNexusSourcePolicyResolver.PreferFallbackSubstitutionRuleId);
+				var substitutedMember = new ResolvedCollectionMemberPlan(normalized, choice);
+				var substitutedPlan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), fixture.Target,
+					CollectionExecutionPolicy.InstallIntoCurrentSetup(), fixture.State.Fingerprint, fixture.Plan.CapabilityReport,
+					new[] { substitutedMember });
+				CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), substitutedPlan, substitutedMember.MemberKey);
+				CollectionsRetainedArtifactReferenceRecord reference = new CollectionsRetainedArtifactReferenceStore(fixture.Store).AcquireReference(
+					fixture.VerifiedArchive.Artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download, request.RequestId.ToString("D"), "verified-policy-test");
+				var substitutedArchive = new CollectionVerifiedArchive(request, fixture.VerifiedArchive.Artifact, reference,
+					CollectionVerifiedArchiveSourceKind.ManagedArchive, CollectionArchiveVerificationBasis.ProviderContentIdentity);
+
+				PreparedCollectionNativeRecipe substitutedPrepared = fixture.Preparer.PrepareBasicSimpleExact(
+					substitutedPlan, substitutedMember, substitutedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+				CollectionVerifyRepairPreparedRecipeReview exactReview = CollectionVerifyRepairPreparedRecipeReview.From(exactPrepared);
+				CollectionVerifyRepairPreparedRecipeReview substitutedReview = CollectionVerifyRepairPreparedRecipeReview.From(substitutedPrepared);
+
+				var otherSelectedArtifact = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+					NexusCollectionModFileArtifactIdentity.Format("skyrim", 10, 31), null);
+				var otherChoice = CollectionResolvedArtifactChoice.SupportedSubstitution(normalized.Artifact, otherSelectedArtifact,
+					CollectionNexusSourcePolicyResolver.PreferFallbackSubstitutionRuleId);
+				var otherMember = new ResolvedCollectionMemberPlan(normalized, otherChoice);
+				var otherPlan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), fixture.Target,
+					CollectionExecutionPolicy.InstallIntoCurrentSetup(), fixture.State.Fingerprint, fixture.Plan.CapabilityReport, new[] { otherMember });
+				CollectionAcquisitionRequest otherRequest = CollectionAcquisitionRequest.Create(Guid.NewGuid(), otherPlan, otherMember.MemberKey);
+				CollectionsRetainedArtifactReferenceRecord otherReference = new CollectionsRetainedArtifactReferenceStore(fixture.Store).AcquireReference(
+					fixture.VerifiedArchive.Artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download, otherRequest.RequestId.ToString("D"), "verified-policy-other-test");
+				var otherArchive = new CollectionVerifiedArchive(otherRequest, fixture.VerifiedArchive.Artifact, otherReference,
+					CollectionVerifiedArchiveSourceKind.ManagedArchive, CollectionArchiveVerificationBasis.ProviderContentIdentity);
+				PreparedCollectionNativeRecipe otherPrepared = fixture.Preparer.PrepareBasicSimpleExact(
+					otherPlan, otherMember, otherArchive, fixture.Mod, fixture.GameMode, fixture.InstallContext, fixture.State, false);
+
+				Assert.That(substitutedPrepared.Member.ArtifactChoice, Is.EqualTo(choice));
+				Assert.That(substitutedReview.Matches(substitutedPrepared), Is.True);
+				Assert.That(exactReview.Matches(substitutedPrepared), Is.False,
+					"A restart review created for the curator file must not silently accept a source-policy substitution.");
+				Assert.That(substitutedReview.Matches(otherPrepared), Is.False,
+					"A reviewed source-policy substitution must remain bound to its exact selected Nexus file across restart.");
+				Assert.That(substitutedReview.ExecutableDescriptorFingerprint, Is.Not.EqualTo(exactReview.ExecutableDescriptorFingerprint));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareBasicSimpleExact_UncharacterizedSubstitutionRuleFailsClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixtureCore(root, "prefer-unknown-substitution", null,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+					choicesJson: null, installScript: null, pluginsJson: null, updatePolicy: "prefer",
+					archiveFiles: new[] { @"textures\body.dds" });
+				NormalizedCollectionMember normalized = fixture.Plan.CapabilityReport.Manifest.Members.Single();
+				var selectedArtifact = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+					NexusCollectionModFileArtifactIdentity.Format("skyrim", 10, 30), null);
+				var member = new ResolvedCollectionMemberPlan(normalized,
+					CollectionResolvedArtifactChoice.SupportedSubstitution(normalized.Artifact, selectedArtifact, "unknown-source-policy-rule"));
+				var plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), fixture.Target,
+					CollectionExecutionPolicy.InstallIntoCurrentSetup(), fixture.State.Fingerprint, fixture.Plan.CapabilityReport, new[] { member });
+				CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), plan, member.MemberKey);
+				CollectionsRetainedArtifactReferenceRecord reference = new CollectionsRetainedArtifactReferenceStore(fixture.Store).AcquireReference(
+					fixture.VerifiedArchive.Artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download, request.RequestId.ToString("D"), "unknown-policy-test");
+				var archive = new CollectionVerifiedArchive(request, fixture.VerifiedArchive.Artifact, reference,
+					CollectionVerifiedArchiveSourceKind.ManagedArchive, CollectionArchiveVerificationBasis.ProviderContentIdentity);
+
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareBasicSimpleExact(
+					plan, member, archive, fixture.Mod, fixture.GameMode, fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexMd5FileListResolvesContentAndFreezesSimpleRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] wanted = Encoding.UTF8.GetBytes("wanted file bytes");
+				byte[] ignored = Encoding.UTF8.GetBytes("ignored file bytes");
+				string wantedMd5 = ComputeMd5(wanted);
+				var contents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+				{
+					{ @"payload\opaque.bin", wanted },
+					{ @"extras\ignored.txt", ignored }
+				};
+				Fixture fixture = CreateFileListFixture(root, "file-list", contents,
+					"[{\"path\":\"textures/body.dds\",\"md5\":\"" + wantedMd5 + "\"}]");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+
+				Assert.That(prepared.AdapterId, Is.EqualTo(ModInstallationSimpleFileRecipeAdapter.AdapterId));
+				InstallModFileOperation operation = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(operation.SourcePath, Is.EqualTo(@"payload\opaque.bin"));
+				Assert.That(operation.DestinationPath, Is.EqualTo(@"textures\body.dds"));
+				Assert.That(prepared.RecipeInput.NativeOperations.Count, Is.EqualTo(1));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexXxh64FileListResolvesContentAndFreezesSimpleRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] wanted = Encoding.ASCII.GetBytes("abc");
+				var contents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+				{
+					{ @"payload\opaque.bin", wanted },
+					{ @"extras\ignored.txt", Encoding.UTF8.GetBytes("ignored") }
+				};
+				Fixture fixture = CreateFileListFixture(root, "file-list-xxh64", contents,
+					"[{\"path\":\"first.bin\",\"xxh64\":\"RLws9a13CZk=\"},{\"path\":\"second.bin\",\"xxh64\":\"RLws9a13CZk=\"}]");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+
+				InstallModFileOperation[] operations = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+				Assert.That(operations.Length, Is.EqualTo(2));
+				Assert.That(operations.Select(x => x.SourcePath), Is.All.EqualTo(@"payload\opaque.bin"));
+				CollectionAssert.AreEquivalent(new[] { "first.bin", "second.bin" }, operations.Select(x => x.DestinationPath));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexMd5FileListAmbiguousArchiveContentFailsClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] bytes = Encoding.UTF8.GetBytes("same bytes");
+				string md5 = ComputeMd5(bytes);
+				var contents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+				{
+					{ @"a\one.bin", bytes },
+					{ @"b\two.bin", bytes }
+				};
+				Fixture fixture = CreateFileListFixture(root, "file-list-ambiguous", contents,
+					"[{\"path\":\"target.bin\",\"md5\":\"" + md5 + "\"}]");
+
+				Assert.Throws<InvalidDataException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexMd5FileListReplicatesOneSourceToSeveralDestinations()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] bytes = Encoding.UTF8.GetBytes("replicated bytes");
+				string md5 = ComputeMd5(bytes);
+				var contents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+				{
+					{ @"payload\one.bin", bytes }
+				};
+				Fixture fixture = CreateFileListFixture(root, "file-list-replicate", contents,
+					"[{\"path\":\"first.bin\",\"md5\":\"" + md5 + "\"},{\"path\":\"second.bin\",\"md5\":\"" + md5 + "\"}]");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+
+				InstallModFileOperation[] operations = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+				Assert.That(operations.Length, Is.EqualTo(2));
+				Assert.That(operations.Select(x => x.SourcePath), Is.All.EqualTo(@"payload\one.bin"));
+				CollectionAssert.AreEquivalent(new[] { "first.bin", "second.bin" }, operations.Select(x => x.DestinationPath));
+				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(2));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFileOverridesSuppressExactTranslatedOutputBeforeEffectPreview()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFileOverrideFixture(root, "file-overrides",
+					"[\"C:/Curator/Skyrim/Target/textures/one.dds\"]",
+					@"textures\one.dds", @"textures\two.dds");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+
+				InstallModFileOperation[] operations = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+				Assert.That(operations.Length, Is.EqualTo(1));
+				Assert.That(operations[0].SourcePath, Is.EqualTo(@"textures\two.dds"));
+				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(1));
+				Assert.That(prepared.EffectPreview.Files.Single().Target.RelativePath, Does.EndWith(@"textures\two.dds"));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFileOverridesFilterFrozenFileListRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] one = Encoding.UTF8.GetBytes("one");
+				byte[] two = Encoding.UTF8.GetBytes("two");
+				string hashesJson = "[{\"path\":\"first.dds\",\"md5\":\"" + ComputeMd5(one) +
+					"\"},{\"path\":\"second.dds\",\"md5\":\"" + ComputeMd5(two) + "\"}]";
+				var contents = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase)
+				{
+					{ @"payload\one.bin", one },
+					{ @"payload\two.bin", two }
+				};
+				Fixture fixture = CreateFileListOverrideFixture(root, "file-list-overrides", contents, hashesJson,
+					"[\"second.dds\"]");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+
+				InstallModFileOperation operation = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(operation.SourcePath, Is.EqualTo(@"payload\one.bin"));
+				Assert.That(operation.DestinationPath, Is.EqualTo("first.dds"));
+				Assert.That(prepared.EffectPreview.Files.Single().Target.RelativePath, Does.EndWith("first.dds"));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFileOverridesSupportPortableRelativeTargetPaths()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFileOverrideFixture(root, "file-overrides-relative",
+					"[\"Target/textures/one.dds\"]", @"textures\one.dds", @"textures\two.dds");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+
+				Assert.That(prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath,
+					Is.EqualTo(@"textures\two.dds"));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_UnresolvedVortexFileOverrideFailsClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFileOverrideFixture(root, "file-overrides-stale",
+					"[\"C:/Curator/Skyrim/Data/stale/missing.dds\"]", @"textures\one.dds");
+
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFileOverridesSuppressingEveryOutputFailsClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFileOverrideFixture(root, "file-overrides-empty",
+					"[\"Target/textures/one.dds\"]", @"textures\one.dds");
+
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareBasicSimpleExact_SameInputsProduceSamePreparedNativeIdentity()
 		{
 			string root = CreateTemporaryDirectory();
@@ -489,6 +825,22 @@ namespace NexusClientTests
 		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
 			bool supportsGameRootInstall, string choicesJson, IScript installScript, string pluginsJson, string updatePolicy, params string[] archiveFiles)
 		{
+			return CreateFixtureCore(root, suffix, modType, installContext, supportsGameRootInstall, choicesJson, installScript,
+				pluginsJson, updatePolicy, null, null, archiveFiles);
+		}
+
+		private static Fixture CreateFixtureCore(string root, string suffix, string modType, ModInstallContext installContext,
+			bool supportsGameRootInstall, string choicesJson, IScript installScript, string pluginsJson, string updatePolicy,
+			string hashesJson, IDictionary<string, byte[]> archiveContents, params string[] archiveFiles)
+		{
+			return CreateFixtureCoreWithOverrides(root, suffix, modType, installContext, supportsGameRootInstall, choicesJson, installScript,
+				pluginsJson, updatePolicy, hashesJson, archiveContents, null, archiveFiles);
+		}
+
+		private static Fixture CreateFixtureCoreWithOverrides(string root, string suffix, string modType, ModInstallContext installContext,
+			bool supportsGameRootInstall, string choicesJson, IScript installScript, string pluginsJson, string updatePolicy,
+			string hashesJson, IDictionary<string, byte[]> archiveContents, string fileOverridesJson, params string[] archiveFiles)
+		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
 			CollectionIdentity collection = CollectionIdentity.FromNexus("c6159-" + suffix);
@@ -499,10 +851,12 @@ namespace NexusClientTests
 
 			string details = String.IsNullOrEmpty(modType) ? String.Empty : ",\"details\":{\"type\":\"" + modType + "\"}";
 			string choices = String.IsNullOrEmpty(choicesJson) ? String.Empty : ",\"choices\":" + choicesJson;
+			string hashes = String.IsNullOrEmpty(hashesJson) ? String.Empty : ",\"hashes\":" + hashesJson;
+			string fileOverrides = String.IsNullOrEmpty(fileOverridesJson) ? String.Empty : ",\"fileOverrides\":" + fileOverridesJson;
 			string plugins = String.IsNullOrEmpty(pluginsJson) ? String.Empty : ",\"plugins\":" + pluginsJson;
 			string json = "{" +
 				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Example\",\"description\":\"Example\",\"domainName\":\"skyrim\"}," +
-				"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"updatePolicy\":\"" + updatePolicy + "\"}" + details + choices + "}]," +
+				"\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"updatePolicy\":\"" + updatePolicy + "\"}" + details + hashes + choices + fileOverrides + "}]," +
 				"\"modRules\":[]" + plugins + "}";
 			byte[] manifestBytes = Encoding.UTF8.GetBytes(json);
 			NexusCollectionManifestNormalizationResult normalization = new NexusCollectionManifestNormalizer().Normalize(manifestBytes, revision);
@@ -511,7 +865,7 @@ namespace NexusClientTests
 			{
 				Assert.That(normalization.CapabilityReport.Status, Is.EqualTo(CollectionCompatibilityStatus.ActionRequired));
 				reviewedCapability = normalization.CapabilityReport.FilterDeclaredIssues(issue =>
-					!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode));
+					!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusSourcePolicyResolver.PreferIssueCode));
 			}
 			Assert.That(reviewedCapability.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
 			var sourceStore = new CollectionsRevisionSourceStore(store);
@@ -547,12 +901,43 @@ namespace NexusClientTests
 					case "get_HasInstallScript": return installScript != null;
 					case "get_InstallScript": return installScript;
 					case "GetFileList": return new List<string>(fileList);
+					case "GetFile":
+						byte[] bytes;
+						return archiveContents != null && archiveContents.TryGetValue((string)args[0], out bytes) ? bytes : null;
 					default: return null;
 				}
 			});
 
 			return new Fixture(store, target, state, plan, member, sourceRecord, verifiedArchive, mod, modArchivePath,
 				CreateGameMode(false, null, supportsGameRootInstall), installContext);
+		}
+
+
+		private static Fixture CreateFileListFixture(string root, string suffix, IDictionary<string, byte[]> archiveContents, string hashesJson)
+		{
+			if (archiveContents == null) throw new ArgumentNullException(nameof(archiveContents));
+			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				null, null, null, "exact", hashesJson, archiveContents, archiveContents.Keys.ToArray());
+		}
+
+		private static Fixture CreateFileListOverrideFixture(string root, string suffix, IDictionary<string, byte[]> archiveContents,
+			string hashesJson, string fileOverridesJson)
+		{
+			if (archiveContents == null) throw new ArgumentNullException(nameof(archiveContents));
+			return CreateFixtureCoreWithOverrides(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				null, null, null, "exact", hashesJson, archiveContents, fileOverridesJson, archiveContents.Keys.ToArray());
+		}
+
+		private static Fixture CreateFileOverrideFixture(string root, string suffix, string fileOverridesJson, params string[] archiveFiles)
+		{
+			return CreateFixtureCoreWithOverrides(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				null, null, null, "exact", null, null, fileOverridesJson, archiveFiles);
+		}
+
+		private static string ComputeMd5(byte[] bytes)
+		{
+			using (MD5 md5 = MD5.Create())
+				return BitConverter.ToString(md5.ComputeHash(bytes)).Replace("-", String.Empty).ToLowerInvariant();
 		}
 
 		private static IGameMode CreateGameMode(bool specialFile, Action onSpecialInstall, bool supportsGameRootInstall = false,

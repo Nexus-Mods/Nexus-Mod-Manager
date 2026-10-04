@@ -145,6 +145,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.V1
 
         [JsonProperty("new_file_name")]
         public string NewFileName { get; set; }
+
+        [JsonProperty("uploaded_timestamp")]
+        [JsonConverter(typeof(UnixDateTimeConverter))]
+        public DateTimeOffset UploadedTimestamp { get; set; }
     }
 
     /// <summary>

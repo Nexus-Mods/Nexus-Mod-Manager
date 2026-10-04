@@ -144,9 +144,10 @@ namespace Nexus.Client.CollectionManagement
 			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(expectedPlan))
 				throw new InvalidOperationException("Revision-update continuation does not refer to the exact reviewed candidate plan.");
 			CollectionResolvedPlanRecord record = _planStore.GetPlan(expectedPlan);
-			if (record == null || !StringComparer.Ordinal.Equals(record.PayloadFormat, CollectionRevisionUpdateReviewedIntentCodec.PayloadFormat))
+			if (record == null || (!StringComparer.Ordinal.Equals(record.PayloadFormat, CollectionRevisionUpdateReviewedIntentCodec.PayloadFormat) &&
+				!StringComparer.Ordinal.Equals(record.PayloadFormat, CollectionRevisionUpdateReviewedIntentCodec.LegacyPayloadFormat)))
 				throw new InvalidDataException("The immutable revision-update reviewed intent is missing or uses an unsupported version.");
-			CollectionRevisionUpdateReviewedIntent intent = CollectionRevisionUpdateReviewedIntentCodec.Deserialize(record.Payload);
+			CollectionRevisionUpdateReviewedIntent intent = CollectionRevisionUpdateReviewedIntentCodec.Deserialize(record.Payload, record.PayloadFormat);
 			if (!intent.CandidatePlanIdentity.Equals(expectedPlan) || !intent.CandidateRevision.Equals(operation.Revision) ||
 				!intent.Target.Equals(operation.Target) || !intent.CandidateRevision.Collection.Equals(operation.Collection) ||
 				record.PolicyKind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup ||

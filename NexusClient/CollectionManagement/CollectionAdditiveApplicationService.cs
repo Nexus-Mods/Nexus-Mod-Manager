@@ -143,6 +143,13 @@ namespace Nexus.Client.CollectionManagement
 			return _workflow.ResumePreparationAsync(batch, GetTargetPaths(), cancellationToken);
 		}
 
+		/// <summary>Verifies one user-selected archive for the exact pending manual/browse member request.</summary>
+		public CollectionVerifiedArchive VerifyLocalFile(CollectionMemberAcquisitionBatch batch,
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			return _workflow.VerifyLocalFile(batch, pendingAction, localFilePath, cancellationToken);
+		}
+
 		/// <summary>Records one explicit C9 decision allowing the reviewed incoming member to win an exact existing-owner file conflict.</summary>
 		public CollectionConflictResolutionDecision AuthorizeIncomingFileWinner(CollectionAdditiveWorkflowPreparationResult preparation,
 			ModDeploymentTarget target, string note)
@@ -241,14 +248,17 @@ namespace Nexus.Client.CollectionManagement
 			var nexusRepository = _services.ModRepository as NexusModsApiRepository;
 			if (nexusRepository == null)
 				throw new InvalidOperationException("Nexus Collections require the active NexusModsApiRepository implementation.");
-			var preferExactResolver = new CollectionNexusPreferExactPolicyResolver(_revisionSourceStore, nexusRepository);
-			var planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder, preferExactResolver);
+			var sourcePolicyResolver = new CollectionNexusSourcePolicyResolver(_revisionSourceStore, nexusRepository);
+			var planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder, sourcePolicyResolver);
 			var archiveVerifier = new NexusCollectionArchiveIdentityVerifier(nexusRepository);
 			var archiveAdopter = new CollectionVerifiedArchiveAdopter(archiveSource, archiveVerifier,
 				artifactStore, referenceStore, acquisitionStore);
 			var premiumCoordinator = new CollectionPremiumAcquisitionCoordinator(requestCoordinator,
 				new ModRepositoryCollectionPremiumAcquisitionAccountProvider(_services.ModRepository));
-			var manualCoordinator = new CollectionManualAcquisitionCoordinator(requestCoordinator, archiveAdopter);
+			var manualCoordinator = new CollectionManualAcquisitionCoordinator(requestCoordinator, archiveAdopter,
+				new NexusCollectionManualAcquisitionHintProvider(_catalogStore, _revisionSourceStore));
+			var directCoordinator = new CollectionDirectAcquisitionCoordinator(
+				new NexusCollectionDirectAcquisitionSourceProvider(_catalogStore, _revisionSourceStore), archiveAdopter, acquisitionStore);
 			var acquisitionRestart = new CollectionAcquisitionRestartCoordinator(acquisitionStore,
 				new SettingsCollectionPersistedAddModStateSource(_services.ModManager.EnvironmentInfo, _services.ModManager.GameMode.ModeId),
 				archiveAdopter, premiumCoordinator);
@@ -256,7 +266,7 @@ namespace Nexus.Client.CollectionManagement
 			var bundledAcquisition = new NexusCollectionBundledMemberAcquisitionCoordinator(bundledMaterializer,
 				archiveAdopter, requestCoordinator, _services.ModManager);
 			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(new CollectionMemberMatchEngine(), archiveAdopter,
-				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator, bundledAcquisition);
+				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator, bundledAcquisition, directCoordinator);
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);
 

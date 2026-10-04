@@ -219,6 +219,70 @@ namespace NexusClientTests
             }
         }
 
+        [Test]
+        public void RelativeOrder_ReordersOnlyConstrainedPluginSlots()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(
+                new[]
+                {
+                    new PluginDefinition("A.esp"),
+                    new PluginDefinition("Unrelated.esp"),
+                    new PluginDefinition("B.esp")
+                }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = context.Manager.TrySetRelativePluginOrder(
+                    new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("B.esp"), context.PathOf("A.esp") }
+                    },
+                    out diagnostics);
+
+                Assert.IsTrue(applied);
+                Assert.AreEqual(0, diagnostics.Count);
+                CollectionAssert.AreEqual(new[] { "B.esp", "Unrelated.esp", "A.esp" }, context.ManagedPluginNames);
+            }
+        }
+
+        [Test]
+        public void RelativeOrder_CycleIsRejectedWithoutMutation()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(
+                new[] { new PluginDefinition("A.esp"), new PluginDefinition("B.esp") }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = context.Manager.TrySetRelativePluginOrder(
+                    new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("A.esp"), context.PathOf("B.esp") },
+                        new List<string> { context.PathOf("B.esp"), context.PathOf("A.esp") }
+                    },
+                    out diagnostics);
+
+                Assert.IsFalse(applied);
+                CollectionAssert.AreEqual(new[] { "A.esp", "B.esp" }, context.ManagedPluginNames);
+            }
+        }
+
+        [Test]
+        public void RelativeOrder_MissingEndpointIsRejectedWithoutMutation()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(
+                new[] { new PluginDefinition("A.esp"), new PluginDefinition("B.esp") }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = context.Manager.TrySetRelativePluginOrder(
+                    new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("Missing.esp"), context.PathOf("A.esp") }
+                    },
+                    out diagnostics);
+
+                Assert.IsFalse(applied);
+                CollectionAssert.AreEqual(new[] { "A.esp", "B.esp" }, context.ManagedPluginNames);
+            }
+        }
+
         /// <summary>
         /// Describes one plugin and its declared masters for the isolated plugin-manager fixture.
         /// </summary>
@@ -377,6 +441,21 @@ namespace NexusClientTests
             /// Gets the number of persisted active-plugin updates performed after fixture initialization.
             /// </summary>
             public int ActivePluginSaveCount { get; private set; }
+
+            /// <summary>
+            /// Gets the current authoritative managed plugin order.
+            /// </summary>
+            public IList<string> ManagedPluginNames
+            {
+                get
+                {
+                    return Manager.ManagedPlugins
+                        .Where(x => x != null)
+                        .OrderBy(x => Manager.GetPluginOrderIndex(x))
+                        .Select(x => Path.GetFileName(x.Filename))
+                        .ToList();
+                }
+            }
 
             /// <summary>
             /// Gets the active plugin filenames after the latest reconciliation.

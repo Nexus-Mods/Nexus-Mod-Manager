@@ -56,6 +56,34 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Build_SourcePolicySubstitutionIsFrozenIntoResolvedMemberPlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "source-policy-choice", true, true);
+				NormalizedCollectionMember member = fixture.EffectiveSelection.Manifest.Members.First(x => x.IsSelected);
+				var selectedArtifact = new CollectionArtifactReference("nexus-mod-file", "skyrimse/100/999", null);
+				var choice = CollectionResolvedArtifactChoice.SupportedSubstitution(member.Artifact, selectedArtifact, "source-policy-test-rule");
+				var choices = new Dictionary<CollectionMemberKey, CollectionResolvedArtifactChoice>
+				{
+					{ member.IdentityResolution.Key, choice }
+				};
+
+				CollectionAdditivePlanBuildResult result = CreateBuilder(fixture).Build(fixture.EffectiveSelection,
+					fixture.Target, CreateState(fixture.Target), choices);
+
+				ResolvedCollectionMemberPlan resolved = result.Plan.SelectedMembers.Single(x => x.MemberKey.Equals(member.IdentityResolution.Key));
+				Assert.That(resolved.ArtifactChoice, Is.EqualTo(choice));
+				Assert.That(resolved.ArtifactChoice.SelectedArtifact, Is.EqualTo(selectedArtifact));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Build_MissingRetainedRevisionSourceFailsBeforeOperationJournalWrite()
 		{
 			string root = CreateTemporaryDirectory();

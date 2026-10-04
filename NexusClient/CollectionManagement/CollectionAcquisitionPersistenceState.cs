@@ -13,7 +13,10 @@ namespace Nexus.Client.CollectionManagement
 		VerifiedReuse = 3,
 
 		/// <summary>Deterministic embedded-member archive imported through native AddMod.</summary>
-		BundleMaterialization = 4
+		BundleMaterialization = 4,
+
+		/// <summary>Collection-owned exact HTTPS acquisition for a characterized Vortex direct source.</summary>
+		Direct = 5
 	}
 
 	/// <summary>

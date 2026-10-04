@@ -103,7 +103,9 @@ namespace Nexus.Client.CollectionManagement
 			string displayName,
 			double installationPhase,
 			CollectionMemberInstallRootBehavior installRootBehavior,
-			CollectionVortexFomodSelection vortexFomodSelection)
+			CollectionVortexFomodSelection vortexFomodSelection,
+			CollectionVortexFileList vortexFileList = null,
+			CollectionVortexFileOverrideList vortexFileOverrides = null)
 		{
 			if (sourceOrdinal < 0)
 				throw new ArgumentOutOfRangeException(nameof(sourceOrdinal), "Source ordinal cannot be negative.");
@@ -128,6 +130,8 @@ namespace Nexus.Client.CollectionManagement
 			InstallationPhase = installationPhase;
 			InstallRootBehavior = installRootBehavior;
 			VortexFomodSelection = vortexFomodSelection;
+			VortexFileList = vortexFileList;
+			VortexFileOverrides = vortexFileOverrides;
 		}
 
 		/// <summary>
@@ -182,6 +186,21 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets the exact characterized Vortex FOMOD selections retained from collection.json, or null for non-FOMOD/basic members.
 		/// </summary>
 		public CollectionVortexFomodSelection VortexFomodSelection { get; }
+
+		/// <summary>Gets the characterized MD5 Vortex hashes/fileList output set, or null for ordinary/basic members.</summary>
+		public CollectionVortexFileList VortexFileList { get; }
+
+		/// <summary>Gets characterized Vortex per-member deployment exclusions, or null when none are declared.</summary>
+		public CollectionVortexFileOverrideList VortexFileOverrides { get; }
+
+		/// <summary>Gets whether this member requires Vortex per-path deployment suppression.</summary>
+		public bool HasVortexFileOverrides { get { return VortexFileOverrides != null; } }
+
+		/// <summary>Gets whether this member requires Vortex list-installer hash-to-destination replay.</summary>
+		public bool HasVortexFileList
+		{
+			get { return VortexFileList != null; }
+		}
 
 		/// <summary>Gets whether this member requires exact Vortex FOMOD choice replay.</summary>
 		public bool HasVortexFomodSelection

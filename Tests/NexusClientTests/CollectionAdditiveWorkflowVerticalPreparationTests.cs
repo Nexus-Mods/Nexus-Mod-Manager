@@ -81,6 +81,29 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Prepare_LatestPolicyFreezesSelectedFileAndAcquisitionUsesThatExactArtifact()
+		{
+			using (Fixture fixture = Fixture.Create(seedCompatibleNativeState: false, premium: true, includeOptional: false,
+				updatePolicy: "latest", resolvedSourcePolicyFileId: 300))
+			{
+				CollectionAdditiveWorkflowPreparationResult result = fixture.Workflow.PrepareAsync(
+					fixture.BuildSelection(false), fixture.Paths, null, CancellationToken.None).GetAwaiter().GetResult();
+
+				Assert.That(result.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.AwaitingInput));
+				ResolvedCollectionMemberPlan member = result.AcquisitionBatch.PlanBuild.Plan.SelectedMembers.Single();
+				Assert.That(member.ArtifactChoice.Kind, Is.EqualTo(CollectionResolvedArtifactChoiceKind.SupportedSubstitution));
+				Assert.That(member.ArtifactChoice.SubstitutionRuleId, Is.EqualTo(CollectionNexusSourcePolicyResolver.LatestSubstitutionRuleId));
+				string domain;
+				long modId;
+				long fileId;
+				Assert.That(NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId), Is.True);
+				Assert.That(fileId, Is.EqualTo(300));
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(1));
+				StringAssert.Contains("/mods/100/files/300", fixture.Queue.LastUri.AbsolutePath);
+			}
+		}
+
+		[Test]
 		public void Prepare_RequiredInstalledCompatibleMember_ReachesDurableReadyReviewWithoutRecipeOrAcquisition()
 		{
 			using (Fixture fixture = Fixture.Create(seedCompatibleNativeState: true, premium: false, includeOptional: false))
@@ -250,7 +273,8 @@ namespace NexusClientTests
 			public CollectionAdditiveWorkflowCoordinator Workflow { get; }
 
 			public static Fixture Create(bool seedCompatibleNativeState, bool premium, bool includeOptional,
-				RevisionSourceMode sourceMode = RevisionSourceMode.DirectRetainedManifest, string updatePolicy = "exact")
+				RevisionSourceMode sourceMode = RevisionSourceMode.DirectRetainedManifest, string updatePolicy = "exact",
+				int resolvedSourcePolicyFileId = 0)
 			{
 				string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-14a-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(root);
@@ -336,7 +360,18 @@ namespace NexusClientTests
 				var nativeStateReader = new CollectionNativeStateReader(installLog, virtualModActivator, null, gameMode, associations);
 				var targetResolver = new CollectionTargetIdentityResolver(storageService);
 				var planBuilder = new CollectionResolvedPlanBuilder(catalog, revisionSources, operationCoordinator);
-				var planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder);
+				CollectionAdditivePlanPreparationService planPreparation;
+				if (resolvedSourcePolicyFileId > 0)
+				{
+					var sourcePolicyResolver = new CollectionNexusSourcePolicyResolver(revisionSources,
+						(domain, modId, fileId, policy, requestedVersion) =>
+							CollectionNexusSourcePolicyFileResolution.Resolved(resolvedSourcePolicyFileId));
+					planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder, sourcePolicyResolver);
+				}
+				else
+				{
+					planPreparation = new CollectionAdditivePlanPreparationService(targetResolver, nativeStateReader, planBuilder);
+				}
 
 				var archiveSource = new MutableArchiveSource();
 				var adopter = new CollectionVerifiedArchiveAdopter(archiveSource, new AcceptingVerifier(), artifacts, references, acquisitions);

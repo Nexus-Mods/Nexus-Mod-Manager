@@ -39,6 +39,16 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (!immutableArchive.CanRead)
 				throw new ArgumentException("The immutable archive stream must be readable.", nameof(immutableArchive));
 
+			string externalMd5;
+			long externalByteLength;
+			if (CollectionExternalArtifactIdentity.TryParse(requestedArtifact, out externalMd5, out externalByteLength))
+			{
+				if (immutableArchive.CanSeek && immutableArchive.Length != externalByteLength)
+					return false;
+				return StringComparer.OrdinalIgnoreCase.Equals(ComputeMd5(immutableArchive, cancellationToken), externalMd5);
+			}
+
+
 			string expectedDomain;
 			long expectedModId;
 			long expectedFileId;
@@ -61,6 +71,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				throw new ArgumentNullException(nameof(requestedArtifact));
 			if (String.IsNullOrWhiteSpace(md5) || md5.Length != 32)
 				throw new ArgumentException("A normalized MD5 digest is required.", nameof(md5));
+
+			string externalMd5;
+			long externalByteLength;
+			if (CollectionExternalArtifactIdentity.TryParse(requestedArtifact, out externalMd5, out externalByteLength))
+				return StringComparer.OrdinalIgnoreCase.Equals(md5, externalMd5);
 
 			string expectedDomain;
 			long expectedModId;

@@ -1474,6 +1474,81 @@ namespace Nexus.Client.PluginManagement
 		}
 
 		/// <summary>
+		/// Applies relative plugin-order constraints while preserving the occupied slots of unrelated plugins.
+		/// The final candidate is still corrected and validated by the authoritative game plugin policy.
+		/// </summary>
+		public bool TrySetRelativePluginOrder(IList<IList<string>> p_lstRelativeOrderConstraints, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			p_lstBlockingDiagnostics = new List<PluginValidationDiagnostic>();
+			if (p_lstRelativeOrderConstraints == null)
+				throw new ArgumentNullException(nameof(p_lstRelativeOrderConstraints));
+
+			List<Plugin> current = GetPolicyCorrectedOrder(new List<Plugin>(PluginOrderLog.OrderedPlugins.Where(x => x != null)));
+			var currentIndex = new Dictionary<Plugin, int>(PluginComparer.Filename);
+			for (int index = 0; index < current.Count; index++)
+				currentIndex[current[index]] = index;
+
+			var involved = new HashSet<Plugin>(PluginComparer.Filename);
+			var edges = new Dictionary<Plugin, HashSet<Plugin>>(PluginComparer.Filename);
+			var indegree = new Dictionary<Plugin, int>(PluginComparer.Filename);
+			foreach (IList<string> constraint in p_lstRelativeOrderConstraints)
+			{
+				if (constraint == null || constraint.Count < 2)
+					throw new ArgumentException("A relative plugin-order constraint must contain at least two plugin paths.", nameof(p_lstRelativeOrderConstraints));
+
+				for (int edgeIndex = 0; edgeIndex + 1 < constraint.Count; edgeIndex++)
+				{
+					Plugin lower = GetRegisteredPlugin(constraint[edgeIndex]);
+					Plugin higher = GetRegisteredPlugin(constraint[edgeIndex + 1]);
+					if (lower == null || higher == null || !currentIndex.ContainsKey(lower) || !currentIndex.ContainsKey(higher) ||
+						PluginComparer.Filename.Equals(lower, higher))
+						return false;
+
+					involved.Add(lower);
+					involved.Add(higher);
+					HashSet<Plugin> outgoing;
+					if (!edges.TryGetValue(lower, out outgoing))
+					{
+						outgoing = new HashSet<Plugin>(PluginComparer.Filename);
+						edges.Add(lower, outgoing);
+					}
+					if (!indegree.ContainsKey(lower)) indegree.Add(lower, 0);
+					if (!indegree.ContainsKey(higher)) indegree.Add(higher, 0);
+					if (outgoing.Add(higher)) indegree[higher]++;
+				}
+			}
+
+			if (involved.Count == 0) return true;
+			var remaining = new HashSet<Plugin>(involved, PluginComparer.Filename);
+			var sortedInvolved = new List<Plugin>(involved.Count);
+			while (remaining.Count > 0)
+			{
+				Plugin next = remaining.Where(x => indegree[x] == 0).OrderBy(x => currentIndex[x]).FirstOrDefault();
+				if (next == null) return false;
+				remaining.Remove(next);
+				sortedInvolved.Add(next);
+				HashSet<Plugin> outgoing;
+				if (edges.TryGetValue(next, out outgoing))
+					foreach (Plugin target in outgoing) indegree[target]--;
+			}
+
+			List<int> occupiedSlots = current.Select((plugin, index) => new { plugin, index })
+				.Where(x => involved.Contains(x.plugin)).Select(x => x.index).ToList();
+			List<Plugin> requested = new List<Plugin>(current);
+			for (int index = 0; index < occupiedSlots.Count; index++)
+				requested[occupiedSlots[index]] = sortedInvolved[index];
+
+			List<Plugin> corrected = GetPolicyCorrectedOrder(requested);
+			var correctedIndex = new Dictionary<Plugin, int>(PluginComparer.Filename);
+			for (int index = 0; index < corrected.Count; index++) correctedIndex[corrected[index]] = index;
+			foreach (KeyValuePair<Plugin, HashSet<Plugin>> edge in edges)
+				foreach (Plugin target in edge.Value)
+					if (correctedIndex[edge.Key] >= correctedIndex[target]) return false;
+
+			return TryApplyPluginState(corrected, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename), out p_lstBlockingDiagnostics);
+		}
+
+		/// <summary>
 		/// Resolves a plugin order through the current game policy without modifying the plugin registry or load-order log.
 		/// </summary>
 		/// <param name="p_lstOrderedPlugins">The plugin order to policy-correct.</param>

@@ -159,20 +159,70 @@ namespace NexusClientTests
 			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugins-duplicate"));
 		}
 
-		[TestCase("{\"plugins\":[{\"name\":\"A.esp\"}],\"groups\":[]}", "$.pluginRules.plugins")]
-		[TestCase("{\"plugins\":[],\"groups\":[{\"name\":\"Late\"}]}", "$.pluginRules.groups")]
-		public void Normalize_NonEmptyPluginRulesRemainFailClosed(string pluginRules, string expectedPath)
+		[Test]
+		public void Normalize_PluginAfterRuleIsCharacterized()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
 				"[]",
-				"\"pluginRules\":" + pluginRules);
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"after\":[\"B.esm\"]}],\"groups\":[]}");
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.PluginRelativeOrderRules.Count);
+			Assert.AreEqual("A.esp", result.Manifest.PluginRelativeOrderRules[0].PluginName);
+			Assert.AreEqual("B.esm", result.Manifest.PluginRelativeOrderRules[0].AfterPluginName);
+		}
+
+		[Test]
+		public void Normalize_PluginGroupAssignmentRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late Loaders\"}],\"groups\":[]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			CollectionCapabilityIssue issue = result.CapabilityReport.ManifestIssues.Single(x => x.Code == "manifest.plugin-rules-unsupported");
-			Assert.AreEqual(expectedPath, issue.FieldPath);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-assignment-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_NonEmptyPluginGroupsRemainFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[],\"groups\":[{\"name\":\"Late\",\"after\":[\"Default\"]}]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-groups-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_PluginAfterRuleCycleRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"after\":[\"B.esp\"]},{\"name\":\"B.esp\",\"after\":[\"A.esp\"]}],\"groups\":[]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-rule-cycle"));
+		}
+
+		[TestCase("{\"name\":\"A.esp\",\"after\":\"B.esp\"}", "manifest.plugin-rules-invalid")]
+		[TestCase("{\"name\":\"A.esp\",\"after\":[{\"name\":\"B.esp\"}]}", "manifest.plugin-rules-reference-unsupported")]
+		[TestCase("{\"name\":\"A.esp\",\"after\":[\"A.esp\"]}", "manifest.plugin-rules-self-reference")]
+		[TestCase("{\"name\":\"A.esp\",\"future\":true}", "manifest.plugin-rules-field-unsupported")]
+		public void Normalize_MalformedOrExtendedPluginAfterRuleRemainsFailClosed(string pluginRule, string expectedCode)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]", "\"pluginRules\":{\"plugins\":[" + pluginRule + "],\"groups\":[]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == expectedCode));
 		}
 
 		[Test]
@@ -277,6 +327,72 @@ namespace NexusClientTests
 			CollectionCapabilityIssue issue = result.CapabilityReport.ManifestIssues.Single(x =>
 				x.Code == "manifest.collection-config-invalid" && x.FieldPath == "$.collectionConfig.recommendNewProfile");
 			Assert.IsNotNull(issue);
+		}
+
+		[Test]
+		public void Normalize_ManualExactSourceWithMd5AndSizeProducesSupportedExternalArtifact()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Manual\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"manual\",\"md5\":\"0123456789ABCDEF0123456789ABCDEF\",\"fileSize\":123,\"instructions\":\"Choose the curator archive\"}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			NormalizedCollectionMember member = result.Manifest.Members.Single();
+			Assert.AreEqual("vortex-external-file", member.Artifact.Scheme);
+			Assert.AreEqual("0123456789abcdef0123456789abcdef/123", member.Artifact.StableId);
+			Assert.AreEqual("vortex-external-file:0123456789abcdef0123456789abcdef/123", member.IdentityResolution.Key.Value);
+		}
+
+		[Test]
+		public void Normalize_BrowseExactSourceRequiresSafePageAndKeepsUrlOutOfArtifactIdentity()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Browse\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"browse\",\"url\":\"https://mods.example.invalid/download-page\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":456,\"updatePolicy\":\"exact\"}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/456", result.Manifest.Members.Single().Artifact.StableId);
+			Assert.That(result.Manifest.Members.Single().Artifact.StableId, Does.Not.Contain("example.invalid"));
+		}
+
+		[TestCase("{\"type\":\"manual\",\"fileSize\":10}", "member.external-source-identity-required")]
+		[TestCase("{\"type\":\"browse\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.browse-source-url-required")]
+		[TestCase("{\"type\":\"browse\",\"url\":\"file:///tmp/mod.zip\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.browse-source-url-required")]
+		[TestCase("{\"type\":\"direct\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.direct-source-url-required")]
+		[TestCase("{\"type\":\"direct\",\"url\":\"http://example.invalid/mod.zip\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.direct-source-url-insecure")]
+		[TestCase("{\"type\":\"direct\",\"url\":\"https://user:pass@example.invalid/mod.zip\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.direct-source-url-insecure")]
+		[TestCase("{\"type\":\"direct\",\"url\":\"https://example.invalid/mod.zip#fragment\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.direct-source-url-insecure")]
+		[TestCase("{\"type\":\"manual\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10,\"updatePolicy\":\"latest\"}", "member.external-update-policy-unsupported")]
+		[TestCase("{\"type\":\"direct\",\"url\":\"https://example.invalid/mod.zip\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10,\"updatePolicy\":\"prefer\"}", "member.external-update-policy-unsupported")]
+		public void Normalize_UncharacterizedExternalSourceSemanticsRemainFailClosed(string source, string expectedCode)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"External\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":" + source + "}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.That(result.CapabilityReport.AllIssues.Any(x => x.Code == expectedCode), Is.True);
+		}
+
+		[Test]
+		public void Normalize_DirectHttpsExactSourceProducesSupportedExternalArtifact()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Direct\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"direct\",\"url\":\"https://example.invalid/mod.zip?token=temporary\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10,\"updatePolicy\":\"exact\"}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(CollectionExternalArtifactIdentity.Scheme, result.Manifest.Members.Single().Artifact.Scheme);
+			Assert.AreEqual("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/10", result.Manifest.Members.Single().Artifact.StableId);
+			Assert.That(result.Manifest.Members.Single().Artifact.StableId, Does.Not.Contain("token"));
 		}
 
 		[Test]
@@ -389,6 +505,122 @@ namespace NexusClientTests
 			Assert.IsFalse(result.Manifest.Members.Single().RequiresGameRootInstall);
 			Assert.AreEqual(CollectionMemberInstallRootBehavior.Default, result.Manifest.Members.Single().InstallRootBehavior);
 			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.mod-type-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_VortexMd5FileListBecomesTypedSupportedRecipe()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Replicated\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"hashes\":[{\"path\":\"textures/body.dds\",\"md5\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			NormalizedCollectionMember member = result.Manifest.Members.Single();
+			Assert.IsTrue(member.HasVortexFileList);
+			Assert.AreEqual(@"textures\body.dds", member.VortexFileList.Items[0].DestinationPath);
+			Assert.AreEqual("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", member.VortexFileList.Items[0].ContentMd5);
+		}
+
+		[Test]
+		public void Normalize_VortexXxh64FileListBecomesTypedSupportedRecipe()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Replicated\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"hashes\":[{\"path\":\"textures/body.dds\",\"xxh64\":\"RLws9a13CZk=\"}]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			CollectionVortexFileList list = result.Manifest.Members.Single().VortexFileList;
+			Assert.AreEqual(CollectionVortexFileListHashAlgorithm.Xxh64, list.HashAlgorithm);
+			Assert.AreEqual(@"textures\body.dds", list.Items[0].DestinationPath);
+			Assert.AreEqual("RLws9a13CZk=", list.Items[0].ContentXxh64);
+			Assert.IsNull(list.Items[0].ContentMd5);
+		}
+
+		[Test]
+		public void Normalize_VortexFileListWithAnyMd5UsesMd5ModeForWholeList()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Replicated\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"hashes\":[{\"path\":\"one.bin\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"xxh64\":\"RLws9a13CZk=\"}," +
+				"{\"path\":\"two.bin\",\"md5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(CollectionVortexFileListHashAlgorithm.Md5, result.Manifest.Members.Single().VortexFileList.HashAlgorithm);
+		}
+
+		[Test]
+		public void Normalize_VortexMixedMd5AndXxh64OnlyEntriesFailsClosedLikeVortexMd5Mode()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Replicated\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"hashes\":[{\"path\":\"one.bin\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}," +
+				"{\"path\":\"two.bin\",\"xxh64\":\"RLws9a13CZk=\"}]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.file-list-invalid"));
+		}
+
+		[Test]
+		public void Normalize_VortexFileListWithUnsafeOrDuplicateDestinationRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Replicated\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"hashes\":[{\"path\":\"../escape.dds\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"},{\"path\":\"same.dds\",\"md5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},{\"path\":\"SAME.dds\",\"md5\":\"cccccccccccccccccccccccccccccccc\"}]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.file-list-invalid"));
+		}
+
+		[Test]
+		public void Normalize_EmptyVortexFileListPreservesOrdinaryBasicInstallPath()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Basic\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20},\"hashes\":[]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.IsFalse(result.Manifest.Members.Single().HasVortexFileList);
+		}
+
+		[Test]
+		public void Normalize_VortexFileOverridesBecomeTypedSupportedDeploymentBlacklist()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Override\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"fileOverrides\":[\"C:/Curator/Skyrim/Data/textures/body.dds\",\"meshes/body.nif\"]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			NormalizedCollectionMember member = result.Manifest.Members.Single();
+			Assert.IsTrue(member.HasVortexFileOverrides);
+			CollectionAssert.AreEquivalent(new[] { @"C:\Curator\Skyrim\Data\textures\body.dds", @"meshes\body.nif" },
+				member.VortexFileOverrides.Paths);
+			Assert.IsFalse(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.file-overrides-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_InvalidOrDuplicateVortexFileOverridesRemainFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Override\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"fileOverrides\":[\"Data/same.dds\",\"data/same.dds\"]}", "[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(issue => issue.Code == "member.file-overrides-invalid"));
 		}
 
 		[Test]

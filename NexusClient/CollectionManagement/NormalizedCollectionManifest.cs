@@ -44,6 +44,48 @@ namespace Nexus.Client.CollectionManagement
 		}
 	}
 
+	/// <summary>One characterized Vortex plugin rule requiring one plugin to load after another.</summary>
+	public sealed class CollectionPluginRelativeOrderRule : IEquatable<CollectionPluginRelativeOrderRule>
+	{
+		public CollectionPluginRelativeOrderRule(string pluginName, string afterPluginName)
+		{
+			PluginName = RequirePluginFileName(pluginName, nameof(pluginName));
+			AfterPluginName = RequirePluginFileName(afterPluginName, nameof(afterPluginName));
+			if (StringComparer.OrdinalIgnoreCase.Equals(PluginName, AfterPluginName))
+				throw new ArgumentException("A relative plugin-order rule cannot reference the same plugin on both sides.", nameof(afterPluginName));
+		}
+
+		/// <summary>Gets the plugin which must load later.</summary>
+		public string PluginName { get; }
+
+		/// <summary>Gets the plugin which must load before <see cref="PluginName"/>.</summary>
+		public string AfterPluginName { get; }
+
+		public bool Equals(CollectionPluginRelativeOrderRule other)
+		{
+			return other != null && StringComparer.OrdinalIgnoreCase.Equals(PluginName, other.PluginName) &&
+				StringComparer.OrdinalIgnoreCase.Equals(AfterPluginName, other.AfterPluginName);
+		}
+
+		public override bool Equals(object obj) { return Equals(obj as CollectionPluginRelativeOrderRule); }
+		public override int GetHashCode()
+		{
+			unchecked
+			{
+				return (StringComparer.OrdinalIgnoreCase.GetHashCode(PluginName) * 397) ^
+					StringComparer.OrdinalIgnoreCase.GetHashCode(AfterPluginName);
+			}
+		}
+
+		private static string RequirePluginFileName(string value, string parameterName)
+		{
+			if (String.IsNullOrWhiteSpace(value) || !StringComparer.Ordinal.Equals(value, value.Trim()) ||
+				value.IndexOf('/') >= 0 || value.IndexOf('\\') >= 0)
+				throw new ArgumentException("A plugin rule must use one non-empty plugin file name without path separators.", parameterName);
+			return value;
+		}
+	}
+
 	/// <summary>
 	/// Immutable normalized view of one exact collection revision manifest.
 	/// </summary>
@@ -59,6 +101,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionExternalFilePriorityRule> _externalFilePriorityRules;
 		private readonly ReadOnlyCollection<CollectionConflictConstraint> _conflictConstraints;
 		private readonly ReadOnlyCollection<CollectionDesiredPluginState> _pluginStates;
+		private readonly ReadOnlyCollection<CollectionPluginRelativeOrderRule> _pluginRelativeOrderRules;
 
 		/// <summary>
 		/// Creates an immutable normalized collection manifest snapshot.
@@ -148,7 +191,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionFilePriorityRule> filePriorityRules,
 			IEnumerable<CollectionDesiredPluginState> pluginStates,
 			IEnumerable<CollectionConflictConstraint> conflictConstraints,
-			IEnumerable<CollectionExternalFilePriorityRule> externalFilePriorityRules)
+			IEnumerable<CollectionExternalFilePriorityRule> externalFilePriorityRules,
+			IEnumerable<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = null)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -269,6 +313,21 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 			_pluginStates = new ReadOnlyCollection<CollectionDesiredPluginState>(copiedPluginStates);
+
+			List<CollectionPluginRelativeOrderRule> copiedPluginRelativeOrderRules = new List<CollectionPluginRelativeOrderRule>();
+			HashSet<CollectionPluginRelativeOrderRule> uniquePluginRelativeOrderRules = new HashSet<CollectionPluginRelativeOrderRule>();
+			if (pluginRelativeOrderRules != null)
+			{
+				foreach (CollectionPluginRelativeOrderRule rule in pluginRelativeOrderRules)
+				{
+					if (rule == null)
+						throw new ArgumentException("A normalized manifest cannot contain a null plugin relative-order rule.", nameof(pluginRelativeOrderRules));
+					if (!uniquePluginRelativeOrderRules.Add(rule))
+						throw new ArgumentException("A normalized manifest cannot contain duplicate plugin relative-order rules.", nameof(pluginRelativeOrderRules));
+					copiedPluginRelativeOrderRules.Add(rule);
+				}
+			}
+			_pluginRelativeOrderRules = new ReadOnlyCollection<CollectionPluginRelativeOrderRule>(copiedPluginRelativeOrderRules);
 		}
 
 		/// <summary>
@@ -337,6 +396,12 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionDesiredPluginState> PluginStates
 		{
 			get { return _pluginStates; }
+		}
+
+		/// <summary>Gets characterized Vortex plugin `after` constraints as stable plugin-name relationships.</summary>
+		public ReadOnlyCollection<CollectionPluginRelativeOrderRule> PluginRelativeOrderRules
+		{
+			get { return _pluginRelativeOrderRules; }
 		}
 
 		/// <summary>Gets whether collection.json explicitly supplied the Vortex plugins array, including an intentionally empty array.</summary>

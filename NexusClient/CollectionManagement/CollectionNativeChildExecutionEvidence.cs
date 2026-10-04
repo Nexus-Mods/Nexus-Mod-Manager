@@ -176,8 +176,10 @@ namespace Nexus.Client.CollectionManagement
 			long nexusFileId;
 			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(selectedArtifact,
 				out nexusGameDomain, out nexusModId, out nexusFileId);
-			if (!isNexus && !CollectionBundledArtifactIdentity.IsBundle(selectedArtifact))
-				throw new ArgumentException("Restart evidence supports only exact Nexus mod-file or retained Collection-bundle artifacts.", nameof(selectedArtifact));
+			string externalMd5; long externalByteLength;
+			bool isExternal = CollectionExternalArtifactIdentity.TryParse(selectedArtifact, out externalMd5, out externalByteLength);
+			if (!isNexus && !CollectionBundledArtifactIdentity.IsBundle(selectedArtifact) && !isExternal)
+				throw new ArgumentException("Restart evidence supports only characterized exact Nexus, retained Collection-bundle or Vortex external artifacts.", nameof(selectedArtifact));
 
 			if (String.IsNullOrWhiteSpace(incomingFileName) || !StringComparer.Ordinal.Equals(incomingFileName, incomingFileName.Trim()))
 				throw new ArgumentException("The incoming native mod file name must be a non-empty exact value without surrounding whitespace.", nameof(incomingFileName));
@@ -211,6 +213,8 @@ namespace Nexus.Client.CollectionManagement
 		public bool IsNexusModFileArtifact { get { return StringComparer.Ordinal.Equals(SelectedArtifact.Scheme, NexusCollectionModFileArtifactIdentity.Scheme); } }
 		/// <summary>Gets whether <see cref="SelectedArtifact"/> is an exact retained Collection-bundle identity.</summary>
 		public bool IsCollectionBundleArtifact { get { return CollectionBundledArtifactIdentity.IsBundle(SelectedArtifact); } }
+		/// <summary>Gets whether <see cref="SelectedArtifact"/> is a characterized exact Vortex manual/browse archive identity.</summary>
+		public bool IsExternalExactArtifact { get { string md5; long size; return CollectionExternalArtifactIdentity.TryParse(SelectedArtifact, out md5, out size); } }
 		public string NexusGameDomain { get; }
 		public long NexusModId { get; }
 		public long NexusFileId { get; }

@@ -64,6 +64,7 @@ namespace NexusClientTests
                 Assert.AreEqual("1.0", files.Files[0].ModVersion);
                 Assert.AreEqual(200, files.FileUpdates[0].NewFileId);
                 Assert.AreEqual("old.zip", files.FileUpdates[0].OldFileName);
+                Assert.AreEqual(1700000000L, files.FileUpdates[0].UploadedTimestamp.ToUnixTimeSeconds());
             }
         }
 
@@ -600,7 +601,7 @@ namespace NexusClientTests
         private const string UserFixture = "{\"user_id\":123,\"name\":\"FixtureUser\",\"is_premium\":true,\"is_supporter\":false}";
         private const string ModFixture = "{\"mod_id\":42,\"name\":\"Fixture Mod\",\"description\":\"Fixture description\",\"domain_name\":\"skyrimspecialedition\",\"category_id\":7,\"version\":\"2.5\",\"author\":\"Fixture Author\",\"endorsement\":{\"endorse_status\":\"Endorsed\",\"version\":\"2.5\"}}";
         private const string ModFileFixture = "{\"file_id\":200,\"name\":\"New File\",\"file_name\":\"new.zip\",\"mod_version\":\"2.0\",\"category_id\":1,\"uploaded_timestamp\":1700000000}";
-        private const string ModFilesFixture = "{\"files\":[{\"file_id\":100,\"name\":\"Old File\",\"file_name\":\"old.zip\",\"mod_version\":\"1.0\",\"category_id\":4,\"uploaded_timestamp\":1600000000},{\"file_id\":200,\"name\":\"New File\",\"file_name\":\"new.zip\",\"mod_version\":\"2.0\",\"category_id\":1,\"uploaded_timestamp\":1700000000}],\"file_updates\":[{\"old_file_id\":100,\"old_file_name\":\"old.zip\",\"new_file_id\":200,\"new_file_name\":\"new.zip\"}]}";
+        private const string ModFilesFixture = "{\"files\":[{\"file_id\":100,\"name\":\"Old File\",\"file_name\":\"old.zip\",\"mod_version\":\"1.0\",\"category_id\":4,\"uploaded_timestamp\":1600000000},{\"file_id\":200,\"name\":\"New File\",\"file_name\":\"new.zip\",\"mod_version\":\"2.0\",\"category_id\":1,\"uploaded_timestamp\":1700000000}],\"file_updates\":[{\"old_file_id\":100,\"old_file_name\":\"old.zip\",\"new_file_id\":200,\"new_file_name\":\"new.zip\",\"uploaded_timestamp\":1700000000}]}";
         private const string HashFixture = "[{\"mod\":{\"mod_id\":77,\"name\":\"Hash Mod\",\"domain_name\":\"fallout4\",\"category_id\":1,\"version\":\"3.0\",\"author\":\"Author\"},\"file_details\":{\"file_id\":9001,\"name\":\"Hash File\",\"file_name\":\"hash.zip\",\"mod_version\":\"3.1\",\"category_id\":1,\"uploaded_timestamp\":1700000000,\"md5\":\"abc123\"}}]";
         private const string UpdatesFixture = "[{\"mod_id\":123,\"latest_file_update\":1700000000,\"latest_mod_activity\":1700000100}]";
         private const string GameFixture = "{\"id\":110,\"domain_name\":\"skyrim\",\"name\":\"Skyrim\",\"categories\":[{\"category_id\":10,\"name\":\"Root\",\"parent_category\":false},{\"category_id\":11,\"name\":\"Child\",\"parent_category\":10}]}";

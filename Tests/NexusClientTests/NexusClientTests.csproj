@@ -212,7 +212,7 @@
     <Compile Include="CollectionPremiumAcquisitionTests.cs" />
     <Compile Include="CollectionManualAcquisitionTests.cs" />
     <Compile Include="CollectionMemberAcquisitionCoordinatorTests.cs" />
-    <Compile Include="CollectionNexusPreferExactPolicyResolverTests.cs" />
+    <Compile Include="CollectionNexusSourcePolicyResolverTests.cs" />
     <Compile Include="LocalCaptureContractsTests.cs" />
     <Compile Include="CollectionOverrideDriftContractsTests.cs" />
     <Compile Include="CollectionMemberListPresentationTests.cs" />

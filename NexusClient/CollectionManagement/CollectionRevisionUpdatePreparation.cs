@@ -102,6 +102,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionManualAcquisitionCoordinator _manualCoordinator;
 		private readonly CollectionAcquisitionRestartCoordinator _restartCoordinator;
 		private readonly ICollectionBundledMemberAcquisitionCoordinator _bundledCoordinator;
+		private readonly CollectionDirectAcquisitionCoordinator _directCoordinator;
 		private readonly ICollectionRevisionUpdateNativeRecipePreparationService _recipePreparation;
 
 		public CollectionRevisionUpdatePreparationCoordinator(CollectionsOperationStore operationStore,
@@ -109,7 +110,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPremiumAcquisitionCoordinator premiumCoordinator, CollectionManualAcquisitionCoordinator manualCoordinator,
 			CollectionAcquisitionRestartCoordinator restartCoordinator,
 			ICollectionRevisionUpdateNativeRecipePreparationService recipePreparation,
-			ICollectionBundledMemberAcquisitionCoordinator bundledCoordinator = null)
+			ICollectionBundledMemberAcquisitionCoordinator bundledCoordinator = null,
+			CollectionDirectAcquisitionCoordinator directCoordinator = null)
 		{
 			_operationStore = operationStore ?? throw new ArgumentNullException(nameof(operationStore));
 			_reviewCoordinator = reviewCoordinator ?? throw new ArgumentNullException(nameof(reviewCoordinator));
@@ -119,6 +121,7 @@ namespace Nexus.Client.CollectionManagement
 			_restartCoordinator = restartCoordinator ?? throw new ArgumentNullException(nameof(restartCoordinator));
 			_recipePreparation = recipePreparation ?? throw new ArgumentNullException(nameof(recipePreparation));
 			_bundledCoordinator = bundledCoordinator;
+			_directCoordinator = directCoordinator;
 		}
 
 		/// <summary>
@@ -189,6 +192,14 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				}
 
+				CollectionAcquisitionQueueCorrelation directCorrelation = _directCoordinator == null ? null : _directCoordinator.TryQueue(request);
+				if (directCorrelation != null)
+				{
+					states.Add(State(member, CollectionMemberAcquisitionDisposition.DirectQueued, request,
+						null, directCorrelation, null, null, null, null));
+					continue;
+				}
+
 				CollectionPremiumAcquisitionAvailability availability = _premiumCoordinator.GetAvailability(request);
 				if (availability == CollectionPremiumAcquisitionAvailability.Available)
 				{
@@ -205,6 +216,20 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 			return new CollectionRevisionUpdatePreparationBatch(operation, intent, currentPlan, states, archiveOverwritePolicy);
+		}
+
+		/// <summary>Verifies a user-selected local file for one exact pending candidate acquisition.</summary>
+		public CollectionVerifiedArchive VerifyLocalFile(CollectionRevisionUpdatePreparationBatch batch,
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			if (pendingAction == null) throw new ArgumentNullException(nameof(pendingAction));
+			CollectionRevisionUpdatePreparationMemberState state = batch.Members.SingleOrDefault(x =>
+				x.PendingAction != null && x.PendingAction.ActionId == pendingAction.ActionId);
+			if (state == null || state.Disposition != CollectionMemberAcquisitionDisposition.ManualInputRequired ||
+				state.Request == null || state.Request.RequestId != pendingAction.Request.RequestId)
+				throw new ArgumentException("The pending manual acquisition action does not belong to this revision-update preparation.", nameof(pendingAction));
+			return _manualCoordinator.VerifyLocalFile(pendingAction, localFilePath, cancellationToken);
 		}
 
 		/// <summary>
@@ -240,7 +265,8 @@ namespace Nexus.Client.CollectionManagement
 				allReady = false;
 				CollectionMemberAcquisitionDisposition disposition = prior.Disposition;
 				if ((prior.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
-					prior.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued) && prior.QueueCorrelation != null &&
+					prior.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ||
+					prior.Disposition == CollectionMemberAcquisitionDisposition.DirectQueued) && prior.QueueCorrelation != null &&
 					CollectionAcquisitionConsumerTask.IsTerminal(prior.QueueCorrelation.Task.Status))
 					disposition = CollectionMemberAcquisitionDisposition.RestartActionRequired;
 				states.Add(State(prior.UpdateMember, disposition, prior.Request, null, prior.QueueCorrelation,

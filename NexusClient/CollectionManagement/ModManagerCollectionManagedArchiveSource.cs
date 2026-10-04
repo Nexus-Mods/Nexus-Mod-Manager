@@ -31,6 +31,31 @@ namespace Nexus.Client.CollectionManagement
 		/// <inheritdoc />
 		public IReadOnlyList<CollectionManagedArchiveCandidate> FindCandidates(CollectionArtifactReference requestedArtifact)
 		{
+			string expectedMd5;
+			long expectedByteLength;
+			if (CollectionExternalArtifactIdentity.TryParse(requestedArtifact, out expectedMd5, out expectedByteLength))
+			{
+				var externalCandidates = new List<CollectionManagedArchiveCandidate>();
+				foreach (IMod mod in _modManager.ManagedMods)
+				{
+					string archivePath = CollectionArchiveContentMatcher.GetManagedArchivePath(mod);
+					if (String.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath))
+						continue;
+					try
+					{
+						if (new FileInfo(archivePath).Length != expectedByteLength)
+							continue;
+					}
+					catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+					{
+						continue;
+					}
+					externalCandidates.Add(new CollectionManagedArchiveCandidate(
+						CollectionExternalArtifactIdentity.Scheme, requestedArtifact.StableId, archivePath));
+				}
+				return externalCandidates;
+			}
+
 			string expectedDomain;
 			long expectedModId;
 			long expectedFileId;

@@ -32,11 +32,12 @@ namespace Nexus.Client.ModManagement
 	}
 
 	/// <summary>
-	/// Stores an immutable simple exact-file recipe containing only one-to-one archive file mappings.
+	/// Stores an immutable simple exact-file recipe containing archive file mappings with unique destinations.
 	/// </summary>
 	/// <remarks>
-	/// Replication, transformations, generated files, installer choices and non-file effects intentionally remain outside
-	/// this contract. Later C5 adapters add those independently after their own validation and ownership semantics exist.
+	/// The default constructor remains one-to-one. Characterized callers may explicitly admit byte-preserving source
+	/// replication when the same immutable archive source must be installed at several distinct destinations.
+	/// Transformations, generated files, installer choices and non-file effects remain outside this contract.
 	/// </remarks>
 	public sealed class ModInstallationSimpleFileRecipe
 	{
@@ -47,6 +48,16 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		/// <param name="mappings">The exact file mappings in deterministic native operation order.</param>
 		public ModInstallationSimpleFileRecipe(IEnumerable<ModInstallationSimpleFileMapping> mappings)
+			: this(mappings, false)
+		{
+		}
+
+		/// <summary>
+		/// Initializes a simple recipe and optionally admits one archive source at several distinct destinations.
+		/// </summary>
+		/// <param name="mappings">The exact file mappings in deterministic native operation order.</param>
+		/// <param name="allowSourceReplication">Whether duplicate archive-source paths are an explicitly characterized byte-preserving replication.</param>
+		public ModInstallationSimpleFileRecipe(IEnumerable<ModInstallationSimpleFileMapping> mappings, bool allowSourceReplication)
 		{
 			if (mappings == null)
 				throw new ArgumentNullException(nameof(mappings));
@@ -58,8 +69,8 @@ namespace Nexus.Client.ModManagement
 			{
 				if (mapping == null)
 					throw new ArgumentException("Simple file mappings cannot contain null values.", nameof(mappings));
-				if (!sourcePaths.Add(mapping.SourcePath))
-					throw new ArgumentException("A simple exact-file recipe cannot replicate one archive source to several destinations.", nameof(mappings));
+				if (!sourcePaths.Add(mapping.SourcePath) && !allowSourceReplication)
+					throw new ArgumentException("A simple exact-file recipe cannot replicate one archive source to several destinations unless source replication was explicitly characterized.", nameof(mappings));
 				if (!destinationPaths.Add(mapping.DestinationPath))
 					throw new ArgumentException("A simple exact-file recipe cannot map several archive sources to the same destination.", nameof(mappings));
 				copiedMappings.Add(mapping);

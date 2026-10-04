@@ -331,6 +331,13 @@ namespace Nexus.Client.CollectionManagement
 			return Task.Run(() => ResumePreparationCore(acquisitionBatch, targetPaths, cancellationToken), cancellationToken);
 		}
 
+		/// <summary>Verifies one user-selected archive for an exact pending manual/browse acquisition.</summary>
+		public CollectionVerifiedArchive VerifyLocalFile(CollectionMemberAcquisitionBatch acquisitionBatch,
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			return _memberAcquisitionCoordinator.VerifyLocalFile(acquisitionBatch, pendingAction, localFilePath, cancellationToken);
+		}
+
 		/// <summary>Completes a superseded additive preparation before any native child has crossed the mutation boundary.</summary>
 		public CollectionOperation CancelBeforeApply(CollectionOperationIdentity operationIdentity)
 		{
@@ -888,8 +895,14 @@ namespace Nexus.Client.CollectionManagement
 		private async Task ReconcileReviewedPluginStateAsync(ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan,
 			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
 		{
+			List<CollectionPluginImpact> reviewedEffects = impactPlan.PluginImpacts.Where(x =>
+				x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation || x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder).ToList();
+			if (reviewedEffects.Count == 0) return;
+			if (_services.PluginManager == null)
+				throw new InvalidOperationException("The reviewed Collection requires final plugin-state/order reconciliation, but the native plugin manager is unavailable.");
+
 			var requested = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-			foreach (CollectionPluginImpact impact in impactPlan.PluginImpacts.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation))
+			foreach (CollectionPluginImpact impact in reviewedEffects.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation))
 			{
 				string path = impact.Effect.PluginPaths[0];
 				bool active = impact.Effect.Active.Value;
@@ -898,9 +911,6 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("The reviewed Collection contains contradictory final plugin activation requests.");
 				requested[path] = active;
 			}
-			if (requested.Count == 0) return;
-			if (_services.PluginManager == null)
-				throw new InvalidOperationException("The reviewed Collection requires final plugin-state reconciliation, but the native plugin manager is unavailable.");
 
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
 			if (!authority.Target.Equals(plan.Target))
@@ -910,19 +920,25 @@ namespace Nexus.Client.CollectionManagement
 				cancellationToken.ThrowIfCancellationRequested();
 				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
 				CollectionNativeStateIndex currentState = _nativeStateReader.Capture(plan.Target);
-				bool alreadySatisfied = impactPlan.PluginImpacts
-					.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation)
-					.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(currentState, x.Effect));
-				if (alreadySatisfied) return;
+				if (reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(currentState, x.Effect))) return;
 
-				IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
-				if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
+				if (requested.Count > 0)
 				{
-					string detail = diagnostics == null || diagnostics.Count == 0
-						? "The native plugin policy could not honor every reviewed Collection activation request."
-						: "The native plugin policy rejected the reviewed Collection activation state: " + String.Join(", ", diagnostics.Select(x => x.Kind.ToString()));
-					throw new InvalidOperationException(detail);
+					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
+					if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
+					{
+						string detail = diagnostics == null || diagnostics.Count == 0
+							? "The native plugin policy could not honor every reviewed Collection activation request."
+							: "The native plugin policy rejected the reviewed Collection activation state: " + String.Join(", ", diagnostics.Select(x => x.Kind.ToString()));
+						throw new InvalidOperationException(detail);
+					}
 				}
+
+				CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
+				CollectionNativeStateIndex verified = _nativeStateReader.Capture(plan.Target);
+				if (!reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x.Effect)))
+					throw new InvalidOperationException("The native plugin service returned success, but authoritative state does not match the exact reviewed Collection plugin state/order.");
 			}
 		}
 

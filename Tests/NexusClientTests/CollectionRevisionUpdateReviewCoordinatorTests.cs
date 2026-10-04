@@ -80,6 +80,74 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Coordinator_PersistsExactCandidateArtifactSubstitutionAcrossRestart()
+		{
+			NormalizedCollectionMember oldMember = CreateMember("member-a", "100", "200", "recipe-a");
+			NormalizedCollectionMember newMember = CreateMember("member-a", "100", "201", "recipe-b");
+			var selected = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+				NexusCollectionModFileArtifactIdentity.Format("skyrimspecialedition", 100, 300), null);
+			CollectionResolvedArtifactChoice substitution = CollectionResolvedArtifactChoice.SupportedSubstitution(newMember.Artifact, selected,
+				CollectionNexusSourcePolicyResolver.LatestSubstitutionRuleId);
+			using (Fixture f = Fixture.Create("artifact-choice", oldMember, newMember, null, substitution))
+			{
+				CollectionRevisionUpdatePlan plan = f.Plan();
+				CollectionOperation created = f.Coordinator.CreateReviewedOperation(plan);
+				CollectionResolvedPlanRecord record = new CollectionsResolvedPlanStore(f.Store).GetPlan(f.NewPlan.Identity);
+
+				Assert.That(record.PayloadFormat, Is.EqualTo(CollectionRevisionUpdateReviewedIntentCodec.PayloadFormat));
+				CollectionRevisionUpdateReviewedIntent loaded = f.CreateRestartedCoordinator().LoadReviewedIntent(created.Identity);
+				CollectionRevisionUpdateReviewEntry member = loaded.Members.Single();
+				Assert.That(member.NewArtifactChoice, Is.EqualTo(substitution));
+				Assert.That(member.NewArtifactChoice.SelectedArtifact, Is.EqualTo(selected));
+				Assert.That(member.OldArtifactChoice.Kind, Is.EqualTo(CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact));
+			}
+		}
+
+		[Test]
+		public void Codec_LegacyPayloadRejectsInjectedArtifactChoices()
+		{
+			NormalizedCollectionMember oldMember = CreateMember("member-a", "100", "200", "recipe-a");
+			NormalizedCollectionMember newMember = CreateMember("member-a", "100", "201", "recipe-b");
+			var selected = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+				NexusCollectionModFileArtifactIdentity.Format("skyrimspecialedition", 100, 300), null);
+			CollectionResolvedArtifactChoice substitution = CollectionResolvedArtifactChoice.SupportedSubstitution(newMember.Artifact, selected,
+				CollectionNexusSourcePolicyResolver.LatestSubstitutionRuleId);
+			using (Fixture f = Fixture.Create("legacy-choice-injection", oldMember, newMember, null, substitution))
+			{
+				byte[] payload = CollectionRevisionUpdateReviewedIntentCodec.Serialize(CollectionRevisionUpdateReviewedIntent.Create(f.Plan()));
+				Assert.Throws<InvalidDataException>(() => CollectionRevisionUpdateReviewedIntentCodec.Deserialize(payload,
+					CollectionRevisionUpdateReviewedIntentCodec.LegacyPayloadFormat));
+			}
+		}
+
+		[Test]
+		public void Coordinator_ApproveRejectsRecomputedPlanWithDifferentArtifactChoice()
+		{
+			NormalizedCollectionMember oldMember = CreateMember("member-a", "100", "200", "recipe-a");
+			NormalizedCollectionMember newMember = CreateMember("member-a", "100", "201", "recipe-b");
+			var reviewedSelected = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+				NexusCollectionModFileArtifactIdentity.Format("skyrimspecialedition", 100, 300), null);
+			CollectionResolvedArtifactChoice reviewedChoice = CollectionResolvedArtifactChoice.SupportedSubstitution(newMember.Artifact, reviewedSelected,
+				CollectionNexusSourcePolicyResolver.LatestSubstitutionRuleId);
+			using (Fixture f = Fixture.Create("artifact-choice-stale", oldMember, newMember, null, reviewedChoice))
+			{
+				CollectionRevisionUpdatePlan reviewed = f.Plan();
+				CollectionOperation created = f.Coordinator.CreateReviewedOperation(reviewed);
+
+				var recomputedSelected = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme,
+					NexusCollectionModFileArtifactIdentity.Format("skyrimspecialedition", 100, 301), null);
+				CollectionResolvedArtifactChoice recomputedChoice = CollectionResolvedArtifactChoice.SupportedSubstitution(newMember.Artifact, recomputedSelected,
+					CollectionNexusSourcePolicyResolver.LatestSubstitutionRuleId);
+				var recomputedNewPlan = new ResolvedCollectionPlan(f.NewPlan.Identity, f.NewPlan.Target, f.NewPlan.Policy,
+					f.NewPlan.CurrentStateFingerprint, f.NewPlan.CapabilityReport, new[] { new ResolvedCollectionMemberPlan(newMember, recomputedChoice) });
+				CollectionRevisionUpdatePlan recomputed = new CollectionRevisionUpdatePlanner().Plan(f.Association, f.OldPlan, recomputedNewPlan, f.State,
+					new UserOverride[0], new CollectionDriftObservation[0], new NativeModProvenance[0]);
+
+				Assert.Throws<InvalidOperationException>(() => f.Coordinator.Approve(created.Identity, f.NewPlan.Identity, recomputed));
+			}
+		}
+
+		[Test]
 		public void Coordinator_ApproveRejectsChangedPersistedAssociationState()
 		{
 			using (Fixture f = Fixture.Create("association-stale", CreateMember("member-a", "100", "200", "recipe-a"),
@@ -154,7 +222,8 @@ namespace NexusClientTests
 			public CollectionsAssociationStore AssociationStore { get; }
 			public CollectionRevisionUpdateReviewCoordinator Coordinator { get; }
 
-			public static Fixture Create(string suffix, NormalizedCollectionMember oldMember, NormalizedCollectionMember newMember)
+			public static Fixture Create(string suffix, NormalizedCollectionMember oldMember, NormalizedCollectionMember newMember,
+				CollectionResolvedArtifactChoice oldArtifactChoice = null, CollectionResolvedArtifactChoice newArtifactChoice = null)
 			{
 				string root = Path.Combine(Path.GetTempPath(), "nmm-c10-2-" + suffix + "-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(root);
@@ -184,8 +253,8 @@ namespace NexusClientTests
 					new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
 					CollectionNativeStateCoverage.NotApplicable, new[] { association }, binding == null ? new CollectionMemberBinding[0] : new[] { binding },
 					new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
-				ResolvedCollectionPlan oldPlan = CreatePlan(oldRevision, target, oldMember, state.Fingerprint, Sha256A);
-				ResolvedCollectionPlan newPlan = CreatePlan(newRevision, target, newMember, state.Fingerprint, Sha256B);
+				ResolvedCollectionPlan oldPlan = CreatePlan(oldRevision, target, oldMember, state.Fingerprint, Sha256A, oldArtifactChoice);
+				ResolvedCollectionPlan newPlan = CreatePlan(newRevision, target, newMember, state.Fingerprint, Sha256B, newArtifactChoice);
 				var operationStore = new CollectionsOperationStore(store);
 				var coordinator = new CollectionRevisionUpdateReviewCoordinator(operationStore, new CollectionsResolvedPlanStore(store), associationStore);
 				return new Fixture(root, association, binding, oldPlan, newPlan, state, store, operationStore, associationStore, coordinator);
@@ -227,7 +296,8 @@ namespace NexusClientTests
 		}
 
 		private static ResolvedCollectionPlan CreatePlan(CollectionRevisionIdentity revision, CollectionTargetIdentity target,
-			NormalizedCollectionMember member, CollectionCurrentStateFingerprint fingerprint, string sha256)
+			NormalizedCollectionMember member, CollectionCurrentStateFingerprint fingerprint, string sha256,
+			CollectionResolvedArtifactChoice artifactChoice = null)
 		{
 			CollectionManifestSourceSnapshot source = new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(sha256),
 				100, "schema-v1", "normalizer-v1");
@@ -235,7 +305,7 @@ namespace NexusClientTests
 			var manifest = new NormalizedCollectionManifest(revision, source, CollectionManifestMemberSetCompleteness.Complete, null, members);
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			ResolvedCollectionMemberPlan[] resolved = member == null ? new ResolvedCollectionMemberPlan[0] :
-				new[] { new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact)) };
+				new[] { new ResolvedCollectionMemberPlan(member, artifactChoice ?? CollectionResolvedArtifactChoice.Exact(member.Artifact)) };
 			return new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
 				CollectionExecutionPolicy.InstallIntoCurrentSetup(), fingerprint, report, resolved);
 		}

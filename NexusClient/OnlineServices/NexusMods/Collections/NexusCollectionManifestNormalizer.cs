@@ -53,6 +53,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			"name", "enabled"
 		};
 
+		private static readonly HashSet<string> PluginRulePluginFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"name", "after", "group", "req", "inc", "requires", "incompatible"
+		};
+
 		private static readonly HashSet<string> MemberFields = new HashSet<string>(StringComparer.Ordinal)
 		{
 			"name", "version", "optional", "domainName", "source", "hashes", "choices", "patches",
@@ -68,6 +73,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		private static readonly HashSet<string> DetailsFields = new HashSet<string>(StringComparer.Ordinal)
 		{
 			"type", "category"
+		};
+
+		private static readonly HashSet<string> VortexFileListItemFields = new HashSet<string>(StringComparer.Ordinal)
+		{
+			"path", "md5", "xxh64"
 		};
 
 		private static readonly HashSet<string> FomodChoiceRootFields = new HashSet<string>(StringComparer.Ordinal)
@@ -248,7 +258,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					draft.DisplayName,
 					draft.InstallationPhase,
 					draft.InstallRootBehavior,
-					draft.VortexFomodSelection);
+					draft.VortexFomodSelection,
+					draft.VortexFileList,
+					draft.VortexFileOverrides);
 				members.Add(member);
 
 				foreach (PendingMemberIssue pending in draft.Issues)
@@ -269,6 +281,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			List<CollectionConflictConstraint> conflictConstraints = NormalizeConflictConstraints(
 				rawModRules, drafts, members, allDeclaredIssues);
 			List<CollectionDesiredPluginState> pluginStates = NormalizePluginStates(root["plugins"], allDeclaredIssues);
+			List<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = NormalizePluginRelativeOrderRules(root["pluginRules"], allDeclaredIssues);
 
 			CollectionManifestMemberSetCompleteness completeness = memberSetIncomplete
 				? CollectionManifestMemberSetCompleteness.Incomplete
@@ -283,7 +296,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				filePriorityRules,
 				pluginStates,
 				conflictConstraints,
-				externalFilePriorityRules);
+				externalFilePriorityRules,
+				pluginRelativeOrderRules);
 
 			if (revision.DeclaredMemberCount.HasValue && rawMembers != null && revision.DeclaredMemberCount.Value != rawMembers.Count)
 			{
@@ -367,6 +381,13 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (StringComparer.Ordinal.Equals(sourceType, "bundle"))
 			{
 				NormalizeBundledSource(source, sourcePath, draft, revision);
+				return;
+			}
+
+			if (StringComparer.Ordinal.Equals(sourceType, "manual") || StringComparer.Ordinal.Equals(sourceType, "browse") ||
+				StringComparer.Ordinal.Equals(sourceType, "direct"))
+			{
+				NormalizeExternalSource(memberObject, source, sourcePath, sourceType, draft);
 				return;
 			}
 
@@ -456,6 +477,93 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				sourcePath + ".updatePolicy"));
 		}
 
+		private static void NormalizeExternalSource(JObject memberObject, JObject source, string sourcePath, string sourceType, MemberDraft draft)
+		{
+			string md5;
+			long fileSize;
+			if (!CollectionExternalArtifactIdentity.TryNormalizeMd5(ReadString(source, "md5"), out md5) ||
+				!TryReadPositiveInteger(source["fileSize"], out fileSize))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.external-source-identity-required",
+					"Vortex manual/browse/direct acquisition is characterized only when source.md5 and a positive integer source.fileSize establish exact archive identity.",
+					sourcePath));
+				return;
+			}
+
+			JToken updatePolicy = source["updatePolicy"];
+			if (updatePolicy != null && updatePolicy.Type != JTokenType.Null &&
+				(updatePolicy.Type != JTokenType.String || !StringComparer.Ordinal.Equals((string)updatePolicy, "exact")))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.external-update-policy-unsupported",
+					"Vortex manual/browse/direct sources are characterized only for exact acquisition; latest/prefer resolution has no safe external provider mapping.",
+					sourcePath + ".updatePolicy"));
+			}
+
+			if ((source["modId"] != null && source["modId"].Type != JTokenType.Null) ||
+				(source["fileId"] != null && source["fileId"].Type != JTokenType.Null))
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.external-source-semantics-unsupported",
+					"An external manual/browse/direct source also contains Nexus mod/file narrowing data; NMM will not silently reinterpret mixed provider semantics.",
+					sourcePath));
+			}
+
+			string url = ReadString(source, "url");
+			Uri browserUri = null;
+			bool hasSafeUrl = !String.IsNullOrWhiteSpace(url) && Uri.TryCreate(url, UriKind.Absolute, out browserUri) &&
+				(StringComparer.OrdinalIgnoreCase.Equals(browserUri.Scheme, Uri.UriSchemeHttp) ||
+				 StringComparer.OrdinalIgnoreCase.Equals(browserUri.Scheme, Uri.UriSchemeHttps));
+			if (StringComparer.Ordinal.Equals(sourceType, "direct"))
+			{
+				bool hasSafeDirectUrl = hasSafeUrl && StringComparer.OrdinalIgnoreCase.Equals(browserUri.Scheme, Uri.UriSchemeHttps) &&
+					!String.IsNullOrWhiteSpace(browserUri.Host) && String.IsNullOrEmpty(browserUri.UserInfo) && String.IsNullOrEmpty(browserUri.Fragment);
+				if (String.IsNullOrWhiteSpace(url))
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.direct-source-url-required",
+						"A Vortex direct source requires an absolute HTTPS download URL before NMM can acquire it automatically.",
+						sourcePath + ".url"));
+				else if (!hasSafeDirectUrl)
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.direct-source-url-insecure",
+						"Automatic direct acquisition is characterized only for absolute HTTPS URLs without embedded credentials or fragments.",
+						sourcePath + ".url"));
+			}
+			else if (StringComparer.Ordinal.Equals(sourceType, "browse") && !hasSafeUrl)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.browse-source-url-required",
+					"A Vortex browse source requires a stable absolute HTTP(S) page before NMM can mediate acquisition safely.",
+					sourcePath + ".url"));
+			}
+			else if (!String.IsNullOrWhiteSpace(url) && !hasSafeUrl)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.external-source-url-invalid",
+					"A retained manual/browse source URL must be an absolute HTTP(S) page; executable/custom-scheme acquisition is not characterized here.",
+					sourcePath + ".url"));
+			}
+
+			string domain = NormalizeDomain(ReadString(memberObject, "domainName"));
+			if (domain == null)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.external-source-domain-invalid",
+					"The external Collection member requires a valid retained game domain for rule matching.",
+					sourcePath));
+				return;
+			}
+
+			string stableArtifactId = CollectionExternalArtifactIdentity.Format(md5, fileSize);
+			draft.StableMatchKey = CollectionExternalArtifactIdentity.Scheme + ":" + stableArtifactId;
+			draft.Artifact = new CollectionArtifactReference(CollectionExternalArtifactIdentity.Scheme, stableArtifactId, null);
+			draft.SourceDomain = domain;
+			draft.SourceMd5 = md5;
+			draft.SourceLogicalFilename = ReadString(source, "logicalFilename");
+			draft.SourceFileExpression = ReadString(source, "fileExpression");
+		}
+
 		private static void NormalizeBundledSource(JObject source, string sourcePath, MemberDraft draft, CollectionRevisionIdentity revision)
 		{
 			string tag = ReadString(source, "tag");
@@ -519,13 +627,11 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		private static void ValidateInstallBehavior(JObject memberObject, string memberPath, MemberDraft draft)
 		{
 			List<PendingMemberIssue> issues = draft.Issues;
-			AddUnsupportedWhenPopulated(memberObject, "hashes", "member.file-list-unsupported",
-				"Vortex hashes/fileList install specifications do not have a characterized native NMM recipe translation.", memberPath, issues);
+			ValidateVortexFileList(memberObject["hashes"], memberPath + ".hashes", draft);
 			ValidateFomodChoices(memberObject["choices"], memberPath + ".choices", draft);
 			AddUnsupportedWhenPopulated(memberObject, "patches", "member.patches-unsupported",
 				"Collection member patches require a separately validated native ownership/removal adapter.", memberPath, issues);
-			AddUnsupportedWhenPopulated(memberObject, "fileOverrides", "member.file-overrides-unsupported",
-				"Collection fileOverrides require native per-path planning before they can be applied safely.", memberPath, issues);
+			ValidateVortexFileOverrides(memberObject["fileOverrides"], memberPath + ".fileOverrides", draft);
 
 			JToken phase = memberObject["phase"];
 			if (phase != null && phase.Type != JTokenType.Null)
@@ -587,6 +693,126 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 		}
 
+
+		private static void ValidateVortexFileOverrides(JToken token, string path, MemberDraft draft)
+		{
+			if (token == null || token.Type == JTokenType.Null)
+				return;
+			JArray entries = token as JArray;
+			if (entries == null)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.file-overrides-invalid", "Vortex fileOverrides must be an array when present.", path));
+				return;
+			}
+			if (entries.Count == 0)
+				return;
+
+			var paths = new List<string>();
+			bool valid = true;
+			for (int index = 0; index < entries.Count; index++)
+			{
+				string itemPath = path + "[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				JToken entry = entries[index];
+				if (entry == null || entry.Type != JTokenType.String || String.IsNullOrWhiteSpace((string)entry))
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.file-overrides-invalid", "Each Vortex fileOverrides entry must be a non-empty exact path string.", itemPath));
+					valid = false;
+					continue;
+				}
+				paths.Add((string)entry);
+			}
+			if (!valid)
+				return;
+			try
+			{
+				draft.VortexFileOverrides = new CollectionVortexFileOverrideList(paths);
+			}
+			catch (ArgumentException ex)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.file-overrides-invalid", "The Vortex fileOverrides list is not a safe exact per-path deployment blacklist: " + ex.Message, path));
+			}
+		}
+
+		private static void ValidateVortexFileList(JToken token, string path, MemberDraft draft)
+		{
+			if (token == null || token.Type == JTokenType.Null)
+				return;
+			JArray entries = token as JArray;
+			if (entries == null)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.file-list-invalid", "Vortex hashes/fileList must be an array when present.", path));
+				return;
+			}
+			if (entries.Count == 0)
+				return;
+
+			// Vortex's list installer switches to XXH64 only when every entry omits md5 and supplies xxh64.
+			// Otherwise it uses MD5 for the whole list, so mixed lists must provide MD5 for every output.
+			bool useXxh64 = entries.All(entry =>
+			{
+				JObject item = entry as JObject;
+				return item != null && item.Property("md5") == null && item.Property("xxh64") != null;
+			});
+			CollectionVortexFileListHashAlgorithm algorithm = useXxh64
+				? CollectionVortexFileListHashAlgorithm.Xxh64
+				: CollectionVortexFileListHashAlgorithm.Md5;
+
+			var items = new List<CollectionVortexFileListItem>();
+			bool valid = true;
+			for (int index = 0; index < entries.Count; index++)
+			{
+				string itemPath = path + "[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				JObject item = entries[index] as JObject;
+				if (item == null)
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.file-list-invalid", "Each Vortex hashes/fileList entry must be a JSON object.", itemPath));
+					valid = false;
+					continue;
+				}
+				AddUnknownMemberFields(item, VortexFileListItemFields, itemPath, draft.Issues);
+
+				string destination = ReadString(item, "path");
+				string digest = ReadString(item, algorithm == CollectionVortexFileListHashAlgorithm.Xxh64 ? "xxh64" : "md5");
+				if (String.IsNullOrWhiteSpace(destination) || String.IsNullOrWhiteSpace(digest))
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.file-list-invalid",
+						algorithm == CollectionVortexFileListHashAlgorithm.Xxh64
+							? "Each XXH64 Vortex file-list entry requires a non-empty destination path and xxh64 digest."
+							: "Each MD5 Vortex file-list entry requires a non-empty destination path and MD5 digest.",
+						itemPath));
+					valid = false;
+					continue;
+				}
+				try
+				{
+					items.Add(new CollectionVortexFileListItem(destination, algorithm, digest));
+				}
+				catch (Exception ex) when (ex is ArgumentException || ex is InvalidDataException)
+				{
+					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+						"member.file-list-invalid", "The Vortex file-list entry is not a safe exact native output: " + ex.Message, itemPath));
+					valid = false;
+				}
+			}
+
+			if (!valid)
+				return;
+			try
+			{
+				draft.VortexFileList = new CollectionVortexFileList(items);
+			}
+			catch (ArgumentException ex)
+			{
+				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
+					"member.file-list-invalid", "The Vortex file-list output set is not deterministic: " + ex.Message, path));
+			}
+		}
 
 		private static void ValidateFomodChoices(JToken token, string path, MemberDraft draft)
 		{
@@ -1506,7 +1732,6 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 			ValidateTools(root["tools"], issues);
 			ValidateCollectionConfig(root["collectionConfig"], issues);
-			ValidatePluginRules(root["pluginRules"], issues);
 		}
 
 		/// <summary>
@@ -1671,61 +1896,185 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return result;
 		}
 
-		/// <summary>
-		/// Accepts structurally empty Vortex pluginRules while keeping actual plugin/load-order rules fail-closed.
-		/// </summary>
-		private static void ValidatePluginRules(JToken pluginRulesToken, List<CollectionCapabilityIssue> issues)
+		/// <summary>Normalizes the characterized Vortex pluginRules subset: plugin-to-plugin `after` constraints.</summary>
+		private static List<CollectionPluginRelativeOrderRule> NormalizePluginRelativeOrderRules(JToken pluginRulesToken, List<CollectionCapabilityIssue> issues)
 		{
+			var result = new List<CollectionPluginRelativeOrderRule>();
 			if (pluginRulesToken == null || pluginRulesToken.Type == JTokenType.Null)
-				return;
+				return result;
 
 			JObject pluginRules = pluginRulesToken as JObject;
 			if (pluginRules == null)
 			{
 				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 					"manifest.plugin-rules-invalid", "pluginRules must be an object when present.", "$.pluginRules"));
-				return;
+				return result;
 			}
 
 			foreach (JProperty property in pluginRules.Properties())
-			{
 				if (!PluginRuleFields.Contains(property.Name))
-				{
 					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 						"manifest.plugin-rules-field-unsupported",
 						"pluginRules contains an uncharacterized field; NMM will not assume it is cosmetic.",
 						"$.pluginRules." + property.Name));
+
+			JToken groupsToken = pluginRules["groups"];
+			if (groupsToken != null && groupsToken.Type != JTokenType.Null)
+			{
+				JArray groups = groupsToken as JArray;
+				if (groups == null)
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-rules-invalid", "pluginRules.groups must be an array when present.", "$.pluginRules.groups"));
+				else if (groups.Count > 0)
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-groups-unsupported",
+						"Vortex LOOT group definitions have no characterized persistent NMM group-rule equivalent.", "$.pluginRules.groups"));
+			}
+
+			JToken pluginsToken = pluginRules["plugins"];
+			if (pluginsToken == null || pluginsToken.Type == JTokenType.Null)
+				return result;
+			JArray plugins = pluginsToken as JArray;
+			if (plugins == null)
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugin-rules-invalid", "pluginRules.plugins must be an array when present.", "$.pluginRules.plugins"));
+				return result;
+			}
+
+			var pluginNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var uniqueRules = new HashSet<CollectionPluginRelativeOrderRule>();
+			for (int index = 0; index < plugins.Count; index++)
+			{
+				string path = "$.pluginRules.plugins[" + index.ToString(CultureInfo.InvariantCulture) + "]";
+				JObject plugin = plugins[index] as JObject;
+				if (plugin == null)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-rules-invalid", "Each pluginRules.plugins entry must be an object.", path));
+					continue;
+				}
+
+				foreach (JProperty property in plugin.Properties())
+					if (!PluginRulePluginFields.Contains(property.Name))
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugin-rules-field-unsupported", "A plugin rule contains an uncharacterized field.", path + "." + property.Name));
+
+				string pluginName;
+				if (!TryReadPluginRuleFileName(plugin["name"], out pluginName))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-rules-invalid", "A plugin rule name must be one non-empty plugin file name without path separators.", path + ".name"));
+					continue;
+				}
+				if (!pluginNames.Add(pluginName))
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-rules-duplicate-plugin", "pluginRules.plugins must contain at most one entry per plugin file name.", path + ".name"));
+					continue;
+				}
+
+				JToken group = plugin["group"];
+				if (group != null && group.Type != JTokenType.Null)
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-group-assignment-unsupported",
+						"Vortex LOOT plugin group assignments have no characterized persistent NMM group-rule equivalent.", path + ".group"));
+
+				foreach (string unsupportedField in new[] { "req", "inc", "requires", "incompatible" })
+				{
+					JToken token = plugin[unsupportedField];
+					if (token == null || token.Type == JTokenType.Null) continue;
+					JArray values = token as JArray;
+					if (values == null)
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugin-rules-invalid", "pluginRules plugin reference lists must be arrays.", path + "." + unsupportedField));
+					else if (values.Count > 0)
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugin-rule-kind-unsupported",
+							"Vortex requires/incompatible plugin rules do not have an equivalent NMM load-order constraint.", path + "." + unsupportedField));
+				}
+
+				JToken afterToken = plugin["after"];
+				if (afterToken == null || afterToken.Type == JTokenType.Null) continue;
+				JArray after = afterToken as JArray;
+				if (after == null)
+				{
+					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+						"manifest.plugin-rules-invalid", "pluginRules.plugins.after must be an array when present.", path + ".after"));
+					continue;
+				}
+				for (int afterIndex = 0; afterIndex < after.Count; afterIndex++)
+				{
+					string afterPath = path + ".after[" + afterIndex.ToString(CultureInfo.InvariantCulture) + "]";
+					string referenceName;
+					if (!TryReadPluginRuleFileName(after[afterIndex], out referenceName))
+					{
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugin-rules-reference-unsupported",
+							"NMM characterizes only unconditional string plugin references in Vortex after rules.", afterPath));
+						continue;
+					}
+					if (StringComparer.OrdinalIgnoreCase.Equals(pluginName, referenceName))
+					{
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugin-rules-self-reference", "A plugin cannot have an after rule referencing itself.", afterPath));
+						continue;
+					}
+					var rule = new CollectionPluginRelativeOrderRule(pluginName, referenceName);
+					if (!uniqueRules.Add(rule))
+					{
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugin-rules-duplicate", "Duplicate plugin after rules are not accepted as distinct intent.", afterPath));
+						continue;
+					}
+					result.Add(rule);
 				}
 			}
 
-			ValidateEmptyPluginRuleArray(pluginRules, "plugins", issues);
-			ValidateEmptyPluginRuleArray(pluginRules, "groups", issues);
+			if (HasPluginRelativeOrderCycle(result))
+			{
+				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+					"manifest.plugin-rule-cycle",
+					"Vortex plugin after rules contain a dependency cycle and cannot be translated to one deterministic native plugin order.",
+					"$.pluginRules.plugins"));
+			}
+			return result;
 		}
 
-		/// <summary>
-		/// Validates one pluginRules array as either absent/empty or explicitly unsupported when populated.
-		/// </summary>
-		private static void ValidateEmptyPluginRuleArray(JObject pluginRules, string field, List<CollectionCapabilityIssue> issues)
+		private static bool HasPluginRelativeOrderCycle(IEnumerable<CollectionPluginRelativeOrderRule> rules)
 		{
-			JToken token = pluginRules[field];
-			if (token == null || token.Type == JTokenType.Null)
-				return;
-
-			JArray array = token as JArray;
-			if (array == null)
+			var outgoing = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+			var indegree = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			foreach (CollectionPluginRelativeOrderRule rule in rules ?? Enumerable.Empty<CollectionPluginRelativeOrderRule>())
 			{
-				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-					"manifest.plugin-rules-invalid", "pluginRules." + field + " must be an array when present.", "$.pluginRules." + field));
-				return;
+				if (!outgoing.ContainsKey(rule.AfterPluginName)) outgoing.Add(rule.AfterPluginName, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+				if (!outgoing.ContainsKey(rule.PluginName)) outgoing.Add(rule.PluginName, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+				if (!indegree.ContainsKey(rule.AfterPluginName)) indegree.Add(rule.AfterPluginName, 0);
+				if (!indegree.ContainsKey(rule.PluginName)) indegree.Add(rule.PluginName, 0);
+				if (outgoing[rule.AfterPluginName].Add(rule.PluginName)) indegree[rule.PluginName]++;
 			}
-
-			if (array.Count > 0)
+			var ready = new List<string>(indegree.Where(x => x.Value == 0).Select(x => x.Key));
+			int visited = 0;
+			while (ready.Count > 0)
 			{
-				issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-					"manifest.plugin-rules-unsupported",
-					"Non-empty Collection plugin/load-order rules require characterized native plugin-rule semantics.",
-					"$.pluginRules." + field));
+				ready.Sort(StringComparer.OrdinalIgnoreCase);
+				string current = ready[0];
+				ready.RemoveAt(0);
+				visited++;
+				foreach (string target in outgoing[current])
+				{
+					indegree[target]--;
+					if (indegree[target] == 0) ready.Add(target);
+				}
 			}
+			return visited != indegree.Count;
+		}
+
+		private static bool TryReadPluginRuleFileName(JToken token, out string value)
+		{
+			value = token != null && token.Type == JTokenType.String ? (string)token : null;
+			return !String.IsNullOrWhiteSpace(value) && StringComparer.Ordinal.Equals(value, value.Trim()) &&
+				value.IndexOf('/') < 0 && value.IndexOf('\\') < 0;
 		}
 
 		private static void ValidateInfo(JToken infoToken, List<CollectionCapabilityIssue> issues)
@@ -2046,6 +2395,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			public double InstallationPhase { get; set; }
 			public CollectionMemberInstallRootBehavior InstallRootBehavior { get; set; }
 			public CollectionVortexFomodSelection VortexFomodSelection { get; set; }
+			public CollectionVortexFileList VortexFileList { get; set; }
+			public CollectionVortexFileOverrideList VortexFileOverrides { get; set; }
 			public List<PendingMemberIssue> Issues { get; }
 		}
 

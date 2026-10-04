@@ -141,6 +141,8 @@ namespace Nexus.Client.CollectionManagement
 						localOverride.UserChosenState, localOverride.UserChosenState,
 						"The explicit local Collection decision is preserved; this verify pass does not reinterpret its opaque state."));
 
+			AppendManifestPluginRelativeOrderFindings(association, manifest, state, overrideList, findings);
+
 			bool hasSpecificDifference = findings.Any(x => x.Kind != CollectionVerifyRepairFindingKind.Satisfied &&
 				x.Kind != CollectionVerifyRepairFindingKind.PreservedExplicitOverride);
 			if ((association.State == CollectionAssociationState.Modified || association.State == CollectionAssociationState.Incomplete) &&
@@ -163,6 +165,58 @@ namespace Nexus.Client.CollectionManagement
 				findings.Add(AssociationFinding(association, CollectionVerifyRepairFindingKind.ExactRecipePreparationUnavailable, preparation.Issue));
 			return new CollectionVerifyRepairPlan(association, state.Fingerprint, findings, exactAvailable,
 				preparation == null ? null : preparation.Plan, preparation == null ? null : preparation.PreparedRecipes);
+		}
+
+		private static void AppendManifestPluginRelativeOrderFindings(CollectionTargetAssociation association,
+			NormalizedCollectionManifest manifest, CollectionNativeStateIndex state, IList<UserOverride> overrides,
+			ICollection<CollectionVerifyRepairFinding> findings)
+		{
+			foreach (CollectionPluginRelativeOrderRule rule in manifest.PluginRelativeOrderRules)
+			{
+				string subject = CollectionPluginRelativeOrderApplicator.RequirementSubject(rule);
+				var requirement = new CollectionRequirementReference(association, null, CollectionRequirementAspect.PluginState, subject);
+				UserOverride localOverride = overrides.SingleOrDefault(x => x.Requirement.Equals(requirement));
+				if (localOverride != null)
+				{
+					findings.Add(new CollectionVerifyRepairFinding(null, requirement,
+						CollectionVerifyRepairFindingKind.PreservedExplicitOverride, CollectionVerifyRepairDisposition.PreserveLocalDecision,
+						localOverride.UserChosenState, localOverride.UserChosenState,
+						"The explicit local plugin-order decision is preserved; verify/repair will not silently restore the curator relative-order rule."));
+					continue;
+				}
+
+				if (state.PluginCoverage != CollectionNativeStateCoverage.Complete)
+				{
+					findings.Add(new CollectionVerifyRepairFinding(null, requirement,
+						CollectionVerifyRepairFindingKind.PluginEffectMismatch, CollectionVerifyRepairDisposition.ActionRequired,
+						null, null, "Plugin state is unavailable for verification of a retained Collection plugin-after rule."));
+					continue;
+				}
+
+				CollectionNativePluginState later = FindPlugin(state, rule.PluginName);
+				CollectionNativePluginState earlier = FindPlugin(state, rule.AfterPluginName);
+				if (later == null || earlier == null)
+				{
+					findings.Add(new CollectionVerifyRepairFinding(null, requirement,
+						CollectionVerifyRepairFindingKind.PluginEffectMismatch, CollectionVerifyRepairDisposition.ActionRequired,
+						null, null, "A retained Collection plugin-after endpoint is no longer present in authoritative native plugin state."));
+					continue;
+				}
+
+				if (later.Priority <= earlier.Priority)
+					findings.Add(new CollectionVerifyRepairFinding(null, requirement,
+						CollectionVerifyRepairFindingKind.PluginEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState,
+						null, null, "The native plugin order no longer satisfies the retained Collection plugin-after rule."));
+			}
+		}
+
+		private static CollectionNativePluginState FindPlugin(CollectionNativeStateIndex state, string pluginName)
+		{
+			if (state == null || String.IsNullOrWhiteSpace(pluginName)) return null;
+			CollectionNativePluginState plugin;
+			if (state.Plugins.TryGetValue(pluginName, out plugin)) return plugin;
+			return state.Plugins.Values.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(
+				System.IO.Path.GetFileName(x.FileName), System.IO.Path.GetFileName(pluginName)));
 		}
 
 		private static void AppendDriftFinding(List<CollectionVerifyRepairFinding> findings,

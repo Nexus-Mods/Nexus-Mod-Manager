@@ -194,7 +194,8 @@ namespace Nexus.Client.CollectionManagement
 				!StringComparer.Ordinal.Equals(source.IncompletenessReason, candidate.IncompletenessReason) ||
 				source.Members.Count != candidate.Members.Count || source.Dependencies.Count != candidate.Dependencies.Count ||
 				source.FilePriorityRules.Count != candidate.FilePriorityRules.Count || source.ExternalFilePriorityRules.Count != candidate.ExternalFilePriorityRules.Count || source.ConflictConstraints.Count != candidate.ConflictConstraints.Count ||
-				source.PluginStates.Count != candidate.PluginStates.Count || source.HasPluginStateSection != candidate.HasPluginStateSection)
+				source.PluginStates.Count != candidate.PluginStates.Count || source.HasPluginStateSection != candidate.HasPluginStateSection ||
+				source.PluginRelativeOrderRules.Count != candidate.PluginRelativeOrderRules.Count)
 				throw new ArgumentException("Capability can be recalculated only for a selection-only projection of the same normalized manifest.", nameof(candidate));
 
 			for (int index = 0; index < source.Members.Count; index++)
@@ -204,6 +205,10 @@ namespace Nexus.Client.CollectionManagement
 				if (left.SourceOrdinal != right.SourceOrdinal || !left.IdentityResolution.Equals(right.IdentityResolution) ||
 					left.Requirement != right.Requirement || !Equals(left.Artifact, right.Artifact) ||
 					!Equals(left.RecipeIdentity, right.RecipeIdentity) ||
+					left.InstallRootBehavior != right.InstallRootBehavior ||
+					!Equals(left.VortexFomodSelection, right.VortexFomodSelection) ||
+					!Equals(left.VortexFileList, right.VortexFileList) ||
+					!Equals(left.VortexFileOverrides, right.VortexFileOverrides) ||
 					!StringComparer.Ordinal.Equals(left.DisplayName, right.DisplayName) || left.InstallationPhase != right.InstallationPhase)
 					throw new ArgumentException("Capability can be recalculated only when member selection is the sole normalized-member change.", nameof(candidate));
 			}
@@ -236,6 +241,12 @@ namespace Nexus.Client.CollectionManagement
 			{
 				if (!source.PluginStates[index].Equals(candidate.PluginStates[index]))
 					throw new ArgumentException("A selection projection cannot change normalized Collection plugin-state declarations.", nameof(candidate));
+			}
+
+			for (int index = 0; index < source.PluginRelativeOrderRules.Count; index++)
+			{
+				if (!source.PluginRelativeOrderRules[index].Equals(candidate.PluginRelativeOrderRules[index]))
+					throw new ArgumentException("A selection projection cannot change normalized Collection plugin relative-order rules.", nameof(candidate));
 			}
 		}
 

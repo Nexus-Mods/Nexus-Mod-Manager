@@ -639,13 +639,15 @@ namespace Nexus.Client.CollectionManagement
 			CollectionMemberMatchSet matches, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues)
 		{
+			NormalizedCollectionManifest manifest = plan.CapabilityReport.Manifest;
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> original = previews.Values.Where(x => x.IsComplete)
 				.SelectMany(x => x.PluginEffects.Select(effect => Tuple.Create(x.MemberKey, effect))).ToList();
-			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all;
+			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all = original;
+			Dictionary<string, List<Tuple<CollectionMemberKey, string>>> candidates = null;
 
-			if (plan.CapabilityReport.Manifest.HasPluginStateSection)
+			if (manifest.HasPluginStateSection || manifest.PluginRelativeOrderRules.Count > 0)
 			{
-				var candidates = new Dictionary<string, List<Tuple<CollectionMemberKey, string>>>(StringComparer.OrdinalIgnoreCase);
+				candidates = new Dictionary<string, List<Tuple<CollectionMemberKey, string>>>(StringComparer.OrdinalIgnoreCase);
 				foreach (Tuple<CollectionMemberKey, CollectionPlannedPluginEffect> item in original.Where(x => x.Item2.Kind == CollectionPlannedPluginEffectKind.Activation))
 					AddPluginCandidate(candidates, item.Item1, item.Item2.PluginPaths[0]);
 
@@ -660,22 +662,46 @@ namespace Nexus.Client.CollectionManagement
 					}
 				}
 
-				var enabledNames = new HashSet<string>(plan.CapabilityReport.Manifest.PluginStates.Where(x => x.Enabled).Select(x => x.PluginName),
-					StringComparer.OrdinalIgnoreCase);
-				all = original.Where(x => x.Item2.Kind != CollectionPlannedPluginEffectKind.Activation).ToList();
-				foreach (KeyValuePair<string, List<Tuple<CollectionMemberKey, string>>> candidate in candidates.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+				if (manifest.HasPluginStateSection)
 				{
-					CollectionMemberKey memberKey = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
-					CollectionNativeFileState existingFile = FindFileForPlugin(nativeState, candidate.Key);
-					string path = existingFile != null && !String.IsNullOrWhiteSpace(existingFile.PhysicalPath)
-						? existingFile.PhysicalPath
-						: candidate.Value.Select(x => x.Item2).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First();
-					all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key))));
+					var enabledNames = new HashSet<string>(manifest.PluginStates.Where(x => x.Enabled).Select(x => x.PluginName),
+						StringComparer.OrdinalIgnoreCase);
+					all = original.Where(x => x.Item2.Kind != CollectionPlannedPluginEffectKind.Activation).ToList();
+					foreach (KeyValuePair<string, List<Tuple<CollectionMemberKey, string>>> candidate in candidates.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+					{
+						CollectionMemberKey memberKey = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
+						string path = ResolvePluginCandidatePath(nativeState, candidate.Key, candidate.Value);
+						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key))));
+					}
 				}
 
+				foreach (CollectionPluginRelativeOrderRule rule in manifest.PluginRelativeOrderRules)
+				{
+					List<Tuple<CollectionMemberKey, string>> sourceCandidates;
+					List<Tuple<CollectionMemberKey, string>> referenceCandidates;
+					bool hasSource = candidates.TryGetValue(rule.PluginName, out sourceCandidates) && sourceCandidates.Count > 0;
+					bool hasReference = candidates.TryGetValue(rule.AfterPluginName, out referenceCandidates) && referenceCandidates.Count > 0;
+					if (!hasSource || !hasReference)
+					{
+						CollectionMemberKey owner = hasSource
+							? sourceCandidates.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First()
+							: null;
+						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.PluginRuleEndpointUnavailable,
+							CollectionConflictImpactStatus.Blocked, owner, rule.PluginName + "|" + rule.AfterPluginName,
+							"The characterized C11.5 plugin-after subset requires both rule endpoints to be contributed by the effective selected Collection closure."));
+						continue;
+					}
+
+					CollectionMemberKey memberKey = sourceCandidates.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
+					string sourcePath = ResolvePluginCandidatePath(nativeState, rule.PluginName, sourceCandidates);
+					string referencePath = ResolvePluginCandidatePath(nativeState, rule.AfterPluginName, referenceCandidates);
+					CollectionPlannedPluginEffect relative = CollectionPlannedPluginEffect.RelativeOrder(new[] { referencePath, sourcePath });
+					if (!all.Any(x => x.Item2.Kind == CollectionPlannedPluginEffectKind.RelativeOrder &&
+						x.Item2.PluginPaths.Count == 2 && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Item2.PluginPaths[0]), rule.AfterPluginName) &&
+						StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Item2.PluginPaths[1]), rule.PluginName)))
+						all.Add(Tuple.Create(memberKey, relative));
+				}
 			}
-			else
-				all = original;
 
 			if (all.Count == 0) return new List<CollectionPluginImpact>();
 			if (nativeState.PluginCoverage != CollectionNativeStateCoverage.Complete)
@@ -723,6 +749,14 @@ namespace Nexus.Client.CollectionManagement
 				result.Add(new CollectionPluginImpact(item.Item1, item.Item2, current, affected));
 			}
 			return result;
+		}
+
+		private static string ResolvePluginCandidatePath(CollectionNativeStateIndex state, string pluginName,
+			IEnumerable<Tuple<CollectionMemberKey, string>> candidates)
+		{
+			CollectionNativeFileState existingFile = FindFileForPlugin(state, pluginName);
+			if (existingFile != null && !String.IsNullOrWhiteSpace(existingFile.PhysicalPath)) return existingFile.PhysicalPath;
+			return candidates.Select(x => x.Item2).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First();
 		}
 
 		private static void AddPluginCandidate(IDictionary<string, List<Tuple<CollectionMemberKey, string>>> candidates,

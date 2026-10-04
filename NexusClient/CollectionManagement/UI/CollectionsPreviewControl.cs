@@ -1255,7 +1255,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		}
 
 		/// <summary>
-		/// Replaces raw pre-install Prefer Exact warnings with the durable outcome proven by an Applied association.
+		/// Replaces raw pre-install Nexus source-policy warnings with the durable outcome proven by an Applied association.
 		/// </summary>
 		private void AppendAppliedManifestResolutionIssues(CollectionManagementAssociationPresentation presentation)
 		{
@@ -1270,16 +1270,17 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (member == null || !member.IdentityResolution.IsResolved || !bound.Contains(member.IdentityResolution.Key))
 					continue;
 
-				CollectionCapabilityIssue preferIssue = memberReport.Issues.FirstOrDefault(x =>
-					StringComparer.Ordinal.Equals(x.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode));
-				if (preferIssue == null)
+				CollectionCapabilityIssue policyIssue = memberReport.Issues.FirstOrDefault(CollectionNexusSourcePolicyResolver.IsResolvableIssue);
+				if (policyIssue == null)
 					continue;
 
-				string artifact = member.Artifact == null ? member.IdentityResolution.Key.ToString() : member.Artifact.ToString();
-				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Progress, L("Collections.Status.Supported", "Ready"), "member.source-policy-prefer-resolved-exact",
-					preferIssue.FieldPath ?? string.Empty,
-					LanguageManager.Format("Collections.PreferExact.AppliedResolution",
-						"The Collection's 'prefer' file policy was resolved during preparation to the curator's requested Nexus file ({0}); the installed member was verified. A newer-file fallback was not used.", artifact),
+				string policy = StringComparer.Ordinal.Equals(policyIssue.Code, CollectionNexusSourcePolicyResolver.PreferIssueCode)
+					? "prefer"
+					: "latest";
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Progress, L("Collections.Status.Supported", "Ready"), "member.source-policy-resolved",
+					policyIssue.FieldPath ?? string.Empty,
+					LanguageManager.Format("Collections.SourcePolicy.AppliedResolution",
+						"The Collection's '{0}' Nexus file policy was resolved to one concrete Nexus file during preparation; the applied member was verified against the durable reviewed plan.", policy),
 					member.IdentityResolution.Key);
 			}
 		}
@@ -2153,7 +2154,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				foreach (CollectionRevisionUpdatePreparationMemberState member in result.Preparation.Members)
 				{
 					CollectionReviewSeverity severity = member.IsPrepared || member.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
-						member.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ? CollectionReviewSeverity.Info : CollectionReviewSeverity.Warning;
+						(member.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ||
+						member.Disposition == CollectionMemberAcquisitionDisposition.DirectQueued) ? CollectionReviewSeverity.Info : CollectionReviewSeverity.Warning;
 					CollectionReviewItemKind kind = member.PendingAction != null ? CollectionReviewItemKind.ManualAction : CollectionReviewItemKind.Progress;
 					AddReviewItem(severity, kind, member.IsPrepared ? L("Collections.Status.Supported", "Ready") : L("Collections.Status.Pending", "Pending"),
 						"revision-update.acquisition." + member.UpdateMember.MemberKey, FormatMemberSubject(member.UpdateMember.MemberKey),
@@ -2637,7 +2639,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_selectionDirty = false;
 				_selectionCapabilityBlocked = false;
 				if (selection.CapabilityReport.Status != CollectionCompatibilityStatus.Supported &&
-					!CanResolvePreferExactDuringPreparation(selection.CapabilityReport))
+					!CanResolveNexusSourcePolicyDuringPreparation(selection.CapabilityReport))
 				{
 					RenderCapabilityPreparationGate(selection.CapabilityReport);
 					return;
@@ -2886,19 +2888,27 @@ namespace Nexus.Client.CollectionManagement.UI
 				return new List<CollectionMemberAcquisitionState>();
 			return batch.Members.Where(x =>
 				(x.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
-				 x.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued) &&
+				 x.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ||
+				 x.Disposition == CollectionMemberAcquisitionDisposition.DirectQueued) &&
 				x.QueueCorrelation != null && x.QueueCorrelation.Task != null).ToList();
 		}
 
-		private void OpenPendingButton_Click(object sender, EventArgs e)
+		private async void OpenPendingButton_Click(object sender, EventArgs e)
 		{
 			CollectionUiContext context = _incomingActionContext;
 			CollectionManualAcquisitionPendingAction pending = GetSelectedOrFirstPendingAction();
-			if (context == null || !IsActionContextCurrent(context) || pending == null || pending.BrowserUri == null)
+			if (_workflowBusy || context == null || !IsActionContextCurrent(context) || pending == null)
 				return;
+
+			string nexusDomain;
+			long nexusModId;
+			long nexusFileId;
+			bool isNexusPending = NexusCollectionModFileArtifactIdentity.TryParse(pending.Request.SelectedArtifact,
+				out nexusDomain, out nexusModId, out nexusFileId);
 			try
 			{
-				Process.Start(pending.BrowserUri.ToString());
+				if (pending.Supports(CollectionManualAcquisitionActionKind.Browser) && pending.BrowserUri != null)
+					Process.Start(pending.BrowserUri.ToString());
 			}
 			catch (Exception ex)
 			{
@@ -2907,7 +2917,104 @@ namespace Nexus.Client.CollectionManagement.UI
 				AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.ManualAction, L("Collections.Status.ActionRequired", "Action required"),
 					"acquisition.open-page-failed", FormatMemberSubject(pending.Request.MemberKey), userMessage, pending.Request.MemberKey,
 					"Member: " + pending.Request.MemberKey);
+				return;
 			}
+
+			// Preserve the existing Nexus/NXM interaction: opening the provider page remains the complete button action.
+			// Characterized manual/browse artifacts continue to the local picker because their bytes must be supplied explicitly.
+			if (isNexusPending || !pending.Supports(CollectionManualAcquisitionActionKind.LocalFile))
+				return;
+
+			if (!String.IsNullOrWhiteSpace(pending.Instructions))
+			{
+				MessageBox.Show(this, pending.Instructions,
+					L("Collections.Acquisition.DownloadInstructionsTitle", "Collection download instructions"),
+					MessageBoxButtons.OK, MessageBoxIcon.Information);
+				if (!IsActionContextCurrent(context))
+					return;
+			}
+
+			using (var dialog = new OpenFileDialog())
+			{
+				dialog.Title = L("Collections.Acquisition.SelectArchiveTitle", "Select the exact downloaded mod archive");
+				dialog.CheckFileExists = true;
+				dialog.CheckPathExists = true;
+				dialog.Multiselect = false;
+				dialog.Filter = L("Collections.Acquisition.SelectArchiveFilter", "Mod archives|*.zip;*.7z;*.rar|All files|*.*");
+				if (dialog.ShowDialog(this) != DialogResult.OK || !IsActionContextCurrent(context))
+					return;
+
+				CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing,
+					L("Collections.Workflow.VerifyingSelectedArchive", "Verifying the selected archive and resuming Collection preparation..."));
+				try
+				{
+					CollectionVerifiedArchive verified;
+					bool revisionUpdatePending = _revisionUpdatePreparation != null && _revisionUpdatePreparation.Members.Any(x =>
+						x.PendingAction != null && x.PendingAction.ActionId == pending.ActionId);
+					if (revisionUpdatePending)
+					{
+						if (_revisionUpdateWorkflow == null || _revisionUpdateReview == null)
+							throw new InvalidOperationException("The pending revision-update acquisition no longer has its approved review context.");
+						verified = _revisionUpdateWorkflow.VerifyLocalFile(_revisionUpdatePreparation, pending, dialog.FileName, token);
+						if (verified == null)
+						{
+							ShowLocalArchiveMismatch(pending);
+							return;
+						}
+						CollectionRevisionUpdateWorkflowResult updateResult = await _revisionUpdateWorkflow.ProbePreparationAndContinueAsync(
+							_revisionUpdatePreparation, _revisionUpdateReview, token);
+						if (!IsWorkflowContextCurrent(context, token)) return;
+						_revisionUpdateResult = updateResult;
+						_revisionUpdatePreparation = updateResult.Preparation;
+						RenderRevisionUpdateWorkflowResult(updateResult);
+					}
+					else
+					{
+						if (_workflow == null || _acquisitionBatch == null)
+							throw new InvalidOperationException("The pending Collection acquisition no longer has its preparation context.");
+						verified = _workflow.VerifyLocalFile(_acquisitionBatch, pending, dialog.FileName, token);
+						if (verified == null)
+						{
+							ShowLocalArchiveMismatch(pending);
+							return;
+						}
+						CollectionAdditiveWorkflowPreparationResult result = await _workflow.ResumePreparationAsync(_acquisitionBatch, token);
+						if (!IsWorkflowContextCurrent(context, token)) return;
+						RenderPreparationResult(result);
+					}
+				}
+				catch (OperationCanceledException)
+				{
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceError("Collection local archive verification failed: " + ex);
+					RememberTechnicalFailure("acquisition.local-file-failed", ex, context);
+					if (IsWorkflowContextCurrent(context, token))
+					{
+						CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("acquisition.local-file-failed", ex.Message);
+						AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.ManualAction,
+							L("Collections.Status.ActionRequired", "Action required"), "acquisition.local-file-failed",
+							FormatMemberSubject(pending.Request.MemberKey), userMessage, pending.Request.MemberKey);
+					}
+				}
+				finally
+				{
+					EndWorkflowWork(context);
+				}
+			}
+		}
+
+		private void ShowLocalArchiveMismatch(CollectionManualAcquisitionPendingAction pending)
+		{
+			string explanation = L("Collections.Acquisition.LocalArchiveMismatch",
+				"The selected archive does not match the exact file identity declared by this Collection member. No installation work was started.");
+			AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.ManualAction,
+				L("Collections.Status.ActionRequired", "Action required"), "acquisition.local-file-mismatch",
+				FormatMemberSubject(pending.Request.MemberKey), explanation, pending.Request.MemberKey,
+				L("Collections.Acquisition.SelectCorrectArchive", "Select the exact archive required by the Collection and try again."));
+			_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.UserStatus", "Workflow: {0}", explanation);
+			UpdateIssuesHeader();
 		}
 
 		private async void ReplaceButton_Click(object sender, EventArgs e)
@@ -4071,25 +4178,25 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
-		private static bool CanResolvePreferExactDuringPreparation(CollectionCapabilityReport report)
+		private static bool CanResolveNexusSourcePolicyDuringPreparation(CollectionCapabilityReport report)
 		{
 			if (report == null || report.Status != CollectionCompatibilityStatus.ActionRequired)
 				return false;
 			if (report.ManifestIssues.Count > 0)
 				return false;
 
-			bool sawResolvablePrefer = false;
+			bool sawResolvablePolicy = false;
 			foreach (CollectionMemberCapabilityReport memberReport in report.MemberReports.Where(x => x.Member.IsSelected))
 			{
 				foreach (CollectionCapabilityIssue issue in memberReport.Issues)
 				{
 					if (issue.Status == CollectionCompatibilityStatus.Unsupported ||
-						!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode))
+						!CollectionNexusSourcePolicyResolver.IsResolvableIssue(issue))
 						return false;
-					sawResolvablePrefer = true;
+					sawResolvablePolicy = true;
 				}
 			}
-			return sawResolvablePrefer;
+			return sawResolvablePolicy;
 		}
 
 		private void RenderCapabilityPreparationGate(CollectionCapabilityReport report)
@@ -4648,11 +4755,11 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					CollectionRevisionUpdatePreparationMemberState selectedUpdate = _revisionUpdatePreparation.Members.FirstOrDefault(x =>
 						x.UpdateMember.MemberKey.Equals(selected.IdentityResolution.Key));
-					if (selectedUpdate != null && selectedUpdate.PendingAction != null && selectedUpdate.PendingAction.BrowserUri != null)
+					if (selectedUpdate != null && selectedUpdate.PendingAction != null)
 						return selectedUpdate.PendingAction;
 				}
 				CollectionManualAcquisitionPendingAction updatePending = _revisionUpdatePreparation.Members
-					.Where(x => x.PendingAction != null && x.PendingAction.BrowserUri != null).Select(x => x.PendingAction).FirstOrDefault();
+					.Where(x => x.PendingAction != null).Select(x => x.PendingAction).FirstOrDefault();
 				if (updatePending != null) return updatePending;
 			}
 
@@ -4661,11 +4768,10 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (selected != null && selected.IdentityResolution.IsResolved)
 			{
 				CollectionMemberAcquisitionState selectedState = _acquisitionBatch.Members.FirstOrDefault(x => x.Match.Member.MemberKey.Equals(selected.IdentityResolution.Key));
-				if (selectedState != null && selectedState.PendingAction != null && selectedState.PendingAction.BrowserUri != null)
+				if (selectedState != null && selectedState.PendingAction != null)
 					return selectedState.PendingAction;
 			}
-			return _acquisitionBatch.Members.Where(x => x.PendingAction != null && x.PendingAction.BrowserUri != null)
-				.Select(x => x.PendingAction).FirstOrDefault();
+			return _acquisitionBatch.Members.Where(x => x.PendingAction != null).Select(x => x.PendingAction).FirstOrDefault();
 		}
 
 		private void UpdatePendingDownloadActionLabel(CollectionManualAcquisitionPendingAction pending)
@@ -4677,9 +4783,35 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 
 			string displayName = GetMemberDisplayName(pending.Request.MemberKey);
-			_openPendingButton.Text = String.IsNullOrWhiteSpace(displayName)
-				? L("Collections.Actions.OpenDownloadPage", "Download selected missing mod")
-				: LanguageManager.Format("Collections.Actions.OpenDownloadPageNamed", "Download missing mod: {0}", displayName);
+			bool canBrowse = pending.Supports(CollectionManualAcquisitionActionKind.Browser) && pending.BrowserUri != null;
+			bool canSelect = pending.Supports(CollectionManualAcquisitionActionKind.LocalFile);
+			string nexusDomain; long nexusModId; long nexusFileId;
+			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(pending.Request.SelectedArtifact,
+				out nexusDomain, out nexusModId, out nexusFileId);
+			if (isNexus)
+			{
+				_openPendingButton.Text = String.IsNullOrWhiteSpace(displayName)
+					? L("Collections.Actions.OpenDownloadPage", "Download selected missing mod")
+					: LanguageManager.Format("Collections.Actions.OpenDownloadPageNamed", "Download missing mod: {0}", displayName);
+			}
+			else if (canBrowse && canSelect)
+			{
+				_openPendingButton.Text = String.IsNullOrWhiteSpace(displayName)
+					? L("Collections.Actions.DownloadOrSelectArchive", "Download / select archive...")
+					: LanguageManager.Format("Collections.Actions.DownloadOrSelectArchiveNamed", "Download / select archive: {0}", displayName);
+			}
+			else if (canSelect)
+			{
+				_openPendingButton.Text = String.IsNullOrWhiteSpace(displayName)
+					? L("Collections.Actions.SelectArchive", "Select archive...")
+					: LanguageManager.Format("Collections.Actions.SelectArchiveNamed", "Select archive: {0}", displayName);
+			}
+			else
+			{
+				_openPendingButton.Text = String.IsNullOrWhiteSpace(displayName)
+					? L("Collections.Actions.OpenDownloadPage", "Download selected missing mod")
+					: LanguageManager.Format("Collections.Actions.OpenDownloadPageNamed", "Download missing mod: {0}", displayName);
+			}
 		}
 
 		private string GetMemberDisplayName(CollectionMemberKey memberKey)
@@ -5336,8 +5468,10 @@ namespace Nexus.Client.CollectionManagement.UI
 			_resumeButton.Visible = _acquisitionBatch != null && !_acquisitionBatch.IsReady;
 			_resumeButton.Enabled = !_workflowBusy && _resumeButton.Visible;
 			CollectionManualAcquisitionPendingAction pendingDownload = GetSelectedOrFirstPendingAction();
-			_openPendingButton.Visible = pendingDownload != null && pendingDownload.BrowserUri != null;
-			_openPendingButton.Enabled = !_workflowBusy && _openPendingButton.Visible;
+			_openPendingButton.Visible = pendingDownload != null;
+			_openPendingButton.Enabled = !_workflowBusy && pendingDownload != null &&
+				(pendingDownload.Supports(CollectionManualAcquisitionActionKind.Browser) ||
+				 pendingDownload.Supports(CollectionManualAcquisitionActionKind.LocalFile));
 			UpdatePendingDownloadActionLabel(pendingDownload);
 			bool exactReview = GetInstallActionContext() != null && _operationSnapshot != null &&
 				_operationSnapshot.Kind == CollectionOperationKind.ApplyResolvedPlan;
@@ -5877,6 +6011,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					return L("Collections.Status.Supported", "Ready");
 				case CollectionMemberAcquisitionDisposition.PremiumQueued:
 				case CollectionMemberAcquisitionDisposition.BundledQueued:
+				case CollectionMemberAcquisitionDisposition.DirectQueued:
 					return L("Collections.Status.Pending", "Pending");
 				case CollectionMemberAcquisitionDisposition.Blocked:
 					return L("Collections.Status.Unsupported", "Blocked");

@@ -46,6 +46,56 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void CreatePendingAction_ExternalBrowseExact_OffersBrowserAndLocalButNotNxm()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var hint = new RecordingHintProvider(new CollectionManualAcquisitionHint(
+					new Uri("https://mods.example.invalid/file-page"), "Choose the exact curator file."));
+				TestContext context = CreateContext(root, new CollectionManagedArchiveCandidate[0],
+					new RecordingVerifier { Handler = (artifact, stream) => false }, hint);
+				CollectionAcquisitionRequest request = CreateRequest("vortex-external-file",
+					"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/123", null);
+
+				CollectionManualAcquisitionPendingAction pending = context.Coordinator.CreatePendingAction(request);
+
+				Assert.That(pending.Supports(CollectionManualAcquisitionActionKind.Browser), Is.True);
+				Assert.That(pending.Supports(CollectionManualAcquisitionActionKind.LocalFile), Is.True);
+				Assert.That(pending.Supports(CollectionManualAcquisitionActionKind.Nxm), Is.False);
+				Assert.That(pending.BrowserUri.AbsoluteUri, Is.EqualTo("https://mods.example.invalid/file-page"));
+				Assert.That(pending.Instructions, Is.EqualTo("Choose the exact curator file."));
+				Assert.That(hint.CallCount, Is.EqualTo(1));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void CreatePendingAction_ExternalManualWithoutUrl_OffersLocalFileOnly()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var hint = new RecordingHintProvider(new CollectionManualAcquisitionHint(null, "Supply the exact archive."));
+				TestContext context = CreateContext(root, new CollectionManagedArchiveCandidate[0],
+					new RecordingVerifier { Handler = (artifact, stream) => false }, hint);
+
+				CollectionManualAcquisitionPendingAction pending = context.Coordinator.CreatePendingAction(
+					CreateRequest("vortex-external-file", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb/321", null));
+
+				Assert.That(pending.AllowedActions, Is.EqualTo(CollectionManualAcquisitionActionKind.LocalFile));
+				Assert.That(pending.BrowserUri, Is.Null);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void CreatePendingAction_NonNexusExpectedHash_OffersLocalFileOnly()
 		{
 			string root = CreateTemporaryDirectory();
@@ -214,6 +264,45 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void VerifyLocalFile_ExternalExact_UsesDeclaredMd5AndByteLength()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] bytes = Encoding.UTF8.GetBytes("external exact archive bytes");
+				string path = Path.Combine(root, "external.zip");
+				File.WriteAllBytes(path, bytes);
+				string md5 = Md5(bytes);
+				var verifier = new RecordingVerifier
+				{
+					Handler = (artifact, stream) =>
+					{
+						using (MD5 algorithm = MD5.Create())
+						{
+							byte[] digest = algorithm.ComputeHash(stream);
+							return artifact.StableId == md5 + "/" + bytes.LongLength && ToHex(digest) == md5;
+						}
+					}
+				};
+				TestContext context = CreateContext(root, new CollectionManagedArchiveCandidate[0], verifier,
+					new RecordingHintProvider(new CollectionManualAcquisitionHint(null, null)));
+				CollectionManualAcquisitionPendingAction pending = context.Coordinator.CreatePendingAction(
+					CreateRequest("vortex-external-file", md5 + "/" + bytes.LongLength, null));
+
+				CollectionVerifiedArchive verified = context.Coordinator.VerifyLocalFile(pending, path);
+
+				Assert.That(verified, Is.Not.Null);
+				Assert.That(verified.SourceKind, Is.EqualTo(CollectionVerifiedArchiveSourceKind.ManualFile));
+				Assert.That(verified.VerificationBasis, Is.EqualTo(CollectionArchiveVerificationBasis.ProviderContentIdentity));
+				Assert.That(verifier.CallCount, Is.EqualTo(1));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void VerifyLocalFile_WrongHash_ReturnsNullAndLeavesNoVerifiedReference()
 		{
 			string root = CreateTemporaryDirectory();
@@ -335,6 +424,12 @@ namespace NexusClientTests
 		private static TestContext CreateContext(string root, IReadOnlyList<CollectionManagedArchiveCandidate> candidates,
 			RecordingVerifier verifier)
 		{
+			return CreateContext(root, candidates, verifier, null);
+		}
+
+		private static TestContext CreateContext(string root, IReadOnlyList<CollectionManagedArchiveCandidate> candidates,
+			RecordingVerifier verifier, ICollectionManualAcquisitionHintProvider hintProvider)
+		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
 			var artifacts = new CollectionsRetainedArtifactStore(store);
@@ -343,7 +438,7 @@ namespace NexusClientTests
 			var adopter = new CollectionVerifiedArchiveAdopter(source, verifier, artifacts, references);
 			var queue = new RecordingQueue();
 			var coordinator = new CollectionManualAcquisitionCoordinator(
-				new CollectionAcquisitionRequestCoordinator(queue), adopter);
+				new CollectionAcquisitionRequestCoordinator(queue), adopter, hintProvider);
 			return new TestContext(coordinator, queue, source, references);
 		}
 
@@ -381,6 +476,20 @@ namespace NexusClientTests
 			string path = Path.Combine(Path.GetTempPath(), "NmmCollectionsC420-" + Guid.NewGuid().ToString("N"));
 			Directory.CreateDirectory(path);
 			return path;
+		}
+
+		private static string Md5(byte[] bytes)
+		{
+			using (MD5 md5 = MD5.Create())
+				return ToHex(md5.ComputeHash(bytes));
+		}
+
+		private static string ToHex(byte[] digest)
+		{
+			var builder = new StringBuilder(digest.Length * 2);
+			for (int index = 0; index < digest.Length; index++)
+				builder.Append(digest[index].ToString("x2"));
+			return builder.ToString();
 		}
 
 		private static string Sha256(byte[] bytes)
@@ -460,6 +569,24 @@ namespace NexusClientTests
 			}
 		}
 
+		private sealed class RecordingHintProvider : ICollectionManualAcquisitionHintProvider
+		{
+			private readonly CollectionManualAcquisitionHint _hint;
+
+			public RecordingHintProvider(CollectionManualAcquisitionHint hint)
+			{
+				_hint = hint;
+			}
+
+			public int CallCount { get; private set; }
+
+			public CollectionManualAcquisitionHint GetHint(CollectionAcquisitionRequest request)
+			{
+				CallCount++;
+				return _hint;
+			}
+		}
+
 		private sealed class RecordingVerifier : ICollectionArchiveIdentityVerifier
 		{
 			public int CallCount { get; private set; }
@@ -475,5 +602,14 @@ namespace NexusClientTests
 				return Handler != null && Handler(requestedArtifact, immutableArchive);
 			}
 		}
+		[Test]
+		public void DirectAcquisitionSource_AcceptsOnlyCredentialFreeHttpsWithoutFragment()
+		{
+			Assert.DoesNotThrow(() => new CollectionDirectAcquisitionSource(new Uri("https://cdn.example.invalid/archive.zip?token=opaque")));
+			Assert.Throws<ArgumentException>(() => new CollectionDirectAcquisitionSource(new Uri("http://cdn.example.invalid/archive.zip")));
+			Assert.Throws<ArgumentException>(() => new CollectionDirectAcquisitionSource(new Uri("https://user:pass@cdn.example.invalid/archive.zip")));
+			Assert.Throws<ArgumentException>(() => new CollectionDirectAcquisitionSource(new Uri("https://cdn.example.invalid/archive.zip#fragment")));
+		}
+
 	}
 }

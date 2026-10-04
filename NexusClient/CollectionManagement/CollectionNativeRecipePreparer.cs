@@ -130,9 +130,10 @@ namespace Nexus.Client.CollectionManagement
 	/// Translates characterized Collection recipe source into validated native C5 recipe input without executing native mutation.
 	/// </summary>
 	/// <remarks>
-	/// Supports the fixture-characterized ordinary/basic exact-layout path and exact Vortex FOMOD choices which can be
-	/// translated by NMM's native XML/FOMOD adapter into a pure one-to-one file plan. Hash/file-list recipes, patches,
-	/// fileOverrides and non-file FOMOD effects remain blocked by the existing capability/preparation gates.
+	/// Supports the fixture-characterized ordinary/basic exact-layout path, the characterized MD5/XXH64 Vortex hashes/fileList
+	/// subset including byte-preserving source replication to distinct destinations, and exact Vortex FOMOD choices which
+	/// can be frozen to the same durable simple-file contract. Characterized exact Vortex fileOverrides are applied as per-output
+	/// suppression before effect preview; patches and non-file FOMOD effects remain fail-closed.
 	/// </remarks>
 	public sealed class CollectionNativeRecipePreparer
 	{
@@ -191,6 +192,9 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (member == null)
 				throw new ArgumentNullException(nameof(member));
+			if (member.HasVortexFileList)
+				return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+					skipReadmeFiles, pluginManager, false, null, cancellationToken);
 			if (!member.HasVortexFomodSelection)
 			{
 				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
@@ -213,6 +217,9 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (member == null) throw new ArgumentNullException(nameof(member));
 			if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
+			if (member.HasVortexFileList)
+				return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+					skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
 			if (!member.HasVortexFomodSelection)
 			{
 				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
@@ -242,6 +249,8 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
+			if (member.HasVortexFileList)
+				throw new NotSupportedException("Vortex hashes/fileList requires the exact file-list-aware native preparation path.");
 			if (member.HasVortexFomodSelection)
 				throw new NotSupportedException("Vortex FOMOD choices require the exact FOMOD-aware native preparation path.");
 			cancellationToken.ThrowIfCancellationRequested();
@@ -273,6 +282,7 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe simpleRecipe = basicResult.Plan.CreateSimpleFileRecipe();
+			simpleRecipe = ApplyVortexFileOverrides(member, simpleRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation validation = CreateValidation(verifiedArchive.Artifact, installContext, simpleRecipe);
 			var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity preparationOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
@@ -284,6 +294,76 @@ namespace Nexus.Client.CollectionManagement
 
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedIdentity(plan, member,
 				verifiedArchive.Artifact, basicResult.Plan, translated, effectPreview, skipReadmeFiles);
+			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
+				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId });
+		}
+
+
+		private PreparedCollectionNativeRecipe PrepareVortexFileListExact(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
+			IPluginManager pluginManager, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment,
+			CancellationToken cancellationToken)
+		{
+			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
+			if (!member.HasVortexFileList)
+				throw new ArgumentException("The file-list-aware preparation path requires characterized Vortex hashes/fileList data.", nameof(member));
+			cancellationToken.ThrowIfCancellationRequested();
+
+			CollectionRevision revision = _catalogStore.GetRevision(plan.Revision);
+			if (revision == null)
+				throw new InvalidOperationException("The exact Collection revision must remain persisted during native recipe preparation.");
+
+			byte[] rawManifestBytes = _revisionSourceStore.LoadManifest(plan.Revision, plan.ManifestSource);
+			NexusCollectionManifestNormalizationResult normalized = _normalizer.Normalize(rawManifestBytes, revision);
+			ValidateRetainedSourceMember(plan, member, normalized);
+
+			CollectionRevisionSourceRecord sourceRecord = _revisionSourceStore.GetSource(plan.Revision);
+			if (sourceRecord == null || String.IsNullOrEmpty(sourceRecord.RawManifestArtifactId))
+				throw new InvalidDataException("The retained Collection revision source is missing its immutable manifest artifact binding.");
+
+			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
+			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
+
+			var replicatedFiles = member.VortexFileList.Items
+				.Select(item => new ModInstallationReplicatedFile(item.DestinationPath,
+					item.HashAlgorithm == CollectionVortexFileListHashAlgorithm.Xxh64
+						? ModInstallationReplicatedContentHashAlgorithm.Xxh64
+						: ModInstallationReplicatedContentHashAlgorithm.Md5,
+					item.ContentHash))
+				.ToList();
+			var replicatedRecipe = new ModInstallationReplicatedLayoutRecipe(replicatedFiles);
+			var replicatedPaths = replicatedRecipe.Files
+				.Select(file => new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, file.DestinationPath))
+				.ToList();
+			var replicatedValidation = new ModInstallationRecipeValidation(
+				ModInstallationReplicatedLayoutRecipeAdapter.AdapterId,
+				ModInstallationReplicatedLayoutRecipeAdapter.AdapterVersion,
+				installContext,
+				new ModInstallationRecipeExpectedContent(verifiedArchive.Artifact.ContentHash.Value, verifiedArchive.Artifact.ByteLength),
+				new[] { new ModInstallationRecipeCapability(ModInstallationReplicatedLayoutRecipeAdapter.CapabilityId,
+					ModInstallationReplicatedLayoutRecipeAdapter.CapabilityVersion) },
+				replicatedPaths);
+			var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
+			ModOperationIdentity replicatedOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
+			ModInstallationRecipeInput replicatedTranslated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
+				new ModInstallationRecipeInput(replicatedOperation, replicatedValidation), mod, replicatedRecipe);
+
+			// The replicated adapter hashes archive entries while resolving the requested bytes. Recheck archive identity after that read.
+			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
+
+			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileListPlan(replicatedTranslated);
+			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
+			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
+			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
+			ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(
+				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
+			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
+			if (!effectPreview.IsComplete)
+				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
+
+			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFileListIdentity(plan, member,
+				verifiedArchive.Artifact, frozenRecipe, translated, effectPreview, skipReadmeFiles);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId });
 		}
@@ -354,6 +434,7 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest);
+			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
 			var finalFingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, finalFingerprint);
@@ -411,10 +492,13 @@ namespace Nexus.Client.CollectionManagement
 			if (selected == null || selected.SourceOrdinal != member.SourceOrdinal ||
 				selected.InstallRootBehavior != member.InstallRootBehavior ||
 				!Equals(selected.VortexFomodSelection, member.VortexFomodSelection) ||
+				!Equals(selected.VortexFileList, member.VortexFileList) ||
+				!Equals(selected.VortexFileOverrides, member.VortexFileOverrides) ||
 				!selected.RecipeIdentity.Equals(member.RecipeIdentity) || !selected.ArtifactChoice.Equals(member.ArtifactChoice))
 				throw new ArgumentException("The member being prepared must belong to the exact selected resolved plan.", nameof(member));
-			if (member.ArtifactChoice.Kind != CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact)
-				throw new NotSupportedException("The initial C6.15.9 preparation capability accepts exact requested artifacts only.");
+			if (member.ArtifactChoice.Kind != CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact &&
+				member.ArtifactChoice.Kind != CollectionResolvedArtifactChoiceKind.SupportedSubstitution)
+				throw new NotSupportedException("Native recipe preparation requires one concrete requested artifact or characterized reviewed substitution.");
 			if (member.RequiresGameRootInstall && installContext.InstallRoot != ModInstallRoot.GameRoot)
 				throw new ArgumentException("The characterized Vortex member type requires NMM's native game-root install context.", nameof(installContext));
 			if (member.RequiresGameRootInstall && !gameMode.SupportsGameRootModInstall)
@@ -441,6 +525,8 @@ namespace Nexus.Client.CollectionManagement
 				!sourceMember.IdentityResolution.Key.Equals(member.MemberKey) ||
 				sourceMember.InstallRootBehavior != member.InstallRootBehavior ||
 				!Equals(sourceMember.VortexFomodSelection, member.VortexFomodSelection) ||
+				!Equals(sourceMember.VortexFileList, member.VortexFileList) ||
+				!Equals(sourceMember.VortexFileOverrides, member.VortexFileOverrides) ||
 				!Equals(sourceMember.Artifact, member.ArtifactChoice.RequestedArtifact) ||
 				!Equals(sourceMember.RecipeIdentity, member.RecipeIdentity))
 				throw new InvalidDataException("The retained Collection source ordinal does not reproduce the exact resolved member artifact and recipe identity.");
@@ -453,27 +539,8 @@ namespace Nexus.Client.CollectionManagement
 				.SingleOrDefault(x => x.Member.SourceOrdinal == member.SourceOrdinal);
 			if (sourceReport == null ||
 				(sourceReport.Status != CollectionCompatibilityStatus.Supported &&
-				 !IsReviewedPreferExactResolution(member, sourceReport, reviewedReport)))
+				 !CollectionNexusSourcePolicyResolver.IsReviewedResolution(member, sourceReport, reviewedReport)))
 				throw new NotSupportedException("The retained Collection member source contains behavior outside the characterized native recipe preparation capability.");
-		}
-
-		private static bool IsReviewedPreferExactResolution(ResolvedCollectionMemberPlan member,
-			CollectionMemberCapabilityReport sourceReport, CollectionMemberCapabilityReport reviewedReport)
-		{
-			if (member == null || sourceReport == null || reviewedReport == null ||
-				reviewedReport.Status != CollectionCompatibilityStatus.Supported ||
-				member.ArtifactChoice.Kind != CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact ||
-				!member.ArtifactChoice.RequestedArtifact.Equals(member.ArtifactChoice.SelectedArtifact) ||
-				sourceReport.Status != CollectionCompatibilityStatus.ActionRequired || sourceReport.Issues.Count == 0)
-				return false;
-
-			foreach (CollectionCapabilityIssue issue in sourceReport.Issues)
-			{
-				if (!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusPreferExactPolicyResolver.PreferIssueCode))
-					return false;
-			}
-
-			return true;
 		}
 
 		private void ValidateVerifiedArchive(CollectionVerifiedArchive verifiedArchive, CancellationToken cancellationToken)
@@ -651,6 +718,34 @@ namespace Nexus.Client.CollectionManagement
 				paths ?? throw new ArgumentNullException(nameof(paths)));
 		}
 
+
+		private static ModInstallationSimpleFileRecipe FreezePureFileListPlan(ModInstallationRecipeInput translated)
+		{
+			if (translated == null || !translated.HasNativePlan)
+				throw new InvalidDataException("The native replicated-layout adapter did not produce an executable operation plan.");
+
+			var mappings = new List<ModInstallationSimpleFileMapping>();
+			foreach (ScriptedInstallOperation operation in translated.NativeOperations)
+			{
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				if (file == null || file.DeploymentDecision != null)
+					throw new NotSupportedException("The characterized Vortex hashes/fileList path can freeze only undecided native file-install operations.");
+				mappings.Add(new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath));
+			}
+
+			try
+			{
+				// Vortex list-installer semantics permit one content match to materialize at several distinct destinations.
+				// The resolved native operations are already byte-preserving, so freeze that exact replication explicitly.
+				return new ModInstallationSimpleFileRecipe(mappings, true);
+			}
+			catch (ArgumentException ex)
+			{
+				throw new NotSupportedException(
+					"The characterized C11.3b Vortex hashes/fileList path supports source replication but not destination collisions.", ex);
+			}
+		}
+
 		private static ModInstallationSimpleFileRecipe FreezePureFileFomodPlan(ModInstallationRecipeInput translated,
 			IGameMode gameMode, NormalizedCollectionManifest manifest)
 		{
@@ -745,14 +840,111 @@ namespace Nexus.Client.CollectionManagement
 				String.Equals(candidate, extension, StringComparison.OrdinalIgnoreCase));
 		}
 
+		private static ModInstallationSimpleFileRecipe ApplyVortexFileOverrides(ResolvedCollectionMemberPlan member,
+			ModInstallationSimpleFileRecipe recipe, IGameMode gameMode, IMod mod, ModInstallContext installContext)
+		{
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (recipe == null) throw new ArgumentNullException(nameof(recipe));
+			if (!member.HasVortexFileOverrides) return recipe;
+
+			var suppressedDestinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (string overridePath in member.VortexFileOverrides.Paths)
+			{
+				List<ModInstallationSimpleFileMapping> matches = recipe.Mappings
+					.Where(mapping => VortexOverrideMatchesOutput(overridePath, mapping, gameMode, mod, installContext))
+					.ToList();
+				if (matches.Count == 0)
+					throw new NotSupportedException(String.Format(
+						"Vortex fileOverride '{0}' does not identify any exact translated output for this member.", overridePath));
+				if (matches.Count != 1)
+					throw new NotSupportedException(String.Format(
+						"Vortex fileOverride '{0}' ambiguously matches more than one translated output for this member.", overridePath));
+				suppressedDestinations.Add(matches[0].DestinationPath);
+			}
+
+			List<ModInstallationSimpleFileMapping> retained = recipe.Mappings
+				.Where(mapping => !suppressedDestinations.Contains(mapping.DestinationPath))
+				.ToList();
+			if (retained.Count == 0)
+				throw new NotSupportedException("Vortex fileOverrides suppress every translated member output; zero-file native member registration is not characterized.");
+
+			bool allowSourceReplication = retained.GroupBy(mapping => mapping.SourcePath, StringComparer.OrdinalIgnoreCase)
+				.Any(group => group.Count() > 1);
+			return new ModInstallationSimpleFileRecipe(retained, allowSourceReplication);
+		}
+
+		private static bool VortexOverrideMatchesOutput(string overridePath, ModInstallationSimpleFileMapping mapping,
+			IGameMode gameMode, IMod mod, ModInstallContext installContext)
+		{
+			ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, mod, mapping.DestinationPath, installContext.InstallRoot);
+			string normalizedOverride = NormalizeVortexOverrideComparisonPath(overridePath);
+			string targetRelative = NormalizeVortexOverrideComparisonPath(target.RelativePath);
+			string physicalPath = NormalizeVortexOverrideComparisonPath(ModDeploymentTargetResolver.GetPhysicalPath(gameMode, target));
+
+			if (StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, physicalPath))
+				return true;
+
+			string portableGamePath = TryGetPortableGameRelativeTarget(gameMode, target);
+			bool absolute = IsVortexAbsolutePath(normalizedOverride);
+			if (!absolute)
+			{
+				return StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, targetRelative) ||
+					(!String.IsNullOrEmpty(portableGamePath) && StringComparer.OrdinalIgnoreCase.Equals(normalizedOverride, portableGamePath));
+			}
+
+			if (!String.IsNullOrEmpty(portableGamePath) && HasPathSuffix(normalizedOverride, portableGamePath))
+				return true;
+			return HasPathSuffix(normalizedOverride, targetRelative);
+		}
+
+		private static string TryGetPortableGameRelativeTarget(IGameMode gameMode, ModDeploymentTarget target)
+		{
+			try
+			{
+				string installation = Path.GetFullPath(gameMode.InstallationPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+				string root = Path.GetFullPath(ModDeploymentTargetResolver.GetPhysicalRootPath(gameMode, target.Root))
+					.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+				if (StringComparer.OrdinalIgnoreCase.Equals(installation, root))
+					return NormalizeVortexOverrideComparisonPath(target.RelativePath);
+				string prefix = installation + Path.DirectorySeparatorChar;
+				if (!root.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+					return null;
+				string rootRelative = root.Substring(prefix.Length);
+				return NormalizeVortexOverrideComparisonPath(Path.Combine(rootRelative, target.RelativePath));
+			}
+			catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
+			{
+				return null;
+			}
+		}
+
+		private static bool HasPathSuffix(string path, string suffix)
+		{
+			if (String.IsNullOrEmpty(path) || String.IsNullOrEmpty(suffix)) return false;
+			if (StringComparer.OrdinalIgnoreCase.Equals(path, suffix)) return true;
+			return path.Length > suffix.Length && path.EndsWith("\\" + suffix, StringComparison.OrdinalIgnoreCase);
+		}
+
+		private static bool IsVortexAbsolutePath(string path)
+		{
+			return !String.IsNullOrEmpty(path) && (path.StartsWith("\\\\", StringComparison.Ordinal) ||
+				(path.Length > 1 && path[1] == ':') || Path.IsPathRooted(path));
+		}
+
+		private static string NormalizeVortexOverrideComparisonPath(string path)
+		{
+			return (path ?? String.Empty).Replace('/', '\\').TrimEnd('\\');
+		}
+
 		private static ModInstallationRecipeValidation CreateValidation(CollectionsRetainedArtifact artifact,
 			ModInstallContext installContext, ModInstallationSimpleFileRecipe simpleRecipe)
 		{
 			var paths = new List<ModInstallationRecipePath>();
+			var declaredPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (ModInstallationSimpleFileMapping mapping in simpleRecipe.Mappings)
 			{
-				paths.Add(new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, mapping.SourcePath));
-				paths.Add(new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, mapping.DestinationPath));
+				AddValidationPath(paths, declaredPaths, ModInstallationRecipePathKind.ArchiveSource, mapping.SourcePath);
+				AddValidationPath(paths, declaredPaths, ModInstallationRecipePathKind.Destination, mapping.DestinationPath);
 			}
 
 			return new ModInstallationRecipeValidation(ModInstallationSimpleFileRecipeAdapter.AdapterId,
@@ -760,6 +952,70 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeExpectedContent(artifact.ContentHash.Value, artifact.ByteLength),
 				new[] { new ModInstallationRecipeCapability(ModInstallationSimpleFileRecipeAdapter.CapabilityId,
 					ModInstallationSimpleFileRecipeAdapter.CapabilityVersion) }, paths);
+		}
+
+
+		private static void AddValidationPath(ICollection<ModInstallationRecipePath> paths, ISet<string> declaredPaths,
+			ModInstallationRecipePathKind kind, string path)
+		{
+			string key = ((int)kind).ToString() + "\0" + path;
+			if (declaredPaths.Add(key))
+				paths.Add(new ModInstallationRecipePath(kind, path));
+		}
+
+		private static PreparedCollectionNativeRecipeIdentity BuildPreparedFileListIdentity(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionsRetainedArtifact artifact, ModInstallationSimpleFileRecipe frozenRecipe,
+			ModInstallationRecipeInput translated, CollectionMemberEffectPreview effectPreview, bool skipReadmeFiles)
+		{
+			using (var stream = new MemoryStream())
+			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
+			{
+				writer.Write(PreparedIdentityFormat);
+				writer.Write(member.VortexFileList.HashAlgorithm == CollectionVortexFileListHashAlgorithm.Xxh64
+					? "vortex-file-list-xxh64/1"
+					: "vortex-file-list-md5/1");
+				writer.Write(plan.Target.Fingerprint);
+				writer.Write(plan.CurrentStateFingerprint.FormatVersion);
+				writer.Write(plan.CurrentStateFingerprint.Value);
+				writer.Write((int)member.MemberKey.Kind);
+				writer.Write(member.MemberKey.Value);
+				writer.Write(member.SourceOrdinal);
+				writer.Write(member.RecipeIdentity.Fingerprint);
+				writer.Write(member.ArtifactChoice.SelectedArtifact.Scheme);
+				writer.Write(member.ArtifactChoice.SelectedArtifact.StableId);
+				writer.Write(artifact.ContentHash.Value);
+				writer.Write(artifact.ByteLength);
+				writer.Write((int)translated.InstallContext.Method);
+				writer.Write((int)translated.InstallContext.InstallRoot);
+				writer.Write(skipReadmeFiles);
+				writer.Write(ModInstallationReplicatedLayoutRecipeAdapter.AdapterId);
+				writer.Write(ModInstallationReplicatedLayoutRecipeAdapter.AdapterVersion);
+				writer.Write(ModInstallationReplicatedLayoutRecipeAdapter.CapabilityId);
+				writer.Write(ModInstallationReplicatedLayoutRecipeAdapter.CapabilityVersion);
+				writer.Write(translated.Validation.AdapterId);
+				writer.Write(translated.Validation.AdapterVersion);
+
+				writer.Write(member.VortexFileList.Items.Count);
+				foreach (CollectionVortexFileListItem item in member.VortexFileList.Items)
+				{
+					writer.Write(item.DestinationPath);
+					writer.Write(item.ContentHash);
+				}
+				writer.Write(frozenRecipe.Mappings.Count);
+				foreach (ModInstallationSimpleFileMapping mapping in frozenRecipe.Mappings)
+				{
+					writer.Write(mapping.SourcePath);
+					writer.Write(mapping.DestinationPath);
+				}
+
+				WriteEffectPreview(writer, effectPreview);
+				writer.Flush();
+				using (SHA256 sha256 = SHA256.Create())
+				{
+					string digest = BitConverter.ToString(sha256.ComputeHash(stream.ToArray())).Replace("-", String.Empty).ToLowerInvariant();
+					return PreparedCollectionNativeRecipeIdentity.FromFingerprint("sha256:" + digest);
+				}
+			}
 		}
 
 		private static PreparedCollectionNativeRecipeIdentity BuildPreparedFomodIdentity(ResolvedCollectionPlan plan,

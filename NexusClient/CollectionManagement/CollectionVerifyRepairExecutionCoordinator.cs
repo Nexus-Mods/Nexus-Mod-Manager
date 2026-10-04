@@ -275,6 +275,26 @@ namespace Nexus.Client.CollectionManagement
 					repairedRequirements.Add(finding.Requirement);
 				}
 
+				List<CollectionVerifyRepairFinding> pluginRuleRepairs = plan.Findings.Where(IsManifestPluginRuleRepairFinding).ToList();
+				IReadOnlyList<UserOverride> finalOverrides = _associationStore.GetOverrides(plan.Association.AssociationId);
+				List<CollectionPluginRelativeOrderRule> applicablePluginRules = GetApplicableManifestPluginRules(plan, finalOverrides);
+				if (applicablePluginRules.Count > 0)
+				{
+					if (_services.PluginManager == null)
+						throw new InvalidOperationException("Qualified plugin-order repair requires the native plugin manager.");
+					_authorityValidator.ValidateAndReload(lease, authority, paths);
+					CollectionNativeStateIndex beforePluginRules = Capture(authority.Target);
+					if (beforePluginRules.PluginCoverage != CollectionNativeStateCoverage.Complete)
+						throw new InvalidOperationException("Qualified plugin-order repair lost complete authoritative plugin coverage before reconciliation.");
+					if (!PluginRulesSatisfied(beforePluginRules, applicablePluginRules))
+						CollectionPluginRelativeOrderApplicator.ApplyRules(_services.PluginManager, applicablePluginRules);
+				}
+				if (pluginRuleRepairs.Count > 0)
+				{
+					repaired += pluginRuleRepairs.Count;
+					foreach (CollectionVerifyRepairFinding finding in pluginRuleRepairs) repairedRequirements.Add(finding.Requirement);
+				}
+
 				_authorityValidator.ValidateAndReload(lease, authority, paths);
 				CollectionNativeStateIndex finalState = Capture(authority.Target);
 				ValidateFinalRepairState(plan, bindings, finalState, _associationStore.GetOverrides(plan.Association.AssociationId));
@@ -407,6 +427,39 @@ namespace Nexus.Client.CollectionManagement
 			return task;
 		}
 
+		private static bool IsManifestPluginRuleRepairFinding(CollectionVerifyRepairFinding finding)
+		{
+			return finding != null && finding.IsRepairable && finding.MemberKey == null && finding.Requirement != null &&
+				finding.Requirement.Aspect == CollectionRequirementAspect.PluginState &&
+				finding.Kind == CollectionVerifyRepairFindingKind.PluginEffectMismatch &&
+				CollectionPluginRelativeOrderApplicator.IsRequirementSubject(finding.Requirement.SubjectKey);
+		}
+
+		private static List<CollectionPluginRelativeOrderRule> GetApplicableManifestPluginRules(CollectionVerifyRepairPlan plan,
+			IEnumerable<UserOverride> overrides)
+		{
+			if (plan == null || plan.ResolvedPlan == null) return new List<CollectionPluginRelativeOrderRule>();
+			var overriddenSubjects = new HashSet<string>((overrides ?? Enumerable.Empty<UserOverride>())
+				.Where(x => x != null && x.Requirement != null && x.Requirement.MemberKey == null &&
+					x.Requirement.Aspect == CollectionRequirementAspect.PluginState &&
+					CollectionPluginRelativeOrderApplicator.IsRequirementSubject(x.Requirement.SubjectKey))
+				.Select(x => x.Requirement.SubjectKey), StringComparer.Ordinal);
+			return plan.ResolvedPlan.CapabilityReport.Manifest.PluginRelativeOrderRules
+				.Where(x => !overriddenSubjects.Contains(CollectionPluginRelativeOrderApplicator.RequirementSubject(x))).ToList();
+		}
+
+		private static bool PluginRulesSatisfied(CollectionNativeStateIndex state, IEnumerable<CollectionPluginRelativeOrderRule> rules)
+		{
+			if (state == null || state.PluginCoverage != CollectionNativeStateCoverage.Complete) return false;
+			foreach (CollectionPluginRelativeOrderRule rule in rules ?? Enumerable.Empty<CollectionPluginRelativeOrderRule>())
+			{
+				CollectionNativePluginState earlier = FindPlugin(state, rule.AfterPluginName);
+				CollectionNativePluginState later = FindPlugin(state, rule.PluginName);
+				if (earlier == null || later == null || later.Priority <= earlier.Priority) return false;
+			}
+			return true;
+		}
+
 		private static bool IsNativeReinstallFinding(CollectionVerifyRepairFinding finding)
 		{
 			return finding != null && finding.IsRepairable && finding.MemberKey != null &&
@@ -434,6 +487,9 @@ namespace Nexus.Client.CollectionManagement
 				if (!MemberEffectsSatisfied(plan.Association, binding, prepared.EffectPreview, state, overrides))
 					throw new InvalidOperationException("Qualified repair did not establish all exact characterized effects for a repaired member.");
 			}
+			List<CollectionPluginRelativeOrderRule> applicablePluginRules = GetApplicableManifestPluginRules(plan, overrides);
+			if (applicablePluginRules.Count > 0 && !PluginRulesSatisfied(state, applicablePluginRules))
+				throw new InvalidOperationException("Qualified repair did not establish every applicable retained Collection plugin-after rule.");
 			foreach (CollectionVerifyRepairFinding finding in plan.Findings.Where(x => x.IsRepairable && findingIsEnabled(x)))
 			{
 				bool desired;
@@ -449,6 +505,15 @@ namespace Nexus.Client.CollectionManagement
 				if (IsEnabled(liveMod) != desired)
 					throw new InvalidOperationException("The repaired Virtual enabled state does not match the exact expected value.");
 			}
+		}
+
+		private static CollectionNativePluginState FindPlugin(CollectionNativeStateIndex state, string pluginName)
+		{
+			if (state == null || String.IsNullOrWhiteSpace(pluginName)) return null;
+			CollectionNativePluginState plugin;
+			if (state.Plugins.TryGetValue(pluginName, out plugin)) return plugin;
+			return state.Plugins.Values.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(
+				Path.GetFileName(x.FileName), Path.GetFileName(pluginName)));
 		}
 
 		private static bool findingIsEnabled(CollectionVerifyRepairFinding finding)

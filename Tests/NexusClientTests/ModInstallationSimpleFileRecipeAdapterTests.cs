@@ -97,21 +97,30 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
-		/// Verifies the simple adapter does not silently implement replicated layouts or ambiguous destination collisions.
+		/// Verifies source replication requires an explicit characterized opt-in and destination collisions remain forbidden.
 		/// </summary>
 		[Test]
-		public void Recipe_RejectsReplicationAndDestinationCollisions()
+		public void Recipe_SourceReplicationRequiresOptInAndTranslatesToDistinctDestinations()
 		{
-			Assert.Throws<ArgumentException>(() => new ModInstallationSimpleFileRecipe(new[]
+			var mappings = new[]
 			{
 				new ModInstallationSimpleFileMapping(@"source\same.bin", @"first\same.bin"),
 				new ModInstallationSimpleFileMapping(@"source\same.bin", @"second\same.bin")
-			}));
+			};
+			Assert.Throws<ArgumentException>(() => new ModInstallationSimpleFileRecipe(mappings));
+
+			var recipe = new ModInstallationSimpleFileRecipe(mappings, true);
+			ModInstallationRecipeInput translated = new ModInstallationSimpleFileRecipeAdapter().Translate(CreateInput(recipe), recipe);
+			InstallModFileOperation[] operations = translated.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+			Assert.That(operations.Length, Is.EqualTo(2));
+			Assert.That(operations.Select(x => x.SourcePath), Is.All.EqualTo(@"source\same.bin"));
+			CollectionAssert.AreEquivalent(new[] { @"first\same.bin", @"second\same.bin" }, operations.Select(x => x.DestinationPath));
+
 			Assert.Throws<ArgumentException>(() => new ModInstallationSimpleFileRecipe(new[]
 			{
 				new ModInstallationSimpleFileMapping(@"source\first.bin", @"target\same.bin"),
 				new ModInstallationSimpleFileMapping(@"source\second.bin", @"target\same.bin")
-			}));
+			}, true));
 		}
 
 		/// <summary>
@@ -284,10 +293,15 @@ namespace NexusClientTests
 		private static IEnumerable<ModInstallationRecipePath> CreateDeclaredPaths(ModInstallationSimpleFileRecipe recipe)
 		{
 			var paths = new List<ModInstallationRecipePath>();
+			var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (ModInstallationSimpleFileMapping mapping in recipe.Mappings)
 			{
-				paths.Add(new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, mapping.SourcePath));
-				paths.Add(new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, mapping.DestinationPath));
+				string sourceKey = ((int)ModInstallationRecipePathKind.ArchiveSource) + "\0" + mapping.SourcePath;
+				if (keys.Add(sourceKey))
+					paths.Add(new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, mapping.SourcePath));
+				string destinationKey = ((int)ModInstallationRecipePathKind.Destination) + "\0" + mapping.DestinationPath;
+				if (keys.Add(destinationKey))
+					paths.Add(new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, mapping.DestinationPath));
 			}
 			return paths;
 		}

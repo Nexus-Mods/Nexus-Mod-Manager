@@ -103,6 +103,9 @@ namespace Nexus.Client.CollectionManagement
 				{
 					if (finding.Requirement == null) return false;
 					if (finding.Requirement.Aspect == CollectionRequirementAspect.MemberEnabledState) continue;
+					if (finding.MemberKey == null && finding.Requirement.Aspect == CollectionRequirementAspect.PluginState &&
+						finding.Kind == CollectionVerifyRepairFindingKind.PluginEffectMismatch && ResolvedPlan != null &&
+						CollectionPluginRelativeOrderApplicator.IsRequirementSubject(finding.Requirement.SubjectKey)) continue;
 					if (finding.MemberKey == null || ResolvedPlan == null || !_preparedRecipes.Any(x => x.Member.MemberKey.Equals(finding.MemberKey))) return false;
 					if (finding.Kind != CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch &&
 						finding.Kind != CollectionVerifyRepairFindingKind.IniEffectMismatch &&

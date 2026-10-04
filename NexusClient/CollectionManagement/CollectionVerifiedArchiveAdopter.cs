@@ -116,6 +116,8 @@ namespace Nexus.Client.CollectionManagement
 					// Seal the mutable native archive first. All trust-sensitive verification below observes immutable bytes,
 					// so a writer cannot swap the archive between provider verification and retained publication.
 					CollectionsRetainedArtifact candidateArtifact = _artifactStore.PublishFile(fullPath, cancellationToken);
+					if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, candidateArtifact.ByteLength))
+						continue;
 					CollectionsRetainedArtifactReferenceRecord temporary = AcquireTemporaryReference(candidateArtifact, ownerId);
 					bool keepTemporary = false;
 					try
@@ -169,7 +171,8 @@ namespace Nexus.Client.CollectionManagement
 					return null;
 
 				ModManagerCollectionManagedArchiveSource managedSource = _archiveSource as ModManagerCollectionManagedArchiveSource;
-				if (managedSource != null)
+				string nexusDomain; long nexusModId; long nexusFileId;
+				if (managedSource != null && NexusCollectionModFileArtifactIdentity.TryParse(request.SelectedArtifact, out nexusDomain, out nexusModId, out nexusFileId))
 					managedSource.ConfirmVerifiedCandidate(verifiedCandidate, request.SelectedArtifact, verifiedArtifact, cancellationToken);
 
 				return Protect(request, verifiedArtifact, ownerId, referenceRole,
@@ -211,6 +214,8 @@ namespace Nexus.Client.CollectionManagement
 				throw new FileNotFoundException("The selected manual acquisition file no longer exists.", fullPath);
 
 			CollectionsRetainedArtifact candidateArtifact = _artifactStore.PublishFile(fullPath, cancellationToken);
+			if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, candidateArtifact.ByteLength))
+				return null;
 			CollectionsRetainedArtifactReferenceRecord temporary = AcquireTemporaryReference(candidateArtifact, ownerId);
 			try
 			{

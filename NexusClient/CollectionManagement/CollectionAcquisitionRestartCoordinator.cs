@@ -53,7 +53,9 @@ namespace Nexus.Client.CollectionManagement
 			if (record.State == CollectionAcquisitionPersistenceState.Cancelled || record.State == CollectionAcquisitionPersistenceState.Failed)
 				return Result(CollectionAcquisitionRestartDisposition.ReacquisitionRequired, record, null, null, null);
 
-			CollectionPersistedAddModState persisted = record.QueueOperationId.HasValue
+			// Direct acquisition is produced by the Collection-owned HTTPS task, not native AddMod. Its request-id
+			// correlation must never be interpreted as an AddMod operation after restart.
+			CollectionPersistedAddModState persisted = record.Mode != CollectionAcquisitionPersistenceMode.Direct && record.QueueOperationId.HasValue
 				? _nativeState.Find(record.QueueOperationId.Value)
 				: null;
 			if (persisted != null && !MatchesArtifact(persisted, request.SelectedArtifact))

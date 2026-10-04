@@ -169,7 +169,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			CollectionEffectiveSelection effective = _selectionBuilder.Build(normalizedCapability, decisions);
-			effective = CollectionNexusPreferExactPolicyResolver.ReapplyReviewedExactChoices(effective, rawManifest, snapshot.Members);
+			effective = CollectionNexusSourcePolicyResolver.ReapplyReviewedChoices(effective, rawManifest, snapshot.Members);
 			if (effective.CapabilityReport.Status != CollectionCompatibilityStatus.Supported)
 				throw new NotSupportedException("The retained manifest no longer reproduces a supported reviewed selected closure.");
 			ValidateManifestReviewIdentity(effective.Manifest, snapshot);
@@ -338,8 +338,10 @@ namespace Nexus.Client.CollectionManagement
 				var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, persisted.Validation.InstallContext,
 					member.RecipeIdentity.Fingerprint);
 				var input = new ModInstallationRecipeInput(ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint), persisted.Validation);
-				var recipe = new ModInstallationSimpleFileRecipe(persisted.SimpleFileMappings.Select(x =>
-					new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)));
+				List<ModInstallationSimpleFileMapping> mappings = persisted.SimpleFileMappings.Select(x =>
+					new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)).ToList();
+				bool hasSourceReplication = mappings.GroupBy(x => x.SourcePath, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1);
+				var recipe = new ModInstallationSimpleFileRecipe(mappings, hasSourceReplication);
 				ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(input, recipe);
 				ValidateTranslatedMappings(translated, persisted.SimpleFileMappings);
 				result.Add(new PreparedCollectionNativeRecipe(member,

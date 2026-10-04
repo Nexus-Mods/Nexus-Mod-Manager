@@ -82,6 +82,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsNativeChildRecoveryManifestStore _manifestStore;
 		private readonly CollectionNativeStateReader _nativeStateReader;
 		private readonly CollectionRevisionUpdatePlanner _planner;
+		private readonly CollectionNexusSourcePolicyResolver _sourcePolicyResolver;
 		private readonly CollectionRevisionUpdateReviewCoordinator _reviewCoordinator;
 		private readonly CollectionRevisionUpdatePreparationCoordinator _preparationCoordinator;
 		private readonly CollectionRevisionUpdateNativeRecipePreparationService _recipePreparation;
@@ -127,6 +128,9 @@ namespace Nexus.Client.CollectionManagement
 			_nativeStateReader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);
 			_planner = new CollectionRevisionUpdatePlanner();
+			var nexusRepository = _services.ModRepository as NexusModsApiRepository;
+			if (nexusRepository == null) throw new InvalidOperationException("Revision update requires the active NexusModsApiRepository implementation.");
+			_sourcePolicyResolver = new CollectionNexusSourcePolicyResolver(_revisionSourceStore, nexusRepository);
 			_reviewCoordinator = new CollectionRevisionUpdateReviewCoordinator(_operationStore, _planStore, _associationStore);
 			_recipePreparation = new CollectionRevisionUpdateNativeRecipePreparationService(_services, _store);
 			_preparationCoordinator = BuildPreparationCoordinator();
@@ -173,12 +177,16 @@ namespace Nexus.Client.CollectionManagement
 				List<CollectionDriftObservation> drift = snapshot.DriftObservations.Where(x => x.Requirement.AssociationId == associationId).ToList();
 
 				CollectionEffectiveSelection oldSelection = BuildInstalledSelection(oldManifest.CapabilityReport, bindings, overrides, drift);
+				CollectionNexusSourcePolicyResolution oldPolicyResolution = _sourcePolicyResolver.ResolveInstalled(oldSelection, bindings, state);
+				oldSelection = RequireSupportedSelection(oldPolicyResolution.Selection);
 				CollectionEffectiveSelection candidateSelection = BuildCandidateSelection(candidateManifest.CapabilityReport,
 					candidateOptionalSelection, bindings);
+				CollectionNexusSourcePolicyResolution candidatePolicyResolution = _sourcePolicyResolver.Resolve(candidateSelection);
+				candidateSelection = RequireSupportedSelection(candidatePolicyResolution.Selection);
 				ResolvedCollectionPlan oldPlan = BuildPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), authority.Target,
-					state.Fingerprint, oldSelection);
+					state.Fingerprint, oldSelection, oldPolicyResolution.ArtifactChoices);
 				ResolvedCollectionPlan newPlan = BuildPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), authority.Target,
-					state.Fingerprint, candidateSelection);
+					state.Fingerprint, candidateSelection, candidatePolicyResolution.ArtifactChoices);
 				CollectionRevisionUpdatePlan update = _planner.Plan(association, oldPlan, newPlan, state, overrides, drift,
 					snapshot.NativeModProvenance, null, null, null, null);
 				CollectionOperation operation = _reviewCoordinator.CreateReviewedOperation(update);
@@ -223,6 +231,14 @@ namespace Nexus.Client.CollectionManagement
 					"Candidate archives are still being acquired or require manual input.");
 			PersistPreparationSnapshot(preparation, cancellationToken);
 			return await ContinuePreparedAsync(preparation, cancellationToken).ConfigureAwait(false);
+		}
+
+		/// <summary>Verifies one user-selected archive for the exact pending candidate manual/browse request.</summary>
+		public CollectionVerifiedArchive VerifyLocalFile(CollectionRevisionUpdatePreparationBatch preparation,
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			if (preparation == null) throw new ArgumentNullException(nameof(preparation));
+			return _preparationCoordinator.VerifyLocalFile(preparation, pendingAction, localFilePath, cancellationToken);
 		}
 
 		public async Task<CollectionRevisionUpdateWorkflowResult> ProbePreparationAndContinueAsync(
@@ -453,13 +469,16 @@ namespace Nexus.Client.CollectionManagement
 				_artifactStore, _referenceStore, acquisitionStore);
 			var premium = new CollectionPremiumAcquisitionCoordinator(requestCoordinator,
 				new ModRepositoryCollectionPremiumAcquisitionAccountProvider(_services.ModRepository));
-			var manual = new CollectionManualAcquisitionCoordinator(requestCoordinator, adopter);
+			var manual = new CollectionManualAcquisitionCoordinator(requestCoordinator, adopter,
+				new NexusCollectionManualAcquisitionHintProvider(_catalogStore, _revisionSourceStore));
+			var direct = new CollectionDirectAcquisitionCoordinator(
+				new NexusCollectionDirectAcquisitionSourceProvider(_catalogStore, _revisionSourceStore), adopter, acquisitionStore);
 			var restart = new CollectionAcquisitionRestartCoordinator(acquisitionStore,
 				new SettingsCollectionPersistedAddModStateSource(_services.ModManager.EnvironmentInfo, _services.ModManager.GameMode.ModeId), adopter, premium);
 			var bundled = new NexusCollectionBundledMemberAcquisitionCoordinator(new NexusCollectionBundledArtifactMaterializer(_store, _revisionSourceStore),
 				adopter, requestCoordinator, _services.ModManager);
 			return new CollectionRevisionUpdatePreparationCoordinator(_operationStore, _reviewCoordinator, adopter, premium, manual,
-				restart, _recipePreparation, bundled);
+				restart, _recipePreparation, bundled, direct);
 		}
 
 		private CollectionAcquisitionRestartCoordinator BuildAcquisitionRestartCoordinator()
@@ -505,7 +524,7 @@ namespace Nexus.Client.CollectionManagement
 				if (expected != null) selected = expected.Kind == CollectionRequirementStateKind.Present;
 				decisions.Add(new CollectionOptionalMemberSelection(key, selected ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected));
 			}
-			return RequireSupportedSelection(new CollectionEffectiveSelectionBuilder().Build(capability, decisions));
+			return new CollectionEffectiveSelectionBuilder().Build(capability, decisions);
 		}
 
 		private static CollectionEffectiveSelection BuildCandidateSelection(CollectionCapabilityReport capability,
@@ -519,7 +538,7 @@ namespace Nexus.Client.CollectionManagement
 					.Select(x => new CollectionOptionalMemberSelection(x.IdentityResolution.Key,
 						bound.Contains(x.IdentityResolution.Key) ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected)).ToList();
 			}
-			return RequireSupportedSelection(new CollectionEffectiveSelectionBuilder().Build(capability, requested));
+			return new CollectionEffectiveSelectionBuilder().Build(capability, requested);
 		}
 
 		private static CollectionEffectiveSelection RequireSupportedSelection(CollectionEffectiveSelection selection)
@@ -530,10 +549,25 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static ResolvedCollectionPlan BuildPlan(CollectionPlanIdentity identity, CollectionTargetIdentity target,
-			CollectionCurrentStateFingerprint fingerprint, CollectionEffectiveSelection effective)
+			CollectionCurrentStateFingerprint fingerprint, CollectionEffectiveSelection effective,
+			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices = null)
 		{
-			List<ResolvedCollectionMemberPlan> selected = effective.Manifest.Members.Where(x => x.IsSelected)
-				.Select(x => new ResolvedCollectionMemberPlan(x, CollectionResolvedArtifactChoice.Exact(x.Artifact))).ToList();
+			var selected = new List<ResolvedCollectionMemberPlan>();
+			var consumed = new HashSet<CollectionMemberKey>();
+			foreach (NormalizedCollectionMember member in effective.Manifest.Members.Where(x => x.IsSelected))
+			{
+				CollectionResolvedArtifactChoice choice;
+				if (artifactChoices != null && member.IdentityResolution.IsResolved && artifactChoices.TryGetValue(member.IdentityResolution.Key, out choice))
+				{
+					if (choice == null || !member.Artifact.Equals(choice.RequestedArtifact))
+						throw new InvalidOperationException("A revision-update source-policy choice no longer matches its normalized requested artifact.");
+					consumed.Add(member.IdentityResolution.Key);
+				}
+				else choice = CollectionResolvedArtifactChoice.Exact(member.Artifact);
+				selected.Add(new ResolvedCollectionMemberPlan(member, choice));
+			}
+			if (artifactChoices != null && consumed.Count != artifactChoices.Count)
+				throw new InvalidOperationException("A revision-update source-policy choice does not belong to the selected Collection closure.");
 			return new ResolvedCollectionPlan(identity, target, CollectionExecutionPolicy.InstallIntoCurrentSetup(), fingerprint,
 				effective.CapabilityReport, selected);
 		}
@@ -547,8 +581,10 @@ namespace Nexus.Client.CollectionManagement
 			NexusCollectionBundleImportResult candidateManifest = LoadRetainedManifest(intent.CandidateRevision);
 			var oldKeys = new HashSet<CollectionMemberKey>(intent.Members.Where(x => x.ChangeKind != CollectionRevisionUpdateChangeKind.Added).Select(x => x.MemberKey));
 			var newKeys = new HashSet<CollectionMemberKey>(intent.Members.Where(x => x.ChangeKind != CollectionRevisionUpdateChangeKind.Removed).Select(x => x.MemberKey));
-			ResolvedCollectionPlan oldPlan = BuildPlanFromSelectedKeys(intent.OldPlanIdentity, intent.Target, intent.ObservedStateFingerprint, oldManifest.CapabilityReport, oldKeys);
-			ResolvedCollectionPlan newPlan = BuildPlanFromSelectedKeys(intent.CandidatePlanIdentity, intent.Target, intent.ObservedStateFingerprint, candidateManifest.CapabilityReport, newKeys);
+			var oldChoices = intent.Members.Where(x => x.OldArtifactChoice != null).ToDictionary(x => x.MemberKey, x => x.OldArtifactChoice);
+			var newChoices = intent.Members.Where(x => x.NewArtifactChoice != null).ToDictionary(x => x.MemberKey, x => x.NewArtifactChoice);
+			ResolvedCollectionPlan oldPlan = BuildPlanFromSelectedKeys(intent.OldPlanIdentity, intent.Target, intent.ObservedStateFingerprint, oldManifest.CapabilityReport, oldKeys, oldChoices);
+			ResolvedCollectionPlan newPlan = BuildPlanFromSelectedKeys(intent.CandidatePlanIdentity, intent.Target, intent.ObservedStateFingerprint, candidateManifest.CapabilityReport, newKeys, newChoices);
 			CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(intent.Target);
 			Dictionary<CollectionMemberKey, CollectionMemberBinding> bindings = snapshot.Bindings.Where(x => x.Association.AssociationId == intent.AssociationId).ToDictionary(x => x.MemberKey);
 			Dictionary<Guid, UserOverride> overrides = snapshot.Overrides.Where(x => x.Requirement.AssociationId == intent.AssociationId).ToDictionary(x => x.OverrideId);
@@ -582,15 +618,19 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static ResolvedCollectionPlan BuildPlanFromSelectedKeys(CollectionPlanIdentity identity, CollectionTargetIdentity target,
-			CollectionCurrentStateFingerprint fingerprint, CollectionCapabilityReport capability, ISet<CollectionMemberKey> selectedKeys)
+			CollectionCurrentStateFingerprint fingerprint, CollectionCapabilityReport capability, ISet<CollectionMemberKey> selectedKeys,
+			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices)
 		{
 			var decisions = capability.Manifest.Members.Where(x => x.Requirement == CollectionMemberRequirement.Optional && x.IdentityResolution.IsResolved)
 				.Select(x => new CollectionOptionalMemberSelection(x.IdentityResolution.Key,
 					selectedKeys.Contains(x.IdentityResolution.Key) ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected)).ToList();
-			CollectionEffectiveSelection effective = RequireSupportedSelection(new CollectionEffectiveSelectionBuilder().Build(capability, decisions));
+			CollectionEffectiveSelection effective = new CollectionEffectiveSelectionBuilder().Build(capability, decisions);
 			HashSet<CollectionMemberKey> actual = new HashSet<CollectionMemberKey>(effective.Manifest.Members.Where(x => x.IsSelected && x.IdentityResolution.IsResolved).Select(x => x.IdentityResolution.Key));
 			if (!actual.SetEquals(selectedKeys)) throw new InvalidOperationException("The retained revision can no longer reproduce the exact member selection frozen by the C10 review.");
-			return BuildPlan(identity, target, fingerprint, effective);
+			if (artifactChoices != null && artifactChoices.Count != 0)
+				effective = CollectionNexusSourcePolicyResolver.ReapplyReviewedChoices(effective, artifactChoices);
+			effective = RequireSupportedSelection(effective);
+			return BuildPlan(identity, target, fingerprint, effective, artifactChoices);
 		}
 
 		private void PersistPreparationSnapshot(CollectionRevisionUpdatePreparationBatch preparation, CancellationToken cancellationToken)

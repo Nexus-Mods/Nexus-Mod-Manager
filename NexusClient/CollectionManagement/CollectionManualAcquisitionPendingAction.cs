@@ -14,7 +14,8 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionManualAcquisitionPendingAction(
 			CollectionAcquisitionRequest request,
 			CollectionManualAcquisitionActionKind allowedActions,
-			Uri browserUri)
+			Uri browserUri,
+			string instructions = null)
 		{
 			Request = request ?? throw new ArgumentNullException(nameof(request));
 			const CollectionManualAcquisitionActionKind knownActions =
@@ -37,6 +38,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			AllowedActions = allowedActions;
 			BrowserUri = browserUri;
+			Instructions = String.IsNullOrWhiteSpace(instructions) ? null : instructions.Trim();
 		}
 
 		/// <summary>Gets the immutable acquisition request waiting for user input.</summary>
@@ -50,6 +52,9 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets the stable public provider page to open, when browser mediation is supported.</summary>
 		public Uri BrowserUri { get; }
+
+		/// <summary>Gets optional curator-provided download instructions reloaded from retained source.</summary>
+		public string Instructions { get; }
 
 		/// <summary>Returns whether the specified manual action is available for this pending request.</summary>
 		public bool Supports(CollectionManualAcquisitionActionKind action)

@@ -131,6 +131,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive:
 				case CollectionMemberAcquisitionDisposition.PremiumQueued:
 				case CollectionMemberAcquisitionDisposition.BundledQueued:
+				case CollectionMemberAcquisitionDisposition.DirectQueued:
 					return CollectionReviewSeverity.Info;
 				default:
 					return CollectionReviewSeverity.Error;

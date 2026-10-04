@@ -18,6 +18,7 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionRevisionUpdateReviewEntry(CollectionMemberKey memberKey, CollectionRevisionUpdateChangeKind changeKind,
 			CollectionRevisionUpdateCurrentStateKind currentStateKind, CollectionRevisionUpdateDisposition disposition,
 			CollectionRevisionUpdatePreparationKind preparationKind, string oldPreparedFingerprint, string newPreparedFingerprint,
+			CollectionResolvedArtifactChoice oldArtifactChoice, CollectionResolvedArtifactChoice newArtifactChoice,
 			bool standaloneProtected, string detail, IEnumerable<Guid> preservedOverrideIds, IEnumerable<Guid> unacceptedDriftIds)
 		{
 			MemberKey = memberKey ?? throw new ArgumentNullException(nameof(memberKey));
@@ -31,6 +32,8 @@ namespace Nexus.Client.CollectionManagement
 			PreparationKind = preparationKind;
 			OldPreparedFingerprint = OptionalToken(oldPreparedFingerprint, nameof(oldPreparedFingerprint));
 			NewPreparedFingerprint = OptionalToken(newPreparedFingerprint, nameof(newPreparedFingerprint));
+			OldArtifactChoice = oldArtifactChoice;
+			NewArtifactChoice = newArtifactChoice;
 			StandaloneProtected = standaloneProtected;
 			Detail = detail ?? String.Empty;
 			_preservedOverrideIds = FreezeGuids(preservedOverrideIds, nameof(preservedOverrideIds));
@@ -44,6 +47,8 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionRevisionUpdatePreparationKind PreparationKind { get; }
 		public string OldPreparedFingerprint { get; }
 		public string NewPreparedFingerprint { get; }
+		public CollectionResolvedArtifactChoice OldArtifactChoice { get; }
+		public CollectionResolvedArtifactChoice NewArtifactChoice { get; }
 		public bool StandaloneProtected { get; }
 		public string Detail { get; }
 		public ReadOnlyCollection<Guid> PreservedOverrideIds { get { return _preservedOverrideIds; } }
@@ -93,7 +98,8 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionRevisionUpdateReviewedIntent
 	{
-		private const string ReviewFingerprintFormat = "nmm-ce.collections.revision-update-review-fingerprint/1";
+		private const string ReviewFingerprintFormatV1 = "nmm-ce.collections.revision-update-review-fingerprint/1";
+		private const string ReviewFingerprintFormatV2 = "nmm-ce.collections.revision-update-review-fingerprint/2";
 		private readonly ReadOnlyCollection<CollectionRevisionUpdateReviewEntry> _members;
 		private readonly ReadOnlyCollection<CollectionRevisionUpdateEffectReview> _effects;
 		private readonly ReadOnlyCollection<Guid> _preservedOverrideIds;
@@ -105,7 +111,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionCurrentStateFingerprint observedStateFingerprint, IEnumerable<CollectionRevisionUpdateReviewEntry> members,
 			IEnumerable<CollectionRevisionUpdateEffectReview> effects, IEnumerable<Guid> preservedOverrideIds,
 			IEnumerable<Guid> unacceptedDriftIds, bool requiresNativeRepreparation, bool preparedNativeOutputChanged,
-			string reviewFingerprint)
+			bool includesArtifactChoices, string reviewFingerprint)
 		{
 			if (associationId == Guid.Empty) throw new ArgumentException("A revision-update review requires a non-empty association identity.", nameof(associationId));
 			if (!Enum.IsDefined(typeof(CollectionAssociationState), associationState) || associationState == CollectionAssociationState.Unknown)
@@ -127,6 +133,22 @@ namespace Nexus.Client.CollectionManagement
 			if (memberList.Any(x => x == null) || memberList.Select(x => x.MemberKey).Distinct().Count() != memberList.Count)
 				throw new ArgumentException("A revision-update review cannot contain null or duplicate member rows.", nameof(members));
 			memberList = memberList.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList();
+			if (includesArtifactChoices)
+			{
+				foreach (CollectionRevisionUpdateReviewEntry member in memberList)
+				{
+					bool requiresOld = member.ChangeKind != CollectionRevisionUpdateChangeKind.Added;
+					bool requiresNew = member.ChangeKind != CollectionRevisionUpdateChangeKind.Removed;
+					if ((requiresOld && member.OldArtifactChoice == null) || (!requiresOld && member.OldArtifactChoice != null) ||
+						(requiresNew && member.NewArtifactChoice == null) || (!requiresNew && member.NewArtifactChoice != null))
+						throw new ArgumentException("Revision-update review artifact choices must exactly cover the old/new member sides frozen by the review.", nameof(members));
+				}
+			}
+			else if (memberList.Any(x => x.OldArtifactChoice != null || x.NewArtifactChoice != null))
+			{
+				throw new ArgumentException("Legacy revision-update review payloads cannot carry artifact choices.", nameof(members));
+			}
+			IncludesArtifactChoices = includesArtifactChoices;
 			_members = new ReadOnlyCollection<CollectionRevisionUpdateReviewEntry>(memberList);
 
 			List<CollectionRevisionUpdateEffectReview> effectList = (effects ?? throw new ArgumentNullException(nameof(effects))).ToList();
@@ -147,7 +169,7 @@ namespace Nexus.Client.CollectionManagement
 			RequiresNativeRepreparation = requiresNativeRepreparation;
 			PreparedNativeOutputChanged = preparedNativeOutputChanged;
 			ReviewFingerprint = CollectionIdentityValidation.RequireOpaqueToken(reviewFingerprint, nameof(reviewFingerprint));
-			string computed = ComputeReviewFingerprint(this);
+			string computed = ComputeReviewFingerprint(this, IncludesArtifactChoices);
 			if (!StringComparer.Ordinal.Equals(computed, ReviewFingerprint))
 				throw new InvalidDataException("The persisted revision-update review fingerprint does not match its immutable contents.");
 		}
@@ -166,6 +188,7 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<Guid> UnacceptedDriftIds { get { return _unacceptedDriftIds; } }
 		public bool RequiresNativeRepreparation { get; }
 		public bool PreparedNativeOutputChanged { get; }
+		internal bool IncludesArtifactChoices { get; }
 		public string ReviewFingerprint { get; }
 		public bool IsApprovable
 		{
@@ -187,8 +210,9 @@ namespace Nexus.Client.CollectionManagement
 
 			var members = plan.Members.Select(x => new CollectionRevisionUpdateReviewEntry(x.MemberKey, x.ChangeKind, x.CurrentStateKind,
 				x.Disposition, x.PreparationKind, x.OldPreparedIdentity == null ? null : x.OldPreparedIdentity.Fingerprint,
-				x.NewPreparedIdentity == null ? null : x.NewPreparedIdentity.Fingerprint, x.StandaloneProtected, x.Detail,
-				x.Overrides.Select(o => o.OverrideId), x.Drift.Select(d => d.ObservationId))).ToList();
+				x.NewPreparedIdentity == null ? null : x.NewPreparedIdentity.Fingerprint,
+				x.OldMember == null ? null : x.OldMember.ArtifactChoice, x.NewMember == null ? null : x.NewMember.ArtifactChoice,
+				x.StandaloneProtected, x.Detail, x.Overrides.Select(o => o.OverrideId), x.Drift.Select(d => d.ObservationId))).ToList();
 			var effects = plan.Effects.Select(x => new CollectionRevisionUpdateEffectReview(x.MemberKey, x.Kind, x.ResourceKey, x.ChangeKind)).ToList();
 			List<Guid> overrides = plan.Members.SelectMany(x => x.Overrides).Concat(plan.UnscopedOverrides).Select(x => x.OverrideId).Distinct().OrderBy(x => x).ToList();
 			List<Guid> drift = plan.Members.SelectMany(x => x.Drift).Concat(plan.UnscopedDrift).Select(x => x.ObservationId).Distinct().OrderBy(x => x).ToList();
@@ -196,18 +220,19 @@ namespace Nexus.Client.CollectionManagement
 			var shell = new CollectionRevisionUpdateReviewedIntentData(plan.Association.AssociationId, plan.Association.State,
 				plan.OldPlan.Revision, plan.NewPlan.Revision, plan.NewPlan.Target, plan.OldPlan.Identity, plan.NewPlan.Identity,
 				plan.ObservedStateFingerprint, members, effects, overrides, drift, plan.RequiresNativeRepreparation, plan.PreparedNativeOutputChanged);
-			string fingerprint = ComputeReviewFingerprint(shell);
+			string fingerprint = ComputeReviewFingerprint(shell, true);
 			return new CollectionRevisionUpdateReviewedIntent(shell.AssociationId, shell.AssociationState, shell.OldRevision,
 				shell.CandidateRevision, shell.Target, shell.OldPlanIdentity, shell.CandidatePlanIdentity, shell.ObservedStateFingerprint,
 				shell.Members, shell.Effects, shell.PreservedOverrideIds, shell.UnacceptedDriftIds,
-				shell.RequiresNativeRepreparation, shell.PreparedNativeOutputChanged, fingerprint);
+				shell.RequiresNativeRepreparation, shell.PreparedNativeOutputChanged, true, fingerprint);
 		}
 
 		/// <summary>Fails closed when a freshly recomputed C10.1 plan no longer equals the exact reviewed intent.</summary>
 		public void ValidateCurrentPlan(CollectionRevisionUpdatePlan currentPlan)
 		{
 			CollectionRevisionUpdateReviewedIntent current = Create(currentPlan ?? throw new ArgumentNullException(nameof(currentPlan)));
-			if (!StringComparer.Ordinal.Equals(ReviewFingerprint, current.ReviewFingerprint))
+			string currentFingerprint = ComputeReviewFingerprint(current, IncludesArtifactChoices);
+			if (!StringComparer.Ordinal.Equals(ReviewFingerprint, currentFingerprint))
 				throw new InvalidOperationException("The revision-update review is stale because the old/current/new inputs or preservation decisions changed.");
 		}
 
@@ -220,20 +245,20 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<Guid>(copied);
 		}
 
-		private static string ComputeReviewFingerprint(CollectionRevisionUpdateReviewedIntent intent)
+		private static string ComputeReviewFingerprint(CollectionRevisionUpdateReviewedIntent intent, bool includeArtifactChoices)
 		{
 			return ComputeReviewFingerprint(new CollectionRevisionUpdateReviewedIntentData(intent.AssociationId, intent.AssociationState,
 				intent.OldRevision, intent.CandidateRevision, intent.Target, intent.OldPlanIdentity, intent.CandidatePlanIdentity,
 				intent.ObservedStateFingerprint, intent.Members, intent.Effects, intent.PreservedOverrideIds, intent.UnacceptedDriftIds,
-				intent.RequiresNativeRepreparation, intent.PreparedNativeOutputChanged));
+				intent.RequiresNativeRepreparation, intent.PreparedNativeOutputChanged), includeArtifactChoices);
 		}
 
-		private static string ComputeReviewFingerprint(CollectionRevisionUpdateReviewedIntentData data)
+		private static string ComputeReviewFingerprint(CollectionRevisionUpdateReviewedIntentData data, bool includeArtifactChoices)
 		{
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
 			{
-				writer.Write(ReviewFingerprintFormat);
+				writer.Write(includeArtifactChoices ? ReviewFingerprintFormatV2 : ReviewFingerprintFormatV1);
 				writer.Write(data.AssociationId.ToString("D"));
 				writer.Write((int)data.AssociationState);
 				WriteRevision(writer, data.OldRevision);
@@ -255,6 +280,11 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write((int)member.PreparationKind);
 					WriteOptional(writer, member.OldPreparedFingerprint);
 					WriteOptional(writer, member.NewPreparedFingerprint);
+					if (includeArtifactChoices)
+					{
+						WriteArtifactChoice(writer, member.OldArtifactChoice);
+						WriteArtifactChoice(writer, member.NewArtifactChoice);
+					}
 					writer.Write(member.StandaloneProtected);
 					writer.Write(member.Detail);
 					WriteGuids(writer, member.PreservedOverrideIds);
@@ -297,6 +327,29 @@ namespace Nexus.Client.CollectionManagement
 		{
 			writer.Write(value != null); if (value != null) writer.Write(value);
 		}
+
+		private static void WriteArtifactChoice(BinaryWriter writer, CollectionResolvedArtifactChoice choice)
+		{
+			writer.Write(choice != null);
+			if (choice == null) return;
+			writer.Write((int)choice.Kind);
+			WriteArtifact(writer, choice.RequestedArtifact);
+			WriteArtifact(writer, choice.SelectedArtifact);
+			WriteOptional(writer, choice.SubstitutionRuleId);
+		}
+
+		private static void WriteArtifact(BinaryWriter writer, CollectionArtifactReference artifact)
+		{
+			writer.Write(artifact.Scheme);
+			writer.Write(artifact.StableId);
+			writer.Write(artifact.ExpectedContentHash != null);
+			if (artifact.ExpectedContentHash != null)
+			{
+				writer.Write((int)artifact.ExpectedContentHash.Algorithm);
+				writer.Write(artifact.ExpectedContentHash.Value);
+			}
+		}
+
 		private static void WriteGuids(BinaryWriter writer, IEnumerable<Guid> values)
 		{
 			List<Guid> list = values.OrderBy(x => x).ToList();
@@ -330,11 +383,14 @@ namespace Nexus.Client.CollectionManagement
 	/// <summary>Versioned persistence codec for the immutable C10.2 review intent.</summary>
 	public static class CollectionRevisionUpdateReviewedIntentCodec
 	{
-		public const string PayloadFormat = "nmm-ce.collections.revision-update-review/1";
+		public const string PayloadFormat = "nmm-ce.collections.revision-update-review/2";
+		internal const string LegacyPayloadFormat = "nmm-ce.collections.revision-update-review/1";
 
 		public static byte[] Serialize(CollectionRevisionUpdateReviewedIntent intent)
 		{
 			if (intent == null) throw new ArgumentNullException(nameof(intent));
+			if (!intent.IncludesArtifactChoices)
+				throw new InvalidOperationException("A legacy revision-update review cannot be reserialized as the version-2 payload contract.");
 			var dto = new IntentDto
 			{
 				AssociationId = intent.AssociationId.ToString("D"), AssociationState = (int)intent.AssociationState,
@@ -352,7 +408,15 @@ namespace Nexus.Client.CollectionManagement
 
 		public static CollectionRevisionUpdateReviewedIntent Deserialize(byte[] payload)
 		{
+			return Deserialize(payload, PayloadFormat);
+		}
+
+		internal static CollectionRevisionUpdateReviewedIntent Deserialize(byte[] payload, string payloadFormat)
+		{
 			if (payload == null) throw new ArgumentNullException(nameof(payload));
+			if (!StringComparer.Ordinal.Equals(payloadFormat, PayloadFormat) && !StringComparer.Ordinal.Equals(payloadFormat, LegacyPayloadFormat))
+				throw new InvalidDataException("The revision-update review payload uses an unsupported version.");
+			bool includesArtifactChoices = StringComparer.Ordinal.Equals(payloadFormat, PayloadFormat);
 			if (payload.Length == 0) throw new ArgumentException("A revision-update review payload cannot be empty.", nameof(payload));
 			try
 			{
@@ -362,14 +426,14 @@ namespace Nexus.Client.CollectionManagement
 				CollectionAssociationState associationState = (CollectionAssociationState)dto.AssociationState;
 				CollectionRevisionIdentity oldRevision = dto.OldRevision.ToRevision();
 				CollectionRevisionIdentity candidateRevision = dto.CandidateRevision.ToRevision();
-				var members = Require(dto.Members, "members").Select(x => x.ToMember()).ToList();
+				var members = Require(dto.Members, "members").Select(x => x.ToMember(includesArtifactChoices)).ToList();
 				var effects = Require(dto.Effects, "effects").Select(x => x.ToEffect()).ToList();
 				return new CollectionRevisionUpdateReviewedIntent(associationId, associationState, oldRevision, candidateRevision,
 					CollectionTargetIdentity.FromFingerprint(dto.Target), dto.OldPlan.ToPlan(), dto.CandidatePlan.ToPlan(),
 					new CollectionCurrentStateFingerprint(dto.StateFormat, dto.StateValue), members, effects,
 					Require(dto.PreservedOverrides, "preserved overrides").Select(x => ParseGuid(x, "override")),
 					Require(dto.UnacceptedDrift, "unaccepted drift").Select(x => ParseGuid(x, "drift")),
-					dto.RequiresNativeRepreparation, dto.PreparedNativeOutputChanged, dto.ReviewFingerprint);
+					dto.RequiresNativeRepreparation, dto.PreparedNativeOutputChanged, includesArtifactChoices, dto.ReviewFingerprint);
 			}
 			catch (InvalidDataException) { throw; }
 			catch (Exception ex) when (ex is ArgumentException || ex is ArgumentOutOfRangeException || ex is FormatException || ex is JsonException || ex is NullReferenceException)
@@ -438,9 +502,34 @@ namespace Nexus.Client.CollectionManagement
 		private sealed class MemberDto
 		{
 			public int KeyKind; public string Key; public int Change; public int Current; public int Disposition; public int Preparation;
-			public string OldPrepared; public string NewPrepared; public bool StandaloneProtected; public string Detail; public List<string> Overrides; public List<string> Drift;
-			public static MemberDto From(CollectionRevisionUpdateReviewEntry value) { return new MemberDto { KeyKind=(int)value.MemberKey.Kind, Key=value.MemberKey.Value, Change=(int)value.ChangeKind, Current=(int)value.CurrentStateKind, Disposition=(int)value.Disposition, Preparation=(int)value.PreparationKind, OldPrepared=value.OldPreparedFingerprint, NewPrepared=value.NewPreparedFingerprint, StandaloneProtected=value.StandaloneProtected, Detail=value.Detail, Overrides=value.PreservedOverrideIds.Select(x=>x.ToString("D")).ToList(), Drift=value.UnacceptedDriftIds.Select(x=>x.ToString("D")).ToList() }; }
-			public CollectionRevisionUpdateReviewEntry ToMember() { return new CollectionRevisionUpdateReviewEntry(ReadMemberKey(KeyKind, Key), (CollectionRevisionUpdateChangeKind)Change, (CollectionRevisionUpdateCurrentStateKind)Current, (CollectionRevisionUpdateDisposition)Disposition, (CollectionRevisionUpdatePreparationKind)Preparation, OldPrepared, NewPrepared, StandaloneProtected, Detail, Require(Overrides,"member overrides").Select(x=>ParseGuid(x,"override")), Require(Drift,"member drift").Select(x=>ParseGuid(x,"drift"))); }
+			public string OldPrepared; public string NewPrepared; public ArtifactChoiceDto OldArtifactChoice; public ArtifactChoiceDto NewArtifactChoice;
+			public bool StandaloneProtected; public string Detail; public List<string> Overrides; public List<string> Drift;
+			public static MemberDto From(CollectionRevisionUpdateReviewEntry value) { return new MemberDto { KeyKind=(int)value.MemberKey.Kind, Key=value.MemberKey.Value, Change=(int)value.ChangeKind, Current=(int)value.CurrentStateKind, Disposition=(int)value.Disposition, Preparation=(int)value.PreparationKind, OldPrepared=value.OldPreparedFingerprint, NewPrepared=value.NewPreparedFingerprint, OldArtifactChoice=ArtifactChoiceDto.From(value.OldArtifactChoice), NewArtifactChoice=ArtifactChoiceDto.From(value.NewArtifactChoice), StandaloneProtected=value.StandaloneProtected, Detail=value.Detail, Overrides=value.PreservedOverrideIds.Select(x=>x.ToString("D")).ToList(), Drift=value.UnacceptedDriftIds.Select(x=>x.ToString("D")).ToList() }; }
+			public CollectionRevisionUpdateReviewEntry ToMember(bool includesArtifactChoices)
+			{
+				if (!includesArtifactChoices && (OldArtifactChoice != null || NewArtifactChoice != null))
+					throw new InvalidDataException("Legacy revision-update review payloads cannot carry artifact choices.");
+				return new CollectionRevisionUpdateReviewEntry(ReadMemberKey(KeyKind, Key), (CollectionRevisionUpdateChangeKind)Change,
+					(CollectionRevisionUpdateCurrentStateKind)Current, (CollectionRevisionUpdateDisposition)Disposition,
+					(CollectionRevisionUpdatePreparationKind)Preparation, OldPrepared, NewPrepared,
+					includesArtifactChoices ? RequireChoice(OldArtifactChoice, Change != (int)CollectionRevisionUpdateChangeKind.Added, "old artifact choice") : null,
+					includesArtifactChoices ? RequireChoice(NewArtifactChoice, Change != (int)CollectionRevisionUpdateChangeKind.Removed, "new artifact choice") : null,
+					StandaloneProtected, Detail, Require(Overrides,"member overrides").Select(x=>ParseGuid(x,"override")),
+					Require(Drift,"member drift").Select(x=>ParseGuid(x,"drift")));
+			}
+			private static CollectionResolvedArtifactChoice RequireChoice(ArtifactChoiceDto value, bool required, string label) { if (!required) { if (value != null) throw new InvalidDataException("The revision-update review contains an unexpected " + label + "."); return null; } if (value == null) throw new InvalidDataException("The revision-update review is missing " + label + "."); return value.ToChoice(); }
+		}
+		private sealed class ArtifactChoiceDto
+		{
+			public int Kind; public ArtifactDto Requested; public ArtifactDto Selected; public string Rule;
+			public static ArtifactChoiceDto From(CollectionResolvedArtifactChoice value) { return value == null ? null : new ArtifactChoiceDto { Kind=(int)value.Kind, Requested=ArtifactDto.From(value.RequestedArtifact), Selected=ArtifactDto.From(value.SelectedArtifact), Rule=value.SubstitutionRuleId }; }
+			public CollectionResolvedArtifactChoice ToChoice() { if (Requested == null || Selected == null) throw new InvalidDataException("The revision-update review is missing artifact identity."); CollectionArtifactReference requested=Requested.ToArtifact(); CollectionArtifactReference selected=Selected.ToArtifact(); CollectionResolvedArtifactChoiceKind kind=(CollectionResolvedArtifactChoiceKind)Kind; if (kind==CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact) { if (!requested.Equals(selected) || Rule != null) throw new InvalidDataException("An exact revision-update artifact choice is inconsistent."); return CollectionResolvedArtifactChoice.Exact(requested); } if (kind==CollectionResolvedArtifactChoiceKind.SupportedSubstitution) return CollectionResolvedArtifactChoice.SupportedSubstitution(requested, selected, Rule); throw new InvalidDataException("Unsupported artifact-choice kind in revision-update review."); }
+		}
+		private sealed class ArtifactDto
+		{
+			public string Scheme; public string StableId; public int? HashAlgorithm; public string HashValue;
+			public static ArtifactDto From(CollectionArtifactReference value) { return value == null ? null : new ArtifactDto { Scheme=value.Scheme, StableId=value.StableId, HashAlgorithm=value.ExpectedContentHash == null ? (int?)null : (int)value.ExpectedContentHash.Algorithm, HashValue=value.ExpectedContentHash == null ? null : value.ExpectedContentHash.Value }; }
+			public CollectionArtifactReference ToArtifact() { CollectionContentHash hash=null; if (HashAlgorithm.HasValue) { if ((CollectionContentHashAlgorithm)HashAlgorithm.Value != CollectionContentHashAlgorithm.Sha256 || String.IsNullOrEmpty(HashValue)) throw new InvalidDataException("Unsupported artifact hash in revision-update review."); hash=CollectionContentHash.FromSha256(HashValue); } else if (HashValue != null) throw new InvalidDataException("Artifact hash value is present without an algorithm."); return new CollectionArtifactReference(Scheme, StableId, hash); }
 		}
 		private sealed class EffectDto
 		{

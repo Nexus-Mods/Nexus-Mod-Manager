@@ -88,7 +88,10 @@ namespace Nexus.Client.CollectionManagement
 		private static CollectionMemberMatchResult MatchMember(CollectionNativeStateIndex nativeState, MatchingContext context,
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive)
 		{
-			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact))
+			string externalMd5;
+			long externalByteLength;
+			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact) ||
+				CollectionExternalArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out externalMd5, out externalByteLength))
 				return MatchBundledMember(nativeState, context, member, verifiedArchive);
 
 			string gameDomain;

@@ -35,8 +35,8 @@ namespace Nexus.Client.CollectionManagement
 	/// Builds the first production <see cref="ResolvedCollectionPlan"/> from a retained revision, effective selection and one C6.1 state snapshot.
 	/// </summary>
 	/// <remarks>
-	/// This bridge is additive-only. It chooses the exact artifact requested by every selected Gate-A member, creates no downloads,
-	/// translates no recipes and performs no native mutation. The exact retained collection.json source is verified before the durable
+	/// This bridge is additive-only. It freezes one concrete artifact choice for every selected member (the requested artifact by default,
+	/// or an explicitly characterized source-policy substitution), creates no downloads, translates no recipes and performs no native mutation. The exact retained collection.json source is verified before the durable
 	/// C6.5 operation is created so missing/corrupt recipe source cannot leave a new preparation journal entry behind.
 	/// </remarks>
 	public sealed class CollectionResolvedPlanBuilder
@@ -66,6 +66,16 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionAdditivePlanBuildResult Build(CollectionEffectiveSelection effectiveSelection,
 			CollectionTargetIdentity target, CollectionNativeStateIndex nativeState)
 		{
+			return Build(effectiveSelection, target, nativeState, null);
+		}
+
+		/// <summary>
+		/// Creates one additive plan while freezing characterized source-policy substitutions produced before review.
+		/// </summary>
+		internal CollectionAdditivePlanBuildResult Build(CollectionEffectiveSelection effectiveSelection,
+			CollectionTargetIdentity target, CollectionNativeStateIndex nativeState,
+			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices)
+		{
 			if (effectiveSelection == null)
 				throw new ArgumentNullException(nameof(effectiveSelection));
 			if (target == null)
@@ -87,7 +97,7 @@ namespace Nexus.Client.CollectionManagement
 			// C6.15.1 is the durable recipe-source authority. Load verifies revision ownership, source provenance and full blob integrity.
 			_revisionSourceStore.LoadManifest(manifest.Revision, manifest.Source);
 
-			List<ResolvedCollectionMemberPlan> members = CreateExactMemberPlans(effectiveSelection);
+			List<ResolvedCollectionMemberPlan> members = CreateMemberPlans(effectiveSelection, artifactChoices);
 
 			CollectionOperation operation = _operationCoordinator.CreateApplyOperation(manifest.Revision.Collection, target);
 			operation = _operationCoordinator.BeginResolving(operation.Identity);
@@ -136,16 +146,34 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionAdditivePlanBuildResult(operation, plan, nativeState);
 		}
 
-		private static List<ResolvedCollectionMemberPlan> CreateExactMemberPlans(CollectionEffectiveSelection effectiveSelection)
+		private static List<ResolvedCollectionMemberPlan> CreateMemberPlans(CollectionEffectiveSelection effectiveSelection,
+			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices)
 		{
 			var members = new List<ResolvedCollectionMemberPlan>();
+			var consumedChoices = new HashSet<CollectionMemberKey>();
 			foreach (NormalizedCollectionMember member in effectiveSelection.Manifest.Members)
 			{
 				if (!member.IsSelected)
 					continue;
 
-				members.Add(new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact)));
+				CollectionResolvedArtifactChoice choice = null;
+				if (artifactChoices != null && member.IdentityResolution.IsResolved &&
+					artifactChoices.TryGetValue(member.IdentityResolution.Key, out choice))
+				{
+					if (choice == null || !member.Artifact.Equals(choice.RequestedArtifact))
+						throw new InvalidOperationException("A resolved source-policy artifact choice no longer matches its normalized requested artifact.");
+					consumedChoices.Add(member.IdentityResolution.Key);
+				}
+				else
+				{
+					choice = CollectionResolvedArtifactChoice.Exact(member.Artifact);
+				}
+
+				members.Add(new ResolvedCollectionMemberPlan(member, choice));
 			}
+
+			if (artifactChoices != null && consumedChoices.Count != artifactChoices.Count)
+				throw new InvalidOperationException("A resolved source-policy artifact choice does not belong to the selected Collection closure.");
 			return members;
 		}
 	}

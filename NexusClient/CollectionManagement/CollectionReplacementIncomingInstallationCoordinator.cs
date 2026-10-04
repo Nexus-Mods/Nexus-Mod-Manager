@@ -287,8 +287,14 @@ namespace Nexus.Client.CollectionManagement
 		private async Task ReconcileReviewedPluginStateAsync(ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan,
 			GameStoragePathSet paths, CancellationToken cancellationToken)
 		{
+			List<CollectionPluginImpact> reviewedEffects = impactPlan.PluginImpacts.Where(x =>
+				x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation || x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder).ToList();
+			if (reviewedEffects.Count == 0) return;
+			if (_services.PluginManager == null)
+				throw new InvalidOperationException("The reviewed replacement requires plugin-state/order reconciliation, but the native plugin manager is unavailable.");
+
 			var requested = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-			foreach (CollectionPluginImpact impact in impactPlan.PluginImpacts.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation))
+			foreach (CollectionPluginImpact impact in reviewedEffects.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation))
 			{
 				string path = impact.Effect.PluginPaths[0];
 				bool active = impact.Effect.Active.Value;
@@ -297,27 +303,27 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("The reviewed replacement contains contradictory final plugin activation requests.");
 				requested[path] = active;
 			}
-			if (requested.Count == 0) return;
-			if (_services.PluginManager == null)
-				throw new InvalidOperationException("The reviewed replacement requires plugin-state reconciliation, but the native plugin manager is unavailable.");
+
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
 			if (!authority.Target.Equals(plan.Target)) throw new InvalidOperationException("The live target changed before C8.6 plugin reconciliation.");
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
 			{
 				_authorityValidator.ValidateAndReload(lease, authority, paths);
 				CollectionNativeStateIndex current = _nativeStateReader.Capture(plan.Target);
-				if (impactPlan.PluginImpacts.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation)
-					.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(current, x.Effect))) return;
-				IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
-				if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
-					throw new InvalidOperationException("The native plugin policy rejected the exact reviewed replacement plugin state.");
+				if (reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(current, x.Effect))) return;
 
-				// Re-read authoritative native state after the plugin service reports success. A successful service call is not by itself
-				// durable verification of the replacement's reviewed final plugin state.
+				if (requested.Count > 0)
+				{
+					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
+					if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
+						throw new InvalidOperationException("The native plugin policy rejected the exact reviewed replacement plugin state.");
+				}
+
+				CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
 				CollectionNativeStateIndex verified = _nativeStateReader.Capture(plan.Target);
-				if (!impactPlan.PluginImpacts.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation)
-					.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x.Effect)))
-					throw new InvalidOperationException("The native plugin service returned success, but authoritative state does not match the exact reviewed replacement plugin state.");
+				if (!reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x.Effect)))
+					throw new InvalidOperationException("The native plugin service returned success, but authoritative state does not match the exact reviewed replacement plugin state/order.");
 			}
 		}
 

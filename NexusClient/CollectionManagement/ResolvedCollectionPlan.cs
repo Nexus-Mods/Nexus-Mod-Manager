@@ -140,6 +140,9 @@ namespace Nexus.Client.CollectionManagement
 				actual.Requirement != expected.Requirement ||
 				actual.InstallationPhase != expected.InstallationPhase ||
 				actual.InstallRootBehavior != expected.InstallRootBehavior ||
+				!Equals(actual.VortexFomodSelection, expected.VortexFomodSelection) ||
+				!Equals(actual.VortexFileList, expected.VortexFileList) ||
+				!Equals(actual.VortexFileOverrides, expected.VortexFileOverrides) ||
 				!Equals(actual.RecipeIdentity, expected.RecipeIdentity) ||
 				!Equals(actual.ArtifactChoice.RequestedArtifact, expected.Artifact))
 				throw new ArgumentException("A resolved member plan does not match the normalized selected member it identifies.", parameterName);

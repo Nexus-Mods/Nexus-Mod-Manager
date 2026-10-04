@@ -73,6 +73,53 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// Verifies Vortex XXH64 uses the zero-seed xxHash64 value serialized as canonical big-endian bytes in base64.
+		/// </summary>
+		[Test]
+		public void Translate_ResolvesCanonicalVortexXxh64Digest()
+		{
+			byte[] bytes = Encoding.ASCII.GetBytes("abc");
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				IMod mod = CreateArchiveMod(tmp, new[] { new ArchiveEntry(@"source\abc.bin", bytes) });
+				var recipe = new ModInstallationReplicatedLayoutRecipe(new[]
+				{
+					new ModInstallationReplicatedFile(@"target\abc.bin",
+						ModInstallationReplicatedContentHashAlgorithm.Xxh64, "RLws9a13CZk=")
+				});
+
+				ModInstallationRecipeInput translated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
+					CreateInput(recipe), mod, recipe);
+
+				InstallModFileOperation operation = (InstallModFileOperation)translated.NativeOperations.Single();
+				Assert.That(operation.SourcePath, Is.EqualTo(@"source\abc.bin"));
+				Assert.That(operation.DestinationPath, Is.EqualTo(@"target\abc.bin"));
+			}
+		}
+
+		/// <summary>
+		/// Verifies the official empty-input XXH64 vector is encoded in the same canonical byte order Vortex stores.
+		/// </summary>
+		[Test]
+		public void Translate_ResolvesOfficialEmptyXxh64Vector()
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				IMod mod = CreateArchiveMod(tmp, new[] { new ArchiveEntry(@"source\empty.bin", new byte[0]) });
+				var recipe = new ModInstallationReplicatedLayoutRecipe(new[]
+				{
+					new ModInstallationReplicatedFile(@"target\empty.bin",
+						ModInstallationReplicatedContentHashAlgorithm.Xxh64, "70bbN1HY6Zk=")
+				});
+
+				ModInstallationRecipeInput translated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
+					CreateInput(recipe), mod, recipe);
+
+				Assert.That(((InstallModFileOperation)translated.NativeOperations.Single()).SourcePath, Is.EqualTo(@"source\empty.bin"));
+			}
+		}
+
+		/// <summary>
 		/// Verifies a requested digest which does not exist in the verified archive fails closed.
 		/// </summary>
 		[Test]
@@ -194,6 +241,15 @@ namespace NexusClientTests
 			Assert.Throws<ArgumentException>(() => new ModInstallationReplicatedFile(@"target\safe.bin", new string('A', 32)));
 			Assert.Throws<ArgumentException>(() => new ModInstallationReplicatedFile(@"target\safe.bin", new string('a', 31)));
 			Assert.Throws<ArgumentException>(() => new ModInstallationReplicatedFile(@"target\safe.bin", new string('z', 32)));
+
+			var xxh64 = new ModInstallationReplicatedFile(@"target\xxh.bin",
+				ModInstallationReplicatedContentHashAlgorithm.Xxh64, "RLws9a13CZk=");
+			Assert.That(xxh64.ContentXxh64, Is.EqualTo("RLws9a13CZk="));
+			Assert.That(xxh64.ContentMd5, Is.Null);
+			Assert.Throws<ArgumentException>(() => new ModInstallationReplicatedFile(@"target\xxh.bin",
+				ModInstallationReplicatedContentHashAlgorithm.Xxh64, "not-base64"));
+			Assert.Throws<ArgumentException>(() => new ModInstallationReplicatedFile(@"target\xxh.bin",
+				ModInstallationReplicatedContentHashAlgorithm.Xxh64, "AAAA"));
 		}
 
 		/// <summary>

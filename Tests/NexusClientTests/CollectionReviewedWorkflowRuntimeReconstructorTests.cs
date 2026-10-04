@@ -58,6 +58,68 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Reconstruct_RoundTripsSourceReplicatedSimpleRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				var mappings = new[]
+				{
+					new ModInstallationSimpleFileMapping("textures\\source.dds", "textures\\first.dds"),
+					new ModInstallationSimpleFileMapping("textures\\source.dds", "textures\\second.dds")
+				};
+				var recipe = new ModInstallationSimpleFileRecipe(mappings, true);
+				ModInstallationRecipeValidation originalValidation = fixture.PreparedRecipe.Validation;
+				var validation = new ModInstallationRecipeValidation(ModInstallationSimpleFileRecipeAdapter.AdapterId,
+					ModInstallationSimpleFileRecipeAdapter.AdapterVersion, originalValidation.InstallContext,
+					originalValidation.ExpectedContent,
+					new[] { new ModInstallationRecipeCapability(ModInstallationSimpleFileRecipeAdapter.CapabilityId,
+						ModInstallationSimpleFileRecipeAdapter.CapabilityVersion) },
+					new[] {
+						new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, "textures\\source.dds"),
+						new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, "textures\\first.dds"),
+						new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, "textures\\second.dds")
+					});
+				var nativeIdentity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, validation.InstallContext, fixture.Member.RecipeIdentity.Fingerprint));
+				ModInstallationRecipeInput translated = new ModInstallationSimpleFileRecipeAdapter().Translate(
+					new ModInstallationRecipeInput(nativeIdentity, validation), recipe);
+				var preview = new CollectionMemberEffectPreview(fixture.Member.MemberKey, fixture.Member.RecipeIdentity,
+					ModInstallMethod.Virtual, ModInstallRoot.Data, new[] {
+						new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\first.dds")),
+						new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\second.dds"))
+					}, new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+					new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				var prepared = new PreparedCollectionNativeRecipe(fixture.Member,
+					PreparedCollectionNativeRecipeIdentity.FromFingerprint("prepared-replicated-runtime"), translated,
+					preview, false, fixture.PreparedRecipe.RetainedArtifactIds);
+
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { prepared });
+				CollectionReviewedWorkflowSnapshot roundTrip = CollectionReviewedWorkflowSnapshotCodec.Deserialize(
+					CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot));
+				Assert.AreEqual(2, roundTrip.PreparedRecipes.Single().SimpleFileMappings.Count);
+				Assert.AreEqual(1, roundTrip.PreparedRecipes.Single().Validation.Paths.Count(x =>
+					x.Kind == ModInstallationRecipePathKind.ArchiveSource));
+
+				var rehydration = new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready,
+					roundTrip, fixture.State, new[] { fixture.Member.MemberKey }, "ready");
+				PreparedCollectionNativeRecipe reconstructed = new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store)
+					.Reconstruct(rehydration).GetPreparedRecipe(fixture.Member.MemberKey);
+				InstallModFileOperation[] operations = reconstructed.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+				Assert.AreEqual(2, operations.Length);
+				Assert.That(operations.Select(x => x.SourcePath), Is.All.EqualTo("textures\\source.dds"));
+				CollectionAssert.AreEquivalent(new[] { "textures\\first.dds", "textures\\second.dds" },
+					operations.Select(x => x.DestinationPath));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void SnapshotCodec_RoundTripsPreservedExistingManagedFileWinner()
 		{
 			string root = CreateTemporaryDirectory();

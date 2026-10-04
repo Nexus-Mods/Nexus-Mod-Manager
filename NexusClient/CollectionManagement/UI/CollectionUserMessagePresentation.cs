@@ -170,6 +170,8 @@ namespace Nexus.Client.CollectionManagement.UI
 					return Message("Collections.Messages.Acquisition.PremiumQueued", "This mod is queued for automatic Nexus download.", String.Empty, String.Empty, technicalDetail);
 				case CollectionMemberAcquisitionDisposition.BundledQueued:
 					return Message("Collections.Messages.Acquisition.BundledQueued", "This bundled mod archive is queued for import.", String.Empty, String.Empty, technicalDetail);
+				case CollectionMemberAcquisitionDisposition.DirectQueued:
+					return Message("Collections.Messages.Acquisition.DirectQueued", "This external mod archive is queued for secure direct download.", String.Empty, String.Empty, technicalDetail);
 				case CollectionMemberAcquisitionDisposition.ManualInputRequired:
 					return Message("Collections.Messages.Acquisition.ManualRequired", "This mod needs a user-authorized download before preparation can continue.",
 						"Collections.Messages.Next.DownloadAndContinue", "Download the missing mod shown below, then choose Check downloads and continue.", technicalDetail);

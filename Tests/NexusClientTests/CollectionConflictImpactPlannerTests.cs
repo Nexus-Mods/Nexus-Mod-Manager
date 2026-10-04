@@ -1001,6 +1001,55 @@ namespace NexusClientTests
 				x.SubjectKey == "constraint:" + source.IdentityResolution.Key));
 		}
 
+		[Test]
+		public void PluginAfterRule_ProducesRelativeOrderImpactWhenBothEndpointsBelongToCollection()
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			Fixture fixture = CreateFixture(target, new[] { a, b }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
+				pluginRelativeOrderRules: new[] { new CollectionPluginRelativeOrderRule("A.esp", "B.esp") });
+			CollectionMemberEffectPreview previewA = CreatePreview(a, null, new[]
+			{
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\A.esp", true)
+			});
+			CollectionMemberEffectPreview previewB = CreatePreview(b, null, new[]
+			{
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\B.esp", true)
+			});
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { previewA, previewB });
+
+			CollectionPluginImpact relative = result.PluginImpacts.Single(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder);
+			CollectionAssert.AreEqual(new[] { @"C:\Game\Data\B.esp", @"C:\Game\Data\A.esp" }, relative.Effect.PluginPaths);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.PluginRuleEndpointUnavailable));
+		}
+
+		[Test]
+		public void PluginAfterRule_ExternalEndpointRemainsBlockedInCharacterizedSubset()
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativePluginState external = new CollectionNativePluginState("External.esp", true, 0, null, String.Empty,
+				PluginParseStatus.Parsed, PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 0,
+				new string[0], new CollectionNativePluginDiagnostic[0]);
+			Fixture fixture = CreateFixture(target, new[] { a }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete, plugins: new[] { external },
+				pluginRelativeOrderRules: new[] { new CollectionPluginRelativeOrderRule("A.esp", "External.esp") });
+			CollectionMemberEffectPreview previewA = CreatePreview(a, null, new[]
+			{
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\A.esp", true)
+			});
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { previewA });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Blocked, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.PluginRuleEndpointUnavailable));
+		}
+
 		private static ModInstallationRecipeInput CreatePreviewRecipeInput(NormalizedCollectionMember member,
 			ModInstallContext context, params ScriptedInstallOperation[] operations)
 		{
@@ -1085,7 +1134,8 @@ namespace NexusClientTests
 			CollectionNativeStateCoverage pluginCoverage, CollectionNativeIniState[] iniStates = null,
 			CollectionNativeGameValueState[] gameValues = null, CollectionNativePluginState[] plugins = null,
 			CollectionDesiredPluginState[] desiredPlugins = null, CollectionConflictConstraint[] conflictConstraints = null,
-			CollectionExternalFilePriorityRule[] externalPriorityRules = null)
+			CollectionExternalFilePriorityRule[] externalPriorityRules = null,
+			CollectionPluginRelativeOrderRule[] pluginRelativeOrderRules = null)
 		{
 			CollectionNativeStateIndex state = new CollectionNativeStateIndex(target,
 				new CollectionNativeRootState[0], mods ?? new CollectionNativeModState[0], files ?? new CollectionNativeFileState[0],
@@ -1096,7 +1146,8 @@ namespace NexusClientTests
 			CollectionRevisionIdentity revision = CreateRevision();
 			NormalizedCollectionManifest manifest = new NormalizedCollectionManifest(revision,
 				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256A), 10, "schema", "normalizer-v3"),
-				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules, desiredPlugins, conflictConstraints, externalPriorityRules);
+				CollectionManifestMemberSetCompleteness.Complete, null, members, null, rules, desiredPlugins, conflictConstraints, externalPriorityRules,
+				pluginRelativeOrderRules);
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, report.Status);
 			ResolvedCollectionPlan plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,

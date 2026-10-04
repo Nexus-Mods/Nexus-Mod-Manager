@@ -40,7 +40,8 @@ namespace Nexus.Client.CollectionManagement
 		CompatibilityConflict = 18,
 		ConflictReferenceEvaluationRequired = 19,
 		ExternalPriorityEndpointPresent = 20,
-		ExternalPriorityReferenceEvaluationRequired = 21
+		ExternalPriorityReferenceEvaluationRequired = 21,
+		PluginRuleEndpointUnavailable = 22
 	}
 
 	/// <summary>One deterministic C6.4 planning issue.</summary>

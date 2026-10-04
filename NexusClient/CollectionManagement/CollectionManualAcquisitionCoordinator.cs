@@ -8,6 +8,27 @@ using Nexus.Client.ModRepositories;
 
 namespace Nexus.Client.CollectionManagement
 {
+	/// <summary>Stable user-facing mediation metadata reloaded from retained Collection source; never part of artifact identity.</summary>
+	public sealed class CollectionManualAcquisitionHint
+	{
+		public CollectionManualAcquisitionHint(Uri browserUri, string instructions)
+		{
+			if (browserUri != null && (!browserUri.IsAbsoluteUri ||
+				(!StringComparer.OrdinalIgnoreCase.Equals(browserUri.Scheme, Uri.UriSchemeHttp) &&
+				 !StringComparer.OrdinalIgnoreCase.Equals(browserUri.Scheme, Uri.UriSchemeHttps))))
+				throw new ArgumentException("A manual acquisition browser page must be absolute HTTP(S).", nameof(browserUri));
+			BrowserUri = browserUri;
+			Instructions = String.IsNullOrWhiteSpace(instructions) ? null : instructions.Trim();
+		}
+		public Uri BrowserUri { get; }
+		public string Instructions { get; }
+	}
+
+	/// <summary>Resolves transient/user-facing acquisition hints from retained source without widening artifact identity.</summary>
+	public interface ICollectionManualAcquisitionHintProvider
+	{
+		CollectionManualAcquisitionHint GetHint(CollectionAcquisitionRequest request);
+	}
 	/// <summary>
 	/// Coordinates free/manual Collection acquisition without automating provider web interactions.
 	/// </summary>
@@ -19,6 +40,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly CollectionAcquisitionRequestCoordinator _requestCoordinator;
 		private readonly CollectionVerifiedArchiveAdopter _archiveAdopter;
+		private readonly ICollectionManualAcquisitionHintProvider _hintProvider;
 
 		/// <summary>
 		/// Creates a manual acquisition coordinator over the existing AddMod request seam and verified archive adopter.
@@ -26,9 +48,19 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionManualAcquisitionCoordinator(
 			CollectionAcquisitionRequestCoordinator requestCoordinator,
 			CollectionVerifiedArchiveAdopter archiveAdopter)
+			: this(requestCoordinator, archiveAdopter, null)
+		{
+		}
+
+		/// <summary>Creates a manual coordinator with retained-source hint reconstruction for characterized external artifacts.</summary>
+		public CollectionManualAcquisitionCoordinator(
+			CollectionAcquisitionRequestCoordinator requestCoordinator,
+			CollectionVerifiedArchiveAdopter archiveAdopter,
+			ICollectionManualAcquisitionHintProvider hintProvider)
 		{
 			_requestCoordinator = requestCoordinator ?? throw new ArgumentNullException(nameof(requestCoordinator));
 			_archiveAdopter = archiveAdopter ?? throw new ArgumentNullException(nameof(archiveAdopter));
+			_hintProvider = hintProvider;
 		}
 
 		/// <summary>
@@ -62,7 +94,19 @@ namespace Nexus.Client.CollectionManagement
 					browserUri);
 			}
 
-			// Non-Nexus manual imports are safe only when the plan itself carries exact cryptographic content identity.
+			string externalMd5;
+			long externalByteLength;
+			if (CollectionExternalArtifactIdentity.TryParse(request.SelectedArtifact, out externalMd5, out externalByteLength))
+			{
+				CollectionManualAcquisitionHint hint = _hintProvider == null ? null : _hintProvider.GetHint(request);
+				CollectionManualAcquisitionActionKind actions = CollectionManualAcquisitionActionKind.LocalFile;
+				if (hint != null && hint.BrowserUri != null)
+					actions |= CollectionManualAcquisitionActionKind.Browser;
+				return new CollectionManualAcquisitionPendingAction(request, actions, hint == null ? null : hint.BrowserUri,
+					hint == null ? null : hint.Instructions);
+			}
+
+			// Other non-Nexus manual imports are safe only when the plan itself carries exact cryptographic content identity.
 			if (request.SelectedArtifact.ExpectedContentHash != null)
 			{
 				return new CollectionManualAcquisitionPendingAction(

@@ -240,6 +240,14 @@ namespace Nexus.Client.PluginManagement
 		bool TrySetPluginOrder(IList<Plugin> p_lstOrderedPlugins, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics);
 
 		/// <summary>
+		/// Applies relative plugin-order constraints while preserving the occupied slots of plugins not named by the constraints.
+		/// </summary>
+		/// <param name="p_lstRelativeOrderConstraints">Each inner list is ordered from earlier to later load position.</param>
+		/// <param name="p_lstBlockingDiagnostics">Validation errors introduced by the requested order, if any.</param>
+		/// <returns><c>true</c> if the constraints are already satisfied or were applied; otherwise, <c>false</c>.</returns>
+		bool TrySetRelativePluginOrder(IList<IList<string>> p_lstRelativeOrderConstraints, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics);
+
+		/// <summary>
 		/// Resolves a plugin order through the current game policy without modifying the plugin registry or load-order log.
 		/// </summary>
 		/// <param name="p_lstOrderedPlugins">The plugin order to policy-correct.</param>

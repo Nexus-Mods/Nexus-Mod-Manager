@@ -318,6 +318,7 @@ namespace Nexus.Client.CollectionManagement
 			{
 				writer.Write("nmm-ce.collections.verify-repair-executable-recipe/1");
 				writer.Write(recipe.ProviderRecipeIdentity.Fingerprint);
+				WriteSourcePolicySubstitution(writer, recipe.Member.ArtifactChoice);
 				writer.Write((int)recipe.InstallContext.Method);
 				writer.Write((int)recipe.InstallContext.InstallRoot);
 				writer.Write(recipe.SkipReadmeFiles);
@@ -385,6 +386,32 @@ namespace Nexus.Client.CollectionManagement
 				writer.Flush();
 				using (SHA256 sha = SHA256.Create())
 					return BitConverter.ToString(sha.ComputeHash(stream.ToArray())).Replace("-", String.Empty).ToLowerInvariant();
+			}
+		}
+
+		private static void WriteSourcePolicySubstitution(BinaryWriter writer, CollectionResolvedArtifactChoice choice)
+		{
+			if (writer == null) throw new ArgumentNullException(nameof(writer));
+			if (choice == null || !choice.IsSubstitution) return;
+
+			// Do not emit anything for exact choices: this intentionally preserves the descriptor hash used by legacy /1 reviews.
+			writer.Write("nmm-ce.collections.verify-repair-source-policy-substitution/1");
+			writer.Write((int)choice.Kind);
+			WriteArtifact(writer, choice.RequestedArtifact);
+			WriteArtifact(writer, choice.SelectedArtifact);
+			writer.Write(choice.SubstitutionRuleId);
+		}
+
+		private static void WriteArtifact(BinaryWriter writer, CollectionArtifactReference artifact)
+		{
+			if (artifact == null) throw new InvalidDataException("A reviewed source-policy substitution is missing artifact identity.");
+			writer.Write(artifact.Scheme);
+			writer.Write(artifact.StableId);
+			writer.Write(artifact.ExpectedContentHash != null);
+			if (artifact.ExpectedContentHash != null)
+			{
+				writer.Write((int)artifact.ExpectedContentHash.Algorithm);
+				writer.Write(artifact.ExpectedContentHash.Value);
 			}
 		}
 	}
