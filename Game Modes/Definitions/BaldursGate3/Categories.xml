@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<categoryManager fileVersion="0.1.0.0">
+  <categoryList>
+    <category path="Unassigned" ID="0">
+      <name>Unassigned</name>
+    </category>
+    <category path="E:\Games\Nexus Mod Manager\BaldursGate3\Mods\Characters" ID="3">
+      <name>Characters</name>
+    </category>
+    <category path="Baldur's Gate 3" ID="1">
+      <name>Baldur's Gate 3</name>
+    </category>
+    <category path="Miscellaneous" ID="2">
+      <name>Miscellaneous</name>
+    </category>
+    <category path="Visuals" ID="4">
+      <name>Visuals</name>
+    </category>
+    <category path="Gameplay" ID="5">
+      <name>Gameplay</name>
+    </category>
+    <category path="User Interface" ID="6">
+      <name>User Interface</name>
+    </category>
+    <category path="Utilities" ID="7">
+      <name>Utilities</name>
+    </category>
+    <category path="Audio" ID="9">
+      <name>Audio</name>
+    </category>
+    <category path="Weapons and Armour" ID="10">
+      <name>Weapons and Armour</name>
+    </category>
+    <category path="Cheats" ID="11">
+      <name>Cheats</name>
+    </category>
+    <category path="Classes" ID="12">
+      <name>Classes</name>
+    </category>
+  </categoryList>
+</categoryManager>

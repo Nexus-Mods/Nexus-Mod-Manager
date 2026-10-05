@@ -105,7 +105,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionMemberInstallRootBehavior installRootBehavior,
 			CollectionVortexFomodSelection vortexFomodSelection,
 			CollectionVortexFileList vortexFileList = null,
-			CollectionVortexFileOverrideList vortexFileOverrides = null)
+			CollectionVortexFileOverrideList vortexFileOverrides = null,
+			CollectionVortexBinaryPatchList vortexBinaryPatches = null)
 		{
 			if (sourceOrdinal < 0)
 				throw new ArgumentOutOfRangeException(nameof(sourceOrdinal), "Source ordinal cannot be negative.");
@@ -132,6 +133,7 @@ namespace Nexus.Client.CollectionManagement
 			VortexFomodSelection = vortexFomodSelection;
 			VortexFileList = vortexFileList;
 			VortexFileOverrides = vortexFileOverrides;
+			VortexBinaryPatches = vortexBinaryPatches;
 		}
 
 		/// <summary>
@@ -193,8 +195,14 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Gets characterized Vortex per-member deployment exclusions, or null when none are declared.</summary>
 		public CollectionVortexFileOverrideList VortexFileOverrides { get; }
 
+		/// <summary>Gets characterized Vortex binary patches keyed by their canonical destination path.</summary>
+		public CollectionVortexBinaryPatchList VortexBinaryPatches { get; }
+
 		/// <summary>Gets whether this member requires Vortex per-path deployment suppression.</summary>
 		public bool HasVortexFileOverrides { get { return VortexFileOverrides != null; } }
+
+		/// <summary>Gets whether this member requires characterized Vortex BSDIFF patch replay.</summary>
+		public bool HasVortexBinaryPatches { get { return VortexBinaryPatches != null; } }
 
 		/// <summary>Gets whether this member requires Vortex list-installer hash-to-destination replay.</summary>
 		public bool HasVortexFileList

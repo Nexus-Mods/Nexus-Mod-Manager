@@ -148,6 +148,22 @@ namespace Nexus.Client.Games.DataDriven
             if (!IsNoMansSkyProfile)
                 return base.SpecialFileInstall(p_modSelectedMod);
 
+            return GetNoMansSkySpecialFileInstallFiles(p_modSelectedMod);
+        }
+
+        /// <summary>
+        /// Returns the exact side-effect-free No Man's Sky special-file selection used by deterministic Collection planning.
+        /// </summary>
+        public override IEnumerable<string> GetDeterministicSpecialFileInstallPlan(IMod p_modSelectedMod)
+        {
+            if (!IsNoMansSkyProfile)
+                return base.GetDeterministicSpecialFileInstallPlan(p_modSelectedMod);
+
+            return GetNoMansSkySpecialFileInstallFiles(p_modSelectedMod);
+        }
+
+        private static IEnumerable<string> GetNoMansSkySpecialFileInstallFiles(IMod p_modSelectedMod)
+        {
             var files = p_modSelectedMod == null
                 ? new List<string>()
                 : p_modSelectedMod.GetFileList();
@@ -247,7 +263,7 @@ namespace Nexus.Client.Games.DataDriven
             GameModeDefinition definition = _pendingDefinition;
             if (definition == null)
                 throw new InvalidOperationException("No data-driven GameMode definition was provided.");
-            return new DataDrivenGameModeDescriptor(EnvironmentInfo, definition);
+            return DataDrivenGameModeFactory.CreateDescriptor(EnvironmentInfo, definition);
         }
 
         private DataDrivenPathContext CreatePathContext()

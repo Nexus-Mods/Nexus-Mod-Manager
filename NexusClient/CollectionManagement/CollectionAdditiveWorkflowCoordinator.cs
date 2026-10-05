@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
+using Nexus.Client.Games;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
@@ -669,7 +670,7 @@ namespace Nexus.Client.CollectionManagement
 			List<PreparedCollectionNativeRecipe> recipes;
 			try
 			{
-				recipes = PrepareNativeRecipes(acquisition, targetPaths, cancellationToken);
+				recipes = PrepareNativeRecipes(acquisition, dependencyPlan, targetPaths, cancellationToken);
 			}
 			catch (NotSupportedException ex)
 			{
@@ -722,49 +723,135 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private List<PreparedCollectionNativeRecipe> PrepareNativeRecipes(CollectionMemberAcquisitionBatch acquisition,
-			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+			CollectionDependencyPhasePlan dependencyPlan, GameStoragePathSet targetPaths, CancellationToken cancellationToken)
 		{
+			if (dependencyPlan == null) throw new ArgumentNullException(nameof(dependencyPlan));
 			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
 			ResolvedCollectionPlan plan = acquisition.PlanBuild.Plan;
 			var retainedArtifactStore = new CollectionsRetainedArtifactStore(new CollectionsStore(targetPaths));
 			CollectionNativeStateIndex state = acquisition.PlanBuild.NativeState;
+			var inputs = new List<NativeRecipePreparationInput>();
+			foreach (CollectionExecutionPhase phase in dependencyPlan.Phases)
+			{
+				foreach (CollectionPlannedPhaseMember planned in phase.Members)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					CollectionMemberMatchResult match = planned.Match;
+					if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
+						continue;
+					if (match.Disposition != CollectionMemberMatchDisposition.ArchiveOnlyReuse &&
+						match.Disposition != CollectionMemberMatchDisposition.ReinstallRequired)
+						throw new InvalidOperationException("A selected Collection member reached installation preparation without an executable member-matching disposition.");
+
+					CollectionMemberAcquisitionState acquisitionState = acquisition.Members.Single(x => x.Match.Member.MemberKey.Equals(match.Member.MemberKey));
+					CollectionVerifiedArchive archive = acquisitionState.VerifiedArchive ?? match.VerifiedArchive;
+					if (archive == null)
+						throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
+					IMod managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken);
+					ModInstallContext installContext = ResolveInstallContext(match);
+					bool contributesMerge = !match.Member.HasVortexFileList && !match.Member.HasVortexFomodSelection &&
+						CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, managedMod);
+					inputs.Add(new NativeRecipePreparationInput(match, archive, managedMod, installContext, contributesMerge));
+				}
+			}
+
+			NativeRecipePreparationInput mergeOwner = inputs.LastOrDefault(x => x.ContributesDeterministicMerge);
+			List<IMod> projectedMergeBaseline = _services.ModManager.ActiveMods.ToList();
+			foreach (NativeRecipePreparationInput input in inputs.Where(x => x.ContributesDeterministicMerge))
+				ProjectActiveMod(projectedMergeBaseline, input.ManagedMod);
+			ValidateProjectedMergeTarget(inputs, projectedMergeBaseline, _services.ModManager.GameMode);
+
 			var recipes = new List<PreparedCollectionNativeRecipe>();
-			foreach (CollectionMemberMatchResult match in acquisition.MatchSet.Members)
+			foreach (NativeRecipePreparationInput input in inputs)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
-					continue;
-				if (match.Disposition != CollectionMemberMatchDisposition.ArchiveOnlyReuse &&
-					match.Disposition != CollectionMemberMatchDisposition.ReinstallRequired)
-					throw new InvalidOperationException("A selected Collection member reached installation preparation without an executable member-matching disposition.");
-
-				CollectionMemberAcquisitionState acquisitionState = acquisition.Members.Single(x => x.Match.Member.MemberKey.Equals(match.Member.MemberKey));
-				CollectionVerifiedArchive archive = acquisitionState.VerifiedArchive ?? match.VerifiedArchive;
-				if (archive == null)
-					throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
-				IMod managedMod = null;
 				try
 				{
-					managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken);
-					ModInstallContext installContext = ResolveInstallContext(match);
+					bool includeMergeOutput = !input.ContributesDeterministicMerge || ReferenceEquals(input, mergeOwner);
+					IList<IMod> activeMods = input.ContributesDeterministicMerge
+						? projectedMergeBaseline
+						: _services.ModManager.ActiveMods.ToList();
 					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
-					recipes.Add(_nativeRecipePreparer.PrepareExact(plan, match.Member, archive, managedMod,
-						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, state, skipReadme,
-						_services.PluginManager, cancellationToken));
+					recipes.Add(_nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,
+						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, input.InstallContext, state, skipReadme,
+						_services.PluginManager, activeMods, includeMergeOutput, cancellationToken));
 				}
 				catch (Exception ex) when (ex is NotSupportedException || ex is InvalidOperationException || ex is InvalidDataException)
 				{
 					string detail = String.Format(CultureInfo.InvariantCulture,
 						"Collection member '{0}' ({1}), artifact {2}, retained archive {3} ({4} bytes), native archive '{5}': {6}",
-						match.Member.DisplayName, match.Member.MemberKey, match.Member.ArtifactChoice.SelectedArtifact,
-						archive.Artifact.ArtifactId, archive.Artifact.ByteLength,
-						CollectionArchiveContentMatcher.GetManagedArchivePath(managedMod) ?? "unresolved", ex.Message);
+						input.Match.Member.DisplayName, input.Match.Member.MemberKey, input.Match.Member.ArtifactChoice.SelectedArtifact,
+						input.Archive.Artifact.ArtifactId, input.Archive.Artifact.ByteLength,
+						CollectionArchiveContentMatcher.GetManagedArchivePath(input.ManagedMod) ?? "unresolved", ex.Message);
 					if (ex is NotSupportedException) throw new NotSupportedException(detail, ex);
 					if (ex is InvalidDataException) throw new InvalidDataException(detail, ex);
 					throw new InvalidOperationException(detail, ex);
 				}
 			}
 			return recipes;
+		}
+
+		private static void ValidateProjectedMergeTarget(IList<NativeRecipePreparationInput> inputs, IList<IMod> projectedActiveMods, IGameMode gameMode)
+		{
+			List<NativeRecipePreparationInput> contributors = inputs.Where(x => x.ContributesDeterministicMerge).ToList();
+			if (contributors.Count <= 1) return;
+			var provider = gameMode as IDeterministicModFileMergePlanProvider;
+			if (provider == null)
+				throw new NotSupportedException("Multi-member merge composition requires the active game mode's deterministic merge planner.");
+
+			ModDeploymentTarget sharedTarget = null;
+			foreach (NativeRecipePreparationInput contributor in contributors)
+			{
+				DeterministicModFileMergePlan mergePlan;
+				try
+				{
+					mergePlan = provider.GetDeterministicModFileMergePlan(projectedActiveMods, contributor.ManagedMod);
+				}
+				catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+				{
+					throw new NotSupportedException("Projected multi-member merge composition could not reproduce the deterministic shared output: " + ex.Message, ex);
+				}
+				if (mergePlan == null)
+					throw new NotSupportedException("A projected merge contributor no longer produces the deterministic shared merge output.");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, contributor.ManagedMod,
+					mergePlan.DestinationPath, contributor.InstallContext.InstallRoot);
+				if (sharedTarget == null) sharedTarget = target;
+				else if (!sharedTarget.Equals(target))
+					throw new NotSupportedException("Projected merge contributors resolve to different native targets; one reviewed aggregate owner cannot represent that merge safely.");
+			}
+		}
+
+		private static void ProjectActiveMod(IList<IMod> activeMods, IMod mod)
+		{
+			if (activeMods == null) throw new ArgumentNullException(nameof(activeMods));
+			if (mod == null) throw new ArgumentNullException(nameof(mod));
+			for (int index = activeMods.Count - 1; index >= 0; index--)
+			{
+				IMod existing = activeMods[index];
+				if (existing != null && (ReferenceEquals(existing, mod) ||
+					StringComparer.OrdinalIgnoreCase.Equals(existing.Filename, mod.Filename)))
+					activeMods.RemoveAt(index);
+			}
+			activeMods.Add(mod);
+		}
+
+		private sealed class NativeRecipePreparationInput
+		{
+			public NativeRecipePreparationInput(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,
+				IMod managedMod, ModInstallContext installContext, bool contributesDeterministicMerge)
+			{
+				Match = match ?? throw new ArgumentNullException(nameof(match));
+				Archive = archive ?? throw new ArgumentNullException(nameof(archive));
+				ManagedMod = managedMod ?? throw new ArgumentNullException(nameof(managedMod));
+				InstallContext = installContext ?? throw new ArgumentNullException(nameof(installContext));
+				ContributesDeterministicMerge = contributesDeterministicMerge;
+			}
+
+			public CollectionMemberMatchResult Match { get; }
+			public CollectionVerifiedArchive Archive { get; }
+			public IMod ManagedMod { get; }
+			public ModInstallContext InstallContext { get; }
+			public bool ContributesDeterministicMerge { get; }
 		}
 
 		private ModInstallContext ResolveInstallContext(CollectionMemberMatchResult match)

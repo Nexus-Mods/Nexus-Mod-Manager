@@ -6,6 +6,7 @@ using System.Linq;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 
@@ -325,8 +326,9 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.Ordinal.Equals(persisted.ProviderRecipeFingerprint, member.RecipeIdentity.Fingerprint))
 					throw new InvalidDataException("A reviewed prepared recipe no longer matches its reconstructed selected member.");
 				if (!StringComparer.Ordinal.Equals(persisted.Validation.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterId) ||
-					persisted.Validation.AdapterVersion != ModInstallationSimpleFileRecipeAdapter.AdapterVersion || persisted.SimpleFileMappings.Count == 0)
-					throw new NotSupportedException("The reviewed native recipe cannot be reproduced by the current characterized simple-file adapter.");
+					persisted.Validation.AdapterVersion != ModInstallationSimpleFileRecipeAdapter.AdapterVersion ||
+					persisted.SimpleFileMappings.Count + persisted.GeneratedFiles.Count == 0)
+					throw new NotSupportedException("The reviewed native recipe cannot be reproduced by the current characterized simple-file/generated-file contract.");
 
 				foreach (string artifactId in persisted.RetainedArtifactIds)
 				{
@@ -338,17 +340,58 @@ namespace Nexus.Client.CollectionManagement
 				var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, persisted.Validation.InstallContext,
 					member.RecipeIdentity.Fingerprint);
 				var input = new ModInstallationRecipeInput(ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint), persisted.Validation);
-				List<ModInstallationSimpleFileMapping> mappings = persisted.SimpleFileMappings.Select(x =>
-					new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)).ToList();
-				bool hasSourceReplication = mappings.GroupBy(x => x.SourcePath, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1);
-				var recipe = new ModInstallationSimpleFileRecipe(mappings, hasSourceReplication);
-				ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(input, recipe);
-				ValidateTranslatedMappings(translated, persisted.SimpleFileMappings);
+				var generatedByDestination = persisted.GeneratedFiles.ToDictionary(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase);
+				var allMappings = new List<ModInstallationSimpleFileMapping>();
+				allMappings.AddRange(persisted.SimpleFileMappings.Select(x => new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)));
+				allMappings.AddRange(persisted.GeneratedFiles.Select(x => new ModInstallationSimpleFileMapping(x.SourcePath, x.DestinationPath)));
+				bool hasSourceReplication = allMappings.GroupBy(x => x.SourcePath, StringComparer.OrdinalIgnoreCase).Any(x => x.Count() > 1);
+				var recipe = new ModInstallationSimpleFileRecipe(allMappings, hasSourceReplication);
+				ModInstallationRecipeInput translatedBase = _simpleFileAdapter.Translate(input, recipe);
+				var nativeOperations = new List<ScriptedInstallOperation>();
+				foreach (ScriptedInstallOperation operation in translatedBase.NativeOperations)
+				{
+					InstallModFileOperation file = operation as InstallModFileOperation;
+					CollectionReviewedGeneratedFileSnapshot generated;
+					if (file != null && generatedByDestination.TryGetValue(file.DestinationPath, out generated))
+						nativeOperations.Add(new GenerateDataFileOperation(generated.DestinationPath, LoadGeneratedBytes(persisted, generated), generated.SourcePath));
+					else
+						nativeOperations.Add(operation);
+				}
+				ModInstallationRecipeInput translated = persisted.GeneratedFiles.Count == 0
+					? translatedBase
+					: translatedBase.WithTransformedNativePlan(nativeOperations);
+				if (persisted.GameSpecificValues.Count > 0)
+				{
+					var withGameValues = new List<ScriptedInstallOperation>(translated.NativeOperations);
+					foreach (CollectionReviewedGameSpecificValueSnapshot gameValue in persisted.GameSpecificValues)
+						withGameValues.Add(new EditGameSpecificValueOperation(gameValue.Key, gameValue.Value, true));
+					translated = translated.WithTransformedNativePlan(withGameValues);
+				}
 				result.Add(new PreparedCollectionNativeRecipe(member,
 					PreparedCollectionNativeRecipeIdentity.FromFingerprint(persisted.PreparedNativeFingerprint), translated,
 					persisted.EffectPreview, persisted.SkipReadmeFiles, persisted.RetainedArtifactIds));
 			}
 			return result;
+		}
+
+		private byte[] LoadGeneratedBytes(CollectionReviewedPreparedRecipeSnapshot recipe, CollectionReviewedGeneratedFileSnapshot generated)
+		{
+			foreach (string artifactId in recipe.RetainedArtifactIds)
+			{
+				CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(artifactId);
+				if (artifact == null || artifact.ByteLength != generated.ByteLength || artifact.ContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256 ||
+					!StringComparer.Ordinal.Equals(artifact.ContentHash.Value, generated.Sha256))
+					continue;
+				if (!_artifactStore.VerifyArtifact(artifactId))
+					throw new InvalidDataException("A retained generated output required by the reviewed recipe failed integrity verification.");
+				using (Stream stream = _artifactStore.OpenRead(artifactId))
+				using (var memory = new MemoryStream())
+				{
+					stream.CopyTo(memory);
+					return memory.ToArray();
+				}
+			}
+			throw new InvalidDataException("The reviewed generated output is no longer retained by exact SHA-256 identity.");
 		}
 
 		private static void ValidateManifestReviewIdentity(NormalizedCollectionManifest manifest,

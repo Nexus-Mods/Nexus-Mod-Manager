@@ -316,7 +316,7 @@ namespace Nexus.Client.CollectionManagement
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
 			{
-				writer.Write("nmm-ce.collections.verify-repair-executable-recipe/1");
+				writer.Write("nmm-ce.collections.verify-repair-executable-recipe/2");
 				writer.Write(recipe.ProviderRecipeIdentity.Fingerprint);
 				WriteSourcePolicySubstitution(writer, recipe.Member.ArtifactChoice);
 				writer.Write((int)recipe.InstallContext.Method);
@@ -346,10 +346,35 @@ namespace Nexus.Client.CollectionManagement
 				foreach (var operation in recipe.RecipeInput.NativeOperations)
 				{
 					InstallModFileOperation file = operation as InstallModFileOperation;
-					if (file == null || file.DeploymentDecision != null)
-						throw new NotSupportedException("Qualified verify/repair restart currently persists only the characterized unresolved exact file-install recipe subset.");
-					writer.Write(file.SourcePath);
-					writer.Write(file.DestinationPath);
+					if (file != null && file.DeploymentDecision == null)
+					{
+						writer.Write("install");
+						writer.Write(file.SourcePath);
+						writer.Write(file.DestinationPath);
+						continue;
+					}
+					GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+					if (generated != null && generated.DeploymentDecision == null && generated.Data != null && !String.IsNullOrWhiteSpace(generated.PreparationSourcePath))
+					{
+						writer.Write("generated");
+						writer.Write(generated.PreparationSourcePath);
+						writer.Write(generated.DestinationPath);
+						using (SHA256 generatedHash = SHA256.Create())
+							writer.Write(BitConverter.ToString(generatedHash.ComputeHash(generated.Data)).Replace("-", String.Empty).ToLowerInvariant());
+						writer.Write(generated.Data.LongLength);
+						continue;
+					}
+					EditGameSpecificValueOperation gameValue = operation as EditGameSpecificValueOperation;
+					if (gameValue != null && gameValue.HasResolvedOverwriteDecision && gameValue.Value != null)
+					{
+						writer.Write("game-value");
+						writer.Write(gameValue.Key);
+						using (SHA256 valueHash = SHA256.Create())
+							writer.Write(BitConverter.ToString(valueHash.ComputeHash(gameValue.Value)).Replace("-", String.Empty).ToLowerInvariant());
+						writer.Write(gameValue.Value.LongLength);
+						continue;
+					}
+					throw new NotSupportedException("Qualified verify/repair restart supports only unresolved exact file-install, retained generated-file, or resolved exact game-specific-value recipe operations.");
 				}
 
 				CollectionMemberEffectPreview preview = recipe.EffectPreview;

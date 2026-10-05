@@ -154,6 +154,7 @@
     <Compile Include="CollectionEffectiveSelectionTests.cs" />
     <Compile Include="CollectionResolvedPlanBuilderTests.cs" />
     <Compile Include="CollectionNativeRecipePreparerTests.cs" />
+    <Compile Include="CollectionToolLaunchPolicyTests.cs" />
     <Compile Include="CollectionNativeStateIndexTests.cs" />
     <Compile Include="CollectionNativeEffectCaptureReaderTests.cs" />
     <Compile Include="CollectionUserMetadataCaptureServiceTests.cs" />
@@ -259,6 +260,7 @@
     <Compile Include="CategoryTreeViewportTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="BasicInstallPlanBuilderTests.cs" />
+    <Compile Include="DataDrivenBaldursGate3GameModeTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
     <Compile Include="BasicInstallPromotedRoutingTests.cs" />
@@ -279,6 +281,7 @@
     <Compile Include="NexusCollectionsClientTests.cs" />
     <Compile Include="NexusCollectionNxmDispatchTests.cs" />
     <Compile Include="NexusCollectionBundleNormalizationTests.cs" />
+    <Compile Include="VortexBinaryPatchTests.cs" />
     <Compile Include="NexusCollectionBundledArtifactMaterializerTests.cs" />
     <Compile Include="NexusCollectionBundleAcquirerTests.cs" />
     <Compile Include="NexusCollectionPreviewControllerTests.cs" />

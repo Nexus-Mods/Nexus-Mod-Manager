@@ -159,6 +159,30 @@ namespace Nexus.Client.CollectionManagement
 		public bool HasRetainedManifest { get { return RetainedManifest != null; } }
 	}
 
+	/// <summary>One safe Collection-defined launcher exposed for the current installed association set.</summary>
+	public sealed class CollectionManagementTool
+	{
+		internal CollectionManagementTool(CollectionTargetAssociation association, string collectionDisplayName,
+			CollectionLaunchTool tool, string executablePath, string workingDirectory, bool canLaunch)
+		{
+			Association = association ?? throw new ArgumentNullException(nameof(association));
+			CollectionDisplayName = String.IsNullOrWhiteSpace(collectionDisplayName) ? association.Revision.Collection.StableId : collectionDisplayName;
+			Tool = tool ?? throw new ArgumentNullException(nameof(tool));
+			ExecutablePath = executablePath ?? throw new ArgumentNullException(nameof(executablePath));
+			WorkingDirectory = workingDirectory ?? throw new ArgumentNullException(nameof(workingDirectory));
+			CanLaunch = canLaunch;
+		}
+
+		public CollectionTargetAssociation Association { get; }
+		public Guid AssociationId { get { return Association.AssociationId; } }
+		public string CollectionDisplayName { get; }
+		public CollectionLaunchTool Tool { get; }
+		public string Name { get { return Tool.Name; } }
+		public string ExecutablePath { get; }
+		public string WorkingDirectory { get; }
+		public bool CanLaunch { get; }
+	}
+
 	/// <summary>One persisted Local Collection capture available to the active target for explicit restore.</summary>
 	public sealed class CollectionManagementLocalCapture
 	{
@@ -291,6 +315,89 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionManagementAssociation>(result
 				.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase)
 				.ThenBy(x => x.RevisionLabel, StringComparer.CurrentCultureIgnoreCase).ToList());
+		}
+
+		/// <summary>Returns safe Collection-defined launchers for Applied/Modified associations on the current target.</summary>
+		/// <remarks>
+		/// The launcher set is derived from retained immutable manifests rather than persisted independently. Missing executables
+		/// remain visible as disabled entries, matching the fact that a Collection may describe a tool supplied outside its own members.
+		/// </remarks>
+		public IReadOnlyList<CollectionManagementTool> GetCollectionTools()
+		{
+			if (!_store.Exists)
+				return new CollectionManagementTool[0];
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			string gameRoot = GetCollectionToolGameRoot();
+			var result = new List<CollectionManagementTool>();
+			foreach (CollectionTargetAssociation association in _associationStore.GetAssociationsForTarget(target)
+				.Where(x => x.State == CollectionAssociationState.Applied || x.State == CollectionAssociationState.Modified))
+			{
+				try
+				{
+					CollectionRevision revision = _catalogStore.GetRevision(association.Revision);
+					if (revision == null)
+						continue;
+					CollectionRevisionSourceRecord source = _revisionSourceStore.GetSource(revision.Identity);
+					if (source == null)
+						continue;
+					byte[] rawManifest = _revisionSourceStore.LoadManifest(revision.Identity, source.ManifestSource);
+					NormalizedCollectionManifest manifest = new NexusCollectionManifestNormalizer().Normalize(rawManifest, revision).Manifest;
+					CollectionDefinition definition = _catalogStore.GetDefinition(association.Revision.Collection);
+					string collectionName = definition == null ? null : definition.DisplayName;
+					foreach (CollectionLaunchTool tool in manifest.LaunchTools)
+					{
+						ProcessStartInfo startInfo = CollectionToolLaunchPolicy.CreateStartInfo(tool, gameRoot);
+						string executable = startInfo.FileName;
+						string workingDirectory = startInfo.WorkingDirectory;
+						bool canLaunch = File.Exists(executable) && Directory.Exists(workingDirectory);
+						result.Add(new CollectionManagementTool(association, collectionName, tool, executable, workingDirectory, canLaunch));
+					}
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceWarning("Could not reconstruct Collection tools for association {0}: {1}", association.AssociationId, ex.Message);
+				}
+			}
+
+			return new ReadOnlyCollection<CollectionManagementTool>(result
+				.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+				.ThenBy(x => x.CollectionDisplayName, StringComparer.CurrentCultureIgnoreCase).ToList());
+		}
+
+		/// <summary>Launches one currently authorized Collection tool after revalidating its durable association and exact retained definition.</summary>
+		public void LaunchCollectionTool(CollectionManagementTool requestedTool)
+		{
+			if (requestedTool == null)
+				throw new ArgumentNullException(nameof(requestedTool));
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			CollectionTargetAssociation association = _associationStore.GetAssociation(requestedTool.AssociationId);
+			if (association == null || !association.Target.Equals(target) ||
+				(association.State != CollectionAssociationState.Applied && association.State != CollectionAssociationState.Modified))
+				throw new InvalidOperationException("The Collection tool is no longer owned by an applied Collection association on this target.");
+
+			CollectionRevision revision = _catalogStore.GetRevision(association.Revision);
+			CollectionRevisionSourceRecord source = revision == null ? null : _revisionSourceStore.GetSource(revision.Identity);
+			if (revision == null || source == null)
+				throw new InvalidOperationException("The exact retained Collection tool definition is no longer available.");
+			byte[] rawManifest = _revisionSourceStore.LoadManifest(revision.Identity, source.ManifestSource);
+			NormalizedCollectionManifest manifest = new NexusCollectionManifestNormalizer().Normalize(rawManifest, revision).Manifest;
+			CollectionLaunchTool currentTool = manifest.LaunchTools.FirstOrDefault(x => x.Equals(requestedTool.Tool));
+			if (currentTool == null)
+				throw new InvalidOperationException("The Collection tool definition changed and must be reviewed again before launch.");
+
+			string gameRoot = GetCollectionToolGameRoot();
+			ProcessStartInfo startInfo = CollectionToolLaunchPolicy.CreateStartInfo(currentTool, gameRoot);
+			string executable = startInfo.FileName;
+			string workingDirectory = startInfo.WorkingDirectory;
+			if (!File.Exists(executable))
+				throw new FileNotFoundException("The Collection tool executable was not found.", executable);
+			if (!Directory.Exists(workingDirectory))
+				throw new DirectoryNotFoundException("The Collection tool working directory was not found: " + workingDirectory);
+
+			if (Process.Start(startInfo) == null)
+				throw new InvalidOperationException("Windows did not create a process for the selected Collection tool.");
 		}
 
 		/// <summary>
@@ -1049,6 +1156,16 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionTargetIdentity ResolveCurrentTarget()
 		{
 			return new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths()).Target;
+		}
+
+		private string GetCollectionToolGameRoot()
+		{
+			string root = _services.ModManager.GameMode.GameModeEnvironmentInfo.ExecutablePath ??
+				_services.ModManager.GameMode.GameModeEnvironmentInfo.SecondaryInstallationPath ??
+				_services.ModManager.GameMode.GameModeEnvironmentInfo.InstallationPath;
+			if (String.IsNullOrWhiteSpace(root) || !Path.IsPathRooted(root))
+				throw new InvalidOperationException("The active game does not expose a canonical game-root path for Collection tools.");
+			return Path.GetFullPath(root);
 		}
 
 		private static NexusCollectionBundleInputKind ToBundleInputKind(CollectionRevisionSourceInputKind inputKind)

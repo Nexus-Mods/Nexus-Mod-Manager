@@ -21,6 +21,7 @@
 	using Nexus.Client.BackgroundTasks;
 	using Nexus.Client.BackgroundTasks.UI;
 	using Nexus.Client.Commands;
+	using Nexus.Client.CollectionManagement;
 	using Nexus.Client.CollectionManagement.UI;
 	using Nexus.Client.DownloadMonitoring.UI;
 	using Nexus.Client.UI.Controls;
@@ -289,6 +290,7 @@
 			_collectionsPreviewControl = new CollectionsPreviewControl();
 			_collectionsPreviewControl.PreviewActivated += CollectionsPreviewControl_PreviewActivated;
 			_collectionsPreviewControl.ManagedModRequested += CollectionsPreviewControl_ManagedModRequested;
+			_collectionsPreviewControl.ManagedAssociationsChanged += CollectionsPreviewControl_ManagedAssociationsChanged;
 			InitializeMainDockingInfrastructure();
 			_modManagerControl.SetTextBoxFocus += MmgModManagerControlSetTextBoxFocus;
 			_modManagerControl.ResetSearchBox += MmgModManagerControlResetSearchBox;
@@ -2813,22 +2815,57 @@
 		protected void BindSupportedToolsCommands()
 		{
 			ClearTransientPopupItems(popupSupportedTools);
-			if (ViewModel.SupportedToolsLauncher == null)
+			if (ViewModel.SupportedToolsLauncher != null)
 			{
-				SetBarItemVisible(spbSupportedTools, false);
-				return;
+				foreach (Command launchCommand in ViewModel.SupportedToolsLauncher.LaunchCommands)
+				{
+					BarButtonItem launchItem = CreateCommandBarButton(launchCommand, NmmIconAction.SupportedTools);
+					launchItem.ItemRightClick += SupportedToolItem_ItemRightClick;
+					popupSupportedTools.AddItem(launchItem);
+				}
 			}
 
-			foreach (Command launchCommand in ViewModel.SupportedToolsLauncher.LaunchCommands)
+			CollectionManagementApplicationService collectionManagement = ViewModel.CollectionManagementWorkflow;
+			if (collectionManagement != null)
 			{
-				BarButtonItem launchItem = CreateCommandBarButton(launchCommand, NmmIconAction.SupportedTools);
-				launchItem.ItemRightClick += SupportedToolItem_ItemRightClick;
-				popupSupportedTools.AddItem(launchItem);
+				try
+				{
+					int toolOrdinal = 0;
+					foreach (CollectionManagementTool tool in collectionManagement.GetCollectionTools())
+					{
+						CollectionManagementTool capturedTool = tool;
+						string label = tool.Name + " [" + tool.CollectionDisplayName + "]";
+						string description = tool.CanLaunch
+							? L("Collections.Tools.LaunchDescription", "Launches the Collection-defined tool using its reviewed game-relative executable and arguments.")
+							: L("Collections.Tools.MissingDescription", "The Collection-defined tool executable or working directory is not currently available.");
+						var command = new Command("CollectionTool#" + tool.AssociationId.ToString("N") + "#" + toolOrdinal++,
+							label, description, null, () => LaunchCollectionTool(capturedTool), tool.CanLaunch);
+						popupSupportedTools.AddItem(CreateCommandBarButton(command, NmmIconAction.SupportedTools));
+					}
+				}
+				catch (Exception ex)
+				{
+					Trace.TraceWarning("Could not bind Collection-defined tools: " + ex.Message);
+				}
 			}
 
 			spbSupportedTools.Caption = L("MainForm.Toolbar.SupportedTools", "Supported Tools");
 			NmmIconProvider.Bind(spbSupportedTools, NmmIconAction.SupportedTools);
 			SetBarItemVisible(spbSupportedTools, popupSupportedTools.ItemLinks.Count > 0);
+		}
+
+		private void LaunchCollectionTool(CollectionManagementTool tool)
+		{
+			try
+			{
+				ViewModel.CollectionManagementWorkflow.LaunchCollectionTool(tool);
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection tool launch failed: " + ex);
+				XtraMessageBox.Show(this, ex.Message, L("Collections.Tools.LaunchFailed", "Collection tool launch failed"),
+					MessageBoxButtons.OK, MessageBoxIcon.Error);
+			}
 		}
 
 		/// <summary>
@@ -2869,6 +2906,7 @@
 		/// <param name="e">The event data.</param>
 		private void spbSupportedTools_ButtonClick(object sender, EventArgs e)
 		{
+			BindSupportedToolsCommands();
 			popupSupportedTools.ShowPopup(Control.MousePosition);
 		}
 
@@ -3319,6 +3357,16 @@
 		{
 			Process.Start(
 				"https://www.youtube.com/channel/UCguaVgGHs4Xeknas--3YUsQ/videos");
+		}
+
+		private void CollectionsPreviewControl_ManagedAssociationsChanged(object sender, EventArgs e)
+		{
+			if (InvokeRequired)
+			{
+				BeginInvoke((Action<object, EventArgs>)CollectionsPreviewControl_ManagedAssociationsChanged, sender, e);
+				return;
+			}
+			BindSupportedToolsCommands();
 		}
 
 		private void CollectionsPreviewControl_ManagedModRequested(object sender, CollectionManagedModRequestEventArgs e)

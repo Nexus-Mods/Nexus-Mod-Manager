@@ -6,6 +6,7 @@ using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using NUnit.Framework;
@@ -50,6 +51,101 @@ namespace NexusClientTests
 				Assert.IsNotNull(operation);
 				Assert.AreEqual("textures\\source.dds", operation.SourcePath);
 				Assert.AreEqual("textures\\installed.dds", operation.DestinationPath);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Reconstruct_RoundTripsRetainedGeneratedFileRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				byte[] generatedBytes = Encoding.UTF8.GetBytes("patched reviewed output");
+				CollectionsRetainedArtifact generatedArtifact;
+				using (var stream = new MemoryStream(generatedBytes, false))
+					generatedArtifact = new CollectionsRetainedArtifactStore(fixture.Store).Publish(stream);
+				InstallModFileOperation sourceOperation = fixture.PreparedRecipe.RecipeInput.NativeOperations.Single() as InstallModFileOperation;
+				Assert.IsNotNull(sourceOperation);
+				ModInstallationRecipeInput generatedInput = fixture.PreparedRecipe.RecipeInput.WithTransformedNativePlan(new ScriptedInstallOperation[]
+				{
+					new GenerateDataFileOperation(sourceOperation.DestinationPath, generatedBytes, sourceOperation.SourcePath)
+				});
+				var prepared = new PreparedCollectionNativeRecipe(fixture.Member,
+					PreparedCollectionNativeRecipeIdentity.FromFingerprint("prepared-generated-runtime"), generatedInput,
+					fixture.PreparedRecipe.EffectPreview, false, fixture.PreparedRecipe.RetainedArtifactIds.Concat(new[] { generatedArtifact.ArtifactId }));
+
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { prepared });
+				CollectionReviewedWorkflowSnapshot roundTrip = CollectionReviewedWorkflowSnapshotCodec.Deserialize(
+					CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot));
+				Assert.AreEqual(0, roundTrip.PreparedRecipes.Single().SimpleFileMappings.Count);
+				Assert.AreEqual(1, roundTrip.PreparedRecipes.Single().GeneratedFiles.Count);
+
+				var rehydration = new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready,
+					roundTrip, fixture.State, new[] { fixture.Member.MemberKey }, "ready");
+				PreparedCollectionNativeRecipe reconstructed = new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store)
+					.Reconstruct(rehydration).GetPreparedRecipe(fixture.Member.MemberKey);
+				GenerateDataFileOperation operation = reconstructed.RecipeInput.NativeOperations.Single() as GenerateDataFileOperation;
+				Assert.IsNotNull(operation);
+				Assert.AreEqual("textures\\source.dds", operation.PreparationSourcePath);
+				Assert.AreEqual("textures\\installed.dds", operation.DestinationPath);
+				CollectionAssert.AreEqual(generatedBytes, operation.Data);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Reconstruct_RoundTripsReviewedGameSpecificValueRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				byte[] first = Encoding.UTF8.GetBytes("<node id=\"ModuleShortDesc\" value=\"first\" />");
+				byte[] second = Encoding.UTF8.GetBytes("<node id=\"ModuleShortDesc\" value=\"second\" />");
+				const string firstKey = "bg3-modsettings-v1|Public|ffffffff-ffff-ffff-ffff-ffffffffffff";
+				const string secondKey = "bg3-modsettings-v1|Public|00000000-0000-0000-0000-000000000001";
+				var operations = fixture.PreparedRecipe.RecipeInput.NativeOperations.Concat(new ScriptedInstallOperation[]
+				{
+					new EditGameSpecificValueOperation(firstKey, first, true),
+					new EditGameSpecificValueOperation(secondKey, second, true)
+				});
+				ModInstallationRecipeInput input = fixture.PreparedRecipe.RecipeInput.WithTransformedNativePlan(operations);
+				CollectionMemberEffectPreview originalPreview = fixture.PreparedRecipe.EffectPreview;
+				var preview = new CollectionMemberEffectPreview(fixture.Member.MemberKey, fixture.Member.RecipeIdentity,
+					originalPreview.InstallMethod, originalPreview.InstallRoot, originalPreview.Files, originalPreview.IniEdits,
+					new[] { new CollectionPlannedGameValueEffect(firstKey, first), new CollectionPlannedGameValueEffect(secondKey, second) },
+					originalPreview.PluginEffects, originalPreview.Issues);
+				var prepared = new PreparedCollectionNativeRecipe(fixture.Member,
+					PreparedCollectionNativeRecipeIdentity.FromFingerprint("prepared-game-value-runtime"), input, preview,
+					false, fixture.PreparedRecipe.RetainedArtifactIds);
+
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { prepared });
+				CollectionReviewedWorkflowSnapshot roundTrip = CollectionReviewedWorkflowSnapshotCodec.Deserialize(
+					CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot));
+				Assert.AreEqual(2, roundTrip.PreparedRecipes.Single().GameSpecificValues.Count);
+				Assert.That(roundTrip.PreparedRecipes.Single().GameSpecificValues.Select(x => x.Key), Is.EqualTo(new[] { firstKey, secondKey }));
+				CollectionAssert.AreEqual(first, roundTrip.PreparedRecipes.Single().GameSpecificValues[0].Value);
+				CollectionAssert.AreEqual(second, roundTrip.PreparedRecipes.Single().GameSpecificValues[1].Value);
+
+				var rehydration = new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready,
+					roundTrip, fixture.State, new[] { fixture.Member.MemberKey }, "ready");
+				PreparedCollectionNativeRecipe reconstructed = new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store)
+					.Reconstruct(rehydration).GetPreparedRecipe(fixture.Member.MemberKey);
+				List<EditGameSpecificValueOperation> reconstructedValues = reconstructed.RecipeInput.NativeOperations.OfType<EditGameSpecificValueOperation>().ToList();
+				Assert.That(reconstructedValues.Select(x => x.Key), Is.EqualTo(new[] { firstKey, secondKey }));
+				Assert.That(reconstructedValues.All(x => x.HasResolvedOverwriteDecision), Is.True);
+				CollectionAssert.AreEqual(first, reconstructedValues[0].Value);
+				CollectionAssert.AreEqual(second, reconstructedValues[1].Value);
 			}
 			finally
 			{

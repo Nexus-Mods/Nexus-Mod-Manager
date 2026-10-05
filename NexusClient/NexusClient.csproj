@@ -90,6 +90,7 @@
     <Compile Include="CollectionManagement\NativeModInstanceIdentity.cs" />
     <Compile Include="CollectionManagement\CollectionRecipeIdentity.cs" />
     <Compile Include="CollectionManagement\CollectionTargetAssociation.cs" />
+    <Compile Include="CollectionManagement\CollectionToolLaunchPolicy.cs" />
     <Compile Include="CollectionManagement\NativeModProvenance.cs" />
     <Compile Include="CollectionManagement\CollectionMemberAcquisitionCoordinator.cs" />
     <Compile Include="CollectionManagement\ICollectionBundledMemberAcquisitionCoordinator.cs" />
@@ -200,6 +201,9 @@
     <Compile Include="CollectionManagement\CollectionMemberEffectPreview.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
+    <Compile Include="CollectionManagement\CollectionVortexBinaryPatch.cs" />
+    <Compile Include="CollectionManagement\VortexBsdiffPatchApplier.cs" />
+    <Compile Include="CollectionManagement\VortexBinaryPatchBundleReader.cs" />
     <Compile Include="CollectionManagement\CollectionConflictImpactPlan.cs" />
     <Compile Include="CollectionManagement\CollectionConflictResolutionDecision.cs" />
     <Compile Include="CollectionManagement\CollectionConflictResolutionCoordinator.cs" />
@@ -1254,6 +1258,9 @@
     <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGamebryoGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGamebryoGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameSpecificValueInstaller.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeFactory.cs" />

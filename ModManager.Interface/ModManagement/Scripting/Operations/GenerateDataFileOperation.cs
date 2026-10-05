@@ -20,6 +20,9 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		/// <remarks>The operation owns a snapshot of the supplied buffer so later script-side mutations cannot alter an already planned operation.</remarks>
 		public byte[] Data { get; private set; }
 
+		/// <summary>Gets the archive source path whose bytes were transformed during deterministic recipe preparation, when applicable.</summary>
+		public string PreparationSourcePath { get; private set; }
+
 		/// <summary>
 		/// Gets the method-neutral deployment decision resolved during planning, when available.
 		/// </summary>
@@ -70,6 +73,13 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 		{
 			DestinationPath = p_strDestinationPath;
 			Data = p_bteData == null ? null : (byte[])p_bteData.Clone();
+		}
+
+		/// <summary>Initializes generated output derived deterministically from one exact archive source path.</summary>
+		public GenerateDataFileOperation(string p_strDestinationPath, byte[] p_bteData, string p_strPreparationSourcePath)
+			: this(p_strDestinationPath, p_bteData)
+		{
+			PreparationSourcePath = p_strPreparationSourcePath;
 		}
 
 		/// <summary>

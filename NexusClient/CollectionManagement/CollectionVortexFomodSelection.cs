@@ -118,8 +118,8 @@ namespace Nexus.Client.CollectionManagement
 			if (steps == null)
 				throw new ArgumentNullException(nameof(steps));
 			List<CollectionVortexFomodStepSelection> copied = steps.ToList();
-			if (copied.Count == 0 || copied.Any(x => x == null))
-				throw new ArgumentException("A characterized Vortex FOMOD selection requires at least one non-null install step.", nameof(steps));
+			if (copied.Any(x => x == null))
+				throw new ArgumentException("Vortex FOMOD selections cannot contain null install steps.", nameof(steps));
 			_steps = new ReadOnlyCollection<CollectionVortexFomodStepSelection>(copied);
 		}
 

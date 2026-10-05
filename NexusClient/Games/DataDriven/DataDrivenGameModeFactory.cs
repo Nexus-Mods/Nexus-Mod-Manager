@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows.Forms;
 using Nexus.Client.Games.Settings;
+using Nexus.Client.Settings;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Localization;
@@ -26,10 +27,12 @@ namespace Nexus.Client.Games.DataDriven
         public bool LegacyFallback => _definition.LegacyFallback;
         public string DefinitionPath => _definition.DefinitionPath;
 
-        private static DataDrivenGameModeDescriptor CreateDescriptor(IEnvironmentInfo environmentInfo, GameModeDefinition definition)
+        internal static DataDrivenGameModeDescriptor CreateDescriptor(IEnvironmentInfo environmentInfo, GameModeDefinition definition)
         {
             if (string.Equals(definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
                 return new DataDrivenGamebryoGameModeDescriptor(environmentInfo, definition);
+            if (string.Equals(definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
+                return new DataDrivenBaldursGate3GameModeDescriptor(environmentInfo, definition);
             if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
                 return new DataDrivenGameModeDescriptor(environmentInfo, definition);
             throw new InvalidOperationException("Unsupported data-driven behavior profile: " + definition.BehaviorProfile);
@@ -98,6 +101,8 @@ namespace Nexus.Client.Games.DataDriven
 
         public string GetInstallationPath(string p_strGameInstallPath)
         {
+            if (string.Equals(_definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
+                return DataDrivenBaldursGate3GameModeDescriptor.ResolveManagedInstallationPath(_environmentInfo, _definition.ModeId);
             return p_strGameInstallPath;
         }
 
@@ -114,6 +119,11 @@ namespace Nexus.Client.Games.DataDriven
             {
                 if (string.Equals(_definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
                     return new DataDrivenGamebryoGameMode(_environmentInfo, p_futFileUtility, _definition);
+                if (string.Equals(_definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
+                {
+                    EnsureLegacyReadOnlySettingsDefaults();
+                    return new DataDrivenBaldursGate3GameMode(_environmentInfo, p_futFileUtility, _definition);
+                }
                 if (string.Equals(_definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
                     return new DataDrivenGameMode(_environmentInfo, p_futFileUtility, _definition);
                 throw new InvalidOperationException("Unsupported data-driven behavior profile: " + _definition.BehaviorProfile);
@@ -125,6 +135,18 @@ namespace Nexus.Client.Games.DataDriven
                 p_imsWarning = CreateBuildFailureMessage(ex);
                 return null;
             }
+        }
+
+        private void EnsureLegacyReadOnlySettingsDefaults()
+        {
+            if (_environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId] == null)
+                _environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId] = new PerGameModeSettings<object>();
+            if (_environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId].ContainsKey("AskAboutReadOnlySettingsFiles"))
+                return;
+
+            _environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId]["AskAboutReadOnlySettingsFiles"] = true;
+            _environmentInfo.Settings.CustomGameModeSettings[_definition.ModeId]["UnReadOnlySettingsFiles"] = true;
+            _environmentInfo.Settings.Save();
         }
 
         private ViewMessage CreateBuildFailureMessage(Exception exception)

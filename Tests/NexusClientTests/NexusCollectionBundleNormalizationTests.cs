@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -64,18 +65,109 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Normalize_NonEmptyToolsRemainFailClosed()
+		public void Normalize_SetupGuidanceIsPreservedWithoutChangingCapability()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
 				"[]",
-				"\"tools\":[{\"name\":\"Example tool\"}]");
+				"\"collectionConfig\":{\"recommendNewProfile\":true,\"referenceTagScheme\":\"v1\"}",
+				"Read this before installing.\nKeep the curator setup notes.",
+				new[] { "1.10.980.0", "1.10.984.0" });
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.Manifest.SetupGuidance.RecommendNewProfile);
+			Assert.AreEqual("Read this before installing.\nKeep the curator setup notes.", result.Manifest.SetupGuidance.InstallInstructions);
+			CollectionAssert.AreEqual(new[] { "1.10.980.0", "1.10.984.0" }, result.Manifest.SetupGuidance.GameVersions);
+			Assert.IsTrue(result.Manifest.SetupGuidance.HasGuidance);
+		}
+
+		[Test]
+		public void Normalize_AbsentSetupGuidanceProducesEmptyGuidance()
+		{
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]"), 1);
+
+			Assert.IsNotNull(result.Manifest.SetupGuidance);
+			Assert.IsFalse(result.Manifest.SetupGuidance.HasGuidance);
+		}
+
+		[Test]
+		public void Normalize_GameRelativeCollectionToolIsPreservedAsExplicitLauncherMetadata()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Example tool\",\"exe\":\"Tools\\\\Runner.exe\",\"args\":[\"--profile\",\"A B\"]," +
+				"\"env\":{\"NMM_TEST\":\"1\"},\"cwd\":\"Tools\",\"shell\":false,\"detach\":false}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.LaunchTools.Count);
+			CollectionLaunchTool tool = result.Manifest.LaunchTools[0];
+			Assert.AreEqual("Example tool", tool.Name);
+			Assert.AreEqual("Tools\\Runner.exe", tool.RelativeExecutablePath);
+			CollectionAssert.AreEqual(new[] { "--profile", "A B" }, tool.Arguments);
+			Assert.AreEqual("Tools", tool.RelativeWorkingDirectory);
+			Assert.AreEqual("1", tool.Environment["NMM_TEST"]);
+		}
+
+		[Test]
+		public void Normalize_CollectionToolShellLifecycleRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Unsafe tool\",\"exe\":\"Tools\\\\Runner.exe\",\"shell\":true}]");
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			CollectionCapabilityIssue issue = result.CapabilityReport.ManifestIssues.Single(x => x.Code == "manifest.tools-unsupported");
-			Assert.AreEqual("$.tools", issue.FieldPath);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-lifecycle-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_AbsoluteCollectionToolExecutableRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Unsafe tool\",\"exe\":\"C:\\\\Tools\\\\Runner.exe\"}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-path-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_ReservedDeviceCollectionToolPathRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Unsafe tool\",\"exe\":\"CON.exe\"}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-path-unsupported"));
+		}
+
+		[Test]
+		public void Normalize_CaseCollidingCollectionToolEnvironmentNamesRemainFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Unsafe tool\",\"exe\":\"Tools\\\\Runner.exe\",\"env\":{\"Path\":\"A\",\"PATH\":\"B\"}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-env-invalid"));
 		}
 
 		[Test]
@@ -176,27 +268,76 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Normalize_PluginGroupAssignmentRemainsFailClosed()
+		public void Normalize_ClosedPluginGroupsTranslateToRelativeOrderRules()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
 				"[]",
-				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late Loaders\"}],\"groups\":[]}");
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late\"},{\"name\":\"B.esm\",\"group\":\"Early\"}]," +
+				"\"groups\":[{\"name\":\"Late\",\"after\":[\"Early\"]},{\"name\":\"Early\",\"after\":[]}]}");
+
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-assignment-unsupported"));
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			CollectionPluginRelativeOrderRule rule = result.Manifest.PluginRelativeOrderRules.Single();
+			Assert.AreEqual("A.esp", rule.PluginName);
+			Assert.AreEqual("B.esm", rule.AfterPluginName);
 		}
 
 		[Test]
-		public void Normalize_NonEmptyPluginGroupsRemainFailClosed()
+		public void Normalize_ClosedPluginGroupChainIncludesTransitiveRelativeOrder()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
 				"[]",
-				"\"pluginRules\":{\"plugins\":[],\"groups\":[{\"name\":\"Late\",\"after\":[\"Default\"]}]}");
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late\"},{\"name\":\"B.esp\",\"group\":\"Middle\"},{\"name\":\"C.esm\",\"group\":\"Early\"}]," +
+				"\"groups\":[{\"name\":\"Late\",\"after\":[\"Middle\"]},{\"name\":\"Middle\",\"after\":[\"Early\"]},{\"name\":\"Early\",\"after\":[]}]}");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(3, result.Manifest.PluginRelativeOrderRules.Count);
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("A.esp", "B.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("B.esp", "C.esm")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("A.esp", "C.esm")));
+		}
+
+		[Test]
+		public void Normalize_PluginGroupAssignmentToExternalGroupRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Masterlist Group\"}],\"groups\":[]}");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-groups-unsupported"));
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-assignment-external"));
+		}
+
+		[Test]
+		public void Normalize_PluginGroupAfterExternalGroupRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late\"}]," +
+				"\"groups\":[{\"name\":\"Late\",\"after\":[\"Default\"]}]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-reference-external"));
+		}
+
+		[Test]
+		public void Normalize_PluginGroupCycleRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late\"},{\"name\":\"B.esp\",\"group\":\"Early\"}]," +
+				"\"groups\":[{\"name\":\"Late\",\"after\":[\"Early\"]},{\"name\":\"Early\",\"after\":[\"Late\"]}]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-cycle"));
 		}
 
 		[Test]
@@ -206,6 +347,19 @@ namespace NexusClientTests
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
 				"[]",
 				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"after\":[\"B.esp\"]},{\"name\":\"B.esp\",\"after\":[\"A.esp\"]}],\"groups\":[]}");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-rule-cycle"));
+		}
+
+		[Test]
+		public void Normalize_PluginGroupAndDirectRuleCycleRemainsFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late\"},{\"name\":\"B.esp\",\"group\":\"Early\",\"after\":[\"A.esp\"]}]," +
+				"\"groups\":[{\"name\":\"Late\",\"after\":[\"Early\"]},{\"name\":\"Early\",\"after\":[]}]}");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
 			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-rule-cycle"));
@@ -643,6 +797,22 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Normalize_EmptyVortexFomodOptionsBecomeTypedSupportedDefaultOnlySelection()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Default only\",\"version\":\"1.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"choices\":{\"type\":\"fomod\",\"options\":[]}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			NormalizedCollectionMember member = result.Manifest.Members.Single();
+			Assert.IsTrue(member.HasVortexFomodSelection);
+			Assert.AreEqual(0, member.VortexFomodSelection.Steps.Count);
+		}
+
+		[Test]
 		public void Normalize_EmptyVortexFomodGroupChoiceArrayIsRetainedAsExplicitNoSelection()
 		{
 			string json = BuildManifest(
@@ -689,11 +859,26 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Normalize_VortexFomodChoicesCombinedWithGameRootModTypeRemainFailClosed()
+		public void Normalize_VortexFomodChoicesCombinedWithDinputGameRootBecomeSupportedComposition()
 		{
 			string json = BuildManifest(
-				"{\"name\":\"Map\",\"version\":\"2.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"{\"name\":\"Injector\",\"version\":\"2.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
 				"\"details\":{\"type\":\"dinput\"},\"choices\":{\"type\":\"fomod\",\"options\":[{\"name\":\"Step\",\"groups\":[{\"name\":\"Group\",\"choices\":[]}]}]}}",
+				"[]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(CollectionMemberInstallRootBehavior.VortexDInputGameRoot, result.Manifest.Members.Single().InstallRootBehavior);
+			Assert.IsTrue(result.Manifest.Members.Single().HasVortexFomodSelection);
+		}
+
+		[Test]
+		public void Normalize_VortexFomodChoicesCombinedWithEnbGameRootRemainFailClosed()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"ENB\",\"version\":\"2.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"details\":{\"type\":\"enb\"},\"choices\":{\"type\":\"fomod\",\"options\":[{\"name\":\"Step\",\"groups\":[{\"name\":\"Group\",\"choices\":[]}]}]}}",
 				"[]");
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
@@ -780,6 +965,66 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Normalize_InternalRequiresModRuleBecomesMemberPrerequisite()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Framework\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}," +
+				"{\"name\":\"Dependent\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21}}",
+				"[{\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"11\",\"fileId\":\"21\"}},\"type\":\"requires\",\"reference\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"10\",\"fileId\":\"20\"}}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.Dependencies.Count);
+			CollectionMemberDependency dependency = result.Manifest.Dependencies.Single();
+			Assert.AreEqual(CollectionMemberDependencyKind.InstallerPrerequisite, dependency.Kind);
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, dependency.PrerequisiteMemberKey);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, dependency.DependentMemberKey);
+		}
+
+		[Test]
+		public void Normalize_InternalRequiresOptionalPrerequisiteUsesExistingSelectionCapabilityCheck()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Optional Framework\",\"version\":\"1\",\"optional\":true,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}," +
+				"{\"name\":\"Dependent\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21}}",
+				"[{\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"11\",\"fileId\":\"21\"}},\"type\":\"requires\",\"reference\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"10\",\"fileId\":\"20\"}}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.ActionRequired, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.prerequisite-unselected" && x.SourceOrdinal == 1));
+		}
+
+		[Test]
+		public void Normalize_RequiresExternalReferenceRemainsUnsupported()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Dependent\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21}}",
+				"[{\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"11\",\"fileId\":\"21\"}},\"type\":\"requires\",\"reference\":{\"logicalFileName\":\"External Framework\",\"versionMatch\":\">=2.0\"}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.requires-rule-reference-external"));
+		}
+
+		[TestCase("recommends")]
+		[TestCase("provides")]
+		public void Normalize_SoftOrProviderModRulesRemainUnsupported(string ruleType)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"A\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}," +
+				"{\"name\":\"B\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21}}",
+				"[{\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"10\",\"fileId\":\"20\"}},\"type\":\"" + ruleType + "\",\"reference\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"skyrim\",\"modId\":\"11\",\"fileId\":\"21\"}}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-type-unsupported"));
+		}
+
+		[Test]
 		public void Normalize_BeforeAfterModRulesBecomeExactFilePriorityEdges()
 		{
 			string json = BuildManifest(
@@ -858,6 +1103,40 @@ namespace NexusClientTests
 			Assert.AreEqual(CollectionVortexVersionMatchResult.Match, range.Evaluate("0.7.8"));
 			Assert.AreEqual(CollectionVortexVersionMatchResult.NoMatch, range.Evaluate("0.7.9"));
 			Assert.AreEqual(CollectionVortexVersionMatchResult.Match, range.Evaluate("0.8.0"));
+		}
+
+		[Test]
+		public void Normalize_ConflictPreferVersionUsesCharacterizedVortexFuzzyVersionSemantics()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"A\",\"version\":\"1.2.0\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\",\"logicalFilename\":\"A\"}}",
+				"[{\"source\":{\"fileMD5\":\"hash-a\",\"logicalFileName\":\"A\",\"versionMatch\":\"*\"},\"type\":\"conflicts\",\"reference\":{\"logicalFileName\":\"Other\",\"versionMatch\":\">=1.2.0+prefer\"}}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			CollectionVortexVersionMatch match = result.Manifest.ConflictConstraints.Single().Reference.VersionMatch;
+			Assert.IsTrue(match.IsPrefer);
+			Assert.IsTrue(match.IsFuzzy);
+			Assert.IsTrue(match.IsRange);
+			Assert.AreEqual(CollectionVortexVersionMatchResult.Match, match.Evaluate("1.2.0"));
+			Assert.AreEqual(CollectionVortexVersionMatchResult.Match, match.Evaluate("1.9.0"));
+			Assert.AreEqual(CollectionVortexVersionMatchResult.NoMatch, match.Evaluate("1.1.9"));
+		}
+
+		[Test]
+		public void CharacterizedVortexPreferExactVersionStripsMarkerForComparisonButRemainsFuzzy()
+		{
+			CollectionVortexVersionMatch match;
+			string failure;
+			Assert.IsTrue(CollectionVortexVersionMatch.TryCreate("1.5.3+prefer", out match, out failure), failure);
+
+			Assert.IsTrue(match.IsPrefer);
+			Assert.IsTrue(match.IsFuzzy);
+			Assert.IsFalse(match.IsRange);
+			Assert.AreEqual("1.5.3+prefer", match.Expression);
+			Assert.AreEqual(CollectionVortexVersionMatchResult.Match, match.Evaluate("1.5.3"));
+			Assert.AreEqual(CollectionVortexVersionMatchResult.NoMatch, match.Evaluate("1.5.4"));
 		}
 
 		[Test]
@@ -955,6 +1234,44 @@ namespace NexusClientTests
 			Assert.AreEqual(result.Manifest.Members.Single().IdentityResolution.Key, rule.MemberKey);
 			Assert.IsTrue(rule.MemberIsLowerPriority);
 			Assert.AreEqual("NAC X Legacy edition", rule.ExternalReference.LogicalFileName);
+		}
+
+		[Test]
+		public void Normalize_ExternalAfterEndpointWithSimpleWildcardFileExpressionIsCharacterized()
+		{
+			string member = "{\"name\":\"FallUI - HUD\",\"version\":\"1.7.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":51813,\"fileId\":257220}}";
+			string rules = "[{\"type\":\"after\",\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"fallout4\",\"modId\":51813,\"fileId\":257220}},\"reference\":{\"fileExpression\":\"HUDFramework*-20309-1-0?\",\"versionMatch\":\"1.0f\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.ExternalFilePriorityRules.Count);
+			Assert.AreEqual("HUDFramework*-20309-1-0?", result.Manifest.ExternalFilePriorityRules.Single().ExternalReference.FileExpression);
+		}
+
+		[Test]
+		public void Normalize_ConflictEndpointWithSimpleWildcardFileExpressionIsCharacterized()
+		{
+			string member = "{\"name\":\"A\",\"version\":\"1.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}";
+			string rules = "[{\"type\":\"conflicts\",\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"fallout4\",\"modId\":10,\"fileId\":20}},\"reference\":{\"fileExpression\":\"Other Mod-?-*\",\"versionMatch\":\"*\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.ConflictConstraints.Count);
+			Assert.AreEqual("Other Mod-?-*", result.Manifest.ConflictConstraints.Single().Reference.FileExpression);
+		}
+
+		[Test]
+		public void Normalize_ExternalWildcardEndpointWithCharacterClassRemainsUnsupported()
+		{
+			string member = "{\"name\":\"FallUI - HUD\",\"version\":\"1.7.1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":51813,\"fileId\":257220}}";
+			string rules = "[{\"type\":\"after\",\"source\":{\"repo\":{\"repository\":\"nexus\",\"gameId\":\"fallout4\",\"modId\":51813,\"fileId\":257220}},\"reference\":{\"fileExpression\":\"HUDFramework[0-9]*\",\"versionMatch\":\"*\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rules), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-reference-unresolved"));
 		}
 
 		[Test]
@@ -1236,14 +1553,24 @@ namespace NexusClientTests
 				declaredMemberCount);
 		}
 
-		private static string BuildManifest(string members, string modRules, string additionalRootFields = null)
+		private static string BuildManifest(string members, string modRules, string additionalRootFields = null,
+			string installInstructions = null, IEnumerable<string> gameVersions = null)
 		{
+			string instructionsJson = installInstructions == null ? String.Empty :
+				",\"installInstructions\":\"" + EscapeJsonString(installInstructions) + "\"";
+			string versionsJson = gameVersions == null ? String.Empty :
+				",\"gameVersions\":[" + String.Join(",", gameVersions.Select(x => "\"" + EscapeJsonString(x) + "\"")) + "]";
 			return "{" +
-				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Example\",\"description\":\"Example collection\",\"domainName\":\"skyrim\"}," +
+				"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Example\",\"description\":\"Example collection\",\"domainName\":\"skyrim\"" + instructionsJson + versionsJson + "}," +
 				"\"mods\":[" + members + "]," +
 				"\"modRules\":" + modRules +
 				(String.IsNullOrEmpty(additionalRootFields) ? String.Empty : "," + additionalRootFields) +
 				"}";
+		}
+
+		private static string EscapeJsonString(string value)
+		{
+			return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n");
 		}
 	}
 }

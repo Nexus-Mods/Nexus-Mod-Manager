@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -76,16 +76,78 @@ namespace Nexus.Client.ModManagement
 	}
 
 	/// <summary>
+	/// Describes one exact generated file produced by a side-effect-free game-specific BasicInstall merge plan.
+	/// </summary>
+	public sealed class BasicInstallGeneratedFile
+	{
+		/// <summary>Creates one immutable generated BasicInstall output.</summary>
+		public BasicInstallGeneratedFile(string sourcePath, string destinationPath, byte[] data)
+		{
+			if (String.IsNullOrWhiteSpace(sourcePath))
+				throw new ArgumentException("Generated BasicInstall output requires source provenance.", nameof(sourcePath));
+			if (String.IsNullOrWhiteSpace(destinationPath))
+				throw new ArgumentException("Generated BasicInstall output requires a destination path.", nameof(destinationPath));
+			if (data == null || data.Length == 0)
+				throw new ArgumentException("Generated BasicInstall output requires non-empty bytes.", nameof(data));
+			SourcePath = sourcePath;
+			DestinationPath = destinationPath;
+			Data = (byte[])data.Clone();
+		}
+
+		public string SourcePath { get; }
+		public string DestinationPath { get; }
+		public byte[] Data { get; }
+	}
+
+	/// <summary>
+	/// Describes one exact game-specific value produced by side-effect-free special-install planning.
+	/// </summary>
+	public sealed class BasicInstallGameSpecificValue
+	{
+		private readonly byte[] m_bteValue;
+
+		/// <summary>Creates one immutable game-specific value effect.</summary>
+		public BasicInstallGameSpecificValue(string key, byte[] value)
+		{
+			if (String.IsNullOrWhiteSpace(key))
+				throw new ArgumentException("Generated BasicInstall game-specific value requires a key.", nameof(key));
+			if (value == null || value.Length == 0)
+				throw new ArgumentException("Generated BasicInstall game-specific value requires non-empty bytes.", nameof(value));
+			Key = key;
+			m_bteValue = (byte[])value.Clone();
+		}
+
+		public string Key { get; }
+		public byte[] Value { get { return (byte[])m_bteValue.Clone(); } }
+	}
+
+	/// <summary>
 	/// Stores the immutable deterministic subset of one native BasicInstall operation.
 	/// </summary>
 	public sealed class BasicInstallPlan
 	{
 		private readonly ReadOnlyCollection<BasicInstallPlanFile> m_rocFiles;
+		private readonly ReadOnlyCollection<BasicInstallGeneratedFile> m_rocGeneratedFiles;
+		private readonly ReadOnlyCollection<BasicInstallGameSpecificValue> m_rocGameSpecificValues;
 
 		/// <summary>
 		/// Initializes a deterministic BasicInstall plan for one exact native install context.
 		/// </summary>
 		public BasicInstallPlan(ModInstallContext installContext, IEnumerable<BasicInstallPlanFile> files)
+			: this(installContext, files, null, null)
+		{
+		}
+
+		/// <summary>Initializes a deterministic BasicInstall plan including exact generated merge outputs.</summary>
+		public BasicInstallPlan(ModInstallContext installContext, IEnumerable<BasicInstallPlanFile> files,
+			IEnumerable<BasicInstallGeneratedFile> generatedFiles)
+			: this(installContext, files, generatedFiles, null)
+		{
+		}
+
+		/// <summary>Initializes a deterministic BasicInstall plan including generated files and game-specific values.</summary>
+		public BasicInstallPlan(ModInstallContext installContext, IEnumerable<BasicInstallPlanFile> files,
+			IEnumerable<BasicInstallGeneratedFile> generatedFiles, IEnumerable<BasicInstallGameSpecificValue> gameSpecificValues)
 		{
 			InstallContext = installContext ?? throw new ArgumentNullException(nameof(installContext));
 			if (files == null)
@@ -99,10 +161,36 @@ namespace Nexus.Client.ModManagement
 				copiedFiles.Add(file);
 			}
 
-			if (copiedFiles.Count == 0)
-				throw new ArgumentException("A deterministic BasicInstall plan requires at least one installable file.", nameof(files));
+			var copiedGenerated = new List<BasicInstallGeneratedFile>();
+			if (generatedFiles != null)
+			{
+				foreach (BasicInstallGeneratedFile file in generatedFiles)
+				{
+					if (file == null)
+						throw new ArgumentException("BasicInstall plans cannot contain null generated files.", nameof(generatedFiles));
+					copiedGenerated.Add(file);
+				}
+			}
+
+			var copiedGameValues = new List<BasicInstallGameSpecificValue>();
+			if (gameSpecificValues != null)
+			{
+				foreach (BasicInstallGameSpecificValue value in gameSpecificValues)
+				{
+					if (value == null)
+						throw new ArgumentException("BasicInstall plans cannot contain null game-specific values.", nameof(gameSpecificValues));
+					copiedGameValues.Add(value);
+				}
+			}
+			if (copiedGameValues.Select(x => x.Key).Distinct(StringComparer.Ordinal).Count() != copiedGameValues.Count)
+				throw new ArgumentException("BasicInstall plans cannot contain duplicate game-specific value keys.", nameof(gameSpecificValues));
+
+			if (copiedFiles.Count == 0 && copiedGenerated.Count == 0)
+				throw new ArgumentException("A deterministic BasicInstall plan requires at least one installable or generated file.", nameof(files));
 
 			m_rocFiles = new ReadOnlyCollection<BasicInstallPlanFile>(copiedFiles);
+			m_rocGeneratedFiles = new ReadOnlyCollection<BasicInstallGeneratedFile>(copiedGenerated);
+			m_rocGameSpecificValues = new ReadOnlyCollection<BasicInstallGameSpecificValue>(copiedGameValues);
 		}
 
 		/// <summary>
@@ -118,13 +206,27 @@ namespace Nexus.Client.ModManagement
 			get { return m_rocFiles; }
 		}
 
+		/// <summary>Gets exact generated game-specific merge outputs produced during planning.</summary>
+		public IReadOnlyList<BasicInstallGeneratedFile> GeneratedFiles
+		{
+			get { return m_rocGeneratedFiles; }
+		}
+
+		/// <summary>Gets exact game-specific values produced by deterministic special-install planning.</summary>
+		public IReadOnlyList<BasicInstallGameSpecificValue> GameSpecificValues
+		{
+			get { return m_rocGameSpecificValues; }
+		}
+
 		/// <summary>
 		/// Converts the bounded BasicInstall mappings into the existing C5 simple exact-file recipe contract.
 		/// </summary>
 		public ModInstallationSimpleFileRecipe CreateSimpleFileRecipe()
 		{
-			return new ModInstallationSimpleFileRecipe(m_rocFiles.Select(file =>
-				new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath)));
+			IEnumerable<ModInstallationSimpleFileMapping> mappings = m_rocFiles.Select(file =>
+				new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath))
+				.Concat(m_rocGeneratedFiles.Select(file => new ModInstallationSimpleFileMapping(file.SourcePath, file.DestinationPath)));
+			return new ModInstallationSimpleFileRecipe(mappings);
 		}
 	}
 
@@ -190,8 +292,8 @@ namespace Nexus.Client.ModManagement
 	/// Expands the characterized, mutation-free subset of native <see cref="BasicInstallTask"/> behavior into exact file mappings.
 	/// </summary>
 	/// <remarks>
-	/// Special-file installers and game-specific mod-file merging intentionally fail closed because their exact mutation
-	/// semantics cannot yet be represented by the C5 typed file-operation contract.
+	/// Special-file installers and game-specific merge behavior remain fail-closed unless the active game mode exposes
+	/// an explicit side-effect-free deterministic planning contract for the exact effect being reviewed.
 	/// </remarks>
 	public sealed class BasicInstallPlanBuilder
 	{
@@ -200,7 +302,7 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme)
 		{
-			return Build(mod, gameMode, installContext, skipReadme, null);
+			return Build(mod, gameMode, installContext, skipReadme, null, null);
 		}
 
 		/// <summary>
@@ -208,6 +310,20 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
 			IEnumerable<KeyValuePair<string, string>> filesToInstall)
+		{
+			return Build(mod, gameMode, installContext, skipReadme, filesToInstall, null);
+		}
+
+		/// <summary>Plans BasicInstall with the exact active-mod baseline required by deterministic game-specific merge providers.</summary>
+		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
+			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods)
+		{
+			return Build(mod, gameMode, installContext, skipReadme, filesToInstall, activeMods, true);
+		}
+
+		/// <summary>Plans BasicInstall while optionally deferring publication of a deterministic merged output to a later reviewed member.</summary>
+		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
+			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput)
 		{
 			if (mod == null)
 				throw new ArgumentNullException(nameof(mod));
@@ -221,21 +337,88 @@ namespace Nexus.Client.ModManagement
 				? new List<string>()
 				: new List<string>(archiveFileList);
 
+			List<KeyValuePair<string, string>> files;
+			var specialGameValues = new List<BasicInstallGameSpecificValue>();
 			if (gameMode.RequiresSpecialFileInstallation && gameMode.IsSpecialFile(archiveFiles))
 			{
-				return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation,
-					"The game requires SpecialFileInstall behavior for this archive; deterministic BasicInstall planning does not execute or guess that transformation.");
+				IEnumerable<string> deterministicSpecialFiles;
+				IDeterministicSpecialFileInstallPlanProvider provider = gameMode as IDeterministicSpecialFileInstallPlanProvider;
+				try
+				{
+					deterministicSpecialFiles = provider == null ? null : provider.GetDeterministicSpecialFileInstallPlan(mod);
+				}
+				catch (InvalidDataException ex)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation, ex.Message);
+				}
+
+				if (deterministicSpecialFiles == null)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation,
+						"The game requires SpecialFileInstall behavior for this archive, but it does not expose a side-effect-free exact file selection for deterministic planning.");
+				}
+
+				files = deterministicSpecialFiles.Select(path => new KeyValuePair<string, string>(path, null)).ToList();
+
+				IDeterministicSpecialFileGameValuePlanProvider gameValueProvider = gameMode as IDeterministicSpecialFileGameValuePlanProvider;
+				if (gameValueProvider != null)
+				{
+					try
+					{
+						IEnumerable<BasicInstallGameSpecificValue> plannedValues = gameValueProvider.GetDeterministicSpecialFileGameValues(mod);
+						if (plannedValues == null)
+							return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation,
+								"The game-specific SpecialFileInstall effects could not be represented deterministically.");
+						specialGameValues.AddRange(plannedValues);
+					}
+					catch (Exception ex) when (ex is ArgumentException || ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+					{
+						return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.SpecialFileInstallation, ex.Message);
+					}
+				}
+			}
+			else
+			{
+				files = filesToInstall == null
+					? archiveFiles.Select(path => new KeyValuePair<string, string>(path, null)).ToList()
+					: new List<KeyValuePair<string, string>>(filesToInstall);
 			}
 
+			var generatedFiles = new List<BasicInstallGeneratedFile>();
+			bool deferredDeterministicMergeOutput = false;
 			if (gameMode.RequiresModFileMerge)
 			{
-				return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
-					"The game requires ModFileMerge behavior; deterministic BasicInstall planning cannot represent that mutation as exact file operations.");
-			}
+				IDeterministicModFileMergePlanProvider mergeProvider = gameMode as IDeterministicModFileMergePlanProvider;
+				if (mergeProvider == null || activeMods == null)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
+						"The game requires ModFileMerge behavior, but the current planning context cannot reproduce it from an exact active-mod baseline.");
+				}
+				if (installContext.InstallRoot != ModInstallRoot.Data)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
+						"The characterized deterministic ModFileMerge path currently requires the normal Data install root.");
+				}
 
-			List<KeyValuePair<string, string>> files = filesToInstall == null
-				? archiveFiles.Select(path => new KeyValuePair<string, string>(path, null)).ToList()
-				: new List<KeyValuePair<string, string>>(filesToInstall);
+				DeterministicModFileMergePlan mergePlan;
+				try
+				{
+					mergePlan = mergeProvider.GetDeterministicModFileMergePlan(activeMods, mod);
+				}
+				catch (Exception ex) when (ex is ArgumentException || ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge, ex.Message);
+				}
+
+				if (mergePlan != null)
+				{
+					files = files.Where(file => !StringComparer.OrdinalIgnoreCase.Equals(file.Key, mergePlan.SourcePath)).ToList();
+					if (includeDeterministicModFileMergeOutput)
+						generatedFiles.Add(new BasicInstallGeneratedFile(mergePlan.SourcePath, mergePlan.DestinationPath, mergePlan.Data));
+					else
+						deferredDeterministicMergeOutput = true;
+				}
+			}
 
 			if (installContext.InstallRoot == ModInstallRoot.GameRoot)
 				files = NormalizeGameRootFileMappings(files);
@@ -286,13 +469,18 @@ namespace Nexus.Client.ModManagement
 					gameInstallPath, virtualStoragePath, target));
 			}
 
-			if (plannedFiles.Count == 0)
+			if (plannedFiles.Count == 0 && generatedFiles.Count == 0)
 			{
+				if (deferredDeterministicMergeOutput)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ModFileMerge,
+						"This projected merge contributor has no independent native file effect; deferring its only merged output would leave no executable registration recipe.");
+				}
 				return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.NoInstallableFiles,
 					"The BasicInstall archive has no files that can be represented as deterministic explicit native file operations.");
 			}
 
-			return BasicInstallPlanResult.Supported(new BasicInstallPlan(installContext, plannedFiles));
+			return BasicInstallPlanResult.Supported(new BasicInstallPlan(installContext, plannedFiles, generatedFiles, specialGameValues));
 		}
 
 		/// <summary>

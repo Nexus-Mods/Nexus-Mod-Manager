@@ -31,7 +31,7 @@ namespace Nexus.Client.Games.DragonAge2
 	/// <summary>
 	/// Provides information required for the program to manage Dragon Age game's plugins and mods.
 	/// </summary>
-    public class DragonAge2GameMode : GameModeBase
+    public class DragonAge2GameMode : GameModeBase, Nexus.Client.Games.IDeterministicModFileMergePlanProvider
 	{
         private DragonAge2GameModeDescriptor m_gmdGameModeInfo = null;
         private DragonAge2Launcher m_glnGameLauncher = null;
@@ -330,6 +330,93 @@ namespace Nexus.Client.Games.DragonAge2
 			if (m_gmdGameModeInfo == null)
 				m_gmdGameModeInfo = new DragonAge2GameModeDescriptor(EnvironmentInfo);
 			return m_gmdGameModeInfo;
+		}
+
+		/// <summary>
+		/// Builds the legacy chargenmorphcfg rebuild output without writing it, using the active native mods plus the current archive.
+		/// </summary>
+		public DeterministicModFileMergePlan GetDeterministicModFileMergePlan(IList<IMod> activeMods, IMod currentMod)
+		{
+			if (activeMods == null)
+				throw new ArgumentNullException(nameof(activeMods));
+			if (currentMod == null)
+				throw new ArgumentNullException(nameof(currentMod));
+
+			List<string> sourcePaths = (currentMod.GetFileList() ?? new List<string>())
+				.Where(path => path.EndsWith(MergedFileName, StringComparison.Ordinal)).ToList();
+			if (sourcePaths.Count == 0)
+				return null;
+			if (sourcePaths.Count != 1)
+				throw new InvalidDataException("The Dragon Age merge contributor contains more than one chargenmorphcfg source and cannot be planned deterministically.");
+			string sourcePath = sourcePaths[0];
+
+			XDocument current = null;
+			XDocument merge = null;
+			bool hasBaseline = false;
+			foreach (IMod activeMod in activeMods)
+			{
+				if (activeMod == null || String.Equals(activeMod.Filename, currentMod.Filename, StringComparison.Ordinal))
+					continue;
+				List<string> activeMergeSources = (activeMod.GetFileList() ?? new List<string>())
+					.Where(path => path.EndsWith(MergedFileName, StringComparison.Ordinal)).ToList();
+				if (activeMergeSources.Count > 1)
+					throw new InvalidDataException("An active Dragon Age merge contributor contains more than one chargenmorphcfg source and cannot be planned deterministically.");
+				foreach (string file in activeMergeSources)
+				{
+					current = ParseMergeDocument(activeMod.GetFile(file));
+					if (merge == null)
+					{
+						merge = current;
+						hasBaseline = true;
+					}
+					else
+					{
+						MergeRootElements(current, merge);
+					}
+				}
+			}
+
+			XDocument incoming = ParseMergeDocument(currentMod.GetFile(sourcePath));
+			merge = incoming;
+			if (hasBaseline && current != null)
+				MergeRootElements(current, merge);
+
+			XDocument result = current ?? merge;
+			if (result == null)
+				throw new InvalidDataException("The Dragon Age chargenmorphcfg merge did not produce an output document.");
+
+			using (var stream = new MemoryStream())
+			{
+				result.Save(stream);
+				return new DeterministicModFileMergePlan(sourcePath, Path.Combine("NMM_chargenmorphcfg", MergedFileName), stream.ToArray());
+			}
+		}
+
+		private static XDocument ParseMergeDocument(byte[] bytes)
+		{
+			if (bytes == null)
+				throw new InvalidDataException("A chargenmorphcfg merge source is missing its bytes.");
+			try
+			{
+				return XDocument.Parse(Encoding.ASCII.GetString(bytes).Replace("???", String.Empty));
+			}
+			catch (XmlException ex)
+			{
+				throw new InvalidDataException("A chargenmorphcfg merge source is not valid XML.", ex);
+			}
+		}
+
+		private static void MergeRootElements(XDocument target, XDocument source)
+		{
+			if (target == null || target.Root == null || source == null || source.Root == null)
+				throw new InvalidDataException("A chargenmorphcfg merge source does not contain a root element.");
+			foreach (XElement element in target.Root.Elements().ToList())
+			{
+				XElement targetElement = target.Root.Element(element.Name.ToString());
+				XElement sourceElement = source.Root.Element(element.Name.ToString());
+				if (targetElement != null && sourceElement != null)
+					MergeElements(targetElement, sourceElement);
+			}
 		}
 
 		/// <summary>

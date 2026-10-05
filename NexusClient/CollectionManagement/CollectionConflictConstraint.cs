@@ -20,7 +20,8 @@ namespace Nexus.Client.CollectionManagement
 	/// </summary>
 	/// <remarks>
 	/// The supported range grammar is intentionally smaller than npm-semver: wildcard, exact numeric/text versions,
-	/// or an OR-list of one numeric comparator per clause (for example <c>&lt;0.7.9 || &gt;0.7.9</c>).
+	/// or an OR-list of one numeric comparator per clause (for example <c>&lt;0.7.9 || &gt;0.7.9</c>). A terminal
+	/// Vortex <c>+prefer</c> marker is retained as fuzzy-reference metadata and removed before version evaluation.
 	/// Unsupported range syntax is rejected during normalization rather than approximated.
 	/// </remarks>
 	public sealed class CollectionVortexVersionMatch : IEquatable<CollectionVortexVersionMatch>
@@ -30,17 +31,22 @@ namespace Nexus.Client.CollectionManagement
 			RegexOptions.CultureInvariant | RegexOptions.Compiled);
 		private readonly ReadOnlyCollection<ComparatorClause> _clauses;
 
-		private CollectionVortexVersionMatch(string expression, bool any, bool range, IEnumerable<ComparatorClause> clauses)
+		private CollectionVortexVersionMatch(string expression, string matchExpression, bool any, bool range, bool prefer, IEnumerable<ComparatorClause> clauses)
 		{
 			Expression = expression;
+			MatchExpression = matchExpression;
 			IsAny = any;
 			IsRange = range;
+			IsPrefer = prefer;
 			_clauses = new ReadOnlyCollection<ComparatorClause>((clauses ?? Enumerable.Empty<ComparatorClause>()).ToList());
 		}
 
 		public string Expression { get; }
+		internal string MatchExpression { get; }
 		public bool IsAny { get; }
 		public bool IsRange { get; }
+		public bool IsPrefer { get; }
+		public bool IsFuzzy { get { return IsAny || IsRange || IsPrefer; } }
 
 		/// <summary>Parses only the Vortex matcher subset that NMM has explicitly characterized.</summary>
 		public static bool TryCreate(string expression, out CollectionVortexVersionMatch match, out string failure)
@@ -54,24 +60,26 @@ namespace Nexus.Client.CollectionManagement
 			}
 			if (StringComparer.Ordinal.Equals(expression, "*"))
 			{
-				match = new CollectionVortexVersionMatch(expression, true, false, null);
+				match = new CollectionVortexVersionMatch(expression, expression, true, false, false, null);
 				return true;
 			}
-			if (expression.IndexOf("+prefer", StringComparison.Ordinal) >= 0)
+			bool prefer = expression.EndsWith("+prefer", StringComparison.Ordinal);
+			string matchExpression = prefer ? expression.Substring(0, expression.Length - "+prefer".Length) : expression;
+			if (String.IsNullOrWhiteSpace(matchExpression) || matchExpression.IndexOf('+') >= 0)
 			{
-				failure = "Vortex +prefer conflict-version semantics are not characterized for NMM Collection compatibility checks.";
+				failure = "Only the characterized terminal Vortex +prefer suffix is supported in conflict versionMatch values.";
 				return false;
 			}
 
-			bool looksLikeRange = expression.IndexOf('<') >= 0 || expression.IndexOf('>') >= 0 ||
-				expression.IndexOf('=') >= 0 || expression.IndexOf("||", StringComparison.Ordinal) >= 0;
+			bool looksLikeRange = matchExpression.IndexOf('<') >= 0 || matchExpression.IndexOf('>') >= 0 ||
+				matchExpression.IndexOf('=') >= 0 || matchExpression.IndexOf("||", StringComparison.Ordinal) >= 0;
 			if (!looksLikeRange)
 			{
-				match = new CollectionVortexVersionMatch(expression, false, false, null);
+				match = new CollectionVortexVersionMatch(expression, matchExpression, false, false, prefer, null);
 				return true;
 			}
 
-			string[] rawClauses = expression.Split(new[] { "||" }, StringSplitOptions.None);
+			string[] rawClauses = matchExpression.Split(new[] { "||" }, StringSplitOptions.None);
 			if (rawClauses.Length == 0)
 			{
 				failure = "The Vortex conflict version range is empty.";
@@ -90,7 +98,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 				clauses.Add(new ComparatorClause(parsed.Groups["op"].Value, version));
 			}
-			match = new CollectionVortexVersionMatch(expression, false, true, clauses);
+			match = new CollectionVortexVersionMatch(expression, matchExpression, false, true, prefer, clauses);
 			return true;
 		}
 
@@ -101,11 +109,11 @@ namespace Nexus.Client.CollectionManagement
 				return CollectionVortexVersionMatchResult.Match; // Vortex skips its version test when the installed version is absent.
 			if (!IsRange)
 			{
-				if (StringComparer.Ordinal.Equals(Expression, candidateVersion))
+				if (StringComparer.Ordinal.Equals(MatchExpression, candidateVersion))
 					return CollectionVortexVersionMatchResult.Match;
 				NumericVersion expected;
 				NumericVersion actual;
-				if (NumericVersion.TryParse(Expression, out expected) && NumericVersion.TryParse(candidateVersion, out actual))
+				if (NumericVersion.TryParse(MatchExpression, out expected) && NumericVersion.TryParse(candidateVersion, out actual))
 					return expected.CompareTo(actual) == 0 ? CollectionVortexVersionMatchResult.Match : CollectionVortexVersionMatchResult.NoMatch;
 				return CollectionVortexVersionMatchResult.NoMatch;
 			}

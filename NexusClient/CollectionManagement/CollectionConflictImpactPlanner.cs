@@ -307,7 +307,7 @@ namespace Nexus.Client.CollectionManagement
 		private static CollectionConflictNativeMatch MatchConflictReference(CollectionConflictReference reference,
 			CollectionNativeModState nativeMod)
 		{
-			bool fuzzy = reference.VersionMatch.IsAny || reference.VersionMatch.IsRange;
+			bool fuzzy = reference.VersionMatch.IsFuzzy;
 			bool hasObservableMarker = false;
 			bool identityUnknown = false;
 
@@ -347,14 +347,21 @@ namespace Nexus.Client.CollectionManagement
 					string candidate = SanitizeVortexFileExpressionCandidate(nativeMod.FileName);
 					if (!StringComparer.Ordinal.Equals(reference.FileExpression, candidate))
 					{
-						// Vortex checks exact equality before minimatch. A retained expression containing literal brackets
-						// may therefore be an exact generated archive name, which is fully observable above. If exact
-						// equality fails, however, '[' / ']' could be a minimatch character class. Do not silently
-						// reinterpret that uncharacterized fallback as a definite non-match.
-						if (ContainsVortexBracketPatternSyntax(reference.FileExpression))
+						bool wildcardMatch;
+						if (TryMatchCharacterizedVortexWildcard(reference.FileExpression, candidate, out wildcardMatch))
+						{
+							if (!wildcardMatch) return CollectionConflictNativeMatch.NoMatch;
+						}
+						else if (ContainsUncharacterizedVortexPatternSyntax(reference.FileExpression))
+						{
+							// Exact equality is authoritative in Vortex. If it failed and the expression uses richer
+							// minimatch syntax than the characterized '*'/'?' subset, NMM cannot prove non-match.
 							identityUnknown = true;
+						}
 						else
+						{
 							return CollectionConflictNativeMatch.NoMatch;
+						}
 					}
 				}
 			}
@@ -383,9 +390,64 @@ namespace Nexus.Client.CollectionManagement
 				: CollectionConflictNativeMatch.NoMatch;
 		}
 
-		private static bool ContainsVortexBracketPatternSyntax(string expression)
+		private static bool TryMatchCharacterizedVortexWildcard(string expression, string candidate, out bool matches)
 		{
-			return !String.IsNullOrEmpty(expression) && (expression.IndexOf('[') >= 0 || expression.IndexOf(']') >= 0);
+			matches = false;
+			if (String.IsNullOrEmpty(expression) || (expression.IndexOf('*') < 0 && expression.IndexOf('?') < 0) ||
+				ContainsUncharacterizedVortexPatternSyntax(expression)) return false;
+
+			// minimatch is case-sensitive by default. Its default dot rule also prevents a leading wildcard
+			// from consuming an initial dot unless the pattern itself starts with one. File expressions are
+			// matched against Vortex's sanitized archive basename, so no path-segment/globstar handling is needed.
+			if (candidate.StartsWith(".", StringComparison.Ordinal) && !expression.StartsWith(".", StringComparison.Ordinal))
+			{
+				matches = false;
+				return true;
+			}
+
+			int patternIndex = 0;
+			int candidateIndex = 0;
+			int starIndex = -1;
+			int starCandidateIndex = -1;
+			while (candidateIndex < candidate.Length)
+			{
+				if (patternIndex < expression.Length &&
+					(expression[patternIndex] == '?' || expression[patternIndex] == candidate[candidateIndex]))
+				{
+					patternIndex++;
+					candidateIndex++;
+				}
+				else if (patternIndex < expression.Length && expression[patternIndex] == '*')
+				{
+					starIndex = patternIndex++;
+					starCandidateIndex = candidateIndex;
+				}
+				else if (starIndex >= 0)
+				{
+					patternIndex = starIndex + 1;
+					candidateIndex = ++starCandidateIndex;
+				}
+				else
+				{
+					matches = false;
+					return true;
+				}
+			}
+			while (patternIndex < expression.Length && expression[patternIndex] == '*') patternIndex++;
+			matches = patternIndex == expression.Length;
+			return true;
+		}
+
+		private static bool ContainsUncharacterizedVortexPatternSyntax(string expression)
+		{
+			if (String.IsNullOrEmpty(expression)) return false;
+			if (expression.IndexOf('/') >= 0 || expression.IndexOf('\\') >= 0 ||
+				expression.IndexOf('[') >= 0 || expression.IndexOf(']') >= 0 ||
+				expression.IndexOf('{') >= 0 || expression.IndexOf('}') >= 0 ||
+				expression.StartsWith("!", StringComparison.Ordinal) || expression.StartsWith("#", StringComparison.Ordinal)) return true;
+			foreach (string extglob in new[] { "*(", "?(", "+(", "@(", "!(" })
+				if (expression.IndexOf(extglob, StringComparison.Ordinal) >= 0) return true;
+			return false;
 		}
 
 		private static string SanitizeVortexFileExpressionCandidate(string fileName)
@@ -688,7 +750,7 @@ namespace Nexus.Client.CollectionManagement
 							: null;
 						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.PluginRuleEndpointUnavailable,
 							CollectionConflictImpactStatus.Blocked, owner, rule.PluginName + "|" + rule.AfterPluginName,
-							"The characterized C11.5 plugin-after subset requires both rule endpoints to be contributed by the effective selected Collection closure."));
+							"The characterized Collection plugin-order subset requires both rule endpoints to be contributed by the effective selected Collection closure."));
 						continue;
 					}
 

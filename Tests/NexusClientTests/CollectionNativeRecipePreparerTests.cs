@@ -554,6 +554,140 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareBasicSimpleExact_DeterministicSpecialFileBehaviorUsesExactNativeFilePlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				bool specialInstallCalled = false;
+				Fixture fixture = CreateFixture(root, "special-deterministic", @"Legacy\old.pak", @"Current\payload.bin");
+				fixture.GameMode = CreateGameMode(true, () => specialInstallCalled = true, false, null,
+					new[] { @"Current\payload.bin" });
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(1));
+				Assert.That(prepared.EffectPreview.Files.Single().Target.RelativePath, Is.EqualTo(@"Target\Current\payload.bin"));
+				Assert.That(specialInstallCalled, Is.False);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareBasicSimpleExact_DeterministicSpecialFileGameValueBecomesReviewedNativeEffect()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "special-game-value", "info.json", @"Mods\payload.pak");
+				byte[] expected = new byte[] { 4, 3, 2, 1 };
+				fixture.GameMode = CreateGameMode(true, null, false, null, new[] { @"Mods\payload.pak" },
+					false, null, false, null, new[] { new BasicInstallGameSpecificValue("bg3|profile|module", expected) });
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				EditGameSpecificValueOperation operation = prepared.RecipeInput.NativeOperations.OfType<EditGameSpecificValueOperation>().Single();
+				Assert.That(operation.Key, Is.EqualTo("bg3|profile|module"));
+				Assert.That(operation.HasResolvedOverwriteDecision, Is.True);
+				CollectionAssert.AreEqual(expected, operation.Value);
+				CollectionPlannedGameValueEffect effect = prepared.EffectPreview.GameValues.Single();
+				Assert.That(effect.Key, Is.EqualTo(operation.Key));
+				CollectionAssert.AreEqual(expected, effect.Value);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_DeterministicModFileMergeBecomesRetainedGeneratedNativeEffect()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "merge-deterministic", "chargenmorphcfg.xml", @"textures\body.dds");
+				byte[] merged = new byte[] { 10, 20, 30, 40, 50 };
+				fixture.GameMode = CreateGameMode(false, null, false, null, null, true,
+					new DeterministicModFileMergePlan("chargenmorphcfg.xml", @"NMM_chargenmorphcfg\chargenmorphcfg.xml", merged));
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager(), new List<IMod>(), CancellationToken.None);
+
+				GenerateDataFileOperation generated = prepared.RecipeInput.NativeOperations.OfType<GenerateDataFileOperation>().Single();
+				Assert.That(generated.PreparationSourcePath, Is.EqualTo("chargenmorphcfg.xml"));
+				Assert.That(generated.DestinationPath, Is.EqualTo(@"NMM_chargenmorphcfg\chargenmorphcfg.xml"));
+				CollectionAssert.AreEqual(merged, generated.Data);
+				Assert.That(prepared.EffectPreview.Files.Any(x => x.Target.RelativePath.EndsWith(@"NMM_chargenmorphcfg\chargenmorphcfg.xml", StringComparison.OrdinalIgnoreCase)), Is.True);
+				Assert.That(prepared.RetainedArtifactIds.Count, Is.GreaterThanOrEqualTo(3));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_DazipStyleMergeRoutesArchiveToSecondaryAndGeneratedOutputToPrimaryRoot()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "merge-secondary-root", "chargenmorphcfg.xml", @"textures\body.dds");
+				const string mergedPath = @"NMM_chargenmorphcfg\chargenmorphcfg.xml";
+				fixture.GameMode = CreateGameMode(false, null, false, null, null, true,
+					new DeterministicModFileMergePlan("chargenmorphcfg.xml", mergedPath, new byte[] { 2, 4, 6, 8 }),
+					true, (mod, path) => !path.EndsWith(mergedPath, StringComparison.OrdinalIgnoreCase));
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager(), new List<IMod>(), CancellationToken.None);
+
+				CollectionPlannedFileEffect archiveEffect = prepared.EffectPreview.Files.Single(x => x.Target.RelativePath.EndsWith(@"textures\body.dds", StringComparison.OrdinalIgnoreCase));
+				CollectionPlannedFileEffect mergeEffect = prepared.EffectPreview.Files.Single(x => x.Target.RelativePath.EndsWith(mergedPath, StringComparison.OrdinalIgnoreCase));
+				Assert.That(archiveEffect.Target.Root, Is.EqualTo(ModDeploymentRoot.Secondary));
+				Assert.That(mergeEffect.Target.Root, Is.EqualTo(ModDeploymentRoot.Data));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_DeferredDeterministicMergeContributorKeepsOnlyIndependentEffects()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "merge-deferred", "chargenmorphcfg.xml", @"textures\body.dds");
+				fixture.GameMode = CreateGameMode(false, null, false, null, null, true,
+					new DeterministicModFileMergePlan("chargenmorphcfg.xml", @"NMM_chargenmorphcfg\chargenmorphcfg.xml", new byte[] { 1, 3, 5, 7 }));
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager(), new List<IMod>(), false, CancellationToken.None);
+
+				Assert.That(prepared.RecipeInput.NativeOperations.OfType<GenerateDataFileOperation>(), Is.Empty);
+				InstallModFileOperation file = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(file.SourcePath, Is.EqualTo(@"textures\body.dds"));
+				Assert.That(prepared.EffectPreview.Files.Any(x => x.Target.RelativePath.EndsWith(@"NMM_chargenmorphcfg\chargenmorphcfg.xml", StringComparison.OrdinalIgnoreCase)), Is.False);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareBasicSimpleExact_DinputAtArchiveRootUsesNativeGameRootPlan()
 		{
 			string root = CreateTemporaryDirectory();
@@ -661,6 +795,48 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareExact_EmptyVortexFomodPresetFreezesDefaultOnlyFiles()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateEmptyPresetFomodFixture(root, "fomod-default-only", false);
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+
+				Assert.That(fixture.Member.HasVortexFomodSelection, Is.True);
+				Assert.That(fixture.Member.VortexFomodSelection.Steps.Count, Is.EqualTo(0));
+				InstallModFileOperation file = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(file.SourcePath, Is.EqualTo(@"required\core.bin"));
+				Assert.That(file.DestinationPath, Is.EqualTo("core.bin"));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_EmptyVortexFomodPresetAgainstSelectableDefinitionFailsClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateEmptyPresetFomodFixture(root, "fomod-empty-stale", true);
+
+				Assert.Throws<InvalidDataException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager()));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareExact_VortexFomodChoiceUsesNativeSelectionAndFreezesExactFilePlan()
 		{
 			string root = CreateTemporaryDirectory();
@@ -680,6 +856,48 @@ namespace NexusClientTests
 				Assert.That(file.DestinationPath, Is.EqualTo(@"textures\map.dds"));
 				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(1));
 				Assert.That(prepared.PreparedNativeIdentity.Fingerprint, Does.StartWith("sha256:"));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFomodDinputFreezesSelectedOutputsIntoNativeGameRootRecipe()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodDinputFixture(root, "fomod-dinput", "dinput8.dll");
+
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+
+				Assert.That(fixture.Member.InstallRootBehavior, Is.EqualTo(CollectionMemberInstallRootBehavior.VortexDInputGameRoot));
+				Assert.That(prepared.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				CollectionAssert.AreEquivalent(new[] { "dinput8.dll", "preset.ini" },
+					prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.DestinationPath).ToArray());
+				Assert.That(prepared.EffectPreview.Files.All(x => x.Target.Root == ModDeploymentRoot.GameRoot), Is.True);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareExact_VortexFomodDinputWithoutRootMarkerRemainsFailClosed()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodDinputFixture(root, "fomod-dinput-nested", @"bin\dinput8.dll");
+
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager()));
 			}
 			finally
 			{
@@ -760,6 +978,27 @@ namespace NexusClientTests
 			return CreateFixtureCore(root, suffix, modType, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.GameRoot), true, archiveFiles);
 		}
 
+		private static Fixture CreateEmptyPresetFomodFixture(string root, string suffix, bool includeSelectableStep)
+		{
+			var scriptType = new XmlScriptType();
+			var script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile(@"required\core.bin", "core.bin", false, 0, false, false));
+			if (includeSelectableStep)
+			{
+				var step = new InstallStep("Optional Step", null, SortOrder.Explicit);
+				var group = new OptionGroup("Optional Group", OptionGroupType.SelectAny, SortOrder.Explicit);
+				group.Options.Add(CreateFomodOption("Optional File", @"optional\extra.bin", "extra.bin"));
+				step.OptionGroups.Add(group);
+				script.InstallSteps.Add(step);
+			}
+
+			string choicesJson = "{\"type\":\"fomod\",\"options\":[]}";
+			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				choicesJson, script, includeSelectableStep
+					? new[] { @"required\core.bin", @"optional\extra.bin" }
+					: new[] { @"required\core.bin" });
+		}
+
 		private static Fixture CreateFomodFixture(string root, string suffix, bool staleActualOptionName)
 		{
 			var scriptType = new XmlScriptType();
@@ -776,6 +1015,25 @@ namespace NexusClientTests
 				"{\"name\":\"Map with All Locations\",\"choices\":[{\"name\":\"4k With All Locations\",\"idx\":0}]}]}]}";
 			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
 				choicesJson, script, @"textures\map-4k.dds", @"textures\map-2k.dds");
+		}
+
+		private static Fixture CreateFomodDinputFixture(string root, string suffix, string dinputDestination)
+		{
+			var scriptType = new XmlScriptType();
+			var script = new XmlScript(scriptType, new Version(5, 0));
+			var step = new InstallStep("Injector Step", null, SortOrder.Explicit);
+			var group = new OptionGroup("Injector Group", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			var option = new Option("Install Injector", String.Empty, null, new StaticOptionTypeResolver(OptionType.Optional));
+			option.Files.Add(new InstallableFile(@"payload\dinput8.dll", dinputDestination, false, 0, false, false));
+			option.Files.Add(new InstallableFile(@"payload\preset.ini", "preset.ini", false, 0, false, false));
+			group.Options.Add(option);
+			step.OptionGroups.Add(group);
+			script.InstallSteps.Add(step);
+
+			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Injector Step\",\"groups\":[" +
+				"{\"name\":\"Injector Group\",\"choices\":[{\"name\":\"Install Injector\",\"idx\":0}]}]}]}";
+			return CreateFixtureCore(root, suffix, "dinput", new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.GameRoot), true,
+				choicesJson, script, @"payload\dinput8.dll", @"payload\preset.ini");
 		}
 
 		private static Fixture CreateFomodPluginFixture(string root, string suffix, bool declarePluginState)
@@ -940,10 +1198,18 @@ namespace NexusClientTests
 				return BitConverter.ToString(md5.ComputeHash(bytes)).Replace("-", String.Empty).ToLowerInvariant();
 		}
 
-		private static IGameMode CreateGameMode(bool specialFile, Action onSpecialInstall, bool supportsGameRootInstall = false,
-			IEnumerable<string> pluginExtensions = null)
+		private interface ITestGameMode : IGameMode, IDeterministicSpecialFileInstallPlanProvider,
+			IDeterministicSpecialFileGameValuePlanProvider, IDeterministicModFileMergePlanProvider
 		{
-			return InterfaceStub<IGameMode>.Create((method, args) =>
+		}
+
+		private static IGameMode CreateGameMode(bool specialFile, Action onSpecialInstall, bool supportsGameRootInstall = false,
+			IEnumerable<string> pluginExtensions = null, IEnumerable<string> deterministicSpecialFiles = null,
+			bool requiresMerge = false, DeterministicModFileMergePlan deterministicMergePlan = null,
+			bool hasSecondaryInstallPath = false, Func<IMod, string, bool> checkSecondaryInstall = null,
+			IEnumerable<BasicInstallGameSpecificValue> deterministicSpecialGameValues = null)
+		{
+			return InterfaceStub<ITestGameMode>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
@@ -958,8 +1224,13 @@ namespace NexusClientTests
 					case "SpecialFileInstall":
 						onSpecialInstall?.Invoke();
 						return new[] { "transformed.bin" };
-					case "get_RequiresModFileMerge": return false;
-					case "get_HasSecondaryInstallPath": return false;
+					case "GetDeterministicSpecialFileInstallPlan": return deterministicSpecialFiles;
+					case "GetDeterministicSpecialFileGameValues": return deterministicSpecialGameValues ?? new BasicInstallGameSpecificValue[0];
+					case "IsDeterministicSpecialFileGameValueKey": return args[0] is string;
+					case "get_RequiresModFileMerge": return requiresMerge;
+					case "GetDeterministicModFileMergePlan": return deterministicMergePlan;
+					case "get_HasSecondaryInstallPath": return hasSecondaryInstallPath;
+					case "CheckSecondaryInstall": return checkSecondaryInstall != null && checkSecondaryInstall((IMod)args[0], (string)args[1]);
 					case "GetModFormatAdjustedPath": return pluginExtensions != null ? (string)args[1] : AdjustPath(args);
 					default: return null;
 				}

@@ -72,7 +72,7 @@ namespace Nexus.Client.CollectionManagement
 			bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
 			return _nativeRecipePreparer.PrepareExact(updatePlan.NewPlan, updateMember.NewMember, verifiedArchive, managedMod,
 				_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, currentState, skipReadme,
-				_services.PluginManager, cancellationToken);
+				_services.PluginManager, _services.ModManager.ActiveMods.ToList(), cancellationToken);
 		}
 
 		private ModInstallContext ResolveInstallContext(CollectionRevisionUpdateMemberPlan updateMember,

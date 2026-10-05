@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
@@ -105,9 +106,9 @@ namespace Nexus.Client.CollectionManagement
 
 			try
 			{
+				var preparationInputs = new List<VerifyRepairPreparationInput>();
 				foreach (CollectionMemberBinding binding in bindingList.OrderBy(x => x.MemberKey.ToString(), StringComparer.Ordinal))
 				{
-					cancellationToken.ThrowIfCancellationRequested();
 					ResolvedCollectionMemberPlan member = resolvedPlan.SelectedMembers.SingleOrDefault(x => x.MemberKey.Equals(binding.MemberKey));
 					if (member == null)
 						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
@@ -117,17 +118,32 @@ namespace Nexus.Client.CollectionManagement
 						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 							"A bound native member is missing, so its original install method/root and exact prepared effects cannot be reconstructed automatically.");
 					IMod liveMod = ResolveLiveMod(binding.NativeMod.NativeModKey);
-					CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), resolvedPlan, binding.MemberKey);
+					bool contributesMerge = !member.HasVortexFileList && !member.HasVortexFomodSelection &&
+						CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, liveMod);
+					preparationInputs.Add(new VerifyRepairPreparationInput(binding, member, native, liveMod, contributesMerge));
+				}
+
+				IList<IMod> activeMods = _services.ModManager.ActiveMods.ToList();
+				CollectionMemberKey mergeOwner = ResolveDeterministicMergeOwner(state, preparationInputs, activeMods);
+				if (preparationInputs.Count(x => x.ContributesDeterministicMerge) > 1 && mergeOwner == null)
+					return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
+						"The shared legacy merged file does not have one current bound contributor owner, so exact multi-member merge repair cannot reproduce the reviewed ownership safely.");
+
+				foreach (VerifyRepairPreparationInput input in preparationInputs)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), resolvedPlan, input.Binding.MemberKey);
 					CollectionVerifiedArchive archive = adopter.TryAdopt(request, cancellationToken);
 					if (archive == null)
 						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 							"The exact archive bytes for a bound Collection member are not currently available for verified repair preparation.");
 					try
 					{
-						var context = new ModInstallContext(native.InstallMethod, native.InstallRoot);
-						PreparedCollectionNativeRecipe recipe = nativePreparer.PrepareExact(resolvedPlan, member, archive, liveMod,
+						var context = new ModInstallContext(input.Native.InstallMethod, input.Native.InstallRoot);
+						bool includeMergeOutput = !input.ContributesDeterministicMerge || mergeOwner == null || input.Member.MemberKey.Equals(mergeOwner);
+						PreparedCollectionNativeRecipe recipe = nativePreparer.PrepareExact(resolvedPlan, input.Member, archive, input.LiveMod,
 							_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, context, state,
-							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, cancellationToken);
+							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, activeMods, includeMergeOutput, cancellationToken);
 						if (!recipe.EffectPreview.IsComplete)
 							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 								"A bound member's native recipe cannot be represented as complete typed effects for automatic verify/repair.");
@@ -139,12 +155,61 @@ namespace Nexus.Client.CollectionManagement
 					}
 				}
 			}
+
 			catch (Exception ex)
 			{
 				return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 					"Exact verify/repair preparation failed closed: " + ex.Message);
 			}
 			return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, null);
+		}
+
+		private CollectionMemberKey ResolveDeterministicMergeOwner(CollectionNativeStateIndex state,
+			IList<VerifyRepairPreparationInput> inputs, IList<IMod> activeMods)
+		{
+			List<VerifyRepairPreparationInput> contributors = inputs.Where(x => x.ContributesDeterministicMerge).ToList();
+			if (contributors.Count == 0) return null;
+			if (contributors.Count == 1) return contributors[0].Member.MemberKey;
+			var provider = _services.ModManager.GameMode as IDeterministicModFileMergePlanProvider;
+			if (provider == null || activeMods == null) return null;
+
+			ModDeploymentTarget target = null;
+			foreach (VerifyRepairPreparationInput contributor in contributors)
+			{
+				DeterministicModFileMergePlan mergePlan =
+					provider.GetDeterministicModFileMergePlan(activeMods, contributor.LiveMod);
+				if (mergePlan == null) return null;
+				ModDeploymentTarget contributorTarget = ModDeploymentTargetResolver.Resolve(_services.ModManager.GameMode,
+					contributor.LiveMod, mergePlan.DestinationPath, contributor.Native.InstallRoot);
+				if (target == null) target = contributorTarget;
+				else if (!target.Equals(contributorTarget)) return null;
+			}
+
+			CollectionNativeFileState file;
+			if (target == null || !state.Files.TryGetValue(target, out file) || file == null || String.IsNullOrWhiteSpace(file.EffectiveOwnerKey))
+				return null;
+			List<VerifyRepairPreparationInput> owners = contributors.Where(x =>
+				StringComparer.OrdinalIgnoreCase.Equals(x.Binding.NativeMod.NativeModKey, file.EffectiveOwnerKey)).ToList();
+			return owners.Count == 1 ? owners[0].Member.MemberKey : null;
+		}
+
+		private sealed class VerifyRepairPreparationInput
+		{
+			public VerifyRepairPreparationInput(CollectionMemberBinding binding, ResolvedCollectionMemberPlan member,
+				CollectionNativeModState native, IMod liveMod, bool contributesDeterministicMerge)
+			{
+				Binding = binding ?? throw new ArgumentNullException(nameof(binding));
+				Member = member ?? throw new ArgumentNullException(nameof(member));
+				Native = native ?? throw new ArgumentNullException(nameof(native));
+				LiveMod = liveMod ?? throw new ArgumentNullException(nameof(liveMod));
+				ContributesDeterministicMerge = contributesDeterministicMerge;
+			}
+
+			public CollectionMemberBinding Binding { get; }
+			public ResolvedCollectionMemberPlan Member { get; }
+			public CollectionNativeModState Native { get; }
+			public IMod LiveMod { get; }
+			public bool ContributesDeterministicMerge { get; }
 		}
 
 		internal static List<ResolvedCollectionMemberPlan> CreateSelectedMembers(NormalizedCollectionManifest manifest,

@@ -497,15 +497,54 @@ namespace Nexus.Client.CollectionManagement
 		public string DestinationPath { get; }
 	}
 
+	/// <summary>One generated native output retained by exact content identity for reviewed-workflow restart.</summary>
+	public sealed class CollectionReviewedGeneratedFileSnapshot
+	{
+		internal CollectionReviewedGeneratedFileSnapshot(string sourcePath, string destinationPath, string sha256, long byteLength)
+		{
+			SourcePath = new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, sourcePath).Path;
+			DestinationPath = new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, destinationPath).Path;
+			Sha256 = CollectionIdentityValidation.RequireOpaqueToken(sha256, nameof(sha256));
+			if (byteLength < 0) throw new ArgumentOutOfRangeException(nameof(byteLength));
+			ByteLength = byteLength;
+		}
+		public string SourcePath { get; }
+		public string DestinationPath { get; }
+		public string Sha256 { get; }
+		public long ByteLength { get; }
+	}
+
+	/// <summary>One exact native game-specific value persisted with the reviewed executable recipe.</summary>
+	public sealed class CollectionReviewedGameSpecificValueSnapshot
+	{
+		private readonly byte[] _value;
+
+		internal CollectionReviewedGameSpecificValueSnapshot(string key, byte[] value)
+		{
+			if (String.IsNullOrWhiteSpace(key)) throw new ArgumentException("Reviewed game-specific value key is required.", nameof(key));
+			if (value == null || value.Length == 0) throw new ArgumentException("Reviewed game-specific value bytes are required.", nameof(value));
+			Key = key;
+			_value = (byte[])value.Clone();
+		}
+
+		public string Key { get; }
+		public byte[] Value { get { return (byte[])_value.Clone(); } }
+		internal byte[] UnsafeValue { get { return _value; } }
+	}
+
 	/// <summary>Reproducible descriptor for one exact C6.15.9 prepared native recipe.</summary>
 	public sealed class CollectionReviewedPreparedRecipeSnapshot
 	{
 		private readonly ReadOnlyCollection<string> _retainedArtifactIds;
 		private readonly ReadOnlyCollection<CollectionReviewedSimpleFileMappingSnapshot> _simpleFileMappings;
+		private readonly ReadOnlyCollection<CollectionReviewedGeneratedFileSnapshot> _generatedFiles;
+		private readonly ReadOnlyCollection<CollectionReviewedGameSpecificValueSnapshot> _gameSpecificValues;
 		internal CollectionReviewedPreparedRecipeSnapshot(CollectionMemberKey memberKey, int sourceOrdinal,
 			string providerRecipeFingerprint, string preparedNativeFingerprint, bool skipReadmeFiles,
 			ModInstallationRecipeValidation validation, CollectionMemberEffectPreview effectPreview,
-			IEnumerable<string> retainedArtifactIds, IEnumerable<CollectionReviewedSimpleFileMappingSnapshot> simpleFileMappings = null)
+			IEnumerable<string> retainedArtifactIds, IEnumerable<CollectionReviewedSimpleFileMappingSnapshot> simpleFileMappings = null,
+			IEnumerable<CollectionReviewedGeneratedFileSnapshot> generatedFiles = null,
+			IEnumerable<CollectionReviewedGameSpecificValueSnapshot> gameSpecificValues = null)
 		{
 			MemberKey = memberKey ?? throw new ArgumentNullException(nameof(memberKey));
 			if (sourceOrdinal < 0) throw new ArgumentOutOfRangeException(nameof(sourceOrdinal));
@@ -528,6 +567,14 @@ namespace Nexus.Client.CollectionManagement
 			if (mappings.Any(x => x == null))
 				throw new ArgumentException("Prepared recipe simple-file mappings cannot contain null values.", nameof(simpleFileMappings));
 			_simpleFileMappings = new ReadOnlyCollection<CollectionReviewedSimpleFileMappingSnapshot>(mappings);
+			List<CollectionReviewedGeneratedFileSnapshot> generated = (generatedFiles ?? Enumerable.Empty<CollectionReviewedGeneratedFileSnapshot>()).ToList();
+			if (generated.Any(x => x == null) || generated.Select(x => x.DestinationPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != generated.Count)
+				throw new ArgumentException("Prepared recipe generated-file descriptors must be non-null and destination-unique.", nameof(generatedFiles));
+			_generatedFiles = new ReadOnlyCollection<CollectionReviewedGeneratedFileSnapshot>(generated);
+			List<CollectionReviewedGameSpecificValueSnapshot> gameValues = (gameSpecificValues ?? Enumerable.Empty<CollectionReviewedGameSpecificValueSnapshot>()).ToList();
+			if (gameValues.Any(x => x == null) || gameValues.Select(x => x.Key).Distinct(StringComparer.Ordinal).Count() != gameValues.Count)
+				throw new ArgumentException("Prepared recipe game-specific value descriptors must be non-null and key-unique.", nameof(gameSpecificValues));
+			_gameSpecificValues = new ReadOnlyCollection<CollectionReviewedGameSpecificValueSnapshot>(gameValues);
 		}
 		public CollectionMemberKey MemberKey { get; }
 		public int SourceOrdinal { get; }
@@ -538,25 +585,50 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionMemberEffectPreview EffectPreview { get; }
 		public ReadOnlyCollection<string> RetainedArtifactIds { get { return _retainedArtifactIds; } }
 		public ReadOnlyCollection<CollectionReviewedSimpleFileMappingSnapshot> SimpleFileMappings { get { return _simpleFileMappings; } }
+		public ReadOnlyCollection<CollectionReviewedGeneratedFileSnapshot> GeneratedFiles { get { return _generatedFiles; } }
+		public ReadOnlyCollection<CollectionReviewedGameSpecificValueSnapshot> GameSpecificValues { get { return _gameSpecificValues; } }
 
 		internal static CollectionReviewedPreparedRecipeSnapshot From(PreparedCollectionNativeRecipe recipe)
 		{
 			var mappings = new List<CollectionReviewedSimpleFileMappingSnapshot>();
+			var generated = new List<CollectionReviewedGeneratedFileSnapshot>();
+			var gameValues = new List<CollectionReviewedGameSpecificValueSnapshot>();
 			if (!StringComparer.Ordinal.Equals(recipe.AdapterId, ModInstallationSimpleFileRecipeAdapter.AdapterId))
 				throw new NotSupportedException("The reviewed-workflow v2 executable descriptor currently supports only the characterized simple-file adapter.");
 			foreach (var operation in recipe.RecipeInput.NativeOperations)
 			{
 				InstallModFileOperation file = operation as InstallModFileOperation;
-				if (file == null || file.DeploymentDecision != null)
-					throw new NotSupportedException("A reviewed simple-file recipe can persist only unresolved exact InstallModFile operations.");
-				mappings.Add(new CollectionReviewedSimpleFileMappingSnapshot(file.SourcePath, file.DestinationPath));
+				if (file != null && file.DeploymentDecision == null)
+				{
+					mappings.Add(new CollectionReviewedSimpleFileMappingSnapshot(file.SourcePath, file.DestinationPath));
+					continue;
+				}
+				GenerateDataFileOperation generatedFile = operation as GenerateDataFileOperation;
+				if (generatedFile != null && generatedFile.DeploymentDecision == null && generatedFile.Data != null)
+				{
+					using (System.Security.Cryptography.SHA256 sha256 = System.Security.Cryptography.SHA256.Create())
+					{
+						string hash = BitConverter.ToString(sha256.ComputeHash(generatedFile.Data)).Replace("-", String.Empty).ToLowerInvariant();
+						if (String.IsNullOrWhiteSpace(generatedFile.PreparationSourcePath))
+							throw new InvalidDataException("A reviewed generated file output is missing its immutable archive-source provenance.");
+						generated.Add(new CollectionReviewedGeneratedFileSnapshot(generatedFile.PreparationSourcePath, generatedFile.DestinationPath, hash, generatedFile.Data.LongLength));
+					}
+					continue;
+				}
+				EditGameSpecificValueOperation gameValue = operation as EditGameSpecificValueOperation;
+				if (gameValue != null && gameValue.HasResolvedOverwriteDecision && gameValue.Value != null)
+				{
+					gameValues.Add(new CollectionReviewedGameSpecificValueSnapshot(gameValue.Key, gameValue.Value));
+					continue;
+				}
+				throw new NotSupportedException("A reviewed simple-file recipe can persist only unresolved exact file operations, retained generated files, or resolved exact game-specific values.");
 			}
-			if (mappings.Count == 0)
-				throw new InvalidDataException("A reviewed simple-file recipe requires at least one reproducible source/destination mapping.");
+			if (mappings.Count + generated.Count == 0)
+				throw new InvalidDataException("A reviewed simple-file recipe requires at least one reproducible native file operation.");
 
 			return new CollectionReviewedPreparedRecipeSnapshot(recipe.Member.MemberKey, recipe.Member.SourceOrdinal,
 				recipe.ProviderRecipeIdentity.Fingerprint, recipe.PreparedNativeIdentity.Fingerprint, recipe.SkipReadmeFiles,
-				recipe.Validation, recipe.EffectPreview, recipe.RetainedArtifactIds, mappings);
+				recipe.Validation, recipe.EffectPreview, recipe.RetainedArtifactIds, mappings, generated, gameValues);
 		}
 	}
 
@@ -565,7 +637,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
-		private const int BinaryVersion = 4;
+		private const int BinaryVersion = 6;
 		private const int LegacyBinaryVersion = 2;
 		private const int MaxCount = 100000;
 		private const int MaxPayloadLength = 64 * 1024 * 1024;
@@ -613,7 +685,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != BinaryVersion && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != BinaryVersion && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -780,6 +852,10 @@ namespace Nexus.Client.CollectionManagement
 				WriteValidation(writer, x.Validation); WriteEffectPreview(writer, x.EffectPreview); writer.Write(x.RetainedArtifactIds.Count); foreach (string id in x.RetainedArtifactIds.OrderBy(y => y, StringComparer.Ordinal)) writer.Write(id);
 				writer.Write(x.SimpleFileMappings.Count);
 				foreach (CollectionReviewedSimpleFileMappingSnapshot mapping in x.SimpleFileMappings) { writer.Write(mapping.SourcePath); writer.Write(mapping.DestinationPath); }
+				writer.Write(x.GeneratedFiles.Count);
+				foreach (CollectionReviewedGeneratedFileSnapshot generated in x.GeneratedFiles.OrderBy(y => y.DestinationPath, StringComparer.OrdinalIgnoreCase)) { writer.Write(generated.SourcePath); writer.Write(generated.DestinationPath); writer.Write(generated.Sha256); writer.Write(generated.ByteLength); }
+				writer.Write(x.GameSpecificValues.Count);
+				foreach (CollectionReviewedGameSpecificValueSnapshot value in x.GameSpecificValues) { writer.Write(value.Key); byte[] bytes = value.UnsafeValue; writer.Write(bytes.Length); writer.Write(bytes); }
 			}
 		}
 		private static List<CollectionReviewedPreparedRecipeSnapshot> ReadPreparedRecipes(BinaryReader reader, int binaryVersion)
@@ -792,7 +868,23 @@ namespace Nexus.Client.CollectionManagement
 				var mappings = new List<CollectionReviewedSimpleFileMappingSnapshot>();
 				if (binaryVersion >= 3)
 					for (int j = 0, c = ReadCount(reader); j < c; j++) mappings.Add(new CollectionReviewedSimpleFileMappingSnapshot(ReadRequiredString(reader), ReadRequiredString(reader)));
-				result.Add(new CollectionReviewedPreparedRecipeSnapshot(key, ordinal, provider, prepared, skip, validation, preview, ids, mappings));
+				var generated = new List<CollectionReviewedGeneratedFileSnapshot>();
+				if (binaryVersion >= 5)
+					for (int j = 0, c = ReadCount(reader); j < c; j++) generated.Add(new CollectionReviewedGeneratedFileSnapshot(ReadRequiredString(reader), ReadRequiredString(reader), ReadRequiredString(reader), reader.ReadInt64()));
+				var gameValues = new List<CollectionReviewedGameSpecificValueSnapshot>();
+				if (binaryVersion >= 6)
+				{
+					for (int j = 0, c = ReadCount(reader); j < c; j++)
+					{
+						string valueKey = ReadRequiredString(reader);
+						int length = reader.ReadInt32();
+						if (length <= 0 || length > MaxPayloadLength) throw new InvalidDataException("Reviewed game-specific value length is invalid.");
+						byte[] value = reader.ReadBytes(length);
+						if (value.Length != length) throw new EndOfStreamException();
+						gameValues.Add(new CollectionReviewedGameSpecificValueSnapshot(valueKey, value));
+					}
+				}
+				result.Add(new CollectionReviewedPreparedRecipeSnapshot(key, ordinal, provider, prepared, skip, validation, preview, ids, mappings, generated, gameValues));
 			}
 			return result;
 		}
@@ -1073,8 +1165,8 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.Ordinal.Equals(recipe.Validation.Capabilities[0].CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityId) ||
 					recipe.Validation.Capabilities[0].Version != ModInstallationSimpleFileRecipeAdapter.CapabilityVersion)
 					throw new NotSupportedException("The reviewed native recipe capability contract changed and must be re-prepared.");
-				if (recipe.SimpleFileMappings.Count == 0)
-					throw new NotSupportedException("The reviewed native recipe predates executable simple-file mapping persistence and must be re-prepared.");
+				if (recipe.SimpleFileMappings.Count + recipe.GeneratedFiles.Count == 0)
+					throw new NotSupportedException("The reviewed native recipe predates executable file-operation persistence and must be re-prepared.");
 				bool foundExpectedArchive = false;
 				foreach (string artifactId in recipe.RetainedArtifactIds)
 				{
@@ -1086,6 +1178,14 @@ namespace Nexus.Client.CollectionManagement
 				}
 				if (!foundExpectedArchive)
 					throw new InvalidDataException("A reviewed prepared recipe no longer references its exact immutable source archive.");
+				foreach (CollectionReviewedGeneratedFileSnapshot generated in recipe.GeneratedFiles)
+				{
+					bool foundGenerated = recipe.RetainedArtifactIds.Select(_artifactLoader).Any(artifact =>
+						artifact.ContentHash.Algorithm == CollectionContentHashAlgorithm.Sha256 &&
+						StringComparer.Ordinal.Equals(artifact.ContentHash.Value, generated.Sha256) && artifact.ByteLength == generated.ByteLength);
+					if (!foundGenerated)
+						throw new InvalidDataException("A reviewed generated file no longer references its exact immutable retained output.");
+				}
 			}
 		}
 

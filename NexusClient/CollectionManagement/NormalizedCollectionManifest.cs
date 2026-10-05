@@ -44,6 +44,137 @@ namespace Nexus.Client.CollectionManagement
 		}
 	}
 
+	/// <summary>Curator-authored setup guidance retained from the exact Collection manifest.</summary>
+	/// <remarks>
+	/// These values are advisory. They never create/switch an NMM profile or silently gate native mutation, but remain visible
+	/// during preview/review so Vortex setup intent is not discarded while translating the Collection into NMM-native effects.
+	/// </remarks>
+	public sealed class CollectionSetupGuidance
+	{
+		private readonly ReadOnlyCollection<string> _gameVersions;
+
+		/// <summary>Creates immutable setup guidance exactly as represented by the characterized manifest fields.</summary>
+		public CollectionSetupGuidance(bool recommendNewProfile, string installInstructions, IEnumerable<string> gameVersions)
+		{
+			RecommendNewProfile = recommendNewProfile;
+			InstallInstructions = installInstructions;
+			List<string> versions = (gameVersions ?? Enumerable.Empty<string>()).ToList();
+			if (versions.Any(x => x == null))
+				throw new ArgumentException("Collection setup game-version guidance cannot contain null values.", nameof(gameVersions));
+			_gameVersions = new ReadOnlyCollection<string>(versions);
+		}
+
+		/// <summary>Gets whether the curator recommends a fresh Vortex profile/setup context.</summary>
+		public bool RecommendNewProfile { get; }
+		/// <summary>Gets the exact curator installation instructions, when supplied.</summary>
+		public string InstallInstructions { get; }
+		/// <summary>Gets the exact game-version strings retained from the manifest.</summary>
+		public ReadOnlyCollection<string> GameVersions { get { return _gameVersions; } }
+		/// <summary>Gets whether any user-visible setup guidance is present.</summary>
+		public bool HasGuidance { get { return RecommendNewProfile || !String.IsNullOrWhiteSpace(InstallInstructions) || _gameVersions.Count > 0; } }
+	}
+
+
+	/// <summary>One safe, explicitly user-launched tool retained from a Vortex Collection manifest.</summary>
+	/// <remarks>
+	/// Collection tools are launcher metadata, not native installation effects. NMM never executes them automatically. The
+	/// characterized subset is restricted to game-relative executables and working directories without shell/detach/UI-lifecycle
+	/// behavior so an applied association can expose the tool without introducing an arbitrary command-execution phase.
+	/// </remarks>
+	public sealed class CollectionLaunchTool : IEquatable<CollectionLaunchTool>
+	{
+		private readonly ReadOnlyCollection<string> _arguments;
+		private readonly ReadOnlyDictionary<string, string> _environment;
+
+		public CollectionLaunchTool(string name, string relativeExecutablePath, IEnumerable<string> arguments,
+			string relativeWorkingDirectory, IDictionary<string, string> environment)
+		{
+			Name = CollectionDomainValidation.RequireDisplayValue(name, nameof(name));
+			RelativeExecutablePath = RequireRelativePath(relativeExecutablePath, nameof(relativeExecutablePath));
+			if (!StringComparer.OrdinalIgnoreCase.Equals(System.IO.Path.GetExtension(RelativeExecutablePath), ".exe"))
+				throw new ArgumentException("A characterized Collection tool executable must use the .exe extension.", nameof(relativeExecutablePath));
+			RelativeWorkingDirectory = String.IsNullOrEmpty(relativeWorkingDirectory)
+				? null
+				: RequireRelativePath(relativeWorkingDirectory, nameof(relativeWorkingDirectory));
+
+			List<string> copiedArguments = (arguments ?? Enumerable.Empty<string>()).ToList();
+			if (copiedArguments.Any(x => x == null))
+				throw new ArgumentException("Collection tool arguments cannot contain null values.", nameof(arguments));
+			_arguments = new ReadOnlyCollection<string>(copiedArguments);
+
+			var copiedEnvironment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (KeyValuePair<string, string> pair in environment ?? new Dictionary<string, string>())
+			{
+				if (String.IsNullOrWhiteSpace(pair.Key) || pair.Key.IndexOf('=') >= 0 || pair.Key.IndexOf('\0') >= 0 || pair.Value == null)
+					throw new ArgumentException("Collection tool environment entries must use non-empty Windows variable names and string values.", nameof(environment));
+				copiedEnvironment.Add(pair.Key, pair.Value);
+			}
+			_environment = new ReadOnlyDictionary<string, string>(copiedEnvironment);
+		}
+
+		public string Name { get; }
+		public string RelativeExecutablePath { get; }
+		public ReadOnlyCollection<string> Arguments { get { return _arguments; } }
+		public string RelativeWorkingDirectory { get; }
+		public IReadOnlyDictionary<string, string> Environment { get { return _environment; } }
+
+		public bool Equals(CollectionLaunchTool other)
+		{
+			if (other == null || !StringComparer.Ordinal.Equals(Name, other.Name) ||
+				!StringComparer.OrdinalIgnoreCase.Equals(RelativeExecutablePath, other.RelativeExecutablePath) ||
+				!StringComparer.OrdinalIgnoreCase.Equals(RelativeWorkingDirectory ?? String.Empty, other.RelativeWorkingDirectory ?? String.Empty) ||
+				_arguments.Count != other._arguments.Count || _environment.Count != other._environment.Count)
+				return false;
+			for (int index = 0; index < _arguments.Count; index++)
+				if (!StringComparer.Ordinal.Equals(_arguments[index], other._arguments[index])) return false;
+			foreach (KeyValuePair<string, string> pair in _environment)
+			{
+				string otherValue;
+				if (!other._environment.TryGetValue(pair.Key, out otherValue) || !StringComparer.Ordinal.Equals(pair.Value, otherValue)) return false;
+			}
+			return true;
+		}
+
+		public override bool Equals(object obj) { return Equals(obj as CollectionLaunchTool); }
+		public override int GetHashCode()
+		{
+			unchecked
+			{
+				int hash = StringComparer.Ordinal.GetHashCode(Name);
+				hash = (hash * 397) ^ StringComparer.OrdinalIgnoreCase.GetHashCode(RelativeExecutablePath);
+				return hash;
+			}
+		}
+
+		private static string RequireRelativePath(string value, string parameterName)
+		{
+			if (String.IsNullOrWhiteSpace(value) || !StringComparer.Ordinal.Equals(value, value.Trim()))
+				throw new ArgumentException("A canonical relative Collection tool path is required.", parameterName);
+			string normalized = value.Replace('/', '\\');
+			if (normalized[0] == '\\' || System.IO.Path.IsPathRooted(value) || (normalized.Length > 1 && normalized[1] == ':'))
+				throw new ArgumentException("Collection tool paths must be relative to the game root.", parameterName);
+			foreach (string part in normalized.Split('\\'))
+			{
+				if (String.IsNullOrEmpty(part) || part == "." || part == ".." || part.IndexOf(':') >= 0 ||
+					!StringComparer.Ordinal.Equals(part, part.TrimEnd(' ', '.')) || part.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0 ||
+					IsReservedDeviceName(part))
+					throw new ArgumentException("Collection tool paths must be canonical safe Windows-relative paths.", parameterName);
+			}
+			return normalized;
+		}
+
+		private static bool IsReservedDeviceName(string part)
+		{
+			int extensionSeparator = part.IndexOf('.');
+			string name = (extensionSeparator < 0 ? part : part.Substring(0, extensionSeparator)).ToUpperInvariant();
+			if (name == "CON" || name == "PRN" || name == "AUX" || name == "NUL")
+				return true;
+			if (name.Length == 4 && (name.StartsWith("COM", StringComparison.Ordinal) || name.StartsWith("LPT", StringComparison.Ordinal)))
+				return name[3] >= '1' && name[3] <= '9';
+			return false;
+		}
+	}
+
 	/// <summary>One characterized Vortex plugin rule requiring one plugin to load after another.</summary>
 	public sealed class CollectionPluginRelativeOrderRule : IEquatable<CollectionPluginRelativeOrderRule>
 	{
@@ -102,6 +233,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionConflictConstraint> _conflictConstraints;
 		private readonly ReadOnlyCollection<CollectionDesiredPluginState> _pluginStates;
 		private readonly ReadOnlyCollection<CollectionPluginRelativeOrderRule> _pluginRelativeOrderRules;
+		private readonly ReadOnlyCollection<CollectionLaunchTool> _launchTools;
 
 		/// <summary>
 		/// Creates an immutable normalized collection manifest snapshot.
@@ -192,7 +324,9 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionDesiredPluginState> pluginStates,
 			IEnumerable<CollectionConflictConstraint> conflictConstraints,
 			IEnumerable<CollectionExternalFilePriorityRule> externalFilePriorityRules,
-			IEnumerable<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = null)
+			IEnumerable<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = null,
+			CollectionSetupGuidance setupGuidance = null,
+			IEnumerable<CollectionLaunchTool> launchTools = null)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -328,6 +462,17 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 			_pluginRelativeOrderRules = new ReadOnlyCollection<CollectionPluginRelativeOrderRule>(copiedPluginRelativeOrderRules);
+			SetupGuidance = setupGuidance ?? new CollectionSetupGuidance(false, null, null);
+
+			List<CollectionLaunchTool> copiedLaunchTools = new List<CollectionLaunchTool>();
+			HashSet<CollectionLaunchTool> uniqueLaunchTools = new HashSet<CollectionLaunchTool>();
+			foreach (CollectionLaunchTool tool in launchTools ?? Enumerable.Empty<CollectionLaunchTool>())
+			{
+				if (tool == null) throw new ArgumentException("A normalized manifest cannot contain a null Collection tool.", nameof(launchTools));
+				if (!uniqueLaunchTools.Add(tool)) throw new ArgumentException("A normalized manifest cannot contain duplicate Collection tools.", nameof(launchTools));
+				copiedLaunchTools.Add(tool);
+			}
+			_launchTools = new ReadOnlyCollection<CollectionLaunchTool>(copiedLaunchTools);
 		}
 
 		/// <summary>
@@ -406,6 +551,12 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets whether collection.json explicitly supplied the Vortex plugins array, including an intentionally empty array.</summary>
 		public bool HasPluginStateSection { get; }
+
+		/// <summary>Gets curator-authored, non-mutating setup guidance retained from collection.json.</summary>
+		public CollectionSetupGuidance SetupGuidance { get; }
+
+		/// <summary>Gets safe, explicitly user-launched Collection tools retained from collection.json.</summary>
+		public ReadOnlyCollection<CollectionLaunchTool> LaunchTools { get { return _launchTools; } }
 
 		/// <summary>
 		/// Gets whether the source member set is known to be complete.

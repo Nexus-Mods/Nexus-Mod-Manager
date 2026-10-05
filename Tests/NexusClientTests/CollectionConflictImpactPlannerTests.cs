@@ -798,6 +798,59 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Plan_ExternalAfterSimpleWildcardExpressionAuthorizesIncomingWinner()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "fallui-hud", 51813, 257220, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, null, false, "1.0f", null,
+				"HUDFramework*-20309-1-0?");
+			CollectionNativeModState hudFramework = CreateNativeMod(target, "native-hudframework", 20309, 1,
+				"HUDFramework 1.0f", "1.0f", "HUDFramework 1.0f-20309-1-0f.7z");
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\shared.swf");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { hudFramework },
+				new[] { CreateFile(shared, "native-hudframework") }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+			ResolvedCollectionMemberPlan plannedMember = fixture.Plan.SelectedMembers.Single();
+			var match = new CollectionMemberMatchResult(plannedMember, CollectionMemberMatchDisposition.ArchiveOnlyReuse,
+				CollectionMemberMatchReason.VerifiedArchiveAvailable, new CollectionNativeModState[0], new CollectionMemberBinding[0], null);
+			var matches = new CollectionMemberMatchSet(fixture.Plan, fixture.State, new[] { match });
+			CollectionDependencyPhasePlan dependency = new CollectionDependencyPhasePlanner().Plan(fixture.Plan, matches);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, matches, dependency, fixture.State, new[] { CreatePreview(source, shared) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExternalPriorityReferenceEvaluationRequired));
+			Assert.AreEqual(source.IdentityResolution.Key, result.FileImpacts.Single().PlannedWinner);
+		}
+
+		[Test]
+		public void Plan_SimpleWildcardFileExpressionUsesVortexCaseSensitiveMatching()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "fallui-hud", 51813, 257220, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionExternalFilePriorityRule external = CreateExternalPriority(source, null, false, "1.0f", null,
+				"hudframework*");
+			CollectionNativeModState hudFramework = CreateNativeMod(target, "native-hudframework", 20309, 1,
+				"HUDFramework 1.0f", "1.0f", "HUDFramework 1.0f-20309-1-0f.7z");
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\shared.swf");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { hudFramework },
+				new[] { CreateFile(shared, "native-hudframework") }, null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				externalPriorityRules: new[] { external });
+			ResolvedCollectionMemberPlan plannedMember = fixture.Plan.SelectedMembers.Single();
+			var match = new CollectionMemberMatchResult(plannedMember, CollectionMemberMatchDisposition.ArchiveOnlyReuse,
+				CollectionMemberMatchReason.VerifiedArchiveAvailable, new CollectionNativeModState[0], new CollectionMemberBinding[0], null);
+			var matches = new CollectionMemberMatchSet(fixture.Plan, fixture.State, new[] { match });
+			CollectionDependencyPhasePlan dependency = new CollectionDependencyPhasePlanner().Plan(fixture.Plan, matches);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, matches, dependency, fixture.State, new[] { CreatePreview(source, shared) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+		}
+
+		[Test]
 		public void Plan_InstalledHigherPriorityExternalEndpointOnSharedTargetRequiresReview()
 		{
 			NormalizedCollectionMember source = CreateMember(0, "enb-helper", 56566, 1, 0);
@@ -929,6 +982,28 @@ namespace NexusClientTests
 			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.CompatibilityConflict &&
 				x.SubjectKey == "native:native-old-f4se"));
+		}
+
+		[Test]
+		public void Plan_ConflictConstraintWithPreferVersionMatchesExistingNativeModByFuzzyVersion()
+		{
+			NormalizedCollectionMember source = CreateMember(0, "source", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState sourceNative = CreateNativeMod(target, "native-source", 100, 200,
+				"Source", "1.0.0", "Source.7z");
+			CollectionNativeModState conflicting = CreateNativeMod(target, "native-prefer-match", 900, 901,
+				"Shared Runtime", "1.4.0", "Shared Runtime.7z");
+			CollectionConflictConstraint constraint = CreateConflict(source, "Shared Runtime", ">=1.2.0+prefer");
+			Fixture fixture = CreateFixture(target, new[] { source }, null, new[] { sourceNative, conflicting },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				conflictConstraints: new[] { constraint });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(source, null) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.CompatibilityConflict &&
+				x.SubjectKey == "native:native-prefer-match"));
 		}
 
 		[Test]

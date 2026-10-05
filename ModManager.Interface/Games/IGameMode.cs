@@ -409,4 +409,32 @@ namespace Nexus.Client.Games
 		/// <returns>Whether any of the files need special installation</returns>
 		bool IsSpecialFile(IEnumerable<string> p_strFiles);
 	}
+
+	/// <summary>
+	/// Optional game-mode capability for deterministic, side-effect-free SpecialFileInstall planning.
+	/// </summary>
+	public interface IDeterministicSpecialFileInstallPlanProvider
+	{
+		/// <summary>
+		/// Returns the exact archive files selected by the special installer, or <c>null</c> when that behavior is not safely plannable.
+		/// </summary>
+		IEnumerable<string> GetDeterministicSpecialFileInstallPlan(IMod p_modSelectedMod);
+	}
+
+	/// <summary>
+	/// Optional game-mode capability for deterministic game-specific values produced by SpecialFileInstall behavior.
+	/// </summary>
+	/// <remarks>
+	/// Values returned here must describe exact native game-specific effects without mutating the game or NMM state.
+	/// The corresponding game mode must expose an <see cref="IGameSpecificValueInstaller"/> capable of applying and
+	/// restoring the returned keys through normal native ownership/logging.
+	/// </remarks>
+	public interface IDeterministicSpecialFileGameValuePlanProvider
+	{
+		/// <summary>Returns the exact game-specific values produced by the special installer for this mod.</summary>
+		IEnumerable<BasicInstallGameSpecificValue> GetDeterministicSpecialFileGameValues(IMod p_modSelectedMod);
+
+		/// <summary>Returns whether one native game-specific key belongs to this deterministic special-install contract.</summary>
+		bool IsDeterministicSpecialFileGameValueKey(string p_strKey);
+	}
 }

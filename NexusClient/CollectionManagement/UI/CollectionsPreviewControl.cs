@@ -181,6 +181,9 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// <summary>Raised when the installed-member UI asks the main window to show the exact native NMM mod.</summary>
 		public event EventHandler<CollectionManagedModRequestEventArgs> ManagedModRequested = delegate { };
 
+		/// <summary>Raised after the durable installed-association list has been refreshed.</summary>
+		public event EventHandler ManagedAssociationsChanged = delegate { };
+
 		public CollectionsPreviewControl()
 		{
 			Text = L("Collections.Title", "Collections");
@@ -1096,6 +1099,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					ApplyManagedAssociationPresentation();
 					UpdateActionButtons();
 				}
+				ManagedAssociationsChanged(this, EventArgs.Empty);
 			}
 		}
 
@@ -4154,6 +4158,11 @@ namespace Nexus.Client.CollectionManagement.UI
 						"provider.identity-mismatch", GetCurrentCollectionSubject(), CollectionUserMessagePresenter.ForProviderMessage(snapshot.MetadataWarning, false));
 				AddGraphQlErrors("provider.revision", snapshot.RevisionLookup?.Errors, CollectionReviewSeverity.Error);
 				AddGraphQlErrors("provider.summary", snapshot.SummaryLookup?.Errors, CollectionReviewSeverity.Warning);
+				if (snapshot.HasManifestPreview)
+				{
+					AppendSetupGuidance(snapshot.CapabilityReport.Manifest.SetupGuidance);
+					AppendCollectionTools(snapshot.CapabilityReport.Manifest.LaunchTools);
+				}
 				if (includeCapabilityIssues && snapshot.HasManifestPreview)
 				{
 					foreach (CollectionCapabilityIssue issue in snapshot.CapabilityReport.AllIssues)
@@ -4175,6 +4184,56 @@ namespace Nexus.Client.CollectionManagement.UI
 			finally
 			{
 				_issuesView.EndUpdate();
+			}
+		}
+
+		private void AppendSetupGuidance(CollectionSetupGuidance guidance)
+		{
+			if (guidance == null || !guidance.HasGuidance)
+				return;
+
+			if (guidance.RecommendNewProfile)
+			{
+				AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.ManualAction,
+					L("Collections.Status.Recommendation", "Recommendation"), "manifest.guidance.recommend-new-profile",
+					L("Collections.Guidance.ProfileSubject", "Curator setup recommendation"),
+					L("Collections.Guidance.RecommendNewProfile", "The curator recommends using a new Vortex profile for this Collection. NMM does not automatically create, switch or replace profiles; review whether the current managed setup is appropriate before applying the Collection."));
+			}
+
+			if (!String.IsNullOrWhiteSpace(guidance.InstallInstructions))
+			{
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.ManualAction,
+					L("Collections.Status.Information", "Information"), "manifest.guidance.install-instructions",
+					L("Collections.Guidance.InstructionsSubject", "Curator installation instructions"), guidance.InstallInstructions);
+			}
+
+			if (guidance.GameVersions.Count > 0)
+			{
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.ManualAction,
+					L("Collections.Status.Information", "Information"), "manifest.guidance.game-versions",
+					L("Collections.Guidance.GameVersionsSubject", "Curator game-version reference"),
+					LanguageManager.Format("Collections.Guidance.GameVersions",
+						"The Collection was authored for these game version value(s): {0}. NMM preserves this guidance but does not currently treat it as an automatically verified compatibility gate.",
+						String.Join(", ", guidance.GameVersions)));
+			}
+		}
+
+		private void AppendCollectionTools(IEnumerable<CollectionLaunchTool> tools)
+		{
+			foreach (CollectionLaunchTool tool in tools ?? Enumerable.Empty<CollectionLaunchTool>())
+			{
+				string arguments = tool.Arguments.Count == 0 ? L("Collections.Tools.NoArguments", "(none)") : String.Join(" ", tool.Arguments);
+				string workingDirectory = String.IsNullOrEmpty(tool.RelativeWorkingDirectory)
+					? L("Collections.Tools.ExecutableDirectory", "Executable directory")
+					: tool.RelativeWorkingDirectory;
+				string environment = tool.Environment.Count == 0
+					? L("Collections.Tools.NoEnvironment", "(none)")
+					: String.Join(", ", tool.Environment.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase).Select(x => x.Key + "=" + x.Value));
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.ManualAction,
+					L("Collections.Status.Information", "Information"), "manifest.tool", tool.Name,
+					LanguageManager.Format("Collections.Tools.Review",
+						"This Collection defines an optional user-launched tool. NMM will never run it automatically. Executable: {0}; arguments: {1}; working directory: {2}; environment: {3}.",
+						tool.RelativeExecutablePath, arguments, workingDirectory, environment));
 			}
 		}
 

@@ -135,6 +135,16 @@ namespace Nexus.Client.ModManagement
 			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound);
 		}
 
+		/// <summary>Returns a new immutable recipe input with a deterministic preparation-time transformation of an existing native plan.</summary>
+		public ModInstallationRecipeInput WithTransformedNativePlan(IEnumerable<ScriptedInstallOperation> nativeOperations)
+		{
+			if (!HasNativePlan)
+				throw new InvalidOperationException("A native recipe plan must exist before it can be transformed.");
+			if (nativeOperations == null)
+				throw new ArgumentNullException(nameof(nativeOperations));
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound);
+		}
+
 		/// <summary>
 		/// Returns this translated recipe plan bound to another exact Collection-family native operation identity.
 		/// </summary>

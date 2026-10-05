@@ -32,7 +32,7 @@ With no path, the command validates `GameModes\Definitions` beside the executabl
 
 `name` maps to `IGameModeDescriptor.Name` and replaces the display name in old descriptors.
 
-`behaviorProfile` chooses the runtime base class. `generic` maps to `GameModeBase`; `gamebryo` maps to `GamebryoGameModeBase` through `DataDrivenGamebryoGameMode`.
+`behaviorProfile` chooses the runtime base class. `generic` maps to `GameModeBase`; `gamebryo` maps to `GamebryoGameModeBase` through `DataDrivenGamebryoGameMode`. `baldursgate3` is a specialized pluginless profile that preserves BG3's split managed/game-root deployment and legacy `modsettings.lsx` integration while moving discovery, resources, launcher and ordinary install policy into the definition.
 
 `installerProfile` selects installer behavior. `gamebryo` preserves Data-folder/FOMOD behavior for Bethesda-style games.
 

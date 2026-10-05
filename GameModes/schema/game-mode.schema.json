@@ -34,9 +34,10 @@
       "type": "string",
       "enum": [
         "generic",
-        "gamebryo"
+        "gamebryo",
+        "baldursgate3"
       ],
-      "description": "Selects the runtime behavior base. Plugin management is currently part of the gamebryo profile."
+      "description": "Selects the runtime behavior base. Plugin management is currently part of the gamebryo profile; baldursgate3 preserves BG3-specific split-root and manifest behavior."
     },
     "legacyFallback": {
       "type": "boolean",

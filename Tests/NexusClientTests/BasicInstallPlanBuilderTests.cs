@@ -105,9 +105,46 @@ namespace NexusClientTests
 			Assert.That(specialInstallCalled, Is.False);
 		}
 
+		[Test]
+		public void Build_DeterministicSpecialFileInstallation_UsesReadOnlySelectionWithoutExecutingMutation()
+		{
+			bool specialInstallCalled = false;
+			IGameMode gameMode = CreateGameMode(specialFile: true, onSpecialInstall: () => specialInstallCalled = true,
+				deterministicSpecialFiles: new[] { @"Current\payload.bin" });
+
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
+				CreateMod("Special.7z", @"Legacy\old.pak", @"Current\payload.bin"), gameMode,
+				new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				new[] { new KeyValuePair<string, string>(@"Legacy\old.pak", @"Ignored\override.pak") });
+
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Count, Is.EqualTo(1));
+			Assert.That(result.Plan.Files[0].SourcePath, Is.EqualTo(@"Current\payload.bin"));
+			Assert.That(specialInstallCalled, Is.False);
+		}
+
 		/// <summary>
 		/// Verifies a game requiring ModFileMerge is blocked without invoking the mutation during planning.
 		/// </summary>
+		[Test]
+		public void Build_DeterministicSpecialFileInstallation_CapturesExactGameSpecificValues()
+		{
+			byte[] expected = new byte[] { 9, 8, 7, 6 };
+			IGameMode gameMode = CreateGameMode(specialFile: true,
+				deterministicSpecialFiles: new[] { @"Mods\payload.pak" },
+				deterministicSpecialGameValues: new[] { new BasicInstallGameSpecificValue("profile|module", expected) });
+
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
+				CreateMod("Special.7z", "info.json", @"Mods\payload.pak"), gameMode,
+				new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false);
+
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Count, Is.EqualTo(1));
+			Assert.That(result.Plan.GameSpecificValues.Count, Is.EqualTo(1));
+			Assert.That(result.Plan.GameSpecificValues[0].Key, Is.EqualTo("profile|module"));
+			CollectionAssert.AreEqual(expected, result.Plan.GameSpecificValues[0].Value);
+		}
+
 		[Test]
 		public void Build_ModFileMerge_FailsClosedWithoutExecutingMerge()
 		{
@@ -121,6 +158,72 @@ namespace NexusClientTests
 			Assert.That(result.IsSupported, Is.False);
 			Assert.That(result.UnsupportedReason, Is.EqualTo(BasicInstallPlanUnsupportedReasonKind.ModFileMerge));
 			Assert.That(mergeCalled, Is.False);
+		}
+
+		[Test]
+		public void Build_DeterministicModFileMerge_ReplacesMergedArchiveSourceWithGeneratedOutput()
+		{
+			byte[] merged = new byte[] { 1, 2, 3, 4 };
+			var mergePlan = new DeterministicModFileMergePlan("chargenmorphcfg.xml",
+				@"NMM_chargenmorphcfg\chargenmorphcfg.xml", merged);
+			IGameMode gameMode = CreateGameMode(requiresMerge: true, deterministicMergePlan: mergePlan);
+
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
+				CreateMod("Merge.7z", "chargenmorphcfg.xml", @"textures\body.dds"), gameMode,
+				new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, null, new List<IMod>());
+
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Select(x => x.SourcePath), Is.EquivalentTo(new[] { @"textures\body.dds" }));
+			Assert.That(result.Plan.GeneratedFiles.Count, Is.EqualTo(1));
+			Assert.That(result.Plan.GeneratedFiles[0].SourcePath, Is.EqualTo("chargenmorphcfg.xml"));
+			Assert.That(result.Plan.GeneratedFiles[0].DestinationPath, Is.EqualTo(@"NMM_chargenmorphcfg\chargenmorphcfg.xml"));
+			CollectionAssert.AreEqual(merged, result.Plan.GeneratedFiles[0].Data);
+		}
+
+		[Test]
+		public void DeploymentTargetResolver_DazipStyleSecondaryRoutingKeepsGeneratedMergeOnPrimaryRoot()
+		{
+			const string mergedPath = @"NMM_chargenmorphcfg\chargenmorphcfg.xml";
+			IGameMode gameMode = CreateGameMode(hasSecondaryInstallPath: true,
+				checkSecondaryInstall: (mod, path) => !path.EndsWith(mergedPath, StringComparison.OrdinalIgnoreCase));
+			IMod mod = CreateMod("Contributor.dazip", "chargenmorphcfg.xml", @"textures\body.dds");
+
+			ModDeploymentTarget archiveTarget = ModDeploymentTargetResolver.Resolve(gameMode, mod, @"textures\body.dds", ModInstallRoot.Data);
+			ModDeploymentTarget mergeTarget = ModDeploymentTargetResolver.Resolve(gameMode, mod, mergedPath, ModInstallRoot.Data);
+
+			Assert.That(archiveTarget.Root, Is.EqualTo(ModDeploymentRoot.Secondary));
+			Assert.That(mergeTarget.Root, Is.EqualTo(ModDeploymentRoot.Data));
+		}
+
+		[Test]
+		public void Build_DeterministicModFileMerge_DeferredContributorOmitsSharedGeneratedOutput()
+		{
+			var mergePlan = new DeterministicModFileMergePlan("chargenmorphcfg.xml",
+				@"NMM_chargenmorphcfg\chargenmorphcfg.xml", new byte[] { 5, 6, 7 });
+			IGameMode gameMode = CreateGameMode(requiresMerge: true, deterministicMergePlan: mergePlan);
+
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
+				CreateMod("First.7z", "chargenmorphcfg.xml", @"textures\body.dds"), gameMode,
+				new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, null, new List<IMod>(), false);
+
+			Assert.That(result.IsSupported, Is.True);
+			Assert.That(result.Plan.Files.Select(x => x.SourcePath), Is.EquivalentTo(new[] { @"textures\body.dds" }));
+			Assert.That(result.Plan.GeneratedFiles, Is.Empty);
+		}
+
+		[Test]
+		public void Build_DeterministicModFileMerge_DeferredOnlyEffectFailsClosed()
+		{
+			var mergePlan = new DeterministicModFileMergePlan("chargenmorphcfg.xml",
+				@"NMM_chargenmorphcfg\chargenmorphcfg.xml", new byte[] { 8, 9 });
+			IGameMode gameMode = CreateGameMode(requiresMerge: true, deterministicMergePlan: mergePlan);
+
+			BasicInstallPlanResult result = new BasicInstallPlanBuilder().Build(
+				CreateMod("OnlyMerge.7z", "chargenmorphcfg.xml"), gameMode,
+				new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), false, null, new List<IMod>(), false);
+
+			Assert.That(result.IsSupported, Is.False);
+			Assert.That(result.UnsupportedReason, Is.EqualTo(BasicInstallPlanUnsupportedReasonKind.ModFileMerge));
 		}
 
 
@@ -244,10 +347,18 @@ namespace NexusClientTests
 			});
 		}
 
-		private static IGameMode CreateGameMode(bool specialFile = false, bool requiresMerge = false,
-			Action onSpecialInstall = null, Action onMerge = null, bool remapVirtualStorage = false)
+		private interface ITestGameMode : IGameMode, IDeterministicSpecialFileInstallPlanProvider,
+			IDeterministicSpecialFileGameValuePlanProvider, IDeterministicModFileMergePlanProvider
 		{
-			return InterfaceStub<IGameMode>.Create((method, args) =>
+		}
+
+		private static IGameMode CreateGameMode(bool specialFile = false, bool requiresMerge = false,
+			Action onSpecialInstall = null, Action onMerge = null, bool remapVirtualStorage = false,
+			IEnumerable<string> deterministicSpecialFiles = null, DeterministicModFileMergePlan deterministicMergePlan = null,
+			bool hasSecondaryInstallPath = false, Func<IMod, string, bool> checkSecondaryInstall = null,
+			IEnumerable<BasicInstallGameSpecificValue> deterministicSpecialGameValues = null)
+		{
+			return InterfaceStub<ITestGameMode>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
@@ -262,13 +373,22 @@ namespace NexusClientTests
 					case "SpecialFileInstall":
 						onSpecialInstall?.Invoke();
 						return new[] { "transformed.bin" };
+					case "GetDeterministicSpecialFileInstallPlan":
+						return deterministicSpecialFiles;
+					case "GetDeterministicSpecialFileGameValues":
+						return deterministicSpecialGameValues ?? new BasicInstallGameSpecificValue[0];
+					case "IsDeterministicSpecialFileGameValueKey": return args[0] is string;
 					case "get_RequiresModFileMerge":
 						return requiresMerge;
 					case "ModFileMerge":
 						onMerge?.Invoke();
 						return null;
+					case "GetDeterministicModFileMergePlan":
+						return deterministicMergePlan;
 					case "get_HasSecondaryInstallPath":
-						return false;
+						return hasSecondaryInstallPath;
+					case "CheckSecondaryInstall":
+						return checkSecondaryInstall != null && checkSecondaryInstall((IMod)args[0], (string)args[1]);
 					case "GetModFormatAdjustedPath":
 						return AdjustPath(args, remapVirtualStorage);
 					default:

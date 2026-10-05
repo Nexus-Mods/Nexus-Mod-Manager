@@ -125,6 +125,23 @@ namespace Nexus.Client.ModManagement
 			{
 				if (GameMode.IsSpecialFile(Mod.GetFileList()))
 				{
+					// Deterministically planned special-install game values are removed below through the
+					// native InstallLog ownership stack. Running the legacy opaque remover as well would
+					// bypass that stack and could remove another managed owner's value. Only suppress the
+					// legacy remover when this mod actually owns a key from that deterministic contract.
+					IDeterministicSpecialFileGameValuePlanProvider trackedProvider = GameMode as IDeterministicSpecialFileGameValuePlanProvider;
+					bool hasTrackedSpecialValue = false;
+					if (trackedProvider != null)
+					{
+						foreach (string key in lstGameSpecificValueEdits)
+						{
+							if (!trackedProvider.IsDeterministicSpecialFileGameValueKey(key))
+								continue;
+							hasTrackedSpecialValue = true;
+							break;
+						}
+					}
+					if (!hasTrackedSpecialValue)
 						GameMode.SpecialFileUninstall(Mod);
 				}
 			}

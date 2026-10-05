@@ -44,6 +44,7 @@ namespace Nexus.Client.CollectionManagement
 			VortexFomodSelection = member.VortexFomodSelection;
 			VortexFileList = member.VortexFileList;
 			VortexFileOverrides = member.VortexFileOverrides;
+			VortexBinaryPatches = member.VortexBinaryPatches;
 		}
 
 		/// <summary>
@@ -94,6 +95,12 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets characterized Vortex per-member deployment exclusions, or null when none are declared.</summary>
 		public CollectionVortexFileOverrideList VortexFileOverrides { get; }
+
+		/// <summary>Gets characterized Vortex binary patches, or null when none are declared.</summary>
+		public CollectionVortexBinaryPatchList VortexBinaryPatches { get; }
+
+		/// <summary>Gets whether this member requires Vortex binary patch replay.</summary>
+		public bool HasVortexBinaryPatches { get { return VortexBinaryPatches != null; } }
 
 		/// <summary>Gets whether this member requires Vortex per-path deployment suppression.</summary>
 		public bool HasVortexFileOverrides { get { return VortexFileOverrides != null; } }

@@ -14,7 +14,8 @@ namespace Nexus.Client.Games.DataDriven
         private static readonly HashSet<string> ValidBehaviorProfiles = new HashSet<string>(StringComparer.Ordinal)
         {
             "generic",
-            "gamebryo"
+            "gamebryo",
+            "baldursgate3"
         };
 
         private static readonly HashSet<string> ValidPathAdjustmentProfiles = new HashSet<string>(StringComparer.Ordinal)
@@ -72,7 +73,7 @@ namespace Nexus.Client.Games.DataDriven
             ValidateUniqueStrings(definition, definition.CompatibilityNotes, "compatibilityNotes", issues, false);
 
             if (string.IsNullOrWhiteSpace(definition.BehaviorProfile) || !ValidBehaviorProfiles.Contains(definition.BehaviorProfile))
-                issues.Add(Error(definition, "behaviorProfile", "behaviorProfile must be either 'generic' or 'gamebryo'."));
+                issues.Add(Error(definition, "behaviorProfile", "behaviorProfile must be 'generic', 'gamebryo' or 'baldursgate3'."));
 
             ValidateExecutablePaths(definition, definition.GameExecutables, "gameExecutables", true, issues);
             ValidateRelativePaths(definition, definition.StopFolders, "stopFolders", issues);
@@ -117,20 +118,21 @@ namespace Nexus.Client.Games.DataDriven
 
         private void ValidateProfile(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
         {
-            if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
             {
                 if (definition.Plugin != null)
-                    issues.Add(Error(definition, "plugin", "Generic data-driven Game Modes cannot declare plugin management settings."));
+                    issues.Add(Error(definition, "plugin", "This data-driven behavior profile cannot declare plugin management settings."));
                 if (definition.PluginExtensions != null)
-                    issues.Add(Error(definition, "pluginExtensions", "Generic data-driven Game Modes cannot declare pluginExtensions."));
+                    issues.Add(Error(definition, "pluginExtensions", "This data-driven behavior profile cannot declare pluginExtensions."));
                 if (definition.OrderedCriticalPluginNames != null)
-                    issues.Add(Error(definition, "orderedCriticalPluginNames", "Generic data-driven Game Modes cannot declare ordered plugin groups."));
+                    issues.Add(Error(definition, "orderedCriticalPluginNames", "This data-driven behavior profile cannot declare ordered plugin groups."));
                 if (definition.OrderedOfficialPluginNames != null)
-                    issues.Add(Error(definition, "orderedOfficialPluginNames", "Generic data-driven Game Modes cannot declare ordered plugin groups."));
+                    issues.Add(Error(definition, "orderedOfficialPluginNames", "This data-driven behavior profile cannot declare ordered plugin groups."));
                 if (definition.OrderedOfficialUnmanagedPluginNames != null)
-                    issues.Add(Error(definition, "orderedOfficialUnmanagedPluginNames", "Generic data-driven Game Modes cannot declare ordered plugin groups."));
+                    issues.Add(Error(definition, "orderedOfficialUnmanagedPluginNames", "This data-driven behavior profile cannot declare ordered plugin groups."));
                 if (definition.Gamebryo != null)
-                    issues.Add(Error(definition, "gamebryo", "Generic data-driven Game Modes cannot declare Gamebryo settings."));
+                    issues.Add(Error(definition, "gamebryo", "This data-driven behavior profile cannot declare Gamebryo settings."));
                 return;
             }
 

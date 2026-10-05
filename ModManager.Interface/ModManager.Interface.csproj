@@ -101,6 +101,7 @@
     <Compile Include="Games\GameModeBase.cs" />
     <Compile Include="Games\IGameLauncher.cs" />
     <Compile Include="Games\IGameMode.cs" />
+    <Compile Include="Games\IDeterministicModFileMergePlanProvider.cs" />
     <Compile Include="Games\IGameModeEnvironmentInfo.cs" />
     <Compile Include="Games\InstallationPathAutoDetector.cs" />
     <Compile Include="Games\ISupportedToolsLauncher.cs" />

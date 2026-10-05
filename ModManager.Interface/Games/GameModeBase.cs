@@ -24,7 +24,7 @@ namespace Nexus.Client.Games
 	/// <remarks>
 	/// A Game Mode is a state in which the programme manages plugins for a specific game.
 	/// </remarks>
-	public abstract class GameModeBase : IGameMode, IDisposable
+	public abstract class GameModeBase : IGameMode, IDeterministicSpecialFileInstallPlanProvider, IDisposable
 	{
 		/// <summary>
 		/// The class that encasulates game mode specific environment info.
@@ -1005,6 +1005,16 @@ namespace Nexus.Client.Games
 		/// <param name="p_strFiles">List of files to handle</param>
 		/// <returns>The list of new files to install</returns>
 		public virtual IEnumerable<string> SpecialFileInstall(IMod p_modSelectedMod)
+		{
+			return null;
+		}
+
+		/// <summary>
+		/// Returns a side-effect-free exact special-file selection when the game mode can characterize it safely.
+		/// </summary>
+		/// <param name="p_modSelectedMod">The mod whose special install selection is being planned.</param>
+		/// <returns>The exact archive files selected by the special installer, or <c>null</c> when unsupported.</returns>
+		public virtual IEnumerable<string> GetDeterministicSpecialFileInstallPlan(IMod p_modSelectedMod)
 		{
 			return null;
 		}

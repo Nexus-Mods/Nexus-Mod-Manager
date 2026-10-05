@@ -10,6 +10,7 @@
   "name": "Example Game",
 
   // Use "generic" for games that do not use NMM's Gamebryo plugin-management stack.
+  // Specialized profiles such as "baldursgate3" are reserved for native behavior that cannot be purely declarative.
   "behaviorProfile": "generic",
 
   // Set this only while a legacy DLL mode with the same modeId must take precedence.

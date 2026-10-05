@@ -506,6 +506,14 @@ namespace Nexus.Client.Games.NoMansSky
         }
 
         /// <summary>
+        /// Returns the legacy No Man's Sky special-file selection without displaying the manual-install warning.
+        /// </summary>
+        public override IEnumerable<string> GetDeterministicSpecialFileInstallPlan(IMod p_modSelectedMod)
+        {
+            return p_modSelectedMod == null ? new List<string>() : p_modSelectedMod.GetFileList();
+        }
+
+        /// <summary>
         /// Checks if any files in the list require special installation
         /// </summary>
         /// <param name="p_strFiles">The list of files that need to be checked</param>

@@ -190,6 +190,28 @@ namespace Nexus.Client.CollectionManagement
 			bool skipReadmeFiles, IPluginManager pluginManager = null,
 			CancellationToken cancellationToken = default(CancellationToken))
 		{
+			return PrepareExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext, currentState,
+				skipReadmeFiles, pluginManager, null, cancellationToken);
+		}
+
+		/// <summary>Prepares one exact member with the authoritative active-mod baseline required by characterized ModFileMerge games.</summary>
+		public PreparedCollectionNativeRecipe PrepareExact(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
+			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods,
+			CancellationToken cancellationToken)
+		{
+			return PrepareExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext, currentState,
+				skipReadmeFiles, pluginManager, activeMods, true, cancellationToken);
+		}
+
+		/// <summary>Prepares one exact member while optionally deferring its deterministic merged output to a later reviewed contributor.</summary>
+		internal PreparedCollectionNativeRecipe PrepareExact(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
+			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
+			CancellationToken cancellationToken)
+		{
 			if (member == null)
 				throw new ArgumentNullException(nameof(member));
 			if (member.HasVortexFileList)
@@ -198,7 +220,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!member.HasVortexFomodSelection)
 			{
 				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, false, null, cancellationToken);
+					skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken);
 			}
 
 			return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
@@ -223,7 +245,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!member.HasVortexFomodSelection)
 			{
 				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+					skipReadmeFiles, pluginManager, true, conditionEnvironment, null, true, cancellationToken);
 			}
 
 			return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
@@ -239,14 +261,14 @@ namespace Nexus.Client.CollectionManagement
 			IPluginManager pluginManager = null, CancellationToken cancellationToken = default(CancellationToken))
 		{
 			return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-				skipReadmeFiles, pluginManager, false, null, cancellationToken);
+				skipReadmeFiles, pluginManager, false, null, null, true, cancellationToken);
 		}
 
 		private PreparedCollectionNativeRecipe PrepareBasicSimpleExactCore(ResolvedCollectionPlan plan,
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
 			IPluginManager pluginManager, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment,
-			CancellationToken cancellationToken)
+			IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput, CancellationToken cancellationToken)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (member.HasVortexFileList)
@@ -271,12 +293,14 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 			ValidateCharacterizedInstallRootBehavior(member, mod);
 
-			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles);
+			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods, includeDeterministicModFileMergeOutput);
 			if (!basicResult.IsSupported)
 			{
 				throw new NotSupportedException(String.Format("The Collection member cannot use the characterized basic/simple adapter: {0} ({1}).",
 					basicResult.Message, basicResult.UnsupportedReason));
 			}
+			if (replacement && basicResult.Plan.GameSpecificValues.Count > 0)
+				throw new NotSupportedException("Deterministic SpecialFileInstall game-specific values are not yet projected through the replacement environment; replacement remains fail-closed for this member.");
 
 			// Re-check after archive enumeration/planning so a mutable library archive cannot change unnoticed during preparation.
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
@@ -288,6 +312,11 @@ namespace Nexus.Client.CollectionManagement
 			ModOperationIdentity preparationOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
 			var untranslated = new ModInstallationRecipeInput(preparationOperation, validation);
 			ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(untranslated, simpleRecipe);
+			IReadOnlyList<string> mergeArtifacts;
+			translated = ApplyBasicGeneratedFiles(basicResult.Plan, translated, out mergeArtifacts, cancellationToken);
+			translated = ApplyBasicGameSpecificValues(basicResult.Plan, translated);
+			IReadOnlyList<string> generatedArtifacts;
+			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated basic/simple Collection recipe does not have a complete characterized C6 effect preview.");
@@ -295,7 +324,7 @@ namespace Nexus.Client.CollectionManagement
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedIdentity(plan, member,
 				verifiedArchive.Artifact, basicResult.Plan, translated, effectPreview, skipReadmeFiles);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
-				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId });
+				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(mergeArtifacts).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}
 
 
@@ -358,6 +387,8 @@ namespace Nexus.Client.CollectionManagement
 			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
 			ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
+			IReadOnlyList<string> generatedArtifacts;
+			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
@@ -365,7 +396,7 @@ namespace Nexus.Client.CollectionManagement
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFileListIdentity(plan, member,
 				verifiedArchive.Artifact, frozenRecipe, translated, effectPreview, skipReadmeFiles);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
-				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId });
+				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}
 
 		private PreparedCollectionNativeRecipe PrepareVortexFomodExact(ResolvedCollectionPlan plan,
@@ -379,8 +410,9 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentNullException(nameof(environmentInfo));
 			if (!member.HasVortexFomodSelection)
 				throw new ArgumentException("The FOMOD-aware preparation path requires characterized Vortex installer choices.", nameof(member));
-			if (member.InstallRootBehavior != CollectionMemberInstallRootBehavior.Default)
-				throw new NotSupportedException("Vortex FOMOD choice replay combined with a game-root mod type has no characterized native installer-priority translation.");
+			if (member.InstallRootBehavior != CollectionMemberInstallRootBehavior.Default &&
+				member.InstallRootBehavior != CollectionMemberInstallRootBehavior.VortexDInputGameRoot)
+				throw new NotSupportedException("Vortex FOMOD choice replay is characterized with the dinput game-root mod type only.");
 			cancellationToken.ThrowIfCancellationRequested();
 
 			CollectionRevision revision = _catalogStore.GetRevision(plan.Revision);
@@ -397,7 +429,6 @@ namespace Nexus.Client.CollectionManagement
 
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
-			ValidateCharacterizedInstallRootBehavior(member, mod);
 
 			IModInstallationFomodRecipePlanningAdapter fomodAdapter = mod.InstallScript == null
 				? null
@@ -434,12 +465,15 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
 			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest);
+			ValidateCharacterizedFomodInstallRootBehavior(member, frozenRecipe);
 			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
 			var finalFingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity finalOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, finalFingerprint);
 			ModInstallationRecipeInput translated = _simpleFileAdapter.Translate(
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
+			IReadOnlyList<string> generatedArtifacts;
+			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
 			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");
@@ -447,7 +481,7 @@ namespace Nexus.Client.CollectionManagement
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFomodIdentity(plan, member,
 				verifiedArchive.Artifact, fomodAdapter, fomodRecipe, frozenRecipe, translated, effectPreview, skipReadmeFiles);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
-				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId });
+				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}
 
 		private static void ValidateInputs(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
@@ -527,6 +561,7 @@ namespace Nexus.Client.CollectionManagement
 				!Equals(sourceMember.VortexFomodSelection, member.VortexFomodSelection) ||
 				!Equals(sourceMember.VortexFileList, member.VortexFileList) ||
 				!Equals(sourceMember.VortexFileOverrides, member.VortexFileOverrides) ||
+				!Equals(sourceMember.VortexBinaryPatches, member.VortexBinaryPatches) ||
 				!Equals(sourceMember.Artifact, member.ArtifactChoice.RequestedArtifact) ||
 				!Equals(sourceMember.RecipeIdentity, member.RecipeIdentity))
 				throw new InvalidDataException("The retained Collection source ordinal does not reproduce the exact resolved member artifact and recipe identity.");
@@ -619,6 +654,25 @@ namespace Nexus.Client.CollectionManagement
 			long fileId;
 			return NexusCollectionModFileArtifactIdentity.TryParse(verifiedArchive.Request.SelectedArtifact,
 				out domain, out modId, out fileId);
+		}
+
+		private static void ValidateCharacterizedFomodInstallRootBehavior(ResolvedCollectionMemberPlan member,
+			ModInstallationSimpleFileRecipe frozenRecipe)
+		{
+			if (member.InstallRootBehavior == CollectionMemberInstallRootBehavior.Default)
+				return;
+			if (member.InstallRootBehavior != CollectionMemberInstallRootBehavior.VortexDInputGameRoot)
+				throw new NotSupportedException("The FOMOD member uses a game-root mod type outside the characterized dinput composition.");
+			if (frozenRecipe == null)
+				throw new ArgumentNullException(nameof(frozenRecipe));
+
+			int dinputMarkers = frozenRecipe.Mappings.Count(mapping =>
+				StringComparer.Ordinal.Equals(NormalizePortableArchivePath(mapping.DestinationPath), "dinput8.dll"));
+			if (dinputMarkers != 1)
+			{
+				throw new NotSupportedException(
+					"A Vortex FOMOD classified as dinput must produce exactly one root-level dinput8.dll destination before NMM can reproduce its game-root deployment.");
+			}
 		}
 
 		private static void ValidateCharacterizedInstallRootBehavior(ResolvedCollectionMemberPlan member, IMod mod)
@@ -840,6 +894,127 @@ namespace Nexus.Client.CollectionManagement
 				String.Equals(candidate, extension, StringComparison.OrdinalIgnoreCase));
 		}
 
+		internal static bool IsDeterministicModFileMergeContributor(IGameMode gameMode, IMod mod)
+		{
+			if (gameMode == null || mod == null || !gameMode.RequiresModFileMerge ||
+				String.IsNullOrWhiteSpace(gameMode.MergedFileName) || !(gameMode is IDeterministicModFileMergePlanProvider))
+				return false;
+			List<string> files = mod.GetFileList();
+			return files != null && files.Any(path => !String.IsNullOrWhiteSpace(path) &&
+				path.EndsWith(gameMode.MergedFileName, StringComparison.Ordinal));
+		}
+
+		internal static bool ContainsDeterministicModFileMerge(PreparedCollectionNativeRecipe recipe, IGameMode gameMode)
+		{
+			if (recipe == null || gameMode == null || !gameMode.RequiresModFileMerge || String.IsNullOrWhiteSpace(gameMode.MergedFileName))
+				return false;
+			return recipe.RecipeInput.NativeOperations.OfType<GenerateDataFileOperation>().Any(operation =>
+				!String.IsNullOrWhiteSpace(operation.PreparationSourcePath) &&
+				String.Equals(Path.GetFileName(operation.PreparationSourcePath), gameMode.MergedFileName, StringComparison.OrdinalIgnoreCase));
+		}
+
+		private ModInstallationRecipeInput ApplyBasicGeneratedFiles(BasicInstallPlan plan, ModInstallationRecipeInput translated,
+			out IReadOnlyList<string> generatedArtifactIds, CancellationToken cancellationToken)
+		{
+			var retained = new List<string>();
+			generatedArtifactIds = retained.AsReadOnly();
+			if (plan == null || plan.GeneratedFiles.Count == 0)
+				return translated;
+			if (translated == null || !translated.HasNativePlan)
+				throw new InvalidDataException("Generated BasicInstall merge output requires an already translated exact native file plan.");
+
+			var generatedByDestination = plan.GeneratedFiles.ToDictionary(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase);
+			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var operations = new List<ScriptedInstallOperation>();
+			foreach (ScriptedInstallOperation operation in translated.NativeOperations)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				BasicInstallGeneratedFile generated;
+				if (file == null || !generatedByDestination.TryGetValue(file.DestinationPath, out generated))
+				{
+					operations.Add(operation);
+					continue;
+				}
+				if (!StringComparer.OrdinalIgnoreCase.Equals(file.SourcePath, generated.SourcePath))
+					throw new InvalidDataException("A deterministic BasicInstall merge output no longer matches its reviewed archive-source provenance.");
+				if (file.DeploymentDecision != null)
+					throw new NotSupportedException("Deterministic BasicInstall merge output must be generated before native deployment decisions are resolved.");
+				if (!seen.Add(generated.DestinationPath))
+					throw new InvalidDataException("More than one native file operation targets the same deterministic BasicInstall merge output.");
+
+				CollectionsRetainedArtifact retainedOutput;
+				using (var stream = new MemoryStream(generated.Data, false)) retainedOutput = _artifactStore.Publish(stream, cancellationToken);
+				retained.Add(retainedOutput.ArtifactId);
+				operations.Add(new GenerateDataFileOperation(generated.DestinationPath, generated.Data, generated.SourcePath));
+			}
+			if (seen.Count != generatedByDestination.Count)
+				throw new InvalidDataException("A deterministic BasicInstall merge destination does not exist in the exact translated recipe validation.");
+			generatedArtifactIds = retained.AsReadOnly();
+			return translated.WithTransformedNativePlan(operations);
+		}
+
+		private static ModInstallationRecipeInput ApplyBasicGameSpecificValues(BasicInstallPlan plan, ModInstallationRecipeInput translated)
+		{
+			if (plan == null || plan.GameSpecificValues.Count == 0)
+				return translated;
+			if (translated == null || !translated.HasNativePlan)
+				throw new InvalidDataException("Generated BasicInstall game-specific values require an already translated exact native file plan.");
+
+			var operations = new List<ScriptedInstallOperation>(translated.NativeOperations);
+			foreach (BasicInstallGameSpecificValue value in plan.GameSpecificValues)
+				operations.Add(new EditGameSpecificValueOperation(value.Key, value.Value, true));
+			return translated.WithTransformedNativePlan(operations);
+		}
+
+		private ModInstallationRecipeInput ApplyVortexBinaryPatches(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,
+			IMod mod, ModInstallationRecipeInput translated, out IReadOnlyList<string> generatedArtifactIds, CancellationToken cancellationToken)
+		{
+			var retained = new List<string>();
+			generatedArtifactIds = retained;
+			if (!member.HasVortexBinaryPatches)
+				return translated;
+			if (translated == null || !translated.HasNativePlan)
+				throw new InvalidDataException("Vortex binary patches require an already translated exact native file plan.");
+
+			var reader = new VortexBinaryPatchBundleReader(_revisionSourceStore);
+			IDictionary<string, byte[]> payloads = reader.Read(plan.Revision, member, cancellationToken);
+			var patches = member.VortexBinaryPatches.Items.ToDictionary(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase);
+			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var operations = new List<ScriptedInstallOperation>();
+			foreach (ScriptedInstallOperation operation in translated.NativeOperations)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				CollectionVortexBinaryPatch patch;
+				if (file == null || !patches.TryGetValue(file.DestinationPath, out patch))
+				{
+					operations.Add(operation);
+					continue;
+				}
+				if (file.DeploymentDecision != null)
+					throw new NotSupportedException("Vortex binary patches must be applied before native deployment decisions are resolved.");
+				if (!seen.Add(patch.DestinationPath))
+					throw new InvalidDataException("More than one translated native file operation targets the same Vortex binary-patch destination.");
+				byte[] source = mod.GetFile(file.SourcePath);
+				string actualCrc = VortexCrc32.ComputeUpperHex(source);
+				if (!StringComparer.Ordinal.Equals(actualCrc, patch.SourceCrc32))
+					throw new InvalidDataException("The source CRC32 for Vortex binary patch '" + patch.DestinationPath + "' does not match the reviewed Collection manifest.");
+				byte[] patchPayload;
+				if (!payloads.TryGetValue(patch.DestinationPath, out patchPayload))
+					throw new InvalidDataException("The retained Collection bundle is missing the required Vortex binary patch payload.");
+				byte[] patched = VortexBsdiffPatchApplier.Apply(source, patchPayload);
+				CollectionsRetainedArtifact retainedOutput;
+				using (var stream = new MemoryStream(patched, false)) retainedOutput = _artifactStore.Publish(stream, cancellationToken);
+				retained.Add(retainedOutput.ArtifactId);
+				operations.Add(new GenerateDataFileOperation(file.DestinationPath, patched, file.SourcePath));
+			}
+			if (seen.Count != patches.Count)
+				throw new InvalidDataException("A Vortex binary patch destination does not exist in the exact prepared member output.");
+			generatedArtifactIds = retained.AsReadOnly();
+			return translated.WithTransformedNativePlan(operations);
+		}
+
 		private static ModInstallationSimpleFileRecipe ApplyVortexFileOverrides(ResolvedCollectionMemberPlan member,
 			ModInstallationSimpleFileRecipe recipe, IGameMode gameMode, IMod mod, ModInstallContext installContext)
 		{
@@ -1008,6 +1183,7 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write(mapping.DestinationPath);
 				}
 
+				WriteGeneratedPatchIdentity(writer, translated);
 				WriteEffectPreview(writer, effectPreview);
 				writer.Flush();
 				using (SHA256 sha256 = SHA256.Create())
@@ -1081,6 +1257,7 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write(mapping.DestinationPath);
 				}
 
+				WriteGeneratedPatchIdentity(writer, translated);
 				WriteEffectPreview(writer, effectPreview);
 				writer.Flush();
 
@@ -1089,6 +1266,39 @@ namespace Nexus.Client.CollectionManagement
 					string digest = BitConverter.ToString(sha256.ComputeHash(stream.ToArray())).Replace("-", String.Empty).ToLowerInvariant();
 					return PreparedCollectionNativeRecipeIdentity.FromFingerprint("sha256:" + digest);
 				}
+			}
+		}
+
+		private static void WriteBasicGameSpecificValueIdentity(BinaryWriter writer, ModInstallationRecipeInput translated)
+		{
+			List<EditGameSpecificValueOperation> values = translated.NativeOperations.OfType<EditGameSpecificValueOperation>().ToList();
+			if (values.Count == 0)
+				return;
+			writer.Write("basic-special-game-values/1");
+			writer.Write(values.Count);
+			foreach (EditGameSpecificValueOperation operation in values)
+			{
+				writer.Write(operation.Key);
+				byte[] value = operation.Value ?? new byte[0];
+				using (SHA256 sha256 = SHA256.Create())
+					writer.Write(BitConverter.ToString(sha256.ComputeHash(value)).Replace("-", String.Empty).ToLowerInvariant());
+				writer.Write(value.LongLength);
+			}
+		}
+
+		private static void WriteGeneratedPatchIdentity(BinaryWriter writer, ModInstallationRecipeInput translated)
+		{
+			List<GenerateDataFileOperation> generated = translated.NativeOperations.OfType<GenerateDataFileOperation>().ToList();
+			if (generated.Count == 0)
+				return;
+			writer.Write("vortex-binary-patches/1");
+			writer.Write(generated.Count);
+			foreach (GenerateDataFileOperation operation in generated.OrderBy(x => x.DestinationPath, StringComparer.OrdinalIgnoreCase))
+			{
+				writer.Write(operation.DestinationPath);
+				using (SHA256 sha256 = SHA256.Create())
+					writer.Write(BitConverter.ToString(sha256.ComputeHash(operation.Data)).Replace("-", String.Empty).ToLowerInvariant());
+				writer.Write(operation.Data.LongLength);
 			}
 		}
 
@@ -1158,6 +1368,8 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write(file.DeploymentTarget.RelativePath);
 				}
 
+				WriteBasicGameSpecificValueIdentity(writer, translated);
+				WriteGeneratedPatchIdentity(writer, translated);
 				WriteEffectPreview(writer, effectPreview);
 				writer.Flush();
 

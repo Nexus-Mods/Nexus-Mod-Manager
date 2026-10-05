@@ -1,0 +1,64 @@
+﻿{
+  "schemaVersion": 2,
+  "modeId": "BaldursGate3",
+  "name": "Baldur's Gate 3",
+  "behaviorProfile": "baldursgate3",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "Launcher\\LariLauncher.exe"
+  ],
+  "stopFolders": [
+    "bin",
+    "Data"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "1086940",
+        "installFolderName": "Baldurs Gate 3",
+        "executableName": "Launcher\\LariLauncher.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "Launcher\\LariLauncher.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch Baldur's Gate 3",
+    "customCommandName": "CustomLaunch",
+    "customCommandText": "Launch Custom Baldur's Gate 3",
+    "defaultCommandText": "Launch Baldur's Gate 3",
+    "allowCustomCommand": true
+  },
+  "resources": {
+    "iconPath": "BaldursGate3_logo.ico",
+    "categoriesPath": "Categories.xml"
+  },
+  "theme": {
+    "primaryColor": "#D1AB5E"
+  },
+  "setup": {
+    "useGenericSetup": true
+  },
+  "settings": {
+    "useGenericSettings": true
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "realFileRequiredExtensions": [
+      ".exe",
+      ".jar",
+      ".dll",
+      ".gr2"
+    ],
+    "supportsGameRootInstall": false
+  },
+  "compatibilityNotes": [
+    "Managed mods remain under LocalAppData\\Larian Studios\\Baldur's Gate 3\\Mods, matching the legacy game mode.",
+    "Archive paths under bin or Data deploy through the discovered game root as the legacy secondary install path.",
+    "info.json remains a special metadata file used to update PlayerProfiles modsettings.lsx; deterministic Collection handling is implemented separately."
+  ]
+}

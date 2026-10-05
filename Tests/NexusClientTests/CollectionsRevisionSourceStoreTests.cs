@@ -61,6 +61,40 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void RetainManifest_SetupGuidanceAndToolsRehydrateFromExactRetainedBytesAcrossStoreReopen()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				RevisionFixture fixture = CreateFixture(root, "guidance-rehydrate");
+				string json = "{" +
+					"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/curator\",\"name\":\"Guided\",\"description\":\"Guided setup\",\"domainName\":\"skyrim\",\"installInstructions\":\"Read the curator notes first.\",\"gameVersions\":[\"1.6.1170\"]}," +
+					"\"mods\":[],\"modRules\":[],\"tools\":[{\"name\":\"Tool\",\"exe\":\"Tools\\\\Runner.exe\"}]," +
+					"\"collectionConfig\":{\"recommendNewProfile\":true,\"referenceTagScheme\":\"v1\"}}";
+				byte[] bytes = new UTF8Encoding(false).GetBytes(json);
+				NexusCollectionManifestNormalizationResult normalization = Normalize(bytes, fixture.Revision);
+				var sourceStore = new CollectionsRevisionSourceStore(fixture.Store);
+				RetainRaw(sourceStore, normalization, bytes);
+
+				var reopenedStore = new CollectionsStore(root);
+				reopenedStore.OpenExisting();
+				byte[] reloadedBytes = new CollectionsRevisionSourceStore(reopenedStore).LoadManifest(fixture.Revision.Identity,
+					NexusCollectionManifestNormalizer.SchemaIdentity, NexusCollectionManifestNormalizer.NormalizerVersion);
+				NexusCollectionManifestNormalizationResult rehydrated = Normalize(reloadedBytes, fixture.Revision);
+
+				Assert.IsTrue(rehydrated.Manifest.SetupGuidance.RecommendNewProfile);
+				Assert.AreEqual("Read the curator notes first.", rehydrated.Manifest.SetupGuidance.InstallInstructions);
+				CollectionAssert.AreEqual(new[] { "1.6.1170" }, rehydrated.Manifest.SetupGuidance.GameVersions);
+				Assert.AreEqual(1, rehydrated.Manifest.LaunchTools.Count);
+				Assert.AreEqual("Tools\\Runner.exe", rehydrated.Manifest.LaunchTools[0].RelativeExecutablePath);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void RetainManifest_ArchiveSourcePersistsOuterProvenanceWithoutRetainingOuterBundle()
 		{
 			string root = CreateTemporaryDirectory();
