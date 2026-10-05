@@ -213,3 +213,6 @@ Setup/scripts*
 
 [Ss]tage
 *.patch
+Docs/Collections/C12-Release-Readiness-Gate.md
+Docs/Collections/C12-Representative-Compatibility-Matrix.md
+Docs/Collections/C12-End-to-End-Workflow-Gate.md

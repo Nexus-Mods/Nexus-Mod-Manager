@@ -13,6 +13,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Compatibility")]
 	public class NexusCollectionBundledArtifactMaterializerTests
 	{
 		[Test]

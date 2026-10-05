@@ -8,6 +8,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionReplacementDiffPlannerTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -289,9 +290,11 @@ namespace NexusClientTests
 			CollectionReplacementEnvironmentProjection environment = new CollectionReplacementEnvironmentProjector().Project(diff);
 			ModDeploymentTarget fileTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "meshes\\winner.bin");
 
+			var recipeApproval = new CollectionReplacementPreparedRecipeApproval(member.IdentityResolution.Key, member.RecipeIdentity.Fingerprint,
+				"prepared-native-test", "effect-test", ModInstallMethod.Virtual, ModInstallRoot.Data, "test-adapter", 1);
 			CollectionReplacementReviewedIntent intent = CollectionReplacementReviewedIntent.Create(diff, environment,
 				new CollectionReplacementNativeApproval[0], new CollectionReplacementAssociationApproval[0],
-				new CollectionReplacementPreparedRecipeApproval[0],
+				new[] { recipeApproval },
 				new[] { new CollectionReplacementFileWinnerApproval(fileTarget, member.IdentityResolution.Key) },
 				CollectionReplacementProfileProtectionSnapshot.NoCurrentProfile());
 			CollectionReplacementReviewedIntent loaded = CollectionReplacementReviewedIntentCodec.Deserialize(

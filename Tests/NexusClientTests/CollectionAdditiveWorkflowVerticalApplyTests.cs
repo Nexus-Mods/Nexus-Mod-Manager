@@ -22,6 +22,7 @@ using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
+using Nexus.Client.Mods.Formats.FOMod;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.Settings;
 using Nexus.Client.Util.Collections;
@@ -34,6 +35,7 @@ namespace NexusClientTests
 	/// C6.10 provenance reconciliation, reviewed-state invalidation, retained-input integrity and restart-safe approval boundaries.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	public class CollectionAdditiveWorkflowVerticalApplyTests
 	{
@@ -578,7 +580,7 @@ namespace NexusClientTests
 				var revalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 					operationCoordinator, planBuilder, memberAcquisition);
 
-				ModManager manager = CreateModManagerShell(gameMode, installLog, managedMod, preferredInstallMethod, skipReadmeFiles);
+				ModManager manager = CreateModManagerShell(root, gameMode, installLog, managedMod, preferredInstallMethod, skipReadmeFiles);
 				var services = new ServiceManager(installLog, null, null, null, manager, null, null, null);
 				var rehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore, revisionSources,
 					artifacts, nativeStateReader, recoveryManifests);
@@ -672,10 +674,48 @@ namespace NexusClientTests
 				Assert.That(artifacts.VerifyArtifact(artifactId), Is.False);
 			}
 
+
+			private static void ReleaseFomodMetadataDatabase(string cacheDirectory)
+			{
+				Type cacheType = typeof(ModSortOrderStore).Assembly.GetType(
+					"Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+				FieldInfo lockField = cacheType.GetField("DatabaseLock", BindingFlags.Static | BindingFlags.NonPublic);
+				FieldInfo databasesField = cacheType.GetField("Databases", BindingFlags.Static | BindingFlags.NonPublic);
+				Assert.That(lockField, Is.Not.Null);
+				Assert.That(databasesField, Is.Not.Null);
+
+				object databaseLock = lockField.GetValue(null);
+				var databases = (System.Collections.IDictionary)databasesField.GetValue(null);
+				string databasePath = Path.Combine(cacheDirectory, "fomodArchiveMetadata.sqlite");
+				lock (databaseLock)
+				{
+					object database = databases[databasePath];
+					if (database == null)
+						return;
+
+					Type databaseType = database.GetType();
+					FieldInfo syncRootField = databaseType.GetField("SyncRoot", BindingFlags.Instance | BindingFlags.Public);
+					FieldInfo connectionField = databaseType.GetField("Connection", BindingFlags.Instance | BindingFlags.Public);
+					MethodInfo commitMethod = cacheType.GetMethod("CommitDatabase", BindingFlags.Static | BindingFlags.NonPublic);
+					Assert.That(syncRootField, Is.Not.Null);
+					Assert.That(connectionField, Is.Not.Null);
+					Assert.That(commitMethod, Is.Not.Null);
+
+					object syncRoot = syncRootField.GetValue(database);
+					lock (syncRoot)
+					{
+						commitMethod.Invoke(null, new[] { database });
+						((IDisposable)connectionField.GetValue(database)).Dispose();
+					}
+					databases.Remove(databasePath);
+				}
+			}
+
 			public void Dispose()
 			{
 				if (_disposed) return;
 				_disposed = true;
+				ReleaseFomodMetadataDatabase(Path.Combine(Root, "ModCache"));
 				if (Directory.Exists(Root)) Directory.Delete(Root, true);
 			}
 		}
@@ -912,12 +952,17 @@ namespace NexusClientTests
 					case "get_FileName": return Path.GetFileName(archivePath);
 					case "get_HumanReadableVersion": return "1.0";
 					case "GetFileList": return new List<string>(archiveFiles);
+					case "GetFileStream":
+						string requestedPath = (string)args[0];
+						return archiveFiles.Any(path => StringComparer.OrdinalIgnoreCase.Equals(path, requestedPath))
+							? CreateFixtureFileStream(Encoding.UTF8.GetBytes("fixture:" + requestedPath))
+							: null;
 					default: return null;
 				}
 			});
 		}
 
-		private static ModManager CreateModManagerShell(IGameMode gameMode, IInstallLog installLog, IMod mod,
+		private static ModManager CreateModManagerShell(string root, IGameMode gameMode, IInstallLog installLog, IMod mod,
 			ModInstallMethod preferredInstallMethod, bool skipReadmeFiles)
 		{
 			var registry = new ModRegistry(InterfaceStub<IModFormatRegistry>.Create((method, args) => null), gameMode);
@@ -941,6 +986,12 @@ namespace NexusClientTests
 				method.Name == "get_Settings" ? settings : null);
 			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
 				method.Name == "get_GameDomainName" ? "skyrimspecialedition" : null);
+			string modDirectory = Path.Combine(root, "Mods");
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			Directory.CreateDirectory(modDirectory);
+			Directory.CreateDirectory(cacheDirectory);
+			var sortOrderService = new ModSortOrderService(new ModSortOrderStore(cacheDirectory, modDirectory));
+			sortOrderService.RebuildCurrentArchiveInventory(registeredMods, Enumerable.Empty<IMod>());
 
 			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
 			SetField(manager, "<GameMode>k__BackingField", gameMode);
@@ -948,6 +999,7 @@ namespace NexusClientTests
 			SetField(manager, "<ManagedModRegistry>k__BackingField", registry);
 			SetField(manager, "<EnvironmentInfo>k__BackingField", environment);
 			SetField(manager, "<ModRepository>k__BackingField", repository);
+			SetField(manager, "<SortOrderService>k__BackingField", sortOrderService);
 			return manager;
 		}
 
@@ -973,6 +1025,13 @@ namespace NexusClientTests
 			FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
 			Assert.That(field, Is.Not.Null, "Missing field: " + fieldName);
 			field.SetValue(target, value);
+		}
+
+		private static FileStream CreateFixtureFileStream(byte[] bytes)
+		{
+			string path = Path.Combine(Path.GetTempPath(), "nmm-collection-fixture-stream-" + Guid.NewGuid().ToString("N") + ".bin");
+			File.WriteAllBytes(path, bytes ?? new byte[0]);
+			return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
 		}
 
 		private static CollectionContentHash ComputeHash(byte[] bytes)

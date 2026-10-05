@@ -12,6 +12,7 @@ namespace NexusClientTests
 	/// <summary>
 	/// Verifies bundle/collection.json normalization without any native install or game mutation.
 	/// </summary>
+	[Category("CollectionsC12Compatibility")]
 	public class NexusCollectionBundleNormalizationTests
 	{
 		[Test]

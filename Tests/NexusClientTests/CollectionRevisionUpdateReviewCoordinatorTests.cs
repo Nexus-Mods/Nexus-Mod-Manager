@@ -10,6 +10,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionRevisionUpdateReviewCoordinatorTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -51,6 +52,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Coordinator_PersistsExactReview_AndDurablyApprovesAfterRestart()
 		{
 			using (Fixture f = Fixture.Create("persist", CreateMember("member-a", "100", "200", "recipe-a"),
@@ -80,6 +82,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Coordinator_PersistsExactCandidateArtifactSubstitutionAcrossRestart()
 		{
 			NormalizedCollectionMember oldMember = CreateMember("member-a", "100", "200", "recipe-a");

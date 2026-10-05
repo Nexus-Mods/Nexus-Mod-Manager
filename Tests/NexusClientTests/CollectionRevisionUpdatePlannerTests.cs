@@ -9,6 +9,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionRevisionUpdatePlannerTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

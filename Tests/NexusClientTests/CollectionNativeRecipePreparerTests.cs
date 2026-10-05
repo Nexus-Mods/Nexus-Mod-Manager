@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using Nexus.Client;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
@@ -25,6 +26,7 @@ namespace NexusClientTests
 	/// Verifies C6.15.9 retained-source to native-recipe preparation for characterized basic/simple and bounded FOMOD capabilities.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Compatibility")]
 	public class CollectionNativeRecipePreparerTests
 	{
 		[Test]
@@ -1014,7 +1016,7 @@ namespace NexusClientTests
 			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Install Map with Locations\",\"groups\":[" +
 				"{\"name\":\"Map with All Locations\",\"choices\":[{\"name\":\"4k With All Locations\",\"idx\":0}]}]}]}";
 			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
-				choicesJson, script, @"textures\map-4k.dds", @"textures\map-2k.dds");
+				choicesJson, script, null, "exact", (string)null, (IDictionary<string, byte[]>)null, @"textures\map-4k.dds", @"textures\map-2k.dds");
 		}
 
 		private static Fixture CreateFomodDinputFixture(string root, string suffix, string dinputDestination)
@@ -1033,7 +1035,7 @@ namespace NexusClientTests
 			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Injector Step\",\"groups\":[" +
 				"{\"name\":\"Injector Group\",\"choices\":[{\"name\":\"Install Injector\",\"idx\":0}]}]}]}";
 			return CreateFixtureCore(root, suffix, "dinput", new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.GameRoot), true,
-				choicesJson, script, @"payload\dinput8.dll", @"payload\preset.ini");
+				choicesJson, script, null, "exact", (string)null, (IDictionary<string, byte[]>)null, @"payload\dinput8.dll", @"payload\preset.ini");
 		}
 
 		private static Fixture CreateFomodPluginFixture(string root, string suffix, bool declarePluginState)
@@ -1050,7 +1052,7 @@ namespace NexusClientTests
 				"{\"name\":\"Plugin Group\",\"choices\":[{\"name\":\"Plugin\",\"idx\":0}]}]}]}";
 			string pluginsJson = declarePluginState ? "[{\"name\":\"choice.esp\",\"enabled\":true}]" : null;
 			Fixture fixture = CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
-				choicesJson, script, pluginsJson, @"plugin\choice.esp");
+				choicesJson, script, pluginsJson, "exact", (string)null, (IDictionary<string, byte[]>)null, @"plugin\choice.esp");
 			fixture.GameMode = CreateGameMode(false, null, false, new[] { ".esp", ".esm", ".esl" });
 			return fixture;
 		}
@@ -1162,6 +1164,13 @@ namespace NexusClientTests
 					case "GetFile":
 						byte[] bytes;
 						return archiveContents != null && archiveContents.TryGetValue((string)args[0], out bytes) ? bytes : null;
+					case "GetFileStream":
+						string requestedPath = (string)args[0];
+						if (!fileList.Any(path => StringComparer.OrdinalIgnoreCase.Equals(path, requestedPath))) return null;
+						byte[] streamBytes;
+						if (archiveContents == null || !archiveContents.TryGetValue(requestedPath, out streamBytes))
+							streamBytes = Encoding.UTF8.GetBytes("fixture:" + requestedPath);
+						return CreateFixtureFileStream(streamBytes);
 					default: return null;
 				}
 			});
@@ -1214,7 +1223,8 @@ namespace NexusClientTests
 				switch (method.Name)
 				{
 					case "get_Name": return "Test Game";
-					case "get_GameModeEnvironmentInfo": return CreateGameModeEnvironmentInfo();
+					case "get_GameModeEnvironmentInfo": return CreateGameModeEnvironmentInfo(hasSecondaryInstallPath);
+					case "get_InstallationPath": return @"C:\Game";
 					case "get_PluginDirectory": return @"C:\Game\Data";
 					case "get_UsesPlugins": return pluginExtensions != null;
 					case "get_PluginExtensions": return pluginExtensions;
@@ -1252,14 +1262,14 @@ namespace NexusClientTests
 		}
 
 
-		private static IGameModeEnvironmentInfo CreateGameModeEnvironmentInfo()
+		private static IGameModeEnvironmentInfo CreateGameModeEnvironmentInfo(bool hasSecondaryInstallPath = false)
 		{
 			return InterfaceStub<IGameModeEnvironmentInfo>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
 					case "get_InstallationPath": return @"C:\Game";
-					case "get_SecondaryInstallationPath": return null;
+					case "get_SecondaryInstallationPath": return hasSecondaryInstallPath ? @"C:\GameSecondary" : null;
 					case "get_ExecutablePath": return @"C:\Game\Game.exe";
 					case "get_InstallInfoDirectory": return @"C:\Game\NMM\InstallInfo";
 					case "get_OverwriteDirectory": return @"C:\Game\NMM\Overwrite";
@@ -1302,6 +1312,13 @@ namespace NexusClientTests
 				new CollectionNativeGameValueState[0], new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
 				new CollectionTargetAssociation[0], new CollectionMemberBinding[0], new UserOverride[0],
 				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], deploymentCommitSequence);
+		}
+
+		private static FileStream CreateFixtureFileStream(byte[] bytes)
+		{
+			string path = Path.Combine(Path.GetTempPath(), "nmm-collection-fixture-stream-" + Guid.NewGuid().ToString("N") + ".bin");
+			File.WriteAllBytes(path, bytes ?? new byte[0]);
+			return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
 		}
 
 		private static string CreateTemporaryDirectory()

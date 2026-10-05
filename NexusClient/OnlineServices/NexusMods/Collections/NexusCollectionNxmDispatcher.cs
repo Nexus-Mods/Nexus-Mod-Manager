@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using Nexus.Client.CollectionManagement;
 
 namespace Nexus.Client.OnlineServices.NexusMods.Collections
 {
@@ -50,6 +51,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		/// <summary>
 		/// Gets whether the provider resolved a durable concrete collection/revision identity.
 		/// </summary>
+		internal long UiQueuePublishedTimestamp { get; set; }
+
 		public bool HasConcreteRevision
 		{
 			get
@@ -130,6 +133,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			if (link == null)
 				throw new ArgumentNullException(nameof(link));
 
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			bool enteredGate = false;
 			try
 			{
@@ -148,6 +152,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{
 				if (enteredGate)
 					_metadataGate.Release();
+				CollectionPerformanceMetrics.RecordNxmMetadataResolution(performanceStarted);
 			}
 		}
 
@@ -196,6 +201,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			NexusCollectionNxmDispatchResult result = await ResolveAsync(link).ConfigureAwait(false);
 			lock (_syncRoot)
 			{
+				result.UiQueuePublishedTimestamp = CollectionPerformanceMetrics.StartTiming();
 				if (_completed.Count >= MaxCompletedResults)
 				{
 					_completed.Dequeue();

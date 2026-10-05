@@ -10,6 +10,7 @@ using NUnit.Framework;
 namespace Nexus.Client.Tests
 {
     [TestFixture]
+    [Category("CollectionsC12Compatibility")]
     public class DataDrivenBaldursGate3GameModeTests
     {
         [Test]

@@ -18,6 +18,7 @@ namespace NexusClientTests
 	/// <summary>
 	/// Verifies C6.15.2 concrete bundle acquisition remains credential-separated, bounded and durably revision-owned.
 	/// </summary>
+	[Category("CollectionsC12Compatibility")]
 	public class NexusCollectionBundleAcquirerTests
 	{
 		private const string ArchiveManifest = "{\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/author\",\"name\":\"Remote Archive\",\"description\":\"Example collection\",\"domainName\":\"skyrim\"},\"mods\":[{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrim\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}],\"modRules\":[]}";

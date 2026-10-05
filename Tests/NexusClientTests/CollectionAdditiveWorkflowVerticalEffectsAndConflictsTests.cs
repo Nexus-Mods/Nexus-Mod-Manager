@@ -22,6 +22,7 @@ using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Mods;
+using Nexus.Client.Mods.Formats.FOMod;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
@@ -36,7 +37,9 @@ namespace NexusClientTests
 	/// for reviewed plugin effects, additive file-winner behavior, safe-boundary resume, crossed-native-boundary reconciliation and final provenance.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
+	[Category("CollectionsC12Compatibility")]
 	public class CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests
 	{
 		[Test]
@@ -182,6 +185,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Apply_TwoMembersPauseAfterFirstVerifiedCommit_RestartResumesOnlyRemainingMember()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
@@ -217,6 +221,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Apply_CancellationRequestedAfterFirstCommit_RestartResumesOnlyRemainingMember()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.TwoWritersWithPriority))
@@ -283,6 +288,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Apply_CrossedNativeBoundaryFailure_C69ReconcilesRealityBeforeAnyRetry()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.PluginlessSingleMember))
@@ -327,6 +333,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Apply_FailureAfterNativeTerminalCheckpoint_C69ReconcilesProvenanceWithoutReplay()
 		{
 			using (Fixture fixture = Fixture.Create(Scenario.PluginlessSingleMember))
@@ -395,6 +402,7 @@ namespace NexusClientTests
 		[TestCase(ModInstallMethod.Virtual, (int)GateAFailureBoundary.AfterNativeCommit, false)]
 		[TestCase(ModInstallMethod.Direct, (int)GateAFailureBoundary.AfterNativeTerminalCheckpoint, true)]
 		[TestCase(ModInstallMethod.Virtual, (int)GateAFailureBoundary.AfterNativeTerminalCheckpoint, true)]
+		[Category("CollectionsC12FailureInjection")]
 		public void GateA_SingleMemberFailureMatrix_ResumesExactlyOnceWithoutPrematureAppliedProvenance(
 			ModInstallMethod installMethod, int failureBoundaryValue, bool pluginArchive)
 		{
@@ -768,10 +776,48 @@ namespace NexusClientTests
 					Paths, cancellationToken).GetAwaiter().GetResult();
 			}
 
+
+			private static void ReleaseFomodMetadataDatabase(string cacheDirectory)
+			{
+				Type cacheType = typeof(ModSortOrderStore).Assembly.GetType(
+					"Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+				FieldInfo lockField = cacheType.GetField("DatabaseLock", BindingFlags.Static | BindingFlags.NonPublic);
+				FieldInfo databasesField = cacheType.GetField("Databases", BindingFlags.Static | BindingFlags.NonPublic);
+				Assert.That(lockField, Is.Not.Null);
+				Assert.That(databasesField, Is.Not.Null);
+
+				object databaseLock = lockField.GetValue(null);
+				var databases = (System.Collections.IDictionary)databasesField.GetValue(null);
+				string databasePath = Path.Combine(cacheDirectory, "fomodArchiveMetadata.sqlite");
+				lock (databaseLock)
+				{
+					object database = databases[databasePath];
+					if (database == null)
+						return;
+
+					Type databaseType = database.GetType();
+					FieldInfo syncRootField = databaseType.GetField("SyncRoot", BindingFlags.Instance | BindingFlags.Public);
+					FieldInfo connectionField = databaseType.GetField("Connection", BindingFlags.Instance | BindingFlags.Public);
+					MethodInfo commitMethod = cacheType.GetMethod("CommitDatabase", BindingFlags.Static | BindingFlags.NonPublic);
+					Assert.That(syncRootField, Is.Not.Null);
+					Assert.That(connectionField, Is.Not.Null);
+					Assert.That(commitMethod, Is.Not.Null);
+
+					object syncRoot = syncRootField.GetValue(database);
+					lock (syncRoot)
+					{
+						commitMethod.Invoke(null, new[] { database });
+						((IDisposable)connectionField.GetValue(database)).Dispose();
+					}
+					databases.Remove(databasePath);
+				}
+			}
+
 			public void Dispose()
 			{
 				if (_disposed) return;
 				_disposed = true;
+				ReleaseFomodMetadataDatabase(Path.Combine(Root, "ModCache"));
 				if (Directory.Exists(Root)) Directory.Delete(Root, true);
 			}
 		}
@@ -1249,6 +1295,11 @@ namespace NexusClientTests
 					case "get_FileName": return Path.GetFileName(spec.ArchivePath);
 					case "get_HumanReadableVersion": return "1.0";
 					case "GetFileList": return new List<string>(spec.Files);
+					case "GetFileStream":
+						string requestedPath = (string)args[0];
+						return spec.Files.Any(path => StringComparer.OrdinalIgnoreCase.Equals(path, requestedPath))
+							? CreateFixtureFileStream(Encoding.UTF8.GetBytes("fixture:" + requestedPath))
+							: null;
 					default: return null;
 				}
 			});
@@ -1287,6 +1338,12 @@ namespace NexusClientTests
 				method.Name == "get_Settings" ? settings : null);
 			IModRepository repository = InterfaceStub<IModRepository>.Create((method, args) =>
 				method.Name == "get_GameDomainName" ? "skyrimspecialedition" : null);
+			string modDirectory = Path.Combine(root, "Mods");
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			Directory.CreateDirectory(modDirectory);
+			Directory.CreateDirectory(cacheDirectory);
+			var sortOrderService = new ModSortOrderService(new ModSortOrderStore(cacheDirectory, modDirectory));
+			sortOrderService.RebuildCurrentArchiveInventory(registeredMods, Enumerable.Empty<IMod>());
 
 			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
 			SetField(manager, "<GameMode>k__BackingField", gameMode);
@@ -1294,9 +1351,10 @@ namespace NexusClientTests
 			SetField(manager, "<ManagedModRegistry>k__BackingField", registry);
 			SetField(manager, "<EnvironmentInfo>k__BackingField", environment);
 			SetField(manager, "<ModRepository>k__BackingField", repository);
-			Directory.CreateDirectory(Path.Combine(root, "Mods"));
+			SetField(manager, "<SortOrderService>k__BackingField", sortOrderService);
+			Directory.CreateDirectory(modDirectory);
 			var virtualModActivator = new VirtualModActivator(manager, pluginManager, gameMode, installLog, environment,
-				Path.Combine(root, "Mods"));
+				modDirectory);
 			SetField(manager, "m_vmaVirtualModActivator", virtualModActivator);
 			return manager;
 		}
@@ -1306,6 +1364,13 @@ namespace NexusClientTests
 			FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
 			Assert.That(field, Is.Not.Null, "Missing field: " + fieldName);
 			field.SetValue(target, value);
+		}
+
+		private static FileStream CreateFixtureFileStream(byte[] bytes)
+		{
+			string path = Path.Combine(Path.GetTempPath(), "nmm-collection-fixture-stream-" + Guid.NewGuid().ToString("N") + ".bin");
+			File.WriteAllBytes(path, bytes ?? new byte[0]);
+			return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
 		}
 
 		private static CollectionContentHash ComputeHash(byte[] bytes)

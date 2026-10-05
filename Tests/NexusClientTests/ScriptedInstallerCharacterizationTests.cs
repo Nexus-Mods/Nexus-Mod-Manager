@@ -30,7 +30,7 @@ namespace NexusClientTests
 
                 Assert.IsTrue(booResult);
                 Assert.AreEqual(NormalizePath("textures/foo.dds"), ctx.FileInstaller.LastModFilePath);
-                Assert.AreEqual(Path.Combine(ctx.VirtualPath, "12345", NormalizePath("textures/Foo.dds")), ctx.FileInstaller.LastInstallPath);
+                Assert.AreEqual(Path.Combine(ctx.VirtualPath, "12345", "adjusted:" + NormalizePath("textures/Foo.dds")), ctx.FileInstaller.LastInstallPath);
                 Assert.AreEqual(NormalizePath("textures/Foo.dds"), ctx.LastLinkedDestination);
                 Assert.AreEqual(ctx.FileInstaller.LastInstallPath, ctx.LastLinkedSource);
             }
@@ -48,7 +48,7 @@ namespace NexusClientTests
 
                 ctx.Proxy.InstallFileFromMod("tools/Tool.EXE", "tools/Tool.exe");
 
-                Assert.AreEqual(Path.Combine(ctx.HdLinkPath, "ExampleMod", NormalizePath("tools/Tool.exe")), ctx.FileInstaller.LastInstallPath);
+                Assert.AreEqual(Path.Combine(ctx.HdLinkPath, "ExampleMod", "adjusted:" + NormalizePath("tools/Tool.exe")), ctx.FileInstaller.LastInstallPath);
             }
         }
 
@@ -142,7 +142,7 @@ namespace NexusClientTests
 
                 ctx.Proxy.InstallFileFromMod("meshes/foo.nif", "meshes/foo.nif");
 
-                Assert.AreEqual(Path.Combine(ctx.VirtualPath, "-1", NormalizePath("meshes/foo.nif")), ctx.FileInstaller.LastInstallPath);
+                Assert.AreEqual(Path.Combine(ctx.VirtualPath, "-1", "adjusted:" + NormalizePath("meshes/foo.nif")), ctx.FileInstaller.LastInstallPath);
             }
         }
 

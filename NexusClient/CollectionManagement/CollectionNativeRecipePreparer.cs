@@ -212,19 +212,27 @@ namespace Nexus.Client.CollectionManagement
 			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
 			CancellationToken cancellationToken)
 		{
-			if (member == null)
-				throw new ArgumentNullException(nameof(member));
-			if (member.HasVortexFileList)
-				return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, false, null, cancellationToken);
-			if (!member.HasVortexFomodSelection)
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			try
 			{
-				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken);
-			}
+				if (member == null)
+					throw new ArgumentNullException(nameof(member));
+				if (member.HasVortexFileList)
+					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+						skipReadmeFiles, pluginManager, false, null, cancellationToken);
+				if (!member.HasVortexFomodSelection)
+				{
+					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+						skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken);
+				}
 
-			return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-				currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken);
+				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
+					currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken);
+			}
+			finally
+			{
+				CollectionPerformanceMetrics.RecordNativeRecipePreparation(performanceStarted);
+			}
 		}
 
 		/// <summary>
@@ -237,19 +245,27 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReplacementEnvironmentProjection conditionEnvironment, bool skipReadmeFiles, IPluginManager pluginManager = null,
 			CancellationToken cancellationToken = default(CancellationToken))
 		{
-			if (member == null) throw new ArgumentNullException(nameof(member));
-			if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
-			if (member.HasVortexFileList)
-				return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
-			if (!member.HasVortexFomodSelection)
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			try
 			{
-				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-					skipReadmeFiles, pluginManager, true, conditionEnvironment, null, true, cancellationToken);
-			}
+				if (member == null) throw new ArgumentNullException(nameof(member));
+				if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
+				if (member.HasVortexFileList)
+					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+						skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+				if (!member.HasVortexFomodSelection)
+				{
+					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+						skipReadmeFiles, pluginManager, true, conditionEnvironment, null, true, cancellationToken);
+				}
 
-			return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-				currentState, skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
+					currentState, skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+			}
+			finally
+			{
+				CollectionPerformanceMetrics.RecordNativeRecipePreparation(performanceStarted);
+			}
 		}
 
 		/// <summary>
@@ -260,8 +276,16 @@ namespace Nexus.Client.CollectionManagement
 			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
 			IPluginManager pluginManager = null, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-				skipReadmeFiles, pluginManager, false, null, null, true, cancellationToken);
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			try
+			{
+				return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
+					skipReadmeFiles, pluginManager, false, null, null, true, cancellationToken);
+			}
+			finally
+			{
+				CollectionPerformanceMetrics.RecordNativeRecipePreparation(performanceStarted);
+			}
 		}
 
 		private PreparedCollectionNativeRecipe PrepareBasicSimpleExactCore(ResolvedCollectionPlan plan,
@@ -323,6 +347,7 @@ namespace Nexus.Client.CollectionManagement
 
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedIdentity(plan, member,
 				verifiedArchive.Artifact, basicResult.Plan, translated, effectPreview, skipReadmeFiles);
+			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(mergeArtifacts).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}
@@ -395,6 +420,7 @@ namespace Nexus.Client.CollectionManagement
 
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFileListIdentity(plan, member,
 				verifiedArchive.Artifact, frozenRecipe, translated, effectPreview, skipReadmeFiles);
+			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}
@@ -480,6 +506,7 @@ namespace Nexus.Client.CollectionManagement
 
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFomodIdentity(plan, member,
 				verifiedArchive.Artifact, fomodAdapter, fomodRecipe, frozenRecipe, translated, effectPreview, skipReadmeFiles);
+			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}

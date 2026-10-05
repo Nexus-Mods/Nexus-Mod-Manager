@@ -13,6 +13,7 @@ namespace NexusClientTests
 {
 	/// <summary>C6.9 restart reconciliation and durable execution-evidence coverage.</summary>
 	[TestFixture]
+	[Category("CollectionsC12FailureInjection")]
 	[Category("CollectionsGateA")]
 	public class CollectionNativeChildRestartReconciliationCoordinatorTests
 	{

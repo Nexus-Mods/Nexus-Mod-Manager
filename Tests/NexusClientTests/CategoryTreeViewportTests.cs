@@ -280,7 +280,7 @@ namespace NexusClientTests
 
 			_nativeSortNotifications = 0;
 			_userSortNotifications = 0;
-			SendNativeClick(clickPoint);
+			DispatchRowClick(clickPoint);
 			Application.DoEvents();
 
 			Assert.That(_nativeSortNotifications, Is.Zero, "The first focus-changing click after refresh must not release a deferred native sort.");
@@ -305,14 +305,14 @@ namespace NexusClientTests
 			IMod requestedMod = null;
 			SubscribeModEvent("ModToggleRequested", mod => requestedMod = mod);
 
-			SendNativeClick(firstClickPoint);
+			DispatchRowClick(firstClickPoint);
 			_tree.TopVisibleNodeIndex = 130;
 			Application.DoEvents();
 			TreeListNode nodeNowUnderPointer = _tree.CalcHitInfo(firstClickPoint).Node;
 			Assert.That(nodeNowUnderPointer, Is.Not.SameAs(firstNode), "The forced viewport move must put a different row under the original click point.");
 			Assert.That(nodeNowUnderPointer?.Tag, Is.InstanceOf<IMod>());
 
-			SendNativeDoubleClickContinuation(firstClickPoint);
+			DispatchDoubleClickContinuation(firstClickPoint);
 			Application.DoEvents();
 
 			Assert.That(requestedMod, Is.SameAs(expectedMod), "Viewport movement must not retarget activation to the row currently under the pointer.");
@@ -334,12 +334,12 @@ namespace NexusClientTests
 			IMod requestedMod = null;
 			SubscribeModEvent("LatestLinkRequested", mod => requestedMod = mod);
 
-			SendNativeMouseDown(clickPoint);
+			DispatchRowMouseDown(clickPoint);
 			_tree.TopVisibleNodeIndex = 130;
 			Application.DoEvents();
 			TreeListNode nodeNowUnderPointer = _tree.CalcHitInfo(clickPoint).Node;
 			Assert.That(nodeNowUnderPointer, Is.Not.SameAs(firstNode));
-			SendNativeMouseUp(clickPoint);
+			DispatchRowMouseClick(clickPoint);
 			Application.DoEvents();
 
 			Assert.That(requestedMod, Is.SameAs(expectedMod), "Latest navigation must use the gesture origin rather than the row under the pointer at MouseUp.");
@@ -361,11 +361,11 @@ namespace NexusClientTests
 			IMod requestedMod = null;
 			SubscribeModEvent("LatestLinkRequested", mod => requestedMod = mod);
 
-			SendNativeMouseDown(clickPoint);
+			DispatchRowMouseDown(clickPoint);
 			_mods.Remove(targetMod);
 			InvokeSurface("RemoveMods", (object)new[] { targetMod });
 			Application.DoEvents();
-			SendNativeMouseUp(clickPoint);
+			DispatchRowMouseClick(clickPoint);
 			Application.DoEvents();
 
 			Assert.That(requestedMod, Is.Null, "A removed gesture target must cancel the action instead of retargeting another row.");
@@ -426,7 +426,7 @@ namespace NexusClientTests
 			Assert.That(_tree.ActiveEditor, Is.Not.Null, "The Auto Filter Row must own an active editor for this regression case.");
 			Control editor = _tree.ActiveEditor as Control;
 			Assert.That(editor, Is.Not.Null);
-			editor.Text = "Mod";
+			editor.Text = mod.ModName;
 			string pendingText = editor.Text;
 			string statusBefore = Convert.ToString(target.GetValue(StatusFieldName));
 
@@ -1136,6 +1136,43 @@ namespace NexusClientTests
 			EventInfo eventInfo = _view.GetType().GetEvent(eventName, BindingFlags.Instance | BindingFlags.NonPublic);
 			EventHandler<ModEventArgs> handler = (sender, args) => callback(args.Mod);
 			eventInfo.GetAddMethod(true).Invoke(_view, new object[] { handler });
+		}
+
+		/// <summary>
+		/// Dispatches the Category View row handlers in native mouse-event order. Direct WM_* messages sent
+		/// to the outer DevExpress TreeList handle do not reliably raise WinForms MouseClick/DoubleClick
+		/// under the VS test host, so row-gesture regressions invoke the production handlers directly.
+		/// Header and Auto Filter tests continue to use native messages because they exercise DevExpress itself.
+		/// </summary>
+		private void DispatchRowClick(Point point)
+		{
+			DispatchRowMouseDown(point);
+			DispatchRowMouseClick(point);
+		}
+
+		/// <summary>
+		/// Captures the stable production gesture target for a row interaction.
+		/// </summary>
+		private void DispatchRowMouseDown(Point point)
+		{
+			InvokeViewNonPublic("TreeList_MouseDown", _tree, new MouseEventArgs(MouseButtons.Left, 1, point.X, point.Y, 0));
+		}
+
+		/// <summary>
+		/// Completes a left row click through the production Category View click handler.
+		/// </summary>
+		private void DispatchRowMouseClick(Point point)
+		{
+			InvokeViewNonPublic("TreeList_MouseClick", _tree, new MouseEventArgs(MouseButtons.Left, 1, point.X, point.Y, 0));
+		}
+
+		/// <summary>
+		/// Dispatches the second half of a double-click without replacing the first captured gesture target.
+		/// </summary>
+		private void DispatchDoubleClickContinuation(Point point)
+		{
+			InvokeViewNonPublic("TreeList_MouseDown", _tree, new MouseEventArgs(MouseButtons.Left, 2, point.X, point.Y, 0));
+			InvokeViewNonPublic("TreeList_DoubleClick", _tree, EventArgs.Empty);
 		}
 
 		/// <summary>

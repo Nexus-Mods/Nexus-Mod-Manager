@@ -18,6 +18,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionRevisionUpdatePreparationCoordinatorTests
 	{
 		[Test]
@@ -68,6 +69,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void ProbeCompletedInput_ChangedAssociationAfterPause_RefusesStaleApproval()
 		{
 			using (Fixture f = Fixture.Create("pause-stale-association", true))

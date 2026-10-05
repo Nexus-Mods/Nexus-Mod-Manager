@@ -14,6 +14,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Compatibility")]
 	public class CollectionManualAcquisitionTests
 	{
 		private const string NexusArtifactId = "skyrimspecialedition/100/200";

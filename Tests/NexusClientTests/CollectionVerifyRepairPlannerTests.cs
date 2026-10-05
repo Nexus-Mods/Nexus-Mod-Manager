@@ -12,6 +12,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionVerifyRepairPlannerTests
 	{
 		private const string Sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -182,6 +183,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void ExactEffectVerification_CorruptDestinationBytes_AreQualifiedForRepair()
 		{
 			Fixture f = CreateFixture(CollectionAssociationState.Applied, includeBinding: true, includeNative: true);

@@ -3,6 +3,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
+using Nexus.Client.CollectionManagement;
 
 namespace Nexus.Client.CollectionManagement.Persistence
 {
@@ -304,6 +305,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		/// </remarks>
 		public Stream OpenBundle(CollectionRevisionIdentity revision, CancellationToken cancellationToken = default(CancellationToken))
 		{
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
 
@@ -327,7 +329,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (!_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
 				throw new InvalidDataException("The retained Collection revision bundle failed its integrity check.");
 
-			return _artifactStore.OpenRead(artifact.ArtifactId);
+			Stream result = _artifactStore.OpenRead(artifact.ArtifactId);
+			CollectionPerformanceMetrics.RecordRetainedBundleOpen(performanceStarted, artifact.ByteLength);
+			return result;
 		}
 
 		/// <summary>
@@ -335,6 +339,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		/// </summary>
 		public byte[] LoadManifest(CollectionRevisionIdentity revision, CollectionManifestSourceSnapshot expectedSource)
 		{
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
 			if (expectedSource == null)
@@ -375,6 +380,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				if (stream.ReadByte() != -1)
 					throw new InvalidDataException("The retained Collection revision manifest exceeds its sealed byte length.");
 			}
+			CollectionPerformanceMetrics.RecordRetainedManifestLoad(performanceStarted, bytes.LongLength);
 			return bytes;
 		}
 

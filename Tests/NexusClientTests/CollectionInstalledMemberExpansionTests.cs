@@ -8,6 +8,7 @@ using NUnit.Framework;
 namespace Nexus.Client.Tests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	[Category("CollectionsManagement")]
 	public class CollectionInstalledMemberExpansionTests

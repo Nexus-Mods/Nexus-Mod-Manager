@@ -854,7 +854,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			NexusCollectionNxmDispatchResult result;
 			NexusCollectionNxmDispatchResult newest = null;
 			while (_dispatcher.TryDequeueCompleted(out result))
+			{
+				if (result.UiQueuePublishedTimestamp != 0)
+					CollectionPerformanceMetrics.RecordNxmUiDispatch(result.UiQueuePublishedTimestamp);
 				newest = result;
+			}
 			if (newest != null)
 				BeginRemotePreview(newest);
 		}
@@ -3452,6 +3456,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				? String.Empty
 				: typeof(CollectionsPreviewControl).Assembly.GetName().Version.ToString();
 			var report = new CollectionTechnicalReportSnapshot(version);
+			report.Performance = CollectionPerformanceMetrics.Capture();
 			CollectionUiContext context = _displayContext ?? CollectionUiContext.None(_previewGeneration);
 			report.Context = new CollectionTechnicalReportContext
 			{
@@ -3787,6 +3792,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			if ((_workflow == null && _managementWorkflow == null) || _workflowBusy || IsDisposed || Disposing)
 				return;
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			long observedRecoveryOperations = 0;
 			CollectionUiContext context = CollectionUiContext.CurrentSetup(_previewGeneration);
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target..."));
 			try
@@ -3814,6 +3821,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					memberRemovalResults = await _managementWorkflow.ReconcileInterruptedMemberRemovalsAsync(token);
 				if (_managementWorkflow != null && localRestoreResults.All(x => x.IsSuccessful) && c10RecoveryClear && memberRemovalResults.All(x => x.IsSuccessful))
 					effectRemovalResults = await _managementWorkflow.ReconcileInterruptedEffectRemovalAsync(token);
+				observedRecoveryOperations = (results == null ? 0 : results.Count) + (localRestoreResults == null ? 0 : localRestoreResults.Count) +
+					(revisionUpdateResults == null ? 0 : revisionUpdateResults.Count) + (verifyRepairResults == null ? 0 : verifyRepairResults.Count) +
+					(replacementInspections == null ? 0 : replacementInspections.Count) + (memberRemovalResults == null ? 0 : memberRemovalResults.Count) +
+					(effectRemovalResults == null ? 0 : effectRemovalResults.Count);
 				if (_managementWorkflow != null)
 					await _managementWorkflow.CleanupRetainedContentAsync(token,
 						_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null);
@@ -3879,6 +3890,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			finally
 			{
+				CollectionPerformanceMetrics.RecordStartupRecovery(performanceStarted, observedRecoveryOperations);
 				EndWorkflowWork(context);
 			}
 		}

@@ -41,6 +41,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		public List<CollectionTechnicalReportReviewItem> ReviewItems { get; private set; }
 		public List<CollectionTechnicalReportRecoveryItem> Recovery { get; private set; }
 		public CollectionTechnicalReportProgress Progress { get; internal set; }
+		public CollectionPerformanceSnapshot Performance { get; internal set; }
 		public List<CollectionTechnicalReportException> Exceptions { get; private set; }
 		public List<string> UnavailableData { get; private set; }
 	}

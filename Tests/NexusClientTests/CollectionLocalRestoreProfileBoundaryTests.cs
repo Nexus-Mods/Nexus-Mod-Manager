@@ -9,6 +9,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.11 profile-preservation and outgoing-association boundary coverage.</summary>
 	[Category("CollectionsGateL")]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionLocalRestoreProfileBoundaryTests
 	{
 		[Test]

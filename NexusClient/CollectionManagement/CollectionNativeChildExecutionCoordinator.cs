@@ -640,7 +640,11 @@ namespace Nexus.Client.CollectionManagement
 					ContentIdentity content;
 					if (!sourceContents.TryGetValue(install.SourcePath, out content))
 					{
-						using (FileStream stream = incomingMod.GetFileStream(install.SourcePath)) content = ContentIdentity.FromStream(stream);
+						using (FileStream stream = incomingMod.GetFileStream(install.SourcePath))
+						{
+							CollectionPerformanceMetrics.RecordArchiveSourceRead(member.MemberKey, install.SourcePath, stream.Length);
+							content = ContentIdentity.FromStream(stream);
+						}
 						sourceContents.Add(install.SourcePath, content);
 					}
 					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,

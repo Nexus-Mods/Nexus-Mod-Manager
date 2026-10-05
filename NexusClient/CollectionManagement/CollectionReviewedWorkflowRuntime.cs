@@ -114,6 +114,7 @@ namespace Nexus.Client.CollectionManagement
 		/// </summary>
 		public CollectionReviewedWorkflowRuntime Reconstruct(CollectionReviewedWorkflowRehydrationResult rehydration)
 		{
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (rehydration == null) throw new ArgumentNullException(nameof(rehydration));
 			if (!rehydration.CanResume || rehydration.Snapshot == null || rehydration.CurrentState == null)
 				throw new InvalidOperationException("Reviewed workflow runtime can be reconstructed only from a successful safe-boundary rehydration result.");
@@ -126,8 +127,10 @@ namespace Nexus.Client.CollectionManagement
 			CollectionConflictImpactPlan impactPlan = ReconstructImpactPlan(plan, snapshot, rehydration.CurrentState);
 			List<PreparedCollectionNativeRecipe> recipes = ReconstructPreparedRecipes(plan, snapshot);
 
-			return new CollectionReviewedWorkflowRuntime(snapshot, plan, matches, dependencyPlan, impactPlan,
+			var result = new CollectionReviewedWorkflowRuntime(snapshot, plan, matches, dependencyPlan, impactPlan,
 				rehydration.CurrentState, rehydration.RemainingMembers, recipes, archives.Values);
+			CollectionPerformanceMetrics.RecordReviewedRuntimeReconstruction(performanceStarted);
+			return result;
 		}
 
 		/// <summary>

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,7 +19,9 @@ using Nexus.Client.Games;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.Mods;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
+using Nexus.Client.Util.Collections;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -27,6 +30,7 @@ namespace NexusClientTests
 	/// C6.15.14a/14g vertical planning/preparation coverage through the real headless additive workflow coordinator.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	public class CollectionAdditiveWorkflowVerticalPreparationTests
 	{
@@ -349,9 +353,11 @@ namespace NexusClientTests
 					installState.Set(CreateInstallSnapshot(false, 0, includeRequired: false));
 				}
 
+				var activeMods = new ReadOnlyObservableList<IMod>(new ThreadSafeObservableList<IMod>());
 				IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) =>
 				{
 					if (method.Name == "GetCommittedStateSnapshot") return installState.Get();
+					if (method.Name == "get_ActiveMods") return activeMods;
 					return null;
 				});
 				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
@@ -388,6 +394,9 @@ namespace NexusClientTests
 					operationCoordinator, planBuilder, memberAcquisition);
 
 				ModManager manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+				FieldInfo installationLogField = typeof(ModManager).GetField("<InstallationLog>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic);
+				Assert.That(installationLogField, Is.Not.Null);
+				installationLogField.SetValue(manager, installLog);
 				var services = new ServiceManager(installLog, null, null, null, manager, null, null, null);
 				var rehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore, revisionSources,
 					artifacts, nativeStateReader, recoveryManifests);

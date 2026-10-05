@@ -10,6 +10,7 @@ namespace NexusClientTests
 {
 	/// <summary>C6.13 safe detach/provenance coverage.</summary>
 	[Category("CollectionsGateA")]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionDetachCoordinatorTests
 	{
 		[Test]

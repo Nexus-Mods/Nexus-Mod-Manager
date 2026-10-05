@@ -187,6 +187,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void ValidateAndReload_NativeReloadFailureDoesNotPublishAuthorityBinding()
 		{
 			GameStoragePathSet paths = CreateStorage("Fallout4", "StorageA", "GameA");

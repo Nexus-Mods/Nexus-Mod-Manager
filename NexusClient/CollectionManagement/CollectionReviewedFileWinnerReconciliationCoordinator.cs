@@ -214,6 +214,7 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan,
 			CancellationToken cancellationToken, bool replacementExecution)
 		{
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			ValidateInputs(operationIdentity, plan, matches, impactPlan, replacementExecution);
 			IModDeploymentManager deploymentManager = GetCurrentDeploymentManager();
 			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
@@ -298,7 +299,9 @@ namespace Nexus.Client.CollectionManagement
 				results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
 					CollectionReviewedFileWinnerOutcome.SwitchedAndVerified));
 			}
-			return new CollectionReviewedFileWinnerReconciliationResult(results);
+			var result = new CollectionReviewedFileWinnerReconciliationResult(results);
+			CollectionPerformanceMetrics.RecordFileWinnerReconciliation(performanceStarted);
+			return result;
 		}
 
 		private void ValidateInputs(CollectionOperationIdentity operationIdentity, ResolvedCollectionPlan plan,

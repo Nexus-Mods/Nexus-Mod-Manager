@@ -4,6 +4,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
+using Nexus.Client.CollectionManagement;
 
 namespace Nexus.Client.CollectionManagement.Persistence
 {
@@ -193,6 +194,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				throw new InvalidDataException("The retained artifact length no longer matches its sealed metadata.");
 			}
 
+			CollectionPerformanceMetrics.RecordRetainedArtifactOpen(artifact.ArtifactId);
 			return stream;
 		}
 
@@ -222,9 +224,14 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				return false;
 
 			if (IsVerifiedArtifactCached(artifact, info))
+			{
+				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationCacheHit();
 				return true;
+			}
 
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			string actualHash = ComputeFileHash(path, cancellationToken);
+			CollectionPerformanceMetrics.RecordRetainedArtifactVerificationHash(performanceStarted, artifact.ByteLength);
 			if (!StringComparer.Ordinal.Equals(actualHash, artifact.ContentHash.Value))
 			{
 				ForgetVerifiedArtifact(artifact.ArtifactId);

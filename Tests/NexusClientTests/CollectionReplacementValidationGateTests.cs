@@ -9,6 +9,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	[Category("CollectionsReplacement")]
 	public class CollectionReplacementValidationGateTests
@@ -49,6 +50,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void InspectInterrupted_ReadyToApplyWithMissingRecoveryBoundary_IsInvalidPersistedState()
 		{
 			using (Scenario scenario = Scenario.Create("missing-ready-boundary", false))
@@ -66,6 +68,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void InspectInterrupted_PostRemovalPhaseWithMissingRecoveryBoundary_IsInvalidPersistedState()
 		{
 			using (Scenario scenario = Scenario.Create("missing-post-removal-boundary", false))
@@ -87,6 +90,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void FinalizeReplacementAssociations_ExactReviewedSet_CommitsIncomingAssociationAndOperationTogether()
 		{
 			using (Scenario scenario = Scenario.Create("atomic-finalize", false))

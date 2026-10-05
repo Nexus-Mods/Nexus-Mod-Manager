@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -51,7 +52,7 @@ namespace NexusClientTests
 			ModInstallationRecipeInput translated = new ModInstallationSimpleFileRecipeAdapter().Translate(
 				new ModInstallationRecipeInput(operationIdentity, validation), recipe);
 			IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) => null);
-			IMod mod = InterfaceStub<IMod>.Create((method, args) => null);
+			IMod mod = CreatePluginPreviewMod();
 
 			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder().Build(resolved, translated, gameMode, mod);
 
@@ -1190,7 +1191,12 @@ namespace NexusClientTests
 
 		private static IMod CreatePluginPreviewMod()
 		{
-			return InterfaceStub<IMod>.Create((method, args) => null);
+			return InterfaceStub<IMod>.Create((method, args) =>
+			{
+				if (method.Name == "GetFileStream")
+					return CreateFixtureFileStream(Encoding.UTF8.GetBytes("collection-preview-fixture"));
+				return null;
+			});
 		}
 
 		private static CollectionMemberEffectPreview CreatePreview(NormalizedCollectionMember member, ModDeploymentTarget fileTarget,
@@ -1276,6 +1282,13 @@ namespace NexusClientTests
 				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
 				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/" + modId + "/" + fileId, null),
 				CollectionRecipeIdentity.FromFingerprint("recipe-" + key), "Member " + key, phase);
+		}
+
+		private static FileStream CreateFixtureFileStream(byte[] bytes)
+		{
+			string path = Path.Combine(Path.GetTempPath(), "nmm-collection-fixture-stream-" + Guid.NewGuid().ToString("N") + ".bin");
+			File.WriteAllBytes(path, bytes ?? new byte[0]);
+			return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
 		}
 
 		private static CollectionTargetIdentity CreateTarget()

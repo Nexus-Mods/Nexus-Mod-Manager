@@ -106,6 +106,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionNativeStateIndex Capture(CollectionTargetIdentity target, NativeStateCaptureSnapshot nativeCapture,
 			out CollectionsAssociationTargetSnapshot associationSnapshot)
 		{
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (target == null)
 				throw new ArgumentNullException(nameof(target));
 			if (nativeCapture == null)
@@ -149,9 +150,11 @@ namespace Nexus.Client.CollectionManagement
 			IReadOnlyList<UserOverride> overrides;
 			CaptureAssociations(target, issues, out associationSnapshot, out associationCoverage, out associations, out bindings, out overrides);
 
-			return new CollectionNativeStateIndex(target, roots, nativeMods, files, iniEdits, gameValues,
+			var result = new CollectionNativeStateIndex(target, roots, nativeMods, files, iniEdits, gameValues,
 				plugins, pluginCoverage, associations, bindings, overrides, associationCoverage, issues,
 				install.DeploymentCommitSequence);
+			CollectionPerformanceMetrics.RecordNativeStateIndexBuild(performanceStarted);
+			return result;
 		}
 
 		private static void AppendNativeCaptureIssues(NativeStateCaptureSnapshot nativeCapture, List<CollectionNativeStateIssue> issues)

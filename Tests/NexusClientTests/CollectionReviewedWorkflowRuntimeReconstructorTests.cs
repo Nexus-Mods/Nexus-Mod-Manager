@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -365,7 +366,7 @@ namespace NexusClientTests
 				CollectionReviewedWorkflowRehydrationResult result = rehydrator.Rehydrate(operation.Identity);
 
 				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, result.Status);
-				StringAssert.Contains("mapping", result.Message.ToLowerInvariant());
+				StringAssert.Contains("executable file-operation persistence", result.Message.ToLowerInvariant());
 			}
 			finally
 			{

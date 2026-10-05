@@ -36,6 +36,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!recipeInput.HasNativePlan)
 				throw new ArgumentException("C6.4 effect preview requires an already translated C5 native operation plan.", nameof(recipeInput));
 
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			var files = new Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect>();
 			var iniEdits = new Dictionary<CollectionNativeIniKey, CollectionPlannedIniEffect>();
 			var gameValues = new Dictionary<string, CollectionPlannedGameValueEffect>(StringComparer.Ordinal);
@@ -50,7 +51,10 @@ namespace Nexus.Client.CollectionManagement
 				{
 					ModDeploymentTarget target = ResolveTarget(gameMode, mod, installFile.DestinationPath, recipeInput.InstallContext.InstallRoot);
 					using (FileStream source = mod.GetFileStream(installFile.SourcePath))
+					{
+						CollectionPerformanceMetrics.RecordArchiveSourceRead(member.MemberKey, installFile.SourcePath, source.Length);
 						AddFile(files, target, ComputeContentHash(source), source.Length);
+					}
 					AddImplicitPluginActivation(requestedPluginActivations, gameMode, pluginManager, target, installFile);
 					continue;
 				}
@@ -125,12 +129,14 @@ namespace Nexus.Client.CollectionManagement
 				.Concat(pluginOrderingEffects)
 				.ToList();
 
-			return new CollectionMemberEffectPreview(member.MemberKey, member.RecipeIdentity,
+			var result = new CollectionMemberEffectPreview(member.MemberKey, member.RecipeIdentity,
 				recipeInput.InstallContext.Method, recipeInput.InstallContext.InstallRoot,
 				files.Values.OrderBy(x => x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase),
 				iniEdits.Values.OrderBy(x => x.Key.File, StringComparer.OrdinalIgnoreCase)
 					.ThenBy(x => x.Key.Section, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Key.Key, StringComparer.OrdinalIgnoreCase),
 				gameValues.Values.OrderBy(x => x.Key, StringComparer.Ordinal), plugins, issues);
+			CollectionPerformanceMetrics.RecordEffectPreview(performanceStarted);
+			return result;
 		}
 
 		private static ModDeploymentTarget ResolveTarget(IGameMode gameMode, IMod mod, string destinationPath, ModInstallRoot installRoot)

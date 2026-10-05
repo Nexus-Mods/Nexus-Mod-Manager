@@ -12,6 +12,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionRevisionUpdateCandidateExecutionPlanningTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -34,22 +35,19 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Build_ArtifactOverride_SuppressesChangedCandidateMutation()
+		public void Build_ArtifactOverride_RequiresExplicitReviewInsteadOfReinterpretingOpaqueState()
 		{
 			Fixture f = CreateFixture(CreateMember("100", "200", "recipe-a", Sha256A), CreateMember("100", "201", "recipe-b", Sha256B), true);
 			UserOverride value = new UserOverride(Guid.NewGuid(),
 				new CollectionRequirementReference(f.Association, f.MemberKey, CollectionRequirementAspect.ArtifactSelection, null),
 				CollectionRequirementState.Present("artifact-v1", "old"), CollectionRequirementState.Present("artifact-v1", "local"), "keep local");
 			CollectionRevisionUpdatePlan update = f.Plan(new[] { value });
-			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
-				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+			var planner = new CollectionRevisionUpdateOverridePreservationPlanner();
 
-			CollectionRevisionUpdateCandidateExecutionPlanning result = new CollectionRevisionUpdateCandidateExecutionPlanner().Build(
-				update, f.State, preservation, new CollectionRevisionUpdatePreparationMemberState[0],
-				new PreparedCollectionNativeRecipe[0], new CollectionMemberKey[0], CancellationToken.None);
+			InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+				planner.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update));
 
-			Assert.That(preservation.MembersWhoseCandidateMutationIsSuppressed.Single(), Is.EqualTo(f.MemberKey));
-			Assert.That(result.Matches.Members.Single().Disposition, Is.EqualTo(CollectionMemberMatchDisposition.InstalledCompatible));
+			StringAssert.Contains("opaque", error.Message);
 		}
 
 		[Test]

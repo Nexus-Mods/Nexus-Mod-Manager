@@ -10,6 +10,7 @@ namespace NexusClientTests
 {
 	/// <summary>Aggregate authoritative-state verification coverage before additive Applied publication.</summary>
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	public class CollectionAdditiveFinalStateVerifierTests
 	{

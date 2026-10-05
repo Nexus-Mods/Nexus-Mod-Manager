@@ -588,7 +588,10 @@ namespace Nexus.Client.CollectionManagement
 						if (!sourceContents.TryGetValue(source, out content))
 						{
 							using (FileStream stream = incomingMod.GetFileStream(source))
+							{
+								CollectionPerformanceMetrics.RecordArchiveSourceRead(preview.MemberKey, source, stream.Length);
 								content = FileContentIdentity.FromStream(stream);
+							}
 							sourceContents.Add(source, content);
 						}
 						expected[target] = content;

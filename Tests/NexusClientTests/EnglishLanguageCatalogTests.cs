@@ -5,6 +5,7 @@
 	using System.IO;
 	using System.Linq;
 	using System.Runtime.Serialization.Json;
+	using System.Text;
 	using System.Text.RegularExpressions;
 
 	using Nexus.Client.Util.Localization;
@@ -105,7 +106,9 @@
 				typeof(LanguagePack),
 				new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true });
 
-			using (FileStream stream = File.OpenRead(path))
+			string json = File.ReadAllText(path);
+			if (json.Length != 0 && json[0] == '\uFEFF') json = json.Substring(1);
+			using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json), false))
 				return (LanguagePack)serializer.ReadObject(stream);
 		}
 

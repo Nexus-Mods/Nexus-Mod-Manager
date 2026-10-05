@@ -17,6 +17,7 @@ namespace NexusClientTests
 	/// Verifies C6.15.7 deterministic BasicInstall expansion without executing installer mutation.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Compatibility")]
 	public class BasicInstallPlanBuilderTests
 	{
 		/// <summary>
@@ -185,7 +186,7 @@ namespace NexusClientTests
 		{
 			const string mergedPath = @"NMM_chargenmorphcfg\chargenmorphcfg.xml";
 			IGameMode gameMode = CreateGameMode(hasSecondaryInstallPath: true,
-				checkSecondaryInstall: (mod, path) => !path.EndsWith(mergedPath, StringComparison.OrdinalIgnoreCase));
+				checkSecondaryInstall: (candidateMod, path) => !path.EndsWith(mergedPath, StringComparison.OrdinalIgnoreCase));
 			IMod mod = CreateMod("Contributor.dazip", "chargenmorphcfg.xml", @"textures\body.dds");
 
 			ModDeploymentTarget archiveTarget = ModDeploymentTargetResolver.Resolve(gameMode, mod, @"textures\body.dds", ModInstallRoot.Data);

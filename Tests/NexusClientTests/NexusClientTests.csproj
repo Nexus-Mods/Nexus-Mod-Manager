@@ -136,6 +136,7 @@
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
+    <Compile Include="CollectionPerformanceCharacterizationTests.cs" />
     <Compile Include="InstallDecisionSeparationTests.cs" />
     <Compile Include="ModOperationLifecycleCharacterizationTests.cs" />
     <Compile Include="FileDownloadTaskCharacterizationTests.cs" />

@@ -165,6 +165,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Publish_SourceFailureLeavesNoPublishedBlobOrMetadata()
 		{
 			string root = CreateTemporaryDirectory();
@@ -221,6 +222,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Publish_MetadataFailureAfterAtomicBlobPublicationLeavesOnlyAnUnreferencedBlob()
 		{
 			string root = CreateTemporaryDirectory();

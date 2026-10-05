@@ -10,6 +10,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	public class CollectionRevisionUpdatePublicationTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -63,6 +64,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void FinalizeRevisionUpdateAssociation_ExactOldBaseline_CommitsCandidateAndJournalAtomically()
 		{
 			using (StoreFixture f = StoreFixture.Create("atomic", false))

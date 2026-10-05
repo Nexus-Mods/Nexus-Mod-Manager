@@ -8,6 +8,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	public class CollectionReplacementOutgoingRemovalCoordinatorTests
 	{

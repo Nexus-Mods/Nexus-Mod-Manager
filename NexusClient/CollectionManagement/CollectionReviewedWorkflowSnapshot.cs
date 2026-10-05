@@ -646,6 +646,7 @@ namespace Nexus.Client.CollectionManagement
 		public static byte[] Serialize(CollectionReviewedWorkflowSnapshot snapshot)
 		{
 			if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, new UTF8Encoding(false), true))
 			{
@@ -670,6 +671,7 @@ namespace Nexus.Client.CollectionManagement
 				writer.Flush();
 				byte[] payload = stream.ToArray();
 				if (payload.Length > MaxPayloadLength) throw new InvalidOperationException("Reviewed workflow payload exceeds the bounded v2 persistence size.");
+				CollectionPerformanceMetrics.RecordReviewedSnapshotSerialize(performanceStarted, payload.LongLength);
 				return payload;
 			}
 		}
@@ -679,6 +681,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (payload == null) throw new ArgumentNullException(nameof(payload));
 			if (payload.Length == 0 || payload.Length > MaxPayloadLength) throw new InvalidDataException("Reviewed workflow payload length is invalid.");
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			try
 			{
 				using (var stream = new MemoryStream(payload, false))
@@ -704,8 +707,10 @@ namespace Nexus.Client.CollectionManagement
 					List<CollectionReviewedAssociationImpactSnapshot> associations = ReadAssociationImpacts(reader);
 					List<CollectionReviewedPreparedRecipeSnapshot> recipes = ReadPreparedRecipes(reader, binaryVersion);
 					if (stream.Position != stream.Length) throw new InvalidDataException("Reviewed workflow payload contains trailing bytes.");
-					return new CollectionReviewedWorkflowSnapshot(identity, revision, target, policy, backup, state, manifestSource,
+					var result = new CollectionReviewedWorkflowSnapshot(identity, revision, target, policy, backup, state, manifestSource,
 						members, dependencies, priorities, phases, barriers, files, plugins, configs, associations, recipes);
+					CollectionPerformanceMetrics.RecordReviewedSnapshotDeserialize(performanceStarted, payload.LongLength);
+					return result;
 				}
 			}
 			catch (EndOfStreamException ex) { throw new InvalidDataException("Reviewed workflow payload is truncated.", ex); }

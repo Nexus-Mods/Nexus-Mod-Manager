@@ -7,6 +7,7 @@ using NUnit.Framework;
 
 namespace NexusClientTests
 {
+	[Category("CollectionsC12Compatibility")]
 	public class CollectionToolLaunchPolicyTests
 	{
 		[Test]

@@ -19,6 +19,7 @@ namespace NexusClientTests
 	/// C6.15.5 composition coverage for C6.2 matching, C4 acquisition and mandatory post-pause revalidation.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Compatibility")]
 	public class CollectionMemberAcquisitionCoordinatorTests
 	{
 		[Test]

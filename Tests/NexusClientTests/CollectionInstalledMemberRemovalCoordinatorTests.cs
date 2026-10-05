@@ -11,6 +11,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateA")]
 	[Category("CollectionsManagement")]
 	public class CollectionInstalledMemberRemovalCoordinatorTests

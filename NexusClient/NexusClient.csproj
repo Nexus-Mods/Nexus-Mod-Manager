@@ -158,6 +158,7 @@
     <Compile Include="CollectionManagement\CollectionNativeStateIndex.cs" />
     <Compile Include="CollectionManagement\CollectionNativeStateFingerprintBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeStateReader.cs" />
+    <Compile Include="CollectionManagement\CollectionPerformanceMetrics.cs" />
     <Compile Include="CollectionManagement\CollectionReplacementCurrentSetupSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionReplacementDiffPlan.cs" />
     <Compile Include="CollectionManagement\CollectionReplacementDiffPlanner.cs" />

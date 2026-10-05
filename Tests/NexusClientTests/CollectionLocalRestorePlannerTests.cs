@@ -14,6 +14,7 @@ namespace NexusClientTests
 {
 	/// <summary>C7.9 read-only native mapping/remap planner characterization.</summary>
 	[TestFixture]
+	[Category("CollectionsC12Workflow")]
 	[Category("CollectionsGateL")]
 	public class CollectionLocalRestorePlannerTests
 	{
@@ -407,6 +408,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void LocalRestoreResumeClassifier_RemovalPresenceDistinguishesRollbackFromCommit()
 		{
 			CollectionNativeChildOperation child;
@@ -420,6 +422,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void LocalRestoreResumeClassifier_MemberProjectionDistinguishesRollbackFromCommit()
 		{
 			CollectionNativeChildOperation child;
