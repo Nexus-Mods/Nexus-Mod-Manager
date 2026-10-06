@@ -1245,6 +1245,46 @@ WHERE target_fingerprint=@target_fingerprint
 		}
 
 		/// <summary>
+		/// Atomically publishes a verify-proven healthy association state, including exact member rebinding and stale-drift cleanup.
+		/// </summary>
+		internal void SaveVerifiedHealthyReconciliation(CollectionTargetAssociation expectedAssociation,
+			CollectionTargetAssociation finalAssociation, IEnumerable<CollectionMemberBinding> bindingUpdates,
+			IEnumerable<CollectionRequirementReference> clearedRequirements)
+		{
+			if (expectedAssociation == null) throw new ArgumentNullException(nameof(expectedAssociation));
+			if (finalAssociation == null) throw new ArgumentNullException(nameof(finalAssociation));
+			if (bindingUpdates == null) throw new ArgumentNullException(nameof(bindingUpdates));
+			if (clearedRequirements == null) throw new ArgumentNullException(nameof(clearedRequirements));
+			if (expectedAssociation.AssociationId != finalAssociation.AssociationId ||
+				!expectedAssociation.Revision.Equals(finalAssociation.Revision) ||
+				!expectedAssociation.Target.Equals(finalAssociation.Target))
+				throw new ArgumentException("Verify reconciliation must preserve the exact association identity/revision/target.", nameof(finalAssociation));
+
+			List<CollectionMemberBinding> copiedBindings = bindingUpdates.ToList();
+			List<CollectionRequirementReference> copiedCleared = clearedRequirements.ToList();
+			if (copiedBindings.Any(x => x == null || x.Association.AssociationId != expectedAssociation.AssociationId ||
+				!x.Association.Revision.Equals(expectedAssociation.Revision) || !x.Association.Target.Equals(expectedAssociation.Target)))
+				throw new ArgumentException("Every verify reconciliation binding must belong to the exact association baseline.", nameof(bindingUpdates));
+			if (copiedCleared.Any(x => x == null || x.AssociationId != expectedAssociation.AssociationId ||
+				!x.BaselineRevision.Equals(expectedAssociation.Revision) || !x.Target.Equals(expectedAssociation.Target)))
+				throw new ArgumentException("Every cleared verify requirement must belong to the exact association baseline.", nameof(clearedRequirements));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation current = ReadAssociation(connection, transaction, expectedAssociation.AssociationId);
+				if (current == null || !current.Revision.Equals(expectedAssociation.Revision) ||
+					!current.Target.Equals(expectedAssociation.Target) || current.State != expectedAssociation.State)
+					throw new InvalidOperationException("The Collection association changed after verify/repair assessment.");
+
+				SaveAssociation(connection, transaction, finalAssociation);
+				foreach (CollectionMemberBinding binding in copiedBindings)
+					SaveBinding(connection, transaction, binding);
+				foreach (CollectionRequirementReference requirement in copiedCleared)
+					DeleteDriftObservationForRequirement(connection, transaction, requirement);
+			});
+		}
+
+		/// <summary>
 		/// Atomically records one C6.12 explicit user decision and its remaining observed drift.
 		/// </summary>
 		/// <remarks>

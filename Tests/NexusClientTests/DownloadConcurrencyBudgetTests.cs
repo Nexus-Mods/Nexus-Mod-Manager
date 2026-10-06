@@ -17,6 +17,7 @@ namespace NexusClientTests
 	/// Locks down the existing outer download concurrency budget before Collections starts sharing the downloader.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Concurrency")]
 	public class DownloadConcurrencyBudgetTests
 	{
 		/// <summary>

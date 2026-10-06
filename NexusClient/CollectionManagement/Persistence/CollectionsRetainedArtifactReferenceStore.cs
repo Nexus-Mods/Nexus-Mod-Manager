@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
+using System.Linq;
 
 namespace Nexus.Client.CollectionManagement.Persistence
 {
@@ -115,6 +116,54 @@ VALUES
 				result = inserted[0];
 			});
 			return result;
+		}
+
+		/// <summary>Acquires a bounded set of exclusive owner/role references in one SQLite transaction.</summary>
+		internal void AcquireExclusiveRoleReferences(IList<CollectionsRetainedArtifactReferenceRequest> requests)
+		{
+			if (requests == null) throw new ArgumentNullException(nameof(requests));
+			if (requests.Count == 0) return;
+			if (requests.Any(x => x == null))
+				throw new ArgumentException("A retained-artifact reference batch cannot contain null entries.", nameof(requests));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				foreach (CollectionsRetainedArtifactReferenceRequest request in requests)
+				{
+					string artifactId = CollectionIdentityValidation.RequireOpaqueToken(request.ArtifactId, nameof(request.ArtifactId));
+					ValidateOwnerKind(request.OwnerKind);
+					string ownerId = CollectionsRetainedArtifactReferenceValidation.RequireOwnerId(request.OwnerId, nameof(request.OwnerId));
+					string role = CollectionIdentityValidation.RequireOpaqueToken(request.Role, nameof(request.Role));
+
+					RequireSealedArtifact(connection, transaction, artifactId);
+					IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> existing = ReadReferencesForOwnerRole(
+						connection, transaction, request.OwnerKind, ownerId, role);
+					if (existing.Count > 1)
+						throw new CollectionsStoreSchemaException("A retained-artifact owner role is ambiguously bound to multiple artifacts.");
+					if (existing.Count == 1)
+					{
+						if (!StringComparer.Ordinal.Equals(existing[0].ArtifactId, artifactId))
+							throw new InvalidOperationException("A retained-artifact owner role is already bound to different immutable bytes.");
+						continue;
+					}
+
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = @"
+INSERT INTO retained_artifact_references
+    (reference_id, artifact_id, owner_kind, owner_id, role)
+VALUES
+    (@reference_id, @artifact_id, @owner_kind, @owner_id, @role);";
+						command.Parameters.AddWithValue("@reference_id", Guid.NewGuid().ToString("D"));
+						command.Parameters.AddWithValue("@artifact_id", artifactId);
+						command.Parameters.AddWithValue("@owner_kind", (int)request.OwnerKind);
+						command.Parameters.AddWithValue("@owner_id", ownerId);
+						command.Parameters.AddWithValue("@role", role);
+						command.ExecuteNonQuery();
+					}
+				}
+			});
 		}
 
 		/// <summary>Loads the unique retained-artifact reference for one exact owner/role, or <c>null</c> when none exists.</summary>
@@ -378,4 +427,17 @@ WHERE artifact_id=@artifact_id AND owner_kind=@owner_kind AND owner_id=@owner_id
 SELECT reference_id, artifact_id, owner_kind, owner_id, role
 FROM retained_artifact_references";
 	}
+	internal sealed class CollectionsRetainedArtifactReferenceRequest
+	{
+		internal CollectionsRetainedArtifactReferenceRequest(string artifactId, CollectionsRetainedArtifactOwnerKind ownerKind,
+			string ownerId, string role)
+		{
+			ArtifactId = artifactId; OwnerKind = ownerKind; OwnerId = ownerId; Role = role;
+		}
+		internal string ArtifactId { get; }
+		internal CollectionsRetainedArtifactOwnerKind OwnerKind { get; }
+		internal string OwnerId { get; }
+		internal string Role { get; }
+	}
+
 }

@@ -216,3 +216,8 @@ Setup/scripts*
 Docs/Collections/C12-Release-Readiness-Gate.md
 Docs/Collections/C12-Representative-Compatibility-Matrix.md
 Docs/Collections/C12-End-to-End-Workflow-Gate.md
+/Support/C12/
+/VirtualInstallArchitecture.md
+/.github/copilot-instructions.md
+Thumbs.db
+/Setup/PreprocessedNMM*.iss

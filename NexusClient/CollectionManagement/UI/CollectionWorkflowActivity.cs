@@ -363,6 +363,15 @@ namespace Nexus.Client.CollectionManagement.UI
 				true, true, false, true, null, null, "indeterminate-phase-work");
 		}
 
+		internal static CollectionWorkflowActivitySnapshot ForegroundProgress(CollectionWorkflowActivityPhase phase,
+			string statusText, long current, long total, string progressBasis)
+		{
+			if (total <= 0 || current < 0)
+				return Foreground(phase, statusText);
+			return new CollectionWorkflowActivitySnapshot(CollectionWorkflowActivityState.Working, phase, statusText,
+				true, true, false, false, Math.Min(current, total), total, progressBasis);
+		}
+
 		internal static CollectionWorkflowActivitySnapshot Waiting(CollectionWorkflowActivityPhase phase, string statusText, bool commandsLocked)
 		{
 			return new CollectionWorkflowActivitySnapshot(CollectionWorkflowActivityState.WaitingForUser, phase, statusText,

@@ -10,6 +10,7 @@ namespace NexusClientTests
 {
 	[TestFixture]
 	[Category("CollectionsGateA")]
+	[Category("CollectionsC12Concurrency")]
 	public class CollectionTargetCrossProcessLeaseTests
 	{
 		private string _tempRoot;

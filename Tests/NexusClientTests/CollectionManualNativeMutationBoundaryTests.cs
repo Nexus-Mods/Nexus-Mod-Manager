@@ -11,6 +11,7 @@ namespace NexusClientTests
 {
 	[TestFixture]
 	[Category("CollectionsGateA")]
+	[Category("CollectionsC12Concurrency")]
 	public class CollectionManualNativeMutationBoundaryTests
 	{
 		private string _tempRoot;

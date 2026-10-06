@@ -237,6 +237,12 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Validates and seals one completed capture attempt with cooperative retained-content verification.</summary>
 		public CollectionCaptureSealResult Seal(CollectionCaptureSealRequest request, CancellationToken cancellationToken)
 		{
+			return Seal(request, cancellationToken, null);
+		}
+
+		internal CollectionCaptureSealResult Seal(CollectionCaptureSealRequest request, CancellationToken cancellationToken,
+			IProgress<CollectionLocalCaptureProgress> progress)
+		{
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
 
@@ -246,11 +252,11 @@ namespace Nexus.Client.CollectionManagement
 
 			List<CollectionCapturedArchiveArtifact> archives = new List<CollectionCapturedArchiveArtifact>();
 			if (!issues.Any(x => x.BlocksSealing) && request.Scope.Contains(LocalCaptureScopeArea.ModArchives))
-				archives = PrepareArchives(request, issues, cancellationToken);
+				archives = PrepareArchives(request, issues, cancellationToken, progress);
 
 			List<RetainedArtifactReference> retainedArtifacts = CollectRetainedArtifacts(request, archives);
 			if (!issues.Any(x => x.BlocksSealing))
-				ValidateRetainedArtifacts(request.Identity, retainedArtifacts, issues, cancellationToken);
+				ValidateRetainedArtifacts(request.Identity, retainedArtifacts, issues, cancellationToken, progress);
 
 			bool canSeal = !issues.Any(x => x.BlocksSealing);
 			if (request.RequestedCapability == LocalCaptureCapability.LocallyRestorableWithinScope &&
@@ -457,7 +463,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private List<CollectionCapturedArchiveArtifact> PrepareArchives(CollectionCaptureSealRequest request,
-			List<CollectionCaptureSealIssue> issues, CancellationToken cancellationToken)
+			List<CollectionCaptureSealIssue> issues, CancellationToken cancellationToken,
+			IProgress<CollectionLocalCaptureProgress> progress)
 		{
 			var installedByKey = request.InstalledIdentities.Mods.ToDictionary(x => x.NativeSnapshotKey,
 				x => x, StringComparer.OrdinalIgnoreCase);
@@ -491,8 +498,11 @@ namespace Nexus.Client.CollectionManagement
 				return new List<CollectionCapturedArchiveArtifact>();
 
 			var result = new List<CollectionCapturedArchiveArtifact>();
-			foreach (CollectionInstalledModIdentity mod in request.InstalledIdentities.Mods
-				.OrderBy(x => x.NativeSnapshotKey, StringComparer.OrdinalIgnoreCase))
+			List<CollectionInstalledModIdentity> orderedMods = request.InstalledIdentities.Mods
+				.OrderBy(x => x.NativeSnapshotKey, StringComparer.OrdinalIgnoreCase).ToList();
+			ReportProgress(progress, CollectionLocalCaptureProgressPhase.RetainingModArchives, 0, orderedMods.Count);
+			int completedArchives = 0;
+			foreach (CollectionInstalledModIdentity mod in orderedMods)
 			{
 				string livePath = mod.Archive.LiveArchivePath;
 				if (String.IsNullOrWhiteSpace(livePath) || !File.Exists(livePath))
@@ -500,6 +510,8 @@ namespace Nexus.Client.CollectionManagement
 					AddRestorableBlocker(issues, CollectionCaptureSealIssueKind.ArchiveUnavailable,
 						LocalCaptureScopeArea.ModArchives, mod.NativeSnapshotKey,
 						"The installed native member has no available archive whose exact bytes can be frozen and proven for this capture.");
+					ReportProgress(progress, CollectionLocalCaptureProgressPhase.RetainingModArchives,
+						++completedArchives, orderedMods.Count);
 					continue;
 				}
 
@@ -515,6 +527,8 @@ namespace Nexus.Client.CollectionManagement
 						AddFatal(issues, CollectionCaptureSealIssueKind.ArchiveIdentityMismatch,
 							LocalCaptureScopeArea.ModArchives, mod.NativeSnapshotKey,
 							"A supplied retained archive does not match the exact live archive bytes captured for the native member.");
+						ReportProgress(progress, CollectionLocalCaptureProgressPhase.RetainingModArchives,
+							++completedArchives, orderedMods.Count);
 						continue;
 					}
 
@@ -541,6 +555,8 @@ namespace Nexus.Client.CollectionManagement
 					AddRestorableBlocker(issues, CollectionCaptureSealIssueKind.ArchiveRetentionFailed,
 						LocalCaptureScopeArea.ModArchives, mod.NativeSnapshotKey, exception.Message);
 				}
+				ReportProgress(progress, CollectionLocalCaptureProgressPhase.RetainingModArchives,
+					++completedArchives, orderedMods.Count);
 			}
 			return result;
 		}
@@ -579,12 +595,17 @@ namespace Nexus.Client.CollectionManagement
 
 		private void ValidateRetainedArtifacts(LocalCaptureIdentity captureIdentity,
 			IEnumerable<RetainedArtifactReference> retainedArtifacts, List<CollectionCaptureSealIssue> issues,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, IProgress<CollectionLocalCaptureProgress> progress)
 		{
 			var roles = new HashSet<string>(StringComparer.Ordinal);
 			var validatedArtifacts = new Dictionary<string, RetainedArtifactReference>(StringComparer.Ordinal);
-			foreach (RetainedArtifactReference reference in retainedArtifacts)
+			List<RetainedArtifactReference> orderedArtifacts = retainedArtifacts.ToList();
+			ReportProgress(progress, CollectionLocalCaptureProgressPhase.VerifyingRetainedContent, 0, orderedArtifacts.Count);
+			int completedArtifacts = 0;
+			foreach (RetainedArtifactReference reference in orderedArtifacts)
 			{
+				ReportProgress(progress, CollectionLocalCaptureProgressPhase.VerifyingRetainedContent,
+					completedArtifacts++, orderedArtifacts.Count);
 				if (!roles.Add(reference.Role))
 				{
 					AddFatal(issues, CollectionCaptureSealIssueKind.RetainedArtifactReferenceConflict,
@@ -633,7 +654,8 @@ namespace Nexus.Client.CollectionManagement
 					}
 					try
 					{
-						if (!_artifactStore.VerifyArtifact(reference.StableArtifactId, cancellationToken))
+						if (!_artifactStore.PromotePublishedArtifactVerification(artifact) &&
+							!_artifactStore.VerifyArtifact(reference.StableArtifactId, cancellationToken))
 						{
 							AddFatal(issues, CollectionCaptureSealIssueKind.RetainedArtifactCorrupt,
 								LocalCaptureScopeArea.Unknown, reference.Role,
@@ -662,6 +684,17 @@ namespace Nexus.Client.CollectionManagement
 						LocalCaptureScopeArea.Unknown, reference.Role, exception.Message);
 				}
 			}
+			ReportProgress(progress, CollectionLocalCaptureProgressPhase.VerifyingRetainedContent,
+				orderedArtifacts.Count, orderedArtifacts.Count);
+		}
+
+		private static void ReportProgress(IProgress<CollectionLocalCaptureProgress> progress,
+			CollectionLocalCaptureProgressPhase phase, int current, int total)
+		{
+			if (progress == null)
+				return;
+			if (current == 0 || current == total || (current % 25) == 0)
+				progress.Report(new CollectionLocalCaptureProgress(phase, current, total));
 		}
 
 		private static void RequireCompleteCoverage(NativeStateCaptureCoverage coverage,

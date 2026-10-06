@@ -29,6 +29,34 @@ namespace Nexus.Client.CollectionManagement
 		public LocalCaptureCapability RequestedCapability { get; }
 	}
 
+	/// <summary>Identifies the user-visible phase of one Local Collection capture.</summary>
+	internal enum CollectionLocalCaptureProgressPhase
+	{
+		ReadingCurrentSetup = 1,
+		RetainingManagedPayloads = 2,
+		RetainingInstallerState = 3,
+		CapturingConfiguration = 4,
+		RetainingModArchives = 5,
+		VerifyingRetainedContent = 6,
+		PublishingCapture = 7
+	}
+
+	/// <summary>Immutable progress sample emitted while a Local Collection is being captured.</summary>
+	internal sealed class CollectionLocalCaptureProgress
+	{
+		internal CollectionLocalCaptureProgress(CollectionLocalCaptureProgressPhase phase, int current, int total)
+		{
+			Phase = phase;
+			Current = Math.Max(0, current);
+			Total = Math.Max(0, total);
+		}
+
+		internal CollectionLocalCaptureProgressPhase Phase { get; }
+		internal int Current { get; }
+		internal int Total { get; }
+		internal bool HasDeterminateProgress { get { return Total > 0 && Current <= Total; } }
+	}
+
 	/// <summary>Classifies the product-level outcome of saving the current setup.</summary>
 	public enum CollectionSaveCurrentSetupState
 	{
@@ -140,13 +168,26 @@ namespace Nexus.Client.CollectionManagement
 		public Task<CollectionSaveCurrentSetupResult> SaveCurrentSetupAsync(CollectionSaveCurrentSetupRequest request,
 			CancellationToken cancellationToken)
 		{
+			return SaveCurrentSetupAsync(request, null, cancellationToken);
+		}
+
+		/// <summary>Saves the current setup while reporting coarse/fine capture progress to an optional caller.</summary>
+		internal Task<CollectionSaveCurrentSetupResult> SaveCurrentSetupAsync(CollectionSaveCurrentSetupRequest request,
+			IProgress<CollectionLocalCaptureProgress> progress, CancellationToken cancellationToken)
+		{
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
-			return Task.Run(() => SaveCurrentSetup(request, cancellationToken), cancellationToken);
+			return Task.Run(() => SaveCurrentSetup(request, progress, cancellationToken), cancellationToken);
 		}
 
 		internal CollectionSaveCurrentSetupResult SaveCurrentSetup(CollectionSaveCurrentSetupRequest request,
 			CancellationToken cancellationToken)
+		{
+			return SaveCurrentSetup(request, null, cancellationToken);
+		}
+
+		private CollectionSaveCurrentSetupResult SaveCurrentSetup(CollectionSaveCurrentSetupRequest request,
+			IProgress<CollectionLocalCaptureProgress> progress, CancellationToken cancellationToken)
 		{
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
@@ -154,12 +195,12 @@ namespace Nexus.Client.CollectionManagement
 
 			GameStoragePathSet paths = _gameStorageService.FromGameMode(_services.ModManager.GameMode);
 			return _captureBoundary.Execute(paths, target =>
-				SaveCurrentSetupWithinStableBoundary(request, cancellationToken, paths, target), cancellationToken);
+				SaveCurrentSetupWithinStableBoundary(request, progress, cancellationToken, paths, target), cancellationToken);
 		}
 
 		/// <summary>Captures, seals and publishes one Local Collection while the coordinated target boundary remains held.</summary>
 		private CollectionSaveCurrentSetupResult SaveCurrentSetupWithinStableBoundary(CollectionSaveCurrentSetupRequest request,
-			CancellationToken cancellationToken, GameStoragePathSet paths, CollectionTargetIdentity target)
+			IProgress<CollectionLocalCaptureProgress> progress, CancellationToken cancellationToken, GameStoragePathSet paths, CollectionTargetIdentity target)
 		{
 			var store = new CollectionsStore(paths);
 			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(store);
@@ -192,6 +233,7 @@ namespace Nexus.Client.CollectionManagement
 				var nativeIndexReader = new CollectionNativeStateReader(_services.ModManager.InstallationLog,
 					_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, associationStore);
 
+				ReportProgress(progress, CollectionLocalCaptureProgressPhase.ReadingCurrentSetup, 0, 0);
 				NativeStateCaptureSnapshot nativeState = nativeStateReader.Capture();
 				CollectionNativeStateIndex capturedIndex = nativeIndexReader.Capture(target, nativeState);
 				CollectionInstalledIdentitySnapshot installedIdentities = installedIdentityReader.Capture(target, nativeState);
@@ -201,10 +243,13 @@ namespace Nexus.Client.CollectionManagement
 					installedIdentities.Mods);
 
 				CollectionOwnerPayloadSnapshot ownerPayloads = ownerPayloadCapture.Capture(target, captureIdentity,
-					nativeState, cancellationToken);
+					nativeState, cancellationToken, (current, total) => ReportProgress(progress,
+						CollectionLocalCaptureProgressPhase.RetainingManagedPayloads, current, total));
+				ReportProgress(progress, CollectionLocalCaptureProgressPhase.RetainingInstallerState, 0, 0);
 				CollectionScriptedReplaySnapshot scriptedReplay = scriptedReplayCapture.Capture(target, captureIdentity,
 					nativeState, installedIdentities, cancellationToken);
 				CollectionNativeEffectSnapshot nativeEffects = nativeEffectCapture.Capture(target, nativeState);
+				ReportProgress(progress, CollectionLocalCaptureProgressPhase.CapturingConfiguration, 0, 0);
 				CollectionUserMetadataSnapshot userMetadata = userMetadataCapture.Capture(target, captureIdentity,
 					nativeState, installedIdentities, cancellationToken);
 				cancellationToken.ThrowIfCancellationRequested();
@@ -217,11 +262,12 @@ namespace Nexus.Client.CollectionManagement
 					installedIdentities, ownerPayloads, scriptedReplay, nativeEffects, userMetadata,
 					new CollectionCapturedArchiveArtifact[0], new LocalCaptureExclusion[0], mappings);
 				var sealer = new CollectionCaptureSealer(artifactStore, referenceStore);
-				CollectionCaptureSealResult sealResult = sealer.Seal(sealRequest, cancellationToken);
+				CollectionCaptureSealResult sealResult = sealer.Seal(sealRequest, cancellationToken, progress);
 				if (!sealResult.IsSealed)
 					return new CollectionSaveCurrentSetupResult(CollectionSaveCurrentSetupState.NotSealed,
 						request.RequestedCapability, null, null, null, null, sealResult.Issues);
 
+				ReportProgress(progress, CollectionLocalCaptureProgressPhase.PublishingCapture, 0, 0);
 				byte[] packageBytes = CollectionLocalCapturePackageCodec.Serialize(sealResult);
 				CollectionLocalCapturePackageInspection packageInspection = CollectionLocalCapturePackageCodec.Inspect(packageBytes);
 				ValidatePackageIdentity(sealResult.SealedCapture.Capture, packageInspection);
@@ -256,6 +302,13 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+
+		private static void ReportProgress(IProgress<CollectionLocalCaptureProgress> progress,
+			CollectionLocalCaptureProgressPhase phase, int current, int total)
+		{
+			if (progress != null)
+				progress.Report(new CollectionLocalCaptureProgress(phase, current, total));
+		}
 
 		private static IReadOnlyList<LocalCaptureNativeRecordMapping> CreateNativeMappings(LocalCaptureIdentity captureIdentity,
 			CollectionTargetIdentity target, IEnumerable<CollectionInstalledModIdentity> mods)

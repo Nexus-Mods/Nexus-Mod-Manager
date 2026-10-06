@@ -21,6 +21,7 @@
 	/// Verifies request coalescing, bulk parent metadata, freshness reuse, and bounded REST file resolution in the Nexus update-check path.
 	/// </summary>
 	[TestFixture]
+	[Category("CollectionsC12Concurrency")]
 	public class NexusRepositoryRequestCoalescingTests
 	{
 		/// <summary>

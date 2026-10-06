@@ -1225,6 +1225,7 @@ namespace NexusClientTests
 					case "get_Name": return "Test Game";
 					case "get_GameModeEnvironmentInfo": return CreateGameModeEnvironmentInfo(hasSecondaryInstallPath);
 					case "get_InstallationPath": return @"C:\Game";
+					case "get_SecondaryInstallationPath": return hasSecondaryInstallPath ? @"C:\GameSecondary" : null;
 					case "get_PluginDirectory": return @"C:\Game\Data";
 					case "get_UsesPlugins": return pluginExtensions != null;
 					case "get_PluginExtensions": return pluginExtensions;

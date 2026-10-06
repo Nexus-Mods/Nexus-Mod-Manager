@@ -11,6 +11,7 @@ using NUnit.Framework;
 namespace NexusClientTests
 {
 	[TestFixture]
+	[Category("CollectionsC12Concurrency")]
 	public class CollectionTargetMutationLeaseTests
 	{
 		private string _tempRoot;

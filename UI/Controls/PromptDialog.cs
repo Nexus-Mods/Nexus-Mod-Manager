@@ -13,7 +13,8 @@ namespace Nexus.UI.Controls
 		RenameOnline,
 		RemoveLocal,
 		RemoveOnline,
-		RemoveBackedUpProfile
+		RemoveBackedUpProfile,
+		TextOnly
 	}
 
 	/// <summary>
@@ -48,6 +49,11 @@ namespace Nexus.UI.Controls
 			{
 				case PromptDialogMode.SetProfileName:
 					dlgPrompt.cbShared.Visible = false;
+					dlgPrompt.tbxPath.Visible = true;
+					break;
+				case PromptDialogMode.TextOnly:
+					dlgPrompt.cbShared.Visible = false;
+					dlgPrompt.lbShared.Visible = false;
 					dlgPrompt.tbxPath.Visible = true;
 					break;
 				case PromptDialogMode.RenameLocal:

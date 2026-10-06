@@ -148,7 +148,12 @@ namespace Nexus.Client.CollectionManagement
 
 				CollectionOperation operation = RequireOrCreateOperation(plan, currentAssociation, resumedOperationIdentity);
 				int repaired = 0;
-				var repairedRequirements = new List<CollectionRequirementReference>();
+				// Satisfied findings can correspond to persisted drift that was true when recorded but has since been
+				// restored manually. Treat those exact requirements as reconciled metadata even when this execution
+				// also performs a separate qualified native repair. Deleting a non-existent drift row is a safe no-op.
+				var repairedRequirements = plan.Findings
+					.Where(x => x.Kind == CollectionVerifyRepairFindingKind.Satisfied && x.Requirement != null)
+					.Select(x => x.Requirement).ToList();
 				if (operation.Phase == CollectionOperationPhase.QualifiedEffectsVerified)
 				{
 					ValidateFinalRepairState(plan, bindings, before, currentOverrides);

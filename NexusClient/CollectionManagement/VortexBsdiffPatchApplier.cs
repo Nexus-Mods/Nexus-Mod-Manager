@@ -76,7 +76,7 @@ namespace Nexus.Client.CollectionManagement
 			if (count <= 0) throw new InvalidDataException("A BSDIFF40 compressed block is empty.");
 			if (maximumDecodedBytes <= 0 || maximumDecodedBytes > Int32.MaxValue) throw new InvalidDataException("A BSDIFF40 decoded-block bound is invalid.");
 			using (var compressed = new MemoryStream(payload, offset, count, false))
-			using (var extractor = new SevenZipExtractor(compressed))
+			using (var extractor = new SevenZipExtractor(compressed, false, InArchiveFormat.BZip2))
 			using (var output = new BoundedMemoryStream(maximumDecodedBytes))
 			{
 				if (extractor.ArchiveFileData == null || extractor.ArchiveFileData.Count != 1)

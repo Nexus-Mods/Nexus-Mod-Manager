@@ -43,6 +43,95 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			_store = store ?? throw new ArgumentNullException(nameof(store));
 		}
 
+		/// <summary>Prepares one immutable file publication without opening a SQLite write transaction.</summary>
+		internal PreparedFilePublication PrepareFilePublication(string sourcePath, CancellationToken cancellationToken)
+		{
+			if (String.IsNullOrWhiteSpace(sourcePath))
+				throw new ArgumentException("A retained-artifact source path is required.", nameof(sourcePath));
+
+			string fullPath = Path.GetFullPath(sourcePath);
+			Directory.CreateDirectory(_store.RetainedContentDirectory);
+			string stagingDirectory = Path.Combine(_store.RetainedContentDirectory, StagingDirectoryName);
+			Directory.CreateDirectory(stagingDirectory);
+			string stagingPath = Path.Combine(stagingDirectory, Guid.NewGuid().ToString("N") + ".tmp");
+
+			try
+			{
+				using (FileStream source = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read,
+					CopyBufferSize, FileOptions.SequentialScan))
+				{
+					long initialLength = source.Length;
+					long initialLastWriteUtcTicks = File.GetLastWriteTimeUtc(fullPath).Ticks;
+					CopyResult copied = CopyAndHash(source, stagingPath, cancellationToken);
+					var contentHash = CollectionContentHash.FromSha256(copied.HashValue);
+					var artifact = new CollectionsRetainedArtifact(CreateArtifactId(contentHash), contentHash, copied.ByteLength);
+					string relativePath = GetCanonicalRelativePath(contentHash);
+					string publishedPath = ResolveCanonicalPath(relativePath);
+					PublishStagedBlob(stagingPath, publishedPath, contentHash, copied.ByteLength, cancellationToken);
+					stagingPath = null;
+					long finalLength = source.Length;
+					long finalLastWriteUtcTicks = File.GetLastWriteTimeUtc(fullPath).Ticks;
+					bool sourceStable = initialLength == finalLength && initialLength == copied.ByteLength &&
+						initialLastWriteUtcTicks == finalLastWriteUtcTicks;
+					return new PreparedFilePublication(artifact, relativePath, publishedPath, copied.Md5Value, fullPath,
+						finalLength, finalLastWriteUtcTicks, sourceStable);
+				}
+			}
+			finally
+			{
+				DeleteTemporaryFile(stagingPath);
+			}
+		}
+
+		/// <summary>Commits metadata for already-published immutable blobs in one bounded SQLite transaction.</summary>
+		internal void PublishPreparedMetadata(IList<PreparedFilePublication> prepared)
+		{
+			if (prepared == null) throw new ArgumentNullException(nameof(prepared));
+			if (prepared.Count == 0) return;
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				foreach (PreparedFilePublication publication in prepared)
+				{
+					if (publication == null)
+						throw new ArgumentException("A prepared retained-artifact batch cannot contain null entries.", nameof(prepared));
+					CollectionsRetainedArtifact persisted = ReadArtifactByContent(connection, transaction,
+						publication.Artifact.ContentHash, publication.Artifact.ByteLength);
+					if (persisted != null)
+					{
+						ValidatePersistedArtifact(connection, transaction, persisted, publication.RelativePath);
+						continue;
+					}
+					var publishedFile = new FileInfo(publication.PublishedPath);
+					if (!publishedFile.Exists || publishedFile.Length != publication.Artifact.ByteLength)
+						throw new IOException("Retained content disappeared before its sealed metadata could be published.");
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = @"
+INSERT INTO retained_artifacts
+    (artifact_id, hash_algorithm, hash_value, byte_length, relative_path, sealed)
+VALUES
+    (@artifact_id, @hash_algorithm, @hash_value, @byte_length, @relative_path, 1);";
+						command.Parameters.AddWithValue("@artifact_id", publication.Artifact.ArtifactId);
+						command.Parameters.AddWithValue("@hash_algorithm", HashAlgorithmName);
+						command.Parameters.AddWithValue("@hash_value", publication.Artifact.ContentHash.Value);
+						command.Parameters.AddWithValue("@byte_length", publication.Artifact.ByteLength);
+						command.Parameters.AddWithValue("@relative_path", publication.RelativePath);
+						command.ExecuteNonQuery();
+					}
+				}
+			});
+
+			foreach (PreparedFilePublication publication in prepared)
+			{
+				RememberPublishedMd5(publication.Artifact, publication.PublishedPath, publication.Md5Value);
+				if (publication.SourceStable)
+					RememberPublishedSource(publication.SourcePath, publication.Artifact, publication.SourceLength,
+						publication.SourceLastWriteUtcTicks);
+			}
+		}
+
 		/// <summary>
 		/// Streams a readable source into immutable Collections storage and returns its sealed content identity.
 		/// </summary>
@@ -638,6 +727,24 @@ WHERE a.artifact_id=@artifact_id;";
 			catch (UnauthorizedAccessException)
 			{
 			}
+		}
+
+		internal sealed class PreparedFilePublication
+		{
+			internal PreparedFilePublication(CollectionsRetainedArtifact artifact, string relativePath, string publishedPath,
+				string md5Value, string sourcePath, long sourceLength, long sourceLastWriteUtcTicks, bool sourceStable)
+			{
+				Artifact = artifact; RelativePath = relativePath; PublishedPath = publishedPath; Md5Value = md5Value;
+				SourcePath = sourcePath; SourceLength = sourceLength; SourceLastWriteUtcTicks = sourceLastWriteUtcTicks; SourceStable = sourceStable;
+			}
+			internal CollectionsRetainedArtifact Artifact { get; }
+			internal string RelativePath { get; }
+			internal string PublishedPath { get; }
+			internal string Md5Value { get; }
+			internal string SourcePath { get; }
+			internal long SourceLength { get; }
+			internal long SourceLastWriteUtcTicks { get; }
+			internal bool SourceStable { get; }
 		}
 
 		private sealed class CopyResult

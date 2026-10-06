@@ -68,6 +68,96 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Plan_PreviouslyMissingMemberNowPresent_TreatsParticipationDriftAsSatisfied()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			CollectionRequirementReference requirement = new CollectionRequirementReference(f.Association, f.MemberKey,
+				CollectionRequirementAspect.MemberParticipation, null);
+			CollectionDriftObservation drift = new CollectionDriftObservation(Guid.NewGuid(), requirement,
+				CollectionMemberRequirementStates.Included(), CollectionRequirementState.Absent(), "Removed manually");
+
+			CollectionVerifyRepairPlan plan = f.Plan(null, new[] { drift });
+
+			Assert.That(plan.IsHealthyAtCurrentCoverage, Is.True);
+			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.UncharacterizedModification), Is.False);
+			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.Satisfied &&
+				x.Requirement != null && x.Requirement.Equals(requirement) && x.ExpectedState.Equals(x.ObservedState)), Is.True);
+		}
+
+		[Test]
+		public void Plan_PreviouslyDisabledMemberNowEnabled_TreatsEnabledDriftAsSatisfied()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			CollectionRequirementReference requirement = new CollectionRequirementReference(f.Association, f.MemberKey,
+				CollectionRequirementAspect.MemberEnabledState, null);
+			CollectionDriftObservation drift = new CollectionDriftObservation(Guid.NewGuid(), requirement,
+				CollectionMemberRequirementStates.Enabled(true), CollectionMemberRequirementStates.Enabled(false), "Disabled manually");
+			var current = new Dictionary<CollectionRequirementReference, CollectionRequirementState>
+			{
+				{ requirement, CollectionMemberRequirementStates.Enabled(true) }
+			};
+
+			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, f.Manifest, f.State, f.Bindings,
+				new UserOverride[0], new[] { drift }, null, null, current);
+
+			Assert.That(plan.IsHealthyAtCurrentCoverage, Is.True);
+			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.Satisfied &&
+				x.Requirement != null && x.Requirement.Equals(requirement) && x.ExpectedState.Equals(x.ObservedState)), Is.True);
+		}
+
+		[Test]
+		public void Preparation_MissingBindingWithUniqueExactNexusArtifact_UsesProvisionalAdoptedBinding()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: false);
+			NativeModInstanceIdentity replacementIdentity = new NativeModInstanceIdentity(f.Association.Target, "native-b");
+			CollectionNativeModState replacement = new CollectionNativeModState(replacementIdentity, "C:\\Mods\\a.7z", "a.7z",
+				"100", "200", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
+			CollectionNativeStateIndex state = new CollectionNativeStateIndex(f.Association.Target, f.State.Roots, new[] { replacement },
+				f.State.Files.Values, f.State.IniEdits.Values, f.State.GameValues.Values, f.State.Plugins.Values, f.State.PluginCoverage,
+				f.State.Associations.Values, f.Bindings, new UserOverride[0], f.State.AssociationCoverage, f.State.Issues, f.State.DeploymentCommitSequence);
+			ResolvedCollectionMemberPlan member = new ResolvedCollectionMemberPlan(f.Manifest.Members[0],
+				CollectionResolvedArtifactChoice.Exact(f.Manifest.Members[0].Artifact));
+
+			CollectionMemberBinding effective;
+			CollectionNativeModState native;
+			string issue;
+			bool resolved = CollectionVerifyRepairPreparationService.TryResolveExactReinstalledBinding(f.Association, member,
+				f.Bindings[0], state, out effective, out native, out issue);
+
+			Assert.That(resolved, Is.True, issue);
+			Assert.That(native.Identity, Is.EqualTo(replacementIdentity));
+			Assert.That(effective.NativeMod, Is.EqualTo(replacementIdentity));
+			Assert.That(effective.BindingKind, Is.EqualTo(CollectionMemberBindingKind.AdoptedExisting));
+			Assert.That(effective.VerifiedRecipe, Is.EqualTo(f.Bindings[0].VerifiedRecipe));
+		}
+
+		[Test]
+		public void Preparation_MissingBindingWithAmbiguousExactNexusArtifacts_RefusesAutomaticRebind()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: false);
+			CollectionNativeModState replacementA = new CollectionNativeModState(
+				new NativeModInstanceIdentity(f.Association.Target, "native-b"), "C:\\Mods\\a.7z", "a.7z",
+				"100", "200", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
+			CollectionNativeModState replacementB = new CollectionNativeModState(
+				new NativeModInstanceIdentity(f.Association.Target, "native-c"), "C:\\Mods\\b.7z", "b.7z",
+				"100", "200", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
+			CollectionNativeStateIndex state = new CollectionNativeStateIndex(f.Association.Target, f.State.Roots, new[] { replacementA, replacementB },
+				f.State.Files.Values, f.State.IniEdits.Values, f.State.GameValues.Values, f.State.Plugins.Values, f.State.PluginCoverage,
+				f.State.Associations.Values, f.Bindings, new UserOverride[0], f.State.AssociationCoverage, f.State.Issues, f.State.DeploymentCommitSequence);
+			ResolvedCollectionMemberPlan member = new ResolvedCollectionMemberPlan(f.Manifest.Members[0],
+				CollectionResolvedArtifactChoice.Exact(f.Manifest.Members[0].Artifact));
+
+			CollectionMemberBinding effective;
+			CollectionNativeModState native;
+			string issue;
+			bool resolved = CollectionVerifyRepairPreparationService.TryResolveExactReinstalledBinding(f.Association, member,
+				f.Bindings[0], state, out effective, out native, out issue);
+
+			Assert.That(resolved, Is.False);
+			StringAssert.Contains("multiple installed native mods", issue);
+		}
+
+		[Test]
 		public void Plan_MemberEnabledDrift_IsRepairableButRequiresExplicitRepair()
 		{
 			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);

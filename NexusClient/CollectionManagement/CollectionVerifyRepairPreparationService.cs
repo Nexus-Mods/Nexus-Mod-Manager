@@ -16,17 +16,25 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionVerifyRepairPreparationResult
 	{
 		private readonly ReadOnlyCollection<PreparedCollectionNativeRecipe> _preparedRecipes;
+		private readonly ReadOnlyCollection<CollectionMemberBinding> _effectiveBindings;
+		private readonly ReadOnlyCollection<CollectionMemberBinding> _bindingUpdates;
 
 		internal CollectionVerifyRepairPreparationResult(ResolvedCollectionPlan plan,
-			IEnumerable<PreparedCollectionNativeRecipe> preparedRecipes, string issue)
+			IEnumerable<PreparedCollectionNativeRecipe> preparedRecipes, string issue,
+			IEnumerable<CollectionMemberBinding> effectiveBindings = null,
+			IEnumerable<CollectionMemberBinding> bindingUpdates = null)
 		{
 			Plan = plan;
 			_preparedRecipes = new ReadOnlyCollection<PreparedCollectionNativeRecipe>((preparedRecipes ?? Enumerable.Empty<PreparedCollectionNativeRecipe>()).ToList());
+			_effectiveBindings = new ReadOnlyCollection<CollectionMemberBinding>((effectiveBindings ?? Enumerable.Empty<CollectionMemberBinding>()).ToList());
+			_bindingUpdates = new ReadOnlyCollection<CollectionMemberBinding>((bindingUpdates ?? Enumerable.Empty<CollectionMemberBinding>()).ToList());
 			Issue = issue;
 		}
 
 		public ResolvedCollectionPlan Plan { get; }
 		public ReadOnlyCollection<PreparedCollectionNativeRecipe> PreparedRecipes { get { return _preparedRecipes; } }
+		public ReadOnlyCollection<CollectionMemberBinding> EffectiveBindings { get { return _effectiveBindings; } }
+		public ReadOnlyCollection<CollectionMemberBinding> BindingUpdates { get { return _bindingUpdates; } }
 		public string Issue { get; }
 		public bool IsComplete { get { return Plan != null && String.IsNullOrEmpty(Issue); } }
 	}
@@ -100,6 +108,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, effective.CapabilityReport, selected);
 
 			var prepared = new List<PreparedCollectionNativeRecipe>();
+			var effectiveBindings = new List<CollectionMemberBinding>();
+			var bindingUpdates = new List<CollectionMemberBinding>();
 			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore);
 			var adopter = new CollectionVerifiedArchiveAdopter(new ModManagerCollectionManagedArchiveSource(_services.ModManager),
 				new NexusCollectionArchiveIdentityVerifier(repository), _artifactStore, _referenceStore);
@@ -112,33 +122,57 @@ namespace Nexus.Client.CollectionManagement
 					ResolvedCollectionMemberPlan member = resolvedPlan.SelectedMembers.SingleOrDefault(x => x.MemberKey.Equals(binding.MemberKey));
 					if (member == null)
 						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-							"A current member binding is intentionally outside the reconstructed selected closure; exact automatic effect repair is blocked.");
+							"A current member binding is intentionally outside the reconstructed selected closure; exact automatic effect repair is blocked.",
+							effectiveBindings, bindingUpdates);
+
+					CollectionMemberBinding effectiveBinding = binding;
 					CollectionNativeModState native;
-					if (!state.Mods.TryGetValue(binding.NativeMod, out native))
-						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-							"A bound native member is missing, so its original install method/root and exact prepared effects cannot be reconstructed automatically.");
-					IMod liveMod = ResolveLiveMod(binding.NativeMod.NativeModKey);
+					bool isBindingUpdate = !state.Mods.TryGetValue(binding.NativeMod, out native);
+					if (isBindingUpdate)
+					{
+						string rebindIssue;
+						if (!TryResolveExactReinstalledBinding(association, member, binding, state, out effectiveBinding, out native, out rebindIssue))
+							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, rebindIssue,
+								effectiveBindings, bindingUpdates);
+						bindingUpdates.Add(effectiveBinding);
+					}
+					effectiveBindings.Add(effectiveBinding);
+
+					IMod liveMod = ResolveLiveMod(effectiveBinding.NativeMod.NativeModKey);
 					bool contributesMerge = !member.HasVortexFileList && !member.HasVortexFomodSelection &&
 						CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, liveMod);
-					preparationInputs.Add(new VerifyRepairPreparationInput(binding, member, native, liveMod, contributesMerge));
+					preparationInputs.Add(new VerifyRepairPreparationInput(effectiveBinding, member, native, liveMod,
+						contributesMerge, isBindingUpdate));
 				}
 
 				IList<IMod> activeMods = _services.ModManager.ActiveMods.ToList();
 				CollectionMemberKey mergeOwner = ResolveDeterministicMergeOwner(state, preparationInputs, activeMods);
 				if (preparationInputs.Count(x => x.ContributesDeterministicMerge) > 1 && mergeOwner == null)
 					return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-						"The shared legacy merged file does not have one current bound contributor owner, so exact multi-member merge repair cannot reproduce the reviewed ownership safely.");
+						"The shared legacy merged file does not have one current bound contributor owner, so exact multi-member merge repair cannot reproduce the reviewed ownership safely.",
+						effectiveBindings, bindingUpdates);
 
 				foreach (VerifyRepairPreparationInput input in preparationInputs)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
+					if (input.IsBindingUpdate && !CanRebindManualReinstallExactly(input))
+						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
+							"A manually reinstalled Collection member can only be rebound automatically when its native recipe is basic and deterministic. Scripted installers, Vortex-selected file sets, file overrides, and binary patches require an explicit Collection repair path.",
+							effectiveBindings, bindingUpdates);
+
 					CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), resolvedPlan, input.Binding.MemberKey);
 					CollectionVerifiedArchive archive = adopter.TryAdopt(request, cancellationToken);
 					if (archive == null)
 						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-							"The exact archive bytes for a bound Collection member are not currently available for verified repair preparation.");
+							"The exact archive bytes for a bound Collection member are not currently available for verified repair preparation.",
+							effectiveBindings, bindingUpdates);
 					try
 					{
+						string managedArchivePath = CollectionArchiveContentMatcher.GetManagedArchivePath(input.LiveMod);
+						if (input.IsBindingUpdate && !CollectionArchiveContentMatcher.MatchesFile(managedArchivePath, archive.Artifact, cancellationToken))
+							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
+								"The manually reinstalled native mod has the expected Nexus mod/file identity, but its managed archive bytes do not match the exact retained Collection artifact. Automatic rebinding was refused.",
+								effectiveBindings, bindingUpdates);
 						var context = new ModInstallContext(input.Native.InstallMethod, input.Native.InstallRoot);
 						bool includeMergeOutput = !input.ContributesDeterministicMerge || mergeOwner == null || input.Member.MemberKey.Equals(mergeOwner);
 						PreparedCollectionNativeRecipe recipe = nativePreparer.PrepareExact(resolvedPlan, input.Member, archive, input.LiveMod,
@@ -146,7 +180,8 @@ namespace Nexus.Client.CollectionManagement
 							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, activeMods, includeMergeOutput, cancellationToken);
 						if (!recipe.EffectPreview.IsComplete)
 							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-								"A bound member's native recipe cannot be represented as complete typed effects for automatic verify/repair.");
+								"A bound member's native recipe cannot be represented as complete typed effects for automatic verify/repair.",
+								effectiveBindings, bindingUpdates);
 						prepared.Add(recipe);
 					}
 					finally
@@ -159,9 +194,81 @@ namespace Nexus.Client.CollectionManagement
 			catch (Exception ex)
 			{
 				return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-					"Exact verify/repair preparation failed closed: " + ex.Message);
+					"Exact verify/repair preparation failed closed: " + ex.Message, effectiveBindings, bindingUpdates);
 			}
-			return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, null);
+			return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, null, effectiveBindings, bindingUpdates);
+		}
+
+		/// <summary>
+		/// Resolves one stale member binding to a unique currently installed exact Nexus artifact without publishing it.
+		/// The caller must still prove the retained recipe/effects against this candidate before any binding update is persisted.
+		/// </summary>
+		internal static bool TryResolveExactReinstalledBinding(CollectionTargetAssociation association,
+			ResolvedCollectionMemberPlan member, CollectionMemberBinding persistedBinding, CollectionNativeStateIndex state,
+			out CollectionMemberBinding effectiveBinding, out CollectionNativeModState native, out string issue)
+		{
+			if (association == null) throw new ArgumentNullException(nameof(association));
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (persistedBinding == null) throw new ArgumentNullException(nameof(persistedBinding));
+			if (state == null) throw new ArgumentNullException(nameof(state));
+
+			effectiveBinding = persistedBinding;
+			native = null;
+			issue = null;
+			if (state.Mods.TryGetValue(persistedBinding.NativeMod, out native))
+				return true;
+
+			string domain;
+			long modId;
+			long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId) ||
+				String.IsNullOrWhiteSpace(domain) || modId <= 0 || fileId <= 0)
+			{
+				issue = "A bound native member is missing and this artifact type cannot be safely rebound to a manual reinstall.";
+				return false;
+			}
+
+			List<CollectionNativeModState> candidates = state.Mods.Values.Where(x =>
+			{
+				long nativeModId;
+				long nativeFileId;
+				return Int64.TryParse(x.NexusModId, out nativeModId) && Int64.TryParse(x.NexusFileId, out nativeFileId) &&
+					nativeModId == modId && nativeFileId == fileId;
+			}).ToList();
+			if (candidates.Count != 1)
+			{
+				issue = candidates.Count == 0
+					? "The previously bound Collection member is missing and no currently installed native mod has the exact required Nexus mod/file identity."
+					: "The previously bound Collection member is missing and multiple installed native mods have the exact required Nexus mod/file identity; automatic rebinding is ambiguous.";
+				return false;
+			}
+
+			native = candidates[0];
+			if (member.RequiresGameRootInstall && native.InstallRoot != ModInstallRoot.GameRoot)
+			{
+				issue = "The exact manually reinstalled Nexus artifact uses the wrong install root for this Collection member.";
+				return false;
+			}
+
+			ReadOnlyCollection<CollectionMemberBinding> existingBindings;
+			if (state.BindingsByNativeMod.TryGetValue(native.Identity, out existingBindings))
+			{
+				if (existingBindings.Any(x => !x.VerifiedRecipe.Equals(persistedBinding.VerifiedRecipe)))
+				{
+					issue = "The exact manually reinstalled Nexus artifact is already associated with a different verified Collection recipe.";
+					return false;
+				}
+				if (existingBindings.Any(x => x.Association.AssociationId == association.AssociationId &&
+					x.MemberKey != null && !x.MemberKey.Equals(persistedBinding.MemberKey)))
+				{
+					issue = "The exact manually reinstalled Nexus artifact is already bound to another member of this Collection association.";
+					return false;
+				}
+			}
+
+			effectiveBinding = new CollectionMemberBinding(association, persistedBinding.MemberKey, native.Identity,
+				persistedBinding.VerifiedRecipe, CollectionMemberBindingKind.AdoptedExisting);
+			return true;
 		}
 
 		private CollectionMemberKey ResolveDeterministicMergeOwner(CollectionNativeStateIndex state,
@@ -193,16 +300,23 @@ namespace Nexus.Client.CollectionManagement
 			return owners.Count == 1 ? owners[0].Member.MemberKey : null;
 		}
 
+		private static bool CanRebindManualReinstallExactly(VerifyRepairPreparationInput input)
+		{
+			return input != null && !input.Native.HasInstallScript && !input.Member.HasVortexFomodSelection &&
+				!input.Member.HasVortexFileList && !input.Member.HasVortexFileOverrides && !input.Member.HasVortexBinaryPatches;
+		}
+
 		private sealed class VerifyRepairPreparationInput
 		{
 			public VerifyRepairPreparationInput(CollectionMemberBinding binding, ResolvedCollectionMemberPlan member,
-				CollectionNativeModState native, IMod liveMod, bool contributesDeterministicMerge)
+				CollectionNativeModState native, IMod liveMod, bool contributesDeterministicMerge, bool isBindingUpdate)
 			{
 				Binding = binding ?? throw new ArgumentNullException(nameof(binding));
 				Member = member ?? throw new ArgumentNullException(nameof(member));
 				Native = native ?? throw new ArgumentNullException(nameof(native));
 				LiveMod = liveMod ?? throw new ArgumentNullException(nameof(liveMod));
 				ContributesDeterministicMerge = contributesDeterministicMerge;
+				IsBindingUpdate = isBindingUpdate;
 			}
 
 			public CollectionMemberBinding Binding { get; }
@@ -210,6 +324,7 @@ namespace Nexus.Client.CollectionManagement
 			public CollectionNativeModState Native { get; }
 			public IMod LiveMod { get; }
 			public bool ContributesDeterministicMerge { get; }
+			public bool IsBindingUpdate { get; }
 		}
 
 		internal static List<ResolvedCollectionMemberPlan> CreateSelectedMembers(NormalizedCollectionManifest manifest,

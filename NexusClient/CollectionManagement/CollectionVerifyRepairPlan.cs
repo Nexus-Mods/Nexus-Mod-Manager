@@ -69,10 +69,12 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly ReadOnlyCollection<CollectionVerifyRepairFinding> _findings;
 		private readonly ReadOnlyCollection<PreparedCollectionNativeRecipe> _preparedRecipes;
+		private readonly ReadOnlyCollection<CollectionMemberBinding> _bindingUpdates;
 
 		internal CollectionVerifyRepairPlan(CollectionTargetAssociation association, CollectionCurrentStateFingerprint fingerprint,
 			IEnumerable<CollectionVerifyRepairFinding> findings, bool exactEffectVerificationAvailable,
-			ResolvedCollectionPlan resolvedPlan = null, IEnumerable<PreparedCollectionNativeRecipe> preparedRecipes = null)
+			ResolvedCollectionPlan resolvedPlan = null, IEnumerable<PreparedCollectionNativeRecipe> preparedRecipes = null,
+			IEnumerable<CollectionMemberBinding> bindingUpdates = null)
 		{
 			Association = association ?? throw new ArgumentNullException(nameof(association));
 			StateFingerprint = fingerprint ?? throw new ArgumentNullException(nameof(fingerprint));
@@ -80,6 +82,7 @@ namespace Nexus.Client.CollectionManagement
 			ExactEffectVerificationAvailable = exactEffectVerificationAvailable;
 			ResolvedPlan = resolvedPlan;
 			_preparedRecipes = new ReadOnlyCollection<PreparedCollectionNativeRecipe>((preparedRecipes ?? Enumerable.Empty<PreparedCollectionNativeRecipe>()).ToList());
+			_bindingUpdates = new ReadOnlyCollection<CollectionMemberBinding>((bindingUpdates ?? Enumerable.Empty<CollectionMemberBinding>()).ToList());
 		}
 
 		public CollectionTargetAssociation Association { get; }
@@ -88,6 +91,7 @@ namespace Nexus.Client.CollectionManagement
 		public bool ExactEffectVerificationAvailable { get; }
 		public ResolvedCollectionPlan ResolvedPlan { get; }
 		public ReadOnlyCollection<PreparedCollectionNativeRecipe> PreparedRecipes { get { return _preparedRecipes; } }
+		public ReadOnlyCollection<CollectionMemberBinding> BindingUpdates { get { return _bindingUpdates; } }
 		public bool HasRepairableDifferences { get { return _findings.Any(x => x.IsRepairable); } }
 		public bool HasActionRequired { get { return _findings.Any(x => x.RequiresAction); } }
 		public bool IsHealthyAtCurrentCoverage
@@ -98,7 +102,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			get
 			{
-				if (!HasRepairableDifferences || HasActionRequired || !ExactEffectVerificationAvailable) return false;
+				if (!HasRepairableDifferences || HasActionRequired || !ExactEffectVerificationAvailable || _bindingUpdates.Count > 0) return false;
 				foreach (CollectionVerifyRepairFinding finding in _findings.Where(x => x.IsRepairable))
 				{
 					if (finding.Requirement == null) return false;

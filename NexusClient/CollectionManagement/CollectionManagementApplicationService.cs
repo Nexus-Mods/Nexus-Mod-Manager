@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
+using Nexus.Client.ModManagement;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using Nexus.Client.Mods;
 
@@ -529,10 +530,97 @@ namespace Nexus.Client.CollectionManagement
 				List<CollectionDriftObservation> drift = snapshot.DriftObservations.Where(x => x.Requirement.AssociationId == associationId).ToList();
 				CollectionVerifyRepairPreparationResult preparation = new CollectionVerifyRepairPreparationService(_services, _store, _revisionSourceStore)
 					.Prepare(association, presentation.RetainedManifest, state, bindings, overrides, drift, cancellationToken);
+				IEnumerable<CollectionMemberBinding> planningBindings = preparation.IsComplete
+					? (IEnumerable<CollectionMemberBinding>)preparation.EffectiveBindings : bindings;
 				IEnumerable<CollectionMemberEffectPreview> previews = preparation.IsComplete
 					? preparation.PreparedRecipes.Select(x => x.EffectPreview) : null;
-				return new CollectionVerifyRepairPlanner().Plan(association, presentation.RetainedManifest.Manifest, state, bindings, overrides, drift,
-					previews, preparation);
+				IReadOnlyDictionary<CollectionRequirementReference, CollectionRequirementState> currentMemberStates =
+					ObserveCurrentVerifyMemberStates(planningBindings, drift);
+				return new CollectionVerifyRepairPlanner().Plan(association, presentation.RetainedManifest.Manifest, state, planningBindings, overrides, drift,
+					previews, preparation, currentMemberStates, preparation.IsComplete ? preparation.BindingUpdates : null);
+			}
+		}
+
+		private IReadOnlyDictionary<CollectionRequirementReference, CollectionRequirementState> ObserveCurrentVerifyMemberStates(
+			IEnumerable<CollectionMemberBinding> bindings, IEnumerable<CollectionDriftObservation> drift)
+		{
+			var bindingsByMember = (bindings ?? Enumerable.Empty<CollectionMemberBinding>())
+				.GroupBy(x => x.MemberKey).ToDictionary(x => x.Key, x => x.Single());
+			var result = new Dictionary<CollectionRequirementReference, CollectionRequirementState>();
+			foreach (CollectionDriftObservation observation in (drift ?? Enumerable.Empty<CollectionDriftObservation>())
+				.Where(x => x.Requirement.MemberKey != null && x.Requirement.Aspect == CollectionRequirementAspect.MemberEnabledState))
+			{
+				CollectionMemberBinding binding;
+				if (!bindingsByMember.TryGetValue(observation.Requirement.MemberKey, out binding))
+					continue;
+				try
+				{
+					result[observation.Requirement] = ObserveManagedMemberState(binding, CollectionRequirementAspect.MemberEnabledState);
+				}
+				catch (InvalidOperationException)
+				{
+					// Fail closed: when current enabled state cannot be proven, preserve the persisted drift observation.
+				}
+			}
+			return result;
+		}
+
+		/// <summary>
+		/// Reconciles stale persisted drift after an explicit verify pass proved the currently supported state healthy.
+		/// </summary>
+		/// <remarks>
+		/// This never changes native NMM state. It only removes drift observations whose exact requirement is now reported as
+		/// satisfied by the supplied verify plan, after reloading authority and proving the native-state fingerprint did not change.
+		/// </remarks>
+		public async Task<bool> ReconcileVerifiedHealthyStateAsync(CollectionVerifyRepairPlan plan, CancellationToken cancellationToken)
+		{
+			if (plan == null) throw new ArgumentNullException(nameof(plan));
+			if (!plan.IsHealthyAtCurrentCoverage)
+				throw new InvalidOperationException("Only a healthy verify/repair plan can reconcile stale Collection drift.");
+			if (!plan.Association.Target.Equals(ResolveCurrentTarget()))
+				throw new InvalidOperationException("The verify/repair plan does not belong to the current canonical target.");
+
+			GameStoragePathSet paths = GetTargetPaths();
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			using (CollectionTargetMutationLease lease = await CollectionTargetMutationLeaseManager.Shared
+				.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				new CollectionTargetOwnershipAuthorityValidator(_gameStorageService, _services).ValidateAndReload(lease, authority, paths);
+				var reader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
+					_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);
+				CollectionNativeStateIndex state = reader.Capture(authority.Target);
+				if (!state.Fingerprint.Equals(plan.StateFingerprint))
+					throw new InvalidOperationException("Native state changed after verify/repair assessment; verify again before reconciling Collection drift.");
+
+				CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(authority.Target);
+				CollectionTargetAssociation association = snapshot.Associations.SingleOrDefault(x => x.AssociationId == plan.Association.AssociationId);
+				if (association == null || !association.Revision.Equals(plan.Association.Revision) || association.State != plan.Association.State)
+					throw new InvalidOperationException("The Collection association changed after verify/repair assessment.");
+				if (association.State == CollectionAssociationState.Recovering)
+					throw new InvalidOperationException("A recovering Collection association cannot be normalized by a healthy verify pass.");
+
+				List<CollectionDriftObservation> drift = snapshot.DriftObservations
+					.Where(x => x.Requirement.AssociationId == association.AssociationId).ToList();
+				List<CollectionRequirementReference> satisfiedDrift = drift
+					.Where(x => plan.Findings.Any(f => f.Kind == CollectionVerifyRepairFindingKind.Satisfied &&
+						f.Requirement != null && f.Requirement.Equals(x.Requirement) &&
+						f.ExpectedState != null && f.ObservedState != null && f.ExpectedState.Equals(f.ObservedState)))
+					.Select(x => x.Requirement).Distinct().ToList();
+				if (satisfiedDrift.Count != drift.Count)
+					throw new InvalidOperationException("The healthy verify pass did not explicitly satisfy every persisted Collection drift observation.");
+
+				int overrideCount = snapshot.Overrides.Count(x => x.Requirement.AssociationId == association.AssociationId);
+				CollectionAssociationState finalState = overrideCount == 0
+					? CollectionAssociationState.Applied : CollectionAssociationState.Modified;
+				if (plan.BindingUpdates.Count > 0 && !plan.ExactEffectVerificationAvailable)
+					throw new InvalidOperationException("A manually reinstalled Collection member cannot be rebound without exact effect verification.");
+				if (satisfiedDrift.Count == 0 && plan.BindingUpdates.Count == 0 && association.State == finalState)
+					return false;
+
+				CollectionTargetAssociation finalAssociation = association.WithState(finalState);
+				_associationStore.SaveVerifiedHealthyReconciliation(association, finalAssociation, plan.BindingUpdates, satisfiedDrift);
+				return true;
 			}
 		}
 
@@ -825,9 +913,14 @@ namespace Nexus.Client.CollectionManagement
 			if (matches.Count != 1)
 				throw new InvalidOperationException("The member is no longer installed, so its enabled/disabled state cannot be established safely.");
 
-			string fileName = Path.GetFileName(matches[0].Filename);
-			bool enabled = _services.ModManager.VirtualModActivator != null &&
-				_services.ModManager.VirtualModActivator.ActiveModList.Contains((fileName ?? String.Empty).ToLowerInvariant());
+			ModInstallMethod installMethod = _services.ModManager.InstallationLog.GetModInstallMethod(matches[0]);
+			bool enabled = true;
+			if (installMethod == ModInstallMethod.Virtual)
+			{
+				string fileName = Path.GetFileName(matches[0].Filename);
+				enabled = _services.ModManager.VirtualModActivator != null &&
+					_services.ModManager.VirtualModActivator.ActiveModList.Contains((fileName ?? String.Empty).ToLowerInvariant());
+			}
 			return CollectionMemberRequirementStates.Enabled(enabled);
 		}
 
@@ -913,8 +1006,18 @@ namespace Nexus.Client.CollectionManagement
 		/// Cleanup failures never turn a committed removal into a failed uninstall. Locked blobs retain durable tombstones for
 		/// the next startup retry. The normal native archive library and live installed effects are outside this cleanup route.
 		/// </remarks>
-		public async Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection = null)
+		public Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection = null)
 		{
+			return CleanupRetainedContentAsync(cancellationToken, retainedPreviewCollection, Int32.MaxValue);
+		}
+
+		/// <summary>Runs retained-content cleanup with an explicit per-pass artifact limit.</summary>
+		/// <remarks>Startup uses a bounded pass so stale retained content cannot monopolize the Collections page or target lease.</remarks>
+		public async Task CleanupRetainedContentAsync(CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection,
+			int maximumArtifacts)
+		{
+			if (maximumArtifacts <= 0)
+				throw new ArgumentOutOfRangeException(nameof(maximumArtifacts));
 			if (!_store.Exists)
 				return;
 			try
@@ -929,16 +1032,26 @@ namespace Nexus.Client.CollectionManagement
 						if (!cleanup.ReleaseRemovedCollectionContent(authority.Target, retainedPreviewCollection))
 							return;
 						var attempted = new HashSet<string>(StringComparer.Ordinal);
-						foreach (string artifactId in cleanup.GetPendingTombstones(Int32.MaxValue))
+						int remaining = maximumArtifacts;
+						foreach (string artifactId in cleanup.GetPendingTombstones(remaining))
+						{
 							CollectRetainedArtifact(cleanup, artifactId, attempted, cancellationToken);
-						while (true)
+							if (--remaining == 0)
+								return;
+						}
+						while (remaining > 0)
 						{
 							cancellationToken.ThrowIfCancellationRequested();
-							List<string> candidates = cleanup.GetCleanupCandidates(128).Where(x => !attempted.Contains(x)).ToList();
+							int batchSize = Math.Min(128, remaining);
+							List<string> candidates = cleanup.GetCleanupCandidates(batchSize).Where(x => !attempted.Contains(x)).ToList();
 							if (candidates.Count == 0)
 								break;
 							foreach (string artifactId in candidates)
+							{
 								CollectRetainedArtifact(cleanup, artifactId, attempted, cancellationToken);
+								if (--remaining == 0)
+									break;
+							}
 						}
 					}, cancellationToken).ConfigureAwait(false);
 				}

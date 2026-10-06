@@ -645,6 +645,9 @@
 
 			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _fileManagerControl))
 				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
+
+			if (e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _collectionsPreviewControl))
+				_collectionsPreviewControl.RefreshInstalledState();
 		}
 
 		/// <summary>
