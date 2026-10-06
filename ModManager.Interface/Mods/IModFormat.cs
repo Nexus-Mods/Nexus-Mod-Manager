@@ -105,4 +105,73 @@ namespace Nexus.Client.Mods
 		/// <returns><c>true</c> if a valid cached result was found; otherwise, <c>false</c>.</returns>
 		bool TryGetCachedFormatConfidence(string p_strPath, out FormatConfidence p_fcfConfidence);
 	}
+	/// <summary>Describes whether one persisted mod-format screenshot override belongs to the archive bytes currently present at its path.</summary>
+	public enum ModFormatScreenshotOverrideReadState
+	{
+		None = 0,
+		Current = 1,
+		Stale = 2,
+		ArchiveUnavailable = 3
+	}
+
+	/// <summary>Immutable logical export of one generated screenshot override owned by a mod format.</summary>
+	public sealed class ModFormatScreenshotOverrideRecord
+	{
+		private readonly byte[] _screenshotData;
+
+		public ModFormatScreenshotOverrideRecord(long archiveLength, long archiveWriteTimeUtcTicks, string screenshotPath,
+			byte[] screenshotData, long updatedUtcTicks)
+		{
+			if (archiveLength < 0)
+				throw new System.ArgumentOutOfRangeException(nameof(archiveLength));
+			if (System.String.IsNullOrWhiteSpace(screenshotPath))
+				throw new System.ArgumentException("A screenshot override path is required.", nameof(screenshotPath));
+			if (screenshotData == null || screenshotData.Length == 0)
+				throw new System.ArgumentException("A screenshot override requires non-empty bytes.", nameof(screenshotData));
+			ArchiveLength = archiveLength;
+			ArchiveWriteTimeUtcTicks = archiveWriteTimeUtcTicks;
+			ScreenshotPath = screenshotPath;
+			_screenshotData = (byte[])screenshotData.Clone();
+			UpdatedUtcTicks = updatedUtcTicks;
+		}
+
+		public long ArchiveLength { get; }
+		public long ArchiveWriteTimeUtcTicks { get; }
+		public string ScreenshotPath { get; }
+		public byte[] ScreenshotData { get { return (byte[])_screenshotData.Clone(); } }
+		public long UpdatedUtcTicks { get; }
+	}
+
+	/// <summary>Result of logically reading one archive's generated screenshot override.</summary>
+	public sealed class ModFormatScreenshotOverrideReadResult
+	{
+		public ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState state, ModFormatScreenshotOverrideRecord record)
+		{
+			if (!System.Enum.IsDefined(typeof(ModFormatScreenshotOverrideReadState), state))
+				throw new System.ArgumentOutOfRangeException(nameof(state));
+			if (state == ModFormatScreenshotOverrideReadState.None && record != null)
+				throw new System.ArgumentException("A missing screenshot override cannot carry a persisted record.", nameof(record));
+			if (state != ModFormatScreenshotOverrideReadState.None && record == null)
+				throw new System.ArgumentNullException(nameof(record));
+			State = state;
+			Record = record;
+		}
+
+		public ModFormatScreenshotOverrideReadState State { get; }
+		public ModFormatScreenshotOverrideRecord Record { get; }
+	}
+
+	/// <summary>Exposes non-rebuildable logical user metadata through the shared mod-format contract.</summary>
+	/// <remarks>
+	/// Mod formats are discovered with <c>Assembly.LoadFile</c>, so application code must use this shared interface rather than
+	/// concrete format types when accessing instances from the registry.
+	/// </remarks>
+	public interface IModFormatUserMetadata
+	{
+		bool IsUserMetadataUsable { get; }
+		ModFormatScreenshotOverrideReadResult ReadScreenshotOverride(string archivePath);
+		void RestoreScreenshotOverride(string archivePath, string screenshotPath, byte[] screenshotData, long updatedUtcTicks);
+		void RemoveScreenshotOverride(string archivePath);
+	}
+
 }

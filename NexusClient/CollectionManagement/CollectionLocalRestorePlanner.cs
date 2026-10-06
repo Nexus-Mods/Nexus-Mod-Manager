@@ -66,6 +66,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			Dictionary<string, CollectionCapturedArchiveArtifact> archivesByNativeKey = BuildArchiveIndex(sealedCapture, issues);
+			ValidateOwnerPayloadSources(sealedCapture, archivesByNativeKey, issues);
 			Dictionary<string, LocalCaptureNativeRecordMapping> mappingsByNativeKey = BuildMappingIndex(capture, issues);
 			var usedCurrentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var fileIdentityCache = new Dictionary<string, FileIdentity>(StringComparer.OrdinalIgnoreCase);
@@ -294,6 +295,52 @@ namespace Nexus.Client.CollectionManagement
 						archive.NativeSnapshotKey, "The sealed capture contains more than one retained archive for the same native snapshot member."));
 			}
 			return result;
+		}
+
+		private static void ValidateOwnerPayloadSources(CollectionSealedCaptureSnapshot sealedCapture,
+			IDictionary<string, CollectionCapturedArchiveArtifact> archivesByNativeKey,
+			List<CollectionLocalRestorePlanIssue> issues)
+		{
+			Dictionary<string, CollectionInstalledModIdentity> installed = sealedCapture.InstalledIdentities.Mods
+				.GroupBy(x => x.NativeSnapshotKey, StringComparer.OrdinalIgnoreCase)
+				.Where(x => x.Count() == 1)
+				.ToDictionary(x => x.Key, x => x.Single(), StringComparer.OrdinalIgnoreCase);
+			foreach (CollectionOwnerPayloadTarget target in sealedCapture.OwnerPayloads.Targets)
+			{
+				foreach (CollectionOwnerPayloadOwner owner in target.Owners)
+				{
+					CollectionOwnerPayloadSource source = owner.PayloadSource ??
+						(owner.RetainedPayload == null ? null : CollectionOwnerPayloadSource.FromCapturedArtifact(owner.RetainedPayload));
+					if (source == null)
+					{
+						issues.Add(new CollectionLocalRestorePlanIssue(CollectionLocalRestorePlanIssueKind.RetainedArtifactMissing,
+							target.Target + "#" + owner.StackIndex, "A captured owner does not contain an exact restorable payload source."));
+						continue;
+					}
+					if (source.Kind != CollectionOwnerPayloadSourceKind.ArchiveBacked)
+						continue;
+
+					CollectionOwnerPayloadArchiveBackedDescriptor descriptor = source.ArchiveBacked;
+					CollectionInstalledModIdentity capturedMod;
+					if (descriptor == null || !StringComparer.OrdinalIgnoreCase.Equals(owner.OwnerKey, descriptor.NativeSnapshotKey) ||
+						!archivesByNativeKey.ContainsKey(descriptor.NativeSnapshotKey) ||
+						!installed.TryGetValue(descriptor.NativeSnapshotKey, out capturedMod))
+					{
+						issues.Add(new CollectionLocalRestorePlanIssue(CollectionLocalRestorePlanIssueKind.RetainedArchiveMissing,
+							target.Target + "#" + owner.StackIndex,
+							"An archive-backed owner payload is not bound to exactly one retained archive and captured native member."));
+						continue;
+					}
+					string expectedProof = CollectionOwnerPayloadArchiveReconstruction.CreateProofIdentity(descriptor.NativeSnapshotKey,
+						capturedMod.InstallContext, descriptor.ArchiveEntryPath, source.ExpectedContentHash, source.ExpectedByteLength);
+					if (!StringComparer.Ordinal.Equals(expectedProof, descriptor.ReconstructionIdentity))
+					{
+						issues.Add(new CollectionLocalRestorePlanIssue(CollectionLocalRestorePlanIssueKind.RetainedArtifactMetadataMismatch,
+							target.Target + "#" + owner.StackIndex,
+							"The archive-backed owner-payload reconstruction proof does not match the sealed capture identity."));
+					}
+				}
+			}
 		}
 
 		private static Dictionary<string, LocalCaptureNativeRecordMapping> BuildMappingIndex(LocalCapture capture,

@@ -816,6 +816,29 @@
 		}
 
 		[Test]
+		public void LocalRestoreCapturedOwnerStack_PureVirtual_RemovesDuplicateRecoveredLinkRecordsBeforeRebuild()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod virtualMod = environment.RegisterMod("RestoreVirtualRecoveredDuplicate", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target(@"Docs\local-restore-recovered-duplicate.html");
+				environment.AddVirtualOwner(virtualMod, target, "stale-older", false, 2);
+				environment.AddVirtualOwner(virtualMod, target, "stale-winner", true, 0);
+
+				Assert.AreEqual(2, environment.VirtualState.CountOwnerRecords(target, environment.Key(virtualMod)));
+
+				environment.Manager.RestoreCapturedOwnerStack(target, false, new[]
+				{
+					new ModDeploymentRestoreOwner(environment.Key(virtualMod), ModDeploymentRestoreOwnerKind.Virtual,
+						virtualMod, ModInstallRoot.Data, environment.CreatePayload("captured-winner"))
+				}, new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.ExplicitlyAbsent, null));
+
+				Assert.AreEqual(1, environment.VirtualState.CountOwnerRecords(target, environment.Key(virtualMod)));
+				Assert.AreEqual("captured-winner", environment.ReadTarget(target));
+			}
+		}
+
+		[Test]
 		public void LocalRestoreCapturedOwnerStack_PureVirtual_RestoresExactRetainedFallback()
 		{
 			using (var environment = new MixedTestEnvironment())
@@ -1183,6 +1206,13 @@
 				return owner != null && owner.Active;
 			}
 
+			public int CountOwnerRecords(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
+			{
+				return m_lstOwners.Count(x =>
+					x.Target.Equals(p_mdtTarget) &&
+					x.ModKey.Equals(p_strOwnerKey, StringComparison.OrdinalIgnoreCase));
+			}
+
 			public string GetOverwritePath(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
 			{
 				VirtualOwner owner = Find(p_mdtTarget, p_strOwnerKey);
@@ -1209,6 +1239,7 @@
 					case "GetVirtualOwnerKeys":
 						return GetOwners((ModDeploymentTarget)p_objArguments[0])
 							.Select(x => x.ModKey)
+							.Distinct(StringComparer.OrdinalIgnoreCase)
 							.ToArray();
 					case "GetVirtualTargetsForMod":
 						return m_lstOwners

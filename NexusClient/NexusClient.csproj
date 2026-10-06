@@ -120,6 +120,10 @@
     <Compile Include="CollectionManagement\CollectionLocalRestoreApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionLocalRestorePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadCaptureService.cs" />
+    <Compile Include="CollectionManagement\CollectionOwnerPayloadReconstructionClassifier.cs" />
+    <Compile Include="CollectionManagement\CollectionOwnerPayloadArchiveEvidenceSource.cs" />
+    <Compile Include="CollectionManagement\CollectionOwnerPayloadArchiveReconstruction.cs" />
+    <Compile Include="CollectionManagement\CollectionOwnerPayloadMaterializer.cs" />
     <Compile Include="CollectionManagement\CollectionOwnerPayloadSnapshot.cs" />
     <Compile Include="CollectionManagement\CollectionScriptedReplayCaptureService.cs" />
     <Compile Include="CollectionManagement\CollectionScriptedReplaySnapshot.cs" />

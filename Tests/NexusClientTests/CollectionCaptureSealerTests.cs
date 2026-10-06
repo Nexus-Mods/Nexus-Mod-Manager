@@ -160,6 +160,98 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Seal_RestorableArchiveBackedOwnerUsesRetainedMemberArchiveWithoutStandalonePayload()
+		{
+			string root = CreateTemporaryDirectory("nmm-c12-step2b-seal-");
+			try
+			{
+				string archivePath = Path.Combine(root, "Example.zip");
+				File.WriteAllText(archivePath, "exact archive bytes", Encoding.UTF8);
+				CollectionsStore store = CreateStore(root);
+				var referenceStore = new CollectionsRetainedArtifactReferenceStore(store);
+				var sealer = new CollectionCaptureSealer(new CollectionsRetainedArtifactStore(store), referenceStore);
+				CollectionTargetIdentity target = CreateTarget();
+				LocalCaptureIdentity captureIdentity = CreateCaptureIdentity();
+				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "managed.bin");
+				var descriptor = new CollectionOwnerPayloadArchiveBackedDescriptor(
+					CollectionOwnerPayloadArchiveBackedDescriptor.CurrentFormatVersion,
+					CollectionOwnerPayloadArchiveBackedKind.ExactArchiveEntry, "native-a", "managed.bin",
+					"basic-exact-archive-entry-v1:test");
+				CollectionOwnerPayloadSource source = CollectionOwnerPayloadSource.FromArchiveBacked(descriptor,
+					CollectionContentHash.FromSha256(new string('a', 64)), 7);
+				var owner = new CollectionOwnerPayloadOwner(0, "native-a", null,
+					NativeStateCaptureDeploymentOwnerKind.Direct, true, null, source);
+				var ownerPayloads = new CollectionOwnerPayloadSnapshot(target, captureIdentity, Checkpoint,
+					new[] { new CollectionOwnerPayloadTarget(deploymentTarget, true, new[] { owner }) },
+					NativeStateCaptureCoverage.Complete, new CollectionOwnerPayloadIssue[0]);
+				LocalCaptureScope scope = new LocalCaptureScope(LocalCaptureScope.CurrentVersion, new[]
+				{
+					LocalCaptureScopeArea.ManagedModState,
+					LocalCaptureScopeArea.ModArchives,
+					LocalCaptureScopeArea.FileOwnershipAndFallbackPayloads
+				});
+
+				CollectionCaptureSealResult result = sealer.Seal(CreateRequest(root, archivePath,
+					LocalCaptureCapability.LocallyRestorableWithinScope, scope, ownerPayloads: ownerPayloads));
+
+				Assert.IsTrue(result.IsSealed);
+				Assert.IsFalse(result.HasRestorabilityBlockers);
+				Assert.AreEqual(CollectionOwnerPayloadSourceKind.ArchiveBacked,
+					result.SealedCapture.OwnerPayloads.Targets.Single().CurrentWinner.PayloadSource.Kind);
+				Assert.AreEqual(1, result.SealedCapture.Capture.RetainedArtifacts.Count);
+				Assert.IsTrue(result.SealedCapture.Capture.RetainedArtifacts.Single().Role.StartsWith("mod-archive:", StringComparison.Ordinal));
+				Assert.IsFalse(referenceStore.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, captureIdentity.ToString())
+					.Any(x => x.Role.StartsWith("owner-payload:", StringComparison.Ordinal)));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Seal_ArchiveBackedOwnerWithoutRetainedMemberArchiveBlocksRestorableCapture()
+		{
+			string root = CreateTemporaryDirectory("nmm-c12-step2b-no-archive-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				var sealer = new CollectionCaptureSealer(new CollectionsRetainedArtifactStore(store),
+					new CollectionsRetainedArtifactReferenceStore(store));
+				CollectionTargetIdentity target = CreateTarget();
+				LocalCaptureIdentity captureIdentity = CreateCaptureIdentity();
+				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "managed.bin");
+				var descriptor = new CollectionOwnerPayloadArchiveBackedDescriptor(
+					CollectionOwnerPayloadArchiveBackedDescriptor.CurrentFormatVersion,
+					CollectionOwnerPayloadArchiveBackedKind.ExactArchiveEntry, "native-a", "managed.bin",
+					"basic-exact-archive-entry-v1:test");
+				CollectionOwnerPayloadSource source = CollectionOwnerPayloadSource.FromArchiveBacked(descriptor,
+					CollectionContentHash.FromSha256(new string('a', 64)), 7);
+				var owner = new CollectionOwnerPayloadOwner(0, "native-a", null,
+					NativeStateCaptureDeploymentOwnerKind.Direct, true, null, source);
+				var ownerPayloads = new CollectionOwnerPayloadSnapshot(target, captureIdentity, Checkpoint,
+					new[] { new CollectionOwnerPayloadTarget(deploymentTarget, true, new[] { owner }) },
+					NativeStateCaptureCoverage.Complete, new CollectionOwnerPayloadIssue[0]);
+				LocalCaptureScope scope = new LocalCaptureScope(LocalCaptureScope.CurrentVersion, new[]
+				{
+					LocalCaptureScopeArea.ManagedModState,
+					LocalCaptureScopeArea.FileOwnershipAndFallbackPayloads
+				});
+
+				CollectionCaptureSealResult result = sealer.Seal(CreateRequest(root, String.Empty,
+					LocalCaptureCapability.LocallyRestorableWithinScope, scope, ownerPayloads: ownerPayloads));
+
+				Assert.IsFalse(result.IsSealed);
+				Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionCaptureSealIssueKind.OwnerPayloadIncomplete &&
+					x.ResourceKey == deploymentTarget.ToString()));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void Seal_StateFingerprintDriftBlocksEvenRecipeOnlyPublication()
 		{
 			string root = CreateTemporaryDirectory("nmm-c77-state-drift-");
@@ -300,6 +392,24 @@ namespace NexusClientTests
 			{
 				Directory.Delete(root, true);
 			}
+		}
+
+		[Test]
+		public void CapturedArchiveArtifact_LegacyFullPathNormalizesToLeafName()
+		{
+			var artifact = new CollectionCapturedArchiveArtifact("native-a", @"C:\Mods\Weapon Debris Crash Fix-48078-1-0.7z", null,
+				new RetainedArtifactReference("artifact", "role", CollectionContentHash.FromSha256(new string('a', 64)), 123));
+
+			Assert.AreEqual("Weapon Debris Crash Fix-48078-1-0.7z", artifact.FileName);
+		}
+
+		[Test]
+		public void CapturedArchiveArtifact_UnsafeTrailingPathIsRejected()
+		{
+			var artifact = new CollectionCapturedArchiveArtifact("native-a", @"C:\Mods\", null,
+				new RetainedArtifactReference("artifact", "role", CollectionContentHash.FromSha256(new string('b', 64)), 123));
+
+			Assert.AreEqual(String.Empty, artifact.FileName);
 		}
 
 		[Test]

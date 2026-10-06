@@ -569,9 +569,9 @@ namespace Nexus.Client.CollectionManagement
 			if (!_artifactStore.VerifyArtifact(retained.StableArtifactId, cancellationToken))
 				throw new InvalidDataException("The retained Local Collection archive failed verification immediately before restoration.");
 
-			string fileName = Path.GetFileName(archive.FileName);
-			if (String.IsNullOrWhiteSpace(fileName) || !StringComparer.Ordinal.Equals(fileName, archive.FileName))
-				throw new InvalidDataException("The sealed Local Collection archive name is not a single safe file name.");
+			string fileName = CollectionCapturedArchiveArtifact.NormalizeArchiveFileName(archive.FileName);
+			if (String.IsNullOrWhiteSpace(fileName))
+				throw new InvalidDataException("The sealed Local Collection archive name cannot be reduced to a safe file name.");
 			string directory = _services.ModManager.CurrentGameModeModDirectory;
 			Directory.CreateDirectory(directory);
 			string destination = Path.Combine(directory, fileName);

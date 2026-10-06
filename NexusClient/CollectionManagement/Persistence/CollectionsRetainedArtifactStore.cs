@@ -287,6 +287,17 @@ VALUES
 			return stream;
 		}
 
+		/// <summary>Returns the content-addressed physical path only after cryptographically verifying the sealed retained bytes.</summary>
+		internal string GetVerifiedReadOnlyPath(string artifactId, CancellationToken cancellationToken)
+		{
+			CollectionsRetainedArtifact artifact = GetArtifact(artifactId);
+			if (artifact == null)
+				throw new FileNotFoundException("The retained artifact is not recorded in the Collections feature store.", artifactId);
+			if (!VerifyArtifact(artifactId, cancellationToken))
+				throw new InvalidDataException("The retained artifact bytes no longer match their sealed SHA-256 identity.");
+			return GetValidatedPhysicalPath(artifact);
+		}
+
 		/// <summary>
 		/// Recomputes the cryptographic digest of one retained artifact and reports whether its immutable bytes still match.
 		/// </summary>

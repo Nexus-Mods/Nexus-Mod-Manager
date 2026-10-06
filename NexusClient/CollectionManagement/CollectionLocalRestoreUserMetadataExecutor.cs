@@ -280,7 +280,7 @@ namespace Nexus.Client.CollectionManagement
 						var archiveInfo = new FileInfo(archivePath);
 						if (!archiveInfo.Exists)
 							throw new FileNotFoundException("The restored archive required by captured screenshot metadata is unavailable.", archivePath);
-						screenshot = CollectionLocalRestoreUserScreenshotState.CreatePresent(FOModScreenshotOverrideReadState.Current,
+						screenshot = CollectionLocalRestoreUserScreenshotState.CreatePresent(ModFormatScreenshotOverrideReadState.Current,
 							capturedScreenshot.ScreenshotPath, capturedScreenshot.RetainedArtifact.ContentHash.Value,
 							capturedScreenshot.RetainedArtifact.ByteLength, archiveInfo.Length, archiveInfo.LastWriteTimeUtc.Ticks,
 							capturedScreenshot.UpdatedUtcTicks, capturedScreenshot.RetainedArtifact.StableArtifactId);
@@ -294,8 +294,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionLocalRestoreUserMetadataState CaptureCurrentState(CollectionLocalRestoreUserMetadataState template)
 		{
 			ModSortOrderService sortService = _services.ModManager.SortOrderService;
-			FOModFormat format = _services.ModManager.ModFormats.OfType<FOModFormat>().FirstOrDefault();
-			FOModUserMetadataReader reader = format == null ? null : format.UserMetadataReader;
+			IModFormatUserMetadata userMetadata = GetUserMetadataFormat();
 			var entries = new List<CollectionLocalRestoreUserMetadataEntry>();
 			foreach (CollectionLocalRestoreUserMetadataEntry desiredEntry in template.Entries)
 			{
@@ -316,12 +315,12 @@ namespace Nexus.Client.CollectionManagement
 				if (desiredEntry.Screenshot != null)
 				{
 					screenshot = CollectionLocalRestoreUserScreenshotState.None();
-					if (reader == null || !reader.IsUsable)
+					if (userMetadata == null || !userMetadata.IsUserMetadataUsable)
 						throw new InvalidOperationException("The logical FOMod user-metadata reader is unavailable during exact screenshot restoration.");
-					FOModScreenshotOverrideReadResult result = reader.ReadScreenshotOverride(desiredEntry.ArchivePath);
-					if (result.State != FOModScreenshotOverrideReadState.None)
+					ModFormatScreenshotOverrideReadResult result = userMetadata.ReadScreenshotOverride(desiredEntry.ArchivePath);
+					if (result.State != ModFormatScreenshotOverrideReadState.None)
 					{
-						FOModScreenshotOverrideRecord record = result.Record;
+						ModFormatScreenshotOverrideRecord record = result.Record;
 						byte[] bytes = record.ScreenshotData;
 						screenshot = CollectionLocalRestoreUserScreenshotState.CreatePresent(result.State, record.ScreenshotPath,
 							ComputeSha256(bytes), bytes.LongLength, record.ArchiveLength, record.ArchiveWriteTimeUtcTicks,
@@ -337,8 +336,7 @@ namespace Nexus.Client.CollectionManagement
 		private void ApplyDesiredState(CollectionLocalRestoreUserMetadataState desired, CancellationToken cancellationToken)
 		{
 			ModSortOrderService sortService = _services.ModManager.SortOrderService;
-			FOModFormat format = _services.ModManager.ModFormats.OfType<FOModFormat>().FirstOrDefault();
-			FOModUserMetadataWriter writer = format == null ? null : format.UserMetadataWriter;
+			IModFormatUserMetadata userMetadata = GetUserMetadataFormat();
 			foreach (CollectionLocalRestoreUserMetadataEntry entry in desired.Entries)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
@@ -352,18 +350,24 @@ namespace Nexus.Client.CollectionManagement
 				}
 				if (entry.Screenshot != null)
 				{
-					if (writer == null || !writer.IsUsable)
+					if (userMetadata == null || !userMetadata.IsUserMetadataUsable)
 						throw new InvalidOperationException("The logical FOMod user-metadata writer is unavailable during exact screenshot restoration.");
 					if (!entry.Screenshot.Present)
-						writer.RemoveScreenshotOverride(entry.ArchivePath);
+						userMetadata.RemoveScreenshotOverride(entry.ArchivePath);
 					else
 					{
 						byte[] bytes = ReadRetainedScreenshot(entry.Screenshot.RetainedArtifactId, entry.Screenshot.ContentHash,
 							entry.Screenshot.ByteLength, cancellationToken);
-						writer.RestoreScreenshotOverride(entry.ArchivePath, entry.Screenshot.ScreenshotPath, bytes, entry.Screenshot.UpdatedUtcTicks);
+						userMetadata.RestoreScreenshotOverride(entry.ArchivePath, entry.Screenshot.ScreenshotPath, bytes, entry.Screenshot.UpdatedUtcTicks);
 					}
 				}
 			}
+		}
+
+		private IModFormatUserMetadata GetUserMetadataFormat()
+		{
+			return _services.ModManager.ModFormats
+				.FirstOrDefault(x => String.Equals(x.Id, "FOMod", StringComparison.OrdinalIgnoreCase)) as IModFormatUserMetadata;
 		}
 
 		internal static bool IsRecognizedTransition(CollectionLocalRestoreUserMetadataState live,
@@ -633,7 +637,7 @@ namespace Nexus.Client.CollectionManagement
 			JObject value = token as JObject;
 			if (value == null) throw new InvalidDataException("A persisted user screenshot state is malformed.");
 			if (!(bool)value["present"]) return CollectionLocalRestoreUserScreenshotState.None();
-			return CollectionLocalRestoreUserScreenshotState.CreatePresent((FOModScreenshotOverrideReadState)(int)value["readState"],
+			return CollectionLocalRestoreUserScreenshotState.CreatePresent((ModFormatScreenshotOverrideReadState)(int)value["readState"],
 				(string)value["screenshotPath"], (string)value["hash"], (long)value["length"], (long)value["archiveLength"],
 				(long)value["archiveWriteUtc"], (long)value["updatedUtc"], (string)value["artifactId"]);
 		}
@@ -716,22 +720,22 @@ namespace Nexus.Client.CollectionManagement
 
 	internal sealed class CollectionLocalRestoreUserScreenshotState : IEquatable<CollectionLocalRestoreUserScreenshotState>
 	{
-		private CollectionLocalRestoreUserScreenshotState(bool present, FOModScreenshotOverrideReadState readState, string screenshotPath,
+		private CollectionLocalRestoreUserScreenshotState(bool present, ModFormatScreenshotOverrideReadState readState, string screenshotPath,
 			string contentHash, long byteLength, long archiveLength, long archiveWriteTimeUtcTicks, long updatedUtcTicks, string retainedArtifactId)
 		{
 			Present = present; ReadState = readState; ScreenshotPath = screenshotPath ?? String.Empty; ContentHash = contentHash ?? String.Empty;
 			ByteLength = byteLength; ArchiveLength = archiveLength; ArchiveWriteTimeUtcTicks = archiveWriteTimeUtcTicks; UpdatedUtcTicks = updatedUtcTicks;
 			RetainedArtifactId = retainedArtifactId ?? String.Empty;
 		}
-		public static CollectionLocalRestoreUserScreenshotState None() { return new CollectionLocalRestoreUserScreenshotState(false, FOModScreenshotOverrideReadState.None, null, null, 0, 0, 0, 0, null); }
-		public static CollectionLocalRestoreUserScreenshotState CreatePresent(FOModScreenshotOverrideReadState readState, string screenshotPath,
+		public static CollectionLocalRestoreUserScreenshotState None() { return new CollectionLocalRestoreUserScreenshotState(false, ModFormatScreenshotOverrideReadState.None, null, null, 0, 0, 0, 0, null); }
+		public static CollectionLocalRestoreUserScreenshotState CreatePresent(ModFormatScreenshotOverrideReadState readState, string screenshotPath,
 			string contentHash, long byteLength, long archiveLength, long archiveWriteTimeUtcTicks, long updatedUtcTicks, string retainedArtifactId)
 		{
 			return new CollectionLocalRestoreUserScreenshotState(true, readState, screenshotPath, contentHash, byteLength, archiveLength,
 				archiveWriteTimeUtcTicks, updatedUtcTicks, retainedArtifactId);
 		}
 		public bool Present { get; }
-		public FOModScreenshotOverrideReadState ReadState { get; }
+		public ModFormatScreenshotOverrideReadState ReadState { get; }
 		public string ScreenshotPath { get; }
 		public string ContentHash { get; }
 		public long ByteLength { get; }

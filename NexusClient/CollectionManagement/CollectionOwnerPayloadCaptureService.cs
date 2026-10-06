@@ -25,14 +25,23 @@ namespace Nexus.Client.CollectionManagement
 		private readonly NativeStateCaptureReader _nativeStateReader;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
 		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
+		private readonly ICollectionOwnerPayloadArchiveEvidenceSource _archiveEvidenceSource;
 
 		/// <summary>Creates a C7.3 payload capture service over native read state and Collections retained storage.</summary>
 		public CollectionOwnerPayloadCaptureService(NativeStateCaptureReader nativeStateReader,
 			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore)
+			: this(nativeStateReader, artifactStore, referenceStore, null)
+		{
+		}
+
+		internal CollectionOwnerPayloadCaptureService(NativeStateCaptureReader nativeStateReader,
+			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore,
+			ICollectionOwnerPayloadArchiveEvidenceSource archiveEvidenceSource)
 		{
 			_nativeStateReader = nativeStateReader ?? throw new ArgumentNullException(nameof(nativeStateReader));
 			_artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
 			_referenceStore = referenceStore ?? throw new ArgumentNullException(nameof(referenceStore));
+			_archiveEvidenceSource = archiveEvidenceSource;
 		}
 
 		/// <summary>Captures current file-owner topology and retains all currently resolvable owner/fallback payloads.</summary>
@@ -97,6 +106,12 @@ namespace Nexus.Client.CollectionManagement
 			var retentionBatch = new CaptureRetentionBatch(_artifactStore, _referenceStore, captureIdentity, RetentionBatchSize);
 			ReportProgress(progress, 0, orderedTargets.Count);
 			int completedTargets = 0;
+			long observedManagedPayloads = 0;
+			long archiveBackedPayloads = 0;
+			long byteRetainedPayloads = 0;
+			long specialRetainedPayloads = 0;
+			long bytesCopied = 0;
+			long bytesAvoided = 0;
 
 			foreach (ModDeploymentTarget deploymentTarget in orderedTargets)
 			{
@@ -104,7 +119,9 @@ namespace Nexus.Client.CollectionManagement
 				if (promoted.TryGetValue(deploymentTarget, out promotedState))
 				{
 					CollectionOwnerPayloadTarget captured = CapturePromotedTarget(captureIdentity, deploymentTarget,
-						promotedState, observedPromoted, install, modsByKey, issues, ref coverage, retentionBatch, cancellationToken);
+						promotedState, observedPromoted, install, modsByKey, issues, ref coverage, retentionBatch, cancellationToken,
+						ref observedManagedPayloads, ref archiveBackedPayloads, ref byteRetainedPayloads, ref specialRetainedPayloads,
+						ref bytesCopied, ref bytesAvoided);
 					if (captured != null)
 						capturedTargets.Add(captured);
 					ReportProgress(progress, ++completedTargets, orderedTargets.Count);
@@ -122,7 +139,9 @@ namespace Nexus.Client.CollectionManagement
 					NativeStateCaptureVirtualFallback fallback;
 					virtualFallbacks.TryGetValue(deploymentTarget, out fallback);
 					capturedTargets.Add(CaptureVirtualTarget(captureIdentity, deploymentTarget, activeOwners,
-						payloadSources, fallback, modsByKey, issues, ref coverage, retentionBatch, cancellationToken));
+						payloadSources, fallback, modsByKey, issues, ref coverage, retentionBatch, cancellationToken,
+						ref observedManagedPayloads, ref archiveBackedPayloads, ref byteRetainedPayloads, ref specialRetainedPayloads,
+						ref bytesCopied, ref bytesAvoided));
 					ReportProgress(progress, ++completedTargets, orderedTargets.Count);
 					continue;
 				}
@@ -137,6 +156,8 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			retentionBatch.Flush();
+			CollectionPerformanceMetrics.RecordLocalCaptureOwnerPayloads(observedManagedPayloads, archiveBackedPayloads,
+				byteRetainedPayloads, specialRetainedPayloads, bytesCopied, bytesAvoided);
 			if (capturedTargets.Count == 0)
 				coverage = NativeStateCaptureCoverage.NotApplicable;
 
@@ -149,7 +170,9 @@ namespace Nexus.Client.CollectionManagement
 			IDictionary<ModDeploymentTarget, NativeStateCaptureDeploymentTarget> observedPromoted,
 			InstallLogReadSnapshot install, IDictionary<string, InstallLogReadMod> modsByKey,
 			List<CollectionOwnerPayloadIssue> issues, ref NativeStateCaptureCoverage coverage,
-			CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken)
+			CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken,
+			ref long observedManagedPayloads, ref long archiveBackedPayloads, ref long byteRetainedPayloads,
+			ref long specialRetainedPayloads, ref long bytesCopied, ref long bytesAvoided)
 		{
 			if (promotedState.OwnerKeys.Count == 0)
 				return null;
@@ -194,10 +217,12 @@ namespace Nexus.Client.CollectionManagement
 						target.ToString(), "A promoted owner cannot be mapped to the original value or an active native mod registration."));
 				}
 
-				CollectionOwnerPayloadRetention retained = RetainPayload(captureIdentity, target, index,
-					sourcePath, issues, ref coverage, retentionBatch, cancellationToken);
+				CollectionOwnerPayloadSource payloadSource = CaptureManagedPayload(captureIdentity, target, index, ownerKey, kind,
+					sourcePath, issues, ref coverage, retentionBatch, cancellationToken, ref observedManagedPayloads,
+					ref archiveBackedPayloads, ref byteRetainedPayloads, ref specialRetainedPayloads, ref bytesCopied, ref bytesAvoided);
+				CollectionOwnerPayloadRetention retained = payloadSource == null ? null : payloadSource.CapturedArtifact;
 				owners.Add(new CollectionOwnerPayloadOwner(index, ownerKey, null, kind,
-					index == promotedState.OwnerKeys.Count - 1, retained));
+					index == promotedState.OwnerKeys.Count - 1, retained, payloadSource));
 			}
 			return new CollectionOwnerPayloadTarget(target, true, owners);
 		}
@@ -207,7 +232,9 @@ namespace Nexus.Client.CollectionManagement
 			IList<NativeStateCaptureVirtualPayloadSource> payloadSources,
 			NativeStateCaptureVirtualFallback fallback,
 			IDictionary<string, InstallLogReadMod> modsByKey, List<CollectionOwnerPayloadIssue> issues,
-			ref NativeStateCaptureCoverage coverage, CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken)
+			ref NativeStateCaptureCoverage coverage, CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken,
+			ref long observedManagedPayloads, ref long archiveBackedPayloads, ref long byteRetainedPayloads,
+			ref long specialRetainedPayloads, ref long bytesCopied, ref long bytesAvoided)
 		{
 			var owners = new List<CollectionOwnerPayloadOwner>(activeOwners.Count);
 			for (int index = 0; index < activeOwners.Count; index++)
@@ -221,21 +248,24 @@ namespace Nexus.Client.CollectionManagement
 						target.ToString(), "An active Virtual owner cannot be mapped to an active Virtual native mod registration."));
 				}
 				string sourcePath = ResolveVirtualPayloadSource(link, payloadSources);
-				CollectionOwnerPayloadRetention retained = RetainPayload(captureIdentity, target, index,
-					sourcePath, issues, ref coverage, retentionBatch, cancellationToken);
+				CollectionOwnerPayloadSource payloadSource = CaptureManagedPayload(captureIdentity, target, index, link.OwnerKey, kind,
+					sourcePath, issues, ref coverage, retentionBatch, cancellationToken, ref observedManagedPayloads,
+					ref archiveBackedPayloads, ref byteRetainedPayloads, ref specialRetainedPayloads, ref bytesCopied, ref bytesAvoided);
+				CollectionOwnerPayloadRetention retained = payloadSource == null ? null : payloadSource.CapturedArtifact;
 				owners.Add(new CollectionOwnerPayloadOwner(index, link.OwnerKey, link.OwnerReference, kind,
-					index == activeOwners.Count - 1, retained));
+					index == activeOwners.Count - 1, retained, payloadSource));
 			}
 
 			CollectionOwnerPayloadVirtualFallback capturedFallback = CaptureVirtualFallback(captureIdentity, target,
-				fallback, issues, ref coverage, retentionBatch, cancellationToken);
+				fallback, issues, ref coverage, retentionBatch, cancellationToken, ref specialRetainedPayloads, ref bytesCopied);
 			return new CollectionOwnerPayloadTarget(target, false, owners, capturedFallback);
 		}
 
 		private CollectionOwnerPayloadVirtualFallback CaptureVirtualFallback(LocalCaptureIdentity captureIdentity,
 			ModDeploymentTarget target, NativeStateCaptureVirtualFallback fallback,
 			List<CollectionOwnerPayloadIssue> issues, ref NativeStateCaptureCoverage coverage,
-			CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken)
+			CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken,
+			ref long specialRetainedPayloads, ref long bytesCopied)
 		{
 			if (fallback == null || fallback.State == NativeStateCaptureVirtualFallbackState.Unavailable)
 			{
@@ -260,6 +290,8 @@ namespace Nexus.Client.CollectionManagement
 					CollectionOwnerPayloadVirtualFallbackState.Unavailable, null);
 			}
 
+			specialRetainedPayloads++;
+			bytesCopied += retained.ByteLength;
 			return new CollectionOwnerPayloadVirtualFallback(CollectionOwnerPayloadVirtualFallback.CurrentFormatVersion,
 				CollectionOwnerPayloadVirtualFallbackState.Retained, retained);
 		}
@@ -285,6 +317,46 @@ namespace Nexus.Client.CollectionManagement
 			}
 			coverage = NativeStateCaptureCoverage.Partial;
 			return new CollectionOwnerPayloadTarget(target, false, owners);
+		}
+
+		private CollectionOwnerPayloadSource CaptureManagedPayload(LocalCaptureIdentity captureIdentity,
+			ModDeploymentTarget target, int stackIndex, string ownerKey, NativeStateCaptureDeploymentOwnerKind kind,
+			string sourcePath, List<CollectionOwnerPayloadIssue> issues, ref NativeStateCaptureCoverage coverage,
+			CaptureRetentionBatch retentionBatch, CancellationToken cancellationToken, ref long observedManagedPayloads,
+			ref long archiveBackedPayloads, ref long byteRetainedPayloads, ref long specialRetainedPayloads,
+			ref long bytesCopied, ref long bytesAvoided)
+		{
+			bool managed = kind == NativeStateCaptureDeploymentOwnerKind.Direct || kind == NativeStateCaptureDeploymentOwnerKind.Virtual;
+			if (managed)
+				observedManagedPayloads++;
+
+			if (managed && _archiveEvidenceSource != null && !String.IsNullOrWhiteSpace(sourcePath) && File.Exists(sourcePath))
+			{
+				CollectionOwnerPayloadReconstructionCandidate candidate = _archiveEvidenceSource.CreateCandidate(kind, ownerKey, target,
+					sourcePath, cancellationToken);
+				if (candidate != null)
+				{
+					CollectionOwnerPayloadClassificationResult classification = CollectionOwnerPayloadReconstructionClassifier.Classify(candidate);
+					if (classification.SourceKind == CollectionOwnerPayloadSourceKind.ArchiveBacked)
+					{
+						archiveBackedPayloads++;
+						bytesAvoided += candidate.ExpectedByteLength.GetValueOrDefault();
+						return CollectionOwnerPayloadSource.FromArchiveBacked(classification.ArchiveBackedDescriptor,
+							candidate.ExpectedContentHash, candidate.ExpectedByteLength.Value);
+					}
+				}
+			}
+
+			CollectionOwnerPayloadRetention retained = RetainPayload(captureIdentity, target, stackIndex, sourcePath, issues,
+				ref coverage, retentionBatch, cancellationToken);
+			if (retained == null)
+				return null;
+			bytesCopied += retained.ByteLength;
+			if (managed)
+				byteRetainedPayloads++;
+			else
+				specialRetainedPayloads++;
+			return CollectionOwnerPayloadSource.FromCapturedArtifact(retained);
 		}
 
 		private CollectionOwnerPayloadRetention RetainPayload(LocalCaptureIdentity captureIdentity,

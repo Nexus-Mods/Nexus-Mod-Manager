@@ -446,9 +446,10 @@ namespace Nexus.Client.CollectionManagement
 			var ownerPayloadCapture = new CollectionOwnerPayloadCaptureService(nativeStateReader, _artifactStore, _referenceStore);
 			var scriptedReplayCapture = new CollectionScriptedReplayCaptureService(nativeStateReader, installedIdentityReader, _artifactStore, _referenceStore);
 			var nativeEffectCapture = new CollectionNativeEffectCaptureReader(nativeStateReader);
-			Nexus.Client.Mods.Formats.FOMod.FOModFormat fomodFormat = _services.ModManager.ModFormats.OfType<Nexus.Client.Mods.Formats.FOMod.FOModFormat>().FirstOrDefault();
+			IModFormatUserMetadata userMetadataFormat = _services.ModManager.ModFormats
+				.FirstOrDefault(x => String.Equals(x.Id, "FOMod", StringComparison.OrdinalIgnoreCase)) as IModFormatUserMetadata;
 			var userMetadataCapture = new CollectionUserMetadataCaptureService(nativeStateReader, installedIdentityReader,
-				_services.ModManager.SortOrderService, fomodFormat == null ? null : fomodFormat.UserMetadataReader, _artifactStore, _referenceStore);
+				_services.ModManager.SortOrderService, userMetadataFormat, _artifactStore, _referenceStore);
 			var nativeIndexReader = new CollectionNativeStateReader(_services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);
 

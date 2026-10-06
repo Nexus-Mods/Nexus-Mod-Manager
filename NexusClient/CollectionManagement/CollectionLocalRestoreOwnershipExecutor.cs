@@ -145,6 +145,7 @@ namespace Nexus.Client.CollectionManagement
 				Dictionary<CollectionMemberKey, string> remaps = BuildRemaps(reviewedPlan, memberPhase);
 				var results = new List<CollectionLocalRestoreOwnershipTargetResult>();
 
+				using (var materializer = new CollectionOwnerPayloadMaterializer(_artifactStore, _services.ModManager, sealedCapture))
 				foreach (CollectionLocalRestoreDeploymentPlan deploymentPlan in reviewedPlan.DeploymentTargets)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
@@ -157,7 +158,7 @@ namespace Nexus.Client.CollectionManagement
 
 					try
 					{
-						if (TryRecoverVerified(ownerId, verifiedRole, captured, desired))
+						if (TryRecoverVerified(ownerId, verifiedRole, captured, desired, cancellationToken))
 						{
 							results.Add(new CollectionLocalRestoreOwnershipTargetResult(deploymentPlan.Target,
 								CollectionLocalRestoreOwnershipOutcome.AlreadySatisfied));
@@ -175,7 +176,17 @@ namespace Nexus.Client.CollectionManagement
 					OwnerIntent intent;
 					if (existingIntent == null)
 					{
-						intent = CaptureIntent(sealedCapture.Capture.Identity, reviewedPlan, captured, desired);
+						// Most Local restores change only a small subset of captured deployment targets.
+						// Do not create an intent or rebuild a target that already equals the sealed postimage.
+						// If the process stops before phase completion, recovery simply verifies this no-op target again.
+						if (VerifyLiveTarget(captured, desired, cancellationToken))
+						{
+							results.Add(new CollectionLocalRestoreOwnershipTargetResult(deploymentPlan.Target,
+								CollectionLocalRestoreOwnershipOutcome.AlreadySatisfied));
+							continue;
+						}
+
+						intent = CaptureIntent(sealedCapture.Capture.Identity, reviewedPlan, captured, desired, cancellationToken);
 						PersistIntent(ownerId, intentRole, intent);
 					}
 					else
@@ -197,7 +208,7 @@ namespace Nexus.Client.CollectionManagement
 								CollectionLocalRestoreOwnershipOutcome.RecoveredCommitted));
 							continue;
 						}
-						if (!MatchesPreimage(intent))
+						if (!MatchesPreimage(intent, cancellationToken))
 						{
 							MarkRecoveryRequired(operation);
 							throw new InvalidOperationException("A C7.10b1 owner target no longer matches either its durable preimage or reviewed restore postimage.");
@@ -207,7 +218,7 @@ namespace Nexus.Client.CollectionManagement
 					string tempDirectory = CreateTemporaryDirectory();
 					try
 					{
-						List<ModDeploymentRestoreOwner> nativeOwners = MaterializeNativeOwners(desired, tempDirectory, cancellationToken);
+						List<ModDeploymentRestoreOwner> nativeOwners = MaterializeNativeOwners(desired, materializer, tempDirectory, cancellationToken);
 						cancellationToken.ThrowIfCancellationRequested();
 						try
 						{
@@ -308,7 +319,7 @@ namespace Nexus.Client.CollectionManagement
 				CollectionLocalRestoreOwnerBinding binding = plan.Owners[index];
 				if (captured.StackIndex != binding.StackIndex || captured.Kind != binding.CapturedOwnerKind ||
 					!StringComparer.OrdinalIgnoreCase.Equals(captured.OwnerKey, binding.CapturedOwnerKey) ||
-					captured.CurrentWinner != binding.CurrentWinner || captured.RetainedPayload == null)
+					captured.CurrentWinner != binding.CurrentWinner || GetPayloadSource(captured) == null)
 					throw new InvalidDataException("The sealed owner-payload snapshot differs from the exact reviewed C7.9 owner binding.");
 			}
 			return target;
@@ -357,40 +368,23 @@ namespace Nexus.Client.CollectionManagement
 			return mod;
 		}
 
-		private List<ModDeploymentRestoreOwner> MaterializeNativeOwners(IEnumerable<DesiredOwner> desired,
-			string tempDirectory, CancellationToken cancellationToken)
+		private static List<ModDeploymentRestoreOwner> MaterializeNativeOwners(IEnumerable<DesiredOwner> desired,
+			CollectionOwnerPayloadMaterializer materializer, string tempDirectory, CancellationToken cancellationToken)
 		{
 			var result = new List<ModDeploymentRestoreOwner>();
 			int index = 0;
 			foreach (DesiredOwner owner in desired)
 			{
 				string path = Path.Combine(tempDirectory, index.ToString("D6", CultureInfo.InvariantCulture) + ".payload");
-				Materialize(owner.Captured.RetainedPayload, path, cancellationToken);
+				CollectionOwnerPayloadSource source = GetPayloadSource(owner.Captured);
+				if (source == null)
+					throw new InvalidDataException("A reviewed C7 owner is missing its exact payload source.");
+				materializer.Materialize(source, path, cancellationToken);
 				result.Add(new ModDeploymentRestoreOwner(owner.NativeKey, ToNativeKind(owner.Captured.Kind),
 					owner.Mod, owner.InstallRoot, path));
 				index++;
 			}
 			return result;
-		}
-
-		private void Materialize(CollectionOwnerPayloadRetention retained, string destination, CancellationToken cancellationToken)
-		{
-			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(retained.StableArtifactId);
-			if (artifact == null || artifact.ByteLength != retained.ByteLength || !artifact.ContentHash.Equals(retained.ContentHash) ||
-				!_artifactStore.VerifyArtifact(retained.StableArtifactId, cancellationToken))
-				throw new InvalidDataException("A retained owner payload no longer matches its sealed capture identity.");
-			using (Stream source = _artifactStore.OpenRead(retained.StableArtifactId))
-			using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, CopyBufferSize))
-			{
-				var buffer = new byte[CopyBufferSize];
-				int read;
-				while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					output.Write(buffer, 0, read);
-				}
-				output.Flush(true);
-			}
 		}
 
 		private bool VerifyLiveTarget(CollectionOwnerPayloadTarget captured, IList<DesiredOwner> desired,
@@ -410,12 +404,12 @@ namespace Nexus.Client.CollectionManagement
 					sourcePath = CurrentDeploymentManager.GetOwnerBackupPath(captured.Target, owner.NativeKey);
 				else
 					sourcePath = CurrentDeploymentManager.GetOwnerSourcePath(captured.Target, owner.NativeKey);
-				if (!FileMatches(sourcePath, owner.Captured.RetainedPayload, cancellationToken))
+				if (!FileMatches(sourcePath, GetPayloadSource(owner.Captured), cancellationToken))
 					return false;
 			}
 
 			DesiredOwner winner = desired[desired.Count - 1];
-			if (!FileMatches(CurrentDeploymentManager.GetDeploymentPath(captured.Target), winner.Captured.RetainedPayload, cancellationToken))
+			if (!FileMatches(CurrentDeploymentManager.GetDeploymentPath(captured.Target), GetPayloadSource(winner.Captured), cancellationToken))
 				return false;
 			return MatchesDesiredVirtualFallback(captured, liveOwners, cancellationToken);
 		}
@@ -441,12 +435,23 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		private static bool FileMatches(string path, CollectionOwnerPayloadSource source, CancellationToken cancellationToken)
+		{
+			return source != null && FileMatches(path, source.ExpectedContentHash, source.ExpectedByteLength, cancellationToken);
+		}
+
 		private static bool FileMatches(string path, CollectionOwnerPayloadRetention retained, CancellationToken cancellationToken)
 		{
-			if (String.IsNullOrWhiteSpace(path) || retained == null || !File.Exists(path))
+			return retained != null && FileMatches(path, retained.ContentHash, retained.ByteLength, cancellationToken);
+		}
+
+		private static bool FileMatches(string path, CollectionContentHash expectedHash, long expectedByteLength,
+			CancellationToken cancellationToken)
+		{
+			if (String.IsNullOrWhiteSpace(path) || expectedHash == null || !File.Exists(path))
 				return false;
 			var info = new FileInfo(path);
-			if (info.Length != retained.ByteLength)
+			if (info.Length != expectedByteLength)
 				return false;
 			using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, CopyBufferSize, FileOptions.SequentialScan))
 			using (SHA256 sha = SHA256.Create())
@@ -460,12 +465,56 @@ namespace Nexus.Client.CollectionManagement
 				}
 				sha.TransformFinalBlock(new byte[0], 0, 0);
 				string hash = BitConverter.ToString(sha.Hash).Replace("-", String.Empty).ToLowerInvariant();
-				return StringComparer.Ordinal.Equals(hash, retained.ContentHash.Value);
+				return StringComparer.Ordinal.Equals(hash, expectedHash.Value);
+			}
+		}
+
+		private static CollectionOwnerPayloadSource GetPayloadSource(CollectionOwnerPayloadOwner owner)
+		{
+			if (owner == null)
+				return null;
+			if (owner.PayloadSource != null)
+				return owner.PayloadSource;
+			return owner.RetainedPayload == null ? null : CollectionOwnerPayloadSource.FromCapturedArtifact(owner.RetainedPayload);
+		}
+
+		private static string CreatePayloadSourceIntentIdentity(CollectionOwnerPayloadOwner owner)
+		{
+			CollectionOwnerPayloadSource source = GetPayloadSource(owner);
+			if (source == null)
+				throw new InvalidDataException("A reviewed C7 owner is missing its exact payload source.");
+			if (source.Kind == CollectionOwnerPayloadSourceKind.CapturedArtifact)
+				return source.CapturedArtifact.StableArtifactId;
+			CollectionOwnerPayloadArchiveBackedDescriptor descriptor = source.ArchiveBacked;
+			return "archive-backed-v1:" + descriptor.ReconstructionIdentity + ":" + source.ExpectedContentHash.Value + ":" +
+				source.ExpectedByteLength.ToString(CultureInfo.InvariantCulture);
+		}
+
+		private void MaterializeRetainedFallback(CollectionOwnerPayloadRetention retained, string destination,
+			CancellationToken cancellationToken)
+		{
+			if (retained == null)
+				throw new InvalidDataException("A retained pure-Virtual fallback is missing its exact payload descriptor.");
+			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(retained.StableArtifactId);
+			if (artifact == null || artifact.ByteLength != retained.ByteLength || !artifact.ContentHash.Equals(retained.ContentHash) ||
+				!_artifactStore.VerifyArtifact(retained.StableArtifactId, cancellationToken))
+				throw new InvalidDataException("A retained pure-Virtual fallback no longer matches its sealed capture identity.");
+			using (Stream source = _artifactStore.OpenRead(retained.StableArtifactId))
+			using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, CopyBufferSize))
+			{
+				var buffer = new byte[CopyBufferSize];
+				int read;
+				while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					output.Write(buffer, 0, read);
+				}
+				output.Flush(true);
 			}
 		}
 
 		private OwnerIntent CaptureIntent(LocalCaptureIdentity captureIdentity, CollectionLocalRestorePlan plan,
-			CollectionOwnerPayloadTarget captured, IList<DesiredOwner> desired)
+			CollectionOwnerPayloadTarget captured, IList<DesiredOwner> desired, CancellationToken cancellationToken)
 		{
 			bool preimagePromoted = CurrentDeploymentManager.IsPromoted(captured.Target);
 			string[] preimageOwnerKeys = CurrentDeploymentManager.GetOwnerKeys(captured.Target).ToArray();
@@ -475,14 +524,14 @@ namespace Nexus.Client.CollectionManagement
 				string sourcePath = ownerKey.Equals(_services.ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase)
 					? CurrentDeploymentManager.GetOwnerBackupPath(captured.Target, ownerKey)
 					: CurrentDeploymentManager.GetOwnerSourcePath(captured.Target, ownerKey);
-				preimageOwners.Add(new OwnerPreimage(ownerKey, CaptureFileState(sourcePath, CancellationToken.None)));
+				preimageOwners.Add(new OwnerPreimage(ownerKey, CaptureFileState(sourcePath, cancellationToken)));
 			}
 
-			FileState deployment = CaptureFileState(CurrentDeploymentManager.GetDeploymentPath(captured.Target), CancellationToken.None);
-			VirtualFallbackPreimage fallback = CaptureVirtualFallbackPreimage(captured.Target, preimagePromoted, preimageOwnerKeys);
+			FileState deployment = CaptureFileState(CurrentDeploymentManager.GetDeploymentPath(captured.Target), cancellationToken);
+			VirtualFallbackPreimage fallback = CaptureVirtualFallbackPreimage(captured.Target, preimagePromoted, preimageOwnerKeys, cancellationToken);
 			return new OwnerIntent(captureIdentity.ToString(), plan.PlanFingerprint, captured.Target, captured.Promoted,
 				preimagePromoted, preimageOwners, deployment, fallback, desired.Select(x => x.NativeKey).ToArray(),
-				desired.Select(x => x.Captured.RetainedPayload.StableArtifactId).ToArray(), CreateDesiredFallbackIdentity(captured));
+				desired.Select(x => CreatePayloadSourceIntentIdentity(x.Captured)).ToArray(), CreateDesiredFallbackIdentity(captured));
 		}
 
 		private void PersistIntent(string ownerId, string role, OwnerIntent intent)
@@ -499,18 +548,18 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private bool TryRecoverVerified(string ownerId, string verifiedRole, CollectionOwnerPayloadTarget captured,
-			IList<DesiredOwner> desired)
+			IList<DesiredOwner> desired, CancellationToken cancellationToken)
 		{
 			CollectionsRetainedArtifactReferenceRecord verified = _referenceStore.GetReferenceForOwnerRole(
 				CollectionsRetainedArtifactOwnerKind.Operation, ownerId, verifiedRole);
 			if (verified == null)
 				return false;
-			if (!VerifyLiveTarget(captured, desired, CancellationToken.None))
+			if (!VerifyLiveTarget(captured, desired, cancellationToken))
 				throw new InvalidOperationException("A durable C7.10b1 verified checkpoint no longer matches authoritative native owner state.");
 			return true;
 		}
 
-		private bool MatchesPreimage(OwnerIntent intent)
+		private bool MatchesPreimage(OwnerIntent intent, CancellationToken cancellationToken)
 		{
 			if (CurrentDeploymentManager.IsPromoted(intent.Target) != intent.PreimagePromoted)
 				return false;
@@ -522,12 +571,12 @@ namespace Nexus.Client.CollectionManagement
 				string sourcePath = owner.OwnerKey.Equals(_services.ModManager.InstallationLog.OriginalValuesKey, StringComparison.OrdinalIgnoreCase)
 					? CurrentDeploymentManager.GetOwnerBackupPath(intent.Target, owner.OwnerKey)
 					: CurrentDeploymentManager.GetOwnerSourcePath(intent.Target, owner.OwnerKey);
-				if (!MatchesFileState(sourcePath, owner.Payload, CancellationToken.None))
+				if (!MatchesFileState(sourcePath, owner.Payload, cancellationToken))
 					return false;
 			}
-			if (!MatchesFileState(CurrentDeploymentManager.GetDeploymentPath(intent.Target), intent.PreimageDeployment, CancellationToken.None))
+			if (!MatchesFileState(CurrentDeploymentManager.GetDeploymentPath(intent.Target), intent.PreimageDeployment, cancellationToken))
 				return false;
-			return MatchesVirtualFallbackPreimage(intent.Target, liveOwners, intent.PreimageFallback);
+			return MatchesVirtualFallbackPreimage(intent.Target, liveOwners, intent.PreimageFallback, cancellationToken);
 		}
 
 		private void ValidateIntent(OwnerIntent intent, LocalCaptureIdentity captureIdentity, CollectionLocalRestorePlan plan,
@@ -537,7 +586,7 @@ namespace Nexus.Client.CollectionManagement
 				!StringComparer.Ordinal.Equals(intent.PlanFingerprint, plan.PlanFingerprint) || !intent.Target.Equals(captured.Target) ||
 				intent.DesiredPromoted != captured.Promoted ||
 				!intent.DesiredOwners.SequenceEqual(desired.Select(x => x.NativeKey), StringComparer.OrdinalIgnoreCase) ||
-				!intent.ArtifactIds.SequenceEqual(desired.Select(x => x.Captured.RetainedPayload.StableArtifactId), StringComparer.Ordinal) ||
+				!intent.ArtifactIds.SequenceEqual(desired.Select(x => CreatePayloadSourceIntentIdentity(x.Captured)), StringComparer.Ordinal) ||
 				!StringComparer.Ordinal.Equals(intent.DesiredFallbackIdentity, CreateDesiredFallbackIdentity(captured)))
 				throw new InvalidDataException("The durable C7.10b1 owner intent differs from the reviewed restore plan.");
 		}
@@ -603,7 +652,7 @@ namespace Nexus.Client.CollectionManagement
 					return new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.ExplicitlyAbsent, null);
 				case CollectionOwnerPayloadVirtualFallbackState.Retained:
 					string path = Path.Combine(tempDirectory, "virtual-fallback.payload");
-					Materialize(captured.VirtualFallback.RetainedPayload, path, cancellationToken);
+					MaterializeRetainedFallback(captured.VirtualFallback.RetainedPayload, path, cancellationToken);
 					return new ModDeploymentRestoreFallback(ModDeploymentRestoreFallbackKind.Retained, path);
 				default:
 					throw new InvalidDataException("A pure-Virtual restore requires an explicit absent or retained fallback state.");
@@ -611,19 +660,19 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private VirtualFallbackPreimage CaptureVirtualFallbackPreimage(ModDeploymentTarget target, bool promoted,
-			IReadOnlyList<string> ownerKeys)
+			IReadOnlyList<string> ownerKeys, CancellationToken cancellationToken)
 		{
 			if (promoted)
 				return new VirtualFallbackPreimage(VirtualFallbackPreimageKind.NotApplicable, null);
 			string path;
 			bool exists = TryResolvePureVirtualFallback(target, ownerKeys, out path);
 			return exists
-				? new VirtualFallbackPreimage(VirtualFallbackPreimageKind.Present, CaptureFileState(path, CancellationToken.None))
+				? new VirtualFallbackPreimage(VirtualFallbackPreimageKind.Present, CaptureFileState(path, cancellationToken))
 				: new VirtualFallbackPreimage(VirtualFallbackPreimageKind.ExplicitlyAbsent, null);
 		}
 
 		private bool MatchesVirtualFallbackPreimage(ModDeploymentTarget target, IReadOnlyList<string> ownerKeys,
-			VirtualFallbackPreimage expected)
+			VirtualFallbackPreimage expected, CancellationToken cancellationToken)
 		{
 			if (expected == null) return false;
 			if (expected.Kind == VirtualFallbackPreimageKind.NotApplicable)
@@ -631,7 +680,7 @@ namespace Nexus.Client.CollectionManagement
 			string path;
 			bool exists = TryResolvePureVirtualFallback(target, ownerKeys, out path);
 			if (expected.Kind == VirtualFallbackPreimageKind.ExplicitlyAbsent) return !exists;
-			return exists && MatchesFileState(path, expected.Payload, CancellationToken.None);
+			return exists && MatchesFileState(path, expected.Payload, cancellationToken);
 		}
 
 		private bool TryResolvePureVirtualFallback(ModDeploymentTarget target, IReadOnlyList<string> ownerKeys, out string fallbackPath)

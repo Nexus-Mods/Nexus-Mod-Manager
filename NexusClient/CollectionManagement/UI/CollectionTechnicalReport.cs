@@ -155,6 +155,10 @@ namespace Nexus.Client.CollectionManagement.UI
 		public string OperationIdentity { get; internal set; }
 		public string Phase { get; internal set; }
 		public string ResultState { get; internal set; }
+		public string CaptureIdentity { get; internal set; }
+		public string CaptureDisplayName { get; internal set; }
+		public string CaptureRevisionLabel { get; internal set; }
+		public string SourceDiagnostic { get; internal set; }
 		public string Message { get; internal set; }
 	}
 

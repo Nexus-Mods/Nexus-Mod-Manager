@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
+using Nexus.Client.Mods;
 using Nexus.Client.Mods.Formats.FOMod;
 
 namespace Nexus.Client.CollectionManagement
@@ -22,22 +23,22 @@ namespace Nexus.Client.CollectionManagement
 		private readonly bool _sortSurfaceAvailable;
 		private readonly Func<string, ModSortOrderRecord> _sortAssignmentReader;
 		private readonly bool _screenshotSurfaceAvailable;
-		private readonly Func<string, FOModScreenshotOverrideReadResult> _screenshotOverrideReader;
+		private readonly Func<string, ModFormatScreenshotOverrideReadResult> _screenshotOverrideReader;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
 		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
 
 		/// <summary>Creates a C7.6 logical user-metadata capture service over the existing native metadata services.</summary>
 		public CollectionUserMetadataCaptureService(NativeStateCaptureReader nativeStateReader,
 			CollectionInstalledIdentityCaptureReader installedIdentityReader, ModSortOrderService sortOrderService,
-			FOModUserMetadataReader userMetadataReader, CollectionsRetainedArtifactStore artifactStore,
+			IModFormatUserMetadata userMetadataReader, CollectionsRetainedArtifactStore artifactStore,
 			CollectionsRetainedArtifactReferenceStore referenceStore)
 			: this(nativeStateReader, installedIdentityReader, sortOrderService != null,
 				sortOrderService == null ? null : new Func<string, ModSortOrderRecord>(path =>
 				{
 					ModSortOrderRecord record;
 					return sortOrderService.TryGetResolvedAssignment(path, out record) ? record : null;
-				}), userMetadataReader != null && userMetadataReader.IsUsable,
-				userMetadataReader == null ? null : new Func<string, FOModScreenshotOverrideReadResult>(userMetadataReader.ReadScreenshotOverride),
+				}), userMetadataReader != null && userMetadataReader.IsUserMetadataUsable,
+				userMetadataReader == null ? null : new Func<string, ModFormatScreenshotOverrideReadResult>(userMetadataReader.ReadScreenshotOverride),
 				artifactStore, referenceStore)
 		{
 		}
@@ -45,7 +46,7 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionUserMetadataCaptureService(NativeStateCaptureReader nativeStateReader,
 			CollectionInstalledIdentityCaptureReader installedIdentityReader, bool sortSurfaceAvailable,
 			Func<string, ModSortOrderRecord> sortAssignmentReader, bool screenshotSurfaceAvailable,
-			Func<string, FOModScreenshotOverrideReadResult> screenshotOverrideReader,
+			Func<string, ModFormatScreenshotOverrideReadResult> screenshotOverrideReader,
 			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore)
 		{
 			_nativeStateReader = nativeStateReader ?? throw new ArgumentNullException(nameof(nativeStateReader));
@@ -194,15 +195,6 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			coverage = NativeStateCaptureCoverage.Complete;
-			foreach (IGrouping<string, CollectionInstalledModIdentity> duplicate in mods
-				.Where(x => !String.IsNullOrWhiteSpace(x.Archive.LiveArchivePath))
-				.GroupBy(x => NormalizeArchiveKey(x.Archive.LiveArchivePath), StringComparer.OrdinalIgnoreCase)
-				.Where(x => x.Count() > 1))
-			{
-				MarkPartial(issues, ref coverage, CollectionUserMetadataIssueKind.AmbiguousArchiveMetadataBinding,
-					duplicate.Key, "More than one captured native member refers to the same archive path, so path-scoped user metadata is ambiguous.");
-			}
-
 			foreach (CollectionInstalledModIdentity mod in mods)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
@@ -214,7 +206,7 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				}
 
-				FOModScreenshotOverrideReadResult readResult;
+				ModFormatScreenshotOverrideReadResult readResult;
 				try
 				{
 					readResult = _screenshotOverrideReader(archivePath);
@@ -231,23 +223,23 @@ namespace Nexus.Client.CollectionManagement
 						mod.NativeSnapshotKey, "The logical FOMod user-metadata reader returned no result.");
 					continue;
 				}
-				if (readResult.State == FOModScreenshotOverrideReadState.None ||
-					readResult.State == FOModScreenshotOverrideReadState.Stale)
+				if (readResult.State == ModFormatScreenshotOverrideReadState.None ||
+					readResult.State == ModFormatScreenshotOverrideReadState.Stale)
 					continue;
-				if (readResult.State == FOModScreenshotOverrideReadState.ArchiveUnavailable)
+				if (readResult.State == ModFormatScreenshotOverrideReadState.ArchiveUnavailable)
 				{
 					MarkPartial(issues, ref coverage, CollectionUserMetadataIssueKind.ScreenshotOverrideArchiveUnavailable,
 						mod.NativeSnapshotKey, "A persisted screenshot override exists, but its archive is unavailable so current relevance cannot be verified.");
 					continue;
 				}
-				if (readResult.State != FOModScreenshotOverrideReadState.Current || readResult.Record == null)
+				if (readResult.State != ModFormatScreenshotOverrideReadState.Current || readResult.Record == null)
 				{
 					MarkPartial(issues, ref coverage, CollectionUserMetadataIssueKind.ScreenshotOverrideInvalid,
 						mod.NativeSnapshotKey, "The logical FOMod screenshot override returned an unsupported state.");
 					continue;
 				}
 
-				FOModScreenshotOverrideRecord screenshot = readResult.Record;
+				ModFormatScreenshotOverrideRecord screenshot = readResult.Record;
 				byte[] bytes = screenshot.ScreenshotData;
 				if (bytes == null || bytes.Length == 0 || String.IsNullOrWhiteSpace(screenshot.ScreenshotPath))
 				{
@@ -273,18 +265,6 @@ namespace Nexus.Client.CollectionManagement
 		{
 			return !String.IsNullOrWhiteSpace(recorded) && !String.IsNullOrWhiteSpace(captured) &&
 				!StringComparer.OrdinalIgnoreCase.Equals(recorded.Trim(), captured.Trim());
-		}
-
-		private static string NormalizeArchiveKey(string path)
-		{
-			try
-			{
-				return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).ToUpperInvariant();
-			}
-			catch (Exception exception) when (exception is ArgumentException || exception is NotSupportedException || exception is PathTooLongException)
-			{
-				return (path ?? String.Empty).Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToUpperInvariant();
-			}
 		}
 
 		private static void MarkPartial(List<CollectionUserMetadataIssue> issues, ref NativeStateCaptureCoverage coverage,

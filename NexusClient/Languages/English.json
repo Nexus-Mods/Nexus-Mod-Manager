@@ -243,7 +243,7 @@
     "Collections.Capture.Saving": "Capturing the current setup...",
     "Collections.Capture.Cancelling": "Cancelling Local Collection capture at the next safe file boundary...",
     "Collections.Capture.Progress.Reading": "Reading the current NMM setup...",
-    "Collections.Capture.Progress.ManagedFiles": "Saving managed file data...",
+    "Collections.Capture.Progress.ManagedFiles": "Classifying and saving managed file data...",
     "Collections.Capture.Progress.Installer": "Saving installer replay data...",
     "Collections.Capture.Progress.Configuration": "Saving plugin, configuration and user metadata...",
     "Collections.Capture.Progress.Archives": "Saving mod archives...",

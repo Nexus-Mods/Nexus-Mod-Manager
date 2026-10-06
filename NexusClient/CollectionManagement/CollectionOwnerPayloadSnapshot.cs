@@ -69,6 +69,125 @@ namespace Nexus.Client.CollectionManagement
 		public long ByteLength { get; }
 	}
 
+	/// <summary>Distinguishes how one exact managed owner payload can be reproduced by a sealed Local Collection.</summary>
+	public enum CollectionOwnerPayloadSourceKind
+	{
+		CapturedArtifact = 1,
+		ArchiveBacked = 2
+	}
+
+	/// <summary>Identifies the bounded deterministic reconstruction primitive used by an archive-backed payload.</summary>
+	public enum CollectionOwnerPayloadArchiveBackedKind
+	{
+		ExactArchiveEntry = 1
+	}
+
+	/// <summary>
+	/// Versioned deterministic descriptor for recreating one exact owner payload from the retained archive bound to a captured native member.
+	/// </summary>
+	public sealed class CollectionOwnerPayloadArchiveBackedDescriptor
+	{
+		public const int CurrentFormatVersion = 1;
+
+		/// <summary>Creates one exact archive-backed reconstruction descriptor.</summary>
+		[JsonConstructor]
+		public CollectionOwnerPayloadArchiveBackedDescriptor(int formatVersion,
+			CollectionOwnerPayloadArchiveBackedKind reconstructionKind, string nativeSnapshotKey,
+			string archiveEntryPath, string reconstructionIdentity)
+		{
+			if (formatVersion != CurrentFormatVersion)
+				throw new ArgumentOutOfRangeException(nameof(formatVersion), "The archive-backed owner-payload descriptor version is not supported.");
+			if (!Enum.IsDefined(typeof(CollectionOwnerPayloadArchiveBackedKind), reconstructionKind))
+				throw new ArgumentOutOfRangeException(nameof(reconstructionKind));
+
+			FormatVersion = formatVersion;
+			ReconstructionKind = reconstructionKind;
+			NativeSnapshotKey = CollectionIdentityValidation.RequireOpaqueToken(nativeSnapshotKey, nameof(nativeSnapshotKey));
+			ArchiveEntryPath = new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, archiveEntryPath).Path;
+			ReconstructionIdentity = CollectionIdentityValidation.RequireOpaqueToken(reconstructionIdentity, nameof(reconstructionIdentity));
+		}
+
+		public int FormatVersion { get; }
+		public CollectionOwnerPayloadArchiveBackedKind ReconstructionKind { get; }
+		/// <summary>Gets the captured native-member key used to resolve its exact retained source archive.</summary>
+		public string NativeSnapshotKey { get; }
+		/// <summary>Gets the canonical archive-relative entry path used by the deterministic reconstruction.</summary>
+		public string ArchiveEntryPath { get; }
+		/// <summary>Gets the immutable prepared-recipe/replay proof identity that characterized this reconstruction mapping.</summary>
+		public string ReconstructionIdentity { get; }
+	}
+
+	/// <summary>
+	/// Versioned discriminated source for one exact managed owner payload. Captured-artifact sources preserve C7 behavior;
+	/// archive-backed sources carry only deterministic reconstruction proof plus the expected exact output identity.
+	/// </summary>
+	public sealed class CollectionOwnerPayloadSource
+	{
+		public const int CurrentFormatVersion = 1;
+
+		/// <summary>Creates one validated owner-payload source descriptor.</summary>
+		[JsonConstructor]
+		public CollectionOwnerPayloadSource(int formatVersion, CollectionOwnerPayloadSourceKind kind,
+			CollectionOwnerPayloadRetention capturedArtifact, CollectionOwnerPayloadArchiveBackedDescriptor archiveBacked,
+			CollectionContentHash expectedContentHash, long expectedByteLength)
+		{
+			if (formatVersion != CurrentFormatVersion)
+				throw new ArgumentOutOfRangeException(nameof(formatVersion), "The owner-payload source descriptor version is not supported.");
+			if (!Enum.IsDefined(typeof(CollectionOwnerPayloadSourceKind), kind))
+				throw new ArgumentOutOfRangeException(nameof(kind));
+			if (expectedContentHash == null)
+				throw new ArgumentNullException(nameof(expectedContentHash));
+			if (expectedContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
+				throw new ArgumentException("Owner-payload sources require an exact SHA-256 content identity.", nameof(expectedContentHash));
+			if (expectedByteLength < 0)
+				throw new ArgumentOutOfRangeException(nameof(expectedByteLength));
+
+			if (kind == CollectionOwnerPayloadSourceKind.CapturedArtifact)
+			{
+				if (capturedArtifact == null || archiveBacked != null)
+					throw new ArgumentException("A captured-artifact owner payload requires exactly one retained artifact descriptor.");
+				if (!expectedContentHash.Equals(capturedArtifact.ContentHash) || expectedByteLength != capturedArtifact.ByteLength)
+					throw new ArgumentException("The captured-artifact source identity must match its retained artifact exactly.");
+			}
+			else
+			{
+				if (capturedArtifact != null || archiveBacked == null)
+					throw new ArgumentException("An archive-backed owner payload requires exactly one reconstruction descriptor.");
+			}
+
+			FormatVersion = formatVersion;
+			Kind = kind;
+			CapturedArtifact = capturedArtifact;
+			ArchiveBacked = archiveBacked;
+			ExpectedContentHash = expectedContentHash;
+			ExpectedByteLength = expectedByteLength;
+		}
+
+		public int FormatVersion { get; }
+		public CollectionOwnerPayloadSourceKind Kind { get; }
+		public CollectionOwnerPayloadRetention CapturedArtifact { get; }
+		public CollectionOwnerPayloadArchiveBackedDescriptor ArchiveBacked { get; }
+		public CollectionContentHash ExpectedContentHash { get; }
+		public long ExpectedByteLength { get; }
+
+		/// <summary>Wraps the existing byte-retained payload semantics in the versioned source model.</summary>
+		public static CollectionOwnerPayloadSource FromCapturedArtifact(CollectionOwnerPayloadRetention retainedPayload)
+		{
+			if (retainedPayload == null)
+				throw new ArgumentNullException(nameof(retainedPayload));
+			return new CollectionOwnerPayloadSource(CurrentFormatVersion, CollectionOwnerPayloadSourceKind.CapturedArtifact,
+				retainedPayload, null, retainedPayload.ContentHash, retainedPayload.ByteLength);
+		}
+
+		/// <summary>Creates one archive-backed source after a caller has independently proven exact reconstruction eligibility.</summary>
+		public static CollectionOwnerPayloadSource FromArchiveBacked(CollectionOwnerPayloadArchiveBackedDescriptor descriptor,
+			CollectionContentHash expectedContentHash, long expectedByteLength)
+		{
+			return new CollectionOwnerPayloadSource(CurrentFormatVersion, CollectionOwnerPayloadSourceKind.ArchiveBacked,
+				null, descriptor, expectedContentHash, expectedByteLength);
+		}
+	}
+
 	/// <summary>Classifies the captured unmanaged/original fallback beneath a pure-Virtual owner stack.</summary>
 	public enum CollectionOwnerPayloadVirtualFallbackState
 	{
@@ -110,9 +229,18 @@ namespace Nexus.Client.CollectionManagement
 	/// </summary>
 	public sealed class CollectionOwnerPayloadOwner
 	{
-		/// <summary>Creates one immutable owner/topology record.</summary>
+		/// <summary>Creates one immutable owner/topology record using the existing byte-retained payload contract.</summary>
 		public CollectionOwnerPayloadOwner(int stackIndex, string ownerKey, string ownerReference,
 			NativeStateCaptureDeploymentOwnerKind kind, bool currentWinner, CollectionOwnerPayloadRetention retainedPayload)
+			: this(stackIndex, ownerKey, ownerReference, kind, currentWinner, retainedPayload, null)
+		{
+		}
+
+		/// <summary>Creates one immutable owner/topology record with a versioned payload source.</summary>
+		[JsonConstructor]
+		public CollectionOwnerPayloadOwner(int stackIndex, string ownerKey, string ownerReference,
+			NativeStateCaptureDeploymentOwnerKind kind, bool currentWinner, CollectionOwnerPayloadRetention retainedPayload,
+			CollectionOwnerPayloadSource payloadSource)
 		{
 			if (stackIndex < 0)
 				throw new ArgumentOutOfRangeException(nameof(stackIndex));
@@ -120,12 +248,33 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentOutOfRangeException(nameof(kind));
 			if (kind != NativeStateCaptureDeploymentOwnerKind.Unresolved && String.IsNullOrWhiteSpace(ownerKey))
 				throw new ArgumentException("A resolved deployment owner requires its native owner key.", nameof(ownerKey));
+
+			CollectionOwnerPayloadSource effectiveSource = payloadSource;
+			if (effectiveSource == null && retainedPayload != null)
+				effectiveSource = CollectionOwnerPayloadSource.FromCapturedArtifact(retainedPayload);
+			if (effectiveSource != null && effectiveSource.Kind == CollectionOwnerPayloadSourceKind.CapturedArtifact)
+			{
+				if (retainedPayload != null && !RetentionMatches(retainedPayload, effectiveSource.CapturedArtifact))
+					throw new ArgumentException("The legacy retained-payload descriptor disagrees with the versioned captured-artifact source.", nameof(retainedPayload));
+				retainedPayload = effectiveSource.CapturedArtifact;
+			}
+			else if (effectiveSource != null && retainedPayload != null)
+			{
+				throw new ArgumentException("An archive-backed payload source cannot also carry a legacy retained-payload descriptor.", nameof(retainedPayload));
+			}
+			if (effectiveSource != null && effectiveSource.Kind == CollectionOwnerPayloadSourceKind.ArchiveBacked &&
+				kind != NativeStateCaptureDeploymentOwnerKind.Direct && kind != NativeStateCaptureDeploymentOwnerKind.Virtual)
+			{
+				throw new ArgumentException("Only resolved managed Direct or Virtual owners may use archive-backed payload sources.", nameof(payloadSource));
+			}
+
 			StackIndex = stackIndex;
 			OwnerKey = ownerKey ?? String.Empty;
 			OwnerReference = ownerReference ?? String.Empty;
 			Kind = kind;
 			CurrentWinner = currentWinner;
 			RetainedPayload = retainedPayload;
+			PayloadSource = effectiveSource;
 		}
 
 		public int StackIndex { get; }
@@ -133,7 +282,18 @@ namespace Nexus.Client.CollectionManagement
 		public string OwnerReference { get; }
 		public NativeStateCaptureDeploymentOwnerKind Kind { get; }
 		public bool CurrentWinner { get; }
+		/// <summary>Gets the legacy byte-retained descriptor when this payload is captured as a standalone artifact.</summary>
 		public CollectionOwnerPayloadRetention RetainedPayload { get; }
+		/// <summary>Gets the versioned exact source descriptor used for new Local Collection packages.</summary>
+		public CollectionOwnerPayloadSource PayloadSource { get; }
+
+		private static bool RetentionMatches(CollectionOwnerPayloadRetention left, CollectionOwnerPayloadRetention right)
+		{
+			return left != null && right != null &&
+				StringComparer.Ordinal.Equals(left.StableArtifactId, right.StableArtifactId) &&
+				StringComparer.Ordinal.Equals(left.ReferenceRole, right.ReferenceRole) &&
+				left.ContentHash.Equals(right.ContentHash) && left.ByteLength == right.ByteLength;
+		}
 	}
 
 	/// <summary>
@@ -181,7 +341,7 @@ namespace Nexus.Client.CollectionManagement
 	}
 
 	/// <summary>
-	/// Immutable C7.3 capture of current file-owner topology plus independently retained owner/fallback payload bytes.
+	/// Immutable capture of current file-owner topology plus exact owner payload sources and independently retained fallback bytes.
 	/// </summary>
 	/// <remarks>
 	/// This snapshot is not a sealed Local Collection and does not itself promise restoration. Missing/unresolved payloads are

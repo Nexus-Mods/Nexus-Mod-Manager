@@ -132,6 +132,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionPlanIdentity _reviewedPlanIdentity;
 		private IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> _recoveryResults = new CollectionAdditiveWorkflowRecoveryResult[0];
 		private IReadOnlyList<CollectionLocalRestoreWorkflowResult> _localRestoreRecoveryResults = new CollectionLocalRestoreWorkflowResult[0];
+		private IReadOnlyList<CollectionManagementLocalRestoreRecoverySource> _localRestoreRecoverySources = new CollectionManagementLocalRestoreRecoverySource[0];
 		private IReadOnlyList<CollectionRevisionUpdateWorkflowResult> _revisionUpdateRecoveryResults = new CollectionRevisionUpdateWorkflowResult[0];
 		private IReadOnlyList<CollectionVerifyRepairRecoveryResult> _verifyRepairRecoveryResults = new CollectionVerifyRepairRecoveryResult[0];
 		private CancellationTokenSource _previewCancellation;
@@ -2758,7 +2759,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionLocalCaptureProgressPhase.ReadingCurrentSetup:
 					return L("Collections.Capture.Progress.Reading", "Reading the current NMM setup...");
 				case CollectionLocalCaptureProgressPhase.RetainingManagedPayloads:
-					return L("Collections.Capture.Progress.ManagedFiles", "Saving managed file data...");
+					return L("Collections.Capture.Progress.ManagedFiles", "Classifying and saving managed file data...");
 				case CollectionLocalCaptureProgressPhase.RetainingInstallerState:
 					return L("Collections.Capture.Progress.Installer", "Saving installer replay data...");
 				case CollectionLocalCaptureProgressPhase.CapturingConfiguration:
@@ -3937,6 +3938,8 @@ namespace Nexus.Client.CollectionManagement.UI
 					Message = CollectionTechnicalReportSanitizer.SanitizeText(result.Message)
 				});
 			foreach (CollectionLocalRestoreWorkflowResult result in _localRestoreRecoveryResults ?? new CollectionLocalRestoreWorkflowResult[0])
+			{
+				CollectionManagementLocalRestoreRecoverySource source = FindLocalRestoreRecoverySource(result.Operation.Identity);
 				report.Recovery.Add(new CollectionTechnicalReportRecoveryItem
 				{
 					Scope = "local-restore",
@@ -3944,8 +3947,13 @@ namespace Nexus.Client.CollectionManagement.UI
 					OperationIdentity = result.Operation.Identity.ToString(),
 					Phase = result.Operation.Phase.ToString(),
 					ResultState = result.Operation.ResultState.ToString(),
+					CaptureIdentity = source == null || source.CaptureIdentity == null ? null : source.CaptureIdentity.ToString(),
+					CaptureDisplayName = source == null ? null : CollectionTechnicalReportSanitizer.SanitizeText(source.DisplayName),
+					CaptureRevisionLabel = source == null ? null : CollectionTechnicalReportSanitizer.SanitizeText(source.RevisionLabel),
+					SourceDiagnostic = source == null ? null : CollectionTechnicalReportSanitizer.SanitizeText(source.Diagnostic),
 					Message = CollectionTechnicalReportSanitizer.SanitizeText(result.Message)
 				});
+			}
 		}
 
 		private void PopulateTechnicalReportExceptions(CollectionTechnicalReportSnapshot report)
@@ -4029,7 +4037,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			long observedRecoveryOperations = 0;
 			CollectionUiContext context = CollectionUiContext.CurrentSetup(_previewGeneration);
-			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target..."));
+			_localRestoreRecoverySources = _managementWorkflow == null
+				? new CollectionManagementLocalRestoreRecoverySource[0] : _managementWorkflow.GetInterruptedLocalRestoreSources();
+			string recoveryStatus = FormatLocalRestoreRecoveryActivity(_localRestoreRecoverySources) ??
+				L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target...");
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, recoveryStatus);
 			try
 			{
 				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> results = _workflow == null
@@ -4070,6 +4082,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 				_recoveryResults = results ?? new CollectionAdditiveWorkflowRecoveryResult[0];
 				_localRestoreRecoveryResults = localRestoreResults ?? new CollectionLocalRestoreWorkflowResult[0];
+				_localRestoreRecoverySources = _managementWorkflow == null
+					? new CollectionManagementLocalRestoreRecoverySource[0] : _managementWorkflow.GetInterruptedLocalRestoreSources();
 				_revisionUpdateRecoveryResults = revisionUpdateResults ?? new CollectionRevisionUpdateWorkflowResult[0];
 				_verifyRepairRecoveryResults = verifyRepairResults ?? new CollectionVerifyRepairRecoveryResult[0];
 				if (!IsWorkflowContextCurrent(context, token))
@@ -4078,6 +4092,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				// Applied-member metadata enrichment already runs after successful additive finalization. Startup recovery must
 				// not turn an idle Collections tab into an unsolicited Nexus metadata scan for previously applied Collections.
 				RefreshLocalCaptures();
+				SelectActiveLocalRestoreCapture();
 				RefreshManagedAssociations();
 				if (_snapshot != null)
 				{
@@ -4866,10 +4881,15 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				if (!recovery.IsSuccessful)
 				{
+					CollectionManagementLocalRestoreRecoverySource source = FindLocalRestoreRecoverySource(recovery.Operation.Identity);
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForLocalRestore(recovery.Status, recovery.Message);
+					string subject = source != null && source.HasResolvedCapture
+						? source.SourceDisplayName : (recovery.Operation.Revision == null ? L("Collections.Review.LocalCollectionRestore", "Local Collection restore") : recovery.Operation.Revision.ToString());
+					string sourceDetail = source == null ? null : "Capture: " + (source.CaptureIdentity == null ? "<unresolved>" : source.CaptureIdentity.ToString()) +
+						(String.IsNullOrWhiteSpace(source.Diagnostic) ? String.Empty : "; source diagnostic: " + source.Diagnostic);
 					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic, L("Collections.Status.ActionRequired", "Action required"),
-						"workflow.local-restore-recovery", recovery.Operation.Revision == null ? L("Collections.Review.LocalCollectionRestore", "Local Collection restore") : recovery.Operation.Revision.ToString(),
-						userMessage, null, CombineTechnicalDetail("Restore status: " + recovery.Status, "Operation: " + recovery.Operation.Identity));
+						"workflow.local-restore-recovery", subject, userMessage, null,
+						CombineTechnicalDetail(CombineTechnicalDetail("Restore status: " + recovery.Status, "Operation: " + recovery.Operation.Identity), sourceDetail));
 				}
 			}
 		}
@@ -5727,6 +5747,36 @@ namespace Nexus.Client.CollectionManagement.UI
 			SetWorkflowActivity(CollectionWorkflowActivityBuilder.Idle(_workflowStatusLabel.Text));
 		}
 
+		private CollectionManagementLocalRestoreRecoverySource FindLocalRestoreRecoverySource(CollectionOperationIdentity operationIdentity)
+		{
+			if (operationIdentity == null || _localRestoreRecoverySources == null) return null;
+			return _localRestoreRecoverySources.FirstOrDefault(x => x != null && x.OperationIdentity.Equals(operationIdentity));
+		}
+
+		private static string FormatLocalRestoreRecoveryActivity(IReadOnlyList<CollectionManagementLocalRestoreRecoverySource> sources)
+		{
+			if (sources == null || sources.Count == 0) return null;
+			CollectionManagementLocalRestoreRecoverySource source = sources[0];
+			string capture = source.CaptureIdentity == null ? "unresolved capture" : source.CaptureIdentity.ToString();
+			return "Recovering Local Collection restore: " + source.SourceDisplayName + " [" + capture + "]...";
+		}
+
+		private void SelectActiveLocalRestoreCapture()
+		{
+			if (_localRestoreRecoverySources == null || _localRestoreRecoverySources.Count != 1) return;
+			LocalCaptureIdentity captureIdentity = _localRestoreRecoverySources[0].CaptureIdentity;
+			if (captureIdentity == null) return;
+			for (int index = 0; index < _localCaptureCombo.Items.Count; index++)
+			{
+				CollectionManagementLocalCapture candidate = _localCaptureCombo.Items[index] as CollectionManagementLocalCapture;
+				if (candidate != null && candidate.CaptureIdentity.Equals(captureIdentity))
+				{
+					_localCaptureCombo.SelectedIndex = index;
+					break;
+				}
+			}
+		}
+
 		private void UpdateActionButtons()
 		{
 			_currentSetupActionContext = CollectionUiContext.CurrentSetup(_previewGeneration);
@@ -5736,8 +5786,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			_localCaptureActionContext = hasLocalCapture
 				? CollectionUiContext.SavedLocal(_previewGeneration, selectedCapture.Capture.Revision, selectedCapture.CaptureIdentity)
 				: null;
-			_localCaptureCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localCaptureCombo.Items.Count > 0;
-			_restoreLocalCaptureButton.Enabled = !_workflowBusy && hasLocalCapture &&
+			bool hasInterruptedLocalRestore = _localRestoreRecoverySources != null && _localRestoreRecoverySources.Count > 0;
+			_localCaptureCombo.Enabled = !_workflowBusy && !hasInterruptedLocalRestore && _managementWorkflow != null && _localCaptureCombo.Items.Count > 0;
+			_restoreLocalCaptureButton.Enabled = !_workflowBusy && !hasInterruptedLocalRestore && hasLocalCapture &&
 				selectedCapture.Capability == LocalCaptureCapability.LocallyRestorableWithinScope;
 			CollectionManagementLocalWorkingCopy selectedWorkingCopy = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
 			_localWorkingCopyCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localWorkingCopyCombo.Items.Count > 0;

@@ -21,7 +21,9 @@ namespace Nexus.Client.CollectionManagement
 			long archiveSourceReadCount, long uniqueArchiveSourceMemberCount, long uniqueArchiveSourcePathReadCount, long archiveSourceReadBytes,
 			long preparedNativeIdentityObservationCount, long uniquePreparedNativeIdentityCount, long preparedNativeIdentityRepeatCount,
 			long startupRecoveryPassCount, long startupRecoveryObservedOperationCount, double startupRecoveryMilliseconds,
-			long nxmUiDispatchCount, double nxmUiDispatchMilliseconds)
+			long nxmUiDispatchCount, double nxmUiDispatchMilliseconds, long localCaptureOwnerPayloadObservedCount,
+			long localCaptureArchiveBackedPayloadCount, long localCaptureByteRetainedPayloadCount,
+			long localCaptureSpecialRetainedPayloadCount, long localCaptureOwnerPayloadBytesCopied, long localCaptureOwnerPayloadBytesAvoided)
 		{
 			SessionStartedUtc = sessionStartedUtc;
 			NativeStateIndexBuildCount = nativeStateIndexBuildCount;
@@ -66,6 +68,12 @@ namespace Nexus.Client.CollectionManagement
 			StartupRecoveryMilliseconds = startupRecoveryMilliseconds;
 			NxmUiDispatchCount = nxmUiDispatchCount;
 			NxmUiDispatchMilliseconds = nxmUiDispatchMilliseconds;
+			LocalCaptureOwnerPayloadObservedCount = localCaptureOwnerPayloadObservedCount;
+			LocalCaptureArchiveBackedPayloadCount = localCaptureArchiveBackedPayloadCount;
+			LocalCaptureByteRetainedPayloadCount = localCaptureByteRetainedPayloadCount;
+			LocalCaptureSpecialRetainedPayloadCount = localCaptureSpecialRetainedPayloadCount;
+			LocalCaptureOwnerPayloadBytesCopied = localCaptureOwnerPayloadBytesCopied;
+			LocalCaptureOwnerPayloadBytesAvoided = localCaptureOwnerPayloadBytesAvoided;
 		}
 
 		public DateTimeOffset SessionStartedUtc { get; private set; }
@@ -111,6 +119,12 @@ namespace Nexus.Client.CollectionManagement
 		public double StartupRecoveryMilliseconds { get; private set; }
 		public long NxmUiDispatchCount { get; private set; }
 		public double NxmUiDispatchMilliseconds { get; private set; }
+		public long LocalCaptureOwnerPayloadObservedCount { get; private set; }
+		public long LocalCaptureArchiveBackedPayloadCount { get; private set; }
+		public long LocalCaptureByteRetainedPayloadCount { get; private set; }
+		public long LocalCaptureSpecialRetainedPayloadCount { get; private set; }
+		public long LocalCaptureOwnerPayloadBytesCopied { get; private set; }
+		public long LocalCaptureOwnerPayloadBytesAvoided { get; private set; }
 	}
 
 	/// <summary>Low-overhead aggregate timing/counter recorder for C12 release measurements.</summary>
@@ -160,6 +174,12 @@ namespace Nexus.Client.CollectionManagement
 		private static long _startupRecoveryTicks;
 		private static long _nxmUiDispatchCount;
 		private static long _nxmUiDispatchTicks;
+		private static long _localCaptureOwnerPayloadObservedCount;
+		private static long _localCaptureArchiveBackedPayloadCount;
+		private static long _localCaptureByteRetainedPayloadCount;
+		private static long _localCaptureSpecialRetainedPayloadCount;
+		private static long _localCaptureOwnerPayloadBytesCopied;
+		private static long _localCaptureOwnerPayloadBytesAvoided;
 
 		internal static long StartTiming()
 		{
@@ -261,6 +281,27 @@ namespace Nexus.Client.CollectionManagement
 			Interlocked.Add(ref _reviewedSnapshotDeserializeTicks, ElapsedTicks(started));
 		}
 
+		internal static void ResetLocalCaptureOwnerPayloadMetrics()
+		{
+			Interlocked.Exchange(ref _localCaptureOwnerPayloadObservedCount, 0);
+			Interlocked.Exchange(ref _localCaptureArchiveBackedPayloadCount, 0);
+			Interlocked.Exchange(ref _localCaptureByteRetainedPayloadCount, 0);
+			Interlocked.Exchange(ref _localCaptureSpecialRetainedPayloadCount, 0);
+			Interlocked.Exchange(ref _localCaptureOwnerPayloadBytesCopied, 0);
+			Interlocked.Exchange(ref _localCaptureOwnerPayloadBytesAvoided, 0);
+		}
+
+		internal static void RecordLocalCaptureOwnerPayloads(long observed, long archiveBacked, long byteRetained,
+			long specialRetained, long bytesCopied, long bytesAvoided)
+		{
+			Interlocked.Add(ref _localCaptureOwnerPayloadObservedCount, Math.Max(0, observed));
+			Interlocked.Add(ref _localCaptureArchiveBackedPayloadCount, Math.Max(0, archiveBacked));
+			Interlocked.Add(ref _localCaptureByteRetainedPayloadCount, Math.Max(0, byteRetained));
+			Interlocked.Add(ref _localCaptureSpecialRetainedPayloadCount, Math.Max(0, specialRetained));
+			Interlocked.Add(ref _localCaptureOwnerPayloadBytesCopied, Math.Max(0, bytesCopied));
+			Interlocked.Add(ref _localCaptureOwnerPayloadBytesAvoided, Math.Max(0, bytesAvoided));
+		}
+
 		internal static CollectionPerformanceSnapshot Capture()
 		{
 			long uniqueRetainedArtifactOpenCount;
@@ -291,7 +332,10 @@ namespace Nexus.Client.CollectionManagement
 				Interlocked.Read(ref _archiveSourceReadCount), uniqueArchiveSourceMemberCount, uniqueArchiveSourcePathReadCount, Interlocked.Read(ref _archiveSourceReadBytes),
 				Interlocked.Read(ref _preparedNativeIdentityObservationCount), uniquePreparedNativeIdentityCount, Interlocked.Read(ref _preparedNativeIdentityRepeatCount),
 				Interlocked.Read(ref _startupRecoveryPassCount), Interlocked.Read(ref _startupRecoveryObservedOperationCount), ToMilliseconds(Interlocked.Read(ref _startupRecoveryTicks)),
-				Interlocked.Read(ref _nxmUiDispatchCount), ToMilliseconds(Interlocked.Read(ref _nxmUiDispatchTicks)));
+				Interlocked.Read(ref _nxmUiDispatchCount), ToMilliseconds(Interlocked.Read(ref _nxmUiDispatchTicks)),
+				Interlocked.Read(ref _localCaptureOwnerPayloadObservedCount), Interlocked.Read(ref _localCaptureArchiveBackedPayloadCount),
+				Interlocked.Read(ref _localCaptureByteRetainedPayloadCount), Interlocked.Read(ref _localCaptureSpecialRetainedPayloadCount),
+				Interlocked.Read(ref _localCaptureOwnerPayloadBytesCopied), Interlocked.Read(ref _localCaptureOwnerPayloadBytesAvoided));
 		}
 
 		private static void Record(long started, ref long count, ref long elapsedTicks)

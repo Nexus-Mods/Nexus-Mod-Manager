@@ -172,6 +172,8 @@
     <Compile Include="NativeStateCaptureReaderTests.cs" />
     <Compile Include="CollectionInstalledIdentityCaptureReaderTests.cs" />
     <Compile Include="CollectionOwnerPayloadCaptureServiceTests.cs" />
+    <Compile Include="CollectionOwnerPayloadReconstructionClassifierTests.cs" />
+    <Compile Include="CollectionOwnerPayloadMaterializerTests.cs" />
     <Compile Include="CollectionScriptedReplayCaptureServiceTests.cs" />
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
     <Compile Include="CollectionReplacementDiffPlannerTests.cs" />

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Operations;
 
 namespace Nexus.Client.CollectionManagement
@@ -224,7 +225,7 @@ namespace Nexus.Client.CollectionManagement
 					operation, sealedCapture, reviewedPlan, currentPlan, null, null, null,
 					String.Join(" ", currentPlan.Issues.Select(x => x.Message)));
 			}
-			return ReconstructProgress(operation, sealedCapture, reviewedPlan, currentPlan, observation.NativeState);
+			return ReconstructProgress(operation, sealedCapture, reviewedPlan, currentPlan, observation.NativeState, cancellationToken);
 		}
 
 		private void ValidateRequest(CollectionOperationIdentity operationIdentity, GameStoragePathSet paths)
@@ -237,7 +238,7 @@ namespace Nexus.Client.CollectionManagement
 
 		private CollectionLocalRestoreMemberRehydrationResult ReconstructProgress(CollectionOperation operation,
 			CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
-			CollectionLocalRestorePlan currentPlan, NativeStateCaptureSnapshot nativeState)
+			CollectionLocalRestorePlan currentPlan, NativeStateCaptureSnapshot nativeState, CancellationToken cancellationToken)
 		{
 			List<ExpectedChild> expected = BuildExpectedChildren(operation, sealedCapture.Capture.Identity, reviewedPlan);
 			List<CollectionNativeChildOperation> actual = operation.NativeChildren.OrderBy(x => x.Sequence).ToList();
@@ -248,7 +249,13 @@ namespace Nexus.Client.CollectionManagement
 
 			var activeKeys = new HashSet<string>(nativeState.InstallLog.Mods.Where(x => !x.Hidden).Select(x => x.ModKey), StringComparer.OrdinalIgnoreCase);
 			var currentMembers = currentPlan.Members.ToDictionary(x => x.SnapshotMemberKey);
+			var capturedIdentities = sealedCapture.InstalledIdentities.Mods
+				.GroupBy(x => x.NativeSnapshotKey, StringComparer.OrdinalIgnoreCase)
+				.Where(x => x.Count() == 1)
+				.ToDictionary(x => x.Key, x => x.Single(), StringComparer.OrdinalIgnoreCase);
 			var remaps = new List<CollectionLocalRestoreMemberRemap>();
+			var usedRemapKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var committedRecreatedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var memberProgress = new List<CollectionLocalRestoreMemberProgress>();
 			var removalProgress = new List<CollectionLocalRestoreRemovalProgress>();
 			bool nativeRecoveryRequired = operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability;
@@ -285,7 +292,8 @@ namespace Nexus.Client.CollectionManagement
 				if (reviewedMember.Action == CollectionLocalRestoreMemberAction.ReuseExistingNative)
 				{
 					if (currentMember.Action != CollectionLocalRestoreMemberAction.ReuseExistingNative ||
-						!StringComparer.OrdinalIgnoreCase.Equals(currentMember.CurrentNativeKey, reviewedMember.CurrentNativeKey))
+						!StringComparer.OrdinalIgnoreCase.Equals(currentMember.CurrentNativeKey, reviewedMember.CurrentNativeKey) ||
+						!usedRemapKeys.Add(currentMember.CurrentNativeKey))
 						return CurrentStateChanged(operation, sealedCapture, reviewedPlan, currentPlan, remaps, memberProgress, removalProgress,
 							"A reviewed reused native member no longer matches the exact native registration approved before restore.");
 					remaps.Add(new CollectionLocalRestoreMemberRemap(reviewedMember.SnapshotMemberKey, currentMember.CurrentNativeKey));
@@ -311,12 +319,26 @@ namespace Nexus.Client.CollectionManagement
 
 				if (IsVerifiedCommitted(child))
 				{
-					if (currentMember.Action != CollectionLocalRestoreMemberAction.ReuseExistingNative || String.IsNullOrWhiteSpace(currentMember.CurrentNativeKey))
+					string committedNativeKey = currentMember.Action == CollectionLocalRestoreMemberAction.ReuseExistingNative
+						? currentMember.CurrentNativeKey : null;
+					if (String.IsNullOrWhiteSpace(committedNativeKey))
+					{
+						CollectionInstalledModIdentity capturedIdentity;
+						if (capturedIdentities.TryGetValue(reviewedMember.CapturedNativeKey, out capturedIdentity))
+							committedNativeKey = ResolveVerifiedCommittedRecreatedNativeKey(capturedIdentity, reviewedMember.RetainedArchive,
+								nativeState.InstallLog.Mods, usedRemapKeys, cancellationToken);
+					}
+					if (String.IsNullOrWhiteSpace(committedNativeKey) || !usedRemapKeys.Add(committedNativeKey))
 						return CurrentStateChanged(operation, sealedCapture, reviewedPlan, currentPlan, remaps, memberProgress, removalProgress,
 							"A recreated member journaled as committed is not present under a uniquely verified current native registration.");
-					remaps.Add(new CollectionLocalRestoreMemberRemap(reviewedMember.SnapshotMemberKey, currentMember.CurrentNativeKey));
+
+					// A fresh restore plan may conservatively request recreation when downstream owner restoration has already
+					// changed that member's file effects. The committed child still proves the native registration itself;
+					// ownership/final verification remains responsible for proving the exact captured effect set.
+					committedRecreatedKeys.Add(committedNativeKey);
+					remaps.Add(new CollectionLocalRestoreMemberRemap(reviewedMember.SnapshotMemberKey, committedNativeKey));
 					memberProgress.Add(new CollectionLocalRestoreMemberProgress(reviewedMember,
-						CollectionLocalRestoreMemberProgressStatus.RecreatedVerified, child, currentMember.CurrentNativeKey));
+						CollectionLocalRestoreMemberProgressStatus.RecreatedVerified, child, committedNativeKey));
 				}
 				else
 				{
@@ -337,7 +359,9 @@ namespace Nexus.Client.CollectionManagement
 					"At least one Local restore child crossed the native boundary without completed restart reconciliation.");
 
 			HashSet<string> pendingRemovals = new HashSet<string>(removalProgress.Where(x => !x.IsComplete).Select(x => x.NativeKey), StringComparer.OrdinalIgnoreCase);
-			if (!new HashSet<string>(currentPlan.CurrentNativeKeysToRemove, StringComparer.OrdinalIgnoreCase).SetEquals(pendingRemovals))
+			var currentRemovalKeys = new HashSet<string>(currentPlan.CurrentNativeKeysToRemove, StringComparer.OrdinalIgnoreCase);
+			currentRemovalKeys.ExceptWith(committedRecreatedKeys);
+			if (!currentRemovalKeys.SetEquals(pendingRemovals))
 				return CurrentStateChanged(operation, sealedCapture, reviewedPlan, currentPlan, remaps, memberProgress, removalProgress,
 					"Current native registrations differ from the exact remaining removals implied by the durable Local restore journal.");
 
@@ -414,6 +438,38 @@ namespace Nexus.Client.CollectionManagement
 			CollectionNativeStateIndex collection = new CollectionNativeStateReader(manager.InstallationLog, manager.VirtualModActivator,
 				_services.PluginManager, manager.GameMode, _associationStore).Capture(target, native);
 			return new NativeObservation(native, collection);
+		}
+
+		/// <summary>
+		/// Resolves a native registration whose recreation was already journaled as verified committed. Unlike normal
+		/// planning, this deliberately ignores extra current file effects because downstream owner restoration may already
+		/// have changed them. Recovery uses only facts the legacy InstallLog actually persists across restart: exact retained
+		/// archive bytes, install context, and one unique active registration. Nexus mod/file identifiers are not durable here.
+		/// </summary>
+		internal static string ResolveVerifiedCommittedRecreatedNativeKey(CollectionInstalledModIdentity capturedMod,
+			CollectionCapturedArchiveArtifact retainedArchive, IEnumerable<InstallLogReadMod> currentMods,
+			ISet<string> unavailableKeys, CancellationToken cancellationToken)
+		{
+			if (capturedMod == null || retainedArchive == null || currentMods == null)
+				return null;
+
+			var candidates = new List<InstallLogReadMod>();
+			foreach (InstallLogReadMod current in currentMods)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (current == null || current.Hidden || (unavailableKeys != null && unavailableKeys.Contains(current.ModKey)) ||
+					capturedMod.InstallContext.Method != current.InstallMethod || capturedMod.InstallContext.InstallRoot != current.InstallRoot ||
+					!CollectionArchiveContentMatcher.MatchesFile(current.ArchivePath, retainedArchive.RetainedArtifact.ByteLength,
+						retainedArchive.RetainedArtifact.ContentHash, cancellationToken))
+					continue;
+				candidates.Add(current);
+			}
+
+			InstallLogReadMod exact = candidates.FirstOrDefault(x =>
+				StringComparer.OrdinalIgnoreCase.Equals(x.ModKey, capturedMod.NativeSnapshotKey));
+			if (exact != null)
+				return exact.ModKey;
+			return candidates.Count == 1 ? candidates[0].ModKey : null;
 		}
 
 		private static List<ExpectedChild> BuildExpectedChildren(CollectionOperation operation, LocalCaptureIdentity captureIdentity,

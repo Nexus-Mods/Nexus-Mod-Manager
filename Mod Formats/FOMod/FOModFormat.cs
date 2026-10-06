@@ -15,7 +15,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	/// This is the mod format that is commonly used for Fallout 3 and Fallout: New Vegas mods. This
 	/// format was introduced with the Fallout Mod Manager (FOMM).
 	/// </remarks>
-	public class FOModFormat : IModFormat, IModFormatCacheProbe
+	public class FOModFormat : IModFormat, IModFormatCacheProbe, IModFormatUserMetadata
 	{
 		#region Properties
 
@@ -83,6 +83,12 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <summary>Gets the narrow durable writer for selected non-rebuildable FOMod user metadata.</summary>
 		public FOModUserMetadataWriter UserMetadataWriter { get; private set; }
 
+		/// <summary>Gets whether the shared logical user-metadata surface is currently usable.</summary>
+		public bool IsUserMetadataUsable
+		{
+			get { return UserMetadataReader != null && UserMetadataWriter != null && UserMetadataReader.IsUsable && UserMetadataWriter.IsUsable; }
+		}
+
 		/// <summary>
 		/// Gets the registry of supported script types.
 		/// </summary>
@@ -108,6 +114,31 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		}
 
 		#endregion
+
+		/// <summary>Reads one logical screenshot override through the shared mod-format contract.</summary>
+		public ModFormatScreenshotOverrideReadResult ReadScreenshotOverride(string archivePath)
+		{
+			FOModScreenshotOverrideReadResult result = UserMetadataReader.ReadScreenshotOverride(archivePath);
+			if (result.State == FOModScreenshotOverrideReadState.None)
+				return new ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState.None, null);
+
+			FOModScreenshotOverrideRecord record = result.Record;
+			var exported = new ModFormatScreenshotOverrideRecord(record.ArchiveLength, record.ArchiveWriteTimeUtcTicks,
+				record.ScreenshotPath, record.ScreenshotData, record.UpdatedUtcTicks);
+			return new ModFormatScreenshotOverrideReadResult((ModFormatScreenshotOverrideReadState)(int)result.State, exported);
+		}
+
+		/// <summary>Restores one logical screenshot override through the shared mod-format contract.</summary>
+		public void RestoreScreenshotOverride(string archivePath, string screenshotPath, byte[] screenshotData, long updatedUtcTicks)
+		{
+			UserMetadataWriter.RestoreScreenshotOverride(archivePath, screenshotPath, screenshotData, updatedUtcTicks);
+		}
+
+		/// <summary>Removes one logical screenshot override through the shared mod-format contract.</summary>
+		public void RemoveScreenshotOverride(string archivePath)
+		{
+			UserMetadataWriter.RemoveScreenshotOverride(archivePath);
+		}
 
 		/// <summary>
 		/// Determines if the specified file in a mod that conforms to the current format.

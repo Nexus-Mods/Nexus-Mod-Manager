@@ -1,4 +1,5 @@
 ﻿using Nexus.Client.CollectionManagement;
+using Nexus.Client.Mods;
 using Nexus.Client.Mods.Formats.FOMod;
 using NUnit.Framework;
 
@@ -16,7 +17,7 @@ namespace NexusClientTests
 				CollectionLocalRestoreUserScreenshotState.None());
 			CollectionLocalRestoreUserMetadataState desired = State(
 				new CollectionLocalRestoreUserSortState(true, 25, ModSortOrderAssignmentState.InheritedNumeric, "100", "200"),
-				CollectionLocalRestoreUserScreenshotState.CreatePresent(FOModScreenshotOverrideReadState.Current, "fomod\\shot.png",
+				CollectionLocalRestoreUserScreenshotState.CreatePresent(ModFormatScreenshotOverrideReadState.Current, "fomod\\shot.png",
 					new string('a', 64), 4, 100, 200, 300, "artifact-shot"));
 			CollectionLocalRestoreUserMetadataState transition = State(
 				desired.Entries[0].Sort, preimage.Entries[0].Screenshot);

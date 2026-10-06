@@ -42,7 +42,8 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public static class CollectionLocalCapturePackageCodec
 	{
-		public const int CurrentFormatVersion = 1;
+		public const int CurrentFormatVersion = 2;
+		private const int MinimumSupportedFormatVersion = 1;
 		private const string FormatIdentity = "nmm-ce-local-collection-capture";
 
 		/// <summary>Serializes one successful seal result as compact UTF-8 JSON without a BOM.</summary>
@@ -148,7 +149,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			RequireString(root, "format", FormatIdentity);
 			int formatVersion = RequirePositiveInt(root, "formatVersion");
-			if (formatVersion != CurrentFormatVersion)
+			if (formatVersion < MinimumSupportedFormatVersion || formatVersion > CurrentFormatVersion)
 				throw new InvalidDataException("The Local Collection capture package format version is not supported.");
 
 			Guid captureId;

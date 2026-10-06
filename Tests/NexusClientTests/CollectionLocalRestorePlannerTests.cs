@@ -408,6 +408,137 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Recovery_CommittedRecreatedMemberCanBeResolvedWhenFreshPlannerRejectsReuseForExtraEffects()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710-recovery-committed-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.UTF8.GetBytes("exact retained archive bytes"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-member",
+					LocalCaptureCapability.LocallyRestorableWithinScope, true);
+				string restoredKey = "restored-native";
+				ModDeploymentTarget capturedTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "example.bin");
+				ModDeploymentTarget extraTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "extra.bin");
+				NativeStateCaptureSnapshot current = CreateNativeState("original",
+					new[] { CreateCurrentMod(restoredKey, archivePath, ModInstallMethod.Direct) },
+					new[] { CreateCurrentDeployment(capturedTarget, "original", restoredKey), CreateCurrentDeployment(extraTarget, "original", restoredKey) });
+
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+				CollectionLocalRestorePlan plan = planner.Plan(capture, capture.Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "recovery"), current);
+				Assert.AreEqual(CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, plan.Members.Single().Action,
+					"The ordinary planner must remain conservative when the current registration owns an extra effect.");
+				CollectionAssert.Contains(plan.CurrentNativeKeysToRemove, restoredKey);
+
+				string resolved = CollectionLocalRestoreMemberRehydrator.ResolveVerifiedCommittedRecreatedNativeKey(
+					capture.InstalledIdentities.Mods.Single(), capture.Archives.Single(), current.InstallLog.Mods,
+					new HashSet<string>(StringComparer.OrdinalIgnoreCase), System.Threading.CancellationToken.None);
+				Assert.AreEqual(restoredKey, resolved,
+					"Recovery must recognize the already-committed native registration independently of downstream owner effects.");
+			}
+			finally
+			{
+				if (Directory.Exists(root)) Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Recovery_CommittedRecreatedMemberDoesNotRequireNexusMetadataThatInstallLogDropsOnRestart()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710-recovery-installlog-metadata-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.UTF8.GetBytes("restart exact retained archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-member",
+					LocalCaptureCapability.LocallyRestorableWithinScope, true);
+				string restoredKey = "restored-after-restart";
+				var reloadedRegistration = new InstallLogReadMod(restoredKey, archivePath, Path.GetFileName(archivePath),
+					String.Empty, String.Empty, "1.0", "1.0", false, ModInstallRoot.Data, ModInstallMethod.Direct, false);
+
+				string resolved = CollectionLocalRestoreMemberRehydrator.ResolveVerifiedCommittedRecreatedNativeKey(
+					capture.InstalledIdentities.Mods.Single(), capture.Archives.Single(), new[] { reloadedRegistration },
+					new HashSet<string>(StringComparer.OrdinalIgnoreCase), System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(restoredKey, resolved,
+					"Restart recovery must not require Nexus mod/file identifiers that the legacy InstallLog does not persist.");
+			}
+			finally
+			{
+				if (Directory.Exists(root)) Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Recovery_CommittedRecreatedMemberStillFailsClosedWhenExactArchiveRegistrationIsAmbiguous()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710-recovery-installlog-ambiguous-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.UTF8.GetBytes("ambiguous retained archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-member",
+					LocalCaptureCapability.LocallyRestorableWithinScope, true);
+				var first = new InstallLogReadMod("restored-one", archivePath, Path.GetFileName(archivePath),
+					String.Empty, String.Empty, "1.0", "1.0", false, ModInstallRoot.Data, ModInstallMethod.Direct, false);
+				var second = new InstallLogReadMod("restored-two", archivePath, Path.GetFileName(archivePath),
+					String.Empty, String.Empty, "1.0", "1.0", false, ModInstallRoot.Data, ModInstallMethod.Direct, false);
+
+				string resolved = CollectionLocalRestoreMemberRehydrator.ResolveVerifiedCommittedRecreatedNativeKey(
+					capture.InstalledIdentities.Mods.Single(), capture.Archives.Single(), new[] { first, second },
+					new HashSet<string>(StringComparer.OrdinalIgnoreCase), System.Threading.CancellationToken.None);
+
+				Assert.IsNull(resolved, "Recovery must remain fail-closed when more than one current registration matches the exact retained archive and context.");
+			}
+			finally
+			{
+				if (Directory.Exists(root)) Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Recovery_CompletedMemberBoundaryUsesRehydratedRemapInsteadOfFreshPlannerAction()
+		{
+			string root = CreateTemporaryDirectory("nmm-c710-recovery-boundary-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.UTF8.GetBytes("member-boundary"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "captured-member",
+					LocalCaptureCapability.LocallyRestorableWithinScope, true);
+				CollectionMemberKey memberKey = capture.Capture.NativeRecordMappings.Single().SnapshotMemberKey;
+				var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data);
+				var reviewedMember = new CollectionLocalRestoreMemberPlan(memberKey, "captured-member",
+					CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, String.Empty, context, capture.Archives.Single());
+				var currentMember = new CollectionLocalRestoreMemberPlan(memberKey, "captured-member",
+					CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, String.Empty, context, capture.Archives.Single());
+				CollectionLocalRestorePlan reviewed = CreateClassificationPlan(capture.Capture.SourceTarget, new[] { reviewedMember },
+					new string[0], new CollectionLocalRestorePlanIssue[0]);
+				CollectionLocalRestorePlan current = CreateClassificationPlan(capture.Capture.SourceTarget, new[] { currentMember },
+					new[] { "restored-native" }, new CollectionLocalRestorePlanIssue[0]);
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.RestoreLocalCapture,
+					capture.Capture.Revision.Collection, capture.Capture.SourceTarget, capture.Capture.Revision, null, 1,
+					CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired, new CollectionNativeChildOperation[0]);
+				var progress = new CollectionLocalRestoreMemberProgress(reviewedMember, CollectionLocalRestoreMemberProgressStatus.RecreatedVerified,
+					null, "restored-native");
+				var remap = new CollectionLocalRestoreMemberRemap(memberKey, "restored-native");
+				var rehydrated = new CollectionLocalRestoreMemberRehydrationResult(CollectionLocalRestoreMemberRehydrationStatus.MemberPhaseComplete,
+					operation, capture, reviewed, current, new[] { remap }, new[] { progress }, new CollectionLocalRestoreRemovalProgress[0], "complete");
+
+				Assert.IsTrue(CollectionLocalRestoreApplicationService.IsExactCompletedMemberBoundary(rehydrated));
+			}
+			finally
+			{
+				if (Directory.Exists(root)) Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		[Category("CollectionsC12FailureInjection")]
 		public void LocalRestoreResumeClassifier_RemovalPresenceDistinguishesRollbackFromCommit()
 		{

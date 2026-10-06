@@ -80,9 +80,29 @@ namespace Nexus.Client.CollectionManagement
 			if (String.IsNullOrWhiteSpace(nativeSnapshotKey))
 				throw new ArgumentException("A native snapshot key is required.", nameof(nativeSnapshotKey));
 			NativeSnapshotKey = nativeSnapshotKey;
-			FileName = fileName ?? String.Empty;
+			FileName = NormalizeArchiveFileName(fileName);
 			SourceIdentity = sourceIdentity;
 			RetainedArtifact = retainedArtifact ?? throw new ArgumentNullException(nameof(retainedArtifact));
+		}
+
+		/// <summary>Returns a single Windows-safe leaf name from legacy full-path/native filename observations.</summary>
+		internal static string NormalizeArchiveFileName(string recordedFileName)
+		{
+			if (String.IsNullOrWhiteSpace(recordedFileName))
+				return String.Empty;
+
+			string candidate = recordedFileName.Trim();
+			int separator = Math.Max(candidate.LastIndexOf('\\'), candidate.LastIndexOf('/'));
+			if (separator >= 0)
+				candidate = separator + 1 < candidate.Length ? candidate.Substring(separator + 1) : String.Empty;
+			if (String.IsNullOrWhiteSpace(candidate) || StringComparer.Ordinal.Equals(candidate, ".") ||
+				StringComparer.Ordinal.Equals(candidate, ".."))
+				return String.Empty;
+
+			char[] windowsInvalid = { '\\', '/', ':', '*', '?', '"', '<', '>', '|' };
+			if (candidate.IndexOfAny(windowsInvalid) >= 0 || candidate.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+				return String.Empty;
+			return candidate;
 		}
 
 		public string NativeSnapshotKey { get; }
@@ -253,6 +273,8 @@ namespace Nexus.Client.CollectionManagement
 			List<CollectionCapturedArchiveArtifact> archives = new List<CollectionCapturedArchiveArtifact>();
 			if (!issues.Any(x => x.BlocksSealing) && request.Scope.Contains(LocalCaptureScopeArea.ModArchives))
 				archives = PrepareArchives(request, issues, cancellationToken, progress);
+			if (!issues.Any(x => x.BlocksSealing))
+				ValidateArchiveBackedOwnerPayloads(request, archives, issues);
 
 			List<RetainedArtifactReference> retainedArtifacts = CollectRetainedArtifacts(request, archives);
 			if (!issues.Any(x => x.BlocksSealing))
@@ -383,11 +405,13 @@ namespace Nexus.Client.CollectionManagement
 				{
 					foreach (CollectionOwnerPayloadOwner owner in target.Owners)
 					{
-						if (owner.Kind == NativeStateCaptureDeploymentOwnerKind.Unresolved || owner.RetainedPayload == null)
+						bool missingPayloadSource = owner.PayloadSource == null ||
+							(owner.PayloadSource.Kind == CollectionOwnerPayloadSourceKind.CapturedArtifact && owner.RetainedPayload == null);
+						if (owner.Kind == NativeStateCaptureDeploymentOwnerKind.Unresolved || missingPayloadSource)
 						{
 							AddRestorableBlocker(issues, CollectionCaptureSealIssueKind.OwnerPayloadIncomplete,
 								LocalCaptureScopeArea.FileOwnershipAndFallbackPayloads, target.Target.ToString(),
-								"A captured file-owner stack contains an unresolved owner or missing retained fallback payload.");
+								"A captured file-owner stack contains an unresolved owner or missing exact payload source.");
 						}
 					}
 
@@ -456,9 +480,40 @@ namespace Nexus.Client.CollectionManagement
 				RequireCompleteCoverage(request.UserMetadata.SortCoverage, issues,
 					CollectionCaptureSealIssueKind.UserMetadataIncomplete, LocalCaptureScopeArea.UserMetadata,
 					"sort", "Logical Sort assignment capture is incomplete.");
+				CollectionUserMetadataIssue screenshotIssue = request.UserMetadata.Issues.FirstOrDefault(x => IsScreenshotIssue(x.Kind));
+				string screenshotMessage = "Logical screenshot-override capture is incomplete.";
+				if (screenshotIssue != null && !String.IsNullOrWhiteSpace(screenshotIssue.Message))
+					screenshotMessage += " " + screenshotIssue.Message;
 				RequireCompleteCoverage(request.UserMetadata.ScreenshotCoverage, issues,
 					CollectionCaptureSealIssueKind.UserMetadataIncomplete, LocalCaptureScopeArea.UserMetadata,
-					"screenshot-overrides", "Logical screenshot-override capture is incomplete.");
+					"screenshot-overrides", screenshotMessage);
+			}
+		}
+
+		private static void ValidateArchiveBackedOwnerPayloads(CollectionCaptureSealRequest request,
+			IEnumerable<CollectionCapturedArchiveArtifact> archives, List<CollectionCaptureSealIssue> issues)
+		{
+			Dictionary<string, CollectionCapturedArchiveArtifact> archivesByNativeKey = archives
+				.GroupBy(x => x.NativeSnapshotKey, StringComparer.OrdinalIgnoreCase)
+				.Where(x => x.Count() == 1)
+				.ToDictionary(x => x.Key, x => x.Single(), StringComparer.OrdinalIgnoreCase);
+			foreach (CollectionOwnerPayloadTarget target in request.OwnerPayloads.Targets)
+			{
+				foreach (CollectionOwnerPayloadOwner owner in target.Owners)
+				{
+					if (owner.PayloadSource == null || owner.PayloadSource.Kind != CollectionOwnerPayloadSourceKind.ArchiveBacked)
+						continue;
+
+					CollectionOwnerPayloadArchiveBackedDescriptor descriptor = owner.PayloadSource.ArchiveBacked;
+					CollectionCapturedArchiveArtifact archive;
+					if (descriptor == null || !String.Equals(owner.OwnerKey, descriptor.NativeSnapshotKey, StringComparison.OrdinalIgnoreCase) ||
+						!archivesByNativeKey.TryGetValue(descriptor.NativeSnapshotKey, out archive))
+					{
+						AddRestorableBlocker(issues, CollectionCaptureSealIssueKind.OwnerPayloadIncomplete,
+							LocalCaptureScopeArea.FileOwnershipAndFallbackPayloads, target.Target.ToString(),
+							"An archive-backed owner payload is not bound to exactly one retained source archive for the same captured native member.");
+					}
+				}
 			}
 		}
 
@@ -536,7 +591,7 @@ namespace Nexus.Client.CollectionManagement
 					_referenceStore.AcquireExclusiveRoleReference(artifact.ArtifactId,
 						CollectionsRetainedArtifactOwnerKind.Capture, request.Identity.ToString(), role);
 					var retained = new RetainedArtifactReference(artifact.ArtifactId, role, artifact.ContentHash, artifact.ByteLength);
-					result.Add(new CollectionCapturedArchiveArtifact(mod.NativeSnapshotKey, mod.Archive.FileName,
+					result.Add(new CollectionCapturedArchiveArtifact(mod.NativeSnapshotKey, Path.GetFileName(livePath),
 						mod.Archive.SourceIdentity, retained));
 				}
 				catch (InvalidDataException exception)
@@ -695,6 +750,15 @@ namespace Nexus.Client.CollectionManagement
 				return;
 			if (current == 0 || current == total || (current % 25) == 0)
 				progress.Report(new CollectionLocalCaptureProgress(phase, current, total));
+		}
+
+		private static bool IsScreenshotIssue(CollectionUserMetadataIssueKind kind)
+		{
+			return kind == CollectionUserMetadataIssueKind.ScreenshotMetadataUnavailable ||
+				kind == CollectionUserMetadataIssueKind.ScreenshotArchiveReferenceUnavailable ||
+				kind == CollectionUserMetadataIssueKind.ScreenshotOverrideArchiveUnavailable ||
+				kind == CollectionUserMetadataIssueKind.AmbiguousArchiveMetadataBinding ||
+				kind == CollectionUserMetadataIssueKind.ScreenshotOverrideInvalid;
 		}
 
 		private static void RequireCompleteCoverage(NativeStateCaptureCoverage coverage,

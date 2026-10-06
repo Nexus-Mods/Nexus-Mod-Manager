@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
-using Nexus.Client.Mods.Formats.FOMod;
+using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -202,6 +202,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionSaveCurrentSetupResult SaveCurrentSetupWithinStableBoundary(CollectionSaveCurrentSetupRequest request,
 			IProgress<CollectionLocalCaptureProgress> progress, CancellationToken cancellationToken, GameStoragePathSet paths, CollectionTargetIdentity target)
 		{
+			CollectionPerformanceMetrics.ResetLocalCaptureOwnerPayloadMetrics();
 			var store = new CollectionsStore(paths);
 			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(store);
 			var associationStore = new CollectionsAssociationStore(store);
@@ -222,14 +223,13 @@ namespace Nexus.Client.CollectionManagement
 					_services.PluginManager, _services.ModManager.GameMode);
 				var installedIdentityReader = new CollectionInstalledIdentityCaptureReader(nativeStateReader,
 					associationStore, _services.ModRepository.GameDomainName);
-				var ownerPayloadCapture = new CollectionOwnerPayloadCaptureService(nativeStateReader, artifactStore, referenceStore);
 				var scriptedReplayCapture = new CollectionScriptedReplayCaptureService(nativeStateReader,
 					installedIdentityReader, artifactStore, referenceStore);
 				var nativeEffectCapture = new CollectionNativeEffectCaptureReader(nativeStateReader);
-				FOModFormat fomodFormat = _services.ModManager.ModFormats.OfType<FOModFormat>().FirstOrDefault();
+				IModFormatUserMetadata userMetadataFormat = _services.ModManager.ModFormats
+					.FirstOrDefault(x => String.Equals(x.Id, "FOMod", StringComparison.OrdinalIgnoreCase)) as IModFormatUserMetadata;
 				var userMetadataCapture = new CollectionUserMetadataCaptureService(nativeStateReader, installedIdentityReader,
-					_services.ModManager.SortOrderService, fomodFormat == null ? null : fomodFormat.UserMetadataReader,
-					artifactStore, referenceStore);
+					_services.ModManager.SortOrderService, userMetadataFormat, artifactStore, referenceStore);
 				var nativeIndexReader = new CollectionNativeStateReader(_services.ModManager.InstallationLog,
 					_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, associationStore);
 
@@ -237,6 +237,8 @@ namespace Nexus.Client.CollectionManagement
 				NativeStateCaptureSnapshot nativeState = nativeStateReader.Capture();
 				CollectionNativeStateIndex capturedIndex = nativeIndexReader.Capture(target, nativeState);
 				CollectionInstalledIdentitySnapshot installedIdentities = installedIdentityReader.Capture(target, nativeState);
+				var ownerPayloadEvidence = new CollectionOwnerPayloadArchiveEvidenceSource(_services.ModManager.InstallationLog, installedIdentities, _services.ModManager.GameMode);
+				var ownerPayloadCapture = new CollectionOwnerPayloadCaptureService(nativeStateReader, artifactStore, referenceStore, ownerPayloadEvidence);
 				CollectionRevision revision = new CollectionRevision(revisionIdentity, "Captured setup", null,
 					installedIdentities.Mods.Count);
 				IReadOnlyList<LocalCaptureNativeRecordMapping> mappings = CreateNativeMappings(captureIdentity, target,

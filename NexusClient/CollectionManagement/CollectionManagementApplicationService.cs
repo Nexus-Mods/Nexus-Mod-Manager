@@ -206,6 +206,37 @@ namespace Nexus.Client.CollectionManagement
 		}
 	}
 
+	/// <summary>Durable source binding for one interrupted Local Collection restore operation.</summary>
+	public sealed class CollectionManagementLocalRestoreRecoverySource
+	{
+		internal CollectionManagementLocalRestoreRecoverySource(CollectionOperation operation, LocalCaptureIdentity captureIdentity,
+			string displayName, string revisionLabel, string diagnostic)
+		{
+			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
+			CaptureIdentity = captureIdentity;
+			DisplayName = displayName ?? String.Empty;
+			RevisionLabel = revisionLabel ?? String.Empty;
+			Diagnostic = diagnostic ?? String.Empty;
+		}
+
+		public CollectionOperation Operation { get; }
+		public CollectionOperationIdentity OperationIdentity { get { return Operation.Identity; } }
+		public LocalCaptureIdentity CaptureIdentity { get; }
+		public string DisplayName { get; }
+		public string RevisionLabel { get; }
+		public string Diagnostic { get; }
+		public bool HasResolvedCapture { get { return CaptureIdentity != null && !String.IsNullOrWhiteSpace(DisplayName); } }
+
+		public string SourceDisplayName
+		{
+			get
+			{
+				if (!HasResolvedCapture) return "Unknown Local Collection";
+				return String.IsNullOrWhiteSpace(RevisionLabel) ? DisplayName : DisplayName + " - " + RevisionLabel;
+			}
+		}
+	}
+
 	/// <summary>One mutable Local Collection working copy cloned from an exact retained source revision.</summary>
 	public sealed class CollectionManagementLocalWorkingCopy
 	{
@@ -652,6 +683,59 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionManagementLocalCapture>(result
 				.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase)
 				.ThenBy(x => x.RevisionLabel, StringComparer.CurrentCultureIgnoreCase).ToList());
+		}
+
+		/// <summary>Returns the exact sealed Local Collection sources bound to interrupted Local restore operations for the current target.</summary>
+		/// <remarks>This is diagnostic/read-only state. The selected Local Collection combo never changes the durable restore intent.</remarks>
+		public IReadOnlyList<CollectionManagementLocalRestoreRecoverySource> GetInterruptedLocalRestoreSources()
+		{
+			if (!_store.Exists)
+				return new CollectionManagementLocalRestoreRecoverySource[0];
+
+			CollectionTargetIdentity target = ResolveCurrentTarget();
+			var artifactStore = new CollectionsRetainedArtifactStore(_store);
+			var referenceStore = new CollectionsRetainedArtifactReferenceStore(_store);
+			var result = new List<CollectionManagementLocalRestoreRecoverySource>();
+			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
+				.Where(x => x.Kind == CollectionOperationKind.RestoreLocalCapture).OrderBy(x => x.Identity.OperationId))
+			{
+				LocalCaptureIdentity captureIdentity = null;
+				string displayName = null;
+				string revisionLabel = null;
+				string diagnostic = null;
+				try
+				{
+					CollectionsRetainedArtifactReferenceRecord reference = referenceStore.GetReferenceForOwnerRole(
+						CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.OperationId.ToString("D"), "local-restore-plan-v1");
+					if (reference == null || !artifactStore.VerifyArtifact(reference.ArtifactId))
+						throw new InvalidDataException("The durable Local restore intent is missing or failed retained-artifact verification.");
+					byte[] bytes;
+					using (Stream source = artifactStore.OpenRead(reference.ArtifactId))
+					using (var buffer = new MemoryStream())
+					{
+						source.CopyTo(buffer);
+						bytes = buffer.ToArray();
+					}
+					captureIdentity = CollectionLocalRestoreIntentCodec.ReadCaptureIdentity(bytes);
+					LocalCapture capture = _localCaptureStore.GetCapture(captureIdentity);
+					if (capture == null)
+						throw new InvalidDataException("The durable Local restore intent references a Local Collection that is no longer persisted.");
+					if (!capture.SourceTarget.Equals(operation.Target) || operation.Revision == null || !capture.Revision.Equals(operation.Revision))
+						throw new InvalidDataException("The durable Local restore intent source does not match the interrupted operation revision or target.");
+					CollectionDefinition definition = _catalogStore.GetDefinition(capture.Revision.Collection);
+					CollectionRevision revision = _catalogStore.GetRevision(capture.Revision);
+					displayName = definition == null || String.IsNullOrWhiteSpace(definition.DisplayName)
+						? capture.Revision.Collection.StableId : definition.DisplayName;
+					revisionLabel = revision == null || String.IsNullOrWhiteSpace(revision.RevisionLabel)
+						? "Local revision " + capture.Revision.StableRevisionId : revision.RevisionLabel;
+				}
+				catch (Exception ex) when (ex is InvalidDataException || ex is InvalidOperationException || ex is IOException || ex is ArgumentException)
+				{
+					diagnostic = ex.Message;
+				}
+				result.Add(new CollectionManagementLocalRestoreRecoverySource(operation, captureIdentity, displayName, revisionLabel, diagnostic));
+			}
+			return new ReadOnlyCollection<CollectionManagementLocalRestoreRecoverySource>(result);
 		}
 
 		/// <summary>Returns mutable Local Collection working copies persisted in this game/storage Collections store.</summary>

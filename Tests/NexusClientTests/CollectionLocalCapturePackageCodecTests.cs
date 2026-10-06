@@ -32,6 +32,7 @@ namespace NexusClientTests
 			Assert.AreEqual(17, inspection.DeploymentCommitSequence);
 			StringAssert.Contains("\"installedIdentities\"", json);
 			StringAssert.Contains("\"ownerPayloads\"", json);
+			StringAssert.Contains("\"PayloadSource\"", json);
 			StringAssert.Contains("\"scriptedReplay\"", json);
 			StringAssert.Contains("\"nativeEffects\"", json);
 			StringAssert.Contains("\"userMetadata\"", json);
@@ -58,9 +59,50 @@ namespace NexusClientTests
 			Assert.AreEqual("native-a", restored.InstalledIdentities.Mods[0].NativeSnapshotKey);
 			Assert.AreEqual(ModInstallMethod.Direct, restored.InstalledIdentities.Mods[0].InstallContext.Method);
 			Assert.AreEqual("example.bin", restored.OwnerPayloads.Targets[0].Target.RelativePath);
+			Assert.AreEqual(CollectionOwnerPayloadSourceKind.CapturedArtifact,
+				restored.OwnerPayloads.Targets[0].Owners[0].PayloadSource.Kind);
+			Assert.AreEqual("artifact-c78", restored.OwnerPayloads.Targets[0].Owners[0].PayloadSource.CapturedArtifact.StableArtifactId);
 			Assert.AreEqual(CollectionOwnerPayloadVirtualFallbackState.NotApplicable,
 				restored.OwnerPayloads.Targets[0].VirtualFallback.State);
 			Assert.AreEqual(new string('a', 64), restored.Capture.RetainedArtifacts[0].ContentHash.Value);
+		}
+
+		[Test]
+		public void SerializeAndDeserialize_V2ArchiveBackedOwnerPreservesReconstructionDescriptor()
+		{
+			CollectionSealedCaptureSnapshot restored = CollectionLocalCapturePackageCodec.Deserialize(
+				CollectionLocalCapturePackageCodec.Serialize(CreateSealedResult(true)));
+
+			CollectionOwnerPayloadOwner owner = restored.OwnerPayloads.Targets[0].Owners[0];
+			Assert.IsNull(owner.RetainedPayload);
+			Assert.AreEqual(CollectionOwnerPayloadSourceKind.ArchiveBacked, owner.PayloadSource.Kind);
+			Assert.AreEqual(CollectionOwnerPayloadArchiveBackedKind.ExactArchiveEntry,
+				owner.PayloadSource.ArchiveBacked.ReconstructionKind);
+			Assert.AreEqual("native-a", owner.PayloadSource.ArchiveBacked.NativeSnapshotKey);
+			Assert.AreEqual("example.bin", owner.PayloadSource.ArchiveBacked.ArchiveEntryPath);
+			Assert.AreEqual("prepared-native-c78", owner.PayloadSource.ArchiveBacked.ReconstructionIdentity);
+			Assert.AreEqual(new string('a', 64), owner.PayloadSource.ExpectedContentHash.Value);
+			Assert.AreEqual(123, owner.PayloadSource.ExpectedByteLength);
+		}
+
+		[Test]
+		public void Deserialize_LegacyV1BlobOwnerIsAdaptedToCapturedArtifactSource()
+		{
+			CollectionCaptureSealResult result = CreateSealedResult();
+			JObject root = JObject.Parse(Encoding.UTF8.GetString(CollectionLocalCapturePackageCodec.Serialize(result)));
+			root["formatVersion"] = 1;
+			JObject owner = (JObject)root["ownerPayloads"]["Targets"][0]["Owners"][0];
+			owner.Remove("PayloadSource");
+
+			CollectionSealedCaptureSnapshot restored = CollectionLocalCapturePackageCodec.Deserialize(
+				Encoding.UTF8.GetBytes(root.ToString(Formatting.None)));
+
+			CollectionOwnerPayloadOwner restoredOwner = restored.OwnerPayloads.Targets[0].Owners[0];
+			Assert.IsNotNull(restoredOwner.RetainedPayload);
+			Assert.IsNotNull(restoredOwner.PayloadSource);
+			Assert.AreEqual(CollectionOwnerPayloadSourceKind.CapturedArtifact, restoredOwner.PayloadSource.Kind);
+			Assert.AreEqual(restoredOwner.RetainedPayload.StableArtifactId,
+				restoredOwner.PayloadSource.CapturedArtifact.StableArtifactId);
 		}
 
 		[Test]
@@ -86,7 +128,7 @@ namespace NexusClientTests
 				restored.OwnerPayloads.Targets[0].VirtualFallback.State);
 		}
 
-		private static CollectionCaptureSealResult CreateSealedResult()
+		private static CollectionCaptureSealResult CreateSealedResult(bool archiveBacked = false)
 		{
 			CollectionIdentity collection = CollectionIdentity.FromLocal(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
 			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromLocal(collection,
@@ -113,13 +155,18 @@ namespace NexusClientTests
 				new[] { installed }, NativeStateCaptureCoverage.Complete, new CollectionInstalledIdentityIssue[0]);
 			ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "example.bin");
 			var retention = new CollectionOwnerPayloadRetention(retained.StableArtifactId, retained.Role, retained.ContentHash, retained.ByteLength);
+			CollectionOwnerPayloadSource payloadSource = archiveBacked
+				? CollectionOwnerPayloadSource.FromArchiveBacked(new CollectionOwnerPayloadArchiveBackedDescriptor(
+					CollectionOwnerPayloadArchiveBackedDescriptor.CurrentFormatVersion,
+					CollectionOwnerPayloadArchiveBackedKind.ExactArchiveEntry, "native-a", "example.bin", "prepared-native-c78"), hash, 123)
+				: CollectionOwnerPayloadSource.FromCapturedArtifact(retention);
 			var ownerPayloads = new CollectionOwnerPayloadSnapshot(target, captureIdentity, 17,
 				new[]
 				{
 					new CollectionOwnerPayloadTarget(deploymentTarget, true, new[]
 					{
 						new CollectionOwnerPayloadOwner(0, "native-a", String.Empty,
-							NativeStateCaptureDeploymentOwnerKind.Direct, true, retention)
+							NativeStateCaptureDeploymentOwnerKind.Direct, true, archiveBacked ? null : retention, payloadSource)
 					})
 				}, NativeStateCaptureCoverage.Complete, new CollectionOwnerPayloadIssue[0]);
 			var replay = new CollectionScriptedReplaySnapshot(target, captureIdentity, 17,

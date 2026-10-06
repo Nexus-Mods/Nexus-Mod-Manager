@@ -124,6 +124,7 @@
 				}
 				if (m_ilgInstallLog.IsDeploymentTargetPromoted(target))
 					m_ilgInstallLog.RemoveDeploymentTarget(target);
+				RemoveResidualVirtualLinkRecords(target);
 				return;
 			}
 
@@ -134,6 +135,22 @@
 				if (mod == null)
 					throw new InvalidOperationException("The current Virtual deployment target contains an unresolved native owner.");
 				RemovePureVirtualOwner(target, virtualOwners[index], fileManager, absent);
+			}
+			RemoveResidualVirtualLinkRecords(target);
+		}
+
+		/// <summary>Removes stale duplicate VMA records that can survive an interrupted/recovered exact restore.</summary>
+		private void RemoveResidualVirtualLinkRecords(ModDeploymentTarget target)
+		{
+			while (true)
+			{
+				IReadOnlyList<string> residualOwners = m_vmaVirtualModActivator.GetVirtualOwnerKeys(target);
+				if (residualOwners.Count == 0)
+					return;
+
+				// GetVirtualOwnerKeys deliberately de-duplicates owner keys. RemoveVirtualLinkRecord removes one
+				// concrete record, so repeat until every duplicate record for the exact target is gone.
+				m_vmaVirtualModActivator.RemoveVirtualLinkRecord(target, residualOwners[residualOwners.Count - 1]);
 			}
 		}
 

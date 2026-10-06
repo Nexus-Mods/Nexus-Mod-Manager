@@ -271,6 +271,74 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void Capture_EligibleManagedPayloadUsesArchiveBackedSourceWithoutPublishingStandaloneBlob()
+		{
+			string root = CreateTemporaryDirectory("nmm-c12-step2b-archive-");
+			try
+			{
+				string payloadPath = WritePayload(root, "managed.bin", "managed");
+				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "managed.bin");
+				InstallLogReadSnapshot install = CreateInstall(new[] { CreateMod("direct-a", ModInstallMethod.Direct) },
+					new InstallLogReadFile[0], new[] { new InstallLogReadDeploymentTarget(deploymentTarget, new[] { "direct-a" }) });
+				NativeStateCaptureSnapshot nativeState = CreateNativeState(install, new VirtualModReadLink[0],
+					new[] { new NativeStateCaptureDeploymentTarget(deploymentTarget, payloadPath,
+						new[] { new NativeStateCaptureDeploymentOwner("direct-a", NativeStateCaptureDeploymentOwnerKind.Direct, true, payloadPath) }) },
+					NativeStateCaptureCoverage.Complete);
+				CollectionsStore store;
+				CollectionOwnerPayloadCaptureService service = CreateService(root, out store,
+					new StubArchiveEvidenceSource(true));
+
+				CollectionOwnerPayloadSnapshot snapshot = service.Capture(CollectionTargetIdentity.FromFingerprint("target-step2b-archive"),
+					LocalCaptureIdentity.From(Guid.Parse("10000000-0000-0000-0000-000000000010")), nativeState, CancellationToken.None);
+
+				CollectionOwnerPayloadOwner owner = snapshot.Targets.Single().CurrentWinner;
+				Assert.IsNull(owner.RetainedPayload);
+				Assert.IsNotNull(owner.PayloadSource);
+				Assert.AreEqual(CollectionOwnerPayloadSourceKind.ArchiveBacked, owner.PayloadSource.Kind);
+				Assert.AreEqual("direct-a", owner.PayloadSource.ArchiveBacked.NativeSnapshotKey);
+				Assert.AreEqual(0, new CollectionsRetainedArtifactReferenceStore(store)
+					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, snapshot.CaptureIdentity.ToString()).Count);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Capture_ChangedManagedPayloadFallsBackToExistingByteRetention()
+		{
+			string root = CreateTemporaryDirectory("nmm-c12-step2b-fallback-");
+			try
+			{
+				string payloadPath = WritePayload(root, "managed.bin", "changed");
+				ModDeploymentTarget deploymentTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "managed.bin");
+				InstallLogReadSnapshot install = CreateInstall(new[] { CreateMod("direct-a", ModInstallMethod.Direct) },
+					new InstallLogReadFile[0], new[] { new InstallLogReadDeploymentTarget(deploymentTarget, new[] { "direct-a" }) });
+				NativeStateCaptureSnapshot nativeState = CreateNativeState(install, new VirtualModReadLink[0],
+					new[] { new NativeStateCaptureDeploymentTarget(deploymentTarget, payloadPath,
+						new[] { new NativeStateCaptureDeploymentOwner("direct-a", NativeStateCaptureDeploymentOwnerKind.Direct, true, payloadPath) }) },
+					NativeStateCaptureCoverage.Complete);
+				CollectionsStore store;
+				CollectionOwnerPayloadCaptureService service = CreateService(root, out store,
+					new StubArchiveEvidenceSource(false));
+
+				CollectionOwnerPayloadSnapshot snapshot = service.Capture(CollectionTargetIdentity.FromFingerprint("target-step2b-fallback"),
+					LocalCaptureIdentity.From(Guid.Parse("10000000-0000-0000-0000-000000000011")), nativeState, CancellationToken.None);
+
+				CollectionOwnerPayloadOwner owner = snapshot.Targets.Single().CurrentWinner;
+				Assert.IsNotNull(owner.RetainedPayload);
+				Assert.AreEqual(CollectionOwnerPayloadSourceKind.CapturedArtifact, owner.PayloadSource.Kind);
+				Assert.AreEqual(1, new CollectionsRetainedArtifactReferenceStore(store)
+					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, snapshot.CaptureIdentity.ToString()).Count);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		private static InstallLogReadSnapshot CreateInstall(IEnumerable<InstallLogReadMod> mods,
 			IEnumerable<InstallLogReadFile> files, IEnumerable<InstallLogReadDeploymentTarget> deploymentTargets)
 		{
@@ -300,6 +368,12 @@ namespace NexusClientTests
 
 		private static CollectionOwnerPayloadCaptureService CreateService(string root, out CollectionsStore store)
 		{
+			return CreateService(root, out store, null);
+		}
+
+		private static CollectionOwnerPayloadCaptureService CreateService(string root, out CollectionsStore store,
+			ICollectionOwnerPayloadArchiveEvidenceSource archiveEvidenceSource)
+		{
 			store = new CollectionsStore(Path.Combine(root, "Collections"));
 			store.CreateNew();
 			IInstallLog installLog = InterfaceStub<IInstallLog>.Create((method, args) => null);
@@ -307,7 +381,27 @@ namespace NexusClientTests
 			IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) => null);
 			var nativeReader = new NativeStateCaptureReader(installLog, virtualModActivator, null, null, gameMode);
 			return new CollectionOwnerPayloadCaptureService(nativeReader,
-				new CollectionsRetainedArtifactStore(store), new CollectionsRetainedArtifactReferenceStore(store));
+				new CollectionsRetainedArtifactStore(store), new CollectionsRetainedArtifactReferenceStore(store), archiveEvidenceSource);
+		}
+
+		private sealed class StubArchiveEvidenceSource : ICollectionOwnerPayloadArchiveEvidenceSource
+		{
+			private readonly bool _matches;
+
+			internal StubArchiveEvidenceSource(bool matches)
+			{
+				_matches = matches;
+			}
+
+			public CollectionOwnerPayloadReconstructionCandidate CreateCandidate(NativeStateCaptureDeploymentOwnerKind ownerKind,
+				string ownerKey, ModDeploymentTarget target, string payloadSourcePath, CancellationToken cancellationToken)
+			{
+				CollectionContentHash expected = CollectionContentHash.FromSha256(new string('a', 64));
+				CollectionContentHash observed = _matches ? expected : CollectionContentHash.FromSha256(new string('b', 64));
+				return new CollectionOwnerPayloadReconstructionCandidate(ownerKind,
+					CollectionOwnerPayloadReconstructionMappingKind.ExactArchiveEntry, true, false, ownerKey,
+					target.RelativePath, "step2b-test-proof", expected, 7, observed, 7);
+			}
 		}
 
 		private static string CreateTemporaryDirectory(string prefix)

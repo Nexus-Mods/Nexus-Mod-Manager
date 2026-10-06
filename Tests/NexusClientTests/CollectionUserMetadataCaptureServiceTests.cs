@@ -9,6 +9,7 @@ using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.Mods;
 using Nexus.Client.Mods.Formats.FOMod;
 using NUnit.Framework;
 
@@ -36,8 +37,8 @@ namespace NexusClientTests
 				CollectionsStore store;
 				CollectionUserMetadataCaptureService service = CreateService(root, true, path =>
 					new ModSortOrderRecord(7, path, "100", "200", 42, ModSortOrderAssignmentState.ExplicitNumeric, DateTime.UtcNow),
-					true, path => new FOModScreenshotOverrideReadResult(FOModScreenshotOverrideReadState.Current,
-						new FOModScreenshotOverrideRecord(123, 456, "fomod\\screenshot.png",
+					true, path => new ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState.Current,
+						new ModFormatScreenshotOverrideRecord(123, 456, "fomod\\screenshot.png",
 							Encoding.UTF8.GetBytes("custom-screenshot"), 789)), out store);
 				LocalCaptureIdentity captureIdentity = LocalCaptureIdentity.From(
 					Guid.Parse("30000000-0000-0000-0000-000000000001"));
@@ -57,6 +58,51 @@ namespace NexusClientTests
 				Assert.AreEqual(123, screenshot.SourceArchiveLength);
 				AssertRetainedText(store, screenshot.RetainedArtifact, "custom-screenshot");
 				Assert.AreEqual(1, new CollectionsRetainedArtifactReferenceStore(store)
+					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, captureIdentity.ToString()).Count);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Capture_SharedArchivePathDoesNotMakeScreenshotCoverageAmbiguous()
+		{
+			string root = CreateTemporaryDirectory("nmm-c76-shared-screenshot-");
+			try
+			{
+				string archivePath = Path.Combine(root, "Shared.zip");
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c76-shared-screenshot");
+				InstallLogReadSnapshot install = CreateInstall(new[]
+				{
+					CreateInstallMod("native-a", archivePath, "100", "200"),
+					CreateInstallMod("native-b", archivePath, "101", "201")
+				});
+				NativeStateCaptureSnapshot nativeState = CreateNativeState(install);
+				CollectionInstalledIdentitySnapshot identities = CreateIdentities(target, install, new[]
+				{
+					CreateInstalledMod("native-a", archivePath, "100", "200"),
+					CreateInstalledMod("native-b", archivePath, "101", "201")
+				});
+				CollectionsStore store;
+				CollectionUserMetadataCaptureService service = CreateService(root, true, path =>
+					new ModSortOrderRecord(1, path, null, null, null, ModSortOrderAssignmentState.BaselineBlank, DateTime.UtcNow),
+					true, path => new ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState.Current,
+						new ModFormatScreenshotOverrideRecord(123, 456, "fomod\\screenshot.png",
+							Encoding.UTF8.GetBytes("shared-screenshot"), 789)), out store);
+				LocalCaptureIdentity captureIdentity = LocalCaptureIdentity.From(
+					Guid.Parse("30000000-0000-0000-0000-000000000007"));
+
+				CollectionUserMetadataSnapshot snapshot = service.Capture(target, captureIdentity,
+					nativeState, identities, CancellationToken.None);
+
+				Assert.AreEqual(NativeStateCaptureCoverage.Complete, snapshot.ScreenshotCoverage);
+				Assert.AreEqual(2, snapshot.ScreenshotOverrides.Count);
+				CollectionAssert.AreEquivalent(new[] { "native-a", "native-b" },
+					snapshot.ScreenshotOverrides.Select(x => x.NativeSnapshotKey).ToArray());
+				Assert.IsFalse(snapshot.Issues.Any(x => x.Kind == CollectionUserMetadataIssueKind.AmbiguousArchiveMetadataBinding));
+				Assert.AreEqual(2, new CollectionsRetainedArtifactReferenceStore(store)
 					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, captureIdentity.ToString()).Count);
 			}
 			finally
@@ -91,7 +137,7 @@ namespace NexusClientTests
 					if (path.EndsWith("Blank.zip", StringComparison.OrdinalIgnoreCase))
 						return new ModSortOrderRecord(1, path, "101", "201", null, ModSortOrderAssignmentState.ExplicitBlank, DateTime.UtcNow);
 					return new ModSortOrderRecord(2, path, "102", "202", 12, ModSortOrderAssignmentState.InheritedNumeric, DateTime.UtcNow);
-				}, true, path => new FOModScreenshotOverrideReadResult(FOModScreenshotOverrideReadState.None, null), out store);
+				}, true, path => new ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState.None, null), out store);
 
 				CollectionUserMetadataSnapshot snapshot = service.Capture(target,
 					LocalCaptureIdentity.From(Guid.Parse("30000000-0000-0000-0000-000000000002")),
@@ -201,8 +247,8 @@ namespace NexusClientTests
 				CollectionsStore store;
 				CollectionUserMetadataCaptureService service = CreateService(root, true, path =>
 					new ModSortOrderRecord(1, path, "100", "200", null, ModSortOrderAssignmentState.BaselineBlank, DateTime.UtcNow),
-					true, path => new FOModScreenshotOverrideReadResult(FOModScreenshotOverrideReadState.Stale,
-						new FOModScreenshotOverrideRecord(1, 2, "fomod\\old.png", new byte[] { 1, 2, 3 }, 4)), out store);
+					true, path => new ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState.Stale,
+						new ModFormatScreenshotOverrideRecord(1, 2, "fomod\\old.png", new byte[] { 1, 2, 3 }, 4)), out store);
 				LocalCaptureIdentity captureIdentity = LocalCaptureIdentity.From(
 					Guid.Parse("30000000-0000-0000-0000-000000000004"));
 
@@ -237,8 +283,8 @@ namespace NexusClientTests
 				CollectionsStore store;
 				CollectionUserMetadataCaptureService service = CreateService(root, true, path =>
 					new ModSortOrderRecord(1, path, "100", "200", null, ModSortOrderAssignmentState.BaselineBlank, DateTime.UtcNow),
-					true, path => new FOModScreenshotOverrideReadResult(FOModScreenshotOverrideReadState.Current,
-						new FOModScreenshotOverrideRecord(1, 2, "fomod\\shot.png", current, 3)), out store);
+					true, path => new ModFormatScreenshotOverrideReadResult(ModFormatScreenshotOverrideReadState.Current,
+						new ModFormatScreenshotOverrideRecord(1, 2, "fomod\\shot.png", current, 3)), out store);
 				LocalCaptureIdentity captureIdentity = LocalCaptureIdentity.From(
 					Guid.Parse("30000000-0000-0000-0000-000000000005"));
 				service.Capture(target, captureIdentity, nativeState, identities, CancellationToken.None);
@@ -256,7 +302,7 @@ namespace NexusClientTests
 
 		private static CollectionUserMetadataCaptureService CreateService(string root, bool sortAvailable,
 			Func<string, ModSortOrderRecord> sortReader, bool screenshotAvailable,
-			Func<string, FOModScreenshotOverrideReadResult> screenshotReader, out CollectionsStore store)
+			Func<string, ModFormatScreenshotOverrideReadResult> screenshotReader, out CollectionsStore store)
 		{
 			store = new CollectionsStore(Path.Combine(root, "Collections"));
 			store.CreateNew();

@@ -247,7 +247,7 @@ namespace Nexus.Client.CollectionManagement
 				!operation.HasUnreconciledNativeChild && !operation.HasUnknownNativeDurability;
 		}
 
-		private static bool IsExactCompletedMemberBoundary(CollectionLocalRestoreMemberRehydrationResult rehydration)
+		internal static bool IsExactCompletedMemberBoundary(CollectionLocalRestoreMemberRehydrationResult rehydration)
 		{
 			if (rehydration == null || rehydration.SealedCapture == null || rehydration.ReviewedPlan == null ||
 				rehydration.CurrentPlan == null || rehydration.CurrentPlan.Issues.Count != 0)
@@ -255,9 +255,7 @@ namespace Nexus.Client.CollectionManagement
 			if (rehydration.Members.Count != rehydration.ReviewedPlan.Members.Count ||
 				rehydration.Members.Any(x => !x.IsComplete) ||
 				rehydration.Removals.Any(x => !x.IsComplete || x.RequiresRecovery) ||
-				rehydration.CurrentPlan.CurrentNativeKeysToRemove.Count != 0 ||
-				rehydration.CurrentPlan.Members.Count != rehydration.ReviewedPlan.Members.Count ||
-				rehydration.CurrentPlan.Members.Any(x => x.Action != CollectionLocalRestoreMemberAction.ReuseExistingNative))
+				rehydration.CurrentPlan.Members.Count != rehydration.ReviewedPlan.Members.Count)
 				return false;
 
 			var remaps = new Dictionary<CollectionMemberKey, CollectionLocalRestoreMemberRemap>();
@@ -269,11 +267,11 @@ namespace Nexus.Client.CollectionManagement
 			}
 			if (remaps.Count != rehydration.ReviewedPlan.Members.Count)
 				return false;
-			foreach (CollectionLocalRestoreMemberPlan current in rehydration.CurrentPlan.Members)
+			foreach (CollectionLocalRestoreMemberProgress progress in rehydration.Members)
 			{
 				CollectionLocalRestoreMemberRemap remap;
-				if (!remaps.TryGetValue(current.SnapshotMemberKey, out remap) || String.IsNullOrWhiteSpace(current.CurrentNativeKey) ||
-					!StringComparer.OrdinalIgnoreCase.Equals(current.CurrentNativeKey, remap.NativeKey))
+				if (!remaps.TryGetValue(progress.ReviewedMember.SnapshotMemberKey, out remap) || String.IsNullOrWhiteSpace(progress.CurrentNativeKey) ||
+					!StringComparer.OrdinalIgnoreCase.Equals(progress.CurrentNativeKey, remap.NativeKey))
 					return false;
 			}
 			return true;
