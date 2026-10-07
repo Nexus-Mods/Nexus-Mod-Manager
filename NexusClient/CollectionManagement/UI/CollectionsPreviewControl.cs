@@ -71,6 +71,11 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly Button _installButton;
 		private readonly Button _primaryIncomingActionButton;
 		private Button _primaryIncomingActionSource;
+		private bool _primaryIncomingReviewsBlockedIssues;
+		private bool _primaryIncomingReviewsRevisionOwnership;
+		private CollectionRevisionUpdatePlan _blockedRevisionUpdatePlan;
+		private readonly Label _previewContextLabel;
+		private readonly FlowLayoutPanel _incomingActionsPanel;
 		private readonly CheckBox _replacementBackupCheckBox;
 		private readonly Button _replaceButton;
 		private readonly Button _clearButton;
@@ -133,6 +138,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> _recoveryResults = new CollectionAdditiveWorkflowRecoveryResult[0];
 		private IReadOnlyList<CollectionLocalRestoreWorkflowResult> _localRestoreRecoveryResults = new CollectionLocalRestoreWorkflowResult[0];
 		private IReadOnlyList<CollectionManagementLocalRestoreRecoverySource> _localRestoreRecoverySources = new CollectionManagementLocalRestoreRecoverySource[0];
+		private CollectionManagementLocalRestoreRecoverySource _stoppedLocalRestoreSource;
 		private IReadOnlyList<CollectionRevisionUpdateWorkflowResult> _revisionUpdateRecoveryResults = new CollectionRevisionUpdateWorkflowResult[0];
 		private IReadOnlyList<CollectionVerifyRepairRecoveryResult> _verifyRepairRecoveryResults = new CollectionVerifyRepairRecoveryResult[0];
 		private CancellationTokenSource _previewCancellation;
@@ -230,12 +236,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Dock = DockStyle.Fill,
 				ColumnCount = 1,
-				RowCount = 6,
+				RowCount = 8,
 				Padding = new Padding(8)
 			};
 			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			root.RowStyles.Add(new RowStyle(SizeType.Absolute, 82F));
+			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -301,7 +309,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_manageAssociationRemovalButton = new Button
 			{
 				AutoSize = true,
-				Text = L("Collections.Actions.ManageRemoval", "Remove / stop tracking..."),
+				Text = L("Collections.Actions.UninstallCollection", "Uninstall Collection..."),
 				Enabled = false
 			};
 			_manageAssociationRemovalButton.Click += ManageAssociationRemovalButton_Click;
@@ -493,16 +501,20 @@ namespace Nexus.Client.CollectionManagement.UI
 				_localWorkingCopyCombo, _editLocalWorkingCopyButton, _saveLocalWorkingCopyRevisionButton);
 			Control installedGroup = CreateActionGroup(L("Collections.Context.Installed", "Installed Collection"),
 				_managedAssociationCombo, _compareUpdateButton, _verifyRepairButton, _manageAssociationRemovalButton, _cloneManagedAssociationButton);
+			Label previewContextLabel;
+			FlowLayoutPanel incomingActionsPanel;
 			Control incomingGroup = CreateActionGroup(L("Collections.Context.Incoming", "Incoming Collection"),
+				out previewContextLabel, out incomingActionsPanel,
 				_primaryIncomingActionButton, _importButton, _autoOverwriteArchivesCheckBox,
 				_replacementBackupCheckBox, _replaceButton, _clearButton,
 				_downloadPrepareButton, _resolveFileConflictsButton, _resumeButton, _openPendingButton, _installButton);
+			_previewContextLabel = previewContextLabel;
+			_incomingActionsPanel = incomingActionsPanel;
+			incomingGroup.Dock = DockStyle.Fill;
 			Control supportGroup = CreateActionGroup(L("Collections.Context.Support", "Support"), _exportTechnicalReportButton);
 
-			// Put the task the user is currently trying to complete first. Installed management is the next row;
-			// Local/working-copy and diagnostic actions stay available without competing with the primary workflow.
-			toolbar.Controls.Add(incomingGroup);
-			toolbar.SetFlowBreak(incomingGroup, true);
+			// Keep the displayed Collection's actions, identity and summary together above setup management.
+			root.Controls.Add(incomingGroup, 0, 0);
 			toolbar.Controls.Add(installedGroup);
 			toolbar.SetFlowBreak(installedGroup, true);
 			toolbar.Controls.Add(currentSetupGroup);
@@ -510,9 +522,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			toolbar.Controls.Add(localWorkingCopyGroup);
 			toolbar.Controls.Add(supportGroup);
 			toolbar.SetFlowBreak(supportGroup, true);
-			toolbar.Controls.Add(_instructionLabel);
-			toolbar.SetFlowBreak(_instructionLabel, true);
-			root.Controls.Add(toolbar, 0, 0);
+			root.Controls.Add(_instructionLabel, 0, 3);
+			root.Controls.Add(toolbar, 0, 4);
 
 			var header = new TableLayoutPanel
 			{
@@ -586,7 +597,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			workflowStatusPanel.Controls.Add(_workflowActivityIconLabel, 0, 0);
 			workflowStatusPanel.Controls.Add(_workflowStatusLabel, 1, 0);
 			workflowStatusPanel.Controls.Add(_workflowEtaLabel, 2, 0);
-			root.Controls.Add(workflowStatusPanel, 0, 3);
+			root.Controls.Add(workflowStatusPanel, 0, 5);
 
 			var splitHeaders = new TableLayoutPanel
 			{
@@ -665,7 +676,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			membersHeaderPanel.Controls.Add(_memberFilterCombo);
 			splitHeaders.Controls.Add(membersHeaderPanel, 0, 0);
 			splitHeaders.Controls.Add(issuesHeaderPanel, 1, 0);
-			root.Controls.Add(splitHeaders, 0, 4);
+			root.Controls.Add(splitHeaders, 0, 6);
 
 			var contentGrid = new TableLayoutPanel
 			{
@@ -788,7 +799,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_reviewActionsView.Visible = false;
 			_reviewPanel.Controls.Add(_reviewActionsView, 0, 2);
 			contentGrid.Controls.Add(_reviewPanel, 1, 0);
-			root.Controls.Add(contentGrid, 0, 5);
+			root.Controls.Add(contentGrid, 0, 7);
 
 			_displayContext = CollectionUiContext.None(_previewGeneration);
 			RenderWorkflowActivity();
@@ -995,25 +1006,10 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				_localCaptureCombo.Items.Clear();
 				if (_managementWorkflow == null) return;
-				foreach (CollectionManagementLocalCapture capture in _managementWorkflow.GetLocalCaptures())
+				IReadOnlyList<CollectionManagementLocalCapture> captures = _managementWorkflow.GetLocalCaptures();
+				foreach (CollectionManagementLocalCapture capture in captures)
 					_localCaptureCombo.Items.Add(capture);
-				if (_localCaptureCombo.Items.Count > 0)
-				{
-					int selectedIndex = 0;
-					if (selectedId != null)
-					{
-						for (int index = 0; index < _localCaptureCombo.Items.Count; index++)
-						{
-							CollectionManagementLocalCapture candidate = _localCaptureCombo.Items[index] as CollectionManagementLocalCapture;
-							if (candidate != null && candidate.CaptureIdentity.Equals(selectedId))
-							{
-								selectedIndex = index;
-								break;
-							}
-						}
-					}
-					_localCaptureCombo.SelectedIndex = selectedIndex;
-				}
+				_localCaptureCombo.SelectedIndex = FindLocalCaptureSelectionIndex(captures, selectedId);
 			}
 			catch (Exception ex)
 			{
@@ -1024,6 +1020,21 @@ namespace Nexus.Client.CollectionManagement.UI
 				_localCaptureCombo.EndUpdate();
 				UpdateActionButtons();
 			}
+		}
+
+		/// <summary>Preserves only an exact saved capture selection; missing selections never fall back to the first entry.</summary>
+		internal static int FindLocalCaptureSelectionIndex(IReadOnlyList<CollectionManagementLocalCapture> captures, LocalCaptureIdentity selectedId)
+		{
+			if (captures == null) throw new ArgumentNullException(nameof(captures));
+			if (selectedId == null) return -1;
+			int selectedIndex = -1;
+			for (int index = 0; index < captures.Count; index++)
+			{
+				if (!captures[index].CaptureIdentity.Equals(selectedId)) continue;
+				if (selectedIndex >= 0) throw new InvalidDataException("The saved Local Collection selector contains a duplicate capture identity.");
+				selectedIndex = index;
+			}
+			return selectedIndex;
 		}
 
 		private void RefreshLocalWorkingCopies(CollectionIdentity selectedCollection = null)
@@ -1156,16 +1167,18 @@ namespace Nexus.Client.CollectionManagement.UI
 					{
 						try
 						{
+							CollectionManagementAssociationPresentation previous = _managedAssociationPresentation;
 							_managedAssociationPresentation = _managementWorkflow.GetAssociationPresentation(current.AssociationId);
+							bool stateChanged = !HasSameManagedAssociationState(previous, _managedAssociationPresentation);
 							ApplyManagedAssociationPresentation();
 							ApplyManagedAssociationMemberState(_managedAssociationPresentation);
-							if (_managedAssociationPresentation != null &&
+							if (stateChanged && _managedAssociationPresentation != null &&
 								_managedAssociationPresentation.Association.State != CollectionAssociationState.Applied)
 							{
 								RenderIssues(_snapshot, false, false);
 								AppendManagedAssociationIssues(_managedAssociationPresentation);
-								_workflowStatusLabel.Text = L("Collections.Workflow.ManagedStateChanged",
-									"Workflow: the installed Collection state changed outside this page; review the detected differences before further managed work.");
+								_workflowStatusLabel.Text = L("Collections.Workflow.ManagedStateReview",
+									"Workflow: the tracked installed Collection state changed; use Verify / Repair to review its current requirements.");
 							}
 						}
 						catch (Exception ex)
@@ -1184,6 +1197,35 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				ManagedAssociationsChanged(this, EventArgs.Empty);
 			}
+		}
+
+		/// <summary>Detects changes in the durable installed presentation without discarding an unchanged verification review.</summary>
+		internal static bool HasSameManagedAssociationState(CollectionManagementAssociationPresentation previous,
+			CollectionManagementAssociationPresentation current)
+		{
+			if (previous == null || current == null || previous.Association.AssociationId != current.Association.AssociationId ||
+				!previous.Association.Association.Revision.Equals(current.Association.Association.Revision) ||
+				!previous.Association.Association.Target.Equals(current.Association.Association.Target) ||
+				previous.Association.State != current.Association.State ||
+				previous.Association.LocalRestorePending != current.Association.LocalRestorePending ||
+				previous.HasRetainedManifest != current.HasRetainedManifest ||
+				!StringComparer.Ordinal.Equals(previous.RetainedSourceIssue, current.RetainedSourceIssue) ||
+				previous.Members.Count != current.Members.Count ||
+				previous.Customization.UserOverrides.Count != current.Customization.UserOverrides.Count ||
+				previous.Customization.DriftObservations.Count != current.Customization.DriftObservations.Count)
+				return false;
+			return previous.Members.All(x => current.Members.Any(y => x.MemberKey.Equals(y.MemberKey) &&
+				x.NativeMod.Equals(y.NativeMod) && x.Binding.VerifiedRecipe.Equals(y.Binding.VerifiedRecipe) &&
+				x.Binding.BindingKind == y.Binding.BindingKind && x.CollectionAssociationCount == y.CollectionAssociationCount &&
+				x.Provenance.StandaloneUse == y.Provenance.StandaloneUse)) &&
+				previous.Customization.UserOverrides.All(x => current.Customization.UserOverrides.Any(y =>
+					x.OverrideId == y.OverrideId && x.Requirement.Equals(y.Requirement) &&
+					x.BaselineState.Equals(y.BaselineState) && x.UserChosenState.Equals(y.UserChosenState) &&
+					StringComparer.Ordinal.Equals(x.Note, y.Note))) &&
+				previous.Customization.DriftObservations.All(x => current.Customization.DriftObservations.Any(y =>
+					x.ObservationId == y.ObservationId && x.Requirement.Equals(y.Requirement) &&
+					x.ExpectedState.Equals(y.ExpectedState) && x.ObservedState.Equals(y.ObservedState) &&
+					StringComparer.Ordinal.Equals(x.Detail, y.Detail)));
 		}
 
 		private void ShowSelectedManagedAssociation()
@@ -1254,8 +1296,22 @@ namespace Nexus.Client.CollectionManagement.UI
 					RenderManagedAssociationHeaderOnly(presentation);
 				}
 
-				_workflowStatusLabel.Text = L("Collections.Workflow.InstalledView",
-					"Workflow: viewing the durably tracked installed Collection; no mutation is in progress.");
+				CollectionRevisionUpdateWorkflowResult pending = FindInterruptedRevisionUpdateForAssociation(presentation.Association);
+				if (presentation.Association.PendingRevision != null)
+				{
+					_instructionLabel.Text = L("Collections.Update.InstalledPendingInstructions",
+						"The revision change is unfinished. This page shows the previous revision's saved bindings, not a verified current setup. Choose Open unfinished revision change to see the target revision and the blocking findings.");
+					_workflowStatusLabel.Text = L("Collections.Update.InstalledPendingStatus",
+						"Workflow: an unfinished revision change exists for this Collection. The previous revision is still recorded until completion.");
+					if (pending != null)
+					{
+						_operationSnapshot = pending.Operation;
+						AppendRevisionUpdateStopDiagnostics(pending);
+					}
+				}
+				else
+					_workflowStatusLabel.Text = L("Collections.Workflow.InstalledView",
+						"Workflow: viewing the durably tracked installed Collection; no mutation is in progress.");
 				BindMatchingRecovery();
 				UpdateActionButtons();
 			}
@@ -1282,7 +1338,13 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 			Dictionary<CollectionMemberKey, CollectionManagementMemberPresentation> managedMembers = presentation.Members
 				.ToDictionary(x => x.MemberKey, x => x);
-			bool applied = presentation.Association.State == CollectionAssociationState.Applied;
+			bool pendingRevision = presentation.Association.PendingRevision != null;
+			bool applied = !pendingRevision && presentation.Association.State == CollectionAssociationState.Applied;
+			CollectionRevisionUpdateWorkflowResult pending = FindInterruptedRevisionUpdateForAssociation(presentation.Association);
+			HashSet<CollectionMemberKey> removed = new HashSet<CollectionMemberKey>(pending == null
+				? Enumerable.Empty<CollectionMemberKey>() : pending.Operation.NativeChildren.Where(x =>
+					x.Action == CollectionNativeChildAction.Deactivate && x.IsReconciled && x.HasVerifiedCommittedNativeState)
+					.Select(x => x.Member.MemberKey));
 			_suppressMemberCheckEvents = true;
 			try
 			{
@@ -1303,8 +1365,10 @@ namespace Nexus.Client.CollectionManagement.UI
 							? L("Collections.Status.ActionRequired", "Action required")
 							: L("Collections.Status.Supported", "Supported");
 					if (item.SubItems.Count > 5)
-						item.SubItems[5].Text = bound
-							? FormatManagedMemberState(managedMember)
+						item.SubItems[5].Text = removed.Contains(member.IdentityResolution.Key)
+							? L("Collections.Update.MemberRemovedPending", "Removed during unfinished revision change")
+							: pendingRevision && bound ? L("Collections.Update.MemberPreviousBinding", "Previous revision binding; current state not verified")
+							: bound ? FormatManagedMemberState(managedMember)
 							: L("Collections.Member.ManagedState.NotBound", "Not part of installed recipe");
 				}
 			}
@@ -1418,7 +1482,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			AddReviewItem(CollectionReviewPresentationClassifier.ForAssociation(presentation.Association.State),
 				presentation.Association.State == CollectionAssociationState.Applied ? CollectionReviewItemKind.Progress : CollectionReviewItemKind.Diagnostic,
 				status, "association." + presentation.Association.State.ToString().ToLowerInvariant(),
-				presentation.Association.Association.Revision.ToString(), FormatManagedAssociationState(presentation.Association.State));
+				presentation.Association.Association.Revision.ToString(), FormatManagedAssociationState(presentation.Association.State), null,
+				presentation.Association.State == CollectionAssociationState.Incomplete
+					? L("Collections.Management.VerifyCurrentState", "Use Verify / Repair to check the current setup against this installed Collection revision.") : null);
 			if (!String.IsNullOrWhiteSpace(presentation.RetainedSourceIssue))
 			{
 				AddPresentedReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic, L("Collections.Status.ActionRequired", "Action required"),
@@ -1510,7 +1576,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionAssociationState.Modified:
 					return L("Collections.Management.State.Modified", "The installed Collection is still tracked, but the current installed state differs from the reviewed revision.");
 				case CollectionAssociationState.Incomplete:
-					return L("Collections.Management.State.Incomplete", "This installed Collection is incomplete. Review its current state and resume it before treating it as fully applied.");
+					return L("Collections.Management.State.IncompleteVerify", "This installed Collection has not been fully verified against its retained revision. Use Verify / Repair to assess the current setup and any remaining requirements.");
 				case CollectionAssociationState.Recovering:
 					return L("Collections.Management.State.Recovering", "This installed Collection needs recovery before NMM can safely make more managed changes.");
 				default:
@@ -2016,22 +2082,52 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_workflowBusy || _revisionUpdateWorkflow == null || _workflow == null || _snapshot == null || !_snapshot.HasConcreteRevision)
 				return;
 
+			if (_managedAssociationPresentation != null)
+			{
+				CollectionRevisionUpdateWorkflowResult pending = FindInterruptedRevisionUpdateForAssociation(_managedAssociationPresentation.Association);
+				if (pending != null)
+				{
+					try { ShowInterruptedRevisionUpdate(pending); }
+					catch (Exception ex)
+					{
+						RememberTechnicalFailure("revision-update.preview-failed", ex);
+						AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+							L("Collections.Status.ActionRequired", "Action required"), "revision-update.preview-failed",
+							GetCurrentCollectionSubject(), CollectionUserMessagePresenter.FromRaw(ex.Message, GetRevisionUpdateBlockedNextAction()));
+						UpdateIssuesHeader();
+					}
+				}
+				return;
+			}
+
 			CollectionUiContext context = _incomingActionContext;
 			CollectionManagementAssociation sourceAssociation = FindRevisionUpdateSourceAssociation();
 			CollectionRevisionUpdateWorkflowResult interrupted = _revisionUpdateResult ?? FindMatchingInterruptedRevisionUpdate();
-			if (context == null || (sourceAssociation == null && interrupted == null))
+			if (context == null || (sourceAssociation == null && interrupted == null) ||
+				((interrupted == null || interrupted.IsCommitted) && !CanSupersedePreparationForRevisionChange(_operationSnapshot)))
 				return;
 
-			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Reviewing,
-				L("Collections.Update.BuildingReview", "Building exact Collection revision comparison..."));
+			_blockedRevisionUpdatePlan = null;
+			bool continuing = interrupted != null && !interrupted.IsCommitted;
+			CancellationToken token = BeginWorkflowWork(context,
+				continuing ? CollectionWorkflowActivityPhase.Recovering : CollectionWorkflowActivityPhase.Reviewing,
+				continuing ? L("Collections.Update.ContinuingRevision", "Checking completed steps and continuing the approved revision change...")
+					: L("Collections.Update.BuildingReview", "Building exact Collection revision comparison..."));
 			try
 			{
 				if (interrupted != null && !interrupted.IsCommitted)
 				{
+					LoadInterruptedManifestForIncoming(interrupted);
 					_revisionUpdateResult = interrupted;
 					await ContinueInterruptedRevisionUpdateAsync(context, token, interrupted);
 					return;
 				}
+
+				// A failed additive preparation has no place in a revision change. The coordinator rechecks
+				// the durable native boundary before cancelling it; already-started native work remains protected.
+				if (_operationSnapshot != null && !_operationSnapshot.IsTerminal &&
+					_operationSnapshot.Kind == CollectionOperationKind.ApplyResolvedPlan)
+					CancelSupersededPreparation();
 
 				NexusCollectionPreviewSnapshot candidate = _snapshot;
 				if (!candidate.HasManifestPreview)
@@ -2060,7 +2156,12 @@ namespace Nexus.Client.CollectionManagement.UI
 				RememberTechnicalFailure("revision-update.failed", ex, context);
 				if (IsWorkflowContextCurrent(context, token))
 				{
-					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("revision-update.failed", ex.Message);
+					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.FromRaw(ex.Message,
+						L("Collections.Update.FailureNextAction", "Review this error before choosing Resume revision change. If it still cannot continue, export a Technical Report for this incomplete change."));
+					_contentValue.Text = L("Collections.Update.CouldNotContinue", "Revision change could not continue");
+					_appliedValue.Text = _operationSnapshot != null && _operationSnapshot.HasCrossedNativeBoundary
+						? L("Collections.Update.PartiallyChanged", "Partially changed - continuation required")
+						: L("Collections.Update.NotFinished", "Revision change not finished");
 					SetWorkflowPresentation(userMessage);
 					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
 						L("Collections.Status.ActionRequired", "Action required"), "revision-update.failed",
@@ -2071,6 +2172,56 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				EndWorkflowWork(context);
 			}
+		}
+
+		/// <summary>Reviews unknown-history ownership in one batch before rebuilding the revision comparison.</summary>
+		private async void ReviewRevisionUpdateOwnership_Click(object sender, EventArgs e)
+		{
+			CollectionRevisionUpdatePlan plan = _blockedRevisionUpdatePlan;
+			CollectionUiContext context = _incomingActionContext;
+			if (_workflowBusy || _revisionUpdateWorkflow == null || plan == null || context == null ||
+				context.Revision == null || !context.Revision.Equals(plan.NewPlan.Revision)) return;
+			List<CollectionRevisionUpdateMemberPlan> members = plan.Members.Where(x => x.RequiresStandaloneUseConfirmation).ToList();
+			if (members.Count == 0) return;
+			IReadOnlyList<CollectionMemberKey> collectionOnlyMembers;
+			IReadOnlyList<CollectionMemberKey> independentMembers;
+			using (CollectionOwnershipReviewDialog dialog = new CollectionOwnershipReviewDialog(members))
+			{
+				if (dialog.ShowDialog(this) != DialogResult.OK || !IsActionContextCurrent(context)) return;
+				collectionOnlyMembers = dialog.CollectionOnlyMembers;
+				independentMembers = dialog.IndependentMembers;
+			}
+
+			bool confirmed = false;
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.Update.RecordingOwnership", "Recording each mod's ownership decision..."));
+			try
+			{
+				await _revisionUpdateWorkflow.ReviewStandaloneUseAsync(plan, collectionOnlyMembers, independentMembers, token);
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				_blockedRevisionUpdatePlan = null;
+				confirmed = true;
+			}
+			catch (OperationCanceledException)
+			{
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Collection ownership confirmation failed: " + ex);
+				RememberTechnicalFailure("revision-update.ownership-failed", ex, context);
+				if (IsWorkflowContextCurrent(context, token))
+				{
+					_workflowStatusLabel.Text = L("Collections.Update.OwnershipConfirmationFailed",
+						"Workflow: Collection ownership could not be confirmed. Review the error before continuing.");
+					MessageBox.Show(this, ex.Message, L("Collections.Update.ReviewOwnership", "Review Collection ownership..."),
+						MessageBoxButtons.OK, MessageBoxIcon.Error);
+				}
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+			if (confirmed && IsActionContextCurrent(context)) CompareUpdateButton_Click(sender, EventArgs.Empty);
 		}
 
 		private async Task ApproveRevisionUpdateReviewAsync(CollectionUiContext context, CancellationToken token,
@@ -2084,7 +2235,14 @@ namespace Nexus.Client.CollectionManagement.UI
 				_revisionUpdateRecoveryResults = _revisionUpdateRecoveryResults.Where(x => !x.Operation.Identity.Equals(review.Operation.Identity)).ToList();
 				_revisionUpdateReview = null;
 				_revisionUpdateResult = null;
-				_workflowStatusLabel.Text = L("Collections.Update.Blocked", "Workflow: the revision comparison contains unresolved drift or unsafe decisions. Nothing was changed.");
+				_blockedRevisionUpdatePlan = plan;
+				_contentValue.Text = L("Collections.Update.ContentBlocked", "Revision comparison blocked - review the issues");
+				_appliedValue.Text = L("Collections.Update.NotAppliedBlocked", "Not applied - revision review blocked");
+				_workflowStatusLabel.Text = plan.Members.Any(x => x.RequiresStandaloneUseConfirmation)
+					? LanguageManager.Format("Collections.Update.OwnershipBlockedStatus",
+						"Workflow: revision change blocked by unknown or protected standalone use: {0}. Choose Review Collection ownership... to confirm how these mods are used.",
+						String.Join(", ", plan.Members.Where(x => x.RequiresStandaloneUseConfirmation).Select(FormatRevisionUpdateMemberSubject)))
+					: L("Collections.Update.BlockedIssues", "Workflow: unresolved revision decisions need attention. Review the named errors below, then run the comparison again.");
 				return;
 			}
 
@@ -2097,6 +2255,12 @@ namespace Nexus.Client.CollectionManagement.UI
 				"Update the installed Collection from {0} to {1}?\r\n\r\nMembers: {2} added, {3} removed, {4} changed.\r\nExact changed effects: {5}.\r\nPreserved explicit local overrides: {6}.\r\n\r\nOnly the reviewed managed effects will be changed. Unknown/unmanaged content is not part of this update.",
 				plan.OldPlan.Revision, plan.NewPlan.Revision, added, removed, changed,
 				plan.Effects.Count(x => x.ChangeKind != CollectionRevisionUpdateEffectChangeKind.Unchanged), overrideCount);
+			List<CollectionRevisionUpdateMemberPlan> preservedStandalone = plan.Members
+				.Where(x => x.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone).ToList();
+			if (preservedStandalone.Count > 0)
+				confirmation += LanguageManager.Format("Collections.Update.PreservedStandaloneApproval",
+					"\r\n\r\nThese mods will remain installed independently and will not be removed with the old revision:\r\n{0}",
+					String.Join(Environment.NewLine, preservedStandalone.Select(x => "- " + FormatRevisionUpdateMemberSubject(x))));
 			if (MessageBox.Show(this, confirmation, L("Collections.Actions.CompareUpdate", "Compare / Update..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsWorkflowContextCurrent(context, token))
@@ -2105,6 +2269,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				_revisionUpdateRecoveryResults = _revisionUpdateRecoveryResults.Where(x => !x.Operation.Identity.Equals(review.Operation.Identity)).ToList();
 				_revisionUpdateReview = null;
 				_revisionUpdateResult = null;
+				_contentValue.Text = L("Collections.Update.ComparisonDeclined", "Revision comparison complete; update declined");
+				_appliedValue.Text = L("Collections.Update.NotAppliedDeclined", "Not applied - update declined");
 				_workflowStatusLabel.Text = L("Collections.Update.Cancelled", "Workflow: revision update cancelled before native mutation.");
 				return;
 			}
@@ -2175,7 +2341,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					if (reconciled)
 						RefreshManagedAssociations();
 					_workflowStatusLabel.Text = reconciled
-						? L("Collections.VerifyRepair.HealthyReconciled", "Workflow: verification confirmed the Collection state is healthy; obsolete drift tracking was cleared.")
+						? L("Collections.VerifyRepair.HealthyStateReconciled", "Workflow: verification confirmed the Collection state is healthy; installed status and obsolete drift tracking were reconciled.")
 						: L("Collections.VerifyRepair.Healthy", "Workflow: the installed Collection is healthy within the currently supported verification coverage.");
 					return;
 				}
@@ -2236,10 +2402,17 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (review == null) return;
 			_operationSnapshot = review.Operation;
 			CollectionRevisionUpdatePlan plan = review.UpdatePlan;
+			_contentValue.Text = plan.HasBlockingActionRequired
+				? L("Collections.Update.ContentBlocked", "Revision comparison blocked - review the issues")
+				: L("Collections.Update.ComparisonComplete", "Exact Collection source retained; revision comparison complete");
+			_appliedValue.Text = plan.HasBlockingActionRequired
+				? L("Collections.Update.NotAppliedBlocked", "Not applied - revision review blocked")
+				: L("Collections.Status.Applied.NotApplied", "Not applied");
 			ClearReviewItems();
 			_issuesHeader.Text = L("Collections.Update.ReviewHeader", "Revision update review");
-			AddReviewItem(plan.HasBlockingActionRequired ? CollectionReviewSeverity.Error : CollectionReviewSeverity.Info,
-				plan.HasBlockingActionRequired ? CollectionReviewItemKind.Diagnostic : CollectionReviewItemKind.Progress,
+			bool hasGlobalBlocker = plan.HasAssociationBlocker || plan.UnscopedDrift.Count > 0;
+			AddReviewItem(hasGlobalBlocker ? CollectionReviewSeverity.Error : CollectionReviewSeverity.Info,
+				hasGlobalBlocker ? CollectionReviewItemKind.Diagnostic : CollectionReviewItemKind.Progress,
 				plan.HasBlockingActionRequired ? L("Collections.Status.ActionRequired", "Action required") : L("Collections.Status.Supported", "Ready"),
 				"revision-update.summary", plan.NewPlan.Revision.ToString(),
 				LanguageManager.Format("Collections.Update.Summary",
@@ -2251,12 +2424,26 @@ namespace Nexus.Client.CollectionManagement.UI
 				CollectionReviewSeverity severity = member.Disposition == CollectionRevisionUpdateDisposition.DriftRequiresReview ||
 					member.Disposition == CollectionRevisionUpdateDisposition.ActionRequired ? CollectionReviewSeverity.Error :
 					member.Disposition == CollectionRevisionUpdateDisposition.PreserveOverrideForReview ? CollectionReviewSeverity.Warning : CollectionReviewSeverity.Info;
-				CollectionReviewItemKind kind = member.RequiresExplicitReview ? CollectionReviewItemKind.ManualAction : CollectionReviewItemKind.PlannedEffect;
+				CollectionReviewItemKind kind = severity == CollectionReviewSeverity.Error ? CollectionReviewItemKind.Diagnostic :
+					member.RequiresExplicitReview ? CollectionReviewItemKind.ManualAction : CollectionReviewItemKind.PlannedEffect;
 				string detail = String.IsNullOrWhiteSpace(member.Detail)
 					? LanguageManager.Format("Collections.Update.MemberDetail", "Change: {0}; current state: {1}; disposition: {2}.", member.ChangeKind, member.CurrentStateKind, member.Disposition)
 					: member.Detail;
-				AddReviewItem(severity, kind, member.RequiresExplicitReview ? L("Collections.Status.ActionRequired", "Action required") : member.ChangeKind.ToString(),
-					"revision-update.member." + member.MemberKey.ToString(), FormatMemberSubject(member.MemberKey), detail, member.MemberKey);
+				string nextAction = member.RequiresStandaloneUseConfirmation
+					? L("Collections.Update.Next.ReviewOwnership", "Choose Review Collection ownership... to keep this installation independently or let Collections manage it.")
+					: member.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone
+						? L("Collections.Update.Next.PreserveStandalone", "This mod will stay installed independently; Collection removal is not planned.")
+						: severity == CollectionReviewSeverity.Error
+							? L("Collections.Update.Next.VerifyInstalled", "Select the installed Collection and use Verify / Repair to resolve this member's state, then review the revision again.")
+							: member.PreparationKind == CollectionRevisionUpdatePreparationKind.ReprepareRequired
+								? L("Collections.Update.Next.PrepareAfterApproval", "The revision update will prepare the required archives after approval.")
+								: String.Empty;
+				AddReviewItem(severity, kind, member.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone
+					? L("Collections.Update.Status.PreservedStandalone", "Preserved independently")
+					: member.RequiresExplicitReview ? L("Collections.Status.ActionRequired", "Action required") : member.ChangeKind.ToString(),
+					"revision-update.member." + member.MemberKey.ToString(), FormatRevisionUpdateMemberSubject(member), detail, member.MemberKey,
+					nextAction, "Change: " + member.ChangeKind + "; current state: " + member.CurrentStateKind +
+					"; disposition: " + member.Disposition + "; standalone protected: " + member.StandaloneProtected);
 			}
 
 			foreach (var effectGroup in plan.Effects.Where(x => x.ChangeKind != CollectionRevisionUpdateEffectChangeKind.Unchanged)
@@ -2274,23 +2461,53 @@ namespace Nexus.Client.CollectionManagement.UI
 				: L("Collections.Update.ReviewReady", "Workflow: exact revision comparison is ready for explicit approval.");
 		}
 
+		/// <summary>Resolves a comparison member name from either revision so removed members retain their names.</summary>
+		private string FormatRevisionUpdateMemberSubject(CollectionRevisionUpdateMemberPlan member)
+		{
+			ResolvedCollectionMemberPlan source = member.NewMember ?? member.OldMember;
+			return source == null || String.IsNullOrWhiteSpace(source.DisplayName) ? FormatMemberSubject(member.MemberKey) : source.DisplayName;
+		}
+
 		private void RenderRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowResult result)
 		{
 			if (result == null) return;
+			LoadInterruptedManifestForIncoming(result);
 			_operationSnapshot = result.Operation;
+			_operationIdentity = result.Operation.Identity;
+			BindIncomingDisplayOperation(result.Operation.Identity);
+			_revisionUpdateRecoveryResults = _revisionUpdateRecoveryResults.Where(x => !x.Operation.Identity.Equals(result.Operation.Identity))
+				.Concat(result.IsCommitted ? Enumerable.Empty<CollectionRevisionUpdateWorkflowResult>() : new[] { result }).ToList();
+			ClearRevisionUpdateContinuationItems(result.Preparation != null);
+			ApplyRevisionUpdateMemberState(result);
 			if (result.Preparation != null)
 			{
 				foreach (CollectionRevisionUpdatePreparationMemberState member in result.Preparation.Members)
 				{
-					CollectionReviewSeverity severity = member.IsPrepared || member.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
-						(member.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ||
-						member.Disposition == CollectionMemberAcquisitionDisposition.DirectQueued) ? CollectionReviewSeverity.Info : CollectionReviewSeverity.Warning;
+					bool archiveReady = member.IsPrepared || member.VerifiedArchive != null;
+					bool queued = member.Disposition == CollectionMemberAcquisitionDisposition.PremiumQueued ||
+						member.Disposition == CollectionMemberAcquisitionDisposition.BundledQueued ||
+						member.Disposition == CollectionMemberAcquisitionDisposition.DirectQueued;
+					CollectionReviewSeverity severity = archiveReady || queued ? CollectionReviewSeverity.Info : CollectionReviewSeverity.Warning;
 					CollectionReviewItemKind kind = member.PendingAction != null ? CollectionReviewItemKind.ManualAction : CollectionReviewItemKind.Progress;
-					AddReviewItem(severity, kind, member.IsPrepared ? L("Collections.Status.Supported", "Ready") : L("Collections.Status.Pending", "Pending"),
-						"revision-update.acquisition." + member.UpdateMember.MemberKey, FormatMemberSubject(member.UpdateMember.MemberKey),
-						LanguageManager.Format("Collections.Update.AcquisitionState", "Candidate preparation state: {0}.", member.Disposition), member.UpdateMember.MemberKey,
-						member.PendingAction == null ? null : L("Collections.Actions.OpenDownloadPage", "Open the required download page."));
+					string status = member.IsPrepared ? L("Collections.Update.MemberReady", "Ready to install")
+						: archiveReady ? L("Collections.Update.ArchiveReady", "File ready")
+						: queued ? L("Collections.Update.MemberDownloading", "Downloading") : L("Collections.Status.Pending", "Pending");
+					CollectionUserMessagePresentation message = archiveReady
+						? CollectionUserMessagePresenter.FromRaw(L("Collections.Update.FileReadyDetail", "The exact mod file is verified. NMM will use it to complete the approved revision change."), String.Empty)
+						: CollectionUserMessagePresenter.ForAcquisition(member.Disposition, member.Disposition.ToString());
+					AddPresentedReviewItem(severity, kind, status, "revision-update.acquisition." + member.UpdateMember.MemberKey,
+						FormatMemberSubject(member.UpdateMember.MemberKey), message, member.UpdateMember.MemberKey);
 				}
+			}
+
+			if (!result.IsCommitted)
+			{
+				_contentValue.Text = result.Status == CollectionRevisionUpdateWorkflowStatus.AwaitingInput
+					? L("Collections.Update.WaitingForFiles", "Waiting for revision files")
+					: L("Collections.Update.ChangeNotFinished", "Revision change not finished");
+				_appliedValue.Text = result.Operation.HasCrossedNativeBoundary
+					? L("Collections.Update.PartiallyChanged", "Partially changed - continuation required")
+					: L("Collections.Update.NotFinished", "Revision change not finished");
 			}
 
 			switch (result.Status)
@@ -2308,23 +2525,48 @@ namespace Nexus.Client.CollectionManagement.UI
 					_operationSnapshot = null;
 					break;
 				case CollectionRevisionUpdateWorkflowStatus.AwaitingInput:
-					_workflowStatusLabel.Text = L("Collections.Update.AwaitingInput", "Workflow: candidate member acquisition is waiting for downloads or manual input. Use Compare / Update again after completing the requested input.");
+					_workflowStatusLabel.Text = GetRevisionUpdateDownloadStatus(result.Preparation);
 					break;
 				case CollectionRevisionUpdateWorkflowStatus.ReadyForReview:
-					_workflowStatusLabel.Text = L("Collections.Update.ReadyForReview", "Workflow: an interrupted revision update is waiting for explicit review approval.");
+					_workflowStatusLabel.Text = L("Collections.Update.PendingApprovalStatus", "Workflow: the revision change is waiting for approval. Choose Review pending revision change to review it.");
 					break;
 				case CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary:
-					_workflowStatusLabel.Text = L("Collections.Update.Paused", "Workflow: revision update paused at a verified safe boundary. Use Compare / Update to retry continuation.");
+					_workflowStatusLabel.Text = L("Collections.Update.PausedRevisionStatus", "Workflow: the revision change is paused. Choose Resume revision change to check completed steps and continue.");
 					break;
 				case CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired:
-					_workflowStatusLabel.Text = L("Collections.Update.NewReviewRequired", "Workflow: native conditions changed after approval; the update stopped rather than widening consent. Explicit recovery/review is required.");
+					_workflowStatusLabel.Text = L("Collections.Update.StoppedRevisionStatus", "Workflow: the revision change stopped before completion. The reason and next step are shown under Review / issues.");
 					break;
 				default:
-					_workflowStatusLabel.Text = L("Collections.Update.RecoveryRequired", "Workflow: revision update requires recovery before further managed mutation.");
+					_workflowStatusLabel.Text = L("Collections.Update.IncompleteRevisionStatus", "Workflow: the revision change is incomplete. Review the reason below, then choose Resume revision change to check completed steps.");
 					break;
 			}
+			AppendRevisionUpdateStopDiagnostics(result);
 			UpdateIssuesHeader();
 			UpdateActionButtons();
+		}
+
+		/// <summary>Replaces obsolete continuation diagnostics while preserving the reviewed revision changes.</summary>
+		private void ClearRevisionUpdateContinuationItems(bool replaceAcquisition)
+		{
+			List<CollectionReviewItem> retained = _reviewItems.Where(x => x.Code != "revision-update.failed" &&
+				x.Code != "revision-update.continuation-stopped" &&
+				!x.Code.StartsWith("revision-update.execution.", StringComparison.Ordinal) &&
+				!x.Code.StartsWith("revision-update.interrupted.", StringComparison.Ordinal) &&
+				(!replaceAcquisition || !x.Code.StartsWith("revision-update.acquisition.", StringComparison.Ordinal))).ToList();
+			if (retained.Count == _reviewItems.Count) return;
+			ClearReviewItems();
+			foreach (CollectionReviewItem item in retained) AddReviewItem(item);
+		}
+
+		/// <summary>Explains which revision files are ready and what the continuation button will do.</summary>
+		private string GetRevisionUpdateDownloadStatus(CollectionRevisionUpdatePreparationBatch preparation)
+		{
+			if (preparation == null)
+				return L("Collections.Update.AwaitingRevisionFiles", "Workflow: wait for the downloads to finish, then choose Continue revision change to verify the files and install the approved changes.");
+			int ready = preparation.Members.Count(x => x.IsPrepared || x.VerifiedArchive != null);
+			return LanguageManager.Format("Collections.Update.RevisionFilesProgress",
+				"Workflow: {0} of {1} required mod files are ready. Complete any remaining downloads or requested input, then choose Continue revision change to verify the files and install the approved changes.",
+				ready, preparation.Members.Count);
 		}
 
 		private void RenderVerifyRepairPlan(CollectionVerifyRepairPlan plan)
@@ -2359,9 +2601,159 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_snapshot == null || _snapshot.Revision == null) return null;
 			List<CollectionManagementAssociation> candidates = _managedAssociationCombo.Items.Cast<object>()
 				.Select(x => x as CollectionManagementAssociation).Where(x => x != null &&
-					x.Association.Revision.Collection.Equals(_snapshot.Revision.Identity.Collection) &&
-					!x.Association.Revision.Equals(_snapshot.Revision.Identity)).ToList();
+					IsRevisionChangeCandidate(_snapshot.Revision.Identity, x.Association.Revision)).ToList();
 			return candidates.Count == 1 ? candidates[0] : null;
+		}
+
+		/// <summary>Recognizes another exact revision of the installed Collection, including an older revision.</summary>
+		internal static bool IsRevisionChangeCandidate(CollectionRevisionIdentity incoming, CollectionRevisionIdentity installed)
+		{
+			return incoming != null && installed != null && incoming.Collection.Equals(installed.Collection) &&
+				!incoming.Equals(installed);
+		}
+
+		/// <summary>Allows revision review to replace only an unused additive preparation.</summary>
+		internal static bool CanSupersedePreparationForRevisionChange(CollectionOperation operation)
+		{
+			return operation == null || operation.IsTerminal ||
+				(operation.Kind == CollectionOperationKind.ApplyResolvedPlan && !operation.HasCrossedNativeBoundary);
+		}
+
+		/// <summary>Offers download continuation only for an input-paused preparation with no blocking members.</summary>
+		internal static bool CanResumePreparation(CollectionMemberAcquisitionBatch batch)
+		{
+			return batch != null && batch.IsAwaitingInput && !batch.HasBlockedMembers;
+		}
+
+		/// <summary>Finds the candidate operation belonging to the displayed previous revision and current target.</summary>
+		private CollectionRevisionUpdateWorkflowResult FindInterruptedRevisionUpdateForAssociation(CollectionManagementAssociation association)
+		{
+			if (association == null || association.PendingRevision == null) return null;
+			return _revisionUpdateRecoveryResults.FirstOrDefault(x => x != null && !x.IsCommitted &&
+				x.Operation.Target.Equals(association.Association.Target) && x.Operation.Revision != null &&
+				x.Operation.Revision.Equals(association.PendingRevision) &&
+				(x.Preparation == null || x.Preparation.CurrentPlan.Association.AssociationId == association.AssociationId));
+		}
+
+		/// <summary>Opens the saved candidate as a preview; continuation still requires its primary action.</summary>
+		private void ShowInterruptedRevisionUpdate(CollectionRevisionUpdateWorkflowResult result)
+		{
+			NexusCollectionPreviewSnapshot retained = _revisionUpdateWorkflow.LoadInterruptedPreview(result.Operation.Identity);
+			CancelPreviewWork(false);
+			_managedAssociationPresentation = null;
+			ResetWorkflowViewState();
+			_snapshot = retained;
+			_displayContext = CollectionUiContext.Incoming(++_previewGeneration, retained.Revision.Identity, result.Operation.Identity);
+			_revisionUpdateResult = result;
+			_revisionUpdatePreparation = result.Preparation;
+			RenderSnapshot(retained);
+			RenderRevisionUpdateWorkflowResult(result);
+			RefreshWorkflowActivity();
+		}
+
+		/// <summary>Restores missing manifest presentation from the approved operation's retained exact source.</summary>
+		private void LoadInterruptedManifestForIncoming(CollectionRevisionUpdateWorkflowResult result)
+		{
+			if (result == null || result.IsCommitted || _snapshot == null || _snapshot.HasManifestPreview ||
+				_snapshot.Revision == null || !_snapshot.Revision.Identity.Equals(result.Operation.Revision) ||
+				_displayContext == null || _displayContext.Kind != CollectionUiContextKind.IncomingCollection)
+				return;
+			NexusCollectionPreviewSnapshot retained = _revisionUpdateWorkflow.LoadInterruptedPreview(result.Operation.Identity);
+			_snapshot = _snapshot.WithBundleImport(retained.BundleImport);
+			RenderSnapshot(_snapshot);
+		}
+
+		/// <summary>Distinguishes verified candidate installs from ready files and previous-revision bindings.</summary>
+		private void ApplyRevisionUpdateMemberState(CollectionRevisionUpdateWorkflowResult result)
+		{
+			if (result.Preparation == null || _snapshot == null || _snapshot.Revision == null ||
+				!_snapshot.Revision.Identity.Equals(result.Operation.Revision)) return;
+			HashSet<CollectionMemberKey> selected = new HashSet<CollectionMemberKey>(result.Preparation.CurrentPlan.NewPlan.SelectedMembers.Select(x => x.MemberKey));
+			HashSet<CollectionMemberKey> committed = new HashSet<CollectionMemberKey>(result.Operation.NativeChildren.Where(x =>
+				x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled && x.HasVerifiedCommittedNativeState).Select(x => x.Member.MemberKey));
+			Dictionary<CollectionMemberKey, CollectionRevisionUpdatePreparationMemberState> preparing = result.Preparation.Members.ToDictionary(x => x.UpdateMember.MemberKey);
+			_suppressMemberCheckEvents = true;
+			try
+			{
+				foreach (ListViewItem item in _membersView.Items)
+				{
+					NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
+					if (member == null || !member.IdentityResolution.IsResolved || item.SubItems.Count <= 5) continue;
+					CollectionMemberKey key = member.IdentityResolution.Key;
+					item.Checked = selected.Contains(key);
+					CollectionRevisionUpdatePreparationMemberState preparation;
+					item.SubItems[5].Text = !item.Checked ? L("Collections.Member.Unselected", "Not selected")
+						: committed.Contains(key) ? L("Collections.Update.MemberCandidateVerified", "Installed for target revision; verified")
+						: preparing.TryGetValue(key, out preparation) ? preparation.VerifiedArchive != null
+							? L("Collections.Update.MemberFileReadyPending", "File ready; revision change not finished")
+							: L("Collections.Update.MemberFileWaiting", "Waiting for revision file")
+						: L("Collections.Update.MemberRetainedPending", "Retained member; target revision not yet verified");
+				}
+				UpdateMemberSelectionText();
+			}
+			finally { _suppressMemberCheckEvents = false; }
+		}
+
+		/// <summary>Gives a reachable next action without implying that repeating Resume resolves a planner failure.</summary>
+		private static string GetRevisionUpdateBlockedNextAction()
+		{
+			return L("Collections.Update.BlockedNextAction",
+				"Export Technical Report for this unfinished revision change. These findings need a supported recovery or review step; repeating the check alone cannot resolve them.");
+		}
+
+		/// <summary>Retains the specific execution gate findings in the visible issues and exported technical report.</summary>
+		private void AppendRevisionUpdateStopDiagnostics(CollectionRevisionUpdateWorkflowResult result)
+		{
+			if (result == null || (result.Status != CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired &&
+				result.Status != CollectionRevisionUpdateWorkflowStatus.RecoveryRequired)) return;
+			string nextAction = GetRevisionUpdateBlockedNextAction();
+			AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+				L("Collections.Status.ActionRequired", "Action required"), "revision-update.continuation-stopped",
+				L("Collections.Update.RevisionChangeSubject", "Revision change"), CollectionUserMessagePresenter.FromRaw(result.Message, nextAction));
+			CollectionRevisionUpdateCandidateExecutionPlanning planning = result.ExecutionPlanning;
+			if (planning != null)
+			{
+				foreach (CollectionMemberMatchResult match in planning.Matches.Members.Where(x => x.IsBlocked || x.Disposition == CollectionMemberMatchDisposition.AcquisitionRequired))
+				{
+					string detail = match.Reason == CollectionMemberMatchReason.ConflictingVerifiedRecipe
+						? L("Collections.Update.MatchProtected", "This mod would reuse an installation protected for independent use or another Collection.")
+						: match.Reason == CollectionMemberMatchReason.MissingBoundNativeMod
+							? L("Collections.Update.MatchMissing", "The mod installation recorded by this member's binding is missing.")
+							: match.Reason == CollectionMemberMatchReason.AmbiguousInstalledCandidates
+								? L("Collections.Update.MatchAmbiguous", "Several installed mods match this member; NMM cannot choose one safely.")
+								: match.Reason == CollectionMemberMatchReason.NoReusableInput
+									? L("Collections.Update.MatchInputMissing", "The exact archive or prepared installation recipe required for this member is unavailable.")
+									: L("Collections.Update.MatchUnavailable", "NMM cannot establish a safe installation match for this member.");
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "revision-update.execution.match." + match.Reason,
+						FormatMemberSubject(match.Member.MemberKey), CollectionUserMessagePresenter.FromRaw(detail, nextAction), match.Member.MemberKey,
+						"Match reason: " + match.Reason + "; native candidates: " + String.Join(", ", match.NativeCandidates.Select(x => x.Identity.NativeModKey)));
+				}
+				foreach (CollectionDependencyPhaseIssue issue in planning.DependencyPlan.Issues.Where(x => x.Kind != CollectionDependencyPhaseIssueKind.BlockedMemberMatch))
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "revision-update.execution.dependency." + issue.Kind,
+						issue.MemberKey == null ? GetCurrentCollectionSubject() : FormatMemberSubject(issue.MemberKey),
+						CollectionUserMessagePresenter.FromRaw(issue.Reason, nextAction), issue.MemberKey,
+						"Dependency issue: " + issue.Kind + "; related member: " + issue.RelatedMemberKey);
+				foreach (CollectionConflictImpactIssue issue in planning.ImpactPlan.Issues.Where(x => x.Kind != CollectionConflictImpactIssueKind.UpstreamPlanBlocked))
+				{
+					string subject = issue.MemberKey == null ? GetCurrentCollectionSubject() : FormatMemberSubject(issue.MemberKey);
+					if (!String.IsNullOrWhiteSpace(issue.SubjectKey)) subject += " / " + issue.SubjectKey;
+					CollectionFileImpact file = planning.ImpactPlan.FileImpacts.FirstOrDefault(x => x.Target.ToString() == issue.SubjectKey);
+					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "revision-update.execution.impact." + issue.Kind, subject,
+						CollectionUserMessagePresenter.FromRaw(issue.Message, nextAction), issue.MemberKey,
+						"Impact issue: " + issue.Kind + "; resource: " + issue.SubjectKey + "; current owner: " + (file == null ? String.Empty : file.CurrentOwnerKey));
+				}
+				if (planning.IsReady && CollectionRevisionUpdateCandidateExecutionCoordinator.RequiresDurableFileWinnerReconciliation(planning.ImpactPlan))
+					foreach (CollectionFileImpact file in planning.ImpactPlan.FileImpacts.Where(x => x.PreserveCurrentOwner || x.Writers.Count > 1))
+						AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+							L("Collections.Status.ActionRequired", "Action required"), "revision-update.execution.file-provider-review", file.Target.ToString(),
+							CollectionUserMessagePresenter.FromRaw(L("Collections.Update.FileProviderUnsupported", "This file needs provider reconciliation that the approved revision change cannot apply safely."), nextAction), file.PlannedWinner,
+							"Current owner: " + file.CurrentOwnerKey + "; writers: " + String.Join(", ", file.Writers));
+			}
+			_showErrorIssuesCheckBox.Checked = true;
+			UpdateIssuesHeader();
 		}
 
 		private CollectionRevisionUpdateWorkflowResult FindMatchingInterruptedRevisionUpdate()
@@ -2390,6 +2782,13 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_managementWorkflow == null || selected == null || _workflowBusy || context == null ||
 				context.AssociationId != selected.AssociationId)
 				return;
+			if (_localRestoreRecoverySources.Count > 0)
+			{
+				MessageBox.Show(this, L("Collections.Management.StopRestoreBeforeUninstall",
+					"A Local Collection restore is still paused on this setup. Use Review interrupted restore and choose No to stop it safely before reviewing Collection uninstallation."),
+					L("Collections.Actions.UninstallCollection", "Uninstall Collection..."), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				return;
+			}
 
 			string choicePrompt = LanguageManager.Format("Collections.Management.RemoveOrDetachPrompt",
 				"Choose what to do with '{0}'.\r\n\r\nYes = review and remove only effects NMM can prove are dispensable, then stop tracking the Collection.\r\n\r\nNo = stop tracking only and keep all installed mods, files, plugins and configuration exactly as they are.\r\n\r\nCancel = make no changes.",
@@ -2505,6 +2904,11 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private async void RestoreLocalCaptureButton_Click(object sender, EventArgs e)
 		{
+			if (_localRestoreRecoverySources.Count > 0)
+			{
+				await ReviewInterruptedLocalRestoreAsync();
+				return;
+			}
 			CollectionManagementLocalCapture selected = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
 			CollectionUiContext context = _localCaptureActionContext;
 			if (_managementWorkflow == null || selected == null || _workflowBusy || context == null ||
@@ -2515,6 +2919,10 @@ namespace Nexus.Client.CollectionManagement.UI
 				CollectionLocalRestorePreview preview = await Task.Run(() =>
 					_managementWorkflow.PreviewLocalRestoreAsync(selected.CaptureIdentity, token), token);
 				if (!IsWorkflowContextCurrent(context, token)) return;
+				if (!context.LocalCapture.Equals(preview.Plan.CaptureIdentity) ||
+					!context.LocalCapture.Equals(preview.SealedCapture.Capture.Identity) ||
+					!context.Revision.Equals(preview.SealedCapture.Capture.Revision))
+					throw new InvalidDataException("The restore review source differs from the selected Local Collection.");
 				if (!preview.IsReadyForRestore)
 				{
 					string reasons = preview.Plan.Issues.Count == 0
@@ -2526,9 +2934,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					return;
 				}
 
-				string review = LanguageManager.Format("Collections.LocalRestore.ReviewPrompt",
-					"Restore the saved Local Collection '{0}'?\r\n\r\nReviewed managed members: {1}\r\nCurrent managed registrations to remove: {2}\r\nManaged file targets to restore: {3}\r\n\r\nThis restores the NMM-managed state recorded by the saved Local Collection. The current NMM profile is preserved before changes begin, and previous Collection tracking is reconciled with the restored setup. Unknown or unmanaged files are not blanket-deleted.\r\n\r\nProceed with these reviewed changes?",
-					selected.DisplayName, preview.Plan.Members.Count, preview.Plan.CurrentNativeKeysToRemove.Count, preview.Plan.DeploymentTargets.Count);
+				string review = LanguageManager.Format("Collections.LocalRestore.ReviewExactSourcePrompt",
+					"Restore the saved Local Collection '{0}'?\r\nCapture ID: {4}\r\n\r\nReviewed managed members: {1}\r\nCurrent managed registrations to remove: {2}\r\nManaged file targets to restore: {3}\r\n\r\nThis restores the NMM-managed state recorded by the saved Local Collection. The current NMM profile is preserved before changes begin, and previous Collection tracking is reconciled with the restored setup. Unknown or unmanaged files are not blanket-deleted.\r\n\r\nProceed with these reviewed changes?",
+					selected.DisplayName + " - " + selected.RevisionLabel, preview.Plan.Members.Count, preview.Plan.CurrentNativeKeysToRemove.Count,
+					preview.Plan.DeploymentTargets.Count, preview.Plan.CaptureIdentity);
 				if (MessageBox.Show(this, review, L("Collections.Actions.RestoreLocal", "Restore Local Collection..."),
 					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
 				{
@@ -2543,6 +2952,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				CollectionLocalRestoreWorkflowResult result = await Task.Run(() =>
 					_managementWorkflow.RestoreLocalCaptureAsync(preview, token), token);
 				if (!IsWorkflowContextCurrent(context, token)) return;
+				_localRestoreRecoveryResults = new[] { result };
 				RefreshLocalCaptures();
 				RefreshManagedAssociations();
 				if (result.IsSuccessful)
@@ -2580,7 +2990,90 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			finally
 			{
+				RefreshLocalRestoreRecoverySources();
 				EndWorkflowWork(context);
+			}
+		}
+
+		/// <summary>Requires an explicit choice about the durable restore source before resuming or safely retiring it.</summary>
+		private async Task ReviewInterruptedLocalRestoreAsync()
+		{
+			if (_managementWorkflow == null || _workflowBusy || _localRestoreRecoverySources.Count != 1) return;
+			CollectionManagementLocalRestoreRecoverySource source = _localRestoreRecoverySources[0];
+			if (!source.HasResolvedCapture || !String.IsNullOrEmpty(source.Diagnostic)) return;
+			CollectionUiContext context = CollectionUiContext.CurrentSetup(_previewGeneration);
+			string prompt = LanguageManager.Format("Collections.LocalRestore.InterruptedSourcePrompt",
+				"Interrupted Local Collection restore:\r\n{0}\r\nCapture ID: {1}\r\nOperation ID: {2}\r\n\r\nYes = resume this exact saved source.\r\n\r\nNo = stop this restore after checking its native recovery boundary. Keep partial installed state, preserved profiles, saved collections and recovery evidence. The restore will be recorded as stopped, and previous Collection tracking as incomplete. You can then review Uninstall Collection or start a fresh restore.\r\n\r\nCancel = leave the operation paused.\r\n\r\nIf this is the wrong source, choose No. Stopping does not roll back changes or claim the setup is healthy.",
+				source.SourceDisplayName, source.CaptureIdentity, source.OperationIdentity);
+			DialogResult choice = MessageBox.Show(this, prompt, L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore..."),
+				MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button3);
+			if (choice == DialogResult.Cancel || !IsActionContextCurrent(context)) return;
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering,
+				choice == DialogResult.Yes ? L("Collections.LocalRestore.ResumingReviewed", "Resuming the reviewed Local Collection restore...")
+				: L("Collections.LocalRestore.StoppingReviewed", "Checking recovery before stopping the Local Collection restore..."));
+			try
+			{
+				CollectionLocalRestoreWorkflowResult result = null;
+				if (choice == DialogResult.Yes)
+					result = await Task.Run(() => _managementWorkflow.ResumeLocalRestoreAsync(source, token), token);
+				else
+				{
+					CollectionOperation stopped = await Task.Run(() => _managementWorkflow.StopLocalRestoreAsync(source, token), token);
+					_stoppedLocalRestoreSource = source;
+					result = new CollectionLocalRestoreWorkflowResult(CollectionLocalRestoreWorkflowStatus.StoppedPartial, stopped,
+						L("Collections.LocalRestore.StoppedPartialReport", "The reviewed Local restore was safely stopped with partial changes preserved. Recovery inputs and the journal were retained; outgoing Collection tracking is incomplete."));
+				}
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				_localRestoreRecoveryResults = new[] { result };
+				RefreshLocalRestoreRecoverySources();
+				RefreshLocalCaptures();
+				RefreshManagedAssociations();
+				string message = choice == DialogResult.No
+					? L("Collections.LocalRestore.StoppedPartial", "The restore was stopped after safe-boundary checks. Partial changes remain and previous Collection tracking is incomplete. Select the intended saved Local Collection for a fresh restore, or use Uninstall Collection to review removal of exclusive Collection effects.")
+					: result.Message;
+				_workflowStatusLabel.Text = message;
+				MessageBox.Show(this, message, L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore..."),
+					MessageBoxButtons.OK, choice == DialogResult.Yes && !result.IsSuccessful ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+			}
+			catch (OperationCanceledException)
+			{
+				if (IsWorkflowOwnerCurrent(context))
+					_workflowStatusLabel.Text = L("Collections.LocalRestore.InterruptedPaused", "The interrupted Local restore remains paused; review its recovery state before continuing.");
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Interrupted Local restore review failed: " + ex);
+				RememberTechnicalFailure("local-restore.review-interrupted-failed", ex, context);
+				if (IsWorkflowContextCurrent(context, token))
+					MessageBox.Show(this, CollectionUserMessagePresenter.SanitizeInternalTerminology(ex.Message),
+						L("Collections.LocalRestore.InterruptedBlocked", "Interrupted restore action blocked"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+			}
+			finally
+			{
+				RefreshLocalRestoreRecoverySources();
+				EndWorkflowWork(context);
+			}
+		}
+
+		/// <summary>Refreshes durable recovery identity after an apply/resume/stop, including failures after operation creation.</summary>
+		private void RefreshLocalRestoreRecoverySources()
+		{
+			try
+			{
+				_localRestoreRecoverySources = _managementWorkflow == null ? new CollectionManagementLocalRestoreRecoverySource[0]
+					: _managementWorkflow.GetInterruptedLocalRestoreSources();
+				List<CollectionLocalRestoreWorkflowResult> results = _localRestoreRecoveryResults.Where(x => x.Operation.IsTerminal).ToList();
+				foreach (CollectionManagementLocalRestoreRecoverySource source in _localRestoreRecoverySources)
+				{
+					CollectionLocalRestoreWorkflowResult previous = _localRestoreRecoveryResults.FirstOrDefault(x => x.Operation.Identity.Equals(source.OperationIdentity));
+					results.Add(new CollectionLocalRestoreWorkflowResult(previous == null ? CollectionLocalRestoreWorkflowStatus.RecoveryRequired : previous.Status,
+						source.Operation, previous == null ? L("Collections.LocalRestore.PendingReview", "The interrupted Local restore is paused until its exact saved source is reviewed.") : previous.Message));
+				}
+				_localRestoreRecoveryResults = results;
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Local restore recovery source refresh failed: " + ex);
 			}
 		}
 
@@ -2853,8 +3346,13 @@ namespace Nexus.Client.CollectionManagement.UI
 		private async void DownloadPrepareButton_Click(object sender, EventArgs e)
 		{
 			CollectionUiContext context = _incomingActionContext;
-			if (_workflow == null || _snapshot == null || !_snapshot.HasConcreteRevision || context == null)
+			if (_workflowBusy || _workflow == null || _snapshot == null || !_snapshot.HasConcreteRevision || context == null)
 				return;
+			if (FindRevisionUpdateSourceAssociation() != null || FindMatchingInterruptedRevisionUpdate() != null)
+			{
+				CompareUpdateButton_Click(sender, e);
+				return;
+			}
 
 			CollectionArchiveOverwritePolicy archiveOverwritePolicy = _autoOverwriteArchivesCheckBox.Checked
 				? CollectionArchiveOverwritePolicy.OverwriteExistingArchives
@@ -3009,7 +3507,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private async void ResumeButton_Click(object sender, EventArgs e)
 		{
 			CollectionUiContext context = _incomingActionContext;
-			if (_workflow == null || _acquisitionBatch == null || context == null)
+			if (_workflowBusy || _workflow == null || !CanResumePreparation(_acquisitionBatch) || context == null)
 				return;
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Preparing, L("Collections.Workflow.ResumingPreparation", "Checking acquired member archives and resuming preparation..."));
 			try
@@ -3048,7 +3546,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			_acquisitionRefreshTimer.Stop();
 			RefreshWorkflowActivity();
-			if (batch == null || batch.IsReady || !batch.IsAwaitingInput || HasManualAcquisitionAction(batch))
+			if (!CanResumePreparation(batch) || batch.IsReady || HasManualAcquisitionAction(batch))
 				return;
 
 			if (GetQueuedAcquisitionStates(batch).Count > 0)
@@ -3058,7 +3556,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private async void AcquisitionRefreshTimer_Tick(object sender, EventArgs e)
 		{
 			RefreshWorkflowActivity();
-			if (_workflowBusy || _workflow == null || _acquisitionBatch == null || !_acquisitionBatch.IsAwaitingInput)
+			if (_workflowBusy || _workflow == null || !CanResumePreparation(_acquisitionBatch))
 				return;
 
 			List<CollectionMemberAcquisitionState> queued = GetQueuedAcquisitionStates(_acquisitionBatch);
@@ -3525,9 +4023,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				_operationSnapshot = review.Operation;
 				if (review.Rehydration.Status == CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired)
 				{
-					_workflowStatusLabel.Text = L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target...");
+					_workflowStatusLabel.Text = FormatActiveTargetRecoveryActivity();
 					SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Recovering,
-						L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target...")));
+						_workflowStatusLabel.Text));
 					IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovery = await Task.Run(() =>
 						_workflow.ReconcileIncompleteTargetAsync(reviewToken), reviewToken);
 					if (!IsWorkflowContextCurrent(context, reviewToken))
@@ -4030,6 +4528,36 @@ namespace Nexus.Client.CollectionManagement.UI
 			ShowSelectedManagedAssociation();
 		}
 
+		/// <summary>Names the current game and configured folders checked by target recovery.</summary>
+		private string FormatActiveTargetRecoveryActivity()
+		{
+			Nexus.Client.GameStorage.GameStoragePathSet paths = null;
+			try
+			{
+				paths = _workflow != null ? _workflow.GetTargetPaths()
+					: _managementWorkflow == null ? null : _managementWorkflow.GetTargetPaths();
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceWarning("Collection recovery target display could not be read: " + ex.Message);
+			}
+			if (paths == null)
+				return L("Collections.Workflow.RecoveryTargetUnavailable",
+					"Checking incomplete Collection operations...\r\nThe current game and setup could not be identified.");
+
+			string gameName = String.IsNullOrWhiteSpace(paths.GameName) ? paths.GameId : paths.GameName;
+			if (String.IsNullOrWhiteSpace(gameName)) gameName = L("Collections.Workflow.CurrentGame", "the current game");
+			string message = LanguageManager.Format("Collections.Workflow.RecoveringGame",
+				"Checking incomplete Collection operations for {0}...", gameName);
+			if (!String.IsNullOrWhiteSpace(paths.GameInstallPath))
+				message += Environment.NewLine + LanguageManager.Format("Collections.Workflow.RecoveryGameFolder",
+					"Game folder: {0}", paths.GameInstallPath);
+			if (!String.IsNullOrWhiteSpace(paths.InstallInfoPath))
+				message += Environment.NewLine + LanguageManager.Format("Collections.Workflow.RecoverySetupFolder",
+					"NMM setup: {0}", paths.InstallInfoPath);
+			return message;
+		}
+
 		private async void BeginRecoveryReconciliation()
 		{
 			if ((_workflow == null && _managementWorkflow == null) || _workflowBusy || IsDisposed || Disposing)
@@ -4040,7 +4568,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_localRestoreRecoverySources = _managementWorkflow == null
 				? new CollectionManagementLocalRestoreRecoverySource[0] : _managementWorkflow.GetInterruptedLocalRestoreSources();
 			string recoveryStatus = FormatLocalRestoreRecoveryActivity(_localRestoreRecoverySources) ??
-				L("Collections.Workflow.Recovering", "Checking incomplete Collection operations for the active target...");
+				FormatActiveTargetRecoveryActivity();
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering, recoveryStatus);
 			try
 			{
@@ -4092,7 +4620,6 @@ namespace Nexus.Client.CollectionManagement.UI
 				// Applied-member metadata enrichment already runs after successful additive finalization. Startup recovery must
 				// not turn an idle Collections tab into an unsolicited Nexus metadata scan for previously applied Collections.
 				RefreshLocalCaptures();
-				SelectActiveLocalRestoreCapture();
 				RefreshManagedAssociations();
 				if (_snapshot != null)
 				{
@@ -4102,10 +4629,13 @@ namespace Nexus.Client.CollectionManagement.UI
 						AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
 							L("Collections.Status.ActionRequired", "Action required"), "replacement.interrupted", GetCurrentCollectionSubject(),
 							LanguageManager.Format("Collections.Replace.InterruptedCount", "{0} interrupted replacement operation(s) exist for this target. Replacement recovery must be resolved before new managed mutation.", replacementInspections.Count));
-					foreach (CollectionRevisionUpdateWorkflowResult update in _revisionUpdateRecoveryResults.Where(x => !x.IsCommitted))
-						AddReviewItem(update.Status == CollectionRevisionUpdateWorkflowStatus.RecoveryRequired ? CollectionReviewSeverity.Error : CollectionReviewSeverity.Warning,
-							CollectionReviewItemKind.Diagnostic, L("Collections.Status.ActionRequired", "Action required"),
-							"revision-update.interrupted." + update.Operation.Identity.OperationId.ToString("N"), GetCurrentCollectionSubject(), update.Message);
+					CollectionRevisionUpdateWorkflowResult pendingUpdate = _managedAssociationPresentation == null
+						? FindMatchingInterruptedRevisionUpdate() : FindInterruptedRevisionUpdateForAssociation(_managedAssociationPresentation.Association);
+					if (pendingUpdate != null)
+					{
+						_operationSnapshot = pendingUpdate.Operation;
+						AppendRevisionUpdateStopDiagnostics(pendingUpdate);
+					}
 					foreach (CollectionVerifyRepairRecoveryResult repair in _verifyRepairRecoveryResults.Where(x => !x.IsCommitted))
 						AddReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
 							L("Collections.Status.ActionRequired", "Action required"), "verify-repair.interrupted." + repair.OperationIdentity.OperationId.ToString("N"),
@@ -4163,10 +4693,28 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void PrimaryIncomingActionButton_Click(object sender, EventArgs e)
 		{
+			if (_workflowBusy) return;
+			if (_primaryIncomingReviewsRevisionOwnership)
+			{
+				ReviewRevisionUpdateOwnership_Click(sender, e);
+				return;
+			}
+			if (_primaryIncomingReviewsBlockedIssues)
+			{
+				_showErrorIssuesCheckBox.Checked = true;
+				_issuesView.Focus();
+				if (_issuesView.Items.Count > 0)
+				{
+					_issuesView.Items[0].Selected = true;
+					_issuesView.Items[0].EnsureVisible();
+				}
+				return;
+			}
 			Button source = _primaryIncomingActionSource;
 			if (source == null || !source.Enabled)
 				return;
-			if (ReferenceEquals(source, _resolveFileConflictsButton)) ResolveFileConflictsButton_Click(source, EventArgs.Empty);
+			if (ReferenceEquals(source, _compareUpdateButton)) CompareUpdateButton_Click(source, EventArgs.Empty);
+			else if (ReferenceEquals(source, _resolveFileConflictsButton)) ResolveFileConflictsButton_Click(source, EventArgs.Empty);
 			else if (ReferenceEquals(source, _openPendingButton)) OpenPendingButton_Click(source, EventArgs.Empty);
 			else if (ReferenceEquals(source, _resumeButton)) ResumeButton_Click(source, EventArgs.Empty);
 			else if (ReferenceEquals(source, _installButton)) InstallButton_Click(source, EventArgs.Empty);
@@ -4271,7 +4819,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			_curatorValue.Text = FirstNonEmpty(definition?.AuthorDisplayName, providerSummary?.AuthorDisplayName, L("Collections.Value.Unknown", "Unknown"));
 			_locatorValue.Text = snapshot.Link != null
 				? snapshot.Link.GameDomain + " / " + snapshot.Link.CollectionSlug
-				: (_managedAssociationPresentation != null ? FormatManagedAssociationLocator(_managedAssociationPresentation) : L("Collections.Value.Unknown", "Unknown"));
+				: (_managedAssociationPresentation != null ? FormatManagedAssociationLocator(_managedAssociationPresentation)
+					: revision != null ? "collection " + revision.Collection.StableId : L("Collections.Value.Unknown", "Unknown"));
 			if (revision != null)
 			{
 				_revisionValue.Text = LanguageManager.Format("Collections.Preview.ConcreteRevision", "#{0} (collection {1}, revision {2})",
@@ -4734,7 +5283,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			foreach (CollectionMemberAcquisitionState state in batch.Members)
 			{
 				CollectionMemberKey memberKey = state.Match.Member.MemberKey;
-				string technical = "Disposition: " + state.Disposition;
+				string technical = "Disposition: " + state.Disposition + "; match disposition: " + state.Match.Disposition + "; match reason: " + state.Match.Reason;
 				if (state.PendingAction != null)
 					technical += "; allowed manual actions: " + state.PendingAction.AllowedActions;
 				if (state.QueueCorrelation != null)
@@ -4879,7 +5428,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			foreach (CollectionLocalRestoreWorkflowResult recovery in _localRestoreRecoveryResults)
 			{
-				if (!recovery.IsSuccessful)
+				if (!recovery.Operation.IsTerminal)
 				{
 					CollectionManagementLocalRestoreRecoverySource source = FindLocalRestoreRecoverySource(recovery.Operation.Identity);
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForLocalRestore(recovery.Status, recovery.Message);
@@ -5240,6 +5789,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				CollectionOperation cancelled = _workflow.CancelBeforeApply(_operationIdentity);
 				if (cancelled.IsTerminal)
 				{
+					_acquisitionRefreshTimer.Stop();
+					_recoveryResults = _recoveryResults.Where(x => !x.Operation.Identity.Equals(cancelled.Identity)).ToList();
 					_operationIdentity = null;
 					_operationSnapshot = null;
 					ClearIncomingDisplayOperation();
@@ -5364,6 +5915,13 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 			}
 
+			if (_blockedRevisionUpdatePlan != null)
+			{
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Waiting(CollectionWorkflowActivityPhase.Reviewing, _workflowStatusLabel.Text, true));
+				SetWorkflowEta(CollectionWorkflowEtaSnapshot.Unavailable("revision-review-blocked"));
+				return;
+			}
+
 			if (_operationSnapshot != null)
 			{
 				if (_operationSnapshot.ResultState == CollectionOperationResultState.RecoveryRequired ||
@@ -5415,6 +5973,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			RenderWorkflowActivity();
 			RenderWorkflowEta();
+			if (_workflowBusy)
+			{
+				_primaryIncomingActionButton.Text = GetBusyIncomingActionText();
+				_compareUpdateButton.Text = GetBusyIncomingActionText();
+			}
 		}
 
 		private void SetWorkflowEta(CollectionWorkflowEtaSnapshot snapshot)
@@ -5724,6 +6287,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void ResetWorkflowViewState()
 		{
+			_blockedRevisionUpdatePlan = null;
 			_acquisitionRefreshTimer.Stop();
 			_autoResumedQueueOperations.Clear();
 			_preparation = null;
@@ -5750,7 +6314,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionManagementLocalRestoreRecoverySource FindLocalRestoreRecoverySource(CollectionOperationIdentity operationIdentity)
 		{
 			if (operationIdentity == null || _localRestoreRecoverySources == null) return null;
-			return _localRestoreRecoverySources.FirstOrDefault(x => x != null && x.OperationIdentity.Equals(operationIdentity));
+			return _localRestoreRecoverySources.FirstOrDefault(x => x != null && x.OperationIdentity.Equals(operationIdentity)) ??
+				(_stoppedLocalRestoreSource != null && _stoppedLocalRestoreSource.OperationIdentity.Equals(operationIdentity) ? _stoppedLocalRestoreSource : null);
 		}
 
 		private static string FormatLocalRestoreRecoveryActivity(IReadOnlyList<CollectionManagementLocalRestoreRecoverySource> sources)
@@ -5758,23 +6323,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (sources == null || sources.Count == 0) return null;
 			CollectionManagementLocalRestoreRecoverySource source = sources[0];
 			string capture = source.CaptureIdentity == null ? "unresolved capture" : source.CaptureIdentity.ToString();
-			return "Recovering Local Collection restore: " + source.SourceDisplayName + " [" + capture + "]...";
-		}
-
-		private void SelectActiveLocalRestoreCapture()
-		{
-			if (_localRestoreRecoverySources == null || _localRestoreRecoverySources.Count != 1) return;
-			LocalCaptureIdentity captureIdentity = _localRestoreRecoverySources[0].CaptureIdentity;
-			if (captureIdentity == null) return;
-			for (int index = 0; index < _localCaptureCombo.Items.Count; index++)
-			{
-				CollectionManagementLocalCapture candidate = _localCaptureCombo.Items[index] as CollectionManagementLocalCapture;
-				if (candidate != null && candidate.CaptureIdentity.Equals(captureIdentity))
-				{
-					_localCaptureCombo.SelectedIndex = index;
-					break;
-				}
-			}
+			return LanguageManager.Format("Collections.LocalRestore.InterruptedSourceActivity",
+				"Interrupted Local Collection restore: {0} [{1}]. Review the source before resuming or stopping.", source.SourceDisplayName, capture);
 		}
 
 		private void UpdateActionButtons()
@@ -5788,8 +6338,13 @@ namespace Nexus.Client.CollectionManagement.UI
 				: null;
 			bool hasInterruptedLocalRestore = _localRestoreRecoverySources != null && _localRestoreRecoverySources.Count > 0;
 			_localCaptureCombo.Enabled = !_workflowBusy && !hasInterruptedLocalRestore && _managementWorkflow != null && _localCaptureCombo.Items.Count > 0;
-			_restoreLocalCaptureButton.Enabled = !_workflowBusy && !hasInterruptedLocalRestore && hasLocalCapture &&
-				selectedCapture.Capability == LocalCaptureCapability.LocallyRestorableWithinScope;
+			_restoreLocalCaptureButton.Text = hasInterruptedLocalRestore
+				? L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore...")
+				: L("Collections.Actions.RestoreLocal", "Restore Local Collection...");
+			_restoreLocalCaptureButton.Enabled = !_workflowBusy && (hasInterruptedLocalRestore
+				? _localRestoreRecoverySources.Count == 1 && _localRestoreRecoverySources[0].HasResolvedCapture &&
+					String.IsNullOrEmpty(_localRestoreRecoverySources[0].Diagnostic)
+				: hasLocalCapture && selectedCapture.Capability == LocalCaptureCapability.LocallyRestorableWithinScope);
 			CollectionManagementLocalWorkingCopy selectedWorkingCopy = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
 			_localWorkingCopyCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localWorkingCopyCombo.Items.Count > 0;
 			_editLocalWorkingCopyButton.Enabled = !_workflowBusy && _managementWorkflow != null && selectedWorkingCopy != null;
@@ -5802,7 +6357,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				: null;
 			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Items.Count > 0;
 			_manageAssociationRemovalButton.Enabled = !_workflowBusy && hasManagedAssociation;
-			_verifyRepairButton.Enabled = !_workflowBusy && hasManagedAssociation && _managedAssociationPresentation != null;
+			_verifyRepairButton.Enabled = !_workflowBusy && hasManagedAssociation && selectedAssociation.PendingRevision == null && _managedAssociationPresentation != null;
 			_cloneManagedAssociationButton.Enabled = !_workflowBusy && hasManagedAssociation &&
 				_managedAssociationPresentation != null && _managedAssociationPresentation.HasRetainedManifest;
 			CollectionManagementMemberPresentation selectedManagedMember = GetSelectedManagedMemberPresentation();
@@ -5845,35 +6400,73 @@ namespace Nexus.Client.CollectionManagement.UI
 				matchingAssociation.AssociationId == _managedMemberExpansionAssociationId.Value;
 			bool sameRevisionAlreadyApplied = matchingAssociation != null && matchingAssociation.State == CollectionAssociationState.Applied && !expandingManagedAssociation;
 			bool installedAssociationView = _managedAssociationPresentation != null;
+			_previewContextLabel.Text = installedAssociationView
+				? L("Collections.Context.InstalledDetails", "Installed Collection details")
+				: _displayContext != null && _displayContext.Kind == CollectionUiContextKind.SavedLocalCollection
+					? L("Collections.Context.SavedLocalDetails", "Saved Local Collection details")
+					: L("Collections.Context.Incoming", "Incoming Collection");
+			_incomingActionsPanel.Visible = _incomingActionContext != null;
 			CollectionManagementAssociation revisionUpdateSource = FindRevisionUpdateSourceAssociation();
 			CollectionRevisionUpdateWorkflowResult interruptedRevisionUpdate = FindMatchingInterruptedRevisionUpdate();
-			bool canStartRevisionUpdate = !_workflowBusy && _revisionUpdateWorkflow != null && _workflow != null && !installedAssociationView &&
-				_incomingActionContext != null && hasConcreteRevision && (revisionUpdateSource != null || interruptedRevisionUpdate != null);
-			_compareUpdateButton.Enabled = canStartRevisionUpdate;
+			if (_incomingActionContext != null && _blockedRevisionUpdatePlan != null)
+				_instructionLabel.Text = _blockedRevisionUpdatePlan.Members.Any(x => x.RequiresStandaloneUseConfirmation)
+					? L("Collections.Update.BlockedOwnershipInstructions", "The revision comparison found mods whose ownership needs review. Choose Review Collection ownership... to decide separately which installations to keep independently. The installed revision has not changed.")
+					: L("Collections.Update.BlockedReviewInstructions", "Resolve the named errors below before running the revision comparison again. The installed revision has not changed.");
+			else if (_incomingActionContext != null && (_revisionUpdateResult ?? interruptedRevisionUpdate) != null &&
+				!(_revisionUpdateResult ?? interruptedRevisionUpdate).IsCommitted)
+			{
+				CollectionRevisionUpdateWorkflowResult pending = _revisionUpdateResult ?? interruptedRevisionUpdate;
+				_instructionLabel.Text = pending.Status == CollectionRevisionUpdateWorkflowStatus.AwaitingInput
+					? L("Collections.Update.DownloadContinuationInstructions", "This revision change has been approved. Once the required files are ready, choose Continue revision change to verify them and install the approved changes.")
+					: pending.Status == CollectionRevisionUpdateWorkflowStatus.ReadyForReview
+						? L("Collections.Update.PendingApprovalInstructions", "Choose Review pending revision change to review and approve the remaining changes.")
+						: pending.Status == CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired
+							? L("Collections.Update.BlockedContinuationInstructions", "This revision change is blocked. The named mods and files are listed under Review / issues. Recheck revision change repeats the checks; it cannot resolve an unsupported recovery or review step. Export Technical Report includes these findings.")
+							: L("Collections.Update.ResumeRevisionInstructions", "This revision change is incomplete. Choose Resume revision change to check completed steps and continue. Any stop reason appears under Review / issues. The installed selector keeps the previous revision until the change finishes.");
+			}
+			else if (_incomingActionContext != null && revisionUpdateSource != null)
+				_instructionLabel.Text = L("Collections.Update.IncomingRevisionInstructions",
+					"The incoming revision is shown above; the installed revision is shown in Installed Collection below. Choose Review revision change to compare them and review the changes before approving them.");
 			CollectionRevisionUpdateWorkflowResult displayedRevisionUpdate = _revisionUpdateResult ?? interruptedRevisionUpdate;
+			bool canStartRevisionUpdate = !_workflowBusy && _revisionUpdateWorkflow != null && _workflow != null && !installedAssociationView &&
+				_incomingActionContext != null && hasConcreteRevision &&
+				((displayedRevisionUpdate != null && !displayedRevisionUpdate.IsCommitted) ||
+				 (revisionUpdateSource != null && CanSupersedePreparationForRevisionChange(_operationSnapshot)));
+			CollectionRevisionUpdateWorkflowResult installedPending = installedAssociationView
+				? FindInterruptedRevisionUpdateForAssociation(_managedAssociationPresentation.Association) : null;
+			_compareUpdateButton.Enabled = canStartRevisionUpdate || (!_workflowBusy && installedPending != null && _revisionUpdateWorkflow != null);
+			_compareUpdateButton.Visible = _incomingActionContext == null;
 			if (displayedRevisionUpdate != null && !displayedRevisionUpdate.IsCommitted)
 			{
 				switch (displayedRevisionUpdate.Status)
 				{
 					case CollectionRevisionUpdateWorkflowStatus.AwaitingInput:
-						_compareUpdateButton.Text = L("Collections.Update.ContinueDownloadsButton", "Check update downloads and continue...");
+						_compareUpdateButton.Text = L("Collections.Update.ContinueRevisionButton", "Continue revision change...");
 						break;
 					case CollectionRevisionUpdateWorkflowStatus.ReadyForReview:
-						_compareUpdateButton.Text = L("Collections.Update.ResumeReviewButton", "Review pending update...");
+						_compareUpdateButton.Text = L("Collections.Update.ReviewPendingRevisionButton", "Review pending revision change...");
+						break;
+					case CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired:
+						_compareUpdateButton.Text = L("Collections.Update.RecheckRevisionButton", "Recheck revision change...");
 						break;
 					case CollectionRevisionUpdateWorkflowStatus.RecoveryRequired:
-					case CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired:
-						_compareUpdateButton.Text = L("Collections.Update.RecoveryButton", "Check update recovery...");
+						_compareUpdateButton.Text = L("Collections.Update.ResumeRevisionButton", "Resume revision change...");
 						break;
 					default:
-						_compareUpdateButton.Text = L("Collections.Update.ResumeButton", "Resume update...");
+						_compareUpdateButton.Text = L("Collections.Update.ResumeRevisionButton", "Resume revision change...");
 						break;
 				}
 			}
 			else
-				_compareUpdateButton.Text = L("Collections.Actions.CompareUpdate", "Compare / Update...");
+				_compareUpdateButton.Text = installedPending != null
+					? L("Collections.Update.OpenUnfinishedRevision", "Open unfinished revision change...")
+					: L("Collections.Actions.CompareUpdate", "Compare / Update...");
+			if (_workflowBusy && _incomingActionContext != null &&
+				(revisionUpdateSource != null || displayedRevisionUpdate != null))
+				_compareUpdateButton.Text = GetBusyIncomingActionText();
 			_importButton.Enabled = !_workflowBusy && hasConcreteRevision && !installedAssociationView && !sameRevisionAlreadyApplied;
 			_downloadPrepareButton.Enabled = !_workflowBusy && _workflow != null && hasConcreteRevision && !installedAssociationView && !sameRevisionAlreadyApplied && !_selectionCapabilityBlocked &&
+				revisionUpdateSource == null && interruptedRevisionUpdate == null &&
 				(_acquisitionBatch == null || _selectionDirty || _acquisitionBatch.Members.Any(x => x.Disposition == CollectionMemberAcquisitionDisposition.RestartActionRequired) ||
 				 (_preparation != null &&
 				 (_preparation.Status == CollectionAdditiveWorkflowPreparationStatus.PreparationRequired ||
@@ -5884,7 +6477,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_resolveFileConflictsButton.Visible = false;
 			_resolveFileConflictsButton.Enabled = !_workflowBusy && hasResolvableFileConflict && !installedAssociationView && !sameRevisionAlreadyApplied;
 			_autoOverwriteArchivesCheckBox.Enabled = _downloadPrepareButton.Enabled || _compareUpdateButton.Enabled;
-			bool resumeRequired = _acquisitionBatch != null && !_acquisitionBatch.IsReady;
+			bool resumeRequired = CanResumePreparation(_acquisitionBatch);
 			_resumeButton.Visible = false;
 			_resumeButton.Enabled = !_workflowBusy && resumeRequired;
 			CollectionManualAcquisitionPendingAction pendingDownload = GetSelectedOrFirstPendingAction();
@@ -5930,7 +6523,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			// Keep rare/destructive controls out of the way until the current incoming workflow can actually use them.
 			_importButton.Visible = !installedAssociationView && hasConcreteRevision;
-			_autoOverwriteArchivesCheckBox.Visible = !installedAssociationView && (_downloadPrepareButton.Enabled || _acquisitionBatch != null);
+			_autoOverwriteArchivesCheckBox.Visible = !installedAssociationView && (_downloadPrepareButton.Enabled || _compareUpdateButton.Enabled || _acquisitionBatch != null);
 			_replacementBackupCheckBox.Visible = replacementReady;
 			_replaceButton.Visible = replacementReady || replacementCanContinue || replacementNeedsNewReview;
 			_clearButton.Visible = _clearButton.Enabled;
@@ -5945,9 +6538,29 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void UpdatePrimaryIncomingAction(bool sameRevisionAlreadyApplied, bool hasConcreteRevision, bool installedAssociationView)
 		{
 			_primaryIncomingActionSource = null;
+			_primaryIncomingReviewsBlockedIssues = false;
+			_primaryIncomingReviewsRevisionOwnership = false;
 			Button source = null;
-			if (_resolveFileConflictsButton.Enabled)
+			if (_workflowBusy)
+			{
+				_primaryIncomingActionButton.Visible = !installedAssociationView && hasConcreteRevision;
+				_primaryIncomingActionButton.Enabled = false;
+				_primaryIncomingActionButton.Text = GetBusyIncomingActionText();
+				return;
+			}
+			if (!_workflowBusy && _blockedRevisionUpdatePlan != null)
+			{
+				_primaryIncomingReviewsRevisionOwnership = _blockedRevisionUpdatePlan.Members.Any(x => x.RequiresStandaloneUseConfirmation);
+				_primaryIncomingReviewsBlockedIssues = !_primaryIncomingReviewsRevisionOwnership;
+			}
+			else if (_compareUpdateButton.Enabled)
+				source = _compareUpdateButton;
+			else if (_resolveFileConflictsButton.Enabled)
 				source = _resolveFileConflictsButton;
+			else if (!_workflowBusy && !_selectionDirty &&
+				((_preparation != null && _preparation.Status == CollectionAdditiveWorkflowPreparationStatus.Blocked) ||
+				 (_acquisitionBatch != null && _acquisitionBatch.HasBlockedMembers)))
+				_primaryIncomingReviewsBlockedIssues = true;
 			else if (_openPendingButton.Enabled)
 				source = _openPendingButton;
 			else if (_selectionDirty && _downloadPrepareButton.Enabled)
@@ -5961,7 +6574,17 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			_primaryIncomingActionSource = source;
 			_primaryIncomingActionButton.Visible = !installedAssociationView && hasConcreteRevision;
-			_primaryIncomingActionButton.Enabled = source != null && source.Enabled;
+			_primaryIncomingActionButton.Enabled = _primaryIncomingReviewsRevisionOwnership || _primaryIncomingReviewsBlockedIssues || (source != null && source.Enabled);
+			if (_primaryIncomingReviewsRevisionOwnership)
+			{
+				_primaryIncomingActionButton.Text = L("Collections.Update.ReviewOwnership", "Review Collection ownership...");
+				return;
+			}
+			if (_primaryIncomingReviewsBlockedIssues)
+			{
+				_primaryIncomingActionButton.Text = L("Collections.Actions.ReviewBlockingIssues", "Review blocking issues");
+				return;
+			}
 			if (source == null)
 			{
 				_primaryIncomingActionButton.Text = sameRevisionAlreadyApplied
@@ -5970,9 +6593,36 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 			}
 
+			if (ReferenceEquals(source, _compareUpdateButton))
+			{
+				_primaryIncomingActionButton.Text = (_revisionUpdateResult ?? FindMatchingInterruptedRevisionUpdate()) != null
+					? source.Text
+					: L("Collections.Update.ReviewRevisionChangeButton", "Review revision change...");
+				return;
+			}
 			_primaryIncomingActionButton.Text = ReferenceEquals(source, _downloadPrepareButton) && _selectionDirty
 				? L("Collections.Actions.PrepareUpdatedSelection", "Prepare updated selection")
 				: source.Text;
+		}
+
+		/// <summary>Names the current foreground phase while the incoming action is disabled.</summary>
+		private string GetBusyIncomingActionText()
+		{
+			CollectionWorkflowActivityPhase phase = _workflowActivity == null ? CollectionWorkflowActivityPhase.None : _workflowActivity.Phase;
+			switch (phase)
+			{
+				case CollectionWorkflowActivityPhase.Importing: return L("Collections.Busy.Importing", "Importing Collection...");
+				case CollectionWorkflowActivityPhase.Preparing: return L("Collections.Busy.Preparing", "Preparing mod files...");
+				case CollectionWorkflowActivityPhase.Acquiring: return L("Collections.Busy.Downloading", "Downloading mod files...");
+				case CollectionWorkflowActivityPhase.Reviewing: return L("Collections.Busy.Reviewing", "Reviewing changes...");
+				case CollectionWorkflowActivityPhase.Applying: return L("Collections.Busy.Applying", "Applying approved changes...");
+				case CollectionWorkflowActivityPhase.Verifying: return L("Collections.Busy.Verifying", "Verifying Collection...");
+				case CollectionWorkflowActivityPhase.Recovering: return L("Collections.Busy.Continuing", "Checking and continuing...");
+				case CollectionWorkflowActivityPhase.Capturing: return L("Collections.Busy.Capturing", "Saving Local Collection...");
+				case CollectionWorkflowActivityPhase.Restoring: return L("Collections.Busy.Restoring", "Restoring Local Collection...");
+				case CollectionWorkflowActivityPhase.Managing: return L("Collections.Busy.Managing", "Saving choices...");
+				default: return L("Collections.Busy.Working", "Working...");
+			}
 		}
 
 		private CollectionManagementAssociation FindMatchingManagedAssociation()
@@ -5996,6 +6646,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (association == null)
 				return;
 
+			if (association.PendingRevision != null)
+			{
+				_appliedValue.Text = L("Collections.Update.PreviousRevisionPending", "Previous revision recorded; revision change incomplete");
+				_contentValue.Text = L("Collections.Update.InstalledContentPending", "Revision change unfinished; current setup not verified");
+				_compatibilityValue.Text = L("Collections.Update.InstalledCompatibilityPending", "Current setup verification deferred until revision change completes");
+				return;
+			}
+
 			switch (association.State)
 			{
 				case CollectionAssociationState.Applied:
@@ -6007,7 +6665,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					_appliedValue.Text = L("Collections.Status.Applied.Modified", "Applied - modified from reviewed revision");
 					break;
 				case CollectionAssociationState.Incomplete:
-					_appliedValue.Text = L("Collections.Status.Applied.Incomplete", "Incomplete - review/resume required");
+					_appliedValue.Text = L("Collections.Status.Applied.IncompleteVerify", "Incomplete - use Verify / Repair");
 					break;
 				case CollectionAssociationState.Recovering:
 					_appliedValue.Text = L("Collections.Status.Applied.RecoveryRequired", "Recovery required before further mutation");
@@ -6081,7 +6739,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void SetDefaultInstruction()
 		{
 			_instructionLabel.Text = L("Collections.Preview.Instructions",
-				"Open a Nexus Collection NXM link to load it, choose optional mods, download and prepare, review the changes, then install. Select a saved Local Collection above to review and restore it.");
+				"Open a Nexus Collection NXM link to load it, choose optional mods, download and prepare, review the changes, then install. Select a saved Local Collection to review and restore it.");
 		}
 
 		private void AddGraphQlErrors(string codePrefix, IReadOnlyList<NexusGraphQlError> errors, CollectionReviewSeverity severity)
@@ -6144,7 +6802,11 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void SetWorkflowPresentation(CollectionUserMessagePresentation presentation)
 		{
-			_workflowStatusLabel.Text = LanguageManager.Format("Collections.Workflow.UserStatus", "Workflow: {0}", ResolveUserMessage(presentation));
+			string message = ResolveUserMessage(presentation);
+			string nextAction = ResolveNextAction(presentation);
+			_workflowStatusLabel.Text = String.IsNullOrWhiteSpace(nextAction)
+				? LanguageManager.Format("Collections.Workflow.UserStatus", "Workflow: {0}", message)
+				: LanguageManager.Format("Collections.Workflow.UserStatusWithNextAction", "Workflow: {0} {1}", message, nextAction);
 		}
 
 		private void AddReviewItem(CollectionReviewSeverity severity, CollectionReviewItemKind kind, string status,
@@ -6377,7 +7039,16 @@ namespace Nexus.Client.CollectionManagement.UI
 				: "ordinal:" + member.SourceOrdinal.ToString(CultureInfo.InvariantCulture);
 		}
 
+		/// <summary>Creates an action group with the existing Collections heading and wrapping layout.</summary>
 		private static Control CreateActionGroup(string caption, params Control[] actions)
+		{
+			Label heading;
+			FlowLayoutPanel actionPanel;
+			return CreateActionGroup(caption, out heading, out actionPanel, actions);
+		}
+
+		/// <summary>Creates an action group whose heading and actions can follow the displayed context.</summary>
+		private static Control CreateActionGroup(string caption, out Label heading, out FlowLayoutPanel actionPanel, params Control[] actions)
 		{
 			var group = new TableLayoutPanel
 			{
@@ -6391,14 +7062,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			group.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 			group.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-			var heading = new Label
+			heading = new Label
 			{
 				AutoSize = true,
 				Text = caption ?? String.Empty,
 				Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold),
 				Margin = new Padding(3, 0, 3, 2)
 			};
-			var actionPanel = new FlowLayoutPanel
+			actionPanel = new FlowLayoutPanel
 			{
 				AutoSize = true,
 				AutoSizeMode = AutoSizeMode.GrowAndShrink,

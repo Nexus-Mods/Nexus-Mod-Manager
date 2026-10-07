@@ -19,6 +19,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (captureIdentity == null) throw new ArgumentNullException(nameof(captureIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
+			if (!captureIdentity.Equals(plan.CaptureIdentity))
+				throw new InvalidDataException("The Local restore intent source differs from the approved capture identity.");
 			using (var stream = new MemoryStream())
 			using (var text = new StreamWriter(stream, new UTF8Encoding(false), 4096, true))
 			using (var writer = new JsonTextWriter(text))

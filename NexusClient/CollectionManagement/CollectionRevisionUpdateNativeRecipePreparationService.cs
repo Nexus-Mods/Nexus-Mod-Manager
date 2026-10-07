@@ -70,6 +70,11 @@ namespace Nexus.Client.CollectionManagement
 			IMod managedMod = ResolveManagedMod(updateMember, verifiedArchive, cancellationToken);
 			ModInstallContext installContext = ResolveInstallContext(updateMember, currentState);
 			bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
+			if (!requireApprovedStateFingerprint)
+				return _nativeRecipePreparer.PrepareRevisionUpdateExact(updatePlan.NewPlan, updateMember.NewMember,
+					verifiedArchive, managedMod, _services.ModManager.GameMode, _services.ModManager.EnvironmentInfo,
+					installContext, currentState, skipReadme, _services.PluginManager, _services.ModManager.ActiveMods.ToList(),
+					cancellationToken);
 			return _nativeRecipePreparer.PrepareExact(updatePlan.NewPlan, updateMember.NewMember, verifiedArchive, managedMod,
 				_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, currentState, skipReadme,
 				_services.PluginManager, _services.ModManager.ActiveMods.ToList(), cancellationToken);

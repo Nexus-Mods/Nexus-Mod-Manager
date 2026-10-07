@@ -94,7 +94,7 @@ namespace Nexus.Client.CollectionManagement
 				CollectionOperation operation = RequireFinalizableOperation(profilePhase.Operation.Identity, reviewedPlan);
 				try
 				{
-					VerifyMemberClosure(sealedCapture, reviewedPlan, memberPhase, cancellationToken);
+					CollectionLocalRestorePlan verifiedMembers = VerifyMemberClosure(sealedCapture, reviewedPlan, memberPhase, cancellationToken);
 					_ownershipExecutor.VerifyFinalState(sealedCapture, reviewedPlan, memberPhase, cancellationToken);
 					_replayExecutor.VerifyFinalState(sealedCapture, reviewedPlan, memberPhase, paths, cancellationToken);
 					_pluginExecutor.VerifyFinalState(sealedCapture);
@@ -108,7 +108,10 @@ namespace Nexus.Client.CollectionManagement
 						operation.Collection, operation.Target, operation.Revision, operation.PlanIdentity,
 						checked(operation.CheckpointSequence + 1), CollectionOperationPhase.Completed,
 						CollectionOperationResultState.Committed, operation.NativeChildren);
-					_operationStore.SaveOperation(completed);
+					CollectionsAssociationTargetSnapshot associations = _associationStore.GetTargetSnapshot(operation.Target);
+					IReadOnlyList<CollectionMemberBinding> verifiedBindings = CreateVerifiedAssociationBindings(
+						sealedCapture.InstalledIdentities, verifiedMembers, associations);
+					_associationStore.SaveVerifiedLocalRestore(completed, associations, verifiedBindings);
 					return completed;
 				}
 				catch (OperationCanceledException)
@@ -123,7 +126,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private void VerifyMemberClosure(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+		private CollectionLocalRestorePlan VerifyMemberClosure(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
 			CollectionLocalRestoreMemberExecutionResult memberPhase, CancellationToken cancellationToken)
 		{
 			ModManager manager = _services.ModManager;
@@ -156,6 +159,46 @@ namespace Nexus.Client.CollectionManagement
 					!StringComparer.OrdinalIgnoreCase.Equals(expected, member.CurrentNativeKey))
 					throw new InvalidOperationException("Final Local restore verification found a native-key remap that no longer matches the verified member phase.");
 			}
+			return finalPlan;
+		}
+
+		/// <summary>Maps captured provenance for unchanged association baselines onto the native registrations proved by final verification.</summary>
+		internal static IReadOnlyList<CollectionMemberBinding> CreateVerifiedAssociationBindings(
+			CollectionInstalledIdentitySnapshot capturedIdentities, CollectionLocalRestorePlan verifiedPlan,
+			CollectionsAssociationTargetSnapshot associations)
+		{
+			if (capturedIdentities == null) throw new ArgumentNullException(nameof(capturedIdentities));
+			if (verifiedPlan == null) throw new ArgumentNullException(nameof(verifiedPlan));
+			if (associations == null) throw new ArgumentNullException(nameof(associations));
+			if (!capturedIdentities.Target.Equals(verifiedPlan.Target) || !associations.Target.Equals(verifiedPlan.Target))
+				throw new InvalidOperationException("Verified Local restore bindings must belong to the captured canonical target.");
+			if (!verifiedPlan.IsReadyForReview || verifiedPlan.CurrentNativeKeysToRemove.Count != 0)
+				throw new InvalidOperationException("Association rebinding requires a restored member set without unresolved or extra native effects.");
+
+			var result = new List<CollectionMemberBinding>();
+			var members = new HashSet<CollectionMemberBinding>();
+			foreach (CollectionLocalRestoreMemberPlan member in verifiedPlan.Members)
+			{
+				if (member.Action != CollectionLocalRestoreMemberAction.ReuseExistingNative || String.IsNullOrWhiteSpace(member.CurrentNativeKey))
+					throw new InvalidOperationException("Association rebinding requires a verified live native registration for every restored member.");
+				CollectionInstalledModIdentity captured = capturedIdentities.Mods.Single(x =>
+					StringComparer.OrdinalIgnoreCase.Equals(x.NativeSnapshotKey, member.CapturedNativeKey));
+				foreach (CollectionInstalledMemberProvenance provenance in captured.Provenance)
+				{
+					CollectionMemberBinding baseline = associations.Bindings.SingleOrDefault(x =>
+						x.Association.AssociationId == provenance.AssociationId && x.MemberKey.Equals(provenance.MemberKey));
+					// A saved Local capture must never recreate untracked associations or overwrite a different remote revision/recipe.
+					if (baseline == null || !baseline.Association.Revision.Equals(provenance.Revision) ||
+						!baseline.VerifiedRecipe.Equals(provenance.VerifiedRecipe))
+						continue;
+					var verified = new CollectionMemberBinding(baseline.Association, baseline.MemberKey,
+						new NativeModInstanceIdentity(verifiedPlan.Target, member.CurrentNativeKey), baseline.VerifiedRecipe, baseline.BindingKind);
+					if (!members.Add(verified))
+						throw new InvalidOperationException("Captured provenance maps one Collection member to multiple restored registrations.");
+					result.Add(verified);
+				}
+			}
+			return result;
 		}
 
 		private static void ValidateInputs(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,

@@ -47,8 +47,13 @@ namespace Nexus.Client.CollectionManagement
 				PreparedCollectionNativeRecipeIdentity newPrepared = GetPrepared(newPreparedIdentities, key);
 				CollectionRevisionUpdatePreparationKind preparation = ClassifyPreparation(change, oldPrepared, newPrepared);
 				bool standaloneProtected = binding != null && IsStandaloneProtected(provenanceByNative, binding.NativeMod);
-				CollectionRevisionUpdateDisposition disposition = ClassifyDisposition(change, current, standaloneProtected);
-				string detail = Describe(change, current, preparation, standaloneProtected);
+				NativeModProvenance nativeProvenance;
+				bool independentUseConfirmed = binding != null && provenanceByNative.TryGetValue(binding.NativeMod, out nativeProvenance) &&
+					nativeProvenance.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse;
+				CollectionRevisionUpdateDisposition disposition = ClassifyDisposition(change, current, standaloneProtected, independentUseConfirmed);
+				string detail = disposition == CollectionRevisionUpdateDisposition.PreserveStandalone
+					? "This member is absent from the candidate revision. Its independently used installation will remain installed; only this Collection's old binding will be removed after the update succeeds."
+					: Describe(change, current, preparation, standaloneProtected);
 
 				results.Add(new CollectionRevisionUpdateMemberPlan(key, oldMember, newMember, binding, change, current,
 					disposition, preparation, oldPrepared, newPrepared, memberOverrides, memberDrift, standaloneProtected, detail));
@@ -162,7 +167,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static CollectionRevisionUpdateDisposition ClassifyDisposition(CollectionRevisionUpdateChangeKind change,
-			CollectionRevisionUpdateCurrentStateKind current, bool standaloneProtected)
+			CollectionRevisionUpdateCurrentStateKind current, bool standaloneProtected, bool independentUseConfirmed)
 		{
 			if (current == CollectionRevisionUpdateCurrentStateKind.UnacceptedDrift)
 				return CollectionRevisionUpdateDisposition.DriftRequiresReview;
@@ -173,7 +178,8 @@ namespace Nexus.Client.CollectionManagement
 			if (change == CollectionRevisionUpdateChangeKind.Added)
 				return CollectionRevisionUpdateDisposition.AddFromNewRevision;
 			if (change == CollectionRevisionUpdateChangeKind.Removed)
-				return standaloneProtected ? CollectionRevisionUpdateDisposition.ActionRequired : CollectionRevisionUpdateDisposition.RemoveFromOldRevision;
+				return independentUseConfirmed ? CollectionRevisionUpdateDisposition.PreserveStandalone :
+					standaloneProtected ? CollectionRevisionUpdateDisposition.ActionRequired : CollectionRevisionUpdateDisposition.RemoveFromOldRevision;
 			if (change == CollectionRevisionUpdateChangeKind.Unchanged)
 				return CollectionRevisionUpdateDisposition.NoChange;
 			return CollectionRevisionUpdateDisposition.FollowNewRevision;

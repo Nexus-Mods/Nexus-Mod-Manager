@@ -66,6 +66,9 @@ namespace Nexus.Client.CollectionManagement
 				.ToDictionary(x => x.Member.MemberKey);
 			var suppressed = new HashSet<CollectionMemberKey>(preservationPlan.MembersWhoseCandidateMutationIsSuppressed);
 			var committed = new HashSet<CollectionMemberKey>(committedMembers);
+			var preservedNative = new HashSet<NativeModInstanceIdentity>(updatePlan.Members
+				.Where(x => x.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone && x.Binding != null)
+				.Select(x => x.Binding.NativeMod));
 			var results = new List<CollectionMemberMatchResult>();
 
 			foreach (ResolvedCollectionMemberPlan member in executionPlan.SelectedMembers)
@@ -141,6 +144,11 @@ namespace Nexus.Client.CollectionManagement
 
 				if (bound != null)
 				{
+					if (preservedNative.Contains(bound.Identity))
+					{
+						results.Add(Block(member, CollectionMemberMatchReason.ConflictingVerifiedRecipe));
+						continue;
+					}
 					if (existingBindings.Any(x => x.Association.AssociationId != updatePlan.Association.AssociationId))
 					{
 						results.Add(new CollectionMemberMatchResult(member, CollectionMemberMatchDisposition.Blocked,
@@ -168,6 +176,11 @@ namespace Nexus.Client.CollectionManagement
 				}
 				if (candidates.Count == 1)
 				{
+					if (preservedNative.Contains(candidates[0].Identity))
+					{
+						results.Add(Block(member, CollectionMemberMatchReason.ConflictingVerifiedRecipe));
+						continue;
+					}
 					results.Add(new CollectionMemberMatchResult(member, CollectionMemberMatchDisposition.ReinstallRequired,
 						CollectionMemberMatchReason.ExactArtifactRecipeUnverified, candidates,
 						GetBindings(currentState, candidates[0].Identity), preparedState.VerifiedArchive));

@@ -238,6 +238,64 @@ ORDER BY native_mod_key;";
 			_store.ExecuteWrite((connection, transaction) => SaveNativeModProvenance(connection, transaction, provenance));
 		}
 
+		/// <summary>Atomically records user-confirmed Collection-only use for unchanged member bindings with unknown standalone history.</summary>
+		internal void SaveConfirmedCollectionOnlyUse(CollectionTargetAssociation expectedAssociation, IEnumerable<CollectionMemberBinding> expectedBindings)
+		{
+			SaveReviewedStandaloneUse(expectedAssociation, expectedBindings, new CollectionMemberBinding[0]);
+		}
+
+		/// <summary>Atomically saves separate ownership decisions without changing unreviewed native provenance or bindings.</summary>
+		internal void SaveReviewedStandaloneUse(CollectionTargetAssociation expectedAssociation,
+			IEnumerable<CollectionMemberBinding> collectionOnlyBindings, IEnumerable<CollectionMemberBinding> independentBindings)
+		{
+			if (expectedAssociation == null) throw new ArgumentNullException(nameof(expectedAssociation));
+			if (collectionOnlyBindings == null) throw new ArgumentNullException(nameof(collectionOnlyBindings));
+			if (independentBindings == null) throw new ArgumentNullException(nameof(independentBindings));
+			List<CollectionMemberBinding> collectionOnly = collectionOnlyBindings.ToList();
+			List<CollectionMemberBinding> independent = independentBindings.ToList();
+			List<CollectionMemberBinding> bindings = collectionOnly.Concat(independent).ToList();
+			if (bindings.Count == 0 || bindings.Any(x => x == null || x.Association.AssociationId != expectedAssociation.AssociationId ||
+				!x.Association.Revision.Equals(expectedAssociation.Revision) || !x.NativeMod.Target.Equals(expectedAssociation.Target)))
+				throw new ArgumentException("Every confirmed binding must belong to the exact reviewed association.", nameof(collectionOnlyBindings));
+
+			if (bindings.Select(x => x.MemberKey).Distinct().Count() != bindings.Count ||
+				collectionOnly.Select(x => x.NativeMod).Intersect(independent.Select(x => x.NativeMod)).Any())
+				throw new ArgumentException("One installed mod cannot receive conflicting ownership decisions.", nameof(independentBindings));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				CollectionTargetAssociation current = ReadAssociation(connection, transaction, expectedAssociation.AssociationId);
+				if (current == null || !current.Target.Equals(expectedAssociation.Target) || !current.Revision.Equals(expectedAssociation.Revision) ||
+					current.State != expectedAssociation.State || current.State == CollectionAssociationState.Recovering || current.State == CollectionAssociationState.Incomplete)
+					throw new InvalidOperationException("The installed Collection changed; review its ownership again.");
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT COUNT(*) FROM collection_operations WHERE target_fingerprint=@target AND phase<>@completed;";
+					command.Parameters.AddWithValue("@target", current.Target.Fingerprint);
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					if (Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture) != 0)
+						throw new InvalidOperationException("Complete pending Collection work before confirming ownership.");
+				}
+				List<CollectionMemberBinding> currentBindings = ReadBindings(connection, transaction, current, null).ToList();
+				foreach (CollectionMemberBinding expected in bindings)
+				{
+					CollectionMemberBinding binding = currentBindings.SingleOrDefault(x => x.MemberKey.Equals(expected.MemberKey));
+					if (binding == null || !binding.NativeMod.Equals(expected.NativeMod) || !binding.VerifiedRecipe.Equals(expected.VerifiedRecipe) ||
+						binding.BindingKind != expected.BindingKind)
+						throw new InvalidOperationException("A reviewed member binding changed; review ownership again.");
+					NativeModProvenance provenance = ReadNativeModProvenance(connection, transaction, binding.NativeMod);
+					if (collectionOnly.Any(x => x.NativeMod.Equals(binding.NativeMod)) && provenance != null &&
+						provenance.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse)
+						throw new InvalidOperationException("This mod has confirmed independent use; that protection cannot be cleared by this unknown-history review.");
+				}
+				foreach (NativeModInstanceIdentity nativeMod in collectionOnly.Select(x => x.NativeMod).Distinct())
+					SaveNativeModProvenance(connection, transaction, new NativeModProvenance(nativeMod, StandaloneModUse.NoStandaloneUseVerified));
+				foreach (NativeModInstanceIdentity nativeMod in independent.Select(x => x.NativeMod).Distinct())
+					SaveNativeModProvenance(connection, transaction, new NativeModProvenance(nativeMod, StandaloneModUse.ExplicitStandaloneUse));
+			});
+		}
+
 		/// <summary>
 		/// Atomically detaches one Collection association while preserving all bound native mods as explicit standalone use.
 		/// </summary>
@@ -1168,6 +1226,126 @@ WHERE target_fingerprint=@target_fingerprint
 			});
 		}
 
+		/// <summary>Atomically retires a safely reconciled partial Local restore and releases its outgoing association quarantine.</summary>
+		internal void SaveLocalRestoreStoppedPartial(CollectionOperation stoppedOperation, IEnumerable<Guid> associationIds)
+		{
+			if (stoppedOperation == null) throw new ArgumentNullException(nameof(stoppedOperation));
+			if (associationIds == null) throw new ArgumentNullException(nameof(associationIds));
+			if (stoppedOperation.Kind != CollectionOperationKind.RestoreLocalCapture || !stoppedOperation.IsTerminal ||
+				stoppedOperation.ResultState != CollectionOperationResultState.StoppedPartial ||
+				stoppedOperation.HasUnreconciledNativeChild || stoppedOperation.HasUnknownNativeDurability)
+				throw new ArgumentException("Stopping Local restore requires a reconciled Completed/StoppedPartial snapshot.", nameof(stoppedOperation));
+			List<Guid> ids = associationIds.Distinct().OrderBy(x => x).ToList();
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT checkpoint_sequence FROM collection_operations
+WHERE operation_id=@operation AND phase<>@completed
+  AND NOT EXISTS (SELECT 1 FROM collection_operations other
+      WHERE other.target_fingerprint=collection_operations.target_fingerprint
+        AND other.operation_id<>@operation AND other.phase<>@completed);";
+					command.Parameters.AddWithValue("@operation", stoppedOperation.Identity.OperationId.ToString("D"));
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					object checkpoint = command.ExecuteScalar();
+					if (checkpoint == null || Convert.ToInt64(checkpoint, CultureInfo.InvariantCulture) != stoppedOperation.CheckpointSequence - 1)
+						throw new InvalidOperationException("The Local restore journal changed before partial-stop publication.");
+				}
+				if (!ReadAssociationIdsForTarget(connection, transaction, stoppedOperation.Target).SetEquals(ids))
+					throw new InvalidOperationException("The outgoing Collection association set changed before stopping Local restore.");
+				foreach (Guid id in ids)
+				{
+					CollectionTargetAssociation current = ReadAssociation(connection, transaction, id);
+					if (current == null || (current.State != CollectionAssociationState.Recovering && current.State != CollectionAssociationState.Incomplete))
+						throw new InvalidOperationException("An outgoing association no longer owns the Local restore quarantine.");
+					SaveAssociation(connection, transaction, current.WithState(CollectionAssociationState.Incomplete));
+				}
+				// Keep every binding, child journal and retained reference. Stopping partial work is never restore success.
+				CollectionsOperationStore.SaveOperation(connection, transaction, stoppedOperation);
+			});
+		}
+
+		/// <summary>Atomically publishes verified restored member registrations, participation observations and the committed Local restore journal.</summary>
+		internal void SaveVerifiedLocalRestore(CollectionOperation completedOperation, CollectionsAssociationTargetSnapshot expected,
+			IEnumerable<CollectionMemberBinding> verifiedBindings)
+		{
+			if (completedOperation == null) throw new ArgumentNullException(nameof(completedOperation));
+			if (expected == null) throw new ArgumentNullException(nameof(expected));
+			if (verifiedBindings == null) throw new ArgumentNullException(nameof(verifiedBindings));
+			if (completedOperation.Kind != CollectionOperationKind.RestoreLocalCapture || !completedOperation.IsSuccessful ||
+				completedOperation.HasUnreconciledNativeChild || completedOperation.HasUnknownNativeDurability ||
+				!completedOperation.Target.Equals(expected.Target))
+				throw new ArgumentException("Local restore publication requires a verified Completed/Committed snapshot for this target.", nameof(completedOperation));
+			List<CollectionMemberBinding> bindings = verifiedBindings.ToList();
+			if (bindings.Any(x => x == null || !x.Association.Target.Equals(expected.Target)) || bindings.Distinct().Count() != bindings.Count)
+				throw new ArgumentException("Verified Local restore bindings must be unique members of the current target.", nameof(verifiedBindings));
+
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT checkpoint_sequence FROM collection_operations
+WHERE operation_id=@operation AND target_fingerprint=@target AND kind=@kind
+  AND phase=@paused AND result_state=@pending
+  AND NOT EXISTS (SELECT 1 FROM collection_operations other
+      WHERE other.target_fingerprint=collection_operations.target_fingerprint
+        AND other.operation_id<>@operation AND other.phase<>@completed);";
+					command.Parameters.AddWithValue("@operation", completedOperation.Identity.OperationId.ToString("D"));
+					command.Parameters.AddWithValue("@target", expected.Target.Fingerprint);
+					command.Parameters.AddWithValue("@kind", (int)CollectionOperationKind.RestoreLocalCapture);
+					command.Parameters.AddWithValue("@paused", (int)CollectionOperationPhase.PausedAtSafeBoundary);
+					command.Parameters.AddWithValue("@pending", (int)CollectionOperationResultState.Pending);
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					object checkpoint = command.ExecuteScalar();
+					if (checkpoint == null || Convert.ToInt64(checkpoint, CultureInfo.InvariantCulture) != completedOperation.CheckpointSequence - 1)
+						throw new InvalidOperationException("The Local restore journal changed before verified member publication.");
+				}
+				if (!ReadAssociationIdsForTarget(connection, transaction, expected.Target).SetEquals(expected.Associations.Select(x => x.AssociationId)))
+					throw new InvalidOperationException("The outgoing association set changed before verified Local restore publication.");
+				foreach (CollectionTargetAssociation association in expected.Associations)
+				{
+					CollectionTargetAssociation current = ReadAssociation(connection, transaction, association.AssociationId);
+					if (current == null || !current.Revision.Equals(association.Revision) || current.State != CollectionAssociationState.Incomplete)
+						throw new InvalidOperationException("An outgoing association no longer owns the finalized Local restore boundary.");
+				}
+				foreach (CollectionMemberBinding binding in bindings)
+				{
+					CollectionMemberBinding baseline = expected.Bindings.SingleOrDefault(x => x.Equals(binding));
+					CollectionTargetAssociation association = ReadAssociation(connection, transaction, binding.Association.AssociationId);
+					if (baseline == null || association == null || !association.Target.Equals(expected.Target) ||
+						!association.Revision.Equals(binding.Association.Revision) || association.State != CollectionAssociationState.Incomplete ||
+						!binding.VerifiedRecipe.Equals(baseline.VerifiedRecipe) || binding.BindingKind != baseline.BindingKind)
+						throw new InvalidOperationException("A verified restored binding no longer matches the existing Collection baseline.");
+					CollectionMemberBinding current = ReadBindings(connection, transaction, association, null).SingleOrDefault(x => x.Equals(binding));
+					if (current == null || !current.NativeMod.Equals(baseline.NativeMod) ||
+						!current.VerifiedRecipe.Equals(baseline.VerifiedRecipe) || current.BindingKind != baseline.BindingKind)
+						throw new InvalidOperationException("A Collection member binding changed before verified Local restore publication.");
+					SaveBinding(connection, transaction, binding);
+					// Preserve independently recorded standalone use across a recreated native registration; unknown remains protective.
+					NativeModProvenance oldProvenance = ReadNativeModProvenance(connection, transaction, baseline.NativeMod);
+					if (oldProvenance != null && oldProvenance.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse)
+						SaveNativeModProvenance(connection, transaction, new NativeModProvenance(binding.NativeMod, StandaloneModUse.ExplicitStandaloneUse));
+
+					var requirement = new CollectionRequirementReference(association, binding.MemberKey, CollectionRequirementAspect.MemberParticipation, null);
+					CollectionRequirementState observed = CollectionMemberRequirementStates.Included();
+					UserOverride local = ReadOverrideForRequirement(connection, transaction, association, requirement);
+					CollectionDriftObservation drift = ReadDriftObservationForRequirement(connection, transaction, association, requirement);
+					CollectionRequirementState expectedState = local == null ? (drift == null ? observed : drift.ExpectedState) : local.UserChosenState;
+					if (expectedState.Equals(observed))
+						DeleteDriftObservationForRequirement(connection, transaction, requirement);
+					else
+						SaveDriftObservation(connection, transaction, new CollectionDriftObservation(Guid.NewGuid(), requirement,
+							expectedState, observed, "Verified Local restore reinstated the captured Collection member."));
+				}
+				// Outgoing remote revisions stay Incomplete until their own exact verify pass. Local restore proves the saved setup.
+				CollectionsOperationStore.SaveOperation(connection, transaction, completedOperation);
+			});
+		}
+
 		/// <summary>Finalizes a verified Local restore by leaving every superseded outgoing association explicitly Incomplete.</summary>
 		internal void FinalizeLocalRestoreOutgoingAssociations(CollectionTargetIdentity target, IEnumerable<Guid> associationIds)
 		{
@@ -1275,6 +1453,15 @@ WHERE target_fingerprint=@target_fingerprint
 				if (current == null || !current.Revision.Equals(expectedAssociation.Revision) ||
 					!current.Target.Equals(expectedAssociation.Target) || current.State != expectedAssociation.State)
 					throw new InvalidOperationException("The Collection association changed after verify/repair assessment.");
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT 1 FROM collection_operations WHERE target_fingerprint=@target AND phase<>@completed LIMIT 1;";
+					command.Parameters.AddWithValue("@target", current.Target.Fingerprint);
+					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+					if (command.ExecuteScalar() != null)
+						throw new InvalidOperationException("Pending Collection operations prevent healthy-state reconciliation for this target.");
+				}
 
 				SaveAssociation(connection, transaction, finalAssociation);
 				foreach (CollectionMemberBinding binding in copiedBindings)

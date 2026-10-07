@@ -534,6 +534,54 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Verified revision removals may change state without changing the approved basic, file-list or FOMOD output.</summary>
+		[TestCase("basic")]
+		[TestCase("file-list")]
+		[TestCase("fomod")]
+		public void PrepareRevisionUpdateExact_ChangedBoundaryRetainsApprovedIdentityAndOrdinaryPreparationRemainsStrict(string kind)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture;
+				if (kind == "fomod")
+					fixture = CreateFomodFixture(root, "revision-boundary-fomod", false);
+				else if (kind == "file-list")
+				{
+					byte[] bytes = Encoding.UTF8.GetBytes("revision boundary bytes");
+					fixture = CreateFileListFixture(root, "revision-boundary-file-list",
+						new Dictionary<string, byte[]> { { @"payload\one.bin", bytes } },
+						"[{\"path\":\"first.bin\",\"md5\":\"" + ComputeMd5(bytes) + "\"}]");
+				}
+				else
+					fixture = CreateFixture(root, "revision-boundary-basic", @"meshes\body.nif");
+				PreparedCollectionNativeRecipe approved = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false);
+				CollectionNativeStateIndex changedState = CreateState(fixture.Target, 1);
+				Assert.That(changedState.Fingerprint, Is.Not.EqualTo(fixture.Plan.CurrentStateFingerprint));
+
+				Assert.Throws<InvalidOperationException>(() => fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, changedState, false));
+				PreparedCollectionNativeRecipe resumed = fixture.Preparer.PrepareRevisionUpdateExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, changedState, false, null, null, CancellationToken.None);
+				Assert.That(resumed.PreparedNativeIdentity, Is.EqualTo(approved.PreparedNativeIdentity));
+				Assert.That(fixture.Plan.CurrentStateFingerprint, Is.EqualTo(fixture.State.Fingerprint));
+
+				PreparedCollectionNativeRecipe changedSetting = fixture.Preparer.PrepareRevisionUpdateExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, changedState, true, null, null, CancellationToken.None);
+				Assert.That(changedSetting.PreparedNativeIdentity, Is.Not.EqualTo(approved.PreparedNativeIdentity),
+					"Re-preparation must still expose a changed recipe to the revision coordinator's identity check.");
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		[Test]
 		public void PrepareBasicSimpleExact_SpecialFileBehaviorFailsClosedWithoutMutation()
 		{

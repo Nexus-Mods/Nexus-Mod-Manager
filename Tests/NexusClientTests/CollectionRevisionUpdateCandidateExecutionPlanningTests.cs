@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -105,6 +105,50 @@ namespace NexusClientTests
 			CollectionRevisionUpdateCandidateExecutionPlanning result = new CollectionRevisionUpdateCandidateExecutionPlanner().Build(
 				update, f.State, preservation, new[] { preparation }, new[] { prepared }, new CollectionMemberKey[0], CancellationToken.None);
 
+			Assert.That(result.Matches.Members.Single().Disposition, Is.EqualTo(CollectionMemberMatchDisposition.Blocked));
+			Assert.That(result.Matches.Members.Single().Reason, Is.EqualTo(CollectionMemberMatchReason.ConflictingVerifiedRecipe));
+			Assert.That(result.IsReady, Is.False);
+		}
+
+		/// <summary>A candidate member cannot reinstall a shared native instance retained for an independently used removed member.</summary>
+		[Test]
+		public void Build_ChangedMemberSharingPreservedIndependentNative_FailsClosed()
+		{
+			NormalizedCollectionMember oldMember = CreateMember("100", "200", "recipe-a", Sha256A);
+			var newMember = new NormalizedCollectionMember(0, CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider("member-b")),
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected, oldMember.Artifact,
+				CollectionRecipeIdentity.FromFingerprint("recipe-b"), "Member B");
+			Fixture f = CreateFixture(oldMember, newMember, true);
+			var oldSibling = new NormalizedCollectionMember(1, newMember.IdentityResolution,
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected, oldMember.Artifact, oldMember.RecipeIdentity, "Member B");
+			var siblingBinding = new CollectionMemberBinding(f.Association, oldSibling.IdentityResolution.Key, f.Native.Identity,
+				oldSibling.RecipeIdentity, CollectionMemberBindingKind.AdoptedExisting);
+			var state = new CollectionNativeStateIndex(f.State.Target, new CollectionNativeRootState[0], new[] { f.Native },
+				new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
+				new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable, new[] { f.Association },
+				f.State.BindingsByAssociation[f.Association.AssociationId].Concat(new[] { siblingBinding }), new UserOverride[0],
+				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
+			var manifest = new NormalizedCollectionManifest(f.OldPlan.Revision,
+				new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(Sha256A), 100, "schema-v1", "normalizer-v1"),
+				CollectionManifestMemberSetCompleteness.Complete, null, new[] { oldMember, oldSibling });
+			var oldPlan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), state.Target,
+				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, CollectionCapabilityReport.Create(manifest),
+				new[] { new ResolvedCollectionMemberPlan(oldMember, CollectionResolvedArtifactChoice.Exact(oldMember.Artifact)),
+					new ResolvedCollectionMemberPlan(oldSibling, CollectionResolvedArtifactChoice.Exact(oldSibling.Artifact)) });
+			ResolvedCollectionPlan newPlan = CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(f.NewPlan, state.Fingerprint);
+			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(f.Association, oldPlan, newPlan, state,
+				new UserOverride[0], new CollectionDriftObservation[0],
+				new[] { new NativeModProvenance(f.Native.Identity, StandaloneModUse.ExplicitStandaloneUse) });
+			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
+				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+			CollectionRevisionUpdateMemberPlan added = update.Members.Single(x => x.NewMember != null);
+			CollectionVerifiedArchive archive = CreateVerifiedArchive(update.NewPlan, added.NewMember, Sha256A);
+			PreparedCollectionNativeRecipe prepared = CreatePrepared(update.NewPlan, added.NewMember, archive);
+			var preparation = new CollectionRevisionUpdatePreparationMemberState(added,
+				CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive, archive.Request, archive, null, null, null, null, prepared);
+
+			CollectionRevisionUpdateCandidateExecutionPlanning result = new CollectionRevisionUpdateCandidateExecutionPlanner().Build(
+				update, state, preservation, new[] { preparation }, new[] { prepared }, new CollectionMemberKey[0], CancellationToken.None);
 			Assert.That(result.Matches.Members.Single().Disposition, Is.EqualTo(CollectionMemberMatchDisposition.Blocked));
 			Assert.That(result.Matches.Members.Single().Reason, Is.EqualTo(CollectionMemberMatchReason.ConflictingVerifiedRecipe));
 			Assert.That(result.IsReady, Is.False);

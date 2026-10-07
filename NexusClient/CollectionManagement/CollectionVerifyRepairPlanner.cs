@@ -176,13 +176,6 @@ namespace Nexus.Client.CollectionManagement
 
 			AppendManifestPluginRelativeOrderFindings(association, manifest, state, overrideList, findings);
 
-			bool hasSpecificDifference = findings.Any(x => x.Kind != CollectionVerifyRepairFindingKind.Satisfied &&
-				x.Kind != CollectionVerifyRepairFindingKind.PreservedExplicitOverride);
-			if ((association.State == CollectionAssociationState.Modified || association.State == CollectionAssociationState.Incomplete) &&
-				!hasSpecificDifference && overrideList.Count == 0 && driftList.Count == 0)
-				findings.Add(AssociationFinding(association, CollectionVerifyRepairFindingKind.UncharacterizedModification,
-					"The association reports a changed/incomplete state but no exact current requirement difference is available; repair must not guess what changed."));
-
 			bool exactAvailable = exactEffectPreviews != null;
 			if (exactAvailable)
 			{
@@ -196,6 +189,14 @@ namespace Nexus.Client.CollectionManagement
 			}
 			if (preparation != null && !preparation.IsComplete)
 				findings.Add(AssociationFinding(association, CollectionVerifyRepairFindingKind.ExactRecipePreparationUnavailable, preparation.Issue));
+			bool hasSpecificDifference = findings.Any(x => x.Kind != CollectionVerifyRepairFindingKind.Satisfied &&
+				x.Kind != CollectionVerifyRepairFindingKind.PreservedExplicitOverride);
+			// Exact current effects can prove that a historical incomplete/modified flag is now obsolete.
+			// Participation alone cannot establish that an uncharacterized change has been resolved.
+			if ((association.State == CollectionAssociationState.Modified || association.State == CollectionAssociationState.Incomplete) &&
+				!exactAvailable && !hasSpecificDifference && overrideList.Count == 0 && driftList.Count == 0)
+				findings.Add(AssociationFinding(association, CollectionVerifyRepairFindingKind.UncharacterizedModification,
+					"The association reports a changed/incomplete state but exact current effect verification is unavailable; repair must not guess what changed."));
 			return new CollectionVerifyRepairPlan(association, state.Fingerprint, findings, exactAvailable,
 				preparation == null ? null : preparation.Plan, preparation == null ? null : preparation.PreparedRecipes, bindingUpdates);
 		}

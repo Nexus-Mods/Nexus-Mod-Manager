@@ -22,7 +22,7 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionRevisionUpdateCandidateExecutionResult
 	{
 		internal CollectionRevisionUpdateCandidateExecutionResult(CollectionRevisionUpdateCandidateExecutionStatus status,
-			CollectionOperation operation, string message)
+			CollectionOperation operation, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null)
 		{
 			if (!Enum.IsDefined(typeof(CollectionRevisionUpdateCandidateExecutionStatus), status) ||
 				status == CollectionRevisionUpdateCandidateExecutionStatus.Unknown)
@@ -30,11 +30,13 @@ namespace Nexus.Client.CollectionManagement
 			Status = status;
 			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
 			Message = message ?? String.Empty;
+			ExecutionPlanning = executionPlanning;
 		}
 
 		public CollectionRevisionUpdateCandidateExecutionStatus Status { get; }
 		public CollectionOperation Operation { get; }
 		public string Message { get; }
+		internal CollectionRevisionUpdateCandidateExecutionPlanning ExecutionPlanning { get; }
 		public bool IsCompleted { get { return Status == CollectionRevisionUpdateCandidateExecutionStatus.Completed; } }
 	}
 
@@ -147,10 +149,10 @@ namespace Nexus.Client.CollectionManagement
 				initialState, preservation, preparedBatch.Members, effective.Values, initiallyCommitted, cancellationToken);
 			if (!initialPlanning.IsReady)
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-					"The candidate execution impact/dependency plan is no longer fully actionable against the verified C10.4 boundary.");
+					"The revision change is blocked by the member, dependency or file/plugin findings listed below.", initialPlanning);
 			if (RequiresDurableFileWinnerReconciliation(initialPlanning.ImpactPlan))
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-					"The candidate update contains a file-winner transition that is not yet durably represented by the C10 review. Native mutation is blocked before the first candidate child.");
+					"This revision change needs file-provider reconciliation that its approved review does not support. No candidate mod was installed.", initialPlanning);
 
 			if (operation.Phase == CollectionOperationPhase.ObsoleteRevisionEffectsVerified)
 				operation = SavePhase(operation, CollectionOperationPhase.InstallingCandidateRevisionChildren, CollectionOperationResultState.Pending);
@@ -169,19 +171,19 @@ namespace Nexus.Client.CollectionManagement
 				{
 					if (committed.Count == 0)
 						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-							"The candidate execution plan now contains an unresolved dependency/conflict impact and must return to explicit review.");
+							"The revision change is blocked by the member, dependency or file/plugin findings listed below.", planning);
 					operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-						"The candidate execution plan changed after a verified candidate child; recovery/review is required before continuing.");
+						"The remaining revision changes are blocked after verified installation progress. Review the findings listed below.", planning);
 				}
 				if (RequiresDurableFileWinnerReconciliation(planning.ImpactPlan))
 				{
 					if (committed.Count == 0)
 						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-							"The candidate update requires file-winner reconciliation that is not yet durably bound to the C10 review.");
+							"This revision change needs file-provider reconciliation that its approved review does not support.", planning);
 					operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-						"A file-winner transition became relevant after candidate mutation crossed the native boundary; recovery/review is required.");
+						"The remaining revision changes need file-provider reconciliation after verified installation progress.", planning);
 				}
 
 				double? nextMutationPhase = GetNextMutationPhase(planning.DependencyPlan, operation);
@@ -253,13 +255,13 @@ namespace Nexus.Client.CollectionManagement
 			{
 				operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-					"Candidate children committed, but the resulting safe boundary no longer matches an actionable reviewed execution plan.");
+					"Candidate children committed, but the resulting safe boundary contains the blocking findings listed below.", finalPlanning);
 			}
 			if (RequiresDurableFileWinnerReconciliation(finalPlanning.ImpactPlan))
 			{
 				operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-					"Candidate children committed but final file-winner reconciliation is not durably represented by the approved C10 review.");
+					"Candidate children committed but final file-provider reconciliation is not supported by this approved revision change.", finalPlanning);
 			}
 
 			operation = SavePhase(operation, CollectionOperationPhase.CandidateRevisionChildrenVerified,
@@ -417,9 +419,9 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static CollectionRevisionUpdateCandidateExecutionResult Result(CollectionRevisionUpdateCandidateExecutionStatus status,
-			CollectionOperation operation, string message)
+			CollectionOperation operation, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null)
 		{
-			return new CollectionRevisionUpdateCandidateExecutionResult(status, operation, message);
+			return new CollectionRevisionUpdateCandidateExecutionResult(status, operation, message, executionPlanning);
 		}
 	}
 }

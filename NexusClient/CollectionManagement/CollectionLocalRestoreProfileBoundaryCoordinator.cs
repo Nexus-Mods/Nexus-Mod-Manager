@@ -150,6 +150,23 @@ namespace Nexus.Client.CollectionManagement
 			return intent;
 		}
 
+		/// <summary>Verifies the preserved profile and prepared association quarantine without reapplying the restore boundary.</summary>
+		internal CollectionLocalRestoreProfileBoundaryIntent VerifySafeStop(CollectionOperation operation,
+			CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan)
+		{
+			CollectionLocalRestoreProfileBoundaryIntent intent = RequireIntent(operation, sealedCapture, reviewedPlan);
+			string ownerId = operation.Identity.OperationId.ToString("D");
+			CollectionsRetainedArtifactReferenceRecord prepared = _referenceStore.GetReferenceForOwnerRole(
+				CollectionsRetainedArtifactOwnerKind.Operation, ownerId, PreparedRole);
+			CollectionsRetainedArtifactReferenceRecord original = _referenceStore.GetReferenceForOwnerRole(
+				CollectionsRetainedArtifactOwnerKind.Operation, ownerId, IntentRole);
+			if (prepared == null || !StringComparer.Ordinal.Equals(prepared.ArtifactId, original.ArtifactId))
+				throw new InvalidOperationException("The outgoing profile boundary is not fully prepared; reconcile it before stopping this restore.");
+			VerifyPreparedAssociationStates(intent);
+			VerifyProfilePreserved(intent);
+			return intent;
+		}
+
 		private void ApplyPreparedBoundary(CollectionLocalRestoreProfileBoundaryIntent intent, string intentArtifactId,
 			bool preparedMarkerExists)
 		{

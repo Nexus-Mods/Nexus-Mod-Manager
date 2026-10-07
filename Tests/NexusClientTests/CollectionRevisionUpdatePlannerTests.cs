@@ -77,6 +77,8 @@ namespace NexusClientTests
 
 			Assert.That(member.CurrentStateKind, Is.EqualTo(CollectionRevisionUpdateCurrentStateKind.UnacceptedDrift));
 			Assert.That(member.Disposition, Is.EqualTo(CollectionRevisionUpdateDisposition.DriftRequiresReview));
+			Assert.That(member.RequiresStandaloneUseConfirmation, Is.False,
+				"Confirming ownership cannot resolve drift in the installed effects.");
 		}
 
 		[Test]
@@ -102,8 +104,24 @@ namespace NexusClientTests
 			Assert.That(plan.RequiresNativeRepreparation, Is.False);
 		}
 
+		/// <summary>Unknown ownership blocks removal until independently confirmed; current drift remains a separate blocker.</summary>
 		[Test]
-		public void Plan_RemovedMemberWithStandaloneUse_RequiresReview()
+		public void Plan_RemovedUnknownHistoryMember_CanBeResolvedByConfirmedCollectionOnlyUse()
+		{
+			Fixture f = CreateFixture("removed-unknown", CreateMember("member-a", "100", "200", "recipe-a"), null);
+			CollectionRevisionUpdatePlan blocked = f.Plan(null, null, new NativeModProvenance[0]);
+			Assert.That(blocked.HasBlockingActionRequired, Is.True);
+			Assert.That(blocked.Members.Single().RequiresStandaloneUseConfirmation, Is.True);
+
+			var confirmed = new NativeModProvenance(f.Binding.NativeMod, StandaloneModUse.NoStandaloneUseVerified);
+			CollectionRevisionUpdatePlan resolved = f.Plan(null, null, new[] { confirmed });
+			Assert.That(resolved.HasBlockingActionRequired, Is.False);
+			Assert.That(resolved.Members.Single().Disposition, Is.EqualTo(CollectionRevisionUpdateDisposition.RemoveFromOldRevision));
+			Assert.That(resolved.Members.Single().RequiresStandaloneUseConfirmation, Is.False);
+		}
+
+		[Test]
+		public void Plan_RemovedMemberWithStandaloneUse_PreservesIndependentInstallation()
 		{
 			Fixture f = CreateFixture("removed-standalone", CreateMember("member-a", "100", "200", "recipe-a"), null);
 			var provenance = new NativeModProvenance(f.Binding.NativeMod, StandaloneModUse.ExplicitStandaloneUse);
@@ -112,7 +130,11 @@ namespace NexusClientTests
 
 			Assert.That(member.ChangeKind, Is.EqualTo(CollectionRevisionUpdateChangeKind.Removed));
 			Assert.That(member.StandaloneProtected, Is.True);
-			Assert.That(member.Disposition, Is.EqualTo(CollectionRevisionUpdateDisposition.ActionRequired));
+			Assert.That(member.Disposition, Is.EqualTo(CollectionRevisionUpdateDisposition.PreserveStandalone));
+			Assert.That(member.RequiresStandaloneUseConfirmation, Is.False);
+			Assert.That(member.RequiresExplicitReview, Is.False);
+			Assert.That(f.Plan(null, null, new[] { provenance }).HasBlockingActionRequired, Is.False,
+				"Keeping a confirmed independent installation must not require authorizing its removal.");
 		}
 
 		[Test]

@@ -117,6 +117,15 @@ namespace Nexus.Client.CollectionManagement
 
 				bool nativePresent = state.Mods.ContainsKey(member.Binding.NativeMod);
 				bool identityReusedByCandidate = verifiedCandidateNative.Values.Any(x => x.Identity.Equals(member.Binding.NativeMod));
+				if (member.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone)
+				{
+					bool nativeDeactivated = operation.NativeChildren.Any(x => x.Action == CollectionNativeChildAction.Deactivate &&
+						updatePlan.Members.Any(m => m.Binding != null && m.MemberKey.Equals(x.Member.MemberKey) &&
+							m.Binding.NativeMod.Equals(member.Binding.NativeMod)));
+					if (!nativePresent || nativeDeactivated || identityReusedByCandidate)
+						throw new InvalidOperationException("An independently used installation was removed or repurposed despite the approved preservation decision.");
+					continue;
+				}
 				if (children.Count == 1)
 				{
 					if (!children[0].IsReconciled || !children[0].HasVerifiedCommittedNativeState)

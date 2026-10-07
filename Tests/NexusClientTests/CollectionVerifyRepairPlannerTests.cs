@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.CollectionManagement.UI;
 using Nexus.Client.ModManagement;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
@@ -189,10 +190,11 @@ namespace NexusClientTests
 				Is.EqualTo(CollectionVerifyRepairDisposition.ActionRequired));
 		}
 
-		[Test]
-		public void Plan_ModifiedAssociationWithoutExactDifference_NeverPretendsHealthy()
+		[TestCase(CollectionAssociationState.Modified)]
+		[TestCase(CollectionAssociationState.Incomplete)]
+		public void Plan_ChangedAssociationWithoutExactCoverage_NeverPretendsHealthy(CollectionAssociationState associationState)
 		{
-			Fixture f = CreateFixture(CollectionAssociationState.Modified, includeBinding: true, includeNative: true);
+			Fixture f = CreateFixture(associationState, includeBinding: true, includeNative: true);
 
 			CollectionVerifyRepairPlan plan = f.Plan();
 
@@ -247,10 +249,12 @@ namespace NexusClientTests
 			Assert.That(plan.CanExecuteQualifiedRepair, Is.True);
 		}
 
-		[Test]
-		public void ExactEffectVerification_MatchingDestinationBytes_AreAccepted()
+		[TestCase(CollectionAssociationState.Applied)]
+		[TestCase(CollectionAssociationState.Incomplete)]
+		[TestCase(CollectionAssociationState.Modified)]
+		public void ExactEffectVerification_MatchingDestinationBytes_AreAccepted(CollectionAssociationState associationState)
 		{
-			Fixture f = CreateFixture(CollectionAssociationState.Applied, includeBinding: true, includeNative: true);
+			Fixture f = CreateFixture(associationState, includeBinding: true, includeNative: true);
 			string path = Path.GetTempFileName();
 			try
 			{
@@ -265,6 +269,8 @@ namespace NexusClientTests
 
 				Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch ||
 					x.Kind == CollectionVerifyRepairFindingKind.FileContentVerificationUnavailable), Is.False);
+				Assert.That(plan.IsHealthyAtCurrentCoverage, Is.True);
+				Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.UncharacterizedModification), Is.False);
 			}
 			finally
 			{
@@ -272,11 +278,12 @@ namespace NexusClientTests
 			}
 		}
 
-		[Test]
+		[TestCase(CollectionAssociationState.Applied)]
+		[TestCase(CollectionAssociationState.Incomplete)]
 		[Category("CollectionsC12FailureInjection")]
-		public void ExactEffectVerification_CorruptDestinationBytes_AreQualifiedForRepair()
+		public void ExactEffectVerification_CorruptDestinationBytes_AreQualifiedForRepair(CollectionAssociationState associationState)
 		{
-			Fixture f = CreateFixture(CollectionAssociationState.Applied, includeBinding: true, includeNative: true);
+			Fixture f = CreateFixture(associationState, includeBinding: true, includeNative: true);
 			string path = Path.GetTempFileName();
 			try
 			{
@@ -291,6 +298,8 @@ namespace NexusClientTests
 
 				CollectionVerifyRepairFinding finding = plan.Findings.Single(x => x.Kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch);
 				Assert.That(finding.Disposition, Is.EqualTo(CollectionVerifyRepairDisposition.RestoreExpectedState));
+				Assert.That(plan.HasActionRequired, Is.False);
+				Assert.That(plan.IsHealthyAtCurrentCoverage, Is.False);
 			}
 			finally
 			{
@@ -328,10 +337,11 @@ namespace NexusClientTests
 			}
 		}
 
-		[Test]
-		public void Plan_FileEffectWithoutDestinationHash_FailsClosedInsteadOfClaimingByteVerification()
+		[TestCase(CollectionAssociationState.Applied)]
+		[TestCase(CollectionAssociationState.Incomplete)]
+		public void Plan_FileEffectWithoutDestinationHash_FailsClosedInsteadOfClaimingByteVerification(CollectionAssociationState associationState)
 		{
-			Fixture f = CreateFixture(CollectionAssociationState.Applied, includeBinding: true, includeNative: true);
+			Fixture f = CreateFixture(associationState, includeBinding: true, includeNative: true);
 			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreview(f.MemberKey, f.Manifest.Members[0].RecipeIdentity,
 				ModInstallMethod.Virtual, ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds")) },
 				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
@@ -393,6 +403,71 @@ namespace NexusClientTests
 			Assert.That(plan.Findings.Any(x => x.Requirement != null && x.Requirement.Equals(requirement) &&
 				x.Kind == CollectionVerifyRepairFindingKind.PreservedExplicitOverride), Is.True);
 			Assert.That(plan.Findings.Any(x => x.Requirement != null && x.Requirement.Equals(requirement) && x.IsRepairable), Is.False);
+		}
+
+		/// <summary>Incomplete exact preparation cannot normalize a historical incomplete association.</summary>
+		[Test]
+		public void Plan_IncompletePreparation_KeepsIncompleteAssociationActionRequired()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			var preparation = new CollectionVerifyRepairPreparationResult(null, null, "Exact archive is unavailable.");
+			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, f.Manifest, f.State, f.Bindings,
+				new UserOverride[0], new CollectionDriftObservation[0], null, preparation);
+
+			Assert.That(plan.IsHealthyAtCurrentCoverage, Is.False);
+			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.ExactRecipePreparationUnavailable), Is.True);
+		}
+
+		/// <summary>An unchanged persisted incomplete state must not erase the verification review on document activation.</summary>
+		[Test]
+		public void ManagedRefresh_UnchangedIncompletePresentation_PreservesCurrentReview()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			Assert.That(CollectionsPreviewControl.HasSameManagedAssociationState(CreateManagedPresentation(f),
+				CreateManagedPresentation(f)), Is.True);
+			Assert.That(CollectionsPreviewControl.HasSameManagedAssociationState(CreateManagedPresentation(f),
+				CreateManagedPresentation(f, association: f.Association.WithState(CollectionAssociationState.Applied))), Is.False);
+		}
+
+		/// <summary>A changed native binding invalidates the old review even when association state is still incomplete.</summary>
+		[Test]
+		public void ManagedRefresh_RecreatedNativeBinding_InvalidatesCurrentReview()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			CollectionMemberBinding old = f.Bindings.Single();
+			var replacement = new CollectionMemberBinding(f.Association, old.MemberKey,
+				new NativeModInstanceIdentity(f.Association.Target, "native-b"), old.VerifiedRecipe, old.BindingKind);
+			Assert.That(CollectionsPreviewControl.HasSameManagedAssociationState(CreateManagedPresentation(f),
+				CreateManagedPresentation(f, binding: replacement)), Is.False);
+		}
+
+		/// <summary>Drift content changes invalidate a review even when the observation identity is reused.</summary>
+		[Test]
+		public void ManagedRefresh_ChangedDriftWithSameIdentity_InvalidatesCurrentReview()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			var requirement = new CollectionRequirementReference(f.Association, null, CollectionRequirementAspect.FileWinner, "Data:a.dds");
+			var before = new CollectionDriftObservation(Guid.NewGuid(), requirement, CollectionRequirementState.Present("winner-v1", "a"),
+				CollectionRequirementState.Present("winner-v1", "b"), "Changed winner");
+			var after = new CollectionDriftObservation(before.ObservationId, requirement, before.ExpectedState,
+				CollectionRequirementState.Present("winner-v1", "c"), before.Detail);
+			Assert.That(CollectionsPreviewControl.HasSameManagedAssociationState(CreateManagedPresentation(f, drift: before),
+				CreateManagedPresentation(f, drift: after)), Is.False);
+		}
+
+		/// <summary>Creates an installed presentation for refresh comparison without creating a WinForms control.</summary>
+		private static CollectionManagementAssociationPresentation CreateManagedPresentation(Fixture fixture,
+			CollectionMemberBinding binding = null, CollectionTargetAssociation association = null, CollectionDriftObservation drift = null)
+		{
+			CollectionTargetAssociation current = association ?? fixture.Association;
+			CollectionMemberBinding memberBinding = binding ?? fixture.Bindings.Single();
+			var member = new CollectionManagementMemberPresentation(memberBinding,
+				new NativeModProvenance(memberBinding.NativeMod, StandaloneModUse.Unknown), 1,
+				new UserOverride[0], new CollectionDriftObservation[0]);
+			var customization = new CollectionAssociationCustomization(current, new UserOverride[0],
+				drift == null ? new CollectionDriftObservation[0] : new[] { drift });
+			return new CollectionManagementAssociationPresentation(new CollectionManagementAssociation(current, "Collection", "Revision 1"),
+				null, null, null, new[] { member }, customization, "fallout4", null);
 		}
 
 		private static CollectionNativePluginState Plugin(string name, int priority)

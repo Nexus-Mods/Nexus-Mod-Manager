@@ -35,6 +35,34 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>A reviewed independent installation is kept, and changed provenance invalidates that exact review.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void QualifiedPlan_RemovedIndependentMember_PreservesOnlyTheReviewedInstallation(bool changeProvenance)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture f = CreateFixture(root, "independent", true, false, false, false, StandaloneModUse.ExplicitStandaloneUse);
+				CollectionRevisionUpdateMemberPlan member = f.UpdatePlan.Members.Single();
+				Assert.That(member.Disposition, Is.EqualTo(CollectionRevisionUpdateDisposition.PreserveStandalone));
+				if (changeProvenance)
+				{
+					f.Associations.SaveNativeModProvenance(new NativeModProvenance(member.Binding.NativeMod, StandaloneModUse.NoStandaloneUseVerified));
+					Assert.Throws<InvalidOperationException>(() => CollectionRevisionUpdateObsoleteEffectCoordinator.BuildQualifiedPlan(
+						f.Associations, f.Intent, f.UpdatePlan, f.State));
+				}
+				else
+				{
+					CollectionRevisionUpdateObsoleteEffectPlan plan = CollectionRevisionUpdateObsoleteEffectCoordinator.BuildQualifiedPlan(
+						f.Associations, f.Intent, f.UpdatePlan, f.State);
+					Assert.That(plan.Actions.Single().Disposition, Is.EqualTo(CollectionRevisionUpdateObsoleteMemberDisposition.PreserveStandalone));
+					Assert.That(plan.RequiresNativeMutation, Is.False);
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void QualifiedPlan_RemovedMemberSharedByAnotherCollection_PreservesNativeMod()
 		{
@@ -102,7 +130,8 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
-		private static Fixture CreateFixture(string root, string suffix, bool removed, bool shared, bool withOverride, bool unscopedOverride = false)
+		private static Fixture CreateFixture(string root, string suffix, bool removed, bool shared, bool withOverride, bool unscopedOverride = false,
+			StandaloneModUse standaloneUse = StandaloneModUse.NoStandaloneUseVerified)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
@@ -125,7 +154,7 @@ namespace NexusClientTests
 			var binding = new CollectionMemberBinding(association, key, nativeIdentity, oldMember.RecipeIdentity,
 				CollectionMemberBindingKind.InstalledForCollection);
 			associations.SaveBinding(binding);
-			associations.SaveNativeModProvenance(new NativeModProvenance(nativeIdentity, StandaloneModUse.NoStandaloneUseVerified));
+			associations.SaveNativeModProvenance(new NativeModProvenance(nativeIdentity, standaloneUse));
 
 			var associationList = new List<CollectionTargetAssociation> { association };
 			var bindingList = new List<CollectionMemberBinding> { binding };
@@ -159,7 +188,7 @@ namespace NexusClientTests
 			ResolvedCollectionPlan oldPlan = CreatePlan(oldRevision, target, oldMember, state.Fingerprint, Sha256A);
 			ResolvedCollectionPlan newPlan = CreatePlan(newRevision, target, newMember, state.Fingerprint, Sha256B);
 			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(association, oldPlan, newPlan, state,
-				overrideList, new CollectionDriftObservation[0], new[] { new NativeModProvenance(nativeIdentity, StandaloneModUse.NoStandaloneUseVerified) });
+				overrideList, new CollectionDriftObservation[0], new[] { new NativeModProvenance(nativeIdentity, standaloneUse) });
 			CollectionRevisionUpdateReviewedIntent intent = CollectionRevisionUpdateReviewedIntent.Create(update);
 			return new Fixture(associations, key, state, update, intent);
 		}

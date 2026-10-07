@@ -144,6 +144,17 @@ namespace Nexus.Client.CollectionManagement
 				CollectionOperation operation = RequireOperation(memberPhase.Operation.Identity, reviewedPlan);
 				Dictionary<CollectionMemberKey, string> remaps = BuildRemaps(reviewedPlan, memberPhase);
 				var results = new List<CollectionLocalRestoreOwnershipTargetResult>();
+				string ownerId = operation.Identity.OperationId.ToString("D");
+				IReadOnlyDictionary<string, CollectionsRetainedArtifactReferenceRecord> references;
+				try
+				{
+					references = ReadOwnerReferenceIndex(ownerId);
+				}
+				catch
+				{
+					MarkRecoveryRequired(operation);
+					throw;
+				}
 
 				using (var materializer = new CollectionOwnerPayloadMaterializer(_artifactStore, _services.ModManager, sealedCapture))
 				foreach (CollectionLocalRestoreDeploymentPlan deploymentPlan in reviewedPlan.DeploymentTargets)
@@ -152,13 +163,14 @@ namespace Nexus.Client.CollectionManagement
 					CollectionOwnerPayloadTarget captured = RequireCapturedTarget(sealedCapture, deploymentPlan);
 					List<DesiredOwner> desired = BuildDesiredOwners(captured, deploymentPlan, remaps);
 					string targetToken = CreateTargetToken(deploymentPlan.Target);
-					string ownerId = operation.Identity.OperationId.ToString("D");
 					string intentRole = IntentRolePrefix + targetToken;
 					string verifiedRole = VerifiedRolePrefix + targetToken;
+					CollectionsRetainedArtifactReferenceRecord verified;
+					references.TryGetValue(verifiedRole, out verified);
 
 					try
 					{
-						if (TryRecoverVerified(ownerId, verifiedRole, captured, desired, cancellationToken))
+						if (TryRecoverVerified(verified, captured, desired, cancellationToken))
 						{
 							results.Add(new CollectionLocalRestoreOwnershipTargetResult(deploymentPlan.Target,
 								CollectionLocalRestoreOwnershipOutcome.AlreadySatisfied));
@@ -171,8 +183,9 @@ namespace Nexus.Client.CollectionManagement
 						throw;
 					}
 
-					CollectionsRetainedArtifactReferenceRecord existingIntent = _referenceStore.GetReferenceForOwnerRole(
-						CollectionsRetainedArtifactOwnerKind.Operation, ownerId, intentRole);
+					CollectionsRetainedArtifactReferenceRecord existingIntent;
+					references.TryGetValue(intentRole, out existingIntent);
+					string intentArtifactId = existingIntent == null ? null : existingIntent.ArtifactId;
 					OwnerIntent intent;
 					if (existingIntent == null)
 					{
@@ -187,7 +200,7 @@ namespace Nexus.Client.CollectionManagement
 						}
 
 						intent = CaptureIntent(sealedCapture.Capture.Identity, reviewedPlan, captured, desired, cancellationToken);
-						PersistIntent(ownerId, intentRole, intent);
+						intentArtifactId = PersistIntent(ownerId, intentRole, intent);
 					}
 					else
 					{
@@ -241,15 +254,60 @@ namespace Nexus.Client.CollectionManagement
 						MarkRecoveryRequired(operation);
 						throw new InvalidOperationException("Native deployment restoration returned without establishing the exact retained owner topology and payload bytes.");
 					}
-					CollectionsRetainedArtifactReferenceRecord persistedIntent = _referenceStore.GetReferenceForOwnerRole(
-						CollectionsRetainedArtifactOwnerKind.Operation, ownerId, intentRole);
-					MarkVerified(ownerId, verifiedRole, persistedIntent.ArtifactId);
+					MarkVerified(ownerId, verifiedRole, intentArtifactId);
 					results.Add(new CollectionLocalRestoreOwnershipTargetResult(deploymentPlan.Target,
 						CollectionLocalRestoreOwnershipOutcome.RestoredAndVerified));
 				}
 
 				operation = CompleteOwnershipPhase(operation, sealedCapture.Capture.Identity, reviewedPlan, results.Count);
 				return new CollectionLocalRestoreOwnershipExecutionResult(operation, results);
+			}
+		}
+
+		/// <summary>Proves an unverified owner intent is at its exact preimage or postimage before retiring a partial restore.</summary>
+		internal void VerifySafeStop(CollectionSealedCaptureSnapshot sealedCapture, CollectionLocalRestorePlan reviewedPlan,
+			CollectionOperation operation, CancellationToken cancellationToken)
+		{
+			string ownerId = operation.Identity.OperationId.ToString("D");
+			IReadOnlyDictionary<string, CollectionsRetainedArtifactReferenceRecord> references = ReadOwnerReferenceIndex(ownerId);
+			List<CollectionsRetainedArtifactReferenceRecord> intents = references.Values
+				.Where(x => x.Role.StartsWith(IntentRolePrefix, StringComparison.Ordinal)).ToList();
+			var verifiedIntentIds = new HashSet<string>(StringComparer.Ordinal);
+			foreach (CollectionsRetainedArtifactReferenceRecord reference in intents)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				CollectionsRetainedArtifactReferenceRecord verified;
+				if (!references.TryGetValue(VerifiedRolePrefix + reference.Role.Substring(IntentRolePrefix.Length), out verified)) continue;
+				if (!StringComparer.Ordinal.Equals(reference.ArtifactId, verified.ArtifactId))
+					throw new InvalidDataException("An owner verification marker no longer identifies its exact durable intent.");
+				verifiedIntentIds.Add(verified.ArtifactId);
+			}
+			ISet<string> verifiedArtifacts;
+			_artifactStore.VerifyArtifacts(verifiedIntentIds, cancellationToken, out verifiedArtifacts);
+			foreach (CollectionsRetainedArtifactReferenceRecord reference in intents)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				string token = reference.Role.Substring(IntentRolePrefix.Length);
+				CollectionsRetainedArtifactReferenceRecord verified;
+				if (references.TryGetValue(VerifiedRolePrefix + token, out verified))
+				{
+					if (!verifiedArtifacts.Contains(verified.ArtifactId))
+						throw new InvalidDataException("An owner verification marker no longer identifies its exact durable intent.");
+					continue;
+				}
+
+				OwnerIntent intent = ReadIntent(reference.ArtifactId);
+				CollectionLocalRestoreDeploymentPlan deploymentPlan = reviewedPlan.DeploymentTargets.SingleOrDefault(x => x.Target.Equals(intent.Target));
+				if (deploymentPlan == null || !StringComparer.Ordinal.Equals(token, CreateTargetToken(intent.Target)))
+					throw new InvalidDataException("An unfinished owner intent does not belong to the reviewed restore targets.");
+				CollectionOwnerPayloadTarget captured = RequireCapturedTarget(sealedCapture, deploymentPlan);
+				if (intent.DesiredOwners.Length != captured.Owners.Count)
+					throw new InvalidDataException("An unfinished owner intent has a different captured owner count.");
+				List<DesiredOwner> desired = captured.Owners.Select((owner, index) =>
+					new DesiredOwner(owner, intent.DesiredOwners[index], null, ModInstallRoot.Default)).ToList();
+				ValidateIntent(intent, sealedCapture.Capture.Identity, reviewedPlan, captured, desired);
+				if (!MatchesPreimage(intent, cancellationToken) && !VerifyLiveTarget(captured, desired, cancellationToken))
+					throw new InvalidOperationException("An unfinished file-owner change matches neither its exact preimage nor postimage. Native recovery is required before stopping the restore.");
 			}
 		}
 
@@ -534,12 +592,14 @@ namespace Nexus.Client.CollectionManagement
 				desired.Select(x => CreatePayloadSourceIntentIdentity(x.Captured)).ToArray(), CreateDesiredFallbackIdentity(captured));
 		}
 
-		private void PersistIntent(string ownerId, string role, OwnerIntent intent)
+		/// <summary>Returns the exact artifact identity after its immutable intent and exclusive operation reference are durable.</summary>
+		private string PersistIntent(string ownerId, string role, OwnerIntent intent)
 		{
 			byte[] bytes = SerializeIntent(intent);
 			CollectionsRetainedArtifact artifact;
 			using (var stream = new MemoryStream(bytes, false)) artifact = _artifactStore.Publish(stream);
 			_referenceStore.AcquireExclusiveRoleReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation, ownerId, role);
+			return artifact.ArtifactId;
 		}
 
 		private void MarkVerified(string ownerId, string role, string artifactId)
@@ -547,11 +607,24 @@ namespace Nexus.Client.CollectionManagement
 			_referenceStore.AcquireExclusiveRoleReference(artifactId, CollectionsRetainedArtifactOwnerKind.Operation, ownerId, role);
 		}
 
-		private bool TryRecoverVerified(string ownerId, string verifiedRole, CollectionOwnerPayloadTarget captured,
+		/// <summary>Reads one lease-scoped reference index and rejects ambiguous owner roles as individual lookups do.</summary>
+		private IReadOnlyDictionary<string, CollectionsRetainedArtifactReferenceRecord> ReadOwnerReferenceIndex(string ownerId)
+		{
+			var result = new Dictionary<string, CollectionsRetainedArtifactReferenceRecord>(StringComparer.Ordinal);
+			foreach (CollectionsRetainedArtifactReferenceRecord reference in _referenceStore.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation, ownerId))
+			{
+				if (!reference.Role.StartsWith(IntentRolePrefix, StringComparison.Ordinal) &&
+					!reference.Role.StartsWith(VerifiedRolePrefix, StringComparison.Ordinal)) continue;
+				if (result.ContainsKey(reference.Role))
+					throw new CollectionsStoreSchemaException("A retained-artifact owner role is ambiguously bound to multiple artifacts.");
+				result.Add(reference.Role, reference);
+			}
+			return result;
+		}
+
+		private bool TryRecoverVerified(CollectionsRetainedArtifactReferenceRecord verified, CollectionOwnerPayloadTarget captured,
 			IList<DesiredOwner> desired, CancellationToken cancellationToken)
 		{
-			CollectionsRetainedArtifactReferenceRecord verified = _referenceStore.GetReferenceForOwnerRole(
-				CollectionsRetainedArtifactOwnerKind.Operation, ownerId, verifiedRole);
 			if (verified == null)
 				return false;
 			if (!VerifyLiveTarget(captured, desired, cancellationToken))

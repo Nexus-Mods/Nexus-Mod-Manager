@@ -36,7 +36,8 @@ namespace Nexus.Client.CollectionManagement
 		RemoveFromOldRevision = 3,
 		PreserveOverrideForReview = 4,
 		DriftRequiresReview = 5,
-		ActionRequired = 6
+		ActionRequired = 6,
+		PreserveStandalone = 7
 	}
 
 	/// <summary>Describes whether concrete NMM-native preparation remains reusable across the revision transition.</summary>
@@ -128,6 +129,18 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionDriftObservation> Drift { get { return _drift; } }
 		public bool StandaloneProtected { get; }
 		public string Detail { get; }
+
+		/// <summary>Gets whether an otherwise matching removed member is blocked only by protective standalone-use history.</summary>
+		public bool RequiresStandaloneUseConfirmation
+		{
+			get
+			{
+				return ChangeKind == CollectionRevisionUpdateChangeKind.Removed && StandaloneProtected && Binding != null &&
+					CurrentStateKind == CollectionRevisionUpdateCurrentStateKind.MatchesOldBaseline &&
+					Disposition == CollectionRevisionUpdateDisposition.ActionRequired;
+			}
+		}
+
 		public bool RequiresExplicitReview
 		{
 			get

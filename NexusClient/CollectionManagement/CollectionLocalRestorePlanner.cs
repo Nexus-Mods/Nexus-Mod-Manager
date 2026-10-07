@@ -259,12 +259,15 @@ namespace Nexus.Client.CollectionManagement
 		private void ValidateRetainedArtifacts(LocalCapture capture, List<CollectionLocalRestorePlanIssue> issues,
 			CancellationToken cancellationToken)
 		{
-			var verified = new HashSet<string>(StringComparer.Ordinal);
+			ISet<string> verified;
+			IReadOnlyDictionary<string, CollectionsRetainedArtifact> artifacts = _artifactStore.VerifyArtifacts(
+				capture.RetainedArtifacts.Select(x => x.StableArtifactId), cancellationToken, out verified);
+			var observed = new HashSet<string>(StringComparer.Ordinal);
 			foreach (RetainedArtifactReference reference in capture.RetainedArtifacts.OrderBy(x => x.Role, StringComparer.Ordinal))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				CollectionsRetainedArtifact persisted = _artifactStore.GetArtifact(reference.StableArtifactId);
-				if (persisted == null)
+				CollectionsRetainedArtifact persisted;
+				if (!artifacts.TryGetValue(reference.StableArtifactId, out persisted))
 				{
 					issues.Add(new CollectionLocalRestorePlanIssue(CollectionLocalRestorePlanIssueKind.RetainedArtifactMissing,
 						reference.Role, "A retained artifact required by the sealed capture is no longer recorded in Collections storage."));
@@ -276,7 +279,7 @@ namespace Nexus.Client.CollectionManagement
 						reference.Role, "Retained-artifact metadata no longer matches the exact identity sealed into the capture."));
 					continue;
 				}
-				if (verified.Add(reference.StableArtifactId) && !_artifactStore.VerifyArtifact(reference.StableArtifactId, cancellationToken))
+				if (observed.Add(reference.StableArtifactId) && !verified.Contains(reference.StableArtifactId))
 					issues.Add(new CollectionLocalRestorePlanIssue(CollectionLocalRestorePlanIssueKind.RetainedArtifactCorrupt,
 						reference.Role, "Retained artifact bytes no longer match their sealed SHA-256 identity."));
 			}

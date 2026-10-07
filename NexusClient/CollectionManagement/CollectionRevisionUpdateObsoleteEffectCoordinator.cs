@@ -19,7 +19,8 @@ namespace Nexus.Client.CollectionManagement
 		RemoveExclusiveNativeMod = 1,
 		PreserveSharedNativeMod = 2,
 		PreserveForOverride = 3,
-		DeferToCandidateReinstall = 4
+		DeferToCandidateReinstall = 4,
+		PreserveStandalone = 5
 	}
 
 	/// <summary>One immutable qualified-reversion decision for obsolete old-revision state.</summary>
@@ -309,6 +310,26 @@ namespace Nexus.Client.CollectionManagement
 				if (member.OldMember == null) continue;
 				if (member.ChangeKind == CollectionRevisionUpdateChangeKind.Removed)
 				{
+					if (member.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone)
+					{
+						CollectionTargetAssociation preservedAssociation = associationStore.GetAssociation(intent.AssociationId);
+						if (preservedAssociation == null || !preservedAssociation.Revision.Equals(intent.OldRevision) ||
+							!preservedAssociation.Target.Equals(intent.Target) || preservedAssociation.State != intent.AssociationState)
+							throw new InvalidOperationException("The independently used member's reviewed association changed before preservation.");
+						CollectionMemberBinding preservedBinding = associationStore.GetBindings(intent.AssociationId)
+							.SingleOrDefault(x => x.MemberKey.Equals(member.MemberKey));
+						if (member.Binding == null || preservedBinding == null || !preservedBinding.NativeMod.Equals(member.Binding.NativeMod) ||
+							!preservedBinding.VerifiedRecipe.Equals(member.Binding.VerifiedRecipe) || preservedBinding.BindingKind != member.Binding.BindingKind ||
+							associationStore.GetNativeModProvenance(preservedBinding.NativeMod).StandaloneUse != StandaloneModUse.ExplicitStandaloneUse)
+							throw new InvalidOperationException("The independently used member's binding or ownership changed before preservation.");
+						CollectionNativeModState preservedNative = ResolveNative(currentState, preservedBinding);
+						if (preservedNative == null)
+							throw new InvalidOperationException("The independently used native mod disappeared before preservation.");
+						actions.Add(new CollectionRevisionUpdateObsoleteMemberAction(member.MemberKey,
+							CollectionRevisionUpdateObsoleteMemberDisposition.PreserveStandalone, preservedBinding, preservedNative,
+							"The independently used native installation is retained; no deactivation is authorized by this revision change."));
+						continue;
+					}
 					if (member.Disposition == CollectionRevisionUpdateDisposition.PreserveOverrideForReview)
 					{
 						bool removalSatisfiesOverride = preservation != null && preservation.Actions
@@ -464,10 +485,11 @@ namespace Nexus.Client.CollectionManagement
 					if (!IsNativeModFullyAbsent(state, action.Binding.NativeMod))
 						throw new InvalidOperationException("C10.4 completed its child journal but an obsolete exclusive native instance or one of its managed effects remains present.");
 				}
-				else if (action.Disposition == CollectionRevisionUpdateObsoleteMemberDisposition.PreserveSharedNativeMod &&
+				else if ((action.Disposition == CollectionRevisionUpdateObsoleteMemberDisposition.PreserveSharedNativeMod ||
+					action.Disposition == CollectionRevisionUpdateObsoleteMemberDisposition.PreserveStandalone) &&
 					action.Binding != null && !state.Mods.ContainsKey(action.Binding.NativeMod))
 				{
-					throw new InvalidOperationException("C10.4 unexpectedly removed a native instance that another Collection/member still protects.");
+					throw new InvalidOperationException("C10.4 unexpectedly removed a native instance with surviving Collection/member or independent-use protection.");
 				}
 			}
 		}

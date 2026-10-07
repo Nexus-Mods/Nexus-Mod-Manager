@@ -313,6 +313,9 @@
     <Compile Include="CollectionManagement\UI\CollectionLocalWorkingCopyEditorDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionOwnershipReviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="CollectionManagement\UI\CollectionsPreviewControl.cs">
       <SubType>Form</SubType>
     </Compile>

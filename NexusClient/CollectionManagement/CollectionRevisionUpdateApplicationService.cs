@@ -42,7 +42,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		internal CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus status,
 			CollectionOperation operation, CollectionRevisionUpdatePreparationBatch preparation,
-			CollectionRevisionUpdatePublicationResult publication, string message)
+			CollectionRevisionUpdatePublicationResult publication, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null)
 		{
 			if (!Enum.IsDefined(typeof(CollectionRevisionUpdateWorkflowStatus), status) || status == CollectionRevisionUpdateWorkflowStatus.Unknown)
 				throw new ArgumentOutOfRangeException(nameof(status));
@@ -51,6 +51,7 @@ namespace Nexus.Client.CollectionManagement
 			Preparation = preparation;
 			Publication = publication;
 			Message = message ?? String.Empty;
+			ExecutionPlanning = executionPlanning;
 		}
 
 		public CollectionRevisionUpdateWorkflowStatus Status { get; }
@@ -58,6 +59,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionRevisionUpdatePreparationBatch Preparation { get; }
 		public CollectionRevisionUpdatePublicationResult Publication { get; }
 		public string Message { get; }
+		internal CollectionRevisionUpdateCandidateExecutionPlanning ExecutionPlanning { get; }
 		public bool IsCommitted { get { return Status == CollectionRevisionUpdateWorkflowStatus.Committed; } }
 	}
 
@@ -194,6 +196,57 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Records explicit Collection-only use for every eligible member in a cancelled blocked comparison.</summary>
+		/// <remarks>This changes provenance metadata only; a fresh revision review is required before native changes.</remarks>
+		public Task ConfirmCollectionOnlyUseAsync(CollectionRevisionUpdatePlan reviewedPlan, CancellationToken cancellationToken)
+		{
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			return ReviewStandaloneUseAsync(reviewedPlan, reviewedPlan.Members.Where(x => x.RequiresStandaloneUseConfirmation)
+				.Select(x => x.MemberKey), new CollectionMemberKey[0], cancellationToken);
+		}
+
+		/// <summary>Records separate Collection-only and independent-use decisions for exact members of a cancelled comparison.</summary>
+		/// <remarks>Unreviewed members retain their provenance. Installed mods are unchanged and a fresh update approval remains required.</remarks>
+		public async Task ReviewStandaloneUseAsync(CollectionRevisionUpdatePlan reviewedPlan,
+			IEnumerable<CollectionMemberKey> collectionOnlyMembers, IEnumerable<CollectionMemberKey> independentMembers, CancellationToken cancellationToken)
+		{
+			if (reviewedPlan == null) throw new ArgumentNullException(nameof(reviewedPlan));
+			List<CollectionMemberBinding> collectionOnlyBindings = GetReviewedOwnershipBindings(reviewedPlan, collectionOnlyMembers);
+			List<CollectionMemberBinding> independentBindings = GetReviewedOwnershipBindings(reviewedPlan, independentMembers);
+			if (collectionOnlyBindings.Count + independentBindings.Count == 0)
+				throw new InvalidOperationException("The comparison has no standalone-ownership decisions to record.");
+			GameStoragePathSet paths = GetTargetPaths();
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			if (!reviewedPlan.Association.Target.Equals(authority.Target))
+				throw new InvalidOperationException("The reviewed Collection belongs to another target.");
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				if (_operationStore.GetIncompleteOperations(authority.Target).Any())
+					throw new InvalidOperationException("Complete pending Collection work before reviewing ownership.");
+				CollectionNativeStateIndex state = _nativeStateReader.Capture(authority.Target);
+				if (!state.Fingerprint.Equals(reviewedPlan.ObservedStateFingerprint))
+					throw new InvalidOperationException("Native state changed after the comparison; review the revision again before recording ownership.");
+				cancellationToken.ThrowIfCancellationRequested();
+				_associationStore.SaveReviewedStandaloneUse(reviewedPlan.Association, collectionOnlyBindings, independentBindings);
+			}
+		}
+
+		/// <summary>Resolves only the exact member decisions offered by the reviewed ownership comparison.</summary>
+		private static List<CollectionMemberBinding> GetReviewedOwnershipBindings(CollectionRevisionUpdatePlan reviewedPlan,
+			IEnumerable<CollectionMemberKey> memberKeys)
+		{
+			if (memberKeys == null) throw new ArgumentNullException(nameof(memberKeys));
+			List<CollectionMemberKey> keys = memberKeys.ToList();
+			if (keys.Any(x => x == null) || keys.Distinct().Count() != keys.Count)
+				throw new ArgumentException("Ownership decisions cannot contain null or duplicate members.", nameof(memberKeys));
+			Dictionary<CollectionMemberKey, CollectionMemberBinding> eligible = reviewedPlan.Members
+				.Where(x => x.RequiresStandaloneUseConfirmation).ToDictionary(x => x.MemberKey, x => x.Binding);
+			if (keys.Any(x => !eligible.ContainsKey(x)))
+				throw new ArgumentException("An ownership decision is outside the exact reviewed member set.", nameof(memberKeys));
+			return keys.Select(x => eligible[x]).ToList();
+		}
+
 		public CollectionOperation CancelBeforeApply(CollectionRevisionUpdateWorkflowReview review)
 		{
 			if (review == null) throw new ArgumentNullException(nameof(review));
@@ -213,6 +266,29 @@ namespace Nexus.Client.CollectionManagement
 			CollectionRevisionUpdatePlan plan = RehydrateReviewedPlan(intent);
 			intent.ValidateCurrentPlan(plan);
 			return new CollectionRevisionUpdateWorkflowReview(operation, plan);
+		}
+
+		/// <summary>Loads the exact retained candidate preview for an unfinished update without network access or native work.</summary>
+		internal NexusCollectionPreviewSnapshot LoadInterruptedPreview(CollectionOperationIdentity operationIdentity)
+		{
+			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
+			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths());
+			if (operation == null || operation.Kind != CollectionOperationKind.UpdateRevision || operation.IsTerminal ||
+				!operation.Target.Equals(authority.Target))
+				throw new InvalidOperationException("The unfinished revision change does not belong to the active setup.");
+			CollectionRevisionUpdateReviewedIntent intent = _reviewCoordinator.LoadReviewedIntent(operationIdentity);
+			if (!intent.CandidateRevision.Equals(operation.Revision) || !intent.Target.Equals(operation.Target))
+				throw new InvalidOperationException("The unfinished revision change no longer matches its retained candidate review.");
+			CollectionTargetAssociation association = _associationStore.GetAssociation(intent.AssociationId);
+			if (!CollectionManagementApplicationService.MatchesPendingRevision(association, operation, intent.AssociationId, intent.OldRevision))
+				throw new InvalidOperationException("The unfinished revision change no longer belongs to its reviewed installed association.");
+			CollectionDefinition definition = _catalogStore.GetDefinition(intent.CandidateRevision.Collection);
+			CollectionRevision revision = _catalogStore.GetRevision(intent.CandidateRevision);
+			if (definition == null || revision == null)
+				throw new InvalidOperationException("The unfinished revision change is missing its retained Collection metadata.");
+			return new NexusCollectionPreviewSnapshot(null, null, null, definition, revision,
+				LoadRetainedManifest(intent.CandidateRevision), null, null, null);
 		}
 
 		public async Task<CollectionRevisionUpdateWorkflowResult> ApproveAndApplyAsync(CollectionRevisionUpdateWorkflowReview review,
@@ -328,11 +404,11 @@ namespace Nexus.Client.CollectionManagement
 			CollectionRevisionUpdateCandidateExecutionResult candidate = await _candidateCoordinator.ExecuteAsync(preparation, obsolete,
 				GetTargetPaths(), cancellationToken).ConfigureAwait(false);
 			if (candidate.Status == CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired)
-				return Result(CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired, candidate.Operation, preparation, null, candidate.Message);
+				return Result(CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired, candidate.Operation, preparation, null, candidate.Message, candidate.ExecutionPlanning);
 			if (candidate.Status == CollectionRevisionUpdateCandidateExecutionStatus.NativeLaneBusy)
-				return Result(CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary, candidate.Operation, preparation, null, candidate.Message);
+				return Result(CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary, candidate.Operation, preparation, null, candidate.Message, candidate.ExecutionPlanning);
 			if (candidate.Status != CollectionRevisionUpdateCandidateExecutionStatus.Completed)
-				return Result(CollectionRevisionUpdateWorkflowStatus.RecoveryRequired, candidate.Operation, preparation, null, candidate.Message);
+				return Result(CollectionRevisionUpdateWorkflowStatus.RecoveryRequired, candidate.Operation, preparation, null, candidate.Message, candidate.ExecutionPlanning);
 			return await ContinueAfterCandidateAsync(preparation, cancellationToken).ConfigureAwait(false);
 		}
 
@@ -731,9 +807,9 @@ namespace Nexus.Client.CollectionManagement
 
 		private static CollectionRevisionUpdateWorkflowResult Result(CollectionRevisionUpdateWorkflowStatus status,
 			CollectionOperation operation, CollectionRevisionUpdatePreparationBatch preparation,
-			CollectionRevisionUpdatePublicationResult publication, string message)
+			CollectionRevisionUpdatePublicationResult publication, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null)
 		{
-			return new CollectionRevisionUpdateWorkflowResult(status, operation, preparation, publication, message);
+			return new CollectionRevisionUpdateWorkflowResult(status, operation, preparation, publication, message, executionPlanning);
 		}
 
 		private GameStoragePathSet GetTargetPaths()

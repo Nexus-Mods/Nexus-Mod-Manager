@@ -68,6 +68,91 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Ownership confirmation is atomic, idempotent and cannot discard changed or explicit independent-use evidence.</summary>
+		[TestCase("confirmed")]
+		[TestCase("mixed")]
+		[TestCase("subset")]
+		[TestCase("conflicting")]
+		[TestCase("rebound")]
+		[TestCase("independent")]
+		[TestCase("pending")]
+		[TestCase("association-changed")]
+		public void CollectionOnlyUseConfirmation_RequiresTheExactUnblockedReviewedBindings(string scenario)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionTargetAssociation association = SeedAssociation(store, "ownership-confirmation", "rev-a", 1, "target-a");
+				var associations = new CollectionsAssociationStore(store);
+				var first = new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("member-a"),
+					new NativeModInstanceIdentity(association.Target, "native-a"), CollectionRecipeIdentity.FromFingerprint("recipe-a"),
+					CollectionMemberBindingKind.AdoptedExisting);
+				var second = new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("member-b"),
+					new NativeModInstanceIdentity(association.Target, "native-b"), CollectionRecipeIdentity.FromFingerprint("recipe-b"),
+					CollectionMemberBindingKind.InstalledForCollection);
+				associations.SaveBinding(first);
+				associations.SaveBinding(second);
+				if (scenario == "rebound")
+					associations.SaveBinding(new CollectionMemberBinding(association, second.MemberKey,
+						new NativeModInstanceIdentity(association.Target, "native-b-recreated"), second.VerifiedRecipe, second.BindingKind));
+				else if (scenario == "independent")
+					associations.SaveNativeModProvenance(new NativeModProvenance(second.NativeMod, StandaloneModUse.ExplicitStandaloneUse));
+				else if (scenario == "association-changed")
+					associations.SaveAssociation(association.WithState(CollectionAssociationState.Modified));
+				else if (scenario == "pending")
+				{
+					var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+						association.Revision.Collection, association.Target, association.Revision, null, 0, CollectionOperationPhase.Preparing,
+						CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+					new CollectionsOperationStore(store).SaveOperation(operation);
+				}
+
+				if (scenario == "confirmed")
+				{
+					associations.SaveConfirmedCollectionOnlyUse(association, new[] { first, second });
+					associations.SaveConfirmedCollectionOnlyUse(association, new[] { first, second });
+					Assert.That(associations.GetNativeModProvenance(first.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.NoStandaloneUseVerified));
+					Assert.That(associations.GetNativeModProvenance(second.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.NoStandaloneUseVerified));
+				}
+				else if (scenario == "mixed")
+				{
+					associations.SaveReviewedStandaloneUse(association, new[] { second }, new[] { first });
+					associations.SaveReviewedStandaloneUse(association, new[] { second }, new[] { first });
+					Assert.That(associations.GetNativeModProvenance(first.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.ExplicitStandaloneUse),
+						"A pre-existing installation can remain independently protected while another mod becomes Collection-only.");
+					Assert.That(associations.GetNativeModProvenance(second.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.NoStandaloneUseVerified));
+				}
+				else if (scenario == "subset")
+				{
+					associations.SaveReviewedStandaloneUse(association, new[] { second }, new CollectionMemberBinding[0]);
+					Assert.That(associations.GetNativeModProvenance(first.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.Unknown),
+						"Confirming one member must not change the history of an unreviewed member.");
+					Assert.That(associations.GetNativeModProvenance(second.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.NoStandaloneUseVerified));
+				}
+				else if (scenario == "conflicting")
+				{
+					Assert.Throws<ArgumentException>(() => associations.SaveReviewedStandaloneUse(association, new[] { first }, new[] { first }));
+					Assert.That(associations.GetNativeModProvenance(first.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.Unknown));
+					Assert.That(associations.GetNativeModProvenance(second.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.Unknown));
+				}
+				else
+				{
+					Assert.Throws<InvalidOperationException>(() => associations.SaveConfirmedCollectionOnlyUse(association, new[] { first, second }));
+					Assert.That(associations.GetNativeModProvenance(first.NativeMod).StandaloneUse, Is.EqualTo(StandaloneModUse.Unknown),
+						"A later rejected member must not partially confirm the earlier member.");
+					Assert.That(associations.GetNativeModProvenance(second.NativeMod).StandaloneUse,
+						Is.EqualTo(scenario == "independent" ? StandaloneModUse.ExplicitStandaloneUse : StandaloneModUse.Unknown));
+				}
+				Assert.That(associations.GetBindings(association.AssociationId).Single(x => x.MemberKey.Equals(first.MemberKey)).NativeMod,
+					Is.EqualTo(first.NativeMod), "Ownership confirmation must not rebind or remove a member.");
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		[Test]
 		public void Binding_RoundTripsAndRefreshesCurrentNativeRecipeWithoutDuplicateRow()
 		{
@@ -352,6 +437,48 @@ namespace NexusClientTests
 				Assert.IsFalse(loadedAssociation.Revision.NexusRevisionNumber.HasValue);
 				Assert.AreEqual(CollectionMemberKeyKind.Local, loadedBinding.MemberKey.Kind);
 				Assert.AreEqual(member, loadedBinding.MemberKey);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Healthy reconciliation normalizes incomplete state only when no operation for the target remains pending.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void HealthyReconciliation_NormalizesIncompleteOnlyWithoutPendingTargetOperation(bool pendingOperation)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionRevisionIdentity revision = SeedNexusRevision(store, "verified-restore", "rev-a", 1);
+				var associations = new CollectionsAssociationStore(store);
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), revision,
+					CollectionTargetIdentity.FromFingerprint("verified-target"), CollectionAssociationState.Incomplete);
+				associations.SaveAssociation(association);
+				var binding = new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("restored-member"),
+					new NativeModInstanceIdentity(association.Target, "restored-native"), CollectionRecipeIdentity.FromFingerprint("restored-recipe"),
+					CollectionMemberBindingKind.AdoptedExisting);
+				associations.SaveBinding(binding);
+				if (pendingOperation)
+				{
+					CollectionRevisionIdentity other = SeedNexusRevision(store, "other-collection", "rev-a", 1);
+					var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+						other.Collection, association.Target, other, null, 0, CollectionOperationPhase.Preparing,
+						CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+					new CollectionsOperationStore(store).SaveOperation(operation);
+					Assert.Throws<InvalidOperationException>(() => associations.SaveVerifiedHealthyReconciliation(association,
+						association.WithState(CollectionAssociationState.Applied), new CollectionMemberBinding[0], new CollectionRequirementReference[0]));
+				}
+				else
+					associations.SaveVerifiedHealthyReconciliation(association, association.WithState(CollectionAssociationState.Applied),
+						new CollectionMemberBinding[0], new CollectionRequirementReference[0]);
+
+				Assert.That(associations.GetAssociation(association.AssociationId).State,
+					Is.EqualTo(pendingOperation ? CollectionAssociationState.Incomplete : CollectionAssociationState.Applied));
+				Assert.That(associations.GetBindings(association.AssociationId).Single().NativeMod, Is.EqualTo(binding.NativeMod));
 			}
 			finally
 			{

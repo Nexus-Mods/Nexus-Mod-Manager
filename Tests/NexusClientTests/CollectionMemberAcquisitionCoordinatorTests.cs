@@ -9,6 +9,7 @@ using Nexus.Client;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.CollectionManagement.UI;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using NUnit.Framework;
@@ -35,6 +36,7 @@ namespace NexusClientTests
 					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
 
 				Assert.That(batch.IsAwaitingInput, Is.True);
+				Assert.That(CollectionsPreviewControl.CanResumePreparation(batch), Is.True);
 				Assert.That(batch.ArchiveOverwritePolicy, Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
 				Assert.That(batch.Members.Single().QueueCorrelation.ArchiveOverwritePolicy,
 					Is.EqualTo(CollectionArchiveOverwritePolicy.OverwriteExistingArchives));
@@ -43,6 +45,35 @@ namespace NexusClientTests
 				Assert.That(fixture.Queue.CallCount, Is.EqualTo(1));
 				Assert.That(fixture.Queue.PhaseObservedAtQueue, Is.EqualTo(CollectionOperationPhase.AwaitingInput),
 					"The durable C6.5 pause must exist before AddMod/Premium work is started.");
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>A blocked member must direct the UI to its issue instead of offering an invalid continuation.</summary>
+		[Test]
+		public void ResumePresentation_BlockedMemberRejectsBothPreparingAndAwaitingInput()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, false);
+				CollectionAdditivePlanBuildResult preparing = fixture.BuildPlan(CreateState(fixture.Target, 0));
+				CollectionMemberAcquisitionBatch waiting = fixture.Acquisition.Begin(preparing, null, CancellationToken.None);
+				CollectionMemberAcquisitionState blocked = new CollectionMemberAcquisitionState(waiting.Members.Single().Match,
+					CollectionMemberAcquisitionDisposition.Blocked, null, null, null, null, null, null);
+				CollectionMemberAcquisitionBatch blockedPreparing = new CollectionMemberAcquisitionBatch(preparing,
+					waiting.MatchSet, new[] { blocked }, waiting.ArchiveOverwritePolicy);
+				CollectionMemberAcquisitionBatch blockedWaiting = new CollectionMemberAcquisitionBatch(waiting.PlanBuild,
+					waiting.MatchSet, new[] { blocked }, waiting.ArchiveOverwritePolicy);
+
+				Assert.That(blockedPreparing.IsAwaitingInput, Is.False);
+				Assert.That(blockedWaiting.IsAwaitingInput, Is.True);
+				Assert.That(CollectionsPreviewControl.CanResumePreparation(blockedPreparing), Is.False);
+				Assert.That(CollectionsPreviewControl.CanResumePreparation(blockedWaiting), Is.False);
+				Assert.That(CollectionsPreviewControl.CanResumePreparation(null), Is.False);
 			}
 			finally
 			{
@@ -65,6 +96,8 @@ namespace NexusClientTests
 				CollectionMemberAcquisitionBatch ready = fixture.Acquisition.ProbeCompletedInput(waiting, CancellationToken.None);
 
 				Assert.That(ready.IsReady, Is.True);
+				Assert.That(CollectionsPreviewControl.CanResumePreparation(ready), Is.True,
+					"Verified input still needs the input-paused workflow to resume and revalidate.");
 				Assert.That(ready.IsAwaitingInput, Is.True,
 					"Archive readiness alone must not resume planning against the pre-pause native-state snapshot.");
 				Assert.That(ready.Members.Single().Disposition, Is.EqualTo(CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive));
@@ -99,6 +132,8 @@ namespace NexusClientTests
 				Assert.That(result.PlanBuild.Plan.Identity.Version, Is.EqualTo(initialPlan.Plan.Identity.Version + 1));
 				Assert.That(result.PlanBuild.Plan.CurrentStateFingerprint, Is.EqualTo(refreshedState.Fingerprint));
 				Assert.That(result.PlanBuild.Operation.Phase, Is.EqualTo(CollectionOperationPhase.Preparing));
+				Assert.That(CollectionsPreviewControl.CanResumePreparation(result.AcquisitionBatch), Is.False,
+					"Preparing is not the durable AwaitingInput boundary and must not offer Check downloads and continue.");
 				Assert.That(result.AcquisitionBatch.IsReady, Is.True);
 				CollectionVerifiedArchive rebound = result.AcquisitionBatch.Members.Single().VerifiedArchive;
 				Assert.That(rebound.Artifact.ArtifactId, Is.EqualTo(previousArchive.Artifact.ArtifactId));

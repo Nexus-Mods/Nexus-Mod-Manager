@@ -56,6 +56,28 @@ namespace NexusClientTests
 				f.Operation(update), f.State, verified));
 		}
 
+		/// <summary>A removed independently used member must remain present at final verification.</summary>
+		[Test]
+		public void Verify_RemovedIndependentInstallation_MustRemainPresent()
+		{
+			Fixture f = CreateFixture("recipe-a", null, true, new CollectionNativeFileState[0]);
+			CollectionRevisionUpdatePlan update = f.Plan(new CollectionRevisionUpdateEffectPlan[0],
+				new[] { new NativeModProvenance(f.Native.Identity, StandaloneModUse.ExplicitStandaloneUse) });
+			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
+				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+			var verified = new Dictionary<CollectionMemberKey, CollectionNativeModState>();
+			Assert.DoesNotThrow(() => new CollectionRevisionUpdateAggregateVerifier().Verify(update, preservation,
+				f.Operation(update), f.State, verified));
+
+			CollectionNativeStateIndex missing = new CollectionNativeStateIndex(f.State.Target, new CollectionNativeRootState[0],
+				new CollectionNativeModState[0], new CollectionNativeFileState[0], new CollectionNativeIniState[0],
+				new CollectionNativeGameValueState[0], new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
+				new[] { f.Association }, update.Members.Select(x => x.Binding), new UserOverride[0],
+				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
+			Assert.Throws<InvalidOperationException>(() => new CollectionRevisionUpdateAggregateVerifier().Verify(update, preservation,
+				f.Operation(update), missing, verified));
+		}
+
 		private static Fixture CreateFixture(string oldRecipe, string newRecipe, bool includeBinding,
 			IEnumerable<CollectionNativeFileState> files, CollectionTargetIdentity target = null)
 		{
@@ -65,7 +87,7 @@ namespace NexusClientTests
 			CollectionRevisionIdentity newRevision = CollectionRevisionIdentity.FromNexus(collection, "new", 2);
 			CollectionMemberKey key = CollectionMemberKey.FromProvider("member-a");
 			NormalizedCollectionMember oldMember = CreateMember(key, oldRecipe, "200");
-			NormalizedCollectionMember newMember = CreateMember(key, newRecipe, oldRecipe == newRecipe ? "200" : "201");
+			NormalizedCollectionMember newMember = newRecipe == null ? null : CreateMember(key, newRecipe, oldRecipe == newRecipe ? "200" : "201");
 			var association = new CollectionTargetAssociation(Guid.NewGuid(), oldRevision, target, CollectionAssociationState.Applied);
 			var native = new CollectionNativeModState(new NativeModInstanceIdentity(target, "native-a"), "C:\\Mods\\a.7z", "a.7z",
 				"100", "200", "1.0", "1.0.0.0", ModInstallRoot.Data, ModInstallMethod.Virtual);
@@ -93,9 +115,11 @@ namespace NexusClientTests
 		{
 			var source = new CollectionManifestSourceSnapshot(CollectionContentHash.FromSha256(
 				"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), 100, "schema-v1", "normalizer-v1");
-			var manifest = new NormalizedCollectionManifest(revision, source, CollectionManifestMemberSetCompleteness.Complete, null, new[] { member });
+			var manifest = new NormalizedCollectionManifest(revision, source, CollectionManifestMemberSetCompleteness.Complete, null,
+				member == null ? new NormalizedCollectionMember[0] : new[] { member });
 			return new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
 				CollectionExecutionPolicy.InstallIntoCurrentSetup(), fingerprint, CollectionCapabilityReport.Create(manifest),
+				member == null ? new ResolvedCollectionMemberPlan[0] :
 				new[] { new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact)) });
 		}
 
@@ -113,10 +137,10 @@ namespace NexusClientTests
 			private ResolvedCollectionPlan OldPlan { get; }
 			private ResolvedCollectionPlan NewPlan { get; }
 
-			public CollectionRevisionUpdatePlan Plan(IEnumerable<CollectionRevisionUpdateEffectPlan> effects)
+			public CollectionRevisionUpdatePlan Plan(IEnumerable<CollectionRevisionUpdateEffectPlan> effects, IEnumerable<NativeModProvenance> provenance = null)
 			{
 				CollectionRevisionUpdatePlan basePlan = new CollectionRevisionUpdatePlanner().Plan(Association, OldPlan, NewPlan, State,
-					new UserOverride[0], new CollectionDriftObservation[0], new NativeModProvenance[0]);
+					new UserOverride[0], new CollectionDriftObservation[0], provenance ?? new NativeModProvenance[0]);
 				return new CollectionRevisionUpdatePlan(basePlan.Association, basePlan.OldPlan, basePlan.NewPlan, basePlan.ObservedStateFingerprint,
 					basePlan.Members, effects, basePlan.UnscopedOverrides, basePlan.UnscopedDrift);
 			}

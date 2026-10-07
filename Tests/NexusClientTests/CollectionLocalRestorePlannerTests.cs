@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.CollectionManagement.UI;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Operations;
@@ -350,6 +351,107 @@ namespace NexusClientTests
 			{
 				Directory.Delete(root, true);
 			}
+		}
+
+		/// <summary>Characterizes third-entry selection through saved-package and operation-intent restart persistence.</summary>
+		[Test]
+		public void RestoreSelection_ThirdOfThreeSavedCapturesRemainsTheDurableSourceAfterSelectionChanges()
+		{
+			string root = CreateTemporaryDirectory("nmm-local-restore-third-source-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("exact source archive"));
+				CollectionSealedCaptureSnapshot[] captures = Enumerable.Range(0, 3).Select(index =>
+					CreateCapture(store, archivePath, "captured-key-" + index, LocalCaptureCapability.LocallyRestorableWithinScope, true)).ToArray();
+				string[] names = { "C12 - Step 2B - Test", "C12 Test Collection", "C12 Test Collection BIS" };
+				for (int index = 0; index < captures.Length; index++) SaveCapture(store, captures[index], names[index]);
+				var captureStore = new CollectionsLocalCaptureStore(store);
+				var catalog = new CollectionsCatalogStore(store);
+				CollectionManagementLocalCapture[] saved = captureStore.GetCapturesForTarget(captures[2].Capture.SourceTarget)
+					.Select(capture => new CollectionManagementLocalCapture(capture,
+						catalog.GetDefinition(capture.Revision.Collection).DisplayName, "Captured setup"))
+					.OrderBy(capture => capture.DisplayName, StringComparer.Ordinal).ToArray();
+				Assert.AreEqual(2, CollectionsPreviewControl.FindLocalCaptureSelectionIndex(saved, captures[2].Capture.Identity));
+				Assert.AreEqual(-1, CollectionsPreviewControl.FindLocalCaptureSelectionIndex(saved, null));
+				Assert.AreEqual(-1, CollectionsPreviewControl.FindLocalCaptureSelectionIndex(saved, LocalCaptureIdentity.From(Guid.NewGuid())));
+				Assert.Throws<InvalidDataException>(() => CollectionsPreviewControl.FindLocalCaptureSelectionIndex(
+					new[] { saved[2], saved[2] }, captures[2].Capture.Identity));
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+				CollectionLocalRestorePlan plan = planner.Plan(captures[2], captures[2].Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "reviewed-third"), CreateNativeState("original", new InstallLogReadMod[0]));
+				var preview = new CollectionLocalRestorePreview(captures[2], plan);
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.RestoreLocalCapture,
+					captures[2].Capture.Revision.Collection, plan.Target, captures[2].Capture.Revision, null, 1,
+					CollectionOperationPhase.PausedAtSafeBoundary, CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				CollectionsRetainedArtifact intent;
+				using (var input = new MemoryStream(CollectionLocalRestoreIntentCodec.Serialize(preview.Plan.CaptureIdentity, preview.Plan)))
+					intent = artifacts.Publish(input);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				references.AcquireExclusiveRoleReference(intent.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
+					operation.Identity.OperationId.ToString("D"), "local-restore-plan-v1");
+				new CollectionsOperationStore(store).SaveOperation(operation);
+				Assert.AreEqual(0, CollectionsPreviewControl.FindLocalCaptureSelectionIndex(saved, captures[0].Capture.Identity));
+				CollectionsRetainedArtifactReferenceRecord persisted = new CollectionsRetainedArtifactReferenceStore(store).GetReferenceForOwnerRole(
+					CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.OperationId.ToString("D"), "local-restore-plan-v1");
+				byte[] bytes;
+				using (Stream input = new CollectionsRetainedArtifactStore(store).OpenRead(persisted.ArtifactId))
+				using (var buffer = new MemoryStream()) { input.CopyTo(buffer); bytes = buffer.ToArray(); }
+				Assert.AreEqual(captures[2].Capture.Identity, CollectionLocalRestoreIntentCodec.ReadCaptureIdentity(bytes));
+				CollectionSealedCaptureSnapshot restartedCapture;
+				using (Stream input = artifacts.OpenRead(captureStore.GetPackageArtifactId(CollectionLocalRestoreIntentCodec.ReadCaptureIdentity(bytes))))
+				using (var buffer = new MemoryStream())
+				{
+					input.CopyTo(buffer);
+					restartedCapture = CollectionLocalCapturePackageCodec.Deserialize(buffer.ToArray());
+				}
+				Assert.AreEqual(captures[2].Capture.Identity, CollectionLocalRestoreIntentCodec.Deserialize(bytes, restartedCapture).CaptureIdentity);
+				Assert.Throws<InvalidDataException>(() => new CollectionLocalRestorePreview(captures[0], plan));
+				Assert.Throws<InvalidDataException>(() => CollectionLocalRestoreIntentCodec.Serialize(captures[0].Capture.Identity, plan));
+				Assert.Throws<InvalidDataException>(() => CollectionLocalRestoreIntentCodec.Deserialize(bytes, captures[0]));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Rejects stopping an unresolved native child while allowing an independently reconciled partial outcome.</summary>
+		[Test]
+		public void LocalRestoreStop_RequiresKnownReconciledNativeDurability()
+		{
+			CollectionNativeChildOperation child;
+			CollectionLocalRestoreMemberRehydrationResult recovery = CreateMemberRecoveryState(
+				CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, out child);
+			Assert.Throws<InvalidOperationException>(() => CollectionLocalRestoreApplicationService.RequireReconciledStopBoundary(recovery.Operation));
+			var known = new ModOperationResult(child.NativeOperation, ModOperationReportedStatus.Failed,
+				ModOperationDurability.VerifiedCommitted, "Durable partial work");
+			var reconciled = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
+				CollectionNativeChildCheckpoint.Reconciled, known);
+			CollectionOperation operation = recovery.Operation;
+			var safe = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target, operation.Revision,
+				operation.PlanIdentity, operation.CheckpointSequence + 1, CollectionOperationPhase.PausedAtSafeBoundary,
+				CollectionOperationResultState.Pending, new[] { reconciled });
+			Assert.DoesNotThrow(() => CollectionLocalRestoreApplicationService.RequireReconciledStopBoundary(safe));
+		}
+
+		/// <summary>Publishes an exact sealed fixture using the normal capture references and immutable package binding.</summary>
+		private static void SaveCapture(CollectionsStore store, CollectionSealedCaptureSnapshot snapshot, string displayName)
+		{
+			var artifacts = new CollectionsRetainedArtifactStore(store);
+			var references = new CollectionsRetainedArtifactReferenceStore(store);
+			string ownerId = snapshot.Capture.Identity.ToString();
+			foreach (RetainedArtifactReference reference in snapshot.Capture.RetainedArtifacts)
+				references.AcquireReference(reference.StableArtifactId, CollectionsRetainedArtifactOwnerKind.Capture, ownerId, reference.Role);
+			var result = new CollectionCaptureSealResult(snapshot.Capture.Capability, snapshot, new CollectionCaptureSealIssue[0]);
+			CollectionsRetainedArtifact package;
+			using (var input = new MemoryStream(CollectionLocalCapturePackageCodec.Serialize(result))) package = artifacts.Publish(input);
+			references.AcquireReference(package.ArtifactId, CollectionsRetainedArtifactOwnerKind.Capture, ownerId, CollectionsLocalCaptureStore.PackageReferenceRole);
+			new CollectionsLocalCaptureStore(store).Save(new CollectionDefinition(snapshot.Capture.Revision.Collection, displayName, null, null),
+				new CollectionRevision(snapshot.Capture.Revision, "Captured setup", null, null), snapshot.Capture,
+				CollectionLocalCapturePackageCodec.CurrentFormatVersion, package.ArtifactId);
 		}
 
 		[Test]

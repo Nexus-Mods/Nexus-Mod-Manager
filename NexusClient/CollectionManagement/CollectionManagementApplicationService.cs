@@ -17,11 +17,14 @@ namespace Nexus.Client.CollectionManagement
 	/// <summary>One installed Collection association exposed by the basic management application route.</summary>
 	public sealed class CollectionManagementAssociation
 	{
-		internal CollectionManagementAssociation(CollectionTargetAssociation association, string displayName, string revisionLabel)
+		internal CollectionManagementAssociation(CollectionTargetAssociation association, string displayName, string revisionLabel,
+			bool localRestorePending = false, CollectionRevisionIdentity pendingRevision = null)
 		{
 			Association = association ?? throw new ArgumentNullException(nameof(association));
 			DisplayName = String.IsNullOrWhiteSpace(displayName) ? association.Revision.Collection.StableId : displayName;
 			RevisionLabel = String.IsNullOrWhiteSpace(revisionLabel) ? FormatRevision(association.Revision) : revisionLabel;
+			LocalRestorePending = localRestorePending;
+			PendingRevision = pendingRevision;
 		}
 
 		public CollectionTargetAssociation Association { get; }
@@ -29,10 +32,17 @@ namespace Nexus.Client.CollectionManagement
 		public string DisplayName { get; }
 		public string RevisionLabel { get; }
 		public CollectionAssociationState State { get { return Association.State; } }
+		public bool LocalRestorePending { get; }
+		public CollectionRevisionIdentity PendingRevision { get; }
 
 		public override string ToString()
 		{
-			return DisplayName + " - " + RevisionLabel + " [" + State + "]";
+			if (PendingRevision != null)
+				return DisplayName + " - " + RevisionLabel + " [" + Nexus.Client.Util.Localization.LanguageManager.Get(
+					"Collections.Status.RevisionChangeIncomplete", "Previous revision; revision change incomplete") + "]";
+			return DisplayName + " - " + RevisionLabel + (LocalRestorePending && State == CollectionAssociationState.Recovering
+				? " [" + Nexus.Client.Util.Localization.LanguageManager.Get("Collections.Status.LocalRestorePending", "Local restore pending") + "]"
+				: " [" + State + "]");
 		}
 
 		private static string FormatRevision(CollectionRevisionIdentity revision)
@@ -336,17 +346,46 @@ namespace Nexus.Client.CollectionManagement
 				return new CollectionManagementAssociation[0];
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var result = new List<CollectionManagementAssociation>();
+			IReadOnlyList<CollectionOperation> incomplete = _operationStore.GetIncompleteOperations(target);
+			bool localRestorePending = incomplete.Any(x => x.Kind == CollectionOperationKind.RestoreLocalCapture);
 			foreach (CollectionTargetAssociation association in _associationStore.GetAssociationsForTarget(target))
 			{
 				CollectionDefinition definition = _catalogStore.GetDefinition(association.Revision.Collection);
 				CollectionRevision revision = _catalogStore.GetRevision(association.Revision);
 				result.Add(new CollectionManagementAssociation(association,
 					definition == null ? null : definition.DisplayName,
-					revision == null ? null : revision.RevisionLabel));
+					revision == null ? null : revision.RevisionLabel, localRestorePending, FindPendingRevision(association, incomplete)));
 			}
 			return new ReadOnlyCollection<CollectionManagementAssociation>(result
 				.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase)
 				.ThenBy(x => x.RevisionLabel, StringComparer.CurrentCultureIgnoreCase).ToList());
+		}
+
+		/// <summary>Matches an unfinished candidate to the exact association, old revision and current target recorded by its review.</summary>
+		internal static bool MatchesPendingRevision(CollectionTargetAssociation association, CollectionOperation operation,
+			Guid reviewedAssociationId, CollectionRevisionIdentity reviewedOldRevision)
+		{
+			return association != null && operation != null && !operation.IsTerminal &&
+				operation.Kind == CollectionOperationKind.UpdateRevision && association.AssociationId == reviewedAssociationId &&
+				association.Revision.Equals(reviewedOldRevision) && operation.Target.Equals(association.Target) &&
+				operation.Collection.Equals(association.Revision.Collection) && operation.Revision != null && !operation.Revision.Equals(association.Revision);
+		}
+
+		/// <summary>Reads immutable review identities so two associations of one Collection cannot share a continuation label.</summary>
+		private CollectionRevisionIdentity FindPendingRevision(CollectionTargetAssociation association, IEnumerable<CollectionOperation> operations)
+		{
+			var coordinator = new CollectionRevisionUpdateReviewCoordinator(_operationStore, new CollectionsResolvedPlanStore(_store), _associationStore);
+			foreach (CollectionOperation operation in operations.Where(x => x.Kind == CollectionOperationKind.UpdateRevision &&
+				x.Target.Equals(association.Target) && x.Collection.Equals(association.Revision.Collection) && !x.IsTerminal))
+			{
+				try
+				{
+					CollectionRevisionUpdateReviewedIntent intent = coordinator.LoadReviewedIntent(operation.Identity);
+					if (MatchesPendingRevision(association, operation, intent.AssociationId, intent.OldRevision)) return operation.Revision;
+				}
+				catch (Exception ex) { Trace.TraceWarning("Unfinished revision-change presentation could not load its exact review: " + ex); }
+			}
+			return null;
 		}
 
 		/// <summary>Returns safe Collection-defined launchers for Applied/Modified associations on the current target.</summary>
@@ -455,9 +494,11 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionDefinition definition = _catalogStore.GetDefinition(association.Revision.Collection);
 			CollectionRevision revision = _catalogStore.GetRevision(association.Revision);
+			IReadOnlyList<CollectionOperation> incomplete = _operationStore.GetIncompleteOperations(target);
 			var managedAssociation = new CollectionManagementAssociation(association,
 				definition == null ? null : definition.DisplayName,
-				revision == null ? null : revision.RevisionLabel);
+				revision == null ? null : revision.RevisionLabel,
+				incomplete.Any(x => x.Kind == CollectionOperationKind.RestoreLocalCapture), FindPendingRevision(association, incomplete));
 
 			NexusCollectionBundleImportResult retainedManifest = null;
 			string retainedSourceIssue = null;
@@ -597,11 +638,11 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
-		/// Reconciles stale persisted drift after an explicit verify pass proved the currently supported state healthy.
+		/// Reconciles stale persisted drift and association state after an explicit verify pass proved the current state healthy.
 		/// </summary>
 		/// <remarks>
-		/// This never changes native NMM state. It only removes drift observations whose exact requirement is now reported as
-		/// satisfied by the supplied verify plan, after reloading authority and proving the native-state fingerprint did not change.
+		/// This never changes native NMM state. It publishes the verified association state and removes explicitly satisfied
+		/// drift after reloading authority, proving the native-state fingerprint unchanged and rejecting pending target work.
 		/// </remarks>
 		public async Task<bool> ReconcileVerifiedHealthyStateAsync(CollectionVerifyRepairPlan plan, CancellationToken cancellationToken)
 		{
@@ -630,6 +671,8 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("The Collection association changed after verify/repair assessment.");
 				if (association.State == CollectionAssociationState.Recovering)
 					throw new InvalidOperationException("A recovering Collection association cannot be normalized by a healthy verify pass.");
+				if (_operationStore.GetIncompleteOperations(authority.Target).Count > 0)
+					throw new InvalidOperationException("Pending Collection operations must be reconciled before a healthy verify pass can normalize the installed state.");
 
 				List<CollectionDriftObservation> drift = snapshot.DriftObservations
 					.Where(x => x.Requirement.AssociationId == association.AssociationId).ToList();
@@ -839,6 +882,26 @@ namespace Nexus.Client.CollectionManagement
 			CancellationToken cancellationToken)
 		{
 			return _localRestoreWorkflow.ApplyAsync(preview, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Continues the exact interrupted Local restore whose source and checkpoint the user explicitly reviewed.</summary>
+		public Task<CollectionLocalRestoreWorkflowResult> ResumeLocalRestoreAsync(CollectionManagementLocalRestoreRecoverySource source,
+			CancellationToken cancellationToken)
+		{
+			if (source == null) throw new ArgumentNullException(nameof(source));
+			if (!source.HasResolvedCapture || !String.IsNullOrEmpty(source.Diagnostic))
+				throw new InvalidOperationException("The interrupted Local restore source is unresolved; it cannot be resumed safely.");
+			return _localRestoreWorkflow.ResumeReviewedAsync(source.Operation, source.CaptureIdentity, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Retires the exact reviewed interrupted member/owner restore while preserving partial state and recovery inputs.</summary>
+		public Task<CollectionOperation> StopLocalRestoreAsync(CollectionManagementLocalRestoreRecoverySource source,
+			CancellationToken cancellationToken)
+		{
+			if (source == null) throw new ArgumentNullException(nameof(source));
+			if (!source.HasResolvedCapture || !String.IsNullOrEmpty(source.Diagnostic))
+				throw new InvalidOperationException("The interrupted Local restore source is unresolved; it cannot be stopped safely.");
+			return _localRestoreWorkflow.StopReviewedAsync(source.Operation, source.CaptureIdentity, GetTargetPaths(), cancellationToken);
 		}
 
 		/// <summary>Adopts one exact current member drift observation as an explicit local Collection decision.</summary>
@@ -1269,25 +1332,23 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionVerifyRepairRecoveryResult>(results);
 		}
 
-		/// <summary>Reconciles persisted Local restore operations through every remaining C7 phase and aggregate final verification.</summary>
-		public async Task<IReadOnlyList<CollectionLocalRestoreWorkflowResult>> ReconcileInterruptedLocalRestoresAsync(
+		/// <summary>Reports interrupted Local restores for explicit source review without automatically continuing native mutation.</summary>
+		public Task<IReadOnlyList<CollectionLocalRestoreWorkflowResult>> ReconcileInterruptedLocalRestoresAsync(
 			CancellationToken cancellationToken)
 		{
 			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
-				return new CollectionLocalRestoreWorkflowResult[0];
+				return Task.FromResult<IReadOnlyList<CollectionLocalRestoreWorkflowResult>>(new CollectionLocalRestoreWorkflowResult[0]);
 			CollectionTargetIdentity target = ResolveCurrentTarget();
 			var results = new List<CollectionLocalRestoreWorkflowResult>();
 			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(target)
 				.Where(x => x.Kind == CollectionOperationKind.RestoreLocalCapture).ToList())
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				CollectionLocalRestoreWorkflowResult result = await _localRestoreWorkflow
-					.ResumeAsync(operation.Identity, GetTargetPaths(), cancellationToken).ConfigureAwait(false);
-				results.Add(result);
-				if (!result.IsSuccessful)
-					break;
+				results.Add(new CollectionLocalRestoreWorkflowResult(CollectionLocalRestoreWorkflowStatus.RecoveryRequired,
+					operation, "This interrupted Local Collection restore is paused. Review its exact saved source before choosing Resume or Stop."));
 			}
-			return new ReadOnlyCollection<CollectionLocalRestoreWorkflowResult>(results);
+			return Task.FromResult<IReadOnlyList<CollectionLocalRestoreWorkflowResult>>(
+				new ReadOnlyCollection<CollectionLocalRestoreWorkflowResult>(results));
 		}
 
 		/// <summary>Reconciles and resumes only persisted RestoreLocalCapture member phases for the current target.</summary>
@@ -1345,7 +1406,8 @@ namespace Nexus.Client.CollectionManagement
 			return new ReadOnlyCollection<CollectionUninstallEffectsResult>(results);
 		}
 
-		private GameStoragePathSet GetTargetPaths()
+		/// <summary>Gets the active game and setup paths for management operations and their UI presentation.</summary>
+		internal GameStoragePathSet GetTargetPaths()
 		{
 			return _gameStorageService.FromGameMode(_services.ModManager.GameMode);
 		}

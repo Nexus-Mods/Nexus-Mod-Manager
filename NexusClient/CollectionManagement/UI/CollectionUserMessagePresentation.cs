@@ -136,6 +136,10 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionLocalRestoreWorkflowStatus.Completed:
 					return Message("Collections.Messages.LocalRestore.Completed",
 						"The saved Local Collection was restored and the final managed state was verified.", String.Empty, String.Empty, technicalDetail);
+				case CollectionLocalRestoreWorkflowStatus.StoppedPartial:
+					return Message("Collections.Messages.LocalRestore.StoppedPartial",
+						"The interrupted restore was stopped after safe-boundary checks; partial installed changes remain.",
+						"Collections.Messages.Next.ReviewAfterStoppedRestore", "Review a fresh restore or Collection uninstallation from the current setup.", technicalDetail);
 				case CollectionLocalRestoreWorkflowStatus.RecoveryRequired:
 					return Message("Collections.Messages.LocalRestore.RecoveryRequired",
 						"Local Collection restore stopped at a point that requires recovery before it can continue.",

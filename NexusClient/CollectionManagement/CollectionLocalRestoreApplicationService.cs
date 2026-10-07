@@ -17,6 +17,9 @@ namespace Nexus.Client.CollectionManagement
 		{
 			SealedCapture = sealedCapture ?? throw new ArgumentNullException(nameof(sealedCapture));
 			Plan = plan ?? throw new ArgumentNullException(nameof(plan));
+			if (!SealedCapture.Capture.Identity.Equals(Plan.CaptureIdentity) ||
+				!SealedCapture.Capture.SourceTarget.Equals(Plan.Target))
+				throw new InvalidDataException("The Local restore preview does not describe the selected capture and target.");
 		}
 
 		public CollectionSealedCaptureSnapshot SealedCapture { get; }
@@ -30,7 +33,8 @@ namespace Nexus.Client.CollectionManagement
 		Completed = 1,
 		RecoveryRequired = 2,
 		CurrentStateChanged = 3,
-		RetainedInputInvalid = 4
+		RetainedInputInvalid = 4,
+		StoppedPartial = 5
 	}
 
 	/// <summary>Application-level result for one complete or reconciled Local Collection restore operation.</summary>
@@ -68,6 +72,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsLocalCaptureStore _localCaptureStore;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
+		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
 		private readonly CollectionTargetMutationLeaseManager _mutationLeaseManager;
 		private readonly CollectionTargetOwnershipAuthorityValidator _authorityValidator;
 		private readonly CollectionLocalRestoreMemberExecutor _memberExecutor;
@@ -95,6 +100,7 @@ namespace Nexus.Client.CollectionManagement
 			_localCaptureStore = localCaptureStore ?? throw new ArgumentNullException(nameof(localCaptureStore));
 			_artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
 			if (referenceStore == null) throw new ArgumentNullException(nameof(referenceStore));
+			_referenceStore = referenceStore;
 			if (_services.ModManager == null)
 				throw new InvalidOperationException("Local Collection restore requires the active native ModManager.");
 
@@ -163,6 +169,101 @@ namespace Nexus.Client.CollectionManagement
 				preview.SealedCapture, preview.Plan, paths, cancellationToken).ConfigureAwait(true);
 			return await ContinueAfterMemberAsync(preview.SealedCapture, preview.Plan, memberPhase,
 				paths, cancellationToken).ConfigureAwait(true);
+		}
+
+		/// <summary>Resumes only the exact interrupted source and checkpoint explicitly reviewed by the user.</summary>
+		public Task<CollectionLocalRestoreWorkflowResult> ResumeReviewedAsync(CollectionOperation expectedOperation,
+			LocalCaptureIdentity expectedCapture, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			CollectionSealedCaptureSnapshot sealedCapture;
+			CollectionLocalRestorePlan reviewedPlan;
+			LoadReviewedOperation(expectedOperation, expectedCapture, out sealedCapture, out reviewedPlan);
+			return ResumeAsync(expectedOperation.Identity, paths, cancellationToken);
+		}
+
+		/// <summary>Stops a reconciled member/ownership restore without replaying it or discarding retained recovery evidence.</summary>
+		public async Task<CollectionOperation> StopReviewedAsync(CollectionOperation expectedOperation,
+			LocalCaptureIdentity expectedCapture, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			if (paths == null) throw new ArgumentNullException(nameof(paths));
+			CollectionSealedCaptureSnapshot sealedCapture;
+			CollectionLocalRestorePlan reviewedPlan;
+			LoadReviewedOperation(expectedOperation, expectedCapture, out sealedCapture, out reviewedPlan);
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			if (!authority.Target.Equals(expectedOperation.Target))
+				throw new InvalidOperationException("The reviewed interrupted restore belongs to a different canonical target.");
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				CollectionOperation operation = LoadReviewedOperation(expectedOperation, expectedCapture, out sealedCapture, out reviewedPlan);
+				if (!authority.Target.Equals(operation.Target) ||
+					_operationStore.GetIncompleteOperations(operation.Target).Any(x => !x.Identity.Equals(operation.Identity)))
+					throw new InvalidOperationException("Another operation or target change prevents safely stopping this Local restore.");
+				RequireReconciledStopBoundary(operation);
+
+				// Later stateful phases need their own exact pre/postimage reconciliation before retirement.
+				// This exit deliberately covers the interrupted native-member/owner path, never a generic journal reset.
+				IReadOnlyList<CollectionsRetainedArtifactReferenceRecord> references = _referenceStore.GetReferencesForOwner(
+					CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.OperationId.ToString("D"));
+				if (references.Any(x => x.Role.StartsWith("local-restore-replay-", StringComparison.Ordinal) ||
+					x.Role.StartsWith("local-restore-plugin-", StringComparison.Ordinal) ||
+					x.Role.StartsWith("local-restore-ini-", StringComparison.Ordinal) ||
+					x.Role.StartsWith("local-restore-game-value-", StringComparison.Ordinal) ||
+					x.Role.StartsWith("local-restore-user-metadata-", StringComparison.Ordinal) ||
+					x.Role.StartsWith("local-restore-profile-association-", StringComparison.Ordinal)))
+					throw new InvalidOperationException("This restore reached a later stateful-effect phase. Its recovery must be reconciled before it can be stopped safely.");
+				_ownershipExecutor.VerifySafeStop(sealedCapture, reviewedPlan, operation, cancellationToken);
+				var profileBoundary = new CollectionLocalRestoreProfileBoundaryCoordinator(_services, _operationStore,
+					_associationStore, _artifactStore, _referenceStore);
+				CollectionLocalRestoreProfileBoundaryIntent intent = profileBoundary.VerifySafeStop(operation, sealedCapture, reviewedPlan);
+				cancellationToken.ThrowIfCancellationRequested();
+				var stopped = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, operation.PlanIdentity, checked(operation.CheckpointSequence + 1), CollectionOperationPhase.Completed,
+					CollectionOperationResultState.StoppedPartial, operation.NativeChildren);
+				_associationStore.SaveLocalRestoreStoppedPartial(stopped, intent.Associations.Select(x => x.AssociationId));
+				return _operationStore.GetOperation(stopped.Identity);
+			}
+		}
+
+		/// <summary>Rejects retirement while any submitted native attempt lacks a reconciled, known outcome.</summary>
+		internal static void RequireReconciledStopBoundary(CollectionOperation operation)
+		{
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (operation.Kind != CollectionOperationKind.RestoreLocalCapture || operation.IsTerminal ||
+				operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability)
+				throw new InvalidOperationException("Native recovery must settle every submitted child before this Local restore can be stopped.");
+		}
+
+		/// <summary>Loads the immutable reviewed source and rejects changed, missing or mismatched operation identities.</summary>
+		private CollectionOperation LoadReviewedOperation(CollectionOperation expectedOperation, LocalCaptureIdentity expectedCapture,
+			out CollectionSealedCaptureSnapshot sealedCapture, out CollectionLocalRestorePlan reviewedPlan)
+		{
+			if (expectedOperation == null) throw new ArgumentNullException(nameof(expectedOperation));
+			if (expectedCapture == null) throw new ArgumentNullException(nameof(expectedCapture));
+			CollectionOperation operation = _operationStore.GetOperation(expectedOperation.Identity);
+			if (operation == null || operation.Kind != CollectionOperationKind.RestoreLocalCapture || operation.IsTerminal ||
+				operation.CheckpointSequence != expectedOperation.CheckpointSequence || !operation.Target.Equals(expectedOperation.Target))
+				throw new InvalidOperationException("The interrupted Local restore changed after review; refresh its source before continuing.");
+			CollectionsRetainedArtifactReferenceRecord reference = _referenceStore.GetReferenceForOwnerRole(
+				CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.OperationId.ToString("D"), "local-restore-plan-v1");
+			if (reference == null || !_artifactStore.VerifyArtifact(reference.ArtifactId))
+				throw new InvalidDataException("The interrupted Local restore intent is missing or invalid.");
+			byte[] bytes;
+			using (Stream source = _artifactStore.OpenRead(reference.ArtifactId))
+			using (var buffer = new MemoryStream())
+			{
+				source.CopyTo(buffer);
+				bytes = buffer.ToArray();
+			}
+			if (!CollectionLocalRestoreIntentCodec.ReadCaptureIdentity(bytes).Equals(expectedCapture))
+				throw new InvalidDataException("The interrupted Local restore source differs from the explicitly reviewed capture.");
+			sealedCapture = LoadSealedCapture(expectedCapture);
+			reviewedPlan = CollectionLocalRestoreIntentCodec.Deserialize(bytes, sealedCapture);
+			if (!operation.Target.Equals(reviewedPlan.Target) || operation.Revision == null ||
+				!operation.Revision.Equals(sealedCapture.Capture.Revision) || !operation.Collection.Equals(sealedCapture.Capture.Revision.Collection))
+				throw new InvalidDataException("The interrupted Local restore source does not match its operation revision and target.");
+			return operation;
 		}
 
 		/// <summary>Reconciles and resumes one persisted Local restore through all remaining phases and final verification.</summary>

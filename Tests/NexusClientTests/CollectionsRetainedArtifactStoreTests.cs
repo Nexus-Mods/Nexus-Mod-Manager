@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Security.Cryptography;
@@ -273,6 +274,74 @@ namespace NexusClientTests
 
 				File.WriteAllBytes(BlobPath(featureStore, artifact.ContentHash.Value), Encoding.ASCII.GetBytes("ABCDEF"));
 				Assert.IsFalse(retainedStore.VerifyArtifact(artifact.ArtifactId));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Batch verification deduplicates requested identities and retains missing/corrupt separation and cache invalidation.</summary>
+		[Test]
+		public void VerifyArtifacts_DeduplicatesAndDetectsMissingOrChangedBytes()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var featureStore = new CollectionsStore(root);
+				featureStore.CreateNew();
+				var retainedStore = new CollectionsRetainedArtifactStore(featureStore);
+				CollectionsRetainedArtifact good;
+				CollectionsRetainedArtifact changed;
+				using (var source = new MemoryStream(Encoding.ASCII.GetBytes("good"))) good = retainedStore.Publish(source);
+				using (var source = new MemoryStream(Encoding.ASCII.GetBytes("before"))) changed = retainedStore.Publish(source);
+				string missing = "sha256:" + new string('0', 64);
+				string[] ids = { good.ArtifactId, changed.ArtifactId, missing, good.ArtifactId };
+				ISet<string> verified;
+				IReadOnlyDictionary<string, CollectionsRetainedArtifact> metadata = retainedStore.VerifyArtifacts(ids, CancellationToken.None, out verified);
+				Assert.AreEqual(2, metadata.Count);
+				Assert.AreEqual(2, verified.Count);
+				Assert.IsFalse(metadata.ContainsKey(missing));
+				Assert.IsTrue(verified.Contains(good.ArtifactId));
+				Assert.IsTrue(verified.Contains(changed.ArtifactId));
+
+				string changedPath = BlobPath(featureStore, changed.ContentHash.Value);
+				File.WriteAllBytes(changedPath, Encoding.ASCII.GetBytes("AFTER!"));
+				File.SetLastWriteTimeUtc(changedPath, DateTime.UtcNow.AddMinutes(1));
+				metadata = retainedStore.VerifyArtifacts(ids, CancellationToken.None, out verified);
+				Assert.AreEqual(changed, metadata[changed.ArtifactId]);
+				Assert.AreEqual(1, verified.Count);
+				Assert.IsFalse(verified.Contains(changed.ArtifactId));
+				Assert.IsTrue(verified.Contains(good.ArtifactId));
+				Assert.Throws<OperationCanceledException>(() => retainedStore.VerifyArtifacts(ids, new CancellationToken(true), out verified));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Batch reads preserve the sealed/canonical-path trust checks before exposing verification results.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void VerifyArtifacts_RejectsInvalidRetainedMetadata(bool unsealed)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var featureStore = new CollectionsStore(root);
+				featureStore.CreateNew();
+				var retainedStore = new CollectionsRetainedArtifactStore(featureStore);
+				CollectionsRetainedArtifact artifact;
+				using (var source = new MemoryStream(Encoding.ASCII.GetBytes("sealed"))) artifact = retainedStore.Publish(source);
+				using (SQLiteConnection connection = OpenDatabase(featureStore.DatabasePath))
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.CommandText = unsealed ? "UPDATE retained_artifacts SET sealed=0;" : "UPDATE retained_artifacts SET relative_path='unexpected.blob';";
+					command.ExecuteNonQuery();
+				}
+				ISet<string> verified = null;
+				Assert.Throws<InvalidDataException>(() => retainedStore.VerifyArtifacts(new[] { artifact.ArtifactId }, CancellationToken.None, out verified));
 			}
 			finally
 			{

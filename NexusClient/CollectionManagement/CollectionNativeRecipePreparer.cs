@@ -212,6 +212,35 @@ namespace Nexus.Client.CollectionManagement
 			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
 			CancellationToken cancellationToken)
 		{
+			return PrepareExactCore(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
+				currentState, skipReadmeFiles, pluginManager, activeMods, includeDeterministicModFileMergeOutput,
+				cancellationToken, null);
+		}
+
+		/// <summary>
+		/// Re-prepares a revision-update recipe against current native state while retaining the approved plan in its
+		/// prepared identity. The caller must verify the execution boundary and compare the result with approved preparation.
+		/// </summary>
+		internal PreparedCollectionNativeRecipe PrepareRevisionUpdateExact(ResolvedCollectionPlan approvedPlan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
+			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, CancellationToken cancellationToken)
+		{
+			if (approvedPlan == null) throw new ArgumentNullException(nameof(approvedPlan));
+			if (currentState == null) throw new ArgumentNullException(nameof(currentState));
+			ResolvedCollectionPlan boundaryPlan = CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(
+				approvedPlan, currentState.Fingerprint);
+			return PrepareExactCore(boundaryPlan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
+				currentState, skipReadmeFiles, pluginManager, activeMods, true, cancellationToken, approvedPlan);
+		}
+
+		/// <summary>Prepares exact output with separate current-state validation and immutable review identity inputs.</summary>
+		private PreparedCollectionNativeRecipe PrepareExactCore(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
+			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
+			CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan)
+		{
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			try
 			{
@@ -219,15 +248,15 @@ namespace Nexus.Client.CollectionManagement
 					throw new ArgumentNullException(nameof(member));
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-						skipReadmeFiles, pluginManager, false, null, cancellationToken);
+						skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
 				if (!member.HasVortexFomodSelection)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-						skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken);
+						skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken, identityPlan);
 				}
 
 				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-					currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken);
+					currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
 			}
 			finally
 			{
@@ -292,7 +321,7 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
 			IPluginManager pluginManager, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment,
-			IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput, CancellationToken cancellationToken)
+			IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput, CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (member.HasVortexFileList)
@@ -345,7 +374,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated basic/simple Collection recipe does not have a complete characterized C6 effect preview.");
 
-			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedIdentity(plan, member,
+			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedIdentity(identityPlan ?? plan, member,
 				verifiedArchive.Artifact, basicResult.Plan, translated, effectPreview, skipReadmeFiles);
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
@@ -357,7 +386,7 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
 			IPluginManager pluginManager, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (!member.HasVortexFileList)
@@ -418,7 +447,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
 
-			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFileListIdentity(plan, member,
+			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFileListIdentity(identityPlan ?? plan, member,
 				verifiedArchive.Artifact, frozenRecipe, translated, effectPreview, skipReadmeFiles);
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
@@ -429,7 +458,7 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			bool skipReadmeFiles, IPluginManager pluginManager, bool replacement,
-			CollectionReplacementEnvironmentProjection conditionEnvironment, CancellationToken cancellationToken)
+			CollectionReplacementEnvironmentProjection conditionEnvironment, CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (environmentInfo == null)
@@ -504,7 +533,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");
 
-			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFomodIdentity(plan, member,
+			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFomodIdentity(identityPlan ?? plan, member,
 				verifiedArchive.Artifact, fomodAdapter, fomodRecipe, frozenRecipe, translated, effectPreview, skipReadmeFiles);
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,

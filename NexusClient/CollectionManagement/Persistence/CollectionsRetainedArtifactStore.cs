@@ -316,6 +316,63 @@ VALUES
 				return false;
 
 			string path = GetValidatedPhysicalPath(artifact);
+			return VerifyArtifactBytes(artifact, path, cancellationToken);
+		}
+
+		/// <summary>Loads an exact artifact set in one metadata transaction, then verifies its bytes outside the transaction.</summary>
+		/// <remarks>Only identities in verifiedArtifactIds passed integrity verification. Missing metadata is omitted from the returned descriptors.</remarks>
+		internal IReadOnlyDictionary<string, CollectionsRetainedArtifact> VerifyArtifacts(IEnumerable<string> artifactIds,
+			CancellationToken cancellationToken, out ISet<string> verifiedArtifactIds)
+		{
+			if (artifactIds == null) throw new ArgumentNullException(nameof(artifactIds));
+			cancellationToken.ThrowIfCancellationRequested();
+			var ids = new HashSet<string>(StringComparer.Ordinal);
+			foreach (string id in artifactIds)
+				ids.Add(CollectionIdentityValidation.RequireOpaqueToken(id, nameof(artifactIds)));
+			if (ids.Count == 0)
+			{
+				verifiedArtifactIds = new HashSet<string>(StringComparer.Ordinal);
+				return new Dictionary<string, CollectionsRetainedArtifact>(StringComparer.Ordinal);
+			}
+			Dictionary<string, CollectionsRetainedArtifact> artifacts = _store.ExecuteRead((connection, transaction) =>
+			{
+				var result = new Dictionary<string, CollectionsRetainedArtifact>(StringComparer.Ordinal);
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT artifact_id, hash_algorithm, hash_value, byte_length, relative_path, sealed
+FROM retained_artifacts WHERE artifact_id=@artifact_id;";
+					command.Parameters.AddWithValue("@artifact_id", String.Empty);
+					foreach (string id in ids)
+					{
+						cancellationToken.ThrowIfCancellationRequested();
+						command.Parameters["@artifact_id"].Value = id;
+						using (SQLiteDataReader reader = command.ExecuteReader())
+						{
+							if (!reader.Read()) continue;
+							CollectionsRetainedArtifact artifact = ReadArtifact(reader);
+							if (!StringComparer.Ordinal.Equals(reader.GetString(4), GetCanonicalRelativePath(artifact.ContentHash)))
+								throw new InvalidDataException("The retained artifact path does not match its content-addressed identity.");
+							result.Add(id, artifact);
+						}
+					}
+				}
+				return result;
+			});
+			verifiedArtifactIds = new HashSet<string>(StringComparer.Ordinal);
+			foreach (CollectionsRetainedArtifact artifact in artifacts.Values)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (VerifyArtifactBytes(artifact, ResolveCanonicalPath(GetCanonicalRelativePath(artifact.ContentHash)), cancellationToken))
+					verifiedArtifactIds.Add(artifact.ArtifactId);
+			}
+			return artifacts;
+		}
+
+		/// <summary>Verifies one already validated retained path using the existing size/write-stamp integrity cache.</summary>
+		private bool VerifyArtifactBytes(CollectionsRetainedArtifact artifact, string path, CancellationToken cancellationToken)
+		{
 			if (!File.Exists(path))
 				return false;
 
