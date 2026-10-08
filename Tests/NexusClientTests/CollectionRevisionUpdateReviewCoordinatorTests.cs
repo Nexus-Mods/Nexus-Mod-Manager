@@ -83,6 +83,29 @@ namespace NexusClientTests
 
 		[Test]
 		[Category("CollectionsC12FailureInjection")]
+		public void Coordinator_PersistsCrossKeyNexusCorrelationAcrossRestart()
+		{
+			NormalizedCollectionMember oldMember = CreateValidatedMember("100", "200", "recipe-a");
+			NormalizedCollectionMember newMember = CreateValidatedMember("100", "201", "recipe-b");
+			using (Fixture f = Fixture.Create("cross-key-correlation", oldMember, newMember))
+			{
+				CollectionRevisionUpdatePlan plan = f.Plan();
+				CollectionOperation created = f.Coordinator.CreateReviewedOperation(plan);
+				CollectionRevisionUpdateReviewedIntent loaded = f.CreateRestartedCoordinator().LoadReviewedIntent(created.Identity);
+
+				CollectionRevisionUpdateMemberCorrelationReview correlation = loaded.MemberCorrelations.Single();
+				Assert.That(correlation.OldMemberKey, Is.EqualTo(oldMember.IdentityResolution.Key));
+				Assert.That(correlation.CandidateMemberKey, Is.EqualTo(newMember.IdentityResolution.Key));
+				Assert.That(correlation.OldMemberKey, Is.Not.EqualTo(correlation.CandidateMemberKey));
+				Assert.That(loaded.ReviewFingerprint, Is.EqualTo(CollectionRevisionUpdateReviewedIntent.Create(plan).ReviewFingerprint));
+
+				CollectionOperation approved = f.CreateRestartedCoordinator().Approve(created.Identity, f.NewPlan.Identity, plan);
+				Assert.That(approved.Phase, Is.EqualTo(CollectionOperationPhase.ReadyToApply));
+			}
+		}
+
+		[Test]
+		[Category("CollectionsC12FailureInjection")]
 		public void Coordinator_PersistsExactCandidateArtifactSubstitutionAcrossRestart()
 		{
 			NormalizedCollectionMember oldMember = CreateMember("member-a", "100", "200", "recipe-a");
@@ -201,6 +224,16 @@ namespace NexusClientTests
 				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
 				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/" + modId + "/" + fileId, null),
 				CollectionRecipeIdentity.FromFingerprint(recipe), memberKey);
+		}
+
+		private static NormalizedCollectionMember CreateValidatedMember(string modId, string fileId, string recipe)
+		{
+			string artifactIdentity = "skyrimspecialedition/" + modId + "/" + fileId;
+			return new NormalizedCollectionMember(0,
+				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromValidatedMatch("nexus-mod-file:" + artifactIdentity)),
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+				new CollectionArtifactReference("nexus-mod-file", artifactIdentity, null),
+				CollectionRecipeIdentity.FromFingerprint(recipe), "member-" + fileId);
 		}
 
 		private sealed class Fixture : IDisposable

@@ -9,6 +9,7 @@ namespace Nexus.Client.ModManagement
 	using ChinhDo.Transactions;
 
 	using Nexus.Client.Mods;
+	using Nexus.Client.Util.Collections;
 	using Nexus.Transactions;
 
 	/// <summary>
@@ -164,10 +165,10 @@ namespace Nexus.Client.ModManagement
 				bool addedReplacementInfo = replacementInfo == null || ReferenceEquals(replacementInfo, oldModInfo);
 				if (addedReplacementInfo)
 				{
-					VirtualModInfo upgradedInfo = new VirtualModInfo(oldModInfo);
-					if (!String.IsNullOrWhiteSpace(p_modNewMod.DownloadId))
-						upgradedInfo.UpdatedDownloadId = p_modNewMod.DownloadId;
-					replacementInfo = upgradedInfo;
+					// The links now belong to the replacement archive. Retaining the old filename/file ID
+					// leaves the previous version appearing installed and makes future lookups ambiguous.
+					replacementInfo = new VirtualModInfo(p_modNewMod.Id, p_modNewMod.DownloadId,
+						p_modNewMod.ModName, p_modNewMod.Filename, p_modNewMod.HumanReadableVersion);
 					enlistment.TouchModInfo(replacementInfo, false);
 					AddVirtualModInfo(replacementInfo);
 					enlistment.SetModInfoPresent(replacementInfo, true);
@@ -186,7 +187,7 @@ namespace Nexus.Client.ModManagement
 				}
 
 				enlistment.TouchModInfo(oldModInfo, true);
-				m_tslVirtualModInfo.Remove(oldModInfo);
+				m_tslVirtualModInfo.RemoveAll(x => ReferenceEquals(x, oldModInfo));
 				enlistment.SetModInfoPresent(oldModInfo, false);
 				changed = true;
 			}
@@ -881,7 +882,7 @@ namespace Nexus.Client.ModManagement
 				}
 				else if (p_vmsSnapshot.IsPresent)
 				{
-					m_vmaOwner.m_tslVirtualModInfo.Remove(p_vmsSnapshot.ModInfo);
+					m_vmaOwner.m_tslVirtualModInfo.RemoveAll(x => ReferenceEquals(x, p_vmsSnapshot.ModInfo));
 				}
 			}
 

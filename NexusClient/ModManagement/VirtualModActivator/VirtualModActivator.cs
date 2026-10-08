@@ -3041,6 +3041,23 @@
 			}
 		}
 
+		/// <summary>
+		/// Determines whether two managed mod objects represent the same durable InstallLog owner.
+		/// Upgrade operations can replace the archive/mod object while intentionally preserving this owner key.
+		/// </summary>
+		internal bool IsSameInstallLogOwner(IMod p_modLeft, IMod p_modRight)
+		{
+			if (ReferenceEquals(p_modLeft, p_modRight))
+				return p_modLeft != null;
+			if (p_modLeft == null || p_modRight == null || ModInstallLog == null)
+				return false;
+
+			string strLeftKey = ModInstallLog.GetModKey(p_modLeft);
+			string strRightKey = ModInstallLog.GetModKey(p_modRight);
+			return !String.IsNullOrEmpty(strLeftKey) &&
+				StringComparer.OrdinalIgnoreCase.Equals(strLeftKey, strRightKey);
+		}
+
 		public IModLinkInstaller GetModLinkInstaller()
 		{
 			return new ModLinkInstaller(this, EnvironmentInfo.Settings.PromptForTxtFileConflicts);

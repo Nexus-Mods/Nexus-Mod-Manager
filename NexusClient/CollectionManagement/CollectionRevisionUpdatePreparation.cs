@@ -54,12 +54,14 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionRevisionUpdatePreparationBatch(CollectionOperation operation,
 			CollectionRevisionUpdateReviewedIntent reviewedIntent, CollectionRevisionUpdatePlan currentPlan,
 			IEnumerable<CollectionRevisionUpdatePreparationMemberState> members,
-			CollectionArchiveOverwritePolicy archiveOverwritePolicy)
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			CollectionCurrentStateFingerprint preparedAgainstStateFingerprint = null)
 		{
 			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
 			ReviewedIntent = reviewedIntent ?? throw new ArgumentNullException(nameof(reviewedIntent));
 			CurrentPlan = currentPlan ?? throw new ArgumentNullException(nameof(currentPlan));
 			ArchiveOverwritePolicy = archiveOverwritePolicy ?? throw new ArgumentNullException(nameof(archiveOverwritePolicy));
+			PreparedAgainstStateFingerprint = preparedAgainstStateFingerprint;
 			List<CollectionRevisionUpdatePreparationMemberState> copied = (members ?? throw new ArgumentNullException(nameof(members))).ToList();
 			if (copied.Any(x => x == null) || copied.Select(x => x.UpdateMember.MemberKey).Distinct().Count() != copied.Count)
 				throw new ArgumentException("A revision-update preparation batch cannot contain null or duplicate member rows.", nameof(members));
@@ -71,6 +73,8 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionRevisionUpdateReviewedIntent ReviewedIntent { get; }
 		public CollectionRevisionUpdatePlan CurrentPlan { get; }
 		public CollectionArchiveOverwritePolicy ArchiveOverwritePolicy { get; }
+		/// <summary>Exact native-state boundary used to produce the in-memory prepared recipes, when all prepared rows share one observed state.</summary>
+		public CollectionCurrentStateFingerprint PreparedAgainstStateFingerprint { get; }
 		public ReadOnlyCollection<CollectionRevisionUpdatePreparationMemberState> Members { get { return _members; } }
 		public bool IsAwaitingInput { get { return Operation.Phase == CollectionOperationPhase.AwaitingInput; } }
 		public bool IsReady { get { return Operation.Phase == CollectionOperationPhase.ReadyToApply && _members.All(x => x.IsPrepared); } }
@@ -342,7 +346,8 @@ namespace Nexus.Client.CollectionManagement
 				states.Add(State(member, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 					requests[member.MemberKey], archive, null, null, null, null, prepared));
 			}
-			return new CollectionRevisionUpdatePreparationBatch(operation, intent, currentPlan, states, archiveOverwritePolicy);
+			return new CollectionRevisionUpdatePreparationBatch(operation, intent, currentPlan, states, archiveOverwritePolicy,
+				currentState.Fingerprint);
 		}
 
 		private static void ValidatePreparedRecipe(CollectionRevisionUpdateReviewedIntent intent,

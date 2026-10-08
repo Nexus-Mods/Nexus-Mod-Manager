@@ -114,6 +114,37 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void ReviewedFileContentMatches_UsesPreviewHashWithoutIncomingArchive()
+		{
+			string temp = Path.GetTempFileName();
+			try
+			{
+				byte[] bytes = { 1, 2, 3, 4 };
+				File.WriteAllBytes(temp, bytes);
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");
+				var effect = new CollectionPlannedFileEffect(target,
+					CollectionContentHash.FromSha256("9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a"), bytes.Length);
+
+				Assert.IsTrue(CollectionNativeChildVerificationCoordinator.ReviewedFileContentMatches(effect, temp));
+
+				File.WriteAllBytes(temp, new byte[] { 1, 9, 3, 4 });
+				Assert.IsFalse(CollectionNativeChildVerificationCoordinator.ReviewedFileContentMatches(effect, temp));
+			}
+			finally
+			{
+				File.Delete(temp);
+			}
+		}
+
+		[Test]
+		public void ReviewedFileContentMatches_RejectsPreviewWithoutExactContentIdentity()
+		{
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");
+			Assert.IsFalse(CollectionNativeChildVerificationCoordinator.ReviewedFileContentMatches(
+				new CollectionPlannedFileEffect(target), "unused"));
+		}
+
 		private static ModOperationResult CreateResult(ModOperationReportedStatus status, ModOperationDurability durability)
 		{
 			ModOperationIdentity identity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,

@@ -42,21 +42,27 @@ namespace Nexus.Client.CollectionManagement
 			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, new CollectionConflictResolutionDecision[0], true);
 		}
 
-		/// <summary>Builds the C10.6 candidate impact plan after the durable three-way update review already bound association/customization decisions.</summary>
+		/// <summary>
+		/// Builds the C10.6 candidate impact plan after the durable three-way update review already bound association/customization decisions.
+		/// <paramref name="reviewedExistingOwnerKeys"/> contains only surviving old-revision native owners whose candidate mutation is still authorized.
+		/// </summary>
 		internal CollectionConflictImpactPlan PlanForRevisionUpdateExecution(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState, IEnumerable<CollectionMemberEffectPreview> effectPreviews,
-			IEnumerable<CollectionConflictResolutionDecision> decisions, Guid reviewedAssociationId)
+			IEnumerable<CollectionConflictResolutionDecision> decisions, Guid reviewedAssociationId, IEnumerable<string> reviewedExistingOwnerKeys)
 		{
 			if (plan == null || plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
 				throw new ArgumentException("Revision-update execution impact planning requires the additive/current-setup policy.", nameof(plan));
 			if (decisions == null) throw new ArgumentNullException(nameof(decisions));
 			if (reviewedAssociationId == Guid.Empty) throw new ArgumentOutOfRangeException(nameof(reviewedAssociationId));
-			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, decisions, false, reviewedAssociationId);
+			if (reviewedExistingOwnerKeys == null) throw new ArgumentNullException(nameof(reviewedExistingOwnerKeys));
+			var reviewedOwners = new HashSet<string>(reviewedExistingOwnerKeys.Where(x => !String.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, decisions, false, reviewedAssociationId, reviewedOwners);
 		}
 
 		private CollectionConflictImpactPlan PlanCore(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
-			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions, bool skipAssociationReview, Guid? reviewedAssociationId = null)
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions, bool skipAssociationReview,
+			Guid? reviewedAssociationId = null, ISet<string> reviewedExistingOwnerKeys = null)
 		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
@@ -125,9 +131,9 @@ namespace Nexus.Client.CollectionManagement
 			var associationKinds = new Dictionary<Guid, CollectionAssociationImpactKind>();
 			AddSharedNativeInstanceImpacts(matches, nativeState, associationKinds);
 
-			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues, decisions);
-			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues);
-			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues);
+			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues, decisions, reviewedExistingOwnerKeys);
+			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
+			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
 
 			if (!skipAssociationReview)
 				ReviewAffectedAssociations(nativeState, associationKinds, issues, reviewedAssociationId);
@@ -504,7 +510,8 @@ namespace Nexus.Client.CollectionManagement
 
 		private static List<CollectionFileImpact> BuildFileImpacts(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
-			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues, IEnumerable<CollectionConflictResolutionDecision> decisions)
+			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
+			IEnumerable<CollectionConflictResolutionDecision> decisions, ISet<string> reviewedExistingOwnerKeys)
 		{
 			var matchByKey = matches.MembersByKey;
 			var writersByTarget = new Dictionary<ModDeploymentTarget, List<CollectionMemberKey>>();
@@ -591,7 +598,8 @@ namespace Nexus.Client.CollectionManagement
 						// winner becomes the immediate managed fallback when several Collection members write the path.
 						preserveCurrentOwner = true;
 					}
-					else if (!ExternalPriorityAuthorizesIncomingWinner(plan, winner, currentOwner, nativeState) && !durableIncomingWinner)
+					else if (!CurrentOwnerIsReviewedRevisionOwner(currentOwner, reviewedExistingOwnerKeys) &&
+						!ExternalPriorityAuthorizesIncomingWinner(plan, winner, currentOwner, nativeState) && !durableIncomingWinner)
 					{
 						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired,
 							CollectionConflictImpactStatus.ActionRequired, winner, entry.Key.ToString(),
@@ -697,9 +705,16 @@ namespace Nexus.Client.CollectionManagement
 			return false;
 		}
 
+		private static bool CurrentOwnerIsReviewedRevisionOwner(string ownerKey, ISet<string> reviewedExistingOwnerKeys)
+		{
+			return reviewedExistingOwnerKeys != null && !String.IsNullOrWhiteSpace(ownerKey) &&
+				reviewedExistingOwnerKeys.Contains(ownerKey);
+		}
+
 		private static List<CollectionPluginImpact> BuildPluginImpacts(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
 			CollectionMemberMatchSet matches, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
-			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues)
+			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
+			ISet<string> reviewedExistingOwnerKeys)
 		{
 			NormalizedCollectionManifest manifest = plan.CapabilityReport.Manifest;
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> original = previews.Values.Where(x => x.IsComplete)
@@ -786,13 +801,15 @@ namespace Nexus.Client.CollectionManagement
 					affected.UnionWith(AssociationIdsForPlugin(nativeState, pluginPath));
 					CollectionNativeFileState pluginFile = FindFileForPlugin(nativeState, pluginPath);
 					string ownerKey = pluginFile == null ? null : pluginFile.EffectiveOwnerKey;
-					if (!String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey))
+					if (!String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
+						!CurrentOwnerIsReviewedRevisionOwner(ownerKey, reviewedExistingOwnerKeys))
 						changesExistingUnrelatedPlugin = true;
 					CollectionNativePluginState existingPlugin = FindPlugin(nativeState, pluginPath);
 					CollectionMemberEffectPreview memberPreview;
 					bool previewWrites = previews.TryGetValue(item.Item1, out memberPreview) && PreviewWritesPlugin(memberPreview, pluginPath);
 					if (existingPlugin != null && PluginEffectChangesExistingState(item.Item2, existingPlugin) &&
-						(String.IsNullOrWhiteSpace(ownerKey) || (!previewWrites && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey))))
+						(String.IsNullOrWhiteSpace(ownerKey) || (!previewWrites && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
+							!CurrentOwnerIsReviewedRevisionOwner(ownerKey, reviewedExistingOwnerKeys))))
 						changesExistingUnrelatedPlugin = true;
 				}
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.PluginState);
@@ -925,7 +942,8 @@ namespace Nexus.Client.CollectionManagement
 
 		private static List<CollectionConfigurationImpact> BuildConfigurationImpacts(CollectionNativeStateIndex nativeState, CollectionMemberMatchSet matches,
 			IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
-			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues)
+			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
+			ISet<string> reviewedExistingOwnerKeys)
 		{
 			var result = new List<CollectionConfigurationImpact>();
 			var iniDesired = new Dictionary<CollectionNativeIniKey, string>();
@@ -947,7 +965,8 @@ namespace Nexus.Client.CollectionManagement
 					HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentValue == null ? null : currentValue.OwnerKey);
 					foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.ConfigurationState);
 					bool changesValue = currentValue == null || !StringComparer.Ordinal.Equals(currentValue.Value, effect.Value);
-					if (changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey))
+					if (changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey) &&
+						!CurrentOwnerIsReviewedRevisionOwner(currentValue.OwnerKey, reviewedExistingOwnerKeys))
 					{
 						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingConfigurationDecisionRequired,
 							CollectionConflictImpactStatus.ActionRequired, preview.MemberKey, effect.Key.ToString(),
@@ -972,7 +991,8 @@ namespace Nexus.Client.CollectionManagement
 					HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentValue == null ? null : currentValue.OwnerKey);
 					foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.ConfigurationState);
 					bool changesValue = currentValue == null || !ByteArraysEqual(currentValue.UnsafeValue, effect.UnsafeValue);
-					if (changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey))
+					if (changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey) &&
+						!CurrentOwnerIsReviewedRevisionOwner(currentValue.OwnerKey, reviewedExistingOwnerKeys))
 					{
 						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingConfigurationDecisionRequired,
 							CollectionConflictImpactStatus.ActionRequired, preview.MemberKey, effect.Key,

@@ -68,7 +68,8 @@ namespace Nexus.Client.CollectionManagement
 			get
 			{
 				return new ReadOnlyCollection<CollectionMemberKey>(_actions.Where(x => x.SuppressesCandidateMemberMutation && x.UserOverride.Requirement.MemberKey != null)
-					.Select(x => x.UserOverride.Requirement.MemberKey).Distinct().OrderBy(x => x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal).ToList());
+					.Select(x => UpdatePlan.MemberCorrelations.ResolveCandidateMemberKey(x.UserOverride.Requirement.MemberKey))
+					.Distinct().OrderBy(x => x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal).ToList());
 			}
 		}
 	}
@@ -112,8 +113,10 @@ namespace Nexus.Client.CollectionManagement
 			CollectionRevisionUpdatePlan updatePlan)
 		{
 			CollectionRequirementReference requirement = userOverride.Requirement;
-			CollectionRevisionUpdateMemberPlan member = requirement.MemberKey == null ? null :
-				updatePlan.Members.SingleOrDefault(x => x.MemberKey.Equals(requirement.MemberKey));
+			CollectionMemberKey candidateMemberKey = requirement.MemberKey == null ? null :
+				updatePlan.MemberCorrelations.ResolveCandidateMemberKey(requirement.MemberKey);
+			CollectionRevisionUpdateMemberPlan member = candidateMemberKey == null ? null :
+				updatePlan.Members.SingleOrDefault(x => x.MemberKey.Equals(candidateMemberKey));
 
 			switch (requirement.Aspect)
 			{
@@ -178,7 +181,11 @@ namespace Nexus.Client.CollectionManagement
 				StringComparer.Ordinal.Equals(x.ResourceKey, requirement.SubjectKey));
 			if (kind.HasValue) candidates = candidates.Where(x => x.Kind == kind.Value);
 			else candidates = candidates.Where(x => x.Kind == CollectionRevisionUpdateEffectKind.Ini || x.Kind == CollectionRevisionUpdateEffectKind.GameValue);
-			if (requirement.MemberKey != null) candidates = candidates.Where(x => x.MemberKey.Equals(requirement.MemberKey));
+			if (requirement.MemberKey != null)
+			{
+				CollectionMemberKey candidateMemberKey = updatePlan.MemberCorrelations.ResolveCandidateMemberKey(requirement.MemberKey);
+				candidates = candidates.Where(x => x.MemberKey.Equals(candidateMemberKey));
+			}
 			return candidates.Any();
 		}
 

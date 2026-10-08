@@ -56,8 +56,11 @@ namespace Nexus.Client.CollectionManagement
 			if (!preservation.IsQualified) throw new InvalidOperationException("C10.9 cannot publish unresolved override preservation decisions.");
 			preservation.ReviewedIntent.ValidateCurrentPlan(updatePlan);
 
-			HashSet<CollectionMemberKey> candidateKeys = new HashSet<CollectionMemberKey>(updatePlan.Members
+			HashSet<CollectionMemberKey> candidateKeys = new HashSet<CollectionMemberKey>(updatePlan.NewPlan.SelectedMembers.Select(x => x.MemberKey));
+			HashSet<CollectionMemberKey> plannedCandidateKeys = new HashSet<CollectionMemberKey>(updatePlan.Members
 				.Where(x => x.NewMember != null).Select(x => x.MemberKey));
+			if (!plannedCandidateKeys.SetEquals(candidateKeys))
+				throw new InvalidOperationException("C10.9 requires the update member plan to cover the exact selected candidate member identities.");
 			if (candidateNativeByMember.Keys.Any(x => !candidateKeys.Contains(x)))
 				throw new InvalidOperationException("C10.9 candidate native evidence contains a member outside the candidate revision.");
 
@@ -74,27 +77,40 @@ namespace Nexus.Client.CollectionManagement
 			HashSet<CollectionMemberKey> suppressed = new HashSet<CollectionMemberKey>(preservation.MembersWhoseCandidateMutationIsSuppressed);
 			foreach (CollectionRevisionUpdateMemberPlan member in updatePlan.Members.Where(x => x.NewMember != null))
 			{
+				CollectionMemberKey candidateMemberKey = member.NewMember.MemberKey;
+				if (!member.MemberKey.Equals(candidateMemberKey) || !candidateKeys.Contains(candidateMemberKey))
+					throw new InvalidOperationException("C10.9 encountered a candidate member plan whose identity is not the exact candidate-revision member key.");
+
 				NativeModInstanceIdentity candidateNative;
-				if (candidateNativeByMember.TryGetValue(member.MemberKey, out candidateNative))
+				if (candidateNativeByMember.TryGetValue(candidateMemberKey, out candidateNative))
 				{
-					bindings.Add(new CollectionMemberBinding(finalAssociation, member.MemberKey, candidateNative,
+					bindings.Add(new CollectionMemberBinding(finalAssociation, candidateMemberKey, candidateNative,
 						member.NewMember.RecipeIdentity, CollectionMemberBindingKind.InstalledForCollection));
 					continue;
 				}
 
+				// A preserved participation opt-out intentionally has no candidate binding. Check it before considering
+				// an old binding so a future logical cross-key plan cannot accidentally republish the predecessor key/state.
+				if (IsIntentionalCandidateOmission(candidateMemberKey, preservation))
+					continue;
+
 				if (member.Binding != null)
 				{
-					CollectionRecipeIdentity verifiedRecipe = suppressed.Contains(member.MemberKey)
+					CollectionRecipeIdentity verifiedRecipe = suppressed.Contains(candidateMemberKey)
 						? member.Binding.VerifiedRecipe : member.NewMember.RecipeIdentity;
-					bindings.Add(new CollectionMemberBinding(finalAssociation, member.MemberKey, member.Binding.NativeMod,
+					bindings.Add(new CollectionMemberBinding(finalAssociation, candidateMemberKey, member.Binding.NativeMod,
 						verifiedRecipe, member.Binding.BindingKind));
 					continue;
 				}
 
-				if (IsIntentionalCandidateOmission(member.MemberKey, preservation))
-					continue;
 				throw new InvalidOperationException("A candidate member has neither verified candidate native evidence nor a preserved binding.");
 			}
+
+			HashSet<CollectionMemberKey> intentionallyOmitted = new HashSet<CollectionMemberKey>(candidateKeys
+				.Where(x => IsIntentionalCandidateOmission(x, preservation)));
+			HashSet<CollectionMemberKey> expectedBindingKeys = new HashSet<CollectionMemberKey>(candidateKeys.Where(x => !intentionallyOmitted.Contains(x)));
+			if (!expectedBindingKeys.SetEquals(bindings.Select(x => x.MemberKey)))
+				throw new InvalidOperationException("C10.9 publication bindings do not exactly cover the selected candidate revision after qualified omissions.");
 
 			return new CollectionRevisionUpdatePublicationPlan(updatePlan.Association, finalAssociation, bindings,
 				rebasedOverrides.Select(x => new UserOverride(x.OverrideId,
@@ -142,7 +158,9 @@ namespace Nexus.Client.CollectionManagement
 
 				if (baseline.Equals(old.UserChosenState))
 					continue;
-				var requirement = new CollectionRequirementReference(association, old.Requirement.MemberKey,
+				CollectionMemberKey candidateMemberKey = old.Requirement.MemberKey == null ? null :
+					preservation.UpdatePlan.MemberCorrelations.ResolveCandidateMemberKey(old.Requirement.MemberKey);
+				var requirement = new CollectionRequirementReference(association, candidateMemberKey,
 					old.Requirement.Aspect, old.Requirement.SubjectKey);
 				result.Add(new UserOverride(old.OverrideId, requirement, baseline, old.UserChosenState, old.Note));
 			}
@@ -153,7 +171,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionRevisionUpdateOverridePreservationPlan preservation)
 		{
 			return preservation.Actions.Any(x => x.SuppressesCandidateMemberMutation &&
-				x.UserOverride.Requirement.MemberKey != null && x.UserOverride.Requirement.MemberKey.Equals(memberKey) &&
+				x.UserOverride.Requirement.MemberKey != null &&
+				preservation.UpdatePlan.MemberCorrelations.ResolveCandidateMemberKey(x.UserOverride.Requirement.MemberKey).Equals(memberKey) &&
 				x.UserOverride.Requirement.Aspect == CollectionRequirementAspect.MemberParticipation &&
 				x.UserOverride.UserChosenState.Kind == CollectionRequirementStateKind.Absent);
 		}
@@ -282,11 +301,9 @@ namespace Nexus.Client.CollectionManagement
 			foreach (CollectionRevisionUpdateMemberPlan member in updatePlan.Members.Where(x =>
 				CollectionRevisionUpdateAggregateVerifier.RequiresCandidateMutation(x) && !suppressed.Contains(x.MemberKey)))
 			{
-				List<CollectionNativeChildOperation> children = operation.NativeChildren.Where(x =>
-					x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.Member.MemberKey.Equals(member.MemberKey)).ToList();
-				if (children.Count != 1 || !children[0].IsReconciled || !children[0].HasVerifiedCommittedNativeState)
-					throw new InvalidOperationException("C10.9 requires exactly one verified candidate child for every mutating candidate member.");
-				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, children[0]);
+				CollectionNativeChildOperation child = CollectionRevisionUpdateAggregateVerificationCoordinator.RequireCommittedCandidateChild(operation,
+					new CollectionOperationMemberReference(updatePlan.NewPlan.Revision, member.MemberKey));
+				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, child);
 				if (manifest == null || manifest.ExecutionEvidence == null)
 					throw new InvalidDataException("A C10.9 candidate child is missing committed execution evidence.");
 				CollectionNativeModState native;

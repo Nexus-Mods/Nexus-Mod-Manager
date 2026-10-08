@@ -335,11 +335,13 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		}
 
 		/// <summary>
-		/// Loads exact retained collection.json bytes after verifying revision ownership, source provenance and full blob integrity.
+		/// Verifies one retained manifest binding without reopening the already-characterized collection.json bytes. This is used
+		/// by process-local preparation caches: retained metadata/reference identity and the blob's size/write-stamp-backed SHA-256
+		/// verification still run, so a cached normalization never weakens retained-content integrity checks.
 		/// </summary>
-		public byte[] LoadManifest(CollectionRevisionIdentity revision, CollectionManifestSourceSnapshot expectedSource)
+		internal CollectionRevisionSourceRecord RequireVerifiedManifestSource(CollectionRevisionIdentity revision,
+			CollectionManifestSourceSnapshot expectedSource, CancellationToken cancellationToken = default(CancellationToken))
 		{
-			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
 			if (expectedSource == null)
@@ -361,13 +363,23 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(source.RawManifestArtifactId);
 			if (artifact == null || !artifact.ContentHash.Equals(expectedSource.ContentHash) || artifact.ByteLength != expectedSource.ByteLength)
 				throw new CollectionsStoreSchemaException("The Collection revision source points to missing or mismatched retained manifest metadata.");
-			if (!_artifactStore.VerifyArtifact(artifact.ArtifactId))
+			if (!_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
 				throw new InvalidDataException("The retained Collection revision manifest failed its integrity check.");
-			if (artifact.ByteLength > Int32.MaxValue)
+			return source;
+		}
+
+		/// <summary>
+		/// Loads exact retained collection.json bytes after verifying revision ownership, source provenance and full blob integrity.
+		/// </summary>
+		public byte[] LoadManifest(CollectionRevisionIdentity revision, CollectionManifestSourceSnapshot expectedSource)
+		{
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			CollectionRevisionSourceRecord source = RequireVerifiedManifestSource(revision, expectedSource);
+			if (source.ManifestSource.ByteLength > Int32.MaxValue)
 				throw new InvalidDataException("The retained Collection revision manifest is too large to load as bounded recipe source bytes.");
 
-			byte[] bytes = new byte[(int)artifact.ByteLength];
-			using (Stream stream = _artifactStore.OpenRead(artifact.ArtifactId))
+			byte[] bytes = new byte[(int)source.ManifestSource.ByteLength];
+			using (Stream stream = _artifactStore.OpenRead(source.RawManifestArtifactId))
 			{
 				int offset = 0;
 				while (offset < bytes.Length)

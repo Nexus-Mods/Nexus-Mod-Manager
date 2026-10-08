@@ -140,7 +140,7 @@ namespace Nexus.Client.ModManagement
 				IMod modCurrentOwner;
 				List<IVirtualModLink> lstCurrentLinks;
 				VirtualModActivator.CheckFileLink(p_strBaseFilePath, p_mirInstallRoot, out modCurrentOwner, out lstCurrentLinks);
-				if (modCurrentOwner == p_modMod)
+				if (IsSameManagedOwner(modCurrentOwner, p_modMod))
 					booLink = true;
 			}
 
@@ -255,8 +255,12 @@ namespace Nexus.Client.ModManagement
 					return booPromptLooseTxtConflict ? (bool?)null : false;
 			}
 
-			if (modCheck == p_modMod)
-				return null;
+			if (IsSameManagedOwner(modCheck, p_modMod))
+			{
+				// Replacing the staged file can break its existing hard link. Deploy the replacement even
+				// when the durable owner is unchanged; this does not authorize overwriting another owner.
+				return true;
+			}
 
 			if (modCheck == VirtualModActivator.DummyMod)
 			{
@@ -316,6 +320,17 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return true;
+		}
+
+		/// <summary>
+		/// Returns whether two mod objects represent the same durable managed owner. During an upgrade, VMA can
+		/// still expose the old archive object while InstallLog already maps the preserved owner key to the new one.
+		/// Treating object identity as ownership would surface a false overwrite prompt for the mod's own files.
+		/// </summary>
+		private bool IsSameManagedOwner(IMod p_modLeft, IMod p_modRight)
+		{
+			return ReferenceEquals(p_modLeft, p_modRight) ||
+				VirtualModActivator.IsSameInstallLogOwner(p_modLeft, p_modRight);
 		}
 
 		/// <summary>

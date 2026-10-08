@@ -145,7 +145,7 @@ namespace Nexus.Client.CollectionManagement
 				ValidateRecipeInput(plan, child, member, recovery, recipeInput);
 
 				CollectionNativeStateIndex liveState = CaptureReloadedState(plan.Target);
-				CollectionCurrentStateFingerprint expectedPreparationState = ResolveExpectedPreparationStateFingerprint(operation, child, plan);
+				CollectionCurrentStateFingerprint expectedPreparationState = ResolveExpectedPreparationStateFingerprint(operation, child, plan, workflowMode);
 				if (!recovery.PreparationStateFingerprint.Equals(expectedPreparationState) ||
 					!liveState.Fingerprint.Equals(recovery.PreparationStateFingerprint))
 				{
@@ -182,6 +182,9 @@ namespace Nexus.Client.CollectionManagement
 				if (recovery.ExecutionEvidence == null)
 					throw new InvalidDataException("The exact C6.7 restart-verification evidence was not durably retained before native submission.");
 
+				recipeInput = await Task.Run(() => ReuseReviewedVirtualStaging(recipeInput, reviewedPreview, incomingMod,
+					previousMod, _services.ModManager, workflowMode, cancellationToken), cancellationToken).ConfigureAwait(true);
+				cancellationToken.ThrowIfCancellationRequested();
 				IBackgroundTaskSet nativeTask = CreateNativeTask(previousMod, incomingMod, recipeInput, _services.ModManager);
 				if (nativeTask == null)
 					throw new InvalidOperationException("The native operation unexpectedly resolved to no task; C6.7 cannot infer that the reviewed recipe is already satisfied.");
@@ -293,21 +296,46 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionCurrentStateFingerprint ResolveExpectedPreparationStateFingerprint(CollectionOperation operation,
-			CollectionNativeChildOperation currentChild, ResolvedCollectionPlan plan)
+			CollectionNativeChildOperation currentChild, ResolvedCollectionPlan plan, CollectionNativeChildWorkflowMode workflowMode)
 		{
 			CollectionCurrentStateFingerprint expected = plan.CurrentStateFingerprint;
 			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
 			{
 				if (previous.Sequence >= currentChild.Sequence) break;
 				if (previous.Action != CollectionNativeChildAction.ActivateOrReinstall) continue;
-				if (!previous.IsReconciled || previous.NativeResult == null ||
-					previous.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
-					throw new InvalidOperationException("Every earlier Collection child must be reconciled as VerifiedCommitted before a later reviewed child can be submitted.");
-				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, previous);
+				expected = ResolveEarlierChildSafeBoundary(operation, previous, currentChild,
+					_manifestStore.GetManifest(operation, previous), expected, workflowMode);
+			}
+			return expected;
+		}
+
+		/// <summary>Preserves verified revision retry history without advancing past an unresolved member or changing its prior safe boundary.</summary>
+		internal static CollectionCurrentStateFingerprint ResolveEarlierChildSafeBoundary(CollectionOperation operation,
+			CollectionNativeChildOperation previous, CollectionNativeChildOperation currentChild,
+			CollectionNativeChildRecoveryManifest manifest, CollectionCurrentStateFingerprint expected,
+			CollectionNativeChildWorkflowMode workflowMode)
+		{
+			if (previous.IsReconciled && previous.HasVerifiedCommittedNativeState)
+			{
 				if (manifest == null || manifest.SafeBoundaryStateFingerprint == null)
 					throw new InvalidDataException("An earlier committed Collection child is missing its durable C6.10 safe-boundary fingerprint.");
-				expected = manifest.SafeBoundaryStateFingerprint;
+				return manifest.SafeBoundaryStateFingerprint;
 			}
+			if (operation.Kind != CollectionOperationKind.UpdateRevision ||
+				!CollectionNativeChildPreparationCoordinator.IsRetryableRevisionUpdateAttempt(previous, workflowMode))
+				throw new InvalidOperationException("Every earlier Collection child must be reconciled as VerifiedCommitted before a later reviewed child can be submitted.");
+			if (manifest == null || manifest.OperationIdentity.OperationId != operation.Identity.OperationId ||
+				manifest.ChildSequence != previous.Sequence || !manifest.PlanIdentity.Equals(operation.PlanIdentity) ||
+				!manifest.Member.Equals(previous.Member) || manifest.Action != previous.Action ||
+				!Matches(manifest.NativeOperation, previous.NativeOperation) || !manifest.PreparationStateFingerprint.Equals(expected))
+				throw new InvalidDataException("A rolled-back revision-update attempt does not prove the exact prior safe boundary required for retry.");
+
+			// The failed attempt stays in the journal. Later members may proceed only after its exact member retry committed.
+			if (!currentChild.Member.Equals(previous.Member) && !operation.NativeChildren.Any(x =>
+				x.Sequence > previous.Sequence && x.Sequence < currentChild.Sequence &&
+				x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.Member.Equals(previous.Member) &&
+				x.IsReconciled && x.HasVerifiedCommittedNativeState))
+				throw new InvalidOperationException("The earlier revision-update member must be retried and verified before another member can be installed.");
 			return expected;
 		}
 
@@ -630,26 +658,24 @@ namespace Nexus.Client.CollectionManagement
 				preFiles.Add(CaptureFileEvidence(file.Target, ModDeploymentTargetResolver.GetPhysicalPath(gameMode, file.Target)));
 
 			var expectedByTarget = new Dictionary<ModDeploymentTarget, CollectionNativeFileContentEvidence>();
-			var sourceContents = new Dictionary<string, ContentIdentity>(StringComparer.Ordinal);
+			Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect> reviewedByTarget = reviewedPreview.Files
+				.ToDictionary(x => x.Target);
 			var expectedReplay = new List<CollectionExpectedReplayOperation>();
 			foreach (ScriptedInstallOperation operation in recipeInput.NativeOperations)
 			{
 				InstallModFileOperation install = operation as InstallModFileOperation;
 				if (install != null)
 				{
-					ContentIdentity content;
-					if (!sourceContents.TryGetValue(install.SourcePath, out content))
-					{
-						using (FileStream stream = incomingMod.GetFileStream(install.SourcePath))
-						{
-							CollectionPerformanceMetrics.RecordArchiveSourceRead(member.MemberKey, install.SourcePath, stream.Length);
-							content = ContentIdentity.FromStream(stream);
-						}
-						sourceContents.Add(install.SourcePath, content);
-					}
 					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
 						install.DestinationPath, recipeInput.InstallContext.InstallRoot);
-					expectedByTarget[target] = content.ToEvidence(target);
+					CollectionPlannedFileEffect reviewedFile;
+					if (!reviewedByTarget.TryGetValue(target, out reviewedFile) || !reviewedFile.HasExactContentIdentity)
+						throw new InvalidDataException("The reviewed C6.4 file effect is missing exact content identity for a C5 archive-file operation.");
+
+					// The live preview was rebuilt from this exact incoming archive immediately before evidence capture and
+					// compared byte-for-byte by target with the approved preview. Reuse that exact SHA-256/length here
+					// instead of reopening and hashing every archive member a third time before native submission.
+					expectedByTarget[target] = CreateExpectedFileEvidence(reviewedFile);
 					expectedReplay.Add(new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile,
 						install.SourcePath, install.DestinationPath, 0, null));
 					continue;
@@ -662,6 +688,11 @@ namespace Nexus.Client.CollectionManagement
 					ContentIdentity content = ContentIdentity.FromBytes(generated.Data);
 					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
 						generated.DestinationPath, recipeInput.InstallContext.InstallRoot);
+					CollectionPlannedFileEffect reviewedFile;
+					if (!reviewedByTarget.TryGetValue(target, out reviewedFile) || !reviewedFile.HasExactContentIdentity ||
+						reviewedFile.ExpectedByteLength.Value != content.Length ||
+						!StringComparer.Ordinal.Equals(reviewedFile.ExpectedContentHash.Value, content.Sha256))
+						throw new InvalidDataException("The generated-file recipe bytes no longer match the reviewed C6.4 file effect.");
 					expectedByTarget[target] = content.ToEvidence(target);
 					expectedReplay.Add(new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.GeneratedFile,
 						null, generated.DestinationPath, content.Length, content.Sha256));
@@ -682,6 +713,15 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReplayContentEvidence replayPreimage = CaptureReplayContentEvidence(incomingMod.Filename, installInfoDirectory);
 			return new CollectionNativeChildExecutionEvidence(member.ArtifactChoice.SelectedArtifact, incomingMod.Filename,
 				reviewedPreview, preFiles, expectedFiles, replayPreimage, expectedReplay);
+		}
+
+		/// <summary>Reuses the exact SHA-256/length already proven by the reviewed C6.4 preview as C6.7 expected-content evidence.</summary>
+		internal static CollectionNativeFileContentEvidence CreateExpectedFileEvidence(CollectionPlannedFileEffect effect)
+		{
+			if (effect == null) throw new ArgumentNullException(nameof(effect));
+			if (!effect.HasExactContentIdentity || effect.ExpectedContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
+				throw new InvalidDataException("Expected native-file evidence requires the exact reviewed SHA-256 content identity.");
+			return new CollectionNativeFileContentEvidence(effect.Target, true, effect.ExpectedContentHash, effect.ExpectedByteLength.Value);
 		}
 
 		private static CollectionNativeFileContentEvidence CaptureFileEvidence(ModDeploymentTarget target, string physicalPath)
@@ -800,13 +840,74 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
+		/// <summary>Reuses exact reviewed cache payloads for an inactive Virtual mod without approving any game-file overwrite.</summary>
+		private static ModInstallationRecipeInput ReuseReviewedVirtualStaging(ModInstallationRecipeInput recipeInput,
+			CollectionMemberEffectPreview reviewedPreview, IMod incomingMod, IMod previousMod, ModManager modManager,
+			CollectionNativeChildWorkflowMode workflowMode, CancellationToken cancellationToken)
+		{
+			// Reinstall/upgrade can delete staging during removal. Only plain activation can reuse these existing files.
+			if (workflowMode != CollectionNativeChildWorkflowMode.RevisionUpdate || previousMod != null ||
+				recipeInput.InstallContext.Method != ModInstallMethod.Virtual)
+				return recipeInput;
+
+			Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect> reviewedByTarget = reviewedPreview.Files.ToDictionary(x => x.Target);
+			var operations = new List<ScriptedInstallOperation>();
+			bool changed = false;
+			foreach (ScriptedInstallOperation operation in recipeInput.NativeOperations)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				InstallModFileOperation install = operation as InstallModFileOperation;
+				ScriptedInstallOperation replacement = operation;
+				if (install != null && install.DeploymentDecision == null)
+				{
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(modManager.GameMode, incomingMod,
+						install.DestinationPath, recipeInput.InstallContext.InstallRoot);
+					CollectionPlannedFileEffect reviewedFile;
+					if (reviewedByTarget.TryGetValue(target, out reviewedFile))
+					{
+						string stagingPath = ScriptedInstallStagingPathResolver.GetStagingPath(incomingMod, modManager.GameMode,
+							modManager.VirtualModActivator, install.DestinationPath, recipeInput.InstallContext.InstallRoot, false);
+						replacement = ReuseExactReviewedStagingFile(install, reviewedFile, stagingPath);
+					}
+				}
+				changed |= !ReferenceEquals(operation, replacement);
+				operations.Add(replacement);
+			}
+			return changed ? recipeInput.WithTransformedNativePlan(operations) : recipeInput;
+		}
+
+		/// <summary>Skips a cache rewrite only when the existing payload matches the reviewed SHA-256 and byte length.</summary>
+		internal static InstallModFileOperation ReuseExactReviewedStagingFile(InstallModFileOperation install,
+			CollectionPlannedFileEffect reviewedFile, string stagingPath)
+		{
+			if (install == null) throw new ArgumentNullException(nameof(install));
+			if (install.DeploymentDecision != null || reviewedFile == null || !reviewedFile.HasExactContentIdentity ||
+				reviewedFile.ExpectedContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256 ||
+				String.IsNullOrWhiteSpace(stagingPath) || !File.Exists(stagingPath))
+				return install;
+
+			var before = new FileInfo(stagingPath);
+			if (before.Length != reviewedFile.ExpectedByteLength.Value)
+				return install;
+			string hash = ComputeSha256(stagingPath);
+			var after = new FileInfo(stagingPath);
+			if (!after.Exists || after.Length != before.Length || after.LastWriteTimeUtc != before.LastWriteTimeUtc ||
+				!StringComparer.OrdinalIgnoreCase.Equals(hash, reviewedFile.ExpectedContentHash.Value))
+				return install;
+
+			// A null link decision leaves deployment and its overwrite checks with the established native backend.
+			return new InstallModFileOperation(install.SourcePath, install.DestinationPath,
+				ScriptedFileDeploymentDecision.ForVirtual(stagingPath, false, null));
+		}
+
 		private static IBackgroundTaskSet CreateNativeTask(IMod previousMod, IMod incomingMod,
 			ModInstallationRecipeInput recipeInput, ModManager modManager)
 		{
 			ConfirmModUpgradeDelegate rejectUnexpectedUpgrade = (oldMod, newMod) => ConfirmUpgradeResult.Cancel;
 			ConfirmItemOverwriteDelegate rejectUnexpectedOverwrite = (message, allowPerGroup, allowPerMod) =>
 			{
-				throw new InvalidOperationException("C6.7 encountered an unexpected native overwrite prompt after exact conflict/impact review.");
+				throw new InvalidOperationException("NMM stopped the Collection change because an overwrite appeared that was not part of the reviewed plan. No unreviewed overwrite was accepted. Review the issue in Collections; if no recovery action is available, export a Technical Report." +
+					(String.IsNullOrWhiteSpace(message) ? String.Empty : Environment.NewLine + message));
 			};
 			ModInstallContext context = recipeInput.InstallContext;
 

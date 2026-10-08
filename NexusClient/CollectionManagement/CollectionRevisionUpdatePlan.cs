@@ -157,6 +157,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly ReadOnlyCollection<CollectionRevisionUpdateMemberPlan> _members;
 		private readonly ReadOnlyCollection<CollectionRevisionUpdateEffectPlan> _effects;
+		private readonly CollectionRevisionUpdateMemberCorrelationMap _memberCorrelations;
 
 		internal CollectionRevisionUpdatePlan(CollectionTargetAssociation association, ResolvedCollectionPlan oldPlan,
 			ResolvedCollectionPlan newPlan, CollectionCurrentStateFingerprint observedStateFingerprint,
@@ -167,6 +168,7 @@ namespace Nexus.Client.CollectionManagement
 			OldPlan = oldPlan ?? throw new ArgumentNullException(nameof(oldPlan));
 			NewPlan = newPlan ?? throw new ArgumentNullException(nameof(newPlan));
 			ObservedStateFingerprint = observedStateFingerprint ?? throw new ArgumentNullException(nameof(observedStateFingerprint));
+			_memberCorrelations = CollectionRevisionUpdateMemberCorrelationMap.Build(OldPlan, NewPlan);
 			_members = new ReadOnlyCollection<CollectionRevisionUpdateMemberPlan>((members ?? throw new ArgumentNullException(nameof(members))).ToList());
 			_effects = new ReadOnlyCollection<CollectionRevisionUpdateEffectPlan>((effects ?? throw new ArgumentNullException(nameof(effects))).ToList());
 			UnscopedOverrides = new ReadOnlyCollection<UserOverride>((unscopedOverrides ?? throw new ArgumentNullException(nameof(unscopedOverrides))).ToList());
@@ -179,6 +181,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionCurrentStateFingerprint ObservedStateFingerprint { get; }
 		public ReadOnlyCollection<CollectionRevisionUpdateMemberPlan> Members { get { return _members; } }
 		public ReadOnlyCollection<CollectionRevisionUpdateEffectPlan> Effects { get { return _effects; } }
+		internal CollectionRevisionUpdateMemberCorrelationMap MemberCorrelations { get { return _memberCorrelations; } }
 		public ReadOnlyCollection<UserOverride> UnscopedOverrides { get; }
 		public ReadOnlyCollection<CollectionDriftObservation> UnscopedDrift { get; }
 		public bool HasAssociationBlocker { get { return Association.State == CollectionAssociationState.Incomplete || Association.State == CollectionAssociationState.Recovering; } }

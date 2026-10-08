@@ -139,7 +139,7 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionManagementAssociationPresentation(CollectionManagementAssociation association,
 			CollectionDefinition definition, CollectionRevision revision, NexusCollectionBundleImportResult retainedManifest,
 			IEnumerable<CollectionManagementMemberPresentation> members, CollectionAssociationCustomization customization,
-			string nexusGameDomain, string retainedSourceIssue)
+			string nexusGameDomain, string nexusCollectionSlug, string retainedSourceIssue)
 		{
 			Association = association ?? throw new ArgumentNullException(nameof(association));
 			Definition = definition;
@@ -155,6 +155,7 @@ namespace Nexus.Client.CollectionManagement
 			if (Customization.AssociationId != association.AssociationId)
 				throw new ArgumentException("The managed Collection customization snapshot must belong to the presented association.", nameof(customization));
 			NexusGameDomain = String.IsNullOrWhiteSpace(nexusGameDomain) ? null : nexusGameDomain.Trim().ToLowerInvariant();
+			NexusCollectionSlug = String.IsNullOrWhiteSpace(nexusCollectionSlug) ? null : nexusCollectionSlug;
 			RetainedSourceIssue = retainedSourceIssue;
 		}
 
@@ -166,6 +167,7 @@ namespace Nexus.Client.CollectionManagement
 		public IReadOnlyList<CollectionMemberKey> BoundMemberKeys { get; }
 		public CollectionAssociationCustomization Customization { get; }
 		public string NexusGameDomain { get; }
+		public string NexusCollectionSlug { get; }
 		public string RetainedSourceIssue { get; }
 		public bool HasRetainedManifest { get { return RetainedManifest != null; } }
 	}
@@ -298,6 +300,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsAssociationStore _associationStore;
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
+		private readonly CollectionsNexusLocatorStore _nexusLocatorStore;
 		private readonly CollectionUninstallEffectsCoordinator _uninstallCoordinator;
 		private readonly CollectionInstalledMemberRemovalCoordinator _memberRemovalCoordinator;
 		private readonly CollectionsLocalCaptureStore _localCaptureStore;
@@ -320,6 +323,7 @@ namespace Nexus.Client.CollectionManagement
 			_associationStore = new CollectionsAssociationStore(_store);
 			_operationStore = new CollectionsOperationStore(_store);
 			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
+			_nexusLocatorStore = new CollectionsNexusLocatorStore(_store);
 			_uninstallCoordinator = new CollectionUninstallEffectsCoordinator(_services, _gameStorageService,
 				_operationStore, _associationStore);
 			_memberRemovalCoordinator = new CollectionInstalledMemberRemovalCoordinator(_services, _gameStorageService,
@@ -369,6 +373,37 @@ namespace Nexus.Client.CollectionManagement
 				operation.Kind == CollectionOperationKind.UpdateRevision && association.AssociationId == reviewedAssociationId &&
 				association.Revision.Equals(reviewedOldRevision) && operation.Target.Equals(association.Target) &&
 				operation.Collection.Equals(association.Revision.Collection) && operation.Revision != null && !operation.Revision.Equals(association.Revision);
+		}
+
+		/// <summary>
+		/// Returns whether startup must enter the expensive C10 resume/reconciliation path. A safely journaled revision update
+		/// is presented to the user for one-click continuation instead of re-preparing every candidate recipe while NMM starts.
+		/// Only ambiguous/crossed native work or an explicit durable recovery state is reconciled automatically.
+		/// </summary>
+		internal static bool RequiresRevisionUpdateStartupResume(CollectionOperation operation)
+		{
+			if (operation == null || operation.Kind != CollectionOperationKind.UpdateRevision || operation.IsTerminal)
+				return false;
+			return operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability;
+		}
+
+		/// <summary>Creates the lightweight startup presentation for a safely paused revision update without native reads or recipe preparation.</summary>
+		internal static CollectionRevisionUpdateWorkflowResult InspectSafeInterruptedRevisionUpdate(CollectionOperation operation)
+		{
+			if (operation == null || operation.Kind != CollectionOperationKind.UpdateRevision || operation.IsTerminal)
+				throw new ArgumentException("A non-terminal UpdateRevision operation is required.", nameof(operation));
+			if (RequiresRevisionUpdateStartupResume(operation))
+				throw new InvalidOperationException("A revision update with ambiguous native durability must use the recovery/resume path rather than lightweight startup inspection.");
+
+			if (operation.Phase == CollectionOperationPhase.ReadyForReview)
+				return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.ReadyForReview, operation, null, null,
+					"The revision update is still awaiting explicit approval.");
+			if (operation.Phase == CollectionOperationPhase.AwaitingInput)
+				return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.AwaitingInput, operation, null, null,
+					"The revision update is waiting for required input and can be continued explicitly.");
+
+			return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary, operation, null, null,
+				"The revision update is durably paused at a safe boundary. Continue it explicitly to revalidate current state and proceed to the next user decision.");
 		}
 
 		/// <summary>Reads immutable review identities so two associations of one Collection cannot share a continuation label.</summary>
@@ -556,9 +591,13 @@ namespace Nexus.Client.CollectionManagement
 					drift.Where(x => x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(binding.MemberKey))));
 			}
 			CollectionAssociationCustomization customization = new CollectionAssociationCustomization(association, overrides, drift);
-			string gameDomain = _services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName;
+			CollectionNexusLocatorRecord nexusLocator = association.Revision.Collection.Origin == CollectionOrigin.NexusMods
+				? _nexusLocatorStore.Get(association.Revision.Collection) : null;
+			string gameDomain = nexusLocator == null
+				? (_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName)
+				: nexusLocator.GameDomain;
 			return new CollectionManagementAssociationPresentation(managedAssociation, definition, revision, retainedManifest,
-				memberPresentations, customization, gameDomain, retainedSourceIssue);
+				memberPresentations, customization, gameDomain, nexusLocator == null ? null : nexusLocator.CollectionSlug, retainedSourceIssue);
 		}
 
 		/// <summary>Builds the read-only C10.10a verify/repair assessment for one installed Collection association.</summary>
@@ -1270,7 +1309,11 @@ namespace Nexus.Client.CollectionManagement
 			return _replacementRecovery.RecoverAsync(operationIdentity, reviewedPlan, GetTargetPaths(), cancellationToken);
 		}
 
-		/// <summary>Rehydrates and resumes incomplete C10 UpdateRevision operations for the current target.</summary>
+		/// <summary>
+		/// Reconciles incomplete C10 UpdateRevision operations for the current target. Startup performs expensive C10 resume only
+		/// when native durability is ambiguous or durable recovery is explicitly required. Safe checkpoints are surfaced as one-click
+		/// continuations; this avoids re-reading/re-preparing every candidate archive simply because NMM or the Collections tab opened.
+		/// </summary>
 		public async Task<IReadOnlyList<CollectionRevisionUpdateWorkflowResult>> ReconcileInterruptedRevisionUpdatesAsync(
 			CancellationToken cancellationToken)
 		{
@@ -1283,8 +1326,16 @@ namespace Nexus.Client.CollectionManagement
 				.Where(x => x.Kind == CollectionOperationKind.UpdateRevision).ToList())
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				if (workflow == null) workflow = new CollectionRevisionUpdateApplicationService(_services, _gameStorageService);
-				CollectionRevisionUpdateWorkflowResult result = await workflow.ResumeAsync(operation.Identity, cancellationToken).ConfigureAwait(false);
+				CollectionRevisionUpdateWorkflowResult result;
+				if (RequiresRevisionUpdateStartupResume(operation))
+				{
+					if (workflow == null) workflow = new CollectionRevisionUpdateApplicationService(_services, _gameStorageService);
+					result = await workflow.ResumeAsync(operation.Identity, cancellationToken).ConfigureAwait(false);
+				}
+				else
+				{
+					result = InspectSafeInterruptedRevisionUpdate(operation);
+				}
 				results.Add(result);
 				if (!result.IsCommitted && result.Status != CollectionRevisionUpdateWorkflowStatus.AwaitingInput &&
 					result.Status != CollectionRevisionUpdateWorkflowStatus.ReadyForReview)

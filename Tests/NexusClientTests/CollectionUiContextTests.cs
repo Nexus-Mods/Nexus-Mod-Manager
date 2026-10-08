@@ -142,7 +142,7 @@ namespace Nexus.Client.Tests
 				scope == "other-operation" ? CollectionOperationKind.ApplyResolvedPlan : CollectionOperationKind.UpdateRevision,
 				candidate.Collection, scope == "other-target" ? CollectionTargetIdentity.FromFingerprint("other-target") : target, candidate,
 				CollectionPlanIdentity.From(Guid.NewGuid(), 1), 50,
-				scope == "terminal" ? CollectionOperationPhase.Committed : CollectionOperationPhase.ObsoleteRevisionEffectsVerified,
+				scope == "terminal" ? CollectionOperationPhase.Completed : CollectionOperationPhase.ObsoleteRevisionEffectsVerified,
 				scope == "terminal" ? CollectionOperationResultState.Committed : CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
 			Guid reviewedId = scope == "other-association" ? Guid.NewGuid() : association.AssociationId;
 			CollectionRevisionIdentity reviewedOld = scope == "other-old-revision" ? CreateNexusRevision("collection-a", "revision-4", 4) : oldRevision;

@@ -122,6 +122,22 @@ namespace Nexus.Client.CollectionManagement
 					bool nativeDeactivated = operation.NativeChildren.Any(x => x.Action == CollectionNativeChildAction.Deactivate &&
 						updatePlan.Members.Any(m => m.Binding != null && m.MemberKey.Equals(x.Member.MemberKey) &&
 							m.Binding.NativeMod.Equals(member.Binding.NativeMod)));
+
+					// A validated Nexus file-id change is represented by an old removed key plus a new added key, even though
+					// revision correlation proves they are one logical mod transition. PreserveStandalone protects this native
+					// from disappearing while the old key leaves the revision; it must not reject the reviewed candidate reinstall
+					// when that reinstall durably resolves to the exact same native identity (and therefore preserves standalone
+					// provenance). A different native identity remains fail-closed.
+					CollectionMemberKey correlatedCandidateKey;
+					CollectionNativeModState correlatedCandidateNative;
+					if (updatePlan.MemberCorrelations.TryGetNewMemberKey(member.MemberKey, out correlatedCandidateKey) &&
+						verifiedCandidateNative.TryGetValue(correlatedCandidateKey, out correlatedCandidateNative))
+					{
+						if (!nativePresent || nativeDeactivated || !correlatedCandidateNative.Identity.Equals(member.Binding.NativeMod))
+							throw new InvalidOperationException("A correlated independently used predecessor was not updated through its exact reviewed native identity.");
+						continue;
+					}
+
 					if (!nativePresent || nativeDeactivated || identityReusedByCandidate)
 						throw new InvalidOperationException("An independently used installation was removed or repurposed despite the approved preservation decision.");
 					continue;
@@ -154,7 +170,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			List<CollectionRevisionUpdateOverridePreservationAction> actions = preservation.Actions.Where(x =>
 				x.SuppressesCandidateMemberMutation && x.UserOverride.Requirement.MemberKey != null &&
-				x.UserOverride.Requirement.MemberKey.Equals(member.MemberKey)).ToList();
+				preservation.UpdatePlan.MemberCorrelations.ResolveCandidateMemberKey(x.UserOverride.Requirement.MemberKey).Equals(member.MemberKey)).ToList();
 			if (actions.Count == 0) throw new InvalidOperationException("A suppressed candidate member has no exact qualified preservation action.");
 			bool omitted = actions.Any(x => x.UserOverride.Requirement.Aspect == CollectionRequirementAspect.MemberParticipation &&
 				x.UserOverride.UserChosenState.Kind == CollectionRequirementStateKind.Absent);
@@ -367,11 +383,9 @@ namespace Nexus.Client.CollectionManagement
 			foreach (CollectionRevisionUpdateMemberPlan member in updatePlan.Members.Where(x =>
 				CollectionRevisionUpdateAggregateVerifier.RequiresCandidateMutation(x) && !suppressed.Contains(x.MemberKey)))
 			{
-				List<CollectionNativeChildOperation> children = operation.NativeChildren.Where(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall &&
-					x.Member.MemberKey.Equals(member.MemberKey)).ToList();
-				if (children.Count != 1 || !children[0].IsReconciled || !children[0].HasVerifiedCommittedNativeState)
-					throw new InvalidOperationException("One required candidate member lacks exactly one reconciled VerifiedCommitted native child.");
-				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, children[0]);
+				CollectionNativeChildOperation child = RequireCommittedCandidateChild(operation,
+					new CollectionOperationMemberReference(updatePlan.NewPlan.Revision, member.MemberKey));
+				CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, child);
 				if (manifest == null || manifest.ExecutionEvidence == null ||
 					!manifest.ExecutionEvidence.ReviewedEffects.MemberKey.Equals(member.MemberKey) ||
 					!manifest.ExecutionEvidence.ReviewedEffects.RecipeIdentity.Equals(member.NewMember.RecipeIdentity))
@@ -386,9 +400,25 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			foreach (CollectionNativeChildOperation child in operation.NativeChildren.Where(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall))
-				if (!result.ContainsKey(child.Member.MemberKey))
+				if (!child.Member.Revision.Equals(updatePlan.NewPlan.Revision) || !result.ContainsKey(child.Member.MemberKey))
 					throw new InvalidOperationException("The revision-update journal contains an unexpected candidate activation/reinstall child outside the approved mutation set.");
 			return result;
+		}
+
+		/// <summary>Requires one final committed candidate attempt, permitting only earlier reconciled rollback or not-started attempts of that exact member.</summary>
+		internal static CollectionNativeChildOperation RequireCommittedCandidateChild(CollectionOperation operation,
+			CollectionOperationMemberReference member)
+		{
+			if (operation.Kind != CollectionOperationKind.UpdateRevision || !member.Revision.Equals(operation.Revision))
+				throw new InvalidOperationException("Candidate child verification requires the exact revision-update operation and member revision.");
+			List<CollectionNativeChildOperation> children = operation.NativeChildren.Where(x =>
+				x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.Member.Equals(member)).OrderBy(x => x.Sequence).ToList();
+			CollectionNativeChildOperation committed = children.LastOrDefault();
+			if (committed == null || !committed.IsReconciled || !committed.HasVerifiedCommittedNativeState ||
+				children.Take(children.Count - 1).Any(x => !CollectionNativeChildPreparationCoordinator.IsRetryableRevisionUpdateAttempt(
+					x, CollectionNativeChildWorkflowMode.RevisionUpdate)))
+				throw new InvalidOperationException("One required candidate member lacks a final verified installation after safely reconciled retry attempts.");
+			return committed;
 		}
 
 		private static void VerifyDeactivationChildren(CollectionOperation operation, CollectionRevisionUpdatePlan updatePlan,
@@ -449,9 +479,10 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionNativeModState ResolveCurrentNativeMember(CollectionOperation operation, CollectionRevisionUpdatePlan updatePlan,
 			CollectionMemberKey memberKey, CollectionNativeStateIndex state)
 		{
-			CollectionRevisionUpdateMemberPlan member = updatePlan.Members.Single(x => x.MemberKey.Equals(memberKey));
+			CollectionMemberKey candidateMemberKey = updatePlan.MemberCorrelations.ResolveCandidateMemberKey(memberKey);
+			CollectionRevisionUpdateMemberPlan member = updatePlan.Members.Single(x => x.MemberKey.Equals(candidateMemberKey));
 			List<CollectionNativeChildOperation> children = operation.NativeChildren.Where(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall &&
-				x.Member.MemberKey.Equals(memberKey) && x.IsReconciled && x.HasVerifiedCommittedNativeState).ToList();
+				x.Member.MemberKey.Equals(candidateMemberKey) && x.IsReconciled && x.HasVerifiedCommittedNativeState).ToList();
 			if (children.Count > 1) throw new InvalidOperationException("Multiple committed candidate children exist for one C10.8 member.");
 			if (children.Count == 0)
 			{

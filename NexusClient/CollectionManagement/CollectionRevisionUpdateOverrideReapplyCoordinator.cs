@@ -185,7 +185,8 @@ namespace Nexus.Client.CollectionManagement
 		private IMod ResolveLiveMember(CollectionOperation operation, CollectionRevisionUpdatePlan updatePlan, CollectionMemberKey memberKey)
 		{
 			if (memberKey == null) throw new ArgumentNullException(nameof(memberKey));
-			CollectionRevisionUpdateMemberPlan member = updatePlan.Members.SingleOrDefault(x => x.MemberKey.Equals(memberKey));
+			CollectionMemberKey candidateMemberKey = updatePlan.MemberCorrelations.ResolveCandidateMemberKey(memberKey);
+			CollectionRevisionUpdateMemberPlan member = updatePlan.Members.SingleOrDefault(x => x.MemberKey.Equals(candidateMemberKey));
 			if (member == null || member.NewMember == null)
 				throw new InvalidOperationException("The C10.7 override target is not present in the candidate revision.");
 

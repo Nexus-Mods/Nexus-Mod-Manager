@@ -138,6 +138,7 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionNativeRecipePreparer
 	{
 		private const string PreparedIdentityFormat = "nmm-ce.collections.prepared-native-recipe/1";
+		private const int RetainedManifestCacheLimit = 8;
 		private readonly CollectionsCatalogStore _catalogStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -146,6 +147,24 @@ namespace Nexus.Client.CollectionManagement
 		private readonly BasicInstallPlanBuilder _basicInstallPlanBuilder;
 		private readonly ModInstallationSimpleFileRecipeAdapter _simpleFileAdapter;
 		private readonly CollectionMemberEffectPreviewBuilder _effectPreviewBuilder;
+		private readonly object _retainedManifestCacheLock = new object();
+		private readonly Dictionary<CollectionRevisionIdentity, RetainedPreparationManifest> _retainedManifestCache =
+			new Dictionary<CollectionRevisionIdentity, RetainedPreparationManifest>();
+
+		private sealed class RetainedPreparationManifest
+		{
+			internal RetainedPreparationManifest(CollectionManifestSourceSnapshot source, NexusCollectionManifestNormalizationResult normalized,
+				CollectionRevisionSourceRecord sourceRecord)
+			{
+				Source = source ?? throw new ArgumentNullException(nameof(source));
+				Normalized = normalized ?? throw new ArgumentNullException(nameof(normalized));
+				SourceRecord = sourceRecord ?? throw new ArgumentNullException(nameof(sourceRecord));
+			}
+
+			internal CollectionManifestSourceSnapshot Source { get; }
+			internal NexusCollectionManifestNormalizationResult Normalized { get; }
+			internal CollectionRevisionSourceRecord SourceRecord { get; }
+		}
 
 		/// <summary>Creates the initial Collection-to-native recipe preparation service over the existing C4/C5/C6 seams.</summary>
 		public CollectionNativeRecipePreparer(CollectionsStore store)
@@ -330,17 +349,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("Vortex FOMOD choices require the exact FOMOD-aware native preparation path.");
 			cancellationToken.ThrowIfCancellationRequested();
 
-			CollectionRevision revision = _catalogStore.GetRevision(plan.Revision);
-			if (revision == null)
-				throw new InvalidOperationException("The exact Collection revision must remain persisted during native recipe preparation.");
-
-			byte[] rawManifestBytes = _revisionSourceStore.LoadManifest(plan.Revision, plan.ManifestSource);
-			NexusCollectionManifestNormalizationResult normalized = _normalizer.Normalize(rawManifestBytes, revision);
+			RetainedPreparationManifest retainedManifest = GetRetainedPreparationManifest(plan, cancellationToken);
+			NexusCollectionManifestNormalizationResult normalized = retainedManifest.Normalized;
+			CollectionRevisionSourceRecord sourceRecord = retainedManifest.SourceRecord;
 			ValidateRetainedSourceMember(plan, member, normalized);
-
-			CollectionRevisionSourceRecord sourceRecord = _revisionSourceStore.GetSource(plan.Revision);
-			if (sourceRecord == null || String.IsNullOrEmpty(sourceRecord.RawManifestArtifactId))
-				throw new InvalidDataException("The retained Collection revision source is missing its immutable manifest artifact binding.");
 
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
@@ -393,17 +405,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("The file-list-aware preparation path requires characterized Vortex hashes/fileList data.", nameof(member));
 			cancellationToken.ThrowIfCancellationRequested();
 
-			CollectionRevision revision = _catalogStore.GetRevision(plan.Revision);
-			if (revision == null)
-				throw new InvalidOperationException("The exact Collection revision must remain persisted during native recipe preparation.");
-
-			byte[] rawManifestBytes = _revisionSourceStore.LoadManifest(plan.Revision, plan.ManifestSource);
-			NexusCollectionManifestNormalizationResult normalized = _normalizer.Normalize(rawManifestBytes, revision);
+			RetainedPreparationManifest retainedManifest = GetRetainedPreparationManifest(plan, cancellationToken);
+			NexusCollectionManifestNormalizationResult normalized = retainedManifest.Normalized;
+			CollectionRevisionSourceRecord sourceRecord = retainedManifest.SourceRecord;
 			ValidateRetainedSourceMember(plan, member, normalized);
-
-			CollectionRevisionSourceRecord sourceRecord = _revisionSourceStore.GetSource(plan.Revision);
-			if (sourceRecord == null || String.IsNullOrEmpty(sourceRecord.RawManifestArtifactId))
-				throw new InvalidDataException("The retained Collection revision source is missing its immutable manifest artifact binding.");
 
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
@@ -470,17 +475,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("Vortex FOMOD choice replay is characterized with the dinput game-root mod type only.");
 			cancellationToken.ThrowIfCancellationRequested();
 
-			CollectionRevision revision = _catalogStore.GetRevision(plan.Revision);
-			if (revision == null)
-				throw new InvalidOperationException("The exact Collection revision must remain persisted during native recipe preparation.");
-
-			byte[] rawManifestBytes = _revisionSourceStore.LoadManifest(plan.Revision, plan.ManifestSource);
-			NexusCollectionManifestNormalizationResult normalized = _normalizer.Normalize(rawManifestBytes, revision);
+			RetainedPreparationManifest retainedManifest = GetRetainedPreparationManifest(plan, cancellationToken);
+			NexusCollectionManifestNormalizationResult normalized = retainedManifest.Normalized;
+			CollectionRevisionSourceRecord sourceRecord = retainedManifest.SourceRecord;
 			ValidateRetainedSourceMember(plan, member, normalized);
-
-			CollectionRevisionSourceRecord sourceRecord = _revisionSourceStore.GetSource(plan.Revision);
-			if (sourceRecord == null || String.IsNullOrEmpty(sourceRecord.RawManifestArtifactId))
-				throw new InvalidDataException("The retained Collection revision source is missing its immutable manifest artifact binding.");
 
 			ValidateVerifiedArchive(verifiedArchive, cancellationToken);
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
@@ -538,6 +536,53 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
+		}
+
+		/// <summary>
+		/// Loads and normalizes one immutable retained revision source once per preparer instance. Native preparation commonly
+		/// prepares many members from the same Collection revision; reopening and renormalizing the same sealed collection.json
+		/// for every member adds I/O without adding authority. The cache remains fail-closed on source-identity mismatch.
+		/// </summary>
+		private RetainedPreparationManifest GetRetainedPreparationManifest(ResolvedCollectionPlan plan, CancellationToken cancellationToken)
+		{
+			if (plan == null) throw new ArgumentNullException(nameof(plan));
+			RetainedPreparationManifest cached;
+			lock (_retainedManifestCacheLock)
+			{
+				if (_retainedManifestCache.TryGetValue(plan.Revision, out cached) && !cached.Source.Equals(plan.ManifestSource))
+					throw new InvalidDataException("The retained Collection revision source changed within one native preparation session.");
+			}
+			if (cached != null)
+			{
+				CollectionRevisionSourceRecord verified = _revisionSourceStore.RequireVerifiedManifestSource(
+					plan.Revision, plan.ManifestSource, cancellationToken);
+				if (!verified.Equals(cached.SourceRecord))
+					throw new InvalidDataException("The retained Collection revision source binding changed within one native preparation session.");
+				return cached;
+			}
+
+			CollectionRevision revision = _catalogStore.GetRevision(plan.Revision);
+			if (revision == null)
+				throw new InvalidOperationException("The exact Collection revision must remain persisted during native recipe preparation.");
+			byte[] rawManifestBytes = _revisionSourceStore.LoadManifest(plan.Revision, plan.ManifestSource);
+			NexusCollectionManifestNormalizationResult normalized = _normalizer.Normalize(rawManifestBytes, revision);
+			CollectionRevisionSourceRecord sourceRecord = _revisionSourceStore.RequireVerifiedManifestSource(
+				plan.Revision, plan.ManifestSource, cancellationToken);
+
+			var loaded = new RetainedPreparationManifest(plan.ManifestSource, normalized, sourceRecord);
+			lock (_retainedManifestCacheLock)
+			{
+				if (_retainedManifestCache.TryGetValue(plan.Revision, out cached))
+				{
+					if (!cached.Source.Equals(plan.ManifestSource) || !cached.SourceRecord.Equals(sourceRecord))
+						throw new InvalidDataException("The retained Collection revision source changed while native preparation was loading it.");
+					return cached;
+				}
+				if (_retainedManifestCache.Count >= RetainedManifestCacheLimit)
+					_retainedManifestCache.Clear();
+				_retainedManifestCache.Add(plan.Revision, loaded);
+				return loaded;
+			}
 		}
 
 		private static void ValidateInputs(ResolvedCollectionPlan plan, ResolvedCollectionMemberPlan member,

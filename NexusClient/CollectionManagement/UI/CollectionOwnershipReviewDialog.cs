@@ -32,7 +32,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_displaySettings = DevExpressDisplaySettings.CreateFromSettings(Properties.Settings.Default);
 			Font = _displaySettings.Font;
 			AutoScaleMode = AutoScaleMode.Font;
-			Text = LanguageManager.Get("Collections.Ownership.WindowTitle", "Review Collection ownership");
+			Text = LanguageManager.Get("Collections.Ownership.WindowTitle", "Choose how NMM manages these mods");
 			StartPosition = FormStartPosition.CenterParent;
 			FormBorderStyle = FormBorderStyle.Sizable;
 			MinimizeBox = false;
@@ -58,7 +58,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Dock = DockStyle.Fill, AutoSizeMode = LabelAutoSizeMode.Vertical, UseMnemonic = false,
 				Margin = new Padding(0, 0, 0, 8),
 				Text = LanguageManager.Get("Collections.Ownership.GridHelp",
-					"Check the mods you use only through Collections. NMM may replace or remove them during an approved revision change or Collection uninstall, provided no other Collection needs them.\r\n\r\nLeave mods unchecked to keep their installed versions independently, including mods that were present before the Collection. All mods start unchecked.\r\n\r\nSave choices records ownership and opens a new comparison. Changing installed mods still requires separate approval. Cancel discards every choice in this window.")
+					"These mods are already installed, and NMM needs to know whether each one is used only by Collections or also independently.\r\n\r\nChecked - Collection-managed only: NMM may replace or remove this installation when applying a Collection revision or uninstalling a Collection, as long as no other installed Collection still needs it.\r\n\r\nUnchecked - Keep independently: NMM treats the installed mod as something you also use outside Collections. A Collection update or uninstall will not remove it just because that Collection no longer needs it. For safety, all mods start unchecked.\r\n\r\nNothing is changed yet. Saving these choices only records how NMM should manage each mod and refreshes the revision comparison. Any install, replacement, or removal still requires the normal approval step. Cancel discards the choices made in this window.")
 			};
 			instructions.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
 			instructions.Appearance.Options.UseTextOptions = true;
@@ -71,11 +71,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			DevExpressDisplaySettingsApplier.ApplySkinSurface(bulkActions);
 			SimpleButton checkAll = new SimpleButton
 			{
-				AutoSize = true, Text = LanguageManager.Get("Collections.Ownership.CheckAll", "Check all mods")
+				AutoSize = true, Text = LanguageManager.Get("Collections.Ownership.CheckAll", "Mark all Collection-managed only")
 			};
 			SimpleButton uncheckAll = new SimpleButton
 			{
-				AutoSize = true, Text = LanguageManager.Get("Collections.Ownership.UncheckAll", "Uncheck all mods")
+				AutoSize = true, Text = LanguageManager.Get("Collections.Ownership.UncheckAll", "Keep all independently")
 			};
 			checkAll.Click += (sender, args) => SetAllChoices(true);
 			uncheckAll.Click += (sender, args) => SetAllChoices(false);
@@ -97,9 +97,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			RepositoryItemCheckEdit checkbox = new RepositoryItemCheckEdit { AllowGrayed = false };
 			grid.RepositoryItems.Add(checkbox);
 			GridColumn collectionOnly = _gridView.Columns.AddVisible(nameof(OwnershipRow.CollectionOnly),
-				LanguageManager.Get("Collections.Ownership.CollectionOnly", "Collection only"));
+				LanguageManager.Get("Collections.Ownership.CollectionOnly", "Collection-managed only"));
 			collectionOnly.ColumnEdit = checkbox;
-			collectionOnly.Width = 130;
+			collectionOnly.Width = 170;
 			collectionOnly.OptionsColumn.FixedWidth = true;
 			GridColumn name = _gridView.Columns.AddVisible(nameof(OwnershipRow.ModName),
 				LanguageManager.Get("Collections.Ownership.ModName", "Installed mod"));
@@ -121,7 +121,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			SimpleButton save = new SimpleButton
 			{
-				AutoSize = true, Text = LanguageManager.Get("Collections.Ownership.SaveChoices", "Save choices")
+				AutoSize = true, Text = LanguageManager.Get("Collections.Ownership.SaveChoices", "Save choices and recheck")
 			};
 			save.Click += (sender, args) =>
 			{
@@ -191,7 +191,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			int collectionOnly = _rows.Count(x => x.CollectionOnly);
 			_selectionSummary.Text = LanguageManager.Format("Collections.Ownership.SelectionSummary",
-				"All {0} mods: {1} Collection only; {2} kept independently. Bulk buttons apply to all mods, including rows hidden by search.",
+				"{0} mods: {1} Collection-managed only; {2} kept independently. Bulk actions apply to all mods, including rows hidden by search.",
 				_rows.Count, collectionOnly, _rows.Count - collectionOnly);
 		}
 

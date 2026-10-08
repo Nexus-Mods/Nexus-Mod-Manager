@@ -58,17 +58,37 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("The C10.5 preservation plan belongs to a different candidate plan.", nameof(preservationPlan));
 
 			ResolvedCollectionPlan executionPlan = RebindState(updatePlan.NewPlan, currentState.Fingerprint);
+			Dictionary<CollectionMemberKey, CollectionRevisionUpdateMemberPlan> allUpdateMembers = updatePlan.Members
+				.ToDictionary(x => x.MemberKey);
 			Dictionary<CollectionMemberKey, CollectionRevisionUpdateMemberPlan> updateMembers = updatePlan.Members
 				.Where(x => x.NewMember != null).ToDictionary(x => x.MemberKey);
+			CollectionRevisionUpdateMemberCorrelationMap correlations = updatePlan.MemberCorrelations;
 			Dictionary<CollectionMemberKey, CollectionRevisionUpdatePreparationMemberState> preparation = preparationMembers
 				.ToDictionary(x => x.UpdateMember.MemberKey);
 			Dictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes = effectiveRecipes
 				.ToDictionary(x => x.Member.MemberKey);
 			var suppressed = new HashSet<CollectionMemberKey>(preservationPlan.MembersWhoseCandidateMutationIsSuppressed);
 			var committed = new HashSet<CollectionMemberKey>(committedMembers);
+			// PreserveStandalone protects a member that is truly absent from the candidate revision. A validated Nexus
+			// file-id change is different: the old key is correlated to a candidate key for the same logical Nexus mod, so
+			// its native instance is the reviewed reinstall target rather than an unrelated independently protected mod.
 			var preservedNative = new HashSet<NativeModInstanceIdentity>(updatePlan.Members
-				.Where(x => x.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone && x.Binding != null)
+				.Where(x => x.Disposition == CollectionRevisionUpdateDisposition.PreserveStandalone && x.Binding != null &&
+					!correlations.NewByOld.ContainsKey(x.MemberKey))
 				.Select(x => x.Binding.NativeMod));
+			// The approved three-way update review already owns surviving old-revision native instances. A real Nexus
+			// revision can change the validated member key when fileId changes, so resolve the unique old-side binding
+			// through the revision-only correlation map instead of requiring identical CollectionMemberKey values.
+			var reviewedExistingOwnerKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (CollectionRevisionUpdateMemberPlan candidateMember in updateMembers.Values)
+			{
+				if (suppressed.Contains(candidateMember.MemberKey)) continue;
+				bool reviewedBindingIsCorrelated;
+				CollectionMemberBinding reviewedBinding = ResolveCandidateBinding(candidateMember, allUpdateMembers, correlations, out reviewedBindingIsCorrelated);
+				if (reviewedBinding == null || preservedNative.Contains(reviewedBinding.NativeMod) || !currentState.Mods.ContainsKey(reviewedBinding.NativeMod))
+					continue;
+				reviewedExistingOwnerKeys.Add(reviewedBinding.NativeMod.NativeModKey);
+			}
 			var results = new List<CollectionMemberMatchResult>();
 
 			foreach (ResolvedCollectionMemberPlan member in executionPlan.SelectedMembers)
@@ -81,7 +101,9 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				}
 
-				CollectionNativeModState bound = ResolveBoundNative(updateMember, currentState);
+				bool effectiveBindingIsCorrelated;
+				CollectionMemberBinding effectiveBinding = ResolveCandidateBinding(updateMember, allUpdateMembers, correlations, out effectiveBindingIsCorrelated);
+				CollectionNativeModState bound = ResolveBoundNative(effectiveBinding, currentState);
 				IEnumerable<CollectionMemberBinding> existingBindings = bound == null
 					? Enumerable.Empty<CollectionMemberBinding>()
 					: GetBindings(currentState, bound.Identity);
@@ -159,11 +181,13 @@ namespace Nexus.Client.CollectionManagement
 						CollectionMemberMatchReason.ExactArtifactRecipeUnverified, new[] { bound }, existingBindings, preparedState.VerifiedArchive));
 					continue;
 				}
-				if (updateMember.Binding != null)
+				if (effectiveBinding != null && !effectiveBindingIsCorrelated)
 				{
 					results.Add(Block(member, CollectionMemberMatchReason.MissingBoundNativeMod));
 					continue;
 				}
+				// A cross-key old binding may legitimately be absent here: C10.6 runs only after C10.4 has verified
+				// obsolete effects. In that case the candidate is a normal verified archive install, not a missing-binding error.
 
 				List<CollectionNativeModState> candidates = FindExactCurrentCandidates(member, currentState,
 					preparedState.VerifiedArchive, cancellationToken);
@@ -195,16 +219,32 @@ namespace Nexus.Client.CollectionManagement
 			CollectionDependencyPhasePlan dependency = _dependencyPlanner.Plan(executionPlan, matches);
 			CollectionConflictImpactPlan impact = _impactPlanner.PlanForRevisionUpdateExecution(executionPlan, matches,
 				dependency, currentState, recipes.Values.Select(x => x.EffectPreview), new CollectionConflictResolutionDecision[0],
-				updatePlan.Association.AssociationId);
+				updatePlan.Association.AssociationId, reviewedExistingOwnerKeys);
 			return new CollectionRevisionUpdateCandidateExecutionPlanning(executionPlan, matches, dependency, impact, recipes.Values);
 		}
 
-		private static CollectionNativeModState ResolveBoundNative(CollectionRevisionUpdateMemberPlan member,
-			CollectionNativeStateIndex state)
+		private static CollectionMemberBinding ResolveCandidateBinding(CollectionRevisionUpdateMemberPlan candidateMember,
+			IDictionary<CollectionMemberKey, CollectionRevisionUpdateMemberPlan> allUpdateMembers,
+			CollectionRevisionUpdateMemberCorrelationMap correlations, out bool correlatedOldBinding)
 		{
-			if (member.Binding == null) return null;
+			correlatedOldBinding = false;
+			if (candidateMember.Binding != null) return candidateMember.Binding;
+
+			CollectionMemberKey oldKey;
+			if (!correlations.TryGetOldMemberKey(candidateMember.MemberKey, out oldKey)) return null;
+			CollectionRevisionUpdateMemberPlan correlatedOldMember;
+			if (!allUpdateMembers.TryGetValue(oldKey, out correlatedOldMember) || correlatedOldMember == null ||
+				correlatedOldMember.OldMember == null || correlatedOldMember.NewMember != null)
+				throw new InvalidOperationException("The reviewed cross-revision Nexus member correlation no longer resolves to one old-side member.");
+			correlatedOldBinding = correlatedOldMember.Binding != null;
+			return correlatedOldMember.Binding;
+		}
+
+		private static CollectionNativeModState ResolveBoundNative(CollectionMemberBinding binding, CollectionNativeStateIndex state)
+		{
+			if (binding == null) return null;
 			CollectionNativeModState native;
-			return state.Mods.TryGetValue(member.Binding.NativeMod, out native) ? native : null;
+			return state.Mods.TryGetValue(binding.NativeMod, out native) ? native : null;
 		}
 
 		private static IEnumerable<CollectionMemberBinding> GetBindings(CollectionNativeStateIndex state,

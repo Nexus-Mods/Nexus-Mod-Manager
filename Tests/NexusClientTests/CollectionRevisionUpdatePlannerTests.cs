@@ -181,6 +181,40 @@ namespace NexusClientTests
 			Assert.That(plan.Effects.Count(x => x.ChangeKind == CollectionRevisionUpdateEffectChangeKind.Changed), Is.EqualTo(1));
 		}
 
+		[Test]
+		public void Plan_CrossKeyNexusFileChange_ComparesEffectsAsOneCandidateMember()
+		{
+			NormalizedCollectionMember oldMember = CreateNexusMatchedMember("4598", "407774", "recipe-a");
+			NormalizedCollectionMember newMember = CreateNexusMatchedMember("4598", "376040", "recipe-b");
+			Fixture f = CreateFixture("cross-key-effects", oldMember, newMember);
+			CollectionMemberKey oldKey = oldMember.IdentityResolution.Key;
+			CollectionMemberKey newKey = newMember.IdentityResolution.Key;
+			var oldPreview = new CollectionMemberEffectPreview(oldKey, oldMember.RecipeIdentity,
+				ModInstallMethod.Virtual, ModInstallRoot.Data,
+				new[] { new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Unofficial Fallout 4 Patch.esp")) },
+				new[] { new CollectionPlannedIniEffect(new CollectionNativeIniKey("game.ini", "General", "Setting"), "old") },
+				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			var newPreview = new CollectionMemberEffectPreview(newKey, newMember.RecipeIdentity,
+				ModInstallMethod.Virtual, ModInstallRoot.Data,
+				new[] { new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Unofficial Fallout 4 Patch.esp")) },
+				new[] { new CollectionPlannedIniEffect(new CollectionNativeIniKey("game.ini", "General", "Setting"), "new") },
+				new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+
+			CollectionRevisionUpdatePlan plan = f.Plan(null, null, null, null, null,
+				new Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> { { oldKey, oldPreview } },
+				new Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> { { newKey, newPreview } });
+
+			Assert.That(plan.Effects.Count, Is.EqualTo(2));
+			Assert.That(plan.Effects.All(x => x.MemberKey.Equals(newKey)), Is.True,
+				"A proven cross-key revision transition must expose candidate-side effect identity consistently.");
+			Assert.That(plan.Effects.Single(x => x.Kind == CollectionRevisionUpdateEffectKind.File).ChangeKind,
+				Is.EqualTo(CollectionRevisionUpdateEffectChangeKind.Unchanged));
+			Assert.That(plan.Effects.Single(x => x.Kind == CollectionRevisionUpdateEffectKind.Ini).ChangeKind,
+				Is.EqualTo(CollectionRevisionUpdateEffectChangeKind.Changed));
+			Assert.That(plan.Effects.Any(x => x.ChangeKind == CollectionRevisionUpdateEffectChangeKind.Added ||
+				x.ChangeKind == CollectionRevisionUpdateEffectChangeKind.Removed), Is.False);
+		}
+
 		private static Fixture CreateFixture(string suffix, NormalizedCollectionMember oldMember, NormalizedCollectionMember newMember)
 		{
 			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c10-1-" + suffix);
@@ -215,6 +249,16 @@ namespace NexusClientTests
 				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
 				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/" + modId + "/" + fileId, null),
 				CollectionRecipeIdentity.FromFingerprint(recipe), memberKey);
+		}
+
+		private static NormalizedCollectionMember CreateNexusMatchedMember(string modId, string fileId, string recipe)
+		{
+			string stableId = "skyrimspecialedition/" + modId + "/" + fileId;
+			return new NormalizedCollectionMember(0,
+				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromValidatedMatch("nexus-mod-file:" + stableId)),
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+				new CollectionArtifactReference("nexus-mod-file", stableId, null),
+				CollectionRecipeIdentity.FromFingerprint(recipe), "mod-" + modId);
 		}
 
 		private static ResolvedCollectionPlan CreatePlan(CollectionRevisionIdentity revision, CollectionTargetIdentity target,

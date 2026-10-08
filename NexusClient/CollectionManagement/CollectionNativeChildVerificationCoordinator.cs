@@ -574,27 +574,14 @@ namespace Nexus.Client.CollectionManagement
 		{
 			try
 			{
-				var expected = new Dictionary<ModDeploymentTarget, FileContentIdentity>();
-				var sourceContents = new Dictionary<string, FileContentIdentity>(StringComparer.OrdinalIgnoreCase);
+				var recipeTargets = new HashSet<ModDeploymentTarget>();
 				foreach (ScriptedInstallOperation operation in recipeInput.NativeOperations)
 				{
 					InstallModFileOperation install = operation as InstallModFileOperation;
 					if (install != null)
 					{
-						ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
-							install.DestinationPath, recipeInput.InstallContext.InstallRoot);
-						string source = install.SourcePath;
-						FileContentIdentity content;
-						if (!sourceContents.TryGetValue(source, out content))
-						{
-							using (FileStream stream = incomingMod.GetFileStream(source))
-							{
-								CollectionPerformanceMetrics.RecordArchiveSourceRead(preview.MemberKey, source, stream.Length);
-								content = FileContentIdentity.FromStream(stream);
-							}
-							sourceContents.Add(source, content);
-						}
-						expected[target] = content;
+						recipeTargets.Add(ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
+							install.DestinationPath, recipeInput.InstallContext.InstallRoot));
 						continue;
 					}
 
@@ -602,20 +589,25 @@ namespace Nexus.Client.CollectionManagement
 					if (generated != null)
 					{
 						if (generated.Data == null) return false;
-						ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
-							generated.DestinationPath, recipeInput.InstallContext.InstallRoot);
-						expected[target] = FileContentIdentity.FromBytes(generated.Data);
+						recipeTargets.Add(ModDeploymentTargetResolver.Resolve(gameMode, incomingMod,
+							generated.DestinationPath, recipeInput.InstallContext.InstallRoot));
 					}
 				}
 
-				if (expected.Count != preview.Files.Count)
+				if (recipeTargets.Count != preview.Files.Count)
 					return false;
 				foreach (CollectionPlannedFileEffect effect in preview.Files)
 				{
-					FileContentIdentity content;
 					CollectionNativeFileState file;
-					if (!expected.TryGetValue(effect.Target, out content) || !state.Files.TryGetValue(effect.Target, out file) ||
-						String.IsNullOrWhiteSpace(file.PhysicalPath) || !content.Matches(file.PhysicalPath))
+					if (!recipeTargets.Contains(effect.Target) || !effect.HasExactContentIdentity ||
+						effect.ExpectedContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256 ||
+						!state.Files.TryGetValue(effect.Target, out file) || String.IsNullOrWhiteSpace(file.PhysicalPath))
+						return false;
+
+					// Exact source bytes were already hashed into the reviewed preview and are revalidated again by the live
+					// preview immediately before submission. Post-commit verification only needs to hash the deployed winner;
+					// reopening every incoming archive member here repeats I/O without crossing a new trust boundary.
+					if (!ReviewedFileContentMatches(effect, file.PhysicalPath))
 						return false;
 				}
 				return true;
@@ -624,6 +616,15 @@ namespace Nexus.Client.CollectionManagement
 			{
 				return false;
 			}
+		}
+
+		/// <summary>Verifies one deployed file against the exact content identity already retained in the reviewed effect preview.</summary>
+		internal static bool ReviewedFileContentMatches(CollectionPlannedFileEffect effect, string physicalPath)
+		{
+			if (effect == null || !effect.HasExactContentIdentity ||
+				effect.ExpectedContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
+				return false;
+			return new FileContentIdentity(effect.ExpectedByteLength.Value, effect.ExpectedContentHash.Value).Matches(physicalPath);
 		}
 
 		private static bool VerifyLiveReplayAgainstRecipe(ModInstallationRecipeInput recipeInput, IMod incomingMod, IGameMode gameMode)

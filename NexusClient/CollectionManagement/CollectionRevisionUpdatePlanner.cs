@@ -59,7 +59,8 @@ namespace Nexus.Client.CollectionManagement
 					disposition, preparation, oldPrepared, newPrepared, memberOverrides, memberDrift, standaloneProtected, detail));
 			}
 
-			List<CollectionRevisionUpdateEffectPlan> effects = CompareEffects(oldEffectPreviews, newEffectPreviews);
+			CollectionRevisionUpdateMemberCorrelationMap correlations = CollectionRevisionUpdateMemberCorrelationMap.Build(oldPlan, newPlan);
+			List<CollectionRevisionUpdateEffectPlan> effects = CompareEffects(oldEffectPreviews, newEffectPreviews, correlations);
 			List<UserOverride> unscopedOverrides = overrideList.Where(x => x.Requirement.MemberKey == null).ToList();
 			List<CollectionDriftObservation> unscopedDrift = driftList.Where(x => x.Requirement.MemberKey == null).ToList();
 			return new CollectionRevisionUpdatePlan(association, oldPlan, newPlan, currentState.Fingerprint, results, effects,
@@ -202,20 +203,21 @@ namespace Nexus.Client.CollectionManagement
 
 		private static List<CollectionRevisionUpdateEffectPlan> CompareEffects(
 			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberEffectPreview> oldPreviews,
-			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberEffectPreview> newPreviews)
+			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberEffectPreview> newPreviews,
+			CollectionRevisionUpdateMemberCorrelationMap correlations)
 		{
+			if (correlations == null) throw new ArgumentNullException(nameof(correlations));
 			var result = new List<CollectionRevisionUpdateEffectPlan>();
-			var keys = Enumerable.Empty<CollectionMemberKey>();
-			if (oldPreviews != null) keys = keys.Concat(oldPreviews.Keys);
-			if (newPreviews != null) keys = keys.Concat(newPreviews.Keys);
-			foreach (CollectionMemberKey memberKey in keys.Distinct().OrderBy(x => x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal))
+			var logicalKeys = Enumerable.Empty<CollectionMemberKey>();
+			if (oldPreviews != null) logicalKeys = logicalKeys.Concat(oldPreviews.Keys.Select(correlations.ResolveCandidateMemberKey));
+			if (newPreviews != null) logicalKeys = logicalKeys.Concat(newPreviews.Keys);
+
+			foreach (CollectionMemberKey memberKey in logicalKeys.Distinct().OrderBy(x => x.Kind).ThenBy(x => x.Value, StringComparer.Ordinal))
 			{
-				CollectionMemberEffectPreview oldPreview = GetEffectPreview(oldPreviews, memberKey);
+				CollectionMemberEffectPreview oldPreview = GetOldEffectPreview(oldPreviews, memberKey, correlations);
 				CollectionMemberEffectPreview newPreview = GetEffectPreview(newPreviews, memberKey);
-				if (oldPreview != null && (!oldPreview.IsComplete || !oldPreview.MemberKey.Equals(memberKey)))
-					throw new ArgumentException("Old effect previews must be complete and keyed by their exact member identity.", nameof(oldPreviews));
-				if (newPreview != null && (!newPreview.IsComplete || !newPreview.MemberKey.Equals(memberKey)))
-					throw new ArgumentException("New effect previews must be complete and keyed by their exact member identity.", nameof(newPreviews));
+				ValidatePreview(oldPreview, oldPreviews, "Old");
+				ValidatePreview(newPreview, newPreviews, "New");
 
 				Dictionary<string, EffectState> oldStates = BuildEffectStates(oldPreview);
 				Dictionary<string, EffectState> newStates = BuildEffectStates(newPreview);
@@ -237,12 +239,35 @@ namespace Nexus.Client.CollectionManagement
 			return result;
 		}
 
+		/// <summary>
+		/// Resolves an old preview through the revision-only Nexus correlation so an exact file-id change is compared as
+		/// one logical member transition. The emitted effect identity remains the candidate member key.
+		/// </summary>
+		private static CollectionMemberEffectPreview GetOldEffectPreview(
+			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberEffectPreview> source, CollectionMemberKey candidateMemberKey,
+			CollectionRevisionUpdateMemberCorrelationMap correlations)
+		{
+			CollectionMemberEffectPreview value = GetEffectPreview(source, candidateMemberKey);
+			if (value != null) return value;
+			CollectionMemberKey oldMemberKey;
+			return correlations.TryGetOldMemberKey(candidateMemberKey, out oldMemberKey)
+				? GetEffectPreview(source, oldMemberKey) : null;
+		}
+
 		private static CollectionMemberEffectPreview GetEffectPreview(
 			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberEffectPreview> source, CollectionMemberKey key)
 		{
 			if (source == null) return null;
 			CollectionMemberEffectPreview value;
 			return source.TryGetValue(key, out value) ? value : null;
+		}
+
+		private static void ValidatePreview(CollectionMemberEffectPreview preview,
+			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberEffectPreview> source, string label)
+		{
+			if (preview == null) return;
+			if (!preview.IsComplete || source == null || !source.ContainsKey(preview.MemberKey))
+				throw new ArgumentException(label + " effect previews must be complete and keyed by their exact source-side member identity.");
 		}
 
 		private static Dictionary<string, EffectState> BuildEffectStates(CollectionMemberEffectPreview preview)

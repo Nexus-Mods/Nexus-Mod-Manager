@@ -394,6 +394,44 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PlanForRevisionUpdateExecution_ReviewedExistingFileOwnerDoesNotRequireAdditiveDecision()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState reviewedOldOwner = CreateNativeMod(targetIdentity, "native-reviewed-old", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, reviewedOldOwner },
+				new[] { CreateFile(target, reviewedOldOwner.Identity.NativeModKey) }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().PlanForRevisionUpdateExecution(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) },
+				new CollectionConflictResolutionDecision[0], Guid.NewGuid(), new[] { reviewedOldOwner.Identity.NativeModKey });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+		}
+
+		[Test]
+		public void PlanForRevisionUpdateExecution_UnreviewedExistingFileOwnerStillRequiresDecision()
+		{
+			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			CollectionNativeModState incomingMod = CreateNativeMod(targetIdentity, "native-incoming", 100, 200);
+			CollectionNativeModState unrelated = CreateNativeMod(targetIdentity, "native-unrelated", 999, 999);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
+			Fixture fixture = CreateFixture(targetIdentity, new[] { incoming }, null, new[] { incomingMod, unrelated },
+				new[] { CreateFile(target, unrelated.Identity.NativeModKey) }, null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().PlanForRevisionUpdateExecution(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { CreatePreview(incoming, target) },
+				new CollectionConflictResolutionDecision[0], Guid.NewGuid(), new string[0]);
+
+			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
+			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired));
+		}
+
+		[Test]
 		public void Plan_DurableIncomingWinnerDecisionResolvesExactExistingOwnerConflict()
 		{
 			NormalizedCollectionMember incoming = CreateMember(0, "incoming", 100, 200, 0);
@@ -632,6 +670,31 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PlanForRevisionUpdateExecution_ReviewedExistingPluginOwnerDoesNotRequireAdditiveDecision()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "member", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState incoming = CreateNativeMod(target, "native-incoming", 100, 200);
+			CollectionNativeModState reviewedOldOwner = CreateNativeMod(target, "native-reviewed-old", 999, 999);
+			ModDeploymentTarget pluginTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Example.esp");
+			CollectionNativeFileState pluginFile = CreateFile(pluginTarget, reviewedOldOwner.Identity.NativeModKey);
+			var plugin = new CollectionNativePluginState("Example.esp", true, 1, 0, "00", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0],
+				new CollectionNativePluginDiagnostic[0]);
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { incoming, reviewedOldOwner }, new[] { pluginFile },
+				null, null, null, CollectionNativeStateCoverage.Complete, null, null, new[] { plugin });
+			CollectionMemberEffectPreview preview = CreatePreview(member, pluginTarget,
+				new[] { CollectionPlannedPluginEffect.Activation("Example.esp", false) });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().PlanForRevisionUpdateExecution(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview },
+				new CollectionConflictResolutionDecision[0], Guid.NewGuid(), new[] { reviewedOldOwner.Identity.NativeModKey });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired));
+		}
+
+		[Test]
 		public void Plan_PhysicalPluginIdentityStillRecognizesFileWrittenByIncomingMember()
 		{
 			NormalizedCollectionMember member = CreateMember(0, "plugin-physical", 100, 200, 0);
@@ -729,6 +792,30 @@ namespace NexusClientTests
 
 			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingConfigurationDecisionRequired));
+		}
+
+		[Test]
+		public void PlanForRevisionUpdateExecution_ReviewedExistingConfigurationOwnerDoesNotRequireAdditiveDecision()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "member", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState incoming = CreateNativeMod(target, "native-incoming", 100, 200);
+			CollectionNativeModState reviewedOldOwner = CreateNativeMod(target, "native-reviewed-old", 999, 999);
+			CollectionNativeIniKey key = new CollectionNativeIniKey("game.ini", "Display", "Quality");
+			var current = new CollectionNativeIniState(key,
+				new[] { new CollectionNativeTextOwnerValue(reviewedOldOwner.Identity.NativeModKey, "High") });
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { incoming, reviewedOldOwner },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable,
+				new[] { current }, null, null);
+			CollectionMemberEffectPreview preview = CreatePreview(member, null, null,
+				new[] { new CollectionPlannedIniEffect(key, "Low") });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().PlanForRevisionUpdateExecution(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview },
+				new CollectionConflictResolutionDecision[0], Guid.NewGuid(), new[] { reviewedOldOwner.Identity.NativeModKey });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingConfigurationDecisionRequired));
 		}
 
 		[Test]

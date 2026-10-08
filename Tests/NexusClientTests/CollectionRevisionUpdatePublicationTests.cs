@@ -44,6 +44,72 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Build_CrossKeyNexusFileChange_RebasesEnabledOverrideToCandidateMemberKey()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c10-9-cross-key-enabled");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c10-9-cross-key-enabled");
+			CollectionRevisionIdentity oldRevision = CollectionRevisionIdentity.FromNexus(collection, "old", 1);
+			CollectionRevisionIdentity newRevision = CollectionRevisionIdentity.FromNexus(collection, "new", 2);
+			CollectionMemberKey oldKey = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:skyrimspecialedition/100/200");
+			CollectionMemberKey newKey = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:skyrimspecialedition/100/201");
+			NormalizedCollectionMember oldMember = Member(oldKey, "recipe-a", "200");
+			NormalizedCollectionMember newMember = Member(newKey, "recipe-b", "201");
+			var association = new CollectionTargetAssociation(Guid.NewGuid(), oldRevision, target, CollectionAssociationState.Modified);
+			CollectionNativeModState native = Native(target);
+			var binding = new CollectionMemberBinding(association, oldKey, native.Identity, oldMember.RecipeIdentity, CollectionMemberBindingKind.InstalledForCollection);
+			CollectionNativeStateIndex state = Index(target, association, native, binding);
+			ResolvedCollectionPlan oldPlan = Plan(oldRevision, target, state.Fingerprint, oldMember, Sha256A);
+			ResolvedCollectionPlan newPlan = Plan(newRevision, target, state.Fingerprint, newMember, Sha256B);
+			var userOverride = new UserOverride(Guid.NewGuid(),
+				new CollectionRequirementReference(association, oldKey, CollectionRequirementAspect.MemberEnabledState, null),
+				CollectionMemberRequirementStates.Enabled(true), CollectionMemberRequirementStates.Enabled(false), "keep disabled");
+			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(association, oldPlan, newPlan, state,
+				new[] { userOverride }, new CollectionDriftObservation[0], new[] { new NativeModProvenance(native.Identity, StandaloneModUse.NoStandaloneUseVerified) });
+			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
+				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+
+			CollectionRevisionUpdatePublicationPlan result = new CollectionRevisionUpdatePublicationBuilder().Build(update, preservation,
+				new Dictionary<CollectionMemberKey, NativeModInstanceIdentity> { { newKey, native.Identity } });
+
+			Assert.That(result.Bindings.Single().MemberKey, Is.EqualTo(newKey));
+			Assert.That(result.Overrides.Single().Requirement.MemberKey, Is.EqualTo(newKey));
+			Assert.That(result.Overrides.Single().OverrideId, Is.EqualTo(userOverride.OverrideId));
+		}
+
+		[Test]
+		public void Build_CrossKeyNexusFileChange_OmissionSuppressesCandidateAndRebasesOverrideKey()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c10-9-cross-key-omit");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c10-9-cross-key-omit");
+			CollectionRevisionIdentity oldRevision = CollectionRevisionIdentity.FromNexus(collection, "old", 1);
+			CollectionRevisionIdentity newRevision = CollectionRevisionIdentity.FromNexus(collection, "new", 2);
+			CollectionMemberKey oldKey = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:skyrimspecialedition/100/200");
+			CollectionMemberKey newKey = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:skyrimspecialedition/100/201");
+			NormalizedCollectionMember oldMember = Member(oldKey, "recipe-a", "200");
+			NormalizedCollectionMember newMember = Member(newKey, "recipe-b", "201");
+			var association = new CollectionTargetAssociation(Guid.NewGuid(), oldRevision, target, CollectionAssociationState.Modified);
+			CollectionNativeModState native = Native(target);
+			var binding = new CollectionMemberBinding(association, oldKey, native.Identity, oldMember.RecipeIdentity, CollectionMemberBindingKind.InstalledForCollection);
+			CollectionNativeStateIndex state = Index(target, association, native, binding);
+			ResolvedCollectionPlan oldPlan = Plan(oldRevision, target, state.Fingerprint, oldMember, Sha256A);
+			ResolvedCollectionPlan newPlan = Plan(newRevision, target, state.Fingerprint, newMember, Sha256B);
+			var userOverride = new UserOverride(Guid.NewGuid(),
+				new CollectionRequirementReference(association, oldKey, CollectionRequirementAspect.MemberParticipation, null),
+				CollectionMemberRequirementStates.Included(), CollectionRequirementState.Absent(), "omit");
+			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(association, oldPlan, newPlan, state,
+				new[] { userOverride }, new CollectionDriftObservation[0], new[] { new NativeModProvenance(native.Identity, StandaloneModUse.NoStandaloneUseVerified) });
+			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
+				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+
+			CollectionRevisionUpdatePublicationPlan result = new CollectionRevisionUpdatePublicationBuilder().Build(update, preservation,
+				new Dictionary<CollectionMemberKey, NativeModInstanceIdentity>());
+
+			Assert.That(result.Bindings, Is.Empty);
+			Assert.That(result.Overrides.Single().Requirement.MemberKey, Is.EqualTo(newKey));
+			Assert.That(result.Overrides.Single().UserChosenState, Is.EqualTo(CollectionRequirementState.Absent()));
+		}
+
+		[Test]
 		public void Build_OmissionSatisfiedByCandidateRemoval_DropsObsoleteOverride()
 		{
 			DomainFixture f = DomainFixture.RemovedMember(CollectionAssociationState.Modified);
@@ -80,6 +146,35 @@ namespace NexusClientTests
 				CollectionTargetAssociation published = f.AssociationStore.GetAssociation(publication.CandidateAssociation.AssociationId);
 				Assert.That(published, Is.Not.Null);
 				Assert.That(published.Revision, Is.EqualTo(f.NewPlan.Revision));
+				Assert.That(f.OperationStore.GetOperation(f.Operation.Identity).IsSuccessful, Is.True);
+			}
+		}
+
+		[Test]
+		[Category("CollectionsC12FailureInjection")]
+		public void FinalizeRevisionUpdateAssociation_CrossKeyCandidateBinding_ReplacesOldBindingAtomically()
+		{
+			using (StoreFixture f = StoreFixture.CreateCrossKey("cross-key-binding"))
+			{
+				CollectionMemberKey oldKey = f.Update.OldPlan.SelectedMembers.Single().MemberKey;
+				CollectionMemberKey newKey = f.NewPlan.SelectedMembers.Single().MemberKey;
+				CollectionRevisionUpdatePublicationPlan publication = f.BuildPublication();
+
+				Assert.That(oldKey, Is.Not.EqualTo(newKey));
+				Assert.That(publication.Bindings.Single().MemberKey, Is.EqualTo(newKey));
+
+				f.AssociationStore.FinalizeRevisionUpdateAssociation(f.Reviewed, f.Verification,
+					publication.CandidateAssociation, publication.Bindings, f.ExpectedOldOverrides,
+					publication.Overrides, f.CommittedOperation());
+
+				Assert.That(f.AssociationStore.GetAssociation(f.OldAssociation.AssociationId), Is.Null);
+				Assert.That(f.AssociationStore.GetBindings(f.OldAssociation.AssociationId), Is.Empty);
+				CollectionTargetAssociation published = f.AssociationStore.GetAssociation(publication.CandidateAssociation.AssociationId);
+				Assert.That(published, Is.Not.Null);
+				Assert.That(published.Revision, Is.EqualTo(f.NewPlan.Revision));
+				CollectionMemberBinding binding = f.AssociationStore.GetBindings(published.AssociationId).Single();
+				Assert.That(binding.MemberKey, Is.EqualTo(newKey));
+				Assert.That(binding.MemberKey, Is.Not.EqualTo(oldKey));
 				Assert.That(f.OperationStore.GetOperation(f.Operation.Identity).IsSuccessful, Is.True);
 			}
 		}
@@ -162,10 +257,12 @@ namespace NexusClientTests
 			private StoreFixture(string root, CollectionsStore store, CollectionTargetAssociation oldAssociation,
 				CollectionRevisionUpdatePlan update, CollectionRevisionUpdateReviewedIntent reviewed,
 				CollectionRevisionUpdateOverridePreservationPlan preservation, CollectionOperation operation,
-				CollectionRevisionUpdateAggregateVerificationRecord verification, List<UserOverride> expectedOldOverrides)
+				CollectionRevisionUpdateAggregateVerificationRecord verification, List<UserOverride> expectedOldOverrides,
+				IReadOnlyDictionary<CollectionMemberKey, NativeModInstanceIdentity> candidateNativeByMember)
 			{
 				Root = root; Store = store; OldAssociation = oldAssociation; Update = update; Reviewed = reviewed;
 				Preservation = preservation; Operation = operation; Verification = verification; ExpectedOldOverrides = expectedOldOverrides;
+				CandidateNativeByMember = candidateNativeByMember ?? throw new ArgumentNullException(nameof(candidateNativeByMember));
 				AssociationStore = new CollectionsAssociationStore(store);
 				OperationStore = new CollectionsOperationStore(store);
 			}
@@ -181,6 +278,7 @@ namespace NexusClientTests
 			public CollectionOperation Operation { get; }
 			public CollectionRevisionUpdateAggregateVerificationRecord Verification { get; }
 			public List<UserOverride> ExpectedOldOverrides { get; }
+			public IReadOnlyDictionary<CollectionMemberKey, NativeModInstanceIdentity> CandidateNativeByMember { get; }
 
 			public static StoreFixture Create(string suffix, bool withOverride)
 			{
@@ -232,13 +330,64 @@ namespace NexusClientTests
 				operationStore.SaveOperation(operation);
 				var verification = new CollectionRevisionUpdateAggregateVerificationRecord(operation.Identity.OperationId,
 					newPlan.Identity, reviewed.ReviewFingerprint, state.Fingerprint);
-				return new StoreFixture(root, store, association, update, reviewed, preservation, operation, verification, oldOverrides);
+				return new StoreFixture(root, store, association, update, reviewed, preservation, operation, verification, oldOverrides,
+					new Dictionary<CollectionMemberKey, NativeModInstanceIdentity>());
+			}
+
+			public static StoreFixture CreateCrossKey(string suffix)
+			{
+				string root = Path.Combine(Path.GetTempPath(), "nmm-c10-9-" + suffix + "-" + Guid.NewGuid().ToString("N"));
+				Directory.CreateDirectory(root);
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c10-9-" + suffix);
+				CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c10-9-" + suffix);
+				CollectionRevisionIdentity oldRevision = CollectionRevisionIdentity.FromNexus(collection, "old", 1);
+				CollectionRevisionIdentity newRevision = CollectionRevisionIdentity.FromNexus(collection, "new", 2);
+				var catalog = new CollectionsCatalogStore(store);
+				catalog.SaveDefinitionAndRevision(new CollectionDefinition(collection, "C10.9", null, null),
+					new CollectionRevision(oldRevision, "old", null, 0));
+				catalog.SaveDefinitionAndRevision(new CollectionDefinition(collection, "C10.9", null, null),
+					new CollectionRevision(newRevision, "new", null, 0));
+
+				CollectionMemberKey oldKey = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:skyrimspecialedition/100/200");
+				CollectionMemberKey newKey = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:skyrimspecialedition/100/201");
+				NormalizedCollectionMember oldMember = Member(oldKey, "recipe-a", "200");
+				NormalizedCollectionMember newMember = Member(newKey, "recipe-b", "201");
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), oldRevision, target, CollectionAssociationState.Applied);
+				var associationStore = new CollectionsAssociationStore(store);
+				associationStore.SaveAssociation(association);
+				CollectionNativeModState native = Native(target);
+				var oldBinding = new CollectionMemberBinding(association, oldKey, native.Identity, oldMember.RecipeIdentity,
+					CollectionMemberBindingKind.InstalledForCollection);
+				associationStore.SaveBinding(oldBinding);
+				CollectionNativeStateIndex state = Index(target, association, native, oldBinding);
+				ResolvedCollectionPlan oldPlan = Plan(oldRevision, target, state.Fingerprint, oldMember, Sha256A);
+				ResolvedCollectionPlan newPlan = Plan(newRevision, target, state.Fingerprint, newMember, Sha256B);
+				CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(association, oldPlan, newPlan, state,
+					new UserOverride[0], new CollectionDriftObservation[0],
+					new[] { new NativeModProvenance(native.Identity, StandaloneModUse.NoStandaloneUseVerified) });
+				CollectionRevisionUpdateReviewedIntent reviewed = CollectionRevisionUpdateReviewedIntent.Create(update);
+				CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
+					.RequireQualified(reviewed, update);
+				var planStore = new CollectionsResolvedPlanStore(store);
+				planStore.SavePlan(oldPlan, "test-plan/1", new byte[] { 1 });
+				planStore.SavePlan(newPlan, "test-plan/1", new byte[] { 2 });
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.UpdateRevision,
+					collection, target, newRevision, newPlan.Identity, 7, CollectionOperationPhase.CandidateRevisionAggregateVerified,
+					CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+				var operationStore = new CollectionsOperationStore(store);
+				operationStore.SaveOperation(operation);
+				var verification = new CollectionRevisionUpdateAggregateVerificationRecord(operation.Identity.OperationId,
+					newPlan.Identity, reviewed.ReviewFingerprint, state.Fingerprint);
+				var candidateNative = new Dictionary<CollectionMemberKey, NativeModInstanceIdentity> { { newKey, native.Identity } };
+				return new StoreFixture(root, store, association, update, reviewed, preservation, operation, verification,
+					new List<UserOverride>(), candidateNative);
 			}
 
 			public CollectionRevisionUpdatePublicationPlan BuildPublication()
 			{
-				return new CollectionRevisionUpdatePublicationBuilder().Build(Update, Preservation,
-					new Dictionary<CollectionMemberKey, NativeModInstanceIdentity>());
+				return new CollectionRevisionUpdatePublicationBuilder().Build(Update, Preservation, CandidateNativeByMember);
 			}
 
 			public CollectionOperation CommittedOperation()

@@ -51,6 +51,39 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void RevisionUpdate_VerifiedRolledBackAttempt_IsRetryableButAdditiveIsNot()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-retryable-revision-child");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-retryable-revision-child");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-retryable-revision-child", 1);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("member-retryable-revision-child");
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), "recipe-retryable"));
+			var child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(revision, memberKey),
+				CollectionNativeChildAction.ActivateOrReinstall, native, CollectionNativeChildCheckpoint.Reconciled,
+				new ModOperationResult(native, ModOperationReportedStatus.Failed, ModOperationDurability.VerifiedRolledBack, null));
+
+			Assert.IsTrue(CollectionNativeChildPreparationCoordinator.IsRetryableRevisionUpdateAttempt(child, CollectionNativeChildWorkflowMode.RevisionUpdate));
+			Assert.IsFalse(CollectionNativeChildPreparationCoordinator.IsRetryableRevisionUpdateAttempt(child, CollectionNativeChildWorkflowMode.Additive));
+		}
+
+		[Test]
+		public void RevisionUpdate_VerifiedCommittedAttempt_IsNotClassifiedAsRetryableRollback()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-committed-revision-child");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-committed-revision-child");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-committed-revision-child", 1);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("member-committed-revision-child");
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), "recipe-committed"));
+			var child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(revision, memberKey),
+				CollectionNativeChildAction.ActivateOrReinstall, native, CollectionNativeChildCheckpoint.Reconciled,
+				new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, null));
+
+			Assert.IsFalse(CollectionNativeChildPreparationCoordinator.IsRetryableRevisionUpdateAttempt(child, CollectionNativeChildWorkflowMode.RevisionUpdate));
+		}
+
+		[Test]
 		public void InjectedFailureAfterIntentPersisted_RestartResumesExactPendingChildWithoutRecovery()
 		{
 			string root = CreateTemporaryDirectory();

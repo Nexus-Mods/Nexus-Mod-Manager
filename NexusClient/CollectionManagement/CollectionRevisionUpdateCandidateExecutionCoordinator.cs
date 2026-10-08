@@ -22,7 +22,8 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionRevisionUpdateCandidateExecutionResult
 	{
 		internal CollectionRevisionUpdateCandidateExecutionResult(CollectionRevisionUpdateCandidateExecutionStatus status,
-			CollectionOperation operation, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null)
+			CollectionOperation operation, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null,
+			CollectionRevisionUpdatePreparationBatch preparation = null)
 		{
 			if (!Enum.IsDefined(typeof(CollectionRevisionUpdateCandidateExecutionStatus), status) ||
 				status == CollectionRevisionUpdateCandidateExecutionStatus.Unknown)
@@ -31,12 +32,14 @@ namespace Nexus.Client.CollectionManagement
 			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
 			Message = message ?? String.Empty;
 			ExecutionPlanning = executionPlanning;
+			Preparation = preparation;
 		}
 
 		public CollectionRevisionUpdateCandidateExecutionStatus Status { get; }
 		public CollectionOperation Operation { get; }
 		public string Message { get; }
 		internal CollectionRevisionUpdateCandidateExecutionPlanning ExecutionPlanning { get; }
+		internal CollectionRevisionUpdatePreparationBatch Preparation { get; }
 		public bool IsCompleted { get { return Status == CollectionRevisionUpdateCandidateExecutionStatus.Completed; } }
 	}
 
@@ -91,8 +94,8 @@ namespace Nexus.Client.CollectionManagement
 			if (preparedBatch == null) throw new ArgumentNullException(nameof(preparedBatch));
 			if (obsoleteResult == null) throw new ArgumentNullException(nameof(obsoleteResult));
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
-			if (!obsoleteResult.IsVerified)
-				throw new InvalidOperationException("C10.6 requires C10.4 obsolete-effect verification before candidate execution.");
+			if (!obsoleteResult.IsVerified && !HasDurablyPassedObsoleteBoundary(obsoleteResult.Operation))
+				throw new InvalidOperationException("Candidate revision installation requires the verified obsolete-effect boundary before it can continue.");
 			if (!obsoleteResult.Operation.Identity.Equals(preparedBatch.Operation.Identity) ||
 				obsoleteResult.Operation.PlanIdentity == null || !obsoleteResult.Operation.PlanIdentity.Equals(preparedBatch.CurrentPlan.NewPlan.Identity))
 				throw new ArgumentException("The C10.3/C10.4 inputs do not belong to the same exact revision-update operation.");
@@ -131,11 +134,17 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			Dictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> effective;
-			if (initiallyCommitted.Count == 0)
+			CollectionRevisionUpdatePreparationBatch effectiveBatch = preparedBatch;
+			if (CanReusePreparedRecipesAtBoundary(preparedBatch, initialState))
+			{
+				effective = GetReviewedPreparedRecipes(preparedBatch, preservation, initiallyCommitted);
+			}
+			else if (initiallyCommitted.Count == 0)
 			{
 				try
 				{
 					effective = ReprepareAgainstBoundary(preparedBatch, initialState, preservation, initiallyCommitted, cancellationToken);
+					effectiveBatch = RebindPreparationAtBoundary(preparedBatch, operation, initialState.Fingerprint, effective);
 				}
 				catch (InvalidOperationException ex)
 				{
@@ -149,10 +158,10 @@ namespace Nexus.Client.CollectionManagement
 				initialState, preservation, preparedBatch.Members, effective.Values, initiallyCommitted, cancellationToken);
 			if (!initialPlanning.IsReady)
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-					"The revision change is blocked by the member, dependency or file/plugin findings listed below.", initialPlanning);
+					"The revision change is blocked by the member, dependency or file/plugin findings listed below.", initialPlanning, effectiveBatch);
 			if (RequiresDurableFileWinnerReconciliation(initialPlanning.ImpactPlan))
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-					"This revision change needs file-provider reconciliation that its approved review does not support. No candidate mod was installed.", initialPlanning);
+					"This revision change needs file-provider reconciliation that its approved review does not support. No candidate mod was installed.", initialPlanning, effectiveBatch);
 
 			if (operation.Phase == CollectionOperationPhase.ObsoleteRevisionEffectsVerified)
 				operation = SavePhase(operation, CollectionOperationPhase.InstallingCandidateRevisionChildren, CollectionOperationResultState.Pending);
@@ -171,27 +180,45 @@ namespace Nexus.Client.CollectionManagement
 				{
 					if (committed.Count == 0)
 						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-							"The revision change is blocked by the member, dependency or file/plugin findings listed below.", planning);
+							"The revision change is blocked by the member, dependency or file/plugin findings listed below.", planning, effectiveBatch);
 					operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-						"The remaining revision changes are blocked after verified installation progress. Review the findings listed below.", planning);
+						"The remaining revision changes are blocked after verified installation progress. Review the findings listed below.", planning, effectiveBatch);
 				}
 				if (RequiresDurableFileWinnerReconciliation(planning.ImpactPlan))
 				{
 					if (committed.Count == 0)
 						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-							"This revision change needs file-provider reconciliation that its approved review does not support.", planning);
+							"This revision change needs file-provider reconciliation that its approved review does not support.", planning, effectiveBatch);
 					operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-						"The remaining revision changes need file-provider reconciliation after verified installation progress.", planning);
+						"The remaining revision changes need file-provider reconciliation after verified installation progress.", planning, effectiveBatch);
 				}
 
 				double? nextMutationPhase = GetNextMutationPhase(planning.DependencyPlan, operation);
 				double? committedPhase = GetHighestCommittedCandidatePhase(planning.ExecutionPlan, operation);
-				if (nextMutationPhase.HasValue && committedPhase.HasValue && nextMutationPhase.Value > committedPhase.Value)
+				if (nextMutationPhase.HasValue && committedPhase.HasValue && nextMutationPhase.Value > committedPhase.Value &&
+					!CanReusePreparedRecipesAtBoundary(effectiveBatch, state))
 				{
-					return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation,
-						"The next candidate member is separated by a NativeStateVisibility barrier. C10.6 will not carry a pre-barrier native preparation across that boundary without an explicit re-preparation/review amendment.");
+					if (!state.Fingerprint.Equals(GetExpectedSafeBoundaryFingerprint(operation, obsoleteResult)))
+					{
+						operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
+						return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
+							"The game setup changed after the completed installation phase. NMM must verify that change before installing the remaining mods.", null, effectiveBatch);
+					}
+					try
+					{
+						// Earlier phases are now visible to installer conditions. Rebuild only unfinished recipes and
+						// retain the original consent only when their prepared identity and exact effects are unchanged.
+						effective = ReprepareAgainstBoundary(effectiveBatch, state, preservation, committed, cancellationToken);
+						effectiveBatch = RebindPreparationAtBoundary(effectiveBatch, operation, state.Fingerprint, effective);
+					}
+					catch (InvalidOperationException ex)
+					{
+						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation, ex.Message, null, effectiveBatch);
+					}
+					// Rebuild matches/dependencies/impacts from the refreshed preparation before preparing a native child.
+					continue;
 				}
 
 				CollectionNativeChildPreparationResult child;
@@ -205,10 +232,10 @@ namespace Nexus.Client.CollectionManagement
 				catch (InvalidOperationException ex)
 				{
 					if (committed.Count == 0)
-						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation, ex.Message);
+						return Result(CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired, operation, ex.Message, null, effectiveBatch);
 					operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-						"The authoritative safe boundary changed after a candidate child committed: " + ex.Message);
+						"The authoritative safe boundary changed after a candidate child committed: " + ex.Message, null, effectiveBatch);
 				}
 				if (child == null)
 					break;
@@ -223,7 +250,7 @@ namespace Nexus.Client.CollectionManagement
 				if (execution == null)
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.NativeLaneBusy,
 						RequireOperation(operation.Identity, preparedBatch.CurrentPlan.NewPlan),
-						"The shared native operation lane is busy; the prepared candidate child has not started.");
+						"The shared native operation lane is busy; the prepared candidate child has not started.", null, effectiveBatch);
 
 				CollectionNativeChildVerificationResult verification;
 				try
@@ -236,12 +263,24 @@ namespace Nexus.Client.CollectionManagement
 					MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					throw;
 				}
+				if (verification.RequiresRecovery)
+				{
+					// Unknown durability must remain unreconciled. Preserve the verifier's member-specific evidence instead
+					// of masking it with the known-terminal-only reconciliation gate, or allowing another native submission.
+					operation = MarkRecoveryRequired(verification.Operation, preparedBatch.CurrentPlan.NewPlan);
+					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
+						String.IsNullOrWhiteSpace(verification.Child.NativeResult.Message)
+							? "NMM could not verify the candidate mod installation. Its native result requires recovery before the revision change can continue."
+							: verification.Child.NativeResult.Message, null, effectiveBatch);
+				}
 				operation = _childReconciliation.ReconcileVerifiedChild(verification, planning.ExecutionPlan);
 				if (!verification.HasVerifiedCommit)
 				{
 					operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 					return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-						"A candidate revision native child did not verify as durably committed.");
+						String.IsNullOrWhiteSpace(verification.Child.NativeResult.Message)
+							? "A candidate revision native child did not verify as durably committed."
+							: verification.Child.NativeResult.Message, null, effectiveBatch);
 				}
 			}
 
@@ -255,19 +294,19 @@ namespace Nexus.Client.CollectionManagement
 			{
 				operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-					"Candidate children committed, but the resulting safe boundary contains the blocking findings listed below.", finalPlanning);
+					"Candidate children committed, but the resulting safe boundary contains the blocking findings listed below.", finalPlanning, effectiveBatch);
 			}
 			if (RequiresDurableFileWinnerReconciliation(finalPlanning.ImpactPlan))
 			{
 				operation = MarkRecoveryRequired(operation, preparedBatch.CurrentPlan.NewPlan);
 				return Result(CollectionRevisionUpdateCandidateExecutionStatus.RecoveryRequired, operation,
-					"Candidate children committed but final file-provider reconciliation is not supported by this approved revision change.", finalPlanning);
+					"Candidate children committed but final file-provider reconciliation is not supported by this approved revision change.", finalPlanning, effectiveBatch);
 			}
 
 			operation = SavePhase(operation, CollectionOperationPhase.CandidateRevisionChildrenVerified,
 				CollectionOperationResultState.Pending);
 			return Result(CollectionRevisionUpdateCandidateExecutionStatus.Completed, operation,
-				"All required candidate activate/reinstall children are durably verified. Final override/winner/effect verification and revision publication remain pending.");
+				"All required candidate activate/reinstall children are durably verified. Final override/winner/effect verification and revision publication remain pending.", null, effectiveBatch);
 		}
 
 		/// <summary>Runs the existing C6.9 evidence classifier for one restart-ambiguous candidate child without replaying it.</summary>
@@ -282,9 +321,75 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionPlan executionPlan = CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(candidatePlan,
 				result.NativeState.Fingerprint);
 			CollectionOperation reconciled = _childReconciliation.ReconcileRestartedChild(result, executionPlan);
-			if (result.Child.NativeResult.Durability != Nexus.Client.ModManagement.Operations.ModOperationDurability.VerifiedCommitted)
-				return MarkRecoveryRequired(reconciled, candidatePlan);
-			return SavePhase(reconciled, CollectionOperationPhase.InstallingCandidateRevisionChildren, CollectionOperationResultState.Pending);
+			Nexus.Client.ModManagement.Operations.ModOperationDurability durability = result.Child.NativeResult.Durability;
+			if (durability == Nexus.Client.ModManagement.Operations.ModOperationDurability.VerifiedCommitted ||
+				durability == Nexus.Client.ModManagement.Operations.ModOperationDurability.VerifiedRolledBack ||
+				durability == Nexus.Client.ModManagement.Operations.ModOperationDurability.NotStarted)
+			{
+				// A committed child advances the safe boundary. A verified rollback/not-started result proves that the
+				// exact pre-child boundary still holds, so a later explicit continuation may create a fresh attempt.
+				return SavePhase(reconciled, CollectionOperationPhase.InstallingCandidateRevisionChildren, CollectionOperationResultState.Pending);
+			}
+			return MarkRecoveryRequired(reconciled, candidatePlan);
+		}
+
+		/// <summary>
+		/// Recognizes the durable candidate-install phase as proof that C10.4 was already crossed successfully.
+		/// Every persisted obsolete deactivation must still be reconciled and verified committed. This is used only
+		/// when reconstructing the C10.4 result after restart; it does not allow skipping C10.4 for a fresh operation.
+		/// </summary>
+		internal static bool HasDurablyPassedObsoleteBoundary(CollectionOperation operation)
+		{
+			if (operation == null || operation.Kind != CollectionOperationKind.UpdateRevision ||
+				operation.ResultState != CollectionOperationResultState.Pending ||
+				operation.Phase != CollectionOperationPhase.InstallingCandidateRevisionChildren)
+				return false;
+			return !operation.NativeChildren.Any(x => x.Action == CollectionNativeChildAction.Deactivate &&
+				(!x.IsReconciled || !x.HasVerifiedCommittedNativeState));
+		}
+
+		/// <summary>
+		/// Reuses an in-memory C10 preparation only when it was produced from the exact authoritative state now observed.
+		/// This removes the duplicate full archive/recipe pass performed by post-mutation resume while preserving fail-closed
+		/// re-preparation whenever the state boundary differs.
+		/// </summary>
+		internal static bool CanReusePreparedRecipesAtBoundary(CollectionRevisionUpdatePreparationBatch batch,
+			CollectionNativeStateIndex currentState)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			if (currentState == null) throw new ArgumentNullException(nameof(currentState));
+			return batch.PreparedAgainstStateFingerprint != null &&
+				batch.PreparedAgainstStateFingerprint.Equals(currentState.Fingerprint);
+		}
+
+		/// <summary>
+		/// Carries an execution-boundary preparation forward in memory so a user recheck at the same unchanged safe boundary
+		/// does not reopen and translate every candidate archive again. Rows not present in the effective set are deliberately
+		/// cleared rather than mislabeled as having been prepared against this boundary.
+		/// </summary>
+		internal static CollectionRevisionUpdatePreparationBatch RebindPreparationAtBoundary(
+			CollectionRevisionUpdatePreparationBatch batch, CollectionOperation operation,
+			CollectionCurrentStateFingerprint boundaryFingerprint,
+			IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> effectiveRecipes)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			if (boundaryFingerprint == null) throw new ArgumentNullException(nameof(boundaryFingerprint));
+			if (effectiveRecipes == null) throw new ArgumentNullException(nameof(effectiveRecipes));
+			if (!operation.Identity.Equals(batch.Operation.Identity) || operation.PlanIdentity == null ||
+				!operation.PlanIdentity.Equals(batch.CurrentPlan.NewPlan.Identity))
+				throw new ArgumentException("Execution-boundary preparation must remain attached to the exact revision-update operation.", nameof(operation));
+
+			var states = new List<CollectionRevisionUpdatePreparationMemberState>(batch.Members.Count);
+			foreach (CollectionRevisionUpdatePreparationMemberState member in batch.Members)
+			{
+				PreparedCollectionNativeRecipe prepared;
+				effectiveRecipes.TryGetValue(member.UpdateMember.MemberKey, out prepared);
+				states.Add(new CollectionRevisionUpdatePreparationMemberState(member.UpdateMember, member.Disposition, member.Request,
+					member.VerifiedArchive, member.QueueCorrelation, member.PendingAction, member.RestartResult, member.PremiumAvailability, prepared));
+			}
+			return new CollectionRevisionUpdatePreparationBatch(operation, batch.ReviewedIntent, batch.CurrentPlan, states,
+				batch.ArchiveOverwritePolicy, boundaryFingerprint);
 		}
 
 		private Dictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> GetReviewedPreparedRecipes(
@@ -332,12 +437,39 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("A C10.6 mutating candidate member is missing its exact C10.3 archive/preparation input.");
 				PreparedCollectionNativeRecipe current = _recipePreparation.PrepareAtExecutionBoundary(batch.CurrentPlan,
 					member.UpdateMember, member.VerifiedArchive, state, cancellationToken);
-				if (!current.PreparedNativeIdentity.Equals(member.PreparedRecipe.PreparedNativeIdentity))
-					throw new InvalidOperationException("Candidate native preparation changed after the verified C10.4 boundary for member '" +
-						member.UpdateMember.MemberKey + "'; the approved prepared-native identity cannot be reused without explicit review.");
+				RequireUnchangedBoundaryPreparation(member.PreparedRecipe, current);
 				result.Add(member.UpdateMember.MemberKey, current);
 			}
 			return result;
+		}
+
+		/// <summary>Retains the approved recipe only when phase-boundary re-preparation produces the same inputs and effects.</summary>
+		internal static void RequireUnchangedBoundaryPreparation(PreparedCollectionNativeRecipe reviewed, PreparedCollectionNativeRecipe current)
+		{
+			if (reviewed == null) throw new ArgumentNullException(nameof(reviewed));
+			if (current == null) throw new ArgumentNullException(nameof(current));
+			bool unchanged = current.PreparedNativeIdentity.Equals(reviewed.PreparedNativeIdentity) &&
+				current.Member.MemberKey.Equals(reviewed.Member.MemberKey) && current.ProviderRecipeIdentity.Equals(reviewed.ProviderRecipeIdentity) &&
+				StringComparer.Ordinal.Equals(current.RecipeInput.TargetFingerprint, reviewed.RecipeInput.TargetFingerprint) &&
+				current.InstallContext.Method == reviewed.InstallContext.Method && current.InstallContext.InstallRoot == reviewed.InstallContext.InstallRoot &&
+				current.Validation.ExpectedContent.ByteLength == reviewed.Validation.ExpectedContent.ByteLength &&
+				StringComparer.OrdinalIgnoreCase.Equals(current.Validation.ExpectedContent.Sha256, reviewed.Validation.ExpectedContent.Sha256) &&
+				StringComparer.Ordinal.Equals(CollectionReplacementPreparedRecipeApproval.ComputeEffectFingerprint(current.EffectPreview),
+					CollectionReplacementPreparedRecipeApproval.ComputeEffectFingerprint(reviewed.EffectPreview));
+			if (unchanged)
+			{
+				// The shared effect fingerprint covers destinations, INI/game values and plugin actions. Compare exact
+				// file bytes separately so unchanged paths cannot conceal different generated or merged payloads.
+				Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect> currentFiles = current.EffectPreview.Files.ToDictionary(x => x.Target);
+				unchanged = reviewed.EffectPreview.Files.All(x => currentFiles.ContainsKey(x.Target) &&
+					Equals(x.ExpectedContentHash, currentFiles[x.Target].ExpectedContentHash) && x.ExpectedByteLength == currentFiles[x.Target].ExpectedByteLength);
+			}
+			if (!unchanged)
+			{
+				string subject = String.IsNullOrWhiteSpace(reviewed.Member.DisplayName) ? reviewed.Member.MemberKey.ToString() : reviewed.Member.DisplayName;
+				throw new InvalidOperationException("The remaining installation choices or effects for '" + subject +
+					"' changed after earlier mods finished. NMM stopped before installing this mod; its changed preparation needs a new review.");
+			}
 		}
 
 		internal static bool RequiresDurableFileWinnerReconciliation(CollectionConflictImpactPlan impactPlan)
@@ -419,9 +551,10 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static CollectionRevisionUpdateCandidateExecutionResult Result(CollectionRevisionUpdateCandidateExecutionStatus status,
-			CollectionOperation operation, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null)
+			CollectionOperation operation, string message, CollectionRevisionUpdateCandidateExecutionPlanning executionPlanning = null,
+			CollectionRevisionUpdatePreparationBatch preparation = null)
 		{
-			return new CollectionRevisionUpdateCandidateExecutionResult(status, operation, message, executionPlanning);
+			return new CollectionRevisionUpdateCandidateExecutionResult(status, operation, message, executionPlanning, preparation);
 		}
 	}
 }

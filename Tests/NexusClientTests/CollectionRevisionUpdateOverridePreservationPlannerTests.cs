@@ -116,6 +116,41 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Plan_CrossKeyNexusFileChange_OmissionSuppressesCandidateIdentity()
+		{
+			NormalizedCollectionMember oldMember = CreateValidatedNexusMember("100", "200", "recipe-a");
+			NormalizedCollectionMember newMember = CreateValidatedNexusMember("100", "201", "recipe-b");
+			Fixture f = CreateFixture(oldMember, newMember);
+			UserOverride value = Override(f.Association, oldMember.IdentityResolution.Key, CollectionRequirementAspect.MemberParticipation,
+				null, CollectionRequirementState.Present("participation-v1", "included"), CollectionRequirementState.Absent());
+			CollectionRevisionUpdatePlan update = f.Plan(new[] { value });
+
+			CollectionRevisionUpdateOverridePreservationPlan result = new CollectionRevisionUpdateOverridePreservationPlanner()
+				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+
+			Assert.That(result.Actions.Single().Disposition, Is.EqualTo(CollectionRevisionUpdateOverridePreservationDisposition.PreserveExistingNativeState));
+			Assert.That(result.MembersWhoseCandidateMutationIsSuppressed.Single(), Is.EqualTo(newMember.IdentityResolution.Key));
+		}
+
+		[Test]
+		public void Plan_CrossKeyNexusFileChange_EnabledOverrideTargetsCandidateIdentity()
+		{
+			NormalizedCollectionMember oldMember = CreateValidatedNexusMember("100", "200", "recipe-a");
+			NormalizedCollectionMember newMember = CreateValidatedNexusMember("100", "201", "recipe-b");
+			Fixture f = CreateFixture(oldMember, newMember);
+			UserOverride value = Override(f.Association, oldMember.IdentityResolution.Key, CollectionRequirementAspect.MemberEnabledState, null,
+				CollectionMemberRequirementStates.Enabled(true), CollectionMemberRequirementStates.Enabled(false));
+			CollectionRevisionUpdatePlan update = f.Plan(new[] { value });
+
+			CollectionRevisionUpdateOverridePreservationPlan result = new CollectionRevisionUpdateOverridePreservationPlanner()
+				.RequireQualified(CollectionRevisionUpdateReviewedIntent.Create(update), update);
+
+			Assert.That(result.IsQualified, Is.True);
+			Assert.That(result.RequiresPostCandidateReapply, Is.True);
+			Assert.That(result.Actions.Single().Disposition, Is.EqualTo(CollectionRevisionUpdateOverridePreservationDisposition.ReapplyAfterCandidateExecution));
+		}
+
+		[Test]
 		public void Plan_NonCanonicalMemberEnabledOverride_RemainsActionRequired()
 		{
 			Fixture f = CreateFixture(CreateMember("member-a", "100", "200", "recipe-a"), CreateMember("member-a", "100", "201", "recipe-b"));
@@ -161,6 +196,16 @@ namespace NexusClientTests
 				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
 				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/" + modId + "/" + fileId, null),
 				CollectionRecipeIdentity.FromFingerprint(recipe), memberKey);
+		}
+
+		private static NormalizedCollectionMember CreateValidatedNexusMember(string modId, string fileId, string recipe)
+		{
+			string stableId = "skyrimspecialedition/" + modId + "/" + fileId;
+			CollectionMemberKey key = CollectionMemberKey.FromValidatedMatch("nexus-mod-file:" + stableId);
+			return new NormalizedCollectionMember(0, CollectionMemberIdentityResolution.Resolved(key),
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+				new CollectionArtifactReference("nexus-mod-file", stableId, null),
+				CollectionRecipeIdentity.FromFingerprint(recipe), "mod-" + modId);
 		}
 
 		private static ResolvedCollectionPlan CreatePlan(CollectionRevisionIdentity revision, CollectionTargetIdentity target,

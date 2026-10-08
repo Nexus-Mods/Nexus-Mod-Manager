@@ -103,7 +103,7 @@ namespace Nexus.Client.ModManagement
 		public override bool ResolveDataFileOverwrite(string p_strPath)
 		{
 			IList<IMod> lstInstallers = InstallLog.GetFileInstallers(p_strPath);
-			return lstInstallers.Contains(Mod, ModComparer.Filename) || base.ResolveDataFileOverwrite(p_strPath);
+			return lstInstallers.Any(IsCurrentUpgradeOwner) || base.ResolveDataFileOverwrite(p_strPath);
 		}
 
 		/// <summary>
@@ -118,11 +118,11 @@ namespace Nexus.Client.ModManagement
 			string strInstallFilePath = Path.Combine(InstallBasePath, p_strPath);
 
 			IList<IMod> lstInstallers = InstallLog.GetFileInstallers(p_strPath);
-			if (!lstInstallers.Contains(Mod, ModComparer.Filename))
+			if (!lstInstallers.Any(IsCurrentUpgradeOwner))
 				return base.GenerateDataFileWithResolvedOverwrite(p_strPath, p_bteData);
 
 			string strWritePath;
-			if (!ModComparer.Filename.Equals(lstInstallers[lstInstallers.Count - 1], Mod))
+			if (!IsCurrentUpgradeOwner(lstInstallers[lstInstallers.Count - 1]))
 			{
 				string strDirectory = Path.GetDirectoryName(p_strPath);
 				string strBackupPath = Path.Combine(GameModeInfo.OverwriteDirectory, strDirectory);
@@ -136,6 +136,22 @@ namespace Nexus.Client.ModManagement
 			TransactionalFileManager.WriteAllBytes(strWritePath, p_bteData);
 			OriginallyInstalledFiles.Remove(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
 			return true;
+		}
+
+		/// <summary>
+		/// Returns whether the supplied installer entry belongs to the same durable InstallLog owner currently
+		/// being upgraded. Archive filenames can legitimately change between versions, while the native owner key
+		/// is deliberately preserved by <see cref="ModUpgrader"/>.
+		/// </summary>
+		private bool IsCurrentUpgradeOwner(IMod p_modCandidate)
+		{
+			if (p_modCandidate == null)
+				return false;
+
+			string strUpgradeOwnerKey = InstallLog.GetModKey(Mod);
+			string strCandidateOwnerKey = InstallLog.GetModKey(p_modCandidate);
+			return !String.IsNullOrEmpty(strUpgradeOwnerKey) &&
+				StringComparer.OrdinalIgnoreCase.Equals(strUpgradeOwnerKey, strCandidateOwnerKey);
 		}
 
 		/// <summary>

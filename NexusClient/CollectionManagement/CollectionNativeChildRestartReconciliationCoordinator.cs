@@ -6,12 +6,15 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using ChinhDo.Transactions;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.Mods;
+using Nexus.Transactions;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -146,6 +149,17 @@ namespace Nexus.Client.CollectionManagement
 						paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure);
 					bool rolledBack = evidence != null && TryVerifyRolledBackState(recovery, evidence, state,
 						paths.InstallInfoPath, _services.ModManager.GameMode, out rolledBackFailure);
+					string virtualRelinkDetail = null;
+					if (workflowMode == CollectionNativeChildWorkflowMode.RevisionUpdate && evidence != null &&
+						!committed && !rolledBack && priorDurability == ModOperationDurability.Unknown &&
+						reportedStatus == ModOperationReportedStatus.Succeeded && TryRepairExactVirtualUpgradeLinks(recovery,
+							evidence, state, paths.InstallInfoPath, out virtualRelinkDetail))
+					{
+						state = CaptureReloadedState(operation.Target);
+						committed = TryVerifyCommittedState(recovery, evidence, state,
+							_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
+							paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure);
+					}
 					string replayRepairDetail = null;
 					if (evidence != null && !committed && !rolledBack && priorDurability == ModOperationDurability.Unknown &&
 						reportedStatus == ModOperationReportedStatus.Succeeded && TryRestoreExactReinstallReplay(recovery, evidence, state,
@@ -180,6 +194,8 @@ namespace Nexus.Client.CollectionManagement
 						? "C6.9 execution evidence is missing."
 						: BuildVerificationDiagnostics(committed, committedFailure, rolledBack, rolledBackFailure,
 							rollbackResidueRepaired, rollbackRepairDetail);
+					if (!String.IsNullOrWhiteSpace(virtualRelinkDetail))
+						verificationDiagnostics += " Virtual upgrade relink recovery: " + virtualRelinkDetail;
 					if (!String.IsNullOrWhiteSpace(replayRepairDetail))
 						verificationDiagnostics += " Reinstall replay recovery: " + replayRepairDetail;
 					ModOperationDurability durability = evidence == null
@@ -355,7 +371,7 @@ namespace Nexus.Client.CollectionManagement
 		internal static bool TryVerifyCommittedState(CollectionNativeChildRecoveryManifest recovery,
 			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string currentDomain,
 			string installInfoDirectory, IGameMode gameMode, out CollectionNativeModState nativeMod, out string failureReason,
-			bool verifyReplay = true)
+			bool verifyReplay = true, bool verifyFileContents = true)
 		{
 			nativeMod = null;
 			failureReason = null;
@@ -414,7 +430,7 @@ namespace Nexus.Client.CollectionManagement
 			var failures = new List<string>();
 			string detail;
 			if (!VerifyMemberEffects(state, nativeMod, evidence.ReviewedEffects, out detail)) failures.Add(detail);
-			if (!VerifyFileEvidence(state, evidence.ExpectedFileContents, gameMode, out detail)) failures.Add(detail);
+			if (verifyFileContents && !VerifyFileEvidence(state, evidence.ExpectedFileContents, gameMode, out detail)) failures.Add(detail);
 			if (verifyReplay && !VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out detail)) failures.Add(detail);
 			if (failures.Count != 0)
 			{
@@ -855,6 +871,140 @@ namespace Nexus.Client.CollectionManagement
 			catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException)
 			{
 				failureReason = "previous replay inspection failed: " + exception.GetType().Name + ": " + exception.Message;
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Completes a successful same-owner Virtual upgrade whose exact staged postimage was not linked into the game.
+		/// </summary>
+		private bool TryRepairExactVirtualUpgradeLinks(CollectionNativeChildRecoveryManifest recovery,
+			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string installInfoDirectory,
+			out string detail)
+		{
+			detail = null;
+			if (recovery.TerminalStateFingerprint != null || recovery.PreviousNativeMod == null || recovery.PreviousArchive == null ||
+				recovery.PreviousNativeMod.InstallMethod != ModInstallMethod.Virtual ||
+				evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual ||
+				recovery.PreviousNativeMod.InstallRoot != evidence.ReviewedEffects.InstallRoot ||
+				recovery.PreviousArchive.ContentHash.Equals(recovery.IncomingArchive.ContentHash))
+				return false;
+
+			ModManager modManager = _services.ModManager;
+			CollectionNativeModState nativeMod;
+			string failure;
+			// Registration, archive identity, replay, ownership and plugin/configuration effects must already
+			// be committed. Only deployment of the retained exact file postimage may remain incomplete.
+			if (!TryVerifyCommittedState(recovery, evidence, state,
+				modManager.ModRepository == null ? null : modManager.ModRepository.GameDomainName,
+				installInfoDirectory, modManager.GameMode, out nativeMod, out failure, true, false) ||
+				!nativeMod.Identity.Equals(recovery.PreviousNativeMod.Identity) ||
+				!StringComparer.Ordinal.Equals(nativeMod.NexusModId, recovery.PreviousNativeMod.NexusModId))
+				return false;
+
+			string ownerKey = nativeMod.Identity.NativeModKey;
+			VirtualModActivator backend = modManager.VirtualModActivator;
+			IReadOnlyList<ModDeploymentTarget> targets;
+			if (!TryCollectExactVirtualRelinkTargets(evidence, state, ownerKey, backend.GetVirtualSourceForOwner,
+				out targets, out detail) || targets.Count == 0)
+				return false;
+
+			List<IMod> previous = modManager.ManagedMods.Where(x => x != null &&
+				StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Filename), recovery.PreviousNativeMod.FileName) &&
+				MatchesArtifactFile(x.Filename, recovery.PreviousArchive)).ToList();
+			List<IMod> incoming = modManager.ManagedMods.Where(x => x != null &&
+				StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Filename), evidence.IncomingFileName) &&
+				MatchesArtifactFile(x.Filename, recovery.IncomingArchive)).ToList();
+			if (previous.Count != 1 || incoming.Count != 1 ||
+				!StringComparer.OrdinalIgnoreCase.Equals(modManager.InstallationLog.GetModKey(incoming[0]), ownerKey))
+			{
+				detail = "The exact previous/replacement native archive records are unavailable; links were not changed.";
+				return false;
+			}
+
+			using (TransactionScope transaction = new TransactionScope())
+			{
+				TxFileManager files = new TxFileManager();
+				backend.RebindVirtualModInfoForUpgrade(previous[0], incoming[0]);
+				// Recheck after canonicalizing legacy metadata: it must resolve to the same reviewed source bytes.
+				if (!TryCollectExactVirtualRelinkTargets(evidence, CaptureReloadedState(state.Target), ownerKey,
+					backend.GetVirtualSourceForOwner, out targets, out failure))
+					throw new InvalidDataException("Exact Virtual relink preconditions changed: " + failure);
+				foreach (ModDeploymentTarget target in targets)
+					backend.DeploySpecificVirtualLink(target, ownerKey, files);
+				if (!TryVerifyCommittedState(recovery, evidence, CaptureReloadedState(state.Target),
+					modManager.ModRepository == null ? null : modManager.ModRepository.GameDomainName,
+					installInfoDirectory, modManager.GameMode, out nativeMod, out failure))
+					throw new InvalidDataException("Exact Virtual relink did not satisfy the complete reviewed result: " + failure);
+				transaction.Complete();
+			}
+			detail = String.Format(CultureInfo.InvariantCulture,
+				"Relinked {0} exact reviewed replacement file(s) for native owner '{1}'; the complete native result was verified.",
+				targets.Count, ownerKey);
+			return true;
+		}
+
+		/// <summary>
+		/// Selects only reviewed Virtual files with an exact staged postimage and an unchanged deployed preimage.
+		/// </summary>
+		internal static bool TryCollectExactVirtualRelinkTargets(CollectionNativeChildExecutionEvidence evidence,
+			CollectionNativeStateIndex state, string ownerKey, Func<ModDeploymentTarget, string, string> getSource,
+			out IReadOnlyList<ModDeploymentTarget> targets, out string failure)
+		{
+			targets = new ModDeploymentTarget[0];
+			failure = null;
+			if (evidence == null || state == null || String.IsNullOrWhiteSpace(ownerKey) || getSource == null ||
+				evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual)
+				return false;
+			try
+			{
+				var preimages = evidence.PreFileContents.ToDictionary(x => x.Target);
+				var reviewedTargets = new HashSet<ModDeploymentTarget>(evidence.ExpectedFileContents.Select(x => x.Target));
+				if (state.Files.Values.Any(x => !reviewedTargets.Contains(x.Target) && x.VirtualOwners.Any(y =>
+					StringComparer.OrdinalIgnoreCase.Equals(y.OwnerKey, ownerKey))))
+				{
+					failure = "The Virtual owner has files outside this exact reviewed child; links were not changed.";
+					return false;
+				}
+				var pending = new List<ModDeploymentTarget>();
+				foreach (CollectionNativeFileContentEvidence expected in evidence.ExpectedFileContents)
+				{
+					CollectionNativeFileState file;
+					string source = getSource(expected.Target, ownerKey);
+					if (!state.Files.TryGetValue(expected.Target, out file) || file.Promoted ||
+						!file.RecordedByInstallLog || !file.RecordedByVirtualState ||
+						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, ownerKey) ||
+						file.InstallLogOwners.Count == 0 ||
+						!StringComparer.OrdinalIgnoreCase.Equals(file.InstallLogOwners.Last().OwnerKey, ownerKey) ||
+						!MatchesContentFile(source, expected.ContentHash, expected.ByteLength))
+					{
+						failure = "The reviewed Virtual owner/source cannot be proven for '" + expected.Target + "'; links were not changed.";
+						return false;
+					}
+					List<CollectionNativeOwnerState> active = file.VirtualOwners.Where(x => x.VirtualLinkActive == true).ToList();
+					if (active.Count == 0 || active.Any(x => x.Kind != CollectionNativeOwnerKind.NativeMod ||
+						!StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey) ||
+						!StringComparer.OrdinalIgnoreCase.Equals(x.VirtualStagedSourcePath, source)))
+					{
+						failure = "Active Virtual ownership is ambiguous for '" + expected.Target + "'; links were not changed.";
+						return false;
+					}
+					if (MatchesContentFile(file.PhysicalPath, expected.ContentHash, expected.ByteLength))
+						continue;
+					CollectionNativeFileContentEvidence preimage = preimages[expected.Target];
+					if (!preimage.Existed || !MatchesContentFile(file.PhysicalPath, preimage.ContentHash, preimage.ByteLength))
+					{
+						failure = "The deployed file is neither the reviewed previous nor replacement bytes at '" + expected.Target + "'; links were not changed.";
+						return false;
+					}
+					pending.Add(expected.Target);
+				}
+				targets = pending.AsReadOnly();
+				return true;
+			}
+			catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException)
+			{
+				failure = "Exact Virtual relink inspection failed: " + exception.Message;
 				return false;
 			}
 		}

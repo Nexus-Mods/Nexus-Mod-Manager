@@ -172,6 +172,8 @@
     <Compile Include="CollectionManagement\CollectionRevisionUpdateApplicationService.cs" />
     <Compile Include="CollectionManagement\CollectionRevisionUpdatePlan.cs" />
     <Compile Include="CollectionManagement\CollectionRevisionUpdatePlanner.cs" />
+    <Compile Include="CollectionManagement\CollectionRevisionUpdateMemberCorrelation.cs" />
+    <Compile Include="CollectionManagement\CollectionRevisionUpdateCandidateSelection.cs" />
     <Compile Include="CollectionManagement\CollectionRevisionUpdateReviewedIntent.cs" />
     <Compile Include="CollectionManagement\CollectionRevisionUpdateReviewCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionRevisionUpdatePreparation.cs" />
@@ -289,6 +291,7 @@
     <Compile Include="CollectionManagement\Persistence\CollectionsCatalogStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsLocalCaptureStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsLocalWorkingCopyStore.cs" />
+    <Compile Include="CollectionManagement\Persistence\CollectionsNexusLocatorStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsRevisionSourceStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsAssociationStore.cs" />
     <Compile Include="CollectionManagement\Persistence\CollectionsConflictResolutionStore.cs" />

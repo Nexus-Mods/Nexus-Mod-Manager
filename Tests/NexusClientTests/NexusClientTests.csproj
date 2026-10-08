@@ -178,6 +178,7 @@
     <Compile Include="CollectionMemberMatchEngineTests.cs" />
     <Compile Include="CollectionReplacementDiffPlannerTests.cs" />
     <Compile Include="CollectionRevisionUpdatePlannerTests.cs" />
+    <Compile Include="CollectionRevisionUpdateCandidateSelectionTests.cs" />
     <Compile Include="CollectionRevisionUpdateReviewCoordinatorTests.cs" />
     <Compile Include="CollectionRevisionUpdatePreparationCoordinatorTests.cs" />
     <Compile Include="CollectionRevisionUpdateObsoleteEffectCoordinatorTests.cs" />
@@ -230,6 +231,7 @@
     <Compile Include="CollectionOperationContractsTests.cs" />
     <Compile Include="CollectionsStoreFoundationTests.cs" />
     <Compile Include="CollectionsCatalogStoreTests.cs" />
+    <Compile Include="CollectionsNexusLocatorStoreTests.cs" />
     <Compile Include="CollectionsRevisionSourceStoreTests.cs" />
     <Compile Include="CollectionsLocalWorkingCopyStoreTests.cs" />
     <Compile Include="CollectionsAssociationStoreTests.cs" />

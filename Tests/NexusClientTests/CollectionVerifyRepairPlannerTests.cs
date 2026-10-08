@@ -467,7 +467,7 @@ namespace NexusClientTests
 			var customization = new CollectionAssociationCustomization(current, new UserOverride[0],
 				drift == null ? new CollectionDriftObservation[0] : new[] { drift });
 			return new CollectionManagementAssociationPresentation(new CollectionManagementAssociation(current, "Collection", "Revision 1"),
-				null, null, null, new[] { member }, customization, "fallout4", null);
+				null, null, null, new[] { member }, customization, "fallout4", null, null);
 		}
 
 		private static CollectionNativePluginState Plugin(string name, int priority)

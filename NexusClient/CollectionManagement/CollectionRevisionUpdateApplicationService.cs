@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -79,6 +80,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsResolvedPlanStore _planStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
+		private readonly CollectionsNexusLocatorStore _nexusLocatorStore;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
 		private readonly CollectionsRetainedArtifactReferenceStore _referenceStore;
 		private readonly CollectionsNativeChildRecoveryManifestStore _manifestStore;
@@ -124,6 +126,7 @@ namespace Nexus.Client.CollectionManagement
 			_operationStore = new CollectionsOperationStore(_store);
 			_planStore = new CollectionsResolvedPlanStore(_store);
 			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
+			_nexusLocatorStore = new CollectionsNexusLocatorStore(_store);
 			_artifactStore = new CollectionsRetainedArtifactStore(_store);
 			_referenceStore = new CollectionsRetainedArtifactReferenceStore(_store);
 			_manifestStore = new CollectionsNativeChildRecoveryManifestStore(_artifactStore, _referenceStore);
@@ -134,7 +137,10 @@ namespace Nexus.Client.CollectionManagement
 			if (nexusRepository == null) throw new InvalidOperationException("Revision update requires the active NexusModsApiRepository implementation.");
 			_sourcePolicyResolver = new CollectionNexusSourcePolicyResolver(_revisionSourceStore, nexusRepository);
 			_reviewCoordinator = new CollectionRevisionUpdateReviewCoordinator(_operationStore, _planStore, _associationStore);
-			_recipePreparation = new CollectionRevisionUpdateNativeRecipePreparationService(_services, _store);
+			// Share retained-source/artifact stores with recipe preparation so one revision continuation also shares their
+			// process-local integrity caches instead of hashing/opening the same immutable inputs through parallel store instances.
+			_recipePreparation = new CollectionRevisionUpdateNativeRecipePreparationService(_services, _artifactStore,
+				new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore));
 			_preparationCoordinator = BuildPreparationCoordinator();
 			_obsoleteCoordinator = new CollectionRevisionUpdateObsoleteEffectCoordinator(_services, _gameStorageService,
 				_operationStore, _associationStore, _reviewCoordinator, CollectionTargetMutationLeaseManager.Shared,
@@ -181,8 +187,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionEffectiveSelection oldSelection = BuildInstalledSelection(oldManifest.CapabilityReport, bindings, overrides, drift);
 				CollectionNexusSourcePolicyResolution oldPolicyResolution = _sourcePolicyResolver.ResolveInstalled(oldSelection, bindings, state);
 				oldSelection = RequireSupportedSelection(oldPolicyResolution.Selection);
-				CollectionEffectiveSelection candidateSelection = BuildCandidateSelection(candidateManifest.CapabilityReport,
-					candidateOptionalSelection, bindings);
+				CollectionEffectiveSelection candidateSelection = BuildCandidateSelection(oldSelection, candidateManifest.CapabilityReport,
+					candidateOptionalSelection);
 				CollectionNexusSourcePolicyResolution candidatePolicyResolution = _sourcePolicyResolver.Resolve(candidateSelection);
 				candidateSelection = RequireSupportedSelection(candidatePolicyResolution.Selection);
 				ResolvedCollectionPlan oldPlan = BuildPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), authority.Target,
@@ -253,6 +259,16 @@ namespace Nexus.Client.CollectionManagement
 			return _reviewCoordinator.CancelBeforeApply(review.Operation.Identity, review.UpdatePlan.NewPlan.Identity);
 		}
 
+		/// <summary>Reads the latest revision-update journal snapshot without reconciling or submitting native work.</summary>
+		internal CollectionOperation ReadCurrentOperation(CollectionOperationIdentity operationIdentity)
+		{
+			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
+			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
+			if (operation == null || operation.Kind != CollectionOperationKind.UpdateRevision)
+				throw new InvalidOperationException("The revision-update operation is unavailable in the durable journal.");
+			return operation;
+		}
+
 		/// <summary>Rehydrates an interrupted pre-mutation C10 review so the UI can explicitly approve or cancel it after restart.</summary>
 		public CollectionRevisionUpdateWorkflowReview LoadPendingReview(CollectionOperationIdentity operationIdentity)
 		{
@@ -266,6 +282,100 @@ namespace Nexus.Client.CollectionManagement
 			CollectionRevisionUpdatePlan plan = RehydrateReviewedPlan(intent);
 			intent.ValidateCurrentPlan(plan);
 			return new CollectionRevisionUpdateWorkflowReview(operation, plan);
+		}
+
+		/// <summary>Finds the exact durable unfinished update for one installed association even before startup UI reconciliation finishes.</summary>
+		internal CollectionRevisionUpdateWorkflowResult InspectInterruptedForAssociation(Guid associationId)
+		{
+			if (associationId == Guid.Empty) return null;
+			CollectionTargetAssociation association = _associationStore.GetAssociation(associationId);
+			if (association == null) return null;
+			foreach (CollectionOperation operation in _operationStore.GetIncompleteOperations(association.Target)
+				.Where(x => x.Kind == CollectionOperationKind.UpdateRevision && x.Collection.Equals(association.Revision.Collection)))
+			{
+				try
+				{
+					CollectionRevisionUpdateReviewedIntent intent = _reviewCoordinator.LoadReviewedIntent(operation.Identity);
+					if (intent.AssociationId != associationId || !intent.OldRevision.Equals(association.Revision) ||
+						!intent.CandidateRevision.Equals(operation.Revision) || !intent.Target.Equals(operation.Target)) continue;
+					if (operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability)
+						return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.RecoveryRequired,
+							operation, null, null, "The interrupted revision change must be reconciled before it can continue.");
+					if (operation.Phase == CollectionOperationPhase.ReadyForReview)
+						return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.ReadyForReview,
+							operation, null, null, "The interrupted revision change is waiting for review.");
+					if (operation.Phase == CollectionOperationPhase.AwaitingInput)
+						return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.AwaitingInput,
+							operation, null, null, "The interrupted revision change is waiting for required input.");
+					return new CollectionRevisionUpdateWorkflowResult(CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary,
+						operation, null, null, "The interrupted revision change is paused at a safe boundary and can be continued.");
+				}
+				catch (InvalidOperationException)
+				{
+				}
+			}
+			return null;
+		}
+
+		/// <summary>Returns other concrete Nexus revisions of the installed Collection whose exact manifest is still retained locally.</summary>
+		internal IReadOnlyList<CollectionRevision> GetRetainedRevisionCandidates(Guid associationId)
+		{
+			if (associationId == Guid.Empty)
+				throw new ArgumentException("A non-empty installed Collection association identifier is required.", nameof(associationId));
+			CollectionTargetAssociation association = _associationStore.GetAssociation(associationId);
+			if (association == null)
+				return new CollectionRevision[0];
+
+			List<CollectionRevision> candidates = _catalogStore.GetRevisions(association.Revision.Collection)
+				.Where(x => x != null && x.IsRemoteBaseline && !x.Identity.Equals(association.Revision) &&
+					_revisionSourceStore.GetSource(x.Identity) != null)
+				.OrderByDescending(x => x.Identity.NexusRevisionNumber ?? Int64.MinValue)
+				.ThenByDescending(x => x.Identity.StableRevisionId, StringComparer.Ordinal)
+				.ToList();
+			return new ReadOnlyCollection<CollectionRevision>(candidates);
+		}
+
+		/// <summary>Loads one exact previously-retained Nexus revision as an incoming preview without provider/network access.</summary>
+		internal NexusCollectionPreviewSnapshot LoadRetainedPreview(CollectionRevisionIdentity revisionIdentity)
+		{
+			if (revisionIdentity == null) throw new ArgumentNullException(nameof(revisionIdentity));
+			CollectionDefinition definition = _catalogStore.GetDefinition(revisionIdentity.Collection);
+			CollectionRevision revision = _catalogStore.GetRevision(revisionIdentity);
+			if (definition == null || revision == null || !revision.IsRemoteBaseline)
+				throw new InvalidOperationException("The selected retained Nexus Collection revision metadata is unavailable.");
+			NexusCollectionNxmLink retainedLink = BuildRetainedNexusLink(revisionIdentity);
+			return new NexusCollectionPreviewSnapshot(retainedLink, null, null, definition, revision,
+				LoadRetainedManifest(revisionIdentity), null, null, null);
+		}
+
+		/// <summary>Projects installed optional participation onto an incoming preview without preparing or changing the setup.</summary>
+		internal CollectionEffectiveSelection BuildCandidatePreviewSelection(Guid associationId, CollectionCapabilityReport candidateCapability)
+		{
+			if (candidateCapability == null) throw new ArgumentNullException(nameof(candidateCapability));
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths());
+			CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(authority.Target);
+			CollectionTargetAssociation association = snapshot.Associations.SingleOrDefault(x => x.AssociationId == associationId);
+			if (association == null)
+				throw new InvalidOperationException("The installed Collection association is no longer present on the current target.");
+			NexusCollectionBundleImportResult installedManifest = LoadRetainedManifest(association.Revision);
+			CollectionEffectiveSelection installedSelection = BuildInstalledSelection(installedManifest.CapabilityReport,
+				snapshot.Bindings.Where(x => x.Association.AssociationId == associationId),
+				snapshot.Overrides.Where(x => x.Requirement.AssociationId == associationId),
+				snapshot.DriftObservations.Where(x => x.Requirement.AssociationId == associationId));
+			return BuildCandidateSelection(installedSelection, candidateCapability, Enumerable.Empty<CollectionOptionalMemberSelection>());
+		}
+
+		/// <summary>Recreates a canonical public NXM locator from retained non-authoritative locator metadata.</summary>
+		private NexusCollectionNxmLink BuildRetainedNexusLink(CollectionRevisionIdentity revisionIdentity)
+		{
+			if (revisionIdentity == null || !revisionIdentity.NexusRevisionNumber.HasValue ||
+				revisionIdentity.NexusRevisionNumber.Value <= 0 || revisionIdentity.NexusRevisionNumber.Value > Int32.MaxValue) return null;
+			CollectionNexusLocatorRecord locator = _nexusLocatorStore.Get(revisionIdentity.Collection);
+			if (locator == null) return null;
+			string value = String.Format(CultureInfo.InvariantCulture, "nxm://{0}/collections/{1}/revisions/{2}",
+				locator.GameDomain, locator.CollectionSlug, revisionIdentity.NexusRevisionNumber.Value);
+			NexusCollectionNxmLink link;
+			return NexusCollectionNxmLinkParser.Classify(value, out link) == NexusNxmLinkDisposition.Collection ? link : null;
 		}
 
 		/// <summary>Loads the exact retained candidate preview for an unfinished update without network access or native work.</summary>
@@ -283,12 +393,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionTargetAssociation association = _associationStore.GetAssociation(intent.AssociationId);
 			if (!CollectionManagementApplicationService.MatchesPendingRevision(association, operation, intent.AssociationId, intent.OldRevision))
 				throw new InvalidOperationException("The unfinished revision change no longer belongs to its reviewed installed association.");
-			CollectionDefinition definition = _catalogStore.GetDefinition(intent.CandidateRevision.Collection);
-			CollectionRevision revision = _catalogStore.GetRevision(intent.CandidateRevision);
-			if (definition == null || revision == null)
-				throw new InvalidOperationException("The unfinished revision change is missing its retained Collection metadata.");
-			return new NexusCollectionPreviewSnapshot(null, null, null, definition, revision,
-				LoadRetainedManifest(intent.CandidateRevision), null, null, null);
+			return LoadRetainedPreview(intent.CandidateRevision);
 		}
 
 		public async Task<CollectionRevisionUpdateWorkflowResult> ApproveAndApplyAsync(CollectionRevisionUpdateWorkflowReview review,
@@ -380,7 +485,8 @@ namespace Nexus.Client.CollectionManagement
 					_operationStore.GetOperation(operationIdentity) ?? operation, null, null,
 					"The pre-mutation C10.3 preparation cannot be proven after restart; native work was not replayed.");
 
-			if (operation.Phase == CollectionOperationPhase.RemovingObsoleteRevisionEffects ||
+			if (operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability ||
+				operation.Phase == CollectionOperationPhase.RemovingObsoleteRevisionEffects ||
 				operation.Phase == CollectionOperationPhase.PausedAtSafeBoundary ||
 				operation.Phase == CollectionOperationPhase.RecoveryRequired || operation.Phase == CollectionOperationPhase.Recovering)
 			{
@@ -388,6 +494,38 @@ namespace Nexus.Client.CollectionManagement
 				if (recovered != null) return recovered;
 			}
 			return await ContinueFromCurrentPhaseAsync(preparation, cancellationToken).ConfigureAwait(false);
+		}
+
+		/// <summary>
+		/// Continues from an already rehydrated/prepared in-memory batch. The durable operation and exact reviewed plan still
+		/// control the transition; this only skips reconstructing the same candidate recipes again when the UI rechecks the
+		/// unchanged safe boundary in the same application session.
+		/// </summary>
+		internal async Task<CollectionRevisionUpdateWorkflowResult> ResumePreparedAsync(
+			CollectionRevisionUpdatePreparationBatch preparation, CancellationToken cancellationToken)
+		{
+			if (preparation == null) throw new ArgumentNullException(nameof(preparation));
+			CollectionOperation operation = _operationStore.GetOperation(preparation.Operation.Identity);
+			if (operation == null || operation.Kind != CollectionOperationKind.UpdateRevision || operation.IsTerminal)
+				throw new InvalidOperationException("The revision-update operation is not available for prepared continuation.");
+			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(preparation.CurrentPlan.NewPlan.Identity) ||
+				operation.Revision == null || !operation.Revision.Equals(preparation.CurrentPlan.NewPlan.Revision) ||
+				!operation.Target.Equals(preparation.CurrentPlan.NewPlan.Target))
+				throw new InvalidOperationException("The retained in-memory preparation no longer belongs to the exact active revision-update operation.");
+
+			switch (operation.Phase)
+			{
+				case CollectionOperationPhase.ObsoleteRevisionEffectsVerified:
+				case CollectionOperationPhase.InstallingCandidateRevisionChildren:
+				case CollectionOperationPhase.CandidateRevisionChildrenVerified:
+				case CollectionOperationPhase.ReapplyingQualifiedRevisionOverrides:
+				case CollectionOperationPhase.QualifiedRevisionOverridesVerified:
+				case CollectionOperationPhase.VerifyingCandidateRevisionAggregate:
+				case CollectionOperationPhase.CandidateRevisionAggregateVerified:
+					return await ContinueFromCurrentPhaseAsync(preparation, cancellationToken).ConfigureAwait(false);
+				default:
+					return await ResumeAsync(operation.Identity, cancellationToken).ConfigureAwait(false);
+			}
 		}
 
 		private async Task<CollectionRevisionUpdateWorkflowResult> ContinuePreparedAsync(CollectionRevisionUpdatePreparationBatch preparation,
@@ -403,13 +541,14 @@ namespace Nexus.Client.CollectionManagement
 		{
 			CollectionRevisionUpdateCandidateExecutionResult candidate = await _candidateCoordinator.ExecuteAsync(preparation, obsolete,
 				GetTargetPaths(), cancellationToken).ConfigureAwait(false);
+			CollectionRevisionUpdatePreparationBatch effectivePreparation = candidate.Preparation ?? preparation;
 			if (candidate.Status == CollectionRevisionUpdateCandidateExecutionStatus.ExplicitReviewRequired)
-				return Result(CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired, candidate.Operation, preparation, null, candidate.Message, candidate.ExecutionPlanning);
+				return Result(CollectionRevisionUpdateWorkflowStatus.ExplicitReviewRequired, candidate.Operation, effectivePreparation, null, candidate.Message, candidate.ExecutionPlanning);
 			if (candidate.Status == CollectionRevisionUpdateCandidateExecutionStatus.NativeLaneBusy)
-				return Result(CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary, candidate.Operation, preparation, null, candidate.Message, candidate.ExecutionPlanning);
+				return Result(CollectionRevisionUpdateWorkflowStatus.PausedAtSafeBoundary, candidate.Operation, effectivePreparation, null, candidate.Message, candidate.ExecutionPlanning);
 			if (candidate.Status != CollectionRevisionUpdateCandidateExecutionStatus.Completed)
-				return Result(CollectionRevisionUpdateWorkflowStatus.RecoveryRequired, candidate.Operation, preparation, null, candidate.Message, candidate.ExecutionPlanning);
-			return await ContinueAfterCandidateAsync(preparation, cancellationToken).ConfigureAwait(false);
+				return Result(CollectionRevisionUpdateWorkflowStatus.RecoveryRequired, candidate.Operation, effectivePreparation, null, candidate.Message, candidate.ExecutionPlanning);
+			return await ContinueAfterCandidateAsync(effectivePreparation, cancellationToken).ConfigureAwait(false);
 		}
 
 		private async Task<CollectionRevisionUpdateWorkflowResult> ContinueAfterCandidateAsync(CollectionRevisionUpdatePreparationBatch preparation,
@@ -603,18 +742,11 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionEffectiveSelectionBuilder().Build(capability, decisions);
 		}
 
-		private static CollectionEffectiveSelection BuildCandidateSelection(CollectionCapabilityReport capability,
-			IEnumerable<CollectionOptionalMemberSelection> decisions, IEnumerable<CollectionMemberBinding> currentBindings)
+		private static CollectionEffectiveSelection BuildCandidateSelection(CollectionEffectiveSelection installedSelection,
+			CollectionCapabilityReport capability, IEnumerable<CollectionOptionalMemberSelection> explicitDecisions)
 		{
-			List<CollectionOptionalMemberSelection> requested = decisions == null ? null : decisions.ToList();
-			if (requested == null)
-			{
-				var bound = new HashSet<CollectionMemberKey>((currentBindings ?? Enumerable.Empty<CollectionMemberBinding>()).Select(x => x.MemberKey));
-				requested = capability.Manifest.Members.Where(x => x.Requirement == CollectionMemberRequirement.Optional && x.IdentityResolution.IsResolved)
-					.Select(x => new CollectionOptionalMemberSelection(x.IdentityResolution.Key,
-						bound.Contains(x.IdentityResolution.Key) ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected)).ToList();
-			}
-			return new CollectionEffectiveSelectionBuilder().Build(capability, requested);
+			return new CollectionRevisionUpdateCandidateSelectionBuilder().Build(installedSelection, capability,
+				explicitDecisions ?? Enumerable.Empty<CollectionOptionalMemberSelection>());
 		}
 
 		private static CollectionEffectiveSelection RequireSupportedSelection(CollectionEffectiveSelection selection)
@@ -681,9 +813,26 @@ namespace Nexus.Client.CollectionManagement
 			var effects = intent.Effects.Select(x => new CollectionRevisionUpdateEffectPlan(x.MemberKey, x.Kind, x.ResourceKey, x.ChangeKind));
 			var memberOverrideIds = new HashSet<Guid>(intent.Members.SelectMany(x => x.PreservedOverrideIds));
 			var memberDriftIds = new HashSet<Guid>(intent.Members.SelectMany(x => x.UnacceptedDriftIds));
-			return new CollectionRevisionUpdatePlan(association, oldPlan, newPlan, intent.ObservedStateFingerprint, members, effects,
+			var plan = new CollectionRevisionUpdatePlan(association, oldPlan, newPlan, intent.ObservedStateFingerprint, members, effects,
 				intent.PreservedOverrideIds.Where(x => !memberOverrideIds.Contains(x)).Select(x => Require(overrides, x, "override")),
 				intent.UnacceptedDriftIds.Where(x => !memberDriftIds.Contains(x)).Select(x => Require(drift, x, "drift observation")));
+			ValidateReviewedMemberCorrelations(intent, plan);
+			return plan;
+		}
+
+		private static void ValidateReviewedMemberCorrelations(CollectionRevisionUpdateReviewedIntent intent,
+			CollectionRevisionUpdatePlan plan)
+		{
+			if (!intent.IncludesMemberCorrelations) return;
+			IReadOnlyDictionary<CollectionMemberKey, CollectionMemberKey> actual = plan.MemberCorrelations.NewByOld;
+			if (actual.Count != intent.MemberCorrelations.Count)
+				throw new InvalidOperationException("The retained revision can no longer reproduce the exact cross-key member correlation approved by the revision update.");
+			foreach (CollectionRevisionUpdateMemberCorrelationReview reviewed in intent.MemberCorrelations)
+			{
+				CollectionMemberKey candidateMemberKey;
+				if (!actual.TryGetValue(reviewed.OldMemberKey, out candidateMemberKey) || !candidateMemberKey.Equals(reviewed.CandidateMemberKey))
+					throw new InvalidOperationException("The retained revision can no longer reproduce the exact cross-key member correlation approved by the revision update.");
+			}
 		}
 
 		private static T Require<T>(IDictionary<Guid, T> values, Guid id, string label) where T : class
@@ -754,7 +903,8 @@ namespace Nexus.Client.CollectionManagement
 				states.Add(new CollectionRevisionUpdatePreparationMemberState(member, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 					request, restart.VerifiedArchive, null, null, restart, restart.PremiumAvailability, prepared));
 			}
-			return new CollectionRevisionUpdatePreparationBatch(operation, intent, plan, states, CollectionArchiveOverwritePolicy.Prompt);
+			return new CollectionRevisionUpdatePreparationBatch(operation, intent, plan, states, CollectionArchiveOverwritePolicy.Prompt,
+				state.Fingerprint);
 		}
 
 		private PreparationSnapshotDto LoadPreparationSnapshot(CollectionOperationIdentity identity, CollectionPlanIdentity planIdentity,

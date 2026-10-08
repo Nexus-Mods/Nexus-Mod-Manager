@@ -29,6 +29,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsStore _store;
 		private readonly CollectionsCatalogStore _catalogStore;
 		private readonly CollectionsRevisionSourceStore _revisionSourceStore;
+		private readonly CollectionsNexusLocatorStore _nexusLocatorStore;
 		private readonly CollectionEffectiveSelectionBuilder _selectionBuilder;
 		private readonly NexusCollectionBundleImporter _bundleImporter;
 		private readonly CollectionConflictResolutionCoordinator _conflictResolutionCoordinator;
@@ -53,6 +54,7 @@ namespace Nexus.Client.CollectionManagement
 			_store = new CollectionsStore(paths);
 			_catalogStore = new CollectionsCatalogStore(_store);
 			_revisionSourceStore = new CollectionsRevisionSourceStore(_store);
+			_nexusLocatorStore = new CollectionsNexusLocatorStore(_store);
 			_selectionBuilder = new CollectionEffectiveSelectionBuilder();
 			_bundleImporter = new NexusCollectionBundleImporter();
 			_conflictResolutionCoordinator = new CollectionConflictResolutionCoordinator(new CollectionsConflictResolutionStore(_store));
@@ -77,6 +79,7 @@ namespace Nexus.Client.CollectionManagement
 			if (String.IsNullOrWhiteSpace(sourcePath)) throw new ArgumentException("A bundle path is required.", nameof(sourcePath));
 			cancellationToken.ThrowIfCancellationRequested();
 			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			RetainNexusLocator(preview);
 
 			NexusCollectionBundleImportResult bundleImport = _bundleImporter.ImportFile(sourcePath, preview.Revision);
 			_catalogStore.SaveDefinitionAndRevision(preview.Definition, preview.Revision);
@@ -99,6 +102,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("A concrete provider revision must be resolved before downloading its Collection bundle.");
 
 			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			RetainNexusLocator(preview);
 			_catalogStore.SaveDefinitionAndRevision(preview.Definition, preview.Revision);
 			using (var acquirer = new NexusCollectionBundleAcquirer(_provider, _store))
 			{
@@ -106,6 +110,14 @@ namespace Nexus.Client.CollectionManagement
 					preview.RevisionLookup.Revision, preview.Revision, cancellationToken).ConfigureAwait(false);
 				return preview.WithBundleImport(result.BundleImport);
 			}
+		}
+
+		/// <summary>Retains the public Nexus slug/domain alongside the stable numeric Collection identity.</summary>
+		private void RetainNexusLocator(NexusCollectionPreviewSnapshot preview)
+		{
+			if (preview == null || preview.Link == null || preview.Revision == null ||
+				preview.Revision.Identity.Collection.Origin != CollectionOrigin.NexusMods) return;
+			_nexusLocatorStore.Save(preview.Revision.Identity.Collection, preview.Link.GameDomain, preview.Link.CollectionSlug);
 		}
 
 		/// <summary>Builds one immutable effective optional-member selection over the exact retained preview manifest.</summary>

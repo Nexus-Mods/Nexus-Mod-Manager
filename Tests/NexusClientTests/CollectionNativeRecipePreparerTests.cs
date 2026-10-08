@@ -67,6 +67,61 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareBasicSimpleExact_ReusesImmutableRetainedManifestWithinPreparer()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "manifest-cache", @"meshes\body.nif", @"textures\body.dds");
+				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
+
+				PreparedCollectionNativeRecipe first = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+				PreparedCollectionNativeRecipe second = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+
+				CollectionPerformanceSnapshot after = CollectionPerformanceMetrics.Capture();
+				Assert.That(after.RetainedManifestLoadCount - before.RetainedManifestLoadCount, Is.EqualTo(1),
+					"Preparing multiple members/attempts from one immutable revision must not reopen collection.json for every recipe.");
+				Assert.That(second.PreparedNativeIdentity, Is.EqualTo(first.PreparedNativeIdentity));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void PrepareBasicSimpleExact_CachedManifestStillReverifiesRetainedBlob()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "manifest-cache-integrity", @"meshes\body.nif", @"textures\body.dds");
+				fixture.Preparer.PrepareBasicSimpleExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod,
+					fixture.GameMode, fixture.InstallContext, fixture.State, false);
+
+				string relative = CollectionsRetainedArtifactStore.GetCanonicalRelativePath(fixture.SourceRecord.ManifestSource.ContentHash);
+				string manifestPath = Path.Combine(fixture.Store.RetainedContentDirectory, relative.Replace('/', Path.DirectorySeparatorChar));
+				byte[] bytes = File.ReadAllBytes(manifestPath);
+				bytes[0] ^= 0x01;
+				File.WriteAllBytes(manifestPath, bytes);
+				File.SetLastWriteTimeUtc(manifestPath, DateTime.UtcNow.AddMinutes(1));
+
+				Assert.Throws<InvalidDataException>(() => fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false),
+					"A process-local normalized-manifest cache must never hide retained-content corruption.");
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareBasicSimpleExact_ReviewedPreferExactDecisionSurvivesRetainedSourceRevalidation()
 		{
 			string root = CreateTemporaryDirectory();

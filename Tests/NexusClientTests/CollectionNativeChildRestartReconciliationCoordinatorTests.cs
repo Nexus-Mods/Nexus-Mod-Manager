@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text;
@@ -108,6 +109,101 @@ namespace NexusClientTests
 				Assert.IsFalse(InvokeMatchesContent(path, CollectionContentHash.FromSha256(hash), 4));
 			}
 			finally { File.Delete(path); }
+		}
+
+		[TestCase("previous", true, 1)]
+		[TestCase("replacement", true, 0)]
+		[TestCase("foreign-bytes", false, 0)]
+		[TestCase("missing-file", false, 0)]
+		[TestCase("changed-cache", false, 0)]
+		[TestCase("foreign-owner", false, 0)]
+		[TestCase("different-source", false, 0)]
+		[TestCase("promoted", false, 0)]
+		[TestCase("missing-install-log", false, 0)]
+		[TestCase("unreviewed-file", false, 0)]
+		[TestCase("direct", false, 0)]
+		public void ExactVirtualRelink_RequiresReviewedCacheAndUnchangedOwnedGameBytes(string scenario, bool accepted, int count)
+		{
+			string directory = Path.Combine(Path.GetTempPath(), "c12-exact-relink-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(directory);
+			try
+			{
+				string deployed = Path.Combine(directory, "game.bin");
+				string source = Path.Combine(directory, "staged.bin");
+				File.WriteAllBytes(deployed, new byte[] { 1, 2, 3, 4 });
+				File.WriteAllBytes(source, new byte[] { 5, 6, 7, 8 });
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "mod.bin");
+				var preimage = new CollectionNativeFileContentEvidence(target, true, CollectionContentHash.FromSha256(ComputeSha256(deployed)), 4);
+				var expected = new CollectionNativeFileContentEvidence(target, true, CollectionContentHash.FromSha256(ComputeSha256(source)), 4);
+				if (scenario == "replacement") File.Copy(source, deployed, true);
+				if (scenario == "foreign-bytes") File.WriteAllBytes(deployed, new byte[] { 1, 9, 3, 4 });
+				if (scenario == "missing-file") File.Delete(deployed);
+				if (scenario == "changed-cache") File.WriteAllBytes(source, new byte[] { 5, 9, 7, 8 });
+
+				var preview = new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("member-relink"),
+					CollectionRecipeIdentity.FromFingerprint("recipe-relink"), scenario == "direct" ? ModInstallMethod.Direct : ModInstallMethod.Virtual,
+					ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(target, expected.ContentHash, expected.ByteLength) },
+					new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+					new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+					new[] { preimage }, new[] { expected },
+					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+					new CollectionExpectedReplayOperation[0]);
+				var owner = new CollectionNativeOwnerState("owner", null, CollectionNativeOwnerKind.NativeMod, null, null, null);
+				var link = new CollectionNativeOwnerState(scenario == "foreign-owner" ? "foreign" : "owner", null,
+					CollectionNativeOwnerKind.NativeMod, true, 0, scenario == "different-source" ? source + ".other" : source);
+				var files = new List<CollectionNativeFileState>
+				{
+					new CollectionNativeFileState(target, deployed, scenario == "promoted", scenario != "missing-install-log", true,
+						"owner", new[] { owner }, new CollectionNativeOwnerState[0], new[] { link })
+				};
+				if (scenario == "unreviewed-file")
+					files.Add(new CollectionNativeFileState(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "extra.bin"),
+						deployed, false, true, true, "owner", new[] { owner }, new CollectionNativeOwnerState[0], new[] { link }));
+				CollectionNativeStateIndex state = CreateRelinkState(files);
+				IReadOnlyList<ModDeploymentTarget> targets;
+				string failure;
+				Assert.AreEqual(accepted, CollectionNativeChildRestartReconciliationCoordinator.TryCollectExactVirtualRelinkTargets(
+					evidence, state, "owner", (deploymentTarget, ownerKey) => source, out targets, out failure), failure);
+				Assert.AreEqual(count, targets.Count);
+			}
+			finally { Directory.Delete(directory, true); }
+		}
+
+		[TestCase(ModOperationReportedStatus.Succeeded, ModOperationDurability.Unknown, true)]
+		[TestCase(ModOperationReportedStatus.Failed, ModOperationDurability.Unknown, false)]
+		[TestCase(ModOperationReportedStatus.Cancelled, ModOperationDurability.Unknown, false)]
+		[TestCase(ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, false)]
+		[TestCase(ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedRolledBack, false)]
+		public void RevisionRecoveryAction_OffersRecheckOnlyForReportedSuccessWithUnknownDurability(
+			ModOperationReportedStatus status, ModOperationDurability durability, bool offered)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-relink-action");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-relink-action");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision-relink-action", 5);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), "recipe-relink-action"));
+			var child = new CollectionNativeChildOperation(1,
+				new CollectionOperationMemberReference(revision, CollectionMemberKey.FromProvider("member-relink-action")),
+				CollectionNativeChildAction.ActivateOrReinstall, native, CollectionNativeChildCheckpoint.NativeTerminalObserved,
+				new ModOperationResult(native, status, durability, null));
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.UpdateRevision,
+				collection, target, revision, CollectionPlanIdentity.From(Guid.NewGuid(), 1), 1,
+				CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired, new[] { child });
+			MethodInfo method = typeof(Nexus.Client.CollectionManagement.UI.CollectionsPreviewControl).GetMethod(
+				"CanRecheckReportedSuccessfulRevisionChild", BindingFlags.Static | BindingFlags.NonPublic);
+			Assert.IsNotNull(method);
+			Assert.AreEqual(offered, method.Invoke(null, new object[] { operation }));
+		}
+
+		/// <summary>Creates the detached ownership observation used to check the exact relink safety boundary.</summary>
+		private static CollectionNativeStateIndex CreateRelinkState(IEnumerable<CollectionNativeFileState> files)
+		{
+			return new CollectionNativeStateIndex(CollectionTargetIdentity.FromFingerprint("target-relink"),
+				new CollectionNativeRootState[0], new CollectionNativeModState[0], files, new CollectionNativeIniState[0],
+				new CollectionNativeGameValueState[0], new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
+				new CollectionTargetAssociation[0], new CollectionMemberBinding[0], new UserOverride[0], CollectionNativeStateCoverage.Complete,
+				new CollectionNativeStateIssue[0], 1);
 		}
 
 		[Test]
