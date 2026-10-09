@@ -104,6 +104,15 @@ namespace Nexus.Client.ModManagement.Scripting.Operations
 			DeploymentDecision = p_sddDeploymentDecision;
 		}
 
+		/// <summary>Copies generated content and preparation provenance with a resolved native deployment decision.</summary>
+		public GenerateDataFileOperation WithDeploymentDecision(ScriptedFileDeploymentDecision decision)
+		{
+			return new GenerateDataFileOperation(DestinationPath, Data, decision)
+			{
+				PreparationSourcePath = PreparationSourcePath
+			};
+		}
+
 		#endregion
 	}
 }

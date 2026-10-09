@@ -25,6 +25,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string StagingDirectoryName = ".staging";
 		private const string BlobExtension = ".blob";
 		private const int CopyBufferSize = 1024 * 1024;
+		private const int ArtifactMetadataBatchSize = 128;
 
 		private readonly CollectionsStore _store;
 		private readonly object _verificationCacheLock = new object();
@@ -334,27 +335,38 @@ VALUES
 				verifiedArtifactIds = new HashSet<string>(StringComparer.Ordinal);
 				return new Dictionary<string, CollectionsRetainedArtifact>(StringComparer.Ordinal);
 			}
+			var requested = new List<string>(ids);
+			requested.Sort(StringComparer.Ordinal);
 			Dictionary<string, CollectionsRetainedArtifact> artifacts = _store.ExecuteRead((connection, transaction) =>
 			{
 				var result = new Dictionary<string, CollectionsRetainedArtifact>(StringComparer.Ordinal);
-				using (SQLiteCommand command = connection.CreateCommand())
+				// Keep each indexed lookup below legacy SQLite parameter limits without scanning unrelated retained content.
+				for (int offset = 0; offset < requested.Count; offset += ArtifactMetadataBatchSize)
 				{
-					command.Transaction = transaction;
-					command.CommandText = @"
-SELECT artifact_id, hash_algorithm, hash_value, byte_length, relative_path, sealed
-FROM retained_artifacts WHERE artifact_id=@artifact_id;";
-					command.Parameters.AddWithValue("@artifact_id", String.Empty);
-					foreach (string id in ids)
+					cancellationToken.ThrowIfCancellationRequested();
+					using (SQLiteCommand command = connection.CreateCommand())
 					{
-						cancellationToken.ThrowIfCancellationRequested();
-						command.Parameters["@artifact_id"].Value = id;
+						command.Transaction = transaction;
+						int count = Math.Min(ArtifactMetadataBatchSize, requested.Count - offset);
+						var parameters = new string[count];
+						for (int index = 0; index < count; index++)
+						{
+							parameters[index] = "@artifact_id" + index;
+							command.Parameters.AddWithValue(parameters[index], requested[offset + index]);
+						}
+						command.CommandText = @"
+SELECT artifact_id, hash_algorithm, hash_value, byte_length, relative_path, sealed
+FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) + ");";
 						using (SQLiteDataReader reader = command.ExecuteReader())
 						{
-							if (!reader.Read()) continue;
-							CollectionsRetainedArtifact artifact = ReadArtifact(reader);
-							if (!StringComparer.Ordinal.Equals(reader.GetString(4), GetCanonicalRelativePath(artifact.ContentHash)))
-								throw new InvalidDataException("The retained artifact path does not match its content-addressed identity.");
-							result.Add(id, artifact);
+							while (reader.Read())
+							{
+								cancellationToken.ThrowIfCancellationRequested();
+								CollectionsRetainedArtifact artifact = ReadArtifact(reader);
+								if (!StringComparer.Ordinal.Equals(reader.GetString(4), GetCanonicalRelativePath(artifact.ContentHash)))
+									throw new InvalidDataException("The retained artifact path does not match its content-addressed identity.");
+								result.Add(artifact.ArtifactId, artifact);
+							}
 						}
 					}
 				}

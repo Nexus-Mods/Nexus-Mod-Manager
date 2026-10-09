@@ -19,6 +19,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string PayloadFormatV3 = "nmm-ce.collections.child-recovery/3";
 		private const string PayloadFormatV4 = "nmm-ce.collections.child-recovery/4";
 		private const string PayloadFormatV5 = "nmm-ce.collections.child-recovery/5";
+		private const string PayloadFormatV6 = "nmm-ce.collections.child-recovery/6";
 		private const long MaximumManifestBytes = 16L * 1024L * 1024L;
 		private const int MaximumPayloadCount = 100000;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -201,8 +202,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			using (var stream = new MemoryStream())
 			using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 			{
-				bool generalizedExecutionEvidence = manifest.ExecutionEvidence != null && !manifest.ExecutionEvidence.IsNexusModFileArtifact;
-				string payloadFormat = generalizedExecutionEvidence ? PayloadFormatV5 :
+				bool correctionEvidence = manifest.ExecutionEvidence != null && manifest.ExecutionEvidence.ReviewedEffects.InstallRootCorrection != null;
+				bool generalizedExecutionEvidence = manifest.ExecutionEvidence != null && (!manifest.ExecutionEvidence.IsNexusModFileArtifact || correctionEvidence);
+				string payloadFormat = correctionEvidence ? PayloadFormatV6 : generalizedExecutionEvidence ? PayloadFormatV5 :
 					manifest.SafeBoundaryStateFingerprint != null ? PayloadFormatV4 :
 					manifest.TerminalStateFingerprint != null ? PayloadFormatV3 :
 					manifest.ExecutionEvidence != null ? PayloadFormatV2 : PayloadFormatV1;
@@ -235,7 +237,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				}
 				if (manifest.ExecutionEvidence != null)
 				{
-					if (generalizedExecutionEvidence) WriteExecutionEvidenceV5(writer, manifest.ExecutionEvidence);
+					if (generalizedExecutionEvidence) WriteExecutionEvidenceV5(writer, manifest.ExecutionEvidence, correctionEvidence);
 					else WriteExecutionEvidence(writer, manifest.ExecutionEvidence);
 				}
 				if (generalizedExecutionEvidence)
@@ -294,7 +296,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			{
 				hasExecutionEvidence = true; hasTerminalStateFingerprint = true; hasSafeBoundaryStateFingerprint = true;
 			}
-			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV5))
+			else if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV5) || StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV6))
 			{
 				hasExecutionEvidence = true; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
 				generalizedExecutionEvidence = true;
@@ -324,7 +326,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			var payloads = new List<CollectionReplayRecoveryPayload>(payloadCount);
 			for (int i = 0; i < payloadCount; i++) payloads.Add(new CollectionReplayRecoveryPayload(reader.ReadString(), ReadArtifact(reader)));
 			CollectionNativeChildExecutionEvidence executionEvidence = hasExecutionEvidence
-				? (generalizedExecutionEvidence ? ReadExecutionEvidenceV5(reader) : ReadExecutionEvidence(reader)) : null;
+				? (generalizedExecutionEvidence ? ReadExecutionEvidenceV5(reader, StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV6)) : ReadExecutionEvidence(reader)) : null;
 			CollectionCurrentStateFingerprint terminalStateFingerprint;
 			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint;
 			if (generalizedExecutionEvidence)
@@ -377,12 +379,19 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 		}
 
-		private static void WriteExecutionEvidenceV5(BinaryWriter writer, CollectionNativeChildExecutionEvidence evidence)
+		private static void WriteExecutionEvidenceV5(BinaryWriter writer, CollectionNativeChildExecutionEvidence evidence, bool correctionEvidence)
 		{
 			writer.Write(evidence.SelectedArtifact.Scheme);
 			writer.Write(evidence.SelectedArtifact.StableId);
 			writer.Write(evidence.IncomingFileName);
 			WriteEffectPreview(writer, evidence.ReviewedEffects);
+			if (correctionEvidence)
+			{
+				CollectionInstallRootCorrection.Write(writer, evidence.ReviewedEffects.InstallRootCorrection);
+				// Incoming owner bytes may differ from a higher-priority file that the correction keeps active.
+				WriteFileEvidence(writer, evidence.ReviewedEffects.Files.Select(x => new CollectionNativeFileContentEvidence(
+					x.Target, true, x.ExpectedContentHash, x.ExpectedByteLength.Value)).ToList());
+			}
 			WriteFileEvidence(writer, evidence.PreFileContents);
 			WriteFileEvidence(writer, evidence.ExpectedFileContents);
 			WriteReplayContentEvidence(writer, evidence.IncomingReplayPreimage);
@@ -397,13 +406,19 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 		}
 
-		private static CollectionNativeChildExecutionEvidence ReadExecutionEvidenceV5(BinaryReader reader)
+		private static CollectionNativeChildExecutionEvidence ReadExecutionEvidenceV5(BinaryReader reader, bool correctionEvidence)
 		{
 			var artifact = new CollectionArtifactReference(reader.ReadString(), reader.ReadString(), null);
 			string fileName = reader.ReadString();
 			CollectionMemberEffectPreview preview = ReadEffectPreview(reader);
+			if (correctionEvidence)
+			{
+				preview = preview.WithInstallRootCorrection(CollectionInstallRootCorrection.Read(reader));
+				preview = RestoreExactFileEffects(preview, ReadFileEvidence(reader), false);
+			}
 			IReadOnlyList<CollectionNativeFileContentEvidence> preFiles = ReadFileEvidence(reader);
 			IReadOnlyList<CollectionNativeFileContentEvidence> expectedFiles = ReadFileEvidence(reader);
+			if (!correctionEvidence) preview = RestoreExactFileEffects(preview, expectedFiles);
 			CollectionReplayContentEvidence replayPreimage = ReadReplayContentEvidence(reader);
 			int replayCount = reader.ReadInt32();
 			if (replayCount < 0 || replayCount > MaximumPayloadCount) throw new InvalidDataException("The execution evidence contains an invalid replay-operation count.");
@@ -431,6 +446,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			CollectionMemberEffectPreview preview = ReadEffectPreview(reader);
 			IReadOnlyList<CollectionNativeFileContentEvidence> preFiles = ReadFileEvidence(reader);
 			IReadOnlyList<CollectionNativeFileContentEvidence> expectedFiles = ReadFileEvidence(reader);
+			preview = RestoreExactFileEffects(preview, expectedFiles);
 			CollectionReplayContentEvidence replayPreimage = ReadReplayContentEvidence(reader);
 			int replayCount = reader.ReadInt32();
 			if (replayCount < 0 || replayCount > MaximumPayloadCount) throw new InvalidDataException("The execution evidence contains an invalid replay-operation count.");
@@ -447,6 +463,25 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 			return new CollectionNativeChildExecutionEvidence(domain, modId, fileId, fileName, preview,
 				preFiles, expectedFiles, replayPreimage, replay);
+		}
+
+		/// <summary>Restores output identities from the exact expected bytes already retained in every execution-evidence format.</summary>
+		private static CollectionMemberEffectPreview RestoreExactFileEffects(CollectionMemberEffectPreview preview,
+			IReadOnlyList<CollectionNativeFileContentEvidence> expectedFiles, bool includesCleanup = true)
+		{
+			Dictionary<ModDeploymentTarget, CollectionNativeFileContentEvidence> byTarget = expectedFiles.ToDictionary(x => x.Target);
+			if (byTarget.Count != preview.Files.Count + (!includesCleanup || preview.InstallRootCorrection == null ? 0 : preview.InstallRootCorrection.Files.Count))
+				throw new InvalidDataException("The retained expected file contents do not cover the reviewed file effects.");
+			var files = new List<CollectionPlannedFileEffect>();
+			foreach (CollectionPlannedFileEffect file in preview.Files)
+			{
+				CollectionNativeFileContentEvidence expected;
+				if (!byTarget.TryGetValue(file.Target, out expected) || !expected.Existed)
+					throw new InvalidDataException("A reviewed file effect has no retained expected content identity.");
+				files.Add(new CollectionPlannedFileEffect(file.Target, expected.ContentHash, expected.ByteLength));
+			}
+			return new CollectionMemberEffectPreview(preview.MemberKey, preview.RecipeIdentity, preview.InstallMethod,
+				preview.InstallRoot, files, preview.IniEdits, preview.GameValues, preview.PluginEffects, preview.Issues, preview.InstallRootCorrection);
 		}
 
 		private static void WriteEffectPreview(BinaryWriter writer, CollectionMemberEffectPreview preview)

@@ -304,5 +304,23 @@ namespace Nexus.Client.Games.DataDriven
         public string[] HardlinkRequiredExtensions { get; set; }
         public string[] RealFileRequiredExtensions { get; set; }
         public bool? SupportsGameRootInstall { get; set; }
+		/// <summary>Gets or sets optional signatures identifying packages installed beside the game executable.</summary>
+		public List<GameModeGameRootPackageRuleDefinition> GameRootPackageRules { get; set; }
     }
+
+	/// <summary>Describes a declarative game-root package signature in a per-game definition.</summary>
+	public sealed class GameModeGameRootPackageRuleDefinition
+	{
+		public string Id { get; set; }
+		public string[] RequiredFiles { get; set; }
+		public List<GameModeGameRootPackageXmlCheckDefinition> XmlChecks { get; set; }
+		public bool AllowSingleWrapperFolder { get; set; }
+	}
+
+	/// <summary>Describes a literal XML element path in one required package file.</summary>
+	public sealed class GameModeGameRootPackageXmlCheckDefinition
+	{
+		public string File { get; set; }
+		public string[] ElementPath { get; set; }
+	}
 }

@@ -201,6 +201,8 @@
     <Compile Include="CollectionManagement\CollectionReplacementPhaseBarrierCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionMemberMatch.cs" />
     <Compile Include="CollectionManagement\CollectionMemberMatchEngine.cs" />
+    <Compile Include="CollectionManagement\CollectionInstallDestinationResolver.cs" />
+    <Compile Include="CollectionManagement\CollectionInstallRootCorrection.cs" />
     <Compile Include="CollectionManagement\CollectionDependencyPhasePlan.cs" />
     <Compile Include="CollectionManagement\CollectionDependencyPhasePlanner.cs" />
     <Compile Include="CollectionManagement\CollectionFilePriorityRule.cs" />
@@ -314,6 +316,12 @@
     <Compile Include="CollectionManagement\UI\CollectionUiContext.cs" />
     <Compile Include="CollectionManagement\UI\CollectionWorkflowActivity.cs" />
     <Compile Include="CollectionManagement\UI\CollectionLocalWorkingCopyEditorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionLocalCaptureDeleteDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="CollectionManagement\UI\CollectionUninstallReviewDialog.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="CollectionManagement\UI\CollectionOwnershipReviewDialog.cs">
@@ -1273,6 +1281,7 @@
     <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameSpecificValueInstaller.cs" />
     <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenGameRootPackageRules.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeFactory.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeSettingsGroup.cs" />

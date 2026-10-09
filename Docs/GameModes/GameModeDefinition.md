@@ -26,7 +26,7 @@ With no path, the command validates `GameModes\Definitions` beside the executabl
 
 ### Root
 
-`schemaVersion` maps to the version of `GameModeDefinition` expected by the loader. Current value is `1`.
+`schemaVersion` maps to the version of `GameModeDefinition` expected by the loader. Current value is `2`.
 
 `modeId` maps to `IGameModeDescriptor.ModeId`. It replaces the constant or overridden id used by old `GameModeDescriptor` classes. Treat it as persistent user data: changing it breaks existing settings and installed game references.
 
@@ -87,6 +87,35 @@ Maps to old `GetModFormatAdjustedPath`, `HardlinkRequiredFilesType`, `RealFileRe
 `pathAdjustmentProfile` selects known path-fix logic for games where mod authors often omit required folders. Current profiles are `none`, `cyberpunk2077`, `subnautica`, `stardewvalley`, `sims4`, and `nomanssky`.
 
 `supportsGameRootInstall` enables explicit installs beside the game executable where the old Gamebryo Data-folder-only behavior is too restrictive.
+
+`gameRootPackageRules` is an optional list of exact archive signatures for packages that belong beside the game executable. It requires `supportsGameRootInstall: true` when the list is non-empty. Omitted or empty rules preserve existing behavior; the schema version remains `2`.
+
+For example, Fallout 4 recognizes xSE PluginPreloader using both file names and the XML structure:
+
+```json
+"gameRootPackageRules": [
+  {
+    "id": "xse-plugin-preloader",
+    "requiredFiles": ["WinHTTP.dll", "xSE PluginPreloader.xml"],
+    "xmlChecks": [
+      {
+        "file": "xSE PluginPreloader.xml",
+        "elementPath": ["xSE", "PluginPreloader"]
+      }
+    ],
+    "allowSingleWrapperFolder": true
+  }
+]
+```
+
+- `id` must be a stable identifier, unique within the game definition, ignoring case.
+- `requiredFiles` contains at least one exact file name. All names must appear together directly at the archive base. Paths, wildcard patterns, empty names and case-insensitive duplicates are rejected.
+- `xmlChecks` is optional. Each `file` must also be in `requiredFiles`. `elementPath` is a sequence of 1 to 16 literal, case-sensitive XML element names starting at the document root and following direct children. Namespaces and XPath expressions are not supported. All checks must pass.
+- `allowSingleWrapperFolder` defaults to `false`. When enabled, the matcher may strip one common enclosing folder only if all archive files are inside it. `Data` and the game's `stopFolders` are content directories and are never treated as wrappers.
+
+`IGameRootPackageRuleProvider` exposes immutable copies of these rules from data-driven generic and Gamebryo modes. Legacy modes do not need to implement this optional interface. `GameRootPackageMatcher` consumes caller-verified, read-only archive inputs and returns the matched rule plus the exact archive base directory. Paths containing traversal, ambiguous suffixes or case-insensitive duplicates do not match. XML documents are limited to 262,144 characters, with DTD and external resource resolution disabled. Invalid or structurally nonmatching XML does not match; archive read failures propagate to the caller. Multiple matching rules use stable ordinal rule-id order.
+
+The optional rules are used when preparing new Collection installations, replacement setups and revision updates. Supported explicit Collection root flags take precedence over GameMode recognition, followed by normal installation behavior. The existing Virtual or Direct method is retained. Installed Data members supply verified archive evidence before they can be reused; a recognised root package at the wrong root is classified for reinstall. The resolved root and exact destination mappings are frozen in the reviewed native plan, and revision-update restart snapshots retain the selected method, root and recognised wrapper. Recovery, local restore and uninstall use their recorded destinations rather than new recognition rules. Moving an existing wrong-folder installation and its rollback is a separate migration step.
 
 ### gamebryo
 

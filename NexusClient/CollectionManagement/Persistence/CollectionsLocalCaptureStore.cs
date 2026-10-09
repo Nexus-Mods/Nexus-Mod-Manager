@@ -6,6 +6,18 @@ using System.Linq;
 
 namespace Nexus.Client.CollectionManagement.Persistence
 {
+	/// <summary>Outcome of checking or deleting one exact saved Local Collection backup.</summary>
+	public enum CollectionsLocalCaptureDeletionStatus
+	{
+		Ready = 0,
+		Deleted = 1,
+		NotFound = 2,
+		TargetMismatch = 3,
+		InstalledCollection = 4,
+		IncompleteOperation = 5,
+		ReplacementInProgress = 6
+	}
+
 	/// <summary>
 	/// Persists sealed Local Collection capture contracts and their durable package-artifact binding.
 	/// </summary>
@@ -199,6 +211,92 @@ ORDER BY capture_id;";
 					return value == null || value == DBNull.Value ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
 				}
 			});
+		}
+
+		/// <summary>Checks saved-backup dependencies without changing capture metadata or retained content.</summary>
+		public CollectionsLocalCaptureDeletionStatus GetDeletionStatus(LocalCaptureIdentity identity, CollectionTargetIdentity target)
+		{
+			if (identity == null) throw new ArgumentNullException(nameof(identity));
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			return _store.ExecuteRead((connection, transaction) => ReadDeletionStatus(connection, transaction, identity, target));
+		}
+
+		/// <summary>Atomically rechecks dependencies, deletes one capture and releases only its capture-owned references.</summary>
+		/// <remarks>Catalog and journal history, other owners' references and physical content are preserved. Existing cleanup collects unreferenced bytes later.</remarks>
+		public CollectionsLocalCaptureDeletionStatus Delete(LocalCaptureIdentity identity, CollectionTargetIdentity target)
+		{
+			if (identity == null) throw new ArgumentNullException(nameof(identity));
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			CollectionsLocalCaptureDeletionStatus status = CollectionsLocalCaptureDeletionStatus.NotFound;
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				status = ReadDeletionStatus(connection, transaction, identity, target);
+				if (status != CollectionsLocalCaptureDeletionStatus.Ready) return;
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.Parameters.AddWithValue("@capture_id", identity.ToString());
+					command.Parameters.AddWithValue("@capture_owner", (int)CollectionsRetainedArtifactOwnerKind.Capture);
+					command.CommandText = "DELETE FROM retained_artifact_references WHERE owner_kind=@capture_owner AND owner_id=@capture_id;";
+					command.ExecuteNonQuery();
+					// Foreign-key cascades remove only this capture's package binding, scope, exclusions and historical mappings.
+					command.CommandText = "DELETE FROM local_captures WHERE capture_id=@capture_id;";
+					if (command.ExecuteNonQuery() != 1)
+						throw new CollectionsStoreSchemaException("The selected Local Collection backup changed during deletion.");
+				}
+				status = CollectionsLocalCaptureDeletionStatus.Deleted;
+			});
+			return status;
+		}
+
+		/// <summary>Checks exact revision dependencies and the same-target replacement barrier inside the caller's transaction.</summary>
+		private static CollectionsLocalCaptureDeletionStatus ReadDeletionStatus(SQLiteConnection connection, SQLiteTransaction transaction,
+			LocalCaptureIdentity identity, CollectionTargetIdentity target)
+		{
+			using (SQLiteCommand command = connection.CreateCommand())
+			{
+				command.Transaction = transaction;
+				command.CommandText = @"
+SELECT CASE
+    WHEN c.source_target_fingerprint<>@target THEN @target_mismatch
+    WHEN EXISTS (
+        SELECT 1 FROM target_associations a
+        WHERE a.origin=c.origin AND a.collection_id=c.collection_id AND a.revision_id=c.revision_id
+    ) THEN @installed
+    WHEN EXISTS (
+        SELECT 1 FROM collection_operations o
+        WHERE o.phase<>@completed AND (
+            (o.origin=c.origin AND o.collection_id=c.collection_id AND (o.revision_id IS NULL OR o.revision_id=c.revision_id))
+            OR EXISTS (SELECT 1 FROM native_operation_children nc
+                WHERE nc.collection_operation_id=o.operation_id AND nc.member_origin=c.origin
+                  AND nc.member_collection_id=c.collection_id AND nc.member_revision_id=c.revision_id)
+            OR EXISTS (SELECT 1 FROM resolved_plans p
+                WHERE p.plan_id=o.plan_id AND p.plan_version=o.plan_version AND p.origin=c.origin
+                  AND p.collection_id=c.collection_id AND p.revision_id=c.revision_id)
+            OR EXISTS (SELECT 1 FROM retained_artifact_references r JOIN local_capture_packages cp ON cp.package_artifact_id=r.artifact_id
+                WHERE cp.capture_id=c.capture_id AND r.owner_kind=@operation_owner AND r.owner_id=o.operation_id)
+        )
+    ) THEN @incomplete
+    WHEN EXISTS (SELECT 1 FROM collection_operations o
+        WHERE o.phase<>@completed AND o.kind=@replacement AND o.target_fingerprint=c.source_target_fingerprint
+    ) THEN @replacement_pending
+    ELSE @ready END
+FROM local_captures c WHERE c.capture_id=@capture_id AND c.origin=@local_origin;";
+				command.Parameters.AddWithValue("@capture_id", identity.ToString());
+				command.Parameters.AddWithValue("@target", target.Fingerprint);
+				command.Parameters.AddWithValue("@local_origin", (int)CollectionOrigin.Local);
+				command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+				command.Parameters.AddWithValue("@operation_owner", (int)CollectionsRetainedArtifactOwnerKind.Operation);
+				command.Parameters.AddWithValue("@replacement", (int)CollectionOperationKind.ReplaceCurrentManagedSetup);
+				command.Parameters.AddWithValue("@target_mismatch", (int)CollectionsLocalCaptureDeletionStatus.TargetMismatch);
+				command.Parameters.AddWithValue("@installed", (int)CollectionsLocalCaptureDeletionStatus.InstalledCollection);
+				command.Parameters.AddWithValue("@incomplete", (int)CollectionsLocalCaptureDeletionStatus.IncompleteOperation);
+				command.Parameters.AddWithValue("@replacement_pending", (int)CollectionsLocalCaptureDeletionStatus.ReplacementInProgress);
+				command.Parameters.AddWithValue("@ready", (int)CollectionsLocalCaptureDeletionStatus.Ready);
+				object value = command.ExecuteScalar();
+				return value == null || value == DBNull.Value ? CollectionsLocalCaptureDeletionStatus.NotFound :
+					(CollectionsLocalCaptureDeletionStatus)Convert.ToInt32(value, CultureInfo.InvariantCulture);
+			}
 		}
 
 		private static LocalCapture ReadCapture(SQLiteConnection connection, SQLiteTransaction transaction, string captureId)

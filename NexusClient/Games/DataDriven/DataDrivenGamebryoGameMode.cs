@@ -15,12 +15,13 @@ using Nexus.Client.Util;
 
 namespace Nexus.Client.Games.DataDriven
 {
-    public class DataDrivenGamebryoGameMode : GamebryoGameModeBase
+    public class DataDrivenGamebryoGameMode : GamebryoGameModeBase, IGameRootPackageRuleProvider
     {
         [ThreadStatic]
         private static GameModeDefinition _pendingDefinition;
 
         private readonly GameModeDefinition _definition;
+		private readonly IReadOnlyList<GameRootPackageRule> _gameRootPackageRules;
         private IGameLauncher _gameLauncher;
         private IToolLauncher _toolLauncher;
         private ISupportedToolsLauncher _supportedToolsLauncher;
@@ -42,6 +43,7 @@ namespace Nexus.Client.Games.DataDriven
         {
             _definition = definition ?? throw new ArgumentNullException(nameof(definition));
             _pendingDefinition = null;
+			_gameRootPackageRules = DataDrivenGameRootPackageRules.Create(_definition);
             if (_definition.Settings != null && _definition.Settings.UseGenericSettings == true)
                 SettingsGroupViews = DataDrivenGameModeHelpers.BuildSettingsGroupViews(environmentInfo, this, _definition);
         }
@@ -122,6 +124,8 @@ namespace Nexus.Client.Games.DataDriven
         public override bool SupportsPluginAutoSorting => GetDefinition().Plugin != null && GetDefinition().Plugin.SupportsPluginAutoSorting == true;
         public override int MaxAllowedActivePluginsCount => GetDefinition().Plugin == null ? 0 : GetDefinition().Plugin.MaxAllowedActivePluginsCount ?? 0;
         public override bool SupportsGameRootModInstall => GetDefinition().ModInstall != null && GetDefinition().ModInstall.SupportsGameRootInstall == true;
+		/// <summary>Gets the immutable package rules loaded with this GameMode.</summary>
+		public IReadOnlyList<GameRootPackageRule> GameRootPackageRules => _gameRootPackageRules;
         public override bool RequiresOptionalFilesCheckOnProfileSwitch =>
             GetDefinition().Gamebryo != null &&
             GetDefinition().Gamebryo.RequiresOptionalFilesCheckOnProfileSwitch == true;

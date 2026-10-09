@@ -359,7 +359,8 @@ ORDER BY native_mod_key;";
 		/// <summary>
 		/// Atomically validates one reviewed C6.14 association baseline and creates its uninstall-effects journal operation.
 		/// </summary>
-		internal void BeginUninstallEffects(CollectionTargetAssociation expectedAssociation, CollectionOperation operation)
+		internal void BeginUninstallEffects(CollectionTargetAssociation expectedAssociation, CollectionOperation operation,
+			IEnumerable<CollectionOperation> supersededOperations = null)
 		{
 			if (expectedAssociation == null)
 				throw new ArgumentNullException(nameof(expectedAssociation));
@@ -378,8 +379,26 @@ ORDER BY native_mod_key;";
 				CollectionTargetAssociation current = ReadAssociation(connection, transaction, expectedAssociation.AssociationId);
 				RequireSameAssociationSnapshot(current, expectedAssociation,
 					"The Collection association changed after the C6.14 uninstall preview and must be reviewed again.");
-				if (current.State == CollectionAssociationState.Recovering)
+				if (supersededOperations == null && current.State == CollectionAssociationState.Recovering)
 					throw new InvalidOperationException("A recovering Collection association cannot begin uninstall until recovery/reconciliation is complete.");
+				if (supersededOperations != null)
+				{
+					foreach (CollectionOperation expected in supersededOperations)
+					{
+						CollectionOperation pending = CollectionsOperationStore.ReadOperation(connection, transaction, expected.Identity.OperationId);
+						if (pending == null || pending.IsTerminal || pending.CheckpointSequence != expected.CheckpointSequence ||
+							!pending.Target.Equals(current.Target) || !pending.Collection.Equals(current.Revision.Collection))
+							throw new InvalidOperationException("The interrupted Collection operation changed after the uninstall review.");
+						// Uninstall replaces the abandoned intent. Keep every child outcome and recovery input;
+						// do not label the failed installation as committed or rolled back.
+						CollectionsOperationStore.SaveOperation(connection, transaction, new CollectionOperation(pending.Identity,
+							pending.Kind, pending.Collection, pending.Target, pending.Revision, pending.PlanIdentity,
+							checked(pending.CheckpointSequence + 1), CollectionOperationPhase.Completed,
+							pending.HasCrossedNativeBoundary ? CollectionOperationResultState.StoppedPartial : CollectionOperationResultState.CancelledBeforeApply,
+							pending.NativeChildren));
+					}
+					SaveAssociation(connection, transaction, current.WithState(CollectionAssociationState.Incomplete));
+				}
 				if (HasIncompleteOperationForCollection(connection, transaction, current.Revision.Collection, current.Target))
 					throw new InvalidOperationException("Another Collection operation for this Collection/target is already incomplete.");
 				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
@@ -390,7 +409,7 @@ ORDER BY native_mod_key;";
 		/// Atomically marks an association Incomplete and checkpoints a C6.14 child as NativeSubmitted before worker start.
 		/// </summary>
 		internal void SaveUninstallChildSubmission(Guid associationId, CollectionOperation operation,
-			NativeModInstanceIdentity nativeMod, IEnumerable<CollectionMemberKey> expectedMemberKeys)
+			NativeModInstanceIdentity nativeMod, IEnumerable<CollectionMemberKey> expectedMemberKeys, bool explicitReviewedRemoval = false)
 		{
 			RequireGuid(associationId, nameof(associationId));
 			if (operation == null)
@@ -416,15 +435,25 @@ ORDER BY native_mod_key;";
 				if (association.State == CollectionAssociationState.Recovering)
 					throw new InvalidOperationException("A recovering Collection association cannot submit new uninstall work.");
 
-				List<CollectionMemberBinding> currentBindings = new List<CollectionMemberBinding>(ReadBindings(connection, transaction, null, nativeMod));
-				if (currentBindings.Count == 0 || currentBindings.Any(x => x.Association.AssociationId != associationId) ||
-					!expectedMembers.SetEquals(currentBindings.Select(x => x.MemberKey)))
-					throw new InvalidOperationException("The native mod gained/lost Collection provenance after the C6.14 preview; native removal is no longer authorized.");
-				if (HasCustomizationForMembers(connection, transaction, association, currentBindings.Select(x => x.MemberKey)))
-					throw new InvalidOperationException("The native mod gained a deliberate override or detected drift after the C6.14 preview; native removal is no longer authorized.");
-				NativeModProvenance provenance = ReadNativeModProvenance(connection, transaction, nativeMod);
-				if (provenance == null || provenance.StandaloneUse != StandaloneModUse.NoStandaloneUseVerified)
-					throw new InvalidOperationException("Standalone provenance changed after the C6.14 preview; native removal is no longer authorized.");
+				if (explicitReviewedRemoval)
+				{
+					CollectionNativeChildOperation submitted = operation.NativeChildren.LastOrDefault();
+					if (submitted == null || submitted.Checkpoint != CollectionNativeChildCheckpoint.NativeSubmitted ||
+						!nativeMod.Equals(CollectionUninstallEffectsCoordinator.ResolveRemovalJournalMod(operation.Target, submitted.Member.MemberKey)))
+						throw new InvalidOperationException("The uninstall submission does not match the explicitly reviewed native mod.");
+				}
+				else
+				{
+					List<CollectionMemberBinding> currentBindings = new List<CollectionMemberBinding>(ReadBindings(connection, transaction, null, nativeMod));
+					if (currentBindings.Count == 0 || currentBindings.Any(x => x.Association.AssociationId != associationId) ||
+						!expectedMembers.SetEquals(currentBindings.Select(x => x.MemberKey)))
+						throw new InvalidOperationException("The native mod gained/lost Collection provenance after the C6.14 preview; native removal is no longer authorized.");
+					if (HasCustomizationForMembers(connection, transaction, association, currentBindings.Select(x => x.MemberKey)))
+						throw new InvalidOperationException("The native mod gained a deliberate override or detected drift after the C6.14 preview; native removal is no longer authorized.");
+					NativeModProvenance provenance = ReadNativeModProvenance(connection, transaction, nativeMod);
+					if (provenance == null || provenance.StandaloneUse != StandaloneModUse.NoStandaloneUseVerified)
+						throw new InvalidOperationException("Standalone provenance changed after the C6.14 preview; native removal is no longer authorized.");
+				}
 
 				SaveAssociation(connection, transaction, association.WithState(CollectionAssociationState.Incomplete));
 				CollectionsOperationStore.SaveOperation(connection, transaction, operation);
@@ -435,7 +464,7 @@ ORDER BY native_mod_key;";
 		/// Atomically reconciles one C6.14 child and, when verified removed, drops only this association's bindings to that native mod.
 		/// </summary>
 		internal void SaveUninstallChildReconciliation(Guid associationId, CollectionOperation operation,
-			NativeModInstanceIdentity nativeMod, bool verifiedRemoved)
+			NativeModInstanceIdentity nativeMod, bool verifiedRemoved, bool explicitReviewedRemoval = false)
 		{
 			RequireGuid(associationId, nameof(associationId));
 			if (operation == null)
@@ -450,8 +479,16 @@ ORDER BY native_mod_key;";
 				operation.ResultState == CollectionOperationResultState.RecoveryRequired;
 			if (operation.Kind != CollectionOperationKind.UninstallCollectionEffects ||
 				(!activeApply && !activeRecovery && !requiredRecovery) || operation.NativeChildren.Count == 0 ||
-				operation.NativeChildren.Any(x => x.HasCrossedNativeBoundary && !x.IsReconciled))
+				(!explicitReviewedRemoval && operation.NativeChildren.Any(x => x.HasCrossedNativeBoundary && !x.IsReconciled)))
 				throw new ArgumentException("The C6.14 child reconciliation must persist an active/recovering operation whose submitted children are reconciled.", nameof(operation));
+
+			if (explicitReviewedRemoval)
+			{
+				CollectionNativeChildOperation last = operation.NativeChildren.Last();
+				if (!last.IsReconciled || !nativeMod.Equals(CollectionUninstallEffectsCoordinator.ResolveRemovalJournalMod(operation.Target, last.Member.MemberKey)) ||
+					last.HasVerifiedCommittedNativeState != verifiedRemoved)
+					throw new ArgumentException("Explicit uninstall reconciliation must retain the exact verified child outcome.", nameof(operation));
+			}
 
 			_store.ExecuteWrite((connection, transaction) =>
 			{
@@ -951,7 +988,8 @@ WHERE association_id=@association_id AND member_key_kind=@member_key_kind AND me
 		internal void FinalizeRevisionUpdateAssociation(CollectionRevisionUpdateReviewedIntent reviewedIntent,
 			CollectionRevisionUpdateAggregateVerificationRecord verification, CollectionTargetAssociation incomingAssociation,
 			IEnumerable<CollectionMemberBinding> incomingBindings, IEnumerable<UserOverride> expectedOldOverrides,
-			IEnumerable<UserOverride> incomingOverrides, CollectionOperation committedOperation)
+			IEnumerable<UserOverride> incomingOverrides, CollectionOperation committedOperation,
+			IEnumerable<NativeModProvenance> candidateProvenance = null)
 		{
 			if (reviewedIntent == null) throw new ArgumentNullException(nameof(reviewedIntent));
 			if (verification == null) throw new ArgumentNullException(nameof(verification));
@@ -975,6 +1013,10 @@ WHERE association_id=@association_id AND member_key_kind=@member_key_kind AND me
 				throw new ArgumentException("The C10.9 terminal operation does not match the exact reviewed candidate revision.", nameof(committedOperation));
 
 			List<CollectionMemberBinding> bindings = incomingBindings.ToList();
+			List<NativeModProvenance> provenance = (candidateProvenance ?? Enumerable.Empty<NativeModProvenance>()).ToList();
+			if (provenance.Any(x => x == null || x.StandaloneUse == StandaloneModUse.Unknown ||
+				!bindings.Any(b => b != null && b.NativeMod.Equals(x.NativeMod))))
+				throw new ArgumentException("Candidate provenance must identify verified incoming native bindings.", nameof(candidateProvenance));
 			List<UserOverride> oldOverrides = expectedOldOverrides.OrderBy(x => x == null ? Guid.Empty : x.OverrideId).ToList();
 			List<UserOverride> newOverrides = incomingOverrides.OrderBy(x => x == null ? Guid.Empty : x.OverrideId).ToList();
 			if (bindings.Any(x => x == null || x.Association.AssociationId != incomingAssociation.AssociationId ||
@@ -1043,6 +1085,13 @@ WHERE target_fingerprint=@target_fingerprint
 				{
 					RequireMatchingAssociation(connection, transaction, binding.Association);
 					SaveBinding(connection, transaction, binding);
+				}
+				foreach (NativeModProvenance candidate in provenance)
+				{
+					NativeModProvenance existing = ReadNativeModProvenance(connection, transaction, candidate.NativeMod);
+					if (existing == null || existing.StandaloneUse == StandaloneModUse.Unknown ||
+						candidate.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse)
+						SaveNativeModProvenance(connection, transaction, candidate);
 				}
 				foreach (UserOverride userOverride in newOverrides)
 				{
@@ -1427,7 +1476,7 @@ WHERE operation_id=@operation AND target_fingerprint=@target AND kind=@kind
 		/// </summary>
 		internal void SaveVerifiedHealthyReconciliation(CollectionTargetAssociation expectedAssociation,
 			CollectionTargetAssociation finalAssociation, IEnumerable<CollectionMemberBinding> bindingUpdates,
-			IEnumerable<CollectionRequirementReference> clearedRequirements)
+			IEnumerable<CollectionRequirementReference> clearedRequirements, CollectionOperationIdentity verifiedRepair = null)
 		{
 			if (expectedAssociation == null) throw new ArgumentNullException(nameof(expectedAssociation));
 			if (finalAssociation == null) throw new ArgumentNullException(nameof(finalAssociation));
@@ -1456,18 +1505,61 @@ WHERE operation_id=@operation AND target_fingerprint=@target AND kind=@kind
 				using (SQLiteCommand command = connection.CreateCommand())
 				{
 					command.Transaction = transaction;
-					command.CommandText = "SELECT 1 FROM collection_operations WHERE target_fingerprint=@target AND phase<>@completed LIMIT 1;";
+					command.CommandText = "SELECT 1 FROM collection_operations WHERE target_fingerprint=@target AND phase<>@completed AND operation_id<>@repair LIMIT 1;";
+					command.Parameters.AddWithValue("@repair", verifiedRepair == null ? String.Empty : verifiedRepair.OperationId.ToString("D"));
+					command.Parameters.AddWithValue("@repair_kind", (int)CollectionOperationKind.VerifyRepair);
+					command.Parameters.AddWithValue("@verified", (int)CollectionOperationPhase.QualifiedEffectsVerified);
+					command.Parameters.AddWithValue("@pending", (int)CollectionOperationResultState.Pending);
+					command.Parameters.AddWithValue("@origin", (int)current.Revision.Collection.Origin);
+					command.Parameters.AddWithValue("@collection", current.Revision.Collection.StableId);
+					command.Parameters.AddWithValue("@revision", current.Revision.StableRevisionId);
 					command.Parameters.AddWithValue("@target", current.Target.Fingerprint);
 					command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
 					if (command.ExecuteScalar() != null)
 						throw new InvalidOperationException("Pending Collection operations prevent healthy-state reconciliation for this target.");
+					if (verifiedRepair != null)
+					{
+						command.CommandText = @"SELECT 1 FROM collection_operations WHERE operation_id=@repair AND kind=@repair_kind
+AND phase=@verified AND result_state=@pending AND target_fingerprint=@target
+AND origin=@origin AND collection_id=@collection AND revision_id=@revision;";
+						if (command.ExecuteScalar() == null)
+							throw new InvalidOperationException("The repair no longer owns the verified publication boundary.");
+					}
+
 				}
 
+				List<CollectionMemberBinding> previousBindings = ReadBindings(connection, transaction, current, null).ToList();
 				SaveAssociation(connection, transaction, finalAssociation);
 				foreach (CollectionMemberBinding binding in copiedBindings)
+				{
+					CollectionMemberBinding previous = previousBindings.SingleOrDefault(x => x.MemberKey.Equals(binding.MemberKey));
 					SaveBinding(connection, transaction, binding);
+					// Carry ownership through a verified Collection repair; an ordinary manual rebind may
+					// only carry independent protection and must not claim a new installation for the Collection.
+					NativeModProvenance provenance = previous == null ? null : ReadNativeModProvenance(connection, transaction, previous.NativeMod);
+					NativeModProvenance existing = ReadNativeModProvenance(connection, transaction, binding.NativeMod);
+					if (provenance != null && (provenance.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse ||
+						(verifiedRepair != null && binding.BindingKind == CollectionMemberBindingKind.InstalledForCollection &&
+						 provenance.StandaloneUse == StandaloneModUse.NoStandaloneUseVerified &&
+						 (existing == null || existing.StandaloneUse != StandaloneModUse.ExplicitStandaloneUse))))
+						SaveNativeModProvenance(connection, transaction, new NativeModProvenance(binding.NativeMod, provenance.StandaloneUse));
+				}
 				foreach (CollectionRequirementReference requirement in copiedCleared)
 					DeleteDriftObservationForRequirement(connection, transaction, requirement);
+				if (verifiedRepair != null)
+				{
+					// Publish the replacement binding and terminal journal together so restart never sees a healthy
+					// association paired with an unfinished repair approved against its old incomplete state.
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = "UPDATE collection_operations SET phase=@completed, result_state=@committed, checkpoint_sequence=checkpoint_sequence+1 WHERE operation_id=@repair;";
+						command.Parameters.AddWithValue("@completed", (int)CollectionOperationPhase.Completed);
+						command.Parameters.AddWithValue("@committed", (int)CollectionOperationResultState.Committed);
+						command.Parameters.AddWithValue("@repair", verifiedRepair.OperationId.ToString("D"));
+						if (command.ExecuteNonQuery() != 1) throw new InvalidOperationException("The verified repair journal disappeared before publication.");
+					}
+				}
 			});
 		}
 

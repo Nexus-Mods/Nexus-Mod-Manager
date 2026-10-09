@@ -129,7 +129,26 @@
       ".ogg",
       ".xwm"
     ],
-    "supportsGameRootInstall": true
+    "supportsGameRootInstall": true,
+    "gameRootPackageRules": [
+      {
+        "id": "xse-plugin-preloader",
+        "requiredFiles": [
+          "WinHTTP.dll",
+          "xSE PluginPreloader.xml"
+        ],
+        "xmlChecks": [
+          {
+            "file": "xSE PluginPreloader.xml",
+            "elementPath": [
+              "xSE",
+              "PluginPreloader"
+            ]
+          }
+        ],
+        "allowSingleWrapperFolder": true
+      }
+    ]
   },
   "gamebryo": {
     "scriptExtenderExecutables": [

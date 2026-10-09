@@ -11,7 +11,8 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public IReadOnlyList<CollectionVerifyRepairFinding> Verify(CollectionTargetAssociation association,
 			CollectionNativeStateIndex state, IEnumerable<CollectionMemberBinding> bindings,
-			IEnumerable<CollectionMemberEffectPreview> previews, IEnumerable<UserOverride> overrides = null)
+			IEnumerable<CollectionMemberEffectPreview> previews, IEnumerable<UserOverride> overrides = null,
+			Func<Nexus.Client.ModManagement.ModDeploymentTarget, string, string> ownerPayloadSource = null)
 		{
 			if (association == null) throw new ArgumentNullException(nameof(association));
 			if (state == null) throw new ArgumentNullException(nameof(state));
@@ -31,6 +32,23 @@ namespace Nexus.Client.CollectionManagement
 				CollectionMemberBinding binding;
 				if (!bindingByMember.TryGetValue(preview.MemberKey, out binding)) continue;
 				string ownerKey = binding.NativeMod.NativeModKey;
+				CollectionNativeModState native;
+				if (preview.InstallRootCorrection != null && overrideList.Any(x => x.Requirement.MemberKey != null && x.Requirement.MemberKey.Equals(preview.MemberKey) &&
+					x.Requirement.Aspect == CollectionRequirementAspect.FileWinner && !StringComparer.Ordinal.Equals(x.Requirement.SubjectKey, "install-folder")))
+				{
+					findings.Add(EffectFinding(association, preview.MemberKey, CollectionRequirementAspect.FileWinner, "install-folder", null,
+						CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch, CollectionVerifyRepairDisposition.ActionRequired,
+						"This mod has a custom file choice. Review that choice in Collections before moving its files to the game folder."));
+					continue;
+				}
+				if (preview.InstallRootCorrection != null && (!state.Mods.TryGetValue(binding.NativeMod, out native) ||
+					native.InstallRoot != preview.InstallRoot || native.InstallMethod != preview.InstallMethod || !preview.InstallRootCorrection.Verify(state, true)))
+				{
+					findings.Add(EffectFinding(association, preview.MemberKey, CollectionRequirementAspect.FileWinner, "install-folder", overrideList,
+						CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState,
+						"This mod is installed in the Data folder. Repair will move it to the game folder and remove its old Data files, restoring any files it replaced."));
+					continue;
+				}
 
 				foreach (CollectionPlannedFileEffect effect in preview.Files)
 				{
@@ -50,8 +68,36 @@ namespace Nexus.Client.CollectionManagement
 							"Managed ownership and physical presence are proven, but this effect preview does not carry an exact destination-content hash; byte corruption cannot be repaired automatically."));
 						continue;
 					}
-					FileInfo info = new FileInfo(file.PhysicalPath);
-					if (info.Length != effect.ExpectedByteLength.Value || !effect.ExpectedContentHash.Equals(ComputeHash(file.PhysicalPath)))
+					CollectionInstallRootDestination preserved = preview.InstallRootCorrection == null ? null : preview.InstallRootCorrection.GetPreservedDestination(effect.Target);
+					if (preserved != null)
+					{
+						string stored = ownerPayloadSource == null ? file.VirtualOwners.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey))
+							.Select(x => x.VirtualStagedSourcePath).FirstOrDefault() : ownerPayloadSource(effect.Target, ownerKey);
+						if (String.IsNullOrWhiteSpace(stored) || !File.Exists(stored) || new FileInfo(stored).Length != effect.ExpectedByteLength.Value ||
+							!effect.ExpectedContentHash.Equals(ComputeHash(stored)))
+							findings.Add(EffectFinding(association, preview.MemberKey, CollectionRequirementAspect.FileWinner, effect.Target.ToString(), overrideList,
+								CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState,
+								"This mod's stored file is missing or damaged, even though the other Collection mod's file is still active."));
+					}
+					string verificationPath = file.PhysicalPath;
+					if (preserved == null && !StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, ownerKey) &&
+						(ownerPayloadSource != null || bindingByMember.Values.Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.NativeMod.NativeModKey, file.EffectiveOwnerKey))))
+					{
+						verificationPath = ownerPayloadSource == null ? file.VirtualOwners.Where(x => StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey))
+							.Select(x => x.VirtualStagedSourcePath).FirstOrDefault() : ownerPayloadSource(effect.Target, ownerKey);
+						if (String.IsNullOrWhiteSpace(verificationPath) || !File.Exists(verificationPath))
+						{
+							findings.Add(EffectFinding(association, preview.MemberKey, CollectionRequirementAspect.FileWinner, effect.Target.ToString(), overrideList,
+								CollectionVerifyRepairFindingKind.FileContentVerificationUnavailable, CollectionVerifyRepairDisposition.ActionRequired,
+								"The installed file belongs to another mod, but this member's stored copy is unavailable for verification."));
+							continue;
+						}
+					}
+					CollectionContentHash expectedHash = preserved == null ? effect.ExpectedContentHash : preserved.Before.ContentHash;
+					long expectedLength = preserved == null ? effect.ExpectedByteLength.Value : preserved.Before.ByteLength;
+					FileInfo info = new FileInfo(verificationPath);
+					if (info.Length != expectedLength || !expectedHash.Equals(ComputeHash(verificationPath)) ||
+						(preserved != null && !StringComparer.OrdinalIgnoreCase.Equals(preserved.CurrentOwnerKey, file.EffectiveOwnerKey)))
 						findings.Add(EffectFinding(association, preview.MemberKey, CollectionRequirementAspect.FileWinner, effect.Target.ToString(), overrideList,
 							CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState,
 							"The managed file is present but its exact bytes do not match the retained native recipe."));

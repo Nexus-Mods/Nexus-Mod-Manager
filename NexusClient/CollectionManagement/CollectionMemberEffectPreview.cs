@@ -175,7 +175,7 @@ namespace Nexus.Client.CollectionManagement
 			ModInstallMethod installMethod, ModInstallRoot installRoot,
 			IEnumerable<CollectionPlannedFileEffect> files, IEnumerable<CollectionPlannedIniEffect> iniEdits,
 			IEnumerable<CollectionPlannedGameValueEffect> gameValues, IEnumerable<CollectionPlannedPluginEffect> pluginEffects,
-			IEnumerable<CollectionEffectPreviewIssue> issues)
+			IEnumerable<CollectionEffectPreviewIssue> issues, CollectionInstallRootCorrection installRootCorrection = null)
 		{
 			MemberKey = memberKey ?? throw new ArgumentNullException(nameof(memberKey));
 			RecipeIdentity = recipeIdentity ?? throw new ArgumentNullException(nameof(recipeIdentity));
@@ -186,6 +186,11 @@ namespace Nexus.Client.CollectionManagement
 			_gameValues = Copy(gameValues, nameof(gameValues));
 			_pluginEffects = Copy(pluginEffects, nameof(pluginEffects));
 			_issues = Copy(issues, nameof(issues));
+			if (installRootCorrection != null && (installRoot != ModInstallRoot.GameRoot || installMethod != installRootCorrection.InstallMethod ||
+				installRootCorrection.Files.Any(x => _files.Any(y => x.Before.Target.Equals(y.Target))) ||
+				installRootCorrection.Destinations.Any(x => !_files.Any(y => x.Before.Target.Equals(y.Target)))))
+				throw new ArgumentException("Folder correction must preserve the method and separate old from new targets.", nameof(installRootCorrection));
+			InstallRootCorrection = installRootCorrection;
 		}
 
 		public CollectionMemberKey MemberKey { get; }
@@ -198,6 +203,13 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionPlannedPluginEffect> PluginEffects { get { return _pluginEffects; } }
 		public ReadOnlyCollection<CollectionEffectPreviewIssue> Issues { get { return _issues; } }
 		public bool IsComplete { get { return _issues.Count == 0; } }
+		public CollectionInstallRootCorrection InstallRootCorrection { get; }
+
+		/// <summary>Attaches the exact old-folder removal scope to the reviewed new-folder recipe.</summary>
+		internal CollectionMemberEffectPreview WithInstallRootCorrection(CollectionInstallRootCorrection correction)
+		{
+			return new CollectionMemberEffectPreview(MemberKey, RecipeIdentity, InstallMethod, InstallRoot, Files, IniEdits, GameValues, PluginEffects, Issues, correction);
+		}
 
 		private static ReadOnlyCollection<T> Copy<T>(IEnumerable<T> values, string parameterName) where T : class
 		{

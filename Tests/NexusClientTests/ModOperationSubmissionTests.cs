@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModActivationMonitoring;
@@ -301,8 +302,9 @@ namespace NexusClientTests
         /// <summary>
         /// The C6 submission seam invokes its durable acceptance callback before native worker start.
         /// </summary>
-        [Test]
-        public void SubmitWhenIdle_CallbackRunsBeforeWorkerStart()
+        [TestCase(false)]
+        [TestCase(true)]
+        public void SubmitWhenIdle_CallbackRunsBeforeWorkerStart(bool submitFromWorker)
         {
             string archive = Path.GetTempFileName();
             try
@@ -312,8 +314,22 @@ namespace NexusClientTests
                 var monitor = new ModActivationMonitor();
                 bool callbackObserved = false;
 
-                Assert.That(monitor.SubmitWhenIdle(installer, () => callbackObserved = true), Is.True);
+                int callerThread = Thread.CurrentThread.ManagedThreadId;
+                int callbackThread = 0;
+                Action checkpoint = () =>
+                {
+                    Assert.That(mod.PreparationEntered.IsSet, Is.False,
+                        "Native preparation must not start before its durable submission checkpoint.");
+                    callbackThread = Thread.CurrentThread.ManagedThreadId;
+                    callbackObserved = true;
+                };
+                bool accepted = submitFromWorker
+                    ? Task.Run(() => monitor.SubmitWhenIdle(installer, checkpoint)).GetAwaiter().GetResult()
+                    : monitor.SubmitWhenIdle(installer, checkpoint);
+                Assert.That(accepted, Is.True);
                 Assert.That(callbackObserved, Is.True);
+                if (submitFromWorker)
+                    Assert.That(callbackThread, Is.Not.EqualTo(callerThread), "The durable checkpoint should run off the caller's thread.");
                 Assert.That(mod.PreparationEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
 
                 mod.AllowPreparationToContinue.Set();

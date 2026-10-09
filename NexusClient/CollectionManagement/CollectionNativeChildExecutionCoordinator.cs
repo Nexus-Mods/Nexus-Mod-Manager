@@ -163,8 +163,16 @@ namespace Nexus.Client.CollectionManagement
 
 				CollectionMemberEffectPreview livePreview = new CollectionMemberEffectPreviewBuilder().Build(member,
 					recipeInput, _services.ModManager.GameMode, incomingMod, _services.PluginManager);
-				if (!EffectPreviewsEqual(reviewedPreview, livePreview))
-					throw new InvalidOperationException("The translated C5 native effects no longer match the exact C6.4 impact preview approved for this child.");
+				if (reviewedPreview.Files.Any(x => !x.HasExactContentIdentity))
+				{
+					// Older reviewed snapshots retained exact archive identity and source/destination mappings, but
+					// omitted output hashes. Prove the archive bytes before recovering those hashes from the same recipe.
+					await Task.Run(() => ValidateRecoveryArchiveBytes(GetArchivePath(incomingMod), recovery.IncomingArchive),
+						cancellationToken).ConfigureAwait(true);
+				}
+				if (reviewedPreview.InstallRootCorrection != null && !reviewedPreview.InstallRootCorrection.Verify(liveState, false))
+					throw new InvalidOperationException("The old-folder files changed after review. Review the folder correction again.");
+				reviewedPreview = ResolveExactSubmissionPreview(reviewedPreview, livePreview);
 
 				CollectionNativeChildExecutionEvidence executionEvidence = await Task.Run(() =>
 					CaptureExecutionEvidence(member, reviewedPreview, recipeInput, incomingMod, paths.InstallInfoPath,
@@ -183,8 +191,9 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("The exact C6.7 restart-verification evidence was not durably retained before native submission.");
 
 				recipeInput = await Task.Run(() => ReuseReviewedVirtualStaging(recipeInput, reviewedPreview, incomingMod,
-					previousMod, _services.ModManager, workflowMode, cancellationToken), cancellationToken).ConfigureAwait(true);
+					previousMod, _services.ModManager, cancellationToken), cancellationToken).ConfigureAwait(true);
 				cancellationToken.ThrowIfCancellationRequested();
+				recipeInput = ApplyReviewedFileDeploymentDecisions(recipeInput, reviewedPreview, impactPlan, incomingMod, _services.ModManager);
 				IBackgroundTaskSet nativeTask = CreateNativeTask(previousMod, incomingMod, recipeInput, _services.ModManager);
 				if (nativeTask == null)
 					throw new InvalidOperationException("The native operation unexpectedly resolved to no task; C6.7 cannot infer that the reviewed recipe is already satisfied.");
@@ -705,11 +714,18 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeFileContentEvidence evidence;
 				if (!expectedByTarget.TryGetValue(file.Target, out evidence))
 					throw new InvalidDataException("The exact C5 recipe does not provide bytes for every reviewed file target.");
-				expectedFiles.Add(evidence);
+				CollectionInstallRootDestination preserved = reviewedPreview.InstallRootCorrection == null ? null : reviewedPreview.InstallRootCorrection.GetPreservedDestination(file.Target);
+				expectedFiles.Add(preserved == null ? evidence : preserved.Before);
 			}
 			if (expectedByTarget.Count != expectedFiles.Count)
 				throw new InvalidDataException("The exact C5 recipe produces file targets outside the reviewed C6.4 effect set.");
 
+			if (reviewedPreview.InstallRootCorrection != null)
+				foreach (CollectionInstallRootFileRemoval removal in reviewedPreview.InstallRootCorrection.Files)
+				{
+					preFiles.Add(removal.Before);
+					expectedFiles.Add(removal.After);
+				}
 			CollectionReplayContentEvidence replayPreimage = CaptureReplayContentEvidence(incomingMod.Filename, installInfoDirectory);
 			return new CollectionNativeChildExecutionEvidence(member.ArtifactChoice.SelectedArtifact, incomingMod.Filename,
 				reviewedPreview, preFiles, expectedFiles, replayPreimage, expectedReplay);
@@ -843,10 +859,10 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Reuses exact reviewed cache payloads for an inactive Virtual mod without approving any game-file overwrite.</summary>
 		private static ModInstallationRecipeInput ReuseReviewedVirtualStaging(ModInstallationRecipeInput recipeInput,
 			CollectionMemberEffectPreview reviewedPreview, IMod incomingMod, IMod previousMod, ModManager modManager,
-			CollectionNativeChildWorkflowMode workflowMode, CancellationToken cancellationToken)
+			CancellationToken cancellationToken)
 		{
-			// Reinstall/upgrade can delete staging during removal. Only plain activation can reuse these existing files.
-			if (workflowMode != CollectionNativeChildWorkflowMode.RevisionUpdate || previousMod != null ||
+			// Reinstall/upgrade can delete staging during removal. Plain activation can reuse exact cache bytes in every workflow.
+			if (previousMod != null ||
 				recipeInput.InstallContext.Method != ModInstallMethod.Virtual)
 				return recipeInput;
 
@@ -900,6 +916,67 @@ namespace Nexus.Client.CollectionManagement
 				ScriptedFileDeploymentDecision.ForVirtual(stagingPath, false, null));
 		}
 
+		/// <summary>Passes exact approved file choices to the native backend after submission revalidation.</summary>
+		private static ModInstallationRecipeInput ApplyReviewedFileDeploymentDecisions(ModInstallationRecipeInput input,
+			CollectionMemberEffectPreview preview, CollectionConflictImpactPlan impactPlan, IMod mod, ModManager manager)
+		{
+			var reviewedFiles = preview.Files.ToDictionary(x => x.Target);
+			var impacts = impactPlan.FileImpacts.ToDictionary(x => x.Target);
+			var operations = new List<ScriptedInstallOperation>();
+			foreach (ScriptedInstallOperation operation in input.NativeOperations)
+			{
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+				if ((file == null && generated == null) || (file != null && ModInstallFileFilter.IsIgnored(file.SourcePath)))
+				{
+					operations.Add(operation);
+					continue;
+				}
+				string destination = file == null ? generated.DestinationPath : file.DestinationPath;
+				if (ModInstallFileFilter.IsIgnored(destination)) { operations.Add(operation); continue; }
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(manager.GameMode, mod, destination, input.InstallContext.InstallRoot);
+				CollectionPlannedFileEffect effect;
+				CollectionFileImpact impact;
+				if (!reviewedFiles.TryGetValue(target, out effect) || !impacts.TryGetValue(target, out impact))
+					throw new InvalidOperationException("The native file operation is outside the reviewed Collection file scope: " + target);
+				string staging = input.InstallContext.Method == ModInstallMethod.Direct ? null :
+					ScriptedInstallStagingPathResolver.GetStagingPath(mod, manager.GameMode, manager.VirtualModActivator,
+						destination, input.InstallContext.InstallRoot, generated != null);
+				operations.Add(AuthorizeReviewedFileDeployment(operation, effect, impact, preview.MemberKey,
+					input.InstallContext.Method, staging, manager.DeploymentManager.IsPromoted(target)));
+			}
+			return input.WithTransformedNativePlan(operations);
+		}
+
+		/// <summary>Resolves a file overwrite only for a member and exact target covered by the approved impact plan.</summary>
+		internal static ScriptedInstallOperation AuthorizeReviewedFileDeployment(ScriptedInstallOperation operation,
+			CollectionPlannedFileEffect effect, CollectionFileImpact impact, CollectionMemberKey member,
+			ModInstallMethod method, string stagingPath, bool promoted)
+		{
+			if (effect == null || !effect.HasExactContentIdentity || impact == null || !impact.Target.Equals(effect.Target) ||
+				impact.PlannedWinner == null || !impact.Writers.Contains(impact.PlannedWinner) || !impact.Writers.Contains(member))
+				throw new InvalidOperationException("The file overwrite is not covered by an exact reviewed Collection decision.");
+			InstallModFileOperation file = operation as InstallModFileOperation;
+			GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+			if (file == null && generated == null) throw new ArgumentException("A reviewed file operation is required.", nameof(operation));
+			ScriptedFileDeploymentDecision existing = file == null ? generated.DeploymentDecision : file.DeploymentDecision;
+			if (existing != null && (existing.UseDeploymentCoordinator || (existing.LinkDecision != null && existing.LinkDecision.IsResolved)))
+				return operation;
+			ScriptedFileDeploymentDecision decision;
+			if (method == ModInstallMethod.Direct) decision = ScriptedFileDeploymentDecision.ForDirect(true);
+			else
+			{
+				bool writePayload = existing == null || existing.WritePayload;
+				string staging = existing == null ? stagingPath : existing.StagingPath;
+				// Each writer is installed through the normal native owner stack. The persisted reviewed winner is
+				// restored after all writers exist, independently of child installation order.
+				decision = promoted ? ScriptedFileDeploymentDecision.ForPromotedVirtual(staging, writePayload, true) :
+					ScriptedFileDeploymentDecision.ForVirtual(staging, writePayload, new ModLinkInstallDecision(true).WithLinkOutcome(true, true));
+			}
+			return file == null ? (ScriptedInstallOperation)generated.WithDeploymentDecision(decision) :
+				new InstallModFileOperation(file.SourcePath, file.DestinationPath, decision);
+		}
+
 		private static IBackgroundTaskSet CreateNativeTask(IMod previousMod, IMod incomingMod,
 			ModInstallationRecipeInput recipeInput, ModManager modManager)
 		{
@@ -930,14 +1007,37 @@ namespace Nexus.Client.CollectionManagement
 			return modManager.CreateUpgradeModOperation(previousMod, incomingMod, rejectUnexpectedOverwrite, context, recipeInput);
 		}
 
-		private static bool EffectPreviewsEqual(CollectionMemberEffectPreview left, CollectionMemberEffectPreview right)
+		/// <summary>Uses exact live effects only after they match the approved effects and any retained output identities.</summary>
+		internal static CollectionMemberEffectPreview ResolveExactSubmissionPreview(CollectionMemberEffectPreview reviewed,
+			CollectionMemberEffectPreview live)
+		{
+			if (!EffectPreviewsEqual(reviewed, live, true) || live.Files.Any(x => !x.HasExactContentIdentity))
+				throw new InvalidOperationException("The translated C5 native effects no longer match the exact C6.4 impact preview approved for this child.");
+			return live.WithInstallRootCorrection(reviewed.InstallRootCorrection);
+		}
+
+		private static bool EffectPreviewsEqual(CollectionMemberEffectPreview left, CollectionMemberEffectPreview right,
+			bool allowLegacyFileContent = false)
 		{
 			if (left == null || right == null || left.IsComplete != right.IsComplete || !left.MemberKey.Equals(right.MemberKey) ||
 				!left.RecipeIdentity.Equals(right.RecipeIdentity) || left.InstallMethod != right.InstallMethod || left.InstallRoot != right.InstallRoot)
 				return false;
 
-			return CanonicalFiles(left).SequenceEqual(CanonicalFiles(right), StringComparer.Ordinal) &&
-				CanonicalIni(left).SequenceEqual(CanonicalIni(right), StringComparer.Ordinal) &&
+			if (!allowLegacyFileContent && !((CollectionInstallRootCorrection.Serialize(left.InstallRootCorrection) ?? new byte[0])
+				.SequenceEqual(CollectionInstallRootCorrection.Serialize(right.InstallRootCorrection) ?? new byte[0]))) return false;
+			if (!CanonicalFiles(left).SequenceEqual(CanonicalFiles(right), StringComparer.Ordinal))
+				return false;
+			Dictionary<ModDeploymentTarget, CollectionPlannedFileEffect> rightFiles = right.Files.ToDictionary(x => x.Target);
+			foreach (CollectionPlannedFileEffect file in left.Files)
+			{
+				CollectionPlannedFileEffect other = rightFiles[file.Target];
+				if (!file.HasExactContentIdentity && allowLegacyFileContent)
+					continue;
+				if (file.HasExactContentIdentity != other.HasExactContentIdentity ||
+					file.ExpectedByteLength != other.ExpectedByteLength || !Equals(file.ExpectedContentHash, other.ExpectedContentHash))
+					return false;
+			}
+			return CanonicalIni(left).SequenceEqual(CanonicalIni(right), StringComparer.Ordinal) &&
 				CanonicalGameValues(left).SequenceEqual(CanonicalGameValues(right), StringComparer.Ordinal) &&
 				CanonicalPlugins(left).SequenceEqual(CanonicalPlugins(right), StringComparer.Ordinal);
 		}

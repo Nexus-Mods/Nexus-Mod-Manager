@@ -897,6 +897,78 @@
         },
         "supportsGameRootInstall": {
           "type": "boolean"
+        },
+        "gameRootPackageRules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gameRootPackageRule"
+          },
+          "description": "Optional exact package signatures. Omit or use an empty list to preserve normal installation behavior. Runtime validation also rejects duplicate rule ids and case-insensitive file-name duplicates."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["gameRootPackageRules"],
+            "properties": {
+              "gameRootPackageRules": { "minItems": 1 }
+            }
+          },
+          "then": {
+            "properties": {
+              "supportsGameRootInstall": { "const": true }
+            }
+          }
+        }
+      ]
+    },
+    "gameRootPackageRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requiredFiles"],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier",
+          "not": { "pattern": "[\\u0000-\\u001F]" }
+        },
+        "requiredFiles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/fileName" },
+          "description": "Exact file names that must all occur directly at the same archive base. Paths and wildcards are not supported."
+        },
+        "xmlChecks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/gameRootPackageXmlCheck" }
+        },
+        "allowSingleWrapperFolder": {
+          "type": "boolean",
+          "default": false,
+          "description": "Allows one common enclosing folder, excluding Data and GameMode stopFolders. All archive files must be inside that folder."
+        }
+      }
+    },
+    "gameRootPackageXmlCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "elementPath"],
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/fileName",
+          "description": "Must name a file in the rule's requiredFiles list."
+        },
+        "elementPath": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9._-]*$",
+            "not": { "pattern": "[\\u0000-\\u001F]" }
+          },
+          "description": "Case-sensitive, unqualified element names from the document root through direct children. This is not XPath."
         }
       }
     },

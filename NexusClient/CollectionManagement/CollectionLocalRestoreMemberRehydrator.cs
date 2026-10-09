@@ -195,9 +195,9 @@ namespace Nexus.Client.CollectionManagement
 			CollectionLocalRestorePlan reviewedPlan;
 			try
 			{
-				byte[] intentBytes = LoadIntentBytes(operation);
+				byte[] intentBytes = LoadIntentBytes(operation, cancellationToken);
 				LocalCaptureIdentity captureIdentity = CollectionLocalRestoreIntentCodec.ReadCaptureIdentity(intentBytes);
-				sealedCapture = LoadSealedCapture(captureIdentity);
+				sealedCapture = LoadSealedCapture(captureIdentity, cancellationToken);
 				reviewedPlan = CollectionLocalRestoreIntentCodec.Deserialize(intentBytes, sealedCapture);
 				ValidateDurableBindings(operation, sealedCapture, reviewedPlan);
 			}
@@ -213,8 +213,13 @@ namespace Nexus.Client.CollectionManagement
 
 			cancellationToken.ThrowIfCancellationRequested();
 			NativeObservation observation = CaptureState(operation.Target);
-			CollectionLocalRestorePlan currentPlan = new CollectionLocalRestorePlanner(_artifactStore).Plan(sealedCapture,
-				operation.Target, observation.CollectionState.Fingerprint, observation.NativeState, cancellationToken);
+			var planner = new CollectionLocalRestorePlanner(_artifactStore);
+			// Only an unreconciled native child may use the smaller observation. Once it is reconciled, the next pass
+			// verifies the complete capture before returning a state from which any new restore work can be submitted.
+			CollectionLocalRestorePlan currentPlan = operation.HasUnreconciledNativeChild
+				? planner.PlanForNativeReconciliation(sealedCapture, operation.Target, observation.CollectionState.Fingerprint,
+					observation.NativeState, cancellationToken)
+				: planner.Plan(sealedCapture, operation.Target, observation.CollectionState.Fingerprint, observation.NativeState, cancellationToken);
 			if (currentPlan.Issues.Count != 0)
 			{
 				if (operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability)
@@ -373,11 +378,11 @@ namespace Nexus.Client.CollectionManagement
 					: "The exact reviewed C7.10a intent was reconstructed and remaining member work is still before a safe native submission boundary.");
 		}
 
-		private byte[] LoadIntentBytes(CollectionOperation operation)
+		private byte[] LoadIntentBytes(CollectionOperation operation, CancellationToken cancellationToken)
 		{
 			CollectionsRetainedArtifactReferenceRecord reference = _referenceStore.GetReferenceForOwnerRole(
 				CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.OperationId.ToString("D"), RestoreIntentRole);
-			if (reference == null || !_artifactStore.VerifyArtifact(reference.ArtifactId))
+			if (reference == null || !_artifactStore.VerifyArtifact(reference.ArtifactId, cancellationToken))
 				throw new InvalidDataException("The durable reviewed Local restore intent is missing or failed retained-artifact verification.");
 			using (Stream source = _artifactStore.OpenRead(reference.ArtifactId))
 			using (var buffer = new MemoryStream())
@@ -387,13 +392,13 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private CollectionSealedCaptureSnapshot LoadSealedCapture(LocalCaptureIdentity captureIdentity)
+		private CollectionSealedCaptureSnapshot LoadSealedCapture(LocalCaptureIdentity captureIdentity, CancellationToken cancellationToken)
 		{
 			LocalCapture stored = _localCaptureStore.GetCapture(captureIdentity);
 			if (stored == null)
 				throw new InvalidDataException("The Local restore intent references a sealed capture that is no longer persisted.");
 			string packageArtifactId = _localCaptureStore.GetPackageArtifactId(captureIdentity);
-			if (String.IsNullOrWhiteSpace(packageArtifactId) || !_artifactStore.VerifyArtifact(packageArtifactId))
+			if (String.IsNullOrWhiteSpace(packageArtifactId) || !_artifactStore.VerifyArtifact(packageArtifactId, cancellationToken))
 				throw new InvalidDataException("The sealed Local Collection package is missing or failed retained-artifact verification.");
 			byte[] bytes;
 			using (Stream source = _artifactStore.OpenRead(packageArtifactId))

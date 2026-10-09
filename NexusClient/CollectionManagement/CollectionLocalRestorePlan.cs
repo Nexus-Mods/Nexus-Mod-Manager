@@ -157,7 +157,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionCurrentStateFingerprint currentStateFingerprint, long currentDeploymentCommitSequence,
 			string currentOriginalValuesKey, string planFingerprint, IEnumerable<CollectionLocalRestoreMemberPlan> members,
 			IEnumerable<CollectionLocalRestoreDeploymentPlan> deploymentTargets,
-			IEnumerable<string> currentNativeKeysToRemove, IEnumerable<CollectionLocalRestorePlanIssue> issues)
+			IEnumerable<string> currentNativeKeysToRemove, IEnumerable<CollectionLocalRestorePlanIssue> issues,
+			bool isNativeRecoveryProjection = false)
 		{
 			CaptureIdentity = captureIdentity ?? throw new ArgumentNullException(nameof(captureIdentity));
 			Target = target ?? throw new ArgumentNullException(nameof(target));
@@ -167,6 +168,7 @@ namespace Nexus.Client.CollectionManagement
 			CurrentDeploymentCommitSequence = currentDeploymentCommitSequence;
 			CurrentOriginalValuesKey = currentOriginalValuesKey ?? String.Empty;
 			PlanFingerprint = planFingerprint;
+			IsNativeRecoveryProjection = isNativeRecoveryProjection;
 			_members = Copy(members, nameof(members));
 			_deploymentTargets = Copy(deploymentTargets, nameof(deploymentTargets));
 			_currentNativeKeysToRemove = new ReadOnlyCollection<string>((currentNativeKeysToRemove ?? throw new ArgumentNullException(nameof(currentNativeKeysToRemove))).ToList());
@@ -184,7 +186,9 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionLocalRestoreDeploymentPlan> DeploymentTargets { get { return _deploymentTargets; } }
 		public ReadOnlyCollection<string> CurrentNativeKeysToRemove { get { return _currentNativeKeysToRemove; } }
 		public ReadOnlyCollection<CollectionLocalRestorePlanIssue> Issues { get { return _issues; } }
-		public bool IsReadyForReview { get { return _issues.Count == 0; } }
+		/// <summary>Gets whether retained verification was limited to native recovery inputs, so the projection cannot authorize restore work.</summary>
+		internal bool IsNativeRecoveryProjection { get; }
+		public bool IsReadyForReview { get { return !IsNativeRecoveryProjection && _issues.Count == 0; } }
 
 		private static ReadOnlyCollection<T> Copy<T>(IEnumerable<T> values, string parameterName)
 		{

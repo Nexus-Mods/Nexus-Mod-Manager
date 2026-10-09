@@ -325,12 +325,22 @@ namespace Nexus.Client.ModManagement
 		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
 			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput)
 		{
+			return Build(mod, gameMode, installContext, skipReadme, filesToInstall, activeMods, includeDeterministicModFileMergeOutput, null);
+		}
+
+		/// <summary>Plans an exact reviewed game-root archive base without reevaluating current package recognition rules.</summary>
+		public BasicInstallPlanResult Build(IMod mod, IGameMode gameMode, ModInstallContext installContext, bool skipReadme,
+			IEnumerable<KeyValuePair<string, string>> filesToInstall, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
+			string gameRootArchiveBaseDirectory)
+		{
 			if (mod == null)
 				throw new ArgumentNullException(nameof(mod));
 			if (gameMode == null)
 				throw new ArgumentNullException(nameof(gameMode));
 			if (installContext == null)
 				throw new ArgumentNullException(nameof(installContext));
+			if (gameRootArchiveBaseDirectory != null && installContext.InstallRoot != ModInstallRoot.GameRoot)
+				throw new ArgumentException("An exact game-root archive base requires a game-root install context.", nameof(gameRootArchiveBaseDirectory));
 
 			List<string> archiveFileList = mod.GetFileList();
 			List<string> archiveFiles = archiveFileList == null
@@ -421,7 +431,9 @@ namespace Nexus.Client.ModManagement
 			}
 
 			if (installContext.InstallRoot == ModInstallRoot.GameRoot)
-				files = NormalizeGameRootFileMappings(files);
+				files = gameRootArchiveBaseDirectory == null
+					? NormalizeGameRootFileMappings(files)
+					: NormalizeReviewedGameRootFileMappings(files, gameRootArchiveBaseDirectory);
 
 			files = files.Where(file => !ModInstallFileFilter.IsIgnored(file.Key) && !ModInstallFileFilter.IsIgnored(file.Value)).ToList();
 
@@ -510,6 +522,25 @@ namespace Nexus.Client.ModManagement
 
 			bool hasRecognizableRootContent = files.Any(file => IsRecognizableGameRootContent(StripTopLevelFolder(file.Key)));
 			return NormalizeGameRootFileMappings(files, hasRecognizableRootContent);
+		}
+
+		/// <summary>Uses the exact common base captured during review while retaining archive source paths.</summary>
+		private static List<KeyValuePair<string, string>> NormalizeReviewedGameRootFileMappings(
+			List<KeyValuePair<string, string>> files, string archiveBaseDirectory)
+		{
+			if (archiveBaseDirectory.Length > 0 && (IsUnsafeGameRootArchivePath(archiveBaseDirectory) ||
+				archiveBaseDirectory == "." || archiveBaseDirectory.IndexOfAny(new[] { '\\', '/' }) >= 0))
+				throw new InvalidDataException("The reviewed game-root archive base must be one enclosing folder.");
+			string prefix = archiveBaseDirectory.Length == 0 ? String.Empty : archiveBaseDirectory + "\\";
+			return files.Select(file =>
+			{
+				if (IsUnsafeGameRootArchivePath(file.Key))
+					throw new InvalidDataException("The reviewed game-root source path is unsafe.");
+				string source = file.Key.Replace('/', '\\');
+				if (!source.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || source.Length <= prefix.Length)
+					throw new InvalidDataException("A game-root file is outside the archive base captured during review.");
+				return new KeyValuePair<string, string>(file.Key, NormalizeGameRootRelativePath(source.Substring(prefix.Length)));
+			}).ToList();
 		}
 
 		/// <summary>

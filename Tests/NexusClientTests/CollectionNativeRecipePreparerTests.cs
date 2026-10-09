@@ -792,6 +792,37 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Revision boundary preparation reproduces a reviewed root wrapper without consulting recognition rules.</summary>
+		[TestCase(ModInstallMethod.Virtual)]
+		[TestCase(ModInstallMethod.Direct)]
+		public void PrepareRevisionUpdateExact_FrozenRootWrapperReproducesApprovedOperations(ModInstallMethod method)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateGameRootFixture(root, "inferred-wrapper", null,
+					@"Package\WinHTTP.dll", @"Package\xSE PluginPreloader.xml");
+				var context = new ModInstallContext(method, ModInstallRoot.GameRoot);
+				PreparedCollectionNativeRecipe reviewed = fixture.Preparer.PrepareExact(fixture.Plan, fixture.Member,
+					fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), context, fixture.State,
+					false, null, null, true, CancellationToken.None, "Package");
+				Assert.That(reviewed.Member.RequiresGameRootInstall, Is.False);
+				Assert.That(reviewed.GameRootArchiveBaseDirectory, Is.EqualTo("Package"));
+				PreparedCollectionNativeRecipe current = fixture.Preparer.PrepareRevisionUpdateExact(fixture.Plan, fixture.Member,
+					fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(), reviewed.InstallContext,
+					fixture.State, false, null, null, CancellationToken.None, reviewed.GameRootArchiveBaseDirectory);
+				Assert.That(current.PreparedNativeIdentity, Is.EqualTo(reviewed.PreparedNativeIdentity));
+				Assert.That(current.InstallContext.Method, Is.EqualTo(method));
+				Assert.That(current.EffectPreview.Files.All(x => x.Target.Root == ModDeploymentRoot.GameRoot), Is.True);
+				Assert.That(current.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.DestinationPath),
+					Is.EquivalentTo(new[] { "WinHTTP.dll", "xSE PluginPreloader.xml" }));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		[Test]
 		public void PrepareBasicSimpleExact_DinputAtArchiveRootUsesNativeGameRootPlan()
 		{

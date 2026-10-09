@@ -482,6 +482,182 @@ END;";
 			finally { Directory.Delete(root, true); }
 		}
 
+		[TestCase(StandaloneModUse.Unknown)]
+		[TestCase(StandaloneModUse.ExplicitStandaloneUse)]
+		[TestCase(StandaloneModUse.NoStandaloneUseVerified)]
+		public void ExplicitRemoval_ListsUnknownOrStandaloneModsAndHonorsTheReviewedKeepChoice(StandaloneModUse use)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "explicit-" + use);
+				fixture.Associations.SaveNativeModProvenance(new NativeModProvenance(fixture.NativeMod, use));
+				CollectionUninstallEffectsPlan plan = CollectionUninstallEffectsCoordinator.BuildExplicitMemberPlan(fixture.Associations,
+					fixture.Association.WithState(CollectionAssociationState.Recovering), CreateState(fixture, true, null, null),
+					new KeyValuePair<CollectionMemberKey, CollectionArtifactReference>[0], new KeyValuePair<CollectionMemberKey, string>[0], new CollectionOperation[0]);
+				Assert.IsFalse(plan.HasBlockedImpacts);
+				Assert.IsTrue(plan.Impacts.Single().RequiresNativeRemoval);
+				CollectionUninstallEffectsPlan keep = plan.WithKeptMods(new[] { fixture.NativeMod });
+				Assert.IsFalse(keep.RequiresNativeMutation);
+				Assert.AreEqual(CollectionUninstallNativeDisposition.PreserveStandalone, keep.Impacts.Single().Disposition);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[TestCase(ModInstallMethod.Virtual)]
+		[TestCase(ModInstallMethod.Direct)]
+		public void ExplicitRemoval_FindsAnUnboundExactVersionAndLeavesOtherVersionsOutsideTheList(ModInstallMethod method)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "explicit-unbound-" + method);
+				var exact = new CollectionNativeModState(new NativeModInstanceIdentity(fixture.Target, "unbound"), @"C:\Mods\new.7z",
+					"new.7z", "48078", "412151", "2.0.6", "2.0.6", ModInstallRoot.Data, method);
+				var other = new CollectionNativeModState(new NativeModInstanceIdentity(fixture.Target, "other-version"), @"C:\Mods\old.7z",
+					"old.7z", "48078", "374987", "1.4", "1.4", ModInstallRoot.Data, method);
+				var state = new CollectionNativeStateIndex(fixture.Target, new CollectionNativeRootState[0], new[] { exact, other },
+					new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
+					new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable, new[] { fixture.Association },
+					new[] { fixture.Binding }, new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
+				CollectionMemberKey member = CollectionMemberKey.FromProvider("failed-member");
+				var artifact = new CollectionArtifactReference(NexusCollectionModFileArtifactIdentity.Scheme, "fallout4/48078/412151", null);
+				CollectionUninstallEffectsPlan plan = CollectionUninstallEffectsCoordinator.BuildExplicitMemberPlan(fixture.Associations,
+					fixture.Association, state, new[] { new KeyValuePair<CollectionMemberKey, CollectionArtifactReference>(member, artifact) },
+					new KeyValuePair<CollectionMemberKey, string>[0], new CollectionOperation[0]);
+				Assert.IsTrue(plan.Impacts.Single(x => x.NativeMod.Equals(exact.Identity)).RequiresNativeRemoval);
+				Assert.AreEqual(method, plan.Impacts.Single(x => x.NativeMod.Equals(exact.Identity)).InstallMethod);
+				Assert.IsFalse(plan.Impacts.Any(x => x.NativeMod.Equals(other.Identity)));
+				Assert.AreEqual(exact.Identity, CollectionUninstallEffectsCoordinator.ResolveRemovalJournalMod(fixture.Target,
+					CollectionMemberKey.FromProvider("uninstall-native:" + exact.Identity.NativeModKey)));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ExplicitRemoval_AtomicallySupersedesUnknownInstallationWithoutRewritingItsNativeOutcome(bool changedAfterReview)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "explicit-handoff-" + changedAfterReview);
+				CollectionTargetAssociation recovering = fixture.Association.WithState(CollectionAssociationState.Recovering);
+				fixture.Associations.SaveAssociation(recovering);
+				var operations = new CollectionsOperationStore(fixture.Store);
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), "failed-recipe"));
+				var child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(recovering.Revision, fixture.Binding.MemberKey),
+					CollectionNativeChildAction.ActivateOrReinstall, native, CollectionNativeChildCheckpoint.NativeTerminalObserved,
+					new ModOperationResult(native, ModOperationReportedStatus.Failed, ModOperationDurability.Unknown, "interrupted"));
+				var pending = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+					recovering.Revision.Collection, recovering.Target, recovering.Revision, null, 1,
+					CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired, new[] { child });
+				operations.SaveOperation(pending);
+				if (changedAfterReview)
+					operations.SaveOperation(new CollectionOperation(pending.Identity, pending.Kind, pending.Collection, pending.Target,
+						pending.Revision, pending.PlanIdentity, 2, pending.Phase, pending.ResultState, pending.NativeChildren));
+				CollectionOperation uninstall = CreateOperation(recovering, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, 1, new CollectionNativeChildOperation[0]);
+				if (changedAfterReview)
+				{
+					Assert.Throws<TargetInvocationException>(() => InvokeStore(fixture.Associations, "BeginUninstallEffects",
+						recovering, uninstall, new[] { pending }));
+					Assert.IsNull(operations.GetOperation(uninstall.Identity));
+					Assert.IsTrue(operations.GetOperation(pending.Identity).RequiresRecovery);
+					Assert.AreEqual(CollectionAssociationState.Recovering, fixture.Associations.GetAssociation(recovering.AssociationId).State);
+				}
+				else
+				{
+					InvokeStore(fixture.Associations, "BeginUninstallEffects", recovering, uninstall, new[] { pending });
+					CollectionOperation stopped = operations.GetOperation(pending.Identity);
+					Assert.IsTrue(stopped.IsTerminal);
+					Assert.AreEqual(CollectionOperationResultState.StoppedPartial, stopped.ResultState);
+					Assert.AreEqual(ModOperationDurability.Unknown, stopped.NativeChildren.Single().NativeResult.Durability);
+					Assert.AreEqual(ModOperationReportedStatus.Failed, stopped.NativeChildren.Single().NativeResult.ReportedStatus);
+					Assert.AreEqual(uninstall.Identity, operations.GetIncompleteOperations(fixture.Target).Single().Identity);
+					Assert.AreEqual(CollectionAssociationState.Incomplete, fixture.Associations.GetAssociation(recovering.AssociationId).State);
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
+		public void ExplicitRemoval_SubmitsUnboundModWithUnknownProvenanceUsingItsReviewedNativeKey()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "explicit-submission");
+				CollectionOperation operation = CreateOperation(fixture.Association, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, 1, new CollectionNativeChildOperation[0]);
+				InvokeStore(fixture.Associations, "BeginUninstallEffects", fixture.Association, operation, new CollectionOperation[0]);
+				var nativeMod = new NativeModInstanceIdentity(fixture.Target, "unbound-native");
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), null));
+				var child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(operation.Revision,
+					CollectionMemberKey.FromProvider("uninstall-native:" + nativeMod.NativeModKey)), CollectionNativeChildAction.Deactivate,
+					native, CollectionNativeChildCheckpoint.NativeSubmitted, null);
+				var submitted = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, null, 2, operation.Phase, operation.ResultState, new[] { child });
+				Assert.DoesNotThrow(() => InvokeStore(fixture.Associations, "SaveUninstallChildSubmission", fixture.Association.AssociationId,
+					submitted, nativeMod, new[] { CollectionMemberKey.FromProvider("failed-member") }, true));
+				Assert.AreEqual(CollectionNativeChildCheckpoint.NativeSubmitted,
+					new CollectionsOperationStore(fixture.Store).GetOperation(operation.Identity).NativeChildren.Single().Checkpoint);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
+		public void ExplicitRemoval_ReconcilesLaterSuccessAfterUnknownFailureAndAllowsAnotherAttempt()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "explicit-continue");
+				var operations = new CollectionsOperationStore(fixture.Store);
+				CollectionOperation operation = CreateOperation(fixture.Association, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, 1, new CollectionNativeChildOperation[0]);
+				InvokeStore(fixture.Associations, "BeginUninstallEffects", fixture.Association, operation, new CollectionOperation[0]);
+				var failedMod = new NativeModInstanceIdentity(fixture.Target, "failed-native");
+				ModOperationIdentity firstNative = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), null));
+				ModOperationIdentity secondNative = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), null));
+				var failed = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(operation.Revision,
+					CollectionMemberKey.FromProvider("uninstall-native:" + failedMod.NativeModKey)), CollectionNativeChildAction.Deactivate,
+					firstNative, CollectionNativeChildCheckpoint.NativeTerminalObserved,
+					new ModOperationResult(firstNative, ModOperationReportedStatus.Failed, ModOperationDurability.Unknown, "failed"));
+				operation = CreateOperation(fixture.Association, operation.Phase, operation.ResultState, 2, new[] { failed }, operation.Identity);
+				operations.SaveOperation(operation);
+				var removed = new CollectionNativeChildOperation(2, new CollectionOperationMemberReference(operation.Revision,
+					CollectionMemberKey.FromProvider("uninstall-native:" + fixture.NativeMod.NativeModKey)), CollectionNativeChildAction.Deactivate,
+					secondNative, CollectionNativeChildCheckpoint.Reconciled,
+					new ModOperationResult(secondNative, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, "removed"));
+				operation = CreateOperation(fixture.Association, operation.Phase, operation.ResultState, 3, new[] { failed, removed }, operation.Identity);
+				Assert.DoesNotThrow(() => InvokeStore(fixture.Associations, "SaveUninstallChildReconciliation",
+					fixture.Association.AssociationId, operation, fixture.NativeMod, true, true));
+				operation = CreateOperation(fixture.Association, CollectionOperationPhase.Completed, CollectionOperationResultState.StoppedPartial,
+					4, operation.NativeChildren, operation.Identity);
+				InvokeStore(fixture.Associations, "SaveUninstallStoppedPartial", fixture.Association.AssociationId, operation);
+				var impacts = new[] { failedMod, fixture.NativeMod }.Select(mod => new CollectionUninstallNativeImpact(mod,
+					new[] { fixture.Binding.MemberKey }, CollectionUninstallNativeDisposition.RemoveNativeMod, StandaloneModUse.Unknown,
+					new Guid[0], ModInstallMethod.Virtual, ModInstallRoot.Data, "selected"));
+				var result = new CollectionUninstallEffectsResult(operation, fixture.Association, false, impacts);
+				Assert.AreEqual(1, result.RemovedCount);
+				Assert.AreEqual(failedMod, result.FailedRemovals.Single().NativeMod);
+				Assert.AreEqual(ModOperationDurability.Unknown, operations.GetOperation(operation.Identity).NativeChildren[0].NativeResult.Durability);
+				Assert.IsEmpty(fixture.Associations.GetBindings(fixture.Association.AssociationId));
+				Assert.IsEmpty(operations.GetIncompleteOperations(fixture.Target));
+				CollectionTargetAssociation remaining = fixture.Associations.GetAssociation(fixture.Association.AssociationId);
+				CollectionOperation retry = CreateOperation(remaining, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, 1, new CollectionNativeChildOperation[0]);
+				Assert.DoesNotThrow(() => InvokeStore(fixture.Associations, "BeginUninstallEffects", remaining, retry, new CollectionOperation[0]));
+				Assert.AreEqual(2, operations.GetOperationsForCollection(remaining.Revision.Collection, remaining.Target).Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		private static CollectionUninstallEffectsPlan BuildPlan(CollectionsAssociationStore associations,
 			CollectionTargetAssociation association, CollectionNativeStateIndex state)
 		{
@@ -495,7 +671,9 @@ END;";
 		{
 			MethodInfo method = typeof(CollectionsAssociationStore).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
 			Assert.IsNotNull(method, name);
-			return method.Invoke(store, args);
+			ParameterInfo[] parameters = method.GetParameters();
+			object[] actual = parameters.Select((parameter, index) => index < args.Length ? args[index] : parameter.DefaultValue).ToArray();
+			return method.Invoke(store, actual);
 		}
 
 		private static CollectionOperation CreateSubmittedOperation(CollectionOperation operation, CollectionMemberBinding binding)

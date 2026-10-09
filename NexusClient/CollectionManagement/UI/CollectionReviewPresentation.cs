@@ -82,6 +82,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			return item.Kind == CollectionReviewItemKind.ManualAction || item.Kind == CollectionReviewItemKind.PlannedEffect;
 		}
 
+		/// <summary>Orders concrete errors before workflow summaries and successful acquisition messages.</summary>
+		internal static int GetIssuePriority(CollectionReviewItem item)
+		{
+			if (item == null)
+				throw new ArgumentNullException(nameof(item));
+			return (int)item.Severity * 10 + (item.Code.StartsWith("workflow.", StringComparison.Ordinal) ? 1 : 0);
+		}
+
 		public static bool MatchesSeverity(CollectionReviewItem item, bool showErrors, bool showWarnings, bool showInfo)
 		{
 			if (item == null)

@@ -125,7 +125,8 @@ namespace Nexus.Client.CollectionManagement
 				if (!currentState.Mods.TryGetValue(previousNativeMod.Identity, out currentNativeMod) || !SameNativeMod(previousNativeMod, currentNativeMod))
 					throw new InvalidOperationException("The native instance selected for reinstall changed before durable child preparation.");
 				previousNativeMod = currentNativeMod;
-				if (previousNativeMod.InstallMethod != preview.InstallMethod || previousNativeMod.InstallRoot != preview.InstallRoot)
+				if (previousNativeMod.InstallMethod != preview.InstallMethod || (previousNativeMod.InstallRoot != preview.InstallRoot &&
+					(preview.InstallRootCorrection == null || !preview.InstallRootCorrection.MatchesPrevious(previousNativeMod))))
 					throw new InvalidOperationException("Collection reinstall preparation cannot silently convert the installed member's native method or install root.");
 				RequireReinstallEffectsReviewed(previousNativeMod, preview, currentState);
 			}
@@ -438,6 +439,12 @@ namespace Nexus.Client.CollectionManagement
 			if (currentState.FilesByOwnerKey.TryGetValue(ownerKey, out oldFiles))
 			{
 				var planned = new HashSet<ModDeploymentTarget>(preview.Files.Select(x => x.Target));
+				if (preview.InstallRootCorrection != null)
+				{
+					if (!preview.InstallRootCorrection.Verify(currentState, false))
+						throw new InvalidOperationException("The old-folder files or ownership changed after the folder correction was reviewed.");
+					planned.UnionWith(preview.InstallRootCorrection.Files.Select(x => x.Before.Target));
+				}
 				if (oldFiles.Any(x => !planned.Contains(x.Target))) throw new InvalidOperationException("The reviewed reinstall preview does not cover every existing file effect that native upgrade may remove or replace.");
 			}
 			ReadOnlyCollection<CollectionNativeIniState> oldIni;

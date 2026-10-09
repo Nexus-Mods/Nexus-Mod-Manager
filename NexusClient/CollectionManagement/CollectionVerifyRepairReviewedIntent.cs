@@ -175,6 +175,13 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write(recipe.ExecutableDescriptorFingerprint);
 					writer.Write((int)recipe.InstallMethod);
 					writer.Write((int)recipe.InstallRoot);
+					if (recipe.GameRootArchiveBaseDirectory != null || recipe.InstallRootCorrection != null)
+					{
+						writer.Write("install-folder-correction/1");
+						writer.Write(recipe.GameRootArchiveBaseDirectory != null);
+						if (recipe.GameRootArchiveBaseDirectory != null) writer.Write(recipe.GameRootArchiveBaseDirectory);
+						CollectionInstallRootCorrection.Write(writer, recipe.InstallRootCorrection);
+					}
 				}
 				writer.Flush();
 				using (SHA256 sha = SHA256.Create())
@@ -222,7 +229,10 @@ namespace Nexus.Client.CollectionManagement
 			ExpectedState = expectedState;
 			ObservedState = observedState;
 			StableKey = BuildStableKey(memberKey, aspect, subjectKey);
-			IsQualifiedRepair = aspect == CollectionRequirementAspect.MemberEnabledState ||
+			IsQualifiedRepair = (memberKey != null && aspect == CollectionRequirementAspect.MemberParticipation &&
+				(kind == CollectionVerifyRepairFindingKind.MemberParticipationMismatch || kind == CollectionVerifyRepairFindingKind.DetectedDrift) &&
+				CollectionMemberRequirementStates.Included().Equals(expectedState) && CollectionRequirementState.Absent().Equals(observedState)) ||
+				aspect == CollectionRequirementAspect.MemberEnabledState ||
 				kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch ||
 				kind == CollectionVerifyRepairFindingKind.IniEffectMismatch ||
 				kind == CollectionVerifyRepairFindingKind.GameValueEffectMismatch ||
@@ -276,7 +286,8 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionVerifyRepairPreparedRecipeReview
 	{
 		internal CollectionVerifyRepairPreparedRecipeReview(CollectionMemberKey memberKey, string providerRecipeFingerprint,
-			string preparedNativeFingerprint, string executableDescriptorFingerprint, ModInstallMethod installMethod, ModInstallRoot installRoot)
+			string preparedNativeFingerprint, string executableDescriptorFingerprint, ModInstallMethod installMethod, ModInstallRoot installRoot,
+			string gameRootArchiveBaseDirectory = null, CollectionInstallRootCorrection installRootCorrection = null)
 		{
 			MemberKey = memberKey ?? throw new ArgumentNullException(nameof(memberKey));
 			ProviderRecipeFingerprint = CollectionIdentityValidation.RequireOpaqueToken(providerRecipeFingerprint, nameof(providerRecipeFingerprint));
@@ -286,6 +297,10 @@ namespace Nexus.Client.CollectionManagement
 			if (installRoot != ModInstallRoot.Data && installRoot != ModInstallRoot.GameRoot) throw new ArgumentOutOfRangeException(nameof(installRoot));
 			InstallMethod = installMethod;
 			InstallRoot = installRoot;
+			if ((gameRootArchiveBaseDirectory != null || installRootCorrection != null) && installRoot != ModInstallRoot.GameRoot)
+				throw new ArgumentException("A retained game-folder correction requires a game-folder destination.");
+			GameRootArchiveBaseDirectory = gameRootArchiveBaseDirectory;
+			InstallRootCorrection = installRootCorrection;
 		}
 
 		public CollectionMemberKey MemberKey { get; }
@@ -294,12 +309,14 @@ namespace Nexus.Client.CollectionManagement
 		public string ExecutableDescriptorFingerprint { get; }
 		public ModInstallMethod InstallMethod { get; }
 		public ModInstallRoot InstallRoot { get; }
+		public string GameRootArchiveBaseDirectory { get; }
+		public CollectionInstallRootCorrection InstallRootCorrection { get; }
 
 		internal static CollectionVerifyRepairPreparedRecipeReview From(PreparedCollectionNativeRecipe recipe)
 		{
 			return new CollectionVerifyRepairPreparedRecipeReview(recipe.Member.MemberKey, recipe.ProviderRecipeIdentity.Fingerprint,
 				recipe.PreparedNativeIdentity.Fingerprint, ComputeExecutableDescriptorFingerprint(recipe),
-				recipe.InstallContext.Method, recipe.InstallContext.InstallRoot);
+				recipe.InstallContext.Method, recipe.InstallContext.InstallRoot, recipe.GameRootArchiveBaseDirectory, recipe.EffectPreview.InstallRootCorrection);
 		}
 
 		internal bool Matches(PreparedCollectionNativeRecipe recipe)
@@ -378,6 +395,13 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				CollectionMemberEffectPreview preview = recipe.EffectPreview;
+				if (recipe.GameRootArchiveBaseDirectory != null || preview.InstallRootCorrection != null)
+				{
+					writer.Write("install-folder-correction/1");
+					writer.Write(recipe.GameRootArchiveBaseDirectory != null);
+					if (recipe.GameRootArchiveBaseDirectory != null) writer.Write(recipe.GameRootArchiveBaseDirectory);
+					CollectionInstallRootCorrection.Write(writer, preview.InstallRootCorrection);
+				}
 				writer.Write(preview.Files.Count);
 				foreach (CollectionPlannedFileEffect file in preview.Files)
 				{
@@ -550,9 +574,9 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private sealed class RecipeDto
 		{
-			public int MemberKind; public string Member; public string Provider; public string Prepared; public string Executable; public int Method; public int Root;
-			public static RecipeDto From(CollectionVerifyRepairPreparedRecipeReview value) { return new RecipeDto { MemberKind=(int)value.MemberKey.Kind, Member=value.MemberKey.Value, Provider=value.ProviderRecipeFingerprint, Prepared=value.PreparedNativeFingerprint, Executable=value.ExecutableDescriptorFingerprint, Method=(int)value.InstallMethod, Root=(int)value.InstallRoot }; }
-			public CollectionVerifyRepairPreparedRecipeReview ToRecipe() { return new CollectionVerifyRepairPreparedRecipeReview(ReadMemberKey(MemberKind, Member), Provider, Prepared, Executable, (ModInstallMethod)Method, (ModInstallRoot)Root); }
+			public int MemberKind; public string Member; public string Provider; public string Prepared; public string Executable; public int Method; public int Root; public string ArchiveBase; public byte[] Correction;
+			public static RecipeDto From(CollectionVerifyRepairPreparedRecipeReview value) { return new RecipeDto { MemberKind=(int)value.MemberKey.Kind, Member=value.MemberKey.Value, Provider=value.ProviderRecipeFingerprint, Prepared=value.PreparedNativeFingerprint, Executable=value.ExecutableDescriptorFingerprint, Method=(int)value.InstallMethod, Root=(int)value.InstallRoot, ArchiveBase=value.GameRootArchiveBaseDirectory, Correction=CollectionInstallRootCorrection.Serialize(value.InstallRootCorrection) }; }
+			public CollectionVerifyRepairPreparedRecipeReview ToRecipe() { return new CollectionVerifyRepairPreparedRecipeReview(ReadMemberKey(MemberKind, Member), Provider, Prepared, Executable, (ModInstallMethod)Method, (ModInstallRoot)Root, ArchiveBase, CollectionInstallRootCorrection.Deserialize(Correction)); }
 		}
 		private sealed class StateDto
 		{

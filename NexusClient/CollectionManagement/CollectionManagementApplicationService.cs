@@ -639,8 +639,11 @@ namespace Nexus.Client.CollectionManagement
 				List<CollectionMemberBinding> bindings = snapshot.Bindings.Where(x => x.Association.AssociationId == associationId).ToList();
 				List<UserOverride> overrides = snapshot.Overrides.Where(x => x.Requirement.AssociationId == associationId).ToList();
 				List<CollectionDriftObservation> drift = snapshot.DriftObservations.Where(x => x.Requirement.AssociationId == associationId).ToList();
+				CollectionOperation pendingRepair = _operationStore.GetIncompleteOperations(authority.Target).SingleOrDefault(x =>
+					x.Kind == CollectionOperationKind.VerifyRepair && x.Revision != null && x.Revision.Equals(association.Revision));
+				CollectionVerifyRepairReviewedIntent reviewedRepair = pendingRepair == null ? null : LoadVerifyRepairIntent(pendingRepair);
 				CollectionVerifyRepairPreparationResult preparation = new CollectionVerifyRepairPreparationService(_services, _store, _revisionSourceStore)
-					.Prepare(association, presentation.RetainedManifest, state, bindings, overrides, drift, cancellationToken);
+					.Prepare(association, presentation.RetainedManifest, state, bindings, overrides, drift, cancellationToken, reviewedRepair);
 				IEnumerable<CollectionMemberBinding> planningBindings = preparation.IsComplete
 					? (IEnumerable<CollectionMemberBinding>)preparation.EffectiveBindings : bindings;
 				IEnumerable<CollectionMemberEffectPreview> previews = preparation.IsComplete
@@ -648,8 +651,18 @@ namespace Nexus.Client.CollectionManagement
 				IReadOnlyDictionary<CollectionRequirementReference, CollectionRequirementState> currentMemberStates =
 					ObserveCurrentVerifyMemberStates(planningBindings, drift);
 				return new CollectionVerifyRepairPlanner().Plan(association, presentation.RetainedManifest.Manifest, state, planningBindings, overrides, drift,
-					previews, preparation, currentMemberStates, preparation.IsComplete ? preparation.BindingUpdates : null);
+					previews, preparation, currentMemberStates, preparation.IsComplete ? preparation.BindingUpdates : null, _services.ModManager.DeploymentManager.GetOwnerSourcePath);
 			}
+		}
+
+		/// <summary>Loads the original folder mappings for an interrupted approved repair.</summary>
+		private CollectionVerifyRepairReviewedIntent LoadVerifyRepairIntent(CollectionOperation operation)
+		{
+			if (operation.PlanIdentity == null) throw new InvalidDataException("The interrupted repair is missing its exact reviewed scope.");
+			CollectionResolvedPlanRecord record = new CollectionsResolvedPlanStore(_store).GetPlan(operation.PlanIdentity);
+			if (record == null || !StringComparer.Ordinal.Equals(record.PayloadFormat, CollectionVerifyRepairReviewedIntentCodec.PayloadFormat))
+				throw new InvalidDataException("The interrupted repair is missing its exact reviewed scope.");
+			return CollectionVerifyRepairReviewedIntentCodec.Deserialize(record.Payload);
 		}
 
 		private IReadOnlyDictionary<CollectionRequirementReference, CollectionRequirementState> ObserveCurrentVerifyMemberStates(
@@ -746,6 +759,31 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("The verify/repair plan does not belong to the current canonical target.");
 			var coordinator = new CollectionVerifyRepairExecutionCoordinator(_services, _gameStorageService, _store, _associationStore);
 			return coordinator.ExecuteAsync(plan, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Checks whether the selected saved backup can be deleted from the active canonical target.</summary>
+		public CollectionsLocalCaptureDeletionStatus GetLocalCaptureDeletionStatus(LocalCaptureIdentity identity, CollectionTargetIdentity expectedTarget)
+		{
+			if (identity == null) throw new ArgumentNullException(nameof(identity));
+			if (expectedTarget == null) throw new ArgumentNullException(nameof(expectedTarget));
+			if (!ResolveCurrentTarget().Equals(expectedTarget)) return CollectionsLocalCaptureDeletionStatus.TargetMismatch;
+			return !_store.Exists ? CollectionsLocalCaptureDeletionStatus.NotFound : _localCaptureStore.GetDeletionStatus(identity, expectedTarget);
+		}
+
+		/// <summary>Deletes only a reviewed saved backup while excluding concurrent capture or restore mutations on its target.</summary>
+		public CollectionsLocalCaptureDeletionStatus DeleteLocalCapture(LocalCaptureIdentity identity, CollectionTargetIdentity expectedTarget,
+			CancellationToken cancellationToken)
+		{
+			if (identity == null) throw new ArgumentNullException(nameof(identity));
+			if (expectedTarget == null) throw new ArgumentNullException(nameof(expectedTarget));
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths());
+			if (!authority.Target.Equals(expectedTarget)) return CollectionsLocalCaptureDeletionStatus.TargetMismatch;
+			using (CollectionTargetMutationLease lease = CollectionTargetMutationLeaseManager.Shared.Acquire(authority, cancellationToken))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (!ResolveCurrentTarget().Equals(expectedTarget)) return CollectionsLocalCaptureDeletionStatus.TargetMismatch;
+				return !_store.Exists ? CollectionsLocalCaptureDeletionStatus.NotFound : _localCaptureStore.Delete(identity, expectedTarget);
+			}
 		}
 
 		/// <summary>Returns persisted Local Collection captures belonging to the current canonical target.</summary>
@@ -1167,6 +1205,56 @@ namespace Nexus.Client.CollectionManagement
 			return _uninstallCoordinator.PreviewAsync(associationId, GetTargetPaths(), cancellationToken);
 		}
 
+		/// <summary>Reviews the Collection's matching native mods without requiring its interrupted installation to finish.</summary>
+		internal Task<CollectionUninstallEffectsPlan> PreviewCollectionModRemovalAsync(Guid associationId, CancellationToken cancellationToken)
+		{
+			CollectionManagementAssociationPresentation presentation = GetAssociationPresentation(associationId);
+			if (presentation == null) throw new InvalidOperationException("The selected Collection no longer exists.");
+			var artifacts = new List<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>>();
+			string currentDomain = _services.ModManager.ModRepository.GameDomainName;
+			if (presentation.RetainedManifest != null)
+				foreach (NormalizedCollectionMember member in presentation.RetainedManifest.Manifest.Members.Where(x => x.IdentityResolution.IsResolved))
+				{
+					string domain; long modId; long fileId;
+					if (NexusCollectionModFileArtifactIdentity.TryParse(member.Artifact, out domain, out modId, out fileId) &&
+						StringComparer.OrdinalIgnoreCase.Equals(domain, currentDomain))
+						artifacts.Add(new KeyValuePair<CollectionMemberKey, CollectionArtifactReference>(member.IdentityResolution.Key, member.Artifact));
+				}
+			var names = new List<KeyValuePair<CollectionMemberKey, string>>();
+			var manifests = new CollectionsNativeChildRecoveryManifestStore(new CollectionsRetainedArtifactStore(_store),
+				new CollectionsRetainedArtifactReferenceStore(_store));
+			foreach (CollectionOperation operation in _operationStore.GetOperationsForCollection(
+				presentation.Association.Association.Revision.Collection, presentation.Association.Association.Target))
+				foreach (CollectionNativeChildOperation child in operation.NativeChildren.Where(x =>
+					(x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.HasCrossedNativeBoundary && !x.IsReconciled) ||
+					(x.Action == CollectionNativeChildAction.Deactivate && !x.HasVerifiedCommittedNativeState)))
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					try
+					{
+						NativeModInstanceIdentity removalMod = CollectionUninstallEffectsCoordinator.ResolveRemovalJournalMod(operation.Target, child.Member.MemberKey);
+						if (removalMod != null)
+						{
+							IMod installed = _services.ModManager.ActiveMods.Concat(_services.ModManager.ManagedMods).FirstOrDefault(x =>
+							{
+								try { return StringComparer.Ordinal.Equals(_services.ModManager.InstallationLog.GetModKey(x), removalMod.NativeModKey); }
+								catch { return false; }
+							});
+							if (installed != null) names.Add(new KeyValuePair<CollectionMemberKey, string>(child.Member.MemberKey, installed.Filename));
+							continue;
+						}
+						CollectionNativeChildRecoveryManifest recovery = manifests.GetManifest(operation, child);
+						if (recovery != null && recovery.ExecutionEvidence != null)
+							names.Add(new KeyValuePair<CollectionMemberKey, string>(child.Member.MemberKey, recovery.ExecutionEvidence.IncomingFileName));
+					}
+					catch (Exception exception)
+					{
+						System.Diagnostics.Trace.TraceWarning("Collection uninstall could not read one optional recovery filename: " + exception.Message);
+					}
+				}
+			return _uninstallCoordinator.PreviewMembersAsync(associationId, GetTargetPaths(), artifacts, names, cancellationToken);
+		}
+
 		/// <summary>Executes an explicitly reviewed safe-effect-removal plan after native revalidation.</summary>
 		public Task<CollectionUninstallEffectsResult> RemoveEffectsAsync(CollectionUninstallEffectsPlan reviewedPlan,
 			CancellationToken cancellationToken)
@@ -1174,15 +1262,12 @@ namespace Nexus.Client.CollectionManagement
 			return RemoveEffectsAsync(reviewedPlan, cancellationToken, null);
 		}
 
-		/// <summary>Executes reviewed removal and cleans obsolete retention while preserving an open incoming Collection preview.</summary>
-		public async Task<CollectionUninstallEffectsResult> RemoveEffectsAsync(CollectionUninstallEffectsPlan reviewedPlan,
+		/// <summary>Returns the verified removal result without delaying completion for retained-archive deletion.</summary>
+		/// <remarks>Obsolete retention is collected by the bounded startup sweep. The preview argument remains for caller compatibility.</remarks>
+		public Task<CollectionUninstallEffectsResult> RemoveEffectsAsync(CollectionUninstallEffectsPlan reviewedPlan,
 			CancellationToken cancellationToken, CollectionIdentity retainedPreviewCollection)
 		{
-			CollectionUninstallEffectsResult result = await _uninstallCoordinator.ExecuteAsync(reviewedPlan,
-				GetTargetPaths(), cancellationToken).ConfigureAwait(false);
-			if (result.IsSuccessful)
-				await CleanupRetainedContentAsync(CancellationToken.None, retainedPreviewCollection).ConfigureAwait(false);
-			return result;
+			return _uninstallCoordinator.ExecuteAsync(reviewedPlan, GetTargetPaths(), cancellationToken);
 		}
 
 		/// <summary>
@@ -1461,6 +1546,12 @@ namespace Nexus.Client.CollectionManagement
 		internal GameStoragePathSet GetTargetPaths()
 		{
 			return _gameStorageService.FromGameMode(_services.ModManager.GameMode);
+		}
+
+		/// <summary>Reads the active target identity for support reports even when no Collection remains installed.</summary>
+		internal CollectionTargetIdentity GetReportTargetIdentity()
+		{
+			return ResolveCurrentTarget();
 		}
 
 		private CollectionTargetIdentity ResolveCurrentTarget()

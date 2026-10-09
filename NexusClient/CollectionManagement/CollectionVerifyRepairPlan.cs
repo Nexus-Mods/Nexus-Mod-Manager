@@ -98,6 +98,16 @@ namespace Nexus.Client.CollectionManagement
 		{
 			get { return !HasRepairableDifferences && !HasActionRequired; }
 		}
+		/// <summary>Identifies a bounded restoration of an absent member to its expected included state.</summary>
+		internal static bool IsMissingMemberRepair(CollectionVerifyRepairFinding finding)
+		{
+			return finding != null && finding.IsRepairable && finding.MemberKey != null && finding.Requirement != null &&
+				finding.Requirement.Aspect == CollectionRequirementAspect.MemberParticipation &&
+				(finding.Kind == CollectionVerifyRepairFindingKind.MemberParticipationMismatch || finding.Kind == CollectionVerifyRepairFindingKind.DetectedDrift) &&
+				CollectionMemberRequirementStates.Included().Equals(finding.ExpectedState) &&
+				CollectionRequirementState.Absent().Equals(finding.ObservedState);
+		}
+
 		public bool CanExecuteQualifiedRepair
 		{
 			get
@@ -111,7 +121,7 @@ namespace Nexus.Client.CollectionManagement
 						finding.Kind == CollectionVerifyRepairFindingKind.PluginEffectMismatch && ResolvedPlan != null &&
 						CollectionPluginRelativeOrderApplicator.IsRequirementSubject(finding.Requirement.SubjectKey)) continue;
 					if (finding.MemberKey == null || ResolvedPlan == null || !_preparedRecipes.Any(x => x.Member.MemberKey.Equals(finding.MemberKey))) return false;
-					if (finding.Kind != CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch &&
+					if (!IsMissingMemberRepair(finding) && finding.Kind != CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch &&
 						finding.Kind != CollectionVerifyRepairFindingKind.IniEffectMismatch &&
 						finding.Kind != CollectionVerifyRepairFindingKind.GameValueEffectMismatch &&
 						finding.Kind != CollectionVerifyRepairFindingKind.PluginEffectMismatch) return false;

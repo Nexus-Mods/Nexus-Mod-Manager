@@ -637,7 +637,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
-		private const int BinaryVersion = 6;
+		private const int BinaryVersion = 8;
 		private const int LegacyBinaryVersion = 2;
 		private const int MaxCount = 100000;
 		private const int MaxPayloadLength = 64 * 1024 * 1024;
@@ -688,7 +688,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != BinaryVersion && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != BinaryVersion && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -869,7 +869,7 @@ namespace Nexus.Client.CollectionManagement
 			for (int i = 0, count = ReadCount(reader); i < count; i++)
 			{
 				CollectionMemberKey key = ReadMemberKey(reader); int ordinal = reader.ReadInt32(); string provider = ReadRequiredString(reader); string prepared = ReadRequiredString(reader); bool skip = reader.ReadBoolean();
-				ModInstallationRecipeValidation validation = ReadValidation(reader); CollectionMemberEffectPreview preview = ReadEffectPreview(reader); var ids = new List<string>(); for (int j = 0, c = ReadCount(reader); j < c; j++) ids.Add(ReadRequiredString(reader));
+				ModInstallationRecipeValidation validation = ReadValidation(reader); CollectionMemberEffectPreview preview = ReadEffectPreview(reader, binaryVersion); var ids = new List<string>(); for (int j = 0, c = ReadCount(reader); j < c; j++) ids.Add(ReadRequiredString(reader));
 				var mappings = new List<CollectionReviewedSimpleFileMappingSnapshot>();
 				if (binaryVersion >= 3)
 					for (int j = 0, c = ReadCount(reader); j < c; j++) mappings.Add(new CollectionReviewedSimpleFileMappingSnapshot(ReadRequiredString(reader), ReadRequiredString(reader)));
@@ -910,21 +910,40 @@ namespace Nexus.Client.CollectionManagement
 		private static void WriteEffectPreview(BinaryWriter writer, CollectionMemberEffectPreview preview)
 		{
 			WriteMemberKey(writer, preview.MemberKey); writer.Write(preview.RecipeIdentity.Fingerprint); writer.Write((int)preview.InstallMethod); writer.Write((int)preview.InstallRoot);
-			writer.Write(preview.Files.Count); foreach (var f in preview.Files) WriteDeploymentTarget(writer, f.Target);
+			writer.Write(preview.Files.Count);
+			foreach (CollectionPlannedFileEffect file in preview.Files)
+			{
+				WriteDeploymentTarget(writer, file.Target);
+				writer.Write(file.HasExactContentIdentity);
+				if (file.HasExactContentIdentity)
+				{
+					WriteHash(writer, file.ExpectedContentHash);
+					writer.Write(file.ExpectedByteLength.Value);
+				}
+			}
 			writer.Write(preview.IniEdits.Count); foreach (var x in preview.IniEdits) { writer.Write(x.Key.File); writer.Write(x.Key.Section); writer.Write(x.Key.Key); WriteNullableString(writer, x.Value); }
 			writer.Write(preview.GameValues.Count); foreach (var x in preview.GameValues) { writer.Write(x.Key); byte[] value = x.Value; writer.Write(value != null); if (value != null) { writer.Write(value.Length); writer.Write(value); } }
 			writer.Write(preview.PluginEffects.Count); foreach (var x in preview.PluginEffects) WritePluginEffect(writer, x);
 			writer.Write(preview.Issues.Count); foreach (var x in preview.Issues) { writer.Write((int)x.Kind); writer.Write(x.OperationType); writer.Write(x.Message); }
+			CollectionInstallRootCorrection.Write(writer, preview.InstallRootCorrection);
 		}
-		private static CollectionMemberEffectPreview ReadEffectPreview(BinaryReader reader)
+		private static CollectionMemberEffectPreview ReadEffectPreview(BinaryReader reader, int binaryVersion)
 		{
 			CollectionMemberKey key = ReadMemberKey(reader); CollectionRecipeIdentity recipe = CollectionRecipeIdentity.FromFingerprint(ReadRequiredString(reader)); ModInstallMethod method = ReadEnum<ModInstallMethod>(reader, true); ModInstallRoot root = ReadEnum<ModInstallRoot>(reader, true);
-			var files = new List<CollectionPlannedFileEffect>(); for (int i = 0, count = ReadCount(reader); i < count; i++) files.Add(new CollectionPlannedFileEffect(ReadDeploymentTarget(reader)));
+			var files = new List<CollectionPlannedFileEffect>();
+			for (int i = 0, count = ReadCount(reader); i < count; i++)
+			{
+				ModDeploymentTarget target = ReadDeploymentTarget(reader);
+				files.Add(binaryVersion >= 7 && reader.ReadBoolean()
+					? new CollectionPlannedFileEffect(target, ReadHash(reader), reader.ReadInt64())
+					: new CollectionPlannedFileEffect(target));
+			}
 			var ini = new List<CollectionPlannedIniEffect>(); for (int i = 0, count = ReadCount(reader); i < count; i++) ini.Add(new CollectionPlannedIniEffect(new CollectionNativeIniKey(reader.ReadString(), reader.ReadString(), reader.ReadString()), ReadNullableString(reader)));
 			var game = new List<CollectionPlannedGameValueEffect>(); for (int i = 0, count = ReadCount(reader); i < count; i++) { string k = ReadRequiredString(reader); byte[] value = null; if (reader.ReadBoolean()) { int length = ReadCount(reader); value = reader.ReadBytes(length); if (value.Length != length) throw new EndOfStreamException(); } game.Add(new CollectionPlannedGameValueEffect(k, value)); }
 			var plugins = new List<CollectionPlannedPluginEffect>(); for (int i = 0, count = ReadCount(reader); i < count; i++) plugins.Add(ReadPluginEffect(reader));
 			var issues = new List<CollectionEffectPreviewIssue>(); for (int i = 0, count = ReadCount(reader); i < count; i++) issues.Add(new CollectionEffectPreviewIssue(ReadEnum<CollectionEffectPreviewIssueKind>(reader, false), reader.ReadString(), reader.ReadString()));
-			return new CollectionMemberEffectPreview(key, recipe, method, root, files, ini, game, plugins, issues);
+			CollectionInstallRootCorrection correction = binaryVersion >= 8 ? CollectionInstallRootCorrection.Read(reader) : null;
+			return new CollectionMemberEffectPreview(key, recipe, method, root, files, ini, game, plugins, issues, correction);
 		}
 		private static void WritePluginEffect(BinaryWriter writer, CollectionPlannedPluginEffect effect)
 		{

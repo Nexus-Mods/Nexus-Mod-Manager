@@ -20,11 +20,15 @@ namespace Nexus.Client.CollectionManagement
 	/// <summary>Builds exact Step 2 reconstruction evidence from the current registered mod archive and deployed owner bytes.</summary>
 	internal sealed class CollectionOwnerPayloadArchiveEvidenceSource : ICollectionOwnerPayloadArchiveEvidenceSource
 	{
+		private const int ComparisonBufferSize = 1024 * 1024;
+
 		private readonly Dictionary<string, IMod> _modsByKey;
 		private readonly IGameMode _gameMode;
 		private readonly Dictionary<string, CollectionInstalledModIdentity> _installedByKey;
 		private readonly Dictionary<string, Dictionary<string, List<string>>> _archiveEntriesByOwner =
 			new Dictionary<string, Dictionary<string, List<string>>>(StringComparer.OrdinalIgnoreCase);
+		private byte[] _archiveReadBuffer;
+		private byte[] _payloadReadBuffer;
 
 		internal CollectionOwnerPayloadArchiveEvidenceSource(IInstallLog installLog, CollectionInstalledIdentitySnapshot installedIdentities, IGameMode gameMode)
 		{
@@ -48,6 +52,7 @@ namespace Nexus.Client.CollectionManagement
 			NativeStateCaptureDeploymentOwnerKind ownerKind, string ownerKey, ModDeploymentTarget target,
 			string payloadSourcePath, CancellationToken cancellationToken)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
 			if (ownerKind != NativeStateCaptureDeploymentOwnerKind.Direct &&
 				ownerKind != NativeStateCaptureDeploymentOwnerKind.Virtual)
 				return null;
@@ -93,34 +98,26 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			cancellationToken.ThrowIfCancellationRequested();
-			ContentIdentity expected;
+			ContentIdentity matched;
 			try
 			{
 				using (FileStream archiveEntry = mod.GetFileStream(matches[0]))
-					expected = Hash(archiveEntry, cancellationToken);
+				using (FileStream deployed = new FileStream(payloadSourcePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+					ComparisonBufferSize, FileOptions.SequentialScan))
+					matched = MatchAndHash(archiveEntry, deployed, cancellationToken);
 			}
 			catch (Exception exception) when (!(exception is OperationCanceledException))
 			{
 				return null;
 			}
-
-			ContentIdentity observed;
-			try
-			{
-				using (FileStream deployed = new FileStream(payloadSourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024, FileOptions.SequentialScan))
-					observed = Hash(deployed, cancellationToken);
-			}
-			catch (Exception exception) when (exception is FileNotFoundException || exception is DirectoryNotFoundException ||
-				exception is IOException || exception is UnauthorizedAccessException)
-			{
+			if (matched == null)
 				return null;
-			}
 
 			string proofIdentity = CollectionOwnerPayloadArchiveReconstruction.CreateProofIdentity(ownerKey, installed.InstallContext,
-				canonicalTarget, expected.Hash, expected.ByteLength);
+				canonicalTarget, matched.Hash, matched.ByteLength);
 			return new CollectionOwnerPayloadReconstructionCandidate(ownerKind,
 				CollectionOwnerPayloadReconstructionMappingKind.ExactArchiveEntry, true, false, ownerKey, canonicalTarget,
-				proofIdentity, expected.Hash, expected.ByteLength, observed.Hash, observed.ByteLength);
+				proofIdentity, matched.Hash, matched.ByteLength, matched.Hash, matched.ByteLength);
 		}
 
 		private Dictionary<string, List<string>> GetArchiveEntries(string ownerKey, IMod mod)
@@ -162,22 +159,60 @@ namespace Nexus.Client.CollectionManagement
 			return cached;
 		}
 
-		private static ContentIdentity Hash(Stream source, CancellationToken cancellationToken)
+		/// <summary>Proves exact byte equality and hashes the common payload once, stopping early when normal byte retention is required.</summary>
+		private ContentIdentity MatchAndHash(FileStream archiveEntry, FileStream deployed, CancellationToken cancellationToken)
 		{
+			if (archiveEntry == null)
+				return null;
+			long expectedLength = archiveEntry.Length;
+			if (expectedLength != deployed.Length)
+				return null;
+			if (_archiveReadBuffer == null)
+				_archiveReadBuffer = new byte[ComparisonBufferSize];
+			if (_payloadReadBuffer == null)
+				_payloadReadBuffer = new byte[ComparisonBufferSize];
+
 			using (SHA256 sha256 = SHA256.Create())
 			{
-				byte[] buffer = new byte[1024 * 1024];
 				long length = 0;
-				int read;
-				while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+				while (true)
 				{
-					cancellationToken.ThrowIfCancellationRequested();
-					sha256.TransformBlock(buffer, 0, read, null, 0);
-					length += read;
+					int archiveRead = ReadBlock(archiveEntry, _archiveReadBuffer, cancellationToken);
+					int payloadRead = ReadBlock(deployed, _payloadReadBuffer, cancellationToken);
+					if (archiveRead != payloadRead)
+						return null;
+					if (archiveRead == 0)
+						break;
+					for (int index = 0; index < archiveRead; index++)
+					{
+						if (_archiveReadBuffer[index] != _payloadReadBuffer[index])
+							return null;
+					}
+					// Both streams supplied the same complete block, so one digest proves their common content identity.
+					sha256.TransformBlock(_archiveReadBuffer, 0, archiveRead, null, 0);
+					length += archiveRead;
 				}
+				if (length != expectedLength)
+					return null;
+				cancellationToken.ThrowIfCancellationRequested();
 				sha256.TransformFinalBlock(new byte[0], 0, 0);
 				return new ContentIdentity(CollectionContentHash.FromSha256(BitConverter.ToString(sha256.Hash).Replace("-", String.Empty).ToLowerInvariant()), length);
 			}
+		}
+
+		/// <summary>Fills one bounded comparison block so differing stream read sizes cannot change the equality decision.</summary>
+		private static int ReadBlock(Stream source, byte[] buffer, CancellationToken cancellationToken)
+		{
+			int filled = 0;
+			while (filled < buffer.Length)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				int read = source.Read(buffer, filled, buffer.Length - filled);
+				if (read == 0)
+					break;
+				filled += read;
+			}
+			return filled;
 		}
 
 		private sealed class ContentIdentity

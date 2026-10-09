@@ -436,7 +436,8 @@ namespace Nexus.Client.CollectionManagement
 				if (member.VerifiedArchive == null || member.PreparedRecipe == null)
 					throw new InvalidOperationException("A C10.6 mutating candidate member is missing its exact C10.3 archive/preparation input.");
 				PreparedCollectionNativeRecipe current = _recipePreparation.PrepareAtExecutionBoundary(batch.CurrentPlan,
-					member.UpdateMember, member.VerifiedArchive, state, cancellationToken);
+					member.UpdateMember, member.VerifiedArchive, state, cancellationToken,
+					member.PreparedRecipe.InstallContext, member.PreparedRecipe.GameRootArchiveBaseDirectory, member.PreparedRecipe.EffectPreview.InstallRootCorrection);
 				RequireUnchangedBoundaryPreparation(member.PreparedRecipe, current);
 				result.Add(member.UpdateMember.MemberKey, current);
 			}

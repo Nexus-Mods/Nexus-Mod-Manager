@@ -82,6 +82,33 @@ namespace NexusClientTests
 			}
 		}
 
+		[TestCase(ModInstallMethod.Direct, true)]
+		[TestCase(ModInstallMethod.Direct, false)]
+		[TestCase(ModInstallMethod.Virtual, true)]
+		[TestCase(ModInstallMethod.Virtual, false)]
+		public void PrepareAndApply_UnownedPluginFromPreviousInstallationUsesIncomingCollectionState(ModInstallMethod method, bool desiredActive)
+		{
+			using (Fixture fixture = Fixture.Create(desiredActive ? Scenario.PluginArchive : Scenario.PluginArchiveDesiredDisabled, method))
+			{
+				string pluginPath = Path.Combine(fixture.PluginDirectory, "Example.esp");
+				fixture.PluginState.Reconcile(new[] { pluginPath }, new Dictionary<string, bool> { { pluginPath, !desiredActive } });
+
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.ImpactPlan.PluginImpacts.Single().Effect.Active, Is.EqualTo(desiredActive));
+				Assert.That(prepared.ImpactPlan.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired), Is.False);
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.EqualTo(!desiredActive));
+
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(1));
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.EqualTo(desiredActive));
+			}
+		}
+
 		[Test]
 		public void PrepareAndApply_CollectionPluginOverlay_DisablesIncludedPluginAbsentFromEnabledList()
 		{

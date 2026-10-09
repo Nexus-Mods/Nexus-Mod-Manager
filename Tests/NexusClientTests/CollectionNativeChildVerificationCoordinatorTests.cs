@@ -2,8 +2,10 @@
 using System.IO;
 using System.Reflection;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -143,6 +145,75 @@ namespace NexusClientTests
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");
 			Assert.IsFalse(CollectionNativeChildVerificationCoordinator.ReviewedFileContentMatches(
 				new CollectionPlannedFileEffect(target), "unused"));
+		}
+
+		/// <summary>Uses exact retained file and replay preimages for a failed new activation in both deployment methods.</summary>
+		[TestCase(ModInstallMethod.Virtual, "unchanged", true)]
+		[TestCase(ModInstallMethod.Direct, "unchanged", true)]
+		[TestCase(ModInstallMethod.Virtual, "absent", true)]
+		[TestCase(ModInstallMethod.Direct, "absent", true)]
+		[TestCase(ModInstallMethod.Virtual, "changed-bytes", false)]
+		[TestCase(ModInstallMethod.Virtual, "unexpected-file", false)]
+		[TestCase(ModInstallMethod.Virtual, "changed-replay", false)]
+		[TestCase(ModInstallMethod.Virtual, "changed-fingerprint", false)]
+		[TestCase(ModInstallMethod.Virtual, "legacy", false)]
+		[TestCase(ModInstallMethod.Virtual, "reported-commit", false)]
+		public void LiveRollback_RequiresExactRetainedPreState(ModInstallMethod method, string scenario, bool accepted)
+		{
+			string directory = Path.Combine(Path.GetTempPath(), "collection-live-rollback-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(directory);
+			try
+			{
+				string path = Path.Combine(directory, "mod.dll");
+				byte[] before = { 1, 2, 3, 4 };
+				bool existed = scenario != "absent" && scenario != "unexpected-file";
+				if (existed) File.WriteAllBytes(path, before);
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c68-rollback");
+				ModDeploymentTarget deployment = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "mod.dll");
+				var file = new CollectionNativeFileState(deployment, path, false, false, false, null,
+					new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0]);
+				var state = new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], new CollectionNativeModState[0],
+					new[] { file }, new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
+					CollectionNativeStateCoverage.NotApplicable, new CollectionTargetAssociation[0], new CollectionMemberBinding[0],
+					new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
+				CollectionContentHash hash;
+				using (var sha = System.Security.Cryptography.SHA256.Create())
+					hash = CollectionContentHash.FromSha256(BitConverter.ToString(sha.ComputeHash(before)).Replace("-", "").ToLowerInvariant());
+				var preview = new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("rollback-member"),
+					CollectionRecipeIdentity.FromFingerprint("rollback-recipe"), method, ModInstallRoot.Data,
+					new[] { new CollectionPlannedFileEffect(deployment, hash, before.Length) }, new CollectionPlannedIniEffect[0],
+					new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+					new[] { new CollectionNativeFileContentEvidence(deployment, existed, existed ? hash : null, existed ? before.Length : 0) },
+					new[] { new CollectionNativeFileContentEvidence(deployment, true, hash, before.Length) },
+					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+					new CollectionExpectedReplayOperation[0]);
+				CollectionIdentity collection = CollectionIdentity.FromNexus("rollback-collection");
+				CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "rollback-revision", 1);
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(method, ModInstallRoot.Data), "rollback-recipe"));
+				var manifest = new CollectionNativeChildRecoveryManifest(CollectionOperationIdentity.CreateNew(), 1,
+					CollectionPlanIdentity.From(Guid.NewGuid(), 1), new CollectionOperationMemberReference(revision, preview.MemberKey),
+					CollectionNativeChildAction.ActivateOrReinstall, native,
+					scenario == "changed-fingerprint" ? new CollectionCurrentStateFingerprint(state.Fingerprint.FormatVersion, "changed") : state.Fingerprint,
+					new CollectionRecoveryArtifact("incoming", hash, before.Length), null, null,
+					new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]),
+					scenario == "legacy" ? null : evidence);
+				if (scenario == "changed-bytes" || scenario == "unexpected-file")
+					File.WriteAllBytes(path, new byte[] { 9, 2, 3, 4 });
+				if (scenario == "changed-replay")
+				{
+					string replay = ScriptedFileSelectionCache.GetDefaultFilePath("incoming.7z", directory);
+					Directory.CreateDirectory(Path.GetDirectoryName(replay));
+					File.WriteAllText(replay, "changed");
+				}
+				IGameMode game = InterfaceStub<IGameMode>.Create((member, args) => null);
+				var reported = new ModOperationResult(native, ModOperationReportedStatus.Failed,
+					scenario == "reported-commit" ? ModOperationDurability.VerifiedCommitted : ModOperationDurability.Unknown, "overwrite rejected");
+				Assert.That(CollectionNativeChildVerificationCoordinator.TryVerifyRolledBackState(reported, preview, manifest, state,
+					directory, game), Is.EqualTo(accepted));
+			}
+			finally { Directory.Delete(directory, true); }
 		}
 
 		private static ModOperationResult CreateResult(ModOperationReportedStatus status, ModOperationDurability durability)

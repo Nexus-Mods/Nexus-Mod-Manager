@@ -11,6 +11,7 @@ using Newtonsoft.Json;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModAuthoring;
+using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 
@@ -112,6 +113,10 @@ namespace Nexus.Client.CollectionManagement
 			public int MemberKind { get; set; }
 			public string MemberValue { get; set; }
 			public string PreparedNativeFingerprint { get; set; }
+			public int? InstallMethod { get; set; }
+			public int? InstallRoot { get; set; }
+			public string GameRootArchiveBaseDirectory { get; set; }
+			public byte[] InstallRootCorrection { get; set; }
 		}
 
 		public CollectionRevisionUpdateApplicationService(ServiceManager services, GameStorageService gameStorageService)
@@ -867,7 +872,10 @@ namespace Nexus.Client.CollectionManagement
 				PlanVersion = preparation.CurrentPlan.NewPlan.Identity.Version,
 				Members = preparation.Members.Where(x => x.PreparedRecipe != null).OrderBy(x => x.UpdateMember.MemberKey.Kind).ThenBy(x => x.UpdateMember.MemberKey.Value, StringComparer.Ordinal)
 					.Select(x => new PreparationMemberDto { MemberKind = (int)x.UpdateMember.MemberKey.Kind, MemberValue = x.UpdateMember.MemberKey.Value,
-						PreparedNativeFingerprint = x.PreparedRecipe.PreparedNativeIdentity.Fingerprint }).ToList()
+						PreparedNativeFingerprint = x.PreparedRecipe.PreparedNativeIdentity.Fingerprint,
+						InstallMethod = (int)x.PreparedRecipe.InstallContext.Method, InstallRoot = (int)x.PreparedRecipe.InstallContext.InstallRoot,
+						GameRootArchiveBaseDirectory = x.PreparedRecipe.GameRootArchiveBaseDirectory,
+						InstallRootCorrection = CollectionInstallRootCorrection.Serialize(x.PreparedRecipe.EffectPreview.InstallRootCorrection) }).ToList()
 			};
 			byte[] bytes = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(dto, Formatting.None));
 			CollectionsRetainedArtifact artifact;
@@ -882,23 +890,30 @@ namespace Nexus.Client.CollectionManagement
 			PreparationSnapshotDto snapshot = LoadPreparationSnapshot(operation.Identity, plan.NewPlan.Identity, cancellationToken);
 			if (snapshot == null) return null;
 			CollectionNativeStateIndex state = await CaptureAuthoritativeStateAsync(plan.NewPlan.Target, cancellationToken).ConfigureAwait(false);
-			var fingerprints = snapshot.Members.ToDictionary(x => CreateMemberKey((CollectionMemberKeyKind)x.MemberKind, x.MemberValue), x => x.PreparedNativeFingerprint);
+			var frozenMembers = snapshot.Members.ToDictionary(x => CreateMemberKey((CollectionMemberKeyKind)x.MemberKind, x.MemberValue));
 			var committed = new HashSet<CollectionMemberKey>(operation.NativeChildren.Where(x =>
 				x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled && x.HasVerifiedCommittedNativeState)
 				.Select(x => x.Member.MemberKey));
 			var states = new List<CollectionRevisionUpdatePreparationMemberState>();
 			foreach (CollectionRevisionUpdateMemberPlan member in plan.Members.Where(RequiresCandidatePreparation))
 			{
-				string expected;
-				if (!fingerprints.TryGetValue(member.MemberKey, out expected)) return null;
+				PreparationMemberDto frozen;
+				if (!frozenMembers.TryGetValue(member.MemberKey, out frozen)) return null;
 				CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(CollectionMemberAcquisitionCoordinator.CreateStableRequestId(plan.NewPlan.Identity, member.MemberKey), plan.NewPlan, member.MemberKey);
 				CollectionAcquisitionRestartResult restart = _acquisitionRestart.Reconcile(request, cancellationToken);
 				if (restart.Disposition != CollectionAcquisitionRestartDisposition.VerifiedInputReady || restart.VerifiedArchive == null) return null;
 				PreparedCollectionNativeRecipe prepared = null;
 				if (!committed.Contains(member.MemberKey))
 				{
-					prepared = _recipePreparation.PrepareAtExecutionBoundary(plan, member, restart.VerifiedArchive, state, cancellationToken);
-					if (!StringComparer.Ordinal.Equals(prepared.PreparedNativeIdentity.Fingerprint, expected)) return null;
+					ModInstallContext frozenContext = frozen.InstallMethod.HasValue && frozen.InstallRoot.HasValue
+						? new ModInstallContext((ModInstallMethod)frozen.InstallMethod.Value, (ModInstallRoot)frozen.InstallRoot.Value)
+						: null;
+					if (frozen.InstallMethod.HasValue != frozen.InstallRoot.HasValue ||
+						(frozen.GameRootArchiveBaseDirectory != null && (frozenContext == null || frozenContext.InstallRoot != ModInstallRoot.GameRoot)))
+						throw new InvalidDataException("The retained Collection destination is incomplete or inconsistent.");
+					prepared = _recipePreparation.PrepareAtExecutionBoundary(plan, member, restart.VerifiedArchive, state, cancellationToken,
+						frozenContext, frozen.GameRootArchiveBaseDirectory, CollectionInstallRootCorrection.Deserialize(frozen.InstallRootCorrection));
+					if (!StringComparer.Ordinal.Equals(prepared.PreparedNativeIdentity.Fingerprint, frozen.PreparedNativeFingerprint)) return null;
 				}
 				states.Add(new CollectionRevisionUpdatePreparationMemberState(member, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 					request, restart.VerifiedArchive, null, null, restart, restart.PremiumAvailability, prepared));

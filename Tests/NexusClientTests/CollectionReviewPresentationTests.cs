@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using NUnit.Framework;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.UI;
@@ -107,6 +108,25 @@ namespace Nexus.Client.Tests
 			Assert.That(CollectionReviewPresentationFilter.IsSeverityFiltered(progress), Is.True);
 			Assert.That(CollectionReviewPresentationFilter.IsPersistentReviewAction(diagnostic), Is.False);
 			Assert.That(CollectionReviewPresentationFilter.IsPersistentReviewAction(progress), Is.False);
+		}
+
+		[Test]
+		public void ReviewOrder_ConcreteBlockersComeBeforeSummaryAndReadyArchives()
+		{
+			var ready = new CollectionReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.Progress,
+				"Ready", "acquisition.ready", "Mod A", "Archive ready");
+			var summary = new CollectionReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+				"Paused", "workflow.preparation", "Collection", "Needs attention");
+			var blocker = new CollectionReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+				"Action required", "impact.existingpluginstatedecisionrequired", "Mod B", "Plugin needs enabling");
+			var warning = new CollectionReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
+				"Warning", "manifest.guidance", "Collection", "Curator advice");
+
+			CollectionReviewItem[] sorted = new[] { summary, ready, warning, blocker }
+				.OrderBy(CollectionReviewPresentationFilter.GetIssuePriority).ToArray();
+
+			Assert.That(sorted, Is.EqualTo(new[] { blocker, summary, warning, ready }));
+			Assert.That(sorted.All(x => CollectionReviewPresentationFilter.MatchesSeverity(x, true, true, true)), Is.True);
 		}
 
 		[Test]

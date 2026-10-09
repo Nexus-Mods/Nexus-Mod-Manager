@@ -23,6 +23,7 @@
     using Nexus.Client.UI;
     using Nexus.Client.Util;
     using Nexus.Client.Util.Collections;
+    using Nexus.Transactions;
 
 	// Phase 1 compatibility backend for virtual deployment; low-level link manipulation remains here during migration.
 	public sealed class VirtualModDisableProgress
@@ -964,7 +965,10 @@
 		private void AddVirtualModInfo(IVirtualModInfo p_vmiModInfo)
 		{
 			MarkVirtualModInfoLookupDirty();
+			VirtualDeploymentTransactionEnlistment enlistment = GetExistingVirtualDeploymentEnlistment();
+			enlistment?.TouchModInfo(p_vmiModInfo, false);
 			m_tslVirtualModInfo.Add(p_vmiModInfo);
+			enlistment?.SetModInfoPresent(p_vmiModInfo, true);
 			MarkVirtualModInfoLookupDirty();
 		}
 
@@ -1246,12 +1250,17 @@
 			string strAdjustedDeploymentPathKey;
 			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawDeploymentPathKey, out strAdjustedDeploymentPathKey);
 			string strOwnerKey = p_modMod == null ? null : ModInstallLog.GetModKey(p_modMod);
+			VirtualDeploymentTransactionEnlistment enlistment = GetExistingVirtualDeploymentEnlistment();
+			if (enlistment != null && p_modMod != null)
+				enlistment.Touch(p_vmlLink, ModDeploymentTargetResolver.Resolve(GameMode, p_modMod,
+					p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot), false);
 
 			if (booOwnIndexMutationScope)
 				m_alcVirtualLinkIndexMutationNesting.Value++;
 			try
 			{
 				m_tslVirtualModList.Add(p_vmlLink);
+				enlistment?.SetLinkPresent(p_vmlLink, true);
 			}
 			finally
 			{
@@ -1291,6 +1300,10 @@
 			GetVirtualLinkDeploymentPathKeys(p_vmlLink, p_modMod, out strRawDeploymentPathKey, out strAdjustedDeploymentPathKey);
 			string strOwnerKey = p_modMod == null ? null : ModInstallLog.GetModKey(p_modMod);
 			bool booRemoved;
+			VirtualDeploymentTransactionEnlistment enlistment = GetExistingVirtualDeploymentEnlistment();
+			if (enlistment != null && p_modMod != null)
+				enlistment.Touch(p_vmlLink, ModDeploymentTargetResolver.Resolve(GameMode, p_modMod,
+					p_vmlLink.VirtualModPath, p_vmlLink.InstallRoot), true);
 
 			if (booOwnIndexMutationScope)
 				m_alcVirtualLinkIndexMutationNesting.Value++;
@@ -1306,6 +1319,7 @@
 
 			if (!booRemoved)
 				return;
+			enlistment?.SetLinkPresent(p_vmlLink, false);
 
 			lock (m_objVirtualLinkIndexLock)
 			{
@@ -2092,7 +2106,8 @@
 				strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) ||
 				strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase);
 
-			if (File.Exists(strVirtualFileLink))
+			VirtualDeploymentTransactionEnlistment deploymentEnlistment = GetExistingVirtualDeploymentEnlistment();
+			if (deploymentEnlistment == null && File.Exists(strVirtualFileLink))
 				FileUtil.ForceDelete(strVirtualFileLink);
 
 			IVirtualModInfo modInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modMod.Filename));
@@ -2105,7 +2120,30 @@
 
 			try
 			{
-				if (GameMode.RealFileRequired(strFileType))
+				if (deploymentEnlistment != null)
+				{
+					var fileManager = new TxFileManager();
+					if (fileManager.GetFileEntryKind(strVirtualFileLink, null) != FileEntryKind.Absent)
+					{
+						ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, p_modMod, p_strBaseFilePath, p_mirInstallRoot);
+						// Overwrite preparation may already have deactivated the previous winner's record.
+						IVirtualModLink previousOwner = GetVirtualOwnerLinksForTarget(target)
+							.OrderBy(x => x.Active ? 0 : 1).ThenBy(x => x.Priority).FirstOrDefault();
+						if (previousOwner == null)
+							fileManager.Delete(strVirtualFileLink);
+						else
+							fileManager.DeleteLink(strVirtualFileLink, ResolveVirtualSourcePath(previousOwner, target));
+					}
+					bool useLinkFolder = MultiHDMode && booHardLinkRequired && !GameMode.RealFileRequired(strFileType);
+					DeployVirtualSource(fileManager, useLinkFolder ? strLinkFilePath : strActivatorFilePath, strVirtualFileLink);
+					if (!p_booIsRestoring)
+						AddVirtualLink(new VirtualModLink(useLinkFolder ? strRealLinkFilePath : strRealFilePath,
+							p_strBaseFilePath, p_intPriority, true, modInfo, p_mirInstallRoot), p_modMod);
+					else
+						strVirtualFileLink = string.Empty;
+					deploymentEnlistment.MarkDirty();
+				}
+				else if (GameMode.RealFileRequired(strFileType))
 				{
 					File.Copy(strActivatorFilePath, strVirtualFileLink, true);
 
@@ -2351,11 +2389,26 @@
 			if (string.IsNullOrEmpty(strRelativePath))
 				return VirtualFileOwnerSwitchResult.Failed("The selected file path is empty.");
 
-			string strDeploymentRoot = FileManagerQueryService.GetDeploymentRoot(GameMode);
+			return SwitchFileOwner(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, strRelativePath), p_strSelectedOwnerKey, false);
+		}
+
+		/// <summary>Switches a Virtual winner within its exact deployment root while retaining the native owner stack.</summary>
+		internal VirtualFileOwnerSwitchResult SwitchFileOwner(ModDeploymentTarget target, string p_strSelectedOwnerKey)
+		{
+			return SwitchFileOwner(target, p_strSelectedOwnerKey, true);
+		}
+
+		/// <summary>Retains legacy File Manager keys while Collections use native InstallLog owner keys.</summary>
+		private VirtualFileOwnerSwitchResult SwitchFileOwner(ModDeploymentTarget target, string p_strSelectedOwnerKey, bool nativeOwnerKeys)
+		{
+			Func<IVirtualModLink, string> resolveOwnerKey = link => nativeOwnerKeys
+				? GetVirtualOwnerKey(link) : FileManagerQueryService.CreateOwnerKey(link.ModInfo);
+			if (target == null) return VirtualFileOwnerSwitchResult.Failed("The selected deployment target is missing.");
+			string strRelativePath = target.RelativePath;
 			string strSelectedDeployedPath;
 			try
 			{
-				strSelectedDeployedPath = Path.GetFullPath(Path.Combine(strDeploymentRoot, strRelativePath));
+				strSelectedDeployedPath = ModDeploymentTargetResolver.GetPhysicalPath(GameMode, target);
 			}
 			catch (Exception ex)
 			{
@@ -2373,18 +2426,19 @@
 			if (vmlCurrentOwner == null)
 				return VirtualFileOwnerSwitchResult.Failed("The selected file has no active NMM owner.");
 
-			IVirtualModLink vmlSelectedOwner = lstFileLinks.FirstOrDefault(x => FileManagerQueryService.CreateOwnerKey(x.ModInfo).Equals(p_strSelectedOwnerKey ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+			IVirtualModLink vmlSelectedOwner = lstFileLinks.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(resolveOwnerKey(x), p_strSelectedOwnerKey));
 			if (vmlSelectedOwner == null)
 				return VirtualFileOwnerSwitchResult.Failed("The selected owner is not a valid candidate for this file.");
 
-			if (ReferenceEquals(vmlCurrentOwner, vmlSelectedOwner) || FileManagerQueryService.CreateOwnerKey(vmlCurrentOwner.ModInfo).Equals(FileManagerQueryService.CreateOwnerKey(vmlSelectedOwner.ModInfo), StringComparison.OrdinalIgnoreCase))
-				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, FileManagerQueryService.CreateOwnerKey(vmlSelectedOwner.ModInfo));
+			if (ReferenceEquals(vmlCurrentOwner, vmlSelectedOwner) || StringComparer.OrdinalIgnoreCase.Equals(resolveOwnerKey(vmlCurrentOwner), resolveOwnerKey(vmlSelectedOwner)))
+				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, resolveOwnerKey(vmlSelectedOwner));
 
 			IMod modSelected = FindManagedMod(vmlSelectedOwner.ModInfo);
 			if (modSelected == null)
 				return VirtualFileOwnerSwitchResult.Failed("The selected owner mod is no longer managed by NMM.");
 
-			if (!VirtualOwnerSourceExists(modSelected, vmlSelectedOwner.VirtualModPath))
+			string sourcePath = ResolveVirtualSourcePath(vmlSelectedOwner, target);
+			if (String.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
 				return VirtualFileOwnerSwitchResult.Failed("The selected owner's staged source file is missing.");
 
 			string strDeployedPath = GetDeployedFilePath(vmlSelectedOwner);
@@ -2408,7 +2462,7 @@
 					File.Copy(strDeployedPath, strBackupPath, true);
 				}
 
-				AddFileLink(modSelected, vmlSelectedOwner.VirtualModPath, null, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
+				AddFileLink(modSelected, vmlSelectedOwner.VirtualModPath, sourcePath, true, true, false, vmlSelectedOwner.Priority, vmlSelectedOwner.InstallRoot);
 				if (!File.Exists(strDeployedPath))
 					throw new IOException("The selected owner file could not be deployed.");
 
@@ -2423,7 +2477,7 @@
 						PluginManager.ActivatePlugin(strDeployedPath);
 				}
 
-				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, FileManagerQueryService.CreateOwnerKey(vmlSelectedOwner.ModInfo));
+				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, resolveOwnerKey(vmlSelectedOwner));
 			}
 			catch (Exception ex)
 			{

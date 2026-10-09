@@ -157,6 +157,193 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Deleting one capture releases only its ownership while shared backups and terminal journals keep their content.</summary>
+		[Test]
+		public void Delete_PreservesSharedContentOtherCapturesAndHistoricalCatalog()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("delete-shared-content");
+				LocalCapture selected = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				LocalCapture other = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				string packageId = captures.GetPackageArtifactId(selected.Identity);
+				references.AcquireExclusiveRoleReference(packageId, CollectionsRetainedArtifactOwnerKind.Capture,
+					other.Identity.ToString(), "shared-payload");
+				CollectionOperation operation = SaveCaptureOperation(store, selected, target,
+					CollectionOperationKind.RestoreLocalCapture, CollectionOperationPhase.Completed, CollectionOperationResultState.Committed);
+				references.AcquireExclusiveRoleReference(packageId, CollectionsRetainedArtifactOwnerKind.Operation,
+					operation.Identity.OperationId.ToString("D"), "history-package");
+
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.Ready, captures.GetDeletionStatus(selected.Identity, target));
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.Deleted, captures.Delete(selected.Identity, target));
+				Assert.IsNull(captures.GetCapture(selected.Identity));
+				Assert.IsNull(captures.GetPackageArtifactId(selected.Identity));
+				Assert.AreEqual(0, references.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, selected.Identity.ToString()).Count);
+				Assert.AreEqual(2, references.GetReferencesForArtifact(packageId).Count);
+				Assert.IsTrue(artifacts.VerifyArtifact(packageId));
+				Assert.IsNotNull(captures.GetCapture(other.Identity));
+				Assert.IsNotNull(new CollectionsCatalogStore(store).GetRevision(selected.Revision));
+				Assert.IsNotNull(new CollectionsOperationStore(store).GetOperation(operation.Identity));
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.NotFound, captures.Delete(selected.Identity, target));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>A dependency created after the read-only review must block the write, including an association on another target.</summary>
+		[Test]
+		public void Delete_RechecksInstalledAssociationAfterReviewWithoutReleasingReferences()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("delete-installed-source");
+				LocalCapture capture = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.Ready, captures.GetDeletionStatus(capture.Identity, target));
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), capture.Revision,
+					CollectionTargetIdentity.FromFingerprint("delete-installed-other-target"), CollectionAssociationState.Incomplete);
+				var associations = new CollectionsAssociationStore(store);
+				associations.SaveAssociation(association);
+
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.InstalledCollection, captures.Delete(capture.Identity, target));
+				Assert.IsNotNull(captures.GetCapture(capture.Identity));
+				Assert.IsNotNull(associations.GetAssociation(association.AssociationId));
+				Assert.AreEqual(1, references.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, capture.Identity.ToString()).Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Nonterminal restore and revision journals protect the selected revision even when another target uses it.</summary>
+		[TestCase(CollectionOperationKind.RestoreLocalCapture, CollectionOperationPhase.ReadyToApply, CollectionOperationResultState.Pending)]
+		[TestCase(CollectionOperationKind.RestoreLocalCapture, CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired)]
+		[TestCase(CollectionOperationKind.UpdateRevision, CollectionOperationPhase.PausedAtSafeBoundary, CollectionOperationResultState.Pending)]
+		public void Delete_BlocksUnfinishedExactRevision(CollectionOperationKind kind, CollectionOperationPhase phase, CollectionOperationResultState result)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("delete-recovery-source");
+				LocalCapture capture = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				SaveCaptureOperation(store, capture, CollectionTargetIdentity.FromFingerprint("delete-recovery-other-target"), kind, phase, result);
+
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.IncompleteOperation, captures.Delete(capture.Identity, target));
+				Assert.IsNotNull(captures.GetCapture(capture.Identity));
+				Assert.AreEqual(1, references.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, capture.Identity.ToString()).Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>An unrelated operation protects a capture when its recovery references explicitly retain that package.</summary>
+		[Test]
+		public void Delete_BlocksOperationOwnedPackageWithoutMatchingRevision()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("delete-package-source");
+				LocalCapture selected = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				LocalCapture other = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				CollectionOperation operation = SaveCaptureOperation(store, other, target, CollectionOperationKind.ApplyResolvedPlan,
+					CollectionOperationPhase.Preparing, CollectionOperationResultState.Pending);
+				references.AcquireExclusiveRoleReference(captures.GetPackageArtifactId(selected.Identity), CollectionsRetainedArtifactOwnerKind.Operation,
+					operation.Identity.OperationId.ToString("D"), "recovery-package");
+
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.IncompleteOperation, captures.Delete(selected.Identity, target));
+				Assert.IsNotNull(captures.GetCapture(selected.Identity));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>The replacement barrier protects same-target backups without blocking deletion on an unrelated setup.</summary>
+		[TestCase(true, CollectionsLocalCaptureDeletionStatus.ReplacementInProgress)]
+		[TestCase(false, CollectionsLocalCaptureDeletionStatus.Deleted)]
+		public void Delete_ScopesReplacementBarrierToSourceTarget(bool sameTarget, CollectionsLocalCaptureDeletionStatus expected)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("delete-replacement-source");
+				var otherTarget = CollectionTargetIdentity.FromFingerprint("delete-replacement-other");
+				LocalCapture selected = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				LocalCapture other = SaveMinimalCapture(captures, artifacts, references, otherTarget, Guid.NewGuid());
+				SaveCaptureOperation(store, other, sameTarget ? target : otherTarget, CollectionOperationKind.ReplaceCurrentManagedSetup,
+					CollectionOperationPhase.CapturingOptionalLocalBackup, CollectionOperationResultState.Pending);
+
+				Assert.AreEqual(expected, captures.Delete(selected.Identity, target));
+				Assert.IsNotNull(captures.GetCapture(other.Identity));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Wrong-target selection is rejected, and a failed metadata delete rolls back reference release.</summary>
+		[Test]
+		public void Delete_RejectsWrongTargetAndRollsBackReferenceReleaseOnFailure()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				var captures = new CollectionsLocalCaptureStore(store);
+				var target = CollectionTargetIdentity.FromFingerprint("delete-rollback-source");
+				LocalCapture capture = SaveMinimalCapture(captures, artifacts, references, target, Guid.NewGuid());
+				Assert.AreEqual(CollectionsLocalCaptureDeletionStatus.TargetMismatch,
+					captures.Delete(capture.Identity, CollectionTargetIdentity.FromFingerprint("delete-wrong-target")));
+				store.ExecuteWrite((connection, transaction) =>
+				{
+					using (var command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = "CREATE TRIGGER reject_capture_delete BEFORE DELETE ON local_captures BEGIN SELECT RAISE(ABORT, 'fixture delete failure'); END;";
+						command.ExecuteNonQuery();
+					}
+				});
+
+				Assert.Catch(() => captures.Delete(capture.Identity, target));
+				Assert.IsNotNull(captures.GetCapture(capture.Identity));
+				Assert.IsNotNull(captures.GetPackageArtifactId(capture.Identity));
+				Assert.AreEqual(1, references.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Capture, capture.Identity.ToString()).Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Persists one capture-related journal with an explicit target and lifecycle for deletion dependency coverage.</summary>
+		private static CollectionOperation SaveCaptureOperation(CollectionsStore store, LocalCapture capture, CollectionTargetIdentity target,
+			CollectionOperationKind kind, CollectionOperationPhase phase, CollectionOperationResultState result)
+		{
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), kind, capture.Revision.Collection, target,
+				capture.Revision, null, 0, phase, result, new CollectionNativeChildOperation[0]);
+			new CollectionsOperationStore(store).SaveOperation(operation);
+			return operation;
+		}
+
 		private static LocalCapture SaveMinimalCapture(CollectionsLocalCaptureStore captures,
 			CollectionsRetainedArtifactStore artifacts, CollectionsRetainedArtifactReferenceStore references,
 			CollectionTargetIdentity target, Guid captureGuid)

@@ -171,15 +171,9 @@ namespace Nexus.Client.ModManagement
 				}
 				catch (IllegalFilePathException)
 				{
-					string strDetails = Environment.NewLine +
-										"The mod has been deleted with success, but the manager was unable to remove one or more files. " + Environment.NewLine +
-										"An IllegalFilePathException was thrown, a path is safe to be written to if it contains no charaters disallowed by the operating system and if it is in the Data directory or one of its sub-directories." + Environment.NewLine;
-					if (!boo_CheckUninstallError)
-					{
-						Installers.FileInstaller.InstallErrors.Add(strDetails);
-						boo_CheckUninstallError = true;
-					}
-					strPopupErrorMessageType = "Warning";
+					Installers.FileInstaller.InstallErrors.Add("NMM could not remove a file with an invalid recorded path: " + strFile);
+					strPopupErrorMessageType = "Error";
+					return false;
 				}
 				catch (NullReferenceException ex)
 				{

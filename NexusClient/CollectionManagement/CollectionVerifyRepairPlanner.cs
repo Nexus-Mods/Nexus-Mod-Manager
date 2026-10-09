@@ -30,7 +30,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<UserOverride> overrides, IEnumerable<CollectionDriftObservation> drift,
 			IEnumerable<CollectionMemberEffectPreview> exactEffectPreviews, CollectionVerifyRepairPreparationResult preparation,
 			IReadOnlyDictionary<CollectionRequirementReference, CollectionRequirementState> currentMemberStates = null,
-			IEnumerable<CollectionMemberBinding> bindingUpdates = null)
+			IEnumerable<CollectionMemberBinding> bindingUpdates = null,
+			Func<Nexus.Client.ModManagement.ModDeploymentTarget, string, string> ownerPayloadSource = null)
 		{
 			if (association == null) throw new ArgumentNullException(nameof(association));
 			if (manifest == null) throw new ArgumentNullException(nameof(manifest));
@@ -185,7 +186,7 @@ namespace Nexus.Client.CollectionManagement
 				if (previews.Select(x => x.MemberKey).Distinct().Count() != previews.Count ||
 					!new HashSet<CollectionMemberKey>(previews.Select(x => x.MemberKey)).SetEquals(bindingList.Select(x => x.MemberKey)))
 					throw new ArgumentException("Exact verify/repair coverage must contain one complete effect preview for every current member binding.", nameof(exactEffectPreviews));
-				findings.AddRange(new CollectionVerifyRepairExactEffectVerifier().Verify(association, state, bindingList, previews, overrideList));
+				findings.AddRange(new CollectionVerifyRepairExactEffectVerifier().Verify(association, state, bindingList, previews, overrideList, ownerPayloadSource));
 			}
 			if (preparation != null && !preparation.IsComplete)
 				findings.Add(AssociationFinding(association, CollectionVerifyRepairFindingKind.ExactRecipePreparationUnavailable, preparation.Issue));

@@ -640,12 +640,12 @@
 				toolStripLabelLoginMessage.Caption = _statusNotLoggedIn;
 				SetBarItemFontStyle(toolStripLabelLoginMessage, FontStyle.Bold);
 				SetBarItemVisible(toolStripButtonGoPremium, false);
-				toolStripButtonOnlineStatus.ImageOptions.Image = new Bitmap(Properties.Resources.loggedout_flat, 32, 30);
+				toolStripButtonOnlineStatus.ImageOptions.Image = ScaleBarImage(Properties.Resources.loggedout_flat, StatusBarImageSize);
 				SetBarItemVisible(toolStripLabelDownloads, false);
 			}
 			else
 			{
-				toolStripButtonOnlineStatus.ImageOptions.Image = new Bitmap(Properties.Resources.loggedin_flat, 32, 30);
+				toolStripButtonOnlineStatus.ImageOptions.Image = ScaleBarImage(Properties.Resources.loggedin_flat, StatusBarImageSize);
 
 				// We no longer give a damn about a user's Nexus status
 				//if (ViewModel.UserStatus.IsPremium)

@@ -486,6 +486,53 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Restored bindings, cleared drift and the terminal repair journal publish together, rejecting unrelated pending work.</summary>
+		[TestCase(false, StandaloneModUse.ExplicitStandaloneUse, false)]
+		[TestCase(true, StandaloneModUse.ExplicitStandaloneUse, false)]
+		[TestCase(false, StandaloneModUse.NoStandaloneUseVerified, false)]
+		[TestCase(true, StandaloneModUse.NoStandaloneUseVerified, false)]
+		[TestCase(false, StandaloneModUse.NoStandaloneUseVerified, true)]
+		public void VerifiedRepairPublication_CommitsBindingAndJournalAtomically(bool unrelatedPending, StandaloneModUse previousUse, bool independentlyProtected)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionRevisionIdentity revision = SeedNexusRevision(store, "repair-publish", "rev-a", 1);
+				var associations = new CollectionsAssociationStore(store);
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), revision, CollectionTargetIdentity.FromFingerprint("target-repair"), CollectionAssociationState.Incomplete);
+				associations.SaveAssociation(association);
+				var old = new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("member-a"), new NativeModInstanceIdentity(association.Target, "old-native"),
+					CollectionRecipeIdentity.FromFingerprint("recipe-a"), CollectionMemberBindingKind.InstalledForCollection);
+				associations.SaveBinding(old);
+				associations.SaveNativeModProvenance(new NativeModProvenance(old.NativeMod, previousUse));
+				var restored = new CollectionMemberBinding(association, old.MemberKey, new NativeModInstanceIdentity(association.Target, "restored-native"), old.VerifiedRecipe, old.BindingKind);
+				if (independentlyProtected) associations.SaveNativeModProvenance(new NativeModProvenance(restored.NativeMod, StandaloneModUse.ExplicitStandaloneUse));
+				var requirement = new CollectionRequirementReference(association, old.MemberKey, CollectionRequirementAspect.MemberParticipation, null);
+				associations.SaveManualMutationDrift(new[] { association },
+					new[] { new CollectionDriftObservation(Guid.NewGuid(), requirement, CollectionMemberRequirementStates.Included(), CollectionRequirementState.Absent(), "Removed") },
+					new CollectionRequirementReference[0]);
+				var journal = new CollectionsOperationStore(store);
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.VerifyRepair,
+					revision.Collection, association.Target, revision, null, 2, CollectionOperationPhase.QualifiedEffectsVerified, CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+				journal.SaveOperation(operation);
+				if (unrelatedPending)
+				{
+					journal.SaveOperation(new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+						revision.Collection, association.Target, revision, null, 0, CollectionOperationPhase.Preparing, CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]));
+					Assert.Throws<InvalidOperationException>(() => associations.SaveVerifiedHealthyReconciliation(association, association.WithState(CollectionAssociationState.Applied), new[] { restored }, new[] { requirement }, operation.Identity));
+				}
+				else associations.SaveVerifiedHealthyReconciliation(association, association.WithState(CollectionAssociationState.Applied), new[] { restored }, new[] { requirement }, operation.Identity);
+				Assert.That(associations.GetAssociation(association.AssociationId).State, Is.EqualTo(unrelatedPending ? CollectionAssociationState.Incomplete : CollectionAssociationState.Applied));
+				Assert.That(associations.GetBindings(association.AssociationId).Single().NativeMod, Is.EqualTo(unrelatedPending ? old.NativeMod : restored.NativeMod));
+				Assert.That(associations.GetNativeModProvenance(restored.NativeMod).StandaloneUse,
+					Is.EqualTo(independentlyProtected ? StandaloneModUse.ExplicitStandaloneUse : unrelatedPending ? StandaloneModUse.Unknown : previousUse));
+				Assert.That(journal.GetOperation(operation.Identity).IsTerminal, Is.EqualTo(!unrelatedPending));
+				Assert.That(associations.GetDriftObservations(association.AssociationId).Count, Is.EqualTo(unrelatedPending ? 1 : 0));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		private static CollectionsStore CreateFeatureStore(string root)
 		{
 			var store = new CollectionsStore(root);

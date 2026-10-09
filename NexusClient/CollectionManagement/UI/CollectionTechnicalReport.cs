@@ -209,7 +209,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		};
 		private static readonly Regex AbsoluteUriPattern = new Regex("\\b(?:https?|nxm|file)://[^\\s<>\"']+",
 			RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-		private static readonly Regex WindowsPathPattern = new Regex("(?<![A-Za-z0-9])(?:[A-Za-z]:\\\\|\\\\\\\\)[^\\r\\n\\t\"<>|]+",
+		private static readonly Regex WindowsPathPattern = new Regex("(?<![A-Za-z0-9])(?:[A-Za-z]:\\\\|\\\\\\\\)[^\\r\\n\\t\"'<>|]+",
 			RegexOptions.CultureInvariant);
 		private static readonly Regex UnixUserPathPattern = new Regex("(?<![A-Za-z0-9])/(?:Users|home)/[^\\s\"']+",
 			RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);

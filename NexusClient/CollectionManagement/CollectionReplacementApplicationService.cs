@@ -137,7 +137,7 @@ namespace Nexus.Client.CollectionManagement
 				_planStore, _associationStore, _artifactStore, _referenceStore, manifestStore);
 			_diffPlanner = new CollectionReplacementDiffPlanner();
 			_environmentProjector = new CollectionReplacementEnvironmentProjector();
-			_matchEngine = new CollectionMemberMatchEngine();
+			_matchEngine = CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager);
 			_dependencyPlanner = new CollectionDependencyPhasePlanner();
 			_impactPlanner = new CollectionConflictImpactPlanner();
 			_recipePreparer = new CollectionNativeRecipePreparer(new CollectionsCatalogStore(_store),
@@ -183,7 +183,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("The replacement difference is blocked, stale or cannot prove the supported condition environment.");
 
 				List<CollectionVerifiedArchive> archives = additiveRuntime.VerifiedArchives.ToList();
-				CollectionMemberMatchSet matches = _matchEngine.MatchForReplacementExecution(plan, current.NativeState, archives);
+				CollectionMemberMatchSet matches = _matchEngine.MatchForReplacementExecution(plan, current.NativeState, archives, cancellationToken);
 				if (matches.HasBlockedMembers || matches.HasAcquisitionRequired)
 					throw new InvalidOperationException("Download / Prepare does not currently provide every exact archive required for replacement.");
 				CollectionDependencyPhasePlan dependency = _dependencyPlanner.Plan(plan, matches);
@@ -371,10 +371,18 @@ namespace Nexus.Client.CollectionManagement
 					IMod mod = ResolveManagedMod(match, archive, cancellationToken);
 					PreparedCollectionNativeRecipe additiveRecipe = additiveRuntime.GetPreparedRecipe(phaseMember.MemberKey);
 					ModInstallContext context = additiveRecipe == null ? ResolveInstallContext(match) : additiveRecipe.InstallContext;
+					CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode,
+						match.Member, mod, context, cancellationToken);
 					bool skipReadme = additiveRecipe == null ? _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles : additiveRecipe.SkipReadmeFiles;
 					PreparedCollectionNativeRecipe prepared = _recipePreparer.PrepareReplacementExact(plan, match.Member, archive, mod,
-						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, context, diff.CurrentSetup.NativeState,
-						projected, skipReadme, _services.PluginManager, cancellationToken);
+						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, destination.InstallContext, diff.CurrentSetup.NativeState,
+						projected, skipReadme, _services.PluginManager, cancellationToken, destination.GameRootArchiveBaseDirectory);
+					CollectionNativeModState retainedPrevious = match.MatchedNativeMod;
+					if (retainedPrevious != null && diff.NativeMods.Any(x => x.NativeMod.Identity.Equals(retainedPrevious.Identity) &&
+						(x.RemovalDecision == CollectionReplacementRemovalDecision.EligibleForReviewedRemoval || x.RemovalDecision == CollectionReplacementRemovalDecision.RequiresExplicitReview)))
+						retainedPrevious = null;
+					prepared = CollectionInstallRootCorrection.Prepare(prepared, diff.CurrentSetup.NativeState, retainedPrevious,
+						_services.ModManager.DeploymentManager, _services.ModManager.VirtualModActivator, cancellationToken);
 					result.Add(prepared);
 					projected = _environmentProjector.Overlay(projected, new[] { prepared.EffectPreview });
 				}
@@ -386,8 +394,10 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReplacementBarrierPreparationContext context, CancellationToken cancellationToken)
 		{
 			var result = new List<PreparedCollectionNativeRecipe>();
-			CollectionMemberMatchSet matches = _matchEngine.MatchForReplacementExecution(review.Plan,
-				context.CurrentSetup.NativeState, review.VerifiedArchives);
+			var frozenMatcher = new CollectionMemberMatchEngine((member, archive, token) => review.PreparedRecipes.Any(x =>
+				x.Member.MemberKey.Equals(member.MemberKey) && x.InstallContext.InstallRoot == ModInstallRoot.GameRoot), false);
+			CollectionMemberMatchSet matches = frozenMatcher.MatchForReplacementExecution(review.Plan,
+				context.CurrentSetup.NativeState, review.VerifiedArchives, cancellationToken);
 			foreach (CollectionMemberKey memberKey in context.RequiredMembers)
 			{
 				CollectionMemberMatchResult match = matches.Members.Single(x => x.Member.MemberKey.Equals(memberKey));
@@ -395,10 +405,10 @@ namespace Nexus.Client.CollectionManagement
 				if (archive == null) throw new InvalidOperationException("Replacement barrier revalidation lost the exact verified archive for " + memberKey + ".");
 				PreparedCollectionNativeRecipe prior = review.PreparedRecipes.Single(x => x.Member.MemberKey.Equals(memberKey));
 				IMod mod = ResolveManagedMod(match, archive, cancellationToken);
-				result.Add(_recipePreparer.PrepareReplacementExact(review.Plan, match.Member, archive, mod,
+				result.Add(CollectionInstallRootCorrection.Attach(_recipePreparer.PrepareReplacementExact(review.Plan, match.Member, archive, mod,
 					_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, prior.InstallContext,
 					context.CurrentSetup.NativeState, context.ObservedEnvironment, prior.SkipReadmeFiles,
-					_services.PluginManager, cancellationToken));
+					_services.PluginManager, cancellationToken, prior.GameRootArchiveBaseDirectory), prior.EffectPreview.InstallRootCorrection));
 			}
 			return result;
 		}

@@ -24,7 +24,7 @@
 
 		private const int MainToolbarHeight = 43;
 		private const int MainToolbarImageSize = 36;
-		private const int StatusBarHeight = 36;
+		private const int StatusBarHeight = 24;
 		private const int StatusBarImageSize = 16;
 
 		private BarButtonItem spbLaunch;
@@ -113,6 +113,8 @@
 			barStatus.OptionsBar.DisableCustomization = true;
 			barStatus.OptionsBar.DrawDragBorder = false;
 			barStatus.OptionsBar.UseWholeRow = true;
+			barStatus.OptionsBar.MultiLine = false;
+			barStatus.BarItemVertIndent = 2;
 			barManagerMain.StatusBar = barStatus;
 
 			InitializeMainToolbarItems();
@@ -163,7 +165,7 @@
 		}
 
 		/// <summary>
-		/// Creates fixed-height standalone hosts for the main toolbar and status bar.
+		/// Creates standalone bar hosts with a fixed toolbar height and a content-sized status bar.
 		/// </summary>
 		private void InitializeBarHosts()
 		{
@@ -180,9 +182,8 @@
 			{
 				CausesValidation = false,
 				Dock = DockStyle.Bottom,
-				Height = StatusBarHeight,
-				MinimumSize = new Size(0, StatusBarHeight),
-				MaximumSize = new Size(0, StatusBarHeight)
+				AutoSize = true,
+				Height = StatusBarHeight
 			};
 
 			Controls.Add(barStatusHost);
@@ -343,7 +344,7 @@
 			{
 				PaintStyle = BarItemPaintStyle.Standard
 			};
-			toolStripButtonOnlineStatus.ImageOptions.Image = ScaleBarImage(Properties.Resources.loggedout_flat, 32);
+			toolStripButtonOnlineStatus.ImageOptions.Image = ScaleBarImage(Properties.Resources.loggedout_flat, StatusBarImageSize);
 
 			toolStripLabelDownloads = new BarStaticItem
 			{

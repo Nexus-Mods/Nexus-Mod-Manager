@@ -297,8 +297,9 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
-		[Test]
-		public void ReconciledCommittedChild_AllowsLatestVerifiedSafeBoundaryInsteadOfOriginalReviewState()
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ReconciledCommittedChild_AllowsLatestVerifiedSafeBoundaryInsteadOfOriginalReviewState(bool bundledEvidence)
 		{
 			string root = CreateTemporaryDirectory();
 			try
@@ -316,13 +317,24 @@ namespace NexusClientTests
 					new CollectionNativeFileContentEvidence(x.Target, false, null, 0)).ToArray();
 				CollectionNativeFileContentEvidence[] expectedFiles = plans.Preview.Files.Select(x =>
 					new CollectionNativeFileContentEvidence(x.Target, true, CollectionContentHash.FromSha256(ManifestSha), 1)).ToArray();
-				var evidence = new CollectionNativeChildExecutionEvidence("game", 100, 200, "incoming.7z", plans.Preview,
+				CollectionArtifactReference artifact = bundledEvidence
+					? new CollectionArtifactReference(CollectionBundledArtifactIdentity.Scheme,
+						CollectionBundledArtifactIdentity.Format(plans.Plan.Revision, "recovery-test"), null)
+					: new CollectionArtifactReference("nexus-mod-file", "game/100/200", null);
+				var evidence = new CollectionNativeChildExecutionEvidence(artifact, "incoming.7z", plans.Preview,
 					preFiles, expectedFiles,
 					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
 					new CollectionExpectedReplayOperation[0]);
 				CollectionNativeChildRecoveryManifest safeManifest = prepared.RecoveryManifest.WithExecutionEvidence(evidence)
 					.WithTerminalStateFingerprint(safeState.Fingerprint).WithSafeBoundaryStateFingerprint(safeState.Fingerprint);
 				fixture.ManifestStore.SaveManifest(safeManifest);
+				CollectionNativeChildRecoveryManifest reloaded = fixture.ManifestStore.GetManifest(prepared.Operation, prepared.Child);
+				Assert.That(reloaded.ExecutionEvidence.ReviewedEffects.Files.All(x => x.HasExactContentIdentity), Is.True);
+				foreach (CollectionPlannedFileEffect file in reloaded.ExecutionEvidence.ReviewedEffects.Files)
+				{
+					Assert.That(file.ExpectedContentHash, Is.EqualTo(CollectionContentHash.FromSha256(ManifestSha)));
+					Assert.That(file.ExpectedByteLength, Is.EqualTo(1));
+				}
 
 				var nativeResult = new ModOperationResult(prepared.Child.NativeOperation, ModOperationReportedStatus.Succeeded,
 					ModOperationDurability.VerifiedCommitted, null);

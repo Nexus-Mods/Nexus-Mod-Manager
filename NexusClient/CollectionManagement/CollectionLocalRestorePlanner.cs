@@ -41,6 +41,23 @@ namespace Nexus.Client.CollectionManagement
 			CollectionTargetIdentity currentTarget, CollectionCurrentStateFingerprint currentStateFingerprint,
 			NativeStateCaptureSnapshot currentNativeState, CancellationToken cancellationToken)
 		{
+			return PlanCore(sealedCapture, currentTarget, currentStateFingerprint, currentNativeState, cancellationToken, false);
+		}
+
+		/// <summary>Builds a native-only recovery projection without reading payloads used by later restore phases.</summary>
+		/// <remarks>This projection cannot be reviewed or applied; continuation must rebuild a fully verified restore plan.</remarks>
+		internal CollectionLocalRestorePlan PlanForNativeReconciliation(CollectionSealedCaptureSnapshot sealedCapture,
+			CollectionTargetIdentity currentTarget, CollectionCurrentStateFingerprint currentStateFingerprint,
+			NativeStateCaptureSnapshot currentNativeState, CancellationToken cancellationToken)
+		{
+			return PlanCore(sealedCapture, currentTarget, currentStateFingerprint, currentNativeState, cancellationToken, true);
+		}
+
+		/// <summary>Maps current native state while verifying the retained inputs required by the observation phase.</summary>
+		private CollectionLocalRestorePlan PlanCore(CollectionSealedCaptureSnapshot sealedCapture,
+			CollectionTargetIdentity currentTarget, CollectionCurrentStateFingerprint currentStateFingerprint,
+			NativeStateCaptureSnapshot currentNativeState, CancellationToken cancellationToken, bool nativeRecoveryProjection)
+		{
 			if (sealedCapture == null)
 				throw new ArgumentNullException(nameof(sealedCapture));
 			if (currentTarget == null)
@@ -55,7 +72,8 @@ namespace Nexus.Client.CollectionManagement
 			var issues = new List<CollectionLocalRestorePlanIssue>();
 			ValidateCaptureEnvelope(sealedCapture, currentTarget, issues);
 			ValidateSnapshotRetainedReferences(sealedCapture, issues);
-			ValidateRetainedArtifacts(capture, issues, cancellationToken);
+			ValidateRetainedArtifacts(nativeRecoveryProjection
+				? sealedCapture.Archives.Select(x => x.RetainedArtifact) : capture.RetainedArtifacts, issues, cancellationToken);
 
 			List<InstallLogReadMod> currentMods = currentNativeState.InstallLog.Mods.Where(x => !x.Hidden)
 				.OrderBy(x => x.ModKey, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.ModKey, StringComparer.Ordinal).ToList();
@@ -69,7 +87,6 @@ namespace Nexus.Client.CollectionManagement
 			ValidateOwnerPayloadSources(sealedCapture, archivesByNativeKey, issues);
 			Dictionary<string, LocalCaptureNativeRecordMapping> mappingsByNativeKey = BuildMappingIndex(capture, issues);
 			var usedCurrentKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			var fileIdentityCache = new Dictionary<string, FileIdentity>(StringComparer.OrdinalIgnoreCase);
 			var members = new List<CollectionLocalRestoreMemberPlan>();
 
 			foreach (CollectionInstalledModIdentity capturedMod in sealedCapture.InstalledIdentities.Mods
@@ -93,7 +110,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				InstallLogReadMod reusable = FindReusableNative(capturedMod, retainedArchive, currentMods,
-					usedCurrentKeys, fileIdentityCache, issues, cancellationToken);
+					usedCurrentKeys, issues, cancellationToken);
 				if (reusable != null && HasExtraCurrentFileEffects(sealedCapture, capturedMod.NativeSnapshotKey, reusable.ModKey, currentNativeState))
 					reusable = null;
 
@@ -140,7 +157,7 @@ namespace Nexus.Client.CollectionManagement
 				members, deploymentPlans, removeKeys, issues);
 			return new CollectionLocalRestorePlan(capture.Identity, currentTarget, currentStateFingerprint,
 				currentNativeState.InstallLog.DeploymentCommitSequence, currentNativeState.InstallLog.OriginalValuesKey,
-				fingerprint, members, deploymentPlans, removeKeys, issues);
+				fingerprint, members, deploymentPlans, removeKeys, issues, nativeRecoveryProjection);
 		}
 
 		private static bool HasExtraCurrentFileEffects(CollectionSealedCaptureSnapshot sealedCapture, string capturedNativeKey,
@@ -256,14 +273,15 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private void ValidateRetainedArtifacts(LocalCapture capture, List<CollectionLocalRestorePlanIssue> issues,
-			CancellationToken cancellationToken)
+		private void ValidateRetainedArtifacts(IEnumerable<RetainedArtifactReference> requiredReferences,
+			List<CollectionLocalRestorePlanIssue> issues, CancellationToken cancellationToken)
 		{
+			List<RetainedArtifactReference> references = requiredReferences.OrderBy(x => x.Role, StringComparer.Ordinal).ToList();
 			ISet<string> verified;
 			IReadOnlyDictionary<string, CollectionsRetainedArtifact> artifacts = _artifactStore.VerifyArtifacts(
-				capture.RetainedArtifacts.Select(x => x.StableArtifactId), cancellationToken, out verified);
+				references.Select(x => x.StableArtifactId), cancellationToken, out verified);
 			var observed = new HashSet<string>(StringComparer.Ordinal);
-			foreach (RetainedArtifactReference reference in capture.RetainedArtifacts.OrderBy(x => x.Role, StringComparer.Ordinal))
+			foreach (RetainedArtifactReference reference in references)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				CollectionsRetainedArtifact persisted;
@@ -364,7 +382,7 @@ namespace Nexus.Client.CollectionManagement
 
 		private static InstallLogReadMod FindReusableNative(CollectionInstalledModIdentity capturedMod,
 			CollectionCapturedArchiveArtifact retainedArchive, IList<InstallLogReadMod> currentMods,
-			HashSet<string> usedCurrentKeys, IDictionary<string, FileIdentity> fileIdentityCache,
+			HashSet<string> usedCurrentKeys,
 			List<CollectionLocalRestorePlanIssue> issues, CancellationToken cancellationToken)
 		{
 			List<InstallLogReadMod> candidates = new List<InstallLogReadMod>();
@@ -373,7 +391,7 @@ namespace Nexus.Client.CollectionManagement
 				if (!InstallContextMatches(capturedMod, current) || !RecordedIdentityMatches(capturedMod, current))
 					continue;
 				if (retainedArchive != null && !CurrentArchiveMatches(current.ArchivePath, retainedArchive.RetainedArtifact,
-					fileIdentityCache, cancellationToken))
+					cancellationToken))
 					continue;
 				if (retainedArchive == null && !StringComparer.OrdinalIgnoreCase.Equals(capturedMod.NativeSnapshotKey, current.ModKey))
 					continue;
@@ -425,43 +443,18 @@ namespace Nexus.Client.CollectionManagement
 			return Int64.TryParse(value, out parsed) && parsed > 0;
 		}
 
+		/// <summary>Reuses the native archive identity cache while retaining its size/write-stamp invalidation checks.</summary>
 		private static bool CurrentArchiveMatches(string path, RetainedArtifactReference retained,
-			IDictionary<string, FileIdentity> cache, CancellationToken cancellationToken)
+			CancellationToken cancellationToken)
 		{
-			if (String.IsNullOrWhiteSpace(path) || !File.Exists(path))
-				return false;
+			cancellationToken.ThrowIfCancellationRequested();
 			try
 			{
-				FileIdentity identity;
-				if (!cache.TryGetValue(path, out identity))
-				{
-					identity = ComputeFileIdentity(path, cancellationToken);
-					cache[path] = identity;
-				}
-				return identity.ByteLength == retained.ByteLength && identity.ContentHash.Equals(retained.ContentHash);
+				return CollectionArchiveContentMatcher.MatchesFile(path, retained.ByteLength, retained.ContentHash, cancellationToken);
 			}
 			catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
 			{
 				return false;
-			}
-		}
-
-		private static FileIdentity ComputeFileIdentity(string path, CancellationToken cancellationToken)
-		{
-			using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024, FileOptions.SequentialScan))
-			using (SHA256 sha256 = SHA256.Create())
-			{
-				byte[] buffer = new byte[128 * 1024];
-				long length = 0;
-				int read;
-				while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					sha256.TransformBlock(buffer, 0, read, null, 0);
-					length += read;
-				}
-				sha256.TransformFinalBlock(new byte[0], 0, 0);
-				return new FileIdentity(CollectionContentHash.FromSha256(ToHex(sha256.Hash)), length);
 			}
 		}
 
@@ -637,18 +630,6 @@ namespace Nexus.Client.CollectionManagement
 			foreach (byte value in bytes)
 				builder.Append(value.ToString("x2"));
 			return builder.ToString();
-		}
-
-		private sealed class FileIdentity
-		{
-			public FileIdentity(CollectionContentHash contentHash, long byteLength)
-			{
-				ContentHash = contentHash;
-				ByteLength = byteLength;
-			}
-
-			public CollectionContentHash ContentHash { get; }
-			public long ByteLength { get; }
 		}
 	}
 }

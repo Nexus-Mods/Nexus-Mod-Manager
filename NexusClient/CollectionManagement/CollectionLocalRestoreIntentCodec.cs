@@ -19,6 +19,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (captureIdentity == null) throw new ArgumentNullException(nameof(captureIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
+			if (plan.IsNativeRecoveryProjection)
+				throw new InvalidDataException("A native-only recovery projection cannot become a reviewed Local restore intent.");
 			if (!captureIdentity.Equals(plan.CaptureIdentity))
 				throw new InvalidDataException("The Local restore intent source differs from the approved capture identity.");
 			using (var stream = new MemoryStream())

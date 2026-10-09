@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -225,15 +226,16 @@ namespace Nexus.Client.ModManagement
 			ProfileDeploymentManifest previous = null;
 			string path = GetProfileDeploymentPath(p_impProfile);
 			if (File.Exists(path))
-				previous = ReadDeploymentManifest(path);
+				previous = ReadDeploymentManifest(path, true);
 
 			var manifest = new ProfileDeploymentManifest();
 			var previousModIndex = previous == null ? null : new ProfileDeploymentModIndex(previous.Mods);
+			var profileIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var runtimeToProfileId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			foreach (IMod mod in ModManager.InstallationLog.ActiveMods)
 			{
 				ProfileDeploymentMod oldEntry = previousModIndex == null ? null : previousModIndex.Find(mod);
-				var entry = CreateProfileMod(mod, oldEntry == null ? Guid.NewGuid().ToString("N") : oldEntry.ProfileModId);
+				var entry = CreateProfileMod(mod, ClaimProfileModId(oldEntry == null ? null : oldEntry.ProfileModId, profileIds));
 				manifest.Mods.Add(entry);
 
 				string runtimeKey = ModManager.InstallationLog.GetModKey(mod);
@@ -559,9 +561,13 @@ namespace Nexus.Client.ModManagement
 			return new XDocument(root);
 		}
 
-		private static ProfileDeploymentManifest ReadDeploymentManifest(string p_strPath)
+		/// <summary>Reads a saved profile, or only its mod identities when rebuilding the active profile from native state.</summary>
+		private static ProfileDeploymentManifest ReadDeploymentManifest(string p_strPath, bool p_booCaptureCurrent = false)
 		{
-			XDocument document = XDocument.Load(p_strPath);
+			byte[] original = File.ReadAllBytes(p_strPath);
+			XDocument document;
+			using (var stream = new MemoryStream(original, false))
+				document = XDocument.Load(stream);
 			XElement root = document.Element("deployment");
 			if (root == null)
 				throw new InvalidDataException("Invalid profile deployment manifest: missing deployment root.");
@@ -573,6 +579,7 @@ namespace Nexus.Client.ModManagement
 
 			var manifest = new ProfileDeploymentManifest();
 			var profileIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			bool duplicateIdentities = false;
 			XElement mods = root.Element("mods");
 			if (mods != null)
 			{
@@ -580,7 +587,12 @@ namespace Nexus.Client.ModManagement
 				{
 					string profileId = RequiredAttribute(element, "profileId");
 					if (!profileIds.Add(profileId))
-						throw new InvalidDataException("Profile deployment manifest contains duplicate mod identities.");
+					{
+						if (!p_booCaptureCurrent)
+							throw new InvalidDataException("Profile deployment manifest contains duplicate mod identities.");
+						profileId = ClaimProfileModId(null, profileIds);
+						duplicateIdentities = true;
+					}
 
 					ModInstallMethod method;
 					ModInstallRoot installRoot;
@@ -600,6 +612,15 @@ namespace Nexus.Client.ModManagement
 						InstallRoot = NormalizeInstallRoot(installRoot)
 					});
 				}
+			}
+
+			if (p_booCaptureCurrent && duplicateIdentities)
+			{
+				// Capture rebuilds every owner stack from live native state. Do not guess which duplicate
+				// an old reference meant; keep the original for inspection and recover only the mod identities.
+				string backup = PreserveDuplicateDeploymentManifest(p_strPath, original);
+				Trace.TraceWarning("Rebuilding active profile deployment identities from native state. Original manifest preserved at '{0}'.", backup);
+				return manifest;
 			}
 
 			XElement targets = root.Element("targets");
@@ -657,6 +678,36 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return manifest;
+		}
+
+		/// <summary>Reuses a previous profile ID at most once, allocating a fresh ID for another matching native mod.</summary>
+		private static string ClaimProfileModId(string p_strPreferredId, ISet<string> p_setUsedIds)
+		{
+			if (!String.IsNullOrWhiteSpace(p_strPreferredId) && p_setUsedIds.Add(p_strPreferredId))
+				return p_strPreferredId;
+
+			string id;
+			do { id = Guid.NewGuid().ToString("N"); }
+			while (!p_setUsedIds.Add(id));
+			return id;
+		}
+
+		/// <summary>Preserves the original invalid manifest without overwriting earlier backups or duplicating identical retries.</summary>
+		private static string PreserveDuplicateDeploymentManifest(string p_strPath, byte[] p_bteOriginal)
+		{
+			lock (m_objLock)
+			{
+				string backup = p_strPath + ".duplicate-identities.bak";
+				for (int suffix = 1; File.Exists(backup); suffix++)
+				{
+					if (File.ReadAllBytes(backup).SequenceEqual(p_bteOriginal))
+						return backup;
+					backup = p_strPath + ".duplicate-identities." + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".bak";
+				}
+				using (var stream = new FileStream(backup, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+					stream.Write(p_bteOriginal, 0, p_bteOriginal.Length);
+				return backup;
+			}
 		}
 
 		private static string RequiredAttribute(XElement p_xelElement, string p_strName)

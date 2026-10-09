@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.CollectionManagement.UI;
@@ -221,6 +222,129 @@ namespace NexusClientTests
 				Assert.IsFalse(plan.IsReadyForReview);
 				Assert.IsTrue(plan.Issues.Any(x => x.Kind == CollectionLocalRestorePlanIssueKind.CurrentNativeMatchAmbiguous));
 				Assert.AreEqual(CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, plan.Members.Single().Action);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Native reconciliation reads only archives; the later full preflight still rejects damaged file payloads.</summary>
+		[Test]
+		public void PlanForNativeReconciliation_DefersPayloadBytesWithoutAuthorizingRestore()
+		{
+			string root = CreateTemporaryDirectory("nmm-recovery-scope-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("recovery archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "native-a",
+					LocalCaptureCapability.LocallyRestorableWithinScope, true, distinctOwnerPayload: true);
+				RetainedArtifactReference payload = capture.Capture.RetainedArtifacts.Single(x => x.Role.StartsWith("owner-payload:", StringComparison.Ordinal));
+				string payloadPath = Path.Combine(store.RetainedContentDirectory, "sha256",
+					payload.ContentHash.Value.Substring(0, 2), payload.ContentHash.Value + ".blob");
+				byte[] damaged = File.ReadAllBytes(payloadPath);
+				damaged[0] ^= 1;
+				File.WriteAllBytes(payloadPath, damaged);
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+				NativeStateCaptureSnapshot native = CreateNativeState("original", new InstallLogReadMod[0]);
+				var fingerprint = new CollectionCurrentStateFingerprint("state-v1", "recovery-scope");
+				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
+
+				CollectionLocalRestorePlan recovery = planner.PlanForNativeReconciliation(capture, capture.Capture.SourceTarget,
+					fingerprint, native, CancellationToken.None);
+				CollectionPerformanceSnapshot after = CollectionPerformanceMetrics.Capture();
+
+				Assert.IsEmpty(recovery.Issues);
+				Assert.IsTrue(recovery.IsNativeRecoveryProjection);
+				Assert.IsFalse(recovery.IsReadyForReview);
+				Assert.AreEqual(1, after.RetainedArtifactVerificationHashCount - before.RetainedArtifactVerificationHashCount);
+				Assert.AreEqual(capture.Archives.Single().RetainedArtifact.ByteLength,
+					after.RetainedArtifactVerificationHashedBytes - before.RetainedArtifactVerificationHashedBytes);
+				Assert.Throws<InvalidDataException>(() => CollectionLocalRestoreIntentCodec.Serialize(capture.Capture.Identity, recovery));
+
+				CollectionLocalRestorePlan full = planner.Plan(capture, capture.Capture.SourceTarget, fingerprint, native);
+				Assert.IsFalse(full.IsNativeRecoveryProjection);
+				Assert.IsFalse(full.IsReadyForReview);
+				Assert.IsTrue(full.Issues.Any(x => x.Kind == CollectionLocalRestorePlanIssueKind.RetainedArtifactCorrupt && x.ResourceKey == payload.Role));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Reducing recovery's payload closure must retain archive integrity checks.</summary>
+		[Test]
+		public void PlanForNativeReconciliation_RejectsDamagedRetainedArchive()
+		{
+			string root = CreateTemporaryDirectory("nmm-recovery-archive-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				File.WriteAllBytes(archivePath, Encoding.ASCII.GetBytes("recovery archive"));
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "native-a",
+					LocalCaptureCapability.LocallyRestorableWithinScope, true, distinctOwnerPayload: true);
+				RetainedArtifactReference archive = capture.Archives.Single().RetainedArtifact;
+				string blobPath = Path.Combine(store.RetainedContentDirectory, "sha256",
+					archive.ContentHash.Value.Substring(0, 2), archive.ContentHash.Value + ".blob");
+				byte[] damaged = File.ReadAllBytes(blobPath);
+				damaged[0] ^= 1;
+				File.WriteAllBytes(blobPath, damaged);
+				var planner = new CollectionLocalRestorePlanner(new CollectionsRetainedArtifactStore(store));
+
+				CollectionLocalRestorePlan recovery = planner.PlanForNativeReconciliation(capture, capture.Capture.SourceTarget,
+					new CollectionCurrentStateFingerprint("state-v1", "damaged-archive"),
+					CreateNativeState("original", new InstallLogReadMod[0]), CancellationToken.None);
+
+				Assert.IsFalse(recovery.IsReadyForReview);
+				Assert.IsTrue(recovery.Issues.Any(x => x.Kind == CollectionLocalRestorePlanIssueKind.RetainedArtifactCorrupt && x.ResourceKey == archive.Role));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Repeated resume observations reuse native archive hashes, while same-length changed bytes invalidate the proof.</summary>
+		[Test]
+		public void Plan_ReusesNativeArchiveProofAndInvalidatesItAfterAWrite()
+		{
+			string root = CreateTemporaryDirectory("nmm-recovery-archive-cache-");
+			try
+			{
+				CollectionsStore store = CreateStore(root);
+				string archivePath = Path.Combine(root, "mod.zip");
+				byte[] archiveBytes = Encoding.ASCII.GetBytes("cached native archive");
+				File.WriteAllBytes(archivePath, archiveBytes);
+				CollectionSealedCaptureSnapshot capture = CreateCapture(store, archivePath, "native-a",
+					LocalCaptureCapability.LocallyRestorableWithinScope, false);
+				NativeStateCaptureSnapshot native = CreateNativeState("original", new[] { CreateCurrentMod("native-a", archivePath, ModInstallMethod.Direct) });
+				var fingerprint = new CollectionCurrentStateFingerprint("state-v1", "archive-cache");
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				CollectionLocalRestorePlan cold = new CollectionLocalRestorePlanner(artifacts).Plan(capture,
+					capture.Capture.SourceTarget, fingerprint, native);
+				Assert.AreEqual(CollectionLocalRestoreMemberAction.ReuseExistingNative, cold.Members.Single().Action);
+
+				// Metadata remains readable, but a second content read would fail under this exclusive handle.
+				using (var locked = new FileStream(archivePath, FileMode.Open, FileAccess.Read, FileShare.None))
+				{
+					CollectionLocalRestorePlan warm = new CollectionLocalRestorePlanner(artifacts).Plan(capture,
+						capture.Capture.SourceTarget, fingerprint, native);
+					Assert.IsTrue(warm.IsReadyForReview);
+					Assert.AreEqual(CollectionLocalRestoreMemberAction.ReuseExistingNative, warm.Members.Single().Action);
+					Assert.AreEqual(cold.PlanFingerprint, warm.PlanFingerprint);
+				}
+
+				archiveBytes[0] ^= 1;
+				File.WriteAllBytes(archivePath, archiveBytes);
+				File.SetLastWriteTimeUtc(archivePath, DateTime.UtcNow.AddMinutes(1));
+				CollectionLocalRestorePlan changed = new CollectionLocalRestorePlanner(artifacts).Plan(capture,
+					capture.Capture.SourceTarget, fingerprint, native);
+				Assert.AreEqual(CollectionLocalRestoreMemberAction.RecreateFromRetainedArchive, changed.Members.Single().Action);
+				CollectionAssert.AreEqual(new[] { "native-a" }, changed.CurrentNativeKeysToRemove);
 			}
 			finally
 			{
@@ -602,8 +726,9 @@ namespace NexusClientTests
 			}
 		}
 
-		[Test]
-		public void Recovery_CompletedMemberBoundaryUsesRehydratedRemapInsteadOfFreshPlannerAction()
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Recovery_CompletedMemberBoundaryRequiresFullVerificationAndUsesRehydratedRemap(bool nativeRecoveryProjection)
 		{
 			string root = CreateTemporaryDirectory("nmm-c710-recovery-boundary-");
 			try
@@ -622,7 +747,7 @@ namespace NexusClientTests
 				CollectionLocalRestorePlan reviewed = CreateClassificationPlan(capture.Capture.SourceTarget, new[] { reviewedMember },
 					new string[0], new CollectionLocalRestorePlanIssue[0]);
 				CollectionLocalRestorePlan current = CreateClassificationPlan(capture.Capture.SourceTarget, new[] { currentMember },
-					new[] { "restored-native" }, new CollectionLocalRestorePlanIssue[0]);
+					new[] { "restored-native" }, new CollectionLocalRestorePlanIssue[0], nativeRecoveryProjection);
 				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.RestoreLocalCapture,
 					capture.Capture.Revision.Collection, capture.Capture.SourceTarget, capture.Capture.Revision, null, 1,
 					CollectionOperationPhase.RecoveryRequired, CollectionOperationResultState.RecoveryRequired, new CollectionNativeChildOperation[0]);
@@ -632,7 +757,7 @@ namespace NexusClientTests
 				var rehydrated = new CollectionLocalRestoreMemberRehydrationResult(CollectionLocalRestoreMemberRehydrationStatus.MemberPhaseComplete,
 					operation, capture, reviewed, current, new[] { remap }, new[] { progress }, new CollectionLocalRestoreRemovalProgress[0], "complete");
 
-				Assert.IsTrue(CollectionLocalRestoreApplicationService.IsExactCompletedMemberBoundary(rehydrated));
+				Assert.AreEqual(!nativeRecoveryProjection, CollectionLocalRestoreApplicationService.IsExactCompletedMemberBoundary(rehydrated));
 			}
 			finally
 			{
@@ -742,15 +867,16 @@ namespace NexusClientTests
 		}
 
 		private static CollectionLocalRestorePlan CreateClassificationPlan(CollectionTargetIdentity target,
-			IEnumerable<CollectionLocalRestoreMemberPlan> members, IEnumerable<string> removals, IEnumerable<CollectionLocalRestorePlanIssue> issues)
+			IEnumerable<CollectionLocalRestoreMemberPlan> members, IEnumerable<string> removals, IEnumerable<CollectionLocalRestorePlanIssue> issues,
+			bool nativeRecoveryProjection = false)
 		{
 			return new CollectionLocalRestorePlan(LocalCaptureIdentity.From(Guid.NewGuid()), target,
 				new CollectionCurrentStateFingerprint("state-v1", Guid.NewGuid().ToString("N")), 1, "original",
-				"classification-plan-" + Guid.NewGuid().ToString("N"), members, new CollectionLocalRestoreDeploymentPlan[0], removals, issues);
+				"classification-plan-" + Guid.NewGuid().ToString("N"), members, new CollectionLocalRestoreDeploymentPlan[0], removals, issues, nativeRecoveryProjection);
 		}
 
 		private static CollectionSealedCaptureSnapshot CreateCapture(CollectionsStore store, string archivePath,
-			string capturedNativeKey, LocalCaptureCapability capability, bool includeOwnerPayload)
+			string capturedNativeKey, LocalCaptureCapability capability, bool includeOwnerPayload, bool distinctOwnerPayload = false)
 		{
 			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c79");
 			CollectionIdentity collection = CollectionIdentity.FromLocal(Guid.NewGuid());
@@ -773,8 +899,14 @@ namespace NexusClientTests
 			CollectionOwnerPayloadSnapshot ownerPayloads;
 			if (includeOwnerPayload)
 			{
-				var ownerReference = new RetainedArtifactReference(archiveArtifact.ArtifactId,
-					"owner-payload:" + capturedNativeKey, archiveArtifact.ContentHash, archiveArtifact.ByteLength);
+				CollectionsRetainedArtifact ownerArtifact = archiveArtifact;
+				if (distinctOwnerPayload)
+				{
+					using (var source = new MemoryStream(Encoding.ASCII.GetBytes("separate owner payload")))
+						ownerArtifact = artifactStore.Publish(source);
+				}
+				var ownerReference = new RetainedArtifactReference(ownerArtifact.ArtifactId,
+					"owner-payload:" + capturedNativeKey, ownerArtifact.ContentHash, ownerArtifact.ByteLength);
 				retained.Add(ownerReference);
 				var ownerRetention = new CollectionOwnerPayloadRetention(ownerReference.StableArtifactId, ownerReference.Role,
 					ownerReference.ContentHash, ownerReference.ByteLength);

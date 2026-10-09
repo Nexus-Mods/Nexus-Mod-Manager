@@ -507,7 +507,62 @@ namespace Nexus.Client.Games.DataDriven
                 issues.Add(Error(definition, "modInstall.managedInstallationPath", "managedInstallationPath cannot use {UserGameData}."));
             ValidateExtensions(definition, definition.ModInstall.HardlinkRequiredExtensions, "modInstall.hardlinkRequiredExtensions", issues);
             ValidateExtensions(definition, definition.ModInstall.RealFileRequiredExtensions, "modInstall.realFileRequiredExtensions", issues);
+			ValidateGameRootPackageRules(definition, issues);
         }
+
+		/// <summary>Validates optional package signatures using the same immutable rule constructors as the runtime matcher.</summary>
+		private void ValidateGameRootPackageRules(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+		{
+			List<GameModeGameRootPackageRuleDefinition> rules = definition.ModInstall.GameRootPackageRules;
+			if (rules == null) return;
+			const string property = "modInstall.gameRootPackageRules";
+			if (rules.Count > 0 && definition.ModInstall.SupportsGameRootInstall != true)
+				issues.Add(Error(definition, property, "Package rules require supportsGameRootInstall: true."));
+			var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			for (int index = 0; index < rules.Count; index++)
+			{
+				string path = property + "[" + index + "]";
+				GameModeGameRootPackageRuleDefinition rule = rules[index];
+				if (rule == null)
+				{
+					issues.Add(Error(definition, path, "A package rule cannot be null."));
+					continue;
+				}
+				if (rule.Id != null && !ids.Add(rule.Id))
+					issues.Add(Error(definition, path + ".id", "Duplicate package rule id: " + rule.Id));
+				var checks = new List<GameRootPackageXmlCheck>();
+				if (rule.XmlChecks != null)
+				{
+					for (int checkIndex = 0; checkIndex < rule.XmlChecks.Count; checkIndex++)
+					{
+						string checkPath = path + ".xmlChecks[" + checkIndex + "]";
+						GameModeGameRootPackageXmlCheckDefinition check = rule.XmlChecks[checkIndex];
+						if (check == null)
+						{
+							issues.Add(Error(definition, checkPath, "An XML check cannot be null."));
+							continue;
+						}
+						try
+						{
+							checks.Add(new GameRootPackageXmlCheck(check.File, check.ElementPath));
+						}
+						catch (ArgumentException exception)
+						{
+							string member = exception.ParamName == "fileName" ? "file" : exception.ParamName;
+							issues.Add(Error(definition, checkPath + "." + member, exception.Message));
+						}
+					}
+				}
+				try
+				{
+					new GameRootPackageRule(rule.Id, rule.RequiredFiles, checks, rule.AllowSingleWrapperFolder);
+				}
+				catch (ArgumentException exception)
+				{
+					issues.Add(Error(definition, path + "." + exception.ParamName, exception.Message));
+				}
+			}
+		}
 
 		private void ValidateGamebryo(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
 		{

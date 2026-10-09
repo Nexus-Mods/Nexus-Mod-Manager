@@ -128,6 +128,9 @@ namespace Nexus.Client.ModManagement
 		/// for the current game mode.</value>
 		protected IInstallLog ModInstallLog { get; private set; }
 
+		/// <summary>Final promoted winners captured in an explicit folder-correction review.</summary>
+		internal IReadOnlyDictionary<ModDeploymentTarget, string> ReviewedFinalFileOwners { get; set; }
+
 		/// <summary>
 		/// Gets or sets the file utility class.
 		/// </summary>
@@ -613,6 +616,7 @@ namespace Nexus.Client.ModManagement
 				{
 					throw new InvalidDataException("Explicit installation recipe input has not been translated into a native operation plan.");
 				}
+				(mfiFileInstaller as ModFileUpgradeInstaller)?.RetainPreparedStagingFiles(InstallationRecipeInput.NativeOperations);
 				booResult = RunInstallationRecipe(mfiFileInstaller, InstallationRecipeInput.NativeOperations, p_tfmFileManager);
 			}
 			else if (Mod.HasInstallScript)
@@ -670,6 +674,9 @@ namespace Nexus.Client.ModManagement
 				booResult = RunBasicInstallScript(mfiFileInstaller, ActiveMods, null, p_tfmFileManager);
 			mfiFileInstaller.FinalizeInstall();
 			FinalizeDeploymentAfterInstall(p_tfmFileManager);
+			if (booResult && ReviewedFinalFileOwners != null)
+				foreach (KeyValuePair<ModDeploymentTarget, string> winner in ReviewedFinalFileOwners)
+					DeploymentManager.SwitchPromotedOwner(winner.Key, winner.Value);
 			return booResult;
 		}
 

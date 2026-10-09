@@ -231,6 +231,13 @@ namespace Nexus.Client.CollectionManagement
 			return _workflow.ApproveAndApplyAsync(operationIdentity, expectedPlan, GetTargetPaths(), cancellationToken);
 		}
 
+		/// <summary>Ends a reconciled installation for the selected revision without removing content or installing remaining members.</summary>
+		public Task<IReadOnlyList<CollectionOperation>> StopReconciledInstallationForRemovalAsync(
+			CollectionRevisionIdentity revision, CancellationToken cancellationToken)
+		{
+			return _workflow.StopReconciledInstallationForRemovalAsync(revision, GetTargetPaths(), cancellationToken);
+		}
+
 		/// <summary>Reconciles incomplete additive operations for the active target before resume.</summary>
 		public Task<IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>> ReconcileIncompleteTargetAsync(CancellationToken cancellationToken)
 		{
@@ -277,7 +284,7 @@ namespace Nexus.Client.CollectionManagement
 			var bundledMaterializer = new NexusCollectionBundledArtifactMaterializer(_store, _revisionSourceStore);
 			var bundledAcquisition = new NexusCollectionBundledMemberAcquisitionCoordinator(bundledMaterializer,
 				archiveAdopter, requestCoordinator, _services.ModManager);
-			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(new CollectionMemberMatchEngine(), archiveAdopter,
+			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager), archiveAdopter,
 				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator, bundledAcquisition, directCoordinator);
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);

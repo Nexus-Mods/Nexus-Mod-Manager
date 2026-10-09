@@ -59,6 +59,40 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Output hashes and lengths survive review persistence and executable recipe reconstruction.</summary>
+		[Test]
+		public void Reconstruct_RetainsReviewedFileContentIdentity()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				PreparedCollectionNativeRecipe original = fixture.PreparedRecipe;
+				CollectionMemberEffectPreview oldPreview = original.EffectPreview;
+				CollectionContentHash hash = CollectionContentHash.FromSha256(new string('a', 64));
+				var preview = new CollectionMemberEffectPreview(oldPreview.MemberKey, oldPreview.RecipeIdentity,
+					oldPreview.InstallMethod, oldPreview.InstallRoot,
+					new[] { new CollectionPlannedFileEffect(oldPreview.Files.Single().Target, hash, 123) },
+					oldPreview.IniEdits, oldPreview.GameValues, oldPreview.PluginEffects, oldPreview.Issues);
+				var prepared = new PreparedCollectionNativeRecipe(fixture.Member, original.PreparedNativeIdentity,
+					original.RecipeInput, preview, original.SkipReadmeFiles, original.RetainedArtifactIds);
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { prepared });
+				CollectionReviewedWorkflowSnapshot roundTrip = CollectionReviewedWorkflowSnapshotCodec.Deserialize(
+					CollectionReviewedWorkflowSnapshotCodec.Serialize(snapshot));
+				var rehydration = new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready,
+					roundTrip, fixture.State, new[] { fixture.Member.MemberKey }, "ready");
+				CollectionPlannedFileEffect effect = new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store)
+					.Reconstruct(rehydration).GetPreparedRecipe(fixture.Member.MemberKey).EffectPreview.Files.Single();
+
+				Assert.That(effect.HasExactContentIdentity, Is.True);
+				Assert.That(effect.ExpectedContentHash, Is.EqualTo(hash));
+				Assert.That(effect.ExpectedByteLength, Is.EqualTo(123));
+				Assert.That(CollectionNativeChildExecutionCoordinator.CreateExpectedFileEvidence(effect).ContentHash, Is.EqualTo(hash));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void Reconstruct_RoundTripsRetainedGeneratedFileRecipe()
 		{

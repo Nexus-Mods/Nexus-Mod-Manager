@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.UI;
 using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
 using NUnit.Framework;
@@ -468,6 +469,56 @@ namespace NexusClientTests
 				drift == null ? new CollectionDriftObservation[0] : new[] { drift });
 			return new CollectionManagementAssociationPresentation(new CollectionManagementAssociation(current, "Collection", "Revision 1"),
 				null, null, null, new[] { member }, customization, "fallout4", null, null);
+		}
+
+		/// <summary>Missing participation requires an exact prepared recipe and remains bounded in durable restart approval.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void MissingMemberRepair_RequiresPreparedRecipeAndRetainsApprovedScope(bool hasPreparedRecipe)
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, true, false);
+			var member = new ResolvedCollectionMemberPlan(f.Manifest.Members[0], CollectionResolvedArtifactChoice.Exact(f.Manifest.Members[0].Artifact));
+			var resolved = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), f.Association.Target,
+				CollectionExecutionPolicy.InstallIntoCurrentSetup(), f.State.Fingerprint, CollectionCapabilityReport.Create(f.Manifest), new[] { member });
+			var context = new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data);
+			var validation = new ModInstallationRecipeValidation(ModInstallationSimpleFileRecipeAdapter.AdapterId,
+				ModInstallationSimpleFileRecipeAdapter.AdapterVersion, context, new ModInstallationRecipeExpectedContent(Sha256, 2),
+				new[] { new ModInstallationRecipeCapability(ModInstallationSimpleFileRecipeAdapter.CapabilityId, ModInstallationSimpleFileRecipeAdapter.CapabilityVersion) },
+				new[] { new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, "a.txt"),
+					new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, "a.txt") });
+			ModOperationIdentity operation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(f.Association.Target.Fingerprint, context, member.RecipeIdentity.Fingerprint));
+			ModInstallationRecipeInput input = new ModInstallationSimpleFileRecipeAdapter().Translate(new ModInstallationRecipeInput(operation, validation),
+				new ModInstallationSimpleFileRecipe(new[] { new ModInstallationSimpleFileMapping("a.txt", "a.txt") }));
+			CollectionMemberEffectPreview preview = ExactFilePreview(f, ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "a.txt"), new byte[] { 1, 2 });
+			var prepared = new PreparedCollectionNativeRecipe(member, PreparedCollectionNativeRecipeIdentity.FromFingerprint("prepared-repair"),
+				input, preview, false, new[] { "archive-repair" });
+			PreparedCollectionNativeRecipe[] recipes = hasPreparedRecipe ? new[] { prepared } : new PreparedCollectionNativeRecipe[0];
+			var preparation = new CollectionVerifyRepairPreparationResult(resolved, recipes, null, f.Bindings);
+			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, f.Manifest, f.State, f.Bindings,
+				new UserOverride[0], new CollectionDriftObservation[0], new[] { preview }, preparation);
+			Assert.That(plan.CanExecuteQualifiedRepair, Is.EqualTo(hasPreparedRecipe));
+			if (!hasPreparedRecipe) return;
+			CollectionVerifyRepairReviewedIntent intent = CollectionVerifyRepairReviewedIntentCodec.Deserialize(
+				CollectionVerifyRepairReviewedIntentCodec.Serialize(CollectionVerifyRepairReviewedIntent.Create(plan)));
+			var healthyCurrent = new CollectionVerifyRepairPlan(f.Association, f.State.Fingerprint,
+				new CollectionVerifyRepairFinding[0], true, resolved, recipes);
+			CollectionVerifyRepairPlan resumed = intent.BuildResumePlan(healthyCurrent);
+			Assert.That(resumed.CanExecuteQualifiedRepair, Is.True);
+			Assert.That(resumed.Findings.Count(CollectionVerifyRepairPlan.IsMissingMemberRepair), Is.EqualTo(1));
+			Assert.That(resumed.Findings.Count, Is.EqualTo(plan.Findings.Count(x => x.IsRepairable)));
+		}
+
+		/// <summary>A participation omission never becomes an automatic uninstall through the missing-member repair extension.</summary>
+		[Test]
+		public void MissingMemberRepair_DoesNotQualifyRemoval()
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Modified, true, true);
+			var requirement = new CollectionRequirementReference(f.Association, f.MemberKey, CollectionRequirementAspect.MemberParticipation, null);
+			var finding = new CollectionVerifyRepairFinding(f.MemberKey, requirement, CollectionVerifyRepairFindingKind.MemberParticipationMismatch,
+				CollectionVerifyRepairDisposition.RestoreExpectedState, CollectionRequirementState.Absent(), CollectionMemberRequirementStates.Included(), "Omitted");
+			Assert.That(CollectionVerifyRepairPlan.IsMissingMemberRepair(finding), Is.False);
+			Assert.That(CollectionVerifyRepairReviewedFinding.From(finding).IsQualifiedRepair, Is.False);
 		}
 
 		private static CollectionNativePluginState Plugin(string name, int priority)

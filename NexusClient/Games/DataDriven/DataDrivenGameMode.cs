@@ -23,12 +23,13 @@ using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.Games.DataDriven
 {
-    public class DataDrivenGameMode : GameModeBase
+    public class DataDrivenGameMode : GameModeBase, IGameRootPackageRuleProvider
     {
         [ThreadStatic]
         private static GameModeDefinition _pendingDefinition;
 
         private readonly GameModeDefinition _definition;
+		private readonly IReadOnlyList<GameRootPackageRule> _gameRootPackageRules;
         private IGameLauncher _gameLauncher;
         private IToolLauncher _toolLauncher;
         private ISupportedToolsLauncher _supportedToolsLauncher;
@@ -47,6 +48,7 @@ namespace Nexus.Client.Games.DataDriven
         {
             _definition = definition ?? throw new ArgumentNullException(nameof(definition));
             _pendingDefinition = null;
+			_gameRootPackageRules = DataDrivenGameRootPackageRules.Create(_definition);
             SettingsGroupViews = DataDrivenGameModeHelpers.BuildSettingsGroupViews(environmentInfo, this, _definition);
         }
 
@@ -100,6 +102,8 @@ namespace Nexus.Client.Games.DataDriven
         public override int MaxAllowedActivePluginsCount => 0;
         public override PluginManagementPolicy PluginManagementPolicy => DataDrivenPluginPolicyBuilder.Build(_definition, Enumerable.Empty<string>(), Enumerable.Empty<string>(), Enumerable.Empty<string>(), Enumerable.Empty<string>(), 0, CreatePathContext());
         public override bool SupportsGameRootModInstall => _definition.ModInstall != null && _definition.ModInstall.SupportsGameRootInstall == true;
+		/// <summary>Gets the immutable package rules loaded with this GameMode.</summary>
+		public IReadOnlyList<GameRootPackageRule> GameRootPackageRules => _gameRootPackageRules;
         public override string GameDefaultCategories => _categories ?? (_categories = DataDrivenGameModeHelpers.ReadResourceText(_definition, _definition.Resources == null ? null : _definition.Resources.CategoriesPath));
         public override string BaseGameFiles => _baseFiles ?? (_baseFiles = DataDrivenGameModeHelpers.ReadResourceText(_definition, _definition.Resources == null ? null : _definition.Resources.BaseFilesPath));
 

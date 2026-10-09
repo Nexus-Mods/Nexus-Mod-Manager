@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using Nexus.Client.ModManagement;
 
 namespace Nexus.Client.CollectionManagement
@@ -16,6 +17,20 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionMemberMatchEngine
 	{
+		private readonly Func<ResolvedCollectionMemberPlan, CollectionVerifiedArchive, CancellationToken, bool> _requiresVerifiedGameRoot;
+		private readonly bool _requiresDestinationArchive = true;
+
+		/// <summary>Creates matching with the legacy explicit-metadata destination policy.</summary>
+		public CollectionMemberMatchEngine() { }
+
+		/// <summary>Creates destination-aware matching; frozen reviewed destinations do not require another archive recognition pass.</summary>
+		public CollectionMemberMatchEngine(Func<ResolvedCollectionMemberPlan, CollectionVerifiedArchive, CancellationToken, bool> requiresVerifiedGameRoot,
+			bool requiresVerifiedArchive = true)
+		{
+			_requiresVerifiedGameRoot = requiresVerifiedGameRoot ?? throw new ArgumentNullException(nameof(requiresVerifiedGameRoot));
+			_requiresDestinationArchive = requiresVerifiedArchive;
+		}
+
 		/// <summary>Matches a resolved plan without any already verified archive inputs.</summary>
 		public CollectionMemberMatchSet Match(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState)
 		{
@@ -28,7 +43,14 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionMemberMatchSet Match(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionVerifiedArchive> verifiedArchives)
 		{
-			return MatchCore(plan, nativeState, verifiedArchives, true);
+			return Match(plan, nativeState, verifiedArchives, CancellationToken.None);
+		}
+
+		/// <summary>Matches exact archive inputs with cancellation during opt-in destination checks.</summary>
+		public CollectionMemberMatchSet Match(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
+			IEnumerable<CollectionVerifiedArchive> verifiedArchives, CancellationToken cancellationToken)
+		{
+			return MatchCore(plan, nativeState, verifiedArchives, true, cancellationToken);
 		}
 
 		/// <summary>
@@ -41,17 +63,17 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Matches one replacement execution baseline with exact already verified immutable archive inputs.</summary>
 		internal CollectionMemberMatchSet MatchForReplacementExecution(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
-			IEnumerable<CollectionVerifiedArchive> verifiedArchives)
+			IEnumerable<CollectionVerifiedArchive> verifiedArchives, CancellationToken cancellationToken = default(CancellationToken))
 		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
 			if (plan.Policy.Kind != CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)
 				throw new ArgumentException("Replacement matching facts require the explicit replacement policy.", nameof(plan));
-			return MatchCore(plan, nativeState, verifiedArchives ?? throw new ArgumentNullException(nameof(verifiedArchives)), false);
+			return MatchCore(plan, nativeState, verifiedArchives ?? throw new ArgumentNullException(nameof(verifiedArchives)), false, cancellationToken);
 		}
 
 		private CollectionMemberMatchSet MatchCore(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
-			IEnumerable<CollectionVerifiedArchive> verifiedArchives, bool requireAdditivePolicy)
+			IEnumerable<CollectionVerifiedArchive> verifiedArchives, bool requireAdditivePolicy, CancellationToken cancellationToken)
 		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
@@ -80,19 +102,35 @@ namespace Nexus.Client.CollectionManagement
 			{
 				CollectionVerifiedArchive archive;
 				archivesByMember.TryGetValue(member.MemberKey, out archive);
-				results.Add(MatchMember(nativeState, context, member, archive));
+				cancellationToken.ThrowIfCancellationRequested();
+				results.Add(MatchMember(nativeState, context, member, archive, cancellationToken));
 			}
 			return new CollectionMemberMatchSet(plan, nativeState, results);
 		}
 
-		private static CollectionMemberMatchResult MatchMember(CollectionNativeStateIndex nativeState, MatchingContext context,
-			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive)
+		/// <summary>Checks inferred roots only after acquisition proved the selected artifact's immutable bytes.</summary>
+		private bool RequiresGameRoot(ResolvedCollectionMemberPlan member, CollectionVerifiedArchive archive, CancellationToken cancellationToken)
+		{
+			return member.RequiresGameRootInstall || (_requiresVerifiedGameRoot != null && (archive != null || !_requiresDestinationArchive) &&
+				_requiresVerifiedGameRoot(member, archive, cancellationToken));
+		}
+
+		/// <summary>Prevents an old Data binding from bypassing opt-in destination recognition.</summary>
+		private bool RequiresDestinationArchive(ResolvedCollectionMemberPlan member, CollectionNativeModState candidate,
+			CollectionVerifiedArchive archive)
+		{
+			return _requiresVerifiedGameRoot != null && _requiresDestinationArchive && !member.RequiresGameRootInstall &&
+				candidate.InstallRoot != ModInstallRoot.GameRoot && archive == null;
+		}
+
+		private CollectionMemberMatchResult MatchMember(CollectionNativeStateIndex nativeState, MatchingContext context,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, CancellationToken cancellationToken)
 		{
 			string externalMd5;
 			long externalByteLength;
 			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact) ||
 				CollectionExternalArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out externalMd5, out externalByteLength))
-				return MatchBundledMember(nativeState, context, member, verifiedArchive);
+				return MatchBundledMember(nativeState, context, member, verifiedArchive, cancellationToken);
 
 			string gameDomain;
 			long selectedModId;
@@ -154,7 +192,7 @@ namespace Nexus.Client.CollectionManagement
 					.Where(x => x.VerifiedRecipe.Equals(member.RecipeIdentity) &&
 						x.Association.State == CollectionAssociationState.Applied)
 					.ToList();
-				bool installRootMismatch = member.RequiresGameRootInstall && candidate.InstallRoot != ModInstallRoot.GameRoot;
+				bool installRootMismatch = RequiresGameRoot(member, verifiedArchive, cancellationToken) && candidate.InstallRoot != ModInstallRoot.GameRoot;
 				bool exactArtifact = exactArtifactCandidates.Contains(candidate.Identity);
 				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
 					x.VerifiedRecipe.Equals(member.RecipeIdentity) && x.Association.State == CollectionAssociationState.Applied);
@@ -162,6 +200,9 @@ namespace Nexus.Client.CollectionManagement
 				if (!installRootMismatch && (exactArtifact || directRecipeBinding) && verifiedApplied.Count > 0 &&
 					bindings.All(x => x.Association.State == CollectionAssociationState.Applied))
 				{
+					if (RequiresDestinationArchive(member, candidate, verifiedArchive))
+						return Result(member, CollectionMemberMatchDisposition.AcquisitionRequired,
+							CollectionMemberMatchReason.NoReusableInput, new[] { candidate }, bindings, null);
 					CollectionMemberMatchReason reason = directRecipeBinding
 						? CollectionMemberMatchReason.ExistingVerifiedBinding
 						: CollectionMemberMatchReason.CompatibleSharedVerifiedBinding;
@@ -208,8 +249,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionMemberMatchReason.NoReusableInput, null, null, null);
 		}
 
-		private static CollectionMemberMatchResult MatchBundledMember(CollectionNativeStateIndex nativeState, MatchingContext context,
-			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive)
+		private CollectionMemberMatchResult MatchBundledMember(CollectionNativeStateIndex nativeState, MatchingContext context,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, CancellationToken cancellationToken)
 		{
 			List<CollectionMemberBinding> directBindings = context.GetDirectBindings(member.MemberKey);
 			var candidates = new Dictionary<NativeModInstanceIdentity, CollectionNativeModState>();
@@ -240,12 +281,15 @@ namespace Nexus.Client.CollectionManagement
 						CollectionMemberMatchReason.ConflictingVerifiedRecipe, new[] { candidate }, bindings, verifiedArchive);
 				}
 
-				bool installRootMismatch = member.RequiresGameRootInstall && candidate.InstallRoot != ModInstallRoot.GameRoot;
+				bool installRootMismatch = RequiresGameRoot(member, verifiedArchive, cancellationToken) && candidate.InstallRoot != ModInstallRoot.GameRoot;
 				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
 					x.VerifiedRecipe.Equals(member.RecipeIdentity) && x.Association.State == CollectionAssociationState.Applied);
 				if (!installRootMismatch && directRecipeBinding && bindings.Any(x => x.VerifiedRecipe.Equals(member.RecipeIdentity)) &&
 					bindings.All(x => x.Association.State == CollectionAssociationState.Applied))
 				{
+					if (RequiresDestinationArchive(member, candidate, verifiedArchive))
+						return Result(member, CollectionMemberMatchDisposition.AcquisitionRequired,
+							CollectionMemberMatchReason.NoReusableInput, new[] { candidate }, bindings, null);
 					return Result(member, CollectionMemberMatchDisposition.InstalledCompatible,
 						CollectionMemberMatchReason.ExistingVerifiedBinding, new[] { candidate }, bindings, verifiedArchive);
 				}

@@ -13,7 +13,7 @@ namespace Nexus.Client.ModManagement
     /// <summary>
     /// Compatibility deployment boundary backed by the existing virtual activator and link installer.
     /// </summary>
-    public sealed class VirtualDeploymentService : IVirtualDeploymentService
+    public sealed class VirtualDeploymentService : IRootAwareVirtualDeploymentService
     {
         private readonly IVirtualModActivator _virtualModActivator;
         private readonly IModDeploymentManager _deploymentManager;
@@ -231,6 +231,22 @@ namespace Nexus.Client.ModManagement
             }
         }
 
+
+        /// <summary>Switches a reviewed file owner in the exact canonical deployment root.</summary>
+        public VirtualFileOwnerSwitchResult SwitchFileOwner(ModDeploymentTarget target, string selectedOwnerKey)
+        {
+            VirtualModActivator compatibilityActivator = _virtualModActivator as VirtualModActivator;
+            if (compatibilityActivator == null)
+                return VirtualFileOwnerSwitchResult.Failed("The current virtual mod activator does not support file-owner switching.");
+            try
+            {
+                return compatibilityActivator.SwitchFileOwner(target, selectedOwnerKey);
+            }
+            catch (Exception ex)
+            {
+                return VirtualFileOwnerSwitchResult.Failed(ex);
+            }
+        }
 
         private bool HasStoredDeploymentState(IMod mod)
         {

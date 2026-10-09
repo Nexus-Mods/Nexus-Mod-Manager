@@ -315,6 +315,60 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Untyped known packages use exact root operations through preparation, durable review and native submission.</summary>
+		[TestCase(ModInstallMethod.Direct, "")]
+		[TestCase(ModInstallMethod.Virtual, "")]
+		[TestCase(ModInstallMethod.Direct, "Package\\")]
+		[TestCase(ModInstallMethod.Virtual, "Package\\")]
+		public void PrepareAndApply_UntypedKnownPackage_UsesReviewedGameRoot(ModInstallMethod method, string prefix)
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, method,
+				archiveFiles: new[] { prefix + "WinHTTP.dll", prefix + "xSE PluginPreloader.xml" }, usePackageRules: true))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				PreparedCollectionNativeRecipe recipe = prepared.Runtime.PreparedRecipes.Single();
+				Assert.That(recipe.InstallContext.Method, Is.EqualTo(method));
+				Assert.That(recipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				Assert.That(recipe.EffectPreview.Files.All(x => x.Target.Root == ModDeploymentRoot.GameRoot), Is.True);
+				Assert.That(recipe.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.DestinationPath),
+					Is.EquivalentTo(new[] { "WinHTTP.dll", "xSE PluginPreloader.xml" }));
+				CollectionAdditiveWorkflowReview rehydrated = fixture.Workflow.GetReview(prepared.Operation.Identity);
+				Assert.That(rehydrated.Runtime.PreparedRecipes.Single().InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				Assert.That(fixture.Apply(prepared).Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.LastRecipe.InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+			}
+		}
+
+		/// <summary>Acquisition rechecks old applied Data bindings before treating a known package as installed-compatible.</summary>
+		[Test]
+		public void Prepare_UntypedKnownPackageWithDataBinding_PreparesRootReinstall()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Compatible, ModInstallMethod.Virtual,
+				archiveFiles: new[] { "WinHTTP.dll", "xSE PluginPreloader.xml" }, usePackageRules: true))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.Runtime.Matches.Members.Single().Reason, Is.EqualTo(CollectionMemberMatchReason.RequiredInstallRootMismatch));
+				Assert.That(prepared.Runtime.PreparedRecipes.Single().InstallContext.InstallRoot, Is.EqualTo(ModInstallRoot.GameRoot));
+				Assert.That(prepared.Runtime.PreparedRecipes.Single().InstallContext.Method, Is.EqualTo(ModInstallMethod.Direct));
+			}
+		}
+
+		/// <summary>Ordinary applied Data members keep their binding and archive evidence through acquisition revalidation.</summary>
+		[Test]
+		public void Prepare_OrdinaryDataBindingWithRules_ReusesInstalledMember()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Compatible, ModInstallMethod.Virtual, usePackageRules: true))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(prepared.Runtime.Matches.Members.Single().Disposition, Is.EqualTo(CollectionMemberMatchDisposition.InstalledCompatible));
+				Assert.That(prepared.Runtime.PreparedRecipes, Is.Empty);
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+			}
+		}
+
 		[Test]
 		public void Prepare_DinputMemberWhenGameRootUnsupported_BlocksBeforeNativeChild()
 		{
@@ -396,6 +450,60 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Removal cancels only the selected revision's unsubmitted intent and leaves unrelated work untouched.</summary>
+		[Test]
+		public void StopInstallationForRemoval_IsRevisionScopedAndDoesNotSubmitNativeWork()
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, ModInstallMethod.Virtual))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				CollectionRevisionIdentity other = CollectionRevisionIdentity.FromNexus(fixture.Revision.Identity.Collection, "other-revision", 2);
+				Assert.That(fixture.Workflow.StopReconciledInstallationForRemovalAsync(other, fixture.Paths, CancellationToken.None)
+					.GetAwaiter().GetResult(), Is.Empty);
+				Assert.That(new CollectionsOperationStore(fixture.Store).GetOperation(prepared.Operation.Identity).IsTerminal, Is.False);
+				IReadOnlyList<CollectionOperation> stopped = fixture.Workflow.StopReconciledInstallationForRemovalAsync(
+					fixture.Revision.Identity, fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				Assert.That(stopped.Single().ResultState, Is.EqualTo(CollectionOperationResultState.CancelledBeforeApply));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+				Assert.That(new CollectionsOperationStore(fixture.Store).GetIncompleteOperations(fixture.Target), Is.Empty);
+			}
+		}
+
+		/// <summary>Stopping installation cannot conceal a submitted child whose outcome or ownership is unresolved.</summary>
+		[TestCase(false, false, false)]
+		[TestCase(true, false, false)]
+		[TestCase(true, true, true)]
+		public void StopInstallationForRemoval_RequiresEverySubmittedChildToBeReconciled(bool knownDurability, bool reconciled, bool accepted)
+		{
+			using (Fixture fixture = Fixture.Create(InitialNativeState.Empty, ModInstallMethod.Virtual))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data),
+						prepared.Runtime.Plan.SelectedMembers.Single().RecipeIdentity.Fingerprint));
+				var child = new CollectionNativeChildOperation(1,
+					new CollectionOperationMemberReference(fixture.Revision.Identity, prepared.Runtime.Plan.SelectedMembers.Single().MemberKey),
+					CollectionNativeChildAction.ActivateOrReinstall, native,
+					reconciled ? CollectionNativeChildCheckpoint.Reconciled : CollectionNativeChildCheckpoint.NativeTerminalObserved,
+					new ModOperationResult(native, ModOperationReportedStatus.Failed,
+						knownDurability ? ModOperationDurability.VerifiedRolledBack : ModOperationDurability.Unknown, "failed"));
+				var pending = new CollectionOperation(prepared.Operation.Identity, CollectionOperationKind.ApplyResolvedPlan,
+					fixture.Revision.Identity.Collection, fixture.Target, fixture.Revision.Identity, prepared.Runtime.Plan.Identity,
+					prepared.Operation.CheckpointSequence + 1, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, new[] { child });
+				var store = new CollectionsOperationStore(fixture.Store);
+				store.SaveOperation(pending);
+				if (accepted)
+					Assert.That(fixture.Workflow.StopReconciledInstallationForRemovalAsync(fixture.Revision.Identity, fixture.Paths,
+						CancellationToken.None).GetAwaiter().GetResult().Single().ResultState, Is.EqualTo(CollectionOperationResultState.StoppedPartial));
+				else
+					Assert.Throws<InvalidOperationException>(() => fixture.Workflow.StopReconciledInstallationForRemovalAsync(
+						fixture.Revision.Identity, fixture.Paths, CancellationToken.None).GetAwaiter().GetResult());
+				Assert.That(store.GetOperation(pending.Identity).IsTerminal, Is.EqualTo(accepted));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+			}
+		}
+
 		[Test]
 		public void ReconcileIncompleteTarget_RestartAtReadyToApply_AdvertisesLazyResumeThenExplicitReviewRehydrates()
 		{
@@ -473,7 +581,7 @@ namespace NexusClientTests
 				bool requiresSpecialFileInstallation = false, bool requiresModFileMerge = false, bool skipReadmeFiles = false,
 				ModInstallRoot installedRoot = ModInstallRoot.Data, string[] archiveFiles = null,
 				bool seedCompatibleBindingForDifferentCollection = false, string modType = null,
-				bool supportsGameRootInstall = true)
+				bool supportsGameRootInstall = true, bool usePackageRules = false)
 			{
 				string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-14b-" + Guid.NewGuid().ToString("N"));
 				Directory.CreateDirectory(root);
@@ -560,7 +668,7 @@ namespace NexusClientTests
 				});
 				IVirtualModActivator virtualModActivator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
 					method.Name == "GetReadSnapshot" ? new VirtualModReadSnapshot(new VirtualModReadLink[0]) : null);
-				IGameMode gameMode = CreateGameMode(paths, requiresSpecialFileInstallation, requiresModFileMerge, supportsGameRootInstall);
+				IGameMode gameMode = CreateGameMode(paths, requiresSpecialFileInstallation, requiresModFileMerge, supportsGameRootInstall, usePackageRules);
 				var nativeStateReader = new CollectionNativeStateReader(installLog, virtualModActivator, null, gameMode, associations);
 				var targetResolver = new CollectionTargetIdentityResolver(storageService);
 				var planBuilder = new CollectionResolvedPlanBuilder(catalog, revisionSources, operationCoordinator);
@@ -575,12 +683,12 @@ namespace NexusClientTests
 				var manualCoordinator = new CollectionManualAcquisitionCoordinator(requestCoordinator, adopter);
 				var acquisitionRestart = new CollectionAcquisitionRestartCoordinator(acquisitions,
 					new EmptyPersistedAddModStateSource(), adopter, premiumCoordinator);
-				var memberAcquisition = new CollectionMemberAcquisitionCoordinator(new CollectionMemberMatchEngine(), adopter,
+				ModManager manager = CreateModManagerShell(root, gameMode, installLog, managedMod, preferredInstallMethod, skipReadmeFiles);
+				var memberAcquisition = new CollectionMemberAcquisitionCoordinator(CollectionInstallDestinationResolver.CreateMatchEngine(manager), adopter,
 					premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator);
 				var revalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 					operationCoordinator, planBuilder, memberAcquisition);
 
-				ModManager manager = CreateModManagerShell(root, gameMode, installLog, managedMod, preferredInstallMethod, skipReadmeFiles);
 				var services = new ServiceManager(installLog, null, null, null, manager, null, null, null);
 				var rehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore, revisionSources,
 					artifacts, nativeStateReader, recoveryManifests);
@@ -917,9 +1025,9 @@ namespace NexusClientTests
 		}
 
 		private static IGameMode CreateGameMode(GameStoragePathSet paths, bool requiresSpecialFileInstallation, bool requiresModFileMerge,
-			bool supportsGameRootInstall)
+			bool supportsGameRootInstall, bool usePackageRules)
 		{
-			return InterfaceStub<IGameMode>.Create((method, args) =>
+			return InterfaceStub<IPackageRuleGameMode>.Create((method, args) =>
 			{
 				switch (method.Name)
 				{
@@ -929,6 +1037,9 @@ namespace NexusClientTests
 					case "get_HasSecondaryInstallPath": return false;
 					case "get_UsesPlugins": return false;
 					case "get_SupportsGameRootModInstall": return supportsGameRootInstall;
+					case "get_GameRootPackageRules": return usePackageRules ? new[] { new GameRootPackageRule("preloader",
+						new[] { "WinHTTP.dll", "xSE PluginPreloader.xml" },
+						new[] { new GameRootPackageXmlCheck("xSE PluginPreloader.xml", new[] { "xSE", "PluginPreloader" }) }, true) } : new GameRootPackageRule[0];
 					case "get_RequiresSpecialFileInstallation": return requiresSpecialFileInstallation;
 					case "IsSpecialFile": return requiresSpecialFileInstallation;
 					case "get_RequiresModFileMerge": return requiresModFileMerge;
@@ -937,6 +1048,9 @@ namespace NexusClientTests
 				}
 			});
 		}
+
+		/// <summary>Exposes optional package rules on the isolated GameMode.</summary>
+		private interface IPackageRuleGameMode : IGameMode, IGameRootPackageRuleProvider { }
 
 		private static IMod CreateManagedMod(string archivePath, IEnumerable<string> archiveFiles)
 		{
@@ -955,7 +1069,8 @@ namespace NexusClientTests
 					case "GetFileStream":
 						string requestedPath = (string)args[0];
 						return archiveFiles.Any(path => StringComparer.OrdinalIgnoreCase.Equals(path, requestedPath))
-							? CreateFixtureFileStream(Encoding.UTF8.GetBytes("fixture:" + requestedPath))
+							? CreateFixtureFileStream(Encoding.UTF8.GetBytes(requestedPath.EndsWith("xSE PluginPreloader.xml", StringComparison.OrdinalIgnoreCase)
+								? "<xSE><PluginPreloader/></xSE>" : "fixture:" + requestedPath))
 							: null;
 					default: return null;
 				}

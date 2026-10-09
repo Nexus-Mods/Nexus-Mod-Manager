@@ -17,6 +17,47 @@ namespace NexusClientTests
 	{
 		private const string Sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+		[TestCase(ModDeploymentRoot.GameRoot)]
+		[TestCase(ModDeploymentRoot.Data)]
+		[TestCase(ModDeploymentRoot.Secondary)]
+		public void ReviewedVirtualOwnerSwitch_PassesExactRootToCapableService(ModDeploymentRoot root)
+		{
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(root, "xSE PluginPreloader.xml");
+			int switches = 0;
+			IRootAwareVirtualDeploymentService service = InterfaceStub<IRootAwareVirtualDeploymentService>.Create((method, args) =>
+			{
+				Assert.That(method.Name, Is.EqualTo("SwitchFileOwner"));
+				Assert.That(args[0], Is.EqualTo(target));
+				Assert.That(args[1], Is.EqualTo("settings-owner"));
+				switches++;
+				return VirtualFileOwnerSwitchResult.Succeeded(target.RelativePath, "settings-owner");
+			});
+
+			VirtualFileOwnerSwitchResult result = CollectionReviewedFileWinnerReconciliationCoordinator.SwitchReviewedVirtualOwner(service, target, "settings-owner");
+
+			Assert.That(result.Success, Is.True);
+			Assert.That(switches, Is.EqualTo(1));
+		}
+
+		[TestCase(ModDeploymentRoot.GameRoot, false)]
+		[TestCase(ModDeploymentRoot.Data, true)]
+		public void ReviewedVirtualOwnerSwitch_LegacyFallbackOnlyAppliesToData(ModDeploymentRoot root, bool expectedSuccess)
+		{
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(root, "shared.xml");
+			int switches = 0;
+			IVirtualDeploymentService service = InterfaceStub<IVirtualDeploymentService>.Create((method, args) =>
+			{
+				Assert.That(args[0], Is.EqualTo(target.RelativePath));
+				switches++;
+				return VirtualFileOwnerSwitchResult.Succeeded(target.RelativePath, "settings-owner");
+			});
+
+			VirtualFileOwnerSwitchResult result = CollectionReviewedFileWinnerReconciliationCoordinator.SwitchReviewedVirtualOwner(service, target, "settings-owner");
+
+			Assert.That(result.Success, Is.EqualTo(expectedSuccess));
+			Assert.That(switches, Is.EqualTo(expectedSuccess ? 1 : 0));
+		}
+
 		[Test]
 		public void PromotedWinner_PersistsIntentBeforeNativeSwitchAndMarksVerifiedAfterReRead()
 		{
@@ -84,6 +125,67 @@ namespace NexusClientTests
 				Assert.AreEqual(1, virtualSwitches);
 				Assert.AreEqual(1, fixture.ProfileUpdates);
 				Assert.AreEqual(CollectionReviewedFileWinnerDispatchKind.Virtual, result.Winners.Single().DispatchKind);
+			}
+		}
+
+		[TestCase(ModDeploymentRoot.GameRoot)]
+		[TestCase(ModDeploymentRoot.Data)]
+		[TestCase(ModDeploymentRoot.Secondary)]
+		public void VirtualWinner_ReconcilesExactRootAndRecoversVerifiedSwitchWithoutReplay(ModDeploymentRoot root)
+		{
+			using (Fixture fixture = CreateFixture(false, deploymentRoot: root))
+			{
+				int switches = 0;
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					throw new AssertionException("Ordinary Virtual reconciliation must not use promoted switching.");
+				});
+				fixture.VirtualService = InterfaceStub<IRootAwareVirtualDeploymentService>.Create((method, args) =>
+				{
+					Assert.AreEqual("SwitchFileOwner", method.Name);
+					Assert.AreEqual(fixture.FileTarget, args[0]);
+					Assert.AreEqual("owner-b", args[1]);
+					Assert.IsTrue(fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+						fixture.Operation.Identity.ToString()).Any(x => x.Role.StartsWith("file-winner-intent-", StringComparison.Ordinal)));
+					switches++;
+					fixture.SwitchOwner((string)args[1]);
+					return VirtualFileOwnerSwitchResult.Succeeded(fixture.FileTarget.RelativePath, (string)args[1]);
+				});
+
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+				CollectionReviewedFileWinnerReconciliationResult recovered = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(CollectionReviewedFileWinnerDispatchKind.Virtual, result.Winners.Single().DispatchKind);
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.SwitchedAndVerified, result.Winners.Single().Outcome);
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.RecoveredCommitted, recovered.Winners.Single().Outcome);
+				Assert.AreEqual("owner-b", fixture.CurrentState.Files[fixture.FileTarget].EffectiveOwnerKey);
+				Assert.AreEqual(1, switches, "Restart must not replay the verified owner switch.");
+				Assert.AreEqual(1, fixture.ProfileUpdates);
+			}
+		}
+
+		[TestCase(ModDeploymentRoot.GameRoot)]
+		[TestCase(ModDeploymentRoot.Secondary)]
+		public void VirtualWinner_AlreadyReviewedRootWinnerNeedsNoSwitch(ModDeploymentRoot root)
+		{
+			using (Fixture fixture = CreateFixture(false, deploymentRoot: root))
+			{
+				fixture.SetOwner("owner-b");
+				fixture.VirtualService = InterfaceStub<IRootAwareVirtualDeploymentService>.Create((method, args) =>
+				{
+					throw new AssertionException("An already satisfied winner must not switch.");
+				});
+
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.AlreadySatisfied, result.Winners.Single().Outcome);
+				Assert.AreEqual(CollectionReviewedFileWinnerDispatchKind.Virtual, result.Winners.Single().DispatchKind);
+				Assert.AreEqual(0, fixture.ProfileUpdates);
+				Assert.IsEmpty(fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+					fixture.Operation.Identity.ToString()));
 			}
 		}
 
@@ -390,7 +492,8 @@ namespace NexusClientTests
 			}
 		}
 
-		private static Fixture CreateFixture(bool promoted, bool preserveExternalWinner = false, bool preserveExternalWithMultipleWriters = false)
+		private static Fixture CreateFixture(bool promoted, bool preserveExternalWinner = false, bool preserveExternalWithMultipleWriters = false,
+			ModDeploymentRoot deploymentRoot = ModDeploymentRoot.Data)
 		{
 			string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-11-" + Guid.NewGuid().ToString("N"));
 			Directory.CreateDirectory(root);
@@ -408,7 +511,7 @@ namespace NexusClientTests
 					NexusCollectionManifestNormalizer.SchemaIdentity, NexusCollectionManifestNormalizer.NormalizerVersion),
 				CollectionManifestMemberSetCompleteness.Complete, null, new[] { memberA, memberB });
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
-			ModDeploymentTarget fileTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "meshes\\winner.bin");
+			ModDeploymentTarget fileTarget = ModDeploymentTargetResolver.FromCanonical(deploymentRoot, "meshes\\winner.bin");
 			CollectionNativeStateIndex initialState = BuildState(target, fileTarget, promoted, preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner);
 			CollectionPlanIdentity planIdentity = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
 			var plan = new ResolvedCollectionPlan(planIdentity, target, CollectionExecutionPolicy.InstallIntoCurrentSetup(), initialState.Fingerprint,

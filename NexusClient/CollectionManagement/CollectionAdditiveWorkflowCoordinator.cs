@@ -495,7 +495,9 @@ namespace Nexus.Client.CollectionManagement
 				{
 					operation = _operationCoordinator.CompleteStoppedPartial(operationIdentity);
 					return ApplyResult(CollectionAdditiveWorkflowApplyStatus.StoppedPartial, operation, null,
-						"The native child did not commit. Known native reality was reconciled and the Collection stopped without retrying it.");
+						"The native child did not commit. Known native reality was reconciled and the Collection stopped without retrying it." +
+						(String.IsNullOrWhiteSpace(verification.Child.NativeResult.Message) ? String.Empty :
+							Environment.NewLine + verification.Child.NativeResult.Message));
 				}
 
 				// C6.10 changes Collection association provenance, which participates in the next C6.1 fingerprint.
@@ -608,6 +610,32 @@ namespace Nexus.Client.CollectionManagement
 						: "The exact reviewed workflow is valid at its latest verified safe boundary and can be resumed explicitly."));
 			}
 			return new ReadOnlyCollection<CollectionAdditiveWorkflowRecoveryResult>(results);
+		}
+
+		/// <summary>Stops only this revision's reconciled installation intent before an explicitly requested removal review.</summary>
+		public async Task<IReadOnlyList<CollectionOperation>> StopReconciledInstallationForRemovalAsync(
+			CollectionRevisionIdentity revision, GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			if (revision == null) throw new ArgumentNullException(nameof(revision));
+			if (paths == null) throw new ArgumentNullException(nameof(paths));
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				List<CollectionOperation> pending = _operationStore.GetIncompleteOperations(authority.Target)
+					.Where(x => x.Kind == CollectionOperationKind.ApplyResolvedPlan && revision.Equals(x.Revision)).ToList();
+				foreach (CollectionOperation operation in pending)
+					if (operation.RequiresRecovery || operation.HasUnknownNativeDurability || operation.HasUnreconciledNativeChild)
+						throw new InvalidOperationException("The interrupted installation still has an unverified mod. Choose Check recovery and continue before uninstalling this Collection.");
+
+				var stopped = new List<CollectionOperation>();
+				foreach (CollectionOperation operation in pending)
+					stopped.Add(operation.HasCrossedNativeBoundary
+						? _operationCoordinator.CompleteStoppedPartial(operation.Identity)
+						: _operationCoordinator.CompleteCancelledBeforeApply(operation.Identity));
+				return new ReadOnlyCollection<CollectionOperation>(stopped);
+			}
 		}
 
 		private static bool RequiresStartupNativeRecovery(CollectionOperation operation)
@@ -748,10 +776,11 @@ namespace Nexus.Client.CollectionManagement
 					if (archive == null)
 						throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
 					IMod managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken);
-					ModInstallContext installContext = ResolveInstallContext(match);
+					CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode,
+						match.Member, managedMod, ResolveInstallContext(match), cancellationToken);
 					bool contributesMerge = !match.Member.HasVortexFileList && !match.Member.HasVortexFomodSelection &&
 						CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, managedMod);
-					inputs.Add(new NativeRecipePreparationInput(match, archive, managedMod, installContext, contributesMerge));
+					inputs.Add(new NativeRecipePreparationInput(match, archive, managedMod, destination, contributesMerge));
 				}
 			}
 
@@ -772,9 +801,11 @@ namespace Nexus.Client.CollectionManagement
 						? projectedMergeBaseline
 						: _services.ModManager.ActiveMods.ToList();
 					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
-					recipes.Add(_nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,
+					PreparedCollectionNativeRecipe prepared = _nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,
 						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, input.InstallContext, state, skipReadme,
-						_services.PluginManager, activeMods, includeMergeOutput, cancellationToken));
+						_services.PluginManager, activeMods, includeMergeOutput, cancellationToken, input.Destination.GameRootArchiveBaseDirectory);
+					recipes.Add(CollectionInstallRootCorrection.Prepare(prepared, state, input.Match.MatchedNativeMod,
+						_services.ModManager.DeploymentManager, _services.ModManager.VirtualModActivator, cancellationToken));
 				}
 				catch (Exception ex) when (ex is NotSupportedException || ex is InvalidOperationException || ex is InvalidDataException)
 				{
@@ -838,19 +869,20 @@ namespace Nexus.Client.CollectionManagement
 		private sealed class NativeRecipePreparationInput
 		{
 			public NativeRecipePreparationInput(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,
-				IMod managedMod, ModInstallContext installContext, bool contributesDeterministicMerge)
+				IMod managedMod, CollectionInstallDestination destination, bool contributesDeterministicMerge)
 			{
 				Match = match ?? throw new ArgumentNullException(nameof(match));
 				Archive = archive ?? throw new ArgumentNullException(nameof(archive));
 				ManagedMod = managedMod ?? throw new ArgumentNullException(nameof(managedMod));
-				InstallContext = installContext ?? throw new ArgumentNullException(nameof(installContext));
+				Destination = destination ?? throw new ArgumentNullException(nameof(destination));
 				ContributesDeterministicMerge = contributesDeterministicMerge;
 			}
 
 			public CollectionMemberMatchResult Match { get; }
 			public CollectionVerifiedArchive Archive { get; }
 			public IMod ManagedMod { get; }
-			public ModInstallContext InstallContext { get; }
+			public CollectionInstallDestination Destination { get; }
+			public ModInstallContext InstallContext { get { return Destination.InstallContext; } }
 			public bool ContributesDeterministicMerge { get; }
 		}
 

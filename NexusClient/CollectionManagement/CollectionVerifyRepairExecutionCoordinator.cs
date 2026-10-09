@@ -9,6 +9,8 @@ using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
+using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 
 namespace Nexus.Client.CollectionManagement
@@ -156,10 +158,11 @@ namespace Nexus.Client.CollectionManagement
 					.Select(x => x.Requirement).ToList();
 				if (operation.Phase == CollectionOperationPhase.QualifiedEffectsVerified)
 				{
+					RebindRestoredMembers(plan, bindings, before);
 					ValidateFinalRepairState(plan, bindings, before, currentOverrides);
 					foreach (CollectionVerifyRepairFinding finding in plan.Findings.Where(x => x.IsRepairable && x.Requirement != null))
 						repairedRequirements.Add(finding.Requirement);
-					FinalizeFeatureState(plan, currentAssociation, operation, repairedRequirements);
+					FinalizeFeatureState(plan, currentAssociation, operation, repairedRequirements, bindings);
 					return new CollectionVerifyRepairExecutionResult(before.Fingerprint, 0);
 				}
 
@@ -179,20 +182,32 @@ namespace Nexus.Client.CollectionManagement
 						throw new InvalidOperationException("Automatic native-effect repair requires the existing member binding so installed context can be preserved.");
 
 					CollectionNativeStateIndex liveBefore = Capture(authority.Target);
+					bool restoresMissing = plan.Findings.Any(x => memberKey.Equals(x.MemberKey) && CollectionVerifyRepairPlan.IsMissingMemberRepair(x));
+					if (restoresMissing)
+					{
+						RebindRestoredMembers(plan, bindings, liveBefore);
+						binding = bindings.Single(x => x.MemberKey.Equals(memberKey));
+					}
 					CollectionNativeModState native;
-					if (!liveBefore.Mods.TryGetValue(binding.NativeMod, out native))
+					if (!liveBefore.Mods.TryGetValue(binding.NativeMod, out native) && !restoresMissing)
 						throw new InvalidOperationException("The native member disappeared before qualified repair could preserve its install context.");
-					if (native.InstallMethod != prepared.InstallContext.Method || native.InstallRoot != prepared.InstallContext.InstallRoot)
+					if (native != null && (native.InstallMethod != prepared.InstallContext.Method || (native.InstallRoot != prepared.InstallContext.InstallRoot &&
+						(prepared.EffectPreview.InstallRootCorrection == null || !prepared.EffectPreview.InstallRootCorrection.MatchesPrevious(native)))))
 						throw new InvalidOperationException("The native member install method/root changed after verify/repair preparation.");
-					if (MemberEffectsSatisfied(plan.Association, binding, prepared.EffectPreview, liveBefore,
+					if (native != null && MemberEffectsSatisfied(plan.Association, binding, prepared.EffectPreview, liveBefore,
 						_associationStore.GetOverrides(plan.Association.AssociationId)))
 					{
+						CollectionNativeChildOperation completedChild = operation.NativeChildren.SingleOrDefault(x => x.Member.MemberKey.Equals(memberKey));
+						if (completedChild != null && completedChild.HasCrossedNativeBoundary && completedChild.Checkpoint != CollectionNativeChildCheckpoint.Reconciled)
+							operation = ReconcileRecoveredCommitted(operation, completedChild);
 						foreach (CollectionVerifyRepairFinding finding in plan.Findings.Where(x => x.IsRepairable && x.MemberKey != null && x.MemberKey.Equals(memberKey)))
 							if (finding.Requirement != null) repairedRequirements.Add(finding.Requirement);
 						continue;
 					}
 
-					CollectionNativeChildOperation child = GetOrCreatePreparedChild(operation, plan.Association.Revision, memberKey, prepared, native);
+					if (prepared.EffectPreview.InstallRootCorrection != null && !prepared.EffectPreview.InstallRootCorrection.Verify(liveBefore, false))
+						throw new InvalidOperationException("The old-folder files changed after the repair was reviewed. Verify again before repairing.");
+					CollectionNativeChildOperation child = GetOrCreatePreparedChild(operation, plan.Association.Revision, memberKey, prepared);
 					operation = _operationStore.GetOperation(operation.Identity) ?? operation;
 					if (child.Checkpoint == CollectionNativeChildCheckpoint.Reconciled)
 					{
@@ -214,9 +229,18 @@ namespace Nexus.Client.CollectionManagement
 						throw new InvalidOperationException("A previous verify/repair child crossed the native boundary but its durable result is ambiguous; explicit recovery is required.");
 					}
 
-					IMod liveMod = ResolveLiveMod(binding.NativeMod.NativeModKey);
+					if (native == null) CollectionVerifyRepairPreparationService.EnsureNoOtherInstalledVersion(prepared.Member, liveBefore);
+					IMod liveMod = native == null
+						? CollectionVerifyRepairPreparationService.ResolveMissingManagedMod(_services.ModManager, prepared.Member)
+						: ResolveLiveMod(binding.NativeMod.NativeModKey);
 					ModInstallationRecipeInput recipeInput = prepared.RecipeInput.ForOperationIdentity(child.NativeOperation);
-					IBackgroundTaskSet nativeTask = CreateReinstallTask(liveMod, recipeInput, lease);
+					recipeInput = PrepareReviewedFolderCorrection(recipeInput, prepared.EffectPreview.InstallRootCorrection, liveMod, liveBefore);
+					IBackgroundTaskSet nativeTask = CreateReinstallTask(liveMod, recipeInput, lease, prepared.EffectPreview.InstallRootCorrection != null);
+					ModInstaller correctionInstaller = nativeTask as ModInstaller;
+					if (correctionInstaller != null && prepared.EffectPreview.InstallRootCorrection != null)
+						correctionInstaller.ReviewedFinalFileOwners = prepared.EffectPreview.InstallRootCorrection.Destinations
+							.Where(x => x.PreserveWinner && (prepared.InstallContext.Method == ModInstallMethod.Direct || _services.ModManager.DeploymentManager.IsPromoted(x.Before.Target)))
+							.ToDictionary(x => x.Before.Target, x => x.CurrentOwnerKey);
 					bool accepted = _services.ModActivationMonitor.SubmitWhenIdle(nativeTask, () =>
 					{
 						cancellationToken.ThrowIfCancellationRequested();
@@ -232,6 +256,11 @@ namespace Nexus.Client.CollectionManagement
 					await WaitForCompletionAsync(nativeTask).ConfigureAwait(true);
 					_authorityValidator.ValidateAndReload(lease, authority, paths);
 					CollectionNativeStateIndex afterChild = Capture(authority.Target);
+					if (restoresMissing)
+					{
+						RebindRestoredMembers(plan, bindings, afterChild);
+						binding = bindings.Single(x => x.MemberKey.Equals(memberKey));
+					}
 					bool satisfied = MemberEffectsSatisfied(plan.Association, binding, prepared.EffectPreview, afterChild,
 						_associationStore.GetOverrides(plan.Association.AssociationId));
 					operation = _operationStore.GetOperation(operation.Identity) ?? operation;
@@ -307,7 +336,7 @@ namespace Nexus.Client.CollectionManagement
 				operation = WithOperationState(operation, CollectionOperationPhase.QualifiedEffectsVerified, CollectionOperationResultState.Pending);
 				_operationStore.SaveOperation(operation);
 
-				FinalizeFeatureState(plan, currentAssociation, operation, repairedRequirements);
+				FinalizeFeatureState(plan, currentAssociation, operation, repairedRequirements, bindings);
 				return new CollectionVerifyRepairExecutionResult(finalState.Fingerprint, repaired);
 			}
 		}
@@ -327,13 +356,21 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private void FinalizeFeatureState(CollectionVerifyRepairPlan plan, CollectionTargetAssociation currentAssociation,
-			CollectionOperation operation, IEnumerable<CollectionRequirementReference> repairedRequirements)
+			CollectionOperation operation, IEnumerable<CollectionRequirementReference> repairedRequirements, IList<CollectionMemberBinding> bindings)
 		{
 			IReadOnlyList<UserOverride> finalOverrides = _associationStore.GetOverrides(plan.Association.AssociationId);
 			CollectionAssociationState finalAssociationState = finalOverrides.Count == 0 ? CollectionAssociationState.Applied : CollectionAssociationState.Modified;
-			_associationStore.SaveManualMutationDrift(new[] { currentAssociation.WithState(finalAssociationState) },
-				Enumerable.Empty<CollectionDriftObservation>(), repairedRequirements.Distinct().ToArray());
+			List<CollectionMemberBinding> persisted = _associationStore.GetBindings(plan.Association.AssociationId).ToList();
+			List<CollectionMemberBinding> updated = bindings.Where(x => persisted.Any(old => old.MemberKey.Equals(x.MemberKey) &&
+				!old.NativeMod.Equals(x.NativeMod))).ToList();
+			if (updated.Count > 0)
+				_associationStore.SaveVerifiedHealthyReconciliation(currentAssociation, currentAssociation.WithState(finalAssociationState),
+					updated, repairedRequirements.Distinct().ToArray(), operation.Identity);
+			else
+				_associationStore.SaveManualMutationDrift(new[] { currentAssociation.WithState(finalAssociationState) },
+					Enumerable.Empty<CollectionDriftObservation>(), repairedRequirements.Distinct().ToArray());
 			operation = _operationStore.GetOperation(operation.Identity) ?? operation;
+			if (operation.IsTerminal) return;
 			operation = WithOperationState(operation, CollectionOperationPhase.Completed, CollectionOperationResultState.Committed);
 			_operationStore.SaveOperation(operation);
 		}
@@ -398,14 +435,14 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionNativeChildOperation GetOrCreatePreparedChild(CollectionOperation operation, CollectionRevisionIdentity revision,
-			CollectionMemberKey memberKey, PreparedCollectionNativeRecipe prepared, CollectionNativeModState native)
+			CollectionMemberKey memberKey, PreparedCollectionNativeRecipe prepared)
 		{
 			CollectionNativeChildOperation existing = operation.NativeChildren.SingleOrDefault(x => x.Member.MemberKey.Equals(memberKey));
 			if (existing != null) return existing;
 			int sequence = operation.NativeChildren.Count == 0 ? 1 : operation.NativeChildren.Max(x => x.Sequence) + 1;
 			var identity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
 				new ModOperationFingerprint(operation.Target.Fingerprint,
-					new ModInstallContext(native.InstallMethod, native.InstallRoot), prepared.Member.RecipeIdentity.Fingerprint));
+					prepared.InstallContext, prepared.Member.RecipeIdentity.Fingerprint));
 			var child = new CollectionNativeChildOperation(sequence, new CollectionOperationMemberReference(revision, memberKey),
 				CollectionNativeChildAction.ActivateOrReinstall, identity, CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
 			operation = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target, operation.Revision,
@@ -415,15 +452,53 @@ namespace Nexus.Client.CollectionManagement
 			return child;
 		}
 
-		private IBackgroundTaskSet CreateReinstallTask(IMod mod, ModInstallationRecipeInput recipeInput, CollectionTargetMutationLease rootLease)
+		/// <summary>Executes only the destination overwrites and retained file winners approved with a folder correction.</summary>
+		private ModInstallationRecipeInput PrepareReviewedFolderCorrection(ModInstallationRecipeInput input,
+			CollectionInstallRootCorrection correction, IMod mod, CollectionNativeStateIndex state)
+		{
+			if (correction == null) return input;
+			if (!correction.VerifyDestinations(state)) throw new InvalidOperationException("The game-folder files changed after review. Verify again before repairing.");
+			var operations = new List<ScriptedInstallOperation>();
+			foreach (ScriptedInstallOperation operation in input.NativeOperations)
+			{
+				InstallModFileOperation file = operation as InstallModFileOperation;
+				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+				if (file == null && generated == null)
+				{
+					operations.Add(operation);
+					continue;
+				}
+				string destinationPath = file == null ? generated.DestinationPath : file.DestinationPath;
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(_services.ModManager.GameMode, mod, destinationPath, input.InstallContext.InstallRoot);
+				CollectionInstallRootDestination destination = correction.Destinations.Single(x => x.Before.Target.Equals(target));
+				ScriptedFileDeploymentDecision decision;
+				if (input.InstallContext.Method == ModInstallMethod.Direct) decision = ScriptedFileDeploymentDecision.ForDirect(true);
+				else
+				{
+					string staging = ScriptedInstallStagingPathResolver.GetStagingPath(mod, _services.ModManager.GameMode,
+						_services.ModManager.VirtualModActivator, destinationPath, input.InstallContext.InstallRoot, generated != null);
+					decision = _services.ModManager.DeploymentManager.IsPromoted(target)
+						? ScriptedFileDeploymentDecision.ForPromotedVirtual(staging, true, true)
+						: ScriptedFileDeploymentDecision.ForVirtual(staging, true, new ModLinkInstallDecision(!destination.PreserveWinner)
+							.WithLinkOutcome(!destination.PreserveWinner, !destination.PreserveWinner));
+				}
+				if (file != null) operations.Add(new InstallModFileOperation(file.SourcePath, file.DestinationPath, decision));
+				else operations.Add(new GenerateDataFileOperation(generated.DestinationPath, generated.Data, decision));
+			}
+			return input.WithTransformedNativePlan(operations);
+		}
+
+		private IBackgroundTaskSet CreateReinstallTask(IMod mod, ModInstallationRecipeInput recipeInput, CollectionTargetMutationLease rootLease, bool correctsInstallRoot)
 		{
 			ConfirmModUpgradeDelegate rejectUnexpectedUpgrade = (oldMod, newMod) => ConfirmUpgradeResult.Cancel;
 			ConfirmItemOverwriteDelegate rejectUnexpectedOverwrite = (message, allowPerGroup, allowPerMod) =>
 			{
 				throw new InvalidOperationException("Verify/repair encountered an unexpected overwrite prompt after exact effect verification.");
 			};
-			IBackgroundTaskSet task = _services.ModManager.ReinstallMod(mod, rejectUnexpectedUpgrade, rejectUnexpectedOverwrite,
-				_services.ModManager.ActiveMods, recipeInput.InstallContext, recipeInput);
+			IBackgroundTaskSet task = correctsInstallRoot
+				? _services.ModManager.CreateUpgradeModOperation(mod, mod, rejectUnexpectedOverwrite, recipeInput.InstallContext, recipeInput)
+				: _services.ModManager.ReinstallMod(mod, rejectUnexpectedUpgrade, rejectUnexpectedOverwrite,
+					_services.ModManager.ActiveMods, recipeInput.InstallContext, recipeInput);
 			if (task == null) throw new InvalidOperationException("Native NMM returned no reinstall task for the qualified repair member.");
 			ModInstallerBase installer = task as ModInstallerBase;
 			if (installer == null || installer.OperationIdentity == null || !SameIdentity(installer.OperationIdentity, recipeInput.OperationIdentity))
@@ -468,18 +543,38 @@ namespace Nexus.Client.CollectionManagement
 		private static bool IsNativeReinstallFinding(CollectionVerifyRepairFinding finding)
 		{
 			return finding != null && finding.IsRepairable && finding.MemberKey != null &&
-				(finding.Kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch ||
+				(CollectionVerifyRepairPlan.IsMissingMemberRepair(finding) || finding.Kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch ||
 				 finding.Kind == CollectionVerifyRepairFindingKind.IniEffectMismatch ||
 				 finding.Kind == CollectionVerifyRepairFindingKind.GameValueEffectMismatch ||
 				 finding.Kind == CollectionVerifyRepairFindingKind.PluginEffectMismatch);
 		}
 
-		private static bool MemberEffectsSatisfied(CollectionTargetAssociation association, CollectionMemberBinding binding,
+		private bool MemberEffectsSatisfied(CollectionTargetAssociation association, CollectionMemberBinding binding,
 			CollectionMemberEffectPreview preview, CollectionNativeStateIndex state, IEnumerable<UserOverride> overrides)
 		{
+			if (!state.Mods.ContainsKey(binding.NativeMod)) return false;
 			IReadOnlyList<CollectionVerifyRepairFinding> findings = new CollectionVerifyRepairExactEffectVerifier().Verify(association, state,
-				new[] { binding }, new[] { preview }, overrides);
+				new[] { binding }, new[] { preview }, overrides, _services.ModManager.DeploymentManager.GetOwnerSourcePath);
 			return !findings.Any(x => x.IsRepairable || x.RequiresAction);
+		}
+
+		/// <summary>Provisions replacement bindings only for missing members in the approved repair scope; publication follows exact verification.</summary>
+		private static void RebindRestoredMembers(CollectionVerifyRepairPlan plan, IList<CollectionMemberBinding> bindings, CollectionNativeStateIndex state)
+		{
+			foreach (CollectionMemberKey key in plan.Findings.Where(CollectionVerifyRepairPlan.IsMissingMemberRepair).Select(x => x.MemberKey).Distinct())
+			{
+				CollectionMemberBinding old = bindings.Single(x => x.MemberKey.Equals(key));
+				if (state.Mods.ContainsKey(old.NativeMod)) continue;
+				PreparedCollectionNativeRecipe prepared = plan.PreparedRecipes.Single(x => x.Member.MemberKey.Equals(key));
+				if (!CollectionVerifyRepairPreparationService.HasExactInstalledCandidate(prepared.Member, state)) continue;
+				CollectionMemberBinding rebound; CollectionNativeModState native; string issue;
+				if (!CollectionVerifyRepairPreparationService.TryResolveExactReinstalledBinding(plan.Association, prepared.Member, old, state,
+					out rebound, out native, out issue)) throw new InvalidOperationException(issue);
+				if (native.InstallMethod != prepared.InstallContext.Method || native.InstallRoot != prepared.InstallContext.InstallRoot)
+					throw new InvalidOperationException("The restored member does not use the reviewed install method and folder.");
+				bindings[bindings.IndexOf(old)] = new CollectionMemberBinding(plan.Association, key, rebound.NativeMod,
+					old.VerifiedRecipe, CollectionMemberBindingKind.InstalledForCollection);
+			}
 		}
 
 		private void ValidateFinalRepairState(CollectionVerifyRepairPlan plan, IList<CollectionMemberBinding> bindings,

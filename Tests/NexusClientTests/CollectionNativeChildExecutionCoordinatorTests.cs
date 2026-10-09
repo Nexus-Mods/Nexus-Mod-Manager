@@ -50,6 +50,82 @@ namespace NexusClientTests
 			StringAssert.Contains("no deterministic C6.4 winner", error.InnerException.Message);
 		}
 
+		[TestCase(false, ModInstallMethod.Virtual, false)]
+		[TestCase(true, ModInstallMethod.Virtual, false)]
+		[TestCase(false, ModInstallMethod.Virtual, true)]
+		[TestCase(true, ModInstallMethod.Virtual, true)]
+		[TestCase(false, ModInstallMethod.Direct, true)]
+		[TestCase(true, ModInstallMethod.Direct, true)]
+		public void ReviewedFileDeployment_PassesApprovedOverwriteToNativeBackend(bool generated, ModInstallMethod method, bool promoted)
+		{
+			CollectionMemberKey member = CollectionMemberKey.FromProvider("preloader");
+			CollectionMemberKey winner = CollectionMemberKey.FromProvider("settings");
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "xSE PluginPreloader.xml");
+			var effect = new CollectionPlannedFileEffect(target, CollectionContentHash.FromSha256(new string('a', 64)), 3);
+			var impact = new CollectionFileImpact(target, new[] { member, winner }, winner, "owner-settings", new Guid[0]);
+			ScriptedInstallOperation input = generated ? (ScriptedInstallOperation)new GenerateDataFileOperation(target.RelativePath, new byte[] { 1, 2, 3 }, "source.xml") :
+				new InstallModFileOperation("source.xml", target.RelativePath);
+
+			ScriptedInstallOperation resolved = CollectionNativeChildExecutionCoordinator.AuthorizeReviewedFileDeployment(
+				input, effect, impact, member, method, @"C:\stage\preloader.xml", promoted);
+			ScriptedFileDeploymentDecision decision = generated ? ((GenerateDataFileOperation)resolved).DeploymentDecision :
+				((InstallModFileOperation)resolved).DeploymentDecision;
+
+			if (generated)
+			{
+				Assert.That(((GenerateDataFileOperation)resolved).PreparationSourcePath, Is.EqualTo("source.xml"));
+				Assert.That(((GenerateDataFileOperation)resolved).Data, Is.EqualTo(new byte[] { 1, 2, 3 }));
+			}
+			Assert.That(decision.Method, Is.EqualTo(method));
+			Assert.That(decision.WritePayload, Is.True);
+			Assert.That(decision.Activate, Is.True);
+			Assert.That(impact.PlannedWinner, Is.EqualTo(winner));
+			if (method == ModInstallMethod.Virtual && !promoted)
+			{
+				Assert.That(decision.LinkDecision.IsResolved, Is.True);
+				Assert.That(decision.LinkDecision.Overwrite, Is.True);
+				Assert.That(decision.LinkDecision.LinkOutcome, Is.True);
+			}
+			else Assert.That(decision.UseDeploymentCoordinator, Is.True);
+		}
+
+		[TestCase(true)]
+		[TestCase(false)]
+		public void ReviewedFileDeployment_PreservesExactCacheReuseAndResolvedInactiveChoice(bool keepInactive)
+		{
+			CollectionMemberKey member = CollectionMemberKey.FromProvider("preloader");
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "shared.xml");
+			var effect = new CollectionPlannedFileEffect(target, CollectionContentHash.FromSha256(new string('a', 64)), 3);
+			var impact = new CollectionFileImpact(target, new[] { member }, member, null, new Guid[0]);
+			ModLinkInstallDecision choice = keepInactive ? new ModLinkInstallDecision(false).WithLinkOutcome(false, false) : null;
+			var input = new InstallModFileOperation("source.xml", target.RelativePath,
+				ScriptedFileDeploymentDecision.ForVirtual(@"C:\stage\shared.xml", false, choice));
+
+			var resolved = (InstallModFileOperation)CollectionNativeChildExecutionCoordinator.AuthorizeReviewedFileDeployment(
+				input, effect, impact, member, ModInstallMethod.Virtual, @"C:\other\shared.xml", false);
+
+			Assert.That(resolved.StageFile, Is.False);
+			Assert.That(resolved.StagingPath, Is.EqualTo(input.StagingPath));
+			Assert.That(resolved.LinkDecision.IsResolved, Is.True);
+			Assert.That(resolved.LinkDecision.Overwrite, Is.EqualTo(!keepInactive));
+			if (keepInactive) Assert.That(resolved, Is.SameAs(input));
+		}
+
+		[TestCase(true)]
+		[TestCase(false)]
+		public void ReviewedFileDeployment_RejectsDifferentRootOrUnreviewedMember(bool wrongRoot)
+		{
+			CollectionMemberKey member = CollectionMemberKey.FromProvider("preloader");
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "shared.xml");
+			var effect = new CollectionPlannedFileEffect(target, CollectionContentHash.FromSha256(new string('a', 64)), 3);
+			ModDeploymentTarget other = wrongRoot ? ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "shared.xml") : target;
+			CollectionMemberKey writer = wrongRoot ? member : CollectionMemberKey.FromProvider("unreviewed");
+			var impact = new CollectionFileImpact(other, new[] { writer }, writer, null, new Guid[0]);
+
+			Assert.Throws<InvalidOperationException>(() => CollectionNativeChildExecutionCoordinator.AuthorizeReviewedFileDeployment(
+				new InstallModFileOperation("source.xml", target.RelativePath), effect, impact, member, ModInstallMethod.Virtual, @"C:\stage\shared.xml", false));
+		}
+
 		[Test]
 		public void CreateExpectedFileEvidence_ReusesReviewedExactContentIdentity()
 		{
@@ -71,6 +147,40 @@ namespace NexusClientTests
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");
 			Assert.Throws<System.IO.InvalidDataException>(() =>
 				CollectionNativeChildExecutionCoordinator.CreateExpectedFileEvidence(new CollectionPlannedFileEffect(target)));
+		}
+
+		/// <summary>Legacy reviews can recover missing hashes from the same archive-bound recipe at submission.</summary>
+		[Test]
+		public void SubmissionPreview_LegacyTargetsUseExactLiveContent()
+		{
+			CollectionMemberEffectPreview reviewed = CreateSubmissionPreview("mod.dll", null, null);
+			CollectionMemberEffectPreview live = CreateSubmissionPreview("mod.dll", new string('a', 64), 123);
+			Assert.That(CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live), Is.SameAs(live));
+		}
+
+		/// <summary>Existing reviewed identities and destination coverage cannot be widened during submission.</summary>
+		[TestCase("hash")]
+		[TestCase("length")]
+		[TestCase("target")]
+		[TestCase("missing-content")]
+		public void SubmissionPreview_RejectsChangedOrUncharacterizedEffects(string condition)
+		{
+			CollectionMemberEffectPreview reviewed = CreateSubmissionPreview("mod.dll", new string('a', 64), 123);
+			CollectionMemberEffectPreview live = CreateSubmissionPreview(condition == "target" ? "other.dll" : "mod.dll",
+				condition == "missing-content" ? null : new string(condition == "hash" ? 'b' : 'a', 64),
+				condition == "missing-content" ? (long?)null : condition == "length" ? 124 : 123);
+			Assert.Throws<InvalidOperationException>(() => CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live));
+		}
+
+		/// <summary>Creates a detached submission preview with optional exact file bytes.</summary>
+		private static CollectionMemberEffectPreview CreateSubmissionPreview(string path, string hash, long? length)
+		{
+			return new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("submission-preview"),
+				CollectionRecipeIdentity.FromFingerprint("submission-recipe"), ModInstallMethod.Virtual, ModInstallRoot.Data,
+				new[] { new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, path),
+					hash == null ? null : CollectionContentHash.FromSha256(hash), length) },
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0],
+				new CollectionEffectPreviewIssue[0]);
 		}
 
 		/// <summary>Exact cached bytes skip staging while retaining the native game-file overwrite decision.</summary>

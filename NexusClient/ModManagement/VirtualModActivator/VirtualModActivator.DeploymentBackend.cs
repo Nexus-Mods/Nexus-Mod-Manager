@@ -90,10 +90,100 @@ namespace Nexus.Client.ModManagement
 			if (link == null || link.ModInfo == null || string.IsNullOrWhiteSpace(link.ModInfo.ModFileName))
 				return null;
 
-			return Path.Combine(
-				m_strVirtualActivatorOverwritePath,
-				Path.GetFileNameWithoutExtension(link.ModInfo.ModFileName),
-				link.VirtualModPath);
+			// Older upgrades could retain more than one entry for the same native owner.
+			// Its original backup may still be attached to the predecessor archive's entry.
+			foreach (IVirtualModLink candidate in GetVirtualOwnerLinksForTarget(p_mdtTarget))
+			{
+				if (!StringComparer.OrdinalIgnoreCase.Equals(GetVirtualOwnerKey(candidate), p_strOwnerKey))
+					continue;
+				string backup = GetLegacyVirtualOverwritePath(candidate);
+				if (backup != null && File.Exists(backup))
+					return backup;
+			}
+			return GetLegacyVirtualOverwritePath(link);
+		}
+
+		/// <summary>
+		/// Captures hardlink topology before a staging write can modify a deployed file through its shared inode.
+		/// </summary>
+		internal void PreserveHardLinkRollbackForStagingWrite(IMod mod, string stagingPath, TxFileManager fileManager)
+		{
+			if (Transaction.Current == null || String.IsNullOrWhiteSpace(stagingPath))
+				return;
+			string realPath = GetRealFilePathFromSource(stagingPath);
+			string ownerKey = ModInstallLog.GetModKey(mod);
+			if (realPath == null || String.IsNullOrWhiteSpace(ownerKey))
+				return;
+			foreach (IVirtualModLink link in GetVirtualLinksForOwnerKey(ownerKey))
+			{
+				if (!link.Active || !StringComparer.OrdinalIgnoreCase.Equals(link.RealModPath, realPath))
+					continue;
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, mod, link.VirtualModPath, link.InstallRoot);
+				string deployedPath = GetDeploymentPathForTarget(target);
+				if (fileManager.GetFileEntryKind(deployedPath, stagingPath) != FileEntryKind.HardLink)
+					continue;
+				VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
+				enlistment.Touch(link, target, true);
+				// Journal this link before the source write. Rollback restores the source bytes first,
+				// then reconnects the deployment to the restored source rather than the superseded inode.
+				fileManager.DeleteLink(deployedPath, stagingPath);
+				if (!fileManager.CreateHardLink(deployedPath, stagingPath))
+					throw new IOException(String.Format("Could not retain the deployed hardlink at '{0}'.", deployedPath));
+				enlistment.MarkDirty();
+			}
+		}
+
+		/// <summary>
+		/// Retires previous entries for a reinstalled native owner while retaining its unmanaged original backup.
+		/// </summary>
+		internal void RetireReplacedVirtualLinks(IMod mod, List<IVirtualModLink> links)
+		{
+			if (links == null || links.Count == 0)
+				return;
+			IVirtualModLink[] replaced = links.Where(x => x != null &&
+				IsSameInstallLogOwner(FindManagedMod(x.ModInfo), mod)).ToArray();
+			if (replaced.Length == 0)
+				return;
+
+			var fileManager = new TxFileManager();
+			VirtualDeploymentTransactionEnlistment enlistment = Transaction.Current == null ? null : GetVirtualDeploymentEnlistment();
+			foreach (IVirtualModLink link in replaced)
+			{
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(GameMode, mod, link.VirtualModPath, link.InstallRoot);
+				enlistment?.Touch(link, target, true);
+				if (enlistment != null && link.Active)
+				{
+					fileManager.DeleteLink(GetDeploymentPathForTarget(target), ResolveVirtualSourcePath(link, target));
+					link.Active = false;
+				}
+				string backup = GetLegacyVirtualOverwritePath(link);
+				string replacementBackup = Path.Combine(m_strVirtualActivatorOverwritePath,
+					Path.GetFileNameWithoutExtension(mod.Filename), link.VirtualModPath);
+				if (backup != null && File.Exists(backup) &&
+					!StringComparer.OrdinalIgnoreCase.Equals(backup, replacementBackup))
+				{
+					if (File.Exists(replacementBackup))
+						throw new IOException(String.Format("An original-file backup already exists at '{0}'.", replacementBackup));
+					if (!Directory.Exists(Path.GetDirectoryName(replacementBackup)))
+						fileManager.CreateDirectory(Path.GetDirectoryName(replacementBackup));
+					fileManager.Move(backup, replacementBackup);
+				}
+
+				RemoveVirtualLink(link, mod);
+				enlistment?.SetLinkPresent(link, false);
+				links.RemoveAll(x => ReferenceEquals(x, link));
+			}
+			enlistment?.MarkDirty();
+		}
+
+		/// <summary>
+		/// Resolves the original-file backup attached to one legacy Virtual entry.
+		/// </summary>
+		private string GetLegacyVirtualOverwritePath(IVirtualModLink link)
+		{
+			return link == null || link.ModInfo == null || String.IsNullOrWhiteSpace(link.ModInfo.ModFileName)
+				? null : Path.Combine(m_strVirtualActivatorOverwritePath,
+					Path.GetFileNameWithoutExtension(link.ModInfo.ModFileName), link.VirtualModPath);
 		}
 
 		/// <summary>
@@ -129,6 +219,24 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
+		/// Finds obsolete Virtual deployments, including targets in the previous installation folder.
+		/// </summary>
+		internal IReadOnlyList<ModDeploymentTarget> GetStaleVirtualTargetsForUpgrade(IMod oldMod, ModInstallRoot? replacementRoot = null)
+		{
+			if (oldMod == null)
+				throw new ArgumentNullException(nameof(oldMod));
+			string ownerKey = ModInstallLog.GetModKey(oldMod);
+			if (String.IsNullOrWhiteSpace(ownerKey))
+				return new ModDeploymentTarget[0];
+			return GetVirtualLinksForOwnerKey(ownerKey)
+				.Where(x => x != null && x.ModInfo != null &&
+					StringComparer.OrdinalIgnoreCase.Equals(x.ModInfo.ModFileName, Path.GetFileName(oldMod.Filename)) &&
+					(!VirtualInstallSourceFileExists(x.RealModPath) || (replacementRoot.HasValue && x.InstallRoot != replacementRoot.Value)))
+				.Select(x => ModDeploymentTargetResolver.Resolve(GameMode, oldMod, x.VirtualModPath, x.InstallRoot))
+				.Distinct().ToArray();
+		}
+
+		/// <summary>
 		/// Rebinds legacy Virtual owner metadata to the replacement archive during a native Virtual upgrade.
 		/// </summary>
 		/// <remarks>
@@ -159,7 +267,13 @@ namespace Nexus.Client.ModManagement
 					.Where(x => x != null && ReferenceEquals(x.ModInfo, oldModInfo))
 					.ToArray();
 				if (links.Length == 0)
+				{
+					enlistment.TouchModInfo(oldModInfo, true);
+					m_tslVirtualModInfo.RemoveAll(x => ReferenceEquals(x, oldModInfo));
+					enlistment.SetModInfoPresent(oldModInfo, false);
+					changed = true;
 					continue;
+				}
 
 				IVirtualModInfo replacementInfo = FindVirtualModInfoByFileName(Path.GetFileName(p_modNewMod.Filename));
 				bool addedReplacementInfo = replacementInfo == null || ReferenceEquals(replacementInfo, oldModInfo);
@@ -273,7 +387,7 @@ namespace Nexus.Client.ModManagement
 			enlistment.Touch(link, p_mdtTarget, true);
 
 			string deployedPath = GetDeploymentPathForTarget(p_mdtTarget);
-			if (link.Active && File.Exists(deployedPath))
+			if (link.Active)
 			{
 				string sourcePath = ResolveVirtualSourcePath(link, p_mdtTarget);
 				p_tfmFileManager.DeleteLink(deployedPath, sourcePath);
@@ -411,12 +525,16 @@ namespace Nexus.Client.ModManagement
 		/// <inheritdoc />
 		public void RemoveVirtualLinkRecord(ModDeploymentTarget p_mdtTarget, string p_strOwnerKey)
 		{
-			IVirtualModLink link = RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
+			RequireVirtualOwnerLink(p_mdtTarget, p_strOwnerKey);
+			IVirtualModLink[] links = GetVirtualOwnerLinksForTarget(p_mdtTarget)
+				.Where(x => StringComparer.OrdinalIgnoreCase.Equals(GetVirtualOwnerKey(x), p_strOwnerKey)).ToArray();
 			VirtualDeploymentTransactionEnlistment enlistment = GetVirtualDeploymentEnlistment();
-			enlistment.Touch(link, p_mdtTarget, true);
-
-			RemoveVirtualLink(link, FindManagedMod(link.ModInfo));
-			enlistment.SetLinkPresent(link, false);
+			foreach (IVirtualModLink link in links)
+			{
+				enlistment.Touch(link, p_mdtTarget, true);
+				RemoveVirtualLink(link, FindManagedMod(link.ModInfo));
+				enlistment.SetLinkPresent(link, false);
+			}
 			enlistment.MarkDirty();
 		}
 
@@ -445,6 +563,13 @@ namespace Nexus.Client.ModManagement
 				return;
 			if (string.IsNullOrWhiteSpace(ownerKey) && m_tslVirtualModList.Any(x => VirtualModLinkMatchesMod(x, p_modMod, modFileName)))
 				return;
+
+			// The transactional removal path also replaces legacy DisableMod's cached INI cleanup.
+			if (File.Exists(m_strVirtualActivatorIniEditsPath))
+			{
+				new TxFileManager().Snapshot(m_strVirtualActivatorIniEditsPath);
+				RemoveIniEdits(p_modMod);
+			}
 
 			IVirtualModInfo[] modInfos = m_tslVirtualModInfo
 				.Where(x => VirtualModInfoBelongsToMod(x, p_modMod, modFileName))
@@ -602,6 +727,23 @@ namespace Nexus.Client.ModManagement
 				return;
 
 			throw new IOException(string.Format("Failed to create a Virtual link for '{0}' at '{1}'.", p_strSourcePath, p_strDeployedPath));
+		}
+
+		/// <summary>
+		/// Finds the current topology enlistment without creating one for an ordinary legacy link operation.
+		/// </summary>
+		private VirtualDeploymentTransactionEnlistment GetExistingVirtualDeploymentEnlistment()
+		{
+			Transaction transaction = Transaction.Current;
+			if (transaction == null)
+				return null;
+			lock (m_objDeploymentTransactionLock)
+			{
+				VirtualDeploymentTransactionEnlistment enlistment;
+				return m_dicDeploymentTransactionEnlistments != null &&
+					m_dicDeploymentTransactionEnlistments.TryGetValue(transaction.TransactionInformation.LocalIdentifier, out enlistment)
+					? enlistment : null;
+			}
 		}
 
 		private VirtualDeploymentTransactionEnlistment GetVirtualDeploymentEnlistment()

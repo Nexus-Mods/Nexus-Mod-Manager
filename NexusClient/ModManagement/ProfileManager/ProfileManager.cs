@@ -19,6 +19,7 @@ using Nexus.Client.Mods;
 using Nexus.Client.UI;
 using Nexus.Client.Util;
 using Nexus.Client.Util.Collections;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.ModManagement
 {
@@ -1178,7 +1179,18 @@ namespace Nexus.Client.ModManagement
 				}
 
 				if (p_impModProfile.Id == m_strCurrentProfileId)
-					UpdateCurrentDeploymentManifest();
+				{
+					try
+					{
+						UpdateCurrentDeploymentManifest();
+					}
+					catch (InvalidDataException ex)
+					{
+						Trace.TraceError("Automatic profile deployment save failed: {0}", ex);
+						return LanguageManager.Format("Profiles.Deployment.SaveFailed",
+							"NMM could not save this profile's mod information. {0}", ex.Message);
+					}
+				}
 
 				string strOptionalFolder = Path.Combine(strProfilePath, "Optional");
 

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
+using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.CollectionManagement.UI
 {
@@ -57,7 +60,7 @@ namespace Nexus.Client.CollectionManagement.UI
 						"Collections.Messages.Next.PrepareAgain", "Choose Download / Prepare to build a fresh review.", technicalDetail);
 				case CollectionAdditiveWorkflowPreparationStatus.ActionRequired:
 					return Message("Collections.Messages.Preparation.ActionRequired",
-						"Preparation found a decision that NMM cannot apply automatically.",
+						"Installation is paused because a selected mod needs attention.",
 						"Collections.Messages.Next.ReviewRequiredActions", "Review the errors and required actions before continuing.", technicalDetail);
 				case CollectionAdditiveWorkflowPreparationStatus.Blocked:
 					return Message("Collections.Messages.Preparation.Blocked",
@@ -94,7 +97,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionAdditiveWorkflowApplyStatus.StoppedPartial:
 					return Message("Collections.Messages.Apply.StoppedPartial",
 						"Installation stopped after verified partial progress.",
-						"Collections.Messages.Next.CheckRecovery", "Check the recovery status before making further managed changes.", technicalDetail);
+						"Collections.Messages.Next.ReviewPartialInstallation", "To finish installing, open this Collection's Nexus link again. Or choose Uninstall Collection to remove the mods installed by this Collection.", technicalDetail);
 				default:
 					return FromRaw(technicalDetail, String.Empty);
 			}
@@ -118,12 +121,12 @@ namespace Nexus.Client.CollectionManagement.UI
 						"Collections.Messages.Next.PrepareAgain", "Choose Download / Prepare to build a fresh review.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired:
 					return Message("Collections.Messages.Recovery.Required",
-						"NMM could not safely reconcile the interrupted Collection operation automatically.",
-						"Collections.Messages.Next.CheckRecoveryContinue", "Choose Check recovery and continue... to reconcile the interrupted installation and review the remaining changes.", technicalDetail);
+						"The Collection installation is unfinished. NMM could not repair it automatically.",
+						"Collections.Messages.Next.RemoveInterruptedCollection", "Choose Uninstall Collection to remove its mods without finishing this installation. Export Technical Report... saves the problem details.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.StoppedPartial:
 					return Message("Collections.Messages.Recovery.StoppedPartial",
 						"The interrupted operation was reconciled as partial verified progress and cannot continue automatically.",
-						"Collections.Messages.Next.CheckRecovery", "Check the recovery status before making further managed changes.", technicalDetail);
+						"Collections.Messages.Next.ReviewPartialInstallation", "To finish installing, open this Collection's Nexus link again. Or choose Uninstall Collection to remove the mods installed by this Collection.", technicalDetail);
 				default:
 					return FromRaw(technicalDetail, String.Empty);
 			}
@@ -206,6 +209,38 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			return new CollectionUserMessagePresentation(String.Empty, SanitizeInternalTerminology(technicalDetail),
 				"Collections.Messages.Next.ResolveDependency", "Resolve this member requirement before the Collection can be installed.", technicalDetail);
+		}
+
+		/// <summary>Explains an existing plugin conflict using its filename and the action that preparation requests.</summary>
+		internal static CollectionUserMessagePresentation ForImpact(CollectionConflictImpactIssue issue, CollectionPlannedPluginEffect effect)
+		{
+			if (issue == null) throw new ArgumentNullException(nameof(issue));
+			if (issue.Kind != CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired || effect == null)
+				return ForImpact(issue.Status, issue.Message);
+
+			string plugins = String.Join(", ", effect.PluginPaths.Select(Path.GetFileName));
+			if (effect.Kind == CollectionPlannedPluginEffectKind.Activation)
+			{
+				bool enable = effect.Active.GetValueOrDefault();
+				string message = LanguageManager.Format(enable ? "Collections.Messages.Impact.EnableExistingPlugin" : "Collections.Messages.Impact.DisableExistingPlugin",
+					enable ? "The Collection needs to enable {0}, which is already in your game." : "The Collection needs to disable {0}, which is already in your game.", plugins);
+				string nextAction = LanguageManager.Format(enable ? "Collections.Messages.Next.EnableExistingPlugin" : "Collections.Messages.Next.DisableExistingPlugin",
+					enable ? "Enable {0} in the Plugins tab, then choose Download / Prepare again." : "Disable {0} in the Plugins tab, then choose Download / Prepare again.", plugins);
+				return new CollectionUserMessagePresentation(String.Empty, message, String.Empty, nextAction, issue.Message);
+			}
+			return new CollectionUserMessagePresentation(String.Empty,
+				LanguageManager.Format("Collections.Messages.Impact.OrderExistingPlugin", "The Collection needs to change the load order of {0}, which belongs to your existing setup.", plugins),
+				"Collections.Messages.Next.ReviewExistingPluginOrder", "Check these plugins and their installed mods before preparing the Collection again.", issue.Message);
+		}
+
+		/// <summary>Names the incoming packages and exact file involved in an unresolved overlap.</summary>
+		internal static CollectionUserMessagePresentation ForFileWinner(CollectionConflictImpactIssue issue, string relativePath, string packageNames)
+		{
+			return new CollectionUserMessagePresentation(String.Empty,
+				LanguageManager.Format("Collections.Messages.Impact.IncomingFileOverlap",
+					"{0} is included in these Collection packages: {1}. NMM could not select which version to use.", relativePath, packageNames),
+				"Collections.Messages.Next.IncomingFileOverlap",
+				"For optional mods, choose only one of these packages in Choose mods, then prepare again. If both are required, the Collection author needs to specify which package should provide this file.", issue.Message);
 		}
 
 		internal static CollectionUserMessagePresentation ForImpact(CollectionConflictImpactStatus status, string technicalDetail)

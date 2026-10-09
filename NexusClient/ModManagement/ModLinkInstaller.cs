@@ -187,6 +187,8 @@ namespace Nexus.Client.ModManagement
 			{
 				if (booLink == true)
 				{
+					// A reinstall replaces this owner's entry; it must not become its own uninstall fallback.
+					VirtualModActivator.RetireReplacedVirtualLinks(p_modMod, lstFileLinks);
 					if (intPriority >= 0 && lstFileLinks != null && lstFileLinks.Count > 0)
 					{
 						VirtualModActivator.UpdateLinkListPriority(lstFileLinks);

@@ -275,13 +275,14 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeStateIndex current = _nativeStateReader.Capture(updatePlan.NewPlan.Target);
 				if (!current.Fingerprint.Equals(verification.StateFingerprint))
 					throw new InvalidOperationException("Authoritative native/Collection state changed after C10.8 verification; the candidate revision must be verified again before publication.");
+				List<NativeModProvenance> candidateProvenance;
 				Dictionary<CollectionMemberKey, NativeModInstanceIdentity> candidateNative = ResolveCandidateNative(operation,
-					updatePlan, preservation, current);
+					updatePlan, preservation, current, out candidateProvenance);
 				CollectionRevisionUpdatePublicationPlan publication = _builder.Build(updatePlan, preservation, candidateNative);
 				CollectionOperation committed = BuildCommitted(operation);
 				List<UserOverride> expectedOldOverrides = preservation.Actions.Select(x => x.UserOverride).OrderBy(x => x.OverrideId).ToList();
 				_associationStore.FinalizeRevisionUpdateAssociation(reviewed, verification, publication.CandidateAssociation,
-					publication.Bindings, expectedOldOverrides, publication.Overrides, committed);
+					publication.Bindings, expectedOldOverrides, publication.Overrides, committed, candidateProvenance);
 
 				CollectionOperation persisted = _operationStore.GetOperation(operationIdentity);
 				CollectionTargetAssociation association = _associationStore.GetAssociation(publication.CandidateAssociation.AssociationId);
@@ -294,8 +295,9 @@ namespace Nexus.Client.CollectionManagement
 
 		private Dictionary<CollectionMemberKey, NativeModInstanceIdentity> ResolveCandidateNative(CollectionOperation operation,
 			CollectionRevisionUpdatePlan updatePlan, CollectionRevisionUpdateOverridePreservationPlan preservation,
-			CollectionNativeStateIndex current)
+			CollectionNativeStateIndex current, out List<NativeModProvenance> candidateProvenance)
 		{
+			candidateProvenance = new List<NativeModProvenance>();
 			var result = new Dictionary<CollectionMemberKey, NativeModInstanceIdentity>();
 			HashSet<CollectionMemberKey> suppressed = new HashSet<CollectionMemberKey>(preservation.MembersWhoseCandidateMutationIsSuppressed);
 			foreach (CollectionRevisionUpdateMemberPlan member in updatePlan.Members.Where(x =>
@@ -314,6 +316,13 @@ namespace Nexus.Client.CollectionManagement
 					out native, out failure, false))
 					throw new InvalidOperationException("The verified C10 candidate child changed before publication: " + (failure ?? "unknown mismatch"));
 				result.Add(member.MemberKey, native.Identity);
+				// A fresh Collection install has no independent predecessor. Reinstalls carry the exact
+				// predecessor's ownership forward even when NMM allocates a new native registration key.
+				StandaloneModUse standaloneUse = manifest.PreviousNativeMod == null
+					? StandaloneModUse.NoStandaloneUseVerified
+					: _associationStore.GetNativeModProvenance(manifest.PreviousNativeMod.Identity).StandaloneUse;
+				if (standaloneUse != StandaloneModUse.Unknown)
+					candidateProvenance.Add(new NativeModProvenance(native.Identity, standaloneUse));
 			}
 			return result;
 		}

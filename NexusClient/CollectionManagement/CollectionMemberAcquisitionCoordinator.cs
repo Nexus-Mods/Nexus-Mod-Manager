@@ -198,7 +198,7 @@ namespace Nexus.Client.CollectionManagement
 					verifiedArchives.Add(verified);
 			}
 
-			CollectionMemberMatchSet rematched = _matchEngine.Match(plan, nativeState, verifiedArchives);
+			CollectionMemberMatchSet rematched = _matchEngine.Match(plan, nativeState, verifiedArchives, cancellationToken);
 			if (rematched.HasBlockedMembers)
 				return BuildBlockedBatch(planBuild, rematched, archiveOverwritePolicy);
 
@@ -220,7 +220,8 @@ namespace Nexus.Client.CollectionManagement
 				requests.TryGetValue(match.Member.MemberKey, out request);
 				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
 				{
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled, null, null, null, null, null, null));
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled,
+						match.VerifiedArchive == null ? null : match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, null));
 					continue;
 				}
 				if (match.VerifiedArchive != null)
@@ -315,13 +316,14 @@ namespace Nexus.Client.CollectionManagement
 					verified.Add(archive);
 			}
 
-			CollectionMemberMatchSet rematched = _matchEngine.Match(batch.PlanBuild.Plan, batch.PlanBuild.NativeState, verified);
+			CollectionMemberMatchSet rematched = _matchEngine.Match(batch.PlanBuild.Plan, batch.PlanBuild.NativeState, verified, cancellationToken);
 			var states = new List<CollectionMemberAcquisitionState>(rematched.Members.Count);
 			foreach (CollectionMemberMatchResult match in rematched.Members)
 			{
 				CollectionMemberAcquisitionState previous = batch.Members.First(x => x.Match.Member.MemberKey.Equals(match.Member.MemberKey));
 				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled, null, null, null, null, null, null));
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled,
+						match.VerifiedArchive == null ? null : match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, null));
 				else if (match.VerifiedArchive != null)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 						previous.Request ?? match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, previous.PremiumAvailability));
@@ -392,12 +394,13 @@ namespace Nexus.Client.CollectionManagement
 					: _archiveAdopter.RebindVerified(previous.VerifiedArchive, request, cancellationToken));
 			}
 
-			CollectionMemberMatchSet rematched = _matchEngine.Match(refreshedPlanBuild.Plan, refreshedPlanBuild.NativeState, reboundArchives);
+			CollectionMemberMatchSet rematched = _matchEngine.Match(refreshedPlanBuild.Plan, refreshedPlanBuild.NativeState, reboundArchives, cancellationToken);
 			var states = new List<CollectionMemberAcquisitionState>(rematched.Members.Count);
 			foreach (CollectionMemberMatchResult match in rematched.Members)
 			{
 				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled, null, null, null, null, null, null));
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled,
+						match.VerifiedArchive == null ? null : match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, null));
 				else if (match.VerifiedArchive != null)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 						match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, null));
@@ -449,7 +452,7 @@ namespace Nexus.Client.CollectionManagement
 					verified.Add(restart.VerifiedArchive);
 			}
 
-			CollectionMemberMatchSet rematched = _matchEngine.Match(planBuild.Plan, planBuild.NativeState, verified);
+			CollectionMemberMatchSet rematched = _matchEngine.Match(planBuild.Plan, planBuild.NativeState, verified, cancellationToken);
 			var states = new List<CollectionMemberAcquisitionState>(rematched.Members.Count);
 			foreach (CollectionMemberMatchResult match in rematched.Members)
 			{
@@ -458,7 +461,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionAcquisitionRestartResult restart;
 				restartByMember.TryGetValue(match.Member.MemberKey, out restart);
 				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled, null, null, null, null, restart, null));
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled,
+						match.VerifiedArchive == null ? null : match.VerifiedArchive.Request, match.VerifiedArchive, null, null, restart, null));
 				else if (match.VerifiedArchive != null)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 						request ?? match.VerifiedArchive.Request, match.VerifiedArchive, null, null, restart, restart == null ? (CollectionPremiumAcquisitionAvailability?)null : restart.PremiumAvailability));
@@ -503,7 +507,8 @@ namespace Nexus.Client.CollectionManagement
 				if (match.IsBlocked)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.Blocked, null, match.VerifiedArchive, null, null, null, null));
 				else if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
-					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled, null, null, null, null, null, null));
+					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyInstalled,
+						match.VerifiedArchive == null ? null : match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, null));
 				else if (match.VerifiedArchive != null)
 					states.Add(State(match, CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive,
 						match.VerifiedArchive.Request, match.VerifiedArchive, null, null, null, null));

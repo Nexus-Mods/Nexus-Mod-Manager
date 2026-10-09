@@ -351,7 +351,7 @@ namespace Nexus.Client.CollectionManagement
 		internal static bool IsExactCompletedMemberBoundary(CollectionLocalRestoreMemberRehydrationResult rehydration)
 		{
 			if (rehydration == null || rehydration.SealedCapture == null || rehydration.ReviewedPlan == null ||
-				rehydration.CurrentPlan == null || rehydration.CurrentPlan.Issues.Count != 0)
+				rehydration.CurrentPlan == null || rehydration.CurrentPlan.IsNativeRecoveryProjection || rehydration.CurrentPlan.Issues.Count != 0)
 				return false;
 			if (rehydration.Members.Count != rehydration.ReviewedPlan.Members.Count ||
 				rehydration.Members.Any(x => !x.IsComplete) ||

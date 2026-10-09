@@ -36,6 +36,44 @@ namespace Nexus.Client.Tests
 		}
 
 		[Test]
+		public void IncomingFileOverlapPresentation_NamesBothPackagesAndTheFile()
+		{
+			const string raw = "No unambiguous final provider.";
+			var issue = new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FileWinnerDecisionRequired,
+				CollectionConflictImpactStatus.ActionRequired, null, "GameRoot:shared.xml", raw);
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForFileWinner(
+				issue, "shared.xml", "Preloader, Settings package");
+
+			Assert.That(presentation.MessageFallback, Does.Contain("shared.xml"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Preloader"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Settings package"));
+			Assert.That(presentation.MessageFallback, Does.Not.Contain("GameRoot:"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Choose mods"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("both are required"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
+		[TestCase(true, "enable", "Enable")]
+		[TestCase(false, "disable", "Disable")]
+		public void PluginImpactPresentation_NamesPluginAndGivesAnAction(bool active, string messageAction, string nextAction)
+		{
+			const string raw = "The incoming recipe would change plugin state/order belonging to the existing additive setup; explicit review is required.";
+			var issue = new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired,
+				CollectionConflictImpactStatus.ActionRequired, CollectionMemberKey.FromProvider("plugin-mod"), @"C:\Game\Data\Example.esp", raw);
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForImpact(issue,
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\Example.esp", active));
+
+			Assert.That(presentation.MessageFallback, Does.Contain(messageAction));
+			Assert.That(presentation.MessageFallback, Does.Contain("Example.esp"));
+			Assert.That(presentation.MessageFallback, Does.Not.Contain(@"C:\Game"));
+			Assert.That(presentation.MessageFallback, Does.Not.Contain("recipe"));
+			Assert.That(presentation.NextActionFallback, Does.StartWith(nextAction));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Plugins tab"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Download / Prepare"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
+		[Test]
 		public void FailurePresentation_DoesNotEchoInternalExceptionAsPrimaryUserMessage()
 		{
 			const string raw = "C6.9 unexpected native state id=123";
@@ -43,6 +81,21 @@ namespace Nexus.Client.Tests
 
 			Assert.That(presentation.MessageFallback, Is.EqualTo("Installation stopped unexpectedly before NMM could present a verified final result."));
 			Assert.That(presentation.NextActionFallback, Does.Contain("recovery status"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
+		[Test]
+		public void UnresolvedRecoveryPresentation_DoesNotSendUserBackToTheSameRecoveryCheck()
+		{
+			const string raw = "C6.9 missing replay; native fingerprint mismatch";
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForRecovery(
+				CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired, raw);
+
+			Assert.That(presentation.MessageFallback, Does.Contain("could not repair it automatically"));
+			Assert.That(presentation.MessageFallback, Does.Not.Contain("fingerprint"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Uninstall Collection"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Export Technical Report"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Choose Check recovery"));
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
 		}
 

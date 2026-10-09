@@ -5965,7 +5965,68 @@
 				msg += $"- {m.ModName}\r\n";
 			}
 			msg += LanguageManager.Get("Mods.Delete.Confirm.Message", "\r\nThese mods will be uninstalled and permanently deleted from your hard drive.\r\nAre you sure?\r\n\r\nThis operation cannot be undone.");
-			return ExtendedMessageBox.Show(this, msg, LanguageManager.Get("Common.Dialog.WarningTitle", "Warning"), MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes;
+			return ShowModDeletionConfirmation(msg, mods.Count);
+		}
+
+		/// <summary>Uses NMM's themed warning graphic and explicit actions for irreversible mod/archive deletion.</summary>
+		private bool ShowModDeletionConfirmation(string message, int modCount)
+		{
+			using (DevExpressDisplaySettings settings = DevExpressDisplaySettings.CreateFromSettings(Properties.Settings.Default))
+			using (ManagedFontXtraForm dialog = new ManagedFontXtraForm())
+			{
+				dialog.Text = LanguageManager.Get("Mods.Delete.Confirm.Title", "Delete selected mods");
+				dialog.Font = settings.Font;
+				dialog.AutoScaleMode = AutoScaleMode.Font;
+				dialog.StartPosition = FormStartPosition.CenterParent;
+				dialog.MinimizeBox = false;
+				dialog.MaximizeBox = false;
+				dialog.ShowInTaskbar = false;
+				dialog.MinimumSize = new Size(480, 260);
+				dialog.ClientSize = new Size(620, modCount > 4 ? 420 : 290);
+				dialog.Padding = new Padding(12);
+				LabelControl heading = new LabelControl
+				{
+					Dock = DockStyle.Top, AutoSizeMode = LabelAutoSizeMode.Vertical,
+					ImageAlignToText = ImageAlignToText.LeftCenter, IndentBetweenImageAndText = 12,
+					Padding = new Padding(0, 0, 0, 12),
+					Text = LanguageManager.Get("Mods.Delete.Confirm.Question", "Delete these mods and their downloaded archives?")
+				};
+				heading.Appearance.FontStyleDelta = FontStyle.Bold;
+				heading.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
+				heading.Appearance.Options.UseTextOptions = true;
+				MemoEdit details = new MemoEdit { Dock = DockStyle.Fill, Text = message };
+				details.Properties.ReadOnly = true;
+				details.Properties.BorderStyle = BorderStyles.NoBorder;
+				details.Properties.ScrollBars = ScrollBars.Vertical;
+				PanelControl buttons = new PanelControl
+				{
+					Dock = DockStyle.Bottom, Height = settings.Font.Height * 3,
+					BorderStyle = BorderStyles.NoBorder, Padding = new Padding(0, 8, 0, 0)
+				};
+				SimpleButton cancel = new SimpleButton
+				{
+					Dock = DockStyle.Right, AutoSize = true, Padding = new Padding(8), DialogResult = DialogResult.Cancel,
+					Text = LanguageManager.Get("Common.Action.Cancel", "Cancel")
+				};
+				SimpleButton delete = new SimpleButton
+				{
+					Dock = DockStyle.Right, AutoSize = true, Padding = new Padding(8), DialogResult = DialogResult.OK,
+					Text = LanguageManager.Get("Mods.Delete.Confirm.Action", "Delete mods")
+				};
+				NmmIconProvider.BindDialogButton(delete, NmmIconAction.Delete);
+				NmmIconProvider.BindDialogButton(cancel, NmmIconAction.Cancel);
+				buttons.Controls.Add(delete);
+				buttons.Controls.Add(cancel);
+				dialog.Controls.Add(details);
+				dialog.Controls.Add(heading);
+				dialog.Controls.Add(buttons);
+				dialog.AcceptButton = cancel;
+				dialog.CancelButton = cancel;
+				DevExpressDisplaySettingsApplier.ApplyToControlTree(dialog, settings);
+				heading.ImageOptions.Image = NmmIconProvider.GetBitmap(NmmIconAction.Warning, 32, false);
+				dialog.Shown += (sender, args) => cancel.Focus();
+				return dialog.ShowDialog(this) == DialogResult.OK;
+			}
 		}
 
 		private bool ConfirmMissingArchiveUninstall(List<IMod> mods)

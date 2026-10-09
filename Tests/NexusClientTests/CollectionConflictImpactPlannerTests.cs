@@ -352,6 +352,103 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.FileWinnerDecisionRequired));
 		}
 
+		[TestCase(ModDeploymentRoot.GameRoot)]
+		[TestCase(ModDeploymentRoot.Data)]
+		public void Plan_BundledReplacementWinsOverDownloadedDefault(ModDeploymentRoot root)
+		{
+			NormalizedCollectionMember package = CreateMember(0, "preloader", 33946, 323314, 50);
+			NormalizedCollectionMember settings = CreateBundleMember(1, "settings", -10);
+			CollectionTargetIdentity targetIdentity = CreateTarget();
+			Fixture fixture = CreateFixture(targetIdentity, new[] { package, settings }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			// Exercise impact planning after both archives were prepared, with no installed mod or previous association.
+			CollectionMemberMatchSet matches = new CollectionMemberMatchSet(fixture.Plan, fixture.State,
+				fixture.Plan.SelectedMembers.Select(x => new CollectionMemberMatchResult(x, CollectionMemberMatchDisposition.ArchiveOnlyReuse,
+					CollectionMemberMatchReason.VerifiedArchiveAvailable, new CollectionNativeModState[0], new CollectionMemberBinding[0], null)));
+			CollectionDependencyPhasePlan dependencyPlan = new CollectionDependencyPhasePlanner().Plan(fixture.Plan, matches);
+			ModDeploymentTarget shared = ModDeploymentTargetResolver.FromCanonical(root, "xSE PluginPreloader.xml");
+			ModDeploymentTarget separateRoot = ModDeploymentTargetResolver.FromCanonical(
+				root == ModDeploymentRoot.GameRoot ? ModDeploymentRoot.Data : ModDeploymentRoot.GameRoot, "xSE PluginPreloader.xml");
+			CollectionMemberEffectPreview packagePreview = new CollectionMemberEffectPreview(package.IdentityResolution.Key, package.RecipeIdentity,
+				ModInstallMethod.Virtual, ModInstallRoot.GameRoot, new[] { new CollectionPlannedFileEffect(shared), new CollectionPlannedFileEffect(separateRoot) },
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, matches, dependencyPlan, fixture.State, new[] { packagePreview, CreatePreview(settings, shared) });
+
+			Assert.AreEqual(CollectionConflictImpactStatus.Ready, result.Status);
+			Assert.AreEqual(settings.IdentityResolution.Key, result.FileImpacts.Single(x => x.Target.Equals(shared)).PlannedWinner);
+			Assert.AreEqual(package.IdentityResolution.Key, result.FileImpacts.Single(x => x.Target.Equals(separateRoot)).PlannedWinner);
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.FileWinnerDecisionRequired));
+			bool cycle;
+			Assert.AreEqual(settings.IdentityResolution.Key, CollectionConflictImpactPlanner.ResolveFileWinner(
+				new[] { settings.IdentityResolution.Key, package.IdentityResolution.Key }, fixture.Plan, out cycle));
+			Assert.IsFalse(cycle);
+		}
+
+		[TestCase(false)]
+		[TestCase(true)]
+		public void FileWinner_BundledReplacementHonorsExplicitPriority(bool bundledWins)
+		{
+			NormalizedCollectionMember package = CreateMember(0, "package", 100, 200, 0);
+			NormalizedCollectionMember settings = CreateBundleMember(1, "settings", 0);
+			CollectionMemberKey expected = bundledWins ? settings.IdentityResolution.Key : package.IdentityResolution.Key;
+			CollectionMemberKey lower = bundledWins ? package.IdentityResolution.Key : settings.IdentityResolution.Key;
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { package, settings }, new[] { new CollectionFilePriorityRule(lower, expected) },
+				new CollectionNativeModState[0], new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			bool cycle;
+			Assert.AreEqual(expected, CollectionConflictImpactPlanner.ResolveFileWinner(
+				new[] { settings.IdentityResolution.Key, package.IdentityResolution.Key }, fixture.Plan, out cycle));
+			Assert.IsFalse(cycle);
+		}
+
+		[Test]
+		public void FileWinner_BundledReplacementDoesNotHidePriorityCycle()
+		{
+			NormalizedCollectionMember package = CreateMember(0, "package", 100, 200, 0);
+			NormalizedCollectionMember settings = CreateBundleMember(1, "settings", 0);
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { package, settings }, new[]
+			{
+				new CollectionFilePriorityRule(package.IdentityResolution.Key, settings.IdentityResolution.Key),
+				new CollectionFilePriorityRule(settings.IdentityResolution.Key, package.IdentityResolution.Key)
+			}, new CollectionNativeModState[0], new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			bool cycle;
+			Assert.IsNull(CollectionConflictImpactPlanner.ResolveFileWinner(
+				new[] { package.IdentityResolution.Key, settings.IdentityResolution.Key }, fixture.Plan, out cycle));
+			Assert.IsTrue(cycle);
+		}
+
+		[Test]
+		public void FileWinner_TwoBundledReplacementsStillRequirePriority()
+		{
+			NormalizedCollectionMember a = CreateBundleMember(0, "a", 0);
+			NormalizedCollectionMember b = CreateBundleMember(1, "b", 10);
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { a, b }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			bool cycle;
+			Assert.IsNull(CollectionConflictImpactPlanner.ResolveFileWinner(
+				new[] { a.IdentityResolution.Key, b.IdentityResolution.Key }, fixture.Plan, out cycle));
+			Assert.IsFalse(cycle);
+		}
+
+		[Test]
+		public void FileWinner_BundleDoesNotResolveAmbiguityBetweenMultipleDownloads()
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
+			NormalizedCollectionMember settings = CreateBundleMember(2, "settings", 0);
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { a, b, settings }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+
+			bool cycle;
+			Assert.IsNull(CollectionConflictImpactPlanner.ResolveFileWinner(
+				new[] { a.IdentityResolution.Key, b.IdentityResolution.Key, settings.IdentityResolution.Key }, fixture.Plan, out cycle));
+			Assert.IsFalse(cycle);
+		}
+
 		[Test]
 		public void Plan_FilePriorityCycleBlocks()
 		{
@@ -667,6 +764,69 @@ namespace NexusClientTests
 
 			Assert.AreEqual(CollectionConflictImpactStatus.ActionRequired, result.Status);
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired));
+		}
+
+		[TestCase(ModInstallMethod.Virtual, true, false)]
+		[TestCase(ModInstallMethod.Virtual, true, true)]
+		[TestCase(ModInstallMethod.Virtual, false, false)]
+		[TestCase(ModInstallMethod.Virtual, false, true)]
+		[TestCase(ModInstallMethod.Direct, true, false)]
+		[TestCase(ModInstallMethod.Direct, true, true)]
+		[TestCase(ModInstallMethod.Direct, false, false)]
+		[TestCase(ModInstallMethod.Direct, false, true)]
+		public void Plan_IncomingPluginFileWithUnownedRegistryEntryDoesNotNeedSeparateDecision(ModInstallMethod method, bool desiredActive, bool physicalPath)
+		{
+			NormalizedCollectionMember member = CreateMember(0, "incoming-plugin", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			ModDeploymentTarget pluginTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Example.esp");
+			string pluginPath = physicalPath ? @"C:\Game\Data\Example.esp" : "Example.esp";
+			var plugin = new CollectionNativePluginState(pluginPath, !desiredActive, 1, 0, "00", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0],
+				new CollectionNativePluginDiagnostic[0]);
+			CollectionNativeModState baseMod = CreateNativeMod(target, "base-mod", 999, 999);
+			CollectionNativeFileState baseFile = CreateFile(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Base.esp"), baseMod.Identity.NativeModKey);
+			var basePlugin = new CollectionNativePluginState("Base.esp", true, 2, 1, "01", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0], new CollectionNativePluginDiagnostic[0]);
+			CollectionNativeModState incoming = CreateNativeMod(target, "incoming-mod", 100, 200);
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { baseMod, incoming }, new[] { baseFile },
+				null, null, null, CollectionNativeStateCoverage.Complete, null, null, new[] { plugin, basePlugin },
+				desiredActive ? new[] { new CollectionDesiredPluginState("Example.esp", true) } : new CollectionDesiredPluginState[0]);
+			var preview = new CollectionMemberEffectPreview(member.IdentityResolution.Key, member.RecipeIdentity, method, ModInstallRoot.Data,
+				new[] { new CollectionPlannedFileEffect(pluginTarget) }, new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+				new[] { CollectionPlannedPluginEffect.Activation(pluginPath, true) }, new CollectionEffectPreviewIssue[0]);
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+
+			Assert.That(result.Status, Is.EqualTo(CollectionConflictImpactStatus.Ready));
+			Assert.That(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired), Is.False);
+			Assert.That(result.PluginImpacts.Single().Effect.Active, Is.EqualTo(desiredActive));
+			Assert.That(Path.GetFileName(result.PluginImpacts.Single().Effect.PluginPaths.Single()), Is.EqualTo("Example.esp"));
+			Assert.That(fixture.State.Plugins.Values.Single(x => x.FileName == "Base.esp").Active, Is.True);
+			Assert.That(plugin.Active, Is.EqualTo(!desiredActive), "Preparation must remain read-only.");
+		}
+
+		[TestCase(true)]
+		[TestCase(false)]
+		public void Plan_ExistingUnrelatedPluginAlreadyAtRequestedStateDoesNotNeedDecision(bool active)
+		{
+			NormalizedCollectionMember member = CreateMember(0, "plugin-state", 100, 200, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			CollectionNativeModState unrelated = CreateNativeMod(target, "base-owner", 999, 999);
+			CollectionNativeFileState pluginFile = CreateFile(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "Example.esp"), unrelated.Identity.NativeModKey);
+			var plugin = new CollectionNativePluginState("Example.esp", active, 1, 0, "00", PluginParseStatus.Parsed,
+				PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 44, new string[0], new CollectionNativePluginDiagnostic[0]);
+			CollectionNativeModState incoming = CreateNativeMod(target, "incoming-mod", 100, 200);
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { unrelated, incoming }, new[] { pluginFile },
+				null, null, null, CollectionNativeStateCoverage.Complete, null, null, new[] { plugin });
+			CollectionMemberEffectPreview preview = CreatePreview(member, null,
+				new[] { CollectionPlannedPluginEffect.Activation("Example.esp", active) });
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+
+			Assert.That(result.Status, Is.EqualTo(CollectionConflictImpactStatus.Ready));
+			Assert.That(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired), Is.False);
 		}
 
 		[Test]
@@ -1368,6 +1528,16 @@ namespace NexusClientTests
 				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider(key)),
 				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
 				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/" + modId + "/" + fileId, null),
+				CollectionRecipeIdentity.FromFingerprint("recipe-" + key), "Member " + key, phase);
+		}
+
+		/// <summary>Creates a curator-bundled member independently of its display name and phase.</summary>
+		private static NormalizedCollectionMember CreateBundleMember(int ordinal, string key, double phase)
+		{
+			return new NormalizedCollectionMember(ordinal,
+				CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider(key)),
+				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+				new CollectionArtifactReference(CollectionBundledArtifactIdentity.Scheme, CollectionBundledArtifactIdentity.Format(CreateRevision(), key), null),
 				CollectionRecipeIdentity.FromFingerprint("recipe-" + key), "Member " + key, phase);
 		}
 

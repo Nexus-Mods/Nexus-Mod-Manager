@@ -65,7 +65,7 @@ namespace Nexus.Client.CollectionManagement
 			Nexus.Client.OnlineServices.NexusMods.Collections.NexusCollectionBundleImportResult retainedManifest,
 			CollectionNativeStateIndex state, IEnumerable<CollectionMemberBinding> bindings,
 			IEnumerable<UserOverride> overrides, IEnumerable<CollectionDriftObservation> drift,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, CollectionVerifyRepairReviewedIntent reviewedIntent = null)
 		{
 			if (association == null) throw new ArgumentNullException(nameof(association));
 			if (retainedManifest == null) throw new ArgumentNullException(nameof(retainedManifest));
@@ -128,21 +128,33 @@ namespace Nexus.Client.CollectionManagement
 					CollectionMemberBinding effectiveBinding = binding;
 					CollectionNativeModState native;
 					bool isBindingUpdate = !state.Mods.TryGetValue(binding.NativeMod, out native);
+					IMod liveMod = null;
+					ModInstallContext installContext = null;
 					if (isBindingUpdate)
 					{
 						string rebindIssue;
 						if (!TryResolveExactReinstalledBinding(association, member, binding, state, out effectiveBinding, out native, out rebindIssue))
-							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, rebindIssue,
-								effectiveBindings, bindingUpdates);
-						bindingUpdates.Add(effectiveBinding);
+						{
+							if (HasExactInstalledCandidate(member, state))
+								return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, rebindIssue, effectiveBindings, bindingUpdates);
+							EnsureNoOtherInstalledVersion(member, state);
+							liveMod = ResolveMissingManagedMod(_services.ModManager, member);
+							installContext = new CollectionsOperationStore(_store).GetVerifiedMemberInstallContext(association, binding);
+							if (installContext == null)
+								return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
+									"NMM cannot prove the missing mod's previous install method and folder. Reinstall its exact version from the Mods tab, then run Verify / Repair again.", effectiveBindings, bindingUpdates);
+							isBindingUpdate = false;
+						}
+						else bindingUpdates.Add(effectiveBinding);
 					}
 					effectiveBindings.Add(effectiveBinding);
 
-					IMod liveMod = ResolveLiveMod(effectiveBinding.NativeMod.NativeModKey);
+					if (liveMod == null) liveMod = ResolveLiveMod(effectiveBinding.NativeMod.NativeModKey);
+					if (installContext == null) installContext = new ModInstallContext(native.InstallMethod, native.InstallRoot);
 					bool contributesMerge = !member.HasVortexFileList && !member.HasVortexFomodSelection &&
 						CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, liveMod);
 					preparationInputs.Add(new VerifyRepairPreparationInput(effectiveBinding, member, native, liveMod,
-						contributesMerge, isBindingUpdate));
+						contributesMerge, isBindingUpdate, installContext));
 				}
 
 				IList<IMod> activeMods = _services.ModManager.ActiveMods.ToList();
@@ -155,9 +167,11 @@ namespace Nexus.Client.CollectionManagement
 				foreach (VerifyRepairPreparationInput input in preparationInputs)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
-					if (input.IsBindingUpdate && !CanRebindManualReinstallExactly(input))
+					if ((input.IsBindingUpdate || input.Native == null) && (!CanRebindManualReinstallExactly(input) || (input.Native == null && input.ContributesDeterministicMerge)))
 						return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-							"A manually reinstalled Collection member can only be rebound automatically when its native recipe is basic and deterministic. Scripted installers, Vortex-selected file sets, file overrides, and binary patches require an explicit Collection repair path.",
+							input.Native == null
+								? "NMM cannot restore this missing mod automatically because its installer or shared-file recipe needs review. Install its exact version from the Mods tab, then run Verify / Repair again."
+								: "A manually reinstalled Collection member can only be rebound automatically when its native recipe is basic and deterministic. Scripted installers, Vortex-selected file sets, file overrides, and binary patches require an explicit Collection repair path.",
 							effectiveBindings, bindingUpdates);
 
 					CollectionAcquisitionRequest request = CollectionAcquisitionRequest.Create(Guid.NewGuid(), resolvedPlan, input.Binding.MemberKey);
@@ -169,15 +183,22 @@ namespace Nexus.Client.CollectionManagement
 					try
 					{
 						string managedArchivePath = CollectionArchiveContentMatcher.GetManagedArchivePath(input.LiveMod);
-						if (input.IsBindingUpdate && !CollectionArchiveContentMatcher.MatchesFile(managedArchivePath, archive.Artifact, cancellationToken))
+						if (!CollectionArchiveContentMatcher.MatchesFile(managedArchivePath, archive.Artifact, cancellationToken))
 							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
-								"The manually reinstalled native mod has the expected Nexus mod/file identity, but its managed archive bytes do not match the exact retained Collection artifact. Automatic rebinding was refused.",
+								"The mod archive does not match the exact version retained for this Collection. Add the correct archive in the Mods tab, then run Verify / Repair again.",
 								effectiveBindings, bindingUpdates);
-						var context = new ModInstallContext(input.Native.InstallMethod, input.Native.InstallRoot);
+						CollectionVerifyRepairPreparedRecipeReview frozen = reviewedIntent == null ? null : reviewedIntent.PreparedRecipes.SingleOrDefault(x => x.MemberKey.Equals(input.Member.MemberKey));
+						CollectionInstallDestination destination = frozen == null
+							? CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode, input.Member, input.LiveMod, input.InstallContext, cancellationToken)
+							: new CollectionInstallDestination(new ModInstallContext(frozen.InstallMethod, frozen.InstallRoot), frozen.GameRootArchiveBaseDirectory);
+						ModInstallContext context = destination.InstallContext;
 						bool includeMergeOutput = !input.ContributesDeterministicMerge || mergeOwner == null || input.Member.MemberKey.Equals(mergeOwner);
 						PreparedCollectionNativeRecipe recipe = nativePreparer.PrepareExact(resolvedPlan, input.Member, archive, input.LiveMod,
 							_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, context, state,
-							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, activeMods, includeMergeOutput, cancellationToken);
+							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, activeMods, includeMergeOutput, cancellationToken, destination.GameRootArchiveBaseDirectory);
+						recipe = frozen == null
+							? CollectionInstallRootCorrection.Prepare(recipe, state, input.Native, _services.ModManager.DeploymentManager, _services.ModManager.VirtualModActivator, cancellationToken)
+							: CollectionInstallRootCorrection.Attach(recipe, frozen.InstallRootCorrection);
 						if (!recipe.EffectPreview.IsComplete)
 							return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 								"A bound member's native recipe cannot be represented as complete typed effects for automatic verify/repair.",
@@ -196,7 +217,58 @@ namespace Nexus.Client.CollectionManagement
 				return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 					"Exact verify/repair preparation failed closed: " + ex.Message, effectiveBindings, bindingUpdates);
 			}
+			try
+			{
+				if (reviewedIntent == null) PrepareFolderCorrectionDestinations(prepared, state, effectiveBindings, resolvedPlan, cancellationToken);
+			}
+			catch (Exception ex) when (!(ex is OperationCanceledException))
+			{
+				return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, ex.Message, effectiveBindings, bindingUpdates);
+			}
 			return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared, null, effectiveBindings, bindingUpdates);
+		}
+
+		/// <summary>Reviews new-folder conflicts and retains an already verified higher-priority Collection winner.</summary>
+		private void PrepareFolderCorrectionDestinations(IList<PreparedCollectionNativeRecipe> recipes, CollectionNativeStateIndex state,
+			IList<CollectionMemberBinding> bindings, ResolvedCollectionPlan plan, CancellationToken cancellationToken)
+		{
+			for (int index = 0; index < recipes.Count; index++)
+			{
+				PreparedCollectionNativeRecipe recipe = recipes[index];
+				CollectionInstallRootCorrection correction = recipe.EffectPreview.InstallRootCorrection;
+				if (correction == null) continue;
+				var destinations = new List<CollectionInstallRootDestination>();
+				foreach (CollectionPlannedFileEffect effect in recipe.EffectPreview.Files)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					CollectionNativeFileState file;
+					state.Files.TryGetValue(effect.Target, out file);
+					string currentOwner = file == null ? null : file.EffectiveOwnerKey;
+					CollectionNativeFileContentEvidence before = CollectionInstallRootCorrection.CaptureFile(effect.Target,
+						_services.ModManager.DeploymentManager.GetDeploymentPath(effect.Target));
+					bool preserve = false;
+					CollectionMemberBinding currentBinding = bindings.SingleOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(x.NativeMod.NativeModKey, currentOwner));
+					if (currentBinding != null && !currentBinding.MemberKey.Equals(recipe.Member.MemberKey))
+					{
+						PreparedCollectionNativeRecipe currentRecipe = recipes.Single(x => x.Member.MemberKey.Equals(currentBinding.MemberKey));
+						CollectionPlannedFileEffect currentEffect = currentRecipe.EffectPreview.Files.SingleOrDefault(x => x.Target.Equals(effect.Target));
+						if (currentEffect != null)
+						{
+							bool cycle;
+							CollectionMemberKey winner = CollectionConflictImpactPlanner.ResolveFileWinner(
+								new[] { recipe.Member.MemberKey, currentBinding.MemberKey }, plan, out cycle);
+							if (cycle || winner == null) throw new InvalidOperationException("Two Collection mods use the same game-folder file without an agreed winner: " + effect.Target.RelativePath);
+							preserve = winner.Equals(currentBinding.MemberKey);
+							if (preserve && (!before.Existed || !currentEffect.HasExactContentIdentity || before.ByteLength != currentEffect.ExpectedByteLength.Value ||
+								!Equals(before.ContentHash, currentEffect.ExpectedContentHash)))
+								throw new InvalidOperationException("Repair the Collection mod that supplies this shared file before moving the package: " + effect.Target.RelativePath);
+						}
+					}
+					destinations.Add(new CollectionInstallRootDestination(before, currentOwner, preserve));
+				}
+				recipes[index] = CollectionInstallRootCorrection.Attach(recipe,
+					new CollectionInstallRootCorrection(correction.NativeModKey, correction.InstallMethod, correction.Files, destinations));
+			}
 		}
 
 		/// <summary>
@@ -287,7 +359,7 @@ namespace Nexus.Client.CollectionManagement
 					provider.GetDeterministicModFileMergePlan(activeMods, contributor.LiveMod);
 				if (mergePlan == null) return null;
 				ModDeploymentTarget contributorTarget = ModDeploymentTargetResolver.Resolve(_services.ModManager.GameMode,
-					contributor.LiveMod, mergePlan.DestinationPath, contributor.Native.InstallRoot);
+					contributor.LiveMod, mergePlan.DestinationPath, contributor.InstallContext.InstallRoot);
 				if (target == null) target = contributorTarget;
 				else if (!target.Equals(contributorTarget)) return null;
 			}
@@ -302,18 +374,19 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool CanRebindManualReinstallExactly(VerifyRepairPreparationInput input)
 		{
-			return input != null && !input.Native.HasInstallScript && !input.Member.HasVortexFomodSelection &&
+			return input != null && !input.LiveMod.HasInstallScript && (input.Native == null || !input.Native.HasInstallScript) && !input.Member.HasVortexFomodSelection &&
 				!input.Member.HasVortexFileList && !input.Member.HasVortexFileOverrides && !input.Member.HasVortexBinaryPatches;
 		}
 
 		private sealed class VerifyRepairPreparationInput
 		{
 			public VerifyRepairPreparationInput(CollectionMemberBinding binding, ResolvedCollectionMemberPlan member,
-				CollectionNativeModState native, IMod liveMod, bool contributesDeterministicMerge, bool isBindingUpdate)
+				CollectionNativeModState native, IMod liveMod, bool contributesDeterministicMerge, bool isBindingUpdate, ModInstallContext installContext)
 			{
 				Binding = binding ?? throw new ArgumentNullException(nameof(binding));
 				Member = member ?? throw new ArgumentNullException(nameof(member));
-				Native = native ?? throw new ArgumentNullException(nameof(native));
+				Native = native;
+				InstallContext = installContext ?? throw new ArgumentNullException(nameof(installContext));
 				LiveMod = liveMod ?? throw new ArgumentNullException(nameof(liveMod));
 				ContributesDeterministicMerge = contributesDeterministicMerge;
 				IsBindingUpdate = isBindingUpdate;
@@ -322,6 +395,7 @@ namespace Nexus.Client.CollectionManagement
 			public CollectionMemberBinding Binding { get; }
 			public ResolvedCollectionMemberPlan Member { get; }
 			public CollectionNativeModState Native { get; }
+			public ModInstallContext InstallContext { get; }
 			public IMod LiveMod { get; }
 			public bool ContributesDeterministicMerge { get; }
 			public bool IsBindingUpdate { get; }
@@ -374,6 +448,44 @@ namespace Nexus.Client.CollectionManagement
 				decisions.Add(new CollectionOptionalMemberSelection(key, selected ? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected));
 			}
 			return new CollectionEffectiveSelectionBuilder().Build(capability, decisions);
+		}
+
+		/// <summary>Checks for any exact installed candidate before treating an absent binding as a missing member.</summary>
+		internal static bool HasExactInstalledCandidate(ResolvedCollectionMemberPlan member, CollectionNativeStateIndex state)
+		{
+			string domain; long modId; long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId))
+				return true; // Non-Nexus rebinding is not characterized by this repair path.
+			return state.Mods.Values.Any(x => x.NexusModId == modId.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+				x.NexusFileId == fileId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+		}
+
+		/// <summary>Rejects missing-member restoration that would silently install alongside another version of the same Nexus mod.</summary>
+		internal static void EnsureNoOtherInstalledVersion(ResolvedCollectionMemberPlan member, CollectionNativeStateIndex state)
+		{
+			string domain; long modId; long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId))
+				throw new InvalidOperationException("The missing member has no exact Nexus mod/file identity.");
+			if (state.Mods.Values.Any(x => x.NexusModId == modId.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+				x.NexusFileId != fileId.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+				throw new InvalidOperationException("Another version of this mod is installed. Review that version in the Mods tab before repairing the Collection.");
+		}
+
+		/// <summary>Resolves an exact archived Nexus version for missing-member preparation; byte identity is separately verified.</summary>
+		internal static IMod ResolveMissingManagedMod(ModManager manager, ResolvedCollectionMemberPlan member)
+		{
+			string domain; long modId; long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId) ||
+				manager.ModRepository == null || !StringComparer.OrdinalIgnoreCase.Equals(domain, manager.ModRepository.GameDomainName))
+				throw new InvalidOperationException("The missing mod does not have an exact supported Nexus archive identity for this game.");
+			List<IMod> matches = manager.ManagedMods.Where(x => ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				x, manager.SortOrderService, modId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+				fileId.ToString(System.Globalization.CultureInfo.InvariantCulture))).ToList();
+			if (matches.Count != 1)
+				throw new InvalidOperationException(matches.Count == 0
+					? "The missing mod's exact archive is not available in NMM. Add that version in the Mods tab, then run Verify / Repair again."
+					: "More than one archive matches the missing mod's version. Resolve the duplicate archives in the Mods tab, then run Verify / Repair again.");
+			return matches[0];
 		}
 
 		private IMod ResolveLiveMod(string nativeModKey)

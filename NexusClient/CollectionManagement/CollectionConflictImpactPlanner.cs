@@ -11,8 +11,8 @@ namespace Nexus.Client.CollectionManagement
 	/// Builds the read-only C6.4 file/plugin/configuration impact view for one additive Collection plan.
 	/// </summary>
 	/// <remarks>
-	/// The planner never changes native ownership, plugin state or Collection persistence. File winners are derived only from
-	/// characterized file-priority rules; installation/phase order is deliberately not used as an implicit conflict rule.
+	/// The planner never changes native ownership, plugin state or Collection persistence. Explicit file-priority rules take
+	/// precedence over bundled replacements of downloaded defaults. Installation/phase order does not determine file winners.
 	/// </remarks>
 	public sealed class CollectionConflictImpactPlanner
 	{
@@ -548,7 +548,7 @@ namespace Nexus.Client.CollectionManagement
 			{
 				entry.Value.Sort(CompareMemberKeys);
 				bool priorityCycle;
-				CollectionMemberKey winner = ResolveFileWinner(entry.Value, plan.CapabilityReport.Manifest.FilePriorityRules, out priorityCycle);
+				CollectionMemberKey winner = ResolveFileWinner(entry.Value, plan, out priorityCycle);
 				if (priorityCycle)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FilePriorityCycle,
@@ -559,7 +559,8 @@ namespace Nexus.Client.CollectionManagement
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FileWinnerDecisionRequired,
 						CollectionConflictImpactStatus.ActionRequired, null, entry.Key.ToString(),
-						"Several selected members write the same installed file, but the Collection does not define one unambiguous final provider."));
+						"The Collection packages " + String.Join(", ", entry.Value.Select(x => matchByKey[x].Member.DisplayName)) +
+						" supply " + entry.Key + ", but no file winner could be selected."));
 				}
 
 				CollectionNativeFileState current;
@@ -654,7 +655,25 @@ namespace Nexus.Client.CollectionManagement
 			return false;
 		}
 
-		private static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers,
+		/// <summary>Resolves explicit rules first, then a curator-bundled replacement of one Nexus package's default file.</summary>
+		internal static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers, ResolvedCollectionPlan plan, out bool cycle)
+		{
+			CollectionMemberKey winner = ResolveFileWinner(writers, plan.CapabilityReport.Manifest.FilePriorityRules, out cycle);
+			if (winner != null || cycle || writers.Count != 2) return winner;
+
+			// A sole bundled replacement overlays the downloaded default when the curator omitted a priority rule.
+			// This applies only to an exact shared target, never to two downloads, two bundles, or a multi-package ambiguity.
+			List<ResolvedCollectionMemberPlan> members = plan.SelectedMembers.Where(x => writers.Contains(x.MemberKey)).ToList();
+			if (members.Count != 2) return null;
+			List<ResolvedCollectionMemberPlan> bundles = members.Where(x => CollectionBundledArtifactIdentity.IsBundle(x.ArtifactChoice.SelectedArtifact)).ToList();
+			if (bundles.Count != 1) return null;
+			ResolvedCollectionMemberPlan bundled = bundles[0];
+			ResolvedCollectionMemberPlan downloaded = members.Single(x => !x.MemberKey.Equals(bundled.MemberKey));
+			return StringComparer.Ordinal.Equals(downloaded.ArtifactChoice.SelectedArtifact.Scheme, "nexus-mod-file") ? bundled.MemberKey : null;
+		}
+
+		/// <summary>Resolves the unique highest-priority writer using explicit Collection rules.</summary>
+		internal static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers,
 			IEnumerable<CollectionFilePriorityRule> rules, out bool cycle)
 		{
 			cycle = false;
@@ -801,14 +820,17 @@ namespace Nexus.Client.CollectionManagement
 					affected.UnionWith(AssociationIdsForPlugin(nativeState, pluginPath));
 					CollectionNativeFileState pluginFile = FindFileForPlugin(nativeState, pluginPath);
 					string ownerKey = pluginFile == null ? null : pluginFile.EffectiveOwnerKey;
-					if (!String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
+					CollectionNativePluginState existingPlugin = FindPlugin(nativeState, pluginPath);
+					bool changesState = existingPlugin == null || PluginEffectChangesExistingState(item.Item2, existingPlugin);
+					if (changesState && !String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
 						!CurrentOwnerIsReviewedRevisionOwner(ownerKey, reviewedExistingOwnerKeys))
 						changesExistingUnrelatedPlugin = true;
-					CollectionNativePluginState existingPlugin = FindPlugin(nativeState, pluginPath);
 					CollectionMemberEffectPreview memberPreview;
 					bool previewWrites = previews.TryGetValue(item.Item1, out memberPreview) && PreviewWritesPlugin(memberPreview, pluginPath);
-					if (existingPlugin != null && PluginEffectChangesExistingState(item.Item2, existingPlugin) &&
-						(String.IsNullOrWhiteSpace(ownerKey) || (!previewWrites && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
+					// A plugin can remain in the registry after removal. Its unowned state is not an unrelated
+					// mod decision when this exact incoming recipe will install the plugin again.
+					if (existingPlugin != null && changesState && !previewWrites &&
+						(String.IsNullOrWhiteSpace(ownerKey) || (!CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
 							!CurrentOwnerIsReviewedRevisionOwner(ownerKey, reviewedExistingOwnerKeys))))
 						changesExistingUnrelatedPlugin = true;
 				}

@@ -36,7 +36,7 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionUninstallNativeImpact(NativeModInstanceIdentity nativeMod,
 			IEnumerable<CollectionMemberKey> memberKeys, CollectionUninstallNativeDisposition disposition,
 			StandaloneModUse standaloneUse, IEnumerable<Guid> survivingAssociationIds,
-			ModInstallMethod? installMethod, ModInstallRoot? installRoot, string reason)
+			ModInstallMethod? installMethod, ModInstallRoot? installRoot, string reason, string nativeDisplayName = null)
 		{
 			NativeMod = nativeMod ?? throw new ArgumentNullException(nameof(nativeMod));
 			if (memberKeys == null) throw new ArgumentNullException(nameof(memberKeys));
@@ -53,6 +53,7 @@ namespace Nexus.Client.CollectionManagement
 			InstallMethod = installMethod;
 			InstallRoot = installRoot;
 			Reason = reason ?? String.Empty;
+			NativeDisplayName = nativeDisplayName ?? String.Empty;
 		}
 
 		public NativeModInstanceIdentity NativeMod { get; }
@@ -63,6 +64,7 @@ namespace Nexus.Client.CollectionManagement
 		public ModInstallMethod? InstallMethod { get; }
 		public ModInstallRoot? InstallRoot { get; }
 		public string Reason { get; }
+		internal string NativeDisplayName { get; }
 		public bool RequiresNativeRemoval { get { return Disposition == CollectionUninstallNativeDisposition.RemoveNativeMod; } }
 		public bool BlocksExecution
 		{
@@ -80,10 +82,20 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionUninstallNativeImpact> _impacts;
 
 		internal CollectionUninstallEffectsPlan(CollectionTargetAssociation association,
-			CollectionCurrentStateFingerprint stateFingerprint, IEnumerable<CollectionUninstallNativeImpact> impacts)
+			CollectionCurrentStateFingerprint stateFingerprint, IEnumerable<CollectionUninstallNativeImpact> impacts,
+			IEnumerable<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>> memberArtifacts = null,
+			IEnumerable<KeyValuePair<CollectionMemberKey, string>> nativeFileNames = null,
+			IEnumerable<CollectionOperation> supersededOperations = null, IEnumerable<NativeModInstanceIdentity> keptMods = null)
 		{
 			Association = association ?? throw new ArgumentNullException(nameof(association));
 			StateFingerprint = stateFingerprint ?? throw new ArgumentNullException(nameof(stateFingerprint));
+			ExplicitMemberRemoval = memberArtifacts != null;
+			MemberArtifacts = new ReadOnlyCollection<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>>(
+				(memberArtifacts ?? Enumerable.Empty<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>>()).ToList());
+			NativeFileNames = new ReadOnlyCollection<KeyValuePair<CollectionMemberKey, string>>(
+				(nativeFileNames ?? Enumerable.Empty<KeyValuePair<CollectionMemberKey, string>>()).ToList());
+			SupersededOperations = new ReadOnlyCollection<CollectionOperation>((supersededOperations ?? Enumerable.Empty<CollectionOperation>()).ToList());
+			KeptMods = new ReadOnlyCollection<NativeModInstanceIdentity>((keptMods ?? Enumerable.Empty<NativeModInstanceIdentity>()).Distinct().ToList());
 			_impacts = new ReadOnlyCollection<CollectionUninstallNativeImpact>((impacts ?? throw new ArgumentNullException(nameof(impacts)))
 				.OrderBy(x => x.NativeMod.NativeModKey, StringComparer.Ordinal).ToList());
 		}
@@ -93,6 +105,25 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionUninstallNativeImpact> Impacts { get { return _impacts; } }
 		public bool RequiresNativeMutation { get { return _impacts.Any(x => x.RequiresNativeRemoval); } }
 		public bool HasBlockedImpacts { get { return _impacts.Any(x => x.BlocksExecution); } }
+		internal bool ExplicitMemberRemoval { get; }
+		internal ReadOnlyCollection<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>> MemberArtifacts { get; }
+		internal ReadOnlyCollection<KeyValuePair<CollectionMemberKey, string>> NativeFileNames { get; }
+		internal ReadOnlyCollection<CollectionOperation> SupersededOperations { get; }
+		internal ReadOnlyCollection<NativeModInstanceIdentity> KeptMods { get; }
+
+		/// <summary>Retains the user's explicit choices to keep individual listed mods without changing the removal baseline.</summary>
+		internal CollectionUninstallEffectsPlan WithKeptMods(IEnumerable<NativeModInstanceIdentity> keptMods)
+		{
+			if (!ExplicitMemberRemoval) return this;
+			var kept = new HashSet<NativeModInstanceIdentity>(keptMods);
+			if (kept.Any(x => !_impacts.Any(y => y.NativeMod.Equals(x))))
+				throw new ArgumentException("A kept mod must belong to the reviewed Collection removal list.", nameof(keptMods));
+			return new CollectionUninstallEffectsPlan(Association, StateFingerprint, _impacts.Select(x => kept.Contains(x.NativeMod) &&
+				x.Disposition != CollectionUninstallNativeDisposition.AlreadyAbsent
+				? new CollectionUninstallNativeImpact(x.NativeMod, x.MemberKeys, CollectionUninstallNativeDisposition.PreserveStandalone,
+					x.StandaloneUse, x.SurvivingAssociationIds, x.InstallMethod, x.InstallRoot, "Kept by your choice in the uninstall review.", x.NativeDisplayName) : x),
+				MemberArtifacts, NativeFileNames, SupersededOperations, kept);
+		}
 	}
 
 	/// <summary>Result of one C6.14 uninstall-effects attempt.</summary>
@@ -114,6 +145,16 @@ namespace Nexus.Client.CollectionManagement
 		public bool AssociationRemoved { get; }
 		public ReadOnlyCollection<CollectionUninstallNativeImpact> Impacts { get { return _impacts; } }
 		public bool IsSuccessful { get { return Operation.IsSuccessful && AssociationRemoved; } }
+		public int RemovedCount { get { return _impacts.Count(WasRemoved); } }
+		public IEnumerable<CollectionUninstallNativeImpact> FailedRemovals { get { return _impacts.Where(x => x.RequiresNativeRemoval && !WasRemoved(x)); } }
+
+		/// <summary>Counts only native removals whose actual terminal outcome was verified, including unbound interrupted members.</summary>
+		private bool WasRemoved(CollectionUninstallNativeImpact impact)
+		{
+			return impact.RequiresNativeRemoval && Operation.NativeChildren.Any(x => x.HasVerifiedCommittedNativeState &&
+				(impact.NativeMod.Equals(CollectionUninstallEffectsCoordinator.ResolveRemovalJournalMod(Operation.Target, x.Member.MemberKey)) ||
+				 impact.MemberKeys.Contains(x.Member.MemberKey)));
+		}
 	}
 
 	/// <summary>
@@ -176,11 +217,29 @@ namespace Nexus.Client.CollectionManagement
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths).ConfigureAwait(true);
 				association = RequireAssociation(associationId);
 				RequireNoIncompleteOperation(association.Target);
-				CollectionNativeStateIndex state = CaptureReloadedState(association.Target);
 				return BuildPlan(association, state);
+			}
+		}
+
+		/// <summary>Reviews matching Collection mods independently of interrupted installation verification.</summary>
+		internal async Task<CollectionUninstallEffectsPlan> PreviewMembersAsync(Guid associationId, GameStoragePathSet paths,
+			IEnumerable<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>> memberArtifacts,
+			IEnumerable<KeyValuePair<CollectionMemberKey, string>> nativeFileNames, CancellationToken cancellationToken)
+		{
+			RequireLiveServices();
+			CollectionTargetAssociation association = RequireAssociation(associationId);
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
+			if (!authority.Target.Equals(association.Target)) throw new InvalidOperationException("The selected Collection belongs to another game setup.");
+			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths).ConfigureAwait(true);
+				association = RequireAssociation(associationId);
+				return BuildExplicitMemberPlan(_associationStore, association, state, memberArtifacts, nativeFileNames,
+					GetSupersededOperations(association));
 			}
 		}
 
@@ -192,8 +251,17 @@ namespace Nexus.Client.CollectionManagement
 			return ExecuteAsync(reviewedPlan, paths, CancellationToken.None);
 		}
 
-		/// <summary>Executes an already reviewed C6.14 plan, honoring cancellation only before each native worker start.</summary>
-		public async Task<CollectionUninstallEffectsResult> ExecuteAsync(CollectionUninstallEffectsPlan reviewedPlan,
+		/// <summary>Executes a reviewed removal on a worker so durable checkpoints do not block the UI between native tasks.</summary>
+		public Task<CollectionUninstallEffectsResult> ExecuteAsync(CollectionUninstallEffectsPlan reviewedPlan,
+			GameStoragePathSet paths, CancellationToken cancellationToken)
+		{
+			// The activation monitor marshals its UI notifications. Keep journal I/O, native preparation and
+			// the acceptance checkpoint off the caller's UI context while retaining the serial target lease.
+			return Task.Run(() => ExecuteCoreAsync(reviewedPlan, paths, cancellationToken));
+		}
+
+		/// <summary>Runs serial removal and reconciliation, honoring cancellation only before each native worker start.</summary>
+		private async Task<CollectionUninstallEffectsResult> ExecuteCoreAsync(CollectionUninstallEffectsPlan reviewedPlan,
 			GameStoragePathSet paths, CancellationToken cancellationToken)
 		{
 			RequireLiveServices();
@@ -206,14 +274,16 @@ namespace Nexus.Client.CollectionManagement
 			if (!authority.Target.Equals(reviewedPlan.Association.Target))
 				throw new InvalidOperationException("The live canonical game/storage target no longer matches the reviewed C6.14 plan.");
 
-			using (CollectionTargetMutationLease rootLease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
+			using (CollectionTargetMutationLease rootLease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(false))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				_authorityValidator.ValidateAndReload(rootLease, authority, paths);
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(rootLease, authority, paths).ConfigureAwait(false);
 				CollectionTargetAssociation association = RequireAssociation(reviewedPlan.Association.AssociationId);
-				RequireNoIncompleteOperation(association.Target);
-				CollectionNativeStateIndex state = CaptureReloadedState(association.Target);
-				CollectionUninstallEffectsPlan livePlan = BuildPlan(association, state);
+				if (!reviewedPlan.ExplicitMemberRemoval) RequireNoIncompleteOperation(association.Target);
+				CollectionUninstallEffectsPlan livePlan = reviewedPlan.ExplicitMemberRemoval
+					? BuildExplicitMemberPlan(_associationStore, association, state, reviewedPlan.MemberArtifacts,
+						reviewedPlan.NativeFileNames, GetSupersededOperations(association)).WithKeptMods(reviewedPlan.KeptMods)
+					: BuildPlan(association, state);
 				if (!PlansEqual(reviewedPlan, livePlan))
 					throw new InvalidOperationException("Collection/native state changed after the C6.14 uninstall preview; review the removal impact again before mutation.");
 
@@ -221,7 +291,8 @@ namespace Nexus.Client.CollectionManagement
 					CollectionOperationKind.UninstallCollectionEffects, association.Revision.Collection, association.Target,
 					association.Revision, null, 1, CollectionOperationPhase.ApplyingNativeChildren,
 					CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
-				_associationStore.BeginUninstallEffects(association, operation);
+				_associationStore.BeginUninstallEffects(association, operation,
+					livePlan.ExplicitMemberRemoval ? livePlan.SupersededOperations : null);
 
 				int nextSequence = 1;
 				foreach (CollectionUninstallNativeImpact impact in livePlan.Impacts.Where(x => x.RequiresNativeRemoval))
@@ -232,7 +303,7 @@ namespace Nexus.Client.CollectionManagement
 						return BuildResult(operation, association.AssociationId, livePlan);
 					}
 					operation = _operationStore.GetOperation(operation.Identity);
-					CollectionNativeChildOperation child = CreatePreparedChild(operation, impact, nextSequence++);
+					CollectionNativeChildOperation child = CreatePreparedChild(operation, impact, nextSequence++, livePlan.ExplicitMemberRemoval);
 					operation = SaveChild(operation, child);
 
 					IBackgroundTaskSet nativeTask;
@@ -243,6 +314,7 @@ namespace Nexus.Client.CollectionManagement
 							_services.ModManager.ActiveMods, child.NativeOperation);
 						if (nativeTask == null)
 						{
+							if (livePlan.ExplicitMemberRemoval) continue;
 							operation = CompleteStopped(operation, association.AssociationId, false);
 							return BuildResult(operation, association.AssociationId, livePlan);
 						}
@@ -251,6 +323,12 @@ namespace Nexus.Client.CollectionManagement
 							!Matches(installerTask.OperationIdentity, child.NativeOperation))
 							throw new InvalidOperationException("The native uninstaller did not retain the exact C6.14 operation identity.");
 						installerTask.AssignParentMutationLease(rootLease);
+					}
+					catch (Exception exception) when (livePlan.ExplicitMemberRemoval && !(exception is OperationCanceledException))
+					{
+						// No worker was submitted. Leave this prepared intent intact and attempt the remaining mods.
+						System.Diagnostics.Trace.TraceError("Collection mod could not start uninstall: " + exception);
+						continue;
 					}
 					catch
 					{
@@ -274,7 +352,8 @@ namespace Nexus.Client.CollectionManagement
 							var submitted = new CollectionNativeChildOperation(currentChild.Sequence, currentChild.Member,
 								currentChild.Action, currentChild.NativeOperation, CollectionNativeChildCheckpoint.NativeSubmitted, null);
 							current = ReplaceChild(current, submitted);
-							_associationStore.SaveUninstallChildSubmission(association.AssociationId, current, impact.NativeMod, impact.MemberKeys);
+							_associationStore.SaveUninstallChildSubmission(association.AssociationId, current, impact.NativeMod, impact.MemberKeys,
+								livePlan.ExplicitMemberRemoval);
 						});
 					}
 					catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -294,6 +373,7 @@ namespace Nexus.Client.CollectionManagement
 					if (!accepted)
 					{
 						operation = _operationStore.GetOperation(operation.Identity);
+						if (livePlan.ExplicitMemberRemoval) continue;
 						operation = CompleteStopped(operation, association.AssociationId, false);
 						return BuildResult(operation, association.AssociationId, livePlan);
 					}
@@ -301,11 +381,10 @@ namespace Nexus.Client.CollectionManagement
 					bool removed;
 					try
 					{
-						await WaitForCompletionAsync(nativeTask).ConfigureAwait(true);
+						await WaitForCompletionAsync(nativeTask).ConfigureAwait(false);
 						bool exactResult;
 						ModOperationResult reported = CaptureReportedResult(nativeTask, child.NativeOperation, out exactResult);
-						_authorityValidator.ValidateAndReload(rootLease, authority, paths);
-						state = CaptureReloadedState(association.Target);
+						state = await ReloadAndCaptureStateAsync(rootLease, authority, paths).ConfigureAwait(false);
 						ModOperationDurability durability = DetermineDurability(reported, exactResult,
 							IsNativeModFullyAbsent(state, impact.NativeMod), IsNativeModPresent(state, impact.NativeMod));
 						var verifiedResult = new ModOperationResult(child.NativeOperation, reported.ReportedStatus, durability, reported.Message);
@@ -321,6 +400,7 @@ namespace Nexus.Client.CollectionManagement
 
 						if (durability == ModOperationDurability.Unknown)
 						{
+							if (livePlan.ExplicitMemberRemoval) continue;
 							operation = MarkRecoveryRequired(operation, association.AssociationId);
 							return BuildResult(operation, association.AssociationId, livePlan);
 						}
@@ -329,7 +409,8 @@ namespace Nexus.Client.CollectionManagement
 							terminal.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, terminal.NativeResult);
 						operation = ReplaceChild(operation, reconciled);
 						removed = durability == ModOperationDurability.VerifiedCommitted;
-						_associationStore.SaveUninstallChildReconciliation(association.AssociationId, operation, impact.NativeMod, removed);
+						_associationStore.SaveUninstallChildReconciliation(association.AssociationId, operation, impact.NativeMod, removed,
+							livePlan.ExplicitMemberRemoval);
 					}
 					catch
 					{
@@ -339,6 +420,7 @@ namespace Nexus.Client.CollectionManagement
 					}
 					if (!removed)
 					{
+						if (livePlan.ExplicitMemberRemoval) continue;
 						operation = CompleteStopped(operation, association.AssociationId, true);
 						return BuildResult(operation, association.AssociationId, livePlan);
 					}
@@ -346,8 +428,14 @@ namespace Nexus.Client.CollectionManagement
 
 				try
 				{
-					_authorityValidator.ValidateAndReload(rootLease, authority, paths);
-					state = CaptureReloadedState(association.Target);
+					state = await ReloadAndCaptureStateAsync(rootLease, authority, paths).ConfigureAwait(false);
+					operation = _operationStore.GetOperation(operation.Identity);
+					if (livePlan.ExplicitMemberRemoval && (operation.HasUnreconciledNativeChild ||
+						livePlan.Impacts.Any(x => x.RequiresNativeRemoval && !IsNativeModFullyAbsent(state, x.NativeMod))))
+					{
+						operation = CompleteStopped(operation, association.AssociationId, operation.HasCrossedNativeBoundary);
+						return BuildResult(operation, association.AssociationId, livePlan);
+					}
 					foreach (CollectionUninstallNativeImpact impact in livePlan.Impacts.Where(x => x.RequiresNativeRemoval))
 						if (!IsNativeModFullyAbsent(state, impact.NativeMod))
 							throw new InvalidOperationException("A C6.14 native child was reconciled as removed but authoritative native state no longer proves that removal.");
@@ -397,10 +485,9 @@ namespace Nexus.Client.CollectionManagement
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths).ConfigureAwait(true);
 				operation = RequireRecoverableOperation(operationIdentity);
 				association = RequireAssociation(operation.Revision, operation.Target);
-				CollectionNativeStateIndex state = CaptureReloadedState(operation.Target);
 				List<CollectionNativeChildOperation> pending = operation.NativeChildren
 					.Where(x => x.HasCrossedNativeBoundary && !x.IsReconciled).ToList();
 				if (pending.Count > 1)
@@ -411,10 +498,12 @@ namespace Nexus.Client.CollectionManagement
 					CollectionNativeChildOperation child = pending[0];
 					CollectionMemberBinding binding = _associationStore.GetBindings(association.AssociationId)
 						.FirstOrDefault(x => x.MemberKey.Equals(child.Member.MemberKey));
-					if (binding == null)
-						throw new InvalidOperationException("The interrupted C6.14 child lost the binding needed to correlate its native mod instance.");
+					NativeModInstanceIdentity recoveryMod = ResolveRemovalJournalMod(operation.Target, child.Member.MemberKey);
+					if (recoveryMod == null) recoveryMod = binding == null ? null : binding.NativeMod;
+					if (recoveryMod == null)
+						throw new InvalidOperationException("The interrupted uninstall lost its native mod identity.");
 
-					bool absent = IsNativeModFullyAbsent(state, binding.NativeMod);
+					bool absent = IsNativeModFullyAbsent(state, recoveryMod);
 					ModOperationResult prior = child.NativeResult;
 					ModOperationDurability durability;
 					if (absent)
@@ -446,7 +535,7 @@ namespace Nexus.Client.CollectionManagement
 					var reconciled = new CollectionNativeChildOperation(terminal.Sequence, terminal.Member, terminal.Action,
 						terminal.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, terminal.NativeResult);
 					operation = ReplaceChild(operation, reconciled);
-					_associationStore.SaveUninstallChildReconciliation(association.AssociationId, operation, binding.NativeMod,
+					_associationStore.SaveUninstallChildReconciliation(association.AssociationId, operation, recoveryMod,
 						durability == ModOperationDurability.VerifiedCommitted);
 				}
 
@@ -455,6 +544,75 @@ namespace Nexus.Client.CollectionManagement
 				return new CollectionUninstallEffectsResult(operation,
 					_associationStore.GetAssociation(association.AssociationId), false, new CollectionUninstallNativeImpact[0]);
 			}
+		}
+
+		/// <summary>Recovers the native instance identity for a removal that did not have a completed installation binding.</summary>
+		internal static NativeModInstanceIdentity ResolveRemovalJournalMod(CollectionTargetIdentity target, CollectionMemberKey member)
+		{
+			const string prefix = "uninstall-native:";
+			return member.Kind == CollectionMemberKeyKind.ProviderStable && member.Value.StartsWith(prefix, StringComparison.Ordinal) &&
+				member.Value.Length > prefix.Length ? new NativeModInstanceIdentity(target, member.Value.Substring(prefix.Length)) : null;
+		}
+
+		/// <summary>Finds unfinished intents for this Collection that an approved uninstall will replace without inventing native outcomes.</summary>
+		private IReadOnlyList<CollectionOperation> GetSupersededOperations(CollectionTargetAssociation association)
+		{
+			return _operationStore.GetIncompleteOperations(association.Target)
+				.Where(x => x.Collection.Equals(association.Revision.Collection)).OrderBy(x => x.Identity.ToString(), StringComparer.Ordinal).ToList();
+		}
+
+		/// <summary>Matches the Collection member list to installed native instances without requiring a successful installation journal.</summary>
+		internal static CollectionUninstallEffectsPlan BuildExplicitMemberPlan(CollectionsAssociationStore store,
+			CollectionTargetAssociation association, CollectionNativeStateIndex state,
+			IEnumerable<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>> memberArtifacts,
+			IEnumerable<KeyValuePair<CollectionMemberKey, string>> nativeFileNames, IEnumerable<CollectionOperation> supersededOperations)
+		{
+			var artifacts = (memberArtifacts ?? Enumerable.Empty<KeyValuePair<CollectionMemberKey, CollectionArtifactReference>>()).ToList();
+			var names = (nativeFileNames ?? Enumerable.Empty<KeyValuePair<CollectionMemberKey, string>>()).ToList();
+			IReadOnlyList<CollectionMemberBinding> bindings = store.GetBindings(association.AssociationId);
+			var membersByMod = new Dictionary<NativeModInstanceIdentity, HashSet<CollectionMemberKey>>();
+			foreach (CollectionMemberBinding binding in bindings)
+			{
+				HashSet<CollectionMemberKey> members;
+				if (!membersByMod.TryGetValue(binding.NativeMod, out members)) membersByMod[binding.NativeMod] = members = new HashSet<CollectionMemberKey>();
+				members.Add(binding.MemberKey);
+			}
+			foreach (CollectionNativeModState mod in state.Mods.Values)
+			{
+				var members = new HashSet<CollectionMemberKey>();
+				foreach (KeyValuePair<CollectionMemberKey, CollectionArtifactReference> source in artifacts)
+				{
+					string domain; long modId; long fileId;
+					if (NexusCollectionModFileArtifactIdentity.TryParse(source.Value, out domain, out modId, out fileId) &&
+						StringComparer.Ordinal.Equals(mod.NexusModId, modId.ToString(System.Globalization.CultureInfo.InvariantCulture)) &&
+						StringComparer.Ordinal.Equals(mod.NexusFileId, fileId.ToString(System.Globalization.CultureInfo.InvariantCulture)))
+						members.Add(source.Key);
+				}
+				foreach (KeyValuePair<CollectionMemberKey, string> source in names)
+					if (StringComparer.OrdinalIgnoreCase.Equals(mod.FileName, source.Value)) members.Add(source.Key);
+				if (members.Count == 0) continue;
+				HashSet<CollectionMemberKey> boundMembers;
+				if (!membersByMod.TryGetValue(mod.Identity, out boundMembers)) membersByMod[mod.Identity] = boundMembers = new HashSet<CollectionMemberKey>();
+				boundMembers.UnionWith(members);
+			}
+			var impacts = new List<CollectionUninstallNativeImpact>();
+			foreach (KeyValuePair<NativeModInstanceIdentity, HashSet<CollectionMemberKey>> pair in membersByMod)
+			{
+				CollectionNativeModState mod;
+				state.Mods.TryGetValue(pair.Key, out mod);
+				NativeModProvenance provenance = store.GetNativeModProvenance(pair.Key);
+				Guid[] shared = store.GetBindingsForNativeMod(pair.Key).Where(x => x.Association.AssociationId != association.AssociationId)
+					.Select(x => x.Association.AssociationId).Distinct().ToArray();
+				string reason = shared.Length > 0 ? "Another Collection also uses this mod. Removing it will leave that Collection incomplete."
+					: provenance.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse ? "You also use this mod separately. Uncheck it to keep it installed."
+					: "Matches this Collection's mod list. Uncheck it to keep it installed.";
+				impacts.Add(new CollectionUninstallNativeImpact(pair.Key, pair.Value,
+					mod == null ? CollectionUninstallNativeDisposition.AlreadyAbsent : CollectionUninstallNativeDisposition.RemoveNativeMod,
+					provenance.StandaloneUse, shared, mod == null ? (ModInstallMethod?)null : mod.InstallMethod,
+					mod == null ? (ModInstallRoot?)null : mod.InstallRoot, reason,
+					mod == null ? null : (String.IsNullOrWhiteSpace(mod.ModName) ? mod.FileName : mod.ModName) + " " + mod.HumanReadableVersion));
+			}
+			return new CollectionUninstallEffectsPlan(association, state.Fingerprint, impacts, artifacts, names, supersededOperations);
 		}
 
 		private CollectionUninstallEffectsPlan BuildPlan(CollectionTargetAssociation association, CollectionNativeStateIndex state)
@@ -615,7 +773,10 @@ namespace Nexus.Client.CollectionManagement
 			if (left == null || right == null || left.Association.AssociationId != right.Association.AssociationId ||
 				!left.Association.Revision.Equals(right.Association.Revision) || !left.Association.Target.Equals(right.Association.Target) ||
 				left.Association.State != right.Association.State || !left.StateFingerprint.Equals(right.StateFingerprint) ||
-				left.Impacts.Count != right.Impacts.Count)
+				left.Impacts.Count != right.Impacts.Count || left.ExplicitMemberRemoval != right.ExplicitMemberRemoval ||
+				left.SupersededOperations.Count != right.SupersededOperations.Count ||
+				left.SupersededOperations.Any(x => !right.SupersededOperations.Any(y => y.Identity.Equals(x.Identity) &&
+					y.CheckpointSequence == x.CheckpointSequence)))
 				return false;
 			for (int i = 0; i < left.Impacts.Count; i++)
 			{
@@ -637,30 +798,47 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionNativeChildOperation CreatePreparedChild(CollectionOperation operation,
-			CollectionUninstallNativeImpact impact, int sequence)
+			CollectionUninstallNativeImpact impact, int sequence, bool explicitMemberRemoval = false)
 		{
 			if (!impact.InstallMethod.HasValue || !impact.InstallRoot.HasValue || impact.MemberKeys.Count == 0)
 				throw new InvalidOperationException("A removable C6.14 native mod is missing installed context/member correlation.");
 			var identity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
 				new ModOperationFingerprint(operation.Target.Fingerprint,
 					new ModInstallContext(impact.InstallMethod.Value, impact.InstallRoot.Value), null));
-			var member = new CollectionOperationMemberReference(operation.Revision, impact.MemberKeys[0]);
+			var member = new CollectionOperationMemberReference(operation.Revision, explicitMemberRemoval
+				? CollectionMemberKey.FromProvider("uninstall-native:" + impact.NativeMod.NativeModKey) : impact.MemberKeys[0]);
 			return new CollectionNativeChildOperation(sequence, member, CollectionNativeChildAction.Deactivate, identity,
 				CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
 		}
 
 		private IMod ResolveLiveMod(NativeModInstanceIdentity nativeMod)
 		{
-			List<IMod> matches = _services.ModManager.ActiveMods.Where(mod =>
+			Func<IMod, bool> matchesKey = mod =>
 			{
 				string key;
 				try { key = _services.ModManager.InstallationLog.GetModKey(mod); }
 				catch { return false; }
 				return StringComparer.Ordinal.Equals(key, nativeMod.NativeModKey);
-			}).ToList();
+			};
+			// Reload can replace the active object while the archive registry still holds an older instance.
+			List<IMod> matches = _services.ModManager.ActiveMods.Where(matchesKey).ToList();
+			if (matches.Count == 0) matches = _services.ModManager.ManagedMods.Where(matchesKey).ToList();
 			if (matches.Count != 1)
 				throw new InvalidOperationException("The reviewed C6.14 native mod cannot be resolved to exactly one live active mod instance.");
 			return matches[0];
+		}
+
+		/// <summary>Reloads and captures authoritative removal state on a worker while the caller retains the target lease.</summary>
+		private Task<CollectionNativeStateIndex> ReloadAndCaptureStateAsync(CollectionTargetMutationLease lease,
+			CollectionTargetAuthority authority, GameStoragePathSet paths)
+		{
+			// Reconciliation must finish even when cancellation arrives after a native child committed.
+			// Await each reload before publishing its result or submitting the next uninstaller.
+			return Task.Run(() =>
+			{
+				_authorityValidator.ValidateAndReload(lease, authority, paths);
+				return CaptureReloadedState(authority.Target);
+			});
 		}
 
 		private CollectionNativeStateIndex CaptureReloadedState(CollectionTargetIdentity target)

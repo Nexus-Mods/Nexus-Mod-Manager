@@ -319,7 +319,9 @@ namespace Nexus.Client.ModManagement.Scripting
 			// A same-mod reinstall keeps its existing active link and returns no new link path.
 			// Retain that selection too: the recipe still requires the file in its complete replay.
 			if (m_sfcFileSelectionCache != null && (!String.IsNullOrEmpty(strLinkResult) ||
-				IsAlreadyActiveVirtualFile(strTo, strVirtualPath)))
+				IsAlreadyActiveVirtualFile(strTo, strVirtualPath) ||
+				(p_imoOperation.LinkDecision != null && p_imoOperation.LinkDecision.HasLinkOutcome &&
+				 p_imoOperation.LinkDecision.LinkOutcome == false && IsOwnedInactiveVirtualFile(strTo, strVirtualPath))))
 				m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
 
 			return true;
@@ -337,6 +339,16 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_ivaVirtualModActivator.CheckFileLink(destinationPath, m_igpInstallers.InstallContext.InstallRoot,
 				out currentOwner, out links);
 			return ReferenceEquals(currentOwner, m_modMod) && File.Exists(GetPhysicalDeploymentPath(destinationPath));
+		}
+
+		/// <summary>Retains an exact reviewed selection even when another mod remains the active Virtual winner.</summary>
+		private bool IsOwnedInactiveVirtualFile(string destinationPath, string stagingPath)
+		{
+			if (m_ivaVirtualModActivator == null || !File.Exists(stagingPath)) return false;
+			IMod owner; List<IVirtualModLink> links;
+			m_ivaVirtualModActivator.CheckFileLink(destinationPath, m_igpInstallers.InstallContext.InstallRoot, out owner, out links);
+			return links != null && links.Any(x => !x.Active && x.ModInfo != null &&
+				StringComparer.OrdinalIgnoreCase.Equals(x.ModInfo.ModFileName, Path.GetFileName(m_modMod.Filename)));
 		}
 
 		/// <summary>

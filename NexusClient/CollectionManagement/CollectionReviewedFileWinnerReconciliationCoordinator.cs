@@ -421,7 +421,7 @@ namespace Nexus.Client.CollectionManagement
 		private static CollectionReviewedFileWinnerDispatchKind ResolveDispatch(CollectionNativeFileState file)
 		{
 			if (file.Promoted) return CollectionReviewedFileWinnerDispatchKind.Promoted;
-			if (file.RecordedByVirtualState && file.Target.Root == ModDeploymentRoot.Data)
+			if (file.RecordedByVirtualState)
 				return CollectionReviewedFileWinnerDispatchKind.Virtual;
 			throw new InvalidOperationException("The reviewed native file target cannot be reconciled by the supported promoted/Virtual owner-switch services.");
 		}
@@ -484,9 +484,22 @@ namespace Nexus.Client.CollectionManagement
 				deploymentManager.SwitchPromotedOwner(intent.Target, ownerKey);
 				return;
 			}
-			VirtualFileOwnerSwitchResult result = virtualDeploymentService.SwitchFileOwner(intent.Target.RelativePath, ownerKey);
+			VirtualFileOwnerSwitchResult result = SwitchReviewedVirtualOwner(virtualDeploymentService, intent.Target, ownerKey);
 			if (result == null || !result.Success || !StringComparer.OrdinalIgnoreCase.Equals(result.SelectedOwnerKey, ownerKey))
-				throw new InvalidOperationException("The native Virtual owner switch did not report the reviewed owner as selected.", result == null ? null : result.Failure);
+			{
+				string detail = result != null && !String.IsNullOrWhiteSpace(result.FailureMessage) ? result.FailureMessage : "The native switch did not report the reviewed owner as selected.";
+				throw new InvalidOperationException(String.Format("NMM could not select the reviewed file owner for '{0}': {1}", intent.Target, detail),
+					result == null ? null : result.Failure);
+			}
+		}
+
+		/// <summary>Preserves deployment-root identity and retains the legacy Data-only service fallback.</summary>
+		internal static VirtualFileOwnerSwitchResult SwitchReviewedVirtualOwner(IVirtualDeploymentService service, ModDeploymentTarget target, string ownerKey)
+		{
+			IRootAwareVirtualDeploymentService rootAware = service as IRootAwareVirtualDeploymentService;
+			if (rootAware != null) return rootAware.SwitchFileOwner(target, ownerKey);
+			if (target.Root == ModDeploymentRoot.Data) return service.SwitchFileOwner(target.RelativePath, ownerKey);
+			return VirtualFileOwnerSwitchResult.Failed("The Virtual deployment service cannot switch a file in this deployment root.");
 		}
 
 		/// <summary>Resolves the deployment manager from the current post-reload native service graph.</summary>

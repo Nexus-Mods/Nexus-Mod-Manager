@@ -168,6 +168,7 @@
     <Compile Include="CollectionLocalRestoreGameValueExecutorTests.cs" />
     <Compile Include="CollectionLocalRestoreUserMetadataExecutorTests.cs" />
     <Compile Include="CollectionLocalRestoreProfileBoundaryTests.cs" />
+    <Compile Include="ProfileDeploymentManifestTests.cs" />
     <Compile Include="CollectionsLocalCaptureStoreTests.cs" />
     <Compile Include="NativeStateCaptureReaderTests.cs" />
     <Compile Include="CollectionInstalledIdentityCaptureReaderTests.cs" />
@@ -187,6 +188,7 @@
     <Compile Include="CollectionRevisionUpdateAggregateVerificationTests.cs" />
     <Compile Include="CollectionRevisionUpdatePublicationTests.cs" />
     <Compile Include="CollectionVerifyRepairPlannerTests.cs" />
+    <Compile Include="CollectionInstallRootCorrectionTests.cs" />
     <Compile Include="CollectionReplacementOutgoingRemovalCoordinatorTests.cs" />
     <Compile Include="CollectionReplacementPhaseBarrierCoordinatorTests.cs" />
     <Compile Include="CollectionReplacementValidationGateTests.cs" />
@@ -264,6 +266,8 @@
     <Compile Include="CSharpScriptCompatibilityTests.cs" />
     <Compile Include="CategoryTreeViewportTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
+    <Compile Include="GameRootPackageRulesTests.cs" />
+    <Compile Include="CollectionInstallDestinationResolverTests.cs" />
     <Compile Include="BasicInstallPlanBuilderTests.cs" />
     <Compile Include="DataDrivenBaldursGate3GameModeTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
@@ -274,6 +278,7 @@
     <Compile Include="MixedDeploymentStep4Tests.cs" />
     <Compile Include="VirtualModStoreFailureInjectionTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
+    <Compile Include="VirtualModRemovalRegressionTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />
     <Compile Include="ModSortOrderComparerTests.cs" />
     <Compile Include="ModSortOrderServiceTests.cs" />

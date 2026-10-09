@@ -179,6 +179,31 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Replacement registrations retain Collection ownership without overriding independent protection.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void FinalizeRevisionUpdateAssociation_PublishesCandidateOwnershipAtomically(bool independentlyProtected)
+		{
+			using (StoreFixture f = StoreFixture.CreateCrossKey("candidate-ownership"))
+			{
+				CollectionRevisionUpdatePublicationPlan publication = f.BuildPublication();
+				CollectionMemberBinding candidate = publication.Bindings.Single();
+				var replacement = new CollectionMemberBinding(publication.CandidateAssociation, candidate.MemberKey,
+					new NativeModInstanceIdentity(candidate.NativeMod.Target, "replacement-native"), candidate.VerifiedRecipe, candidate.BindingKind);
+				if (independentlyProtected)
+					f.AssociationStore.SaveNativeModProvenance(new NativeModProvenance(replacement.NativeMod, StandaloneModUse.ExplicitStandaloneUse));
+				f.AssociationStore.FinalizeRevisionUpdateAssociation(f.Reviewed, f.Verification,
+					publication.CandidateAssociation, new[] { replacement }, f.ExpectedOldOverrides, publication.Overrides,
+					f.CommittedOperation(), new[] { new NativeModProvenance(replacement.NativeMod, StandaloneModUse.NoStandaloneUseVerified) });
+
+				Assert.That(f.AssociationStore.GetAssociation(f.OldAssociation.AssociationId), Is.Null);
+				Assert.That(f.AssociationStore.GetBindings(publication.CandidateAssociation.AssociationId).Single().NativeMod, Is.EqualTo(replacement.NativeMod));
+				Assert.That(f.AssociationStore.GetNativeModProvenance(replacement.NativeMod).StandaloneUse,
+					Is.EqualTo(independentlyProtected ? StandaloneModUse.ExplicitStandaloneUse : StandaloneModUse.NoStandaloneUseVerified));
+				Assert.That(f.OperationStore.GetOperation(f.Operation.Identity).IsSuccessful, Is.True);
+			}
+		}
+
 		[Test]
 		public void FinalizeRevisionUpdateAssociation_ChangedOldOverride_RollsBackCandidateAndTerminalCheckpoint()
 		{

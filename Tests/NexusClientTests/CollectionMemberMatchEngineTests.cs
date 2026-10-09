@@ -51,6 +51,45 @@ namespace NexusClientTests
 			Assert.That(result.Reason, Is.EqualTo(CollectionMemberMatchReason.RequiredInstallRootMismatch));
 		}
 
+		/// <summary>Installed Data bindings must supply exact archive evidence before package recognition can allow reuse.</summary>
+		[Test]
+		public void Match_InferredDestinationChecks_DoNotBlindlyReuseAppliedDataBinding()
+		{
+			Fixture fixture = CreateFixture("recipe-1", "100", "200", CollectionAssociationState.Applied, true);
+			var engine = new CollectionMemberMatchEngine((member, archive, cancellationToken) => true);
+			CollectionMemberMatchResult pending = engine.Match(fixture.Plan, fixture.State).Members[0];
+			Assert.That(pending.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.AcquisitionRequired));
+			CollectionMemberMatchResult verified = engine.Match(fixture.Plan, fixture.State,
+				new[] { CreateVerifiedArchive(fixture.Plan) }).Members[0];
+			Assert.That(verified.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.ReinstallRequired));
+			Assert.That(verified.Reason, Is.EqualTo(CollectionMemberMatchReason.RequiredInstallRootMismatch));
+		}
+
+		/// <summary>Ordinary mods can reuse their installed binding after destination checks prove they do not need the game root.</summary>
+		[Test]
+		public void Match_ArchiveDoesNotRequireGameRoot_ReusesVerifiedDataBinding()
+		{
+			Fixture fixture = CreateFixture("recipe-1", "100", "200", CollectionAssociationState.Applied, true);
+			var engine = new CollectionMemberMatchEngine((member, archive, cancellationToken) => false);
+			CollectionMemberMatchResult verified = engine.Match(fixture.Plan, fixture.State,
+				new[] { CreateVerifiedArchive(fixture.Plan) }).Members[0];
+			Assert.That(verified.Disposition, Is.EqualTo(CollectionMemberMatchDisposition.InstalledCompatible));
+		}
+
+		/// <summary>Execution uses retained root decisions without reacquiring archives or recognizing packages again.</summary>
+		[TestCase(false, CollectionMemberMatchDisposition.InstalledCompatible)]
+		[TestCase(true, CollectionMemberMatchDisposition.ReinstallRequired)]
+		public void Match_FrozenDestination_ReusesDataBindingOrKeepsApprovedFolderCorrection(bool gameRoot,
+			CollectionMemberMatchDisposition expected)
+		{
+			Fixture fixture = CreateFixture("recipe-1", "100", "200", CollectionAssociationState.Applied, true);
+			var engine = new CollectionMemberMatchEngine((member, archive, cancellationToken) => gameRoot, false);
+			CollectionMemberMatchResult result = engine.MatchForReplacementExecution(fixture.Plan, fixture.State,
+				new CollectionVerifiedArchive[0]).Members[0];
+			Assert.AreEqual(expected, result.Disposition);
+			Assert.AreEqual(fixture.NativeMod.Identity, result.MatchedNativeMod.Identity);
+		}
+
 		[Test]
 		public void Match_CompatibleAppliedBindingFromAnotherAssociation_ReusesSharedInstance()
 		{

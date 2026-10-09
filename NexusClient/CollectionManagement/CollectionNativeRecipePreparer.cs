@@ -71,13 +71,15 @@ namespace Nexus.Client.CollectionManagement
 
 		internal PreparedCollectionNativeRecipe(ResolvedCollectionMemberPlan member,
 			PreparedCollectionNativeRecipeIdentity preparedNativeIdentity, ModInstallationRecipeInput recipeInput,
-			CollectionMemberEffectPreview effectPreview, bool skipReadmeFiles, IEnumerable<string> retainedArtifactIds)
+			CollectionMemberEffectPreview effectPreview, bool skipReadmeFiles, IEnumerable<string> retainedArtifactIds,
+			string gameRootArchiveBaseDirectory = null)
 		{
 			Member = member ?? throw new ArgumentNullException(nameof(member));
 			PreparedNativeIdentity = preparedNativeIdentity ?? throw new ArgumentNullException(nameof(preparedNativeIdentity));
 			RecipeInput = recipeInput ?? throw new ArgumentNullException(nameof(recipeInput));
 			EffectPreview = effectPreview ?? throw new ArgumentNullException(nameof(effectPreview));
 			SkipReadmeFiles = skipReadmeFiles;
+			GameRootArchiveBaseDirectory = gameRootArchiveBaseDirectory;
 			if (!recipeInput.HasNativePlan)
 				throw new ArgumentException("A prepared Collection native recipe requires translated C5 operations.", nameof(recipeInput));
 			if (!effectPreview.IsComplete)
@@ -103,6 +105,9 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets the exact native method/root captured during preparation.</summary>
 		public ModInstallContext InstallContext { get { return RecipeInput.InstallContext; } }
+
+		/// <summary>Gets the exact recognised archive base, or null for legacy or provider-defined mappings.</summary>
+		internal string GameRootArchiveBaseDirectory { get; }
 
 		/// <summary>Gets the C5 adapter identifier used by this prepared recipe.</summary>
 		public string AdapterId { get { return RecipeInput.Validation.AdapterId; } }
@@ -229,11 +234,11 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, string gameRootArchiveBaseDirectory = null)
 		{
 			return PrepareExactCore(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
 				currentState, skipReadmeFiles, pluginManager, activeMods, includeDeterministicModFileMergeOutput,
-				cancellationToken, null);
+				cancellationToken, null, gameRootArchiveBaseDirectory);
 		}
 
 		/// <summary>
@@ -243,14 +248,15 @@ namespace Nexus.Client.CollectionManagement
 		internal PreparedCollectionNativeRecipe PrepareRevisionUpdateExact(ResolvedCollectionPlan approvedPlan,
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
-			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, CancellationToken cancellationToken)
+			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, CancellationToken cancellationToken,
+			string gameRootArchiveBaseDirectory = null)
 		{
 			if (approvedPlan == null) throw new ArgumentNullException(nameof(approvedPlan));
 			if (currentState == null) throw new ArgumentNullException(nameof(currentState));
 			ResolvedCollectionPlan boundaryPlan = CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(
 				approvedPlan, currentState.Fingerprint);
 			return PrepareExactCore(boundaryPlan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-				currentState, skipReadmeFiles, pluginManager, activeMods, true, cancellationToken, approvedPlan);
+				currentState, skipReadmeFiles, pluginManager, activeMods, true, cancellationToken, approvedPlan, gameRootArchiveBaseDirectory);
 		}
 
 		/// <summary>Prepares exact output with separate current-state validation and immutable review identity inputs.</summary>
@@ -258,7 +264,7 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
-			CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan)
+			CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan, string gameRootArchiveBaseDirectory = null)
 		{
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			try
@@ -271,7 +277,7 @@ namespace Nexus.Client.CollectionManagement
 				if (!member.HasVortexFomodSelection)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-						skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken, identityPlan);
+						skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken, identityPlan, gameRootArchiveBaseDirectory);
 				}
 
 				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
@@ -293,6 +299,17 @@ namespace Nexus.Client.CollectionManagement
 			CollectionReplacementEnvironmentProjection conditionEnvironment, bool skipReadmeFiles, IPluginManager pluginManager = null,
 			CancellationToken cancellationToken = default(CancellationToken))
 		{
+			return PrepareReplacementExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
+				currentState, conditionEnvironment, skipReadmeFiles, pluginManager, cancellationToken, null);
+		}
+
+		/// <summary>Prepares a replacement with the exact recognised archive base captured before its review.</summary>
+		internal PreparedCollectionNativeRecipe PrepareReplacementExact(ResolvedCollectionPlan plan,
+			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
+			CollectionReplacementEnvironmentProjection conditionEnvironment, bool skipReadmeFiles, IPluginManager pluginManager,
+			CancellationToken cancellationToken, string gameRootArchiveBaseDirectory)
+		{
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			try
 			{
@@ -304,7 +321,7 @@ namespace Nexus.Client.CollectionManagement
 				if (!member.HasVortexFomodSelection)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
-						skipReadmeFiles, pluginManager, true, conditionEnvironment, null, true, cancellationToken);
+						skipReadmeFiles, pluginManager, true, conditionEnvironment, null, true, cancellationToken, null, gameRootArchiveBaseDirectory);
 				}
 
 				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
@@ -340,7 +357,8 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			ModInstallContext installContext, CollectionNativeStateIndex currentState, bool skipReadmeFiles,
 			IPluginManager pluginManager, bool replacement, CollectionReplacementEnvironmentProjection conditionEnvironment,
-			IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput, CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null)
+			IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput, CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null,
+			string gameRootArchiveBaseDirectory = null)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (member.HasVortexFileList)
@@ -358,7 +376,7 @@ namespace Nexus.Client.CollectionManagement
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 			ValidateCharacterizedInstallRootBehavior(member, mod);
 
-			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods, includeDeterministicModFileMergeOutput);
+			BasicInstallPlanResult basicResult = _basicInstallPlanBuilder.Build(mod, gameMode, installContext, skipReadmeFiles, null, activeMods, includeDeterministicModFileMergeOutput, gameRootArchiveBaseDirectory);
 			if (!basicResult.IsSupported)
 			{
 				throw new NotSupportedException(String.Format("The Collection member cannot use the characterized basic/simple adapter: {0} ({1}).",
@@ -390,7 +408,7 @@ namespace Nexus.Client.CollectionManagement
 				verifiedArchive.Artifact, basicResult.Plan, translated, effectPreview, skipReadmeFiles);
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
-				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(mergeArtifacts).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
+				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(mergeArtifacts).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal), gameRootArchiveBaseDirectory);
 		}
 
 

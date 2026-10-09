@@ -211,8 +211,9 @@ namespace Nexus.Client.ModManagement
 						? ModInstallLog.GetModInstallMethod(Mod)
 						: ModInstallMethod.Virtual;
 					bool booHasPromotedFiles = DeploymentManager != null && DeploymentManager.HasPromotedFiles(Mod);
+					bool booUseTransactionalRemoval = DeploymentManager != null && booIsInstallLogActive;
 
-					if (installMethod == ModInstallMethod.Virtual && booHasVirtualLinks && !booHasPromotedFiles)
+					if (installMethod == ModInstallMethod.Virtual && booHasVirtualLinks && !booHasPromotedFiles && !booUseTransactionalRemoval)
 					{
 						VirtualModDisableTask vdtDisableTask = new VirtualModDisableTask(Mod, VirtualModActivator, DisableVirtualFilesOnly);
 						OnTaskStarted(vdtDisableTask);
@@ -248,7 +249,7 @@ namespace Nexus.Client.ModManagement
 							TxFileManager tfmFileManager = new TxFileManager();
 							bool deploymentRemovalSucceeded = true;
 
-							if (installMethod == ModInstallMethod.Direct || booHasPromotedFiles)
+							if (installMethod == ModInstallMethod.Direct || booHasPromotedFiles || booUseTransactionalRemoval)
 							{
 								MixedModDeploymentRemovalTask removalTask = new MixedModDeploymentRemovalTask(Mod, DeploymentManager, tfmFileManager);
 								OnTaskStarted(removalTask);
@@ -383,6 +384,7 @@ namespace Nexus.Client.ModManagement
 			if (mfiFileInstaller.InstallErrors.Count > 0)
 			{
 				p_strErrorMessage = Environment.NewLine + "There were issues while installing/uninstalling this mod:" + Environment.NewLine;
+				p_strErrorMessage += String.Join(Environment.NewLine, mfiFileInstaller.InstallErrors);
 				foreach (string strPath in mfiFileInstaller.InstallErrors)
 					DetailsErrorMessage += strPath + Environment.NewLine;
 

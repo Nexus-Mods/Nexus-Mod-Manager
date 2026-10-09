@@ -608,7 +608,7 @@ namespace Nexus.Client.ModManagement
 			{
 				if (virtualOwner)
 					m_vmaVirtualModActivator.DetachVirtualLinkWithoutFallback(p_mdtTarget, p_strModKey, p_tfmFileManager);
-				else if (File.Exists(deploymentPath))
+				else if (p_tfmFileManager.GetFileEntryKind(deploymentPath, null) != FileEntryKind.Absent)
 					p_tfmFileManager.Delete(deploymentPath);
 			}
 
@@ -633,6 +633,7 @@ namespace Nexus.Client.ModManagement
 			string restoreOwnerKey = p_lstOwners.Count == 0 ? null : p_lstOwners[p_lstOwners.Count - 1];
 			if (restoreOwnerKey == null)
 			{
+				VerifyRemovedDeploymentEntry(p_mdtTarget, p_tfmFileManager);
 				m_ilgInstallLog.RemoveDeploymentTarget(p_mdtTarget);
 				p_colAbsentPaths.Add(p_strDeploymentPath);
 				return;
@@ -679,7 +680,20 @@ namespace Nexus.Client.ModManagement
 			if (currentWinner && !string.IsNullOrEmpty(legacyOverwritePath) && File.Exists(legacyOverwritePath))
 				MoveOrCopyDelete(legacyOverwritePath, deploymentPath, p_tfmFileManager);
 			else if (currentWinner)
+			{
+				VerifyRemovedDeploymentEntry(p_mdtTarget, p_tfmFileManager);
 				p_colAbsentPaths.Add(deploymentPath);
+			}
+		}
+
+		/// <summary>
+		/// Confirms the last owner's deployment entry was removed before reporting an absent target.
+		/// </summary>
+		private void VerifyRemovedDeploymentEntry(ModDeploymentTarget target, TxFileManager fileManager)
+		{
+			string path = GetDeploymentPath(target);
+			if (fileManager.GetFileEntryKind(path, null) != FileEntryKind.Absent)
+				throw new IOException(String.Format("NMM could not finish removing '{0}': the deployed file is still present.", path));
 		}
 
 		private void RelocateLegacyVirtualOverwrite(ModDeploymentTarget p_mdtTarget, string p_strSourcePath,

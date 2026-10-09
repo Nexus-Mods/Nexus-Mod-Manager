@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
@@ -166,6 +167,127 @@ namespace NexusClientTests
 				Assert.AreEqual(accepted, CollectionNativeChildRestartReconciliationCoordinator.TryCollectExactVirtualRelinkTargets(
 					evidence, state, "owner", (deploymentTarget, ownerKey) => source, out targets, out failure), failure);
 				Assert.AreEqual(count, targets.Count);
+			}
+			finally { Directory.Delete(directory, true); }
+		}
+
+		/// <summary>Recovers only missing replay metadata when a first activation already has exact installed bytes and native ownership.</summary>
+		[TestCase("exact", true)]
+		[TestCase("changed-bytes", false)]
+		[TestCase("missing-file", false)]
+		[TestCase("changed-archive", false)]
+		[TestCase("changed-staging", false)]
+		[TestCase("missing-staging", false)]
+		[TestCase("foreign-owner", false)]
+		[TestCase("missing-install-log", false)]
+		[TestCase("inactive-link", false)]
+		[TestCase("unreviewed-file", false)]
+		[TestCase("missing-registration", false)]
+		[TestCase("duplicate-registration", false)]
+		[TestCase("wrong-file-id", false)]
+		[TestCase("wrong-domain", false)]
+		[TestCase("direct", false)]
+		[TestCase("existing-replay", false)]
+		[TestCase("existing-payloads", false)]
+		[TestCase("previous-replay", false)]
+		[TestCase("previous-mod", false)]
+		[TestCase("generated", false)]
+		public void MissingActivationReplay_RequiresExactCommittedPostimage(string scenario, bool accepted)
+		{
+			string directory = Path.Combine(Path.GetTempPath(), "collection-activation-replay-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(directory);
+			try
+			{
+				string archivePath = Path.Combine(directory, "incoming.7z");
+				string deployed = Path.Combine(directory, "mod.dll");
+				string staged = Path.Combine(directory, "staged.dll");
+				File.WriteAllBytes(staged, new byte[] { 1, 2, 3, 4 });
+				File.WriteAllBytes(archivePath, new byte[] { 5, 6, 7, 8 });
+				File.WriteAllBytes(deployed, new byte[] { 1, 2, 3, 4 });
+				CollectionContentHash archiveHash = CollectionContentHash.FromSha256(ComputeSha256(archivePath));
+				CollectionContentHash fileHash = CollectionContentHash.FromSha256(ComputeSha256(deployed));
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-missing-replay");
+				ModInstallMethod method = scenario == "direct" ? ModInstallMethod.Direct : ModInstallMethod.Virtual;
+				var nativeMod = new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner"), archivePath,
+					"incoming.7z", "10", scenario == "wrong-file-id" ? "21" : "20", "1.0", "1.0", ModInstallRoot.Data, method);
+				var mods = new List<CollectionNativeModState>();
+				if (scenario != "missing-registration") mods.Add(nativeMod);
+				if (scenario == "duplicate-registration")
+					mods.Add(new CollectionNativeModState(new NativeModInstanceIdentity(target, "other"), archivePath,
+						"incoming.7z", "10", "20", "1.0", "1.0", ModInstallRoot.Data, method));
+				ModDeploymentTarget deployment = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "mod.dll");
+				var owner = new CollectionNativeOwnerState("owner", null, CollectionNativeOwnerKind.NativeMod, null, null, null);
+				var link = new CollectionNativeOwnerState("owner", null, CollectionNativeOwnerKind.NativeMod,
+					scenario != "inactive-link", 0, staged);
+				var files = new List<CollectionNativeFileState>
+				{
+					new CollectionNativeFileState(deployment, deployed, false, scenario != "missing-install-log", true,
+						scenario == "foreign-owner" ? "foreign" : "owner", new[] { owner }, new CollectionNativeOwnerState[0], new[] { link })
+				};
+				if (scenario == "unreviewed-file")
+					files.Add(new CollectionNativeFileState(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "extra.dll"),
+						deployed, false, true, true, "owner", new[] { owner }, new CollectionNativeOwnerState[0], new[] { link }));
+				var state = new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], mods, files,
+					new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
+					CollectionNativeStateCoverage.NotApplicable, new CollectionTargetAssociation[0], new CollectionMemberBinding[0],
+					new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 1);
+				var preview = new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("replay-member"),
+					CollectionRecipeIdentity.FromFingerprint("replay-recipe"), method, ModInstallRoot.Data,
+					new[] { new CollectionPlannedFileEffect(deployment, fileHash, 4) }, new CollectionPlannedIniEffect[0],
+					new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				CollectionExpectedReplayOperation expected = scenario == "generated"
+					? new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.GeneratedFile, null, "mod.dll", 4, fileHash.Value)
+					: new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "files/mod.dll", "mod.dll", 0, null);
+				var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+					new[] { new CollectionNativeFileContentEvidence(deployment, false, null, 0) },
+					new[] { new CollectionNativeFileContentEvidence(deployment, true, fileHash, 4) },
+					new CollectionReplayContentEvidence(scenario == "previous-replay", scenario == "previous-replay" ? fileHash : null,
+						scenario == "previous-replay" ? 4 : 0, false, new CollectionReplayPayloadContentEvidence[0]), new[] { expected });
+				CollectionIdentity collection = CollectionIdentity.FromNexus("activation-replay-collection");
+				CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "activation-replay-revision", 1);
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(method, ModInstallRoot.Data), "replay-recipe"));
+				var artifact = new CollectionRecoveryArtifact("incoming", archiveHash, 4);
+				var recovery = new CollectionNativeChildRecoveryManifest(CollectionOperationIdentity.CreateNew(), 1,
+					CollectionPlanIdentity.From(Guid.NewGuid(), 1), new CollectionOperationMemberReference(revision, preview.MemberKey),
+					CollectionNativeChildAction.ActivateOrReinstall, native,
+					new CollectionCurrentStateFingerprint(state.Fingerprint.FormatVersion, "pre-activation-state"), artifact,
+					scenario == "previous-mod" ? nativeMod : null, scenario == "previous-mod" ? artifact : null,
+					new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]), evidence);
+				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, directory);
+				if (scenario == "existing-replay")
+				{
+					Directory.CreateDirectory(Path.GetDirectoryName(replayPath));
+					File.WriteAllText(replayPath, "existing record");
+				}
+				if (scenario == "existing-payloads") Directory.CreateDirectory(ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath));
+				if (scenario == "changed-bytes") File.WriteAllBytes(deployed, new byte[] { 1, 9, 3, 4 });
+				if (scenario == "missing-file") File.Delete(deployed);
+				if (scenario == "changed-archive") File.WriteAllBytes(archivePath, new byte[] { 5, 9, 7, 8 });
+				if (scenario == "changed-staging") File.WriteAllBytes(staged, new byte[] { 1, 9, 3, 4 });
+				if (scenario == "missing-staging") File.Delete(staged);
+				byte[] originalBytes = File.Exists(deployed) ? File.ReadAllBytes(deployed) : null;
+				IGameMode gameMode = InterfaceStub<IGameMode>.Create((invoked, arguments) => null);
+				string detail;
+				Assert.AreEqual(accepted, CollectionNativeChildRestartReconciliationCoordinator.TryRestoreExactNewActivationReplay(
+					recovery, evidence, state, scenario == "wrong-domain" ? "other-game" : "game", directory, gameMode, out detail), detail);
+				Assert.AreEqual(originalBytes != null, File.Exists(deployed));
+				if (originalBytes != null) CollectionAssert.AreEqual(originalBytes, File.ReadAllBytes(deployed));
+				if (accepted)
+				{
+					CollectionNativeModState verified;
+					Assert.IsTrue(CollectionNativeChildRestartReconciliationCoordinator.TryVerifyCommittedState(
+						recovery, evidence, state, "game", directory, gameMode, out verified, out detail), detail);
+					IReadOnlyList<ScriptedReplayOperation> replay = new ScriptedFileSelectionCache(replayPath).LoadReplayOperations();
+					Assert.AreEqual(1, replay.Count);
+					Assert.AreEqual(expected.SourcePath, replay[0].SourcePath);
+					Assert.AreEqual(expected.DestinationPath, replay[0].DestinationPath);
+					Assert.IsFalse(CollectionNativeChildRestartReconciliationCoordinator.TryRestoreExactNewActivationReplay(
+						recovery, evidence, state, "game", directory, gameMode, out detail));
+				}
+				else if (scenario == "existing-replay") Assert.AreEqual("existing record", File.ReadAllText(replayPath));
+				else Assert.IsFalse(File.Exists(replayPath));
+				Assert.AreEqual(0, Directory.GetFiles(directory, "*.recovery.tmp", SearchOption.AllDirectories).Length);
 			}
 			finally { Directory.Delete(directory, true); }
 		}
@@ -384,6 +506,60 @@ namespace NexusClientTests
 			Assert.AreEqual(0, roundTrip.ExecutionEvidence.NexusFileId);
 			Assert.AreEqual(terminal, roundTrip.TerminalStateFingerprint);
 			Assert.AreEqual(safeBoundary, roundTrip.SafeBoundaryStateFingerprint);
+		}
+
+		/// <summary>Keeps the incoming owner payload distinct from the preserved physical winner across restart.</summary>
+		[TestCase(ModInstallMethod.Virtual)]
+		[TestCase(ModInstallMethod.Direct)]
+		public void RecoveryManifestV6_RetainsIncomingBytesSeparatelyFromThePreservedGameFolderWinner(ModInstallMethod method)
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("root-correction-restart");
+			CollectionIdentity collection = CollectionIdentity.FromNexus("root-correction");
+			CollectionRevisionIdentity revision = CollectionRevisionIdentity.FromNexus(collection, "revision", 1);
+			CollectionMemberKey memberKey = CollectionMemberKey.FromProvider("preloader");
+			var member = new CollectionOperationMemberReference(revision, memberKey);
+			CollectionPlanIdentity plan = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
+			ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+				new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(method, ModInstallRoot.GameRoot), "root-recipe"));
+			var child = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+				native, CollectionNativeChildCheckpoint.NativeSubmitted, null);
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				collection, target, revision, plan, 7, CollectionOperationPhase.ApplyingNativeChildren,
+				CollectionOperationResultState.Pending, new[] { child });
+			var oldTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "preloader.xml");
+			var newTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "preloader.xml");
+			var oldBefore = new CollectionNativeFileContentEvidence(oldTarget, true, CollectionContentHash.FromSha256(ShaA), 4);
+			var oldAfter = new CollectionNativeFileContentEvidence(oldTarget, false, null, 0);
+			var winner = new CollectionNativeFileContentEvidence(newTarget, true, CollectionContentHash.FromSha256(new string('b', 64)), 8);
+			var correction = new CollectionInstallRootCorrection("preloader", method,
+				new[] { new CollectionInstallRootFileRemoval(oldBefore, oldAfter, new[] { "preloader" }, new string[0]) },
+				new[] { new CollectionInstallRootDestination(winner, "settings", true) });
+			var preview = new CollectionMemberEffectPreview(memberKey, CollectionRecipeIdentity.FromFingerprint("root-recipe"),
+				method, ModInstallRoot.GameRoot, new[] { new CollectionPlannedFileEffect(newTarget, oldBefore.ContentHash, 4) },
+				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0],
+				new CollectionEffectPreviewIssue[0], correction);
+			var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "preloader.7z", preview,
+				new[] { oldBefore, winner }, new[] { oldAfter, winner },
+				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
+				new[] { new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "preloader.xml", "preloader.xml", 0, null) });
+			var manifest = new CollectionNativeChildRecoveryManifest(operation.Identity, 1, plan, member,
+				CollectionNativeChildAction.ActivateOrReinstall, native,
+				new CollectionCurrentStateFingerprint("c6-native-state/1", "before-root-correction"),
+				new CollectionRecoveryArtifact("incoming-artifact", CollectionContentHash.FromSha256(ShaA), 1),
+				null, null, new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]), evidence);
+			byte[] bytes = InvokeSerialize(manifest);
+			using (var stream = new MemoryStream(bytes, false))
+			using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+				Assert.AreEqual("nmm-ce.collections.child-recovery/6", reader.ReadString());
+			CollectionNativeChildExecutionEvidence restored = InvokeDeserialize(bytes, operation, child).ExecutionEvidence;
+			Assert.AreEqual(oldBefore.ContentHash, restored.ReviewedEffects.Files[0].ExpectedContentHash);
+			Assert.AreEqual(4, restored.ReviewedEffects.Files[0].ExpectedByteLength);
+			Assert.AreEqual(winner.ContentHash, restored.ExpectedFileContents[1].ContentHash);
+			Assert.AreEqual(8, restored.ExpectedFileContents[1].ByteLength);
+			Assert.AreEqual(method, restored.ReviewedEffects.InstallRootCorrection.InstallMethod);
+			Assert.IsTrue(restored.ReviewedEffects.InstallRootCorrection.Destinations[0].PreserveWinner);
+			Assert.IsFalse(restored.ExpectedFileContents[0].Existed);
+			Assert.AreEqual(1, restored.ExpectedReplayOperations.Count);
 		}
 
 		[Test]

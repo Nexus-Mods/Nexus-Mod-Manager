@@ -111,6 +111,11 @@ namespace Nexus.Client.CollectionManagement
 				ValidateReviewedPreview(member, reviewedPreview);
 				ValidateExecutionRecipe(child, reviewedPreview, executionResult.RecipeInput);
 				CollectionNativeChildRecoveryManifest recovery = RequireRecoveryManifest(operation, child, plan);
+				// Submission recovers legacy output hashes into durable execution evidence. Carry that exact
+				// preview through post-install verification instead of the older path-only runtime snapshot.
+				if (recovery.ExecutionEvidence != null)
+					reviewedPreview = CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(
+						reviewedPreview, recovery.ExecutionEvidence.ReviewedEffects);
 
 				await WaitForCompletionAsync(executionResult.NativeTask).ConfigureAwait(true);
 				nativeCompleted = true;
@@ -144,7 +149,7 @@ namespace Nexus.Client.CollectionManagement
 					executionResult.RecipeInput, executionResult.IncomingMod, _services.ModManager.GameMode,
 					_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
 					out verifiedNativeMod, out committedFailure);
-				bool rolledBack = exactReportedIdentity && TryVerifyRolledBackState(reportedResult, reviewedPreview, recovery, state, paths.InstallInfoPath);
+				bool rolledBack = exactReportedIdentity && TryVerifyRolledBackState(reportedResult, reviewedPreview, recovery, state, paths.InstallInfoPath, _services.ModManager.GameMode);
 				ModOperationDurability verifiedDurability = exactReportedIdentity
 					? DetermineVerifiedDurability(reportedResult, committed, rolledBack)
 					: ModOperationDurability.Unknown;
@@ -434,6 +439,8 @@ namespace Nexus.Client.CollectionManagement
 				failureReason = "The incoming archive bytes differ from the retained reviewed archive.";
 			else if (!VerifyMemberEffects(state, nativeMod, preview))
 				failureReason = "Installed file ownership, plugin activation or configuration effects differ from the reviewed recipe.";
+			else if (preview.InstallRootCorrection != null && !preview.InstallRootCorrection.Verify(state, true))
+				failureReason = "The old Data-folder files were not removed or restored as reviewed.";
 			else if (!VerifyExpectedFileContents(state, preview, recipeInput, incomingMod, gameMode))
 				failureReason = "Installed file bytes differ from the reviewed recipe.";
 			else if (!VerifyLiveReplayAgainstRecipe(recipeInput, incomingMod, gameMode))
@@ -444,8 +451,9 @@ namespace Nexus.Client.CollectionManagement
 			return false;
 		}
 
-		private static bool TryVerifyRolledBackState(ModOperationResult reportedResult, CollectionMemberEffectPreview preview,
-			CollectionNativeChildRecoveryManifest recovery, CollectionNativeStateIndex state, string installInfoDirectory)
+		/// <summary>Uses retained physical preimages to verify failed installations without requiring an unnecessary restart.</summary>
+		internal static bool TryVerifyRolledBackState(ModOperationResult reportedResult, CollectionMemberEffectPreview preview,
+			CollectionNativeChildRecoveryManifest recovery, CollectionNativeStateIndex state, string installInfoDirectory, IGameMode gameMode)
 		{
 			if (reportedResult == null || preview == null || recovery == null || state == null || String.IsNullOrWhiteSpace(installInfoDirectory))
 				return false;
@@ -461,8 +469,15 @@ namespace Nexus.Client.CollectionManagement
 			if (reportedResult.Durability == ModOperationDurability.VerifiedCommitted)
 				return false;
 
-			// C6.6 does not retain per-target physical preimage hashes. Do not claim a file-touching rollback merely because
-			// ownership metadata returned to the same fingerprint; C6.9/native recovery must resolve that case.
+			// Current manifests retain exact physical and replay preimages. Reuse the same read-only proof as restart recovery.
+			if (recovery.ExecutionEvidence != null)
+			{
+				string failureReason;
+				return CollectionNativeChildRestartReconciliationCoordinator.TryVerifyRolledBackState(recovery,
+					recovery.ExecutionEvidence, state, installInfoDirectory, gameMode, out failureReason);
+			}
+
+			// Legacy manifests lack physical preimages. Metadata alone still cannot prove a file-touching rollback.
 			if (preview.Files.Count != 0)
 				return false;
 
@@ -533,8 +548,10 @@ namespace Nexus.Client.CollectionManagement
 			foreach (CollectionPlannedFileEffect effect in preview.Files)
 			{
 				CollectionNativeFileState file;
+				CollectionInstallRootDestination preserved = preview.InstallRootCorrection == null ? null : preview.InstallRootCorrection.GetPreservedDestination(effect.Target);
 				if (!state.Files.TryGetValue(effect.Target, out file) ||
-					!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, ownerKey) ||
+					!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, preserved == null ? ownerKey : preserved.CurrentOwnerKey) ||
+					(preserved != null && !file.InstallLogOwners.Concat(file.DeploymentOwners).Concat(file.VirtualOwners).Any(x => StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey))) ||
 					String.IsNullOrWhiteSpace(file.PhysicalPath) || !File.Exists(file.PhysicalPath))
 					return false;
 			}
@@ -607,7 +624,9 @@ namespace Nexus.Client.CollectionManagement
 					// Exact source bytes were already hashed into the reviewed preview and are revalidated again by the live
 					// preview immediately before submission. Post-commit verification only needs to hash the deployed winner;
 					// reopening every incoming archive member here repeats I/O without crossing a new trust boundary.
-					if (!ReviewedFileContentMatches(effect, file.PhysicalPath))
+					CollectionInstallRootDestination preserved = preview.InstallRootCorrection == null ? null : preview.InstallRootCorrection.GetPreservedDestination(effect.Target);
+					CollectionPlannedFileEffect expected = preserved == null ? effect : new CollectionPlannedFileEffect(effect.Target, preserved.Before.ContentHash, preserved.Before.ByteLength);
+					if (!ReviewedFileContentMatches(expected, file.PhysicalPath))
 						return false;
 				}
 				return true;

@@ -188,12 +188,37 @@ namespace Nexus.Client.CollectionManagement
 			_preFileContents = CopyUnique(preFileContents, nameof(preFileContents));
 			_expectedFileContents = CopyUnique(expectedFileContents, nameof(expectedFileContents));
 			incomingReplayPreimage = incomingReplayPreimage ?? throw new ArgumentNullException(nameof(incomingReplayPreimage));
-			if (_preFileContents.Count != reviewedEffects.Files.Count || _expectedFileContents.Count != reviewedEffects.Files.Count)
+			int cleanupCount = reviewedEffects.InstallRootCorrection == null ? 0 : reviewedEffects.InstallRootCorrection.Files.Count;
+			if (_preFileContents.Count != reviewedEffects.Files.Count + cleanupCount || _expectedFileContents.Count != reviewedEffects.Files.Count + cleanupCount)
 				throw new ArgumentException("Restart file evidence must cover every reviewed file target exactly once.");
-			var reviewedTargets = new HashSet<ModDeploymentTarget>(reviewedEffects.Files.Select(x => x.Target));
+			var positiveTargets = new HashSet<ModDeploymentTarget>(reviewedEffects.Files.Select(x => x.Target));
+			var reviewedTargets = new HashSet<ModDeploymentTarget>(positiveTargets);
+			if (reviewedEffects.InstallRootCorrection != null) reviewedTargets.UnionWith(reviewedEffects.InstallRootCorrection.Files.Select(x => x.Before.Target));
 			if (_preFileContents.Any(x => !reviewedTargets.Contains(x.Target)) ||
-				_expectedFileContents.Any(x => !reviewedTargets.Contains(x.Target) || !x.Existed))
+				_expectedFileContents.Any(x => !reviewedTargets.Contains(x.Target) || (positiveTargets.Contains(x.Target) && !x.Existed)))
 				throw new ArgumentException("Restart file evidence does not match the reviewed native file targets.");
+			if (reviewedEffects.InstallRootCorrection != null)
+			{
+				foreach (CollectionPlannedFileEffect effect in reviewedEffects.Files)
+				{
+					if (!effect.HasExactContentIdentity) throw new ArgumentException("Folder correction requires exact incoming file identities.");
+					CollectionNativeFileContentEvidence expected = _expectedFileContents.Single(x => x.Target.Equals(effect.Target));
+					CollectionInstallRootDestination preserved = reviewedEffects.InstallRootCorrection.GetPreservedDestination(effect.Target);
+					CollectionContentHash hash = preserved == null ? effect.ExpectedContentHash : preserved.Before.ContentHash;
+					long length = preserved == null ? effect.ExpectedByteLength.Value : preserved.Before.ByteLength;
+					if (!Equals(expected.ContentHash, hash) || expected.ByteLength != length)
+						throw new ArgumentException("Restart evidence changed the reviewed game-folder result.");
+				}
+			}
+			if (reviewedEffects.InstallRootCorrection != null)
+				foreach (CollectionInstallRootFileRemoval removal in reviewedEffects.InstallRootCorrection.Files)
+				{
+					CollectionNativeFileContentEvidence before = _preFileContents.Single(x => x.Target.Equals(removal.Before.Target));
+					CollectionNativeFileContentEvidence after = _expectedFileContents.Single(x => x.Target.Equals(removal.After.Target));
+					if (before.Existed != removal.Before.Existed || before.ByteLength != removal.Before.ByteLength || !Equals(before.ContentHash, removal.Before.ContentHash) ||
+						after.Existed != removal.After.Existed || after.ByteLength != removal.After.ByteLength || !Equals(after.ContentHash, removal.After.ContentHash))
+						throw new ArgumentException("Restart evidence changed the reviewed old-folder cleanup.");
+				}
 			if (expectedReplayOperations == null) throw new ArgumentNullException(nameof(expectedReplayOperations));
 			List<CollectionExpectedReplayOperation> replay = expectedReplayOperations.ToList();
 			if (replay.Any(x => x == null)) throw new ArgumentException("Expected replay operations cannot contain null entries.", nameof(expectedReplayOperations));

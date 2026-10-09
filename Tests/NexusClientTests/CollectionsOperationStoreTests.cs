@@ -418,6 +418,39 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Repair context is reconstructed only from committed exact-member receipts; conflicting contexts are not guessed.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void VerifiedMemberContext_RequiresExactRecipeAndUnambiguousContext(bool conflictingContext)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionRevisionIdentity revision = SeedNexusRevision(store, "repair-context", "rev-a", 1);
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), revision, CollectionTargetIdentity.FromFingerprint("target-a"), CollectionAssociationState.Incomplete);
+				var binding = new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("member-a"),
+					new NativeModInstanceIdentity(association.Target, "removed-native"), CollectionRecipeIdentity.FromFingerprint("recipe-a"), CollectionMemberBindingKind.InstalledForCollection);
+				var journal = new CollectionsOperationStore(store);
+				for (int index = 0; index < (conflictingContext ? 2 : 1); index++)
+				{
+					ModOperationIdentity native = CreateNativeIdentity("target-a", ModOperationOrigin.Collection,
+						index == 0 ? ModInstallMethod.Virtual : ModInstallMethod.Direct, ModInstallRoot.Data, "recipe-a");
+					CollectionNativeChildOperation child = CreateChild(1, revision, "member-a", native, CollectionNativeChildAction.ActivateOrReinstall,
+						CollectionNativeChildCheckpoint.Reconciled, new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, "Committed"));
+					journal.SaveOperation(CreateOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+						revision.Collection, association.Target, revision, 1, CollectionOperationPhase.Completed, CollectionOperationResultState.Committed, new[] { child }));
+				}
+				ModInstallContext context = journal.GetVerifiedMemberInstallContext(association, binding);
+				if (conflictingContext) Assert.That(context, Is.Null);
+				else { Assert.That(context.Method, Is.EqualTo(ModInstallMethod.Virtual)); Assert.That(context.InstallRoot, Is.EqualTo(ModInstallRoot.Data)); }
+				var changedRecipe = new CollectionMemberBinding(association, binding.MemberKey, binding.NativeMod,
+					CollectionRecipeIdentity.FromFingerprint("other-recipe"), binding.BindingKind);
+				Assert.That(journal.GetVerifiedMemberInstallContext(association, changedRecipe), Is.Null);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		private static CollectionOperation CreateOperation(CollectionOperationIdentity identity, CollectionOperationKind kind,
 			CollectionIdentity collection, CollectionTargetIdentity target, CollectionRevisionIdentity revision,
 			long checkpointSequence, CollectionOperationPhase phase, CollectionOperationResultState resultState,

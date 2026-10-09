@@ -54,7 +54,6 @@ namespace Nexus.Client.CollectionManagement
 		private readonly CollectionsResolvedPlanStore _planStore;
 		private readonly CollectionsAssociationStore _associationStore;
 		private readonly CollectionNativeStateReader _nativeStateReader;
-		private readonly CollectionMemberMatchEngine _matchEngine;
 		private readonly CollectionDependencyPhasePlanner _dependencyPlanner;
 		private readonly CollectionConflictImpactPlanner _impactPlanner;
 		private readonly CollectionNativeChildPreparationCoordinator _childPreparation;
@@ -85,7 +84,6 @@ namespace Nexus.Client.CollectionManagement
 			_authorityValidator = new CollectionTargetOwnershipAuthorityValidator(gameStorageService, services);
 			_nativeStateReader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, associationStore);
-			_matchEngine = new CollectionMemberMatchEngine();
 			_dependencyPlanner = new CollectionDependencyPhasePlanner();
 			_impactPlanner = new CollectionConflictImpactPlanner();
 			_childPreparation = new CollectionNativeChildPreparationCoordinator(operationStore, planStore, artifactStore, referenceStore, manifestStore);
@@ -245,10 +243,13 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionVerifiedArchive> archives, IEnumerable<PreparedCollectionNativeRecipe> recipes)
 		{
 			ResolvedCollectionPlan executionPlan = RebindState(reviewedPlan, state.Fingerprint);
-			CollectionMemberMatchSet matches = _matchEngine.MatchForReplacementExecution(executionPlan, state, archives);
+			List<PreparedCollectionNativeRecipe> frozenRecipes = recipes.ToList();
+			var frozenMatcher = new CollectionMemberMatchEngine((member, archive, token) => frozenRecipes.Any(x =>
+				x.Member.MemberKey.Equals(member.MemberKey) && x.InstallContext.InstallRoot == ModInstallRoot.GameRoot), false);
+			CollectionMemberMatchSet matches = frozenMatcher.MatchForReplacementExecution(executionPlan, state, archives);
 			CollectionDependencyPhasePlan dependency = _dependencyPlanner.Plan(executionPlan, matches);
 			CollectionConflictImpactPlan impact = _impactPlanner.PlanForReplacementExecution(executionPlan, matches, dependency,
-				state, recipes.Select(x => x.EffectPreview));
+				state, frozenRecipes.Select(x => x.EffectPreview));
 			if (!dependency.IsReady || !impact.IsReady || matches.HasBlockedMembers || matches.HasAcquisitionRequired)
 				throw new InvalidOperationException("The current replacement incoming execution baseline is no longer fully actionable and must return to explicit review/recovery.");
 			ValidateReviewedFileWinners(executionPlan.Identity, impact);

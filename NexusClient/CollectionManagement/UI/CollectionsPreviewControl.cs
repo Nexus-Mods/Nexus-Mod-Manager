@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -10,7 +12,19 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using DevExpress.Utils;
+using DevExpress.Utils.Layout;
+using DevExpress.XtraTab;
+using DevExpress.XtraBars;
+using DevExpress.XtraEditors;
+using DevExpress.XtraEditors.Controls;
+using DevExpress.XtraGrid;
+using DevExpress.XtraGrid.Columns;
+using DevExpress.XtraGrid.Views.Base;
+using DevExpress.XtraGrid.Views.Grid;
+using DevExpress.XtraEditors.Repository;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.Mods;
@@ -42,82 +56,101 @@ namespace Nexus.Client.CollectionManagement.UI
 	/// </remarks>
 	public sealed class CollectionsPreviewControl : ManagedFontDockContent
 	{
-		private readonly Button _saveCurrentSetupButton;
-		private readonly ComboBox _localCaptureCombo;
-		private readonly Button _restoreLocalCaptureButton;
-		private readonly ComboBox _localWorkingCopyCombo;
-		private readonly Button _editLocalWorkingCopyButton;
-		private readonly Button _saveLocalWorkingCopyRevisionButton;
-		private readonly ComboBox _managedAssociationCombo;
-		private readonly Button _manageAssociationRemovalButton;
-		private readonly Button _compareUpdateButton;
-		private readonly Button _verifyRepairButton;
-		private readonly Button _cloneManagedAssociationButton;
-		private readonly Button _showManagedMemberButton;
-		private readonly Button _showManagedMemberImpactButton;
-		private readonly Button _addManagedOptionalMemberButton;
-		private readonly Button _removeManagedOptionalMemberButton;
-		private readonly Button _ignoreMemberDifferenceButton;
-		private readonly Button _stopIgnoringMemberDifferenceButton;
-		private readonly Button _acceptMemberDriftButton;
-		private readonly Button _clearMemberOverrideButton;
-		private readonly Button _importButton;
-		private readonly Button _downloadPrepareButton;
-		private readonly Button _resolveFileConflictsButton;
-		private readonly CheckBox _autoOverwriteArchivesCheckBox;
-		private readonly ToolTip _toolTip;
-		private readonly Button _resumeButton;
-		private readonly Button _openPendingButton;
-		private readonly Button _installButton;
-		private readonly Button _primaryIncomingActionButton;
-		private Button _primaryIncomingActionSource;
+		private readonly SimpleButton _saveCurrentSetupButton;
+		private readonly ComboBoxEdit _localCaptureCombo;
+		private readonly SimpleButton _restoreLocalCaptureButton;
+		private readonly SimpleButton _deleteLocalCaptureButton;
+		private readonly ComboBoxEdit _localWorkingCopyCombo;
+		private readonly SimpleButton _editLocalWorkingCopyButton;
+		private readonly SimpleButton _saveLocalWorkingCopyRevisionButton;
+		private readonly ComboBoxEdit _managedAssociationCombo;
+		private readonly SimpleButton _manageAssociationRemovalButton;
+		private readonly SimpleButton _compareUpdateButton;
+		private readonly SimpleButton _verifyRepairButton;
+		private readonly SimpleButton _cloneManagedAssociationButton;
+		private readonly SimpleButton _showManagedMemberButton;
+		private readonly SimpleButton _showManagedMemberImpactButton;
+		private readonly SimpleButton _addManagedOptionalMemberButton;
+		private readonly SimpleButton _removeManagedOptionalMemberButton;
+		private readonly SimpleButton _ignoreMemberDifferenceButton;
+		private readonly SimpleButton _stopIgnoringMemberDifferenceButton;
+		private readonly SimpleButton _acceptMemberDriftButton;
+		private readonly SimpleButton _clearMemberOverrideButton;
+		private readonly SimpleButton _importButton;
+		private readonly SimpleButton _downloadPrepareButton;
+		private readonly SimpleButton _resolveFileConflictsButton;
+		private readonly CheckEdit _autoOverwriteArchivesCheckBox;
+		private readonly ToolTipController _toolTip;
+		private readonly SimpleButton _resumeButton;
+		private readonly SimpleButton _openPendingButton;
+		private readonly SimpleButton _installButton;
+		private readonly SimpleButton _primaryIncomingActionButton;
+		private SimpleButton _primaryIncomingActionSource;
 		private bool _primaryIncomingReviewsBlockedIssues;
 		private bool _primaryIncomingReviewsRevisionOwnership;
 		private CollectionRevisionUpdatePlan _blockedRevisionUpdatePlan;
-		private readonly Label _previewContextLabel;
+		private readonly LabelControl _previewContextLabel;
 		private readonly CollectionSectionGroup _previewSection;
 		private readonly DevExpress.XtraEditors.GroupControl _detailsSection;
-		private readonly FlowLayoutPanel _incomingActionsPanel;
+		private readonly CollectionActionPanel _incomingActionsPanel;
+		private readonly Control _advancedIncomingGroup;
 		private readonly Control _currentSetupGroup;
 		private readonly Control _savedLocalGroup;
 		private readonly Control _localWorkingCopyGroup;
 		private readonly Control _installedGroup;
-		private readonly Control _supportGroup;
-		private readonly CheckBox _replacementBackupCheckBox;
-		private readonly Button _replaceButton;
-		private readonly Button _clearButton;
-		private readonly Button _exportTechnicalReportButton;
-		private readonly Label _instructionLabel;
-		private readonly Label _workflowStatusLabel;
-		private readonly Label _workflowActivityIconLabel;
-		private readonly Label _workflowEtaLabel;
+		private readonly CheckEdit _replacementBackupCheckBox;
+		private readonly SimpleButton _replaceButton;
+		private readonly SimpleButton _clearButton;
+		private readonly SimpleButton _exportTechnicalReportButton;
+		private readonly LabelControl _instructionLabel;
+		private readonly LabelControl _workflowStatusLabel;
+		private Bitmap _workflowActivityIconBitmap;
+		private readonly LabelControl _workflowEtaLabel;
 		private readonly System.Windows.Forms.Timer _workflowActivityAnimationTimer;
-		private readonly Label _collectionValue;
-		private readonly Label _curatorValue;
-		private readonly Label _locatorValue;
-		private readonly Label _revisionValue;
-		private readonly Label _compatibilityValue;
-		private readonly Label _contentValue;
-		private readonly Label _appliedValue;
-		private readonly TextBox _summaryBox;
-		private readonly ListView _membersView;
-		private readonly ContextMenuStrip _memberActionsMenu;
-		private readonly Panel _membersHost;
-		private readonly Panel _membersLoadingOverlay;
-		private readonly Label _membersLoadingLabel;
-		private readonly ProgressBar _membersLoadingProgress;
-		private readonly Button _membersLoadingCancelButton;
-		private readonly ListView _issuesView;
-		private readonly ListView _reviewActionsView;
-		private readonly Label _membersHeader;
-		private readonly TextBox _memberSearchTextBox;
-		private readonly ComboBox _memberFilterCombo;
-		private readonly Label _issuesHeader;
-		private readonly Label _reviewActionsHeader;
-		private readonly CheckBox _showErrorIssuesCheckBox;
-		private readonly CheckBox _showWarningIssuesCheckBox;
-		private readonly CheckBox _showInfoIssuesCheckBox;
-		private readonly TableLayoutPanel _reviewPanel;
+		private readonly LabelControl _collectionValue;
+		private readonly LabelControl _curatorValue;
+		private readonly LabelControl _locatorValue;
+		private readonly LabelControl _revisionValue;
+		private readonly LabelControl _compatibilityValue;
+		private readonly LabelControl _contentValue;
+		private readonly LabelControl _appliedValue;
+		private readonly MemoEdit _summaryBox;
+		private readonly GridControl _membersGrid;
+		private readonly GridView _membersView;
+		private readonly BindingList<MemberGridRow> _memberRows = new BindingList<MemberGridRow>();
+		private readonly BarManager _memberMenuManager;
+		private readonly PopupMenu _memberActionsMenu;
+		private readonly PanelControl _membersHost;
+		private readonly PanelControl _membersLoadingOverlay;
+		private readonly LabelControl _membersLoadingLabel;
+		private readonly ProgressBarControl _membersLoadingProgress;
+		private readonly MarqueeProgressBarControl _membersLoadingMarquee;
+		private readonly SimpleButton _membersLoadingCancelButton;
+		private readonly GridControl _issuesGrid;
+		private readonly GridView _issuesView;
+		private readonly BindingList<ReviewGridRow> _issueRows = new BindingList<ReviewGridRow>();
+		private readonly GridControl _reviewActionsGrid;
+		private readonly GridView _reviewActionsView;
+		private readonly BindingList<ReviewGridRow> _reviewRows = new BindingList<ReviewGridRow>();
+		private readonly LabelControl _membersHeader;
+		private readonly TextEdit _memberSearchTextBox;
+		private readonly ComboBoxEdit _memberFilterCombo;
+		private readonly LabelControl _issuesHeader;
+		private readonly LabelControl _reviewActionsHeader;
+		private readonly CheckEdit _showErrorIssuesCheckBox;
+		private readonly CheckEdit _showWarningIssuesCheckBox;
+		private readonly CheckEdit _showInfoIssuesCheckBox;
+		private readonly XtraTabControl _reviewTabs;
+		private readonly XtraTabPage _membersPage;
+		private readonly XtraTabPage _issuesPage;
+		private readonly XtraTabPage _reviewActionsPage;
+		private int _lastPresentedReviewErrorCount;
+		private bool _wasReadyForReview;
+		private bool _reviewNavigationPending;
+		private bool _wasShowingMemberLoadingOverlay;
+		private readonly XtraTabPage _localCollectionsPage;
+		private readonly XtraTabPage _advancedOptionsPage;
+		private readonly LabelControl _memberSelectionHint;
 		private readonly List<CollectionReviewItem> _reviewItems = new List<CollectionReviewItem>();
 		private int _reviewErrorCount;
 		private int _reviewWarningCount;
@@ -141,6 +174,8 @@ namespace Nexus.Client.CollectionManagement.UI
 		private CollectionManagementAssociationPresentation _managedAssociationPresentation;
 		private CollectionOperationIdentity _operationIdentity;
 		private CollectionOperation _operationSnapshot;
+		private CollectionTechnicalReportSnapshot _completedRemovalReport;
+		private IReadOnlyList<CollectionReviewItem> _completedRemovalItems = new CollectionReviewItem[0];
 		private CollectionPlanIdentity _reviewedPlanIdentity;
 		private IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> _recoveryResults = new CollectionAdditiveWorkflowRecoveryResult[0];
 		private IReadOnlyList<CollectionLocalRestoreWorkflowResult> _localRestoreRecoveryResults = new CollectionLocalRestoreWorkflowResult[0];
@@ -182,8 +217,6 @@ namespace Nexus.Client.CollectionManagement.UI
 		private readonly CollectionWorkflowEtaEstimator _workflowEtaEstimator;
 		private int _workflowActivityAnimationFrame;
 
-		private static readonly string[] WorkflowActivityAnimationFrames = { "◐", "◓", "◑", "◒" };
-
 		private sealed class MemberFilterChoice
 		{
 			internal MemberFilterChoice(CollectionMemberListFilterKind kind, string label)
@@ -212,6 +245,53 @@ namespace Nexus.Client.CollectionManagement.UI
 					StringComparer.CurrentCultureIgnoreCase.Equals(Revision.RevisionLabel, revision)
 					? revision : revision + " - " + Revision.RevisionLabel;
 			}
+		}
+
+		/// <summary>Display data for the DevExpress member grid; the domain member remains the source of identity.</summary>
+		private sealed class MemberGridRow
+		{
+			internal MemberGridRow(NormalizedCollectionMember member, string displayName, bool selected,
+				string requirement, string compatibility, string artifact, string managedState)
+			{
+				Member = member;
+				DisplayName = displayName;
+				Selected = selected;
+				Requirement = requirement;
+				Compatibility = compatibility;
+				Artifact = artifact;
+				ManagedState = managedState;
+			}
+
+			public string DisplayName { get; private set; }
+			public bool Selected { get; set; }
+			public string Requirement { get; private set; }
+			public string Selection { get { return Selected ? L("Collections.Member.Selected", "Selected") : L("Collections.Member.Unselected", "Not selected"); } }
+			public string Compatibility { get; set; }
+			public string Artifact { get; private set; }
+			public string ManagedState { get; set; }
+			internal NormalizedCollectionMember Member { get; private set; }
+		}
+
+		/// <summary>Bound review row; unfiltered action rows and filtered diagnostics retain their independent lists.</summary>
+		private sealed class ReviewGridRow
+		{
+			internal ReviewGridRow(CollectionReviewItem item, string status, string subject, string reason,
+				string nextAction, string tooltip)
+			{
+				Item = item;
+				Status = status;
+				Subject = subject;
+				Reason = reason;
+				NextAction = nextAction;
+				Tooltip = tooltip;
+			}
+
+			public string Status { get; private set; }
+			public string Subject { get; private set; }
+			public string Reason { get; private set; }
+			public string NextAction { get; private set; }
+			internal string Tooltip { get; private set; }
+			internal CollectionReviewItem Item { get; private set; }
 		}
 
 		/// <summary>
@@ -245,185 +325,192 @@ namespace Nexus.Client.CollectionManagement.UI
 			RefreshManagedAssociations(_snapshot != null);
 		}
 
+		/// <summary>Synchronizes Collection controls and context actions with the global DevExpress display options.</summary>
+		internal void ApplyDisplaySettings(DevExpressDisplaySettings settings)
+		{
+			if (settings == null) return;
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(this);
+			MakeLayoutSkinTransparent(this);
+			DevExpressDisplaySettingsApplier.ApplyToControlTree(this, settings);
+			DevExpressDisplaySettingsApplier.ApplyToBarManager(_memberMenuManager, settings);
+			EnsureActionCheckCaptionsFit();
+			// The status image is rasterized from NMM's semantic SVGs in the current accessibility palette.
+			// Refresh it after any icon-style, icon-size or color-profile change.
+			RenderWorkflowActivity();
+		}
+
 		public CollectionsPreviewControl()
 		{
 			Text = L("Collections.Title", "Collections");
 			Name = "CollectionsDocument";
 			HideOnClose = true;
 			AutoScaleMode = AutoScaleMode.Font;
-			BackColor = SystemColors.Window;
+			DevExpressDisplaySettingsApplier.ApplySkinSurface(this);
 			_acquisitionRefreshTimer = new System.Windows.Forms.Timer { Interval = 750 };
 			_acquisitionRefreshTimer.Tick += AcquisitionRefreshTimer_Tick;
 			_workflowActivityAnimationTimer = new System.Windows.Forms.Timer { Interval = 125 };
 			_workflowActivityAnimationTimer.Tick += WorkflowActivityAnimationTimer_Tick;
-			_toolTip = new ToolTip();
+			_toolTip = new ToolTipController();
 			_workflowActivity = CollectionWorkflowActivityBuilder.Idle(L("Collections.Workflow.Idle", "Workflow: idle"));
 			_workflowEtaEstimator = new CollectionWorkflowEtaEstimator();
 			_workflowEta = CollectionWorkflowEtaSnapshot.Unavailable("idle");
 
-			var root = new TableLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				ColumnCount = 1,
-				RowCount = 5,
-				Padding = new Padding(8)
-			};
-			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+			TablePanel root = CreateCollectionTable(3);
+			root.Padding = new Padding(8);
+			root.Rows[2].Style = TablePanelEntityStyle.Relative;
 			Controls.Add(root);
 
-			var toolbar = new FlowLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				AutoSize = true,
-				WrapContents = true,
-				FlowDirection = FlowDirection.LeftToRight,
-				Padding = new Padding(0, 0, 0, 6)
-			};
-			_saveCurrentSetupButton = new Button
+			_saveCurrentSetupButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.SaveCurrentSetup", "Save current setup as Local Collection"),
 				Enabled = false
 			};
 			_saveCurrentSetupButton.Click += SaveCurrentSetupButton_Click;
-			_localCaptureCombo = new ComboBox
+			_localCaptureCombo = new ComboBoxEdit
 			{
-				DropDownStyle = ComboBoxStyle.DropDownList,
 				Width = 280,
 				Enabled = false
 			};
+			_localCaptureCombo.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
+			_localCaptureCombo.Properties.NullText = L("Collections.LocalDelete.SelectBackup", "Select a saved Local Collection");
 			_localCaptureCombo.SelectedIndexChanged += LocalCaptureCombo_SelectedIndexChanged;
-			_restoreLocalCaptureButton = new Button
+			_restoreLocalCaptureButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.RestoreLocal", "Restore Local Collection..."),
 				Enabled = false
 			};
 			_restoreLocalCaptureButton.Click += RestoreLocalCaptureButton_Click;
-			_localWorkingCopyCombo = new ComboBox
+			_deleteLocalCaptureButton = new SimpleButton
 			{
-				DropDownStyle = ComboBoxStyle.DropDownList,
+				AutoSize = true,
+				Text = L("Collections.Actions.DeleteLocal", "Delete Local Collection..."),
+				Enabled = false
+			};
+			_deleteLocalCaptureButton.Click += DeleteLocalCaptureButton_Click;
+			NmmIconProvider.BindDialogButton(_deleteLocalCaptureButton, NmmIconAction.Delete);
+			_localWorkingCopyCombo = new ComboBoxEdit
+			{
 				Width = 320,
 				Enabled = false
 			};
+			_localWorkingCopyCombo.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
 			_localWorkingCopyCombo.SelectedIndexChanged += LocalWorkingCopyCombo_SelectedIndexChanged;
-			_editLocalWorkingCopyButton = new Button
+			_editLocalWorkingCopyButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.EditLocalWorkingCopy", "Edit working copy..."),
 				Enabled = false
 			};
 			_editLocalWorkingCopyButton.Click += EditLocalWorkingCopyButton_Click;
-			_saveLocalWorkingCopyRevisionButton = new Button
+			_saveLocalWorkingCopyRevisionButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.SaveLocalWorkingCopyRevision", "Save Local revision..."),
 				Enabled = false
 			};
 			_saveLocalWorkingCopyRevisionButton.Click += SaveLocalWorkingCopyRevisionButton_Click;
-			_managedAssociationCombo = new ComboBox
+			_managedAssociationCombo = new ComboBoxEdit
 			{
-				DropDownStyle = ComboBoxStyle.DropDownList,
 				Width = 280,
 				Enabled = false
 			};
+			_managedAssociationCombo.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
+			_managedAssociationCombo.Properties.NullText = L("Collections.Management.NoneInstalled", "No installed Collections");
 			_managedAssociationCombo.SelectedIndexChanged += ManagedAssociationCombo_SelectedIndexChanged;
-			_manageAssociationRemovalButton = new Button
+			_manageAssociationRemovalButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.UninstallCollection", "Uninstall Collection..."),
 				Enabled = false
 			};
 			_manageAssociationRemovalButton.Click += ManageAssociationRemovalButton_Click;
-			_compareUpdateButton = new Button
+			_compareUpdateButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.CompareUpdate", "Compare / Update..."),
 				Enabled = false
 			};
 			_compareUpdateButton.Click += CompareUpdateButton_Click;
-			_verifyRepairButton = new Button
+			_verifyRepairButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.VerifyRepair", "Verify / Repair..."),
 				Enabled = false
 			};
 			_verifyRepairButton.Click += VerifyRepairButton_Click;
-			_cloneManagedAssociationButton = new Button
+			_cloneManagedAssociationButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.CloneLocalWorkingCopy", "Clone to Local working copy..."),
 				Enabled = false
 			};
 			_cloneManagedAssociationButton.Click += CloneManagedAssociationButton_Click;
-			_showManagedMemberButton = new Button
+			_showManagedMemberButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ShowMemberInMods", "Show selected member in Mods"),
 				Enabled = false
 			};
 			_showManagedMemberButton.Click += ShowManagedMemberButton_Click;
-			_showManagedMemberImpactButton = new Button
+			_showManagedMemberImpactButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ShowMemberImpact", "Show member impact..."),
 				Enabled = false
 			};
 			_showManagedMemberImpactButton.Click += ShowManagedMemberImpactButton_Click;
-			_addManagedOptionalMemberButton = new Button
+			_addManagedOptionalMemberButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.AddOptionalMember", "Add selected optional member..."),
 				Enabled = false
 			};
 			_addManagedOptionalMemberButton.Click += AddManagedOptionalMemberButton_Click;
-			_removeManagedOptionalMemberButton = new Button
+			_removeManagedOptionalMemberButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.RemoveOptionalMember", "Remove selected optional member..."),
 				Enabled = false
 			};
 			_removeManagedOptionalMemberButton.Click += RemoveManagedOptionalMemberButton_Click;
-			_ignoreMemberDifferenceButton = new Button
+			_ignoreMemberDifferenceButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.IgnoreMemberDifference", "Ignore selected member difference..."),
 				Enabled = false
 			};
 			_ignoreMemberDifferenceButton.Click += IgnoreMemberDifferenceButton_Click;
-			_stopIgnoringMemberDifferenceButton = new Button
+			_stopIgnoringMemberDifferenceButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.StopIgnoringMemberDifference", "Stop ignoring selected member difference..."),
 				Enabled = false
 			};
 			_stopIgnoringMemberDifferenceButton.Click += StopIgnoringMemberDifferenceButton_Click;
-			_acceptMemberDriftButton = new Button
+			_acceptMemberDriftButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.AcceptMemberDrift", "Adopt selected member change..."),
 				Enabled = false
 			};
 			_acceptMemberDriftButton.Click += AcceptMemberDriftButton_Click;
-			_clearMemberOverrideButton = new Button
+			_clearMemberOverrideButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ClearMemberOverride", "Clear selected member override..."),
 				Enabled = false
 			};
 			_clearMemberOverrideButton.Click += ClearMemberOverrideButton_Click;
-			_importButton = new Button
+			_importButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.Import", "Import bundle / collection.json..."),
 				Enabled = false
 			};
 			_importButton.Click += ImportButton_Click;
-			_downloadPrepareButton = new Button
+			_downloadPrepareButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.DownloadPrepare", "Download / Prepare"),
@@ -431,7 +518,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Visible = false
 			};
 			_downloadPrepareButton.Click += DownloadPrepareButton_Click;
-			_resolveFileConflictsButton = new Button
+			_resolveFileConflictsButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ResolveFileConflicts", "Resolve file conflicts..."),
@@ -439,7 +526,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Visible = false
 			};
 			_resolveFileConflictsButton.Click += ResolveFileConflictsButton_Click;
-			_autoOverwriteArchivesCheckBox = new CheckBox
+			_autoOverwriteArchivesCheckBox = new CheckEdit
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.AutoOverwriteArchives", "Overwrite automatically all present archives"),
@@ -449,7 +536,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			};
 			_toolTip.SetToolTip(_autoOverwriteArchivesCheckBox, L("Collections.Actions.AutoOverwriteArchivesHelp",
 				"For Collection downloads/imports queued by this Download / Prepare batch, replace existing NMM mod archives at their original archive path without asking for each collision. Verified archives are still reused; manually added files outside this correlated workflow and installation file-conflict rules are unchanged."));
-			_resumeButton = new Button
+			_resumeButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ResumePreparation", "Check downloads and continue"),
@@ -457,7 +544,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Visible = false
 			};
 			_resumeButton.Click += ResumeButton_Click;
-			_openPendingButton = new Button
+			_openPendingButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.OpenDownloadPage", "Download selected missing mod"),
@@ -465,7 +552,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Visible = false
 			};
 			_openPendingButton.Click += OpenPendingButton_Click;
-			_installButton = new Button
+			_installButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.InstallCurrent", "Review and install..."),
@@ -473,16 +560,16 @@ namespace Nexus.Client.CollectionManagement.UI
 				Visible = false
 			};
 			_installButton.Click += InstallButton_Click;
-			_primaryIncomingActionButton = new Button
+			_primaryIncomingActionButton = new SimpleButton
 			{
 				AutoSize = true,
 				MinimumSize = new Size(150, 0),
 				Text = _downloadPrepareButton.Text,
 				Enabled = false,
-				Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold)
+				Appearance = { FontStyleDelta = FontStyle.Bold }
 			};
 			_primaryIncomingActionButton.Click += PrimaryIncomingActionButton_Click;
-			_replacementBackupCheckBox = new CheckBox
+			_replacementBackupCheckBox = new CheckEdit
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ReplaceBackup", "Create Local Collection backup first"),
@@ -492,307 +579,284 @@ namespace Nexus.Client.CollectionManagement.UI
 			};
 			_toolTip.SetToolTip(_replacementBackupCheckBox, L("Collections.Actions.ReplaceBackupHelp",
 				"Replacement always prepares mandatory operation recovery. This option additionally saves a persistent Local Collection before managed effects are removed."));
-			_replaceButton = new Button
+			_replaceButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
 				Enabled = false
 			};
 			_replaceButton.Click += ReplaceButton_Click;
-			_clearButton = new Button
+			_clearButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ClearPreview", "Close this preview")
 			};
 			_clearButton.Click += ClearButton_Click;
-			_exportTechnicalReportButton = new Button
+			_exportTechnicalReportButton = new SimpleButton
 			{
 				AutoSize = true,
 				Text = L("Collections.Actions.ExportTechnicalReport", "Export Technical Report..."),
 				Enabled = false
 			};
 			_exportTechnicalReportButton.Click += ExportTechnicalReportButton_Click;
-			_instructionLabel = new Label
+			_instructionLabel = new LabelControl
 			{
-				AutoSize = true,
+				AutoSizeMode = LabelAutoSizeMode.Vertical,
+				Dock = DockStyle.Fill,
 				MaximumSize = new Size(760, 0),
-				Padding = new Padding(12, 6, 0, 0),
+				Padding = new Padding(0, 4, 0, 8),
 				Text = L("Collections.Preview.Instructions", "Use the Incoming Collection primary action for the next workflow step. Right-click a member for member-specific actions. Compare / Update and Verify / Repair manage installed Collections; Replace current managed setup remains a separate destructive reviewed transition.")
 			};
+			_instructionLabel.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
+			_instructionLabel.Appearance.Options.UseTextOptions = true;
 			_currentSetupGroup = CreateActionGroup(L("Collections.Context.CurrentSetup", "Current game setup"),
 				_saveCurrentSetupButton);
 			_savedLocalGroup = CreateActionGroup(L("Collections.Context.SavedLocal", "Saved Local Collection"),
-				_localCaptureCombo, _restoreLocalCaptureButton);
+				_localCaptureCombo, _restoreLocalCaptureButton, _deleteLocalCaptureButton);
 			_localWorkingCopyGroup = CreateActionGroup(L("Collections.Context.LocalWorkingCopy", "Local working copies"),
 				_localWorkingCopyCombo, _editLocalWorkingCopyButton, _saveLocalWorkingCopyRevisionButton);
 			Control installedActions = CreateActionGroup(L("Collections.Context.Installed", "Installed Collection"),
 				_managedAssociationCombo, _compareUpdateButton, _verifyRepairButton, _manageAssociationRemovalButton, _cloneManagedAssociationButton);
 			installedActions.Controls[0].Visible = false;
 			_installedGroup = new CollectionSectionGroup(L("Collections.Context.Installed", "Installed Collection"), installedActions);
-			Label previewContextLabel;
-			FlowLayoutPanel incomingActionsPanel;
+			LabelControl previewContextLabel;
+			CollectionActionPanel incomingActionsPanel;
 			Control incomingGroup = CreateActionGroup(L("Collections.Context.Incoming", "Incoming Collection"),
 				out previewContextLabel, out incomingActionsPanel,
-				_primaryIncomingActionButton, _importButton, _autoOverwriteArchivesCheckBox,
-				_replacementBackupCheckBox, _replaceButton, _clearButton,
+				_primaryIncomingActionButton, _importButton, _clearButton, _exportTechnicalReportButton,
 				_downloadPrepareButton, _resolveFileConflictsButton, _resumeButton, _openPendingButton, _installButton);
 			_previewContextLabel = previewContextLabel;
 			_incomingActionsPanel = incomingActionsPanel;
 			_previewContextLabel.Visible = false;
-			TableLayoutPanel previewLayout = (TableLayoutPanel)incomingGroup;
-			previewLayout.RowCount = 5;
-			previewLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			previewLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 82F));
-			previewLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+			TablePanel previewLayout = (TablePanel)incomingGroup;
+			previewLayout.Rows.Add(new TablePanelRow(TablePanelEntityStyle.AutoSize, 1F));
+			previewLayout.Controls.Remove(_previewContextLabel);
+			previewLayout.SetCell(_incomingActionsPanel, 2, 0);
 			_previewSection = new CollectionSectionGroup(L("Collections.Context.Incoming", "Incoming Collection"), previewLayout);
-			_supportGroup = CreateActionGroup(L("Collections.Context.Support", "Support"), _exportTechnicalReportButton);
+			AddCollectionCell(root, _previewSection, 0);
+			AddCollectionCell(root, _installedGroup, 1);
 
-			// Keep the displayed Collection's actions, identity and summary together above setup management.
-			root.Controls.Add(_previewSection, 0, 0);
-			root.Controls.Add(_installedGroup, 0, 1);
-			toolbar.Controls.Add(_currentSetupGroup);
-			toolbar.Controls.Add(_savedLocalGroup);
-			toolbar.Controls.Add(_localWorkingCopyGroup);
-			toolbar.Controls.Add(_supportGroup);
-			toolbar.SetFlowBreak(_supportGroup, true);
-			previewLayout.Controls.Add(_instructionLabel, 0, 4);
-			root.Controls.Add(toolbar, 0, 2);
-
-			var header = new TableLayoutPanel
-			{
-				Dock = DockStyle.Top,
-				AutoSize = true,
-				ColumnCount = 4,
-				RowCount = 4,
-				Padding = new Padding(0, 0, 0, 6)
-			};
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-			header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-
+			// Keep identity, current status and the next action together; move reference information out of the working area.
+			TablePanel header = CreateCollectionTable(2, 4);
+			header.AutoSize = true;
+			header.Columns[0].Style = TablePanelEntityStyle.AutoSize;
+			header.Columns[2].Style = TablePanelEntityStyle.AutoSize;
 			_collectionValue = AddHeaderRow(header, 0, 0, L("Collections.Fields.Collection", "Collection:"));
-			_curatorValue = AddHeaderRow(header, 0, 2, L("Collections.Fields.Curator", "Curator:"));
-			_locatorValue = AddHeaderRow(header, 1, 0, L("Collections.Fields.Locator", "Nexus locator:"));
-			_revisionValue = AddHeaderRow(header, 1, 2, L("Collections.Fields.Revision", "Revision:"));
-			_compatibilityValue = AddHeaderRow(header, 2, 0, L("Collections.Status.Compatibility", "Compatibility:"));
-			_contentValue = AddHeaderRow(header, 2, 2, L("Collections.Status.Content", "Content readiness:"));
-			_appliedValue = AddHeaderRow(header, 3, 0, L("Collections.Status.Applied", "Applied state:"));
-			header.SetColumnSpan(_appliedValue, 3);
-			previewLayout.Controls.Add(header, 0, 2);
+			_revisionValue = AddHeaderRow(header, 0, 2, L("Collections.Fields.Revision", "Revision:"));
+			_appliedValue = AddHeaderRow(header, 1, 0, L("Collections.Status.Applied", "Applied state:"));
+			_contentValue = AddHeaderRow(header, 1, 2, L("Collections.Status.Content", "Content readiness:"));
+			AddCollectionCell(previewLayout, header, 0);
 
-			_summaryBox = new TextBox
+			TablePanel workflowStatusPanel = CreateCollectionTable(1, 2);
+			workflowStatusPanel.AutoSize = true;
+			workflowStatusPanel.Columns[1].Style = TablePanelEntityStyle.AutoSize;
+			_workflowStatusLabel = new LabelControl
 			{
-				Dock = DockStyle.Fill,
-				Multiline = true,
-				ReadOnly = true,
-				ScrollBars = ScrollBars.Vertical,
-				BackColor = SystemColors.Window,
+				AutoSizeMode = LabelAutoSizeMode.Vertical, Dock = DockStyle.Fill,
+				Padding = new Padding(0, 4, 0, 4), ImageAlignToText = ImageAlignToText.LeftCenter,
+				IndentBetweenImageAndText = 7, Text = L("Collections.Workflow.Idle", "Workflow: idle")
+			};
+			_workflowStatusLabel.Appearance.TextOptions.WordWrap = WordWrap.Wrap;
+			_workflowStatusLabel.Appearance.Options.UseTextOptions = true;
+			_workflowEtaLabel = new LabelControl
+			{
+				AutoSizeMode = LabelAutoSizeMode.Horizontal, Padding = new Padding(12, 3, 0, 6),
+				Text = String.Empty, Visible = false
+			};
+			_workflowEtaLabel.Appearance.TextOptions.HAlignment = HorzAlignment.Far;
+			AddCollectionCell(workflowStatusPanel, _workflowStatusLabel, 0);
+			AddCollectionCell(workflowStatusPanel, _workflowEtaLabel, 0, 1);
+			AddCollectionCell(previewLayout, workflowStatusPanel, 1);
+
+			_reviewTabs = new XtraTabControl { Dock = DockStyle.Fill };
+			_membersPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Mods", "Choose mods"));
+			_issuesPage = CreateCollectionPage(_reviewTabs, L("Collections.Preview.Issues", "Review / issues"));
+			_reviewActionsPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Changes", "Changes to review"));
+			XtraTabPage detailsPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Details", "About this Collection"));
+			_localCollectionsPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Local", "Backups and local Collections"));
+			_advancedOptionsPage = CreateCollectionPage(_reviewTabs, L("Collections.Tabs.Advanced", "Advanced options"));
+			TablePanel detailsLayout = CreateCollectionTable(3);
+			detailsLayout.Rows[2].Style = TablePanelEntityStyle.Relative;
+			TablePanel detailsHeader = CreateCollectionTable(3, 2);
+			detailsHeader.Columns[0].Style = TablePanelEntityStyle.AutoSize;
+			_curatorValue = AddHeaderRow(detailsHeader, 0, 0, L("Collections.Fields.Curator", "Curator:"));
+			_locatorValue = AddHeaderRow(detailsHeader, 1, 0, L("Collections.Fields.Locator", "Nexus locator:"));
+			_compatibilityValue = AddHeaderRow(detailsHeader, 2, 0, L("Collections.Status.Compatibility", "Compatibility:"));
+			_summaryBox = new MemoEdit
+			{
+				Dock = DockStyle.Fill, ReadOnly = true,
 				Text = L("Collections.Preview.EmptySummary", "No Collection preview is loaded.")
 			};
-			previewLayout.Controls.Add(_summaryBox, 0, 3);
+			_summaryBox.Properties.ScrollBars = ScrollBars.Vertical;
+			AddCollectionCell(detailsLayout, detailsHeader, 0);
+			AddCollectionCell(detailsLayout, _instructionLabel, 1);
+			AddCollectionCell(detailsLayout, _summaryBox, 2);
+			detailsPage.Controls.Add(detailsLayout);
+			TablePanel localLayout = CreateCollectionTable(4);
+			localLayout.AutoScroll = true;
+			AddCollectionCell(localLayout, _currentSetupGroup, 0);
+			AddCollectionCell(localLayout, _savedLocalGroup, 1);
+			AddCollectionCell(localLayout, _localWorkingCopyGroup, 2);
+			_localCollectionsPage.Controls.Add(localLayout);
+			_advancedIncomingGroup = CreateActionGroup(L("Collections.Tabs.Advanced", "Advanced options"),
+				_autoOverwriteArchivesCheckBox, _replacementBackupCheckBox, _replaceButton);
+			TablePanel advancedLayout = CreateCollectionTable(2);
+			AddCollectionCell(advancedLayout, _advancedIncomingGroup, 0);
+			LabelControl advancedHint = CreateApprovalLabel(L("Collections.Advanced.Help",
+				"These options can replace downloaded archives or the current mod setup. Use the main action above to install or update this Collection."));
+			AddCollectionCell(advancedLayout, advancedHint, 1);
+			_advancedOptionsPage.Controls.Add(advancedLayout);
 
-			var workflowStatusPanel = new TableLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				AutoSize = true,
-				ColumnCount = 3,
-				RowCount = 1,
-				Margin = Padding.Empty
-			};
-			workflowStatusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 22F));
-			workflowStatusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-			workflowStatusPanel.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-			_workflowActivityIconLabel = new Label
-			{
-				Dock = DockStyle.Fill,
-				TextAlign = ContentAlignment.MiddleCenter,
-				Margin = Padding.Empty,
-				Padding = new Padding(0, 3, 3, 6),
-				Text = String.Empty,
-				AccessibleName = L("Collections.Workflow.ActivityIndicatorAccessibleName", "Workflow activity indicator")
-			};
-			_workflowStatusLabel = new Label
-			{
-				AutoSize = true,
-				MaximumSize = new Size(1200, 0),
-				Padding = new Padding(0, 3, 0, 6),
-				Text = L("Collections.Workflow.Idle", "Workflow: idle")
-			};
-			_workflowEtaLabel = new Label
-			{
-				AutoSize = true,
-				TextAlign = ContentAlignment.MiddleRight,
-				Padding = new Padding(12, 3, 0, 6),
-				Text = String.Empty,
-				Visible = false
-			};
-			workflowStatusPanel.Controls.Add(_workflowActivityIconLabel, 0, 0);
-			workflowStatusPanel.Controls.Add(_workflowStatusLabel, 1, 0);
-			workflowStatusPanel.Controls.Add(_workflowEtaLabel, 2, 0);
-			root.Controls.Add(workflowStatusPanel, 0, 3);
-
-			var splitHeaders = new TableLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				AutoSize = true,
-				ColumnCount = 2
-			};
-			splitHeaders.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
-			splitHeaders.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
-			_membersHeader = new Label { AutoSize = true, Text = L("Collections.Preview.Members", "Members"), Margin = new Padding(0, 3, 10, 0) };
-			_memberSearchTextBox = new TextBox
+			_membersHeader = new LabelControl { AutoSizeMode = LabelAutoSizeMode.Horizontal, Text = L("Collections.Preview.Members", "Members"), Margin = new Padding(0, 3, 10, 0) };
+			_memberSearchTextBox = new TextEdit
 			{
 				Width = 180,
 				Margin = new Padding(0, 0, 8, 0),
 				Enabled = false
 			};
 			_memberSearchTextBox.TextChanged += MemberListFilter_Changed;
-			_memberFilterCombo = new ComboBox
+			_memberFilterCombo = new ComboBoxEdit
 			{
-				DropDownStyle = ComboBoxStyle.DropDownList,
 				Width = 135,
 				Margin = Padding.Empty,
 				Enabled = false
 			};
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.All, L("Collections.MemberFilter.All", "All")));
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Selected, L("Collections.MemberFilter.Selected", "Selected")));
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Unselected, L("Collections.MemberFilter.Unselected", "Not selected")));
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Required, L("Collections.MemberFilter.Required", "Required")));
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Optional, L("Collections.MemberFilter.Optional", "Optional")));
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.NeedsAttention, L("Collections.MemberFilter.NeedsAttention", "Needs attention")));
-			_memberFilterCombo.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.ChangedLocally, L("Collections.MemberFilter.ChangedLocally", "Changed locally")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.All, L("Collections.MemberFilter.All", "All")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Selected, L("Collections.MemberFilter.Selected", "Selected")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Unselected, L("Collections.MemberFilter.Unselected", "Not selected")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Required, L("Collections.MemberFilter.Required", "Required")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.Optional, L("Collections.MemberFilter.Optional", "Optional")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.NeedsAttention, L("Collections.MemberFilter.NeedsAttention", "Needs attention")));
+			_memberFilterCombo.Properties.Items.Add(new MemberFilterChoice(CollectionMemberListFilterKind.ChangedLocally, L("Collections.MemberFilter.ChangedLocally", "Changed locally")));
 			_memberFilterCombo.SelectedIndex = 0;
+			_memberFilterCombo.Properties.TextEditStyle = TextEditStyles.DisableTextEditor;
 			_memberFilterCombo.SelectedIndexChanged += MemberListFilter_Changed;
-			_issuesHeader = new Label
+			_issuesHeader = new LabelControl
 			{
-				AutoSize = true,
+				AutoSizeMode = LabelAutoSizeMode.Horizontal,
 				Text = L("Collections.Preview.Issues", "Review / issues"),
 				Margin = new Padding(0, 3, 12, 0)
 			};
-			_showErrorIssuesCheckBox = new CheckBox { AutoSize = true, Checked = true, Margin = new Padding(0, 0, 8, 0) };
-			_showWarningIssuesCheckBox = new CheckBox { AutoSize = true, Checked = false, Margin = new Padding(0, 0, 8, 0) };
-			_showInfoIssuesCheckBox = new CheckBox { AutoSize = true, Checked = false, Margin = new Padding(0, 0, 0, 0) };
+			_showErrorIssuesCheckBox = new CheckEdit { AutoSize = true, Checked = true, Margin = new Padding(0, 0, 8, 0) };
+			_showWarningIssuesCheckBox = new CheckEdit { AutoSize = true, Checked = true, Margin = new Padding(0, 0, 8, 0) };
+			_showInfoIssuesCheckBox = new CheckEdit { AutoSize = true, Checked = true, Margin = new Padding(0, 0, 0, 0) };
 			_showErrorIssuesCheckBox.CheckedChanged += ReviewSeverityFilter_CheckedChanged;
 			_showWarningIssuesCheckBox.CheckedChanged += ReviewSeverityFilter_CheckedChanged;
 			_showInfoIssuesCheckBox.CheckedChanged += ReviewSeverityFilter_CheckedChanged;
 
-			var issuesHeaderPanel = new FlowLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				AutoSize = true,
-				WrapContents = true,
-				FlowDirection = FlowDirection.LeftToRight,
-				Margin = Padding.Empty
-			};
+			CollectionActionPanel issuesHeaderPanel = new CollectionActionPanel();
 			issuesHeaderPanel.Controls.Add(_issuesHeader);
 			issuesHeaderPanel.Controls.Add(_showErrorIssuesCheckBox);
 			issuesHeaderPanel.Controls.Add(_showWarningIssuesCheckBox);
 			issuesHeaderPanel.Controls.Add(_showInfoIssuesCheckBox);
-
-			var membersHeaderPanel = new FlowLayoutPanel
-			{
-				Dock = DockStyle.Fill,
-				AutoSize = true,
-				WrapContents = true,
-				FlowDirection = FlowDirection.LeftToRight,
-				Margin = Padding.Empty
-			};
+			CollectionActionPanel membersHeaderPanel = new CollectionActionPanel();
 			membersHeaderPanel.Controls.Add(_membersHeader);
-			membersHeaderPanel.Controls.Add(new Label
+			membersHeaderPanel.Controls.Add(new LabelControl
 			{
-				AutoSize = true,
-				Text = L("Collections.MemberFilter.Find", "Find:"),
+				AutoSizeMode = LabelAutoSizeMode.Horizontal, Text = L("Collections.MemberFilter.Find", "Find:"),
 				Margin = new Padding(0, 3, 4, 0)
 			});
 			membersHeaderPanel.Controls.Add(_memberSearchTextBox);
 			membersHeaderPanel.Controls.Add(_memberFilterCombo);
-			splitHeaders.Controls.Add(membersHeaderPanel, 0, 0);
-			splitHeaders.Controls.Add(issuesHeaderPanel, 1, 0);
-
-			var contentGrid = new TableLayoutPanel
+			_memberSelectionHint = new LabelControl
 			{
-				Dock = DockStyle.Fill,
-				ColumnCount = 2,
-				RowCount = 2
+				AutoSizeMode = LabelAutoSizeMode.Horizontal, Margin = new Padding(12, 3, 0, 0),
+				Text = L("Collections.Members.OptionalHint", "Required mods are included. Tick optional mods you want to use.")
 			};
-			contentGrid.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			contentGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-			contentGrid.Controls.Add(splitHeaders, 0, 0);
-			contentGrid.SetColumnSpan(splitHeaders, 2);
-			contentGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
-			contentGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
+			membersHeaderPanel.Controls.Add(_memberSelectionHint);
+			TablePanel membersLayout = CreateCollectionTable(2);
+			membersLayout.Rows[1].Style = TablePanelEntityStyle.Relative;
+			AddCollectionCell(membersLayout, membersHeaderPanel, 0);
+			_membersPage.Controls.Add(membersLayout);
 
-			_membersHost = new Panel
+			_membersHost = new PanelControl
 			{
 				Dock = DockStyle.Fill,
+				BorderStyle = BorderStyles.NoBorder,
 				Margin = Padding.Empty
 			};
-			_membersView = CreateListView();
-			_membersView.CheckBoxes = true;
-			_membersView.ItemCheck += MembersView_ItemCheck;
-			_membersView.SelectedIndexChanged += MembersView_SelectedIndexChanged;
+			_membersGrid = new GridControl { Dock = DockStyle.Fill };
+			_membersView = CreateCollectionGridView(_membersGrid);
+			_membersGrid.DataSource = _memberRows;
+			// Toggle directly instead of making the first click focus a row and open its editor.
+			_membersView.OptionsBehavior.Editable = false;
+			_membersView.OptionsView.ColumnAutoWidth = true;
 			_membersView.MouseDown += MembersView_MouseDown;
-			_membersView.Columns.Add(L("Collections.Columns.Member", "Member"), 210);
-			_membersView.Columns.Add(L("Collections.Columns.Requirement", "Requirement"), 88);
-			_membersView.Columns.Add(L("Collections.Columns.Selection", "Selection"), 82);
-			_membersView.Columns.Add(L("Collections.Columns.Compatibility", "Compatibility"), 112);
-			_membersView.Columns.Add(L("Collections.Columns.Artifact", "Artifact"), 240);
-			_membersView.Columns.Add(L("Collections.Columns.ManagedState", "Collection state"), 260);
+			_membersGrid.KeyDown += MembersGrid_KeyDown;
+			_membersView.FocusedRowChanged += MembersView_FocusedRowChanged;
+			_membersView.CellValueChanged += MembersView_CellValueChanged;
+			_membersGrid.MouseDown += MembersGrid_MouseDown;
+			RepositoryItemCheckEdit memberCheck = new RepositoryItemCheckEdit { AllowGrayed = false };
+			_membersGrid.RepositoryItems.Add(memberCheck);
+			GridColumn checkColumn = AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Selected),
+				L("Collections.Columns.Use", "Use"), 45);
+			checkColumn.ColumnEdit = memberCheck;
+			checkColumn.OptionsColumn.FixedWidth = true;
+			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.DisplayName), L("Collections.Columns.ModName", "Mod"), 320);
+			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Requirement), L("Collections.Columns.Requirement", "Requirement"), 88);
+			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Selection), L("Collections.Columns.Selection", "Selection"), 82).Visible = false;
+			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Compatibility), L("Collections.Columns.Compatibility", "Compatibility"), 112);
+			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.Artifact), L("Collections.Columns.Artifact", "Artifact"), 240).Visible = false;
+			AddCollectionGridColumn(_membersView, nameof(MemberGridRow.ManagedState), L("Collections.Columns.ManagedState", "Collection state"), 260);
 
-			_memberActionsMenu = new ContextMenuStrip();
-			AddMemberActionMenuItem(_memberActionsMenu, _showManagedMemberButton, ShowManagedMemberButton_Click);
-			AddMemberActionMenuItem(_memberActionsMenu, _showManagedMemberImpactButton, ShowManagedMemberImpactButton_Click);
-			_memberActionsMenu.Items.Add(new ToolStripSeparator());
-			AddMemberActionMenuItem(_memberActionsMenu, _addManagedOptionalMemberButton, AddManagedOptionalMemberButton_Click);
-			AddMemberActionMenuItem(_memberActionsMenu, _removeManagedOptionalMemberButton, RemoveManagedOptionalMemberButton_Click);
-			_memberActionsMenu.Items.Add(new ToolStripSeparator());
-			AddMemberActionMenuItem(_memberActionsMenu, _ignoreMemberDifferenceButton, IgnoreMemberDifferenceButton_Click);
-			AddMemberActionMenuItem(_memberActionsMenu, _stopIgnoringMemberDifferenceButton, StopIgnoringMemberDifferenceButton_Click);
-			AddMemberActionMenuItem(_memberActionsMenu, _acceptMemberDriftButton, AcceptMemberDriftButton_Click);
-			AddMemberActionMenuItem(_memberActionsMenu, _clearMemberOverrideButton, ClearMemberOverrideButton_Click);
-			_memberActionsMenu.Opening += delegate { UpdateMemberActionMenuItems(); };
-			_membersView.ContextMenuStrip = _memberActionsMenu;
-			_toolTip.SetToolTip(_membersView, L("Collections.Member.ContextHint", "Right-click a member for Collection-specific actions."));
-			_membersHost.Controls.Add(_membersView);
+			_memberMenuManager = new BarManager { Form = this };
+			_memberActionsMenu = new PopupMenu(_memberMenuManager);
+			AddMemberActionMenuItem(_memberActionsMenu, _showManagedMemberButton, ShowManagedMemberButton_Click, false);
+			AddMemberActionMenuItem(_memberActionsMenu, _showManagedMemberImpactButton, ShowManagedMemberImpactButton_Click, false);
+			AddMemberActionMenuItem(_memberActionsMenu, _addManagedOptionalMemberButton, AddManagedOptionalMemberButton_Click, true);
+			AddMemberActionMenuItem(_memberActionsMenu, _removeManagedOptionalMemberButton, RemoveManagedOptionalMemberButton_Click, false);
+			AddMemberActionMenuItem(_memberActionsMenu, _ignoreMemberDifferenceButton, IgnoreMemberDifferenceButton_Click, true);
+			AddMemberActionMenuItem(_memberActionsMenu, _stopIgnoringMemberDifferenceButton, StopIgnoringMemberDifferenceButton_Click, false);
+			AddMemberActionMenuItem(_memberActionsMenu, _acceptMemberDriftButton, AcceptMemberDriftButton_Click, false);
+			AddMemberActionMenuItem(_memberActionsMenu, _clearMemberOverrideButton, ClearMemberOverrideButton_Click, false);
+			_membersGrid.ToolTipController = _toolTip;
+			_toolTip.GetActiveObjectInfo += (sender, args) =>
+			{
+				if (args.SelectedControl != _membersGrid || args.Info != null) return;
+				var hit = _membersView.CalcHitInfo(args.ControlMousePosition);
+				if (hit.InRowCell || hit.InRow)
+				{
+					MemberGridRow row = _membersView.GetRow(hit.RowHandle) as MemberGridRow;
+					if (row != null) args.Info = new ToolTipControlInfo(row,
+						row.DisplayName + Environment.NewLine + row.Requirement + " - " + row.Selection + Environment.NewLine +
+						row.ManagedState + Environment.NewLine + row.Artifact + Environment.NewLine +
+						L("Collections.Member.ContextHint", "Right-click a member for Collection-specific actions."));
+				}
+			};
+			_membersHost.Controls.Add(_membersGrid);
 
-			_membersLoadingOverlay = new Panel
+			_membersLoadingOverlay = new PanelControl
 			{
 				Dock = DockStyle.Fill,
-				BackColor = SystemColors.Window,
-				BorderStyle = BorderStyle.FixedSingle,
+				BorderStyle = BorderStyles.Simple,
 				Visible = false
 			};
-			var membersLoadingLayout = new TableLayoutPanel
+			TablePanel membersLoadingLayout = CreateCollectionTable(5, 3);
+			membersLoadingLayout.Padding = new Padding(16);
+			// TablePanel stretches cell contents regardless of Anchor; bound the shared progress host to a center column.
+			membersLoadingLayout.Columns[1].Style = TablePanelEntityStyle.Absolute;
+			membersLoadingLayout.Columns[1].Width = 220;
+			membersLoadingLayout.Rows[0].Style = TablePanelEntityStyle.Relative;
+			membersLoadingLayout.Rows[4].Style = TablePanelEntityStyle.Relative;
+			_membersLoadingLabel = new LabelControl
 			{
+				AutoSizeMode = LabelAutoSizeMode.Vertical,
 				Dock = DockStyle.Fill,
-				ColumnCount = 1,
-				RowCount = 5,
-				Padding = new Padding(16)
-			};
-			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			membersLoadingLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-			_membersLoadingLabel = new Label
-			{
-				AutoSize = true,
-				Anchor = AnchorStyles.None,
-				MaximumSize = new Size(520, 0),
-				TextAlign = ContentAlignment.MiddleCenter,
 				Margin = new Padding(0, 0, 0, 8)
 			};
-			_membersLoadingProgress = new ProgressBar
+			_membersLoadingProgress = new ProgressBarControl
 			{
-				Anchor = AnchorStyles.None,
-				Style = ProgressBarStyle.Marquee,
-				MarqueeAnimationSpeed = 30,
-				Width = 220,
-				Height = 16,
-				TabStop = false
+				Anchor = AnchorStyles.None, Width = 220, Height = 16,
+				TabStop = false, Visible = false
 			};
-			_membersLoadingCancelButton = new Button
+			_membersLoadingProgress.Properties.Minimum = 0;
+			_membersLoadingProgress.Properties.Maximum = 1000;
+			_membersLoadingMarquee = new MarqueeProgressBarControl
+			{
+				Anchor = AnchorStyles.None, Width = 220, Height = 16, TabStop = false
+			};
+			_membersLoadingMarquee.Properties.MarqueeAnimationSpeed = 30;
+			_membersLoadingCancelButton = new SimpleButton
 			{
 				Anchor = AnchorStyles.None,
 				AutoSize = true,
@@ -801,48 +865,47 @@ namespace Nexus.Client.CollectionManagement.UI
 				Margin = new Padding(0, 10, 0, 0)
 			};
 			_membersLoadingCancelButton.Click += MembersLoadingCancelButton_Click;
-			membersLoadingLayout.Controls.Add(_membersLoadingLabel, 0, 1);
-			membersLoadingLayout.Controls.Add(_membersLoadingProgress, 0, 2);
-			membersLoadingLayout.Controls.Add(_membersLoadingCancelButton, 0, 3);
+			_membersLoadingLabel.Appearance.TextOptions.HAlignment = HorzAlignment.Center;
+			AddCollectionCell(membersLoadingLayout, _membersLoadingLabel, 1);
+			membersLoadingLayout.SetColumnSpan(_membersLoadingLabel, 3);
+			var progressHost = new PanelControl
+			{
+				Anchor = AnchorStyles.None, Width = 220, Height = 18, BorderStyle = BorderStyles.NoBorder
+			};
+			_membersLoadingProgress.Dock = DockStyle.Fill;
+			_membersLoadingMarquee.Dock = DockStyle.Fill;
+			progressHost.Controls.Add(_membersLoadingProgress);
+			progressHost.Controls.Add(_membersLoadingMarquee);
+			AddCollectionCell(membersLoadingLayout, progressHost, 2, 1);
+			AddCollectionCell(membersLoadingLayout, _membersLoadingCancelButton, 3, 1);
 			_membersLoadingOverlay.Controls.Add(membersLoadingLayout);
 			_membersHost.Controls.Add(_membersLoadingOverlay);
-			contentGrid.Controls.Add(_membersHost, 0, 1);
-
-			_reviewPanel = new TableLayoutPanel
+			AddCollectionCell(membersLayout, _membersHost, 1);
+			TablePanel issuesLayout = CreateCollectionTable(2);
+			issuesLayout.Rows[1].Style = TablePanelEntityStyle.Relative;
+			_issuesGrid = CreateReviewGrid(_issueRows, out _issuesView);
+			AddCollectionCell(issuesLayout, issuesHeaderPanel, 0);
+			AddCollectionCell(issuesLayout, _issuesGrid, 1);
+			_issuesPage.Controls.Add(issuesLayout);
+			TablePanel changesLayout = CreateCollectionTable(2);
+			changesLayout.Rows[1].Style = TablePanelEntityStyle.Relative;
+			_reviewActionsHeader = new LabelControl
 			{
-				Dock = DockStyle.Fill,
-				ColumnCount = 1,
-				RowCount = 3,
-				Margin = Padding.Empty
+				AutoSizeMode = LabelAutoSizeMode.Vertical, Dock = DockStyle.Fill,
+				Padding = new Padding(0, 4, 0, 4)
 			};
-			_reviewPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-			_reviewPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
-			_reviewPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 0F));
-
-			_issuesView = CreateReviewListView();
-			_reviewPanel.Controls.Add(_issuesView, 0, 0);
-
-			_reviewActionsHeader = new Label
+			_reviewActionsGrid = CreateReviewGrid(_reviewRows, out _reviewActionsView);
+			AddCollectionCell(changesLayout, _reviewActionsHeader, 0);
+			AddCollectionCell(changesLayout, _reviewActionsGrid, 1);
+			_reviewActionsPage.Controls.Add(changesLayout);
+			_detailsSection = new GroupControl
 			{
-				AutoSize = true,
-				Dock = DockStyle.Fill,
-				Padding = new Padding(0, 5, 0, 3),
-				Visible = false
+				Dock = DockStyle.Fill, ShowCaption = false, BorderStyle = BorderStyles.NoBorder
 			};
-			_reviewPanel.Controls.Add(_reviewActionsHeader, 0, 1);
-
-			_reviewActionsView = CreateReviewListView();
-			_reviewActionsView.Visible = false;
-			_reviewPanel.Controls.Add(_reviewActionsView, 0, 2);
-			contentGrid.Controls.Add(_reviewPanel, 1, 1);
-			_detailsSection = new DevExpress.XtraEditors.GroupControl
-			{
-				Dock = DockStyle.Fill, Padding = new Padding(6),
-				Text = L("Collections.Context.MembersReview", "Collection mods and review")
-			};
-			_detailsSection.Controls.Add(contentGrid);
-			root.Controls.Add(_detailsSection, 0, 4);
-			DevExpressDisplaySettingsApplier.ApplySkinSurface(root);
+			_detailsSection.Controls.Add(_reviewTabs);
+			AddCollectionCell(root, _detailsSection, 2);
+			MakeLayoutSkinTransparent(root);
+			EnsureActionCheckCaptionsFit();
 
 			_displayContext = CollectionUiContext.None(_previewGeneration);
 			RenderWorkflowActivity();
@@ -894,6 +957,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 
 			DetachDispatcher();
+			_completedRemovalReport = null;
+			_completedRemovalItems = new CollectionReviewItem[0];
 			CancelPreviewWork();
 			CancelWorkflowWork();
 			_snapshot = null;
@@ -943,11 +1008,17 @@ namespace Nexus.Client.CollectionManagement.UI
 				_acquisitionRefreshTimer.Stop();
 				_acquisitionRefreshTimer.Dispose();
 				_toolTip.Dispose();
+				_memberMenuManager.Dispose();
 				DetachDispatcher();
 				CancelPreviewWork();
 				CancelWorkflowWork();
 				_workflowActivityAnimationTimer.Stop();
 				_workflowActivityAnimationTimer.Dispose();
+				// The NMM icon provider owns its cached bitmaps; only dispose our private rendered copy.
+				if (_workflowStatusLabel != null && !_workflowStatusLabel.IsDisposed)
+					_workflowStatusLabel.ImageOptions.Image = null;
+				_workflowActivityIconBitmap?.Dispose();
+				_workflowActivityIconBitmap = null;
 			}
 			base.Dispose(disposing);
 		}
@@ -1044,14 +1115,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionManagementLocalCapture selected = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
 			if (selected != null) selectedId = selected.CaptureIdentity;
 
-			_localCaptureCombo.BeginUpdate();
+			_localCaptureCombo.Properties.Items.BeginUpdate();
 			try
 			{
-				_localCaptureCombo.Items.Clear();
+				_localCaptureCombo.SelectedIndex = -1;
+				_localCaptureCombo.EditValue = null;
+				_localCaptureCombo.Properties.Items.Clear();
 				if (_managementWorkflow == null) return;
 				IReadOnlyList<CollectionManagementLocalCapture> captures = _managementWorkflow.GetLocalCaptures();
 				foreach (CollectionManagementLocalCapture capture in captures)
-					_localCaptureCombo.Items.Add(capture);
+					_localCaptureCombo.Properties.Items.Add(capture);
 				_localCaptureCombo.SelectedIndex = FindLocalCaptureSelectionIndex(captures, selectedId);
 			}
 			catch (Exception ex)
@@ -1060,7 +1133,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			finally
 			{
-				_localCaptureCombo.EndUpdate();
+				_localCaptureCombo.Properties.Items.EndUpdate();
 				UpdateActionButtons();
 			}
 		}
@@ -1087,22 +1160,22 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (selectedId == null && current != null)
 				selectedId = current.Collection.StableId;
 
-			_localWorkingCopyCombo.BeginUpdate();
+			_localWorkingCopyCombo.Properties.Items.BeginUpdate();
 			try
 			{
-				_localWorkingCopyCombo.Items.Clear();
+				_localWorkingCopyCombo.Properties.Items.Clear();
 				if (_managementWorkflow == null)
 					return;
 				foreach (CollectionManagementLocalWorkingCopy workingCopy in _managementWorkflow.GetLocalWorkingCopies())
-					_localWorkingCopyCombo.Items.Add(workingCopy);
-				if (_localWorkingCopyCombo.Items.Count > 0)
+					_localWorkingCopyCombo.Properties.Items.Add(workingCopy);
+				if (_localWorkingCopyCombo.Properties.Items.Count > 0)
 				{
 					int selectedIndex = 0;
 					if (selectedId != null)
 					{
-						for (int index = 0; index < _localWorkingCopyCombo.Items.Count; index++)
+						for (int index = 0; index < _localWorkingCopyCombo.Properties.Items.Count; index++)
 						{
-							CollectionManagementLocalWorkingCopy candidate = _localWorkingCopyCombo.Items[index] as CollectionManagementLocalWorkingCopy;
+							CollectionManagementLocalWorkingCopy candidate = _localWorkingCopyCombo.Properties.Items[index] as CollectionManagementLocalWorkingCopy;
 							if (candidate != null && StringComparer.Ordinal.Equals(candidate.Collection.StableId, selectedId))
 							{
 								selectedIndex = index;
@@ -1119,7 +1192,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			finally
 			{
-				_localWorkingCopyCombo.EndUpdate();
+				_localWorkingCopyCombo.Properties.Items.EndUpdate();
 				UpdateActionButtons();
 			}
 		}
@@ -1144,18 +1217,20 @@ namespace Nexus.Client.CollectionManagement.UI
 				selectedId = selected.AssociationId;
 
 			_suppressManagedAssociationSelection = true;
-			_managedAssociationCombo.BeginUpdate();
+			_managedAssociationCombo.Properties.Items.BeginUpdate();
 			try
 			{
-				_managedAssociationCombo.Items.Clear();
+				_managedAssociationCombo.Properties.Items.Clear();
+				_managedAssociationCombo.SelectedIndex = -1;
+				_managedAssociationCombo.EditValue = null;
 				if (_managementWorkflow == null)
 					return;
 
 				IReadOnlyList<CollectionManagementAssociation> associations = _managementWorkflow.GetAssociations();
 				foreach (CollectionManagementAssociation association in associations)
-					_managedAssociationCombo.Items.Add(association);
+					_managedAssociationCombo.Properties.Items.Add(association);
 
-				if (_managedAssociationCombo.Items.Count > 0)
+				if (_managedAssociationCombo.Properties.Items.Count > 0)
 				{
 					int selectedIndex = -1;
 
@@ -1163,9 +1238,9 @@ namespace Nexus.Client.CollectionManagement.UI
 					// management actions visually tied to the revision the user is currently reviewing.
 					if (_snapshot != null && _snapshot.Revision != null)
 					{
-						for (int index = 0; index < _managedAssociationCombo.Items.Count; index++)
+						for (int index = 0; index < _managedAssociationCombo.Properties.Items.Count; index++)
 						{
-							CollectionManagementAssociation candidate = _managedAssociationCombo.Items[index] as CollectionManagementAssociation;
+							CollectionManagementAssociation candidate = _managedAssociationCombo.Properties.Items[index] as CollectionManagementAssociation;
 							if (candidate != null && candidate.Association.Revision.Equals(_snapshot.Revision.Identity))
 							{
 								selectedIndex = index;
@@ -1176,9 +1251,9 @@ namespace Nexus.Client.CollectionManagement.UI
 
 					if (selectedIndex < 0 && selectedId != Guid.Empty)
 					{
-						for (int index = 0; index < _managedAssociationCombo.Items.Count; index++)
+						for (int index = 0; index < _managedAssociationCombo.Properties.Items.Count; index++)
 						{
-							CollectionManagementAssociation candidate = _managedAssociationCombo.Items[index] as CollectionManagementAssociation;
+							CollectionManagementAssociation candidate = _managedAssociationCombo.Properties.Items[index] as CollectionManagementAssociation;
 							if (candidate != null && candidate.AssociationId == selectedId)
 							{
 								selectedIndex = index;
@@ -1196,7 +1271,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			finally
 			{
-				_managedAssociationCombo.EndUpdate();
+				_managedAssociationCombo.Properties.Items.EndUpdate();
 				_suppressManagedAssociationSelection = false;
 				if (preserveWorkflowView && _snapshot != null)
 				{
@@ -1356,7 +1431,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				else
 					_workflowStatusLabel.Text = L("Collections.Workflow.InstalledView",
-						"Workflow: viewing the durably tracked installed Collection; no mutation is in progress.");
+						"Workflow: Viewing your installed Collection. No changes are being made.");
 				BindMatchingRecovery();
 				UpdateActionButtons();
 			}
@@ -1460,29 +1535,25 @@ namespace Nexus.Client.CollectionManagement.UI
 			_suppressMemberCheckEvents = true;
 			try
 			{
-				foreach (ListViewItem item in _membersView.Items)
+				foreach (MemberGridRow row in _memberRows)
 				{
-					NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
+					NormalizedCollectionMember member = row.Member;
 					if (member == null || !member.IdentityResolution.IsResolved)
 						continue;
 					CollectionManagementMemberPresentation managedMember;
 					bool bound = managedMembers.TryGetValue(member.IdentityResolution.Key, out managedMember);
-					item.Checked = bound;
-					if (item.SubItems.Count > 2)
-						item.SubItems[2].Text = item.Checked
-							? L("Collections.Member.Selected", "Selected")
-							: L("Collections.Member.Unselected", "Not selected");
-					if (applied && item.Checked && item.SubItems.Count > 3)
-						item.SubItems[3].Text = managedMember.HasDetectedDrift
+					row.Selected = bound;
+					if (applied && bound)
+						row.Compatibility = managedMember.HasDetectedDrift
 							? L("Collections.Status.ActionRequired", "Action required")
 							: L("Collections.Status.Supported", "Supported");
-					if (item.SubItems.Count > 5)
-						item.SubItems[5].Text = removed.Contains(member.IdentityResolution.Key)
-							? L("Collections.Update.MemberRemovedPending", "Removed during unfinished revision change")
-							: pendingRevision && bound ? L("Collections.Update.MemberPreviousBinding", "Previous revision binding; current state not verified")
-							: bound ? FormatManagedMemberState(managedMember)
-							: L("Collections.Member.ManagedState.NotBound", "Not part of installed recipe");
+					row.ManagedState = removed.Contains(member.IdentityResolution.Key)
+						? L("Collections.Update.MemberRemovedPending", "Removed during unfinished revision change")
+						: pendingRevision && bound ? L("Collections.Update.MemberPreviousBinding", "Previous revision binding; current state not verified")
+						: bound ? FormatManagedMemberState(managedMember)
+						: L("Collections.Member.ManagedState.NotBound", "Not part of installed recipe");
 				}
+				_membersView.RefreshData();
 			}
 			finally
 			{
@@ -1591,12 +1662,26 @@ namespace Nexus.Client.CollectionManagement.UI
 			string status = presentation.Association.State == CollectionAssociationState.Applied
 				? L("Collections.Status.Supported", "Ready")
 				: L("Collections.Status.ActionRequired", "Action required");
-			AddReviewItem(CollectionReviewPresentationClassifier.ForAssociation(presentation.Association.State),
-				presentation.Association.State == CollectionAssociationState.Applied ? CollectionReviewItemKind.Progress : CollectionReviewItemKind.Diagnostic,
-				status, "association." + presentation.Association.State.ToString().ToLowerInvariant(),
-				presentation.Association.Association.Revision.ToString(), FormatManagedAssociationState(presentation.Association.State), null,
-				presentation.Association.State == CollectionAssociationState.Incomplete
-					? L("Collections.Management.VerifyCurrentState", "Use Verify / Repair to check the current setup against this installed Collection revision.") : null);
+			CollectionOperation pending = FindInterruptedInstallation(presentation.Association.Association.Revision);
+			if (pending != null)
+			{
+				CollectionAdditiveWorkflowRecoveryResult recovery = _recoveryResults.FirstOrDefault(x => x.Operation.Identity.Equals(pending.Identity));
+				CollectionNativeChildOperation failed = pending.NativeChildren.LastOrDefault(x => x.NativeResult != null &&
+					x.NativeResult.ReportedStatus != ModOperationReportedStatus.Succeeded);
+				CollectionUserMessagePresentation message = CollectionUserMessagePresenter.ForRecovery(
+					pending.RequiresRecovery ? CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired : CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume,
+					CombineTechnicalDetail(recovery == null ? null : recovery.Message, failed == null ? null : failed.NativeResult.Message));
+				AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+					L("Collections.Status.ActionRequired", "Action required"), "association.interrupted-installation",
+					failed == null ? GetCurrentCollectionSubject() : FormatMemberSubject(failed.Member.MemberKey), message);
+			}
+			else
+				AddReviewItem(CollectionReviewPresentationClassifier.ForAssociation(presentation.Association.State),
+					presentation.Association.State == CollectionAssociationState.Applied ? CollectionReviewItemKind.Progress : CollectionReviewItemKind.Diagnostic,
+					status, "association." + presentation.Association.State.ToString().ToLowerInvariant(),
+					presentation.Association.Association.Revision.ToString(), FormatManagedAssociationState(presentation.Association.State), null,
+					presentation.Association.State == CollectionAssociationState.Incomplete
+						? L("Collections.Management.VerifyCurrentState", "Use Verify / Repair to check the current setup against this installed Collection revision.") : null);
 			if (!String.IsNullOrWhiteSpace(presentation.RetainedSourceIssue))
 			{
 				AddPresentedReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic, L("Collections.Status.ActionRequired", "Action required"),
@@ -1658,7 +1743,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_summaryBox.Text = presentation.Definition == null || String.IsNullOrWhiteSpace(presentation.Definition.Summary)
 				? L("Collections.Preview.NoSummary", "No collection summary was returned. Decorative metadata is optional and does not establish identity or readiness.")
 				: presentation.Definition.Summary;
-			_membersView.Items.Clear();
+			_memberRows.Clear();
 			ClearReviewItems();
 			_membersHeader.Text = L("Collections.Preview.Members", "Members");
 			_issuesHeader.Text = L("Collections.Preview.Issues", "Review / issues");
@@ -1722,14 +1807,14 @@ namespace Nexus.Client.CollectionManagement.UI
 				RefreshLocalWorkingCopies(clone.Collection);
 				_workflowStatusLabel.Text = LanguageManager.Format("Collections.WorkingCopy.CreatedStatus",
 					"Workflow: Local working copy '{0}' created from {1}.", clone.DisplayName, clone.SourceDisplayName);
-				MessageBox.Show(this, LanguageManager.Format("Collections.WorkingCopy.CreatedMessage",
+				XtraMessageBox.Show(this, LanguageManager.Format("Collections.WorkingCopy.CreatedMessage",
 					"Created Local working copy '{0}'. The installed Collection and its native mods were not changed.", clone.DisplayName),
 					L("Collections.WorkingCopy.CreatedTitle", "Local working copy created"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			catch (Exception ex)
 			{
 				Trace.TraceError("Collection local working-copy clone failed: " + ex);
-				MessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.FailedTitle", "Local working-copy clone failed"),
+				XtraMessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.FailedTitle", "Local working-copy clone failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
@@ -1755,7 +1840,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			catch (Exception ex)
 			{
 				Trace.TraceError("Collection Local working-copy edit failed: " + ex);
-				MessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.EditFailedTitle", "Local working-copy edit failed"),
+				XtraMessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.EditFailedTitle", "Local working-copy edit failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
@@ -1776,14 +1861,14 @@ namespace Nexus.Client.CollectionManagement.UI
 				RefreshLocalWorkingCopies(selected.Collection);
 				_workflowStatusLabel.Text = LanguageManager.Format("Collections.WorkingCopy.RevisionSavedStatus",
 					"Workflow: immutable Local revision '{0}' saved from '{1}'.", revision.RevisionLabel, selected.DisplayName);
-				MessageBox.Show(this, LanguageManager.Format("Collections.WorkingCopy.RevisionSavedMessage",
+				XtraMessageBox.Show(this, LanguageManager.Format("Collections.WorkingCopy.RevisionSavedMessage",
 					"Saved Local revision '{0}'. This did not change the installed game setup.", revision.RevisionLabel),
 					L("Collections.WorkingCopy.RevisionSavedTitle", "Local revision saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			catch (Exception ex)
 			{
 				Trace.TraceError("Collection Local working-copy revision save failed: " + ex);
-				MessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.RevisionSaveFailedTitle", "Local revision save failed"),
+				XtraMessageBox.Show(this, ex.Message, L("Collections.WorkingCopy.RevisionSaveFailedTitle", "Local revision save failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
@@ -1809,13 +1894,13 @@ namespace Nexus.Client.CollectionManagement.UI
 				};
 				foreach (CollectionMemberPinImpact pin in impact.Pins)
 					lines.Add("- " + pin.Revision + " / " + pin.Binding.MemberKey + " / recipe " + pin.VerifiedRecipe.Fingerprint);
-				MessageBox.Show(this, String.Join(Environment.NewLine, lines),
+				XtraMessageBox.Show(this, String.Join(Environment.NewLine, lines),
 					L("Collections.Management.MemberImpactTitle", "Collection member impact"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			catch (Exception ex)
 			{
 				Trace.TraceError("Collection member impact view failed: " + ex);
-				MessageBox.Show(this, ex.Message, L("Collections.Management.MemberImpactFailed", "Unable to inspect member impact"),
+				XtraMessageBox.Show(this, ex.Message, L("Collections.Management.MemberImpactFailed", "Unable to inspect member impact"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 			}
 		}
@@ -1838,7 +1923,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Trace.TraceError("Collection member Mods navigation failed: " + ex);
 				RememberTechnicalFailure("association.member-show-mod-failed", ex, context);
-				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+				XtraMessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
 					"association.member-show-mod-failed", ex.Message)),
 					L("Collections.Management.ShowMemberFailed", "Unable to show Collection member"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1862,7 +1947,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			string confirmation = LanguageManager.Format("Collections.Management.AddOptionalMemberPrompt",
 				"Add optional member '{0}' to this installed Collection?\r\n\r\nNMM will keep every currently bound member selected, add this member to the same revision, prepare the normal additive safety review, and will not remove unrelated mods.",
 				memberName);
-			if (MessageBox.Show(this, confirmation, L("Collections.Actions.AddOptionalMember", "Add selected optional member..."),
+			if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.AddOptionalMember", "Add selected optional member..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsActionContextCurrent(context))
 				return;
@@ -1922,7 +2007,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					return;
 				if (plan.HasBlockedImpact)
 				{
-					MessageBox.Show(this, LanguageManager.Format("Collections.Management.OptionalMemberRemovalBlocked",
+					XtraMessageBox.Show(this, LanguageManager.Format("Collections.Management.OptionalMemberRemovalBlocked",
 						"NMM cannot remove '{0}' safely from the installed Collection right now. Nothing was changed.\r\n\r\n{1}",
 						memberName, CollectionUserMessagePresenter.SanitizeInternalTerminology(plan.Reason)),
 						L("Collections.Management.OptionalMemberRemovalBlockedTitle", "Optional member removal blocked"),
@@ -1936,7 +2021,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				string confirmation = LanguageManager.Format("Collections.Management.RemoveOptionalMemberPrompt",
 					"Remove optional member '{0}' from this installed Collection?\r\n\r\n{1}\r\n\r\nReason: {2}\r\n\r\nThe Collection will be marked Modified because its installed member set will intentionally differ from the retained revision.",
 					memberName, effect, CollectionUserMessagePresenter.SanitizeInternalTerminology(plan.Reason));
-				if (MessageBox.Show(this, confirmation, L("Collections.Actions.RemoveOptionalMember", "Remove selected optional member..."),
+				if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.RemoveOptionalMember", "Remove selected optional member..."),
 					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 					!IsWorkflowContextCurrent(context, token))
 					return;
@@ -1951,7 +2036,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.OptionalMemberRemoved",
 						"Workflow: optional member '{0}' was removed from the installed Collection.", memberName);
-					MessageBox.Show(this, LanguageManager.Format("Collections.Management.OptionalMemberRemovedMessage",
+					XtraMessageBox.Show(this, LanguageManager.Format("Collections.Management.OptionalMemberRemovedMessage",
 						"Optional member '{0}' was removed from Collection tracking. {1}", memberName, effect),
 						L("Collections.Management.OptionalMemberRemovedTitle", "Optional member removed"),
 						MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1972,7 +2057,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Trace.TraceError("Collection optional member removal failed: " + ex);
 				RememberTechnicalFailure("association.member-remove-failed", ex, context);
-				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+				XtraMessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
 					"association.member-remove-failed", ex.Message)),
 					L("Collections.Management.OptionalMemberRemovalFailed", "Optional member removal failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -2005,7 +2090,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			string confirmation = LanguageManager.Format("Collections.Management.IgnoreMemberDifferencePrompt",
 				"Ignore the current {0} difference for '{1}'?\r\n\r\nNMM will preserve this as an explicit local decision instead of treating the current missing/disabled state as unresolved drift. No native mod state is changed.",
 				FormatRequirementAspect(drift.Requirement.Aspect), memberName);
-			if (MessageBox.Show(this, confirmation, L("Collections.Actions.IgnoreMemberDifference", "Ignore selected member difference..."),
+			if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.IgnoreMemberDifference", "Ignore selected member difference..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsActionContextCurrent(context))
 				return;
@@ -2024,7 +2109,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Trace.TraceError("Collection member ignore failed: " + ex);
 				RememberTechnicalFailure("association.member-ignore-failed", ex, context);
-				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+				XtraMessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
 					"association.member-ignore-failed", ex.Message)),
 					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -2057,7 +2142,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			string confirmation = LanguageManager.Format("Collections.Management.StopIgnoringMemberDifferencePrompt",
 				"Stop ignoring the {0} difference for '{1}'?\r\n\r\nNMM will re-establish the Collection baseline as the expected state, using fresh native state to decide whether a difference still needs attention. It will not install, enable or remove anything automatically.",
 				FormatRequirementAspect(userOverride.Requirement.Aspect), memberName);
-			if (MessageBox.Show(this, confirmation, L("Collections.Actions.StopIgnoringMemberDifference", "Stop ignoring selected member difference..."),
+			if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.StopIgnoringMemberDifference", "Stop ignoring selected member difference..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsActionContextCurrent(context))
 				return;
@@ -2075,7 +2160,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Trace.TraceError("Collection member stop-ignore failed: " + ex);
 				RememberTechnicalFailure("association.member-stop-ignore-failed", ex, context);
-				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+				XtraMessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
 					"association.member-stop-ignore-failed", ex.Message)),
 					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -2108,7 +2193,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			string confirmation = LanguageManager.Format("Collections.Management.AcceptDriftPrompt",
 				"Adopt the current {0} state for '{1}' as an explicit local Collection override?\r\n\r\nThis records your intent only. It does not change the installed mod, files, plugins or configuration. Future verify/update/repair work must preserve or explicitly revisit this local choice.",
 				FormatRequirementAspect(drift.Requirement.Aspect), memberName);
-			if (MessageBox.Show(this, confirmation, L("Collections.Actions.AcceptMemberDrift", "Adopt selected member change..."),
+			if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.AcceptMemberDrift", "Adopt selected member change..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsActionContextCurrent(context))
 				return;
@@ -2128,7 +2213,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Trace.TraceError("Collection member drift adoption failed: " + ex);
 				RememberTechnicalFailure("association.member-drift-accept-failed", ex, context);
-				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+				XtraMessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
 					"association.member-drift-accept-failed", ex.Message)),
 					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -2161,8 +2246,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			string confirmation = LanguageManager.Format("Collections.Management.ClearOverridePrompt",
 				"Clear the local {0} override for '{1}'?\r\n\r\nThe installed state will not be changed. If it still differs from the Collection baseline, NMM will immediately keep that difference as detected drift requiring review.",
 				FormatRequirementAspect(userOverride.Requirement.Aspect), memberName);
-			if (MessageBox.Show(this, confirmation, L("Collections.Actions.ClearMemberOverride", "Clear selected member override..."),
-				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
+			if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.ClearMemberOverride", "Clear selected member override..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 				!IsActionContextCurrent(context))
 				return;
 
@@ -2180,7 +2265,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				Trace.TraceError("Collection member override clear failed: " + ex);
 				RememberTechnicalFailure("association.member-override-clear-failed", ex, context);
-				MessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
+				XtraMessageBox.Show(this, BuildUserDialogMessage(CollectionUserMessagePresenter.ForFailure(
 					"association.member-override-clear-failed", ex.Message)),
 					L("Collections.Management.MemberDecisionFailed", "Collection member decision failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -2351,7 +2436,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					_workflowStatusLabel.Text = L("Collections.Update.OwnershipConfirmationFailed",
 						"Workflow: Collection ownership could not be confirmed. Review the error before continuing.");
-					MessageBox.Show(this, ex.Message, L("Collections.Update.ReviewOwnership", "Review Collection ownership..."),
+					XtraMessageBox.Show(this, ex.Message, L("Collections.Update.ReviewOwnership", "Review Collection ownership..."),
 						MessageBoxButtons.OK, MessageBoxIcon.Error);
 				}
 			}
@@ -2406,6 +2491,9 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Applying,
 				L("Collections.Update.Applying", "Applying the approved Collection revision update...")));
+			_appliedValue.Text = L("Collections.Update.ApplyingState", "Revision change in progress");
+			_contentValue.Text = L("Collections.Update.ApplyingContent", "Applying approved changes and verifying installed files...");
+			UpdateActionButtons();
 			CollectionArchiveOverwritePolicy overwritePolicy = _autoOverwriteArchivesCheckBox.Checked
 				? CollectionArchiveOverwritePolicy.OverwriteExistingArchives
 				: CollectionArchiveOverwritePolicy.Prompt;
@@ -2451,6 +2539,57 @@ namespace Nexus.Client.CollectionManagement.UI
 			RenderRevisionUpdateWorkflowResult(result);
 		}
 
+		/// <summary>Checks interrupted native work before repair or an explicitly requested uninstall, retaining completed installs.</summary>
+		private async Task<bool> ReconcileInstallationBeforeManagementAsync(CollectionManagementAssociation selected,
+			CollectionUiContext context, CancellationToken token, bool stopForRemoval)
+		{
+			if (_workflow == null) return true;
+			IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> results = await _workflow.ReconcileIncompleteTargetAsync(token);
+			if (!IsWorkflowContextCurrent(context, token)) return false;
+			_recoveryResults = results.Where(x => !x.Operation.IsTerminal).ToList();
+			CollectionAdditiveWorkflowRecoveryResult matching = results.FirstOrDefault(x =>
+				selected.Association.Revision.Equals(x.Operation.Revision));
+			if (matching != null) _operationSnapshot = matching.Operation;
+			if (stopForRemoval && matching != null && !matching.Operation.IsTerminal && !matching.Operation.RequiresRecovery)
+			{
+				IReadOnlyList<CollectionOperation> stopped = await _workflow.StopReconciledInstallationForRemovalAsync(selected.Association.Revision, token);
+				if (!IsWorkflowContextCurrent(context, token)) return false;
+				foreach (CollectionOperation operation in stopped)
+				{
+					_recoveryResults = _recoveryResults.Where(x => !x.Operation.Identity.Equals(operation.Identity)).ToList();
+					if (_operationSnapshot != null && _operationSnapshot.Identity.Equals(operation.Identity))
+						_operationSnapshot = operation;
+				}
+			}
+			RefreshManagedAssociations(true);
+			if (!IsWorkflowContextCurrent(context, token)) return false;
+			CollectionOperation pending = FindInterruptedInstallation(selected.Association.Revision);
+			if (pending == null) return true;
+			BindMatchingRecovery();
+			string nextAction = pending.RequiresRecovery || pending.HasUnreconciledNativeChild
+				? L("Collections.Actions.CheckRecoveryContinue", "Check recovery and continue...")
+				: L("Collections.Actions.ResumeApply", "Review and continue...");
+			if (pending.RequiresRecovery || pending.HasUnreconciledNativeChild)
+				SetWorkflowPresentation(CollectionUserMessagePresenter.ForRecovery(CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired,
+					matching == null ? null : matching.Message));
+			else
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.CheckInterruptedInstallationAction",
+					"Workflow: Installation is unfinished. Choose '{0}' to review the remaining installation changes, or choose Uninstall Collection to review removal.", nextAction);
+			ShowFirstBlockingIssue();
+			return false;
+		}
+
+		/// <summary>Finds the active installation owned by this revision, including when its partial association is selected.</summary>
+		private CollectionOperation FindInterruptedInstallation(CollectionRevisionIdentity revision)
+		{
+			if (revision == null) return null;
+			if (_operationSnapshot != null && !_operationSnapshot.IsTerminal &&
+				_operationSnapshot.Kind == CollectionOperationKind.ApplyResolvedPlan && revision.Equals(_operationSnapshot.Revision))
+				return _operationSnapshot;
+			return _recoveryResults.Select(x => x.Operation).FirstOrDefault(x => !x.IsTerminal &&
+				x.Kind == CollectionOperationKind.ApplyResolvedPlan && revision.Equals(x.Revision));
+		}
+
 		private async void VerifyRepairButton_Click(object sender, EventArgs e)
 		{
 			CollectionManagementAssociation selected = _managedAssociationCombo.SelectedItem as CollectionManagementAssociation;
@@ -2463,6 +2602,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				L("Collections.VerifyRepair.Verifying", "Verifying the installed Collection against its exact retained revision..."));
 			try
 			{
+				if (!await ReconcileInstallationBeforeManagementAsync(selected, context, token, false)) return;
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Verifying,
+					L("Collections.VerifyRepair.Verifying", "Verifying the installed Collection against its exact retained revision...")));
 				CollectionVerifyRepairPlan plan = await _managementWorkflow.PreviewVerifyRepairAsync(selected.AssociationId, token);
 				if (!IsWorkflowContextCurrent(context, token) || plan == null) return;
 				RenderVerifyRepairPlan(plan);
@@ -2479,17 +2621,23 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				if (!plan.CanExecuteQualifiedRepair)
 				{
-					_workflowStatusLabel.Text = plan.HasActionRequired
-						? L("Collections.VerifyRepair.ActionRequired", "Workflow: verification found differences that require an explicit user decision; automatic repair was not started.")
-						: L("Collections.VerifyRepair.NotQualified", "Workflow: differences were found, but this build cannot prove a safe qualified repair for them.");
+					string reason = plan.Findings.FirstOrDefault(x => x.RequiresAction)?.Detail ??
+						L("Collections.VerifyRepair.NotQualifiedReason", "NMM could not prepare a safe repair for these differences.");
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.VerifyRepair.BlockedStatus", "Workflow: Repair unavailable. {0}", reason);
+					XtraMessageBox.Show(this, reason, L("Collections.VerifyRepair.BlockedTitle", "Collection repair unavailable"),
+						MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
 
-				int repairCount = plan.Findings.Count(x => x.IsRepairable);
-				string prompt = LanguageManager.Format("Collections.VerifyRepair.ApprovalPrompt",
-					"Verification found {0} qualified difference(s) that NMM can restore from exact retained Collection inputs.\r\n\r\nRun the qualified repair now? Explicit local overrides are preserved and unsupported/ambiguous differences are never repaired automatically.",
-					repairCount);
-				if (MessageBox.Show(this, prompt, L("Collections.Actions.VerifyRepair", "Verify / Repair..."),
+				List<string> repairNames = plan.Findings.Where(x => x.IsRepairable && x.MemberKey != null)
+					.Select(x => FormatMemberSubject(x.MemberKey)).Distinct().ToList();
+				string repairMods = String.Join(Environment.NewLine, repairNames.Take(12).Select(x => "- " + x));
+				if (repairNames.Count > 12)
+					repairMods += Environment.NewLine + LanguageManager.Format("Collections.VerifyRepair.MoreMods", "...and {0} more mods shown in the repair review.", repairNames.Count - 12);
+				string prompt = LanguageManager.Format("Collections.VerifyRepair.SimpleApprovalPrompt",
+					"Repair this Collection?\r\n\r\nNMM will restore the installed revision's exact files and settings for the items below. Your saved local choices will be kept.\r\n\r\n{0}\r\n\r\nStart repair?",
+					String.IsNullOrEmpty(repairMods) ? L("Collections.VerifyRepair.PluginOrderItem", "- Collection plugin order") : repairMods);
+				if (XtraMessageBox.Show(this, prompt, L("Collections.Actions.VerifyRepair", "Verify / Repair..."),
 					MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
 					!IsWorkflowContextCurrent(context, token))
 				{
@@ -2504,7 +2652,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				RefreshManagedAssociations();
 				_workflowStatusLabel.Text = LanguageManager.Format("Collections.VerifyRepair.Repaired",
 					"Workflow: qualified repair completed and verified ({0} repaired requirement(s)).", result.RepairedCount);
-				MessageBox.Show(this, _workflowStatusLabel.Text, L("Collections.Actions.VerifyRepair", "Verify / Repair..."),
+				XtraMessageBox.Show(this, _workflowStatusLabel.Text, L("Collections.Actions.VerifyRepair", "Verify / Repair..."),
 					MessageBoxButtons.OK, MessageBoxIcon.Information);
 			}
 			catch (OperationCanceledException)
@@ -2630,6 +2778,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					AddPresentedReviewItem(severity, kind, status, "revision-update.acquisition." + member.UpdateMember.MemberKey,
 						FormatMemberSubject(member.UpdateMember.MemberKey), message, member.UpdateMember.MemberKey);
 				}
+				AppendFolderCorrectionReview(result.Preparation.PreparedRecipes);
 			}
 
 			if (!result.IsCommitted)
@@ -2722,6 +2871,11 @@ namespace Nexus.Client.CollectionManagement.UI
 		private void RenderVerifyRepairPlan(CollectionVerifyRepairPlan plan)
 		{
 			ClearReviewItems();
+			if (!plan.IsHealthyAtCurrentCoverage)
+			{
+				_contentValue.Text = L("Collections.VerifyRepair.DifferencesContent", "Verification found differences");
+				_compatibilityValue.Text = L("Collections.VerifyRepair.DifferencesCompatibility", "Supported revision - current setup differs");
+			}
 			_issuesHeader.Text = L("Collections.VerifyRepair.ReviewHeader", "Verify / Repair review");
 			List<CollectionVerifyRepairFinding> visible = plan.Findings.Where(x => x.Kind != CollectionVerifyRepairFindingKind.Satisfied).ToList();
 			if (visible.Count == 0)
@@ -2734,22 +2888,26 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				CollectionReviewSeverity severity = finding.RequiresAction ? CollectionReviewSeverity.Error :
 					finding.IsRepairable ? CollectionReviewSeverity.Warning : CollectionReviewSeverity.Info;
-				CollectionReviewItemKind kind = finding.RequiresAction ? CollectionReviewItemKind.ManualAction :
+				CollectionReviewItemKind kind = finding.RequiresAction ? CollectionReviewItemKind.Diagnostic :
 					finding.IsRepairable ? CollectionReviewItemKind.PlannedEffect : CollectionReviewItemKind.Progress;
-				string subject = finding.Requirement == null ? FormatMemberSubject(finding.MemberKey) : FormatRequirementSubject(finding.Requirement);
+				bool folderCorrection = finding.Requirement != null && StringComparer.Ordinal.Equals(finding.Requirement.SubjectKey, "install-folder");
+				string subject = folderCorrection || finding.Requirement == null ? FormatMemberSubject(finding.MemberKey) : FormatRequirementSubject(finding.Requirement);
 				AddReviewItem(severity, kind,
 					finding.RequiresAction ? L("Collections.Status.ActionRequired", "Action required") : finding.IsRepairable ? L("Collections.VerifyRepair.Repairable", "Repairable") : L("Collections.Status.Supported", "Preserved"),
 					"verify-repair.finding." + finding.Kind + "." + (finding.MemberKey == null ? "global" : finding.MemberKey.ToString()), subject,
-					finding.Detail, finding.MemberKey, finding.IsRepairable ? L("Collections.VerifyRepair.QualifiedRepairAction", "Restore the exact reviewed Collection state for this requirement.") : null,
+					folderCorrection && finding.IsRepairable ? L("Collections.FolderCorrection.Detail", "Move this mod from Data to the game folder. Its old Data files will be removed, and any files it replaced will be restored.") : finding.Detail, finding.MemberKey, folderCorrection && finding.IsRepairable ? L("Collections.FolderCorrection.RepairAction", "Choose Repair to move this mod.") : finding.IsRepairable ? L("Collections.VerifyRepair.QualifiedRepairAction", "Restore the exact reviewed Collection state for this requirement.") : null,
 					finding.Requirement == null ? null : CombineTechnicalDetail("Expected: " + finding.ExpectedState, "Observed: " + finding.ObservedState));
 			}
+			AppendFolderCorrectionReview(plan.PreparedRecipes.Where(x => plan.Findings.Any(f => f.IsRepairable &&
+				f.MemberKey != null && f.MemberKey.Equals(x.Member.MemberKey) && f.Requirement != null &&
+				StringComparer.Ordinal.Equals(f.Requirement.SubjectKey, "install-folder"))));
 			UpdateIssuesHeader();
 		}
 
 		private CollectionManagementAssociation FindRevisionUpdateSourceAssociation()
 		{
 			if (_snapshot == null || _snapshot.Revision == null) return null;
-			List<CollectionManagementAssociation> candidates = _managedAssociationCombo.Items.Cast<object>()
+			List<CollectionManagementAssociation> candidates = _managedAssociationCombo.Properties.Items.Cast<object>()
 				.Select(x => x as CollectionManagementAssociation).Where(x => x != null &&
 					IsRevisionChangeCandidate(_snapshot.Revision.Identity, x.Association.Revision)).ToList();
 			return candidates.Count == 1 ? candidates[0] : null;
@@ -2802,14 +2960,15 @@ namespace Nexus.Client.CollectionManagement.UI
 			IReadOnlyList<CollectionRevision> candidates = _revisionUpdateWorkflow.GetRetainedRevisionCandidates(installedAssociation.AssociationId);
 			if (candidates.Count == 0)
 			{
-				MessageBox.Show(this,
+				XtraMessageBox.Show(this,
 					L("Collections.Update.NoRetainedRevisionCandidates",
 						"NMM does not currently have another exact revision of this Collection retained locally. Open or import the concrete Nexus revision once; after NMM retains it, Compare / Update can select it directly here."),
 					L("Collections.Actions.CompareUpdate", "Compare / Update..."), MessageBoxButtons.OK, MessageBoxIcon.Information);
 				return null;
 			}
 
-			using (var dialog = new Form())
+			using (DevExpressDisplaySettings dialogSettings = DevExpressDisplaySettings.CreateFromSettings(Properties.Settings.Default))
+			using (var dialog = new ManagedFontXtraForm())
 			{
 				dialog.Text = L("Collections.Update.ChooseRevisionTitle", "Choose Collection revision");
 				dialog.StartPosition = FormStartPosition.CenterParent;
@@ -2830,33 +2989,33 @@ namespace Nexus.Client.CollectionManagement.UI
 				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 				dialog.Controls.Add(layout);
 
-				Label current = new Label
+				LabelControl current = new LabelControl
 				{
-					AutoSize = true, Dock = DockStyle.Fill,
+					AutoSizeMode = LabelAutoSizeMode.Vertical, Dock = DockStyle.Fill,
 					Text = LanguageManager.Format("Collections.Update.CurrentRevision", "Currently installed: {0}",
 						FormatRevisionActionLabel(installedAssociation.Association.Revision))
 				};
 				layout.Controls.Add(current, 0, 0);
 
-				Label help = new Label
+				LabelControl help = new LabelControl
 				{
-					AutoSize = true, Dock = DockStyle.Fill, Margin = new Padding(0, 8, 0, 8),
+					AutoSizeMode = LabelAutoSizeMode.Vertical, Dock = DockStyle.Fill, Margin = new Padding(0, 8, 0, 8),
 					Text = L("Collections.Update.KnownRevisionHelp",
 						"Choose another revision already retained by NMM. This does not change the installed Collection yet; the next screen builds the exact comparison and lets you review optional selections before approval.")
 				};
 				layout.Controls.Add(help, 0, 1);
 
-				ListBox revisions = new ListBox { Dock = DockStyle.Fill };
+				ListBoxControl revisions = new ListBoxControl { Dock = DockStyle.Fill };
 				foreach (CollectionRevision candidate in candidates) revisions.Items.Add(new RetainedRevisionChoice(candidate));
 				if (revisions.Items.Count > 0) revisions.SelectedIndex = 0;
 				layout.Controls.Add(revisions, 0, 2);
 
-				Button compare = new Button
+				SimpleButton compare = new SimpleButton
 				{
 					AutoSize = true, Text = L("Collections.Update.OpenSelectedRevision", "Open selected revision"),
 					DialogResult = DialogResult.OK, Enabled = revisions.SelectedItem != null
 				};
-				Button cancel = new Button
+				SimpleButton cancel = new SimpleButton
 				{
 					AutoSize = true, Text = L("Common.Action.Cancel", "Cancel"), DialogResult = DialogResult.Cancel
 				};
@@ -2875,6 +3034,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				dialog.AcceptButton = compare;
 				dialog.CancelButton = cancel;
 
+				ApplyCollectionDialogDisplaySettings(dialog, dialogSettings);
 				if (dialog.ShowDialog(this) != DialogResult.OK) return null;
 				RetainedRevisionChoice selected = revisions.SelectedItem as RetainedRevisionChoice;
 				return selected == null ? null : selected.Revision;
@@ -2938,14 +3098,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			_suppressMemberCheckEvents = true;
 			try
 			{
-				foreach (ListViewItem item in _membersView.Items)
+				foreach (MemberGridRow row in _memberRows)
 				{
-					NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
-					if (member == null || !member.IdentityResolution.IsResolved || item.SubItems.Count <= 5) continue;
+					NormalizedCollectionMember member = row.Member;
+					if (member == null || !member.IdentityResolution.IsResolved) continue;
 					CollectionMemberKey key = member.IdentityResolution.Key;
-					item.Checked = selected.Contains(key);
+					row.Selected = selected.Contains(key);
 					CollectionRevisionUpdatePreparationMemberState preparation;
-					item.SubItems[5].Text = !item.Checked ? L("Collections.Member.Unselected", "Not selected")
+					row.ManagedState = !row.Selected ? L("Collections.Member.Unselected", "Not selected")
 						: committed.Contains(key) ? L("Collections.Update.MemberCandidateVerified", "Installed for target revision; verified")
 						: preparing.TryGetValue(key, out preparation) ? preparation.VerifiedArchive != null
 							? L("Collections.Update.MemberFileReadyPending", "File ready; revision change not finished")
@@ -3035,7 +3195,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			RefreshManagedAssociations();
 			_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.Detached",
 				"Workflow: NMM stopped tracking '{0}'; installed content was preserved.", selected.DisplayName);
-			MessageBox.Show(this, LanguageManager.Format("Collections.Management.DetachedMessage",
+			XtraMessageBox.Show(this, LanguageManager.Format("Collections.Management.DetachedMessage",
 				"'{0}' is no longer tracked as an installed Collection. {1} installed mod instance(s) remain available for standalone use.",
 				selected.DisplayName, result.StandaloneProvenance.Count),
 				L("Collections.Management.DetachedTitle", "Collection detached"), MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -3048,20 +3208,13 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_managementWorkflow == null || selected == null || _workflowBusy || context == null ||
 				context.AssociationId != selected.AssociationId)
 				return;
-			if (_localRestoreRecoverySources.Count > 0)
-			{
-				MessageBox.Show(this, L("Collections.Management.StopRestoreBeforeUninstall",
-					"A Local Collection restore is still paused on this setup. Use Review interrupted restore and choose No to stop it safely before reviewing Collection uninstallation."),
-					L("Collections.Actions.UninstallCollection", "Uninstall Collection..."), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-				return;
-			}
 
 			string choicePrompt = LanguageManager.Format("Collections.Management.RemoveOrDetachPrompt",
-				"Choose what to do with '{0}'.\r\n\r\nYes = review and remove only effects NMM can prove are dispensable, then stop tracking the Collection.\r\n\r\nNo = stop tracking only and keep all installed mods, files, plugins and configuration exactly as they are.\r\n\r\nCancel = make no changes.",
+				"Choose what to do with '{0}'.\r\n\r\nYes = choose which Collection mods to uninstall. You can keep individual mods in the next screen. An unfinished installation will not block removal.\r\n\r\nNo = stop tracking only and keep all installed mods, files, plugins and configuration exactly as they are.\r\n\r\nCancel = make no changes.",
 				selected.DisplayName);
-			DialogResult choice = MessageBox.Show(this, choicePrompt,
+			DialogResult choice = XtraMessageBox.Show(this, choicePrompt,
 				L("Collections.Actions.ManageRemoval", "Remove / stop tracking..."), MessageBoxButtons.YesNoCancel,
-				MessageBoxIcon.Warning, MessageBoxDefaultButton.Button3);
+				MessageBoxIcon.Question, MessageBoxDefaultButton.Button3);
 			if (choice == DialogResult.Cancel || !IsActionContextCurrent(context))
 				return;
 
@@ -3078,7 +3231,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					Trace.TraceError("Collection detach failed: " + ex);
 					RememberTechnicalFailure("association.detach-failed", ex, context);
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("association.detach-failed", ex.Message);
-					MessageBox.Show(this, BuildUserDialogMessage(userMessage),
+					XtraMessageBox.Show(this, BuildUserDialogMessage(userMessage),
 						L("Collections.Management.DetachFailed", "Collection tracking change failed"),
 						MessageBoxButtons.OK, MessageBoxIcon.Error);
 				}
@@ -3094,7 +3247,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				"Reviewing which Collection effects can be removed safely..."));
 			try
 			{
-				CollectionUninstallEffectsPlan plan = await _managementWorkflow.PreviewEffectRemovalAsync(selected.AssociationId, token);
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Managing,
+					L("Collections.Management.ReviewingRemoval", "Reviewing which Collection effects can be removed safely...")));
+				CollectionUninstallEffectsPlan plan = await _managementWorkflow.PreviewCollectionModRemovalAsync(selected.AssociationId, token);
 				if (!IsWorkflowContextCurrent(context, token))
 					return;
 
@@ -3102,43 +3257,68 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					string blocked = String.Join(Environment.NewLine, plan.Impacts.Where(x => x.BlocksExecution)
 						.Select(x => "- " + FormatUninstallImpactSubject(x) + ": " + CollectionUserMessagePresenter.SanitizeInternalTerminology(x.Reason)));
-					MessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalBlockedMessageWithDetach",
+					XtraMessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalBlockedMessageWithDetach",
 						"Safe automatic removal is blocked by the current managed setup. Nothing was changed.\r\n\r\n{0}\r\n\r\nYou can run Remove / stop tracking again and choose No to stop Collection tracking while preserving all installed content.", blocked),
 						L("Collections.Management.RemovalBlockedTitle", "Collection effect removal blocked"),
 						MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
 
-				int removeCount = plan.Impacts.Count(x => x.RequiresNativeRemoval);
-				int preserveCount = plan.Impacts.Count - removeCount;
-				string confirmation = LanguageManager.Format("Collections.Management.RemoveEffectsPrompt",
-					"Remove dispensable effects for '{0}'?\r\n\r\nInstalled mods proven exclusive to this Collection and safe to remove: {1}\r\nShared, standalone, customized, already absent, or conservatively preserved instances: {2}\r\n\r\nNMM will recheck this review before changing anything. Collection tracking is removed only after the reviewed removal finishes and is verified.",
-					selected.DisplayName, removeCount, preserveCount);
-				if (MessageBox.Show(this, confirmation, L("Collections.Actions.RemoveEffects", "Remove dispensable effects..."),
-					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
-					!IsWorkflowContextCurrent(context, token))
-					return;
+				CollectionManagementAssociationPresentation removalPresentation = _managedAssociationPresentation;
+				if (removalPresentation == null || removalPresentation.Association.AssociationId != selected.AssociationId)
+					removalPresentation = await Task.Run(() => _managementWorkflow.GetAssociationPresentation(selected.AssociationId), token);
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				Dictionary<NativeModInstanceIdentity, string> removalSubjects = plan.Impacts.ToDictionary(x => x.NativeMod,
+					x => FormatUninstallImpactSubject(x, removalPresentation == null ? null : removalPresentation.RetainedManifest));
+				using (var review = new CollectionUninstallReviewDialog(selected.DisplayName, plan,
+					x => removalSubjects[x.NativeMod], FormatUninstallPreservationReason))
+				{
+					if (review.ShowDialog(this) != DialogResult.OK || !IsWorkflowContextCurrent(context, token))
+						return;
+					plan = review.ReviewedPlan;
+				}
 
 				removalApproved = true;
-				_workflowStatusLabel.Text = L("Collections.Management.RemovingEffects",
-					"Removing only the reviewed dispensable Collection effects...");
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Managing,
+					L("Collections.Management.UninstallingReviewedMods", "Uninstalling the reviewed Collection mods and checking the result...")));
 				CollectionUninstallEffectsResult result = await _managementWorkflow.RemoveEffectsAsync(plan, token,
 					_managedAssociationPresentation == null ? _snapshot?.Revision?.Identity.Collection : null);
 				if (!IsWorkflowContextCurrent(context, token))
 					return;
+				_recoveryResults = _recoveryResults.Where(x => !x.Operation.Collection.Equals(selected.Association.Revision.Collection)).ToList();
+				_localRestoreRecoveryResults = _localRestoreRecoveryResults.Where(x => !x.Operation.Collection.Equals(selected.Association.Revision.Collection)).ToList();
+				_localRestoreRecoverySources = _localRestoreRecoverySources.Where(x => !x.Operation.Collection.Equals(selected.Association.Revision.Collection)).ToList();
+				_revisionUpdateRecoveryResults = _revisionUpdateRecoveryResults.Where(x => !x.Operation.Collection.Equals(selected.Association.Revision.Collection)).ToList();
+				_verifyRepairRecoveryResults = _verifyRepairRecoveryResults.Where(x =>
+					!plan.SupersededOperations.Any(operation => operation.Identity.Equals(x.OperationIdentity))).ToList();
+				if (_revisionUpdateResult != null && _revisionUpdateResult.Operation.Collection.Equals(selected.Association.Revision.Collection))
+					_revisionUpdateResult = null;
+				if (result.IsSuccessful)
+					RememberCompletedEffectRemoval(result, selected, removalSubjects);
 				RefreshManagedAssociations();
 				if (result.IsSuccessful)
 				{
-					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.RemovalComplete",
-						"Workflow: '{0}' dispensable effects removed and association cleared.", selected.DisplayName);
-					MessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalCompleteMessage",
-						"Safe Collection effect removal completed for '{0}'. Preserved/shared state was left in place.", selected.DisplayName),
-						L("Collections.Management.RemovalCompleteTitle", "Collection effects removed"),
+					_workflowStatusLabel.Text = _completedRemovalReport.Progress.WorkflowStatus;
+					XtraMessageBox.Show(this, LanguageManager.Format("Collections.Management.RemovalCompleteSummary",
+						"Uninstall finished for '{0}'.\r\n\r\n{1} mods uninstalled. {2} mods kept.\r\n\r\nThe list below shows what was kept and why. You can still export a Technical Report.",
+						selected.DisplayName, result.Impacts.Count(x => x.RequiresNativeRemoval),
+						result.Impacts.Count(x => !x.RequiresNativeRemoval && x.Disposition != CollectionUninstallNativeDisposition.AlreadyAbsent)),
+						L("Collections.Management.RemovalCompleteTitle", "Collection uninstalled"),
 						MessageBoxButtons.OK, MessageBoxIcon.Information);
 				}
 				else
-					_workflowStatusLabel.Text = L("Collections.Management.RemovalStopped",
-						"Workflow: Collection effect removal stopped before a verified complete result; recovery may be required.");
+				{
+					_operationSnapshot = result.Operation;
+					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Management.Removal.PartialCounts",
+						"Workflow: {0} mods uninstalled. {1} mods could not be removed. See the list below; Uninstall Collection can retry the remaining mods.",
+						result.RemovedCount, result.FailedRemovals.Count());
+					foreach (CollectionUninstallNativeImpact failed in result.FailedRemovals)
+						AddReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+							L("Collections.Status.NotRemoved", "Not removed"), "association.remove.native-failed", removalSubjects[failed.NativeMod],
+							L("Collections.Management.Removal.NativeFailed", "NMM's mod uninstaller did not finish removing this mod. Other listed mods were still attempted."),
+							failed.MemberKeys.FirstOrDefault(), L("Collections.Management.Removal.Retry", "Choose Uninstall Collection to retry the remaining mods."));
+					ShowFirstBlockingIssue();
+				}
 			}
 			catch (OperationCanceledException)
 			{
@@ -3156,7 +3336,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					SetWorkflowPresentation(userMessage);
 					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
 						L("Collections.Status.ActionRequired", "Action required"), "association.remove-failed", selected.DisplayName, userMessage);
-					MessageBox.Show(this, BuildUserDialogMessage(userMessage), removalApproved
+					XtraMessageBox.Show(this, BuildUserDialogMessage(userMessage), removalApproved
 						? L("Collections.Management.RemovalFailed", "Collection effect removal stopped")
 						: L("Collections.Management.RemovalBlockedTitle", "Collection effect removal blocked"),
 						MessageBoxButtons.OK, removalApproved ? MessageBoxIcon.Error : MessageBoxIcon.Warning);
@@ -3166,6 +3346,101 @@ namespace Nexus.Client.CollectionManagement.UI
 			{
 				EndWorkflowWork(context);
 			}
+		}
+
+		/// <summary>Reviews and deletes only the exact selected saved backup, preserving installed mods and shared recovery content.</summary>
+		private async void DeleteLocalCaptureButton_Click(object sender, EventArgs e)
+		{
+			CollectionManagementLocalCapture selected = _localCaptureCombo.SelectedItem as CollectionManagementLocalCapture;
+			CollectionUiContext context = _localCaptureActionContext;
+			CollectionManagementApplicationService workflow = _managementWorkflow;
+			if (workflow == null || selected == null || _workflowBusy || context == null ||
+				context.LocalCapture == null || !context.LocalCapture.Equals(selected.CaptureIdentity)) return;
+			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Managing,
+				L("Collections.LocalDelete.Checking", "Checking whether the saved backup can be deleted..."));
+			_deleteLocalCaptureButton.Text = L("Collections.LocalDelete.CheckingButton", "Checking backup...");
+			try
+			{
+				CollectionsLocalCaptureDeletionStatus status = await Task.Run(() =>
+					workflow.GetLocalCaptureDeletionStatus(selected.CaptureIdentity, selected.Capture.SourceTarget), token);
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				if (status != CollectionsLocalCaptureDeletionStatus.Ready)
+				{
+					ShowLocalCaptureDeletionBlocked(status);
+					RefreshLocalCaptures();
+					return;
+				}
+				using (DevExpressDisplaySettings settings = DevExpressDisplaySettings.CreateFromSettings(Properties.Settings.Default))
+				using (var dialog = new CollectionLocalCaptureDeleteDialog(selected, settings))
+				{
+					if (dialog.ShowDialog(this) != DialogResult.OK)
+					{
+						_workflowStatusLabel.Text = L("Collections.LocalDelete.Cancelled", "Backup deletion cancelled.");
+						return;
+					}
+				}
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				_deleteLocalCaptureButton.Text = L("Collections.LocalDelete.DeletingButton", "Deleting backup...");
+				_workflowStatusLabel.Text = L("Collections.LocalDelete.Deleting", "Deleting the selected saved backup...");
+				SetWorkflowActivity(CollectionWorkflowActivityBuilder.Foreground(CollectionWorkflowActivityPhase.Managing, _workflowStatusLabel.Text));
+				status = await Task.Run(() => workflow.DeleteLocalCapture(selected.CaptureIdentity, selected.Capture.SourceTarget, token), token);
+				if (!IsWorkflowContextCurrent(context, token)) return;
+				RefreshLocalCaptures();
+				if (status != CollectionsLocalCaptureDeletionStatus.Deleted)
+				{
+					ShowLocalCaptureDeletionBlocked(status);
+					return;
+				}
+				_workflowStatusLabel.Text = LanguageManager.Format("Collections.LocalDelete.Completed",
+					"Saved Local Collection '{0}' deleted. Your installed mods are unchanged.", selected.DisplayName);
+			}
+			catch (OperationCanceledException)
+			{
+				if (IsWorkflowOwnerCurrent(context))
+					_workflowStatusLabel.Text = L("Collections.LocalDelete.Cancelled", "Backup deletion cancelled.");
+			}
+			catch (Exception ex)
+			{
+				Trace.TraceError("Local Collection backup deletion failed: " + ex);
+				RememberTechnicalFailure("local-capture-delete.failed", ex, context);
+				if (IsWorkflowContextCurrent(context, token))
+				{
+					_workflowStatusLabel.Text = L("Collections.LocalDelete.Failed", "The saved backup could not be deleted. See the error for details.");
+					XtraMessageBox.Show(this, ex.Message, L("Collections.LocalDelete.FailedTitle", "Backup deletion failed"),
+						MessageBoxButtons.OK, MessageBoxIcon.Error);
+				}
+			}
+			finally
+			{
+				EndWorkflowWork(context);
+			}
+		}
+
+		/// <summary>Explains the saved-backup dependency that must be resolved before deletion can be reviewed again.</summary>
+		private void ShowLocalCaptureDeletionBlocked(CollectionsLocalCaptureDeletionStatus status)
+		{
+			string message;
+			switch (status)
+			{
+				case CollectionsLocalCaptureDeletionStatus.NotFound:
+					message = L("Collections.LocalDelete.Missing", "This saved backup is no longer available. Select another saved Local Collection.");
+					break;
+				case CollectionsLocalCaptureDeletionStatus.TargetMismatch:
+					message = L("Collections.LocalDelete.WrongTarget", "The active game setup has changed. Return to the setup where this backup was saved and select it again.");
+					break;
+				case CollectionsLocalCaptureDeletionStatus.InstalledCollection:
+					message = L("Collections.LocalDelete.Installed", "An installed Collection still needs this saved backup. Uninstall that Collection or stop tracking it before deleting the backup.");
+					break;
+				case CollectionsLocalCaptureDeletionStatus.ReplacementInProgress:
+					message = L("Collections.LocalDelete.Replacement", "A setup replacement is unfinished. Complete its recovery before deleting saved backups for this setup.");
+					break;
+				default:
+					message = L("Collections.LocalDelete.Recovery", "An unfinished Collection operation still needs this backup. Finish or safely stop that operation before deleting the backup.");
+					break;
+			}
+			_workflowStatusLabel.Text = message;
+			XtraMessageBox.Show(this, message, L("Collections.LocalDelete.BlockedTitle", "Saved backup cannot be deleted"),
+				MessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 
 		private async void RestoreLocalCaptureButton_Click(object sender, EventArgs e)
@@ -3195,7 +3470,7 @@ namespace Nexus.Client.CollectionManagement.UI
 						? L("Collections.LocalRestore.BlockedUnknown", "The saved capture cannot be restored automatically from the current state.")
 						: String.Join(Environment.NewLine, preview.Plan.Issues.Select(x => "- " + CollectionUserMessagePresenter.SanitizeInternalTerminology(x.Message)));
 					_workflowStatusLabel.Text = L("Collections.LocalRestore.Blocked", "Workflow: Local Collection restore requires action before it can run.");
-					MessageBox.Show(this, reasons, L("Collections.LocalRestore.BlockedTitle", "Local Collection restore blocked"),
+					XtraMessageBox.Show(this, reasons, L("Collections.LocalRestore.BlockedTitle", "Local Collection restore blocked"),
 						MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
@@ -3204,7 +3479,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					"Restore the saved Local Collection '{0}'?\r\nCapture ID: {4}\r\n\r\nReviewed managed members: {1}\r\nCurrent managed registrations to remove: {2}\r\nManaged file targets to restore: {3}\r\n\r\nThis restores the NMM-managed state recorded by the saved Local Collection. The current NMM profile is preserved before changes begin, and previous Collection tracking is reconciled with the restored setup. Unknown or unmanaged files are not blanket-deleted.\r\n\r\nProceed with these reviewed changes?",
 					selected.DisplayName + " - " + selected.RevisionLabel, preview.Plan.Members.Count, preview.Plan.CurrentNativeKeysToRemove.Count,
 					preview.Plan.DeploymentTargets.Count, preview.Plan.CaptureIdentity);
-				if (MessageBox.Show(this, review, L("Collections.Actions.RestoreLocal", "Restore Local Collection..."),
+				if (XtraMessageBox.Show(this, review, L("Collections.Actions.RestoreLocal", "Restore Local Collection..."),
 					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
 				{
 					if (IsWorkflowContextCurrent(context, token))
@@ -3225,7 +3500,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					_workflowStatusLabel.Text = LanguageManager.Format("Collections.LocalRestore.Completed",
 						"Workflow: Local Collection '{0}' restored and fully verified.", selected.DisplayName);
-					MessageBox.Show(this, LanguageManager.Format("Collections.LocalRestore.CompletedMessage",
+					XtraMessageBox.Show(this, LanguageManager.Format("Collections.LocalRestore.CompletedMessage",
 						"'{0}' was restored. Members, owner stacks/payloads, replay artifacts, supported plugin/configuration state, logical metadata and the profile/association boundary all passed final verification.", selected.DisplayName),
 						L("Collections.LocalRestore.CompletedTitle", "Local Collection restored"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 				}
@@ -3233,7 +3508,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForLocalRestore(result.Status, result.Message);
 					SetWorkflowPresentation(userMessage);
-					MessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.LocalRestore.RecoveryTitle", "Local Collection restore requires recovery"),
+					XtraMessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.LocalRestore.RecoveryTitle", "Local Collection restore requires recovery"),
 						MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				}
 			}
@@ -3250,7 +3525,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("local-restore.failed", ex.Message);
 					SetWorkflowPresentation(userMessage);
-					MessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.LocalRestore.FailedTitle", "Local Collection restore stopped"),
+					XtraMessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.LocalRestore.FailedTitle", "Local Collection restore stopped"),
 						MessageBoxButtons.OK, MessageBoxIcon.Error);
 				}
 			}
@@ -3271,7 +3546,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			string prompt = LanguageManager.Format("Collections.LocalRestore.InterruptedSourcePrompt",
 				"Interrupted Local Collection restore:\r\n{0}\r\nCapture ID: {1}\r\nOperation ID: {2}\r\n\r\nYes = resume this exact saved source.\r\n\r\nNo = stop this restore after checking its native recovery boundary. Keep partial installed state, preserved profiles, saved collections and recovery evidence. The restore will be recorded as stopped, and previous Collection tracking as incomplete. You can then review Uninstall Collection or start a fresh restore.\r\n\r\nCancel = leave the operation paused.\r\n\r\nIf this is the wrong source, choose No. Stopping does not roll back changes or claim the setup is healthy.",
 				source.SourceDisplayName, source.CaptureIdentity, source.OperationIdentity);
-			DialogResult choice = MessageBox.Show(this, prompt, L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore..."),
+			DialogResult choice = XtraMessageBox.Show(this, prompt, L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore..."),
 				MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button3);
 			if (choice == DialogResult.Cancel || !IsActionContextCurrent(context)) return;
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Recovering,
@@ -3298,7 +3573,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					? L("Collections.LocalRestore.StoppedPartial", "The restore was stopped after safe-boundary checks. Partial changes remain and previous Collection tracking is incomplete. Select the intended saved Local Collection for a fresh restore, or use Uninstall Collection to review removal of exclusive Collection effects.")
 					: result.Message;
 				_workflowStatusLabel.Text = message;
-				MessageBox.Show(this, message, L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore..."),
+				XtraMessageBox.Show(this, message, L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore..."),
 					MessageBoxButtons.OK, choice == DialogResult.Yes && !result.IsSuccessful ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
 			}
 			catch (OperationCanceledException)
@@ -3311,7 +3586,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				Trace.TraceError("Interrupted Local restore review failed: " + ex);
 				RememberTechnicalFailure("local-restore.review-interrupted-failed", ex, context);
 				if (IsWorkflowContextCurrent(context, token))
-					MessageBox.Show(this, CollectionUserMessagePresenter.SanitizeInternalTerminology(ex.Message),
+					XtraMessageBox.Show(this, CollectionUserMessagePresenter.SanitizeInternalTerminology(ex.Message),
 						L("Collections.LocalRestore.InterruptedBlocked", "Interrupted restore action blocked"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
 			finally
@@ -3388,7 +3663,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					string capabilityLabel = FormatCaptureCapability(result.Capture.Capability);
 					_workflowStatusLabel.Text = LanguageManager.Format("Collections.Capture.SavedStatus",
 						"Workflow: Local Collection saved - {0}.", capabilityLabel);
-					MessageBox.Show(this, LanguageManager.Format("Collections.Capture.SavedMessage",
+					XtraMessageBox.Show(this, LanguageManager.Format("Collections.Capture.SavedMessage",
 						"The current setup was saved as '{0}'.\r\n\r\nCapability: {1}",
 						result.Definition.DisplayName, capabilityLabel),
 						L("Collections.Capture.SavedTitle", "Local Collection saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -3399,7 +3674,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					? L("Collections.Capture.NotSealedUnknown", "The capture could not be sealed.")
 					: String.Join(Environment.NewLine, result.Issues.Select(x => "- " + CollectionUserMessagePresenter.SanitizeInternalTerminology(x.Message)));
 				_workflowStatusLabel.Text = L("Collections.Capture.NotSaved", "Workflow: Local Collection was not saved; requested capability could not be sealed.");
-				MessageBox.Show(this, LanguageManager.Format("Collections.Capture.NotSavedMessage",
+				XtraMessageBox.Show(this, LanguageManager.Format("Collections.Capture.NotSavedMessage",
 					"Nothing was saved and the requested capability was not downgraded.\r\n\r\n{0}", reasons),
 					L("Collections.Capture.NotSavedTitle", "Local Collection not saved"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 			}
@@ -3416,7 +3691,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				{
 					CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForFailure("capture.failed", ex.Message);
 					SetWorkflowPresentation(userMessage);
-					MessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.Capture.FailedTitle", "Local Collection capture failed"),
+					XtraMessageBox.Show(this, BuildUserDialogMessage(userMessage), L("Collections.Capture.FailedTitle", "Local Collection capture failed"),
 						MessageBoxButtons.OK, MessageBoxIcon.Error);
 				}
 			}
@@ -3428,11 +3703,12 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private LocalCaptureCapability? ChooseLocalCaptureCapability()
 		{
-			using (var dialog = new Form())
-			using (var fullBackup = new RadioButton())
-			using (var recipeOnly = new RadioButton())
-			using (var save = new Button())
-			using (var cancel = new Button())
+			using (DevExpressDisplaySettings dialogSettings = DevExpressDisplaySettings.CreateFromSettings(Properties.Settings.Default))
+			using (var dialog = new ManagedFontXtraForm())
+			using (var fullBackup = new CheckEdit())
+			using (var recipeOnly = new CheckEdit())
+			using (var save = new SimpleButton())
+			using (var cancel = new SimpleButton())
 			{
 				dialog.Text = L("Collections.Capture.CapabilityTitle", "How should this Local Collection be saved?");
 				dialog.StartPosition = FormStartPosition.CenterParent;
@@ -3450,33 +3726,37 @@ namespace Nexus.Client.CollectionManagement.UI
 				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 				layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-				var intro = new Label
+				var intro = new LabelControl
 				{
-					AutoSize = true, MaximumSize = new Size(575, 0),
+					AutoSizeMode = LabelAutoSizeMode.Vertical, MaximumSize = new Size(575, 0),
 					Text = L("Collections.Capture.CapabilityIntro", "Choose whether NMM should keep a complete local backup or only the setup recipe.")
 				};
+				fullBackup.Properties.CheckStyle = CheckStyles.Radio;
+				fullBackup.Properties.RadioGroupIndex = 1;
 				fullBackup.AutoSize = true;
 				fullBackup.Checked = true;
 				fullBackup.Text = L("Collections.Capture.FullBackup", "Full local backup (recommended for reliable restore)");
 				fullBackup.Margin = new Padding(0, 14, 0, 2);
-				var fullDescription = new Label
+				var fullDescription = new LabelControl
 				{
-					AutoSize = true, MaximumSize = new Size(555, 0), Margin = new Padding(22, 0, 0, 8),
+					AutoSizeMode = LabelAutoSizeMode.Vertical, MaximumSize = new Size(555, 0), Margin = new Padding(22, 0, 0, 8),
 					Text = L("Collections.Capture.FullBackupDescription",
 						"Copies and verifies the mod archives and managed file data needed to restore this setup without redownloading. Large setups can take several minutes and may use several GB of disk space.")
 				};
+				recipeOnly.Properties.CheckStyle = CheckStyles.Radio;
+				recipeOnly.Properties.RadioGroupIndex = 1;
 				recipeOnly.AutoSize = true;
 				recipeOnly.Text = L("Collections.Capture.RecipeOnlyChoice", "Setup recipe only (smaller and faster)");
 				recipeOnly.Margin = new Padding(0, 8, 0, 2);
-				var recipeDescription = new Label
+				var recipeDescription = new LabelControl
 				{
-					AutoSize = true, MaximumSize = new Size(555, 0), Margin = new Padding(22, 0, 0, 8),
+					AutoSizeMode = LabelAutoSizeMode.Vertical, MaximumSize = new Size(555, 0), Margin = new Padding(22, 0, 0, 8),
 					Text = L("Collections.Capture.RecipeOnlyDescription",
 						"Saves the setup definition and provenance without keeping every required byte. Restoring it may require downloads or manual steps.")
 				};
-				var note = new Label
+				var note = new LabelControl
 				{
-					AutoSize = true, MaximumSize = new Size(575, 0),
+					AutoSizeMode = LabelAutoSizeMode.Vertical, MaximumSize = new Size(575, 0),
 					Text = L("Collections.Capture.NoMutationNote", "Saving a Local Collection does not change your currently installed mods."),
 					Margin = new Padding(0, 8, 0, 0)
 				};
@@ -3501,6 +3781,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				dialog.AcceptButton = save;
 				dialog.CancelButton = cancel;
 
+				ApplyCollectionDialogDisplaySettings(dialog, dialogSettings);
 				if (dialog.ShowDialog(this) != DialogResult.OK)
 					return null;
 				return fullBackup.Checked
@@ -3551,7 +3832,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 			}
 
-			using (var dialog = new OpenFileDialog())
+			using (var dialog = new XtraOpenFileDialog())
 			{
 				dialog.Title = L("Collections.Preview.ImportTitle", "Import Nexus Collection bundle");
 				dialog.CheckFileExists = true;
@@ -3726,7 +4007,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					: LanguageManager.Format("Collections.ConflictResolution.IncomingWinnerUnsupportedExistingPrompt",
 						"The Collection plans to make {0} the final provider of:\r\n\r\n{1}\r\n\r\nThe current provider is not an active NMM mod owner that C9 can safely re-select (for example, it may be an original/unresolved fallback).\r\n\r\nYes = let the Collection member become the final provider.\r\nNo = leave this conflict unresolved.\r\nCancel = stop reviewing conflicts for now.",
 						memberName, impact.Target.ToString());
-				DialogResult choice = MessageBox.Show(this, prompt, L("Collections.Actions.ResolveFileConflicts", "Resolve file conflicts..."),
+				DialogResult choice = XtraMessageBox.Show(this, prompt, L("Collections.Actions.ResolveFileConflicts", "Resolve file conflicts..."),
 					MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning);
 				if (choice == DialogResult.Cancel) break;
 
@@ -3933,14 +4214,14 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			if (!String.IsNullOrWhiteSpace(pending.Instructions))
 			{
-				MessageBox.Show(this, pending.Instructions,
+				XtraMessageBox.Show(this, pending.Instructions,
 					L("Collections.Acquisition.DownloadInstructionsTitle", "Collection download instructions"),
 					MessageBoxButtons.OK, MessageBoxIcon.Information);
 				if (!IsActionContextCurrent(context))
 					return;
 			}
 
-			using (var dialog = new OpenFileDialog())
+			using (var dialog = new XtraOpenFileDialog())
 			{
 				dialog.Title = L("Collections.Acquisition.SelectArchiveTitle", "Select the exact downloaded mod archive");
 				dialog.CheckFileExists = true;
@@ -4047,7 +4328,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 			string preflight = L("Collections.Replace.PreflightWarning",
 				"Replace current managed setup is destructive. NMM will build a separate exact replacement review before removing anything. Unknown/unmanaged content is preserved within the observed scope. Continue to build the replacement review?");
-			if (MessageBox.Show(this, preflight, L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
+			if (XtraMessageBox.Show(this, preflight, L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
 				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
 				return;
 
@@ -4074,7 +4355,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				RenderReplacementReview(review);
 
 				string confirmation = BuildReplacementApprovalConfirmation(review);
-				if (MessageBox.Show(this, confirmation, L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
+				if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.ReplaceCurrent", "Replace current managed setup..."),
 					MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
 				{
 					_operationSnapshot = _replacementWorkflow.CancelBeforeApply(review);
@@ -4133,7 +4414,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (operation.Phase == CollectionOperationPhase.AwaitingReplacementPhaseAmendment ||
 				operation.Phase == CollectionOperationPhase.ReplacementBarrierRevalidationRequired)
 			{
-				MessageBox.Show(this,
+				XtraMessageBox.Show(this,
 					L("Collections.Replace.AmendmentRequired", "The live state changed after destructive replacement work began. The durable replacement journal requires a new exact phase review before further incoming mutation. No broader consent will be inferred automatically."),
 					L("Collections.Status.ActionRequired", "Action required"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				return;
@@ -4220,6 +4501,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				AddReviewItem(CollectionReviewSeverity.Warning, CollectionReviewItemKind.Diagnostic,
 					L("Collections.Replace.NoBackup", "No persistent Local Collection backup"), "replacement.review.no-backup", GetCurrentCollectionSubject(),
 					L("Collections.Replace.NoBackupDetail", "No saved Local Collection was requested. NMM will still prepare mandatory operation-owned recovery data before removal."));
+			AppendFolderCorrectionReview(review.PreparedRecipes);
 			_workflowStatusLabel.Text = L("Collections.Replace.ReviewReady", "Workflow: exact replacement review is ready. Nothing has been removed yet.");
 		}
 
@@ -4300,6 +4582,14 @@ namespace Nexus.Client.CollectionManagement.UI
 					CollectionAdditiveWorkflowRecoveryResult matching = _recoveryResults.FirstOrDefault(x => x.Operation.Identity.Equals(reviewedOperationIdentity));
 					if (matching != null)
 						_operationSnapshot = matching.Operation;
+					if (matching != null && matching.Operation.IsTerminal)
+					{
+						CacheRecoveryResult(matching);
+						RefreshManagedAssociations(true);
+						ShowSelectedManagedAssociation();
+						SetWorkflowPresentation(CollectionUserMessagePresenter.ForRecovery(matching.Status, matching.Message));
+						return;
+					}
 					review = await Task.Run(() => _workflow.GetReview(reviewedOperationIdentity), reviewToken);
 					if (!IsWorkflowContextCurrent(context, reviewToken))
 						return;
@@ -4341,8 +4631,10 @@ namespace Nexus.Client.CollectionManagement.UI
 				_reviewedPlanIdentity = requiresRecovery ? review.Operation.PlanIdentity : null;
 				if (_snapshot != null)
 					RenderIssues(_snapshot, false, true);
-				CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.FromRaw(reviewMessage,
-					ResolveNextAction(CollectionUserMessagePresenter.ForRecovery(status, reviewMessage)));
+				CollectionUserMessagePresentation userMessage = requiresRecovery
+					? CollectionUserMessagePresenter.ForRecovery(status, reviewMessage)
+					: CollectionUserMessagePresenter.FromRaw(reviewMessage,
+						ResolveNextAction(CollectionUserMessagePresenter.ForRecovery(status, reviewMessage)));
 				SetWorkflowPresentation(userMessage);
 				AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
 					L("Collections.Status.ActionRequired", "Action required"), "workflow.review-invalid", GetCurrentCollectionSubject(), userMessage);
@@ -4364,10 +4656,16 @@ namespace Nexus.Client.CollectionManagement.UI
 				review.Operation, review.Rehydration, review.Rehydration.Message));
 			RenderExactReview(review);
 			string confirmation = BuildApprovalConfirmation(review);
-			if (MessageBox.Show(this, confirmation, L("Collections.Actions.InstallCurrent", "Review and install..."),
-				MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) != DialogResult.Yes ||
-				!IsActionContextCurrent(context))
+			if (XtraMessageBox.Show(this, confirmation, L("Collections.Actions.InstallCurrent", "Review and install..."),
+				MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes)
 				return;
+			if (!IsActionContextCurrent(context))
+			{
+				XtraMessageBox.Show(this,
+					L("Collections.Messages.Apply.ContextChanged", "The displayed Collection changed while the approval dialog was open. No new installation was submitted. Reopen the intended revision and prepare its review again."),
+					L("Collections.Status.ActionRequired", "Action required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return;
+			}
 
 			CancellationToken token = BeginWorkflowWork(context, CollectionWorkflowActivityPhase.Applying, L("Collections.Workflow.Applying", "Applying the approved Collection plan..."));
 			try
@@ -4375,16 +4673,28 @@ namespace Nexus.Client.CollectionManagement.UI
 				CollectionAdditiveWorkflowApplyResult result = await Task.Run(() =>
 					_workflow.ApproveAndApplyAsync(reviewedOperationIdentity, reviewedPlanIdentity, token), token);
 				if (!IsWorkflowContextCurrent(context, token))
+				{
+					Trace.TraceWarning("Collection apply returned after the visible preview changed; native result must be inspected from the current target state.");
+					if (!IsDisposed && !Disposing)
+						XtraMessageBox.Show(this,
+							L("Collections.Messages.Apply.ViewChanged", "The Collection view changed while installation was running. NMM has not assumed that installation failed or succeeded. Check the installed Collection and its Technical Report before trying again."),
+							L("Collections.Status.ActionRequired", "Action required"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 					return;
+				}
 				RenderApplyResult(result);
 				if (result.IsCommitted)
 					_managedMemberExpansionAssociationId = null;
 				RefreshManagedAssociations(true);
+				ShowAdditiveApplyFeedback(result);
 			}
 			catch (OperationCanceledException)
 			{
 				if (IsWorkflowOwnerCurrent(context))
+				{
 					_workflowStatusLabel.Text = L("Collections.Workflow.CancelRequested", "Workflow: cancellation requested; NMM will reconcile the installed state before any further work.");
+					XtraMessageBox.Show(this, _workflowStatusLabel.Text,
+						L("Collections.Messages.Apply.PausedTitle", "Collection installation paused"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+				}
 			}
 			catch (Exception ex)
 			{
@@ -4396,6 +4706,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					SetWorkflowPresentation(userMessage);
 					AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic, L("Collections.Status.ActionRequired", "Action required"),
 						"workflow.apply-failed", GetCurrentCollectionSubject(), userMessage);
+					string reason = CollectionTechnicalReportSanitizer.SanitizeText(ex.Message);
+					XtraMessageBox.Show(this, BuildUserDialogMessage(userMessage) +
+						(String.IsNullOrWhiteSpace(reason) ? String.Empty : Environment.NewLine + Environment.NewLine + reason),
+						L("Collections.Messages.Apply.StoppedTitle", "Collection installation stopped"), MessageBoxButtons.OK, MessageBoxIcon.Error);
 				}
 			}
 			finally
@@ -4415,14 +4729,14 @@ namespace Nexus.Client.CollectionManagement.UI
 			catch (Exception ex)
 			{
 				Trace.TraceError("Collection technical report snapshot failed: " + ex);
-				MessageBox.Show(this,
+				XtraMessageBox.Show(this,
 					L("Collections.TechnicalReport.BuildFailed", "NMM could not build the technical report for the current Collection state."),
 					L("Collections.TechnicalReport.FailedTitle", "Technical report failed"),
 					MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
 
-			using (var dialog = new SaveFileDialog
+			using (var dialog = new XtraSaveFileDialog
 			{
 				AddExtension = true,
 				DefaultExt = "json",
@@ -4441,7 +4755,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				catch (Exception ex)
 				{
 					Trace.TraceError("Collection technical report export failed: " + ex);
-					MessageBox.Show(this,
+					XtraMessageBox.Show(this,
 						L("Collections.TechnicalReport.SaveFailed", "NMM could not save the technical report to the selected location."),
 						L("Collections.TechnicalReport.FailedTitle", "Technical report failed"),
 						MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -4451,6 +4765,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private CollectionTechnicalReportSnapshot BuildTechnicalReportSnapshot()
 		{
+			if (_snapshot == null && _managedAssociationPresentation == null && _completedRemovalReport != null)
+				return _completedRemovalReport;
 			string version = typeof(CollectionsPreviewControl).Assembly.GetName().Version == null
 				? String.Empty
 				: typeof(CollectionsPreviewControl).Assembly.GetName().Version.ToString();
@@ -4471,9 +4787,9 @@ namespace Nexus.Client.CollectionManagement.UI
 			};
 
 			Nexus.Client.GameStorage.GameStoragePathSet targetPaths = null;
-			if (_workflow != null)
+			if (_workflow != null || _managementWorkflow != null)
 			{
-				try { targetPaths = _workflow.GetTargetPaths(); }
+				try { targetPaths = _workflow != null ? _workflow.GetTargetPaths() : _managementWorkflow.GetTargetPaths(); }
 				catch (Exception ex) { report.UnavailableData.Add("target-context: " + CollectionTechnicalReportSanitizer.SanitizeText(ex.Message)); }
 			}
 			string targetFingerprint = _operationSnapshot == null ? null : _operationSnapshot.Target.ToString();
@@ -4483,6 +4799,11 @@ namespace Nexus.Client.CollectionManagement.UI
 				targetFingerprint = _recoveryResults[0].Operation.Target.ToString();
 			if (targetFingerprint == null && _localRestoreRecoveryResults.Count > 0)
 				targetFingerprint = _localRestoreRecoveryResults[0].Operation.Target.ToString();
+			if (targetFingerprint == null && _managementWorkflow != null)
+			{
+				try { targetFingerprint = _managementWorkflow.GetReportTargetIdentity().Fingerprint; }
+				catch (Exception ex) { report.UnavailableData.Add("target-fingerprint: " + CollectionTechnicalReportSanitizer.SanitizeText(ex.Message)); }
+			}
 			string fallbackGameId = _snapshot != null && _snapshot.Link != null ? _snapshot.Link.GameDomain :
 				(_managedAssociationPresentation == null ? null : _managedAssociationPresentation.NexusGameDomain);
 			report.Target = new CollectionTechnicalReportTarget
@@ -4492,8 +4813,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				TargetFingerprint = targetFingerprint
 			};
 			if (targetPaths == null)
-				report.UnavailableData.Add(_workflow == null
-					? "target-context: unavailable because the additive application service is not connected"
+				report.UnavailableData.Add(_workflow == null && _managementWorkflow == null
+					? "target-context: unavailable because no Collection application service is connected"
 					: "target-context: unavailable because the active target paths could not be read");
 			if (targetFingerprint == null)
 				report.UnavailableData.Add("target-fingerprint: unavailable because no durable operation or installed association identifies the target");
@@ -4587,9 +4908,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				foreach (CollectionMemberCapabilityReport memberReport in _snapshot.CapabilityReport.MemberReports)
 					capabilityByOrdinal[memberReport.Member.SourceOrdinal] = memberReport;
 
-			foreach (ListViewItem item in _membersView.Items)
+			foreach (MemberGridRow row in _memberRows)
 			{
-				NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
+				NormalizedCollectionMember member = row.Member;
 				if (member == null)
 					continue;
 				CollectionMemberCapabilityReport capability;
@@ -4600,7 +4921,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					SourceOrdinal = member.SourceOrdinal,
 					DisplayName = CollectionTechnicalReportSanitizer.SanitizeText(member.DisplayName),
 					Requirement = member.Requirement.ToString(),
-					Selected = member.IsRequired || item.Checked,
+					Selected = member.IsRequired || row.Selected,
 					Compatibility = capability == null ? null : capability.Status.ToString(),
 					Artifact = member.Artifact == null ? null : CollectionTechnicalReportSanitizer.SanitizeText(member.Artifact.ToString())
 				});
@@ -4780,7 +5101,8 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private bool HasTechnicalReportContent()
 		{
-			return _snapshot != null || _managedAssociationPresentation != null || _operationSnapshot != null ||
+			return _workflow != null || _managementWorkflow != null || _snapshot != null || _managedAssociationPresentation != null ||
+				_operationSnapshot != null || _completedRemovalReport != null ||
 				_reviewItems.Count > 0 || _recoveryResults.Count > 0 || _localRestoreRecoveryResults.Count > 0 ||
 				_revisionUpdateRecoveryResults.Count > 0 || _verifyRepairRecoveryResults.Count > 0;
 		}
@@ -4940,16 +5262,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
-		private void MembersView_MouseDown(object sender, MouseEventArgs e)
+		private void MembersGrid_MouseDown(object sender, MouseEventArgs e)
 		{
 			if (e.Button != MouseButtons.Right)
 				return;
-			ListViewItem item = _membersView.GetItemAt(e.X, e.Y);
-			if (item != null && !item.Selected)
-			{
-				_membersView.SelectedItems.Clear();
-				item.Selected = true;
-			}
+			var hit = _membersView.CalcHitInfo(e.Location);
+			if (!hit.InRow && !hit.InRowCell)
+				return;
+			_membersView.FocusedRowHandle = hit.RowHandle;
+			UpdateMemberActionMenuItems();
+			_memberActionsMenu.ShowPopup(_membersGrid.PointToScreen(e.Location));
 		}
 
 		private void PrimaryIncomingActionButton_Click(object sender, EventArgs e)
@@ -4965,7 +5287,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				ShowFirstBlockingIssue();
 				return;
 			}
-			Button source = _primaryIncomingActionSource;
+			SimpleButton source = _primaryIncomingActionSource;
 			if (source == null || !source.Enabled)
 				return;
 			if (ReferenceEquals(source, _compareUpdateButton)) CompareUpdateButton_Click(source, EventArgs.Empty);
@@ -4982,75 +5304,103 @@ namespace Nexus.Client.CollectionManagement.UI
 			_showWarningIssuesCheckBox.Checked = false;
 			_showInfoIssuesCheckBox.Checked = false;
 			RefreshFilteredReviewIssues();
-			_issuesView.Focus();
-			ListViewItem firstError = _issuesView.Items.Cast<ListViewItem>()
-				.FirstOrDefault(x => x.Tag is CollectionReviewItem && ((CollectionReviewItem)x.Tag).Severity == CollectionReviewSeverity.Error);
-			if (firstError == null) return;
-			firstError.Selected = true;
-			firstError.EnsureVisible();
+			_reviewTabs.SelectedTabPage = _issuesPage;
+			_issuesGrid.Focus();
+			int index = _issueRows.ToList().FindIndex(row => row.Item != null && row.Item.Severity == CollectionReviewSeverity.Error);
+			if (index < 0) return;
+			int handle = _issuesView.GetRowHandle(index);
+			_issuesView.FocusedRowHandle = handle;
+			_issuesView.MakeRowVisible(handle);
 		}
 
-		private static void AddMemberActionMenuItem(ContextMenuStrip menu, Button sourceButton, EventHandler handler)
+		private void AddMemberActionMenuItem(PopupMenu menu, SimpleButton sourceButton, EventHandler handler, bool beginGroup)
 		{
-			var item = new ToolStripMenuItem(sourceButton.Text) { Tag = sourceButton };
-			item.Click += handler;
-			menu.Items.Add(item);
+			BarButtonItem item = new BarButtonItem(_memberMenuManager, sourceButton.Text) { Tag = sourceButton };
+			item.ItemClick += (sender, args) => handler(sender, EventArgs.Empty);
+			BarItemLink link = menu.AddItem(item);
+			link.BeginGroup = beginGroup;
 		}
 
 		private void UpdateMemberActionMenuItems()
 		{
-			foreach (ToolStripItem item in _memberActionsMenu.Items)
+			foreach (BarItemLink link in _memberActionsMenu.ItemLinks)
 			{
-				Button sourceButton = item.Tag as Button;
-				if (sourceButton == null)
-					continue;
-				item.Text = sourceButton.Text;
+				BarButtonItem item = link.Item as BarButtonItem;
+				SimpleButton sourceButton = item == null ? null : item.Tag as SimpleButton;
+				if (sourceButton == null) continue;
+				item.Caption = sourceButton.Text;
 				item.Enabled = sourceButton.Enabled;
 			}
 		}
 
-		private void MembersView_SelectedIndexChanged(object sender, EventArgs e)
+		private void MembersView_FocusedRowChanged(object sender, FocusedRowChangedEventArgs e)
 		{
 			UpdatePendingDownloadActionLabel(GetSelectedOrFirstPendingAction());
 			UpdateActionButtons();
 		}
 
-		private void MembersView_ItemCheck(object sender, ItemCheckEventArgs e)
+		/// <summary>Toggles an optional checkbox on the first click, even on a row that is not yet focused.</summary>
+		private void MembersView_MouseDown(object sender, MouseEventArgs e)
 		{
-			if (_suppressMemberCheckEvents || e.Index < 0 || e.Index >= _membersView.Items.Count)
+			if (e.Button != MouseButtons.Left) return;
+			var hit = _membersView.CalcHitInfo(e.Location);
+			if (!hit.InRowCell || hit.Column == null || hit.Column.FieldName != nameof(MemberGridRow.Selected)) return;
+			DXMouseEventArgs mouse = e as DXMouseEventArgs;
+			if (mouse != null) mouse.Handled = true;
+			_membersView.FocusedRowHandle = hit.RowHandle;
+			_membersView.FocusedColumn = hit.Column;
+			ToggleMemberSelection(hit.RowHandle);
+		}
+
+		/// <summary>Supports Space on a focused optional checkbox without opening an editor.</summary>
+		private void MembersGrid_KeyDown(object sender, KeyEventArgs e)
+		{
+			if (e.KeyCode != Keys.Space || e.Modifiers != Keys.None || _membersView.FocusedColumn == null ||
+				_membersView.FocusedColumn.FieldName != nameof(MemberGridRow.Selected)) return;
+			e.Handled = true;
+			e.SuppressKeyPress = true;
+			ToggleMemberSelection(_membersView.FocusedRowHandle);
+		}
+
+		/// <summary>Preserves required-member, reviewed-operation and installed-view guards for every selection input.</summary>
+		private bool CanEditMemberSelection(MemberGridRow row)
+		{
+			NormalizedCollectionMember member = row == null ? null : row.Member;
+			return !_suppressMemberCheckEvents && !_workflowBusy && _managedAssociationPresentation == null &&
+				(_operationSnapshot == null || (!_operationSnapshot.HasCrossedNativeBoundary && !_operationSnapshot.IsSuccessful)) &&
+				member != null && !member.IsRequired && member.IdentityResolution.IsResolved && _incomingActionContext != null;
+		}
+
+		/// <summary>Uses the existing cell-change path to save explicit intent and invalidate the previous review.</summary>
+		private void ToggleMemberSelection(int rowHandle)
+		{
+			MemberGridRow row = _membersView.GetRow(rowHandle) as MemberGridRow;
+			if (CanEditMemberSelection(row))
+				_membersView.SetRowCellValue(rowHandle, nameof(MemberGridRow.Selected), !row.Selected);
+		}
+
+		private void MembersView_CellValueChanged(object sender, CellValueChangedEventArgs e)
+		{
+			if (_suppressMemberCheckEvents || e.Column == null || e.Column.FieldName != nameof(MemberGridRow.Selected))
 				return;
-			if (_managedAssociationPresentation != null ||
-				(_operationSnapshot != null && (_operationSnapshot.HasCrossedNativeBoundary || _operationSnapshot.IsSuccessful)))
+			MemberGridRow row = _membersView.GetRow(e.RowHandle) as MemberGridRow;
+			NormalizedCollectionMember member = row == null ? null : row.Member;
+			if (!CanEditMemberSelection(row))
 			{
-				e.NewValue = e.CurrentValue;
-				return;
-			}
-			NormalizedCollectionMember member = _membersView.Items[e.Index].Tag as NormalizedCollectionMember;
-			if (member == null)
-				return;
-			if (member.Requirement == CollectionMemberRequirement.Required)
-			{
-				e.NewValue = CheckState.Checked;
-				return;
-			}
-			if (!member.IdentityResolution.IsResolved)
-			{
-				e.NewValue = e.CurrentValue;
+				// A review/operation boundary may change while an editor is open.
+				if (row != null)
+				{
+					row.Selected = !row.Selected;
+					_membersView.RefreshRow(e.RowHandle);
+				}
 				return;
 			}
 			CollectionUiContext selectionContext = _incomingActionContext;
-			if (selectionContext == null)
-			{
-				e.NewValue = e.CurrentValue;
-				return;
-			}
-			_optionalMemberSelectionState[member.IdentityResolution.Key] = e.NewValue == CheckState.Checked
-				? CollectionMemberSelection.Selected
-				: CollectionMemberSelection.Unselected;
+			_optionalMemberSelectionState[member.IdentityResolution.Key] = row.Selected
+				? CollectionMemberSelection.Selected : CollectionMemberSelection.Unselected;
 			BeginInvoke((Action)(() =>
 			{
-				if (!IsActionContextCurrent(selectionContext))
-					return;
+				if (!IsActionContextCurrent(selectionContext)) return;
 				_selectionDirty = true;
 				_selectionCapabilityBlocked = false;
 				if (_operationSnapshot == null || !_operationSnapshot.HasCrossedNativeBoundary)
@@ -5066,7 +5416,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				}
 				_installButton.Enabled = false;
 				if (GetCurrentMemberFilter() != CollectionMemberListFilterKind.All || !String.IsNullOrWhiteSpace(_memberSearchTextBox.Text))
-					RenderMembers(_snapshot, GetSelectedMemberToken(), _membersView.TopItem == null ? -1 : _membersView.TopItem.Index);
+					RenderMembers(_snapshot, GetSelectedMemberToken(), _membersView.TopRowIndex);
 				else
 					UpdateMemberSelectionText();
 				_workflowStatusLabel.Text = L("Collections.Workflow.SelectionChanged", "Workflow: optional selection changed; prepare a new review before installation.");
@@ -5105,7 +5455,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		{
 			RefreshInheritedRevisionOptionalSelections(snapshot);
 			string selectedMember = GetSelectedMemberToken();
-			int previousTopIndex = _membersView.TopItem == null ? -1 : _membersView.TopItem.Index;
+			int previousTopIndex = _membersView.TopRowIndex;
 			CollectionDefinition definition = snapshot.Definition;
 			CollectionRevision revision = snapshot.Revision;
 			NexusCollectionRevisionMetadata providerRevision = snapshot.RevisionLookup?.Revision;
@@ -5158,11 +5508,12 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void RenderMembers(NexusCollectionPreviewSnapshot snapshot, string selectedToken, int previousTopIndex)
 		{
-			_membersView.BeginUpdate();
+			_membersView.BeginDataUpdate();
 			_suppressMemberCheckEvents = true;
+			int focusedIndex = -1;
 			try
 			{
-				_membersView.Items.Clear();
+				_memberRows.Clear();
 				if (!snapshot.HasManifestPreview)
 				{
 					_membersHeader.Text = L("Collections.Preview.Members", "Members");
@@ -5202,39 +5553,26 @@ namespace Nexus.Client.CollectionManagement.UI
 						managedMember != null && managedMember.HasExplicitLocalDecision))
 						continue;
 
-					var item = new ListViewItem(displayName) { Tag = member, Checked = selected };
-					item.SubItems.Add(member.IsRequired ? L("Collections.Member.Required", "Required") : L("Collections.Member.Optional", "Optional"));
-					item.SubItems.Add(item.Checked ? L("Collections.Member.Selected", "Selected") : L("Collections.Member.Unselected", "Not selected"));
-					item.SubItems.Add(managedMember != null && _managedAssociationPresentation.Association.State == CollectionAssociationState.Applied
-						? (managedMember.HasDetectedDrift ? L("Collections.Status.ActionRequired", "Action required") : L("Collections.Status.Supported", "Supported"))
-						: FormatCompatibility(memberReport.Status));
-					item.SubItems.Add(artifactText);
-					item.SubItems.Add(managedStateText);
-					_membersView.Items.Add(item);
+					_memberRows.Add(new MemberGridRow(member, displayName, selected,
+						member.IsRequired ? L("Collections.Member.Required", "Required") : L("Collections.Member.Optional", "Optional"),
+						managedMember != null && _managedAssociationPresentation.Association.State == CollectionAssociationState.Applied
+							? (managedMember.HasDetectedDrift ? L("Collections.Status.ActionRequired", "Action required") : L("Collections.Status.Supported", "Supported"))
+							: FormatCompatibility(memberReport.Status), artifactText, managedStateText));
+					if (StringComparer.Ordinal.Equals(token, selectedToken))
+						focusedIndex = _memberRows.Count - 1;
 					visibleCount++;
 				}
 
 				UpdateMembersHeader(report.Manifest.Members.Count, visibleCount);
-				if (!string.IsNullOrEmpty(selectedToken))
-				{
-					foreach (ListViewItem item in _membersView.Items)
-					{
-						NormalizedCollectionMember member = item.Tag as NormalizedCollectionMember;
-						if (member != null && StringComparer.Ordinal.Equals(MemberToken(member), selectedToken))
-						{
-							item.Selected = true;
-							item.Focused = true;
-							break;
-						}
-					}
-				}
-				if (previousTopIndex >= 0 && _membersView.Items.Count > 0)
-					_membersView.EnsureVisible(Math.Min(previousTopIndex, _membersView.Items.Count - 1));
 			}
 			finally
 			{
+				_membersView.EndDataUpdate();
+				if (focusedIndex >= 0 && focusedIndex < _memberRows.Count)
+					_membersView.FocusedRowHandle = _membersView.GetRowHandle(focusedIndex);
+				if (previousTopIndex >= 0 && _memberRows.Count > 0)
+					_membersView.TopRowIndex = Math.Min(previousTopIndex, _memberRows.Count - 1);
 				_suppressMemberCheckEvents = false;
-				_membersView.EndUpdate();
 			}
 		}
 
@@ -5275,7 +5613,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (_snapshot == null || !_snapshot.HasManifestPreview || _workflowBusy)
 				return;
 			string selectedToken = GetSelectedMemberToken();
-			int previousTopIndex = _membersView.TopItem == null ? -1 : _membersView.TopItem.Index;
+			int previousTopIndex = _membersView.TopRowIndex;
 			RenderMembers(_snapshot, selectedToken, previousTopIndex);
 			UpdateActionButtons();
 		}
@@ -5301,7 +5639,7 @@ namespace Nexus.Client.CollectionManagement.UI
 		/// </summary>
 		private void RenderIssues(NexusCollectionPreviewSnapshot snapshot, bool includeCapabilityIssues, bool includeRecoveryIssues)
 		{
-			_issuesView.BeginUpdate();
+			_issuesView.BeginDataUpdate();
 			try
 			{
 				ClearReviewItems();
@@ -5341,7 +5679,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 			finally
 			{
-				_issuesView.EndUpdate();
+				_issuesView.EndDataUpdate();
 			}
 		}
 
@@ -5477,6 +5815,10 @@ namespace Nexus.Client.CollectionManagement.UI
 					: CollectionReviewItemKind.Diagnostic);
 			CollectionUserMessagePresentation userMessage = CollectionUserMessagePresenter.ForPreparation(result.Status, result.Message,
 				preparationHasManualAction, preparationHasBlockedAcquisition);
+			CollectionConflictImpactIssue blockingImpact = result.Status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired && result.ImpactPlan != null
+				? result.ImpactPlan.Issues.FirstOrDefault(x => x.Status == CollectionConflictImpactStatus.ActionRequired) : null;
+			if (blockingImpact != null)
+				userMessage = GetImpactIssuePresentation(result.ImpactPlan, blockingImpact);
 			AddPresentedReviewItem(CollectionReviewPresentationClassifier.ForPreparation(result.Status, preparationHasManualAction, preparationHasBlockedAcquisition),
 				preparationKind, FormatPreparationStatus(result), "workflow.preparation", GetCurrentCollectionSubject(), userMessage, null,
 				"Operation: " + result.Operation.Identity);
@@ -5504,7 +5846,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					_appliedValue.Text = L("Collections.Status.Applied.ReviewReady", "Not applied - reviewed changes await explicit approval");
 					break;
 				case CollectionAdditiveWorkflowPreparationStatus.ActionRequired:
-					_contentValue.Text = L("Collections.Status.Content.ActionRequired", "Prepared content requires a user decision that NMM cannot apply automatically");
+					_contentValue.Text = ResolveUserMessage(userMessage);
 					_appliedValue.Text = L("Collections.Status.Applied.Blocked", "Not applied - action required");
 					break;
 				case CollectionAdditiveWorkflowPreparationStatus.PreparationRequired:
@@ -5519,6 +5861,30 @@ namespace Nexus.Client.CollectionManagement.UI
 			SetWorkflowPresentation(userMessage);
 			RefreshWorkflowActivity();
 			UpdateActionButtons();
+			if (result.Status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired ||
+				result.Status == CollectionAdditiveWorkflowPreparationStatus.Blocked)
+				ShowFirstBlockingIssue();
+		}
+
+		/// <summary>Report the actual durable apply result at the approval boundary, not only in a pane
+		/// that may be below the visible part of the Collections tab. This is presentation only.</summary>
+		private void ShowAdditiveApplyFeedback(CollectionAdditiveWorkflowApplyResult result)
+		{
+			if (result == null)
+				return;
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForApply(result.Status, result.Message);
+			string message = BuildUserDialogMessage(presentation);
+			if (!result.IsCommitted)
+				message += Environment.NewLine + Environment.NewLine + L("Collections.Messages.Apply.DetailsInReview",
+					"The failed mod and details are shown under Review / issues.");
+			string title = result.IsCommitted
+				? L("Collections.Messages.Apply.SuccessTitle", "Collection installed and verified")
+				: result.Status == CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary
+					? L("Collections.Messages.Apply.PausedTitle", "Collection installation paused")
+					: L("Collections.Messages.Apply.StoppedTitle", "Collection installation stopped");
+			MessageBoxIcon icon = result.IsCommitted || result.Status == CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary
+				? MessageBoxIcon.Information : MessageBoxIcon.Warning;
+			XtraMessageBox.Show(this, message, title, MessageBoxButtons.OK, icon);
 		}
 
 		private void RenderApplyResult(CollectionAdditiveWorkflowApplyResult result)
@@ -5552,6 +5918,17 @@ namespace Nexus.Client.CollectionManagement.UI
 						L("Collections.Status.ActionRequired", "Action required"), "workflow.native-verification",
 						FormatMemberSubject(child.Member.MemberKey),
 						CollectionUserMessagePresenter.FromRaw(child.NativeResult.Message, ResolveNextAction(userMessage)), child.Member.MemberKey);
+			}
+			if (result.Status == CollectionAdditiveWorkflowApplyStatus.StoppedPartial)
+			{
+				CollectionNativeChildOperation failed = result.Operation.NativeChildren.LastOrDefault(x => x.NativeResult != null &&
+					x.NativeResult.ReportedStatus != ModOperationReportedStatus.Succeeded);
+				if (failed != null)
+					AddReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic,
+						L("Collections.Status.ActionRequired", "Action required"), "workflow.native-rolled-back",
+						FormatMemberSubject(failed.Member.MemberKey),
+						L("Collections.Messages.Apply.ModRolledBack", "This mod was not installed. NMM checked that its previous files and settings were preserved."),
+						failed.Member.MemberKey, ResolveNextAction(userMessage), CombineTechnicalDetail(failed.NativeResult.Message, result.Message));
 			}
 			UpdateIssuesHeader();
 			if (result.IsCommitted)
@@ -5630,6 +6007,43 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		/// <summary>Names the affected file and packages or plugin change while retaining ownership details in the report.</summary>
+		private CollectionUserMessagePresentation GetImpactIssuePresentation(CollectionConflictImpactPlan impactPlan, CollectionConflictImpactIssue issue)
+		{
+			if (issue.Kind == CollectionConflictImpactIssueKind.FileWinnerDecisionRequired)
+			{
+				CollectionFileImpact file = impactPlan.FileImpacts.FirstOrDefault(x => StringComparer.Ordinal.Equals(x.Target.ToString(), issue.SubjectKey));
+				if (file != null)
+					return CollectionUserMessagePresenter.ForFileWinner(issue, file.Target.RelativePath,
+						String.Join(", ", file.Writers.Select(FormatMemberSubject)));
+			}
+			CollectionPluginImpact plugin = impactPlan.PluginImpacts.FirstOrDefault(x => Equals(x.MemberKey, issue.MemberKey) &&
+				StringComparer.Ordinal.Equals(String.Join("|", x.Effect.PluginPaths), issue.SubjectKey));
+			return CollectionUserMessagePresenter.ForImpact(issue, plugin == null ? null : plugin.Effect);
+		}
+
+		/// <summary>Shows the folder move and existing-file choices together with the reviewed mod.</summary>
+		private void AppendFolderCorrectionReview(IEnumerable<PreparedCollectionNativeRecipe> recipes)
+		{
+			foreach (PreparedCollectionNativeRecipe recipe in recipes.Where(x => x.EffectPreview.InstallRootCorrection != null))
+			{
+				CollectionInstallRootCorrection correction = recipe.EffectPreview.InstallRootCorrection;
+				AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.PlannedEffect,
+					L("Collections.FolderCorrection.Status", "Move to game folder"), "install-folder.move", recipe.Member.DisplayName,
+					L("Collections.FolderCorrection.Detail", "Move this mod from Data to the game folder. Its old Data files will be removed, and any files it replaced will be restored."), recipe.Member.MemberKey,
+					L("Collections.Messages.Next.ReviewPlannedChange", "Review this planned change before installing."),
+					"Install method: " + correction.InstallMethod + "; old root: Data; new root: GameRoot; old targets: " +
+					String.Join(", ", correction.Files.Select(x => x.Before.Target + " -> " + (x.After.Existed ? "restore previous file" : "remove"))) +
+					"; new targets: " + String.Join(", ", recipe.EffectPreview.Files.Select(x => x.Target.ToString())));
+				foreach (CollectionInstallRootDestination destination in correction.Destinations.Where(x => x.Before.Existed))
+					AddReviewItem(CollectionReviewSeverity.Info, CollectionReviewItemKind.PlannedEffect,
+						L("Collections.FolderCorrection.ExistingFile", "Existing file"), "install-folder.existing-file", destination.Before.Target.RelativePath,
+						destination.PreserveWinner ? L("Collections.FolderCorrection.KeepExisting", "Keep the file supplied by the other Collection mod.") :
+						L("Collections.FolderCorrection.ReplaceExisting", "Replace this game-folder file. NMM will keep its previous version for restoration when the mod is uninstalled."), recipe.Member.MemberKey, null,
+						"Previous owner: " + (destination.CurrentOwnerKey ?? "unmanaged") + "; sha256: " + destination.Before.ContentHash.Value);
+			}
+		}
+
 		private void AppendImpactReview(CollectionConflictImpactPlan impactPlan)
 		{
 			if (impactPlan == null)
@@ -5643,7 +6057,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					? CollectionReviewItemKind.ManualAction : CollectionReviewItemKind.Diagnostic;
 				AddPresentedReviewItem(CollectionReviewPresentationClassifier.ForImpact(issue.Status), issueKind,
 					FormatImpactStatus(issue.Status), "impact." + issue.Kind.ToString().ToLowerInvariant(), subject,
-					CollectionUserMessagePresenter.ForImpact(issue.Status, issue.Message), issue.MemberKey,
+					GetImpactIssuePresentation(impactPlan, issue), issue.MemberKey,
 					CombineTechnicalDetail("Impact kind: " + issue.Kind, issue.SubjectKey, issue.MemberKey == null ? null : "Member: " + issue.MemberKey));
 			}
 
@@ -5858,14 +6272,13 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private NormalizedCollectionMember GetSelectedNormalizedMember()
 		{
-			if (_membersView.SelectedItems.Count == 0)
-				return null;
-			return _membersView.SelectedItems[0].Tag as NormalizedCollectionMember;
+			MemberGridRow row = _membersView.GetFocusedRow() as MemberGridRow;
+			return row == null ? null : row.Member;
 		}
 
 		private CollectionManagementMemberPresentation GetSelectedManagedMemberPresentation()
 		{
-			if (_managedAssociationPresentation == null || _membersView.SelectedItems.Count == 0)
+			if (_managedAssociationPresentation == null || GetSelectedNormalizedMember() == null)
 				return null;
 			NormalizedCollectionMember selected = GetSelectedNormalizedMember();
 			if (selected == null || !selected.IdentityResolution.IsResolved)
@@ -5880,10 +6293,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (values.Count == 1)
 				return values[0];
 
-			using (var dialog = new Form())
-			using (var list = new ListBox())
-			using (var ok = new Button())
-			using (var cancel = new Button())
+			using (DevExpressDisplaySettings dialogSettings = DevExpressDisplaySettings.CreateFromSettings(Properties.Settings.Default))
+			using (var dialog = new ManagedFontXtraForm())
+			using (var list = new ListBoxControl())
+			using (var ok = new SimpleButton())
+			using (var cancel = new SimpleButton())
 			{
 				dialog.Text = title;
 				dialog.StartPosition = FormStartPosition.CenterParent;
@@ -5897,7 +6311,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 				layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 				layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-				var label = new Label { AutoSize = true, MaximumSize = new Size(530, 0), Text = prompt, Margin = new Padding(0, 0, 0, 8) };
+				var label = new LabelControl { AutoSizeMode = LabelAutoSizeMode.Vertical, MaximumSize = new Size(530, 0), Text = prompt, Margin = new Padding(0, 0, 0, 8) };
 				list.Dock = DockStyle.Fill;
 				foreach (T value in values)
 					list.Items.Add(new ManagedCustomizationChoice<T>(value, formatter(value)));
@@ -5919,6 +6333,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				dialog.Controls.Add(layout);
 				dialog.AcceptButton = ok;
 				dialog.CancelButton = cancel;
+				ApplyCollectionDialogDisplaySettings(dialog, dialogSettings);
 				if (dialog.ShowDialog(this) != DialogResult.OK)
 					return null;
 				ManagedCustomizationChoice<T> selected = list.SelectedItem as ManagedCustomizationChoice<T>;
@@ -5990,7 +6405,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private CollectionManualAcquisitionPendingAction GetSelectedOrFirstPendingAction()
 		{
-			NormalizedCollectionMember selected = _membersView.SelectedItems.Count == 0 ? null : _membersView.SelectedItems[0].Tag as NormalizedCollectionMember;
+			NormalizedCollectionMember selected = GetSelectedNormalizedMember();
 			if (_revisionUpdatePreparation != null)
 			{
 				if (selected != null && selected.IdentityResolution.IsResolved)
@@ -6089,12 +6504,102 @@ namespace Nexus.Client.CollectionManagement.UI
 			return L("Collections.Review.CurrentCollection", "Current Collection");
 		}
 
-		private string FormatUninstallImpactSubject(CollectionUninstallNativeImpact impact)
+		/// <summary>Explains why a reviewed native installation must remain after this Collection is removed.</summary>
+		private static string FormatUninstallPreservationReason(CollectionUninstallNativeImpact impact)
+		{
+			switch (impact.Disposition)
+			{
+				case CollectionUninstallNativeDisposition.RemoveNativeMod:
+					if (impact.SurvivingAssociationIds.Count > 0)
+						return L("Collections.Management.Removal.SharedSelected", "Another Collection also uses this mod. Uncheck it to keep that Collection working.");
+					if (impact.StandaloneUse == StandaloneModUse.ExplicitStandaloneUse)
+						return L("Collections.Management.Removal.IndependentSelected", "You also use this mod separately. Uncheck it to keep it installed.");
+					return L("Collections.Management.Removal.ListedSelected", "Listed in this Collection. Uncheck it to keep it installed.");
+				case CollectionUninstallNativeDisposition.AlreadyAbsent:
+					return L("Collections.Management.Removal.Absent", "Already uninstalled.");
+				case CollectionUninstallNativeDisposition.PreserveSharedCollection:
+					return L("Collections.Management.Removal.Shared", "Another installed Collection still needs this mod.");
+				case CollectionUninstallNativeDisposition.PreserveStandalone:
+					return L("Collections.Management.Removal.Independent", "This mod is marked to be kept independently of the Collection.");
+				case CollectionUninstallNativeDisposition.PreserveCustomized:
+					return L("Collections.Management.Removal.Customized", "This mod has changes you chose to keep.");
+				case CollectionUninstallNativeDisposition.PreserveUnknownProvenance:
+					return L("Collections.Management.Removal.UnknownOwnership", "NMM cannot confirm whether this mod was already installed before the Collection.");
+				default:
+					return CollectionUserMessagePresenter.SanitizeInternalTerminology(impact.Reason);
+			}
+		}
+
+		/// <summary>Keeps the verified uninstall outcome exportable after its installed association is removed.</summary>
+		private void RememberCompletedEffectRemoval(CollectionUninstallEffectsResult result,
+			CollectionManagementAssociation selected, IDictionary<NativeModInstanceIdentity, string> subjects)
+		{
+			_completedRemovalItems = result.Impacts.Select(x => new CollectionReviewItem(CollectionReviewSeverity.Info,
+				CollectionReviewItemKind.PlannedEffect, x.RequiresNativeRemoval ? L("Collections.Status.Removed", "Removed") :
+					x.Disposition == CollectionUninstallNativeDisposition.AlreadyAbsent ? L("Collections.Status.AlreadyAbsent", "Already absent") : L("Collections.Status.Kept", "Kept"),
+				"association.remove." + x.Disposition, subjects[x.NativeMod], x.RequiresNativeRemoval
+					? L("Collections.Management.Removal.ModUninstalled", "NMM uninstalled this mod.") : FormatUninstallPreservationReason(x),
+				x.MemberKeys.FirstOrDefault(), null, x.Reason)).ToArray();
+			string status = LanguageManager.Format("Collections.Management.RemovalCompleteCounts",
+				"Workflow: Collection uninstalled. {0} mods removed; {1} mods kept. See the results below.",
+				result.Impacts.Count(x => x.RequiresNativeRemoval),
+				result.Impacts.Count(x => !x.RequiresNativeRemoval && x.Disposition != CollectionUninstallNativeDisposition.AlreadyAbsent));
+			Version version = typeof(CollectionsPreviewControl).Assembly.GetName().Version;
+			var report = new CollectionTechnicalReportSnapshot(version == null ? String.Empty : version.ToString())
+			{
+				Performance = CollectionPerformanceMetrics.Capture(),
+				Context = new CollectionTechnicalReportContext
+				{
+					Kind = "CompletedCollectionRemoval", Generation = _previewGeneration,
+					RevisionIdentity = result.Operation.Revision.ToString(), OperationIdentity = result.Operation.Identity.ToString(),
+					CompatibilityStatus = L("Collections.Management.Removal.NotTracked", "Collection no longer tracked"),
+					ContentStatus = L("Collections.Management.Removal.Finished", "Uninstall finished"),
+					AppliedStatus = L("Collections.Management.Removal.Uninstalled", "Collection uninstalled")
+				},
+				Collection = new CollectionTechnicalReportCollection
+				{
+					Identity = result.Operation.Collection.ToString(), DisplayName = selected.DisplayName,
+					RevisionIdentity = result.Operation.Revision.ToString(), RevisionLabel = selected.RevisionLabel
+				},
+				Target = new CollectionTechnicalReportTarget { TargetFingerprint = result.Operation.Target.Fingerprint },
+				Progress = new CollectionTechnicalReportProgress
+				{
+					WorkflowStatus = status, OperationPhase = result.Operation.Phase.ToString(),
+					ActivityState = CollectionWorkflowActivityState.Completed.ToString(), ActivityPhase = CollectionWorkflowActivityPhase.Managing.ToString(),
+					CommandsLocked = false, WorkActive = false, EtaBasis = "completed"
+				}
+			};
+			if (_workflow != null)
+			{
+				try
+				{
+					Nexus.Client.GameStorage.GameStoragePathSet paths = _workflow.GetTargetPaths();
+					report.Target.GameId = paths.GameId;
+					report.Target.GameName = paths.GameName;
+				}
+				catch (Exception ex) { report.UnavailableData.Add("target-context: " + CollectionTechnicalReportSanitizer.SanitizeText(ex.Message)); }
+			}
+			_operationSnapshot = result.Operation;
+			PopulateTechnicalReportOperation(report);
+			ClearReviewItems();
+			foreach (CollectionReviewItem item in _completedRemovalItems) AddReviewItem(item);
+			PopulateTechnicalReportReview(report);
+			_completedRemovalReport = report;
+		}
+
+		private string FormatUninstallImpactSubject(CollectionUninstallNativeImpact impact, NexusCollectionBundleImportResult manifest = null)
 		{
 			if (impact == null)
 				return L("Collections.Review.ManagedMod", "Managed mod");
 
-			string[] names = impact.MemberKeys.Select(FormatMemberSubject).Where(x => !String.IsNullOrWhiteSpace(x))
+			if (!String.IsNullOrWhiteSpace(impact.NativeDisplayName)) return impact.NativeDisplayName.Trim();
+
+			string[] names = impact.MemberKeys.Select(key =>
+			{
+				NormalizedCollectionMember member = manifest == null || manifest.Manifest == null ? null : manifest.Manifest.Members.FirstOrDefault(x =>
+					x.IdentityResolution.IsResolved && x.IdentityResolution.Key.Equals(key));
+				return member == null || String.IsNullOrWhiteSpace(member.DisplayName) ? FormatMemberSubject(key) : member.DisplayName;
+			}).Where(x => !String.IsNullOrWhiteSpace(x))
 				.Distinct(StringComparer.CurrentCultureIgnoreCase).ToArray();
 			return names.Length == 0 ? L("Collections.Review.ManagedMod", "Managed mod") : String.Join(", ", names);
 		}
@@ -6156,6 +6661,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				"Plan: " + review.Operation.PlanIdentity);
 			AppendDependencyReview(review.Runtime.DependencyPlan);
 			AppendImpactReview(review.Runtime.ImpactPlan);
+			AppendFolderCorrectionReview(review.Runtime.PreparedRecipes);
 			UpdateIssuesHeader();
 		}
 
@@ -6176,7 +6682,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				text.AppendLine(LanguageManager.Format("Collections.Review.ConfirmAffectedCollections", "Other installed Collections affected: {0}", review.Runtime.ImpactPlan.AssociationImpacts.Count));
 			}
 			text.AppendLine();
-			text.AppendLine(L("Collections.Review.ConfirmDetail", "The complete reviewed changes are listed in the Review / issues pane. NMM will install only the changes you reviewed; if the current setup changes, this review becomes invalid and must be rebuilt."));
+			text.AppendLine(L("Collections.Review.ConfirmDetailTabs", "The complete changes are listed in the Changes to review tab. NMM will install only the changes you reviewed; if the current setup changes, a new review is required."));
 			return text.ToString();
 		}
 
@@ -6201,7 +6707,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				if (File.Exists(candidate))
 					throw new IOException("Cannot write the acquired mod archive because no unused filename could be selected.");
 
-				DialogResult choice = MessageBox.Show(this,
+				DialogResult choice = XtraMessageBox.Show(this,
 					LanguageManager.Format("Collections.Acquisition.Overwrite", "A mod archive already exists at:\r\n{0}\r\n\r\nYes = overwrite, No = keep both using a new filename, Cancel = stop this acquisition.", oldPath),
 					L("Collections.Acquisition.OverwriteTitle", "Collection member archive already exists"), MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
 				if (choice == DialogResult.Cancel)
@@ -6290,6 +6796,8 @@ namespace Nexus.Client.CollectionManagement.UI
 				_workflowEtaEstimator.Reset();
 				_workflowEta = CollectionWorkflowEtaSnapshot.Unavailable("activity-not-estimating");
 			}
+			if (_workflowBusy && _workflowActivity.IsWorkActive)
+				_workflowStatusLabel.Text = FormatWorkflowActivityText(_workflowActivity);
 			RenderWorkflowActivity();
 			RenderWorkflowEta();
 			if (_workflowBusy)
@@ -6356,36 +6864,37 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void RenderWorkflowActivity()
 		{
-			if (_workflowActivityIconLabel == null || _membersLoadingOverlay == null || _membersLoadingLabel == null ||
+			if (_workflowStatusLabel == null || _membersLoadingOverlay == null || _membersLoadingLabel == null ||
 				_membersLoadingProgress == null || _membersLoadingCancelButton == null || _workflowActivityAnimationTimer == null)
 				return;
 
 			CollectionWorkflowActivityPresentation presentation = CollectionWorkflowActivityPresentationBuilder.Build(_workflowActivity);
-			_workflowActivityIconLabel.AccessibleDescription = FormatWorkflowActivityText(_workflowActivity);
-			_membersLoadingOverlay.BackColor = _membersView.BackColor;
-			_membersLoadingLabel.BackColor = _membersView.BackColor;
-			_membersLoadingLabel.ForeColor = _membersView.ForeColor;
+			_workflowStatusLabel.AccessibleDescription = FormatWorkflowActivityText(_workflowActivity);
+			_membersLoadingOverlay.Appearance.BackColor = _membersGrid.BackColor;
+			_membersLoadingOverlay.Appearance.Options.UseBackColor = true;
 			if (presentation.AnimateIcon)
 			{
 				if (!_workflowActivityAnimationTimer.Enabled)
 				{
 					_workflowActivityAnimationFrame = 0;
-					_workflowActivityIconLabel.Text = WorkflowActivityAnimationFrames[0];
 					_workflowActivityAnimationTimer.Start();
 				}
 			}
 			else
-			{
 				_workflowActivityAnimationTimer.Stop();
-				_workflowActivityIconLabel.Text = presentation.IconText;
-			}
+			RenderWorkflowActivityIcon();
 
+			if (presentation.ShowMemberLoadingOverlay && !_wasShowingMemberLoadingOverlay)
+			{
+				_reviewNavigationPending = true;
+				_reviewTabs.SelectedTabPage = _membersPage;
+			}
+			_wasShowingMemberLoadingOverlay = presentation.ShowMemberLoadingOverlay;
 			_membersLoadingOverlay.Visible = presentation.ShowMemberLoadingOverlay;
 			if (presentation.ShowMemberLoadingOverlay)
 			{
 				_membersLoadingLabel.Text = FormatWorkflowActivityText(_workflowActivity);
 				ConfigureMemberLoadingProgress(_workflowActivity);
-				_membersLoadingProgress.Visible = true;
 				_membersLoadingCancelButton.Visible = _workflowActivity != null &&
 					_workflowActivity.Phase == CollectionWorkflowActivityPhase.Capturing;
 				_membersLoadingCancelButton.Enabled = _workflowCancellation != null && !_workflowCancellation.IsCancellationRequested;
@@ -6394,6 +6903,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			else
 			{
 				_membersLoadingProgress.Visible = false;
+				_membersLoadingMarquee.Visible = false;
 				_membersLoadingCancelButton.Visible = false;
 			}
 		}
@@ -6413,16 +6923,15 @@ namespace Nexus.Client.CollectionManagement.UI
 			if (snapshot != null && !snapshot.IsIndeterminate && snapshot.Current.HasValue && snapshot.Total.HasValue &&
 				snapshot.Total.Value > 0 && snapshot.Current.Value >= 0)
 			{
-				_membersLoadingProgress.Style = ProgressBarStyle.Continuous;
-				_membersLoadingProgress.Minimum = 0;
-				_membersLoadingProgress.Maximum = 1000;
+				_membersLoadingMarquee.Visible = false;
+				_membersLoadingProgress.Visible = true;
 				double fraction = Math.Min(1D, (double)snapshot.Current.Value / snapshot.Total.Value);
-				_membersLoadingProgress.Value = Math.Max(0, Math.Min(_membersLoadingProgress.Maximum, (int)Math.Round(fraction * _membersLoadingProgress.Maximum)));
+				_membersLoadingProgress.Position = Math.Max(0, Math.Min(1000, (int)Math.Round(fraction * 1000)));
 				return;
 			}
 
-			_membersLoadingProgress.Style = ProgressBarStyle.Marquee;
-			_membersLoadingProgress.MarqueeAnimationSpeed = 30;
+			_membersLoadingProgress.Visible = false;
+			_membersLoadingMarquee.Visible = true;
 		}
 
 		private void WorkflowActivityAnimationTimer_Tick(object sender, EventArgs e)
@@ -6434,8 +6943,58 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 			}
 
-			_workflowActivityAnimationFrame = (_workflowActivityAnimationFrame + 1) % WorkflowActivityAnimationFrames.Length;
-			_workflowActivityIconLabel.Text = WorkflowActivityAnimationFrames[_workflowActivityAnimationFrame];
+			_workflowActivityAnimationFrame = (_workflowActivityAnimationFrame + 1) % 8;
+			RenderWorkflowActivityIcon();
+		}
+
+		/// <summary>
+		/// The label renders NMM's actual semantic SVG icons rather than font glyphs; both
+		/// the style and accessible color palette come from the user's Display Options.
+		/// </summary>
+		private void RenderWorkflowActivityIcon()
+		{
+			if (_workflowStatusLabel == null || _workflowStatusLabel.IsDisposed)
+				return;
+
+			NmmIconAction? action = null;
+			if (_workflowActivity != null)
+			{
+				switch (_workflowActivity.State)
+				{
+					case CollectionWorkflowActivityState.Working: action = NmmIconAction.Refresh; break;
+					case CollectionWorkflowActivityState.Queued: action = NmmIconAction.Sync; break;
+					case CollectionWorkflowActivityState.WaitingForUser: action = NmmIconAction.Help; break;
+					case CollectionWorkflowActivityState.Paused: action = NmmIconAction.Pause; break;
+					case CollectionWorkflowActivityState.Completed: action = NmmIconAction.ModActive; break;
+					case CollectionWorkflowActivityState.Failed: action = NmmIconAction.Warning; break;
+				}
+			}
+
+			Bitmap newImage = null;
+			if (action.HasValue)
+			{
+				int size = NmmIconProvider.CurrentIconSize;
+				Image source = NmmIconProvider.GetBitmap(action.Value, size, false);
+				if (source != null)
+				{
+					newImage = new Bitmap(size, size);
+					using (Graphics graphics = Graphics.FromImage(newImage))
+					{
+						graphics.SmoothingMode = SmoothingMode.AntiAlias;
+						graphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+						graphics.PixelOffsetMode = PixelOffsetMode.HighQuality;
+						graphics.TranslateTransform(size / 2F, size / 2F);
+						if (_workflowActivity.State == CollectionWorkflowActivityState.Working && _workflowActivity.IsWorkActive)
+							graphics.RotateTransform(-_workflowActivityAnimationFrame * 45F);
+						graphics.DrawImage(source, new RectangleF(-size / 2F, -size / 2F, size, size));
+					}
+				}
+			}
+
+			Bitmap oldImage = _workflowActivityIconBitmap;
+			_workflowActivityIconBitmap = newImage;
+			_workflowStatusLabel.ImageOptions.Image = newImage;
+			oldImage?.Dispose();
 		}
 
 		private static string FormatWorkflowActivityText(CollectionWorkflowActivitySnapshot snapshot)
@@ -6659,8 +7218,11 @@ namespace Nexus.Client.CollectionManagement.UI
 			_localCaptureActionContext = hasLocalCapture
 				? CollectionUiContext.SavedLocal(_previewGeneration, selectedCapture.Capture.Revision, selectedCapture.CaptureIdentity)
 				: null;
+			_deleteLocalCaptureButton.Enabled = !_workflowBusy && hasLocalCapture;
+			if (!_workflowBusy)
+				_deleteLocalCaptureButton.Text = L("Collections.Actions.DeleteLocal", "Delete Local Collection...");
 			bool hasInterruptedLocalRestore = _localRestoreRecoverySources != null && _localRestoreRecoverySources.Count > 0;
-			_localCaptureCombo.Enabled = !_workflowBusy && !hasInterruptedLocalRestore && _managementWorkflow != null && _localCaptureCombo.Items.Count > 0;
+			_localCaptureCombo.Enabled = !_workflowBusy && !hasInterruptedLocalRestore && _managementWorkflow != null && _localCaptureCombo.Properties.Items.Count > 0;
 			_restoreLocalCaptureButton.Text = hasInterruptedLocalRestore
 				? L("Collections.LocalRestore.ReviewInterrupted", "Review interrupted restore...")
 				: L("Collections.Actions.RestoreLocal", "Restore Local Collection...");
@@ -6669,7 +7231,7 @@ namespace Nexus.Client.CollectionManagement.UI
 					String.IsNullOrEmpty(_localRestoreRecoverySources[0].Diagnostic)
 				: hasLocalCapture && selectedCapture.Capability == LocalCaptureCapability.LocallyRestorableWithinScope);
 			CollectionManagementLocalWorkingCopy selectedWorkingCopy = _localWorkingCopyCombo.SelectedItem as CollectionManagementLocalWorkingCopy;
-			_localWorkingCopyCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localWorkingCopyCombo.Items.Count > 0;
+			_localWorkingCopyCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _localWorkingCopyCombo.Properties.Items.Count > 0;
 			_editLocalWorkingCopyButton.Enabled = !_workflowBusy && _managementWorkflow != null && selectedWorkingCopy != null;
 			_saveLocalWorkingCopyRevisionButton.Enabled = !_workflowBusy && _managementWorkflow != null && selectedWorkingCopy != null;
 
@@ -6678,7 +7240,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_managedAssociationActionContext = hasManagedAssociation
 				? CollectionUiContext.Installed(_previewGeneration, selectedAssociation.Association.Revision, selectedAssociation.AssociationId)
 				: null;
-			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Items.Count > 0;
+			_managedAssociationCombo.Enabled = !_workflowBusy && _managementWorkflow != null && _managedAssociationCombo.Properties.Items.Count > 0;
 			bool revisionChangeOwnsAssociation = hasManagedAssociation && selectedAssociation.PendingRevision != null;
 			// A durable revision transition is the dominant workflow for this association. Hide unrelated setup/local
 			// management groups instead of making the user scan a wall of disabled or irrelevant controls. Support
@@ -6686,15 +7248,15 @@ namespace Nexus.Client.CollectionManagement.UI
 			_currentSetupGroup.Visible = !revisionChangeOwnsAssociation;
 			_savedLocalGroup.Visible = !revisionChangeOwnsAssociation;
 			_localWorkingCopyGroup.Visible = !revisionChangeOwnsAssociation;
-			_supportGroup.Visible = true;
 			_installedGroup.Visible = true;
-			_manageAssociationRemovalButton.Enabled = !_workflowBusy && hasManagedAssociation && !revisionChangeOwnsAssociation;
+			_localCollectionsPage.PageVisible = !revisionChangeOwnsAssociation;
+			_manageAssociationRemovalButton.Enabled = !_workflowBusy && hasManagedAssociation;
 			_verifyRepairButton.Enabled = !_workflowBusy && hasManagedAssociation && !revisionChangeOwnsAssociation && _managedAssociationPresentation != null;
 			_cloneManagedAssociationButton.Enabled = !_workflowBusy && hasManagedAssociation && !revisionChangeOwnsAssociation &&
 				_managedAssociationPresentation != null && _managedAssociationPresentation.HasRetainedManifest;
-			// While one durable revision transition owns the association, keep unrelated maintenance commands out of the
-			// immediate path. They reappear automatically when the transition reaches a terminal state.
-			_manageAssociationRemovalButton.Visible = !revisionChangeOwnsAssociation;
+			// Uninstall remains available to stop an interrupted transition. Other maintenance commands
+			// reappear when the transition reaches a terminal state.
+			_manageAssociationRemovalButton.Visible = true;
 			_verifyRepairButton.Visible = !revisionChangeOwnsAssociation;
 			_cloneManagedAssociationButton.Visible = !revisionChangeOwnsAssociation;
 			CollectionManagementMemberPresentation selectedManagedMember = GetSelectedManagedMemberPresentation();
@@ -6735,7 +7297,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			CollectionManagementAssociation matchingAssociation = FindMatchingManagedAssociation();
 			bool expandingManagedAssociation = matchingAssociation != null && _managedMemberExpansionAssociationId.HasValue &&
 				matchingAssociation.AssociationId == _managedMemberExpansionAssociationId.Value;
-			bool sameRevisionAlreadyApplied = matchingAssociation != null && matchingAssociation.State == CollectionAssociationState.Applied && !expandingManagedAssociation;
+			bool sameRevisionAlreadyApplied = matchingAssociation != null && matchingAssociation.State == CollectionAssociationState.Applied &&
+				!expandingManagedAssociation && FindInterruptedInstallation(matchingAssociation.Association.Revision) == null;
 			bool installedAssociationView = _managedAssociationPresentation != null;
 			CollectionRevisionUpdateWorkflowResult installedPending = installedAssociationView
 				? FindInterruptedRevisionUpdateForAssociation(_managedAssociationPresentation.Association) : null;
@@ -6745,18 +7308,34 @@ namespace Nexus.Client.CollectionManagement.UI
 					? L("Collections.Context.InstalledDetails", "Installed Collection details")
 					: _displayContext != null && _displayContext.Kind == CollectionUiContextKind.SavedLocalCollection
 						? L("Collections.Context.SavedLocalDetails", "Saved Local Collection details")
-						: L("Collections.Context.Incoming", "Incoming Collection");
+						: _snapshot == null && _completedRemovalReport != null
+							? L("Collections.Context.RemovalResult", "Last Collection uninstall")
+							: L("Collections.Context.Incoming", "Incoming Collection");
 			string displayedRevision = _snapshot?.Revision == null ? null : FormatRevisionActionLabel(_snapshot.Revision.Identity);
 			_previewSection.Text = installedPending != null
 				? LanguageManager.Format("Collections.Context.SectionRevisionTransition", "{0} - {1} -> {2}", _previewContextLabel.Text,
-					FormatRevisionActionLabel(_managedAssociationPresentation.Association.Revision), FormatRevisionActionLabel(installedPending.Operation.Revision))
+					FormatRevisionActionLabel(_managedAssociationPresentation.Association.Association.Revision), FormatRevisionActionLabel(installedPending.Operation.Revision))
 				: String.IsNullOrEmpty(displayedRevision) ? _previewContextLabel.Text
 					: LanguageManager.Format("Collections.Context.SectionRevision", "{0} - {1}", _previewContextLabel.Text, displayedRevision);
-			_detailsSection.Text = LanguageManager.Format("Collections.Context.SectionMembersReview", "{0}: mods and review", _previewSection.Text);
-			_incomingActionsPanel.Visible = _incomingActionContext != null || installedPending != null;
+			// The Collection and revision already appear in the incoming section caption. Duplicating that
+			// long caption here clips the details heading under larger accessibility fonts.
+			_detailsSection.Text = L("Collections.Context.MembersReview", "Collection mods and review");
+			CollectionOperation installedPendingApply = installedAssociationView
+				? FindInterruptedInstallation(_managedAssociationPresentation.Association.Association.Revision) : null;
+			// Keep one stable action row below the status; the report remains available in every Collection context.
+			_incomingActionsPanel.Visible = true;
+			_advancedIncomingGroup.Visible = _incomingActionContext != null && installedPending == null;
+			_advancedOptionsPage.PageVisible = _incomingActionContext != null && installedPending == null;
 			CollectionManagementAssociation revisionUpdateSource = FindRevisionUpdateSourceAssociation();
 			CollectionRevisionUpdateWorkflowResult interruptedRevisionUpdate = FindMatchingInterruptedRevisionUpdate();
-			if (_incomingActionContext != null && _blockedRevisionUpdatePlan != null)
+			if (_incomingActionContext != null && _workflowBusy &&
+				(revisionUpdateSource != null || _revisionUpdateReview != null || (_revisionUpdateResult ?? interruptedRevisionUpdate) != null))
+			{
+				_instructionLabel.Text = LanguageManager.Format("Collections.Update.WorkingTargetInstructions",
+					"NMM is working on the change to {0}. Wait for the current step to finish. Any required input or stop reason will appear here.",
+					FormatRevisionActionLabel(_snapshot.Revision.Identity));
+			}
+			else if (_incomingActionContext != null && _blockedRevisionUpdatePlan != null)
 				_instructionLabel.Text = _blockedRevisionUpdatePlan.Members.Any(x => x.RequiresStandaloneUseConfirmation)
 					? L("Collections.Update.BlockedOwnershipInstructions", "The revision comparison found mods whose ownership needs review. Choose Review Collection ownership... to decide separately which installations to keep independently. The installed revision has not changed.")
 					: L("Collections.Update.BlockedReviewInstructions", "Resolve the named errors below before running the revision comparison again. The installed revision has not changed.");
@@ -6781,7 +7360,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_incomingActionContext != null && hasConcreteRevision &&
 				((displayedRevisionUpdate != null && !displayedRevisionUpdate.IsCommitted) ||
 				 (revisionUpdateSource != null && CanSupersedePreparationForRevisionChange(_operationSnapshot)));
-			bool canChooseRetainedRevision = !_workflowBusy && installedAssociationView && installedPending == null &&
+			bool canChooseRetainedRevision = !_workflowBusy && installedAssociationView && installedPending == null && installedPendingApply == null &&
 				_revisionUpdateWorkflow != null && _workflow != null && hasManagedAssociation && !revisionChangeOwnsAssociation &&
 				selectedAssociation.Association.Revision.Collection.Origin == CollectionOrigin.NexusMods &&
 				selectedAssociation.State != CollectionAssociationState.Recovering && selectedAssociation.State != CollectionAssociationState.Incomplete;
@@ -6848,7 +7427,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				_installButton.Text = L("Collections.Actions.AddOptionalMemberReview", "Review and add member...");
 			else if (exactReview && (_operationSnapshot.RequiresRecovery || _operationSnapshot.HasUnreconciledNativeChild))
 				_installButton.Text = L("Collections.Actions.CheckRecoveryContinue", "Check recovery and continue...");
-			else if (exactReview && _preparation == null)
+			else if (exactReview && (_preparation == null || _operationSnapshot.HasCrossedNativeBoundary))
 				_installButton.Text = L("Collections.Actions.ResumeApply", "Review and continue...");
 			else
 				_installButton.Text = L("Collections.Actions.InstallCurrent", "Review and install...");
@@ -6866,8 +7445,29 @@ namespace Nexus.Client.CollectionManagement.UI
 			UpdateMemberActionMenuItems();
 
 			// Keep the member list navigable after apply/recovery. ItemCheck separately enforces read-only selection once
-			// native mutation has crossed the boundary, so disabling the whole ListView only breaks scrolling and inspection.
-			_membersView.Enabled = !_workflowBusy;
+			// native mutation has crossed the boundary, so disabling the entire grid only breaks scrolling and inspection.
+			_membersGrid.Enabled = !_workflowBusy;
+			bool canChooseMods = _incomingActionContext != null && _managedAssociationPresentation == null &&
+				(_operationSnapshot == null || (!_operationSnapshot.HasCrossedNativeBoundary && !_operationSnapshot.IsSuccessful));
+			_membersPage.Text = installedAssociationView ? L("Collections.Tabs.InstalledMods", "Installed mods")
+				: canChooseMods ? L("Collections.Tabs.Mods", "Choose mods") : L("Collections.Tabs.CollectionMods", "Collection mods");
+			_memberSelectionHint.Text = canChooseMods
+				? L("Collections.Members.OptionalHint", "Required mods are included. Tick optional mods you want to use.")
+				: L("Collections.Members.InspectHint", "Right-click a mod for available actions.");
+			if (!_workflowBusy)
+			{
+				bool readyForReview = _reviewActionCount > 0 && _reviewErrorCount == 0 &&
+					(ReferenceEquals(_primaryIncomingActionSource, _installButton) ||
+					 (ReferenceEquals(_primaryIncomingActionSource, _compareUpdateButton) && _revisionUpdateReview != null &&
+					  _revisionUpdateReview.Operation.Phase == CollectionOperationPhase.ReadyForReview));
+				if (_reviewErrorCount > 0 && (_lastPresentedReviewErrorCount == 0 || _reviewNavigationPending))
+					_reviewTabs.SelectedTabPage = _issuesPage;
+				else if (readyForReview && (!_wasReadyForReview || _reviewNavigationPending))
+					_reviewTabs.SelectedTabPage = _reviewActionsPage;
+				_lastPresentedReviewErrorCount = _reviewErrorCount;
+				_wasReadyForReview = readyForReview;
+				_reviewNavigationPending = false;
+			}
 		}
 
 		private string GetInstalledRevisionUpdateContextLabel(CollectionRevisionUpdateWorkflowResult pending)
@@ -6895,7 +7495,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_primaryIncomingActionSource = null;
 			_primaryIncomingReviewsBlockedIssues = false;
 			_primaryIncomingReviewsRevisionOwnership = false;
-			Button source = null;
+			SimpleButton source = null;
 			CollectionRevisionUpdateWorkflowResult installedPending = installedAssociationView && _managedAssociationPresentation != null
 				? FindInterruptedRevisionUpdateForAssociation(_managedAssociationPresentation.Association) : null;
 			if (installedPending != null)
@@ -6920,6 +7520,15 @@ namespace Nexus.Client.CollectionManagement.UI
 				_primaryIncomingActionSource = _compareUpdateButton;
 				_primaryIncomingActionButton.Enabled = !_workflowBusy && _compareUpdateButton.Enabled;
 				_primaryIncomingActionButton.Text = GetRevisionUpdateActionText(installedPending.Status, installedPending.Operation.Revision, installedPending.Operation);
+				return;
+			}
+			if (installedAssociationView && _managedAssociationPresentation != null &&
+				FindInterruptedInstallation(_managedAssociationPresentation.Association.Association.Revision) != null)
+			{
+				_primaryIncomingActionSource = _installButton;
+				_primaryIncomingActionButton.Visible = true;
+				_primaryIncomingActionButton.Enabled = !_workflowBusy && _installButton.Enabled;
+				_primaryIncomingActionButton.Text = _workflowBusy ? GetBusyIncomingActionText() : _installButton.Text;
 				return;
 			}
 			if (_workflowBusy)
@@ -7020,7 +7629,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				return _managedAssociationPresentation.Association;
 			if (_snapshot == null || _snapshot.Revision == null)
 				return null;
-			foreach (object item in _managedAssociationCombo.Items)
+			foreach (object item in _managedAssociationCombo.Properties.Items)
 			{
 				CollectionManagementAssociation association = item as CollectionManagementAssociation;
 				if (association != null && association.Association.Revision.Equals(_snapshot.Revision.Identity))
@@ -7115,6 +7724,19 @@ namespace Nexus.Client.CollectionManagement.UI
 				return;
 			}
 
+			CollectionOperation pendingApply = FindInterruptedInstallation(association.Association.Revision);
+			if (pendingApply != null)
+			{
+				_appliedValue.Text = L("Collections.Status.Applied.InterruptedInstallation", "Installation interrupted - completed mods are kept");
+				_contentValue.Text = L("Collections.Status.Content.InterruptedInstallation", "Check the interrupted installation before continuing");
+				_compatibilityValue.Text = L("Collections.VerifyRepair.IncompleteCompatibility", "Current setup not yet verified");
+				string nextAction = pendingApply.RequiresRecovery || pendingApply.HasUnreconciledNativeChild
+					? L("Collections.Actions.CheckRecoveryContinue", "Check recovery and continue...")
+					: L("Collections.Actions.ResumeApply", "Review and continue...");
+				_instructionLabel.Text = LanguageManager.Format("Collections.Management.InterruptedInstallationActionInstructions",
+					"Choose '{0}' to check the unfinished installation. To undo it, choose Uninstall Collection; NMM will check the interrupted step before showing which mods it can remove.", nextAction);
+				return;
+			}
 			switch (association.State)
 			{
 				case CollectionAssociationState.Applied:
@@ -7127,6 +7749,8 @@ namespace Nexus.Client.CollectionManagement.UI
 					break;
 				case CollectionAssociationState.Incomplete:
 					_appliedValue.Text = L("Collections.Status.Applied.IncompleteVerify", "Incomplete - use Verify / Repair");
+					_contentValue.Text = L("Collections.VerifyRepair.IncompleteContent", "Current setup incomplete - verification required");
+					_compatibilityValue.Text = L("Collections.VerifyRepair.IncompleteCompatibility", "Current setup not yet verified");
 					break;
 				case CollectionAssociationState.Recovering:
 					_appliedValue.Text = L("Collections.Status.Applied.RecoveryRequired", "Recovery required before further mutation");
@@ -7136,11 +7760,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void UpdateMemberSelectionText()
 		{
-			foreach (ListViewItem item in _membersView.Items)
-			{
-				if (item.SubItems.Count > 2)
-					item.SubItems[2].Text = item.Checked ? L("Collections.Member.Selected", "Selected") : L("Collections.Member.Unselected", "Not selected");
-			}
+			_membersView.RefreshData();
 		}
 
 		private void ShowLoading(NexusCollectionNxmLink link)
@@ -7156,7 +7776,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_contentValue.Text = L("Collections.Status.Content.WaitingRevision", "Waiting for concrete revision");
 			_appliedValue.Text = L("Collections.Status.Applied.NotApplied", "Not applied");
 			_summaryBox.Text = L("Collections.Preview.Loading", "Resolving Collection metadata. No installed mod state is being changed.");
-			_membersView.Items.Clear();
+			_memberRows.Clear();
 			ClearReviewItems();
 			_membersHeader.Text = L("Collections.Preview.Members", "Members");
 			_issuesHeader.Text = L("Collections.Preview.Issues", "Review / issues");
@@ -7173,7 +7793,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			_contentValue.Text = L("Collections.Status.Content.WaitingRevision", "Waiting for concrete revision");
 			_appliedValue.Text = L("Collections.Status.Applied.NotApplied", "Not applied");
 			_summaryBox.Text = BuildUserDialogMessage(userMessage);
-			_membersView.Items.Clear();
+			_memberRows.Clear();
 			ClearReviewItems();
 			AddPresentedReviewItem(CollectionReviewSeverity.Error, CollectionReviewItemKind.Diagnostic, L("Collections.Status.ActionRequired", "Action required"),
 				"preview.unexpected-failure", link == null ? String.Empty : link.CollectionSlug, userMessage);
@@ -7191,10 +7811,21 @@ namespace Nexus.Client.CollectionManagement.UI
 			_contentValue.Text = L("Collections.Status.Content.NoSelection", "No revision selected");
 			_appliedValue.Text = L("Collections.Status.Applied.NotApplied", "Not applied");
 			_summaryBox.Text = L("Collections.Preview.EmptySummary", "No Collection preview is loaded.");
-			_membersView.Items.Clear();
+			_memberRows.Clear();
 			ClearReviewItems();
 			_membersHeader.Text = L("Collections.Preview.Members", "Members");
 			_issuesHeader.Text = L("Collections.Preview.Issues", "Review / issues");
+			if (_completedRemovalReport != null)
+			{
+				_collectionValue.Text = _completedRemovalReport.Collection.DisplayName;
+				_revisionValue.Text = _completedRemovalReport.Collection.RevisionLabel;
+				_compatibilityValue.Text = _completedRemovalReport.Context.CompatibilityStatus;
+				_contentValue.Text = _completedRemovalReport.Context.ContentStatus;
+				_appliedValue.Text = _completedRemovalReport.Context.AppliedStatus;
+				_summaryBox.Text = L("Collections.Management.RemovalResultHelp", "Uninstall finished. The list below shows which mods were removed or kept, and why. Export Technical Report remains available for this result.");
+				_workflowStatusLabel.Text = _completedRemovalReport.Progress.WorkflowStatus;
+				foreach (CollectionReviewItem item in _completedRemovalItems) AddReviewItem(item);
+			}
 		}
 
 		private void SetDefaultInstruction()
@@ -7286,12 +7917,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			TrackReviewItemCount(reviewItem);
 			if (CollectionReviewPresentationFilter.IsPersistentReviewAction(reviewItem))
 			{
-				_reviewActionsView.Items.Add(CreateReviewListViewItem(reviewItem));
+				_reviewRows.Add(CreateReviewGridRow(reviewItem));
 			}
 			else if (CollectionReviewPresentationFilter.IsSeverityFiltered(reviewItem) && ReviewSeverityIsVisible(reviewItem))
 			{
 				RemoveFilteredEmptyMessage();
-				_issuesView.Items.Add(CreateReviewListViewItem(reviewItem));
+				int priority = CollectionReviewPresentationFilter.GetIssuePriority(reviewItem);
+				int index = _issueRows.ToList().FindIndex(row => row.Item != null &&
+					CollectionReviewPresentationFilter.GetIssuePriority(row.Item) > priority);
+				if (index < 0) _issueRows.Add(CreateReviewGridRow(reviewItem));
+				else _issueRows.Insert(index, CreateReviewGridRow(reviewItem));
 			}
 			UpdateIssuesHeader();
 		}
@@ -7303,8 +7938,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			_reviewWarningCount = 0;
 			_reviewInfoCount = 0;
 			_reviewActionCount = 0;
-			_issuesView.Items.Clear();
-			_reviewActionsView.Items.Clear();
+			_issueRows.Clear();
+			_reviewRows.Clear();
 			UpdateReviewFilterLabels();
 			UpdateReviewActionsVisibility();
 		}
@@ -7316,19 +7951,19 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void RefreshFilteredReviewIssues()
 		{
-			_issuesView.BeginUpdate();
+			_issuesView.BeginDataUpdate();
 			try
 			{
-				_issuesView.Items.Clear();
-				foreach (CollectionReviewItem reviewItem in _reviewItems)
+				_issueRows.Clear();
+				foreach (CollectionReviewItem reviewItem in _reviewItems.OrderBy(CollectionReviewPresentationFilter.GetIssuePriority))
 				{
 					if (CollectionReviewPresentationFilter.IsSeverityFiltered(reviewItem) && ReviewSeverityIsVisible(reviewItem))
-						_issuesView.Items.Add(CreateReviewListViewItem(reviewItem));
+						_issueRows.Add(CreateReviewGridRow(reviewItem));
 				}
 			}
 			finally
 			{
-				_issuesView.EndUpdate();
+				_issuesView.EndDataUpdate();
 			}
 
 			EnsureFilteredEmptyMessage();
@@ -7367,7 +8002,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private void EnsureFilteredEmptyMessage()
 		{
-			if (_issuesView.Items.Count > 0)
+			if (_issueRows.Count > 0)
 				return;
 			if (_reviewItems.Count == 0 && _snapshot == null && _managedAssociationPresentation == null)
 				return;
@@ -7384,19 +8019,20 @@ namespace Nexus.Client.CollectionManagement.UI
 			else
 				message = L("Collections.Review.Filters.NoMatches", "No matching review items.");
 
-			_issuesView.Items.Add(new ListViewItem(message) { ForeColor = SystemColors.GrayText });
+			_issueRows.Add(new ReviewGridRow(null, message, String.Empty, String.Empty, String.Empty, null));
 		}
 
 		private void RemoveFilteredEmptyMessage()
 		{
-			if (_issuesView.Items.Count == 1 && !(_issuesView.Items[0].Tag is CollectionReviewItem))
-				_issuesView.Items.Clear();
+			if (_issueRows.Count == 1 && _issueRows[0].Item == null)
+				_issueRows.Clear();
 		}
 
 		private void UpdateIssuesHeader()
 		{
 			int issueCount = _reviewErrorCount + _reviewWarningCount + _reviewInfoCount;
 			_issuesHeader.Text = LanguageManager.Format("Collections.Preview.IssueCount", "Review / issues ({0})", issueCount);
+			_issuesPage.Text = _issuesHeader.Text;
 			EnsureFilteredEmptyMessage();
 			UpdateReviewFilterLabels();
 			UpdateReviewActionsVisibility();
@@ -7408,39 +8044,39 @@ namespace Nexus.Client.CollectionManagement.UI
 			_showErrorIssuesCheckBox.Text = LanguageManager.Format("Collections.Review.Filters.Errors", "Errors ({0})", _reviewErrorCount);
 			_showWarningIssuesCheckBox.Text = LanguageManager.Format("Collections.Review.Filters.Warnings", "Warnings ({0})", _reviewWarningCount);
 			_showInfoIssuesCheckBox.Text = LanguageManager.Format("Collections.Review.Filters.Info", "Info ({0})", _reviewInfoCount);
+			EnsureCheckCaptionFits(_showErrorIssuesCheckBox);
+			EnsureCheckCaptionFits(_showWarningIssuesCheckBox);
+			EnsureCheckCaptionFits(_showInfoIssuesCheckBox);
 		}
 
 		private void UpdateReviewActionsVisibility()
 		{
 			bool visible = _reviewActionCount > 0;
-			_reviewActionsHeader.Text = LanguageManager.Format("Collections.Review.ActionsCount", "Required actions / planned changes ({0})", _reviewActionCount);
+			_reviewActionsHeader.Text = _snapshot == null && _managedAssociationPresentation == null && _completedRemovalReport != null
+				? LanguageManager.Format("Collections.Management.Removal.ResultsCount", "Uninstall results ({0})", _reviewActionCount)
+				: LanguageManager.Format("Collections.Review.ActionsCount", "Required actions / planned changes ({0})", _reviewActionCount);
 			_reviewActionsHeader.Visible = visible;
-			_reviewActionsView.Visible = visible;
+			_reviewActionsGrid.Visible = visible;
 
-			_reviewPanel.RowStyles[0].SizeType = SizeType.Percent;
-			_reviewPanel.RowStyles[0].Height = visible ? 60F : 100F;
-			_reviewPanel.RowStyles[1].SizeType = visible ? SizeType.AutoSize : SizeType.Absolute;
-			_reviewPanel.RowStyles[1].Height = 0F;
-			_reviewPanel.RowStyles[2].SizeType = visible ? SizeType.Percent : SizeType.Absolute;
-			_reviewPanel.RowStyles[2].Height = visible ? 40F : 0F;
+			_reviewActionsPage.Text = _snapshot == null && _managedAssociationPresentation == null && _completedRemovalReport != null
+				? LanguageManager.Format("Collections.Tabs.UninstallCount", "Uninstall results ({0})", _reviewActionCount)
+				: LanguageManager.Format("Collections.Tabs.ChangesCount", "Changes to review ({0})", _reviewActionCount);
+			_reviewActionsPage.PageVisible = visible;
+			if (visible && _snapshot == null && _managedAssociationPresentation == null && _completedRemovalReport != null)
+				_reviewTabs.SelectedTabPage = _reviewActionsPage;
 		}
 
-		private static ListViewItem CreateReviewListViewItem(CollectionReviewItem reviewItem)
+		private static ReviewGridRow CreateReviewGridRow(CollectionReviewItem reviewItem)
 		{
 			string subject = FormatCuratorMarkdown(reviewItem.Subject, false);
 			string explanation = FormatCuratorMarkdown(reviewItem.Explanation, false);
 			string nextAction = FormatCuratorMarkdown(reviewItem.NextAction, false);
-			var item = new ListViewItem(reviewItem.StatusText) { Tag = reviewItem };
-			item.SubItems.Add(subject);
-			item.SubItems.Add(explanation);
-			item.SubItems.Add(nextAction);
 			var tooltip = new StringBuilder();
 			tooltip.AppendLine(reviewItem.StatusText);
 			if (!String.IsNullOrWhiteSpace(reviewItem.Subject)) tooltip.AppendLine(FormatCuratorMarkdown(reviewItem.Subject, true));
 			if (!String.IsNullOrWhiteSpace(reviewItem.Explanation)) tooltip.AppendLine(FormatCuratorMarkdown(reviewItem.Explanation, true));
 			if (!String.IsNullOrWhiteSpace(reviewItem.NextAction)) tooltip.Append(FormatCuratorMarkdown(reviewItem.NextAction, true));
-			item.ToolTipText = tooltip.ToString().TrimEnd();
-			return item;
+			return new ReviewGridRow(reviewItem, reviewItem.StatusText, subject, explanation, nextAction, tooltip.ToString().TrimEnd());
 		}
 
 		/// <summary>
@@ -7479,9 +8115,7 @@ namespace Nexus.Client.CollectionManagement.UI
 
 		private string GetSelectedMemberToken()
 		{
-			if (_membersView.SelectedItems.Count == 0)
-				return null;
-			NormalizedCollectionMember member = _membersView.SelectedItems[0].Tag as NormalizedCollectionMember;
+			NormalizedCollectionMember member = GetSelectedNormalizedMember();
 			return member == null ? null : MemberToken(member);
 		}
 
@@ -7616,98 +8250,235 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		/// <summary>DevExpress CheckEdit AutoSize may retain a short editor width after NMM changes its UI font.
+		/// Reserve the full caption, checkbox glyph and skin spacing so the action panel wraps instead of clipping.</summary>
+		private static void EnsureCheckCaptionFits(CheckEdit check)
+		{
+			if (check == null || check.IsDisposed)
+				return;
+			Font font = check.Properties.Appearance.Options.UseFont && check.Properties.Appearance.Font != null
+				? check.Properties.Appearance.Font : check.Font;
+			if (font == null)
+				font = SystemFonts.DefaultFont;
+			int captionWidth = TextRenderer.MeasureText(check.Text ?? String.Empty, font).Width;
+			int reservedWidth = Math.Max(36, font.Height + 18) + check.Padding.Horizontal + 12;
+			check.MinimumSize = new Size(captionWidth + reservedWidth, 0);
+		}
+
+		private void EnsureActionCheckCaptionsFit()
+		{
+			EnsureCheckCaptionFits(_autoOverwriteArchivesCheckBox);
+			EnsureCheckCaptionFits(_replacementBackupCheckBox);
+			EnsureCheckCaptionFits(_showErrorIssuesCheckBox);
+			EnsureCheckCaptionFits(_showWarningIssuesCheckBox);
+			EnsureCheckCaptionFits(_showInfoIssuesCheckBox);
+			_incomingActionsPanel?.PerformLayout();
+		}
+
 		/// <summary>Creates an action group with the existing Collections heading and wrapping layout.</summary>
 		private static Control CreateActionGroup(string caption, params Control[] actions)
 		{
-			Label heading;
-			FlowLayoutPanel actionPanel;
+			LabelControl heading;
+			CollectionActionPanel actionPanel;
 			return CreateActionGroup(caption, out heading, out actionPanel, actions);
 		}
 
 		/// <summary>Creates an action group whose heading and actions can follow the displayed context.</summary>
-		private static Control CreateActionGroup(string caption, out Label heading, out FlowLayoutPanel actionPanel, params Control[] actions)
+		private static Control CreateActionGroup(string caption, out LabelControl heading, out CollectionActionPanel actionPanel, params Control[] actions)
 		{
-			var group = new TableLayoutPanel
+			TablePanel group = CreateCollectionTable(2);
+			group.AutoSize = true;
+			group.Margin = new Padding(0, 0, 0, 4);
+			heading = new LabelControl
 			{
-				AutoSize = true,
-				AutoSizeMode = AutoSizeMode.GrowAndShrink,
-				ColumnCount = 1,
-				RowCount = 2,
-				Margin = new Padding(0, 0, 12, 4),
-				Padding = Padding.Empty
-			};
-			group.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-			group.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-
-			heading = new Label
-			{
-				AutoSize = true,
-				Text = caption ?? String.Empty,
-				Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold),
+				AutoSizeMode = LabelAutoSizeMode.Horizontal, Text = caption ?? String.Empty,
 				Margin = new Padding(3, 0, 3, 2)
 			};
-			actionPanel = new FlowLayoutPanel
-			{
-				AutoSize = true,
-				AutoSizeMode = AutoSizeMode.GrowAndShrink,
-				WrapContents = true,
-				FlowDirection = FlowDirection.LeftToRight,
-				Margin = Padding.Empty,
-				Padding = Padding.Empty,
-				MaximumSize = new Size(760, 0)
-			};
+			actionPanel = new CollectionActionPanel();
 			foreach (Control action in actions ?? new Control[0])
-			{
-				if (action != null)
-					actionPanel.Controls.Add(action);
-			}
-
-			group.Controls.Add(heading, 0, 0);
-			group.Controls.Add(actionPanel, 0, 1);
+				if (action != null) actionPanel.Controls.Add(action);
+			heading.Appearance.FontStyleDelta = FontStyle.Bold;
+			AddCollectionCell(group, heading, 0);
+			AddCollectionCell(group, actionPanel, 1);
 			return group;
 		}
 
-		private static ListView CreateReviewListView()
+		/// <summary>Creates a DevExpress table where only explicitly relative rows consume unused height.</summary>
+		private static TablePanel CreateCollectionTable(int rows, int columns = 1)
 		{
-			ListView view = CreateListView();
-			view.Columns.Add(L("Collections.Columns.Status", "Status"), 90);
-			view.Columns.Add(L("Collections.Columns.Field", "Subject"), 170);
-			view.Columns.Add(L("Collections.Columns.Reason", "What happened / planned change"), 315);
-			view.Columns.Add(L("Collections.Columns.NextAction", "What you can do"), 285);
+			TablePanel table = new TablePanel
+			{
+				Dock = DockStyle.Fill, UseSkinIndents = false, Padding = Padding.Empty,
+				Margin = Padding.Empty, AutoSizeDefaultTableElementLength = 0
+			};
+			for (int column = 0; column < columns; column++)
+				table.Columns.Add(new TablePanelColumn(TablePanelEntityStyle.Relative, 1F));
+			for (int row = 0; row < rows; row++)
+				table.Rows.Add(new TablePanelRow(TablePanelEntityStyle.AutoSize, 1F));
+			return table;
+		}
+
+		/// <summary>Moves an existing control into a DevExpress table without replacing its workflow handlers.</summary>
+		private static void AddCollectionCell(TablePanel table, Control control, int row, int column = 0)
+		{
+			table.Controls.Add(control);
+			table.SetCell(control, row, column);
+		}
+
+		/// <summary>Gives each review list the full working area instead of splitting three grids into small panes.</summary>
+		private static XtraTabPage CreateCollectionPage(XtraTabControl tabs, string caption)
+		{
+			XtraTabPage page = new XtraTabPage { Text = caption, Padding = new Padding(6) };
+			tabs.TabPages.Add(page);
+			return page;
+		}
+
+		/// <summary>Wraps actions in a DevExpress surface using current font sizes and visible controls only.</summary>
+		private sealed class CollectionActionPanel : PanelControl
+		{
+			/// <summary>Creates a compact wrapping action row.</summary>
+			internal CollectionActionPanel()
+			{
+				BorderStyle = BorderStyles.NoBorder;
+				Dock = DockStyle.Fill;
+				AutoSize = true;
+				Margin = Padding.Empty;
+				Padding = Padding.Empty;
+			}
+
+			/// <summary>Measures the height of the wrapped actions at the proposed width.</summary>
+			public override Size GetPreferredSize(Size proposedSize)
+			{
+				return ArrangeActions(proposedSize.Width > 0 ? proposedSize.Width : Math.Max(1, Width), false);
+			}
+
+			/// <summary>Reflows actions after a size or global font change.</summary>
+			protected override void OnLayout(LayoutEventArgs e)
+			{
+				base.OnLayout(e);
+				ArrangeActions(Math.Max(1, ClientSize.Width), true);
+			}
+
+			/// <summary>Uses identical measurements for preferred height and actual layout, avoiding empty toolbar space.</summary>
+			private Size ArrangeActions(int width, bool apply)
+			{
+				int x = Padding.Left;
+				int y = Padding.Top;
+				int rowHeight = 0;
+				int usedWidth = 0;
+				int available = Math.Max(1, width - Padding.Horizontal);
+				foreach (Control child in Controls)
+				{
+					if (!child.Visible) continue;
+					Size size = child.AutoSize ? child.GetPreferredSize(new Size(available, 0)) : child.Size;
+					size.Width = Math.Min(available, Math.Max(child.MinimumSize.Width, size.Width));
+					size.Height = Math.Max(child.MinimumSize.Height, size.Height);
+					int occupiedWidth = size.Width + child.Margin.Horizontal;
+					if (x > Padding.Left && x + occupiedWidth > width - Padding.Right)
+					{
+						x = Padding.Left;
+						y += rowHeight;
+						rowHeight = 0;
+					}
+					if (apply) child.Bounds = new Rectangle(x + child.Margin.Left, y + child.Margin.Top, size.Width, size.Height);
+					x += occupiedWidth;
+					rowHeight = Math.Max(rowHeight, size.Height + child.Margin.Vertical);
+					usedWidth = Math.Max(usedWidth, x);
+				}
+				return new Size(usedWidth + Padding.Right, y + rowHeight + Padding.Bottom);
+			}
+		}
+
+		/// <summary>Creates a themed grid with stable row order and one focused member/review item.</summary>
+		private static GridView CreateCollectionGridView(GridControl grid)
+		{
+			GridView view = new GridView(grid);
+			grid.MainView = view;
+			grid.ViewCollection.Add(view);
+			view.OptionsView.ShowGroupPanel = false;
+			view.OptionsView.ShowIndicator = false;
+			view.OptionsView.ColumnAutoWidth = false;
+			view.OptionsSelection.MultiSelect = false;
+			view.OptionsCustomization.AllowColumnMoving = false;
+			view.OptionsCustomization.AllowSort = false;
+			view.OptionsCustomization.AllowFilter = false;
 			return view;
 		}
 
-		private static ListView CreateListView()
+		private static GridColumn AddCollectionGridColumn(GridView view, string property, string caption, int width, bool editable = false)
 		{
-			return new ListView
-			{
-				Dock = DockStyle.Fill,
-				View = View.Details,
-				FullRowSelect = true,
-				HideSelection = false,
-				MultiSelect = false,
-				ShowItemToolTips = true,
-				UseCompatibleStateImageBehavior = false
-			};
+			GridColumn column = view.Columns.AddVisible(property, caption);
+			column.Width = width;
+			column.OptionsColumn.AllowEdit = editable;
+			column.OptionsColumn.ReadOnly = !editable;
+			return column;
 		}
 
-		private static Label AddHeaderRow(TableLayoutPanel table, int row, int column, string caption)
+		private GridControl CreateReviewGrid(BindingList<ReviewGridRow> rows, out GridView view)
 		{
-			var name = new Label
+			GridControl grid = new GridControl { Dock = DockStyle.Fill };
+			view = CreateCollectionGridView(grid);
+			view.OptionsBehavior.Editable = false;
+			view.OptionsView.ColumnAutoWidth = true;
+			view.OptionsView.RowAutoHeight = true;
+			RepositoryItemMemoEdit wrappedText = new RepositoryItemMemoEdit { ReadOnly = true };
+			grid.RepositoryItems.Add(wrappedText);
+			AddCollectionGridColumn(view, nameof(ReviewGridRow.Status), L("Collections.Columns.Status", "Status"), 90);
+			AddCollectionGridColumn(view, nameof(ReviewGridRow.Subject), L("Collections.Columns.Field", "Subject"), 170);
+			AddCollectionGridColumn(view, nameof(ReviewGridRow.Reason), L("Collections.Columns.Reason", "What happened / planned change"), 315).ColumnEdit = wrappedText;
+			AddCollectionGridColumn(view, nameof(ReviewGridRow.NextAction), L("Collections.Columns.NextAction", "What you can do"), 285).ColumnEdit = wrappedText;
+			grid.DataSource = rows;
+			GridView reviewView = view;
+			grid.ToolTipController = _toolTip;
+			_toolTip.GetActiveObjectInfo += (sender, args) =>
 			{
-				AutoSize = true,
+				if (args.SelectedControl != grid || args.Info != null)
+					return;
+				var hit = reviewView.CalcHitInfo(args.ControlMousePosition);
+				ReviewGridRow row = hit.InRowCell || hit.InRow ? reviewView.GetRow(hit.RowHandle) as ReviewGridRow : null;
+				if (row != null && !String.IsNullOrWhiteSpace(row.Tooltip))
+					args.Info = new ToolTipControlInfo(row, row.Tooltip);
+			};
+			return grid;
+		}
+
+		/// <summary>Layout panels arrange controls only; their transparent background lets the current DX skin show through.</summary>
+		private static void MakeLayoutSkinTransparent(Control control)
+		{
+			if (control is TableLayoutPanel || control is FlowLayoutPanel)
+				control.BackColor = Color.Transparent;
+			foreach (Control child in control.Controls)
+				MakeLayoutSkinTransparent(child);
+		}
+
+		/// <summary>Applies the same persistent Aa font and DevExpress appearance as the main Collections surface.</summary>
+		private static void ApplyCollectionDialogDisplaySettings(ManagedFontXtraForm dialog, DevExpressDisplaySettings settings)
+		{
+			dialog.AutoScaleMode = AutoScaleMode.Font;
+			dialog.Font = settings.Font;
+			MakeLayoutSkinTransparent(dialog);
+			DevExpressDisplaySettingsApplier.ApplyToControlTree(dialog, settings);
+		}
+
+		private static LabelControl AddHeaderRow(TablePanel table, int row, int column, string caption)
+		{
+			var name = new LabelControl
+			{
+				AutoSizeMode = LabelAutoSizeMode.Horizontal,
 				Text = caption,
-				Font = new Font(SystemFonts.MessageBoxFont, FontStyle.Bold),
+
 				Margin = new Padding(0, 3, 8, 3)
 			};
-			var value = new Label
+			var value = new LabelControl
 			{
-				AutoSize = true,
+				AutoSizeMode = LabelAutoSizeMode.Vertical,
+				Dock = DockStyle.Fill,
 				Text = "-",
 				Margin = new Padding(0, 3, 18, 3)
 			};
-			table.Controls.Add(name, column, row);
-			table.Controls.Add(value, column + 1, row);
+			name.Appearance.FontStyleDelta = FontStyle.Bold;
+			AddCollectionCell(table, name, row, column);
+			AddCollectionCell(table, value, row, column + 1);
 			return value;
 		}
 

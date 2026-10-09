@@ -245,6 +245,8 @@ namespace Nexus.Client.CollectionManagement
 			if (rehydration.Status != CollectionLocalRestoreMemberRehydrationStatus.ReadyToResume &&
 				rehydration.Status != CollectionLocalRestoreMemberRehydrationStatus.MemberPhaseComplete)
 				throw new InvalidOperationException("C7.10a resume requires a rehydrated safe member boundary with no ambiguous native child.");
+			if (rehydration.CurrentPlan != null && rehydration.CurrentPlan.IsNativeRecoveryProjection)
+				throw new InvalidOperationException("C7.10a resume requires full retained-input verification after native recovery.");
 			if (rehydration.SealedCapture == null || rehydration.ReviewedPlan == null || rehydration.CurrentPlan == null)
 				throw new InvalidOperationException("C7.10a resume requires the exact retained capture, reviewed intent and current native projection.");
 

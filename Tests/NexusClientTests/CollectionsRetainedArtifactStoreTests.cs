@@ -321,6 +321,65 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Large backups use several bounded metadata batches without reading unrelated artifacts or losing missing-byte diagnostics.</summary>
+		[Test]
+		public void VerifyArtifacts_LargeRequestedSetExcludesUnrelatedCorruptMetadata()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var featureStore = new CollectionsStore(root);
+				featureStore.CreateNew();
+				var retainedStore = new CollectionsRetainedArtifactStore(featureStore);
+				var expected = new List<CollectionsRetainedArtifact>();
+				var requested = new List<string>();
+				for (int index = 0; index < 260; index++)
+				{
+					using (var source = new MemoryStream(Encoding.ASCII.GetBytes("batch-artifact-" + index)))
+					{
+						CollectionsRetainedArtifact artifact = retainedStore.Publish(source);
+						expected.Add(artifact);
+						requested.Add(artifact.ArtifactId);
+					}
+				}
+				CollectionsRetainedArtifact unrelated;
+				using (var source = new MemoryStream(Encoding.ASCII.GetBytes("unrelated corrupt metadata")))
+					unrelated = retainedStore.Publish(source);
+				using (SQLiteConnection connection = OpenDatabase(featureStore.DatabasePath))
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.CommandText = "UPDATE retained_artifacts SET sealed=0 WHERE artifact_id=@id;";
+					command.Parameters.AddWithValue("@id", unrelated.ArtifactId);
+					command.ExecuteNonQuery();
+				}
+				string missing = "sha256:" + new string('0', 64);
+				requested.Add(missing);
+				requested.Add(expected[0].ArtifactId);
+				CollectionsRetainedArtifact missingBytes = expected[expected.Count - 1];
+				File.Delete(BlobPath(featureStore, missingBytes.ContentHash.Value));
+				ISet<string> verified;
+
+				IReadOnlyDictionary<string, CollectionsRetainedArtifact> metadata = retainedStore.VerifyArtifacts(requested,
+					CancellationToken.None, out verified);
+
+				Assert.AreEqual(expected.Count, metadata.Count);
+				Assert.AreEqual(expected.Count - 1, verified.Count);
+				Assert.IsFalse(metadata.ContainsKey(missing));
+				Assert.IsFalse(metadata.ContainsKey(unrelated.ArtifactId));
+				Assert.AreEqual(missingBytes, metadata[missingBytes.ArtifactId]);
+				Assert.IsFalse(verified.Contains(missingBytes.ArtifactId));
+				foreach (CollectionsRetainedArtifact artifact in expected)
+				{
+					Assert.AreEqual(artifact, metadata[artifact.ArtifactId]);
+					Assert.AreEqual(artifact != missingBytes, verified.Contains(artifact.ArtifactId));
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		/// <summary>Batch reads preserve the sealed/canonical-path trust checks before exposing verification results.</summary>
 		[TestCase(false)]
 		[TestCase(true)]

@@ -22,6 +22,16 @@ namespace Nexus.Client.Tests
 		}
 
 		[Test]
+		public void Sanitizer_PreservesRecoveryDiagnosticsAfterAQuotedLocalPath()
+		{
+			string source = @"Missing replay at 'E:\Games\Install Info\mod.xml'. Rollback: FAIL - fingerprint mismatch. Repair: NOT APPLIED.";
+			string sanitized = CollectionTechnicalReportSanitizer.SanitizeText(source);
+			Assert.That(sanitized, Does.Not.Contain(@"E:\Games"));
+			Assert.That(sanitized, Does.Contain("Rollback: FAIL - fingerprint mismatch"));
+			Assert.That(sanitized, Does.Contain("Repair: NOT APPLIED"));
+		}
+
+		[Test]
 		public void Sanitizer_RedactsBearerAndNamedCredentialValues()
 		{
 			string source = "Authorization: Bearer abc.def.ghi api_key=top-secret access_token=value";

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.Globalization;
+using System.Linq;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 
@@ -122,6 +123,28 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				ReadOperation(connection, transaction, identity.OperationId));
 		}
 
+		/// <summary>Reads this Collection's operation history for retrying removal of unbound interrupted members.</summary>
+		internal IReadOnlyList<CollectionOperation> GetOperationsForCollection(CollectionIdentity collection, CollectionTargetIdentity target)
+		{
+			if (collection == null) throw new ArgumentNullException(nameof(collection));
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var identities = new List<Guid>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT operation_id FROM collection_operations WHERE origin=@origin AND collection_id=@collection AND target_fingerprint=@target ORDER BY operation_id;";
+					command.Parameters.AddWithValue("@origin", (int)collection.Origin);
+					command.Parameters.AddWithValue("@collection", collection.StableId);
+					command.Parameters.AddWithValue("@target", target.Fingerprint);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+						while (reader.Read()) identities.Add(ReadCanonicalGuid(reader.GetString(0), "Collection operation"));
+				}
+				return identities.Select(x => ReadOperation(connection, transaction, x)).ToList();
+			});
+		}
+
 		/// <summary>
 		/// Loads all non-terminal collection operations in stable identity order for startup/recovery reconciliation.
 		/// </summary>
@@ -191,6 +214,43 @@ ORDER BY collection_operation_id;";
 				return collectionOperationId.HasValue
 					? ReadOperation(connection, transaction, collectionOperationId.Value)
 					: null;
+			});
+		}
+
+		/// <summary>Returns an unambiguous previously committed install context for an exact revision member and recipe.</summary>
+		internal ModInstallContext GetVerifiedMemberInstallContext(CollectionTargetAssociation association, CollectionMemberBinding binding)
+		{
+			if (association == null) throw new ArgumentNullException(nameof(association));
+			if (binding == null) throw new ArgumentNullException(nameof(binding));
+			if (binding.Association.AssociationId != association.AssociationId || !binding.Association.Revision.Equals(association.Revision) ||
+				!binding.Association.Target.Equals(association.Target))
+				throw new ArgumentException("The repair context binding must belong to the exact association.", nameof(binding));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var contexts = new List<string>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT DISTINCT native_context_fingerprint
+FROM native_operation_children
+WHERE member_origin=@origin AND member_collection_id=@collection AND member_revision_id=@revision
+  AND member_key_kind=@kind AND member_key_value=@member AND native_target_fingerprint=@target
+  AND native_recipe_fingerprint=@recipe AND action=@activate AND checkpoint=@reconciled AND durability=@committed;";
+					command.Parameters.AddWithValue("@origin", (int)association.Revision.Collection.Origin);
+					command.Parameters.AddWithValue("@collection", association.Revision.Collection.StableId);
+					command.Parameters.AddWithValue("@revision", association.Revision.StableRevisionId);
+					command.Parameters.AddWithValue("@kind", (int)binding.MemberKey.Kind);
+					command.Parameters.AddWithValue("@member", binding.MemberKey.Value);
+					command.Parameters.AddWithValue("@target", association.Target.Fingerprint);
+					command.Parameters.AddWithValue("@recipe", binding.VerifiedRecipe.Fingerprint);
+					command.Parameters.AddWithValue("@activate", (int)CollectionNativeChildAction.ActivateOrReinstall);
+					command.Parameters.AddWithValue("@reconciled", (int)CollectionNativeChildCheckpoint.Reconciled);
+					command.Parameters.AddWithValue("@committed", (int)ModOperationDurability.VerifiedCommitted);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+						while (reader.Read()) contexts.Add(reader.GetString(0));
+				}
+				return contexts.Count == 1 ? ParseInstallContext(contexts[0]) : null;
 			});
 		}
 
@@ -271,7 +331,8 @@ WHERE collection_operation_id=@collection_operation_id AND sequence=@sequence;";
 			}
 		}
 
-		private static CollectionOperation ReadOperation(SQLiteConnection connection, SQLiteTransaction transaction, Guid operationId)
+		/// <summary>Reads an operation inside an existing transaction for atomic management handoffs.</summary>
+		internal static CollectionOperation ReadOperation(SQLiteConnection connection, SQLiteTransaction transaction, Guid operationId)
 		{
 			int rawKind;
 			int rawOrigin;

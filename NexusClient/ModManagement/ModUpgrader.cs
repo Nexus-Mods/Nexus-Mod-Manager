@@ -29,6 +29,8 @@ namespace Nexus.Client.ModManagement
 
 		/// <summary>Gets the active native mod instance being replaced by this upgrade.</summary>
 		internal IMod ReplacedMod { get { return OldMod; } }
+		/// <summary>Gets the old root captured before the upgrade changes the native registration.</summary>
+		private ModInstallRoot PreviousInstallRoot { get; }
 
 		#endregion
 
@@ -59,6 +61,7 @@ namespace Nexus.Client.ModManagement
 			: base(p_modNewMod, p_gmdGameMode, p_eifEnvironmentInfo, p_futFileUtility, p_scxUIContext, p_ilgModInstallLog, p_pmgPluginManager, p_ivaVirtualModActivator, p_mdmDeploymentManager, p_ipmProfileManager, p_dlgOverwriteConfirmationDelegate, null, p_micInstallContext, p_mriRecipeInput)
 		{
 			OldMod = p_modOldMod ?? throw new ArgumentNullException(nameof(p_modOldMod));
+			PreviousInstallRoot = p_ilgModInstallLog.GetModInstallRoot(OldMod);
 		}
 
 		#endregion
@@ -88,7 +91,10 @@ namespace Nexus.Client.ModManagement
 
 			return new ModFileUpgradeInstaller(GameMode.GameModeEnvironmentInfo, Mod, ModInstallLog, PluginManager,
 				new DataFileUtil(GameMode.GameModeEnvironmentInfo.InstallationPath), p_tfmFileManager,
-				p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo, installBasePath);
+				p_dlgOverwriteConfirmationDelegate, GameMode.UsesPlugins, EnvironmentInfo, installBasePath)
+			{
+				UpgradeDeploymentBackend = VirtualModActivator as Nexus.Client.ModManagement.VirtualModActivator
+			};
 		}
 
 		/// <summary>
@@ -139,7 +145,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Removes promoted Virtual ownership entries for files that belonged to the old version but were not
+		/// Removes obsolete Virtual deployments for files that belonged to the old version but were not
 		/// reinstalled by the replacement version. Reinstalled targets already point at the new staged payload.
 		/// </summary>
 		protected override void FinalizeDeploymentAfterInstall(TxFileManager p_tfmFileManager)
@@ -148,14 +154,21 @@ namespace Nexus.Client.ModManagement
 				return;
 
 			var deploymentBackend = VirtualModActivator as Nexus.Client.ModManagement.VirtualModActivator;
-			if (DeploymentManager != null && DeploymentManager.HasPromotedTargets)
+			if (DeploymentManager != null && deploymentBackend != null)
 			{
-				if (deploymentBackend == null)
-					throw new InvalidOperationException("Promoted Virtual upgrades require the transaction-aware VMA deployment backend.");
-
-				foreach (ModDeploymentTarget target in deploymentBackend.GetStalePromotedVirtualTargetsForUpgrade(OldMod))
-					DeploymentManager.RemoveOwnedTarget(Mod, target, p_tfmFileManager);
+				var removedPlugins = new System.Collections.Generic.List<string>();
+				foreach (ModDeploymentTarget target in deploymentBackend.GetStaleVirtualTargetsForUpgrade(OldMod,
+					PreviousInstallRoot == InstallContext.InstallRoot ? (ModInstallRoot?)null : InstallContext.InstallRoot))
+				{
+					string absentPath = DeploymentManager.RemoveOwnedTarget(Mod, target, p_tfmFileManager);
+					if (absentPath != null && PluginManager != null && PluginManager.IsActivatiblePluginFile(absentPath))
+						removedPlugins.Add(absentPath);
+				}
+				if (removedPlugins.Count > 0)
+					PluginManager.RemovePlugins(removedPlugins);
 			}
+			else if (DeploymentManager != null && DeploymentManager.HasPromotedTargets)
+				throw new InvalidOperationException("Promoted Virtual upgrades require the transaction-aware VMA deployment backend.");
 
 			// ReplaceActiveMod deliberately preserves the native InstallLog key. Keep legacy VMA owner metadata
 			// correlated with that same logical owner when the archive/file identity changes during the upgrade.

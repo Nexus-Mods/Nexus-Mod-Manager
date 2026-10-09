@@ -6,6 +6,7 @@ using ChinhDo.Transactions;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.ModManagement.Scripting;
+using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Util.Collections;
@@ -34,6 +35,9 @@ namespace Nexus.Client.ModManagement
 		/// before the upgrade, but not yet reinstalled during the upgrade.
 		/// </summary>
 		protected Set<string> OriginallyInstalledFiles { get; private set; }
+
+		/// <summary>Gets or sets the native backend used to retain hardlink topology during staging rollback.</summary>
+		internal VirtualModActivator UpgradeDeploymentBackend { get; set; }
 
 		#endregion
 
@@ -133,9 +137,47 @@ namespace Nexus.Client.ModManagement
 			else
 				strWritePath = strInstallFilePath;
 
+			UpgradeDeploymentBackend?.PreserveHardLinkRollbackForStagingWrite(Mod, strWritePath, TransactionalFileManager);
 			TransactionalFileManager.WriteAllBytes(strWritePath, p_bteData);
 			OriginallyInstalledFiles.Remove(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
 			return true;
+		}
+
+		/// <summary>
+		/// Retains archive files reinstalled from streams and writes inactive owners back to their existing backup.
+		/// </summary>
+		protected override bool GenerateDataFileWithResolvedOverwrite(string p_strPath, FileStream p_fstData)
+		{
+			IList<IMod> installers = InstallLog.GetFileInstallers(p_strPath);
+			if (!installers.Any(IsCurrentUpgradeOwner))
+				return base.GenerateDataFileWithResolvedOverwrite(p_strPath, p_fstData);
+
+			string writePath = Path.Combine(InstallBasePath, p_strPath);
+			if (!IsCurrentUpgradeOwner(installers[installers.Count - 1]))
+			{
+				writePath = Path.Combine(GameModeInfo.OverwriteDirectory, Path.GetDirectoryName(p_strPath),
+					InstallLog.GetModKey(Mod) + "_" + Path.GetFileName(p_strPath));
+			}
+			UpgradeDeploymentBackend?.PreserveHardLinkRollbackForStagingWrite(Mod, writePath, TransactionalFileManager);
+			TransactionalFileManager.WriteFileStream(writePath, p_fstData);
+			OriginallyInstalledFiles.Remove(p_strPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+			return true;
+		}
+
+		/// <summary>
+		/// Retains verified staging payloads reused by a reviewed recipe instead of rewriting them.
+		/// </summary>
+		internal void RetainPreparedStagingFiles(IEnumerable<ScriptedInstallOperation> operations)
+		{
+			foreach (ScriptedInstallOperation operation in operations)
+			{
+				InstallModFileOperation archive = operation as InstallModFileOperation;
+				GenerateDataFileOperation generated = operation as GenerateDataFileOperation;
+				string path = archive != null && archive.HasResolvedStagingOverwrite && !archive.StageFile ? archive.StagingPath :
+					generated != null && generated.HasResolvedStagingOverwrite && !generated.StageFile ? generated.StagingPath : null;
+				if (!String.IsNullOrWhiteSpace(path))
+					OriginallyInstalledFiles.Remove(path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
+			}
 		}
 
 		/// <summary>

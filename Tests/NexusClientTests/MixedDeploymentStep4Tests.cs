@@ -23,6 +23,70 @@
 	[TestFixture]
 	public class MixedDeploymentStep4Tests
 	{
+		/// <summary>Restores a Direct file and its owner if native removal rolls back.</summary>
+		[Test]
+		public void DirectUninstall_RollbackRestoresPhysicalFileAndOwner()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod mod = environment.RegisterMod("ExistingDirect", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target("Existing.esp");
+				environment.InstallDirect(mod, target, "direct-mod");
+				using (var scope = new TransactionScope())
+				{
+					environment.Manager.UninstallMixedMod(mod, new TxFileManager());
+					Assert.IsFalse(File.Exists(environment.Manager.GetDeploymentPath(target)));
+				}
+
+				Assert.AreEqual("direct-mod", environment.ReadTarget(target));
+				CollectionAssert.AreEqual(new[] { environment.Key(mod) }, environment.Manager.GetOwnerKeys(target));
+				Assert.IsTrue(environment.InstallLog.ActiveMods.Contains(mod));
+			}
+		}
+
+		/// <summary>Covers native Direct folder correction, old-file restoration, uninstall and transaction rollback.</summary>
+		[TestCase(false, false)]
+		[TestCase(false, true)]
+		[TestCase(true, false)]
+		[TestCase(true, true)]
+		public void DirectFolderCorrection_FinalizationRestoresOldTargetAndRollbackPreservesOriginalContext(bool original, bool commit)
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod mod = environment.RegisterMod("DirectPreloader", ModInstallMethod.Direct);
+				string key = environment.Key(mod);
+				ModDeploymentTarget oldTarget = environment.Target("WinHTTP.dll");
+				var newTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "WinHTTP.dll");
+				string oldPath = environment.Manager.GetDeploymentPath(oldTarget);
+				string newPath = environment.Manager.GetDeploymentPath(newTarget);
+				if (original) File.WriteAllText(oldPath, "data-original");
+				environment.InstallDirect(mod, oldTarget, "preloader");
+				using (var scope = new TransactionScope())
+				{
+					environment.InstallLog.ReplaceActiveMod(mod, mod, ModInstallRoot.GameRoot, ModInstallMethod.Direct);
+					var installer = new DirectModFileInstaller(mod, mod, environment.GameMode, environment.InstallLog, environment.Manager,
+						null, new TxFileManager(), null, null, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot), true);
+					Assert.IsTrue(installer.GenerateDataFileWithResolvedOverwrite("WinHTTP.dll", Encoding.UTF8.GetBytes("preloader")));
+					installer.FinalizeInstall();
+					if (commit) scope.Complete();
+				}
+				Assert.AreEqual(key, environment.Key(mod));
+				Assert.AreEqual(ModInstallMethod.Direct, environment.InstallLog.GetModInstallMethod(mod));
+				Assert.AreEqual(commit ? ModInstallRoot.GameRoot : ModInstallRoot.Data, environment.InstallLog.GetModInstallRoot(mod));
+				if (!commit) { Assert.AreEqual("preloader", File.ReadAllText(oldPath)); Assert.IsFalse(File.Exists(newPath)); }
+				else
+				{
+					Assert.AreEqual("preloader", File.ReadAllText(newPath));
+					Assert.IsFalse(environment.Manager.GetOwnerKeys(oldTarget).Contains(key));
+					if (original) Assert.AreEqual("data-original", File.ReadAllText(oldPath));
+					else Assert.IsFalse(File.Exists(oldPath));
+					environment.Uninstall(mod);
+					Assert.IsFalse(File.Exists(newPath));
+					if (original) Assert.AreEqual("data-original", File.ReadAllText(oldPath));
+				}
+			}
+		}
+
 		[Test]
 		public void VirtualToDirect_PromotesEffectiveVirtualOrderAndPreservesSources()
 		{
@@ -325,6 +389,22 @@
 					new[] { environment.Key(direct) },
 					environment.InstallLog.GetDeploymentOwnerKeys(promotedTarget));
 				Assert.IsFalse(environment.InstallLog.IsDeploymentTargetPromoted(pureTarget));
+			}
+		}
+
+		[Test]
+		public void UninstallLastInactiveVirtualRecord_WithPhysicalResidueFailsWithoutForgettingTheOwner()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod mod = environment.RegisterMod("InactiveResidue", ModInstallMethod.Virtual);
+				ModDeploymentTarget target = environment.Target("Residue.esp");
+				environment.AddVirtualOwner(mod, target, "mod", false, 0);
+				File.WriteAllText(environment.Manager.GetDeploymentPath(target), "residue");
+				Assert.Throws<IOException>(() => environment.Uninstall(mod));
+				Assert.IsNotNull(environment.InstallLog.GetModKey(mod));
+				CollectionAssert.AreEqual(new[] { environment.Key(mod) }, environment.VirtualState.Activator.GetVirtualOwnerKeys(target));
+				Assert.AreEqual("residue", environment.ReadTarget(target));
 			}
 		}
 

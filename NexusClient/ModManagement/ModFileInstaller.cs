@@ -531,7 +531,7 @@ namespace Nexus.Client.ModManagement
 					// if we didn't overwrite a file, then just delete the current file
 					fiInfo = new FileInfo(strInstallFilePath);
 					if ((fiInfo.IsReadOnly) || (IsFileLocked(strInstallFilePath)))
-						m_lstErrorMods.Add(strInstallFilePath);
+						throw new IOException(String.Format("Could not remove '{0}': the file is read-only or in use.", strInstallFilePath));
 					else
 						TransactionalFileManager.Delete(strInstallFilePath);
 
@@ -552,14 +552,10 @@ namespace Nexus.Client.ModManagement
 						string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
 
 						fiInfo = new FileInfo(strRestoreFromPath);
-						try
-						{
-							TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
-						}
-						catch { }
+						TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
 
-						if ((fiInfo.IsReadOnly) || (IsFileLocked(strInstallFilePath)))
-							m_lstErrorMods.Add(strInstallFilePath);
+						if ((fiInfo.IsReadOnly) || (IsFileLocked(strRestoreFromPath)))
+							throw new IOException(String.Format("Could not finish restoring backup '{0}': the file is read-only or in use.", strRestoreFromPath));
 						else
 							TransactionalFileManager.Delete(strRestoreFromPath);
 					}
@@ -577,7 +573,7 @@ namespace Nexus.Client.ModManagement
 			{
 				fiInfo = new FileInfo(strOverwritePath);
 				if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly) || IsFileLocked(strOverwritePath))
-					m_lstErrorMods.Add(strInstallFilePath);
+					throw new IOException(String.Format("Could not remove backup '{0}': the file is protected or in use.", strOverwritePath));
 				else
 					TransactionalFileManager.Delete(strOverwritePath);
 			}
@@ -716,7 +712,7 @@ namespace Nexus.Client.ModManagement
 					// if we didn't overwrite a file, then just delete the current file
 					fiInfo = new FileInfo(strInstallFilePath);
 					if (fiInfo.IsReadOnly)
-						m_lstErrorMods.Add(strInstallFilePath);
+						throw new IOException(String.Format("Could not remove '{0}': the file is read-only.", strInstallFilePath));
 					else
 						TransactionalFileManager.Delete(strInstallFilePath);
 
@@ -741,14 +737,10 @@ namespace Nexus.Client.ModManagement
 						string strNewDataPath = Path.Combine(Path.GetDirectoryName(strInstallFilePath), strBackupFileName);
 
 						fiInfo = new FileInfo(strRestoreFromPath);
-						try
-						{
-							TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
-						}
-						catch { }
+						TransactionalFileManager.Copy(strRestoreFromPath, strNewDataPath, true);
 
 						if (fiInfo.IsReadOnly)
-							m_lstErrorMods.Add(strInstallFilePath);
+							throw new IOException(String.Format("Could not finish restoring backup '{0}': the file is read-only.", strRestoreFromPath));
 						else
 							TransactionalFileManager.Delete(strRestoreFromPath);
 					}
@@ -764,7 +756,7 @@ namespace Nexus.Client.ModManagement
 			{
 				fiInfo = new FileInfo(strOverwritePath);
 				if (((fiInfo.Attributes | FileAttributes.Hidden) == fiInfo.Attributes) || (fiInfo.IsReadOnly))
-					m_lstErrorMods.Add(strInstallFilePath);
+					throw new IOException(String.Format("Could not remove backup '{0}': the file is protected.", strOverwritePath));
 				else
 					TransactionalFileManager.Delete(strOverwritePath);
 			}

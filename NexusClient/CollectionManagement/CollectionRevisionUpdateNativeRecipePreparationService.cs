@@ -43,14 +43,19 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Re-prepares one candidate against the latest verified C10 execution safe boundary.</summary>
 		internal PreparedCollectionNativeRecipe PrepareAtExecutionBoundary(CollectionRevisionUpdatePlan updatePlan,
 			CollectionRevisionUpdateMemberPlan updateMember, CollectionVerifiedArchive verifiedArchive,
-			CollectionNativeStateIndex currentState, CancellationToken cancellationToken)
+			CollectionNativeStateIndex currentState, CancellationToken cancellationToken,
+			ModInstallContext reviewedInstallContext = null, string gameRootArchiveBaseDirectory = null,
+			CollectionInstallRootCorrection reviewedCorrection = null)
 		{
-			return PrepareCore(updatePlan, updateMember, verifiedArchive, currentState, cancellationToken, false);
+			return PrepareCore(updatePlan, updateMember, verifiedArchive, currentState, cancellationToken, false,
+				reviewedInstallContext, gameRootArchiveBaseDirectory, reviewedCorrection);
 		}
 
 		private PreparedCollectionNativeRecipe PrepareCore(CollectionRevisionUpdatePlan updatePlan,
 			CollectionRevisionUpdateMemberPlan updateMember, CollectionVerifiedArchive verifiedArchive,
-			CollectionNativeStateIndex currentState, CancellationToken cancellationToken, bool requireApprovedStateFingerprint)
+			CollectionNativeStateIndex currentState, CancellationToken cancellationToken, bool requireApprovedStateFingerprint,
+			ModInstallContext reviewedInstallContext = null, string gameRootArchiveBaseDirectory = null,
+			CollectionInstallRootCorrection reviewedCorrection = null)
 		{
 			if (updatePlan == null) throw new ArgumentNullException(nameof(updatePlan));
 			if (updateMember == null) throw new ArgumentNullException(nameof(updateMember));
@@ -68,16 +73,31 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("The verified archive does not belong to the exact candidate member plan.", nameof(verifiedArchive));
 
 			IMod managedMod = ResolveManagedMod(updateMember, verifiedArchive, cancellationToken);
-			ModInstallContext installContext = ResolveInstallContext(updateMember, currentState);
+			ModInstallContext fallback = reviewedInstallContext ?? ResolveInstallContext(updateMember, currentState);
+			// Execution and legacy restart snapshots reproduce the reviewed/recorded destination, never new JSON rules.
+			CollectionInstallDestination destination = requireApprovedStateFingerprint
+				? CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode, updateMember.NewMember, managedMod, fallback, cancellationToken)
+				: new CollectionInstallDestination(fallback, gameRootArchiveBaseDirectory);
+			ModInstallContext installContext = destination.InstallContext;
 			bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
 			if (!requireApprovedStateFingerprint)
-				return _nativeRecipePreparer.PrepareRevisionUpdateExact(updatePlan.NewPlan, updateMember.NewMember,
+				return CollectionInstallRootCorrection.Attach(_nativeRecipePreparer.PrepareRevisionUpdateExact(updatePlan.NewPlan, updateMember.NewMember,
 					verifiedArchive, managedMod, _services.ModManager.GameMode, _services.ModManager.EnvironmentInfo,
 					installContext, currentState, skipReadme, _services.PluginManager, _services.ModManager.ActiveMods.ToList(),
-					cancellationToken);
-			return _nativeRecipePreparer.PrepareExact(updatePlan.NewPlan, updateMember.NewMember, verifiedArchive, managedMod,
+					cancellationToken, destination.GameRootArchiveBaseDirectory), reviewedCorrection);
+			PreparedCollectionNativeRecipe recipe = _nativeRecipePreparer.PrepareExact(updatePlan.NewPlan, updateMember.NewMember, verifiedArchive, managedMod,
 				_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, installContext, currentState, skipReadme,
-				_services.PluginManager, _services.ModManager.ActiveMods.ToList(), cancellationToken);
+				_services.PluginManager, _services.ModManager.ActiveMods.ToList(), true, cancellationToken, destination.GameRootArchiveBaseDirectory);
+			CollectionNativeModState previous;
+			if (updateMember.Binding != null) currentState.Mods.TryGetValue(updateMember.Binding.NativeMod, out previous);
+			else
+			{
+				previous = null;
+				string key = _services.ModManager.InstallationLog.GetModKey(managedMod);
+				if (!String.IsNullOrWhiteSpace(key)) currentState.ModsByNativeKey.TryGetValue(key, out previous);
+			}
+			return CollectionInstallRootCorrection.Prepare(recipe, currentState, previous, _services.ModManager.DeploymentManager,
+				_services.ModManager.VirtualModActivator, cancellationToken);
 		}
 
 		private ModInstallContext ResolveInstallContext(CollectionRevisionUpdateMemberPlan updateMember,

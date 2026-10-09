@@ -102,6 +102,7 @@
     <Compile Include="Games\IGameLauncher.cs" />
     <Compile Include="Games\IGameMode.cs" />
     <Compile Include="Games\IDeterministicModFileMergePlanProvider.cs" />
+    <Compile Include="Games\IGameRootPackageRuleProvider.cs" />
     <Compile Include="Games\IGameModeEnvironmentInfo.cs" />
     <Compile Include="Games\InstallationPathAutoDetector.cs" />
     <Compile Include="Games\ISupportedToolsLauncher.cs" />
@@ -148,6 +149,7 @@
     <Compile Include="ModManagement\BackupManager\IBackupInfo.cs" />
     <Compile Include="ModManagement\BasicInstallTask.cs" />
     <Compile Include="ModManagement\BasicInstallPlan.cs" />
+    <Compile Include="ModManagement\GameRootPackageMatcher.cs" />
     <Compile Include="ModManagement\VirtualModDeploymentBatch.cs" />
     <Compile Include="ModManagement\CategoryManager\ICategoryManager.cs" />
     <Compile Include="ModManagement\ConfirmUpgradeResult.cs" />
