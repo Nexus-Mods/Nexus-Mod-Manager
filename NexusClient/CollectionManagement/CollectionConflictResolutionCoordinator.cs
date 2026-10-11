@@ -43,34 +43,65 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionConflictResolutionDecision SaveFileWinnerDecision(ResolvedCollectionPlan plan,
 			CollectionConflictImpactPlan impactPlan, ModDeploymentTarget target, CollectionConflictResolutionDecisionKind kind, string note)
 		{
+			return SaveFileWinnerDecisions(plan, impactPlan,
+				new[] { new CollectionFileWinnerDecisionRequest(target, kind) }, note).Single();
+		}
+
+		/// <summary>
+		/// Validates every exact conflict against one immutable impact observation before saving any
+		/// choices. The store writes the new per-file rows in a single atomic transaction.
+		/// </summary>
+		public IReadOnlyList<CollectionConflictResolutionDecision> SaveFileWinnerDecisions(ResolvedCollectionPlan plan,
+			CollectionConflictImpactPlan impactPlan, IEnumerable<CollectionFileWinnerDecisionRequest> requests, string note)
+		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (impactPlan == null) throw new ArgumentNullException(nameof(impactPlan));
-			if (target == null) throw new ArgumentNullException(nameof(target));
-			if (kind != CollectionConflictResolutionDecisionKind.IncomingCollectionWinsFile &&
-				kind != CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner)
-				throw new ArgumentOutOfRangeException(nameof(kind));
+			if (requests == null) throw new ArgumentNullException(nameof(requests));
 			if (plan.Policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
 				throw new InvalidOperationException("C9 file-conflict decisions are scoped to Install into current setup.");
-			if (!impactPlan.PlanIdentity.Equals(plan.Identity) || !impactPlan.Target.Equals(plan.Target) || !impactPlan.StateFingerprint.Equals(plan.CurrentStateFingerprint))
-				throw new InvalidOperationException("The conflict decision must be recorded against the exact reviewed plan and native-state observation.");
+			if (!impactPlan.PlanIdentity.Equals(plan.Identity) || !impactPlan.Target.Equals(plan.Target) ||
+				!impactPlan.StateFingerprint.Equals(plan.CurrentStateFingerprint))
+				throw new InvalidOperationException("The conflict decisions must match the exact reviewed plan and native-state observation.");
 
-			CollectionFileImpact impact = impactPlan.FileImpacts.SingleOrDefault(x => x.Target.Equals(target));
-			if (impact == null || impact.PlannedWinner == null || String.IsNullOrWhiteSpace(impact.CurrentOwnerKey))
-				throw new InvalidOperationException("The selected file does not expose an existing-owner conflict that can be resolved by C9.");
-			bool requiresDecision = impactPlan.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired &&
-				Equals(x.MemberKey, impact.PlannedWinner) && StringComparer.Ordinal.Equals(x.SubjectKey, target.ToString()));
-			if (!requiresDecision)
-				throw new InvalidOperationException("The selected file no longer requires an explicit existing-owner winner decision.");
-			CollectionConflictResolutionDecision existing = _store.GetForRevisionTarget(plan.Revision, plan.Target).FirstOrDefault(x =>
-				x.Kind == kind && x.MemberKey.Equals(impact.PlannedWinner) && x.DeploymentRoot == target.Root &&
-				StringComparer.OrdinalIgnoreCase.Equals(x.RelativePath, target.RelativePath) &&
-				StringComparer.Ordinal.Equals(x.ExistingOwnerKey, impact.CurrentOwnerKey));
-			if (existing != null) return existing;
+			var batch = requests.ToList();
+			if (batch.Count == 0) return new CollectionConflictResolutionDecision[0];
+			var impacts = impactPlan.FileImpacts.ToDictionary(x => x.Target);
+			var decisionIssues = impactPlan.Issues
+				.Where(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired)
+				.ToLookup(x => x.SubjectKey, StringComparer.Ordinal);
+			var existingByPath = _store.GetForRevisionTarget(plan.Revision, plan.Target)
+				.ToLookup(x => x.DeploymentRoot.ToString() + ":" + x.RelativePath, StringComparer.OrdinalIgnoreCase);
+			var seen = new HashSet<ModDeploymentTarget>();
+			var result = new List<CollectionConflictResolutionDecision>(batch.Count);
+			var newDecisions = new List<CollectionConflictResolutionDecision>();
 
-			var decision = new CollectionConflictResolutionDecision(Guid.NewGuid(), plan.Revision, plan.Target, impact.PlannedWinner,
-				target.Root, target.RelativePath, impact.CurrentOwnerKey, kind, note);
-			_store.Save(decision);
-			return decision;
+			foreach (CollectionFileWinnerDecisionRequest request in batch)
+			{
+				if (request == null) throw new ArgumentException("A bulk decision cannot contain a null request.", nameof(requests));
+				if (!seen.Add(request.Target))
+					throw new InvalidOperationException("The same file has more than one decision in this review.");
+				CollectionFileImpact impact;
+				if (!impacts.TryGetValue(request.Target, out impact) || impact.PlannedWinner == null ||
+					String.IsNullOrWhiteSpace(impact.CurrentOwnerKey))
+					throw new InvalidOperationException("The selected file has no exact existing-owner conflict to resolve: " + request.Target);
+				if (!decisionIssues[request.Target.ToString()].Any(x => Equals(x.MemberKey, impact.PlannedWinner)))
+					throw new InvalidOperationException("The selected file no longer requires an explicit conflict decision: " + request.Target);
+				CollectionConflictResolutionDecision existing = existingByPath[request.Target.ToString()].FirstOrDefault(x =>
+					x.Kind == request.Kind && x.MemberKey.Equals(impact.PlannedWinner) &&
+					StringComparer.Ordinal.Equals(x.ExistingOwnerKey, impact.CurrentOwnerKey));
+				if (existing != null)
+				{
+					result.Add(existing);
+					continue;
+				}
+				var decision = new CollectionConflictResolutionDecision(Guid.NewGuid(), plan.Revision, plan.Target,
+					impact.PlannedWinner, request.Target.Root, request.Target.RelativePath, impact.CurrentOwnerKey, request.Kind, note);
+				newDecisions.Add(decision);
+				result.Add(decision);
+			}
+
+			_store.SaveMany(newDecisions);
+			return result;
 		}
 
 		public void ClearDecision(Guid decisionId)

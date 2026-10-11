@@ -12,7 +12,7 @@
         private readonly IModRepository _modRepository;
         private bool _useMultithreadedDownloads;
 		private bool _premiumEnabled;
-		private int _maxConcurrentDownloads = 10;
+		private int _maxConcurrentDownloads = 3;
 		
 		#region Custom Events
 
@@ -99,7 +99,6 @@
                 PremiumEnabled = false;
 			}
 
-			MaxConcurrentDownloads = _modRepository.MaxConcurrentDownloads;
 		}
 
 		/// <summary>
@@ -109,10 +108,7 @@
 		{
 			UseMultithreadedDownloads = EnvironmentInfo.Settings.UseMultithreadedDownloads;
 
-			if (MaxConcurrentDownloads == 0)
-            {
-                MaxConcurrentDownloads = EnvironmentInfo.Settings.MaxConcurrentDownloads;
-            }
+			MaxConcurrentDownloads = Math.Max(1, EnvironmentInfo.Settings.MaxConcurrentDownloads);
         }
 
 		/// <summary>

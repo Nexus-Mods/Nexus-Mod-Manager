@@ -9,7 +9,7 @@ using Nexus.Client.CollectionManagement;
 namespace Nexus.Client.CollectionManagement.Persistence
 {
 	/// <summary>
-	/// Publishes and reads verified immutable blobs owned by Collections storage.
+	/// Reads verified archive-library references and publishes Collections-owned source/recovery content.
 	/// </summary>
 	/// <remarks>
 	/// Publication deliberately performs file I/O before the short SQLite metadata transaction: source bytes are streamed
@@ -241,6 +241,251 @@ VALUES
 			}
 		}
 
+		/// <summary>Records verified archive-library bytes without copying them into Collections storage.</summary>
+		public CollectionsRetainedArtifact ReferenceArchiveFile(string sourcePath, CancellationToken cancellationToken = default(CancellationToken))
+		{
+			return ReferenceArchiveFile(sourcePath, cancellationToken, false);
+		}
+
+		/// <summary>Converts legacy archive copies to library references without changing their durable content identities.</summary>
+		public void MigrateArchiveCopies(IEnumerable<string> archivePaths, CancellationToken cancellationToken)
+		{
+			if (archivePaths == null) throw new ArgumentNullException(nameof(archivePaths));
+			List<CollectionsRetainedArtifact> recorded = _store.ExecuteRead((connection, transaction) =>
+			{
+				var result = new List<CollectionsRetainedArtifact>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT artifact_id, hash_algorithm, hash_value, byte_length, relative_path, sealed FROM retained_artifacts WHERE sealed=1;";
+					using (SQLiteDataReader reader = command.ExecuteReader())
+						while (reader.Read()) result.Add(ReadArtifact(reader));
+				}
+				return result;
+			});
+			var lengths = new HashSet<long>();
+			foreach (CollectionsRetainedArtifact artifact in recorded)
+				if (File.Exists(ResolveCanonicalPath(GetCanonicalRelativePath(artifact.ContentHash)))) lengths.Add(artifact.ByteLength);
+			if (lengths.Count == 0) return;
+			var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (string archivePath in archivePaths)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (String.IsNullOrWhiteSpace(archivePath) || !visited.Add(archivePath)) continue;
+				try
+				{
+					var info = new FileInfo(archivePath);
+					if (info.Exists && lengths.Contains(info.Length)) ReferenceArchiveFile(archivePath, cancellationToken, true);
+				}
+				catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+				{
+					System.Diagnostics.Trace.TraceWarning("Collection archive-copy migration deferred for {0}: {1}", archivePath, ex.Message);
+				}
+			}
+		}
+
+		/// <summary>Hashes a stable archive and persists its location; migration only adopts already-recorded content.</summary>
+		private CollectionsRetainedArtifact ReferenceArchiveFile(string sourcePath, CancellationToken cancellationToken, bool existingOnly)
+		{
+			if (String.IsNullOrWhiteSpace(sourcePath)) throw new ArgumentException("An archive path is required.", nameof(sourcePath));
+			string fullPath = Path.GetFullPath(sourcePath);
+			string retainedRoot = Path.GetFullPath(_store.RetainedContentDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			if (fullPath.StartsWith(retainedRoot, StringComparison.OrdinalIgnoreCase)) return PublishFile(fullPath, cancellationToken);
+			using (FileStream source = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read, CopyBufferSize, FileOptions.SequentialScan))
+			{
+				long initialWrite = File.GetLastWriteTimeUtc(fullPath).Ticks;
+				cancellationToken.ThrowIfCancellationRequested();
+				CopyResult hashed = null;
+				// Reuse only hashes observed by this process while the same source remains unchanged.
+				// The native installer still verifies the complete archive before applying it.
+				lock (_verificationCacheLock)
+				{
+					PublishedSourceStamp stamp;
+					PublishedMd5Stamp md5;
+					if (_publishedSources.TryGetValue(fullPath, out stamp) && stamp.ByteLength == source.Length &&
+						stamp.LastWriteUtcTicks == initialWrite &&
+						_publishedMd5.TryGetValue(CreateArtifactId(CollectionContentHash.FromSha256(stamp.HashValue)), out md5) &&
+						StringComparer.OrdinalIgnoreCase.Equals(md5.FullPath, fullPath) && md5.ByteLength == source.Length &&
+						md5.LastWriteUtcTicks == initialWrite)
+						hashed = new CopyResult(stamp.HashValue, md5.Md5, stamp.ByteLength);
+				}
+				if (hashed == null) hashed = HashArchive(source, cancellationToken);
+				if (source.Length != hashed.ByteLength || File.GetLastWriteTimeUtc(fullPath).Ticks != initialWrite)
+					throw new IOException("The mod archive changed while its content was being verified.");
+				CollectionContentHash hash = CollectionContentHash.FromSha256(hashed.HashValue);
+				var artifact = new CollectionsRetainedArtifact(CreateArtifactId(hash), hash, hashed.ByteLength);
+				if (existingOnly && GetArtifact(artifact.ArtifactId) == null) return null;
+				string relativePath = GetCanonicalRelativePath(hash);
+				_store.ExecuteWrite((connection, transaction) =>
+				{
+					CollectionsRetainedArtifact existing = ReadArtifactByContent(connection, transaction, hash, hashed.ByteLength);
+					if (existing != null) ValidatePersistedArtifact(connection, transaction, existing, relativePath);
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.Transaction = transaction;
+						command.CommandText = @"
+INSERT OR IGNORE INTO retained_artifacts (artifact_id, hash_algorithm, hash_value, byte_length, relative_path, sealed)
+VALUES (@id, 'sha256', @hash, @length, @relative, 1);
+INSERT OR REPLACE INTO retained_archive_locations (artifact_id, archive_path) VALUES (@id, @path);";
+						command.Parameters.AddWithValue("@id", artifact.ArtifactId);
+						command.Parameters.AddWithValue("@hash", hash.Value);
+						command.Parameters.AddWithValue("@length", hashed.ByteLength);
+						command.Parameters.AddWithValue("@relative", relativePath);
+						command.Parameters.AddWithValue("@path", fullPath);
+						command.ExecuteNonQuery();
+					}
+				});
+				RememberPublishedMd5(artifact, fullPath, hashed.Md5Value);
+				RememberPublishedSource(fullPath, artifact, hashed.ByteLength, initialWrite);
+				RememberVerifiedArtifact(artifact, new FileInfo(fullPath));
+				DeleteDuplicateArchiveBlob(artifact);
+				return artifact;
+			}
+		}
+
+		/// <summary>Hashes archive bytes without a staging file or a retained payload copy.</summary>
+		private static CopyResult HashArchive(Stream source, CancellationToken cancellationToken)
+		{
+			byte[] buffer = new byte[CopyBufferSize];
+			long length = 0;
+			long total = source.CanSeek ? source.Length : 0;
+			using (SHA256 sha256 = SHA256.Create())
+			using (MD5 md5 = MD5.Create())
+			{
+				int read;
+				while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					sha256.TransformBlock(buffer, 0, read, buffer, 0);
+					md5.TransformBlock(buffer, 0, read, buffer, 0);
+					length += read;
+					CollectionPreparationProgress.ReportBytes(length, total);
+				}
+				cancellationToken.ThrowIfCancellationRequested();
+				sha256.TransformFinalBlock(new byte[0], 0, 0);
+				md5.TransformFinalBlock(new byte[0], 0, 0);
+				return new CopyResult(BitConverter.ToString(sha256.Hash).Replace("-", "").ToLowerInvariant(),
+					BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant(), length);
+			}
+		}
+
+		/// <summary>Removes a redundant archive blob, preserving independently retained bundles, manifests and capture packages.</summary>
+		private void DeleteDuplicateArchiveBlob(CollectionsRetainedArtifact artifact)
+		{
+			bool sourceContent = _store.ExecuteRead((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT 1 FROM revision_sources WHERE raw_bundle_artifact_id=@id OR raw_manifest_artifact_id=@id
+UNION ALL SELECT 1 FROM local_working_copies WHERE base_bundle_artifact_id=@id OR base_manifest_artifact_id=@id OR draft_manifest_artifact_id=@id
+UNION ALL SELECT 1 FROM local_capture_packages WHERE package_artifact_id=@id LIMIT 1;";
+					command.Parameters.AddWithValue("@id", artifact.ArtifactId);
+					return command.ExecuteScalar() != null;
+				}
+			});
+			if (sourceContent) return;
+			string duplicate = ResolveCanonicalPath(GetCanonicalRelativePath(artifact.ContentHash));
+			try { if (File.Exists(duplicate)) File.Delete(duplicate); }
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection archive copy cleanup deferred for {0}: {1}", artifact.ArtifactId, ex.Message);
+			}
+		}
+
+		/// <summary>Reports whether an artifact depends on an ordinary archive-library file rather than retained bytes.</summary>
+		internal bool IsArchiveReference(string artifactId)
+		{
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT 1 FROM retained_archive_locations WHERE artifact_id=@id;";
+					command.Parameters.AddWithValue("@id", artifactId);
+					return command.ExecuteScalar() != null;
+				}
+			});
+		}
+
+		/// <summary>Moves retained source content into a named Collection/revision folder without copying its bytes.</summary>
+		internal void PlaceCollectionSource(string artifactId, string relativePath, CancellationToken cancellationToken = default(CancellationToken))
+		{
+			CollectionsRetainedArtifact artifact = GetArtifact(artifactId);
+			if (artifact == null) throw new FileNotFoundException("The Collection source artifact is missing.", artifactId);
+			ResolveCollectionSourcePath(relativePath);
+			string selectedPath = null;
+			_store.ExecuteWrite((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "INSERT OR IGNORE INTO retained_collection_locations (artifact_id, relative_path) VALUES (@id, @path);";
+					command.Parameters.AddWithValue("@id", artifactId);
+					command.Parameters.AddWithValue("@path", relativePath);
+					command.ExecuteNonQuery();
+					command.CommandText = "SELECT relative_path FROM retained_collection_locations WHERE artifact_id=@id;";
+					selectedPath = (string)command.ExecuteScalar();
+				}
+			});
+			string destination = ResolveCollectionSourcePath(selectedPath);
+			string original = ResolveCanonicalPath(GetCanonicalRelativePath(artifact.ContentHash));
+			cancellationToken.ThrowIfCancellationRequested();
+			if (File.Exists(destination))
+			{
+				RequireExactFile(destination, artifact.ContentHash, artifact.ByteLength, cancellationToken);
+				if (File.Exists(original)) File.Delete(original);
+				return;
+			}
+			if (!File.Exists(original)) throw new FileNotFoundException("The retained Collection source bytes are missing.", original);
+			RequireExactFile(original, artifact.ContentHash, artifact.ByteLength, cancellationToken);
+			try
+			{
+				Directory.CreateDirectory(Path.GetDirectoryName(destination));
+				// Readers fall back to the verified old blob until the atomic move finishes.
+				File.Move(original, destination);
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection source move deferred for {0}: {1}", artifactId, ex.Message);
+			}
+		}
+
+		/// <summary>Resolves only Collections-owned logical content paths, for reading and cleanup.</summary>
+		internal string ResolveOwnedContentPath(string artifactId, string canonicalRelativePath)
+		{
+			string relative = _store.ExecuteRead((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT relative_path FROM retained_collection_locations WHERE artifact_id=@id;";
+					command.Parameters.AddWithValue("@id", artifactId);
+					return command.ExecuteScalar() as string;
+				}
+			});
+			if (relative != null)
+			{
+				string named = ResolveCollectionSourcePath(relative);
+				if (File.Exists(named)) return named;
+			}
+			return ResolveCanonicalPath(canonicalRelativePath);
+		}
+
+		/// <summary>Validates a named source path stays inside the Collections library.</summary>
+		private string ResolveCollectionSourcePath(string relativePath)
+		{
+			if (String.IsNullOrWhiteSpace(relativePath) || !relativePath.StartsWith("Library/", StringComparison.Ordinal) ||
+				Path.IsPathRooted(relativePath) || relativePath.IndexOf(':') >= 0)
+				throw new InvalidDataException("The named Collection source path is invalid.");
+			string root = Path.GetFullPath(Path.Combine(_store.StoreDirectory, "Library")).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			string fullPath = Path.GetFullPath(Path.Combine(_store.StoreDirectory, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+			if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+				throw new InvalidDataException("The named Collection source path escaped its library.");
+			return fullPath;
+		}
+
 		/// <summary>
 		/// Loads one sealed retained-artifact descriptor by stable identity, or <c>null</c> when no metadata row exists.
 		/// </summary>
@@ -376,7 +621,7 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 			foreach (CollectionsRetainedArtifact artifact in artifacts.Values)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				if (VerifyArtifactBytes(artifact, ResolveCanonicalPath(GetCanonicalRelativePath(artifact.ContentHash)), cancellationToken))
+				if (VerifyArtifactBytes(artifact, GetValidatedPhysicalPath(artifact), cancellationToken))
 					verifiedArtifactIds.Add(artifact.ArtifactId);
 			}
 			return artifacts;
@@ -398,16 +643,23 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 				return true;
 			}
 
-			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
-			string actualHash = ComputeFileHash(path, cancellationToken);
-			CollectionPerformanceMetrics.RecordRetainedArtifactVerificationHash(performanceStarted, artifact.ByteLength);
+			cancellationToken.ThrowIfCancellationRequested();
+			string actualHash;
+			if (CollectionArchiveContentMatcher.TryGetObservedHash(info.FullName, info, out actualHash))
+				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationCacheHit();
+			else
+			{
+				long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+				actualHash = ComputeFileHash(path, cancellationToken);
+				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationHash(performanceStarted, artifact.ByteLength);
+			}
 			if (!StringComparer.Ordinal.Equals(actualHash, artifact.ContentHash.Value))
 			{
 				ForgetVerifiedArtifact(artifact.ArtifactId);
 				return false;
 			}
 
-			RememberVerifiedArtifact(artifact, path);
+			RememberVerifiedArtifact(artifact, info);
 			return true;
 		}
 
@@ -434,7 +686,7 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 			{
 				PublishedMd5Stamp stamp;
 				if (_publishedMd5.TryGetValue(artifactId, out stamp) && info.Exists &&
-					stamp.ByteLength == info.Length && stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
+					StringComparer.OrdinalIgnoreCase.Equals(stamp.FullPath, info.FullName) && stamp.ByteLength == info.Length && stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
 				{
 					md5 = stamp.Md5;
 					return true;
@@ -465,10 +717,11 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 			{
 				PublishedMd5Stamp published;
 				if (!_publishedMd5.TryGetValue(artifact.ArtifactId, out published) ||
-					published.ByteLength != info.Length || published.LastWriteUtcTicks != info.LastWriteTimeUtc.Ticks)
+					!StringComparer.OrdinalIgnoreCase.Equals(published.FullPath, info.FullName) || published.ByteLength != info.Length || published.LastWriteUtcTicks != info.LastWriteTimeUtc.Ticks)
 					return false;
 				_verifiedArtifacts[artifact.ArtifactId] = new ArtifactVerificationStamp(
-					artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks);
+					artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks, info.FullName);
+				CollectionArchiveContentMatcher.RememberObservedHash(info.FullName, info, artifact.ContentHash.Value);
 				return true;
 			}
 		}
@@ -626,6 +879,19 @@ WHERE a.artifact_id=@artifact_id;";
 			if (!StringComparer.Ordinal.Equals(persistedRelativePath, expectedRelativePath))
 				throw new InvalidDataException("The retained artifact path does not match its content-addressed identity.");
 
+			string ownedPath = ResolveOwnedContentPath(artifact.ArtifactId, expectedRelativePath);
+			if (!StringComparer.OrdinalIgnoreCase.Equals(ownedPath, ResolveCanonicalPath(expectedRelativePath))) return ownedPath;
+			string archivePath = _store.ExecuteRead((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = "SELECT archive_path FROM retained_archive_locations WHERE artifact_id=@id;";
+					command.Parameters.AddWithValue("@id", artifact.ArtifactId);
+					return command.ExecuteScalar() as string;
+				}
+			});
+			if (!String.IsNullOrWhiteSpace(archivePath) && File.Exists(archivePath)) return Path.GetFullPath(archivePath);
 			return ResolveCanonicalPath(expectedRelativePath);
 		}
 
@@ -699,11 +965,14 @@ WHERE a.artifact_id=@artifact_id;";
 				CopyBufferSize, FileOptions.SequentialScan))
 			{
 				byte[] buffer = new byte[CopyBufferSize];
+				long completed = 0;
 				int read;
 				while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					sha256.TransformBlock(buffer, 0, read, buffer, 0);
+					completed += read;
+					CollectionPreparationProgress.ReportBytes(completed, stream.Length);
 				}
 				sha256.TransformFinalBlock(new byte[0], 0, 0);
 				return ToHex(sha256.Hash);
@@ -716,23 +985,24 @@ WHERE a.artifact_id=@artifact_id;";
 			{
 				ArtifactVerificationStamp stamp;
 				return _verifiedArtifacts.TryGetValue(artifact.ArtifactId, out stamp) &&
-					stamp.ByteLength == info.Length &&
+					StringComparer.OrdinalIgnoreCase.Equals(stamp.FullPath, info.FullName) && stamp.ByteLength == info.Length &&
 					stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks &&
 					StringComparer.Ordinal.Equals(stamp.HashValue, artifact.ContentHash.Value);
 			}
 		}
 
-		private void RememberVerifiedArtifact(CollectionsRetainedArtifact artifact, string path)
+		/// <summary>Publishes the file stamp observed during verification to both artifact lookup and managed-mod matching.</summary>
+		private void RememberVerifiedArtifact(CollectionsRetainedArtifact artifact, FileInfo info)
 		{
-			var info = new FileInfo(path);
 			if (!info.Exists || info.Length != artifact.ByteLength)
 				return;
 
 			lock (_verificationCacheLock)
 			{
 				_verifiedArtifacts[artifact.ArtifactId] = new ArtifactVerificationStamp(
-					artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks);
+					artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks, info.FullName);
 			}
+			CollectionArchiveContentMatcher.RememberObservedHash(info.FullName, info, artifact.ContentHash.Value);
 		}
 
 		private void RememberPublishedSource(string fullPath, CollectionsRetainedArtifact artifact, long byteLength, long lastWriteUtcTicks)
@@ -749,7 +1019,7 @@ WHERE a.artifact_id=@artifact_id;";
 			if (!info.Exists || info.Length != artifact.ByteLength)
 				return;
 			lock (_verificationCacheLock)
-				_publishedMd5[artifact.ArtifactId] = new PublishedMd5Stamp(md5, info.Length, info.LastWriteTimeUtc.Ticks);
+				_publishedMd5[artifact.ArtifactId] = new PublishedMd5Stamp(md5, info.Length, info.LastWriteTimeUtc.Ticks, info.FullName);
 		}
 
 		private void ForgetVerifiedArtifact(string artifactId)
@@ -843,16 +1113,18 @@ WHERE a.artifact_id=@artifact_id;";
 
 		private sealed class PublishedMd5Stamp
 		{
-			public PublishedMd5Stamp(string md5, long byteLength, long lastWriteUtcTicks)
+			public PublishedMd5Stamp(string md5, long byteLength, long lastWriteUtcTicks, string fullPath)
 			{
 				Md5 = md5;
 				ByteLength = byteLength;
 				LastWriteUtcTicks = lastWriteUtcTicks;
+				FullPath = fullPath;
 			}
 
 			public string Md5 { get; }
 			public long ByteLength { get; }
 			public long LastWriteUtcTicks { get; }
+			public string FullPath { get; }
 		}
 
 		private sealed class PublishedSourceStamp
@@ -871,16 +1143,18 @@ WHERE a.artifact_id=@artifact_id;";
 
 		private sealed class ArtifactVerificationStamp
 		{
-			public ArtifactVerificationStamp(string hashValue, long byteLength, long lastWriteUtcTicks)
+			public ArtifactVerificationStamp(string hashValue, long byteLength, long lastWriteUtcTicks, string fullPath)
 			{
 				HashValue = hashValue;
 				ByteLength = byteLength;
 				LastWriteUtcTicks = lastWriteUtcTicks;
+				FullPath = fullPath;
 			}
 
 			public string HashValue { get; }
 			public long ByteLength { get; }
 			public long LastWriteUtcTicks { get; }
+			public string FullPath { get; }
 		}
 	}
 }

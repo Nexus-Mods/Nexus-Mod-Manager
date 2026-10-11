@@ -21,6 +21,94 @@ namespace NexusClientTests
 		private const string ManifestHash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 		[Test]
+		public void InspectAlternateExternalArchive_FixesExactBytesInNewChoiceAndReleasesOnlyTransientHold()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] curator = Encoding.UTF8.GetBytes("curator original archive bytes");
+				byte[] replacement = Encoding.UTF8.GetBytes("deliberately different user selected archive bytes");
+				string local = Path.Combine(root, "alternative.7z");
+				File.WriteAllBytes(local, replacement);
+				TestContext context = CreateContext(root, new CollectionManagedArchiveCandidate[0]);
+				CollectionAcquisitionRequest request = CreateRequest("vortex-external-file",
+					Md5(curator) + "/" + curator.Length, null);
+				CollectionManualAcquisitionPendingAction pending = context.Coordinator.CreatePendingAction(request);
+
+				CollectionAlternateArchiveCandidate candidate = context.Coordinator.InspectAlternateLocalFile(pending,
+					local, CancellationToken.None);
+				Assert.That(candidate.Request.RequestId, Is.EqualTo(request.RequestId));
+				Assert.That(candidate.Md5, Is.EqualTo(Md5(replacement)));
+				Assert.That(candidate.Sha256, Is.EqualTo(Sha256(replacement)));
+				Assert.That(candidate.ByteLength, Is.EqualTo(replacement.LongLength));
+				Assert.That(candidate.SelectedArtifact.StableId, Is.EqualTo(Md5(replacement) + "/" + replacement.Length));
+				Assert.That(candidate.SelectedArtifact.ExpectedContentHash.Value, Is.EqualTo(Sha256(replacement)));
+				Assert.That(context.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Download,
+					request.RequestId.ToString("D")).Count, Is.EqualTo(1));
+
+				context.Coordinator.ReleaseAlternateLocalFile(candidate);
+				Assert.That(context.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Download,
+					request.RequestId.ToString("D")).Count, Is.EqualTo(0));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void InspectAlternateExternalArchive_RejectsOriginalBytesAndNonExternalSource()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] original = Encoding.UTF8.GetBytes("exact curator bytes");
+				string local = Path.Combine(root, "original.zip");
+				File.WriteAllBytes(local, original);
+				TestContext context = CreateContext(root, new CollectionManagedArchiveCandidate[0]);
+				CollectionAcquisitionRequest externalRequest = CreateRequest("vortex-external-file",
+					Md5(original) + "/" + original.Length, null);
+				CollectionManualAcquisitionPendingAction external = context.Coordinator.CreatePendingAction(externalRequest);
+				Assert.Throws<InvalidOperationException>(() => context.Coordinator.InspectAlternateLocalFile(
+					external, local, CancellationToken.None));
+				Assert.That(context.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Download,
+					externalRequest.RequestId.ToString("D")).Count, Is.EqualTo(0));
+
+				CollectionManualAcquisitionPendingAction nexus = context.Coordinator.CreatePendingAction(
+					CreateRequest("nexus-mod-file", NexusArtifactId, null));
+				Assert.Throws<NotSupportedException>(() => context.Coordinator.InspectAlternateLocalFile(
+					nexus, local, CancellationToken.None));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void UserApprovedExternalSubstitution_RequiresOriginalMd5AndSealedSha256()
+		{
+			var original = new CollectionArtifactReference("vortex-external-file",
+				"0123456789abcdef0123456789abcdef/6052", null);
+			var different = new CollectionArtifactReference("vortex-external-file",
+				"abcdef0123456789abcdef0123456789/7000", CollectionContentHash.FromSha256(ManifestHash));
+			CollectionResolvedArtifactChoice accepted = CollectionResolvedArtifactChoice.SupportedSubstitution(
+				original, different, CollectionResolvedArtifactChoice.UserSelectedExternalAlternativeRuleId);
+			Assert.That(CollectionResolvedArtifactChoice.IsValidUserSelectedExternalAlternative(accepted), Is.True);
+			CollectionResolvedArtifactChoice missingHash = CollectionResolvedArtifactChoice.SupportedSubstitution(
+				original, new CollectionArtifactReference("vortex-external-file", different.StableId, null),
+				CollectionResolvedArtifactChoice.UserSelectedExternalAlternativeRuleId);
+			Assert.That(CollectionResolvedArtifactChoice.IsValidUserSelectedExternalAlternative(missingHash), Is.False);
+			CollectionResolvedArtifactChoice wrongRule = CollectionResolvedArtifactChoice.SupportedSubstitution(
+				original, different, "unknown-external-substitution-v1");
+			Assert.That(CollectionResolvedArtifactChoice.IsValidUserSelectedExternalAlternative(wrongRule), Is.False);
+			CollectionResolvedArtifactChoice sameBytes = CollectionResolvedArtifactChoice.SupportedSubstitution(
+				original, new CollectionArtifactReference("vortex-external-file", original.StableId,
+					CollectionContentHash.FromSha256(ManifestHash)), CollectionResolvedArtifactChoice.UserSelectedExternalAlternativeRuleId);
+			Assert.That(CollectionResolvedArtifactChoice.IsValidUserSelectedExternalAlternative(sameBytes), Is.False);
+		}
+
+		[Test]
 		public void CreatePendingAction_NexusArtifact_OffersBrowserNxmAndLocalFileWithoutTemporaryAuthorization()
 		{
 			string root = CreateTemporaryDirectory();

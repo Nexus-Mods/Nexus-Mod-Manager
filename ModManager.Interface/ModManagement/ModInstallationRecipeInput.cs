@@ -33,7 +33,7 @@ namespace Nexus.Client.ModManagement
 		/// Initializes one immutable recipe input, optionally with a translated native-operation snapshot.
 		/// </summary>
 		private ModInstallationRecipeInput(ModOperationIdentity operationIdentity, ModInstallationRecipeValidation validation,
-			IEnumerable<ScriptedInstallOperation> nativeOperations, bool operationIdentityRebound)
+			IEnumerable<ScriptedInstallOperation> nativeOperations, bool operationIdentityRebound, bool deferPluginReconciliation = false)
 		{
 			if (operationIdentity == null)
 				throw new ArgumentNullException(nameof(operationIdentity));
@@ -63,6 +63,7 @@ namespace Nexus.Client.ModManagement
 			RecipeFingerprint = recipeFingerprint;
 			Validation = validation;
 			m_booOperationIdentityRebound = operationIdentityRebound;
+			DeferPluginReconciliation = deferPluginReconciliation;
 
 			if (nativeOperations != null)
 			{
@@ -104,6 +105,9 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		public ModInstallationRecipeValidation Validation { get; }
 
+		/// <summary>Gets whether the owning Collection applies and verifies plugin state after all member files have been installed.</summary>
+		public bool DeferPluginReconciliation { get; }
+
 		/// <summary>
 		/// Gets whether C5 translation has attached a native typed operation plan to this immutable input.
 		/// </summary>
@@ -132,7 +136,22 @@ namespace Nexus.Client.ModManagement
 			if (nativeOperations == null)
 				throw new ArgumentNullException(nameof(nativeOperations));
 
-			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound);
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound, DeferPluginReconciliation);
+		}
+
+		/// <summary>Defers this Collection member's plugin activation and relative order to its owning workflow's final plugin barrier.</summary>
+		/// <remarks>Plans that also request absolute plugin order retain their existing per-member execution policy.</remarks>
+		public ModInstallationRecipeInput WithDeferredPluginReconciliation()
+		{
+			if (OperationIdentity.Origin != ModOperationOrigin.Collection)
+				throw new InvalidOperationException("Only a Collection workflow with a final plugin barrier can defer member plugin reconciliation.");
+			if (!HasNativePlan)
+				throw new InvalidOperationException("Plugin reconciliation can be deferred only for a translated native plan.");
+			foreach (ScriptedInstallOperation operation in m_rocNativeOperations)
+				if (operation is Scripting.Operations.SetPluginOrderIndexOperation || operation is Scripting.Operations.SetLoadOrderOperation ||
+					operation is Scripting.Operations.MovePluginsInLoadOrderOperation)
+					return this;
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, m_rocNativeOperations, m_booOperationIdentityRebound, true);
 		}
 
 		/// <summary>Returns a new immutable recipe input with a deterministic preparation-time transformation of an existing native plan.</summary>
@@ -142,7 +161,7 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("A native recipe plan must exist before it can be transformed.");
 			if (nativeOperations == null)
 				throw new ArgumentNullException(nameof(nativeOperations));
-			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound);
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound, DeferPluginReconciliation);
 		}
 
 		/// <summary>
@@ -178,7 +197,7 @@ namespace Nexus.Client.ModManagement
 				throw new ArgumentException("The rebound operation identity must preserve the exact target, install context and recipe fingerprint of the translated recipe.", nameof(operationIdentity));
 			}
 
-			return new ModInstallationRecipeInput(operationIdentity, Validation, m_rocNativeOperations, true);
+			return new ModInstallationRecipeInput(operationIdentity, Validation, m_rocNativeOperations, true, DeferPluginReconciliation);
 		}
 	}
 }

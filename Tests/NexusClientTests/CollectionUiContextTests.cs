@@ -152,6 +152,41 @@ namespace Nexus.Client.Tests
 			Assert.That(association.Revision, Is.SameAs(oldRevision));
 		}
 
+		/// <summary>Unrelated stale reviews must not appear as download errors, while actual game recovery remains visible.</summary>
+		[TestCase("matching", true)]
+		[TestCase("other-collection", false)]
+		[TestCase("other-revision", false)]
+		[TestCase("other-operation", false)]
+		[TestCase("terminal", false)]
+		[TestCase("game-recovery", true)]
+		[TestCase("other-operation-recovery", true)]
+		[TestCase("overview", true)]
+		[TestCase("loading", false)]
+		[TestCase("unbound", true)]
+		[TestCase("null-operation", false)]
+		public void RecoveryPresentation_OnlyIncludesRelevantUnfinishedOperations(string scope, bool expected)
+		{
+			CollectionRevisionIdentity displayed = CreateNexusRevision("module-14", "weapons-8", 8);
+			CollectionRevisionIdentity recovered = scope == "other-collection" || scope == "game-recovery" || scope == "overview"
+				? CreateNexusRevision("module-13", "building-8", 8)
+				: scope == "other-revision" ? CreateNexusRevision("module-14", "weapons-7", 7) : displayed;
+			CollectionOperationIdentity activeOperation = CollectionOperationIdentity.CreateNew();
+			CollectionOperationIdentity recoveredOperation = scope == "other-operation" || scope == "other-operation-recovery" || scope == "unbound"
+				? CollectionOperationIdentity.CreateNew() : activeOperation;
+			bool needsRecovery = scope == "game-recovery" || scope == "other-operation-recovery";
+			var operation = new CollectionOperation(recoveredOperation, CollectionOperationKind.ApplyResolvedPlan, recovered.Collection,
+				CollectionTargetIdentity.FromFingerprint("target-ui-downloads"), recovered, null, 6,
+				scope == "terminal" ? CollectionOperationPhase.Completed : needsRecovery ? CollectionOperationPhase.RecoveryRequired : CollectionOperationPhase.Preparing,
+				scope == "terminal" ? CollectionOperationResultState.Committed : needsRecovery ? CollectionOperationResultState.RecoveryRequired : CollectionOperationResultState.Pending,
+				new CollectionNativeChildOperation[0]);
+			CollectionUiContext context = scope == "overview" ? CollectionUiContext.CurrentSetup(8)
+				: CollectionUiContext.Incoming(8, scope == "loading" ? null : displayed, scope == "unbound" ? null : activeOperation);
+
+			Assert.That(context.IncludesRecoveryOperation(scope == "null-operation" ? null : operation), Is.EqualTo(expected));
+			Assert.That(operation.Phase, Is.EqualTo(scope == "terminal" ? CollectionOperationPhase.Completed :
+				needsRecovery ? CollectionOperationPhase.RecoveryRequired : CollectionOperationPhase.Preparing), "Presentation must not alter the operation journal.");
+		}
+
 		private static CollectionRevisionIdentity CreateNexusRevision(string collectionId, string revisionId, long revisionNumber)
 		{
 			return CollectionRevisionIdentity.FromNexus(CollectionIdentity.FromNexus(collectionId), revisionId, revisionNumber);

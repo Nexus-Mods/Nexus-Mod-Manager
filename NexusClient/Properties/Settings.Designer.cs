@@ -85,6 +85,30 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CollectionAutomaticInstall {
+            get {
+                return ((bool)(this["CollectionAutomaticInstall"]));
+            }
+            set {
+                this["CollectionAutomaticInstall"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool CollectionOverwriteExistingFiles {
+            get {
+                return ((bool)(this["CollectionOverwriteExistingFiles"]));
+            }
+            set {
+                this["CollectionOverwriteExistingFiles"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("Ultra")]
         public global::SevenZip.CompressionLevel ModCompressionLevel {
             get {
@@ -286,7 +310,7 @@ namespace Nexus.Client.Properties {
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("5")]
+        [global::System.Configuration.DefaultSettingValueAttribute("3")]
         public int MaxConcurrentDownloads {
             get {
                 return ((int)(this["MaxConcurrentDownloads"]));
@@ -296,6 +320,18 @@ namespace Nexus.Client.Properties {
             }
         }
         
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool DownloadConcurrencyThreeDefaultApplied {
+            get {
+                return ((bool)(this["DownloadConcurrencyThreeDefaultApplied"]));
+            }
+            set {
+                this["DownloadConcurrencyThreeDefaultApplied"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]

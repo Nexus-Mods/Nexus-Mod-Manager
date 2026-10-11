@@ -41,7 +41,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionReviewedFileImpactSnapshot> fileImpacts, IEnumerable<CollectionReviewedPluginImpactSnapshot> pluginImpacts,
 			IEnumerable<CollectionReviewedConfigurationImpactSnapshot> configurationImpacts,
 			IEnumerable<CollectionReviewedAssociationImpactSnapshot> associationImpacts,
-			IEnumerable<CollectionReviewedPreparedRecipeSnapshot> preparedRecipes)
+			IEnumerable<CollectionReviewedPreparedRecipeSnapshot> preparedRecipes,
+			bool automaticallyInstall = false, bool preferIncomingCollection = false)
 		{
 			Identity = identity ?? throw new ArgumentNullException(nameof(identity));
 			Revision = revision ?? throw new ArgumentNullException(nameof(revision));
@@ -55,8 +56,12 @@ namespace Nexus.Client.CollectionManagement
 			if (policyKind == CollectionExecutionPolicyKind.InstallIntoCurrentSetup &&
 				replacementBackupChoice != CollectionReplacementBackupChoice.NotApplicable)
 				throw new ArgumentException("Additive reviewed workflow cannot carry a replacement backup choice.", nameof(replacementBackupChoice));
+			if (policyKind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup && (automaticallyInstall || preferIncomingCollection))
+				throw new ArgumentException("Install preferences belong only to an additive reviewed workflow.", nameof(policyKind));
 			PolicyKind = policyKind;
 			ReplacementBackupChoice = replacementBackupChoice;
+			AutomaticallyInstall = automaticallyInstall;
+			PreferIncomingCollection = preferIncomingCollection;
 			_members = Copy(members, nameof(members));
 			_dependencies = Copy(dependencies, nameof(dependencies));
 			_priorityRules = Copy(priorityRules, nameof(priorityRules));
@@ -75,6 +80,10 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionTargetIdentity Target { get; }
 		public CollectionExecutionPolicyKind PolicyKind { get; }
 		public CollectionReplacementBackupChoice ReplacementBackupChoice { get; }
+		/// <summary>Gets the started installation mode; older journals retain explicit review.</summary>
+		public bool AutomaticallyInstall { get; }
+		/// <summary>Gets the recorded authorization to overwrite existing effects.</summary>
+		public bool PreferIncomingCollection { get; }
 		public CollectionCurrentStateFingerprint ApprovedStateFingerprint { get; }
 		public CollectionManifestSourceSnapshot ManifestSource { get; }
 		public ReadOnlyCollection<CollectionReviewedMemberSnapshot> Members { get { return _members; } }
@@ -161,7 +170,8 @@ namespace Nexus.Client.CollectionManagement
 
 			return new CollectionReviewedWorkflowSnapshot(plan.Identity, plan.Revision, plan.Target, plan.Policy.Kind,
 				plan.Policy.ReplacementBackupChoice, plan.CurrentStateFingerprint, plan.ManifestSource, members, dependencies,
-				priorities, phases, barriers, fileImpacts, pluginImpacts, configurationImpacts, associationImpacts, recipes);
+				priorities, phases, barriers, fileImpacts, pluginImpacts, configurationImpacts, associationImpacts, recipes,
+				plan.Policy.AutomaticallyInstall, plan.Policy.PreferIncomingCollection);
 		}
 
 		private void ValidateClosure()
@@ -637,7 +647,7 @@ namespace Nexus.Client.CollectionManagement
 	{
 		public const string PayloadFormat = "nmm-ce.collections.reviewed-workflow/2";
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
-		private const int BinaryVersion = 8;
+		private const int BinaryVersion = 9;
 		private const int LegacyBinaryVersion = 2;
 		private const int MaxCount = 100000;
 		private const int MaxPayloadLength = 64 * 1024 * 1024;
@@ -668,6 +678,8 @@ namespace Nexus.Client.CollectionManagement
 				WriteConfigurationImpacts(writer, snapshot.ConfigurationImpacts);
 				WriteAssociationImpacts(writer, snapshot.AssociationImpacts);
 				WritePreparedRecipes(writer, snapshot.PreparedRecipes);
+				writer.Write(snapshot.AutomaticallyInstall);
+				writer.Write(snapshot.PreferIncomingCollection);
 				writer.Flush();
 				byte[] payload = stream.ToArray();
 				if (payload.Length > MaxPayloadLength) throw new InvalidOperationException("Reviewed workflow payload exceeds the bounded v2 persistence size.");
@@ -688,7 +700,7 @@ namespace Nexus.Client.CollectionManagement
 				using (var reader = new BinaryReader(stream, new UTF8Encoding(false), true))
 				{
 					int binaryVersion = reader.ReadInt32();
-					if (binaryVersion != BinaryVersion && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
+					if (binaryVersion != BinaryVersion && binaryVersion != 8 && binaryVersion != 7 && binaryVersion != 6 && binaryVersion != 5 && binaryVersion != 4 && binaryVersion != 3 && binaryVersion != LegacyBinaryVersion) throw new InvalidDataException("Unsupported reviewed workflow binary version.");
 					CollectionPlanIdentity identity = ReadPlanIdentity(reader);
 					CollectionRevisionIdentity revision = ReadRevision(reader);
 					CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint(ReadRequiredString(reader));
@@ -706,9 +718,11 @@ namespace Nexus.Client.CollectionManagement
 					List<CollectionReviewedConfigurationImpactSnapshot> configs = ReadConfigurationImpacts(reader);
 					List<CollectionReviewedAssociationImpactSnapshot> associations = ReadAssociationImpacts(reader);
 					List<CollectionReviewedPreparedRecipeSnapshot> recipes = ReadPreparedRecipes(reader, binaryVersion);
+					bool automaticallyInstall = binaryVersion >= 9 && reader.ReadBoolean();
+					bool preferIncomingCollection = binaryVersion >= 9 && reader.ReadBoolean();
 					if (stream.Position != stream.Length) throw new InvalidDataException("Reviewed workflow payload contains trailing bytes.");
 					var result = new CollectionReviewedWorkflowSnapshot(identity, revision, target, policy, backup, state, manifestSource,
-						members, dependencies, priorities, phases, barriers, files, plugins, configs, associations, recipes);
+						members, dependencies, priorities, phases, barriers, files, plugins, configs, associations, recipes, automaticallyInstall, preferIncomingCollection);
 					CollectionPerformanceMetrics.RecordReviewedSnapshotDeserialize(performanceStarted, payload.LongLength);
 					return result;
 				}

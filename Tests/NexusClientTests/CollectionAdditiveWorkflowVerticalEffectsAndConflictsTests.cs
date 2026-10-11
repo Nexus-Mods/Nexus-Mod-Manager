@@ -82,6 +82,46 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Completes member deployment with inactive plugins and activates them once at the Collection's final barrier.</summary>
+		[TestCase(ModInstallMethod.Direct)]
+		[TestCase(ModInstallMethod.Virtual)]
+		public void Apply_DeferredMemberPluginActivationIsAppliedAtFinalBarrier(ModInstallMethod installMethod)
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.PluginArchive, installMethod))
+			{
+				fixture.NativeBoundary.DeferPluginActivation = true;
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				CollectionAdditiveWorkflowApplyResult applied = fixture.Apply(prepared);
+				Assert.That(applied.Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.LastTerminalState.Plugins.Values.Single().Active, Is.False);
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.True);
+			}
+		}
+
+		/// <summary>Recognizes a deployed inactive member after interruption and resumes the final plugin barrier without reinstalling it.</summary>
+		[TestCase(ModInstallMethod.Direct)]
+		[TestCase(ModInstallMethod.Virtual)]
+		public void Apply_DeferredPluginActivationSurvivesRestartReconciliation(ModInstallMethod installMethod)
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.PluginArchive, installMethod))
+			{
+				fixture.NativeBoundary.DeferPluginActivation = true;
+				fixture.NativeBoundary.FailAfterNativeCommitOnCall = 1;
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.Throws<InvalidOperationException>(() => fixture.Apply(prepared));
+				IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult> recovered = fixture.Workflow
+					.ReconcileIncompleteTargetAsync(fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				CollectionAdditiveWorkflowRecoveryResult recovery = recovered.Single(x => x.Operation.Identity.Equals(prepared.Operation.Identity));
+				Assert.That(recovery.Status, Is.EqualTo(CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume));
+				Assert.That(recovery.Operation.NativeChildren.Single().HasVerifiedCommittedNativeState, Is.True);
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.False);
+				fixture.NativeBoundary.FailAfterNativeCommitOnCall = null;
+				Assert.That(fixture.Apply(prepared).Status, Is.EqualTo(CollectionAdditiveWorkflowApplyStatus.Committed));
+				Assert.That(fixture.NativeBoundary.CommitCount, Is.EqualTo(1));
+				Assert.That(fixture.PluginState.Snapshot.Entries.Single().Active, Is.True);
+			}
+		}
+
 		[TestCase(ModInstallMethod.Direct, true)]
 		[TestCase(ModInstallMethod.Direct, false)]
 		[TestCase(ModInstallMethod.Virtual, true)]
@@ -423,6 +463,71 @@ namespace NexusClientTests
 			}
 		}
 
+		[Test]
+		public void ResumeFileWinnerReview_SavedChoiceReusesExactRecipesWithoutAnotherPreparation()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.UnrelatedExistingOwner))
+			{
+				CollectionAdditiveWorkflowPreparationResult blocked = fixture.Prepare();
+				Assert.That(blocked.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ActionRequired));
+				Assert.That(blocked.PendingFileWinnerRecipes.Count, Is.EqualTo(1));
+				Assert.That(blocked.Runtime, Is.Null);
+				var decisionStore = new CollectionConflictResolutionCoordinator(
+					new CollectionsConflictResolutionStore(fixture.Store));
+				decisionStore.AuthorizeIncomingFileWinner(blocked.AcquisitionBatch.PlanBuild.Plan,
+					blocked.ImpactPlan, blocked.ImpactPlan.FileImpacts.Single().Target, "test explicit winner");
+
+				long before = CollectionPerformanceMetrics.Capture().NativeRecipePreparationCount;
+				CollectionAdditiveWorkflowPreparationResult resumed = fixture.Workflow.ResumeFileWinnerReviewAsync(
+					blocked, fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				Assert.That(resumed.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview));
+				Assert.That(resumed.ImpactPlan.Issues.Any(x =>
+					x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired), Is.False);
+				Assert.That(resumed.Runtime.PreparedRecipes.Count, Is.EqualTo(1));
+				Assert.That(resumed.Runtime.PreparedRecipes.Single(), Is.SameAs(blocked.PendingFileWinnerRecipes.Single()));
+				Assert.That(CollectionPerformanceMetrics.Capture().NativeRecipePreparationCount, Is.EqualTo(before));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0), "Saving and reviewing never installs mods.");
+			}
+		}
+
+		[Test]
+		public void ResumeFileWinnerReview_UnresolvedDecisionsStillRequireReviewWithoutRehashing()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.UnrelatedExistingOwner))
+			{
+				CollectionAdditiveWorkflowPreparationResult blocked = fixture.Prepare();
+				CollectionAdditiveWorkflowPreparationResult again = fixture.Workflow.ResumeFileWinnerReviewAsync(
+					blocked, fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				Assert.That(again.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.ActionRequired));
+				Assert.That(again.PendingFileWinnerRecipes.Count, Is.EqualTo(1));
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+			}
+		}
+
+		[Test]
+		public void ResumeFileWinnerReview_ChangedNativeStateRequiresFullRepreparation()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.UnrelatedExistingOwner))
+			{
+				CollectionAdditiveWorkflowPreparationResult blocked = fixture.Prepare();
+				var decisionStore = new CollectionConflictResolutionCoordinator(
+					new CollectionsConflictResolutionStore(fixture.Store));
+				decisionStore.AuthorizeIncomingFileWinner(blocked.AcquisitionBatch.PlanBuild.Plan,
+					blocked.ImpactPlan, blocked.ImpactPlan.FileImpacts.Single().Target, "test explicit winner");
+
+				fixture.InstallState.Seed(new MemberSpec("Changed native setup", 9999, 9999,
+					"unrelated-changed", Path.Combine(fixture.Root, "native-change.zip"), @"meshes\changed.nif"),
+					ModInstallMethod.Direct, new[] { ModDeploymentTargetResolver.FromCanonical(
+						ModDeploymentRoot.Data, @"meshes\changed.nif") });
+
+				CollectionAdditiveWorkflowPreparationResult result = fixture.Workflow.ResumeFileWinnerReviewAsync(
+					blocked, fixture.Paths, CancellationToken.None).GetAwaiter().GetResult();
+				Assert.That(result.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.PreparationRequired));
+				Assert.That(result.Runtime, Is.Null);
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+			}
+		}
+
 		[TestCase(ModInstallMethod.Direct, (int)GateAFailureBoundary.SafeBeforeNativeCommit, false)]
 		[TestCase(ModInstallMethod.Virtual, (int)GateAFailureBoundary.SafeBeforeNativeCommit, false)]
 		[TestCase(ModInstallMethod.Direct, (int)GateAFailureBoundary.AfterNativeCommit, false)]
@@ -594,7 +699,8 @@ namespace NexusClientTests
 			private Fixture(string root, GameStoragePathSet paths, CollectionsStore store,
 				NormalizedCollectionManifest manifest, CollectionAdditiveWorkflowCoordinator workflow,
 				DeterministicNativeBoundary nativeBoundary, RecordingWinnerBarrier winnerBarrier,
-				MemberSpec memberA, MemberSpec memberB, string pluginDirectory, MutablePluginState pluginState)
+				MemberSpec memberA, MemberSpec memberB, string pluginDirectory, MutablePluginState pluginState,
+				MutableInstallLogState installState)
 			{
 				Root = root;
 				Paths = paths;
@@ -607,6 +713,7 @@ namespace NexusClientTests
 				MemberB = memberB;
 				PluginDirectory = pluginDirectory;
 				PluginState = pluginState;
+				InstallState = installState;
 			}
 
 			public string Root { get; }
@@ -620,6 +727,7 @@ namespace NexusClientTests
 			public MemberSpec MemberB { get; }
 			public string PluginDirectory { get; }
 			public MutablePluginState PluginState { get; }
+			public MutableInstallLogState InstallState { get; }
 
 			public static Fixture Create(Scenario scenario, ModInstallMethod preferredInstallMethod = ModInstallMethod.Direct)
 			{
@@ -771,16 +879,18 @@ namespace NexusClientTests
 				var nativeBoundary = new DeterministicNativeBoundary(operationStore, recoveryManifests, nativeStateReader,
 					installState, specByKey, pluginState, gameMode, paths.InstallInfoPath);
 				var winnerBarrier = new RecordingWinnerBarrier(nativeBoundary);
+				var fileWinnerDecisions = new CollectionConflictResolutionCoordinator(
+					new CollectionsConflictResolutionStore(store));
 
 				var workflow = new CollectionAdditiveWorkflowCoordinator(services, storageService, operationStore, planStore,
 					planPreparation, revalidation, memberAcquisition, new CollectionNativeRecipePreparer(store),
 					new CollectionDependencyPhasePlanner(), new CollectionConflictImpactPlanner(), operationCoordinator,
 					rehydrator, runtimeReconstructor, nativeStateReader, childPreparation, childExecution, childVerification,
 					childRestart, associationCoordinator, winnerCoordinator, CollectionTargetMutationLeaseManager.Shared,
-					authorityValidator, nativeBoundary.ApplyAsync, winnerBarrier.ReconcileAsync);
+					authorityValidator, nativeBoundary.ApplyAsync, winnerBarrier.ReconcileAsync, fileWinnerDecisions);
 
 				return new Fixture(root, paths, store, manifest, workflow, nativeBoundary, winnerBarrier,
-					memberA, memberB, pluginDirectory, pluginState);
+					memberA, memberB, pluginDirectory, pluginState, installState);
 			}
 
 			public CollectionAdditiveWorkflowPreparationResult Prepare()
@@ -878,6 +988,7 @@ namespace NexusClientTests
 
 			public int CallCount { get; private set; }
 			public int CommitCount { get; private set; }
+			public bool DeferPluginActivation { get; set; }
 			public int? PauseBeforeCommitOnCall { get; set; }
 			public int? FailAfterNativeCommitOnCall { get; set; }
 			public int? FailAfterTerminalCheckpointOnCall { get; set; }
@@ -922,6 +1033,7 @@ namespace NexusClientTests
 					Path.GetFileName(spec.ArchivePath), reviewedPreview, preFiles, expectedFiles,
 					new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
 					expectedReplay);
+				if (childRecipe.DeferPluginReconciliation) evidence = evidence.WithDeferredPluginReconciliation();
 				_manifestStore.SaveManifest(manifest.WithExecutionEvidence(evidence));
 
 				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
@@ -932,7 +1044,7 @@ namespace NexusClientTests
 				MaterializeCommittedEffects(spec, childRecipe, reviewedPreview, committedBytes);
 				CommitCount++;
 				if (_pluginState != null)
-					_pluginState.ApplyNativeRecipe(childRecipe);
+					_pluginState.ApplyNativeRecipe(childRecipe, DeferPluginActivation);
 				CollectionNativeStateIndex terminalState = _nativeStateReader.Capture(plan.Target);
 				LastTerminalState = terminalState;
 				if (FailAfterNativeCommitOnCall.HasValue && FailAfterNativeCommitOnCall.Value == CallCount)
@@ -1274,7 +1386,7 @@ namespace NexusClientTests
 				return true;
 			}
 
-			public void ApplyNativeRecipe(ModInstallationRecipeInput recipe)
+			public void ApplyNativeRecipe(ModInstallationRecipeInput recipe, bool deferActivation)
 			{
 				foreach (InstallModFileOperation operation in recipe.NativeOperations.OfType<InstallModFileOperation>())
 				{
@@ -1283,7 +1395,7 @@ namespace NexusClientTests
 						!extension.Equals(".esm", StringComparison.OrdinalIgnoreCase) &&
 						!extension.Equals(".esl", StringComparison.OrdinalIgnoreCase))
 						continue;
-					_active[Path.GetFullPath(Path.Combine(_pluginDirectory, operation.DestinationPath))] = true;
+					_active[Path.GetFullPath(Path.Combine(_pluginDirectory, operation.DestinationPath))] = !deferActivation;
 				}
 			}
 		}

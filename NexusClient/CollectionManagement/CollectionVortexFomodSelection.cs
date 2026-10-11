@@ -76,8 +76,10 @@ namespace Nexus.Client.CollectionManagement
 
 		public CollectionVortexFomodStepSelection(string name, IEnumerable<CollectionVortexFomodGroupSelection> groups)
 		{
-			if (String.IsNullOrWhiteSpace(name))
-				throw new ArgumentException("A Vortex FOMOD step name is required.", nameof(name));
+			// A null or empty name is a valid legacy/unnamed FOMOD step. The parsed step
+			// position and native name remain subject to exact C5 shape validation.
+			if (name != null && name.Length > 0 && String.IsNullOrWhiteSpace(name))
+				throw new ArgumentException("A Vortex FOMOD step name cannot contain only whitespace.", nameof(name));
 			if (groups == null)
 				throw new ArgumentNullException(nameof(groups));
 			List<CollectionVortexFomodGroupSelection> copied = groups.ToList();
@@ -99,7 +101,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			unchecked
 			{
-				int hash = StringComparer.Ordinal.GetHashCode(Name);
+				int hash = Name == null ? 0 : StringComparer.Ordinal.GetHashCode(Name);
 				foreach (CollectionVortexFomodGroupSelection group in _groups) hash = (hash * 397) ^ group.GetHashCode();
 				return hash;
 			}

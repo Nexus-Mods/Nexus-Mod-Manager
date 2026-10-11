@@ -122,6 +122,18 @@ namespace Nexus.Client.CollectionManagement.UI
 			return new CollectionUiContext(Generation, Kind, Revision, LocalCapture, AssociationId, operation);
 		}
 
+		/// <summary>Shows recovery for the displayed revision/attempt, or an unresolved native operation affecting the whole game setup.</summary>
+		internal bool IncludesRecoveryOperation(CollectionOperation operation)
+		{
+			if (operation == null || operation.IsTerminal)
+				return false;
+			if (Kind == CollectionUiContextKind.None || Kind == CollectionUiContextKind.CurrentSetup)
+				return true;
+			bool matchesDisplayedOperation = Revision != null && operation.Revision != null && Revision.Equals(operation.Revision) &&
+				(Operation == null || Operation.Equals(operation.Identity));
+			return matchesDisplayedOperation || operation.RequiresRecovery || operation.HasUnreconciledNativeChild || operation.HasUnknownNativeDurability;
+		}
+
 		public bool IsCurrentGeneration(int generation)
 		{
 			return Generation == generation;

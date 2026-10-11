@@ -53,7 +53,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 		private string m_strLastKnownVersion = null;
 		private Int32 m_strCategoryId = 0;
 		private Int32 m_strCustomCategoryId = 0;
-		private bool? m_booIsEndorsed = false;
+		private bool? m_booIsEndorsed;
 		private Version m_verMachineVersion = null;
 		private string m_strAuthor = null;
 		private string m_strDescription = null;
@@ -1511,7 +1511,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 				LastKnownVersion = modInfo.LastKnownVersion;
 				booChangedValue = true;
 			}
-			if ((overwriteAllValues == true) || (IsEndorsed != modInfo.IsEndorsed))
+			bool preserveAbstention = IsEndorsed == false && modInfo.IsEndorsed == null &&
+				(modInfo as IModEndorsementMetadata)?.HasEndorsementState == false;
+			if (!preserveAbstention && ((overwriteAllValues == true) || (IsEndorsed != modInfo.IsEndorsed)))
 			{
 				IsEndorsed = modInfo.IsEndorsed;
 				booChangedValue = true;
@@ -1637,6 +1639,9 @@ namespace Nexus.Client.Mods.Formats.OMod
 					bwrConfig.Write(IsEndorsed.ToString());
 					bwrConfig.Write(CategoryId);
 					bwrConfig.Write(CustomCategoryId);
+					// Older readers ignore this trailing extension; their original fields remain unchanged.
+					bwrConfig.Write("NMM.EndorsementStatus");
+					bwrConfig.Write(IsEndorsed == true ? "Endorsed" : IsEndorsed == false ? "Abstained" : "Undecided");
 					intLength = stmConfig.Length;
 				}
 				byte[] bteConfig = new byte[intLength];
@@ -1711,7 +1716,7 @@ namespace Nexus.Client.Mods.Formats.OMod
 						}
 						catch
 						{
-							IsEndorsed = false;
+							IsEndorsed = null;
 						}
 
 						if (OModVersion >= 6)
@@ -1719,6 +1724,18 @@ namespace Nexus.Client.Mods.Formats.OMod
 							CategoryId = brdConfig.ReadInt32();
 							CustomCategoryId = brdConfig.ReadInt32();
 						}
+						bool explicitAbstention = false;
+						if (brdConfig.BaseStream.Position < brdConfig.BaseStream.Length)
+						{
+							try
+							{
+								explicitAbstention = brdConfig.ReadString() == "NMM.EndorsementStatus" && brdConfig.ReadString() == "Abstained";
+							}
+							catch (IOException) { }
+							catch (FormatException) { }
+						}
+						if (IsEndorsed == false && !explicitAbstention)
+							IsEndorsed = null;
 					}
 					else
 						OModVersion = OModBaseVersion;

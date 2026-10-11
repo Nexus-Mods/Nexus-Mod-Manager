@@ -25,7 +25,7 @@ namespace Nexus.Client.PluginManagement
 	/// As such, there is no static accessor to retrieve the singleton instance. Instead, the
 	/// <see cref="Initialize"/> method returns the only instance that should be used.
 	/// </remarks>
-	public class PluginManager : IPluginManager
+	public class PluginManager : IPluginManager, ICollectionPluginStateManager
 	{
 		#region Singleton
 
@@ -892,6 +892,37 @@ namespace Nexus.Client.PluginManagement
 				rejectedActive.UnionWith(pending);
 				TracePluginDiagnostics(
 					BuildPluginSnapshot(correctedOrder, rejectedActive));
+			}
+		}
+
+		/// <summary>Honors Collection overwrite authorization while restoring ordinary plugin enforcement after the synchronous state update.</summary>
+		public bool TryReconcileCollectionPluginState(IList<string> deployedPaths, IDictionary<string, bool> requestedActivation,
+			IList<IList<string>> relativeOrder, out IList<PluginValidationDiagnostic> diagnostics)
+		{
+			bool restrictionsWereDisabled = m_booPluginRestrictionsDisabled;
+			try
+			{
+				// The Collection holds the target mutation lease; no asynchronous work runs inside this policy scope.
+				m_booPluginRestrictionsDisabled = true;
+				InvalidateCurrentSnapshot();
+				if (!TryReconcileDeployedPlugins(deployedPaths, requestedActivation, out diagnostics))
+					return false;
+				if (relativeOrder != null && relativeOrder.Count > 0 && !TrySetRelativePluginOrder(relativeOrder, out diagnostics))
+					return false;
+
+				// A prerequisite may have been installed in a later curator phase. Keep masters ahead of dependents
+				// after the whole Collection is deployed, even while other policy diagnostics remain advisory.
+				List<Plugin> dependencyOrder = GetPolicyCorrectedOrder(PluginOrderLog.OrderedPlugins.ToList(), false);
+				var dependencyActive = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+				ApplyValidatedPluginState(dependencyOrder, dependencyActive, BuildPluginSnapshot(dependencyOrder, dependencyActive));
+				diagnostics = CurrentSnapshot.Diagnostics.Where(x => x != null).ToList();
+				TracePluginDiagnostics(diagnostics);
+				return true;
+			}
+			finally
+			{
+				m_booPluginRestrictionsDisabled = restrictionsWereDisabled;
+				InvalidateCurrentSnapshot();
 			}
 		}
 

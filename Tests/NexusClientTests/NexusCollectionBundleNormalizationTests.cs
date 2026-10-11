@@ -16,6 +16,18 @@ namespace NexusClientTests
 	public class NexusCollectionBundleNormalizationTests
 	{
 		[Test]
+		public void Normalize_Module12LovingPiperRulesPreserveLiteralLeadingSpaces()
+		{
+			string members = "{\"name\":\"Wasteland Heroines Replacer All in One\",\"version\":\"2.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":29205,\"fileId\":188514,\"md5\":\"cd49ea932b8a1d95b052b126f1dacdbb\",\"fileSize\":386415,\"logicalFilename\":\"Wasteland Heroines Replacer All in One\",\"updatePolicy\":\"exact\",\"tag\":\"ziIMB9vmMf\"}},{\"name\":\"  LovingPiper\",\"version\":\"2.0\",\"optional\":true,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":9811,\"fileId\":62262,\"md5\":\"8fc14fe26a7d995bb132ec9002fec7fb\",\"fileSize\":2402,\"logicalFilename\":\"  LovingPiper\",\"updatePolicy\":\"exact\",\"tag\":\"oV55-bxhHh\"}},{\"name\":\"goodlooking piper replacer version\",\"version\":\"1.0\",\"optional\":true,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":25959,\"fileId\":106060,\"md5\":\"b1e091bc9f4f9424671134d40acfe601\",\"fileSize\":2528,\"logicalFilename\":\"goodlooking piper replacer version\",\"updatePolicy\":\"exact\",\"tag\":\"nwYIZWShKPl\"}}";
+			string rules = "[{\"type\":\"before\",\"reference\":{\"fileExpression\":\"LovingPiper-9811-2-0\",\"fileMD5\":\"8fc14fe26a7d995bb132ec9002fec7fb\",\"versionMatch\":\"2.0.0\",\"logicalFileName\":\"  LovingPiper\"},\"source\":{\"fileExpression\":\"Wasteland Heroines Replacer All in One-29205-2-0-1596688655\",\"fileMD5\":\"cd49ea932b8a1d95b052b126f1dacdbb\",\"versionMatch\":\"2.0.0\",\"logicalFileName\":\"Wasteland Heroines Replacer All in One\"}},{\"type\":\"conflicts\",\"reference\":{\"logicalFileName\":\"goodlooking piper replacer version\",\"versionMatch\":\"*\",\"idHint\":\"goodlooking piper replacer version-25959-1-0\"},\"source\":{\"fileExpression\":\"LovingPiper-9811-2-0\",\"fileMD5\":\"8fc14fe26a7d995bb132ec9002fec7fb\",\"versionMatch\":\"2.0.0\",\"logicalFileName\":\"  LovingPiper\"}},{\"type\":\"conflicts\",\"reference\":{\"fileExpression\":\"goodlooking piper replacer version-25959-1-0\",\"fileMD5\":\"b1e091bc9f4f9424671134d40acfe601\",\"versionMatch\":\"1.0.0\",\"logicalFileName\":\"goodlooking piper replacer version\"},\"source\":{\"fileExpression\":\"LovingPiper-9811-2-0\",\"fileMD5\":\"8fc14fe26a7d995bb132ec9002fec7fb\",\"versionMatch\":\"2.0.0\",\"logicalFileName\":\"  LovingPiper\"}},{\"type\":\"conflicts\",\"reference\":{\"logicalFileName\":\"  LovingPiper\",\"versionMatch\":\"*\",\"idHint\":\"LovingPiper-9811-2-0\"},\"source\":{\"fileExpression\":\"goodlooking piper replacer version-25959-1-0\",\"fileMD5\":\"b1e091bc9f4f9424671134d40acfe601\",\"versionMatch\":\"1.0.0\",\"logicalFileName\":\"goodlooking piper replacer version\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 3);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(3, result.Manifest.ConflictConstraints.Count);
+			Assert.IsTrue(result.Manifest.ConflictConstraints.Any(x => x.Reference.LogicalFileName == "  LovingPiper"));
+		}
+
+		[Test]
 		public void Normalize_SimpleExactNexusMembersProduceSupportedSelectedClosure()
 		{
 			string json = BuildManifest(
@@ -240,6 +252,19 @@ namespace NexusClientTests
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
 			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == expectedCode));
+		}
+
+		[Test]
+		public void Normalize_IdenticalDuplicatePluginStateIsIdempotentCaseInsensitively()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]", "\"plugins\":[{\"name\":\"A.esp\",\"enabled\":true},{\"name\":\"a.ESP\",\"enabled\":true}]");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.PluginStates.Count);
+			Assert.IsTrue(result.Manifest.PluginStates[0].Enabled);
+			Assert.AreEqual("A.esp", result.Manifest.PluginStates[0].PluginName);
 		}
 
 		[Test]
@@ -514,6 +539,21 @@ namespace NexusClientTests
 			Assert.That(result.Manifest.Members.Single().Artifact.StableId, Does.Not.Contain("example.invalid"));
 		}
 
+		[TestCase("manual", null)]
+		[TestCase("browse", "https://mods.example.invalid/curated-file")]
+		public void Normalize_ExternalPreferCanUseExactCuratorArchiveThroughManualVerification(string type, string url)
+		{
+			string source = "{\"type\":\"" + type + "\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"," +
+				"\"fileSize\":456,\"updatePolicy\":\"prefer\"" +
+				(url == null ? String.Empty : ",\"url\":\"" + url + "\"") + "}";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(
+				"{\"name\":\"Preferred external archive\",\"version\":\"\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":" + source + "}", "[]"), 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/456", result.Manifest.Members.Single().Artifact.StableId);
+			Assert.IsFalse(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.external-update-policy-unsupported"));
+		}
+
 		[TestCase("{\"type\":\"manual\",\"fileSize\":10}", "member.external-source-identity-required")]
 		[TestCase("{\"type\":\"browse\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.browse-source-url-required")]
 		[TestCase("{\"type\":\"browse\",\"url\":\"file:///tmp/mod.zip\",\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"fileSize\":10}", "member.browse-source-url-required")]
@@ -550,12 +590,21 @@ namespace NexusClientTests
 			Assert.That(result.Manifest.Members.Single().Artifact.StableId, Does.Not.Contain("token"));
 		}
 
-		[Test]
-		public void Normalize_ExactBundleSourceProducesRevisionScopedStableArtifactIdentity()
+		[TestCase(null)]
+		[TestCase("Classic Holstered Weapons System (CHW) Configuration.zip")]
+		[TestCase("Bundled - NeverNude BodySlide Output (v64).7z")]
+		public void Normalize_ExactBundleSourceProducesRevisionScopedStableArtifactIdentity(string logicalFilename)
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Bundled\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":8192,\"updatePolicy\":\"exact\",\"fileExpression\":\"Bundled - Local Tool (v1)\",\"tag\":\"bundleTag_1\"}}",
 				"[]");
+
+			if (logicalFilename != null)
+			{
+				Newtonsoft.Json.Linq.JObject manifest = Newtonsoft.Json.Linq.JObject.Parse(json);
+				manifest["mods"][0]["source"]["logicalFilename"] = logicalFilename;
+				json = manifest.ToString();
+			}
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
@@ -566,6 +615,22 @@ namespace NexusClientTests
 			StringAssert.EndsWith("/bundleTag_1", member.Artifact.StableId);
 			Assert.AreEqual("collection-bundle:" + member.Artifact.StableId, member.IdentityResolution.Key.Value);
 			Assert.IsNull(member.Artifact.ExpectedContentHash, "Vortex recompresses embedded bundle directories, so logical identity must not invent a stable source archive hash.");
+		}
+
+		/// <summary>Retains original bundle archive names for conflict-rule matching.</summary>
+		[Test]
+		public void Normalize_BundleLogicalFilenameCanIdentifyFilePriorityRuleSource()
+		{
+			string members =
+				"{\"name\":\"Settings\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":10,\"fileExpression\":\"Bundled - Settings (v65)\",\"logicalFilename\":\"Settings.zip\",\"tag\":\"settingsTag\"}}," +
+				"{\"name\":\"Base\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"bundle\",\"fileSize\":10,\"fileExpression\":\"Bundled - Base\",\"tag\":\"baseTag\"}}";
+			string rules = "[{\"type\":\"after\",\"source\":{\"logicalFileName\":\"Settings.zip\",\"versionMatch\":\"*\"},\"reference\":{\"tag\":\"baseTag\",\"versionMatch\":\"*\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(0, result.Manifest.ExternalFilePriorityRules.Count);
 		}
 
 		[Test]
@@ -795,6 +860,35 @@ namespace NexusClientTests
 			Assert.AreEqual("Map with All Locations", member.VortexFomodSelection.Steps[0].Groups[0].Name);
 			Assert.AreEqual(0, member.VortexFomodSelection.Steps[0].Groups[0].Choices[0].Index);
 			Assert.AreEqual("4k With All Locations", member.VortexFomodSelection.Steps[0].Groups[0].Choices[0].Name);
+		}
+
+		[TestCase("\"name\":null", null)]
+		[TestCase("\"name\":\"\"", "")]
+		[TestCase("", null)]
+		public void Normalize_UnnamedVortexFomodStepsAreRetainedForNativeShapeValidation(string nameField, string expected)
+		{
+			string stepName = String.IsNullOrEmpty(nameField) ? String.Empty : nameField + ",";
+			string json = BuildManifest(
+				"{\"name\":\"Legacy\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"choices\":{\"type\":\"fomod\",\"options\":[{" + stepName + "\"groups\":[{\"name\":\"Group\",\"choices\":[{\"name\":\"Selected\",\"idx\":0}]}]}]}}",
+				"[]");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			CollectionVortexFomodStepSelection step = result.Manifest.Members.Single().VortexFomodSelection.Steps.Single();
+			Assert.AreEqual(expected, step.Name);
+			Assert.DoesNotThrow(() => step.GetHashCode());
+		}
+
+		[Test]
+		public void Normalize_WhitespaceOnlyVortexFomodStepRemainsBlocked()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Legacy\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"choices\":{\"type\":\"fomod\",\"options\":[{\"name\":\"  \",\"groups\":[]}]}}",
+				"[]");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.installer-choices-invalid"));
 		}
 
 		[Test]
@@ -1057,6 +1151,110 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Normalize_WhitespaceDecoratedPrioritySourceBindsOnlyByUniqueExactMd5()
+		{
+			string members =
+				"{\"name\":\"A\",\"version\":\"1.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\",\"logicalFilename\":\"A File\"}}," +
+				"{\"name\":\"B\",\"version\":\"2.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21,\"md5\":\"hash-b\",\"logicalFilename\":\"B File\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileMD5\":\"hash-a\",\"logicalFileName\":\"  A File \"," +
+				"\"fileExpression\":\" Exported Archive Name  \",\"versionMatch\":\" 1.0.0 \"}," +
+				"\"reference\":{\"fileMD5\":\"hash-b\",\"logicalFileName\":\"B File\",\"versionMatch\":\"2.0.0\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].LowerPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].HigherPriorityMemberKey);
+		}
+
+		[Test]
+		public void Normalize_BlankVersionPrioritySourceBindsUnversionedExternalMemberByExactMd5()
+		{
+			const string externalMd5 = "c78bc245ec508649f4773c252cfa9505";
+			const string otherMd5 = "dc0ffb6d9a8ca71207a95dfff6613c60";
+			string members =
+				"{\"name\":\"FusionGirl-0223.7z\",\"version\":\"\",\"optional\":false,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"browse\",\"url\":\"https://mods.example.invalid/fusion-girl\",\"md5\":\"" + externalMd5 +
+				"\",\"fileSize\":742109851,\"updatePolicy\":\"exact\"}}," +
+				"{\"name\":\"TBOS-BodyTalk4\",\"version\":\"4.0.1\",\"optional\":false,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"nexus\",\"modId\":72310,\"fileId\":383018,\"md5\":\"" + otherMd5 + "\",\"logicalFilename\":\"TBOS-BodyTalk4\"}}";
+			string rules = "[{\"type\":\"after\",\"reference\":{\"fileExpression\":\"TBOS-BodyTalk4-72310-4-0-1-1769451493\"," +
+				"\"fileMD5\":\"" + otherMd5 + "\",\"versionMatch\":\"*\",\"logicalFileName\":\"TBOS-BodyTalk4\"}," +
+				"\"source\":{\"fileExpression\":\"FusionGirl-0223\",\"fileMD5\":\"" + externalMd5 + "\",\"versionMatch\":\"\"}}]";
+
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].HigherPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].LowerPriorityMemberKey);
+		}
+
+		[TestCase("", "", false)]
+		[TestCase(" ", "c78bc245ec508649f4773c252cfa9505", false)]
+		[TestCase("", "c78bc245ec508649f4773c252cfa9505", true)]
+		public void Normalize_BlankVersionPriorityNeedsOneExactMd5AndRejectsWhitespaceOnly(
+			string version, string md5, bool expectedSupported)
+		{
+			string members = "{\"name\":\"A\",\"version\":\"\",\"optional\":false,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"browse\",\"url\":\"https://mods.example.invalid/file\"," +
+				"\"md5\":\"c78bc245ec508649f4773c252cfa9505\",\"fileSize\":10}}," +
+				"{\"name\":\"B\",\"version\":\"1.0\",\"optional\":false,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":22,\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileExpression\":\"A-archive\"," +
+				"\"fileMD5\":\"" + md5 + "\",\"versionMatch\":\"" + version + "\"}," +
+				"\"reference\":{\"fileMD5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"versionMatch\":\"*\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+			Assert.AreEqual(expectedSupported ? CollectionCompatibilityStatus.Supported : CollectionCompatibilityStatus.Unsupported,
+				result.CapabilityReport.Status);
+			if (!expectedSupported)
+				Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[TestCase("wrong-md5", "  A File  ", "1.0.0")]
+		[TestCase("hash-a", "  Different File  ", "1.0.0")]
+		[TestCase("hash-a", "  A File  ", "1.1.0")]
+		[TestCase("hash-a", "  A File  ", ">=1.0.0+prefer")]
+		[TestCase("hash-a", "  ", "1.0.0")]
+		public void Normalize_WhitespacePrioritySourceStillRejectsMismatchedOrUnsupportedConstraints(
+			string md5, string logicalFileName, string version)
+		{
+			string members =
+				"{\"name\":\"A\",\"version\":\"1.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\",\"logicalFilename\":\"A File\"}}," +
+				"{\"name\":\"B\",\"version\":\"2.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21,\"md5\":\"hash-b\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileMD5\":\"" + md5 + "\",\"logicalFileName\":\"" + logicalFileName +
+				"\",\"versionMatch\":\"" + version + "\"},\"reference\":{\"fileMD5\":\"hash-b\",\"versionMatch\":\"2.0.0\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_WhitespacePrioritySourceWithAmbiguousExactMd5IsUnsupported()
+		{
+			string members =
+				"{\"name\":\"A One\",\"version\":\"1.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\",\"logicalFilename\":\"A File\"}}," +
+				"{\"name\":\"A Two\",\"version\":\"1.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":12,\"fileId\":22,\"md5\":\"hash-a\",\"logicalFilename\":\"A File\"}}," +
+				"{\"name\":\"B\",\"version\":\"2.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21,\"md5\":\"hash-b\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileMD5\":\"hash-a\",\"logicalFileName\":\"  A File  \",\"versionMatch\":\" 1.0.0 \"}," +
+				"\"reference\":{\"fileMD5\":\"hash-b\",\"versionMatch\":\"2.0.0\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 3);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
+		public void Normalize_WhitespacePrioritySourceWithoutExactMd5NeverFallsBackToFilenameGuess()
+		{
+			string members =
+				"{\"name\":\"A\",\"version\":\"1.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\"}}," +
+				"{\"name\":\"B\",\"version\":\"2.0.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":11,\"fileId\":21,\"md5\":\"hash-b\"}}";
+			string rules = "[{\"type\":\"before\",\"source\":{\"logicalFileName\":\"  A  \",\"versionMatch\":\"1.0.0\"}," +
+				"\"reference\":{\"fileMD5\":\"hash-b\",\"versionMatch\":\"2.0.0\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		[Test]
 		public void Normalize_FuzzyRangeModRuleReferenceFailsClosedInsteadOfGuessingVortexSemver()
 		{
 			string json = BuildManifest(
@@ -1092,6 +1290,32 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Manifest.ConflictConstraints.All(x => x.SourceMemberKey.Equals(memberKey)));
 			CollectionAssert.AreEqual(new[] { "<0.7.9 || >0.7.9", "<0.7.7 || >0.7.7", "*" },
 				result.Manifest.ConflictConstraints.Select(x => x.Reference.VersionMatch.Expression).ToArray());
+		}
+
+		[Test]
+		public void Normalize_ConflictMd5FallbackAcceptsUniqueMatchingExactSourceVersion()
+		{
+			string member = "{\"name\":\"Base\",\"version\":\"1.2.0\",\"optional\":false,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\",\"logicalFilename\":\"Base\"}}";
+			string rule = "[{\"type\":\"conflicts\",\"source\":{\"fileMD5\":\"hash-a\",\"fileExpression\":\"Unrecorded Archive Name\"," +
+				"\"versionMatch\":\"1.2\"},\"reference\":{\"logicalFileName\":\"Other Mod\",\"versionMatch\":\"*\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rule), 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.ConflictConstraints.Count);
+		}
+
+		[TestCase("1.3.0")]
+		[TestCase("1.2+prefer")]
+		[TestCase(">=1.0")]
+		public void Normalize_ConflictMd5FallbackRejectsDifferentOrFuzzySourceVersions(string version)
+		{
+			string member = "{\"name\":\"Base\",\"version\":\"1.2.0\",\"optional\":false,\"domainName\":\"fallout4\"," +
+				"\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"hash-a\"}}";
+			string rule = "[{\"type\":\"conflicts\",\"source\":{\"fileMD5\":\"hash-a\",\"fileExpression\":\"Different Archive Name\"," +
+				"\"versionMatch\":\"" + version + "\"},\"reference\":{\"logicalFileName\":\"Other Mod\",\"versionMatch\":\"*\"}}]";
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(member, rule), 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.conflict-rule-source-unresolved"));
 		}
 
 		[Test]

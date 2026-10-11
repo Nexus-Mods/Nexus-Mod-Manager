@@ -71,3 +71,126 @@ Video\LUCK.bk2
 Video\MainMenuLoop.bk2
 Video\PERCEPTION.bk2
 Video\STRENGTH.bk2
+ccBGSFO4001-PipBoy(Black) - Main.ba2
+ccBGSFO4001-PipBoy(Black) - Textures.ba2
+ccBGSFO4003-PipBoy(Camo01) - Main.ba2
+ccBGSFO4003-PipBoy(Camo01) - Textures.ba2
+ccBGSFO4004-PipBoy(Camo02) - Main.ba2
+ccBGSFO4004-PipBoy(Camo02) - Textures.ba2
+ccBGSFO4006-PipBoy(Chrome) - Main.ba2
+ccBGSFO4006-PipBoy(Chrome) - Textures.ba2
+ccBGSFO4016-Prey - Main.ba2
+ccBGSFO4016-Prey - Textures.ba2
+ccBGSFO4018-GaussRiflePrototype - Main.ba2
+ccBGSFO4018-GaussRiflePrototype - Textures.ba2
+ccBGSFO4019-ChineseStealthArmor - Main.ba2
+ccBGSFO4019-ChineseStealthArmor - Textures.ba2
+ccBGSFO4020-PowerArmorSkin(Black) - Main.ba2
+ccBGSFO4020-PowerArmorSkin(Black) - Textures.ba2
+ccBGSFO4038-HorseArmor - Main.ba2
+ccBGSFO4038-HorseArmor - Textures.ba2
+ccBGSFO4044-HellfirePowerArmor - Main.ba2
+ccBGSFO4044-HellfirePowerArmor - Textures.ba2
+ccBGSFO4044-HellfirePowerArmor.esl
+ccBGSFO4046-TesCan - Main.ba2
+ccBGSFO4046-TesCan - Textures.ba2
+ccBGSFO4046-TesCan.esl
+ccBGSFO4096-AS_Enclave - Main.ba2
+ccBGSFO4096-AS_Enclave - Textures.ba2
+ccBGSFO4096-AS_Enclave.esl
+ccBGSFO4110-WS_Enclave - Main.ba2
+ccBGSFO4110-WS_Enclave - Textures.ba2
+ccBGSFO4110-WS_Enclave.esl
+ccBGSFO4115-X02 - Main.ba2
+ccBGSFO4115-X02 - Textures.ba2
+ccBGSFO4115-X02.esl
+ccBGSFO4116-HeavyFlamer - Main.ba2
+ccBGSFO4116-HeavyFlamer - Textures.ba2
+ccBGSFO4116-HeavyFlamer.esl
+ccFRSFO4001-HandmadeShotgun - Main.ba2
+ccFRSFO4001-HandmadeShotgun - Textures.ba2
+ccFSVFO4001-ModularMilitaryBackpack - Main.ba2
+ccFSVFO4001-ModularMilitaryBackpack - Textures.ba2
+ccFSVFO4002-MidCenturyModern - Main.ba2
+ccFSVFO4002-MidCenturyModern - Textures.ba2
+ccFSVFO4007-Halloween - Main.ba2
+ccFSVFO4007-Halloween - Textures.ba2
+ccFSVFO4007-Halloween.esl
+ccOTMFO4001-Remnants - Main.ba2
+ccOTMFO4001-Remnants - Textures.ba2
+ccOTMFO4001-Remnants.esl
+ccSBJFO4003-Grenade - Main.ba2
+ccSBJFO4003-Grenade - Textures.ba2
+ccSBJFO4003-Grenade.esl
+DLCCoast - Voices_de.ba2
+DLCCoast - Voices_es.ba2
+DLCCoast - Voices_fr.ba2
+DLCCoast - Voices_it.ba2
+DLCCoast - Voices_ja.ba2
+DLCNukaWorld - Voices_de.ba2
+DLCNukaWorld - Voices_es.ba2
+DLCNukaWorld - Voices_fr.ba2
+DLCNukaWorld - Voices_it.ba2
+DLCNukaWorld - Voices_ja.ba2
+DLCRobot - Voices_de.ba2
+DLCRobot - Voices_es.ba2
+DLCRobot - Voices_fr.ba2
+DLCRobot - Voices_it.ba2
+DLCRobot - Voices_ja.ba2
+DLCUltraHighResolution - Textures01.ba2
+DLCUltraHighResolution - Textures02.ba2
+DLCUltraHighResolution - Textures03.ba2
+DLCUltraHighResolution - Textures04.ba2
+DLCUltraHighResolution - Textures05.ba2
+DLCUltraHighResolution - Textures06.ba2
+DLCUltraHighResolution - Textures07.ba2
+DLCUltraHighResolution - Textures08.ba2
+DLCUltraHighResolution - Textures09.ba2
+DLCUltraHighResolution - Textures10.ba2
+DLCUltraHighResolution - Textures11.ba2
+DLCUltraHighResolution - Textures12.ba2
+DLCUltraHighResolution - Textures13.ba2
+DLCUltraHighResolution - Textures14.ba2
+DLCUltraHighResolution - Textures15.ba2
+DLCUltraHighResolution - Textures16.ba2
+DLCUltraHighResolution.esm
+DLCworkshop03 - Voices_de.ba2
+DLCworkshop03 - Voices_es.ba2
+DLCworkshop03 - Voices_fr.ba2
+DLCworkshop03 - Voices_it.ba2
+DLCworkshop03 - Voices_ja.ba2
+Fallout4 - TexturesPatch.ba2
+Fallout4 - Voices_de.ba2
+Fallout4 - Voices_es.ba2
+Fallout4 - Voices_fr.ba2
+Fallout4 - Voices_it.ba2
+Fallout4 - Voices_jp.ba2
+Fallout4 - Voices_rep_ja.ba2
+Video\AGILITY_ja.bk2
+Video\CHARISMA_ja.bk2
+Video\Endgame_FEMALE_A_ja.bk2
+Video\Endgame_FEMALE_A_PL.bk2
+Video\Endgame_FEMALE_A_PTBR.bk2
+Video\Endgame_FEMALE_A_RU.bk2
+Video\Endgame_FEMALE_B_ja.bk2
+Video\Endgame_FEMALE_B_PL.bk2
+Video\Endgame_FEMALE_B_PTBR.bk2
+Video\Endgame_FEMALE_B_RU.bk2
+Video\Endgame_MALE_A_ja.bk2
+Video\Endgame_MALE_A_PL.bk2
+Video\Endgame_MALE_A_PTBR.bk2
+Video\Endgame_MALE_A_RU.bk2
+Video\Endgame_MALE_B_ja.bk2
+Video\Endgame_MALE_B_PL.bk2
+Video\Endgame_MALE_B_PTBR.bk2
+Video\Endgame_MALE_B_RU.bk2
+Video\ENDURANCE_ja.bk2
+Video\GameIntro_V3_B_ja.bk2
+Video\INTELLIGENCE_ja.bk2
+Video\Intro_ja.bk2
+Video\Intro_pl.bk2
+Video\Intro_ptbr.bk2
+Video\Intro_ru.bk2
+Video\LUCK_ja.bk2
+Video\PERCEPTION_ja.bk2
+Video\STRENGTH_ja.bk2

@@ -265,6 +265,8 @@ namespace Nexus.Client.ModManagement
 			bool booSuccess = false;
 			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strMessage = "The mod was not activated.";
+			long collectionInstallationStarted = OperationIdentity != null && OperationIdentity.Origin == ModOperationOrigin.Collection
+				? Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.StartTiming() : 0;
 			
 			try
 			{
@@ -386,6 +388,8 @@ namespace Nexus.Client.ModManagement
 					// Completion is a terminal scheduling signal, not a durability verdict. Publish it even when
 					// preparation returned early or an exception is about to escape so the shared operation queue
 					// cannot remain permanently occupied by an in-process task that has already stopped running.
+					if (collectionInstallationStarted != 0)
+						Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.RecordNativeInstallation(collectionInstallationStarted);
 					if (!IsCompleted)
 						OnTaskSetCompleted(reportedStatus, DetermineOperationDurability(), booSuccess, strMessage, Mod);
 				}
@@ -459,7 +463,14 @@ namespace Nexus.Client.ModManagement
 		{
 			PrepareModTask pmtTask = new PrepareModTask(FileUtility);
 			OnTaskStarted(pmtTask);
-			return pmtTask.PrepareMod(Mod);
+			long started = OperationIdentity != null && OperationIdentity.Origin == ModOperationOrigin.Collection
+				? Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.StartTiming() : 0;
+			try { return pmtTask.PrepareMod(Mod); }
+			finally
+			{
+				if (started != 0)
+					Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.RecordNativeArchivePreparation(started);
+			}
 		}
 
 		/// <summary>
@@ -516,6 +527,15 @@ namespace Nexus.Client.ModManagement
 				ValidateLegacyReplayBasenameCollision();
 
 			ModInstallationRecipeExpectedContent expectedContent = InstallationRecipeInput.Validation.ExpectedContent;
+			if (recipeOperation.Origin == ModOperationOrigin.Collection)
+			{
+				// Preparation already reads the archive. Reuse that digest only while its path, size and write stamp match.
+				if (!Nexus.Client.CollectionManagement.CollectionArchiveContentMatcher.MatchesFile(Mod.Filename,
+					expectedContent.ByteLength, Nexus.Client.CollectionManagement.CollectionContentHash.FromSha256(expectedContent.Sha256),
+					CancellationToken.None, true))
+					throw new InvalidDataException("The installation recipe source no longer matches its expected content.");
+				return;
+			}
 			using (var stream = new FileStream(Mod.Filename, FileMode.Open, FileAccess.Read, FileShare.Read))
 			{
 				if (stream.Length != expectedContent.ByteLength)
@@ -702,7 +722,7 @@ namespace Nexus.Client.ModManagement
 			IScriptedFileSelectionCache replayCache = new ScriptedFileSelectionCache(Mod, GameMode);
 			var executor = new ImmediateScriptedInstallOperationExecutor(
 				Mod, GameMode, EnvironmentInfo, VirtualModActivator, VirtualModActivator.GetModLinkInstaller(), installers,
-				x => OnTaskStarted(x), replayCache, true);
+				x => OnTaskStarted(x), replayCache, true, InstallationRecipeInput.DeferPluginReconciliation);
 
 			bool result = true;
 			using (executor.BeginExecutionBatch(p_lstOperations.Count))

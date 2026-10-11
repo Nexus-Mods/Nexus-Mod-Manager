@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Reflection;
+using System.Text;
 using System.Linq;
 using Nexus.Client;
 using Nexus.Client.Games;
@@ -10,6 +13,7 @@ using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.ModManagement.Scripting.XmlScript;
 using Nexus.Client.Mods;
+using Nexus.Client.Mods.Formats.FOMod;
 using Nexus.Client.PluginManagement;
 using Nexus.Client.Plugins;
 using Nexus.Client.Util;
@@ -73,8 +77,94 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
+		/// An XML installer may reference real assets under fomod/options even though the
+		/// ordinary mod-file inventory hides them as part of its metadata filter.
+		/// </summary>
+		[Test]
+		public void Translate_FomodOptionsAssetHiddenFromNormalListingIsStillInstallable()
+		{
+			const string source = @"fomod\options\01-EyesHumanLashesTEOBThin.dds";
+			const string destination = @"textures\humanlashes.dds";
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File(source, destination, 0));
+			IMod mod = CreateModWithHiddenFomodAssets(script, source);
+			Assert.That(mod.GetFileList(), Does.Not.Contain(source));
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			ModInstallationFomodSelectionRecipe selection = Recipe(new Version(5, 0));
+
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(
+				mod, CreateGameMode(), CreateEnvironmentInfo(), null, selection);
+			Assert.That(paths.Select(p => p.Path), Is.EqualTo(new[] { source, destination }));
+			ModInstallationRecipeInput installed = adapter.Translate(
+				CreateInput(adapter, paths.ToArray()), mod, CreateGameMode(), CreateEnvironmentInfo(), null, selection);
+			Assert.That(installed.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo(source));
+		}
+
+		[Test]
+		public void Translate_FomodOptionsFolderExpandsOnlyPresentInstallerAssets()
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile(@"fomod\options", "textures", true, 0, false, false));
+			IMod mod = CreateModWithHiddenFomodAssets(script,
+				@"fomod\options\a.dds", @"fomod\options\sub\b.dds", @"other\c.dds");
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			ModInstallationFomodSelectionRecipe selection = Recipe(new Version(5, 0));
+
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(
+				mod, CreateGameMode(), CreateEnvironmentInfo(), null, selection);
+			ModInstallationRecipeInput installed = adapter.Translate(
+				CreateInput(adapter, paths.ToArray()), mod, CreateGameMode(), CreateEnvironmentInfo(), null, selection);
+			Assert.That(installed.NativeOperations.OfType<InstallModFileOperation>().Select(op => op.SourcePath),
+				Is.EquivalentTo(new[] { @"fomod\options\a.dds", @"fomod\options\sub\b.dds" }));
+		}
+
+		[Test]
+		public void Translate_MissingInstallerAssetStillFailsClosed()
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File(@"fomod\options\missing.dds", @"textures\out.dds", 0));
+			IMod mod = CreateModWithHiddenFomodAssets(script, @"fomod\options\different.dds");
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(
+				mod, CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0))));
+		}
+
+		/// <summary>
 		/// Verifies required, selected, always-install and flag-conditional files become native typed operations in native order.
 		/// </summary>
+		[Test]
+		public void Translate_UnnamedLegacyFomodStepIsMatchedByPositionWithoutMatchingNamedSteps()
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			var step = new InstallStep(null, null, SortOrder.Explicit);
+			var group = new OptionGroup("Group", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			group.Options.Add(Option("Selected", OptionType.Optional, File(@"choice.bin", @"choice.bin", 0)));
+			step.OptionGroups.Add(group);
+			script.InstallSteps.Add(step);
+			IMod mod = CreateMod(script, @"choice.bin");
+			IModInstallationFomodRecipeAdapter adapter = scriptType;
+			ModInstallationRecipeInput input = CreateInput(adapter, PathSource(@"choice.bin"), PathDestination(@"choice.bin"));
+
+			ModInstallationFomodSelectionRecipe missingName = Recipe(new Version(5, 0),
+				Step(0, null, Group(0, "Group", Selection(0, "Selected"))));
+			ModInstallationRecipeInput translated = adapter.Translate(
+				input, mod, CreateGameMode(), CreateEnvironmentInfo(), null, missingName);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Count(), Is.EqualTo(1));
+
+			ModInstallationFomodSelectionRecipe emptyName = Recipe(new Version(5, 0),
+				Step(0, "", Group(0, "Group", Selection(0, "Selected"))));
+			Assert.DoesNotThrow(() => adapter.Translate(input, mod, CreateGameMode(), CreateEnvironmentInfo(), null, emptyName));
+
+			ModInstallationFomodSelectionRecipe inventedName = Recipe(new Version(5, 0),
+				Step(0, "Not this step", Group(0, "Group", Selection(0, "Selected"))));
+			Assert.Throws<InvalidDataException>(() => adapter.Translate(
+				input, mod, CreateGameMode(), CreateEnvironmentInfo(), null, inventedName));
+		}
+
 		[Test]
 		public void Translate_ExactSelectionsProduceNativeOperationsInFomodOrder()
 		{
@@ -211,6 +301,43 @@ namespace NexusClientTests
 			Assert.Throws<DependencyException>(() => adapter.Translate(
 				CreateInput(adapter), CreateMod(unusable, @"unsafe.bin"), CreateGameMode(), CreateEnvironmentInfo(), null,
 				Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group", Selection(0, "Unsafe"))))));
+		}
+
+		[Test]
+		public void Translate_SelectedUnusablePureCreditOptionIsANoOp()
+		{
+			XmlScriptType type = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny,
+				Option("La Coiffe Collection by LunaEversor", OptionType.NotUsable));
+			script.RequiredInstallFiles.Add(File(@"core\main.bin", @"main.bin", 0));
+			IMod mod = CreateMod(script, @"core\main.bin");
+			var recipe = Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group",
+				Selection(0, "La Coiffe Collection by LunaEversor"))));
+			IModInstallationFomodRecipeAdapter adapter = type;
+			ModInstallationRecipeInput input = CreateInput(adapter,
+				PathSource(@"core\main.bin"), PathDestination(@"main.bin"));
+			ModInstallationRecipeInput plan = adapter.Translate(input, mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			Assert.That(plan.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.SourcePath),
+				Is.EqualTo(new[] { @"core\main.bin" }));
+		}
+
+		[Test]
+		public void Translate_SelectedUnusableCreditWithFlagsOrFilesStillBlocks()
+		{
+			XmlScriptType type = new XmlScriptType();
+			Option flagged = Option("Credit with installer flag", OptionType.NotUsable);
+			flagged.Flags.Add(new ConditionalFlag("feature", "enabled"));
+			XmlScript flagScript = ScriptWithSingleGroup(type, OptionGroupType.SelectAny, flagged);
+			IMod mod = CreateMod(flagScript);
+			var recipe = Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group", Selection(0, flagged.Name))));
+			Assert.Throws<DependencyException>(() => type.Translate(CreateInput(type), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe));
+
+			XmlScript fileScript = ScriptWithSingleGroup(type, OptionGroupType.SelectAny,
+				Option("Credit with files", OptionType.NotUsable, File(@"data.bin", @"data.bin", 0)));
+			Assert.Throws<DependencyException>(() => type.Translate(CreateInput(type), CreateMod(fileScript, @"data.bin"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0), Step(0, "Step",
+				Group(0, "Group", Selection(0, "Credit with files"))))));
 		}
 
 		/// <summary>
@@ -577,6 +704,119 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Detects Data-wrapped installers and replays their relative files with cold, warm, and legacy negative metadata.</summary>
+		[TestCase("", 0, true)]
+		[TestCase("", 1, true)]
+		[TestCase("", 2, true)]
+		[TestCase("Wrapper", 0, true)]
+		[TestCase("Wrapper", 1, true)]
+		[TestCase("Wrapper", 2, true)]
+		[TestCase("", 0, false)]
+		[TestCase("Wrapper", 1, false)]
+		public void Archive_DataWrappedInstallerUsesItsOwnSourceRoot(string wrapper, int cacheState, bool scriptPresent)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-fomod-data-root-" + Guid.NewGuid().ToString("N"));
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			Directory.CreateDirectory(root);
+			try
+			{
+				const string source = @"Replacer_Clutter\Meshes\vendor.nif";
+				const string destination = @"Meshes\vendor.nif";
+				var scriptType = new XmlScriptType();
+				XmlScript script = ScriptWithSingleGroup(scriptType, OptionGroupType.SelectExactlyOne,
+					Option("Standalone with Clutter", OptionType.Optional, File("other.bin", "other.bin", 0)),
+					Option("Standalone without Clutter", OptionType.Optional, File("other.bin", "other.bin", 0)),
+					Option("Replace Vanilla with Clutter", OptionType.Optional, File(source, destination, 0)));
+				byte[] payload = Encoding.UTF8.GetBytes("selected mesh");
+				string archivePath = Path.Combine(root, "vendor-stalls.zip");
+				string dataRoot = String.IsNullOrEmpty(wrapper) ? "Data/" : wrapper + "/Data/";
+				using (var stream = new FileStream(archivePath, FileMode.Create))
+				using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+				{
+					WriteInstallerRootEntry(zip, dataRoot + source.Replace('\\', '/'), payload);
+					WriteInstallerRootEntry(zip, dataRoot + "other.bin", payload);
+					if (scriptPresent)
+						WriteInstallerRootEntry(zip, dataRoot + "fomod/ModuleConfig.xml",
+							Encoding.Unicode.GetPreamble().Concat(Encoding.Unicode.GetBytes(scriptType.SaveScript(script))).ToArray());
+				}
+				IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+					method.Name == "get_TemporaryPath" ? root : null);
+				IModCacheManager cacheManager = InterfaceStub<IModCacheManager>.Create((method, args) =>
+					method.Name == "get_ModCacheDirectory" ? cacheDirectory :
+					method.Name == "get_EnvironmentInfo" ? (object)environment : null);
+				IScriptTypeRegistry registry = InterfaceStub<IScriptTypeRegistry>.Create((method, args) =>
+					method.Name == "get_Types" ? new List<IScriptType> { scriptType } : null);
+				if (cacheState == 2)
+				{
+					// Reproduce the old cached result without modifying the archive or requiring a user cache reset.
+					Type cacheType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+					Type metadataType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadata", true);
+					object cache = Activator.CreateInstance(cacheType, cacheDirectory);
+					object metadata = Activator.CreateInstance(metadataType);
+					metadataType.GetProperty("PrefixPath").SetValue(metadata, wrapper);
+					metadataType.GetProperty("InfoXml").SetValue(metadata, Encoding.UTF8.GetBytes("<fomod/>"));
+					cacheType.GetMethod("SaveDurable", BindingFlags.Instance | BindingFlags.NonPublic)
+						.Invoke(cache, new[] { (object)archivePath, metadata });
+				}
+				if (cacheState == 1)
+					new FOMod(archivePath, null, new[] { "Meshes" }, "Data", new[] { ".esp" }, cacheManager, registry, true, false);
+				var mod = new FOMod(archivePath, null, new[] { "Meshes" }, "Data", new[] { ".esp" }, cacheManager, registry, true, false);
+				Assert.That(mod.HasInstallScript, Is.EqualTo(scriptPresent));
+				if (!scriptPresent)
+				{
+					Assert.That(mod.GetFileList(), Does.Contain(Path.Combine("Data", source)), "Ordinary Data-wrapped mod layouts must stay unchanged.");
+					return;
+				}
+				Assert.That(mod.GetFile(source), Is.EqualTo(payload));
+				Assert.That(mod.GetFileList(), Does.Contain(source));
+				IModInstallationFomodRecipePlanningAdapter adapter = (IModInstallationFomodRecipePlanningAdapter)mod.InstallScript.Type;
+				ModInstallationFomodSelectionRecipe selection = Recipe(new Version(5, 0),
+					Step(0, "Step", Group(0, "Group", Selection(2, "Replace Vanilla with Clutter"))));
+				IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), environment, null, selection);
+				Assert.That(paths.Where(path => path.Kind == ModInstallationRecipePathKind.ArchiveSource).Select(path => path.Path),
+					Is.EqualTo(new[] { source }));
+				ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+					CreateGameMode(), environment, null, selection);
+				InstallModFileOperation file = translated.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(file.SourcePath, Is.EqualTo(source));
+				Assert.That(file.DestinationPath, Is.EqualTo(destination));
+			}
+			finally
+			{
+				ReleaseInstallerRootMetadataDatabase(cacheDirectory);
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Writes one archive entry for the real installer-root regression fixture.</summary>
+		private static void WriteInstallerRootEntry(ZipArchive archive, string name, byte[] bytes)
+		{
+			using (Stream stream = archive.CreateEntry(name).Open())
+				stream.Write(bytes, 0, bytes.Length);
+		}
+
+		/// <summary>Releases the shared metadata connection so the temporary regression fixture can be removed.</summary>
+		private static void ReleaseInstallerRootMetadataDatabase(string cacheDirectory)
+		{
+			Type cacheType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+			object databaseLock = cacheType.GetField("DatabaseLock", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+			var databases = (System.Collections.IDictionary)cacheType.GetField("Databases", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null);
+			string databasePath = Path.Combine(cacheDirectory, "fomodArchiveMetadata.sqlite");
+			lock (databaseLock)
+			{
+				object database = databases[databasePath];
+				if (database == null) return;
+				Type databaseType = database.GetType();
+				object syncRoot = databaseType.GetField("SyncRoot", BindingFlags.Instance | BindingFlags.Public).GetValue(database);
+				lock (syncRoot)
+				{
+					cacheType.GetMethod("CommitDatabase", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, new[] { database });
+					((IDisposable)databaseType.GetField("Connection", BindingFlags.Instance | BindingFlags.Public).GetValue(database)).Dispose();
+				}
+				databases.Remove(databasePath);
+			}
+		}
+
 		/// <summary>
 		/// Creates a script with one visible step/group and the supplied options.
 		/// </summary>
@@ -722,6 +962,42 @@ namespace NexusClientTests
 						return null;
 				}
 			});
+		}
+
+		private interface IModWithInstallerSourceInventory : IMod, IModInstallerSourceInventory
+		{
+		}
+
+		/// <summary>
+		/// Emulates the real FOMod behavior where ordinary enumeration hides all fomod/*
+		/// entries but the native installer can access them through exact logical paths.
+		/// </summary>
+		private static IMod CreateModWithHiddenFomodAssets(XmlScript script, params string[] archiveFiles)
+		{
+			var files = new List<string>(archiveFiles);
+			return InterfaceStub<IModWithInstallerSourceInventory>.Create((method, args) =>
+			{
+				switch (method.Name)
+				{
+					case "get_HasInstallScript": return true;
+					case "get_InstallScript": return script;
+					case "get_Filename": return "FomodFixture.7z";
+					case "GetFileList":
+						return FilterFixtureFiles(files.Where(file =>
+							!file.Replace('/', '\\').StartsWith(@"fomod\", StringComparison.OrdinalIgnoreCase)), args);
+					case "GetInstallerSourceFiles":
+						return FilterFixtureFiles(files, args);
+					default: return null;
+				}
+			});
+		}
+
+		private static List<string> FilterFixtureFiles(IEnumerable<string> files, object[] args)
+		{
+			if (args.Length == 0 || String.IsNullOrEmpty(args[0] as string))
+				return files.ToList();
+			string prefix = ((string)args[0]).Replace('/', '\\').TrimEnd('\\') + @"\";
+			return files.Where(file => file.Replace('/', '\\').StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList();
 		}
 
 		/// <summary>

@@ -328,8 +328,9 @@ namespace NexusClientTests
 				new CollectionNativeStateIssue[0], 1);
 		}
 
-		[Test]
-		public void RecoveryManifestV2_RoundTripsExactRestartEvidence()
+		[TestCase(false)]
+		[TestCase(true)]
+		public void RecoveryManifestV2_RoundTripsExactRestartEvidence(bool deferred)
 		{
 			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-c69-test");
 			CollectionIdentity collection = CollectionIdentity.FromNexus("collection-c69");
@@ -352,6 +353,7 @@ namespace NexusClientTests
 				new CollectionNativeFileContentEvidence[0], new CollectionNativeFileContentEvidence[0],
 				new CollectionReplayContentEvidence(false, null, 0, false, new CollectionReplayPayloadContentEvidence[0]),
 				new CollectionExpectedReplayOperation[0]);
+			if (deferred) evidence = evidence.WithDeferredPluginReconciliation();
 			var manifest = new CollectionNativeChildRecoveryManifest(operation.Identity, 1, plan, member,
 				CollectionNativeChildAction.ActivateOrReinstall, native,
 				new CollectionCurrentStateFingerprint("c6-native-state/1", "state-c69"),
@@ -361,10 +363,14 @@ namespace NexusClientTests
 			byte[] bytes = InvokeSerialize(manifest);
 			using (var stream = new MemoryStream(bytes, false))
 			using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+			{
+				if (deferred) Assert.AreEqual("nmm-ce.collections.child-recovery/7", reader.ReadString());
 				Assert.AreEqual("nmm-ce.collections.child-recovery/2", reader.ReadString());
+			}
 
 			CollectionNativeChildRecoveryManifest roundTrip = InvokeDeserialize(bytes, operation, child);
 			Assert.IsNotNull(roundTrip.ExecutionEvidence);
+			Assert.AreEqual(deferred, roundTrip.ExecutionEvidence.DeferPluginReconciliation);
 			Assert.AreEqual("game", roundTrip.ExecutionEvidence.NexusGameDomain);
 			Assert.AreEqual(10, roundTrip.ExecutionEvidence.NexusModId);
 			Assert.AreEqual(20, roundTrip.ExecutionEvidence.NexusFileId);

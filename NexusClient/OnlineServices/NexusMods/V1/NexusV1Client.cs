@@ -17,6 +17,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.V1
     {
         private static readonly Uri BaseUri = new Uri("https://api.nexusmods.com/v1/", UriKind.Absolute);
         private readonly NexusModsService _service;
+        private static readonly ApiTransport ContentPreviewTransport = new ApiTransport(TimeSpan.FromSeconds(15));
 
         /// <summary>
         /// Initializes the REST v1 client over the shared Nexus Mods service.
@@ -71,6 +72,45 @@ namespace Nexus.Client.OnlineServices.NexusMods.V1
             return GetAsync<NexusV1ModFile>($"games/{RequireSegment(domainName, nameof(domainName))}/mods/{modId}/files/{fileId}.json", cancellationToken);
         }
 
+        /// <summary>Reads a public Nexus archive inventory without requesting mod download links.</summary>
+        internal async Task<IList<string>> GetFileContentPreviewAsync(string domainName, int modId, int fileId, CancellationToken cancellationToken)
+        {
+            NexusV1ModFile file = await GetModFileAsync(domainName, modId, fileId, cancellationToken).ConfigureAwait(false);
+            Uri uri;
+            if (file == null || !Uri.TryCreate(file.ContentPreviewLink, UriKind.Absolute, out uri) ||
+                uri.Scheme != Uri.UriSchemeHttps || !uri.Host.EndsWith(".nexusmods.com", StringComparison.OrdinalIgnoreCase)) return null;
+            using (var request = new HttpRequestMessage(HttpMethod.Get, uri))
+            {
+                ApiResponse response = await ContentPreviewTransport.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                if ((int)response.StatusCode < 200 || (int)response.StatusCode >= 300) return null;
+                NexusContentPreviewNode root = ApiJson.Deserialize<NexusContentPreviewNode>(response.Content);
+                if (root == null) return null;
+                var files = new List<string>();
+                var pending = new Stack<NexusContentPreviewNode>();
+                pending.Push(root);
+                while (pending.Count > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    NexusContentPreviewNode node = pending.Pop();
+                    if (node.Type == "file" && !String.IsNullOrWhiteSpace(node.Path)) files.Add(node.Path);
+                    if (node.Children != null)
+                        foreach (NexusContentPreviewNode child in node.Children)
+                            if (child != null) pending.Push(child);
+                }
+                return files;
+            }
+        }
+
+        /// <summary>Typed directory/file tree returned by the public Nexus file metadata service.</summary>
+        private sealed class NexusContentPreviewNode
+        {
+            [JsonProperty("path")]
+            public string Path { get; set; }
+            [JsonProperty("type")]
+            public string Type { get; set; }
+            [JsonProperty("children")]
+            public IList<NexusContentPreviewNode> Children { get; set; }
+        }
         /// <summary>
         /// Gets download links for a mod file using the authenticated Premium-account flow.
         /// </summary>

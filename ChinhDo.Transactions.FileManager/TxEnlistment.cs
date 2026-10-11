@@ -308,9 +308,10 @@ namespace ChinhDo.Transactions
                 var r = new RollbackFile(path);
                 try
                 {
-                    using (var file = File.Create(path))
+                    int bufferSize = stream.Length - stream.Position >= 1024 * 1024 ? 1024 * 1024 : 81920;
+                    using (var file = File.Create(path, bufferSize, FileOptions.SequentialScan))
                     {
-                        stream.CopyTo(file);
+                        stream.CopyTo(file, bufferSize);
                         stream.Dispose();
                     }
                 }
@@ -371,12 +372,22 @@ namespace ChinhDo.Transactions
 			{
 				try
 				{
-					// Roll back journal items in reverse order
+					// One missing link source must not prevent unrelated files from being restored.
+					List<Exception> failures = new List<Exception>();
 					for (int i = _journal.Count - 1; i >= 0; i--)
 					{
-						_journal[i].Rollback();
-						_journal[i].CleanUp();
+						try
+						{
+							_journal[i].Rollback();
+							_journal[i].CleanUp();
+						}
+						catch (Exception exception)
+						{
+							failures.Add(new IOException("Unable to restore " + _journal[i], exception));
+						}
 					}
+					if (failures.Count > 0)
+						throw new AggregateException("One or more file operations could not be rolled back.", failures);
 
 					_enlisted = false;
 					_journal.Clear();

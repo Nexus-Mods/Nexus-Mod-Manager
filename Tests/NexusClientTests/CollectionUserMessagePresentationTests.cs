@@ -35,6 +35,24 @@ namespace Nexus.Client.Tests
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
 		}
 
+		[TestCase(false)]
+		[TestCase(true)]
+		public void MemberPreparationFailure_ShowsModAndReasonWithAnAvailableAction(bool optional)
+		{
+			const string reason = "The selected archive does not contain the installer required by the saved choices.";
+			const string raw = "Collection member 'Better Vendor Stalls': " + reason;
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForMemberPreparation(
+				"Better Vendor Stalls", reason, optional, raw);
+
+			Assert.That(presentation.MessageFallback, Does.Contain("Better Vendor Stalls"));
+			Assert.That(presentation.MessageFallback, Does.Contain(reason));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Download / Prepare"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Export Technical Report"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("errors below"));
+			Assert.That(presentation.NextActionFallback.Contains("deselect"), Is.EqualTo(optional));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
 		[Test]
 		public void IncomingFileOverlapPresentation_NamesBothPackagesAndTheFile()
 		{

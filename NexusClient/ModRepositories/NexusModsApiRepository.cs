@@ -1730,9 +1730,8 @@
 			}
 			catch (ApiException ex)
 			{
-				if (ReactToApiException(ex))
-					return !localStateAfterCompletion;
-
+				// A failed request does not establish an endorsement or abstention.
+				ReactToApiException(ex);
 				return null;
 			}
             catch (Exception ex)
@@ -1803,6 +1802,26 @@
             }
 		}
 
+		/// <summary>Gets optional Collection prerequisite archive paths from Nexus metadata without bypassing account download policy.</summary>
+		internal IList<string> GetCollectionFileContentPreview(int modId, int fileId, CancellationToken cancellationToken)
+		{
+			try
+			{
+				NexusV1Client client = _apiCallManager.V1;
+				return client == null ? null : client.GetFileContentPreviewAsync(GameDomainName, modId, fileId, cancellationToken).GetAwaiter().GetResult();
+			}
+			catch (ApiException ex)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				ReactToApiException(ex);
+				return null;
+			}
+			catch (Newtonsoft.Json.JsonException ex)
+			{
+				TraceUtil.TraceException(ex);
+				return null;
+			}
+		}
 		/// <inheritdoc cref="IModRepository"/>
 		public IModFileInfo GetFileInfo(string modId, string fileId)
 		{

@@ -189,7 +189,7 @@ namespace Nexus.Client.CollectionManagement
 				if (!child.Child.Member.MemberKey.Equals(next.MemberKey))
 					throw new InvalidOperationException("C8.6 child preparation crossed a dependency phase barrier without C8.5 revalidation.");
 
-				ModInstallationRecipeInput childRecipe = prepared.RecipeInput.ForOperationIdentity(child.Child.NativeOperation);
+				ModInstallationRecipeInput childRecipe = prepared.RecipeInput.ForOperationIdentity(child.Child.NativeOperation).WithDeferredPluginReconciliation();
 				CollectionNativeChildExecutionResult execution = await _childExecution.SubmitPreparedReplacementChildAsync(operationIdentity,
 					planning.ExecutionPlan, planning.ImpactPlan, prepared.EffectPreview, childRecipe, paths, cancellationToken).ConfigureAwait(false);
 				if (execution == null)

@@ -7,7 +7,7 @@
     /// <summary>
 	/// Describes the metadata of a mod in a repository.
 	/// </summary>
-	public class ModInfo : IModInfo, IExplicitCategoryAssignment
+	public class ModInfo : IModInfo, IExplicitCategoryAssignment, IModEndorsementMetadata
 	{
 		#region IModInfo Members
 
@@ -60,6 +60,9 @@
 		/// </summary>
 		/// <value>The Endorsement state of the mod.</value>
 		public bool? IsEndorsed { get; set; }
+
+		/// <summary>Gets or sets whether the provider distinguishes abstained and undecided states.</summary>
+		public bool HasEndorsementState { get; set; } = true;
 
 		/// <summary>
 		/// Gets or sets the version of the mod.
@@ -159,6 +162,7 @@
 		{
 			if (original != null)
             {
+                HasEndorsementState = (original as IModEndorsementMetadata)?.HasEndorsementState ?? true;
                 SetAllInfo(true, original.Id, original.DownloadId, original.ModName, original.FileName, original.HumanReadableVersion, original.LastKnownVersion, original.IsEndorsed, original.MachineVersion, original.Author, original.CategoryId, original.CustomCategoryId, original.Description, original.InstallDate, original.Website, original.Screenshot, original.UpdateWarningEnabled, original.UpdateChecksEnabled);
             }
         }
@@ -305,7 +309,10 @@
 		/// or just the empty ones.</param>
 		public void UpdateInfo(IModInfo modInfo, bool? overwriteAllValues)
 		{
-			SetAllInfo(overwriteAllValues == true, modInfo.Id, modInfo.DownloadId, modInfo.ModName, modInfo.FileName, modInfo.HumanReadableVersion, modInfo.LastKnownVersion, modInfo.IsEndorsed, modInfo.MachineVersion, modInfo.Author, modInfo.CategoryId, modInfo.CustomCategoryId, modInfo.Description, modInfo.InstallDate, modInfo.Website, modInfo.Screenshot, modInfo.UpdateWarningEnabled, modInfo.UpdateChecksEnabled);
+			bool preserveAbstention = IsEndorsed == false && modInfo.IsEndorsed == null &&
+				(modInfo as IModEndorsementMetadata)?.HasEndorsementState == false;
+			HasEndorsementState = preserveAbstention || ((modInfo as IModEndorsementMetadata)?.HasEndorsementState ?? true);
+			SetAllInfo(overwriteAllValues == true, modInfo.Id, modInfo.DownloadId, modInfo.ModName, modInfo.FileName, modInfo.HumanReadableVersion, modInfo.LastKnownVersion, preserveAbstention ? IsEndorsed : modInfo.IsEndorsed, modInfo.MachineVersion, modInfo.Author, modInfo.CategoryId, modInfo.CustomCategoryId, modInfo.Description, modInfo.InstallDate, modInfo.Website, modInfo.Screenshot, modInfo.UpdateWarningEnabled, modInfo.UpdateChecksEnabled);
 		}
 
 

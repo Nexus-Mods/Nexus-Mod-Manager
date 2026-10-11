@@ -16,6 +16,7 @@ namespace Nexus.Client.UI.Controls
 	{
 		private bool m_booAcceptedPath = false;
 		private bool m_booGamePathDetected = false;
+		private volatile bool _discovererEventsDetached;
 		
 		#region Properties
 
@@ -77,6 +78,45 @@ namespace Nexus.Client.UI.Controls
 		#region Game Discoverer Event Handling
 
 		/// <summary>
+		/// Detaches scan callbacks when the item or its containing dialog closes.
+		/// </summary>
+		internal void DetachDiscovererEvents()
+		{
+			if (_discovererEventsDetached || Discoverer == null)
+				return;
+
+			_discovererEventsDetached = true;
+			Discoverer.PropertyChanged -= Detector_PropertyChanged;
+			Discoverer.PathFound -= Detector_PathFound;
+			Discoverer.TaskEnded -= Detector_TaskEnded;
+		}
+
+		/// <summary>
+		/// Posts scan updates to the live item without blocking the worker during dialog shutdown.
+		/// </summary>
+		private void UpdateFromDiscoverer(Action update)
+		{
+			if (_discovererEventsDetached || IsDisposed || Disposing || !IsHandleCreated)
+				return;
+
+			if (InvokeRequired)
+			{
+				try
+				{
+					BeginInvoke((Action)(() => UpdateFromDiscoverer(update)));
+				}
+				catch (InvalidOperationException)
+				{
+					if (!_discovererEventsDetached && !IsDisposed && !Disposing && IsHandleCreated)
+						throw;
+				}
+				return;
+			}
+
+			update();
+		}
+
+		/// <summary>
 		/// Handles the <see cref="IBackgroundTask.TaskEnded"/> event of the game discoverer.
 		/// </summary>
 		/// <remarks>
@@ -86,13 +126,11 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 		private void Detector_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
-			if (InvokeRequired)
+			UpdateFromDiscoverer(() =>
 			{
-				Invoke((Action<object, TaskEndedEventArgs>)Detector_TaskEnded, sender, e);
-				return;
-			}
-			if (!Discoverer.IsFound(GameMode.ModeId) && !Discoverer.HasCandidates(GameMode.ModeId))
-				SetVisiblePanel(pnlNotFound);
+				if (!Discoverer.IsFound(GameMode.ModeId) && !Discoverer.HasCandidates(GameMode.ModeId))
+					SetVisiblePanel(pnlNotFound);
+			});
 		}
 
 		/// <summary>
@@ -105,14 +143,15 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">A <see cref="GameModeDiscoveredEventArgs"/> describing the event arguments.</param>
 		private void Detector_PathFound(object sender, GameModeDiscoveredEventArgs e)
 		{
-			if (InvokeRequired)
-			{
-				Invoke((Action<object, GameModeDiscoveredEventArgs>)Detector_PathFound, sender, e);
+			if (!e.GameMode.ModeId.Equals(GameMode.ModeId))
 				return;
-			}
 
-			if (e.GameMode.ModeId.Equals(GameMode.ModeId))
+			UpdateFromDiscoverer(() =>
 			{
+				// A queued candidate must not replace a path already confirmed or cancelled by the user.
+				if (Discoverer.IsFound(GameMode.ModeId) || !Discoverer.HasCandidates(GameMode.ModeId))
+					return;
+
 				m_booGamePathDetected = true;
                 m_booAcceptedPath = e.InstalledOnSuitableFileSystem;
                 lblPath.Text = e.InstallationPath;
@@ -126,7 +165,7 @@ namespace Nexus.Client.UI.Controls
                     pnlFileSystemError.Size = new Size(pnlFileSystemError.Width, 66);
                     SetVisiblePanel(pnlFileSystemError);
                 }
-			}
+			});
 		}
 
 		/// <summary>
@@ -139,10 +178,8 @@ namespace Nexus.Client.UI.Controls
 		/// <param name="e">A <see cref="PropertyChangedEventArgs"/> describing the event arguments.</param>
 		private void Detector_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
-			if (lblProgressMessage.InvokeRequired)
-				lblProgressMessage.BeginInvoke((Action<object, PropertyChangedEventArgs>)Detector_PropertyChanged, sender, e);
-			else if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)))
-				lblProgressMessage.Text = Discoverer.OverallMessage;
+			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.OverallMessage)))
+				UpdateFromDiscoverer(() => lblProgressMessage.Text = Discoverer.OverallMessage);
 		}
 
 		public void StopSearching()

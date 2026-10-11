@@ -1,4 +1,5 @@
 ﻿using Nexus.Client.BackgroundTasks;
+using Nexus.Client.CollectionManagement;
 using Nexus.Client.Commands;
 using Nexus.Client.Commands.Generic;
 using Nexus.Client.Games;
@@ -25,6 +26,8 @@ namespace Nexus.Client.PluginManagement.UI
 	/// </summary>
 	public class PluginManagerVM
 	{
+		private readonly object m_objExternalPluginUpdateLock = new object();
+
 		#region Events
 
 		/// <summary>
@@ -314,57 +317,57 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		private void LoadOrderManager_ActivePluginUpdate(object sender, PluginManagementEventArgs e)
 		{
-			if (ModActivationMonitor.IsInstalling)
-				return;
-
-			List<string> lstNewActiveList;
-			List<string> lstActivatedPlugins = new List<string>();
-			List<string> lstDisabledPlugins = new List<string>();
-			List<string> lstActivePlugins;
-
-			if (sender != null)
+			ApplyExternalPluginUpdate(() =>
 			{
-				try
+				List<string> lstNewActiveList;
+				List<string> lstActivatedPlugins = new List<string>();
+				List<string> lstDisabledPlugins = new List<string>();
+				List<string> lstActivePlugins;
+
+				if (sender != null)
 				{
-					lstNewActiveList = (e.Plugins).ToList();
+					try
+					{
+						lstNewActiveList = (e.Plugins).ToList();
+					}
+					catch
+					{
+						return;
+					}
+
+					if (ActivePlugins.Count > 0)
+					{
+						lstActivePlugins = ActivePlugins.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Filename)).Select(x => x.Filename).ToList();
+
+						var ActivatedPlugins = lstNewActiveList.Except(lstActivePlugins, StringComparer.InvariantCultureIgnoreCase);
+						if (ActivatedPlugins != null)
+							lstActivatedPlugins = ActivatedPlugins.ToList();
+
+						var DisabledPlugins = lstActivePlugins.Except(lstNewActiveList, StringComparer.InvariantCultureIgnoreCase);
+						if (DisabledPlugins != null)
+							lstDisabledPlugins = DisabledPlugins.ToList();
+					}
+					else
+						lstActivatedPlugins = lstNewActiveList;
+
+					foreach (string plugin in lstActivatedPlugins)
+					{
+						if (!PluginManager.IsPluginRegistered(plugin))
+							PluginManager.AddPlugin(plugin);
+
+						if (PluginManager.IsPluginRegistered(plugin))
+							PluginManager.ActivatePlugin(plugin);
+					}
+					foreach (string plugin in lstDisabledPlugins)
+					{
+						if (PluginManager.IsPluginRegistered(plugin))
+							PluginManager.DeactivatePlugin(plugin);
+					}
+
+					if (e.ForceSorting)
+						RefreshPluginSorting(e.Plugins);
 				}
-				catch
-				{
-					return;
-				}
-
-				if (ActivePlugins.Count > 0)
-				{
-					lstActivePlugins = ActivePlugins.Where(x => x != null).Where(x => !string.IsNullOrEmpty(x.Filename)).Select(x => x.Filename).ToList();
-
-					var ActivatedPlugins = lstNewActiveList.Except(lstActivePlugins, StringComparer.InvariantCultureIgnoreCase);
-					if (ActivatedPlugins != null)
-						lstActivatedPlugins = ActivatedPlugins.ToList();
-
-					var DisabledPlugins = lstActivePlugins.Except(lstNewActiveList, StringComparer.InvariantCultureIgnoreCase);
-					if (DisabledPlugins != null)
-						lstDisabledPlugins = DisabledPlugins.ToList();
-				}
-				else
-					lstActivatedPlugins = lstNewActiveList;
-
-				foreach (string plugin in lstActivatedPlugins)
-				{
-					if (!PluginManager.IsPluginRegistered(plugin))
-						PluginManager.AddPlugin(plugin);
-
-					if (PluginManager.IsPluginRegistered(plugin))
-						PluginManager.ActivatePlugin(plugin);
-				}
-				foreach (string plugin in lstDisabledPlugins)
-				{
-					if (PluginManager.IsPluginRegistered(plugin))
-						PluginManager.DeactivatePlugin(plugin);
-				}
-
-				if (e.ForceSorting)
-					RefreshPluginSorting(e.Plugins);
-			}
+			});
 		}
 
 		/// <summary>
@@ -372,11 +375,11 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		private void LoadOrderManager_LoadOrderUpdate(object sender, EventArgs e)
 		{
-			if (ModActivationMonitor.IsInstalling)
-				return;
-
-			if (sender != null)
-				RefreshPluginSorting((string[])sender);
+			ApplyExternalPluginUpdate(() =>
+			{
+				if (sender != null)
+					RefreshPluginSorting((string[])sender);
+			});
 		}
 
 		/// <summary>
@@ -384,13 +387,13 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		private void LoadOrderManager_ExternalPluginAdded(object sender, EventArgs e)
 		{
-			if (ModActivationMonitor.IsInstalling)
-				return;
-
-			if (sender != null)
+			ApplyExternalPluginUpdate(() =>
 			{
-				PluginManager.AddPlugin(sender.ToString());
-			}
+				if (sender != null)
+				{
+					PluginManager.AddPlugin(sender.ToString());
+				}
+			});
 		}
 
 		/// <summary>
@@ -398,16 +401,38 @@ namespace Nexus.Client.PluginManagement.UI
 		/// </summary>
 		private void LoadOrderManager_ExternalPluginRemoved(object sender, EventArgs e)
 		{
+			ApplyExternalPluginUpdate(() =>
+			{
+				if (sender != null)
+				{
+					string pluginPath = sender.ToString();
+					if (File.Exists(Path.IsPathRooted(pluginPath) ? pluginPath : Path.Combine(CurrentGameMode.PluginDirectory, pluginPath)))
+						return;
+					if (PluginManager.IsPluginRegistered(pluginPath))
+					{
+						if (PluginManager.IsPluginActive(sender.ToString()))
+							PluginManager.DeactivatePlugin(sender.ToString());
+						PluginManager.RemovePlugin(sender.ToString());
+					}
+				}
+			});
+		}
+
+		/// <summary>Prevents file watcher writes from joining or racing a native install/uninstall transaction.</summary>
+		private void ApplyExternalPluginUpdate(Action update)
+		{
 			if (ModActivationMonitor.IsInstalling)
 				return;
-
-			if (sender != null)
+			// Preserve consecutive genuine external notifications while keeping them out of native writes.
+			lock (m_objExternalPluginUpdateLock)
 			{
-				if (PluginManager.IsPluginRegistered(sender.ToString()))
+				CollectionTargetMutationLease lease;
+				if (!CollectionTargetMutationLeaseManager.Shared.TryAcquireExternalPluginUpdate(out lease))
+					return;
+				using (lease)
 				{
-					if (PluginManager.IsPluginActive(sender.ToString()))
-						PluginManager.DeactivatePlugin(sender.ToString());
-					PluginManager.RemovePlugin(sender.ToString());
+					if (Nexus.Transactions.Transaction.Current == null)
+						update();
 				}
 			}
 		}

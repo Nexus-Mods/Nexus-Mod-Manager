@@ -251,6 +251,8 @@
     <Compile Include="Mods\IModCategory.cs" />
     <Compile Include="Mods\ModCompressorBase.cs" />
     <Compile Include="Mods\IMod.cs" />
+    <Compile Include="Mods\IModInstallerSourceInventory.cs" />
+    <Compile Include="Mods\IModFileStreamSource.cs" />
     <Compile Include="Mods\IModCacheManager.cs" />
     <Compile Include="Mods\IModCacheResettable.cs" />
     <Compile Include="Mods\IModFormat.cs" />

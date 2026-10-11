@@ -344,12 +344,17 @@
 
                         if (string.IsNullOrEmpty(p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage))
                         {
+                            stbMessage.Append(" ");
                             stbMessage.Append(LanguageManager.Format("Startup.Initialization.VerifyCriticalFile", "Please verify your game install and ensure {0} is present.", strPlugin));
                         }
                         else
                         {
                             stbMessage.AppendLine(Environment.NewLine + p_gmfGameModeFactory.GameModeDescriptor.CriticalFilesErrorMessage);
                         }
+
+                        stbMessage.AppendLine();
+                        stbMessage.AppendLine();
+                        stbMessage.Append(LanguageManager.Get("Startup.Initialization.RescanMovedGame", "If you moved or reinstalled the game in a different location, select 'Rescan Installed Games' in the game selection screen and confirm the new game folder."));
 
                         p_vwmErrorMessage = new ViewMessage(stbMessage.ToString(), null, LanguageManager.Get("Startup.Initialization.MissingFile.Title", "Missing File"), MessageBoxIcon.Warning);
                         return false;

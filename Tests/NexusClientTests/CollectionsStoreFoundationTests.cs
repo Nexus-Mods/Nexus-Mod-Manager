@@ -16,6 +16,27 @@ namespace NexusClientTests
 	public class CollectionsStoreFoundationTests
 	{
 		[Test]
+		public void OpenExisting_MigratesVersion9ToArchiveAndNamedCollectionLocations()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); Guid identity = store.CreateNew();
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+				{
+					Execute(connection, null, "DROP TABLE retained_archive_locations;");
+					Execute(connection, null, "DROP TABLE retained_collection_locations;");
+					Execute(connection, null, "UPDATE store_metadata SET value='9' WHERE key='schema_version';");
+					Execute(connection, null, "PRAGMA user_version=9;");
+				}
+				Assert.AreEqual(identity, store.OpenExisting().StoreId);
+				Assert.AreEqual(CollectionsStore.CurrentSchemaVersion, store.InspectExisting().SchemaVersion);
+				Assert.AreEqual(identity, store.OpenExisting().StoreId, "Migration remains idempotent.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void StorePaths_FollowTheSelectedInstallInfoStorage()
 		{
 			string root = CreateTemporaryDirectory();

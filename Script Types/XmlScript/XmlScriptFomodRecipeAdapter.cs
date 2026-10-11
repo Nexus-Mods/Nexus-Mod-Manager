@@ -304,7 +304,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 						OptionType optionType = option.GetOptionType(stateManager);
 						if (optionType == OptionType.Required && !selected)
 							throw new InvalidDataException(string.Format("Required FOMOD option '{0}' was not selected.", option.Name));
-						if (optionType == OptionType.NotUsable && selected)
+						if (optionType == OptionType.NotUsable && selected && !IsNoEffectInformationalOption(option))
 							throw new DependencyException(string.Format("Selected FOMOD option '{0}' is not usable in the current installer state.", option.Name));
 
 						foreach (InstallableFile file in option.Files)
@@ -320,6 +320,18 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		}
 
 		/// <summary>
+		/// Some Vortex Collections serialize selected informational/credit choices which the XML
+		/// installer itself labels NotUsable. An option with neither installable files nor
+		/// conditional flags cannot change the native plan or installer condition state.
+		/// A selected NotUsable option which does change either remains a hard dependency error.
+		/// </summary>
+		private static bool IsNoEffectInformationalOption(Option option)
+		{
+			return option != null && option.Files != null && option.Files.Count == 0 &&
+				option.Flags != null && option.Flags.Count == 0;
+		}
+
+		/// <summary>
 		/// Verifies exact step/group positions and names before any condition state is changed.
 		/// </summary>
 		private static void ValidateSelectionShape(XmlScript script, ModInstallationFomodSelectionRecipe recipe)
@@ -331,7 +343,12 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			{
 				InstallStep step = script.InstallSteps[stepIndex];
 				ModInstallationFomodStepSelection stepSelection = recipe.Steps[stepIndex];
-				if (stepSelection.StepIndex != stepIndex || !StringComparer.Ordinal.Equals(stepSelection.StepName, step.Name))
+				// Vortex may encode an unnamed legacy step as absent/null/empty. These are
+				// equivalent only if the actual native step is also unnamed; all named steps
+				// still require exact name and position equality.
+				bool sameStepName = StringComparer.Ordinal.Equals(stepSelection.StepName, step.Name) ||
+					(String.IsNullOrEmpty(stepSelection.StepName) && String.IsNullOrEmpty(step.Name));
+				if (stepSelection.StepIndex != stepIndex || !sameStepName)
 					throw new InvalidDataException("A FOMOD install-step identity no longer matches the actual installer definition.");
 				if (stepSelection.Groups.Count != step.OptionGroups.Count)
 					throw new InvalidDataException("A FOMOD step selection does not describe every option group in the actual installer definition.");
@@ -425,7 +442,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				return;
 			}
 
-			IList<string> sourceFiles = mod.GetFileList(source, true);
+			IModInstallerSourceInventory installerInventory = mod as IModInstallerSourceInventory;
+			IList<string> sourceFiles = installerInventory == null
+				? mod.GetFileList(source, true)
+				: installerInventory.GetInstallerSourceFiles(source, true);
 			if (sourceFiles == null)
 				throw new InvalidDataException(string.Format("FOMOD folder source '{0}' could not be enumerated from the verified mod archive.", source));
 			List<string> modFiles = sourceFiles.Where(path => !ModInstallFileFilter.IsIgnored(path)).ToList();
@@ -503,7 +523,14 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		private static ISet<string> GetNormalizedArchiveFiles(IMod mod)
 		{
 			var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-			foreach (string path in mod.GetFileList())
+			// GetFileList intentionally hides fomod/** from ordinary mod listings. The XML
+			// installer may select real asset files inside that directory; use the format's
+			// unfiltered index when available, retaining the same exact-path checks below.
+			IModInstallerSourceInventory installerInventory = mod as IModInstallerSourceInventory;
+			IEnumerable<string> sourceFiles = installerInventory == null
+				? mod.GetFileList()
+				: installerInventory.GetInstallerSourceFiles(null, true);
+			foreach (string path in sourceFiles)
 			{
 				if (!String.IsNullOrWhiteSpace(path))
 					result.Add(NormalizeInstallerPath(path));

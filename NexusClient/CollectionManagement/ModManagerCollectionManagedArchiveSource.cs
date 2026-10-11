@@ -80,7 +80,7 @@ namespace Nexus.Client.CollectionManagement
 				(repositoryCandidate ? candidates : staleCandidates).Add(new CollectionManagedArchiveCandidate(
 					NexusCollectionModFileArtifactIdentity.Scheme,
 					NexusCollectionModFileArtifactIdentity.Format(expectedDomain, expectedModId, expectedFileId),
-					CollectionArchiveContentMatcher.GetManagedArchivePath(mod)));
+					CollectionArchiveContentMatcher.GetManagedArchivePath(mod), !repositoryCandidate));
 			}
 
 			candidates.AddRange(staleCandidates);

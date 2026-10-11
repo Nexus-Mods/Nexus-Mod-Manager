@@ -17,6 +17,23 @@ using Nexus.Client.OnlineServices.NexusMods.Collections;
 
 namespace Nexus.Client.CollectionManagement
 {
+	/// <summary>A remembered Collection revision available to reopen, independently of its installation state.</summary>
+	public sealed class CollectionAvailableRevision
+	{
+		/// <summary>Creates a catalog entry with its optional offline source and public download locator.</summary>
+		internal CollectionAvailableRevision(CollectionDefinition definition, CollectionRevision revision, bool hasRetainedManifest, NexusCollectionNxmLink link)
+		{
+			Definition = definition;
+			Revision = revision;
+			HasRetainedManifest = hasRetainedManifest;
+			Link = link;
+		}
+		public CollectionDefinition Definition { get; }
+		public CollectionRevision Revision { get; }
+		public bool HasRetainedManifest { get; }
+		public NexusCollectionNxmLink Link { get; }
+	}
+
 	public enum CollectionRevisionUpdateWorkflowStatus
 	{
 		Unknown = 0,
@@ -320,6 +337,25 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 			return null;
+		}
+
+		/// <summary>Lists remembered Nexus revisions in this game's catalog, including uninstalled Collections.</summary>
+		internal IReadOnlyList<CollectionAvailableRevision> GetAvailableRevisions()
+		{
+			var result = new List<CollectionAvailableRevision>();
+			if (!_store.Exists) return result;
+			foreach (CollectionDefinition definition in _catalogStore.GetDefinitions().Where(x => x.Origin == CollectionOrigin.NexusMods))
+			{
+				foreach (CollectionRevision revision in _catalogStore.GetRevisions(definition.Identity).Where(x => x.IsRemoteBaseline)
+					.OrderByDescending(x => x.Identity.NexusRevisionNumber))
+				{
+					CollectionRevisionSourceRecord source = _revisionSourceStore.GetSource(revision.Identity);
+					NexusCollectionNxmLink link = BuildRetainedNexusLink(revision.Identity);
+					bool offline = source != null && !String.IsNullOrEmpty(source.RawManifestArtifactId);
+					if (offline || link != null) result.Add(new CollectionAvailableRevision(definition, revision, offline, link));
+				}
+			}
+			return result;
 		}
 
 		/// <summary>Returns other concrete Nexus revisions of the installed Collection whose exact manifest is still retained locally.</summary>

@@ -143,12 +143,19 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// <returns><c>true</c> when plugin management is unavailable or every applicable request was reconciled; otherwise, <c>false</c>.</returns>
 		internal bool TryReconcile(IPluginManager p_pmgPluginManager)
 		{
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+			return TryReconcile(p_pmgPluginManager, out lstBlockingDiagnostics);
+		}
+
+		/// <summary>Retains native validation details so strict recipe completion identifies the rejected plugin and requirement.</summary>
+		internal bool TryReconcile(IPluginManager p_pmgPluginManager, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
+		{
+			p_lstBlockingDiagnostics = new List<PluginValidationDiagnostic>();
 			if (p_pmgPluginManager == null)
 				return true;
 
-			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
 			bool booReconciled = p_pmgPluginManager.TryReconcileDeployedPlugins(
-				DeployedPluginPaths, GetRequestedActivationStates(), out lstBlockingDiagnostics);
+				DeployedPluginPaths, GetRequestedActivationStates(), out p_lstBlockingDiagnostics);
 
 			m_hstDeployedPluginPaths.Clear();
 			m_hstImplicitActivationRequests.Clear();

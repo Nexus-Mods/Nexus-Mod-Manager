@@ -135,6 +135,36 @@ namespace NexusClientTests
 				Assert.That(rebound.NativeOperations[index], Is.SameAs(input.NativeOperations[index]));
 		}
 
+		/// <summary>Preserves Collection-only deferral across deterministic plan transformations and the final child identity.</summary>
+		[Test]
+		public void DeferredPluginReconciliation_PreservesOptInAndLegacyDefaults()
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+			Assert.IsFalse(input.DeferPluginReconciliation);
+			ModInstallationRecipeInput deferred = input.WithDeferredPluginReconciliation();
+			ModInstallationRecipeInput transformed = deferred.WithTransformedNativePlan(deferred.NativeOperations);
+			ModInstallationRecipeInput rebound = transformed.ForOperationIdentity(input.OperationIdentity.CreateNextAttempt());
+			Assert.IsTrue(rebound.DeferPluginReconciliation);
+			Assert.IsFalse(input.DeferPluginReconciliation);
+			Assert.AreEqual(input.RecipeFingerprint, rebound.RecipeFingerprint);
+			ModInstallationRecipeInput restore = input.ForOperationIdentity(new ModOperationIdentity(Guid.NewGuid(), Guid.NewGuid(),
+				ModOperationOrigin.LocalRestore, input.OperationIdentity.Fingerprint));
+			Assert.IsFalse(restore.DeferPluginReconciliation);
+			Assert.Throws<InvalidOperationException>(() => restore.WithDeferredPluginReconciliation());
+		}
+
+		/// <summary>Retains native execution for absolute-order recipes that the Collection final barrier does not apply.</summary>
+		[Test]
+		public void DeferredPluginReconciliation_AbsoluteOrderRetainsLegacyPolicy()
+		{
+			ModInstallationRecipeInput input = CreateTranslatedInput();
+			ModInstallationRecipeInput absoluteOrder = input.WithTransformedNativePlan(input.NativeOperations.Concat(new[]
+			{
+				new Nexus.Client.ModManagement.Scripting.Operations.SetPluginOrderIndexOperation("Example.esp", 1)
+			}));
+			Assert.IsFalse(absoluteOrder.WithDeferredPluginReconciliation().DeferPluginReconciliation);
+		}
+
 		/// <summary>
 		/// Verifies one translated recipe instance cannot be rebound repeatedly to different native attempts.
 		/// </summary>

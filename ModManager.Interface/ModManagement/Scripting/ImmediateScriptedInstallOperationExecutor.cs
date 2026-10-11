@@ -7,6 +7,7 @@ using Nexus.Client.Games;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
 using Nexus.Client.Plugins;
+using Nexus.Client.PluginManagement;
 using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.ModManagement.Scripting
@@ -30,6 +31,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly IScriptedFileSelectionCache m_sfcFileSelectionCache;
 		private readonly ScriptedPluginActivationState m_spaPluginActivationState;
 		private readonly bool m_booRequireSuccessfulPluginReconciliation;
+		private readonly bool m_booDeferPluginReconciliation;
 		private readonly HashSet<string> m_hstCoordinatorPluginPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		#region Constructors
@@ -59,6 +61,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 		}
 
+		/// <summary>Initializes a recipe executor whose Collection workflow can defer plugin enforcement until all members are deployed.</summary>
+		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, bool p_booRequireSuccessfulPluginReconciliation, bool p_booDeferPluginReconciliation)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, new ScriptedPluginActivationState(), p_booRequireSuccessfulPluginReconciliation, p_booDeferPluginReconciliation)
+		{
+		}
+
 		/// <summary>
 		/// Initializes an executor using activation state shared across all sessions in one scripted installation.
 		/// </summary>
@@ -71,6 +79,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		/// Initializes an executor using shared activation state and an explicit final-reconciliation policy.
 		/// </summary>
 		public ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, ScriptedPluginActivationState p_spaPluginActivationState, bool p_booRequireSuccessfulPluginReconciliation)
+			: this(p_modMod, p_gmdGameMode, p_eifEnvironmentInfo, p_ivaVirtualModActivator, p_mliModLinkInstaller, p_igpInstallers, p_actTaskStarted, p_sfcFileSelectionCache, p_spaPluginActivationState, p_booRequireSuccessfulPluginReconciliation, false)
+		{
+		}
+
+		/// <summary>Initializes shared activation state with the owning workflow's explicit plugin barrier policy.</summary>
+		private ImmediateScriptedInstallOperationExecutor(IMod p_modMod, IGameMode p_gmdGameMode, IEnvironmentInfo p_eifEnvironmentInfo, IVirtualModActivator p_ivaVirtualModActivator, IModLinkInstaller p_mliModLinkInstaller, InstallerGroup p_igpInstallers, Action<IBackgroundTask> p_actTaskStarted, IScriptedFileSelectionCache p_sfcFileSelectionCache, ScriptedPluginActivationState p_spaPluginActivationState, bool p_booRequireSuccessfulPluginReconciliation, bool p_booDeferPluginReconciliation)
 		{
 			if (p_spaPluginActivationState == null)
 				throw new ArgumentNullException(nameof(p_spaPluginActivationState));
@@ -85,6 +99,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			m_sfcFileSelectionCache = p_sfcFileSelectionCache;
 			m_spaPluginActivationState = p_spaPluginActivationState;
 			m_booRequireSuccessfulPluginReconciliation = p_booRequireSuccessfulPluginReconciliation;
+			m_booDeferPluginReconciliation = p_booDeferPluginReconciliation;
 		}
 
 		#endregion
@@ -114,14 +129,21 @@ namespace Nexus.Client.ModManagement.Scripting
 		public void CompleteExecution()
 		{
 			FlushPendingPluginRegistrations();
+			if (m_booDeferPluginReconciliation) return;
 			if (!m_booRequireSuccessfulPluginReconciliation)
 			{
 				m_spaPluginActivationState.Reconcile(m_igpInstallers.PluginManager);
 				return;
 			}
 
-			if (!m_spaPluginActivationState.TryReconcile(m_igpInstallers.PluginManager))
-				throw new InvalidOperationException("The final plugin state requested by the installation recipe could not be reconciled safely.");
+			IList<PluginValidationDiagnostic> lstBlockingDiagnostics;
+			if (!m_spaPluginActivationState.TryReconcile(m_igpInstallers.PluginManager, out lstBlockingDiagnostics))
+			{
+				string strDetails = String.Join(Environment.NewLine, (lstBlockingDiagnostics ?? new List<PluginValidationDiagnostic>())
+					.Where(x => x != null).Select(x => String.IsNullOrWhiteSpace(x.Message) ? x.Kind.ToString() : x.Message).Distinct());
+				throw new InvalidOperationException("The final plugin state requested by the installation recipe could not be reconciled safely." +
+					(String.IsNullOrWhiteSpace(strDetails) ? String.Empty : Environment.NewLine + strDetails));
+			}
 		}
 
 		#endregion
@@ -137,6 +159,11 @@ namespace Nexus.Client.ModManagement.Scripting
 		{
 			if (p_sioOperation == null)
 				throw new ArgumentNullException(nameof(p_sioOperation));
+
+			// The Collection owns these final effects and applies them once every member is deployed.
+			if (m_booDeferPluginReconciliation &&
+				(p_sioOperation is SetPluginActivationOperation || p_sioOperation is SetRelativeLoadOrderOperation))
+				return true;
 
 			if (IsPluginStateOperation(p_sioOperation))
 				FlushPendingPluginRegistrations();

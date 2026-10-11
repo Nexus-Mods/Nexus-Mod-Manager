@@ -15,13 +15,23 @@ namespace Nexus.Client.CollectionManagement
 		/// Creates a managed archive candidate.
 		/// </summary>
 		public CollectionManagedArchiveCandidate(string scheme, string stableId, string archivePath)
+			: this(scheme, stableId, archivePath, false)
+		{
+		}
+
+		/// <summary>Creates a candidate which may be restricted to recovery when ordinary discovery fails verification.</summary>
+		internal CollectionManagedArchiveCandidate(string scheme, string stableId, string archivePath, bool isFallback)
 		{
 			Scheme = CollectionIdentityValidation.RequireOpaqueToken(scheme, nameof(scheme));
 			StableId = CollectionIdentityValidation.RequireOpaqueToken(stableId, nameof(stableId));
 			if (String.IsNullOrWhiteSpace(archivePath))
 				throw new ArgumentException("A managed archive path is required.", nameof(archivePath));
 			ArchivePath = archivePath;
+			IsFallback = isFallback;
 		}
+
+		/// <summary>Gets whether this candidate is a stale-identity recovery hint rather than an ordinary match.</summary>
+		internal bool IsFallback { get; }
 
 		/// <summary>Gets the normalized artifact scheme represented by the managed metadata.</summary>
 		public string Scheme { get; }

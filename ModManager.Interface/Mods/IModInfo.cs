@@ -136,6 +136,15 @@
 	}
 
 	/// <summary>
+	/// Identifies metadata that can distinguish an explicit abstention from an undecided endorsement.
+	/// </summary>
+	public interface IModEndorsementMetadata
+	{
+		/// <summary>Gets whether all endorsement states in this metadata are authoritative.</summary>
+		bool HasEndorsementState { get; }
+	}
+
+	/// <summary>
 	/// Marks metadata updates that must explicitly replace the current custom category assignment.
 	/// </summary>
 	public interface IExplicitCategoryAssignment

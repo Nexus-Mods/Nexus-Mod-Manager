@@ -155,7 +155,6 @@
 		private readonly List<Font> _retiredGridFonts = new List<Font>();
 		private Image _endorsedYesImage;
 		private Image _endorsedNoImage;
-		private Image _endorsedEmptyImage;
 		private bool _usesLightRowPalette;
 		private NmmColorPalette _colorPalette;
 		private Color _latestVersionForeColor = Color.FromArgb(37, 99, 235);
@@ -192,6 +191,7 @@
 		private const string ColAuthor = "Author";
 		private const string ColCategory = "CategoryId";
 		private const string ColInstallDate = "InstallDate";
+		private const string ColUninstallDate = "UninstallDate";
 		private const string ColDownloadDate = "DownloadDate";
 		private const string ColEndorsed = "IsEndorsed";
 		private const string ColDownloadId = "DownloadId";
@@ -242,7 +242,7 @@
 
 		private static readonly ColumnSizingDefinition[] GridColumnSizingDefinitions =
 		{
-			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColInstallMethod, ColumnSizingRole.Fixed, 80, 64, 100), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColSortNumber, ColumnSizingRole.Fixed, 72, 58, 100), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
+			new ColumnSizingDefinition(ColModStatus, ColumnSizingRole.Fixed, 58, 48, 80), new ColumnSizingDefinition(ColInstallMethod, ColumnSizingRole.Fixed, 80, 64, 100), new ColumnSizingDefinition(ColModName, ColumnSizingRole.FlexiblePrimary, 220, 100, 0), new ColumnSizingDefinition(ColSortNumber, ColumnSizingRole.Fixed, 72, 58, 100), new ColumnSizingDefinition(ColVersion, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColLastKnown, ColumnSizingRole.Fixed, 70, 60, 110), new ColumnSizingDefinition(ColAuthor, ColumnSizingRole.Bounded, 128, 90, 240), new ColumnSizingDefinition(ColCategory, ColumnSizingRole.Bounded, 90, 80, 220), new ColumnSizingDefinition(ColInstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColUninstallDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadDate, ColumnSizingRole.Bounded, 180, 100, 0), new ColumnSizingDefinition(ColDownloadId, ColumnSizingRole.Fixed, 80, 70, 120), new ColumnSizingDefinition(ColEndorsed, ColumnSizingRole.Fixed, 70, 50, 90),
 		};
 		private const int ModStatusIconSize = 20;
 		private const int InlineEditIconSize = 18;
@@ -1170,6 +1170,25 @@
 			UpdateModsCount?.Invoke(this, EventArgs.Empty);
 		}
 
+		/// <summary>Reads cached supplemental uninstall history without opening the archive.</summary>
+		private DateTime? GetModUninstallDate(IMod mod)
+		{
+			return ModUninstallHistory.GetDate(_viewModel?.ModManager?.GameMode?.GameModeEnvironmentInfo?.InstallInfoDirectory, mod);
+		}
+
+		/// <summary>Refreshes the new date in both mod views after a successful uninstall.</summary>
+		private void ModUninstallHistory_Changed(IMod mod)
+		{
+			if (IsDisposed || Disposing || !IsHandleCreated) return;
+			if (InvokeRequired)
+			{
+				BeginInvoke(new Action<IMod>(ModUninstallHistory_Changed), mod);
+				return;
+			}
+			if (_modList.Contains(mod))
+				Mod_PropertyChanged(mod, new PropertyChangedEventArgs(ColUninstallDate));
+		}
+
 		private void Mod_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
 			if (InvokeRequired) { Invoke(new Action(() => Mod_PropertyChanged(sender, e))); return; }
@@ -1513,9 +1532,7 @@
 
 		private void InitializePerformanceResources()
 		{
-			_endorsedYesImage = new Bitmap(Properties.Resources.thumb_up, 16, 16);
-			_endorsedNoImage = new Bitmap(Properties.Resources.thumb_no, 16, 16);
-			_endorsedEmptyImage = new Bitmap(16, 16);
+			ModUninstallHistory.Changed += ModUninstallHistory_Changed;
 
 			_gridLayoutSaveTimer = new Timer(components)
 			{
@@ -2091,14 +2108,15 @@
 			AddCol(ColAuthor, LanguageManager.Get("Mods.Columns.Author.Header", "AUTHOR"), HorzAlignment.Default, false);
 			AddCol(ColCategory, LanguageManager.Get("Mods.Columns.Category.Header", "CATEGORY"), HorzAlignment.Default, false);
 			AddCol(ColInstallDate, LanguageManager.Get("Mods.Columns.InstallDate.Header", "INSTALL DATE"), HorzAlignment.Center, false);
+			AddCol(ColUninstallDate, LanguageManager.Get("Mods.Columns.UninstallDate.Header", "UNINSTALL DATE"), HorzAlignment.Center, false);
 			AddCol(ColDownloadDate, LanguageManager.Get("Mods.Columns.DownloadDate.Header", "DOWNLOAD DATE"), HorzAlignment.Center, false);
 			AddCol(ColDownloadId, LanguageManager.Get("Mods.Columns.DownloadId.Header", "DOWNLOAD ID"), HorzAlignment.Center, false);
 			ConfigureModNameRenameColumn(modNameCol);
-			GridColumn endorsedCol = AddCol(ColEndorsed, LanguageManager.Get("Mods.Columns.Endorsed.Header", "ENDORSED"), HorzAlignment.Center, false); RepositoryItemPictureEdit picRepo = new RepositoryItemPictureEdit { ShowMenu = false, SizeMode = DevExpress.XtraEditors.Controls.PictureSizeMode.Zoom, NullText = "", }; endorsedCol.ColumnEdit = picRepo; gridControl.RepositoryItems.Add(picRepo);
+			ConfigureEndorsementColumn(AddCol(ColEndorsed, LanguageManager.Get("Mods.Columns.Endorsed.Header", "ENDORSED"), HorzAlignment.Center, false));
 		}
 		private GridColumn AddCol(string field, string caption, HorzAlignment align, bool pin)
 		{
-			ColumnSizingDefinition sizing = GetColumnSizingDefinition(field); GridColumn col = new GridColumn { FieldName = field, Caption = caption, Width = sizing.DefaultWidth, Fixed = pin ? FixedStyle.Left : FixedStyle.None, UnboundType = field == ColEndorsed ? DevExpress.Data.UnboundColumnType.Object : DevExpress.Data.UnboundColumnType.String, OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = false }, AppearanceHeader = { TextOptions = { HAlignment = align } }, AppearanceCell = { TextOptions = { HAlignment = align } }, }; ApplyColumnSizingDefinition(col, sizing); if (field == ColInstallDate || field == ColDownloadDate) col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom; ApplyAutoFilterDefaults(col); gridView.Columns.Add(col); col.Visible = true; col.VisibleIndex = gridView.Columns.Count - 1; return col;
+			ColumnSizingDefinition sizing = GetColumnSizingDefinition(field); GridColumn col = new GridColumn { FieldName = field, Caption = caption, Width = sizing.DefaultWidth, Fixed = pin ? FixedStyle.Left : FixedStyle.None, UnboundType = field == ColUninstallDate ? DevExpress.Data.UnboundColumnType.DateTime : DevExpress.Data.UnboundColumnType.String, OptionsColumn = { AllowEdit = false, AllowSort = DefaultBoolean.True, ReadOnly = true, FixedWidth = false }, AppearanceHeader = { TextOptions = { HAlignment = align } }, AppearanceCell = { TextOptions = { HAlignment = align } }, }; ApplyColumnSizingDefinition(col, sizing); if (field == ColInstallDate || field == ColUninstallDate || field == ColDownloadDate) col.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom; ApplyAutoFilterDefaults(col); gridView.Columns.Add(col); col.Visible = true; col.VisibleIndex = gridView.Columns.Count - 1; return col;
 		}
 
 		private void ConfigureModNameRenameColumn(GridColumn column)
@@ -2127,8 +2145,22 @@
 		/// </summary>
 		private void EnsureGridColumnInvariants()
 		{
+			if (gridView.Columns[ColUninstallDate] == null)
+				AddCol(ColUninstallDate, LanguageManager.Get("Mods.Columns.UninstallDate.Header", "UNINSTALL DATE"), HorzAlignment.Center, false);
 			ConfigureModNameRenameColumn(gridView.Columns[ColModName]);
 			ConfigureSortNumberColumn(gridView.Columns[ColSortNumber]);
+			ConfigureEndorsementColumn(gridView.Columns[ColEndorsed]);
+		}
+
+		/// <summary>Restores semantic endorsement filtering independently of the icon painted in each cell.</summary>
+		private void ConfigureEndorsementColumn(GridColumn column)
+		{
+			if (column == null) return;
+			column.ColumnEdit = null;
+			column.UnboundType = DevExpress.Data.UnboundColumnType.String;
+			column.FilterMode = DevExpress.XtraGrid.ColumnFilterMode.Value;
+			column.OptionsFilter.AutoFilterCondition = AutoFilterCondition.Equals;
+			column.OptionsFilter.AllowAutoFilter = true;
 		}
 
 		private void ApplyAutoFilterDefaults()
@@ -2142,6 +2174,15 @@
 			GridColumn installDateColumn = gridView.Columns[ColInstallDate];
 			if (installDateColumn != null)
 				installDateColumn.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
+
+			GridColumn uninstallDateColumn = gridView.Columns[ColUninstallDate];
+			if (uninstallDateColumn != null)
+			{
+				uninstallDateColumn.UnboundType = DevExpress.Data.UnboundColumnType.DateTime;
+				uninstallDateColumn.SortMode = DevExpress.XtraGrid.ColumnSortMode.Custom;
+				uninstallDateColumn.DisplayFormat.FormatType = DevExpress.Utils.FormatType.DateTime;
+				uninstallDateColumn.DisplayFormat.FormatString = "g";
+			}
 
 			GridColumn downloadDateColumn = gridView.Columns[ColDownloadDate];
 			if (downloadDateColumn != null)
@@ -2184,17 +2225,14 @@
 				case ColLastKnown: e.Value = mod.LastKnownVersion; break;
 				case ColAuthor: e.Value = mod.Author; break;
 				case ColInstallDate: e.Value = mod.InstallDate; break;
+				case ColUninstallDate: e.Value = GetModUninstallDate(mod); break;
 				case ColDownloadDate: e.Value = mod.DownloadDate; break;
 				case ColDownloadId: e.Value = mod.DownloadId; break;
 				case ColCategory:
 					e.Value = GetCachedCategoryName(mod);
 					break;
 				case ColEndorsed:
-					e.Value = mod.IsEndorsed == true
-						? _endorsedYesImage
-						: mod.IsEndorsed == false
-							? _endorsedNoImage
-							: _endorsedEmptyImage;
+					e.Value = ModEndorsementPresentation.GetText(mod.IsEndorsed);
 					break;
 			}
 		}
@@ -2419,7 +2457,7 @@
 				return;
 			}
 
-			if (e.Column.FieldName != ColInstallDate && e.Column.FieldName != ColDownloadDate)
+			if (e.Column.FieldName != ColInstallDate && e.Column.FieldName != ColUninstallDate && e.Column.FieldName != ColDownloadDate)
 				return;
 
 			DateTime left;
@@ -2512,6 +2550,7 @@
 
 			bool isSecondaryColumn =
 				e.Column.FieldName == ColInstallDate ||
+				e.Column.FieldName == ColUninstallDate ||
 				e.Column.FieldName == ColDownloadDate ||
 				e.Column.FieldName == ColDownloadId;
 
@@ -2611,12 +2650,36 @@
 			}
 		}
 
+		/// <summary>Draws the endorsement icon while keeping readable state text available to filtering and export.</summary>
+		private void DrawEndorsementCell(DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
+		{
+			int source = gridView.GetDataSourceRowIndex(e.RowHandle);
+			if (source < 0 || source >= _modList.Count) return;
+			Image image = GetEndorsementImage(_modList[source]);
+			string text = e.DisplayText;
+			e.DisplayText = String.Empty;
+			e.DefaultDraw();
+			e.DisplayText = text;
+			if (image != null)
+			{
+				int size = Math.Min(image.Width, Math.Max(1, Math.Min(e.Bounds.Width, e.Bounds.Height) - 4));
+				e.Graphics.DrawImage(image, new Rectangle(e.Bounds.Left + (e.Bounds.Width - size) / 2, e.Bounds.Top + (e.Bounds.Height - size) / 2, size, size));
+			}
+			e.Handled = true;
+		}
+
 		private void GridView_CustomDrawCell(object sender, DevExpress.XtraGrid.Views.Base.RowCellCustomDrawEventArgs e)
 		{
 			bool handledByModName = false;
 			if (e.Column.FieldName == ColModStatus && e.RowHandle >= 0)
 			{
 				DrawModStatusCell(e);
+				return;
+			}
+
+			if (e.Column.FieldName == ColEndorsed && e.RowHandle >= 0)
+			{
+				DrawEndorsementCell(e);
 				return;
 			}
 
@@ -3019,6 +3082,7 @@
 			try
 			{
 				EnsureColumnFitsScaledContent(gridView.Columns[ColInstallDate]);
+				EnsureColumnFitsScaledContent(gridView.Columns[ColUninstallDate]);
 				EnsureColumnFitsScaledContent(gridView.Columns[ColDownloadDate]);
 			}
 			finally
@@ -3339,7 +3403,8 @@
 				mod => _viewModel?.GetModSortNumber(mod),
 				mod => _newModTracker.IsNew(mod),
 				mod => GetModVisualStatus(mod) == ModVisualStatus.InstalledActive,
-				(activeCount, totalCount) => String.Format(_categoryNodeCountFormat, activeCount, totalCount));
+				(activeCount, totalCount) => String.Format(_categoryNodeCountFormat, activeCount, totalCount),
+				GetModUninstallDate);
 			_categoryModListSurface.SelectionChanged += (sender, args) => SetCommandExecutableStatus();
 			_categoryModListSurface.EditReconciliationCompleted += CategoryModListSurface_EditReconciliationCompleted;
 
@@ -3504,10 +3569,10 @@
 		/// </summary>
 		private Image GetEndorsementImage(IMod mod)
 		{
-			if (mod == null) return _endorsedEmptyImage;
-			return mod.IsEndorsed == true
-				? _endorsedYesImage
-				: mod.IsEndorsed == false ? _endorsedNoImage : _endorsedEmptyImage;
+			if (mod == null || !mod.IsEndorsed.HasValue) return null;
+			return mod.IsEndorsed.Value
+				? _endorsedYesImage ?? (_endorsedYesImage = CloneSemanticIcon(NmmIconAction.Endorsed, ModStatusIconSize))
+				: _endorsedNoImage ?? (_endorsedNoImage = CloneSemanticIcon(NmmIconAction.Abstained, ModStatusIconSize));
 		}
 
 		/// <summary>
@@ -3667,6 +3732,7 @@
 
 		private void DisposePerformanceResources()
 		{
+			ModUninstallHistory.Changed -= ModUninstallHistory_Changed;
 			if (_gridLayoutSaveTimer != null)
 			{
 				_gridLayoutSaveTimer.Stop();
@@ -3698,7 +3764,6 @@
 
 			_endorsedYesImage?.Dispose();
 			_endorsedNoImage?.Dispose();
-			_endorsedEmptyImage?.Dispose();
 			_modInstalledDisabledIcon?.Dispose();
 			_modInstalledActiveIcon?.Dispose();
 			_warningIcon?.Dispose();
@@ -3708,7 +3773,6 @@
 
 			_endorsedYesImage = null;
 			_endorsedNoImage = null;
-			_endorsedEmptyImage = null;
 			_modInstalledDisabledIcon = null;
 			_modInstalledActiveIcon = null;
 			_warningIcon = null;
@@ -4245,6 +4309,10 @@
 
 		private void RefreshSemanticCompatibilityIcons()
 		{
+			_endorsedYesImage?.Dispose();
+			_endorsedNoImage?.Dispose();
+			_endorsedYesImage = null;
+			_endorsedNoImage = null;
 			_modInstalledActiveIcon?.Dispose();
 			_modInstalledDisabledIcon?.Dispose();
 			_warningIcon?.Dispose();

@@ -232,6 +232,7 @@
     <Compile Include="CollectionWorkflowActivityTests.cs" />
     <Compile Include="CollectionOperationContractsTests.cs" />
     <Compile Include="CollectionsStoreFoundationTests.cs" />
+    <Compile Include="CollectionConflictResolutionBulkStoreTests.cs" />
     <Compile Include="CollectionsCatalogStoreTests.cs" />
     <Compile Include="CollectionsNexusLocatorStoreTests.cs" />
     <Compile Include="CollectionsRevisionSourceStoreTests.cs" />
@@ -270,6 +271,7 @@
     <Compile Include="CollectionInstallDestinationResolverTests.cs" />
     <Compile Include="BasicInstallPlanBuilderTests.cs" />
     <Compile Include="DataDrivenBaldursGate3GameModeTests.cs" />
+    <Compile Include="GamebryoDescriptorRescanTests.cs" />
     <Compile Include="DirectInstallFoundationTests.cs" />
     <Compile Include="DirectInstallDeploymentCoordinatorTests.cs" />
     <Compile Include="BasicInstallPromotedRoutingTests.cs" />
@@ -342,6 +344,10 @@
     <ProjectReference Include="..\..\Game Modes\Fallout3.CSharpScript\Fallout3.CSharpScript.csproj">
       <Project>{A11C9C68-3133-48BF-BB4D-C0DB2AC1D201}</Project>
       <Name>Fallout3.CSharpScript</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Game Modes\GamebryoBase\GamebryoBase.csproj">
+      <Project>{0055FB79-3587-486E-A87E-70304A61D7A4}</Project>
+      <Name>GamebryoBase</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\Script Types\CSharpScript\CSharpScript.csproj">
       <Project>{6C3901C6-BFCA-47FC-929B-0CD030325FBD}</Project>

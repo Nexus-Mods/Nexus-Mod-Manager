@@ -23,7 +23,11 @@ namespace Nexus.Client.CollectionManagement
 			long startupRecoveryPassCount, long startupRecoveryObservedOperationCount, double startupRecoveryMilliseconds,
 			long nxmUiDispatchCount, double nxmUiDispatchMilliseconds, long localCaptureOwnerPayloadObservedCount,
 			long localCaptureArchiveBackedPayloadCount, long localCaptureByteRetainedPayloadCount,
-			long localCaptureSpecialRetainedPayloadCount, long localCaptureOwnerPayloadBytesCopied, long localCaptureOwnerPayloadBytesAvoided)
+			long localCaptureSpecialRetainedPayloadCount, long localCaptureOwnerPayloadBytesCopied, long localCaptureOwnerPayloadBytesAvoided,
+			long nativeChildPostInstallVerificationCount, double nativeChildPostInstallVerificationMilliseconds,
+			long nativeChildArchiveHashCount, long nativeChildArchiveHashedBytes, double nativeChildArchiveHashMilliseconds,
+			long nativeChildDeployedFileHashCount, long nativeChildDeployedFileHashedBytes, double nativeChildDeployedFileHashMilliseconds,
+			long postCommitMetadataEnrichmentCount, double postCommitMetadataEnrichmentMilliseconds)
 		{
 			SessionStartedUtc = sessionStartedUtc;
 			NativeStateIndexBuildCount = nativeStateIndexBuildCount;
@@ -74,6 +78,16 @@ namespace Nexus.Client.CollectionManagement
 			LocalCaptureSpecialRetainedPayloadCount = localCaptureSpecialRetainedPayloadCount;
 			LocalCaptureOwnerPayloadBytesCopied = localCaptureOwnerPayloadBytesCopied;
 			LocalCaptureOwnerPayloadBytesAvoided = localCaptureOwnerPayloadBytesAvoided;
+			NativeChildPostInstallVerificationCount = nativeChildPostInstallVerificationCount;
+			NativeChildPostInstallVerificationMilliseconds = nativeChildPostInstallVerificationMilliseconds;
+			NativeChildArchiveHashCount = nativeChildArchiveHashCount;
+			NativeChildArchiveHashedBytes = nativeChildArchiveHashedBytes;
+			NativeChildArchiveHashMilliseconds = nativeChildArchiveHashMilliseconds;
+			NativeChildDeployedFileHashCount = nativeChildDeployedFileHashCount;
+			NativeChildDeployedFileHashedBytes = nativeChildDeployedFileHashedBytes;
+			NativeChildDeployedFileHashMilliseconds = nativeChildDeployedFileHashMilliseconds;
+			PostCommitMetadataEnrichmentCount = postCommitMetadataEnrichmentCount;
+			PostCommitMetadataEnrichmentMilliseconds = postCommitMetadataEnrichmentMilliseconds;
 		}
 
 		public DateTimeOffset SessionStartedUtc { get; private set; }
@@ -125,6 +139,29 @@ namespace Nexus.Client.CollectionManagement
 		public long LocalCaptureSpecialRetainedPayloadCount { get; private set; }
 		public long LocalCaptureOwnerPayloadBytesCopied { get; private set; }
 		public long LocalCaptureOwnerPayloadBytesAvoided { get; private set; }
+		public long NativeChildPostInstallVerificationCount { get; private set; }
+		public double NativeChildPostInstallVerificationMilliseconds { get; private set; }
+		public long NativeChildArchiveHashCount { get; private set; }
+		public long NativeChildArchiveHashedBytes { get; private set; }
+		public double NativeChildArchiveHashMilliseconds { get; private set; }
+		public long NativeChildDeployedFileHashCount { get; private set; }
+		public long NativeChildDeployedFileHashedBytes { get; private set; }
+		public double NativeChildDeployedFileHashMilliseconds { get; private set; }
+		public long PostCommitMetadataEnrichmentCount { get; private set; }
+		public double PostCommitMetadataEnrichmentMilliseconds { get; private set; }
+		/// <summary>Time spent invoking Nexus policy provider lookups (separate from NXM metadata resolution).</summary>
+		public long NexusSourcePolicyProviderCallCount { get; internal set; }
+		public double NexusSourcePolicyProviderMilliseconds { get; internal set; }
+		/// <summary>Previously resolved immutable Nexus choices reused while accepting external alternatives.</summary>
+		public long NexusSourcePolicyReusedChoiceCount { get; internal set; }
+		/// <summary>Number of Collection native installers that reached a terminal scheduling boundary.</summary>
+		public long NativeInstallationCount { get; internal set; }
+		/// <summary>Time in Collection native installers, including archive preparation and excluding later Collection verification.</summary>
+		public double NativeInstallationMilliseconds { get; internal set; }
+		/// <summary>Number of archive read-only initialization attempts made by Collection native installers.</summary>
+		public long NativeArchivePreparationCount { get; internal set; }
+		/// <summary>Archive initialization time included within NativeInstallationMilliseconds.</summary>
+		public double NativeArchivePreparationMilliseconds { get; internal set; }
 	}
 
 	/// <summary>Low-overhead aggregate timing/counter recorder for C12 release measurements.</summary>
@@ -180,6 +217,23 @@ namespace Nexus.Client.CollectionManagement
 		private static long _localCaptureSpecialRetainedPayloadCount;
 		private static long _localCaptureOwnerPayloadBytesCopied;
 		private static long _localCaptureOwnerPayloadBytesAvoided;
+		private static long _nativeChildPostInstallVerificationCount;
+		private static long _nativeChildPostInstallVerificationTicks;
+		private static long _nativeChildArchiveHashCount;
+		private static long _nativeChildArchiveHashedBytes;
+		private static long _nativeChildArchiveHashTicks;
+		private static long _nativeChildDeployedFileHashCount;
+		private static long _nativeChildDeployedFileHashedBytes;
+		private static long _nativeChildDeployedFileHashTicks;
+		private static long _postCommitMetadataEnrichmentCount;
+		private static long _postCommitMetadataEnrichmentTicks;
+		private static long _nexusSourcePolicyProviderCallCount;
+		private static long _nexusSourcePolicyProviderTicks;
+		private static long _nexusSourcePolicyReusedChoiceCount;
+		private static long _nativeInstallationCount;
+		private static long _nativeInstallationTicks;
+		private static long _nativeArchivePreparationCount;
+		private static long _nativeArchivePreparationTicks;
 
 		internal static long StartTiming()
 		{
@@ -188,10 +242,36 @@ namespace Nexus.Client.CollectionManagement
 
 		internal static void RecordNativeStateIndexBuild(long started) { Record(started, ref _nativeStateIndexBuildCount, ref _nativeStateIndexBuildTicks); }
 		internal static void RecordNativeRecipePreparation(long started) { Record(started, ref _nativeRecipePreparationCount, ref _nativeRecipePreparationTicks); }
+		/// <summary>Records Collection native execution independently of the subsequent verification step.</summary>
+		internal static void RecordNativeInstallation(long started) { Record(started, ref _nativeInstallationCount, ref _nativeInstallationTicks); }
+		/// <summary>Records archive initialization inside a Collection native install.</summary>
+		internal static void RecordNativeArchivePreparation(long started) { Record(started, ref _nativeArchivePreparationCount, ref _nativeArchivePreparationTicks); }
 		internal static void RecordEffectPreview(long started) { Record(started, ref _effectPreviewCount, ref _effectPreviewTicks); }
 		internal static void RecordReviewedRuntimeReconstruction(long started) { Record(started, ref _reviewedRuntimeReconstructionCount, ref _reviewedRuntimeReconstructionTicks); }
 		internal static void RecordFileWinnerReconciliation(long started) { Record(started, ref _fileWinnerReconciliationCount, ref _fileWinnerReconciliationTicks); }
 		internal static void RecordNxmMetadataResolution(long started) { Record(started, ref _nxmMetadataResolutionCount, ref _nxmMetadataResolutionTicks); }
+		internal static void RecordNativeChildPostInstallVerification(long started) { Record(started, ref _nativeChildPostInstallVerificationCount, ref _nativeChildPostInstallVerificationTicks); }
+		internal static void RecordPostCommitMetadataEnrichment(long started) { Record(started, ref _postCommitMetadataEnrichmentCount, ref _postCommitMetadataEnrichmentTicks); }
+		internal static void RecordNexusSourcePolicyProviderCall(long started) { Record(started, ref _nexusSourcePolicyProviderCallCount, ref _nexusSourcePolicyProviderTicks); }
+		internal static void RecordNexusSourcePolicyReusedChoices(int count)
+		{
+			if (count > 0) Interlocked.Add(ref _nexusSourcePolicyReusedChoiceCount, count);
+		}
+
+		internal static void RecordNativeChildArchiveHash(long started, long byteLength)
+		{
+			Interlocked.Increment(ref _nativeChildArchiveHashCount);
+			Interlocked.Add(ref _nativeChildArchiveHashedBytes, Math.Max(0, byteLength));
+			Interlocked.Add(ref _nativeChildArchiveHashTicks, ElapsedTicks(started));
+		}
+
+		internal static void RecordNativeChildDeployedFileHash(long started, long verifiedBytes)
+		{
+			Interlocked.Increment(ref _nativeChildDeployedFileHashCount);
+			// Only count bytes as hash-verified when the complete file matched. Time includes unsuccessful checks.
+			Interlocked.Add(ref _nativeChildDeployedFileHashedBytes, Math.Max(0, verifiedBytes));
+			Interlocked.Add(ref _nativeChildDeployedFileHashTicks, ElapsedTicks(started));
+		}
 
 		internal static void RecordRetainedManifestLoad(long started, long payloadBytes)
 		{
@@ -335,7 +415,20 @@ namespace Nexus.Client.CollectionManagement
 				Interlocked.Read(ref _nxmUiDispatchCount), ToMilliseconds(Interlocked.Read(ref _nxmUiDispatchTicks)),
 				Interlocked.Read(ref _localCaptureOwnerPayloadObservedCount), Interlocked.Read(ref _localCaptureArchiveBackedPayloadCount),
 				Interlocked.Read(ref _localCaptureByteRetainedPayloadCount), Interlocked.Read(ref _localCaptureSpecialRetainedPayloadCount),
-				Interlocked.Read(ref _localCaptureOwnerPayloadBytesCopied), Interlocked.Read(ref _localCaptureOwnerPayloadBytesAvoided));
+				Interlocked.Read(ref _localCaptureOwnerPayloadBytesCopied), Interlocked.Read(ref _localCaptureOwnerPayloadBytesAvoided),
+				Interlocked.Read(ref _nativeChildPostInstallVerificationCount), ToMilliseconds(Interlocked.Read(ref _nativeChildPostInstallVerificationTicks)),
+				Interlocked.Read(ref _nativeChildArchiveHashCount), Interlocked.Read(ref _nativeChildArchiveHashedBytes), ToMilliseconds(Interlocked.Read(ref _nativeChildArchiveHashTicks)),
+				Interlocked.Read(ref _nativeChildDeployedFileHashCount), Interlocked.Read(ref _nativeChildDeployedFileHashedBytes), ToMilliseconds(Interlocked.Read(ref _nativeChildDeployedFileHashTicks)),
+				Interlocked.Read(ref _postCommitMetadataEnrichmentCount), ToMilliseconds(Interlocked.Read(ref _postCommitMetadataEnrichmentTicks)))
+			{
+				NexusSourcePolicyProviderCallCount = Interlocked.Read(ref _nexusSourcePolicyProviderCallCount),
+				NexusSourcePolicyProviderMilliseconds = ToMilliseconds(Interlocked.Read(ref _nexusSourcePolicyProviderTicks)),
+				NexusSourcePolicyReusedChoiceCount = Interlocked.Read(ref _nexusSourcePolicyReusedChoiceCount),
+				NativeInstallationCount = Interlocked.Read(ref _nativeInstallationCount),
+				NativeInstallationMilliseconds = ToMilliseconds(Interlocked.Read(ref _nativeInstallationTicks)),
+				NativeArchivePreparationCount = Interlocked.Read(ref _nativeArchivePreparationCount),
+				NativeArchivePreparationMilliseconds = ToMilliseconds(Interlocked.Read(ref _nativeArchivePreparationTicks))
+			};
 		}
 
 		private static void Record(long started, ref long count, ref long elapsedTicks)

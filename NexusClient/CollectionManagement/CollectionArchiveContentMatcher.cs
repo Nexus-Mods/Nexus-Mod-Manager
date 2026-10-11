@@ -95,7 +95,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		internal static bool MatchesFile(string path, long byteLength, CollectionContentHash contentHash,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, bool nativeChildVerification = false)
 		{
 			if (String.IsNullOrWhiteSpace(path) || contentHash == null ||
 				contentHash.Algorithm != CollectionContentHashAlgorithm.Sha256 || !File.Exists(path))
@@ -106,29 +106,37 @@ namespace Nexus.Client.CollectionManagement
 				return false;
 
 			string cachedHash;
-			if (TryGetCachedHash(fullPath, info, out cachedHash))
+			if (TryGetObservedHash(fullPath, info, out cachedHash))
 				return StringComparer.Ordinal.Equals(cachedHash, contentHash.Value);
 
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			string actualHash;
 			using (FileStream input = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read,
 				HashBufferSize, FileOptions.SequentialScan))
 			using (SHA256 sha = SHA256.Create())
 			{
 				byte[] buffer = new byte[HashBufferSize];
+				long completed = 0;
 				int read;
 				while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					sha.TransformBlock(buffer, 0, read, null, 0);
+					completed += read;
+					CollectionPreparationProgress.ReportBytes(completed, info.Length);
 				}
 				sha.TransformFinalBlock(new byte[0], 0, 0);
 				actualHash = ToHex(sha.Hash);
 			}
+			if (nativeChildVerification)
+				CollectionPerformanceMetrics.RecordNativeChildArchiveHash(performanceStarted, info.Length);
+			else
+				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationHash(performanceStarted, info.Length);
 
 			// Capture metadata after the read. If the archive changed while hashing, do not retain a reusable stamp.
 			var after = new FileInfo(fullPath);
 			if (after.Exists && after.Length == info.Length && after.LastWriteTimeUtc.Ticks == info.LastWriteTimeUtc.Ticks)
-				RememberHash(fullPath, after, actualHash);
+				RememberObservedHash(fullPath, after, actualHash);
 
 			return StringComparer.Ordinal.Equals(actualHash, contentHash.Value);
 		}
@@ -188,7 +196,8 @@ namespace Nexus.Client.CollectionManagement
 			return false;
 		}
 
-		private static bool TryGetCachedHash(string fullPath, FileInfo info, out string hash)
+		/// <summary>Reuses a checksum observed during this process while the archive's size and write stamp are unchanged.</summary>
+		internal static bool TryGetObservedHash(string fullPath, FileInfo info, out string hash)
 		{
 			lock (HashCacheLock)
 			{
@@ -204,10 +213,13 @@ namespace Nexus.Client.CollectionManagement
 			return false;
 		}
 
-		private static void RememberHash(string fullPath, FileInfo info, string hash)
+		/// <summary>Shares an actually calculated checksum with subsequent read-only archive matching and preparation.</summary>
+		internal static void RememberObservedHash(string fullPath, FileInfo info, string hash)
 		{
 			lock (HashCacheLock)
+			{
 				HashCache[fullPath] = new FileHashStamp(hash, info.Length, info.LastWriteTimeUtc.Ticks);
+			}
 		}
 
 		private sealed class FileHashStamp

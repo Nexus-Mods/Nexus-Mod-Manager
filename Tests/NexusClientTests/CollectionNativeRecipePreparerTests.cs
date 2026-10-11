@@ -94,6 +94,83 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void PrepareBasicSimpleExact_ReusesArchiveEntryHashesUntilArchiveStampChanges()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "entry-hash-cache", @"meshes\body.nif", @"textures\body.dds");
+				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
+				PreparedCollectionNativeRecipe first = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+				CollectionPerformanceSnapshot afterFirst = CollectionPerformanceMetrics.Capture();
+				PreparedCollectionNativeRecipe second = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+				CollectionPerformanceSnapshot afterSecond = CollectionPerformanceMetrics.Capture();
+
+				Assert.That(afterFirst.ArchiveSourceReadCount - before.ArchiveSourceReadCount, Is.EqualTo(2));
+				Assert.That(afterSecond.ArchiveSourceReadCount - afterFirst.ArchiveSourceReadCount, Is.EqualTo(0),
+					"Re-preparing an unchanged verified archive must not re-extract and rehash individual files.");
+				Assert.That(second.EffectPreview.Files.Select(x => x.ExpectedContentHash.Value),
+					Is.EquivalentTo(first.EffectPreview.Files.Select(x => x.ExpectedContentHash.Value)));
+
+				// A mutable archive with a changed file stamp must force new entry reads even if the retained
+				// SHA-256 still matches. The native installer retains its independent pre-mutation check.
+				File.SetLastWriteTimeUtc(fixture.ModArchivePath, DateTime.UtcNow.AddMinutes(3));
+				fixture.Preparer.PrepareBasicSimpleExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive,
+					fixture.Mod, fixture.GameMode, fixture.InstallContext, fixture.State, false);
+				CollectionPerformanceSnapshot afterStampChange = CollectionPerformanceMetrics.Capture();
+				Assert.That(afterStampChange.ArchiveSourceReadCount - afterSecond.ArchiveSourceReadCount, Is.EqualTo(2),
+					"A changed archive file stamp must invalidate the read-only digest cache.");
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
+		public void Submission_ReusesReviewedOutputDigestsOnlyAfterFreshWholeArchiveProof()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "verified-submission", @"meshes\body.nif", @"textures\body.dds");
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					fixture.InstallContext, fixture.State, false);
+				CollectionRecoveryArtifact expected = CollectionRecoveryArtifact.FromRetainedArtifact(fixture.VerifiedArchive.Artifact);
+
+				// This MUST precede BuildFromFreshVerifiedArchive at C6.7; the full archive is checked
+				// again by ModInstaller immediately before native file mutation.
+				CollectionNativeChildExecutionCoordinator.ValidateRecoveryArchiveBytes(fixture.ModArchivePath, expected);
+				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
+				var live = new CollectionMemberEffectPreviewBuilder().BuildFromFreshVerifiedArchive(
+					fixture.Member, prepared.RecipeInput, fixture.GameMode, fixture.Mod, null, prepared.EffectPreview);
+				CollectionPerformanceSnapshot after = CollectionPerformanceMetrics.Capture();
+				Assert.That(after.ArchiveSourceReadCount, Is.EqualTo(before.ArchiveSourceReadCount),
+					"A freshly SHA-256-proven archive must not be decompressed again to reconstruct its approved effects.");
+				Assert.That(CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(prepared.EffectPreview, live),
+					Is.SameAs(live));
+				Assert.That(live.Files.Select(x => x.ExpectedContentHash.Value),
+					Is.EquivalentTo(prepared.EffectPreview.Files.Select(x => x.ExpectedContentHash.Value)));
+
+				// No reviewed-output digest may authorize submission once archive bytes differ.
+				byte[] changed = File.ReadAllBytes(fixture.ModArchivePath);
+				changed[0] ^= 0x01; // Same byte length: the complete SHA-256, not size-only validation, must reject it.
+				File.WriteAllBytes(fixture.ModArchivePath, changed);
+				Assert.Throws<InvalidDataException>(() =>
+					CollectionNativeChildExecutionCoordinator.ValidateRecoveryArchiveBytes(fixture.ModArchivePath, expected));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareBasicSimpleExact_CachedManifestStillReverifiesRetainedBlob()
 		{
 			string root = CreateTemporaryDirectory();
@@ -104,7 +181,7 @@ namespace NexusClientTests
 					fixture.GameMode, fixture.InstallContext, fixture.State, false);
 
 				string relative = CollectionsRetainedArtifactStore.GetCanonicalRelativePath(fixture.SourceRecord.ManifestSource.ContentHash);
-				string manifestPath = Path.Combine(fixture.Store.RetainedContentDirectory, relative.Replace('/', Path.DirectorySeparatorChar));
+				string manifestPath = new CollectionsRetainedArtifactStore(fixture.Store).ResolveOwnedContentPath(fixture.SourceRecord.RawManifestArtifactId, relative);
 				byte[] bytes = File.ReadAllBytes(manifestPath);
 				bytes[0] ^= 0x01;
 				File.WriteAllBytes(manifestPath, bytes);
@@ -1000,6 +1077,86 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void FreezeOrderedFomodFileMappings_ReplicatesSourceAtDistinctDestinations()
+		{
+			var mappings = new[]
+			{
+				new ModInstallationSimpleFileMapping(@"fomod\options\lashes.dds", @"textures\eyes\human.dds"),
+				new ModInstallationSimpleFileMapping(@"fomod\options\lashes.dds", @"textures\eyes\synth.dds")
+			};
+			ModInstallationSimpleFileRecipe frozen = CollectionNativeRecipePreparer.FreezeOrderedFomodFileMappings(mappings);
+
+			Assert.That(frozen.Mappings.Count, Is.EqualTo(2));
+			Assert.That(frozen.Mappings.Select(mapping => mapping.SourcePath),
+				Is.All.EqualTo(@"fomod\options\lashes.dds"));
+			Assert.That(frozen.Mappings.Select(mapping => mapping.DestinationPath), Is.EqualTo(new[]
+			{
+				@"textures\eyes\human.dds", @"textures\eyes\synth.dds"
+			}));
+		}
+
+		[Test]
+		public void FreezeOrderedFomodFileMappings_DestinationCollisionUsesLastNativeWrite()
+		{
+			var mappings = new[]
+			{
+				new ModInstallationSimpleFileMapping(@"fomod\options\base.dds", @"textures\eyes\shared.dds"),
+				new ModInstallationSimpleFileMapping(@"fomod\options\base.dds", @"textures\eyes\another.dds"),
+				new ModInstallationSimpleFileMapping(@"fomod\options\choice.dds", @"TEXTURES\EYES\SHARED.DDS"),
+				new ModInstallationSimpleFileMapping(@"fomod\options\choice.dds", @"textures\eyes\last.dds")
+			};
+			ModInstallationSimpleFileRecipe frozen = CollectionNativeRecipePreparer.FreezeOrderedFomodFileMappings(mappings);
+
+			Assert.That(frozen.Mappings.Count, Is.EqualTo(3));
+			Assert.That(frozen.Mappings[0].DestinationPath, Is.EqualTo(@"textures\eyes\another.dds"));
+			Assert.That(frozen.Mappings[1].DestinationPath, Is.EqualTo(@"TEXTURES\EYES\SHARED.DDS"));
+			Assert.That(frozen.Mappings[1].SourcePath, Is.EqualTo(@"fomod\options\choice.dds"));
+			Assert.That(frozen.Mappings[2].DestinationPath, Is.EqualTo(@"textures\eyes\last.dds"));
+			Assert.That(frozen.Mappings.Select(m => m.DestinationPath)
+				.Distinct(StringComparer.OrdinalIgnoreCase).Count(), Is.EqualTo(3));
+		}
+
+		[Test]
+		public void FreezeOrderedFomodFileMappings_DuplicateSamePairIsCollapsedAndInvalidInputsStayRejected()
+		{
+			var mapping = new ModInstallationSimpleFileMapping(@"option\same.dds", @"textures\same.dds");
+			ModInstallationSimpleFileRecipe frozen = CollectionNativeRecipePreparer.FreezeOrderedFomodFileMappings(
+				new[] { mapping, mapping });
+			Assert.That(frozen.Mappings.Count, Is.EqualTo(1));
+			Assert.Throws<ArgumentNullException>(() => CollectionNativeRecipePreparer.FreezeOrderedFomodFileMappings(null));
+			Assert.Throws<ArgumentException>(() => CollectionNativeRecipePreparer.FreezeOrderedFomodFileMappings(
+				new ModInstallationSimpleFileMapping[] { null, mapping }));
+			Assert.Throws<ArgumentException>(() => CollectionNativeRecipePreparer.FreezeOrderedFomodFileMappings(
+				new ModInstallationSimpleFileMapping[0]));
+		}
+
+		[Test]
+		public void PrepareExact_FomodOverlappingOutputDestinationsFreezesEffectiveSelectedFiles()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFomodOverlappingOutputsFixture(root, "fomod-overlapping-outputs");
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
+					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
+					fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+
+				InstallModFileOperation[] files = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().ToArray();
+				Assert.That(files.Length, Is.EqualTo(2));
+				Assert.That(files.Single(file => file.DestinationPath == @"textures\eyes\main.dds").SourcePath,
+					Is.EqualTo(@"fomod\options\higher-priority.dds"));
+				Assert.That(files.Single(file => file.DestinationPath == @"textures\eyes\secondary.dds").SourcePath,
+					Is.EqualTo(@"fomod\options\original.dds"));
+				Assert.That(prepared.EffectPreview.Files.Count, Is.EqualTo(2));
+				Assert.That(prepared.EffectPreview.IsComplete, Is.True);
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		[Test]
 		public void PrepareExact_VortexFomodDinputFreezesSelectedOutputsIntoNativeGameRootRecipe()
 		{
 			string root = CreateTemporaryDirectory();
@@ -1151,6 +1308,29 @@ namespace NexusClientTests
 				"{\"name\":\"Map with All Locations\",\"choices\":[{\"name\":\"4k With All Locations\",\"idx\":0}]}]}]}";
 			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
 				choicesJson, script, null, "exact", (string)null, (IDictionary<string, byte[]>)null, @"textures\map-4k.dds", @"textures\map-2k.dds");
+		}
+
+		private static Fixture CreateFomodOverlappingOutputsFixture(string root, string suffix)
+		{
+			var scriptType = new XmlScriptType();
+			var script = new XmlScript(scriptType, new Version(5, 0));
+			// Required content establishes a baseline. The selected XML option is applied
+			// after required files and replaces only its colliding destination.
+			script.RequiredInstallFiles.Add(new InstallableFile(@"fomod\options\original.dds",
+				@"textures\eyes\main.dds", false, 0, false, false));
+			script.RequiredInstallFiles.Add(new InstallableFile(@"fomod\options\original.dds",
+				@"textures\eyes\secondary.dds", false, 0, false, false));
+			var step = new InstallStep("Eyes", null, SortOrder.Explicit);
+			var group = new OptionGroup("Eye variants", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			group.Options.Add(CreateFomodOption("Chosen Lashes", @"fomod\options\higher-priority.dds",
+				@"textures\eyes\main.dds"));
+			step.OptionGroups.Add(group);
+			script.InstallSteps.Add(step);
+
+			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Eyes\",\"groups\":[" +
+				"{\"name\":\"Eye variants\",\"choices\":[{\"name\":\"Chosen Lashes\",\"idx\":0}]}]}]}";
+			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
+				choicesJson, script, @"fomod\options\original.dds", @"fomod\options\higher-priority.dds");
 		}
 
 		private static Fixture CreateFomodDinputFixture(string root, string suffix, string dinputDestination)

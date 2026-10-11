@@ -7,6 +7,8 @@ namespace NexusClientTests
     using System.Runtime.Remoting.Proxies;
 
     using Nexus.Client.ModManagement.Scripting;
+    using Nexus.Client.ModManagement.Scripting.Operations;
+    using Nexus.Client.ModManagement;
     using Nexus.Client.PluginManagement;
     using Nexus.Client.Plugins;
 
@@ -191,6 +193,54 @@ namespace NexusClientTests
             Assert.AreEqual(1, pluginManager.ReconciliationCalls);
             Assert.AreEqual(0, state.GetRequestedActivePluginPaths().Count);
         }
+        /// <summary>Installs a Collection patch without applying incomplete activation or relative-order effects at the member boundary.</summary>
+        [Test]
+        public void CollectionCompletion_DefersPluginEnforcementButFlushesFileRegistrations()
+        {
+            RecordingPluginManagerProxy pluginManager = new RecordingPluginManagerProxy(new string[0]) { ReconciliationResult = false };
+            RecordingModFileInstaller fileInstaller = new RecordingModFileInstaller();
+            InstallerGroup installers = new InstallerGroup(null, fileInstaller, null, null, pluginManager.Manager,
+                new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), null, null, null);
+            ImmediateScriptedInstallOperationExecutor executor = new ImmediateScriptedInstallOperationExecutor(
+                null, null, null, null, null, installers, null, null, true, true);
+
+            Assert.IsTrue(executor.Execute(new SetPluginActivationOperation(@"C:\Game\Data\FnScar_TacticalReload.esp", true)));
+            Assert.IsTrue(executor.Execute(new SetRelativeLoadOrderOperation(new[] { "FnScar.esp", "FnScar_TacticalReload.esp" })));
+            Assert.DoesNotThrow(() => executor.CompleteExecution());
+            Assert.AreEqual(0, pluginManager.ReconciliationCalls);
+            Assert.AreEqual(1, fileInstaller.PluginRegistrationFlushCallCount);
+            Assert.AreEqual(0, fileInstaller.FinalizeCallCount);
+        }
+
+        /// <summary>Exposes the specific plugin and missing master when strict recipe completion rejects activation.</summary>
+        [Test]
+        public void CompleteExecution_FailedPluginActivationIncludesNativeDiagnostic()
+        {
+            const string detail = "FnScar_TacticalReload.esp requires the missing master FnScar.esp.";
+            RecordingPluginManagerProxy pluginManager = new RecordingPluginManagerProxy(new string[0]) { ReconciliationResult = false };
+            pluginManager.ReconciliationDiagnostics.Add(new PluginValidationDiagnostic(PluginValidationIssueKind.MissingMaster,
+                PluginValidationSeverity.Error, new Plugin(@"C:\Game\Data\FnScar_TacticalReload.esp", String.Empty, null), detail));
+            InstallerGroup installers = new InstallerGroup(null, new RecordingModFileInstaller(), null, null, pluginManager.Manager);
+            ImmediateScriptedInstallOperationExecutor executor = new ImmediateScriptedInstallOperationExecutor(
+                null, null, null, null, null, installers, null, null, true);
+
+            InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() => executor.CompleteExecution());
+
+            StringAssert.Contains(detail, failure.Message);
+            Assert.AreEqual(1, pluginManager.ReconciliationCalls);
+        }
+
+        /// <summary>Preserves the fallback failure when a plugin manager reports no diagnostic details.</summary>
+        [Test]
+        public void CompleteExecution_FailedPluginActivationWithoutDiagnosticsKeepsFallback()
+        {
+            RecordingPluginManagerProxy pluginManager = new RecordingPluginManagerProxy(new string[0]) { ReconciliationResult = false };
+            InstallerGroup installers = new InstallerGroup(null, new RecordingModFileInstaller(), null, null, pluginManager.Manager);
+            ImmediateScriptedInstallOperationExecutor executor = new ImmediateScriptedInstallOperationExecutor(
+                null, null, null, null, null, installers, null, null, true);
+            InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() => executor.CompleteExecution());
+            Assert.AreEqual("The final plugin state requested by the installation recipe could not be reconciled safely.", failure.Message);
+        }
     }
 
     /// <summary>
@@ -227,6 +277,9 @@ namespace NexusClientTests
         /// </summary>
         public bool ReconciliationResult { get; set; } = true;
 
+        /// <summary>Gets the native diagnostics returned with final reconciliation.</summary>
+        public List<PluginValidationDiagnostic> ReconciliationDiagnostics { get; } = new List<PluginValidationDiagnostic>();
+
         /// <summary>
         /// Gets the deployment paths passed to the latest reconciliation request.
         /// </summary>
@@ -256,7 +309,7 @@ namespace NexusClientTests
                         foreach (KeyValuePair<string, bool> request in (IDictionary<string, bool>)call.Args[1])
                             LastRequestedActivationStates[request.Key] = request.Value;
                         object[] returnArgs = (object[])call.Args.Clone();
-                        returnArgs[2] = new List<PluginValidationDiagnostic>();
+                        returnArgs[2] = new List<PluginValidationDiagnostic>(ReconciliationDiagnostics);
                         return new ReturnMessage(ReconciliationResult, returnArgs, 1, call.LogicalCallContext, call);
                     case "SetPluginActivation":
                         return new ReturnMessage(null, call.Args, 0, call.LogicalCallContext, call);

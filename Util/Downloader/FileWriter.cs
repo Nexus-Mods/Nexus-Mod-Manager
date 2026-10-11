@@ -71,6 +71,10 @@ namespace Nexus.Client.Util.Downloader
 			#endregion
 		}
 
+		private const int WriteBufferSize = 1024 * 1024;
+		private const long MaximumQueuedBytes = 32 * 1024 * 1024;
+		private const long MetadataCheckpointBytes = 8 * 1024 * 1024;
+		private long m_lngQueuedBytes;
 		private string m_strFilePath = null;
 		private string m_strFileMetadataPath = null;
 		private SortedList<FileBlock> m_sltBlocksToWrite = new SortedList<FileBlock>();
@@ -91,7 +95,8 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				return m_rgsWrittenRanges.TotalSize;
+				lock (m_rgsWrittenRanges)
+					return m_rgsWrittenRanges.TotalSize;
 			}
 		}
 
@@ -138,89 +143,114 @@ namespace Nexus.Client.Util.Downloader
 		/// This method is run on a separate thread. It waits to be signalled indicating that
 		/// there is data queued to be written, writes the data, and waits for the next signal.
 		///
-		/// Every time the file is written to, the metadata file is updated to reflect which parts
-		/// of the file have been written.
+		/// Resume metadata is checkpointed after a bounded amount of data or time, and on close.
 		/// </remarks>
 		protected void WaitForData()
 		{
 			int intRetries = 0;
+			string strFolder = Path.GetDirectoryName(m_strFilePath);
+			FileBlock pendingBlock = null;
+			long uncheckpointedBytes = 0;
+			Stopwatch checkpointTimer = Stopwatch.StartNew();
+			try
+			{
+				if (!Directory.Exists(strFolder))
+					Directory.CreateDirectory(strFolder);
+				using (FileStream fsmFile = new FileStream(m_strFilePath, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None, WriteBufferSize))
+				using (FileStream fsmMetaFile = File.OpenWrite(m_strFileMetadataPath))
+				using (StreamWriter fsmMetaWriter = new StreamWriter(fsmMetaFile))
+				{
+					while (true)
+					{
+						try
+						{
+							bool closing;
+							lock (m_sltBlocksToWrite)
+							{
+								if (pendingBlock == null && m_sltBlocksToWrite.Count > 0)
+								{
+									// Prefer continuing the current extent before seeking to another download thread's extent.
+									int index = m_sltBlocksToWrite.IndexOf(new FileBlock(fsmFile.Position, null));
+									if (index < 0)
+										index = 0;
+									pendingBlock = m_sltBlocksToWrite[index];
+									m_sltBlocksToWrite.RemoveAt(index);
+									m_lngQueuedBytes -= pendingBlock.Data.Length;
+									Monitor.PulseAll(m_sltBlocksToWrite);
+								}
+								closing = m_booIsClosing && pendingBlock == null && m_sltBlocksToWrite.Count == 0;
+								if (pendingBlock == null)
+									m_ewhProcessQueue.Reset();
+							}
+							if (pendingBlock != null)
+							{
+								if (fsmFile.Position != pendingBlock.StartPosition)
+									fsmFile.Seek(pendingBlock.StartPosition, SeekOrigin.Begin);
+								fsmFile.Write(pendingBlock.Data, 0, pendingBlock.Data.Length);
+								lock (m_rgsWrittenRanges)
+									m_rgsWrittenRanges.AddRange(new Range((UInt64)pendingBlock.StartPosition, (UInt64)(pendingBlock.StartPosition + pendingBlock.Data.Length - 1)));
+								uncheckpointedBytes += pendingBlock.Data.Length;
+								pendingBlock = null;
+							}
+							if (uncheckpointedBytes > 0 && (closing || uncheckpointedBytes >= MetadataCheckpointBytes || checkpointTimer.ElapsedMilliseconds >= 1000))
+							{
+								CheckpointMetadata(fsmFile, fsmMetaFile, fsmMetaWriter);
+								uncheckpointedBytes = 0;
+								checkpointTimer.Restart();
+							}
+							if (closing)
+								return;
+							intRetries = 0;
+							lock (m_sltBlocksToWrite)
+							{
+								if (m_sltBlocksToWrite.Count > 0 || m_booIsClosing)
+									continue;
+							}
+							m_ewhProcessQueue.WaitOne(uncheckpointedBytes > 0 ? (int)Math.Max(1, 1000 - checkpointTimer.ElapsedMilliseconds) : Timeout.Infinite);
+						}
+						catch (IOException ex)
+						{
+							int errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & 0xffff;
+							if (errorCode != 32 && errorCode != 33)
+								throw;
+							if (++intRetries > 600)
+							{
+								UnableToWrite(this, EventArgs.Empty);
+								return;
+							}
+							// Retain the failed block while waiting for the file lock to clear.
+							Thread.Sleep(100);
+						}
+					}
+				}
+			}
+			catch (UnauthorizedAccessException)
+			{
+				Trace.TraceError("Unable to write to file \"{0}\", it's already opened.", m_strFilePath);
+			}
+			finally
+			{
+				lock (m_sltBlocksToWrite)
+				{
+					m_booIsClosing = true;
+					Monitor.PulseAll(m_sltBlocksToWrite);
+				}
+			}
+		}
 
-            string strFolder = Path.GetDirectoryName(m_strFilePath);
-            if (!Directory.Exists(strFolder))
-            {
-                Directory.CreateDirectory(strFolder);
-            }
-
-            try
-            {
-                using (FileStream fsmFile = File.OpenWrite(m_strFilePath))
-                using (FileStream fsmMetaFile = File.OpenWrite(m_strFileMetadataPath))
-                using (StreamWriter fsmMetaWriter = new StreamWriter(fsmMetaFile))
-                {
-                    while (true)
-                    {
-                        while (m_sltBlocksToWrite.Count > 0)
-                        {
-                            try
-                            {
-                                FileBlock fblData = null;
-                                lock (m_sltBlocksToWrite)
-                                {
-                                    fblData = m_sltBlocksToWrite[0];
-                                    m_sltBlocksToWrite.RemoveAt(0);
-                                }
-                                if (fblData.StartPosition > (Int64)fsmFile.Length)
-                                    fsmFile.SetLength(fblData.StartPosition + fblData.Data.Length);
-                                fsmFile.Seek(fblData.StartPosition, SeekOrigin.Begin);
-                                fsmFile.Write(fblData.Data, 0, fblData.Data.Length);
-
-                                m_rgsWrittenRanges.AddRange(new Range((UInt64)fblData.StartPosition, (UInt64)(fblData.StartPosition + fblData.Data.Length - 1)));
-
-                                fsmMetaFile.SetLength(0);
-                                foreach (Range rngWritten in m_rgsWrittenRanges)
-                                    fsmMetaWriter.WriteLine(rngWritten.ToString());
-                                fsmMetaWriter.Flush();
-
-                                intRetries = 0;
-                            }
-                            catch (IOException ex)
-                            {
-                                //See stackoverflow answer for determining if file is in use: https://stackoverflow.com/a/937558/1634249
-                                var errorCode = System.Runtime.InteropServices.Marshal.GetHRForException(ex) & ((1 << 16) - 1);
-
-                                if (errorCode == 32 || errorCode == 33)
-                                {
-                                    //Wait for file to be unlocked, hopefully soon
-                                    //XXX what else could be done?
-                                    if (intRetries > 600)
-                                    {
-                                        UnableToWrite(this, new EventArgs());
-                                        return;
-                                    }
-                                    else
-                                        intRetries++;
-
-                                    Thread.Sleep(100);
-                                }
-                                else
-                                {
-                                    //Unknown exception, standard error handling (crash)
-                                    throw ex;
-                                }
-                            }
-                        }
-                        if (m_booIsClosing && m_sltBlocksToWrite.Count == 0)
-                            return;
-                        m_ewhProcessQueue.Reset();
-                        m_ewhProcessQueue.WaitOne();
-                    }
-                }
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // Not much we can do.
-                Trace.TraceError("Unable to write to file \"{0}\", it's already opened.", m_strFilePath);
-            }
+		/// <summary>
+		/// Flushes downloaded data before publishing its resumable ranges using the existing metadata format.
+		/// </summary>
+		private void CheckpointMetadata(FileStream file, FileStream metadata, StreamWriter writer)
+		{
+			file.Flush();
+			writer.Flush();
+			metadata.Position = 0;
+			metadata.SetLength(0);
+			lock (m_rgsWrittenRanges)
+				foreach (Range range in m_rgsWrittenRanges)
+					writer.WriteLine(range.ToString());
+			writer.Flush();
 		}
 
 		#endregion
@@ -230,9 +260,14 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void Close()
 		{
-			m_booIsClosing = true;
-			m_ewhProcessQueue.Set();
-			m_thdWrite.Thread.Join();
+			lock (m_sltBlocksToWrite)
+			{
+				m_booIsClosing = true;
+				m_ewhProcessQueue.Set();
+				Monitor.PulseAll(m_sltBlocksToWrite);
+			}
+			if (Thread.CurrentThread != m_thdWrite.Thread)
+				m_thdWrite.Thread.Join();
 		}
 
 		/// <summary>
@@ -242,11 +277,14 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="p_bteData">The data to write.</param>
 		public void EnqueueBlock(UInt64 p_intStartPosition, byte[] p_bteData)
 		{
-			if (m_booIsClosing)
-				return;
 			lock (m_sltBlocksToWrite)
 			{
+				while (!m_booIsClosing && m_lngQueuedBytes > 0 && m_lngQueuedBytes + p_bteData.Length > MaximumQueuedBytes)
+					Monitor.Wait(m_sltBlocksToWrite);
+				if (m_booIsClosing)
+					return;
 				m_sltBlocksToWrite.Add(new FileBlock((Int64)p_intStartPosition, p_bteData));
+				m_lngQueuedBytes += p_bteData.Length;
 				m_ewhProcessQueue.Set();
 			}
 		}

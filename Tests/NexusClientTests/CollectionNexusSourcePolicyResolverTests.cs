@@ -52,6 +52,31 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void ResolvedPolicy_ReappliedForSameManifest_SkipsSecondProviderLookup()
+		{
+			string root = NewRoot();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "prefer");
+				int calls = 0;
+				var resolver = new CollectionNexusSourcePolicyResolver(fixture.SourceStore,
+					(domain, modId, fileId, policy, requestedVersion) =>
+					{
+						calls++;
+						return CollectionNexusSourcePolicyFileResolution.Resolved(fileId);
+					});
+				CollectionNexusSourcePolicyResolution first = resolver.Resolve(fixture.Selection);
+				CollectionEffectiveSelection replayed = CollectionNexusSourcePolicyResolver.ReapplyReviewedChoices(
+					fixture.Selection, first.ArtifactChoices);
+				CollectionNexusSourcePolicyResolution remaining = resolver.Resolve(replayed);
+				Assert.AreEqual(1, calls, "Recreating a review for an external alternative must reuse frozen Nexus decisions.");
+				Assert.AreEqual(CollectionCompatibilityStatus.Supported, replayed.CapabilityReport.Status);
+				Assert.AreEqual(0, remaining.ArtifactChoices.Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void Resolve_PreferFallbackFreezesSupportedSubstitution()
 		{
 			string root = NewRoot();

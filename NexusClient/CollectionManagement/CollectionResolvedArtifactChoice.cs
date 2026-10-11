@@ -21,6 +21,24 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionResolvedArtifactChoice : IEquatable<CollectionResolvedArtifactChoice>
 	{
+		/// <summary>Explicit consent for exact sealed alternate bytes of an external member; not a provider update rule.</summary>
+		public const string UserSelectedExternalAlternativeRuleId = "user-approved-external-alternative-v1";
+
+		/// <summary>Validates the bounded external override, including the actual sealed SHA-256 identity.</summary>
+		internal static bool IsValidUserSelectedExternalAlternative(CollectionResolvedArtifactChoice choice)
+		{
+			if (choice == null || choice.Kind != CollectionResolvedArtifactChoiceKind.SupportedSubstitution ||
+				!StringComparer.Ordinal.Equals(choice.SubstitutionRuleId, UserSelectedExternalAlternativeRuleId))
+				return false;
+			string requestedMd5; long requestedLength; string selectedMd5; long selectedLength;
+			return CollectionExternalArtifactIdentity.TryParse(choice.RequestedArtifact, out requestedMd5, out requestedLength) &&
+				choice.RequestedArtifact.ExpectedContentHash == null &&
+				CollectionExternalArtifactIdentity.TryParse(choice.SelectedArtifact, out selectedMd5, out selectedLength) &&
+				!(StringComparer.Ordinal.Equals(requestedMd5, selectedMd5) && requestedLength == selectedLength) &&
+				choice.SelectedArtifact.ExpectedContentHash != null &&
+				choice.SelectedArtifact.ExpectedContentHash.Algorithm == CollectionContentHashAlgorithm.Sha256;
+		}
+
 		private CollectionResolvedArtifactChoice(
 			CollectionResolvedArtifactChoiceKind kind,
 			CollectionArtifactReference requestedArtifact,

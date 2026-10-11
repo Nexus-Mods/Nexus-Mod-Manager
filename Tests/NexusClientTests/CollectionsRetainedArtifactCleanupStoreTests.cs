@@ -15,6 +15,22 @@ namespace NexusClientTests
 	public class CollectionsRetainedArtifactCleanupStoreTests
 	{
 		[Test]
+		public void CollectArchiveReference_DeletesOnlyCollectionMetadataAndLeavesLibraryArchiveIntact()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				string archive = Path.Combine(root, "mod.zip"); File.WriteAllText(archive, "keep this archive");
+				CollectionsRetainedArtifact reference = new CollectionsRetainedArtifactStore(store).ReferenceArchiveFile(archive);
+				Assert.IsTrue(new CollectionsRetainedArtifactCleanupStore(store).TryCollectUnreferencedArtifact(reference.ArtifactId));
+				Assert.AreEqual("keep this archive", File.ReadAllText(archive));
+				Assert.IsNull(new CollectionsRetainedArtifactStore(store).GetArtifact(reference.ArtifactId));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void CollectUnreferencedArtifact_MarksDeletesAndFinalizesTrackedBlob()
 		{
 			string root = CreateTemporaryDirectory();

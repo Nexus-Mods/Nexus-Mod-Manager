@@ -175,6 +175,25 @@ namespace Nexus.Client.CollectionManagement
 			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
 			CancellationToken cancellationToken)
 		{
+			return BeginCore(planBuild, archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken, null);
+		}
+
+		/// <summary>Acquires newly selected prerequisites while reusing verified archives and cached content verification.</summary>
+		internal CollectionMemberAcquisitionBatch BeginExpanded(CollectionAdditivePlanBuildResult planBuild,
+			CollectionMemberAcquisitionBatch previous, CancellationToken cancellationToken)
+		{
+			if (!previous.IsReady || !previous.PlanBuild.Plan.Revision.Equals(planBuild.Plan.Revision) ||
+				!previous.PlanBuild.Plan.Target.Equals(planBuild.Plan.Target))
+				throw new InvalidOperationException("Dependency acquisition must extend a ready batch for the same revision and target.");
+			return BeginCore(planBuild, previous.ArchiveOverwritePolicy, null, cancellationToken,
+				previous.Members.ToDictionary(x => x.Match.Member.MemberKey));
+		}
+
+		/// <summary>Starts ordinary or expanded acquisition while retaining verified exact inputs.</summary>
+		private CollectionMemberAcquisitionBatch BeginCore(CollectionAdditivePlanBuildResult planBuild,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
+			CancellationToken cancellationToken, IDictionary<CollectionMemberKey, CollectionMemberAcquisitionState> previousMembers)
+		{
 			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			ValidatePreparingPlan(planBuild);
 			ResolvedCollectionPlan plan = planBuild.Plan;
@@ -185,15 +204,22 @@ namespace Nexus.Client.CollectionManagement
 
 			var requests = new Dictionary<CollectionMemberKey, CollectionAcquisitionRequest>();
 			var verifiedArchives = new List<CollectionVerifiedArchive>();
+			int archivePosition = 0;
 			foreach (CollectionMemberMatchResult match in initial.Members)
 			{
+				archivePosition++;
 				if (!RequiresArchiveInput(match))
 					continue;
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+					"Collections.Workflow.CheckingMemberArchive", "Checking mod archive ({0}/{1}): {2}",
+					archivePosition, initial.Members.Count, match.Member.DisplayName), true);
 				CollectionAcquisitionRequest request = CreateRequest(plan, match.Member.MemberKey);
 				requests.Add(match.Member.MemberKey, request);
-				CollectionVerifiedArchive verified = IsBundled(request)
-					? _bundledCoordinator.TryComplete(request, cancellationToken)
-					: _archiveAdopter.TryAdopt(request, cancellationToken);
+				CollectionMemberAcquisitionState previous;
+				CollectionVerifiedArchive verified = previousMembers != null && previousMembers.TryGetValue(match.Member.MemberKey, out previous) && previous.VerifiedArchive != null
+					? _archiveAdopter.RebindVerified(previous.VerifiedArchive, request, cancellationToken)
+					: IsBundled(request) ? _bundledCoordinator.TryComplete(request, cancellationToken)
+						: _archiveAdopter.TryAdopt(request, cancellationToken);
 				if (verified != null)
 					verifiedArchives.Add(verified);
 			}
@@ -300,8 +326,10 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Acquisition input can be probed only while the Collection operation is awaiting input.");
 
 			var verified = new List<CollectionVerifiedArchive>();
+			int archivePosition = 0;
 			foreach (CollectionMemberAcquisitionState state in batch.Members)
 			{
+				archivePosition++;
 				if (state.VerifiedArchive != null)
 				{
 					verified.Add(state.VerifiedArchive);
@@ -309,6 +337,9 @@ namespace Nexus.Client.CollectionManagement
 				}
 				if (state.Request == null)
 					continue;
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+					"Collections.Workflow.CheckingMemberArchive", "Checking mod archive ({0}/{1}): {2}",
+					archivePosition, batch.Members.Count, state.Match.Member.DisplayName), true);
 				CollectionVerifiedArchive archive = IsBundled(state.Request)
 					? _bundledCoordinator.TryComplete(state.Request, cancellationToken)
 					: _archiveAdopter.TryAdopt(state.Request, cancellationToken);
@@ -355,6 +386,25 @@ namespace Nexus.Client.CollectionManagement
 				state.Request == null || state.Request.RequestId != pendingAction.Request.RequestId)
 				throw new ArgumentException("The pending manual acquisition action does not belong to this input-paused batch.", nameof(pendingAction));
 			return _manualCoordinator.VerifyLocalFile(pendingAction, localFilePath, cancellationToken);
+		}
+
+		/// <summary>Previews and temporarily retains a different user-selected external archive without installing it.</summary>
+		public CollectionAlternateArchiveCandidate InspectAlternateLocalFile(CollectionMemberAcquisitionBatch batch,
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			if (batch == null) throw new ArgumentNullException(nameof(batch));
+			if (pendingAction == null) throw new ArgumentNullException(nameof(pendingAction));
+			CollectionMemberAcquisitionState state = batch.Members.SingleOrDefault(x =>
+				x.PendingAction != null && x.PendingAction.ActionId == pendingAction.ActionId);
+			if (state == null || state.Disposition != CollectionMemberAcquisitionDisposition.ManualInputRequired ||
+				state.Request == null || state.Request.RequestId != pendingAction.Request.RequestId)
+				throw new ArgumentException("The alternate file belongs to no current input-paused request.", nameof(pendingAction));
+			return _manualCoordinator.InspectAlternateLocalFile(pendingAction, localFilePath, cancellationToken);
+		}
+
+		public void ReleaseAlternateLocalFile(CollectionAlternateArchiveCandidate candidate)
+		{
+			_manualCoordinator.ReleaseAlternateLocalFile(candidate);
 		}
 
 		/// <summary>

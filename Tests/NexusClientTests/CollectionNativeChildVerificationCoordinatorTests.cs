@@ -216,6 +216,33 @@ namespace NexusClientTests
 			finally { Directory.Delete(directory, true); }
 		}
 
+		/// <summary>Allows a patch awaiting its later masters at the member boundary while keeping final plugin verification strict.</summary>
+		[Test]
+		public void VerifyMemberEffects_DeferredPluginsStillRequireFilesAndFinalActivation()
+		{
+			CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-deferred-plugin");
+			var nativeMod = new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner"),
+				"incoming.7z", "incoming.7z", "10", "20", "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Direct);
+			const string pluginPath = @"C:\Game\Data\FnScar_TacticalReload.esp";
+			CollectionPlannedPluginEffect plugin = CollectionPlannedPluginEffect.Activation(pluginPath, true);
+			var preview = new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("patch"),
+				CollectionRecipeIdentity.FromFingerprint("patch-recipe"), ModInstallMethod.Direct, ModInstallRoot.Data,
+				new CollectionPlannedFileEffect[0], new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
+				new[] { plugin }, new CollectionEffectPreviewIssue[0]);
+			var state = new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], new[] { nativeMod },
+				new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
+				new CollectionNativePluginState[0], CollectionNativeStateCoverage.Complete, new CollectionTargetAssociation[0],
+				new CollectionMemberBinding[0], new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
+
+			Assert.IsTrue(InvokeVerifyMemberEffects(state, nativeMod, preview, false));
+			Assert.IsFalse(InvokeVerifyMemberEffects(state, nativeMod, preview));
+			Assert.IsFalse(CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(state, plugin));
+			var missingFile = new CollectionMemberEffectPreview(preview.MemberKey, preview.RecipeIdentity, preview.InstallMethod,
+				preview.InstallRoot, new[] { new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data,
+					"FnScar_TacticalReload.esp")) }, preview.IniEdits, preview.GameValues, preview.PluginEffects, new CollectionEffectPreviewIssue[0]);
+			Assert.IsFalse(InvokeVerifyMemberEffects(state, nativeMod, missingFile, false));
+		}
+
 		private static ModOperationResult CreateResult(ModOperationReportedStatus status, ModOperationDurability durability)
 		{
 			ModOperationIdentity identity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
@@ -232,12 +259,12 @@ namespace NexusClientTests
 		}
 
 		private static bool InvokeVerifyMemberEffects(CollectionNativeStateIndex state, CollectionNativeModState nativeMod,
-			CollectionMemberEffectPreview preview)
+			CollectionMemberEffectPreview preview, bool verifyPluginEffects = true)
 		{
 			MethodInfo method = typeof(CollectionNativeChildVerificationCoordinator).GetMethod(
 				"VerifyMemberEffects", BindingFlags.Static | BindingFlags.NonPublic);
 			Assert.IsNotNull(method);
-			return (bool)method.Invoke(null, new object[] { state, nativeMod, preview });
+			return (bool)method.Invoke(null, new object[] { state, nativeMod, preview, verifyPluginEffects });
 		}
 	}
 }

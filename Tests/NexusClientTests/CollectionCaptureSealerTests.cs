@@ -315,7 +315,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void Seal_TamperedSuppliedArchiveReferenceBlocksAnyPublication()
+		public void Seal_TamperedLegacyArchiveCopyIsReplacedByVerifiedLibraryBytes()
 		{
 			string root = CreateTemporaryDirectory("nmm-c77-tamper-");
 			try
@@ -342,9 +342,10 @@ namespace NexusClientTests
 
 				CollectionCaptureSealResult result = sealer.Seal(request);
 
-				Assert.IsFalse(result.IsSealed);
-				Assert.IsTrue(result.HasFatalIssues);
-				Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionCaptureSealIssueKind.RetainedArtifactCorrupt));
+				Assert.IsTrue(result.IsSealed);
+				Assert.IsFalse(result.HasFatalIssues);
+				Assert.IsFalse(File.Exists(blobPath));
+				Assert.IsTrue(artifacts.VerifyArtifact(artifact.ArtifactId));
 			}
 			finally
 			{

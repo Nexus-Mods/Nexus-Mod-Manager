@@ -20,6 +20,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string PayloadFormatV4 = "nmm-ce.collections.child-recovery/4";
 		private const string PayloadFormatV5 = "nmm-ce.collections.child-recovery/5";
 		private const string PayloadFormatV6 = "nmm-ce.collections.child-recovery/6";
+		// V7 wraps existing evidence and assigns plugin verification to the final Collection barrier.
+		private const string PayloadFormatV7 = "nmm-ce.collections.child-recovery/7";
 		private const long MaximumManifestBytes = 16L * 1024L * 1024L;
 		private const int MaximumPayloadCount = 100000;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -208,6 +210,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					manifest.SafeBoundaryStateFingerprint != null ? PayloadFormatV4 :
 					manifest.TerminalStateFingerprint != null ? PayloadFormatV3 :
 					manifest.ExecutionEvidence != null ? PayloadFormatV2 : PayloadFormatV1;
+				if (manifest.ExecutionEvidence != null && manifest.ExecutionEvidence.DeferPluginReconciliation) writer.Write(PayloadFormatV7);
 				writer.Write(payloadFormat);
 				writer.Write(manifest.OperationIdentity.OperationId.ToString("D"));
 				writer.Write(manifest.ChildSequence);
@@ -276,6 +279,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private static CollectionNativeChildRecoveryManifest Deserialize(BinaryReader reader, CollectionOperation operation, CollectionNativeChildOperation child)
 		{
 			string payloadFormat = reader.ReadString();
+			bool deferPluginReconciliation = StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV7);
+			if (deferPluginReconciliation) payloadFormat = reader.ReadString();
 			bool hasExecutionEvidence;
 			bool hasTerminalStateFingerprint;
 			bool hasSafeBoundaryStateFingerprint;
@@ -327,6 +332,12 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			for (int i = 0; i < payloadCount; i++) payloads.Add(new CollectionReplayRecoveryPayload(reader.ReadString(), ReadArtifact(reader)));
 			CollectionNativeChildExecutionEvidence executionEvidence = hasExecutionEvidence
 				? (generalizedExecutionEvidence ? ReadExecutionEvidenceV5(reader, StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV6)) : ReadExecutionEvidence(reader)) : null;
+			if (deferPluginReconciliation)
+			{
+				if (executionEvidence == null || nativeOperation.Origin != ModOperationOrigin.Collection)
+					throw new InvalidDataException("Deferred plugin verification requires a Collection child with execution evidence.");
+				executionEvidence = executionEvidence.WithDeferredPluginReconciliation();
+			}
 			CollectionCurrentStateFingerprint terminalStateFingerprint;
 			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint;
 			if (generalizedExecutionEvidence)

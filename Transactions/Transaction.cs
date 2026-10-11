@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Nexus.Transactions
 {
@@ -23,6 +24,8 @@ namespace Nexus.Transactions
 	public class Transaction : IDisposable
 	{
 		private static Transaction m_trnAmbient = null;
+		private static readonly object m_objAmbientLock = new object();
+		private static TaskCompletionSource<object> m_tcsAmbientReleased;
 
 		/// <summary>
 		/// Gets or sets the ambient transaction.
@@ -36,8 +39,28 @@ namespace Nexus.Transactions
 			}
 			internal set
 			{
-				m_trnAmbient = value;
+				TaskCompletionSource<object> released = null;
+				lock (m_objAmbientLock)
+				{
+					if (value != null && m_trnAmbient == null)
+						m_tcsAmbientReleased = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+					else if (value == null)
+					{
+						released = m_tcsAmbientReleased;
+						m_tcsAmbientReleased = null;
+					}
+					m_trnAmbient = value;
+				}
+				released?.TrySetResult(null);
 			}
+		}
+
+		/// <summary>Waits until the owning scope has disposed and released the current ambient transaction.</summary>
+		/// <remarks>TransactionCompleted precedes scope disposal and is too early for committed-state readers.</remarks>
+		public static Task WaitForAmbientTransactionAsync()
+		{
+			lock (m_objAmbientLock)
+				return m_tcsAmbientReleased == null ? Task.FromResult<object>(null) : m_tcsAmbientReleased.Task;
 		}
 
 		private List<IEnlistmentNotification> m_lstNotifications = new List<IEnlistmentNotification>();
@@ -152,16 +175,27 @@ namespace Nexus.Transactions
 			if (TransactionInformation.Status != TransactionStatus.InDoubt)
 				return;
 
+			List<Exception> failures = new List<Exception>();
 			Enlistment eltEnlistment = null;
 			IEnlistmentNotification entNotification = null;
 			for (Int32 i = m_lstNotifications.Count - 1; i >= 0; i--)
 			{
 				entNotification = m_lstNotifications[i];
 				eltEnlistment = new Enlistment();
-				entNotification.InDoubt(eltEnlistment);
+				try
+				{
+					entNotification.InDoubt(eltEnlistment);
+				}
+				catch (Exception exception)
+				{
+					// Continue recovery for the other resource managers even if one cannot recover.
+					failures.Add(exception);
+				}
 				if (eltEnlistment.DoneProcessing)
 					m_lstNotifications.RemoveAt(i);
 			}
+			if (failures.Count > 0)
+				throw new TransactionException("One or more transaction resources could not recover.", new AggregateException(failures));
 		}
 
 		/// <summary>

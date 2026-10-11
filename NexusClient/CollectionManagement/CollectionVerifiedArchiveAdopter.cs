@@ -12,8 +12,8 @@ namespace Nexus.Client.CollectionManagement
 	/// Reuses or adopts exact verified archive bytes for one Collection acquisition request.
 	/// </summary>
 	/// <remarks>
-	/// Mutable archive-library paths are never returned as acquisition inputs. Candidate bytes are first sealed into C4.10
-	/// retained storage, then verified by an expected SHA-256 digest or by the provider's exact content-identity lookup.
+	/// Ordinary archives remain in the native archive library. Durable content identities reference those files, verified
+	/// by an expected SHA-256 digest or the provider's exact content identity; missing archives return to acquisition.
 	/// Filename equality and metadata freshness are never treated as integrity proof.
 	/// </remarks>
 	public sealed class CollectionVerifiedArchiveAdopter
@@ -108,14 +108,18 @@ namespace Nexus.Client.CollectionManagement
 					CollectionManagedArchiveCandidate candidate = candidates[index];
 					if (candidate == null || !MatchesRequestedIdentity(candidate, request.SelectedArtifact))
 						continue;
+					// A stale file ID is only a recovery hint. Once an ordinary candidate verifies,
+					// unrelated files from the same Nexus mod need no hashing or provider lookup.
+					if (verifiedCandidate != null && !verifiedCandidate.IsFallback && candidate.IsFallback)
+						continue;
 
 					string fullPath = Path.GetFullPath(candidate.ArchivePath);
 					if (!visitedPaths.Add(fullPath) || !File.Exists(fullPath))
 						continue;
 
-					// Seal the mutable native archive first. All trust-sensitive verification below observes immutable bytes,
-					// so a writer cannot swap the archive between provider verification and retained publication.
-					CollectionsRetainedArtifact candidateArtifact = _artifactStore.PublishFile(fullPath, cancellationToken);
+					// Hash and reference the native archive without duplicating it. Provider verification and the final
+					// digest check below still bind the requested artifact to the observed library bytes.
+					CollectionsRetainedArtifact candidateArtifact = _artifactStore.ReferenceArchiveFile(fullPath, cancellationToken);
 					if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, candidateArtifact.ByteLength))
 						continue;
 					CollectionsRetainedArtifactReferenceRecord temporary = AcquireTemporaryReference(candidateArtifact, ownerId);
@@ -143,7 +147,7 @@ namespace Nexus.Client.CollectionManagement
 						if (!exact)
 							continue;
 
-						// PublishFile already SHA-256 hashed these exact bytes. Once provider/expected identity agrees,
+						// Archive registration already SHA-256 hashed these exact bytes. Once provider/expected identity agrees,
 						// promote that just-published proof so later preparation does not reread multi-gigabyte retained content.
 						if (!_artifactStore.PromotePublishedArtifactVerification(candidateArtifact) &&
 							!_artifactStore.VerifyArtifact(candidateArtifact.ArtifactId, cancellationToken))
@@ -213,7 +217,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!File.Exists(fullPath))
 				throw new FileNotFoundException("The selected manual acquisition file no longer exists.", fullPath);
 
-			CollectionsRetainedArtifact candidateArtifact = _artifactStore.PublishFile(fullPath, cancellationToken);
+			CollectionsRetainedArtifact candidateArtifact = _artifactStore.ReferenceArchiveFile(fullPath, cancellationToken);
 			if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, candidateArtifact.ByteLength))
 				return null;
 			CollectionsRetainedArtifactReferenceRecord temporary = AcquireTemporaryReference(candidateArtifact, ownerId);
@@ -262,6 +266,44 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionVerifiedArchive TryAdoptFile(CollectionAcquisitionRequest request, string filePath)
 		{
 			return TryAdoptFile(request, filePath, CancellationToken.None);
+		}
+
+		/// <summary>
+		/// Seals an alternate external archive and pins it briefly while the user considers a new reviewed plan.
+		/// The immutable SHA-256 and the actual MD5/length describe the chosen bytes, not a claimed provider version.
+		/// </summary>
+		public CollectionAlternateArchiveCandidate InspectAlternateExternalFile(CollectionAcquisitionRequest request,
+			string filePath, CancellationToken cancellationToken)
+		{
+			if (request == null) throw new ArgumentNullException(nameof(request));
+			if (String.IsNullOrWhiteSpace(filePath)) throw new ArgumentException("An archive path is required.", nameof(filePath));
+			string originalMd5; long originalLength;
+			if (!CollectionExternalArtifactIdentity.TryParse(request.SelectedArtifact, out originalMd5, out originalLength) ||
+				request.SelectedArtifact.ExpectedContentHash != null)
+				throw new NotSupportedException("An alternative can replace only an original exact MD5/length external source.");
+			string path = Path.GetFullPath(filePath);
+			if (!File.Exists(path)) throw new FileNotFoundException("The alternative archive is missing.", path);
+			CollectionsRetainedArtifact artifact = _artifactStore.ReferenceArchiveFile(path, cancellationToken);
+			string actualMd5;
+			if (!_artifactStore.TryGetPublishedMd5(artifact.ArtifactId, out actualMd5))
+				throw new InvalidDataException("NMM could not establish the copied alternative archive's MD5.");
+			if (StringComparer.Ordinal.Equals(originalMd5, actualMd5) && originalLength == artifact.ByteLength)
+				throw new InvalidOperationException("This archive matches the original requested MD5 and size; use the exact acquisition path.");
+			if (!_artifactStore.PromotePublishedArtifactVerification(artifact) &&
+				!_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
+				throw new InvalidDataException("The sealed alternative archive failed integrity verification.");
+			// The old request is only a transient holding owner. A new reviewed plan MUST acquire its own reference.
+			string ownerId = request.RequestId.ToString("D");
+			var hold = _referenceStore.AcquireReference(artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download,
+				ownerId, "alternate-candidate-" + Guid.NewGuid().ToString("N"));
+			return new CollectionAlternateArchiveCandidate(request, artifact, hold, actualMd5);
+		}
+
+		/// <summary>Releases the transient candidate lifetime reference after the user declines or re-preparation returns.</summary>
+		public void ReleaseAlternateExternalFile(CollectionAlternateArchiveCandidate candidate)
+		{
+			if (candidate == null) throw new ArgumentNullException(nameof(candidate));
+			_referenceStore.ReleaseReference(candidate.Reference.ReferenceId);
 		}
 
 		/// <summary>
@@ -396,13 +438,18 @@ namespace Nexus.Client.CollectionManagement
 			if (artifact == null)
 				throw new InvalidDataException("Previously verified Collection acquisition content is no longer recorded in retained storage.");
 
+			if (_artifactStore.IsArchiveReference(artifact.ArtifactId) && !_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
+				return null;
+
 			// Download/Prepare does not consume retained payload bytes. At this stage require the sealed metadata/path/length
 			// to remain present, but defer the expensive full SHA-256 re-read to the trust-sensitive apply/recovery boundary.
 			// This keeps repeated Prepare O(metadata) while the native installer still performs the final archive SHA check.
-			using (Stream retained = _artifactStore.OpenRead(artifact.ArtifactId))
+			try
 			{
-				cancellationToken.ThrowIfCancellationRequested();
+				using (Stream retained = _artifactStore.OpenRead(artifact.ArtifactId)) cancellationToken.ThrowIfCancellationRequested();
 			}
+			catch (FileNotFoundException) { return null; }
+			catch (DirectoryNotFoundException) { return null; }
 
 			if (request.SelectedArtifact.ExpectedContentHash != null &&
 				!request.SelectedArtifact.ExpectedContentHash.Equals(artifact.ContentHash))
@@ -435,7 +482,7 @@ namespace Nexus.Client.CollectionManagement
 
 			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(matchingReference.ArtifactId);
 			if (artifact == null || !_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
-				throw new InvalidDataException("A verified acquisition reference no longer points to intact immutable retained content.");
+				return null; // A deleted or changed library archive must go through ordinary acquisition again.
 			if (request.SelectedArtifact.ExpectedContentHash != null &&
 				!request.SelectedArtifact.ExpectedContentHash.Equals(artifact.ContentHash))
 				throw new InvalidDataException("The retained acquisition content no longer matches the request's expected digest.");

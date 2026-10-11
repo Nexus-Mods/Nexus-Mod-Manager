@@ -16,7 +16,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	/// <summary>
 	/// Encapsulates a FOMod mod archive.
 	/// </summary>
-	public class FOMod : ObservableObject, IMod, IModCacheResettable
+	public class FOMod : ObservableObject, IMod, IModCacheResettable, IModInstallerSourceInventory, IModFileStreamSource
 	{
 		#region Events
 
@@ -39,6 +39,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string _prefixPath;
 		private string _installScriptPath;
 		private IScriptType _installScriptType;
+		private bool _installScriptDetectionDeferred;
 		private string _modId;
 		private string _downloadId;
 		private DateTime? _downloadDate;
@@ -48,7 +49,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		private string _lastKnownVersion;
 		private int _categoryId;
 		private int _customCategoryId = -1;
-		private bool? _isEndorsed = false;
+		private bool? _isEndorsed;
 		private Version _machineVersion;
 		private string _author;
 		private string _description;
@@ -280,6 +281,19 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		{
 			get
 			{
+				if (_installScriptDetectionDeferred)
+				{
+					// Older metadata may have missed an installer inside Data. Recheck lazily,
+					// when installation needs it, without scanning every archive at startup.
+					DetectInstallScript();
+					if (_installScriptType != null)
+					{
+						DetectScreenshot();
+						LoadInfo();
+						SaveMetadataCache();
+					}
+				}
+
 				if (_installScript == null && !string.IsNullOrEmpty(_installScriptPath))
 				{
 					_installScript = _installScriptType.LoadScript(TextUtil.ByteToString(GetFile(_installScriptPath)));
@@ -290,6 +304,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			set
 			{
 				_installScript = value;
+				_installScriptDetectionDeferred = false;
 
 				if (_installScript == null)
 				{
@@ -405,7 +420,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				_downloadDate = cachedMetadata.ArchiveWriteTimeUtc.HasValue ? cachedMetadata.ArchiveWriteTimeUtc.Value.ToLocalTime() : (DateTime?)null;
 				checkNested = cachedMetadata.HasNestedArchive;
 				strCheckPrefix = cachedMetadata.PrefixPath;
-				string correctedPrefix = NormalizeGamebryoDataPrefix(strCheckPrefix);
+				// Script source paths are relative to the directory containing fomod.
+				// Keep Data as that root for scripted archives; ordinary mods retain their existing layout.
+				string correctedPrefix = string.IsNullOrEmpty(cachedMetadata.InstallScriptPath)
+					? NormalizeGamebryoDataPrefix(strCheckPrefix) : strCheckPrefix;
 				if (!string.Equals(correctedPrefix, strCheckPrefix, StringComparison.Ordinal))
 				{
 					strCheckPrefix = correctedPrefix;
@@ -464,6 +482,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				_installScriptPath = checkScriptPath;
 				_installScriptType = string.IsNullOrEmpty(checkScriptType) ? null : scriptTypeRegistry.Types.FirstOrDefault(x => x.TypeName.Equals(checkScriptType));
+				_installScriptDetectionDeferred = _usesPlugins && string.IsNullOrEmpty(checkScriptPath);
 			}
 
 			if (!metadataCacheHit && string.IsNullOrEmpty(ScreenshotPath))
@@ -603,6 +622,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// </summary>
 		private void DetectInstallScript()
 		{
+			_installScriptDetectionDeferred = false;
 			_installScriptPath = null;
 			_installScriptType = null;
 
@@ -622,7 +642,29 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 				if (!string.IsNullOrEmpty(_installScriptPath))
 				{
-					break;
+					return;
+				}
+			}
+
+			if (!_usesPlugins || string.IsNullOrEmpty(PluginsDirectoryName))
+				return;
+
+			// Some archives wrap both the installer and its payload in Data. The XML
+			// references that payload relative to Data, rather than relative to the ZIP root.
+			string dataPrefix = Path.Combine(_prefixPath ?? string.Empty, PluginsDirectoryName);
+			foreach (IScriptType scriptType in ScriptTypeRegistry.Types)
+			{
+				foreach (string scriptName in scriptType.FileNames)
+				{
+					string scriptPath = Path.Combine("fomod", scriptName);
+					if (!ArchiveFile.ContainsFile(Path.Combine(dataPrefix, scriptPath)))
+						continue;
+					_prefixPath = InitializeMovedArchive(dataPrefix);
+					_movedArchiveInitialized = true;
+					_cachedInfoXml = null;
+					_installScriptPath = scriptPath;
+					_installScriptType = scriptType;
+					return;
 				}
 			}
 		}
@@ -1044,6 +1086,16 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			return ArchiveFile.GetFileContents(GetRealPath(file));
 		}
 
+		/// <summary>Streams installer-visible source bytes directly, preserving the existing logical path and cache mapping.</summary>
+		public void CopyFileTo(string file, Stream destination)
+		{
+			if (destination == null) throw new ArgumentNullException(nameof(destination));
+			if (TryGetCachedFileData(file, out var cachedData))
+				destination.Write(cachedData, 0, cachedData.Length);
+			else
+				ArchiveFile.CopyFileTo(GetRealPath(file), destination);
+		}
+
 		/// <inheritdoc />
 		public FileStream GetFileStream(string file)
 		{
@@ -1084,6 +1136,20 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <returns>The list of all files in the specified FOMod folder.</returns>
 		public List<string> GetFileList(string folderPath, bool recurse)
 		{
+			return GetFileListCore(folderPath, recurse, false);
+		}
+
+		/// <summary>
+		/// Exposes physical FOMOD installer assets (including fomod/options) without changing
+		/// the normal filtered mod-file inventory used elsewhere in NMM.
+		/// </summary>
+		public List<string> GetInstallerSourceFiles(string folderPath, bool recurse)
+		{
+			return GetFileListCore(folderPath, recurse, true);
+		}
+
+		private List<string> GetFileListCore(string folderPath, bool recurse, bool includeFomodFiles)
+		{
 			var files = new List<string>();
 
 			if (!_movedArchiveInitialized)
@@ -1100,7 +1166,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			{
 				if (!_movedArchiveFiles.ContainsValue(file))
 				{
-					if (!file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
+					if (includeFomodFiles || !file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
 					{
 						files.Add(file);
 					}
@@ -1118,7 +1184,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			foreach (var file in _movedArchiveFiles.Keys)
 			{
-				if (file.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase) && !file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase))
+				if (file.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase) &&
+					(includeFomodFiles || !file.StartsWith("fomod", StringComparison.OrdinalIgnoreCase)))
 				{
 					files.Add(file);
 				}
@@ -1190,7 +1257,10 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				booChangedValue = true;
 			}
 
-			if (overwriteAllValues == true || IsEndorsed != modInfo.IsEndorsed)
+			// Bulk GraphQL metadata cannot distinguish abstained from undecided.
+			bool preserveAbstention = IsEndorsed == false && modInfo.IsEndorsed == null &&
+				(modInfo as IModEndorsementMetadata)?.HasEndorsementState == false;
+			if (!preserveAbstention && (overwriteAllValues == true || IsEndorsed != modInfo.IsEndorsed))
 			{
 				IsEndorsed = modInfo.IsEndorsed;
 				booChangedValue = true;
@@ -1326,6 +1396,8 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			xndInfo.AppendChild(xmlDocument.CreateElement("CategoryId")).InnerText = CategoryId.ToString();
 			xndInfo.AppendChild(xmlDocument.CreateElement("CustomCategoryId")).InnerText = CustomCategoryId.ToString();
 			xndInfo.AppendChild(xmlDocument.CreateElement("IsEndorsed")).InnerText = IsEndorsed.ToString();
+			xndInfo.AppendChild(xmlDocument.CreateElement("EndorsementStatus")).InnerText =
+				IsEndorsed == true ? "Endorsed" : IsEndorsed == false ? "Abstained" : "Undecided";
 			xndInfo.AppendChild(xmlDocument.CreateElement("Description")).InnerText = Description;
 			xndInfo.AppendChild(xmlDocument.CreateElement("UpdateWarningEnabled")).InnerText = UpdateWarningEnabled.ToString();
 			xndInfo.AppendChild(xmlDocument.CreateElement("UpdateChecksEnabled")).InnerText = UpdateChecksEnabled.ToString();
@@ -1428,6 +1500,9 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				try
 				{
 					IsEndorsed = bool.TryParse(xndEndorsed.InnerText, out var endorsed) ? (bool?)endorsed : null;
+					// Legacy false values also came from the old default; do not claim an abstention without evidence.
+					if (IsEndorsed == false && xndRoot.SelectSingleNode("EndorsementStatus")?.InnerText != "Abstained")
+						IsEndorsed = null;
 				}
 				catch
 				{

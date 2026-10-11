@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -61,6 +62,27 @@ namespace Nexus.Client.CollectionManagement
 			_workflow = BuildWorkflow(paths);
 		}
 
+		/// <summary>Signals a library change after user-driven or authorized archive import.</summary>
+		public event NotifyCollectionChangedEventHandler ManagedArchivesChanged
+		{
+			add { _services.ModManager.ManagedMods.CollectionChanged += value; }
+			remove { _services.ModManager.ManagedMods.CollectionChanged -= value; }
+		}
+
+		/// <summary>Gets whether native work must finish before automatic continuation.</summary>
+		public bool HasPendingNativeWork
+		{
+			get { return Nexus.Transactions.Transaction.Current != null ||
+				(_services.ModActivationMonitor != null && _services.ModActivationMonitor.Tasks.Any(x => !x.IsCompleted)); }
+		}
+
+		/// <summary>Refreshes only a stale review, preserving already acquired content and source choices.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> RefreshInstallationAsync(CollectionMemberAcquisitionBatch batch,
+			CancellationToken cancellationToken, string reviewMessage = null)
+		{
+			return _workflow.RefreshInstallationAsync(batch, GetTargetPaths(), cancellationToken, reviewMessage);
+		}
+
 		/// <summary>Gets the current active game's configured Game Storage path set.</summary>
 		public GameStoragePathSet GetTargetPaths()
 		{
@@ -120,15 +142,31 @@ namespace Nexus.Client.CollectionManagement
 			_nexusLocatorStore.Save(preview.Revision.Identity.Collection, preview.Link.GameDomain, preview.Link.CollectionSlug);
 		}
 
+		/// <summary>Reports preparation activity while refreshing a stale automatic review.</summary>
+		internal Task<CollectionAdditiveWorkflowPreparationResult> RefreshInstallationAsync(CollectionMemberAcquisitionBatch batch,
+			CancellationToken cancellationToken, string reviewMessage, IProgress<string> progress)
+		{
+			using (CollectionPreparationProgress.Begin(progress))
+				return RefreshInstallationAsync(batch, cancellationToken, reviewMessage);
+		}
+
 		/// <summary>Builds one immutable effective optional-member selection over the exact retained preview manifest.</summary>
 		public CollectionEffectiveSelection BuildEffectiveSelection(NexusCollectionPreviewSnapshot preview,
 			IEnumerable<CollectionOptionalMemberSelection> optionalSelections)
+		{
+			return BuildEffectiveSelection(preview, optionalSelections, null);
+		}
+
+		/// <summary>Includes optional prerequisites only when both automatic installation and overwrite are authorized.</summary>
+		internal CollectionEffectiveSelection BuildEffectiveSelection(NexusCollectionPreviewSnapshot preview,
+			IEnumerable<CollectionOptionalMemberSelection> optionalSelections, CollectionExecutionPolicy policy)
 		{
 			if (preview == null) throw new ArgumentNullException(nameof(preview));
 			if (!preview.HasManifestPreview)
 				throw new InvalidOperationException("The Collection manifest must be downloaded/imported before effective selection can be built.");
 			return _selectionBuilder.Build(preview.CapabilityReport,
-				optionalSelections ?? throw new ArgumentNullException(nameof(optionalSelections)));
+				optionalSelections ?? throw new ArgumentNullException(nameof(optionalSelections)),
+				policy != null && policy.AutomaticallyInstall && policy.PreferIncomingCollection);
 		}
 
 		/// <summary>Starts headless additive preparation for the active game target.</summary>
@@ -148,11 +186,70 @@ namespace Nexus.Client.CollectionManagement
 			return _workflow.PrepareAsync(selection, GetTargetPaths(), archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
 		}
 
+		/// <summary>Begins a fresh additive preparation with one explicitly reviewed alternative archive.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection selection,
+			CollectionArchiveOverwritePolicy archiveOverwritePolicy, ConfirmOverwriteCallback confirmOverwriteCallback,
+			CollectionAlternateArchiveCandidate alternate, CancellationToken cancellationToken)
+		{
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			return _workflow.PrepareAsync(selection, GetTargetPaths(), archiveOverwritePolicy, confirmOverwriteCallback, alternate, cancellationToken);
+		}
+
+		/// <summary>Starts an installation with the preferences captured when Install Collection was chosen.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareInstallationAsync(CollectionEffectiveSelection selection,
+			CollectionExecutionPolicy policy, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionAlternateArchiveCandidate alternate, CancellationToken cancellationToken)
+		{
+			if (policy == null) throw new ArgumentNullException(nameof(policy));
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			return _workflow.PrepareAsync(selection, GetTargetPaths(), archiveOverwritePolicy, confirmOverwriteCallback, alternate, cancellationToken, policy);
+		}
+
+		/// <summary>Captures UI progress before the ordinary preparation task copies its execution context.</summary>
+		internal Task<CollectionAdditiveWorkflowPreparationResult> PrepareInstallationAsync(CollectionEffectiveSelection selection,
+			CollectionExecutionPolicy policy, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionAlternateArchiveCandidate alternate, CancellationToken cancellationToken,
+			IProgress<string> progress)
+		{
+			using (CollectionPreparationProgress.Begin(progress))
+				return PrepareInstallationAsync(selection, policy, archiveOverwritePolicy, confirmOverwriteCallback, alternate, cancellationToken);
+		}
+
+		public CollectionAlternateArchiveCandidate InspectAlternateLocalFile(CollectionMemberAcquisitionBatch batch,
+			CollectionManualAcquisitionPendingAction pending, string localFilePath, CancellationToken cancellationToken)
+		{
+			return _workflow.InspectAlternateLocalFile(batch, pending, localFilePath, cancellationToken);
+		}
+
+		public void ReleaseAlternateLocalFile(CollectionAlternateArchiveCandidate candidate)
+		{
+			_workflow.ReleaseAlternateLocalFile(candidate);
+		}
+
 		/// <summary>Resumes an input-paused preparation against freshly resolved active target paths.</summary>
 		public Task<CollectionAdditiveWorkflowPreparationResult> ResumePreparationAsync(CollectionMemberAcquisitionBatch batch,
 			CancellationToken cancellationToken)
 		{
 			return _workflow.ResumePreparationAsync(batch, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Reports archive and file preparation while resuming completed downloads.</summary>
+		internal Task<CollectionAdditiveWorkflowPreparationResult> ResumePreparationAsync(CollectionMemberAcquisitionBatch batch,
+			CancellationToken cancellationToken, IProgress<string> progress)
+		{
+			using (CollectionPreparationProgress.Begin(progress))
+				return ResumePreparationAsync(batch, cancellationToken);
+		}
+
+		/// <summary>
+		/// Refreshes a saved conflict-only additive review without replaying archive extraction or
+		/// Nexus resolution. Revalidates native ownership first, and never approves installation.
+		/// </summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> ResumeFileWinnerReviewAsync(
+			CollectionAdditiveWorkflowPreparationResult previous, CancellationToken cancellationToken)
+		{
+			return _workflow.ResumeFileWinnerReviewAsync(previous, GetTargetPaths(), cancellationToken);
 		}
 
 		/// <summary>Verifies one user-selected archive for the exact pending manual/browse member request.</summary>
@@ -189,6 +286,35 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("C9 can preserve only an active NMM mod owner for a reviewed file conflict. Original/unresolved fallback ownership remains ActionRequired.");
 			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
 			return _conflictResolutionCoordinator.KeepExistingManagedFileWinner(plan, preparation.ImpactPlan, target, note);
+		}
+
+
+		/// <summary>Stores all explicitly reviewed file-winner decisions in one operation, not a global preference.</summary>
+		public IReadOnlyList<CollectionConflictResolutionDecision> SaveFileWinnerDecisions(
+			CollectionAdditiveWorkflowPreparationResult preparation,
+			IEnumerable<CollectionFileWinnerDecisionRequest> requests, string note)
+		{
+			if (requests == null) throw new ArgumentNullException(nameof(requests));
+			var batch = requests.ToList();
+			if (batch.Count == 0) return new CollectionConflictResolutionDecision[0];
+			if (batch.Any(x => x == null))
+				throw new ArgumentException("A null file-winner decision is not supported.", nameof(requests));
+			ResolvedCollectionPlan plan = RequireConflictDecisionPlan(preparation, batch[0].Target);
+			var impacts = preparation.ImpactPlan.FileImpacts.ToDictionary(x => x.Target);
+			var log = _services.ModManager.InstallationLog;
+			var activeOwners = new HashSet<string>(log.ActiveMods.Select(log.GetModKey)
+				.Where(x => !String.IsNullOrWhiteSpace(x)), StringComparer.OrdinalIgnoreCase);
+			activeOwners.Remove(log.OriginalValuesKey);
+			foreach (CollectionFileWinnerDecisionRequest request in batch)
+			{
+				if (request.Kind != CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner) continue;
+				CollectionFileImpact impact;
+				if (!impacts.TryGetValue(request.Target, out impact) || impact.PlannedWinner == null ||
+					!activeOwners.Contains(impact.CurrentOwnerKey ?? String.Empty))
+					throw new NotSupportedException("No to all cannot preserve an unmanaged/original file owner: " + request.Target);
+			}
+			CollectionsStoreBootstrap.OpenOrCreateForFeatureUse(_store);
+			return _conflictResolutionCoordinator.SaveFileWinnerDecisions(plan, preparation.ImpactPlan, batch, note);
 		}
 
 		private bool IsActiveNativeModOwner(string ownerKey)
@@ -229,6 +355,20 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPlanIdentity expectedPlan, CancellationToken cancellationToken)
 		{
 			return _workflow.ApproveAndApplyAsync(operationIdentity, expectedPlan, GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Reports the active member and installation stage without changing the public apply contract.</summary>
+		internal async Task<CollectionAdditiveWorkflowApplyResult> ApproveAndApplyAsync(CollectionOperationIdentity operationIdentity,
+			CollectionPlanIdentity expectedPlan, CancellationToken cancellationToken, IProgress<string> progress)
+		{
+			using (CollectionPreparationProgress.Begin(progress))
+				return await ApproveAndApplyAsync(operationIdentity, expectedPlan, cancellationToken).ConfigureAwait(false);
+		}
+
+		/// <summary>Reads the current durable journal for reports without reconstructing or verifying the reviewed plan.</summary>
+		internal CollectionOperation ReadCurrentOperation(CollectionOperationIdentity operationIdentity)
+		{
+			return new CollectionsOperationStore(_store).GetOperation(operationIdentity);
 		}
 
 		/// <summary>Ends a reconciled installation for the selected revision without removing content or installing remaining members.</summary>

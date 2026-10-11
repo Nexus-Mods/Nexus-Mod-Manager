@@ -168,6 +168,18 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionNativeFileContentEvidence> expectedFileContents,
 			CollectionReplayContentEvidence incomingReplayPreimage,
 			IEnumerable<CollectionExpectedReplayOperation> expectedReplayOperations)
+			: this(selectedArtifact, incomingFileName, reviewedEffects, preFileContents, expectedFileContents,
+				incomingReplayPreimage, expectedReplayOperations, false)
+		{
+		}
+
+		/// <summary>Creates exact member evidence with the owning Collection's final plugin-verification policy.</summary>
+		public CollectionNativeChildExecutionEvidence(CollectionArtifactReference selectedArtifact,
+			string incomingFileName, CollectionMemberEffectPreview reviewedEffects,
+			IEnumerable<CollectionNativeFileContentEvidence> preFileContents,
+			IEnumerable<CollectionNativeFileContentEvidence> expectedFileContents,
+			CollectionReplayContentEvidence incomingReplayPreimage,
+			IEnumerable<CollectionExpectedReplayOperation> expectedReplayOperations, bool deferPluginReconciliation)
 		{
 			if (selectedArtifact == null) throw new ArgumentNullException(nameof(selectedArtifact));
 
@@ -229,6 +241,7 @@ namespace Nexus.Client.CollectionManagement
 			NexusFileId = isNexus ? nexusFileId : 0;
 			IncomingFileName = incomingFileName;
 			IncomingReplayPreimage = incomingReplayPreimage;
+			DeferPluginReconciliation = deferPluginReconciliation;
 			_expectedReplayOperations = new ReadOnlyCollection<CollectionExpectedReplayOperation>(replay);
 		}
 
@@ -248,6 +261,15 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionNativeFileContentEvidence> PreFileContents { get { return _preFileContents; } }
 		public ReadOnlyCollection<CollectionNativeFileContentEvidence> ExpectedFileContents { get { return _expectedFileContents; } }
 		public CollectionReplayContentEvidence IncomingReplayPreimage { get; }
+		/// <summary>Gets whether plugin state belongs to the final Collection barrier rather than this member's commit verification.</summary>
+		public bool DeferPluginReconciliation { get; }
+
+		/// <summary>Preserves exact file and replay evidence while assigning plugin verification to the owning Collection's final barrier.</summary>
+		public CollectionNativeChildExecutionEvidence WithDeferredPluginReconciliation()
+		{
+			return new CollectionNativeChildExecutionEvidence(SelectedArtifact, IncomingFileName, ReviewedEffects,
+				PreFileContents, ExpectedFileContents, IncomingReplayPreimage, ExpectedReplayOperations, true);
+		}
 		public ReadOnlyCollection<CollectionExpectedReplayOperation> ExpectedReplayOperations { get { return _expectedReplayOperations; } }
 
 		private static CollectionArtifactReference CreateNexusArtifact(string nexusGameDomain, long nexusModId, long nexusFileId)

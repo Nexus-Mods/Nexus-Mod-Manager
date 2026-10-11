@@ -1386,6 +1386,7 @@
     "Startup.Initialization.PathError": "路径：{0}{1}{0}返回了错误。",
     "Startup.Initialization.PathsSetup.Message": "你需要设置 Nexus Mod Manager 用于存储 Mod 压缩包、Mod 安装注册信息以及已安装 Mod 文件的位置。\r\n\r\n如果你使用过旧版本的 NMM，此新版本要求你重新检查文件夹设置。\r\n\r\n单击“确定”继续进入设置页面。\r\n",
     "Startup.Initialization.PathsSetup.Title": "设置",
+    "Startup.Initialization.RescanMovedGame": "如果您将游戏移到了其他位置或在其他位置重新安装了游戏，请在游戏选择界面重新扫描已安装的游戏，并确认新的游戏文件夹。",
     "Startup.Initialization.VerifyCriticalFile": "请验证游戏安装，并确保 {0} 存在。",
     "Startup.Initialization.WritePermission.GameDetails": "当你使用 Windows Vista 或更高版本，并将 <b>{0}</b> 安装在 <b>Program Files</b> 文件夹中时，通常会出现此错误。你需要执行以下任一操作：<ol><li>禁用 UAC（<i>不推荐</i>）。</li><li>将 <b>{0}</b> 移出 <b>Program Files</b> 文件夹（例如移动到 <b>C:\\Games\\{0}</b>）。这可能需要重新安装。<br>对于 Oblivion，你可以直接将游戏文件夹复制到新位置，运行游戏后即可正常工作；其他游戏不一定适用。</li><li>以管理员身份运行 <b>{1}</b>。可以右键单击 <b>{1}</b> 的快捷方式并选择 <i>以管理员身份运行</i>。也可以右键单击快捷方式，选择 <i>属性->兼容性</i>，然后勾选 <i>以管理员身份运行此程序</i>。</li></ol>为了避免其他问题，通常最推荐的解决方法是将 <b>{0}</b> 安装在 <b>Program Files</b> 文件夹之外。",
     "Startup.Initialization.WritePermission.Message": "无法获取以下位置的写入权限：{0}{1}",

@@ -161,12 +161,23 @@ namespace Nexus.Client.CollectionManagement
 					recipeInput.Validation.ExpectedContent, paths.InstallInfoPath), cancellationToken).ConfigureAwait(true);
 				cancellationToken.ThrowIfCancellationRequested();
 
-				CollectionMemberEffectPreview livePreview = new CollectionMemberEffectPreviewBuilder().Build(member,
-					recipeInput, _services.ModManager.GameMode, incomingMod, _services.PluginManager);
-				if (reviewedPreview.Files.Any(x => !x.HasExactContentIdentity))
+				// Complete modern reviews have exact output digests obtained while preparing the approved C5 plan.
+				// A FRESH whole-archive SHA-256 proof is sufficient to reuse those identities without extracting
+				// every huge archive entry again. C5 still rehashes before mutation; C6.8 verifies deployed bytes.
+				bool exactReviewedOutputs = reviewedPreview.Files.All(x => x.HasExactContentIdentity);
+				if (exactReviewedOutputs)
+					await Task.Run(() => ValidateRecoveryArchiveBytes(GetArchivePath(incomingMod), recovery.IncomingArchive),
+						cancellationToken).ConfigureAwait(true);
+				CollectionMemberEffectPreviewBuilder submissionPreviewBuilder = new CollectionMemberEffectPreviewBuilder();
+				CollectionMemberEffectPreview livePreview = exactReviewedOutputs
+					? submissionPreviewBuilder.BuildFromFreshVerifiedArchive(member, recipeInput, _services.ModManager.GameMode,
+						incomingMod, _services.PluginManager, reviewedPreview)
+					: submissionPreviewBuilder.Build(member, recipeInput, _services.ModManager.GameMode,
+						incomingMod, _services.PluginManager);
+				if (!exactReviewedOutputs)
 				{
-					// Older reviewed snapshots retained exact archive identity and source/destination mappings, but
-					// omitted output hashes. Prove the archive bytes before recovering those hashes from the same recipe.
+					// Legacy reviews without all output hashes retain fresh individual entry reads and the
+					// existing whole-archive proof before the newly calculated digests may be used.
 					await Task.Run(() => ValidateRecoveryArchiveBytes(GetArchivePath(incomingMod), recovery.IncomingArchive),
 						cancellationToken).ConfigureAwait(true);
 				}
@@ -451,7 +462,9 @@ namespace Nexus.Client.CollectionManagement
 			string memberName = member.DisplayName ?? member.MemberKey.Value;
 			if (previousMod != null && MatchesManagedArchive(previousMod, incomingArchive, cancellationToken)) return previousMod;
 
-			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact))
+			string externalMd5; long externalByteLength;
+			if (CollectionBundledArtifactIdentity.IsBundle(member.ArtifactChoice.SelectedArtifact) ||
+				CollectionExternalArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out externalMd5, out externalByteLength))
 			{
 				List<IMod> exactManaged = modManager.ManagedMods.Where(x => x != null && MatchesManagedArchive(x, incomingArchive, cancellationToken)).ToList();
 				if (exactManaged.Count == 1) return exactManaged[0];
@@ -588,7 +601,7 @@ namespace Nexus.Client.CollectionManagement
 			return path;
 		}
 
-		private static void ValidateRecoveryArchiveBytes(string path, CollectionRecoveryArtifact expected)
+		internal static void ValidateRecoveryArchiveBytes(string path, CollectionRecoveryArtifact expected)
 		{
 			if (String.IsNullOrWhiteSpace(path) || !File.Exists(path))
 				throw new FileNotFoundException("The live previous native archive required for submission revalidation is unavailable.", path);
@@ -605,8 +618,8 @@ namespace Nexus.Client.CollectionManagement
 			if (info.Length != expected.ByteLength)
 				throw new InvalidDataException("The incoming native archive no longer matches the exact C5 recipe byte length.");
 
-			// ModInstaller.ValidateInstallationRecipeExecutionInput recomputes this exact SHA-256 immediately before native
-			// mutation. Rehashing a multi-gigabyte archive here as well only doubles I/O without adding a later trust boundary.
+			// ModInstaller.ValidateInstallationRecipeExecutionInput validates the exact SHA-256 before native mutation,
+			// reusing a digest only when the archive's observed size and write stamp still match. Do not rehash it here too.
 		}
 
 		private static void ValidateLiveReplayPreimage(CollectionNativeChildRecoveryManifest recovery, string installInfoDirectory)
@@ -728,7 +741,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 			CollectionReplayContentEvidence replayPreimage = CaptureReplayContentEvidence(incomingMod.Filename, installInfoDirectory);
 			return new CollectionNativeChildExecutionEvidence(member.ArtifactChoice.SelectedArtifact, incomingMod.Filename,
-				reviewedPreview, preFiles, expectedFiles, replayPreimage, expectedReplay);
+				reviewedPreview, preFiles, expectedFiles, replayPreimage, expectedReplay, recipeInput.DeferPluginReconciliation);
 		}
 
 		/// <summary>Reuses the exact SHA-256/length already proven by the reviewed C6.4 preview as C6.7 expected-content evidence.</summary>
@@ -797,6 +810,7 @@ namespace Nexus.Client.CollectionManagement
 		private static bool ExecutionEvidenceEquals(CollectionNativeChildExecutionEvidence left, CollectionNativeChildExecutionEvidence right)
 		{
 			if (left == null || right == null ||
+				left.DeferPluginReconciliation != right.DeferPluginReconciliation ||
 				!ArtifactIdentitiesEqual(left.SelectedArtifact, right.SelectedArtifact) ||
 				!StringComparer.OrdinalIgnoreCase.Equals(left.IncomingFileName, right.IncomingFileName) ||
 				!EffectPreviewsEqual(left.ReviewedEffects, right.ReviewedEffects) ||

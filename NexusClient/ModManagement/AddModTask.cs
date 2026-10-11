@@ -123,7 +123,7 @@
 		private readonly Uri _downloadPath;
 		private readonly DateTime _startTime = DateTime.Now;
 		private long _previousProgress;
-		private readonly Stack<int> _previousSpeed = new Stack<int> { };
+		private readonly Queue<int> _previousSpeed = new Queue<int>();
 		private readonly Stopwatch _speed = new Stopwatch();
 		private List<string> _fileserverCaptions = new List<string>();
 		private int _hours;
@@ -1079,51 +1079,21 @@
 				ItemProgress = progress;
 				ItemProgressMaximum = progressMaximum;
 
-				if (_speed.IsRunning)
+				if (!_speed.IsRunning)
 				{
-					if (_speed.ElapsedMilliseconds >= 1000)
-					{
-						if (_previousProgress == 0)
-                        {
-                            _previousProgress = (long)(downloader.ResumedByteCount > 0 ? downloader.ResumedByteCount : 0);
-                        }
-
-                        if (_downloaderProgress.ContainsKey(downloader))
-                        {
-                            TaskSpeed = (int)((double)(_downloaderProgress[downloader].AdjustedProgress - _previousProgress) / (_speed.ElapsedMilliseconds / 1000));
-                        }
-
-                        if (TaskSpeed >= 0)
-						{
-							if (_previousSpeed.Count == 10)
-                            {
-                                _previousSpeed.Pop();
-                            }
-
-                            _previousSpeed.Push(TaskSpeed);
-						}
-
-                        if (_previousSpeed.Count > 1)
-                        {
-                            TaskSpeed = (int)_previousSpeed.Average();
-                        }
-
-                        if (_downloaderProgress.ContainsKey(downloader))
-                        {
-                            _previousProgress = _downloaderProgress[downloader].AdjustedProgress;
-                        }
-
-                        _speed.Reset();
-						_speed.Start();
-					}
-					else
-                    {
-                        TaskSpeed = _previousSpeed.Count > 0 && _previousSpeed.Average() > 0 ? (int)_previousSpeed.Average() : speed;
-                    }
-                }
-				else
-				{
+					_previousProgress = progress;
+					_previousSpeed.Clear();
 					_speed.Start();
+				}
+				else if (_speed.Elapsed.TotalSeconds >= 1)
+				{
+					int sample = (int)Math.Min(int.MaxValue, Math.Max(0, progress - _previousProgress) / _speed.Elapsed.TotalSeconds);
+					if (_previousSpeed.Count == 10)
+						_previousSpeed.Dequeue();
+					_previousSpeed.Enqueue(sample);
+					TaskSpeed = (int)_previousSpeed.Average();
+					_previousProgress = progress;
+					_speed.Restart();
 				}
 
 				int hours = speed == 0 ? 99 : timeRemaining.Hours;
@@ -1244,9 +1214,11 @@
 				Descriptor.PausedFiles.AddRange(tempFiles);
 			}
 
-            if (_speed.IsRunning)
+            if (_runningTasks.Count == 0)
             {
-                _speed.Stop();
+                TaskSpeed = 0;
+                _speed.Reset();
+                _previousSpeed.Clear();
             }
 		}
 
@@ -1263,6 +1235,9 @@
 			var strPath = string.IsNullOrEmpty(Descriptor.SourcePath) ? Descriptor.DefaultSourcePath : Descriptor.SourcePath;
 			var destinationHd = string.Empty;
 			_finishedDownloads = true;
+			TaskSpeed = 0;
+			_speed.Reset();
+			_previousSpeed.Clear();
 			var faAttributes = new FileAttributes();
 
 			try

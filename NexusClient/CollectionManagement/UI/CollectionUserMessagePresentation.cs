@@ -75,6 +75,20 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		/// <summary>Shows the affected mod and the actual preparation failure instead of hiding it in export-only diagnostics.</summary>
+		internal static CollectionUserMessagePresentation ForMemberPreparation(string memberName, string reason,
+			bool optional, string technicalDetail)
+		{
+			string message = LanguageManager.Format("Collections.Messages.Preparation.MemberFailed",
+				"NMM could not prepare '{0}': {1}", memberName, SanitizeInternalTerminology(reason));
+			return Message(String.Empty, message,
+				optional ? "Collections.Messages.Next.ResolveOptionalPreparation" : "Collections.Messages.Next.RetryMemberPreparation",
+				optional
+					? "You can deselect this optional mod on Choose mods, then choose Download / Prepare. To report the error, choose Export Technical Report."
+					: "Choose Download / Prepare to retry. If the same error remains, choose Export Technical Report to include the details in a support request.",
+				technicalDetail);
+		}
+
 		internal static CollectionUserMessagePresentation ForApply(CollectionAdditiveWorkflowApplyStatus status, string technicalDetail)
 		{
 			switch (status)

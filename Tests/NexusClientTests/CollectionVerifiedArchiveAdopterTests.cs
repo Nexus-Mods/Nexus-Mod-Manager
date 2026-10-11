@@ -51,7 +51,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void TryAdopt_ManagedArchive_ProviderVerifiesImmutableRetainedSnapshot()
+		public void TryAdopt_ManagedArchive_ProviderVerifiesLibraryReferenceWithoutCopying()
 		{
 			string root = CreateTemporaryDirectory();
 			try
@@ -66,7 +66,6 @@ namespace NexusClientTests
 				{
 					Handler = (artifact, stream) =>
 					{
-						File.WriteAllBytes(archivePath, replacement);
 						CollectionAssert.AreEqual(original, ReadAllBytes(stream));
 						return true;
 					}
@@ -83,6 +82,10 @@ namespace NexusClientTests
 				Assert.That(verifier.CallCount, Is.EqualTo(1));
 				using (Stream retained = stores.Artifacts.OpenRead(result.Artifact.ArtifactId))
 					CollectionAssert.AreEqual(original, ReadAllBytes(retained));
+				File.WriteAllBytes(archivePath, replacement);
+				Assert.IsFalse(stores.Artifacts.VerifyArtifact(result.Artifact.ArtifactId));
+				verifier.Handler = (artifact, stream) => Sha256(ReadAllBytes(stream)) == Sha256(original);
+				Assert.IsNull(adopter.TryAdopt(request), "A changed library archive is reacquired rather than replaced by a hidden snapshot.");
 			}
 			finally
 			{

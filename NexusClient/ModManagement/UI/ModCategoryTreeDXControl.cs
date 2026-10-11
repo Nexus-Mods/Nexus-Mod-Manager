@@ -615,6 +615,7 @@
 			if (!isSelected && e.Column != null &&
 				(e.Column.FieldName == ModCategoryTreeColumns.InstallDate ||
 				 e.Column.FieldName == ModCategoryTreeColumns.DownloadDate ||
+				 e.Column.FieldName == ModCategoryTreeColumns.UninstallDate ||
 				 e.Column.FieldName == ModCategoryTreeColumns.DownloadId))
 			{
 				if (_usesLightRowPalette)

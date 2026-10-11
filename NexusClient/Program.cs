@@ -81,6 +81,7 @@
 
 				UpgradeSettings(Properties.Settings.Default);
 				ApplyDailyProgramUpdateCheckInterval(Properties.Settings.Default);
+				ApplyThreeConcurrentDownloadDefault(Properties.Settings.Default);
 				EnvironmentInfo = new EnvironmentInfo(Properties.Settings.Default);
 
                 if (!Directory.Exists(EnvironmentInfo.ApplicationPersonalDataFolderPath))
@@ -341,6 +342,19 @@
 			p_setSettings.UpdateCheckInterval = 1;
 			p_setSettings.UpdateCheckIntervalDailyDefaultApplied = true;
 			p_setSettings.Save();
+		}
+
+		/// <summary>
+		/// Applies the three-download default once, preserving lower limits and subsequent user choices.
+		/// </summary>
+		private static void ApplyThreeConcurrentDownloadDefault(Properties.Settings settings)
+		{
+			if (settings.DownloadConcurrencyThreeDefaultApplied)
+				return;
+
+			settings.MaxConcurrentDownloads = settings.MaxConcurrentDownloads > 0 ? Math.Min(3, settings.MaxConcurrentDownloads) : 3;
+			settings.DownloadConcurrencyThreeDefaultApplied = true;
+			settings.Save();
 		}
 
 		/// <summary>

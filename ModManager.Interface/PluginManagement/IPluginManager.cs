@@ -7,6 +7,14 @@ using Nexus.Client.Util.Collections;
 
 namespace Nexus.Client.PluginManagement
 {
+	/// <summary>Optional plugin-manager capability for applying an explicitly authorized Collection state with policy diagnostics kept advisory.</summary>
+	public interface ICollectionPluginStateManager
+	{
+		/// <summary>Applies Collection activation and relative order without changing the user's persistent plugin-restriction preference.</summary>
+		bool TryReconcileCollectionPluginState(IList<string> deployedPaths, IDictionary<string, bool> requestedActivation,
+			IList<IList<string>> relativeOrder, out IList<PluginValidationDiagnostic> diagnostics);
+	}
+
 	/// <summary>
 	/// Describes the properties and methods of a plugin manager, which encapsulates managing plugins.
 	/// </summary>

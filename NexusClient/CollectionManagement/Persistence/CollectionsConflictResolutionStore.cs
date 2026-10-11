@@ -14,28 +14,46 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		public void Save(CollectionConflictResolutionDecision decision)
 		{
 			if (decision == null) throw new ArgumentNullException(nameof(decision));
+			SaveMany(new[] { decision });
+		}
+
+		/// <summary>
+		/// Persists one reviewed set of file-winner decisions atomically. Every row retains its exact
+		/// Collection revision, target, member, path and current owner; this is not a global overwrite rule.
+		/// </summary>
+		public void SaveMany(IEnumerable<CollectionConflictResolutionDecision> decisions)
+		{
+			if (decisions == null) throw new ArgumentNullException(nameof(decisions));
+			var batch = new List<CollectionConflictResolutionDecision>(decisions);
+			if (batch.Exists(x => x == null)) throw new ArgumentException("Null file-conflict decisions are not allowed.", nameof(decisions));
+			if (batch.Count == 0) return;
+
 			_store.ExecuteWrite((connection, transaction) =>
 			{
-				// One exact conflict may have only one durable resolution. This also lets a later C9 decision replace
-				// the opposite choice without leaving two contradictory authorizations behind.
+				// One exact conflict may have only one durable resolution. A later decision replaces
+				// the opposite choice, and an exception rolls back *every* change in this batch.
 				using (SQLiteCommand delete = connection.CreateCommand())
+				using (SQLiteCommand insert = connection.CreateCommand())
 				{
 					delete.Transaction = transaction;
 					delete.CommandText = @"DELETE FROM conflict_resolution_decisions
 WHERE origin=@origin AND collection_id=@collection_id AND revision_id=@revision_id AND target_fingerprint=@target
 AND member_key_kind=@member_kind AND member_key_value=@member_value AND deployment_root=@root
 AND relative_path=@path COLLATE NOCASE AND existing_owner_key=@owner;";
-					BindScope(delete, decision);
-					delete.ExecuteNonQuery();
-				}
-				using (SQLiteCommand command = connection.CreateCommand())
-				{
-					command.Transaction = transaction;
-					command.CommandText = @"INSERT INTO conflict_resolution_decisions
+					insert.Transaction = transaction;
+					insert.CommandText = @"INSERT INTO conflict_resolution_decisions
 (decision_id, origin, collection_id, revision_id, target_fingerprint, member_key_kind, member_key_value, deployment_root, relative_path, existing_owner_key, decision_kind, note)
 VALUES (@decision_id,@origin,@collection_id,@revision_id,@target,@member_kind,@member_value,@root,@path,@owner,@kind,@note);";
-					Bind(command, decision);
-					command.ExecuteNonQuery();
+					foreach (CollectionConflictResolutionDecision decision in batch)
+					{
+						delete.Parameters.Clear();
+						BindScope(delete, decision);
+						delete.ExecuteNonQuery();
+
+						insert.Parameters.Clear();
+						Bind(insert, decision);
+						insert.ExecuteNonQuery();
+					}
 				}
 			});
 		}

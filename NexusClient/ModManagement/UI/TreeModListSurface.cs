@@ -32,9 +32,22 @@
 		internal const string Latest = "LastKnownVersion";
 		internal const string Author = "Author";
 		internal const string InstallDate = "InstallDate";
+		internal const string UninstallDate = "UninstallDate";
 		internal const string DownloadDate = "DownloadDate";
 		internal const string DownloadId = "DownloadId";
 		internal const string Endorsed = "IsEndorsed";
+	}
+
+	/// <summary>Provides readable endorsement values independently of grid and tree icon rendering.</summary>
+	internal static class ModEndorsementPresentation
+	{
+		/// <summary>Returns the localized label for an explicit endorsement, abstention or undecided state.</summary>
+		internal static string GetText(bool? state)
+		{
+			return state == true ? LanguageManager.Get("Mods.Endorsement.Endorsed", "Endorsed")
+				: state == false ? LanguageManager.Get("Mods.Endorsement.Abstained", "Abstained")
+				: LanguageManager.Get("Mods.Endorsement.NotEndorsed", "Not endorsed");
+		}
 	}
 
 	/// <summary>
@@ -100,6 +113,7 @@
 		private readonly Func<IMod, bool> _newModResolver;
 		private readonly Func<IMod, bool> _activeModResolver;
 		private readonly Func<int, int, string> _categoryCountFormatter;
+		private readonly Func<IMod, DateTime?> _uninstallDateResolver;
 		private readonly Dictionary<string, TreeListNode> _categoryNodes =
 			new Dictionary<string, TreeListNode>(StringComparer.CurrentCultureIgnoreCase);
 		private readonly Dictionary<IMod, TreeListNode> _modNodes =
@@ -135,7 +149,8 @@
 			Func<IMod, int?> sortNumberResolver,
 			Func<IMod, bool> newModResolver,
 			Func<IMod, bool> activeModResolver,
-			Func<int, int, string> categoryCountFormatter)
+			Func<int, int, string> categoryCountFormatter,
+			Func<IMod, DateTime?> uninstallDateResolver = null)
 		{
 			if (viewControl == null) throw new ArgumentNullException(nameof(viewControl));
 			if (mods == null) throw new ArgumentNullException(nameof(mods));
@@ -149,6 +164,7 @@
 			_sortNumberResolver = sortNumberResolver ?? (_ => null);
 			_newModResolver = newModResolver;
 			_activeModResolver = activeModResolver;
+			_uninstallDateResolver = uninstallDateResolver ?? (_ => null);
 			_categoryCountFormatter = categoryCountFormatter ?? ((active, total) => String.Format("{0}/{1} Mods", active, total));
 
 			BuildColumns();
@@ -1115,6 +1131,7 @@
 					using (var stream = new MemoryStream(bytes))
 					{
 						_treeList.ForceInitialize();
+						_treeList.OptionsLayout.AddNewColumns = true;
 						_treeList.RestoreLayoutFromStream(stream);
 					}
 					EnsureTreeColumnInvariants();
@@ -1220,7 +1237,7 @@
 				column.OptionsFilter.AutoFilterCondition = column.FieldName == ModCategoryTreeColumns.SortNumber
 					? AutoFilterCondition.Equals
 					: AutoFilterCondition.Contains;
-				column.OptionsFilter.AllowAutoFilter = column.FieldName != ModCategoryTreeColumns.Endorsed;
+				column.OptionsFilter.AllowAutoFilter = true;
 				if (!ReferenceEquals(column, modName) && !ReferenceEquals(column, sortNumber))
 				{
 					column.OptionsColumn.AllowEdit = false;
@@ -1287,6 +1304,8 @@
 					return StringComparer.CurrentCultureIgnoreCase.Compare(left.Author ?? String.Empty, right.Author ?? String.Empty);
 				case ModCategoryTreeColumns.InstallDate:
 					return CompareDates(left.InstallDate, right.InstallDate);
+				case ModCategoryTreeColumns.UninstallDate:
+					return Nullable.Compare(_uninstallDateResolver(left), _uninstallDateResolver(right));
 				case ModCategoryTreeColumns.DownloadDate:
 					return CompareDates(left.DownloadDate, right.DownloadDate);
 				case ModCategoryTreeColumns.DownloadId:
@@ -1346,13 +1365,14 @@
 			AddColumn(ModCategoryTreeColumns.Latest, LanguageManager.Get("Mods.Columns.Latest.Header", "LATEST"), 70, 60, 110, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.Author, LanguageManager.Get("Mods.Columns.Author.Header", "AUTHOR"), 128, 90, 240, HorzAlignment.Default);
 			AddColumn(ModCategoryTreeColumns.InstallDate, LanguageManager.Get("Mods.Columns.InstallDate.Header", "INSTALL DATE"), 180, 100, 0, HorzAlignment.Center);
+			AddColumn(ModCategoryTreeColumns.UninstallDate, LanguageManager.Get("Mods.Columns.UninstallDate.Header", "UNINSTALL DATE"), 180, 100, 0, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.DownloadDate, LanguageManager.Get("Mods.Columns.DownloadDate.Header", "DOWNLOAD DATE"), 180, 100, 0, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.DownloadId, LanguageManager.Get("Mods.Columns.DownloadId.Header", "DOWNLOAD ID"), 80, 70, 120, HorzAlignment.Center);
 			AddColumn(ModCategoryTreeColumns.Endorsed, LanguageManager.Get("Mods.Columns.Endorsed.Header", "ENDORSED"), 70, 50, 90, HorzAlignment.Center);
 
 			// Status and Endorsed retain semantic values so sorting/filtering do not depend
 			// on image editors. Their icons are painted by ModCategoryTreeDXControl.
-			_treeList.Columns[ModCategoryTreeColumns.Endorsed].OptionsFilter.AllowAutoFilter = false;
+			_treeList.Columns[ModCategoryTreeColumns.Endorsed].OptionsFilter.AllowAutoFilter = true;
 			_treeList.HierarchyColumn = _treeList.Columns[ModCategoryTreeColumns.ModName];
 			_treeList.ForceInitialize();
 			EnsureTreeColumnInvariants();
@@ -1652,9 +1672,10 @@
 			values[_treeList.Columns[ModCategoryTreeColumns.Latest].AbsoluteIndex] = mod.LastKnownVersion;
 			values[_treeList.Columns[ModCategoryTreeColumns.Author].AbsoluteIndex] = mod.Author;
 			values[_treeList.Columns[ModCategoryTreeColumns.InstallDate].AbsoluteIndex] = mod.InstallDate;
+			values[_treeList.Columns[ModCategoryTreeColumns.UninstallDate].AbsoluteIndex] = _uninstallDateResolver(mod);
 			values[_treeList.Columns[ModCategoryTreeColumns.DownloadDate].AbsoluteIndex] = mod.DownloadDate;
 			values[_treeList.Columns[ModCategoryTreeColumns.DownloadId].AbsoluteIndex] = mod.DownloadId;
-			values[_treeList.Columns[ModCategoryTreeColumns.Endorsed].AbsoluteIndex] = mod.IsEndorsed;
+			values[_treeList.Columns[ModCategoryTreeColumns.Endorsed].AbsoluteIndex] = ModEndorsementPresentation.GetText(mod.IsEndorsed);
 			return values;
 		}
 
@@ -1689,9 +1710,10 @@
 				case ModCategoryTreeColumns.Latest: return mod.LastKnownVersion;
 				case ModCategoryTreeColumns.Author: return mod.Author;
 				case ModCategoryTreeColumns.InstallDate: return mod.InstallDate;
+				case ModCategoryTreeColumns.UninstallDate: return _uninstallDateResolver(mod);
 				case ModCategoryTreeColumns.DownloadDate: return mod.DownloadDate;
 				case ModCategoryTreeColumns.DownloadId: return mod.DownloadId;
-				case ModCategoryTreeColumns.Endorsed: return mod.IsEndorsed;
+				case ModCategoryTreeColumns.Endorsed: return ModEndorsementPresentation.GetText(mod.IsEndorsed);
 				default: return null;
 			}
 		}
@@ -1711,9 +1733,10 @@
 			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Latest, mod.LastKnownVersion);
 			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Author, mod.Author);
 			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.InstallDate, mod.InstallDate);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.UninstallDate, _uninstallDateResolver(mod));
 			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.DownloadDate, mod.DownloadDate);
 			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.DownloadId, mod.DownloadId);
-			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Endorsed, mod.IsEndorsed);
+			changed |= SetValueIfChanged(node, ModCategoryTreeColumns.Endorsed, ModEndorsementPresentation.GetText(mod.IsEndorsed));
 			return changed;
 		}
 

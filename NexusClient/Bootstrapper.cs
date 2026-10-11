@@ -503,10 +503,10 @@
 			{
 				var gdrGameDetector = new GameDiscoverer();
 				var vmlGameDetection = new GameDetectionVM(_environmentInfo, gdrGameDetector, supportedGameModes);
-				var frmGameDetector = new GameDetectionForm(vmlGameDetection);
-
-			    gdrGameDetector.Find(supportedGameModes.RegisteredGameModeFactories);
-				frmGameDetector.ShowDialog();
+				using (var frmGameDetector = new GameDetectionForm(vmlGameDetection))
+				{
+					frmGameDetector.ShowDialog();
+				}
 
 			    if (gdrGameDetector.Status != TaskStatus.Complete)
                 {

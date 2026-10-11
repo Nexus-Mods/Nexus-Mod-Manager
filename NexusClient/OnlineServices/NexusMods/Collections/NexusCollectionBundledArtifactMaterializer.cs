@@ -74,6 +74,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				if (File.Exists(stagingPath)) File.Delete(stagingPath);
 				File.Move(temporaryPath, stagingPath);
 				CollectionsRetainedArtifact retained = _artifactStore.PublishFile(stagingPath, cancellationToken);
+				string libraryStem = Path.GetFileNameWithoutExtension(CreateSafeStageFileName(source.FileExpression));
+				if (libraryStem.Length > 40) libraryStem = libraryStem.Substring(0, 40);
+				_artifactStore.PlaceCollectionSource(retained.ArtifactId, _revisionSourceStore.GetCollectionSourceRelativeDirectory(request.Revision) +
+					"/bundled/" + libraryStem + " - " + retained.ContentHash.Value.Substring(0, 12) + ".zip", cancellationToken);
 				return new NexusCollectionBundledArtifactMaterialization(retained, stagingPath, source.FileExpression, source.ReferenceTag);
 			}
 			catch

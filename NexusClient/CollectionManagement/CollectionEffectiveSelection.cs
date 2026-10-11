@@ -107,9 +107,16 @@ namespace Nexus.Client.CollectionManagement
 		/// </summary>
 		/// <param name="normalizedCapabilityReport">The exact normalized source capability snapshot.</param>
 		/// <param name="optionalSelections">Explicit stable-key decisions for optional members only.</param>
-		public CollectionEffectiveSelection Build(
-			CollectionCapabilityReport normalizedCapabilityReport,
+		public CollectionEffectiveSelection Build(CollectionCapabilityReport normalizedCapabilityReport,
 			IEnumerable<CollectionOptionalMemberSelection> optionalSelections)
+		{
+			return Build(normalizedCapabilityReport, optionalSelections, false);
+		}
+
+		/// <summary>Optionally selects transitive prerequisites under explicit automatic overwrite authorization.</summary>
+		internal CollectionEffectiveSelection Build(
+			CollectionCapabilityReport normalizedCapabilityReport,
+			IEnumerable<CollectionOptionalMemberSelection> optionalSelections, bool includePrerequisites)
 		{
 			if (normalizedCapabilityReport == null)
 				throw new ArgumentNullException(nameof(normalizedCapabilityReport));
@@ -143,6 +150,36 @@ namespace Nexus.Client.CollectionManagement
 				overrides.Add(optionalSelection.MemberKey, optionalSelection.Selection);
 			}
 
+			if (includePrerequisites)
+			{
+				var selected = new HashSet<CollectionMemberKey>();
+				var prerequisites = new Dictionary<CollectionMemberKey, List<CollectionMemberKey>>();
+				foreach (CollectionMemberDependency dependency in sourceManifest.Dependencies)
+				{
+					List<CollectionMemberKey> keys;
+					if (!prerequisites.TryGetValue(dependency.DependentMemberKey, out keys))
+						prerequisites.Add(dependency.DependentMemberKey, keys = new List<CollectionMemberKey>());
+					keys.Add(dependency.PrerequisiteMemberKey);
+				}
+				foreach (KeyValuePair<CollectionMemberKey, NormalizedCollectionMember> entry in resolvedMembers)
+				{
+					CollectionMemberSelection choice;
+					if (overrides.TryGetValue(entry.Key, out choice) ? choice == CollectionMemberSelection.Selected : entry.Value.IsSelected)
+						selected.Add(entry.Key);
+				}
+				var pending = new Queue<CollectionMemberKey>(selected);
+				while (pending.Count > 0)
+				{
+					List<CollectionMemberKey> keys;
+					if (!prerequisites.TryGetValue(pending.Dequeue(), out keys)) continue;
+					foreach (CollectionMemberKey key in keys)
+						if (resolvedMembers[key].Requirement == CollectionMemberRequirement.Optional && selected.Add(key))
+						{
+							overrides[key] = CollectionMemberSelection.Selected;
+							pending.Enqueue(key);
+						}
+				}
+			}
 			List<NormalizedCollectionMember> effectiveMembers = new List<NormalizedCollectionMember>();
 			foreach (NormalizedCollectionMember member in sourceManifest.Members)
 			{

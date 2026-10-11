@@ -17,7 +17,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	/// </remarks>
 	public sealed class CollectionsStore
 	{
-		public const int CurrentSchemaVersion = 9;
+		public const int CurrentSchemaVersion = 10;
 		public const int BusyTimeoutMilliseconds = 5000;
 		private const int BusyTimeoutSeconds = (BusyTimeoutMilliseconds + 999) / 1000;
 		private const string SchemaName = "nmm-ce-collections";
@@ -395,6 +395,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				case 6:
 				case 7:
 				case 8:
+				case 9:
 					return true;
 				default:
 					return false;
@@ -428,6 +429,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					return;
 				case 8:
 					ValidateSchemaVersion8(connection);
+					return;
+				case 9:
+					ValidateSchemaVersion9(connection);
 					return;
 				default:
 					throw MigrationUnavailableException(version);
@@ -677,6 +681,17 @@ CREATE TABLE retained_artifacts (
 	CHECK (byte_length >= 0),
 	CHECK (sealed IN (0, 1)),
 	UNIQUE (hash_algorithm, hash_value, byte_length)
+);");
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE IF NOT EXISTS retained_archive_locations (
+	artifact_id TEXT NOT NULL PRIMARY KEY,
+	archive_path TEXT NOT NULL,
+	FOREIGN KEY (artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS retained_collection_locations (
+	artifact_id TEXT NOT NULL PRIMARY KEY,
+	relative_path TEXT NOT NULL,
+	FOREIGN KEY (artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE CASCADE
 );");
 				ExecuteSchemaStatement(connection, transaction, @"
 CREATE TABLE revision_sources (
@@ -1069,6 +1084,10 @@ CREATE TABLE native_operation_children (
 						MigrateVersion8To9(connection);
 						version = 9;
 						break;
+					case 9:
+						MigrateVersion9To10(connection);
+						version = 10;
+						break;
 					default:
 						throw MigrationUnavailableException(version);
 				}
@@ -1280,6 +1299,37 @@ CREATE TABLE local_working_copies (
 			}
 		}
 
+		/// <summary>Adds archive-library references without changing existing content identities or recovery journals.</summary>
+		private static void MigrateVersion9To10(SQLiteConnection connection)
+		{
+			ValidateSchemaVersion9(connection);
+			using (SQLiteTransaction transaction = connection.BeginTransaction())
+			{
+				ExecuteSchemaStatement(connection, transaction, @"
+CREATE TABLE IF NOT EXISTS retained_archive_locations (
+	artifact_id TEXT NOT NULL PRIMARY KEY,
+	archive_path TEXT NOT NULL,
+	FOREIGN KEY (artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS retained_collection_locations (
+	artifact_id TEXT NOT NULL PRIMARY KEY,
+	relative_path TEXT NOT NULL,
+	FOREIGN KEY (artifact_id) REFERENCES retained_artifacts(artifact_id) ON DELETE CASCADE
+);");
+				UpdateMetadata(connection, transaction, SchemaVersionMetadataKey, "10");
+				ExecuteNonQuery(connection, transaction, "PRAGMA user_version=10;");
+				transaction.Commit();
+			}
+		}
+
+		/// <summary>Validates the previous schema before the archive-reference migration.</summary>
+		private static void ValidateSchemaVersion9(SQLiteConnection connection)
+		{
+			if (ReadAndValidateVersion(connection) != 9)
+				throw new CollectionsStoreSchemaException("Expected Collections migration source schema 9.");
+			ValidateSchemaVersion9Tables(connection);
+		}
+
 		private static int ReadAndValidateVersion(SQLiteConnection connection)
 		{
 			RequireTable(connection, "store_metadata", "key", "value");
@@ -1308,6 +1358,8 @@ CREATE TABLE local_working_copies (
 					"Collections store schema {0} is not the supported schema {1}.", version, CurrentSchemaVersion));
 
 			ValidateSchemaVersion9Tables(connection);
+			RequireTable(connection, "retained_archive_locations", "artifact_id", "archive_path");
+			RequireTable(connection, "retained_collection_locations", "artifact_id", "relative_path");
 		}
 
 		private static void ValidateSchemaVersion8(SQLiteConnection connection)

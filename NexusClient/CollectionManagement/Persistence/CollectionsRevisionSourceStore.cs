@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Data.SQLite;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using Nexus.Client.CollectionManagement;
@@ -233,6 +234,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					SetManifestArtifact(connection, transaction, revision, retained.ArtifactId);
 			});
 
+			_artifactStore.PlaceCollectionSource(retained.ArtifactId, GetCollectionSourceRelativeDirectory(revision) + "/collection.json");
 			return GetSource(revision);
 		}
 
@@ -278,7 +280,55 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					SetBundleArtifact(connection, transaction, revision, retained.ArtifactId);
 			});
 
+			_artifactStore.PlaceCollectionSource(retained.ArtifactId, GetCollectionSourceRelativeDirectory(revision) + "/collection.bundle", cancellationToken);
 			return GetSource(revision);
+		}
+
+		/// <summary>Returns a readable, path-safe Collection/revision directory within the feature library.</summary>
+		internal string GetCollectionSourceRelativeDirectory(CollectionRevisionIdentity revision)
+		{
+			CollectionDefinition definition = new CollectionsCatalogStore(_store).GetDefinition(revision.Collection);
+			string name = definition == null ? "Collection" : definition.DisplayName ?? "Collection";
+			char[] invalid = Path.GetInvalidFileNameChars();
+			name = new string(name.Where(x => !invalid.Contains(x) && !Char.IsControl(x)).ToArray()).Trim().TrimEnd('.');
+			if (name.Length > 32) name = name.Substring(0, 32).TrimEnd('.', ' ');
+			string id = revision.Collection.StableId;
+			string revisionId = revision.StableRevisionId;
+			if (id.Length > 16 || revisionId.Length > 16 || id.EndsWith(".", StringComparison.Ordinal) ||
+				revisionId.EndsWith(".", StringComparison.Ordinal) || id.Any(x => invalid.Contains(x)) || revisionId.Any(x => invalid.Contains(x)))
+			{
+				// Opaque legacy IDs remain identities, never filesystem path fragments.
+				using (SHA256 hash = SHA256.Create())
+				{
+					id = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(revision.Collection.ToString()))).Replace("-", "").ToLowerInvariant().Substring(0, 16);
+					revisionId = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(revision.ToString()))).Replace("-", "").ToLowerInvariant().Substring(0, 16);
+				}
+			}
+			string label = revision.NexusRevisionNumber.HasValue ? "Revision " + revision.NexusRevisionNumber.Value : "Local revision";
+			return "Library/" + revision.Collection.Origin + "-" + id + " - " + name + "/" + label + " - " + revisionId;
+		}
+
+		/// <summary>Organizes existing retained manifests and bundles without changing their bytes or durable references.</summary>
+		internal void OrganizeRetainedSources(CancellationToken cancellationToken)
+		{
+			var catalog = new CollectionsCatalogStore(_store);
+			foreach (CollectionDefinition definition in catalog.GetDefinitions())
+				foreach (CollectionRevision revision in catalog.GetRevisions(definition.Identity))
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					CollectionRevisionSourceRecord source = GetSource(revision.Identity);
+					if (source == null) continue;
+					try
+					{
+						string directory = GetCollectionSourceRelativeDirectory(revision.Identity);
+						if (source.RawManifestArtifactId != null) _artifactStore.PlaceCollectionSource(source.RawManifestArtifactId, directory + "/collection.json", cancellationToken);
+						if (source.RawBundleArtifactId != null) _artifactStore.PlaceCollectionSource(source.RawBundleArtifactId, directory + "/collection.bundle", cancellationToken);
+					}
+					catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+					{
+						System.Diagnostics.Trace.TraceWarning("Collection source organization deferred for {0}: {1}", revision.Identity, ex.Message);
+					}
+				}
 		}
 
 		/// <summary>

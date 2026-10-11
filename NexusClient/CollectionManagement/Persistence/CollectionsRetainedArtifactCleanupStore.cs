@@ -33,8 +33,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		/// </summary>
 		/// <remarks>
 		/// Installed associations, saved captures and the currently open incoming preview keep their Collection content. Any
-		/// unfinished operation or potentially active acquisition defers cleanup. Catalog, source provenance, plans and terminal
-		/// journals are preserved; exact source bindings can be republished idempotently if the same revision is imported again.
+		/// unfinished operation or potentially active acquisition defers cleanup. Catalog, manifest/bundle sources, plans and terminal
+		/// journals remain available so an uninstalled Collection can be reopened without importing its definition again.
 		/// </remarks>
 		public bool ReleaseRemovedCollectionContent(CollectionTargetIdentity target, CollectionIdentity retainedPreviewCollection = null)
 		{
@@ -102,7 +102,7 @@ WHERE o.target_fingerprint=@target AND o.kind=@uninstall AND o.phase=@completed 
 		}
 
 		/// <summary>
-		/// Releases completed operation, acquisition and revision ownership for one Collection with no remaining installed baseline.
+		/// Releases completed operation/acquisition ownership while preserving the remembered revision and its source content.
 		/// </summary>
 		private static void ReleaseRemovedCollectionReferences(SQLiteConnection connection, SQLiteTransaction transaction,
 			CollectionIdentity collection)
@@ -160,15 +160,10 @@ WHERE owner_kind=@download AND owner_id IN (
 					command.ExecuteNonQuery();
 					command.CommandText = "DELETE FROM collection_acquisition_requests WHERE revision_identity=@owner_id;";
 					command.ExecuteNonQuery();
-					command.CommandText = "DELETE FROM retained_artifact_references WHERE owner_kind=@revision AND owner_id=@owner_id;";
-					command.ExecuteNonQuery();
+					// Keep the definition, raw manifest/bundle and bundle-only content available for reinstall.
+					// Ordinary archives now live in Mods; completed operation/download references are disposable.
 				}
-				command.CommandText = @"
-UPDATE revision_sources SET raw_bundle_artifact_id=NULL, raw_manifest_artifact_id=NULL
-WHERE origin=@origin AND collection_id=@collection_id;";
-				command.Parameters.AddWithValue("@origin", (int)collection.Origin);
-				command.Parameters.AddWithValue("@collection_id", collection.StableId);
-				command.ExecuteNonQuery();
+
 			}
 		}
 
@@ -329,9 +324,12 @@ VALUES (@artifact_id, @marked_utc);";
 			if (!StringComparer.Ordinal.Equals(candidate.RelativePath, expectedRelativePath))
 				throw new InvalidDataException("The tombstoned artifact path does not match its content-addressed identity.");
 
-			string physicalPath = _artifactStore.ResolveCanonicalPath(candidate.RelativePath);
+			string physicalPath = _artifactStore.ResolveOwnedContentPath(candidate.Artifact.ArtifactId, candidate.RelativePath);
 			if (File.Exists(physicalPath))
 				File.Delete(physicalPath);
+			string canonicalPath = _artifactStore.ResolveCanonicalPath(candidate.RelativePath);
+			if (!StringComparer.OrdinalIgnoreCase.Equals(physicalPath, canonicalPath) && File.Exists(canonicalPath))
+				File.Delete(canonicalPath);
 
 			bool finalized = false;
 			_store.ExecuteWrite((connection, transaction) =>

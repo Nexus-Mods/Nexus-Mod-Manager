@@ -16,6 +16,78 @@ namespace NexusClientTests
 	public class CollectionsRetainedArtifactStoreTests
 	{
 		[Test]
+		public void ReferenceArchiveFile_ReusesLibraryBytesAndDetectsDeletionOrChangesAfterRestart()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				string archive = Path.Combine(root, "mod.zip");
+				File.WriteAllText(archive, "original archive");
+				CollectionsRetainedArtifact reference = artifacts.ReferenceArchiveFile(archive);
+				Assert.IsFalse(File.Exists(BlobPath(store, reference.ContentHash.Value)));
+				using (Stream stream = new CollectionsRetainedArtifactStore(store).OpenRead(reference.ArtifactId))
+					CollectionAssert.AreEqual(File.ReadAllBytes(archive), ReadAllBytes(stream));
+				File.WriteAllText(archive, "modified archive");
+				Assert.IsFalse(new CollectionsRetainedArtifactStore(store).VerifyArtifact(reference.ArtifactId));
+				File.Delete(archive);
+				Assert.IsFalse(new CollectionsRetainedArtifactStore(store).VerifyArtifact(reference.ArtifactId));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
+		public void MigrateArchiveCopies_ReleasesLegacyBlobWhileKeepingItsProtectedIdentity()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				string archive = Path.Combine(root, "mod.zip"); File.WriteAllText(archive, "legacy copy");
+				CollectionsRetainedArtifact legacy = artifacts.PublishFile(archive);
+				var references = new CollectionsRetainedArtifactReferenceStore(store);
+				CollectionsRetainedArtifactReferenceRecord owner = references.AcquireReference(legacy.ArtifactId,
+					CollectionsRetainedArtifactOwnerKind.Download, "old-request", "archive");
+				artifacts.MigrateArchiveCopies(new[] { archive }, CancellationToken.None);
+				Assert.IsFalse(File.Exists(BlobPath(store, legacy.ContentHash.Value)));
+				Assert.AreEqual(legacy, artifacts.GetArtifact(legacy.ArtifactId));
+				Assert.AreEqual(owner, references.GetReference(owner.ReferenceId));
+				Assert.IsTrue(new CollectionsRetainedArtifactStore(store).VerifyArtifact(legacy.ArtifactId));
+				artifacts.MigrateArchiveCopies(new[] { archive }, CancellationToken.None);
+				Assert.IsTrue(File.Exists(archive));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
+		public void PlaceCollectionSource_MovesBytesAndReadsAcrossInterruptedMoveWithoutDuplication()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				var artifacts = new CollectionsRetainedArtifactStore(store);
+				CollectionsRetainedArtifact source;
+				using (var stream = new MemoryStream(Encoding.UTF8.GetBytes("{\"mods\":[]}"))) source = artifacts.Publish(stream);
+				const string relative = "Library/Test Collection/Revision 1/collection.json";
+				string named = Path.Combine(store.StoreDirectory, relative.Replace('/', Path.DirectorySeparatorChar));
+				artifacts.PlaceCollectionSource(source.ArtifactId, relative);
+				Assert.IsTrue(File.Exists(named));
+				Assert.IsFalse(File.Exists(BlobPath(store, source.ContentHash.Value)));
+				Assert.IsTrue(new CollectionsRetainedArtifactStore(store).VerifyArtifact(source.ArtifactId));
+				Directory.CreateDirectory(Path.GetDirectoryName(BlobPath(store, source.ContentHash.Value)));
+				File.Move(named, BlobPath(store, source.ContentHash.Value));
+				Assert.IsTrue(new CollectionsRetainedArtifactStore(store).VerifyArtifact(source.ArtifactId), "The durable mapping can precede the atomic file move.");
+				artifacts.PlaceCollectionSource(source.ArtifactId, relative);
+				Assert.IsTrue(new CollectionsRetainedArtifactCleanupStore(store).TryCollectUnreferencedArtifact(source.ArtifactId));
+				Assert.IsFalse(File.Exists(named));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		[Test]
 		public void Publish_StreamsHashesAndSealsAContentAddressedBlob()
 		{
 			string root = CreateTemporaryDirectory();

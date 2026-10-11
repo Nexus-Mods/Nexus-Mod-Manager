@@ -200,10 +200,15 @@ namespace Nexus.Client.CollectionManagement
 				CollectionResolvedArtifactChoice choice = persisted.ArtifactChoiceKind == CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact
 					? CollectionResolvedArtifactChoice.Exact(persisted.RequestedArtifact)
 					: CollectionResolvedArtifactChoice.SupportedSubstitution(persisted.RequestedArtifact, persisted.SelectedArtifact, persisted.SubstitutionRuleId);
+				string originalExternalMd5; long originalExternalLength;
+				if (CollectionExternalArtifactIdentity.TryParse(normalized.Artifact, out originalExternalMd5, out originalExternalLength) &&
+					choice.Kind == CollectionResolvedArtifactChoiceKind.SupportedSubstitution &&
+					!CollectionResolvedArtifactChoice.IsValidUserSelectedExternalAlternative(choice))
+					throw new InvalidDataException("The reviewed external archive substitution is no longer a recognized user-approved SHA-256 decision.");
 				members.Add(new ResolvedCollectionMemberPlan(normalized, choice));
 			}
 
-			return new ResolvedCollectionPlan(snapshot.Identity, snapshot.Target, CollectionExecutionPolicy.InstallIntoCurrentSetup(),
+			return new ResolvedCollectionPlan(snapshot.Identity, snapshot.Target, CollectionExecutionPolicy.InstallIntoCurrentSetup(snapshot.AutomaticallyInstall, snapshot.PreferIncomingCollection),
 				snapshot.ApprovedStateFingerprint, effective.CapabilityReport, members);
 		}
 

@@ -1452,8 +1452,18 @@
             BeginInvoke((Action)FlushPluginRefresh);
         }
 
-        private void FlushPluginRefresh()
+        /// <summary>Refreshes the grid after native transactions release their temporary plugin lists.</summary>
+        private async void FlushPluginRefresh()
         {
+            // Commit notifications arrive before scope disposal. Keep this refresh queued so
+            // the last uninstall is displayed from committed state and later events coalesce.
+            while (Nexus.Transactions.Transaction.Current != null)
+            {
+                await Nexus.Transactions.Transaction.WaitForAmbientTransactionAsync();
+                if (IsDisposed || Disposing || _viewModel == null)
+                    return;
+            }
+
             bool rebuildRows = _managedPluginsRefreshPending;
             bool refreshRows = _activePluginsRefreshPending;
 

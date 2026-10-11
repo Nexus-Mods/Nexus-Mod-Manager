@@ -23,6 +23,7 @@
 		private string[] _officialPlugins;
         private string[] _officialUnmanagedPlugins;
 		private string _pluginPath = string.Empty;
+		private string _cachedInstallationPath;
 
 		#region Properties
 
@@ -48,6 +49,7 @@
 		{
 			get
 			{
+				EnsurePluginPathsCurrent();
 				if (!string.IsNullOrEmpty(_pluginPath))
                 {
                     return _pluginPath;
@@ -92,6 +94,7 @@
 		{
 			get
 			{
+				EnsurePluginPathsCurrent();
 				if (_criticalPlugins == null)
 				{
 					_criticalPlugins = new string[OrderedCriticalPluginFilenames.Length];
@@ -126,6 +129,7 @@
 		{
 			get
 			{
+				EnsurePluginPathsCurrent();
 				if (_officialPlugins == null)
 				{
 					_officialPlugins = new string[OrderedOfficialPluginFilenames.Length];
@@ -150,6 +154,7 @@
             {
                 try
                 {
+                    EnsurePluginPathsCurrent();
                     if (_officialUnmanagedPlugins == null)
                     {
                         if (OrderedOfficialUnmanagedPluginFilenames != null)
@@ -179,6 +184,22 @@
                     return new string[0];
                 }
             }
+        }
+
+        /// <summary>
+        /// Invalidates cached plugin paths when a rescan changes the installation directory.
+        /// </summary>
+        private void EnsurePluginPathsCurrent()
+        {
+            string installationPath = InstallationPath;
+            if (string.Equals(_cachedInstallationPath, installationPath, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _pluginPath = string.Empty;
+            _criticalPlugins = null;
+            _officialPlugins = null;
+            _officialUnmanagedPlugins = null;
+            _cachedInstallationPath = installationPath;
         }
 
         #endregion

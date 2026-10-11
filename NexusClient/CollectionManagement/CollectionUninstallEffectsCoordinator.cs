@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -217,7 +218,7 @@ namespace Nexus.Client.CollectionManagement
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths).ConfigureAwait(true);
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths, true).ConfigureAwait(true);
 				association = RequireAssociation(associationId);
 				RequireNoIncompleteOperation(association.Target);
 				return BuildPlan(association, state);
@@ -236,7 +237,7 @@ namespace Nexus.Client.CollectionManagement
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths).ConfigureAwait(true);
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths, true).ConfigureAwait(true);
 				association = RequireAssociation(associationId);
 				return BuildExplicitMemberPlan(_associationStore, association, state, memberArtifacts, nativeFileNames,
 					GetSupersededOperations(association));
@@ -428,7 +429,7 @@ namespace Nexus.Client.CollectionManagement
 
 				try
 				{
-					state = await ReloadAndCaptureStateAsync(rootLease, authority, paths).ConfigureAwait(false);
+					state = await ReloadAndCaptureStateAsync(rootLease, authority, paths, true).ConfigureAwait(false);
 					operation = _operationStore.GetOperation(operation.Identity);
 					if (livePlan.ExplicitMemberRemoval && (operation.HasUnreconciledNativeChild ||
 						livePlan.Impacts.Any(x => x.RequiresNativeRemoval && !IsNativeModFullyAbsent(state, x.NativeMod))))
@@ -485,7 +486,7 @@ namespace Nexus.Client.CollectionManagement
 			using (CollectionTargetMutationLease lease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths).ConfigureAwait(true);
+				CollectionNativeStateIndex state = await ReloadAndCaptureStateAsync(lease, authority, paths, true).ConfigureAwait(true);
 				operation = RequireRecoverableOperation(operationIdentity);
 				association = RequireAssociation(operation.Revision, operation.Target);
 				List<CollectionNativeChildOperation> pending = operation.NativeChildren
@@ -830,15 +831,56 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Reloads and captures authoritative removal state on a worker while the caller retains the target lease.</summary>
 		private Task<CollectionNativeStateIndex> ReloadAndCaptureStateAsync(CollectionTargetMutationLease lease,
-			CollectionTargetAuthority authority, GameStoragePathSet paths)
+			CollectionTargetAuthority authority, GameStoragePathSet paths, bool reconcileMissingPlugins = false)
 		{
 			// Reconciliation must finish even when cancellation arrives after a native child committed.
 			// Await each reload before publishing its result or submitting the next uninstaller.
-			return Task.Run(() =>
+			return Task.Run(async () =>
 			{
-				_authorityValidator.ValidateAndReload(lease, authority, paths);
-				return CaptureReloadedState(authority.Target);
+				DateTime deadline = DateTime.UtcNow.AddSeconds(30);
+				while (true)
+				{
+					Task released = Nexus.Transactions.Transaction.WaitForAmbientTransactionAsync();
+					if (!released.IsCompleted)
+					{
+						TimeSpan remaining = deadline - DateTime.UtcNow;
+						if (remaining <= TimeSpan.Zero ||
+							await Task.WhenAny(released, Task.Delay(remaining)).ConfigureAwait(false) != released)
+							throw new TimeoutException("NMM is still finishing a native transaction. Collection removal state could not be refreshed within 30 seconds.");
+					}
+					try
+					{
+						_authorityValidator.ValidateAndReload(lease, authority, paths);
+						if (reconcileMissingPlugins) ReconcileMissingPlugins();
+						return CaptureReloadedState(authority.Target);
+					}
+					catch (InvalidOperationException exception) when (DateTime.UtcNow < deadline &&
+						(exception.Message == "Collection native state cannot be captured from inside an ambient native transaction." ||
+						 exception.Message == "Native state cannot be captured from inside an ambient native transaction." ||
+						 exception.Message == "Committed InstallLog state cannot be captured from inside an ambient transaction."))
+					{
+						// A background native writer may have started between the wait and capture.
+						// Wait for its scope disposal and reload again; never accept an uncommitted snapshot.
+					}
+				}
 			});
+		}
+
+		/// <summary>Removes stale plugin registrations once at removal review/completion while the target mutation lease is held.</summary>
+		private void ReconcileMissingPlugins()
+		{
+			if (_services.PluginManager == null || !_services.ModManager.GameMode.UsesPlugins)
+				return;
+
+			// Watcher notifications are suppressed during native writes. Reconcile their final result
+			// in one batch, rather than starting a transaction for each delayed deletion notification.
+			string pluginDirectory = _services.ModManager.GameMode.PluginDirectory;
+			List<string> missing = _services.PluginManager.ManagedPlugins.ToArray()
+				.Where(x => x != null && !String.IsNullOrWhiteSpace(x.Filename))
+				.Select(x => x.Filename)
+				.Where(x => !File.Exists(Path.IsPathRooted(x) ? x : Path.Combine(pluginDirectory, x)))
+				.ToList();
+			if (missing.Count > 0) _services.PluginManager.RemovePlugins(missing);
 		}
 
 		private CollectionNativeStateIndex CaptureReloadedState(CollectionTargetIdentity target)

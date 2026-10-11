@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Globalization;
 using System.Threading;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.ModAuthoring;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModRepositories;
+using Nexus.Client.CollectionManagement.Persistence;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -29,6 +32,60 @@ namespace Nexus.Client.CollectionManagement
 	{
 		CollectionManualAcquisitionHint GetHint(CollectionAcquisitionRequest request);
 	}
+	/// <summary>
+	/// A sealed, user-selected external archive that does not match the curator's original file.
+	/// This is only a proposed choice; no installation is authorized before a new reviewed plan.
+	/// </summary>
+	public sealed class CollectionAlternateArchiveCandidate
+	{
+		internal CollectionAlternateArchiveCandidate(CollectionAcquisitionRequest request,
+			CollectionsRetainedArtifact artifact, CollectionsRetainedArtifactReferenceRecord reference, string md5,
+			IEnumerable<CollectionResolvedArtifactChoice> previousAlternatives = null,
+			CollectionManifestSourceSnapshot previousNexusManifestSource = null,
+			IEnumerable<CollectionResolvedArtifactChoice> previousNexusChoices = null)
+		{
+			Request = request ?? throw new ArgumentNullException(nameof(request));
+			Artifact = artifact ?? throw new ArgumentNullException(nameof(artifact));
+			Reference = reference ?? throw new ArgumentNullException(nameof(reference));
+			Md5 = md5 ?? throw new ArgumentNullException(nameof(md5));
+			SelectedArtifact = new CollectionArtifactReference(CollectionExternalArtifactIdentity.Scheme,
+				CollectionExternalArtifactIdentity.Format(md5, artifact.ByteLength), artifact.ContentHash);
+			PreviousAlternatives = Array.AsReadOnly((previousAlternatives ?? Enumerable.Empty<CollectionResolvedArtifactChoice>()).ToArray());
+			PreviousNexusManifestSource = previousNexusManifestSource;
+			PreviousNexusChoices = Array.AsReadOnly((previousNexusChoices ?? Enumerable.Empty<CollectionResolvedArtifactChoice>()).ToArray());
+			if (PreviousNexusChoices.Count != 0 && PreviousNexusManifestSource == null)
+				throw new ArgumentException("Previously resolved Nexus policies must be bound to the exact retained manifest source.", nameof(previousNexusManifestSource));
+		}
+		/// <summary>Carries earlier user-approved alternate choices into the next immutable review.</summary>
+		internal CollectionAlternateArchiveCandidate WithPreviousAlternatives(IEnumerable<CollectionResolvedArtifactChoice> choices)
+		{
+			return new CollectionAlternateArchiveCandidate(Request, Artifact, Reference, Md5, choices,
+				PreviousNexusManifestSource, PreviousNexusChoices);
+		}
+		/// <summary>
+		/// Carries already resolved Nexus prefer choices through a user-approved EXTERNAL archive change.
+		/// These are same-manifest read-only decisions, not permission to install or bypass archive verification.
+		/// </summary>
+		internal CollectionAlternateArchiveCandidate WithPreviouslyResolvedNexusPolicies(
+			CollectionManifestSourceSnapshot source, IEnumerable<CollectionResolvedArtifactChoice> choices)
+		{
+			if (source == null) throw new ArgumentNullException(nameof(source));
+			if (choices == null) throw new ArgumentNullException(nameof(choices));
+			return new CollectionAlternateArchiveCandidate(Request, Artifact, Reference, Md5,
+				PreviousAlternatives, source, choices);
+		}
+		internal IReadOnlyList<CollectionResolvedArtifactChoice> PreviousAlternatives { get; }
+		internal CollectionManifestSourceSnapshot PreviousNexusManifestSource { get; }
+		internal IReadOnlyList<CollectionResolvedArtifactChoice> PreviousNexusChoices { get; }
+		public CollectionAcquisitionRequest Request { get; }
+		public CollectionArtifactReference SelectedArtifact { get; }
+		public long ByteLength { get { return Artifact.ByteLength; } }
+		public string Md5 { get; }
+		public string Sha256 { get { return Artifact.ContentHash.Value; } }
+		internal CollectionsRetainedArtifact Artifact { get; }
+		internal CollectionsRetainedArtifactReferenceRecord Reference { get; }
+	}
+
 	/// <summary>
 	/// Coordinates free/manual Collection acquisition without automating provider web interactions.
 	/// </summary>
@@ -206,6 +263,23 @@ namespace Nexus.Client.CollectionManagement
 			string localFilePath)
 		{
 			return VerifyLocalFile(pendingAction, localFilePath, CancellationToken.None);
+		}
+
+		/// <summary>Seals and inspects a different external archive for an explicit user decision; does not accept it.</summary>
+		public CollectionAlternateArchiveCandidate InspectAlternateLocalFile(
+			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
+		{
+			ValidatePendingAction(pendingAction, CollectionManualAcquisitionActionKind.LocalFile);
+			string md5; long length;
+			if (!CollectionExternalArtifactIdentity.TryParse(pendingAction.Request.SelectedArtifact, out md5, out length))
+				throw new NotSupportedException("Only manual/browse external archive sources can use a user-approved alternative.");
+			return _archiveAdopter.InspectAlternateExternalFile(pendingAction.Request, localFilePath, cancellationToken);
+		}
+
+		/// <summary>Releases a proposed alternative once declined or a new acquisition request protects it.</summary>
+		public void ReleaseAlternateLocalFile(CollectionAlternateArchiveCandidate candidate)
+		{
+			_archiveAdopter.ReleaseAlternateExternalFile(candidate);
 		}
 
 		private static void ValidatePendingAction(

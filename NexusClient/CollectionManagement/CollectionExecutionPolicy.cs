@@ -62,7 +62,8 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionExecutionPolicy : IEquatable<CollectionExecutionPolicy>
 	{
-		private CollectionExecutionPolicy(CollectionExecutionPolicyKind kind, CollectionReplacementBackupChoice replacementBackupChoice)
+		private CollectionExecutionPolicy(CollectionExecutionPolicyKind kind, CollectionReplacementBackupChoice replacementBackupChoice,
+			bool automaticallyInstall = false, bool preferIncomingCollection = false)
 		{
 			if (!Enum.IsDefined(typeof(CollectionExecutionPolicyKind), kind) || kind == CollectionExecutionPolicyKind.Unknown)
 				throw new ArgumentOutOfRangeException(nameof(kind));
@@ -79,6 +80,8 @@ namespace Nexus.Client.CollectionManagement
 
 			Kind = kind;
 			ReplacementBackupChoice = replacementBackupChoice;
+			AutomaticallyInstall = automaticallyInstall;
+			PreferIncomingCollection = preferIncomingCollection;
 		}
 
 		/// <summary>
@@ -89,6 +92,19 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionExecutionPolicy(CollectionExecutionPolicyKind.InstallIntoCurrentSetup,
 				CollectionReplacementBackupChoice.NotApplicable);
 		}
+
+		/// <summary>Creates an additive installation with fixed automation and overwrite preferences.</summary>
+		public static CollectionExecutionPolicy InstallIntoCurrentSetup(bool automaticallyInstall, bool preferIncomingCollection)
+		{
+			return new CollectionExecutionPolicy(CollectionExecutionPolicyKind.InstallIntoCurrentSetup,
+				CollectionReplacementBackupChoice.NotApplicable, automaticallyInstall, preferIncomingCollection);
+		}
+
+		/// <summary>Gets whether the started installation advances without routine stage confirmations.</summary>
+		public bool AutomaticallyInstall { get; }
+
+		/// <summary>Gets the user authorization to give incoming Collection changes priority.</summary>
+		public bool PreferIncomingCollection { get; }
 
 		/// <summary>
 		/// Creates the replacement policy with its optional persistent-backup decision still unresolved.
@@ -211,7 +227,8 @@ namespace Nexus.Client.CollectionManagement
 		/// <inheritdoc />
 		public bool Equals(CollectionExecutionPolicy other)
 		{
-			return !ReferenceEquals(other, null) && Kind == other.Kind && ReplacementBackupChoice == other.ReplacementBackupChoice;
+			return !ReferenceEquals(other, null) && Kind == other.Kind && ReplacementBackupChoice == other.ReplacementBackupChoice &&
+				AutomaticallyInstall == other.AutomaticallyInstall && PreferIncomingCollection == other.PreferIncomingCollection;
 		}
 
 		/// <inheritdoc />
@@ -225,7 +242,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			unchecked
 			{
-				return ((int)Kind * 397) ^ (int)ReplacementBackupChoice;
+				return (((int)Kind * 397) ^ (int)ReplacementBackupChoice) ^
+					(AutomaticallyInstall ? 7919 : 0) ^ (PreferIncomingCollection ? 104729 : 0);
 			}
 		}
 
@@ -234,7 +252,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (Kind == CollectionExecutionPolicyKind.ReplaceCurrentManagedSetup)
 				return Kind + ":" + ReplacementBackupChoice;
-			return Kind.ToString();
+			return Kind.ToString() + (AutomaticallyInstall ? ":Automatic" : String.Empty) +
+				(PreferIncomingCollection ? ":Overwrite" : String.Empty);
 		}
 	}
 }

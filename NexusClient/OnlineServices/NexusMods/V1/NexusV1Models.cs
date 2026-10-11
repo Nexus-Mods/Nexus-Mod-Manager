@@ -89,6 +89,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.V1
 
         public string Name { get; set; }
 
+        /// <summary>Gets the public archive inventory URL; this is metadata, not a mod download link.</summary>
+        [JsonProperty("content_preview_link")]
+        public string ContentPreviewLink { get; set; }
+
         [JsonProperty("file_name")]
         public string FileName { get; set; }
 

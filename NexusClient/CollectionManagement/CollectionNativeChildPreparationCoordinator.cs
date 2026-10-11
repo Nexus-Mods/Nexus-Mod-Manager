@@ -103,6 +103,8 @@ namespace Nexus.Client.CollectionManagement
 				? FindNextActionableMatch(dependencyPlan, operation, workflowMode)
 				: GetMatch(matches, existingPending.Member.MemberKey);
 			if (match == null) return null;
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+				"Collections.Workflow.PreparingMemberInstallation", "Preparing mod installation: {0}", match.Member.DisplayName), true);
 			if (match.Disposition != CollectionMemberMatchDisposition.ArchiveOnlyReuse && match.Disposition != CollectionMemberMatchDisposition.ReinstallRequired)
 				throw new InvalidOperationException("Only archive-only activation or reviewed reinstall members create C6.6 native child intent.");
 
@@ -372,7 +374,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (String.IsNullOrWhiteSpace(previousNativeMod.ArchivePath) || !File.Exists(previousNativeMod.ArchivePath))
 				throw new FileNotFoundException("The previous native archive required for reinstall recovery is unavailable.", previousNativeMod.ArchivePath);
-			CollectionsRetainedArtifact retained = _artifactStore.PublishFile(previousNativeMod.ArchivePath);
+			CollectionsRetainedArtifact retained = _artifactStore.ReferenceArchiveFile(previousNativeMod.ArchivePath);
 			_referenceStore.AcquireExclusiveRoleReference(retained.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
 				operation.Identity.ToString(), CollectionsNativeChildRecoveryManifestStore.GetPreviousArchiveRole(child.Sequence));
 			return CollectionRecoveryArtifact.FromRetainedArtifact(retained);

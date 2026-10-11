@@ -408,7 +408,8 @@ namespace NexusClientTests
 
 		private static string BlobPath(CollectionsStore store, string sha256)
 		{
-			return Path.Combine(store.RetainedContentDirectory, "sha256", sha256.Substring(0, 2), sha256 + ".blob");
+			return new CollectionsRetainedArtifactStore(store).ResolveOwnedContentPath("sha256:" + sha256,
+				"sha256/" + sha256.Substring(0, 2) + "/" + sha256 + ".blob");
 		}
 
 		private static SQLiteConnection OpenDatabase(string databasePath)

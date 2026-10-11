@@ -399,9 +399,11 @@ namespace Nexus.Client.CollectionManagement
 			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(evidence.SelectedArtifact,
 				out expectedDomain, out expectedModId, out expectedFileId);
 			bool isBundle = CollectionBundledArtifactIdentity.IsBundle(evidence.SelectedArtifact);
-			if (!isNexus && !isBundle)
+			string externalMd5; long externalByteLength;
+			bool isExternal = CollectionExternalArtifactIdentity.TryParse(evidence.SelectedArtifact, out externalMd5, out externalByteLength);
+			if (!isNexus && !isBundle && !isExternal)
 			{
-				failureReason = "selected artifact is neither an exact Nexus mod-file nor a retained Collection bundle.";
+				failureReason = "selected artifact is not a supported Nexus, external or bundle archive identity.";
 				return false;
 			}
 			if (isNexus && !StringComparer.OrdinalIgnoreCase.Equals(currentDomain, expectedDomain))
@@ -440,7 +442,7 @@ namespace Nexus.Client.CollectionManagement
 			nativeMod = candidates[0];
 			var failures = new List<string>();
 			string detail;
-			if (!VerifyMemberEffects(state, nativeMod, evidence.ReviewedEffects, out detail)) failures.Add(detail);
+			if (!VerifyMemberEffects(state, nativeMod, evidence.ReviewedEffects, !evidence.DeferPluginReconciliation, out detail)) failures.Add(detail);
 			if (verifyFileContents && !VerifyFileEvidence(state, evidence.ExpectedFileContents, gameMode, out detail)) failures.Add(detail);
 			if (verifyFileContents && evidence.ReviewedEffects.InstallRootCorrection != null && !evidence.ReviewedEffects.InstallRootCorrection.Verify(state, true))
 				failures.Add("The reviewed old-folder cleanup has not completed.");
@@ -502,7 +504,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static bool VerifyMemberEffects(CollectionNativeStateIndex state, CollectionNativeModState nativeMod,
-			CollectionMemberEffectPreview preview, out string failureReason)
+			CollectionMemberEffectPreview preview, bool verifyPluginEffects, out string failureReason)
 		{
 			failureReason = null;
 			if (state == null || nativeMod == null || preview == null || !preview.IsComplete)
@@ -574,6 +576,8 @@ namespace Nexus.Client.CollectionManagement
 					return false;
 				}
 			}
+			if (!verifyPluginEffects) return true;
+
 			if (preview.PluginEffects.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)
 			{
 				failureReason = String.Format(CultureInfo.InvariantCulture,

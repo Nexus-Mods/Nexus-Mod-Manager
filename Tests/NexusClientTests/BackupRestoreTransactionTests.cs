@@ -26,6 +26,72 @@ namespace NexusClientTests
 	[TestFixture]
 	public class BackupRestoreTransactionTests
 	{
+		/// <summary>Restores unrelated journal entries even when a deleted hard-link source prevents one rollback.</summary>
+		[Test]
+		public void FileRollback_MissingLinkSource_StillRestoresOtherFiles()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "NMM-RollbackFailure-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(root);
+			try
+			{
+				string regular = Path.Combine(root, "regular.txt");
+				string source = Path.Combine(root, "source.txt");
+				string link = Path.Combine(root, "linked.txt");
+				File.WriteAllText(regular, "original");
+				File.WriteAllText(source, "linked");
+				TxFileManager files = new TxFileManager();
+				Assert.IsTrue(files.CreateHardLink(link, source));
+				using (TransactionScope scope = new TransactionScope())
+				{
+					files.Delete(regular);
+					files.DeleteLink(link, source);
+					// Reproduce the missing staged source from the reported crash without journaling its deletion.
+					File.Delete(source);
+					Assert.Throws<RollbackException>(() => Transaction.Current.Rollback());
+					Assert.AreEqual("original", File.ReadAllText(regular));
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Notifies all unfinished resources even if the first recovery callback throws.</summary>
+		[Test]
+		public void InDoubt_FailingResource_StillNotifiesOtherResources()
+		{
+			using (TransactionScope scope = new TransactionScope())
+			{
+				RecoveryNotification healthy = new RecoveryNotification(false);
+				RecoveryNotification failing = new RecoveryNotification(true);
+				Transaction.Current.EnlistVolatile(healthy, EnlistmentOptions.None);
+				Transaction.Current.EnlistVolatile(failing, EnlistmentOptions.None);
+				Assert.Throws<TransactionException>(() => scope.Complete());
+				Assert.IsTrue(healthy.RecoveryAttempted);
+				Assert.IsTrue(failing.RecoveryAttempted);
+			}
+		}
+
+		/// <summary>Leaves commit unfinished to exercise the transaction's in-doubt notification path.</summary>
+		private sealed class RecoveryNotification : IEnlistmentNotification
+		{
+			private readonly bool _failRecovery;
+			/// <summary>Creates a resource with an optional recovery failure.</summary>
+			public RecoveryNotification(bool failRecovery) { _failRecovery = failRecovery; }
+			public bool RecoveryAttempted { get; private set; }
+			/// <summary>Votes to commit.</summary>
+			public void Prepare(PreparingEnlistment enlistment) { enlistment.Prepared(); }
+			/// <summary>Simulates a resource that cannot finish committing.</summary>
+			public void Commit(Enlistment enlistment) { }
+			/// <summary>Allows the owning scope to finish cleanup after the assertions.</summary>
+			public void Rollback(Enlistment enlistment) { enlistment.Done(); }
+			/// <summary>Records recovery and optionally fails before acknowledging it.</summary>
+			public void InDoubt(Enlistment enlistment)
+			{
+				RecoveryAttempted = true;
+				if (_failRecovery) throw new IOException("Simulated recovery failure.");
+				enlistment.Done();
+			}
+		}
+
 		/// <summary>
 		/// Restores a promoted Virtual winner through the real VMA backend and requires the NMM ambient transaction.
 		/// </summary>

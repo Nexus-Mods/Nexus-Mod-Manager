@@ -713,8 +713,39 @@ namespace Nexus.Client.Util
                 }
             }
 
-            return new FileStream(strFilePath, FileMode.Open);
+            // File streams for temporary single-entry extraction own their scratch file.
+            // For solid read-only transactions the shared extracted tree is instead owned
+            // by EndReadOnlyTransaction and must not be removed on an individual close.
+            int bufferSize = afiFile.Size >= 1024 * 1024 ? 1024 * 1024 : 4096;
+            if (IsReadonly && m_szeReadOnlyExtractor == null)
+                return new FileStream(strFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                    bufferSize, FileOptions.SequentialScan);
+            return new FileStream(strFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize, FileOptions.DeleteOnClose | FileOptions.SequentialScan);
         }
+
+		/// <summary>Copies an archive entry to a caller-owned stream, reusing any existing read-only extractor or scratch tree.</summary>
+		public void CopyFileTo(string path, Stream destination)
+		{
+			if (destination == null) throw new ArgumentNullException(nameof(destination));
+			if (!destination.CanWrite) throw new ArgumentException("A writable destination is required.", nameof(destination));
+			string entryPath = NormalizeArchiveEntryPath(path);
+			ArchiveFileInfo entry;
+			if (!m_dicFileInfo.TryGetValue(entryPath, out entry))
+				throw new FileNotFoundException("The requested file does not exist in the archive.", path);
+			if (IsReadonly && m_szeReadOnlyExtractor == null)
+			{
+				using (FileStream source = File.OpenRead(Path.Combine(m_strReadOnlyTempDirectory, entryPath)))
+					source.CopyTo(destination);
+			}
+			else if (IsReadonly)
+				m_szeReadOnlyExtractor.ExtractFile(entry.Index, destination);
+			else
+			{
+				using (SevenZipExtractor extractor = GetExtractor(m_strPath))
+					extractor.ExtractFile(entry.Index, destination);
+			}
+		}
 
 		/// <summary>
 		/// Replaces the specified file in the archive with the given data.

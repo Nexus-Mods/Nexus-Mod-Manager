@@ -33,6 +33,7 @@ namespace Nexus.Client.Util.Downloader
 		private string _savePath;
 		private string _fileMetadataPath;
 	    private ulong _initialByteCount;
+		private ulong _completedDownloadByteCount;
 
 	    private DateTime _startTime;
         private FileMetadata _metadata;
@@ -107,17 +108,12 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				if (DownloadSpeed == 0)
+				int speed = DownloadSpeed;
+				if (speed <= 0)
 					return TimeSpan.MaxValue;
-
-			    ulong lngRemainingData = _metadata.Length - (DownloadedByteCount * 1024);
-
-			    long lngNanoSecondsLeft = 0;
-
-			    if (DownloadSpeed > 0)
-					lngNanoSecondsLeft = (long)(lngRemainingData / (ulong)DownloadSpeed * 1000000000);
-
-				return new TimeSpan(lngNanoSecondsLeft / 100);
+				ulong written = ByteCount;
+				ulong remaining = written >= _metadata.Length ? 0 : _metadata.Length - written;
+				return TimeSpan.FromSeconds(Math.Min(TimeSpan.MaxValue.TotalSeconds - 1, remaining / (double)speed));
 			}
 		}
 
@@ -129,12 +125,8 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				if (DownloadSpeed == 0)
-					return TimeSpan.MaxValue;
-
-			    long lngNanoSecondsLeft = (long)(_metadata.Length / (ulong)DownloadSpeed * 1000000000);
-
-			    return new TimeSpan(lngNanoSecondsLeft / 100);
+				int speed = DownloadSpeed;
+				return speed <= 0 ? TimeSpan.MaxValue : TimeSpan.FromSeconds(Math.Min(TimeSpan.MaxValue.TotalSeconds - 1, _metadata.Length / (double)speed));
 			}
 		}
 
@@ -146,15 +138,16 @@ namespace Nexus.Client.Util.Downloader
 		{
 			get
 			{
-				if (_downloaders.Count == 0)
-					return 0;
-				ulong intDownloadedThisSession = 0;
-				foreach (BlockDownloader bdlDownloader in _downloaders)
-					if (bdlDownloader.DownloadedByteCount > 0)
-						intDownloadedThisSession += bdlDownloader.DownloadedByteCount;
-				double dblSeconds = ElapsedTime.TotalSeconds;
-				double dblBytesPerSecond = intDownloadedThisSession / dblSeconds;
-				return (int)dblBytesPerSecond;
+				lock (_downloaders)
+				{
+					if (_downloaders.Count == 0)
+						return 0;
+					ulong downloadedThisSession = _completedDownloadByteCount;
+					foreach (BlockDownloader downloader in _downloaders)
+						downloadedThisSession += downloader.DownloadedByteCount;
+					double seconds = ElapsedTime.TotalSeconds;
+					return seconds <= 0 ? 0 : (int)Math.Min(int.MaxValue, downloadedThisSession / seconds);
+				}
 			}
 		}
 
@@ -381,6 +374,7 @@ namespace Nexus.Client.Util.Downloader
 			_writer = new FileWriter(_savePath, _fileMetadataPath);
 
 			_startTime = DateTime.Now;
+			_completedDownloadByteCount = 0;
 			
 		    //spawn the downloading threads
 			int intRequiredBlocks = _requiredBlocks.Count;
@@ -490,7 +484,9 @@ namespace Nexus.Client.Util.Downloader
 					_errorInfo = ((BlockDownloader)sender).ErrorInfo;
 				}
 
-			    _downloaders.Remove((BlockDownloader)sender);
+				BlockDownloader completedDownloader = (BlockDownloader)sender;
+				if (_downloaders.Remove(completedDownloader))
+					_completedDownloadByteCount += completedDownloader.DownloadedByteCount;
 			}
 
 			if (_downloaders.Count == 0)

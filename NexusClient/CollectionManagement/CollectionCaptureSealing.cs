@@ -572,7 +572,7 @@ namespace Nexus.Client.CollectionManagement
 
 				try
 				{
-					CollectionsRetainedArtifact artifact = _artifactStore.PublishFile(livePath, cancellationToken);
+					CollectionsRetainedArtifact artifact = _artifactStore.ReferenceArchiveFile(livePath, cancellationToken);
 					CollectionCapturedArchiveArtifact existing;
 					if (supplied.TryGetValue(mod.NativeSnapshotKey, out existing) &&
 						(!StringComparer.Ordinal.Equals(existing.RetainedArtifact.StableArtifactId, artifact.ArtifactId) ||

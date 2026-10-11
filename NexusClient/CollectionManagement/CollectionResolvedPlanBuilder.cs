@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Nexus.Client.CollectionManagement.Persistence;
 
 namespace Nexus.Client.CollectionManagement
@@ -74,7 +75,7 @@ namespace Nexus.Client.CollectionManagement
 		/// </summary>
 		internal CollectionAdditivePlanBuildResult Build(CollectionEffectiveSelection effectiveSelection,
 			CollectionTargetIdentity target, CollectionNativeStateIndex nativeState,
-			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices)
+			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices, CollectionExecutionPolicy policy = null)
 		{
 			if (effectiveSelection == null)
 				throw new ArgumentNullException(nameof(effectiveSelection));
@@ -89,6 +90,9 @@ namespace Nexus.Client.CollectionManagement
 			if (effectiveSelection.CapabilityReport.Status != CollectionCompatibilityStatus.Supported)
 				throw new InvalidOperationException("Only a fully supported effective Collection selection can produce an additive resolved plan.");
 
+			policy = policy ?? CollectionExecutionPolicy.InstallIntoCurrentSetup();
+			if (policy.Kind != CollectionExecutionPolicyKind.InstallIntoCurrentSetup)
+				throw new ArgumentException("Additive preparation requires an additive policy.", nameof(policy));
 			NormalizedCollectionManifest manifest = effectiveSelection.Manifest;
 			CollectionRevision persistedRevision = _catalogStore.GetRevision(manifest.Revision);
 			if (persistedRevision == null)
@@ -105,7 +109,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPlanIdentity planIdentity = _operationCoordinator.CreateNextPlanIdentity(operation.Identity);
 
 			var plan = new ResolvedCollectionPlan(planIdentity, target,
-				CollectionExecutionPolicy.InstallIntoCurrentSetup(), nativeState.Fingerprint,
+				policy, nativeState.Fingerprint,
 				effectiveSelection.CapabilityReport, members);
 
 			return new CollectionAdditivePlanBuildResult(operation, plan, nativeState);
@@ -146,6 +150,24 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionAdditivePlanBuildResult(operation, plan, nativeState);
 		}
 
+		/// <summary>Versions a pre-install automatic plan to include newly discovered prerequisites while retaining existing artifact decisions.</summary>
+		internal CollectionAdditivePlanBuildResult ExpandPrerequisites(CollectionAdditivePlanBuildResult previous,
+			CollectionEffectiveSelection selection, IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> newChoices)
+		{
+			if (previous.Operation.Phase != CollectionOperationPhase.Preparing || previous.Operation.HasCrossedNativeBoundary ||
+				!previous.Plan.Policy.AutomaticallyInstall || !previous.Plan.Policy.PreferIncomingCollection ||
+				!previous.Plan.Revision.Equals(selection.Manifest.Revision) || !previous.Plan.ManifestSource.Equals(selection.Manifest.Source))
+				throw new InvalidOperationException("Prerequisites can only expand an authorized automatic pre-install plan for the same source.");
+			if (selection.CapabilityReport.Status != CollectionCompatibilityStatus.Supported)
+				throw new InvalidOperationException("The expanded Collection prerequisites require supported acquisition and installation recipes.");
+			var choices = previous.Plan.SelectedMembers.ToDictionary(x => x.MemberKey, x => x.ArtifactChoice);
+			foreach (KeyValuePair<CollectionMemberKey, CollectionResolvedArtifactChoice> choice in newChoices)
+				choices.Add(choice.Key, choice.Value);
+			List<ResolvedCollectionMemberPlan> members = CreateMemberPlans(selection, choices);
+			var plan = new ResolvedCollectionPlan(previous.Plan.Identity.NextVersion(), previous.Plan.Target,
+				previous.Plan.Policy, previous.NativeState.Fingerprint, selection.CapabilityReport, members);
+			return new CollectionAdditivePlanBuildResult(previous.Operation, plan, previous.NativeState);
+		}
 		private static List<ResolvedCollectionMemberPlan> CreateMemberPlans(CollectionEffectiveSelection effectiveSelection,
 			IReadOnlyDictionary<CollectionMemberKey, CollectionResolvedArtifactChoice> artifactChoices)
 		{

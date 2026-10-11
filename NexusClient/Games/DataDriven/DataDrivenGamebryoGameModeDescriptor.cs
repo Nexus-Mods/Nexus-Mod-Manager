@@ -11,15 +11,63 @@ namespace Nexus.Client.Games.DataDriven
         private string[] _criticalPlugins;
         private string[] _officialPlugins;
         private string[] _officialUnmanagedPlugins;
+        private string _cachedGamePath;
+        private string _cachedExecutablePath;
+        private string _cachedPluginDirectory;
 
         public DataDrivenGamebryoGameModeDescriptor(IEnvironmentInfo environmentInfo, GameModeDefinition definition)
             : base(environmentInfo, definition)
         {
         }
 
-        public override string[] OrderedCriticalPluginNames => _criticalPlugins ?? (_criticalPlugins = ExpandPluginPaths(_definition.OrderedCriticalPluginNames));
-        public override string[] OrderedOfficialPluginNames => _officialPlugins ?? (_officialPlugins = ExpandPluginPaths(_definition.OrderedOfficialPluginNames));
-        public override string[] OrderedOfficialUnmanagedPluginNames => _officialUnmanagedPlugins ?? (_officialUnmanagedPlugins = ExpandPluginPaths(GetOfficialUnmanagedPluginNames()));
+        public override string[] OrderedCriticalPluginNames
+        {
+            get
+            {
+                EnsurePluginPathsCurrent();
+                return _criticalPlugins ?? (_criticalPlugins = ExpandPluginPaths(_definition.OrderedCriticalPluginNames));
+            }
+        }
+
+        public override string[] OrderedOfficialPluginNames
+        {
+            get
+            {
+                EnsurePluginPathsCurrent();
+                return _officialPlugins ?? (_officialPlugins = ExpandPluginPaths(_definition.OrderedOfficialPluginNames));
+            }
+        }
+
+        public override string[] OrderedOfficialUnmanagedPluginNames
+        {
+            get
+            {
+                EnsurePluginPathsCurrent();
+                return _officialUnmanagedPlugins ?? (_officialUnmanagedPlugins = ExpandPluginPaths(GetOfficialUnmanagedPluginNames()));
+            }
+        }
+
+        /// <summary>
+        /// Invalidates cached plugin paths and installation-specific lists after a game path changes.
+        /// </summary>
+        private void EnsurePluginPathsCurrent()
+        {
+            string gamePath = BaseGameInstallationPath;
+            string executablePath = ExecutablePath;
+            string pluginDirectory = PluginDirectory;
+            if (string.Equals(_cachedGamePath, gamePath, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(_cachedExecutablePath, executablePath, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(_cachedPluginDirectory, pluginDirectory, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // The factory survives a rescan, while its saved installation and executable paths can change.
+            _criticalPlugins = null;
+            _officialPlugins = null;
+            _officialUnmanagedPlugins = null;
+            _cachedGamePath = gamePath;
+            _cachedExecutablePath = executablePath;
+            _cachedPluginDirectory = pluginDirectory;
+        }
 
         private IEnumerable<string> GetOfficialUnmanagedPluginNames()
         {

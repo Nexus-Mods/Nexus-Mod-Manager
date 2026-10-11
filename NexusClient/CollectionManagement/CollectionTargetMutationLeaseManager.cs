@@ -125,6 +125,24 @@ namespace Nexus.Client.CollectionManagement
 				CollectionIdentityValidation.RequireOpaqueToken(targetFingerprint, nameof(targetFingerprint)), CancellationToken.None);
 		}
 
+		/// <summary>Reserves idle native state for an external plugin notification without waiting behind an installer.</summary>
+		internal bool TryAcquireExternalPluginUpdate(out CollectionTargetMutationLease lease)
+		{
+			lease = null;
+			if (!_processGate.Wait(0))
+				return false;
+			try
+			{
+				lease = CreateRootLease("nmm-external-plugin-update", null);
+				return true;
+			}
+			catch
+			{
+				_processGate.Release();
+				throw;
+			}
+		}
+
 		/// <summary>
 		/// Inherits an existing Collection parent reservation for a native child operation on the same target fingerprint.
 		/// </summary>

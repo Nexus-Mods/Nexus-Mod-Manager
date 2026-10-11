@@ -20,6 +20,8 @@ namespace Nexus.Client
 	{
         #region Properties
 	    private GameDetectionVM _vmlViewModel = null;
+		private bool _searchStarted;
+		private volatile bool _gameDetectorEventsDetached;
 
         /// <summary>
         /// Gets or sets the view model that provides the data and operations for this view.
@@ -61,6 +63,72 @@ namespace Nexus.Client
 		}
 
 		#endregion
+
+		/// <summary>
+		/// Starts detection after the dialog has a handle and its modal message loop is running.
+		/// </summary>
+		protected override void OnShown(EventArgs e)
+		{
+			base.OnShown(e);
+			if (_searchStarted || _gameDetectorEventsDetached)
+				return;
+
+			_searchStarted = true;
+			ViewModel.GameDetector.Find(ViewModel.SupportedGameModes.RegisteredGameModeFactories);
+		}
+
+		/// <summary>
+		/// Stops scan notifications before returning to game selection or opening another main window.
+		/// </summary>
+		protected override void OnFormClosed(FormClosedEventArgs e)
+		{
+			DetachGameDetectorEvents();
+			base.OnFormClosed(e);
+		}
+
+		/// <summary>
+		/// Detaches the dialog and its items before cancelling any unfinished background search.
+		/// </summary>
+		private void DetachGameDetectorEvents()
+		{
+			if (_gameDetectorEventsDetached || ViewModel == null)
+				return;
+
+			_gameDetectorEventsDetached = true;
+			ViewModel.GameDetector.GameResolved -= GameDetector_GameResolved;
+			ViewModel.GameDetector.DisableButOk -= GameDetector_DisableButOk;
+			foreach (GameModeListViewItemBase item in gameModeListView1.Items)
+				((GameModeSearchListViewItem)item).DetachDiscovererEvents();
+
+			// A confirmed scan may still be unwinding on its worker thread; preserve its completed status.
+			if (ViewModel.GameDetector.IsActive)
+				ViewModel.Cancel();
+		}
+
+		/// <summary>
+		/// Posts scan notifications without waiting on a dialog that may close before the callback runs.
+		/// </summary>
+		private void UpdateFromGameDetector(Action update)
+		{
+			if (_gameDetectorEventsDetached || IsDisposed || Disposing || !IsHandleCreated)
+				return;
+
+			if (InvokeRequired)
+			{
+				try
+				{
+					BeginInvoke((Action)(() => UpdateFromGameDetector(update)));
+				}
+				catch (InvalidOperationException)
+				{
+					if (!_gameDetectorEventsDetached && !IsDisposed && !Disposing && IsHandleCreated)
+						throw;
+				}
+				return;
+			}
+
+			update();
+		}
 
 		private void ApplyLocalization()
 		{
@@ -124,13 +192,11 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 		private void GameDetector_GameResolved(object sender, GameModeDiscoveredEventArgs e)
 		{
-			if (butOK.InvokeRequired)
+			UpdateFromGameDetector(() =>
 			{
-				butOK.Invoke((Action<object, GameModeDiscoveredEventArgs>)GameDetector_GameResolved, sender, e);
-				return;
-			}
-			if (ViewModel.GameDetector.ResolvedGameModes.Count() == ViewModel.SupportedGameModes.RegisteredGameModes.Count())
-				butOK.Enabled = true;
+				if (ViewModel.GameDetector.ResolvedGameModes.Count() == ViewModel.SupportedGameModes.RegisteredGameModes.Count())
+					butOK.Enabled = true;
+			});
 		}
 
 		/// <summary>
@@ -143,7 +209,7 @@ namespace Nexus.Client
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 		private void GameDetector_DisableButOk(object sender, GameModeDiscoveredEventArgs e)
 		{
-			butOK.Enabled = false;
+			UpdateFromGameDetector(() => butOK.Enabled = false);
 		}
 
 		/// <summary>

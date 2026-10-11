@@ -79,6 +79,10 @@ namespace Nexus.Client.Tests
 			Assert.That(json, Does.Contain("preparedNativeIdentityRepeatCount"));
 			Assert.That(json, Does.Contain("startupRecoveryMilliseconds"));
 			Assert.That(json, Does.Contain("nxmUiDispatchMilliseconds"));
+			Assert.That(json, Does.Contain("nativeChildPostInstallVerificationMilliseconds"));
+			Assert.That(json, Does.Contain("nativeChildArchiveHashMilliseconds"));
+			Assert.That(json, Does.Contain("nativeChildDeployedFileHashedBytes"));
+			Assert.That(json, Does.Contain("postCommitMetadataEnrichmentMilliseconds"));
 		}
 
 		[Test]

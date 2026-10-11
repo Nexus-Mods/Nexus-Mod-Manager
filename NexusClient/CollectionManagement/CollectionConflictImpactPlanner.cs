@@ -33,6 +33,16 @@ namespace Nexus.Client.CollectionManagement
 			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, decisions, false);
 		}
 
+		/// <summary>Persists activation of included masters required by selected plugins under automatic overwrite authorization.</summary>
+		internal CollectionConflictImpactPlan PlanAutomaticPrerequisites(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions,
+			ISet<string> requiredPlugins)
+		{
+			if (!plan.Policy.AutomaticallyInstall || !plan.Policy.PreferIncomingCollection)
+				throw new InvalidOperationException("Automatic prerequisite activation requires both Collection preferences.");
+			return PlanCore(plan, matches, dependencyPlan, nativeState, effectPreviews, decisions, false, null, null, requiredPlugins);
+		}
 		/// <summary>Builds the C8.6 native impact plan after C8.3 already reviewed replacement association/customization decisions.</summary>
 		internal CollectionConflictImpactPlan PlanForReplacementExecution(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState, IEnumerable<CollectionMemberEffectPreview> effectPreviews)
@@ -62,7 +72,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionConflictImpactPlan PlanCore(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionConflictResolutionDecision> decisions, bool skipAssociationReview,
-			Guid? reviewedAssociationId = null, ISet<string> reviewedExistingOwnerKeys = null)
+			Guid? reviewedAssociationId = null, ISet<string> reviewedExistingOwnerKeys = null, ISet<string> requiredPlugins = null)
 		{
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
 			if (matches == null) throw new ArgumentNullException(nameof(matches));
@@ -84,8 +94,10 @@ namespace Nexus.Client.CollectionManagement
 			Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews = IndexPreviews(plan, effectPreviews, issues);
 			Dictionary<CollectionMemberKey, CollectionMemberMatchResult> matchByKey = matches.MembersByKey.ToDictionary(x => x.Key, x => x.Value);
 
-			EvaluateCompatibilityConstraints(plan, matches, nativeState, issues);
-			EvaluateExternalPriorityRules(plan, matches, nativeState, previews, issues);
+			if (!plan.Policy.PreferIncomingCollection)
+				EvaluateCompatibilityConstraints(plan, matches, nativeState, issues);
+			if (!plan.Policy.PreferIncomingCollection)
+				EvaluateExternalPriorityRules(plan, matches, nativeState, previews, issues);
 
 			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
 			{
@@ -132,10 +144,10 @@ namespace Nexus.Client.CollectionManagement
 			AddSharedNativeInstanceImpacts(matches, nativeState, associationKinds);
 
 			List<CollectionFileImpact> fileImpacts = BuildFileImpacts(plan, matches, nativeState, mutationPreviews, associationKinds, issues, decisions, reviewedExistingOwnerKeys);
-			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
-			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
+			List<CollectionPluginImpact> pluginImpacts = BuildPluginImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys, requiredPlugins);
+			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
 
-			if (!skipAssociationReview)
+			if (!skipAssociationReview && !plan.Policy.PreferIncomingCollection)
 				ReviewAffectedAssociations(nativeState, associationKinds, issues, reviewedAssociationId);
 			List<CollectionAssociationImpact> associationImpacts = associationKinds.OrderBy(x => x.Key)
 				.Where(x => nativeState.Associations.ContainsKey(x.Key))
@@ -543,12 +555,13 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			var result = new List<CollectionFileImpact>();
+			Dictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey = plan.SelectedMembers.ToDictionary(x => x.MemberKey);
 			foreach (KeyValuePair<ModDeploymentTarget, List<CollectionMemberKey>> entry in writersByTarget
 				.OrderBy(x => x.Key.Root).ThenBy(x => x.Key.RelativePath, StringComparer.OrdinalIgnoreCase))
 			{
 				entry.Value.Sort(CompareMemberKeys);
 				bool priorityCycle;
-				CollectionMemberKey winner = ResolveFileWinner(entry.Value, plan, out priorityCycle);
+				CollectionMemberKey winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey);
 				if (priorityCycle)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FilePriorityCycle,
@@ -576,7 +589,7 @@ namespace Nexus.Client.CollectionManagement
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.FileWinner);
 
 				bool preserveCurrentOwner = false;
-				if (winner != null && !String.IsNullOrWhiteSpace(currentOwner) && !CurrentOwnerIsIncomingWriter(currentOwner, entry.Value, matchByKey))
+				if (!plan.Policy.PreferIncomingCollection && winner != null && !String.IsNullOrWhiteSpace(currentOwner) && !CurrentOwnerIsIncomingWriter(currentOwner, entry.Value, matchByKey))
 				{
 					bool currentOwnerIsNativeMod = nativeState.ModsByNativeKey.ContainsKey(currentOwner);
 					bool durableIncomingWinner = DurableDecisionAuthorizesIncomingWinner(plan, winner, entry.Key, currentOwner, decisions);
@@ -658,18 +671,38 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Resolves explicit rules first, then a curator-bundled replacement of one Nexus package's default file.</summary>
 		internal static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers, ResolvedCollectionPlan plan, out bool cycle)
 		{
-			CollectionMemberKey winner = ResolveFileWinner(writers, plan.CapabilityReport.Manifest.FilePriorityRules, out cycle);
-			if (winner != null || cycle || writers.Count != 2) return winner;
+			return ResolveFileWinner(writers, plan, out cycle, plan.SelectedMembers.ToDictionary(x => x.MemberKey));
+		}
 
-			// A sole bundled replacement overlays the downloaded default when the curator omitted a priority rule.
-			// This applies only to an exact shared target, never to two downloads, two bundles, or a multi-package ambiguity.
-			List<ResolvedCollectionMemberPlan> members = plan.SelectedMembers.Where(x => writers.Contains(x.MemberKey)).ToList();
-			if (members.Count != 2) return null;
-			List<ResolvedCollectionMemberPlan> bundles = members.Where(x => CollectionBundledArtifactIdentity.IsBundle(x.ArtifactChoice.SelectedArtifact)).ToList();
-			if (bundles.Count != 1) return null;
-			ResolvedCollectionMemberPlan bundled = bundles[0];
-			ResolvedCollectionMemberPlan downloaded = members.Single(x => !x.MemberKey.Equals(bundled.MemberKey));
-			return StringComparer.Ordinal.Equals(downloaded.ArtifactChoice.SelectedArtifact.Scheme, "nexus-mod-file") ? bundled.MemberKey : null;
+		/// <summary>Uses the pre-indexed selected members when resolving thousands of shared file targets.</summary>
+		private static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers, ResolvedCollectionPlan plan,
+			out bool cycle, IReadOnlyDictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey)
+		{
+			CollectionMemberKey winner = ResolveFileWinner(writers, plan.CapabilityReport.Manifest.FilePriorityRules, out cycle);
+			if (winner != null || cycle || writers.Count == 0) return winner;
+			List<ResolvedCollectionMemberPlan> members = writers.Select(x => membersByKey[x]).ToList();
+			if (members.Count == 2)
+			{
+				// A curator-bundled replacement overlays the downloaded default even without a priority rule.
+				List<ResolvedCollectionMemberPlan> bundles = members.Where(x => CollectionBundledArtifactIdentity.IsBundle(x.ArtifactChoice.SelectedArtifact)).ToList();
+				if (bundles.Count == 1)
+				{
+					ResolvedCollectionMemberPlan downloaded = members.Single(x => !x.MemberKey.Equals(bundles[0].MemberKey));
+					if (StringComparer.Ordinal.Equals(downloaded.ArtifactChoice.SelectedArtifact.Scheme, "nexus-mod-file"))
+						return bundles[0].MemberKey;
+				}
+			}
+			if (plan.Policy.PreferIncomingCollection)
+			{
+				// Explicit priority edges remain authoritative. Resolve only otherwise tied final providers.
+				var writerSet = new HashSet<CollectionMemberKey>(writers);
+				var lower = new HashSet<CollectionMemberKey>(plan.CapabilityReport.Manifest.FilePriorityRules
+					.Where(x => writerSet.Contains(x.LowerPriorityMemberKey) && writerSet.Contains(x.HigherPriorityMemberKey))
+					.Select(x => x.LowerPriorityMemberKey));
+				return writers.Where(x => !lower.Contains(x)).Select(x => membersByKey[x])
+					.OrderBy(x => x.InstallationPhase).ThenBy(x => x.SourceOrdinal).Last().MemberKey;
+			}
+			return null;
 		}
 
 		/// <summary>Resolves the unique highest-priority writer using explicit Collection rules.</summary>
@@ -733,7 +766,7 @@ namespace Nexus.Client.CollectionManagement
 		private static List<CollectionPluginImpact> BuildPluginImpacts(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
 			CollectionMemberMatchSet matches, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
-			ISet<string> reviewedExistingOwnerKeys)
+			ISet<string> reviewedExistingOwnerKeys, ISet<string> requiredPlugins)
 		{
 			NormalizedCollectionManifest manifest = plan.CapabilityReport.Manifest;
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> original = previews.Values.Where(x => x.IsComplete)
@@ -741,7 +774,7 @@ namespace Nexus.Client.CollectionManagement
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all = original;
 			Dictionary<string, List<Tuple<CollectionMemberKey, string>>> candidates = null;
 
-			if (manifest.HasPluginStateSection || manifest.PluginRelativeOrderRules.Count > 0)
+			if (manifest.HasPluginStateSection || manifest.PluginRelativeOrderRules.Count > 0 || (requiredPlugins != null && requiredPlugins.Count > 0))
 			{
 				candidates = new Dictionary<string, List<Tuple<CollectionMemberKey, string>>>(StringComparer.OrdinalIgnoreCase);
 				foreach (Tuple<CollectionMemberKey, CollectionPlannedPluginEffect> item in original.Where(x => x.Item2.Kind == CollectionPlannedPluginEffectKind.Activation))
@@ -767,10 +800,20 @@ namespace Nexus.Client.CollectionManagement
 					{
 						CollectionMemberKey memberKey = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
 						string path = ResolvePluginCandidatePath(nativeState, candidate.Key, candidate.Value);
-						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key))));
+						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key) || (requiredPlugins != null && requiredPlugins.Contains(candidate.Key)))));
 					}
 				}
 
+				else if (requiredPlugins != null)
+				{
+					all = original.Where(x => x.Item2.Kind != CollectionPlannedPluginEffectKind.Activation ||
+						!requiredPlugins.Contains(Path.GetFileName(x.Item2.PluginPaths[0]))).ToList();
+					foreach (KeyValuePair<string, List<Tuple<CollectionMemberKey, string>>> candidate in candidates.Where(x => requiredPlugins.Contains(x.Key)))
+					{
+						CollectionMemberKey key = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
+						all.Add(Tuple.Create(key, CollectionPlannedPluginEffect.Activation(ResolvePluginCandidatePath(nativeState, candidate.Key, candidate.Value), true)));
+					}
+				}
 				foreach (CollectionPluginRelativeOrderRule rule in manifest.PluginRelativeOrderRules)
 				{
 					List<Tuple<CollectionMemberKey, string>> sourceCandidates;
@@ -835,13 +878,13 @@ namespace Nexus.Client.CollectionManagement
 						changesExistingUnrelatedPlugin = true;
 				}
 				foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.PluginState);
-				if (changesExistingUnrelatedPlugin)
+				if (changesExistingUnrelatedPlugin && !plan.Policy.PreferIncomingCollection)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingPluginStateDecisionRequired,
 						CollectionConflictImpactStatus.ActionRequired, item.Item1, String.Join("|", item.Item2.PluginPaths),
 						"The incoming recipe would change plugin state/order belonging to the existing additive setup; explicit review is required."));
 				}
-				if (item.Item2.Kind == CollectionPlannedPluginEffectKind.AbsoluteOrderIndex)
+				if (item.Item2.Kind == CollectionPlannedPluginEffectKind.AbsoluteOrderIndex && !plan.Policy.PreferIncomingCollection)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.PluginOrderImpactRequiresReview,
 						CollectionConflictImpactStatus.ActionRequired, item.Item1, item.Item2.PluginPaths[0],
@@ -962,7 +1005,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 
-		private static List<CollectionConfigurationImpact> BuildConfigurationImpacts(CollectionNativeStateIndex nativeState, CollectionMemberMatchSet matches,
+		private static List<CollectionConfigurationImpact> BuildConfigurationImpacts(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState, CollectionMemberMatchSet matches,
 			IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
 			ISet<string> reviewedExistingOwnerKeys)
@@ -987,7 +1030,7 @@ namespace Nexus.Client.CollectionManagement
 					HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentValue == null ? null : currentValue.OwnerKey);
 					foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.ConfigurationState);
 					bool changesValue = currentValue == null || !StringComparer.Ordinal.Equals(currentValue.Value, effect.Value);
-					if (changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey) &&
+					if (!plan.Policy.PreferIncomingCollection && changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey) &&
 						!CurrentOwnerIsReviewedRevisionOwner(currentValue.OwnerKey, reviewedExistingOwnerKeys))
 					{
 						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingConfigurationDecisionRequired,
@@ -1013,7 +1056,7 @@ namespace Nexus.Client.CollectionManagement
 					HashSet<Guid> affected = AssociationIdsForOwner(nativeState, currentValue == null ? null : currentValue.OwnerKey);
 					foreach (Guid associationId in affected) AddAssociationImpact(associationKinds, associationId, CollectionAssociationImpactKind.ConfigurationState);
 					bool changesValue = currentValue == null || !ByteArraysEqual(currentValue.UnsafeValue, effect.UnsafeValue);
-					if (changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey) &&
+					if (!plan.Policy.PreferIncomingCollection && changesValue && currentValue != null && !CurrentOwnerIsIncomingWriter(currentValue.OwnerKey, previews.Keys, matches.MembersByKey) &&
 						!CurrentOwnerIsReviewedRevisionOwner(currentValue.OwnerKey, reviewedExistingOwnerKeys))
 					{
 						issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.ExistingConfigurationDecisionRequired,

@@ -355,6 +355,9 @@ namespace Nexus.Client.ModManagement
 		{
 			Succeeded = e.Success;
 			CompletionMessage = e.Message;
+			if (e.Success && m_booNativeMutationStarted && !DisableVirtualFilesOnly &&
+				(OperationResult == null || OperationResult.Durability == ModOperationDurability.VerifiedCommitted))
+				ModUninstallHistory.Record(GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, Mod);
 			base.OnTaskSetCompleted(e);
 		}
 

@@ -37,6 +37,19 @@ namespace Nexus.Client.CollectionManagement
 		ReadyForReview = 5
 	}
 
+	/// <summary>Keeps the affected member attached to a native preparation failure for user-visible reporting.</summary>
+	internal sealed class CollectionMemberPreparationException : Exception
+	{
+		/// <summary>Creates a failure with its member and original native diagnostic.</summary>
+		internal CollectionMemberPreparationException(ResolvedCollectionMemberPlan member, string detail, Exception cause)
+			: base(detail, cause)
+		{
+			Member = member ?? throw new ArgumentNullException(nameof(member));
+		}
+
+		internal ResolvedCollectionMemberPlan Member { get; }
+	}
+
 	/// <summary>Immutable headless preparation result for one additive Collection operation.</summary>
 	public sealed class CollectionAdditiveWorkflowPreparationResult
 	{
@@ -44,6 +57,16 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation operation, CollectionMemberAcquisitionBatch acquisitionBatch,
 			CollectionDependencyPhasePlan dependencyPlan, CollectionConflictImpactPlan impactPlan,
 			CollectionReviewedWorkflowRuntime runtime, string message)
+			: this(status, operation, acquisitionBatch, dependencyPlan, impactPlan, runtime, message, null)
+		{
+		}
+
+		internal CollectionAdditiveWorkflowPreparationResult(CollectionAdditiveWorkflowPreparationStatus status,
+			CollectionOperation operation, CollectionMemberAcquisitionBatch acquisitionBatch,
+			CollectionDependencyPhasePlan dependencyPlan, CollectionConflictImpactPlan impactPlan,
+			CollectionReviewedWorkflowRuntime runtime, string message,
+			IEnumerable<PreparedCollectionNativeRecipe> pendingFileWinnerRecipes,
+			ResolvedCollectionMemberPlan failedMember = null, string failureReason = null)
 		{
 			if (!Enum.IsDefined(typeof(CollectionAdditiveWorkflowPreparationStatus), status))
 				throw new ArgumentOutOfRangeException(nameof(status));
@@ -54,6 +77,15 @@ namespace Nexus.Client.CollectionManagement
 			ImpactPlan = impactPlan;
 			Runtime = runtime;
 			Message = message ?? String.Empty;
+			FailedMember = failedMember;
+			FailureReason = failureReason ?? String.Empty;
+			// In-memory only: a conflict-only pause may reuse the already inspected native recipes.
+			// This is never persisted and never authorizes installation by itself.
+			PendingFileWinnerRecipes = new ReadOnlyCollection<PreparedCollectionNativeRecipe>(
+				(pendingFileWinnerRecipes ?? Enumerable.Empty<PreparedCollectionNativeRecipe>()).ToList());
+			if (PendingFileWinnerRecipes.Count > 0 && (status != CollectionAdditiveWorkflowPreparationStatus.ActionRequired ||
+				impactPlan == null || runtime != null || PendingFileWinnerRecipes.Any(x => x == null)))
+				throw new ArgumentException("Only a conflict-only pre-review pause may retain native recipes.", nameof(pendingFileWinnerRecipes));
 		}
 
 		public CollectionAdditiveWorkflowPreparationStatus Status { get; }
@@ -63,6 +95,9 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionConflictImpactPlan ImpactPlan { get; }
 		public CollectionReviewedWorkflowRuntime Runtime { get; }
 		public string Message { get; }
+		internal ResolvedCollectionMemberPlan FailedMember { get; }
+		internal string FailureReason { get; }
+		internal ReadOnlyCollection<PreparedCollectionNativeRecipe> PendingFileWinnerRecipes { get; }
 		public bool IsReadyForReview { get { return Status == CollectionAdditiveWorkflowPreparationStatus.ReadyForReview; } }
 	}
 
@@ -153,6 +188,7 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionAdditiveWorkflowCoordinator
 	{
 		private readonly ServiceManager _services;
+		private readonly CollectionAutomaticDependencyResolver _automaticDependencies = new CollectionAutomaticDependencyResolver();
 		private readonly GameStorageService _gameStorageService;
 		private readonly CollectionsOperationStore _operationStore;
 		private readonly CollectionsResolvedPlanStore _planStore;
@@ -319,8 +355,41 @@ namespace Nexus.Client.CollectionManagement
 			if (effectiveSelection == null) throw new ArgumentNullException(nameof(effectiveSelection));
 			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
 			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
+			return PrepareAsync(effectiveSelection, targetPaths, archiveOverwritePolicy,
+				confirmOverwriteCallback, null, cancellationToken);
+		}
+
+		/// <summary>Prepares a fresh reviewed plan using one sealed alternate external archive authorized by the user.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> PrepareAsync(CollectionEffectiveSelection effectiveSelection,
+			GameStoragePathSet targetPaths, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
+			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionAlternateArchiveCandidate alternate,
+			CancellationToken cancellationToken, CollectionExecutionPolicy policy = null)
+		{
+			if (effectiveSelection == null) throw new ArgumentNullException(nameof(effectiveSelection));
+			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
+			if (archiveOverwritePolicy == null) throw new ArgumentNullException(nameof(archiveOverwritePolicy));
 			return Task.Run(() => PrepareCore(effectiveSelection, targetPaths, archiveOverwritePolicy,
-				confirmOverwriteCallback, cancellationToken), cancellationToken);
+				confirmOverwriteCallback, alternate, cancellationToken, policy), cancellationToken);
+		}
+
+		/// <summary>Refreshes a stale pre-install review using the same selected artifacts and verified acquisitions.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> RefreshInstallationAsync(CollectionMemberAcquisitionBatch acquisition,
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken, string reviewMessage = null)
+		{
+			if (acquisition == null || !acquisition.IsReady) throw new ArgumentException("Verified acquisition is required.", nameof(acquisition));
+			return Task.Run(() =>
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				CollectionOperation operation = RequireOperation(acquisition.PlanBuild.Operation.Identity);
+				if (operation.HasCrossedNativeBoundary || operation.Phase != CollectionOperationPhase.Preparing)
+					throw new InvalidOperationException("Only a reopened pre-install review can be refreshed automatically.");
+				CollectionAdditivePlanBuildResult refreshed = _planPreparationService.Refresh(operation, acquisition.PlanBuild.Plan, targetPaths);
+				if (refreshed.Plan.Identity.Equals(acquisition.PlanBuild.Plan.Identity))
+					return new CollectionAdditiveWorkflowPreparationResult(CollectionAdditiveWorkflowPreparationStatus.PreparationRequired,
+						operation, acquisition, null, null, null, reviewMessage ?? "The prepared review could not be resumed.");
+				CollectionMemberAcquisitionBatch rebound = _memberAcquisitionCoordinator.RebindReadyBatch(acquisition, refreshed, cancellationToken);
+				return ContinuePreparation(rebound, targetPaths, cancellationToken);
+			}, cancellationToken);
 		}
 
 		/// <summary>Resumes a previously returned acquisition/input pause, then revalidates target state before any later planning.</summary>
@@ -332,11 +401,107 @@ namespace Nexus.Client.CollectionManagement
 			return Task.Run(() => ResumePreparationCore(acquisitionBatch, targetPaths, cancellationToken), cancellationToken);
 		}
 
+		/// <summary>
+		/// Continues a conflict-only review after durable per-file choices were saved. On an unchanged
+		/// authoritative target, re-plans file ownership from already prepared native effect previews;
+		/// it does NOT re-extract archives, resolve Nexus policies, or install anything. Changes in
+		/// native state require ordinary full preparation instead of replaying stale recipe effects.
+		/// </summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> ResumeFileWinnerReviewAsync(
+			CollectionAdditiveWorkflowPreparationResult previous, GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+		{
+			if (previous == null) throw new ArgumentNullException(nameof(previous));
+			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
+			if (_conflictResolutionCoordinator == null || previous.Status != CollectionAdditiveWorkflowPreparationStatus.ActionRequired ||
+				previous.AcquisitionBatch == null || !previous.AcquisitionBatch.IsReady || previous.DependencyPlan == null ||
+				previous.ImpactPlan == null || previous.PendingFileWinnerRecipes.Count == 0 ||
+				previous.ImpactPlan.Issues.Count == 0 || previous.ImpactPlan.Issues.Any(x =>
+					x.Kind != CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired))
+				throw new InvalidOperationException("Only a fully prepared file-winner-only review can resume without full preparation.");
+			return Task.Run(() => ResumeFileWinnerReviewCore(previous, targetPaths, cancellationToken), cancellationToken);
+		}
+
+		private CollectionAdditiveWorkflowPreparationResult ResumeFileWinnerReviewCore(
+			CollectionAdditiveWorkflowPreparationResult previous, GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			CollectionMemberAcquisitionBatch acquisition = previous.AcquisitionBatch;
+			CollectionAdditivePlanBuildResult planBuild = acquisition.PlanBuild;
+			ResolvedCollectionPlan plan = planBuild.Plan;
+			CollectionOperation operation = RequireOperation(previous.Operation.Identity);
+			if (operation.Phase != CollectionOperationPhase.Preparing || operation.IsTerminal || operation.HasCrossedNativeBoundary ||
+				!operation.Identity.Equals(planBuild.Operation.Identity) || !previous.ImpactPlan.PlanIdentity.Equals(plan.Identity) ||
+				!previous.DependencyPlan.PlanIdentity.Equals(plan.Identity))
+				throw new InvalidOperationException("The previous file-winner review is no longer at its exact pre-installation boundary.");
+
+			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
+			if (!authority.Target.Equals(plan.Target))
+				throw new InvalidOperationException("The active Collection target changed. Start a fresh preparation before installing.");
+			using (CollectionTargetMutationLease lease = _mutationLeaseManager.Acquire(authority, cancellationToken))
+			{
+				// Reload/recover the authoritative native state behind the canonical process+target lock.
+				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
+				CollectionNativeStateIndex state = _nativeStateReader.Capture(authority.Target);
+				cancellationToken.ThrowIfCancellationRequested();
+				if (!state.Fingerprint.Equals(plan.CurrentStateFingerprint))
+					return new CollectionAdditiveWorkflowPreparationResult(
+						CollectionAdditiveWorkflowPreparationStatus.PreparationRequired, operation, acquisition,
+						previous.DependencyPlan, null, null,
+						"The installed-file ownership state changed after conflict review. Start a fresh Download / Prepare; no old file decision was applied to a changed owner.");
+
+				IReadOnlyList<CollectionConflictResolutionDecision> decisions = _conflictResolutionCoordinator.GetDecisions(plan);
+				CollectionConflictImpactPlan impact = _impactPlanner.Plan(plan, acquisition.MatchSet, previous.DependencyPlan,
+					state, previous.PendingFileWinnerRecipes.Select(x => x.EffectPreview), decisions);
+				if (!impact.IsReady)
+				{
+					CollectionAdditiveWorkflowPreparationStatus status = impact.Status == CollectionConflictImpactStatus.ActionRequired
+						? CollectionAdditiveWorkflowPreparationStatus.ActionRequired
+						: impact.Status == CollectionConflictImpactStatus.PreparationRequired
+							? CollectionAdditiveWorkflowPreparationStatus.PreparationRequired
+							: CollectionAdditiveWorkflowPreparationStatus.Blocked;
+					return new CollectionAdditiveWorkflowPreparationResult(status, operation, acquisition,
+						previous.DependencyPlan, impact, null,
+						impact.Issues.Count == 0 ? "The new file-winner review is not executable." : impact.Issues[0].Message,
+						status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired && impact.Issues.Count > 0 &&
+						impact.Issues.All(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired)
+							? previous.PendingFileWinnerRecipes : null);
+				}
+
+				// Same C6.1 fingerprint, same immutable requested/selected archives, same native recipes.
+				// This publishes a review, not approval. GetReview/Approve still rehydrate and verify inputs.
+				CollectionReviewedWorkflowSnapshot snapshot = CollectionReviewedWorkflowSnapshot.Create(
+					plan, previous.DependencyPlan, impact, previous.PendingFileWinnerRecipes);
+				cancellationToken.ThrowIfCancellationRequested();
+				CollectionOperation ready = _operationCoordinator.MarkReadyForReview(operation.Identity,
+					plan, previous.DependencyPlan, impact, previous.PendingFileWinnerRecipes);
+				List<CollectionVerifiedArchive> archives = acquisition.Members
+					.Where(x => x.VerifiedArchive != null).Select(x => x.VerifiedArchive).ToList();
+				var runtime = new CollectionReviewedWorkflowRuntime(snapshot, plan, acquisition.MatchSet,
+					previous.DependencyPlan, impact, state, snapshot.Members.Select(x => x.MemberKey),
+					previous.PendingFileWinnerRecipes, archives);
+				return new CollectionAdditiveWorkflowPreparationResult(CollectionAdditiveWorkflowPreparationStatus.ReadyForReview,
+					ready, acquisition, previous.DependencyPlan, impact, runtime,
+					"File-conflict decisions were applied to the unchanged native state; the exact Collection review is ready for approval.");
+			}
+		}
+
 		/// <summary>Verifies one user-selected archive for an exact pending manual/browse acquisition.</summary>
 		public CollectionVerifiedArchive VerifyLocalFile(CollectionMemberAcquisitionBatch acquisitionBatch,
 			CollectionManualAcquisitionPendingAction pendingAction, string localFilePath, CancellationToken cancellationToken)
 		{
 			return _memberAcquisitionCoordinator.VerifyLocalFile(acquisitionBatch, pendingAction, localFilePath, cancellationToken);
+		}
+
+		/// <summary>Inspects an external archive candidate without changing the existing approved/pending plan.</summary>
+		public CollectionAlternateArchiveCandidate InspectAlternateLocalFile(CollectionMemberAcquisitionBatch batch,
+			CollectionManualAcquisitionPendingAction pending, string path, CancellationToken token)
+		{
+			return _memberAcquisitionCoordinator.InspectAlternateLocalFile(batch, pending, path, token);
+		}
+
+		public void ReleaseAlternateLocalFile(CollectionAlternateArchiveCandidate candidate)
+		{
+			_memberAcquisitionCoordinator.ReleaseAlternateLocalFile(candidate);
 		}
 
 		/// <summary>Completes a superseded additive preparation before any native child has crossed the mutation boundary.</summary>
@@ -372,6 +537,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperation operation = RequireOperation(operationIdentity);
 			if (operation.IsSuccessful)
 				return ApplyResult(CollectionAdditiveWorkflowApplyStatus.Committed, operation, null, "The additive Collection is already committed.");
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+				"Collections.Workflow.CheckingInstallationPlan", "Checking Collection installation plan..."), true);
 			if (operation.PlanIdentity == null || !operation.PlanIdentity.Equals(expectedPlan))
 				throw new InvalidOperationException("Approval does not refer to the exact currently reviewed Collection plan version.");
 
@@ -424,9 +591,13 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			CollectionNativeStateIndex currentState = runtime.CurrentState;
+			int installCount = runtime.Matches.MembersByKey.Values.Count(x =>
+				x.Disposition == CollectionMemberMatchDisposition.ArchiveOnlyReuse || x.Disposition == CollectionMemberMatchDisposition.ReinstallRequired);
 			while (true)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+					"Collections.Workflow.PreparingNextInstallation", "Preparing the next mod installation..."), true);
 				CollectionNativeChildPreparationResult prepared = _childPreparationCoordinator.PrepareNext(operationIdentity,
 					runtime.Plan, runtime.Matches, runtime.DependencyPlan, runtime.ImpactPlan, currentState,
 					runtime.PreparedRecipes.Select(x => x.EffectPreview), runtime.VerifiedArchives, targetPaths.InstallInfoPath);
@@ -436,7 +607,11 @@ namespace Nexus.Client.CollectionManagement
 				PreparedCollectionNativeRecipe recipe = runtime.GetPreparedRecipe(prepared.Child.Member.MemberKey);
 				if (recipe == null)
 					throw new InvalidOperationException("The reviewed workflow is missing the exact prepared native recipe for its next mutating member.");
-				ModInstallationRecipeInput childRecipe = recipe.RecipeInput.ForOperationIdentity(prepared.Child.NativeOperation);
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+					"Collections.Workflow.InstallingMember", "Installing mod ({0}/{1}): {2}",
+					operation.NativeChildren.Count(x => x.IsReconciled && x.HasVerifiedCommittedNativeState) + 1,
+					installCount, recipe.Member.DisplayName), true);
+				ModInstallationRecipeInput childRecipe = recipe.RecipeInput.ForOperationIdentity(prepared.Child.NativeOperation).WithDeferredPluginReconciliation();
 				CollectionNativeChildVerificationResult verification;
 				if (_nativeChildApplyOverride != null)
 				{
@@ -504,12 +679,16 @@ namespace Nexus.Client.CollectionManagement
 				currentState = _nativeStateReader.Capture(runtime.Plan.Target);
 			}
 
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+				"Collections.Workflow.ApplyingFileConflicts", "Applying Collection file conflict rules..."), true);
 			if (_winnerReconciliationOverride != null)
 				await _winnerReconciliationOverride(operationIdentity, runtime.Plan, runtime.Matches, runtime.ImpactPlan,
 					targetPaths, cancellationToken).ConfigureAwait(false);
 			else
 				await _winnerCoordinator.ReconcileAsync(operationIdentity, runtime.Plan, runtime.Matches,
 					runtime.ImpactPlan, targetPaths, cancellationToken).ConfigureAwait(false);
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+				"Collections.Workflow.ApplyingPluginRules", "Applying Collection plugin rules..."), true);
 			await ReconcileReviewedPluginStateAsync(runtime.Plan, runtime.ImpactPlan, targetPaths, cancellationToken).ConfigureAwait(false);
 			CollectionAssociationFinalizationResult finalization = await VerifyAndFinalizeAppliedAssociationAsync(operationIdentity,
 				runtime, targetPaths, cancellationToken).ConfigureAwait(false);
@@ -648,10 +827,14 @@ namespace Nexus.Client.CollectionManagement
 
 		private CollectionAdditiveWorkflowPreparationResult PrepareCore(CollectionEffectiveSelection effectiveSelection,
 			GameStoragePathSet targetPaths, CollectionArchiveOverwritePolicy archiveOverwritePolicy,
-			ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken)
+			ConfirmOverwriteCallback confirmOverwriteCallback, CollectionAlternateArchiveCandidate alternate, CancellationToken cancellationToken,
+			CollectionExecutionPolicy policy)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			CollectionAdditivePlanBuildResult planBuild = _planPreparationService.Prepare(effectiveSelection, targetPaths);
+			if (policy != null && policy.AutomaticallyInstall && policy.PreferIncomingCollection)
+				effectiveSelection = new CollectionEffectiveSelectionBuilder().Build(effectiveSelection.CapabilityReport,
+					Enumerable.Empty<CollectionOptionalMemberSelection>(), true);
+			CollectionAdditivePlanBuildResult planBuild = _planPreparationService.Prepare(effectiveSelection, targetPaths, alternate, policy);
 			CollectionMemberAcquisitionBatch acquisition = _memberAcquisitionCoordinator.Begin(planBuild,
 				archiveOverwritePolicy, confirmOverwriteCallback, cancellationToken);
 			return ContinuePreparation(acquisition, targetPaths, cancellationToken);
@@ -685,7 +868,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionAdditiveWorkflowPreparationResult FinalizePreparation(CollectionMemberAcquisitionBatch acquisition,
-			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+			GameStoragePathSet targetPaths, CancellationToken cancellationToken,
+			IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> reusableRecipes = null)
 		{
 			CollectionAdditivePlanBuildResult planBuild = acquisition.PlanBuild;
 			ResolvedCollectionPlan plan = planBuild.Plan;
@@ -696,9 +880,16 @@ namespace Nexus.Client.CollectionManagement
 					"The selected Collection dependency/phase graph is blocked.");
 
 			List<PreparedCollectionNativeRecipe> recipes;
+			var pluginDependencies = new Dictionary<string, IList<string>>(StringComparer.OrdinalIgnoreCase);
 			try
 			{
-				recipes = PrepareNativeRecipes(acquisition, dependencyPlan, targetPaths, cancellationToken);
+				recipes = PrepareNativeRecipes(acquisition, dependencyPlan, targetPaths, cancellationToken, pluginDependencies, reusableRecipes);
+			}
+			catch (CollectionMemberPreparationException ex)
+			{
+				CollectionAdditiveWorkflowPreparationStatus status = ex.InnerException is InvalidOperationException
+					? CollectionAdditiveWorkflowPreparationStatus.PreparationRequired : CollectionAdditiveWorkflowPreparationStatus.Blocked;
+				return PreparationResult(status, acquisition, dependencyPlan, null, null, ex.Message, ex.Member, ex.InnerException.Message);
 			}
 			catch (NotSupportedException ex)
 			{
@@ -713,11 +904,38 @@ namespace Nexus.Client.CollectionManagement
 				return PreparationResult(CollectionAdditiveWorkflowPreparationStatus.Blocked, acquisition, dependencyPlan, null, null, ex.Message);
 			}
 
+			HashSet<string> requiredPlugins = null;
+			if (plan.Policy.AutomaticallyInstall && plan.Policy.PreferIncomingCollection)
+			{
+				HashSet<string> providedPlugins;
+				requiredPlugins = _automaticDependencies.GetRequiredPlugins(plan, matches, planBuild.NativeState, pluginDependencies,
+					recipes.SelectMany(x => x.EffectPreview.PluginEffects)
+						.Where(x => x.Kind == CollectionPlannedPluginEffectKind.Activation && x.Active == true)
+						.Select(x => Path.GetFileName(x.PluginPaths[0])), out providedPlugins);
+				var missingProviders = new HashSet<string>(requiredPlugins, StringComparer.OrdinalIgnoreCase);
+				missingProviders.ExceptWith(providedPlugins);
+				missingProviders.ExceptWith(planBuild.NativeState.Plugins.Values.Where(x => x.Active && File.Exists(x.FileName)).Select(x => Path.GetFileName(x.FileName)));
+				CollectionEffectiveSelection expanded = _automaticDependencies.IncludePluginProviders(plan.CapabilityReport,
+					missingProviders, _services.ModManager, cancellationToken);
+				if (expanded.Manifest.Members.Count(x => x.IsSelected) == plan.SelectedMembers.Count && missingProviders.Count > 0)
+					expanded = _automaticDependencies.IncludePluginProviders(plan.CapabilityReport, missingProviders,
+						_services.ModManager, cancellationToken, true);
+				if (expanded.Manifest.Members.Count(x => x.IsSelected) > plan.SelectedMembers.Count)
+				{
+					CollectionAdditivePlanBuildResult expandedPlan = _planPreparationService.ExpandPrerequisites(planBuild, expanded);
+					CollectionMemberAcquisitionBatch expandedAcquisition = _memberAcquisitionCoordinator.BeginExpanded(expandedPlan, acquisition, cancellationToken);
+					return expandedAcquisition.IsReady
+						? FinalizePreparation(expandedAcquisition, targetPaths, cancellationToken, recipes.ToDictionary(x => x.Member.MemberKey))
+						: ContinuePreparation(expandedAcquisition, targetPaths, cancellationToken);
+				}
+			}
 			IEnumerable<CollectionConflictResolutionDecision> conflictDecisions = _conflictResolutionCoordinator == null
 				? Enumerable.Empty<CollectionConflictResolutionDecision>()
 				: _conflictResolutionCoordinator.GetDecisions(plan);
-			CollectionConflictImpactPlan impactPlan = _impactPlanner.Plan(plan, matches, dependencyPlan,
-				planBuild.NativeState, recipes.Select(x => x.EffectPreview), conflictDecisions);
+			CollectionConflictImpactPlan impactPlan = requiredPlugins == null
+				? _impactPlanner.Plan(plan, matches, dependencyPlan, planBuild.NativeState, recipes.Select(x => x.EffectPreview), conflictDecisions)
+				: _impactPlanner.PlanAutomaticPrerequisites(plan, matches, dependencyPlan, planBuild.NativeState,
+					recipes.Select(x => x.EffectPreview), conflictDecisions, requiredPlugins);
 			if (!impactPlan.IsReady)
 			{
 				CollectionAdditiveWorkflowPreparationStatus status = impactPlan.Status == CollectionConflictImpactStatus.ActionRequired
@@ -725,6 +943,12 @@ namespace Nexus.Client.CollectionManagement
 					: impactPlan.Status == CollectionConflictImpactStatus.PreparationRequired
 						? CollectionAdditiveWorkflowPreparationStatus.PreparationRequired
 						: CollectionAdditiveWorkflowPreparationStatus.Blocked;
+				// Keep only conflict-only recipe previews in this in-process result. Exact saved file
+				// decisions can then refresh impact planning without a second multi-gigabyte extraction.
+				if (status == CollectionAdditiveWorkflowPreparationStatus.ActionRequired && impactPlan.Issues.Count > 0 &&
+					impactPlan.Issues.All(x => x.Kind == CollectionConflictImpactIssueKind.ExistingFileWinnerDecisionRequired))
+					return new CollectionAdditiveWorkflowPreparationResult(status, planBuild.Operation, acquisition,
+						dependencyPlan, impactPlan, null, impactPlan.Issues[0].Message, recipes);
 				return PreparationResult(status, acquisition, dependencyPlan, impactPlan, null,
 					impactPlan.Issues.Count == 0 ? "The Collection impact plan is not executable." : impactPlan.Issues[0].Message);
 			}
@@ -751,7 +975,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private List<PreparedCollectionNativeRecipe> PrepareNativeRecipes(CollectionMemberAcquisitionBatch acquisition,
-			CollectionDependencyPhasePlan dependencyPlan, GameStoragePathSet targetPaths, CancellationToken cancellationToken)
+			CollectionDependencyPhasePlan dependencyPlan, GameStoragePathSet targetPaths, CancellationToken cancellationToken,
+			IDictionary<string, IList<string>> pluginDependencies, IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> reusableRecipes)
 		{
 			if (dependencyPlan == null) throw new ArgumentNullException(nameof(dependencyPlan));
 			if (targetPaths == null) throw new ArgumentNullException(nameof(targetPaths));
@@ -775,6 +1000,8 @@ namespace Nexus.Client.CollectionManagement
 					CollectionVerifiedArchive archive = acquisitionState.VerifiedArchive ?? match.VerifiedArchive;
 					if (archive == null)
 						throw new InvalidOperationException("A mutating Collection member does not have its exact verified immutable archive.");
+					CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+						"Collections.Workflow.PreparingMemberFiles", "Preparing mod files: {0}", match.Member.DisplayName), true);
 					IMod managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken);
 					CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode,
 						match.Member, managedMod, ResolveInstallContext(match), cancellationToken);
@@ -790,6 +1017,25 @@ namespace Nexus.Client.CollectionManagement
 				ProjectActiveMod(projectedMergeBaseline, input.ManagedMod);
 			ValidateProjectedMergeTarget(inputs, projectedMergeBaseline, _services.ModManager.GameMode);
 
+			// Fast preflight *all* XML choices before extracting and SHA-256 hashing gigabytes
+			// of archive entries for unrelated members. A failed dependency or missing FOMOD
+			// asset now takes one metadata/path pass to report, not several minutes of previews.
+			foreach (NativeRecipePreparationInput input in inputs.Where(x => x.Match.Member.HasVortexFomodSelection))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				try
+				{
+					_nativeRecipePreparer.PreflightFomodSelection(input.Match.Member, input.ManagedMod,
+						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, _services.PluginManager);
+				}
+				catch (Exception ex) when (ex is NotSupportedException || ex is InvalidDataException || ex is InvalidOperationException)
+				{
+					throw new CollectionMemberPreparationException(input.Match.Member, String.Format(CultureInfo.InvariantCulture,
+						"Collection member '{0}' has an unusable exact FOMOD selection (detected before slow file previews): {1}",
+						input.Match.Member.DisplayName, ex.Message), new NotSupportedException(ex.Message, ex));
+				}
+			}
+
 			var recipes = new List<PreparedCollectionNativeRecipe>();
 			foreach (NativeRecipePreparationInput input in inputs)
 			{
@@ -801,11 +1047,20 @@ namespace Nexus.Client.CollectionManagement
 						? projectedMergeBaseline
 						: _services.ModManager.ActiveMods.ToList();
 					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
-					PreparedCollectionNativeRecipe prepared = _nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,
-						_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, input.InstallContext, state, skipReadme,
-						_services.PluginManager, activeMods, includeMergeOutput, cancellationToken, input.Destination.GameRootArchiveBaseDirectory);
+					PreparedCollectionNativeRecipe prepared;
+					// Dependency-only expansion keeps the captured target and exact existing artifacts unchanged.
+					// Reuse ordinary file previews; merge composition and installer conditions still require fresh planning.
+					if (reusableRecipes == null || input.ContributesDeterministicMerge || input.Match.Member.HasVortexFomodSelection ||
+						!reusableRecipes.TryGetValue(input.Match.Member.MemberKey, out prepared) ||
+						prepared.InstallContext.Method != input.InstallContext.Method || prepared.InstallContext.InstallRoot != input.InstallContext.InstallRoot)
+						prepared = _nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,
+							_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, input.InstallContext, state, skipReadme,
+							_services.PluginManager, activeMods, includeMergeOutput, cancellationToken, input.Destination.GameRootArchiveBaseDirectory);
 					recipes.Add(CollectionInstallRootCorrection.Prepare(prepared, state, input.Match.MatchedNativeMod,
 						_services.ModManager.DeploymentManager, _services.ModManager.VirtualModActivator, cancellationToken));
+					if (plan.Policy.AutomaticallyInstall && plan.Policy.PreferIncomingCollection)
+						_automaticDependencies.AddRecipeDependencies(prepared, input.ManagedMod, _services.ModManager.GameMode,
+							pluginDependencies, cancellationToken);
 				}
 				catch (Exception ex) when (ex is NotSupportedException || ex is InvalidOperationException || ex is InvalidDataException)
 				{
@@ -814,9 +1069,7 @@ namespace Nexus.Client.CollectionManagement
 						input.Match.Member.DisplayName, input.Match.Member.MemberKey, input.Match.Member.ArtifactChoice.SelectedArtifact,
 						input.Archive.Artifact.ArtifactId, input.Archive.Artifact.ByteLength,
 						CollectionArchiveContentMatcher.GetManagedArchivePath(input.ManagedMod) ?? "unresolved", ex.Message);
-					if (ex is NotSupportedException) throw new NotSupportedException(detail, ex);
-					if (ex is InvalidDataException) throw new InvalidDataException(detail, ex);
-					throw new InvalidOperationException(detail, ex);
+					throw new CollectionMemberPreparationException(input.Match.Member, detail, ex);
 				}
 			}
 			return recipes;
@@ -938,7 +1191,9 @@ namespace Nexus.Client.CollectionManagement
 				CollectionArchiveContentMatcher.GetManagedArchivePath(previous), archive.Artifact, cancellationToken))
 				return previous;
 
-			if (CollectionBundledArtifactIdentity.IsBundle(match.Member.ArtifactChoice.SelectedArtifact))
+			string externalMd5; long externalByteLength;
+			if (CollectionBundledArtifactIdentity.IsBundle(match.Member.ArtifactChoice.SelectedArtifact) ||
+				CollectionExternalArtifactIdentity.TryParse(match.Member.ArtifactChoice.SelectedArtifact, out externalMd5, out externalByteLength))
 			{
 				List<IMod> exactManaged = CollectionArchiveContentMatcher.FindExactManagedMods(_services.ModManager, archive.Artifact, cancellationToken);
 				if (exactManaged.Count == 1) return exactManaged[0];
@@ -1041,19 +1296,33 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeStateIndex currentState = _nativeStateReader.Capture(plan.Target);
 				if (reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(currentState, x.Effect))) return;
 
-				if (requested.Count > 0)
+				Nexus.Client.PluginManagement.ICollectionPluginStateManager collectionPluginManager =
+					_services.PluginManager as Nexus.Client.PluginManagement.ICollectionPluginStateManager;
+				if (plan.Policy.AutomaticallyInstall && plan.Policy.PreferIncomingCollection && collectionPluginManager != null)
 				{
-					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
-					if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
-					{
-						string detail = diagnostics == null || diagnostics.Count == 0
-							? "The native plugin policy could not honor every reviewed Collection activation request."
-							: "The native plugin policy rejected the reviewed Collection activation state: " + String.Join(", ", diagnostics.Select(x => x.Kind.ToString()));
-						throw new InvalidOperationException(detail);
-					}
+					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> advisoryDiagnostics;
+					List<IList<string>> relativeOrder = reviewedEffects
+						.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
+						.Select(x => (IList<string>)x.Effect.PluginPaths.ToList()).ToList();
+					if (!collectionPluginManager.TryReconcileCollectionPluginState(requested.Keys.ToList(), requested, relativeOrder, out advisoryDiagnostics))
+						throw new InvalidOperationException("The native plugin service could not apply the Collection's requested plugin state/order.");
 				}
+				else
+				{
+					if (requested.Count > 0)
+					{
+						IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
+						if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
+						{
+							string detail = diagnostics == null || diagnostics.Count == 0
+								? "The native plugin policy could not honor every reviewed Collection activation request."
+								: "The native plugin policy rejected the reviewed Collection activation state: " + String.Join(", ", diagnostics.Where(x => x != null).Select(x => String.IsNullOrWhiteSpace(x.Message) ? x.Kind.ToString() : x.Message).Distinct());
+							throw new InvalidOperationException(detail);
+						}
+					}
 
-				CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+					CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+				}
 				_authorityValidator.ValidateAndReload(lease, authority, targetPaths);
 				CollectionNativeStateIndex verified = _nativeStateReader.Capture(plan.Target);
 				if (!reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x.Effect)))
@@ -1066,6 +1335,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionOperationIdentity operationIdentity, CollectionReviewedWorkflowRuntime runtime,
 			GameStoragePathSet targetPaths, CancellationToken cancellationToken)
 		{
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+				"Collections.Workflow.FinishingInstallation", "Finishing Collection installation: checking mod registration and file ownership..."), true);
 			CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(targetPaths);
 			if (!authority.Target.Equals(runtime.Plan.Target))
 				throw new InvalidOperationException("The live canonical target changed before aggregate Collection verification.");
@@ -1079,7 +1350,15 @@ namespace Nexus.Client.CollectionManagement
 					runtime.PreparedRecipes, finalState);
 				CollectionAssociationFinalizationResult finalization = _associationCoordinator.FinalizeAppliedAssociation(
 					operationIdentity, runtime.Plan, runtime.Matches);
-				new CollectionNexusMetadataHydrator(_services.ModManager).Enrich(finalization.Bindings);
+				long metadataStarted = CollectionPerformanceMetrics.StartTiming();
+				try
+				{
+					new CollectionNexusMetadataHydrator(_services.ModManager).Enrich(finalization.Bindings);
+				}
+				finally
+				{
+					CollectionPerformanceMetrics.RecordPostCommitMetadataEnrichment(metadataStarted);
+				}
 				return finalization;
 			}
 		}
@@ -1164,10 +1443,11 @@ namespace Nexus.Client.CollectionManagement
 
 		private static CollectionAdditiveWorkflowPreparationResult PreparationResult(CollectionAdditiveWorkflowPreparationStatus status,
 			CollectionMemberAcquisitionBatch acquisition, CollectionDependencyPhasePlan dependencyPlan,
-			CollectionConflictImpactPlan impactPlan, CollectionReviewedWorkflowRuntime runtime, string message)
+			CollectionConflictImpactPlan impactPlan, CollectionReviewedWorkflowRuntime runtime, string message,
+			ResolvedCollectionMemberPlan failedMember = null, string failureReason = null)
 		{
 			return new CollectionAdditiveWorkflowPreparationResult(status, acquisition.PlanBuild.Operation, acquisition,
-				dependencyPlan, impactPlan, runtime, message);
+				dependencyPlan, impactPlan, runtime, message, null, failedMember, failureReason);
 		}
 
 		private static CollectionAdditiveWorkflowApplyResult ApplyResult(CollectionAdditiveWorkflowApplyStatus status,

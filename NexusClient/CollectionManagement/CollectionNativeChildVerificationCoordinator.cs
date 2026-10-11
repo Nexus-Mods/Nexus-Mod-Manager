@@ -103,6 +103,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("C6.8 requires the live ModManager service.");
 
 			bool nativeCompleted = executionResult.NativeTask.IsCompleted;
+			long postInstallVerificationStarted = 0;
 			try
 			{
 				CollectionOperation operation = RequireOperation(executionResult, plan, workflowMode);
@@ -119,6 +120,9 @@ namespace Nexus.Client.CollectionManagement
 
 				await WaitForCompletionAsync(executionResult.NativeTask).ConfigureAwait(true);
 				nativeCompleted = true;
+				postInstallVerificationStarted = CollectionPerformanceMetrics.StartTiming();
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+					"Collections.Workflow.CheckingInstalledMember", "Checking installed mod: {0}", member.DisplayName), true);
 
 				bool exactReportedIdentity;
 				ModOperationResult reportedResult = CaptureReportedResult(executionResult.NativeTask, child.NativeOperation, out exactReportedIdentity);
@@ -195,6 +199,8 @@ namespace Nexus.Client.CollectionManagement
 			}
 			finally
 			{
+				if (postInstallVerificationStarted != 0)
+					CollectionPerformanceMetrics.RecordNativeChildPostInstallVerification(postInstallVerificationStarted);
 				if (nativeCompleted && !executionResult.IsDisposed)
 					executionResult.ReleaseAfterVerification();
 			}
@@ -405,7 +411,9 @@ namespace Nexus.Client.CollectionManagement
 			bool isNexus = NexusCollectionModFileArtifactIdentity.TryParse(artifact,
 				out expectedDomain, out expectedModId, out expectedFileId);
 			bool isBundle = CollectionBundledArtifactIdentity.IsBundle(artifact);
-			if (!isNexus && !isBundle)
+			string externalMd5; long externalByteLength;
+			bool isExternal = CollectionExternalArtifactIdentity.TryParse(artifact, out externalMd5, out externalByteLength);
+			if (!isNexus && !isBundle && !isExternal)
 			{
 				failureReason = "The selected archive identity is unsupported.";
 				return false;
@@ -437,7 +445,7 @@ namespace Nexus.Client.CollectionManagement
 				? incomingMod.ModArchivePath : incomingMod.Filename;
 			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive, archiveMatchCache))
 				failureReason = "The incoming archive bytes differ from the retained reviewed archive.";
-			else if (!VerifyMemberEffects(state, nativeMod, preview))
+			else if (!VerifyMemberEffects(state, nativeMod, preview, !recipeInput.DeferPluginReconciliation))
 				failureReason = "Installed file ownership, plugin activation or configuration effects differ from the reviewed recipe.";
 			else if (preview.InstallRootCorrection != null && !preview.InstallRootCorrection.Verify(state, true))
 				failureReason = "The old Data-folder files were not removed or restored as reviewed.";
@@ -539,7 +547,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static bool VerifyMemberEffects(CollectionNativeStateIndex state, CollectionNativeModState nativeMod,
-			CollectionMemberEffectPreview preview)
+			CollectionMemberEffectPreview preview, bool verifyPluginEffects)
 		{
 			if (state == null || nativeMod == null || preview == null || !preview.IsComplete)
 				return false;
@@ -577,6 +585,8 @@ namespace Nexus.Client.CollectionManagement
 					!ByteArraysEqual(current.UnsafeValue, effect.UnsafeValue))
 					return false;
 			}
+
+			if (!verifyPluginEffects) return true;
 
 			if (preview.PluginEffects.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)
 				return false;
@@ -643,7 +653,10 @@ namespace Nexus.Client.CollectionManagement
 			if (effect == null || !effect.HasExactContentIdentity ||
 				effect.ExpectedContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
 				return false;
-			return new FileContentIdentity(effect.ExpectedByteLength.Value, effect.ExpectedContentHash.Value).Matches(physicalPath);
+			long started = CollectionPerformanceMetrics.StartTiming();
+			bool verified = new FileContentIdentity(effect.ExpectedByteLength.Value, effect.ExpectedContentHash.Value).Matches(physicalPath);
+			CollectionPerformanceMetrics.RecordNativeChildDeployedFileHash(started, verified ? effect.ExpectedByteLength.Value : 0);
+			return verified;
 		}
 
 		private static bool VerifyLiveReplayAgainstRecipe(ModInstallationRecipeInput recipeInput, IMod incomingMod, IGameMode gameMode)
@@ -740,7 +753,8 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool MatchesArchive(string archivePath, CollectionRecoveryArtifact expected)
 		{
-			return MatchesFile(archivePath, expected);
+			return expected != null && CollectionArchiveContentMatcher.MatchesFile(archivePath,
+				expected.ByteLength, expected.ContentHash, CancellationToken.None, true);
 		}
 
 		private static bool MatchesArchive(string archivePath, CollectionRecoveryArtifact expected,

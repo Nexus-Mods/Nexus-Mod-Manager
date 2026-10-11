@@ -400,7 +400,7 @@ namespace Nexus.Client.CollectionManagement
 			translated = ApplyBasicGameSpecificValues(basicResult.Plan, translated);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
+			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated basic/simple Collection recipe does not have a complete characterized C6 effect preview.");
 
@@ -466,7 +466,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
+			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex hashes/fileList recipe does not have a complete characterized C6 effect preview.");
 
@@ -475,6 +475,35 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
+		}
+
+		/// <summary>
+		/// Validates native XML selection viability and exact archive paths without reading/hashing
+		/// every selected payload. Used as a cheap all-member preflight before any expensive
+		/// impact previews; the authoritative full translation is still repeated later.
+		/// </summary>
+		internal void PreflightFomodSelection(ResolvedCollectionMemberPlan member, IMod mod, IGameMode gameMode,
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager)
+		{
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (!member.HasVortexFomodSelection) return;
+			if (mod == null) throw new ArgumentNullException(nameof(mod));
+			if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
+			if (environmentInfo == null) throw new ArgumentNullException(nameof(environmentInfo));
+			IModInstallationFomodRecipePlanningAdapter adapter = mod.InstallScript == null
+				? null : mod.InstallScript.Type as IModInstallationFomodRecipePlanningAdapter;
+			if (!mod.HasInstallScript || adapter == null)
+				throw new NotSupportedException("This mod's archive does not contain a supported FOMOD installer for the choices saved in the Collection.");
+			try
+			{
+				ModInstallationFomodSelectionRecipe recipe = CreateFomodRecipe(
+					member.VortexFomodSelection, adapter.GetScriptVersion(mod));
+				adapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, recipe);
+			}
+			catch (DependencyException ex)
+			{
+				throw new NotSupportedException("The exact FOMOD selection has an unmet native installer prerequisite: " + ex.Message, ex);
+			}
 		}
 
 		private PreparedCollectionNativeRecipe PrepareVortexFomodExact(ResolvedCollectionPlan plan,
@@ -505,7 +534,7 @@ namespace Nexus.Client.CollectionManagement
 				? null
 				: mod.InstallScript.Type as IModInstallationFomodRecipePlanningAdapter;
 			if (!mod.HasInstallScript || fomodAdapter == null)
-				throw new NotSupportedException("The Collection member records Vortex FOMOD choices, but the verified archive does not expose NMM's native exact FOMOD planning adapter.");
+				throw new NotSupportedException("The Collection contains saved installer choices for this mod, but NMM could not find a supported FOMOD installer in its archive.");
 
 			ModInstallationFomodSelectionRecipe fomodRecipe;
 			IReadOnlyList<ModInstallationRecipePath> fomodPaths;
@@ -545,7 +574,7 @@ namespace Nexus.Client.CollectionManagement
 				new ModInstallationRecipeInput(finalOperation, simpleValidation), frozenRecipe);
 			IReadOnlyList<string> generatedArtifacts;
 			translated = ApplyVortexBinaryPatches(plan, member, mod, translated, out generatedArtifacts, cancellationToken);
-			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.Build(member, translated, gameMode, mod, pluginManager);
+			CollectionMemberEffectPreview effectPreview = _effectPreviewBuilder.BuildForPreparation(member, translated, gameMode, mod, pluginManager, cancellationToken);
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");
 
@@ -745,7 +774,13 @@ namespace Nexus.Client.CollectionManagement
 			if (info.Length != expectedArtifact.ByteLength)
 				throw new InvalidDataException("The managed mod archive length no longer matches the previously verified Collection archive.");
 
-			// Adoption just streamed this exact source into retained storage while calculating SHA-256. Reuse that process-local
+			// Imported files and legacy archive snapshots now resolve through the verified managed Mods copy.
+			if (verifiedArchive.SourceKind == CollectionVerifiedArchiveSourceKind.ManualFile ||
+				(!_artifactStore.IsArchiveReference(expectedArtifact.ArtifactId) &&
+				 !CollectionBundledArtifactIdentity.IsBundle(verifiedArchive.Request.SelectedArtifact)))
+				_artifactStore.ReferenceArchiveFile(path, cancellationToken);
+
+			// Adoption already hashed this exact archive while calculating SHA-256. Reuse that process-local
 			// proof while size/write-time are unchanged; the native installer still performs the final SHA-256 before mutation.
 			if (_artifactStore.IsPublishedSourceCurrent(path, expectedArtifact))
 				return;
@@ -987,15 +1022,40 @@ namespace Nexus.Client.CollectionManagement
 					operation.GetType().FullName));
 			}
 
-			try
+			return FreezeOrderedFomodFileMappings(mappings);
+		}
+
+		/// <summary>
+		/// Freezes the final effective files of an already validated ordered native FOMOD plan.
+		/// The XML installer writes required files, selected options and conditional files in
+		/// operation order; its projected file state uses the last write at each destination.
+		/// Multiple destinations may reference the same immutable archive entry.
+		/// </summary>
+		internal static ModInstallationSimpleFileRecipe FreezeOrderedFomodFileMappings(
+			IEnumerable<ModInstallationSimpleFileMapping> orderedMappings)
+		{
+			if (orderedMappings == null)
+				throw new ArgumentNullException(nameof(orderedMappings));
+
+			// Resolve destination collisions before creating the immutable one-output-per-destination
+			// recipe. Iterate backwards so a later native FOMOD write wins, then restore the
+			// surviving operations to their original order for deterministic replay.
+			List<ModInstallationSimpleFileMapping> candidates = orderedMappings.ToList();
+			var finalDestinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			var effectiveMappings = new List<ModInstallationSimpleFileMapping>();
+			for (int index = candidates.Count - 1; index >= 0; index--)
 			{
-				return new ModInstallationSimpleFileRecipe(mappings);
+				ModInstallationSimpleFileMapping mapping = candidates[index];
+				if (mapping == null)
+					throw new ArgumentException("FOMOD file mappings cannot contain null values.", nameof(orderedMappings));
+				if (finalDestinations.Add(mapping.DestinationPath))
+					effectiveMappings.Add(mapping);
 			}
-			catch (ArgumentException ex)
-			{
-				throw new NotSupportedException(
-					"The characterized Collection FOMOD path supports only one-to-one file mappings without source replication or destination collisions.", ex);
-			}
+			effectiveMappings.Reverse();
+
+			// The existing C5 simple-file contract already supports byte-preserving source
+			// replication to distinct destinations; it still forbids destination collisions.
+			return new ModInstallationSimpleFileRecipe(effectiveMappings, true);
 		}
 
 		private static bool ManifestDeclaresPluginState(NormalizedCollectionManifest manifest, string pluginName)

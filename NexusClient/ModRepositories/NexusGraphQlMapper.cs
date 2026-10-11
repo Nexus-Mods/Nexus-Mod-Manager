@@ -35,7 +35,11 @@ namespace Nexus.Client.ModRepositories
                 new Uri($"https://www.nexusmods.com/{GameDomainTranslator.DetermineGameDomain(result.GameDomain)}/mods/{result.ModId}"),
                 null,
                 false,
-                false);
+                false)
+            {
+                // viewerEndorsed=false does not tell us whether the user abstained.
+                HasEndorsementState = result.ViewerEndorsed == true
+            };
         }
     }
 }

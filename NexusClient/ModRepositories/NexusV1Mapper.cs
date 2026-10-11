@@ -31,7 +31,7 @@ namespace Nexus.Client.ModRepositories
 
             bool? endorsementState = result.Endorsement?.Status == NexusV1EndorsementStatus.Endorsed
                 ? true
-                : (bool?)null;
+                : result.Endorsement?.Status == NexusV1EndorsementStatus.Abstained ? false : (bool?)null;
 
             return new ModInfo(
                 result.ModId.ToString(),
@@ -50,7 +50,10 @@ namespace Nexus.Client.ModRepositories
                 new Uri($"https://www.nexusmods.com/{GameDomainTranslator.DetermineGameDomain(result.DomainName)}/mods/{result.ModId}"),
                 null,
                 false,
-                false);
+                false)
+            {
+                HasEndorsementState = result.Endorsement != null && result.Endorsement.Status != NexusV1EndorsementStatus.None
+            };
         }
 
         /// <summary>

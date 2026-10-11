@@ -1302,6 +1302,9 @@ namespace Nexus.Client.CollectionManagement
 						var cleanup = new CollectionsRetainedArtifactCleanupStore(_store);
 						if (!cleanup.ReleaseRemovedCollectionContent(authority.Target, retainedPreviewCollection))
 							return;
+						new CollectionsRevisionSourceStore(_store).OrganizeRetainedSources(cancellationToken);
+						new CollectionsRetainedArtifactStore(_store).MigrateArchiveCopies(
+							_services.ModManager.ManagedMods.Select(CollectionArchiveContentMatcher.GetManagedArchivePath).ToArray(), cancellationToken);
 						var attempted = new HashSet<string>(StringComparer.Ordinal);
 						int remaining = maximumArtifacts;
 						foreach (string artifactId in cleanup.GetPendingTombstones(remaining))

@@ -509,12 +509,20 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			JToken updatePolicy = source["updatePolicy"];
-			if (updatePolicy != null && updatePolicy.Type != JTokenType.Null &&
-				(updatePolicy.Type != JTokenType.String || !StringComparer.Ordinal.Equals((string)updatePolicy, "exact")))
+			bool isExactPolicy = updatePolicy == null || updatePolicy.Type == JTokenType.Null ||
+				(updatePolicy.Type == JTokenType.String && StringComparer.Ordinal.Equals((string)updatePolicy, "exact"));
+			// Vortex 'prefer' first prefers the curator's file. For manual/browse sources with exact MD5 and
+			// size, NMM can satisfy that preferred choice using the existing verified local-file acquisition.
+			// It never guesses a newer external file or substitutes unmatched bytes. Keep 'latest', direct
+			// 'prefer', and unrecognized policy values blocked until a characterized resolver exists.
+			bool isPinnedManualPrefer = updatePolicy != null && updatePolicy.Type == JTokenType.String &&
+				StringComparer.Ordinal.Equals((string)updatePolicy, "prefer") &&
+				(StringComparer.Ordinal.Equals(sourceType, "manual") || StringComparer.Ordinal.Equals(sourceType, "browse"));
+			if (!isExactPolicy && !isPinnedManualPrefer)
 			{
 				draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
 					"member.external-update-policy-unsupported",
-					"Vortex manual/browse/direct sources are characterized only for exact acquisition; latest/prefer resolution has no safe external provider mapping.",
+					"External latest, automatic preferred-version substitution and unrecognized policies have no characterized provider resolver; only an exact curator-file MD5/size preference can be fulfilled through manual/browse acquisition.",
 					sourcePath + ".updatePolicy"));
 			}
 
@@ -612,7 +620,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				return;
 			}
 
-			foreach (string unsupportedField in new[] { "url", "modId", "fileId", "md5", "logicalFilename" })
+			// The original archive name is metadata; fileExpression selects the embedded directory.
+			foreach (string unsupportedField in new[] { "url", "modId", "fileId", "md5" })
 			{
 				JToken token = source[unsupportedField];
 				if (HasContent(token))
@@ -638,6 +647,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			draft.StableMatchKey = CollectionBundledArtifactIdentity.Scheme + ":" + stableArtifactId;
 			draft.Artifact = new CollectionArtifactReference(CollectionBundledArtifactIdentity.Scheme, stableArtifactId, null);
 			draft.SourceTag = tag;
+			draft.SourceLogicalFilename = ReadString(source, "logicalFilename");
 			draft.SourceFileExpression = fileExpression;
 		}
 
@@ -923,11 +933,17 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					valid = false; continue;
 				}
 				AddUnknownMemberFields(stepObject, FomodStepFields, stepPath, draft.Issues);
-				string stepName;
-				if (!TryReadNonBlankString(stepObject["name"], out stepName))
+				// Legacy XML FOMODs have an unnamed step (native InstallStep.Name is null). Preserve an
+				// absent/null/empty Vortex name without inventing one; C5 still compares the exact
+				// step position and only permits an unnamed native step at that position.
+				JToken stepNameToken = stepObject["name"];
+				string stepName = stepNameToken == null || stepNameToken.Type == JTokenType.Null
+					? null : stepNameToken.Type == JTokenType.String ? stepNameToken.Value<string>() : null;
+				if ((stepNameToken != null && stepNameToken.Type != JTokenType.Null && stepNameToken.Type != JTokenType.String) ||
+					(stepName != null && stepName.Length > 0 && String.IsNullOrWhiteSpace(stepName)))
 				{
 					draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-						"member.installer-choices-invalid", "A Vortex FOMOD install step requires a non-empty name.", stepPath + ".name"));
+						"member.installer-choices-invalid", "A Vortex FOMOD install-step name must be a string or null; whitespace-only names are not characterized.", stepPath + ".name"));
 					valid = false; continue;
 				}
 				JArray groupsToken = stepObject["groups"] as JArray;
@@ -1223,14 +1239,20 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				return false;
 			}
 
-			string logicalFileName = ReadString(reference, "logicalFileName");
-			string fileExpression = ReadString(reference, "fileExpression");
+			// A Vortex before/after endpoint can contain incidental ASCII spaces around a displayed
+			// name, exported archive expression or exact version. Accept those only in this
+			// uniquely anchored MD5 fallback, not in general Vortex reference resolution.
+			// The source MD5 itself is never trimmed or inferred.
+			string literalLogicalFileName = ReadString(reference, "logicalFileName");
+			string logicalFileName;
+			string fileExpression;
+			string versionMatch;
 			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
-			string versionMatch = ReadString(reference, "versionMatch");
-			if (!IsNormalizedOptionalString(logicalFileName) || !IsNormalizedOptionalString(fileExpression) ||
-				!IsNormalizedOptionalString(versionMatch))
+			if (!TryNormalizeExactMd5PriorityEndpointIdentity(ReadString(reference, "logicalFileName"), out logicalFileName) ||
+				!TryNormalizeExactMd5PriorityEndpointIdentity(ReadString(reference, "fileExpression"), out fileExpression) ||
+				!TryNormalizeExactMd5PriorityEndpointVersion(ReadString(reference, "versionMatch"), out versionMatch))
 			{
-				failure = "Before/after rule endpoint identity strings must not contain leading/trailing whitespace.";
+				failure = "Before/after rule endpoint identity strings contain unsupported whitespace or empty values.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
@@ -1249,7 +1271,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 			List<RuleReferenceCandidate> matches = candidates.Where(candidate =>
 				StringComparer.Ordinal.Equals(fileMd5, candidate.SourceMd5) &&
-				(String.IsNullOrEmpty(logicalFileName) || StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename)) &&
+				(String.IsNullOrEmpty(logicalFileName) || StringComparer.Ordinal.Equals(literalLogicalFileName, candidate.SourceLogicalFilename) ||
+					StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename)) &&
 				(String.IsNullOrEmpty(gameId) || StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain)) &&
 				FilePriorityVersionMatches(versionMatch, candidate.Version) &&
 				(String.IsNullOrEmpty(fileExpression) || String.IsNullOrEmpty(candidate.SourceFileExpression) ||
@@ -1303,8 +1326,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			{ failure = "External priority reference tags are not retained by NMM native mod state."; return false; }
 			if (!String.IsNullOrEmpty(gameId) && !StringComparer.Ordinal.Equals(gameId, sourceDomain))
 			{ failure = "Cross-game external before/after endpoints are outside the characterized single-target model."; return false; }
-			if (!IsNormalizedOptionalString(logical) || !IsNormalizedOptionalString(expression) || !IsNormalizedOptionalString(fileMd5))
-			{ failure = "External priority identity strings must not contain leading/trailing whitespace."; return false; }
+			if (!IsPortableFilenameIdentity(logical) || !IsPortableFilenameIdentity(expression) || !IsNormalizedOptionalString(fileMd5))
+			{ failure = "External priority filename identities must be non-empty and contain no control characters; fileMD5 must be normalized."; return false; }
 			// Vortex compares fileExpression to the sanitized archive basename for exact equality before it falls back
 			// to minimatch. Generated archive names commonly contain literal '[' / ']' characters (for example the
 			// Module 02/05 settings bundles), so brackets alone must not make an otherwise exact portable endpoint
@@ -1441,17 +1464,25 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			string versionMatch = ReadString(reference, "versionMatch");
+			// A unique MD5 match may also be narrowed by an exact version. Fuzzy +prefer and
+			// comparator/range versions cannot safely use this archive-MD5 fallback.
 			if (!String.IsNullOrEmpty(versionMatch) && versionMatch != "*")
 			{
-				failure = "The characterized MD5 fallback for a conflicts-rule endpoint accepts only Vortex wildcard source versions.";
-				return false;
+				CollectionVortexVersionMatch sourceVersion;
+				string sourceVersionFailure;
+				if (!CollectionVortexVersionMatch.TryCreate(versionMatch, out sourceVersion, out sourceVersionFailure) ||
+					sourceVersion.IsRange || sourceVersion.IsPrefer)
+				{
+					failure = "The characterized MD5 fallback for a conflicts-rule endpoint accepts wildcard or exact source versions, but not fuzzy/range versions.";
+					return false;
+				}
 			}
 			string logicalFileName = ReadString(reference, "logicalFileName");
 			string gameId = NormalizeDomain(ReadString(reference, "gameId"));
 			string fileExpression = ReadString(reference, "fileExpression");
-			if (!IsNormalizedOptionalString(logicalFileName) || !IsNormalizedOptionalString(fileExpression))
+			if (!IsPortableFilenameIdentity(logicalFileName) || !IsPortableFilenameIdentity(fileExpression))
 			{
-				failure = "Conflicts-rule endpoint identity strings must not contain leading/trailing whitespace.";
+				failure = "Conflicts-rule endpoint filename identities must be non-empty and contain no control characters.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression))
@@ -1464,6 +1495,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				StringComparer.Ordinal.Equals(fileMd5, candidate.SourceMd5) &&
 				(String.IsNullOrEmpty(logicalFileName) || StringComparer.Ordinal.Equals(logicalFileName, candidate.SourceLogicalFilename)) &&
 				(String.IsNullOrEmpty(gameId) || StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain)) &&
+				FilePriorityVersionMatches(versionMatch, candidate.Version) &&
 				(String.IsNullOrEmpty(fileExpression) || String.IsNullOrEmpty(candidate.SourceFileExpression) ||
 					StringComparer.Ordinal.Equals(fileExpression, candidate.SourceFileExpression))).ToList();
 			if (exactMd5Matches.Count != 1)
@@ -1530,10 +1562,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				failure = "Cross-game Vortex conflict references are outside the characterized single-target Collection compatibility model.";
 				return false;
 			}
-			if (!IsNormalizedOptionalString(fileMd5) || !IsNormalizedOptionalString(logicalFileName) ||
-				!IsNormalizedOptionalString(fileExpression) || !IsNormalizedOptionalString(tag))
+			if (!IsNormalizedOptionalString(fileMd5) || !IsPortableFilenameIdentity(logicalFileName) ||
+				!IsPortableFilenameIdentity(fileExpression) || !IsNormalizedOptionalString(tag))
 			{
-				failure = "Conflict identity strings must not contain leading/trailing whitespace.";
+				failure = "Conflict filename identities must be non-empty and contain no control characters; hashes and tags must be normalized.";
 				return false;
 			}
 			if (!String.IsNullOrEmpty(fileExpression) && ContainsGlobSyntax(fileExpression) &&
@@ -1678,9 +1710,46 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				matcher.Evaluate(candidateVersion) == CollectionVortexVersionMatchResult.Match;
 		}
 
+		/// <summary>Preserves literal filename identities, including ordinary surrounding spaces exported by Vortex.</summary>
+		private static bool IsPortableFilenameIdentity(string value)
+		{
+			return value == null || (!String.IsNullOrWhiteSpace(value) && !value.Any(Char.IsControl));
+		}
+
 		private static bool IsNormalizedOptionalString(string value)
 		{
 			return value == null || (!String.IsNullOrWhiteSpace(value) && StringComparer.Ordinal.Equals(value, value.Trim()));
+		}
+
+		/// <summary>
+		/// Allows surrounding ordinary spaces/tabs only for a before/after endpoint already anchored
+		/// by an unmodified archive MD5. Never convert empty fields into missing constraints, and
+		/// never accept control or non-ASCII whitespace as harmless filename decoration.
+		/// </summary>
+		private static bool TryNormalizeExactMd5PriorityEndpointIdentity(string raw, out string normalized)
+		{
+			normalized = raw;
+			if (raw == null)
+				return true;
+			if (String.IsNullOrWhiteSpace(raw))
+				return false;
+			normalized = raw.Trim(' ', '\t');
+			return IsNormalizedOptionalString(normalized);
+		}
+
+		/// <summary>
+		/// An explicitly empty Vortex versionMatch is an unspecified version, not an invalid filename.
+		/// Permit it only in the exact-MD5-anchored before/after fallback above; other identity fields
+		/// still reject emptiness, and whitespace-only versions remain invalid.
+		/// </summary>
+		private static bool TryNormalizeExactMd5PriorityEndpointVersion(string raw, out string normalized)
+		{
+			if (raw != null && raw.Length == 0)
+			{
+				normalized = String.Empty;
+				return true;
+			}
+			return TryNormalizeExactMd5PriorityEndpointIdentity(raw, out normalized);
 		}
 
 		private static bool ContainsGlobSyntax(string value)
@@ -2129,7 +2198,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				return result;
 			}
 
-			var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			// Duplicate declarations of the same desired boolean state are idempotent. Contradictory
+			// declarations remain unsupported; never silently pick the first or last value.
+			var desiredStates = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 			for (int index = 0; index < plugins.Count; index++)
 			{
 				string path = "$.plugins[" + index.ToString(CultureInfo.InvariantCulture) + "]";
@@ -2166,12 +2237,15 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					}
 					enabled = (bool)enabledToken;
 				}
-				if (!names.Add(name))
+				bool previousEnabled;
+				if (desiredStates.TryGetValue(name, out previousEnabled))
 				{
-					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
-						"manifest.plugins-duplicate", "Collection plugin declarations must be unique by plugin file name.", path + ".name"));
+					if (previousEnabled != enabled)
+						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
+							"manifest.plugins-duplicate", "A Collection plugin is declared with conflicting enabled states.", path + ".name"));
 					continue;
 				}
+				desiredStates.Add(name, enabled);
 				result.Add(new CollectionDesiredPluginState(name, enabled));
 			}
 			return result;

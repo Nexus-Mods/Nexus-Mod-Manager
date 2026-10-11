@@ -83,7 +83,9 @@ namespace Nexus.Client.UI
 		Warning,
 		Uninstall,
 		Reinstall,
-		Restrictions
+		Restrictions,
+		Endorsed,
+		Abstained
 	}
 
 	internal enum NmmIconStyle

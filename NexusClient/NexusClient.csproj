@@ -137,6 +137,8 @@
     <Compile Include="CollectionManagement\CollectionUninstallEffectsCoordinator.cs" />
     <Compile Include="CollectionManagement\CollectionExecutionPolicy.cs" />
     <Compile Include="CollectionManagement\CollectionEffectiveSelection.cs" />
+    <Compile Include="CollectionManagement\CollectionAutomaticDependencyResolver.cs" />
+    <Compile Include="CollectionManagement\CollectionPreparationProgress.cs" />
     <Compile Include="CollectionManagement\CollectionNexusSourcePolicyResolver.cs" />
     <Compile Include="CollectionManagement\CollectionResolvedPlanBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionAdditivePlanPreparationService.cs" />
@@ -1072,6 +1074,8 @@
     <EmbeddedResource Include="Resources\Icons\Minimal\DisplayOptions.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\EnableAll.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\Endorse.svg" />
+    <EmbeddedResource Include="Resources\Icons\Minimal\Abstained.svg" />
+    <EmbeddedResource Include="Resources\Icons\Minimal\Endorsed.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\Expand.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\Export.svg" />
     <EmbeddedResource Include="Resources\Icons\Minimal\ExternalLink.svg" />
@@ -1132,6 +1136,8 @@
     <EmbeddedResource Include="Resources\Icons\Classic\DisplayOptions.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\EnableAll.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Endorse.svg" />
+    <EmbeddedResource Include="Resources\Icons\Classic\Abstained.svg" />
+    <EmbeddedResource Include="Resources\Icons\Classic\Endorsed.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Expand.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\Export.svg" />
     <EmbeddedResource Include="Resources\Icons\Classic\ExternalLink.svg" />
@@ -1333,6 +1339,7 @@
     <Compile Include="ModManagement\ModFileIdentity.cs" />
     <Compile Include="ModManagement\ModMatcher.cs" />
     <Compile Include="ModManagement\ModUninstaller.cs" />
+    <Compile Include="ModManagement\ModUninstallHistory.cs" />
     <Compile Include="ModManagement\ModUpgrader.cs" />
     <Compile Include="ModManagement\NexusUrl.cs" />
     <Compile Include="ModManagement\PrepareModTask.cs" />

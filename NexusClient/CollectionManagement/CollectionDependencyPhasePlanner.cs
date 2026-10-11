@@ -96,10 +96,16 @@ namespace Nexus.Client.CollectionManagement
 
 			var phases = new List<CollectionExecutionPhase>();
 			var phaseNumbers = membersByPhase.Keys.OrderBy(x => x).ToList();
+			IComparer<CollectionMemberKey> memberOrder = plan.Policy.PreferIncomingCollection
+				? (IComparer<CollectionMemberKey>)Comparer<CollectionMemberKey>.Create((left, right) =>
+				{
+					int ordinal = selected[left].SourceOrdinal.CompareTo(selected[right].SourceOrdinal);
+					return ordinal != 0 ? ordinal : CollectionMemberKeyComparer.Instance.Compare(left, right);
+				}) : CollectionMemberKeyComparer.Instance;
 			foreach (double phaseNumber in phaseNumbers)
 			{
 				List<CollectionMemberKey> orderedKeys;
-				if (!TryOrderPhase(membersByPhase[phaseNumber], samePhaseDependents, samePhaseInDegree, out orderedKeys))
+				if (!TryOrderPhase(membersByPhase[phaseNumber], samePhaseDependents, samePhaseInDegree, memberOrder, out orderedKeys))
 				{
 					issues.Add(new CollectionDependencyPhaseIssue(CollectionDependencyPhaseIssueKind.DependencyCycle,
 						"The selected members contain a prerequisite cycle within one installation phase.",
@@ -135,12 +141,12 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool TryOrderPhase(IEnumerable<CollectionMemberKey> phaseMembers,
 			IDictionary<CollectionMemberKey, List<CollectionMemberKey>> dependents,
-			IDictionary<CollectionMemberKey, int> inDegree, out List<CollectionMemberKey> ordered)
+			IDictionary<CollectionMemberKey, int> inDegree, IComparer<CollectionMemberKey> memberOrder, out List<CollectionMemberKey> ordered)
 		{
 			var keys = phaseMembers.ToList();
 			var phaseKeySet = new HashSet<CollectionMemberKey>(keys);
 			var remainingDegree = new Dictionary<CollectionMemberKey, int>();
-			var ready = new SortedSet<CollectionMemberKey>(CollectionMemberKeyComparer.Instance);
+			var ready = new SortedSet<CollectionMemberKey>(memberOrder);
 			foreach (CollectionMemberKey key in keys)
 			{
 				int degree = inDegree[key];

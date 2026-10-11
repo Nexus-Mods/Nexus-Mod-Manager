@@ -11,6 +11,22 @@ namespace Nexus.Client.CollectionManagement
 		KeepExistingManagedFileWinner = 2
 	}
 
+	/// <summary>One explicit decision for a file in the current reviewed Collection, never a global overwrite rule.</summary>
+	public sealed class CollectionFileWinnerDecisionRequest
+	{
+		public CollectionFileWinnerDecisionRequest(ModDeploymentTarget target, CollectionConflictResolutionDecisionKind kind)
+		{
+			Target = target ?? throw new ArgumentNullException(nameof(target));
+			if (kind != CollectionConflictResolutionDecisionKind.IncomingCollectionWinsFile &&
+				kind != CollectionConflictResolutionDecisionKind.KeepExistingManagedFileWinner)
+				throw new ArgumentOutOfRangeException(nameof(kind));
+			Kind = kind;
+		}
+
+		public ModDeploymentTarget Target { get; }
+		public CollectionConflictResolutionDecisionKind Kind { get; }
+	}
+
 	/// <summary>
 	/// Binds one explicit file-winner decision to the exact Collection revision, target, member, path and existing owner.
 	/// </summary>
