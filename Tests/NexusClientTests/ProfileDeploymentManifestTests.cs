@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Xml.Linq;
 using Nexus.Client.ModManagement;
@@ -117,6 +118,37 @@ namespace NexusClientTests
 				TargetInvocationException error = Assert.Throws<TargetInvocationException>(() => Read(path, true));
 				Assert.IsInstanceOf<InvalidDataException>(error.InnerException);
 				Assert.IsEmpty(Directory.GetFiles(Path.GetDirectoryName(path), "*.bak"));
+			});
+		}
+
+		/// <summary>Own-save identity indexes are reused only for the same existing file with unchanged metadata.</summary>
+		[Test]
+		public void Capture_CachedModIndex_ObservesExternalChangesAndDeletion()
+		{
+			WithManifest(false, path =>
+			{
+				var manager = (ProfileManager)FormatterServices.GetUninitializedObject(typeof(ProfileManager));
+				BindingFlags fields = BindingFlags.Instance | BindingFlags.NonPublic;
+				Action<string, object> set = (name, value) => typeof(ProfileManager).GetField(name, fields).SetValue(manager, value);
+				set("m_objDeploymentManifestStateLock", new object());
+				set("m_strProfileManagerPath", Path.GetDirectoryName(Path.GetDirectoryName(path)));
+				IModProfile profile = InterfaceStub<IModProfile>.Create((method, args) =>
+					method.Name == "get_Id" ? Path.GetFileName(Path.GetDirectoryName(path)) : null);
+				Type indexType = typeof(ProfileManager).GetNestedType("ProfileDeploymentModIndex", BindingFlags.NonPublic);
+				object cached = Activator.CreateInstance(indexType, new object[] { Read(path, true).Mods });
+				var file = new FileInfo(path);
+				set("m_strCachedDeploymentModIndexPath", file.FullName);
+				set("m_dteCachedDeploymentModIndexWriteUtc", file.LastWriteTimeUtc);
+				set("m_lngCachedDeploymentModIndexLength", file.Length);
+				set("m_pdiCachedDeploymentModIndex", cached);
+				MethodInfo readIndex = typeof(ProfileManager).GetMethod("ReadPreviousDeploymentModIndex", fields);
+				Assert.AreSame(cached, readIndex.Invoke(manager, new object[] { profile }));
+				File.SetLastWriteTimeUtc(path, file.LastWriteTimeUtc.AddMinutes(1));
+				Assert.AreNotSame(cached, readIndex.Invoke(manager, new object[] { profile }));
+				set("m_pdiCachedDeploymentModIndex", cached);
+				File.Delete(path);
+				Assert.IsNull(readIndex.Invoke(manager, new object[] { profile }));
+				Assert.IsNull(typeof(ProfileManager).GetField("m_pdiCachedDeploymentModIndex", fields).GetValue(manager));
 			});
 		}
 

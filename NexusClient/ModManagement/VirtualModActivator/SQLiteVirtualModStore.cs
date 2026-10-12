@@ -352,6 +352,10 @@ namespace Nexus.Client.ModManagement
 
 		private static void SynchronizeLinks(SQLiteConnection connection, SQLiteTransaction transaction, PersistedModRecord storedRecord, IList<IVirtualModLink> incomingLinks, StoreSyncStatistics statistics)
 		{
+			// Most mods are unchanged when persisting one new installation. Avoid allocating a
+			// dictionary, identity strings and queues for every previously installed link.
+			if (LinksMatchInOrder(storedRecord.Links, incomingLinks))
+				return;
 			Dictionary<string, Queue<PersistedLinkRecord>> storedByIdentity = new Dictionary<string, Queue<PersistedLinkRecord>>(StringComparer.OrdinalIgnoreCase);
 			for (int storedIndex = 0; storedIndex < storedRecord.Links.Count; storedIndex++)
 			{
@@ -395,6 +399,24 @@ namespace Nexus.Client.ModManagement
 				DeleteLink(connection, transaction, storedLink.LinkKey);
 				statistics.DeletedLinks++;
 			}
+		}
+
+		/// <summary>Checks unchanged ordered link metadata without allocating identity buckets or issuing writes.</summary>
+		private static bool LinksMatchInOrder(IList<PersistedLinkRecord> storedLinks, IList<IVirtualModLink> incomingLinks)
+		{
+			if (storedLinks.Count != incomingLinks.Count)
+				return false;
+			for (int index = 0; index < storedLinks.Count; index++)
+			{
+				PersistedLinkRecord stored = storedLinks[index];
+				IVirtualModLink incoming = incomingLinks[index];
+				if (stored.LinkOrder != index || stored.Priority != incoming.Priority || stored.IsActive != incoming.Active ||
+					stored.InstallRoot != NormalizeInstallRoot(incoming.InstallRoot) ||
+					!String.Equals(stored.RealPath, RequiredString(incoming.RealModPath, "realPath"), StringComparison.Ordinal) ||
+					!String.Equals(stored.VirtualPath, RequiredString(incoming.VirtualModPath, "virtualPath"), StringComparison.Ordinal))
+					return false;
+			}
+			return true;
 		}
 
 		private static List<PersistedModRecord> LoadPersistedRecords(SQLiteConnection connection, SQLiteTransaction transaction)

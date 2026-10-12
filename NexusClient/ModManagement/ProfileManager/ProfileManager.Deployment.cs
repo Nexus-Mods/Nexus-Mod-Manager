@@ -19,6 +19,10 @@ namespace Nexus.Client.ModManagement
 		private long m_lngDeploymentManifestRevision;
 		private long m_lngSavedDeploymentManifestRevision = -1;
 		private string m_strSavedDeploymentManifestProfileId;
+		private string m_strCachedDeploymentModIndexPath;
+		private DateTime m_dteCachedDeploymentModIndexWriteUtc;
+		private long m_lngCachedDeploymentModIndexLength;
+		private ProfileDeploymentModIndex m_pdiCachedDeploymentModIndex;
 
 		/// <summary>
 		/// Loads method-neutral deployment state for a profile, or synthesizes Virtual-only state for a legacy profile.
@@ -210,7 +214,27 @@ namespace Nexus.Client.ModManagement
 			if (!Directory.Exists(directory))
 				Directory.CreateDirectory(directory);
 
-			WriteProfileFiles(path, Encoding.UTF8.GetBytes(document.ToString()));
+			bool saved = WriteProfileFiles(path, Encoding.UTF8.GetBytes(document.ToString()));
+			if (String.Equals(Path.GetFullPath(path), Path.GetFullPath(GetProfileDeploymentPath(p_impProfile)), StringComparison.OrdinalIgnoreCase))
+			{
+				lock (m_objDeploymentManifestStateLock)
+				{
+					m_pdiCachedDeploymentModIndex = null;
+					if (saved)
+					{
+						try
+						{
+							var savedFile = new FileInfo(path);
+							m_strCachedDeploymentModIndexPath = savedFile.FullName;
+							m_dteCachedDeploymentModIndexWriteUtc = savedFile.LastWriteTimeUtc;
+							m_lngCachedDeploymentModIndexLength = savedFile.Length;
+							m_pdiCachedDeploymentModIndex = new ProfileDeploymentModIndex(manifest.Mods);
+						}
+						catch (IOException) { m_pdiCachedDeploymentModIndex = null; }
+						catch (UnauthorizedAccessException) { m_pdiCachedDeploymentModIndex = null; }
+					}
+				}
+			}
 		}
 
 		/// <summary>
@@ -221,15 +245,30 @@ namespace Nexus.Client.ModManagement
 			return Path.Combine(m_strProfileManagerPath, p_impProfile.Id, DEPLOYMENT_FILE);
 		}
 
+		/// <summary>Reuses the mod identity index from our last successful save while observing external file changes.</summary>
+		private ProfileDeploymentModIndex ReadPreviousDeploymentModIndex(IModProfile profile)
+		{
+			var file = new FileInfo(GetProfileDeploymentPath(profile));
+			if (!file.Exists)
+			{
+				lock (m_objDeploymentManifestStateLock) m_pdiCachedDeploymentModIndex = null;
+				return null;
+			}
+			lock (m_objDeploymentManifestStateLock)
+			{
+				if (m_pdiCachedDeploymentModIndex != null &&
+					String.Equals(file.FullName, m_strCachedDeploymentModIndexPath, StringComparison.OrdinalIgnoreCase) &&
+					file.LastWriteTimeUtc == m_dteCachedDeploymentModIndexWriteUtc && file.Length == m_lngCachedDeploymentModIndexLength)
+					return m_pdiCachedDeploymentModIndex;
+				m_pdiCachedDeploymentModIndex = null;
+			}
+			return new ProfileDeploymentModIndex(ReadDeploymentManifest(file.FullName, true).Mods);
+		}
+
 		private ProfileDeploymentManifest CaptureCurrentDeploymentManifest(IModProfile p_impProfile)
 		{
-			ProfileDeploymentManifest previous = null;
-			string path = GetProfileDeploymentPath(p_impProfile);
-			if (File.Exists(path))
-				previous = ReadDeploymentManifest(path, true);
-
+			ProfileDeploymentModIndex previousModIndex = ReadPreviousDeploymentModIndex(p_impProfile);
 			var manifest = new ProfileDeploymentManifest();
-			var previousModIndex = previous == null ? null : new ProfileDeploymentModIndex(previous.Mods);
 			var profileIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			var runtimeToProfileId = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 			foreach (IMod mod in ModManager.InstallationLog.ActiveMods)

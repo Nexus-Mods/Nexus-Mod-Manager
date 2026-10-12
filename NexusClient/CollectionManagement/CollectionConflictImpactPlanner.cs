@@ -556,12 +556,26 @@ namespace Nexus.Client.CollectionManagement
 
 			var result = new List<CollectionFileImpact>();
 			Dictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey = plan.SelectedMembers.ToDictionary(x => x.MemberKey);
+			var winnersByWriterSet = new Dictionary<IList<CollectionMemberKey>, Tuple<CollectionMemberKey, bool>>(new WriterSetComparer());
 			foreach (KeyValuePair<ModDeploymentTarget, List<CollectionMemberKey>> entry in writersByTarget
 				.OrderBy(x => x.Key.Root).ThenBy(x => x.Key.RelativePath, StringComparer.OrdinalIgnoreCase))
 			{
 				entry.Value.Sort(CompareMemberKeys);
-				bool priorityCycle;
-				CollectionMemberKey winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey);
+				bool priorityCycle = false;
+				CollectionMemberKey winner;
+				if (entry.Value.Count == 1) winner = entry.Value[0];
+				else
+				{
+					Tuple<CollectionMemberKey, bool> resolution;
+					if (!winnersByWriterSet.TryGetValue(entry.Value, out resolution))
+					{
+						winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey);
+						resolution = Tuple.Create(winner, priorityCycle);
+						winnersByWriterSet.Add(entry.Value, resolution);
+					}
+					winner = resolution.Item1;
+					priorityCycle = resolution.Item2;
+				}
 				if (priorityCycle)
 				{
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.FilePriorityCycle,
@@ -772,6 +786,11 @@ namespace Nexus.Client.CollectionManagement
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> original = previews.Values.Where(x => x.IsComplete)
 				.SelectMany(x => x.PluginEffects.Select(effect => Tuple.Create(x.MemberKey, effect))).ToList();
 			List<Tuple<CollectionMemberKey, CollectionPlannedPluginEffect>> all = original;
+			if (original.Count == 0 && !manifest.HasPluginStateSection && manifest.PluginRelativeOrderRules.Count == 0 &&
+				(requiredPlugins == null || requiredPlugins.Count == 0)) return new List<CollectionPluginImpact>();
+			var nativeFiles = new PluginFileLookup(nativeState);
+			var previewFileNames = previews.ToDictionary(x => x.Key, x => new HashSet<string>(
+				x.Value.Files.Where(f => f.Target.Root == ModDeploymentRoot.Data).Select(f => Path.GetFileName(f.Target.RelativePath)), StringComparer.OrdinalIgnoreCase));
 			Dictionary<string, List<Tuple<CollectionMemberKey, string>>> candidates = null;
 
 			if (manifest.HasPluginStateSection || manifest.PluginRelativeOrderRules.Count > 0 || (requiredPlugins != null && requiredPlugins.Count > 0))
@@ -785,7 +804,7 @@ namespace Nexus.Client.CollectionManagement
 					string ownerKey = match.MatchedNativeMod.Identity.NativeModKey;
 					foreach (CollectionNativePluginState plugin in nativeState.Plugins.Values)
 					{
-						CollectionNativeFileState file = FindFileForPlugin(nativeState, plugin.FileName);
+						CollectionNativeFileState file = FindFileForPlugin(nativeFiles, plugin.FileName);
 						if (file != null && FileHasNativeOwner(file, ownerKey))
 							AddPluginCandidate(candidates, match.Member.MemberKey, String.IsNullOrWhiteSpace(file.PhysicalPath) ? plugin.FileName : file.PhysicalPath);
 					}
@@ -799,7 +818,7 @@ namespace Nexus.Client.CollectionManagement
 					foreach (KeyValuePair<string, List<Tuple<CollectionMemberKey, string>>> candidate in candidates.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
 					{
 						CollectionMemberKey memberKey = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
-						string path = ResolvePluginCandidatePath(nativeState, candidate.Key, candidate.Value);
+						string path = ResolvePluginCandidatePath(nativeFiles, candidate.Key, candidate.Value);
 						all.Add(Tuple.Create(memberKey, CollectionPlannedPluginEffect.Activation(path, enabledNames.Contains(candidate.Key) || (requiredPlugins != null && requiredPlugins.Contains(candidate.Key)))));
 					}
 				}
@@ -811,7 +830,7 @@ namespace Nexus.Client.CollectionManagement
 					foreach (KeyValuePair<string, List<Tuple<CollectionMemberKey, string>>> candidate in candidates.Where(x => requiredPlugins.Contains(x.Key)))
 					{
 						CollectionMemberKey key = candidate.Value.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
-						all.Add(Tuple.Create(key, CollectionPlannedPluginEffect.Activation(ResolvePluginCandidatePath(nativeState, candidate.Key, candidate.Value), true)));
+						all.Add(Tuple.Create(key, CollectionPlannedPluginEffect.Activation(ResolvePluginCandidatePath(nativeFiles, candidate.Key, candidate.Value), true)));
 					}
 				}
 				foreach (CollectionPluginRelativeOrderRule rule in manifest.PluginRelativeOrderRules)
@@ -838,8 +857,8 @@ namespace Nexus.Client.CollectionManagement
 					}
 
 					CollectionMemberKey memberKey = sourceCandidates.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First();
-					string sourcePath = ResolvePluginCandidatePath(nativeState, rule.PluginName, sourceCandidates);
-					string referencePath = ResolvePluginCandidatePath(nativeState, rule.AfterPluginName, referenceCandidates);
+					string sourcePath = ResolvePluginCandidatePath(nativeFiles, rule.PluginName, sourceCandidates);
+					string referencePath = ResolvePluginCandidatePath(nativeFiles, rule.AfterPluginName, referenceCandidates);
 					CollectionPlannedPluginEffect relative = CollectionPlannedPluginEffect.RelativeOrder(new[] { referencePath, sourcePath });
 					if (!all.Any(x => x.Item2.Kind == CollectionPlannedPluginEffectKind.RelativeOrder &&
 						x.Item2.PluginPaths.Count == 2 && StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Item2.PluginPaths[0]), rule.AfterPluginName) &&
@@ -866,16 +885,17 @@ namespace Nexus.Client.CollectionManagement
 				bool changesExistingUnrelatedPlugin = false;
 				foreach (string pluginPath in item.Item2.PluginPaths)
 				{
-					affected.UnionWith(AssociationIdsForPlugin(nativeState, pluginPath));
-					CollectionNativeFileState pluginFile = FindFileForPlugin(nativeState, pluginPath);
+					CollectionNativeFileState pluginFile = FindFileForPlugin(nativeFiles, pluginPath);
+					affected.UnionWith(AssociationIdsForOwner(nativeState, pluginFile == null ? null : pluginFile.EffectiveOwnerKey));
 					string ownerKey = pluginFile == null ? null : pluginFile.EffectiveOwnerKey;
 					CollectionNativePluginState existingPlugin = FindPlugin(nativeState, pluginPath);
 					bool changesState = existingPlugin == null || PluginEffectChangesExistingState(item.Item2, existingPlugin);
 					if (changesState && !String.IsNullOrWhiteSpace(ownerKey) && !CurrentOwnerIsIncomingWriter(ownerKey, selectedKeys, matches.MembersByKey) &&
 						!CurrentOwnerIsReviewedRevisionOwner(ownerKey, reviewedExistingOwnerKeys))
 						changesExistingUnrelatedPlugin = true;
-					CollectionMemberEffectPreview memberPreview;
-					bool previewWrites = previews.TryGetValue(item.Item1, out memberPreview) && PreviewWritesPlugin(memberPreview, pluginPath);
+					HashSet<string> memberFileNames;
+					bool previewWrites = previewFileNames.TryGetValue(item.Item1, out memberFileNames) &&
+						memberFileNames.Contains(Path.GetFileName((pluginPath ?? String.Empty).Replace('/', '\\')));
 					// A plugin can remain in the registry after removal. Its unowned state is not an unrelated
 					// mod decision when this exact incoming recipe will install the plugin again.
 					if (existingPlugin != null && changesState && !previewWrites &&
@@ -901,10 +921,10 @@ namespace Nexus.Client.CollectionManagement
 			return result;
 		}
 
-		private static string ResolvePluginCandidatePath(CollectionNativeStateIndex state, string pluginName,
+		private static string ResolvePluginCandidatePath(PluginFileLookup nativeFiles, string pluginName,
 			IEnumerable<Tuple<CollectionMemberKey, string>> candidates)
 		{
-			CollectionNativeFileState existingFile = FindFileForPlugin(state, pluginName);
+			CollectionNativeFileState existingFile = FindFileForPlugin(nativeFiles, pluginName);
 			if (existingFile != null && !String.IsNullOrWhiteSpace(existingFile.PhysicalPath)) return existingFile.PhysicalPath;
 			return candidates.Select(x => x.Item2).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).First();
 		}
@@ -1137,16 +1157,6 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private static bool PreviewWritesPlugin(CollectionMemberEffectPreview preview, string pluginPath)
-		{
-			string normalized = (pluginPath ?? String.Empty).Replace('/', '\\');
-			string fileName = Path.GetFileName(normalized);
-			return preview.Files.Any(x => x.Target.Root == ModDeploymentRoot.Data &&
-				(StringComparer.OrdinalIgnoreCase.Equals(x.Target.RelativePath, normalized) ||
-				(!String.IsNullOrWhiteSpace(fileName) &&
-					StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Target.RelativePath), fileName))));
-		}
-
 		private static bool PluginEffectChangesExistingState(CollectionPlannedPluginEffect effect, CollectionNativePluginState current)
 		{
 			if (effect.Kind == CollectionPlannedPluginEffectKind.Activation)
@@ -1155,22 +1165,66 @@ namespace Nexus.Client.CollectionManagement
 				effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder;
 		}
 
-		private static HashSet<Guid> AssociationIdsForPlugin(CollectionNativeStateIndex state, string pluginPath)
+		/// <summary>Looks up a unique native plugin file without rescanning all installed file ownership.</summary>
+		private static CollectionNativeFileState FindFileForPlugin(PluginFileLookup nativeFiles, string pluginPath)
 		{
-			CollectionNativeFileState file = FindFileForPlugin(state, pluginPath);
-			return AssociationIdsForOwner(state, file == null ? null : file.EffectiveOwnerKey);
+			return nativeFiles.Find(pluginPath);
 		}
 
-		private static CollectionNativeFileState FindFileForPlugin(CollectionNativeStateIndex state, string pluginPath)
+		/// <summary>Indexes unique paths and basenames once while preserving ambiguity across deployment roots.</summary>
+		private sealed class PluginFileLookup
 		{
-			string normalized = (pluginPath ?? String.Empty).Replace('/', '\\');
-			List<CollectionNativeFileState> exact = state.Files.Values.Where(x =>
-				StringComparer.OrdinalIgnoreCase.Equals(x.Target.RelativePath, normalized)).ToList();
-			if (exact.Count == 1) return exact[0];
-			string name = Path.GetFileName(normalized);
-			List<CollectionNativeFileState> byName = state.Files.Values.Where(x =>
-				StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.Target.RelativePath), name)).ToList();
-			return byName.Count == 1 ? byName[0] : null;
+			private readonly Dictionary<string, CollectionNativeFileState> _byPath = new Dictionary<string, CollectionNativeFileState>(StringComparer.OrdinalIgnoreCase);
+			private readonly Dictionary<string, CollectionNativeFileState> _byName = new Dictionary<string, CollectionNativeFileState>(StringComparer.OrdinalIgnoreCase);
+
+			/// <summary>Captures the same native files used by the conflict-planning pass.</summary>
+			public PluginFileLookup(CollectionNativeStateIndex state)
+			{
+				foreach (CollectionNativeFileState file in state.Files.Values)
+				{
+					AddUnique(_byPath, file.Target.RelativePath, file);
+					AddUnique(_byName, Path.GetFileName(file.Target.RelativePath), file);
+				}
+			}
+
+			/// <summary>Prefers an exact unique relative path, then a unique basename, as the legacy lookup did.</summary>
+			public CollectionNativeFileState Find(string pluginPath)
+			{
+				string normalized = (pluginPath ?? String.Empty).Replace('/', '\\');
+				CollectionNativeFileState file;
+				if (_byPath.TryGetValue(normalized, out file) && file != null) return file;
+				return _byName.TryGetValue(Path.GetFileName(normalized), out file) ? file : null;
+			}
+
+			/// <summary>Retains a null marker when multiple native targets share the same lookup key.</summary>
+			private static void AddUnique(IDictionary<string, CollectionNativeFileState> index, string key, CollectionNativeFileState file)
+			{
+				index[key] = index.ContainsKey(key) ? null : file;
+			}
+		}
+
+		/// <summary>Compares sorted writer lists structurally so repeated shared file targets reuse one rule-graph result.</summary>
+		private sealed class WriterSetComparer : IEqualityComparer<IList<CollectionMemberKey>>
+		{
+			/// <summary>Compares the exact members of two already sorted writer groups.</summary>
+			public bool Equals(IList<CollectionMemberKey> left, IList<CollectionMemberKey> right)
+			{
+				if (ReferenceEquals(left, right)) return true;
+				if (left == null || right == null || left.Count != right.Count) return false;
+				for (int i = 0; i < left.Count; i++) if (!left[i].Equals(right[i])) return false;
+				return true;
+			}
+
+			/// <summary>Hashes member identities without string concatenation or a per-target serialized cache key.</summary>
+			public int GetHashCode(IList<CollectionMemberKey> writers)
+			{
+				unchecked
+				{
+					int hash = 17;
+					foreach (CollectionMemberKey writer in writers) hash = hash * 31 + writer.GetHashCode();
+					return hash;
+				}
+			}
 		}
 
 		private static CollectionNativePluginState FindPlugin(CollectionNativeStateIndex state, string pluginPath)

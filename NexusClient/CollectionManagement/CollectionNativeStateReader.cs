@@ -55,13 +55,15 @@ namespace Nexus.Client.CollectionManagement
 			if (Transaction.Current != null)
 				throw new InvalidOperationException("Collection native state cannot be captured from inside an ambient native transaction.");
 
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			IInstallLog installLog = _installLogProvider();
 			if (installLog == null)
 				throw new InvalidOperationException("The current authoritative InstallLog is unavailable.");
 
 			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(installLog, _virtualModActivator,
-				null, _pluginManager, _gameMode).Capture();
-			return Capture(target, nativeCapture);
+				null, _pluginManager, _gameMode).CaptureForCollectionIndex();
+			CollectionsAssociationTargetSnapshot ignored;
+			return Capture(target, nativeCapture, out ignored, performanceStarted);
 		}
 
 		/// <summary>
@@ -75,14 +77,15 @@ namespace Nexus.Client.CollectionManagement
 			if (Transaction.Current != null)
 				throw new InvalidOperationException("Collection replacement state cannot be captured from inside an ambient native transaction.");
 
+			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			IInstallLog installLog = _installLogProvider();
 			if (installLog == null)
 				throw new InvalidOperationException("The current authoritative InstallLog is unavailable.");
 
 			NativeStateCaptureSnapshot nativeCapture = new NativeStateCaptureReader(installLog, _virtualModActivator,
-				null, _pluginManager, _gameMode).Capture();
+				null, _pluginManager, _gameMode).CaptureForCollectionIndex();
 			CollectionsAssociationTargetSnapshot associationSnapshot;
-			CollectionNativeStateIndex nativeState = Capture(target, nativeCapture, out associationSnapshot);
+			CollectionNativeStateIndex nativeState = Capture(target, nativeCapture, out associationSnapshot, performanceStarted);
 			return new CollectionReplacementCurrentSetupSnapshot(nativeState,
 				associationSnapshot == null ? Enumerable.Empty<CollectionDriftObservation>() : associationSnapshot.DriftObservations,
 				associationSnapshot == null ? Enumerable.Empty<NativeModProvenance>() : associationSnapshot.NativeModProvenance);
@@ -104,9 +107,9 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private CollectionNativeStateIndex Capture(CollectionTargetIdentity target, NativeStateCaptureSnapshot nativeCapture,
-			out CollectionsAssociationTargetSnapshot associationSnapshot)
+			out CollectionsAssociationTargetSnapshot associationSnapshot, long performanceStarted = 0)
 		{
-			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			if (performanceStarted == 0) performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (target == null)
 				throw new ArgumentNullException(nameof(target));
 			if (nativeCapture == null)

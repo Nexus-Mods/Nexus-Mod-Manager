@@ -10,6 +10,18 @@ namespace Nexus.Client.ModManagement
 		/// <inheritdoc />
 		public VirtualModReadSnapshot GetReadSnapshot()
 		{
+			return GetReadSnapshot(true);
+		}
+
+		/// <summary>Captures Collection ownership metadata without resolving unused staged payload paths on any drive.</summary>
+		internal VirtualModReadSnapshot GetReadSnapshotForCollections()
+		{
+			return GetReadSnapshot(false);
+		}
+
+		/// <summary>Projects the same owner links, optionally resolving physical payload references for backup and restore.</summary>
+		private VirtualModReadSnapshot GetReadSnapshot(bool resolvePayloadSources)
+		{
 			IVirtualModLink[] links = VirtualLinks == null ? new IVirtualModLink[0] : VirtualLinks.ToArray();
 			Dictionary<IVirtualModInfo, IMod> managedMods = BuildManagedModLookupForVirtualLinks(links);
 			var result = new List<VirtualModReadLink>(links.Length);
@@ -30,7 +42,7 @@ namespace Nexus.Client.ModManagement
 					? String.Empty
 					: String.Join("|", new[] { link.ModInfo.ModFileName, link.ModInfo.DownloadId, link.ModInfo.UpdatedDownloadId, link.ModInfo.ModFileFullPath });
 				string resolvedPayloadSourcePath = String.Empty;
-				if (link.Active)
+				if (link.Active && resolvePayloadSources)
 				{
 					try
 					{

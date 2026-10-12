@@ -66,12 +66,17 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				throw new ArgumentNullException(nameof(operation));
 
 			RequirePersistedCollection(connection, transaction, operation.Collection);
+			var checkedRevisions = new HashSet<CollectionRevisionIdentity>();
 			if (operation.Revision != null)
+			{
 				RequirePersistedRevision(connection, transaction, operation.Revision);
+				checkedRevisions.Add(operation.Revision);
+			}
 			if (operation.PlanIdentity != null)
 				RequirePersistedPlan(connection, transaction, operation, false);
 			foreach (CollectionNativeChildOperation child in operation.NativeChildren)
-				RequirePersistedRevision(connection, transaction, child.Member.Revision);
+				if (checkedRevisions.Add(child.Member.Revision))
+					RequirePersistedRevision(connection, transaction, child.Member.Revision);
 
 			CollectionOperation existing = ReadOperation(connection, transaction, operation.Identity.OperationId);
 			if (existing == null)

@@ -761,7 +761,7 @@ namespace Nexus.Client.CollectionManagement
 					// Reconciliation changes only Collection provenance. Reuse the verified native observation instead of
 					// scanning every installed file again; submission revalidates it under the next target reservation.
 					currentState = _nativeChildApplyOverride == null && reconciled.Association != null && reconciled.Binding != null
-						? CollectionAssociationReconciliationCoordinator.BuildPostReconciliationState(
+						? reconciled.ReconciledState ?? CollectionAssociationReconciliationCoordinator.BuildPostReconciliationState(
 							verification.NativeState, reconciled.Association, reconciled.Binding)
 						: _nativeStateReader.Capture(runtime.Plan.Target);
 				}

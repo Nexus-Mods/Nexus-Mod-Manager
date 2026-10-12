@@ -260,7 +260,7 @@ namespace Nexus.Client.CollectionManagement
 					member.RecipeIdentity, CollectionMemberBindingKind.InstalledForCollection);
 			}
 
-			if (association != null)
+			CollectionNativeStateIndex reconciledState = association == null ? null :
 				PersistSafeBoundaryFingerprint(operation, child, nativeState, association, binding);
 
 			var reconciledChild = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action,
@@ -279,7 +279,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionTargetAssociation persistedAssociation = association == null ? null : _associationStore.GetAssociation(association.AssociationId);
 			CollectionMemberBinding persistedBinding = persistedAssociation == null ? null : _associationStore.GetBindings(persistedAssociation.AssociationId)
 				.SingleOrDefault(x => x.MemberKey.Equals(member.MemberKey));
-			return new CollectionAssociationReconciliationResult(persisted, persistedChild, persistedAssociation, persistedBinding);
+			return new CollectionAssociationReconciliationResult(persisted, persistedChild, persistedAssociation, persistedBinding, reconciledState);
 		}
 
 
@@ -297,7 +297,8 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Collection association state changed after C6.8/C6.9 verification and before C6.10 reconciliation.");
 		}
 
-		private void PersistSafeBoundaryFingerprint(CollectionOperation operation, CollectionNativeChildOperation child,
+		/// <summary>Publishes the safe boundary and returns its exact metadata index for the next child.</summary>
+		private CollectionNativeStateIndex PersistSafeBoundaryFingerprint(CollectionOperation operation, CollectionNativeChildOperation child,
 			CollectionNativeStateIndex terminalState, CollectionTargetAssociation association, CollectionMemberBinding binding)
 		{
 			CollectionNativeChildRecoveryManifest manifest = operation.Kind == CollectionOperationKind.ApplyResolvedPlan &&
@@ -306,14 +307,16 @@ namespace Nexus.Client.CollectionManagement
 				!manifest.TerminalStateFingerprint.Equals(terminalState.Fingerprint))
 				throw new InvalidDataException("The committed child recovery manifest no longer matches the C6.8/C6.9 terminal state.");
 
-			CollectionCurrentStateFingerprint safeBoundary = BuildPostReconciliationState(terminalState, association, binding).Fingerprint;
+			CollectionNativeStateIndex reconciledState = BuildPostReconciliationState(terminalState, association, binding);
+			CollectionCurrentStateFingerprint safeBoundary = reconciledState.Fingerprint;
 			if (manifest.SafeBoundaryStateFingerprint != null)
 			{
 				if (!manifest.SafeBoundaryStateFingerprint.Equals(safeBoundary))
 					throw new InvalidDataException("The retained C6.10 safe-boundary fingerprint contradicts the deterministic provenance reconciliation result.");
-				return;
+				return reconciledState;
 			}
 			_manifestStore.SaveManifest(manifest.WithSafeBoundaryStateFingerprint(safeBoundary));
+			return reconciledState;
 		}
 
 		/// <summary>Updates only Collection provenance on the already verified committed native snapshot.</summary>
@@ -426,18 +429,21 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionAssociationReconciliationResult
 	{
 		internal CollectionAssociationReconciliationResult(CollectionOperation operation, CollectionNativeChildOperation child,
-			CollectionTargetAssociation association, CollectionMemberBinding binding)
+			CollectionTargetAssociation association, CollectionMemberBinding binding, CollectionNativeStateIndex reconciledState = null)
 		{
 			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
 			Child = child ?? throw new ArgumentNullException(nameof(child));
 			Association = association;
 			Binding = binding;
+			ReconciledState = reconciledState;
 		}
 
 		public CollectionOperation Operation { get; }
 		public CollectionNativeChildOperation Child { get; }
 		public CollectionTargetAssociation Association { get; }
 		public CollectionMemberBinding Binding { get; }
+		/// <summary>Gets the immutable index already used to publish the safe-boundary fingerprint.</summary>
+		internal CollectionNativeStateIndex ReconciledState { get; }
 		public bool CreatedOrUpdatedBinding { get { return Binding != null; } }
 	}
 

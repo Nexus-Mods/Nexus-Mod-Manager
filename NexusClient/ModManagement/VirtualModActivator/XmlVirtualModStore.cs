@@ -35,14 +35,14 @@ namespace Nexus.Client.ModManagement
 		public void Save(Version fileVersion, string filePath, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink)
 		{
 			Dictionary<IVirtualModInfo, List<IVirtualModLink>> dicVirtualLinksByModInfo = BuildVirtualLinksByModInfo(virtualModLink);
-			XDocument docVirtual = BuildXmlDocument(fileVersion, virtualModInfo, mod => GetVirtualLinksForMod(dicVirtualLinksByModInfo, mod));
+			XStreamingElement docVirtual = BuildXmlDocument(fileVersion, virtualModInfo, mod => GetVirtualLinksForMod(dicVirtualLinksByModInfo, mod));
 
 			SaveXmlDocumentSafely(docVirtual, filePath);
 		}
 
 		public void SaveWithModInfoMatching(Version fileVersion, string filePath, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink)
 		{
-			XDocument docVirtual = BuildXmlDocument(fileVersion, virtualModInfo, mod => virtualModLink.Where(x => CheckModInfo(x.ModInfo, mod) == true));
+			XStreamingElement docVirtual = BuildXmlDocument(fileVersion, virtualModInfo, mod => virtualModLink.Where(x => CheckModInfo(x.ModInfo, mod) == true));
 
 			SaveXmlDocumentSafely(docVirtual, filePath);
 		}
@@ -65,35 +65,27 @@ namespace Nexus.Client.ModManagement
 				CopyFileSafely(sourcePath, destinationPath);
 		}
 
-		private static XDocument BuildXmlDocument<TModInfo>(Version fileVersion, IEnumerable<TModInfo> virtualModInfo, Func<TModInfo, IEnumerable<IVirtualModLink>> getLinks) where TModInfo : IVirtualModInfo
+		/// <summary>Streams the existing XML format without retaining an element tree for all installed links.</summary>
+		private static XStreamingElement BuildXmlDocument<TModInfo>(Version fileVersion, IEnumerable<TModInfo> virtualModInfo, Func<TModInfo, IEnumerable<IVirtualModLink>> getLinks) where TModInfo : IVirtualModInfo
 		{
-			XDocument docVirtual = new XDocument();
-			XElement xelRoot = new XElement("virtualModActivator", new XAttribute("fileVersion", fileVersion));
-			docVirtual.Add(xelRoot);
-
-			XElement xelModList = new XElement("modList");
-			xelRoot.Add(xelModList);
-			xelModList.Add(from mod in virtualModInfo
-						   select new XElement("modInfo",
-							   new XAttribute("modId", mod.ModId ?? string.Empty),
-							   new XAttribute("downloadId", mod.DownloadId ?? string.Empty),
-							   new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? string.Empty),
-							   new XAttribute("modName", mod.ModName),
-							   new XAttribute("modFileName", mod.ModFileName),
-							   new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
-							   new XAttribute("modFilePath", mod.ModFilePath),
-							   new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
-							   from link in getLinks(mod)
-							   select new XElement("fileLink",
-								   new XAttribute("realPath", link.RealModPath),
-								   new XAttribute("virtualPath", link.VirtualModPath),
-								   new XAttribute("installRoot", NormalizeInstallRoot(link.InstallRoot)),
-								   new XElement("linkPriority",
-									   new XText(link.Priority.ToString())),
-								   new XElement("isActive",
-									   new XText(link.Active.ToString())))));
-
-			return docVirtual;
+			return new XStreamingElement("virtualModActivator", new XAttribute("fileVersion", fileVersion),
+				new XStreamingElement("modList", from mod in virtualModInfo
+					select new XStreamingElement("modInfo",
+						new XAttribute("modId", mod.ModId ?? string.Empty),
+						new XAttribute("downloadId", mod.DownloadId ?? string.Empty),
+						new XAttribute("updatedDownloadId", mod.UpdatedDownloadId ?? string.Empty),
+						new XAttribute("modName", mod.ModName),
+						new XAttribute("modFileName", mod.ModFileName),
+						new XAttribute("modNewFileName", mod.NewFileName ?? string.Empty),
+						new XAttribute("modFilePath", mod.ModFilePath),
+						new XAttribute("FileVersion", mod.FileVersion ?? string.Empty),
+						from link in getLinks(mod)
+						select new XStreamingElement("fileLink",
+							new XAttribute("realPath", link.RealModPath),
+							new XAttribute("virtualPath", link.VirtualModPath),
+							new XAttribute("installRoot", NormalizeInstallRoot(link.InstallRoot)),
+							new XStreamingElement("linkPriority", link.Priority.ToString()),
+							new XStreamingElement("isActive", link.Active.ToString())))));
 		}
 
 		private static bool Load(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion, bool reportSuccess, out VirtualModStoreData data)
@@ -304,7 +296,7 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
-		private static void SaveXmlDocumentSafely(XDocument document, string filePath)
+		private static void SaveXmlDocumentSafely(XStreamingElement document, string filePath)
 		{
 			string tempFilePath = GetTempFilePath(filePath);
 

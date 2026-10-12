@@ -64,6 +64,26 @@ namespace Nexus.Client.ModManagement
 				replayReferences, plugins, pluginCoverage, issues);
 		}
 
+		/// <summary>Captures the committed metadata consumed by Collection indexing without inspecting unused recovery payloads.</summary>
+		/// <remarks>Backup and restore consumers must use the complete public Capture method.</remarks>
+		internal NativeStateCaptureSnapshot CaptureForCollectionIndex()
+		{
+			if (Transaction.Current != null)
+				throw new InvalidOperationException("Native state cannot be captured from inside an ambient transaction.");
+			InstallLogReadSnapshot install = RequireInstallLogSnapshot(_installLog.GetCommittedStateSnapshot());
+			VirtualModActivator activator = _virtualModActivator as VirtualModActivator;
+			VirtualModReadSnapshot virtualState = RequireVirtualSnapshot(activator == null
+				? _virtualModActivator.GetReadSnapshot() : activator.GetReadSnapshotForCollections());
+			var issues = new List<NativeStateCaptureIssue>();
+			List<NativeStateCaptureRoot> roots = CaptureRoots(issues);
+			NativeStateCaptureCoverage pluginCoverage;
+			List<NativeStateCapturePlugin> plugins = CapturePlugins(issues, out pluginCoverage);
+			return new NativeStateCaptureSnapshot(install, virtualState, new NativeStateCaptureVirtualPayloadSource[0],
+				new NativeStateCaptureVirtualFallback[0], roots, new NativeStateCaptureDeploymentTarget[0],
+				install.DeploymentTargets.Count == 0 ? NativeStateCaptureCoverage.NotApplicable : NativeStateCaptureCoverage.Unavailable,
+				new NativeStateCaptureReplayReference[0], plugins, pluginCoverage, issues);
+		}
+
 		private static InstallLogReadSnapshot RequireInstallLogSnapshot(InstallLogReadSnapshot source)
 		{
 			if (source == null)

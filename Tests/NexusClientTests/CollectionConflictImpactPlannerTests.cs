@@ -531,6 +531,67 @@ namespace NexusClientTests
 			Assert.IsFalse(cycle);
 		}
 
+		/// <summary>Repeated writer groups reuse the same rules while cycles remain scoped to the files those writers actually share.</summary>
+		[Test]
+		public void Plan_RepeatedWriterGroupsPreservePerFileWinnersAndCycles()
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
+			NormalizedCollectionMember c = CreateMember(2, "c", 102, 202, 0);
+			CollectionTargetIdentity target = CreateTarget();
+			Fixture fixture = CreateFixture(target, new[] { a, b, c }, new[]
+			{
+				new CollectionFilePriorityRule(a.IdentityResolution.Key, b.IdentityResolution.Key),
+				new CollectionFilePriorityRule(b.IdentityResolution.Key, c.IdentityResolution.Key),
+				new CollectionFilePriorityRule(c.IdentityResolution.Key, a.IdentityResolution.Key)
+			}, new[] { CreateNativeMod(target, "native-a", 100, 200), CreateNativeMod(target, "native-b", 101, 201), CreateNativeMod(target, "native-c", 102, 202) },
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			ModDeploymentTarget ab1 = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "ab-1.nif");
+			ModDeploymentTarget ab2 = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "ab-2.nif");
+			ModDeploymentTarget bc = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "bc.nif");
+			ModDeploymentTarget cycle1 = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "cycle-1.nif");
+			ModDeploymentTarget cycle2 = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "cycle-2.nif");
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[]
+			{
+				CreatePreview(a, ab1, additionalTargets: new[] { ab2, cycle1, cycle2 }),
+				CreatePreview(b, ab1, additionalTargets: new[] { ab2, bc, cycle1, cycle2 }),
+				CreatePreview(c, bc, additionalTargets: new[] { cycle1, cycle2 })
+			});
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(ab1)).PlannedWinner, Is.EqualTo(b.IdentityResolution.Key));
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(ab2)).PlannedWinner, Is.EqualTo(b.IdentityResolution.Key));
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(bc)).PlannedWinner, Is.EqualTo(c.IdentityResolution.Key));
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(cycle1)).PlannedWinner, Is.Null);
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(cycle2)).PlannedWinner, Is.Null);
+			Assert.That(result.Issues.Count(x => x.Kind == CollectionConflictImpactIssueKind.FilePriorityCycle), Is.EqualTo(2));
+		}
+
+		/// <summary>Indexed plugin lookup preserves unique paths, unique basenames and ambiguous ownership across roots.</summary>
+		[TestCase("unique-name")]
+		[TestCase("exact-path")]
+		[TestCase("ambiguous-name")]
+		[TestCase("ambiguous-root")]
+		public void PluginFileLookup_PreservesLegacyAmbiguityRules(string scenario)
+		{
+			ModDeploymentTarget firstTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"one\A.esp");
+			CollectionNativeFileState first = CreateFile(firstTarget, "native-a");
+			var files = new List<CollectionNativeFileState> { first };
+			if (scenario != "unique-name")
+			{
+				ModDeploymentTarget secondTarget = scenario == "ambiguous-root"
+					? ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, @"one\A.esp")
+					: ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"two\A.esp");
+				files.Add(CreateFile(secondTarget, "native-b"));
+			}
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { CreateMember(0, "lookup-member", 100, 200, 0) }, null, new CollectionNativeModState[0],
+				files.ToArray(), null, null, null, CollectionNativeStateCoverage.NotApplicable);
+			Type lookupType = typeof(CollectionConflictImpactPlanner).GetNestedType("PluginFileLookup", BindingFlags.NonPublic);
+			object lookup = Activator.CreateInstance(lookupType, new object[] { fixture.State });
+			string path = scenario == "exact-path" || scenario == "ambiguous-root" ? "one/A.esp" : "a.ESP";
+			object found = lookupType.GetMethod("Find").Invoke(lookup, new object[] { path });
+			if (scenario.StartsWith("ambiguous", StringComparison.Ordinal)) Assert.That(found, Is.Null);
+			else Assert.That(found, Is.SameAs(first));
+		}
+
 		[Test]
 		public void Plan_FilePriorityCycleBlocks()
 		{
@@ -1553,11 +1614,13 @@ namespace NexusClientTests
 		}
 
 		private static CollectionMemberEffectPreview CreatePreview(NormalizedCollectionMember member, ModDeploymentTarget fileTarget,
-			IEnumerable<CollectionPlannedPluginEffect> pluginEffects = null, IEnumerable<CollectionPlannedIniEffect> iniEffects = null)
+			IEnumerable<CollectionPlannedPluginEffect> pluginEffects = null, IEnumerable<CollectionPlannedIniEffect> iniEffects = null,
+			IEnumerable<ModDeploymentTarget> additionalTargets = null)
 		{
 			return new CollectionMemberEffectPreview(member.IdentityResolution.Key, member.RecipeIdentity,
 				ModInstallMethod.Virtual, ModInstallRoot.Data,
-				fileTarget == null ? new CollectionPlannedFileEffect[0] : new[] { new CollectionPlannedFileEffect(fileTarget) },
+				(fileTarget == null ? new CollectionPlannedFileEffect[0] : new[] { new CollectionPlannedFileEffect(fileTarget) })
+					.Concat((additionalTargets ?? Enumerable.Empty<ModDeploymentTarget>()).Select(x => new CollectionPlannedFileEffect(x))),
 				iniEffects ?? new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0],
 				pluginEffects ?? new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
 		}

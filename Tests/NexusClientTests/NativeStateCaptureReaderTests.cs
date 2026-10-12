@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using Nexus.Client.CollectionManagement;
 using Nexus.Transactions;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
@@ -14,6 +16,39 @@ namespace NexusClientTests
 	/// </summary>
 	public class NativeStateCaptureReaderTests
 	{
+		/// <summary>Collection indexing preserves native authority and fingerprints without inspecting recovery-only overwrite payloads.</summary>
+		[Test]
+		public void CaptureForCollectionIndex_SkipsFallbackProbesAndPreservesIndexFingerprint()
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-collection-index-" + Guid.NewGuid().ToString("N"));
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"meshes\one.nif");
+			var install = new InstallLogReadSnapshot("original-values", 7,
+				new[] { new InstallLogReadMod("virtual-a", "a.zip", "a.zip", "1", "1", "1", "1", false, ModInstallRoot.Data, ModInstallMethod.Virtual, false) },
+				new InstallLogReadFile[0], new InstallLogReadIniEdit[0], new InstallLogReadGameValue[0], new InstallLogReadDeploymentTarget[0]);
+			var virtualState = new VirtualModReadSnapshot(new[]
+			{
+				new VirtualModReadLink(target, "virtual-a", "a", true, 0, "one.nif", Path.Combine(root, "one.nif"))
+			});
+			int fallbackProbes = 0;
+			NativeStateCaptureReader reader = CreateReader(root, Path.Combine(root, "InstallInfo"), install, virtualState, null,
+				(t, owner) => { fallbackProbes++; return Path.Combine(root, "missing.overwrite"); });
+			NativeStateCaptureSnapshot full = reader.Capture();
+			Assert.That(fallbackProbes, Is.GreaterThan(0));
+			fallbackProbes = 0;
+			NativeStateCaptureSnapshot metadata = reader.CaptureForCollectionIndex();
+			Assert.That(fallbackProbes, Is.EqualTo(0));
+			Assert.That(metadata.VirtualFallbacks, Is.Empty);
+			Assert.That(metadata.InstallLog, Is.SameAs(install));
+			Assert.That(metadata.VirtualState, Is.SameAs(virtualState));
+			Assert.That(metadata.InstallLog.DeploymentCommitSequence, Is.EqualTo(full.InstallLog.DeploymentCommitSequence));
+			IGameMode gameMode = (IGameMode)typeof(NativeStateCaptureReader).GetField("_gameMode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(reader);
+			var indexReader = new CollectionNativeStateReader(
+				InterfaceStub<IInstallLog>.Create((m, a) => install),
+				InterfaceStub<IVirtualModActivator>.Create((m, a) => virtualState), null, gameMode, null);
+			CollectionTargetIdentity identity = CollectionTargetIdentity.FromFingerprint("target-collection-index");
+			Assert.That(indexReader.Capture(identity, metadata).Fingerprint, Is.EqualTo(indexReader.Capture(identity, full).Fingerprint));
+		}
+
 		[Test]
 		public void Capture_ProducesDeterministicDeploymentReferencesAndPreservesPromotedOwnerOrder()
 		{

@@ -256,6 +256,79 @@
 			}
 		}
 
+		/// <summary>Unchanged saves preserve row identities, while ordering, priority, active state and root changes still persist.</summary>
+		[Test]
+		public void Save_UnchangedLinksThenChangedLinks_PreservesRowsAndPersistsAllChangedMetadata()
+		{
+			string root = CreateTempDirectory();
+			try
+			{
+				string xmlPath = Path.Combine(root, "VirtualModConfig.xml");
+				string databasePath = Path.ChangeExtension(xmlPath, ".sqlite");
+				SQLiteVirtualModStore store = CreateSqliteStore(xmlPath, databasePath, new XmlVirtualModStore());
+				VirtualModStoreData initial = CreateStoreData("same");
+				IVirtualModInfo mod = initial.VirtualMods[0];
+				var links = new List<IVirtualModLink>(initial.VirtualLinks)
+				{
+					new VirtualModLink("second-real", "second-virtual", 1, false, mod, ModInstallRoot.Data)
+				};
+				store.Save(CurrentVersion, xmlPath, initial.VirtualMods, links);
+				long key = ReadFirstLinkKey(databasePath);
+				store.Save(CurrentVersion, xmlPath, initial.VirtualMods, links);
+				Assert.AreEqual(key, ReadFirstLinkKey(databasePath));
+				IVirtualModLink first = links[0];
+				links.Reverse();
+				links[1] = new VirtualModLink(first.RealModPath, first.VirtualModPath, 7, false, mod, ModInstallRoot.Data);
+				store.Save(CurrentVersion, xmlPath, initial.VirtualMods, links);
+				VirtualModStoreData reordered = store.Load(xmlPath, CurrentVersion, IsValidVersion, MissingFileVersion);
+				Assert.AreEqual("second-real", reordered.VirtualLinks[0].RealModPath);
+				Assert.AreEqual(7, reordered.VirtualLinks[1].Priority);
+				Assert.IsFalse(reordered.VirtualLinks[1].Active);
+				links[1] = new VirtualModLink(first.RealModPath, first.VirtualModPath, 7, false, mod, ModInstallRoot.GameRoot);
+				store.Save(CurrentVersion, xmlPath, initial.VirtualMods, links);
+				Assert.AreEqual(ModInstallRoot.GameRoot, store.Load(xmlPath, CurrentVersion, IsValidVersion, MissingFileVersion).VirtualLinks[1].InstallRoot);
+			}
+			finally { DeleteDirectory(root); }
+		}
+
+		/// <summary>The streaming compatibility writer preserves escaping, legacy metadata and atomic publication on serialization failure.</summary>
+		[Test]
+		public void XmlSave_StreamingRoundTripAndInvalidContent_PreservesCommittedFile()
+		{
+			string root = CreateTempDirectory();
+			try
+			{
+				string path = Path.Combine(root, "VirtualModConfig.xml");
+				var store = new XmlVirtualModStore();
+				VirtualModStoreData valid = CreateStoreData("escaped & <name>", ModInstallRoot.GameRoot);
+				store.Save(CurrentVersion, path, valid.VirtualMods, valid.VirtualLinks);
+				VirtualModStoreData loaded = store.Load(path, CurrentVersion, IsValidVersion, MissingFileVersion);
+				AssertSingleModName(loaded, valid.VirtualMods[0].ModName);
+				AssertSingleLinkRoot(loaded, ModInstallRoot.GameRoot);
+				Assert.AreEqual(valid.VirtualLinks[0].RealModPath, loaded.VirtualLinks[0].RealModPath);
+				byte[] committed = File.ReadAllBytes(path);
+				VirtualModStoreData invalid = CreateStoreData("invalid" + (char)1);
+				Assert.Catch<Exception>(() => store.Save(CurrentVersion, path, invalid.VirtualMods, invalid.VirtualLinks));
+				CollectionAssert.AreEqual(committed, File.ReadAllBytes(path));
+				Assert.IsEmpty(Directory.GetFiles(root, "*.tmp"));
+			}
+			finally { DeleteDirectory(root); }
+		}
+
+		/// <summary>Observes row identity independently of the runtime store model.</summary>
+		private static long ReadFirstLinkKey(string databasePath)
+		{
+			using (var connection = new SQLiteConnection(new SQLiteConnectionStringBuilder { DataSource = databasePath, Pooling = false, ReadOnly = true }.ConnectionString))
+			{
+				connection.Open();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.CommandText = "SELECT VirtualLinkId FROM VirtualLinks ORDER BY VirtualLinkId LIMIT 1;";
+					return Convert.ToInt64(command.ExecuteScalar());
+				}
+			}
+		}
+
 		private static SQLiteVirtualModStore CreateSqliteStore(string xmlPath, string databasePath, XmlVirtualModStore xmlStore)
 		{
 			return new SQLiteVirtualModStore(xmlPath, databasePath, CurrentVersion, IsValidVersion, xmlStore);

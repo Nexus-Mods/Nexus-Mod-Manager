@@ -54,6 +54,9 @@ namespace NexusClientTests
 				CollectionNativeStateIndex expectedSafeState = CreateState(fixture.Plan.Target, new[] { nativeMod },
 					new[] { result.Association }, new[] { result.Binding });
 				Assert.AreEqual(expectedSafeState.Fingerprint, recovery.SafeBoundaryStateFingerprint);
+				Assert.IsNotNull(result.ReconciledState);
+				Assert.AreEqual(recovery.SafeBoundaryStateFingerprint, result.ReconciledState.Fingerprint);
+				Assert.AreSame(nativeMod, result.ReconciledState.Mods[nativeMod.Identity]);
 			}
 			finally
 			{
