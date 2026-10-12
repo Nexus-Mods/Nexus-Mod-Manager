@@ -385,9 +385,20 @@ namespace Nexus.Client.CollectionManagement
 						await WaitForCompletionAsync(nativeTask).ConfigureAwait(false);
 						bool exactResult;
 						ModOperationResult reported = CaptureReportedResult(nativeTask, child.NativeOperation, out exactResult);
-						state = await ReloadAndCaptureStateAsync(rootLease, authority, paths).ConfigureAwait(false);
-						ModOperationDurability durability = DetermineDurability(reported, exactResult,
-							IsNativeModFullyAbsent(state, impact.NativeMod), IsNativeModPresent(state, impact.NativeMod));
+						ModOperationDurability durability;
+						if (CanReuseCommittedRemoval(reported, exactResult, rootLease))
+						{
+							// The native uninstaller already verified its InstallLog, deployment and link removal.
+							// Keep its live committed stores under this reservation; check the whole result once below.
+							_authorityValidator.ValidateCommittedAuthority(rootLease, authority, paths);
+							durability = ModOperationDurability.VerifiedCommitted;
+						}
+						else
+						{
+							state = await ReloadAndCaptureStateAsync(rootLease, authority, paths).ConfigureAwait(false);
+							durability = DetermineDurability(reported, exactResult,
+								IsNativeModFullyAbsent(state, impact.NativeMod), IsNativeModPresent(state, impact.NativeMod));
+						}
 						var verifiedResult = new ModOperationResult(child.NativeOperation, reported.ReportedStatus, durability, reported.Message);
 
 						operation = _operationStore.GetOperation(operation.Identity);
@@ -1062,6 +1073,16 @@ namespace Nexus.Client.CollectionManagement
 					"The native uninstaller published a terminal result for a different operation attempt.");
 			exactIdentity = true;
 			return result;
+		}
+
+		/// <summary>Reuses only an exact successful native removal under the already validated uninterrupted reservation.</summary>
+		internal static bool CanReuseCommittedRemoval(ModOperationResult reported, bool exactIdentity, CollectionTargetMutationLease lease)
+		{
+			return exactIdentity && reported != null && reported.ReportedStatus == ModOperationReportedStatus.Succeeded &&
+				reported.Durability == ModOperationDurability.VerifiedCommitted && lease != null &&
+				lease.IsRoot && !lease.IsDisposed && lease.HasCrossProcessReservation &&
+				lease.HasValidatedNativeAuthority && !lease.RequiresRecovery &&
+				StringComparer.Ordinal.Equals(lease.TargetFingerprint, reported.Identity.Fingerprint.TargetFingerprint);
 		}
 
 		private static ModOperationDurability DetermineDurability(ModOperationResult reported, bool exactIdentity,

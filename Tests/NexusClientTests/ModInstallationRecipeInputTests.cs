@@ -351,6 +351,25 @@ namespace NexusClientTests
 		/// <summary>
 		/// Creates a translated one-file recipe suitable for operation-identity rebinding tests.
 		/// </summary>
+		/// <summary>The install performance preference survives recipe transformations and cannot weaken restore/recovery inputs.</summary>
+		[Test]
+		public void SkipContentChecks_IsCollectionScopedAndSurvivesCloning()
+		{
+			ModInstallationRecipeInput original = CreateTranslatedInput();
+			ModInstallationRecipeInput fast = original.WithSkippedContentChecks(true);
+			Assert.IsFalse(original.SkipContentChecks);
+			Assert.IsTrue(fast.SkipContentChecks);
+			Assert.IsTrue(fast.WithDeferredPluginReconciliation().SkipContentChecks);
+			Assert.IsTrue(fast.WithTransformedNativePlan(fast.NativeOperations).SkipContentChecks);
+			Assert.IsTrue(fast.ForOperationIdentity(fast.OperationIdentity.CreateNextAttempt()).SkipContentChecks);
+			Assert.IsFalse(fast.WithSkippedContentChecks(false).SkipContentChecks);
+			Assert.AreEqual(original.RecipeFingerprint, fast.RecipeFingerprint);
+			CollectionAssert.AreEqual(original.NativeOperations, fast.NativeOperations);
+			var restore = new ModInstallationRecipeInput(CreateOperation(ModOperationOrigin.LocalRestore, ModInstallMethod.Virtual,
+				ModInstallRoot.Data, "restore-recipe"), CreateValidation(ModInstallMethod.Virtual, ModInstallRoot.Data));
+			Assert.Throws<InvalidOperationException>(() => restore.WithSkippedContentChecks(true));
+		}
+
 		private static ModInstallationRecipeInput CreateTranslatedInput()
 		{
 			const string source = @"meshes\body.nif";

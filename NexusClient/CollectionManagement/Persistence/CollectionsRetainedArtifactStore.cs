@@ -4,6 +4,7 @@ using System.Data.SQLite;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
+using Newtonsoft.Json;
 using Nexus.Client.CollectionManagement;
 
 namespace Nexus.Client.CollectionManagement.Persistence
@@ -26,6 +27,30 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string BlobExtension = ".blob";
 		private const int CopyBufferSize = 1024 * 1024;
 		private const int ArtifactMetadataBatchSize = 128;
+		private static readonly AsyncLocal<bool> SavedArchiveHashReuse = new AsyncLocal<bool>();
+
+		/// <summary>Gets the explicit saved-hash preference for the current approval/install operation.</summary>
+		internal static bool CanReuseSavedArchiveHashes { get { return SavedArchiveHashReuse.Value; } }
+
+		/// <summary>Captures the user's preference across asynchronous approval and install calls without changing strict verification defaults.</summary>
+		internal static IDisposable BeginSavedArchiveHashReuse(bool enabled)
+		{
+			return new SavedArchiveHashReuseScope(enabled);
+		}
+
+		/// <summary>Restores the caller's verification policy after an explicitly opted-in operation.</summary>
+		private sealed class SavedArchiveHashReuseScope : IDisposable
+		{
+			private readonly bool _previous;
+			/// <summary>Captures the existing policy before setting the current operation's preference.</summary>
+			internal SavedArchiveHashReuseScope(bool enabled)
+			{
+				_previous = SavedArchiveHashReuse.Value;
+				SavedArchiveHashReuse.Value = enabled;
+			}
+			/// <summary>Restores the parent operation's policy.</summary>
+			public void Dispose() { SavedArchiveHashReuse.Value = _previous; }
+		}
 
 		private readonly CollectionsStore _store;
 		private readonly object _verificationCacheLock = new object();
@@ -35,6 +60,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			new Dictionary<string, PublishedMd5Stamp>(StringComparer.Ordinal);
 		private readonly Dictionary<string, PublishedSourceStamp> _publishedSources =
 			new Dictionary<string, PublishedSourceStamp>(StringComparer.OrdinalIgnoreCase);
+		private readonly Dictionary<string, ArtifactVerificationStamp> _trustedPreparationArtifacts =
+			new Dictionary<string, ArtifactVerificationStamp>(StringComparer.Ordinal);
 
 		/// <summary>
 		/// Creates a retained-artifact store over an existing Collections feature store.
@@ -54,7 +81,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			Directory.CreateDirectory(_store.RetainedContentDirectory);
 			string stagingDirectory = Path.Combine(_store.RetainedContentDirectory, StagingDirectoryName);
 			Directory.CreateDirectory(stagingDirectory);
-			string stagingPath = Path.Combine(stagingDirectory, Guid.NewGuid().ToString("N") + ".tmp");
+			string stagingPath = Path.Combine(stagingDirectory, Nexus.Client.Util.FileUtil.CreateTempToken() + ".tmp");
 
 			try
 			{
@@ -157,7 +184,7 @@ VALUES
 			Directory.CreateDirectory(_store.RetainedContentDirectory);
 			string stagingDirectory = Path.Combine(_store.RetainedContentDirectory, StagingDirectoryName);
 			Directory.CreateDirectory(stagingDirectory);
-			string stagingPath = Path.Combine(stagingDirectory, Guid.NewGuid().ToString("N") + ".tmp");
+			string stagingPath = Path.Combine(stagingDirectory, Nexus.Client.Util.FileUtil.CreateTempToken() + ".tmp");
 
 			try
 			{
@@ -247,6 +274,71 @@ VALUES
 			return ReferenceArchiveFile(sourcePath, cancellationToken, false);
 		}
 
+		/// <summary>Records SHA-256-tracked library bytes without calculating MD5 for an explicitly trusted existing archive.</summary>
+		internal CollectionsRetainedArtifact ReferenceArchiveFileWithoutMd5(string sourcePath, CancellationToken cancellationToken)
+		{
+			return ReferenceArchiveFile(sourcePath, cancellationToken, false, false);
+		}
+
+		/// <summary>Reuses an actually calculated SHA-256 only when an explicitly trusted library archive retains its saved file stamp.</summary>
+		internal CollectionsRetainedArtifact TryReferenceCachedArchiveFile(string sourcePath, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			string fullPath = Path.GetFullPath(sourcePath);
+			var info = new FileInfo(fullPath);
+			if (!info.Exists) return null;
+			try
+			{
+				string cachePath = GetArchiveHashCachePath(fullPath);
+				var cacheInfo = new FileInfo(cachePath);
+				if (!cacheInfo.Exists || cacheInfo.Length > 8192) return null;
+				ArchiveHashCacheRecord cached = JsonConvert.DeserializeObject<ArchiveHashCacheRecord>(File.ReadAllText(cachePath));
+				if (cached == null || cached.SchemaVersion != 1 ||
+					!StringComparer.OrdinalIgnoreCase.Equals(cached.ArchivePath, fullPath) ||
+					cached.ByteLength != info.Length || cached.LastWriteUtcTicks != info.LastWriteTimeUtc.Ticks)
+					return null;
+				CollectionsRetainedArtifact artifact = GetArtifact(cached.ArtifactId);
+				if (artifact == null || artifact.ByteLength != info.Length ||
+					!StringComparer.Ordinal.Equals(artifact.ContentHash.Value, cached.Sha256) ||
+					!IsArchiveReference(artifact.ArtifactId) ||
+					!StringComparer.OrdinalIgnoreCase.Equals(GetValidatedPhysicalPath(artifact), fullPath))
+					return null;
+				lock (_verificationCacheLock)
+					_trustedPreparationArtifacts[artifact.ArtifactId] = new ArtifactVerificationStamp(
+						artifact.ContentHash.Value, info.Length, info.LastWriteTimeUtc.Ticks, fullPath);
+				return IsTrustedPreparationArchiveCurrent(fullPath, artifact) ? artifact : null;
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is JsonException || ex is ArgumentException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection archive hash cache could not be reused: {0}", ex.Message);
+				return null;
+			}
+		}
+
+		/// <summary>Checks an opted-in saved archive proof without publishing it as a checksum observed in this process.</summary>
+		internal bool IsTrustedPreparationArchiveCurrent(string sourcePath, CollectionsRetainedArtifact artifact)
+		{
+			if (artifact == null || String.IsNullOrWhiteSpace(sourcePath)) return false;
+			var info = new FileInfo(Path.GetFullPath(sourcePath));
+			if (!info.Exists || info.Length != artifact.ByteLength) return false;
+			lock (_verificationCacheLock)
+			{
+				ArtifactVerificationStamp stamp;
+				if (_trustedPreparationArtifacts.TryGetValue(artifact.ArtifactId, out stamp))
+					return StringComparer.OrdinalIgnoreCase.Equals(stamp.FullPath, info.FullName) &&
+						stamp.ByteLength == info.Length && stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks &&
+						StringComparer.Ordinal.Equals(stamp.HashValue, artifact.ContentHash.Value);
+			}
+			CollectionsRetainedArtifact cached = TryReferenceCachedArchiveFile(info.FullName, CancellationToken.None);
+			return cached != null && cached.Equals(artifact);
+		}
+
+		/// <summary>Checks the recorded physical location of a preparation-only cached proof.</summary>
+		internal bool IsTrustedPreparationArchiveCurrent(CollectionsRetainedArtifact artifact)
+		{
+			return artifact != null && IsTrustedPreparationArchiveCurrent(GetValidatedPhysicalPath(artifact), artifact);
+		}
+
 		/// <summary>Converts legacy archive copies to library references without changing their durable content identities.</summary>
 		public void MigrateArchiveCopies(IEnumerable<string> archivePaths, CancellationToken cancellationToken)
 		{
@@ -285,7 +377,7 @@ VALUES
 		}
 
 		/// <summary>Hashes a stable archive and persists its location; migration only adopts already-recorded content.</summary>
-		private CollectionsRetainedArtifact ReferenceArchiveFile(string sourcePath, CancellationToken cancellationToken, bool existingOnly)
+		private CollectionsRetainedArtifact ReferenceArchiveFile(string sourcePath, CancellationToken cancellationToken, bool existingOnly, bool calculateMd5 = true)
 		{
 			if (String.IsNullOrWhiteSpace(sourcePath)) throw new ArgumentException("An archive path is required.", nameof(sourcePath));
 			string fullPath = Path.GetFullPath(sourcePath);
@@ -303,13 +395,16 @@ VALUES
 					PublishedSourceStamp stamp;
 					PublishedMd5Stamp md5;
 					if (_publishedSources.TryGetValue(fullPath, out stamp) && stamp.ByteLength == source.Length &&
-						stamp.LastWriteUtcTicks == initialWrite &&
-						_publishedMd5.TryGetValue(CreateArtifactId(CollectionContentHash.FromSha256(stamp.HashValue)), out md5) &&
-						StringComparer.OrdinalIgnoreCase.Equals(md5.FullPath, fullPath) && md5.ByteLength == source.Length &&
-						md5.LastWriteUtcTicks == initialWrite)
-						hashed = new CopyResult(stamp.HashValue, md5.Md5, stamp.ByteLength);
+						stamp.LastWriteUtcTicks == initialWrite)
+					{
+						if (!calculateMd5) hashed = new CopyResult(stamp.HashValue, null, stamp.ByteLength);
+						else if (_publishedMd5.TryGetValue(CreateArtifactId(CollectionContentHash.FromSha256(stamp.HashValue)), out md5) &&
+							StringComparer.OrdinalIgnoreCase.Equals(md5.FullPath, fullPath) && md5.ByteLength == source.Length &&
+							md5.LastWriteUtcTicks == initialWrite)
+							hashed = new CopyResult(stamp.HashValue, md5.Md5, stamp.ByteLength);
+					}
 				}
-				if (hashed == null) hashed = HashArchive(source, cancellationToken);
+				if (hashed == null) hashed = HashArchive(source, cancellationToken, calculateMd5);
 				if (source.Length != hashed.ByteLength || File.GetLastWriteTimeUtc(fullPath).Ticks != initialWrite)
 					throw new IOException("The mod archive changed while its content was being verified.");
 				CollectionContentHash hash = CollectionContentHash.FromSha256(hashed.HashValue);
@@ -337,6 +432,7 @@ INSERT OR REPLACE INTO retained_archive_locations (artifact_id, archive_path) VA
 				});
 				RememberPublishedMd5(artifact, fullPath, hashed.Md5Value);
 				RememberPublishedSource(fullPath, artifact, hashed.ByteLength, initialWrite);
+				SaveArchiveHashCache(fullPath, artifact, initialWrite);
 				RememberVerifiedArtifact(artifact, new FileInfo(fullPath));
 				DeleteDuplicateArchiveBlob(artifact);
 				return artifact;
@@ -344,28 +440,29 @@ INSERT OR REPLACE INTO retained_archive_locations (artifact_id, archive_path) VA
 		}
 
 		/// <summary>Hashes archive bytes without a staging file or a retained payload copy.</summary>
-		private static CopyResult HashArchive(Stream source, CancellationToken cancellationToken)
+		private static CopyResult HashArchive(Stream source, CancellationToken cancellationToken, bool calculateMd5 = true)
 		{
+			CollectionPreparationProgress.ReportArchiveHashing(calculateMd5);
 			byte[] buffer = new byte[CopyBufferSize];
 			long length = 0;
 			long total = source.CanSeek ? source.Length : 0;
 			using (SHA256 sha256 = SHA256.Create())
-			using (MD5 md5 = MD5.Create())
+			using (MD5 md5 = calculateMd5 ? MD5.Create() : null)
 			{
 				int read;
 				while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					sha256.TransformBlock(buffer, 0, read, buffer, 0);
-					md5.TransformBlock(buffer, 0, read, buffer, 0);
+					if (md5 != null) md5.TransformBlock(buffer, 0, read, buffer, 0);
 					length += read;
 					CollectionPreparationProgress.ReportBytes(length, total);
 				}
 				cancellationToken.ThrowIfCancellationRequested();
 				sha256.TransformFinalBlock(new byte[0], 0, 0);
-				md5.TransformFinalBlock(new byte[0], 0, 0);
+				if (md5 != null) md5.TransformFinalBlock(new byte[0], 0, 0);
 				return new CopyResult(BitConverter.ToString(sha256.Hash).Replace("-", "").ToLowerInvariant(),
-					BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant(), length);
+					md5 == null ? null : BitConverter.ToString(md5.Hash).Replace("-", "").ToLowerInvariant(), length);
 			}
 		}
 
@@ -392,6 +489,22 @@ UNION ALL SELECT 1 FROM local_capture_packages WHERE package_artifact_id=@id LIM
 			{
 				System.Diagnostics.Trace.TraceWarning("Collection archive copy cleanup deferred for {0}: {1}", artifact.ArtifactId, ex.Message);
 			}
+		}
+
+		/// <summary>Checks an already prepared artifact's physical binding without hashing it at child submission.</summary>
+		internal bool IsPreparedArtifactCurrent(CollectionsRetainedArtifact artifact)
+		{
+			if (artifact == null) return false;
+			string path = GetValidatedPhysicalPath(artifact);
+			if (CollectionArchiveContentMatcher.MatchesPreparedFile(path, artifact.ByteLength, artifact.ContentHash)) return true;
+			var info = new FileInfo(path);
+			if (!info.Exists || info.Length != artifact.ByteLength || !IsArchiveReference(artifact.ArtifactId) ||
+				!IsTrustedPreparationArchiveCurrent(path, artifact)) return false;
+			// A resumed review can reuse its persisted path/size/write-stamp proof without reopening archive bytes.
+			var after = new FileInfo(path);
+			if (!after.Exists || after.Length != info.Length || after.LastWriteTimeUtc.Ticks != info.LastWriteTimeUtc.Ticks) return false;
+			CollectionArchiveContentMatcher.RememberTrustedHash(info.FullName, info, artifact.ContentHash.Value);
+			return CollectionArchiveContentMatcher.MatchesPreparedFile(path, artifact.ByteLength, artifact.ContentHash);
 		}
 
 		/// <summary>Reports whether an artifact depends on an ordinary archive-library file rather than retained bytes.</summary>
@@ -643,6 +756,15 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 				return true;
 			}
 
+			if (CanReuseSavedArchiveHashes && IsArchiveReference(artifact.ArtifactId) && IsTrustedPreparationArchiveCurrent(path, artifact))
+			{
+				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationCacheHit();
+				// Keep opt-in saved proofs separate from hashes actually observed in this process.
+				CollectionArchiveContentMatcher.RememberTrustedHash(info.FullName, info, artifact.ContentHash.Value);
+				CollectionPreparationProgress.ReportArchiveVerification(path, true);
+				return true;
+			}
+
 			cancellationToken.ThrowIfCancellationRequested();
 			string actualHash;
 			if (CollectionArchiveContentMatcher.TryGetObservedHash(info.FullName, info, out actualHash))
@@ -650,16 +772,19 @@ FROM retained_artifacts WHERE artifact_id IN (" + String.Join(",", parameters) +
 			else
 			{
 				long performanceStarted = CollectionPerformanceMetrics.StartTiming();
-				actualHash = ComputeFileHash(path, cancellationToken);
+				actualHash = ComputeFileHash(path, cancellationToken, IsArchiveReference(artifact.ArtifactId));
 				CollectionPerformanceMetrics.RecordRetainedArtifactVerificationHash(performanceStarted, artifact.ByteLength);
 			}
 			if (!StringComparer.Ordinal.Equals(actualHash, artifact.ContentHash.Value))
 			{
+				CollectionArchiveContentMatcher.ForgetTrustedHash(path);
+				if (IsArchiveReference(artifact.ArtifactId)) InvalidateArchiveHashCache(path, artifact);
 				ForgetVerifiedArtifact(artifact.ArtifactId);
 				return false;
 			}
 
 			RememberVerifiedArtifact(artifact, info);
+			if (IsArchiveReference(artifact.ArtifactId)) SaveArchiveHashCache(path, artifact, info.LastWriteTimeUtc.Ticks);
 			return true;
 		}
 
@@ -936,7 +1061,13 @@ WHERE a.artifact_id=@artifact_id;";
 
 			try
 			{
+				long stagedLastWriteUtcTicks = File.GetLastWriteTimeUtc(stagingPath).Ticks;
 				File.Move(stagingPath, publishedPath);
+				var publishedInfo = new FileInfo(publishedPath);
+				// The move preserves the bytes already hashed during publication. Reuse that proof while unchanged.
+				if (publishedInfo.Exists && publishedInfo.Length == expectedLength &&
+					publishedInfo.LastWriteTimeUtc.Ticks == stagedLastWriteUtcTicks)
+					CollectionArchiveContentMatcher.RememberObservedHash(publishedInfo.FullName, publishedInfo, expectedHash.Value);
 			}
 			catch (IOException)
 			{
@@ -953,13 +1084,27 @@ WHERE a.artifact_id=@artifact_id;";
 			CancellationToken cancellationToken)
 		{
 			var info = new FileInfo(path);
-			if (!info.Exists || info.Length != expectedLength ||
-				!StringComparer.Ordinal.Equals(ComputeFileHash(path, cancellationToken), expectedHash.Value))
+			string actualHash = null;
+			if (info.Exists && info.Length == expectedLength &&
+				!CollectionArchiveContentMatcher.TryGetObservedHash(info.FullName, info, out actualHash))
+				actualHash = ComputeFileHash(path, cancellationToken);
+			if (!info.Exists || info.Length != expectedLength || !StringComparer.Ordinal.Equals(actualHash, expectedHash.Value))
 				throw new InvalidDataException("Existing retained content does not match the content-addressed path selected for publication.");
+			var after = new FileInfo(path);
+			if (after.Exists && after.Length == info.Length && after.LastWriteTimeUtc.Ticks == info.LastWriteTimeUtc.Ticks)
+				CollectionArchiveContentMatcher.RememberObservedHash(after.FullName, after, actualHash);
 		}
 
-		private static string ComputeFileHash(string path, CancellationToken cancellationToken)
+		private static string ComputeFileHash(string path, CancellationToken cancellationToken, bool isArchive = false)
 		{
+			if (isArchive)
+			{
+				CollectionPreparationProgress.ReportArchiveVerification(path, false);
+				CollectionPreparationProgress.ReportArchiveHashing(false);
+			}
+			else
+				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+					"Collections.Workflow.LoadingSavedData", "Loading saved Collection data..."), true);
 			using (SHA256 sha256 = SHA256.Create())
 			using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
 				CopyBufferSize, FileOptions.SequentialScan))
@@ -1009,6 +1154,9 @@ WHERE a.artifact_id=@artifact_id;";
 		{
 			lock (_verificationCacheLock)
 				_publishedSources[fullPath] = new PublishedSourceStamp(artifact.ContentHash.Value, byteLength, lastWriteUtcTicks);
+			var info = new FileInfo(fullPath);
+			if (info.Exists && info.Length == byteLength && info.LastWriteTimeUtc.Ticks == lastWriteUtcTicks)
+				CollectionArchiveContentMatcher.RememberObservedHash(info.FullName, info, artifact.ContentHash.Value);
 		}
 
 		private void RememberPublishedMd5(CollectionsRetainedArtifact artifact, string path, string md5)
@@ -1028,7 +1176,78 @@ WHERE a.artifact_id=@artifact_id;";
 			{
 				_verifiedArtifacts.Remove(artifactId);
 				_publishedMd5.Remove(artifactId);
+				_trustedPreparationArtifacts.Remove(artifactId);
 			}
+		}
+
+		/// <summary>Stores an optional file-stamp cache separately from authoritative Collection records.</summary>
+		private void SaveArchiveHashCache(string fullPath, CollectionsRetainedArtifact artifact, long lastWriteUtcTicks)
+		{
+			string temporaryPath = null;
+			try
+			{
+				var info = new FileInfo(fullPath);
+				if (!info.Exists || info.Length != artifact.ByteLength || info.LastWriteTimeUtc.Ticks != lastWriteUtcTicks) return;
+				string cachePath = GetArchiveHashCachePath(fullPath);
+				Directory.CreateDirectory(Path.GetDirectoryName(cachePath));
+				temporaryPath = cachePath + "." + Nexus.Client.Util.FileUtil.CreateTempToken() + ".tmp";
+				var record = new ArchiveHashCacheRecord
+				{
+					SchemaVersion = 1, ArchivePath = fullPath, ArtifactId = artifact.ArtifactId,
+					Sha256 = artifact.ContentHash.Value, ByteLength = artifact.ByteLength, LastWriteUtcTicks = lastWriteUtcTicks
+				};
+				File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(record));
+				if (File.Exists(cachePath)) File.Replace(temporaryPath, cachePath, null);
+				else File.Move(temporaryPath, cachePath);
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection archive hash cache could not be saved: {0}", ex.Message);
+			}
+			finally
+			{
+				try { if (temporaryPath != null && File.Exists(temporaryPath)) File.Delete(temporaryPath); }
+				catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+				{
+					System.Diagnostics.Trace.TraceWarning("Collection archive hash cache temporary file could not be removed: {0}", ex.Message);
+				}
+			}
+		}
+
+		/// <summary>Discards a saved preparation proof when ordinary verification finds different archive bytes.</summary>
+		private void InvalidateArchiveHashCache(string fullPath, CollectionsRetainedArtifact artifact)
+		{
+			try
+			{
+				string cachePath = GetArchiveHashCachePath(fullPath);
+				var info = new FileInfo(cachePath);
+				if (!info.Exists || info.Length > 8192) return;
+				ArchiveHashCacheRecord cached = JsonConvert.DeserializeObject<ArchiveHashCacheRecord>(File.ReadAllText(cachePath));
+				if (cached != null && StringComparer.Ordinal.Equals(cached.ArtifactId, artifact.ArtifactId)) File.Delete(cachePath);
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is JsonException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection archive hash cache could not be invalidated: {0}", ex.Message);
+			}
+		}
+
+		/// <summary>Names a cache entry by the normalized archive path without reading archive bytes.</summary>
+		private string GetArchiveHashCachePath(string fullPath)
+		{
+			using (SHA256 sha256 = SHA256.Create())
+				return Path.Combine(_store.StoreDirectory, "ArchiveHashCache",
+					ToHex(sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(fullPath.ToUpperInvariant()))) + ".json");
+		}
+
+		/// <summary>Versioned optimization metadata for a real hash observed during archive publication or verification.</summary>
+		private sealed class ArchiveHashCacheRecord
+		{
+			public int SchemaVersion { get; set; }
+			public string ArchivePath { get; set; }
+			public string ArtifactId { get; set; }
+			public string Sha256 { get; set; }
+			public long ByteLength { get; set; }
+			public long LastWriteUtcTicks { get; set; }
 		}
 
 		private static string CreateArtifactId(CollectionContentHash contentHash)

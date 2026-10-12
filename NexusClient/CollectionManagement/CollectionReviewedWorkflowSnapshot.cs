@@ -649,8 +649,10 @@ namespace Nexus.Client.CollectionManagement
 		public const string LegacyPayloadFormat = "nmm-ce.collections.coordinator-plan/1";
 		private const int BinaryVersion = 9;
 		private const int LegacyBinaryVersion = 2;
-		private const int MaxCount = 100000;
-		private const int MaxPayloadLength = 64 * 1024 * 1024;
+		// Large Collections retain each file in mappings, validation paths, previews and winner records.
+		// Use the same bounds for writing and reading to avoid publishing reviews the codec cannot reopen.
+		private const int MaxCount = 1000000;
+		private const int MaxPayloadLength = 256 * 1024 * 1024;
 
 		/// <summary>Serializes one immutable reviewed workflow using the v2 deterministic binary format.</summary>
 		public static byte[] Serialize(CollectionReviewedWorkflowSnapshot snapshot)
@@ -681,8 +683,9 @@ namespace Nexus.Client.CollectionManagement
 				writer.Write(snapshot.AutomaticallyInstall);
 				writer.Write(snapshot.PreferIncomingCollection);
 				writer.Flush();
+				if (stream.Length > MaxPayloadLength)
+					throw new InvalidOperationException("Collection installation instructions exceed NMM's supported size (256 MB).");
 				byte[] payload = stream.ToArray();
-				if (payload.Length > MaxPayloadLength) throw new InvalidOperationException("Reviewed workflow payload exceeds the bounded v2 persistence size.");
 				CollectionPerformanceMetrics.RecordReviewedSnapshotSerialize(performanceStarted, payload.LongLength);
 				return payload;
 			}
@@ -734,7 +737,7 @@ namespace Nexus.Client.CollectionManagement
 		private static void WriteMembers(BinaryWriter writer, IEnumerable<CollectionReviewedMemberSnapshot> values)
 		{
 			List<CollectionReviewedMemberSnapshot> list = values.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList();
-			writer.Write(list.Count);
+			WriteCount(writer, list.Count);
 			foreach (CollectionReviewedMemberSnapshot x in list)
 			{
 				WriteMemberKey(writer, x.MemberKey); writer.Write(x.SourceOrdinal); writer.Write((int)x.Requirement); writer.Write(x.InstallationPhase);
@@ -754,7 +757,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			List<CollectionReviewedDependencySnapshot> list = values.OrderBy(x => x.Prerequisite.Kind).ThenBy(x => x.Prerequisite.Value, StringComparer.Ordinal)
 				.ThenBy(x => x.Dependent.Kind).ThenBy(x => x.Dependent.Value, StringComparer.Ordinal).ThenBy(x => x.Kind).ToList();
-			writer.Write(list.Count); foreach (var x in list) { WriteMemberKey(writer, x.Prerequisite); WriteMemberKey(writer, x.Dependent); writer.Write((int)x.Kind); }
+			WriteCount(writer, list.Count); foreach (var x in list) { WriteMemberKey(writer, x.Prerequisite); WriteMemberKey(writer, x.Dependent); writer.Write((int)x.Kind); }
 		}
 		private static List<CollectionReviewedDependencySnapshot> ReadDependencies(BinaryReader reader)
 		{
@@ -766,7 +769,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			List<CollectionReviewedPrioritySnapshot> list = values.OrderBy(x => x.Lower.Kind).ThenBy(x => x.Lower.Value, StringComparer.Ordinal)
 				.ThenBy(x => x.Higher.Kind).ThenBy(x => x.Higher.Value, StringComparer.Ordinal).ToList();
-			writer.Write(list.Count); foreach (var x in list) { WriteMemberKey(writer, x.Lower); WriteMemberKey(writer, x.Higher); }
+			WriteCount(writer, list.Count); foreach (var x in list) { WriteMemberKey(writer, x.Lower); WriteMemberKey(writer, x.Higher); }
 		}
 		private static List<CollectionReviewedPrioritySnapshot> ReadPriorities(BinaryReader reader)
 		{
@@ -776,15 +779,15 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WritePhases(BinaryWriter writer, IEnumerable<CollectionReviewedPhaseSnapshot> values)
 		{
-			List<CollectionReviewedPhaseSnapshot> list = values.OrderBy(x => x.PhaseNumber).ToList(); writer.Write(list.Count);
+			List<CollectionReviewedPhaseSnapshot> list = values.OrderBy(x => x.PhaseNumber).ToList(); WriteCount(writer, list.Count);
 			foreach (var phase in list)
 			{
-				writer.Write(phase.PhaseNumber); writer.Write(phase.Members.Count);
+				writer.Write(phase.PhaseNumber); WriteCount(writer, phase.Members.Count);
 				foreach (var x in phase.Members)
 				{
 					WriteMemberKey(writer, x.MemberKey); writer.Write((int)x.Disposition); writer.Write((int)x.Reason);
-					writer.Write(x.NativeCandidates.Count); foreach (var c in x.NativeCandidates) { writer.Write(c.TargetFingerprint); writer.Write(c.NativeModKey); writer.Write(c.NexusModId); writer.Write(c.NexusFileId); writer.Write((int)c.InstallRoot); writer.Write((int)c.InstallMethod); }
-					writer.Write(x.Bindings.Count); foreach (var b in x.Bindings) { writer.Write(b.AssociationId.ToByteArray()); writer.Write((int)b.AssociationState); WriteMemberKey(writer, b.MemberKey); writer.Write(b.TargetFingerprint); writer.Write(b.NativeModKey); writer.Write(b.VerifiedRecipeFingerprint); writer.Write((int)b.BindingKind); }
+					WriteCount(writer, x.NativeCandidates.Count); foreach (var c in x.NativeCandidates) { writer.Write(c.TargetFingerprint); writer.Write(c.NativeModKey); writer.Write(c.NexusModId); writer.Write(c.NexusFileId); writer.Write((int)c.InstallRoot); writer.Write((int)c.InstallMethod); }
+					WriteCount(writer, x.Bindings.Count); foreach (var b in x.Bindings) { writer.Write(b.AssociationId.ToByteArray()); writer.Write((int)b.AssociationState); WriteMemberKey(writer, b.MemberKey); writer.Write(b.TargetFingerprint); writer.Write(b.NativeModKey); writer.Write(b.VerifiedRecipeFingerprint); writer.Write((int)b.BindingKind); }
 					writer.Write(x.VerifiedArchive != null); if (x.VerifiedArchive != null) { writer.Write(x.VerifiedArchive.ArtifactId); WriteHash(writer, x.VerifiedArchive.ContentHash); writer.Write(x.VerifiedArchive.ByteLength); writer.Write((int)x.VerifiedArchive.SourceKind); writer.Write((int)x.VerifiedArchive.VerificationBasis); }
 				}
 			}
@@ -812,7 +815,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WriteBarriers(BinaryWriter writer, IEnumerable<CollectionReviewedBarrierSnapshot> values)
 		{
-			List<CollectionReviewedBarrierSnapshot> list = values.OrderBy(x => x.CompletedPhase).ThenBy(x => x.NextPhase).ToList(); writer.Write(list.Count); foreach (var x in list) { writer.Write(x.CompletedPhase); writer.Write(x.NextPhase); writer.Write((int)x.Kind); }
+			List<CollectionReviewedBarrierSnapshot> list = values.OrderBy(x => x.CompletedPhase).ThenBy(x => x.NextPhase).ToList(); WriteCount(writer, list.Count); foreach (var x in list) { writer.Write(x.CompletedPhase); writer.Write(x.NextPhase); writer.Write((int)x.Kind); }
 		}
 		private static List<CollectionReviewedBarrierSnapshot> ReadBarriers(BinaryReader reader)
 		{
@@ -820,8 +823,8 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WriteFileImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedFileImpactSnapshot> values)
 		{
-			List<CollectionReviewedFileImpactSnapshot> list = values.OrderBy(x => x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToList(); writer.Write(list.Count);
-			foreach (var x in list) { WriteDeploymentTarget(writer, x.Target); writer.Write(x.Writers.Count); foreach (var key in x.Writers) WriteMemberKey(writer, key); WriteNullableMemberKey(writer, x.PlannedWinner); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.PreserveCurrentOwner); WriteGuids(writer, x.AffectedAssociationIds); }
+			List<CollectionReviewedFileImpactSnapshot> list = values.OrderBy(x => x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToList(); WriteCount(writer, list.Count);
+			foreach (var x in list) { WriteDeploymentTarget(writer, x.Target); WriteCount(writer, x.Writers.Count); foreach (var key in x.Writers) WriteMemberKey(writer, key); WriteNullableMemberKey(writer, x.PlannedWinner); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.PreserveCurrentOwner); WriteGuids(writer, x.AffectedAssociationIds); }
 		}
 		private static List<CollectionReviewedFileImpactSnapshot> ReadFileImpacts(BinaryReader reader, int binaryVersion)
 		{
@@ -840,7 +843,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WritePluginImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedPluginImpactSnapshot> values)
 		{
-			List<CollectionReviewedPluginImpactSnapshot> list = values.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ThenBy(x => x.Effect.Kind).ToList(); writer.Write(list.Count); foreach (var x in list) { WriteMemberKey(writer, x.MemberKey); WritePluginEffect(writer, x.Effect); WriteGuids(writer, x.AffectedAssociationIds); }
+			List<CollectionReviewedPluginImpactSnapshot> list = values.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ThenBy(x => x.Effect.Kind).ToList(); WriteCount(writer, list.Count); foreach (var x in list) { WriteMemberKey(writer, x.MemberKey); WritePluginEffect(writer, x.Effect); WriteGuids(writer, x.AffectedAssociationIds); }
 		}
 		private static List<CollectionReviewedPluginImpactSnapshot> ReadPluginImpacts(BinaryReader reader)
 		{
@@ -848,7 +851,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WriteConfigurationImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedConfigurationImpactSnapshot> values)
 		{
-			List<CollectionReviewedConfigurationImpactSnapshot> list = values.OrderBy(x => x.Kind).ThenBy(x => x.SubjectKey, StringComparer.Ordinal).ThenBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList(); writer.Write(list.Count); foreach (var x in list) { WriteMemberKey(writer, x.MemberKey); writer.Write((int)x.Kind); writer.Write(x.SubjectKey); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.ChangesRecordedValue); WriteGuids(writer, x.AffectedAssociationIds); }
+			List<CollectionReviewedConfigurationImpactSnapshot> list = values.OrderBy(x => x.Kind).ThenBy(x => x.SubjectKey, StringComparer.Ordinal).ThenBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList(); WriteCount(writer, list.Count); foreach (var x in list) { WriteMemberKey(writer, x.MemberKey); writer.Write((int)x.Kind); writer.Write(x.SubjectKey); WriteNullableString(writer, x.CurrentOwnerKey); writer.Write(x.ChangesRecordedValue); WriteGuids(writer, x.AffectedAssociationIds); }
 		}
 		private static List<CollectionReviewedConfigurationImpactSnapshot> ReadConfigurationImpacts(BinaryReader reader)
 		{
@@ -856,7 +859,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WriteAssociationImpacts(BinaryWriter writer, IEnumerable<CollectionReviewedAssociationImpactSnapshot> values)
 		{
-			List<CollectionReviewedAssociationImpactSnapshot> list = values.OrderBy(x => x.AssociationId).ToList(); writer.Write(list.Count); foreach (var x in list) { writer.Write(x.AssociationId.ToByteArray()); writer.Write((int)x.Kind); }
+			List<CollectionReviewedAssociationImpactSnapshot> list = values.OrderBy(x => x.AssociationId).ToList(); WriteCount(writer, list.Count); foreach (var x in list) { writer.Write(x.AssociationId.ToByteArray()); writer.Write((int)x.Kind); }
 		}
 		private static List<CollectionReviewedAssociationImpactSnapshot> ReadAssociationImpacts(BinaryReader reader)
 		{
@@ -864,16 +867,16 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WritePreparedRecipes(BinaryWriter writer, IEnumerable<CollectionReviewedPreparedRecipeSnapshot> values)
 		{
-			List<CollectionReviewedPreparedRecipeSnapshot> list = values.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList(); writer.Write(list.Count);
+			List<CollectionReviewedPreparedRecipeSnapshot> list = values.OrderBy(x => x.MemberKey.Kind).ThenBy(x => x.MemberKey.Value, StringComparer.Ordinal).ToList(); WriteCount(writer, list.Count);
 			foreach (var x in list)
 			{
 				WriteMemberKey(writer, x.MemberKey); writer.Write(x.SourceOrdinal); writer.Write(x.ProviderRecipeFingerprint); writer.Write(x.PreparedNativeFingerprint); writer.Write(x.SkipReadmeFiles);
-				WriteValidation(writer, x.Validation); WriteEffectPreview(writer, x.EffectPreview); writer.Write(x.RetainedArtifactIds.Count); foreach (string id in x.RetainedArtifactIds.OrderBy(y => y, StringComparer.Ordinal)) writer.Write(id);
-				writer.Write(x.SimpleFileMappings.Count);
+				WriteValidation(writer, x.Validation); WriteEffectPreview(writer, x.EffectPreview); WriteCount(writer, x.RetainedArtifactIds.Count); foreach (string id in x.RetainedArtifactIds.OrderBy(y => y, StringComparer.Ordinal)) writer.Write(id);
+				WriteCount(writer, x.SimpleFileMappings.Count);
 				foreach (CollectionReviewedSimpleFileMappingSnapshot mapping in x.SimpleFileMappings) { writer.Write(mapping.SourcePath); writer.Write(mapping.DestinationPath); }
-				writer.Write(x.GeneratedFiles.Count);
+				WriteCount(writer, x.GeneratedFiles.Count);
 				foreach (CollectionReviewedGeneratedFileSnapshot generated in x.GeneratedFiles.OrderBy(y => y.DestinationPath, StringComparer.OrdinalIgnoreCase)) { writer.Write(generated.SourcePath); writer.Write(generated.DestinationPath); writer.Write(generated.Sha256); writer.Write(generated.ByteLength); }
-				writer.Write(x.GameSpecificValues.Count);
+				WriteCount(writer, x.GameSpecificValues.Count);
 				foreach (CollectionReviewedGameSpecificValueSnapshot value in x.GameSpecificValues) { writer.Write(value.Key); byte[] bytes = value.UnsafeValue; writer.Write(bytes.Length); writer.Write(bytes); }
 			}
 		}
@@ -911,8 +914,8 @@ namespace Nexus.Client.CollectionManagement
 		private static void WriteValidation(BinaryWriter writer, ModInstallationRecipeValidation validation)
 		{
 			writer.Write(validation.AdapterId); writer.Write(validation.AdapterVersion); writer.Write((int)validation.InstallContext.Method); writer.Write((int)validation.InstallContext.InstallRoot); writer.Write(validation.ExpectedContent.Sha256); writer.Write(validation.ExpectedContent.ByteLength);
-			writer.Write(validation.Capabilities.Count); foreach (var c in validation.Capabilities.OrderBy(x => x.CapabilityId, StringComparer.Ordinal)) { writer.Write(c.CapabilityId); writer.Write(c.Version); }
-			writer.Write(validation.Paths.Count); foreach (var p in validation.Paths) { writer.Write((int)p.Kind); writer.Write(p.Path); }
+			WriteCount(writer, validation.Capabilities.Count); foreach (var c in validation.Capabilities.OrderBy(x => x.CapabilityId, StringComparer.Ordinal)) { writer.Write(c.CapabilityId); writer.Write(c.Version); }
+			WriteCount(writer, validation.Paths.Count); foreach (var p in validation.Paths) { writer.Write((int)p.Kind); writer.Write(p.Path); }
 		}
 		private static ModInstallationRecipeValidation ReadValidation(BinaryReader reader)
 		{
@@ -924,7 +927,7 @@ namespace Nexus.Client.CollectionManagement
 		private static void WriteEffectPreview(BinaryWriter writer, CollectionMemberEffectPreview preview)
 		{
 			WriteMemberKey(writer, preview.MemberKey); writer.Write(preview.RecipeIdentity.Fingerprint); writer.Write((int)preview.InstallMethod); writer.Write((int)preview.InstallRoot);
-			writer.Write(preview.Files.Count);
+			WriteCount(writer, preview.Files.Count);
 			foreach (CollectionPlannedFileEffect file in preview.Files)
 			{
 				WriteDeploymentTarget(writer, file.Target);
@@ -935,10 +938,10 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write(file.ExpectedByteLength.Value);
 				}
 			}
-			writer.Write(preview.IniEdits.Count); foreach (var x in preview.IniEdits) { writer.Write(x.Key.File); writer.Write(x.Key.Section); writer.Write(x.Key.Key); WriteNullableString(writer, x.Value); }
-			writer.Write(preview.GameValues.Count); foreach (var x in preview.GameValues) { writer.Write(x.Key); byte[] value = x.Value; writer.Write(value != null); if (value != null) { writer.Write(value.Length); writer.Write(value); } }
-			writer.Write(preview.PluginEffects.Count); foreach (var x in preview.PluginEffects) WritePluginEffect(writer, x);
-			writer.Write(preview.Issues.Count); foreach (var x in preview.Issues) { writer.Write((int)x.Kind); writer.Write(x.OperationType); writer.Write(x.Message); }
+			WriteCount(writer, preview.IniEdits.Count); foreach (var x in preview.IniEdits) { writer.Write(x.Key.File); writer.Write(x.Key.Section); writer.Write(x.Key.Key); WriteNullableString(writer, x.Value); }
+			WriteCount(writer, preview.GameValues.Count); foreach (var x in preview.GameValues) { writer.Write(x.Key); byte[] value = x.Value; writer.Write(value != null); if (value != null) { WriteCount(writer, value.Length); writer.Write(value); } }
+			WriteCount(writer, preview.PluginEffects.Count); foreach (var x in preview.PluginEffects) WritePluginEffect(writer, x);
+			WriteCount(writer, preview.Issues.Count); foreach (var x in preview.Issues) { writer.Write((int)x.Kind); writer.Write(x.OperationType); writer.Write(x.Message); }
 			CollectionInstallRootCorrection.Write(writer, preview.InstallRootCorrection);
 		}
 		private static CollectionMemberEffectPreview ReadEffectPreview(BinaryReader reader, int binaryVersion)
@@ -961,7 +964,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 		private static void WritePluginEffect(BinaryWriter writer, CollectionPlannedPluginEffect effect)
 		{
-			writer.Write((int)effect.Kind); writer.Write(effect.PluginPaths.Count); foreach (string path in effect.PluginPaths) writer.Write(path); writer.Write(effect.Active.HasValue); if (effect.Active.HasValue) writer.Write(effect.Active.Value); writer.Write(effect.AbsoluteIndex.HasValue); if (effect.AbsoluteIndex.HasValue) writer.Write(effect.AbsoluteIndex.Value);
+			writer.Write((int)effect.Kind); WriteCount(writer, effect.PluginPaths.Count); foreach (string path in effect.PluginPaths) writer.Write(path); writer.Write(effect.Active.HasValue); if (effect.Active.HasValue) writer.Write(effect.Active.Value); writer.Write(effect.AbsoluteIndex.HasValue); if (effect.AbsoluteIndex.HasValue) writer.Write(effect.AbsoluteIndex.Value);
 		}
 		private static CollectionPlannedPluginEffect ReadPluginEffect(BinaryReader reader)
 		{
@@ -997,10 +1000,16 @@ namespace Nexus.Client.CollectionManagement
 		private static ModDeploymentTarget ReadDeploymentTarget(BinaryReader reader) { return ModDeploymentTargetResolver.FromCanonical(ReadEnum<ModDeploymentRoot>(reader, true), ReadRequiredString(reader)); }
 		private static void WriteNullableString(BinaryWriter writer, string value) { writer.Write(value != null); if (value != null) writer.Write(value); }
 		private static string ReadNullableString(BinaryReader reader) { return reader.ReadBoolean() ? reader.ReadString() : null; }
-		private static void WriteGuids(BinaryWriter writer, IEnumerable<Guid> values) { List<Guid> list = values.OrderBy(x => x).ToList(); writer.Write(list.Count); foreach (Guid value in list) writer.Write(value.ToByteArray()); }
+		private static void WriteGuids(BinaryWriter writer, IEnumerable<Guid> values) { List<Guid> list = values.OrderBy(x => x).ToList(); WriteCount(writer, list.Count); foreach (Guid value in list) writer.Write(value.ToByteArray()); }
 		private static List<Guid> ReadGuids(BinaryReader reader) { var result = new List<Guid>(); for (int i = 0, count = ReadCount(reader); i < count; i++) result.Add(ReadGuid(reader)); return result; }
 		private static Guid ReadGuid(BinaryReader reader) { byte[] bytes = reader.ReadBytes(16); if (bytes.Length != 16) throw new EndOfStreamException(); Guid value = new Guid(bytes); if (value == Guid.Empty) throw new InvalidDataException("Persisted GUID cannot be empty."); return value; }
-		private static int ReadCount(BinaryReader reader) { int count = reader.ReadInt32(); if (count < 0 || count > MaxCount) throw new InvalidDataException("Persisted collection count is outside the supported bound."); return count; }
+		/// <summary>Rejects collection sizes the paired reader cannot load before publishing an immutable review.</summary>
+		private static void WriteCount(BinaryWriter writer, int count)
+		{
+			if (count < 0 || count > MaxCount) throw new InvalidOperationException("Collection installation instructions contain too many records for NMM to save.");
+			writer.Write(count);
+		}
+		private static int ReadCount(BinaryReader reader) { int count = reader.ReadInt32(); if (count < 0 || count > MaxCount || count > reader.BaseStream.Length - reader.BaseStream.Position) throw new InvalidDataException("Persisted collection count is outside the supported bound."); return count; }
 		private static string ReadRequiredString(BinaryReader reader) { string value = reader.ReadString(); if (String.IsNullOrWhiteSpace(value)) throw new InvalidDataException("Persisted required string is empty."); return value; }
 
 		private static CollectionAssociationImpactKind ReadAssociationImpactKind(BinaryReader reader)
@@ -1033,8 +1042,17 @@ namespace Nexus.Client.CollectionManagement
 		internal CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus status,
 			CollectionReviewedWorkflowSnapshot snapshot, CollectionNativeStateIndex currentState,
 			IEnumerable<CollectionMemberKey> remainingMembers, string message)
+			: this(status, snapshot, currentState, remainingMembers, message, true)
+		{
+		}
+
+		/// <summary>Creates a result that distinguishes recovery status inspection from executable retained-input verification.</summary>
+		internal CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus status,
+			CollectionReviewedWorkflowSnapshot snapshot, CollectionNativeStateIndex currentState,
+			IEnumerable<CollectionMemberKey> remainingMembers, string message, bool hasVerifiedRetainedInputs)
 		{
 			Status = status; Snapshot = snapshot; CurrentState = currentState; Message = message ?? String.Empty;
+			HasVerifiedRetainedInputs = hasVerifiedRetainedInputs && status == CollectionReviewedWorkflowRehydrationStatus.Ready;
 			_remainingMembers = new ReadOnlyCollection<CollectionMemberKey>((remainingMembers ?? Enumerable.Empty<CollectionMemberKey>()).ToList());
 		}
 		public CollectionReviewedWorkflowRehydrationStatus Status { get; }
@@ -1042,6 +1060,8 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionNativeStateIndex CurrentState { get; }
 		public ReadOnlyCollection<CollectionMemberKey> RemainingMembers { get { return _remainingMembers; } }
 		public string Message { get; }
+		/// <summary>Gets whether this result verified retained installer inputs, rather than only inspecting recovery status.</summary>
+		public bool HasVerifiedRetainedInputs { get; }
 		public bool CanResume { get { return Status == CollectionReviewedWorkflowRehydrationStatus.Ready; } }
 	}
 
@@ -1061,6 +1081,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly Func<string, CollectionsRetainedArtifact> _artifactLoader;
 		private readonly Func<CollectionTargetIdentity, CollectionNativeStateIndex> _stateCapture;
 		private readonly Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> _recoveryManifestLoader;
+		private readonly Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> _checkpointManifestLoader;
 
 		/// <summary>Creates a rehydrator over the durable Collections stores and the authoritative C6.1 native-state reader.</summary>
 		public CollectionReviewedWorkflowRehydrator(CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
@@ -1079,7 +1100,8 @@ namespace Nexus.Client.CollectionManagement
 				revisionSourceStore == null ? null : new Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]>(revisionSourceStore.LoadManifest),
 				artifactStore == null ? null : new Func<string, CollectionsRetainedArtifact>(artifactId => LoadVerifiedArtifact(artifactStore, artifactId)),
 				nativeStateReader == null ? null : new Func<CollectionTargetIdentity, CollectionNativeStateIndex>(nativeStateReader.Capture),
-				manifestStore == null ? null : new Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest>(manifestStore.GetManifest))
+				manifestStore == null ? null : new Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest>(manifestStore.GetManifest),
+				manifestStore == null ? null : new Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest>(manifestStore.GetCompletedCheckpointManifest))
 		{
 		}
 
@@ -1100,6 +1122,18 @@ namespace Nexus.Client.CollectionManagement
 			Func<string, CollectionsRetainedArtifact> artifactLoader,
 			Func<CollectionTargetIdentity, CollectionNativeStateIndex> stateCapture,
 			Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> recoveryManifestLoader)
+			: this(operationStore, planStore, sourceRecordLoader, manifestLoader, artifactLoader, stateCapture, recoveryManifestLoader, null)
+		{
+		}
+
+		/// <summary>Creates a rehydrator with a sealed checkpoint reader that does not reopen completed installations' archive inputs.</summary>
+		public CollectionReviewedWorkflowRehydrator(CollectionsOperationStore operationStore, CollectionsResolvedPlanStore planStore,
+			Func<CollectionRevisionIdentity, CollectionRevisionSourceRecord> sourceRecordLoader,
+			Func<CollectionRevisionIdentity, CollectionManifestSourceSnapshot, byte[]> manifestLoader,
+			Func<string, CollectionsRetainedArtifact> artifactLoader,
+			Func<CollectionTargetIdentity, CollectionNativeStateIndex> stateCapture,
+			Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> recoveryManifestLoader,
+			Func<CollectionOperation, CollectionNativeChildOperation, CollectionNativeChildRecoveryManifest> checkpointManifestLoader)
 		{
 			_operationStore = operationStore ?? throw new ArgumentNullException(nameof(operationStore));
 			_planStore = planStore ?? throw new ArgumentNullException(nameof(planStore));
@@ -1108,10 +1142,23 @@ namespace Nexus.Client.CollectionManagement
 			_artifactLoader = artifactLoader ?? throw new ArgumentNullException(nameof(artifactLoader));
 			_stateCapture = stateCapture ?? throw new ArgumentNullException(nameof(stateCapture));
 			_recoveryManifestLoader = recoveryManifestLoader;
+			_checkpointManifestLoader = checkpointManifestLoader ?? recoveryManifestLoader;
 		}
 
 		/// <summary>Loads and validates one exact reviewed operation without performing native or Collection mutation.</summary>
 		public CollectionReviewedWorkflowRehydrationResult Rehydrate(CollectionOperationIdentity operationIdentity)
+		{
+			return RehydrateCore(operationIdentity, true);
+		}
+
+		/// <summary>Checks the journal, sealed checkpoint and current native state without hashing archives or constructing installers.</summary>
+		internal CollectionReviewedWorkflowRehydrationResult RehydrateForRecoveryStatus(CollectionOperationIdentity operationIdentity)
+		{
+			return RehydrateCore(operationIdentity, false);
+		}
+
+		/// <summary>Rehydrates immutable review metadata, verifying retained content only when executable continuation is requested.</summary>
+		private CollectionReviewedWorkflowRehydrationResult RehydrateCore(CollectionOperationIdentity operationIdentity, bool verifyRetainedInputs)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			CollectionOperation operation = _operationStore.GetOperation(operationIdentity);
@@ -1131,7 +1178,7 @@ namespace Nexus.Client.CollectionManagement
 				return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, null, null, null, "The persisted reviewed-plan payload format is unsupported.");
 
 			CollectionReviewedWorkflowSnapshot snapshot;
-			try { snapshot = CollectionReviewedWorkflowSnapshotCodec.Deserialize(record.Payload); }
+			try { snapshot = CollectionReviewedWorkflowSnapshotCodec.Deserialize(record.UnsafePayload); }
 			catch (InvalidDataException ex) { return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, null, null, null, ex.Message); }
 			if (!MatchesRecord(snapshot, record, operation))
 				return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, null, null, "Persisted reviewed-workflow metadata does not match the immutable resolved-plan/operation record.");
@@ -1144,9 +1191,12 @@ namespace Nexus.Client.CollectionManagement
 				CollectionRevisionSourceRecord sourceRecord = _sourceRecordLoader(snapshot.Revision);
 				if (sourceRecord == null || String.IsNullOrWhiteSpace(sourceRecord.RawManifestArtifactId) || !sourceRecord.ManifestSource.Equals(snapshot.ManifestSource))
 					throw new InvalidDataException("The exact retained Collection revision source binding is missing or changed.");
-				_manifestLoader(snapshot.Revision, snapshot.ManifestSource);
-				_artifactLoader(sourceRecord.RawManifestArtifactId);
-				ValidatePreparedDescriptors(snapshot);
+				if (verifyRetainedInputs)
+				{
+					_manifestLoader(snapshot.Revision, snapshot.ManifestSource);
+					_artifactLoader(sourceRecord.RawManifestArtifactId);
+				}
+				ValidatePreparedDescriptors(snapshot, verifyRetainedInputs);
 			}
 			catch (NotSupportedException ex)
 			{
@@ -1159,6 +1209,7 @@ namespace Nexus.Client.CollectionManagement
 
 			var remaining = new HashSet<CollectionMemberKey>(snapshot.Members.Select(x => x.MemberKey));
 			CollectionCurrentStateFingerprint expectedStateFingerprint = snapshot.ApprovedStateFingerprint;
+			CollectionNativeChildOperation latestCommitted = null;
 			foreach (CollectionNativeChildOperation child in operation.NativeChildren.OrderBy(x => x.Sequence))
 			{
 				if (!child.Member.Revision.Equals(snapshot.Revision) || !remaining.Contains(child.Member.MemberKey))
@@ -1173,13 +1224,17 @@ namespace Nexus.Client.CollectionManagement
 					return Result(CollectionReviewedWorkflowRehydrationStatus.RecoveryRequired, snapshot, null, null, "A submitted native child has not been reconciled through C6.9/C6.10.");
 				if (child.NativeResult == null || child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted)
 					return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, null, null, "A reconciled child is not a verified committed result; remaining work must be re-prepared.");
-				if (_recoveryManifestLoader == null)
+				latestCommitted = child;
+				remaining.Remove(child.Member.MemberKey);
+			}
+			if (latestCommitted != null)
+			{
+				if (_checkpointManifestLoader == null)
 					return Result(CollectionReviewedWorkflowRehydrationStatus.RepreparationRequired, snapshot, null, null, "Committed-child safe-boundary recovery data is unavailable; the workflow must be re-prepared.");
-				CollectionNativeChildRecoveryManifest recovery = _recoveryManifestLoader(operation, child);
+				CollectionNativeChildRecoveryManifest recovery = _checkpointManifestLoader(operation, latestCommitted);
 				if (recovery == null || recovery.SafeBoundaryStateFingerprint == null)
 					return Result(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid, snapshot, null, null, "A verified committed child is missing its durable C6.10 safe-boundary fingerprint.");
 				expectedStateFingerprint = recovery.SafeBoundaryStateFingerprint;
-				remaining.Remove(child.Member.MemberKey);
 			}
 
 			CollectionNativeStateIndex currentState = _stateCapture(snapshot.Target);
@@ -1189,10 +1244,12 @@ namespace Nexus.Client.CollectionManagement
 				return Result(CollectionReviewedWorkflowRehydrationStatus.CurrentStateChanged, snapshot, currentState, null, "Relevant native state differs from the latest verified Collection safe boundary; the workflow must be re-prepared before any new mutation.");
 			List<CollectionMemberKey> ordered = snapshot.Phases.OrderBy(x => x.PhaseNumber)
 				.SelectMany(x => x.Members).Select(x => x.MemberKey).Where(remaining.Contains).ToList();
-			return Result(CollectionReviewedWorkflowRehydrationStatus.Ready, snapshot, currentState, ordered, "The exact reviewed workflow is safe to continue from the verified boundary.");
+			return new CollectionReviewedWorkflowRehydrationResult(CollectionReviewedWorkflowRehydrationStatus.Ready, snapshot, currentState, ordered,
+				verifyRetainedInputs ? "The exact reviewed workflow is safe to continue from the verified boundary." :
+				"The interrupted installation is reconciled. Installer inputs will be checked when installation continues.", verifyRetainedInputs);
 		}
 
-		private void ValidatePreparedDescriptors(CollectionReviewedWorkflowSnapshot snapshot)
+		private void ValidatePreparedDescriptors(CollectionReviewedWorkflowSnapshot snapshot, bool verifyRetainedInputs)
 		{
 			foreach (CollectionReviewedPreparedRecipeSnapshot recipe in snapshot.PreparedRecipes)
 			{
@@ -1205,6 +1262,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new NotSupportedException("The reviewed native recipe capability contract changed and must be re-prepared.");
 				if (recipe.SimpleFileMappings.Count + recipe.GeneratedFiles.Count == 0)
 					throw new NotSupportedException("The reviewed native recipe predates executable file-operation persistence and must be re-prepared.");
+				if (!verifyRetainedInputs) continue;
 				bool foundExpectedArchive = false;
 				foreach (string artifactId in recipe.RetainedArtifactIds)
 				{

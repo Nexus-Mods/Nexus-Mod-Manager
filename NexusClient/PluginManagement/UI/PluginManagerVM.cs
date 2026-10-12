@@ -185,7 +185,8 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 			get
 			{
-				return PluginManager.ManagedPlugins;
+				PluginManager manager = PluginManager as PluginManager;
+				return manager == null ? PluginManager.ManagedPlugins : manager.ObservedManagedPlugins;
 			}
 		}
 
@@ -197,7 +198,8 @@ namespace Nexus.Client.PluginManagement.UI
 		{
 			get
 			{
-				return PluginManager.ActivePlugins;
+				PluginManager manager = PluginManager as PluginManager;
+				return manager == null ? PluginManager.ActivePlugins : manager.ObservedActivePlugins;
 			}
 		}
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
@@ -17,6 +18,61 @@ namespace NexusClientTests
 	[TestFixture]
 	public class CollectionNativeChildExecutionCoordinatorTests
 	{
+		/// <summary>Submission reuses the exact preparation proof even when saved-hash reuse is disabled and bytes cannot be opened.</summary>
+		[TestCase(false, false)]
+		[TestCase(false, true)]
+		[TestCase(true, false)]
+		[TestCase(true, true)]
+		public void SubmissionArchive_UsesPreparedProofWithoutReadingBytes(bool trustedProof, bool savedHashReuse)
+		{
+			string path = System.IO.Path.GetTempFileName();
+			try
+			{
+				System.IO.File.WriteAllBytes(path, new byte[] { 1, 2, 3 });
+				var hash = CollectionContentHash.FromSha256(new string('a', 64));
+				var info = new System.IO.FileInfo(path);
+				if (trustedProof) CollectionArchiveContentMatcher.RememberTrustedHash(info.FullName, info, hash.Value);
+				else CollectionArchiveContentMatcher.RememberObservedHash(info.FullName, info, hash.Value);
+				using (CollectionsRetainedArtifactStore.BeginSavedArchiveHashReuse(savedHashReuse))
+				using (var exclusive = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.ReadWrite, System.IO.FileShare.None))
+				{
+					Assert.That(CollectionArchiveContentMatcher.MatchesPreparedFile(path, 3, hash), Is.True);
+					Assert.DoesNotThrow(() => CollectionNativeChildExecutionCoordinator.ValidateRecoveryArchiveBytes(path,
+						new CollectionRecoveryArtifact("sha256:" + hash.Value, hash, 3)));
+				}
+			}
+			finally { System.IO.File.Delete(path); }
+		}
+
+		/// <summary>A missing or changed archive proof is rejected without falling back to a new SHA pass or another archive.</summary>
+		[TestCase("unprepared")]
+		[TestCase("other-path")]
+		[TestCase("different-hash")]
+		[TestCase("changed-stamp")]
+		[TestCase("different-length")]
+		public void SubmissionArchive_RejectsUnboundOrChangedInput(string condition)
+		{
+			string path = System.IO.Path.GetTempFileName();
+			string other = System.IO.Path.GetTempFileName();
+			try
+			{
+				System.IO.File.WriteAllBytes(path, new byte[] { 1, 2, 3 });
+				var hash = CollectionContentHash.FromSha256(new string('a', 64));
+				if (condition != "unprepared")
+				{
+					var info = new System.IO.FileInfo(condition == "other-path" ? other : path);
+					CollectionArchiveContentMatcher.RememberObservedHash(info.FullName, info, hash.Value);
+				}
+				if (condition == "changed-stamp") System.IO.File.SetLastWriteTimeUtc(path, System.IO.File.GetLastWriteTimeUtc(path).AddSeconds(2));
+				if (condition == "different-length") System.IO.File.WriteAllBytes(path, new byte[] { 1, 2 });
+				if (condition == "different-hash") hash = CollectionContentHash.FromSha256(new string('b', 64));
+				Assert.That(CollectionArchiveContentMatcher.MatchesPreparedFile(path, 3, hash), Is.False);
+				Assert.Throws<System.IO.InvalidDataException>(() => CollectionNativeChildExecutionCoordinator.ValidateRecoveryArchiveBytes(path,
+					new CollectionRecoveryArtifact("sha256:" + hash.Value, hash, 3)));
+			}
+			finally { System.IO.File.Delete(path); System.IO.File.Delete(other); }
+		}
+
 		[Test]
 		public void ValidateExecutableFilePriorities_SingleWriterIsRepresentableByCurrentC5Plan()
 		{
@@ -126,6 +182,21 @@ namespace NexusClientTests
 				new InstallModFileOperation("source.xml", target.RelativePath), effect, impact, member, ModInstallMethod.Virtual, @"C:\stage\shared.xml", false));
 		}
 
+		/// <summary>Path-based conflict approval does not require decompressing payloads before installation.</summary>
+		[Test]
+		public void ReviewedFileDeployment_AcceptsReviewedTargetBeforeContentIsRead()
+		{
+			CollectionMemberKey member = CollectionMemberKey.FromProvider("preloader");
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.GameRoot, "shared.xml");
+			var effect = new CollectionPlannedFileEffect(target);
+			var impact = new CollectionFileImpact(target, new[] { member }, member, null, new Guid[0]);
+			var resolved = (InstallModFileOperation)CollectionNativeChildExecutionCoordinator.AuthorizeReviewedFileDeployment(
+				new InstallModFileOperation("source.xml", target.RelativePath), effect, impact, member,
+				ModInstallMethod.Direct, null, false);
+			Assert.That(resolved.DeploymentDecision.Activate, Is.True);
+			Assert.That(resolved.DeploymentDecision.WritePayload, Is.True);
+		}
+
 		[Test]
 		public void CreateExpectedFileEvidence_ReusesReviewedExactContentIdentity()
 		{
@@ -147,6 +218,18 @@ namespace NexusClientTests
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds");
 			Assert.Throws<System.IO.InvalidDataException>(() =>
 				CollectionNativeChildExecutionCoordinator.CreateExpectedFileEvidence(new CollectionPlannedFileEffect(target)));
+		}
+
+		/// <summary>Metadata reviews remain valid at submission and require exact content before mutation evidence is accepted.</summary>
+		[Test]
+		public void SubmissionPreview_MetadataTargetsCanDeferContentButCannotChangeTargets()
+		{
+			CollectionMemberEffectPreview reviewed = CreateSubmissionPreview("mod.dll", null, null);
+			CollectionMemberEffectPreview same = CreateSubmissionPreview("mod.dll", null, null);
+			CollectionMemberEffectPreview changed = CreateSubmissionPreview("other.dll", null, null);
+			Assert.That(CollectionNativeChildExecutionCoordinator.ResolvePlannedSubmissionPreview(reviewed, same), Is.SameAs(same));
+			Assert.Throws<InvalidOperationException>(() => CollectionNativeChildExecutionCoordinator.ResolvePlannedSubmissionPreview(reviewed, changed));
+			Assert.Throws<InvalidOperationException>(() => CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, same));
 		}
 
 		/// <summary>Legacy reviews can recover missing hashes from the same archive-bound recipe at submission.</summary>

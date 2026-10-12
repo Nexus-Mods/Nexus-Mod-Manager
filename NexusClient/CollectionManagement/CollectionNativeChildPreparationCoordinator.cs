@@ -55,6 +55,17 @@ namespace Nexus.Client.CollectionManagement
 				effectPreviews, verifiedArchives, installInfoDirectory, CollectionNativeChildWorkflowMode.Additive);
 		}
 
+		/// <summary>Prepares the next additive member while retaining its installation-stage counter in progress messages.</summary>
+		internal CollectionNativeChildPreparationResult PrepareNext(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
+			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState,
+			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionVerifiedArchive> verifiedArchives,
+			string installInfoDirectory, int currentMember, int totalMembers)
+		{
+			return PrepareNextCore(operationIdentity, plan, matches, dependencyPlan, impactPlan, currentState,
+				effectPreviews, verifiedArchives, installInfoDirectory, CollectionNativeChildWorkflowMode.Additive, currentMember, totalMembers);
+		}
+
 		/// <summary>Prepares one C8.6 incoming child against the verified post-removal replacement execution baseline.</summary>
 		internal CollectionNativeChildPreparationResult PrepareNextForReplacement(CollectionOperationIdentity operationIdentity,
 			ResolvedCollectionPlan executionPlan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
@@ -81,7 +92,7 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionDependencyPhasePlan dependencyPlan,
 			CollectionConflictImpactPlan impactPlan, CollectionNativeStateIndex currentState,
 			IEnumerable<CollectionMemberEffectPreview> effectPreviews, IEnumerable<CollectionVerifiedArchive> verifiedArchives,
-			string installInfoDirectory, CollectionNativeChildWorkflowMode workflowMode)
+			string installInfoDirectory, CollectionNativeChildWorkflowMode workflowMode, int currentMember = 0, int totalMembers = 0)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -103,8 +114,11 @@ namespace Nexus.Client.CollectionManagement
 				? FindNextActionableMatch(dependencyPlan, operation, workflowMode)
 				: GetMatch(matches, existingPending.Member.MemberKey);
 			if (match == null) return null;
-			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-				"Collections.Workflow.PreparingMemberInstallation", "Preparing mod installation: {0}", match.Member.DisplayName), true);
+			CollectionPreparationProgress.Report(totalMembers > 0
+				? Nexus.Client.Util.Localization.LanguageManager.Format("Collections.Workflow.PreparingMemberInstallationWithCounter",
+					"Preparing mod installation ({0}/{1}): {2}", currentMember, totalMembers, match.Member.DisplayName)
+				: Nexus.Client.Util.Localization.LanguageManager.Format(
+					"Collections.Workflow.PreparingMemberInstallation", "Preparing mod installation: {0}", match.Member.DisplayName), true);
 			if (match.Disposition != CollectionMemberMatchDisposition.ArchiveOnlyReuse && match.Disposition != CollectionMemberMatchDisposition.ReinstallRequired)
 				throw new InvalidOperationException("Only archive-only activation or reviewed reinstall members create C6.6 native child intent.");
 
@@ -151,7 +165,7 @@ namespace Nexus.Client.CollectionManagement
 				ValidateExistingChild(child, plan, match, preview);
 				if (child.Checkpoint == CollectionNativeChildCheckpoint.RecoveryInputsReady)
 				{
-					CollectionNativeChildRecoveryManifest readyManifest = _manifestStore.GetManifest(operation, child);
+					CollectionNativeChildRecoveryManifest readyManifest = ReadPreparationManifest(operation, child, workflowMode);
 					if (readyManifest == null) throw new InvalidDataException("A RecoveryInputsReady Collection child is missing its retained recovery manifest.");
 					if (!readyManifest.PreparationStateFingerprint.Equals(currentState.Fingerprint) ||
 						!readyManifest.PreparationStateFingerprint.Equals(ResolveExpectedPreparationStateFingerprint(operation, plan, workflowMode)))
@@ -179,9 +193,29 @@ namespace Nexus.Client.CollectionManagement
 			CollectionNativeChildOperation prepared = new CollectionNativeChildOperation(child.Sequence, child.Member,
 				child.Action, child.NativeOperation, CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
 			operation = SaveChild(operation, prepared);
-			CollectionNativeChildRecoveryManifest persisted = _manifestStore.GetManifest(operation, prepared);
+			CollectionNativeChildRecoveryManifest persisted = ReadPreparationManifest(operation, prepared, workflowMode);
 			if (persisted == null) throw new InvalidDataException("The Collection child recovery manifest disappeared before the preparation checkpoint was committed.");
 			return new CollectionNativeChildPreparationResult(operation, prepared, persisted);
+		}
+
+		/// <summary>Records a member failure before native submission so the remaining installation pass can continue.</summary>
+		internal CollectionOperation RecordUnsubmittedFailure(CollectionOperationIdentity operationIdentity, Exception failure)
+		{
+			if (failure == null) throw new ArgumentNullException(nameof(failure));
+			CollectionOperation operation = RequireOperation(operationIdentity, CollectionNativeChildWorkflowMode.Additive);
+			CollectionNativeChildOperation pending = GetSinglePendingChild(operation);
+			if (pending == null || pending.HasCrossedNativeBoundary || pending.Action != CollectionNativeChildAction.ActivateOrReinstall)
+				throw new InvalidOperationException("Only a recorded child which has never been submitted can be recorded as an unchanged preparation failure.", failure);
+			var result = new ModOperationResult(pending.NativeOperation, ModOperationReportedStatus.Failed, ModOperationDurability.NotStarted, failure.Message);
+			return SaveChild(operation, new CollectionNativeChildOperation(pending.Sequence, pending.Member, pending.Action,
+				pending.NativeOperation, CollectionNativeChildCheckpoint.Reconciled, result));
+		}
+
+		/// <summary>Retains strict recovery input audits outside the ordinary Collection install preference.</summary>
+		private CollectionNativeChildRecoveryManifest ReadPreparationManifest(CollectionOperation operation, CollectionNativeChildOperation child,
+			CollectionNativeChildWorkflowMode workflowMode)
+		{
+			return _manifestStore.GetManifestMetadata(operation, child);
 		}
 
 		private CollectionOperation RequireOperation(CollectionOperationIdentity identity, CollectionNativeChildWorkflowMode workflowMode)
@@ -234,15 +268,23 @@ namespace Nexus.Client.CollectionManagement
 			if (!currentState.Fingerprint.Equals(expectedPreparationState))
 				throw new InvalidOperationException("Authoritative native state differs from the latest verified Collection safe boundary; revalidation is required before preparing another child.");
 
-			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
-			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
-				persisted.PolicyKind != plan.Policy.Kind || (workflowMode == CollectionNativeChildWorkflowMode.Additive && !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint)))
+			if (!_planStore.HasMatchingMetadata(plan, workflowMode == CollectionNativeChildWorkflowMode.Additive))
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for child preparation.");
 		}
 
 		private CollectionCurrentStateFingerprint ResolveExpectedPreparationStateFingerprint(CollectionOperation operation, ResolvedCollectionPlan plan,
 			CollectionNativeChildWorkflowMode workflowMode)
 		{
+			if (workflowMode == CollectionNativeChildWorkflowMode.Additive)
+			{
+				CollectionNativeChildOperation pending = GetSinglePendingChild(operation);
+				CollectionNativeChildOperation latest = FindLatestCommittedActivation(operation, pending == null ? Int64.MaxValue : pending.Sequence);
+				if (latest == null) return plan.CurrentStateFingerprint;
+				CollectionNativeChildRecoveryManifest latestManifest = _manifestStore.GetCompletedCheckpointManifest(operation, latest);
+				if (latestManifest == null || latestManifest.SafeBoundaryStateFingerprint == null)
+					throw new InvalidDataException("A verified committed Collection child is missing its durable C6.10 safe-boundary fingerprint.");
+				return latestManifest.SafeBoundaryStateFingerprint;
+			}
 			CollectionCurrentStateFingerprint expected = plan.CurrentStateFingerprint;
 			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
 			{
@@ -266,6 +308,22 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("A non-committed reconciled Collection child prevents later reviewed children from continuing without explicit recovery policy.");
 			}
 			return expected;
+		}
+
+		/// <summary>Requires completed journal entries, returning only the latest checkpoint whose retained inputs need to be read.</summary>
+		internal static CollectionNativeChildOperation FindLatestCommittedActivation(CollectionOperation operation, long beforeSequence)
+		{
+			if (operation == null) throw new ArgumentNullException(nameof(operation));
+			CollectionNativeChildOperation latest = null;
+			foreach (CollectionNativeChildOperation previous in operation.NativeChildren)
+			{
+				if (previous.Sequence >= beforeSequence || previous.Action != CollectionNativeChildAction.ActivateOrReinstall) continue;
+				if (IsSafeFailedAttempt(previous)) continue;
+				if (!previous.IsReconciled || !previous.HasVerifiedCommittedNativeState)
+					throw new InvalidOperationException("Every earlier Collection child must be reconciled as VerifiedCommitted before a later reviewed child can be submitted.");
+				if (latest == null || previous.Sequence > latest.Sequence) latest = previous;
+			}
+			return latest;
 		}
 
 		private static Dictionary<CollectionMemberKey, CollectionMemberEffectPreview> IndexPreviews(ResolvedCollectionPlan plan,
@@ -319,9 +377,11 @@ namespace Nexus.Client.CollectionManagement
 			CollectionNativeChildWorkflowMode workflowMode)
 		{
 			if (operation.NativeChildren.Any(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled &&
-				!x.HasVerifiedCommittedNativeState && !IsRetryableRevisionUpdateAttempt(x, workflowMode)))
+				!x.HasVerifiedCommittedNativeState && !IsRetryableRevisionUpdateAttempt(x, workflowMode) &&
+				!(workflowMode == CollectionNativeChildWorkflowMode.Additive && IsSafeFailedAttempt(x))))
 				throw new InvalidOperationException("The Collection workflow cannot advance past a reconciled incoming native child that did not verify as committed or as an exact safe rollback.");
-			var completed = new HashSet<CollectionMemberKey>(operation.NativeChildren.Where(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled && x.HasVerifiedCommittedNativeState).Select(x => x.Member.MemberKey));
+			var completed = new HashSet<CollectionMemberKey>(operation.NativeChildren.Where(x => x.Action == CollectionNativeChildAction.ActivateOrReinstall && x.IsReconciled &&
+				(x.HasVerifiedCommittedNativeState || (workflowMode == CollectionNativeChildWorkflowMode.Additive && IsSafeFailedAttempt(x)))).Select(x => x.Member.MemberKey));
 			foreach (CollectionExecutionPhase phase in dependencyPlan.Phases)
 				foreach (CollectionPlannedPhaseMember planned in phase.Members)
 				{
@@ -345,6 +405,14 @@ namespace Nexus.Client.CollectionManagement
 				child.NativeResult.Durability == ModOperationDurability.NotStarted;
 		}
 
+		/// <summary>Identifies a completed failed attempt whose native transaction left the preceding installation boundary unchanged.</summary>
+		internal static bool IsSafeFailedAttempt(CollectionNativeChildOperation child)
+		{
+			return child != null && child.IsReconciled && child.NativeResult != null &&
+				(child.NativeResult.Durability == ModOperationDurability.NotStarted ||
+				 child.NativeResult.Durability == ModOperationDurability.VerifiedRolledBack);
+		}
+
 		private static void ValidatePreview(CollectionMemberMatchResult match, CollectionMemberEffectPreview preview)
 		{
 			if (!preview.MemberKey.Equals(match.Member.MemberKey) || !preview.RecipeIdentity.Equals(match.Member.RecipeIdentity))
@@ -356,6 +424,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionAcquisitionRequest request = archive.Request;
 			if (!request.PlanIdentity.Equals(plan.Identity) || !request.Revision.Equals(plan.Revision) || !request.Target.Equals(plan.Target) ||
 				!request.MemberKey.Equals(member.MemberKey) || !request.SelectedArtifact.Equals(member.ArtifactChoice.SelectedArtifact) ||
+				!CollectionExternalArtifactIdentity.MatchesByteLength(member.ArtifactChoice.SelectedArtifact, archive.Artifact.ByteLength) ||
 				!request.RecipeIdentity.Equals(member.RecipeIdentity))
 				throw new ArgumentException("The verified archive does not belong to the exact approved Collection member plan.", nameof(archive));
 		}
@@ -363,7 +432,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionRecoveryArtifact RetainIncomingArchive(CollectionOperation operation, CollectionNativeChildOperation child, CollectionVerifiedArchive archive)
 		{
 			CollectionsRetainedArtifact persisted = _artifactStore.GetArtifact(archive.Artifact.ArtifactId);
-			if (persisted == null || !persisted.Equals(archive.Artifact) || !_artifactStore.VerifyArtifact(persisted.ArtifactId))
+			if (persisted == null || !persisted.Equals(archive.Artifact) || !_artifactStore.IsPreparedArtifactCurrent(persisted))
 				throw new InvalidDataException("The verified incoming Collection archive is missing or failed retained-content integrity verification.");
 			_referenceStore.AcquireExclusiveRoleReference(persisted.ArtifactId, CollectionsRetainedArtifactOwnerKind.Operation,
 				operation.Identity.ToString(), CollectionsNativeChildRecoveryManifestStore.GetIncomingArchiveRole(child.Sequence));

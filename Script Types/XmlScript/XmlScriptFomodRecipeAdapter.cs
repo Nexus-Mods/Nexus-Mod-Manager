@@ -157,7 +157,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			var stateManager = ((XmlScriptType)script.Type).CreateConditionStateManager(mod, gameMode, pluginManager, environmentInfo);
 			if (conditionEnvironment != null)
 				stateManager.PluginConditionStateProvider = new ConditionEnvironmentPluginStateProvider(conditionEnvironment);
-			if (script.ModPrerequisites != null && !script.ModPrerequisites.GetIsFulfilled(stateManager))
+			if (!recipe.HonorRecordedSelections && script.ModPrerequisites != null && !script.ModPrerequisites.GetIsFulfilled(stateManager))
 				throw new DependencyException(script.ModPrerequisites.GetMessage(stateManager));
 
 			var optionFiles = new List<FileIntent>();
@@ -246,14 +246,16 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			{
 				InstallStep step = script.InstallSteps[stepIndex];
 				ModInstallationFomodStepSelection stepSelection = recipe.Steps[stepIndex];
-				bool stepVisible = step.GetIsVisible(stateManager);
+				// Automatic Collections replay the curator's choices even before prerequisite mods are deployed.
+				bool hasRecordedChoices = stepSelection.Groups.Any(group => group.SelectedOptions.Count != 0);
+				bool stepVisible = (recipe.HonorRecordedSelections && hasRecordedChoices) || step.GetIsVisible(stateManager);
 				visibleSteps[stepIndex] = stepVisible;
 
 				for (int groupIndex = 0; groupIndex < step.OptionGroups.Count; groupIndex++)
 				{
 					OptionGroup group = step.OptionGroups[groupIndex];
 					ModInstallationFomodGroupSelection groupSelection = stepSelection.Groups[groupIndex];
-					HashSet<int> selectedIndices = ResolveSelectedOptions(group, groupSelection);
+					HashSet<int> selectedIndices = ResolveSelectedOptions(group, groupSelection, recipe.HonorRecordedSelections);
 					selectedByGroup[group] = selectedIndices;
 
 					if (!stepVisible)
@@ -263,14 +265,17 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 						continue;
 					}
 
-					ValidateGroupCardinality(group, selectedIndices.Count);
+					// Recorded empty groups remain empty instead of inventing a current-state default.
+					if (!recipe.HonorRecordedSelections || selectedIndices.Count != 0)
+						ValidateGroupCardinality(group, selectedIndices.Count);
 					foreach (int optionIndex in selectedIndices.OrderBy(index => index))
 					{
 						Option selectedOption = group.Options[optionIndex];
 						foreach (ConditionalFlag flag in selectedOption.Flags)
 						{
 							string existingValue;
-							if (selectedFlagValues.TryGetValue(flag.Name, out existingValue) &&
+							// Native wizard selections overwrite earlier defaults; replay recorded choices in installer order.
+							if (!recipe.HonorRecordedSelections && selectedFlagValues.TryGetValue(flag.Name, out existingValue) &&
 								!StringComparer.Ordinal.Equals(existingValue, flag.ConditionalValue))
 							{
 								throw new InvalidDataException(string.Format(
@@ -286,7 +291,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			for (int stepIndex = 0; stepIndex < script.InstallSteps.Count; stepIndex++)
 			{
 				InstallStep step = script.InstallSteps[stepIndex];
-				if (step.GetIsVisible(stateManager) != visibleSteps[stepIndex])
+				if (!recipe.HonorRecordedSelections && step.GetIsVisible(stateManager) != visibleSteps[stepIndex])
 				{
 					throw new InvalidDataException(
 						"The exact FOMOD selections change an install step's visibility after that step is resolved; this dynamic selection requires interactive/native projected handling.");
@@ -301,10 +306,11 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 					{
 						Option option = group.Options[optionIndex];
 						bool selected = selectedIndices.Contains(optionIndex);
-						OptionType optionType = option.GetOptionType(stateManager);
-						if (optionType == OptionType.Required && !selected)
+						OptionType optionType = recipe.HonorRecordedSelections && selected
+							? OptionType.Optional : option.GetOptionType(stateManager);
+						if (!recipe.HonorRecordedSelections && optionType == OptionType.Required && !selected)
 							throw new InvalidDataException(string.Format("Required FOMOD option '{0}' was not selected.", option.Name));
-						if (optionType == OptionType.NotUsable && selected && !IsNoEffectInformationalOption(option))
+						if (!recipe.HonorRecordedSelections && optionType == OptionType.NotUsable && selected && !IsNoEffectInformationalOption(option))
 							throw new DependencyException(string.Format("Selected FOMOD option '{0}' is not usable in the current installer state.", option.Name));
 
 						foreach (InstallableFile file in option.Files)
@@ -323,7 +329,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// Some Vortex Collections serialize selected informational/credit choices which the XML
 		/// installer itself labels NotUsable. An option with neither installable files nor
 		/// conditional flags cannot change the native plan or installer condition state.
-		/// A selected NotUsable option which does change either remains a hard dependency error.
+		/// Outside automatic recorded-choice replay, an option which changes either remains a dependency error.
 		/// </summary>
 		private static bool IsNoEffectInformationalOption(Option option)
 		{
@@ -366,7 +372,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		/// <summary>
 		/// Resolves exact option indices/names and rejects stale selections before any output is produced.
 		/// </summary>
-		private static HashSet<int> ResolveSelectedOptions(OptionGroup group, ModInstallationFomodGroupSelection selection)
+		private static HashSet<int> ResolveSelectedOptions(OptionGroup group, ModInstallationFomodGroupSelection selection,
+			bool honorRecordedSelections)
 		{
 			var selected = new HashSet<int>();
 			foreach (ModInstallationFomodOptionSelection optionSelection in selection.SelectedOptions)
@@ -374,9 +381,21 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				if (optionSelection.OptionIndex < 0 || optionSelection.OptionIndex >= group.Options.Count)
 					throw new InvalidDataException("A selected FOMOD option index is outside the actual installer group.");
 				Option option = group.Options[optionSelection.OptionIndex];
+				int resolvedIndex = optionSelection.OptionIndex;
 				if (!StringComparer.Ordinal.Equals(optionSelection.OptionName, option.Name))
-					throw new InvalidDataException("A selected FOMOD option identity no longer matches the actual installer definition.");
-				if (!selected.Add(optionSelection.OptionIndex))
+				{
+					// A Collection's recorded name identifies its choice even when its index follows a different
+					// Vortex ordering. Normal native recipes retain strict indices for explicitly ordered groups.
+					List<int> namedIndices = group.OptionSortOrder == SortOrder.Explicit && !honorRecordedSelections
+						? new List<int>()
+						: Enumerable.Range(0, group.Options.Count)
+							.Where(index => StringComparer.Ordinal.Equals(group.Options[index].Name, optionSelection.OptionName)).ToList();
+					if (namedIndices.Count != 1)
+						throw new InvalidDataException(String.Format("Selected FOMOD option '{0}' at index {1} does not match '{2}' in group '{3}', and cannot be resolved uniquely.",
+							optionSelection.OptionName, optionSelection.OptionIndex, option.Name, group.Name));
+					resolvedIndex = namedIndices[0];
+				}
+				if (!selected.Add(resolvedIndex))
 					throw new InvalidDataException("A FOMOD option was selected more than once.");
 			}
 			return selected;
@@ -433,10 +452,15 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				string effectiveDestination = String.IsNullOrEmpty(destination) || destination.Equals(".", StringComparison.Ordinal)
 					? Path.GetFileName(source)
 					: destination;
+				// A file entry may name a destination directory; resolve it before applying file-path validation.
+				bool destinationIsDirectory = effectiveDestination.EndsWith("\\", StringComparison.Ordinal) ||
+					effectiveDestination.EndsWith("/", StringComparison.Ordinal);
+				if (destinationIsDirectory)
+					effectiveDestination += Path.GetFileName(canonicalSource);
 				string canonicalDestination = CanonicalPath(ModInstallationRecipePathKind.Destination, effectiveDestination);
 				AppendOperation(plan, projectedState, new InstallModFileOperation(canonicalSource, canonicalDestination));
 
-				string activationPath = String.IsNullOrEmpty(destination) ? source : destination;
+				string activationPath = destinationIsDirectory ? canonicalDestination : String.IsNullOrEmpty(destination) ? source : destination;
 				if (hasPluginManager)
 					AppendOperation(plan, projectedState, new SetPluginActivationOperation(activationPath, activate, true));
 				return;

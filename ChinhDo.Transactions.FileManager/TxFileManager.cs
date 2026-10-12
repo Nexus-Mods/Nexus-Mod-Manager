@@ -13,6 +13,16 @@ namespace ChinhDo.Transactions
     /// </summary>
     public partial class TxFileManager : IFileManager
     {
+		/// <summary>Extends long Windows paths at the I/O boundary without altering transaction or persisted path identities.</summary>
+		internal static string GetIoPath(string path)
+		{
+			if (String.IsNullOrEmpty(path) || path.Length < 248 || Environment.OSVersion.Platform != PlatformID.Win32NT ||
+				path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) return path;
+			string fullPath = Path.GetFullPath(path);
+			return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
+				? @"\\?\UNC\" + fullPath.Substring(2) : @"\\?\" + fullPath;
+		}
+
         /// <summary>
         /// Initializes the <see cref="TxFileManager"/> class.
         /// </summary>
@@ -144,7 +154,7 @@ namespace ChinhDo.Transactions
         /// <returns>True if the directory exists.</returns>
         public bool DirectoryExists(string path)
         {
-            return Directory.Exists(path);
+            return Directory.Exists(GetIoPath(path));
         }
 
         /// <summary>
@@ -154,7 +164,7 @@ namespace ChinhDo.Transactions
         /// <returns>True if the file exists.</returns>
         public bool FileExists(string path)
         {
-            return File.Exists(path);
+            return File.Exists(GetIoPath(path));
         }
 
         /// <summary>

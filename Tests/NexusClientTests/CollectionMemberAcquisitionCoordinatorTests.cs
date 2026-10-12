@@ -231,7 +231,86 @@ namespace NexusClientTests
 			}
 		}
 
-		private static Fixture CreateFixture(string root, bool premium)
+		/// <summary>Automatic retries are bounded and never reverse a user's cancellation.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ProbeCompletedInput_AutomaticFailureRetriesAreBoundedAndCancellationIsPreserved(bool cancelled)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, true);
+				CollectionAdditivePlanBuildResult plan = fixture.Builder.Build(fixture.EffectiveSelection, fixture.Target,
+					CreateState(fixture.Target, 0), null, CollectionExecutionPolicy.InstallIntoCurrentSetup(true, true));
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(plan,
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
+				Guid requestId = batch.Members.Single().Request.RequestId;
+				for (int attempt = 0; attempt < (cancelled ? 1 : 3); attempt++)
+				{
+					fixture.Queue.LastTask.Finish(cancelled ? TaskStatus.Cancelled : TaskStatus.Error);
+					batch = fixture.Acquisition.ProbeCompletedInput(batch, CancellationToken.None);
+					Assert.That(batch.Members.Single().Request.RequestId, Is.EqualTo(requestId));
+					Assert.That(batch.PlanBuild.Plan.Identity, Is.EqualTo(plan.Plan.Identity));
+				}
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(cancelled ? 1 : 3));
+				Assert.That(batch.Members.Single().Disposition, Is.EqualTo(CollectionMemberAcquisitionDisposition.RestartActionRequired));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>An explicit retry queues the same exact request without rebuilding its paused operation.</summary>
+		[Test]
+		public void RetryMember_FailedDownloadPreservesExactRequestAndPlan()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, true);
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(fixture.BuildPlan(CreateState(fixture.Target, 0)),
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
+				Assert.Throws<InvalidOperationException>(() => fixture.Acquisition.RetryMember(batch,
+					batch.Members.Single().Match.Member.MemberKey, null, CancellationToken.None));
+				fixture.Queue.LastTask.Finish(TaskStatus.Error);
+				batch = fixture.Acquisition.ProbeCompletedInput(batch, CancellationToken.None);
+				CollectionMemberAcquisitionBatch retried = fixture.Acquisition.RetryMember(batch,
+					batch.Members.Single().Match.Member.MemberKey, null, CancellationToken.None);
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(2));
+				Assert.That(retried.PlanBuild, Is.SameAs(batch.PlanBuild));
+				Assert.That(retried.Members.Single().Request, Is.SameAs(batch.Members.Single().Request));
+				Assert.That(retried.Members.Single().Disposition, Is.EqualTo(CollectionMemberAcquisitionDisposition.PremiumQueued));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>One blocked member does not prevent other local archives from being evaluated or falsely mark deferred acquisition as failed.</summary>
+		[Test]
+		public void Begin_BlockedMemberStillChecksIndependentLocalArchives()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, true, true);
+				fixture.ArchiveSource.Candidates = new[] { fixture.ExactCandidate };
+				var first = new CollectionNativeModState(new NativeModInstanceIdentity(fixture.Target, "duplicate-a"),
+					Path.Combine(root, "duplicate-a.zip"), "duplicate-a.zip", "1000", "2000", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
+				var second = new CollectionNativeModState(new NativeModInstanceIdentity(fixture.Target, "duplicate-b"),
+					Path.Combine(root, "duplicate-b.zip"), "duplicate-b.zip", "1000", "2000", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
+				CollectionAdditivePlanBuildResult plan = fixture.BuildPlan(CreateState(fixture.Target, 0, new[] { first, second }));
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(plan, null, CancellationToken.None);
+				Assert.That(batch.HasBlockedMembers, Is.True);
+				Assert.That(batch.Members.Single(x => x.Match.Member.MemberKey.Equals(CollectionMemberKey.FromProvider("member-one"))).Disposition,
+					Is.EqualTo(CollectionMemberAcquisitionDisposition.ReadyVerifiedArchive));
+				Assert.That(batch.Members.Single(x => x.Match.Member.MemberKey.Equals(CollectionMemberKey.FromProvider("member-blocked"))).Disposition,
+					Is.EqualTo(CollectionMemberAcquisitionDisposition.Blocked));
+				Assert.That(batch.Members.Single(x => x.Match.Member.MemberKey.Equals(CollectionMemberKey.FromProvider("member-waiting"))).Disposition,
+					Is.EqualTo(CollectionMemberAcquisitionDisposition.DeferredByBlockedMember));
+				Assert.That(fixture.Queue.CallCount, Is.EqualTo(0), "Downloads remain deferred while a genuine match blocker exists.");
+				Assert.That(fixture.OperationStore.GetOperation(plan.Operation.Identity).Phase, Is.EqualTo(CollectionOperationPhase.Preparing));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		private static Fixture CreateFixture(string root, bool premium, bool includeBlockedMember = false)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
@@ -258,8 +337,22 @@ namespace NexusClientTests
 				CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
 				new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/100/200", archiveHash),
 				CollectionRecipeIdentity.FromFingerprint("recipe-member-one"), "Member One", 0);
+			var members = new List<NormalizedCollectionMember> { member };
+			if (includeBlockedMember)
+			{
+				members.Add(new NormalizedCollectionMember(1,
+					CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider("member-blocked")),
+					CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+					new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/1000/2000", archiveHash),
+					CollectionRecipeIdentity.FromFingerprint("recipe-member-blocked"), "Blocked Member", 0));
+				members.Add(new NormalizedCollectionMember(2,
+					CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider("member-waiting")),
+					CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
+					new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/3000/4000", archiveHash),
+					CollectionRecipeIdentity.FromFingerprint("recipe-member-waiting"), "Waiting Member", 0));
+			}
 			var manifest = new NormalizedCollectionManifest(revision.Identity, source,
-				CollectionManifestMemberSetCompleteness.Complete, null, new[] { member });
+				CollectionManifestMemberSetCompleteness.Complete, null, members);
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			CollectionEffectiveSelection effectiveSelection = new CollectionEffectiveSelectionBuilder().Build(report,
 				new CollectionOptionalMemberSelection[0]);
@@ -288,10 +381,10 @@ namespace NexusClientTests
 				new CollectionManagedArchiveCandidate("nexus-mod-file", "skyrimspecialedition/100/200", archivePath));
 		}
 
-		private static CollectionNativeStateIndex CreateState(CollectionTargetIdentity target, long deploymentSequence)
+		private static CollectionNativeStateIndex CreateState(CollectionTargetIdentity target, long deploymentSequence, CollectionNativeModState[] mods = null)
 		{
 			return new CollectionNativeStateIndex(target, new CollectionNativeRootState[0],
-				new CollectionNativeModState[0], new CollectionNativeFileState[0], new CollectionNativeIniState[0],
+				mods ?? new CollectionNativeModState[0], new CollectionNativeFileState[0], new CollectionNativeIniState[0],
 				new CollectionNativeGameValueState[0], new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
 				new CollectionTargetAssociation[0], new CollectionMemberBinding[0], new UserOverride[0],
 				CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], deploymentSequence);
@@ -406,6 +499,7 @@ namespace NexusClientTests
 			}
 
 			public int CallCount { get; private set; }
+			public TestBackgroundTask LastTask { get; private set; }
 			public CollectionOperationPhase? PhaseObservedAtQueue { get; private set; }
 
 			public IBackgroundTask Queue(Uri sourceUri, ConfirmOverwriteCallback confirmOverwriteCallback, Guid queueOperationId)
@@ -413,12 +507,19 @@ namespace NexusClientTests
 				CallCount++;
 				CollectionOperation operation = _operationStore.GetIncompleteOperations().Single();
 				PhaseObservedAtQueue = operation.Phase;
-				return new TestBackgroundTask();
+				LastTask = new TestBackgroundTask();
+				return LastTask;
 			}
 		}
 
 		private sealed class TestBackgroundTask : BackgroundTask
 		{
+			/// <summary>Signals a terminal producer result to the acquisition consumer.</summary>
+			public void Finish(TaskStatus status)
+			{
+				Status = status;
+				OnTaskEnded((object)null);
+			}
 		}
 	}
 }

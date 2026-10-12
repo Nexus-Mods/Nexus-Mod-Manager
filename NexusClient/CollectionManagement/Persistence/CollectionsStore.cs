@@ -31,6 +31,9 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
 		private readonly object _writerGate;
+		private readonly object _schemaValidationGate = new object();
+		private int _validatedSchemaCookie = -1;
+		private Guid _validatedSchemaStoreId;
 
 		public CollectionsStore(GameStoragePathSet paths)
 			: this(CollectionsStorePaths.GetStoreDirectory(paths), CollectionsStorePaths.GetDatabasePath(paths),
@@ -1350,16 +1353,28 @@ CREATE TABLE IF NOT EXISTS retained_collection_locations (
 			return metadataVersion;
 		}
 
-		private static void ValidateCurrentSchema(SQLiteConnection connection)
+		private void ValidateCurrentSchema(SQLiteConnection connection)
 		{
 			int version = ReadAndValidateVersion(connection);
 			if (version != CurrentSchemaVersion)
 				throw new CollectionsStoreSchemaException(string.Format(CultureInfo.InvariantCulture,
 					"Collections store schema {0} is not the supported schema {1}.", version, CurrentSchemaVersion));
 
-			ValidateSchemaVersion9Tables(connection);
-			RequireTable(connection, "retained_archive_locations", "artifact_id", "archive_path");
-			RequireTable(connection, "retained_collection_locations", "artifact_id", "relative_path");
+			Guid storeId = ReadStoreId(connection);
+			int cookie = Convert.ToInt32(ExecuteScalar(connection, "PRAGMA schema_version;"), CultureInfo.InvariantCulture);
+			lock (_schemaValidationGate)
+			{
+				if (_validatedSchemaStoreId == storeId && _validatedSchemaCookie == cookie) return;
+				ValidateSchemaVersion9Tables(connection);
+				RequireTable(connection, "retained_archive_locations", "artifact_id", "archive_path");
+				RequireTable(connection, "retained_collection_locations", "artifact_id", "relative_path");
+				// SQLite changes this cookie on schema edits. Ordinary journal writes do not require another table/index sweep.
+				if (cookie == Convert.ToInt32(ExecuteScalar(connection, "PRAGMA schema_version;"), CultureInfo.InvariantCulture))
+				{
+					_validatedSchemaStoreId = storeId;
+					_validatedSchemaCookie = cookie;
+				}
+			}
 		}
 
 		private static void ValidateSchemaVersion8(SQLiteConnection connection)

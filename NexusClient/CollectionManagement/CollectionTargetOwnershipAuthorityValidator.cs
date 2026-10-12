@@ -48,6 +48,25 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionTargetOwnershipAuthorityBinding ValidateAndReload(CollectionTargetMutationLease mutationLease,
 			CollectionTargetAuthority authority, GameStoragePathSet paths)
 		{
+			return ValidateAuthority(mutationLease, authority, paths, true);
+		}
+
+		/// <summary>Revalidates target identity after a committed native install under the same uninterrupted root reservation.</summary>
+		internal CollectionTargetOwnershipAuthorityBinding ValidateCommittedAuthority(CollectionTargetMutationLease mutationLease,
+			CollectionTargetAuthority authority, GameStoragePathSet paths)
+		{
+			ValidateLease(mutationLease, authority);
+			if (mutationLease.RequiresRecovery)
+				throw new InvalidOperationException("An abandoned target reservation requires native recovery before committed-state reuse.");
+			if (!mutationLease.HasValidatedNativeAuthority)
+				throw new InvalidOperationException("Native authority must be reloaded under this root reservation before committed-state reuse.");
+			return ValidateAuthority(mutationLease, authority, paths, false);
+		}
+
+		/// <summary>Validates physical ownership, reloading native stores when entering a reservation or recovering unknown durability.</summary>
+		private CollectionTargetOwnershipAuthorityBinding ValidateAuthority(CollectionTargetMutationLease mutationLease,
+			CollectionTargetAuthority authority, GameStoragePathSet paths, bool reloadNativeState)
+		{
 			ValidateLease(mutationLease, authority);
 			if (paths == null)
 				throw new ArgumentNullException(nameof(paths));
@@ -82,25 +101,28 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			string installLogPath = Path.Combine(installInfoIdentity.CanonicalPath, "InstallLog.xml");
-			ValidateInstallLog(installLogPath);
-
-			try
+			if (reloadNativeState)
 			{
-				_nativeStateReloader.Reload(installLogPath);
-			}
-			catch (Exception exception)
-			{
-				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.NativeReloadFailed,
-					"Authoritative native state could not be reloaded while the physical target reservation was held.", exception);
-			}
+				ValidateInstallLog(installLogPath);
+				try
+				{
+					_nativeStateReloader.Reload(installLogPath);
+				}
+				catch (Exception exception)
+				{
+					throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.NativeReloadFailed,
+						"Authoritative native state could not be reloaded while the physical target reservation was held.", exception);
+				}
 
-			// Reload may perform native deployment/VMA crash recovery. Validate the resulting authoritative log again before
-			// publishing ownership authority or clearing an abandoned-lock recovery requirement.
-			ValidateInstallLog(installLogPath);
+				// Reload may perform crash recovery; validate its resulting authoritative log before clearing recovery.
+				ValidateInstallLog(installLogPath);
+			}
 
 			CollectionTargetOwnershipAuthorityBinding binding = _authorityStore.BindOrValidate(authority, installInfoIdentity.StableKey);
 			if (mutationLease.RequiresRecovery)
 				mutationLease.MarkRecoveryCompleted();
+			if (reloadNativeState)
+				mutationLease.MarkNativeAuthorityValidated();
 
 			return binding;
 		}

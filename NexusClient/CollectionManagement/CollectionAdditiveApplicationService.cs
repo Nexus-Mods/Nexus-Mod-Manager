@@ -234,6 +234,15 @@ namespace Nexus.Client.CollectionManagement
 			return _workflow.ResumePreparationAsync(batch, GetTargetPaths(), cancellationToken);
 		}
 
+		/// <summary>Retries one selected acquisition through the existing native download/import and overwrite paths.</summary>
+		public Task<CollectionAdditiveWorkflowPreparationResult> RetryMemberAcquisitionAsync(CollectionMemberAcquisitionBatch batch,
+			CollectionMemberKey memberKey, ConfirmOverwriteCallback confirmOverwriteCallback, CancellationToken cancellationToken,
+			IProgress<string> progress)
+		{
+			using (CollectionPreparationProgress.Begin(progress))
+				return _workflow.RetryMemberAcquisitionAsync(batch, memberKey, GetTargetPaths(), confirmOverwriteCallback, cancellationToken);
+		}
+
 		/// <summary>Reports archive and file preparation while resuming completed downloads.</summary>
 		internal Task<CollectionAdditiveWorkflowPreparationResult> ResumePreparationAsync(CollectionMemberAcquisitionBatch batch,
 			CancellationToken cancellationToken, IProgress<string> progress)
@@ -347,14 +356,16 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Loads and revalidates an exact persisted additive review.</summary>
 		public CollectionAdditiveWorkflowReview GetReview(CollectionOperationIdentity operationIdentity)
 		{
-			return _workflow.GetReview(operationIdentity);
+			using (CollectionsRetainedArtifactStore.BeginSavedArchiveHashReuse(Properties.Settings.Default.CollectionSkipExistingArchiveMd5 || Properties.Settings.Default.CollectionSkipContentChecks))
+				return _workflow.GetReview(operationIdentity);
 		}
 
 		/// <summary>Applies the exact approved plan to the active game target.</summary>
 		public Task<CollectionAdditiveWorkflowApplyResult> ApproveAndApplyAsync(CollectionOperationIdentity operationIdentity,
 			CollectionPlanIdentity expectedPlan, CancellationToken cancellationToken)
 		{
-			return _workflow.ApproveAndApplyAsync(operationIdentity, expectedPlan, GetTargetPaths(), cancellationToken);
+			using (CollectionsRetainedArtifactStore.BeginSavedArchiveHashReuse(Properties.Settings.Default.CollectionSkipExistingArchiveMd5 || Properties.Settings.Default.CollectionSkipContentChecks))
+				return _workflow.ApproveAndApplyAsync(operationIdentity, expectedPlan, GetTargetPaths(), cancellationToken);
 		}
 
 		/// <summary>Reports the active member and installation stage without changing the public apply contract.</summary>
@@ -384,6 +395,20 @@ namespace Nexus.Client.CollectionManagement
 			if (CollectionsStoreBootstrap.OpenExistingIfPresent(_store) == null)
 				return Task.FromResult((IReadOnlyList<CollectionAdditiveWorkflowRecoveryResult>)new CollectionAdditiveWorkflowRecoveryResult[0]);
 			return _workflow.ReconcileIncompleteTargetAsync(GetTargetPaths(), cancellationToken);
+		}
+
+		/// <summary>Loads a stopped partial installation's saved selections on a worker for an explicit continuation review.</summary>
+		internal Task<CollectionAdditiveWorkflowRecoveryResult> GetStoppedPartialInstallationAsync(CollectionTargetAssociation association,
+			CancellationToken cancellationToken)
+		{
+			if (association == null) throw new ArgumentNullException(nameof(association));
+			CollectionTargetIdentity target = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(GetTargetPaths()).Target;
+			if (!association.Target.Equals(target)) throw new InvalidOperationException("The stopped installation belongs to a different game/storage target.");
+			return Task.Run(() =>
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				return _workflow.GetStoppedPartialInstallation(association);
+			}, cancellationToken);
 		}
 
 		private CollectionAdditiveWorkflowCoordinator BuildWorkflow(GameStoragePathSet paths)
@@ -424,7 +449,7 @@ namespace Nexus.Client.CollectionManagement
 			var bundledMaterializer = new NexusCollectionBundledArtifactMaterializer(_store, _revisionSourceStore);
 			var bundledAcquisition = new NexusCollectionBundledMemberAcquisitionCoordinator(bundledMaterializer,
 				archiveAdopter, requestCoordinator, _services.ModManager);
-			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager), archiveAdopter,
+			var memberAcquisition = new CollectionMemberAcquisitionCoordinator(CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager, artifactStore), archiveAdopter,
 				premiumCoordinator, manualCoordinator, acquisitionRestart, operationCoordinator, bundledAcquisition, directCoordinator);
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);

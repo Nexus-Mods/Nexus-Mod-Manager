@@ -29,23 +29,26 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (queueOperationId == Guid.Empty)
 				throw new ArgumentException("A non-empty AddMod queue-operation identifier is required.", nameof(queueOperationId));
-			if (!_environmentInfo.Settings.QueuedModsToAdd.ContainsKey(_gameModeId))
-				return null;
-			KeyedSettings<AddModDescriptor> queued = _environmentInfo.Settings.QueuedModsToAdd[_gameModeId];
-			if (queued == null)
-				return null;
-
-			AddModDescriptor match = null;
-			foreach (KeyValuePair<string, AddModDescriptor> pair in queued)
+			lock (_environmentInfo.Settings)
 			{
-				AddModDescriptor descriptor = pair.Value;
-				if (descriptor == null || !descriptor.QueueOperationId.HasValue || descriptor.QueueOperationId.Value != queueOperationId)
-					continue;
-				if (match != null)
-					throw new InvalidDataException("Multiple persisted AddMod descriptors claim the same queue-operation identity.");
-				match = descriptor;
+				if (!_environmentInfo.Settings.QueuedModsToAdd.ContainsKey(_gameModeId))
+					return null;
+				KeyedSettings<AddModDescriptor> queued = _environmentInfo.Settings.QueuedModsToAdd[_gameModeId];
+				if (queued == null)
+					return null;
+
+				AddModDescriptor match = null;
+				foreach (KeyValuePair<string, AddModDescriptor> pair in queued)
+				{
+					AddModDescriptor descriptor = pair.Value;
+					if (descriptor == null || !descriptor.QueueOperationId.HasValue || descriptor.QueueOperationId.Value != queueOperationId)
+						continue;
+					if (match != null)
+						throw new InvalidDataException("Multiple persisted AddMod descriptors claim the same queue-operation identity.");
+					match = descriptor;
+				}
+				return match == null ? null : CreateSnapshot(match);
 			}
-			return match == null ? null : CreateSnapshot(match);
 		}
 
 		private static CollectionPersistedAddModState CreateSnapshot(AddModDescriptor descriptor)

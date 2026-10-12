@@ -180,6 +180,7 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionConflictImpactPlan
 	{
 		private readonly ReadOnlyCollection<CollectionFileImpact> _fileImpacts;
+		private readonly ReadOnlyDictionary<ModDeploymentTarget, CollectionFileImpact> _fileImpactsByTarget;
 		private readonly ReadOnlyCollection<CollectionPluginImpact> _pluginImpacts;
 		private readonly ReadOnlyCollection<CollectionConfigurationImpact> _configurationImpacts;
 		private readonly ReadOnlyCollection<CollectionAssociationImpact> _associationImpacts;
@@ -208,6 +209,8 @@ namespace Nexus.Client.CollectionManagement
 			Target = plan.Target;
 			StateFingerprint = stateFingerprint;
 			_fileImpacts = Copy(fileImpacts, nameof(fileImpacts));
+			_fileImpactsByTarget = new ReadOnlyDictionary<ModDeploymentTarget, CollectionFileImpact>(_fileImpacts.ToDictionary(x => x.Target));
+			HasExecutableFilePriorities = _fileImpacts.All(x => x.Writers.Count <= 1 || (x.PlannedWinner != null && x.Writers.Contains(x.PlannedWinner)));
 			_pluginImpacts = Copy(pluginImpacts, nameof(pluginImpacts));
 			_configurationImpacts = Copy(configurationImpacts, nameof(configurationImpacts));
 			_associationImpacts = Copy(associationImpacts, nameof(associationImpacts));
@@ -220,6 +223,12 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionCurrentStateFingerprint StateFingerprint { get; }
 		public CollectionConflictImpactStatus Status { get; }
 		public ReadOnlyCollection<CollectionFileImpact> FileImpacts { get { return _fileImpacts; } }
+
+		/// <summary>Gets the immutable per-target conflict index reused by every member and final verification.</summary>
+		internal IReadOnlyDictionary<ModDeploymentTarget, CollectionFileImpact> FileImpactsByTarget { get { return _fileImpactsByTarget; } }
+
+		/// <summary>Gets whether every multi-writer target has its recorded deterministic winner.</summary>
+		internal bool HasExecutableFilePriorities { get; }
 		public ReadOnlyCollection<CollectionPluginImpact> PluginImpacts { get { return _pluginImpacts; } }
 		public ReadOnlyCollection<CollectionConfigurationImpact> ConfigurationImpacts { get { return _configurationImpacts; } }
 		public ReadOnlyCollection<CollectionAssociationImpact> AssociationImpacts { get { return _associationImpacts; } }

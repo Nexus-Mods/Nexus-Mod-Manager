@@ -21,6 +21,76 @@ namespace NexusClientTests
 	[TestFixture]
 	public class ModInstallationRecipeExecutionTests
 	{
+		/// <summary>Deep solid-archive entries and duplicate basenames must resolve to their exact bytes through a short shared cache.</summary>
+		[Test]
+		public void SolidArchiveCache_HandlesDeepPathsAndDuplicateBasenames()
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				string first = Path.Combine(tmp.Path, "first.txt");
+				string second = Path.Combine(tmp.Path, "second.txt");
+				File.WriteAllText(first, "first entry");
+				File.WriteAllText(second, "second entry");
+				string prefix = String.Join("/", new[] { new string('a', 60), new string('b', 60), new string('c', 60) });
+				string archivePath = Path.Combine(tmp.Path, "deep.7z");
+				var compressor = new SevenZip.SevenZipCompressor { ArchiveFormat = SevenZip.OutArchiveFormat.SevenZip };
+				compressor.CustomParameters.Add("s", "on");
+				compressor.CompressFileDictionary(new Dictionary<string, string>
+				{
+					{ prefix + "/first/config.json", first },
+					{ prefix + "/second/config.json", second },
+					{ "00000000.bin", second }
+				}, archivePath, null);
+				using (var archive = new Nexus.Client.Util.Archive(archivePath))
+				{
+					archive.BeginReadOnlyTransaction(new Nexus.Client.Util.FileUtil());
+					try
+					{
+						foreach (string entry in new[] { prefix + "/first/config.json", prefix + "/second/config.json", "00000000.bin", prefix + "/first/config.json" })
+							using (FileStream stream = archive.GetFileStream(entry, tmp.Path))
+							using (var reader = new StreamReader(stream))
+							{
+								Assert.Less(stream.Name.Length, 260);
+								Assert.AreEqual(entry.Contains("/first/") ? "first entry" : "second entry", reader.ReadToEnd());
+							}
+					}
+					finally { archive.EndReadOnlyTransaction(); }
+				}
+			}
+		}
+
+		/// <summary>Deferred Collection evidence is captured after archive preparation and can reject mutation without deleting replay data.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void RunTasks_CollectionArchivePreparationRunsBeforeRegistrationAndCanAbort(bool fail)
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				var context = new ScriptProxyContext(tmp.Path, null, false, false, "linked");
+				byte[] archiveBytes = { 1, 2, 3, 4, 5 };
+				File.WriteAllBytes(context.Mod.Filename, archiveBytes);
+				ModInstallationRecipeInput recipe = CreateTranslatedInput(archiveBytes,
+					new ModInstallationSimpleFileMapping(@"source\one.bin", @"target\one.bin"));
+				string replayPath = CreateLiveReplay(tmp.Path);
+				var installer = new RecipeExecutionTestInstaller(context, recipe);
+				int preparationCalls = 0;
+				installer.SetCollectionArchivePreparation(() =>
+				{
+					preparationCalls++;
+					Assert.That(installer.Registered, Is.False);
+					Assert.That(context.FileInstaller.InstallCallCount, Is.EqualTo(0));
+					Assert.That(File.Exists(replayPath), Is.True);
+					if (fail) throw new InvalidDataException("Fixture cannot retain exact Collection execution evidence.");
+				});
+				installer.ExecuteSynchronously();
+				Assert.That(preparationCalls, Is.EqualTo(1));
+				Assert.That(installer.Registered, Is.EqualTo(!fail));
+				Assert.That(installer.Succeeded, Is.EqualTo(!fail));
+				Assert.That(context.FileInstaller.InstallCallCount, Is.EqualTo(fail ? 0 : 1));
+				if (fail) Assert.That(File.Exists(replayPath), Is.True);
+			}
+		}
+
 		/// <summary>
 		/// Verifies a translated recipe is executed only after the native installer reaches its registration boundary.
 		/// </summary>
@@ -150,6 +220,44 @@ namespace NexusClientTests
 				Assert.That(installer.Succeeded, Is.False);
 				Assert.That(context.FileInstaller.InstallCallCount, Is.EqualTo(0));
 				Assert.That(File.Exists(replayPath), Is.True);
+			}
+		}
+
+		/// <summary>The native Collection gate rejects a missing preparation proof without starting a checksum pass.</summary>
+		[Test]
+		public void RunTasks_UnpreparedArchiveFailsWithoutHashing()
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				var context = new ScriptProxyContext(tmp.Path, null, false, false, "linked");
+				byte[] archiveBytes = { 1, 2, 3 };
+				File.WriteAllBytes(context.Mod.Filename, archiveBytes);
+				ModInstallationRecipeInput recipe = CreateTranslatedInput(archiveBytes,
+					new ModInstallationSimpleFileMapping(@"source\one.bin", @"target\one.bin"));
+				var installer = new RecipeExecutionTestInstaller(context, recipe, recordPreparedArchiveProof: false);
+				long before = Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.Capture().NativeChildArchiveHashCount;
+				installer.ExecuteSynchronously();
+				Assert.That(installer.Registered, Is.False);
+				Assert.That(installer.Succeeded, Is.False);
+				Assert.That(Nexus.Client.CollectionManagement.CollectionPerformanceMetrics.Capture().NativeChildArchiveHashCount, Is.EqualTo(before));
+			}
+		}
+
+		/// <summary>Opting out uses the ordinary native file-install path rather than repeating the Collection archive digest audit.</summary>
+		[Test]
+		public void RunTasks_SkipContentChecksExecutesRecordedRecipeWithoutArchiveAudit()
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				var context = new ScriptProxyContext(tmp.Path, null, false, false, "linked");
+				File.WriteAllBytes(context.Mod.Filename, new byte[] { 10, 11, 12, 14 });
+				ModInstallationRecipeInput input = CreateTranslatedInput(new byte[] { 10, 11, 12, 13 },
+					new ModInstallationSimpleFileMapping(@"source\one.bin", @"target\one.bin")).WithSkippedContentChecks(true);
+				var installer = new RecipeExecutionTestInstaller(context, input);
+				installer.ExecuteSynchronously();
+				Assert.IsTrue(installer.Registered);
+				Assert.IsTrue(installer.Succeeded);
+				Assert.AreEqual(1, context.FileInstaller.InstallCallCount);
 			}
 		}
 
@@ -511,10 +619,17 @@ namespace NexusClientTests
 			/// </summary>
 			public RecipeExecutionTestInstaller(ScriptProxyContext context, ModInstallationRecipeInput recipeInput,
 				bool assignOperationIdentity = true, Nexus.Client.PluginManagement.IPluginManager pluginManager = null,
-				IEnumerable<IMod> activeMods = null)
+				IEnumerable<IMod> activeMods = null, bool recordPreparedArchiveProof = true)
 				: base(context.Mod, context.GameMode, null, null, null, CreateInstallLog(activeMods), pluginManager, context.VirtualModActivator,
 					CreateDeploymentManager(recipeInput.InstallContext.Method), null, null, null, recipeInput.InstallContext, recipeInput)
 			{
+				// Model the preparation boundary before exercising native execution.
+				if (recordPreparedArchiveProof && File.Exists(context.Mod.Filename))
+				{
+					var info = new FileInfo(context.Mod.Filename);
+					Nexus.Client.CollectionManagement.CollectionArchiveContentMatcher.RememberObservedHash(info.FullName, info,
+						ComputeSha256Hex(File.ReadAllBytes(context.Mod.Filename)));
+				}
 				m_mfiFileInstaller = context.FileInstaller;
 				m_iniInstaller = context.IniInstaller;
 				if (assignOperationIdentity)

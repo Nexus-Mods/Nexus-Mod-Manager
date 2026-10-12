@@ -86,6 +86,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 		public DownloadMonitorControl()
 		{
 			InitializeComponent();
+			Disposed += DownloadMonitorControl_Disposed;
 			ApplyLocalization();
 			NmmIconProvider.Bind(tsbResume, NmmIconAction.Resume);
 			NmmIconProvider.Bind(tsbCancel, NmmIconAction.Cancel);
@@ -231,11 +232,42 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			_rows.Add(new DownloadTaskRow(task));
 		}
 
+		/// <summary>Detaches download notifications when the monitor is destroyed during shutdown or a game-mode switch.</summary>
+		private void DownloadMonitorControl_Disposed(object sender, EventArgs e)
+		{
+			if (ViewModel != null)
+			{
+				ViewModel.ActiveTasks.CollectionChanged -= ActiveTasks_CollectionChanged;
+				ViewModel.Tasks.CollectionChanged -= Tasks_CollectionChanged;
+				ViewModel.PurgingDownloads -= ViewModel_PurgingDownloads;
+			}
+			foreach (DownloadTaskRow row in _rows)
+				row.Task.PropertyChanged -= Task_PropertyChanged;
+		}
+
+		/// <summary>Posts a display update without making download workers wait for a closing UI thread.</summary>
+		private void PostMonitorUpdate(Action update)
+		{
+			if (IsDisposed || Disposing || !IsHandleCreated) return;
+			try
+			{
+				BeginInvoke((MethodInvoker)(() =>
+				{
+					if (!IsDisposed && !Disposing && IsHandleCreated) update();
+				}));
+			}
+			catch (InvalidOperationException)
+			{
+				if (!IsDisposed && !Disposing && IsHandleCreated) throw;
+			}
+		}
+
 		private void Tasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
+			if (IsDisposed || Disposing) return;
 			if (gridControl.InvokeRequired)
 			{
-				gridControl.Invoke((MethodInvoker)(() => Tasks_CollectionChanged(sender, e)));
+				PostMonitorUpdate(() => Tasks_CollectionChanged(sender, e));
 				return;
 			}
 
@@ -269,7 +301,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 		private void ActiveTasks_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			if (!IsHandleCreated || ViewModel == null)
+			if (IsDisposed || Disposing || !IsHandleCreated || ViewModel == null)
 				return;
 
 			lock (ViewModel.ModRepository)
@@ -306,7 +338,7 @@ namespace Nexus.Client.DownloadMonitoring.UI
 			}
 
 			if (gridControl.InvokeRequired)
-				gridControl.Invoke((Action)UpdateTitle);
+				PostMonitorUpdate(UpdateTitle);
 			else
 				UpdateTitle();
 		}
@@ -325,9 +357,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 		private void ViewModel_PurgingDownloads(object sender, EventArgs<IBackgroundTask> e)
 		{
+			if (IsDisposed || Disposing) return;
 			if (InvokeRequired)
 			{
-				Invoke((Action<object, EventArgs<IBackgroundTask>>)ViewModel_PurgingDownloads, sender, e);
+				PostMonitorUpdate(() => ViewModel_PurgingDownloads(sender, e));
 				return;
 			}
 			ProgressDialog.ShowDialog(this, e.Argument, true);
@@ -335,9 +368,10 @@ namespace Nexus.Client.DownloadMonitoring.UI
 
 		private void Task_PropertyChanged(object sender, PropertyChangedEventArgs e)
 		{
+			if (IsDisposed || Disposing) return;
 			if (gridControl.InvokeRequired)
 			{
-				gridControl.Invoke((Action)(() => Task_PropertyChanged(sender, e)));
+				PostMonitorUpdate(() => Task_PropertyChanged(sender, e));
 				return;
 			}
 

@@ -875,44 +875,54 @@
                 return null;
             }
 
-			if (!_environmentInfo.Settings.QueuedModsToAdd.ContainsKey(_gameMode.ModeId))
-            {
-                _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
-            }
+			KeyedSettings<AddModDescriptor> queuedMods;
+			lock (_environmentInfo.Settings)
+			{
+				if (!_environmentInfo.Settings.QueuedModsToAdd.ContainsKey(_gameMode.ModeId))
+				{
+					_environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
+				}
 
-            var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
+				queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
+			}
 			AddModDescriptor descriptor;
 
 			if (path.Scheme.ToLowerInvariant() == "file")
 			{
-				if (queuedMods.TryGetValue(path.ToString(), out descriptor))
-                {
-                    _fileserverCaptions = descriptor.SourceName;
-                }
-                else
+				lock (_environmentInfo.Settings)
 				{
-					descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty, string.Empty, QueueOperationId);
-					queuedMods[path.ToString()] = descriptor;
+					if (queuedMods.TryGetValue(path.ToString(), out descriptor))
+					{
+						_fileserverCaptions = descriptor.SourceName;
+					}
+					else
+					{
+						descriptor = new AddModDescriptor(path, path.LocalPath, null, TaskStatus.Running, new List<string>(), string.Empty, string.Empty, QueueOperationId);
+						queuedMods[path.ToString()] = descriptor;
 
-                    lock (_environmentInfo.Settings)
-                    {
-                        _environmentInfo.Settings.Save();
-                    }
-                }
+						_environmentInfo.Settings.Save();
+					}
+				}
 			}
 			else if (_modRepository.IsOffline)
 			{
-				if (queuedMods.TryGetValue(path.ToString(), out descriptor))
-                {
-                    _fileserverCaptions = descriptor.SourceName;
-                }
+				lock (_environmentInfo.Settings)
+				{
+					if (queuedMods.TryGetValue(path.ToString(), out descriptor))
+					{
+						_fileserverCaptions = descriptor.SourceName;
+					}
+				}
             }
 			else
 			{
-				if (queuedMods.ContainsKey(path.ToString()))
-                {
-                    queuedMods.Remove(path.ToString());
-                }
+				lock (_environmentInfo.Settings)
+				{
+					if (queuedMods.ContainsKey(path.ToString()))
+					{
+						queuedMods.Remove(path.ToString());
+					}
+				}
 
                 if (_fileserverCaptions.Count > 0)
                 {
@@ -974,10 +984,9 @@
 						throw new Exception("Unable to retrieve file: " + SanitizeDownloadUri(path));
 				}
 
-				queuedMods[path.ToString()] = descriptor;
-
                 lock (_environmentInfo.Settings)
                 {
+					queuedMods[path.ToString()] = descriptor;
                     _environmentInfo.Settings.Save();
                 }
             }
@@ -1169,7 +1178,8 @@
                 {
                     var downloadInfo = (DownloadedFileInfo)e.ReturnValue;
 
-                    if (string.IsNullOrEmpty(Descriptor.SourcePath) && Descriptor.DownloadFiles.IndexOf(downloadInfo.URL) == 0)
+                    // Mirrors and redirects may return a different URL or filename. Import the file the downloader actually saved.
+                    if (!string.IsNullOrEmpty(downloadInfo.SavedFilePath))
                     {
                         Descriptor.SourcePath = downloadInfo.SavedFilePath;
                     }
@@ -1182,11 +1192,10 @@
                     Descriptor.DownloadedFiles.Clear();
                 }
 
-				var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
-				queuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
-
                 lock (_environmentInfo.Settings)
                 {
+					var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
+					queuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
                     _environmentInfo.Settings.Save();
                 }
 
@@ -1239,6 +1248,14 @@
 			_speed.Reset();
 			_previousSpeed.Clear();
 			var faAttributes = new FileAttributes();
+			if (!File.Exists(strPath))
+			{
+				OverallMessage = string.Format(_fileMissingFormat, strPath);
+				ItemMessage = _fileMissingText;
+				Status = TaskStatus.Error;
+				OnTaskEnded(OverallMessage, null);
+				return;
+			}
 
 			try
 			{
@@ -1252,6 +1269,15 @@
 				ItemMessage = _pathErrorText;
 				Status = TaskStatus.Error;
 				OnTaskEnded(OverallMessage, null);
+				return;
+			}
+			catch (FileNotFoundException)
+			{
+				OverallMessage = string.Format(_fileMissingFormat, strPath);
+				ItemMessage = _fileMissingText;
+				Status = TaskStatus.Error;
+				OnTaskEnded(OverallMessage, null);
+				return;
 			}
 
 			var archive = new FileInfo(strPath);
@@ -1604,11 +1630,10 @@
 			if (e.PropertyName.Equals(ObjectHelper.GetPropertyName<IBackgroundTask>(x => x.Status)) && Descriptor != null)
 			{
 				Descriptor.Status = Status;
-				var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
-				queuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
-
                 lock (_environmentInfo.Settings)
                 {
+					var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
+					queuedMods[Descriptor.SourceUri.ToString()] = Descriptor;
                     _environmentInfo.Settings.Save();
                 }
             }
@@ -1682,11 +1707,10 @@
 					}
 				}
 
-                var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
-				queuedMods.Remove(Descriptor.SourceUri.ToString());
-
                 lock (_environmentInfo.Settings)
                 {
+					var queuedMods = _environmentInfo.Settings.QueuedModsToAdd[_gameMode.ModeId];
+					queuedMods.Remove(Descriptor.SourceUri.ToString());
                     _environmentInfo.Settings.Save();
                 }
             }

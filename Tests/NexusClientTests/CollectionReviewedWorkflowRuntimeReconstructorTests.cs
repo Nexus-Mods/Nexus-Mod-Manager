@@ -18,6 +18,39 @@ namespace NexusClientTests
 	[TestFixture]
 	public class CollectionReviewedWorkflowRuntimeReconstructorTests
 	{
+		/// <summary>Large reviewed Collections survive both the former 64 MB payload cap and 100,000-file reader cap.</summary>
+		[Test]
+		public void ReviewedSnapshot_RoundTripsLargeFilePlanBeyondFormerLimits()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				CollectionReviewedWorkflowSnapshot original = CollectionReviewedWorkflowSnapshot.Create(fixture.Plan,
+					fixture.DependencyPlan, fixture.ImpactPlan, new[] { fixture.PreparedRecipe });
+				const int fileCount = 123426;
+				string owner = new string('o', 600);
+				var files = Enumerable.Range(0, fileCount).Select(index => new CollectionReviewedFileImpactSnapshot(
+					ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\file-" + index + ".dds"),
+					new[] { fixture.Member.MemberKey }, fixture.Member.MemberKey, owner, new Guid[0]));
+				var large = new CollectionReviewedWorkflowSnapshot(original.Identity, original.Revision, original.Target,
+					original.PolicyKind, original.ReplacementBackupChoice, original.ApprovedStateFingerprint, original.ManifestSource,
+					original.Members, original.Dependencies, original.PriorityRules, original.Phases, original.Barriers, files,
+					original.PluginImpacts, original.ConfigurationImpacts, original.AssociationImpacts, original.PreparedRecipes,
+					original.AutomaticallyInstall, original.PreferIncomingCollection);
+
+				byte[] payload = CollectionReviewedWorkflowSnapshotCodec.Serialize(large);
+				Assert.Greater(payload.Length, 64 * 1024 * 1024);
+				CollectionReviewedWorkflowSnapshot restored = CollectionReviewedWorkflowSnapshotCodec.Deserialize(payload);
+				Assert.AreEqual(fileCount, restored.FileImpacts.Count);
+				Assert.AreEqual(large.FileImpacts.OrderBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).Last().Target,
+					restored.FileImpacts.Last().Target);
+				Assert.AreEqual(owner, restored.FileImpacts.Last().CurrentOwnerKey);
+				Assert.AreEqual(original.PreparedRecipes.Single().PreparedNativeFingerprint, restored.PreparedRecipes.Single().PreparedNativeFingerprint);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void Reconstruct_RoundTripsExactSimpleRecipeAndReviewedPlanningObjects()
 		{
@@ -406,6 +439,69 @@ namespace NexusClientTests
 			{
 				Directory.Delete(root, true);
 			}
+		}
+
+		/// <summary>Automatic recovery status reads metadata without auditing archives or authorizing an executable runtime.</summary>
+		[Test]
+		public void RecoveryStatus_DoesNotReadRetainedContentOrAuthorizeRuntime()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				var operationStore = new CollectionsOperationStore(fixture.Store);
+				var planStore = new CollectionsResolvedPlanStore(fixture.Store);
+				var coordinator = new CollectionOperationCoordinator(operationStore, planStore);
+				CollectionOperation operation = coordinator.CreateApplyOperation(fixture.Revision.Identity.Collection, fixture.Target);
+				operation = coordinator.BeginResolving(operation.Identity);
+				operation = coordinator.BeginPreparing(operation.Identity, fixture.Revision.Identity);
+				operation = coordinator.MarkReadyForReview(operation.Identity, fixture.Plan, fixture.DependencyPlan,
+					fixture.ImpactPlan, new[] { fixture.PreparedRecipe });
+				var sourceStore = new CollectionsRevisionSourceStore(fixture.Store);
+				var rehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore,
+					revision => sourceStore.GetSource(revision),
+					(revision, source) => { throw new InvalidOperationException("Manifest content must not be loaded for status."); },
+					artifact => { throw new InvalidOperationException("Archive content must not be loaded for status."); },
+					target => fixture.State);
+				CollectionReviewedWorkflowRehydrationResult status = rehydrator.RehydrateForRecoveryStatus(operation.Identity);
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.Ready, status.Status);
+				Assert.IsFalse(status.HasVerifiedRetainedInputs);
+				Assert.Throws<InvalidOperationException>(() => new CollectionReviewedWorkflowRuntimeReconstructor(fixture.Store).Reconstruct(status));
+				Assert.AreNotEqual(CollectionReviewedWorkflowRehydrationStatus.Ready, rehydrator.Rehydrate(operation.Identity).Status);
+
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(fixture.Target.Fingerprint, fixture.PreparedRecipe.InstallContext, fixture.Member.RecipeIdentity.Fingerprint));
+				var completed = new[] { new CollectionNativeChildOperation(2,
+					new CollectionOperationMemberReference(fixture.Revision.Identity, fixture.Member.MemberKey),
+					CollectionNativeChildAction.ActivateOrReinstall, native, CollectionNativeChildCheckpoint.Reconciled,
+					new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, "Committed")) };
+				operation = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, operation.PlanIdentity, operation.CheckpointSequence + 1, CollectionOperationPhase.PausedAtSafeBoundary,
+					CollectionOperationResultState.Pending, completed);
+				operationStore.SaveOperation(operation);
+				int checkpointReads = 0;
+				var checkpointRehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore,
+					revision => sourceStore.GetSource(revision),
+					(revision, source) => { throw new InvalidOperationException("No manifest content for status."); },
+					artifact => { throw new InvalidOperationException("No archive content for status."); }, target => fixture.State,
+					(parent, child) => { throw new InvalidOperationException("No full recovery input audit for completed children."); },
+					(parent, child) => { checkpointReads++; Assert.AreEqual(2, child.Sequence); return null; });
+				Assert.AreEqual(CollectionReviewedWorkflowRehydrationStatus.RetainedInputInvalid,
+					checkpointRehydrator.RehydrateForRecoveryStatus(operation.Identity).Status);
+				Assert.AreEqual(1, checkpointReads, "Only the latest committed checkpoint establishes the continuation boundary.");
+
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), operation.Revision, operation.Target, CollectionAssociationState.Incomplete);
+				operation = new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, operation.PlanIdentity, operation.CheckpointSequence + 1, CollectionOperationPhase.Completed,
+					CollectionOperationResultState.StoppedPartial, completed);
+				operationStore.SaveOperation(operation);
+				Assert.AreEqual(operation.Identity, operationStore.GetLatestStoppedPartialApply(association).Identity);
+				operationStore.SaveOperation(new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+					operation.Revision, operation.PlanIdentity, operation.CheckpointSequence + 1, CollectionOperationPhase.Completed,
+					CollectionOperationResultState.Committed, completed));
+				Assert.IsNull(operationStore.GetLatestStoppedPartialApply(association), "A completed apply must not reopen an older partial review.");
+			}
+			finally { Directory.Delete(root, true); }
 		}
 
 		private static Fixture CreateFixture(string root)

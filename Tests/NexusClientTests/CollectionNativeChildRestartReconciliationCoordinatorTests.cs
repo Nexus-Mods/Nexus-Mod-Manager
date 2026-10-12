@@ -21,6 +21,80 @@ namespace NexusClientTests
 	{
 		private const string ShaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
+		/// <summary>Recovery can reuse a recorded commit without content evidence only while its exact terminal state and archive still match.</summary>
+		[TestCase("committed", true)]
+		[TestCase("unknown", false)]
+		[TestCase("changed-state", false)]
+		[TestCase("changed-archive", false)]
+		[TestCase("ambiguous-registration", false)]
+		public void RecordedCommittedState_RequiresExactDurableRecoveryProof(string scenario, bool expected)
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				string archivePath = Path.Combine(tmp.Path, "incoming.7z");
+				File.WriteAllBytes(archivePath, new byte[] { 1, 2, 3, 4 });
+				var artifact = new CollectionRecoveryArtifact("incoming-artifact",
+					CollectionContentHash.FromSha256(ComputeSha256(archivePath)), 4);
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-recorded-commit");
+				var revision = CollectionRevisionIdentity.FromNexus(CollectionIdentity.FromNexus("recorded-commit"), "revision", 1);
+				var member = new CollectionOperationMemberReference(revision, CollectionMemberKey.FromProvider("member"));
+				CollectionPlanIdentity planIdentity = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(target.Fingerprint, new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.Data), "recipe"));
+				var child = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall,
+					native, CollectionNativeChildCheckpoint.NativeTerminalObserved, new ModOperationResult(native,
+						ModOperationReportedStatus.Succeeded, scenario == "unknown" ? ModOperationDurability.Unknown : ModOperationDurability.VerifiedCommitted, null));
+				var mods = new List<CollectionNativeModState>
+				{
+					new CollectionNativeModState(new NativeModInstanceIdentity(target, "incoming"), archivePath,
+						"incoming.7z", "10", "20", "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Direct)
+				};
+				if (scenario == "ambiguous-registration")
+					mods.Add(new CollectionNativeModState(new NativeModInstanceIdentity(target, "other"), archivePath,
+						"incoming.7z", "10", "20", "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Direct));
+				var state = new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], mods,
+					new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
+					new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable,
+					new CollectionTargetAssociation[0], new CollectionMemberBinding[0], new UserOverride[0],
+					CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 1);
+				var preparation = new CollectionCurrentStateFingerprint("c6-native-state/1", "before");
+				var plan = new CollectionResolvedPlanRecord(planIdentity, revision, target,
+					CollectionExecutionPolicyKind.InstallIntoCurrentSetup, preparation, "test", new byte[] { 1 });
+				var terminal = scenario == "changed-state" ? preparation : state.Fingerprint;
+				var recovery = new CollectionNativeChildRecoveryManifest(CollectionOperationIdentity.CreateNew(), 1, planIdentity,
+					member, CollectionNativeChildAction.ActivateOrReinstall, native, preparation, artifact, null, null,
+					new CollectionScriptedReplayRecoverySnapshot(false, null, false, new CollectionReplayRecoveryPayload[0]), null, terminal);
+				if (scenario == "changed-archive") File.WriteAllBytes(archivePath, new byte[] { 4, 3, 2, 1 });
+
+				CollectionNativeModState recovered;
+				Assert.AreEqual(expected, CollectionNativeChildRestartReconciliationCoordinator.TryVerifyRecordedCommittedState(
+					recovery, child, plan, state, out recovered));
+				if (expected) Assert.AreSame(mods[0], recovered);
+				else Assert.IsNull(recovered);
+				if (expected)
+				{
+					var initial = new CollectionNativeChildRecoveryManifest(recovery.OperationIdentity, 1, planIdentity, member,
+						CollectionNativeChildAction.ActivateOrReinstall, native, preparation, artifact, null, null, recovery.ScriptedReplay);
+					Assert.Throws<InvalidOperationException>(() => initial.WithRecordedCommittedStateFingerprint(terminal,
+						new ModOperationResult(native, ModOperationReportedStatus.Succeeded, ModOperationDurability.Unknown, null)));
+					var checkpoint = initial.WithRecordedCommittedStateFingerprint(terminal, child.NativeResult);
+					var operation = new CollectionOperation(recovery.OperationIdentity, CollectionOperationKind.ApplyResolvedPlan, revision.Collection,
+						target, revision, planIdentity, 1, CollectionOperationPhase.ApplyingNativeChildren, CollectionOperationResultState.Pending, new[] { child });
+					foreach (var retained in new[] { checkpoint, checkpoint.WithSafeBoundaryStateFingerprint(state.Fingerprint) })
+					{
+						byte[] bytes = InvokeSerialize(retained);
+						using (var stream = new MemoryStream(bytes, false))
+						using (var reader = new BinaryReader(stream, Encoding.UTF8, false))
+							Assert.AreEqual("nmm-ce.collections.child-recovery/8", reader.ReadString());
+						var roundTrip = InvokeDeserialize(bytes, operation, child);
+						Assert.IsNull(roundTrip.ExecutionEvidence);
+						Assert.AreEqual(retained.TerminalStateFingerprint, roundTrip.TerminalStateFingerprint);
+						Assert.AreEqual(retained.SafeBoundaryStateFingerprint, roundTrip.SafeBoundaryStateFingerprint);
+					}
+				}
+			}
+		}
+
 		[Test]
 		public void DetermineRestartDurability_CommittedRealityWinsAfterMissingTerminalCheckpoint()
 		{
@@ -121,6 +195,9 @@ namespace NexusClientTests
 		[TestCase("different-source", false, 0)]
 		[TestCase("promoted", false, 0)]
 		[TestCase("missing-install-log", false, 0)]
+		[TestCase("staged-install-log", true, 1)]
+		[TestCase("relative-staged-path", true, 1)]
+		[TestCase("foreign-staged-owner", false, 0)]
 		[TestCase("unreviewed-file", false, 0)]
 		[TestCase("direct", false, 0)]
 		public void ExactVirtualRelink_RequiresReviewedCacheAndUnchangedOwnedGameBytes(string scenario, bool accepted, int count)
@@ -152,10 +229,12 @@ namespace NexusClientTests
 					new CollectionExpectedReplayOperation[0]);
 				var owner = new CollectionNativeOwnerState("owner", null, CollectionNativeOwnerKind.NativeMod, null, null, null);
 				var link = new CollectionNativeOwnerState(scenario == "foreign-owner" ? "foreign" : "owner", null,
-					CollectionNativeOwnerKind.NativeMod, true, 0, scenario == "different-source" ? source + ".other" : source);
+					CollectionNativeOwnerKind.NativeMod, true, 0, scenario == "different-source" ? source + ".other" :
+						scenario == "relative-staged-path" ? Path.GetFileName(source) : source);
+				bool stagedLog = scenario == "staged-install-log" || scenario == "relative-staged-path" || scenario == "foreign-staged-owner";
 				var files = new List<CollectionNativeFileState>
 				{
-					new CollectionNativeFileState(target, deployed, scenario == "promoted", scenario != "missing-install-log", true,
+					new CollectionNativeFileState(target, deployed, scenario == "promoted", scenario != "missing-install-log" && !stagedLog, true,
 						"owner", new[] { owner }, new CollectionNativeOwnerState[0], new[] { link })
 				};
 				if (scenario == "unreviewed-file")
@@ -164,11 +243,91 @@ namespace NexusClientTests
 				CollectionNativeStateIndex state = CreateRelinkState(files);
 				IReadOnlyList<ModDeploymentTarget> targets;
 				string failure;
+				Func<string, string> getStagedOwner = stagedLog ? (Func<string, string>)(path => scenario == "foreign-staged-owner" ? "foreign" : "owner") : null;
 				Assert.AreEqual(accepted, CollectionNativeChildRestartReconciliationCoordinator.TryCollectExactVirtualRelinkTargets(
-					evidence, state, "owner", (deploymentTarget, ownerKey) => source, out targets, out failure), failure);
+					evidence, state, "owner", (deploymentTarget, ownerKey) => source, out targets, out failure, getStagedOwner), failure);
 				Assert.AreEqual(count, targets.Count);
 			}
 			finally { Directory.Delete(directory, true); }
+		}
+
+		/// <summary>Checks inactive Collection writers using their staged bytes and the unchanged native winner.</summary>
+		[TestCase("exact", 1)]
+		[TestCase("changed-source", 0)]
+		[TestCase("changed-game", 0)]
+		[TestCase("changed-winner", 0)]
+		[TestCase("active-writer", 0)]
+		[TestCase("strict", 0)]
+		public void DeferredVirtualWriter_RequiresExactStagingAndUnchangedWinner(string scenario, int count)
+		{
+			string directory = Path.Combine(Path.GetTempPath(), "collection-inactive-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(directory);
+			try
+			{
+				string game = Path.Combine(directory, "game.bin"), source = Path.Combine(directory, "incoming.bin"), winner = Path.Combine(directory, "winner.bin");
+				File.WriteAllBytes(game, new byte[] { 1, 2 });
+				File.Copy(game, winner);
+				File.WriteAllBytes(source, new byte[] { 3, 4 });
+				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "interface\\fontconfig.txt");
+				var before = new CollectionNativeFileContentEvidence(target, true, CollectionContentHash.FromSha256(ComputeSha256(game)), 2);
+				var expected = new CollectionNativeFileContentEvidence(target, true, CollectionContentHash.FromSha256(ComputeSha256(source)), 2);
+				var preview = new CollectionMemberEffectPreview(CollectionMemberKey.FromProvider("dear-diary"),
+					CollectionRecipeIdentity.FromFingerprint("inactive-recipe"), ModInstallMethod.Virtual, ModInstallRoot.Data,
+					new[] { new CollectionPlannedFileEffect(target, expected.ContentHash, 2) }, new CollectionPlannedIniEffect[0],
+					new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				var evidence = new CollectionNativeChildExecutionEvidence("game", 10, 20, "incoming.7z", preview,
+					new[] { before }, new[] { expected }, new CollectionReplayContentEvidence(false, null, 0, false,
+						new CollectionReplayPayloadContentEvidence[0]), new CollectionExpectedReplayOperation[0]);
+				if (scenario != "strict") evidence = evidence.WithDeferredPluginReconciliation();
+				var identity = CollectionTargetIdentity.FromFingerprint("target-inactive");
+				var nativeMod = new CollectionNativeModState(new NativeModInstanceIdentity(identity, "incoming"), "incoming.7z",
+					"incoming.7z", "10", "20", "1.0", "1.0", ModInstallRoot.Data, ModInstallMethod.Virtual);
+				var links = new[] {
+					new CollectionNativeOwnerState("incoming", null, CollectionNativeOwnerKind.NativeMod, scenario == "active-writer", 1, source),
+					new CollectionNativeOwnerState("winner", null, CollectionNativeOwnerKind.NativeMod, true, 0, winner) };
+				CollectionNativeStateIndex state = CreateRelinkState(new[] { new CollectionNativeFileState(target, game, false,
+					false, true, "winner", new CollectionNativeOwnerState[0], new CollectionNativeOwnerState[0], links) });
+				if (scenario == "changed-source") File.WriteAllBytes(source, new byte[] { 5, 6 });
+				if (scenario == "changed-game") File.WriteAllBytes(game, new byte[] { 5, 6 });
+				if (scenario == "changed-winner") File.WriteAllBytes(winner, new byte[] { 5, 6 });
+				Assert.AreEqual(count, CollectionNativeChildRestartReconciliationCoordinator.GetVerifiedInactiveFileTargets(
+					state, nativeMod, evidence, (deployment, owner) => owner == "incoming" ? source : winner).Count);
+			}
+			finally { Directory.Delete(directory, true); }
+		}
+
+		/// <summary>Replay completion preserves recorded choices and rejects changed, reordered or generated selections.</summary>
+		[TestCase("missing", true)]
+		[TestCase("source-changed", false)]
+		[TestCase("destination-changed", false)]
+		[TestCase("reordered", false)]
+		[TestCase("unexpected", false)]
+		[TestCase("generated", false)]
+		[TestCase("duplicate-destination", false)]
+		[TestCase("complete", false)]
+		public void IncompleteReplay_RequiresAnUnchangedOrderedArchiveSubset(string scenario, bool accepted)
+		{
+			var expected = new[] {
+				new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "menus\\book.swf", "interface\\bookmenu.swf", 0, null),
+				new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "fonts\\eng\\fontconfig.txt", "interface\\fontconfig.txt", 0, null),
+				new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "menus\\map.swf", "interface\\map.swf", 0, null) };
+			var actual = new List<ScriptedReplayOperation> {
+				new ScriptedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, expected[0].SourcePath, expected[0].DestinationPath, null, 0, null),
+				new ScriptedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, expected[2].SourcePath, expected[2].DestinationPath, null, 0, null) };
+			if (scenario == "source-changed") actual[1] = new ScriptedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "other.swf", expected[2].DestinationPath, null, 0, null);
+			if (scenario == "destination-changed") actual[1] = new ScriptedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, expected[2].SourcePath, "other.swf", null, 0, null);
+			if (scenario == "reordered") actual.Reverse();
+			if (scenario == "unexpected") actual.Add(new ScriptedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, "extra.txt", "extra.txt", null, 0, null));
+			if (scenario == "generated") actual[1] = new ScriptedReplayOperation(ScriptedReplayOperationKind.GeneratedFile, null, expected[2].DestinationPath, "payload.bin", 1, new string('a', 64));
+			if (scenario == "duplicate-destination") expected[1] = new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, expected[1].SourcePath, expected[0].DestinationPath, 0, null);
+			if (scenario == "complete") actual.Insert(1, new ScriptedReplayOperation(ScriptedReplayOperationKind.ArchiveFile, expected[1].SourcePath, expected[1].DestinationPath, null, 0, null));
+			IReadOnlyList<CollectionExpectedReplayOperation> missing;
+			Assert.AreEqual(accepted, CollectionNativeChildRestartReconciliationCoordinator.TryGetMissingArchiveReplayOperations(expected, actual, out missing));
+			if (accepted)
+			{
+				Assert.AreEqual(1, missing.Count);
+				Assert.AreSame(expected[1], missing[0]);
+			}
 		}
 
 		/// <summary>Recovers only missing replay metadata when a first activation already has exact installed bytes and native ownership.</summary>

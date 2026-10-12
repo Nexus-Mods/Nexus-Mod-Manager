@@ -321,7 +321,8 @@ namespace Nexus.Client.CollectionManagement
 					if (beforePluginRules.PluginCoverage != CollectionNativeStateCoverage.Complete)
 						throw new InvalidOperationException("Qualified plugin-order repair lost complete authoritative plugin coverage before reconciliation.");
 					if (!PluginRulesSatisfied(beforePluginRules, applicablePluginRules))
-						CollectionPluginRelativeOrderApplicator.ApplyRules(_services.PluginManager, applicablePluginRules);
+						CollectionPluginRelativeOrderApplicator.ApplyRules(_services.PluginManager, applicablePluginRules.Where(x =>
+							FindPlugin(beforePluginRules, x.AfterPluginName) != null && FindPlugin(beforePluginRules, x.PluginName) != null));
 				}
 				if (pluginRuleRepairs.Count > 0)
 				{
@@ -535,7 +536,8 @@ namespace Nexus.Client.CollectionManagement
 			{
 				CollectionNativePluginState earlier = FindPlugin(state, rule.AfterPluginName);
 				CollectionNativePluginState later = FindPlugin(state, rule.PluginName);
-				if (earlier == null || later == null || later.Priority <= earlier.Priority) return false;
+				if (earlier == null || later == null) continue;
+				if (later.Priority <= earlier.Priority) return false;
 			}
 			return true;
 		}

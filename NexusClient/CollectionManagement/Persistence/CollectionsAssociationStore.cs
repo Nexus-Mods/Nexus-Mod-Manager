@@ -224,6 +224,36 @@ ORDER BY native_mod_key;";
 			});
 		}
 
+		/// <summary>Identifies stopped partial installs whose remaining bindings all have verified committed journal evidence.</summary>
+		internal IReadOnlyList<Guid> GetReconciledPartialAssociationIds(CollectionsAssociationTargetSnapshot snapshot)
+		{
+			if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
+			var result = new List<Guid>();
+			var operationStore = new CollectionsOperationStore(_store);
+			foreach (var group in snapshot.Associations.Where(x => x.State == CollectionAssociationState.Incomplete)
+				.GroupBy(x => x.Revision.Collection))
+			{
+				IReadOnlyList<CollectionOperation> operations = operationStore.GetOperationsForCollection(group.Key, snapshot.Target);
+				if (operations.Any(x => !x.IsTerminal && (x.RequiresRecovery || x.HasUnknownNativeDurability || x.HasUnreconciledNativeChild ||
+					(x.Kind != CollectionOperationKind.ApplyResolvedPlan && x.HasCrossedNativeBoundary))))
+					continue;
+				foreach (CollectionTargetAssociation association in group)
+				{
+					List<CollectionNativeChildOperation> committed = operations.Where(x =>
+						x.Kind == CollectionOperationKind.ApplyResolvedPlan && ((x.IsTerminal && x.ResultState == CollectionOperationResultState.StoppedPartial) ||
+							(!x.IsTerminal && x.PlanIdentity != null && x.HasCrossedNativeBoundary)) &&
+						association.Revision.Equals(x.Revision) && !x.HasUnreconciledNativeChild && !x.HasUnknownNativeDurability)
+						.SelectMany(x => x.NativeChildren).Where(x => x.IsReconciled && x.HasVerifiedCommittedNativeState).ToList();
+					List<CollectionMemberBinding> bindings = snapshot.Bindings.Where(x => x.Association.AssociationId == association.AssociationId).ToList();
+					if (bindings.Count > 0 && bindings.All(binding => binding.BindingKind == CollectionMemberBindingKind.InstalledForCollection &&
+						committed.Any(child => child.Member.MemberKey.Equals(binding.MemberKey) &&
+							StringComparer.Ordinal.Equals(child.NativeOperation.Fingerprint.RecipeFingerprint, binding.VerifiedRecipe.Fingerprint))))
+						result.Add(association.AssociationId);
+				}
+			}
+			return result;
+		}
+
 		/// <summary>
 		/// Persists an explicitly established standalone-use state for one native mod instance.
 		/// </summary>

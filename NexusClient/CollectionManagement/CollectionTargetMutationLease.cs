@@ -9,6 +9,7 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionTargetMutationLease : IDisposable
 	{
 		private int _disposed;
+		private int _nativeAuthorityValidated;
 
 		internal CollectionTargetMutationLease(CollectionTargetMutationLeaseManager manager,
 			CollectionTargetMutationLeaseManager.MutationReservation reservation, bool isRoot)
@@ -52,6 +53,17 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets whether this handle has already released its reference to the reservation.
 		/// </summary>
 		public bool IsDisposed => Volatile.Read(ref _disposed) != 0;
+
+		/// <summary>Gets whether native authority was reloaded and validated during this exact root reservation.</summary>
+		internal bool HasValidatedNativeAuthority => Volatile.Read(ref _nativeAuthorityValidated) != 0;
+
+		/// <summary>Records a completed native reload without carrying its proof across reservation boundaries.</summary>
+		internal void MarkNativeAuthorityValidated()
+		{
+			if (IsDisposed || !IsRoot || !HasCrossProcessReservation || RequiresRecovery)
+				throw new InvalidOperationException("Native authority validation requires the live recovered root reservation.");
+			Interlocked.Exchange(ref _nativeAuthorityValidated, 1);
+		}
 
 		/// <summary>
 		/// Marks abandoned-lock recovery/revalidation complete while retaining the same cross-process reservation.

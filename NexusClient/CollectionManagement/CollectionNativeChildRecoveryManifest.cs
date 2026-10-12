@@ -134,8 +134,6 @@ namespace Nexus.Client.CollectionManagement
 					throw new ArgumentException("Native-child execution evidence must match the exact prepared member recipe and install context.", nameof(executionEvidence));
 				}
 			}
-			if (terminalStateFingerprint != null && executionEvidence == null)
-				throw new ArgumentException("A terminal native-state fingerprint requires retained C6.7 execution evidence.", nameof(terminalStateFingerprint));
 			if (safeBoundaryStateFingerprint != null && terminalStateFingerprint == null)
 				throw new ArgumentException("A reconciled safe-boundary fingerprint requires a terminal native-state fingerprint.", nameof(safeBoundaryStateFingerprint));
 			ExecutionEvidence = executionEvidence;
@@ -154,7 +152,7 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionNativeModState PreviousNativeMod { get; }
 		public CollectionRecoveryArtifact PreviousArchive { get; }
 		public CollectionScriptedReplayRecoverySnapshot ScriptedReplay { get; }
-		/// <summary>Gets the durable pre-start C6.7 verification evidence, or <c>null</c> for legacy C6.6-only manifests.</summary>
+		/// <summary>Gets the durable content-verification evidence, or <c>null</c> when no extra content audit was requested.</summary>
 		public CollectionNativeChildExecutionEvidence ExecutionEvidence { get; }
 		/// <summary>Gets the exact authoritative native-state fingerprint observed when this child was verified committed.</summary>
 		public CollectionCurrentStateFingerprint TerminalStateFingerprint { get; }
@@ -177,6 +175,23 @@ namespace Nexus.Client.CollectionManagement
 			if (terminalStateFingerprint == null) throw new ArgumentNullException(nameof(terminalStateFingerprint));
 			if (ExecutionEvidence == null) throw new InvalidOperationException("Terminal state cannot be retained before C6.7 execution evidence.");
 			if (TerminalStateFingerprint != null) throw new InvalidOperationException("A terminal native-state fingerprint is already attached to this recovery manifest.");
+			return new CollectionNativeChildRecoveryManifest(OperationIdentity, ChildSequence, PlanIdentity, Member, Action,
+				NativeOperation, PreparationStateFingerprint, IncomingArchive, PreviousNativeMod, PreviousArchive,
+				ScriptedReplay, ExecutionEvidence, terminalStateFingerprint);
+		}
+
+		/// <summary>Retains a terminal checkpoint from an exact native committed result without requiring optional content-audit evidence.</summary>
+		internal CollectionNativeChildRecoveryManifest WithRecordedCommittedStateFingerprint(CollectionCurrentStateFingerprint terminalStateFingerprint,
+			ModOperationResult nativeResult)
+		{
+			if (terminalStateFingerprint == null) throw new ArgumentNullException(nameof(terminalStateFingerprint));
+			if (TerminalStateFingerprint != null) throw new InvalidOperationException("A terminal native-state fingerprint is already attached to this recovery manifest.");
+			if (nativeResult == null || nativeResult.ReportedStatus != ModOperationReportedStatus.Succeeded ||
+				nativeResult.Durability != ModOperationDurability.VerifiedCommitted ||
+				nativeResult.Identity.OperationId != NativeOperation.OperationId || nativeResult.Identity.AttemptId != NativeOperation.AttemptId ||
+				nativeResult.Identity.Origin != NativeOperation.Origin ||
+				!nativeResult.Identity.Fingerprint.Equals(NativeOperation.Fingerprint))
+				throw new InvalidOperationException("A content-check-free terminal checkpoint requires the exact committed native result.");
 			return new CollectionNativeChildRecoveryManifest(OperationIdentity, ChildSequence, PlanIdentity, Member, Action,
 				NativeOperation, PreparationStateFingerprint, IncomingArchive, PreviousNativeMod, PreviousArchive,
 				ScriptedReplay, ExecutionEvidence, terminalStateFingerprint);

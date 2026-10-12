@@ -136,6 +136,19 @@ namespace Nexus.Client.PluginManagement
 			}
 		}
 
+		/// <summary>Gets the committed ordered collection for UI subscriptions and snapshot invalidation.</summary>
+		internal ReadOnlyObservableList<Plugin> ObservedManagedPlugins
+		{
+			get
+			{
+				PluginOrderLog log = PluginOrderLog as PluginOrderLog;
+				return log == null ? ManagedPlugins : log.CommittedOrderedPlugins;
+			}
+		}
+
+		/// <summary>Gets the committed active collection for UI subscriptions and snapshot invalidation.</summary>
+		internal ReadOnlyObservableList<Plugin> ObservedActivePlugins { get { return ActivePluginLog.CommittedActivePlugins; } }
+
 		/// <summary>
 		/// Gets the max allowed number of active plugins.
 		/// </summary>
@@ -217,8 +230,8 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		private void HookSnapshotInvalidation()
 		{
-			ManagedPlugins.CollectionChanged += PluginStateCollectionChanged;
-			ActivePlugins.CollectionChanged += PluginStateCollectionChanged;
+			ObservedManagedPlugins.CollectionChanged += PluginStateCollectionChanged;
+			ObservedActivePlugins.CollectionChanged += PluginStateCollectionChanged;
 		}
 
 		/// <summary>
@@ -226,8 +239,8 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		private void UnhookSnapshotInvalidation()
 		{
-			ManagedPlugins.CollectionChanged -= PluginStateCollectionChanged;
-			ActivePlugins.CollectionChanged -= PluginStateCollectionChanged;
+			ObservedManagedPlugins.CollectionChanged -= PluginStateCollectionChanged;
+			ObservedActivePlugins.CollectionChanged -= PluginStateCollectionChanged;
 		}
 
 		/// <summary>

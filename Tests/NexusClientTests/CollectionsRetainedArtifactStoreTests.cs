@@ -15,6 +15,30 @@ namespace NexusClientTests
 	[TestFixture]
 	public class CollectionsRetainedArtifactStoreTests
 	{
+		/// <summary>A publication proof avoids rereading the blob, while changed stamps still require byte verification.</summary>
+		[Test]
+		public void Publish_VerificationReusesThePublicationHashAndRejectsChangedBytes()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root); store.CreateNew();
+				CollectionsRetainedArtifact artifact;
+				using (var source = new MemoryStream(Encoding.ASCII.GetBytes("recovery evidence"), false))
+					artifact = new CollectionsRetainedArtifactStore(store).Publish(source);
+				var verifier = new CollectionsRetainedArtifactStore(store);
+				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
+				Assert.IsTrue(verifier.VerifyArtifact(artifact.ArtifactId));
+				Assert.AreEqual(0, CollectionPerformanceMetrics.Capture().RetainedArtifactVerificationHashCount - before.RetainedArtifactVerificationHashCount);
+				string path = BlobPath(store, artifact.ContentHash.Value);
+				DateTime originalWriteTime = File.GetLastWriteTimeUtc(path);
+				File.WriteAllText(path, "changed evidence!");
+				File.SetLastWriteTimeUtc(path, originalWriteTime.AddSeconds(2));
+				Assert.IsFalse(verifier.VerifyArtifact(artifact.ArtifactId));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void ReferenceArchiveFile_ReusesLibraryBytesAndDetectsDeletionOrChangesAfterRestart()
 		{

@@ -78,6 +78,16 @@ namespace Nexus.Client.CollectionManagement
 				CancellationToken.None);
 		}
 
+		/// <summary>Submits under the uninterrupted normal-install reservation and reuses its last committed native observation.</summary>
+		internal Task<CollectionNativeChildExecutionResult> SubmitPreparedChildInSessionAsync(CollectionOperationIdentity operationIdentity,
+			ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview preview,
+			ModInstallationRecipeInput recipeInput, GameStoragePathSet paths, CancellationToken cancellationToken,
+			CollectionTargetMutationLease sessionLease, CollectionNativeStateIndex sessionState)
+		{
+			return SubmitPreparedChildCoreAsync(operationIdentity, plan, impactPlan, preview, recipeInput, paths, cancellationToken,
+				CollectionNativeChildWorkflowMode.Additive, sessionLease, sessionState);
+		}
+
 		/// <summary>
 		/// Revalidates and submits the one prepared child while honoring cancellation before native worker start.
 		/// </summary>
@@ -106,7 +116,8 @@ namespace Nexus.Client.CollectionManagement
 
 		private async Task<CollectionNativeChildExecutionResult> SubmitPreparedChildCoreAsync(CollectionOperationIdentity operationIdentity,
 			ResolvedCollectionPlan plan, CollectionConflictImpactPlan impactPlan, CollectionMemberEffectPreview reviewedPreview,
-			ModInstallationRecipeInput recipeInput, GameStoragePathSet paths, CancellationToken cancellationToken, CollectionNativeChildWorkflowMode workflowMode)
+			ModInstallationRecipeInput recipeInput, GameStoragePathSet paths, CancellationToken cancellationToken, CollectionNativeChildWorkflowMode workflowMode,
+			CollectionTargetMutationLease sessionLease = null, CollectionNativeStateIndex sessionState = null)
 		{
 			if (operationIdentity == null) throw new ArgumentNullException(nameof(operationIdentity));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -116,13 +127,16 @@ namespace Nexus.Client.CollectionManagement
 			if (paths == null) throw new ArgumentNullException(nameof(paths));
 			if (_services.ModManager == null || _services.ModActivationMonitor == null)
 				throw new InvalidOperationException("C6.7 requires the live ModManager and ModActivationMonitor services.");
+			bool skipContentChecks = workflowMode == CollectionNativeChildWorkflowMode.Additive && Properties.Settings.Default.CollectionSkipContentChecks;
+			recipeInput = recipeInput.WithSkippedContentChecks(skipContentChecks);
 
 			CollectionOperation operation = RequireOperation(operationIdentity, plan, workflowMode);
 			CollectionNativeChildOperation child = RequirePreparedChild(operation);
 			CollectionNativeChildRecoveryManifest recovery = RequireRecoveryManifest(operation, child, plan);
 			ResolvedCollectionMemberPlan member = RequireMember(plan, child);
 			ValidateImpactPlan(plan, impactPlan);
-			ValidateExecutableFilePriorities(impactPlan.FileImpacts);
+			if (!impactPlan.HasExecutableFilePriorities)
+				throw new InvalidOperationException("The recorded Collection file priorities contain a multi-writer target without a deterministic winner.");
 			ValidateReviewedPreview(member, reviewedPreview);
 			ValidateRecipeInput(plan, child, member, recovery, recipeInput);
 
@@ -131,12 +145,19 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("The live canonical game/storage target no longer matches the approved Collection plan.");
 
 			CollectionTargetMutationLease rootLease = null;
+			bool ownsRootLease = sessionLease == null;
 			try
 			{
-				rootLease = await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true);
+				rootLease = sessionLease ?? await _mutationLeaseManager.AcquireAsync(authority, cancellationToken).ConfigureAwait(true);
 				cancellationToken.ThrowIfCancellationRequested();
-
-				_authorityValidator.ValidateAndReload(rootLease, authority, paths);
+				if (ownsRootLease)
+					_authorityValidator.ValidateAndReload(rootLease, authority, paths);
+				else
+				{
+					if (!skipContentChecks || sessionState == null || !sessionState.Target.Equals(plan.Target))
+						throw new InvalidOperationException("Committed session-state reuse requires the normal Collection content-check preference and exact target.");
+					_authorityValidator.ValidateCommittedAuthority(rootLease, authority, paths);
+				}
 
 				// Reload may have performed native recovery. Re-read every durable correlation before constructing a native task.
 				operation = RequireOperation(operationIdentity, plan, workflowMode);
@@ -144,7 +165,7 @@ namespace Nexus.Client.CollectionManagement
 				recovery = RequireRecoveryManifest(operation, child, plan);
 				ValidateRecipeInput(plan, child, member, recovery, recipeInput);
 
-				CollectionNativeStateIndex liveState = CaptureReloadedState(plan.Target);
+				CollectionNativeStateIndex liveState = ownsRootLease ? CaptureReloadedState(plan.Target) : sessionState;
 				CollectionCurrentStateFingerprint expectedPreparationState = ResolveExpectedPreparationStateFingerprint(operation, child, plan, workflowMode);
 				if (!recovery.PreparationStateFingerprint.Equals(expectedPreparationState) ||
 					!liveState.Fingerprint.Equals(recovery.PreparationStateFingerprint))
@@ -157,52 +178,57 @@ namespace Nexus.Client.CollectionManagement
 					_services.ModManager, cancellationToken);
 
 				// Hashing and replay enumeration may be expensive. Keep the reservation, but do the I/O off the UI continuation.
-				await Task.Run(() => ValidateLiveContentAtSubmission(previousMod, incomingMod, recovery,
-					recipeInput.Validation.ExpectedContent, paths.InstallInfoPath), cancellationToken).ConfigureAwait(true);
+				if (!skipContentChecks)
+					await Task.Run(() => ValidateLiveContentAtSubmission(previousMod, incomingMod, recovery,
+						recipeInput.Validation.ExpectedContent, paths.InstallInfoPath), cancellationToken).ConfigureAwait(true);
 				cancellationToken.ThrowIfCancellationRequested();
 
-				// Complete modern reviews have exact output digests obtained while preparing the approved C5 plan.
-				// A FRESH whole-archive SHA-256 proof is sufficient to reuse those identities without extracting
-				// every huge archive entry again. C5 still rehashes before mutation; C6.8 verifies deployed bytes.
-				bool exactReviewedOutputs = reviewedPreview.Files.All(x => x.HasExactContentIdentity);
+				// Older reviews and explicit verify/repair may already contain exact output digests.
+				// Reuse the unchanged archive proof established during preparation; submission never hashes it again.
+				// C6.8 can still verify deployed bytes when content checking is enabled.
+				bool exactReviewedOutputs = !skipContentChecks && reviewedPreview.Files.All(x => x.HasExactContentIdentity);
 				if (exactReviewedOutputs)
 					await Task.Run(() => ValidateRecoveryArchiveBytes(GetArchivePath(incomingMod), recovery.IncomingArchive),
 						cancellationToken).ConfigureAwait(true);
 				CollectionMemberEffectPreviewBuilder submissionPreviewBuilder = new CollectionMemberEffectPreviewBuilder();
-				CollectionMemberEffectPreview livePreview = exactReviewedOutputs
+				CollectionMemberEffectPreview livePreview = skipContentChecks ? reviewedPreview : exactReviewedOutputs
 					? submissionPreviewBuilder.BuildFromFreshVerifiedArchive(member, recipeInput, _services.ModManager.GameMode,
 						incomingMod, _services.PluginManager, reviewedPreview)
-					: submissionPreviewBuilder.Build(member, recipeInput, _services.ModManager.GameMode,
-						incomingMod, _services.PluginManager);
-				if (!exactReviewedOutputs)
+					: submissionPreviewBuilder.BuildForPreparation(member, recipeInput, _services.ModManager.GameMode,
+						incomingMod, _services.PluginManager, cancellationToken);
+				if (!exactReviewedOutputs && !skipContentChecks)
 				{
-					// Legacy reviews without all output hashes retain fresh individual entry reads and the
-					// existing whole-archive proof before the newly calculated digests may be used.
+					// Path-only reviews bind to the verified whole archive. Source digests are deferred until the
+					// native installer has opened/extracted that archive, avoiding a separate decompression pass.
 					await Task.Run(() => ValidateRecoveryArchiveBytes(GetArchivePath(incomingMod), recovery.IncomingArchive),
 						cancellationToken).ConfigureAwait(true);
 				}
 				if (reviewedPreview.InstallRootCorrection != null && !reviewedPreview.InstallRootCorrection.Verify(liveState, false))
 					throw new InvalidOperationException("The old-folder files changed after review. Review the folder correction again.");
-				reviewedPreview = ResolveExactSubmissionPreview(reviewedPreview, livePreview);
+				reviewedPreview = exactReviewedOutputs ? ResolveExactSubmissionPreview(reviewedPreview, livePreview)
+					: ResolvePlannedSubmissionPreview(reviewedPreview, livePreview);
 
-				CollectionNativeChildExecutionEvidence executionEvidence = await Task.Run(() =>
-					CaptureExecutionEvidence(member, reviewedPreview, recipeInput, incomingMod, paths.InstallInfoPath,
-						_services.ModManager.GameMode), cancellationToken).ConfigureAwait(true);
-				cancellationToken.ThrowIfCancellationRequested();
-				if (recovery.ExecutionEvidence == null)
+				if (exactReviewedOutputs)
 				{
-					_manifestStore.SaveManifest(recovery.WithExecutionEvidence(executionEvidence));
-					recovery = RequireRecoveryManifest(operation, child, plan);
+					CollectionNativeChildExecutionEvidence executionEvidence = await Task.Run(() =>
+						CaptureExecutionEvidence(member, reviewedPreview, recipeInput, incomingMod, paths.InstallInfoPath,
+							_services.ModManager.GameMode), cancellationToken).ConfigureAwait(true);
+					cancellationToken.ThrowIfCancellationRequested();
+					if (recovery.ExecutionEvidence == null)
+					{
+						_manifestStore.SaveManifest(recovery.WithExecutionEvidence(executionEvidence));
+						recovery = RequireRecoveryManifest(operation, child, plan);
+					}
+					else if (!ExecutionEvidenceEquals(recovery.ExecutionEvidence, executionEvidence))
+						throw new InvalidOperationException("The physical pre-start evidence changed after an earlier C6.7 submission attempt; the Collection must be replanned before mutation.");
+					if (recovery.ExecutionEvidence == null)
+						throw new InvalidDataException("The exact C6.7 restart-verification evidence was not durably retained before native submission.");
 				}
-				else if (!ExecutionEvidenceEquals(recovery.ExecutionEvidence, executionEvidence))
-				{
-					throw new InvalidOperationException("The physical pre-start evidence changed after an earlier C6.7 submission attempt; the Collection must be replanned before mutation.");
-				}
-				if (recovery.ExecutionEvidence == null)
-					throw new InvalidDataException("The exact C6.7 restart-verification evidence was not durably retained before native submission.");
 
-				recipeInput = await Task.Run(() => ReuseReviewedVirtualStaging(recipeInput, reviewedPreview, incomingMod,
-					previousMod, _services.ModManager, cancellationToken), cancellationToken).ConfigureAwait(true);
+				ModInstallationRecipeInput archiveEvidenceRecipe = recipeInput;
+				if (!skipContentChecks)
+					recipeInput = await Task.Run(() => ReuseReviewedVirtualStaging(recipeInput, reviewedPreview, incomingMod,
+						previousMod, _services.ModManager, cancellationToken), cancellationToken).ConfigureAwait(true);
 				cancellationToken.ThrowIfCancellationRequested();
 				recipeInput = ApplyReviewedFileDeploymentDecisions(recipeInput, reviewedPreview, impactPlan, incomingMod, _services.ModManager);
 				IBackgroundTaskSet nativeTask = CreateNativeTask(previousMod, incomingMod, recipeInput, _services.ModManager);
@@ -211,14 +237,43 @@ namespace Nexus.Client.CollectionManagement
 				ModInstallerBase nativeOperation = nativeTask as ModInstallerBase;
 				if (nativeOperation == null || !Matches(child.NativeOperation, nativeOperation.OperationIdentity))
 					throw new InvalidOperationException("The constructed native task does not preserve the exact prepared Collection operation identity.");
+				if (!exactReviewedOutputs && !skipContentChecks)
+				{
+					ModInstaller installer = nativeTask as ModInstaller;
+					if (installer == null)
+						throw new InvalidOperationException("Deferred Collection file evidence requires the native mod installer's archive preparation boundary.");
+					// Evidence describes the approved recipe before deployment-winner/staging optimizations,
+					// just as it does for reviews which already carry exact source hashes.
+					ModInstallationRecipeInput evidenceRecipe = archiveEvidenceRecipe;
+					CollectionMemberEffectPreview plannedPreview = reviewedPreview;
+					installer.SetCollectionArchivePreparation(() =>
+					{
+						cancellationToken.ThrowIfCancellationRequested();
+						CollectionMemberEffectPreview exactPreview = new CollectionMemberEffectPreviewBuilder()
+							.BuildFromOpenArchive(member, evidenceRecipe, _services.ModManager.GameMode, incomingMod,
+								_services.PluginManager, cancellationToken);
+						exactPreview = ResolveExactSubmissionPreview(plannedPreview, exactPreview);
+						CollectionNativeChildExecutionEvidence evidence = CaptureExecutionEvidence(member, exactPreview,
+							evidenceRecipe, incomingMod, paths.InstallInfoPath, _services.ModManager.GameMode);
+						if (recovery.ExecutionEvidence == null)
+						{
+							_manifestStore.SaveManifest(recovery.WithExecutionEvidence(evidence));
+							CollectionNativeChildRecoveryManifest retained = RequireRecoveryManifest(operation, child, plan);
+							if (retained.ExecutionEvidence == null || !ExecutionEvidenceEquals(retained.ExecutionEvidence, evidence))
+								throw new InvalidDataException("The Collection execution evidence was not durably retained before native mutation.");
+						}
+						else if (!ExecutionEvidenceEquals(recovery.ExecutionEvidence, evidence))
+							throw new InvalidOperationException("The native archive preparation no longer matches the retained Collection execution evidence.");
+					});
+				}
 				nativeOperation.AssignParentMutationLease(rootLease);
 
 				CollectionOperation submittedOperation = null;
 				CollectionNativeChildOperation submittedChild = null;
 				bool accepted = _services.ModActivationMonitor.SubmitWhenIdle(nativeTask, () =>
 				{
-					// This callback executes after monitor publication but before native worker start. Persisting this checkpoint is the
-					// final durable ordering gate before any native mutation can begin.
+					// Publish the submission before worker start. A path-only review also has an installer callback
+					// that must persist exact execution evidence after extraction and before any native mutation.
 					cancellationToken.ThrowIfCancellationRequested();
 					CollectionOperation latest = RequireOperation(operationIdentity, plan, workflowMode);
 					CollectionNativeChildOperation latestChild = RequirePreparedChild(latest);
@@ -235,13 +290,13 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidOperationException("The native monitor accepted a Collection child without persisting NativeSubmitted first.");
 
 				CollectionNativeChildExecutionResult result = new CollectionNativeChildExecutionResult(submittedOperation,
-					submittedChild, nativeTask, recipeInput, incomingMod, rootLease);
+					submittedChild, nativeTask, recipeInput, incomingMod, rootLease, ownsRootLease);
 				rootLease = null; // Ownership transfers to the C6.8 verification result.
 				return result;
 			}
 			finally
 			{
-				if (rootLease != null)
+				if (ownsRootLease && rootLease != null)
 					rootLease.Dispose();
 			}
 		}
@@ -276,9 +331,7 @@ namespace Nexus.Client.CollectionManagement
 			if (plan.Policy.Kind != requiredPolicy)
 				throw new ArgumentException("The native-child execution plan uses an execution policy that does not match the owning workflow.", nameof(plan));
 
-			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
-			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
-				persisted.PolicyKind != plan.Policy.Kind || (workflowMode == CollectionNativeChildWorkflowMode.Additive && !persisted.CurrentStateFingerprint.Equals(plan.CurrentStateFingerprint)))
+			if (!_planStore.HasMatchingMetadata(plan, workflowMode == CollectionNativeChildWorkflowMode.Additive))
 			{
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for native submission.");
 			}
@@ -303,7 +356,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionNativeChildRecoveryManifest RequireRecoveryManifest(CollectionOperation operation,
 			CollectionNativeChildOperation child, ResolvedCollectionPlan plan)
 		{
-			CollectionNativeChildRecoveryManifest recovery = _manifestStore.GetManifest(operation, child);
+			CollectionNativeChildRecoveryManifest recovery = _manifestStore.GetManifestMetadata(operation, child);
 			if (recovery == null)
 				throw new InvalidDataException("A prepared Collection child is missing its retained C6.6 recovery manifest.");
 			if (recovery.OperationIdentity.OperationId != operation.Identity.OperationId || recovery.ChildSequence != child.Sequence ||
@@ -318,13 +371,22 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionCurrentStateFingerprint ResolveExpectedPreparationStateFingerprint(CollectionOperation operation,
 			CollectionNativeChildOperation currentChild, ResolvedCollectionPlan plan, CollectionNativeChildWorkflowMode workflowMode)
 		{
+			if (workflowMode == CollectionNativeChildWorkflowMode.Additive)
+			{
+				CollectionNativeChildOperation latest = CollectionNativeChildPreparationCoordinator.FindLatestCommittedActivation(operation, currentChild.Sequence);
+				if (latest == null) return plan.CurrentStateFingerprint;
+				CollectionNativeChildRecoveryManifest latestManifest = _manifestStore.GetCompletedCheckpointManifest(operation, latest);
+				if (latestManifest == null || latestManifest.SafeBoundaryStateFingerprint == null)
+					throw new InvalidDataException("An earlier committed Collection child is missing its durable C6.10 safe-boundary fingerprint.");
+				return latestManifest.SafeBoundaryStateFingerprint;
+			}
 			CollectionCurrentStateFingerprint expected = plan.CurrentStateFingerprint;
 			foreach (CollectionNativeChildOperation previous in operation.NativeChildren.OrderBy(x => x.Sequence))
 			{
 				if (previous.Sequence >= currentChild.Sequence) break;
 				if (previous.Action != CollectionNativeChildAction.ActivateOrReinstall) continue;
 				expected = ResolveEarlierChildSafeBoundary(operation, previous, currentChild,
-					_manifestStore.GetManifest(operation, previous), expected, workflowMode);
+					_manifestStore.GetManifestMetadata(operation, previous), expected, workflowMode);
 			}
 			return expected;
 		}
@@ -470,7 +532,7 @@ namespace Nexus.Client.CollectionManagement
 				if (exactManaged.Count == 1) return exactManaged[0];
 				if (exactManaged.Count > 1) throw new InvalidOperationException("Multiple native managed archives contain the exact materialized Collection-bundle bytes.");
 				IMod repaired = ModManagerCollectionManagedArchiveSource.TryRegisterExactLibraryArchive(
-					modManager, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken);
+					modManager, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken, preparedOnly: true);
 				if (repaired != null) return repaired;
 				throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
 					"The exact prepared archive for Collection member '{0}' is not available in the native managed-mod registry or NMM mod library.", memberName));
@@ -491,7 +553,7 @@ namespace Nexus.Client.CollectionManagement
 			if (exactIdentityCandidates.Count == 1)
 			{
 				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(modManager,
-					exactIdentityCandidates[0], modId, fileId, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken);
+					exactIdentityCandidates[0], modId, fileId, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken, preparedOnly: true);
 				return exactIdentityCandidates[0];
 			}
 			if (exactIdentityCandidates.Count > 1)
@@ -505,16 +567,16 @@ namespace Nexus.Client.CollectionManagement
 			{
 				IMod recovered = ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exactContentCandidates);
 				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(modManager,
-					recovered, modId, fileId, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken);
+					recovered, modId, fileId, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken, preparedOnly: true);
 				return recovered;
 			}
 
 			IMod registeredFromLibrary = ModManagerCollectionManagedArchiveSource.TryRegisterExactLibraryArchive(
-				modManager, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken);
+				modManager, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken, preparedOnly: true);
 			if (registeredFromLibrary != null)
 			{
 				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(modManager,
-					registeredFromLibrary, modId, fileId, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken);
+					registeredFromLibrary, modId, fileId, incomingArchive.ByteLength, incomingArchive.ContentHash, cancellationToken, preparedOnly: true);
 				return registeredFromLibrary;
 			}
 			throw new InvalidOperationException(String.Format(CultureInfo.InvariantCulture,
@@ -532,23 +594,8 @@ namespace Nexus.Client.CollectionManagement
 				return false;
 			try
 			{
-				var info = new FileInfo(path);
-				if (info.Length != expected.ByteLength)
-					return false;
-				using (FileStream stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
-				using (SHA256 sha = SHA256.Create())
-				{
-					byte[] buffer = new byte[64 * 1024];
-					int read;
-					while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
-					{
-						cancellationToken.ThrowIfCancellationRequested();
-						sha.TransformBlock(buffer, 0, read, null, 0);
-					}
-					sha.TransformFinalBlock(new byte[0], 0, 0);
-					return StringComparer.OrdinalIgnoreCase.Equals(BitConverter.ToString(sha.Hash).Replace("-", String.Empty),
-						expected.ContentHash.Value);
-				}
+				cancellationToken.ThrowIfCancellationRequested();
+				return CollectionArchiveContentMatcher.MatchesPreparedFile(path, expected.ByteLength, expected.ContentHash);
 			}
 			catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException ||
 				exception is NotSupportedException || exception is System.Security.SecurityException || exception is ArgumentException)
@@ -606,7 +653,8 @@ namespace Nexus.Client.CollectionManagement
 			if (String.IsNullOrWhiteSpace(path) || !File.Exists(path))
 				throw new FileNotFoundException("The live previous native archive required for submission revalidation is unavailable.", path);
 			var info = new FileInfo(path);
-			if (info.Length != expected.ByteLength || !StringComparer.Ordinal.Equals(ComputeSha256(path), expected.ContentHash.Value))
+			if (info.Length != expected.ByteLength || !CollectionArchiveContentMatcher.MatchesPreparedFile(path,
+				expected.ByteLength, expected.ContentHash))
 				throw new InvalidDataException("The live previous native archive changed after C6.6 recovery inputs were retained.");
 		}
 
@@ -618,8 +666,8 @@ namespace Nexus.Client.CollectionManagement
 			if (info.Length != expected.ByteLength)
 				throw new InvalidDataException("The incoming native archive no longer matches the exact C5 recipe byte length.");
 
-			// ModInstaller.ValidateInstallationRecipeExecutionInput validates the exact SHA-256 before native mutation,
-			// reusing a digest only when the archive's observed size and write stamp still match. Do not rehash it here too.
+			// Submission and the native installer reuse the exact preparation proof. Changed archive stamps
+			// require preparation again; installation never starts another whole-archive checksum pass.
 		}
 
 		private static void ValidateLiveReplayPreimage(CollectionNativeChildRecoveryManifest recovery, string installInfoDirectory)
@@ -694,9 +742,8 @@ namespace Nexus.Client.CollectionManagement
 					if (!reviewedByTarget.TryGetValue(target, out reviewedFile) || !reviewedFile.HasExactContentIdentity)
 						throw new InvalidDataException("The reviewed C6.4 file effect is missing exact content identity for a C5 archive-file operation.");
 
-					// The live preview was rebuilt from this exact incoming archive immediately before evidence capture and
-					// compared byte-for-byte by target with the approved preview. Reuse that exact SHA-256/length here
-					// instead of reopening and hashing every archive member a third time before native submission.
+					// Exact source identities come from the approved archive, either in an older hashed review or
+					// the native installer's open archive transaction. Reuse them without reading source bytes again.
 					expectedByTarget[target] = CreateExpectedFileEvidence(reviewedFile);
 					expectedReplay.Add(new CollectionExpectedReplayOperation(ScriptedReplayOperationKind.ArchiveFile,
 						install.SourcePath, install.DestinationPath, 0, null));
@@ -935,7 +982,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionMemberEffectPreview preview, CollectionConflictImpactPlan impactPlan, IMod mod, ModManager manager)
 		{
 			var reviewedFiles = preview.Files.ToDictionary(x => x.Target);
-			var impacts = impactPlan.FileImpacts.ToDictionary(x => x.Target);
+			var impacts = impactPlan.FileImpactsByTarget;
 			var operations = new List<ScriptedInstallOperation>();
 			foreach (ScriptedInstallOperation operation in input.NativeOperations)
 			{
@@ -967,7 +1014,7 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPlannedFileEffect effect, CollectionFileImpact impact, CollectionMemberKey member,
 			ModInstallMethod method, string stagingPath, bool promoted)
 		{
-			if (effect == null || !effect.HasExactContentIdentity || impact == null || !impact.Target.Equals(effect.Target) ||
+			if (effect == null || impact == null || !impact.Target.Equals(effect.Target) ||
 				impact.PlannedWinner == null || !impact.Writers.Contains(impact.PlannedWinner) || !impact.Writers.Contains(member))
 				throw new InvalidOperationException("The file overwrite is not covered by an exact reviewed Collection decision.");
 			InstallModFileOperation file = operation as InstallModFileOperation;
@@ -1027,6 +1074,15 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (!EffectPreviewsEqual(reviewed, live, true) || live.Files.Any(x => !x.HasExactContentIdentity))
 				throw new InvalidOperationException("The translated C5 native effects no longer match the exact C6.4 impact preview approved for this child.");
+			return live.WithInstallRootCorrection(reviewed.InstallRootCorrection);
+		}
+
+		/// <summary>Checks planned targets and effects while source-content evidence is deferred to native archive preparation.</summary>
+		internal static CollectionMemberEffectPreview ResolvePlannedSubmissionPreview(CollectionMemberEffectPreview reviewed,
+			CollectionMemberEffectPreview live)
+		{
+			if (!EffectPreviewsEqual(reviewed, live, true))
+				throw new InvalidOperationException("The translated native file targets or installer effects changed after Collection review.");
 			return live.WithInstallRootCorrection(reviewed.InstallRootCorrection);
 		}
 
@@ -1137,9 +1193,18 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionNativeChildExecutionResult
 	{
 		private CollectionTargetMutationLease _mutationLease;
+		private readonly bool _ownsMutationLease;
 
 		internal CollectionNativeChildExecutionResult(CollectionOperation operation, CollectionNativeChildOperation child,
 			IBackgroundTaskSet nativeTask, ModInstallationRecipeInput recipeInput, IMod incomingMod, CollectionTargetMutationLease mutationLease)
+			: this(operation, child, nativeTask, recipeInput, incomingMod, mutationLease, true)
+		{
+		}
+
+		/// <summary>Retains a child reservation, borrowing the owning install-session reservation when explicitly requested.</summary>
+		internal CollectionNativeChildExecutionResult(CollectionOperation operation, CollectionNativeChildOperation child,
+			IBackgroundTaskSet nativeTask, ModInstallationRecipeInput recipeInput, IMod incomingMod, CollectionTargetMutationLease mutationLease,
+			bool ownsMutationLease)
 		{
 			Operation = operation ?? throw new ArgumentNullException(nameof(operation));
 			Child = child ?? throw new ArgumentNullException(nameof(child));
@@ -1147,6 +1212,7 @@ namespace Nexus.Client.CollectionManagement
 			RecipeInput = recipeInput ?? throw new ArgumentNullException(nameof(recipeInput));
 			IncomingMod = incomingMod ?? throw new ArgumentNullException(nameof(incomingMod));
 			_mutationLease = mutationLease ?? throw new ArgumentNullException(nameof(mutationLease));
+			_ownsMutationLease = ownsMutationLease;
 			if (child.Checkpoint != CollectionNativeChildCheckpoint.NativeSubmitted)
 				throw new ArgumentException("A C6.7 execution result requires the durable NativeSubmitted checkpoint.", nameof(child));
 		}
@@ -1176,7 +1242,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("The target mutation reservation cannot be released while the native child is still running.");
 			CollectionTargetMutationLease lease = _mutationLease;
 			_mutationLease = null;
-			if (lease != null) lease.Dispose();
+			if (_ownsMutationLease && lease != null) lease.Dispose();
 		}
 	}
 }

@@ -25,6 +25,9 @@
         /// </summary>
         public override void Save()
         {
+            // ApplicationSettingsBase.Synchronized and download queue callers lock this instance.
+            // Acquire it before the file lock so UI saves cannot deadlock with those callers.
+            lock (this)
             lock (SettingsFileLock)
             {
                 var success = false;

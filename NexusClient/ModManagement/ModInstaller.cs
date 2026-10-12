@@ -36,6 +36,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booNativeTransactionCommitted;
 		private bool m_booVirtualStorePersistenceRequired;
 		private bool m_booVirtualStorePersisted;
+		private Action _collectionArchivePreparation;
 
 		#region Properties
 
@@ -225,6 +226,16 @@ namespace Nexus.Client.ModManagement
 
 		#endregion
 
+		/// <summary>Attaches Collection evidence capture after native extraction and validation, before any native mutation.</summary>
+		internal void SetCollectionArchivePreparation(Action preparation)
+		{
+			if (preparation == null) throw new ArgumentNullException(nameof(preparation));
+			if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Collection ||
+				m_booNativeMutationStarted || _collectionArchivePreparation != null)
+				throw new InvalidOperationException("Archive preparation must be assigned once before a Collection installer starts mutation.");
+			_collectionArchivePreparation = preparation;
+		}
+
 		/// <inheritdoc />
 		protected internal override void RebindNativeMutationServices(ModManager p_mmgModManager)
 		{
@@ -288,6 +299,7 @@ namespace Nexus.Client.ModManagement
 						}
 
 						ValidateInstallationRecipeExecutionInput();
+						_collectionArchivePreparation?.Invoke();
 						m_booNativeMutationStarted = true;
 						if (!IsRestoreRegistrationOnlyRecipe())
 							DeleteLiveScriptedReplayArtifacts();
@@ -529,10 +541,10 @@ namespace Nexus.Client.ModManagement
 			ModInstallationRecipeExpectedContent expectedContent = InstallationRecipeInput.Validation.ExpectedContent;
 			if (recipeOperation.Origin == ModOperationOrigin.Collection)
 			{
-				// Preparation already reads the archive. Reuse that digest only while its path, size and write stamp match.
-				if (!Nexus.Client.CollectionManagement.CollectionArchiveContentMatcher.MatchesFile(Mod.Filename,
-					expectedContent.ByteLength, Nexus.Client.CollectionManagement.CollectionContentHash.FromSha256(expectedContent.Sha256),
-					CancellationToken.None, true))
+				if (InstallationRecipeInput.SkipContentChecks) return;
+				// Preparation already verified the selected archive. Never rehash it during Collection installation.
+				if (!Nexus.Client.CollectionManagement.CollectionArchiveContentMatcher.MatchesPreparedFile(Mod.Filename,
+					expectedContent.ByteLength, Nexus.Client.CollectionManagement.CollectionContentHash.FromSha256(expectedContent.Sha256)))
 					throw new InvalidDataException("The installation recipe source no longer matches its expected content.");
 				return;
 			}

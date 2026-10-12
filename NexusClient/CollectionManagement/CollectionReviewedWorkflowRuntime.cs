@@ -116,7 +116,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			if (rehydration == null) throw new ArgumentNullException(nameof(rehydration));
-			if (!rehydration.CanResume || rehydration.Snapshot == null || rehydration.CurrentState == null)
+			if (!rehydration.CanResume || !rehydration.HasVerifiedRetainedInputs || rehydration.Snapshot == null || rehydration.CurrentState == null)
 				throw new InvalidOperationException("Reviewed workflow runtime can be reconstructed only from a successful safe-boundary rehydration result.");
 
 			CollectionReviewedWorkflowSnapshot snapshot = rehydration.Snapshot;
@@ -198,8 +198,8 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("A retained normalized member no longer matches its reviewed immutable descriptor.");
 
 				CollectionResolvedArtifactChoice choice = persisted.ArtifactChoiceKind == CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact
-					? CollectionResolvedArtifactChoice.Exact(persisted.RequestedArtifact)
-					: CollectionResolvedArtifactChoice.SupportedSubstitution(persisted.RequestedArtifact, persisted.SelectedArtifact, persisted.SubstitutionRuleId);
+					? CollectionResolvedArtifactChoice.Exact(normalized.Artifact)
+					: CollectionResolvedArtifactChoice.SupportedSubstitution(normalized.Artifact, persisted.SelectedArtifact, persisted.SubstitutionRuleId);
 				string originalExternalMd5; long originalExternalLength;
 				if (CollectionExternalArtifactIdentity.TryParse(normalized.Artifact, out originalExternalMd5, out originalExternalLength) &&
 					choice.Kind == CollectionResolvedArtifactChoiceKind.SupportedSubstitution &&
@@ -226,14 +226,19 @@ namespace Nexus.Client.CollectionManagement
 				CollectionReviewedVerifiedArchiveSnapshot persisted = phaseMember.VerifiedArchive;
 				CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(persisted.ArtifactId);
 				if (artifact == null || !artifact.ContentHash.Equals(persisted.ContentHash) || artifact.ByteLength != persisted.ByteLength ||
+					!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, artifact.ByteLength) ||
 					!_artifactStore.VerifyArtifact(artifact.ArtifactId))
 					throw new InvalidDataException("A reviewed verified archive is missing, changed or failed retained-content verification.");
 
 				string ownerId = requestId.ToString("D");
-				string expectedRole = CollectionVerifiedArchiveAdopter.CreateReferenceRole(request.SelectedArtifact);
+				bool trustedMetadata = CollectionVerifiedArchiveAdopter.IsMetadataTrusted(persisted.VerificationBasis);
+				string expectedRole = trustedMetadata ? CollectionVerifiedArchiveAdopter.CreateMetadataReferenceRole(request.SelectedArtifact)
+					: CollectionVerifiedArchiveAdopter.CreateReferenceRole(request.SelectedArtifact);
+				string rolePrefix = trustedMetadata ? CollectionVerifiedArchiveAdopter.MetadataReferenceRolePrefix
+					: CollectionVerifiedArchiveAdopter.VerifiedReferenceRolePrefix;
 				List<CollectionsRetainedArtifactReferenceRecord> verifiedReferences = _referenceStore
 					.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Download, ownerId)
-					.Where(x => x.Role.StartsWith(CollectionVerifiedArchiveAdopter.VerifiedReferenceRolePrefix, StringComparison.Ordinal)).ToList();
+					.Where(x => x.Role.StartsWith(rolePrefix, StringComparison.Ordinal)).ToList();
 				if (verifiedReferences.Count != 1 || !StringComparer.Ordinal.Equals(verifiedReferences[0].Role, expectedRole) ||
 					!StringComparer.Ordinal.Equals(verifiedReferences[0].ArtifactId, artifact.ArtifactId))
 					throw new InvalidDataException("The reviewed verified archive no longer has its exact deterministic acquisition reference.");
@@ -289,7 +294,7 @@ namespace Nexus.Client.CollectionManagement
 				archives.TryGetValue(member.MemberKey, out archive);
 				results.Add(new CollectionMemberMatchResult(member, persisted.Disposition, persisted.Reason, candidates, bindings, archive));
 			}
-			return new CollectionMemberMatchSet(plan, snapshot.ApprovedStateFingerprint, results);
+			return new CollectionMemberMatchSet(plan, snapshot.ApprovedStateFingerprint, results, currentState.ReconciledPartialAssociations);
 		}
 
 		private static CollectionDependencyPhasePlan ReconstructDependencyPlan(ResolvedCollectionPlan plan,

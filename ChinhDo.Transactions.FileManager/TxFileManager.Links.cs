@@ -116,7 +116,7 @@
 				throw new ArgumentException("A link target is required.", nameof(p_strTargetPath));
 
 			Snapshot(p_strLinkName);
-			return CreateHardLinkNative(p_strLinkName, p_strTargetPath, IntPtr.Zero);
+			return CreateHardLinkNative(GetIoPath(p_strLinkName), GetIoPath(p_strTargetPath), IntPtr.Zero);
 		}
 
 		/// <summary>
@@ -138,14 +138,14 @@
 		/// </summary>
 		private static bool CreateSymbolicLinkCore(string p_strLinkName, string p_strTargetPath, string p_strAction)
 		{
-			bool created = CreateSymbolicLinkNative(p_strLinkName, p_strTargetPath, SymbolicLinkFlagAllowUnprivilegedCreate);
+			bool created = CreateSymbolicLinkNative(GetIoPath(p_strLinkName), p_strTargetPath, SymbolicLinkFlagAllowUnprivilegedCreate);
 			if (!created)
 			{
 				int error = Marshal.GetLastWin32Error();
 				// Older Windows versions reject the unprivileged-create flag; retain their privileged creation path.
 				if (error == ErrorInvalidParameter)
 				{
-					created = CreateSymbolicLinkNative(p_strLinkName, p_strTargetPath, 0);
+					created = CreateSymbolicLinkNative(GetIoPath(p_strLinkName), p_strTargetPath, 0);
 					if (!created)
 						error = Marshal.GetLastWin32Error();
 				}
@@ -221,7 +221,7 @@
 		{
 			p_fatAttributes = 0;
 			Win32FindData findData;
-			IntPtr findHandle = FindFirstFileNative(p_strPath, out findData);
+			IntPtr findHandle = FindFirstFileNative(GetIoPath(p_strPath), out findData);
 			if (findHandle == InvalidHandleValue)
 			{
 				int error = Marshal.GetLastWin32Error();
@@ -273,7 +273,7 @@
 		{
 			p_bfiFileInformation = new ByHandleFileInformation();
 			IntPtr handle = CreateFileNative(
-				p_strPath,
+				GetIoPath(p_strPath),
 				0,
 				FileShareRead | FileShareWrite | FileShareDelete,
 				IntPtr.Zero,
@@ -308,7 +308,7 @@
 		/// </summary>
 		private static void DeleteFileEntryIfPresentCore(string p_strPath)
 		{
-			if (DeleteFileNative(p_strPath))
+			if (DeleteFileNative(GetIoPath(p_strPath)))
 				return;
 
 			int error = Marshal.GetLastWin32Error();
@@ -331,7 +331,7 @@
 			{
 				case FileEntryKind.HardLink:
 					linkKind = "hard";
-					restored = CreateHardLinkNative(p_strLinkName, p_strTargetPath, IntPtr.Zero);
+					restored = CreateHardLinkNative(GetIoPath(p_strLinkName), GetIoPath(p_strTargetPath), IntPtr.Zero);
 					break;
 				case FileEntryKind.SymbolicLink:
 					linkKind = "symbolic";

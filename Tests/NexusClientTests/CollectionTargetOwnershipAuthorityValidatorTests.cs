@@ -5,6 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.GameStorage;
+using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.Operations;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -91,6 +93,26 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Retains the entry reload but removes a duplicate reload within the same held reservation.</summary>
+		[Test]
+		public void ValidateCommittedAuthority_ReusesServicesWithinTheAlreadyValidatedRootReservation()
+		{
+			GameStoragePathSet paths = CreateStorage("SkyrimSE", "CommittedStorage", "CommittedGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var reloader = new RecordingReloader();
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, reloader, _authorityStore);
+			using (CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().Acquire(authority))
+			{
+				Assert.Throws<InvalidOperationException>(() => validator.ValidateCommittedAuthority(lease, authority, paths));
+				CollectionTargetOwnershipAuthorityBinding initial = validator.ValidateAndReload(lease, authority, paths);
+				CollectionTargetOwnershipAuthorityBinding committed = validator.ValidateCommittedAuthority(lease, authority, paths);
+				Assert.That(committed.TargetFingerprint, Is.EqualTo(initial.TargetFingerprint));
+				Assert.That(committed.InstallInfoPhysicalKey, Is.EqualTo(initial.InstallInfoPhysicalKey));
+				Assert.That(reloader.ReloadCount, Is.EqualTo(1), "Committed verification must not reload the whole native installation again.");
+			}
+		}
+
 		[Test]
 		public void ValidateAndReload_SamePhysicalGameDifferentInstallLogsIsRejectedAcrossIndependentContexts()
 		{
@@ -113,6 +135,30 @@ namespace NexusClientTests
 					secondValidator.ValidateAndReload(secondLease, secondAuthority, secondPaths));
 				Assert.That(error.FailureKind, Is.EqualTo(CollectionTargetOwnershipAuthorityFailureKind.AuthorityConflict));
 			}
+		}
+
+		/// <summary>Removal can skip a duplicate full reload only for exact committed success under the live validated reservation.</summary>
+		[Test]
+		public void CommittedRemovalReuse_RejectsUnvalidatedFailedUncorrelatedAndDisposedContexts()
+		{
+			GameStoragePathSet paths = CreateStorage("SkyrimSE", "RemovalStorage", "RemovalGame");
+			_storageService.InitializeMetadataForStorage(paths);
+			CollectionTargetAuthority authority = Resolve(paths);
+			var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, new RecordingReloader(), _authorityStore);
+			var identity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, new ModOperationFingerprint(authority.Target.Fingerprint,
+				new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), null));
+			var committed = new ModOperationResult(identity, ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, "Removed");
+			CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().Acquire(authority);
+			using (lease)
+			{
+				Assert.IsFalse(CollectionUninstallEffectsCoordinator.CanReuseCommittedRemoval(committed, true, lease));
+				validator.ValidateAndReload(lease, authority, paths);
+				Assert.IsTrue(CollectionUninstallEffectsCoordinator.CanReuseCommittedRemoval(committed, true, lease));
+				Assert.IsFalse(CollectionUninstallEffectsCoordinator.CanReuseCommittedRemoval(committed, false, lease));
+				Assert.IsFalse(CollectionUninstallEffectsCoordinator.CanReuseCommittedRemoval(new ModOperationResult(identity,
+					ModOperationReportedStatus.Failed, ModOperationDurability.Unknown, "Uncertain"), true, lease));
+			}
+			Assert.IsFalse(CollectionUninstallEffectsCoordinator.CanReuseCommittedRemoval(committed, true, lease));
 		}
 
 		[Test]
@@ -258,6 +304,8 @@ namespace NexusClientTests
 				{
 					Assert.That(lease.RequiresRecovery, Is.True);
 					var validator = new CollectionTargetOwnershipAuthorityValidator(_storageService, new RecordingReloader(), _authorityStore);
+					Assert.Throws<InvalidOperationException>(() => validator.ValidateCommittedAuthority(lease, authority, paths));
+					Assert.That(lease.RequiresRecovery, Is.True);
 					validator.ValidateAndReload(lease, authority, paths);
 					Assert.That(lease.RequiresRecovery, Is.False);
 				}

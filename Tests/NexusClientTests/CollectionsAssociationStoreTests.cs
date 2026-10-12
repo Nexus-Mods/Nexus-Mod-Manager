@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.CollectionManagement.Persistence;
+using Nexus.Client.ModManagement;
+using Nexus.Client.ModManagement.Operations;
 using NUnit.Framework;
 
 namespace NexusClientTests
@@ -529,6 +531,50 @@ namespace NexusClientTests
 					Is.EqualTo(independentlyProtected ? StandaloneModUse.ExplicitStandaloneUse : unrelatedPending ? StandaloneModUse.Unknown : previousUse));
 				Assert.That(journal.GetOperation(operation.Identity).IsTerminal, Is.EqualTo(!unrelatedPending));
 				Assert.That(associations.GetDriftObservations(association.AssociationId).Count, Is.EqualTo(unrelatedPending ? 1 : 0));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Partial continuation requires exact committed recipes and cannot bypass an active native recovery.</summary>
+		[TestCase(true, false, true)]
+		[TestCase(false, false, false)]
+		[TestCase(true, true, false)]
+		public void ReconciledPartialScope_RequiresExactJournalEvidence(bool exactRecipe, bool activeNativeChild, bool expected)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionTargetAssociation seeded = SeedAssociation(store, "partial-scope", "revision-1", 1, "partial-target");
+				var association = new CollectionTargetAssociation(seeded.AssociationId, seeded.Revision, seeded.Target, CollectionAssociationState.Incomplete);
+				var associations = new CollectionsAssociationStore(store);
+				associations.SaveAssociation(association);
+				var key = CollectionMemberKey.FromProvider("completed-member");
+				var recipe = CollectionRecipeIdentity.FromFingerprint("completed-recipe");
+				associations.SaveBinding(new CollectionMemberBinding(association, key, new NativeModInstanceIdentity(association.Target, "completed-native"),
+					recipe, CollectionMemberBindingKind.InstalledForCollection));
+				ModOperationIdentity native = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(association.Target.Fingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data),
+						exactRecipe ? recipe.Fingerprint : "different-recipe"));
+				var member = new CollectionOperationMemberReference(association.Revision, key);
+				var child = new CollectionNativeChildOperation(1, member, CollectionNativeChildAction.ActivateOrReinstall, native,
+					CollectionNativeChildCheckpoint.Reconciled, new ModOperationResult(native, ModOperationReportedStatus.Succeeded,
+						ModOperationDurability.VerifiedCommitted, "Committed"));
+				var journal = new CollectionsOperationStore(store);
+				journal.SaveOperation(new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+					association.Revision.Collection, association.Target, association.Revision, null, 1, CollectionOperationPhase.Completed,
+					CollectionOperationResultState.StoppedPartial, new[] { child }));
+				if (activeNativeChild)
+				{
+					ModOperationIdentity pendingNative = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, native.Fingerprint);
+					journal.SaveOperation(new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+						association.Revision.Collection, association.Target, association.Revision, null, 1, CollectionOperationPhase.ApplyingNativeChildren,
+						CollectionOperationResultState.Pending, new[] { new CollectionNativeChildOperation(1, member,
+							CollectionNativeChildAction.ActivateOrReinstall, pendingNative, CollectionNativeChildCheckpoint.NativeSubmitted, null) }));
+				}
+				Assert.AreEqual(expected, associations.GetReconciledPartialAssociationIds(associations.GetTargetSnapshot(association.Target))
+					.Contains(association.AssociationId));
+				Assert.AreEqual(CollectionAssociationState.Incomplete, associations.GetAssociation(association.AssociationId).State);
 			}
 			finally { Directory.Delete(root, true); }
 		}

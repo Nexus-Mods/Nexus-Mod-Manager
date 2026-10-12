@@ -75,6 +75,62 @@ VALUES
 			return _store.ExecuteRead((connection, transaction) => ReadPlan(connection, transaction, identity));
 		}
 
+		/// <summary>Reads the stored format without loading the complete plan payload during startup discovery.</summary>
+		internal string GetPayloadFormat(CollectionPlanIdentity identity)
+		{
+			if (identity == null) throw new ArgumentNullException(nameof(identity));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT rp.payload_format FROM resolved_plans rp
+JOIN collection_revisions cr
+  ON cr.origin=rp.origin AND cr.collection_id=rp.collection_id AND cr.revision_id=rp.revision_id
+WHERE rp.plan_id=@id AND rp.plan_version=@version AND typeof(rp.payload)='blob' AND length(rp.payload)>0;";
+					command.Parameters.AddWithValue("@id", identity.PlanId.ToString("D"));
+					command.Parameters.AddWithValue("@version", identity.Version);
+					return command.ExecuteScalar() as string;
+				}
+			});
+		}
+
+		/// <summary>Checks the already reviewed plan's immutable metadata without loading and cloning its complete payload.</summary>
+		internal bool HasMatchingMetadata(ResolvedCollectionPlan plan, bool includeCurrentState)
+		{
+			if (plan == null) throw new ArgumentNullException(nameof(plan));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT 1 FROM resolved_plans rp
+JOIN collection_revisions cr
+  ON cr.origin=rp.origin AND cr.collection_id=rp.collection_id AND cr.revision_id=rp.revision_id
+WHERE rp.plan_id=@plan_id AND rp.plan_version=@plan_version
+  AND rp.origin=@origin AND rp.collection_id=@collection_id AND rp.revision_id=@revision_id
+  AND cr.nexus_revision_number IS @revision_number
+  AND rp.target_fingerprint=@target AND rp.policy_kind=@policy
+  AND (@check_state=0 OR (rp.current_state_format_version=@state_format AND rp.current_state_fingerprint=@state))
+  AND typeof(rp.payload)='blob' AND length(rp.payload)>0 AND length(rp.payload_format)>0;";
+					command.Parameters.AddWithValue("@plan_id", plan.Identity.PlanId.ToString("D"));
+					command.Parameters.AddWithValue("@plan_version", plan.Identity.Version);
+					command.Parameters.AddWithValue("@origin", (int)plan.Revision.Collection.Origin);
+					command.Parameters.AddWithValue("@collection_id", plan.Revision.Collection.StableId);
+					command.Parameters.AddWithValue("@revision_id", plan.Revision.StableRevisionId);
+					command.Parameters.AddWithValue("@revision_number", (object)plan.Revision.NexusRevisionNumber ?? DBNull.Value);
+					command.Parameters.AddWithValue("@target", plan.Target.Fingerprint);
+					command.Parameters.AddWithValue("@policy", (int)plan.Policy.Kind);
+					command.Parameters.AddWithValue("@check_state", includeCurrentState ? 1 : 0);
+					command.Parameters.AddWithValue("@state_format", plan.CurrentStateFingerprint.FormatVersion);
+					command.Parameters.AddWithValue("@state", plan.CurrentStateFingerprint.Value);
+					return command.ExecuteScalar() != null;
+				}
+			});
+		}
+
 		private static CollectionResolvedPlanRecord ReadPlan(SQLiteConnection connection, SQLiteTransaction transaction,
 			CollectionPlanIdentity identity)
 		{

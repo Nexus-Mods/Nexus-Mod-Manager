@@ -95,6 +95,9 @@ namespace Nexus.Client.PluginManagement.OrderLog
 			}
 		}
 
+		/// <summary>Gets the stable committed collection for observers, even while a native transaction owns a temporary list.</summary>
+		internal ReadOnlyObservableList<Plugin> CommittedOrderedPlugins { get { return m_rolOrderedPlugins; } }
+
 		#endregion
 		
 		#region Constructors

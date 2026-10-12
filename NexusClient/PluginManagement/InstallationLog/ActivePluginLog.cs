@@ -87,6 +87,9 @@ namespace Nexus.Client.PluginManagement.InstallationLog
 			}
 		}
 
+		/// <summary>Gets the stable committed collection for observers without subscribing to a temporary transaction list.</summary>
+		internal ReadOnlyObservableList<Plugin> CommittedActivePlugins { get { return m_rolActivePlugins; } }
+
 		#endregion
 
 		#region Constructors

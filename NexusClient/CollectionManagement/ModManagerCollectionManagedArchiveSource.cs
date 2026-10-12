@@ -73,14 +73,15 @@ namespace Nexus.Client.CollectionManagement
 			foreach (IMod mod in _modManager.ManagedMods)
 			{
 				bool repositoryCandidate = IsRepositoryFileCandidate(mod, _modManager.SortOrderService, expectedModIdText, expectedFileIdText);
+				bool exactRepositoryCandidate = MatchesRepositoryFileIdentity(mod, _modManager.SortOrderService, expectedModIdText, expectedFileIdText);
 				if (!repositoryCandidate && !IsStaleRepositoryFileCandidate(mod, expectedModIdText, expectedFileIdText))
 					continue;
 
-				// A stale file ID supplies only a discovery hint. The adopter must prove the requested file's immutable bytes.
-				(repositoryCandidate ? candidates : staleCandidates).Add(new CollectionManagedArchiveCandidate(
+				// Missing or stale file IDs are recovery hints and must never enter the metadata-trusted path.
+				(exactRepositoryCandidate ? candidates : staleCandidates).Add(new CollectionManagedArchiveCandidate(
 					NexusCollectionModFileArtifactIdentity.Scheme,
 					NexusCollectionModFileArtifactIdentity.Format(expectedDomain, expectedModId, expectedFileId),
-					CollectionArchiveContentMatcher.GetManagedArchivePath(mod), !repositoryCandidate));
+					CollectionArchiveContentMatcher.GetManagedArchivePath(mod), !exactRepositoryCandidate));
 			}
 
 			candidates.AddRange(staleCandidates);
@@ -131,12 +132,28 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
+		/// <summary>Finds metadata-trusted preparation inputs without promoting saved hashes into the normal integrity cache.</summary>
+		internal static List<IMod> FindTrustedCachedManagedMods(ModManager modManager,
+			CollectionsRetainedArtifactStore artifactStore, CollectionVerifiedArchive archive)
+		{
+			var matches = new List<IMod>();
+			if (artifactStore == null || archive.VerificationBasis != CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash)
+				return matches;
+			string domain; long modId; long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(archive.Request.SelectedArtifact, out domain, out modId, out fileId) ||
+				modManager.ModRepository == null || !StringComparer.OrdinalIgnoreCase.Equals(domain, modManager.ModRepository.GameDomainName))
+				return matches;
+			return modManager.ManagedMods.Where(x => MatchesRepositoryFileIdentity(x, modManager.SortOrderService,
+				modId.ToString(CultureInfo.InvariantCulture), fileId.ToString(CultureInfo.InvariantCulture)) &&
+				artifactStore.IsTrustedPreparationArchiveCurrent(CollectionArchiveContentMatcher.GetManagedArchivePath(x), archive.Artifact)).ToList();
+		}
+
 		/// <summary>
 		/// Matches one managed archive against an exact requested repository file identity.
 		/// </summary>
 		/// <remarks>
-		/// Live metadata wins when present. For older metadata-disabled downloads, durable Sort history may supply the missing
-		/// provenance, but callers that reuse bytes still perform independent immutable content verification.
+		/// Live metadata wins when present. For older metadata-disabled downloads, current or unambiguous durable Sort history
+		/// may supply missing provenance. Merely appearing in a path's old history does not identify the bytes currently there.
 		/// </remarks>
 		internal static bool MatchesRepositoryFileIdentity(IMod mod, ModSortOrderService sortOrderService,
 			string expectedModId, string expectedFileId)
@@ -156,7 +173,7 @@ namespace Nexus.Client.CollectionManagement
 			if (hasLiveModId && hasLiveFileId)
 				return true;
 
-			return sortOrderService != null && sortOrderService.HasDurableRepositoryFileIdentity(
+			return sortOrderService != null && sortOrderService.HasCurrentRepositoryFileIdentity(
 				archivePath, expectedModId, expectedFileId);
 		}
 
@@ -229,7 +246,7 @@ namespace Nexus.Client.CollectionManagement
 		/// </summary>
 		internal static void ConfirmVerifiedArchiveRepositoryFileIdentity(ModManager modManager, IMod mod,
 			string expectedModId, string expectedFileId, long byteLength, CollectionContentHash contentHash,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, bool preparedOnly = false)
 		{
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			if (mod == null) throw new ArgumentNullException(nameof(mod));
@@ -253,7 +270,8 @@ namespace Nexus.Client.CollectionManagement
 				if (installed == null || installed.Mods.Any(x => IsInstalledArchiveReference(x, fullPath)))
 					throw new InvalidDataException("The archive's file identity cannot be repaired during preparation while it is referenced by the native InstallLog.");
 
-				if (!CollectionArchiveContentMatcher.MatchesFile(fullPath, byteLength, contentHash, cancellationToken))
+				if (!(preparedOnly ? CollectionArchiveContentMatcher.MatchesPreparedFile(fullPath, byteLength, contentHash)
+					: CollectionArchiveContentMatcher.MatchesFile(fullPath, byteLength, contentHash, cancellationToken)))
 					throw new InvalidDataException("The archive failed exact retained-content verification before repository file identity repair.");
 
 				// Cached file metadata can outlive the downloaded bytes. Keep the same mod identity and all user metadata;
@@ -268,16 +286,18 @@ namespace Nexus.Client.CollectionManagement
 				// Preparation must not change the identity of an installed instance after its native fingerprint was captured.
 				// A submitted child's missing identity is restored separately under its held target reservation.
 				if (installed != null && !installed.Mods.Any(x => IsInstalledArchiveReference(x, Path.GetFullPath(archivePath))))
-					CompleteMissingRepositoryMetadata(mod, expectedModId, expectedFileId, byteLength, contentHash, cancellationToken);
+					CompleteMissingRepositoryMetadata(mod, expectedModId, expectedFileId, byteLength, contentHash, cancellationToken, preparedOnly);
 			}
 			ConfirmVerifiedRepositoryFileIdentity(modManager, mod, expectedModId, expectedFileId);
 		}
 
 		/// <summary>Completes absent native IDs only after verifying the exact archive bytes, preserving all other mod metadata.</summary>
 		private static void CompleteMissingRepositoryMetadata(IMod mod, string modId, string fileId,
-			long byteLength, CollectionContentHash contentHash, CancellationToken cancellationToken)
+			long byteLength, CollectionContentHash contentHash, CancellationToken cancellationToken, bool preparedOnly = false)
 		{
-			if (!CollectionArchiveContentMatcher.MatchesFile(CollectionArchiveContentMatcher.GetManagedArchivePath(mod), byteLength, contentHash, cancellationToken))
+			string path = CollectionArchiveContentMatcher.GetManagedArchivePath(mod);
+			if (!(preparedOnly ? CollectionArchiveContentMatcher.MatchesPreparedFile(path, byteLength, contentHash)
+				: CollectionArchiveContentMatcher.MatchesFile(path, byteLength, contentHash, cancellationToken)))
 				throw new InvalidDataException("The archive failed exact retained-content verification before completing native repository metadata.");
 			// FOMod.UpdateInfo persists info.xml in the native metadata cache; archive editing is disabled.
 			mod.UpdateInfo(new ModInfo(mod) { Id = modId, DownloadId = fileId }, true);
@@ -320,11 +340,11 @@ namespace Nexus.Client.CollectionManagement
 		/// Repairs a stale native registry entry when the exact verified archive already exists in the current game's mod library.
 		/// </summary>
 		internal static IMod TryRegisterExactLibraryArchive(ModManager modManager, long byteLength,
-			CollectionContentHash contentHash, CancellationToken cancellationToken)
+			CollectionContentHash contentHash, CancellationToken cancellationToken, bool preparedOnly = false)
 		{
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			List<string> exactFiles = CollectionArchiveContentMatcher.FindExactLibraryArchiveFiles(
-				modManager, byteLength, contentHash, cancellationToken);
+				modManager, byteLength, contentHash, cancellationToken, preparedOnly);
 			if (exactFiles.Count == 0)
 				return null;
 			if (exactFiles.Count > 1)
@@ -334,7 +354,8 @@ namespace Nexus.Client.CollectionManagement
 			if (registered == null)
 				throw new InvalidDataException("The exact verified Collection archive exists in the NMM mod library but could not be registered as a native managed mod.");
 			string registeredPath = CollectionArchiveContentMatcher.GetManagedArchivePath(registered);
-			if (!CollectionArchiveContentMatcher.MatchesFile(registeredPath, byteLength, contentHash, cancellationToken))
+			if (!(preparedOnly ? CollectionArchiveContentMatcher.MatchesPreparedFile(registeredPath, byteLength, contentHash)
+				: CollectionArchiveContentMatcher.MatchesFile(registeredPath, byteLength, contentHash, cancellationToken)))
 				throw new InvalidDataException("Native registration did not resolve back to the exact verified Collection archive bytes.");
 			return registered;
 		}

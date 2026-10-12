@@ -97,6 +97,23 @@
 			return CreateTempDirectory(Path.GetTempPath());
 		}
 
+		/// <summary>Converts a long Windows path only for filesystem I/O, leaving stored paths and short paths unchanged.</summary>
+		public static string GetIoPath(string path)
+		{
+			if (String.IsNullOrEmpty(path) || path.Length < 248 || Environment.OSVersion.Platform != PlatformID.Win32NT ||
+				path.StartsWith(@"\\?\", StringComparison.Ordinal) || path.StartsWith(@"\\.\", StringComparison.Ordinal)) return path;
+			string fullPath = Path.GetFullPath(path);
+			return fullPath.StartsWith(@"\\", StringComparison.Ordinal)
+				? @"\\?\UNC\" + fullPath.Substring(2) : @"\\?\" + fullPath;
+		}
+
+		/// <summary>Creates a compact 64-bit random token for disposable scratch paths; durable identities still use full GUIDs.</summary>
+		public static string CreateTempToken()
+		{
+			string token = Guid.NewGuid().ToString("N");
+			return token.Substring(0, 8) + token.Substring(20, 8);
+		}
+
 		/// <summary>
 		/// Creates a temporary directory rooted at the given path.
 		/// </summary>

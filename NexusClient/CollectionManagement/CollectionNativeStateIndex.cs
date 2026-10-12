@@ -397,6 +397,19 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionTargetAssociation> associations, IEnumerable<CollectionMemberBinding> bindings,
 			IEnumerable<UserOverride> overrides, CollectionNativeStateCoverage associationCoverage,
 			IEnumerable<CollectionNativeStateIssue> issues, long deploymentCommitSequence)
+			: this(target, roots, mods, files, iniEdits, gameValues, plugins, pluginCoverage, associations, bindings,
+				overrides, associationCoverage, issues, deploymentCommitSequence, null)
+		{
+		}
+
+		/// <summary>Creates a native observation with transient journal-proven partial-install continuation scope.</summary>
+		internal CollectionNativeStateIndex(CollectionTargetIdentity target, IEnumerable<CollectionNativeRootState> roots,
+			IEnumerable<CollectionNativeModState> mods, IEnumerable<CollectionNativeFileState> files,
+			IEnumerable<CollectionNativeIniState> iniEdits, IEnumerable<CollectionNativeGameValueState> gameValues,
+			IEnumerable<CollectionNativePluginState> plugins, CollectionNativeStateCoverage pluginCoverage,
+			IEnumerable<CollectionTargetAssociation> associations, IEnumerable<CollectionMemberBinding> bindings,
+			IEnumerable<UserOverride> overrides, CollectionNativeStateCoverage associationCoverage,
+			IEnumerable<CollectionNativeStateIssue> issues, long deploymentCommitSequence, IEnumerable<Guid> reconciledPartialAssociations)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			Roots = new ReadOnlyCollection<CollectionNativeRootState>((roots ?? throw new ArgumentNullException(nameof(roots))).ToList());
@@ -406,6 +419,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentOutOfRangeException(nameof(associationCoverage));
 			PluginCoverage = pluginCoverage;
 			AssociationCoverage = associationCoverage;
+			ReconciledPartialAssociations = new ReadOnlyCollection<Guid>((reconciledPartialAssociations ?? Enumerable.Empty<Guid>()).Distinct().ToList());
 			DeploymentCommitSequence = deploymentCommitSequence;
 			Issues = new ReadOnlyCollection<CollectionNativeStateIssue>((issues ?? throw new ArgumentNullException(nameof(issues))).ToList());
 
@@ -473,6 +487,16 @@ namespace Nexus.Client.CollectionManagement
 		public ReadOnlyCollection<CollectionNativeStateIssue> Issues { get; }
 		public long DeploymentCommitSequence { get; }
 		public CollectionCurrentStateFingerprint Fingerprint { get; }
+
+		/// <summary>Gets partial associations eligible for continuation without changing their persisted incomplete state.</summary>
+		internal ReadOnlyCollection<Guid> ReconciledPartialAssociations { get; }
+
+		/// <summary>Allows reuse only for a journal-proven partial installation of the exact incoming revision.</summary>
+		internal bool IsReconciledPartialAssociation(CollectionTargetAssociation association, CollectionRevisionIdentity revision)
+		{
+			return association != null && association.State == CollectionAssociationState.Incomplete &&
+				association.Revision.Equals(revision) && ReconciledPartialAssociations.Contains(association.AssociationId);
+		}
 
 		private static ReadOnlyDictionary<string, ReadOnlyCollection<T>> BuildOwnerIndex<T>(IEnumerable<T> records,
 			Func<T, IEnumerable<string>> ownerSelector)

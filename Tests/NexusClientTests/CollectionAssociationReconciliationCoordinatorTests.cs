@@ -199,6 +199,44 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Previously committed partial members remain collection-owned and can reach finalization without reinstalling them.</summary>
+		[Test]
+		public void FinalizeAppliedAssociation_ReusesJournalScopedPartialMember()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, false);
+				CollectionNativeModState native = CreateNativeMod(fixture.Plan.Target, "native-partial", "100", "200");
+				var association = new CollectionTargetAssociation(Guid.NewGuid(), fixture.Plan.Revision, fixture.Plan.Target, CollectionAssociationState.Incomplete);
+				fixture.AssociationStore.SaveAssociation(association);
+				ResolvedCollectionMemberPlan member = fixture.Plan.SelectedMembers.Single();
+				var binding = new CollectionMemberBinding(association, member.MemberKey, native.Identity, member.RecipeIdentity,
+					CollectionMemberBindingKind.InstalledForCollection);
+				fixture.AssociationStore.SaveBinding(binding);
+				var state = new CollectionNativeStateIndex(fixture.Plan.Target, new CollectionNativeRootState[0], new[] { native },
+					new CollectionNativeFileState[0], new CollectionNativeIniState[0], new CollectionNativeGameValueState[0],
+					new CollectionNativePluginState[0], CollectionNativeStateCoverage.NotApplicable, new[] { association }, new[] { binding },
+					new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0, new[] { association.AssociationId });
+				var plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), fixture.Plan.Target,
+					fixture.Plan.Policy, state.Fingerprint, fixture.Plan.CapabilityReport, fixture.Plan.SelectedMembers);
+				fixture.PlanStore.SavePlan(plan, "c610-test/1", new byte[] { 1 });
+				CollectionMemberMatchSet matches = new CollectionMemberMatchEngine().Match(plan, state);
+				Assert.AreEqual(CollectionMemberMatchDisposition.InstalledCompatible, matches.Members.Single().Disposition);
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+					plan.Revision.Collection, plan.Target, plan.Revision, plan.Identity, 1, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, new CollectionNativeChildOperation[0]);
+				fixture.OperationStore.SaveOperation(operation);
+				var coordinator = new CollectionAssociationReconciliationCoordinator(fixture.OperationStore, fixture.PlanStore,
+					fixture.AssociationStore, fixture.ManifestStore);
+				CollectionAssociationFinalizationResult result = coordinator.FinalizeAppliedAssociation(operation.Identity, plan, matches);
+				Assert.AreEqual(CollectionAssociationState.Applied, result.Association.State);
+				Assert.AreEqual(CollectionMemberBindingKind.InstalledForCollection, result.Bindings.Single().BindingKind);
+				Assert.AreEqual(association.AssociationId, result.Association.AssociationId);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		private static Fixture CreateFixture(string root, bool seedCompatibleAssociation)
 		{
 			var featureStore = new CollectionsStore(root);

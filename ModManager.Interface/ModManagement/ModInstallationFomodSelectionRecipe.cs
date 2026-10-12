@@ -168,6 +168,18 @@ namespace Nexus.Client.ModManagement
 		/// <param name="steps">The explicit selection state for every parsed install step.</param>
 		public ModInstallationFomodSelectionRecipe(Version scriptVersion,
 			IEnumerable<ModInstallationFomodStepSelection> steps)
+			: this(scriptVersion, steps, false)
+		{
+		}
+
+		/// <summary>
+		/// Initializes exact selections with an explicit policy for replaying recorded Collection choices.
+		/// </summary>
+		/// <param name="scriptVersion">The exact parsed XML-script version expected from the archive.</param>
+		/// <param name="steps">The explicit selection state for every parsed install step.</param>
+		/// <param name="honorRecordedSelections">Whether recorded choices override current installer prerequisites, visibility and option types.</param>
+		public ModInstallationFomodSelectionRecipe(Version scriptVersion,
+			IEnumerable<ModInstallationFomodStepSelection> steps, bool honorRecordedSelections)
 		{
 			if (scriptVersion == null)
 				throw new ArgumentNullException(nameof(scriptVersion));
@@ -186,6 +198,7 @@ namespace Nexus.Client.ModManagement
 			}
 
 			ScriptVersion = scriptVersion;
+			HonorRecordedSelections = honorRecordedSelections;
 			m_rocSteps = new ReadOnlyCollection<ModInstallationFomodStepSelection>(copied);
 		}
 
@@ -193,6 +206,12 @@ namespace Nexus.Client.ModManagement
 		/// Gets the exact parsed XML-script version expected from the archive.
 		/// </summary>
 		public Version ScriptVersion { get; }
+
+		/// <summary>
+		/// Gets whether exact recorded choices override current installer prerequisites, visibility and option types.
+		/// This does not relax installer identity, source-file or destination-path validation.
+		/// </summary>
+		public bool HonorRecordedSelections { get; }
 
 		/// <summary>
 		/// Gets the explicit selection state for every parsed install step.

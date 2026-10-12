@@ -17,6 +17,8 @@ namespace Nexus.Client.CollectionManagement
 		private static readonly object HashCacheLock = new object();
 		private static readonly Dictionary<string, FileHashStamp> HashCache =
 			new Dictionary<string, FileHashStamp>(StringComparer.OrdinalIgnoreCase);
+		private static readonly Dictionary<string, FileHashStamp> TrustedHashCache =
+			new Dictionary<string, FileHashStamp>(StringComparer.OrdinalIgnoreCase);
 		public static List<IMod> FindExactManagedMods(ModManager modManager, CollectionsRetainedArtifact retained,
 			CancellationToken cancellationToken)
 		{
@@ -43,7 +45,7 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Finds exact archive bytes already present in the current game's native mod library.</summary>
 		internal static List<string> FindExactLibraryArchiveFiles(ModManager modManager, long byteLength,
-			CollectionContentHash contentHash, CancellationToken cancellationToken)
+			CollectionContentHash contentHash, CancellationToken cancellationToken, bool preparedOnly = false)
 		{
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			if (contentHash == null || contentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
@@ -80,7 +82,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 				if (!info.Exists || info.Length != byteLength)
 					continue;
-				if (MatchesFile(file, byteLength, contentHash, cancellationToken))
+				if (preparedOnly ? MatchesPreparedFile(file, byteLength, contentHash) : MatchesFile(file, byteLength, contentHash, cancellationToken))
 					matches.Add(Path.GetFullPath(file));
 			}
 			return matches.Distinct(StringComparer.OrdinalIgnoreCase)
@@ -92,6 +94,24 @@ namespace Nexus.Client.CollectionManagement
 			if (retained == null)
 				return false;
 			return MatchesFile(path, retained.ByteLength, retained.ContentHash, cancellationToken);
+		}
+
+		/// <summary>Matches an unchanged preparation proof without reading archive bytes or starting a new checksum pass.</summary>
+		internal static bool MatchesPreparedFile(string path, long byteLength, CollectionContentHash contentHash)
+		{
+			if (String.IsNullOrWhiteSpace(path) || contentHash == null || contentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
+				return false;
+			var info = new FileInfo(Path.GetFullPath(path));
+			if (!info.Exists || info.Length != byteLength) return false;
+			lock (HashCacheLock)
+			{
+				FileHashStamp stamp;
+				if (!HashCache.TryGetValue(info.FullName, out stamp) || stamp.ByteLength != info.Length ||
+					stamp.LastWriteUtcTicks != info.LastWriteTimeUtc.Ticks)
+					TrustedHashCache.TryGetValue(info.FullName, out stamp);
+				return stamp != null && stamp.ByteLength == info.Length && stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks &&
+					StringComparer.Ordinal.Equals(stamp.HashValue, contentHash.Value);
+			}
 		}
 
 		internal static bool MatchesFile(string path, long byteLength, CollectionContentHash contentHash,
@@ -108,8 +128,18 @@ namespace Nexus.Client.CollectionManagement
 			string cachedHash;
 			if (TryGetObservedHash(fullPath, info, out cachedHash))
 				return StringComparer.Ordinal.Equals(cachedHash, contentHash.Value);
+			if (CollectionsRetainedArtifactStore.CanReuseSavedArchiveHashes)
+				lock (HashCacheLock)
+				{
+					FileHashStamp stamp;
+					if (TrustedHashCache.TryGetValue(fullPath, out stamp) && stamp.ByteLength == info.Length &&
+						stamp.LastWriteUtcTicks == info.LastWriteTimeUtc.Ticks)
+						return StringComparer.Ordinal.Equals(stamp.HashValue, contentHash.Value);
+				}
 
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
+			CollectionPreparationProgress.ReportArchiveVerification(fullPath, false);
+			CollectionPreparationProgress.ReportArchiveHashing(false);
 			string actualHash;
 			using (FileStream input = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.Read,
 				HashBufferSize, FileOptions.SequentialScan))
@@ -220,6 +250,18 @@ namespace Nexus.Client.CollectionManagement
 			{
 				HashCache[fullPath] = new FileHashStamp(hash, info.Length, info.LastWriteTimeUtc.Ticks);
 			}
+		}
+
+		/// <summary>Shares an unchanged saved archive proof only with calls that explicitly opted into saved-hash reuse.</summary>
+		internal static void RememberTrustedHash(string fullPath, FileInfo info, string hash)
+		{
+			lock (HashCacheLock) TrustedHashCache[fullPath] = new FileHashStamp(hash, info.Length, info.LastWriteTimeUtc.Ticks);
+		}
+
+		/// <summary>Discards an opt-in proof when strict verification observes different bytes.</summary>
+		internal static void ForgetTrustedHash(string fullPath)
+		{
+			lock (HashCacheLock) TrustedHashCache.Remove(fullPath);
 		}
 
 		private sealed class FileHashStamp

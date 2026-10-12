@@ -5,6 +5,7 @@ using System.Threading;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.Mods;
+using Nexus.Client.CollectionManagement.Persistence;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -56,22 +57,26 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>Creates matching with exact archive destination checks only for games which opt into package rules.</summary>
-		internal static CollectionMemberMatchEngine CreateMatchEngine(ModManager modManager)
+		internal static CollectionMemberMatchEngine CreateMatchEngine(ModManager modManager, CollectionsRetainedArtifactStore artifactStore = null)
 		{
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			if (!HasPackageRules(modManager.GameMode)) return new CollectionMemberMatchEngine();
-			return new CollectionMemberMatchEngine((member, archive, cancellationToken) => RequiresVerifiedGameRoot(modManager, archive, cancellationToken));
+			return new CollectionMemberMatchEngine((member, archive, cancellationToken) => RequiresVerifiedGameRoot(modManager, archive, artifactStore, cancellationToken));
 		}
 
 		/// <summary>Reads only managed archive bytes which match the already sealed acquisition artifact.</summary>
-		private static bool RequiresVerifiedGameRoot(ModManager modManager, CollectionVerifiedArchive archive, CancellationToken cancellationToken)
+		private static bool RequiresVerifiedGameRoot(ModManager modManager, CollectionVerifiedArchive archive,
+			CollectionsRetainedArtifactStore artifactStore, CancellationToken cancellationToken)
 		{
-			List<IMod> exact = CollectionArchiveContentMatcher.FindExactManagedMods(modManager, archive.Artifact, cancellationToken);
+			List<IMod> exact = ModManagerCollectionManagedArchiveSource.FindTrustedCachedManagedMods(modManager, artifactStore, archive);
+			bool trustedCache = exact.Count > 0;
+			if (!trustedCache) exact = CollectionArchiveContentMatcher.FindExactManagedMods(modManager, archive.Artifact, cancellationToken);
 			if (exact.Count == 0)
 				throw new InvalidDataException("The verified archive needed to check the installed Collection member's destination is no longer available in the mod library.");
 			IMod mod = ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exact);
 			GameRootPackageMatch match = GameRootPackageMatcher.Match(modManager.GameMode, mod, cancellationToken);
-			if (!CollectionArchiveContentMatcher.MatchesFile(CollectionArchiveContentMatcher.GetManagedArchivePath(mod), archive.Artifact, cancellationToken))
+			if (!(trustedCache ? artifactStore.IsTrustedPreparationArchiveCurrent(CollectionArchiveContentMatcher.GetManagedArchivePath(mod), archive.Artifact)
+				: CollectionArchiveContentMatcher.MatchesFile(CollectionArchiveContentMatcher.GetManagedArchivePath(mod), archive.Artifact, cancellationToken)))
 				throw new InvalidDataException("The managed archive changed while checking its Collection installation destination.");
 			return match != null;
 		}

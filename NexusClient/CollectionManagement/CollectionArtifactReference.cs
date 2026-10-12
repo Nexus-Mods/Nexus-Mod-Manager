@@ -19,7 +19,15 @@ namespace Nexus.Client.CollectionManagement
 		/// <param name="stableId">Stable artifact identity within the scheme.</param>
 		/// <param name="expectedContentHash">Optional provider/manifest digest that acquired bytes must satisfy.</param>
 		public CollectionArtifactReference(string scheme, string stableId, CollectionContentHash expectedContentHash)
+			: this(scheme, stableId, expectedContentHash, null)
 		{
+		}
+
+		/// <summary>Retains an optional manifest size constraint without changing legacy provider identity or serialized formats.</summary>
+		internal CollectionArtifactReference(string scheme, string stableId, CollectionContentHash expectedContentHash, long? expectedByteLength)
+		{
+			if (expectedByteLength.HasValue && expectedByteLength.Value < 0)
+				throw new ArgumentOutOfRangeException(nameof(expectedByteLength));
 			Scheme = CollectionIdentityValidation.RequireOpaqueToken(scheme, nameof(scheme));
 			StableId = CollectionIdentityValidation.RequireOpaqueToken(stableId, nameof(stableId));
 
@@ -29,6 +37,7 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("An ephemeral HTTP download URL cannot be used as stable artifact identity.", nameof(stableId));
 
 			ExpectedContentHash = expectedContentHash;
+			ExpectedByteLength = expectedByteLength;
 		}
 
 		/// <summary>
@@ -45,6 +54,9 @@ namespace Nexus.Client.CollectionManagement
 		/// Gets an optional expected digest supplied by the trusted normalized manifest.
 		/// </summary>
 		public CollectionContentHash ExpectedContentHash { get; }
+
+		/// <summary>Gets optional source metadata reconstructed from the retained manifest, separate from stable artifact identity.</summary>
+		internal long? ExpectedByteLength { get; }
 
 		/// <inheritdoc />
 		public bool Equals(CollectionArtifactReference other)

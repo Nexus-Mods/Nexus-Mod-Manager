@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
+using Newtonsoft.Json;
+using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Util;
 using SevenZip;
 using Nexus.Client.Games;
@@ -24,10 +26,26 @@ namespace Nexus.Client.CollectionManagement
 		// A preparation can be repeated to refresh a review. Do not unpack and hash unchanged
 		// multi-gigabyte archive entries every time. This is read-only preview evidence only;
 		// native submission and the installer still perform their own fresh verification.
-		private const int MaxCachedArchiveEntryDigests = 8192;
+		private const int MaxCachedArchiveEntryDigests = 131072;
+		private readonly string _sourceDigestCacheDirectory;
+		private readonly bool _collectPreparationContent;
 		private readonly object _archiveEntryCacheLock = new object();
+		private readonly Queue<string> _archiveEntryCacheOrder = new Queue<string>();
 		private readonly Dictionary<string, CachedArchiveEntryDigest> _archiveEntryDigests =
 			new Dictionary<string, CachedArchiveEntryDigest>(StringComparer.Ordinal);
+
+		/// <summary>Creates a preview builder with preparation-local digest reuse.</summary>
+		public CollectionMemberEffectPreviewBuilder()
+		{
+		}
+
+		/// <summary>Configures optional content verification with digest reuse across preparations and application restarts.</summary>
+		internal CollectionMemberEffectPreviewBuilder(CollectionsStore store, bool collectPreparationContent = false)
+		{
+			if (store == null) throw new ArgumentNullException(nameof(store));
+			_sourceDigestCacheDirectory = Path.Combine(store.StoreDirectory, "ArchiveEntryHashCache");
+			_collectPreparationContent = collectPreparationContent;
+		}
 
 		private sealed class CachedArchiveEntryDigest
 		{
@@ -62,18 +80,42 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
-		/// Reuses source-entry digests across read-only preparations with the same exact archive and file stamp.
-		/// Do not use this method at the native submission or mutation boundary.
+		/// Plans destinations and installer effects from archive metadata without decompressing or hashing source files.
+		/// Exact source digests are collected using the native installer's already-open archive transaction.
+		/// Explicit verify/repair callers can request the content-preview path instead.
 		/// </summary>
 		internal CollectionMemberEffectPreview BuildForPreparation(ResolvedCollectionMemberPlan member,
+			ModInstallationRecipeInput recipeInput, IGameMode gameMode, IMod mod, IPluginManager pluginManager,
+			CancellationToken cancellationToken = default(CancellationToken))
+		{
+			if (_collectPreparationContent)
+				return BuildForContentPreparation(member, recipeInput, gameMode, mod, pluginManager, cancellationToken);
+			return BuildCore(member, recipeInput, gameMode, mod, pluginManager, false, null, cancellationToken, true);
+		}
+
+		/// <summary>Collects exact digests without opening or closing the archive transaction owned by the native installer.</summary>
+		internal CollectionMemberEffectPreview BuildFromOpenArchive(ResolvedCollectionMemberPlan member,
+			ModInstallationRecipeInput recipeInput, IGameMode gameMode, IMod mod, IPluginManager pluginManager,
+			CancellationToken cancellationToken)
+		{
+			return BuildCore(member, recipeInput, gameMode, mod, pluginManager, false, null, cancellationToken);
+		}
+
+		/// <summary>Retains the explicit content-preview path for callers that need source hashes before native installation.</summary>
+		internal CollectionMemberEffectPreview BuildForContentPreparation(ResolvedCollectionMemberPlan member,
 			ModInstallationRecipeInput recipeInput, IGameMode gameMode, IMod mod, IPluginManager pluginManager,
 			CancellationToken cancellationToken = default(CancellationToken))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			CollectionPreparationProgress.Report(LanguageManager.Format("Collections.Workflow.PreparingMemberFiles",
 				"Preparing mod files: {0}", member.DisplayName), true);
+			LoadSavedSourceDigests(mod, recipeInput);
 			if (HasCachedSourceDigests(mod, recipeInput) || !ShouldUseReadOnlyArchiveTransaction(mod, recipeInput))
-				return BuildCore(member, recipeInput, gameMode, mod, pluginManager, true, null, cancellationToken);
+			{
+				CollectionMemberEffectPreview preview = BuildCore(member, recipeInput, gameMode, mod, pluginManager, true, null, cancellationToken);
+				if (preview.IsComplete) SaveSourceDigests(mod, recipeInput);
+				return preview;
+			}
 
 			// NMM's native archive read transaction keeps one extractor alive for the whole preview.
 			// Solid 7z archives are expanded once into bounded scratch storage, not reopened and
@@ -81,17 +123,23 @@ namespace Nexus.Client.CollectionManagement
 			CancelProgressEventHandler cancelOnRequest = (sender, progress) =>
 			{
 				if (cancellationToken.IsCancellationRequested) progress.Cancel = true;
+				CollectionPreparationProgress.Report(LanguageManager.Format("Collections.Workflow.UnpackingMember",
+					"Unpacking mod once for content checks: {0} ({1:P0})", member.DisplayName, progress.PercentComplete));
 			};
 			mod.ReadOnlyInitProgressUpdated += cancelOnRequest;
 			try
 			{
+				CollectionPreparationProgress.Report(LanguageManager.Format("Collections.Workflow.OpeningMemberArchive",
+					"Opening mod archive for content checks: {0}", member.DisplayName), true);
 				try { mod.BeginReadOnlyTransaction(new FileUtil()); }
 				catch (Exception) when (cancellationToken.IsCancellationRequested)
 				{
 					throw new OperationCanceledException(cancellationToken);
 				}
 				cancellationToken.ThrowIfCancellationRequested();
-				return BuildCore(member, recipeInput, gameMode, mod, pluginManager, true, null, cancellationToken);
+				CollectionMemberEffectPreview preview = BuildCore(member, recipeInput, gameMode, mod, pluginManager, true, null, cancellationToken);
+				if (preview.IsComplete) SaveSourceDigests(mod, recipeInput);
+				return preview;
 			}
 			finally
 			{
@@ -101,7 +149,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		/// <summary>
-		/// Avoid whole-archive extraction for huge solid archives or tiny file previews.
+		/// Avoid whole-archive extraction when scratch storage is insufficient or the preview has only one file.
 		/// A normal non-solid archive only keeps its native extractor open and doesn't need
 		/// extra bulk disk space; for a solid archive NMM's read-only mode extracts all entries.
 		/// This decision affects I/O strategy only, never hash identity or review contents.
@@ -121,13 +169,18 @@ namespace Nexus.Client.CollectionManagement
 				{
 					if (!extractor.IsSolid)
 						return true;
-					const long maxScratchBytes = 2L * 1024 * 1024 * 1024;
+					string driveRoot = Path.GetPathRoot(Path.GetFullPath(Path.GetTempPath()));
+					if (String.IsNullOrEmpty(driveRoot)) return false;
+					// A fixed 2 GiB ceiling forced large solid archives to restart decompression for every file.
+					// Bound scratch by the actual available space instead, retaining a reserve for other work.
+					long maxScratchBytes = new DriveInfo(driveRoot).AvailableFreeSpace - 512L * 1024 * 1024;
+					if (maxScratchBytes <= 0) return false;
 					long unpackedBytes = 0;
 					foreach (ArchiveFileInfo entry in extractor.ArchiveFileData)
 					{
 						// Bulk extraction must never consume an unsafe archive path.
 						string entryPath = (entry.FileName ?? String.Empty).Replace('/', '\\');
-						if (Path.IsPathRooted(entryPath) || entryPath.Split('\\').Any(x => x == ".." || x == "."))
+						if (Path.IsPathRooted(entryPath) || entryPath.Contains(":") || entryPath.Split('\\').Any(x => x == ".." || x == "."))
 							return false;
 						if (entry.IsDirectory) continue;
 						long length = Convert.ToInt64(entry.Size);
@@ -135,9 +188,7 @@ namespace Nexus.Client.CollectionManagement
 							return false;
 						unpackedBytes += length;
 					}
-					string driveRoot = Path.GetPathRoot(Path.GetFullPath(Path.GetTempPath()));
-					return !String.IsNullOrEmpty(driveRoot) &&
-						new DriveInfo(driveRoot).AvailableFreeSpace > unpackedBytes + 512L * 1024 * 1024;
+					return unpackedBytes <= maxScratchBytes;
 				}
 			}
 			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException ||
@@ -175,6 +226,152 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
+		/// <summary>Evicts individual old digests instead of discarding every mod's preparation evidence at once.</summary>
+		private void CacheSourceDigest(string key, CachedArchiveEntryDigest digest)
+		{
+			if (!_archiveEntryDigests.ContainsKey(key))
+			{
+				while (_archiveEntryDigests.Count >= MaxCachedArchiveEntryDigests)
+					_archiveEntryDigests.Remove(_archiveEntryCacheOrder.Dequeue());
+				_archiveEntryCacheOrder.Enqueue(key);
+			}
+			_archiveEntryDigests[key] = digest;
+		}
+
+		/// <summary>Restores optional preparation evidence only for the same archive identity, stamp and recipe context.</summary>
+		private void LoadSavedSourceDigests(IMod mod, ModInstallationRecipeInput recipeInput)
+		{
+			if (_sourceDigestCacheDirectory == null || HasCachedSourceDigests(mod, recipeInput)) return;
+			try
+			{
+				FileInfo archive = GetCacheArchive(mod, recipeInput);
+				if (archive == null) return;
+				string context = GetSourceDigestCacheContext(mod, recipeInput, archive);
+				var file = new FileInfo(Path.Combine(_sourceDigestCacheDirectory, context + ".json"));
+				if (!file.Exists || file.Length > 64L * 1024 * 1024) return;
+				SourceDigestCacheRecord record = JsonConvert.DeserializeObject<SourceDigestCacheRecord>(File.ReadAllText(file.FullName));
+				if (record == null || record.SchemaVersion != 1 || record.ContextIdentity != context ||
+					!StringComparer.OrdinalIgnoreCase.Equals(record.ArchivePath, archive.FullName) ||
+					record.ArchiveSha256 != recipeInput.Validation.ExpectedContent.Sha256 ||
+					record.ArchiveByteLength != archive.Length || record.ArchiveLastWriteUtcTicks != archive.LastWriteTimeUtc.Ticks ||
+					record.Files == null || record.Files.Count > MaxCachedArchiveEntryDigests)
+					return;
+				var restored = new Dictionary<string, CachedArchiveEntryDigest>(StringComparer.Ordinal);
+				foreach (SourceDigestCacheEntry entry in record.Files)
+				{
+					if (entry == null || String.IsNullOrWhiteSpace(entry.SourcePath) || entry.ByteLength < 0 || restored.ContainsKey(entry.SourcePath))
+						return;
+					restored.Add(entry.SourcePath, new CachedArchiveEntryDigest(mod, archive,
+						CollectionContentHash.FromSha256(entry.Sha256), entry.ByteLength));
+				}
+				var after = new FileInfo(archive.FullName);
+				if (!after.Exists || after.Length != archive.Length || after.LastWriteTimeUtc.Ticks != archive.LastWriteTimeUtc.Ticks) return;
+				lock (_archiveEntryCacheLock)
+				{
+					foreach (KeyValuePair<string, CachedArchiveEntryDigest> entry in restored)
+						CacheSourceDigest(recipeInput.Validation.ExpectedContent.Sha256 + "\n" + archive.FullName + "\n" + entry.Key, entry.Value);
+				}
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is JsonException ||
+				ex is ArgumentException || ex is NotSupportedException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection source digest cache could not be read: {0}", ex.Message);
+			}
+		}
+
+		/// <summary>Persists only digests actually read from the unchanged archive, separately from authoritative plans.</summary>
+		private void SaveSourceDigests(IMod mod, ModInstallationRecipeInput recipeInput)
+		{
+			if (_sourceDigestCacheDirectory == null) return;
+			string temporaryPath = null;
+			try
+			{
+				FileInfo archive = GetCacheArchive(mod, recipeInput);
+				if (archive == null) return;
+				var record = new SourceDigestCacheRecord
+				{
+					SchemaVersion = 1, ContextIdentity = GetSourceDigestCacheContext(mod, recipeInput, archive),
+					ArchivePath = archive.FullName, ArchiveSha256 = recipeInput.Validation.ExpectedContent.Sha256,
+					ArchiveByteLength = archive.Length, ArchiveLastWriteUtcTicks = archive.LastWriteTimeUtc.Ticks,
+					Files = new List<SourceDigestCacheEntry>()
+				};
+				lock (_archiveEntryCacheLock)
+				{
+					foreach (string source in recipeInput.NativeOperations.OfType<InstallModFileOperation>()
+						.Select(x => x.SourcePath).Distinct(StringComparer.Ordinal))
+					{
+						CachedArchiveEntryDigest cached;
+						string key = record.ArchiveSha256 + "\n" + archive.FullName + "\n" + source;
+						if (!_archiveEntryDigests.TryGetValue(key, out cached) || !cached.Matches(mod, archive)) return;
+						record.Files.Add(new SourceDigestCacheEntry { SourcePath = source, Sha256 = cached.Hash.Value, ByteLength = cached.SourceByteLength });
+					}
+				}
+				if (record.Files.Count == 0) return;
+				Directory.CreateDirectory(_sourceDigestCacheDirectory);
+				string cachePath = Path.Combine(_sourceDigestCacheDirectory, record.ContextIdentity + ".json");
+				temporaryPath = cachePath + "." + Nexus.Client.Util.FileUtil.CreateTempToken() + ".tmp";
+				File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(record));
+				var after = new FileInfo(archive.FullName);
+				if (!after.Exists || after.Length != archive.Length || after.LastWriteTimeUtc.Ticks != archive.LastWriteTimeUtc.Ticks) return;
+				if (File.Exists(cachePath)) File.Replace(temporaryPath, cachePath, null);
+				else File.Move(temporaryPath, cachePath);
+			}
+			catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is JsonException ||
+				ex is ArgumentException || ex is NotSupportedException)
+			{
+				System.Diagnostics.Trace.TraceWarning("Collection source digest cache could not be saved: {0}", ex.Message);
+			}
+			finally
+			{
+				try { if (temporaryPath != null && File.Exists(temporaryPath)) File.Delete(temporaryPath); }
+				catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+				{
+					System.Diagnostics.Trace.TraceWarning("Collection source digest cache temporary file could not be removed: {0}", ex.Message);
+				}
+			}
+		}
+
+		/// <summary>Checks the managed archive's stamp without reading its contents.</summary>
+		private static FileInfo GetCacheArchive(IMod mod, ModInstallationRecipeInput recipeInput)
+		{
+			if (mod == null || recipeInput == null || !recipeInput.HasNativePlan || recipeInput.Validation == null ||
+				recipeInput.Validation.ExpectedContent == null) return null;
+			string path = !String.IsNullOrWhiteSpace(mod.ModArchivePath) ? mod.ModArchivePath : mod.Filename;
+			if (String.IsNullOrWhiteSpace(path)) return null;
+			var archive = new FileInfo(Path.GetFullPath(path));
+			return archive.Exists && archive.Length == recipeInput.Validation.ExpectedContent.ByteLength ? archive : null;
+		}
+
+		/// <summary>Scopes logical source digests to the archive, mod implementation, format and recorded recipe.</summary>
+		private static string GetSourceDigestCacheContext(IMod mod, ModInstallationRecipeInput recipeInput, FileInfo archive)
+		{
+			string identity = "archive-entry-digests/1\n" + archive.FullName.ToUpperInvariant() + "\n" +
+				recipeInput.Validation.ExpectedContent.Sha256 + "\n" + recipeInput.RecipeFingerprint + "\n" +
+				mod.GetType().AssemblyQualifiedName + "\n" + (mod.Format == null ? String.Empty : mod.Format.Id);
+			using (SHA256 sha256 = SHA256.Create())
+				return BitConverter.ToString(sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(identity))).Replace("-", String.Empty).ToLowerInvariant();
+		}
+
+		/// <summary>Versioned, optional preparation cache; never used as native installation or recovery evidence.</summary>
+		private sealed class SourceDigestCacheRecord
+		{
+			public int SchemaVersion { get; set; }
+			public string ContextIdentity { get; set; }
+			public string ArchivePath { get; set; }
+			public string ArchiveSha256 { get; set; }
+			public long ArchiveByteLength { get; set; }
+			public long ArchiveLastWriteUtcTicks { get; set; }
+			public List<SourceDigestCacheEntry> Files { get; set; }
+		}
+
+		/// <summary>Stores one already observed logical source's exact hash and byte length.</summary>
+		private sealed class SourceDigestCacheEntry
+		{
+			public string SourcePath { get; set; }
+			public string Sha256 { get; set; }
+			public long ByteLength { get; set; }
+		}
+
 		/// <summary>
 		/// Rebuilds live path/plugin/config effects without re-extracting archive members after the caller has
 		/// just SHA-256 verified the COMPLETE incoming archive against the exact retained C5 recipe identity.
@@ -200,7 +397,7 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionMemberEffectPreview BuildCore(ResolvedCollectionMemberPlan member, ModInstallationRecipeInput recipeInput,
 			IGameMode gameMode, IMod mod, IPluginManager pluginManager, bool reusePreparationDigests,
 			IDictionary<ModDeploymentTarget, CollectionPlannedFileEffect> freshlyVerifiedArchiveFiles,
-			CancellationToken cancellationToken = default(CancellationToken))
+			CancellationToken cancellationToken = default(CancellationToken), bool deferArchiveDigests = false)
 		{
 			if (member == null)
 				throw new ArgumentNullException(nameof(member));
@@ -230,8 +427,11 @@ namespace Nexus.Client.CollectionManagement
 				if (installFile != null)
 				{
 					ModDeploymentTarget target = ResolveTarget(gameMode, mod, installFile.DestinationPath, recipeInput.InstallContext.InstallRoot);
-					AddArchiveSourceFile(files, target, member.MemberKey, recipeInput, mod, installFile.SourcePath,
-						reusePreparationDigests, freshlyVerifiedArchiveFiles, cancellationToken);
+					if (deferArchiveDigests)
+						files[target] = new CollectionPlannedFileEffect(target);
+					else
+						AddArchiveSourceFile(files, target, member.MemberKey, recipeInput, mod, installFile.SourcePath,
+							reusePreparationDigests, freshlyVerifiedArchiveFiles, cancellationToken);
 					AddImplicitPluginActivation(requestedPluginActivations, gameMode, pluginManager, target, installFile);
 					continue;
 				}
@@ -415,9 +615,7 @@ namespace Nexus.Client.CollectionManagement
 					throw new InvalidDataException("The managed archive changed while its Collection file effects were being prepared.");
 				lock (_archiveEntryCacheLock)
 				{
-					if (_archiveEntryDigests.Count >= MaxCachedArchiveEntryDigests)
-						_archiveEntryDigests.Clear();
-					_archiveEntryDigests[cacheKey] = new CachedArchiveEntryDigest(mod, after, hash, byteLength);
+					CacheSourceDigest(cacheKey, new CachedArchiveEntryDigest(mod, after, hash, byteLength));
 				}
 			}
 			AddFile(files, target, hash, byteLength);

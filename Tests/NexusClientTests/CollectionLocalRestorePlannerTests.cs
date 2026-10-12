@@ -259,8 +259,8 @@ namespace NexusClientTests
 				Assert.IsEmpty(recovery.Issues);
 				Assert.IsTrue(recovery.IsNativeRecoveryProjection);
 				Assert.IsFalse(recovery.IsReadyForReview);
-				Assert.AreEqual(1, after.RetainedArtifactVerificationHashCount - before.RetainedArtifactVerificationHashCount);
-				Assert.AreEqual(capture.Archives.Single().RetainedArtifact.ByteLength,
+				Assert.AreEqual(0, after.RetainedArtifactVerificationHashCount - before.RetainedArtifactVerificationHashCount);
+				Assert.AreEqual(0,
 					after.RetainedArtifactVerificationHashedBytes - before.RetainedArtifactVerificationHashedBytes);
 				Assert.Throws<InvalidDataException>(() => CollectionLocalRestoreIntentCodec.Serialize(capture.Capture.Identity, recovery));
 

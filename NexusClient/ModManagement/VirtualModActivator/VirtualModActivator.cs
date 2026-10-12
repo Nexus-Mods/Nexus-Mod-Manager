@@ -1923,7 +1923,11 @@
 				AddVirtualModInfo(vmiModInfo);
 				modInfo = vmiModInfo;
 			}
-			string strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
+			string strRealFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, m_strVirtualActivatorPath);
+			if (String.IsNullOrEmpty(strRealFilePath) && MultiHDMode && !String.IsNullOrEmpty(HDLinkFolder))
+				strRealFilePath = GetRealFilePath(p_modMod, p_strBaseFilePath, HDLinkFolder);
+			if (String.IsNullOrEmpty(strRealFilePath))
+				strRealFilePath = Path.Combine(Path.GetFileNameWithoutExtension(p_modMod.Filename), p_strBaseFilePath);
 			AddVirtualLink(new VirtualModLink(strRealFilePath, p_strBaseFilePath, p_intPriority, false, modInfo, p_mirInstallRoot), p_modMod);
 		}
 

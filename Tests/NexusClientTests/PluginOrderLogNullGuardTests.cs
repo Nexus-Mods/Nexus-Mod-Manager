@@ -90,5 +90,29 @@ namespace NexusClientTests
             Assert.AreEqual("b.esp", _log.OrderedPlugins[0].Filename,
                 "Plugin inserted at index 0 should be first.");
         }
+
+        /// <summary>UI subscriptions made during a native transaction must keep observing later committed removals.</summary>
+        [Test]
+        public void CommittedCollection_SubscriptionDuringTransactionObservesSubsequentRemoval()
+        {
+            var first = new Plugin("first.esp", "first.esp", null);
+            var second = new Plugin("second.esp", "second.esp", null);
+            _log.SetPluginOrderIndex(first, 0);
+            _log.SetPluginOrderIndex(second, 1);
+            int notifications = 0;
+            using (var transaction = new Nexus.Transactions.TransactionScope())
+            {
+                var observed = _log.CommittedOrderedPlugins;
+                observed.CollectionChanged += (sender, args) => notifications++;
+                Assert.AreNotSame(_log.OrderedPlugins, observed);
+                _log.RemovePlugin(first);
+                transaction.Complete();
+            }
+            Assert.AreEqual(1, _log.CommittedOrderedPlugins.Count);
+            int afterFirstCommit = notifications;
+            _log.RemovePlugin(second);
+            Assert.AreEqual(0, _log.CommittedOrderedPlugins.Count);
+            Assert.Greater(notifications, afterFirstCommit);
+        }
     }
 }

@@ -374,9 +374,11 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidDataException("The durable reviewed-workflow snapshot does not belong to the exact Collection plan.");
 			if (reviewed.FileImpacts.Count != impactPlan.FileImpacts.Count)
 				throw new InvalidDataException("The supplied C6.4 file impacts no longer match the durable reviewed workflow.");
+			Dictionary<ModDeploymentTarget, CollectionReviewedFileImpactSnapshot> reviewedByTarget = reviewed.FileImpacts.ToDictionary(x => x.Target);
 			foreach (CollectionFileImpact impact in impactPlan.FileImpacts)
 			{
-				CollectionReviewedFileImpactSnapshot persisted = reviewed.FileImpacts.SingleOrDefault(x => x.Target.Equals(impact.Target));
+				CollectionReviewedFileImpactSnapshot persisted;
+				reviewedByTarget.TryGetValue(impact.Target, out persisted);
 				if (persisted == null || !Equals(persisted.PlannedWinner, impact.PlannedWinner) ||
 					persisted.PreserveCurrentOwner != impact.PreserveCurrentOwner ||
 					!StringComparer.OrdinalIgnoreCase.Equals(persisted.CurrentOwnerKey ?? String.Empty, impact.CurrentOwnerKey ?? String.Empty) ||

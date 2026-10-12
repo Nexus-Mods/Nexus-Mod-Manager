@@ -33,7 +33,7 @@ namespace Nexus.Client.ModManagement
 		/// Initializes one immutable recipe input, optionally with a translated native-operation snapshot.
 		/// </summary>
 		private ModInstallationRecipeInput(ModOperationIdentity operationIdentity, ModInstallationRecipeValidation validation,
-			IEnumerable<ScriptedInstallOperation> nativeOperations, bool operationIdentityRebound, bool deferPluginReconciliation = false)
+			IEnumerable<ScriptedInstallOperation> nativeOperations, bool operationIdentityRebound, bool deferPluginReconciliation = false, bool skipContentChecks = false)
 		{
 			if (operationIdentity == null)
 				throw new ArgumentNullException(nameof(operationIdentity));
@@ -64,6 +64,7 @@ namespace Nexus.Client.ModManagement
 			Validation = validation;
 			m_booOperationIdentityRebound = operationIdentityRebound;
 			DeferPluginReconciliation = deferPluginReconciliation;
+			SkipContentChecks = skipContentChecks;
 
 			if (nativeOperations != null)
 			{
@@ -136,7 +137,7 @@ namespace Nexus.Client.ModManagement
 			if (nativeOperations == null)
 				throw new ArgumentNullException(nameof(nativeOperations));
 
-			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound, DeferPluginReconciliation);
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound, DeferPluginReconciliation, SkipContentChecks);
 		}
 
 		/// <summary>Defers this Collection member's plugin activation and relative order to its owning workflow's final plugin barrier.</summary>
@@ -151,7 +152,7 @@ namespace Nexus.Client.ModManagement
 				if (operation is Scripting.Operations.SetPluginOrderIndexOperation || operation is Scripting.Operations.SetLoadOrderOperation ||
 					operation is Scripting.Operations.MovePluginsInLoadOrderOperation)
 					return this;
-			return new ModInstallationRecipeInput(OperationIdentity, Validation, m_rocNativeOperations, m_booOperationIdentityRebound, true);
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, m_rocNativeOperations, m_booOperationIdentityRebound, true, SkipContentChecks);
 		}
 
 		/// <summary>Returns a new immutable recipe input with a deterministic preparation-time transformation of an existing native plan.</summary>
@@ -161,7 +162,7 @@ namespace Nexus.Client.ModManagement
 				throw new InvalidOperationException("A native recipe plan must exist before it can be transformed.");
 			if (nativeOperations == null)
 				throw new ArgumentNullException(nameof(nativeOperations));
-			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound, DeferPluginReconciliation);
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, nativeOperations, m_booOperationIdentityRebound, DeferPluginReconciliation, SkipContentChecks);
 		}
 
 		/// <summary>
@@ -197,7 +198,20 @@ namespace Nexus.Client.ModManagement
 				throw new ArgumentException("The rebound operation identity must preserve the exact target, install context and recipe fingerprint of the translated recipe.", nameof(operationIdentity));
 			}
 
-			return new ModInstallationRecipeInput(operationIdentity, Validation, m_rocNativeOperations, true, DeferPluginReconciliation);
+			return new ModInstallationRecipeInput(operationIdentity, Validation, m_rocNativeOperations, true, DeferPluginReconciliation, SkipContentChecks);
+		}
+
+		/// <summary>Gets whether the normal Collection installer trusts native execution without additional source/output content audits.</summary>
+		public bool SkipContentChecks { get; }
+
+		/// <summary>Applies the current Collection content-check preference without changing recorded choices or native operations.</summary>
+		public ModInstallationRecipeInput WithSkippedContentChecks(bool skipContentChecks)
+		{
+			if (skipContentChecks && OperationIdentity.Origin != ModOperationOrigin.Collection)
+				throw new InvalidOperationException("Content-check bypass is limited to normal Collection installation.");
+			if (SkipContentChecks == skipContentChecks) return this;
+			return new ModInstallationRecipeInput(OperationIdentity, Validation, m_rocNativeOperations, m_booOperationIdentityRebound,
+				DeferPluginReconciliation, skipContentChecks);
 		}
 	}
 }

@@ -52,8 +52,11 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
+		/// <summary>Checks retained source size metadata and the legacy external archive identity without reading payload bytes.</summary>
 		public static bool MatchesByteLength(CollectionArtifactReference artifact, long byteLength)
 		{
+			if (artifact != null && artifact.ExpectedByteLength.HasValue && artifact.ExpectedByteLength.Value != byteLength)
+				return false;
 			string md5;
 			long expected;
 			return !TryParse(artifact, out md5, out expected) || expected == byteLength;

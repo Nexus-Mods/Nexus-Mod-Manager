@@ -125,9 +125,10 @@ namespace NexusClientTests
 					new VirtualModReadLink(withoutFallback, "virtual-a", "without", true, 0, "without.nif", Path.Combine(root, "managed-without"))
 				});
 
-				NativeStateCaptureSnapshot snapshot = CreateReader(root, Path.Combine(root, "InstallInfo"), install,
+				NativeStateCaptureReader reader = CreateReader(root, Path.Combine(root, "InstallInfo"), install,
 					virtualState, null, (target, ownerKey) => target.Equals(withFallback)
-						? retainedFallback : Path.Combine(root, "missing.overwrite")).Capture();
+						? retainedFallback : Path.Combine(root, "missing.overwrite"));
+				NativeStateCaptureSnapshot snapshot = reader.Capture();
 
 				Assert.AreEqual(2, snapshot.VirtualFallbacks.Count);
 				NativeStateCaptureVirtualFallback present = snapshot.VirtualFallbacks.Single(x => x.Target.Equals(withFallback));
@@ -136,6 +137,10 @@ namespace NexusClientTests
 				Assert.AreEqual(retainedFallback, present.PayloadSourcePath);
 				Assert.AreEqual(NativeStateCaptureVirtualFallbackState.ExplicitlyAbsent, absent.State);
 				Assert.AreEqual(String.Empty, absent.PayloadSourcePath);
+				File.WriteAllText(Path.Combine(root, "missing.overwrite"), "new fallback");
+				Assert.AreEqual(NativeStateCaptureVirtualFallbackState.Present,
+					reader.Capture().VirtualFallbacks.Single(x => x.Target.Equals(withoutFallback)).State,
+					"Directory observations must be refreshed for each capture.");
 			}
 			finally
 			{

@@ -101,6 +101,41 @@ namespace NexusClientTests
 			Assert.That(installed.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo(source));
 		}
 
+		/// <summary>File entries can target a directory while validation and replay still name the exact installed file.</summary>
+		[TestCase(@"textures\terrain\blackreach\")]
+		[TestCase("textures/terrain/blackreach/")]
+		public void Translate_FileDestinationDirectoryAppendsSourceFileName(string destination)
+		{
+			const string source = @"Backgrounds\stairs\back.dds";
+			const string expected = @"textures\terrain\blackreach\back.dds";
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File(source, destination, 1));
+			IMod mod = CreateMod(script, source);
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			ModInstallationFomodSelectionRecipe selection = Recipe(new Version(5, 0));
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null, selection);
+			Assert.That(paths.Single(x => x.Kind == ModInstallationRecipePathKind.Destination).Path, Is.EqualTo(expected));
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, selection);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Single().DestinationPath, Is.EqualTo(expected));
+		}
+
+		/// <summary>Directory notation does not permit traversal, rooted paths, or empty interior components.</summary>
+		[TestCase(@"..\")]
+		[TestCase(@"C:\textures\")]
+		[TestCase(@"\textures\")]
+		[TestCase(@"textures\\terrain\")]
+		public void Translate_InvalidDestinationDirectoryIsRejected(string destination)
+		{
+			XmlScriptType scriptType = new XmlScriptType();
+			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File("back.dds", destination, 0));
+			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(CreateMod(script, "back.dds"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0))));
+		}
+
 		[Test]
 		public void Translate_FomodOptionsFolderExpandsOnlyPresentInstallerAssets()
 		{
@@ -301,6 +336,172 @@ namespace NexusClientTests
 			Assert.Throws<DependencyException>(() => adapter.Translate(
 				CreateInput(adapter), CreateMod(unusable, @"unsafe.bin"), CreateGameMode(), CreateEnvironmentInfo(), null,
 				Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group", Selection(0, "Unsafe"))))));
+		}
+
+		/// <summary>Automatic replay installs the recorded patch despite unmet prerequisites, hidden steps and current option types.</summary>
+		[Test]
+		public void Translate_RecordedChoicesOverrideCurrentInstallerConditions()
+		{
+			XmlScriptType type = new XmlScriptType();
+			Option patch = Option("Cutting Room Floor (by Arthmoor)", OptionType.NotUsable,
+				File(@"patch\crf.bin", @"crf.bin", 0));
+			patch.Flags.Add(new ConditionalFlag("patch", "crf"));
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny, patch,
+				Option("Current default", OptionType.Required, File("default.bin", "default.bin", 0)));
+			script.ModPrerequisites = new FlagCondition("not-installed", "present");
+			script.InstallSteps[0].VisibilityCondition = new FlagCondition("not-installed", "present");
+			script.ConditionallyInstalledFileSets.Add(new ConditionallyInstalledFileSet(new FlagCondition("patch", "crf"),
+				new List<InstallableFile> { File("conditional.bin", "conditional.bin", 0) }));
+			IMod mod = CreateMod(script, @"patch\crf.bin", "default.bin", "conditional.bin");
+			ModInstallationFomodStepSelection[] steps = { Step(0, "Step", Group(0, "Group", Selection(0, patch.Name))) };
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			Assert.Throws<DependencyException>(() => adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null,
+				new ModInstallationFomodSelectionRecipe(new Version(5, 0), steps)));
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0), steps, true);
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.SourcePath),
+				Is.EqualTo(new[] { @"patch\crf.bin", "conditional.bin" }));
+		}
+
+		/// <summary>Sorted groups resolve a unique saved name when Vortex and native ordering assign different indices.</summary>
+		[TestCase(SortOrder.Ascending)]
+		[TestCase(SortOrder.Descending)]
+		public void Translate_SortedChoicesResolveUniqueNamesAcrossOrderingDifferences(SortOrder order)
+		{
+			XmlScriptType type = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny,
+				Option("Aela Restored", OptionType.Optional, File("other.bin", "other.bin", 0)),
+				Option("Immersive Citizens", OptionType.Optional, File("selected.bin", "selected.bin", 0)));
+			OptionGroup group = script.InstallSteps[0].OptionGroups[0];
+			group.OptionSortOrder = order;
+			int differentIndex = Enumerable.Range(0, group.Options.Count).Single(x => group.Options[x].Name == "Aela Restored");
+			var recipe = Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group", Selection(differentIndex, "Immersive Citizens"))));
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			IMod mod = CreateMod(script, "other.bin", "selected.bin");
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo("selected.bin"));
+		}
+
+		/// <summary>Automatic Collections use the exact recorded DLL name when its saved index identifies another runtime.</summary>
+		[Test]
+		public void Translate_RecordedDllChoiceResolvesUniqueNameInExplicitGroup()
+		{
+			XmlScriptType type = new XmlScriptType();
+			const string selectedName = "SSE/AE v1.6.1170 (\"Anniversary/Special Edition\")";
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectExactlyOne,
+				Option("SSE/AE v1.7.99+", OptionType.Optional, File("future.dll", "selected.dll", 0)),
+				Option("SSE v1.5.97", OptionType.Optional, File("old.dll", "selected.dll", 0)),
+				Option(selectedName, OptionType.Optional, File("1170.dll", "selected.dll", 0)));
+			ModInstallationFomodStepSelection[] steps = { Step(0, "Step", Group(0, "Group", Selection(1, selectedName))) };
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0), steps, true);
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			IMod mod = CreateMod(script, "future.dll", "old.dll", "1170.dll");
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo("1170.dll"));
+		}
+
+		/// <summary>Automatic name resolution cannot select among duplicate names when the saved position does not match.</summary>
+		[Test]
+		public void Translate_RecordedChoicesRejectAmbiguousNames()
+		{
+			XmlScriptType type = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny,
+				Option("A", OptionType.Optional, File("a.bin", "a.bin", 0)),
+				Option("B", OptionType.Optional, File("b.bin", "b.bin", 0)),
+				Option("B", OptionType.Optional, File("c.bin", "c.bin", 0)));
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0),
+				new[] { Step(0, "Step", Group(0, "Group", Selection(0, "B"))) }, true);
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(CreateMod(script, "a.bin", "b.bin", "c.bin"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe));
+		}
+
+		/// <summary>Ordering compatibility does not guess among duplicate names or change explicitly ordered native identities.</summary>
+		[TestCase(SortOrder.Ascending, true)]
+		[TestCase(SortOrder.Explicit, false)]
+		public void Translate_OrderingFallbackRejectsAmbiguousOrExplicitChoices(SortOrder order, bool duplicate)
+		{
+			XmlScriptType type = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny,
+				Option("A", OptionType.Optional, File("a.bin", "a.bin", 0)),
+				Option("B", OptionType.Optional, File("b.bin", "b.bin", 0)));
+			OptionGroup group = script.InstallSteps[0].OptionGroups[0];
+			if (duplicate) group.Options.Add(Option("B", OptionType.Optional, File("c.bin", "c.bin", 0)));
+			group.OptionSortOrder = order;
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(CreateMod(script, "a.bin", "b.bin", "c.bin"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0),
+					Step(0, "Step", Group(0, "Group", Selection(0, "B"))))));
+		}
+
+		/// <summary>Recorded choices overwrite an earlier flag default and select only the files for the final value.</summary>
+		[TestCase("Off", "On", "on.bin")]
+		[TestCase("On", "Off", "off.bin")]
+		public void Translate_RecordedFlagAssignmentsUseLastValue(string initialValue, string finalValue, string expectedFile)
+		{
+			XmlScriptType type = new XmlScriptType();
+			Option initial = Option("Quality", OptionType.Optional);
+			initial.Flags.Add(new ConditionalFlag("CathedralConcept", initialValue));
+			Option later = Option("Landscapes - Cathedral Concept", OptionType.Optional);
+			later.Flags.Add(new ConditionalFlag("CathedralConcept", finalValue));
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny, initial, later);
+			script.ConditionallyInstalledFileSets.Add(new ConditionallyInstalledFileSet(new FlagCondition("CathedralConcept", "On"),
+				new List<InstallableFile> { File("on.bin", "on.bin", 0) }));
+			script.ConditionallyInstalledFileSets.Add(new ConditionallyInstalledFileSet(new FlagCondition("CathedralConcept", "Off"),
+				new List<InstallableFile> { File("off.bin", "off.bin", 0) }));
+			IMod mod = CreateMod(script, "on.bin", "off.bin");
+			ModInstallationFomodStepSelection[] steps = { Step(0, "Step", Group(0, "Group", Selection(0, initial.Name), Selection(1, later.Name))) };
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null,
+				new ModInstallationFomodSelectionRecipe(new Version(5, 0), steps)));
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0), steps, true);
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo(expectedFile));
+		}
+
+		/// <summary>Automatic replay does not invent choices or install files from an unselected hidden step.</summary>
+		[Test]
+		public void Translate_RecordedEmptyHiddenStepDoesNotChooseDefaults()
+		{
+			XmlScriptType type = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectExactlyOne,
+				Option("Default", OptionType.Required, new InstallableFile("default.bin", "default.bin", false, 0, true, false)));
+			script.InstallSteps[0].VisibilityCondition = new FlagCondition("not-installed", "present");
+			script.RequiredInstallFiles.Add(File("core.bin", "core.bin", 0));
+			IMod mod = CreateMod(script, "core.bin", "default.bin");
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0),
+				new[] { Step(0, "Step", Group(0, "Group")) }, true);
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			IReadOnlyList<ModInstallationRecipePath> paths = adapter.GetValidationPaths(mod, CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			ModInstallationRecipeInput translated = adapter.Translate(CreateInput(adapter, paths.ToArray()), mod,
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe);
+			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo("core.bin"));
+		}
+
+		/// <summary>Recorded-choice replay still binds to the actual installer and exact archive source paths.</summary>
+		[Test]
+		public void Translate_RecordedChoicesStillValidateOptionIdentityAndSourcePaths()
+		{
+			XmlScriptType type = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(type, OptionGroupType.SelectAny,
+				Option("Patch", OptionType.NotUsable, File("patch.bin", "patch.bin", 0)));
+			IModInstallationFomodRecipePlanningAdapter adapter = type;
+			var staleRecipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0),
+				new[] { Step(0, "Step", Group(0, "Group", Selection(0, "Different patch"))) }, true);
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(CreateMod(script, "patch.bin"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, staleRecipe));
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0),
+				new[] { Step(0, "Step", Group(0, "Group", Selection(0, "Patch"))) }, true);
+			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(CreateMod(script, "different.bin"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe));
 		}
 
 		[Test]

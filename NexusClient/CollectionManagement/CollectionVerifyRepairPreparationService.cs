@@ -110,7 +110,7 @@ namespace Nexus.Client.CollectionManagement
 			var prepared = new List<PreparedCollectionNativeRecipe>();
 			var effectiveBindings = new List<CollectionMemberBinding>();
 			var bindingUpdates = new List<CollectionMemberBinding>();
-			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore);
+			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore, true);
 			var adopter = new CollectionVerifiedArchiveAdopter(new ModManagerCollectionManagedArchiveSource(_services.ModManager),
 				new NexusCollectionArchiveIdentityVerifier(repository), _artifactStore, _referenceStore);
 

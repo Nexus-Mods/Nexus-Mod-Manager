@@ -8,6 +8,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	using System.Linq;
 	using System.Text;
 	using System.Text.RegularExpressions;
+	using System.Threading;
 	using System.Xml;
 
 	using Nexus.Client.ModManagement.Scripting;
@@ -16,7 +17,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 	/// <summary>
 	/// Encapsulates a FOMod mod archive.
 	/// </summary>
-	public class FOMod : ObservableObject, IMod, IModCacheResettable, IModInstallerSourceInventory, IModFileStreamSource
+	public class FOMod : ObservableObject, IMod, IModCacheResettable, IModInstallerSourceInventory, IModFileStreamSource, IModFileBatchSource
 	{
 		#region Events
 
@@ -1097,15 +1098,51 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		}
 
 		/// <inheritdoc />
+		public void CopyFilesTo(IReadOnlyDictionary<string, string> destinations, CancellationToken cancellationToken, Action<float> progress)
+		{
+			if (destinations == null) throw new ArgumentNullException(nameof(destinations));
+			if (destinations.Count == 0) return;
+			string scratch = Path.Combine(Path.GetTempPath(), "NMMb-" + FileUtil.CreateTempToken());
+			try
+			{
+				var archiveFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				foreach (KeyValuePair<string, string> file in destinations)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(file.Value)));
+					if (TryGetCachedFileData(file.Key, out var cachedData))
+						File.WriteAllBytes(file.Value, cachedData);
+					else
+						archiveFiles.Add(file.Key, GetRealPath(file.Key));
+				}
+				if (archiveFiles.Count == 0) return;
+				Directory.CreateDirectory(scratch);
+				var extractionPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				foreach (string source in archiveFiles.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+					extractionPaths.Add(source, Path.Combine(scratch, "entry-" + extractionPaths.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".tmp"));
+				ArchiveFile.ExtractSelectedFiles(extractionPaths, scratch, cancellationToken, progress);
+				foreach (KeyValuePair<string, string> file in archiveFiles)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					File.Copy(extractionPaths[file.Value], destinations[file.Key], true);
+				}
+			}
+			finally
+			{
+				if (Directory.Exists(scratch)) FileUtil.ForceDelete(scratch);
+			}
+		}
+
+		/// <inheritdoc />
 		public FileStream GetFileStream(string file)
 		{
 			if (TryGetCachedFileData(file, out var cachedData))
 			{
 				var temporaryDirectory = Path.Combine(_environmentInfo.TemporaryPath, "NMM");
 				Directory.CreateDirectory(temporaryDirectory);
-				var temporaryFile = Path.Combine(temporaryDirectory, Guid.NewGuid().ToString("N") + Path.GetExtension(file));
+				var temporaryFile = Path.Combine(temporaryDirectory, FileUtil.CreateTempToken() + Path.GetExtension(file));
 				File.WriteAllBytes(temporaryFile, cachedData);
-				return new FileStream(temporaryFile, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
+				return new FileStream(FileUtil.GetIoPath(temporaryFile), FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.DeleteOnClose);
 			}
 
 			return ArchiveFile.GetFileStream(GetRealPath(file), _environmentInfo.TemporaryPath);

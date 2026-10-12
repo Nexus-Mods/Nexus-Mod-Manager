@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Nexus.Client.ModManagement.Scripting;
@@ -166,7 +167,11 @@ namespace Nexus.Client.ModManagement
 					contentXxh64 = ComputeXxh64CanonicalBase64(fileBytes);
 					AddHashPath(pathsByXxh64, contentXxh64, canonicalPath);
 				}
-				hashesByPath.Add(canonicalPath, new ArchiveContentDigests(contentMd5, contentXxh64));
+				// The Collection may identify several copies by the same MD5/XXH64. Retain a strong identity
+				// from bytes already in memory so equivalent sources never require another archive read.
+				string contentSha256;
+				using (SHA256 sha256 = SHA256.Create()) contentSha256 = ToHex(sha256.ComputeHash(fileBytes));
+				hashesByPath.Add(canonicalPath, new ArchiveContentDigests(contentMd5, contentXxh64, fileBytes.LongLength, contentSha256));
 			}
 
 			return new ArchiveContentIndex(hashesByPath, pathsByMd5, pathsByXxh64);
@@ -184,7 +189,7 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Resolves one desired output to exactly one archive source, rejecting missing or ambiguous content matches.
+		/// Resolves one desired output to a stable content-equivalent archive source, rejecting missing or differing content matches.
 		/// </summary>
 		private static string ResolveSourcePath(ArchiveContentIndex archiveIndex, ModInstallationReplicatedFile file)
 		{
@@ -202,10 +207,16 @@ namespace Nexus.Client.ModManagement
 			List<string> matches;
 			if (!pathsByHash.TryGetValue(file.ContentHash, out matches) || matches.Count == 0)
 				throw new InvalidDataException(string.Format("The requested replicated content for '{0}' was not found in the verified archive.", file.DestinationPath));
-			if (matches.Count != 1)
-				throw new InvalidDataException(string.Format("The requested replicated content for '{0}' matches several archive files; an explicit source path is required.", file.DestinationPath));
+			ArchiveContentDigests first = archiveIndex.HashesByPath[matches[0]];
+			if (matches.Any(path => archiveIndex.HashesByPath[path].ByteLength != first.ByteLength ||
+				!StringComparer.Ordinal.Equals(archiveIndex.HashesByPath[path].Sha256, first.Sha256)))
+				throw new InvalidDataException(string.Format("The requested replicated digest for '{0}' matches different archive contents; an explicit source path is required.", file.DestinationPath));
 
-			return matches[0];
+			// Source location does not change the requested output bytes. Prefer the destination's original
+			// path, then the shortest matching archive-root prefix, with stable ordering for other copies.
+			return matches.OrderBy(path => StringComparer.OrdinalIgnoreCase.Equals(path, file.DestinationPath) ? 0 :
+				path.EndsWith("\\" + file.DestinationPath, StringComparison.OrdinalIgnoreCase) ? 1 : 2)
+				.ThenBy(path => path.Length).ThenBy(path => path, StringComparer.OrdinalIgnoreCase).First();
 		}
 
 		private static string FindCanonicalPath(Dictionary<string, ArchiveContentDigests> hashesByPath, string path)
@@ -365,13 +376,17 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private sealed class ArchiveContentDigests
 		{
-			public ArchiveContentDigests(string md5, string xxh64)
+			public ArchiveContentDigests(string md5, string xxh64, long byteLength, string sha256)
 			{
 				Md5 = md5;
 				Xxh64 = xxh64;
+				ByteLength = byteLength;
+				Sha256 = sha256;
 			}
 			public string Md5 { get; }
 			public string Xxh64 { get; }
+			public long ByteLength { get; }
+			public string Sha256 { get; }
 			public string Get(ModInstallationReplicatedContentHashAlgorithm algorithm)
 			{
 				switch (algorithm)

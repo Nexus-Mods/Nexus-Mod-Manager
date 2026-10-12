@@ -24,6 +24,7 @@ namespace Nexus.Client.ModManagement
 			private IEnvironmentInfo m_eifEnvironmentInfo = null;
 			private Dictionary<Uri, AddModTask> m_dicActiveTasks = new Dictionary<Uri, AddModTask>();
 			private Dictionary<Guid, AddModTask> m_dicActiveTasksByOperationId = new Dictionary<Guid, AddModTask>();
+			private bool m_booDisposed;
 
 			/// <summary>
 			/// The number of running local addmod tasks.
@@ -65,15 +66,20 @@ namespace Nexus.Client.ModManagement
 				try
 				{ 
 					Trace.TraceInformation("Loading mods that are queued to be added.");
-					if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
-						return;
-					if (m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] == null)
+					List<KeyValuePair<string, AddModDescriptor>> queuedMods;
+					lock (m_eifEnvironmentInfo.Settings)
 					{
-						m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
-						m_eifEnvironmentInfo.Settings.Save();
-						return;
+						if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
+							return;
+						if (m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] == null)
+						{
+							m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId] = new KeyedSettings<AddModDescriptor>();
+							m_eifEnvironmentInfo.Settings.Save();
+							return;
+						}
+						queuedMods = new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]);
 					}
-					foreach (KeyValuePair<string, AddModDescriptor> kvpMod in new List<KeyValuePair<string, AddModDescriptor>>(m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId]))
+					foreach (KeyValuePair<string, AddModDescriptor> kvpMod in queuedMods)
 					{
 						if (kvpMod.Value != null && kvpMod.Value.QueueOperationId.HasValue)
 						{
@@ -126,6 +132,7 @@ namespace Nexus.Client.ModManagement
 
 				lock (m_dicActiveTasks)
 				{
+					if (m_booDisposed) throw new ObjectDisposedException(nameof(AddModQueue));
 					AddModTask existingTask;
 					if (p_gudQueueOperationId.HasValue && m_dicActiveTasksByOperationId.TryGetValue(p_gudQueueOperationId.Value, out existingTask))
 						return existingTask;
@@ -162,23 +169,26 @@ namespace Nexus.Client.ModManagement
 			/// </summary>
 			private void RemoveStalePersistedCorrelation(Guid queueOperationId, Uri currentSource)
 			{
-				if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
-					return;
-				KeyedSettings<AddModDescriptor> queued = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId];
-				if (queued == null)
-					return;
-				string currentKey = currentSource == null ? null : currentSource.ToString();
-				List<string> staleKeys = queued
-					.Where(pair => pair.Value != null && pair.Value.QueueOperationId.HasValue &&
-						pair.Value.QueueOperationId.Value == queueOperationId &&
-						!StringComparer.Ordinal.Equals(pair.Key, currentKey))
-					.Select(pair => pair.Key).ToList();
-				if (staleKeys.Count == 0)
-					return;
-				foreach (string staleKey in staleKeys)
-					queued.Remove(staleKey);
+				// Download completion and status callbacks update this dictionary concurrently.
 				lock (m_eifEnvironmentInfo.Settings)
+				{
+					if (!m_eifEnvironmentInfo.Settings.QueuedModsToAdd.ContainsKey(m_mmgModManager.GameMode.ModeId))
+						return;
+					KeyedSettings<AddModDescriptor> queued = m_eifEnvironmentInfo.Settings.QueuedModsToAdd[m_mmgModManager.GameMode.ModeId];
+					if (queued == null)
+						return;
+					string currentKey = currentSource == null ? null : currentSource.ToString();
+					List<string> staleKeys = queued
+						.Where(pair => pair.Value != null && pair.Value.QueueOperationId.HasValue &&
+							pair.Value.QueueOperationId.Value == queueOperationId &&
+							!StringComparer.Ordinal.Equals(pair.Key, currentKey))
+						.Select(pair => pair.Key).ToList();
+					if (staleKeys.Count == 0)
+						return;
+					foreach (string staleKey in staleKeys)
+						queued.Remove(staleKey);
 					m_eifEnvironmentInfo.Settings.Save();
+				}
 			}
 
 			/// <summary>
@@ -203,6 +213,7 @@ namespace Nexus.Client.ModManagement
 				{
 					lock (m_dicActiveTasks)
 					{
+						if (m_booDisposed) return;
 						Uri uriKey = (from k in m_dicActiveTasks
 									  where (k.Value == sender)
 									  select k.Key).FirstOrDefault();
@@ -261,7 +272,16 @@ namespace Nexus.Client.ModManagement
 			/// </remarks>
 			public void Dispose()
 			{
-				foreach (AddModTask amtTask in m_dicActiveTasks.Values.ToArray())
+				AddModTask[] tasks;
+				lock (m_dicActiveTasks)
+				{
+					if (m_booDisposed) return;
+					m_booDisposed = true;
+					tasks = m_dicActiveTasks.Values.ToArray();
+					foreach (AddModTask task in tasks)
+						task.TaskEnded -= ModAdder_TaskEnded;
+				}
+				foreach (AddModTask amtTask in tasks)
 					amtTask.Dispose();
 			}
 

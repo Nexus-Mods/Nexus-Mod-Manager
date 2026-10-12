@@ -308,6 +308,17 @@
 				CreateMod(archivePath, "48078", "412151"), reloaded, "48078", "412151"), Is.True);
 			Assert.That(reloaded.HasDurableRepositoryFileIdentity(archivePath, "48078", "408792"), Is.True,
 				"The previous identity must remain in durable history.");
+			IMod withoutLiveIdentity = CreateMod(archivePath);
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				withoutLiveIdentity, service, "48078", "412151"), Is.True);
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				withoutLiveIdentity, service, "48078", "408792"), Is.False,
+				"An older file ID in history cannot override the current archive binding.");
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				withoutLiveIdentity, reloaded, "48078", "408792"), Is.False);
+			Assert.That(ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(
+				withoutLiveIdentity, reloaded, "48078", "412151"), Is.False,
+				"Unresolved history naming two files must reach content verification rather than metadata trust.");
 		}
 
 		/// <summary>Ensures stale identity repair never changes installed metadata or adopts unverified/different-mod archives.</summary>

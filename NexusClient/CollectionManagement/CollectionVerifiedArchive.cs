@@ -14,7 +14,13 @@ namespace Nexus.Client.CollectionManagement
 		ProviderContentIdentity = 3,
 
 		/// <summary>Bytes deterministically materialized from one exact revision-owned embedded bundle directory.</summary>
-		RevisionBundleMaterialization = 4
+		RevisionBundleMaterialization = 4,
+
+		/// <summary>Existing Nexus archive metadata was trusted by explicit opt-in; SHA-256 tracks its bytes, but MD5 was not checked.</summary>
+		ManagedArchiveMetadata = 5,
+
+		/// <summary>Exact Nexus metadata and an unchanged saved file stamp were trusted to reuse a previously calculated SHA-256 during preparation.</summary>
+		ManagedArchiveMetadataWithCachedHash = 6
 	}
 
 	/// <summary>

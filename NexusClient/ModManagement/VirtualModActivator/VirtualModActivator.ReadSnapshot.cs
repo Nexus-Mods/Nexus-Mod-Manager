@@ -34,7 +34,11 @@ namespace Nexus.Client.ModManagement
 				{
 					try
 					{
-						resolvedPayloadSourcePath = ResolveVirtualSourcePath(link, target) ?? String.Empty;
+						// On one staging drive the recorded source path is already definitive. Snapshot construction
+						// needs its reference, not a File.Exists probe for every previously installed file.
+						resolvedPayloadSourcePath = !MultiHDMode && !String.IsNullOrWhiteSpace(link.RealModPath)
+							? System.IO.Path.Combine(m_strVirtualActivatorPath, link.RealModPath)
+							: ResolveVirtualSourcePath(link, target) ?? String.Empty;
 					}
 					catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException ||
 						exception is System.IO.IOException || exception is NotSupportedException)

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using Nexus.Client.CollectionManagement;
+using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
@@ -24,6 +25,87 @@ namespace NexusClientTests
 	public class CollectionConflictImpactPlannerTests
 	{
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+
+		/// <summary>First preparation plans all destinations without opening payload streams or an archive transaction.</summary>
+		[Test]
+		public void EffectPreviewBuilder_PreparationDoesNotDecompressArchivePayloads()
+		{
+			NormalizedCollectionMember member = CreateMember(0, "metadata-member", 100, 200, 0);
+			var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+			var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot);
+			ModInstallationRecipeInput recipe = CreatePreviewRecipeInput(member, context,
+				new InstallModFileOperation("textures\\large.dds", "textures\\large.dds", ScriptedFileDeploymentDecision.ForDirect(true)));
+			IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) => null);
+			IMod mod = InterfaceStub<IMod>.Create((method, args) =>
+			{
+				if (method.Name == "GetFileStream" || method.Name == "GetFileContents" || method.Name == "BeginReadOnlyTransaction")
+					throw new InvalidOperationException("Preparation must not extract source bytes.");
+				return null;
+			});
+			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreviewBuilder()
+				.BuildForPreparation(resolved, recipe, gameMode, mod, null);
+			Assert.IsTrue(preview.IsComplete);
+			Assert.AreEqual("textures\\large.dds", preview.Files.Single().Target.RelativePath);
+			Assert.IsFalse(preview.Files.Single().HasExactContentIdentity);
+		}
+
+		/// <summary>Preparation survives builder recreation; changed or invalid evidence and authoritative builds read the source again.</summary>
+		[TestCase("unchanged")]
+		[TestCase("changed")]
+		[TestCase("invalid-cache")]
+		public void EffectPreviewBuilder_ReusesPersistedPreparationDigestsButKeepsFreshBuildAuthoritative(string scenario)
+		{
+			string directory = Path.Combine(Path.GetTempPath(), "NmmEntryHashCache-" + Guid.NewGuid().ToString("N"));
+			Directory.CreateDirectory(directory);
+			try
+			{
+				string archivePath = Path.Combine(directory, "mod.archive");
+				File.WriteAllBytes(archivePath, new byte[] { 1 });
+				int reads = 0;
+				Func<IMod> createMod = () => InterfaceStub<IMod>.Create((method, args) =>
+				{
+					if (method.Name == "get_ModArchivePath" || method.Name == "get_Filename") return archivePath;
+					if (method.Name == "GetFileStream")
+					{
+						reads++;
+						return File.OpenRead(archivePath);
+					}
+					return null;
+				});
+				NormalizedCollectionMember member = CreateMember(0, "cached-member", 100, 200, 0);
+				var resolved = new ResolvedCollectionMemberPlan(member, CollectionResolvedArtifactChoice.Exact(member.Artifact));
+				var context = new ModInstallContext(ModInstallMethod.Direct, ModInstallRoot.GameRoot);
+				ModInstallationRecipeInput recipe = CreatePreviewRecipeInput(member, context,
+					new InstallModFileOperation("source.bin", "output.bin", ScriptedFileDeploymentDecision.ForDirect(true)));
+				IGameMode gameMode = InterfaceStub<IGameMode>.Create((method, args) => null);
+				var store = new CollectionsStore(directory);
+				CollectionMemberEffectPreview first = new CollectionMemberEffectPreviewBuilder(store, true)
+					.BuildForPreparation(resolved, recipe, gameMode, createMod(), null);
+				Assert.AreEqual(1, reads);
+				string cachePath = Directory.GetFiles(Path.Combine(store.StoreDirectory, "ArchiveEntryHashCache"), "*.json").Single();
+				if (scenario == "changed")
+				{
+					DateTime previousWrite = File.GetLastWriteTimeUtc(archivePath);
+					File.WriteAllBytes(archivePath, new byte[] { 2 });
+					File.SetLastWriteTimeUtc(archivePath, previousWrite.AddSeconds(10));
+				}
+				else if (scenario == "invalid-cache")
+					File.WriteAllText(cachePath, "{invalid json");
+				IMod reopenedMod = createMod();
+				var reopenedBuilder = new CollectionMemberEffectPreviewBuilder(store, true);
+				CollectionMemberEffectPreview second = reopenedBuilder.BuildForPreparation(resolved, recipe, gameMode, reopenedMod, null);
+				Assert.AreEqual(scenario == "unchanged" ? 1 : 2, reads);
+				Assert.AreEqual(first.Files.Single().ExpectedContentHash.Equals(second.Files.Single().ExpectedContentHash), scenario != "changed");
+				int preparationReads = reads;
+				CollectionMemberEffectPreview fresh = reopenedBuilder.Build(resolved, recipe, gameMode, reopenedMod);
+				Assert.AreEqual(preparationReads + 1, reads);
+				Assert.AreEqual(second.Files.Single().ExpectedContentHash, fresh.Files.Single().ExpectedContentHash);
+			}
+			finally
+			{
+				Directory.Delete(directory, true);
+			}
+		}
 
 		[Test]
 		public void EffectPreviewBuilder_ProjectsTranslatedC5FilePlanWithoutExecutingIt()
@@ -1373,6 +1455,30 @@ namespace NexusClientTests
 			Assert.IsTrue(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.PluginRuleEndpointUnavailable));
 		}
 
+		[TestCase(false)]
+		[TestCase(true)]
+		public void PluginAfterRule_AutomaticModeLeavesAbsentEndpointDormant(bool missingSource)
+		{
+			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { a }, null, new CollectionNativeModState[0],
+				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
+				pluginRelativeOrderRules: new[] { missingSource
+					? new CollectionPluginRelativeOrderRule("Absent.esp", "A.esp")
+					: new CollectionPluginRelativeOrderRule("A.esp", "Absent.esp") },
+				policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(true, true));
+			CollectionMemberEffectPreview preview = CreatePreview(a, null, new[]
+			{
+				CollectionPlannedPluginEffect.Activation(@"C:\Game\Data\A.esp", true)
+			});
+
+			CollectionConflictImpactPlan result = new CollectionConflictImpactPlanner().Plan(
+				fixture.Plan, fixture.Matches, fixture.DependencyPlan, fixture.State, new[] { preview });
+
+			Assert.IsFalse(result.Issues.Any(x => x.Kind == CollectionConflictImpactIssueKind.PluginRuleEndpointUnavailable));
+			Assert.IsFalse(result.PluginImpacts.Any(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder));
+			Assert.IsTrue(result.PluginImpacts.Any(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.Activation));
+		}
+
 		private static ModInstallationRecipeInput CreatePreviewRecipeInput(NormalizedCollectionMember member,
 			ModInstallContext context, params ScriptedInstallOperation[] operations)
 		{
@@ -1463,7 +1569,7 @@ namespace NexusClientTests
 			CollectionNativeGameValueState[] gameValues = null, CollectionNativePluginState[] plugins = null,
 			CollectionDesiredPluginState[] desiredPlugins = null, CollectionConflictConstraint[] conflictConstraints = null,
 			CollectionExternalFilePriorityRule[] externalPriorityRules = null,
-			CollectionPluginRelativeOrderRule[] pluginRelativeOrderRules = null)
+			CollectionPluginRelativeOrderRule[] pluginRelativeOrderRules = null, CollectionExecutionPolicy policy = null)
 		{
 			CollectionNativeStateIndex state = new CollectionNativeStateIndex(target,
 				new CollectionNativeRootState[0], mods ?? new CollectionNativeModState[0], files ?? new CollectionNativeFileState[0],
@@ -1479,7 +1585,7 @@ namespace NexusClientTests
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, report.Status);
 			ResolvedCollectionPlan plan = new ResolvedCollectionPlan(CollectionPlanIdentity.From(Guid.NewGuid(), 1), target,
-				CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, report,
+				policy ?? CollectionExecutionPolicy.InstallIntoCurrentSetup(), state.Fingerprint, report,
 				members.Select(x => new ResolvedCollectionMemberPlan(x, CollectionResolvedArtifactChoice.Exact(x.Artifact))).ToArray());
 			CollectionMemberMatchSet matches = new CollectionMemberMatchEngine().Match(plan, state);
 			CollectionDependencyPhasePlan dependencyPlan = new CollectionDependencyPhasePlanner().Plan(plan, matches);

@@ -109,6 +109,30 @@ namespace Nexus.Client.Properties {
 
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool CollectionSkipExistingArchiveMd5 {
+            get {
+                return ((bool)(this["CollectionSkipExistingArchiveMd5"]));
+            }
+            set {
+                this["CollectionSkipExistingArchiveMd5"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool CollectionSkipContentChecks {
+            get {
+                return ((bool)(this["CollectionSkipContentChecks"]));
+            }
+            set {
+                this["CollectionSkipContentChecks"] = value;
+            }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("Ultra")]
         public global::SevenZip.CompressionLevel ModCompressionLevel {
             get {

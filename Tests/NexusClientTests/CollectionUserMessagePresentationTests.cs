@@ -8,6 +8,20 @@ namespace Nexus.Client.Tests
 	[TestFixture]
 	public class CollectionUserMessagePresentationTests
 	{
+		/// <summary>A deferred member has an informational waiting status rather than a false acquisition error.</summary>
+		[Test]
+		public void DeferredAcquisition_ShowsWaitingForOtherMember()
+		{
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForAcquisition(
+				CollectionMemberAcquisitionDisposition.DeferredByBlockedMember, "deferred");
+			Assert.That(presentation.MessageFallback, Does.Contain("another Collection member"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("has not failed acquisition"));
+			Assert.That(CollectionReviewPresentationClassifier.ForAcquisition(CollectionMemberAcquisitionDisposition.DeferredByBlockedMember),
+				Is.EqualTo(CollectionReviewSeverity.Info));
+			Assert.That(CollectionReviewPresentationClassifier.KindForAcquisition(CollectionMemberAcquisitionDisposition.DeferredByBlockedMember),
+				Is.EqualTo(CollectionReviewItemKind.Progress));
+		}
+
 		[Test]
 		public void InternalTerminologySanitizer_RemovesStageAndGateLabelsFromUserText()
 		{
@@ -22,6 +36,33 @@ namespace Nexus.Client.Tests
 			Assert.That(presented, Does.Contain("change-impact review"));
 		}
 
+		/// <summary>A stale review reports paused installation and directs the user to refresh remaining work.</summary>
+		[Test]
+		public void RecoveryPresentation_ChangedStateKeepsCompletedModsAndOffersRemainingReviewRefresh()
+		{
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForRecovery(
+				CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired, "Current-state fingerprint differs.");
+			Assert.That(presentation.MessageFallback, Does.Contain("Installation is paused"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Completed mods are kept"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Refresh the remaining installation"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Download / Prepare"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo("Current-state fingerprint differs."));
+		}
+
+		/// <summary>Recovery names the affected file and offers continuation without recommending a complete uninstall.</summary>
+		[Test]
+		public void RecoveryPresentation_ShowsCommittedFailureAndKeepsCompletedMods()
+		{
+			const string raw = "Installed-state durability is still ambiguous. C6.9 committed verification: FAIL - scripted replay is missing selected archive file(s): interface\\fontconfig.txt. C6.9 rollback verification: FAIL - fingerprint changed.";
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForRecovery(CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired, raw);
+			Assert.That(presentation.MessageFallback, Does.Contain("interface\\fontconfig.txt"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Completed mods are kept"));
+			Assert.That(presentation.MessageFallback, Does.Not.Contain("C6.9"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Check recovery and continue"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Uninstall"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
 		[Test]
 		public void PreparationPresentation_UsesStructuredStatusAndPreservesRawTechnicalDetail()
 		{
@@ -33,6 +74,32 @@ namespace Nexus.Client.Tests
 			Assert.That(presentation.MessageFallback, Does.Contain("ready for review"));
 			Assert.That(presentation.NextActionFallback, Does.Contain("Review and install"));
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
+		[TestCase("workflow.prepare-failed")]
+		[TestCase("workflow.resume-failed")]
+		public void UnexpectedPreparationFailure_ShowsTheCauseInsteadOfReferringToOtherErrors(string code)
+		{
+			const string reason = "The installation instructions could not be saved to disk.";
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForFailure(code, reason);
+
+			Assert.That(presentation.MessageFallback, Does.Contain(reason));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("below"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Export Technical Report"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(reason));
+		}
+
+		[Test]
+		public void InstallationPlanSizeFailure_NamesTheSaveFailureWithoutExposingCodecTerminology()
+		{
+			const string reason = "Reviewed workflow payload exceeds the bounded v2 persistence size.";
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForFailure("workflow.prepare-failed", reason);
+
+			Assert.That(presentation.MessageFallback, Does.Contain("could not save"));
+			Assert.That(presentation.MessageFallback, Does.Contain("supported size"));
+			Assert.That(presentation.MessageFallback, Does.Not.Contain("payload"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("below"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(reason));
 		}
 
 		[TestCase(false)]
@@ -51,6 +118,18 @@ namespace Nexus.Client.Tests
 			Assert.That(presentation.NextActionFallback, Does.Not.Contain("errors below"));
 			Assert.That(presentation.NextActionFallback.Contains("deselect"), Is.EqualTo(optional));
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
+		}
+
+		/// <summary>Combined failures show a count and point to the complete issue list while retaining each diagnostic.</summary>
+		[Test]
+		public void MultiplePreparationFailures_ShowsFinishedChecksAndRetainsDiagnostics()
+		{
+			const string detail = "Member A: unsupported installer.\nMember B: invalid source path.";
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForPreparationFailures(2, detail);
+			Assert.That(presentation.MessageFallback, Does.Contain("2 mods"));
+			Assert.That(presentation.MessageFallback, Does.Contain("checks finished"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Review / issues"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo(detail));
 		}
 
 		[Test]

@@ -176,16 +176,17 @@ namespace Nexus.Client.CollectionManagement
 			: this(new CollectionsCatalogStore(store), new CollectionsRevisionSourceStore(store),
 				new CollectionsRetainedArtifactStore(store), new CollectionsRetainedArtifactReferenceStore(store), new NexusCollectionManifestNormalizer(),
 				new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(),
-				new CollectionMemberEffectPreviewBuilder())
+				new CollectionMemberEffectPreviewBuilder(store))
 		{
 		}
 
 		/// <summary>Creates a recipe preparer which shares the additive workflow's retained-artifact verification caches.</summary>
 		internal CollectionNativeRecipePreparer(CollectionsStore store, CollectionsRevisionSourceStore revisionSourceStore,
-			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore)
+			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore,
+			bool collectPreparationContent = false)
 			: this(new CollectionsCatalogStore(store), revisionSourceStore, artifactStore, referenceStore,
 				new NexusCollectionManifestNormalizer(), new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(),
-				new CollectionMemberEffectPreviewBuilder())
+				new CollectionMemberEffectPreviewBuilder(store, collectPreparationContent))
 		{
 		}
 
@@ -483,7 +484,7 @@ namespace Nexus.Client.CollectionManagement
 		/// impact previews; the authoritative full translation is still repeated later.
 		/// </summary>
 		internal void PreflightFomodSelection(ResolvedCollectionMemberPlan member, IMod mod, IGameMode gameMode,
-			IEnvironmentInfo environmentInfo, IPluginManager pluginManager)
+			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, bool honorRecordedSelections)
 		{
 			if (member == null) throw new ArgumentNullException(nameof(member));
 			if (!member.HasVortexFomodSelection) return;
@@ -497,7 +498,7 @@ namespace Nexus.Client.CollectionManagement
 			try
 			{
 				ModInstallationFomodSelectionRecipe recipe = CreateFomodRecipe(
-					member.VortexFomodSelection, adapter.GetScriptVersion(mod));
+					member.VortexFomodSelection, adapter.GetScriptVersion(mod), honorRecordedSelections);
 				adapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, recipe);
 			}
 			catch (DependencyException ex)
@@ -542,7 +543,7 @@ namespace Nexus.Client.CollectionManagement
 			try
 			{
 				Version scriptVersion = fomodAdapter.GetScriptVersion(mod);
-				fomodRecipe = CreateFomodRecipe(member.VortexFomodSelection, scriptVersion);
+				fomodRecipe = CreateFomodRecipe(member.VortexFomodSelection, scriptVersion, plan.Policy.AutomaticallyInstall);
 				fomodPaths = conditionEnvironment == null
 					? fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe)
 					: fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe, conditionEnvironment);
@@ -738,11 +739,16 @@ namespace Nexus.Client.CollectionManagement
 			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(verifiedArchive.Artifact.ArtifactId);
 			if (artifact == null || !artifact.Equals(verifiedArchive.Artifact))
 				throw new InvalidDataException("The verified Collection archive no longer matches retained artifact metadata.");
+			if (!CollectionExternalArtifactIdentity.MatchesByteLength(verifiedArchive.Request.SelectedArtifact, artifact.ByteLength))
+				throw new InvalidDataException("The verified archive size does not match the Collection's requested file. Download / Prepare the requested archive again.");
 			if (artifact.ContentHash.Algorithm != CollectionContentHashAlgorithm.Sha256)
 				throw new NotSupportedException("Native recipe preparation requires a SHA-256 verified immutable archive.");
 			CollectionContentHash expectedHash = verifiedArchive.Request.SelectedArtifact.ExpectedContentHash;
 			if (expectedHash != null && !expectedHash.Equals(artifact.ContentHash))
 				throw new InvalidDataException("The retained verified archive no longer matches the manifest-selected expected content hash.");
+			if (verifiedArchive.VerificationBasis == CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash &&
+				_artifactStore.IsTrustedPreparationArchiveCurrent(artifact))
+				return;
 			if (CanDeferRepeatedPrepareVerification(verifiedArchive))
 			{
 				// The retained bytes were cryptographically/provider verified by an earlier acquisition. Repeated Download/Prepare
@@ -773,6 +779,9 @@ namespace Nexus.Client.CollectionManagement
 			var info = new FileInfo(path);
 			if (info.Length != expectedArtifact.ByteLength)
 				throw new InvalidDataException("The managed mod archive length no longer matches the previously verified Collection archive.");
+			if (verifiedArchive.VerificationBasis == CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash &&
+				_artifactStore.IsTrustedPreparationArchiveCurrent(path, expectedArtifact))
+				return;
 
 			// Imported files and legacy archive snapshots now resolve through the verified managed Mods copy.
 			if (verifiedArchive.SourceKind == CollectionVerifiedArchiveSourceKind.ManualFile ||
@@ -895,8 +904,9 @@ namespace Nexus.Client.CollectionManagement
 			return index <= 0 ? String.Empty : path.Substring(0, index);
 		}
 
+		/// <summary>Builds exact native choices using the captured Collection automatic-install policy.</summary>
 		private static ModInstallationFomodSelectionRecipe CreateFomodRecipe(CollectionVortexFomodSelection selection,
-			Version scriptVersion)
+			Version scriptVersion, bool honorRecordedSelections)
 		{
 			if (selection == null)
 				throw new ArgumentNullException(nameof(selection));
@@ -913,7 +923,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 				steps.Add(new ModInstallationFomodStepSelection(stepIndex, sourceStep.Name, groups));
 			}
-			return new ModInstallationFomodSelectionRecipe(scriptVersion, steps);
+			return new ModInstallationFomodSelectionRecipe(scriptVersion, steps, honorRecordedSelections);
 		}
 
 		private static ModInstallationRecipeValidation CreateFomodValidation(CollectionsRetainedArtifact artifact,
@@ -1409,6 +1419,9 @@ namespace Nexus.Client.CollectionManagement
 					writer.Write(capability.CapabilityId);
 					writer.Write(capability.Version);
 				}
+				// Preserve legacy manual identities while binding automatic replay to its selection policy.
+				if (fomodRecipe.HonorRecordedSelections)
+					writer.Write("collection-recorded-selections/1");
 				writer.Write(fomodRecipe.ScriptVersion.ToString());
 				writer.Write(fomodRecipe.Steps.Count);
 				foreach (ModInstallationFomodStepSelection step in fomodRecipe.Steps)

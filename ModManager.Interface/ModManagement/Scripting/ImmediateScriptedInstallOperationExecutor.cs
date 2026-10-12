@@ -347,8 +347,8 @@ namespace Nexus.Client.ModManagement.Scripting
 			// Retain that selection too: the recipe still requires the file in its complete replay.
 			if (m_sfcFileSelectionCache != null && (!String.IsNullOrEmpty(strLinkResult) ||
 				IsAlreadyActiveVirtualFile(strTo, strVirtualPath) ||
-				(p_imoOperation.LinkDecision != null && p_imoOperation.LinkDecision.HasLinkOutcome &&
-				 p_imoOperation.LinkDecision.LinkOutcome == false && IsOwnedInactiveVirtualFile(strTo, strVirtualPath))))
+				((m_booDeferPluginReconciliation || (p_imoOperation.LinkDecision != null && p_imoOperation.LinkDecision.HasLinkOutcome &&
+				  p_imoOperation.LinkDecision.LinkOutcome == false)) && IsOwnedInactiveVirtualFile(strTo, strVirtualPath))))
 				m_sfcFileSelectionCache.RecordSelection(p_imoOperation.SourcePath, p_imoOperation.DestinationPath);
 
 			return true;

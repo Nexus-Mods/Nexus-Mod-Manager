@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using Nexus.Client.CollectionManagement;
@@ -15,6 +16,40 @@ namespace NexusClientTests
 	/// </summary>
 	public class CollectionsOperationStoreTests
 	{
+		/// <summary>Every failed mod keeps its exact cause after the journal is reopened, without changing native status or durability.</summary>
+		[Test]
+		public void NativeFailures_RetainEveryMessageAcrossStoreReopen()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionRevisionIdentity revision = SeedNexusRevision(store, "failure-messages", "revision", 1);
+				CollectionOperationIdentity identity = CollectionOperationIdentity.CreateNew();
+				var children = new List<CollectionNativeChildOperation>();
+				foreach (int sequence in new[] { 1, 2 })
+				{
+					ModOperationIdentity native = CreateNativeIdentity("target-a", ModOperationOrigin.Collection,
+						ModInstallMethod.Virtual, ModInstallRoot.Data, "recipe");
+					children.Add(CreateChild(sequence, revision, "failed-" + sequence, native, CollectionNativeChildAction.ActivateOrReinstall,
+						CollectionNativeChildCheckpoint.Reconciled, new ModOperationResult(native, ModOperationReportedStatus.Failed,
+							sequence == 1 ? ModOperationDurability.NotStarted : ModOperationDurability.VerifiedRolledBack, "Exact failure " + sequence)));
+				}
+				var journal = new CollectionsOperationStore(store);
+				journal.SaveOperation(CreateOperation(identity, CollectionOperationKind.ApplyResolvedPlan, revision.Collection,
+					CollectionTargetIdentity.FromFingerprint("target-a"), revision, 1, CollectionOperationPhase.Completed,
+					CollectionOperationResultState.StoppedPartial, children));
+				CollectionOperation restored = new CollectionsOperationStore(new CollectionsStore(root)).GetOperation(identity);
+				Assert.AreEqual(2, restored.NativeChildren.Count);
+				foreach (CollectionNativeChildOperation child in restored.NativeChildren)
+				{
+					Assert.AreEqual("Exact failure " + child.Sequence, child.NativeResult.Message);
+					Assert.AreEqual(children[child.Sequence - 1].NativeResult.Durability, child.NativeResult.Durability);
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void Operation_RoundTripsIntentAndNativeAttemptIdentity()
 		{
@@ -447,6 +482,43 @@ namespace NexusClientTests
 				var changedRecipe = new CollectionMemberBinding(association, binding.MemberKey, binding.NativeMod,
 					CollectionRecipeIdentity.FromFingerprint("other-recipe"), binding.BindingKind);
 				Assert.That(journal.GetVerifiedMemberInstallContext(association, changedRecipe), Is.Null);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Advancing one mod must leave all previous journal rows untouched while keeping the durable operation checkpoint.</summary>
+		[Test]
+		public void SaveOperation_UpdatesOnlyChangedChildRows()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionRevisionIdentity revision = SeedNexusRevision(store, "delta-write", "rev-a", 1);
+				CollectionOperationIdentity identity = CollectionOperationIdentity.CreateNew();
+				CollectionTargetIdentity target = CollectionTargetIdentity.FromFingerprint("target-a");
+				CollectionNativeChildOperation first = CreateIntentChild(1, revision, "first", target.Fingerprint);
+				CollectionNativeChildOperation second = CreateIntentChild(2, revision, "second", target.Fingerprint);
+				var journal = new CollectionsOperationStore(store);
+				journal.SaveOperation(CreateOperation(identity, CollectionOperationKind.ApplyResolvedPlan, revision.Collection, target, revision,
+					1, CollectionOperationPhase.Preparing, CollectionOperationResultState.Pending, new[] { first, second }));
+				using (var connection = new SQLiteConnection(new SQLiteConnectionStringBuilder { DataSource = store.DatabasePath, Pooling = false }.ConnectionString))
+				{
+					connection.Open();
+					using (SQLiteCommand command = connection.CreateCommand())
+					{
+						command.CommandText = "CREATE TRIGGER reject_unchanged_child BEFORE UPDATE ON native_operation_children WHEN OLD.sequence=1 BEGIN SELECT RAISE(ABORT, 'Unchanged history was rewritten'); END;";
+						command.ExecuteNonQuery();
+					}
+				}
+				var advanced = new CollectionNativeChildOperation(second.Sequence, second.Member, second.Action, second.NativeOperation,
+					CollectionNativeChildCheckpoint.RecoveryInputsReady, null);
+				Assert.DoesNotThrow(() => journal.SaveOperation(CreateOperation(identity, CollectionOperationKind.ApplyResolvedPlan,
+					revision.Collection, target, revision, 2, CollectionOperationPhase.Preparing, CollectionOperationResultState.Pending, new[] { first, advanced })));
+				CollectionOperation stored = journal.GetOperation(identity);
+				Assert.AreEqual(2, stored.CheckpointSequence);
+				Assert.AreEqual(CollectionNativeChildCheckpoint.IntentPersisted, stored.NativeChildren[0].Checkpoint);
+				Assert.AreEqual(CollectionNativeChildCheckpoint.RecoveryInputsReady, stored.NativeChildren[1].Checkpoint);
 			}
 			finally { Directory.Delete(root, true); }
 		}

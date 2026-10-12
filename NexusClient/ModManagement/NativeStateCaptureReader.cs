@@ -108,6 +108,7 @@ namespace Nexus.Client.ModManagement
 		{
 			var promotedTargets = new HashSet<ModDeploymentTarget>(install.DeploymentTargets.Select(x => x.Target));
 			var result = new List<NativeStateCaptureVirtualFallback>();
+			var fallbackDirectoryFiles = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
 			foreach (IGrouping<ModDeploymentTarget, VirtualModReadLink> group in virtualState.Links
 				.GroupBy(x => x.Target)
@@ -141,7 +142,7 @@ namespace Nexus.Client.ModManagement
 							unavailable = true;
 							break;
 						}
-						if (File.Exists(overwritePath))
+						if (ExistsInCapturedDirectory(overwritePath, fallbackDirectoryFiles))
 							existingFallbacks.Add(Path.GetFullPath(overwritePath));
 					}
 					catch (Exception exception) when (IsPathObservationException(exception))
@@ -182,6 +183,38 @@ namespace Nexus.Client.ModManagement
 			}
 
 			return result;
+		}
+
+		/// <summary>Enumerates each fallback directory once per capture instead of probing every absent backup file separately.</summary>
+		private static bool ExistsInCapturedDirectory(string path, IDictionary<string, HashSet<string>> directoryFiles)
+		{
+			try
+			{
+				string directory = Path.GetFullPath(Path.GetDirectoryName(path));
+				HashSet<string> files;
+				if (!directoryFiles.TryGetValue(directory, out files))
+				{
+					try
+					{
+						files = Directory.Exists(directory)
+							? new HashSet<string>(Directory.EnumerateFiles(directory).Select(Path.GetFileName), StringComparer.OrdinalIgnoreCase)
+							: new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+					}
+					catch (Exception exception) when (IsPathObservationException(exception))
+					{
+						// Preserve the individual observation path for directories that cannot be enumerated.
+						files = null;
+					}
+					directoryFiles[directory] = files;
+				}
+				string fileName = Path.GetFileName(path).TrimEnd(' ', '.');
+				// Directory listings expose long names; preserve legacy paths that use a DOS short-name alias.
+				return (files == null || files.Contains(fileName) || fileName.IndexOf('~') >= 0) && File.Exists(path);
+			}
+			catch (Exception exception) when (IsPathObservationException(exception))
+			{
+				return File.Exists(path);
+			}
 		}
 
 		private List<NativeStateCaptureRoot> CaptureRoots(List<NativeStateCaptureIssue> issues)

@@ -137,12 +137,12 @@ namespace Nexus.Client.CollectionManagement
 				_planStore, _associationStore, _artifactStore, _referenceStore, manifestStore);
 			_diffPlanner = new CollectionReplacementDiffPlanner();
 			_environmentProjector = new CollectionReplacementEnvironmentProjector();
-			_matchEngine = CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager);
+			_matchEngine = CollectionInstallDestinationResolver.CreateMatchEngine(_services.ModManager, _artifactStore);
 			_dependencyPlanner = new CollectionDependencyPhasePlanner();
 			_impactPlanner = new CollectionConflictImpactPlanner();
 			_recipePreparer = new CollectionNativeRecipePreparer(new CollectionsCatalogStore(_store),
 				new CollectionsRevisionSourceStore(_store), _artifactStore, _referenceStore, new Nexus.Client.OnlineServices.NexusMods.Collections.NexusCollectionManifestNormalizer(),
-				new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(), new CollectionMemberEffectPreviewBuilder());
+				new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(), new CollectionMemberEffectPreviewBuilder(_store));
 			_nativeStateReader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);
 			_localCapture = new CollectionLocalCaptureApplicationService(_services, _gameStorageService);
@@ -368,7 +368,7 @@ namespace Nexus.Client.CollectionManagement
 					CollectionVerifiedArchive archive = archives.SingleOrDefault(x => x.Request.MemberKey.Equals(phaseMember.MemberKey));
 					if (archive == null) archive = match.VerifiedArchive;
 					if (archive == null) throw new InvalidOperationException("Replacement preparation requires the exact verified archive for " + phaseMember.MemberKey + ".");
-					IMod mod = ResolveManagedMod(match, archive, cancellationToken);
+					IMod mod = ResolveManagedMod(match, archive, cancellationToken, plan.Policy.AutomaticallyInstall);
 					PreparedCollectionNativeRecipe additiveRecipe = additiveRuntime.GetPreparedRecipe(phaseMember.MemberKey);
 					ModInstallContext context = additiveRecipe == null ? ResolveInstallContext(match) : additiveRecipe.InstallContext;
 					CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode,
@@ -404,7 +404,7 @@ namespace Nexus.Client.CollectionManagement
 				CollectionVerifiedArchive archive = review.VerifiedArchives.SingleOrDefault(x => x.Request.MemberKey.Equals(memberKey)) ?? match.VerifiedArchive;
 				if (archive == null) throw new InvalidOperationException("Replacement barrier revalidation lost the exact verified archive for " + memberKey + ".");
 				PreparedCollectionNativeRecipe prior = review.PreparedRecipes.Single(x => x.Member.MemberKey.Equals(memberKey));
-				IMod mod = ResolveManagedMod(match, archive, cancellationToken);
+				IMod mod = ResolveManagedMod(match, archive, cancellationToken, review.Plan.Policy.AutomaticallyInstall);
 				result.Add(CollectionInstallRootCorrection.Attach(_recipePreparer.PrepareReplacementExact(review.Plan, match.Member, archive, mod,
 					_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, prior.InstallContext,
 					context.CurrentSetup.NativeState, context.ObservedEnvironment, prior.SkipReadmeFiles,
@@ -566,17 +566,21 @@ namespace Nexus.Client.CollectionManagement
 			return _services.ModManager.CapturePreferredInstallContext(match.Member.RequiresGameRootInstall ? ModInstallRoot.GameRoot : ModInstallRoot.Default);
 		}
 
-		private IMod ResolveManagedMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive, CancellationToken cancellationToken)
+		private IMod ResolveManagedMod(CollectionMemberMatchResult match, CollectionVerifiedArchive archive,
+			CancellationToken cancellationToken, bool automaticallySelectArchive)
 		{
+			List<IMod> trusted = ModManagerCollectionManagedArchiveSource.FindTrustedCachedManagedMods(_services.ModManager, _artifactStore, archive);
 			if (match.MatchedNativeMod != null)
 			{
 				List<IMod> active = _services.ModManager.InstallationLog.ActiveMods.Where(x => x != null &&
 					StringComparer.OrdinalIgnoreCase.Equals(_services.ModManager.InstallationLog.GetModKey(x), match.MatchedNativeMod.Identity.NativeModKey)).ToList();
-				if (active.Count == 1 && CollectionArchiveContentMatcher.MatchesFile(CollectionArchiveContentMatcher.GetManagedArchivePath(active[0]), archive.Artifact, cancellationToken))
+				if (active.Count == 1 && (trusted.Contains(active[0]) || CollectionArchiveContentMatcher.MatchesFile(CollectionArchiveContentMatcher.GetManagedArchivePath(active[0]), archive.Artifact, cancellationToken)))
 					return active[0];
 			}
-			List<IMod> exact = CollectionArchiveContentMatcher.FindExactManagedMods(_services.ModManager, archive.Artifact, cancellationToken);
+			List<IMod> exact = trusted.Count > 0 ? trusted : CollectionArchiveContentMatcher.FindExactManagedMods(_services.ModManager, archive.Artifact, cancellationToken);
 			if (exact.Count == 1) return exact[0];
+			if (automaticallySelectArchive && exact.Count > 1)
+				return ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exact);
 			if (exact.Count == 0) throw new InvalidOperationException("The exact Download / Prepare archive is no longer registered in the native mod library.");
 			throw new InvalidOperationException("Multiple native managed archives match the exact replacement archive bytes.");
 		}

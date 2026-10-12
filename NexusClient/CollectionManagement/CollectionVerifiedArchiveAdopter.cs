@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -19,6 +20,7 @@ namespace Nexus.Client.CollectionManagement
 	public sealed class CollectionVerifiedArchiveAdopter
 	{
 		internal const string VerifiedReferenceRolePrefix = "verified-acquisition-";
+		internal const string MetadataReferenceRolePrefix = "metadata-trusted-acquisition-";
 		private readonly ICollectionManagedArchiveSource _archiveSource;
 		private readonly ICollectionArchiveIdentityVerifier _identityVerifier;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -55,11 +57,29 @@ namespace Nexus.Client.CollectionManagement
 		/// <returns>A verified immutable result, or <c>null</c> when no candidate can be proven exact.</returns>
 		public CollectionVerifiedArchive TryAdopt(CollectionAcquisitionRequest request, CancellationToken cancellationToken)
 		{
+			return TryAdopt(request, cancellationToken, false);
+		}
+
+		/// <summary>Adopts an existing library archive, optionally trusting exact Nexus metadata and unchanged saved SHA-256 stamps.</summary>
+		public CollectionVerifiedArchive TryAdopt(CollectionAcquisitionRequest request, CancellationToken cancellationToken, bool skipExistingArchiveMd5)
+		{
+			return TryAdopt(request, cancellationToken, skipExistingArchiveMd5, false);
+		}
+
+		/// <summary>Uses the first exact matching archive in a stable order when the plan authorizes Automatic Mode.</summary>
+		public CollectionVerifiedArchive TryAdopt(CollectionAcquisitionRequest request, CancellationToken cancellationToken,
+			bool skipExistingArchiveMd5, bool automaticallySelectArchive)
+		{
 			if (request == null)
 				throw new ArgumentNullException(nameof(request));
 
 			string referenceRole = CreateReferenceRole(request.SelectedArtifact);
 			string ownerId = request.RequestId.ToString("D");
+			if (skipExistingArchiveMd5)
+			{
+				CollectionVerifiedArchive cached = TryAdoptCachedExistingArchive(request, ownerId, referenceRole, cancellationToken, automaticallySelectArchive);
+				if (cached != null) return cached;
+			}
 			CollectionVerifiedArchive alreadyVerified = TryLoadExistingRequestReference(request, ownerId, referenceRole, cancellationToken);
 			if (alreadyVerified != null)
 				return alreadyVerified;
@@ -80,7 +100,8 @@ namespace Nexus.Client.CollectionManagement
 					CollectionsRetainedArtifactReferenceRecord temporary = AcquireTemporaryReference(retained, ownerId);
 					try
 					{
-						if (_artifactStore.VerifyArtifact(retained.ArtifactId, cancellationToken))
+						if (CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, retained.ByteLength) &&
+							_artifactStore.VerifyArtifact(retained.ArtifactId, cancellationToken))
 							return Protect(request, retained, ownerId, referenceRole,
 								CollectionVerifiedArchiveSourceKind.RetainedContent,
 								CollectionArchiveVerificationBasis.ExpectedContentHash);
@@ -92,13 +113,14 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
-			IReadOnlyList<CollectionManagedArchiveCandidate> candidates = _archiveSource.FindCandidates(request.SelectedArtifact);
+			IReadOnlyList<CollectionManagedArchiveCandidate> candidates = OrderCandidates(_archiveSource.FindCandidates(request.SelectedArtifact));
 			if (candidates == null || candidates.Count == 0)
 				return null;
 
 			CollectionsRetainedArtifact verifiedArtifact = null;
 			CollectionsRetainedArtifactReferenceRecord verifiedTemporary = null;
 			CollectionManagedArchiveCandidate verifiedCandidate = null;
+			bool trustedMetadata = false;
 			var visitedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			try
 			{
@@ -116,10 +138,18 @@ namespace Nexus.Client.CollectionManagement
 					string fullPath = Path.GetFullPath(candidate.ArchivePath);
 					if (!visitedPaths.Add(fullPath) || !File.Exists(fullPath))
 						continue;
+					// Skipping MD5 trusts repository metadata, not a size contradicting the curator's exact file.
+					if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, new FileInfo(fullPath).Length))
+						continue;
 
-					// Hash and reference the native archive without duplicating it. Provider verification and the final
-					// digest check below still bind the requested artifact to the observed library bytes.
-					CollectionsRetainedArtifact candidateArtifact = _artifactStore.ReferenceArchiveFile(fullPath, cancellationToken);
+					// SHA-256 still tracks the observed bytes when the user explicitly trusts existing Nexus metadata.
+					string candidateDomain; long candidateModId; long candidateFileId;
+					bool skipCandidateMd5 = skipExistingArchiveMd5 && !candidate.IsFallback &&
+						NexusCollectionModFileArtifactIdentity.TryParse(request.SelectedArtifact, out candidateDomain, out candidateModId, out candidateFileId);
+					bool trustCandidateMetadata = skipCandidateMd5 && expectedHash == null;
+					CollectionsRetainedArtifact candidateArtifact = skipCandidateMd5
+						? _artifactStore.ReferenceArchiveFileWithoutMd5(fullPath, cancellationToken)
+						: _artifactStore.ReferenceArchiveFile(fullPath, cancellationToken);
 					if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, candidateArtifact.ByteLength))
 						continue;
 					CollectionsRetainedArtifactReferenceRecord temporary = AcquireTemporaryReference(candidateArtifact, ownerId);
@@ -127,7 +157,11 @@ namespace Nexus.Client.CollectionManagement
 					try
 					{
 						bool exact;
-						if (expectedHash != null)
+						if (trustCandidateMetadata)
+						{
+							exact = true; // The captured user preference trusts the already-matching Nexus metadata.
+						}
+						else if (expectedHash != null)
 						{
 							exact = expectedHash.Equals(candidateArtifact.ContentHash);
 						}
@@ -147,21 +181,27 @@ namespace Nexus.Client.CollectionManagement
 						if (!exact)
 							continue;
 
-						// Archive registration already SHA-256 hashed these exact bytes. Once provider/expected identity agrees,
+						// Archive registration already SHA-256 hashed these exact bytes. Once identity is accepted,
 						// promote that just-published proof so later preparation does not reread multi-gigabyte retained content.
 						if (!_artifactStore.PromotePublishedArtifactVerification(candidateArtifact) &&
 							!_artifactStore.VerifyArtifact(candidateArtifact.ArtifactId, cancellationToken))
 							throw new InvalidDataException("The just-published Collection archive changed during exact identity verification.");
 
 						if (verifiedArtifact != null && !verifiedArtifact.Equals(candidateArtifact))
-							throw new InvalidDataException("Multiple managed archives claim the same Collection artifact identity but verify to different immutable bytes.");
+							throw new CollectionArchiveIdentityConflictException(request.SelectedArtifact, verifiedCandidate.ArchivePath, fullPath);
 
 						if (verifiedArtifact == null)
 						{
 							verifiedArtifact = candidateArtifact;
 							verifiedTemporary = temporary;
 							verifiedCandidate = candidate;
+							trustedMetadata = trustCandidateMetadata;
 							keepTemporary = true;
+						}
+						if (automaticallySelectArchive)
+						{
+							ReportAutomaticArchiveSelection(candidate, candidates.Count);
+							break;
 						}
 					}
 					finally
@@ -176,12 +216,12 @@ namespace Nexus.Client.CollectionManagement
 
 				ModManagerCollectionManagedArchiveSource managedSource = _archiveSource as ModManagerCollectionManagedArchiveSource;
 				string nexusDomain; long nexusModId; long nexusFileId;
-				if (managedSource != null && NexusCollectionModFileArtifactIdentity.TryParse(request.SelectedArtifact, out nexusDomain, out nexusModId, out nexusFileId))
+				if (!trustedMetadata && managedSource != null && NexusCollectionModFileArtifactIdentity.TryParse(request.SelectedArtifact, out nexusDomain, out nexusModId, out nexusFileId))
 					managedSource.ConfirmVerifiedCandidate(verifiedCandidate, request.SelectedArtifact, verifiedArtifact, cancellationToken);
 
 				return Protect(request, verifiedArtifact, ownerId, referenceRole,
 					CollectionVerifiedArchiveSourceKind.ManagedArchive,
-					expectedHash == null
+					trustedMetadata ? CollectionArchiveVerificationBasis.ManagedArchiveMetadata : expectedHash == null
 						? CollectionArchiveVerificationBasis.ProviderContentIdentity
 						: CollectionArchiveVerificationBasis.ExpectedContentHash);
 			}
@@ -216,6 +256,8 @@ namespace Nexus.Client.CollectionManagement
 			string fullPath = Path.GetFullPath(filePath);
 			if (!File.Exists(fullPath))
 				throw new FileNotFoundException("The selected manual acquisition file no longer exists.", fullPath);
+			if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, new FileInfo(fullPath).Length))
+				return null;
 
 			CollectionsRetainedArtifact candidateArtifact = _artifactStore.ReferenceArchiveFile(fullPath, cancellationToken);
 			if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, candidateArtifact.ByteLength))
@@ -367,7 +409,11 @@ namespace Nexus.Client.CollectionManagement
 				throw new ArgumentException("Verified Collection acquisition bytes may be rebound only to the same exact revision, target, member, artifact and recipe.", nameof(refreshedRequest));
 			}
 
-			if (!_artifactStore.VerifyArtifact(verifiedArchive.Artifact.ArtifactId, cancellationToken))
+			bool cachedPreparation = verifiedArchive.VerificationBasis == CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash &&
+				_artifactStore.IsTrustedPreparationArchiveCurrent(verifiedArchive.Artifact);
+			if (!CollectionExternalArtifactIdentity.MatchesByteLength(refreshedRequest.SelectedArtifact, verifiedArchive.Artifact.ByteLength))
+				throw new InvalidDataException("The previously acquired archive size does not match the Collection's requested file. Acquire the requested archive again.");
+			if (!cachedPreparation && !_artifactStore.VerifyArtifact(verifiedArchive.Artifact.ArtifactId, cancellationToken))
 				throw new InvalidDataException("The previously verified Collection acquisition artifact is missing or corrupt.");
 			if (refreshedRequest.SelectedArtifact.ExpectedContentHash != null &&
 				!refreshedRequest.SelectedArtifact.ExpectedContentHash.Equals(verifiedArchive.Artifact.ContentHash))
@@ -375,6 +421,9 @@ namespace Nexus.Client.CollectionManagement
 
 			string ownerId = refreshedRequest.RequestId.ToString("D");
 			string role = CreateReferenceRole(refreshedRequest.SelectedArtifact);
+			if (IsMetadataTrusted(verifiedArchive.VerificationBasis))
+				return Protect(refreshedRequest, verifiedArchive.Artifact, ownerId, role,
+					CollectionVerifiedArchiveSourceKind.RetainedContent, verifiedArchive.VerificationBasis);
 			CollectionVerifiedArchive existing = TryLoadExistingRequestReference(refreshedRequest, ownerId, role, cancellationToken);
 			if (existing != null)
 				return existing;
@@ -398,6 +447,72 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionVerifiedArchive TryAdopt(CollectionAcquisitionRequest request)
 		{
 			return TryAdopt(request, CancellationToken.None);
+		}
+
+		/// <summary>Trusts only exact existing Nexus candidates whose saved real SHA-256 still describes an unchanged file stamp.</summary>
+		private CollectionVerifiedArchive TryAdoptCachedExistingArchive(CollectionAcquisitionRequest request,
+			string ownerId, string expectedRole, CancellationToken cancellationToken, bool automaticallySelectArchive)
+		{
+			string domain; long modId; long fileId;
+			if (!NexusCollectionModFileArtifactIdentity.TryParse(request.SelectedArtifact, out domain, out modId, out fileId)) return null;
+			string metadataRole = CreateMetadataReferenceRole(request.SelectedArtifact);
+			foreach (CollectionsRetainedArtifactReferenceRecord reference in _referenceStore.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Download, ownerId))
+			{
+				if ((reference.Role.StartsWith(VerifiedReferenceRolePrefix, StringComparison.Ordinal) ||
+					reference.Role.StartsWith(MetadataReferenceRolePrefix, StringComparison.Ordinal)) &&
+					!StringComparer.Ordinal.Equals(reference.Role, expectedRole) && !StringComparer.Ordinal.Equals(reference.Role, metadataRole))
+					throw new InvalidDataException("An acquisition request identifier is already bound to a different artifact identity.");
+			}
+			IReadOnlyList<CollectionManagedArchiveCandidate> candidates = OrderCandidates(_archiveSource.FindCandidates(request.SelectedArtifact));
+			if (candidates == null) return null;
+			CollectionsRetainedArtifact matched = null;
+			string matchedPath = null;
+			foreach (CollectionManagedArchiveCandidate candidate in candidates)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				if (candidate == null || candidate.IsFallback || !MatchesRequestedIdentity(candidate, request.SelectedArtifact)) continue;
+				if (!File.Exists(candidate.ArchivePath)) continue;
+				if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, new FileInfo(candidate.ArchivePath).Length)) continue;
+				CollectionsRetainedArtifact artifact = _artifactStore.TryReferenceCachedArchiveFile(candidate.ArchivePath, cancellationToken);
+				if (artifact == null) return null; // Unknown or changed files still need their first/current hashing pass.
+				if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, artifact.ByteLength) ||
+					(request.SelectedArtifact.ExpectedContentHash != null && !request.SelectedArtifact.ExpectedContentHash.Equals(artifact.ContentHash)))
+					return null;
+				if (matched != null && !matched.Equals(artifact))
+					throw new CollectionArchiveIdentityConflictException(request.SelectedArtifact, matchedPath, candidate.ArchivePath);
+				matched = artifact;
+				matchedPath = candidate.ArchivePath;
+				if (automaticallySelectArchive)
+				{
+					ReportAutomaticArchiveSelection(candidate, candidates.Count);
+					break;
+				}
+			}
+			return matched == null ? null : Protect(request, matched, ownerId, expectedRole,
+				CollectionVerifiedArchiveSourceKind.ManagedArchive, CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash);
+		}
+
+		/// <summary>Prefers exact repository metadata, then uses archive paths to make automatic choice independent of discovery order.</summary>
+		private static IReadOnlyList<CollectionManagedArchiveCandidate> OrderCandidates(IReadOnlyList<CollectionManagedArchiveCandidate> candidates)
+		{
+			return candidates == null ? null : candidates.Where(x => x != null).OrderBy(x => x.IsFallback)
+				.ThenBy(x => Path.GetFullPath(x.ArchivePath), StringComparer.OrdinalIgnoreCase).ToList();
+		}
+
+		/// <summary>Reports which archive Automatic Mode selected when several local candidates were discovered.</summary>
+		private static void ReportAutomaticArchiveSelection(CollectionManagedArchiveCandidate candidate, int candidateCount)
+		{
+			if (candidateCount < 2) return;
+			System.Diagnostics.Trace.TraceInformation("Collection Automatic Mode selected existing archive: {0}", candidate.ArchivePath);
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+				"Collections.Workflow.SelectedExistingArchive", "Automatic Mode selected existing archive: {0}", Path.GetFileName(candidate.ArchivePath)), true);
+		}
+
+		/// <summary>Distinguishes explicit metadata trust from provider-verified acquisition results.</summary>
+		internal static bool IsMetadataTrusted(CollectionArchiveVerificationBasis basis)
+		{
+			return basis == CollectionArchiveVerificationBasis.ManagedArchiveMetadata ||
+				basis == CollectionArchiveVerificationBasis.ManagedArchiveMetadataWithCachedHash;
 		}
 
 		private CollectionVerifiedArchive TryLoadReusableVerifiedArtifact(CollectionAcquisitionRequest request,
@@ -424,6 +539,15 @@ namespace Nexus.Client.CollectionManagement
 
 			if (artifactIds.Count == 0)
 				return null;
+			// Old acquisitions may have accepted stale native file metadata. The retained manifest's size
+			// disqualifies those bytes before they can be reused or treated as a competing exact archive.
+			artifactIds.RemoveWhere(artifactId =>
+			{
+				CollectionsRetainedArtifact recorded = _artifactStore.GetArtifact(artifactId);
+				return recorded != null && !CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, recorded.ByteLength);
+			});
+			if (artifactIds.Count == 0)
+				return null;
 			if (artifactIds.Count != 1)
 				throw new InvalidDataException("The same exact Collection provider artifact is durably bound to different retained byte identities.");
 
@@ -437,6 +561,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionsRetainedArtifact artifact = _artifactStore.GetArtifact(reusableArtifactId);
 			if (artifact == null)
 				throw new InvalidDataException("Previously verified Collection acquisition content is no longer recorded in retained storage.");
+			if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, artifact.ByteLength))
+				return null;
 
 			if (_artifactStore.IsArchiveReference(artifact.ArtifactId) && !_artifactStore.VerifyArtifact(artifact.ArtifactId, cancellationToken))
 				return null;
@@ -472,6 +598,12 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				if (!StringComparer.Ordinal.Equals(reference.Role, expectedRole))
 					throw new InvalidDataException("An acquisition request identifier is already bound to a different verified artifact identity.");
+				CollectionsRetainedArtifact recorded = _artifactStore.GetArtifact(reference.ArtifactId);
+				if (recorded != null && !CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, recorded.ByteLength))
+				{
+					_referenceStore.ReleaseReference(reference.ReferenceId);
+					continue;
+				}
 				if (matchingReference != null && !StringComparer.Ordinal.Equals(matchingReference.ArtifactId, reference.ArtifactId))
 					throw new InvalidDataException("An acquisition request has multiple verified retained artifacts for one exact source identity.");
 				matchingReference = reference;
@@ -504,9 +636,22 @@ namespace Nexus.Client.CollectionManagement
 			string ownerId, string role, CollectionVerifiedArchiveSourceKind sourceKind,
 			CollectionArchiveVerificationBasis verificationBasis)
 		{
+			if (!CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, artifact.ByteLength))
+				throw new InvalidDataException("The acquired archive size does not match the Collection's requested file.");
+			bool trustedMetadata = IsMetadataTrusted(verificationBasis);
+			if (trustedMetadata) role = CreateMetadataReferenceRole(request.SelectedArtifact);
+			foreach (CollectionsRetainedArtifactReferenceRecord previous in _referenceStore.GetReferencesForOwner(
+				CollectionsRetainedArtifactOwnerKind.Download, ownerId))
+			{
+				if (!StringComparer.Ordinal.Equals(previous.Role, role)) continue;
+				CollectionsRetainedArtifact recorded = _artifactStore.GetArtifact(previous.ArtifactId);
+				if (recorded != null && !CollectionExternalArtifactIdentity.MatchesByteLength(request.SelectedArtifact, recorded.ByteLength))
+					_referenceStore.ReleaseReference(previous.ReferenceId);
+			}
 			CollectionsRetainedArtifactReferenceRecord reference = _referenceStore.AcquireReference(
 				artifact.ArtifactId, CollectionsRetainedArtifactOwnerKind.Download, ownerId, role);
-			if (_acquisitionStore != null)
+			// Metadata trust must never become a cached provider/MD5 verification for future default-mode preparations.
+			if (_acquisitionStore != null && !trustedMetadata)
 				_acquisitionStore.MarkVerified(request, artifact.ArtifactId);
 			return new CollectionVerifiedArchive(request, artifact, reference, sourceKind, verificationBasis);
 		}
@@ -534,6 +679,12 @@ namespace Nexus.Client.CollectionManagement
 			return StringComparer.Ordinal.Equals(candidate.StableId, requestedArtifact.StableId);
 		}
 
+		/// <summary>Creates a separate durable role for user-trusted Nexus metadata without claiming provider verification.</summary>
+		internal static string CreateMetadataReferenceRole(CollectionArtifactReference artifact)
+		{
+			return MetadataReferenceRolePrefix + CreateReferenceRole(artifact).Substring(VerifiedReferenceRolePrefix.Length);
+		}
+
 		/// <summary>Creates the deterministic durable verified-acquisition role for one exact selected artifact.</summary>
 		internal static string CreateReferenceRole(CollectionArtifactReference artifact)
 		{
@@ -549,5 +700,23 @@ namespace Nexus.Client.CollectionManagement
 				return builder.ToString();
 			}
 		}
+	}
+
+	/// <summary>Identifies the local archives which require an explicit or automatic acquisition choice.</summary>
+	internal sealed class CollectionArchiveIdentityConflictException : IOException
+	{
+		/// <summary>Creates a user-readable conflict without losing the requested identity or candidate paths.</summary>
+		internal CollectionArchiveIdentityConflictException(CollectionArtifactReference artifact, string firstPath, string secondPath)
+			: base(Nexus.Client.Util.Localization.LanguageManager.Format("Collections.Acquisition.ArchiveConflict",
+				"Two existing archives match {0}, but their contents differ:\n{1}\n{2}", artifact.ToString(), firstPath, secondPath))
+		{
+			Artifact = artifact;
+			FirstPath = firstPath;
+			SecondPath = secondPath;
+		}
+
+		internal CollectionArtifactReference Artifact { get; }
+		internal string FirstPath { get; }
+		internal string SecondPath { get; }
 	}
 }

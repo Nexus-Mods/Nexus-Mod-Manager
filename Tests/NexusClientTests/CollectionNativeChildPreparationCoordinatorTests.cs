@@ -67,6 +67,40 @@ namespace NexusClientTests
 			Assert.IsFalse(CollectionNativeChildPreparationCoordinator.IsRetryableRevisionUpdateAttempt(child, CollectionNativeChildWorkflowMode.Additive));
 		}
 
+		/// <summary>A known failed mod is attempted once per additive pass; an unknown native outcome still blocks continuation.</summary>
+		[TestCase(ModOperationDurability.NotStarted)]
+		[TestCase(ModOperationDurability.VerifiedRolledBack)]
+		[TestCase(ModOperationDurability.Unknown)]
+		public void AdditivePreparation_AdvancesOnlyPastConfirmedUnchangedFailures(ModOperationDurability durability)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root);
+				PlanContext context = CreatePlanContext(fixture, null, new CollectionNativeFileState[0]);
+				CollectionVerifiedArchive archive = CreateVerifiedArchive(fixture, context.Plan, context.Member.MemberKey, "incoming");
+				PreparedPlans plans = FinalizePlans(fixture, context, archive);
+				CollectionNativeChildPreparationResult prepared = fixture.Preparer.PrepareNext(plans.Operation.Identity,
+					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+					new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory);
+				var failed = new CollectionNativeChildOperation(prepared.Child.Sequence, prepared.Child.Member, prepared.Child.Action,
+					prepared.Child.NativeOperation, CollectionNativeChildCheckpoint.Reconciled,
+					new ModOperationResult(prepared.Child.NativeOperation, ModOperationReportedStatus.Failed, durability, "failure"));
+				fixture.OperationStore.SaveOperation(new CollectionOperation(prepared.Operation.Identity, prepared.Operation.Kind,
+					prepared.Operation.Collection, prepared.Operation.Target, prepared.Operation.Revision, prepared.Operation.PlanIdentity,
+					prepared.Operation.CheckpointSequence + 1, prepared.Operation.Phase, prepared.Operation.ResultState, new[] { failed }));
+				if (durability == ModOperationDurability.Unknown)
+					Assert.Throws<InvalidOperationException>(() => fixture.Preparer.PrepareNext(plans.Operation.Identity,
+						plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+						new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory));
+				else
+					Assert.IsNull(fixture.Preparer.PrepareNext(plans.Operation.Identity,
+						plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, plans.State,
+						new[] { plans.Preview }, new[] { archive }, fixture.InstallInfoDirectory), "The failed member must be excluded from this pass instead of being retried indefinitely.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void RevisionUpdate_VerifiedCommittedAttempt_IsNotClassifiedAsRetryableRollback()
 		{
@@ -345,6 +379,9 @@ namespace NexusClientTests
 					prepared.Operation.CheckpointSequence + 1, prepared.Operation.Phase, prepared.Operation.ResultState,
 					new[] { reconciledChild });
 				fixture.OperationStore.SaveOperation(reconciledOperation);
+				Assert.AreSame(reconciledChild,
+					CollectionNativeChildPreparationCoordinator.FindLatestCommittedActivation(reconciledOperation, Int64.MaxValue));
+				Assert.IsNull(CollectionNativeChildPreparationCoordinator.FindLatestCommittedActivation(reconciledOperation, reconciledChild.Sequence));
 
 				CollectionNativeChildPreparationResult next = fixture.Preparer.PrepareNext(plans.Operation.Identity,
 					plans.Plan, plans.Matches, plans.DependencyPlan, plans.ImpactPlan, safeState,

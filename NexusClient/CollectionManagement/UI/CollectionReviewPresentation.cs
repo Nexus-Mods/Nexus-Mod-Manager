@@ -140,6 +140,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionMemberAcquisitionDisposition.PremiumQueued:
 				case CollectionMemberAcquisitionDisposition.BundledQueued:
 				case CollectionMemberAcquisitionDisposition.DirectQueued:
+				case CollectionMemberAcquisitionDisposition.DeferredByBlockedMember:
 					return CollectionReviewSeverity.Info;
 				default:
 					return CollectionReviewSeverity.Error;

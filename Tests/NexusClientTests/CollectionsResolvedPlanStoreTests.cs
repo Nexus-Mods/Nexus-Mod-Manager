@@ -29,6 +29,12 @@ namespace NexusClientTests
 				byte[] payload = { 1, 2, 3, 4 };
 
 				store.SavePlan(plan, "test-plan/1", payload);
+				Assert.IsTrue(store.HasMatchingMetadata(plan, true));
+				Assert.IsTrue(store.HasMatchingMetadata(plan, false));
+				Assert.IsFalse(store.HasMatchingMetadata(CreatePlan(revision,
+					CollectionTargetIdentity.FromFingerprint("other-target"), plan.Identity), true));
+				Assert.IsFalse(store.HasMatchingMetadata(CreatePlan(revision, plan.Target,
+					CollectionPlanIdentity.From(Guid.NewGuid(), 1)), false));
 				payload[0] = 99;
 				CollectionResolvedPlanRecord loaded = store.GetPlan(plan.Identity);
 

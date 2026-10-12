@@ -27,6 +27,7 @@ namespace Nexus.Client.Util.Downloader
 	    private readonly string _userAgent;
 	    private readonly Queue<Range> _requiredBlocks = new Queue<Range>();
 	    private readonly List<BlockDownloader> _downloaders = new List<BlockDownloader>();
+		private bool _stopStarted;
 
         private string _errorCode;
 		private string _errorInfo;
@@ -312,6 +313,8 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void StartDownload()
 		{
+			lock (_downloaders)
+				_stopStarted = false;
 			Trace.TraceInformation($"[{DiagnosticUrl}] Downloading.");
 
 		    if (!FileExists)
@@ -397,15 +400,19 @@ namespace Nexus.Client.Util.Downloader
 		/// </summary>
 		public void Stop()
 		{
+			BlockDownloader[] downloaders;
 			lock (_downloaders)
 			{
-				foreach (BlockDownloader bdrDownloader in _downloaders)
-				{
-					bdrDownloader.FinishedDownloading -= Downloader_FinishedDownloading;
-					bdrDownloader.Stop();
-				}
+				if (_stopStarted) return;
+				_stopStarted = true;
+				downloaders = _downloaders.ToArray();
+				foreach (BlockDownloader downloader in downloaders)
+					downloader.FinishedDownloading -= Downloader_FinishedDownloading;
 				_downloaders.Clear();
 			}
+			// Stop drains the writer. Its failure callback must be able to enter Downloader_FinishedDownloading.
+			foreach (BlockDownloader downloader in downloaders)
+				downloader.Stop();
 			if (_writer != null)
 			{
 				_writer.Close();
@@ -476,8 +483,10 @@ namespace Nexus.Client.Util.Downloader
 		/// <param name="e">An <see cref="EventArgs"/> desciribing the event arguments.</param>
 		private void Downloader_FinishedDownloading(object sender, EventArgs e)
 		{
+			bool finished;
 			lock (_downloaders)
 			{
+				if (_stopStarted) return;
 				if (((BlockDownloader)sender).ErrorCode == "666")
 				{
 					_errorCode = ((BlockDownloader)sender).ErrorCode;
@@ -487,9 +496,10 @@ namespace Nexus.Client.Util.Downloader
 				BlockDownloader completedDownloader = (BlockDownloader)sender;
 				if (_downloaders.Remove(completedDownloader))
 					_completedDownloadByteCount += completedDownloader.DownloadedByteCount;
+				finished = _downloaders.Count == 0;
 			}
 
-			if (_downloaders.Count == 0)
+			if (finished)
 				Stop();
 		}
 

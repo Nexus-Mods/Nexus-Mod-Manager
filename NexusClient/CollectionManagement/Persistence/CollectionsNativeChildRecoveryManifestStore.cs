@@ -22,6 +22,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 		private const string PayloadFormatV6 = "nmm-ce.collections.child-recovery/6";
 		// V7 wraps existing evidence and assigns plugin verification to the final Collection barrier.
 		private const string PayloadFormatV7 = "nmm-ce.collections.child-recovery/7";
+		// V8 retains native committed checkpoints without optional per-file content-audit evidence.
+		private const string PayloadFormatV8 = "nmm-ce.collections.child-recovery/8";
 		private const long MaximumManifestBytes = 16L * 1024L * 1024L;
 		private const int MaximumPayloadCount = 100000;
 		private readonly CollectionsRetainedArtifactStore _artifactStore;
@@ -53,6 +55,27 @@ namespace Nexus.Client.CollectionManagement.Persistence
 
 		/// <summary>Loads and validates the unique recovery manifest for one persisted child, or <c>null</c> before it was published.</summary>
 		public CollectionNativeChildRecoveryManifest GetManifest(CollectionOperation operation, CollectionNativeChildOperation child)
+		{
+			return GetManifestCore(operation, child, true);
+		}
+
+		/// <summary>Reads sealed journal metadata without auditing content which the normal Collection installer is about to use.</summary>
+		internal CollectionNativeChildRecoveryManifest GetManifestMetadata(CollectionOperation operation, CollectionNativeChildOperation child)
+		{
+			return GetManifestCore(operation, child, false);
+		}
+
+		/// <summary>Reads a verified committed child's sealed checkpoint without rereading archives used by its completed installation.</summary>
+		internal CollectionNativeChildRecoveryManifest GetCompletedCheckpointManifest(CollectionOperation operation, CollectionNativeChildOperation child)
+		{
+			if (child == null) throw new ArgumentNullException(nameof(child));
+			if (!child.IsReconciled || !child.HasVerifiedCommittedNativeState)
+				throw new InvalidOperationException("Only a reconciled verified committed child can supply a lightweight continuation checkpoint.");
+			return GetManifestCore(operation, child, false);
+		}
+
+		/// <summary>Validates sealed manifest bytes and correlation, checking recovery inputs only when they will be used.</summary>
+		private CollectionNativeChildRecoveryManifest GetManifestCore(CollectionOperation operation, CollectionNativeChildOperation child, bool verifyRecoveryInputs)
 		{
 			if (operation == null) throw new ArgumentNullException(nameof(operation));
 			if (child == null) throw new ArgumentNullException(nameof(child));
@@ -87,7 +110,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					manifest = Deserialize(reader, operation, child);
 					if (stream.Position != stream.Length) throw new InvalidDataException("The child recovery manifest contains trailing data.");
 				}
-				ValidateRetainedInputs(manifest);
+				if (verifyRecoveryInputs) ValidateRetainedInputs(manifest);
 				return manifest;
 			}
 			catch (CollectionsStoreSchemaException) { throw; }
@@ -206,7 +229,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			{
 				bool correctionEvidence = manifest.ExecutionEvidence != null && manifest.ExecutionEvidence.ReviewedEffects.InstallRootCorrection != null;
 				bool generalizedExecutionEvidence = manifest.ExecutionEvidence != null && (!manifest.ExecutionEvidence.IsNexusModFileArtifact || correctionEvidence);
-				string payloadFormat = correctionEvidence ? PayloadFormatV6 : generalizedExecutionEvidence ? PayloadFormatV5 :
+				bool nativeCommitCheckpoint = manifest.ExecutionEvidence == null && manifest.TerminalStateFingerprint != null;
+				string payloadFormat = nativeCommitCheckpoint ? PayloadFormatV8 : correctionEvidence ? PayloadFormatV6 : generalizedExecutionEvidence ? PayloadFormatV5 :
 					manifest.SafeBoundaryStateFingerprint != null ? PayloadFormatV4 :
 					manifest.TerminalStateFingerprint != null ? PayloadFormatV3 :
 					manifest.ExecutionEvidence != null ? PayloadFormatV2 : PayloadFormatV1;
@@ -243,7 +267,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 					if (generalizedExecutionEvidence) WriteExecutionEvidenceV5(writer, manifest.ExecutionEvidence, correctionEvidence);
 					else WriteExecutionEvidence(writer, manifest.ExecutionEvidence);
 				}
-				if (generalizedExecutionEvidence)
+				if (generalizedExecutionEvidence || nativeCommitCheckpoint)
 				{
 					writer.Write(manifest.TerminalStateFingerprint != null);
 					if (manifest.TerminalStateFingerprint != null)
@@ -285,6 +309,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			bool hasTerminalStateFingerprint;
 			bool hasSafeBoundaryStateFingerprint;
 			bool generalizedExecutionEvidence = false;
+			bool nativeCommitCheckpoint = StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV8);
 			if (StringComparer.Ordinal.Equals(payloadFormat, PayloadFormatV1))
 			{
 				hasExecutionEvidence = false; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
@@ -305,6 +330,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			{
 				hasExecutionEvidence = true; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
 				generalizedExecutionEvidence = true;
+			}
+			else if (nativeCommitCheckpoint)
+			{
+				hasExecutionEvidence = false; hasTerminalStateFingerprint = false; hasSafeBoundaryStateFingerprint = false;
 			}
 			else throw new InvalidDataException("The child recovery manifest uses an unsupported format.");
 			Guid operationId = ReadGuid(reader.ReadString(), "operation");
@@ -340,7 +369,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 			CollectionCurrentStateFingerprint terminalStateFingerprint;
 			CollectionCurrentStateFingerprint safeBoundaryStateFingerprint;
-			if (generalizedExecutionEvidence)
+			if (generalizedExecutionEvidence || nativeCommitCheckpoint)
 			{
 				hasTerminalStateFingerprint = reader.ReadBoolean();
 				terminalStateFingerprint = hasTerminalStateFingerprint
@@ -356,6 +385,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				safeBoundaryStateFingerprint = hasSafeBoundaryStateFingerprint
 					? new CollectionCurrentStateFingerprint(reader.ReadString(), reader.ReadString()) : null;
 			}
+			if (nativeCommitCheckpoint && terminalStateFingerprint == null)
+				throw new InvalidDataException("A native committed checkpoint must retain its terminal state fingerprint.");
 
 			if (operationId != operation.Identity.OperationId || sequence != child.Sequence || operation.PlanIdentity == null ||
 				planId != operation.PlanIdentity.PlanId || planVersion != operation.PlanIdentity.Version || !memberKey.Equals(child.Member.MemberKey) ||

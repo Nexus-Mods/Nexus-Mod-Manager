@@ -692,6 +692,21 @@ namespace Nexus.Client.ModManagement
 			if (!string.IsNullOrWhiteSpace(linkSource) && File.Exists(linkSource))
 				return linkSource;
 
+			// Older inactive links used the archive name even when extraction staged under the Nexus file ID.
+			// Resolve only within this exact native owner's existing storage; Collection verification still proves bytes.
+			IMod mod = FindManagedMod(p_vmlLink.ModInfo);
+			if (mod != null && !p_vmlLink.Active)
+			{
+				string relative = GetRealFilePath(mod, p_vmlLink.VirtualModPath, m_strVirtualActivatorPath);
+				if (!String.IsNullOrEmpty(relative))
+					return Path.Combine(m_strVirtualActivatorPath, relative);
+				if (MultiHDMode && !String.IsNullOrEmpty(HDLinkFolder))
+				{
+					relative = GetRealFilePath(mod, p_vmlLink.VirtualModPath, HDLinkFolder);
+					if (!String.IsNullOrEmpty(relative)) return Path.Combine(HDLinkFolder, relative);
+				}
+			}
+
 			return virtualSource;
 		}
 

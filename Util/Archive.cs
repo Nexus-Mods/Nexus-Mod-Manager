@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Nexus.Client.Util.Collections;
 using SevenZip;
 
@@ -39,6 +41,7 @@ namespace Nexus.Client.Util
 		private bool m_booIsSolid = false;
 		private ThreadSafeSevenZipExtractor m_szeReadOnlyExtractor = null;
 		private string m_strReadOnlyTempDirectory = null;
+		private Dictionary<string, string> m_dicReadOnlyFilePaths;
 		
 		#region Properties
 
@@ -378,11 +381,20 @@ namespace Nexus.Client.Util
 					m_szeReadOnlyExtractor.Dispose();
 					m_szeReadOnlyExtractor = null;
 					m_strReadOnlyTempDirectory = p_futFileUtil.CreateTempDirectory();
-					using (SevenZipExtractor szeExtractor = Archive.GetExtractor(m_strPath))
+					var extractedPaths = m_dicFileInfo.ToDictionary(x => x.Key,
+						x => Path.Combine(m_strReadOnlyTempDirectory, x.Value.Index.ToString("x8") + ".bin"), StringComparer.OrdinalIgnoreCase);
+					using (var cancellation = new CancellationTokenSource())
 					{
-						szeExtractor.FileExtractionFinished += new EventHandler<FileInfoEventArgs>(FileExtractionFinished);
-						szeExtractor.ExtractArchive(m_strReadOnlyTempDirectory);
+						// Decompress solid archives together, caching by exact archive index. Recreating their
+						// nested paths under Temp can exceed the Windows path limit before installation starts.
+						ExtractSelectedFiles(extractedPaths, m_strReadOnlyTempDirectory, cancellation.Token, progress =>
+						{
+							var args = new CancelProgressEventArgs(progress);
+							ReadOnlyInitProgressUpdated?.Invoke(this, args);
+							if (args.Cancel) cancellation.Cancel();
+						});
 					}
+					m_dicReadOnlyFilePaths = extractedPaths;
 				}
 			}
 		}
@@ -420,6 +432,15 @@ namespace Nexus.Client.Util
 			if (!String.IsNullOrEmpty(m_strReadOnlyTempDirectory))
 				FileUtil.ForceDelete(m_strReadOnlyTempDirectory);
 			m_strReadOnlyTempDirectory = null;
+			m_dicReadOnlyFilePaths = null;
+		}
+
+		/// <summary>Resolves the exact entry's short solid-archive cache path, retaining the legacy tree fallback.</summary>
+		private string GetReadOnlyFilePath(string entryPath)
+		{
+			string extractedPath;
+			return m_dicReadOnlyFilePaths != null && m_dicReadOnlyFilePaths.TryGetValue(entryPath, out extractedPath)
+				? extractedPath : Path.Combine(m_strReadOnlyTempDirectory, entryPath);
 		}
 
 		#endregion
@@ -631,10 +652,10 @@ namespace Nexus.Client.Util
 				{
 					if (m_szeReadOnlyExtractor == null)
 					{
-						string path = Path.Combine(m_strReadOnlyTempDirectory, strPath);
-						if (!File.Exists(path))
+						string path = GetReadOnlyFilePath(strPath);
+						if (!File.Exists(FileUtil.GetIoPath(path)))
 							throw new FileNotFoundException("The requested file does not exist in the temp archive.", path);
-						bteFile = File.ReadAllBytes(path);
+						bteFile = File.ReadAllBytes(FileUtil.GetIoPath(path));
 					}
 					else
 						m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, msmFile);
@@ -670,9 +691,9 @@ namespace Nexus.Client.Util
             string strPath = NormalizeArchiveEntryPath(p_strPath);
             string strTempFile = Path.Combine(p_strTemporaryDirectory, "tempfile_" + Path.GetRandomFileName());
             
-            if (!Directory.Exists(p_strTemporaryDirectory))
+            if (!Directory.Exists(FileUtil.GetIoPath(p_strTemporaryDirectory)))
             {
-                Directory.CreateDirectory(p_strTemporaryDirectory);
+                Directory.CreateDirectory(FileUtil.GetIoPath(p_strTemporaryDirectory));
             }
 
             if (!m_dicFileInfo.ContainsKey(strPath))
@@ -688,11 +709,11 @@ namespace Nexus.Client.Util
             {
                 if (m_szeReadOnlyExtractor == null)
                 {
-                    strFilePath = Path.Combine(m_strReadOnlyTempDirectory, strPath);
+                    strFilePath = GetReadOnlyFilePath(strPath);
                 }
                 else
                 {
-                    using (var sw = new StreamWriter(strTempFile, false))
+                    using (var sw = new StreamWriter(FileUtil.GetIoPath(strTempFile), false))
                     {
                         m_szeReadOnlyExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
                     }
@@ -704,7 +725,7 @@ namespace Nexus.Client.Util
             {
                 using (SevenZipExtractor szeExtractor = GetExtractor(m_strPath))
                 {
-                    using (var sw = new StreamWriter(strTempFile, false))
+                    using (var sw = new StreamWriter(FileUtil.GetIoPath(strTempFile), false))
                     {
                         szeExtractor.ExtractFile(afiFile.Index, sw.BaseStream);
                     }
@@ -718,11 +739,83 @@ namespace Nexus.Client.Util
             // by EndReadOnlyTransaction and must not be removed on an individual close.
             int bufferSize = afiFile.Size >= 1024 * 1024 ? 1024 * 1024 : 4096;
             if (IsReadonly && m_szeReadOnlyExtractor == null)
-                return new FileStream(strFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+                return new FileStream(FileUtil.GetIoPath(strFilePath), FileMode.Open, FileAccess.Read, FileShare.Read,
                     bufferSize, FileOptions.SequentialScan);
-            return new FileStream(strFilePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+            return new FileStream(FileUtil.GetIoPath(strFilePath), FileMode.Open, FileAccess.Read, FileShare.Read,
                 bufferSize, FileOptions.DeleteOnClose | FileOptions.SequentialScan);
         }
+
+		/// <summary>Extracts selected entries in one native pass, mapping each archive index to a short caller-owned scratch file.</summary>
+		public void ExtractSelectedFiles(IReadOnlyDictionary<string, string> destinations, string directory, CancellationToken cancellationToken, Action<float> progress)
+		{
+			if (destinations == null) throw new ArgumentNullException(nameof(destinations));
+			string root = Path.GetFullPath(directory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+			var targetsByIndex = new Dictionary<int, string>();
+			var outputPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+			foreach (KeyValuePair<string, string> file in destinations)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				string entryPath = NormalizeArchiveEntryPath(file.Key);
+				ArchiveFileInfo entry;
+				if (!m_dicFileInfo.TryGetValue(entryPath, out entry) || entry.IsDirectory)
+					throw new FileNotFoundException("The requested file does not exist in the archive.", file.Key);
+				string destination = Path.GetFullPath(file.Value);
+				if (!destination.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+					throw new InvalidDataException("A selected extraction destination escapes the scratch directory.");
+				if (!outputPaths.Add(destination) || targetsByIndex.ContainsKey(entry.Index))
+					throw new ArgumentException("Selected archive entries require distinct output paths and indexes.", nameof(destinations));
+				targetsByIndex.Add(entry.Index, destination);
+			}
+			if (targetsByIndex.Count == 0) return;
+			int[] selected = new int[targetsByIndex.Count];
+			targetsByIndex.Keys.CopyTo(selected, 0);
+			Array.Sort(selected);
+			var completed = new HashSet<int>();
+			string extractionDirectory = Path.Combine(root, ".x-" + Path.GetRandomFileName());
+			Directory.CreateDirectory(FileUtil.GetIoPath(extractionDirectory));
+			try
+			{
+				using (SevenZipExtractor extractor = GetExtractor(m_strPath))
+				{
+					extractor.PreserveDirectoryStructure = false;
+					extractor.EventSynchronization = EventSynchronizationStrategy.AlwaysSynchronous;
+					extractor.FileExtractionStarted += (sender, args) => { args.Cancel = cancellationToken.IsCancellationRequested; };
+					extractor.FileExtractionFinished += (sender, args) =>
+					{
+						string destination;
+						if (!targetsByIndex.TryGetValue(args.FileInfo.Index, out destination)) return;
+						cancellationToken.ThrowIfCancellationRequested();
+						string name = Path.GetFileName(NormalizeArchiveEntryPath(args.FileInfo.FileName));
+						foreach (char invalid in Path.GetInvalidFileNameChars()) name = name.Replace(invalid, '_');
+						string extracted = Path.Combine(extractionDirectory, name);
+						if (!File.Exists(FileUtil.GetIoPath(extracted)) || new FileInfo(FileUtil.GetIoPath(extracted)).Length != checked((long)args.FileInfo.Size))
+							throw new InvalidDataException("The selected archive entry was not completely extracted: " + args.FileInfo.FileName);
+						// The completion callback runs after the native output closes. Move each file before a
+						// later entry with the same basename can overwrite it, retaining its exact archive index.
+						Directory.CreateDirectory(FileUtil.GetIoPath(Path.GetDirectoryName(destination)));
+						File.Move(FileUtil.GetIoPath(extracted), FileUtil.GetIoPath(destination));
+						completed.Add(args.FileInfo.Index);
+					};
+					extractor.Extracting += (sender, args) =>
+					{
+						cancellationToken.ThrowIfCancellationRequested();
+						progress?.Invoke(args.PercentDone / 100f);
+					};
+					try { extractor.ExtractFiles(FileUtil.GetIoPath(extractionDirectory), selected); }
+					catch (Exception) when (cancellationToken.IsCancellationRequested)
+					{
+						throw new OperationCanceledException(cancellationToken);
+					}
+				}
+				cancellationToken.ThrowIfCancellationRequested();
+				if (completed.Count != targetsByIndex.Count)
+					throw new InvalidDataException("Not every selected archive entry was extracted.");
+			}
+			finally
+			{
+				FileUtil.ForceDelete(FileUtil.GetIoPath(extractionDirectory));
+			}
+		}
 
 		/// <summary>Copies an archive entry to a caller-owned stream, reusing any existing read-only extractor or scratch tree.</summary>
 		public void CopyFileTo(string path, Stream destination)
@@ -735,7 +828,7 @@ namespace Nexus.Client.Util
 				throw new FileNotFoundException("The requested file does not exist in the archive.", path);
 			if (IsReadonly && m_szeReadOnlyExtractor == null)
 			{
-				using (FileStream source = File.OpenRead(Path.Combine(m_strReadOnlyTempDirectory, entryPath)))
+				using (FileStream source = File.OpenRead(FileUtil.GetIoPath(GetReadOnlyFilePath(entryPath))))
 					source.CopyTo(destination);
 			}
 			else if (IsReadonly)

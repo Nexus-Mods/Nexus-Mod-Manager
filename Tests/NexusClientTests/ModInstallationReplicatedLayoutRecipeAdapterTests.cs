@@ -142,26 +142,36 @@ namespace NexusClientTests
 		}
 
 		/// <summary>
-		/// Verifies identical archive content at several paths is rejected unless the recipe explicitly disambiguates the source.
+		/// Verifies identical archive content uses a stable source while preserving the Collection's requested output tree.
 		/// </summary>
-		[Test]
-		public void Translate_RejectsAmbiguousContentWithoutHint()
+		[TestCase(ModInstallationReplicatedContentHashAlgorithm.Md5, false)]
+		[TestCase(ModInstallationReplicatedContentHashAlgorithm.Md5, true)]
+		[TestCase(ModInstallationReplicatedContentHashAlgorithm.Xxh64, false)]
+		[TestCase(ModInstallationReplicatedContentHashAlgorithm.Xxh64, true)]
+		public void Translate_EquivalentContentWithoutHintUsesStableSource(ModInstallationReplicatedContentHashAlgorithm algorithm, bool reversed)
 		{
-			byte[] shared = Encoding.UTF8.GetBytes("same-content");
+			byte[] shared = Encoding.ASCII.GetBytes("abc");
 			using (TemporaryDirectory tmp = new TemporaryDirectory())
 			{
-				IMod mod = CreateArchiveMod(tmp, new[]
+				ArchiveEntry[] entries =
 				{
 					new ArchiveEntry(@"source\first.bin", shared),
 					new ArchiveEntry(@"source\second.bin", shared)
-				});
+				};
+				IMod mod = CreateArchiveMod(tmp, reversed ? entries.Reverse().ToArray() : entries);
+				string hash = algorithm == ModInstallationReplicatedContentHashAlgorithm.Md5 ? ComputeMd5(shared) : "RLws9a13CZk=";
 				var recipe = new ModInstallationReplicatedLayoutRecipe(new[]
 				{
-					new ModInstallationReplicatedFile(@"target\same.bin", ComputeMd5(shared))
+					new ModInstallationReplicatedFile(@"target\same.bin", algorithm, hash),
+					new ModInstallationReplicatedFile(@"source\second.bin", algorithm, hash)
 				});
 
-				Assert.Throws<InvalidDataException>(() => new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
-					CreateInput(recipe), mod, recipe));
+				ModInstallationRecipeInput translated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(CreateInput(recipe), mod, recipe);
+				InstallModFileOperation[] operations = translated.NativeOperations.Cast<InstallModFileOperation>().ToArray();
+				Assert.That(operations[0].SourcePath, Is.EqualTo(@"source\first.bin"));
+				Assert.That(operations[0].DestinationPath, Is.EqualTo(@"target\same.bin"));
+				Assert.That(operations[1].SourcePath, Is.EqualTo(@"source\second.bin"));
+				Assert.That(operations[1].DestinationPath, Is.EqualTo(@"source\second.bin"));
 			}
 		}
 

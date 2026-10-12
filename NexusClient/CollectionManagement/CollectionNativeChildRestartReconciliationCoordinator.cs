@@ -6,6 +6,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using ChinhDo.Transactions;
 using Nexus.Client.CollectionManagement.Persistence;
 using Nexus.Client.GameStorage;
@@ -146,10 +147,24 @@ namespace Nexus.Client.CollectionManagement
 					string rolledBackFailure = null;
 					bool committed = evidence != null && TryVerifyCommittedState(recovery, evidence, state,
 						_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
-						paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure);
+						paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure,
+						getVirtualSource: _services.ModManager.VirtualModActivator.GetVirtualSourceForOwner);
+					if (!committed && evidence == null && workflowMode == CollectionNativeChildWorkflowMode.Additive)
+						committed = TryVerifyRecordedCommittedState(recovery, child, plan, state, out verifiedNativeMod);
 					bool rolledBack = evidence != null && TryVerifyRolledBackState(recovery, evidence, state,
 						paths.InstallInfoPath, _services.ModManager.GameMode, out rolledBackFailure);
 					string virtualRelinkDetail = null;
+					if (workflowMode == CollectionNativeChildWorkflowMode.Additive && evidence != null &&
+						!committed && !rolledBack && priorDurability == ModOperationDurability.Unknown &&
+						reportedStatus == ModOperationReportedStatus.Succeeded &&
+						TryRepairExactNewActivationLinks(recovery, evidence, state, paths.InstallInfoPath, out virtualRelinkDetail))
+					{
+						state = CaptureReloadedState(operation.Target);
+						committed = TryVerifyCommittedState(recovery, evidence, state,
+							_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
+							paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure,
+							getVirtualSource: _services.ModManager.VirtualModActivator.GetVirtualSourceForOwner);
+					}
 					if (workflowMode == CollectionNativeChildWorkflowMode.RevisionUpdate && evidence != null &&
 						!committed && !rolledBack && priorDurability == ModOperationDurability.Unknown &&
 						reportedStatus == ModOperationReportedStatus.Succeeded && TryRepairExactVirtualUpgradeLinks(recovery,
@@ -166,8 +181,15 @@ namespace Nexus.Client.CollectionManagement
 						string currentDomain = _services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName;
 						// A failed terminal report can still leave an exact committed installation. Recover its missing
 						// record from the retained recipe only after proving the complete installed postimage.
-						bool replayRestored = TryRestoreExactNewActivationReplay(recovery, evidence, state, currentDomain,
-							paths.InstallInfoPath, _services.ModManager.GameMode, out replayRepairDetail);
+						bool replayRestored = reportedStatus == ModOperationReportedStatus.Succeeded &&
+							TryCompleteExactActivationReplay(recovery, evidence, state, currentDomain, paths.InstallInfoPath, out replayRepairDetail);
+						if (!replayRestored)
+						{
+							string missingReplayDetail;
+							replayRestored = TryRestoreExactNewActivationReplay(recovery, evidence, state, currentDomain,
+								paths.InstallInfoPath, _services.ModManager.GameMode, out missingReplayDetail);
+							if (!String.IsNullOrWhiteSpace(missingReplayDetail)) replayRepairDetail = missingReplayDetail;
+						}
 						if (!replayRestored && reportedStatus == ModOperationReportedStatus.Succeeded)
 						{
 							string reinstallDetail;
@@ -179,7 +201,8 @@ namespace Nexus.Client.CollectionManagement
 						{
 							state = CaptureReloadedState(operation.Target);
 							committed = TryVerifyCommittedState(recovery, evidence, state, currentDomain,
-								paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure);
+								paths.InstallInfoPath, _services.ModManager.GameMode, out verifiedNativeMod, out committedFailure,
+								getVirtualSource: _services.ModManager.VirtualModActivator.GetVirtualSourceForOwner);
 						}
 					}
 					bool rollbackResidueRepaired = false;
@@ -382,7 +405,8 @@ namespace Nexus.Client.CollectionManagement
 		internal static bool TryVerifyCommittedState(CollectionNativeChildRecoveryManifest recovery,
 			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string currentDomain,
 			string installInfoDirectory, IGameMode gameMode, out CollectionNativeModState nativeMod, out string failureReason,
-			bool verifyReplay = true, bool verifyFileContents = true)
+			bool verifyReplay = true, bool verifyFileContents = true,
+			Func<ModDeploymentTarget, string, string> getVirtualSource = null)
 		{
 			nativeMod = null;
 			failureReason = null;
@@ -440,10 +464,11 @@ namespace Nexus.Client.CollectionManagement
 			}
 
 			nativeMod = candidates[0];
+			HashSet<ModDeploymentTarget> inactiveFiles = GetVerifiedInactiveFileTargets(state, nativeMod, evidence, getVirtualSource);
 			var failures = new List<string>();
 			string detail;
-			if (!VerifyMemberEffects(state, nativeMod, evidence.ReviewedEffects, !evidence.DeferPluginReconciliation, out detail)) failures.Add(detail);
-			if (verifyFileContents && !VerifyFileEvidence(state, evidence.ExpectedFileContents, gameMode, out detail)) failures.Add(detail);
+			if (!VerifyMemberEffects(state, nativeMod, evidence.ReviewedEffects, !evidence.DeferPluginReconciliation, out detail, inactiveFiles)) failures.Add(detail);
+			if (verifyFileContents && !VerifyFileEvidence(state, evidence.ExpectedFileContents.Where(x => !inactiveFiles.Contains(x.Target)), gameMode, out detail)) failures.Add(detail);
 			if (verifyFileContents && evidence.ReviewedEffects.InstallRootCorrection != null && !evidence.ReviewedEffects.InstallRootCorrection.Verify(state, true))
 				failures.Add("The reviewed old-folder cleanup has not completed.");
 			if (verifyReplay && !VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out detail)) failures.Add(detail);
@@ -503,8 +528,54 @@ namespace Nexus.Client.CollectionManagement
 			return failures.Count == 0;
 		}
 
+		/// <summary>Proves an installed inactive writer and its unchanged deployed winner before final Collection conflict reconciliation.</summary>
+		internal static HashSet<ModDeploymentTarget> GetVerifiedInactiveFileTargets(CollectionNativeStateIndex state,
+			CollectionNativeModState nativeMod, CollectionNativeChildExecutionEvidence evidence,
+			Func<ModDeploymentTarget, string, string> getVirtualSource)
+		{
+			var verified = new HashSet<ModDeploymentTarget>();
+			if (state == null || nativeMod == null || evidence == null || getVirtualSource == null ||
+				!evidence.DeferPluginReconciliation || evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual)
+				return verified;
+			string owner = nativeMod.Identity.NativeModKey;
+			Dictionary<ModDeploymentTarget, CollectionNativeFileContentEvidence> before = evidence.PreFileContents.ToDictionary(x => x.Target);
+			Dictionary<ModDeploymentTarget, CollectionNativeFileContentEvidence> expected = evidence.ExpectedFileContents.ToDictionary(x => x.Target);
+			foreach (CollectionPlannedFileEffect effect in evidence.ReviewedEffects.Files)
+			{
+				CollectionNativeFileState file;
+				CollectionNativeFileContentEvidence preimage, postimage;
+				if ((evidence.ReviewedEffects.InstallRootCorrection != null &&
+					evidence.ReviewedEffects.InstallRootCorrection.GetPreservedDestination(effect.Target) != null) ||
+					!state.Files.TryGetValue(effect.Target, out file) || file.Promoted || !file.RecordedByVirtualState ||
+					StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, owner) ||
+					!before.TryGetValue(effect.Target, out preimage) || !preimage.Existed ||
+					!expected.TryGetValue(effect.Target, out postimage) || !postimage.Existed)
+					continue;
+				List<CollectionNativeOwnerState> writers = file.VirtualOwners.Where(x =>
+					StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, owner)).ToList();
+				List<CollectionNativeOwnerState> active = file.VirtualOwners.Where(x => x.VirtualLinkActive == true).ToList();
+				if (writers.Count != 1 || writers[0].Kind != CollectionNativeOwnerKind.NativeMod || writers[0].VirtualLinkActive != false ||
+					active.Count != 1 || active[0].Kind != CollectionNativeOwnerKind.NativeMod ||
+					!StringComparer.OrdinalIgnoreCase.Equals(active[0].OwnerKey, file.EffectiveOwnerKey))
+					continue;
+				try
+				{
+					if (MatchesContentFile(getVirtualSource(effect.Target, owner), postimage.ContentHash, postimage.ByteLength) &&
+						MatchesContentFile(file.PhysicalPath, preimage.ContentHash, preimage.ByteLength) &&
+						MatchesContentFile(getVirtualSource(effect.Target, active[0].OwnerKey), preimage.ContentHash, preimage.ByteLength))
+						verified.Add(effect.Target);
+				}
+				catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException)
+				{
+					// An unproven inactive writer stays subject to the normal ownership/content failure diagnostics.
+				}
+			}
+			return verified;
+		}
+
 		private static bool VerifyMemberEffects(CollectionNativeStateIndex state, CollectionNativeModState nativeMod,
-			CollectionMemberEffectPreview preview, bool verifyPluginEffects, out string failureReason)
+			CollectionMemberEffectPreview preview, bool verifyPluginEffects, out string failureReason,
+			ISet<ModDeploymentTarget> verifiedInactiveFiles = null)
 		{
 			failureReason = null;
 			if (state == null || nativeMod == null || preview == null || !preview.IsComplete)
@@ -515,6 +586,7 @@ namespace Nexus.Client.CollectionManagement
 			string ownerKey = nativeMod.Identity.NativeModKey;
 			foreach (CollectionPlannedFileEffect effect in preview.Files)
 			{
+				if (verifiedInactiveFiles != null && verifiedInactiveFiles.Contains(effect.Target)) continue;
 				CollectionNativeFileState file;
 				if (!state.Files.TryGetValue(effect.Target, out file))
 				{
@@ -661,6 +733,12 @@ namespace Nexus.Client.CollectionManagement
 				IReadOnlyList<ScriptedReplayOperation> actual = cache.LoadReplayOperations();
 				if (actual == null || actual.Count != evidence.ExpectedReplayOperations.Count)
 				{
+					IReadOnlyList<CollectionExpectedReplayOperation> missing;
+					if (TryGetMissingArchiveReplayOperations(evidence.ExpectedReplayOperations, actual, out missing))
+					{
+						failureReason = "scripted replay is missing selected archive file(s): " + String.Join(", ", missing.Select(x => x.DestinationPath));
+						return false;
+					}
 					failureReason = String.Format(CultureInfo.InvariantCulture,
 						"scripted replay operation count mismatch (expected={0}, observed={1}).",
 						evidence.ExpectedReplayOperations.Count, actual == null ? -1 : actual.Count);
@@ -966,12 +1044,57 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
+		/// <summary>Repairs only a successful first Collection activation whose staged ownership, replay and unchanged game preimages are proven.</summary>
+		private bool TryRepairExactNewActivationLinks(CollectionNativeChildRecoveryManifest recovery,
+			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string installInfoDirectory, out string detail)
+		{
+			detail = null;
+			if (recovery.PreviousNativeMod != null || recovery.TerminalStateFingerprint != null ||
+				!evidence.DeferPluginReconciliation || evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual ||
+				evidence.ReviewedEffects.InstallRootCorrection != null)
+				return false;
+			ModManager manager = _services.ModManager;
+			string domain = manager.ModRepository == null ? null : manager.ModRepository.GameDomainName;
+			CollectionNativeModState nativeMod;
+			string failure;
+			// Verify every non-content effect, the exact registered archive and complete replay first.
+			if (!TryVerifyCommittedState(recovery, evidence, state, domain, installInfoDirectory, manager.GameMode,
+				out nativeMod, out failure, true, false)) return false;
+			string owner = nativeMod.Identity.NativeModKey;
+			IReadOnlyList<ModDeploymentTarget> targets;
+			if (!TryCollectExactVirtualRelinkTargets(evidence, state, owner, manager.VirtualModActivator.GetVirtualSourceForOwner,
+				out targets, out detail, manager.InstallationLog.GetCurrentFileOwnerKey) || targets.Count == 0)
+				return false;
+			state = CaptureReloadedState(state.Target);
+			if (!TryVerifyCommittedState(recovery, evidence, state, domain, installInfoDirectory, manager.GameMode,
+				out nativeMod, out failure, true, false) ||
+				!TryCollectExactVirtualRelinkTargets(evidence, state, owner, manager.VirtualModActivator.GetVirtualSourceForOwner,
+					out targets, out failure, manager.InstallationLog.GetCurrentFileOwnerKey))
+				return false;
+			using (TransactionScope transaction = new TransactionScope())
+			{
+				TxFileManager files = new TxFileManager();
+				foreach (ModDeploymentTarget target in targets)
+					manager.VirtualModActivator.DeploySpecificVirtualLink(target, owner, files);
+				transaction.Complete();
+			}
+			// Committed-state readers cannot run inside the transaction. Keep child durability unknown until this fresh reload passes.
+			if (!TryVerifyCommittedState(recovery, evidence, CaptureReloadedState(state.Target), domain,
+				installInfoDirectory, manager.GameMode, out nativeMod, out failure))
+			{
+				detail = "Activation links were restored but authoritative verification still failed: " + failure;
+				return false;
+			}
+			detail = String.Format(CultureInfo.InvariantCulture, "Restored {0} reviewed activation link(s) from independently owned staged files.", targets.Count);
+			return true;
+		}
+
 		/// <summary>
 		/// Selects only reviewed Virtual files with an exact staged postimage and an unchanged deployed preimage.
 		/// </summary>
 		internal static bool TryCollectExactVirtualRelinkTargets(CollectionNativeChildExecutionEvidence evidence,
 			CollectionNativeStateIndex state, string ownerKey, Func<ModDeploymentTarget, string, string> getSource,
-			out IReadOnlyList<ModDeploymentTarget> targets, out string failure)
+			out IReadOnlyList<ModDeploymentTarget> targets, out string failure, Func<string, string> getStagedOwner = null)
 		{
 			targets = new ModDeploymentTarget[0];
 			failure = null;
@@ -995,11 +1118,13 @@ namespace Nexus.Client.CollectionManagement
 				{
 					CollectionNativeFileState file;
 					string source = getSource(expected.Target, ownerKey);
+					bool stagedOwnerProven = getStagedOwner != null && !String.IsNullOrWhiteSpace(source) &&
+						StringComparer.OrdinalIgnoreCase.Equals(getStagedOwner(source), ownerKey);
 					if (!state.Files.TryGetValue(expected.Target, out file) || file.Promoted ||
-						!file.RecordedByInstallLog || !file.RecordedByVirtualState ||
+						!file.RecordedByVirtualState ||
 						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, ownerKey) ||
-						file.InstallLogOwners.Count == 0 ||
-						!StringComparer.OrdinalIgnoreCase.Equals(file.InstallLogOwners.Last().OwnerKey, ownerKey) ||
+						(!stagedOwnerProven && (!file.RecordedByInstallLog || file.InstallLogOwners.Count == 0 ||
+						 !StringComparer.OrdinalIgnoreCase.Equals(file.InstallLogOwners.Last().OwnerKey, ownerKey))) ||
 						!MatchesContentFile(source, expected.ContentHash, expected.ByteLength))
 					{
 						failure = "The reviewed Virtual owner/source cannot be proven for '" + expected.Target + "'; links were not changed.";
@@ -1008,7 +1133,10 @@ namespace Nexus.Client.CollectionManagement
 					List<CollectionNativeOwnerState> active = file.VirtualOwners.Where(x => x.VirtualLinkActive == true).ToList();
 					if (active.Count == 0 || active.Any(x => x.Kind != CollectionNativeOwnerKind.NativeMod ||
 						!StringComparer.OrdinalIgnoreCase.Equals(x.OwnerKey, ownerKey) ||
-						!StringComparer.OrdinalIgnoreCase.Equals(x.VirtualStagedSourcePath, source)))
+						!(StringComparer.OrdinalIgnoreCase.Equals(x.VirtualStagedSourcePath, source) ||
+						  (stagedOwnerProven && !String.IsNullOrWhiteSpace(x.VirtualStagedSourcePath) &&
+						   !Path.IsPathRooted(x.VirtualStagedSourcePath) &&
+						   source.EndsWith(Path.DirectorySeparatorChar + x.VirtualStagedSourcePath, StringComparison.OrdinalIgnoreCase)))))
 					{
 						failure = "Active Virtual ownership is ambiguous for '" + expected.Target + "'; links were not changed.";
 						return false;
@@ -1031,6 +1159,137 @@ namespace Nexus.Client.CollectionManagement
 				failure = "Exact Virtual relink inspection failed: " + exception.Message;
 				return false;
 			}
+		}
+
+		/// <summary>Completes an existing replay only when all recorded selections match and every omitted archive file has exact owned staging.</summary>
+		private bool TryCompleteExactActivationReplay(CollectionNativeChildRecoveryManifest recovery,
+			CollectionNativeChildExecutionEvidence evidence, CollectionNativeStateIndex state, string currentDomain,
+			string installInfoDirectory, out string detail)
+		{
+			detail = null;
+			if (recovery.PreviousNativeMod != null || recovery.TerminalStateFingerprint != null ||
+				!evidence.DeferPluginReconciliation || evidence.ReviewedEffects.InstallMethod != ModInstallMethod.Virtual)
+				return false;
+			string temporary = null;
+			try
+			{
+				string replayPath = ScriptedFileSelectionCache.GetDefaultFilePath(evidence.IncomingFileName, installInfoDirectory);
+				var cache = new ScriptedFileSelectionCache(replayPath);
+				if (!cache.HasCompleteReplay || Directory.Exists(ScriptedFileSelectionCache.GetPayloadDirectoryPath(replayPath))) return false;
+				byte[] before = File.ReadAllBytes(replayPath);
+				IReadOnlyList<CollectionExpectedReplayOperation> missing;
+				if (!TryGetMissingArchiveReplayOperations(evidence.ExpectedReplayOperations, cache.LoadReplayOperations(), out missing)) return false;
+				ModManager manager = _services.ModManager;
+				CollectionNativeModState nativeMod;
+				string failure;
+				if (!TryVerifyCommittedState(recovery, evidence, state, currentDomain, installInfoDirectory, manager.GameMode,
+					out nativeMod, out failure, false, getVirtualSource: manager.VirtualModActivator.GetVirtualSourceForOwner))
+				{
+					detail = "Incomplete replay was not repaired: " + failure;
+					return false;
+				}
+				IMod mod = manager.GetModByFilename(evidence.IncomingFileName);
+				string owner = nativeMod.Identity.NativeModKey;
+				if (mod == null || !StringComparer.OrdinalIgnoreCase.Equals(manager.InstallationLog.GetModKey(mod), owner))
+				{
+					detail = "Incomplete replay was not repaired because its exact native mod owner is unavailable.";
+					return false;
+				}
+				Dictionary<ModDeploymentTarget, CollectionNativeFileContentEvidence> contents = evidence.ExpectedFileContents.ToDictionary(x => x.Target);
+				foreach (CollectionExpectedReplayOperation operation in missing)
+				{
+					ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(manager.GameMode, mod, operation.DestinationPath, evidence.ReviewedEffects.InstallRoot);
+					CollectionNativeFileContentEvidence expected;
+					if (!contents.TryGetValue(target, out expected) || !expected.Existed)
+					{
+						detail = "Incomplete replay has no retained file evidence for '" + target + "'.";
+						return false;
+					}
+					string source = manager.VirtualModActivator.GetVirtualSourceForOwner(target, owner);
+					if (!StringComparer.OrdinalIgnoreCase.Equals(manager.InstallationLog.GetCurrentFileOwnerKey(source), owner) ||
+						!MatchesContentFile(source, expected.ContentHash, expected.ByteLength))
+					{
+						detail = "Incomplete replay was not repaired because staged ownership or bytes differ for '" + target + "'.";
+						return false;
+					}
+				}
+				XDocument document;
+				using (var stream = new MemoryStream(before, false)) document = XDocument.Load(stream);
+				XElement root = document.Root;
+				if (root == null || root.Name != "FileList" || root.Elements().Any(x => x.Name != "File")) return false;
+				// Preserve the existing root metadata and every existing selection. Insert only proven omissions in recipe order.
+				List<XElement> recorded = root.Elements().ToList();
+				var selections = new List<XElement>();
+				int index = 0;
+				foreach (CollectionExpectedReplayOperation operation in evidence.ExpectedReplayOperations)
+				{
+					if (index < recorded.Count && StringComparer.Ordinal.Equals((string)recorded[index].Attribute("FileFrom"), operation.SourcePath) &&
+						StringComparer.Ordinal.Equals((string)recorded[index].Attribute("FileTo"), operation.DestinationPath))
+						selections.Add(new XElement(recorded[index++]));
+					else selections.Add(new XElement("File", new XAttribute("FileFrom", operation.SourcePath), new XAttribute("FileTo", operation.DestinationPath)));
+				}
+				if (index != recorded.Count) return false;
+				root.ReplaceNodes(selections);
+				temporary = Path.Combine(Path.GetDirectoryName(replayPath), Nexus.Client.Util.FileUtil.CreateTempToken() + ".recovery.tmp");
+				document.Save(temporary);
+				if (!VerifyExpectedReplayAtPath(evidence, installInfoDirectory, out failure, temporary)) return false;
+				using (TransactionScope transaction = new TransactionScope())
+				{
+					if (!File.ReadAllBytes(replayPath).SequenceEqual(before)) return false;
+					new TxFileManager().Copy(temporary, replayPath, true);
+					transaction.Complete();
+				}
+				try
+				{
+					// Reload committed authority after the metadata transaction; accept recovery only after complete verification.
+					if (!TryVerifyCommittedState(recovery, evidence, CaptureReloadedState(state.Target), currentDomain,
+						installInfoDirectory, manager.GameMode, out nativeMod, out failure,
+						getVirtualSource: manager.VirtualModActivator.GetVirtualSourceForOwner))
+						throw new InvalidDataException("Completed replay did not satisfy the retained installation: " + failure);
+				}
+				catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException)
+				{
+					if (File.ReadAllBytes(replayPath).SequenceEqual(File.ReadAllBytes(temporary)))
+					{
+						using (TransactionScope rollback = new TransactionScope())
+						{
+							new TxFileManager().WriteAllBytes(replayPath, before);
+							rollback.Complete();
+						}
+					}
+					throw;
+				}
+				detail = String.Format(CultureInfo.InvariantCulture, "Restored {0} omitted archive-file replay entry/entries from exact owned staging; existing selections and game files were kept.", missing.Count);
+				return true;
+			}
+			catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException || exception is InvalidOperationException || exception is System.Xml.XmlException)
+			{
+				detail = "Incomplete replay recovery failed: " + exception.Message;
+				return false;
+			}
+			finally { if (temporary != null && File.Exists(temporary)) File.Delete(temporary); }
+		}
+
+		/// <summary>Accepts only an unchanged ordered subset of the retained archive-file selections and identifies the omitted entries.</summary>
+		internal static bool TryGetMissingArchiveReplayOperations(IReadOnlyList<CollectionExpectedReplayOperation> expected,
+			IReadOnlyList<ScriptedReplayOperation> actual, out IReadOnlyList<CollectionExpectedReplayOperation> missing)
+		{
+			missing = new CollectionExpectedReplayOperation[0];
+			if (expected == null || actual == null || actual.Count == 0 || actual.Count >= expected.Count ||
+				expected.Any(x => x.Kind != ScriptedReplayOperationKind.ArchiveFile) || actual.Any(x => x.Kind != ScriptedReplayOperationKind.ArchiveFile) ||
+				expected.Select(x => x.DestinationPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != expected.Count)
+				return false;
+			var omitted = new List<CollectionExpectedReplayOperation>();
+			int index = 0;
+			foreach (CollectionExpectedReplayOperation operation in expected)
+			{
+				if (index < actual.Count && StringComparer.Ordinal.Equals(actual[index].SourcePath, operation.SourcePath) &&
+					StringComparer.Ordinal.Equals(actual[index].DestinationPath, operation.DestinationPath)) index++;
+				else omitted.Add(operation);
+			}
+			if (index != actual.Count) return false;
+			missing = omitted.AsReadOnly();
+			return true;
 		}
 
 		/// <summary>Reconstructs missing archive-file replay metadata for an exactly verified first Virtual activation.</summary>
@@ -1087,7 +1346,7 @@ namespace Nexus.Client.CollectionManagement
 				// game files, existing replay records, or generated payloads whose original bytes are unavailable.
 				string directory = Path.GetDirectoryName(replayPath);
 				Directory.CreateDirectory(directory);
-				stagingPath = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".recovery.tmp");
+				stagingPath = Path.Combine(directory, Nexus.Client.Util.FileUtil.CreateTempToken() + ".recovery.tmp");
 				var cache = new ScriptedFileSelectionCache(stagingPath);
 				foreach (CollectionExpectedReplayOperation replay in evidence.ExpectedReplayOperations)
 					cache.RecordSelection(replay.SourcePath, replay.DestinationPath);
@@ -1153,7 +1412,7 @@ namespace Nexus.Client.CollectionManagement
 
 				string directory = Path.GetDirectoryName(replayPath);
 				Directory.CreateDirectory(directory);
-				stagingPath = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".recovery.tmp");
+				stagingPath = Path.Combine(directory, Nexus.Client.Util.FileUtil.CreateTempToken() + ".recovery.tmp");
 				using (Stream retained = _manifestStore.OpenScriptedReplayRecoveryFile(recovery))
 				using (var staging = new FileStream(stagingPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
 				{
@@ -1404,9 +1663,38 @@ namespace Nexus.Client.CollectionManagement
 			return state.Plugins.Values.FirstOrDefault(x => StringComparer.OrdinalIgnoreCase.Equals(Path.GetFileName(x.FileName), fileName));
 		}
 
+		/// <summary>Recovers a content-check-free install only when its durable committed result and sealed terminal state still agree.</summary>
+		internal static bool TryVerifyRecordedCommittedState(CollectionNativeChildRecoveryManifest recovery, CollectionNativeChildOperation child,
+			CollectionResolvedPlanRecord plan, CollectionNativeStateIndex state, out CollectionNativeModState nativeMod)
+		{
+			nativeMod = null;
+			if (recovery == null || child == null || plan == null || state == null || child.NativeResult == null ||
+				child.NativeResult.ReportedStatus != ModOperationReportedStatus.Succeeded ||
+				child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted || recovery.TerminalStateFingerprint == null ||
+				!recovery.TerminalStateFingerprint.Equals(state.Fingerprint) || !plan.Target.Equals(state.Target) ||
+				!child.Member.Revision.Equals(plan.Revision) || !recovery.PlanIdentity.Equals(plan.Identity) ||
+				!recovery.Member.MemberKey.Equals(child.Member.MemberKey) ||
+				!recovery.NativeOperation.Fingerprint.Equals(child.NativeOperation.Fingerprint)) return false;
+			List<CollectionNativeModState> candidates = state.Mods.Values.Where(x =>
+				x.InstallMethod == child.NativeOperation.Fingerprint.InstallMethod && x.InstallRoot == child.NativeOperation.Fingerprint.InstallRoot &&
+				MatchesArtifactFile(x.ArchivePath, recovery.IncomingArchive)).ToList();
+			if (candidates.Count != 1) return false;
+			nativeMod = candidates[0];
+			return true;
+		}
+
 		private static bool MatchesArtifactFile(string path, CollectionRecoveryArtifact expected)
 		{
-			return expected != null && MatchesContentFile(path, expected.ContentHash, expected.ByteLength);
+			if (expected == null) return false;
+			try
+			{
+				return CollectionArchiveContentMatcher.MatchesFile(path, expected.ByteLength, expected.ContentHash,
+					CancellationToken.None, true);
+			}
+			catch (Exception exception) when (IsVerificationIoException(exception) || exception is ArgumentException)
+			{
+				return false;
+			}
 		}
 
 		private static bool MatchesContentFile(string path, CollectionContentHash expectedHash, long expectedLength)

@@ -57,7 +57,7 @@ namespace ChinhDo.Transactions
 				var r = new RollbackFile(path);
 				try
 				{
-					File.AppendAllText(path, contents);
+					File.AppendAllText(GetIoPath(path), contents);
 				}
 				catch (Exception e)
 				{
@@ -83,7 +83,7 @@ namespace ChinhDo.Transactions
 				var r = new RollbackFile(destFileName);
 				try
 				{
-					File.Copy(sourceFileName, destFileName, overwrite);
+					File.Copy(GetIoPath(sourceFileName), GetIoPath(destFileName), overwrite);
 				}
 				catch (Exception e)
 				{
@@ -129,12 +129,12 @@ namespace ChinhDo.Transactions
 						strPath = Path.Combine(strPath, strPaths[i]);
 						fipWritePermission.Demand();
 
-						if (!Directory.Exists(strPath))
+						if (!Directory.Exists(GetIoPath(strPath)))
 						{
 							var r = new RollbackDirectory(strPath);
 							try
 							{
-								Directory.CreateDirectory(strPath);
+								Directory.CreateDirectory(GetIoPath(strPath));
 							}
 							catch (Exception e)
 							{
@@ -163,7 +163,7 @@ namespace ChinhDo.Transactions
 				var r = new RollbackFile(path);
 				try
 				{
-					File.Delete(path);
+					File.Delete(GetIoPath(path));
 				}
 				catch (Exception e)
 				{
@@ -210,7 +210,7 @@ namespace ChinhDo.Transactions
 				var r2 = new RollbackFile(destFileName);
 				try
 				{
-					File.Move(srcFileName, destFileName);
+					File.Move(GetIoPath(srcFileName), GetIoPath(destFileName));
 				}
 				catch (Exception e)
 				{
@@ -249,7 +249,7 @@ namespace ChinhDo.Transactions
 				var r = new RollbackFile(path);
 				try
 				{
-					File.WriteAllText(path, contents);
+					File.WriteAllText(GetIoPath(path), contents);
 				}
 				catch (Exception e)
 				{
@@ -274,7 +274,7 @@ namespace ChinhDo.Transactions
 				var r = new RollbackFile(path);
 				try
 				{
-					File.WriteAllBytes(path, contents);
+					File.WriteAllBytes(GetIoPath(path), contents);
 				}
 				catch (Exception e)
 				{
@@ -309,7 +309,7 @@ namespace ChinhDo.Transactions
                 try
                 {
                     int bufferSize = stream.Length - stream.Position >= 1024 * 1024 ? 1024 * 1024 : 81920;
-                    using (var file = File.Create(path, bufferSize, FileOptions.SequentialScan))
+                    using (var file = File.Create(GetIoPath(path), bufferSize, FileOptions.SequentialScan))
                     {
                         stream.CopyTo(file, bufferSize);
                         stream.Dispose();
@@ -456,7 +456,7 @@ namespace ChinhDo.Transactions
 					if (_entryState == FileEntryKind.RegularFile)
 					{
 						_backupFileName = CreateTempFileName(Path.GetExtension(fileName));
-						File.Copy(_originalFileName, _backupFileName);
+						File.Copy(GetIoPath(_originalFileName), GetIoPath(_backupFileName));
 					}
 				}
 
@@ -465,17 +465,17 @@ namespace ChinhDo.Transactions
 					if (_entryState == FileEntryKind.HardLink || _entryState == FileEntryKind.SymbolicLink)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
-						if (!Directory.Exists(strDirectory))
-							Directory.CreateDirectory(strDirectory);
+						if (!Directory.Exists(GetIoPath(strDirectory)))
+							Directory.CreateDirectory(GetIoPath(strDirectory));
 						RestoreFileLink(_entryState, _originalFileName, _linkTarget);
 					}
 					else if (_entryState == FileEntryKind.RegularFile)
 					{
 						string strDirectory = Path.GetDirectoryName(_originalFileName);
-						if (!Directory.Exists(strDirectory))
-							Directory.CreateDirectory(strDirectory);
+						if (!Directory.Exists(GetIoPath(strDirectory)))
+							Directory.CreateDirectory(GetIoPath(strDirectory));
 						DeleteFileEntryIfPresentCore(_originalFileName);
-						File.Copy(_backupFileName, _originalFileName, true);
+						File.Copy(GetIoPath(_backupFileName), GetIoPath(_originalFileName), true);
 					}
 					else
 					{
@@ -487,12 +487,12 @@ namespace ChinhDo.Transactions
 				{
 					if (_backupFileName != null)
 					{
-						FileInfo fi = new FileInfo(_backupFileName);
+						FileInfo fi = new FileInfo(GetIoPath(_backupFileName));
 						if (fi.IsReadOnly)
 						{
 							fi.Attributes = FileAttributes.Normal;
 						}
-						File.Delete(_backupFileName);
+						File.Delete(GetIoPath(_backupFileName));
 					}
 				}
 
@@ -512,17 +512,17 @@ namespace ChinhDo.Transactions
 				public RollbackDirectory(string path)
 				{
 					_path = path;
-					_existed = Directory.Exists(path);
+					_existed = Directory.Exists(GetIoPath(path));
 				}
 
 				public override void Rollback()
 				{
 					if (!_existed)
 					{
-						if (Directory.GetFiles(_path).Length == 0 && Directory.GetDirectories(_path).Length == 0)
+						if (Directory.GetFiles(GetIoPath(_path)).Length == 0 && Directory.GetDirectories(GetIoPath(_path)).Length == 0)
 						{
 							// Delete the dir only if it's empty
-							Directory.Delete(_path);
+							Directory.Delete(GetIoPath(_path));
 						}
 						else
 						{

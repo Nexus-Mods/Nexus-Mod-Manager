@@ -457,6 +457,33 @@
 			}
 		}
 
+		/// <summary>Returns current file provenance, accepting unresolved history only when it cannot identify another repository file.</summary>
+		/// <remarks>Unlike historical membership, this is suitable for Collection metadata trust without rereading archive bytes.</remarks>
+		internal bool HasCurrentRepositoryFileIdentity(string archivePath, string repositoryModId, string repositoryDownloadId)
+		{
+			if (String.IsNullOrWhiteSpace(archivePath) || !ModFileIdentity.IsUsableRepositoryId(repositoryModId) ||
+				!ModFileIdentity.IsUsableRepositoryId(repositoryDownloadId))
+				return false;
+			string locator = _store.GetArchiveLocator(archivePath);
+			lock (_syncRoot)
+			{
+				ModSortOrderRecord current;
+				if (_resolvedByLocator.TryGetValue(locator, out current))
+				{
+					if (HasExactRepositoryIdentity(current))
+						return IsSameRepositoryFile(current, repositoryModId, repositoryDownloadId);
+					if ((ModFileIdentity.IsUsableRepositoryId(current.ModId) && !StringComparer.OrdinalIgnoreCase.Equals(current.ModId, repositoryModId)) ||
+						(ModFileIdentity.IsUsableRepositoryId(current.DownloadId) && !StringComparer.OrdinalIgnoreCase.Equals(current.DownloadId, repositoryDownloadId)))
+						return false;
+				}
+				List<ModSortOrderRecord> records;
+				return _recordsByLocator.TryGetValue(locator, out records) &&
+					records.Any(x => IsSameRepositoryFile(x, repositoryModId, repositoryDownloadId)) &&
+					!records.Any(x => (ModFileIdentity.IsUsableRepositoryId(x.ModId) && !StringComparer.OrdinalIgnoreCase.Equals(x.ModId, repositoryModId)) ||
+						(ModFileIdentity.IsUsableRepositoryId(x.DownloadId) && !StringComparer.OrdinalIgnoreCase.Equals(x.DownloadId, repositoryDownloadId)));
+			}
+		}
+
 		/// <summary>
 		/// Durably records an exact repository file identity established by external immutable-byte verification without changing Sort semantics.
 		/// </summary>

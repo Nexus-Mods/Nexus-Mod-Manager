@@ -296,7 +296,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			List<CollectionConflictConstraint> conflictConstraints = NormalizeConflictConstraints(
 				rawModRules, drafts, members, allDeclaredIssues);
 			List<CollectionDesiredPluginState> pluginStates = NormalizePluginStates(root["plugins"], allDeclaredIssues);
-			List<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = NormalizePluginRelativeOrderRules(root["pluginRules"], allDeclaredIssues);
+			JObject info = root["info"] as JObject;
+			List<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = NormalizePluginRelativeOrderRules(
+				root["pluginRules"], info == null ? null : NormalizeDomain(ReadString(info, "domainName")), allDeclaredIssues);
 
 			CollectionManifestMemberSetCompleteness completeness = memberSetIncomplete
 				? CollectionManifestMemberSetCompleteness.Incomplete
@@ -451,7 +453,9 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 
 			string stableArtifactId = string.Format(CultureInfo.InvariantCulture, "{0}/{1}/{2}", domain, modId, fileId);
 			draft.StableMatchKey = "nexus-mod-file:" + stableArtifactId;
-			draft.Artifact = new CollectionArtifactReference("nexus-mod-file", stableArtifactId, null);
+			long declaredByteLength;
+			draft.Artifact = new CollectionArtifactReference("nexus-mod-file", stableArtifactId, null,
+				TryReadPositiveInteger(source["fileSize"], out declaredByteLength) ? (long?)declaredByteLength : null);
 			draft.SourceDomain = domain;
 			draft.SourceModId = modId;
 			draft.SourceFileId = fileId;
@@ -965,11 +969,12 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						valid = false; continue;
 					}
 					AddUnknownMemberFields(groupObject, FomodGroupFields, groupPath, draft.Issues);
-					string groupName;
-					if (!TryReadNonBlankString(groupObject["name"], out groupName))
+					JToken groupNameToken = groupObject["name"];
+					string groupName = groupNameToken != null && groupNameToken.Type == JTokenType.String ? groupNameToken.Value<string>() : null;
+					if (groupName == null || (groupName.Length > 0 && String.IsNullOrWhiteSpace(groupName)))
 					{
 						draft.Issues.Add(new PendingMemberIssue(CollectionCompatibilityStatus.Unsupported,
-							"member.installer-choices-invalid", "A Vortex FOMOD option group requires a non-empty name.", groupPath + ".name"));
+							"member.installer-choices-invalid", "A Vortex FOMOD option group requires a string name, which may be empty but cannot contain only whitespace.", groupPath + ".name"));
 						valid = false; continue;
 					}
 					JArray choicesToken = groupObject["choices"] as JArray;
@@ -2252,7 +2257,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 		}
 
 		/// <summary>Normalizes the characterized Vortex pluginRules subset into native relative plugin-order constraints.</summary>
-		private static List<CollectionPluginRelativeOrderRule> NormalizePluginRelativeOrderRules(JToken pluginRulesToken, List<CollectionCapabilityIssue> issues)
+		private static List<CollectionPluginRelativeOrderRule> NormalizePluginRelativeOrderRules(JToken pluginRulesToken, string gameDomain, List<CollectionCapabilityIssue> issues)
 		{
 			var result = new List<CollectionPluginRelativeOrderRule>();
 			if (pluginRulesToken == null || pluginRulesToken.Type == JTokenType.Null)
@@ -2274,7 +2279,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						"$.pluginRules." + property.Name));
 
 			Dictionary<string, List<string>> groupAfter;
-			bool groupGraphValid = TryNormalizePluginGroups(pluginRules["groups"], issues, out groupAfter);
+			bool groupGraphValid = TryNormalizePluginGroups(pluginRules["groups"], gameDomain, issues, out groupAfter);
 
 			JToken pluginsToken = pluginRules["plugins"];
 			if (pluginsToken == null || pluginsToken.Type == JTokenType.Null)
@@ -2333,7 +2338,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					{
 						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 							"manifest.plugin-group-assignment-external",
-							"The characterized NMM group subset requires every assigned plugin group to be defined inside this Collection.", path + ".group"));
+							"An assigned plugin group must be defined by this Collection or the supported LOOT groups for its game.", path + ".group"));
 					}
 					else
 					{
@@ -2405,10 +2410,71 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			return result;
 		}
 
-		private static bool TryNormalizePluginGroups(JToken groupsToken, List<CollectionCapabilityIssue> issues,
+		/// <summary>Creates the pinned Skyrim Special Edition LOOT group graph, shared by Steam and GOG Collections.</summary>
+		private static Dictionary<string, List<string>> CreatePluginGroupDefaults(string gameDomain)
+		{
+			var groups = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			if (!StringComparer.OrdinalIgnoreCase.Equals(gameDomain, "skyrimspecialedition")) return groups;
+
+			// https://github.com/loot/skyrimse/blob/v0.21/masterlist.yaml, groups section.
+			// Pinned from masterlist blob 775bdd12a48662b749b936a7ae77c951c9bc014e (2026-07-31).
+			// Keep the entire graph, including unassigned intermediate groups: they carry
+			// transitive ordering. Never read a user's mutable LOOT installation here.
+			groups.Add("Main Plugins", new List<string>());
+			groups.Add("Creation Club", new List<string> { "Main Plugins" });
+			groups.Add("Unofficial Patches", new List<string> { "Creation Club" });
+			groups.Add("Script Fixes & Optimization", new List<string> { "Unofficial Patches" });
+			groups.Add("Fixes", new List<string> { "Script Fixes & Optimization" });
+			groups.Add("Resources & Frameworks", new List<string> { "Fixes" });
+			groups.Add("Early Loaders", new List<string> { "Resources & Frameworks" });
+			groups.Add("New Content", new List<string> { "Early Loaders" });
+			groups.Add("Underrides", new List<string> { "New Content" });
+			groups.Add("default", new List<string> { "Underrides" });
+			groups.Add("Low Priority Overrides", new List<string> { "default" });
+			groups.Add("Immersive Citizens", new List<string> { "Low Priority Overrides" });
+			groups.Add("Palaces Castles Enhanced", new List<string> { "Immersive Citizens" });
+			groups.Add("Races & Classes", new List<string> { "Palaces Castles Enhanced" });
+			groups.Add("Standing Stone Effects", new List<string> { "Races & Classes" });
+			groups.Add("Economy", new List<string> { "Races & Classes" });
+			groups.Add("Crafting", new List<string> { "Economy" });
+			groups.Add("Alchemy Overhauls", new List<string> { "Crafting" });
+			groups.Add("Skills & Perks", new List<string> { "Alchemy Overhauls" });
+			groups.Add("Vampire Gameplay Overhauls", new List<string> { "Skills & Perks" });
+			groups.Add("Core Mods", new List<string> { "Standing Stone Effects", "Vampire Gameplay Overhauls" });
+			groups.Add("Alternate Start", new List<string> { "Core Mods" });
+			groups.Add("Follower Frameworks", new List<string> { "Alternate Start" });
+			groups.Add("Cell Music", new List<string> { "Follower Frameworks" });
+			groups.Add("Cell Encounter Zones", new List<string> { "Cell Music" });
+			groups.Add("Cell Water", new List<string> { "Cell Encounter Zones" });
+			groups.Add("Cell Weather & Lighting", new List<string> { "Cell Water" });
+			groups.Add("Open Cities Skyrim", new List<string> { "Cell Weather & Lighting" });
+			groups.Add("High Priority Overrides", new List<string> { "Open Cities Skyrim" });
+			groups.Add("Late Loaders", new List<string> { "High Priority Overrides" });
+			groups.Add("Khajiit Speak", new List<string> { "Late Loaders" });
+			groups.Add("Leveled List Modifiers", new List<string> { "Khajiit Speak" });
+			groups.Add("Map Markers", new List<string> { "Leveled List Modifiers" });
+			groups.Add("Lux Interior Lighting", new List<string> { "Map Markers" });
+			groups.Add("City Worldspace Movers", new List<string> { "Lux Interior Lighting" });
+			groups.Add("Elianora's Breezehome Overhaul", new List<string> { "City Worldspace Movers" });
+			groups.Add("Winterhold Restored", new List<string> { "Elianora's Breezehome Overhaul" });
+			groups.Add("Water Overhauls", new List<string> { "Winterhold Restored" });
+			groups.Add("No Grass", new List<string> { "Water Overhauls" });
+			groups.Add("Torch Lighting", new List<string> { "No Grass" });
+			groups.Add("Player Character Dialogue", new List<string> { "Torch Lighting" });
+			groups.Add("Worldspace Settings", new List<string> { "Player Character Dialogue" });
+			groups.Add("Conflict Resolution Patches (Late)", new List<string> { "Worldspace Settings" });
+			groups.Add("Paper Maps", new List<string> { "Conflict Resolution Patches (Late)" });
+			groups.Add("Dynamic Patches", new List<string> { "Paper Maps" });
+			groups.Add("Late Fixes & Changes", new List<string> { "Dynamic Patches" });
+			groups.Add("Dynamic LOD", new List<string> { "Late Fixes & Changes" });
+			return groups;
+		}
+
+		/// <summary>Merges Collection group constraints with supported game defaults and validates the resulting graph.</summary>
+		private static bool TryNormalizePluginGroups(JToken groupsToken, string gameDomain, List<CollectionCapabilityIssue> issues,
 			out Dictionary<string, List<string>> groupAfter)
 		{
-			groupAfter = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+			groupAfter = CreatePluginGroupDefaults(gameDomain);
 			if (groupsToken == null || groupsToken.Type == JTokenType.Null) return true;
 			JArray groups = groupsToken as JArray;
 			if (groups == null)
@@ -2419,6 +2485,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			}
 
 			bool valid = true;
+			var declaredGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			for (int index = 0; index < groups.Count; index++)
 			{
 				string path = "$.pluginRules.groups[" + index.ToString(CultureInfo.InvariantCulture) + "]";
@@ -2446,7 +2513,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					valid = false;
 					continue;
 				}
-				if (groupAfter.ContainsKey(name))
+				if (!declaredGroups.Add(name))
 				{
 					issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 						"manifest.plugin-group-duplicate", "pluginRules.groups must contain at most one entry per group name.", path + ".name"));
@@ -2505,7 +2572,14 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 						}
 					}
 				}
-				groupAfter.Add(name, references);
+				List<string> existingReferences;
+				if (groupAfter.TryGetValue(name, out existingReferences))
+				{
+					// LOOT merges user after constraints with masterlist constraints.
+					foreach (string reference in references)
+						if (!existingReferences.Contains(reference, StringComparer.OrdinalIgnoreCase)) existingReferences.Add(reference);
+				}
+				else groupAfter.Add(name, references);
 			}
 
 			foreach (KeyValuePair<string, List<string>> group in groupAfter)
@@ -2514,7 +2588,7 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					{
 						issues.Add(CollectionCapabilityIssue.ForManifest(CollectionCompatibilityStatus.Unsupported,
 							"manifest.plugin-group-reference-external",
-							"The characterized NMM group subset requires every group after reference to resolve to another group defined inside this Collection.",
+							"A group after reference must resolve to a Collection group or a supported LOOT group for its game.",
 							"$.pluginRules.groups"));
 						valid = false;
 					}

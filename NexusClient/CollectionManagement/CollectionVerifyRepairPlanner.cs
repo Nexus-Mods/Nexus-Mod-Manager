@@ -232,9 +232,8 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativePluginState earlier = FindPlugin(state, rule.AfterPluginName);
 				if (later == null || earlier == null)
 				{
-					findings.Add(new CollectionVerifyRepairFinding(null, requirement,
-						CollectionVerifyRepairFindingKind.PluginEffectMismatch, CollectionVerifyRepairDisposition.ActionRequired,
-						null, null, "A retained Collection plugin-after endpoint is no longer present in authoritative native plugin state."));
+					// Ordering does not require installing either endpoint. Missing member/plugin effects
+					// are verified separately; this rule becomes applicable when both plugins are present.
 					continue;
 				}
 

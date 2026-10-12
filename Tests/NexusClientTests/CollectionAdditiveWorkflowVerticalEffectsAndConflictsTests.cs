@@ -42,6 +42,26 @@ namespace NexusClientTests
 	[Category("CollectionsC12Compatibility")]
 	public class CollectionAdditiveWorkflowVerticalEffectsAndConflictsTests
 	{
+		/// <summary>Reports failures from separate preparation stages and still inspects a healthy member after them.</summary>
+		[Test]
+		public void Prepare_MultipleMemberFailuresChecksRemainingMembersAndDoesNotPublishReview()
+		{
+			using (Fixture fixture = Fixture.Create(Scenario.MultiplePreparationFailures))
+			{
+				CollectionAdditiveWorkflowPreparationResult prepared = fixture.Prepare();
+				Assert.That(prepared.Status, Is.EqualTo(CollectionAdditiveWorkflowPreparationStatus.Blocked));
+				Assert.That(prepared.PreparationFailures.Select(x => x.Member.MemberKey),
+					Is.EquivalentTo(new[] { fixture.MemberA.Key, fixture.MemberB.Key }));
+				Assert.That(prepared.Message, Does.Contain("Member A").And.Contain("Member B"));
+				Assert.That(fixture.MemberC.FileEnumerationCount, Is.GreaterThan(0), "A healthy member after both failures must still be inspected.");
+				Assert.That(fixture.MemberC.FileReadCount, Is.EqualTo(0), "Preparation must not decompress the healthy member's payloads.");
+				Assert.That(prepared.Runtime, Is.Null);
+				Assert.That(prepared.Operation.PlanIdentity, Is.Null);
+				Assert.That(prepared.Operation.NativeChildren, Is.Empty);
+				Assert.That(fixture.NativeBoundary.CallCount, Is.EqualTo(0));
+			}
+		}
+
 		[Test]
 		public void VirtualOwnership_StalePreUpgradeMetadata_RecoversOnlyForExactActiveFootprint()
 		{
@@ -668,7 +688,8 @@ namespace NexusClientTests
 			TwoWritersWithPriority = 2,
 			UnrelatedExistingOwner = 3,
 			PluginlessSingleMember = 4,
-			PluginArchiveDesiredDisabled = 5
+			PluginArchiveDesiredDisabled = 5,
+			MultiplePreparationFailures = 6
 		}
 
 		private sealed class MemberSpec
@@ -690,6 +711,10 @@ namespace NexusClientTests
 			public string ArchivePath { get; }
 			public string[] Files { get; }
 			public CollectionMemberKey Key { get; set; }
+			public bool FailFileEnumeration { get; set; }
+			public bool FailInstallerInventory { get; set; }
+			public int FileEnumerationCount { get; set; }
+			public int FileReadCount { get; set; }
 		}
 
 		private sealed class Fixture : IDisposable
@@ -699,7 +724,7 @@ namespace NexusClientTests
 			private Fixture(string root, GameStoragePathSet paths, CollectionsStore store,
 				NormalizedCollectionManifest manifest, CollectionAdditiveWorkflowCoordinator workflow,
 				DeterministicNativeBoundary nativeBoundary, RecordingWinnerBarrier winnerBarrier,
-				MemberSpec memberA, MemberSpec memberB, string pluginDirectory, MutablePluginState pluginState,
+				MemberSpec memberA, MemberSpec memberB, MemberSpec memberC, string pluginDirectory, MutablePluginState pluginState,
 				MutableInstallLogState installState)
 			{
 				Root = root;
@@ -711,6 +736,7 @@ namespace NexusClientTests
 				WinnerBarrier = winnerBarrier;
 				MemberA = memberA;
 				MemberB = memberB;
+				MemberC = memberC;
 				PluginDirectory = pluginDirectory;
 				PluginState = pluginState;
 				InstallState = installState;
@@ -725,6 +751,7 @@ namespace NexusClientTests
 			public RecordingWinnerBarrier WinnerBarrier { get; }
 			public MemberSpec MemberA { get; }
 			public MemberSpec MemberB { get; }
+			public MemberSpec MemberC { get; }
 			public string PluginDirectory { get; }
 			public MutablePluginState PluginState { get; }
 			public MutableInstallLogState InstallState { get; }
@@ -752,7 +779,7 @@ namespace NexusClientTests
 				var operationCoordinator = new CollectionOperationCoordinator(operationStore, planStore);
 
 				CollectionIdentity collection = CollectionIdentity.FromNexus("c61514c-" + Guid.NewGuid().ToString("N"));
-				int declaredMemberCount = scenario == Scenario.TwoWritersWithPriority ? 2 : 1;
+				int declaredMemberCount = scenario == Scenario.MultiplePreparationFailures ? 3 : scenario == Scenario.TwoWritersWithPriority ? 2 : 1;
 				var revision = new CollectionRevision(CollectionRevisionIdentity.FromNexus(collection, "revision-one", 1),
 					"Revision 1", null, declaredMemberCount);
 				catalog.SaveDefinitionAndRevision(new CollectionDefinition(collection, "C6.15.14c", null, null), revision);
@@ -761,6 +788,7 @@ namespace NexusClientTests
 				File.WriteAllBytes(archiveA, Encoding.UTF8.GetBytes("C6.15.14c archive A"));
 				MemberSpec memberA;
 				MemberSpec memberB = null;
+				MemberSpec memberC = null;
 				bool usesPlugins = scenario == Scenario.PluginArchive || scenario == Scenario.PluginArchiveDesiredDisabled;
 				string modRules = "[]";
 				if (usesPlugins)
@@ -770,7 +798,7 @@ namespace NexusClientTests
 				else
 				{
 					memberA = new MemberSpec("Member A", 100, 200, "native-a", archiveA, @"textures\shared.dds");
-					if (scenario == Scenario.TwoWritersWithPriority)
+					if (scenario == Scenario.TwoWritersWithPriority || scenario == Scenario.MultiplePreparationFailures)
 					{
 						string archiveB = Path.Combine(root, "member-b.zip");
 						File.WriteAllBytes(archiveB, Encoding.UTF8.GetBytes("C6.15.14c archive B"));
@@ -781,6 +809,16 @@ namespace NexusClientTests
 
 				var specs = new List<MemberSpec> { memberA };
 				if (memberB != null) specs.Add(memberB);
+				if (scenario == Scenario.MultiplePreparationFailures)
+				{
+					memberA.FailFileEnumeration = true;
+					memberB.FailInstallerInventory = true;
+					string archiveC = Path.Combine(root, "member-c.zip");
+					File.WriteAllBytes(archiveC, Encoding.UTF8.GetBytes("healthy archive C"));
+					memberC = new MemberSpec("Member C", 102, 202, "native-c", archiveC, @"textures\healthy.dds");
+					specs.Add(memberC);
+					modRules = "[]";
+				}
 				string manifestJson = BuildManifest(specs, modRules,
 					scenario == Scenario.PluginArchiveDesiredDisabled ? "[]" : null);
 				byte[] manifestBytes = Encoding.UTF8.GetBytes(manifestJson);
@@ -890,7 +928,7 @@ namespace NexusClientTests
 					authorityValidator, nativeBoundary.ApplyAsync, winnerBarrier.ReconcileAsync, fileWinnerDecisions);
 
 				return new Fixture(root, paths, store, manifest, workflow, nativeBoundary, winnerBarrier,
-					memberA, memberB, pluginDirectory, pluginState, installState);
+					memberA, memberB, memberC, pluginDirectory, pluginState, installState);
 			}
 
 			public CollectionAdditiveWorkflowPreparationResult Prepare()
@@ -1433,8 +1471,13 @@ namespace NexusClientTests
 					case "get_ModArchivePath": return spec.ArchivePath;
 					case "get_FileName": return Path.GetFileName(spec.ArchivePath);
 					case "get_HumanReadableVersion": return "1.0";
-					case "GetFileList": return new List<string>(spec.Files);
+					case "GetFileList":
+						spec.FileEnumerationCount++;
+						if (spec.FailFileEnumeration) throw new InvalidDataException("Fixture cannot enumerate Member A's files.");
+						if (spec.FailInstallerInventory) throw new IOException("Fixture cannot read Member B's installer inventory.");
+						return new List<string>(spec.Files);
 					case "GetFileStream":
+						spec.FileReadCount++;
 						string requestedPath = (string)args[0];
 						return spec.Files.Any(path => StringComparer.OrdinalIgnoreCase.Equals(path, requestedPath))
 							? CreateFixtureFileStream(Encoding.UTF8.GetBytes("fixture:" + requestedPath))

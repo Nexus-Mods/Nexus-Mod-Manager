@@ -89,6 +89,15 @@ namespace Nexus.Client.CollectionManagement.UI
 				technicalDetail);
 		}
 
+		/// <summary>Summarizes completed member checks while individual failures remain visible in Review / issues.</summary>
+		internal static CollectionUserMessagePresentation ForPreparationFailures(int failedMemberCount, string technicalDetail)
+		{
+			string message = LanguageManager.Format("Collections.Messages.Preparation.MultipleMembersFailed",
+				"Mod checks finished. {0} mods could not be prepared; see Review / issues for all reported failures.", failedMemberCount);
+			return Message(String.Empty, message, "Collections.Messages.Next.ResolvePreparationFailures",
+				"Review the affected mods below, resolve the reported issues, then choose Download / Prepare to retry.", technicalDetail);
+		}
+
 		internal static CollectionUserMessagePresentation ForApply(CollectionAdditiveWorkflowApplyStatus status, string technicalDetail)
 		{
 			switch (status)
@@ -99,7 +108,7 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionAdditiveWorkflowApplyStatus.PausedAtSafeBoundary:
 					return Message("Collections.Messages.Apply.Paused",
 						"Installation paused after verified progress at a safe boundary.",
-						"Collections.Messages.Next.ReviewAndContinue", "Review the recovered plan, then choose Review and continue...", technicalDetail);
+						"Collections.Messages.Next.ReviewAndContinue", "Choose Continue Collection installation... to install the remaining selected mods. You do not need to select them again.", technicalDetail);
 				case CollectionAdditiveWorkflowApplyStatus.RecoveryRequired:
 					return Message("Collections.Messages.Apply.RecoveryRequired",
 						"Installation stopped because NMM cannot safely confirm the final managed state yet.",
@@ -110,8 +119,8 @@ namespace Nexus.Client.CollectionManagement.UI
 						"Collections.Messages.Next.PrepareAgain", "Choose Download / Prepare to build a fresh review.", technicalDetail);
 				case CollectionAdditiveWorkflowApplyStatus.StoppedPartial:
 					return Message("Collections.Messages.Apply.StoppedPartial",
-						"Installation stopped after verified partial progress.",
-						"Collections.Messages.Next.ReviewPartialInstallation", "To finish installing, open this Collection's Nexus link again. Or choose Uninstall Collection to remove the mods installed by this Collection.", technicalDetail);
+						"The installation stage finished with failed mods. Completed mods are kept; all failures are listed under Review / issues.",
+						"Collections.Messages.Next.RetryPartialInstallation", "Choose Verify / Repair to review and retry the remaining selected mods. Completed mods and saved installer choices are kept.", technicalDetail);
 				default:
 					return FromRaw(technicalDetail, String.Empty);
 			}
@@ -127,16 +136,28 @@ namespace Nexus.Client.CollectionManagement.UI
 						"Collections.Messages.Next.ReviewAndInstall", "Review the planned changes, then choose Review and install...", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.ReadyToResume:
 					return Message("Collections.Messages.Recovery.ReadyToResume",
-						"An interrupted Collection operation was reconciled to a safe resume point.",
-						"Collections.Messages.Next.ReviewAndContinue", "Review the recovered plan, then choose Review and continue...", technicalDetail);
+						"Recovery is complete. Your saved mod selections and installer choices are retained; verified completed mods will be skipped.",
+						"Collections.Messages.Next.ReviewAndContinue", "Choose Continue Collection installation... to install the remaining selected mods. You do not need to select them again.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.RepreparationRequired:
 					return Message("Collections.Messages.Recovery.Reprepare",
-						"The interrupted operation can no longer use its previous review because the current setup changed.",
-						"Collections.Messages.Next.PrepareAgain", "Choose Download / Prepare to build a fresh review.", technicalDetail);
+						"Installation is paused because the saved review no longer matches the current setup. Completed mods are kept.",
+						"Collections.Messages.Next.RefreshRemainingInstallation", "Refresh the remaining installation review using the action above. NMM will keep completed mods and reuse your saved selections.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired:
+					string verificationDetail = (technicalDetail ?? String.Empty).Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+						.FirstOrDefault(x => x.IndexOf("NMM could not verify '", StringComparison.OrdinalIgnoreCase) >= 0);
+					if (String.IsNullOrWhiteSpace(verificationDetail))
+					{
+						Match committedFailure = Regex.Match(technicalDetail ?? String.Empty,
+							@"committed verification: FAIL - (.*?)(?:\s*C6\.9 rollback verification:|$)", RegexOptions.Singleline | RegexOptions.CultureInvariant);
+						if (committedFailure.Success) verificationDetail = LanguageManager.Format("Collections.Messages.Recovery.VerificationDetail",
+							"Installation recovery stopped: {0} Completed mods are kept.", SanitizeInternalTerminology(committedFailure.Groups[1].Value.Trim()));
+					}
+					if (!String.IsNullOrWhiteSpace(verificationDetail))
+						return Message(String.Empty, SanitizeInternalTerminology(verificationDetail),
+							"Collections.Messages.Next.CheckRecoveryContinue", "Choose Check recovery and continue... to repair the affected mod or file where possible and resume. Completed mods are kept. Export Technical Report... if recovery is still blocked.", technicalDetail);
 					return Message("Collections.Messages.Recovery.Required",
-						"The Collection installation is unfinished. NMM could not repair it automatically.",
-						"Collections.Messages.Next.RemoveInterruptedCollection", "Choose Uninstall Collection to remove its mods without finishing this installation. Export Technical Report... saves the problem details.", technicalDetail);
+						"Installation is paused on the affected mod. Completed mods are kept.",
+						"Collections.Messages.Next.CheckRecoveryContinue", "Choose Check recovery and continue... to repair the affected mod or file where possible and resume. Completed mods are kept. Export Technical Report... if recovery is still blocked.", technicalDetail);
 				case CollectionAdditiveWorkflowRecoveryStatus.StoppedPartial:
 					return Message("Collections.Messages.Recovery.StoppedPartial",
 						"The interrupted operation was reconciled as partial verified progress and cannot continue automatically.",
@@ -199,6 +220,9 @@ namespace Nexus.Client.CollectionManagement.UI
 				case CollectionMemberAcquisitionDisposition.RestartActionRequired:
 					return Message("Collections.Messages.Acquisition.RestartRequired", "The previous download state needs to be confirmed before preparation can continue.",
 						"Collections.Messages.Next.DownloadAndContinue", "Complete the requested download step, then choose Check downloads and continue.", technicalDetail);
+				case CollectionMemberAcquisitionDisposition.DeferredByBlockedMember:
+					return Message("Collections.Messages.Acquisition.DeferredByBlockedMember", "This mod is waiting while another Collection member has a blocking issue.",
+						"Collections.Messages.Next.ResolveOtherBlockedMember", "Resolve the blocking issues, then continue preparation. This mod has not failed acquisition.", technicalDetail);
 				case CollectionMemberAcquisitionDisposition.Blocked:
 					return Message("Collections.Messages.Acquisition.Blocked", "This mod cannot be acquired safely with the currently available source information.",
 						"Collections.Messages.Next.ResolveBlockedAcquisition", "Review this mod's source and compatibility details; preparation cannot continue while it is blocked.", technicalDetail);
@@ -310,8 +334,20 @@ namespace Nexus.Client.CollectionManagement.UI
 						"Collections.Messages.Next.ImportMatchingBundle", "Choose a valid bundle or collection.json for the currently displayed revision.", technicalDetail);
 				case "workflow.prepare-failed":
 				case "workflow.resume-failed":
-					return Message("Collections.Messages.Failure.Preparation", "Collection preparation stopped unexpectedly.",
-						"Collections.Messages.Next.PrepareAgain", "Review the errors below, then choose Download / Prepare to build a fresh review when it is safe to do so.", technicalDetail);
+					string preparationFailure = SanitizeInternalTerminology(technicalDetail).Trim();
+					if (preparationFailure.StartsWith("Reviewed workflow payload exceeds", StringComparison.Ordinal) ||
+						preparationFailure.StartsWith("Collection installation instructions exceed", StringComparison.Ordinal) ||
+						preparationFailure.StartsWith("Collection installation instructions contain too many records", StringComparison.Ordinal))
+						return Message("Collections.Messages.Failure.InstallationPlanTooLarge",
+							"NMM could not save this Collection's installation instructions because the plan exceeds its supported size.",
+							"Collections.Messages.Next.ReportPreparationFailure", "Choose Export Technical Report to save the details of this NMM error.", technicalDetail);
+					return Message(String.Empty, LanguageManager.Format("Collections.Messages.Failure.PreparationWithReason",
+						"Collection preparation stopped: {0}", String.IsNullOrWhiteSpace(preparationFailure)
+							? LanguageManager.Get("Collections.Messages.Failure.UnknownReason", "NMM did not provide an error reason.") : preparationFailure),
+						"Collections.Messages.Next.ReportPreparationFailure", "Choose Export Technical Report to save the details of this NMM error.", technicalDetail);
+				case "acquisition.archive-conflict":
+					return Message(String.Empty, SanitizeInternalTerminology(technicalDetail), "Collections.Acquisition.ArchiveConflictNext",
+						"Choose automatic selection in the dialog, or enable Automatic Mode and retry installation.", technicalDetail);
 				case "workflow.review-invalid":
 					return Message("Collections.Messages.Failure.ReviewInvalid", "The saved Collection review is no longer valid for the current setup.",
 						"Collections.Messages.Next.PrepareAgain", "Choose Download / Prepare to build a fresh review.", technicalDetail);

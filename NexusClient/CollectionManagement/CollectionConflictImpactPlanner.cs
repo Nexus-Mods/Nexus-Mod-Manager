@@ -148,7 +148,7 @@ namespace Nexus.Client.CollectionManagement
 			List<CollectionConfigurationImpact> configImpacts = BuildConfigurationImpacts(plan, nativeState, matches, mutationPreviews, associationKinds, issues, reviewedExistingOwnerKeys);
 
 			if (!skipAssociationReview && !plan.Policy.PreferIncomingCollection)
-				ReviewAffectedAssociations(nativeState, associationKinds, issues, reviewedAssociationId);
+				ReviewAffectedAssociations(nativeState, associationKinds, issues, reviewedAssociationId, plan.Revision);
 			List<CollectionAssociationImpact> associationImpacts = associationKinds.OrderBy(x => x.Key)
 				.Where(x => nativeState.Associations.ContainsKey(x.Key))
 				.Select(x => new CollectionAssociationImpact(nativeState.Associations[x.Key], x.Value)).ToList();
@@ -822,6 +822,12 @@ namespace Nexus.Client.CollectionManagement
 					bool hasReference = candidates.TryGetValue(rule.AfterPluginName, out referenceCandidates) && referenceCandidates.Count > 0;
 					if (!hasSource || !hasReference)
 					{
+						// A load-after rule orders plugins that are present; it does not require installing its endpoints.
+						// Preserve the manual external-endpoint review, but automatic Collections must allow dormant rules.
+						if (plan.Policy.AutomaticallyInstall && plan.Policy.PreferIncomingCollection &&
+							((!hasSource && FindPlugin(nativeState, rule.PluginName) == null) ||
+							 (!hasReference && FindPlugin(nativeState, rule.AfterPluginName) == null)))
+							continue;
 						CollectionMemberKey owner = hasSource
 							? sourceCandidates.Select(x => x.Item1).Distinct().OrderBy(x => x, new MemberKeyComparer()).First()
 							: null;
@@ -1085,7 +1091,7 @@ namespace Nexus.Client.CollectionManagement
 
 		private static void ReviewAffectedAssociations(CollectionNativeStateIndex nativeState,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
-			Guid? reviewedAssociationId)
+			Guid? reviewedAssociationId, CollectionRevisionIdentity incomingRevision)
 		{
 			foreach (Guid associationId in associationKinds.Keys.ToList())
 			{
@@ -1093,7 +1099,8 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				CollectionTargetAssociation association;
 				if (!nativeState.Associations.TryGetValue(associationId, out association)) continue;
-				if (association.State == CollectionAssociationState.Incomplete || association.State == CollectionAssociationState.Recovering)
+				if ((association.State == CollectionAssociationState.Incomplete &&
+					!nativeState.IsReconciledPartialAssociation(association, incomingRevision)) || association.State == CollectionAssociationState.Recovering)
 					issues.Add(new CollectionConflictImpactIssue(CollectionConflictImpactIssueKind.AffectedAssociationRequiresRecovery,
 						CollectionConflictImpactStatus.Blocked, null, associationId.ToString("D"),
 						"An existing Collection association affected by this plan is incomplete/recovering and must be reconciled first."));

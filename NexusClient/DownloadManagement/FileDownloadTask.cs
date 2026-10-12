@@ -92,6 +92,8 @@ namespace Nexus.Client.DownloadManagement
 		private AutoResetEvent m_areWaitForDownload = null;
 		private readonly ManualResetEvent m_mreRetryWait = new ManualResetEvent(false);
 		private readonly object m_objRetryWaitLock = new object();
+		private volatile bool m_booDisposed;
+		private int m_intRetryWaiters;
 		private State m_steState = null;
 
 		#region Properties
@@ -257,7 +259,11 @@ namespace Nexus.Client.DownloadManagement
 		public void Download(Uri p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
 			m_steState = new State(false, p_uriURL, p_strSavePath, p_booUseDefaultFileName);
-			m_areWaitForDownload = new AutoResetEvent(false);
+			lock (m_objRetryWaitLock)
+			{
+				if (m_booDisposed) throw new ObjectDisposedException(nameof(FileDownloadTask));
+				m_areWaitForDownload = new AutoResetEvent(false);
+			}
 			DownloadAsync(p_uriURL, p_strSavePath, p_booUseDefaultFileName);
 			m_areWaitForDownload.WaitOne();
 		}
@@ -303,6 +309,7 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="p_booUseDefaultFileName">Whether to use the file name suggested by the server.</param>
 		public void DownloadAsync(List<Uri> p_uriURL, string p_strSavePath, bool p_booUseDefaultFileName)
 		{
+			if (m_booDisposed) return;
 			if (p_uriURL == null)
 				throw new ArgumentNullException("p_uriURL");
 
@@ -319,7 +326,7 @@ namespace Nexus.Client.DownloadManagement
 			ItemProgress = i;
 			Status = TaskStatus.Running;
 
-			while ((retries <= m_intRetries) && (Status != TaskStatus.Paused) && (Status != TaskStatus.Queued) &&
+			while (!m_booDisposed && (retries <= m_intRetries) && (Status != TaskStatus.Paused) && (Status != TaskStatus.Queued) &&
 				(Status != TaskStatus.Cancelling) && (Status != TaskStatus.Cancelled))
 			{
                 if ((Status == TaskStatus.Paused) || (Status == TaskStatus.Queued))
@@ -331,9 +338,14 @@ namespace Nexus.Client.DownloadManagement
                     Status = TaskStatus.Running;
                 }
 
-				m_fdrDownloader = new FileDownloader(uriURL, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
+				FileDownloader downloader = new FileDownloader(uriURL, p_strSavePath, p_booUseDefaultFileName, m_intMaxConnections, m_intMinBlockSize, m_strUserAgent);
+				lock (m_objRetryWaitLock)
+				{
+					if (m_booDisposed) return;
+					m_fdrDownloader = downloader;
+					m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
+				}
 				m_steState = new State(true, uriURL, p_strSavePath, p_booUseDefaultFileName);
-				m_fdrDownloader.DownloadComplete += new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
 				ShowItemProgress = false;
 				OverallProgressMaximum = (Int64)(m_fdrDownloader.FileSize / 1024);
 				OverallProgressMinimum = 0;
@@ -412,6 +424,7 @@ namespace Nexus.Client.DownloadManagement
 				}
 			}
 
+			if (m_booDisposed) return;
 			if (Status == TaskStatus.Cancelling)
 			{
 				CompleteRetryCancellation();
@@ -424,8 +437,12 @@ namespace Nexus.Client.DownloadManagement
             }
             else if (Status == TaskStatus.Running)
             {
-                m_fdrDownloader.StartDownload();
-                m_tmrUpdater.Start();
+				lock (m_objRetryWaitLock)
+				{
+					if (m_booDisposed) return;
+					m_fdrDownloader.StartDownload();
+					m_tmrUpdater.Start();
+				}
             }
 		}
 
@@ -437,12 +454,19 @@ namespace Nexus.Client.DownloadManagement
 		{
 			lock (m_objRetryWaitLock)
 			{
+				if (m_booDisposed) return false;
 				m_mreRetryWait.Reset();
 				if (IsRetryWaitInterrupted())
 					return false;
+				m_intRetryWaiters++;
 			}
 
-			m_mreRetryWait.WaitOne(m_intRetryInterval);
+			try { m_mreRetryWait.WaitOne(m_intRetryInterval); }
+			finally
+			{
+				lock (m_objRetryWaitLock)
+					if (--m_intRetryWaiters == 0 && m_booDisposed) m_mreRetryWait.Dispose();
+			}
 			return !IsRetryWaitInterrupted();
 		}
 
@@ -451,7 +475,7 @@ namespace Nexus.Client.DownloadManagement
 		/// </summary>
 		private bool IsRetryWaitInterrupted()
 		{
-			return (Status == TaskStatus.Cancelling) || (Status == TaskStatus.Cancelled) ||
+			return m_booDisposed || (Status == TaskStatus.Cancelling) || (Status == TaskStatus.Cancelled) ||
 				(Status == TaskStatus.Paused) || (Status == TaskStatus.Queued);
 		}
 
@@ -483,6 +507,7 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="e">A <see cref="CompletedDownloadEventArgs"/> describing the event arguments.</param>
 		private void Downloader_DownloadComplete(object sender, CompletedDownloadEventArgs e)
 		{
+			if (m_booDisposed) return;
 			m_tmrUpdater.Stop();
 
             if (m_areWaitForDownload != null)
@@ -545,6 +570,7 @@ namespace Nexus.Client.DownloadManagement
 			{
 				lock (m_objRetryWaitLock)
 				{
+					if (m_booDisposed) return;
 					Status = TaskStatus.Cancelling;
 					m_mreRetryWait.Set();
 				}
@@ -554,6 +580,7 @@ namespace Nexus.Client.DownloadManagement
 			{
 				lock (m_objRetryWaitLock)
 				{
+					if (m_booDisposed) return;
 					Status = TaskStatus.Cancelled;
 					m_mreRetryWait.Set();
 				}
@@ -575,6 +602,7 @@ namespace Nexus.Client.DownloadManagement
 		{
 			lock (m_objRetryWaitLock)
 			{
+				if (m_booDisposed) return;
 				Status = TaskStatus.Paused;
 				m_mreRetryWait.Set();
 			}
@@ -597,6 +625,7 @@ namespace Nexus.Client.DownloadManagement
 		{
 			lock (m_objRetryWaitLock)
 			{
+				if (m_booDisposed) return;
 				Status = TaskStatus.Queued;
 				m_mreRetryWait.Set();
 			}
@@ -643,6 +672,7 @@ namespace Nexus.Client.DownloadManagement
 		/// <param name="e">A <see cref="ElapsedEventArgs"/> describing the event arguments.</param>
 		private void Updater_Elapsed(object sender, ElapsedEventArgs e)
 		{
+			if (m_booDisposed) return;
 			if (m_fdrDownloader != null)
 			{
 				OverallMessage = String.Format(m_strMessageFormat, Path.GetFileName(m_fdrDownloader.SavePath), m_fdrDownloader.TimeRemaining.TotalMinutes, m_fdrDownloader.TimeRemaining.Seconds, m_fdrDownloader.DownloadSpeed / 1024);
@@ -666,14 +696,21 @@ namespace Nexus.Client.DownloadManagement
 		/// </remarks>
 		public void Dispose()
 		{
-			if (m_fdrDownloader != null)
+			FileDownloader downloader;
+			lock (m_objRetryWaitLock)
 			{
-				m_fdrDownloader.DownloadComplete -= new EventHandler<CompletedDownloadEventArgs>(Downloader_DownloadComplete);
-				m_fdrDownloader.Stop();
-				m_fdrDownloader = null;
+				if (m_booDisposed) return;
+				m_booDisposed = true;
+				m_mreRetryWait.Set();
+				// A pending retry releases its wait handle only after it has been woken.
+				if (m_intRetryWaiters == 0) m_mreRetryWait.Dispose();
+				downloader = m_fdrDownloader;
+				if (downloader != null) downloader.DownloadComplete -= Downloader_DownloadComplete;
 			}
-
-			m_mreRetryWait.Dispose();
+			m_tmrUpdater.Stop();
+			m_tmrUpdater.Elapsed -= Updater_Elapsed;
+			if (m_areWaitForDownload != null) m_areWaitForDownload.Set();
+			if (downloader != null) downloader.Stop();
 		}
 
 		#endregion

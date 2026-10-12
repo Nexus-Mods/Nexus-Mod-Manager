@@ -16,7 +16,7 @@ namespace Nexus.Client.CollectionManagement
 	/// </remarks>
 	public sealed class CollectionAdditiveFinalStateVerifier
 	{
-		/// <summary>Throws unless the fresh native state still satisfies the complete supported reviewed additive plan.</summary>
+		/// <summary>Checks every supported reviewed effect and reports all differences before Applied publication.</summary>
 		public void Verify(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches, CollectionConflictImpactPlan impactPlan,
 			IEnumerable<PreparedCollectionNativeRecipe> preparedRecipes, CollectionNativeStateIndex state)
 		{
@@ -33,14 +33,16 @@ namespace Nexus.Client.CollectionManagement
 				throw new InvalidOperationException("Aggregate Collection verification requires complete Collection association state.");
 
 			Dictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes = preparedRecipes.ToDictionary(x => x.Member.MemberKey);
-			Dictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember = ResolveSelectedNativeMembers(plan, matches, recipes, state);
-			VerifyManagedFiles(impactPlan, recipes, nativeByMember, state);
-			VerifyNonFileEffects(impactPlan, recipes, nativeByMember, state);
+			var failures = new List<string>();
+			Dictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember = ResolveSelectedNativeMembers(plan, matches, recipes, state, failures);
+			VerifyManagedFiles(impactPlan, recipes, nativeByMember, state, failures);
+			VerifyNonFileEffects(impactPlan, recipes, nativeByMember, state, failures);
+			if (failures.Count > 0) throw new InvalidOperationException(String.Join(Environment.NewLine, failures));
 		}
 
 		private static Dictionary<CollectionMemberKey, CollectionNativeModState> ResolveSelectedNativeMembers(ResolvedCollectionPlan plan,
 			CollectionMemberMatchSet matches, IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes,
-			CollectionNativeStateIndex state)
+			CollectionNativeStateIndex state, List<string> failures)
 		{
 			CollectionTargetAssociation operationAssociation = state.Associations.Values.SingleOrDefault(x =>
 				x.Target.Equals(plan.Target) && x.Revision.Equals(plan.Revision));
@@ -52,57 +54,60 @@ namespace Nexus.Client.CollectionManagement
 			var result = new Dictionary<CollectionMemberKey, CollectionNativeModState>();
 			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
 			{
-				CollectionMemberMatchResult match;
-				if (!matches.MembersByKey.TryGetValue(member.MemberKey, out match))
-					throw new InvalidOperationException("Aggregate verification is missing one reviewed selected member.");
-
-				NativeModInstanceIdentity identity;
-				if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
+				try
 				{
-					CollectionNativeModState reviewed = match.MatchedNativeMod;
-					if (reviewed == null)
-						throw new InvalidOperationException("An adopted member no longer has one exact reviewed native identity.");
-					identity = reviewed.Identity;
-					ReadOnlyCollection<CollectionMemberBinding> currentBindings;
-					if (!state.BindingsByNativeMod.TryGetValue(identity, out currentBindings) ||
-						!currentBindings.Any(x => x.VerifiedRecipe.Equals(member.RecipeIdentity) &&
-							x.Association.State == CollectionAssociationState.Applied))
-						throw new InvalidOperationException("An adopted selected member lost the applied verified binding evidence used by the reviewed match.");
-				}
-				else if (match.Disposition == CollectionMemberMatchDisposition.ArchiveOnlyReuse ||
-					match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired)
-				{
-					CollectionMemberBinding binding = operationBindings.SingleOrDefault(x => x.MemberKey.Equals(member.MemberKey));
-					if (binding == null || binding.BindingKind != CollectionMemberBindingKind.InstalledForCollection ||
-						!binding.VerifiedRecipe.Equals(member.RecipeIdentity))
-						throw new InvalidOperationException("A mutating selected member is missing its verified Collection binding at final verification.");
-					identity = binding.NativeMod;
-				}
-				else
-					throw new InvalidOperationException("An unresolved member disposition reached aggregate final verification.");
+					CollectionMemberMatchResult match;
+					if (!matches.MembersByKey.TryGetValue(member.MemberKey, out match))
+						throw new InvalidOperationException("Aggregate verification is missing one reviewed selected member.");
 
-				CollectionNativeModState live;
-				if (!state.Mods.TryGetValue(identity, out live))
-					throw new InvalidOperationException("A selected Collection member is no longer present in authoritative native state.");
+					NativeModInstanceIdentity identity;
+					if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
+					{
+						CollectionNativeModState reviewed = match.MatchedNativeMod;
+						if (reviewed == null)
+							throw new InvalidOperationException("An adopted member no longer has one exact reviewed native identity.");
+						identity = reviewed.Identity;
+						ReadOnlyCollection<CollectionMemberBinding> currentBindings;
+						if (!state.BindingsByNativeMod.TryGetValue(identity, out currentBindings) ||
+							!currentBindings.Any(x => matches.HasReusableVerifiedBinding(x, identity, member.RecipeIdentity)))
+							throw new InvalidOperationException("An adopted selected member lost the applied verified binding evidence used by the reviewed match.");
+					}
+					else if (match.Disposition == CollectionMemberMatchDisposition.ArchiveOnlyReuse ||
+						match.Disposition == CollectionMemberMatchDisposition.ReinstallRequired)
+					{
+						CollectionMemberBinding binding = operationBindings.SingleOrDefault(x => x.MemberKey.Equals(member.MemberKey));
+						if (binding == null || binding.BindingKind != CollectionMemberBindingKind.InstalledForCollection ||
+							!binding.VerifiedRecipe.Equals(member.RecipeIdentity))
+							throw new InvalidOperationException("A mutating selected member is missing its verified Collection binding at final verification.");
+						identity = binding.NativeMod;
+					}
+					else
+						throw new InvalidOperationException("An unresolved member disposition reached aggregate final verification.");
 
-				PreparedCollectionNativeRecipe recipe;
-				if (recipes.TryGetValue(member.MemberKey, out recipe))
-				{
-					if (live.InstallMethod != recipe.InstallContext.Method || live.InstallRoot != recipe.InstallContext.InstallRoot)
-						throw new InvalidOperationException("A mutating selected member no longer has its reviewed native install context.");
+					CollectionNativeModState live;
+					if (!state.Mods.TryGetValue(identity, out live))
+						throw new InvalidOperationException("A selected Collection member is no longer present in authoritative native state.");
+
+					PreparedCollectionNativeRecipe recipe;
+					if (recipes.TryGetValue(member.MemberKey, out recipe))
+					{
+						if (live.InstallMethod != recipe.InstallContext.Method || live.InstallRoot != recipe.InstallContext.InstallRoot)
+							throw new InvalidOperationException("A mutating selected member no longer has its reviewed native install context.");
+					}
+					else if (match.MatchedNativeMod != null &&
+						(live.InstallMethod != match.MatchedNativeMod.InstallMethod || live.InstallRoot != match.MatchedNativeMod.InstallRoot))
+						throw new InvalidOperationException("An adopted selected member changed native install context after review.");
+
+					result.Add(member.MemberKey, live);
 				}
-				else if (match.MatchedNativeMod != null &&
-					(live.InstallMethod != match.MatchedNativeMod.InstallMethod || live.InstallRoot != match.MatchedNativeMod.InstallRoot))
-					throw new InvalidOperationException("An adopted selected member changed native install context after review.");
-
-				result.Add(member.MemberKey, live);
+				catch (InvalidOperationException failure) { failures.Add(member.DisplayName + ": " + failure.Message); }
 			}
 			return result;
 		}
 
 		private static void VerifyManagedFiles(CollectionConflictImpactPlan impactPlan,
 			IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes,
-			IDictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember, CollectionNativeStateIndex state)
+			IDictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember, CollectionNativeStateIndex state, List<string> failures)
 		{
 			var writersByTarget = new Dictionary<Nexus.Client.ModManagement.ModDeploymentTarget, List<CollectionMemberKey>>();
 			foreach (PreparedCollectionNativeRecipe recipe in recipes.Values)
@@ -119,42 +124,49 @@ namespace Nexus.Client.CollectionManagement
 
 			foreach (KeyValuePair<Nexus.Client.ModManagement.ModDeploymentTarget, List<CollectionMemberKey>> entry in writersByTarget)
 			{
-				CollectionNativeFileState file;
-				if (!state.Files.TryGetValue(entry.Key, out file) || String.IsNullOrWhiteSpace(file.PhysicalPath) || !File.Exists(file.PhysicalPath))
-					throw new InvalidOperationException("A reviewed Collection file target is missing from final native state.");
-				foreach (CollectionMemberKey writer in entry.Value)
+				try
 				{
-					CollectionNativeModState native = nativeByMember[writer];
-					if (!ContainsOwner(file, native.Identity.NativeModKey))
-						throw new InvalidOperationException("A reviewed Collection file writer is missing from the final native owner stack.");
-				}
-
-				CollectionFileImpact impact = impactPlan.FileImpacts.SingleOrDefault(x => x.Target.Equals(entry.Key));
-				if (impact == null)
-					throw new InvalidOperationException("A reviewed Collection file target is missing its durable impact decision.");
-				if (impact.PreserveCurrentOwner)
-				{
-					if (String.IsNullOrWhiteSpace(impact.CurrentOwnerKey) ||
-						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, impact.CurrentOwnerKey))
-						throw new InvalidOperationException("The final native file winner no longer matches the reviewed decision to preserve the existing managed owner.");
-					if (impact.Writers.Count > 1)
+					CollectionNativeFileState file;
+					if (!state.Files.TryGetValue(entry.Key, out file) || String.IsNullOrWhiteSpace(file.PhysicalPath) ||
+						(!Properties.Settings.Default.CollectionSkipContentChecks && !File.Exists(Nexus.Client.Util.FileUtil.GetIoPath(file.PhysicalPath))))
+						throw new InvalidOperationException("A reviewed Collection file target is missing from final native state.");
+					foreach (CollectionMemberKey writer in entry.Value)
 					{
-						CollectionNativeModState fallback;
-						if (impact.PlannedWinner == null || !nativeByMember.TryGetValue(impact.PlannedWinner, out fallback))
-							throw new InvalidOperationException("The reviewed preserved file winner no longer has one exact Collection fallback owner.");
-						List<string> owners = GetOrderedManagedOwnerKeys(file);
-						if (owners.Count < 2 || !StringComparer.OrdinalIgnoreCase.Equals(owners[owners.Count - 1], impact.CurrentOwnerKey) ||
-							!StringComparer.OrdinalIgnoreCase.Equals(owners[owners.Count - 2], fallback.Identity.NativeModKey))
-							throw new InvalidOperationException("The final native file owner stack no longer preserves the reviewed Collection fallback directly beneath the existing managed winner.");
+						CollectionNativeModState native;
+						if (!nativeByMember.TryGetValue(writer, out native)) continue; // Already reported at the member boundary.
+						if (!ContainsOwner(file, native.Identity.NativeModKey))
+							failures.Add(entry.Key + ": missing reviewed file writer " + writer + ".");
+					}
+
+					CollectionFileImpact impact;
+					impactPlan.FileImpactsByTarget.TryGetValue(entry.Key, out impact);
+					if (impact == null)
+						throw new InvalidOperationException("A reviewed Collection file target is missing its durable impact decision.");
+					if (impact.PreserveCurrentOwner)
+					{
+						if (String.IsNullOrWhiteSpace(impact.CurrentOwnerKey) ||
+							!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, impact.CurrentOwnerKey))
+							throw new InvalidOperationException("The final native file winner no longer matches the reviewed decision to preserve the existing managed owner.");
+						if (impact.Writers.Count > 1)
+						{
+							CollectionNativeModState fallback;
+							if (impact.PlannedWinner == null || !nativeByMember.TryGetValue(impact.PlannedWinner, out fallback))
+								throw new InvalidOperationException("The reviewed preserved file winner no longer has one exact Collection fallback owner.");
+							List<string> owners = GetOrderedManagedOwnerKeys(file);
+							if (owners.Count < 2 || !StringComparer.OrdinalIgnoreCase.Equals(owners[owners.Count - 1], impact.CurrentOwnerKey) ||
+								!StringComparer.OrdinalIgnoreCase.Equals(owners[owners.Count - 2], fallback.Identity.NativeModKey))
+								throw new InvalidOperationException("The final native file owner stack no longer preserves the reviewed Collection fallback directly beneath the existing managed winner.");
+						}
+					}
+					else
+					{
+						CollectionMemberKey winner = impact.PlannedWinner ?? (entry.Value.Count == 1 ? entry.Value[0] : null);
+						if (winner == null || !nativeByMember.ContainsKey(winner) ||
+							!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, nativeByMember[winner].Identity.NativeModKey))
+							throw new InvalidOperationException("The final native file winner no longer matches the reviewed Collection decision.");
 					}
 				}
-				else
-				{
-					CollectionMemberKey winner = impact.PlannedWinner ?? (entry.Value.Count == 1 ? entry.Value[0] : null);
-					if (winner == null || !nativeByMember.ContainsKey(winner) ||
-						!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, nativeByMember[winner].Identity.NativeModKey))
-						throw new InvalidOperationException("The final native file winner no longer matches the reviewed Collection decision.");
-				}
+				catch (InvalidOperationException failure) { failures.Add(entry.Key + ": " + failure.Message); }
 			}
 		}
 
@@ -173,39 +185,40 @@ namespace Nexus.Client.CollectionManagement
 
 		private static void VerifyNonFileEffects(CollectionConflictImpactPlan impactPlan,
 			IDictionary<CollectionMemberKey, PreparedCollectionNativeRecipe> recipes,
-			IDictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember, CollectionNativeStateIndex state)
+			IDictionary<CollectionMemberKey, CollectionNativeModState> nativeByMember, CollectionNativeStateIndex state, List<string> failures)
 		{
 			foreach (PreparedCollectionNativeRecipe recipe in recipes.Values)
 			{
-				CollectionNativeModState native = nativeByMember[recipe.Member.MemberKey];
+				CollectionNativeModState native;
+				if (!nativeByMember.TryGetValue(recipe.Member.MemberKey, out native)) continue;
 				string ownerKey = native.Identity.NativeModKey;
 				foreach (CollectionPlannedIniEffect effect in recipe.EffectPreview.IniEdits)
 				{
 					CollectionNativeIniState ini;
 					if (!state.IniEdits.TryGetValue(effect.Key, out ini) || ini.Values.Count == 0)
-						throw new InvalidOperationException("A reviewed Collection INI effect is missing from final native state.");
+						{ failures.Add(recipe.Member.DisplayName + ": " + effect.Key + ": A reviewed Collection INI effect is missing from final native state."); continue; }
 					CollectionNativeTextOwnerValue current = ini.Values[ini.Values.Count - 1];
 					if (!StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) || !StringComparer.Ordinal.Equals(current.Value, effect.Value))
-						throw new InvalidOperationException("A reviewed Collection INI effect no longer matches final native state.");
+						failures.Add(recipe.Member.DisplayName + ": " + effect.Key + ": A reviewed Collection INI effect no longer matches final native state.");
 				}
 
 				foreach (CollectionPlannedGameValueEffect effect in recipe.EffectPreview.GameValues)
 				{
 					CollectionNativeGameValueState value;
 					if (!state.GameValues.TryGetValue(effect.Key, out value) || value.Values.Count == 0)
-						throw new InvalidOperationException("A reviewed Collection game-specific effect is missing from final native state.");
+						{ failures.Add(recipe.Member.DisplayName + ": " + effect.Key + ": A reviewed Collection game-specific effect is missing from final native state."); continue; }
 					CollectionNativeBinaryOwnerValue current = value.Values[value.Values.Count - 1];
 					if (!StringComparer.OrdinalIgnoreCase.Equals(current.OwnerKey, ownerKey) || !ByteArraysEqual(current.UnsafeValue, effect.UnsafeValue))
-						throw new InvalidOperationException("A reviewed Collection game-specific effect no longer matches final native state.");
+						failures.Add(recipe.Member.DisplayName + ": " + effect.Key + ": A reviewed Collection game-specific effect no longer matches final native state.");
 				}
 
 			}
 
 			if (impactPlan.PluginImpacts.Count > 0 && state.PluginCoverage != CollectionNativeStateCoverage.Complete)
-				throw new InvalidOperationException("Final Collection verification cannot prove reviewed plugin effects because plugin state is unavailable.");
+				failures.Add("Final Collection verification cannot prove reviewed plugin effects because plugin state is unavailable.");
 			foreach (CollectionPluginImpact impact in impactPlan.PluginImpacts)
 				if (!CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(state, impact.Effect))
-					throw new InvalidOperationException("A reviewed Collection plugin effect no longer matches final native state.");
+					failures.Add(String.Join(", ", impact.Effect.PluginPaths) + ": a reviewed Collection plugin effect no longer matches final native state.");
 		}
 
 		private static bool ByteArraysEqual(byte[] left, byte[] right)

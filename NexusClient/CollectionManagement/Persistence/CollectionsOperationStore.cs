@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 
@@ -19,6 +21,8 @@ namespace Nexus.Client.CollectionManagement.Persistence
 	public sealed class CollectionsOperationStore
 	{
 		private readonly CollectionsStore _store;
+		private readonly Dictionary<string, string> _nativeFailureMessages = new Dictionary<string, string>(StringComparer.Ordinal);
+		private readonly object _nativeFailureMessageGate = new object();
 
 		/// <summary>
 		/// Creates an operation journal over an existing Collections feature store.
@@ -42,6 +46,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				throw new ArgumentNullException(nameof(operation));
 
 			_store.ExecuteWrite((connection, transaction) => SaveOperation(connection, transaction, operation));
+			foreach (CollectionNativeChildOperation child in operation.NativeChildren.Where(x => x.NativeResult != null &&
+				x.NativeResult.ReportedStatus != ModOperationReportedStatus.Succeeded &&
+				!String.IsNullOrWhiteSpace(x.NativeResult.Message)))
+				RetainNativeFailureMessage(operation.Identity, child);
 		}
 
 		/// <summary>
@@ -99,7 +107,10 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			{
 				CollectionNativeChildOperation oldChild;
 				if (existingChildren.TryGetValue(child.Sequence, out oldChild))
-					UpdateChild(connection, transaction, operation.Identity.OperationId, child);
+				{
+					if (!ChildSnapshotsEqual(oldChild, child))
+						UpdateChild(connection, transaction, operation.Identity.OperationId, child);
+				}
 				else
 				{
 					if (child.Sequence <= maximumExistingSequence)
@@ -119,8 +130,83 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			if (identity == null)
 				throw new ArgumentNullException(nameof(identity));
 
-			return _store.ExecuteRead((connection, transaction) =>
-				ReadOperation(connection, transaction, identity.OperationId));
+			return RestoreNativeFailureMessages(_store.ExecuteRead((connection, transaction) =>
+				ReadOperation(connection, transaction, identity.OperationId)));
+		}
+
+		/// <summary>Retains native failure details using existing operation-owned diagnostic artifacts, without changing the database schema.</summary>
+		internal void RetainNativeFailureMessage(CollectionOperationIdentity operation, CollectionNativeChildOperation child)
+		{
+			string role = "native-child-failure-" + child.Sequence.ToString(CultureInfo.InvariantCulture);
+			string key = operation + "/" + role;
+			string message = child.NativeResult.Message.Length > 16384 ? child.NativeResult.Message.Substring(0, 16384) : child.NativeResult.Message;
+			lock (_nativeFailureMessageGate)
+			{
+				string saved;
+				if (_nativeFailureMessages.TryGetValue(key, out saved) && !String.IsNullOrWhiteSpace(saved)) return;
+				var artifacts = new CollectionsRetainedArtifactStore(_store);
+				var references = new CollectionsRetainedArtifactReferenceStore(_store);
+				var existing = references.GetReferenceForOwnerRole(CollectionsRetainedArtifactOwnerKind.Operation, operation.ToString(), role);
+				if (existing != null) return; // Keep the first native cause; later reconciliation must not rewrite immutable diagnostic evidence.
+				CollectionsRetainedArtifact retained;
+				using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(message), false)) retained = artifacts.Publish(stream);
+				references.AcquireExclusiveRoleReference(retained.ArtifactId,
+					CollectionsRetainedArtifactOwnerKind.Operation, operation.ToString(), role);
+				_nativeFailureMessages[key] = message;
+			}
+		}
+
+		/// <summary>Reattaches retained failure text after loading legacy journal columns which store status and durability only.</summary>
+		private CollectionOperation RestoreNativeFailureMessages(CollectionOperation operation)
+		{
+			if (operation == null) return null;
+			bool changed = false;
+			var children = new List<CollectionNativeChildOperation>(operation.NativeChildren.Count);
+			foreach (CollectionNativeChildOperation child in operation.NativeChildren)
+			{
+				CollectionNativeChildOperation restored = child;
+				if (child.NativeResult != null && (child.NativeResult.ReportedStatus != ModOperationReportedStatus.Succeeded ||
+					child.NativeResult.Durability != ModOperationDurability.VerifiedCommitted))
+				{
+					string role = "native-child-failure-" + child.Sequence.ToString(CultureInfo.InvariantCulture);
+					string key = operation.Identity + "/" + role;
+					string message;
+					lock (_nativeFailureMessageGate)
+					{
+						if (!_nativeFailureMessages.TryGetValue(key, out message))
+						{
+							// A successful terminal report temporarily has Unknown durability while verification runs.
+							// Do not add a diagnostic-artifact lookup to every successful installation's normal checkpoints.
+							if (child.NativeResult.ReportedStatus == ModOperationReportedStatus.Succeeded &&
+								operation.Phase != CollectionOperationPhase.RecoveryRequired && operation.Phase != CollectionOperationPhase.Recovering)
+							{
+								children.Add(child);
+								continue;
+							}
+							var reference = new CollectionsRetainedArtifactReferenceStore(_store).GetReferenceForOwnerRole(
+								CollectionsRetainedArtifactOwnerKind.Operation, operation.Identity.ToString(), role);
+							if (reference != null)
+							{
+								var artifacts = new CollectionsRetainedArtifactStore(_store);
+								CollectionsRetainedArtifact artifact = artifacts.GetArtifact(reference.ArtifactId);
+								if (artifact != null && artifact.ByteLength <= 65536)
+									using (Stream stream = artifacts.OpenRead(reference.ArtifactId))
+									using (var reader = new StreamReader(stream, Encoding.UTF8)) message = reader.ReadToEnd();
+							}
+							if (message != null) _nativeFailureMessages[key] = message;
+						}
+					}
+					if (!String.IsNullOrWhiteSpace(message))
+					{
+						restored = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
+							child.Checkpoint, new ModOperationResult(child.NativeOperation, child.NativeResult.ReportedStatus, child.NativeResult.Durability, message));
+						changed = true;
+					}
+				}
+				children.Add(restored);
+			}
+			return changed ? new CollectionOperation(operation.Identity, operation.Kind, operation.Collection, operation.Target,
+				operation.Revision, operation.PlanIdentity, operation.CheckpointSequence, operation.Phase, operation.ResultState, children) : operation;
 		}
 
 		/// <summary>Reads this Collection's operation history for retrying removal of unbound interrupted members.</summary>
@@ -145,6 +231,36 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			});
 		}
 
+		/// <summary>Loads the most recently created stopped partial apply for one exact associated revision, without reading its plan payload.</summary>
+		internal CollectionOperation GetLatestStoppedPartialApply(CollectionTargetAssociation association)
+		{
+			if (association == null) throw new ArgumentNullException(nameof(association));
+			return RestoreNativeFailureMessages(_store.ExecuteRead((connection, transaction) =>
+			{
+				object identity;
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"SELECT operation_id FROM collection_operations
+WHERE origin=@origin AND collection_id=@collection AND target_fingerprint=@target AND revision_id=@revision
+AND kind=@kind AND phase=@phase AND result_state IN (@result, @committed) AND plan_id IS NOT NULL
+ORDER BY rowid DESC LIMIT 1;";
+					command.Parameters.AddWithValue("@origin", (int)association.Revision.Collection.Origin);
+					command.Parameters.AddWithValue("@collection", association.Revision.Collection.StableId);
+					command.Parameters.AddWithValue("@target", association.Target.Fingerprint);
+					command.Parameters.AddWithValue("@revision", association.Revision.StableRevisionId);
+					command.Parameters.AddWithValue("@kind", (int)CollectionOperationKind.ApplyResolvedPlan);
+					command.Parameters.AddWithValue("@phase", (int)CollectionOperationPhase.Completed);
+					command.Parameters.AddWithValue("@result", (int)CollectionOperationResultState.StoppedPartial);
+					command.Parameters.AddWithValue("@committed", (int)CollectionOperationResultState.Committed);
+					identity = command.ExecuteScalar();
+				}
+				CollectionOperation operation = identity == null || identity == DBNull.Value ? null :
+					ReadOperation(connection, transaction, ReadCanonicalGuid(Convert.ToString(identity, CultureInfo.InvariantCulture), "Collection operation"));
+				return operation != null && operation.ResultState == CollectionOperationResultState.StoppedPartial ? operation : null;
+			}));
+		}
+
 		/// <summary>
 		/// Loads all non-terminal collection operations in stable identity order for startup/recovery reconciliation.
 		/// </summary>
@@ -157,7 +273,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				foreach (Guid operationId in operationIds)
 					operations.Add(ReadOperation(connection, transaction, operationId));
 				return operations;
-			});
+			}).Select(RestoreNativeFailureMessages).ToList();
 		}
 
 		/// <summary>
@@ -175,7 +291,7 @@ namespace Nexus.Client.CollectionManagement.Persistence
 				foreach (Guid operationId in operationIds)
 					operations.Add(ReadOperation(connection, transaction, operationId));
 				return operations;
-			});
+			}).Select(RestoreNativeFailureMessages).ToList();
 		}
 
 		/// <summary>

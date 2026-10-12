@@ -19,7 +19,7 @@ using Nexus.Client.Mods;
 namespace Nexus.Client.CollectionManagement
 {
 	/// <summary>
-	/// Observes one submitted C6.7 child to native termination, reloads authoritative native state and checkpoints the independently verified durability.
+	/// Observes one submitted C6.7 child to native termination, captures committed native state and checkpoints independently verified durability.
 	/// </summary>
 	/// <remarks>
 	/// C6.8 stops at <see cref="CollectionNativeChildCheckpoint.NativeTerminalObserved"/>. Collection bindings/associations are not written here;
@@ -73,6 +73,15 @@ namespace Nexus.Client.CollectionManagement
 			return VerifySubmittedChildCoreAsync(executionResult, plan, reviewedPreview, paths, CollectionNativeChildWorkflowMode.Additive);
 		}
 
+		/// <summary>Finishes an additive member while retaining its installation-stage counter in progress messages.</summary>
+		internal Task<CollectionNativeChildVerificationResult> VerifySubmittedChildAsync(
+			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan,
+			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, int currentMember, int totalMembers)
+		{
+			return VerifySubmittedChildCoreAsync(executionResult, plan, reviewedPreview, paths, CollectionNativeChildWorkflowMode.Additive,
+				currentMember, totalMembers);
+		}
+
 		/// <summary>Verifies one C8.6 incoming replacement child against authoritative native state.</summary>
 		internal Task<CollectionNativeChildVerificationResult> VerifySubmittedReplacementChildAsync(
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan executionPlan,
@@ -91,7 +100,8 @@ namespace Nexus.Client.CollectionManagement
 
 		private async Task<CollectionNativeChildVerificationResult> VerifySubmittedChildCoreAsync(
 			CollectionNativeChildExecutionResult executionResult, ResolvedCollectionPlan plan,
-			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, CollectionNativeChildWorkflowMode workflowMode)
+			CollectionMemberEffectPreview reviewedPreview, GameStoragePathSet paths, CollectionNativeChildWorkflowMode workflowMode,
+			int currentMember = 0, int totalMembers = 0)
 		{
 			if (executionResult == null) throw new ArgumentNullException(nameof(executionResult));
 			if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -106,26 +116,36 @@ namespace Nexus.Client.CollectionManagement
 			long postInstallVerificationStarted = 0;
 			try
 			{
+				// Keep a borrowed install-session reservation alive until the native transaction finishes,
+				// even if loading its Collection checkpoint subsequently fails.
+				await WaitForCompletionAsync(executionResult.NativeTask).ConfigureAwait(true);
+				nativeCompleted = true;
 				CollectionOperation operation = RequireOperation(executionResult, plan, workflowMode);
 				CollectionNativeChildOperation child = RequireSubmittedChild(operation, executionResult);
 				ResolvedCollectionMemberPlan member = RequireMember(plan, child);
 				ValidateReviewedPreview(member, reviewedPreview);
 				ValidateExecutionRecipe(child, reviewedPreview, executionResult.RecipeInput);
 				CollectionNativeChildRecoveryManifest recovery = RequireRecoveryManifest(operation, child, plan);
-				// Submission recovers legacy output hashes into durable execution evidence. Carry that exact
-				// preview through post-install verification instead of the older path-only runtime snapshot.
+				// The installer may publish exact output evidence after native extraction, before mutation.
+				// Load it after completion so verification cannot retain the earlier path-only manifest snapshot.
+				recovery = RequireRecoveryManifest(operation, child, plan);
 				if (recovery.ExecutionEvidence != null)
 					reviewedPreview = CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(
 						reviewedPreview, recovery.ExecutionEvidence.ReviewedEffects);
-
-				await WaitForCompletionAsync(executionResult.NativeTask).ConfigureAwait(true);
-				nativeCompleted = true;
 				postInstallVerificationStarted = CollectionPerformanceMetrics.StartTiming();
-				CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-					"Collections.Workflow.CheckingInstalledMember", "Checking installed mod: {0}", member.DisplayName), true);
-
 				bool exactReportedIdentity;
 				ModOperationResult reportedResult = CaptureReportedResult(executionResult.NativeTask, child.NativeOperation, out exactReportedIdentity);
+				bool trustNativeCommit = workflowMode == CollectionNativeChildWorkflowMode.Additive && executionResult.RecipeInput.SkipContentChecks &&
+					exactReportedIdentity && reportedResult.ReportedStatus == ModOperationReportedStatus.Succeeded &&
+					reportedResult.Durability == ModOperationDurability.VerifiedCommitted && !executionResult.MutationLease.RequiresRecovery;
+				CollectionPreparationProgress.Report(totalMembers > 0
+					? Nexus.Client.Util.Localization.LanguageManager.Format(trustNativeCommit
+						? "Collections.Workflow.FinishingMemberWithCounter" : "Collections.Workflow.CheckingInstalledMemberWithCounter",
+						trustNativeCommit ? "Finishing mod installation ({0}/{1}): {2}" : "Checking installed mod ({0}/{1}): {2}",
+						currentMember, totalMembers, member.DisplayName)
+					: trustNativeCommit
+					? Nexus.Client.Util.Localization.LanguageManager.Format("Collections.Workflow.FinishingMember", "Finishing mod installation: {0}", member.DisplayName)
+					: Nexus.Client.Util.Localization.LanguageManager.Format("Collections.Workflow.CheckingInstalledMember", "Checking installed mod: {0}", member.DisplayName), true);
 				ModOperationResult pendingVerification = new ModOperationResult(child.NativeOperation,
 					reportedResult.ReportedStatus, ModOperationDurability.Unknown, reportedResult.Message);
 				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
@@ -133,12 +153,17 @@ namespace Nexus.Client.CollectionManagement
 				operation = SaveChild(operation, child,
 					"The Collection operation disappeared after persisting the native terminal report.");
 
-				// The terminal report is now durable. Reload native authority while the C6.7 root reservation is still held;
-				// deployment/VMA recovery may run here, and that recovered reality is what C6.8 verifies.
+				// A successful native transaction has already published its committed InstallLog/VMA state under this
+				// same reservation. Reload only when native durability is unknown or another workflow requires recovery.
 				CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(_gameStorageService).Resolve(paths);
 				if (!authority.Target.Equals(plan.Target))
 					throw new InvalidOperationException("The live canonical game/storage target changed before C6.8 verification.");
-				_authorityValidator.ValidateAndReload(executionResult.MutationLease, authority, paths);
+				if (workflowMode == CollectionNativeChildWorkflowMode.Additive && exactReportedIdentity &&
+					reportedResult.ReportedStatus == ModOperationReportedStatus.Succeeded &&
+					reportedResult.Durability == ModOperationDurability.VerifiedCommitted && !executionResult.MutationLease.RequiresRecovery)
+					_authorityValidator.ValidateCommittedAuthority(executionResult.MutationLease, authority, paths);
+				else
+					_authorityValidator.ValidateAndReload(executionResult.MutationLease, authority, paths);
 
 				operation = RequireOperation(executionResult, plan, workflowMode);
 				child = RequireTerminalChild(operation, executionResult);
@@ -149,11 +174,12 @@ namespace Nexus.Client.CollectionManagement
 
 				CollectionNativeModState verifiedNativeMod = null;
 				string committedFailure = null;
-				bool committed = exactReportedIdentity && TryVerifyCommittedState(member, reviewedPreview, recovery, state,
+				bool committed = exactReportedIdentity && TryVerifyCommittedStateCore(member, reviewedPreview, recovery, state,
 					executionResult.RecipeInput, executionResult.IncomingMod, _services.ModManager.GameMode,
 					_services.ModManager.ModRepository == null ? null : _services.ModManager.ModRepository.GameDomainName,
-					out verifiedNativeMod, out committedFailure);
-				bool rolledBack = exactReportedIdentity && TryVerifyRolledBackState(reportedResult, reviewedPreview, recovery, state, paths.InstallInfoPath, _services.ModManager.GameMode);
+					out verifiedNativeMod, out committedFailure, _services.ModManager.VirtualModActivator.GetVirtualSourceForOwner,
+					trustNativeCommit, trustNativeCommit ? _services.ModManager.InstallationLog.GetModKey(executionResult.IncomingMod) : null);
+				bool rolledBack = !committed && exactReportedIdentity && TryVerifyRolledBackState(reportedResult, reviewedPreview, recovery, state, paths.InstallInfoPath, _services.ModManager.GameMode);
 				ModOperationDurability verifiedDurability = exactReportedIdentity
 					? DetermineVerifiedDurability(reportedResult, committed, rolledBack)
 					: ModOperationDurability.Unknown;
@@ -161,7 +187,9 @@ namespace Nexus.Client.CollectionManagement
 				{
 					if (recovery.TerminalStateFingerprint == null)
 					{
-						_manifestStore.SaveManifest(recovery.WithTerminalStateFingerprint(state.Fingerprint));
+						_manifestStore.SaveManifest(trustNativeCommit
+							? recovery.WithRecordedCommittedStateFingerprint(state.Fingerprint, reportedResult)
+							: recovery.WithTerminalStateFingerprint(state.Fingerprint));
 						recovery = RequireRecoveryManifest(operation, child, plan);
 					}
 					if (!state.Fingerprint.Equals(recovery.TerminalStateFingerprint))
@@ -179,6 +207,8 @@ namespace Nexus.Client.CollectionManagement
 					verifiedDurability, verificationMessage);
 				child = new CollectionNativeChildOperation(child.Sequence, child.Member, child.Action, child.NativeOperation,
 					CollectionNativeChildCheckpoint.NativeTerminalObserved, verifiedResult);
+				if (verifiedDurability == ModOperationDurability.Unknown)
+					_operationStore.RetainNativeFailureMessage(operation.Identity, child);
 				operation = SaveChild(operation, child,
 					"The Collection operation disappeared after persisting the independently verified native durability.");
 
@@ -236,9 +266,7 @@ namespace Nexus.Client.CollectionManagement
 			if (plan.Policy.Kind != requiredPolicy)
 				throw new ArgumentException("The native-child verification plan uses an execution policy that does not match the owning workflow.", nameof(plan));
 
-			CollectionResolvedPlanRecord persisted = _planStore.GetPlan(plan.Identity);
-			if (persisted == null || !persisted.Revision.Equals(plan.Revision) || !persisted.Target.Equals(plan.Target) ||
-				persisted.PolicyKind != plan.Policy.Kind)
+			if (!_planStore.HasMatchingMetadata(plan, false))
 			{
 				throw new InvalidOperationException("The exact approved Collection plan is not durably persisted for C6.8 verification.");
 			}
@@ -278,7 +306,8 @@ namespace Nexus.Client.CollectionManagement
 		private CollectionNativeChildRecoveryManifest RequireRecoveryManifest(CollectionOperation operation,
 			CollectionNativeChildOperation child, ResolvedCollectionPlan plan)
 		{
-			CollectionNativeChildRecoveryManifest recovery = _manifestStore.GetManifest(operation, child);
+			CollectionNativeChildRecoveryManifest recovery = operation.Kind == CollectionOperationKind.ApplyResolvedPlan &&
+				Properties.Settings.Default.CollectionSkipContentChecks ? _manifestStore.GetManifestMetadata(operation, child) : _manifestStore.GetManifest(operation, child);
 			if (recovery == null)
 				throw new InvalidDataException("The submitted Collection child is missing its retained C6.6 recovery manifest.");
 			if (!recovery.PlanIdentity.Equals(plan.Identity) || !recovery.Member.MemberKey.Equals(child.Member.MemberKey) ||
@@ -394,7 +423,18 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool TryVerifyCommittedState(ResolvedCollectionMemberPlan member, CollectionMemberEffectPreview preview,
 			CollectionNativeChildRecoveryManifest recovery, CollectionNativeStateIndex state, ModInstallationRecipeInput recipeInput,
-			IMod incomingMod, IGameMode gameMode, string currentDomain, out CollectionNativeModState nativeMod, out string failureReason)
+			IMod incomingMod, IGameMode gameMode, string currentDomain, out CollectionNativeModState nativeMod, out string failureReason,
+			Func<ModDeploymentTarget, string, string> getVirtualSource = null)
+		{
+			return TryVerifyCommittedStateCore(member, preview, recovery, state, recipeInput, incomingMod, gameMode, currentDomain,
+				out nativeMod, out failureReason, getVirtualSource);
+		}
+
+		/// <summary>Uses exact native registration after a trusted commit, retaining full effect/content verification for the strict path.</summary>
+		private static bool TryVerifyCommittedStateCore(ResolvedCollectionMemberPlan member, CollectionMemberEffectPreview preview,
+			CollectionNativeChildRecoveryManifest recovery, CollectionNativeStateIndex state, ModInstallationRecipeInput recipeInput,
+			IMod incomingMod, IGameMode gameMode, string currentDomain, out CollectionNativeModState nativeMod, out string failureReason,
+			Func<ModDeploymentTarget, string, string> getVirtualSource = null, bool trustNativeCommit = false, string committedNativeKey = null)
 		{
 			nativeMod = null;
 			failureReason = null;
@@ -427,6 +467,20 @@ namespace Nexus.Client.CollectionManagement
 
 			string modId = isNexus ? expectedModId.ToString(CultureInfo.InvariantCulture) : null;
 			string fileId = isNexus ? expectedFileId.ToString(CultureInfo.InvariantCulture) : null;
+			if (trustNativeCommit)
+			{
+				// The normal native transaction has already committed the selected recipe. Correlate its registration;
+				// additional source, deployed-byte and replay audits belong to explicit verification or failure recovery.
+				if (String.IsNullOrWhiteSpace(committedNativeKey) || !state.ModsByNativeKey.TryGetValue(committedNativeKey, out nativeMod) ||
+					nativeMod.InstallMethod != preview.InstallMethod || nativeMod.InstallRoot != preview.InstallRoot ||
+					(isNexus && (!StringComparer.Ordinal.Equals(nativeMod.NexusModId, modId) || !StringComparer.Ordinal.Equals(nativeMod.NexusFileId, fileId))))
+				{
+					nativeMod = null;
+					failureReason = "The committed native registration does not match the selected Collection member.";
+					return false;
+				}
+				return true;
+			}
 			var archiveMatchCache = new Dictionary<string, ArchiveMatchStamp>(StringComparer.OrdinalIgnoreCase);
 			List<CollectionNativeModState> candidates = state.Mods.Values.Where(x =>
 				x.InstallMethod == preview.InstallMethod && x.InstallRoot == preview.InstallRoot &&
@@ -445,6 +499,10 @@ namespace Nexus.Client.CollectionManagement
 				? incomingMod.ModArchivePath : incomingMod.Filename;
 			if (!MatchesArchive(incomingArchivePath, recovery.IncomingArchive, archiveMatchCache))
 				failureReason = "The incoming archive bytes differ from the retained reviewed archive.";
+			else if (recovery.ExecutionEvidence != null)
+				return CollectionNativeChildRestartReconciliationCoordinator.TryVerifyCommittedState(recovery,
+					recovery.ExecutionEvidence, state, currentDomain, gameMode.GameModeEnvironmentInfo.InstallInfoDirectory,
+					gameMode, out nativeMod, out failureReason, getVirtualSource: getVirtualSource);
 			else if (!VerifyMemberEffects(state, nativeMod, preview, !recipeInput.DeferPluginReconciliation))
 				failureReason = "Installed file ownership, plugin activation or configuration effects differ from the reviewed recipe.";
 			else if (preview.InstallRootCorrection != null && !preview.InstallRootCorrection.Verify(state, true))
@@ -631,9 +689,8 @@ namespace Nexus.Client.CollectionManagement
 						!state.Files.TryGetValue(effect.Target, out file) || String.IsNullOrWhiteSpace(file.PhysicalPath))
 						return false;
 
-					// Exact source bytes were already hashed into the reviewed preview and are revalidated again by the live
-					// preview immediately before submission. Post-commit verification only needs to hash the deployed winner;
-					// reopening every incoming archive member here repeats I/O without crossing a new trust boundary.
+					// Exact source identities were retained before native mutation. Post-commit verification only needs
+					// the deployed winner; reopening incoming archive members would repeat decompression and I/O.
 					CollectionInstallRootDestination preserved = preview.InstallRootCorrection == null ? null : preview.InstallRootCorrection.GetPreservedDestination(effect.Target);
 					CollectionPlannedFileEffect expected = preserved == null ? effect : new CollectionPlannedFileEffect(effect.Target, preserved.Before.ContentHash, preserved.Before.ByteLength);
 					if (!ReviewedFileContentMatches(expected, file.PhysicalPath))
@@ -884,7 +941,7 @@ namespace Nexus.Client.CollectionManagement
 	/// <remarks>The child remains NativeTerminalObserved until C6.10 reconciles Collection provenance/associations.</remarks>
 	public sealed class CollectionNativeChildVerificationResult
 	{
-		/// <summary>Creates one immutable C6.8 verification result from the durable terminal child and reloaded native state.</summary>
+		/// <summary>Creates one immutable C6.8 verification result from the durable terminal child and committed native state.</summary>
 		internal CollectionNativeChildVerificationResult(CollectionOperation operation, CollectionNativeChildOperation child,
 			CollectionNativeStateIndex nativeState, CollectionNativeModState verifiedNativeMod,
 			ModOperationDurability nativeReportedDurability)

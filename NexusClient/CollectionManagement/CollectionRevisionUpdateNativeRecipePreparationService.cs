@@ -72,7 +72,7 @@ namespace Nexus.Client.CollectionManagement
 				!verifiedArchive.Request.RecipeIdentity.Equals(updateMember.NewMember.RecipeIdentity))
 				throw new ArgumentException("The verified archive does not belong to the exact candidate member plan.", nameof(verifiedArchive));
 
-			IMod managedMod = ResolveManagedMod(updateMember, verifiedArchive, cancellationToken);
+			IMod managedMod = ResolveManagedMod(updateMember, verifiedArchive, cancellationToken, updatePlan.NewPlan.Policy.AutomaticallyInstall);
 			ModInstallContext fallback = reviewedInstallContext ?? ResolveInstallContext(updateMember, currentState);
 			// Execution and legacy restart snapshots reproduce the reviewed/recorded destination, never new JSON rules.
 			CollectionInstallDestination destination = requireApprovedStateFingerprint
@@ -153,9 +153,16 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private IMod ResolveManagedMod(CollectionRevisionUpdateMemberPlan updateMember, CollectionVerifiedArchive archive,
-			CancellationToken cancellationToken)
+			CancellationToken cancellationToken, bool automaticallySelectArchive)
 		{
 			IMod bound = ResolveBoundActiveMod(updateMember);
+			List<IMod> trustedCandidates = ModManagerCollectionManagedArchiveSource.FindTrustedCachedManagedMods(_services.ModManager, _retainedArtifactStore, archive);
+			if (bound != null && trustedCandidates.Contains(bound)) return bound;
+			if (trustedCandidates.Count == 1) return trustedCandidates[0];
+			if (automaticallySelectArchive && trustedCandidates.Count > 1)
+				return ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(trustedCandidates);
+			if (trustedCandidates.Count > 1)
+				throw new InvalidOperationException("Multiple native managed archives match the trusted candidate Collection archive and saved file stamp.");
 			if (bound != null && CollectionArchiveContentMatcher.MatchesFile(
 				CollectionArchiveContentMatcher.GetManagedArchivePath(bound), archive.Artifact, cancellationToken))
 				return bound;
@@ -166,6 +173,8 @@ namespace Nexus.Client.CollectionManagement
 			{
 				List<IMod> exactManaged = CollectionArchiveContentMatcher.FindExactManagedMods(_services.ModManager, archive.Artifact, cancellationToken);
 				if (exactManaged.Count == 1) return exactManaged[0];
+				if (automaticallySelectArchive && exactManaged.Count > 1)
+					return ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exactManaged);
 				if (exactManaged.Count > 1)
 					throw new InvalidOperationException("Multiple native managed archives contain the exact candidate bundle bytes.");
 				IMod repaired = ModManagerCollectionManagedArchiveSource.TryRegisterExactLibraryArchive(
@@ -192,11 +201,12 @@ namespace Nexus.Client.CollectionManagement
 				ModManagerCollectionManagedArchiveSource.MatchesRepositoryFileIdentity(x, _services.ModManager.SortOrderService, modId, fileId)).ToList();
 			List<IMod> exactIdentityCandidates = identityCandidates.Where(x => CollectionArchiveContentMatcher.MatchesFile(
 				CollectionArchiveContentMatcher.GetManagedArchivePath(x), archive.Artifact, cancellationToken)).ToList();
-			if (exactIdentityCandidates.Count == 1)
+			if (exactIdentityCandidates.Count == 1 || (automaticallySelectArchive && exactIdentityCandidates.Count > 1))
 			{
+				IMod selected = ModManagerCollectionManagedArchiveSource.SelectDeterministicEquivalentManagedMod(exactIdentityCandidates);
 				ModManagerCollectionManagedArchiveSource.ConfirmVerifiedArchiveRepositoryFileIdentity(_services.ModManager,
-					exactIdentityCandidates[0], modId, fileId, archive.Artifact.ByteLength, archive.Artifact.ContentHash, cancellationToken);
-				return exactIdentityCandidates[0];
+					selected, modId, fileId, archive.Artifact.ByteLength, archive.Artifact.ContentHash, cancellationToken);
+				return selected;
 			}
 			if (exactIdentityCandidates.Count > 1)
 				throw new InvalidOperationException("Multiple native managed archives match both the candidate Nexus identity and exact verified bytes.");

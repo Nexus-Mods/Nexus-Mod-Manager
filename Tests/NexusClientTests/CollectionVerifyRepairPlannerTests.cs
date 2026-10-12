@@ -406,6 +406,25 @@ namespace NexusClientTests
 			Assert.That(plan.Findings.Any(x => x.Requirement != null && x.Requirement.Equals(requirement) && x.IsRepairable), Is.False);
 		}
 
+		/// <summary>Relative ordering cannot block repairing an incomplete collection merely because an endpoint is absent.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ManifestPluginAfterRule_MissingEndpointIsDormant(bool includeLaterPlugin)
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			var rule = new CollectionPluginRelativeOrderRule("A.esp", "B.esp");
+			var manifest = new NormalizedCollectionManifest(f.Manifest.Revision, f.Manifest.Source,
+				CollectionManifestMemberSetCompleteness.Complete, null, f.Manifest.Members, null, null, null, null, null, new[] { rule });
+			var state = new CollectionNativeStateIndex(f.Association.Target, f.State.Roots, f.State.Mods.Values,
+				f.State.Files.Values, f.State.IniEdits.Values, f.State.GameValues.Values,
+				includeLaterPlugin ? new[] { Plugin("A.esp", 0) } : new CollectionNativePluginState[0],
+				CollectionNativeStateCoverage.Complete, f.State.Associations.Values, f.Bindings, new UserOverride[0],
+				f.State.AssociationCoverage, f.State.Issues, f.State.DeploymentCommitSequence);
+			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, manifest, state, f.Bindings,
+				new UserOverride[0], new CollectionDriftObservation[0]);
+			Assert.That(plan.Findings.Any(x => x.Requirement != null && x.Requirement.SubjectKey == "after:b.esp|a.esp"), Is.False);
+		}
+
 		/// <summary>Incomplete exact preparation cannot normalize a historical incomplete association.</summary>
 		[Test]
 		public void Plan_IncompletePreparation_KeepsIncompleteAssociationActionRequired()
@@ -428,6 +447,21 @@ namespace NexusClientTests
 				CreateManagedPresentation(f)), Is.True);
 			Assert.That(CollectionsPreviewControl.HasSameManagedAssociationState(CreateManagedPresentation(f),
 				CreateManagedPresentation(f, association: f.Association.WithState(CollectionAssociationState.Applied))), Is.False);
+		}
+
+		/// <summary>Background association notifications cannot hide an active or failed incoming review.</summary>
+		[TestCase((int)CollectionUiContextKind.IncomingCollection, true, false, false)]
+		[TestCase((int)CollectionUiContextKind.IncomingCollection, false, false, false)]
+		[TestCase((int)CollectionUiContextKind.IncomingCollection, false, true, true)]
+		[TestCase((int)CollectionUiContextKind.InstalledCollection, true, false, false)]
+		[TestCase((int)CollectionUiContextKind.InstalledCollection, false, false, true)]
+		public void ManagedRefresh_OverlayHonorsWorkflowContext(int kind, bool workActive, bool succeeded, bool expected)
+		{
+			Fixture f = CreateFixture(CollectionAssociationState.Incomplete, includeBinding: true, includeNative: true);
+			var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan,
+				f.Association.Revision.Collection, f.Association.Target, f.Association.Revision, null, 1, CollectionOperationPhase.Completed,
+				succeeded ? CollectionOperationResultState.Committed : CollectionOperationResultState.FailedBeforeApply, new CollectionNativeChildOperation[0]);
+			Assert.AreEqual(expected, CollectionsPreviewControl.CanRefreshManagedAssociationOverlay((CollectionUiContextKind)kind, workActive, operation));
 		}
 
 		/// <summary>A changed native binding invalidates the old review even when association state is still incomplete.</summary>

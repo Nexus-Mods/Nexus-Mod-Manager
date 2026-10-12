@@ -89,7 +89,10 @@ namespace NexusClientTests
 				using (var source = new MemoryStream(payload, false))
 					artifact = publisher.Publish(source);
 
-				// A new store instance models a restarted/cold process: its verification cache is intentionally empty.
+				// Force a cold stamp: store instances share hashes actually observed during this process' publication.
+				string artifactPath = Path.Combine(featureStore.RetainedContentDirectory, "sha256",
+					artifact.ContentHash.Value.Substring(0, 2), artifact.ContentHash.Value + ".blob");
+				File.SetLastWriteTimeUtc(artifactPath, File.GetLastWriteTimeUtc(artifactPath).AddSeconds(2));
 				var verifier = new CollectionsRetainedArtifactStore(featureStore);
 				CollectionPerformanceSnapshot beforeCold = CollectionPerformanceMetrics.Capture();
 				var coldWatch = Stopwatch.StartNew();
@@ -111,7 +114,7 @@ namespace NexusClientTests
 
 				Assert.AreEqual(1, coldHashes, "A cold verification should perform exactly one complete SHA-256 pass.");
 				Assert.AreEqual(artifact.ByteLength, coldHashedBytes, "Cold verification should hash the complete retained artifact exactly once.");
-				Assert.AreEqual(0, coldCacheHits, "A new retained-artifact store must not inherit process-local verification proof from another instance.");
+				Assert.AreEqual(0, coldCacheHits, "A changed stamp must not reuse process-local verification proof.");
 				Assert.AreEqual(0, warmHashes, "Warm verification must reuse the verified-artifact cache instead of hashing the blob again.");
 				Assert.AreEqual(1, warmCacheHits, "The immediately repeated verification should be one verification-cache hit.");
 

@@ -811,6 +811,24 @@ CREATE TABLE local_working_copies (
 			}
 		}
 
+		/// <summary>A warm schema cache must still detect a later schema change on another connection.</summary>
+		[Test]
+		public void SchemaValidationCache_InvalidatesAfterExternalSchemaChange()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid identity = store.CreateNew();
+				Assert.AreEqual(identity, store.ReadStoreId());
+				Assert.AreEqual(identity, store.ReadStoreId());
+				using (SQLiteConnection connection = OpenDatabase(store.DatabasePath))
+					Execute(connection, null, "DROP TABLE retained_archive_locations;");
+				Assert.Throws<CollectionsStoreSchemaException>(() => store.ReadStoreId());
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		private static SQLiteConnection OpenDatabase(string databasePath)
 		{
 			var connection = new SQLiteConnection(new SQLiteConnectionStringBuilder

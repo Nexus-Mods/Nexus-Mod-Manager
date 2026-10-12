@@ -61,6 +61,23 @@ namespace NexusClientTests
 		}
 
 		[Test]
+		public void Normalize_NexusArchiveSizeIsMetadataWithoutChangingLegacyIdentity()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Requested Release\",\"version\":\"1.17.1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":51073,\"fileId\":794717,\"fileSize\":8555518,\"updatePolicy\":\"exact\"}}", "[]");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			CollectionArtifactReference artifact = result.Manifest.Members[0].Artifact;
+			var legacy = new CollectionArtifactReference(artifact.Scheme, artifact.StableId, artifact.ExpectedContentHash);
+
+			Assert.That(artifact.ExpectedByteLength, Is.EqualTo(8555518));
+			Assert.That(artifact, Is.EqualTo(legacy));
+			Assert.That(artifact.GetHashCode(), Is.EqualTo(legacy.GetHashCode()));
+			Assert.That(CollectionExternalArtifactIdentity.MatchesByteLength(artifact, 6398382), Is.False);
+			Assert.That(CollectionExternalArtifactIdentity.MatchesByteLength(artifact, 8555518), Is.True);
+			Assert.That(CollectionExternalArtifactIdentity.MatchesByteLength(legacy, 6398382), Is.True);
+		}
+
+		[Test]
 		public void Normalize_EmptyToolsPluginRulesAndKnownCollectionConfigAreSupported()
 		{
 			string json = BuildManifest(
@@ -338,6 +355,47 @@ namespace NexusClientTests
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
 			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.plugin-group-assignment-external"));
+		}
+
+		[Test]
+		public void Normalize_SkyrimMasterlistGroupsMergeCustomRulesAndPreserveTransitiveOrder()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late Loaders\"},{\"name\":\"B.esp\",\"group\":\"default\"},{\"name\":\"C.esp\",\"group\":\"Floral Fields\"}]," +
+				"\"groups\":[{\"name\":\"default\",\"after\":[\"Floral Fields\"]},{\"name\":\"Floral Fields\",\"after\":[\"Early Loaders\"]},{\"name\":\"Low Priority Overrides\",\"after\":[]}]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"skyrimspecialedition\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(3, result.Manifest.PluginRelativeOrderRules.Count);
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("A.esp", "B.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("B.esp", "C.esp")));
+			Assert.IsTrue(result.Manifest.PluginRelativeOrderRules.Contains(new CollectionPluginRelativeOrderRule("A.esp", "C.esp")));
+		}
+
+		[TestCase("Early Loaders", "Late Loaders", "manifest.plugin-group-cycle")]
+		[TestCase("Custom", "Unknown Group", "manifest.plugin-group-reference-external")]
+		public void Normalize_SkyrimGroupDefaultsDoNotHideInvalidCustomRules(string group, string after, string issue)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[],\"groups\":[{\"name\":\"" + group + "\",\"after\":[\"" + after + "\"]}]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"skyrimspecialedition\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == issue));
+		}
+
+		[Test]
+		public void Normalize_SkyrimGroupDefaultsWorkWithoutCollectionGroupDefinitions()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Dynamic LOD\"},{\"name\":\"B.esp\",\"group\":\"Late Fixes & Changes\"},{\"name\":\"C.esp\",\"group\":\"Skills & Perks\"}]}")
+				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"skyrimspecialedition\"");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(3, result.Manifest.PluginRelativeOrderRules.Count);
 		}
 
 		[Test]
@@ -877,6 +935,27 @@ namespace NexusClientTests
 			CollectionVortexFomodStepSelection step = result.Manifest.Members.Single().VortexFomodSelection.Steps.Single();
 			Assert.AreEqual(expected, step.Name);
 			Assert.DoesNotThrow(() => step.GetHashCode());
+		}
+
+		[TestCase("\"\"", true)]
+		[TestCase("\"  \"", false)]
+		[TestCase("null", false)]
+		[TestCase("1", false)]
+		public void Normalize_UnnamedVortexFomodGroupRetainsExactNativeIdentity(string nameValue, bool supported)
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Legacy\",\"version\":\"1\",\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"\"choices\":{\"type\":\"fomod\",\"options\":[{\"name\":\"\",\"groups\":[{\"name\":" + nameValue + ",\"choices\":[{\"name\":\"Selected\",\"idx\":1}]}]}]}}", "[]");
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+			Assert.AreEqual(supported ? CollectionCompatibilityStatus.Supported : CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			if (supported)
+			{
+				CollectionVortexFomodGroupSelection group = result.Manifest.Members.Single().VortexFomodSelection.Steps.Single().Groups.Single();
+				Assert.AreEqual(String.Empty, group.Name);
+				Assert.AreEqual(1, group.Choices.Single().Index);
+				Assert.DoesNotThrow(() => group.GetHashCode());
+			}
+			else Assert.IsTrue(result.CapabilityReport.AllIssues.Any(x => x.Code == "member.installer-choices-invalid"));
 		}
 
 		[Test]

@@ -94,7 +94,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void PrepareBasicSimpleExact_ReusesArchiveEntryHashesUntilArchiveStampChanges()
+		public void PrepareBasicSimpleExact_DoesNotReadArchivePayloadsEvenOnFirstPreparation()
 		{
 			string root = CreateTemporaryDirectory();
 			try
@@ -110,20 +110,18 @@ namespace NexusClientTests
 					fixture.InstallContext, fixture.State, false);
 				CollectionPerformanceSnapshot afterSecond = CollectionPerformanceMetrics.Capture();
 
-				Assert.That(afterFirst.ArchiveSourceReadCount - before.ArchiveSourceReadCount, Is.EqualTo(2));
+				Assert.That(afterFirst.ArchiveSourceReadCount - before.ArchiveSourceReadCount, Is.EqualTo(0));
 				Assert.That(afterSecond.ArchiveSourceReadCount - afterFirst.ArchiveSourceReadCount, Is.EqualTo(0),
 					"Re-preparing an unchanged verified archive must not re-extract and rehash individual files.");
-				Assert.That(second.EffectPreview.Files.Select(x => x.ExpectedContentHash.Value),
-					Is.EquivalentTo(first.EffectPreview.Files.Select(x => x.ExpectedContentHash.Value)));
+				Assert.That(first.EffectPreview.Files.All(x => !x.HasExactContentIdentity), Is.True);
+				Assert.That(second.PreparedNativeIdentity, Is.EqualTo(first.PreparedNativeIdentity));
 
-				// A mutable archive with a changed file stamp must force new entry reads even if the retained
-				// SHA-256 still matches. The native installer retains its independent pre-mutation check.
+				// Archive validation remains independent; changed file stamps do not require payload decompression during planning.
 				File.SetLastWriteTimeUtc(fixture.ModArchivePath, DateTime.UtcNow.AddMinutes(3));
 				fixture.Preparer.PrepareBasicSimpleExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive,
 					fixture.Mod, fixture.GameMode, fixture.InstallContext, fixture.State, false);
 				CollectionPerformanceSnapshot afterStampChange = CollectionPerformanceMetrics.Capture();
-				Assert.That(afterStampChange.ArchiveSourceReadCount - afterSecond.ArchiveSourceReadCount, Is.EqualTo(2),
-					"A changed archive file stamp must invalidate the read-only digest cache.");
+				Assert.That(afterStampChange.ArchiveSourceReadCount - afterSecond.ArchiveSourceReadCount, Is.EqualTo(0));
 			}
 			finally
 			{
@@ -142,20 +140,22 @@ namespace NexusClientTests
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
 					fixture.InstallContext, fixture.State, false);
 				CollectionRecoveryArtifact expected = CollectionRecoveryArtifact.FromRetainedArtifact(fixture.VerifiedArchive.Artifact);
+				CollectionMemberEffectPreview reviewed = new CollectionMemberEffectPreviewBuilder().Build(
+					fixture.Member, prepared.RecipeInput, fixture.GameMode, fixture.Mod);
 
 				// This MUST precede BuildFromFreshVerifiedArchive at C6.7; the full archive is checked
 				// again by ModInstaller immediately before native file mutation.
 				CollectionNativeChildExecutionCoordinator.ValidateRecoveryArchiveBytes(fixture.ModArchivePath, expected);
 				CollectionPerformanceSnapshot before = CollectionPerformanceMetrics.Capture();
 				var live = new CollectionMemberEffectPreviewBuilder().BuildFromFreshVerifiedArchive(
-					fixture.Member, prepared.RecipeInput, fixture.GameMode, fixture.Mod, null, prepared.EffectPreview);
+					fixture.Member, prepared.RecipeInput, fixture.GameMode, fixture.Mod, null, reviewed);
 				CollectionPerformanceSnapshot after = CollectionPerformanceMetrics.Capture();
 				Assert.That(after.ArchiveSourceReadCount, Is.EqualTo(before.ArchiveSourceReadCount),
 					"A freshly SHA-256-proven archive must not be decompressed again to reconstruct its approved effects.");
-				Assert.That(CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(prepared.EffectPreview, live),
+				Assert.That(CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live),
 					Is.SameAs(live));
 				Assert.That(live.Files.Select(x => x.ExpectedContentHash.Value),
-					Is.EquivalentTo(prepared.EffectPreview.Files.Select(x => x.ExpectedContentHash.Value)));
+					Is.EquivalentTo(reviewed.Files.Select(x => x.ExpectedContentHash.Value)));
 
 				// No reviewed-output digest may authorize submission once archive bytes differ.
 				byte[] changed = File.ReadAllBytes(fixture.ModArchivePath);

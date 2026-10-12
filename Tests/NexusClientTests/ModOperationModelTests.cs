@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using Nexus.Client.CollectionManagement;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using NUnit.Framework;
@@ -179,6 +180,65 @@ namespace NexusClientTests
 			Assert.That(taskSet.OperationResult, Is.Not.Null);
 			Assert.That(taskSet.OperationResult.ReportedStatus, Is.EqualTo(ModOperationReportedStatus.Succeeded));
 			Assert.That(taskSet.OperationResult.Durability, Is.EqualTo(ModOperationDurability.Unknown));
+		}
+
+		/// <summary>Finishing a child must release only its own reservation, keeping a borrowed install-session reservation alive.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void CollectionChildResult_RespectsReservationOwnership(bool ownsReservation)
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			using (CollectionTargetMutationLease lease = new CollectionTargetMutationLeaseManager().AcquireNativeOperation("session-probe"))
+			{
+				var context = new ScriptProxyContext(tmp.Path, null, false, false, "linked");
+				var revision = CollectionRevisionIdentity.FromNexus(CollectionIdentity.FromNexus("session-probe"), "revision", 1);
+				var identity = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection,
+					new ModOperationFingerprint(lease.TargetFingerprint, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), "recipe:probe"));
+				var input = new ModInstallationRecipeInput(identity, new ModInstallationRecipeValidation("test", 1,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), new ModInstallationRecipeExpectedContent(new string('a', 64), 1),
+					new[] { new ModInstallationRecipeCapability("simple-file", 1) },
+					new[] { new ModInstallationRecipePath(ModInstallationRecipePathKind.Destination, "probe.bin") }));
+				var child = new CollectionNativeChildOperation(1, new CollectionOperationMemberReference(revision, CollectionMemberKey.FromProvider("probe")),
+					CollectionNativeChildAction.ActivateOrReinstall, identity, CollectionNativeChildCheckpoint.NativeSubmitted, null);
+				var operation = new CollectionOperation(CollectionOperationIdentity.CreateNew(), CollectionOperationKind.ApplyResolvedPlan, revision.Collection,
+					CollectionTargetIdentity.FromFingerprint(lease.TargetFingerprint), revision, null, 1, CollectionOperationPhase.ApplyingNativeChildren,
+					CollectionOperationResultState.Pending, new[] { child });
+				var task = new OperationResultProbeTaskSet();
+				task.Assign(identity);
+				task.Complete(ModOperationReportedStatus.Succeeded, ModOperationDurability.VerifiedCommitted, true, "Committed");
+				var execution = new CollectionNativeChildExecutionResult(operation, child, task, input, context.Mod, lease, ownsReservation);
+				execution.ReleaseAfterVerification();
+				Assert.IsTrue(execution.IsDisposed);
+				Assert.AreEqual(ownsReservation, lease.IsDisposed);
+			}
+		}
+
+		/// <summary>Transactional long-path writes must restore the original bytes on rollback without changing the caller's path.</summary>
+		[Test]
+		public void TransactionalFileIo_LongPathCopyRestoresOriginalContent()
+		{
+			using (TemporaryDirectory tmp = new TemporaryDirectory())
+			{
+				string directory = tmp.Path;
+				while (directory.Length < 280) directory = System.IO.Path.Combine(directory, new string('d', 24));
+				System.IO.Directory.CreateDirectory(Nexus.Client.Util.FileUtil.GetIoPath(directory));
+				try
+				{
+					string destination = System.IO.Path.Combine(directory, "payload.bin");
+					string source = System.IO.Path.Combine(tmp.Path, "source.bin");
+					System.IO.File.WriteAllText(source, "incoming");
+					System.IO.File.WriteAllText(Nexus.Client.Util.FileUtil.GetIoPath(destination), "original");
+					var files = new ChinhDo.Transactions.TxFileManager();
+					using (var transaction = new Nexus.Transactions.TransactionScope())
+					{
+						files.Copy(source, destination, true);
+						Assert.AreEqual("incoming", System.IO.File.ReadAllText(Nexus.Client.Util.FileUtil.GetIoPath(destination)));
+					}
+					Assert.AreEqual("original", System.IO.File.ReadAllText(Nexus.Client.Util.FileUtil.GetIoPath(destination)));
+					Assert.IsFalse(destination.StartsWith(@"\\?\", StringComparison.Ordinal));
+				}
+				finally { System.IO.Directory.Delete(Nexus.Client.Util.FileUtil.GetIoPath(directory), true); }
+			}
 		}
 
 		private sealed class OperationResultProbeTaskSet : ModInstallerBase

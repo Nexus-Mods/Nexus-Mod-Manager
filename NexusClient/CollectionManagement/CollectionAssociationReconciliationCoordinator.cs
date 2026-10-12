@@ -117,7 +117,7 @@ namespace Nexus.Client.CollectionManagement
 				{
 					CollectionNativeModState nativeMod = match.MatchedNativeMod;
 					if (nativeMod == null || !nativeMod.Identity.Target.Equals(plan.Target) ||
-						!HasAppliedVerifiedBindingEvidence(match, nativeMod.Identity, member.RecipeIdentity))
+						!match.ExistingBindings.Any(x => matches.HasReusableVerifiedBinding(x, nativeMod.Identity, member.RecipeIdentity)))
 						throw new InvalidOperationException("An InstalledCompatible member no longer has the exact applied binding evidence required for non-destructive adoption.");
 					CollectionMemberBinding existingBinding;
 					CollectionMemberBindingKind bindingKind = CollectionMemberBindingKind.AdoptedExisting;
@@ -241,7 +241,8 @@ namespace Nexus.Client.CollectionManagement
 			if (child.NativeResult.Durability == ModOperationDurability.VerifiedCommitted)
 			{
 				ValidateVerifiedNativeMod(verifiedNativeMod, nativeState, plan.Target);
-				CollectionNativeChildRecoveryManifest terminalManifest = _manifestStore.GetManifest(operation, child);
+				CollectionNativeChildRecoveryManifest terminalManifest = operation.Kind == CollectionOperationKind.ApplyResolvedPlan &&
+					Properties.Settings.Default.CollectionSkipContentChecks ? _manifestStore.GetManifestMetadata(operation, child) : _manifestStore.GetManifest(operation, child);
 				if (terminalManifest == null || terminalManifest.TerminalStateFingerprint == null ||
 					!terminalManifest.TerminalStateFingerprint.Equals(nativeState.Fingerprint))
 					throw new InvalidDataException("C6.10 requires the exact committed terminal native-state fingerprint retained by C6.8/C6.9.");
@@ -299,7 +300,8 @@ namespace Nexus.Client.CollectionManagement
 		private void PersistSafeBoundaryFingerprint(CollectionOperation operation, CollectionNativeChildOperation child,
 			CollectionNativeStateIndex terminalState, CollectionTargetAssociation association, CollectionMemberBinding binding)
 		{
-			CollectionNativeChildRecoveryManifest manifest = _manifestStore.GetManifest(operation, child);
+			CollectionNativeChildRecoveryManifest manifest = operation.Kind == CollectionOperationKind.ApplyResolvedPlan &&
+				Properties.Settings.Default.CollectionSkipContentChecks ? _manifestStore.GetManifestMetadata(operation, child) : _manifestStore.GetManifest(operation, child);
 			if (manifest == null || manifest.TerminalStateFingerprint == null ||
 				!manifest.TerminalStateFingerprint.Equals(terminalState.Fingerprint))
 				throw new InvalidDataException("The committed child recovery manifest no longer matches the C6.8/C6.9 terminal state.");
@@ -314,7 +316,8 @@ namespace Nexus.Client.CollectionManagement
 			_manifestStore.SaveManifest(manifest.WithSafeBoundaryStateFingerprint(safeBoundary));
 		}
 
-		private static CollectionNativeStateIndex BuildPostReconciliationState(CollectionNativeStateIndex terminalState,
+		/// <summary>Updates only Collection provenance on the already verified committed native snapshot.</summary>
+		internal static CollectionNativeStateIndex BuildPostReconciliationState(CollectionNativeStateIndex terminalState,
 			CollectionTargetAssociation association, CollectionMemberBinding binding)
 		{
 			List<CollectionTargetAssociation> associations = terminalState.Associations.Values
@@ -370,13 +373,6 @@ namespace Nexus.Client.CollectionManagement
 			if (matches.Count > 1)
 				throw new InvalidOperationException("Multiple Collection associations exist for the same exact revision/target baseline; provenance is ambiguous.");
 			return matches.Count == 0 ? null : matches[0];
-		}
-
-		private static bool HasAppliedVerifiedBindingEvidence(CollectionMemberMatchResult match,
-			NativeModInstanceIdentity nativeMod, CollectionRecipeIdentity recipe)
-		{
-			return match.ExistingBindings.Any(x => x.NativeMod.Equals(nativeMod) && x.VerifiedRecipe.Equals(recipe) &&
-				x.Association.State == CollectionAssociationState.Applied);
 		}
 
 		private static void ValidateVerifiedNativeMod(CollectionNativeModState verifiedNativeMod,

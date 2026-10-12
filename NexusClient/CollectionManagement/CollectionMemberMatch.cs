@@ -110,10 +110,13 @@ namespace Nexus.Client.CollectionManagement
 	{
 		private readonly ReadOnlyCollection<CollectionMemberMatchResult> _members;
 		private readonly ReadOnlyDictionary<CollectionMemberKey, CollectionMemberMatchResult> _membersByKey;
+		private readonly ReadOnlyCollection<Guid> _reconciledPartialAssociations;
+		private readonly CollectionRevisionIdentity _revision;
 
 		internal CollectionMemberMatchSet(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState,
 			IEnumerable<CollectionMemberMatchResult> members)
-			: this(plan, nativeState == null ? null : nativeState.Fingerprint, members)
+			: this(plan, nativeState == null ? null : nativeState.Fingerprint, members,
+				nativeState == null ? null : nativeState.ReconciledPartialAssociations)
 		{
 			if (nativeState == null)
 				throw new ArgumentNullException(nameof(nativeState));
@@ -122,6 +125,13 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Reconstructs a persisted reviewed match set against its original approved state fingerprint.</summary>
 		internal CollectionMemberMatchSet(ResolvedCollectionPlan plan, CollectionCurrentStateFingerprint stateFingerprint,
 			IEnumerable<CollectionMemberMatchResult> members)
+			: this(plan, stateFingerprint, members, null)
+		{
+		}
+
+		/// <summary>Retains the journal-proven continuation scope through immutable reviewed match reconstruction.</summary>
+		internal CollectionMemberMatchSet(ResolvedCollectionPlan plan, CollectionCurrentStateFingerprint stateFingerprint,
+			IEnumerable<CollectionMemberMatchResult> members, IEnumerable<Guid> reconciledPartialAssociations)
 		{
 			if (plan == null)
 				throw new ArgumentNullException(nameof(plan));
@@ -151,6 +161,8 @@ namespace Nexus.Client.CollectionManagement
 					throw new ArgumentException("A member-match set must contain every selected member.", nameof(members));
 
 			PlanIdentity = plan.Identity;
+			_revision = plan.Revision;
+			_reconciledPartialAssociations = new ReadOnlyCollection<Guid>((reconciledPartialAssociations ?? Enumerable.Empty<Guid>()).Distinct().ToList());
 			Target = plan.Target;
 			StateFingerprint = stateFingerprint;
 			_members = new ReadOnlyCollection<CollectionMemberMatchResult>(copied);
@@ -160,6 +172,15 @@ namespace Nexus.Client.CollectionManagement
 		public CollectionPlanIdentity PlanIdentity { get; }
 		public CollectionTargetIdentity Target { get; }
 		public CollectionCurrentStateFingerprint StateFingerprint { get; }
+
+		/// <summary>Checks exact applied evidence or an installed binding from the same journal-proven partial revision.</summary>
+		internal bool HasReusableVerifiedBinding(CollectionMemberBinding binding, NativeModInstanceIdentity nativeMod, CollectionRecipeIdentity recipe)
+		{
+			return binding != null && binding.NativeMod.Equals(nativeMod) && binding.VerifiedRecipe.Equals(recipe) &&
+				(binding.Association.State == CollectionAssociationState.Applied ||
+				 (binding.Association.State == CollectionAssociationState.Incomplete && binding.Association.Revision.Equals(_revision) &&
+				  binding.BindingKind == CollectionMemberBindingKind.InstalledForCollection && _reconciledPartialAssociations.Contains(binding.Association.AssociationId)));
+		}
 		public ReadOnlyCollection<CollectionMemberMatchResult> Members { get { return _members; } }
 		public IReadOnlyDictionary<CollectionMemberKey, CollectionMemberMatchResult> MembersByKey { get { return _membersByKey; } }
 

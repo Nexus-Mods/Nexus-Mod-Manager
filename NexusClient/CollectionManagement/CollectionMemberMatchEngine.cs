@@ -148,9 +148,14 @@ namespace Nexus.Client.CollectionManagement
 
 			foreach (CollectionNativeModState mod in context.GetNativeMods(selectedModId))
 			{
-				candidates[mod.Identity] = mod;
 				long nativeFileId;
-				if (TryParsePositiveId(mod.NexusFileId, out nativeFileId) && nativeFileId == selectedFileId)
+				bool hasFileId = TryParsePositiveId(mod.NexusFileId, out nativeFileId);
+				// Collections commonly select a main archive and several patches from the same Nexus page.
+				// A different selected file is its own member, never an alternate installation of this one.
+				if (hasFileId && nativeFileId != selectedFileId && context.IsSelectedArtifact(gameDomain, selectedModId, nativeFileId))
+					continue;
+				candidates[mod.Identity] = mod;
+				if (hasFileId && nativeFileId == selectedFileId)
 					exactArtifactCandidates.Add(mod.Identity);
 			}
 
@@ -168,6 +173,13 @@ namespace Nexus.Client.CollectionManagement
 						CollectionMemberMatchReason.BoundNativeArtifactMismatch, new[] { bound }, directBindings, verifiedArchive);
 				}
 				candidates[bound.Identity] = bound;
+			}
+
+			if (exactArtifactCandidates.Count > 0)
+			{
+				HashSet<NativeModInstanceIdentity> boundIdentities = new HashSet<NativeModInstanceIdentity>(directBindings.Select(x => x.NativeMod));
+				foreach (NativeModInstanceIdentity identity in candidates.Keys.Where(x => !exactArtifactCandidates.Contains(x) && !boundIdentities.Contains(x)).ToList())
+					candidates.Remove(identity);
 			}
 
 			if (candidates.Count > 1)
@@ -190,15 +202,15 @@ namespace Nexus.Client.CollectionManagement
 
 				List<CollectionMemberBinding> verifiedApplied = bindings
 					.Where(x => x.VerifiedRecipe.Equals(member.RecipeIdentity) &&
-						x.Association.State == CollectionAssociationState.Applied)
+						IsReusableAssociation(nativeState, context, x.Association))
 					.ToList();
 				bool installRootMismatch = RequiresGameRoot(member, verifiedArchive, cancellationToken) && candidate.InstallRoot != ModInstallRoot.GameRoot;
 				bool exactArtifact = exactArtifactCandidates.Contains(candidate.Identity);
 				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
-					x.VerifiedRecipe.Equals(member.RecipeIdentity) && x.Association.State == CollectionAssociationState.Applied);
+					x.VerifiedRecipe.Equals(member.RecipeIdentity) && IsReusableAssociation(nativeState, context, x.Association));
 
 				if (!installRootMismatch && (exactArtifact || directRecipeBinding) && verifiedApplied.Count > 0 &&
-					bindings.All(x => x.Association.State == CollectionAssociationState.Applied))
+					bindings.All(x => IsReusableAssociation(nativeState, context, x.Association)))
 				{
 					if (RequiresDestinationArchive(member, candidate, verifiedArchive))
 						return Result(member, CollectionMemberMatchDisposition.AcquisitionRequired,
@@ -210,7 +222,8 @@ namespace Nexus.Client.CollectionManagement
 						reason, new[] { candidate }, bindings, verifiedArchive);
 				}
 
-				if (bindings.Any(x => x.Association.State == CollectionAssociationState.Incomplete ||
+				if (bindings.Any(x => (x.Association.State == CollectionAssociationState.Incomplete &&
+					!nativeState.IsReconciledPartialAssociation(x.Association, context.Revision)) ||
 					x.Association.State == CollectionAssociationState.Recovering))
 				{
 					return Result(member, CollectionMemberMatchDisposition.Blocked,
@@ -283,9 +296,9 @@ namespace Nexus.Client.CollectionManagement
 
 				bool installRootMismatch = RequiresGameRoot(member, verifiedArchive, cancellationToken) && candidate.InstallRoot != ModInstallRoot.GameRoot;
 				bool directRecipeBinding = directBindings.Any(x => x.NativeMod.Equals(candidate.Identity) &&
-					x.VerifiedRecipe.Equals(member.RecipeIdentity) && x.Association.State == CollectionAssociationState.Applied);
+					x.VerifiedRecipe.Equals(member.RecipeIdentity) && IsReusableAssociation(nativeState, context, x.Association));
 				if (!installRootMismatch && directRecipeBinding && bindings.Any(x => x.VerifiedRecipe.Equals(member.RecipeIdentity)) &&
-					bindings.All(x => x.Association.State == CollectionAssociationState.Applied))
+					bindings.All(x => IsReusableAssociation(nativeState, context, x.Association)))
 				{
 					if (RequiresDestinationArchive(member, candidate, verifiedArchive))
 						return Result(member, CollectionMemberMatchDisposition.AcquisitionRequired,
@@ -294,7 +307,8 @@ namespace Nexus.Client.CollectionManagement
 						CollectionMemberMatchReason.ExistingVerifiedBinding, new[] { candidate }, bindings, verifiedArchive);
 				}
 
-				if (bindings.Any(x => x.Association.State == CollectionAssociationState.Incomplete ||
+				if (bindings.Any(x => (x.Association.State == CollectionAssociationState.Incomplete &&
+					!nativeState.IsReconciledPartialAssociation(x.Association, context.Revision)) ||
 					x.Association.State == CollectionAssociationState.Recovering))
 				{
 					return Result(member, CollectionMemberMatchDisposition.Blocked,
@@ -362,6 +376,7 @@ namespace Nexus.Client.CollectionManagement
 				if (!request.PlanIdentity.Equals(plan.Identity) || !request.Revision.Equals(plan.Revision) ||
 					!request.Target.Equals(plan.Target) || !selectedByKey.TryGetValue(request.MemberKey, out member) ||
 					!request.SelectedArtifact.Equals(member.ArtifactChoice.SelectedArtifact) ||
+					!CollectionExternalArtifactIdentity.MatchesByteLength(member.ArtifactChoice.SelectedArtifact, archive.Artifact.ByteLength) ||
 					!request.RecipeIdentity.Equals(member.RecipeIdentity))
 					throw new ArgumentException("A verified archive input does not belong to the exact resolved member plan being matched.", nameof(verifiedArchives));
 				if (result.ContainsKey(request.MemberKey))
@@ -388,17 +403,29 @@ namespace Nexus.Client.CollectionManagement
 			return result;
 		}
 
+		/// <summary>Recognizes applied bindings and exact-revision partial bindings already reconciled by the native journal.</summary>
+		private static bool IsReusableAssociation(CollectionNativeStateIndex state, MatchingContext context, CollectionTargetAssociation association)
+		{
+			return association.State == CollectionAssociationState.Applied || state.IsReconciledPartialAssociation(association, context.Revision);
+		}
+
 		private sealed class MatchingContext
 		{
 			private readonly Dictionary<long, List<CollectionNativeModState>> _modsByNexusModId;
 			private readonly Dictionary<CollectionMemberKey, List<CollectionMemberBinding>> _directBindingsByMember;
+			private readonly HashSet<string> _selectedNexusArtifacts;
 
 			private MatchingContext(Dictionary<long, List<CollectionNativeModState>> modsByNexusModId,
-				Dictionary<CollectionMemberKey, List<CollectionMemberBinding>> directBindingsByMember)
+				Dictionary<CollectionMemberKey, List<CollectionMemberBinding>> directBindingsByMember, CollectionRevisionIdentity revision,
+				HashSet<string> selectedNexusArtifacts)
 			{
 				_modsByNexusModId = modsByNexusModId;
 				_directBindingsByMember = directBindingsByMember;
+				_selectedNexusArtifacts = selectedNexusArtifacts;
+				Revision = revision;
 			}
+
+			public CollectionRevisionIdentity Revision { get; }
 
 			/// <summary>Builds the per-pass matching indexes once from the immutable C6.1 state.</summary>
 			public static MatchingContext Create(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState)
@@ -435,7 +462,14 @@ namespace Nexus.Client.CollectionManagement
 						bindings.Add(binding);
 					}
 				}
-				return new MatchingContext(modsByNexusModId, directBindingsByMember);
+				var selectedNexusArtifacts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
+				{
+					string domain; long modId; long fileId;
+					if (NexusCollectionModFileArtifactIdentity.TryParse(member.ArtifactChoice.SelectedArtifact, out domain, out modId, out fileId))
+						selectedNexusArtifacts.Add(NexusCollectionModFileArtifactIdentity.Format(domain, modId, fileId));
+				}
+				return new MatchingContext(modsByNexusModId, directBindingsByMember, plan.Revision, selectedNexusArtifacts);
 			}
 
 			public IEnumerable<CollectionNativeModState> GetNativeMods(long nexusModId)
@@ -444,6 +478,12 @@ namespace Nexus.Client.CollectionManagement
 				return _modsByNexusModId.TryGetValue(nexusModId, out mods)
 					? mods
 					: Enumerable.Empty<CollectionNativeModState>();
+			}
+
+			/// <summary>Identifies other exact Nexus files selected as independent members of the same reviewed plan.</summary>
+			public bool IsSelectedArtifact(string domain, long modId, long fileId)
+			{
+				return _selectedNexusArtifacts.Contains(NexusCollectionModFileArtifactIdentity.Format(domain, modId, fileId));
 			}
 
 			public List<CollectionMemberBinding> GetDirectBindings(CollectionMemberKey memberKey)

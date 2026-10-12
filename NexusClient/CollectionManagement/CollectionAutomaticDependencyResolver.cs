@@ -11,6 +11,8 @@ using Nexus.Client.Mods;
 using Nexus.Client.ModRepositories;
 using Nexus.Client.Plugins;
 using Nexus.Client.PluginManagement;
+using Nexus.Client.Util.Localization;
+using Nexus.Client.Util;
 
 namespace Nexus.Client.CollectionManagement
 {
@@ -30,27 +32,70 @@ namespace Nexus.Client.CollectionManagement
 			var pluginNames = new HashSet<string>(recipe.EffectPreview.PluginEffects
 				.Where(x => x.Kind == CollectionPlannedPluginEffectKind.Activation)
 				.Select(x => Path.GetFileName(x.PluginPaths[0])), StringComparer.OrdinalIgnoreCase);
+			if (pluginNames.Count == 0) return;
+			string stamp = ArchiveStamp(mod);
+			var pending = new List<InstallModFileOperation>();
 			foreach (InstallModFileOperation file in recipe.RecipeInput.NativeOperations.OfType<InstallModFileOperation>())
 			{
 				string adjustedPath = gameMode.GetModFormatAdjustedPath(mod.Format, file.DestinationPath, false);
 				string name = Path.GetFileName(adjustedPath);
 				if (!pluginNames.Contains(name)) continue;
 				cancellationToken.ThrowIfCancellationRequested();
-				string cacheKey = ArchiveStamp(mod) + "|" + file.SourcePath;
+				string cacheKey = stamp + "|" + file.SourcePath;
 				IList<string> masters;
 				lock (_cacheLock) _masterCache.TryGetValue(cacheKey, out masters);
-				if (masters == null)
+				if (masters == null) pending.Add(file);
+				else dependencies[name] = masters;
+			}
+			if (pending.Count == 0) return;
+
+			string temporaryDirectory = Path.Combine(Path.GetTempPath(), "NMMp-" + FileUtil.CreateTempToken());
+			try
+			{
+				Directory.CreateDirectory(temporaryDirectory);
+				var destinations = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				foreach (InstallModFileOperation file in pending)
 				{
-					string temporaryDirectory = Path.Combine(Path.GetTempPath(), "NMMCE", "CollectionPluginDependencies", Guid.NewGuid().ToString("N"));
-					try
+					if (destinations.ContainsKey(file.SourcePath)) continue;
+					string directory = Path.Combine(temporaryDirectory, destinations.Count.ToString(CultureInfo.InvariantCulture));
+					Directory.CreateDirectory(directory);
+					string name = Path.GetFileName(gameMode.GetModFormatAdjustedPath(mod.Format, file.DestinationPath, false));
+					destinations.Add(file.SourcePath, Path.Combine(directory, name));
+				}
+				IModFileBatchSource batchSource = mod as IModFileBatchSource;
+				if (batchSource != null)
+				{
+					CollectionPreparationProgress.Report(LanguageManager.Format("Collections.Workflow.ExtractingPluginDependencies",
+						"Reading selected plugins together: {0} ({1:P0})", recipe.Member.DisplayName, 0f), true);
+					Action<string> report = CollectionPreparationProgress.CaptureStatusReporter();
+					batchSource.CopyFilesTo(destinations, cancellationToken, percent => report?.Invoke(LanguageManager.Format(
+						"Collections.Workflow.ExtractingPluginDependencies", "Reading selected plugins together: {0} ({1:P0})", recipe.Member.DisplayName, percent)));
+				}
+				else
+				{
+					foreach (KeyValuePair<string, string> file in destinations)
 					{
-						Directory.CreateDirectory(temporaryDirectory);
-						string temporaryPath = Path.Combine(temporaryDirectory, name);
-						using (FileStream source = mod.GetFileStream(file.SourcePath))
-						using (FileStream destination = File.Create(temporaryPath))
-							source.CopyTo(destination);
 						cancellationToken.ThrowIfCancellationRequested();
-						Plugin plugin = factory.CreatePlugin(temporaryPath);
+						CollectionPreparationProgress.Report(LanguageManager.Format("Collections.Workflow.ReadingPluginDependencies",
+							"Reading plugin requirements: {0} — {1}", recipe.Member.DisplayName, Path.GetFileName(file.Value)), true);
+						using (FileStream source = mod.GetFileStream(file.Key))
+						using (FileStream destination = File.Create(file.Value)) source.CopyTo(destination);
+					}
+				}
+				if (!StringComparer.Ordinal.Equals(stamp, ArchiveStamp(mod)))
+					throw new InvalidDataException("The mod archive changed while reading plugin dependencies.");
+				foreach (InstallModFileOperation file in pending)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					string name = Path.GetFileName(gameMode.GetModFormatAdjustedPath(mod.Format, file.DestinationPath, false));
+					string cacheKey = stamp + "|" + file.SourcePath;
+					IList<string> masters;
+					lock (_cacheLock) _masterCache.TryGetValue(cacheKey, out masters);
+					if (masters == null)
+					{
+						CollectionPreparationProgress.Report(LanguageManager.Format("Collections.Workflow.ReadingPluginDependencies",
+							"Reading plugin requirements: {0} — {1}", recipe.Member.DisplayName, name), true);
+						Plugin plugin = factory.CreatePlugin(destinations[file.SourcePath]);
 						masters = plugin == null || plugin.Masters == null ? new List<string>() : plugin.Masters.ToList();
 						lock (_cacheLock)
 						{
@@ -58,17 +103,14 @@ namespace Nexus.Client.CollectionManagement
 							_masterCache[cacheKey] = masters;
 						}
 					}
-					finally
-					{
-						try
-						{
-							if (Directory.Exists(temporaryDirectory)) Directory.Delete(temporaryDirectory, true);
-						}
-						catch (IOException ex) { System.Diagnostics.Trace.TraceWarning(ex.Message); }
-						catch (UnauthorizedAccessException ex) { System.Diagnostics.Trace.TraceWarning(ex.Message); }
-					}
+					dependencies[name] = masters;
 				}
-				dependencies[name] = masters;
+			}
+			finally
+			{
+				try { if (Directory.Exists(temporaryDirectory)) Directory.Delete(temporaryDirectory, true); }
+				catch (IOException ex) { System.Diagnostics.Trace.TraceWarning(ex.Message); }
+				catch (UnauthorizedAccessException ex) { System.Diagnostics.Trace.TraceWarning(ex.Message); }
 			}
 		}
 

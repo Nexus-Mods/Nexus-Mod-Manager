@@ -247,6 +247,34 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>Shutdown wakes retrying workers and synchronous callers without scheduling another download.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Dispose_DuringRetryWait_ReleasesWorkerWithoutAnotherProbe(bool synchronous)
+		{
+			using (LoopbackHttpServer server = new LoopbackHttpServer(HttpStatusCode.ServiceUnavailable))
+			using (FileDownloadTask task = CreateTask())
+			{
+				SetPrivateInt(task, "m_intRetryInterval", 10000);
+				Exception failure = null;
+				Thread worker = new Thread(() =>
+				{
+					try
+					{
+						if (synchronous) task.Download(server.Uri, Path.GetTempPath(), true);
+						else task.DownloadAsync(new List<Uri> { server.Uri }, Path.GetTempPath(), true);
+					}
+					catch (Exception ex) { failure = ex; }
+				}) { IsBackground = true };
+				worker.Start();
+				Assert.IsTrue(SpinWait.SpinUntil(() => task.Status == TaskStatus.Retrying, 3000));
+				task.Dispose();
+				Assert.IsTrue(worker.Join(3000), "Disposal left the retry worker waiting.");
+				Assert.IsNull(failure);
+				Assert.AreEqual(1, server.RequestCount);
+			}
+		}
+
 		private static FileDownloadTask CreateTask()
 		{
 			return new FileDownloadTask(CreateRepository(), 4, 1024, "NMM-C4-retry-tests");
