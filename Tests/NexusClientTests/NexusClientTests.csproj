@@ -133,6 +133,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SevenZipTestEnvironment.cs" />
     <Compile Include="SafeExtractIconTests.cs" />
+    <Compile Include="SteamInstallationPathDetectorTests.cs" />
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />
@@ -141,6 +142,7 @@
     <Compile Include="ModOperationLifecycleCharacterizationTests.cs" />
     <Compile Include="FileDownloadTaskCharacterizationTests.cs" />
     <Compile Include="DownloadConcurrencyBudgetTests.cs" />
+    <Compile Include="AddModTaskConcurrencyTests.cs" />
     <Compile Include="CollectionIdentityValueTests.cs" />
     <Compile Include="CollectionDefinitionRevisionTests.cs" />
     <Compile Include="CollectionProvenanceAssociationTests.cs" />
@@ -230,6 +232,8 @@
     <Compile Include="CollectionUserMessagePresentationTests.cs" />
     <Compile Include="CollectionUiContextTests.cs" />
     <Compile Include="CollectionWorkflowActivityTests.cs" />
+    <Compile Include="CollectionPluginOrderPolicyTests.cs" />
+    <Compile Include="CollectionPreparationProgressTests.cs" />
     <Compile Include="CollectionOperationContractsTests.cs" />
     <Compile Include="CollectionsStoreFoundationTests.cs" />
     <Compile Include="CollectionConflictResolutionBulkStoreTests.cs" />
@@ -279,6 +283,7 @@
     <Compile Include="DirectInstallStep3Tests.cs" />
     <Compile Include="MixedDeploymentStep4Tests.cs" />
     <Compile Include="VirtualModStoreFailureInjectionTests.cs" />
+    <Compile Include="NativeStorePersistenceTests.cs" />
     <Compile Include="VirtualLinkIndexTests.cs" />
     <Compile Include="VirtualModRemovalRegressionTests.cs" />
     <Compile Include="ModFileIdentityTests.cs" />

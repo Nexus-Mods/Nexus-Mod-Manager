@@ -66,6 +66,219 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>A fresh wizard supplies exact required and selected outputs inside the Collection preparation path.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Prepare_FreshInstallerCapturesChoicesAndReusesThemAfterRestart(bool revisionBoundary)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "interactive");
+				int prompts = 0;
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) =>
+				{
+					prompts++;
+					Assert.That(mod, Is.SameAs(fixture.Mod));
+					Assert.That(environment, Is.Not.Null);
+					return CreateFreshInstallerSelection();
+				};
+				PreparedCollectionNativeRecipe first = PrepareFreshInstaller(fixture, fixture.Preparer, false);
+				CollectionAssert.AreEquivalent(new[] { @"Scripts\example.pex", @"SKSE\Plugins\example.dll" },
+					first.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.DestinationPath));
+				Assert.That(first.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Any(x => x.SourcePath.StartsWith(@"SE\")), Is.False);
+				Assert.That(first.RetainedArtifactIds.Count, Is.EqualTo(3));
+				// A new preparer represents an application restart, with no process-local choices or prepared recipe cache.
+				var restarted = new CollectionNativeRecipePreparer(new CollectionsStore(root));
+				restarted.SelectInstallerOptions = (mod, environment, token) => { throw new AssertionException("Saved choices must not reopen the wizard."); };
+				PreparedCollectionNativeRecipe second = PrepareFreshInstaller(fixture, restarted, revisionBoundary);
+				Assert.That(prompts, Is.EqualTo(1));
+				Assert.That(second.PreparedNativeIdentity, Is.EqualTo(first.PreparedNativeIdentity));
+				CollectionAssert.AreEquivalent(first.RetainedArtifactIds, second.RetainedArtifactIds);
+				Assert.That(CollectionReviewedPreparedRecipeSnapshot.From(first).SimpleFileMappings.Count, Is.EqualTo(2));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Cancelling a wizard publishes no choice reference and the next Collection preparation asks again.</summary>
+		[Test]
+		public void Prepare_FreshInstallerCancellationCanResumeWithoutCopyingOptionFolders()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "cancel-installer");
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => { throw new OperationCanceledException(); };
+				Assert.Throws<OperationCanceledException>(() => PrepareFreshInstaller(fixture, fixture.Preparer, false));
+				var choices = new CollectionInstallerSelectionStore(new CollectionsRetainedArtifactStore(fixture.Store),
+					new CollectionsRetainedArtifactReferenceStore(fixture.Store));
+				string artifactId;
+				Assert.That(choices.Load(fixture.Plan, fixture.Member, fixture.VerifiedArchive.Artifact, fixture.InstallContext,
+					out artifactId, CancellationToken.None), Is.Null);
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => CreateFreshInstallerSelection();
+				Assert.That(PrepareFreshInstaller(fixture, fixture.Preparer, false).RecipeInput.NativeOperations.Count, Is.EqualTo(2));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Saved choices never cross archive identities or installation roots.</summary>
+		[Test]
+		public void InstallerChoices_AreBoundToExactArchiveAndDestination()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "choice-binding");
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => CreateFreshInstallerSelection();
+				PrepareFreshInstaller(fixture, fixture.Preparer, false);
+				var artifacts = new CollectionsRetainedArtifactStore(fixture.Store);
+				var choices = new CollectionInstallerSelectionStore(artifacts, new CollectionsRetainedArtifactReferenceStore(fixture.Store));
+				string artifactId;
+				Assert.That(choices.Load(fixture.Plan, fixture.Member, fixture.VerifiedArchive.Artifact,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.GameRoot), out artifactId, CancellationToken.None), Is.Null);
+				using (var stream = new MemoryStream(Encoding.UTF8.GetBytes("different archive version")))
+				{
+					CollectionsRetainedArtifact otherArchive = artifacts.Publish(stream);
+					Assert.That(choices.Load(fixture.Plan, fixture.Member, otherArchive, fixture.InstallContext,
+						out artifactId, CancellationToken.None), Is.Null);
+				}
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Malformed captured choices cannot become durable state or trigger a fallback to basic installation.</summary>
+		[Test]
+		public void Prepare_InvalidInteractiveChoicesAreNotSaved()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "invalid-choices");
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) =>
+					new ModInstallationFomodSelectionRecipe(new Version(5, 0), new ModInstallationFomodStepSelection[0], true);
+				Assert.Throws<InvalidDataException>(() => PrepareFreshInstaller(fixture, fixture.Preparer, false));
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => CreateFreshInstallerSelection();
+				Assert.That(PrepareFreshInstaller(fixture, fixture.Preparer, false).EffectPreview.Files.Count, Is.EqualTo(2));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Hidden steps remain excluded even when their defaults would otherwise install files.</summary>
+		[Test]
+		public void Prepare_NativeWizardHiddenStepsRemainHiddenOnReplay()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "hidden-step");
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) =>
+					new ModInstallationFomodSelectionRecipe(new Version(5, 0), new[]
+					{
+						new ModInstallationFomodStepSelection(0, "Game version", new[]
+						{
+							new ModInstallationFomodGroupSelection(0, "Runtime", new ModInstallationFomodOptionSelection[0])
+						}, false)
+					}, true);
+				PreparedCollectionNativeRecipe prepared = PrepareFreshInstaller(fixture, fixture.Preparer, false);
+				Assert.That(prepared.RecipeInput.NativeOperations.Count, Is.EqualTo(1));
+				Assert.That(((InstallModFileOperation)prepared.RecipeInput.NativeOperations[0]).DestinationPath, Is.EqualTo(@"Scripts\example.pex"));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Only the explicit native installer route may process scripted archives.</summary>
+		[Test]
+		public void PrepareBasic_StillRejectsScriptedArchiveCopying()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "no-basic-fallback");
+				Assert.Throws<NotSupportedException>(() => fixture.Preparer.PrepareBasicSimpleExact(fixture.Plan,
+					fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, fixture.InstallContext, fixture.State, false));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Execution-boundary validation never opens an unreviewed installer wizard.</summary>
+		[Test]
+		public void Prepare_ExecutionBoundaryRequiresPreviouslyConfirmedChoices()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFreshInstallerFixture(root, "boundary-no-prompt");
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => { throw new AssertionException("Do not prompt after review."); };
+				Assert.Throws<InvalidOperationException>(() => PrepareFreshInstaller(fixture, fixture.Preparer, true));
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>A fresh compatibility wizard sees earlier planned plugins, not unrelated nested files.</summary>
+		[Test]
+		public void InstallerEnvironment_ProjectsEarlierCollectionPluginOutputs()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "projected-dependency", "Dependency.esp", @"nested\NotAPlugin.esp");
+				fixture.GameMode = CreateGameMode(false, null, false, new[] { ".esp", ".esm", ".esl" });
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareBasicSimpleExact(fixture.Plan, fixture.Member,
+					fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, fixture.InstallContext, fixture.State, false, CreateEmptyPluginManager());
+				var environment = new CollectionInstallerConditionEnvironment(fixture.State, fixture.GameMode,
+					fixture.Plan.CapabilityReport.Manifest, new[] { prepared });
+				bool registered;
+				Assert.That(environment.TryGetPluginRegistered("Dependency.esp", out registered) && registered, Is.True);
+				bool active;
+				Assert.That(environment.TryGetPluginActive("Dependency.esp", out active) && active, Is.True);
+				Assert.That(environment.TryGetPluginRegistered("NotAPlugin.esp", out registered) && !registered, Is.True);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>The early cache boundary admits a native wizard instead of blocking Collection preparation.</summary>
+		[Test]
+		public void InstallerRouting_AllowsFreshNativeWizard()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var script = new XmlScript(new XmlScriptType(), new Version(5, 0));
+				Fixture fixture = CreateFixtureCore(root, "fresh-installer-cache", null,
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, null, script, @"option\file.bin");
+				Assert.DoesNotThrow(() => CollectionNativeRecipePreparer.ValidateInstallerRouting(fixture.Member, fixture.Mod));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Explicit replicated output and recorded FOMOD choices do not require a fresh installer decision.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void InstallerRouting_PreservesCapturedOutputRecipes(bool fileList)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				byte[] payload = Encoding.UTF8.GetBytes("selected payload");
+				Fixture fixture = fileList
+					? CreateFileListFixture(root, "captured-file-list", new Dictionary<string, byte[]> { { @"choice\file.bin", payload } },
+						"[{\"path\":\"file.bin\",\"md5\":\"" + ComputeMd5(payload) + "\"}]")
+					: CreateFomodFixture(root, "captured-installer", false);
+				IMod unreadInstaller = InterfaceStub<IMod>.Create((method, args) =>
+				{
+					throw new InvalidOperationException("Exact captured recipes must not inspect or prompt for installer choices.");
+				});
+				Assert.DoesNotThrow(() => CollectionNativeRecipePreparer.ValidateInstallerRouting(fixture.Member, unreadInstaller));
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		[Test]
 		public void PrepareBasicSimpleExact_ReusesImmutableRetainedManifestWithinPreparer()
 		{
@@ -335,6 +548,7 @@ namespace NexusClientTests
 				};
 				Fixture fixture = CreateFileListFixture(root, "file-list", contents,
 					"[{\"path\":\"textures/body.dds\",\"md5\":\"" + wantedMd5 + "\"}]");
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => { throw new AssertionException("Exact output lists must not prompt."); };
 
 				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
@@ -1056,6 +1270,7 @@ namespace NexusClientTests
 			try
 			{
 				Fixture fixture = CreateFomodFixture(root, "fomod-map", false);
+				fixture.Preparer.SelectInstallerOptions = (mod, environment, token) => { throw new AssertionException("Curator choices must not prompt."); };
 
 				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
@@ -1292,6 +1507,47 @@ namespace NexusClientTests
 					: new[] { @"required\core.bin" });
 		}
 
+		/// <summary>Models the required and mutually exclusive runtime directories used by powerofthree's Tweaks.</summary>
+		private static Fixture CreateFreshInstallerFixture(string root, string suffix)
+		{
+			var script = new XmlScript(new XmlScriptType(), new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile("Required", String.Empty, true, 0, false, false));
+			var step = new InstallStep("Game version", null, SortOrder.Explicit);
+			var group = new OptionGroup("Runtime", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			foreach (string runtime in new[] { "AE", "SE" })
+			{
+				var option = new Option(runtime, String.Empty, null, new StaticOptionTypeResolver(OptionType.Optional));
+				option.Files.Add(new InstallableFile(runtime + @"\SKSE\Plugins", @"SKSE\Plugins", true, 0, false, false));
+				group.Options.Add(option);
+			}
+			step.OptionGroups.Add(group);
+			script.InstallSteps.Add(step);
+			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data),
+				false, null, script, @"Required\Scripts\example.pex", @"AE\SKSE\Plugins\example.dll", @"SE\SKSE\Plugins\example.dll");
+		}
+
+		/// <summary>Represents the exact choices returned by the existing native wizard.</summary>
+		private static ModInstallationFomodSelectionRecipe CreateFreshInstallerSelection()
+		{
+			return new ModInstallationFomodSelectionRecipe(new Version(5, 0), new[]
+			{
+				new ModInstallationFomodStepSelection(0, "Game version", new[]
+				{
+					new ModInstallationFomodGroupSelection(0, "Runtime", new[] { new ModInstallationFomodOptionSelection(0, "AE") })
+				}, true)
+			}, true);
+		}
+
+		/// <summary>Exercises ordinary preparation and revision execution-boundary replay using the same retained choices.</summary>
+		private static PreparedCollectionNativeRecipe PrepareFreshInstaller(Fixture fixture, CollectionNativeRecipePreparer preparer, bool revisionBoundary)
+		{
+			return revisionBoundary
+				? preparer.PrepareRevisionUpdateExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod,
+					fixture.GameMode, CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false, null, new List<IMod>(), CancellationToken.None)
+				: preparer.PrepareExact(fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode,
+					CreateEnvironmentInfo(), fixture.InstallContext, fixture.State, false);
+		}
+
 		private static Fixture CreateFomodFixture(string root, string suffix, bool staleActualOptionName)
 		{
 			var scriptType = new XmlScriptType();
@@ -1474,7 +1730,10 @@ namespace NexusClientTests
 					case "get_FileName": return Path.GetFileName(modArchivePath);
 					case "get_HasInstallScript": return installScript != null;
 					case "get_InstallScript": return installScript;
-					case "GetFileList": return new List<string>(fileList);
+					case "GetFileList":
+						return args.Length != 0 && args[0] is string
+							? fileList.Where(path => path.StartsWith(((string)args[0]).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase)).ToList()
+							: new List<string>(fileList);
 					case "GetFile":
 						byte[] bytes;
 						return archiveContents != null && archiveContents.TryGetValue((string)args[0], out bytes) ? bytes : null;

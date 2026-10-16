@@ -96,12 +96,12 @@ namespace Nexus.Client.CollectionManagement
 
 			var phases = new List<CollectionExecutionPhase>();
 			var phaseNumbers = membersByPhase.Keys.OrderBy(x => x).ToList();
-			IComparer<CollectionMemberKey> memberOrder = plan.Policy.PreferIncomingCollection
-				? (IComparer<CollectionMemberKey>)Comparer<CollectionMemberKey>.Create((left, right) =>
+			// Overwrite preferences do not change the curator's installation order.
+			IComparer<CollectionMemberKey> memberOrder = Comparer<CollectionMemberKey>.Create((left, right) =>
 				{
 					int ordinal = selected[left].SourceOrdinal.CompareTo(selected[right].SourceOrdinal);
 					return ordinal != 0 ? ordinal : CollectionMemberKeyComparer.Instance.Compare(left, right);
-				}) : CollectionMemberKeyComparer.Instance;
+				});
 			foreach (double phaseNumber in phaseNumbers)
 			{
 				List<CollectionMemberKey> orderedKeys;

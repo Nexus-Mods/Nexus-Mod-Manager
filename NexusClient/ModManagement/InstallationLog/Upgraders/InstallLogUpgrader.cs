@@ -36,7 +36,7 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 		/// <c>false</c> otherwise.</returns>
 		public bool NeedsUpgrade(string p_strLogPath)
 		{
-			if (!File.Exists(p_strLogPath))
+			if (!InstallLog.HasPersistedLog(p_strLogPath))
 				return false;
 			Version verLogVersion = InstallLog.ReadVersion(p_strLogPath);
 			return verLogVersion != InstallLog.CurrentVersion;
@@ -70,5 +70,17 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 			m_dicUpgraders[verLogVersion].Upgrade(p_strLogPath, p_strModInstallDirectory, p_mrgModRegistry);
 			return m_dicUpgraders[verLogVersion];
 		}
+
+		/// <summary>Reuses legacy version converters on an isolated restore snapshot without modifying the backup.</summary>
+		internal void UpgradeSnapshot(string logPath, string modDirectory, ModRegistry registry)
+		{
+			Version version = InstallLog.ReadVersion(logPath);
+			if (version == InstallLog.CurrentVersion) return;
+			UpgradeTask upgrader;
+			if (!m_dicUpgraders.TryGetValue(version, out upgrader))
+				throw new UpgradeException("Unrecognized log version: " + version);
+			upgrader.UpgradeSnapshot(logPath, modDirectory, registry);
+		}
+
 	}
 }

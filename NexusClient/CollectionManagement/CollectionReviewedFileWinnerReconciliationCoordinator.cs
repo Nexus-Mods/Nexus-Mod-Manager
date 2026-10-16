@@ -100,6 +100,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly IVirtualDeploymentService _fixedVirtualDeploymentService;
 		private readonly Func<CollectionTargetIdentity, CollectionNativeStateIndex> _captureState;
 		private readonly Action _updateProfileDeployment;
+		private readonly Func<CollectionNativeStateIndex, ModDeploymentTarget, CollectionNativeFileState> _readFile;
 
 		/// <summary>Creates the production reviewed-winner reconciler over existing C4/native ownership services.</summary>
 		public CollectionReviewedFileWinnerReconciliationCoordinator(ServiceManager services, IProfileManager profileManager,
@@ -135,6 +136,7 @@ namespace Nexus.Client.CollectionManagement
 			_captureState = target => new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore).Capture(target);
 			_updateProfileDeployment = () => _profileManager.UpdateCurrentDeploymentManifest();
+			_readFile = ReadNativeWinnerFile;
 		}
 
 		/// <summary>Test seam over already validated native authority; production callers use <see cref="ReconcileAsync"/>.</summary>
@@ -142,7 +144,8 @@ namespace Nexus.Client.CollectionManagement
 			CollectionsResolvedPlanStore planStore, CollectionsAssociationStore associationStore,
 			CollectionsRetainedArtifactStore artifactStore, CollectionsRetainedArtifactReferenceStore referenceStore,
 			IModDeploymentManager deploymentManager, IVirtualDeploymentService virtualDeploymentService,
-			Func<CollectionTargetIdentity, CollectionNativeStateIndex> captureState, Action updateProfileDeployment)
+			Func<CollectionTargetIdentity, CollectionNativeStateIndex> captureState, Action updateProfileDeployment,
+			Func<CollectionNativeStateIndex, ModDeploymentTarget, CollectionNativeFileState> readFile = null)
 		{
 			_operationStore = operationStore ?? throw new ArgumentNullException(nameof(operationStore));
 			_planStore = planStore ?? throw new ArgumentNullException(nameof(planStore));
@@ -153,6 +156,7 @@ namespace Nexus.Client.CollectionManagement
 			_fixedVirtualDeploymentService = virtualDeploymentService ?? throw new ArgumentNullException(nameof(virtualDeploymentService));
 			_captureState = captureState ?? throw new ArgumentNullException(nameof(captureState));
 			_updateProfileDeployment = updateProfileDeployment ?? throw new ArgumentNullException(nameof(updateProfileDeployment));
+			_readFile = readFile ?? ((state, target) => RequireLiveFile(_captureState(state.Target), target));
 		}
 
 		/// <summary>
@@ -219,14 +223,26 @@ namespace Nexus.Client.CollectionManagement
 			IModDeploymentManager deploymentManager = GetCurrentDeploymentManager();
 			IVirtualDeploymentService virtualDeploymentService = GetCurrentVirtualDeploymentService(deploymentManager);
 			var results = new List<CollectionReviewedFileWinnerResult>();
-			foreach (CollectionFileImpact impact in impactPlan.FileImpacts
+			CollectionFileImpact[] winners = impactPlan.FileImpacts
 				.Where(x => x.PreserveCurrentOwner || (x.PlannedWinner != null && x.Writers.Count > 1))
-				.OrderBy(x => (int)x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase))
+				.OrderBy(x => (int)x.Target.Root).ThenBy(x => x.Target.RelativePath, StringComparer.OrdinalIgnoreCase).ToArray();
+			if (winners.Length == 0)
+			{
+				CollectionPerformanceMetrics.RecordFileWinnerReconciliation(performanceStarted);
+				return new CollectionReviewedFileWinnerReconciliationResult(results);
+			}
+			ReportFileWinnerProgress(0, winners.Length);
+			cancellationToken.ThrowIfCancellationRequested();
+			// The target lease excludes other mutations. Registrations and bindings stay fixed while each file is read live.
+			CollectionNativeStateIndex state = _captureState(plan.Target);
+			Dictionary<CollectionMemberKey, HashSet<string>> ownerCandidates = BuildWriterOwnerCandidates(plan, matches,
+				_associationStore.GetTargetSnapshot(plan.Target));
+			var pendingCheckpoints = new List<CollectionReviewedFileWinnerIntent>();
+			foreach (CollectionFileImpact impact in winners)
 			{
 				cancellationToken.ThrowIfCancellationRequested();
-				CollectionNativeStateIndex state = _captureState(plan.Target);
-				CollectionNativeFileState file = RequireLiveFile(state, impact.Target);
-				Dictionary<CollectionMemberKey, string> writerOwners = ResolveWriterOwners(plan, matches, impact, file);
+				CollectionNativeFileState file = ReadWinnerFile(state, impact.Target);
+				Dictionary<CollectionMemberKey, string> writerOwners = ResolveWriterOwners(impact, file, ownerCandidates);
 				string desiredOwner;
 				string fallbackOwner = null;
 				if (impact.PreserveCurrentOwner)
@@ -249,15 +265,12 @@ namespace Nexus.Client.CollectionManagement
 					ValidateIntent(intent, operationIdentity, plan, impact.Target, desiredOwner, fallbackOwner, dispatch);
 					if (OwnerStacksEqual(currentOwners, GetExpectedPostimage(intent)))
 					{
-						if (!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner))
+						if (!HasExactWinner(file, desiredOwner))
 							throw new CollectionReviewedFileWinnerRecoveryRequiredException("The reviewed-winner postimage does not expose the reviewed final owner.");
-						if (!IsVerified(operationIdentity, intent))
-						{
-							_updateProfileDeployment();
-							MarkVerified(operationIdentity, intent);
-						}
+						if (!IsVerified(operationIdentity, intent)) pendingCheckpoints.Add(intent);
 						results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
 							CollectionReviewedFileWinnerOutcome.RecoveredCommitted));
+						ReportFileWinnerProgress(results.Count, winners.Length);
 						continue;
 					}
 					if (IsVerified(operationIdentity, intent))
@@ -269,13 +282,14 @@ namespace Nexus.Client.CollectionManagement
 				}
 				else
 				{
-					bool alreadyExact = StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner) &&
+					bool alreadyExact = HasExactWinner(file, desiredOwner) &&
 						(fallbackOwner == null || (currentOwners.Count >= 2 &&
 						StringComparer.OrdinalIgnoreCase.Equals(currentOwners[currentOwners.Count - 2], fallbackOwner)));
 					if (alreadyExact)
 					{
 						results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
 							CollectionReviewedFileWinnerOutcome.AlreadySatisfied));
+						ReportFileWinnerProgress(results.Count, winners.Length);
 						continue;
 					}
 					if (!StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner) &&
@@ -289,19 +303,37 @@ namespace Nexus.Client.CollectionManagement
 				}
 
 				ApplyWinner(intent, deploymentManager, virtualDeploymentService, currentOwners);
-				CollectionNativeStateIndex after = _captureState(plan.Target);
-				CollectionNativeFileState verified = RequireLiveFile(after, impact.Target);
-				if (!StringComparer.OrdinalIgnoreCase.Equals(verified.EffectiveOwnerKey, desiredOwner) ||
+				CollectionNativeFileState verified = ReadWinnerFile(state, impact.Target);
+				if (!HasExactWinner(verified, desiredOwner) ||
 					!OwnerStacksEqual(GetOwnerPreimage(verified), GetExpectedPostimage(intent)))
-					throw new CollectionReviewedFileWinnerRecoveryRequiredException("The native owner switch returned without establishing the exact reviewed file-winner postimage.");
-				_updateProfileDeployment();
-				MarkVerified(operationIdentity, intent);
+					throw new CollectionReviewedFileWinnerRecoveryRequiredException(String.Format(
+						"The native owner switch for '{0}' did not establish the reviewed winner '{1}'. Expected owners: [{2}]; observed owners: [{3}]; observed winner: '{4}'; active Virtual owners: {5}.",
+						impact.Target, desiredOwner, String.Join(", ", GetExpectedPostimage(intent)),
+						String.Join(", ", GetOwnerPreimage(verified)), verified.EffectiveOwnerKey,
+						verified.VirtualOwners.Count(x => x.VirtualLinkActive == true)));
+				pendingCheckpoints.Add(intent);
 				results.Add(new CollectionReviewedFileWinnerResult(impact.Target, desiredOwner, dispatch,
 					CollectionReviewedFileWinnerOutcome.SwitchedAndVerified));
+				ReportFileWinnerProgress(results.Count, winners.Length);
+			}
+			// Keep intents unverified until one consistent profile snapshot is durable. An interrupted batch is recovered from live owner stacks.
+			if (pendingCheckpoints.Count > 0)
+			{
+				_updateProfileDeployment();
+				foreach (CollectionReviewedFileWinnerIntent checkpoint in pendingCheckpoints)
+					MarkVerified(operationIdentity, checkpoint);
 			}
 			var result = new CollectionReviewedFileWinnerReconciliationResult(results);
 			CollectionPerformanceMetrics.RecordFileWinnerReconciliation(performanceStarted);
 			return result;
+		}
+
+		/// <summary>Reports completed conflict targets, including existing or recovered winners, without flooding the UI.</summary>
+		private static void ReportFileWinnerProgress(int completed, int total)
+		{
+			CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+				"Collections.Workflow.ApplyingFileConflictsWithCounter", "Applying Collection file conflict rules ({0}/{1})...",
+				completed, total), completed == 0 || completed == total);
 		}
 
 		private void ValidateInputs(CollectionOperationIdentity operationIdentity, ResolvedCollectionPlan plan,
@@ -389,27 +421,84 @@ namespace Nexus.Client.CollectionManagement
 			}
 		}
 
-		private Dictionary<CollectionMemberKey, string> ResolveWriterOwners(ResolvedCollectionPlan plan,
-			CollectionMemberMatchSet matches, CollectionFileImpact impact, CollectionNativeFileState file)
+		/// <summary>Resolves stable writer provenance once while the target lease is held, without querying Collection bindings per file.</summary>
+		private static Dictionary<CollectionMemberKey, HashSet<string>> BuildWriterOwnerCandidates(ResolvedCollectionPlan plan,
+			CollectionMemberMatchSet matches, CollectionsAssociationTargetSnapshot snapshot)
+		{
+			var bindings = snapshot.Bindings.ToLookup(x => x.MemberKey);
+			var result = new Dictionary<CollectionMemberKey, HashSet<string>>();
+			foreach (ResolvedCollectionMemberPlan member in plan.SelectedMembers)
+			{
+				var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				CollectionMemberMatchResult match;
+				if (matches.MembersByKey.TryGetValue(member.MemberKey, out match) && match.MatchedNativeMod != null)
+					candidates.Add(match.MatchedNativeMod.Identity.NativeModKey);
+				foreach (CollectionMemberBinding binding in bindings[member.MemberKey].Where(x => x.VerifiedRecipe.Equals(member.RecipeIdentity)))
+					candidates.Add(binding.NativeMod.NativeModKey);
+				result.Add(member.MemberKey, candidates);
+			}
+			return result;
+		}
+
+		/// <summary>Intersects cached writer provenance with the freshly observed owners of this exact target.</summary>
+		private static Dictionary<CollectionMemberKey, string> ResolveWriterOwners(CollectionFileImpact impact,
+			CollectionNativeFileState file, IDictionary<CollectionMemberKey, HashSet<string>> ownerCandidates)
 		{
 			var actualOwners = new HashSet<string>(GetRealOwnerKeys(file), StringComparer.OrdinalIgnoreCase);
-			CollectionsAssociationTargetSnapshot snapshot = _associationStore.GetTargetSnapshot(plan.Target);
 			var result = new Dictionary<CollectionMemberKey, string>();
 			foreach (CollectionMemberKey writer in impact.Writers)
 			{
-				ResolvedCollectionMemberPlan member = plan.SelectedMembers.Single(x => x.MemberKey.Equals(writer));
-				var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				CollectionMemberMatchResult match;
-				if (matches.MembersByKey.TryGetValue(writer, out match) && match.MatchedNativeMod != null)
-					candidates.Add(match.MatchedNativeMod.Identity.NativeModKey);
-				foreach (CollectionMemberBinding binding in snapshot.Bindings.Where(x => x.MemberKey.Equals(writer) && x.VerifiedRecipe.Equals(member.RecipeIdentity)))
-					candidates.Add(binding.NativeMod.NativeModKey);
-				candidates.IntersectWith(actualOwners);
+				List<string> candidates = ownerCandidates[writer].Where(actualOwners.Contains).ToList();
 				if (candidates.Count != 1)
 					throw new InvalidOperationException("The reviewed Collection writer does not resolve to exactly one live native owner for the target.");
-				result.Add(writer, candidates.Single());
+				result.Add(writer, candidates[0]);
 			}
 			return result;
+		}
+
+		/// <summary>Rejects missing or unregistered winners when reading one target rather than rebuilding the whole native index.</summary>
+		private CollectionNativeFileState ReadWinnerFile(CollectionNativeStateIndex state, ModDeploymentTarget target)
+		{
+			CollectionNativeFileState file = _readFile(state, target);
+			if (file == null || !file.Target.Equals(target) || String.IsNullOrWhiteSpace(file.EffectiveOwnerKey))
+				throw new CollectionReviewedFileWinnerRecoveryRequiredException("The reviewed native file target no longer has one authoritative managed winner.");
+			return file;
+		}
+
+		/// <summary>Observes just one native owner stack through indexed services; registrations remain fixed under the target lease.</summary>
+		private CollectionNativeFileState ReadNativeWinnerFile(CollectionNativeStateIndex state, ModDeploymentTarget target)
+		{
+			CollectionNativeFileState baseline = RequireLiveFile(state, target);
+			IModDeploymentManager deployment = GetCurrentDeploymentManager();
+			bool promoted = deployment.IsPromoted(target);
+			string originalKey = _services.ModManager.InstallationLog.OriginalValuesKey;
+			var deploymentOwners = new List<CollectionNativeOwnerState>();
+			var virtualOwners = new List<CollectionNativeOwnerState>();
+			if (promoted)
+				deploymentOwners.AddRange(deployment.GetOwnerKeys(target).Select(key => ObserveOwner(state, originalKey, key, null)));
+			else
+			{
+				VirtualModReadSnapshot snapshot = _services.ModManager.VirtualModActivator.GetReadSnapshotForCollections(target);
+				virtualOwners.AddRange(snapshot.Links.Where(x => x.Target.Equals(target)).OrderBy(x => x.Active ? 1 : 0).ThenByDescending(x => x.Priority)
+					.Select(link => ObserveOwner(state, originalKey, link.OwnerKey, link)));
+			}
+			string effectiveOwner = promoted ? deploymentOwners.LastOrDefault()?.OwnerKey
+				: virtualOwners.LastOrDefault(x => x.VirtualLinkActive == true)?.OwnerKey;
+			return new CollectionNativeFileState(target, baseline.PhysicalPath, promoted, baseline.RecordedByInstallLog,
+				!promoted && virtualOwners.Count > 0, effectiveOwner, baseline.InstallLogOwners, deploymentOwners, virtualOwners);
+		}
+
+		/// <summary>Preserves original-value and unresolved-owner semantics without rescanning every installed mod.</summary>
+		private static CollectionNativeOwnerState ObserveOwner(CollectionNativeStateIndex state, string originalKey, string ownerKey, VirtualModReadLink link)
+		{
+			CollectionNativeOwnerKind kind = String.IsNullOrWhiteSpace(ownerKey) ? CollectionNativeOwnerKind.Unresolved
+				: StringComparer.OrdinalIgnoreCase.Equals(ownerKey, originalKey) ? CollectionNativeOwnerKind.OriginalValue
+				: state.ModsByNativeKey.ContainsKey(ownerKey) ? CollectionNativeOwnerKind.NativeMod : CollectionNativeOwnerKind.Unresolved;
+			string reference = link == null ? ownerKey : link.OwnerReference;
+			if (String.IsNullOrWhiteSpace(reference)) reference = String.IsNullOrWhiteSpace(ownerKey) ? "unknown-owner" : ownerKey;
+			return new CollectionNativeOwnerState(ownerKey, reference,
+				kind, link == null ? (bool?)null : link.Active, link == null ? (int?)null : link.Priority,
+				link == null ? null : link.StagedSourcePath);
 		}
 
 		private static CollectionNativeFileState RequireLiveFile(CollectionNativeStateIndex state, ModDeploymentTarget target)
@@ -433,6 +522,13 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionNativeOwnerState> owners = file.Promoted ? file.DeploymentOwners : file.VirtualOwners;
 			return owners.Where(x => x.Kind == CollectionNativeOwnerKind.NativeMod && !String.IsNullOrWhiteSpace(x.OwnerKey))
 				.Select(x => x.OwnerKey).Distinct(StringComparer.Ordinal);
+		}
+
+		/// <summary>Does not mistake conflicting active Virtual links for an already established winner.</summary>
+		private static bool HasExactWinner(CollectionNativeFileState file, string desiredOwner)
+		{
+			return StringComparer.OrdinalIgnoreCase.Equals(file.EffectiveOwnerKey, desiredOwner) &&
+				(file.Promoted || file.VirtualOwners.Count(x => x.VirtualLinkActive == true) == 1);
 		}
 
 		private static List<string> GetOwnerPreimage(CollectionNativeFileState file)

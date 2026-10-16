@@ -69,6 +69,10 @@
 		/// <c>0.0.0.0</c> if the file format is not recognized.</returns>
 		public static Version ReadVersion(string p_strVirtualActivatorConfigPath)
 		{
+			string databasePath = SQLiteVirtualModStore.GetDefaultDatabasePath(p_strVirtualActivatorConfigPath);
+			if (File.Exists(databasePath) || File.Exists(databasePath + ".authority"))
+				return SQLiteVirtualModStore.ReadDatabaseVersion(p_strVirtualActivatorConfigPath);
+
 			if (!File.Exists(p_strVirtualActivatorConfigPath))
 				return new Version("0.0.0.0");
 
@@ -104,6 +108,13 @@
 		/// <c>false</c> otherwise.</returns>
 		protected static bool IsValid(string p_strVirtualActivatorConfigPath)
 		{
+			string databasePath = SQLiteVirtualModStore.GetDefaultDatabasePath(p_strVirtualActivatorConfigPath);
+			if (File.Exists(databasePath) || File.Exists(databasePath + ".authority"))
+			{
+				SQLiteVirtualModStore.ReadDatabaseVersion(p_strVirtualActivatorConfigPath);
+				return true;
+			}
+
 			if (!File.Exists(p_strVirtualActivatorConfigPath))
 				return false;
 			try
@@ -145,7 +156,8 @@
 		private string m_strVirtualActivatorIniEditsPath = string.Empty;
 		private string m_strVirtualActivatorOverwritePath = string.Empty;
 		private static readonly object m_objLock = new object();
-		private readonly IVirtualModStore m_vmsVirtualModStore;
+		// Restoring a legacy snapshot can replace the XML store with its migrated SQLite store.
+		private IVirtualModStore m_vmsVirtualModStore;
 		private readonly IVirtualInstallReconciler m_vrcVirtualInstallReconciler = new VirtualInstallReconciler();
 
 		#region Properties
@@ -405,6 +417,8 @@
 				throw new ArgumentNullException(nameof(p_ilgModInstallLog));
 
 			ModInstallLog = p_ilgModInstallLog;
+			if (!(m_vmsVirtualModStore is SQLiteVirtualModStore) && File.Exists(SQLiteVirtualModStore.GetDefaultDatabasePath(m_strVirtualActivatorConfigPath)))
+				m_vmsVirtualModStore = new VirtualModStoreFactory().Create(m_strVirtualActivatorConfigPath, CURRENT_VERSION, PerformVersionCheck, GetModFileVersionForLoadList);
 			m_booInitialized = false;
 			if (IsValid(m_strVirtualActivatorConfigPath) && PerformVersionCheck())
 			{
@@ -552,37 +566,42 @@
 		private bool SaveModList(bool p_booModActivationChange)
 		{
 			bool writtenTo = false;
-			List<IVirtualModInfo> lstVirtualModInfo = new List<IVirtualModInfo>();
-
-			foreach (VirtualModInfo mod in m_tslVirtualModInfo)
-			{
-				if (string.IsNullOrEmpty(mod.DownloadId))
-				{
-					IMod modMod = ModManager.ActiveMods.FirstOrDefault(x => x.Filename.Equals(mod.ModFileFullPath, StringComparison.OrdinalIgnoreCase));
-					if (modMod != null)
-						mod.DownloadId = modMod.DownloadId;
-
-				}
-
-				lstVirtualModInfo.Add(mod);
-			}
 
 			if (m_vmsVirtualModStore.IsReadyForWrite(m_strVirtualActivatorConfigPath))
 			{
 				using (BeginVirtualStoreMutation())
 				{
-					m_vmsVirtualModStore.Save(CURRENT_VERSION, m_strVirtualActivatorConfigPath, lstVirtualModInfo, m_tslVirtualModList);
+					PersistStoreChanges();
 					writtenTo = true;
 				}
 			}
 
-			if (p_booModActivationChange)
+			if (writtenTo && p_booModActivationChange)
 			{
-				ClearDeploymentPublicationPending();
-				ModActivationChanged(null, new EventArgs());
+				Transaction transaction = Transaction.Current;
+				if (transaction == null)
+					PublishStoreChange();
+				else
+				{
+					EventHandler completed = null;
+					completed = (sender, args) =>
+					{
+						transaction.TransactionCompleted -= completed;
+						if (transaction.TransactionInformation.Status == TransactionStatus.Committed)
+							PublishStoreChange();
+					};
+					transaction.TransactionCompleted += completed;
+				}
 			}
 
 			return writtenTo;
+		}
+
+		/// <summary>Publishes activation state only after the owning native transaction commits.</summary>
+		private void PublishStoreChange()
+		{
+			ClearDeploymentPublicationPending();
+			ModActivationChanged?.Invoke(this, EventArgs.Empty);
 		}
 
 		/// <summary>
@@ -861,6 +880,9 @@
 
 		private void AttachVirtualModInfoList(ThreadSafeObservableList<IVirtualModInfo> p_tslVirtualModInfo)
 		{
+			if (p_tslVirtualModInfo != null) foreach (var item in p_tslVirtualModInfo) ObserveMod(item, true);
+			if (p_tslVirtualModInfo != null)
+				p_tslVirtualModInfo.MutationOccurred += VirtualModInfoMutationOccurred;
 			if (p_tslVirtualModInfo != null)
 				p_tslVirtualModInfo.CollectionChanged += VirtualModInfoListChanged;
 
@@ -869,6 +891,9 @@
 
 		private void DetachVirtualModInfoList(ThreadSafeObservableList<IVirtualModInfo> p_tslVirtualModInfo)
 		{
+			foreach (var item in _observedMods.ToArray()) ObserveMod(item, false);
+			if (p_tslVirtualModInfo != null)
+				p_tslVirtualModInfo.MutationOccurred -= VirtualModInfoMutationOccurred;
 			if (p_tslVirtualModInfo != null)
 				p_tslVirtualModInfo.CollectionChanged -= VirtualModInfoListChanged;
 		}
@@ -974,6 +999,9 @@
 
 		private void AttachVirtualLinkList(ThreadSafeObservableList<IVirtualModLink> p_tslVirtualLinks)
 		{
+			if (p_tslVirtualLinks != null) foreach (var item in p_tslVirtualLinks) ObserveLink(item, true);
+			if (p_tslVirtualLinks != null)
+				p_tslVirtualLinks.MutationOccurred += VirtualLinkMutationOccurred;
 			if (p_tslVirtualLinks != null)
 				p_tslVirtualLinks.CollectionChanged += VirtualLinkListChanged;
 
@@ -982,6 +1010,9 @@
 
 		private void DetachVirtualLinkList(ThreadSafeObservableList<IVirtualModLink> p_tslVirtualLinks)
 		{
+			foreach (var item in _observedLinks.ToArray()) ObserveLink(item, false);
+			if (p_tslVirtualLinks != null)
+				p_tslVirtualLinks.MutationOccurred -= VirtualLinkMutationOccurred;
 			if (p_tslVirtualLinks != null)
 				p_tslVirtualLinks.CollectionChanged -= VirtualLinkListChanged;
 		}
@@ -1360,10 +1391,19 @@
 
 		public void SetCurrentList(IList<IVirtualModLink> p_ilvVirtualLinks)
 		{
+			bool nativeReload = p_ilvVirtualLinks != null && ReferenceEquals(p_ilvVirtualLinks, _nativeReloadLinks);
+			_nativeReloadLinks = null;
 			DetachVirtualLinkList(m_tslVirtualModList);
 			m_tslVirtualModList.Clear();
 			m_tslVirtualModList = new ThreadSafeObservableList<IVirtualModLink>(p_ilvVirtualLinks);
 			AttachVirtualLinkList(m_tslVirtualModList);
+			lock (_persistenceLock)
+			{
+				SQLiteVirtualModStore sqlite = m_vmsVirtualModStore as SQLiteVirtualModStore;
+				if (nativeReload) _storeChanges.Clear();
+				_storeChanges.RequiresSnapshot = !nativeReload || _unobservableRecords != 0 || sqlite == null ||
+					!sqlite.HasLoadedTopology(m_tslVirtualModInfo, m_tslVirtualModList);
+			}
 			RebuildVirtualLinkIndex();
 		}
 
@@ -1394,6 +1434,8 @@
 				}
 			}
 
+			_nativeReloadLinks = String.Equals(Path.GetFullPath(p_strXMLFilePath), m_strVirtualActivatorConfigPath, StringComparison.OrdinalIgnoreCase)
+				? vmsData.VirtualLinks : null;
 			return vmsData.VirtualLinks;
 		}
 
@@ -2409,19 +2451,15 @@
 				? GetVirtualOwnerKey(link) : FileManagerQueryService.CreateOwnerKey(link.ModInfo);
 			if (target == null) return VirtualFileOwnerSwitchResult.Failed("The selected deployment target is missing.");
 			string strRelativePath = target.RelativePath;
-			string strSelectedDeployedPath;
+			List<IVirtualModLink> lstFileLinks;
 			try
 			{
-				strSelectedDeployedPath = ModDeploymentTargetResolver.GetPhysicalPath(GameMode, target);
+				lstFileLinks = GetVirtualOwnerLinksForTarget(target).ToList();
 			}
 			catch (Exception ex)
 			{
 				return VirtualFileOwnerSwitchResult.Failed(ex);
 			}
-
-			List<IVirtualModLink> lstFileLinks = m_tslVirtualModList
-				.Where(x => x != null && string.Equals(GetDeployedFilePath(x), strSelectedDeployedPath, StringComparison.OrdinalIgnoreCase))
-				.ToList();
 
 			if (lstFileLinks.Count == 0)
 				return VirtualFileOwnerSwitchResult.Failed("The selected file is not tracked by virtual install metadata.");
@@ -2434,7 +2472,9 @@
 			if (vmlSelectedOwner == null)
 				return VirtualFileOwnerSwitchResult.Failed("The selected owner is not a valid candidate for this file.");
 
-			if (ReferenceEquals(vmlCurrentOwner, vmlSelectedOwner) || StringComparer.OrdinalIgnoreCase.Equals(resolveOwnerKey(vmlCurrentOwner), resolveOwnerKey(vmlSelectedOwner)))
+			// Older/raw-path installs can leave multiple active links for one physical file. Redeploy and normalize them.
+			if (lstFileLinks.Count(x => x.Active) == 1 &&
+				(ReferenceEquals(vmlCurrentOwner, vmlSelectedOwner) || StringComparer.OrdinalIgnoreCase.Equals(resolveOwnerKey(vmlCurrentOwner), resolveOwnerKey(vmlSelectedOwner))))
 				return VirtualFileOwnerSwitchResult.Succeeded(strRelativePath, resolveOwnerKey(vmlSelectedOwner));
 
 			IMod modSelected = FindManagedMod(vmlSelectedOwner.ModInfo);
@@ -2666,12 +2706,13 @@
 			return false;
 		}
 
+		/// <summary>Moves the selected owner above the observed stack without reordering fallback owners, including priority ties.</summary>
 		private void NormalizeFileOwnerPriorities(List<IVirtualModLink> p_lstFileLinks, IVirtualModLink p_vmlSelectedOwner)
 		{
 			List<IVirtualModLink> lstOrderedLinks = p_lstFileLinks
-				.OrderBy(x => ReferenceEquals(x, p_vmlSelectedOwner) ? 0 : 1)
-				.ThenBy(x => x.Priority)
-				.ThenBy(x => x.ModInfo == null ? string.Empty : x.ModInfo.ModName, StringComparer.OrdinalIgnoreCase)
+				.OrderBy(x => x.Active ? 1 : 0).ThenByDescending(x => x.Priority)
+				.Where(x => !ReferenceEquals(x, p_vmlSelectedOwner))
+				.Concat(new[] { p_vmlSelectedOwner }).Reverse()
 				.Select(x => new VirtualModLink(x))
 				.ToList<IVirtualModLink>();
 

@@ -357,6 +357,13 @@ namespace Nexus.Client.CollectionManagement.UI
 				statusText, false, false, false, false, null, null, "none");
 		}
 
+		/// <summary>Keeps foreground progress visible when refreshing the view without ending its owning work.</summary>
+		internal static CollectionWorkflowActivitySnapshot AfterViewReset(CollectionWorkflowActivitySnapshot current, bool workActive, string idleStatus)
+		{
+			return workActive && current != null && current.IsWorkActive && current.CommandsLocked
+				? current : Idle(idleStatus);
+		}
+
 		internal static CollectionWorkflowActivitySnapshot Foreground(CollectionWorkflowActivityPhase phase, string statusText)
 		{
 			return new CollectionWorkflowActivitySnapshot(CollectionWorkflowActivityState.Working, phase, statusText,

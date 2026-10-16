@@ -119,6 +119,7 @@
 		private readonly Dictionary<IBackgroundTask, DownloadProgressState> _downloaderProgress = new Dictionary<IBackgroundTask, DownloadProgressState>();
 		private readonly List<IBackgroundTask> _runningTasks = new List<IBackgroundTask>();
 		private bool _finishedDownloads;
+		private int _resumeInProgress;
 		private int _overallProgressOffset;
 		private readonly Uri _downloadPath;
 		private readonly DateTime _startTime = DateTime.Now;
@@ -475,7 +476,7 @@
 			_categoryOverrideId = categoryOverrideId;
 			_modSortOrderService = modSortOrderService;
 			_readMeManager = readMeManager;
-			_localID = _counter++;
+			_localID = Interlocked.Increment(ref _counter);
 
 			_serverUnreachableFormat = LanguageManager.GetFormat("Downloads.AddMod.ServerUnreachable", "Server Unreachable: {0}");
 			_downloadingFormat = LanguageManager.GetFormat("Downloads.AddMod.Downloading", "Downloading {0}...");
@@ -1011,7 +1012,8 @@
 			downloader.TaskEnded += Downloader_TaskEnded;
 			downloader.PropertyChanged += Downloader_PropertyChanged;
             
-			_runningTasks.Add(downloader);
+			lock (_runningTasks)
+				_runningTasks.Add(downloader);
 			downloader.DownloadAsync(files, Path.GetDirectoryName(Descriptor.DefaultSourcePath), true);
 		}
 
@@ -1163,7 +1165,14 @@
         {
             if (sender != null)
             {
-                _runningTasks.Remove((IBackgroundTask)sender);
+                lock (_runningTasks)
+                {
+                    // A delayed or repeated callback must not import a consumed archive again.
+                    if (!_runningTasks.Remove((IBackgroundTask)sender))
+                        return;
+                }
+                ((IBackgroundTask)sender).TaskEnded -= Downloader_TaskEnded;
+                ((IBackgroundTask)sender).PropertyChanged -= Downloader_PropertyChanged;
             }
 
             if (e.Status == TaskStatus.Error)
@@ -1316,12 +1325,13 @@
 				var mbrModBuilder = new ModBuilder(_gameMode.GameModeEnvironmentInfo, _environmentInfo, new NexusFileUtil(_environmentInfo));
 				mbrModBuilder.PropertyChanged += ModBuilder_PropertyChanged;
 				mbrModBuilder.TaskEnded += ModBuilder_TaskEnded;
+				lock (_runningTasks)
+					_runningTasks.Add(mbrModBuilder);
 				mbrModBuilder.BuildFromFile(
 					_modFormatRegistry,
 					strPath,
 					p_cocConfirmOverwrite,
 					IsTaskOwnedDownloadedFile(strPath));
-				_runningTasks.Add(mbrModBuilder);
 			}
 		}
 
@@ -1401,7 +1411,8 @@
 		/// <param name="e">A <see cref="TaskEndedEventArgs"/> describing the event arguments.</param>
 		private void ModBuilder_TaskEnded(object sender, TaskEndedEventArgs e)
 		{
-			_runningTasks.Remove((IBackgroundTask)sender);
+			lock (_runningTasks)
+				_runningTasks.Remove((IBackgroundTask)sender);
 
             if (Status == TaskStatus.Running)
 			{
@@ -1478,6 +1489,7 @@
 					}
 					catch (Exception ex)
 					{
+						Trace.TraceError("Error registering mod archive '{0}': {1}", strMod, ex);
 						OverallMessage = string.Format(_registerErrorFormat, ex.Message, GetModDisplayName());
 						ItemMessage = _registerErrorText;
 						Status = TaskStatus.Error;
@@ -1603,17 +1615,27 @@
 		/// <summary>
 		/// Resumes the task.
 		/// </summary>
-		/// <exception cref="InvalidOperationException">Thrown if the task is not paused.</exception>
+		/// <remarks>Concurrent or stale scheduler requests share the existing start instead of starting a second download.</remarks>
 		public override void Resume()
 		{
-			if (Status != TaskStatus.Paused && Status != TaskStatus.Incomplete && Status != TaskStatus.Queued)
-            {
-                throw new InvalidOperationException("Task is not paused.");
-            }
+			if (Interlocked.CompareExchange(ref _resumeInProgress, 1, 0) != 0)
+				return;
 
-            _runningTasks.Clear();
-			_downloaderProgress.Clear();
-			AddMod(false);
+			try
+			{
+				if (Status != TaskStatus.Paused && Status != TaskStatus.Incomplete && Status != TaskStatus.Queued)
+					return;
+
+				lock (_runningTasks)
+					_runningTasks.Clear();
+				_downloaderProgress.Clear();
+				_finishedDownloads = false;
+				AddMod(false);
+			}
+			finally
+			{
+				Interlocked.Exchange(ref _resumeInProgress, 0);
+			}
 		}
 
 		#endregion

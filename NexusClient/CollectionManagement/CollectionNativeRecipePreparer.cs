@@ -152,6 +152,9 @@ namespace Nexus.Client.CollectionManagement
 		private readonly BasicInstallPlanBuilder _basicInstallPlanBuilder;
 		private readonly ModInstallationSimpleFileRecipeAdapter _simpleFileAdapter;
 		private readonly CollectionMemberEffectPreviewBuilder _effectPreviewBuilder;
+		/// <summary>Runs the native choice-only wizard supplied by the active application's UI boundary.</summary>
+		internal Func<IMod, IModInstallationConditionEnvironment, CancellationToken, ModInstallationFomodSelectionRecipe> SelectInstallerOptions { get; set; }
+
 		private readonly object _retainedManifestCacheLock = new object();
 		private readonly Dictionary<CollectionRevisionIdentity, RetainedPreparationManifest> _retainedManifestCache =
 			new Dictionary<CollectionRevisionIdentity, RetainedPreparationManifest>();
@@ -235,11 +238,12 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
-			CancellationToken cancellationToken, string gameRootArchiveBaseDirectory = null)
+			CancellationToken cancellationToken, string gameRootArchiveBaseDirectory = null,
+			IModInstallationConditionEnvironment installerEnvironment = null, bool allowInstallerInteraction = true)
 		{
 			return PrepareExactCore(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
 				currentState, skipReadmeFiles, pluginManager, activeMods, includeDeterministicModFileMergeOutput,
-				cancellationToken, null, gameRootArchiveBaseDirectory);
+				cancellationToken, null, gameRootArchiveBaseDirectory, installerEnvironment, allowInstallerInteraction);
 		}
 
 		/// <summary>
@@ -257,7 +261,8 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionPlan boundaryPlan = CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(
 				approvedPlan, currentState.Fingerprint);
 			return PrepareExactCore(boundaryPlan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-				currentState, skipReadmeFiles, pluginManager, activeMods, true, cancellationToken, approvedPlan, gameRootArchiveBaseDirectory);
+				currentState, skipReadmeFiles, pluginManager, activeMods, true, cancellationToken, approvedPlan, gameRootArchiveBaseDirectory,
+				allowInstallerInteraction: false);
 		}
 
 		/// <summary>Prepares exact output with separate current-state validation and immutable review identity inputs.</summary>
@@ -265,24 +270,26 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			bool skipReadmeFiles, IPluginManager pluginManager, IList<IMod> activeMods, bool includeDeterministicModFileMergeOutput,
-			CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan, string gameRootArchiveBaseDirectory = null)
+			CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan, string gameRootArchiveBaseDirectory = null,
+			IModInstallationConditionEnvironment installerEnvironment = null, bool allowInstallerInteraction = true)
 		{
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			try
 			{
 				if (member == null)
 					throw new ArgumentNullException(nameof(member));
+				if (mod == null) throw new ArgumentNullException(nameof(mod));
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
-				if (!member.HasVortexFomodSelection)
+				if (!member.HasVortexFomodSelection && !mod.HasInstallScript)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, false, null, activeMods, includeDeterministicModFileMergeOutput, cancellationToken, identityPlan, gameRootArchiveBaseDirectory);
 				}
 
 				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-					currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan);
+					currentState, skipReadmeFiles, pluginManager, false, null, cancellationToken, identityPlan, installerEnvironment, allowInstallerInteraction);
 			}
 			finally
 			{
@@ -309,24 +316,26 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			CollectionReplacementEnvironmentProjection conditionEnvironment, bool skipReadmeFiles, IPluginManager pluginManager,
-			CancellationToken cancellationToken, string gameRootArchiveBaseDirectory)
+			CancellationToken cancellationToken, string gameRootArchiveBaseDirectory, bool allowInstallerInteraction = true)
 		{
 			long performanceStarted = CollectionPerformanceMetrics.StartTiming();
 			try
 			{
 				if (member == null) throw new ArgumentNullException(nameof(member));
+				if (mod == null) throw new ArgumentNullException(nameof(mod));
 				if (conditionEnvironment == null) throw new ArgumentNullException(nameof(conditionEnvironment));
 				if (member.HasVortexFileList)
 					return PrepareVortexFileListExact(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
-				if (!member.HasVortexFomodSelection)
+				if (!member.HasVortexFomodSelection && !mod.HasInstallScript)
 				{
 					return PrepareBasicSimpleExactCore(plan, member, verifiedArchive, mod, gameMode, installContext, currentState,
 						skipReadmeFiles, pluginManager, true, conditionEnvironment, null, true, cancellationToken, null, gameRootArchiveBaseDirectory);
 				}
 
 				return PrepareVortexFomodExact(plan, member, verifiedArchive, mod, gameMode, environmentInfo, installContext,
-					currentState, skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken);
+					currentState, skipReadmeFiles, pluginManager, true, conditionEnvironment, cancellationToken,
+					allowInstallerInteraction: allowInstallerInteraction);
 			}
 			finally
 			{
@@ -366,6 +375,8 @@ namespace Nexus.Client.CollectionManagement
 				throw new NotSupportedException("Vortex hashes/fileList requires the exact file-list-aware native preparation path.");
 			if (member.HasVortexFomodSelection)
 				throw new NotSupportedException("Vortex FOMOD choices require the exact FOMOD-aware native preparation path.");
+			if (mod.HasInstallScript)
+				throw new NotSupportedException("Scripted Collection members must use native installer preparation, never basic archive copying.");
 			cancellationToken.ThrowIfCancellationRequested();
 
 			RetainedPreparationManifest retainedManifest = GetRetainedPreparationManifest(plan, cancellationToken);
@@ -453,8 +464,11 @@ namespace Nexus.Client.CollectionManagement
 				replicatedPaths);
 			var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
 			ModOperationIdentity replicatedOperation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
+			Action<string> report = CollectionPreparationProgress.CaptureStatusReporter();
 			ModInstallationRecipeInput replicatedTranslated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
-				new ModInstallationRecipeInput(replicatedOperation, replicatedValidation), mod, replicatedRecipe);
+				new ModInstallationRecipeInput(replicatedOperation, replicatedValidation), mod, replicatedRecipe, cancellationToken,
+				percent => report?.Invoke(Nexus.Client.Util.Localization.LanguageManager.Format(
+					"Collections.Workflow.MatchingMemberLayout", "Resolving mod file layout: {0} ({1:P0})", member.DisplayName, percent)), Properties.Settings.Default.CollectionSkipContentChecks);
 
 			// The replicated adapter hashes archive entries while resolving the requested bytes. Recheck archive identity after that read.
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
@@ -476,6 +490,16 @@ namespace Nexus.Client.CollectionManagement
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
 				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
+		}
+
+		/// <summary>Admits fresh installers only when their native adapter can collect choices inside the Collection workflow.</summary>
+		internal static void ValidateInstallerRouting(ResolvedCollectionMemberPlan member, IMod mod)
+		{
+			if (member == null) throw new ArgumentNullException(nameof(member));
+			if (mod == null) throw new ArgumentNullException(nameof(mod));
+			if (member.HasVortexFileList || member.HasVortexFomodSelection) return;
+			if (mod.HasInstallScript && !(mod.InstallScript.Type is IModInstallationFomodInteractiveAdapter))
+				throw new NotSupportedException("This mod's script type cannot yet provide native Collection installer choices.");
 		}
 
 		/// <summary>
@@ -511,13 +535,13 @@ namespace Nexus.Client.CollectionManagement
 			ResolvedCollectionMemberPlan member, CollectionVerifiedArchive verifiedArchive, IMod mod, IGameMode gameMode,
 			IEnvironmentInfo environmentInfo, ModInstallContext installContext, CollectionNativeStateIndex currentState,
 			bool skipReadmeFiles, IPluginManager pluginManager, bool replacement,
-			CollectionReplacementEnvironmentProjection conditionEnvironment, CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null)
+			CollectionReplacementEnvironmentProjection conditionEnvironment, CancellationToken cancellationToken, ResolvedCollectionPlan identityPlan = null,
+			IModInstallationConditionEnvironment installerEnvironment = null, bool allowInstallerInteraction = true)
 		{
 			ValidateInputs(plan, member, verifiedArchive, mod, gameMode, installContext, currentState, replacement, conditionEnvironment);
 			if (environmentInfo == null)
 				throw new ArgumentNullException(nameof(environmentInfo));
-			if (!member.HasVortexFomodSelection)
-				throw new ArgumentException("The FOMOD-aware preparation path requires characterized Vortex installer choices.", nameof(member));
+			bool interactive = !member.HasVortexFomodSelection;
 			if (member.InstallRootBehavior != CollectionMemberInstallRootBehavior.Default &&
 				member.InstallRootBehavior != CollectionMemberInstallRootBehavior.VortexDInputGameRoot)
 				throw new NotSupportedException("Vortex FOMOD choice replay is characterized with the dinput game-root mod type only.");
@@ -537,25 +561,57 @@ namespace Nexus.Client.CollectionManagement
 			if (!mod.HasInstallScript || fomodAdapter == null)
 				throw new NotSupportedException("The Collection contains saved installer choices for this mod, but NMM could not find a supported FOMOD installer in its archive.");
 
+			var selections = new CollectionInstallerSelectionStore(_artifactStore, _referenceStore);
+			string selectionArtifactId = null;
+			IModInstallationConditionEnvironment effectiveEnvironment = installerEnvironment ?? conditionEnvironment;
+			if (interactive && effectiveEnvironment == null)
+				effectiveEnvironment = new CollectionInstallerConditionEnvironment(currentState, gameMode, normalized.Manifest,
+					Enumerable.Empty<PreparedCollectionNativeRecipe>());
 			ModInstallationFomodSelectionRecipe fomodRecipe;
-			IReadOnlyList<ModInstallationRecipePath> fomodPaths;
 			ModInstallationRecipeInput fomodTranslated;
 			try
 			{
 				Version scriptVersion = fomodAdapter.GetScriptVersion(mod);
-				fomodRecipe = CreateFomodRecipe(member.VortexFomodSelection, scriptVersion, plan.Policy.AutomaticallyInstall);
-				fomodPaths = conditionEnvironment == null
-					? fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe)
-					: fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe, conditionEnvironment);
-				ModInstallationRecipeValidation fomodValidation = CreateFomodValidation(verifiedArchive.Artifact, installContext,
-					fomodAdapter, fomodPaths);
-				var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
-				ModOperationIdentity operation = ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint);
-				fomodTranslated = conditionEnvironment == null
-					? fomodAdapter.Translate(new ModInstallationRecipeInput(operation, fomodValidation), mod,
-						gameMode, environmentInfo, pluginManager, fomodRecipe)
-					: fomodAdapter.Translate(new ModInstallationRecipeInput(operation, fomodValidation), mod,
-						gameMode, environmentInfo, pluginManager, fomodRecipe, conditionEnvironment);
+				if (interactive)
+				{
+					fomodRecipe = selections.Load(plan, member, verifiedArchive.Artifact, installContext, out selectionArtifactId, cancellationToken);
+					if (fomodRecipe == null)
+					{
+						if (!allowInstallerInteraction)
+							throw new InvalidOperationException("The reviewed installer choices are missing. Refresh the Collection review before continuing installation.");
+						ValidateInstallerRouting(member, mod);
+						if (SelectInstallerOptions == null)
+							throw new InvalidOperationException("The Collection installer wizard is not connected to the active UI.");
+						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
+							"Collections.Workflow.ChoosingInstallerOptions", "Choose installer options: {0}", member.DisplayName), true);
+						fomodRecipe = SelectInstallerOptions(mod, effectiveEnvironment, cancellationToken);
+						cancellationToken.ThrowIfCancellationRequested();
+						if (fomodRecipe == null) throw new OperationCanceledException("Collection installer choices were cancelled.", cancellationToken);
+					}
+					if (!fomodRecipe.ScriptVersion.Equals(scriptVersion))
+						throw new InvalidDataException("The saved installer choices target a different script version.");
+				}
+				else fomodRecipe = CreateFomodRecipe(member.VortexFomodSelection, scriptVersion, plan.Policy.AutomaticallyInstall);
+				Func<IReadOnlyList<ModInstallationRecipePath>, ModInstallationRecipeInput> createValidatedInput = paths =>
+				{
+					ModInstallationRecipeValidation validation = CreateFomodValidation(verifiedArchive.Artifact, installContext, fomodAdapter, paths);
+					var fingerprint = new ModOperationFingerprint(plan.Target.Fingerprint, installContext, member.RecipeIdentity.Fingerprint);
+					return new ModInstallationRecipeInput(ModOperationIdentity.CreateNew(ModOperationOrigin.Collection, fingerprint), validation);
+				};
+				var singlePassAdapter = fomodAdapter as IModInstallationFomodSinglePassPlanningAdapter;
+				if (singlePassAdapter != null)
+					fomodTranslated = singlePassAdapter.Prepare(mod, gameMode, environmentInfo, pluginManager,
+						fomodRecipe, effectiveEnvironment, createValidatedInput);
+				else
+				{
+					IReadOnlyList<ModInstallationRecipePath> paths = effectiveEnvironment == null
+						? fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe)
+						: fomodAdapter.GetValidationPaths(mod, gameMode, environmentInfo, pluginManager, fomodRecipe, effectiveEnvironment);
+					ModInstallationRecipeInput input = createValidatedInput(paths);
+					fomodTranslated = effectiveEnvironment == null
+						? fomodAdapter.Translate(input, mod, gameMode, environmentInfo, pluginManager, fomodRecipe)
+						: fomodAdapter.Translate(input, mod, gameMode, environmentInfo, pluginManager, fomodRecipe, effectiveEnvironment);
+				}
 			}
 			catch (DependencyException ex)
 			{
@@ -565,7 +621,7 @@ namespace Nexus.Client.CollectionManagement
 			// Re-check after the actual native FOMOD definition has been enumerated and evaluated.
 			ValidateManagedModArchive(mod, verifiedArchive, cancellationToken);
 
-			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest);
+			ModInstallationSimpleFileRecipe frozenRecipe = FreezePureFileFomodPlan(fomodTranslated, gameMode, normalized.Manifest, interactive);
 			ValidateCharacterizedFomodInstallRootBehavior(member, frozenRecipe);
 			frozenRecipe = ApplyVortexFileOverrides(member, frozenRecipe, gameMode, mod, installContext);
 			ModInstallationRecipeValidation simpleValidation = CreateValidation(verifiedArchive.Artifact, installContext, frozenRecipe);
@@ -579,11 +635,15 @@ namespace Nexus.Client.CollectionManagement
 			if (!effectPreview.IsComplete)
 				throw new NotSupportedException("The translated Vortex FOMOD selection does not have a complete characterized C6 effect preview.");
 
+			if (interactive && selectionArtifactId == null)
+				selectionArtifactId = selections.Save(plan, member, verifiedArchive.Artifact, installContext, fomodRecipe, cancellationToken);
+
 			PreparedCollectionNativeRecipeIdentity preparedIdentity = BuildPreparedFomodIdentity(identityPlan ?? plan, member,
 				verifiedArchive.Artifact, fomodAdapter, fomodRecipe, frozenRecipe, translated, effectPreview, skipReadmeFiles);
 			CollectionPerformanceMetrics.RecordPreparedNativeIdentity(preparedIdentity.Fingerprint);
 			return new PreparedCollectionNativeRecipe(member, preparedIdentity, translated, effectPreview, skipReadmeFiles,
-				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId }.Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
+				new[] { sourceRecord.RawManifestArtifactId, verifiedArchive.Artifact.ArtifactId, selectionArtifactId }
+					.Where(id => id != null).Concat(generatedArtifacts).Distinct(StringComparer.Ordinal));
 		}
 
 		/// <summary>
@@ -965,7 +1025,7 @@ namespace Nexus.Client.CollectionManagement
 		}
 
 		private static ModInstallationSimpleFileRecipe FreezePureFileFomodPlan(ModInstallationRecipeInput translated,
-			IGameMode gameMode, NormalizedCollectionManifest manifest)
+			IGameMode gameMode, NormalizedCollectionManifest manifest, bool interactive = false)
 		{
 			if (translated == null || !translated.HasNativePlan)
 				throw new InvalidDataException("The native FOMOD adapter did not produce an executable operation plan.");
@@ -979,7 +1039,7 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 
 				string pluginName = GetPortableFileName(NormalizePortableArchivePath(file.DestinationPath));
-				if (!ManifestDeclaresPluginState(manifest, pluginName))
+				if (!interactive && !ManifestDeclaresPluginState(manifest, pluginName))
 				{
 					throw new NotSupportedException(String.Format(
 						"FOMOD selection installs plugin '{0}', but collection.json does not explicitly declare its final state in the top-level plugins section.",
@@ -1009,7 +1069,7 @@ namespace Nexus.Client.CollectionManagement
 					if (activation.RequireActivatablePlugin && IsGamePluginPath(activation.PluginPath, gameMode))
 					{
 						string pluginName = GetPortableFileName(NormalizePortableArchivePath(activation.PluginPath));
-						if (!pluginFiles.Contains(pluginName) || !ManifestDeclaresPluginState(manifest, pluginName))
+						if (!pluginFiles.Contains(pluginName) || (!interactive && !ManifestDeclaresPluginState(manifest, pluginName)))
 						{
 							throw new NotSupportedException(
 								"The FOMOD emits plugin-state intent that cannot be bound to an explicitly declared Collection plugin file.");
@@ -1442,6 +1502,15 @@ namespace Nexus.Client.CollectionManagement
 					}
 				}
 
+				if (fomodRecipe.Steps.Any(step => step.IsVisible.HasValue))
+				{
+					writer.Write("native-wizard-visibility/1");
+					foreach (ModInstallationFomodStepSelection step in fomodRecipe.Steps)
+					{
+						writer.Write(step.IsVisible.HasValue);
+						if (step.IsVisible.HasValue) writer.Write(step.IsVisible.Value);
+					}
+				}
 				writer.Write(frozenRecipe.Mappings.Count);
 				foreach (ModInstallationSimpleFileMapping mapping in frozenRecipe.Mappings)
 				{

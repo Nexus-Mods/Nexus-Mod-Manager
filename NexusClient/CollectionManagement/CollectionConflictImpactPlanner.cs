@@ -157,7 +157,6 @@ namespace Nexus.Client.CollectionManagement
 			return new CollectionConflictImpactPlan(plan, nativeState, fileImpacts, pluginImpacts, configImpacts, associationImpacts, issues);
 		}
 
-
 		private static void EvaluateCompatibilityConstraints(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionNativeStateIndex nativeState, IList<CollectionConflictImpactIssue> issues)
 		{
@@ -222,7 +221,6 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 		}
-
 
 		private static void EvaluateExternalPriorityRules(ResolvedCollectionPlan plan, CollectionMemberMatchSet matches,
 			CollectionNativeStateIndex nativeState, IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
@@ -307,7 +305,6 @@ namespace Nexus.Client.CollectionManagement
 			ReadOnlyCollection<CollectionNativeFileState> files;
 			return nativeState.FilesByOwnerKey.TryGetValue(ownerKey, out files) && files.Any(x => targets.Contains(x.Target));
 		}
-
 
 		private static bool HasNativeCandidateMarker(CollectionConflictReference reference)
 		{
@@ -556,6 +553,8 @@ namespace Nexus.Client.CollectionManagement
 
 			var result = new List<CollectionFileImpact>();
 			Dictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey = plan.SelectedMembers.ToDictionary(x => x.MemberKey);
+			var priorityGraph = new FilePriorityGraph(plan.CapabilityReport.Manifest.FilePriorityRules.Where(x =>
+				membersByKey.ContainsKey(x.LowerPriorityMemberKey) && membersByKey.ContainsKey(x.HigherPriorityMemberKey)));
 			var winnersByWriterSet = new Dictionary<IList<CollectionMemberKey>, Tuple<CollectionMemberKey, bool>>(new WriterSetComparer());
 			foreach (KeyValuePair<ModDeploymentTarget, List<CollectionMemberKey>> entry in writersByTarget
 				.OrderBy(x => x.Key.Root).ThenBy(x => x.Key.RelativePath, StringComparer.OrdinalIgnoreCase))
@@ -569,7 +568,7 @@ namespace Nexus.Client.CollectionManagement
 					Tuple<CollectionMemberKey, bool> resolution;
 					if (!winnersByWriterSet.TryGetValue(entry.Value, out resolution))
 					{
-						winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey);
+						winner = ResolveFileWinner(entry.Value, plan, out priorityCycle, membersByKey, priorityGraph);
 						resolution = Tuple.Create(winner, priorityCycle);
 						winnersByWriterSet.Add(entry.Value, resolution);
 					}
@@ -685,14 +684,17 @@ namespace Nexus.Client.CollectionManagement
 		/// <summary>Resolves explicit rules first, then a curator-bundled replacement of one Nexus package's default file.</summary>
 		internal static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers, ResolvedCollectionPlan plan, out bool cycle)
 		{
-			return ResolveFileWinner(writers, plan, out cycle, plan.SelectedMembers.ToDictionary(x => x.MemberKey));
+			Dictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey = plan.SelectedMembers.ToDictionary(x => x.MemberKey);
+			var priorityGraph = new FilePriorityGraph(plan.CapabilityReport.Manifest.FilePriorityRules.Where(x =>
+				membersByKey.ContainsKey(x.LowerPriorityMemberKey) && membersByKey.ContainsKey(x.HigherPriorityMemberKey)));
+			return ResolveFileWinner(writers, plan, out cycle, membersByKey, priorityGraph);
 		}
 
 		/// <summary>Uses the pre-indexed selected members when resolving thousands of shared file targets.</summary>
 		private static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers, ResolvedCollectionPlan plan,
-			out bool cycle, IReadOnlyDictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey)
+			out bool cycle, IReadOnlyDictionary<CollectionMemberKey, ResolvedCollectionMemberPlan> membersByKey, FilePriorityGraph priorityGraph)
 		{
-			CollectionMemberKey winner = ResolveFileWinner(writers, plan.CapabilityReport.Manifest.FilePriorityRules, out cycle);
+			CollectionMemberKey winner = ResolveFileWinner(writers, priorityGraph, out cycle);
 			if (winner != null || cycle || writers.Count == 0) return winner;
 			List<ResolvedCollectionMemberPlan> members = writers.Select(x => membersByKey[x]).ToList();
 			if (members.Count == 2)
@@ -710,9 +712,8 @@ namespace Nexus.Client.CollectionManagement
 			{
 				// Explicit priority edges remain authoritative. Resolve only otherwise tied final providers.
 				var writerSet = new HashSet<CollectionMemberKey>(writers);
-				var lower = new HashSet<CollectionMemberKey>(plan.CapabilityReport.Manifest.FilePriorityRules
-					.Where(x => writerSet.Contains(x.LowerPriorityMemberKey) && writerSet.Contains(x.HigherPriorityMemberKey))
-					.Select(x => x.LowerPriorityMemberKey));
+				var lower = new HashSet<CollectionMemberKey>(writers.Where(x =>
+					priorityGraph.GetHigherPriority(x).Any(writerSet.Contains)));
 				return writers.Where(x => !lower.Contains(x)).Select(x => membersByKey[x])
 					.OrderBy(x => x.InstallationPhase).ThenBy(x => x.SourceOrdinal).Last().MemberKey;
 			}
@@ -723,17 +724,23 @@ namespace Nexus.Client.CollectionManagement
 		internal static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers,
 			IEnumerable<CollectionFilePriorityRule> rules, out bool cycle)
 		{
+			return ResolveFileWinner(writers, new FilePriorityGraph(rules), out cycle);
+		}
+
+		/// <summary>Projects transitive priority chains onto actual writers without dropping intervening selected mods.</summary>
+		private static CollectionMemberKey ResolveFileWinner(IList<CollectionMemberKey> writers,
+			FilePriorityGraph priorityGraph, out bool cycle)
+		{
 			cycle = false;
 			if (writers.Count == 1) return writers[0];
 			var writerSet = new HashSet<CollectionMemberKey>(writers);
 			var outgoing = writers.ToDictionary(x => x, x => new HashSet<CollectionMemberKey>());
 			var indegree = writers.ToDictionary(x => x, x => 0);
-			foreach (CollectionFilePriorityRule rule in rules)
-			{
-				if (!writerSet.Contains(rule.LowerPriorityMemberKey) || !writerSet.Contains(rule.HigherPriorityMemberKey)) continue;
-				if (outgoing[rule.LowerPriorityMemberKey].Add(rule.HigherPriorityMemberKey))
-					indegree[rule.HigherPriorityMemberKey]++;
-			}
+			foreach (CollectionMemberKey lower in writers)
+				foreach (CollectionMemberKey higher in priorityGraph.GetHigherPriority(lower))
+				{
+					if (writerSet.Contains(higher) && outgoing[lower].Add(higher)) indegree[higher]++;
+				}
 
 			var queue = new SortedSet<CollectionMemberKey>(new MemberKeyComparer());
 			foreach (CollectionMemberKey writer in writers) if (indegree[writer] == 0) queue.Add(writer);
@@ -1030,7 +1037,6 @@ namespace Nexus.Client.CollectionManagement
 			return visited != edges.Count;
 		}
 
-
 		private static List<CollectionConfigurationImpact> BuildConfigurationImpacts(ResolvedCollectionPlan plan, CollectionNativeStateIndex nativeState, CollectionMemberMatchSet matches,
 			IDictionary<CollectionMemberKey, CollectionMemberEffectPreview> previews,
 			IDictionary<Guid, CollectionAssociationImpactKind> associationKinds, IList<CollectionConflictImpactIssue> issues,
@@ -1287,6 +1293,52 @@ namespace Nexus.Client.CollectionManagement
 		{
 			int kind = left.Kind.CompareTo(right.Kind);
 			return kind != 0 ? kind : StringComparer.Ordinal.Compare(left.Value, right.Value);
+		}
+
+		/// <summary>Caches selected-mod priority reachability once per plan rather than once per deployed path.</summary>
+		private sealed class FilePriorityGraph
+		{
+			private readonly Dictionary<CollectionMemberKey, HashSet<CollectionMemberKey>> _outgoing =
+				new Dictionary<CollectionMemberKey, HashSet<CollectionMemberKey>>();
+			private readonly Dictionary<CollectionMemberKey, HashSet<CollectionMemberKey>> _higherPriority =
+				new Dictionary<CollectionMemberKey, HashSet<CollectionMemberKey>>();
+
+			/// <summary>Indexes explicit priority edges, including mods which do not supply the current file.</summary>
+			internal FilePriorityGraph(IEnumerable<CollectionFilePriorityRule> rules)
+			{
+				foreach (CollectionFilePriorityRule rule in rules)
+				{
+					HashSet<CollectionMemberKey> higher;
+					if (!_outgoing.TryGetValue(rule.LowerPriorityMemberKey, out higher))
+					{
+						higher = new HashSet<CollectionMemberKey>();
+						_outgoing.Add(rule.LowerPriorityMemberKey, higher);
+					}
+					higher.Add(rule.HigherPriorityMemberKey);
+				}
+			}
+
+			/// <summary>Finds reachable higher-priority mods with a bounded iterative traversal, including cyclic input.</summary>
+			internal HashSet<CollectionMemberKey> GetHigherPriority(CollectionMemberKey source)
+			{
+				HashSet<CollectionMemberKey> result;
+				if (_higherPriority.TryGetValue(source, out result)) return result;
+				result = new HashSet<CollectionMemberKey>();
+				var pending = new Stack<CollectionMemberKey>();
+				pending.Push(source);
+				while (pending.Count > 0)
+				{
+					CollectionMemberKey current = pending.Pop();
+					if (!result.Add(current)) continue;
+					HashSet<CollectionMemberKey> next;
+					if (_outgoing.TryGetValue(current, out next))
+						foreach (CollectionMemberKey member in next) pending.Push(member);
+				}
+				// Only cycles relating distinct writers affect this file's winner, matching the per-file validation boundary.
+				result.Remove(source);
+				_higherPriority.Add(source, result);
+				return result;
+			}
 		}
 
 		private sealed class MemberKeyComparer : IComparer<CollectionMemberKey>

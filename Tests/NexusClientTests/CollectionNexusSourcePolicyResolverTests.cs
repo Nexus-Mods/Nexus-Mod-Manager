@@ -51,6 +51,39 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>Resolves an exact prefer file despite unsupported curator launcher metadata, retaining the warning through selection.</summary>
+		[Test]
+		public void Resolve_PreferWithUnsupportedOptionalSkseLauncherResolvesModsAndRetainsWarning()
+		{
+			string root = NewRoot();
+			try
+			{
+				Fixture fixture = CreateFixture(root, "prefer",
+					@"[{""name"":""Skyrim Script Extender 64"",""exe"":""skse64_loader.exe"",""args"":[],
+					""cwd"":""G:\\GOG Games\\Skyrim Anniversary Edition"",""detach"":true,""onStart"":""hide_recover""}]");
+				Assert.AreEqual(CollectionCompatibilityStatus.ActionRequired, fixture.Selection.CapabilityReport.Status);
+				Assert.AreEqual(0, fixture.Selection.CapabilityReport.ManifestIssues.Count);
+				Assert.AreEqual(1, fixture.Selection.Manifest.LaunchToolIssues.Count);
+				Assert.AreEqual(0, fixture.Selection.Manifest.LaunchTools.Count);
+				int calls = 0;
+				var resolver = new CollectionNexusSourcePolicyResolver(fixture.SourceStore,
+					(domain, modId, fileId, policy, requestedVersion) =>
+					{
+						calls++;
+						return CollectionNexusSourcePolicyFileResolution.Resolved(fileId);
+					});
+
+				CollectionNexusSourcePolicyResolution result = resolver.Resolve(fixture.Selection);
+
+				Assert.AreEqual(1, calls);
+				Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.Selection.CapabilityReport.Status);
+				Assert.AreEqual(CollectionResolvedArtifactChoiceKind.ExactRequestedArtifact, result.ArtifactChoices.Values.Single().Kind);
+				Assert.AreEqual(1, result.Selection.Manifest.LaunchToolIssues.Count);
+				Assert.AreEqual(0, result.Selection.Manifest.LaunchTools.Count);
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void ResolvedPolicy_ReappliedForSameManifest_SkipsSecondProviderLookup()
 		{
@@ -271,13 +304,25 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>Archiving the curator file does not authorize replacing its saved installer with a newer one.</summary>
 		[Test]
-		public void Candidate_PreferUncoercibleCuratorVersionFailsClosed()
+		public void Candidate_PreferPreservesArchivedCuratorFile()
+		{
+			NexusV1ModFileList files = FileList(new[]
+			{
+				File(200, "3.1.7", NexusV1FileCategory.Archived, 1),
+				File(201, "3.2.6", NexusV1FileCategory.Main, 2)
+			}, new[] { Update(200, 201, 2) });
+			Assert.AreEqual(200, NexusModsApiRepository.ResolveCollectionSourcePolicyCandidate(files, 200, "prefer", "3.1.7"));
+		}
+
+		[Test]
+		public void Candidate_PreferMissingExactFileAndUncoercibleVersionFailsClosed()
 		{
 			NexusV1ModFileList files = FileList(
 				new[]
 				{
-					File(200, "banana", NexusV1FileCategory.Archived, 1),
+					File(200, "banana", NexusV1FileCategory.Deleted, 1),
 					File(201, "2.0", NexusV1FileCategory.Update, 2)
 				},
 				new[] { Update(200, 201, 2) });
@@ -306,7 +351,7 @@ namespace NexusClientTests
 			NexusV1ModFileList files = FileList(
 				new[]
 				{
-					File(200, "1.2", NexusV1FileCategory.Archived, 1),
+					File(200, "1.2", NexusV1FileCategory.Deleted, 1),
 					File(201, "1.1", NexusV1FileCategory.Update, 3),
 					File(202, "v1.3-beta", NexusV1FileCategory.Update, 2)
 				},
@@ -379,7 +424,7 @@ namespace NexusClientTests
 			};
 		}
 
-		private static Fixture CreateFixture(string root, string updatePolicy)
+		private static Fixture CreateFixture(string root, string updatePolicy, string tools = null)
 		{
 			var store = new CollectionsStore(root);
 			store.CreateNew();
@@ -392,7 +437,7 @@ namespace NexusClientTests
 			string json = "{" +
 				"\"info\":{\"author\":\"Sephrajin\",\"authorUrl\":\"https://example.invalid\",\"name\":\"Module 02 - HUD\",\"description\":\"HUD\",\"domainName\":\"fallout4\"}," +
 				"\"mods\":[{\"name\":\"JHUD - FallUI HUD Preset\",\"version\":\"1.2\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":66566,\"fileId\":259831,\"updatePolicy\":\"" + updatePolicy + "\"}}]," +
-				"\"modRules\":[]}";
+				"\"modRules\":[]" + (tools == null ? String.Empty : ",\"tools\":" + tools) + "}";
 			byte[] bytes = Encoding.UTF8.GetBytes(json);
 			NexusCollectionManifestNormalizationResult normalized = new NexusCollectionManifestNormalizer().Normalize(bytes, revision);
 			CollectionEffectiveSelection selection = new CollectionEffectiveSelectionBuilder().Build(normalized.CapabilityReport,

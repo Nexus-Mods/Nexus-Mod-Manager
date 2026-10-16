@@ -219,6 +219,125 @@ namespace NexusClientTests
             }
         }
 
+        /// <summary>Dependency repair must preserve a Collection precedence involving a master of another plugin.</summary>
+        [Test]
+        public void CollectionOrder_CombinesCuratorAndMasterDependencies_WithoutUndoingEither()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Dependent.esp", "Master.esp"),
+                new PluginDefinition("Early.esp"), new PluginDefinition("Master.esp")
+            }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = ((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(
+                    new[] { context.PathOf("Dependent.esp"), context.PathOf("Early.esp"), context.PathOf("Master.esp") },
+                    new Dictionary<string, bool>
+                    {
+                        { context.PathOf("Dependent.esp"), true }, { context.PathOf("Early.esp"), true }, { context.PathOf("Master.esp"), true }
+                    }, new List<IList<string>> { new List<string> { context.PathOf("Early.esp"), context.PathOf("Master.esp") } }, out diagnostics);
+                Assert.IsTrue(applied);
+                CollectionAssert.AreEqual(new[] { "Early.esp", "Master.esp", "Dependent.esp" }, context.ManagedPluginNames);
+                CollectionAssert.AreEquivalent(new[] { "Early.esp", "Master.esp", "Dependent.esp" }, context.ActivePluginNames);
+            }
+        }
+
+        /// <summary>A Collection preference cannot force a dependant before its master; only that conflicting preference is corrected.</summary>
+        [Test]
+        public void CollectionOrder_ContradictsRequiredMaster_CorrectsOnlyNativePrecedence()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Master.esp"), new PluginDefinition("Dependent.esp", "Master.esp")
+            }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = ((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(
+                    new[] { context.PathOf("Dependent.esp"), context.PathOf("Master.esp") },
+                    new Dictionary<string, bool> { { context.PathOf("Dependent.esp"), true }, { context.PathOf("Master.esp"), true } },
+                    new List<IList<string>> { new List<string> { context.PathOf("Dependent.esp"), context.PathOf("Master.esp") } }, out diagnostics);
+                Assert.IsTrue(applied);
+                Assert.IsFalse(context.Manager.PluginRestrictionsDisabled, "The Collection must restore the user's preference.");
+                CollectionAssert.AreEqual(new[] { "Master.esp", "Dependent.esp" }, context.ManagedPluginNames);
+            }
+        }
+
+        /// <summary>Reproduces a group preference across ESM sections while preserving compatible curator order and unrelated positions.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CollectionOrder_RepairsLuxGroupPreferenceAndRestoresUserRestrictionPreference(bool restrictionsDisabled)
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("Lux - Master plugin.esm"), new PluginDefinition("Lux - Resources.esp") { MasterFlag = true },
+                new PluginDefinition("Lux.esp", "Lux - Resources.esp"), new PluginDefinition("Unrelated.esp"),
+                new PluginDefinition("Later.esp"), new PluginDefinition("Earlier.esp")
+            }))
+            {
+                PluginSnapshot snapshot;
+                if (restrictionsDisabled) Assert.IsTrue(context.Manager.TrySetPluginRestrictionsDisabled(true, out snapshot));
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = ((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(
+                    context.ManagedPluginNames.Select(context.PathOf).ToList(),
+                    context.ManagedPluginNames.ToDictionary(context.PathOf, name => true), new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("Lux.esp"), context.PathOf("Lux - Master plugin.esm") },
+                        new List<string> { context.PathOf("Earlier.esp"), context.PathOf("Later.esp") }
+                    }, out diagnostics);
+
+                Assert.IsTrue(applied);
+                Assert.AreEqual(restrictionsDisabled, context.Manager.PluginRestrictionsDisabled);
+                CollectionAssert.AreEqual(new[] { "Lux - Master plugin.esm", "Lux - Resources.esp", "Lux.esp", "Unrelated.esp", "Earlier.esp", "Later.esp" },
+                    context.ManagedPluginNames);
+            }
+        }
+
+        /// <summary>A failed Collection pass also restores the user's restriction setting.</summary>
+        [TestCase(false)]
+        [TestCase(true)]
+        public void CollectionOrder_UnresolvableCycleRestoresRestrictionPreferenceAndReportsPlugins(bool restrictionsDisabled)
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[] { new PluginDefinition("A.esp"), new PluginDefinition("B.esp") }))
+            {
+                PluginSnapshot snapshot;
+                if (restrictionsDisabled) Assert.IsTrue(context.Manager.TrySetPluginRestrictionsDisabled(true, out snapshot));
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = ((ICollectionPluginStateManager)context.Manager).TryReconcileCollectionPluginState(new string[0],
+                    new Dictionary<string, bool>(), new List<IList<string>>
+                    {
+                        new List<string> { context.PathOf("A.esp"), context.PathOf("B.esp") },
+                        new List<string> { context.PathOf("B.esp"), context.PathOf("A.esp") }
+                    }, out diagnostics);
+
+                Assert.IsFalse(applied);
+                Assert.AreEqual(restrictionsDisabled, context.Manager.PluginRestrictionsDisabled);
+                Assert.IsTrue(diagnostics.Any(x => x.Kind == PluginValidationIssueKind.DependencyCycle && x.Message.Contains("A.esp") && x.Message.Contains("B.esp")));
+            }
+        }
+
+        /// <summary>Newly eligible earlier slots retain priority over older eligible slots, including duplicate constraints.</summary>
+        [Test]
+        public void RelativeOrder_NewlyReadyEarlierPlugin_PreservesStablePriorityAndUnrelatedSlot()
+        {
+            using (PluginManagerTestContext context = new PluginManagerTestContext(new[]
+            {
+                new PluginDefinition("B.esp"), new PluginDefinition("Unrelated.esp"),
+                new PluginDefinition("C.esp"), new PluginDefinition("A.esp"), new PluginDefinition("D.esp")
+            }))
+            {
+                IList<PluginValidationDiagnostic> diagnostics;
+                bool applied = context.Manager.TrySetRelativePluginOrder(new List<IList<string>>
+                {
+                    new List<string> { context.PathOf("A.esp"), context.PathOf("B.esp") },
+                    new List<string> { context.PathOf("D.esp"), context.PathOf("C.esp") },
+                    new List<string> { context.PathOf("A.esp"), context.PathOf("B.esp") }
+                }, out diagnostics);
+                Assert.IsTrue(applied);
+                CollectionAssert.AreEqual(new[] { "A.esp", "Unrelated.esp", "B.esp", "D.esp", "C.esp" }, context.ManagedPluginNames);
+                Assert.AreEqual(0, context.ActivePluginSaveCount);
+            }
+        }
+
         [Test]
         public void RelativeOrder_ReordersOnlyConstrainedPluginSlots()
         {
@@ -299,6 +418,7 @@ namespace NexusClientTests
 
             public string Name { get; private set; }
             public string[] Masters { get; private set; }
+            public bool MasterFlag { get; set; }
         }
 
         /// <summary>
@@ -333,7 +453,7 @@ namespace NexusClientTests
                             if (!m_dicDefinitions.TryGetValue(path, out definition))
                                 return null;
                             Plugin plugin = new Plugin(path, definition.Name, null);
-                            bool isMaster = String.Equals(Path.GetExtension(definition.Name), ".esm", StringComparison.OrdinalIgnoreCase);
+                            bool isMaster = definition.MasterFlag || String.Equals(Path.GetExtension(definition.Name), ".esm", StringComparison.OrdinalIgnoreCase);
                             plugin.SetMetadata(new PluginMetadata(
                                 Path.GetExtension(definition.Name),
                                 isMaster ? PluginHeaderFlags.Master : PluginHeaderFlags.None,

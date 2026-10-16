@@ -110,7 +110,6 @@
 			var deletedDll = CheckModScriptDLL();
 
 			string requestedGameMode = null;
-			string lastRunningGameModeId = null;
             
 			Uri modToAdd = null;
 
@@ -260,16 +259,13 @@
 
 					if (appInitializer.Status != TaskStatus.Complete)
 					{
-						if (appInitializer.GameStorageSetupWasCancelled &&
-							!string.IsNullOrEmpty(lastRunningGameModeId) &&
-							!string.Equals(gameModeFactory.GameModeDescriptor.ModeId, lastRunningGameModeId, StringComparison.OrdinalIgnoreCase))
+						if (appInitializer.GameStorageSetupWasCancelled)
 						{
 							Trace.TraceInformation(
-								"Game Storage setup for {0} was cancelled. Restoring the previous Game Mode {1}.",
-								gameModeFactory.GameModeDescriptor.ModeId,
-								lastRunningGameModeId);
-							requestedGameMode = lastRunningGameModeId;
-							changeDefaultGameMode = false;
+								"Game Storage setup for {0} was cancelled. Returning to Game Mode selection.",
+								gameModeFactory.GameModeDescriptor.ModeId);
+							requestedGameMode = null;
+							changeDefaultGameMode = true;
 							DisposeServices(appInitializer.Services);
 							continue;
 						}
@@ -320,7 +316,6 @@
 						{
 							Application.Run(mainForm);
 							services.ModInstallLog.Backup();
-							lastRunningGameModeId = gameMode.ModeId;
 							requestedGameMode = mainFormViewModel.RequestedGameMode;
 							changeDefaultGameMode = mainFormViewModel.DefaultGameModeChangeRequested;
 						}

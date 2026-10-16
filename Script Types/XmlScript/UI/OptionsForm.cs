@@ -48,6 +48,20 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 			StepForward();
 		}
 
+		/// <summary>Captures the confirmed wizard selections and hidden steps for durable Collection replay.</summary>
+		internal ModInstallationFomodSelectionRecipe CaptureSelectionRecipe()
+		{
+			var steps = new List<ModInstallationFomodStepSelection>();
+			for (int index = 0; index < m_lstInstallSteps.Count; index++)
+			{
+				KeyValuePair<InstallStep, OptionFormStep> step = m_lstInstallSteps[index];
+				bool visible = step.Key.GetIsVisible(m_csmStateManager);
+				steps.Add(new ModInstallationFomodStepSelection(index, step.Key.Name,
+					step.Value.CaptureSelections(step.Key.OptionGroups, visible), visible));
+			}
+			return new ModInstallationFomodSelectionRecipe(m_xcsScript.Version, steps, true);
+		}
+
 		#region Form Members
 
 		/// <summary>

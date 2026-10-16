@@ -706,21 +706,30 @@ VALUES
 				};
 
 				Connection = new SQLiteConnection(builder.ConnectionString);
-				Connection.Open();
-				ConfigureBusyTimeout(Connection);
-
-				EnsureDeleteJournalMode(Connection);
-
-				if (!HasCurrentSchema(Connection))
+				try
 				{
-					EnsureSchema(Connection);
+					Connection.Open();
+					ConfigureBusyTimeout(Connection);
+
+					EnsureDeleteJournalMode(Connection);
+
+					if (!HasCurrentSchema(Connection))
+					{
+						EnsureSchema(Connection);
+					}
+
+					EnsureSupplementalSchema(Connection);
+
+					if (!File.Exists(databasePath))
+					{
+						throw new IOException("Unable to create the FOMod archive metadata cache database: " + databasePath);
+					}
 				}
-
-				EnsureSupplementalSchema(Connection);
-
-				if (!File.Exists(databasePath))
+				catch
 				{
-					throw new IOException("Unable to create the FOMod archive metadata cache database: " + databasePath);
+					// Failed constructors are not cached; release locks before a later preparation retries opening.
+					Connection.Dispose();
+					throw;
 				}
 
 				LastCommitUtc = DateTime.UtcNow;

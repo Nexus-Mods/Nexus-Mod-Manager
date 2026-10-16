@@ -1,18 +1,82 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace Nexus.Client.ModManagement
 {
 	public partial class VirtualModLink : IVirtualModLink, IEquatable<VirtualModLink>
 	{
+		/// <summary>Notifies the native store tracker when mutable link metadata changes.</summary>
+		internal event EventHandler PersistenceChanged;
+
 		#region Properties
 		
-		public string VirtualModPath { get; set; }
-		public string RealModPath { get; set; }
-		public int Priority { get; set; }
-		public bool Active { get; set; }
-		public IVirtualModInfo ModInfo { get; set; }
-		public ModInstallRoot InstallRoot { get; set; }
+		private string _persistedVirtualModPath;
+		public string VirtualModPath
+		{
+			get { return _persistedVirtualModPath; }
+			set
+			{
+				if (EqualityComparer<string>.Default.Equals(_persistedVirtualModPath, value)) return;
+				_persistedVirtualModPath = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+		private string _persistedRealModPath;
+		public string RealModPath
+		{
+			get { return _persistedRealModPath; }
+			set
+			{
+				if (EqualityComparer<string>.Default.Equals(_persistedRealModPath, value)) return;
+				_persistedRealModPath = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+		private int _persistedPriority;
+		public int Priority
+		{
+			get { return _persistedPriority; }
+			set
+			{
+				if (EqualityComparer<int>.Default.Equals(_persistedPriority, value)) return;
+				_persistedPriority = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+		private bool _persistedActive;
+		public bool Active
+		{
+			get { return _persistedActive; }
+			set
+			{
+				if (EqualityComparer<bool>.Default.Equals(_persistedActive, value)) return;
+				_persistedActive = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+		private IVirtualModInfo _persistedModInfo;
+		public IVirtualModInfo ModInfo
+		{
+			get { return _persistedModInfo; }
+			set
+			{
+				if (ReferenceEquals(_persistedModInfo, value)) return;
+				_persistedModInfo = value;
+				PersistenceChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ModInfo)));
+			}
+		}
+		private ModInstallRoot _persistedInstallRoot;
+		public ModInstallRoot InstallRoot
+		{
+			get { return _persistedInstallRoot; }
+			set
+			{
+				if (EqualityComparer<ModInstallRoot>.Default.Equals(_persistedInstallRoot, value)) return;
+				_persistedInstallRoot = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
 		
 		#endregion
 

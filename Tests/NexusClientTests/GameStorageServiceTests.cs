@@ -7,6 +7,7 @@ namespace NexusClientTests
     using Nexus.Client.GameStorage;
 
     using NUnit.Framework;
+    using Newtonsoft.Json;
 
     [TestFixture]
     public class GameStorageServiceTests
@@ -345,6 +346,75 @@ namespace NexusClientTests
 
             Assert.IsFalse(result.IsHealthy);
             Assert.That(result.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder), Is.True);
+        }
+
+        [Test]
+        public void ValidateStorage_NewerConfirmedPaths_DoNotInheritOldRegistryPayloadCounts()
+        {
+            var previous = CreateStorage("SkyrimSE", "PreviousStorage", withArchive: true, withVirtualFile: true);
+            _service.InitializeMetadataForStorage(previous);
+            string registryBefore = File.ReadAllText(_service.RegistryPath);
+            GameStorageRegistryEntry entry = JsonConvert.DeserializeObject<GameStorageRegistry>(registryBefore).KnownStorages.Single();
+            var current = CreateStorage("SkyrimSE", "ConfirmedStorage");
+            WriteConfirmedStorageSelection(current, entry.StorageId, entry.LastSeenUtc.AddMinutes(1));
+
+            GameStorageHealthCheck result = _service.ValidateStorage(current);
+
+            Assert.IsTrue(result.IsHealthy);
+            Assert.IsTrue(result.IsUsable);
+            Assert.IsFalse(result.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder));
+            Assert.AreEqual(registryBefore, File.ReadAllText(_service.RegistryPath));
+            Assert.IsTrue(File.Exists(Path.Combine(previous.ModsPath, "ExampleMod.7z")));
+        }
+
+        [TestCase("older-root")]
+        [TestCase("missing-root")]
+        [TestCase("other-game-root")]
+        [TestCase("wrong-root-path")]
+        [TestCase("missing-folder-manifest")]
+        [TestCase("conflicting-folder-id")]
+        public void ValidateStorage_UnconfirmedChangedPaths_StillWarnAboutMissingPayload(string fault)
+        {
+            var previous = CreateStorage("SkyrimSE", "PreviousStorage", withArchive: true, withVirtualFile: true);
+            _service.InitializeMetadataForStorage(previous);
+            GameStorageRegistryEntry entry = JsonConvert.DeserializeObject<GameStorageRegistry>(File.ReadAllText(_service.RegistryPath)).KnownStorages.Single();
+            var current = CreateStorage("SkyrimSE", "UnconfirmedStorage");
+            WriteConfirmedStorageSelection(current, entry.StorageId, entry.LastSeenUtc.AddMinutes(1));
+            string rootPath = Path.Combine(_tempRoot, "UnconfirmedStorage", "NMMStorage.json");
+            GameStorageRootManifest rootManifest = JsonConvert.DeserializeObject<GameStorageRootManifest>(File.ReadAllText(rootPath));
+            if (fault == "older-root")
+                rootManifest.LastSeenUtc = entry.LastSeenUtc.AddMinutes(-1);
+            else if (fault == "other-game-root")
+                rootManifest.GameId = "SkyrimGOG";
+            else if (fault == "wrong-root-path")
+                rootManifest.Folders["Mods"] = previous.ModsPath;
+            File.WriteAllText(rootPath, JsonConvert.SerializeObject(rootManifest));
+            if (fault == "missing-root")
+                File.Delete(rootPath);
+            else if (fault == "missing-folder-manifest")
+                File.Delete(Path.Combine(current.ModsPath, ".nmm-folder.json"));
+            else if (fault == "conflicting-folder-id")
+                WriteFolderManifest(current.ModsPath, current.GameId, "another-storage", "Mods");
+
+            GameStorageHealthCheck result = _service.ValidateStorage(current);
+
+            Assert.IsFalse(result.IsUsable);
+            Assert.IsTrue(result.Items.Any(x => x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder));
+        }
+
+        [Test]
+        public void ValidateStorage_ConfirmedPathsEmptiedAfterSnapshot_StillRequireRecovery()
+        {
+            var paths = CreateStorage("SkyrimSE", "ConfirmedStorage", withArchive: true, withVirtualFile: true);
+            _service.InitializeMetadataForStorage(paths);
+            File.Delete(Path.Combine(paths.ModsPath, "ExampleMod.7z"));
+            File.Delete(Path.Combine(paths.VirtualInstallPath, "Data", "Example.esp"));
+
+            GameStorageHealthCheck result = _service.ValidateStorage(paths);
+
+            Assert.IsFalse(result.IsUsable);
+            Assert.IsTrue(result.Items.Any(x => x.Role == GameStorageFolderRole.Mods && x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder));
+            Assert.IsTrue(result.Items.Any(x => x.Role == GameStorageFolderRole.VirtualInstall && x.Status == GameStorageHealthStatus.SuspiciousEmptyFolder));
         }
 
         [Test]
@@ -832,6 +902,42 @@ namespace NexusClientTests
                 LinkFolderPath = paths.LinkFolderPath,
                 LinkFolderRequired = paths.LinkFolderRequired
             };
+        }
+
+        /// <summary>
+        /// Reproduces an explicit folder adoption whose registry write was not retained.
+        /// </summary>
+        private static void WriteConfirmedStorageSelection(GameStoragePathSet paths, string storageId, DateTime timestamp)
+        {
+            var folders = new System.Collections.Generic.Dictionary<string, string>
+            {
+                { "InstallInfo", paths.InstallInfoPath },
+                { "Mods", paths.ModsPath },
+                { "VirtualInstall", paths.VirtualInstallPath }
+            };
+            foreach (var folder in folders)
+            {
+                File.WriteAllText(Path.Combine(folder.Value, ".nmm-folder.json"), JsonConvert.SerializeObject(new GameStorageFolderManifest
+                {
+                    SchemaVersion = 2,
+                    GameId = paths.GameId,
+                    StorageId = storageId,
+                    FolderRole = (GameStorageFolderRole)Enum.Parse(typeof(GameStorageFolderRole), folder.Key),
+                    LastSeenUtc = timestamp,
+                    Bindings = new System.Collections.Generic.List<GameStorageFolderBinding>
+                    {
+                        new GameStorageFolderBinding { GameId = paths.GameId, StorageId = storageId, LastSeenUtc = timestamp }
+                    }
+                }));
+            }
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName(paths.InstallInfoPath), "NMMStorage.json"), JsonConvert.SerializeObject(new GameStorageRootManifest
+            {
+                GameId = paths.GameId,
+                StorageId = storageId,
+                Folders = folders,
+                LastSeenUtc = timestamp,
+                LinkFolderRequired = false
+            }));
         }
 
         private static void DeleteFileIfExists(string path)

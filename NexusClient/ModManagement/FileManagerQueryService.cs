@@ -395,6 +395,21 @@
             return gameMode.UsesPlugins ? gameMode.PluginDirectory : gameMode.InstallationPath;
         }
 
+        /// <summary>Resolves only a confirmed untracked file inside the scanned deployment directory.</summary>
+        internal static string GetUntrackedRemovalPath(string deploymentRoot, FileManagerRow row)
+        {
+            if (row == null || row.Source != FileManagerSource.Untracked || row.OwnerCount != 0 || !String.IsNullOrEmpty(row.OwnerKey))
+                throw new InvalidOperationException("Only untracked files without an NMM owner can be removed by this action.");
+            if (String.IsNullOrWhiteSpace(deploymentRoot) || String.IsNullOrWhiteSpace(row.RelativePath) || Path.IsPathRooted(row.RelativePath))
+                throw new InvalidOperationException("The untracked file has no valid relative deployment path.");
+            string prefix = Path.GetFullPath(deploymentRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            string path = Path.GetFullPath(Path.Combine(prefix, row.RelativePath));
+            if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+                !StringComparer.OrdinalIgnoreCase.Equals(path, Path.GetFullPath(row.FullPath)))
+                throw new InvalidOperationException("The untracked file is outside the reviewed deployment directory.");
+            return path;
+        }
+
         public static string NormalizePath(string path)
         {
             if (String.IsNullOrWhiteSpace(path))

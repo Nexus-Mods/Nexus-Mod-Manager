@@ -150,6 +150,9 @@
 
 				foreach (KeyValuePair<ModDeploymentTarget, string[]> change in _deploymentChanges)
 					EnlistedInstallLog.SetDeploymentOwnersCore(change.Key, change.Value);
+				foreach (ModDeploymentTarget target in _affectedTargets)
+					if (_removedModKeys.Count > 0)
+						EnlistedInstallLog.SetDeploymentOwnersCore(target, EnlistedInstallLog.GetDeploymentOwnerKeysCore(target).Where(x=>!_removedModKeys.Contains(x)));
 			}
 
 			private void ClearFoundationChanges()

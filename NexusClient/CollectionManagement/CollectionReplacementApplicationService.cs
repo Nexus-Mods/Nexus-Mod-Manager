@@ -142,7 +142,10 @@ namespace Nexus.Client.CollectionManagement
 			_impactPlanner = new CollectionConflictImpactPlanner();
 			_recipePreparer = new CollectionNativeRecipePreparer(new CollectionsCatalogStore(_store),
 				new CollectionsRevisionSourceStore(_store), _artifactStore, _referenceStore, new Nexus.Client.OnlineServices.NexusMods.Collections.NexusCollectionManifestNormalizer(),
-				new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(), new CollectionMemberEffectPreviewBuilder(_store));
+				new BasicInstallPlanBuilder(), new ModInstallationSimpleFileRecipeAdapter(), new CollectionMemberEffectPreviewBuilder(_store))
+			{
+				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions
+			};
 			_nativeStateReader = new CollectionNativeStateReader(() => _services.ModManager.InstallationLog,
 				_services.ModManager.VirtualModActivator, _services.PluginManager, _services.ModManager.GameMode, _associationStore);
 			_localCapture = new CollectionLocalCaptureApplicationService(_services, _gameStorageService);
@@ -408,7 +411,7 @@ namespace Nexus.Client.CollectionManagement
 				result.Add(CollectionInstallRootCorrection.Attach(_recipePreparer.PrepareReplacementExact(review.Plan, match.Member, archive, mod,
 					_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, prior.InstallContext,
 					context.CurrentSetup.NativeState, context.ObservedEnvironment, prior.SkipReadmeFiles,
-					_services.PluginManager, cancellationToken, prior.GameRootArchiveBaseDirectory), prior.EffectPreview.InstallRootCorrection));
+					_services.PluginManager, cancellationToken, prior.GameRootArchiveBaseDirectory, false), prior.EffectPreview.InstallRootCorrection));
 			}
 			return result;
 		}

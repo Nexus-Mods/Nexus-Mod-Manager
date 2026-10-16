@@ -617,4 +617,21 @@
         public string FailureMessage { get; private set; }
         public Exception Failure { get; private set; }
     }
+
+    /// <summary>Reports a confirmed untracked-file cleanup, including failures without aborting the remaining files.</summary>
+    public sealed class FileManagerUntrackedRemovalResult
+    {
+        /// <summary>Captures the completed removal counts and individual issues.</summary>
+        internal FileManagerUntrackedRemovalResult(int removed, int skipped, IList<string> issues)
+        {
+            Removed = removed;
+            Skipped = skipped;
+            Issues = new List<string>(issues).AsReadOnly();
+        }
+
+        public int Removed { get; private set; }
+        public int Skipped { get; private set; }
+        public IReadOnlyList<string> Issues { get; private set; }
+    }
+
 }

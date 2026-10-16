@@ -1642,14 +1642,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			if (effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
 			{
-				int previous = Int32.MinValue;
-				foreach (string path in effect.PluginPaths)
-				{
-					CollectionNativePluginState plugin = FindPlugin(state, path);
-					if (plugin == null || plugin.Priority <= previous) return false;
-					previous = plugin.Priority;
-				}
-				return true;
+				return CollectionPluginRelativeOrderApplicator.IsOrderSatisfied(state, effect.PluginPaths);
 			}
 			return false;
 		}

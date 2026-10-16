@@ -371,12 +371,17 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			}
 		}
 
+		/// <summary>
+		/// Validates before an explicit writable operation, allowing SQLite to roll back
+		/// an interrupted transaction before reading the schema. Inspection-only APIs
+		/// retain read-only connections, and marked read-only files remain protected.
+		/// </summary>
 		private int PreflightExistingStore()
 		{
 			if (!File.Exists(DatabasePath))
 				throw new FileNotFoundException("The Collections feature store is missing.", DatabasePath);
 
-			using (SQLiteConnection connection = OpenConnection(true, true))
+			using (SQLiteConnection connection = OpenConnection(IsDatabaseMarkedReadOnly(), true))
 			{
 				ConfigureReadConnection(connection);
 				int version = ReadAndValidateVersion(connection);

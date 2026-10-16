@@ -18,6 +18,18 @@ namespace Nexus.Client.CollectionManagement
 			return scope;
 		}
 
+		/// <summary>Keeps a fixed member counter on every nested status and captured archive callback until the member finishes.</summary>
+		internal static IDisposable BeginMember(int current, int total)
+		{
+			if (current < 1 || current > total) throw new ArgumentOutOfRangeException(nameof(current));
+			var scope = new ProgressScope(Current.Value, current, total);
+			Current.Value = scope;
+			return scope;
+		}
+
+		/// <summary>Gets whether nested stages already inherit a member counter and must omit their own inline counter.</summary>
+		internal static bool HasMemberCounter { get { return Current.Value != null && Current.Value.HasMemberCounter; } }
+
 		/// <summary>Names the current member or file; frequent file changes are throttled to avoid flooding the UI.</summary>
 		internal static void Report(string status, bool force = false)
 		{
@@ -62,6 +74,8 @@ namespace Nexus.Client.CollectionManagement
 		{
 			private readonly IProgress<string> _progress;
 			private readonly ProgressScope _previous;
+			private readonly int _currentMember;
+			private readonly int _totalMembers;
 			private string _status;
 			private string _hashAlgorithms;
 			private long _lastReport;
@@ -73,6 +87,24 @@ namespace Nexus.Client.CollectionManagement
 				_previous = previous;
 			}
 
+			/// <summary>Captures a member counter without changing the reporting destination or another operation's context.</summary>
+			internal ProgressScope(ProgressScope previous, int current, int total)
+				: this(previous == null ? null : previous._progress, previous)
+			{
+				_currentMember = current;
+				_totalMembers = total;
+			}
+
+			/// <summary>Gets whether this scope owns a fixed member counter.</summary>
+			internal bool HasMemberCounter { get { return _totalMembers > 0; } }
+
+			/// <summary>Places the member counter before the changing status, byte count or algorithm information.</summary>
+			private string FormatStatus(string status)
+			{
+				return HasMemberCounter ? LanguageManager.Format("Collections.Workflow.MemberProgress", "[{0}/{1}] - {2}",
+					_currentMember, _totalMembers, status) : status;
+			}
+
 			/// <summary>Updates the stage even when the UI update is deferred.</summary>
 			internal void Report(string status, bool force)
 			{
@@ -81,7 +113,7 @@ namespace Nexus.Client.CollectionManagement
 				if (_progress != null && (force || IsDue()))
 				{
 					_lastReport = Stopwatch.GetTimestamp();
-					_progress.Report(status);
+					_progress.Report(FormatStatus(status));
 				}
 			}
 
@@ -91,7 +123,7 @@ namespace Nexus.Client.CollectionManagement
 				_hashAlgorithms = calculateMd5 ? "SHA-256 + MD5" : "SHA-256";
 				if (_progress == null || String.IsNullOrWhiteSpace(_status)) return;
 				_lastReport = Stopwatch.GetTimestamp();
-				_progress.Report(LanguageManager.Format("Collections.Workflow.ArchiveHashAlgorithms", "{0} [{1}]", _status, _hashAlgorithms));
+				_progress.Report(FormatStatus(LanguageManager.Format("Collections.Workflow.ArchiveHashAlgorithms", "{0} [{1}]", _status, _hashAlgorithms)));
 			}
 
 			/// <summary>Formats measured byte progress without estimating download or decompression speed.</summary>
@@ -101,11 +133,11 @@ namespace Nexus.Client.CollectionManagement
 				_lastReport = Stopwatch.GetTimestamp();
 				string status = _hashAlgorithms == null ? _status : LanguageManager.Format(
 					"Collections.Workflow.ArchiveHashAlgorithms", "{0} [{1}]", _status, _hashAlgorithms);
-				_progress.Report(total > 0
+				_progress.Report(FormatStatus(total > 0
 					? LanguageManager.Format("Collections.Workflow.PreparationBytes", "{0} ({1:N0} / {2:N0} MB)",
 						status, completed / (1024.0 * 1024.0), total / (1024.0 * 1024.0))
 					: LanguageManager.Format("Collections.Workflow.PreparationBytesRead", "{0} ({1:N0} MB read)",
-						status, completed / (1024.0 * 1024.0)));
+						status, completed / (1024.0 * 1024.0))));
 			}
 
 			/// <summary>Uses a monotonic clock so reporting cannot slow down per-buffer archive work.</summary>

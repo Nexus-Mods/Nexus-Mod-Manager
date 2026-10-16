@@ -6,6 +6,7 @@ using System.Text;
 using Nexus.Client.CollectionManagement;
 using Nexus.Client.OnlineServices.NexusMods.Collections;
 using NUnit.Framework;
+using Newtonsoft.Json.Linq;
 
 namespace NexusClientTests
 {
@@ -142,10 +143,13 @@ namespace NexusClientTests
 			CollectionAssert.AreEqual(new[] { "--profile", "A B" }, tool.Arguments);
 			Assert.AreEqual("Tools", tool.RelativeWorkingDirectory);
 			Assert.AreEqual("1", tool.Environment["NMM_TEST"]);
+			CollectionEffectiveSelection selection = new CollectionEffectiveSelectionBuilder().Build(result.CapabilityReport,
+				new CollectionOptionalMemberSelection[0]);
+			CollectionAssert.AreEqual(result.Manifest.LaunchTools, selection.Manifest.LaunchTools);
 		}
 
 		[Test]
-		public void Normalize_CollectionToolShellLifecycleRemainsFailClosed()
+		public void Normalize_CollectionToolShellLifecycleDisablesLauncherWithoutBlockingMods()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
@@ -154,12 +158,13 @@ namespace NexusClientTests
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-lifecycle-unsupported"));
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.LaunchTools.Count);
+			Assert.IsTrue(result.Manifest.LaunchToolIssues.Any(x => x.Code == "manifest.tool-lifecycle-unsupported"));
 		}
 
 		[Test]
-		public void Normalize_AbsoluteCollectionToolExecutableRemainsFailClosed()
+		public void Normalize_AbsoluteCollectionToolExecutableDisablesLauncherWithoutBlockingMods()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
@@ -168,12 +173,13 @@ namespace NexusClientTests
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-path-unsupported"));
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.LaunchTools.Count);
+			Assert.IsTrue(result.Manifest.LaunchToolIssues.Any(x => x.Code == "manifest.tool-path-unsupported"));
 		}
 
 		[Test]
-		public void Normalize_ReservedDeviceCollectionToolPathRemainsFailClosed()
+		public void Normalize_ReservedDeviceCollectionToolPathDisablesLauncherWithoutBlockingMods()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
@@ -182,12 +188,13 @@ namespace NexusClientTests
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-path-unsupported"));
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.LaunchTools.Count);
+			Assert.IsTrue(result.Manifest.LaunchToolIssues.Any(x => x.Code == "manifest.tool-path-unsupported"));
 		}
 
 		[Test]
-		public void Normalize_CaseCollidingCollectionToolEnvironmentNamesRemainFailClosed()
+		public void Normalize_CaseCollidingCollectionToolEnvironmentDisablesLauncherWithoutBlockingMods()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
@@ -196,12 +203,13 @@ namespace NexusClientTests
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tool-env-invalid"));
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.LaunchTools.Count);
+			Assert.IsTrue(result.Manifest.LaunchToolIssues.Any(x => x.Code == "manifest.tool-env-invalid"));
 		}
 
 		[Test]
-		public void Normalize_MalformedToolsRemainFailClosed()
+		public void Normalize_MalformedToolsDisableLaunchersWithoutBlockingMods()
 		{
 			string json = BuildManifest(
 				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
@@ -210,8 +218,27 @@ namespace NexusClientTests
 
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.tools-invalid"));
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(0, result.Manifest.LaunchTools.Count);
+			Assert.IsTrue(result.Manifest.LaunchToolIssues.Any(x => x.Code == "manifest.tools-invalid"));
+		}
+
+		/// <summary>Preserves supported launchers while excluding entries with untranslated behavior.</summary>
+		[Test]
+		public void Normalize_UnknownToolBehaviorDoesNotExposeAPartiallyTranslatedLauncher()
+		{
+			string json = BuildManifest(
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}",
+				"[]",
+				"\"tools\":[{\"name\":\"Unknown behavior\",\"exe\":\"Runner.exe\",\"unknownLaunchMode\":true}," +
+				"{\"name\":\"Supported launcher\",\"exe\":\"Safe.exe\"}]");
+
+			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
+
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			Assert.AreEqual(1, result.Manifest.LaunchToolIssues.Count);
+			Assert.AreEqual("$.tools[0].unknownLaunchMode", result.Manifest.LaunchToolIssues[0].FieldPath);
+			Assert.AreEqual("Safe.exe", result.Manifest.LaunchTools.Single().RelativeExecutablePath);
 		}
 
 		[Test]
@@ -1668,18 +1695,61 @@ namespace NexusClientTests
 			Assert.IsFalse(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-reference-unresolved"));
 		}
 
-		[Test]
-		public void Normalize_EquivalentNumericVersionBindingDoesNotBroadenTextVersions()
+		[TestCase(true)]
+		[TestCase(false)]
+		public void Normalize_DifferentVersionMetadataRequiresMatchingExactArchiveMd5(bool sameArchive)
 		{
 			string members =
 				"{\"name\":\"Text Version\",\"version\":\"0.5b\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20,\"md5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"logicalFilename\":\"Text Version\"}}," +
 				"{\"name\":\"Other\",\"version\":\"1.0\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":30,\"fileId\":40,\"md5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"logicalFilename\":\"Other\"}}";
-			string rules = "[{\"type\":\"before\",\"source\":{\"fileExpression\":\"Text Version-10-0-5b\",\"fileMD5\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"versionMatch\":\"0.5.0\",\"logicalFileName\":\"Text Version\"},\"reference\":{\"fileMD5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"versionMatch\":\"1.0\",\"logicalFileName\":\"Other\"}}]";
+			string endpointMd5 = sameArchive ? "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" : "cccccccccccccccccccccccccccccccc";
+			string rules = "[{\"type\":\"before\",\"source\":{\"fileExpression\":\"Text Version-10-0-5b\",\"fileMD5\":\"" + endpointMd5 + "\",\"versionMatch\":\"0.5.0\",\"logicalFileName\":\"Text Version\"},\"reference\":{\"fileMD5\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"versionMatch\":\"1.0\",\"logicalFileName\":\"Other\"}}]";
 
 			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
 
-			Assert.AreEqual(CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
-			Assert.IsTrue(result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+			Assert.AreEqual(sameArchive ? CollectionCompatibilityStatus.Supported : CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
+			Assert.AreEqual(!sameArchive, result.CapabilityReport.ManifestIssues.Any(x => x.Code == "manifest.mod-rule-source-unresolved"));
+		}
+
+		/// <summary>Exact archive identity takes precedence over exported version formatting and display-name aliases.</summary>
+		[TestCase("3.0.2.10", "3.0.2-10", "Animation Selector", "Animation Selector", "before")]
+		[TestCase("1.4.8.1", "1.4.8-1", "Origins Of Forest", "Origins Of Forest", "after")]
+		[TestCase("2.8.6b", "2.8.6-b", "Follower Framework", "Follower Framework", "before")]
+		[TestCase(".60", "60.0.0", "Laci Living Doll ESL", "Laci Living Doll ESL", "after")]
+		[TestCase("2.2.6", "2.2.6", "Skse64 2 02 06", "Skyrim Script Extender (SKSE64)", "conflicts")]
+		public void Normalize_ExactArchiveHashResolvesExportedMetadataAliases(string memberVersion, string ruleVersion,
+			string memberLogicalName, string ruleLogicalName, string type)
+		{
+			var members = new JArray
+			{
+				new JObject
+				{
+					["name"] = "Source mod", ["version"] = memberVersion, ["optional"] = false, ["domainName"] = "skyrim",
+					["source"] = new JObject { ["type"] = "nexus", ["modId"] = 10, ["fileId"] = 20,
+						["md5"] = "89da1342816cf3593c60a775b9aaeba3", ["logicalFilename"] = memberLogicalName }
+				},
+				new JObject
+				{
+					["name"] = "Other mod", ["version"] = "1.0", ["optional"] = false, ["domainName"] = "skyrim",
+					["source"] = new JObject { ["type"] = "nexus", ["modId"] = 11, ["fileId"] = 21,
+						["md5"] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", ["logicalFilename"] = "Other mod" }
+				}
+			};
+			var rules = new JArray { new JObject
+			{
+				["type"] = type,
+				["source"] = new JObject { ["fileMD5"] = "89da1342816cf3593c60a775b9aaeba3",
+					["logicalFileName"] = ruleLogicalName, ["versionMatch"] = ruleVersion, ["fileExpression"] = "Exported archive filename" },
+				["reference"] = new JObject { ["fileMD5"] = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					["logicalFileName"] = "Other mod", ["versionMatch"] = "*" }
+			}};
+			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(
+				String.Join(",", members.Select(x => x.ToString(Newtonsoft.Json.Formatting.None))), rules.ToString(Newtonsoft.Json.Formatting.None)), 2);
+			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
+			if (type == "conflicts")
+				Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.ConflictConstraints.Single().SourceMemberKey);
+			else
+				Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
 		}
 
 		[Test]

@@ -110,7 +110,10 @@ namespace Nexus.Client.CollectionManagement
 			var prepared = new List<PreparedCollectionNativeRecipe>();
 			var effectiveBindings = new List<CollectionMemberBinding>();
 			var bindingUpdates = new List<CollectionMemberBinding>();
-			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore, true);
+			var nativePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, _artifactStore, _referenceStore, true)
+			{
+				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions
+			};
 			var adopter = new CollectionVerifiedArchiveAdopter(new ModManagerCollectionManagedArchiveSource(_services.ModManager),
 				new NexusCollectionArchiveIdentityVerifier(repository), _artifactStore, _referenceStore);
 
@@ -151,7 +154,7 @@ namespace Nexus.Client.CollectionManagement
 
 					if (liveMod == null) liveMod = ResolveLiveMod(effectiveBinding.NativeMod.NativeModKey);
 					if (installContext == null) installContext = new ModInstallContext(native.InstallMethod, native.InstallRoot);
-					bool contributesMerge = !member.HasVortexFileList && !member.HasVortexFomodSelection &&
+					bool contributesMerge = !member.HasVortexFileList && !member.HasVortexFomodSelection && !liveMod.HasInstallScript &&
 						CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, liveMod);
 					preparationInputs.Add(new VerifyRepairPreparationInput(effectiveBinding, member, native, liveMod,
 						contributesMerge, isBindingUpdate, installContext));
@@ -195,7 +198,8 @@ namespace Nexus.Client.CollectionManagement
 						bool includeMergeOutput = !input.ContributesDeterministicMerge || mergeOwner == null || input.Member.MemberKey.Equals(mergeOwner);
 						PreparedCollectionNativeRecipe recipe = nativePreparer.PrepareExact(resolvedPlan, input.Member, archive, input.LiveMod,
 							_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, context, state,
-							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, activeMods, includeMergeOutput, cancellationToken, destination.GameRootArchiveBaseDirectory);
+							_services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles, _services.PluginManager, activeMods, includeMergeOutput, cancellationToken, destination.GameRootArchiveBaseDirectory,
+							allowInstallerInteraction: reviewedIntent == null);
 						recipe = frozen == null
 							? CollectionInstallRootCorrection.Prepare(recipe, state, input.Native, _services.ModManager.DeploymentManager, _services.ModManager.VirtualModActivator, cancellationToken)
 							: CollectionInstallRootCorrection.Attach(recipe, frozen.InstallRootCorrection);
@@ -212,7 +216,7 @@ namespace Nexus.Client.CollectionManagement
 				}
 			}
 
-			catch (Exception ex)
+			catch (Exception ex) when (!(ex is OperationCanceledException))
 			{
 				return new CollectionVerifyRepairPreparationResult(resolvedPlan, prepared,
 					"Exact verify/repair preparation failed closed: " + ex.Message, effectiveBindings, bindingUpdates);
@@ -374,8 +378,12 @@ namespace Nexus.Client.CollectionManagement
 
 		private static bool CanRebindManualReinstallExactly(VerifyRepairPreparationInput input)
 		{
-			return input != null && !input.LiveMod.HasInstallScript && (input.Native == null || !input.Native.HasInstallScript) && !input.Member.HasVortexFomodSelection &&
-				!input.Member.HasVortexFileList && !input.Member.HasVortexFileOverrides && !input.Member.HasVortexBinaryPatches;
+			if (input == null || input.Member.HasVortexFomodSelection || input.Member.HasVortexFileList ||
+				input.Member.HasVortexFileOverrides || input.Member.HasVortexBinaryPatches) return false;
+			// The native wizard now freezes fresh XML choices before repair review, including exact destinations.
+			if (input.LiveMod.HasInstallScript)
+				return input.LiveMod.InstallScript.Type is IModInstallationFomodInteractiveAdapter;
+			return input.Native == null || !input.Native.HasInstallScript;
 		}
 
 		private sealed class VerifyRepairPreparationInput

@@ -7,6 +7,7 @@
 	using System.IO;
 	using System.Reflection;
 	using System.Runtime.Serialization;
+	using System.Xml;
 	using Nexus.Client.ModManagement;
 	using Nexus.Client.ModRepositories;
 	using Nexus.Client.Mods.Formats.FOMod;
@@ -120,6 +121,61 @@
 			mod.UpdateInfo(info, overwriteAllValues);
 			Assert.AreSame(replacement, mod.Screenshot);
 			Assert.AreEqual("fomod/screenshot.png", mod.ScreenshotPath);
+		}
+
+		/// <summary>Metadata from legacy, default-namespace and prefixed FOMOD archives must deserialize identically.</summary>
+		[TestCase("")]
+		[TestCase("default")]
+		[TestCase("prefixed")]
+		public void LoadInfo_ArchiveSchemaNamespace_PreservesMetadata(string namespaceStyle)
+		{
+			const string schema = "https://raw.githubusercontent.com/BellCubeDev/fomod-schema/master/info.xsd";
+			XmlDocument document = new XmlDocument();
+			document.LoadXml("<fomod><Name>Additional Clockwork</Name><Author>BellCube Dev</Author>" +
+				"<Version MachineVersion='3.0.4'>3.0.4</Version><Id>47087</Id><DownloadId>322413</DownloadId>" +
+				"<Website>https://www.nexusmods.com/skyrimspecialedition/mods/47087</Website>" +
+				"<Description>Clockwork changes</Description><IsEndorsed>false</IsEndorsed>" +
+				"<EndorsementStatus>Abstained</EndorsementStatus></fomod>");
+			if (namespaceStyle.Length > 0)
+			{
+				XmlDocument namespaced = new XmlDocument();
+				XmlElement root = namespaced.CreateElement(namespaceStyle == "prefixed" ? "f" : String.Empty, "fomod", schema);
+				namespaced.AppendChild(root);
+				foreach (XmlNode child in document.DocumentElement.ChildNodes)
+				{
+					XmlElement element = namespaced.CreateElement(root.Prefix, child.LocalName, schema);
+					element.InnerText = child.InnerText;
+					foreach (XmlAttribute attribute in child.Attributes) element.SetAttribute(attribute.Name, attribute.Value);
+					root.AppendChild(element);
+				}
+				document = namespaced;
+			}
+			FOMod mod = CreateMod(false);
+
+			typeof(FOMod).GetMethod("LoadInfo", BindingFlags.Instance | BindingFlags.NonPublic, null,
+				new[] { typeof(XmlNode), typeof(bool) }, null).Invoke(mod, new object[] { document, false });
+
+			Assert.AreEqual("Additional Clockwork", mod.ModName);
+			Assert.AreEqual("BellCube Dev", mod.Author);
+			Assert.AreEqual("3.0.4", mod.HumanReadableVersion);
+			Assert.AreEqual(new Version(3, 0, 4), mod.MachineVersion);
+			Assert.AreEqual("47087", mod.Id);
+			Assert.AreEqual("322413", mod.DownloadId);
+			Assert.AreEqual("Clockwork changes", mod.Description);
+			Assert.AreEqual(false, mod.IsEndorsed);
+			Assert.AreEqual("https://www.nexusmods.com/skyrimspecialedition/mods/47087", mod.Website.AbsoluteUri);
+		}
+
+		/// <summary>A malformed metadata root reports an XML error instead of an unexplained null-reference exception.</summary>
+		[Test]
+		public void LoadInfo_MissingFomodRoot_ReportsXmlError()
+		{
+			XmlDocument document = new XmlDocument();
+			document.LoadXml("<invalid><Name>Invalid metadata</Name></invalid>");
+			TargetInvocationException error = Assert.Throws<TargetInvocationException>(() => typeof(FOMod)
+				.GetMethod("LoadInfo", BindingFlags.Instance | BindingFlags.NonPublic, null,
+					new[] { typeof(XmlNode), typeof(bool) }, null).Invoke(CreateMod(false), new object[] { document, false }));
+			Assert.IsInstanceOf<XmlException>(error.InnerException);
 		}
 
 		private static FOMod CreateMod(bool screenshotLoaded, ExtendedImage screenshot = null)

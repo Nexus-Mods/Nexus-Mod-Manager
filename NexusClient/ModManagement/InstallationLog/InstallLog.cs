@@ -101,6 +101,8 @@
 		/// <c>0.0.0.0</c> if the log format is not recognized.</returns>
 		public static Version ReadVersion(string logPath)
 		{
+			if (InstallLogSqliteStore.IsAuthoritative(logPath))
+				return new InstallLogSqliteStore(InstallLogSqliteStore.DatabasePath(logPath)).ReadVersion();
 			if (!File.Exists(logPath))
             {
                 return new Version("0.0.0.0");
@@ -133,14 +135,17 @@
 		/// <c>false</c> otherwise.</returns>
 		public static bool IsLogValid(string logPath)
 		{
-			if (!File.Exists(logPath))
+			if (!HasPersistedLog(logPath))
             {
                 return false;
             }
 
             try
 			{
-				var docLog = XDocument.Load(logPath);
+				if (InstallLogSqliteStore.IsAuthoritative(logPath))
+					new InstallLogSqliteStore(InstallLogSqliteStore.DatabasePath(logPath)).ReadVersion();
+				else
+					XDocument.Load(logPath);
                 return true;
 			}
 			catch (Exception e)
@@ -324,7 +329,7 @@
 		private IDictionary<string, IMod> GetInstallLogModInfo()
 		{
 			var loggedModInfo = new Dictionary<string, IMod>();
-			var log = XDocument.Load(LogPath);
+			var log = _store.Read(true);
 
 			var logVersion = log.Element("installLog")?.Attribute("fileVersion")?.Value;
 
@@ -383,13 +388,9 @@
 		{
 			Trace.TraceInformation($"Path: {LogPath}");
 			
-            if (!File.Exists(LogPath))
-            {
-                SaveInstallLog();
-            }
-
-            var docLog = XDocument.Load(LogPath);
-			Trace.TraceInformation("Loaded from XML.");
+			InstallLogSqliteStore.EnsureMigrated(LogPath);
+			_store = new InstallLogSqliteStore(InstallLogSqliteStore.DatabasePath(LogPath));
+			var docLog = _store.Read();
 
 			var logVersion = docLog.Element("installLog")?.Attribute("fileVersion")?.Value;
 			
@@ -455,7 +456,7 @@
 						try
 						{
 							var key = mod.Attribute("key").Value;
-							_activeModRegistry.RegisterMod(modMod, key);
+							_activeModRegistry.RegisterMod(modMod, key, (bool?)mod.Attribute("hidden") == true);
 							SetModInstallRoot(key, ParseInstallRoot(mod.Attribute("installRoot")?.Value));
 							SetModInstallMethod(key, ParseInstallMethod(mod.Attribute("installMethod")?.Value));
 						}
@@ -518,95 +519,9 @@
 		}
 
 		/// <summary>
-		/// Save the data to the Install Log file.
-		/// </summary>
-		protected void SaveInstallLog()
-		{
-			SaveInstallLog(_deploymentCommitSequence);
-		}
-
-		/// <summary>
-		/// Saves the current InstallLog state with the deployment sequence that becomes live only after the durable write succeeds.
-		/// </summary>
-		private void SaveInstallLog(long p_lngDeploymentCommitSequence)
-		{
-			var log = new XDocument();
-			var root = new XElement("installLog", new XAttribute("fileVersion", CurrentVersion));
-			if (p_lngDeploymentCommitSequence > 0)
-				root.Add(new XAttribute("deploymentCommitSequence", p_lngDeploymentCommitSequence));
-			log.Add(root);
-
-			var modList = new XElement("modList");
-			root.Add(modList);
-			modList.Add(from kvp in _activeModRegistry.Registrations
-						select new XElement("mod",
-									new XAttribute("path", kvp.Key is DummyMod ? kvp.Key.ModArchivePath : kvp.Key.ModArchivePath.Substring(ModInstallDirectory.Length)),
-									new XAttribute("key", kvp.Value),
-									CreateInstallRootAttribute(GetModInstallRootByKey(kvp.Value)),
-									CreateInstallMethodAttribute(GetModInstallMethodByKey(kvp.Value)),
-									new XElement("version",
-										new XAttribute("machineVersion", kvp.Key.MachineVersion ?? new Version()),
-										new XText(kvp.Key.HumanReadableVersion ?? "")),
-									new XElement("name",
-										new XText(kvp.Key.ModName)),
-									new XElement("installDate",
-										new XText(kvp.Key.InstallDate ?? DateTime.Now.ToString()))));
-
-			var files = new XElement("dataFiles");
-			root.Add(files);
-			files.Add(from itm in _installedFiles
-						 select new XElement("file",
-								new XAttribute("path", itm.Item),
-								new XElement("installingMods",
-									from m in itm.Installers
-									select new XElement("mod",
-										new XAttribute("key", m.InstallerKey)))));
-
-			AddSerializedDeploymentRegistry(root);
-
-			var iniEdits = new XElement("iniEdits");
-			root.Add(iniEdits);
-			iniEdits.Add(from itm in _installedIniEdits
-							select new XElement("ini",
-									new XAttribute("file", itm.Item.File),
-									new XAttribute("section", itm.Item.Section),
-									new XAttribute("key", itm.Item.Key),
-									new XElement("installingMods",
-									from m in itm.Installers
-										select new XElement("mod",
-											new XAttribute("key", m.InstallerKey),
-											new XText(m.Value)))));
-
-			var gameSpecificValueEdits = new XElement("gameSpecificEdits");
-			root.Add(gameSpecificValueEdits);
-			gameSpecificValueEdits.Add(from itm in _gameSpecificValueEdits
-										  select new XElement("edit",
-												 new XAttribute("key", itm.Item),
-												 new XElement("installingMods",
-													 from m in itm.Installers
-													 select new XElement("mod",
-														 new XAttribute("key", m.InstallerKey),
-														 new XText(Convert.ToBase64String(m.Value))))));
-
-            var logDirectory = Path.GetDirectoryName(LogPath);
-
-            if (string.IsNullOrEmpty(logDirectory))
-            {
-                throw new Exception($"Directory of {nameof(LogPath)} \"{LogPath}\" is invalid.");
-            }
-
-			if (!Directory.Exists(logDirectory))
-            {
-                Directory.CreateDirectory(logDirectory);
-            }
-
-			SaveInstallLogAtomically(log, LogPath);
-		}
-
-		/// <summary>
 		/// Writes the InstallLog through a flushed same-directory temporary file before replacing the durable copy.
 		/// </summary>
-		private static void SaveInstallLogAtomically(XDocument p_xdcLog, string p_strLogPath)
+		private static void SaveInstallLogAtomically(XStreamingElement p_xdcLog, string p_strLogPath)
 		{
 			string temporaryPath = p_strLogPath + ".tmp";
 			try
@@ -1188,30 +1103,19 @@
         /// <inheritdoc />
 		public void Backup()
 		{
-			if (File.Exists(LogPath))
-			{
-				var backupLogPath = LogPath + ".bak";
-				var installLog = new FileInfo(LogPath);
-				var installLogBak = File.Exists(backupLogPath) ? new FileInfo(backupLogPath) : null;
-
-				if (installLogBak == null || installLogBak.LastWriteTimeUtc != installLog.LastWriteTimeUtc)
-				{
-					for (var i = 4; i > 0; i--)
-					{
-						if (File.Exists(backupLogPath + i))
-                        {
-                            File.Copy(backupLogPath + i, backupLogPath + (i + 1), true);
-                        }
-                    }
-
-					if (File.Exists(backupLogPath))
-                    {
-                        File.Copy(backupLogPath, backupLogPath + "1", true);
-                    }
-
-                    File.Copy(LogPath, backupLogPath, true);
-				}
-			}
+			if (!HasPersistedLog(LogPath)) return;
+			string source = InstallLogSqliteStore.IsAuthoritative(LogPath) ? InstallLogSqliteStore.DatabasePath(LogPath) : LogPath;
+			string backup = source + ".bak";
+			DateTime lastWrite = File.GetLastWriteTimeUtc(source);
+			if (File.Exists(backup) && File.GetLastWriteTimeUtc(backup) == lastWrite) return;
+			for (int i = 4; i > 0; i--)
+				if (File.Exists(backup + i)) File.Copy(backup + i, backup + (i + 1), true);
+			if (File.Exists(backup)) File.Copy(backup, backup + "1", true);
+			if (source == LogPath)
+				File.Copy(source, backup, true);
+			else
+				new InstallLogSqliteStore(source).BackupTo(backup);
+			File.SetLastWriteTimeUtc(backup, lastWrite);
 		}
 
 		/// <summary>
@@ -1219,6 +1123,9 @@
 		/// </summary>
 		public static bool Restore(string logPath)
 		{
+			if (InstallLogSqliteStore.IsAuthoritative(logPath))
+				return RestoreDatabase(logPath);
+
 			var suffix = "." + DateTime.Now.ToString("yyyyMMddHHmmss") + ".bad";
 			
             if (File.Exists(logPath))

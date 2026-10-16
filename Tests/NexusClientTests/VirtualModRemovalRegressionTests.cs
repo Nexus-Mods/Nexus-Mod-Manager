@@ -58,6 +58,63 @@
 			}
 		}
 
+		/// <summary>Repairs legacy/raw-path records that mark two sources active for the same physical destination.</summary>
+		[TestCase(ModInstallRoot.Data)]
+		[TestCase(ModInstallRoot.GameRoot)]
+		public void ReviewedWinner_RepairsMultipleActiveOwnersEvenWhenSelectedOwnerIsFirst(ModInstallRoot root)
+		{
+			using (var fixture = new RemovalFixture(root))
+			{
+				IMod selected = fixture.CreateMod("Selected");
+				IMod previous = fixture.CreateMod("Previous");
+				fixture.Install(selected, "Shared.xml", "selected");
+				fixture.Install(previous, "Shared.xml", "previous");
+				foreach (IVirtualModLink link in fixture.Activator.VirtualLinks) { link.Active = true; link.Priority = 0; }
+				IVirtualModLink selectedLink = fixture.Activator.VirtualLinks.Single(x => x.ModInfo.ModFileName == Path.GetFileName(selected.Filename));
+				// Match the reported case: the selected source is the first active candidate, but its bytes are not deployed.
+				fixture.Activator.VirtualLinks.Remove(selectedLink);
+				fixture.Activator.VirtualLinks.Insert(0, selectedLink);
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(fixture.GameMode, selected, "Shared.xml", root);
+
+				VirtualFileOwnerSwitchResult result = fixture.Activator.SwitchFileOwner(target, fixture.InstallLog.GetModKey(selected));
+
+				Assert.IsTrue(result.Success, result.FailureMessage);
+				Assert.AreEqual("selected", File.ReadAllText(fixture.Deployed("Shared.xml")));
+				Assert.AreEqual(1, fixture.Activator.VirtualLinks.Count(x => x.Active));
+				CollectionAssert.AreEqual(new[] { fixture.InstallLog.GetModKey(previous), fixture.InstallLog.GetModKey(selected) },
+					fixture.Activator.GetVirtualOwnerKeys(target));
+				Assert.IsTrue(fixture.Uninstall(selected).Succeeded);
+				Assert.AreEqual("previous", File.ReadAllText(fixture.Deployed("Shared.xml")));
+			}
+		}
+
+		/// <summary>Does not change fallback order when several owners have equal or inconsistent legacy priorities.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void ReviewedWinner_PreservesObservedFallbackOrder(bool multipleActive)
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.Data))
+			{
+				IMod[] mods = { fixture.CreateMod("Zulu"), fixture.CreateMod("Alpha"), fixture.CreateMod("Middle"), fixture.CreateMod("Last") };
+				foreach (IMod mod in mods) fixture.Install(mod, "Shared.xml", mod.ModName);
+				foreach (IVirtualModLink link in fixture.Activator.VirtualLinks)
+				{
+					link.Priority = 0;
+					link.Active = multipleActive || link.ModInfo.ModFileName == Path.GetFileName(mods[3].Filename);
+				}
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(fixture.GameMode, mods[0], "Shared.xml", ModInstallRoot.Data);
+				string selectedKey = fixture.InstallLog.GetModKey(mods[0]);
+				string[] expected = fixture.Activator.GetVirtualOwnerKeys(target).Where(key => key != selectedKey).Concat(new[] { selectedKey }).ToArray();
+
+				VirtualFileOwnerSwitchResult result = fixture.Activator.SwitchFileOwner(target, selectedKey);
+
+				Assert.IsTrue(result.Success, result.FailureMessage);
+				Assert.AreEqual(mods[0].ModName, File.ReadAllText(fixture.Deployed("Shared.xml")));
+				Assert.AreEqual(1, fixture.Activator.VirtualLinks.Count(x => x.Active));
+				CollectionAssert.AreEqual(expected, fixture.Activator.GetVirtualOwnerKeys(target));
+			}
+		}
+
 		/// <summary>Retains File Manager archive/download keys at the legacy Data-only entry point.</summary>
 		[Test]
 		public void FileManagerWinner_StillAcceptsAndReturnsLegacyOwnerKey()

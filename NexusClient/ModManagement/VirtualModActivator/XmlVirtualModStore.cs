@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
 	using System;
 	using System.Collections.Generic;
@@ -42,7 +42,8 @@ namespace Nexus.Client.ModManagement
 
 		public void SaveWithModInfoMatching(Version fileVersion, string filePath, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink)
 		{
-			XStreamingElement docVirtual = BuildXmlDocument(fileVersion, virtualModInfo, mod => virtualModLink.Where(x => CheckModInfo(x.ModInfo, mod) == true));
+			MatchingLinkIndex links = new MatchingLinkIndex(virtualModLink);
+			XStreamingElement docVirtual = BuildXmlDocument(fileVersion, virtualModInfo, links.GetLinks);
 
 			SaveXmlDocumentSafely(docVirtual, filePath);
 		}
@@ -52,6 +53,33 @@ namespace Nexus.Client.ModManagement
 			VirtualModStoreData data;
 			Load(filePath, currentVersion, isValidVersion, getMissingFileVersion, false, out data);
 			return data;
+		}
+
+		/// <summary>Requires a complete legacy parse before migration or backup restore can replace native state.</summary>
+		internal VirtualModStoreData LoadForImport(string path, Version version, Func<Version, bool> validVersion, Func<string, string, string> missingVersion)
+		{
+			if (!File.Exists(path)) throw new FileNotFoundException("The virtual mod snapshot is missing.", path);
+			try
+			{
+				VirtualModStoreData data;
+				Load(path, version, validVersion, missingVersion, false, out data, true);
+				return data;
+			}
+			catch (Exception exception)
+			{
+				throw new InvalidDataException("The legacy virtual mod snapshot could not be read completely. The original file has been preserved.", exception);
+			}
+		}
+
+		/// <summary>Checks migration values and owner ordering using the same legacy serializer used by profiles.</summary>
+		internal static void ValidateImport(Version version, VirtualModStoreData expected, VirtualModStoreData actual)
+		{
+			Dictionary<IVirtualModInfo, List<IVirtualModLink>> left = BuildVirtualLinksByModInfo(expected.VirtualLinks);
+			Dictionary<IVirtualModInfo, List<IVirtualModLink>> right = BuildVirtualLinksByModInfo(actual.VirtualLinks);
+			string before = BuildXmlDocument(version, expected.VirtualMods, mod => GetVirtualLinksForMod(left, mod)).ToString(SaveOptions.DisableFormatting);
+			string after = BuildXmlDocument(version, actual.VirtualMods, mod => GetVirtualLinksForMod(right, mod)).ToString(SaveOptions.DisableFormatting);
+			if (!String.Equals(before, after, StringComparison.Ordinal))
+				throw new InvalidDataException("Virtual mod migration did not preserve the legacy registrations and ordered links.");
 		}
 
 		public bool TryLoad(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion, out VirtualModStoreData data)
@@ -88,7 +116,7 @@ namespace Nexus.Client.ModManagement
 							new XStreamingElement("isActive", link.Active.ToString())))));
 		}
 
-		private static bool Load(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion, bool reportSuccess, out VirtualModStoreData data)
+		private static bool Load(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion, bool reportSuccess, out VirtualModStoreData data, bool requireComplete = false)
 		{
 			List<string> lstAddedModInfo = new List<string>();
 			List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
@@ -115,20 +143,20 @@ namespace Nexus.Client.ModManagement
 					{
 						foreach (XElement xelMod in xelModList.Elements("modInfo"))
 						{
-							LoadMod(xelMod, lstAddedModInfo, lstVirtualMods, lstVirtualLinks, getMissingFileVersion);
+							LoadMod(xelMod, lstAddedModInfo, lstVirtualMods, lstVirtualLinks, getMissingFileVersion, requireComplete);
 						}
 
 						if (reportSuccess)
 							return true;
 					}
 				}
-				catch { }
+				catch { if (requireComplete) throw; }
 			}
 
 			return false;
 		}
 
-		private static void LoadMod(XElement xelMod, List<string> lstAddedModInfo, List<IVirtualModInfo> lstVirtualMods, List<IVirtualModLink> lstVirtualLinks, Func<string, string, string> getMissingFileVersion)
+		private static void LoadMod(XElement xelMod, List<string> lstAddedModInfo, List<IVirtualModInfo> lstVirtualMods, List<IVirtualModLink> lstVirtualLinks, Func<string, string, string> getMissingFileVersion, bool keepEmptyMods = false)
 		{
 			string strModId = xelMod.Attribute("modId").Value;
 			string strDownloadId = string.Empty;
@@ -152,7 +180,10 @@ namespace Nexus.Client.ModManagement
 			string strModFileName = xelMod.Attribute("modFileName").Value;
 
 			if (lstAddedModInfo.Contains(strModFileName, StringComparer.InvariantCultureIgnoreCase))
+			{
+				if (keepEmptyMods) throw new InvalidDataException("The legacy virtual mod snapshot contains duplicate archive filenames: " + strModFileName);
 				return;
+			}
 
 			try
 			{
@@ -211,6 +242,11 @@ namespace Nexus.Client.ModManagement
 
 				lstVirtualLinks.Add(new VirtualModLink(strRealPath, strVirtualPath, intPriority, booActive, vmiMod, installRoot));
 			}
+			if (keepEmptyMods && booNoFileLink)
+			{
+				lstVirtualMods.Add(vmiMod);
+				lstAddedModInfo.Add(strModFileName);
+			}
 		}
 
 		private static ModInstallRoot NormalizeInstallRoot(ModInstallRoot installRoot)
@@ -253,17 +289,57 @@ namespace Nexus.Client.ModManagement
 			return Enumerable.Empty<IVirtualModLink>();
 		}
 
-		private static bool CheckModInfo(IVirtualModInfo p_vmiA, IVirtualModInfo p_vmiB)
+		/// <summary>Indexes the legacy download-ID-or-filename match without rescanning every link for every mod.</summary>
+		internal sealed class MatchingLinkIndex
 		{
-			if (!string.IsNullOrEmpty(p_vmiA.DownloadId) && !string.IsNullOrEmpty(p_vmiB.DownloadId))
-				if (p_vmiA.DownloadId.Equals(p_vmiB.DownloadId, StringComparison.OrdinalIgnoreCase))
-					return true;
+			private readonly List<IVirtualModLink> _links;
+			private readonly Dictionary<string, List<int>> _byDownloadId = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+			private readonly Dictionary<string, List<int>> _byFileName = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
 
-			if (!string.IsNullOrEmpty(p_vmiA.ModFileName) && !string.IsNullOrEmpty(p_vmiB.ModFileName))
-				if (p_vmiA.ModFileName.Equals(p_vmiB.ModFileName, StringComparison.OrdinalIgnoreCase))
-					return true;
+			/// <summary>Captures input positions so OR matches preserve link order and duplicate input occurrences.</summary>
+			internal MatchingLinkIndex(IEnumerable<IVirtualModLink> links)
+			{
+				_links = links.ToList();
+				for (int index = 0; index < _links.Count; index++)
+				{
+					Add(_byDownloadId, _links[index].ModInfo.DownloadId, index);
+					Add(_byFileName, _links[index].ModInfo.ModFileName, index);
+				}
+			}
 
-			return false;
+			/// <summary>Merges both matching identity lists, emitting each input position exactly once.</summary>
+			internal IEnumerable<IVirtualModLink> GetLinks(IVirtualModInfo mod)
+			{
+				List<int> byId = null;
+				List<int> byName = null;
+				if (!String.IsNullOrEmpty(mod.DownloadId)) _byDownloadId.TryGetValue(mod.DownloadId, out byId);
+				if (!String.IsNullOrEmpty(mod.ModFileName)) _byFileName.TryGetValue(mod.ModFileName, out byName);
+				int idCount = byId == null ? 0 : byId.Count;
+				int nameCount = byName == null ? 0 : byName.Count;
+				int idIndex = 0;
+				int nameIndex = 0;
+				while (idIndex < idCount || nameIndex < nameCount)
+				{
+					int next = Math.Min(idIndex < idCount ? byId[idIndex] : Int32.MaxValue,
+						nameIndex < nameCount ? byName[nameIndex] : Int32.MaxValue);
+					if (idIndex < idCount && byId[idIndex] == next) idIndex++;
+					if (nameIndex < nameCount && byName[nameIndex] == next) nameIndex++;
+					yield return _links[next];
+				}
+			}
+
+			/// <summary>Indexes only identities that the legacy matching predicate considers usable.</summary>
+			private static void Add(Dictionary<string, List<int>> index, string key, int position)
+			{
+				if (String.IsNullOrEmpty(key)) return;
+				List<int> positions;
+				if (!index.TryGetValue(key, out positions))
+				{
+					positions = new List<int>();
+					index.Add(key, positions);
+				}
+				positions.Add(position);
+			}
 		}
 
 		private sealed class VirtualModInfoReferenceComparer : IEqualityComparer<IVirtualModInfo>

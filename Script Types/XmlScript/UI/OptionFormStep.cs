@@ -36,6 +36,23 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.UI
 
 		#endregion
 
+		/// <summary>Captures selected option identities by object reference rather than potentially duplicated display names.</summary>
+		internal IReadOnlyList<ModInstallationFomodGroupSelection> CaptureSelections(IList<OptionGroup> groups, bool visible)
+		{
+			var result = new List<ModInstallationFomodGroupSelection>();
+			for (int groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+			{
+				OptionGroup group = groups[groupIndex];
+				var selected = new List<ModInstallationFomodOptionSelection>();
+				for (int optionIndex = 0; visible && optionIndex < group.Options.Count; optionIndex++)
+					foreach (ListViewItem item in lvwPlugins.CheckedItems)
+						if (ReferenceEquals(item.Tag, group.Options[optionIndex]))
+							selected.Add(new ModInstallationFomodOptionSelection(optionIndex, group.Options[optionIndex].Name));
+				result.Add(new ModInstallationFomodGroupSelection(groupIndex, group.Name, selected));
+			}
+			return result;
+		}
+
 		#region Control Members
 
 		/// <summary>

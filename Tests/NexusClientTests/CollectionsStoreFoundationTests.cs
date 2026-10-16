@@ -689,6 +689,71 @@ CREATE TABLE local_working_copies (
 			}
 		}
 
+		/// <summary>
+		/// Opening or writing after a crash must let SQLite recover its hot journal before schema validation.
+		/// </summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void InterruptedTransaction_RecoversBeforeWritablePreflight(bool writeWithoutExplicitOpen)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				var store = new CollectionsStore(root);
+				Guid storeId = store.CreateNew();
+				var catalog = new CollectionsCatalogStore(store);
+				var committed = new CollectionDefinition(CollectionIdentity.FromNexus("before-interruption"), "Committed collection", null, null);
+				catalog.SaveDefinition(committed);
+				byte[] interruptedDatabase;
+				byte[] interruptedJournal;
+				using (SQLiteConnection writer = OpenDatabase(store.DatabasePath))
+				{
+					Execute(writer, null, "PRAGMA cache_size=1;");
+					Execute(writer, null, "BEGIN IMMEDIATE;");
+					try
+					{
+						Execute(writer, null, "UPDATE store_metadata SET value='uncommitted-identity' WHERE key='store_id';");
+						Execute(writer, null, "CREATE TABLE uncommitted_recovery_probe (payload BLOB);");
+						Execute(writer, null, "INSERT INTO uncommitted_recovery_probe VALUES (zeroblob(65536));");
+						interruptedDatabase = File.ReadAllBytes(store.DatabasePath);
+						interruptedJournal = File.ReadAllBytes(store.DatabasePath + "-journal");
+					}
+					finally { Execute(writer, null, "ROLLBACK;"); }
+				}
+
+				byte[] journalHeader = new byte[8];
+				Buffer.BlockCopy(interruptedJournal, 0, journalHeader, 0, journalHeader.Length);
+				CollectionAssert.AreEqual(new byte[] { 0xd9, 0xd5, 0x05, 0xf9, 0x20, 0xa1, 0x63, 0xd7 }, journalHeader,
+					"The fixture must contain a synced hot journal, not an empty journal header.");
+				File.WriteAllBytes(store.DatabasePath, interruptedDatabase);
+				File.WriteAllBytes(store.DatabasePath + "-journal", interruptedJournal);
+
+				using (SQLiteConnection reader = new SQLiteConnection(new SQLiteConnectionStringBuilder
+				{
+					DataSource = store.DatabasePath, ReadOnly = true, FailIfMissing = true, Pooling = false
+				}.ConnectionString))
+				{
+					reader.Open();
+					Assert.Throws<SQLiteException>(() => ScalarString(reader, "SELECT value FROM store_metadata WHERE key='store_id';"),
+						"The crash fixture must reproduce the read-only preflight failure.");
+				}
+
+				var afterRecovery = new CollectionDefinition(CollectionIdentity.FromNexus("after-recovery"), "After recovery", null, null);
+				if (writeWithoutExplicitOpen)
+					catalog.SaveDefinition(afterRecovery);
+				else
+					Assert.AreEqual(storeId, store.OpenExisting().StoreId);
+
+				Assert.AreEqual(storeId, store.ReadStoreId(), "Recovery must preserve the committed store identity.");
+				Assert.IsNotNull(catalog.GetDefinition(committed.Identity));
+				if (writeWithoutExplicitOpen)
+					Assert.IsNotNull(catalog.GetDefinition(afterRecovery.Identity));
+				using (SQLiteConnection reader = OpenDatabase(store.DatabasePath))
+					Assert.IsFalse(TableExists(reader, "uncommitted_recovery_probe"), "Interrupted schema changes must roll back.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		[Test]
 		public void ReadOnlyStore_RemainsReadableButFeatureWritesAreBlocked()
 		{

@@ -144,7 +144,7 @@ namespace Nexus.Client.ModAuthoring
 		/// <param name="p_strFilePath">The archive to build into a mod.</param>
 		/// <param name="p_dlgConfirmOverwrite">The delegate to call to resolve conflicts with existing files.</param>
 		/// <param name="p_booConsumeSource">Whether the source is a task-owned temporary download that may be moved instead of copied.</param>
-		/// <exception cref="ArgumentException">Thrown if the specified path is not an archive.</exception>
+		/// <remarks>Missing sources are reported through TaskEnded so download callbacks cannot terminate NMM.</remarks>
 		public void BuildFromFile(IModFormatRegistry p_mfrFormats, string p_strFilePath, ConfirmOverwriteCallback p_dlgConfirmOverwrite, bool p_booConsumeSource = false)
 		{
 			ShowItemProgress = true;
@@ -154,7 +154,11 @@ namespace Nexus.Client.ModAuthoring
 			OverallMessage = m_strBuildingModText;
 			Sources srcModSource = Sources.Archive;
 			if (String.IsNullOrEmpty(p_strFilePath) || !File.Exists(p_strFilePath))
-				throw new ArgumentException("The given file path does not exist: " + p_strFilePath);
+			{
+				Status = TaskStatus.Error;
+				OnTaskEnded(LanguageManager.Format("Downloads.AddMod.FileMissing", "File does not exist: {0}", p_strFilePath), null);
+				return;
+			}
 			Stopwatch validationTimer = Stopwatch.StartNew();
 			bool isArchive = Archive.IsArchive(p_strFilePath);
 			validationTimer.Stop();

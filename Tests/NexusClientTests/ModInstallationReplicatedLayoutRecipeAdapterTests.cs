@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using Nexus.Client.ModManagement;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
@@ -70,6 +71,132 @@ namespace NexusClientTests
 					StringComparer.OrdinalIgnoreCase.Equals(operation.SourcePath, @"source\excluded.bin")), Is.False,
 					"Archive entries absent from the desired replicated output tree must remain excluded.");
 			}
+		}
+
+		/// <summary>Uses one batch extraction for content mapping, including equivalent duplicate sources, and cleans scratch on cancellation.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Translate_BatchesArchiveReadsAndCleansScratch(bool cancelExtraction)
+		{
+			byte[] bytes = Encoding.UTF8.GetBytes("identical texture content");
+			var recipe = new ModInstallationReplicatedLayoutRecipe(new[]
+			{
+				new ModInstallationReplicatedFile(@"textures\original.bin", ComputeMd5(bytes)),
+				new ModInstallationReplicatedFile(@"textures\renamed.bin", ComputeMd5(bytes))
+			});
+			using (var cancellation = new CancellationTokenSource())
+			{
+				int batchCalls = 0;
+				string scratch = null;
+				float lastProgress = -1;
+				IMod mod = InterfaceStub<IBatchArchiveMod>.Create((method, args) =>
+				{
+					if (method.Name == "GetFileList")
+						return new List<string> { @"textures\original.bin", @"other\duplicate.bin" };
+					if (method.Name == "GetFile")
+						throw new InvalidOperationException("Batch-capable archives must not be extracted per file.");
+					if (method.Name == "CopyFilesTo")
+					{
+						batchCalls++;
+						var destinations = (IReadOnlyDictionary<string, string>)args[0];
+						foreach (string destination in destinations.Values)
+						{
+							scratch = Path.GetDirectoryName(destination);
+							File.WriteAllBytes(destination, bytes);
+							if (cancelExtraction)
+							{
+								cancellation.Cancel();
+								((CancellationToken)args[1]).ThrowIfCancellationRequested();
+							}
+						}
+						((Action<float>)args[2])(1f);
+					}
+					return null;
+				});
+				var adapter = new ModInstallationReplicatedLayoutRecipeAdapter();
+				if (cancelExtraction)
+					Assert.Throws<OperationCanceledException>(() => adapter.Translate(CreateInput(recipe), mod, recipe,
+						cancellation.Token, value => lastProgress = value));
+				else
+				{
+					ModInstallationRecipeInput translated = adapter.Translate(CreateInput(recipe), mod, recipe,
+						cancellation.Token, value => lastProgress = value);
+					Assert.That(translated.NativeOperations.Count, Is.EqualTo(2));
+					Assert.That(((InstallModFileOperation)translated.NativeOperations[0]).SourcePath, Is.EqualTo(@"textures\original.bin"));
+					Assert.That(lastProgress, Is.EqualTo(1f));
+				}
+				Assert.That(batchCalls, Is.EqualTo(1));
+				Assert.That(scratch, Is.Not.Null);
+				Assert.That(Directory.Exists(scratch), Is.False);
+			}
+		}
+
+		/// <summary>List-installer sources include payloads under fomod even when the ordinary mod inventory hides them.</summary>
+		[Test]
+		public void Translate_ResolvesHiddenFomodPayload()
+		{
+			byte[] bytes = Encoding.UTF8.GetBytes("curator-selected texture");
+			const string source = @"fomod\01data\textures\grass.dds";
+			IMod mod = InterfaceStub<IInstallerArchiveMod>.Create((method, args) =>
+			{
+				if (method.Name == "GetFileList") return new List<string>();
+				if (method.Name == "GetInstallerSourceFiles") return new List<string> { source };
+				if (method.Name == "GetFile") return bytes;
+				return null;
+			});
+			var recipe = new ModInstallationReplicatedLayoutRecipe(new[] { new ModInstallationReplicatedFile(@"textures\grass.dds", ComputeMd5(bytes)) });
+			ModInstallationRecipeInput translated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(CreateInput(recipe), mod, recipe);
+			Assert.That(((InstallModFileOperation)translated.NativeOperations.Single()).SourcePath, Is.EqualTo(source));
+		}
+
+		/// <summary>Skip mode resolves a unique archive layout without extracting or hashing files, while strict mode still checks bytes.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Translate_SkipContentChecksAvoidsReadingUniqueLayout(bool skipChecks)
+		{
+			int reads = 0;
+			byte[] bytes = Encoding.UTF8.GetBytes("archive texture");
+			IMod mod = InterfaceStub<IMod>.Create((method, args) =>
+			{
+				if (method.Name == "GetFileList") return new List<string> { @"Data\textures\grass.dds" };
+				if (method.Name == "GetFile") { reads++; return bytes; }
+				return null;
+			});
+			var recipe = new ModInstallationReplicatedLayoutRecipe(new[] { new ModInstallationReplicatedFile(@"textures\grass.dds", ComputeMd5(bytes)) });
+			ModInstallationRecipeInput translated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
+				CreateInput(recipe), mod, recipe, CancellationToken.None, null, skipChecks);
+			Assert.That(((InstallModFileOperation)translated.NativeOperations.Single()).SourcePath, Is.EqualTo(@"Data\textures\grass.dds"));
+			Assert.That(reads, Is.EqualTo(skipChecks ? 0 : 1));
+		}
+
+		/// <summary>Skip mode still distinguishes alternate textures rather than choosing a variant by its name.</summary>
+		[TestCase(@"1k\textures\grass.dds")]
+		[TestCase(@"textures\grass.dds")]
+		public void Translate_SkipContentChecksResolvesAmbiguousVariantsBySavedContent(string otherSource)
+		{
+			byte[] selected = Encoding.UTF8.GetBytes("curator choice");
+			int reads = 0;
+			IMod mod = InterfaceStub<IMod>.Create((method, args) =>
+			{
+				if (method.Name == "GetFileList") return new List<string> { otherSource, @"2k\textures\grass.dds" };
+				if (method.Name == "GetFile") { reads++; return ((string)args[0]).StartsWith("2k") ? selected : new byte[] { 1 }; }
+				return null;
+			});
+			var recipe = new ModInstallationReplicatedLayoutRecipe(new[] { new ModInstallationReplicatedFile(@"textures\grass.dds", ComputeMd5(selected)) });
+			ModInstallationRecipeInput translated = new ModInstallationReplicatedLayoutRecipeAdapter().Translate(
+				CreateInput(recipe), mod, recipe, CancellationToken.None, null, true);
+			Assert.That(((InstallModFileOperation)translated.NativeOperations.Single()).SourcePath, Is.EqualTo(@"2k\textures\grass.dds"));
+			Assert.That(reads, Is.EqualTo(2));
+		}
+
+		/// <summary>Exposes real scripted installer assets hidden from the ordinary mod inventory.</summary>
+		private interface IInstallerArchiveMod : IMod, IModInstallerSourceInventory
+		{
+		}
+
+		/// <summary>Exposes the optional native batch-source contract to the archive test double.</summary>
+		private interface IBatchArchiveMod : IMod, IModFileBatchSource
+		{
 		}
 
 		/// <summary>

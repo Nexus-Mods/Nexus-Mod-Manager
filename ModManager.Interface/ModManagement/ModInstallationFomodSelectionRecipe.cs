@@ -109,6 +109,14 @@ namespace Nexus.Client.ModManagement
 		/// <param name="groups">The explicit selection state for every group in the step.</param>
 		public ModInstallationFomodStepSelection(int stepIndex, string stepName,
 			IEnumerable<ModInstallationFomodGroupSelection> groups)
+			: this(stepIndex, stepName, groups, null)
+		{
+		}
+
+		/// <summary>Initializes exact choices with the step visibility confirmed by the native wizard.</summary>
+		[Newtonsoft.Json.JsonConstructor]
+		public ModInstallationFomodStepSelection(int stepIndex, string stepName,
+			IEnumerable<ModInstallationFomodGroupSelection> groups, bool? isVisible)
 		{
 			if (stepIndex < 0)
 				throw new ArgumentOutOfRangeException(nameof(stepIndex));
@@ -128,6 +136,7 @@ namespace Nexus.Client.ModManagement
 
 			StepIndex = stepIndex;
 			StepName = stepName;
+			IsVisible = isVisible;
 			m_rocGroups = new ReadOnlyCollection<ModInstallationFomodGroupSelection>(copied);
 		}
 
@@ -140,6 +149,9 @@ namespace Nexus.Client.ModManagement
 		/// Gets the exact step name expected at <see cref="StepIndex"/>.
 		/// </summary>
 		public string StepName { get; }
+
+		/// <summary>Gets the visibility confirmed by the native wizard, or null for legacy recorded recipes.</summary>
+		public bool? IsVisible { get; }
 
 		/// <summary>
 		/// Gets the explicit selection state for every group in the step.

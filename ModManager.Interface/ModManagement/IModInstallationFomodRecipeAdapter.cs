@@ -50,6 +50,24 @@ namespace Nexus.Client.ModManagement
 			IEnvironmentInfo environmentInfo, IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe);
 	}
 
+	/// <summary>Collects fresh installer choices using the native wizard without deploying files or changing plugin state.</summary>
+	public interface IModInstallationFomodInteractiveAdapter : IModInstallationFomodRecipePlanningAdapter
+	{
+		/// <summary>Runs on the UI thread and returns confirmed choices, or cancels the Collection preparation.</summary>
+		ModInstallationFomodSelectionRecipe SelectOptions(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IPluginManager pluginManager, IModInstallationConditionEnvironment conditionEnvironment,
+			System.Threading.CancellationToken cancellationToken);
+	}
+
+	/// <summary>Optional translation contract which evaluates the installer once and validates an envelope built from those same paths.</summary>
+	public interface IModInstallationFomodSinglePassPlanningAdapter : IModInstallationFomodRecipePlanningAdapter
+	{
+		/// <summary>Builds one native plan, obtains its validated envelope, and returns the plan without evaluating installer conditions twice.</summary>
+		ModInstallationRecipeInput Prepare(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe, IModInstallationConditionEnvironment conditionEnvironment,
+			Func<IReadOnlyList<ModInstallationRecipePath>, ModInstallationRecipeInput> createValidatedInput);
+	}
+
 	/// <summary>
 	/// Optional exact-planning extension used by orchestration which must bind a validated path envelope before translation.
 	/// Implementations remain full <see cref="IModInstallationFomodRecipeAdapter"/> translators; adapters which do not expose

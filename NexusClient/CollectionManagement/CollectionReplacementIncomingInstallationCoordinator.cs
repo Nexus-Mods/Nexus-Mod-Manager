@@ -313,14 +313,27 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativeStateIndex current = _nativeStateReader.Capture(plan.Target);
 				if (reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(current, x.Effect))) return;
 
-				if (requested.Count > 0)
+				Nexus.Client.PluginManagement.ICollectionPluginStateManager collectionManager =
+					_services.PluginManager as Nexus.Client.PluginManagement.ICollectionPluginStateManager;
+				if (collectionManager != null)
 				{
 					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
-					if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
-						throw new InvalidOperationException("The native plugin policy rejected the exact reviewed replacement plugin state.");
+					if (!collectionManager.TryReconcileCollectionPluginState(requested.Keys.ToList(), requested,
+						reviewedEffects.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
+							.Select(x => (IList<string>)x.Effect.PluginPaths.ToList()).ToList(), out diagnostics))
+						throw new InvalidOperationException("The native plugin service could not apply the replacement Collection plugin state/order.");
 				}
+				else
+				{
+					if (requested.Count > 0)
+					{
+						IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> diagnostics;
+						if (!_services.PluginManager.TryReconcileDeployedPlugins(requested.Keys.ToList(), requested, out diagnostics))
+							throw new InvalidOperationException("The native plugin policy rejected the exact reviewed replacement plugin state.");
+					}
 
-				CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+					CollectionPluginRelativeOrderApplicator.Apply(_services.PluginManager, reviewedEffects.Select(x => x.Effect));
+				}
 				_authorityValidator.ValidateAndReload(lease, authority, paths);
 				CollectionNativeStateIndex verified = _nativeStateReader.Capture(plan.Target);
 				if (!reviewedEffects.All(x => CollectionNativeChildVerificationCoordinator.VerifyPluginEffect(verified, x.Effect)))

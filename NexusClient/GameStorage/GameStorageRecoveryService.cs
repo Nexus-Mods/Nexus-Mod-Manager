@@ -1,4 +1,5 @@
 using System;
+using Nexus.Client.ModManagement.InstallationLog;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -1229,7 +1230,7 @@ namespace Nexus.Client.GameStorage
 				Path.Combine(rootPath, "Install Info"),
 				Path.Combine(rootPath, "InstallInfo"),
 				Path.Combine(rootPath, "instinfo"));
-			if (string.IsNullOrWhiteSpace(installInfoPath) || !File.Exists(Path.Combine(installInfoPath, "InstallLog.xml")))
+			if (string.IsNullOrWhiteSpace(installInfoPath) || !InstallLog.HasPersistedLog(Path.Combine(installInfoPath, "InstallLog.xml")))
                 return;
 
 			string modsPath = SelectExistingPath(Path.Combine(rootPath, "Mods"));
@@ -1259,7 +1260,7 @@ namespace Nexus.Client.GameStorage
 
             candidate.ConfidenceScore = GetPathSetEvidenceScore(CreatePathSetFromCandidate(currentPaths, candidate), 35);
             candidate.ConfidenceLevel = GetConfidenceLevel(candidate.ConfidenceScore);
-            candidate.Evidence.Add("Found legacy NMM folder layout with InstallLog.xml.");
+            candidate.Evidence.Add("Found legacy NMM folder layout with an Install Log.");
             AddPathWarnings(candidate);
             AddCandidate(candidates, candidate);
         }
@@ -1272,7 +1273,7 @@ namespace Nexus.Client.GameStorage
 
             foreach (var folder in likelyFolders)
             {
-                if (foldersWithManifests.Contains(NormalizeDirectoryPath(folder)) || !File.Exists(Path.Combine(folder, "InstallLog.xml")) || HasCandidateInstallInfo(candidates, folder))
+                if (foldersWithManifests.Contains(NormalizeDirectoryPath(folder)) || !InstallLog.HasPersistedLog(Path.Combine(folder, "InstallLog.xml")) || HasCandidateInstallInfo(candidates, folder))
                     continue;
 
                 var candidate = new GameStorageCandidate
@@ -1284,8 +1285,8 @@ namespace Nexus.Client.GameStorage
                     ConfidenceLevel = GameStorageCandidateConfidence.Low,
                     RequiresUserConfirmation = true
                 };
-                candidate.Evidence.Add("Found InstallLog.xml, but no Game Storage manifest.");
-                candidate.Warnings.Add("This candidate is ambiguous. NMM cannot identify the game or Storage ID from InstallLog.xml alone.");
+                candidate.Evidence.Add("Found an Install Log, but no Game Storage manifest.");
+                candidate.Warnings.Add("This candidate is ambiguous. NMM cannot identify the game or Storage ID from the Install Log alone.");
                 AddCandidate(candidates, candidate);
             }
         }
@@ -1298,7 +1299,7 @@ namespace Nexus.Client.GameStorage
             int score = baseScore;
             if (Directory.Exists(paths.InstallInfoPath))
                 score += 15;
-            if (!string.IsNullOrWhiteSpace(paths.InstallInfoPath) && File.Exists(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
+            if (!string.IsNullOrWhiteSpace(paths.InstallInfoPath) && InstallLog.HasPersistedLog(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
                 score += 20;
             if (Directory.Exists(paths.ModsPath))
                 score += 10;

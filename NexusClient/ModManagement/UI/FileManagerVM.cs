@@ -27,6 +27,7 @@
         private bool _loaded;
         private bool _stale;
         private bool _scanning;
+        private bool _removingUntracked;
         private bool _resolvingLinkTypes;
         private bool _disposed;
         private int _scanGeneration;
@@ -179,7 +180,52 @@
 
         public bool CanChangeFileOwner
         {
-            get { return !IsScanning && !HasActiveOrQueuedInstallUninstallTasks(); }
+            get { return !IsScanning && !IsRemovingUntracked && !HasActiveOrQueuedInstallUninstallTasks(); }
+        }
+
+        /// <summary>Gets whether the confirmed untracked cleanup currently owns the File Manager operation.</summary>
+        public bool IsRemovingUntracked
+        {
+            get { return _removingUntracked; }
+            private set
+            {
+                if (_removingUntracked == value) return;
+                _removingUntracked = value;
+                OnPropertyChanged("IsRemovingUntracked");
+                OnPropertyChanged("CanChangeFileOwner");
+            }
+        }
+
+        /// <summary>Gets the complete unfiltered set currently classified as untracked.</summary>
+        internal List<string> GetUntrackedRemovalPaths()
+        {
+            return Rows.Where(x => x.Source == FileManagerSource.Untracked).Select(x => x.RelativePath)
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        /// <summary>Removes the confirmed path set off the UI thread and refreshes the file list afterwards.</summary>
+        internal async Task<FileManagerUntrackedRemovalResult> RemoveUntrackedFilesAsync(string reviewedRoot, IList<string> reviewedPaths)
+        {
+            if (!CanChangeFileOwner || _disposed) throw new InvalidOperationException("File Manager is busy.");
+            IsRemovingUntracked = true;
+            CancelLinkTypeResolution();
+            Interlocked.Increment(ref _scanGeneration);
+            string progressFormat = LanguageManager.GetFormat("FileManager.RemoveUntracked.Progress", "Removing untracked files ({0:N0}/{1:N0})...");
+            StatusMessage = String.Format(progressFormat, 0, reviewedPaths.Count);
+            Progress<int> progress = new Progress<int>(current =>
+            {
+                if (!_disposed && IsRemovingUntracked) StatusMessage = String.Format(progressFormat, current, reviewedPaths.Count);
+            });
+            try
+            {
+                return await Task.Run(() => _modManagerViewModel.ModManager.RemoveUntrackedFiles(
+                    reviewedRoot, reviewedPaths, _queryService, progress)).ConfigureAwait(true);
+            }
+            finally
+            {
+                IsRemovingUntracked = false;
+                if (!_disposed) await RefreshAsync().ConfigureAwait(true);
+            }
         }
 
         public bool IsGamebryoMode
@@ -197,7 +243,7 @@
 
         public async Task RefreshAsync()
         {
-            if (_disposed || IsScanning)
+            if (_disposed || IsScanning || IsRemovingUntracked)
                 return;
 
             if (!IsGamebryoMode)

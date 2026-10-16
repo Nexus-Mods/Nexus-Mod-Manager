@@ -95,8 +95,31 @@ namespace Nexus.Client.ModManagement
 		private readonly FileUtil m_futFileUtility;
 		private readonly SynchronizationContext m_scxUIContext;
 		private readonly IPluginManager m_pmgPluginManager;
+
 		private IProfileManager m_ipmProfileManager;
 		private readonly HashSet<IMod> m_setSortOrderTrackedManagedMods = new HashSet<IMod>(ModReferenceEqualityComparer.Instance);
+		private readonly object m_objSortOrderInitializationLock = new object();
+		private Exception m_exSortOrderInitializationFailure;
+
+		/// <summary>Runs a Collection member's choice-only wizard on the native UI thread without starting a separate mod install.</summary>
+		internal ModInstallationFomodSelectionRecipe SelectCollectionInstallerOptions(IMod mod,
+			IModInstallationConditionEnvironment conditionEnvironment, CancellationToken cancellationToken)
+		{
+			var adapter = mod.InstallScript.Type as IModInstallationFomodInteractiveAdapter;
+			if (adapter == null) throw new NotSupportedException("This scripted installer does not support Collection option capture.");
+			ModInstallationFomodSelectionRecipe selection = null;
+			Exception failure = null;
+			SendOrPostCallback collect = ignored =>
+			{
+				try { selection = adapter.SelectOptions(mod, GameMode, EnvironmentInfo, m_pmgPluginManager, conditionEnvironment, cancellationToken); }
+				catch (Exception ex) { failure = ex; }
+			};
+			if (m_scxUIContext == null || ReferenceEquals(SynchronizationContext.Current, m_scxUIContext)) collect(null);
+			else m_scxUIContext.Send(collect, null);
+			if (failure != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
+			cancellationToken.ThrowIfCancellationRequested();
+			return selection;
+		}
 
 		#region events
 
@@ -153,6 +176,66 @@ namespace Nexus.Client.ModManagement
 		{
 			get { return m_ipmProfileManager; }
 		}
+
+        /// <summary>Removes confirmed untracked files under the native mutation reservation and updates plugins once.</summary>
+        internal FileManagerUntrackedRemovalResult RemoveUntrackedFiles(string reviewedRoot, IList<string> reviewedPaths,
+            FileManagerQueryService queryService, IProgress<int> progress)
+        {
+            List<string> removedPaths = new List<string>();
+            List<string> removedPlugins = new List<string>();
+            List<string> issues = new List<string>();
+            int skipped = 0;
+            using (CollectionTargetMutationLease lease = CollectionManualNativeMutationBoundary.AcquireFileManagerMutation(this))
+            {
+                string root = FileManagerQueryService.GetDeploymentRoot(GameMode);
+                if (!StringComparer.OrdinalIgnoreCase.Equals(Path.GetFullPath(root), Path.GetFullPath(reviewedRoot)))
+                    throw new InvalidOperationException("The active deployment directory changed after the cleanup confirmation.");
+                FileManagerScanResult current = queryService.Scan(GameMode, VirtualModActivator, DeploymentManager, CancellationToken.None);
+                Dictionary<string, FileManagerRow> untracked = current.Rows.Where(x => x.Source == FileManagerSource.Untracked)
+                    .ToDictionary(x => x.RelativePath, StringComparer.OrdinalIgnoreCase);
+                for (int index = 0; index < reviewedPaths.Count; index++)
+                {
+                    FileManagerRow row;
+                    if (!untracked.TryGetValue(reviewedPaths[index], out row)) skipped++;
+                    else
+                    {
+                        try
+                        {
+                            string path = FileManagerQueryService.GetUntrackedRemovalPath(root, row);
+                            string directory = Path.GetDirectoryName(path);
+                            string rootPath = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            while (!StringComparer.OrdinalIgnoreCase.Equals(directory, rootPath))
+                            {
+                                if ((File.GetAttributes(FileUtil.GetIoPath(directory)) & FileAttributes.ReparsePoint) != 0)
+                                    throw new IOException("The deployment path now passes through a directory link.");
+                                directory = Path.GetDirectoryName(directory);
+                            }
+                            bool plugin = m_pmgPluginManager != null &&
+                                (m_pmgPluginManager.IsPluginRegistered(path) || m_pmgPluginManager.IsActivatiblePluginFile(path));
+                            File.Delete(FileUtil.GetIoPath(path));
+                            removedPaths.Add(path);
+                            if (plugin) removedPlugins.Add(path);
+                        }
+                        catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException ||
+                            ex is ArgumentException || ex is NotSupportedException || ex is System.Security.SecurityException || ex is InvalidOperationException)
+                        {
+                            issues.Add(row.RelativePath + ": " + ex.Message);
+                        }
+                    }
+                    if (progress != null && ((index + 1) % 50 == 0 || index + 1 == reviewedPaths.Count)) progress.Report(index + 1);
+                }
+                try
+                {
+                    if (m_pmgPluginManager != null)
+                        m_pmgPluginManager.RemovePlugins(removedPlugins);
+                }
+                catch (Exception ex)
+                {
+                    issues.Add(LanguageManager.Format("FileManager.RemoveUntracked.PluginUpdateFailed", "Plugin list update failed: {0}", ex.Message));
+                }
+            }
+            return new FileManagerUntrackedRemovalResult(removedPaths.Count, skipped, issues);
+        }
 
 		/// <summary>
 		/// Gets the mod auto updater.
@@ -413,16 +496,14 @@ namespace Nexus.Client.ModManagement
 			try
 			{
 				var store = new ModSortOrderStore(ModCacheManager.ModCacheDirectory, GameMode.GameModeEnvironmentInfo.ModDirectory);
-				if (!store.IsUsable)
-				{
-					Trace.TraceWarning("Mod Sort assignments are unavailable because the supplemental SQLite store could not be initialized.");
-					return;
-				}
+				// LoadAll preserves the store's original initialization exception instead of discarding its cause.
 				SortOrderService = new ModSortOrderService(store);
+				m_exSortOrderInitializationFailure = null;
 			}
 			catch (Exception ex)
 			{
 				Trace.TraceError("Unable to initialize Mod Sort assignments: {0}", ex);
+				m_exSortOrderInitializationFailure = ex;
 				SortOrderService = null;
 				return;
 			}
@@ -444,6 +525,39 @@ namespace Nexus.Client.ModManagement
 
 			ManagedModRegistry.RegisteredMods.CollectionChanged += ManagedMods_SortOrderCollectionChanged;
 			InstallationLog.ActiveMods.CollectionChanged += ActiveMods_SortOrderCollectionChanged;
+		}
+
+		/// <summary>Reopens a previously unavailable identity store once at a Collection preparation boundary.</summary>
+		internal ModSortOrderService RequireRepositoryIdentityStore()
+		{
+			lock (m_objSortOrderInitializationLock)
+			{
+				if (SortOrderService != null) return SortOrderService;
+			}
+
+			// Inventory rebuilding and subscriptions belong to the same UI thread as native mod registration.
+			SendOrPostCallback reopen = ignored =>
+			{
+				lock (m_objSortOrderInitializationLock)
+				{
+					if (SortOrderService != null) return;
+					try { InitializeSortOrderService(); }
+					catch (Exception ex)
+					{
+						DetachSortOrderIdentityTracking();
+						SortOrderService = null;
+						m_exSortOrderInitializationFailure = ex;
+						Trace.TraceError("Unable to reopen archive identity store: {0}", ex);
+					}
+				}
+			};
+			if (m_scxUIContext == null || ReferenceEquals(SynchronizationContext.Current, m_scxUIContext)) reopen(null);
+			else m_scxUIContext.Send(reopen, null);
+
+			if (SortOrderService == null)
+				throw new InvalidOperationException("NMM could not open the archive repository-identity store. Completed downloads are kept.",
+					m_exSortOrderInitializationFailure);
+			return SortOrderService;
 		}
 
 		/// <summary>
@@ -943,6 +1057,12 @@ namespace Nexus.Client.ModManagement
 		}
 
 		#endregion
+
+		/// <summary>Restores an InstallLog snapshot using this manager's registry without exposing the protected registry to backup tasks.</summary>
+		internal void RestoreInstallLogSnapshot(string snapshot, string logPath, ChinhDo.Transactions.TxFileManager fileManager)
+		{
+			InstallLog.RestoreSnapshot(snapshot, logPath, GameMode.GameModeEnvironmentInfo.ModDirectory, ManagedModRegistry, fileManager);
+		}
 
 		public void ReinitializeInstallLog(string p_strInstallLogPath)
 		{

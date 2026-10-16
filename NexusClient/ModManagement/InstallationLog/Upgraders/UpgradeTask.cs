@@ -31,6 +31,12 @@ namespace Nexus.Client.ModManagement.InstallationLog.Upgraders
 
 		#endregion
 
+		/// <summary>Upgrades a caller-owned temporary snapshot synchronously before it is published by restore.</summary>
+		internal void UpgradeSnapshot(string logPath, string modDirectory, ModRegistry registry)
+		{
+			UpgradeInstallLog(logPath, modDirectory, registry);
+		}
+
 		/// <summary>
 		/// Called to perform the upgrade.
 		/// </summary>

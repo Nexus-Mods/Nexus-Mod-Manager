@@ -114,7 +114,7 @@ namespace Nexus.Client.CollectionManagement
 				? FindNextActionableMatch(dependencyPlan, operation, workflowMode)
 				: GetMatch(matches, existingPending.Member.MemberKey);
 			if (match == null) return null;
-			CollectionPreparationProgress.Report(totalMembers > 0
+			CollectionPreparationProgress.Report(totalMembers > 0 && !CollectionPreparationProgress.HasMemberCounter
 				? Nexus.Client.Util.Localization.LanguageManager.Format("Collections.Workflow.PreparingMemberInstallationWithCounter",
 					"Preparing mod installation ({0}/{1}): {2}", currentMember, totalMembers, match.Member.DisplayName)
 				: Nexus.Client.Util.Localization.LanguageManager.Format(

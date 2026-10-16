@@ -6,6 +6,7 @@ using System.Linq;
 using System.Windows.Forms;
 using System.Xml.Linq;
 using ChinhDo.Transactions;
+using Nexus.Client.ModManagement.InstallationLog;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Transactions;
 using Nexus.Client.UI;
@@ -445,7 +446,10 @@ namespace Nexus.Client.ModManagement
 						FileFrom = bkInfo.RealModPath;
 						FileTo = bkInfo.VirtualModPath == "VirtualModConfig.xml" ? Path.Combine(VIRTUALINSTALLpath, bkInfo.VirtualModPath) : Path.Combine(VIRTUALINSTALLpath, bkInfo.ModID, bkInfo.VirtualModPath);
 
-						RestorePayloadFile(deploymentFileManager, FileFrom, FileTo);
+						if (bkInfo.VirtualModPath == "VirtualModConfig.xml")
+							VirtualModActivator.RestoreStoreSnapshot(FileFrom, FileTo, deploymentFileManager);
+						else
+							RestorePayloadFile(deploymentFileManager, FileFrom, FileTo);
 
 						if (counter < p_lstInstalledModFiles.Count())
 						{
@@ -596,7 +600,7 @@ namespace Nexus.Client.ModManagement
 				if (!string.IsNullOrEmpty(p_strInstallLog))
 				{
 					installLogRestoreStarted = true;
-					deploymentFileManager.Copy(p_strInstallLog, installLogPath, true);
+					ModManager.RestoreInstallLogSnapshot(p_strInstallLog, installLogPath, deploymentFileManager);
 					ModManager.ReinitializeInstallLog(installLogPath);
 					RestoreVirtualPromotedWinners();
 					ValidateRestoredDeploymentState();
@@ -651,7 +655,7 @@ namespace Nexus.Client.ModManagement
 						}
 					}
 
-					if (installLogRestoreStarted && File.Exists(installLogPath))
+					if (installLogRestoreStarted && InstallLog.HasPersistedLog(installLogPath))
 					{
 						try
 						{

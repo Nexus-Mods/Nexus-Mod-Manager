@@ -6,6 +6,7 @@
     using System.Drawing;
     using System.Diagnostics;
     using System.IO;
+    using System.Linq;
     using System.Text;
     using System.Threading.Tasks;
     using System.Windows.Forms;
@@ -40,6 +41,7 @@
         private readonly PanelControl _fileListPanel;
         private readonly PanelControl _bottomPanel;
         private readonly SimpleButton _refreshButton;
+        private readonly SimpleButton _removeUntrackedButton;
         private readonly SplitContainerControl _splitContainer;
         private readonly GridControl _gridControl;
         private readonly GridView _gridView;
@@ -132,6 +134,14 @@
                 Height = 37,
                 BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
             };
+            _removeUntrackedButton = new SimpleButton
+            {
+                Text = LanguageManager.Get("FileManager.Actions.RemoveAllUntracked", "Remove all untracked files"),
+                AutoSize = true, Height = 27, Location = new Point(8, 5), Enabled = false
+            };
+            _removeUntrackedButton.Click += RemoveUntrackedButton_Click;
+            NmmIconProvider.Bind(_removeUntrackedButton, NmmIconAction.RemoveAll, NmmButtonPresentationScope.FileManager);
+            _fileListToolbar.Controls.Add(_removeUntrackedButton);
             _fileListToolbar.Controls.Add(_refreshButton);
             _fileListToolbar.Resize += (sender, args) =>
             {
@@ -445,6 +455,46 @@
             }
         }
 
+        /// <summary>Confirms the fresh unfiltered file count before removing only the reviewed untracked paths.</summary>
+        private async void RemoveUntrackedButton_Click(object sender, EventArgs e)
+        {
+            FileManagerVM viewModel = _fileManagerVM;
+            if (viewModel == null || !viewModel.CanChangeFileOwner) return;
+            try
+            {
+                _gridView.CloseEditor();
+                _gridView.UpdateCurrentRow();
+                await viewModel.RefreshAsync().ConfigureAwait(true);
+                if (IsDisposed || !ReferenceEquals(viewModel, _fileManagerVM) || !viewModel.CanChangeFileOwner || viewModel.IsStale) return;
+                List<string> paths = viewModel.GetUntrackedRemovalPaths();
+                string title = LanguageManager.Get("FileManager.Actions.RemoveAllUntracked", "Remove all untracked files");
+                if (paths.Count == 0)
+                {
+                    XtraMessageBox.Show(this, LanguageManager.Get("FileManager.RemoveUntracked.None", "There are no untracked files to remove."),
+                        title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                string root = viewModel.DeploymentRoot;
+                string message = LanguageManager.Format("FileManager.RemoveUntracked.Confirm",
+                    "Are you sure you want to remove {0:N0} untracked files from {1}?\n\nThese files will be permanently deleted.", paths.Count, root);
+                if (XtraMessageBox.Show(this, message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Warning,
+                    MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;
+                FileManagerUntrackedRemovalResult result = await viewModel.RemoveUntrackedFilesAsync(root, paths).ConfigureAwait(true);
+                if (IsDisposed) return;
+                message = LanguageManager.Format("FileManager.RemoveUntracked.Result",
+                    "Removed: {0:N0}. Skipped because they are no longer untracked: {1:N0}. Issues: {2:N0}.", result.Removed, result.Skipped, result.Issues.Count);
+                if (result.Issues.Count > 0)
+                    message += Environment.NewLine + Environment.NewLine + String.Join(Environment.NewLine, result.Issues.Take(10));
+                XtraMessageBox.Show(this, message, title, MessageBoxButtons.OK,
+                    result.Issues.Count > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                if (!IsDisposed) XtraMessageBox.Show(this, ex.Message, LanguageManager.Get("FileManager.Title", "File Manager"),
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void FileManagerVM_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (InvokeRequired)
@@ -453,9 +503,9 @@
                 return;
             }
 
-            if (e.PropertyName == "IsScanning")
+            if (e.PropertyName == "IsScanning" || e.PropertyName == "IsRemovingUntracked")
             {
-                if (_fileManagerVM.IsScanning)
+                if (_fileManagerVM.IsScanning || _fileManagerVM.IsRemovingUntracked)
                     _gridView.ShowLoadingPanel();
                 else
                     _gridView.HideLoadingPanel();
@@ -493,7 +543,11 @@
                 _fileManagerVM.CreationsFiles,
                 _fileManagerVM.ExternalModManagerFiles,
                 _fileManagerVM.UntrackedFiles);
-            if (_fileManagerVM.IsStale)
+            if (_fileManagerVM.IsRemovingUntracked)
+            {
+                _statusLabel.Text = _fileManagerVM.StatusMessage;
+            }
+            else if (_fileManagerVM.IsStale)
             {
                 _statusLabel.Text = String.IsNullOrEmpty(_fileManagerVM.LastScannedDisplay)
                     ? _refreshRequiredText
@@ -510,7 +564,8 @@
 
             if (_statusLabel.Parent != null)
                 _statusLabel.Left = Math.Max(10, _statusLabel.Parent.ClientSize.Width - _statusLabel.Width - 10);
-            _refreshButton.Enabled = !_fileManagerVM.IsScanning;
+            _refreshButton.Enabled = !_fileManagerVM.IsScanning && !_fileManagerVM.IsRemovingUntracked;
+            _removeUntrackedButton.Enabled = _fileManagerVM.IsGamebryoMode && _fileManagerVM.CanChangeFileOwner;
         }
 
         private void BindRows(BindingList<FileManagerRow> rows)

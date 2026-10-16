@@ -83,6 +83,17 @@ namespace Nexus.Client.CollectionManagement
 			return true;
 		}
 
+		/// <summary>Reserves and reloads the active target before a File Manager cleanup of untracked files.</summary>
+		internal static CollectionTargetMutationLease AcquireFileManagerMutation(ModManager manager)
+		{
+			CollectionManualNativeMutationBoundary boundary;
+			lock (SyncRoot) boundary = s_current;
+			ServiceManager services = boundary == null ? null : boundary._owner as ServiceManager;
+			if (services == null || !ReferenceEquals(services.ModManager, manager))
+				throw new InvalidOperationException("File Manager cleanup requires the active native mutation services.");
+			return boundary.AcquireCore(null);
+		}
+
 		/// <summary>Creates a boundary over explicit seams for deterministic coordination tests.</summary>
 		internal CollectionManualNativeMutationBoundary(object owner,
 			Func<Tuple<CollectionTargetAuthority, GameStoragePathSet>> targetProvider,
@@ -102,7 +113,12 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (operation == null)
 				throw new ArgumentNullException(nameof(operation));
+			return AcquireCore(operation);
+		}
 
+		/// <summary>Reloads reserved native state for either a mod worker or an untracked-file cleanup.</summary>
+		private CollectionTargetMutationLease AcquireCore(ModInstallerBase operation)
+		{
 			Tuple<CollectionTargetAuthority, GameStoragePathSet> target = _targetProvider();
 			if (target == null || target.Item1 == null || target.Item2 == null)
 				throw new InvalidOperationException("Manual native mutation coordination could not resolve the active canonical target.");
@@ -112,7 +128,7 @@ namespace Nexus.Client.CollectionManagement
 			try
 			{
 				_validateAndReload(lease, target.Item1, target.Item2);
-				_rebindNativeOperation(operation);
+				if (operation != null) _rebindNativeOperation(operation);
 				handedOff = true;
 				return lease;
 			}

@@ -271,6 +271,75 @@
 			AssertAssignment(storage, store, "LegacyVerified.7z", "33946", "323314", 17, ModSortOrderAssignmentState.ExplicitNumeric);
 		}
 
+		/// <summary>Retries a failed startup open without discarding exact identity history, Sort values or registration tracking.</summary>
+		[Test]
+		public void CollectionIdentityStoreReopensAfterStartupFailureWithoutLosingHistory()
+		{
+			var storage = CreateStorage();
+			var originalStore = storage.CreateStore();
+			var originalService = new ModSortOrderService(originalStore);
+			IMod mod = CreateMod(Path.Combine(storage.ModDirectory, "Retained.7z"), "33946", null);
+			originalService.RebuildCurrentArchiveInventory(new[] { mod }, null);
+			originalService.Resolve(mod, ModSortOrderAssignmentContext.StartupOrDiscovery, new[] { mod });
+			originalService.SetSortNumber(mod, 17);
+
+			// A file where the cache directory should be gives a deterministic initialization failure without timing waits.
+			string cacheDirectory = Path.Combine(storage.ModDirectory, "blocked-cache");
+			File.WriteAllText(cacheDirectory, "keep");
+			int openAttempts = 0;
+			IModCacheManager cache = InterfaceStub<IModCacheManager>.Create((method, args) =>
+			{
+				if (method.Name != "get_ModCacheDirectory") return null;
+				openAttempts++;
+				return cacheDirectory;
+			});
+			ModManager manager = CreateArchiveRepairManager(storage, null, new InstallLogReadMod[0]);
+			var registry = new ModRegistry(null, null);
+			var managed = (ThreadSafeObservableList<IMod>)typeof(ModRegistry).GetField("m_oclRegisteredMods",
+				BindingFlags.Instance | BindingFlags.NonPublic).GetValue(registry);
+			managed.Add(mod);
+			SetPrivateField(manager, "<ManagedModRegistry>k__BackingField", registry);
+			SetPrivateField(manager, "<ModCacheManager>k__BackingField", cache);
+			SetPrivateField(manager, "<InstallationLog>k__BackingField", CreateInstallLog(new ThreadSafeObservableList<IMod>()));
+			SetPrivateField(manager, "m_setSortOrderTrackedManagedMods", CreateManagerIdentityTrackingSet());
+			SetPrivateField(manager, "m_objSortOrderInitializationLock", new object());
+			var context = new IdentityStoreSynchronizationContext();
+			SetPrivateField(manager, "m_scxUIContext", context);
+
+			InvalidOperationException failure = Assert.Throws<InvalidOperationException>(() => manager.RequireRepositoryIdentityStore());
+			Assert.That(failure.GetBaseException(), Is.InstanceOf<IOException>());
+			Assert.That(manager.SortOrderService, Is.Null);
+			Assert.That(openAttempts, Is.EqualTo(1), "A failed open must not loop or keep probing archives.");
+			Assert.That(File.ReadAllText(cacheDirectory), Is.EqualTo("keep"));
+
+			cacheDirectory = storage.CacheDirectory;
+			ModManagerCollectionManagedArchiveSource.ConfirmVerifiedRepositoryFileIdentity(manager, mod, "33946", "323314");
+			ModSortOrderService reopened = manager.RequireRepositoryIdentityStore();
+			Assert.That(manager.RequireRepositoryIdentityStore(), Is.SameAs(reopened));
+			Assert.That(openAttempts, Is.EqualTo(2), "The recovered service must be reused for subsequent members.");
+			Assert.That(context.SendCount, Is.EqualTo(2), "Only opening attempts should marshal to the native UI context.");
+			Assert.That(reopened.GetSortNumber(mod), Is.EqualTo(17));
+			Assert.That(mod.DownloadId, Is.Null, "Reopening must preserve live/fingerprinted metadata.");
+			AssertAssignment(storage, originalStore, mod.ModArchivePath, "33946", "323314", 17, ModSortOrderAssignmentState.ExplicitNumeric);
+
+			IMod later = CreateMod(Path.Combine(storage.ModDirectory, "Later.7z"), "400", "500");
+			managed.Add(later);
+			Assert.That(GetCurrentArchiveCount(reopened), Is.EqualTo(2), "Recovered registration tracking must include subsequent downloads.");
+		}
+
+		/// <summary>Records dispatch to the manager's owning context without constructing a WinForms window.</summary>
+		private sealed class IdentityStoreSynchronizationContext : SynchronizationContext
+		{
+			public int SendCount { get; private set; }
+
+			/// <summary>Runs the dispatched initialization deterministically and records the dispatch.</summary>
+			public override void Send(SendOrPostCallback callback, object state)
+			{
+				SendCount++;
+				callback(state);
+			}
+		}
+
 		/// <summary>Ensures exact inactive Collection bytes repair a stale file ID while preserving user Sort and metadata.</summary>
 		[TestCase(17)]
 		[TestCase(null)]
@@ -365,6 +434,7 @@
 			SetPrivateField(manager, "<GameMode>k__BackingField", gameMode);
 			SetPrivateField(manager, "<InstallationLog>k__BackingField", installLog);
 			SetPrivateField(manager, "<SortOrderService>k__BackingField", service);
+			SetPrivateField(manager, "m_objSortOrderInitializationLock", new object());
 			return manager;
 		}
 

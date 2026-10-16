@@ -69,7 +69,8 @@ namespace NexusClientTests
 				RevisionFixture fixture = CreateFixture(root, "guidance-rehydrate");
 				string json = "{" +
 					"\"info\":{\"author\":\"Curator\",\"authorUrl\":\"https://example.invalid/curator\",\"name\":\"Guided\",\"description\":\"Guided setup\",\"domainName\":\"skyrim\",\"installInstructions\":\"Read the curator notes first.\",\"gameVersions\":[\"1.6.1170\"]}," +
-					"\"mods\":[],\"modRules\":[],\"tools\":[{\"name\":\"Tool\",\"exe\":\"Tools\\\\Runner.exe\"}]," +
+					"\"mods\":[],\"modRules\":[],\"tools\":[{\"name\":\"Tool\",\"exe\":\"Tools\\\\Runner.exe\"}," +
+					"{\"name\":\"Manual launcher\",\"exe\":\"Launcher.exe\",\"detach\":true,\"onStart\":\"hide_recover\"}]," +
 					"\"collectionConfig\":{\"recommendNewProfile\":true,\"referenceTagScheme\":\"v1\"}}";
 				byte[] bytes = new UTF8Encoding(false).GetBytes(json);
 				NexusCollectionManifestNormalizationResult normalization = Normalize(bytes, fixture.Revision);
@@ -87,6 +88,9 @@ namespace NexusClientTests
 				CollectionAssert.AreEqual(new[] { "1.6.1170" }, rehydrated.Manifest.SetupGuidance.GameVersions);
 				Assert.AreEqual(1, rehydrated.Manifest.LaunchTools.Count);
 				Assert.AreEqual("Tools\\Runner.exe", rehydrated.Manifest.LaunchTools[0].RelativeExecutablePath);
+				Assert.AreEqual(CollectionCompatibilityStatus.Supported, rehydrated.CapabilityReport.Status);
+				Assert.AreEqual(1, rehydrated.Manifest.LaunchToolIssues.Count);
+				Assert.AreEqual("manifest.tool-lifecycle-unsupported", rehydrated.Manifest.LaunchToolIssues[0].Code);
 			}
 			finally
 			{

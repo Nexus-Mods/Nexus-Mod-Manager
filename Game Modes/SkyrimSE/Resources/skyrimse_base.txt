@@ -6,6 +6,14 @@ Update.esm
 Dawnguard.esm
 HearthFires.esm
 Dragonborn.esm
+ccBGSSSE001-Fish.bsa
+ccBGSSSE001-Fish.esm
+ccBGSSSE025-AdvDSGS.bsa
+ccBGSSSE025-AdvDSGS.esm
+ccBGSSSE037-Curios.bsa
+ccBGSSSE037-Curios.esl
+ccQDRSSE001-SurvivalMode.bsa
+ccQDRSSE001-SurvivalMode.esl
 Skyrim - Animations.bsa
 Skyrim - Interface.bsa
 Skyrim - Meshes0.bsa

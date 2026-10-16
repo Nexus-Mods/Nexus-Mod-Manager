@@ -4,6 +4,7 @@
 	using System.Collections.Generic;
 	using System.Data.SQLite;
 	using System.IO;
+	using System.Linq;
 	using System.Threading;
 	using System.Transactions;
 
@@ -12,7 +13,7 @@
 	using NUnit.Framework;
 
 	/// <summary>
-	/// C6.16-D failure coverage for the SQLite Virtual primary store and its XML compatibility shadow.
+	/// C6.16-D failure coverage for the SQLite Virtual primary store and retained legacy XML input.
 	/// </summary>
 	[TestFixture]
 	[Category("CollectionsGateA")]
@@ -21,10 +22,10 @@
 		private static readonly Version CurrentVersion = new Version("0.3.0.0");
 
 		/// <summary>
-		/// Verifies that a failed XML shadow update cannot replace a successfully committed SQLite primary on restart.
+		/// Verifies that routine saves never touch retained XML and restart uses the committed SQLite authority.
 		/// </summary>
 		[Test]
-		public void Save_PrimaryCommittedShadowFailure_RestartLoadsPrimaryWithoutStaleFallback()
+		public void Save_LeavesLockedLegacyXmlUntouchedAndRestartLoadsPrimary()
 		{
 			string root = CreateTempDirectory();
 			try
@@ -327,6 +328,26 @@
 					return Convert.ToInt64(command.ExecuteScalar());
 				}
 			}
+		}
+
+		/// <summary>Indexed matching retains case-insensitive OR semantics, order and repeated input occurrences.</summary>
+		[Test]
+		public void MatchingLinkIndex_PreservesLegacyIdentityAndLinkOrder()
+		{
+			IVirtualModInfo requested = new VirtualModInfo("1", "101", "Requested", "Main.7z", @"C:\NMM\Mods", "1.0");
+			IVirtualModInfo idMatch = new VirtualModInfo("1", "101", "By ID", "Other.7z", @"C:\NMM\Mods", "1.0");
+			IVirtualModInfo nameMatch = new VirtualModInfo("1", "202", "By name", "MAIN.7Z", @"C:\NMM\Mods", "1.0");
+			IVirtualModInfo unrelated = new VirtualModInfo("1", "303", "Other", "Patch.7z", @"C:\NMM\Mods", "1.0");
+			IVirtualModLink byName = new VirtualModLink("name", "name", 0, false, nameMatch);
+			IVirtualModLink byBoth = new VirtualModLink("both", "both", 1, true, requested);
+			IVirtualModLink byId = new VirtualModLink("id", "id", 2, false, idMatch);
+			var index = new XmlVirtualModStore.MatchingLinkIndex(new[]
+			{
+				byName, new VirtualModLink("other", "other", 0, true, unrelated), byBoth, byId, byName
+			});
+			Assert.AreEqual(new[] { byName, byBoth, byId, byName }, index.GetLinks(requested).ToArray());
+			IVirtualModInfo empty = new VirtualModInfo("1", "", "Empty", "", @"C:\NMM\Mods", "1.0");
+			Assert.IsEmpty(index.GetLinks(empty));
 		}
 
 		private static SQLiteVirtualModStore CreateSqliteStore(string xmlPath, string databasePath, XmlVirtualModStore xmlStore)

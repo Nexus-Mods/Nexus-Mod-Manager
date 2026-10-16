@@ -537,7 +537,7 @@ namespace Nexus.Client.CollectionManagement
 				CollectionNativePluginState earlier = FindPlugin(state, rule.AfterPluginName);
 				CollectionNativePluginState later = FindPlugin(state, rule.PluginName);
 				if (earlier == null || later == null) continue;
-				if (later.Priority <= earlier.Priority) return false;
+				if (!CollectionPluginRelativeOrderApplicator.IsOrderSatisfied(state, new[] { earlier.FileName, later.FileName })) return false;
 			}
 			return true;
 		}

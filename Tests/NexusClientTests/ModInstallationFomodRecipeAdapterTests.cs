@@ -76,6 +76,72 @@ namespace NexusClientTests
 			Assert.That(file.DestinationPath, Is.EqualTo(@"textures\map.dds"));
 		}
 
+		/// <summary>Recorded groups survive an inserted optional group, with new choices remaining unselected; required additions remain actionable.</summary>
+		[TestCase(OptionGroupType.SelectAny, true, true)]
+		[TestCase(OptionGroupType.SelectAtMostOne, true, true)]
+		[TestCase(OptionGroupType.SelectExactlyOne, true, false)]
+		[TestCase(OptionGroupType.SelectAny, false, false)]
+		public void Prepare_RecordedChoicesAllowOnlyUnselectedOptionalGroupAdditions(OptionGroupType newGroupType, bool honorRecorded, bool succeeds)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			XmlScript script = new XmlScript(adapter, new Version(5, 0));
+			var step = new InstallStep("Installation", null, SortOrder.Explicit);
+			var added = new OptionGroup("Remove Fake Glow", newGroupType, SortOrder.Explicit);
+			added.Options.Add(Option("Remove Candle Glow", OptionType.Optional, File("extra.bin", "extra.bin", 0)));
+			var retained = new OptionGroup("Custom Textures", OptionGroupType.SelectExactlyOne, SortOrder.Explicit);
+			retained.Options.Add(Option("No", OptionType.Optional, File("saved.bin", "saved.bin", 0)));
+			step.OptionGroups.Add(added);
+			step.OptionGroups.Add(retained);
+			script.InstallSteps.Add(step);
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0),
+				new[] { Step(0, "Installation", Group(0, "Custom Textures", Selection(0, "No"))) }, honorRecorded);
+			Func<ModInstallationRecipeInput> prepare = () => adapter.Prepare(CreateMod(script, "extra.bin", "saved.bin"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, recipe, null, paths => CreateInput(adapter, paths.ToArray()));
+			if (!succeeds) Assert.Throws<InvalidDataException>(() => prepare());
+			else
+			{
+				ModInstallationRecipeInput translated = prepare();
+				Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Select(x => x.SourcePath), Is.EqualTo(new[] { "saved.bin" }));
+			}
+		}
+
+		/// <summary>Missing or renamed selected options are never guessed even when replaying recorded choices.</summary>
+		[Test]
+		public void Prepare_RecordedChoicesRejectRenamedSelectedOption()
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(adapter, OptionGroupType.SelectExactlyOne,
+				Option("Standard", OptionType.Optional, File("standard.bin", "standard.bin", 0)));
+			var recipe = new ModInstallationFomodSelectionRecipe(new Version(5, 0),
+				new[] { Step(0, "Step", Group(0, "Group", Selection(0, "ESP + Master"))) }, true);
+			Assert.Throws<InvalidDataException>(() => adapter.Prepare(CreateMod(script, "standard.bin"), CreateGameMode(),
+				CreateEnvironmentInfo(), null, recipe, null, paths => CreateInput(adapter, paths.ToArray())));
+		}
+
+		/// <summary>Single-pass preparation obtains archive inventory once and still rejects an incomplete validation envelope.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void Prepare_EvaluatesOnePlanAndValidatesItsEnvelope(bool omitPath)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			XmlScript script = new XmlScript(adapter, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File("saved.bin", "saved.bin", 0));
+			int inventoryReads = 0;
+			IMod mod = InterfaceStub<IMod>.Create((method, args) =>
+			{
+				if (method.Name == "get_HasInstallScript") return true;
+				if (method.Name == "get_InstallScript") return script;
+				if (method.Name == "get_Filename") return "fixture.zip";
+				if (method.Name == "GetFileList") { inventoryReads++; return new List<string> { "saved.bin" }; }
+				return null;
+			});
+			Func<ModInstallationRecipeInput> prepare = () => adapter.Prepare(mod, CreateGameMode(), CreateEnvironmentInfo(),
+				null, Recipe(new Version(5, 0)), null, paths => CreateInput(adapter, omitPath ? new ModInstallationRecipePath[0] : paths.ToArray()));
+			if (omitPath) Assert.Throws<InvalidDataException>(() => prepare());
+			else Assert.That(prepare().NativeOperations.OfType<InstallModFileOperation>().Single().SourcePath, Is.EqualTo("saved.bin"));
+			Assert.That(inventoryReads, Is.EqualTo(1));
+		}
+
 		/// <summary>
 		/// An XML installer may reference real assets under fomod/options even though the
 		/// ordinary mod-file inventory hides them as part of its metadata filter.
@@ -121,11 +187,114 @@ namespace NexusClientTests
 			Assert.That(translated.NativeOperations.OfType<InstallModFileOperation>().Single().DestinationPath, Is.EqualTo(expected));
 		}
 
+		/// <summary>Collection translation resolves FOMOD path spelling before both validation and plugin activation.</summary>
+		[TestCase(@"FSMPM\FSMPM - The FSMP MCM.esp", @".\FSMPM - The FSMP MCM.esp", "FSMPM - The FSMP MCM.esp")]
+		[TestCase(@".\plugins\choice.esp", @".\", "choice.esp")]
+		[TestCase(@"plugins\.\choice.esp", @"\", "choice.esp")]
+		[TestCase(@"plugins\choice.esp", "/", "choice.esp")]
+		[TestCase(@"plugins\choice.esp", @".\output\", @"output\choice.esp")]
+		[TestCase(@"plugins\choice.esp", @"output\.", @"output\choice.esp")]
+		public void Prepare_FomodFilePathsProduceCanonicalDeploymentAndActivation(string source, string destination, string expected)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			var script = new XmlScript(adapter, new Version(5, 0));
+			script.RequiredInstallFiles.Add(File(source, destination, 0));
+			string archiveSource = source.Replace(@".\", String.Empty);
+			IMod mod = CreateMod(script, archiveSource);
+			IGameMode game = CreateGameMode();
+			IPluginManager plugins = CreatePluginManager(game, new string[0], new string[0]);
+			ModInstallationRecipeInput prepared = adapter.Prepare(mod, game, CreateEnvironmentInfo(), plugins,
+				Recipe(new Version(5, 0)), null, paths => CreateInput(adapter, paths.ToArray()));
+
+			InstallModFileOperation file = prepared.NativeOperations.OfType<InstallModFileOperation>().Single();
+			Assert.That(file.SourcePath, Is.EqualTo(archiveSource));
+			Assert.That(file.DestinationPath, Is.EqualTo(expected));
+			Assert.That(prepared.Validation.Paths.Single(path => path.Kind == ModInstallationRecipePathKind.Destination).Path, Is.EqualTo(expected));
+			Assert.That(prepared.NativeOperations.OfType<SetPluginActivationOperation>().Single().PluginPath, Is.EqualTo(expected));
+		}
+
+		/// <summary>Folder expansion preserves complete subdirectories for dot-prefixed destinations and the FOMOD destination-root marker.</summary>
+		[TestCase(@".\DIP", @".\DIP", @"DIP\qt6core.dll", @"DIP\sub\second.dll")]
+		[TestCase("DIP", @"\", "qt6core.dll", @"sub\second.dll")]
+		[TestCase("DIP", ".", "qt6core.dll", @"sub\second.dll")]
+		[TestCase("DIP", @".\", "qt6core.dll", @"sub\second.dll")]
+		[TestCase("DIP", "/", "qt6core.dll", @"sub\second.dll")]
+		public void Prepare_FomodFolderPathsExpandWithinTheDeclaredRoot(string source, string destination, string expectedFirst, string expectedSecond)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			var script = new XmlScript(adapter, new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile(source, destination, true, 0, false, false));
+			IMod mod = CreateMod(script, @"DIP\qt6core.dll", @"DIP\sub\second.dll", @"unrelated\other.dll");
+			ModInstallationRecipeInput prepared = adapter.Prepare(mod, CreateGameMode(), CreateEnvironmentInfo(), null,
+				Recipe(new Version(5, 0)), null, paths => CreateInput(adapter, paths.ToArray()));
+			Assert.That(prepared.NativeOperations.OfType<InstallModFileOperation>().Select(file => file.DestinationPath),
+				Is.EqualTo(new[] { expectedFirst, expectedSecond }));
+		}
+
+		/// <summary>A root destination in a selected folder installs and activates the canonical plugin name.</summary>
+		[TestCase(@"\", true)]
+		[TestCase(@".\", true)]
+		[TestCase(".", true)]
+		[TestCase(@"\", false)]
+		[TestCase(@".\", false)]
+		[TestCase(".", false)]
+		public void Prepare_FomodRootMappingsPreserveSelectedPluginActivation(string destination, bool folder)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			XmlScript script = ScriptWithSingleGroup(adapter, OptionGroupType.SelectExactlyOne,
+				Option("Patch", OptionType.Optional, new InstallableFile(folder ? "patch" : @"patch\choice.esp", destination, folder, 0, false, false)));
+			IGameMode game = CreateGameMode();
+			ModInstallationRecipeInput prepared = adapter.Prepare(CreateMod(script, @"patch\choice.esp"), game,
+				CreateEnvironmentInfo(), CreatePluginManager(game, new string[0], new string[0]),
+				Recipe(new Version(5, 0), Step(0, "Step", Group(0, "Group", Selection(0, "Patch")))),
+				null, paths => CreateInput(adapter, paths.ToArray()));
+			SetPluginActivationOperation activation = prepared.NativeOperations.OfType<SetPluginActivationOperation>().Single();
+			Assert.That(activation.PluginPath, Is.EqualTo("choice.esp"));
+			Assert.That(activation.Activate, Is.True);
+		}
+
+		/// <summary>Uses the reported mail script and DIP source layouts to verify nested and installer-only files reach the intended roots.</summary>
+		[TestCase("Animations", @"\", @"Scripts\WICourierScript.pex", @"Scripts\WICourierScript.pex")]
+		[TestCase(@"fomod\DIP", @".\DIP", "qt6core.dll", @"DIP\qt6core.dll")]
+		public void Prepare_ReportedFolderMappingsKeepExactFileDestinations(string source, string destination, string relativeFile, string expected)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			var script = new XmlScript(adapter, new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile(source, destination, true, 0, false, false));
+			string archiveFile = source + "\\" + relativeFile;
+			ModInstallationRecipeInput prepared = adapter.Prepare(CreateModWithHiddenFomodAssets(script, archiveFile),
+				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0)), null,
+				paths => CreateInput(adapter, paths.ToArray()));
+			InstallModFileOperation file = prepared.NativeOperations.OfType<InstallModFileOperation>().Single();
+			Assert.That(file.SourcePath, Is.EqualTo(archiveFile));
+			Assert.That(file.DestinationPath, Is.EqualTo(expected));
+		}
+
+		/// <summary>Root-source dot notation enumerates archive files without stripping their first path component.</summary>
+		[TestCase(".")]
+		[TestCase(@".\")]
+		public void Prepare_FomodArchiveRootPreservesNestedPaths(string source)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			var script = new XmlScript(adapter, new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile(source, @"\", true, 0, false, false));
+			ModInstallationRecipeInput prepared = adapter.Prepare(CreateMod(script, @"Scripts\script.pex", "root.esp"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0)), null,
+				paths => CreateInput(adapter, paths.ToArray()));
+			Assert.That(prepared.NativeOperations.OfType<InstallModFileOperation>().Select(file => file.DestinationPath),
+				Is.EqualTo(new[] { @"Scripts\script.pex", "root.esp" }));
+		}
+
 		/// <summary>Directory notation does not permit traversal, rooted paths, or empty interior components.</summary>
 		[TestCase(@"..\")]
 		[TestCase(@"C:\textures\")]
 		[TestCase(@"\textures\")]
 		[TestCase(@"textures\\terrain\")]
+		[TestCase(@".\..\escape\")]
+		[TestCase(@".\C:\escape\")]
+		[TestCase(@"\\server\share\")]
+		[TestCase(@".\NUL\")]
+		[TestCase(@".\\")]
 		public void Translate_InvalidDestinationDirectoryIsRejected(string destination)
 		{
 			XmlScriptType scriptType = new XmlScriptType();
@@ -134,6 +303,23 @@ namespace NexusClientTests
 			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
 			Assert.Throws<InvalidDataException>(() => adapter.GetValidationPaths(CreateMod(script, "back.dds"),
 				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0))));
+		}
+
+		/// <summary>FOMOD source normalization cannot turn a rooted or escaping folder into an admitted archive source.</summary>
+		[TestCase(@"\")]
+		[TestCase(@"\DIP")]
+		[TestCase(@"\\server\share")]
+		[TestCase(@".\..\DIP")]
+		[TestCase(@".\C:\DIP")]
+		[TestCase(@".\\")]
+		public void Prepare_UnsafeFolderSourceIsRejectedBeforeExpansion(string source)
+		{
+			XmlScriptType adapter = new XmlScriptType();
+			var script = new XmlScript(adapter, new Version(5, 0));
+			script.RequiredInstallFiles.Add(new InstallableFile(source, ".", true, 0, false, false));
+			Assert.Throws<InvalidDataException>(() => adapter.Prepare(CreateMod(script, @"DIP\qt6core.dll"),
+				CreateGameMode(), CreateEnvironmentInfo(), null, Recipe(new Version(5, 0)), null,
+				paths => CreateInput(adapter, paths.ToArray())));
 		}
 
 		[Test]
@@ -981,6 +1167,65 @@ namespace NexusClientTests
 				InstallModFileOperation file = translated.NativeOperations.OfType<InstallModFileOperation>().Single();
 				Assert.That(file.SourcePath, Is.EqualTo(source));
 				Assert.That(file.DestinationPath, Is.EqualTo(destination));
+			}
+			finally
+			{
+				ReleaseInstallerRootMetadataDatabase(cacheDirectory);
+				Directory.Delete(root, true);
+			}
+		}
+
+		/// <summary>Retains ENB include paths for fresh, cached, and legacy flattened archive metadata.</summary>
+		[TestCase("", 0)]
+		[TestCase("", 1)]
+		[TestCase("", 2)]
+		[TestCase("Wrapper", 0)]
+		[TestCase("Wrapper", 1)]
+		[TestCase("Wrapper", 2)]
+		public void Archive_EnbShaderLibraryKeepsItsIncludeRoot(string wrapper, int cacheState)
+		{
+			string root = Path.Combine(Path.GetTempPath(), "nmm-enb-root-" + Guid.NewGuid().ToString("N"));
+			string cacheDirectory = Path.Combine(root, "ModCache");
+			Directory.CreateDirectory(root);
+			try
+			{
+				string archivePath = Path.Combine(root, "shader-core.zip");
+				string archiveBase = String.IsNullOrEmpty(wrapper) ? String.Empty : wrapper + "/";
+				const string shader = @"enbseries\enbeffect.fx";
+				const string include = @"enbseries\KiSU\Common.fxh";
+				const string texture = @"enbseries\KiSU\Textures\noise.dds";
+				byte[] payload = Encoding.UTF8.GetBytes("shader fixture");
+				using (var stream = new FileStream(archivePath, FileMode.Create))
+				using (var zip = new ZipArchive(stream, ZipArchiveMode.Create))
+				{
+					foreach (string path in new[] { shader, include, texture })
+						WriteInstallerRootEntry(zip, archiveBase + path.Replace('\\', '/'), payload);
+					WriteInstallerRootEntry(zip, archiveBase + "vortex_override_instructions.json", payload);
+				}
+				IEnvironmentInfo environment = InterfaceStub<IEnvironmentInfo>.Create((method, args) =>
+					method.Name == "get_TemporaryPath" ? root : null);
+				IModCacheManager cacheManager = InterfaceStub<IModCacheManager>.Create((method, args) =>
+					method.Name == "get_ModCacheDirectory" ? cacheDirectory :
+					method.Name == "get_EnvironmentInfo" ? (object)environment : null);
+				IScriptTypeRegistry registry = InterfaceStub<IScriptTypeRegistry>.Create((method, args) =>
+					method.Name == "get_Types" ? new List<IScriptType>() : null);
+				if (cacheState == 2)
+				{
+					Type cacheType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadataCache", true);
+					Type metadataType = typeof(FOMod).Assembly.GetType("Nexus.Client.Mods.Formats.FOMod.FOModArchiveMetadata", true);
+					object cache = Activator.CreateInstance(cacheType, cacheDirectory);
+					object metadata = Activator.CreateInstance(metadataType);
+					metadataType.GetProperty("PrefixPath").SetValue(metadata, Path.Combine(wrapper, @"enbseries\KiSU"));
+					metadataType.GetProperty("InfoXml").SetValue(metadata, Encoding.UTF8.GetBytes("<fomod/>"));
+					cacheType.GetMethod("SaveDurable", BindingFlags.Instance | BindingFlags.NonPublic)
+						.Invoke(cache, new[] { (object)archivePath, metadata });
+				}
+				if (cacheState == 1)
+					new FOMod(archivePath, null, new[] { "Textures", "Meshes" }, "Data", new[] { ".esp" }, cacheManager, registry, true, false);
+				var mod = new FOMod(archivePath, null, new[] { "Textures", "Meshes" }, "Data", new[] { ".esp" }, cacheManager, registry, true, false);
+				Assert.That(mod.GetFileList(), Is.EquivalentTo(new[] { shader, include, texture, "vortex_override_instructions.json" }));
+				Assert.That(mod.GetFile(include), Is.EqualTo(payload));
+				Assert.That(mod.GetFile(texture), Is.EqualTo(payload));
 			}
 			finally
 			{

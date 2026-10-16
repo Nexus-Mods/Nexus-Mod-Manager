@@ -44,6 +44,39 @@
 			}
 		}
 
+		/// <summary>Incremental saves and XML exports preserve ownership order, escaping and removal cleanup in the existing XML schema.</summary>
+		[Test]
+		public void IncrementalInstallLog_PreservesOwnersAndRemovesUninstalledModEntries()
+		{
+			using (var environment = new MixedTestEnvironment())
+			{
+				IMod first = environment.RegisterMod("First & owner", ModInstallMethod.Direct);
+				IMod second = environment.RegisterMod("Second owner", ModInstallMethod.Direct);
+				ModDeploymentTarget target = environment.Target(@"textures\shared.dds");
+				environment.InstallDirect(first, target, "first");
+				environment.InstallDirect(second, target, "second");
+				string secondKey = environment.Key(second);
+				string path = (string)typeof(InstallLog).GetProperty("LogPath", BindingFlags.Instance | BindingFlags.NonPublic)
+					.GetValue(environment.InstallLog);
+				XDocument saved = InstallLogSqliteStore.ReadDocument(path);
+				XElement file = saved.Root.Element("deploymentFiles").Elements("file")
+					.Single(x => (string)x.Attribute("path") == target.RelativePath);
+				Assert.AreEqual(environment.InstallLog.GetDeploymentOwnerKeys(target),
+					file.Element("installingMods").Elements("mod").Select(x => (string)x.Attribute("key")).ToArray());
+				Assert.That(saved.Root.Element("modList").Elements("mod").Select(x => (string)x.Element("name")),
+					Does.Contain("First & owner"));
+				Assert.AreEqual(environment.InstallLog.DeploymentCommitSequence.ToString(),
+					(string)saved.Root.Attribute("deploymentCommitSequence"));
+				environment.Uninstall(second);
+				saved = InstallLogSqliteStore.ReadDocument(path);
+				Assert.IsEmpty(saved.Descendants("mod").Where(x => (string)x.Attribute("key") == secondKey));
+				file = saved.Root.Element("deploymentFiles").Elements("file")
+					.Single(x => (string)x.Attribute("path") == target.RelativePath);
+				Assert.AreEqual(environment.InstallLog.GetDeploymentOwnerKeys(target),
+					file.Element("installingMods").Elements("mod").Select(x => (string)x.Attribute("key")).ToArray());
+			}
+		}
+
 		/// <summary>Covers native Direct folder correction, old-file restoration, uninstall and transaction rollback.</summary>
 		[TestCase(false, false)]
 		[TestCase(false, true)]

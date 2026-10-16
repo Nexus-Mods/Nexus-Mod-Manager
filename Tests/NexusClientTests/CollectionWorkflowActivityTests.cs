@@ -21,6 +21,32 @@ namespace Nexus.Client.Tests
 			Assert.That(snapshot.IsBackgroundContinuation, Is.False);
 		}
 
+		/// <summary>A view refresh during recovery retains the actual active status and its visible busy indicator.</summary>
+		[Test]
+		public void ViewReset_DuringForegroundWork_PreservesActiveIndicatorAndStatus()
+		{
+			CollectionWorkflowActivitySnapshot current = CollectionWorkflowActivityBuilder.Foreground(
+				CollectionWorkflowActivityPhase.Recovering, "Loading remaining installation steps");
+			CollectionWorkflowActivitySnapshot reset = CollectionWorkflowActivityBuilder.AfterViewReset(current, true, "Idle");
+			Assert.AreSame(current, reset);
+			CollectionWorkflowActivityPresentation presentation = CollectionWorkflowActivityPresentationBuilder.Build(reset);
+			Assert.IsTrue(presentation.ShowMemberLoadingOverlay);
+			Assert.IsTrue(presentation.AnimateIcon);
+			Assert.AreEqual("Loading remaining installation steps", reset.StatusText);
+		}
+
+		/// <summary>A completed workflow must release the busy indicator when its view is reset.</summary>
+		[Test]
+		public void ViewReset_AfterForegroundWork_StopsActiveIndicator()
+		{
+			CollectionWorkflowActivitySnapshot current = CollectionWorkflowActivityBuilder.Foreground(
+				CollectionWorkflowActivityPhase.Reviewing, "Loading");
+			CollectionWorkflowActivitySnapshot reset = CollectionWorkflowActivityBuilder.AfterViewReset(current, false, "Idle");
+			Assert.AreEqual(CollectionWorkflowActivityState.Idle, reset.State);
+			Assert.AreEqual("Idle", reset.StatusText);
+			Assert.IsFalse(CollectionWorkflowActivityPresentationBuilder.Build(reset).ShowMemberLoadingOverlay);
+		}
+
 		[Test]
 		public void AcquisitionDeduplicatesSharedProducerIdentity()
 		{

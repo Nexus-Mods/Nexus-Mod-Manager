@@ -160,10 +160,10 @@ namespace Nexus.Client.CollectionManagement
 		/// </summary>
 		private static void ValidateInstallLog(string installLogPath)
 		{
-			if (!File.Exists(installLogPath))
+			if (!InstallLog.HasPersistedLog(installLogPath))
 			{
 				throw new CollectionTargetOwnershipAuthorityException(CollectionTargetOwnershipAuthorityFailureKind.InstallLogMissing,
-					"The authoritative Game Storage does not contain InstallLog.xml.");
+					"The authoritative Game Storage does not contain an authoritative InstallLog.");
 			}
 			if (!InstallLog.IsLogValid(installLogPath))
 			{

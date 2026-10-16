@@ -16,6 +16,9 @@ namespace Nexus.Client.ModManagement
 			return new string(p_strInput.Where(c => char.IsDigit(c)).ToArray());
 		}
 
+		/// <summary>Notifies the native store tracker when mutable persisted metadata changes.</summary>
+		internal event EventHandler PersistenceChanged;
+
 		#region Properties
 
 		public string ModId
@@ -31,11 +34,33 @@ namespace Nexus.Client.ModManagement
 			}
 			set
 			{
+				if (m_strModID == value) return;
 				m_strModID = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
 			}
 		}
-		public string ModName { get; set; }
-		public string NewFileName { get; set; }
+		private string _persistedModName;
+		public string ModName
+		{
+			get { return _persistedModName; }
+			set
+			{
+				if (_persistedModName == value) return;
+				_persistedModName = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
+		private string _persistedNewFileName;
+		public string NewFileName
+		{
+			get { return _persistedNewFileName; }
+			set
+			{
+				if (_persistedNewFileName == value) return;
+				_persistedNewFileName = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
 		public string DownloadId
 		{
 			get
@@ -49,12 +74,34 @@ namespace Nexus.Client.ModManagement
 			}
 			set
 			{
+				if (m_strDownloadID == value) return;
 				m_strDownloadID = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
 			}
 		}
-		public string UpdatedDownloadId { get; set; }
+		private string _persistedUpdatedDownloadId;
+		public string UpdatedDownloadId
+		{
+			get { return _persistedUpdatedDownloadId; }
+			set
+			{
+				if (_persistedUpdatedDownloadId == value) return;
+				_persistedUpdatedDownloadId = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
 		public string ModFileName { get; private set; }
-		public string ModFilePath { get; set; }
+		private string _persistedModFilePath;
+		public string ModFilePath
+		{
+			get { return _persistedModFilePath; }
+			set
+			{
+				if (_persistedModFilePath == value) return;
+				_persistedModFilePath = value;
+				PersistenceChanged?.Invoke(this, EventArgs.Empty);
+			}
+		}
 		public string ModFileFullPath
 		{
 			get

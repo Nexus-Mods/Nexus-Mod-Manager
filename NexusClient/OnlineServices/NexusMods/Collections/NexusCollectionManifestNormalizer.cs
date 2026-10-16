@@ -178,7 +178,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 			ValidateInfo(root["info"], manifestIssues);
 			ValidateTopLevelBehavior(root, manifestIssues);
 			CollectionSetupGuidance setupGuidance = NormalizeSetupGuidance(root);
-			List<CollectionLaunchTool> launchTools = NormalizeTools(root["tools"], manifestIssues);
+			// Tools are optional launcher metadata, not installation effects. Keep unsupported launchers
+			// unavailable and visible without blocking otherwise supported Collection members.
+			var launchToolIssues = new List<CollectionCapabilityIssue>();
+			List<CollectionLaunchTool> launchTools = NormalizeTools(root["tools"], launchToolIssues);
 
 			JArray rawMembers = root["mods"] as JArray;
 			bool memberSetIncomplete = false;
@@ -316,7 +319,8 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				externalFilePriorityRules,
 				pluginRelativeOrderRules,
 				setupGuidance,
-				launchTools);
+				launchTools,
+				launchToolIssues);
 
 			if (revision.DeclaredMemberCount.HasValue && rawMembers != null && revision.DeclaredMemberCount.Value != rawMembers.Count)
 			{
@@ -1863,6 +1867,29 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 				return false;
 			}
 
+			// Vortex testModReference treats a matching archive MD5 without a repository reference as decisive.
+			// Display names and version spellings may differ between the mod page and the exported installed archive.
+			// Only a unique hash bypasses metadata; repository/local-ID constraints and ambiguous matches retain their existing checks.
+			string exactMd5 = ReadString(reference, "fileMD5");
+			if (repo == null && (reference["id"] == null || reference["id"].Type == JTokenType.Null) &&
+				exactMd5 != null && exactMd5.Length == 32 && exactMd5.All(Uri.IsHexDigit))
+			{
+				string gameId = NormalizeDomain(ReadString(reference, "gameId"));
+				List<RuleReferenceCandidate> hashMatches = candidates.Where(candidate =>
+					StringComparer.OrdinalIgnoreCase.Equals(exactMd5, candidate.SourceMd5) &&
+					(String.IsNullOrEmpty(gameId) || StringComparer.Ordinal.Equals(gameId, candidate.SourceDomain))).ToList();
+				if (hashMatches.Count == 1)
+				{
+					memberKey = hashMatches[0].MemberKey;
+					failure = null;
+					return true;
+				}
+				failure = hashMatches.Count == 0
+					? "The rule's exact archive MD5 does not identify a retained member in this game."
+					: "The rule's exact archive MD5 identifies multiple retained members and needs a narrower reference.";
+				return false;
+			}
+
 			List<RuleReferenceCandidate> matches = candidates.Where(x => RuleReferenceMatches(reference, repo, x)).ToList();
 			if (matches.Count == 0)
 			{
@@ -1988,7 +2015,10 @@ namespace Nexus.Client.OnlineServices.NexusMods.Collections
 					continue;
 				}
 
+				int previousIssueCount = issues.Count;
 				AddUnknownManifestFields(tool, ToolFields, path, issues);
+				if (issues.Count != previousIssueCount)
+					continue;
 				string name = ReadString(tool, "name");
 				string executable = ReadString(tool, "exe");
 				if (String.IsNullOrWhiteSpace(name) || name.Length > 256 || !StringComparer.Ordinal.Equals(name, name.Trim()))

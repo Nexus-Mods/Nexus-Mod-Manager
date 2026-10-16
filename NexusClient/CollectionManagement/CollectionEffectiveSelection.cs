@@ -217,7 +217,10 @@ namespace Nexus.Client.CollectionManagement
 				sourceManifest.HasPluginStateSection ? sourceManifest.PluginStates : null,
 				sourceManifest.ConflictConstraints,
 				sourceManifest.ExternalFilePriorityRules,
-				sourceManifest.PluginRelativeOrderRules);
+				sourceManifest.PluginRelativeOrderRules,
+				sourceManifest.SetupGuidance,
+				sourceManifest.LaunchTools,
+				sourceManifest.LaunchToolIssues);
 			CollectionCapabilityReport effectiveCapabilityReport = normalizedCapabilityReport.RecalculateForSelection(effectiveManifest);
 
 			return new CollectionEffectiveSelection(

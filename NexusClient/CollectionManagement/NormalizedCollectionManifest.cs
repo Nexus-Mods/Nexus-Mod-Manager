@@ -234,6 +234,7 @@ namespace Nexus.Client.CollectionManagement
 		private readonly ReadOnlyCollection<CollectionDesiredPluginState> _pluginStates;
 		private readonly ReadOnlyCollection<CollectionPluginRelativeOrderRule> _pluginRelativeOrderRules;
 		private readonly ReadOnlyCollection<CollectionLaunchTool> _launchTools;
+		private readonly ReadOnlyCollection<CollectionCapabilityIssue> _launchToolIssues;
 
 		/// <summary>
 		/// Creates an immutable normalized collection manifest snapshot.
@@ -326,7 +327,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionExternalFilePriorityRule> externalFilePriorityRules,
 			IEnumerable<CollectionPluginRelativeOrderRule> pluginRelativeOrderRules = null,
 			CollectionSetupGuidance setupGuidance = null,
-			IEnumerable<CollectionLaunchTool> launchTools = null)
+			IEnumerable<CollectionLaunchTool> launchTools = null,
+			IEnumerable<CollectionCapabilityIssue> launchToolIssues = null)
 		{
 			if (revision == null)
 				throw new ArgumentNullException(nameof(revision));
@@ -473,6 +475,11 @@ namespace Nexus.Client.CollectionManagement
 				copiedLaunchTools.Add(tool);
 			}
 			_launchTools = new ReadOnlyCollection<CollectionLaunchTool>(copiedLaunchTools);
+
+			List<CollectionCapabilityIssue> copiedLaunchToolIssues = (launchToolIssues ?? Enumerable.Empty<CollectionCapabilityIssue>()).ToList();
+			if (copiedLaunchToolIssues.Any(x => x == null || x.Target != CollectionCapabilityIssueTarget.Manifest))
+				throw new ArgumentException("Collection launcher warnings must describe manifest-level tool metadata.", nameof(launchToolIssues));
+			_launchToolIssues = new ReadOnlyCollection<CollectionCapabilityIssue>(copiedLaunchToolIssues);
 		}
 
 		/// <summary>
@@ -557,6 +564,9 @@ namespace Nexus.Client.CollectionManagement
 
 		/// <summary>Gets safe, explicitly user-launched Collection tools retained from collection.json.</summary>
 		public ReadOnlyCollection<CollectionLaunchTool> LaunchTools { get { return _launchTools; } }
+
+		/// <summary>Gets optional launcher diagnostics which do not block mod installation. Unsupported tools are excluded from LaunchTools.</summary>
+		public ReadOnlyCollection<CollectionCapabilityIssue> LaunchToolIssues { get { return _launchToolIssues; } }
 
 		/// <summary>
 		/// Gets whether the source member set is known to be complete.

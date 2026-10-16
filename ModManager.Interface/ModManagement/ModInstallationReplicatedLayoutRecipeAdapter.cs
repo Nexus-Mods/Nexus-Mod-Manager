@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
+using Nexus.Client.Util;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
 using Nexus.Client.Mods;
@@ -51,6 +53,21 @@ namespace Nexus.Client.ModManagement
 		public ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod,
 			ModInstallationReplicatedLayoutRecipe recipe)
 		{
+			return Translate(recipeInput, mod, recipe, CancellationToken.None, null);
+		}
+
+		/// <summary>Resolves replicated sources with cancellable batch extraction and bounded progress reporting.</summary>
+		public ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod,
+			ModInstallationReplicatedLayoutRecipe recipe, CancellationToken cancellationToken, Action<float> progress)
+		{
+			return Translate(recipeInput, mod, recipe, cancellationToken, progress, false);
+		}
+
+		/// <summary>Optionally trusts unambiguous archive paths, retaining digest matching for renamed or alternative payloads.</summary>
+		public ModInstallationRecipeInput Translate(ModInstallationRecipeInput recipeInput, IMod mod,
+			ModInstallationReplicatedLayoutRecipe recipe, CancellationToken cancellationToken, Action<float> progress, bool skipContentChecks)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
 			if (recipeInput == null)
 				throw new ArgumentNullException(nameof(recipeInput));
 			if (mod == null)
@@ -61,21 +78,72 @@ namespace Nexus.Client.ModManagement
 			ValidateAdapterContract(recipeInput.Validation);
 			ValidateDeclaredPaths(recipeInput.Validation.Paths, recipe.Files);
 
+			var inventory = mod as IModInstallerSourceInventory;
+			List<string> fileList = inventory == null ? mod.GetFileList() : inventory.GetInstallerSourceFiles(null, true);
+			if (fileList == null)
+				throw new InvalidDataException("The verified mod archive did not expose a file list for replicated-layout translation.");
+			var sources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+			foreach (string path in fileList)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				string canonical = new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, path).Path;
+				if (sources.ContainsKey(canonical))
+					throw new InvalidDataException(String.Format("The verified archive contains ambiguous duplicate path '{0}'.", canonical));
+				sources.Add(canonical, path);
+			}
+			var resolvedPaths = new Dictionary<ModInstallationReplicatedFile, string>();
+			if (skipContentChecks)
+			{
+				var destinations = new HashSet<string>(recipe.Files.Where(x => x.SourcePathHint == null)
+					.Select(x => x.DestinationPath), StringComparer.OrdinalIgnoreCase);
+				var uniqueSources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				foreach (string path in sources.Keys)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					int start = 0;
+					while (start < path.Length)
+					{
+						string suffix = path.Substring(start);
+						if (destinations.Contains(suffix))
+							uniqueSources[suffix] = uniqueSources.ContainsKey(suffix) ? null : path;
+						int separator = path.IndexOf('\\', start);
+						if (separator < 0) break;
+						start = separator + 1;
+					}
+				}
+				foreach (ModInstallationReplicatedFile file in recipe.Files)
+				{
+					string path;
+					if (file.SourcePathHint != null)
+					{
+						if (!sources.ContainsKey(file.SourcePathHint))
+							throw new InvalidDataException(String.Format("Replicated-layout source hint '{0}' was not found in the verified archive.", file.SourcePathHint));
+						resolvedPaths.Add(file, file.SourcePathHint);
+					}
+					else if (uniqueSources.TryGetValue(file.DestinationPath, out path) && path != null)
+						resolvedPaths.Add(file, path);
+				}
+			}
+			List<ModInstallationReplicatedFile> unresolvedFiles = recipe.Files.Where(x => !resolvedPaths.ContainsKey(x)).ToList();
 			bool needsMd5 = false;
 			bool needsXxh64 = false;
-			foreach (ModInstallationReplicatedFile file in recipe.Files)
+			foreach (ModInstallationReplicatedFile file in unresolvedFiles)
 			{
 				needsMd5 |= file.HashAlgorithm == ModInstallationReplicatedContentHashAlgorithm.Md5;
 				needsXxh64 |= file.HashAlgorithm == ModInstallationReplicatedContentHashAlgorithm.Xxh64;
 			}
-			ArchiveContentIndex archiveIndex = BuildArchiveContentIndex(mod, needsMd5, needsXxh64);
+			ArchiveContentIndex archiveIndex = unresolvedFiles.Count == 0 ? null
+				: BuildArchiveContentIndex(mod, sources, unresolvedFiles, needsMd5, needsXxh64, cancellationToken, progress);
 			var plan = new ScriptedInstallationPlan();
 			foreach (ModInstallationReplicatedFile file in recipe.Files)
 			{
-				string sourcePath = ResolveSourcePath(archiveIndex, file);
+				cancellationToken.ThrowIfCancellationRequested();
+				string sourcePath;
+				if (!resolvedPaths.TryGetValue(file, out sourcePath)) sourcePath = ResolveSourcePath(archiveIndex, file);
 				plan.Add(new InstallModFileOperation(sourcePath, file.DestinationPath));
 			}
 
+			if (archiveIndex == null) progress?.Invoke(1f);
 			return recipeInput.WithNativePlan(plan.Operations);
 		}
 
@@ -133,48 +201,93 @@ namespace Nexus.Client.ModManagement
 		}
 
 		/// <summary>
-		/// Enumerates and hashes the actual files in the verified archive once so requested content can be resolved unambiguously.
+		/// Matches archive content using one batch extraction when available, retaining strong comparison for ambiguous sources.
 		/// </summary>
-		private static ArchiveContentIndex BuildArchiveContentIndex(IMod mod, bool needsMd5, bool needsXxh64)
+		private static ArchiveContentIndex BuildArchiveContentIndex(IMod mod, Dictionary<string, string> sources,
+			IReadOnlyList<ModInstallationReplicatedFile> files, bool needsMd5, bool needsXxh64,
+			CancellationToken cancellationToken, Action<float> progress)
 		{
-			List<string> fileList = mod.GetFileList();
-			if (fileList == null)
-				throw new InvalidDataException("The verified mod archive did not expose a file list for replicated-layout translation.");
-
-			var hashesByPath = new Dictionary<string, ArchiveContentDigests>(StringComparer.OrdinalIgnoreCase);
-			var pathsByMd5 = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-			var pathsByXxh64 = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-			foreach (string archivePath in fileList)
+			string temporaryDirectory = null;
+			try
 			{
-				string canonicalPath = new ModInstallationRecipePath(ModInstallationRecipePathKind.ArchiveSource, archivePath).Path;
-				if (hashesByPath.ContainsKey(canonicalPath))
-					throw new InvalidDataException(string.Format("The verified archive contains ambiguous duplicate path '{0}'.", canonicalPath));
-
-				byte[] fileBytes = mod.GetFile(archivePath);
-				if (fileBytes == null)
-					throw new InvalidDataException(string.Format("The verified archive could not read '{0}' for replicated-layout matching.", canonicalPath));
-
-				string contentMd5 = null;
-				if (needsMd5)
+				IModFileBatchSource batchSource = mod as IModFileBatchSource;
+				var extracted = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+				progress?.Invoke(0f);
+				if (batchSource != null && sources.Count > 0)
 				{
-					using (MD5 md5 = MD5.Create())
-						contentMd5 = ToHex(md5.ComputeHash(fileBytes));
-					AddHashPath(pathsByMd5, contentMd5, canonicalPath);
+					// A per-entry GetFile call can decode the solid block again for every texture.
+					// Use the existing batch source once, with flat short scratch names.
+					temporaryDirectory = Path.Combine(Path.GetTempPath(), "NMMr-" + FileUtil.CreateTempToken());
+					Directory.CreateDirectory(temporaryDirectory);
+					var destinations = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+					foreach (KeyValuePair<string, string> source in sources)
+					{
+						string destination = Path.Combine(temporaryDirectory, destinations.Count.ToString("x8", CultureInfo.InvariantCulture) + ".bin");
+						destinations.Add(source.Value, destination);
+						extracted.Add(source.Key, destination);
+					}
+					batchSource.CopyFilesTo(destinations, cancellationToken, value => progress?.Invoke(value * 0.5f));
 				}
-				string contentXxh64 = null;
-				if (needsXxh64)
+				Func<string, byte[]> read = path => extracted.Count > 0
+					? File.ReadAllBytes(FileUtil.GetIoPath(extracted[path])) : mod.GetFile(sources[path]);
+				var hashesByPath = new Dictionary<string, ArchiveContentDigests>(StringComparer.OrdinalIgnoreCase);
+				var pathsByMd5 = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+				var pathsByXxh64 = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+				int completed = 0;
+				foreach (string canonicalPath in sources.Keys)
 				{
-					contentXxh64 = ComputeXxh64CanonicalBase64(fileBytes);
-					AddHashPath(pathsByXxh64, contentXxh64, canonicalPath);
+					cancellationToken.ThrowIfCancellationRequested();
+					byte[] fileBytes = read(canonicalPath);
+					if (fileBytes == null)
+						throw new InvalidDataException(string.Format("The verified archive could not read '{0}' for replicated-layout matching.", canonicalPath));
+
+					string contentMd5 = null;
+					if (needsMd5)
+					{
+						using (MD5 md5 = MD5.Create()) contentMd5 = ToHex(md5.ComputeHash(fileBytes));
+						AddHashPath(pathsByMd5, contentMd5, canonicalPath);
+					}
+					string contentXxh64 = null;
+					if (needsXxh64)
+					{
+						contentXxh64 = ComputeXxh64CanonicalBase64(fileBytes);
+						AddHashPath(pathsByXxh64, contentXxh64, canonicalPath);
+					}
+					hashesByPath.Add(canonicalPath, new ArchiveContentDigests(contentMd5, contentXxh64, fileBytes.LongLength, null));
+					completed++;
+					if (completed % 32 == 0 || completed == sources.Count)
+						progress?.Invoke(0.5f + 0.4f * completed / sources.Count);
 				}
-				// The Collection may identify several copies by the same MD5/XXH64. Retain a strong identity
-				// from bytes already in memory so equivalent sources never require another archive read.
-				string contentSha256;
-				using (SHA256 sha256 = SHA256.Create()) contentSha256 = ToHex(sha256.ComputeHash(fileBytes));
-				hashesByPath.Add(canonicalPath, new ArchiveContentDigests(contentMd5, contentXxh64, fileBytes.LongLength, contentSha256));
+
+				var index = new ArchiveContentIndex(hashesByPath, pathsByMd5, pathsByXxh64);
+				var ambiguousPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				foreach (ModInstallationReplicatedFile file in files.Where(x => x.SourcePathHint == null))
+				{
+					List<string> matches;
+					if (index.GetPathsByHash(file.HashAlgorithm).TryGetValue(file.ContentHash, out matches) && matches.Count > 1)
+						ambiguousPaths.UnionWith(matches);
+				}
+				// Strong comparison is needed only when one requested digest identifies several sources.
+				// Unique matches do not need a second digest of every texture in the archive.
+				int compared = 0;
+				foreach (string path in ambiguousPaths)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					ArchiveContentDigests digest = hashesByPath[path];
+					using (SHA256 sha256 = SHA256.Create())
+						hashesByPath[path] = new ArchiveContentDigests(digest.Md5, digest.Xxh64, digest.ByteLength, ToHex(sha256.ComputeHash(read(path))));
+					compared++;
+					if (compared % 32 == 0 || compared == ambiguousPaths.Count)
+						progress?.Invoke(0.9f + 0.1f * compared / ambiguousPaths.Count);
+				}
+				progress?.Invoke(1f);
+				return index;
 			}
-
-			return new ArchiveContentIndex(hashesByPath, pathsByMd5, pathsByXxh64);
+			finally
+			{
+				if (temporaryDirectory != null && Directory.Exists(temporaryDirectory))
+					FileUtil.ForceDelete(temporaryDirectory);
+			}
 		}
 
 		private static void AddHashPath(Dictionary<string, List<string>> pathsByHash, string digest, string path)

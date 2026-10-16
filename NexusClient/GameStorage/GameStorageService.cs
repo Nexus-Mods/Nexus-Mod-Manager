@@ -1,4 +1,5 @@
 ﻿using System;
+using Nexus.Client.ModManagement.InstallationLog;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -741,11 +742,11 @@ namespace Nexus.Client.GameStorage
                 return;
 
             string installLog = Path.Combine(installInfoPath, "InstallLog.xml");
-            if (File.Exists(installLog) || !HasInstallInfoEvidence(installInfoPath))
+            if (InstallLog.HasPersistedLog(installLog) || !HasInstallInfoEvidence(installInfoPath))
                 return;
 
             Add(result, GameStorageFolderRole.InstallInfo, installInfoPath, GameStorageHealthStatus.MissingInstallLog, true, true,
-                LanguageManager.Get("GameStorage.Health.MissingInstallLog.Message", "InstallInfo contains existing data but InstallLog.xml was not found."),
+                LanguageManager.Get("GameStorage.Health.MissingInstallLog.Message", "InstallInfo contains existing data but no Install Log was found."),
                 LanguageManager.Get("GameStorage.Health.MissingInstallLog.Fix", "Restore the previous InstallInfo folder if this game already had installed mods."));
         }
 
@@ -771,17 +772,53 @@ namespace Nexus.Client.GameStorage
 
         private void AddSuspiciousEmptyWarnings(GameStorageHealthCheck result, GameStoragePathSet paths, GameStorageRegistryEntry lastKnownGood)
         {
-            if (lastKnownGood == null)
+            if (lastKnownGood == null || HasNewerConfirmedStoragePaths(paths, lastKnownGood))
                 return;
 
             if (lastKnownGood.LastKnownArchiveCount > 0 && Directory.Exists(paths.ModsPath) && CountModArchives(paths.ModsPath) == 0)
                 Add(result, GameStorageFolderRole.Mods, paths.ModsPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyMods.Message", "The Mods folder is empty, but the previous known-good folder contained mod archives."), LanguageManager.Format("GameStorage.Health.PreviousModsPath", "Previous Mods folder: {0}", lastKnownGood.ModsPath));
 
-            if (lastKnownGood.LastKnownInstallLogPresent && Directory.Exists(paths.InstallInfoPath) && !File.Exists(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
-                Add(result, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyInstallInfo.Message", "The InstallInfo folder lacks InstallLog.xml, but the previous known-good storage had one."), LanguageManager.Format("GameStorage.Health.PreviousInstallInfoPath", "Previous InstallInfo folder: {0}", lastKnownGood.InstallInfoPath));
+            if (lastKnownGood.LastKnownInstallLogPresent && Directory.Exists(paths.InstallInfoPath) && !InstallLog.HasPersistedLog(Path.Combine(paths.InstallInfoPath, "InstallLog.xml")))
+                Add(result, GameStorageFolderRole.InstallInfo, paths.InstallInfoPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyInstallInfo.Message", "The InstallInfo folder lacks an Install Log, but the previous known-good storage had one."), LanguageManager.Format("GameStorage.Health.PreviousInstallInfoPath", "Previous InstallInfo folder: {0}", lastKnownGood.InstallInfoPath));
 
             if (lastKnownGood.LastKnownVirtualFileCount > 0 && Directory.Exists(paths.VirtualInstallPath) && CountVirtualInstallPayloadFiles(paths.VirtualInstallPath) == 0)
                 Add(result, GameStorageFolderRole.VirtualInstall, paths.VirtualInstallPath, GameStorageHealthStatus.SuspiciousEmptyFolder, true, true, LanguageManager.Get("GameStorage.Health.EmptyVirtualInstall.Message", "The VirtualInstall folder is empty, but the previous known-good folder contained staged files."), LanguageManager.Format("GameStorage.Health.PreviousVirtualInstallPath", "Previous VirtualInstall folder: {0}", lastKnownGood.VirtualInstallPath));
+        }
+
+        /// <summary>
+        /// Recognizes an explicitly adopted folder setup whose manifests are newer than
+        /// a registry snapshot of different paths. Old payload counts cannot describe it.
+        /// Validation remains read-only and unconfirmed empty folders still need recovery.
+        /// </summary>
+        private bool HasNewerConfirmedStoragePaths(GameStoragePathSet paths, GameStorageRegistryEntry previous)
+        {
+            if (AreSamePaths(previous.InstallInfoPath, paths.InstallInfoPath) &&
+                AreSamePaths(previous.ModsPath, paths.ModsPath) &&
+                AreSamePaths(NormalizeVirtualInstallDirectory(previous.VirtualInstallPath), paths.VirtualInstallPath))
+                return false;
+
+            string storageId = ResolveMatchingRootManifestStorageId(paths);
+            if (string.IsNullOrWhiteSpace(storageId) ||
+                !string.Equals(storageId, previous.StorageId, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            GameStorageRootManifest root = ReadRootManifest(TryGetSharedStorageRoot(paths));
+            if (root == null || root.LastSeenUtc <= previous.LastSeenUtc ||
+                root.LinkFolderRequired != paths.LinkFolderRequired)
+                return false;
+
+            foreach (KeyValuePair<GameStorageFolderRole, string> assignment in GetMetadataFolderAssignments(paths))
+            {
+                GameStorageFolderManifest manifest = ReadFolderManifest(assignment.Value);
+                if (manifest == null || manifest.FolderRole != assignment.Key ||
+                    !GetManifestBindings(manifest).Any(x =>
+                        string.Equals(x.GameId, paths.GameId, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(x.StorageId, storageId, StringComparison.OrdinalIgnoreCase) &&
+                        x.LastSeenUtc >= root.LastSeenUtc))
+                    return false;
+            }
+
+            return true;
         }
 
         private bool TryInitializeMetadata(GameStoragePathSet paths, string storageId, GameStorageRegistry registry, GameStorageHealthCheck result)
@@ -970,7 +1007,7 @@ namespace Nexus.Client.GameStorage
             entry.LastSeenUtc = now;
             entry.LastKnownGood = true;
             entry.LastKnownArchiveCount = CountModArchives(paths.ModsPath);
-            entry.LastKnownInstallLogPresent = File.Exists(Path.Combine(paths.InstallInfoPath ?? string.Empty, "InstallLog.xml"));
+            entry.LastKnownInstallLogPresent = InstallLog.HasPersistedLog(Path.Combine(paths.InstallInfoPath ?? string.Empty, "InstallLog.xml"));
             entry.LastKnownVirtualFileCount = CountVirtualInstallPayloadFiles(paths.VirtualInstallPath);
             registry.ActiveStorageByGame[paths.GameId] = storageId;
         }

@@ -920,14 +920,18 @@ namespace Nexus.Client.PluginManagement
 				InvalidateCurrentSnapshot();
 				if (!TryReconcileDeployedPlugins(deployedPaths, requestedActivation, out diagnostics))
 					return false;
-				if (relativeOrder != null && relativeOrder.Count > 0 && !TrySetRelativePluginOrder(relativeOrder, out diagnostics))
-					return false;
-
-				// A prerequisite may have been installed in a later curator phase. Keep masters ahead of dependents
-				// after the whole Collection is deployed, even while other policy diagnostics remain advisory.
-				List<Plugin> dependencyOrder = GetPolicyCorrectedOrder(PluginOrderLog.OrderedPlugins.ToList(), false);
-				var dependencyActive = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
-				ApplyValidatedPluginState(dependencyOrder, dependencyActive, BuildPluginSnapshot(dependencyOrder, dependencyActive));
+				if (relativeOrder != null && relativeOrder.Count > 0)
+				{
+					// Solve curator rules and native dependencies together. A separate correction afterward
+					// can lift a master above another reviewed predecessor and silently undo the Collection order.
+					if (!TrySetRelativePluginOrder(relativeOrder, out diagnostics, true)) return false;
+				}
+				else
+				{
+					List<Plugin> dependencyOrder = GetPolicyCorrectedOrder(PluginOrderLog.OrderedPlugins.ToList(), false);
+					var dependencyActive = new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename);
+					ApplyValidatedPluginState(dependencyOrder, dependencyActive, BuildPluginSnapshot(dependencyOrder, dependencyActive));
+				}
 				diagnostics = CurrentSnapshot.Diagnostics.Where(x => x != null).ToList();
 				TracePluginDiagnostics(diagnostics);
 				return true;
@@ -1523,15 +1527,28 @@ namespace Nexus.Client.PluginManagement
 		/// </summary>
 		public bool TrySetRelativePluginOrder(IList<IList<string>> p_lstRelativeOrderConstraints, out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics)
 		{
+			return TrySetRelativePluginOrder(p_lstRelativeOrderConstraints, out p_lstBlockingDiagnostics, false);
+		}
+
+		/// <summary>Optionally includes native master, section and blueprint constraints in the Collection's final order graph.</summary>
+		private bool TrySetRelativePluginOrder(IList<IList<string>> p_lstRelativeOrderConstraints,
+			out IList<PluginValidationDiagnostic> p_lstBlockingDiagnostics, bool includeNativeDependencies)
+		{
 			p_lstBlockingDiagnostics = new List<PluginValidationDiagnostic>();
 			if (p_lstRelativeOrderConstraints == null)
 				throw new ArgumentNullException(nameof(p_lstRelativeOrderConstraints));
 
-			List<Plugin> current = GetPolicyCorrectedOrder(new List<Plugin>(PluginOrderLog.OrderedPlugins.Where(x => x != null)));
+			List<Plugin> current = GetPolicyCorrectedOrder(new List<Plugin>(PluginOrderLog.OrderedPlugins.Where(x => x != null)),
+				includeNativeDependencies ? false : PluginRestrictionsDisabled);
 			var currentIndex = new Dictionary<Plugin, int>(PluginComparer.Filename);
 			for (int index = 0; index < current.Count; index++)
 				currentIndex[current[index]] = index;
 
+			NativePluginOrderConstraints nativeConstraints = includeNativeDependencies
+				? new NativePluginOrderConstraints(current.Select(plugin => new NativePluginOrderNode(plugin.Filename, plugin.Masters,
+					plugin.Metadata != null && plugin.Metadata.EffectiveMaster,
+					plugin.Metadata != null && (plugin.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0)), Policy.MasterPluginsMustLoadBeforeNonMasters)
+				: null;
 			var involved = new HashSet<Plugin>(PluginComparer.Filename);
 			var edges = new Dictionary<Plugin, HashSet<Plugin>>(PluginComparer.Filename);
 			var indegree = new Dictionary<Plugin, int>(PluginComparer.Filename);
@@ -1548,6 +1565,12 @@ namespace Nexus.Client.PluginManagement
 						PluginComparer.Filename.Equals(lower, higher))
 						return false;
 
+					if (nativeConstraints != null && nativeConstraints.RequiresBefore(higher.Filename, lower.Filename))
+					{
+						Trace.TraceWarning("Collection plugin preference '{0}' before '{1}' was corrected to preserve native master/section precedence.",
+							lower.Filename, higher.Filename);
+						continue;
+					}
 					involved.Add(lower);
 					involved.Add(higher);
 					HashSet<Plugin> outgoing;
@@ -1562,18 +1585,53 @@ namespace Nexus.Client.PluginManagement
 				}
 			}
 
+			if (includeNativeDependencies)
+			{
+				foreach (Plugin plugin in current)
+					foreach (string masterName in (IEnumerable<string>)plugin.Masters ?? Enumerable.Empty<string>())
+					{
+						Plugin master = GetRegisteredPlugin(masterName);
+						if (master != null && currentIndex.ContainsKey(master))
+							AddPluginOrderEdge(master, plugin, involved, edges, indegree);
+					}
+				if (Policy.MasterPluginsMustLoadBeforeNonMasters)
+				{
+					List<Plugin> masters = current.Where(x => x.Metadata != null && x.Metadata.EffectiveMaster &&
+						(x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) == 0).ToList();
+					List<Plugin> others = current.Where(x => x.Metadata == null || !x.Metadata.EffectiveMaster).ToList();
+					foreach (Plugin master in masters)
+						foreach (Plugin other in others) AddPluginOrderEdge(master, other, involved, edges, indegree);
+				}
+				List<Plugin> blueprints = current.Where(x => x.Metadata != null && (x.Metadata.SpecialFlags & PluginSpecialFlags.Blueprint) != 0).ToList();
+				foreach (Plugin blueprint in blueprints)
+					foreach (Plugin other in current.Where(x => !blueprints.Contains(x)))
+						AddPluginOrderEdge(other, blueprint, involved, edges, indegree);
+			}
+
 			if (involved.Count == 0) return true;
 			var remaining = new HashSet<Plugin>(involved, PluginComparer.Filename);
+			// Preserve the earliest occupied slot among all eligible plugins without
+			// rescanning and sorting every remaining plugin on each iteration.
+			var ready = new SortedSet<int>(involved.Where(x => indegree[x] == 0).Select(x => currentIndex[x]));
 			var sortedInvolved = new List<Plugin>(involved.Count);
 			while (remaining.Count > 0)
 			{
-				Plugin next = remaining.Where(x => indegree[x] == 0).OrderBy(x => currentIndex[x]).FirstOrDefault();
-				if (next == null) return false;
+				if (ready.Count == 0)
+				{
+					p_lstBlockingDiagnostics.Add(new PluginValidationDiagnostic(PluginValidationIssueKind.DependencyCycle,
+						PluginValidationSeverity.Error, null, "Plugin order constraints form a cycle involving: " +
+						String.Join(", ", remaining.OrderBy(x => currentIndex[x]).Select(x => Path.GetFileName(x.Filename)))));
+					return false;
+				}
+				int nextIndex = ready.Min;
+				ready.Remove(nextIndex);
+				Plugin next = current[nextIndex];
 				remaining.Remove(next);
 				sortedInvolved.Add(next);
 				HashSet<Plugin> outgoing;
 				if (edges.TryGetValue(next, out outgoing))
-					foreach (Plugin target in outgoing) indegree[target]--;
+					foreach (Plugin target in outgoing)
+						if (--indegree[target] == 0) ready.Add(currentIndex[target]);
 			}
 
 			List<int> occupiedSlots = current.Select((plugin, index) => new { plugin, index })
@@ -1590,6 +1648,24 @@ namespace Nexus.Client.PluginManagement
 					if (correctedIndex[edge.Key] >= correctedIndex[target]) return false;
 
 			return TryApplyPluginState(corrected, new HashSet<Plugin>(ActivePlugins.Where(x => x != null), PluginComparer.Filename), out p_lstBlockingDiagnostics);
+		}
+
+		/// <summary>Adds a native precedence once, sharing the same cycle detection as reviewed plugin rules.</summary>
+		private static void AddPluginOrderEdge(Plugin lower, Plugin higher, ISet<Plugin> involved,
+			IDictionary<Plugin, HashSet<Plugin>> edges, IDictionary<Plugin, int> indegree)
+		{
+			if (PluginComparer.Filename.Equals(lower, higher)) return;
+			involved.Add(lower);
+			involved.Add(higher);
+			HashSet<Plugin> outgoing;
+			if (!edges.TryGetValue(lower, out outgoing))
+			{
+				outgoing = new HashSet<Plugin>(PluginComparer.Filename);
+				edges.Add(lower, outgoing);
+			}
+			if (!indegree.ContainsKey(lower)) indegree.Add(lower, 0);
+			if (!indegree.ContainsKey(higher)) indegree.Add(higher, 0);
+			if (outgoing.Add(higher)) indegree[higher]++;
 		}
 
 		/// <summary>

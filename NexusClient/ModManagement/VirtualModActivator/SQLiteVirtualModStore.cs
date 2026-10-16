@@ -1,4 +1,4 @@
-namespace Nexus.Client.ModManagement
+﻿namespace Nexus.Client.ModManagement
 {
 	using System;
 	using System.Collections.Generic;
@@ -9,7 +9,7 @@ namespace Nexus.Client.ModManagement
 	using System.Linq;
 	using System.Runtime.CompilerServices;
 
-	internal sealed class SQLiteVirtualModStore : IVirtualModStore
+	internal sealed partial class SQLiteVirtualModStore : IVirtualModStore
 	{
 		private const int SCHEMA_VERSION = 2;
 		private const int LEGACY_SCHEMA_VERSION = 1;
@@ -51,6 +51,13 @@ namespace Nexus.Client.ModManagement
 			}
 		}
 
+		/// <summary>Preserves initial-save support without recreating a database that has already become authoritative.</summary>
+		private void EnsurePublishedDatabase()
+		{
+			NativeStoreAuthority.RequireAvailable(m_strDatabasePath);
+			if (!File.Exists(m_strDatabasePath)) Initialize();
+		}
+
 		public bool CanLoadExistingStore()
 		{
 			if (!File.Exists(m_strDatabasePath))
@@ -61,6 +68,11 @@ namespace Nexus.Client.ModManagement
 				lock (m_objDatabaseAccessGate)
 					using (SQLiteConnection connection = OpenConnection())
 					{
+						if (!HasTable(connection, "StoreMetadata") || !HasTable(connection, "VirtualMods") || !HasTable(connection, "VirtualLinks"))
+							return false;
+						Version fileVersion;
+						if (!Version.TryParse(GetMetadata(connection, "file_version"), out fileVersion) || !m_fncIsValidVersion(fileVersion))
+							return false;
 						EnsureSchema(connection);
 						return HasCompatibleSchema(connection, m_fncIsValidVersion);
 					}
@@ -87,8 +99,9 @@ namespace Nexus.Client.ModManagement
 				return;
 			}
 
+			EnsurePublishedDatabase();
+			NativeStoreAuthority.Mark(m_strDatabasePath);
 			SaveRecords(fileVersion, BuildReferenceRecords(virtualModInfo, virtualModLink));
-			SaveXmlCompatibilityShadow(fileVersion, virtualModInfo, virtualModLink, false);
 		}
 
 		public void SaveWithModInfoMatching(Version fileVersion, string filePath, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink)
@@ -99,8 +112,9 @@ namespace Nexus.Client.ModManagement
 				return;
 			}
 
+			EnsurePublishedDatabase();
+			NativeStoreAuthority.Mark(m_strDatabasePath);
 			SaveRecords(fileVersion, BuildMatchingRecords(virtualModInfo, virtualModLink));
-			SaveXmlCompatibilityShadow(fileVersion, virtualModInfo, virtualModLink, true);
 		}
 
 		public VirtualModStoreData Load(string filePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion)
@@ -129,34 +143,15 @@ namespace Nexus.Client.ModManagement
 				return;
 			}
 
-			VirtualModStoreData data = LoadStoreData(false).Data;
+			// Export through a separate reader so the live object's delta identities remain bound to its current records.
+			var exportStore = new SQLiteVirtualModStore(m_strXmlFilePath, m_strDatabasePath, m_vrsCurrentVersion, m_fncIsValidVersion, m_xmsXmlStore);
+			VirtualModStoreData data = exportStore.LoadStoreData(false).Data;
 			m_xmsXmlStore.Save(m_vrsCurrentVersion, destinationPath, data.VirtualMods, data.VirtualLinks);
 		}
 
 		internal void SaveStoreData(Version fileVersion, VirtualModStoreData data)
 		{
 			SaveRecords(fileVersion, BuildReferenceRecords(data.VirtualMods, data.VirtualLinks));
-		}
-
-		private void SaveXmlCompatibilityShadow(Version fileVersion, IList<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink, bool useModInfoMatching)
-		{
-			Stopwatch shadowWatch = Stopwatch.StartNew();
-			try
-			{
-				if (useModInfoMatching)
-					m_xmsXmlStore.SaveWithModInfoMatching(fileVersion, m_strXmlFilePath, virtualModInfo, virtualModLink);
-				else
-					m_xmsXmlStore.Save(fileVersion, m_strXmlFilePath, virtualModInfo, virtualModLink);
-			}
-			catch (Exception e)
-			{
-				Trace.TraceWarning("Could not update virtual mod XML compatibility shadow \"{0}\": {1}", m_strXmlFilePath, e.Message);
-			}
-			finally
-			{
-				shadowWatch.Stop();
-				Trace.TraceInformation("Virtual mod XML compatibility shadow completed in {0}ms.", shadowWatch.ElapsedMilliseconds);
-			}
 		}
 
 		private void SaveRecords(Version fileVersion, IList<ModRecord> records)
@@ -186,8 +181,10 @@ namespace Nexus.Client.ModManagement
 							SetMetadata(connection, transaction, "schema_version", SCHEMA_VERSION.ToString());
 							SetMetadata(connection, transaction, "file_version", fileVersion.ToString());
 							phase = "committing write transaction";
+							SetMetadata(connection, transaction, "generation", (ReadGeneration(connection, transaction) + 1).ToString(System.Globalization.CultureInfo.InvariantCulture));
 							transaction.Commit();
 						}
+						RememberSnapshot(connection, records);
 					}
 				}
 			}
@@ -596,6 +593,7 @@ namespace Nexus.Client.ModManagement
 			List<IVirtualModLink> lstVirtualLinks = new List<IVirtualModLink>();
 			bool hasStoredMods = false;
 
+			NativeStoreAuthority.RequireAvailable(m_strDatabasePath);
 			if (!File.Exists(m_strDatabasePath))
 				return new SQLiteLoadResult(new VirtualModStoreData(lstVirtualMods, lstVirtualLinks), false);
 
@@ -604,6 +602,8 @@ namespace Nexus.Client.ModManagement
 				{
 					if (!HasCompatibleSchema(connection, m_fncIsValidVersion))
 						throw new InvalidOperationException("SQLite virtual mod store failed validation.");
+					_modIds.Clear(); _linkIds.Clear();
+					_generation = ReadGeneration(connection, null);
 
 					using (SQLiteCommand modCommand = connection.CreateCommand())
 					{
@@ -615,6 +615,8 @@ namespace Nexus.Client.ModManagement
 								hasStoredMods = true;
 								long modKey = modReader.GetInt64(0);
 								VirtualModInfo modInfo = new VirtualModInfo(GetString(modReader, 1), GetString(modReader, 2), GetString(modReader, 3), GetString(modReader, 4), GetString(modReader, 5), GetString(modReader, 6), GetString(modReader, 7), GetString(modReader, 8));
+								_modIds[modInfo] = modKey;
+								lstVirtualMods.Add(modInfo);
 								LoadLinks(connection, modKey, modInfo, lstVirtualMods, lstVirtualLinks);
 							}
 						}
@@ -624,26 +626,21 @@ namespace Nexus.Client.ModManagement
 			return new SQLiteLoadResult(new VirtualModStoreData(lstVirtualMods, lstVirtualLinks), reportStoredMods && hasStoredMods);
 		}
 
-		private static void LoadLinks(SQLiteConnection connection, long modKey, IVirtualModInfo modInfo, List<IVirtualModInfo> virtualMods, List<IVirtualModLink> virtualLinks)
+		private void LoadLinks(SQLiteConnection connection, long modKey, IVirtualModInfo modInfo, List<IVirtualModInfo> virtualMods, List<IVirtualModLink> virtualLinks)
 		{
-			bool booNoFileLink = true;
 			using (SQLiteCommand linkCommand = connection.CreateCommand())
 			{
-				linkCommand.CommandText = "SELECT RealPath, VirtualPath, Priority, IsActive, InstallRoot FROM VirtualLinks WHERE VirtualModId = @modKey ORDER BY LinkOrder;";
+				linkCommand.CommandText = "SELECT RealPath, VirtualPath, Priority, IsActive, InstallRoot, VirtualLinkId FROM VirtualLinks WHERE VirtualModId = @modKey ORDER BY LinkOrder;";
 				linkCommand.Parameters.AddWithValue("@modKey", modKey);
 
 				using (SQLiteDataReader linkReader = linkCommand.ExecuteReader())
 				{
 					while (linkReader.Read())
 					{
-						if (booNoFileLink)
-						{
-							booNoFileLink = false;
-							virtualMods.Add(modInfo);
-						}
-
-						virtualLinks.Add(new VirtualModLink(GetString(linkReader, 0), GetString(linkReader, 1), linkReader.GetInt32(2),
-							linkReader.GetInt32(3) != 0, modInfo, ReadInstallRoot(linkReader.GetInt32(4))));
+						var link = new VirtualModLink(GetString(linkReader, 0), GetString(linkReader, 1), linkReader.GetInt32(2),
+							linkReader.GetInt32(3) != 0, modInfo, ReadInstallRoot(linkReader.GetInt32(4)));
+						virtualLinks.Add(link);
+						_linkIds[link] = linkReader.GetInt64(5);
 					}
 				}
 			}
@@ -664,12 +661,12 @@ namespace Nexus.Client.ModManagement
 
 		private static IList<ModRecord> BuildMatchingRecords(IEnumerable<IVirtualModInfo> virtualModInfo, IEnumerable<IVirtualModLink> virtualModLink)
 		{
-			List<IVirtualModLink> links = new List<IVirtualModLink>(virtualModLink);
+			XmlVirtualModStore.MatchingLinkIndex links = new XmlVirtualModStore.MatchingLinkIndex(virtualModLink);
 			List<ModRecord> records = new List<ModRecord>();
 
 			foreach (IVirtualModInfo modInfo in virtualModInfo)
 			{
-				records.Add(new ModRecord(modInfo, links.Where(x => CheckModInfo(x.ModInfo, modInfo) == true).ToList()));
+				records.Add(new ModRecord(modInfo, links.GetLinks(modInfo).ToList()));
 			}
 
 			return records;
@@ -704,19 +701,6 @@ namespace Nexus.Client.ModManagement
 				return lstVirtualLinks;
 
 			return Enumerable.Empty<IVirtualModLink>();
-		}
-
-		private static bool CheckModInfo(IVirtualModInfo p_vmiA, IVirtualModInfo p_vmiB)
-		{
-			if (!string.IsNullOrEmpty(p_vmiA.DownloadId) && !string.IsNullOrEmpty(p_vmiB.DownloadId))
-				if (p_vmiA.DownloadId.Equals(p_vmiB.DownloadId, StringComparison.OrdinalIgnoreCase))
-					return true;
-
-			if (!string.IsNullOrEmpty(p_vmiA.ModFileName) && !string.IsNullOrEmpty(p_vmiB.ModFileName))
-				if (p_vmiA.ModFileName.Equals(p_vmiB.ModFileName, StringComparison.OrdinalIgnoreCase))
-					return true;
-
-			return false;
 		}
 
 		private static long InsertMod(SQLiteConnection connection, SQLiteTransaction transaction, int modOrder, IVirtualModInfo modInfo)

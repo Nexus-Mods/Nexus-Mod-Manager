@@ -36,6 +36,17 @@ namespace NexusClientTests
 	{
 		private const string SourceArchiveBase64 = "UEsDBBQAAAAIAI2QN11CiHJS4QAAAGIBAAAPAAAAY29sbGVjdGlvbi5qc29ujVC7TsQwEOz5itPWVnJBQOGWigahk6BBV6zsDbfCL/w4JYry79jJ0dPtzM7sjHYBdqMHuQCWfPERJDyXiLlO4ka9R1PZS84hyb6nCW0w1LG7omHd32wCHFpq7qdueOyGh69KaUoqcsjsXd18UMys0BySL1HRYeQpl0hN5y2ye90PpO85sk2BFKMhzZt7FWC9TiA/l7+gE/0UjqSr/0ox7RlDRX4LxFp6RJPoP+cF7J3aH/Icms7RVBJssS8a5HA8ChjZUAP3DZSgMdObN6zmqq9/URnW9bxZTsVQa3te734BUEsBAh4DFAAAAAgAjZA3XUKIclLhAAAAYgEAAA8AAAAAAAAAAQAAAKSBAAAAAGNvbGxlY3Rpb24uanNvblBLBQYAAAAAAQABAD0AAAAOAQAAAAA=";
 
+		/// <summary>Normal preparations retain both manifest and archive; generated payloads still prevent cross-operation reuse.</summary>
+		[Test]
+		public void PreparationCache_AcceptsManifestAndArchiveButRejectsGeneratedArtifacts()
+		{
+			const string archive = "sha256:archive";
+			const string manifest = "sha256:manifest";
+			Assert.That(CollectionAdditiveWorkflowCoordinator.CanCachePreparedArtifacts(new[] { manifest, archive }, archive, manifest), Is.True);
+			Assert.That(CollectionAdditiveWorkflowCoordinator.CanCachePreparedArtifacts(new[] { manifest, archive, "sha256:generated" }, archive, manifest), Is.False);
+			Assert.That(CollectionAdditiveWorkflowCoordinator.CanCachePreparedArtifacts(new[] { manifest }, archive, manifest), Is.False);
+		}
+
 		public enum RevisionSourceMode
 		{
 			DirectRetainedManifest = 0,

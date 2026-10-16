@@ -19,10 +19,17 @@ namespace Nexus.Client.ModManagement
 			return GetReadSnapshot(false);
 		}
 
-		/// <summary>Projects the same owner links, optionally resolving physical payload references for backup and restore.</summary>
-		private VirtualModReadSnapshot GetReadSnapshot(bool resolvePayloadSources)
+		/// <summary>Observes one target through the existing path index without copying or scanning the complete Virtual link set.</summary>
+		internal VirtualModReadSnapshot GetReadSnapshotForCollections(ModDeploymentTarget target)
 		{
-			IVirtualModLink[] links = VirtualLinks == null ? new IVirtualModLink[0] : VirtualLinks.ToArray();
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			return GetReadSnapshot(false, GetVirtualOwnerLinksForTarget(target));
+		}
+
+		/// <summary>Projects the same owner links, optionally resolving physical payload references for backup and restore.</summary>
+		private VirtualModReadSnapshot GetReadSnapshot(bool resolvePayloadSources, IVirtualModLink[] selectedLinks = null)
+		{
+			IVirtualModLink[] links = selectedLinks ?? (VirtualLinks == null ? new IVirtualModLink[0] : VirtualLinks.ToArray());
 			Dictionary<IVirtualModInfo, IMod> managedMods = BuildManagedModLookupForVirtualLinks(links);
 			var result = new List<VirtualModReadLink>(links.Length);
 

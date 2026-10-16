@@ -454,7 +454,10 @@ namespace Nexus.Client.CollectionManagement
 			var planRevalidation = new CollectionAdditivePlanRevalidationService(targetResolver, nativeStateReader,
 				operationCoordinator, planBuilder, memberAcquisition);
 
-			var nativeRecipePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, artifactStore, referenceStore);
+			var nativeRecipePreparer = new CollectionNativeRecipePreparer(_store, _revisionSourceStore, artifactStore, referenceStore)
+			{
+				SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions
+			};
 			var dependencyPlanner = new CollectionDependencyPhasePlanner();
 			var impactPlanner = new CollectionConflictImpactPlanner();
 			var workflowRehydrator = new CollectionReviewedWorkflowRehydrator(operationStore, planStore,

@@ -424,7 +424,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				// Script source paths are relative to the directory containing fomod.
 				// Keep Data as that root for scripted archives; ordinary mods retain their existing layout.
 				string correctedPrefix = string.IsNullOrEmpty(cachedMetadata.InstallScriptPath)
-					? NormalizeGamebryoDataPrefix(strCheckPrefix) : strCheckPrefix;
+					? NormalizeEnbShaderPrefix(NormalizeGamebryoDataPrefix(strCheckPrefix)) : strCheckPrefix;
 				if (!string.Equals(correctedPrefix, strCheckPrefix, StringComparison.Ordinal))
 				{
 					strCheckPrefix = correctedPrefix;
@@ -815,6 +815,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 
 			strPrefixPath = strPrefixPath == null ? "" : strPrefixPath.Trim(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+			strPrefixPath = NormalizeEnbShaderPrefix(strPrefixPath);
 
 			if (!string.IsNullOrEmpty(strPrefixPath))
 			{
@@ -823,6 +824,24 @@ namespace Nexus.Client.Mods.Formats.FOMod
 
 			_movedArchiveInitialized = true;
 			_prefixPath = strPrefixPath;
+		}
+
+		/// <summary>Preserves ENB shader include trees instead of treating their nested Textures folder as the mod root.</summary>
+		private string NormalizeEnbShaderPrefix(string prefixPath)
+		{
+			if (!_usesPlugins || string.IsNullOrEmpty(prefixPath))
+				return prefixPath;
+
+			string candidate = prefixPath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
+			while (!string.IsNullOrEmpty(candidate))
+			{
+				if (Path.GetFileName(candidate).Equals("enbseries", StringComparison.OrdinalIgnoreCase) &&
+					(ArchiveFile.ContainsFile(Path.Combine(candidate, "enbeffect.fx")) ||
+					 ArchiveFile.ContainsFile(Path.Combine(candidate, "enbeffectpostpass.fx"))))
+					return Path.GetDirectoryName(candidate) ?? string.Empty;
+				candidate = Path.GetDirectoryName(candidate);
+			}
+			return prefixPath;
 		}
 
 		private string NormalizeGamebryoDataPrefix(string prefixPath)
@@ -1455,15 +1474,24 @@ namespace Nexus.Client.Mods.Formats.FOMod
 		/// <param name="p_booFillOnlyEmptyValues">Whether to only overwrite <c>null</c> or empty values.</param>
 		protected void LoadInfo(XmlNode p_xndInfo, bool p_booFillOnlyEmptyValues)
 		{
-			var xndRoot = p_xndInfo.SelectSingleNode("fomod");
-			var xndModName = xndRoot.SelectSingleNode("Name");
+			XmlNode xndRoot = p_xndInfo.SelectSingleNode("*[local-name()='fomod']");
+			if (xndRoot == null)
+				throw new XmlException("FOMOD info.xml must contain a fomod root element.");
+
+			// Curator archives may use the FOMOD schema as a default or prefixed namespace.
+			XmlNamespaceManager namespaces = new XmlNamespaceManager(xndRoot.OwnerDocument.NameTable);
+			string prefix = String.IsNullOrEmpty(xndRoot.NamespaceURI) ? String.Empty : "info:";
+			if (prefix.Length > 0)
+				namespaces.AddNamespace("info", xndRoot.NamespaceURI);
+			Func<string, XmlNode> findElement = name => xndRoot.SelectSingleNode(prefix + name, namespaces);
+			var xndModName = findElement("Name");
 
 			if (xndModName != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(ModName)))
 			{
 				ModName = xndModName.InnerText;
 			}
 
-			var xndVersion = xndRoot.SelectSingleNode("Version");
+			var xndVersion = findElement("Version");
 
 			if (xndVersion != null)
 			{
@@ -1487,42 +1515,42 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-			var xndLastKnownVersion = xndRoot.SelectSingleNode("LatestKnownVersion");
+			var xndLastKnownVersion = findElement("LatestKnownVersion");
 
 			if (xndLastKnownVersion != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(LastKnownVersion)))
 			{
 				LastKnownVersion = xndLastKnownVersion.InnerText;
 			}
 
-			var xndId = xndRoot.SelectSingleNode("Id");
+			var xndId = findElement("Id");
 
 			if (xndId != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Id)))
 			{
 				Id = xndId.InnerText;
 			}
 
-			var xndDownloadId = xndRoot.SelectSingleNode("DownloadId");
+			var xndDownloadId = findElement("DownloadId");
 
 			if (xndDownloadId != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(DownloadId)))
 			{
 				DownloadId = xndDownloadId.InnerText;
 			}
 
-			var xndAuthor = xndRoot.SelectSingleNode("Author");
+			var xndAuthor = findElement("Author");
 
 			if (xndAuthor != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Author)))
 			{
 				Author = xndAuthor.InnerText;
 			}
 
-			var xndCategory = xndRoot.SelectSingleNode("CategoryId");
+			var xndCategory = findElement("CategoryId");
 
 			CategoryId =
 				xndCategory != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(xndCategory.InnerText))
 					? Convert.ToInt32(xndCategory.InnerText)
 					: 0;
 
-			var xndCustomCategory = xndRoot.SelectSingleNode("CustomCategoryId");
+			var xndCustomCategory = findElement("CustomCategoryId");
 
 			CustomCategoryId =
 				xndCustomCategory != null &&
@@ -1530,7 +1558,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 					? Convert.ToInt32(xndCustomCategory.InnerText)
 					: -1;
 
-			var xndEndorsed = xndRoot.SelectSingleNode("IsEndorsed");
+			var xndEndorsed = findElement("IsEndorsed");
 
 			if (xndEndorsed != null)
 			{
@@ -1538,7 +1566,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				{
 					IsEndorsed = bool.TryParse(xndEndorsed.InnerText, out var endorsed) ? (bool?)endorsed : null;
 					// Legacy false values also came from the old default; do not claim an abstention without evidence.
-					if (IsEndorsed == false && xndRoot.SelectSingleNode("EndorsementStatus")?.InnerText != "Abstained")
+					if (IsEndorsed == false && findElement("EndorsementStatus")?.InnerText != "Abstained")
 						IsEndorsed = null;
 				}
 				catch
@@ -1547,14 +1575,14 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-			var xndDescription = xndRoot.SelectSingleNode("Description");
+			var xndDescription = findElement("Description");
 
 			if (xndDescription != null && (!p_booFillOnlyEmptyValues || string.IsNullOrEmpty(Description)))
 			{
 				Description = xndDescription.InnerText;
 			}
 
-			var xndWebsite = xndRoot.SelectSingleNode("Website");
+			var xndWebsite = findElement("Website");
 
 			if (xndWebsite != null && !string.IsNullOrEmpty(xndWebsite.InnerText) && (!p_booFillOnlyEmptyValues || Website == null) && UriUtil.TryBuildUri(xndWebsite.InnerText, out var website))
 			{
@@ -1567,7 +1595,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 			}
 			else
 			{
-				var xndUpdateWarningEnabled = xndRoot.SelectSingleNode("UpdateWarningEnabled");
+				var xndUpdateWarningEnabled = findElement("UpdateWarningEnabled");
 
 				if (xndUpdateWarningEnabled != null)
 				{
@@ -1582,7 +1610,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				}
 			}
 
-			var xndUpdateChecksEnabled = xndRoot.SelectSingleNode("UpdateChecksEnabled");
+			var xndUpdateChecksEnabled = findElement("UpdateChecksEnabled");
 
 			if (xndUpdateChecksEnabled != null)
 			{
@@ -1600,7 +1628,7 @@ namespace Nexus.Client.Mods.Formats.FOMod
 				UpdateChecksEnabled = true;
 			}
 
-			var xndPlaceInLoadOrder = xndRoot.SelectSingleNode("PlaceInLoadOrder");
+			var xndPlaceInLoadOrder = findElement("PlaceInLoadOrder");
 
 			if (xndPlaceInLoadOrder != null && !string.IsNullOrEmpty(xndPlaceInLoadOrder.InnerText) && (!p_booFillOnlyEmptyValues || PlaceInModLoadOrder == -1))
 			{

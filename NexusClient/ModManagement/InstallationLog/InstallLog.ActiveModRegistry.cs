@@ -15,6 +15,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		{
 			private ThreadSafeObservableList<IMod> m_oclRegisteredMods = new ThreadSafeObservableList<IMod>();
 			private Dictionary<IMod, string> m_dicModKeys = new Dictionary<IMod, string>(ModComparer.Filename);
+			private readonly Dictionary<string, IMod> _modsByKey = new Dictionary<string, IMod>(StringComparer.Ordinal);
+			private readonly HashSet<IMod> _hiddenMods = new HashSet<IMod>(ModComparer.Filename);
 
 			#region Properties
 
@@ -55,6 +57,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			public void Clear()
 			{
 				m_dicModKeys.Clear();
+				_modsByKey.Clear();
+				_hiddenMods.Clear();
+				m_oclRegisteredMods.Clear();
 			}
 
 			/// <summary>
@@ -76,12 +81,14 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// list of active mods.</param>
 			public void RegisterMod(IMod p_modNewMod, string p_strModKey, bool p_booHiddenMod)
 			{
-				if (m_dicModKeys.ContainsValue(p_strModKey))
+				if (_modsByKey.ContainsKey(p_strModKey))
 				{
-					IMod modOld = m_dicModKeys.First(x => x.Value.Equals(p_strModKey)).Key;
+					IMod modOld = _modsByKey[p_strModKey];
 					DeregisterMod(modOld);
 				}
 				m_dicModKeys.Add(p_modNewMod, p_strModKey);
+				_modsByKey.Add(p_strModKey, p_modNewMod);
+				if (p_booHiddenMod) _hiddenMods.Add(p_modNewMod);
 				if (!p_booHiddenMod)
 					m_oclRegisteredMods.Add(p_modNewMod);
 			}
@@ -92,6 +99,9 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <param name="p_modMod">The mod to deregister.</param>
 			public void DeregisterMod(IMod p_modMod)
 			{
+				string key;
+				if (m_dicModKeys.TryGetValue(p_modMod, out key)) _modsByKey.Remove(key);
+				_hiddenMods.Remove(p_modMod);
 				m_dicModKeys.Remove(p_modMod);
 				for (Int32 i = m_oclRegisteredMods.Count - 1; i >= 0; i--)
 					if (ModComparer.Filename.Equals(m_oclRegisteredMods[i], p_modMod))
@@ -131,7 +141,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <c>false</c> otherwise.</returns>
 			public bool IsModHidden(IMod p_modMod)
 			{
-				return !m_oclRegisteredMods.Contains(p_modMod, ModComparer.Filename);
+				return !m_dicModKeys.ContainsKey(p_modMod) || _hiddenMods.Contains(p_modMod);
 			}
 
 			/// <summary>
@@ -142,7 +152,7 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// <c>false</c> otherwise.</returns>
 			public bool DoesKeyExist(string p_strKey)
 			{
-				return m_dicModKeys.ContainsValue(p_strKey);
+				return _modsByKey.ContainsKey(p_strKey);
 			}
 
 			/// <summary>
@@ -158,6 +168,20 @@ namespace Nexus.Client.ModManagement.InstallationLog
 				return strKey;
 			}
 
+			/// <summary>Captures an existing visible registration's position only when it is affected by rollback.</summary>
+			public int GetVisibleIndex(IMod mod) { return m_oclRegisteredMods.IndexOf(mod); }
+
+			/// <summary>Restores one affected registration without rebuilding the complete observable list.</summary>
+			public void RestoreRegistration(IMod mod, string key, bool hidden, int position)
+			{
+				RegisterMod(mod, key, true);
+				if (!hidden)
+				{
+					_hiddenMods.Remove(mod);
+					m_oclRegisteredMods.Insert(Math.Max(0, Math.Min(position, m_oclRegisteredMods.Count)), mod);
+				}
+			}
+
 			/// <summary>
 			/// Gets the mod identified by the given key.
 			/// </summary>
@@ -166,10 +190,8 @@ namespace Nexus.Client.ModManagement.InstallationLog
 			/// no mod is identified by the given key.</returns>
 			public IMod GetMod(string p_strKey)
 			{
-				IMod modMod = (from kvp in m_dicModKeys
-							where kvp.Value.Equals(p_strKey)
-							select kvp.Key).FirstOrDefault();
-				return modMod;
+				IMod mod;
+				return p_strKey != null && _modsByKey.TryGetValue(p_strKey, out mod) ? mod : null;
 			}
 		}
 	}

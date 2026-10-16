@@ -10,6 +10,7 @@
     using System.Windows.Forms;
 
     using Nexus.Client.BackgroundTasks;
+    using Nexus.Client.CollectionManagement;
     using Nexus.Client.DownloadMonitoring;
     using Nexus.Client.ModActivationMonitoring;
     using Nexus.Client.Games;
@@ -434,8 +435,14 @@
                     {
                         var recoveryResult = ShowViewFactory(() => new GameStorageRecoveryForm(gameStorageService, gameMode, storageHealth), true);
 
-                        if (recoveryResult is DialogResult && (DialogResult)recoveryResult == DialogResult.OK)
-                            storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
+                        if (!(recoveryResult is DialogResult) || (DialogResult)recoveryResult != DialogResult.OK)
+                        {
+                            GameStorageSetupWasCancelled = true;
+                            p_vwmErrorMessage = null;
+                            return false;
+                        }
+
+                        storageHealth = gameStorageService.ValidateCurrentStorage(gameMode);
                     }
 
                     if (!storageHealth.IsHealthy)
@@ -1044,104 +1051,133 @@
 		    Trace.TraceInformation("Found {0} managed mods.", mrgModRegistry.RegisteredMods.Count);
 			Trace.Unindent();
 
-			Trace.TraceInformation("Initializing Install Log...");
-			Trace.Indent();
-			Trace.TraceInformation("Checking if upgrade is required...");
+			using (CollectionTargetMutationLease initializationLease = AcquireNativeStoreInitializationLease(p_gmdGameMode))
+			{
+				Trace.TraceInformation("Initializing Install Log...");
+				Trace.Indent();
+				Trace.TraceInformation("Checking if upgrade is required...");
 
-		    var iluUgrader = new InstallLogUpgrader();
+			    var iluUgrader = new InstallLogUpgrader();
 
-		    var strLogPath = string.Empty;
+			    var strLogPath = string.Empty;
 
+				try
+				{
+					strLogPath = Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+				}
+				catch (ArgumentNullException)
+				{
+					p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.Config.CriticalPathsMissing", "Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup."), null, LanguageManager.Get("Startup.Config.ErrorTitle", "Config error"), MessageBoxIcon.Warning);
+					return null;
+				}
+
+				// Preserve the pre-upgrade XML as well as the XML left behind by the one-time import.
+				if (!InstallLogSqliteStore.IsAuthoritative(strLogPath) && File.Exists(strLogPath) && !File.Exists(strLogPath + ".pre-sqlite"))
+					File.Copy(strLogPath, strLogPath + ".pre-sqlite");
+
+				bool hadInstallLog = InstallLog.HasPersistedLog(strLogPath);
+				if (!InstallLog.IsLogValid(strLogPath) && !InstallLog.Restore(strLogPath) && hadInstallLog)
+				{
+					p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.InstallLog.RecoveryFailed", "The existing Install Log could not be opened or restored. Its files have been preserved. Restore a current backup before continuing."), null,
+						LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
+					return null;
+				}
+
+			    if (iluUgrader.NeedsUpgrade(strLogPath))
+				{
+					if (!iluUgrader.CanUpgrade(strLogPath))
+					{
+						p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.InstallLog.UnsupportedVersion", "{0} does not support version {1} of the Install Log.", CommonData.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
+						return null;
+					}
+					var tskUpgrader = iluUgrader.UpgradeInstallLog(strLogPath, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, mrgModRegistry);
+					m_areTaskWait.Reset();
+					tskUpgrader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
+					OnTaskStarted(tskUpgrader);
+					if (tskUpgrader.IsActive)
+						m_areTaskWait.WaitOne();
+					tskUpgrader.TaskEnded -= new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
+					if (tskUpgrader.Status != TaskStatus.Complete)
+					{
+						var strDetails = (string)(tskUpgrader.ReturnValue ?? null);
+						p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.InstallLog.UpgradeFailed", "Install Log was not upgraded."), strDetails, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
+						return null;
+					}
+				}
+				var ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
+				Trace.Unindent();
+
+				Trace.TraceInformation("Initializing Plugin Management Services...");
+				Trace.Indent();
+				PluginRegistry prgPluginRegistry = null;
+				IPluginOrderLog polPluginOrderLog = null;
+				ActivePluginLog aplPluginLog = null;
+				IPluginManager pmgPluginManager = null;
+				if (!p_gmdGameMode.UsesPlugins)
+					Trace.TraceInformation("Not required.");
+				else
+				{
+					Trace.TraceInformation("Initializing Plugin Registry...");
+					Trace.Indent();
+					prgPluginRegistry = PluginRegistry.DiscoverManagedPlugins(p_gmdGameMode.GetPluginFactory(), p_gmdGameMode.GetPluginDiscoverer());
+					Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
+					Trace.Unindent();
+
+					Trace.TraceInformation("Initializing Plugin Order Log...");
+					Trace.Indent();
+					polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
+					Trace.Unindent();
+
+					Trace.TraceInformation("Initializing Active Plugin Log...");
+					Trace.Indent();
+					aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
+					Trace.Unindent();
+
+					Trace.TraceInformation("Initializing Plugin Manager...");
+					Trace.Indent();
+
+					bool booPluginRestrictionsDisabled = EnvironmentInfo.Settings.PluginRestrictionsDisabled[p_gmdGameMode.ModeId];
+					pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator(), booPluginRestrictionsDisabled);
+
+					Trace.Unindent();
+				}
+				Trace.Unindent();
+
+				Trace.TraceInformation("Initializing Activity Monitor...");
+				Trace.Indent();
+				var dmtMonitor = new DownloadMonitor();
+				Trace.Unindent();
+
+				Trace.TraceInformation("Initializing Mod Activation Monitor...");
+				Trace.Indent();
+				var mamMonitor = new ModActivationMonitor();
+				Trace.Unindent();
+
+				Trace.TraceInformation("Initializing Mod Manager...");
+				Trace.Indent();
+				var mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, mcmModCacheManager, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
+				Trace.Unindent();
+
+				if (initializationLease.RequiresRecovery) initializationLease.MarkRecoveryCompleted();
+				p_vwmErrorMessage = null;
+				return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor);
+			}
+		}
+
+		/// <summary>Holds the normal native target reservation while both stores migrate and recovery reloads their state.</summary>
+		private CollectionTargetMutationLease AcquireNativeStoreInitializationLease(IGameMode gameMode)
+		{
+			var storage = new GameStorageService(EnvironmentInfo);
 			try
 			{
-				strLogPath = Path.Combine(p_gmdGameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
+				CollectionTargetAuthority authority = new CollectionTargetIdentityResolver(storage).Resolve(storage.FromGameMode(gameMode));
+				return CollectionTargetMutationLeaseManager.Shared.Acquire(authority);
 			}
-			catch (ArgumentNullException)
+			catch (CollectionTargetAuthorityException exception) when (exception.FailureKind == CollectionTargetAuthorityFailureKind.StorageIdentityUnavailable)
 			{
-				p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.Config.CriticalPathsMissing", "Unable to retrieve critical paths from the config file." + Environment.NewLine + "Select this game again to fix the folders setup."), null, LanguageManager.Get("Startup.Config.ErrorTitle", "Config error"), MessageBoxIcon.Warning);
-				return null;
+				// Legacy setups without a persisted Storage ID cannot yet acquire canonical native authority.
+				return CollectionTargetMutationLeaseManager.Shared.AcquireNativeOperation("native-store-startup");
 			}
-
-			if (!InstallLog.IsLogValid(strLogPath))
-				InstallLog.Restore(strLogPath);
-
-		    if (iluUgrader.NeedsUpgrade(strLogPath))
-			{
-				if (!iluUgrader.CanUpgrade(strLogPath))
-				{
-					p_vwmErrorMessage = new ViewMessage(LanguageManager.Format("Startup.InstallLog.UnsupportedVersion", "{0} does not support version {1} of the Install Log.", CommonData.ModManagerName, InstallLog.ReadVersion(strLogPath)), null, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
-					return null;
-				}
-				var tskUpgrader = iluUgrader.UpgradeInstallLog(strLogPath, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, mrgModRegistry);
-				m_areTaskWait.Reset();
-				tskUpgrader.TaskEnded += new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
-				OnTaskStarted(tskUpgrader);
-				if (tskUpgrader.IsActive)
-					m_areTaskWait.WaitOne();
-				tskUpgrader.TaskEnded -= new EventHandler<TaskEndedEventArgs>(Task_TaskEnded);
-				if (tskUpgrader.Status != TaskStatus.Complete)
-				{
-					var strDetails = (string)(tskUpgrader.ReturnValue ?? null);
-					p_vwmErrorMessage = new ViewMessage(LanguageManager.Get("Startup.InstallLog.UpgradeFailed", "Install Log was not upgraded."), strDetails, LanguageManager.Get("Startup.InstallLog.Title", "Install Log"), MessageBoxIcon.Error);
-					return null;
-				}
-			}
-			var ilgInstallLog = InstallLog.Initialize(mrgModRegistry, p_gmdGameMode, p_gmdGameMode.GameModeEnvironmentInfo.ModDirectory, strLogPath);
-			Trace.Unindent();
-
-			Trace.TraceInformation("Initializing Plugin Management Services...");
-			Trace.Indent();
-			PluginRegistry prgPluginRegistry = null;
-			IPluginOrderLog polPluginOrderLog = null;
-			ActivePluginLog aplPluginLog = null;
-			IPluginManager pmgPluginManager = null;
-			if (!p_gmdGameMode.UsesPlugins)
-				Trace.TraceInformation("Not required.");
-			else
-			{
-				Trace.TraceInformation("Initializing Plugin Registry...");
-				Trace.Indent();
-				prgPluginRegistry = PluginRegistry.DiscoverManagedPlugins(p_gmdGameMode.GetPluginFactory(), p_gmdGameMode.GetPluginDiscoverer());
-				Trace.TraceInformation("Found {0} managed plugins.", prgPluginRegistry.RegisteredPlugins.Count);
-				Trace.Unindent();
-
-				Trace.TraceInformation("Initializing Plugin Order Log...");
-				Trace.Indent();
-				polPluginOrderLog = PluginOrderLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetPluginOrderLogSerializer(), p_gmdGameMode.GetPluginOrderValidator());
-				Trace.Unindent();
-
-				Trace.TraceInformation("Initializing Active Plugin Log...");
-				Trace.Indent();
-				aplPluginLog = ActivePluginLog.Initialize(prgPluginRegistry, p_gmdGameMode.GetActivePluginLogSerializer(polPluginOrderLog));
-				Trace.Unindent();
-
-				Trace.TraceInformation("Initializing Plugin Manager...");
-				Trace.Indent();
-
-				bool booPluginRestrictionsDisabled = EnvironmentInfo.Settings.PluginRestrictionsDisabled[p_gmdGameMode.ModeId];
-				pmgPluginManager = PluginManager.Initialize(p_gmdGameMode, prgPluginRegistry, aplPluginLog, polPluginOrderLog, p_gmdGameMode.GetPluginOrderValidator(), booPluginRestrictionsDisabled);
-
-				Trace.Unindent();
-			}
-			Trace.Unindent();
-
-			Trace.TraceInformation("Initializing Activity Monitor...");
-			Trace.Indent();
-			var dmtMonitor = new DownloadMonitor();
-			Trace.Unindent();
-
-			Trace.TraceInformation("Initializing Mod Activation Monitor...");
-			Trace.Indent();
-			var mamMonitor = new ModActivationMonitor();
-			Trace.Unindent();
-
-			Trace.TraceInformation("Initializing Mod Manager...");
-			Trace.Indent();
-			var mmgModManager = ModManager.Initialize(p_gmdGameMode, EnvironmentInfo, p_mrpModRepository, dmtMonitor, mamMonitor, mfrModFormatRegistry, mrgModRegistry, mcmModCacheManager, p_nfuFileUtility, p_scxUIContext, ilgInstallLog, pmgPluginManager);
-			Trace.Unindent();
-
-			p_vwmErrorMessage = null;
-			return new ServiceManager(ilgInstallLog, aplPluginLog, polPluginOrderLog, p_mrpModRepository, mmgModManager, pmgPluginManager, dmtMonitor, mamMonitor);
 		}
 
 		/// <summary>

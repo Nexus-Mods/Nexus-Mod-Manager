@@ -75,6 +75,7 @@
 			catch (Exception e)
 			{
 				_initializationException = e;
+				System.Diagnostics.Trace.TraceError("Unable to initialize archive identity/Sort store in {0}: {1}", cacheDirectory, e);
 			}
 		}
 

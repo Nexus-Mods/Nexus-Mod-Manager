@@ -492,8 +492,148 @@ namespace NexusClientTests
 			}
 		}
 
+		/// <summary>A desired effective key is insufficient when another Virtual source is also marked active.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void VirtualWinner_DuplicateActiveOwnersAreNormalizedAndFailedNoOpCanRetry(bool desiredAlreadyEffective)
+		{
+			using (Fixture fixture = CreateFixture(false))
+			{
+				if (desiredAlreadyEffective) fixture.SetOwner("owner-b");
+				bool duplicateActive = true;
+				int switches = 0;
+				fixture.ReadFile = (baseline, target) =>
+				{
+					CollectionNativeFileState file = fixture.CurrentState.Files[target];
+					if (!duplicateActive) return file;
+					return new CollectionNativeFileState(target, file.PhysicalPath, false, file.RecordedByInstallLog, true,
+						file.EffectiveOwnerKey, file.InstallLogOwners, file.DeploymentOwners, file.VirtualOwners.Select(owner =>
+							new CollectionNativeOwnerState(owner.OwnerKey, null, owner.Kind, true, 0, owner.VirtualStagedSourcePath)));
+				};
+				fixture.VirtualService = InterfaceStub<IRootAwareVirtualDeploymentService>.Create((method, args) =>
+				{
+					switches++;
+					if (desiredAlreadyEffective || switches > 1)
+					{
+						duplicateActive = false;
+						fixture.SetOwner("owner-b");
+					}
+					return VirtualFileOwnerSwitchResult.Succeeded(fixture.FileTarget.RelativePath, "owner-b");
+				});
+				if (!desiredAlreadyEffective)
+				{
+					CollectionReviewedFileWinnerRecoveryRequiredException error = Assert.Throws<CollectionReviewedFileWinnerRecoveryRequiredException>(() =>
+						fixture.CreateCoordinator().ReconcileValidated(fixture.Operation.Identity, fixture.Plan, fixture.Matches,
+							fixture.ImpactPlan, System.Threading.CancellationToken.None));
+					StringAssert.Contains(fixture.FileTarget.ToString(), error.Message);
+					StringAssert.Contains("active Virtual owners: 2", error.Message);
+					Assert.AreEqual(0, fixture.ProfileUpdates);
+					Assert.AreEqual(1, fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+						fixture.Operation.Identity.ToString()).Count(x => x.Role.StartsWith("file-winner-", StringComparison.Ordinal)),
+						"Keep the unverified intent for a retry from its unchanged preimage.");
+				}
+
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+
+				Assert.AreEqual(desiredAlreadyEffective ? 1 : 2, switches);
+				Assert.AreEqual(CollectionReviewedFileWinnerOutcome.SwitchedAndVerified, result.Winners.Single().Outcome);
+				Assert.AreEqual(1, fixture.ProfileUpdates);
+				Assert.AreEqual(1, fixture.CurrentState.Files[fixture.FileTarget].VirtualOwners.Count(x => x.VirtualLinkActive == true));
+			}
+		}
+
+		/// <summary>Many independent rules share one full capture and profile write, with durable intents retained across a failed profile save.</summary>
+		[TestCase(true, false)]
+		[TestCase(false, false)]
+		[TestCase(true, true)]
+		[TestCase(false, true)]
+		public void WinnerBatch_UsesTargetedReadsAndOneProfileWrite(bool promoted, bool interruptProfileSave)
+		{
+			const int count = 64;
+			using (Fixture fixture = CreateFixture(promoted, fileCount: count))
+			{
+				var liveFiles = fixture.CurrentState.Files.ToDictionary(x => x.Key, x => x.Value);
+				int fileReads = 0;
+				int switches = 0;
+				int profileWrites = 0;
+				bool failProfile = interruptProfileSave;
+				fixture.ReadFile = (baseline, target) => { fileReads++; return liveFiles[target]; };
+				Action<ModDeploymentTarget, string> apply = (target, owner) =>
+				{
+					switches++;
+					liveFiles[target] = BuildState(fixture.Target, target, promoted, owner, false).Files[target];
+				};
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner") apply((ModDeploymentTarget)args[0], (string)args[1]);
+					return null;
+				});
+				fixture.VirtualService = InterfaceStub<IRootAwareVirtualDeploymentService>.Create((method, args) =>
+				{
+					var target = (ModDeploymentTarget)args[0];
+					apply(target, (string)args[1]);
+					return VirtualFileOwnerSwitchResult.Succeeded(target.RelativePath, (string)args[1]);
+				});
+				fixture.ProfileUpdate = () => { profileWrites++; if (failProfile) throw new IOException("Interrupted batch profile save"); };
+				if (interruptProfileSave)
+				{
+					Assert.Throws<IOException>(() => fixture.CreateCoordinator().ReconcileValidated(fixture.Operation.Identity,
+						fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None));
+					Assert.AreEqual(count, switches);
+					Assert.AreEqual(0, fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+						fixture.Operation.Identity.ToString()).Count(x => x.Role.StartsWith("file-winner-verified-", StringComparison.Ordinal)));
+					failProfile = false;
+				}
+				CollectionReviewedFileWinnerReconciliationResult result = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+				Assert.AreEqual(count, switches, "Recovering a batch must not switch already committed files again.");
+				Assert.AreEqual(interruptProfileSave ? 2 : 1, fixture.StateCaptures, "Full-state capture is bounded by batch attempts, not file count.");
+				Assert.AreEqual(count * (interruptProfileSave ? 3 : 2), fileReads);
+				Assert.AreEqual(interruptProfileSave ? 2 : 1, profileWrites);
+				Assert.AreEqual(count, result.Winners.Count);
+				Assert.IsTrue(result.Winners.All(x => x.Outcome == (interruptProfileSave
+					? CollectionReviewedFileWinnerOutcome.RecoveredCommitted : CollectionReviewedFileWinnerOutcome.SwitchedAndVerified)));
+				Assert.AreEqual(count, fixture.References.GetReferencesForOwner(CollectionsRetainedArtifactOwnerKind.Operation,
+					fixture.Operation.Identity.ToString()).Count(x => x.Role.StartsWith("file-winner-verified-", StringComparison.Ordinal)));
+			}
+		}
+
+		/// <summary>Cancellation keeps completed file intents recoverable without replaying their native switches.</summary>
+		[Test]
+		public void WinnerBatch_CancellationBeforeProfileSaveRecoversCompletedFiles()
+		{
+			using (Fixture fixture = CreateFixture(true, fileCount: 8))
+			using (var cancellation = new System.Threading.CancellationTokenSource())
+			{
+				var liveFiles = fixture.CurrentState.Files.ToDictionary(x => x.Key, x => x.Value);
+				int switches = 0;
+				fixture.ReadFile = (baseline, target) => liveFiles[target];
+				fixture.DeploymentManager = InterfaceStub<IModDeploymentManager>.Create((method, args) =>
+				{
+					if (method.Name == "SwitchPromotedOwner")
+					{
+						var target = (ModDeploymentTarget)args[0];
+						liveFiles[target] = BuildState(fixture.Target, target, true, (string)args[1], false).Files[target];
+						if (++switches == 1) cancellation.Cancel();
+					}
+					return null;
+				});
+				Assert.Throws<OperationCanceledException>(() => fixture.CreateCoordinator().ReconcileValidated(fixture.Operation.Identity,
+					fixture.Plan, fixture.Matches, fixture.ImpactPlan, cancellation.Token));
+				Assert.AreEqual(1, switches);
+				Assert.AreEqual(0, fixture.ProfileUpdates);
+				CollectionReviewedFileWinnerReconciliationResult recovered = fixture.CreateRestartedCoordinator().ReconcileValidated(
+					fixture.Operation.Identity, fixture.Plan, fixture.Matches, fixture.ImpactPlan, System.Threading.CancellationToken.None);
+				Assert.AreEqual(8, switches);
+				Assert.AreEqual(1, fixture.ProfileUpdates);
+				Assert.AreEqual(1, recovered.Winners.Count(x => x.Outcome == CollectionReviewedFileWinnerOutcome.RecoveredCommitted));
+				Assert.AreEqual(7, recovered.Winners.Count(x => x.Outcome == CollectionReviewedFileWinnerOutcome.SwitchedAndVerified));
+			}
+		}
+
 		private static Fixture CreateFixture(bool promoted, bool preserveExternalWinner = false, bool preserveExternalWithMultipleWriters = false,
-			ModDeploymentRoot deploymentRoot = ModDeploymentRoot.Data)
+			ModDeploymentRoot deploymentRoot = ModDeploymentRoot.Data, int fileCount = 1)
 		{
 			string root = Path.Combine(Path.GetTempPath(), "nmm-c6-15-11-" + Guid.NewGuid().ToString("N"));
 			Directory.CreateDirectory(root);
@@ -512,7 +652,7 @@ namespace NexusClientTests
 				CollectionManifestMemberSetCompleteness.Complete, null, new[] { memberA, memberB });
 			CollectionCapabilityReport report = CollectionCapabilityReport.Create(manifest);
 			ModDeploymentTarget fileTarget = ModDeploymentTargetResolver.FromCanonical(deploymentRoot, "meshes\\winner.bin");
-			CollectionNativeStateIndex initialState = BuildState(target, fileTarget, promoted, preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner);
+			CollectionNativeStateIndex initialState = BuildState(target, fileTarget, promoted, preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner, fileCount: fileCount);
 			CollectionPlanIdentity planIdentity = CollectionPlanIdentity.From(Guid.NewGuid(), 1);
 			var plan = new ResolvedCollectionPlan(planIdentity, target, CollectionExecutionPolicy.InstallIntoCurrentSetup(), initialState.Fingerprint,
 				report, new[]
@@ -525,8 +665,8 @@ namespace NexusClientTests
 				? new[] { memberB.IdentityResolution.Key }
 				: new[] { memberA.IdentityResolution.Key, memberB.IdentityResolution.Key };
 			var impactPlan = new CollectionConflictImpactPlan(plan, initialState,
-				new[] { new CollectionFileImpact(fileTarget, fileWriters, memberB.IdentityResolution.Key,
-					preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner, new Guid[0]) },
+				initialState.Files.Keys.Select(path => new CollectionFileImpact(path, fileWriters, memberB.IdentityResolution.Key,
+					preserveExternalWinner ? "owner-c" : "owner-a", preserveExternalWinner, new Guid[0])),
 				new CollectionPluginImpact[0], new CollectionConfigurationImpact[0], new CollectionAssociationImpact[0], new CollectionConflictImpactIssue[0]);
 			CollectionDependencyPhasePlan dependencyPlan = new CollectionDependencyPhasePlanner().Plan(plan, matches);
 			Assert.IsTrue(dependencyPlan.IsReady);
@@ -547,15 +687,15 @@ namespace NexusClientTests
 		}
 
 		private static CollectionNativeStateIndex BuildState(CollectionTargetIdentity target, ModDeploymentTarget fileTarget,
-			bool promoted, string ownerKey, bool includeThirdOwner, IEnumerable<string> explicitOwnerOrder = null)
+			bool promoted, string ownerKey, bool includeThirdOwner, IEnumerable<string> explicitOwnerOrder = null, int fileCount = 1)
 		{
 			var modA = new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner-a"), "a.zip", "a.zip", "1", "1", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
 			var modB = new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner-b"), "b.zip", "b.zip", "2", "2", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual);
 			var mods = new List<CollectionNativeModState> { modA, modB };
 			if (includeThirdOwner) mods.Add(new CollectionNativeModState(new NativeModInstanceIdentity(target, "owner-c"), "c.zip", "c.zip", "3", "3", "1", "1", ModInstallRoot.Data, ModInstallMethod.Virtual));
-			var ownerA = new CollectionNativeOwnerState("owner-a", null, CollectionNativeOwnerKind.NativeMod, true, 2, "a");
-			var ownerB = new CollectionNativeOwnerState("owner-b", null, CollectionNativeOwnerKind.NativeMod, true, 1, "b");
-			var ownerC = new CollectionNativeOwnerState("owner-c", null, CollectionNativeOwnerKind.NativeMod, true, 0, "c");
+			var ownerA = new CollectionNativeOwnerState("owner-a", null, CollectionNativeOwnerKind.NativeMod, ownerKey == "owner-a", 2, "a");
+			var ownerB = new CollectionNativeOwnerState("owner-b", null, CollectionNativeOwnerKind.NativeMod, ownerKey == "owner-b", 1, "b");
+			var ownerC = new CollectionNativeOwnerState("owner-c", null, CollectionNativeOwnerKind.NativeMod, ownerKey == "owner-c", 0, "c");
 			var allOwners = new List<CollectionNativeOwnerState> { ownerA, ownerB };
 			if (includeThirdOwner) allOwners.Add(ownerC);
 			CollectionNativeOwnerState[] ownerStack;
@@ -577,7 +717,10 @@ namespace NexusClientTests
 			}
 			var file = new CollectionNativeFileState(fileTarget, "C:\\Game\\Data\\meshes\\winner.bin", promoted, promoted, !promoted, ownerKey,
 				new CollectionNativeOwnerState[0], promoted ? ownerStack : new CollectionNativeOwnerState[0], promoted ? new CollectionNativeOwnerState[0] : ownerStack);
-			return new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], mods, new[] { file },
+			IEnumerable<CollectionNativeFileState> files = Enumerable.Range(0, fileCount).Select(index => index == 0 ? file
+				: new CollectionNativeFileState(ModDeploymentTargetResolver.FromCanonical(fileTarget.Root, fileTarget.RelativePath + index),
+					file.PhysicalPath + index, promoted, promoted, !promoted, ownerKey, file.InstallLogOwners, file.DeploymentOwners, file.VirtualOwners));
+			return new CollectionNativeStateIndex(target, new CollectionNativeRootState[0], mods, files,
 				new CollectionNativeIniState[0], new CollectionNativeGameValueState[0], new CollectionNativePluginState[0],
 				CollectionNativeStateCoverage.NotApplicable, new CollectionTargetAssociation[0], new CollectionMemberBinding[0],
 				new UserOverride[0], CollectionNativeStateCoverage.Complete, new CollectionNativeStateIssue[0], 0);
@@ -639,6 +782,8 @@ namespace NexusClientTests
 			public IModDeploymentManager DeploymentManager { get; set; }
 			public IVirtualDeploymentService VirtualService { get; set; }
 			public int ProfileUpdates { get; set; }
+			public int StateCaptures { get; private set; }
+			public Func<CollectionNativeStateIndex, ModDeploymentTarget, CollectionNativeFileState> ReadFile { get; set; }
 			public Action ProfileUpdate { get; set; }
 
 			public void SetOwner(string ownerKey) { SetOwner(ownerKey, false); }
@@ -683,7 +828,7 @@ namespace NexusClientTests
 				return new CollectionReviewedFileWinnerReconciliationCoordinator(operationStore, planStore, associations, artifacts, references,
 					DeploymentManager ?? InterfaceStub<IModDeploymentManager>.Create((method, args) => null),
 					VirtualService ?? InterfaceStub<IVirtualDeploymentService>.Create((method, args) => null),
-					target => CurrentState, update);
+					target => { StateCaptures++; return CurrentState; }, update, ReadFile);
 			}
 
 			public void Dispose()

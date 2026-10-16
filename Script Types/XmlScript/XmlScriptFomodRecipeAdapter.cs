@@ -60,7 +60,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			public bool Activate { get; }
 		}
 
-		private sealed class ConditionEnvironmentPluginStateProvider : IPluginConditionStateProvider
+		internal sealed class ConditionEnvironmentPluginStateProvider : IPluginConditionStateProvider
 		{
 			private readonly IModInstallationConditionEnvironment _environment;
 
@@ -104,6 +104,12 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			IModInstallationConditionEnvironment conditionEnvironment)
 		{
 			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
+			return GetValidationPaths(operations);
+		}
+
+		/// <summary>Derives the path envelope from an already evaluated immutable operation list.</summary>
+		private static IReadOnlyList<ModInstallationRecipePath> GetValidationPaths(IReadOnlyList<ScriptedInstallOperation> operations)
+		{
 			var result = new List<ModInstallationRecipePath>();
 			var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 			foreach (InstallModFileOperation operation in operations.OfType<InstallModFileOperation>())
@@ -135,6 +141,20 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
 			ValidateDeclaredPaths(recipeInput.Validation.Paths, operations);
 			return recipeInput.WithNativePlan(operations);
+		}
+
+		/// <summary>Evaluates one installer plan and validates the caller's envelope against exactly that plan.</summary>
+		internal ModInstallationRecipeInput Prepare(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe, IModInstallationConditionEnvironment conditionEnvironment,
+			Func<IReadOnlyList<ModInstallationRecipePath>, ModInstallationRecipeInput> createValidatedInput)
+		{
+			if (createValidatedInput == null) throw new ArgumentNullException(nameof(createValidatedInput));
+			IReadOnlyList<ScriptedInstallOperation> operations = BuildPlan(mod, gameMode, environmentInfo, pluginManager, recipe, conditionEnvironment);
+			ModInstallationRecipeInput input = createValidatedInput(GetValidationPaths(operations));
+			if (input == null) throw new InvalidOperationException("FOMOD preparation requires a validated recipe envelope.");
+			ValidateAdapterContract(input.Validation);
+			ValidateDeclaredPaths(input.Validation.Paths, operations);
+			return input.WithNativePlan(operations);
 		}
 
 		private static IReadOnlyList<ScriptedInstallOperation> BuildPlan(IMod mod, IGameMode gameMode,
@@ -236,6 +256,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		private static void ValidateAndApplySelections(XmlScript script, ModInstallationFomodSelectionRecipe recipe,
 			ConditionStateManager stateManager, IList<FileIntent> optionFiles)
 		{
+			if (recipe.HonorRecordedSelections) recipe = AlignRecordedOptionalGroups(script, recipe);
 			ValidateSelectionShape(script, recipe);
 
 			var visibleSteps = new bool[script.InstallSteps.Count];
@@ -248,7 +269,8 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				ModInstallationFomodStepSelection stepSelection = recipe.Steps[stepIndex];
 				// Automatic Collections replay the curator's choices even before prerequisite mods are deployed.
 				bool hasRecordedChoices = stepSelection.Groups.Any(group => group.SelectedOptions.Count != 0);
-				bool stepVisible = (recipe.HonorRecordedSelections && hasRecordedChoices) || step.GetIsVisible(stateManager);
+				bool stepVisible = recipe.HonorRecordedSelections && stepSelection.IsVisible.HasValue
+					? stepSelection.IsVisible.Value : (recipe.HonorRecordedSelections && hasRecordedChoices) || step.GetIsVisible(stateManager);
 				visibleSteps[stepIndex] = stepVisible;
 
 				for (int groupIndex = 0; groupIndex < step.OptionGroups.Count; groupIndex++)
@@ -335,6 +357,46 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		{
 			return option != null && option.Files != null && option.Files.Count == 0 &&
 				option.Flags != null && option.Flags.Count == 0;
+		}
+
+		/// <summary>Replays uniquely named recorded groups after an installer adds optional groups, leaving new choices unselected.</summary>
+		private static ModInstallationFomodSelectionRecipe AlignRecordedOptionalGroups(XmlScript script, ModInstallationFomodSelectionRecipe recipe)
+		{
+			if (recipe.Steps.Count != script.InstallSteps.Count) return recipe;
+			var steps = new List<ModInstallationFomodStepSelection>();
+			for (int stepIndex = 0; stepIndex < script.InstallSteps.Count; stepIndex++)
+			{
+				InstallStep step = script.InstallSteps[stepIndex];
+				ModInstallationFomodStepSelection recorded = recipe.Steps[stepIndex];
+				if (recorded.Groups.Count == step.OptionGroups.Count)
+				{
+					steps.Add(recorded);
+					continue;
+				}
+				var groups = new List<ModInstallationFomodGroupSelection>();
+				var consumed = new HashSet<ModInstallationFomodGroupSelection>();
+				for (int index = 0; index < step.OptionGroups.Count; index++)
+				{
+					OptionGroup group = step.OptionGroups[index];
+					List<ModInstallationFomodGroupSelection> matches = recorded.Groups.Where(x =>
+						StringComparer.Ordinal.Equals(x.GroupName, group.Name)).ToList();
+					if (matches.Count > 1 || (matches.Count == 1 && step.OptionGroups.Count(x =>
+						StringComparer.Ordinal.Equals(x.Name, group.Name)) != 1)) return recipe;
+					if (matches.Count == 1)
+					{
+						consumed.Add(matches[0]);
+						groups.Add(new ModInstallationFomodGroupSelection(index, group.Name, matches[0].SelectedOptions));
+					}
+					else
+					{
+						if (group.Type != OptionGroupType.SelectAny && group.Type != OptionGroupType.SelectAtMostOne) return recipe;
+						groups.Add(new ModInstallationFomodGroupSelection(index, group.Name, new ModInstallationFomodOptionSelection[0]));
+					}
+				}
+				if (consumed.Count != recorded.Groups.Count) return recipe;
+				steps.Add(new ModInstallationFomodStepSelection(recorded.StepIndex, recorded.StepName, groups, recorded.IsVisible));
+			}
+			return new ModInstallationFomodSelectionRecipe(recipe.ScriptVersion, steps, true);
 		}
 
 		/// <summary>
@@ -444,6 +506,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			if (!file.IsFolder && (ModInstallFileFilter.IsIgnored(source) || ModInstallFileFilter.IsIgnored(destination)))
 				return;
 
+			// FOMOD root/dot notation is installer syntax, not an absolute native recipe path.
+			source = NormalizeFomodPath(ModInstallationRecipePathKind.ArchiveSource, source, file.IsFolder);
+			destination = NormalizeFomodPath(ModInstallationRecipePathKind.Destination, destination, true);
+
 			if (!file.IsFolder)
 			{
 				string canonicalSource = CanonicalPath(ModInstallationRecipePathKind.ArchiveSource, source);
@@ -460,21 +526,20 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 				string canonicalDestination = CanonicalPath(ModInstallationRecipePathKind.Destination, effectiveDestination);
 				AppendOperation(plan, projectedState, new InstallModFileOperation(canonicalSource, canonicalDestination));
 
-				string activationPath = destinationIsDirectory ? canonicalDestination : String.IsNullOrEmpty(destination) ? source : destination;
 				if (hasPluginManager)
-					AppendOperation(plan, projectedState, new SetPluginActivationOperation(activationPath, activate, true));
+					AppendOperation(plan, projectedState, new SetPluginActivationOperation(canonicalDestination, activate, true));
 				return;
 			}
 
 			IModInstallerSourceInventory installerInventory = mod as IModInstallerSourceInventory;
 			IList<string> sourceFiles = installerInventory == null
-				? mod.GetFileList(source, true)
-				: installerInventory.GetInstallerSourceFiles(source, true);
+				? (source.Length == 0 ? mod.GetFileList() : mod.GetFileList(source, true))
+				: installerInventory.GetInstallerSourceFiles(source.Length == 0 ? null : source, true);
 			if (sourceFiles == null)
 				throw new InvalidDataException(string.Format("FOMOD folder source '{0}' could not be enumerated from the verified mod archive.", source));
 			List<string> modFiles = sourceFiles.Where(path => !ModInstallFileFilter.IsIgnored(path)).ToList();
 			string from = source.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
-			if (!from.EndsWith(Path.DirectorySeparatorChar.ToString()))
+			if (from.Length > 0 && !from.EndsWith(Path.DirectorySeparatorChar.ToString()))
 				from += Path.DirectorySeparatorChar;
 			string to = destination.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
 			if (to.Length > 0 && !to.EndsWith(Path.DirectorySeparatorChar.ToString()))
@@ -534,9 +599,10 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 		private static bool IsSelectedOptionPluginCandidate(InstallableFile file)
 		{
 			if (file.IsFolder)
-				return file.Destination.Length == 0;
+				return NormalizeFomodPath(ModInstallationRecipePathKind.Destination, file.Destination, true).Length == 0;
 
-			string path = String.IsNullOrEmpty(file.Destination) ? file.Source : file.Destination;
+			string destination = NormalizeFomodPath(ModInstallationRecipePathKind.Destination, file.Destination, true);
+			string path = destination.Length == 0 || destination.EndsWith("\\", StringComparison.Ordinal) ? file.Source : destination;
 			return path.EndsWith(".esm", StringComparison.OrdinalIgnoreCase) ||
 				path.EndsWith(".esp", StringComparison.OrdinalIgnoreCase);
 		}
@@ -627,6 +693,31 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			}
 			if (declared.Count != expected.Count)
 				throw new InvalidDataException("The exact FOMOD selection produces a source or destination path which was not admitted by recipe validation.");
+		}
+
+		/// <summary>Resolves FOMOD dot and destination-root notation before validating the canonical relative recipe path.</summary>
+		private static string NormalizeFomodPath(ModInstallationRecipePathKind kind, string path, bool allowRoot)
+		{
+			string normalized = (path ?? String.Empty).Replace('/', '\\');
+			if (kind == ModInstallationRecipePathKind.Destination && normalized == "\\")
+				return String.Empty;
+			if (normalized.StartsWith("\\", StringComparison.Ordinal))
+				return CanonicalPath(kind, normalized);
+
+			bool directory = normalized.EndsWith("\\", StringComparison.Ordinal) || normalized.EndsWith("\\.", StringComparison.Ordinal);
+			// Remove only current-directory components. Empty interior components, parent traversal, drive/UNC paths
+			// and Windows aliases still reach the strict recipe validator and are rejected there.
+			string[] parts = normalized.Split('\\');
+			for (int index = 0; index < parts.Length - 1; index++)
+				if (parts[index].Length == 0) return CanonicalPath(kind, normalized);
+			normalized = String.Join("\\", parts.Where(part => part != "."));
+			if (normalized.EndsWith("\\", StringComparison.Ordinal))
+				normalized = normalized.Substring(0, normalized.Length - 1);
+			if (allowRoot && normalized.Length == 0)
+				return String.Empty;
+
+			string canonical = CanonicalPath(kind, normalized);
+			return directory ? canonical + "\\" : canonical;
 		}
 
 		/// <summary>

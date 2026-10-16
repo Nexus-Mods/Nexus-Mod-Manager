@@ -31,6 +31,7 @@ namespace Nexus.Client.CollectionManagement
 			_retainedArtifactStore = retainedArtifactStore ?? throw new ArgumentNullException(nameof(retainedArtifactStore));
 			_nativeRecipePreparer = nativeRecipePreparer ?? throw new ArgumentNullException(nameof(nativeRecipePreparer));
 			if (_services.ModManager == null) throw new InvalidOperationException("Revision-update native preparation requires the active ModManager.");
+			_nativeRecipePreparer.SelectInstallerOptions = _services.ModManager.SelectCollectionInstallerOptions;
 		}
 
 		public PreparedCollectionNativeRecipe Prepare(CollectionRevisionUpdatePlan updatePlan,

@@ -156,7 +156,8 @@ namespace Nexus.Client.CollectionManagement
 			var result = new CollectionNativeStateIndex(target, roots, nativeMods, files, iniEdits, gameValues,
 				plugins, pluginCoverage, associations, bindings, overrides, associationCoverage, issues,
 				install.DeploymentCommitSequence, associationSnapshot == null ? null :
-					_associationStore.GetReconciledPartialAssociationIds(associationSnapshot));
+					_associationStore.GetReconciledPartialAssociationIds(associationSnapshot),
+				(_gameMode.PluginManagementPolicy ?? new PluginManagementPolicy()).MasterPluginsMustLoadBeforeNonMasters);
 			CollectionPerformanceMetrics.RecordNativeStateIndexBuild(performanceStarted);
 			return result;
 		}

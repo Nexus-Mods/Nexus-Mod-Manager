@@ -433,6 +433,10 @@ namespace Nexus.Client.Util.Collections
 
 		#region INotifyCollectionChanged Members
 
+		/// <summary>Raised for each collection mutation, including changes whose UI notifications are batched.</summary>
+		/// <remarks>Persistence trackers require individual additions and removals; CollectionChanged retains its existing batching behavior.</remarks>
+		public event NotifyCollectionChangedEventHandler MutationOccurred = delegate { };
+
 		/// <summary>
 		/// Raised when the collection changes.
 		/// </summary>
@@ -457,6 +461,7 @@ namespace Nexus.Client.Util.Collections
 		/// <param name="e">A <see cref="NotifyCollectionChangedEventArgs"/> describing the event arguments.</param>
 		protected virtual void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
 		{
+			MutationOccurred(this, e);
 			if (Interlocked.CompareExchange(ref m_intUpdateNesting, 0, 0) > 0)
 			{
 				Interlocked.Exchange(ref m_intCollectionChangedDuringUpdate, 1);

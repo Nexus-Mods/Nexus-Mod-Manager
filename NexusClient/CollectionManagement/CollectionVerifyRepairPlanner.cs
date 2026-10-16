@@ -237,7 +237,7 @@ namespace Nexus.Client.CollectionManagement
 					continue;
 				}
 
-				if (later.Priority <= earlier.Priority)
+				if (!CollectionPluginRelativeOrderApplicator.IsOrderSatisfied(state, new[] { earlier.FileName, later.FileName }))
 					findings.Add(new CollectionVerifyRepairFinding(null, requirement,
 						CollectionVerifyRepairFindingKind.PluginEffectMismatch, CollectionVerifyRepairDisposition.RestoreExpectedState,
 						null, null, "The native plugin order no longer satisfies the retained Collection plugin-after rule."));

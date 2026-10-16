@@ -63,6 +63,22 @@ namespace Nexus.Client.Tests
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
 		}
 
+		/// <summary>Failed imports point to the main retry button instead of a missing-download loop or a hidden context menu.</summary>
+		[TestCase(1)]
+		[TestCase(3)]
+		public void FailedAcquisitions_NameFailureAndVisibleRetryAction(int count)
+		{
+			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForFailedAcquisitions(count,
+				"Additional Clockwork", "registration failed");
+			Assert.That(presentation.MessageFallback, Does.Contain("failed"));
+			if (count == 1) Assert.That(presentation.MessageFallback, Does.Contain("Additional Clockwork"));
+			else Assert.That(presentation.MessageFallback, Does.Contain("3 mods"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Retry failed downloads and continue"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Completed downloads will be kept"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Right-click"));
+			Assert.That(presentation.TechnicalDetail, Is.EqualTo("registration failed"));
+		}
+
 		[Test]
 		public void PreparationPresentation_UsesStructuredStatusAndPreservesRawTechnicalDetail()
 		{
@@ -113,7 +129,7 @@ namespace Nexus.Client.Tests
 
 			Assert.That(presentation.MessageFallback, Does.Contain("Better Vendor Stalls"));
 			Assert.That(presentation.MessageFallback, Does.Contain(reason));
-			Assert.That(presentation.NextActionFallback, Does.Contain("Download / Prepare"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Retry preparation"));
 			Assert.That(presentation.NextActionFallback, Does.Contain("Export Technical Report"));
 			Assert.That(presentation.NextActionFallback, Does.Not.Contain("errors below"));
 			Assert.That(presentation.NextActionFallback.Contains("deselect"), Is.EqualTo(optional));
@@ -128,6 +144,8 @@ namespace Nexus.Client.Tests
 			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForPreparationFailures(2, detail);
 			Assert.That(presentation.MessageFallback, Does.Contain("2 mods"));
 			Assert.That(presentation.MessageFallback, Does.Contain("checks finished"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Retry preparation"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Download / Prepare"));
 			Assert.That(presentation.MessageFallback, Does.Contain("Review / issues"));
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(detail));
 		}

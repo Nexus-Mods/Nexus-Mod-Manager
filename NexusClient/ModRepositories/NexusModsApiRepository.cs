@@ -1850,7 +1850,7 @@
 		/// Resolves the characterized Vortex Collection Nexus <c>latest</c>/<c>prefer</c> policy to one immutable Nexus file.
 		/// </summary>
 		/// <remarks>
-		/// <c>prefer</c> keeps the curator file while Nexus still exposes it as a normal downloadable file, then falls back to
+		/// <c>prefer</c> keeps the curator file while Nexus exposes it, including archived Collection files, then falls back to
 		/// the same update-chain matching used by Vortex. <c>latest</c> resolves the newest reachable update-chain file.
 		/// Provider/API uncertainty remains fail-closed.
 		/// </remarks>
@@ -1915,6 +1915,10 @@
 				(!StringComparer.Ordinal.Equals(updatePolicy, "latest") && !StringComparer.Ordinal.Equals(updatePolicy, "prefer")))
 				return 0;
 
+			if (StringComparer.Ordinal.Equals(updatePolicy, "prefer") && (fileList.Files ?? new NexusV1ModFile[0])
+				.Any(file => IsCollectionPreferExactAvailable(file, requestedFileId)))
+				return requestedFileId;
+
 			CollectionSourcePolicyNumericVersion minimumVersion = default(CollectionSourcePolicyNumericVersion);
 			bool requireMinimum = StringComparer.Ordinal.Equals(updatePolicy, "prefer");
 			if (requireMinimum && !CollectionSourcePolicyNumericVersion.TryCoerce(requestedVersion, out minimumVersion))
@@ -1967,7 +1971,7 @@
 		private static bool IsCollectionPreferExactAvailable(NexusV1ModFile file, int requestedFileId)
 		{
 			return file != null && file.FileId == requestedFileId &&
-				file.Category != NexusV1FileCategory.Archived && file.Category != NexusV1FileCategory.Deleted;
+				file.Category != NexusV1FileCategory.Deleted;
 		}
 
 		private static bool MatchesCollectionSourcePolicyVersion(NexusV1ModFile file, bool requireMinimum,

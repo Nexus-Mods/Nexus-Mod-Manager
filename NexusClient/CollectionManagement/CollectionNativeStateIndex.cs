@@ -409,7 +409,8 @@ namespace Nexus.Client.CollectionManagement
 			IEnumerable<CollectionNativePluginState> plugins, CollectionNativeStateCoverage pluginCoverage,
 			IEnumerable<CollectionTargetAssociation> associations, IEnumerable<CollectionMemberBinding> bindings,
 			IEnumerable<UserOverride> overrides, CollectionNativeStateCoverage associationCoverage,
-			IEnumerable<CollectionNativeStateIssue> issues, long deploymentCommitSequence, IEnumerable<Guid> reconciledPartialAssociations)
+			IEnumerable<CollectionNativeStateIssue> issues, long deploymentCommitSequence, IEnumerable<Guid> reconciledPartialAssociations,
+			bool pluginOrderRequiresMasterSection = false)
 		{
 			Target = target ?? throw new ArgumentNullException(nameof(target));
 			Roots = new ReadOnlyCollection<CollectionNativeRootState>((roots ?? throw new ArgumentNullException(nameof(roots))).ToList());
@@ -418,6 +419,7 @@ namespace Nexus.Client.CollectionManagement
 			if (!Enum.IsDefined(typeof(CollectionNativeStateCoverage), associationCoverage))
 				throw new ArgumentOutOfRangeException(nameof(associationCoverage));
 			PluginCoverage = pluginCoverage;
+			PluginOrderRequiresMasterSection = pluginOrderRequiresMasterSection;
 			AssociationCoverage = associationCoverage;
 			ReconciledPartialAssociations = new ReadOnlyCollection<Guid>((reconciledPartialAssociations ?? Enumerable.Empty<Guid>()).Distinct().ToList());
 			DeploymentCommitSequence = deploymentCommitSequence;
@@ -483,6 +485,9 @@ namespace Nexus.Client.CollectionManagement
 		public IReadOnlyDictionary<NativeModInstanceIdentity, ReadOnlyCollection<CollectionMemberBinding>> BindingsByNativeMod { get { return _bindingsByNativeMod; } }
 		public IReadOnlyDictionary<Guid, ReadOnlyCollection<CollectionMemberBinding>> BindingsByAssociation { get { return _bindingsByAssociation; } }
 		public IReadOnlyDictionary<Guid, ReadOnlyCollection<UserOverride>> OverridesByAssociation { get { return _overridesByAssociation; } }
+		/// <summary>Gets the current game policy used to interpret Collection ordering preferences; no persisted format is changed.</summary>
+		internal bool PluginOrderRequiresMasterSection { get; }
+
 		public CollectionNativeStateCoverage AssociationCoverage { get; }
 		public ReadOnlyCollection<CollectionNativeStateIssue> Issues { get; }
 		public long DeploymentCommitSequence { get; }

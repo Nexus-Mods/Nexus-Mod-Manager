@@ -27,7 +27,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 	/// This is the script that allows scripting using an XML language. It is meant
 	/// to be easier to learn and more accessible than the more advanced C# script.
 	/// </remarks>
-	public class XmlScriptType : IScriptType, IModInstallationFomodRecipePlanningAdapter
+	public class XmlScriptType : IScriptType, IModInstallationFomodSinglePassPlanningAdapter, IModInstallationFomodInteractiveAdapter
 	{
 		private static Version[] m_verScriptVersions = { new Version(1, 0),
 														new Version(2, 0),
@@ -45,6 +45,50 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript
 			get
 			{
 				return m_verScriptVersions;
+			}
+		}
+
+		/// <summary>Prepares and validates a frozen FOMOD plan in one installer evaluation.</summary>
+		public ModInstallationRecipeInput Prepare(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IPluginManager pluginManager, ModInstallationFomodSelectionRecipe recipe, IModInstallationConditionEnvironment conditionEnvironment,
+			Func<IReadOnlyList<ModInstallationRecipePath>, ModInstallationRecipeInput> createValidatedInput)
+		{
+			return new XmlScriptFomodRecipeAdapter().Prepare(mod, gameMode, environmentInfo, pluginManager,
+				recipe, conditionEnvironment, createValidatedInput);
+		}
+
+		/// <summary>Collects choices with the ordinary native wizard while leaving installation to the Collection transaction.</summary>
+		public ModInstallationFomodSelectionRecipe SelectOptions(IMod mod, IGameMode gameMode, IEnvironmentInfo environmentInfo,
+			IPluginManager pluginManager, IModInstallationConditionEnvironment conditionEnvironment, CancellationToken cancellationToken)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			XmlScript script = mod.InstallScript as XmlScript;
+			if (script == null) throw new ArgumentException("The mod does not contain an XML installer.", nameof(mod));
+			ConditionStateManager state = CreateConditionStateManager(mod, gameMode, pluginManager, environmentInfo);
+			if (conditionEnvironment != null)
+				state.PluginConditionStateProvider = new XmlScriptFomodRecipeAdapter.ConditionEnvironmentPluginStateProvider(conditionEnvironment);
+			if (script.ModPrerequisites != null && !script.ModPrerequisites.GetIsFulfilled(state))
+				throw new DependencyException(script.ModPrerequisites.GetMessage(state));
+			HeaderInfo header = script.HeaderInfo;
+			if (String.IsNullOrEmpty(header.ImagePath)) header.ImagePath = mod.ScreenshotPath;
+			if (header.Height < 0 && header.ShowImage) header.Height = 75;
+			using (var form = new Nexus.Client.ModManagement.Scripting.XmlScript.UI.OptionsForm(script, header, state, script.InstallSteps))
+			{
+				form.Name = "OptionForm";
+				form.Shown += (sender, args) => { if (cancellationToken.IsCancellationRequested) form.Close(); };
+				using (cancellationToken.Register(() =>
+				{
+					if (form.IsHandleCreated && !form.IsDisposed)
+						try { form.BeginInvoke((Action)(() => { if (!form.IsDisposed) form.Close(); })); }
+						catch (InvalidOperationException) { }
+				}))
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					if (script.InstallSteps.Count != 0 && form.ShowDialog(System.Windows.Forms.Form.ActiveForm) != System.Windows.Forms.DialogResult.OK)
+						throw new OperationCanceledException("Collection installer choices were cancelled.", cancellationToken);
+					cancellationToken.ThrowIfCancellationRequested();
+					return form.CaptureSelectionRecipe();
+				}
 			}
 		}
 

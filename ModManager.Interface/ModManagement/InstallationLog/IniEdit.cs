@@ -106,11 +106,11 @@ namespace Nexus.Client.ModManagement.InstallationLog
 		{
 			Int32 intHashCode = 53;
 			if (!String.IsNullOrEmpty(File))
-				intHashCode = intHashCode * 97 + File.GetHashCode();
+				intHashCode = intHashCode * 97 + StringComparer.OrdinalIgnoreCase.GetHashCode(File);
 			if (!String.IsNullOrEmpty(Section))
-				intHashCode = intHashCode * 97 + Section.GetHashCode();
+				intHashCode = intHashCode * 97 + StringComparer.OrdinalIgnoreCase.GetHashCode(Section);
 			if (!String.IsNullOrEmpty(Key))
-				intHashCode = intHashCode * 97 + Key.GetHashCode();
+				intHashCode = intHashCode * 97 + StringComparer.OrdinalIgnoreCase.GetHashCode(Key);
 			return intHashCode;
 		}
 	}

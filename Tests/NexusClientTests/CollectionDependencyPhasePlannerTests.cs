@@ -11,7 +11,7 @@ namespace NexusClientTests
 		private const string Sha256A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 		[Test]
-		public void Plan_SparsePhasesUseCanonicalIndependentOrderingAndVisibilityBarriers()
+		public void Plan_SparsePhasesPreserveManifestOrderAndVisibilityBarriers()
 		{
 			NormalizedCollectionMember z = CreateMember(0, "z", 0, CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
 			NormalizedCollectionMember a = CreateMember(1, "a", 0, CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
@@ -23,8 +23,8 @@ namespace NexusClientTests
 
 			Assert.IsTrue(result.IsReady);
 			Assert.AreEqual(new[] { 0d, 20d, 666d }, result.Phases.Select(x => x.PhaseNumber).ToArray());
-			Assert.AreEqual(new[] { "a", "z" }, result.Phases[0].Members.Select(x => x.MemberKey.Value).ToArray(),
-				"Independent members must use stable member identity rather than source/API order.");
+			Assert.AreEqual(new[] { "z", "a" }, result.Phases[0].Members.Select(x => x.MemberKey.Value).ToArray(),
+				"Independent members must retain manifest order within each installation phase.");
 			Assert.AreEqual("late", result.Phases[1].Members[0].MemberKey.Value);
 			Assert.AreEqual("middle", result.Phases[2].Members[0].MemberKey.Value);
 			Assert.AreEqual(2, result.Barriers.Count);
@@ -33,6 +33,21 @@ namespace NexusClientTests
 			Assert.AreEqual(CollectionPhaseBarrierKind.NativeStateVisibility, result.Barriers[0].Kind);
 			Assert.AreEqual(20d, result.Barriers[1].CompletedPhase);
 			Assert.AreEqual(666d, result.Barriers[1].NextPhase);
+		}
+
+		/// <summary>Automatic and overwrite preferences cannot reorder the same retained Collection recipe.</summary>
+		[TestCase(false, false)]
+		[TestCase(false, true)]
+		[TestCase(true, false)]
+		[TestCase(true, true)]
+		public void Plan_ManifestOrderDoesNotDependOnInstallPreferences(bool automatic, bool overwrite)
+		{
+			NormalizedCollectionMember first = CreateMember(0, "z-first", 0, CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
+			NormalizedCollectionMember second = CreateMember(1, "a-second", 0, CollectionMemberRequirement.Required, CollectionMemberSelection.Selected);
+			Fixture fixture = CreateFixture(new[] { second, first }, null,
+				CollectionExecutionPolicy.InstallIntoCurrentSetup(automatic, overwrite));
+			CollectionDependencyPhasePlan result = new CollectionDependencyPhasePlanner().Plan(fixture.Plan, fixture.Matches);
+			Assert.AreEqual(new[] { "z-first", "a-second" }, result.Phases.Single().Members.Select(x => x.MemberKey.Value).ToArray());
 		}
 
 		[Test]

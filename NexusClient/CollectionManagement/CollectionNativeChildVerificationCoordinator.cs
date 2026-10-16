@@ -138,7 +138,7 @@ namespace Nexus.Client.CollectionManagement
 				bool trustNativeCommit = workflowMode == CollectionNativeChildWorkflowMode.Additive && executionResult.RecipeInput.SkipContentChecks &&
 					exactReportedIdentity && reportedResult.ReportedStatus == ModOperationReportedStatus.Succeeded &&
 					reportedResult.Durability == ModOperationDurability.VerifiedCommitted && !executionResult.MutationLease.RequiresRecovery;
-				CollectionPreparationProgress.Report(totalMembers > 0
+				CollectionPreparationProgress.Report(totalMembers > 0 && !CollectionPreparationProgress.HasMemberCounter
 					? Nexus.Client.Util.Localization.LanguageManager.Format(trustNativeCommit
 						? "Collections.Workflow.FinishingMemberWithCounter" : "Collections.Workflow.CheckingInstalledMemberWithCounter",
 						trustNativeCommit ? "Finishing mod installation ({0}/{1}): {2}" : "Checking installed mod ({0}/{1}): {2}",
@@ -786,14 +786,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			if (effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
 			{
-				int previous = Int32.MinValue;
-				foreach (string path in effect.PluginPaths)
-				{
-					CollectionNativePluginState plugin = FindPlugin(state, path);
-					if (plugin == null || plugin.Priority <= previous) return false;
-					previous = plugin.Priority;
-				}
-				return true;
+				return CollectionPluginRelativeOrderApplicator.IsOrderSatisfied(state, effect.PluginPaths);
 			}
 			return false;
 		}

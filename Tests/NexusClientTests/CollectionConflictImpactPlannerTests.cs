@@ -531,9 +531,9 @@ namespace NexusClientTests
 			Assert.IsFalse(cycle);
 		}
 
-		/// <summary>Repeated writer groups reuse the same rules while cycles remain scoped to the files those writers actually share.</summary>
+		/// <summary>Repeated writer groups reuse transitive rules and detect cycles through selected non-writers.</summary>
 		[Test]
-		public void Plan_RepeatedWriterGroupsPreservePerFileWinnersAndCycles()
+		public void Plan_RepeatedWriterGroupsDetectTransitiveCycles()
 		{
 			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
 			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
@@ -557,12 +557,12 @@ namespace NexusClientTests
 				CreatePreview(b, ab1, additionalTargets: new[] { ab2, bc, cycle1, cycle2 }),
 				CreatePreview(c, bc, additionalTargets: new[] { cycle1, cycle2 })
 			});
-			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(ab1)).PlannedWinner, Is.EqualTo(b.IdentityResolution.Key));
-			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(ab2)).PlannedWinner, Is.EqualTo(b.IdentityResolution.Key));
-			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(bc)).PlannedWinner, Is.EqualTo(c.IdentityResolution.Key));
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(ab1)).PlannedWinner, Is.Null);
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(ab2)).PlannedWinner, Is.Null);
+			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(bc)).PlannedWinner, Is.Null);
 			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(cycle1)).PlannedWinner, Is.Null);
 			Assert.That(result.FileImpacts.Single(x => x.Target.Equals(cycle2)).PlannedWinner, Is.Null);
-			Assert.That(result.Issues.Count(x => x.Kind == CollectionConflictImpactIssueKind.FilePriorityCycle), Is.EqualTo(2));
+			Assert.That(result.Issues.Count(x => x.Kind == CollectionConflictImpactIssueKind.FilePriorityCycle), Is.EqualTo(5));
 		}
 
 		/// <summary>Indexed plugin lookup preserves unique paths, unique basenames and ambiguous ownership across roots.</summary>
@@ -590,6 +590,26 @@ namespace NexusClientTests
 			object found = lookupType.GetMethod("Find").Invoke(lookup, new object[] { path });
 			if (scenario.StartsWith("ambiguous", StringComparison.Ordinal)) Assert.That(found, Is.Null);
 			else Assert.That(found, Is.SameAs(first));
+		}
+
+		/// <summary>A priority chain remains authoritative when its middle mod does not supply the conflicting file.</summary>
+		[TestCase(false)]
+		[TestCase(true)]
+		public void FileWinner_TransitivePriorityThroughSelectedNonWriterOverridesSourceOrder(bool overwrite)
+		{
+			NormalizedCollectionMember higher = CreateMember(0, "higher", 100, 200, 0);
+			NormalizedCollectionMember middle = CreateMember(1, "middle", 101, 201, 0);
+			NormalizedCollectionMember lower = CreateMember(2, "lower", 102, 202, 0);
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { higher, middle, lower }, new[]
+			{
+				new CollectionFilePriorityRule(lower.IdentityResolution.Key, middle.IdentityResolution.Key),
+				new CollectionFilePriorityRule(middle.IdentityResolution.Key, higher.IdentityResolution.Key)
+			}, new CollectionNativeModState[0], new CollectionNativeFileState[0], null, null, null,
+				CollectionNativeStateCoverage.NotApplicable, policy: CollectionExecutionPolicy.InstallIntoCurrentSetup(false, overwrite));
+			bool cycle;
+			Assert.AreEqual(higher.IdentityResolution.Key, CollectionConflictImpactPlanner.ResolveFileWinner(
+				new[] { lower.IdentityResolution.Key, higher.IdentityResolution.Key }, fixture.Plan, out cycle));
+			Assert.IsFalse(cycle);
 		}
 
 		[Test]

@@ -75,6 +75,16 @@ namespace Nexus.Client.CollectionManagement.UI
 			}
 		}
 
+		/// <summary>Names failed acquisition work and points to the visible retry action while preserving completed downloads.</summary>
+		internal static CollectionUserMessagePresentation ForFailedAcquisitions(int count, string memberName, string technicalDetail)
+		{
+			string message = count == 1
+				? LanguageManager.Format("Collections.Messages.Preparation.AcquisitionFailedOne", "Download or import failed for '{0}'.", memberName)
+				: LanguageManager.Format("Collections.Messages.Preparation.AcquisitionFailedMany", "Download or import failed for {0} mods.", count);
+			return Message(String.Empty, message, "Collections.Messages.Next.RetryFailedAcquisitions",
+				"Choose Retry failed downloads and continue. Completed downloads will be kept.", technicalDetail);
+		}
+
 		/// <summary>Shows the affected mod and the actual preparation failure instead of hiding it in export-only diagnostics.</summary>
 		internal static CollectionUserMessagePresentation ForMemberPreparation(string memberName, string reason,
 			bool optional, string technicalDetail)
@@ -84,8 +94,8 @@ namespace Nexus.Client.CollectionManagement.UI
 			return Message(String.Empty, message,
 				optional ? "Collections.Messages.Next.ResolveOptionalPreparation" : "Collections.Messages.Next.RetryMemberPreparation",
 				optional
-					? "You can deselect this optional mod on Choose mods, then choose Download / Prepare. To report the error, choose Export Technical Report."
-					: "Choose Download / Prepare to retry. If the same error remains, choose Export Technical Report to include the details in a support request.",
+					? "You can deselect this optional mod on Choose mods, then choose Retry preparation. To report the error, choose Export Technical Report."
+					: "Choose Retry preparation to retry the failed mods. If the same error remains, choose Export Technical Report to include the details in a support request.",
 				technicalDetail);
 		}
 
@@ -95,7 +105,7 @@ namespace Nexus.Client.CollectionManagement.UI
 			string message = LanguageManager.Format("Collections.Messages.Preparation.MultipleMembersFailed",
 				"Mod checks finished. {0} mods could not be prepared; see Review / issues for all reported failures.", failedMemberCount);
 			return Message(String.Empty, message, "Collections.Messages.Next.ResolvePreparationFailures",
-				"Review the affected mods below, resolve the reported issues, then choose Download / Prepare to retry.", technicalDetail);
+				"Review the affected mods below, resolve the reported issues, then choose Retry preparation.", technicalDetail);
 		}
 
 		internal static CollectionUserMessagePresentation ForApply(CollectionAdditiveWorkflowApplyStatus status, string technicalDetail)

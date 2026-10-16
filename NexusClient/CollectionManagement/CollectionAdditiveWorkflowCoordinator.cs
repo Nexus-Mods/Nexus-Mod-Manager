@@ -623,6 +623,7 @@ namespace Nexus.Client.CollectionManagement
 			int installCount = runtime.Matches.MembersByKey.Values.Count(x =>
 				x.Disposition == CollectionMemberMatchDisposition.ArchiveOnlyReuse || x.Disposition == CollectionMemberMatchDisposition.ReinstallRequired);
 			CollectionTargetMutationLease installSession = null;
+			IDisposable memberProgress = null;
 			try
 			{
 				if (installCount > 0 && _nativeChildApplyOverride == null && Properties.Settings.Default.CollectionSkipContentChecks)
@@ -640,10 +641,11 @@ namespace Nexus.Client.CollectionManagement
 				{
 					cancellationToken.ThrowIfCancellationRequested();
 					int currentMember = operation.NativeChildren.Count(x => x.IsReconciled) + 1;
+					memberProgress?.Dispose();
+					memberProgress = currentMember <= installCount ? CollectionPreparationProgress.BeginMember(currentMember, installCount) : null;
 					if (currentMember <= installCount)
-						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-							"Collections.Workflow.PreparingNextInstallationWithCounter", "Preparing the next mod installation ({0}/{1})...",
-							currentMember, installCount), true);
+						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Get(
+							"Collections.Workflow.PreparingNextInstallation", "Preparing the next mod installation..."), true);
 					CollectionNativeChildPreparationResult prepared;
 					try
 					{
@@ -669,9 +671,7 @@ namespace Nexus.Client.CollectionManagement
 					if (recipe == null)
 						throw new InvalidOperationException("The reviewed workflow is missing the exact prepared native recipe for its next mutating member.");
 					CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-						"Collections.Workflow.InstallingMember", "Installing mod ({0}/{1}): {2}",
-						currentMember,
-						installCount, recipe.Member.DisplayName), true);
+						"Collections.Workflow.InstallingMemberStatus", "Installing mod: {0}", recipe.Member.DisplayName), true);
 					ModInstallationRecipeInput childRecipe = recipe.RecipeInput.ForOperationIdentity(prepared.Child.NativeOperation).WithDeferredPluginReconciliation();
 					CollectionNativeChildVerificationResult verification;
 					if (_nativeChildApplyOverride != null)
@@ -768,6 +768,7 @@ namespace Nexus.Client.CollectionManagement
 			}
 			finally
 			{
+				memberProgress?.Dispose();
 				if (installSession != null) installSession.Dispose();
 			}
 
@@ -1109,6 +1110,9 @@ namespace Nexus.Client.CollectionManagement
 			var retainedArtifactStore = new CollectionsRetainedArtifactStore(new CollectionsStore(targetPaths));
 			CollectionNativeStateIndex state = acquisition.PlanBuild.NativeState;
 			var inputs = new List<NativeRecipePreparationInput>();
+			int informationIndex = 0;
+			int informationCount = dependencyPlan.Phases.SelectMany(x => x.Members)
+				.Count(x => x.Match.Disposition != CollectionMemberMatchDisposition.InstalledCompatible);
 			foreach (CollectionExecutionPhase phase in dependencyPlan.Phases)
 			{
 				foreach (CollectionPlannedPhaseMember planned in phase.Members)
@@ -1117,6 +1121,7 @@ namespace Nexus.Client.CollectionManagement
 					CollectionMemberMatchResult match = planned.Match;
 					if (match.Disposition == CollectionMemberMatchDisposition.InstalledCompatible)
 						continue;
+					IDisposable informationProgress = CollectionPreparationProgress.BeginMember(++informationIndex, informationCount);
 					try
 					{
 						if (match.Disposition != CollectionMemberMatchDisposition.ArchiveOnlyReuse &&
@@ -1130,15 +1135,20 @@ namespace Nexus.Client.CollectionManagement
 						CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
 							"Collections.Workflow.ReadingMemberInformation", "Reading mod information: {0}", match.Member.DisplayName), true);
 						IMod managedMod = ResolveManagedMod(match, archive, retainedArtifactStore, cancellationToken, plan.Policy.AutomaticallyInstall);
+						CollectionNativeRecipePreparer.ValidateInstallerRouting(match.Member, managedMod);
 						CollectionInstallDestination destination = CollectionInstallDestinationResolver.Resolve(_services.ModManager.GameMode,
 							match.Member, managedMod, ResolveInstallContext(match), cancellationToken);
-						bool contributesMerge = !match.Member.HasVortexFileList && !match.Member.HasVortexFomodSelection &&
+						bool contributesMerge = !match.Member.HasVortexFileList && !match.Member.HasVortexFomodSelection && !managedMod.HasInstallScript &&
 							CollectionNativeRecipePreparer.IsDeterministicModFileMergeContributor(_services.ModManager.GameMode, managedMod);
 						inputs.Add(new NativeRecipePreparationInput(match, archive, managedMod, destination, contributesMerge));
 					}
 					catch (Exception ex) when (IsMemberPreparationFailure(ex))
 					{
 						RecordMemberPreparationFailure(preparationFailures, match.Member, ex, "Reading mod information");
+					}
+					finally
+					{
+						informationProgress.Dispose();
 					}
 				}
 			}
@@ -1170,6 +1180,7 @@ namespace Nexus.Client.CollectionManagement
 				recipeIndex++;
 				if (preparationFailures.Any(x => x.Member.MemberKey.Equals(input.Match.Member.MemberKey)))
 					continue;
+				IDisposable recipeProgress = CollectionPreparationProgress.BeginMember(recipeIndex, inputs.Count);
 				try
 				{
 					bool includeMergeOutput = !input.ContributesDeterministicMerge || ReferenceEquals(input, mergeOwner);
@@ -1178,27 +1189,29 @@ namespace Nexus.Client.CollectionManagement
 						: _services.ModManager.ActiveMods.ToList();
 					bool skipReadme = _services.ModManager.EnvironmentInfo.Settings.SkipReadmeFiles;
 					PreparedCollectionNativeRecipe prepared;
-					string cacheKey = input.ContributesDeterministicMerge || input.Match.Member.HasVortexFomodSelection
+					string cacheKey = input.ContributesDeterministicMerge
 						? null : GetPreparationCacheKey(input, skipReadme);
 					bool cached = false;
 					prepared = null;
 					if (cacheKey != null)
 						lock (_preparationCacheLock) cached = completedRecipes.TryGetValue(cacheKey, out prepared);
 					CollectionPreparationProgress.Report(Nexus.Client.Util.Localization.LanguageManager.Format(
-						cached ? "Collections.Workflow.ReusingMemberInstallation" : "Collections.Workflow.PlanningMemberInstallation",
-						cached ? "Reusing prepared mod ({0}/{1}): {2}" : "Preparing installation instructions ({0}/{1}): {2}",
-						recipeIndex, inputs.Count, input.Match.Member.DisplayName), !cached);
+						cached ? "Collections.Workflow.ReusingMemberInstallationStatus" : "Collections.Workflow.PlanningMemberInstallationStatus",
+						cached ? "Reusing prepared mod: {0}" : "Preparing installation instructions: {0}", input.Match.Member.DisplayName), !cached);
 					// Dependency-only expansion keeps the captured target and exact existing artifacts unchanged.
 					// Reuse ordinary file previews; merge composition and installer conditions still require fresh planning.
-					if (!cached && (reusableRecipes == null || input.ContributesDeterministicMerge || input.Match.Member.HasVortexFomodSelection ||
+					if (!cached && (reusableRecipes == null || input.ContributesDeterministicMerge || input.Match.Member.HasVortexFomodSelection || input.ManagedMod.HasInstallScript ||
 						!reusableRecipes.TryGetValue(input.Match.Member.MemberKey, out prepared) ||
 						prepared.InstallContext.Method != input.InstallContext.Method || prepared.InstallContext.InstallRoot != input.InstallContext.InstallRoot))
 						prepared = _nativeRecipePreparer.PrepareExact(plan, input.Match.Member, input.Archive, input.ManagedMod,
 							_services.ModManager.GameMode, _services.ModManager.EnvironmentInfo, input.InstallContext, state, skipReadme,
-							_services.PluginManager, activeMods, includeMergeOutput, cancellationToken, input.Destination.GameRootArchiveBaseDirectory);
-					// Generated inputs have their own retention lifecycle; cache only recipes backed solely by this archive.
-					if (cacheKey != null && prepared.RetainedArtifactIds.Count == 1 &&
-						StringComparer.Ordinal.Equals(prepared.RetainedArtifactIds[0], input.Archive.Artifact.ArtifactId) &&
+							_services.PluginManager, activeMods, includeMergeOutput, cancellationToken, input.Destination.GameRootArchiveBaseDirectory,
+							!input.Match.Member.HasVortexFileList && !input.Match.Member.HasVortexFomodSelection && input.ManagedMod.HasInstallScript
+								? new CollectionInstallerConditionEnvironment(state, _services.ModManager.GameMode, plan.CapabilityReport.Manifest, recipes)
+								: null);
+					// The manifest is retained by every normal recipe. Generated inputs have a separate retention lifecycle.
+					if (cacheKey != null && CanCachePreparedArtifacts(prepared.RetainedArtifactIds,
+						input.Archive.Artifact.ArtifactId, "sha256:" + plan.ManifestSource.ContentHash.Value) &&
 						StringComparer.Ordinal.Equals(cacheKey, GetPreparationCacheKey(input, skipReadme)))
 						lock (_preparationCacheLock)
 						{
@@ -1220,11 +1233,22 @@ namespace Nexus.Client.CollectionManagement
 						CollectionArchiveContentMatcher.GetManagedArchivePath(input.ManagedMod) ?? "unresolved", ex.Message);
 					RecordMemberPreparationFailure(preparationFailures, input.Match.Member, ex, "Preparing mod files", detail);
 				}
+				finally
+				{
+					recipeProgress.Dispose();
+				}
 			}
 			return recipes;
 		}
 
-		/// <summary>Retains successful ordinary preparations across retries only while the complete planning context is unchanged.</summary>
+		/// <summary>Admits the normal archive and manifest pair while excluding generated inputs with a separate retention lifecycle.</summary>
+		internal static bool CanCachePreparedArtifacts(IReadOnlyList<string> retainedIds, string archiveId, string manifestId)
+		{
+			return retainedIds.Contains(archiveId, StringComparer.Ordinal) && retainedIds.All(id =>
+				StringComparer.Ordinal.Equals(id, archiveId) || StringComparer.Ordinal.Equals(id, manifestId));
+		}
+
+		/// <summary>Retains successful file and FOMOD preparations across retries only while the complete planning context is unchanged.</summary>
 		private Dictionary<string, PreparedCollectionNativeRecipe> GetPreparationCache(ResolvedCollectionPlan plan)
 		{
 			lock (_preparationCacheLock)
@@ -1248,7 +1272,7 @@ namespace Nexus.Client.CollectionManagement
 			return String.Join("\0", input.Match.Member.MemberKey.ToString(), input.Match.Member.RecipeIdentity.Fingerprint,
 				input.Archive.Artifact.ArtifactId, file.FullName, file.Length.ToString(CultureInfo.InvariantCulture),
 				file.LastWriteTimeUtc.Ticks.ToString(CultureInfo.InvariantCulture), input.ManagedMod.GetType().FullName,
-				input.InstallContext.Method.ToString(), input.InstallContext.InstallRoot.ToString(), skipReadme.ToString(),
+				input.InstallContext.Method.ToString(), input.InstallContext.InstallRoot.ToString(), skipReadme.ToString(), Properties.Settings.Default.CollectionSkipContentChecks.ToString(),
 				input.Destination.GameRootArchiveBaseDirectory ?? String.Empty);
 		}
 
@@ -1503,14 +1527,15 @@ namespace Nexus.Client.CollectionManagement
 
 				Nexus.Client.PluginManagement.ICollectionPluginStateManager collectionPluginManager =
 					_services.PluginManager as Nexus.Client.PluginManagement.ICollectionPluginStateManager;
-				if (plan.Policy.AutomaticallyInstall && plan.Policy.PreferIncomingCollection && collectionPluginManager != null)
+				if (collectionPluginManager != null)
 				{
 					IList<Nexus.Client.PluginManagement.PluginValidationDiagnostic> advisoryDiagnostics;
 					List<IList<string>> relativeOrder = reviewedEffects
 						.Where(x => x.Effect.Kind == CollectionPlannedPluginEffectKind.RelativeOrder)
 						.Select(x => (IList<string>)x.Effect.PluginPaths.ToList()).ToList();
 					if (!collectionPluginManager.TryReconcileCollectionPluginState(requested.Keys.ToList(), requested, relativeOrder, out advisoryDiagnostics))
-						throw new InvalidOperationException("The native plugin service could not apply the Collection's requested plugin state/order.");
+						throw new InvalidOperationException("The native plugin service could not apply the Collection's requested plugin state/order." +
+							(advisoryDiagnostics == null ? String.Empty : " " + String.Join("; ", advisoryDiagnostics.Where(x => x != null).Select(x => x.Message).Distinct())));
 				}
 				else
 				{

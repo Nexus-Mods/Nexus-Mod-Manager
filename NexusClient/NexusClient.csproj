@@ -212,6 +212,8 @@
     <Compile Include="CollectionManagement\CollectionMemberEffectPreview.cs" />
     <Compile Include="CollectionManagement\CollectionMemberEffectPreviewBuilder.cs" />
     <Compile Include="CollectionManagement\CollectionNativeRecipePreparer.cs" />
+    <Compile Include="CollectionManagement\CollectionInstallerSelectionStore.cs" />
+    <Compile Include="CollectionManagement\CollectionInstallerConditionEnvironment.cs" />
     <Compile Include="CollectionManagement\CollectionVortexBinaryPatch.cs" />
     <Compile Include="CollectionManagement\VortexBsdiffPatchApplier.cs" />
     <Compile Include="CollectionManagement\VortexBinaryPatchBundleReader.cs" />
@@ -604,6 +606,12 @@
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModStore.cs" />
     <Compile Include="ModManagement\VirtualModActivator\IVirtualModStoreFactory.cs" />
     <Compile Include="ModManagement\VirtualModActivator\SQLiteVirtualModStore.cs" />
+    <Compile Include="ModManagement\NativeStoreAuthority.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModStoreDelta.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\SQLiteVirtualModStore.Delta.cs" />
+    <Compile Include="ModManagement\VirtualModActivator\VirtualModActivator.Persistence.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLogSqliteStore.cs" />
+    <Compile Include="ModManagement\InstallationLog\InstallLog.Persistence.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualConfigFixTask.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciliationReport.cs" />
     <Compile Include="ModManagement\VirtualModActivator\VirtualInstallReconciler.cs" />
@@ -1359,6 +1367,7 @@
     <Compile Include="PluginManagement\InstallationLog\ActivePluginLog.TransactionEnlistment.cs" />
     <Compile Include="PluginManagement\OrderLog\PluginOrderLog.cs" />
     <Compile Include="PluginManagement\OrderLog\PluginOrderLog.TransactionEnlistment.cs" />
+    <Compile Include="PluginManagement\NativePluginOrderConstraints.cs" />
     <Compile Include="PluginManagement\PluginManager.cs" />
     <Compile Include="PluginManagement\PluginRegistry.cs" />
     <Compile Include="PluginManagement\PluginRegistry.TransactionEnlistment.cs" />

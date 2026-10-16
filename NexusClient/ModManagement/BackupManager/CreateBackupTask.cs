@@ -253,7 +253,10 @@ namespace Nexus.Client.ModManagement
 						if (!string.IsNullOrEmpty(dir))
 							Directory.CreateDirectory(Path.Combine(BackupDirectory, bkInfo.Directory, dir));
 
-						CopyInstalledBackupFile(bkInfo, GetBackupFilePath(BackupDirectory, bkInfo));
+						if (bkInfo.VirtualModPath == "VirtualModConfig.xml" && bkInfo.Directory == "VIRTUAL INSTALL")
+							ModManager.VirtualModActivator.SaveModList(GetBackupFilePath(BackupDirectory, bkInfo));
+						else
+							CopyInstalledBackupFile(bkInfo, GetBackupFilePath(BackupDirectory, bkInfo));
 
 						if (ItemProgress < ItemProgressMaximum)
 						{
@@ -364,8 +367,8 @@ namespace Nexus.Client.ModManagement
 
 				string installLog = Path.Combine(ModManager.GameMode.GameModeEnvironmentInfo.InstallInfoDirectory, "InstallLog.xml");
 
-				if (File.Exists(installLog))
-					File.Copy(installLog, Path.Combine(BackupDirectory, "InstallLog.xml"));
+				if (InstallationLog.InstallLog.HasPersistedLog(installLog))
+					InstallationLog.InstallLog.ExportSnapshot(installLog, Path.Combine(BackupDirectory, "InstallLog.xml"));
 
 				ValidateRequiredDeploymentPayloads(BackupDirectory);
 

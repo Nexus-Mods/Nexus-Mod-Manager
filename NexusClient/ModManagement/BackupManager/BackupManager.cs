@@ -82,6 +82,14 @@ namespace Nexus.Client.ModManagement
 
 			if((ModManager.VirtualModActivator != null) && (ModManager.VirtualModActivator.Initialized))
 			{
+				if (File.Exists(Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.sqlite")) || File.Exists(Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.xml")))
+				{
+					fInfo = new FileInfo(Path.Combine(ModManager.VirtualModActivator.VirtualFoder, File.Exists(Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.sqlite")) ? "VirtualModConfig.sqlite" : "VirtualModConfig.xml"));
+					InstalledModFileSize = InstalledModFileSize + fInfo.Length;
+					bInfo = new BackupInfo("VirtualModConfig.xml", Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.xml"), "", "VIRTUAL INSTALL", fInfo.Length);
+					lstInstalledModFiles.Add(bInfo);
+				}
+
 				if (ModManager.VirtualModActivator.VirtualLinks.Count > 0)
 				{
 					foreach (IVirtualModLink link in ModManager.VirtualModActivator.VirtualLinks)
@@ -93,14 +101,6 @@ namespace Nexus.Client.ModManagement
 							bInfo = new BackupInfo(link.VirtualModPath, Path.Combine(ModManager.VirtualModActivator.VirtualFoder, link.RealModPath), !string.IsNullOrEmpty(link.ModInfo.DownloadId) ? link.ModInfo.DownloadId : Path.GetFileNameWithoutExtension(link.ModInfo.ModFileName), "VIRTUAL INSTALL", fInfo.Length);
 							lstInstalledModFiles.Add(bInfo);
 						}
-					}
-
-					if (File.Exists(Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.xml")))
-					{
-						fInfo = new FileInfo(Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.xml"));
-						InstalledModFileSize = InstalledModFileSize + fInfo.Length;
-						bInfo = new BackupInfo("VirtualModConfig.xml", Path.Combine(ModManager.VirtualModActivator.VirtualFoder, "VirtualModConfig.xml"), "", "VIRTUAL INSTALL", fInfo.Length);
-						lstInstalledModFiles.Add(bInfo);
 					}
 
 					string OverwriteSource = Path.Combine(ModManager.VirtualModActivator.VirtualPath, "_overwrites");

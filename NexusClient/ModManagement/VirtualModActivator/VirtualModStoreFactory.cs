@@ -3,6 +3,7 @@ namespace Nexus.Client.ModManagement
 	using System;
 	using System.Diagnostics;
 	using System.IO;
+	using Nexus.Client.Util;
 
 	internal sealed class VirtualModStoreFactory : IVirtualModStoreFactory
 	{
@@ -10,6 +11,7 @@ namespace Nexus.Client.ModManagement
 		{
 			XmlVirtualModStore xmlStore = new XmlVirtualModStore();
 			string sqlitePath = SQLiteVirtualModStore.GetDefaultDatabasePath(xmlFilePath);
+			NativeStoreAuthority.RequireAvailable(sqlitePath);
 
 			try
 			{
@@ -17,21 +19,25 @@ namespace Nexus.Client.ModManagement
 				{
 					SQLiteVirtualModStore sqliteStore = new SQLiteVirtualModStore(xmlFilePath, sqlitePath, currentVersion, isValidVersion, xmlStore);
 					if (sqliteStore.CanLoadExistingStore())
+					{
+						NativeStoreAuthority.Mark(sqlitePath);
 						return sqliteStore;
+					}
 
-					Trace.TraceWarning("Existing SQLite virtual mod store failed validation. Falling back to XML store: {0}", sqlitePath);
-					return xmlStore;
+					throw new InvalidDataException("The authoritative virtual mod database is invalid. Restore a current backup: " + sqlitePath);
 				}
 
 				if (TryMigrateXmlStore(xmlStore, xmlFilePath, sqlitePath, currentVersion, isValidVersion, getMissingFileVersion))
 				{
 					SQLiteVirtualModStore sqliteStore = new SQLiteVirtualModStore(xmlFilePath, sqlitePath, currentVersion, isValidVersion, xmlStore);
 					sqliteStore.Initialize();
+					NativeStoreAuthority.Mark(sqlitePath);
 					return sqliteStore;
 				}
 			}
 			catch (Exception e)
 			{
+				if (e is InvalidDataException || File.Exists(sqlitePath) || File.Exists(sqlitePath + ".authority")) throw;
 				Trace.TraceWarning("Could not initialize SQLite virtual mod store. Falling back to XML store: {0}", e.Message);
 			}
 
@@ -40,7 +46,7 @@ namespace Nexus.Client.ModManagement
 
 		private static bool TryMigrateXmlStore(XmlVirtualModStore xmlStore, string xmlFilePath, string sqlitePath, Version currentVersion, Func<Version, bool> isValidVersion, Func<string, string, string> getMissingFileVersion)
 		{
-			string tempSqlitePath = sqlitePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+			string tempSqlitePath = sqlitePath + "." + FileUtil.CreateTempToken() + ".tmp";
 
 			try
 			{
@@ -53,11 +59,12 @@ namespace Nexus.Client.ModManagement
 
 				VirtualModStoreData data;
 				if (File.Exists(xmlFilePath))
-					data = xmlStore.Load(xmlFilePath, currentVersion, isValidVersion, getMissingFileVersion);
+					data = xmlStore.LoadForImport(xmlFilePath, currentVersion, isValidVersion, getMissingFileVersion);
 				else
 					data = new VirtualModStoreData(new System.Collections.Generic.List<IVirtualModInfo>(), new System.Collections.Generic.List<IVirtualModLink>());
 
 				sqliteStore.SaveStoreData(currentVersion, data);
+				XmlVirtualModStore.ValidateImport(currentVersion, data, sqliteStore.Load(xmlFilePath, currentVersion, isValidVersion, getMissingFileVersion));
 				File.Move(tempSqlitePath, sqlitePath);
 				return true;
 			}
@@ -65,6 +72,7 @@ namespace Nexus.Client.ModManagement
 			{
 				Trace.TraceWarning("Could not migrate virtual mod XML store to SQLite. XML store will remain active: {0}", e.Message);
 				DeleteTempDatabase(tempSqlitePath);
+				if (e is InvalidDataException) throw;
 				return false;
 			}
 		}

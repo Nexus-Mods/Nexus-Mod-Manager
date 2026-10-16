@@ -363,7 +363,7 @@ namespace NexusClientTests
 
 				environment.Install(mod, target, "committed");
 				Assert.AreEqual(1, environment.InstallLog.DeploymentCommitSequence);
-				Assert.AreEqual("1", (string)XDocument.Load(environment.InstallLogPath).Root.Attribute("deploymentCommitSequence"));
+				Assert.AreEqual("1", (string)InstallLogSqliteStore.ReadDocument(environment.InstallLogPath).Root.Attribute("deploymentCommitSequence"));
 
 				string payloadPath = environment.CreatePayload("rolled-back");
 				using (var scope = new TransactionScope())
@@ -390,7 +390,7 @@ namespace NexusClientTests
 				string deploymentPath = environment.Manager.GetDeploymentPath(target);
 				string payloadPath = environment.CreatePayload("after");
 
-				using (var installLogLock = new FileStream(environment.InstallLogPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+				using (var installLogLock = new FileStream(InstallLogSqliteStore.DatabasePath(environment.InstallLogPath), FileMode.Open, FileAccess.Read, FileShare.None))
 				{
 					Assert.Throws<TransactionException>(() =>
 					{
@@ -409,7 +409,7 @@ namespace NexusClientTests
 				CollectionAssert.AreEqual(new[] { firstModKey }, environment.InstallLog.GetDeploymentOwnerKeys(target));
 				Assert.AreEqual("before", File.ReadAllText(deploymentPath));
 				Assert.AreEqual(0, environment.GetBackupFiles().Length);
-				Assert.AreEqual(sequence.ToString(), (string)XDocument.Load(environment.InstallLogPath).Root.Attribute("deploymentCommitSequence"));
+				Assert.AreEqual(sequence.ToString(), (string)InstallLogSqliteStore.ReadDocument(environment.InstallLogPath).Root.Attribute("deploymentCommitSequence"));
 
 				InstallLog reloadedInstallLog = environment.ReloadInstallLog();
 				try

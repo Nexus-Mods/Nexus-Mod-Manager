@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.IO;
 
     using Nexus.Client.ModManagement;
 
@@ -261,6 +262,34 @@
             Assert.AreEqual(1, counts.Creations);
             Assert.AreEqual(0, counts.Untracked);
         }
+
+        /// <summary>Only untracked classifications may enter the bulk-removal action.</summary>
+        [TestCase(FileManagerSource.BaseGame)]
+        [TestCase(FileManagerSource.InstalledByNmm)]
+        [TestCase(FileManagerSource.Creations)]
+        [TestCase(FileManagerSource.ExternalModManager)]
+        public void UntrackedRemoval_RejectsTrackedAndManuallyClassifiedSources(FileManagerSource source)
+        {
+            FileManagerRow row = CreateRow("file.esp");
+            row.FullPath = @"C:\Game\Data\file.esp";
+            row.Source = source;
+            Assert.Throws<InvalidOperationException>(() => FileManagerQueryService.GetUntrackedRemovalPath(@"C:\Game\Data", row));
+        }
+
+        /// <summary>Both path representations must still identify a file inside the reviewed deployment root.</summary>
+        [TestCase("file.esp", @"C:\Game\Data\file.esp", true)]
+        [TestCase(@"..\outside.esp", @"C:\Game\outside.esp", false)]
+        [TestCase(@"C:\Other\file.esp", @"C:\Other\file.esp", false)]
+        [TestCase("file.esp", @"C:\Other\file.esp", false)]
+        public void UntrackedRemoval_EnforcesDeploymentRoot(string relative, string full, bool valid)
+        {
+            FileManagerRow row = CreateRow(relative);
+            row.FullPath = full;
+            row.Source = FileManagerSource.Untracked;
+            if (valid) Assert.AreEqual(Path.GetFullPath(full), FileManagerQueryService.GetUntrackedRemovalPath(@"C:\Game\Data", row));
+            else Assert.Throws<InvalidOperationException>(() => FileManagerQueryService.GetUntrackedRemovalPath(@"C:\Game\Data", row));
+        }
+
         private static FileManagerRow CreateRow(string relativePath)
         {
             return new FileManagerRow

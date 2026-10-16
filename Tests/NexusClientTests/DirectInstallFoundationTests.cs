@@ -178,7 +178,7 @@ namespace NexusClientTests
                 log.AddActiveMod(virtualMod, ModInstallRoot.Data, ModInstallMethod.Virtual);
                 string virtualKey = log.GetModKey(virtualMod);
 
-                XDocument virtualOnly = XDocument.Load(logPath);
+                XDocument virtualOnly = InstallLogSqliteStore.ReadDocument(logPath);
                 XElement virtualElement = virtualOnly.Descendants("mod").First(x => (string)x.Attribute("key") == virtualKey);
                 Assert.IsNull(virtualElement.Attribute("installMethod"));
                 Assert.IsNull(virtualOnly.Root.Element("deploymentFiles"));
@@ -193,7 +193,7 @@ namespace NexusClientTests
                 CollectionAssert.AreEqual(new[] { log.OriginalValuesKey, modKey }, log.GetDeploymentOwnerKeys(target));
                 CollectionAssert.Contains(log.GetDeploymentTargetsForMod(modKey).ToArray(), target);
 
-                XDocument persisted = XDocument.Load(logPath);
+                XDocument persisted = InstallLogSqliteStore.ReadDocument(logPath);
                 XElement modElement = persisted.Descendants("mod").First(x => (string)x.Attribute("key") == modKey);
                 Assert.AreEqual("Direct", (string)modElement.Attribute("installMethod"));
                 Assert.IsFalse(persisted.Descendants("dataFiles").Descendants("file").Any(x => (string)x.Attribute("path") == target.RelativePath));
@@ -240,7 +240,7 @@ namespace NexusClientTests
                 }
 
                 Assert.IsFalse(log.IsDeploymentTargetPromoted(target));
-                Assert.IsNull(XDocument.Load(logPath).Root.Element("deploymentFiles"));
+                Assert.IsNull(InstallLogSqliteStore.ReadDocument(logPath).Root.Element("deploymentFiles"));
             }
             finally
             {
@@ -287,10 +287,12 @@ namespace NexusClientTests
                 string modKey = log.GetModKey(mod);
                 log.Release();
 
-                XDocument document = XDocument.Load(logPath);
+                XDocument document = InstallLogSqliteStore.ReadDocument(logPath);
                 XElement element = document.Descendants("mod").First(x => (string)x.Attribute("key") == modKey);
                 element.SetAttributeValue(attributeName, attributeValue);
-                document.Save(logPath);
+                string replacement = Path.Combine(directory, "Invalid.sqlite");
+                InstallLogSqliteStore.CreateFromDocument(replacement, document);
+                File.Copy(replacement, InstallLogSqliteStore.DatabasePath(logPath), true);
 
                 TargetInvocationException exception = Assert.Throws<TargetInvocationException>(() => CreateInstallLog(modDirectory, logPath));
                 Assert.IsInstanceOf<InvalidDataException>(exception.InnerException);

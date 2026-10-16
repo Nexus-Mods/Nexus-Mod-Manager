@@ -64,24 +64,18 @@
 			}
 		}
 
-		private void AddSerializedDeploymentRegistry(XElement root)
+		/// <summary>Streams canonical deployment targets and ordered owners without building a second complete XML tree.</summary>
+		private void AddSerializedDeploymentRegistry(XStreamingElement root)
 		{
-			if (_deploymentByTarget.Count == 0)
-				return;
-
-			var deploymentFiles = new XElement("deploymentFiles");
-			foreach (KeyValuePair<ModDeploymentTarget, DeploymentEntry> item in _deploymentByTarget
+			if (_deploymentByTarget.Count == 0) return;
+			root.Add(new XStreamingElement("deploymentFiles", _deploymentByTarget
 				.OrderBy(x => x.Key.Root)
-				.ThenBy(x => x.Key.RelativePath, StringComparer.OrdinalIgnoreCase))
-			{
-				deploymentFiles.Add(new XElement("file",
+				.ThenBy(x => x.Key.RelativePath, StringComparer.OrdinalIgnoreCase)
+				.Select(item => new XStreamingElement("file",
 					new XAttribute("root", item.Key.Root),
 					new XAttribute("path", item.Key.RelativePath),
-					new XElement("installingMods",
-						item.Value.OwnerKeys.Select(ownerKey => new XElement("mod", new XAttribute("key", ownerKey))))));
-			}
-
-			root.Add(deploymentFiles);
+					new XStreamingElement("installingMods",
+						item.Value.OwnerKeys.Select(ownerKey => new XStreamingElement("mod", new XAttribute("key", ownerKey))))))));
 		}
 
 		private static ModDeploymentRoot ParseDeploymentRoot(string value)

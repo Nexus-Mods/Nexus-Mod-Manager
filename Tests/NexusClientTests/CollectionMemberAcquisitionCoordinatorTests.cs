@@ -282,6 +282,31 @@ namespace NexusClientTests
 			finally { Directory.Delete(root, true); }
 		}
 
+		/// <summary>The main retry action targets failed requests, excluding active and already-verified work.</summary>
+		[Test]
+		public void RetryableFailedMembers_ExcludeRunningAndCompletedAcquisitions()
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				Fixture fixture = CreateFixture(root, true);
+				CollectionMemberAcquisitionBatch batch = fixture.Acquisition.Begin(fixture.BuildPlan(CreateState(fixture.Target, 0)),
+					CollectionArchiveOverwritePolicy.OverwriteExistingArchives, null, CancellationToken.None);
+				Assert.IsEmpty(CollectionsPreviewControl.GetRetryableFailedAcquisitionMembers(batch));
+				fixture.Queue.LastTask.Finish(TaskStatus.Error);
+				batch = fixture.Acquisition.ProbeCompletedInput(batch, CancellationToken.None);
+				CollectionAssert.AreEqual(new[] { batch.Members.Single().Match.Member.MemberKey },
+					CollectionsPreviewControl.GetRetryableFailedAcquisitionMembers(batch));
+
+				fixture.ArchiveSource.Candidates = new[] { fixture.ExactCandidate };
+				batch = fixture.Acquisition.ProbeCompletedInput(batch, CancellationToken.None);
+				Assert.IsTrue(batch.IsReady);
+				Assert.IsEmpty(CollectionsPreviewControl.GetRetryableFailedAcquisitionMembers(batch));
+				Assert.AreEqual(1, fixture.Queue.CallCount, "A completed archive must not need another download.");
+			}
+			finally { Directory.Delete(root, true); }
+		}
+
 		/// <summary>One blocked member does not prevent other local archives from being evaluated or falsely mark deferred acquisition as failed.</summary>
 		[Test]
 		public void Begin_BlockedMemberStillChecksIndependentLocalArchives()

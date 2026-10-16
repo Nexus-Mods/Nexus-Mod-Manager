@@ -39,8 +39,9 @@ namespace Nexus.Client.GameStorage.UI
             _control.CancelRequested += CancelRequested;
             Controls.Add(_control);
 
+            _control.SetManualPaths(_service.FromGameMode(_gameMode));
             SetHealth(healthCheck);
-            RefreshCandidates(true);
+            RefreshCandidates();
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -51,7 +52,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void RefreshRequested(object sender, EventArgs e)
         {
-            RefreshCandidates(false);
+            RefreshCandidates();
         }
 
         private void CancelRequested(object sender, EventArgs e)
@@ -212,32 +213,20 @@ namespace Nexus.Client.GameStorage.UI
                 string.Join(Environment.NewLine, folders));
         }
 
-        private void RefreshCandidates(bool previewBestCandidate)
+        /// <summary>
+        /// Refreshes alternatives without replacing the configured or manually entered
+        /// folders with a higher-scoring historical registry candidate.
+        /// </summary>
+        private void RefreshCandidates()
         {
             GameStorageCandidate selectedCandidate = _control.SelectedCandidate;
             _candidates = _service.DiscoverRecoveryCandidates(_gameMode);
             _control.SetCandidates(_candidates);
 
-            if (previewBestCandidate)
-            {
-                PreviewBestCandidate();
-                return;
-            }
-
             if (selectedCandidate != null)
                 _control.SelectCandidate(selectedCandidate);
-        }
-
-        private void PreviewBestCandidate()
-        {
-            GameStoragePathSet currentPaths = _service.FromGameMode(_gameMode);
-            GameStorageCandidate bestCandidate = _service.GetBestRecoveryCandidate(currentPaths, _candidates);
-
-            if (bestCandidate == null)
-                return;
-
-            _control.SelectCandidate(bestCandidate);
-            PreviewCandidate(bestCandidate);
+            else
+                _control.ClearCandidateSelection();
         }
 
         private void PreviewCandidate(GameStorageCandidate candidate)

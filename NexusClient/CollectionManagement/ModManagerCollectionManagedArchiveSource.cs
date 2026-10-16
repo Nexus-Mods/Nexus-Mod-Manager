@@ -235,8 +235,7 @@ namespace Nexus.Client.CollectionManagement
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			if (!IsMetadataCompatibleForVerifiedContent(mod, expectedModId, expectedFileId))
 				throw new InvalidDataException("The verified managed archive has contradictory repository metadata.");
-			if (modManager.SortOrderService == null)
-				throw new InvalidOperationException("Verified Collection archive reuse requires the native durable repository-identity store.");
+			modManager.RequireRepositoryIdentityStore();
 
 			modManager.SortOrderService.ConfirmVerifiedRepositoryFileIdentity(mod, expectedModId, expectedFileId);
 		}
@@ -250,8 +249,7 @@ namespace Nexus.Client.CollectionManagement
 		{
 			if (modManager == null) throw new ArgumentNullException(nameof(modManager));
 			if (mod == null) throw new ArgumentNullException(nameof(mod));
-			if (modManager.SortOrderService == null)
-				throw new InvalidOperationException("Verified Collection archive reuse requires the native durable repository-identity store.");
+			modManager.RequireRepositoryIdentityStore();
 
 			if (!IsMetadataCompatibleForVerifiedContent(mod, expectedModId, expectedFileId))
 			{

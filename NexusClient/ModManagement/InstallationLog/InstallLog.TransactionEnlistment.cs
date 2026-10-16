@@ -4,6 +4,7 @@
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
+    using System.Xml.Linq;
 
     using Nexus.Client.Mods;
     using Nexus.Client.Util.Collections;
@@ -43,6 +44,7 @@
 			{
 				private readonly List<ActiveModRegistrationSnapshot> _activeMods = new List<ActiveModRegistrationSnapshot>();
 				private readonly Dictionary<string, ModInstallRoot> _modInstallRoots;
+				private readonly HashSet<string> _affectedModKeys;
 				private readonly Dictionary<string, ModInstallMethod> _modInstallMethods;
 				private readonly long _deploymentCommitSequence;
 				private readonly List<InstalledItemSnapshot<string, object>> _installedFiles;
@@ -56,31 +58,22 @@
 				public InstallLogStateSnapshot(TransactionEnlistment enlistment)
 				{
 					InstallLog installLog = enlistment.EnlistedInstallLog;
-					foreach (IMod mod in installLog._activeModRegistry.RegisteredMods)
-						_activeMods.Add(new ActiveModRegistrationSnapshot(mod, installLog._activeModRegistry.GetKey(mod), false));
-					foreach (KeyValuePair<IMod, string> registration in installLog._activeModRegistry.Registrations)
+					_affectedModKeys = enlistment.AffectedModKeys();
+					foreach (string key in _affectedModKeys)
 					{
-						if (installLog._activeModRegistry.IsModHidden(registration.Key))
-							_activeMods.Add(new ActiveModRegistrationSnapshot(registration.Key, registration.Value, true));
+						IMod mod = installLog._activeModRegistry.GetMod(key);
+						if (mod != null) _activeMods.Add(new ActiveModRegistrationSnapshot(mod, key,
+							installLog._activeModRegistry.IsModHidden(mod), installLog._activeModRegistry.GetVisibleIndex(mod)));
 					}
-
-					_modInstallRoots = new Dictionary<string, ModInstallRoot>(installLog._modInstallRoots, StringComparer.OrdinalIgnoreCase);
-					_modInstallMethods = new Dictionary<string, ModInstallMethod>(installLog._modInstallMethods, StringComparer.OrdinalIgnoreCase);
+					_modInstallRoots = _affectedModKeys.Where(installLog._modInstallRoots.ContainsKey).ToDictionary(x=>x,x=>installLog._modInstallRoots[x],StringComparer.OrdinalIgnoreCase);
+					_modInstallMethods = _affectedModKeys.Where(installLog._modInstallMethods.ContainsKey).ToDictionary(x=>x,x=>installLog._modInstallMethods[x],StringComparer.OrdinalIgnoreCase);
 					_deploymentCommitSequence = installLog._deploymentCommitSequence;
 
-					bool captureAllInstalledItems = enlistment._removedModKeys.Count > 0;
-					_installedFiles = CaptureInstalledItems(
-						installLog._installedFiles, StringComparer.OrdinalIgnoreCase, captureAllInstalledItems,
-						enlistment._installedFiles, enlistment._uninstalledFiles);
-					_installedIniEdits = CaptureInstalledItems(
-						installLog._installedIniEdits, EqualityComparer<IniEdit>.Default, captureAllInstalledItems,
-						enlistment._installedIniEdits, enlistment._replacedIniEdits, enlistment._uninstalledIniEdits);
-					_gameSpecificValueEdits = CaptureInstalledItems(
-						installLog._gameSpecificValueEdits, EqualityComparer<string>.Default, captureAllInstalledItems,
-						enlistment._installedGameSpecificValueEdits, enlistment._replacedGameSpecificValueEdits, enlistment._uninstalledGameSpecificValueEdits);
-
-					foreach (KeyValuePair<ModDeploymentTarget, DeploymentEntry> deployment in installLog._deploymentByTarget)
-						_deploymentOwners.Add(deployment.Key, deployment.Value.OwnerKeys.ToArray());
+					_installedFiles = CaptureInstalledItems(installLog._installedFiles, enlistment._affectedFiles);
+					_installedIniEdits = CaptureInstalledItems(installLog._installedIniEdits, enlistment._affectedIni);
+					_gameSpecificValueEdits = CaptureInstalledItems(installLog._gameSpecificValueEdits, enlistment._affectedValues);
+					foreach (ModDeploymentTarget target in enlistment._affectedTargets)
+						_deploymentOwners.Add(target, installLog.GetDeploymentOwnerKeysCore(target).ToArray());
 				}
 
 				/// <summary>
@@ -88,20 +81,21 @@
 				/// </summary>
 				public void Restore(InstallLog installLog)
 				{
-					foreach (KeyValuePair<IMod, string> registration in installLog._activeModRegistry.Registrations.ToArray())
-						installLog._activeModRegistry.DeregisterMod(registration.Key);
-					foreach (ActiveModRegistrationSnapshot registration in _activeMods)
-						installLog._activeModRegistry.RegisterMod(registration.Mod, registration.Key, registration.Hidden);
-
-					RestoreDictionary(installLog._modInstallRoots, _modInstallRoots);
-					RestoreDictionary(installLog._modInstallMethods, _modInstallMethods);
+					foreach (string key in _affectedModKeys)
+					{
+						installLog._activeModRegistry.DeregisterMod(key);
+						installLog._modInstallRoots.Remove(key);
+						installLog._modInstallMethods.Remove(key);
+					}
+					foreach (ActiveModRegistrationSnapshot registration in _activeMods.OrderBy(x=>x.Position))
+						installLog._activeModRegistry.RestoreRegistration(registration.Mod, registration.Key, registration.Hidden, registration.Position);
+					foreach (var entry in _modInstallRoots) installLog._modInstallRoots[entry.Key] = entry.Value;
+					foreach (var entry in _modInstallMethods) installLog._modInstallMethods[entry.Key] = entry.Value;
 					installLog._deploymentCommitSequence = _deploymentCommitSequence;
 					RestoreInstalledItems(installLog._installedFiles, _installedFiles);
 					RestoreInstalledItems(installLog._installedIniEdits, _installedIniEdits);
 					RestoreInstalledItems(installLog._gameSpecificValueEdits, _gameSpecificValueEdits);
 
-					installLog._deploymentByTarget = new Dictionary<ModDeploymentTarget, DeploymentEntry>();
-					installLog._deploymentTargetsByModKey = new Dictionary<string, HashSet<ModDeploymentTarget>>(StringComparer.OrdinalIgnoreCase);
 					foreach (KeyValuePair<ModDeploymentTarget, string[]> deployment in _deploymentOwners)
 						installLog.SetDeploymentOwnersCore(deployment.Key, deployment.Value);
 				}
@@ -110,21 +104,9 @@
 				/// Captures live installed-item entries that transaction-local changes can mutate.
 				/// </summary>
 				private static List<InstalledItemSnapshot<T, K>> CaptureInstalledItems<T, K>(
-					InstalledItemDictionary<T, K> liveItems, IEqualityComparer<T> comparer, bool captureAll,
-					params InstalledItemDictionary<T, K>[] changedItems)
+					InstalledItemDictionary<T, K> liveItems, IEnumerable<T> keys)
 				{
-					var items = new HashSet<T>(comparer);
-					if (captureAll)
-					{
-						foreach (InstalledItemDictionary<T, K>.ItemInstallers item in liveItems)
-							items.Add(item.Item);
-					}
-					foreach (InstalledItemDictionary<T, K> changedDictionary in changedItems)
-					{
-						foreach (InstalledItemDictionary<T, K>.ItemInstallers item in changedDictionary)
-							items.Add(item.Item);
-					}
-
+					List<T> items = keys.ToList();
 					var result = new List<InstalledItemSnapshot<T, K>>(items.Count);
 					foreach (T item in items)
 					{
@@ -156,16 +138,6 @@
 							installers.Push(installer.InstallerKey, installer.Value);
 					}
 				}
-
-				/// <summary>
-				/// Replaces a captured string-keyed InstallLog dictionary.
-				/// </summary>
-				private static void RestoreDictionary<T>(Dictionary<string, T> destination, IDictionary<string, T> source)
-				{
-					destination.Clear();
-					foreach (KeyValuePair<string, T> item in source)
-						destination.Add(item.Key, item.Value);
-				}
 			}
 
 			/// <summary>
@@ -176,16 +148,18 @@
 				/// <summary>
 				/// Initializes a captured active-mod registration.
 				/// </summary>
-				public ActiveModRegistrationSnapshot(IMod mod, string key, bool hidden)
+				public ActiveModRegistrationSnapshot(IMod mod, string key, bool hidden, int position)
 				{
 					Mod = mod;
 					Key = key;
 					Hidden = hidden;
+					Position = position;
 				}
 
 				public IMod Mod { get; private set; }
 				public string Key { get; private set; }
 				public bool Hidden { get; private set; }
+				public int Position { get; private set; }
 			}
 
 			/// <summary>
@@ -256,7 +230,8 @@
 			/// </summary>
 			public void Commit()
 			{
-				InstallLogStateSnapshot stateSnapshot = _deploymentRecoveryEnlisted ? new InstallLogStateSnapshot(this) : null;
+				CollectAffectedRecords();
+				InstallLogStateSnapshot stateSnapshot = new InstallLogStateSnapshot(this);
 				try
 				{
 					// Merge registered mods
@@ -267,6 +242,8 @@
 						EnlistedInstallLog.SetModInstallMethod(mod.Value, GetModInstallMethodByKey(mod.Value));
                     }
 
+					foreach (var item in _modInstallRoots) EnlistedInstallLog.SetModInstallRoot(item.Key, item.Value);
+					foreach (var item in _modInstallMethods) EnlistedInstallLog.SetModInstallMethod(item.Key, item.Value);
                     CommitFileChanges();
 					CommitIniEditChanges();
 					CommitGameSpecificValueEditChanges();
@@ -281,7 +258,7 @@
                     }
 
 					long committedDeploymentSequence = EnlistedInstallLog._deploymentCommitSequence + (_deploymentRecoveryEnlisted ? 1 : 0);
-                    EnlistedInstallLog.SaveInstallLog(committedDeploymentSequence);
+                    PersistChanges(committedDeploymentSequence);
 					EnlistedInstallLog._deploymentCommitSequence = committedDeploymentSequence;
 				}
 				catch
@@ -346,13 +323,15 @@
 				// of uninstalled files, and already removed.
 				// this is here, however, as a safeguard to help ensure the install log
 				// doesn't get polluted with old entries.
-				foreach (var file in installedFiles)
+				foreach (string affected in _affectedFiles)
 				{
-					file.Installers.RemoveAll(_removedModKeys);
+					if (!installedFiles.ContainsItem(affected)) continue;
+					var owners = installedFiles[affected];
+					owners.RemoveAll(_removedModKeys);
 
-                    if (file.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(file.Installers.Peek().InstallerKey))
+                    if (owners.Count == 0 || GetModKey(OriginalValueMod).Equals(owners.Peek().InstallerKey))
                     {
-                        filesToRemove.Add(file.Item);
+                        filesToRemove.Add(affected);
                     }
                 }
 
@@ -419,13 +398,15 @@
 				// of uninstalled ini edits, and already removed.
 				// this is here, however, as a safeguard to help ensure the install log
 				// doesn't get polluted with old entries.
-				foreach (var insIniEdit in installedIniEdits)
+				foreach (IniEdit affected in _affectedIni)
 				{
-					insIniEdit.Installers.RemoveAll(_removedModKeys);
+					if (!installedIniEdits.ContainsItem(affected)) continue;
+					var owners = installedIniEdits[affected];
+					owners.RemoveAll(_removedModKeys);
 
-                    if (insIniEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insIniEdit.Installers.Peek().InstallerKey))
+                    if (owners.Count == 0 || GetModKey(OriginalValueMod).Equals(owners.Peek().InstallerKey))
                     {
-                        lstIniEditsToRemove.Add(insIniEdit.Item);
+                        lstIniEditsToRemove.Add(affected);
                     }
                 }
 
@@ -492,13 +473,15 @@
 				// of uninstalled game specific value edits, and already removed.
 				// this is here, however, as a safeguard to help ensure the install log
 				// doesn't get polluted with old entries.
-				foreach (var insGameSpecificValueEdit in gameSpecificValueEdits)
+				foreach (string affected in _affectedValues)
 				{
-					insGameSpecificValueEdit.Installers.RemoveAll(_removedModKeys);
+					if (!gameSpecificValueEdits.ContainsItem(affected)) continue;
+					var owners = gameSpecificValueEdits[affected];
+					owners.RemoveAll(_removedModKeys);
 
-                    if (insGameSpecificValueEdit.Installers.Count == 0 || GetModKey(OriginalValueMod).Equals(insGameSpecificValueEdit.Installers.Peek().InstallerKey))
+                    if (owners.Count == 0 || GetModKey(OriginalValueMod).Equals(owners.Peek().InstallerKey))
                     {
-                        lstGameSpecificValueEditsToRemove.Add(insGameSpecificValueEdit.Item);
+                        lstGameSpecificValueEditsToRemove.Add(affected);
                     }
                 }
 
@@ -739,7 +722,9 @@
 			public void RemoveMod(IMod uninstaller)
 			{
 				var uninstallerKey = GetModKey(uninstaller);
+				if (String.IsNullOrEmpty(uninstallerKey)) return;
 				_removedModKeys.Add(uninstallerKey);
+				List<InstallLogSqliteStore.Entry> ownedEntries = EnlistedInstallLog._store.FindOwnedEntries(new[] { uninstallerKey });
 
 				// Remove the mod's files
 				foreach (var file in _installedFiles)
@@ -747,12 +732,9 @@
                     file.Installers.Remove(uninstallerKey);
                 }
 
-                foreach (var file in EnlistedInstallLog._installedFiles)
+                foreach (var item in ownedEntries.Where(x=>x.Kind==0).Select(x=>(string)x.Value.Attribute("path")))
                 {
-                    if (file.Installers.Contains(uninstallerKey))
-                    {
-                        _uninstalledFiles[file.Item].Push(uninstallerKey, null);
-                    }
+                    _uninstalledFiles[item].Push(uninstallerKey, null);
                 }
 
                 // Remove the mod's ini edits
@@ -761,12 +743,9 @@
                     insIniEdit.Installers.Remove(uninstallerKey);
                 }
 
-                foreach (var insIniEdit in EnlistedInstallLog._installedIniEdits)
+                foreach (var item in ownedEntries.Where(x=>x.Kind==1).Select(x=>ToIni(x.Value)))
                 {
-                    if (insIniEdit.Installers.Contains(uninstallerKey))
-                    {
-                        _uninstalledIniEdits[insIniEdit.Item].Push(uninstallerKey, null);
-                    }
+                    _uninstalledIniEdits[item].Push(uninstallerKey, null);
                 }
 
                 // Remove the mod's game specific value edits
@@ -775,10 +754,9 @@
                     insGameSpecificValueEdit.Installers.Remove(uninstallerKey);
                 }
 
-                foreach (var insGameSpecificValueEdit in EnlistedInstallLog._gameSpecificValueEdits)
+                foreach (var item in ownedEntries.Where(x=>x.Kind==2).Select(x=>(string)x.Value.Attribute("key")))
                 {
-                    if (insGameSpecificValueEdit.Installers.Contains(uninstallerKey))
-                        _uninstalledGameSpecificValueEdits[insGameSpecificValueEdit.Item].Push(uninstallerKey, null);
+                    _uninstalledGameSpecificValueEdits[item].Push(uninstallerKey, null);
                 }
 
                 if (CurrentTransaction == null)
@@ -955,9 +933,7 @@
                 modFiles.AddRange(from itm in _installedFiles
 								  where itm.Installers.Contains(installerKey)
 								  select itm.Item);
-				modFiles.AddRange(from itm in EnlistedInstallLog._installedFiles
-								  where itm.Installers.Contains(installerKey)
-								  select itm.Item);
+				modFiles.AddRange(EnlistedInstallLog._store.FindOwnedEntries(new[] { installerKey }).Where(x=>x.Kind==0).Select(x=>(string)x.Value.Attribute("path")));
 				modFiles.RemoveRange(from itm in _uninstalledFiles
 									 where itm.Installers.Contains(installerKey)
 									 select itm.Item);
@@ -1210,9 +1186,7 @@
                 iniEdits.AddRange(from itm in _installedIniEdits
 								  where itm.Installers.Contains(installerKey)
 								  select itm.Item);
-				iniEdits.AddRange(from itm in EnlistedInstallLog._installedIniEdits
-								  where itm.Installers.Contains(installerKey)
-								  select itm.Item);
+				iniEdits.AddRange(EnlistedInstallLog._store.FindOwnedEntries(new[] { installerKey }).Where(x=>x.Kind==1).Select(x=>ToIni(x.Value)));
 				iniEdits.RemoveRange(from itm in _uninstalledIniEdits
 									 where itm.Installers.Contains(installerKey)
 									 select itm.Item);
@@ -1445,9 +1419,7 @@
                 gameSpecificValues.AddRange(from itm in _installedGameSpecificValueEdits
 												where itm.Installers.Contains(installerKey)
 												select itm.Item);
-				gameSpecificValues.AddRange(from itm in EnlistedInstallLog._gameSpecificValueEdits
-												where itm.Installers.Contains(installerKey)
-												select itm.Item);
+				gameSpecificValues.AddRange(EnlistedInstallLog._store.FindOwnedEntries(new[] { installerKey }).Where(x=>x.Kind==2).Select(x=>(string)x.Value.Attribute("key")));
 				gameSpecificValues.RemoveRange(from itm in _uninstalledGameSpecificValueEdits
 												  where itm.Installers.Contains(installerKey)
 												  select itm.Item);

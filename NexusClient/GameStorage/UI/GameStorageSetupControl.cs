@@ -288,8 +288,20 @@ namespace Nexus.Client.GameStorage.UI
             _candidateGridView.RefreshData();
         }
 
+        /// <summary>
+        /// Keeps the displayed paths authoritative until the user chooses an alternative.
+        /// Binding a candidate list must not implicitly select its first recovery entry.
+        /// </summary>
+        public void ClearCandidateSelection()
+        {
+            _manualPathsEdited = true;
+            _candidateGridView.ClearSelection();
+            _candidateGridView.FocusedRowHandle = GridControl.InvalidRowHandle;
+        }
+
         public void SelectCandidate(GameStorageCandidate candidate)
         {
+            ClearCandidateSelection();
             if (candidate == null)
                 return;
 
@@ -305,6 +317,7 @@ namespace Nexus.Client.GameStorage.UI
             if (rowHandle < 0)
                 return;
 
+            _manualPathsEdited = false;
             _candidateGridView.FocusedRowHandle = rowHandle;
             _candidateGridView.ClearSelection();
             _candidateGridView.SelectRow(rowHandle);
@@ -393,7 +406,7 @@ namespace Nexus.Client.GameStorage.UI
 
         private void PreviewSelectedCandidate()
         {
-            var candidate = SelectedCandidate;
+            var candidate = _candidateGridView.GetFocusedRow() as GameStorageCandidate;
             if (candidate == null)
                 return;
 
