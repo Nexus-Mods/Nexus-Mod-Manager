@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Nexus.Client.Games;
+using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.Util.Localization;
 
 namespace Nexus.Client.GameStorage
@@ -111,6 +112,8 @@ namespace Nexus.Client.GameStorage
             }
 
             var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+            if (!TryGuardWitcherRecoveryPaths(paths, out healthCheck))
+                return false;
             var registry = LoadRegistry();
 
             // Repairs are allowed only in an explicit Apply path. Preview and
@@ -157,6 +160,53 @@ namespace Nexus.Client.GameStorage
         }
 
         /// <summary>
+        /// W3R mode ownership is tied to a physical game root, not to a selected
+        /// InstallInfo folder. Explicit recovery and the unvalidated path fallback
+        /// must not bind a second mode's native state to that same installation.
+        /// This check is read-only and deliberately does not migrate ownership.
+        /// </summary>
+        private bool TryGuardWitcherRecoveryPaths(GameStoragePathSet paths,
+            out GameStorageHealthCheck failure)
+        {
+            failure = null;
+            if (paths == null) return false;
+            if (!Witcher3RootOwnershipGuard.IsWitcherMode(paths.GameId)) return true;
+
+            string reason = null;
+            if (_environmentInfo == null)
+                reason = "A Witcher 3 storage transition cannot be verified without the active game settings.";
+            else
+            {
+                try
+                {
+                    Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
+                        _environmentInfo, paths.GameId, paths.GameInstallPath, paths.InstallInfoPath);
+                    if (decision.AllowsNormalInitialization) return true;
+                    reason = decision.Reason;
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException ||
+                    ex is ArgumentException || ex is NotSupportedException || ex is System.Security.SecurityException)
+                {
+                    reason = "The physical Witcher 3 owner cannot be checked: " + ex.Message;
+                }
+            }
+            failure = new GameStorageHealthCheck { GameId = paths.GameId };
+            failure.Items.Add(new GameStorageHealthItem
+            {
+                Role = GameStorageFolderRole.InstallInfo,
+                Path = paths.GameInstallPath,
+                Status = GameStorageHealthStatus.Unknown,
+                IsRequired = true,
+                IsRecoverable = false,
+                Message = "Witcher 3 recovery blocked to prevent duplicate game-root ownership: " + reason,
+                SuggestedFixes = new List<string> {
+                    "Select an independent physical game installation, or perform a separately verified native ownership migration."
+                }
+            });
+            return false;
+        }
+
+        /// <summary>
         /// Applies storage paths explicitly selected by the user without treating
         /// Game Storage metadata warnings as a blocker. Missing candidate paths are
         /// completed from the current configuration and existing metadata is left unchanged.
@@ -164,7 +214,8 @@ namespace Nexus.Client.GameStorage
         public bool ApplySelectedCandidatePaths(GameStoragePathSet currentPaths, GameStorageCandidate candidate)
         {
             GameStoragePathSet paths = ResolveExplicitlySelectedPaths(currentPaths, candidate);
-            if (!CanApplyExplicitlySelectedPaths(paths))
+            GameStorageHealthCheck witcherFailure;
+            if (!TryGuardWitcherRecoveryPaths(paths, out witcherFailure) || !CanApplyExplicitlySelectedPaths(paths))
                 return false;
 
             ApplyPathSet(paths);
@@ -254,11 +305,13 @@ namespace Nexus.Client.GameStorage
 				return false;
 			}
 
-			var paths = CreatePathSetFromCandidate(
-				currentPaths,
-				candidate);
+            var paths = CreatePathSetFromCandidate(
+                currentPaths,
+                candidate);
+            if (!TryGuardWitcherRecoveryPaths(paths, out healthCheck))
+                return false;
 
-			CreateSetupFolders(paths);
+            CreateSetupFolders(paths);
 
 			var registry = LoadRegistry();
 
@@ -394,11 +447,13 @@ namespace Nexus.Client.GameStorage
 				return false;
 			}
 
-			var paths = CreatePathSetFromCandidate(
-				currentPaths,
-				candidate);
+            var paths = CreatePathSetFromCandidate(
+                currentPaths,
+                candidate);
+            if (!TryGuardWitcherRecoveryPaths(paths, out healthCheck))
+                return false;
 
-			var registry = LoadRegistry();
+            var registry = LoadRegistry();
 			string storageId = ResolveRecoveryStorageId(
 				paths,
 				candidate,
@@ -461,10 +516,13 @@ namespace Nexus.Client.GameStorage
 				return new GameStorageHealthCheck { GameId = currentPaths?.GameId };
 			}
 
-			var paths = CreatePathSetFromCandidate(currentPaths, candidate);
-			var registry = LoadRegistry();
-			string storageId = ResolveRecoveryStorageId(paths, candidate, registry);
-			return Validate(paths, storageId, registry);
+            var paths = CreatePathSetFromCandidate(currentPaths, candidate);
+            GameStorageHealthCheck witcherFailure;
+            if (!TryGuardWitcherRecoveryPaths(paths, out witcherFailure))
+                return witcherFailure;
+            var registry = LoadRegistry();
+            string storageId = ResolveRecoveryStorageId(paths, candidate, registry);
+            return Validate(paths, storageId, registry);
 		}
 
 		public int GetRecoveryCandidateUsabilityRank(GameStoragePathSet currentPaths, GameStorageCandidate candidate)

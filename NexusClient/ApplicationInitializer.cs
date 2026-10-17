@@ -19,6 +19,7 @@
     using Nexus.Client.GameStorage.UI;
     using Nexus.Client.ModManagement;
     using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.ModManagement.Witcher3;
     using Nexus.Client.ModManagement.InstallationLog.Upgraders;
     using Nexus.Client.ModManagement.Scripting;
     using Nexus.Client.ModRepositories;
@@ -184,6 +185,37 @@
 
 		#endregion
 
+        /// <summary>
+        /// Blocks a second independently managed Witcher 3 mode from opening the same physical
+        /// installation or native InstallInfo. No automatic log reassignment/migration is safe.
+        /// This is a startup boundary, not a replacement for per-operation native ownership rules.
+        /// </summary>
+        private bool TryValidateWitcher3RootOwnership(string modeId, string gamePath,
+            string installInfoPath, out ViewMessage errorMessage)
+        {
+            errorMessage = null;
+            if (!Witcher3RootOwnershipGuard.IsWitcherMode(modeId))
+                return true;
+
+            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
+                EnvironmentInfo, modeId, gamePath, installInfoPath);
+            if (decision.AllowsNormalInitialization)
+                return true;
+
+            string otherModeId = Witcher3RootOwnershipGuard.CounterpartModeId(modeId);
+            string message = "NMM cannot open this Witcher 3 game mode safely. " + decision.Reason +
+                Environment.NewLine + Environment.NewLine +
+                "Current mode: " + modeId + Environment.NewLine +
+                "Other mode: " + otherModeId + Environment.NewLine +
+                "Game directory: " + (gamePath ?? "(unknown)") + Environment.NewLine + Environment.NewLine +
+                "No files or InstallLog records have been transferred. Use separate physical game installations " +
+                "or a future explicitly reviewed ownership migration. Do not copy or delete either mode's InstallLog.";
+            Trace.TraceWarning("Witcher 3 root ownership preflight blocked initialization: " +
+                decision.Status + " - " + decision.Reason);
+            errorMessage = new ViewMessage(message, null, "Witcher 3 ownership protection", MessageBoxIcon.Error);
+            return false;
+        }
+
 		#region Application Initialization
 
 		#region Launch Methods
@@ -234,6 +266,19 @@
 		/// <c>false</c> otherwise.</returns>
 		protected bool DoApplicationInitialize(IGameModeFactory p_gmfGameModeFactory, SynchronizationContext p_scxUIContext, out ViewMessage p_vwmErrorMessage)
 		{
+            // W3R.6: a discovered 5.x game is not yet a writable NMM target. Reject BEFORE
+            // applying delayed settings, provisioning Game Storage, or opening native services.
+            // BuildGameMode carries a second fail-closed guard for callers outside startup.
+            if (String.Equals(p_gmfGameModeFactory.GameModeDescriptor.ModeId,
+                Witcher3RootOwnershipGuard.RemasteredModeId, StringComparison.OrdinalIgnoreCase))
+            {
+                p_vwmErrorMessage = new ViewMessage(
+                    "The Witcher 3 Remastered game mode is registered for discovery, but cannot be activated yet. " +
+                    "Mod installation and load-order integration are still in progress. " +
+                    "No game files or native ownership records have been changed.",
+                    null, "Witcher 3 Remastered - activation not enabled", MessageBoxIcon.Information);
+                return false;
+            }
 			if (EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] == null)
             {
                 EnvironmentInfo.Settings.CustomGameModeSettings[p_gmfGameModeFactory.GameModeDescriptor.ModeId] = new PerGameModeSettings<object>();
@@ -272,6 +317,14 @@
             {
                 strUacCheckPath = p_gmfGameModeFactory.GameModeDescriptor.InstallationPath;
             }
+
+            // W3R.5: check physical ownership BEFORE initial Game Storage setup or native services.
+            // Discovery of a new edition alone is not an ownership claim; persisted state is.
+            if (!String.IsNullOrWhiteSpace(strUacCheckPath) &&
+                !TryValidateWitcher3RootOwnership(p_gmfGameModeFactory.GameModeDescriptor.ModeId,
+                    strUacCheckPath, EnvironmentInfo.Settings.InstallInfoFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId],
+                    out p_vwmErrorMessage))
+                return false;
 
             if (!string.IsNullOrEmpty(strUacCheckPath) && !string.IsNullOrEmpty(EnvironmentInfo.Settings.VirtualFolder[p_gmfGameModeFactory.GameModeDescriptor.ModeId]))
 			{
@@ -404,6 +457,12 @@
             {
                 ShowMessage(warningMessage);
             }
+
+            // Repeat after game-mode construction: setup/discovery may have changed the real target.
+            if (!TryValidateWitcher3RootOwnership(gameMode.ModeId,
+                gameMode.GameModeEnvironmentInfo.InstallationPath,
+                gameMode.GameModeEnvironmentInfo.InstallInfoDirectory, out p_vwmErrorMessage))
+                return false;
 
             //Now we have a game mode use it's theme.
 			FontSetResolver.AddFontSets(gameMode.ModeTheme.FontSets);

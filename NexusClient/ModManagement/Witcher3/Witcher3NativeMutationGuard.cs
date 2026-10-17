@@ -1,0 +1,263 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using Nexus.Client.CollectionManagement;
+using Nexus.Client.GameStorage;
+using Nexus.Client.Games;
+using Nexus.Client.Games.DataDriven;
+using Nexus.Client.Games.Witcher3;
+using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.Mods;
+using Nexus.Client.PluginManagement;
+
+namespace Nexus.Client.ModManagement.Witcher3
+{
+    /// <summary>
+    /// The exact native lease proof required before any Remastered installation is reviewed.
+    /// A process-only fallback or an inherited Collection child lease cannot authorize a new
+    /// Remastered write. This testable seam makes the requirements explicit.
+    /// </summary>
+    public static class Witcher3NativeMutationLeasePolicy
+    {
+        public static void RequireRootAuthority(bool isRoot, bool hasCrossProcessReservation,
+            bool hasValidatedNativeAuthority, bool requiresRecovery)
+        {
+            if (!isRoot || !hasCrossProcessReservation || !hasValidatedNativeAuthority || requiresRecovery)
+                throw new InvalidOperationException(
+                    "Witcher 3 Remastered requires a recovered, authoritatively reloaded root cross-process native mutation lease.");
+        }
+    }
+
+    /// <summary>
+    /// A short-lived read-only review bound to one live native mutation lease, NOT a transferable
+    /// approval or replacement of native InstallLog authority. Created before the native transaction,
+    /// since NativeStateCaptureReader deliberately refuses ambient transactions.
+    /// </summary>
+    public sealed class Witcher3NativeMutationReview
+    {
+        private readonly IEnvironmentInfo _environment;
+        private readonly IGameMode _gameMode;
+        private readonly IInstallLog _installLog;
+        private readonly CollectionTargetMutationLease _lease;
+        private readonly Witcher3NativeComponentIndex _index;
+        private readonly NativeStateCaptureSnapshot _native;
+        private readonly string _gameRoot;
+
+        private Witcher3NativeMutationReview(IEnvironmentInfo environment, IGameMode gameMode,
+            IInstallLog installLog, CollectionTargetMutationLease lease,
+            Witcher3NativeComponentIndex index, NativeStateCaptureSnapshot native, string gameRoot)
+        {
+            _environment = environment;
+            _gameMode = gameMode;
+            _installLog = installLog;
+            _lease = lease;
+            _index = index;
+            _native = native;
+            _gameRoot = gameRoot;
+        }
+
+        /// <summary>
+        /// Called under the existing native mutation reservation AFTER NMM's authoritative reload,
+        /// but BEFORE creating a native TransactionScope or registering a new mod.
+        /// </summary>
+        public static Witcher3NativeMutationReview Capture(IEnvironmentInfo environment, IGameMode gameMode,
+            IInstallLog installLog, IVirtualModActivator virtualActivator,
+            IModDeploymentManager deploymentManager, IPluginManager pluginManager,
+            CollectionTargetMutationLease mutationLease)
+        {
+            if (environment == null) throw new ArgumentNullException(nameof(environment));
+            if (gameMode == null) throw new ArgumentNullException(nameof(gameMode));
+            if (installLog == null) throw new ArgumentNullException(nameof(installLog));
+            if (virtualActivator == null) throw new ArgumentNullException(nameof(virtualActivator));
+            if (mutationLease == null) throw new ArgumentNullException(nameof(mutationLease));
+            if (!String.Equals(gameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
+                StringComparison.OrdinalIgnoreCase) || !(gameMode is DataDrivenWitcher3RemasteredGameMode))
+                throw new InvalidOperationException("Only the dedicated Witcher 3 Remastered native adapter may request authorization.");
+            AssertLease(mutationLease);
+
+            var storage = new GameStorageService(environment);
+            var authority = new CollectionTargetIdentityResolver(storage).Resolve(storage.FromGameMode(gameMode));
+            if (!StringComparer.Ordinal.Equals(authority.Target.Fingerprint, mutationLease.TargetFingerprint))
+                throw new InvalidOperationException("Native mutation lease is bound to a different physical game/storage authority.");
+
+            string root = gameMode.GameModeEnvironmentInfo.InstallationPath;
+            if (String.IsNullOrWhiteSpace(root) || !Path.IsPathRooted(root))
+                throw new InvalidDataException("The Remastered installation root is not an absolute directory.");
+            root = Path.GetFullPath(root);
+            // Use the final active service path, not just the original settings value:
+            // setup may have redirected InstallInfo after startup preflight.
+            string installInfo = gameMode.GameModeEnvironmentInfo.InstallInfoDirectory;
+            Witcher3RootOwnershipDecision decision = Witcher3RootOwnershipGuard.Check(
+                environment, gameMode.ModeId, root, installInfo);
+            if (!decision.AllowsNormalInitialization)
+                throw new InvalidDataException("Witcher 3 native ownership is not exclusive: " + decision.Reason);
+            Witcher3InstallationObservation edition = Witcher3InstallationProbe.Inspect(root);
+            if (!DataDrivenWitcher3RemasteredGameModeDescriptor.IsConfirmedRemastered(edition.Edition))
+                throw new InvalidDataException("Remastered 5.x executable evidence changed since game activation.");
+
+            var native = new NativeStateCaptureReader(installLog, virtualActivator,
+                deploymentManager, pluginManager, gameMode).Capture();
+            var disk = Witcher3ComponentDiskScan.Scan(root);
+            var index = Witcher3NativeComponentIndexer.Build(native, root, disk);
+            // No need to wait until there is an install plan to reject a broken capture.
+            if (!index.HasCompleteDiskInventory || index.Issues.Count != 0)
+                throw new InvalidDataException("Remastered native state/disk cannot be completely verified: " +
+                    String.Join("; ", index.Issues.Take(3).Select(issue => issue.Message)));
+            return new Witcher3NativeMutationReview(environment, gameMode, installLog, mutationLease, index, native, root);
+        }
+
+        /// <summary>
+        /// Called only after the native archive was opened read-only. Preserves original source
+        /// entries and freezes the entire selected basic-install mapping for the native worker.
+        /// This initial lane authorizes only previously absent Mods/DLC components.
+        /// </summary>
+        public IReadOnlyList<KeyValuePair<string, string>> AuthorizeBasicInstall(IMod mod,
+            ModInstallContext installContext)
+        {
+            if (mod == null) throw new ArgumentNullException(nameof(mod));
+            if (installContext == null) throw new ArgumentNullException(nameof(installContext));
+            AssertLease(_lease);
+            if (mod.HasInstallScript || installContext.InstallRoot != ModInstallRoot.Data ||
+                (installContext.Method != ModInstallMethod.Direct && installContext.Method != ModInstallMethod.Virtual))
+                throw new InvalidDataException("Remastered requires an ordinary Direct/Virtual basic archive; scripted and recipe installs remain blocked.");
+            // RegisterMod() is an update when NMM already has this archive in native state.
+            // Never let a new-folder mapping silently turn an existing owner into a second
+            // registration or orphan its older managed files.
+            if (!String.IsNullOrWhiteSpace(_installLog.GetModKey(mod)))
+                throw new InvalidDataException("An already registered Witcher 3 archive requires a separate ownership-aware update workflow.");
+            var adapter = _gameMode as IReviewedBasicInstallMappingProvider;
+            if (adapter == null)
+                throw new InvalidOperationException("Remastered native adapter is not the reviewed basic installer.");
+            List<string> sources = mod.GetFileList();
+            if (sources == null)
+                throw new InvalidDataException("The Witcher 3 archive inventory is unavailable.");
+            var selected = sources.Where(file => !ModInstallFileFilter.IsIgnored(file))
+                .Select(file => new KeyValuePair<string, string>(file, null)).ToList();
+            var mapped = adapter.MapBasicInstallFiles(mod, installContext, selected);
+            Witcher3NativeWriteDecision decision = Witcher3NativeWritePolicy.Assess(_index,
+                mapped.Select(file => file.Value));
+            if (!decision.EligibleForNewComponentPreflight)
+                throw new InvalidDataException("Witcher 3 native ownership review blocked installation (" +
+                    decision.Status + "): " + decision.Reason);
+            // Remastered MapBasicInstallFiles performs the first path check. Repeat while
+            // holding this exact lease immediately after the native/index reconciliation.
+            Witcher3NativeDestinationPreflight.RequireNewComponents(_gameRoot, mapped.Select(file => file.Value));
+            return new ReadOnlyCollection<KeyValuePair<string, string>>(mapped.ToList());
+        }
+
+        /// <summary>
+        /// The only W3R upgrade lane prepared for future Windows verification: one previously
+        /// registered owner and exactly the same set of installed file targets. There are no
+        /// implicit deletions, additions or third-party ownership transfers. The native
+        /// ModUpgrader still owns the transaction, backup handling and owner-key replacement.
+        /// </summary>
+        public IReadOnlyList<KeyValuePair<string, string>> AuthorizeBasicUpgrade(IMod oldMod, IMod newMod,
+            ModInstallContext installContext)
+        {
+            if (oldMod == null) throw new ArgumentNullException(nameof(oldMod));
+            if (newMod == null) throw new ArgumentNullException(nameof(newMod));
+            if (installContext == null) throw new ArgumentNullException(nameof(installContext));
+            AssertLease(_lease);
+            if (oldMod.HasInstallScript || newMod.HasInstallScript ||
+                installContext.InstallRoot != ModInstallRoot.Data ||
+                (installContext.Method != ModInstallMethod.Direct && installContext.Method != ModInstallMethod.Virtual))
+                throw new InvalidDataException("Remastered upgrade review supports only nonscripted Direct/Virtual basic archives at the Data root.");
+
+            string oldKey = _installLog.GetModKey(oldMod);
+            if (String.IsNullOrWhiteSpace(oldKey))
+                throw new InvalidDataException("The replaced Witcher 3 archive has no active native InstallLog owner.");
+            // A different already-active new mod must never be adopted as the replacement.
+            // Self-upgrades (reinstall/reactivate) reuse the same IMod instance.
+            string newKey = _installLog.GetModKey(newMod);
+            if (!Object.ReferenceEquals(oldMod, newMod) && !String.IsNullOrWhiteSpace(newKey))
+                throw new InvalidDataException("A Witcher 3 upgrade cannot replace a different already-registered archive.");
+            if (_installLog.GetModInstallMethod(oldMod) != installContext.Method ||
+                _installLog.GetModInstallRoot(oldMod) != installContext.InstallRoot)
+                throw new InvalidDataException("An upgrade cannot change the old owner's native install method or root.");
+
+            var adapter = _gameMode as DataDrivenWitcher3RemasteredGameMode;
+            if (adapter == null)
+                throw new InvalidOperationException("The active game mode is not the dedicated Remastered upgrade adapter.");
+            List<string> sources = newMod.GetFileList();
+            if (sources == null)
+                throw new InvalidDataException("The replacement Witcher 3 archive file inventory is missing.");
+            var selected = sources.Where(file => !ModInstallFileFilter.IsIgnored(file))
+                .Select(file => new KeyValuePair<string, string>(file, null)).ToList();
+            var mapped = adapter.MapBasicUpgradeFiles(newMod, installContext, selected);
+            Witcher3NativeUpgradeDecision decision = Witcher3NativeUpgradePolicy.Assess(_index,
+                _native, oldKey, installContext.Method, installContext.InstallRoot,
+                mapped.Select(file => file.Value));
+            if (!decision.IsExactFootprintCandidate)
+                throw new InvalidDataException("Witcher 3 native upgrade was blocked (" +
+                    decision.Status + "): " + decision.Reason);
+            Witcher3NativeUpgradeDestinationPreflight.RequireExistingOwnedFiles(_gameRoot,
+                mapped.Select(file => file.Value));
+            return new ReadOnlyCollection<KeyValuePair<string, string>>(mapped.ToList());
+        }
+
+        /// <summary>
+        /// Characterizes the complete native owner footprint under the same root lease used
+        /// for installation. Must precede the first Virtual disable or TransactionScope.
+        /// </summary>
+        public Witcher3NativeUninstallDecision AuthorizeBasicUninstall(IMod mod)
+        {
+            if (mod == null) throw new ArgumentNullException(nameof(mod));
+            AssertLease(_lease);
+            if (mod.HasInstallScript)
+                throw new InvalidDataException("Scripted Witcher 3 uninstall requires a separate native effects review.");
+            string ownerKey = _installLog.GetModKey(mod);
+            Witcher3NativeUninstallDecision decision = Witcher3NativeUninstallPolicy.Assess(_index, _native, ownerKey);
+            if (!decision.IsExactRemovalCandidate)
+                throw new InvalidDataException("Witcher 3 native removal was blocked (" +
+                    decision.Status + "): " + decision.Reason);
+            Witcher3NativeUninstallDestinationPreflight.RequireExistingTargets(_gameRoot, decision.ExactTargets);
+            _reviewedUninstallOwnerKey = ownerKey;
+            _reviewedUninstallTargets = decision.ExactTargets;
+            return decision;
+        }
+
+        private string _reviewedUninstallOwnerKey;
+        private ReadOnlyCollection<string> _reviewedUninstallTargets;
+
+        /// <summary>
+        /// Re-reads committed native state after the uninstall transaction and after pending
+        /// deployment changes have been published. Failure must be reported as durability
+        /// unknown; a committed transaction cannot be retroactively rolled back here.
+        /// </summary>
+        public void VerifyCompletedUninstall(IVirtualModActivator virtualActivator,
+            IModDeploymentManager deploymentManager, IPluginManager pluginManager)
+        {
+            AssertLease(_lease);
+            if (String.IsNullOrWhiteSpace(_reviewedUninstallOwnerKey) || _reviewedUninstallTargets == null)
+                throw new InvalidOperationException("No Witcher 3 removal was authorized by this lease review.");
+            Witcher3RootOwnershipDecision ownership = Witcher3RootOwnershipGuard.Check(
+                _environment, _gameMode.ModeId, _gameRoot,
+                _gameMode.GameModeEnvironmentInfo.InstallInfoDirectory);
+            if (!ownership.AllowsNormalInitialization)
+                throw new InvalidDataException("A second Witcher 3 physical-root owner appeared during removal: " + ownership.Reason);
+            if (!DataDrivenWitcher3RemasteredGameModeDescriptor.IsConfirmedRemastered(
+                Witcher3InstallationProbe.Inspect(_gameRoot).Edition))
+                throw new InvalidDataException("The game edition changed during a native Witcher 3 removal.");
+            var after = new NativeStateCaptureReader(_installLog, virtualActivator,
+                deploymentManager, pluginManager, _gameMode).Capture();
+            Witcher3NativeUninstallPostcondition.RequireReconciled(after,
+                _reviewedUninstallOwnerKey, _reviewedUninstallTargets, target =>
+                {
+                    string path = Path.Combine(_gameRoot, target.Replace('\\', Path.DirectorySeparatorChar));
+                    try { File.GetAttributes(path); return true; }
+                    catch (FileNotFoundException) { return false; }
+                    catch (DirectoryNotFoundException) { return false; }
+                });
+        }
+
+        private static void AssertLease(CollectionTargetMutationLease lease)
+        {
+            if (lease.IsDisposed)
+                throw new ObjectDisposedException(nameof(CollectionTargetMutationLease));
+            Witcher3NativeMutationLeasePolicy.RequireRootAuthority(lease.IsRoot,
+                lease.HasCrossProcessReservation, lease.HasValidatedNativeAuthority, lease.RequiresRecovery);
+        }
+    }
+}

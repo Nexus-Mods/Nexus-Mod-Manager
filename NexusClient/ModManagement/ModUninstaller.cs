@@ -5,6 +5,7 @@ using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.Mods;
@@ -23,6 +24,7 @@ namespace Nexus.Client.ModManagement
 	public class ModUninstaller : ModInstallerBase
 	{
 		private bool m_booNativeMutationStarted;
+		private bool m_booRemasteredRemovalVerificationPending;
 
 		#region Properties
 
@@ -188,6 +190,7 @@ namespace Nexus.Client.ModManagement
 			// hence the lock.
 			bool booSuccess = false;
 			bool booCancelled = false;
+			Witcher3NativeMutationReview remasteredRemovalReview = null;
 			ModOperationReportedStatus reportedStatus = ModOperationReportedStatus.Failed;
 			string strErrorMessage = String.Empty;
 			try
@@ -205,6 +208,23 @@ namespace Nexus.Client.ModManagement
 							"The mod was successfully deactivated.", Mod);
 						return;
 					}
+
+                    // The native lease has already reloaded authoritative target state. This
+                    // shared path also covers ModDeleter, not just ordinary deactivation.
+                    // No Virtual link or InstallLog registration may be changed before review.
+                    if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
+                        StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Manual ||
+                            DisableVirtualFilesOnly)
+                            throw new InvalidDataException(
+                                "Witcher 3 Remastered removal supports only reviewed ordinary manual deactivation, not Collections or files-only removal.");
+                        var review = Witcher3NativeMutationReview.Capture(EnvironmentInfo, GameMode,
+                            ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, mutationLease);
+                        review.AuthorizeBasicUninstall(Mod);
+                        remasteredRemovalReview = review;
+                        m_booRemasteredRemovalVerificationPending = true;
+                    }
 
 					bool booHasVirtualLinks = VirtualModActivator != null && VirtualModActivator.CheckHasActiveLinks(Mod);
 					ModInstallMethod installMethod = booIsInstallLogActive
@@ -289,11 +309,22 @@ namespace Nexus.Client.ModManagement
 						ProfileManager?.UpdateCurrentDeploymentManifest();
 						DeleteXMLInstalledFile(Mod);
 					}
+                    // This check is deliberately AFTER native commit and publication. It
+                    // cannot undo changes; any discrepancy must leave durability Unknown
+                    // and must not allow ModDeleter to erase the original archive.
+                    if (booSuccess && remasteredRemovalReview != null)
+                    {
+                        remasteredRemovalReview.VerifyCompletedUninstall(
+                            VirtualModActivator, DeploymentManager, PluginManager);
+                        m_booRemasteredRemovalVerificationPending = false;
+                    }
 				}
 			}
 			catch (Exception ex)
 			{
 				strErrorMessage = ex.Message;
+				if (m_booRemasteredRemovalVerificationPending && m_booNativeMutationStarted)
+					strErrorMessage += " Native removal status is uncertain; recover and reconcile the game storage before further changes.";
 				booSuccess = false;
 			}
 
@@ -322,6 +353,8 @@ namespace Nexus.Client.ModManagement
 		{
 			if (!m_booNativeMutationStarted)
 				return ModOperationDurability.NotStarted;
+			if (m_booRemasteredRemovalVerificationPending)
+				return ModOperationDurability.Unknown;
 			if (ModInstallLog == null)
 				return ModOperationDurability.Unknown;
 

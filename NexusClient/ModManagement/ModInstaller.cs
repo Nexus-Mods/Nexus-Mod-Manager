@@ -11,6 +11,7 @@ using ChinhDo.Transactions;
 using Nexus.Client.BackgroundTasks;
 using Nexus.Client.Games;
 using Nexus.Client.ModManagement.InstallationLog;
+using Nexus.Client.ModManagement.Witcher3;
 using Nexus.Client.ModManagement.Operations;
 using Nexus.Client.ModManagement.Scripting;
 using Nexus.Client.ModManagement.Scripting.Operations;
@@ -37,6 +38,7 @@ namespace Nexus.Client.ModManagement
 		private bool m_booVirtualStorePersistenceRequired;
 		private bool m_booVirtualStorePersisted;
 		private Action _collectionArchivePreparation;
+		private IReadOnlyList<KeyValuePair<string, string>> m_lstReviewedRemasteredBasicFiles;
 
 		#region Properties
 
@@ -284,6 +286,20 @@ namespace Nexus.Client.ModManagement
 				using (var mutationLease = AcquireMutationLease())
 				lock (objInstallLock)
 				{
+					// The native lease is held, and the authority has been reloaded, but no
+					// native transaction has begun. Capture committed Witcher owners HERE:
+					// the generic snapshot reader rejects any ambient native transaction.
+					m_lstReviewedRemasteredBasicFiles = null;
+					Witcher3NativeMutationReview remasteredReview = null;
+					if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
+						StringComparison.OrdinalIgnoreCase))
+					{
+						if (OperationIdentity == null || OperationIdentity.Origin != ModOperationOrigin.Manual ||
+							InstallationRecipeInput != null || _collectionArchivePreparation != null)
+							throw new InvalidDataException("Witcher 3 Remastered currently supports only reviewed ordinary manual basic installations.");
+						remasteredReview = Witcher3NativeMutationReview.Capture(EnvironmentInfo, GameMode,
+							ModInstallLog, VirtualModActivator, DeploymentManager, PluginManager, mutationLease);
+					}
 					using (TransactionScope tsTransaction = new TransactionScope())
 					{
 						if (!File.Exists(Mod.Filename))
@@ -299,6 +315,16 @@ namespace Nexus.Client.ModManagement
 						}
 
 						ValidateInstallationRecipeExecutionInput();
+						// The archive is open read-only. Require exact source-to-target approval
+						// before script caches are touched, mod registration starts or native
+						// Direct/Virtual file writes become possible.
+						if (remasteredReview != null)
+						{
+							var upgrade = this as ModUpgrader;
+							m_lstReviewedRemasteredBasicFiles = upgrade == null
+								? remasteredReview.AuthorizeBasicInstall(Mod, InstallContext)
+								: remasteredReview.AuthorizeBasicUpgrade(upgrade.ReplacedMod, Mod, InstallContext);
+						}
 						_collectionArchivePreparation?.Invoke();
 						m_booNativeMutationStarted = true;
 						if (!IsRestoreRegistrationOnlyRecipe())
@@ -626,6 +652,13 @@ namespace Nexus.Client.ModManagement
 		/// <c>false</c> otherwise.</returns>
 		protected bool RunScript(TxFileManager p_tfmFileManager)
 		{
+			// No scripted/FOMOD or prebuilt collection native recipe is allowed to bypass
+			// the reviewed W3R BasicInstall mapping. This check precedes file installation.
+			if (String.Equals(GameMode.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
+				(GameMode as IReviewedBasicInstallMappingProvider == null || Mod.HasInstallScript ||
+				 InstallationRecipeInput != null || InstallContext.InstallRoot != ModInstallRoot.Data))
+				throw new InvalidDataException("Witcher 3 Remastered native writes require a reviewed ordinary basic Mods/DLC archive mapping.");
+
 			m_booUsedPromotedDeployment = false;
 			m_booUsePromotedDeploymentPath = InstallContext.Method == ModInstallMethod.Virtual &&
 				!Mod.HasInstallScript &&
@@ -810,6 +843,16 @@ namespace Nexus.Client.ModManagement
 			TxFileManager p_tfmFileManager)
 		{
 			IModDeploymentManager deploymentManager = m_booUsePromotedDeploymentPath ? DeploymentManager : null;
+			// The native operation must use the same approved archive sources/destinations
+			// that were reviewed under its cross-process lease. A second independent
+			// package selection may not be substituted after authorization.
+			if (String.Equals(GameMode.ModeId, Witcher3RootOwnershipGuard.RemasteredModeId,
+				StringComparison.OrdinalIgnoreCase))
+			{
+				if (m_lstReviewedRemasteredBasicFiles == null)
+					throw new InvalidOperationException("Remastered basic install has no locked native ownership authorization.");
+				p_dicInstallFiles = m_lstReviewedRemasteredBasicFiles.ToList();
+			}
 			BasicInstallTask bitTask = new BasicInstallTask(
 				Mod,
 				GameMode,

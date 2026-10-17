@@ -33,6 +33,8 @@ namespace Nexus.Client.Games.DataDriven
                 return new DataDrivenGamebryoGameModeDescriptor(environmentInfo, definition);
             if (string.Equals(definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
                 return new DataDrivenBaldursGate3GameModeDescriptor(environmentInfo, definition);
+            if (string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
+                return new DataDrivenWitcher3RemasteredGameModeDescriptor(environmentInfo, definition);
             if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase))
                 return new DataDrivenGameModeDescriptor(environmentInfo, definition);
             throw new InvalidOperationException("Unsupported data-driven behavior profile: " + definition.BehaviorProfile);
@@ -111,12 +113,31 @@ namespace Nexus.Client.Games.DataDriven
             return p_strGameInstallPath;
         }
 
+        // Explicit release gate: code for basic layout mapping is not an authorization to write.
+        private static bool RemasteredNativeActivationApproved => false;
+
         public IGameMode BuildGameMode(FileUtil p_futFileUtility, out ViewMessage p_imsWarning)
         {
             Trace.TraceInformation("Building data-driven GameMode: {0} ({1})", _definition.Name, _definition.ModeId);
             p_imsWarning = null;
             try
             {
+                // The native basic adapter exists, but activation still requires an audited
+                // cross-process ownership/write barrier, scripted/recipe policy and runtime
+                // Direct/Virtual tests. Never fall through to the generic game mode.
+                if (string.Equals(_definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(_definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!RemasteredNativeActivationApproved)
+                    {
+                        p_imsWarning = new ViewMessage(
+                            "The Witcher 3 Remastered mode has reviewed native basic-install mapping, " +
+                            "but activation remains disabled pending collision/race and real-game tests.",
+                            null, "Witcher 3 Remastered - not yet enabled", MessageBoxIcon.Information);
+                        return null;
+                    }
+                    return new DataDrivenWitcher3RemasteredGameMode(_environmentInfo, p_futFileUtility, _definition);
+                }
                 if (string.Equals(_definition.BehaviorProfile, "gamebryo", StringComparison.OrdinalIgnoreCase))
                     return new DataDrivenGamebryoGameMode(_environmentInfo, p_futFileUtility, _definition);
                 if (string.Equals(_definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))

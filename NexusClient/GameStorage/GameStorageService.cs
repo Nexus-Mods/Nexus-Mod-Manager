@@ -35,6 +35,31 @@ namespace Nexus.Client.GameStorage
         public string RegistryPath => Path.Combine(RegistryDirectory, GameStorageConstants.RegistryFileName);
         public string LastKnownGoodPath => Path.Combine(RegistryDirectory, GameStorageConstants.LastKnownGoodFileName);
         public string BackupDirectory => Path.Combine(RegistryDirectory, "Backups");
+        /// <summary>
+        /// Read-only guard evidence for another game mode's former native ownership. Consults
+        /// the primary Game Storage registry then last-known-good, exactly as storage recovery does;
+        /// a damaged registry with no valid fallback cannot certify the absence of a prior owner.
+        /// This does not open, repair, migrate or create an InstallLog.
+        /// </summary>
+        public bool HasKnownNativeOwnershipEvidence(string gameModeId)
+        {
+            if (String.IsNullOrWhiteSpace(gameModeId))
+                throw new ArgumentException("A game mode id is required.", nameof(gameModeId));
+            GameStorageMetadataReadResult<GameStorageRegistry> primary = ReadRegistryResult(RegistryPath);
+            GameStorageMetadataReadResult<GameStorageRegistry> selected = primary;
+            if (selected.Status != GameStorageMetadataReadStatus.Valid)
+            {
+                GameStorageMetadataReadResult<GameStorageRegistry> fallback = ReadRegistryResult(LastKnownGoodPath);
+                if (fallback.Status == GameStorageMetadataReadStatus.Valid) selected = fallback;
+                else if (primary.Status == GameStorageMetadataReadStatus.Missing &&
+                    fallback.Status == GameStorageMetadataReadStatus.Missing) return false;
+                else throw new InvalidDataException("Game Storage registry evidence is unavailable or unreadable.");
+            }
+            return selected.Value.KnownStorages != null && selected.Value.KnownStorages.Any(entry =>
+                entry != null && String.Equals(entry.GameId, gameModeId, StringComparison.OrdinalIgnoreCase) &&
+                (entry.LastKnownInstallLogPresent || entry.LastKnownVirtualFileCount > 0));
+        }
+
 		public GameStoragePathSet FromGameMode(IGameMode gameMode)
 		{
 			string gameId = gameMode.ModeId;

@@ -579,6 +579,23 @@
     <Compile Include="ModManagement\ModDeploymentManager.cs" />
     <Compile Include="ModManagement\NativeStateCaptureReader.cs" />
     <Compile Include="ModManagement\NativeStateCaptureSnapshot.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeComponentIndex.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeDestinationPreflight.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeMutationGuard.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeWritePolicy.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeUpgradePolicy.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeUninstallPolicy.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeUninstallDestinationPreflight.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeUninstallPostcondition.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3NativeUpgradeDestinationPreflight.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3RootOwnershipPolicy.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3PhysicalPathIdentity.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3RootOwnershipGuard.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ComponentDiskObservation.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ComponentDiskScan.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsDocument.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3ModSettingsFileReader.cs" />
+    <Compile Include="ModManagement\Witcher3\Witcher3LoadOrderProjection.cs" />
     <Compile Include="ModManagement\ModDeploymentManager.Recovery.cs" />
     <Compile Include="ModManagement\ModMigrationTask.cs" />
     <Compile Include="ModManagement\CategoriesUpdateCheckTask.cs" />
@@ -1290,6 +1307,8 @@
     </Compile>
     <Compile Include="Games\FileSearcher.cs" />
     <Compile Include="Games\GameDiscoverer.cs" />
+    <Compile Include="Games\GameInstallationCandidatePath.cs" />
+    <Compile Include="Games\IGameInstallationCandidateValidator.cs" />
     <Compile Include="Games\GameModeDiscoveredEventArgs.cs" />
     <Compile Include="Games\GameModeRegistry.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameLauncher.cs" />
@@ -1298,6 +1317,8 @@
     <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameSpecificValueInstaller.cs" />
     <Compile Include="Games\DataDriven\DataDrivenBaldursGate3GameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenWitcher3RemasteredGameModeDescriptor.cs" />
+    <Compile Include="Games\DataDriven\DataDrivenWitcher3RemasteredGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameMode.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameRootPackageRules.cs" />
     <Compile Include="Games\DataDriven\DataDrivenGameModeDescriptor.cs" />

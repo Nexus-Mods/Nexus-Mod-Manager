@@ -15,7 +15,8 @@ namespace Nexus.Client.Games.DataDriven
         {
             "generic",
             "gamebryo",
-            "baldursgate3"
+            "baldursgate3",
+            "witcher3remastered"
         };
 
         private static readonly HashSet<string> ValidPathAdjustmentProfiles = new HashSet<string>(StringComparer.Ordinal)
@@ -63,6 +64,11 @@ namespace Nexus.Client.Games.DataDriven
 
             if (!DataDrivenDefinitionRules.IsIdentifier(definition.ModeId))
                 issues.Add(Error(definition, "modeId", "modeId is required and must begin with a letter and contain only letters, digits, '.', '_' or '-'."));
+            // The specific ModeId is reserved too: renaming the profile to 'generic' must
+            // never unlock its native installer or bypass edition-aware discovery.
+            if (string.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.Ordinal))
+                issues.Add(Error(definition, "behaviorProfile", "Witcher3Remastered requires its dedicated non-mutating behavior profile."));
 
             if (string.IsNullOrWhiteSpace(definition.Name))
                 issues.Add(Error(definition, "name", "name is required."));
@@ -73,7 +79,7 @@ namespace Nexus.Client.Games.DataDriven
             ValidateUniqueStrings(definition, definition.CompatibilityNotes, "compatibilityNotes", issues, false);
 
             if (string.IsNullOrWhiteSpace(definition.BehaviorProfile) || !ValidBehaviorProfiles.Contains(definition.BehaviorProfile))
-                issues.Add(Error(definition, "behaviorProfile", "behaviorProfile must be 'generic', 'gamebryo' or 'baldursgate3'."));
+                issues.Add(Error(definition, "behaviorProfile", "behaviorProfile must be 'generic', 'gamebryo', 'baldursgate3' or 'witcher3remastered'."));
 
             ValidateExecutablePaths(definition, definition.GameExecutables, "gameExecutables", true, issues);
             ValidateRelativePaths(definition, definition.StopFolders, "stopFolders", issues);
@@ -91,6 +97,7 @@ namespace Nexus.Client.Games.DataDriven
             ValidateStorage(definition, issues);
             ValidateModInstall(definition, issues);
             ValidateProfile(definition, issues);
+            ValidateWitcher3Remastered(definition, issues);
             ValidateGamebryo(definition, issues);
 
             return issues;
@@ -116,10 +123,36 @@ namespace Nexus.Client.Games.DataDriven
             }
         }
 
+        private void ValidateWitcher3Remastered(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
+        {
+            if (!string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            // This is a deliberately restricted, non-mutating registration shell. Do not allow
+            // third-party JSON edits to turn on the generic installer before its reviewed adapter exists.
+            if (!string.Equals(definition.ModeId, "Witcher3Remastered", StringComparison.Ordinal))
+                issues.Add(Error(definition, "modeId", "The witcher3remastered profile is reserved for the Witcher3Remastered ModeId."));
+            if (definition.GameExecutables == null || definition.GameExecutables.Length != 1 ||
+                !DataDrivenDefinitionRules.PathsEqual(definition.GameExecutables[0], @"bin\x64_dx12\witcher3.exe"))
+                issues.Add(Error(definition, "gameExecutables", "The Remastered edition must use only the DX12 executable."));
+            if (definition.ModInstall == null ||
+                !string.Equals(definition.ModInstall.PathAdjustmentProfile, "none", StringComparison.Ordinal) ||
+                definition.ModInstall.SupportsGameRootInstall != false ||
+                !string.IsNullOrWhiteSpace(definition.ModInstall.ManagedInstallationPath))
+                issues.Add(Error(definition, "modInstall", "The unfinished Remastered profile must keep game-root installation disabled and path adjustment set to none."));
+            if (definition.Storage != null && definition.Storage.ShareModsStorageWith != null &&
+                definition.Storage.ShareModsStorageWith.Length > 0)
+                issues.Add(Error(definition, "storage.shareModsStorageWith", "Witcher3Remastered must not share native storage with another ModeId."));
+            if (definition.Launcher == null ||
+                !DataDrivenDefinitionRules.PathsEqual(definition.Launcher.DefaultExecutable, @"bin\x64_dx12\witcher3.exe"))
+                issues.Add(Error(definition, "launcher.defaultExecutable", "The Remastered launcher must be the DX12 executable."));
+        }
+
         private void ValidateProfile(GameModeDefinition definition, IList<GameModeDefinitionIssue> issues)
         {
             if (string.Equals(definition.BehaviorProfile, "generic", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase))
+                string.Equals(definition.BehaviorProfile, "baldursgate3", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(definition.BehaviorProfile, "witcher3remastered", StringComparison.OrdinalIgnoreCase))
             {
                 if (definition.Plugin != null)
                     issues.Add(Error(definition, "plugin", "This data-driven behavior profile cannot declare plugin management settings."));

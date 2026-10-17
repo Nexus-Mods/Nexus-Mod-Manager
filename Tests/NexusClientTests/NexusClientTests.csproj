@@ -145,10 +145,32 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Witcher3BasicInstallMappingTests.cs" />
+    <Compile Include="Witcher3NativeMutationLeasePolicyTests.cs" />
+    <Compile Include="Witcher3NativeWritePolicyTests.cs" />
+    <Compile Include="Witcher3NativeUpgradePolicyTests.cs" />
+    <Compile Include="Witcher3NativeUninstallPolicyTests.cs" />
+    <Compile Include="Witcher3NativeUninstallDestinationPreflightTests.cs" />
+    <Compile Include="Witcher3NativeUninstallPostconditionTests.cs" />
+    <Compile Include="Witcher3RecoverySelectionGuardTests.cs" />
+    <Compile Include="Witcher3NativeUpgradeDestinationPreflightTests.cs" />
+    <Compile Include="Witcher3NativeDestinationPreflightTests.cs" />
+    <Compile Include="Witcher3ReviewedBasicPlanContractTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SevenZipTestEnvironment.cs" />
     <Compile Include="SafeExtractIconTests.cs" />
     <Compile Include="SteamInstallationPathDetectorTests.cs" />
+    <Compile Include="Witcher3EditionResolverTests.cs" />
+    <Compile Include="Witcher3InstallationProbeTests.cs" />
+    <Compile Include="Witcher3InstallLayoutPlannerTests.cs" />
+    <Compile Include="Witcher3NativeComponentIndexTests.cs" />
+    <Compile Include="Witcher3RootOwnershipPolicyTests.cs" />
+    <Compile Include="Witcher3RootOwnershipGuardTests.cs" />
+    <Compile Include="Witcher3RemasteredRegistrationTests.cs" />
+    <Compile Include="Witcher3ComponentDiskScanTests.cs" />
+    <Compile Include="Witcher3ModSettingsParserTests.cs" />
+    <Compile Include="Witcher3ModSettingsFileReaderTests.cs" />
+    <Compile Include="Witcher3LoadOrderProjectionTests.cs" />
     <Compile Include="PluginOrderLogNullGuardTests.cs" />
     <Compile Include="ReadmeClassificationTests.cs" />
     <Compile Include="InstallerStackPerformanceTests.cs" />

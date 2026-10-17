@@ -19,7 +19,8 @@ namespace Nexus.Client.ModManagement
 		NoInstallableFiles = 3,
 		ReplicatedSource = 4,
 		DestinationCollision = 5,
-		UnrepresentableVirtualStoragePath = 6
+		UnrepresentableVirtualStoragePath = 6,
+		ReviewedGameLayoutRejected = 7
 	}
 
 	/// <summary>
@@ -436,6 +437,26 @@ namespace Nexus.Client.ModManagement
 					: NormalizeReviewedGameRootFileMappings(files, gameRootArchiveBaseDirectory);
 
 			files = files.Where(file => !ModInstallFileFilter.IsIgnored(file.Key) && !ModInstallFileFilter.IsIgnored(file.Value)).ToList();
+
+			// The exact same complete-archive review is used by live BasicInstallTask and
+			// by Collections' read-only deterministic planner. A mapped destination must
+			// never be inferred independently by either caller.
+			var mappingProvider = gameMode as IReviewedBasicInstallMappingProvider;
+			if (mappingProvider != null)
+			{
+				if (mod.HasInstallScript)
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ReviewedGameLayoutRejected,
+						"Scripted Witcher packages require reviewed selected-operation replay, not basic archive expansion.");
+				try
+				{
+					files = mappingProvider.MapBasicInstallFiles(mod, installContext, files).ToList();
+				}
+				catch (InvalidDataException error)
+				{
+					return BasicInstallPlanResult.Unsupported(BasicInstallPlanUnsupportedReasonKind.ReviewedGameLayoutRejected,
+						 error.Message);
+				}
+			}
 
 			var plannedFiles = new List<BasicInstallPlanFile>();
 			var sourcePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

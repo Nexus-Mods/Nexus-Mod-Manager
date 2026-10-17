@@ -192,6 +192,7 @@ namespace Nexus.Client.ModManagement
 				lstFiles = StripGameRootWrapperFolder(lstFiles);
 
 			lstFiles = lstFiles.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
+			lstFiles = ApplyReviewedBasicInstallMapping(lstFiles);
 			List<KeyValuePair<string, string>> lstFilesToLink = new List<KeyValuePair<string, string>>(lstFiles.Count);
 			OverallProgressMaximum = lstFiles.Count * 2;
 
@@ -344,6 +345,7 @@ namespace Nexus.Client.ModManagement
 				files = StripGameRootWrapperFolder(files);
 
 			files = files.Where(x => !ModInstallFileFilter.IsIgnored(x.Key) && !ModInstallFileFilter.IsIgnored(x.Value)).ToList();
+			files = ApplyReviewedBasicInstallMapping(files);
 			OverallProgressMaximum = files.Count;
 			if (GameMode.RequiresModFileMerge)
 				GameMode.ModFileMerge(ActiveMods, Mod, false);
@@ -398,6 +400,14 @@ namespace Nexus.Client.ModManagement
 		private List<KeyValuePair<string, string>> StripGameRootWrapperFolder(List<KeyValuePair<string, string>> files)
 		{
 			return BasicInstallPlanBuilder.NormalizeGameRootFileMappings(files);
+		}
+
+		/// <summary>Runs one full-archive layout review before any native file operation.</summary>
+		private List<KeyValuePair<string, string>> ApplyReviewedBasicInstallMapping(
+			List<KeyValuePair<string, string>> files)
+		{
+			var provider = GameMode as IReviewedBasicInstallMappingProvider;
+			return provider == null ? files : provider.MapBasicInstallFiles(Mod, InstallContext, files).ToList();
 		}
 
 		private string GetAdjustedPath(string path, ModPathContext context)

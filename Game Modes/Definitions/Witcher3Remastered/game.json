@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 2,
+  "modeId": "Witcher3Remastered",
+  "name": "The Witcher 3 Remastered",
+  "behaviorProfile": "witcher3remastered",
+  "legacyFallback": false,
+  "gameExecutables": [
+    "bin\\x64_dx12\\witcher3.exe"
+  ],
+  "stopFolders": [
+    "Mods",
+    "DLC",
+    "bin",
+    "content",
+    "dlc-tombstones"
+  ],
+  "supportedFormats": [
+    "fomod"
+  ],
+  "discovery": {
+    "stores": [
+      {
+        "store": "Steam",
+        "id": "292030",
+        "installFolderName": "The Witcher 3",
+        "executableName": "bin\\x64_dx12\\witcher3.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1495134320",
+        "executableName": "bin\\x64_dx12\\witcher3.exe"
+      },
+      {
+        "store": "GOG",
+        "id": "1207664643",
+        "executableName": "bin\\x64_dx12\\witcher3.exe"
+      }
+    ]
+  },
+  "launcher": {
+    "defaultExecutable": "bin\\x64_dx12\\witcher3.exe",
+    "plainCommandName": "PlainLaunch",
+    "plainCommandText": "Launch The Witcher 3 Remastered",
+    "defaultCommandText": "Launch The Witcher 3 Remastered",
+    "allowCustomCommand": false
+  },
+  "theme": {
+    "primaryColor": "#5D6A70"
+  },
+  "modInstall": {
+    "pathAdjustmentProfile": "none",
+    "supportsGameRootInstall": false,
+    "realFileRequiredExtensions": [
+      ".exe",
+      ".dll"
+    ]
+  },
+  "compatibilityNotes": [
+    "Experimental registration shell only: runtime activation is blocked until native installation and load-order integration has been reviewed.",
+    "Requires 5.x executable-version evidence and no stale DX11 executable; DX12 alone never establishes Remastered.",
+    "Uses the witcher3 Nexus catalog while keeping an independent NMM ModeId and native ownership namespace.",
+    "Never shares native game storage or InstallLog with Witcher3. In-place upgrades require reviewed migration or an independent physical installation.",
+    "Witcher mod folders are not Bethesda plugins. Load-order reads are observational and writes are not enabled."
+  ]
+}

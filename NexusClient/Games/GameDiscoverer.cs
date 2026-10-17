@@ -77,7 +77,6 @@
 		private readonly Dictionary<string, Queue<string>> _candidatePathsByGame = new Dictionary<string, Queue<string>>();
 		private readonly Dictionary<string, List<string>> _foundPathsByGame = new Dictionary<string, List<string>>();
 		private readonly Dictionary<string, IGameModeDescriptor> _gameModesById = new Dictionary<string, IGameModeDescriptor>();
-		private readonly Dictionary<string, IGameModeDescriptor> _gameModesByFile = new Dictionary<string, IGameModeDescriptor>(StringComparer.OrdinalIgnoreCase);
 		private readonly List<GameInstallData> _foundGameModes = new List<GameInstallData>();
 
 		#region Properties
@@ -182,14 +181,19 @@
 		{
 			base.OnFileFound(args);
 
-			var fileName = Path.GetFileName(args.Argument);
-			
-            if (!string.IsNullOrEmpty(fileName) && _gameModesByFile.ContainsKey(fileName))
-			{
-				var gameMode = _gameModesByFile[fileName];
-				var path = Path.GetDirectoryName(args.Argument);
-				FoundCandidate(gameMode, path);
-			}
+            // A filename is not unique to one game mode (and most executables live
+            // below the game root). Match the complete relative path, derive the root,
+            // then apply each descriptor's edition-aware verification independently.
+            foreach (IGameModeDescriptor gameMode in _gameModesById.Values)
+            {
+                foreach (string executable in gameMode.GameExecutables ?? new string[0])
+                {
+                    string candidateRoot;
+                    if (GameInstallationCandidatePath.TryResolveGameRoot(args.Argument, executable, out candidateRoot) &&
+                        Verify(gameMode.ModeId, candidateRoot))
+                        FoundCandidate(gameMode, candidateRoot);
+                }
+            }
 		}
 
 		/// <summary>
@@ -238,7 +242,6 @@
 				
                 foreach (var strExecutable in gameModeFactory.GameModeDescriptor.GameExecutables)
 				{
-					_gameModesByFile[strExecutable] = gameModeFactory.GameModeDescriptor;
 					filesToFind.Add(strExecutable);
 				}
 
@@ -465,25 +468,23 @@
                 return false;
             }
 
-            var found = false;
+            IGameModeDescriptor descriptor;
+            if (!_gameModesById.TryGetValue(gameModeId, out descriptor))
+                return false;
 
             try
             {
-                if (_gameModesById.Count > 0)
-                {
-                    if (_gameModesById[gameModeId].GameExecutables
-                        .Any(exe => File.Exists(Path.Combine(installPath, exe))))
-                    {
-                        found = true;
-                    }
-                }
+                if (!descriptor.GameExecutables.Any(exe => File.Exists(Path.Combine(installPath, exe))))
+                    return false;
+
+                IGameInstallationCandidateValidator editionValidator = descriptor as IGameInstallationCandidateValidator;
+                return editionValidator == null || editionValidator.IsValidInstallationCandidate(installPath);
             }
             catch (Exception ex)
             {
-				TraceUtil.TraceException(ex);
+                TraceUtil.TraceException(ex);
+                return false;
             }
-
-			return found;
 		}
 	}
 }

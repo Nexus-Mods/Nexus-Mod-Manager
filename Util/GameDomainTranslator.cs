@@ -21,6 +21,11 @@
                 return "skyrimspecialedition";
             }
 
+            if (currentGameDomain.Equals("witcher3remastered", StringComparison.OrdinalIgnoreCase))
+            {
+                return "witcher3";
+            }
+
             if (currentGameDomain.Equals("skyrimse", StringComparison.OrdinalIgnoreCase))
             {
                 return "skyrimspecialedition";
