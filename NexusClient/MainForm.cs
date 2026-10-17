@@ -567,7 +567,6 @@
 		protected void InitializeDocuments()
 		{
 			EnsureMainDocuments();
-			RestoreMainDocumentOrder();
 			RestoreMainDockingLayout();
 
 			if (ViewModel.UsesPlugins)
@@ -999,11 +998,6 @@
 			ApplyDefaultMonitorPanelSizes();
 			RestoreMonitorColumnWidths();
 
-			// The preferred document was deliberately registered as the last MDI child.
-			// End the TabbedView update and select it once, now that no later Form.Show()
-			// can steal activation. This avoids the cold-start two-Idle timing race.
-			CompleteMainDocumentStartupUpdate();
-			RestoreActiveMainDocument();
 			_mainDocumentPersistenceEnabled = true;
 
 			ModMigrationCheck();
@@ -1399,11 +1393,11 @@
 
 		private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
 		{
-			if (_mainDocumentPersistenceEnabled)
-				SaveActiveMainDocument();
-			_mainDocumentPersistenceEnabled = false;
 			if (!e.Cancel)
+			{
 				SaveMainDocumentOrder();
+				_mainDocumentPersistenceEnabled = false;
+			}
 			(_modManagerControl as ModManagerDXControl)?.SavePersistedLayout();
 			ViewModel.EnvironmentInfo.Settings.Save();
 			_activePluginsProfileSaveTimer.Stop();
@@ -3366,6 +3360,7 @@
 				BeginInvoke((Action<object, EventArgs>)CollectionsPreviewControl_ManagedAssociationsChanged, sender, e);
 				return;
 			}
+			_fileManagerControl.NotifyCollectionSourcesChanged();
 			BindSupportedToolsCommands();
 		}
 

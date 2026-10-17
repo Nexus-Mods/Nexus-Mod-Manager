@@ -234,7 +234,10 @@ namespace NexusClientTests
 				new CollectionNativeOwnerState("native-shared", null, CollectionNativeOwnerKind.NativeMod, null, null, null));
 			var plugin = new CollectionNativePluginState("Example.esp", true, 0, null, String.Empty,
 				PluginParseStatus.Parsed, PluginAddressClass.Full, PluginHeaderFlags.None, PluginSpecialFlags.None, false, 0, new string[0], new CollectionNativePluginDiagnostic[0]);
-			CollectionNativeStateIndex state = CreateState(target, new[] { native }, new[] { file }, null, null,
+			CollectionTargetAssociation association = CreateAssociation(target, "retained-collection", "retained-revision");
+			var binding = new CollectionMemberBinding(association, member.IdentityResolution.Key, native.Identity,
+				member.RecipeIdentity, CollectionMemberBindingKind.InstalledForCollection);
+			CollectionNativeStateIndex state = CreateState(target, new[] { native }, new[] { file }, new[] { association }, new[] { binding },
 				new[] { plugin }, CollectionNativeStateCoverage.Complete);
 			ResolvedCollectionPlan incoming = CreateReplacementPlan(target, member, state.Fingerprint);
 			var current = new CollectionReplacementCurrentSetupSnapshot(state, new CollectionDriftObservation[0], new NativeModProvenance[0]);

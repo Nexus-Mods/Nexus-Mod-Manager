@@ -60,6 +60,8 @@ namespace NexusClientTests
             try
             {
                 object objResult = m_fncHandler(mifMethod, mcmCall.Args);
+                if (objResult == null && mifMethod.Name == "GetType" && mifMethod.ReturnType == typeof(Type))
+                    objResult = typeof(T);
                 if ((objResult == null) && mifMethod.ReturnType.IsValueType && (mifMethod.ReturnType != typeof(void)))
                     objResult = Activator.CreateInstance(mifMethod.ReturnType);
 

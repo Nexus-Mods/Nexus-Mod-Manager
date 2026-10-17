@@ -388,7 +388,7 @@ namespace NexusClientTests
 		public void Normalize_SkyrimMasterlistGroupsMergeCustomRulesAndPreserveTransitiveOrder()
 		{
 			string json = BuildManifest(
-				"{\"name\":\"Required\",\"version\":\"1\",\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
 				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Late Loaders\"},{\"name\":\"B.esp\",\"group\":\"default\"},{\"name\":\"C.esp\",\"group\":\"Floral Fields\"}]," +
 				"\"groups\":[{\"name\":\"default\",\"after\":[\"Floral Fields\"]},{\"name\":\"Floral Fields\",\"after\":[\"Early Loaders\"]},{\"name\":\"Low Priority Overrides\",\"after\":[]}]}")
 				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"skyrimspecialedition\"");
@@ -405,7 +405,7 @@ namespace NexusClientTests
 		public void Normalize_SkyrimGroupDefaultsDoNotHideInvalidCustomRules(string group, string after, string issue)
 		{
 			string json = BuildManifest(
-				"{\"name\":\"Required\",\"version\":\"1\",\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
 				"\"pluginRules\":{\"plugins\":[],\"groups\":[{\"name\":\"" + group + "\",\"after\":[\"" + after + "\"]}]}")
 				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"skyrimspecialedition\"");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
@@ -417,7 +417,7 @@ namespace NexusClientTests
 		public void Normalize_SkyrimGroupDefaultsWorkWithoutCollectionGroupDefinitions()
 		{
 			string json = BuildManifest(
-				"{\"name\":\"Required\",\"version\":\"1\",\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
+				"{\"name\":\"Required\",\"version\":\"1\",\"optional\":false,\"domainName\":\"skyrimspecialedition\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}}", "[]",
 				"\"pluginRules\":{\"plugins\":[{\"name\":\"A.esp\",\"group\":\"Dynamic LOD\"},{\"name\":\"B.esp\",\"group\":\"Late Fixes & Changes\"},{\"name\":\"C.esp\",\"group\":\"Skills & Perks\"}]}")
 				.Replace("\"domainName\":\"skyrim\"", "\"domainName\":\"skyrimspecialedition\"");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
@@ -974,7 +974,7 @@ namespace NexusClientTests
 		public void Normalize_UnnamedVortexFomodGroupRetainsExactNativeIdentity(string nameValue, bool supported)
 		{
 			string json = BuildManifest(
-				"{\"name\":\"Legacy\",\"version\":\"1\",\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
+				"{\"name\":\"Legacy\",\"version\":\"1\",\"optional\":false,\"domainName\":\"fallout4\",\"source\":{\"type\":\"nexus\",\"modId\":10,\"fileId\":20}," +
 				"\"choices\":{\"type\":\"fomod\",\"options\":[{\"name\":\"\",\"groups\":[{\"name\":" + nameValue + ",\"choices\":[{\"name\":\"Selected\",\"idx\":1}]}]}]}}", "[]");
 			NexusCollectionManifestNormalizationResult result = Normalize(json, 1);
 			Assert.AreEqual(supported ? CollectionCompatibilityStatus.Supported : CollectionCompatibilityStatus.Unsupported, result.CapabilityReport.Status);
@@ -1293,14 +1293,14 @@ namespace NexusClientTests
 			NexusCollectionManifestNormalizationResult result = Normalize(BuildManifest(members, rules), 2);
 			Assert.AreEqual(CollectionCompatibilityStatus.Supported, result.CapabilityReport.Status);
 			Assert.AreEqual(1, result.Manifest.FilePriorityRules.Count);
-			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].HigherPriorityMemberKey);
-			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].LowerPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[0].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].HigherPriorityMemberKey);
+			Assert.AreEqual(result.Manifest.Members[1].IdentityResolution.Key, result.Manifest.FilePriorityRules[0].LowerPriorityMemberKey);
 		}
 
 		[TestCase("", "", false)]
-		[TestCase(" ", "c78bc245ec508649f4773c252cfa9505", false)]
+		[TestCase(" ", "c78bc245ec508649f4773c252cfa9505", true)]
 		[TestCase("", "c78bc245ec508649f4773c252cfa9505", true)]
-		public void Normalize_BlankVersionPriorityNeedsOneExactMd5AndRejectsWhitespaceOnly(
+		public void Normalize_BlankVersionPriorityNeedsOneExactMd5AndNormalizesWhitespace(
 			string version, string md5, bool expectedSupported)
 		{
 			string members = "{\"name\":\"A\",\"version\":\"\",\"optional\":false,\"domainName\":\"fallout4\"," +

@@ -1556,6 +1556,7 @@ namespace NexusClientTests
 			sortOrderService.RebuildCurrentArchiveInventory(registeredMods, Enumerable.Empty<IMod>());
 
 			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			SetField(manager, "m_objSortOrderInitializationLock", new object());
 			SetField(manager, "<GameMode>k__BackingField", gameMode);
 			SetField(manager, "<InstallationLog>k__BackingField", installLog);
 			SetField(manager, "<ManagedModRegistry>k__BackingField", registry);

@@ -229,15 +229,30 @@ namespace NexusClientTests
 		}
 
 		/// <summary>Malformed legacy Virtual state cannot be promoted as a partial successful import.</summary>
-		[Test]
-		public void VirtualStore_InvalidLegacyLinkDoesNotPublishDatabase()
+		[TestCase("invalid", "true")]
+		[TestCase("1", "invalid")]
+		public void VirtualStore_InvalidLegacyLinkDoesNotPublishDatabase(string priority, string active)
 		{
 			using (var fixture = new StoreFixture())
 			{
-				File.WriteAllText(fixture.Xml, "<virtualModActivator fileVersion='0.3.0.0'><modList><modInfo modId='1' modName='Example' modFileName='Example.zip' modFilePath='mods'><fileLink realPath='a' virtualPath='b'><linkPriority>invalid</linkPriority><isActive>true</isActive></fileLink></modInfo></modList></virtualModActivator>");
+				File.WriteAllText(fixture.Xml, "<virtualModActivator fileVersion='0.3.0.0'><modList><modInfo modId='1' modName='Example' modFileName='Example.zip' modFilePath='mods'><fileLink realPath='a' virtualPath='b'><linkPriority>" + priority + "</linkPriority><isActive>" + active + "</isActive></fileLink></modInfo></modList></virtualModActivator>");
 				Assert.Throws<InvalidDataException>(() => new VirtualModStoreFactory().Create(fixture.Xml, VirtualModActivator.CurrentVersion, x => true, (x, y) => ""));
 				Assert.IsFalse(File.Exists(fixture.Database));
 				Assert.IsTrue(File.Exists(fixture.Xml));
+			}
+		}
+
+		/// <summary>Ordinary legacy loads retain their historical defaults for malformed optional link metadata.</summary>
+		[Test]
+		public void VirtualStore_LegacyLoadRetainsOptionalMetadataFallbacks()
+		{
+			using (var fixture = new StoreFixture())
+			{
+				File.WriteAllText(fixture.Xml, "<virtualModActivator fileVersion='0.3.0.0'><modList><modInfo modId='1' modName='Example' modFileName='Example.zip' modFilePath='mods'><fileLink realPath='a' virtualPath='b'><linkPriority>invalid</linkPriority><isActive>invalid</isActive></fileLink></modInfo></modList></virtualModActivator>");
+				VirtualModStoreData loaded = new XmlVirtualModStore().Load(fixture.Xml, VirtualModActivator.CurrentVersion, x => true, (x, y) => "");
+				Assert.AreEqual(1, loaded.VirtualLinks.Count);
+				Assert.AreEqual(0, loaded.VirtualLinks[0].Priority);
+				Assert.IsFalse(loaded.VirtualLinks[0].Active);
 			}
 		}
 

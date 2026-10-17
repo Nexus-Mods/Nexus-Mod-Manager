@@ -81,7 +81,8 @@ namespace NexusClientTests
 				new Func<IMod, int?>(mod => _sortNumbers.TryGetValue(mod, out int? number) ? number : null),
 				new Func<IMod, bool>(mod => false),
 				new Func<IMod, bool>(mod => _active.Contains(mod)),
-				new Func<int, int, string>((active, total) => active + "/" + total)
+				new Func<int, int, string>((active, total) => active + "/" + total),
+				null
 			});
 			_host = new Form
 			{

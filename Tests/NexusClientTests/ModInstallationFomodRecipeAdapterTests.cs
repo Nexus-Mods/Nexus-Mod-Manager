@@ -28,6 +28,19 @@ namespace NexusClientTests
 	[TestFixture]
 	public class ModInstallationFomodRecipeAdapterTests
 	{
+		/// <summary>Serializes an unset module title as empty text, matching the default HeaderInfo contract.</summary>
+		[TestCase(null)]
+		[TestCase("")]
+		[TestCase("Example")]
+		public void SaveScript_DefaultHeaderTitleDoesNotThrow(string title)
+		{
+			var scriptType = new XmlScriptType();
+			var script = new XmlScript(scriptType, new Version(5, 0));
+			script.HeaderInfo.Title = title;
+			System.Xml.Linq.XDocument xml = System.Xml.Linq.XDocument.Parse(scriptType.SaveScript(script));
+			Assert.That(xml.Root.Element("moduleName").Value, Is.EqualTo(title ?? String.Empty));
+		}
+
 		/// <summary>
 		/// Verifies XML script types advertise the native FOMOD adapter without a NexusClient dependency on XmlScript.
 		/// </summary>
@@ -980,13 +993,15 @@ namespace NexusClientTests
 		/// <summary>
 		/// Verifies unprovable projected plugin facts fail closed instead of being interpreted as inactive/absent.
 		/// </summary>
-		[Test]
-		public void GetValidationPaths_UnprovableProjectedPluginCondition_FailsClosed()
+		[TestCase(PluginState.Active)]
+		[TestCase(PluginState.Inactive)]
+		[TestCase(PluginState.Missing)]
+		public void GetValidationPaths_UnprovableProjectedPluginCondition_FailsClosed(PluginState state)
 		{
 			XmlScriptType scriptType = new XmlScriptType();
 			XmlScript script = new XmlScript(scriptType, new Version(5, 0));
 			script.ConditionallyInstalledFileSets.Add(new ConditionallyInstalledFileSet(
-				new PluginCondition(@"unknown.esp", PluginState.Active),
+				new PluginCondition(@"unknown.esp", state),
 				new List<InstallableFile> { File(@"conditional.bin", @"conditional.bin", 0) }));
 			IModInstallationFomodRecipePlanningAdapter adapter = scriptType;
 			IGameMode gameMode = CreateGameMode();

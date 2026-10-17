@@ -1,8 +1,10 @@
 ﻿namespace Nexus.Client
 {
 	using System;
+	using System.Collections.Generic;
 	using System.Drawing;
 	using System.IO;
+	using System.Linq;
 	using System.Windows.Forms;
 
 	using DevExpress.XtraBars.Docking;
@@ -180,100 +182,50 @@
 		/// </summary>
 		private void EnsureMainDocuments()
 		{
-			Control preferredControl = GetPreferredMainDocumentControl();
-
 			// Form.Show() activates MDI children. Register every non-preferred page first so
-			// the persisted/default page is the last activation DevExpress can defer. The
-			// visual tab order is restored independently by RestoreMainDocumentOrder().
+			// Mods is the last activation DevExpress can defer. Visual order is applied
+			// after the startup update has ended and the document group is available.
 			if (ViewModel.UsesPlugins)
 			{
-				if (!Object.ReferenceEquals(preferredControl, _pluginManagerControl))
-					EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
+				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
 			}
 			else if (_pluginManagerControl.Visible)
 			{
 				_pluginManagerControl.Hide();
 			}
 
-			if (!Object.ReferenceEquals(preferredControl, (Control)_modManagerControl))
-				EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
-
-			if (!Object.ReferenceEquals(preferredControl, _collectionsPreviewControl))
-				EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
-
-			if (!Object.ReferenceEquals(preferredControl, _categoryManagerControl))
-				EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
+			EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
 
 			if (IsFileManagerAvailable())
 			{
-				if (!Object.ReferenceEquals(preferredControl, _fileManagerControl))
-					EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
+				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
 			}
 			else if (_fileManagerControl.Visible)
 			{
 				_fileManagerControl.Hide();
 			}
 
-			if (Object.ReferenceEquals(preferredControl, _pluginManagerControl))
-				EnsureMdiDocument(_pluginManagerControl, "PluginManagerDocument", L("MainForm.Tabs.Plugins", "Plugins"));
-			else if (Object.ReferenceEquals(preferredControl, _collectionsPreviewControl))
-				EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
-			else if (Object.ReferenceEquals(preferredControl, _categoryManagerControl))
-				EnsureMdiDocument(_categoryManagerControl, "CategoryManagerDocument", L("MainForm.Tabs.Categories", "Categories"));
-			else if (Object.ReferenceEquals(preferredControl, _fileManagerControl))
-				EnsureMdiDocument(_fileManagerControl, "FileManagerDocument", L("MainForm.Tabs.FileManager", "File Manager"));
-			else
-				EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
+			EnsureMdiDocument(_collectionsPreviewControl, "CollectionsDocument", L("MainForm.Tabs.Collections", "Collections"));
+			EnsureMdiDocument((Form)_modManagerControl, "ModManagerDocument", L("MainForm.Tabs.Mods", "Mods"));
 		}
 
 		/// <summary>
-		/// Resolves the startup document before any MDI child is shown. Unavailable saved
-		/// pages fall back to Mods, which is the canonical default.
+		/// Returns all permanent controls in their canonical visual order, including currently unavailable pages.
 		/// </summary>
-		private Control GetPreferredMainDocumentControl()
+		private Control[] GetDefaultMainDocumentOrder()
 		{
-			string savedName = GetLayoutSetting(DevExpressActiveDocumentSettingsKey);
-
-			if (ViewModel.UsesPlugins && MatchesMainDocumentName(_pluginManagerControl, "PluginManagerDocument", savedName))
-				return _pluginManagerControl;
-			if (MatchesMainDocumentName((Control)_modManagerControl, "ModManagerDocument", savedName))
-				return (Control)_modManagerControl;
-			if (MatchesMainDocumentName(_collectionsPreviewControl, "CollectionsDocument", savedName))
-				return _collectionsPreviewControl;
-			if (MatchesMainDocumentName(_categoryManagerControl, "CategoryManagerDocument", savedName))
-				return _categoryManagerControl;
-			if (IsFileManagerAvailable() && MatchesMainDocumentName(_fileManagerControl, "FileManagerDocument", savedName))
-				return _fileManagerControl;
-
-			return (Control)_modManagerControl;
+			return new Control[] { _pluginManagerControl, (Control)_modManagerControl, _categoryManagerControl,
+				_fileManagerControl, _collectionsPreviewControl };
 		}
 
 		/// <summary>
-		/// Determines whether a main-document control matches the persisted document name, using its canonical fallback name when unnamed.
+		/// Decodes an existing saved order, ignoring obsolete and duplicate names and filling missing pages deterministically.
 		/// </summary>
-		private static bool MatchesMainDocumentName(Control control, string fallbackName, string savedName)
+		private static List<string> ReadMainDocumentOrder(Control[] defaultOrder, string savedOrder)
 		{
-			if (control == null || String.IsNullOrWhiteSpace(savedName))
-				return false;
-
-			string controlName = String.IsNullOrWhiteSpace(control.Name) ? fallbackName : control.Name;
-			return String.Equals(controlName, savedName, StringComparison.Ordinal);
-		}
-
-		/// <summary>
-		/// Restores the user-defined visual order of the permanent main tabs.
-		/// </summary>
-		private void RestoreMainDocumentOrder()
-		{
-			string savedOrder = GetLayoutSetting(DevExpressDocumentOrderSettingsKey);
-			if (String.IsNullOrWhiteSpace(savedOrder))
-			{
-				ApplyDefaultMainDocumentOrder();
-				return;
-			}
-
-			int targetIndex = 0;
-			foreach (string encodedName in savedOrder.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
+			string[] defaults = defaultOrder.Where(x => x != null && !String.IsNullOrWhiteSpace(x.Name)).Select(x => x.Name).ToArray();
+			var names = new List<string>();
+			foreach (string encodedName in (savedOrder ?? String.Empty).Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
 			{
 				string documentName;
 				try
@@ -285,10 +237,44 @@
 					continue;
 				}
 
-				Document document = FindMainDocumentByName(documentName);
-				if (document != null)
-					_mainTabbedView.Controller.Move(document, targetIndex++);
+				if (defaults.Contains(documentName, StringComparer.Ordinal) && !names.Contains(documentName))
+					names.Add(documentName);
 			}
+			for (int index = 0; index < defaults.Length; index++)
+			{
+				if (names.Contains(defaults[index])) continue;
+				int nextIndex = index + 1;
+				while (nextIndex < defaults.Length && !names.Contains(defaults[nextIndex])) nextIndex++;
+				names.Insert(nextIndex < defaults.Length ? names.IndexOf(defaults[nextIndex]) : names.Count, defaults[index]);
+			}
+			return names;
+		}
+
+		/// <summary>Applies a saved or default visual order only after the real MDI documents have been created.</summary>
+		internal static void ApplyMainDocumentOrder(TabbedView view, Control[] defaultOrder, string savedOrder)
+		{
+			int targetIndex = 0;
+			foreach (string name in ReadMainDocumentOrder(defaultOrder, savedOrder))
+			{
+				Document document = view.Documents.OfType<Document>().FirstOrDefault(x => String.Equals(x.Control?.Name, name, StringComparison.Ordinal));
+				if (document != null)
+					view.Controller.Move(document, targetIndex++);
+			}
+		}
+
+		/// <summary>Captures the visible tab order without discarding saved positions for pages unavailable in this game.</summary>
+		internal static string CaptureMainDocumentOrder(TabbedView view, Control[] defaultOrder, string previousOrder)
+		{
+			if (view.DocumentGroups.Count != 1) return previousOrder;
+			List<string> names = ReadMainDocumentOrder(defaultOrder, previousOrder);
+			List<string> visibleNames = view.DocumentGroups[0].Items.OfType<BaseDocument>()
+				.Select(x => x.Control?.Name).Where(x => names.Contains(x)).ToList();
+			if (visibleNames.Count == 0 || visibleNames.Distinct(StringComparer.Ordinal).Count() != visibleNames.Count)
+				return previousOrder;
+			int visibleIndex = 0;
+			for (int index = 0; index < names.Count; index++)
+				if (visibleNames.Contains(names[index])) names[index] = visibleNames[visibleIndex++];
+			return String.Join("|", names.Select(Uri.EscapeDataString));
 		}
 
 		/// <summary>
@@ -297,69 +283,22 @@
 		private void SaveMainDocumentOrder()
 		{
 			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null ||
-				_mainTabbedView == null || _mainTabbedView.DocumentGroups.Count == 0)
+				!_mainDocumentPersistenceEnabled || _mainDocumentStartupUpdatePending || _mainTabbedView == null)
 			{
 				return;
 			}
 
-			DocumentGroup group = _mainTabbedView.DocumentGroups[0];
-			var names = new System.Collections.Generic.List<string>();
-			for (int index = 0; index < group.Items.Count; index++)
-			{
-				BaseDocument document = group.Items[index] as BaseDocument;
-				string name = document?.Control?.Name;
-				if (!String.IsNullOrWhiteSpace(name))
-					names.Add(Uri.EscapeDataString(name));
-			}
-
-			if (names.Count > 0)
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDocumentOrderSettingsKey] = String.Join("|", names);
+			string order = CaptureMainDocumentOrder(_mainTabbedView, GetDefaultMainDocumentOrder(), GetLayoutSetting(DevExpressDocumentOrderSettingsKey));
+			if (!String.IsNullOrEmpty(order))
+				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressDocumentOrderSettingsKey] = order;
 		}
 
 		/// <summary>
-		/// Applies the canonical Plugins, Mods, Collections, Categories and File Manager tab order.
+		/// Applies the canonical Plugins, Mods, Categories, File Manager and Collections tab order.
 		/// </summary>
 		private void ApplyDefaultMainDocumentOrder()
 		{
-			int targetIndex = 0;
-			MoveMainDocument(_pluginManagerControl, ref targetIndex);
-			MoveMainDocument((Control)_modManagerControl, ref targetIndex);
-			MoveMainDocument(_collectionsPreviewControl, ref targetIndex);
-			MoveMainDocument(_categoryManagerControl, ref targetIndex);
-			MoveMainDocument(_fileManagerControl, ref targetIndex);
-		}
-
-		/// <summary>
-		/// Moves one available main document into the requested visual position.
-		/// </summary>
-		/// <param name="control">The control hosted by the document.</param>
-		/// <param name="targetIndex">The next visual position to assign.</param>
-		private void MoveMainDocument(Control control, ref int targetIndex)
-		{
-			Document document = FindMainDocument(control) as Document;
-			if (document == null)
-				return;
-
-			_mainTabbedView.Controller.Move(document, targetIndex++);
-		}
-
-		/// <summary>
-		/// Finds a permanent main document by its stable hosted-control name.
-		/// </summary>
-		/// <param name="documentName">The stable hosted-control name.</param>
-		/// <returns>The matching document, or null when it is unavailable.</returns>
-		private Document FindMainDocumentByName(string documentName)
-		{
-			if (String.IsNullOrWhiteSpace(documentName) || _mainTabbedView == null)
-				return null;
-
-			foreach (BaseDocument document in _mainTabbedView.Documents)
-			{
-				if (String.Equals(document.Control?.Name, documentName, StringComparison.Ordinal))
-					return document as Document;
-			}
-
-			return null;
+			ApplyMainDocumentOrder(_mainTabbedView, GetDefaultMainDocumentOrder(), null);
 		}
 
 		/// <summary>
@@ -502,7 +441,6 @@
 				dockRestored = false;
 			}
 
-			RestoreActiveMainDocument();
 			return dockRestored;
 		}
 
@@ -584,42 +522,6 @@
 		}
 
 		/// <summary>
-		/// Restores the last selected permanent main document, falling back to Mods when
-		/// the saved page is not available in the current game mode.
-		/// </summary>
-		private void RestoreActiveMainDocument()
-		{
-			string activeControlName = GetLayoutSetting(DevExpressActiveDocumentSettingsKey);
-			if (!String.IsNullOrEmpty(activeControlName))
-			{
-				foreach (BaseDocument document in _mainTabbedView.Documents)
-				{
-					if (document.Control != null && String.Equals(document.Control.Name, activeControlName, StringComparison.Ordinal))
-					{
-						_mainTabbedView.ActivateDocument(document.Control);
-						return;
-					}
-				}
-			}
-
-			ActivateModsDocument();
-		}
-
-		/// <summary>
-		/// Captures the selected permanent main document while the MDI children are still active.
-		/// </summary>
-		/// <param name="selectedControl">The selected document control, or null to use the active document.</param>
-		private void SaveActiveMainDocument(Control selectedControl = null)
-		{
-			if (ViewModel?.EnvironmentInfo?.Settings?.DockPanelLayouts == null)
-				return;
-
-			Control activeControl = selectedControl ?? _mainTabbedView?.ActiveDocument?.Control;
-			if (activeControl != null)
-				ViewModel.EnvironmentInfo.Settings.DockPanelLayouts[DevExpressActiveDocumentSettingsKey] = activeControl.Name;
-		}
-
-		/// <summary>
 		/// Reapplies monitor column widths after the final dock and window dimensions are known.
 		/// </summary>
 		private void RestoreMonitorColumnWidths()
@@ -634,20 +536,33 @@
 		/// </summary>
 		private async void MainTabbedView_DocumentSelected(object sender, DocumentEventArgs e)
 		{
+			if (_mainDocumentStartupUpdatePending)
+				return;
 			SetBarItemVisible(toolStripTextBoxFind, false);
 			toolStripTextBoxFind.Enabled = false;
-
-			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null)
-			{
-				SaveActiveMainDocument(e.Document.Control);
-				ViewModel.EnvironmentInfo.Settings.Save();
-			}
 
 			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _fileManagerControl))
 				await _fileManagerControl.EnsureInitialLoadAsync().ConfigureAwait(true);
 
-			if (e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _collectionsPreviewControl))
+			if (_mainDocumentPersistenceEnabled && Visible && e?.Document?.Control != null && Object.ReferenceEquals(e.Document.Control, _collectionsPreviewControl))
 				_collectionsPreviewControl.RefreshInstalledState();
+		}
+
+		/// <summary>
+		/// Finishes document creation and selection before the main window can paint its first document.
+		/// </summary>
+		protected override void OnLoad(EventArgs e)
+		{
+			base.OnLoad(e);
+			CompleteMainDocumentStartupUpdate();
+		}
+
+		/// <summary>Releases the startup update and applies visual order before selecting Mods.</summary>
+		internal static void CompleteMainDocumentStartup(TabbedView view, Control[] defaultOrder, string savedOrder, Control mods)
+		{
+			view.EndUpdate();
+			ApplyMainDocumentOrder(view, defaultOrder, savedOrder);
+			view.ActivateDocument(mods);
 		}
 
 		/// <summary>
@@ -658,7 +573,8 @@
 			if (!_mainDocumentStartupUpdatePending || _mainTabbedView == null)
 				return;
 
-			_mainTabbedView.EndUpdate();
+			CompleteMainDocumentStartup(_mainTabbedView, GetDefaultMainDocumentOrder(),
+				GetLayoutSetting(DevExpressDocumentOrderSettingsKey), (Control)_modManagerControl);
 			_mainDocumentStartupUpdatePending = false;
 		}
 

@@ -89,7 +89,9 @@ namespace NexusClientTests
 			NormalizedCollectionMember newMember = CreateValidatedMember("100", "201", "recipe-b");
 			using (Fixture f = Fixture.Create("cross-key-correlation", oldMember, newMember))
 			{
-				CollectionRevisionUpdatePlan plan = f.Plan();
+				CollectionRevisionUpdatePlan plan = new CollectionRevisionUpdatePlanner().Plan(f.Association, f.OldPlan, f.NewPlan, f.State,
+					new UserOverride[0], new CollectionDriftObservation[0],
+					new[] { new NativeModProvenance(f.Binding.NativeMod, StandaloneModUse.NoStandaloneUseVerified) });
 				CollectionOperation created = f.Coordinator.CreateReviewedOperation(plan);
 				CollectionRevisionUpdateReviewedIntent loaded = f.CreateRestartedCoordinator().LoadReviewedIntent(created.Identity);
 

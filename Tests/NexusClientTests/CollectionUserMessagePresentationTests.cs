@@ -199,18 +199,20 @@ namespace Nexus.Client.Tests
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
 		}
 
+		/// <summary>Unresolved recovery offers the supported repair action while retaining completed mods and technical diagnostics.</summary>
 		[Test]
-		public void UnresolvedRecoveryPresentation_DoesNotSendUserBackToTheSameRecoveryCheck()
+		public void UnresolvedRecoveryPresentation_KeepsCompletedModsAndOffersRepair()
 		{
 			const string raw = "C6.9 missing replay; native fingerprint mismatch";
 			CollectionUserMessagePresentation presentation = CollectionUserMessagePresenter.ForRecovery(
 				CollectionAdditiveWorkflowRecoveryStatus.RecoveryRequired, raw);
 
-			Assert.That(presentation.MessageFallback, Does.Contain("could not repair it automatically"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Installation is paused"));
+			Assert.That(presentation.MessageFallback, Does.Contain("Completed mods are kept"));
 			Assert.That(presentation.MessageFallback, Does.Not.Contain("fingerprint"));
-			Assert.That(presentation.NextActionFallback, Does.Contain("Uninstall Collection"));
+			Assert.That(presentation.NextActionFallback, Does.Contain("Check recovery and continue"));
+			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Uninstall Collection"));
 			Assert.That(presentation.NextActionFallback, Does.Contain("Export Technical Report"));
-			Assert.That(presentation.NextActionFallback, Does.Not.Contain("Choose Check recovery"));
 			Assert.That(presentation.TechnicalDetail, Is.EqualTo(raw));
 		}
 

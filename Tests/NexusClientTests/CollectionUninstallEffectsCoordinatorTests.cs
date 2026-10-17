@@ -491,7 +491,8 @@ END;";
 			try
 			{
 				Fixture fixture = CreateFixture(root, "explicit-" + use);
-				fixture.Associations.SaveNativeModProvenance(new NativeModProvenance(fixture.NativeMod, use));
+				if (use != StandaloneModUse.Unknown)
+					fixture.Associations.SaveNativeModProvenance(new NativeModProvenance(fixture.NativeMod, use));
 				CollectionUninstallEffectsPlan plan = CollectionUninstallEffectsCoordinator.BuildExplicitMemberPlan(fixture.Associations,
 					fixture.Association.WithState(CollectionAssociationState.Recovering), CreateState(fixture, true, null, null),
 					new KeyValuePair<CollectionMemberKey, CollectionArtifactReference>[0], new KeyValuePair<CollectionMemberKey, string>[0], new CollectionOperation[0]);

@@ -124,6 +124,7 @@ namespace NexusClientTests
 					installLog,
 					environmentInfo,
 					modFolder);
+				virtualModActivator.Initialize();
 
 				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "winner.txt");
 				string stagedSource = Path.Combine(virtualRoot, VirtualModActivator.ACTIVATOR_FOLDER, "Virtual", "winner.txt");
@@ -203,6 +204,7 @@ namespace NexusClientTests
 					installLog,
 					environmentInfo,
 					modFolder);
+				virtualModActivator.Initialize();
 
 				ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "winner.txt");
 				string originalSource = Path.Combine(virtualRoot, VirtualModActivator.ACTIVATOR_FOLDER, "Virtual", "winner.txt");

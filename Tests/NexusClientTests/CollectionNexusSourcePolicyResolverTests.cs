@@ -110,14 +110,15 @@ namespace NexusClientTests
 					CollectionPreparationProgress.Report("Availability check finished", true);
 				}
 
-				Assert.That(progress.Messages.Count, Is.EqualTo(7));
+				string[] memberMessages = progress.Messages.Where(x => x.StartsWith("[", StringComparison.Ordinal)).ToArray();
+				Assert.That(memberMessages.Length, Is.EqualTo(6));
 				for (int index = 0; index < 3; index++)
 				{
 					string prefix = "[" + (index + 1) + "/3] - ";
-					StringAssert.StartsWith(prefix + "Checking mod availability:", progress.Messages[index * 2]);
-					Assert.That(progress.Messages[index * 2 + 1], Is.EqualTo(prefix + "Resolving availability metadata"));
+					StringAssert.StartsWith(prefix + "Checking mod availability:", memberMessages[index * 2]);
+					Assert.That(memberMessages[index * 2 + 1], Is.EqualTo(prefix + "Resolving availability metadata"));
 				}
-				Assert.That(progress.Messages[6], Is.EqualTo("Availability check finished"));
+				Assert.That(progress.Messages.Last(), Is.EqualTo("Availability check finished"));
 			}
 			finally { Directory.Delete(root, true); }
 		}

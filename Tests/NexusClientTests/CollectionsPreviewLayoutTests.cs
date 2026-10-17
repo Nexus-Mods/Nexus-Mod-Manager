@@ -85,10 +85,11 @@ namespace Nexus.Client.Tests
 			{
 				collections.Show();
 				mods.Show();
-				tabs.ActivateDocument(mods);
 				host.Show();
 				Application.DoEvents();
-				Assert.That(collections.Visible, Is.False, "Preparation must occur with the Collections document hidden.");
+				tabs.ActivateDocument(mods);
+				Application.DoEvents();
+				Assert.That(tabs.ActiveDocument.Control, Is.SameAs(mods), "Preparation must occur while the Mods document is selected.");
 				action(host, tabs, mods, collections);
 			}
 		}

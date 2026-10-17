@@ -245,7 +245,7 @@ namespace NexusClientTests
 			{
 				var script = new XmlScript(new XmlScriptType(), new Version(5, 0));
 				Fixture fixture = CreateFixtureCore(root, "fresh-installer-cache", null,
-					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, null, script, @"option\file.bin");
+					new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false, null, script, new[] { @"option\file.bin" });
 				Assert.DoesNotThrow(() => CollectionNativeRecipePreparer.ValidateInstallerRouting(fixture.Member, fixture.Mod));
 			}
 			finally
@@ -365,8 +365,9 @@ namespace NexusClientTests
 				CollectionPerformanceSnapshot after = CollectionPerformanceMetrics.Capture();
 				Assert.That(after.ArchiveSourceReadCount, Is.EqualTo(before.ArchiveSourceReadCount),
 					"A freshly SHA-256-proven archive must not be decompressed again to reconstruct its approved effects.");
-				Assert.That(CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live),
-					Is.SameAs(live));
+				CollectionMemberEffectPreview submission = CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live);
+				Assert.That(submission.Files, Is.EqualTo(live.Files));
+				Assert.That(submission.InstallRootCorrection, Is.SameAs(reviewed.InstallRootCorrection));
 				Assert.That(live.Files.Select(x => x.ExpectedContentHash.Value),
 					Is.EquivalentTo(reviewed.Files.Select(x => x.ExpectedContentHash.Value)));
 
@@ -597,7 +598,7 @@ namespace NexusClientTests
 		}
 
 		[Test]
-		public void PrepareExact_VortexMd5FileListAmbiguousArchiveContentFailsClosed()
+		public void PrepareExact_VortexMd5FileListIdenticalArchiveCopiesUseStableSource()
 		{
 			string root = CreateTemporaryDirectory();
 			try
@@ -612,9 +613,12 @@ namespace NexusClientTests
 				Fixture fixture = CreateFileListFixture(root, "file-list-ambiguous", contents,
 					"[{\"path\":\"target.bin\",\"md5\":\"" + md5 + "\"}]");
 
-				Assert.Throws<InvalidDataException>(() => fixture.Preparer.PrepareExact(
+				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
-					fixture.InstallContext, fixture.State, false));
+					fixture.InstallContext, fixture.State, false);
+				InstallModFileOperation operation = prepared.RecipeInput.NativeOperations.OfType<InstallModFileOperation>().Single();
+				Assert.That(operation.SourcePath, Is.EqualTo(@"a\one.bin"));
+				Assert.That(operation.DestinationPath, Is.EqualTo("target.bin"));
 			}
 			finally
 			{
@@ -695,7 +699,7 @@ namespace NexusClientTests
 					{ @"payload\two.bin", two }
 				};
 				Fixture fixture = CreateFileListOverrideFixture(root, "file-list-overrides", contents, hashesJson,
-					"[\"second.dds\"]");
+					"[\"Target/second.dds\"]");
 
 				PreparedCollectionNativeRecipe prepared = fixture.Preparer.PrepareExact(
 					fixture.Plan, fixture.Member, fixture.VerifiedArchive, fixture.Mod, fixture.GameMode, CreateEnvironmentInfo(),
@@ -1562,7 +1566,7 @@ namespace NexusClientTests
 			step.OptionGroups.Add(group);
 			script.InstallSteps.Add(step);
 			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data),
-				false, null, script, @"Required\Scripts\example.pex", @"AE\SKSE\Plugins\example.dll", @"SE\SKSE\Plugins\example.dll");
+				false, null, script, new[] { @"Required\Scripts\example.pex", @"AE\SKSE\Plugins\example.dll", @"SE\SKSE\Plugins\example.dll" });
 		}
 
 		/// <summary>Represents the exact choices returned by the existing native wizard.</summary>
@@ -1625,7 +1629,7 @@ namespace NexusClientTests
 			string choicesJson = "{\"type\":\"fomod\",\"options\":[{\"name\":\"Eyes\",\"groups\":[" +
 				"{\"name\":\"Eye variants\",\"choices\":[{\"name\":\"Chosen Lashes\",\"idx\":0}]}]}]}";
 			return CreateFixtureCore(root, suffix, null, new ModInstallContext(ModInstallMethod.Virtual, ModInstallRoot.Data), false,
-				choicesJson, script, @"fomod\options\original.dds", @"fomod\options\higher-priority.dds");
+				choicesJson, script, new[] { @"fomod\options\original.dds", @"fomod\options\higher-priority.dds" });
 		}
 
 		private static Fixture CreateFomodDinputFixture(string root, string suffix, string dinputDestination)
@@ -1736,7 +1740,8 @@ namespace NexusClientTests
 				reviewedCapability = normalization.CapabilityReport.FilterDeclaredIssues(issue =>
 					!StringComparer.Ordinal.Equals(issue.Code, CollectionNexusSourcePolicyResolver.PreferIssueCode));
 			}
-			Assert.That(reviewedCapability.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported));
+			Assert.That(reviewedCapability.Status, Is.EqualTo(CollectionCompatibilityStatus.Supported),
+				String.Join(Environment.NewLine, reviewedCapability.AllIssues.Select(x => x.Code + ": " + x.Reason)));
 			var sourceStore = new CollectionsRevisionSourceStore(store);
 			CollectionRevisionSourceRecord sourceRecord = sourceStore.RetainManifest(normalization.Manifest,
 				CollectionRevisionSourceInputKind.RawManifest, normalization.Manifest.Source.ContentHash,

@@ -152,7 +152,7 @@ namespace NexusClientTests
 			});
 		}
 
-		/// <summary>Creates immutable in-memory package entries without accessing game files or settings.</summary>
+		/// <summary>Creates isolated package entries without accessing game files or settings.</summary>
 		private static IMod CreateMod(params string[] files)
 		{
 			return InterfaceStub<IMod>.Create((method, args) =>
@@ -162,10 +162,18 @@ namespace NexusClientTests
 					case "get_Filename": return @"C:\Mods\preloader.zip";
 					case "get_FileName": return "preloader.zip";
 					case "GetFileList": return files.ToList();
-					case "GetFileStream": return new MemoryStream(Encoding.UTF8.GetBytes("<xSE><PluginPreloader/></xSE>"), false);
+					case "GetFileStream": return CreatePackageFileStream();
 					default: return null;
 				}
 			});
+		}
+
+		/// <summary>Supplies the FileStream required by IMod and deletes the isolated file when the reader disposes it.</summary>
+		private static FileStream CreatePackageFileStream()
+		{
+			string path = Path.Combine(Path.GetTempPath(), "nmm-package-rule-" + Guid.NewGuid().ToString("N"));
+			File.WriteAllText(path, "<xSE><PluginPreloader/></xSE>", Encoding.UTF8);
+			return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete, 4096, FileOptions.DeleteOnClose);
 		}
 
 		/// <summary>Exposes optional rules to a detached test GameMode.</summary>

@@ -14,6 +14,46 @@ namespace NexusClientTests
 	/// </summary>
 	public class CollectionsAssociationStoreTests
 	{
+		/// <summary>File Manager reads only target-scoped installed provenance, deduplicates shared native keys and respects detach.</summary>
+		[TestCase(CollectionMemberBindingKind.InstalledForCollection, CollectionAssociationState.Applied, true)]
+		[TestCase(CollectionMemberBindingKind.InstalledForCollection, CollectionAssociationState.Modified, true)]
+		[TestCase(CollectionMemberBindingKind.InstalledForCollection, CollectionAssociationState.Incomplete, true)]
+		[TestCase(CollectionMemberBindingKind.InstalledForCollection, CollectionAssociationState.Recovering, false)]
+		[TestCase(CollectionMemberBindingKind.AdoptedExisting, CollectionAssociationState.Applied, false)]
+		public void FileManagerInstalledKeys_RequireConfirmedInstallProvenance(CollectionMemberBindingKind kind, CollectionAssociationState state, bool expected)
+		{
+			string root = CreateTemporaryDirectory();
+			try
+			{
+				CollectionsStore store = CreateFeatureStore(root);
+				CollectionTargetAssociation association = SeedAssociation(store, "file-manager", "rev-a", 1, "target-a");
+				var associations = new CollectionsAssociationStore(store);
+				association = association.WithState(state);
+				associations.SaveAssociation(association);
+				for (int index = 0; index < 2; index++)
+					associations.SaveBinding(new CollectionMemberBinding(association, CollectionMemberKey.FromProvider("member-" + index),
+						new NativeModInstanceIdentity(association.Target, "native-a"), CollectionRecipeIdentity.FromFingerprint("recipe-a"), kind));
+				var otherTarget = new CollectionTargetAssociation(Guid.NewGuid(), association.Revision,
+					CollectionTargetIdentity.FromFingerprint("target-b"), CollectionAssociationState.Applied);
+				associations.SaveAssociation(otherTarget);
+				associations.SaveBinding(new CollectionMemberBinding(otherTarget, CollectionMemberKey.FromProvider("member-other"),
+					new NativeModInstanceIdentity(otherTarget.Target, "native-other"), CollectionRecipeIdentity.FromFingerprint("recipe-other"),
+					CollectionMemberBindingKind.InstalledForCollection));
+				Assert.That(associations.GetInstalledForCollectionModKeys(association.Target),
+					Is.EquivalentTo(expected ? new[] { "native-a" } : new string[0]));
+				Assert.That(associations.GetInstalledForCollectionModKeys(otherTarget.Target), Is.EquivalentTo(new[] { "native-other" }));
+				if (state != CollectionAssociationState.Recovering)
+				{
+					associations.DetachAssociation(association.AssociationId, association.Target, CollectionOperationIdentity.CreateNew());
+					Assert.That(associations.GetInstalledForCollectionModKeys(association.Target), Is.Empty);
+				}
+			}
+			finally
+			{
+				Directory.Delete(root, true);
+			}
+		}
+
 		[Test]
 		public void Association_RoundTripsAndAllowsStateRefreshWithoutIdentityRebinding()
 		{

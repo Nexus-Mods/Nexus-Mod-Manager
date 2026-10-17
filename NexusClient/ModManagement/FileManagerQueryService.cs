@@ -13,6 +13,7 @@
     public sealed class FileManagerQueryService
     {
         private readonly IFileManagerManualSourceStore _manualSourceStore;
+        private ISet<string> _collectionOwnerKeys;
 
         public FileManagerQueryService()
             : this(null)
@@ -34,9 +35,16 @@
         /// </summary>
         public FileManagerScanResult Scan(IGameMode gameMode, IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager, CancellationToken cancellationToken)
         {
+            return Scan(gameMode, virtualModActivator, deploymentManager, cancellationToken, null, null);
+        }
+
+        /// <summary>Scans once, reporting bounded discovery progress and using the supplied Collection ownership snapshot.</summary>
+        internal FileManagerScanResult Scan(IGameMode gameMode, IVirtualModActivator virtualModActivator, IModDeploymentManager deploymentManager, CancellationToken cancellationToken, IProgress<int> progress, ISet<string> collectionOwnerKeys)
+        {
             if (gameMode == null) throw new ArgumentNullException("gameMode");
             if (virtualModActivator == null) throw new ArgumentNullException("virtualModActivator");
 
+            _collectionOwnerKeys = collectionOwnerKeys;
             Stopwatch totalWatch = Stopwatch.StartNew();
             FileManagerScanDiagnostics diagnostics = new FileManagerScanDiagnostics();
             string deploymentRoot = GetDeploymentRoot(gameMode);
@@ -66,6 +74,9 @@
             long indexConstructionTicks = 0;
             int publishedReparseFileCount = 0;
             long enumerationStart = Stopwatch.GetTimestamp();
+            long nextProgressMilliseconds = totalWatch.ElapsedMilliseconds + 500;
+            if (progress != null)
+                progress.Report(0);
 
             foreach (FileManagerFileEntry fileEntry in FileManagerNativeFileEnumerator.EnumerateFiles(deploymentRoot, cancellationToken, enumerationStats))
             {
@@ -109,7 +120,7 @@
                 long classificationStart = Stopwatch.GetTimestamp();
                 FileManagerPathOwnership ownership;
                 ownershipByPath.TryGetValue(normalizedPath, out ownership);
-                ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manualSources);
+                ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manualSources, _collectionOwnerKeys);
                 classificationTicks += Stopwatch.GetTimestamp() - classificationStart;
 
                 long indexConstructionStart = Stopwatch.GetTimestamp();
@@ -120,8 +131,16 @@
                 if (isReparsePoint)
                     publishedReparseFileCount++;
                 indexConstructionTicks += Stopwatch.GetTimestamp() - indexConstructionStart;
+                if (progress != null && totalWatch.ElapsedMilliseconds >= nextProgressMilliseconds)
+                {
+                    progress.Report(rows.Count);
+                    nextProgressMilliseconds = totalWatch.ElapsedMilliseconds + 500;
+                }
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
+            if (progress != null)
+                progress.Report(rows.Count);
             long enumerationTotalTicks = Stopwatch.GetTimestamp() - enumerationStart;
             long enumerationTicks = Math.Max(0, enumerationTotalTicks - rowConstructionTicks - classificationTicks - indexConstructionTicks);
             diagnostics.FileEnumerationMilliseconds = TicksToMilliseconds(enumerationTicks);
@@ -172,7 +191,7 @@
 
                 FileManagerPathOwnership ownership;
                 ownershipByPath.TryGetValue(row.RelativePath, out ownership);
-                ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manualSources);
+                ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manualSources, _collectionOwnerKeys);
                 counts.Add(row.Source);
             }
 
@@ -217,9 +236,9 @@
 
                 if (hasActiveOwnership)
                 {
-                    ApplyNmmOwnership(row, ownership);
+                    ApplyNmmOwnership(row, ownership, _collectionOwnerKeys);
                 }
-                else if (row.Source == FileManagerSource.InstalledByNmm)
+                else if (FileManagerSourceDisplay.IsNmmSource(row.Source))
                 {
                     if (String.IsNullOrWhiteSpace(row.FullPath) || !File.Exists(row.FullPath))
                     {
@@ -252,7 +271,7 @@
                 if (!ownershipByPath.TryGetValue(row.RelativePath, out canonicalOwnership))
                     canonicalOwnership = ownership;
 
-                ApplySourceClassificationFromOwnership(row, canonicalOwnership, baseFiles, manualSources);
+                ApplySourceClassificationFromOwnership(row, canonicalOwnership, baseFiles, manualSources, _collectionOwnerKeys);
                 rows.Add(row);
                 rowsByNormalizedPath.Add(row.RelativePath, row);
             }
@@ -284,7 +303,7 @@
             if (ownership == null)
                 ownership = BuildOwnershipForPath(virtualModActivator, deploymentManager, gameMode, row.RelativePath);
             if (ownership != null && ownership.HasActiveOwner)
-                ApplyNmmOwnership(row, ownership);
+                ApplyNmmOwnership(row, ownership, _collectionOwnerKeys);
         }
 
         public void ApplySelectedOwner(FileManagerRow row, string selectedOwnerKey)
@@ -294,7 +313,7 @@
 
             FileManagerOwnerCandidate candidate = FindOwnerCandidate(row.OwnerCandidates, selectedOwnerKey);
             row.SourceEditable = false;
-            row.Source = FileManagerSource.InstalledByNmm;
+            row.Source = GetNmmSource(selectedOwnerKey, _collectionOwnerKeys);
             row.OwnerKey = selectedOwnerKey ?? String.Empty;
             row.OwnerName = candidate == null ? String.Empty : candidate.ModName;
         }
@@ -354,13 +373,13 @@
             ApplySourceClassificationFromOwnership(row, BuildOwnership(pathLinks), baseFiles, manualSources);
         }
 
-        internal static void ApplySourceClassificationFromOwnership(FileManagerRow row, FileManagerPathOwnership ownership, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources)
+        internal static void ApplySourceClassificationFromOwnership(FileManagerRow row, FileManagerPathOwnership ownership, ISet<string> baseFiles, IDictionary<string, FileManagerSource> manualSources, ISet<string> collectionOwnerKeys = null)
         {
             if (row == null) throw new ArgumentNullException("row");
 
             if (ownership != null && ownership.HasActiveOwner)
             {
-                ApplyNmmOwnership(row, ownership);
+                ApplyNmmOwnership(row, ownership, collectionOwnerKeys);
                 return;
             }
 
@@ -434,7 +453,13 @@
             if (modInfo == null)
                 return String.Empty;
 
-            return (modInfo.ModFileName ?? String.Empty).ToLowerInvariant() + "|" + (modInfo.DownloadId ?? String.Empty).ToLowerInvariant();
+            return CreateOwnerKey(modInfo.ModFileName, modInfo.DownloadId);
+        }
+
+        /// <summary>Creates the legacy Virtual owner key from captured mod registration metadata.</summary>
+        internal static string CreateOwnerKey(string modFileName, string downloadId)
+        {
+            return (modFileName ?? String.Empty).ToLowerInvariant() + "|" + (downloadId ?? String.Empty).ToLowerInvariant();
         }
 
         /// <summary>
@@ -1042,11 +1067,18 @@
             return files;
         }
 
-        private static void ApplyNmmOwnership(FileManagerRow row, FileManagerPathOwnership ownership)
+        /// <summary>Classifies the current winning owner using the scan's in-memory provenance snapshot.</summary>
+        private static FileManagerSource GetNmmSource(string ownerKey, ISet<string> collectionOwnerKeys)
+        {
+            return !String.IsNullOrEmpty(ownerKey) && collectionOwnerKeys != null && collectionOwnerKeys.Contains(ownerKey)
+                ? FileManagerSource.InstalledByCollection : FileManagerSource.InstalledByNmm;
+        }
+
+        private static void ApplyNmmOwnership(FileManagerRow row, FileManagerPathOwnership ownership, ISet<string> collectionOwnerKeys = null)
         {
             row.SourceEditable = false;
             row.DeploymentTarget = ownership.DeploymentTarget;
-            row.Source = FileManagerSource.InstalledByNmm;
+            row.Source = GetNmmSource(ownership.ActiveOwnerKey, collectionOwnerKeys);
             row.OwnerCandidates = ownership.OwnerCandidates;
             row.SetOwnerCount(ownership.OwnerCount);
             row.OwnerKey = ownership.ActiveOwnerKey;

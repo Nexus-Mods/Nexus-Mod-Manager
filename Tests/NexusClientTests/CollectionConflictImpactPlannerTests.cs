@@ -978,7 +978,7 @@ namespace NexusClientTests
 			NormalizedCollectionMember member = CreateMember(0, "fomod-plugin", 100, 200, 0);
 			CollectionTargetIdentity target = CreateTarget();
 			ModDeploymentTarget pluginTarget = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "choice.esp");
-			Fixture fixture = CreateFixture(target, new[] { member }, null, new CollectionNativeModState[0],
+			Fixture fixture = CreateFixture(target, new[] { member }, null, new[] { CreateNativeMod(target, "plugin-archive", 100, 200) },
 				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
 				desiredPlugins: new[] { new CollectionDesiredPluginState("SkyInteract.esp", true) }
 					.Concat(explicitlyDisabled ? new[] { new CollectionDesiredPluginState("choice.esp", false) } : new CollectionDesiredPluginState[0]).ToArray(),
@@ -1569,7 +1569,8 @@ namespace NexusClientTests
 			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
 			NormalizedCollectionMember b = CreateMember(1, "b", 101, 201, 0);
 			CollectionTargetIdentity target = CreateTarget();
-			Fixture fixture = CreateFixture(target, new[] { a, b }, null, new CollectionNativeModState[0],
+			Fixture fixture = CreateFixture(target, new[] { a, b }, null,
+				new[] { CreateNativeMod(target, "archive-a", 100, 200), CreateNativeMod(target, "archive-b", 101, 201) },
 				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
 				pluginRelativeOrderRules: new[] { new CollectionPluginRelativeOrderRule("A.esp", "B.esp") });
 			CollectionMemberEffectPreview previewA = CreatePreview(a, null, new[]
@@ -1617,7 +1618,7 @@ namespace NexusClientTests
 		public void PluginAfterRule_AutomaticModeLeavesAbsentEndpointDormant(bool missingSource)
 		{
 			NormalizedCollectionMember a = CreateMember(0, "a", 100, 200, 0);
-			Fixture fixture = CreateFixture(CreateTarget(), new[] { a }, null, new CollectionNativeModState[0],
+			Fixture fixture = CreateFixture(CreateTarget(), new[] { a }, null, new[] { CreateNativeMod(CreateTarget(), "archive-a", 100, 200) },
 				new CollectionNativeFileState[0], null, null, null, CollectionNativeStateCoverage.Complete,
 				pluginRelativeOrderRules: new[] { missingSource
 					? new CollectionPluginRelativeOrderRule("Absent.esp", "A.esp")

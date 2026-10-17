@@ -227,7 +227,9 @@ namespace NexusClientTests
 			CollectionMemberEffectPreview reviewed = CreateSubmissionPreview("mod.dll", null, null);
 			CollectionMemberEffectPreview same = CreateSubmissionPreview("mod.dll", null, null);
 			CollectionMemberEffectPreview changed = CreateSubmissionPreview("other.dll", null, null);
-			Assert.That(CollectionNativeChildExecutionCoordinator.ResolvePlannedSubmissionPreview(reviewed, same), Is.SameAs(same));
+			CollectionMemberEffectPreview submission = CollectionNativeChildExecutionCoordinator.ResolvePlannedSubmissionPreview(reviewed, same);
+			Assert.That(submission.Files, Is.EqualTo(same.Files));
+			Assert.That(submission.InstallRootCorrection, Is.SameAs(reviewed.InstallRootCorrection));
 			Assert.Throws<InvalidOperationException>(() => CollectionNativeChildExecutionCoordinator.ResolvePlannedSubmissionPreview(reviewed, changed));
 			Assert.Throws<InvalidOperationException>(() => CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, same));
 		}
@@ -238,7 +240,9 @@ namespace NexusClientTests
 		{
 			CollectionMemberEffectPreview reviewed = CreateSubmissionPreview("mod.dll", null, null);
 			CollectionMemberEffectPreview live = CreateSubmissionPreview("mod.dll", new string('a', 64), 123);
-			Assert.That(CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live), Is.SameAs(live));
+			CollectionMemberEffectPreview submission = CollectionNativeChildExecutionCoordinator.ResolveExactSubmissionPreview(reviewed, live);
+			Assert.That(submission.Files, Is.EqualTo(live.Files));
+			Assert.That(submission.InstallRootCorrection, Is.SameAs(reviewed.InstallRootCorrection));
 		}
 
 		/// <summary>Existing reviewed identities and destination coverage cannot be widened during submission.</summary>

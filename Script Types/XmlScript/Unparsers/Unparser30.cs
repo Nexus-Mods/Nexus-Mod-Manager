@@ -33,7 +33,7 @@ namespace Nexus.Client.ModManagement.Scripting.XmlScript.Unparsers
 			XElement xelHeaderTitle = new XElement("moduleName",
 											new XAttribute("position", UnparseTextPosition(Script.HeaderInfo.TextPosition)),
 											new XAttribute("colour", (Script.HeaderInfo.TextColour.ToArgb() & 0x00ffffff).ToString("x6")));
-			xelHeaderTitle.Value = Script.HeaderInfo.Title;
+			xelHeaderTitle.Value = Script.HeaderInfo.Title ?? String.Empty;
 
 			XElement xelHeaderImage = new XElement("moduleImage",
 											new XAttribute("showImage", UnparseBoolean(Script.HeaderInfo.ShowImage)),

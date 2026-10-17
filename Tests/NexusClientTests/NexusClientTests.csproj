@@ -83,6 +83,15 @@
     </Reference>
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Security.AccessControl, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Security.AccessControl.4.5.0\lib\net461\System.Security.AccessControl.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Permissions, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Security.Permissions.4.5.0\lib\net461\System.Security.Permissions.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Security.Principal.Windows, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>..\..\Stage\packages\System.Security.Principal.Windows.4.5.0\lib\net461\System.Security.Principal.Windows.dll</HintPath>
+    </Reference>
     <Reference Include="System.Diagnostics.DiagnosticSource, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\..\Stage\packages\System.Diagnostics.DiagnosticSource.6.0.0\lib\net461\System.Diagnostics.DiagnosticSource.dll</HintPath>
     </Reference>
@@ -115,6 +124,9 @@
     </Reference>
     <Reference Include="DevExpress.XtraEditors.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraEditors.v25.2.dll</HintPath>
+    </Reference>
+    <Reference Include="DevExpress.XtraGrid.v25.2">
+      <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraGrid.v25.2.dll</HintPath>
     </Reference>
     <Reference Include="DevExpress.XtraTreeList.v25.2">
       <HintPath>C:\Program Files\DevExpress 25.2\Components\Bin\Framework\DevExpress.XtraTreeList.v25.2.dll</HintPath>
@@ -275,6 +287,7 @@
     <Compile Include="CategoryManagerTests.cs" />
     <Compile Include="CSharpScriptCompatibilityTests.cs" />
     <Compile Include="CategoryTreeViewportTests.cs" />
+    <Compile Include="GridModListSurfaceTests.cs" />
     <Compile Include="GameRootInstallModeTests.cs" />
     <Compile Include="GameRootPackageRulesTests.cs" />
     <Compile Include="CollectionInstallDestinationResolverTests.cs" />

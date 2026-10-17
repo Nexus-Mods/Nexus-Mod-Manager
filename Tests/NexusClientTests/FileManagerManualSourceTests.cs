@@ -4,8 +4,16 @@
     using System.Collections.Generic;
     using System.Linq;
     using System.IO;
+    using System.Diagnostics;
+    using System.Reflection;
+    using System.Runtime.Serialization;
+    using System.Threading;
 
+    using Nexus.Client.Games;
     using Nexus.Client.ModManagement;
+    using Nexus.Client.ModManagement.InstallationLog;
+    using Nexus.Client.Mods;
+    using Nexus.Client.Util.Collections;
 
     using NUnit.Framework;
 
@@ -266,6 +274,7 @@
         /// <summary>Only untracked classifications may enter the bulk-removal action.</summary>
         [TestCase(FileManagerSource.BaseGame)]
         [TestCase(FileManagerSource.InstalledByNmm)]
+        [TestCase(FileManagerSource.InstalledByCollection)]
         [TestCase(FileManagerSource.Creations)]
         [TestCase(FileManagerSource.ExternalModManager)]
         public void UntrackedRemoval_RejectsTrackedAndManuallyClassifiedSources(FileManagerSource source)
@@ -288,6 +297,255 @@
             row.Source = FileManagerSource.Untracked;
             if (valid) Assert.AreEqual(Path.GetFullPath(full), FileManagerQueryService.GetUntrackedRemovalPath(@"C:\Game\Data", row));
             else Assert.Throws<InvalidOperationException>(() => FileManagerQueryService.GetUntrackedRemovalPath(@"C:\Game\Data", row));
+        }
+
+        /// <summary>Collection classification follows only the active winner and preserves NMM ownership controls.</summary>
+        [TestCase("collection|", FileManagerSource.InstalledByCollection)]
+        [TestCase("standalone|", FileManagerSource.InstalledByNmm)]
+        [TestCase("native-key", FileManagerSource.InstalledByCollection)]
+        public void CollectionSource_UsesWinningOwner(string winner, FileManagerSource expected)
+        {
+            var row = CreateRow("owned.dds");
+            var candidates = new List<FileManagerOwnerCandidate>
+            {
+                new FileManagerOwnerCandidate("collection|", "Collection Mod", 0),
+                new FileManagerOwnerCandidate("standalone|", "Standalone Mod", 1)
+            };
+            var ownership = new FileManagerPathOwnership(true, winner, "Winner", 2, candidates);
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "collection|", "native-key" };
+
+            FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, EmptyBaseFiles(), EmptyManualSources(), keys);
+
+            Assert.AreEqual(expected, row.Source);
+            Assert.IsFalse(row.SourceEditable);
+            Assert.IsTrue(row.OwnerEditable);
+            Assert.AreEqual(winner, row.OwnerKey);
+        }
+
+        /// <summary>Missing tracking is conservative and cannot override base-game or untracked classification.</summary>
+        [Test]
+        public void CollectionSource_RequiresActiveOwnershipAndTrustedProvenance()
+        {
+            var row = CreateRow("file.dds");
+            var keys = new HashSet<string> { "owner" };
+            var ownership = new FileManagerPathOwnership(true, "owner", "Mod", 1, FileManagerRow.EmptyOwnerCandidates);
+            FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, EmptyBaseFiles(), EmptyManualSources());
+            Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
+            FileManagerQueryService.ApplySourceClassificationFromOwnership(row, null, EmptyBaseFiles(), EmptyManualSources(), keys);
+            Assert.AreEqual(FileManagerSource.Untracked, row.Source);
+            FileManagerQueryService.ApplySourceClassificationFromOwnership(row, null, new HashSet<string> { row.RelativePath }, EmptyManualSources(), keys);
+            Assert.AreEqual(FileManagerSource.BaseGame, row.Source);
+        }
+
+        /// <summary>Only current registrations with unambiguous aliases may acquire the Collection source.</summary>
+        [Test]
+        public void CollectionLookup_MapsNativeAndVirtualKeysWithoutGuessing()
+        {
+            var registrations = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                { "native-a", "mod-a.7z|1" },
+                { "native-b", "duplicate.7z|2" },
+                { "native-c", "DUPLICATE.7Z|2" },
+                { "native-d", "standalone.7z|3" }
+            };
+            ISet<string> keys = FileManagerCollectionSourceLookup.BuildOwnerKeys(
+                new[] { "native-a", "native-b", "removed-native" }, registrations);
+            CollectionAssert.AreEquivalent(new[] { "native-a", "mod-a.7z|1", "native-b" }, keys);
+        }
+
+        /// <summary>Existing Virtual records use archive basenames even when native registrations expose full archive paths.</summary>
+        [TestCase(@"C:\Mods\Example.7z", "123")]
+        [TestCase(@"C:\Mods\Nested\Example.7z", null)]
+        [TestCase("Example.7z", "123")]
+        public void CollectionLookup_CapturedRegistrationMatchesExistingVirtualOwner(string archivePath, string downloadId)
+        {
+            IMod mod = InterfaceStub<IMod>.Create((method, args) =>
+            {
+                if (method.Name == "get_Filename") return archivePath;
+                if (method.Name == "get_DownloadId") return downloadId;
+                return null;
+            });
+            var activeMods = new ReadOnlyObservableList<IMod>(new ThreadSafeObservableList<IMod>(new[] { mod }));
+            IInstallLog log = InterfaceStub<IInstallLog>.Create((method, args) =>
+            {
+                if (method.Name == "get_ActiveMods") return activeMods;
+                if (method.Name == "GetModKey") return "native-existing";
+                return null;
+            });
+            var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+            typeof(ModManager).GetField("<InstallationLog>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic).SetValue(manager, log);
+            IDictionary<string, string> registrations = FileManagerCollectionSourceLookup.CaptureRegistrationKeys(manager);
+            ISet<string> keys = FileManagerCollectionSourceLookup.BuildOwnerKeys(new[] { "native-existing" }, registrations);
+            var info = new VirtualModInfo("1", downloadId, "Example", archivePath, "1.0");
+            string ownerKey = FileManagerQueryService.CreateOwnerKey(info);
+            var ownership = new FileManagerPathOwnership(true, ownerKey, "Example", 1, FileManagerRow.EmptyOwnerCandidates);
+            FileManagerRow row = CreateRow("existing.dds");
+
+            FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, EmptyBaseFiles(), EmptyManualSources(), keys);
+
+            Assert.That(row.Source, Is.EqualTo(FileManagerSource.InstalledByCollection));
+            Assert.That(keys, Does.Contain("native-existing"));
+        }
+
+        /// <summary>Collection sources are filterable but cannot be manually assigned, and legacy numeric IDs remain stable.</summary>
+        [Test]
+        public void CollectionSource_PreservesManualOptionsAndLegacyIds()
+        {
+            Assert.AreEqual(0, (int)FileManagerSource.InstalledByNmm);
+            Assert.AreEqual(4, (int)FileManagerSource.Untracked);
+            Assert.IsFalse(FileManagerSourceDisplay.IsManualSource(FileManagerSource.InstalledByCollection));
+            Assert.IsTrue(FileManagerSourceDisplay.AllSourceOptions.Any(x => x.Source == FileManagerSource.InstalledByCollection));
+            var row = CreateRow("file.dds");
+            PrepareEditableUntrackedRow(row);
+            Assert.Throws<InvalidOperationException>(() => new FileManagerQueryService().ApplyManualSource(row, FileManagerSource.InstalledByCollection));
+        }
+
+        /// <summary>Source changes and cloned summaries count every file exactly once.</summary>
+        [Test]
+        public void CollectionCounts_StaySeparateFromOtherNmmFiles()
+        {
+            var counts = new FileManagerSourceCounts();
+            counts.Add(FileManagerSource.InstalledByNmm);
+            counts.Add(FileManagerSource.InstalledByCollection);
+            var copy = counts.Clone();
+            copy.Change(FileManagerSource.InstalledByCollection, FileManagerSource.InstalledByNmm);
+            Assert.AreEqual(2, copy.Total);
+            Assert.AreEqual(2, copy.InstalledByNmm);
+            Assert.AreEqual(0, copy.InstalledByCollection);
+            Assert.AreEqual(1, counts.InstalledByCollection);
+            Assert.AreEqual(0, copy.Untracked);
+        }
+
+        /// <summary>Discovery progress uses the existing scan, reports its final count and keeps the owner snapshot for switching.</summary>
+        [Test]
+        public void Scan_ReportsProgressAndKeepsCollectionSourceAcrossOwnerChanges()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "NmmFileManager_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                for (int index = 0; index < 200; index++)
+                    File.WriteAllText(Path.Combine(root, index + ".dds"), "test");
+                var links = new ThreadSafeObservableList<IVirtualModLink>
+                {
+                    new TestVirtualModLink("0.dds", true, 0, new TestVirtualModInfo("collection.7z", "Collection Mod")),
+                    new TestVirtualModLink("0.dds", false, 1, new TestVirtualModInfo("standalone.7z", "Standalone Mod"))
+                };
+                IGameMode game = CreateScanGame(root);
+                IVirtualModActivator activator = InterfaceStub<IVirtualModActivator>.Create((method, args) =>
+                    method.Name == "get_VirtualLinks" ? links : null);
+                var service = new FileManagerQueryService();
+                var progress = new RecordingScanProgress();
+                Stopwatch watch = Stopwatch.StartNew();
+                FileManagerScanResult result = service.Scan(game, activator, null, CancellationToken.None, progress,
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "collection.7z|" });
+                Assert.AreEqual(200, result.TotalFiles);
+                Assert.AreEqual(0, progress.Counts.First());
+                Assert.AreEqual(200, progress.Counts.Last());
+                Assert.IsTrue(progress.Counts.SequenceEqual(progress.Counts.OrderBy(x => x)));
+                Assert.LessOrEqual(progress.Counts.Count, 2 + watch.ElapsedMilliseconds / 500);
+                FileManagerRow row = result.RowsByNormalizedPath["0.dds"];
+                Assert.AreEqual(FileManagerSource.InstalledByCollection, row.Source);
+                Assert.AreEqual(1, result.Counts.InstalledByCollection);
+                Assert.IsTrue(row.OwnerEditable);
+                service.ApplySelectedOwner(row, "standalone.7z|");
+                Assert.AreEqual(FileManagerSource.InstalledByNmm, row.Source);
+                service.ApplySelectedOwner(row, "collection.7z|");
+                Assert.AreEqual(FileManagerSource.InstalledByCollection, row.Source);
+                service.RefreshRowOwnership(row, game, activator);
+                Assert.AreEqual(FileManagerSource.InstalledByCollection, row.Source);
+                Assert.AreEqual(1, service.ReclassifyRows(result.Rows, game, activator).InstalledByCollection);
+                links[0].Active = false;
+                Assert.AreEqual(0, service.SynchronizeRowsAfterActivation(result.Rows, result.RowsByNormalizedPath, game, activator).InstalledByCollection);
+                Assert.AreEqual(FileManagerSource.Untracked, row.Source);
+                FileManagerScanResult refreshed = service.Scan(game, activator, null, CancellationToken.None, null, null);
+                Assert.AreEqual(0, refreshed.Counts.InstalledByCollection);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        /// <summary>Cancellation after the initial progress event does not publish a completed scan.</summary>
+        [Test]
+        public void Scan_ProgressHonorsCancellation()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "NmmFileManager_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            try
+            {
+                File.WriteAllText(Path.Combine(root, "file.dds"), "test");
+                using (var cancellation = new CancellationTokenSource())
+                {
+                    var progress = new RecordingScanProgress { OnReport = count => cancellation.Cancel() };
+                    var activator = InterfaceStub<IVirtualModActivator>.Create((method, args) => null);
+                    Assert.Throws<OperationCanceledException>(() => new FileManagerQueryService().Scan(
+                        CreateScanGame(root), activator, null, cancellation.Token, progress, null));
+                    CollectionAssert.AreEqual(new[] { 0 }, progress.Counts);
+                }
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        /// <summary>Measures the additional classification cost for a large deployment without filesystem or database work per row.</summary>
+        [Test]
+        public void CollectionSource_LargeRowSetUsesOnePreparedLookup()
+        {
+            const int count = 200000;
+            var rows = Enumerable.Range(0, count).Select(index => CreateRow(index + ".dds")).ToList();
+            var ownership = new FileManagerPathOwnership(true, "collection|", "Mod", 1, FileManagerRow.EmptyOwnerCandidates);
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "collection|" };
+            var baseFiles = EmptyBaseFiles();
+            var manual = EmptyManualSources();
+            foreach (FileManagerRow row in rows)
+                FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manual);
+            Stopwatch watch = Stopwatch.StartNew();
+            foreach (FileManagerRow row in rows)
+                FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manual);
+            long baselineTicks = watch.ElapsedTicks;
+            foreach (FileManagerRow row in rows)
+                FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manual, keys);
+            watch.Restart();
+            foreach (FileManagerRow row in rows)
+                FileManagerQueryService.ApplySourceClassificationFromOwnership(row, ownership, baseFiles, manual, keys);
+            TestContext.WriteLine("Classification for {0:N0} files: baseline {1:F2}ms, Collection lookup {2:F2}ms", count,
+                baselineTicks * 1000.0 / Stopwatch.Frequency, watch.Elapsed.TotalMilliseconds);
+            Assert.IsTrue(rows.All(row => row.Source == FileManagerSource.InstalledByCollection));
+        }
+
+        /// <summary>Supplies only metadata required by the File Manager directory scan.</summary>
+        private static IGameMode CreateScanGame(string root)
+        {
+            return InterfaceStub<IGameMode>.Create((method, args) =>
+            {
+                switch (method.Name)
+                {
+                    case "get_InstallationPath": return root;
+                    case "get_UsesPlugins": return false;
+                    case "get_BaseGameFiles": return String.Empty;
+                    case "get_ModeId": return "TestGame";
+                    case "GetModFormatAdjustedPath": return args[1];
+                    default: return null;
+                }
+            });
+        }
+
+        /// <summary>Records synchronous worker-side reports without introducing UI dispatch into scan tests.</summary>
+        private sealed class RecordingScanProgress : IProgress<int>
+        {
+            public readonly List<int> Counts = new List<int>();
+            public Action<int> OnReport { get; set; }
+
+            /// <summary>Records a discovered count and optionally cancels the scan under test.</summary>
+            public void Report(int value)
+            {
+                Counts.Add(value);
+                if (OnReport != null) OnReport(value);
+            }
         }
 
         private static FileManagerRow CreateRow(string relativePath)

@@ -319,7 +319,7 @@
 		[TestCase(ModInstallRoot.GameRoot)]
 		public void VirtualOverwrite_RollbackRestoresPreviousSourceAfterOwnerIsDeactivated(ModInstallRoot root)
 		{
-			using (var fixture = new RemovalFixture(root))
+			using (var fixture = new RemovalFixture(root, false))
 			{
 				IMod previous = fixture.CreateMod("PreviousOwner");
 				IMod incoming = fixture.CreateMod("IncomingOwner");
@@ -403,6 +403,26 @@
 				else Assert.IsFalse(File.Exists(game));
 				if (dataOriginal) Assert.AreEqual("data-original", File.ReadAllText(data));
 				else Assert.IsFalse(File.Exists(data));
+			}
+		}
+
+		/// <summary>Existing game-folder installs retain access to originals saved in the older shared backup directory.</summary>
+		[Test]
+		public void NativeUninstall_RestoresLegacyGameRootBackup()
+		{
+			using (var fixture = new RemovalFixture(ModInstallRoot.GameRoot))
+			{
+				IMod mod = fixture.CreateMod("LegacyRoot");
+				File.WriteAllText(fixture.Deployed("Original.dll"), "original");
+				fixture.Install(mod, "Original.dll", "mod");
+				ModDeploymentTarget target = ModDeploymentTargetResolver.Resolve(fixture.GameMode, mod, "Original.dll", ModInstallRoot.GameRoot);
+				string backup = fixture.Activator.GetVirtualOverwritePath(target, fixture.InstallLog.GetModKey(mod));
+				Assert.That(File.Exists(backup), Is.True);
+				string legacy = Path.Combine(fixture.Activator.VirtualPath, "_overwrites", "LegacyRoot", "Original.dll");
+				Directory.CreateDirectory(Path.GetDirectoryName(legacy));
+				File.Move(backup, legacy);
+				Assert.That(fixture.Uninstall(mod).Succeeded, Is.True);
+				Assert.That(File.ReadAllText(fixture.Deployed("Original.dll")), Is.EqualTo("original"));
 			}
 		}
 
@@ -511,8 +531,16 @@
 				string source = fixture.Staged(mod, "Dangling.esp");
 				File.Delete(destination);
 				var files = new TxFileManager { TxEnabled = false };
-				if (!files.CreateSymbolicLink(destination, source))
-					Assert.Ignore("Symbolic links are not available in this test environment.");
+				try
+				{
+					if (!files.CreateSymbolicLink(destination, source))
+						Assert.Ignore("Symbolic links are not available in this test environment.");
+				}
+				catch (IOException exception) when (exception.InnerException is System.ComponentModel.Win32Exception &&
+					((System.ComponentModel.Win32Exception)exception.InnerException).NativeErrorCode == 1314)
+				{
+					Assert.Ignore("Creating symbolic links requires an unavailable privilege.");
+				}
 				File.Delete(source);
 				Assert.IsFalse(File.Exists(destination));
 				Assert.AreEqual(FileEntryKind.SymbolicLink, files.GetFileEntryKind(destination, source));
@@ -594,8 +622,12 @@
 			{
 				IMod mod = fixture.CreateMod("RestoreFailure");
 				fixture.InstallLog.AddActiveMod(mod, ModInstallRoot.Data, ModInstallMethod.Virtual);
-				fixture.InstallLog.LogOriginalDataFile("Restore.esp");
-				fixture.InstallLog.AddDataFile(mod, "Restore.esp");
+				using (var setup = new TransactionScope())
+				{
+					fixture.InstallLog.LogOriginalDataFile("Restore.esp");
+					fixture.InstallLog.AddDataFile(mod, "Restore.esp");
+					setup.Complete();
+				}
 				string path = fixture.Deployed("Restore.esp");
 				string backup = Path.Combine(fixture.OverwritePath, fixture.InstallLog.OriginalValuesKey + "_Restore.esp");
 				File.WriteAllText(path, "mod");
@@ -645,7 +677,7 @@
 			/// <summary>
 			/// Creates an isolated native deployment environment for the requested install root.
 			/// </summary>
-			public RemovalFixture(ModInstallRoot root)
+			public RemovalFixture(ModInstallRoot root, bool realFiles = true)
 			{
 				m_installRoot = root;
 				DataPath = Path.Combine(m_root, "Game", "Data");
@@ -672,8 +704,8 @@
 						case "get_GameModeEnvironmentInfo": return m_gameInfo;
 						case "get_InstallationPath": return gamePath;
 						case "get_PluginDirectory": return DataPath;
-						case "get_UsesPlugins":
-						case "RealFileRequired": return true;
+						case "get_UsesPlugins": return true;
+						case "RealFileRequired": return realFiles;
 						case "GetModFormatAdjustedPath": return args[1];
 						default: return null;
 					}
@@ -712,6 +744,7 @@
 				SetField(manager, "m_vmaVirtualModActivator", Activator);
 				Deployment = new ModDeploymentManager(InstallLog, Activator, GameMode);
 				SetField(manager, "m_mdmDeploymentManager", Deployment);
+				Activator.Initialize();
 			}
 
 			public string DataPath { get; private set; }
@@ -757,7 +790,8 @@
 				InstallLog.AddActiveMod(mod, m_installRoot, ModInstallMethod.Virtual);
 				string source = Staged(mod, file); Directory.CreateDirectory(Path.GetDirectoryName(source)); File.WriteAllText(source, content);
 				InstallLog.AddDataFile(mod, source);
-				Activator.GetModLinkInstaller().AddFileLink(mod, file, source, true, false, m_installRoot);
+				new ModLinkInstaller(Activator, true).AddFileLinkWithResolvedDecision(mod, file, source,
+					true, false, m_installRoot, new ModLinkInstallDecision(true));
 				Activator.SaveList(false);
 			}
 			/// <summary>

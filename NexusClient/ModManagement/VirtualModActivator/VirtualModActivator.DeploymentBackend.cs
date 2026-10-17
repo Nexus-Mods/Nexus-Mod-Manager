@@ -157,8 +157,7 @@ namespace Nexus.Client.ModManagement
 					link.Active = false;
 				}
 				string backup = GetLegacyVirtualOverwritePath(link);
-				string replacementBackup = Path.Combine(m_strVirtualActivatorOverwritePath,
-					Path.GetFileNameWithoutExtension(mod.Filename), link.VirtualModPath);
+				string replacementBackup = GetVirtualOverwritePath(mod.Filename, link.VirtualModPath, link.InstallRoot);
 				if (backup != null && File.Exists(backup) &&
 					!StringComparer.OrdinalIgnoreCase.Equals(backup, replacementBackup))
 				{
@@ -181,9 +180,21 @@ namespace Nexus.Client.ModManagement
 		/// </summary>
 		private string GetLegacyVirtualOverwritePath(IVirtualModLink link)
 		{
-			return link == null || link.ModInfo == null || String.IsNullOrWhiteSpace(link.ModInfo.ModFileName)
-				? null : Path.Combine(m_strVirtualActivatorOverwritePath,
-					Path.GetFileNameWithoutExtension(link.ModInfo.ModFileName), link.VirtualModPath);
+			if (link == null || link.ModInfo == null || String.IsNullOrWhiteSpace(link.ModInfo.ModFileName))
+				return null;
+			string path = GetVirtualOverwritePath(link.ModInfo.ModFileName, link.VirtualModPath, link.InstallRoot);
+			if (link.InstallRoot != ModInstallRoot.GameRoot || File.Exists(path))
+				return path;
+			// Existing GameRoot installs used the same backup layout as Data installs.
+			return GetVirtualOverwritePath(link.ModInfo.ModFileName, link.VirtualModPath, ModInstallRoot.Data);
+		}
+
+		/// <summary>Separates newly captured game-folder originals from Data-folder backups for the same archive.</summary>
+		private string GetVirtualOverwritePath(string modFileName, string relativePath, ModInstallRoot installRoot)
+		{
+			string root = installRoot == ModInstallRoot.GameRoot
+				? m_strVirtualActivatorOverwritePath + ".GameRoot" : m_strVirtualActivatorOverwritePath;
+			return Path.Combine(root, Path.GetFileNameWithoutExtension(modFileName), relativePath);
 		}
 
 		/// <summary>

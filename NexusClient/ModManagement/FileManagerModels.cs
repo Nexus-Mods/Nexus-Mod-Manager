@@ -14,7 +14,8 @@
         BaseGame,
         Creations,
         ExternalModManager,
-        Untracked
+        Untracked,
+        InstalledByCollection
     }
 
     /// <summary>
@@ -273,7 +274,7 @@
 
         public bool OwnerEditable
         {
-            get { return Source == FileManagerSource.InstalledByNmm && OwnerCount > 1 && OwnerCandidates.Count > 1; }
+            get { return FileManagerSourceDisplay.IsNmmSource(Source) && OwnerCount > 1 && OwnerCandidates.Count > 1; }
         }
 
         /// <summary>
@@ -361,6 +362,7 @@
     public static class FileManagerSourceDisplay
     {
         private static readonly string InstalledByNmmText = LanguageManager.Get("FileManager.Source.InstalledByNmm", "Installed by NMM");
+        private static readonly string InstalledByCollectionText = LanguageManager.Get("FileManager.Source.InstalledByCollection", "Installed by Collection");
         private static readonly string BaseGameText = LanguageManager.Get("FileManager.Source.BaseGame", "Base Game");
         private static readonly string CreationsText = LanguageManager.Get("FileManager.Source.Creations", "Creations");
         private static readonly string ExternalModManagerText = LanguageManager.Get("FileManager.Source.ExternalModManager", "External Mod Manager");
@@ -377,6 +379,7 @@
         public static readonly IList<FileManagerSourceOption> AllSourceOptions = new List<FileManagerSourceOption>
         {
             new FileManagerSourceOption(FileManagerSource.InstalledByNmm, InstalledByNmmText),
+            new FileManagerSourceOption(FileManagerSource.InstalledByCollection, InstalledByCollectionText),
             new FileManagerSourceOption(FileManagerSource.BaseGame, BaseGameText),
             new FileManagerSourceOption(FileManagerSource.Creations, CreationsText),
             new FileManagerSourceOption(FileManagerSource.ExternalModManager, ExternalModManagerText),
@@ -389,6 +392,8 @@
             {
                 case FileManagerSource.InstalledByNmm:
                     return InstalledByNmmText;
+                case FileManagerSource.InstalledByCollection:
+                    return InstalledByCollectionText;
                 case FileManagerSource.BaseGame:
                     return BaseGameText;
                 case FileManagerSource.Creations:
@@ -398,6 +403,12 @@
                 default:
                     return UntrackedText;
             }
+        }
+
+        /// <summary>Identifies sources whose ownership is managed by NMM, including Collection installations.</summary>
+        public static bool IsNmmSource(FileManagerSource source)
+        {
+            return source == FileManagerSource.InstalledByNmm || source == FileManagerSource.InstalledByCollection;
         }
 
         public static bool IsManualSource(FileManagerSource source)
@@ -418,6 +429,7 @@
         public long OwnershipGroupingMilliseconds { get; set; }
         public long BaseFileIndexMilliseconds { get; set; }
         public long ManualSourceLoadMilliseconds { get; set; }
+        public long CollectionSourceLoadMilliseconds { get; set; }
         public long FileEnumerationMilliseconds { get; set; }
         public long FileMetadataMilliseconds { get; set; }
         public long RowConstructionMilliseconds { get; set; }
@@ -504,7 +516,7 @@
                 SymbolicLinkCount,
                 NotFoundLinkCount,
                 UnavailableLinkCount);
-            return timings + ", " + counts;
+            return timings + ", collections=" + CollectionSourceLoadMilliseconds + "ms, " + counts;
         }
     }
 
@@ -529,6 +541,7 @@
         public int TotalFiles { get { return Counts.Total; } }
         public int BaseGameFiles { get { return Counts.BaseGame; } }
         public int InstalledByNmmFiles { get { return Counts.InstalledByNmm; } }
+        public int InstalledByCollectionFiles { get { return Counts.InstalledByCollection; } }
         public int CreationsFiles { get { return Counts.Creations; } }
         public int ExternalModManagerFiles { get { return Counts.ExternalModManager; } }
         public int UntrackedFiles { get { return Counts.Untracked; } }
@@ -539,6 +552,7 @@
         public int Total { get; private set; }
         public int BaseGame { get; private set; }
         public int InstalledByNmm { get; private set; }
+        public int InstalledByCollection { get; private set; }
         public int Creations { get; private set; }
         public int ExternalModManager { get; private set; }
         public int Untracked { get; private set; }
@@ -565,6 +579,7 @@
                 Total = Total,
                 BaseGame = BaseGame,
                 InstalledByNmm = InstalledByNmm,
+                InstalledByCollection = InstalledByCollection,
                 Creations = Creations,
                 ExternalModManager = ExternalModManager,
                 Untracked = Untracked
@@ -577,6 +592,9 @@
             {
                 case FileManagerSource.InstalledByNmm:
                     InstalledByNmm += amount;
+                    break;
+                case FileManagerSource.InstalledByCollection:
+                    InstalledByCollection += amount;
                     break;
                 case FileManagerSource.BaseGame:
                     BaseGame += amount;

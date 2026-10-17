@@ -1448,6 +1448,7 @@
 			NmmIconProvider.Bind(withinTheLastDayToolStripMenuItem, NmmIconAction.CheckUpdates);
 			NmmIconProvider.Bind(withinTheLastWeekToolStripMenuItem, NmmIconAction.CheckUpdates);
 			NmmIconProvider.Bind(withinTheLastMonthToolStripMenuItem, NmmIconAction.CheckUpdates);
+			NmmIconProvider.Bind(fullModUpdates, NmmIconAction.FullUpdateCheck);
 			NmmIconProvider.Bind(checkFileDownloadId, NmmIconAction.Repair);
 			NmmIconProvider.Bind(checkMissingDownloadId, NmmIconAction.Repair);
 			NmmIconProvider.Bind(tsbToggleEndorse, NmmIconAction.Endorse);
@@ -1494,7 +1495,7 @@
 			withinTheLastDayToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastDay.Name", "...within the last day");
 			withinTheLastWeekToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastWeek.Name", "...within the last week");
 			withinTheLastMonthToolStripMenuItem.Caption = LanguageManager.Get("Mods.UpdateChecks.LastMonth.Name", "...within the last month");
-			fullModUpdates.Caption = LanguageManager.Get("Mods.UpdateChecks.Full.Name", "Full (warning: uses more API requests!)");
+			fullModUpdates.Caption = LanguageManager.Get("Mods.UpdateChecks.Full.Name", "...full (warning: uses more API requests!)");
 			checkFileDownloadId.Caption = LanguageManager.Get("Mods.UpdateChecks.FixDownloadIds.Name", "Fix download IDs and Check for mod updates");
 			checkMissingDownloadId.Caption = LanguageManager.Get("Mods.UpdateChecks.MissingDownloadIds.Name", "Just check for missing download IDs");
 			tsbToggleEndorse.Caption = LanguageManager.Get("Mods.Actions.Endorse.Name", "Endorse");

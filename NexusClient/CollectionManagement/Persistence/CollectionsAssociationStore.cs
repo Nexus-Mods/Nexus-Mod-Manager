@@ -25,6 +25,38 @@ namespace Nexus.Client.CollectionManagement.Persistence
 			_store = store ?? throw new ArgumentNullException(nameof(store));
 		}
 
+		/// <summary>Reads only installed-for-Collection native keys for File Manager, without loading recipes, drift or file state.</summary>
+		internal IReadOnlyList<string> GetInstalledForCollectionModKeys(CollectionTargetIdentity target)
+		{
+			if (target == null) throw new ArgumentNullException(nameof(target));
+			return _store.ExecuteRead((connection, transaction) =>
+			{
+				var keys = new List<string>();
+				using (SQLiteCommand command = connection.CreateCommand())
+				{
+					command.Transaction = transaction;
+					command.CommandText = @"
+SELECT DISTINCT mb.native_mod_key
+FROM member_bindings mb
+JOIN target_associations ta ON ta.association_id = mb.association_id
+WHERE mb.native_target_fingerprint = @target AND ta.target_fingerprint = @target
+  AND mb.binding_kind = @installed
+  AND ta.state IN (@applied, @modified, @incomplete);";
+					command.Parameters.AddWithValue("@target", target.Fingerprint);
+					command.Parameters.AddWithValue("@installed", (int)CollectionMemberBindingKind.InstalledForCollection);
+					command.Parameters.AddWithValue("@applied", (int)CollectionAssociationState.Applied);
+					command.Parameters.AddWithValue("@modified", (int)CollectionAssociationState.Modified);
+					command.Parameters.AddWithValue("@incomplete", (int)CollectionAssociationState.Incomplete);
+					using (SQLiteDataReader reader = command.ExecuteReader())
+					{
+						while (reader.Read())
+							keys.Add(reader.GetString(0));
+					}
+				}
+				return keys;
+			});
+		}
+
 		/// <summary>
 		/// Persists a target association. Its revision/target identity is immutable; only the applied-state snapshot may change.
 		/// </summary>

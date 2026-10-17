@@ -211,17 +211,13 @@
 				string strRealPath = xelLink.Attribute("realPath").Value;
 				string strVirtualPath = xelLink.Attribute("virtualPath").Value;
 				int intPriority = 0;
-				try
-				{
-					intPriority = Convert.ToInt32(xelLink.Element("linkPriority").Value);
-				}
-				catch { }
+				XElement priorityElement = xelLink.Element("linkPriority");
+				if (priorityElement != null && !Int32.TryParse(priorityElement.Value, out intPriority) && keepEmptyMods)
+					throw new InvalidDataException("The legacy virtual mod snapshot contains an invalid link priority.");
 				bool booActive = false;
-				try
-				{
-					booActive = Convert.ToBoolean(xelLink.Element("isActive").Value);
-				}
-				catch { }
+				XElement activeElement = xelLink.Element("isActive");
+				if (activeElement != null && !Boolean.TryParse(activeElement.Value, out booActive) && keepEmptyMods)
+					throw new InvalidDataException("The legacy virtual mod snapshot contains an invalid link activation state.");
 
 				if (booNoFileLink)
 				{

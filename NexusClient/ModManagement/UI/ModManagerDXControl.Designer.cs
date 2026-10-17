@@ -281,7 +281,7 @@
             this.withinTheLastMonthToolStripMenuItem.Id = 13;
             this.withinTheLastMonthToolStripMenuItem.Name = "withinTheLastMonthToolStripMenuItem";
             this.withinTheLastMonthToolStripMenuItem.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.withinTheLastMonthToolStripMenuItem_Click);
-            this.fullModUpdates.Caption = "Full (warning: uses more API requests!)";
+            this.fullModUpdates.Caption = "...full (warning: uses more API requests!)";
             this.fullModUpdates.Id = 34;
             this.fullModUpdates.Name = "fullModUpdates";
             this.fullModUpdates.ItemClick += new DevExpress.XtraBars.ItemClickEventHandler(this.fullModUpdates_Click);

@@ -715,8 +715,8 @@ CREATE TABLE local_working_copies (
 						Execute(writer, null, "UPDATE store_metadata SET value='uncommitted-identity' WHERE key='store_id';");
 						Execute(writer, null, "CREATE TABLE uncommitted_recovery_probe (payload BLOB);");
 						Execute(writer, null, "INSERT INTO uncommitted_recovery_probe VALUES (zeroblob(65536));");
-						interruptedDatabase = File.ReadAllBytes(store.DatabasePath);
-						interruptedJournal = File.ReadAllBytes(store.DatabasePath + "-journal");
+						interruptedDatabase = ReadSharedFile(store.DatabasePath);
+						interruptedJournal = ReadSharedFile(store.DatabasePath + "-journal");
 					}
 					finally { Execute(writer, null, "ROLLBACK;"); }
 				}
@@ -892,6 +892,17 @@ CREATE TABLE local_working_copies (
 				Assert.Throws<CollectionsStoreSchemaException>(() => store.ReadStoreId());
 			}
 			finally { Directory.Delete(root, true); }
+		}
+
+		/// <summary>Captures an in-flight SQLite file without denying the writer's existing access.</summary>
+		private static byte[] ReadSharedFile(string path)
+		{
+			using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+			using (var copy = new MemoryStream())
+			{
+				stream.CopyTo(copy);
+				return copy.ToArray();
+			}
 		}
 
 		private static SQLiteConnection OpenDatabase(string databasePath)

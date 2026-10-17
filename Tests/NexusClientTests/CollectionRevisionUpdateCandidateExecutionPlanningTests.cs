@@ -240,7 +240,8 @@ namespace NexusClientTests
 			Fixture f = CreateFixture(oldMember, newMember, true);
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
 			CollectionNativeStateIndex state = CreateStateWithFileOwner(f, target, f.Native.Identity.NativeModKey);
-			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(f.Association, f.OldPlan, f.NewPlan, state,
+			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(f.Association, f.OldPlan,
+				CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(f.NewPlan, state.Fingerprint), state,
 				new UserOverride[0], new CollectionDriftObservation[0],
 				new[] { new NativeModProvenance(f.Native.Identity, StandaloneModUse.NoStandaloneUseVerified) });
 			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()
@@ -327,7 +328,8 @@ namespace NexusClientTests
 			Fixture f = CreateFixture(oldMember, newMember, true);
 			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\shared.dds");
 			CollectionNativeStateIndex state = CreateStateWithFileOwner(f, target, "native-unrelated");
-			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(f.Association, f.OldPlan, f.NewPlan, state,
+			CollectionRevisionUpdatePlan update = new CollectionRevisionUpdatePlanner().Plan(f.Association, f.OldPlan,
+				CollectionRevisionUpdateCandidateExecutionPlanner.RebindState(f.NewPlan, state.Fingerprint), state,
 				new UserOverride[0], new CollectionDriftObservation[0],
 				new[] { new NativeModProvenance(f.Native.Identity, StandaloneModUse.NoStandaloneUseVerified) });
 			CollectionRevisionUpdateOverridePreservationPlan preservation = new CollectionRevisionUpdateOverridePreservationPlanner()

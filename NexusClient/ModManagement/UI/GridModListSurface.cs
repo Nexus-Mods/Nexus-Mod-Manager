@@ -127,7 +127,17 @@
 				}
 			}
 
-			InvalidateMod(mod);
+			if (mod == null) return;
+
+			int sourceIndex = _mods.IndexOf(mod);
+			if (sourceIndex < 0) return;
+
+			int rowHandle = _gridView.GetRowHandle(sourceIndex);
+			if (rowHandle >= 0)
+			{
+				// A repaint alone retains cached unbound text even though custom warning icons read the new model.
+				_gridView.RefreshRow(rowHandle);
+			}
 		}
 
 		/// <summary>

@@ -182,7 +182,8 @@ WHERE origin=@origin AND collection_id=@collection_id AND revision_id=@revision_
 				Assert.AreEqual("Edited copy", editedDefinition.DisplayName);
 				Assert.AreEqual("Edited summary", editedDefinition.Summary);
 				byte[] draftBytes = workingCopies.LoadDraftManifest(edited.Record);
-				NexusCollectionManifestNormalizationResult draft = normalizer.Normalize(draftBytes, sourceRevision);
+				NexusCollectionManifestNormalizationResult draft = normalizer.Normalize(draftBytes,
+					new CollectionRevision(sourceRevision.Identity, "Edited draft", null, 1));
 				Assert.AreEqual(CollectionCompatibilityStatus.Supported, draft.CapabilityReport.Status);
 				Assert.AreEqual(1, draft.Manifest.Members.Count);
 				Assert.AreEqual("Required", draft.Manifest.Members.Single().DisplayName);

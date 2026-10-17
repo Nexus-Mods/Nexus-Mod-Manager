@@ -373,7 +373,7 @@ namespace NexusClientTests
 				members.Add(new NormalizedCollectionMember(2,
 					CollectionMemberIdentityResolution.Resolved(CollectionMemberKey.FromProvider("member-waiting")),
 					CollectionMemberRequirement.Required, CollectionMemberSelection.Selected,
-					new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/3000/4000", archiveHash),
+					new CollectionArtifactReference("nexus-mod-file", "skyrimspecialedition/3000/4000", CollectionContentHash.FromSha256(new string('f', 64))),
 					CollectionRecipeIdentity.FromFingerprint("recipe-member-waiting"), "Waiting Member", 0));
 			}
 			var manifest = new NormalizedCollectionManifest(revision.Identity, source,

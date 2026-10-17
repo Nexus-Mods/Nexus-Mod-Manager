@@ -30,6 +30,7 @@ namespace Nexus.Client.ModManagement.Scripting
 		private readonly Dictionary<string, string> m_dicIniValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		private List<string> m_lstManagedPlugins;
 		private HashSet<string> m_hstActivePlugins;
+		private readonly HashSet<string> m_hstProjectedPluginActivations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 		#region Constructors
 
@@ -236,6 +237,7 @@ namespace Nexus.Client.ModManagement.Scripting
 			if (!ContainsPlugin(strPlugin))
 				return;
 
+			m_hstProjectedPluginActivations.Add(strPlugin);
 			// Do not short-circuit protected plugins here. The plugin manager normalizes protected plugins
 			// to their required active state when resolving the requested snapshot.
 			List<string> lstPreviousOrder = new List<string>(m_lstManagedPlugins);
@@ -490,7 +492,13 @@ namespace Nexus.Client.ModManagement.Scripting
 		public bool IsPluginRegistered(string p_strPluginPath)
 		{
 			EnsurePluginSnapshot();
-			return ContainsPlugin(NormalizeRelativePath(p_strPluginPath));
+			string strPlugin = NormalizeRelativePath(p_strPluginPath);
+			if (ContainsPlugin(strPlugin))
+				return true;
+			bool registered;
+			if (m_iceConditionEnvironment != null && !m_iceConditionEnvironment.TryGetPluginRegistered(p_strPluginPath, out registered))
+				throw new NotSupportedException("The projected installation environment cannot prove plugin registration state for '" + p_strPluginPath + "'.");
+			return false;
 		}
 
 		/// <summary>
@@ -501,7 +509,12 @@ namespace Nexus.Client.ModManagement.Scripting
 		public bool IsPluginActive(string p_strPluginPath)
 		{
 			EnsurePluginSnapshot();
-			return m_hstActivePlugins.Contains(NormalizeRelativePath(p_strPluginPath));
+			string strPlugin = NormalizeRelativePath(p_strPluginPath);
+			bool active;
+			if (m_iceConditionEnvironment != null && !m_hstProjectedPluginActivations.Contains(strPlugin) &&
+				!m_iceConditionEnvironment.TryGetPluginActive(p_strPluginPath, out active))
+				throw new NotSupportedException("The projected installation environment cannot prove plugin activation state for '" + p_strPluginPath + "'.");
+			return m_hstActivePlugins.Contains(strPlugin);
 		}
 
 		/// <summary>
@@ -547,6 +560,7 @@ namespace Nexus.Client.ModManagement.Scripting
 					return;
 
 				m_lstManagedPlugins.Add(strPlugin);
+				m_hstProjectedPluginActivations.Add(strPlugin);
 				ApplyPolicyCorrectedPluginOrder();
 			}
 

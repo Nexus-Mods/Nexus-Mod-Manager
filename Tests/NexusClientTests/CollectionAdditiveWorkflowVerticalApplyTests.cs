@@ -773,8 +773,7 @@ namespace NexusClientTests
 				var artifacts = new CollectionsRetainedArtifactStore(Store);
 				CollectionsRetainedArtifact artifact = artifacts.GetArtifact(artifactId);
 				Assert.That(artifact, Is.Not.Null);
-				string hash = artifact.ContentHash.Value;
-				string path = Path.Combine(Store.RetainedContentDirectory, "sha256", hash.Substring(0, 2), hash + ".blob");
+				string path = artifacts.GetVerifiedReadOnlyPath(artifactId, CancellationToken.None);
 				byte[] bytes = File.ReadAllBytes(path);
 				Assert.That(bytes.Length, Is.GreaterThan(0));
 				bytes[0] ^= 0x5a;
@@ -1109,6 +1108,7 @@ namespace NexusClientTests
 			sortOrderService.RebuildCurrentArchiveInventory(registeredMods, Enumerable.Empty<IMod>());
 
 			var manager = (ModManager)FormatterServices.GetUninitializedObject(typeof(ModManager));
+			SetField(manager, "m_objSortOrderInitializationLock", new object());
 			SetField(manager, "<GameMode>k__BackingField", gameMode);
 			SetField(manager, "<InstallationLog>k__BackingField", installLog);
 			SetField(manager, "<ManagedModRegistry>k__BackingField", registry);

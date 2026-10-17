@@ -2152,7 +2152,7 @@
 				strFileType.Equals(".exe", StringComparison.InvariantCultureIgnoreCase) ||
 				strFileType.Equals(".jar", StringComparison.InvariantCultureIgnoreCase);
 
-			VirtualDeploymentTransactionEnlistment deploymentEnlistment = GetExistingVirtualDeploymentEnlistment();
+			VirtualDeploymentTransactionEnlistment deploymentEnlistment = Transaction.Current == null ? null : GetVirtualDeploymentEnlistment();
 			if (deploymentEnlistment == null && File.Exists(strVirtualFileLink))
 				FileUtil.ForceDelete(strVirtualFileLink);
 
@@ -2354,15 +2354,19 @@
 				}
 				else
 				{
-					if (Directory.Exists(m_strVirtualActivatorOverwritePath))
+					if (Directory.Exists(m_strVirtualActivatorOverwritePath) || Directory.Exists(m_strVirtualActivatorOverwritePath + ".GameRoot"))
 					{
-						string strOverwrite = Path.Combine(m_strVirtualActivatorOverwritePath, Path.GetFileNameWithoutExtension(p_ivlVirtualLink.ModInfo.ModFileName), p_ivlVirtualLink.VirtualModPath);
+						string strOverwrite = GetLegacyVirtualOverwritePath(p_ivlVirtualLink);
 						if (File.Exists(strOverwrite))
 						{
 							try
 							{
 								File.Move(strOverwrite, strPath);
-								TrimEmptyDirectories(Path.GetDirectoryName(strOverwrite), m_strVirtualActivatorOverwritePath);
+								string backupRoot = p_ivlVirtualLink.InstallRoot == ModInstallRoot.GameRoot &&
+									StringComparer.OrdinalIgnoreCase.Equals(strOverwrite, GetVirtualOverwritePath(p_ivlVirtualLink.ModInfo.ModFileName,
+										p_ivlVirtualLink.VirtualModPath, ModInstallRoot.GameRoot))
+									? m_strVirtualActivatorOverwritePath + ".GameRoot" : m_strVirtualActivatorOverwritePath;
+								TrimEmptyDirectories(Path.GetDirectoryName(strOverwrite), backupRoot);
 							}
 							catch { }
 						}
@@ -2385,6 +2389,8 @@
 
 		private void UpdateLinkListPriority(List<IVirtualModLink> p_lstFileLinks, IMod p_modMod, bool p_booIncrement, bool p_booActivateFirst)
 		{
+			if (Transaction.Current != null)
+				GetVirtualDeploymentEnlistment();
 			RemoveVirtualLinks(p_lstFileLinks);
 
 			if (p_booActivateFirst)
@@ -3387,18 +3393,18 @@
 			try
 			{
 				string strSource = Path.Combine(GetInstallRootPath(p_mirInstallRoot), p_strFilePath);
-				string strDest = Path.Combine(m_strVirtualActivatorOverwritePath, Path.GetFileNameWithoutExtension(p_strModFileName), p_strFilePath);
+				string strDest = GetVirtualOverwritePath(p_strModFileName, p_strFilePath, p_mirInstallRoot);
 
 				if (File.Exists(strSource))
 				{
 					string strDestFolder = Path.GetDirectoryName(strDest);
 					if (!Directory.Exists(strDestFolder))
 					{
-						Directory.CreateDirectory(strDestFolder);
+						new TxFileManager().CreateDirectory(strDestFolder);
 					}
 
 					if (Directory.Exists(strDestFolder))
-						File.Move(strSource, strDest);
+						new TxFileManager().Move(strSource, strDest);
 				}
 
 				return true;

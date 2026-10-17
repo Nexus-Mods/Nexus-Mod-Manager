@@ -38,12 +38,14 @@
         private int _totalFiles;
         private int _baseGameFiles;
         private int _installedByNmmFiles;
+        private int _installedByCollectionFiles;
         private int _creationsFiles;
         private int _externalModManagerFiles;
         private int _untrackedFiles;
         private readonly string _notScannedStatus;
         private readonly string _unsupportedGameStatus;
         private readonly string _scanningStatus;
+        private readonly string _scanProgressFormat;
         private readonly string _linkTypeProgressFormat;
         private readonly string _linkTypeIncompleteStatus;
         private readonly string _changedDuringScanStatus;
@@ -62,6 +64,7 @@
             _notScannedStatus = LanguageManager.Get("FileManager.Status.NotScanned", "Not scanned.");
             _unsupportedGameStatus = LanguageManager.Get("FileManager.Status.UnsupportedGame", "File Manager is available only for Gamebryo game modes.");
             _scanningStatus = LanguageManager.Get("FileManager.Status.Scanning", "Scanning deployment files...");
+            _scanProgressFormat = LanguageManager.GetFormat("FileManager.Status.ScanningProgress", "Scanning deployment files... {0:N0} files found");
             _linkTypeProgressFormat = LanguageManager.GetFormat("FileManager.Status.DetectingLinkTypes", "Detecting link types... {0:N0}/{1:N0}");
             _linkTypeIncompleteStatus = LanguageManager.Get("FileManager.Status.LinkTypeIncomplete", "Scan complete, but link-type detection did not finish.");
             _changedDuringScanStatus = LanguageManager.Get("FileManager.Status.ChangedDuringScan", "Data changed while the scan was running. Click Refresh to update.");
@@ -118,6 +121,13 @@
         {
             get { return _installedByNmmFiles; }
             private set { if (_installedByNmmFiles != value) { _installedByNmmFiles = value; OnPropertyChanged("InstalledByNmmFiles"); } }
+        }
+
+        /// <summary>Gets the number of files currently supplied by mods installed for a tracked Collection.</summary>
+        public int InstalledByCollectionFiles
+        {
+            get { return _installedByCollectionFiles; }
+            private set { if (_installedByCollectionFiles != value) { _installedByCollectionFiles = value; OnPropertyChanged("InstalledByCollectionFiles"); } }
         }
 
         public int CreationsFiles
@@ -233,6 +243,13 @@
             get { return IsGamebryoGameMode(GameMode); }
         }
 
+        /// <summary>Marks the cached source labels stale when Collection tracking changes, including during a scan.</summary>
+        internal void NotifyCollectionSourcesChanged()
+        {
+            Interlocked.Increment(ref _dataChangeRevision);
+            MarkStaleAfterActivationTask();
+        }
+
         public async Task LoadIfNeededAsync()
         {
             if (_loaded)
@@ -267,7 +284,26 @@
 
             try
             {
-                FileManagerScanResult result = await Task.Run(() => _queryService.Scan(gameMode, _modManagerViewModel.VirtualModActivator, _modManagerViewModel.ModManager.DeploymentManager, cancellation.Token), cancellation.Token).ConfigureAwait(true);
+                IDictionary<string, string> registrationKeys = FileManagerCollectionSourceLookup.CaptureRegistrationKeys(_modManagerViewModel.ModManager);
+                bool discoveryComplete = false;
+                Progress<int> progress = new Progress<int>(count =>
+                {
+                    if (!_disposed && !discoveryComplete && IsScanning && Object.ReferenceEquals(_scanCancellation, cancellation) &&
+                        scanGeneration == _scanGeneration && Object.ReferenceEquals(gameMode, GameMode))
+                        StatusMessage = String.Format(_scanProgressFormat, count);
+                });
+                FileManagerScanResult result = await Task.Run(() =>
+                {
+                    Stopwatch collectionWatch = Stopwatch.StartNew();
+                    ISet<string> collectionOwnerKeys = FileManagerCollectionSourceLookup.Load(gameMode, _modManagerViewModel.ModManager.EnvironmentInfo, registrationKeys);
+                    long collectionMilliseconds = collectionWatch.ElapsedMilliseconds;
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    FileManagerScanResult scanned = _queryService.Scan(gameMode, _modManagerViewModel.VirtualModActivator,
+                        _modManagerViewModel.ModManager.DeploymentManager, cancellation.Token, progress, collectionOwnerKeys);
+                    scanned.Diagnostics.CollectionSourceLoadMilliseconds = collectionMilliseconds;
+                    return scanned;
+                }, cancellation.Token).ConfigureAwait(true);
+                discoveryComplete = true;
                 if (_disposed || cancellation.IsCancellationRequested || scanGeneration != _scanGeneration || !Object.ReferenceEquals(gameMode, GameMode))
                     return;
 
@@ -705,6 +741,7 @@
             TotalFiles = counts.Total;
             BaseGameFiles = counts.BaseGame;
             InstalledByNmmFiles = counts.InstalledByNmm;
+            InstalledByCollectionFiles = counts.InstalledByCollection;
             CreationsFiles = counts.Creations;
             ExternalModManagerFiles = counts.ExternalModManager;
             UntrackedFiles = counts.Untracked;

@@ -167,11 +167,11 @@
 		}
 
 		/// <summary>
-		/// Verifies that the per-link install root survives both SQLite restart and XML compatibility-shadow reload.
+		/// Verifies that the per-link install root survives both SQLite restart and explicit XML compatibility export.
 		/// GameRoot links are otherwise reinterpreted as Data links after restart and disappear from authoritative state.
 		/// </summary>
 		[Test]
-		public void Save_GameRootLink_RestartPreservesInstallRoot()
+		public void Save_GameRootLink_RestartAndExplicitXmlExportPreserveInstallRoot()
 		{
 			string root = CreateTempDirectory();
 			try
@@ -187,7 +187,9 @@
 				SQLiteVirtualModStore restartedStore = CreateSqliteStore(xmlPath, databasePath, new XmlVirtualModStore());
 				Assert.IsTrue(restartedStore.CanLoadExistingStore());
 				AssertSingleLinkRoot(restartedStore.Load(xmlPath, CurrentVersion, IsValidVersion, MissingFileVersion), ModInstallRoot.GameRoot);
-				AssertSingleLinkRoot(xmlStore.Load(xmlPath, CurrentVersion, IsValidVersion, MissingFileVersion), ModInstallRoot.GameRoot);
+				string exportPath = Path.Combine(root, "export.xml");
+				store.Copy(xmlPath, exportPath);
+				AssertSingleLinkRoot(xmlStore.Load(exportPath, CurrentVersion, IsValidVersion, MissingFileVersion), ModInstallRoot.GameRoot);
 			}
 			finally
 			{

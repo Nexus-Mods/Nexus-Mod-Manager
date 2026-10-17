@@ -85,7 +85,10 @@ namespace NexusClientTests
 		{
 			Fixture fixture = CreateFixture("recipe-1", "100", "200", CollectionAssociationState.Applied, true);
 			var engine = new CollectionMemberMatchEngine((member, archive, cancellationToken) => gameRoot, false);
-			CollectionMemberMatchResult result = engine.MatchForReplacementExecution(fixture.Plan, fixture.State,
+			var replacement = new ResolvedCollectionPlan(fixture.Plan.Identity, fixture.Plan.Target,
+				CollectionExecutionPolicy.ReplaceCurrentManagedSetup(), fixture.Plan.CurrentStateFingerprint,
+				fixture.Plan.CapabilityReport, fixture.Plan.SelectedMembers);
+			CollectionMemberMatchResult result = engine.MatchForReplacementExecution(replacement, fixture.State,
 				new CollectionVerifiedArchive[0]).Members[0];
 			Assert.AreEqual(expected, result.Disposition);
 			Assert.AreEqual(fixture.NativeMod.Identity, result.MatchedNativeMod.Identity);

@@ -49,6 +49,7 @@
         private readonly FilePreviewControl _previewControl;
         private readonly LabelControl _summaryLabel;
         private readonly LabelControl _statusLabel;
+        private readonly LabelControl _scanProgressLabel;
         private readonly RepositoryItemLookUpEdit _emptyOwnerLookup;
         private readonly RepositoryItemLookUpEdit _ownerLookup;
         private readonly RepositoryItemLookUpEdit _ownerFilterLookup;
@@ -88,7 +89,7 @@
         public FileManagerControl()
         {
             _deploymentRootFormat = LanguageManager.GetFormat("FileManager.DeploymentRoot.Value", "Deployment root: {0}");
-            _summaryFormat = LanguageManager.GetFormat("FileManager.Summary", "Total files: {0:N0}   |   Base Game: {1:N0}   |   Installed by NMM: {2:N0}   |   Creations: {3:N0}   |   External: {4:N0}   |   Untracked: {5:N0}");
+            _summaryFormat = LanguageManager.GetFormat("FileManager.Summary", "Total files: {0:N0}   |   Base Game: {1:N0}   |   Installed by NMM: {2:N0}   |   Creations: {3:N0}   |   External: {4:N0}   |   Untracked: {5:N0}   |   Collection: {6:N0}");
             _refreshRequiredText = LanguageManager.Get("FileManager.Status.RefreshRequired", "Refresh required");
             _refreshRequiredLastScannedFormat = LanguageManager.GetFormat("FileManager.Status.RefreshRequiredLastScanned", "Refresh required - last scanned: {0}");
             _lastScannedFormat = LanguageManager.GetFormat("FileManager.Status.LastScanned", "Last scanned: {0}");
@@ -143,11 +144,19 @@
             NmmIconProvider.Bind(_removeUntrackedButton, NmmIconAction.RemoveAll, NmmButtonPresentationScope.FileManager);
             _fileListToolbar.Controls.Add(_removeUntrackedButton);
             _fileListToolbar.Controls.Add(_refreshButton);
+            _scanProgressLabel = new LabelControl
+            {
+                AutoSizeMode = LabelAutoSizeMode.None,
+                AutoEllipsis = true,
+                Visible = false
+            };
+            _fileListToolbar.Controls.Add(_scanProgressLabel);
             _fileListToolbar.Resize += (sender, args) =>
             {
                 _refreshButton.Location = new Point(
                     Math.Max(0, _fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
                     5);
+                UpdateScanProgressBounds();
             };
             _refreshButton.Location = new Point(
                 Math.Max(0, _fileListToolbar.ClientSize.Width - _refreshButton.Width - 8),
@@ -303,9 +312,9 @@
                 Padding = new Padding(10, 6, 10, 4),
                 BorderStyle = DevExpress.XtraEditors.Controls.BorderStyles.NoBorder
             };
-            _summaryLabel = new LabelControl { Location = new Point(10, 7) };
+            _summaryLabel = new LabelControl { Location = new Point(10, 7), AutoSizeMode = LabelAutoSizeMode.None, AutoEllipsis = true };
             _statusLabel = new LabelControl { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(Width - 240, 7) };
-            _bottomPanel.Resize += (sender, args) => _statusLabel.Left = Math.Max(10, _bottomPanel.ClientSize.Width - _statusLabel.Width - 10);
+            _bottomPanel.Resize += (sender, args) => UpdateStatusBounds();
             _bottomPanel.Controls.Add(_summaryLabel);
             _bottomPanel.Controls.Add(_statusLabel);
 
@@ -358,6 +367,13 @@
             _creationsSourceForeColor = palette.FileSourceCreationsColor;
             _externalSourceForeColor = palette.FileSourceExternalColor;
             _untrackedSourceForeColor = palette.FileSourceUntrackedColor;
+        }
+
+        /// <summary>Invalidates cached Collection source labels after association metadata changes.</summary>
+        internal void NotifyCollectionSourcesChanged()
+        {
+            if (_fileManagerVM != null)
+                _fileManagerVM.NotifyCollectionSourcesChanged();
         }
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -542,8 +558,13 @@
                 _fileManagerVM.InstalledByNmmFiles,
                 _fileManagerVM.CreationsFiles,
                 _fileManagerVM.ExternalModManagerFiles,
-                _fileManagerVM.UntrackedFiles);
-            if (_fileManagerVM.IsRemovingUntracked)
+                _fileManagerVM.UntrackedFiles,
+                _fileManagerVM.InstalledByCollectionFiles);
+            _summaryLabel.ToolTip = _summaryLabel.Text;
+            _scanProgressLabel.Visible = _fileManagerVM.IsScanning || _fileManagerVM.IsResolvingLinkTypes;
+            _scanProgressLabel.Text = _fileManagerVM.StatusMessage;
+            UpdateScanProgressBounds();
+            if (_fileManagerVM.IsScanning || _fileManagerVM.IsRemovingUntracked)
             {
                 _statusLabel.Text = _fileManagerVM.StatusMessage;
             }
@@ -562,10 +583,23 @@
                 _refreshButton.Text = _refreshText;
             }
 
-            if (_statusLabel.Parent != null)
-                _statusLabel.Left = Math.Max(10, _statusLabel.Parent.ClientSize.Width - _statusLabel.Width - 10);
+            UpdateStatusBounds();
             _refreshButton.Enabled = !_fileManagerVM.IsScanning && !_fileManagerVM.IsRemovingUntracked;
             _removeUntrackedButton.Enabled = _fileManagerVM.IsGamebryoMode && _fileManagerVM.CanChangeFileOwner;
+        }
+
+        /// <summary>Prevents the expanded source summary from overlapping the scan status in narrow windows.</summary>
+        private void UpdateStatusBounds()
+        {
+            _statusLabel.Left = Math.Max(10, _bottomPanel.ClientSize.Width - _statusLabel.Width - 10);
+            _summaryLabel.Size = new Size(Math.Max(0, _statusLabel.Left - _summaryLabel.Left - 12), Math.Max(0, _bottomPanel.ClientSize.Height - 10));
+        }
+
+        /// <summary>Keeps scan progress within the toolbar space between the existing action buttons.</summary>
+        private void UpdateScanProgressBounds()
+        {
+            int left = _removeUntrackedButton.Right + 12;
+            _scanProgressLabel.SetBounds(left, 5, Math.Max(0, _refreshButton.Left - left - 12), Math.Max(0, _fileListToolbar.ClientSize.Height - 10));
         }
 
         private void BindRows(BindingList<FileManagerRow> rows)
@@ -1333,7 +1367,7 @@
 
             if (row.Source == FileManagerSource.BaseGame)
                 e.Appearance.ForeColor = _baseGameSourceForeColor;
-            else if (row.Source == FileManagerSource.InstalledByNmm)
+            else if (FileManagerSourceDisplay.IsNmmSource(row.Source))
                 e.Appearance.ForeColor = _installedSourceForeColor;
             else if (row.Source == FileManagerSource.Creations)
                 e.Appearance.ForeColor = _creationsSourceForeColor;

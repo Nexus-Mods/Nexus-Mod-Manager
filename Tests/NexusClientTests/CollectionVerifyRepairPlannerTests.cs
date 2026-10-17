@@ -343,16 +343,21 @@ namespace NexusClientTests
 		public void Plan_FileEffectWithoutDestinationHash_FailsClosedInsteadOfClaimingByteVerification(CollectionAssociationState associationState)
 		{
 			Fixture f = CreateFixture(associationState, includeBinding: true, includeNative: true);
-			CollectionMemberEffectPreview preview = new CollectionMemberEffectPreview(f.MemberKey, f.Manifest.Members[0].RecipeIdentity,
-				ModInstallMethod.Virtual, ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, "textures\\a.dds")) },
-				new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+			ModDeploymentTarget target = ModDeploymentTargetResolver.FromCanonical(ModDeploymentRoot.Data, @"textures\a.dds");
+			string path = Path.GetTempFileName();
+			try
+			{
+				CollectionMemberEffectPreview preview = new CollectionMemberEffectPreview(f.MemberKey, f.Manifest.Members[0].RecipeIdentity,
+					ModInstallMethod.Virtual, ModInstallRoot.Data, new[] { new CollectionPlannedFileEffect(target) },
+					new CollectionPlannedIniEffect[0], new CollectionPlannedGameValueEffect[0], new CollectionPlannedPluginEffect[0], new CollectionEffectPreviewIssue[0]);
+				CollectionNativeStateIndex state = WithManagedFile(f, target, path);
+				CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, f.Manifest, state, f.Bindings,
+					new UserOverride[0], new CollectionDriftObservation[0], new[] { preview });
 
-			CollectionVerifyRepairPlan plan = new CollectionVerifyRepairPlanner().Plan(f.Association, f.Manifest, f.State, f.Bindings,
-				new UserOverride[0], new CollectionDriftObservation[0], new[] { preview });
-
-			Assert.That(plan.HasActionRequired, Is.True);
-			Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.ManagedFileEffectMismatch ||
-				x.Kind == CollectionVerifyRepairFindingKind.FileContentVerificationUnavailable), Is.True);
+				Assert.That(plan.HasActionRequired, Is.True);
+				Assert.That(plan.Findings.Any(x => x.Kind == CollectionVerifyRepairFindingKind.FileContentVerificationUnavailable), Is.True);
+			}
+			finally { File.Delete(path); }
 		}
 
 		[Test]

@@ -217,7 +217,7 @@ namespace NexusClientTests
 				Assert.AreEqual(CollectionNativeChildCheckpoint.Reconciled, loaded.Checkpoint);
 				Assert.AreEqual(ModOperationReportedStatus.Failed, loaded.NativeResult.ReportedStatus);
 				Assert.AreEqual(ModOperationDurability.VerifiedCommitted, loaded.NativeResult.Durability);
-				Assert.IsNull(loaded.NativeResult.Message);
+				Assert.AreEqual("diagnostic only", loaded.NativeResult.Message);
 
 				var rewrittenDurabilityResult = new ModOperationResult(native, ModOperationReportedStatus.Failed,
 					ModOperationDurability.VerifiedRolledBack, null);
